@@ -1,5 +1,7 @@
 ### 一个rust实现的的用户中心
 
+> 第三方服务依赖为: mysql+redis 在 ./lsys-actix-web/.env 配置
+
 > 目前基于 actix-web 作为接入web框架，但非必须 actix-web 可选择其他基于 tokio 的web框架
 
 ##### 后端服务安装
