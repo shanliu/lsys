@@ -1,0 +1,11 @@
+[workspace]
+members = [
+    "lsys-core",
+    "lsys-rbac",
+    "lsys-user",
+    "lsys-app",
+    "lsys-web",
+    "lsys-actix-web",
+    "lsys-web-module-oauth",
+    "lsys-web-subapp-decode"
+]

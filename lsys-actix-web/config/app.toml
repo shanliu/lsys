@@ -1,0 +1,8 @@
+#app_host="127.0.0.1"
+
+app_jwt_key="bbb"#jwt 密钥
+
+rbac_cache=true#rbac是否使用缓存
+
+ui_dir="../../actix-react/public/"#静态文件目录
+root_user_id=[1,17]#超级管理员id

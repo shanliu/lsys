@@ -1,0 +1,11 @@
+smtp_host="smtp.aliyun.com"#smtp 服务器地址
+smtp_user=""#smtp 服务器用户名
+smtp_password=""#smtp 服务器密码
+
+[smtp_notify]
+  [smtp_notify.valid_code] #邮件验证码
+  subject = "Valid Code"#邮件标题
+  tpl="mail/valid_code.html"#邮件模板
+  send_mail="test@aliyun.com"#发送邮件地址
+  #reply_mail=""#发送邮件中的回复地址，默认用 send_mail
+ 

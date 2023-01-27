@@ -1,0 +1,5 @@
+[alisms.valid_code]#阿里云短信配置
+access_key_id=""
+access_key_secret=""
+sign_name=""
+sms_tpl=""

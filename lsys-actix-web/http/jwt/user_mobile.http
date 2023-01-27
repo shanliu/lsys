@@ -1,0 +1,63 @@
+
+
+@host_url= http://127.0.0.1:8080
+@user_url = {{host_url}}/api/user
+@jwt_token = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwidG9rZW4iOiJNVEV0VFVsUlEwdEZRVXhHVkVkUFFrUlZVbGRJV2xaVFdWaFFMVEUyTmpZNE16WXlNVEk9IiwiZXhwIjoxNTE2MjM5MDIyMTF9.lhF6VQmmzFbXRJPOHuH8Ml_C3lwImP2GBPpG1puuKMU
+
+####### mobile ##############
+
+### mobile send
+POST {{user_url}}/mobile/send_code
+Authorization: {{jwt_token}}
+Content-Type: application/json
+
+{
+    "area_code":"86",
+    "mobile": "13800138004"
+}
+
+### add mobile
+POST {{user_url}}/mobile/add
+Authorization: {{jwt_token}}
+Content-Type: application/json
+
+{
+    "area_code":"86",
+    "mobile": "13800138004"
+  //  ,"code":"806457"
+}
+
+
+### mobile confirm
+POST {{user_url}}/mobile/confirm
+Authorization: {{jwt_token}}
+Content-Type: application/json
+
+{
+    "area_code":"86",
+    "mobile_id": 8,
+    "code":"705391"
+}
+
+
+### mobile delete
+POST {{user_url}}/mobile/delete
+Authorization: {{jwt_token}}
+Content-Type: application/json
+
+{
+    "mobile_id": 8
+}
+
+
+### mobile list_data
+POST {{user_url}}/mobile/list_data
+Authorization: {{jwt_token}}
+Content-Type: application/json
+
+{
+    "status": [1]
+}
+
+
+

@@ -1,0 +1,21 @@
+mod address;
+mod email;
+mod external;
+mod info;
+mod login;
+mod mobile;
+mod oauth;
+mod password;
+mod rbac;
+mod register;
+
+pub use address::*;
+pub use email::*;
+pub use external::*;
+pub use info::*;
+pub use login::*;
+pub use mobile::*;
+pub use oauth::*;
+pub use password::*;
+pub use rbac::*;
+pub use register::*;

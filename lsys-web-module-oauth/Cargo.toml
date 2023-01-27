@@ -1,0 +1,24 @@
+[package]
+name = "lsys-web-module-oauth"
+version = "0.0.1"
+authors = ["liushan <shan.liu@msn.com>"]
+edition = "2021"
+
+
+[dependencies]
+
+lsys-web = { version = "0.0.1", path = "../lsys-web"}
+lsys-user = { version = "0.0.1", path = "../lsys-user"}
+serde={ version = "1.0.*"}
+serde_json="1.0.*"
+#日志
+tracing = {version="0.1.*",features=["log"]}# log-always 保持log的输出 当使用tracing时会出现两次
+async-trait = "0.1.57"
+config = "0.13.2"
+# oauth 
+labrador={ version = "0.2.0", features = [ "wechat"] } 
+
+
+rand = "~0.8.*"
+
+redis = { version = "~0.22.1", features = ["tokio-comp","connection-manager"] }

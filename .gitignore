@@ -1,0 +1,8 @@
+/target
+/.idea
+/.vscode
+/.history
+/Cargo.lock
+/logs/
+/lsys-actix-web/nohup.out
+dump.rdb

@@ -1,0 +1,48 @@
+
+@host_url= http://127.0.0.1:8080
+@app_url = {{host_url}}/api/app
+@jwt_token = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwidG9rZW4iOiJNVGN0VGtSWVNGbE5Wa0ZEVVVWVFRFZEpWMXBRVDBaTFVsUlZMVEUyTnpJNU1UQTNNalU9IiwiZXhwIjoxNTE2MjM5MDIyMTF9._p2A33VfAi8woUtKeyOnxhE_mNU9vKoeMsh70Kz6ctU
+
+### 重置KEY
+POST {{app_url}}/reset_secret
+Authorization: {{jwt_token}}
+Content-Type: application/json
+
+{
+   "app_id": 28
+}
+
+### 列表
+POST {{app_url}}/list
+Authorization: {{jwt_token}}
+Content-Type: application/json
+
+{
+    "count_num": true,
+    "user_id":17
+    //"app_id":[1],
+    //"status":[1],
+    //"client_ids": ["111"],
+}
+
+
+### 添加
+POST {{app_url}}/add
+Authorization: {{jwt_token}}
+Content-Type: application/json
+
+{
+    "user_id": 17,
+    "name": "1111111",
+    "client_id": "11111"
+}
+
+
+### 审核
+POST {{app_url}}/confirm
+Authorization: {{jwt_token}}
+Content-Type: application/json
+
+{
+   "app_id": 29
+}

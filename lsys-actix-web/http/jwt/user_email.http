@@ -1,0 +1,55 @@
+
+@host_url= http://127.0.0.1:8080
+@user_url = {{host_url}}/api/user
+@jwt_token = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwidG9rZW4iOiJNVEV0VFVsUlEwdEZRVXhHVkVkUFFrUlZVbGRJV2xaVFdWaFFMVEUyTmpZNE16WXlNVEk9IiwiZXhwIjoxNTE2MjM5MDIyMTF9.lhF6VQmmzFbXRJPOHuH8Ml_C3lwImP2GBPpG1puuKMU
+
+####### email ##############
+
+### add mail
+POST {{user_url}}/email/add
+Authorization: {{jwt_token}}
+Content-Type: application/json
+
+{
+    "email": "ssss11121@qq.com"
+}
+
+
+### send mail code
+POST {{user_url}}/email/send_code
+Authorization: {{jwt_token}}
+Content-Type: application/json
+
+{
+    "email":"ssss11121@qq.com"
+}
+
+
+### delete mail
+POST {{user_url}}/email/delete
+Authorization: {{jwt_token}}
+Content-Type: application/json
+
+{
+    "email_id": 16
+}
+
+
+### list mail
+POST {{user_url}}/email/list_data
+Authorization: {{jwt_token}}
+Content-Type: application/json
+
+{
+    "status": [2]
+}
+
+
+### confirm mail
+POST {{user_url}}/email_confirm
+Content-Type: application/json
+
+{
+    "email_id": 22,
+    "code": "541029"
+}
