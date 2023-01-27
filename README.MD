@@ -51,7 +51,7 @@ cp ./public/* ../lsys-actix-web/static/ui
 
 ##### 在线示例：
 ```
-http://175.178.90.181/ui/#/login/main
+http://175.178.90.181/ui/#
 示例账号：aaaaaa
 示例密码：000000
 ```
