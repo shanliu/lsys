@@ -51,9 +51,7 @@ cp ./public/* ../lsys-actix-web/static/ui
 4. 访问 http://127.0.0.1/ui/
 
 
-##### 在线示例：
-
-http://175.178.90.181/ui/#
+##### 在线示例：http://175.178.90.181/ui/#
 
 ```
 示例账号：aaaaa
