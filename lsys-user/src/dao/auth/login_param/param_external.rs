@@ -51,7 +51,7 @@ impl<T: Serialize + Send + Sync> LoginParam for ExternalLogin<T> {
     ) -> UserAuthResult<LoginType> {
         Ok(LoginType {
             time_out: 3600 * 24,
-            type_name: get_message!(fluent, "auth-login-type-email", "Email Login"),
+            type_name: get_message!(fluent, "auth-login-type-email", "External Login"),
         })
     }
     async fn get_user(
@@ -80,6 +80,6 @@ impl<T: Serialize + Send + Sync> LoginParam for ExternalLogin<T> {
         ))
     }
     fn show_name(&self) -> String {
-        self.external.external_nikename.clone()
+        self.external.external_id.clone()
     }
 }

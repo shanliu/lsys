@@ -94,7 +94,7 @@ pub async fn oauth_create_code<T: SessionTokenData, D: SessionData, S: UserSessi
         .find_by_client_id(&param.client_id)
         .await?;
     if app.callback_domain.is_empty() {
-        return Err(JsonData::message("not config callback domain").set_code("domain_empty"));
+        return Err(JsonData::message("not config callback domain").set_sub_code("domain_empty"));
     }
     if !param
         .redirect_uri
@@ -103,7 +103,7 @@ pub async fn oauth_create_code<T: SessionTokenData, D: SessionData, S: UserSessi
             .redirect_uri
             .starts_with(&("http://".to_string() + &app.callback_domain))
     {
-        return Err(JsonData::message("redirect_uri not match").set_code("domain_no_match"));
+        return Err(JsonData::message("redirect_uri not match").set_sub_code("domain_no_match"));
     }
     get_scope(&req_dao.web_dao, &app, &param.scope).await?;
     let code = req_dao
@@ -116,20 +116,6 @@ pub async fn oauth_create_code<T: SessionTokenData, D: SessionData, S: UserSessi
     Ok(JsonData::message("token code").set_data(json!({ "code": code })))
 }
 
-#[derive(Debug, Deserialize)]
-pub struct OauthCodeParam {
-    pub client_secret: String,
-    pub client_id: String,
-    pub code: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct OauthRefreshCodeParam {
-    pub client_secret: String,
-    pub client_id: String,
-    pub refresh_token: String,
-}
-
 #[derive(Debug, Deserialize, Serialize)]
 pub struct OauthSessionData {
     access_token: String,
@@ -138,18 +124,41 @@ pub struct OauthSessionData {
     scope: String,
     expires_in: String,
 }
-//创建登陆token
-pub async fn oauth_create_token(webdao: &WebDao, code: OauthCodeParam) -> JsonResult<JsonData> {
+
+async fn check_app_secret(
+    webdao: &WebDao,
+    client_id: &String,
+    client_secret: &String,
+) -> JsonResult<AppsModel> {
     let app = webdao
         .app
         .app_dao
         .app
         .cache()
-        .find_by_client_id(&code.client_id)
+        .find_by_client_id(client_id)
         .await?;
-    if code.client_secret != app.client_secret {
+    let oauth_secret = webdao
+        .app
+        .app_dao
+        .app
+        .oauth_secret(&app.client_secret)
+        .await;
+    if *client_secret != oauth_secret {
         return Err(JsonData::message_error("client_secret not match"));
     }
+    Ok(app)
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OauthCodeParam {
+    pub client_secret: String,
+    pub client_id: String,
+    pub code: String,
+}
+
+//创建登陆token
+pub async fn oauth_create_token(webdao: &WebDao, code: OauthCodeParam) -> JsonResult<JsonData> {
+    let app = check_app_secret(webdao, &code.client_id, &code.client_secret).await?;
     let (token, user) = webdao
         .app
         .app_dao
@@ -169,11 +178,22 @@ pub async fn oauth_create_token(webdao: &WebDao, code: OauthCodeParam) -> JsonRe
         scope: token.scope,
         expires_in: token.timeout.to_string(),
     };
-    Ok(JsonData::message("token data").set_data(json!({ "token": session })))
+    Ok(JsonData::message("token data").set_data(json!(session)))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OauthRefreshCodeParam {
+    pub client_secret: String,
+    pub client_id: String,
+    pub refresh_token: String,
 }
 
 //刷新登陆token
-pub async fn oauth_refresh_token(req_dao: &RestAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn oauth_refresh_token(
+    req_dao: &RestAuthQueryDao,
+    param: OauthRefreshCodeParam,
+) -> JsonResult<JsonData> {
+    check_app_secret(&req_dao.web_dao, &param.client_id, &param.client_secret).await?;
     let mut auth_data = req_dao.user_session.write().await;
     let old_token = auth_data.get_session_data().await?;
     auth_data.refresh_session(true).await?;
@@ -186,5 +206,5 @@ pub async fn oauth_refresh_token(req_dao: &RestAuthQueryDao) -> JsonResult<JsonD
         scope: token.scope,
         expires_in: token.timeout.to_string(),
     };
-    Ok(JsonData::message("token data").set_data(json!({ "token": session })))
+    Ok(JsonData::message("token data").set_data(json!(session)))
 }

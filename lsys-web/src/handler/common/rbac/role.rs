@@ -70,9 +70,8 @@ async fn rbac_role_get_res_check(
         if let Some(role_ops) = res_ops_opt {
             for tmp in rop {
                 if !role_ops.iter().any(|e| e.1.id == tmp.op_id) {
-                    return Err(
-                        JsonData::message(format!("not find op id:{}", tmp.op_id)).set_code(400)
-                    );
+                    return Err(JsonData::message(format!("not find op id:{}", tmp.op_id))
+                        .set_sub_code("not_find_res_op"));
                 }
             }
             let res_tmp = role_ops

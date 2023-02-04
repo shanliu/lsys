@@ -14,7 +14,7 @@ use std::net::{IpAddr, Ipv4Addr};
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
-use tracing::{debug_span, warn, Instrument};
+use tracing::{debug, debug_span, warn, Instrument};
 
 use base64::{
     alphabet,
@@ -126,11 +126,11 @@ impl UserPasswordHash {
 }
 
 pub struct UserAuthConfig {
-    cache_config: LocalCacheConfig,
-    login_limit_captcha: u32,
-    login_limit_lock: u32,
-    login_limit_time: u64,
-    ip_db: Option<Mutex<ip2location::DB>>,
+    pub cache_config: LocalCacheConfig,
+    pub login_limit_captcha: u32,
+    pub login_limit_lock: u32,
+    pub login_limit_time: u64,
+    pub ip_db: Option<Mutex<ip2location::DB>>,
 }
 
 impl Default for UserAuthConfig {
@@ -402,6 +402,7 @@ impl<T: UserAuthStore + Send + Sync> UserAuth<T> {
                 if let Ok(rec) = db.ip_lookup(bip) {
                     match rec {
                         Record::LocationDb(record) => {
+                            debug!("parse city: {:?} on ip: {:?}", record, login_ip);
                             city = [
                                 record
                                     .country
@@ -411,6 +412,7 @@ impl<T: UserAuthStore + Send + Sync> UserAuth<T> {
                                 record.city.unwrap_or_default(),
                             ]
                             .into_iter()
+                            .filter(|e| !e.is_empty() && *e != "-")
                             .collect::<Vec<String>>()
                             .join("-");
                         }

@@ -43,7 +43,7 @@ pub mod user_password;
 pub enum UserAccountError {
     Sqlx(sqlx::Error),
     System(String),
-    Status((u64,String)),
+    Status((u64, String)),
     Redis(RedisError),
     ValidCode(ValidCodeError),
     Param(String),
@@ -122,6 +122,7 @@ impl UserAccount {
             user_external: Arc::from(UserExternal::new(
                 db.clone(),
                 redis.clone(),
+                fluent.clone(),
                 user_index.clone(),
             )),
             user_mobile: Arc::from(UserMobile::new(

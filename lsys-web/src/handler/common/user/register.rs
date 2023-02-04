@@ -72,9 +72,9 @@ pub async fn user_reg_send_code_from_mobile<
         .await;
     if let Ok(mobile) = mobile_res {
         if UserMobileStatus::Valid.eq(mobile.status) {
-            return Ok(JsonData::message("this mobile is registered")
-                .set_code(406)
-                .set_sub_code("exist"));
+            return Ok(
+                JsonData::message("this mobile is registered").set_sub_code("mobile_not_reg")
+            );
         }
     }
     let data = req_dao
@@ -135,9 +135,7 @@ pub async fn user_reg_send_code_from_email<
         .await;
     if let Ok(email) = email_res {
         if UserEmailStatus::Valid.eq(email.status) {
-            return Ok(JsonData::message("this email is registered")
-                .set_code(406)
-                .set_sub_code("exist"));
+            return Ok(JsonData::message("this email is registered").set_sub_code("email_not_reg"));
         }
     }
     valid_code

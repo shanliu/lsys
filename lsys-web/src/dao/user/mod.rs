@@ -1,4 +1,4 @@
-use lsys_core::AppCore;
+use lsys_core::{AppCore, FluentMessage};
 use lsys_rbac::dao::RbacDao;
 use lsys_user::dao::{
     auth::{LoginData, SessionData, SessionUserData, UserAuthData, UserAuthRedisStore},
@@ -23,6 +23,7 @@ mod login;
 mod oauth;
 mod register;
 pub use detail::UserDataOption;
+
 pub use register::UserRegData;
 
 pub struct WebUser {
@@ -32,6 +33,7 @@ pub struct WebUser {
     pub redis: Arc<Mutex<ConnectionManager>>,
     pub captcha: Arc<WebAppCaptcha>,
     pub app_core: Arc<AppCore>,
+    fluent: Arc<FluentMessage>,
 }
 
 impl WebUser {
@@ -42,6 +44,7 @@ impl WebUser {
         redis: Arc<Mutex<ConnectionManager>>,
         captcha: Arc<WebAppCaptcha>,
         app_core: Arc<AppCore>,
+        fluent: Arc<FluentMessage>,
     ) -> Self {
         WebUser {
             user_dao,
@@ -50,6 +53,7 @@ impl WebUser {
             db,
             redis,
             app_core,
+            fluent,
         }
     }
     pub async fn user_relation_key(
@@ -107,7 +111,12 @@ impl From<UserAuthData> for ShowUserAuthData {
             LoginData::MobileCode(val) => ("sms-code", json!(val)),
             LoginData::External(val) => ("external", json!(val)),
         };
-        let login_time = time_out - login_type.time_out as u64;
+        let stime = login_type.time_out as u64;
+        let login_time = if time_out > stime {
+            time_out - stime
+        } else {
+            0
+        };
         ShowUserAuthData {
             login_type: show_login_type,
             login_data: show_login_data,

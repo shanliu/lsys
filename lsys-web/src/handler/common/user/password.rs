@@ -42,11 +42,12 @@ pub async fn user_set_password<'t, T: SessionTokenData, D: SessionData, S: UserS
             let check = user_password.check_password(&user, old_passwrod).await?;
             if !check {
                 return Ok(
-                    JsonData::message_error("old password is wrong").set_code("bad_passwrod")
+                    JsonData::message_error("old password is wrong").set_sub_code("bad_passwrod")
                 );
             }
         } else {
-            return Ok(JsonData::message_error("your need submit old password").set_code(400));
+            return Ok(JsonData::message_error("your need submit old password")
+                .set_sub_code("need_old_passwrod"));
         }
     }
     let pid = user_password

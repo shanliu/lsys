@@ -1,48 +1,17 @@
+use std::net::IpAddr;
+
 use crate::{
     dao::{UserAuthQueryDao, WebDao},
     module::oauth::{OauthCallbackParam, OauthLogin, OauthLoginParam},
     {JsonData, JsonResult},
 };
 
-pub async fn user_oauth<
-    T: OauthLogin<L, P, D>,
-    L: OauthLoginParam + Send + Sync,
-    P: OauthCallbackParam + Send + Sync,
-    D: Serialize + Send + Sync,
->(
-    config_key: &str,
-    app_dao: &WebDao,
-) -> JsonResult<T> {
-    Ok(app_dao.user.user_oauth::<T, L, P, D>(config_key).await?)
-}
-
+use lsys_user::dao::auth::{ExternalLogin, LoginEnv, UserSession};
 use serde::Serialize;
 use serde_json::json;
-pub async fn user_oauth_login<
-    T: OauthLogin<L, P, D>,
-    L: OauthLoginParam + Send + Sync,
-    P: OauthCallbackParam + Send + Sync,
-    D: Serialize + Send + Sync,
->(
-    config_key: &str,
-    app_dao: &WebDao,
-    param: &L,
-) -> JsonResult<JsonData> {
-    let oauth = &user_oauth::<T, L, P, D>(config_key, app_dao).await?;
-    app_dao
-        .user
-        .rbac_dao
-        .rbac
-        .access
-        .check(0, &[], &res_data!(SystemLogin))
-        .await?;
-    let url = app_dao
-        .user
-        .user_oauth_login::<T, L, P, D>(oauth, param)
-        .await?;
-    Ok(JsonData::data(json!({ "url": url })))
-}
-pub async fn user_oauth_callback<
+
+//检查权限并完成回调
+pub async fn user_external_callback<
     't,
     O: OauthLogin<L, P, Q>,
     L: OauthLoginParam + Send + Sync,
@@ -53,7 +22,11 @@ pub async fn user_oauth_callback<
     req_dao: &UserAuthQueryDao,
     param: &P,
 ) -> JsonResult<JsonData> {
-    let oauth = &user_oauth::<O, L, P, Q>(config_key, &req_dao.web_dao).await?;
+    let oauth = &req_dao
+        .web_dao
+        .user
+        .user_external_oauth::<O, L, P, Q>(config_key)
+        .await?;
     req_dao
         .web_dao
         .user
@@ -62,17 +35,33 @@ pub async fn user_oauth_callback<
         .access
         .check(0, &[], &res_data!(SystemLogin))
         .await?;
-    let (_, authlock, data) = req_dao
+    let (ext_model, _, ext_data) = req_dao
         .web_dao
         .user
-        .user_oauth_callback::<O, L, P, Q, _>(
-            oauth,
-            &req_dao.user_session,
-            config_key,
-            &req_dao.req_env,
-            param,
+        .user_external_callback::<O, L, P, Q, _>(oauth, config_key, &req_dao.req_env, param)
+        .await?;
+    let login_env = LoginEnv {
+        login_ip: req_dao.req_env.ip.parse::<IpAddr>().ok(),
+    };
+    let token = req_dao
+        .web_dao
+        .user
+        .user_dao
+        .user_auth
+        .login(
+            ExternalLogin {
+                external: ext_model.clone(),
+                ext_data,
+            },
+            login_env,
         )
         .await?;
+    req_dao
+        .user_session
+        .write()
+        .await
+        .set_session_token(token.into());
+    let user_data = req_dao.user_session.read().await.get_session_data().await?;
     Ok(JsonData::data(json!({
         "auth_data":data,
         "token":authlock.to_string()

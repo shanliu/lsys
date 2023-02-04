@@ -57,7 +57,13 @@ impl<'t> AppScope<'t> {
         vec![out]
     }
     pub fn to_show_data(&self) -> Vec<ShowScopeItem> {
-        todo!()
+        let mut out = vec![];
+        for tmp in Self::all_scope() {
+            if self.inner.iter().any(|t| tmp.name == t.name) {
+                out.push(ShowScopeItem { name: tmp.name })
+            }
+        }
+        out
     }
 }
 

@@ -51,7 +51,7 @@ pub enum ResData {
     UserEditApp(u64),
     UserConfirmApp,
     //app
-    AppView(u64),
+    AppView(u64, u64),
     AppRbacCheck(u64),
 }
 
@@ -84,11 +84,18 @@ impl ResData {
                 vec![access_res!(["admin", access_op!(["setting", true])])],
                 Some(vec![Self::AdminManage]),
             )),
-            ResData::AppView(app_id) => Ok((
-                vec![access_res!([
-                    format!("app-{}", app_id),
-                    access_op!(["global-app-view", true])
-                ])],
+            ResData::AppView(app_id, user_id) => Ok((
+                vec![
+                    access_res!([
+                        format!("app-{}", app_id),
+                        access_op!(["global-app-view", true])
+                    ]),
+                    access_res!([
+                        format!("app-{}", app_id),
+                        *user_id,
+                        access_op!(["app-view", true])
+                    ]),
+                ],
                 None,
             )),
             ResData::AppRbacCheck(app_id) => Ok((

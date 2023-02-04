@@ -1,10 +1,11 @@
+use ip2location::LocationDB;
 use lsys_app::dao::AppDao;
 use lsys_core::cache::{LocalCacheClear, LocalCacheClearItem};
 use lsys_core::{AppCore, AppCoreError};
 use lsys_rbac::dao::rbac::RbacLocalCacheClear;
 use lsys_rbac::dao::{RbacDao, SystemRole};
 use lsys_user::dao::account::cache::UserAccountLocalCacheClear;
-use lsys_user::dao::auth::UserAuthRedisStore;
+use lsys_user::dao::auth::{UserAuthConfig, UserAuthRedisStore};
 use lsys_user::dao::UserDao;
 use redis::aio::ConnectionManager;
 use sqlx::{MySql, Pool};
@@ -13,6 +14,7 @@ use std::vec;
 use std::{path::PathBuf, str::FromStr, sync::Arc};
 use tera::Tera;
 use tokio::sync::Mutex;
+use tracing::{info, warn};
 
 pub mod app;
 mod captcha;
@@ -86,13 +88,29 @@ impl WebDao {
             .await?,
         );
         let login_store = UserAuthRedisStore::new(redis.clone());
+        let mut login_config = UserAuthConfig::default();
+
+        let ip_db_path = app_core.config.get_string("ip_city_db").unwrap_or_default();
+        if !ip_db_path.is_empty() {
+            let city_data = app_core.app_dir.join(ip_db_path);
+            match LocationDB::from_file(city_data) {
+                Ok(city_db) => {
+                    login_config.ip_db = Some(Mutex::new(ip2location::DB::LocationDb(city_db)));
+                }
+                Err(err) => {
+                    warn!("ip city db error:{:?}", err)
+                }
+            }
+        } else {
+            info!("ip city db not config")
+        }
         let user_dao = Arc::new(
             UserDao::new(
                 app_core.clone(),
                 db.clone(),
                 redis.clone(),
                 login_store,
-                None,
+                Some(login_config),
             )
             .await?,
         );
@@ -138,7 +156,15 @@ impl WebDao {
                 tokio::time::sleep(Duration::from_secs(1)).await;
             }
         });
-
+        let app_locale_dir = app_core.app_dir.join("locale/lsys-web");
+        let fluents_message = Arc::new(if app_locale_dir.exists() {
+            app_core.create_fluent(app_locale_dir).await?
+        } else {
+            let cargo_dir = env!("CARGO_MANIFEST_DIR");
+            app_core
+                .create_fluent(cargo_dir.to_owned() + "/locale")
+                .await?
+        });
         Ok(WebDao {
             user: Arc::new(WebUser::new(
                 user_dao,
@@ -147,6 +173,7 @@ impl WebDao {
                 redis.clone(),
                 captcha.clone(),
                 app_core.clone(),
+                fluents_message,
             )),
             app: Arc::new(apps),
             captcha,

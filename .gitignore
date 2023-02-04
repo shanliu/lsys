@@ -6,3 +6,4 @@
 /logs/
 /lsys-actix-web/nohup.out
 dump.rdb
+examples/lsys-actix-web/data

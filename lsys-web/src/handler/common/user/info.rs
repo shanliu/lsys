@@ -99,9 +99,10 @@ pub async fn user_info_check_username<
             })))
         }
         Err(err) => Err(err.into()),
-        Ok(user) => {
-            Ok(JsonData::message(format!("Username already exists [{}]", user.id)).set_code(405))
-        }
+        Ok(user) => Ok(
+            JsonData::message(format!("Username already exists [{}]", user.id))
+                .set_sub_code("username_exists"),
+        ),
     }
 }
 
@@ -203,7 +204,7 @@ pub async fn password_last_modify<'t, T: SessionTokenData, D: SessionData, S: Us
         .find_by_id(&req_auth.user_data().user_id)
         .await?;
     if user.password_id == 0 {
-        return Ok(JsonData::message("not set password").set_code("not_set"));
+        return Ok(JsonData::message("not set password").set_sub_code("not_set"));
     }
     let user = req_dao
         .web_dao

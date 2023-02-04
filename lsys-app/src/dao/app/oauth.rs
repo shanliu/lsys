@@ -163,7 +163,8 @@ impl AppsOauth {
     ) -> AppsResult<(AppsTokenModel, UserModel)> {
         let save_key = create_save_key("code", app.id, &code);
         let mut redis = self.redis.lock().await;
-        let data: String = redis.get(save_key.as_str()).await?;
+        let data_opt: Option<String> = redis.get(save_key.as_str()).await?;
+        let data = data_opt.unwrap_or_default();
         if data.is_empty() {
             return Err(AppsError::System(get_message!(
                 &self.fluent,
@@ -224,7 +225,7 @@ impl AppsOauth {
                     return Err(AppsError::System(get_message!(
                         &self.fluent,
                         "token-is-timeout",
-                        "your submit code is timeout"
+                        "your submit code is timeout or wrong"
                     )));
                 }
                 let time_out = SystemTime::now()
@@ -258,7 +259,7 @@ impl AppsOauth {
             None => Err(AppsError::System(get_message!(
                 &self.fluent,
                 "token-is-timeout",
-                "your submit code is timeout"
+                "your submit code is timeout or wrong"
             ))),
         }
     }

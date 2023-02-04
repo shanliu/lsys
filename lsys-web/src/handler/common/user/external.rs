@@ -1,100 +1,13 @@
 use crate::{
-    dao::RequestDao,
+    dao::{RequestDao, WebDao},
+    module::oauth::{OauthCallbackParam, OauthLogin, OauthLoginParam},
     {JsonData, JsonResult},
 };
+
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
 use lsys_user::model::UserExternalStatus;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
-
-#[derive(Debug, Deserialize)]
-pub struct ExternalBindParam {
-    pub config_name: String,
-    pub external_type: String,
-    pub external_id: String,
-    pub external_name: String,
-    pub token_data: String,
-    pub token_timeout: u64,
-    pub external_gender: Option<String>,
-    pub external_link: Option<String>,
-    pub external_pic: Option<String>,
-}
-
-/// 已登陆后绑定外部账号
-pub async fn user_external_bind<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
-    param: ExternalBindParam,
-    req_dao: &RequestDao<T, D, S>,
-) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
-        .user
-        .rbac_dao
-        .rbac
-        .access
-        .check(
-            req_auth.user_data().user_id,
-            &[],
-            &res_data!(UserExternalEdit(req_auth.user_data().user_id)),
-        )
-        .await?;
-    let user_external = &req_dao.web_dao.user.user_dao.user_account.user_external;
-    let extdata = user_external
-        .find_by_external(&param.config_name, &param.external_type, &param.external_id)
-        .await;
-    let ext_op = match extdata {
-        Ok(ext) => {
-            if UserExternalStatus::Enable.eq(ext.status) {
-                Some(ext)
-            } else {
-                None
-            }
-        }
-        Err(err) => {
-            if !err.is_not_found() {
-                return Err(err.into());
-            } else {
-                None
-            }
-        }
-    };
-    let user = req_dao
-        .web_dao
-        .user
-        .user_dao
-        .user_account
-        .user
-        .find_by_id(&req_auth.user_data().user_id)
-        .await?;
-    let ext = match ext_op {
-        Some(ext) => ext,
-        None => {
-            let ext_id = user_external
-                .add_external(
-                    &user,
-                    param.config_name.clone(),
-                    param.external_type,
-                    param.external_id.clone(),
-                    param.external_name.clone(),
-                    None,
-                )
-                .await?;
-            user_external.find_by_id(&ext_id).await?
-        }
-    };
-    user_external
-        .token_update(
-            &ext,
-            param.external_name,
-            param.token_data,
-            param.token_timeout,
-            param.external_gender,
-            param.external_link,
-            param.external_pic,
-        )
-        .await?;
-    Ok(JsonData::data(json!({ "id": ext.id })))
-}
 
 #[derive(Debug, Deserialize)]
 pub struct ExternalDeleteParam {
@@ -172,4 +85,33 @@ pub async fn user_external_list_data<
         "data": data ,
         "total":data.len(),
     })))
+}
+
+//检查权限并获取登录URL
+pub async fn user_external_login_url<
+    T: OauthLogin<L, P, D>,
+    L: OauthLoginParam + Send + Sync,
+    P: OauthCallbackParam + Send + Sync,
+    D: Serialize + Send + Sync,
+>(
+    config_key: &str,
+    app_dao: &WebDao,
+    param: &L,
+) -> JsonResult<JsonData> {
+    let oauth = &app_dao
+        .user
+        .user_external_oauth::<T, L, P, D>(config_key)
+        .await?;
+    app_dao
+        .user
+        .rbac_dao
+        .rbac
+        .access
+        .check(0, &[], &res_data!(SystemLogin))
+        .await?;
+    let url = app_dao
+        .user
+        .user_external_login_url::<T, L, P, D>(oauth, param)
+        .await?;
+    Ok(JsonData::data(json!({ "url": url })))
 }

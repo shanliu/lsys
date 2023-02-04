@@ -38,7 +38,7 @@ impl JsonData {
         JsonData::message_error(format!("err:{}", error))
     }
     pub fn message_error<T: ToString>(msg: T) -> Self {
-        JsonData::message(msg).set_code(500)
+        JsonData::message(msg).set_code(500).set_sub_code("system")
     }
     pub fn message<T: ToString>(msg: T) -> Self {
         JsonData::default().set_message(msg)
@@ -97,20 +97,20 @@ impl From<UserAuthError> for JsonData {
             .set_code(200)
             .set_message(err.to_string());
         match err {
-            UserAuthError::PasswordNotMatch(_) => out.set_code(402).set_sub_code("password_wrong"),
-            UserAuthError::PasswordNotSet(_) => out.set_code(405).set_sub_code("password_empty"),
-            UserAuthError::StatusError(_) => out.set_code(405).set_sub_code("status_wrong"),
-            UserAuthError::UserNotFind(_) => out.set_code(405).set_sub_code("not_find"),
-            UserAuthError::NotLogin(_) => out.set_code(405).set_sub_code("not_login"),
-            UserAuthError::Sqlx(_) => out.set_code(405).set_sub_code("sqlx"),
-            UserAuthError::UserAccount(_) => out.set_code(405).set_sub_code("system"),
-            UserAuthError::System(_) => out.set_code(405).set_sub_code("system"),
-            UserAuthError::CheckCaptchaNeed(_) => out.set_code(405).set_sub_code("need_captcha"),
-            UserAuthError::Redis(_) => out.set_code(405).set_sub_code("redis"),
-            UserAuthError::CheckUserLock(_) => out.set_code(403).set_sub_code("user_lock"),
-            UserAuthError::TokenParse(_) => out.set_code(403).set_sub_code("token_wrong"),
+            UserAuthError::PasswordNotMatch(_) => out.set_sub_code("password_wrong"),
+            UserAuthError::PasswordNotSet(_) => out.set_sub_code("password_empty"),
+            UserAuthError::StatusError(_) => out.set_sub_code("status_wrong"),
+            UserAuthError::UserNotFind(_) => out.set_sub_code("not_find"),
+            UserAuthError::NotLogin(_) => out.set_sub_code("not_login"),
+            UserAuthError::Sqlx(_) => out.set_code(501).set_sub_code("sqlx"),
+            UserAuthError::UserAccount(_) => out.set_sub_code("system"),
+            UserAuthError::System(_) => out.set_code(500).set_sub_code("system"),
+            UserAuthError::CheckCaptchaNeed(_) => out.set_sub_code("need_captcha"),
+            UserAuthError::Redis(_) => out.set_code(502).set_sub_code("redis"),
+            UserAuthError::CheckUserLock(_) => out.set_sub_code("user_lock"),
+            UserAuthError::TokenParse(_) => out.set_sub_code("token_wrong"),
             UserAuthError::ValidCode(err) => {
-                out = out.set_code(410).set_sub_code("valid_code");
+                out = out.set_sub_code("valid_code");
                 match err {
                     ValidCodeError::DelayTimeout(err) => out.set_data(json!({
                         "type":err.prefix
@@ -127,7 +127,7 @@ impl From<UserAuthError> for JsonData {
 
 impl From<sqlx::Error> for JsonData {
     fn from(err: sqlx::Error) -> Self {
-        let mut code = 500;
+        let mut code = 501;
         let sub_code = match &err {
             sqlx::Error::RowNotFound => {
                 code = 404;
@@ -155,9 +155,7 @@ impl From<UserAccountError> for JsonData {
             .set_code(200)
             .set_message(err.to_string());
         match &err {
-            UserAccountError::Sqlx(sqlx::Error::RowNotFound) => {
-                out.set_code(404).set_sub_code("not_found")
-            }
+            UserAccountError::Sqlx(sqlx::Error::RowNotFound) => out.set_sub_code("not_found"),
             UserAccountError::ValidCode(err) => match err {
                 ValidCodeError::DelayTimeout(err) => out.set_data(json!({
                     "type":err.prefix
@@ -167,8 +165,8 @@ impl From<UserAccountError> for JsonData {
                 })),
                 _ => out,
             },
-            UserAccountError::Param(_) => out.set_code(404).set_sub_code("param"),
-            _err => out.set_code(404).set_sub_code("param"),
+            UserAccountError::Param(_) => out.set_sub_code("param"),
+            _err => out.set_sub_code("param"),
         }
     }
 }
@@ -206,31 +204,30 @@ impl From<UserRbacError> for JsonData {
 impl From<ValidCodeError> for JsonData {
     fn from(err: ValidCodeError) -> Self {
         JsonData::default()
-            .set_code(400)
             .set_sub_code("valid_code")
             .set_message(err.to_string())
     }
 }
 
 macro_rules! result_impl_system_error {
-    ($err_type:ty) => {
+    ($err_type:ty,$code:literal) => {
         impl From<$err_type> for JsonData {
             fn from(err: $err_type) -> Self {
                 JsonData::default()
-                    .set_code(500)
+                    .set_code($code)
                     .set_sub_code("system")
                     .set_message(err.to_string())
             }
         }
     };
 }
-result_impl_system_error!(AppsError);
-result_impl_system_error!(WebAppSmserError);
-result_impl_system_error!(WebAppMailerError);
-result_impl_system_error!(std::cell::BorrowError);
-result_impl_system_error!(serde_json::Error);
-result_impl_system_error!(FromUtf8Error);
-result_impl_system_error!(std::io::Error);
-result_impl_system_error!(reqwest::Error);
-result_impl_system_error!(tera::Error);
-result_impl_system_error!(ScopeError);
+result_impl_system_error!(AppsError, 200);
+result_impl_system_error!(WebAppSmserError, 200);
+result_impl_system_error!(WebAppMailerError, 200);
+result_impl_system_error!(std::cell::BorrowError, 200);
+result_impl_system_error!(serde_json::Error, 200);
+result_impl_system_error!(FromUtf8Error, 500);
+result_impl_system_error!(std::io::Error, 500);
+result_impl_system_error!(reqwest::Error, 500);
+result_impl_system_error!(tera::Error, 500);
+result_impl_system_error!(ScopeError, 200);

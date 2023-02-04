@@ -175,7 +175,7 @@ CREATE TABLE `yaf_user_info` (
   `id` bigint(11) unsigned NOT NULL AUTO_INCREMENT,
   `user_id` bigint(11) unsigned NOT NULL COMMENT '用户ID',
   `gender` tinyint(1) NOT NULL DEFAULT 0 COMMENT '性别 1 男 2 女',
-  `headimg` varchar(64) NOT NULL DEFAULT '' COMMENT '头像地址',
+  `headimg` varchar(512) NOT NULL DEFAULT '' COMMENT '头像地址',
   `birthday` varchar(10) NOT NULL DEFAULT '' COMMENT '生日',
   `block_time` int(10) unsigned NOT NULL DEFAULT 0 COMMENT '屏蔽时间',
   `reg_from` varchar(32) NOT NULL DEFAULT '' COMMENT '注册来源',
@@ -293,7 +293,7 @@ CREATE TABLE `yaf_app` (
 CREATE TABLE `yaf_app_oauth_token` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
   `app_id` bigint unsigned NOT NULL COMMENT '应用ID',
-  `access_user_id` varchar(32) NOT NULL COMMENT '授权用户ID',
+  `access_user_id` bigint unsigned NOT NULL COMMENT '授权用户ID',
   `code` varchar(32) NOT NULL COMMENT '来源CODE',
   `token` varchar(32) NOT NULL COMMENT '授权TOKEN',
   `scope` varchar(512) NOT NULL COMMENT '授权范围',

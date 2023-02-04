@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::model::{AppStatus, AppsModel, AppsModelRef};
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
-    get_message, now_time, FluentMessage, PageParam,
+    get_message, now_time, AppCore, FluentMessage, PageParam,
 };
 
 use redis::aio::ConnectionManager;
@@ -16,6 +16,7 @@ use tokio::sync::Mutex;
 use super::{range_client_key, AppsError, AppsResult};
 
 pub struct Apps {
+    app_core: Arc<AppCore>,
     db: Pool<MySql>,
     pub(crate) fluent: Arc<FluentMessage>,
     pub cache: Arc<LocalCache<String, AppsModel>>,
@@ -31,11 +32,13 @@ pub struct AppDataWhere<'t> {
 
 impl Apps {
     pub fn new(
+        app_core: Arc<AppCore>,
         db: Pool<MySql>,
         redis: Arc<Mutex<ConnectionManager>>,
         fluent: Arc<FluentMessage>,
     ) -> Self {
         Self {
+            app_core,
             db,
             fluent,
             cache: Arc::from(LocalCache::new(redis, LocalCacheConfig::new("apps"))),
@@ -72,6 +75,8 @@ impl Apps {
         }
         Some(sql_vec.join(" and "))
     }
+
+    //app 列表数据
     pub async fn app_data<'t>(
         &self,
         app_where: &AppDataWhere<'t>,
@@ -121,6 +126,23 @@ impl Apps {
         id,
         "id={id}"
     );
+    //app 的Oauth秘钥
+    pub async fn oauth_secret(&self, client_secret: &str) -> String {
+        format!(
+            "{:x}",
+            md5::compute(
+                format!(
+                    "{}{}",
+                    client_secret,
+                    self.app_core
+                        .config
+                        .get_string("app_oauth_key")
+                        .unwrap_or_default()
+                )
+                .as_bytes()
+            )
+        )
+    }
     //重设secret
     pub async fn reset_secret<'t>(
         &self,
@@ -268,18 +290,29 @@ impl Apps {
     ) -> AppsResult<(String, String, String)> {
         let domain = domain.trim().to_string();
         if !domain.is_empty() {
-            let re = Regex::new(r"^http(s)?://[0-9a-z]+\.[0-9a-z]+").map_err(|e| {
+            let ipre = Regex::new(r"^[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}(:[\d]{1,5})?$")
+                .map_err(|e| {
+                    AppsError::System(get_message!(
+                        &self.fluent,
+                        "auth-alpha-ip-error",
+                        e.to_string()
+                    ))
+                })?;
+            let dre = Regex::new(
+                r"^[0-9a-zA-Z]{0,1}[0-9a-zA-Z-]*(\.[0-9a-zA-Z-]*)*(\.[0-9a-zA-Z]*)+(:[\d]{1,5})?$",
+            )
+            .map_err(|e| {
                 AppsError::System(get_message!(
                     &self.fluent,
                     "auth-alpha-domain-error",
                     e.to_string()
                 ))
             })?;
-            if !re.is_match(&domain) {
+            if !ipre.is_match(&domain) && !dre.is_match(&domain) {
                 return Err(AppsError::System(get_message!(
                     &self.fluent,
                     "auth-alpha-domain-error",
-                    "submit callback url is wrong"
+                    "submit domain is wrong"
                 )));
             }
         }
@@ -436,6 +469,11 @@ impl<'t> AppsCache<'t> {
 
 #[test]
 fn test_url() {
-    let re = Regex::new(r"^http(s)?://[0-9a-z]+\.[0-9a-z]+").unwrap();
-    assert!(re.is_match("https://local.host:8080/user/app"));
+    let re = Regex::new(r"^[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}(:[\d]{1,5})?$").unwrap();
+    assert!(re.is_match("127.0.0.1:80"));
+    let re = Regex::new(
+        r"^[0-9a-zA-Z]{0,1}[0-9a-zA-Z-]*(\.[0-9a-zA-Z-]*)*(\.[0-9a-zA-Z]*)+(:[\d]{1,5})?$",
+    )
+    .unwrap();
+    assert!(re.is_match("aaa.com"));
 }

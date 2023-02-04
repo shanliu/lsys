@@ -67,7 +67,8 @@ impl UserAuthStore for UserAuthRedisStore {
         };
         let mut set_time_out: u64 = 0;
         let mut redis = self.redis.lock().await;
-        let redis_data: HashMap<String, String> = redis.hgetall(key.as_str()).await?;
+        let redis_data_opt: Option<HashMap<String, String>> = redis.hgetall(key.as_str()).await?;
+        let redis_data = redis_data_opt.unwrap_or_default();
         debug!(login_id = %account.id,login_type=%login_type.type_name,"login count : {:?}",redis_data.len());
         for (login_key, login_item) in redis_data {
             if let Ok(item) = serde_json::from_str::<UserAuthData>(login_item.as_str()) {

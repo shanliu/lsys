@@ -37,7 +37,12 @@ impl AppDao {
                 .await?
         });
 
-        let app = Arc::from(Apps::new(db.clone(), redis.clone(), fluent.clone()));
+        let app = Arc::from(Apps::new(
+            app_core.clone(),
+            db.clone(),
+            redis.clone(),
+            fluent.clone(),
+        ));
         let app_oauth = Arc::from(AppsOauth::new(
             user_account,
             db.clone(),

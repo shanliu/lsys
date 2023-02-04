@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::dao::account::UserAccountResult;
+use crate::dao::account::{UserAccountError, UserAccountResult};
 
 use crate::model::{UserExternalModel, UserExternalModelRef, UserExternalStatus, UserModel};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::now_time;
+use lsys_core::{get_message, now_time, FluentMessage};
 use redis::aio::ConnectionManager;
 use sqlx::{Acquire, MySql, Pool, Transaction};
 use sqlx_model::{
@@ -18,6 +18,7 @@ use super::user_index::UserIndex;
 pub struct UserExternal {
     db: Pool<MySql>,
     index: Arc<UserIndex>,
+    fluent: Arc<FluentMessage>,
     pub cache: Arc<LocalCache<u64, Vec<UserExternalModel>>>,
 }
 
@@ -25,6 +26,7 @@ impl UserExternal {
     pub fn new(
         db: Pool<MySql>,
         redis: Arc<Mutex<ConnectionManager>>,
+        fluent: Arc<FluentMessage>,
         index: Arc<UserIndex>,
     ) -> Self {
         Self {
@@ -33,6 +35,7 @@ impl UserExternal {
                 LocalCacheConfig::new("user-external"),
             )),
             db,
+            fluent,
             index,
         }
     }
@@ -98,11 +101,9 @@ impl UserExternal {
         let db = &self.db;
         let user_ext_res = Select::type_new::<UserExternalModel>()
             .fetch_one_by_where_call::<UserExternalModel, _, _>(
-                "config_name=? and user_id=? and external_type=? and external_id=? and status = ?"
-                    .to_string(),
+                "config_name=? and  external_type=? and external_id=? and status = ?".to_string(),
                 |res, _| {
                     res.bind(config_name.clone())
-                        .bind(user.id)
                         .bind(external_type.clone())
                         .bind(external_id.clone())
                         .bind(UserExternalStatus::Enable as i8)
@@ -113,6 +114,12 @@ impl UserExternal {
         let time = now_time()?;
         match user_ext_res {
             Ok(user_ext) => {
+                if user_ext.user_id != user.id {
+                    return Err(UserAccountError::System(get_message!(&self.fluent,
+                        "user-external-other-bind","this account {$name} bind in other account[{$id}]",
+                        ["name"=>external_name,"id"=>user.id ]
+                    )));
+                }
                 let change = sqlx_model::model_option_set!(UserExternalModelRef,{
                     status:UserExternalStatus::Enable as i8,
                     external_name:external_name,
@@ -139,6 +146,7 @@ impl UserExternal {
                     external_id:external_id,
                     external_name:external_name,
                     change_time:time,
+                    add_time:time
                 });
 
                 let mut db = match transaction {
@@ -203,6 +211,7 @@ impl UserExternal {
         external_name: String,
         token_data: String,
         token_timeout: u64,
+        external_nikename: Option<String>,
         external_gender: Option<String>,
         external_link: Option<String>,
         external_pic: Option<String>,
@@ -217,6 +226,7 @@ impl UserExternal {
         change.external_link = external_link.as_ref();
         change.external_gender = external_gender.as_ref();
         change.external_pic = external_pic.as_ref();
+        change.external_nikename = external_nikename.as_ref();
         Update::<sqlx::MySql, UserExternalModel, _>::new(change)
             .execute_by_pk(user_ext, &self.db)
             .await?;
@@ -311,7 +321,7 @@ impl UserExternal {
         "user_id in ({uid}) and status = {status}",
         status = UserExternalStatus::Enable as i8
     );
-    pub fn cache(&'_ self)  -> UserExternalCache<'_> {
+    pub fn cache(&'_ self) -> UserExternalCache<'_> {
         UserExternalCache { dao: self }
     }
 }

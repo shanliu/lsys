@@ -136,7 +136,15 @@ pub async fn app_reset_secret<T: SessionTokenData, D: SessionData, S: UserSessio
         .app
         .reset_secret(&app, None)
         .await?;
-    Ok(JsonData::message("secret data").set_data(json!({ "secret": client_secret })))
+    let oauth_secret = req_dao
+        .web_dao
+        .app
+        .app_dao
+        .app
+        .oauth_secret(&app.client_secret)
+        .await;
+    Ok(JsonData::message("secret data")
+        .set_data(json!({ "secret": client_secret,"oauth_secret":oauth_secret  })))
 }
 
 #[derive(Debug, Deserialize)]
@@ -168,7 +176,15 @@ pub async fn app_view_secret<T: SessionTokenData, D: SessionData, S: UserSession
             &res_data!(UserViewApp(app.user_id)),
         )
         .await?;
-    Ok(JsonData::message("secret data").set_data(json!({ "secret": app.client_secret })))
+    let oauth_secret = req_dao
+        .web_dao
+        .app
+        .app_dao
+        .app
+        .oauth_secret(&app.client_secret)
+        .await;
+    Ok(JsonData::message("secret data")
+        .set_data(json!({ "secret": app.client_secret,"oauth_secret":oauth_secret })))
 }
 
 #[derive(Debug, Deserialize)]

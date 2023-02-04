@@ -5,7 +5,6 @@ members = [
     "lsys-user",
     "lsys-app",
     "lsys-web",
-    "lsys-actix-web",
-    "lsys-web-module-oauth",
-    "lsys-web-subapp-decode"
+    "lsys-sender",
+    "examples/*"
 ]

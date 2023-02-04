@@ -20,6 +20,13 @@ pub async fn subapp_view(
     //   -> 系统分配appid
     //   -> 系统[访问用户+查询指定appid组成的关系key,检查权限[资源id:global-app-access-{appid}]]
     //   -> 返回查询appid密钥
+    let out_app = app_dao
+        .app
+        .app_dao
+        .app
+        .cache()
+        .find_by_client_id(&param.client_id)
+        .await?;
     app_dao
         .user
         .rbac_dao
@@ -28,15 +35,8 @@ pub async fn subapp_view(
         .check(
             app.user_id,
             &[app_dao.app.app_relation_key(app).await],
-            &res_data!(AppView(app.id)),
+            &res_data!(AppView(out_app.id, out_app.user_id)),
         )
-        .await?;
-    let out_app = app_dao
-        .app
-        .app_dao
-        .app
-        .cache()
-        .find_by_client_id(&param.client_id)
         .await?;
     Ok(JsonData::message("app data").set_data(json!({
         "name": out_app.name,
