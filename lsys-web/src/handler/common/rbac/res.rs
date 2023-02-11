@@ -70,7 +70,7 @@ pub async fn rbac_res_add(
 
     let res = Select::type_new::<RbacResModel>()
         .fetch_one_by_where_call::<RbacResModel, _, _>(
-            "id=?".to_string(),
+            "id=?",
             |mut res, _| {
                 res = res.bind(id.to_owned());
                 res

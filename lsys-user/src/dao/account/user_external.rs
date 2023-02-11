@@ -6,12 +6,11 @@ use crate::dao::account::{UserAccountError, UserAccountResult};
 use crate::model::{UserExternalModel, UserExternalModelRef, UserExternalStatus, UserModel};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::{get_message, now_time, FluentMessage};
-use redis::aio::ConnectionManager;
+
 use sqlx::{Acquire, MySql, Pool, Transaction};
 use sqlx_model::{
     executor_option, model_option_set, sql_format, Insert, ModelTableName, Select, SqlQuote, Update,
 };
-use tokio::sync::Mutex;
 
 use super::user_index::UserIndex;
 
@@ -25,7 +24,7 @@ pub struct UserExternal {
 impl UserExternal {
     pub fn new(
         db: Pool<MySql>,
-        redis: Arc<Mutex<ConnectionManager>>,
+        redis: deadpool_redis::Pool,
         fluent: Arc<FluentMessage>,
         index: Arc<UserIndex>,
     ) -> Self {
@@ -50,8 +49,7 @@ impl UserExternal {
         let select = Select::type_new::<UserExternalModel>();
         let res = select
             .fetch_one_by_where_call::<UserExternalModel, _, _>(
-                "config_name=? and external_type=? and external_id=? and status=? order by id desc"
-                    .to_string(),
+                "config_name=? and external_type=? and external_id=? and status=? order by id desc",
                 |mut res, _| {
                     res = res.bind(config_name.to_owned());
                     res = res.bind(external_type.to_owned());
@@ -75,7 +73,7 @@ impl UserExternal {
         let select = Select::type_new::<UserExternalModel>();
         let res = select
             .fetch_one_by_where_call::<UserExternalModel, _, _>(
-                "user_id=? and config_name=? and external_type=? and external_id=? and status = ? order by id desc".to_string(),
+                "user_id=? and config_name=? and external_type=? and external_id=? and status = ? order by id desc",
                 | res, _| {
                    res.bind(user.id)
                     .bind(config_name)
@@ -101,7 +99,7 @@ impl UserExternal {
         let db = &self.db;
         let user_ext_res = Select::type_new::<UserExternalModel>()
             .fetch_one_by_where_call::<UserExternalModel, _, _>(
-                "config_name=? and  external_type=? and external_id=? and status = ?".to_string(),
+                "config_name=? and  external_type=? and external_id=? and status = ?",
                 |res, _| {
                     res.bind(config_name.clone())
                         .bind(external_type.clone())

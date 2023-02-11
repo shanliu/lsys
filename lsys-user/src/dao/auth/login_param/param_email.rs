@@ -7,12 +7,12 @@ use crate::dao::auth::{LoginParam, LoginType, UserAuthError, UserAuthResult};
 use crate::model::{UserEmailModel, UserModel};
 use async_trait::async_trait;
 use lsys_core::{get_message, FluentMessage};
-use redis::aio::ConnectionManager;
+
 use serde::{Deserialize, Serialize};
 use sqlx::{MySql, Pool};
 use sqlx_model::Select;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+
 pub struct EmailLogin {
     pub email: String,
     pub password: String,
@@ -36,7 +36,7 @@ impl LoginParam for EmailLogin {
     async fn get_type(
         &self,
         _db: &Pool<MySql>,
-        _redis: &Arc<Mutex<ConnectionManager>>,
+        _redis: &deadpool_redis::Pool,
         fluent: &Arc<FluentMessage>,
     ) -> UserAuthResult<LoginType> {
         Ok(LoginType {
@@ -47,7 +47,7 @@ impl LoginParam for EmailLogin {
     async fn get_user(
         &self,
         _db: &Pool<MySql>,
-        _redis: &Arc<Mutex<ConnectionManager>>,
+        _redis: &deadpool_redis::Pool,
         fluent: &Arc<FluentMessage>,
         account: &Arc<UserAccount>,
         _: &LoginEnv,

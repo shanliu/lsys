@@ -4,10 +4,11 @@ use lsys_core::cache::{LocalCacheClear, LocalCacheClearItem};
 use lsys_core::{AppCore, AppCoreError};
 use lsys_rbac::dao::rbac::RbacLocalCacheClear;
 use lsys_rbac::dao::{RbacDao, SystemRole};
+use lsys_sender::dao::{AliyunSender, Smser};
 use lsys_user::dao::account::cache::UserAccountLocalCacheClear;
 use lsys_user::dao::auth::{UserAuthConfig, UserAuthRedisStore};
 use lsys_user::dao::UserDao;
-use redis::aio::ConnectionManager;
+
 use sqlx::{MySql, Pool};
 use std::time::Duration;
 use std::vec;
@@ -44,7 +45,7 @@ pub struct WebDao {
     pub smser: Arc<WebAppSmser>,
     pub app_core: Arc<AppCore>,
     pub db: Pool<MySql>,
-    pub redis: Arc<Mutex<ConnectionManager>>,
+    pub redis: deadpool_redis::Pool,
     pub tera: Arc<Tera>,
 }
 
@@ -69,7 +70,7 @@ impl WebDao {
         };
         let tera = Arc::new(app_core.create_tera(&tera_tpl)?);
 
-        let redis = Arc::new(Mutex::new(app_core.create_redis().await?));
+        let redis = app_core.create_redis().await?;
         let root_user_id = app_core
             .config
             .get_array("root_user_id")
@@ -130,11 +131,17 @@ impl WebDao {
             tera.clone(),
             user_dao.fluent.clone(),
         ));
-        let smser = Arc::new(WebAppSmser::new(
+        let smser = Arc::new(Smser::new(
             app_core.clone(),
-            tera.clone(),
-            user_dao.fluent.clone(),
+            redis.clone(),
+            db.clone(),
+            300,
+            3,
         ));
+        let web_smser = Arc::new(WebAppSmser::new(smser.clone(), user_dao.fluent.clone()));
+
+        tokio::spawn(async move { smser.task::<AliyunSender, _>().await });
+
         let captcha = Arc::new(WebAppCaptcha::new(redis.clone()));
 
         let clear_rbac_dao = rbac_dao.clone();
@@ -178,7 +185,7 @@ impl WebDao {
             app: Arc::new(apps),
             captcha,
             mailer,
-            smser,
+            smser: web_smser,
             app_core,
             db,
             redis,

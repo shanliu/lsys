@@ -2,12 +2,13 @@ mod clear;
 #[macro_use]
 mod macros;
 use hashlink::LruCache;
-use redis::{aio::ConnectionManager, AsyncCommands};
+use redis::AsyncCommands;
+
 use std::{
     str::FromStr,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc,
+        
     },
 };
 use tokio::sync::Mutex;
@@ -53,7 +54,7 @@ where
     T: Clone,
 {
     cache_config: LocalCacheConfig,
-    redis: Arc<Mutex<ConnectionManager>>,
+    redis: deadpool_redis::Pool,
     cache_data: Mutex<LruCache<K, CacheData<T>>>,
     refresh_lock: AtomicBool,
 }
@@ -63,7 +64,7 @@ where
     K: ToString + std::cmp::Eq + std::hash::Hash + FromStr,
     T: Clone,
 {
-    pub fn new(redis: Arc<Mutex<ConnectionManager>>, mut cache_config: LocalCacheConfig) -> Self {
+    pub fn new(redis: deadpool_redis::Pool, mut cache_config: LocalCacheConfig) -> Self {
         if cache_config.cache_size == 0 && cache_config.cache_time > 0 {
             cache_config.cache_size = 1;
         }
@@ -134,10 +135,17 @@ where
     pub async fn clear(&self, key: &K) {
         self.del(key).await;
         let send_msg = channel_message_create(self.cache_config.cache_name, key.to_string());
-        let mut redis = self.redis.lock().await;
-        let res: Result<(), _> = redis.publish(REDIS_CHANNEL_NAME, send_msg).await;
-        if let Err(err) = res {
-            warn!("notify redis clear cache fail :{}", err);
-        };
+        let redis_res = self.redis.get().await;
+        match redis_res {
+            Ok(mut redis) => {
+                let res: Result<(), _> = redis.publish(REDIS_CHANNEL_NAME, send_msg).await;
+                if let Err(err) = res {
+                    warn!("notify redis clear cache fail :{}", err);
+                };
+            }
+            Err(err) => {
+                warn!("notify redis connect fail,can't clear cache error:{}", err);
+            }
+        }
     }
 }

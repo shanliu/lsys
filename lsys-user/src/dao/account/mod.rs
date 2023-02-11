@@ -8,12 +8,12 @@ use self::user_login::UserLogin;
 
 use super::auth::UserPasswordHash;
 
+use deadpool_redis::PoolError;
 use lsys_core::{FluentMessage, ValidCodeError};
-use redis::aio::ConnectionManager;
+
 use redis::RedisError;
 use sqlx::{MySql, Pool};
 use std::sync::Arc;
-use tokio::sync::Mutex;
 use user::User;
 use user_address::UserAddress;
 use user_email::UserEmail;
@@ -44,7 +44,7 @@ pub enum UserAccountError {
     Sqlx(sqlx::Error),
     System(String),
     Status((u64, String)),
-    Redis(RedisError),
+    Redis(String),
     ValidCode(ValidCodeError),
     Param(String),
 }
@@ -70,7 +70,12 @@ impl From<sqlx::Error> for UserAccountError {
 }
 impl From<RedisError> for UserAccountError {
     fn from(err: RedisError) -> Self {
-        UserAccountError::Redis(err)
+        UserAccountError::Redis(err.to_string())
+    }
+}
+impl From<PoolError> for UserAccountError {
+    fn from(err: PoolError) -> Self {
+        UserAccountError::Redis(err.to_string())
     }
 }
 impl From<SystemTimeError> for UserAccountError {
@@ -99,11 +104,7 @@ pub struct UserAccount {
 }
 
 impl UserAccount {
-    pub fn new(
-        db: Pool<MySql>,
-        redis: Arc<Mutex<ConnectionManager>>,
-        fluent: Arc<FluentMessage>,
-    ) -> Self {
+    pub fn new(db: Pool<MySql>, redis: deadpool_redis::Pool, fluent: Arc<FluentMessage>) -> Self {
         let user_index = Arc::from(UserIndex::new(db.clone()));
         let password_hash = Arc::from(UserPasswordHash::default());
         UserAccount {

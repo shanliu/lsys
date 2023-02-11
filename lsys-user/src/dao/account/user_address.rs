@@ -2,11 +2,10 @@ use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
     get_message, now_time, FluentMessage,
 };
-use redis::aio::ConnectionManager;
+
 use sqlx::{Acquire, MySql, Pool, Transaction};
 use sqlx_model::{sql_format, Insert, ModelTableName, Select, SqlQuote, Update};
 use std::{collections::HashMap, sync::Arc};
-use tokio::sync::Mutex;
 
 use crate::model::{UserAddressModel, UserAddressModelRef, UserAddressStatus, UserModel};
 
@@ -23,7 +22,7 @@ impl UserAddress {
     pub fn new(
         db: Pool<MySql>,
         fluent: Arc<FluentMessage>,
-        redis: Arc<Mutex<ConnectionManager>>,
+        redis: deadpool_redis::Pool,
         index: Arc<UserIndex>,
     ) -> Self {
         Self {
@@ -69,7 +68,7 @@ impl UserAddress {
 
         let address_res = Select::type_new::<UserAddressModel>()
         .fetch_one_by_where_call::<UserAddressModel, _, _>(
-            " user_id=? and address_code=? and address_info=? and address_detail=? and name=? and mobile=? and status=?".to_string(),
+            " user_id=? and address_code=? and address_info=? and address_detail=? and name=? and mobile=? and status=?",
             |mut res, _| {
                 res = res.bind(user.id);
                 res = res.bind(address_code.clone());

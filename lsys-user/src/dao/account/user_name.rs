@@ -2,13 +2,12 @@ use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
     get_message, now_time, FluentMessage,
 };
-use redis::aio::ConnectionManager;
+
 use sqlx::{Acquire, MySql, Pool, Transaction};
 use sqlx_model::{
     executor_option, model_option_set, sql_format, Insert, ModelTableName, Select, SqlQuote, Update,
 };
 use std::{collections::HashMap, sync::Arc};
-use tokio::sync::Mutex;
 
 use crate::model::{UserModel, UserNameModel, UserNameModelRef};
 
@@ -24,7 +23,7 @@ pub struct UserName {
 impl UserName {
     pub fn new(
         db: Pool<MySql>,
-        redis: Arc<Mutex<ConnectionManager>>,
+        redis: deadpool_redis::Pool,
         fluent: Arc<FluentMessage>,
         index: Arc<UserIndex>,
     ) -> Self {
@@ -40,7 +39,7 @@ impl UserName {
         let select = Select::type_new::<UserNameModel>();
         let res = select
             .fetch_one_by_where_call::<UserNameModel, _, _>(
-                "username=?".to_string(),
+                "username=?",
                 |mut res, _| {
                     res = res.bind(name);
                     res
@@ -69,7 +68,7 @@ impl UserName {
         let db = &self.db;
         let user_name_res = Select::type_new::<UserNameModel>()
             .fetch_one_by_where_call::<UserNameModel, _, _>(
-                "username=?".to_string(),
+                "username=?",
                 |mut res, _| {
                     res = res.bind(username.clone());
                     res
@@ -81,7 +80,7 @@ impl UserName {
             Err(sqlx::Error::RowNotFound) => {
                 let user_name_res = Select::type_new::<UserNameModel>()
                     .fetch_one_by_where_call::<UserNameModel, _, _>(
-                        "user_id=?".to_string(),
+                        "user_id=?",
                         |mut res, _| {
                             res = res.bind(user.id);
                             res

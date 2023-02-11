@@ -30,7 +30,7 @@ macro_rules! impl_dao_fetch_one_by_one {
         pub async fn $fn(&self, id: &$fetch_type) -> $result {
             let data = sqlx_model::Select::type_new::<$model>()
                 .fetch_one_by_where::<$model, _>(
-                    Some(sqlx_model::sql_format!($where_sql, $where_id_name = id.to_owned(),$($pat=$pav),*)),
+                    &sqlx_model::WhereOption::Where(sqlx_model::sql_format!($where_sql, $where_id_name = id.to_owned(),$($pat=$pav),*)),
                     &self.$db_field,
                 )
                 .await?;
@@ -45,7 +45,7 @@ macro_rules! impl_dao_fetch_vec_by_one {
         pub async fn $fn(&self, id: &$fetch_type) -> $result {
             let data = sqlx_model::Select::type_new::<$model>()
                 .fetch_all_by_where::<$model, _>(
-                    Some(sqlx_model::sql_format!($where_sql, $where_id_name = id.to_owned(),$($pat=$pav),*)),
+                    &sqlx_model::WhereOption::Where(sqlx_model::sql_format!($where_sql, $where_id_name = id.to_owned(),$($pat=$pav),*)),
                     &self.$db_field,
                 )
                 .await?;
@@ -64,7 +64,7 @@ macro_rules! impl_dao_fetch_map_by_vec {
             use sqlx_model::SqlQuote;
             let data = sqlx_model::Select::type_new::<$model>()
                 .fetch_all_by_where::<$model, _>(
-                    Some(sqlx_model::sql_format!($where_sql, $where_id_name = ids,$($pat=$pav),*)),
+                    &sqlx_model::WhereOption::Where(sqlx_model::sql_format!($where_sql, $where_id_name = ids,$($pat=$pav),*)),
                     &self.$db_field,
                 )
                 .await?;
@@ -88,7 +88,7 @@ macro_rules! impl_dao_fetch_vec_by_vec {
             use sqlx_model::SqlQuote;
             let data = sqlx_model::Select::type_new::<$model>()
                 .fetch_all_by_where::<$model, _>(
-                    Some(sqlx_model::sql_format!($where_sql, $where_id_name = ids,$($pat=$pav),*)),
+                   & sqlx_model::WhereOption::Where(sqlx_model::sql_format!($where_sql, $where_id_name = ids,$($pat=$pav),*)),
                     &self.$db_field,
                 )
                 .await?;

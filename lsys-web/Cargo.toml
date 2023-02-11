@@ -10,13 +10,16 @@ lsys-core = { version = "0.0.1", path = "../lsys-core"}
 lsys-rbac = { version = "0.0.1", path = "../lsys-rbac"}
 lsys-user = { version = "0.0.1", path = "../lsys-user"}
 lsys-app = { version = "0.0.1", path = "../lsys-app"}
+lsys-sender = { version = "0.0.1", path = "../lsys-sender"}
 pin-project = "1.0.*"
 futures-util="0.3.*"
 serde={ version = "1.0.*"}
 serde_json="1.0.*"
 dotenv = "0.15.*"
 
-tokio = {version="~1.25.0",features=["fs"]}
+tokio = {version="~1.25",features=["fs"]}
+deadpool-redis = { version = "0.11" }
+redis = { version = "~0.22"  }
 
 
 form_urlencoded = "1.0.1"
@@ -27,7 +30,7 @@ lexical-core="0.8.5"
 pin-project-lite = "0.2.9"
 #db
 sqlx = {version = "0.6.1",features = [ "mysql","runtime-tokio-native-tls","offline"]}
-sqlx-model = {version = "0.1.3", default-features=false,features = [ "sqlx-mysql"]}
+sqlx-model = {version = "0.2.0", default-features=false,features = [ "sqlx-mysql"]}
 simple_asn1="0.6.2"
 html-escape="~0.2.*"
 
@@ -76,8 +79,6 @@ nanoid = "0.4.0"
 ip2location = "~0.3.0"
 
 captcha = "0.0.9"
-redis = { version = "~0.22.1", features = ["tokio-comp","connection-manager"] }
-
 
 async-trait = "0.1.57"
 

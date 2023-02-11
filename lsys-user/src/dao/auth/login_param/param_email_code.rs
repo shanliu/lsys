@@ -8,12 +8,11 @@ use async_trait::async_trait;
 use lsys_core::get_message;
 use lsys_core::FluentMessage;
 
-use redis::aio::ConnectionManager;
 use serde::{Deserialize, Serialize};
 use sqlx::{MySql, Pool};
 use sqlx_model::Select;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+
 use tracing::warn;
 
 pub struct EmailCodeLogin {
@@ -47,7 +46,7 @@ impl LoginParam for EmailCodeLogin {
     async fn get_type(
         &self,
         _db: &Pool<MySql>,
-        _redis: &Arc<Mutex<ConnectionManager>>,
+        _redis: &deadpool_redis::Pool,
         fluent: &Arc<FluentMessage>,
     ) -> UserAuthResult<LoginType> {
         Ok(LoginType {
@@ -58,7 +57,7 @@ impl LoginParam for EmailCodeLogin {
     async fn get_user(
         &self,
         _db: &Pool<MySql>,
-        redis: &Arc<Mutex<ConnectionManager>>,
+        redis: &deadpool_redis::Pool,
         fluent: &Arc<FluentMessage>,
         account: &Arc<UserAccount>,
         _: &LoginEnv,

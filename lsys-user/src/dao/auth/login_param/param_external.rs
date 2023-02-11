@@ -6,12 +6,11 @@ use crate::dao::auth::{LoginParam, LoginType, UserAuthError, UserAuthResult};
 use crate::model::{UserExternalModel, UserModel};
 use async_trait::async_trait;
 use lsys_core::{get_message, FluentMessage};
-use redis::aio::ConnectionManager;
+
 use serde::{Deserialize, Serialize};
 use sqlx::{MySql, Pool};
 use sqlx_model::Select;
 use std::sync::Arc;
-use tokio::sync::Mutex;
 pub struct ExternalLogin<T: Serialize + Send + Sync> {
     pub external: UserExternalModel,
     pub ext_data: T,
@@ -46,7 +45,7 @@ impl<T: Serialize + Send + Sync> LoginParam for ExternalLogin<T> {
     async fn get_type(
         &self,
         _db: &Pool<MySql>,
-        _redis: &Arc<Mutex<ConnectionManager>>,
+        _redis: &deadpool_redis::Pool,
         fluent: &Arc<FluentMessage>,
     ) -> UserAuthResult<LoginType> {
         Ok(LoginType {
@@ -57,7 +56,7 @@ impl<T: Serialize + Send + Sync> LoginParam for ExternalLogin<T> {
     async fn get_user(
         &self,
         _db: &Pool<MySql>,
-        _redis: &Arc<Mutex<ConnectionManager>>,
+        _redis: &deadpool_redis::Pool,
         fluent: &Arc<FluentMessage>,
         account: &Arc<UserAccount>,
         _: &LoginEnv,

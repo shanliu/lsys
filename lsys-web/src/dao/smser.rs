@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use config::ConfigError;
-use lsys_core::{AppCore, FluentMessage};
+use lsys_core::FluentMessage;
+use lsys_sender::dao::Smser;
 use lsys_user::dao::account::{check_mobile, UserAccountError};
-use tera::{Context, Tera};
-use tracing::debug;
+use tera::Context;
 
 pub enum WebAppSmserError {
     Config(ConfigError),
@@ -38,29 +38,19 @@ impl From<tera::Error> for WebAppSmserError {
     }
 }
 
-macro_rules! err_result {
-    ($msg:expr) => {
-        WebAppSmserError::System($msg)
-    };
-}
 impl From<WebAppSmserError> for UserAccountError {
     fn from(err: WebAppSmserError) -> Self {
         UserAccountError::System(err.to_string())
     }
 }
 pub struct WebAppSmser {
-    app_core: Arc<AppCore>,
-    // tera: Arc<Tera>,
+    smser: Arc<Smser>,
     fluent: Arc<FluentMessage>,
 }
 
 impl WebAppSmser {
-    pub fn new(app_core: Arc<AppCore>, _: Arc<Tera>, fluent: Arc<FluentMessage>) -> Self {
-        Self {
-            app_core,
-            // tera,
-            fluent,
-        }
+    pub fn new(smser: Arc<Smser>, fluent: Arc<FluentMessage>) -> Self {
+        Self { smser, fluent }
     }
     pub async fn send(
         &self,
@@ -71,58 +61,11 @@ impl WebAppSmser {
     ) -> Result<(), WebAppSmserError> {
         check_mobile(&self.fluent, area, mobile)
             .map_err(|e| WebAppSmserError::System(e.to_string()))?;
-        let aliconfig = self.app_core.config.get_table("alisms")?;
-        let sms_config = aliconfig
-            .get(tpl_type)
-            .ok_or_else(|| {
-                err_result!(format!("not find {} notify config [ali_config]", tpl_type))
-            })?
-            .to_owned()
-            .into_table()
-            .map_err(|e| err_result!(e.to_string() + "[ali_config]"))?;
-        let tpl = sms_config
-            .get("sms_tpl")
-            .ok_or_else(|| err_result!(format!("not find {} notify tpl [ali_tpls]", tpl_type)))?
-            .to_owned()
-            .into_string()
-            .map_err(|e| err_result!(e.to_string() + "[ali_tpls]"))?;
-        let key = sms_config
-            .get("access_key_id")
-            .ok_or_else(|| err_result!(format!("not find {} notify tpl [ali_key]", tpl_type)))?
-            .to_owned()
-            .into_string()
-            .map_err(|e| err_result!(e.to_string() + "[ali_key]"))?;
-        let secret = sms_config
-            .get("access_key_secret")
-            .ok_or_else(|| err_result!(format!("not find {} notify tpl [ali_secret]", tpl_type)))?
-            .to_owned()
-            .into_string()
-            .map_err(|e| err_result!(e.to_string() + "[ali_secret]"))?;
-        let name = sms_config
-            .get("sign_name")
-            .ok_or_else(|| {
-                err_result!(format!(
-                    "not find {} notify tpl [ali_sms_sign_name]",
-                    tpl_type
-                ))
-            })?
-            .to_owned()
-            .into_string()
-            .map_err(|e| err_result!(e.to_string() + "[ali_sms_sign_name]"))?;
-        use sms::aliyun::Aliyun;
-        let aliyun = Aliyun::new(key.as_str(), secret.as_str());
-        let resp = aliyun
-            .send_sms(mobile, name.as_str(), tpl.as_str(), body)
+        self.smser
+            .send(area, mobile, tpl_type, body)
             .await
-            .map_err(|e| WebAppSmserError::System(e.to_string()))?;
-        debug!("aliyun sms resp :{:?}", resp);
-        if resp.get("Code").map(|e| e == "OK").unwrap_or(false) {
-            return Ok(());
-        }
-        Err(err_result!(format!(
-            "aliyun error:{:?} ",
-            resp.get("Message")
-        )))
+            .map_err(WebAppSmserError::System)
+            .map(|_| ())
     }
     pub async fn send_valid_code(
         &self,

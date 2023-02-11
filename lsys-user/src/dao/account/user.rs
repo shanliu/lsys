@@ -11,11 +11,10 @@ use crate::model::{
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::{get_message, now_time, FluentMessage, VecStringJoin};
 use rand::prelude::SliceRandom;
-use redis::aio::ConnectionManager;
+
 use sqlx::{Acquire, MySql, Pool, Transaction};
 use sqlx_model::{model_option_set, Insert, ModelTableName, Select, Update};
 use sqlx_model::{sql_format, SqlQuote};
-use tokio::sync::Mutex;
 
 use super::user_index::UserIndex;
 use super::UserAccountError;
@@ -55,7 +54,7 @@ impl User {
     pub fn new(
         db: Pool<MySql>,
         fluent: Arc<FluentMessage>,
-        redis: Arc<Mutex<ConnectionManager>>,
+        redis: deadpool_redis::Pool,
         index: Arc<UserIndex>,
     ) -> Self {
         Self {
@@ -102,7 +101,7 @@ impl User {
         let user_id = res.last_insert_id();
         let tmp = Select::type_new::<UserModel>()
             .fetch_one_by_where_call::<UserModel, _, _>(
-                "id=?".to_string(),
+                "id=?",
                 |mut res, _| {
                     res = res.bind(user_id);
                     res

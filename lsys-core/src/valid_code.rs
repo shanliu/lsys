@@ -1,32 +1,33 @@
 use std::{
     fmt::{Display, Formatter},
     string::FromUtf8Error,
-    sync::Arc,
+   
 };
 
 use async_trait::async_trait;
+use deadpool_redis::PoolError;
 use rand::prelude::SliceRandom;
-use redis::{aio::ConnectionManager, AsyncCommands, RedisError};
-use tokio::sync::Mutex;
+use redis::{aio::Connection, AsyncCommands,  RedisError};
+
 
 const CODE_SAVE_KEY: &str = "valid-save";
 
 pub struct ValidCode {
     prefix: String,
     ignore_case: bool,
-    redis: Arc<Mutex<ConnectionManager>>,
+    redis: deadpool_redis::Pool,
 }
 #[derive(Debug)]
 //不匹配错误
-pub struct ValidCodeCheckError{
-   pub message:String,
-   pub prefix:String
+pub struct ValidCodeCheckError {
+    pub message: String,
+    pub prefix: String,
 }
 #[derive(Debug)]
 pub enum ValidCodeError {
     Utf8Err(String),
     Create(String),
-    Redis(RedisError),
+    Redis(String),
     Tag(String),
     DelayTimeout(ValidCodeCheckError),
     NotMatch(ValidCodeCheckError),
@@ -43,7 +44,12 @@ impl From<FromUtf8Error> for ValidCodeError {
 }
 impl From<RedisError> for ValidCodeError {
     fn from(err: RedisError) -> Self {
-        ValidCodeError::Redis(err)
+        ValidCodeError::Redis(err.to_string())
+    }
+}
+impl From<PoolError> for ValidCodeError {
+    fn from(err: PoolError) -> Self {
+        ValidCodeError::Redis(err.to_string())
     }
 }
 
@@ -51,14 +57,14 @@ impl From<RedisError> for ValidCodeError {
 pub trait ValidCodeData {
     async fn get_code<'t>(
         &mut self,
-        redis: &'t mut ConnectionManager,
+        redis: &'t mut Connection,
         code: &'t Option<String>,
         prefix: &'t str,
         tag: &'t str,
     ) -> ValidCodeResult<String>;
     async fn clear_code<'t>(
         &mut self,
-        redis: &'t mut ConnectionManager,
+        redis: &'t mut Connection,
         prefix: &'t str,
         tag: &'t str,
     ) -> ValidCodeResult<()>;
@@ -111,7 +117,7 @@ impl ValidCodeDataRandom {
 impl ValidCodeData for ValidCodeDataRandom {
     async fn get_code<'t>(
         &mut self,
-        redis: &'t mut ConnectionManager,
+        redis: &'t mut Connection,
         code: &'t Option<String>,
         prefix: &'t str,
         tag: &'t str,
@@ -139,7 +145,7 @@ impl ValidCodeData for ValidCodeDataRandom {
 
     async fn clear_code<'t>(
         &mut self,
-        redis: &'t mut ConnectionManager,
+        redis: &'t mut Connection,
         prefix: &'t str,
         tag: &'t str,
     ) -> ValidCodeResult<()> {
@@ -160,11 +166,7 @@ impl ValidCodeData for ValidCodeDataRandom {
 pub type ValidCodeResult<T> = Result<T, ValidCodeError>;
 
 impl ValidCode {
-    pub fn new(
-        redis: Arc<Mutex<ConnectionManager>>,
-        prefix: String,
-        ignore_case: bool,
-    ) -> ValidCode {
+    pub fn new(redis: deadpool_redis::Pool, prefix: String, ignore_case: bool) -> ValidCode {
         ValidCode {
             prefix,
             redis,
@@ -176,7 +178,7 @@ impl ValidCode {
             return Err(ValidCodeError::Tag(format!("tag over length:{}", tag)));
         }
         let save_key = CODE_SAVE_KEY.to_owned() + self.prefix.as_str() + tag;
-        let mut redis = self.redis.lock().await;
+        let mut redis = self.redis.get().await?;
         let code: Option<String> = redis.get(save_key.as_str()).await?;
         let ttl = redis.ttl(save_key.as_str()).await?;
         Ok((code.unwrap_or_default(), ttl))
@@ -190,7 +192,7 @@ impl ValidCode {
             return Err(ValidCodeError::Tag(format!("tag over length:{}", tag)));
         }
         let save_key = CODE_SAVE_KEY.to_owned() + self.prefix.as_str() + tag;
-        let mut redis = self.redis.lock().await;
+        let mut redis = self.redis.get().await?;
         let code: Option<String> = redis.get(save_key.as_str()).await?;
         let out_code = valid_code_builder
             .get_code(&mut redis, &code, &self.prefix, tag)
@@ -217,14 +219,14 @@ impl ValidCode {
     ) -> ValidCodeResult<(String, usize)> {
         let (code, llt) = self.get_code(tag).await?;
         if code.is_empty() || llt <= 1 {
-            return Err(ValidCodeError::DelayTimeout(ValidCodeCheckError{
+            return Err(ValidCodeError::DelayTimeout(ValidCodeCheckError {
                 message: "code is timeout".to_string(),
-                prefix:  self.prefix.to_owned(),
+                prefix: self.prefix.to_owned(),
             }));
         }
         let save_time = valid_code_builder.save_time();
         let save_key = CODE_SAVE_KEY.to_owned() + self.prefix.as_str() + tag;
-        let mut redis = self.redis.lock().await;
+        let mut redis = self.redis.get().await?;
         if save_time > 0 {
             redis.expire(save_key.as_str(), save_time).await?;
         }
@@ -236,7 +238,7 @@ impl ValidCode {
         valid_code_builder: &mut T,
     ) -> ValidCodeResult<()> {
         let save_key = CODE_SAVE_KEY.to_owned() + self.prefix.as_str() + tag;
-        let mut redis = self.redis.lock().await;
+        let mut redis = self.redis.get().await?;
         redis.del(save_key).await?;
         valid_code_builder
             .clear_code(&mut redis, &self.prefix, tag)
@@ -247,12 +249,9 @@ impl ValidCode {
         let (s_code, _) = self.get_code(tag).await?;
         let c_code = code.trim();
         if c_code.is_empty() {
-            return Err(ValidCodeError::NotMatch(ValidCodeCheckError { 
-                message: format!(
-                    "your submit code [{}] is empty",
-                    code
-                ), 
-                prefix:  self.prefix.to_owned()
+            return Err(ValidCodeError::NotMatch(ValidCodeCheckError {
+                message: format!("your submit code [{}] is empty", code),
+                prefix: self.prefix.to_owned(),
             }));
         }
         if if self.ignore_case {
@@ -260,12 +259,9 @@ impl ValidCode {
         } else {
             s_code != *c_code
         } {
-            return Err(ValidCodeError::NotMatch(ValidCodeCheckError { 
-                message: format!(
-                    "your submit code [{}] not match",
-                    code
-                ), 
-                prefix:  self.prefix.to_owned()
+            return Err(ValidCodeError::NotMatch(ValidCodeCheckError {
+                message: format!("your submit code [{}] not match", code),
+                prefix: self.prefix.to_owned(),
             }));
         }
         Ok(())

@@ -1,9 +1,9 @@
 use config::Config;
+use deadpool_redis::{Config as RedisConfig, CreatePoolError, Runtime};
 use dotenv::dotenv;
 use fluent::{bundle::FluentBundle, FluentResource};
 use intl_memoizer::concurrent::IntlLangMemoizer;
 use log::LevelFilter;
-use redis::aio::ConnectionManager;
 use redis::RedisError;
 use sqlx::pool::PoolOptions;
 use sqlx::{ConnectOptions, Connection, Database, Pool};
@@ -32,7 +32,7 @@ pub enum AppCoreError {
     Io(std::io::Error),
     System(String),
     Log(String),
-    Redis(RedisError),
+    Redis(String),
     Dotenv(dotenv::Error),
     AppDir(String),
     Config(config::ConfigError),
@@ -49,6 +49,12 @@ impl From<sqlx::Error> for AppCoreError {
         AppCoreError::Sqlx(err)
     }
 }
+impl From<CreatePoolError> for AppCoreError {
+    fn from(err: CreatePoolError) -> Self {
+        AppCoreError::Redis(err.to_string())
+    }
+}
+
 impl From<VarError> for AppCoreError {
     fn from(err: VarError) -> Self {
         AppCoreError::Env(err)
@@ -66,7 +72,7 @@ impl From<std::io::Error> for AppCoreError {
 }
 impl From<RedisError> for AppCoreError {
     fn from(err: RedisError) -> Self {
-        AppCoreError::Redis(err)
+        AppCoreError::Redis(err.to_string())
     }
 }
 impl From<dotenv::Error> for AppCoreError {
@@ -220,10 +226,11 @@ impl AppCore {
         let b = redis::Client::open(redis_url)?;
         Ok(b)
     }
-    pub async fn create_redis(&self) -> Result<ConnectionManager, AppCoreError> {
-        let client = self.create_redis_client()?;
-        let con = client.get_tokio_connection_manager().await?;
-        Ok(con)
+    pub async fn create_redis(&self) -> Result<deadpool_redis::Pool, AppCoreError> {
+        let redis_url = self.config.get_string("redis_url").unwrap_or_default();
+        let cfg = RedisConfig::from_url(redis_url);
+        let pool = cfg.create_pool(Some(Runtime::Tokio1))?;
+        Ok(pool)
     }
     pub fn create_tera(&self, tpl_dir: &str) -> Result<Tera, AppCoreError> {
         let mut tpl_exts = self

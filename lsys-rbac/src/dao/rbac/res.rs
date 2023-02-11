@@ -157,13 +157,18 @@ impl RbacRes {
         Ok(res)
     }
     /// 获取指定用户和ID的数量
-    pub async fn get_count(&self, user_id: u64,res_name:&Option<String>, res_ids: &Option<Vec<u64>>) -> UserRbacResult<i64> {
+    pub async fn get_count(
+        &self,
+        user_id: u64,
+        res_name: &Option<String>,
+        res_ids: &Option<Vec<u64>>,
+    ) -> UserRbacResult<i64> {
         let mut sql = sql_format!(
             "select count(*) from {} where user_id = ? and status=?",
             RbacResModel::table_name()
         );
         if let Some(ref name) = res_name {
-            sql += sql_format!(" and name like {}", format!("%{}%",name)).as_str();
+            sql += sql_format!(" and name like {}", format!("%{}%", name)).as_str();
         }
         if let Some(ref rid) = res_ids {
             if rid.is_empty() {
@@ -181,7 +186,7 @@ impl RbacRes {
     pub async fn get_res(
         &self,
         user_id: u64,
-        res_name:&Option<String>,
+        res_name: &Option<String>,
         res_ids: &Option<Vec<u64>>,
         page: &Option<PageParam>,
     ) -> UserRbacResult<Vec<RbacResModel>> {
@@ -194,14 +199,14 @@ impl RbacRes {
             }
         }
         if let Some(name) = res_name {
-            sql += sql_format!(" and name like {}", format!("%{}%",name)).as_str();
+            sql += sql_format!(" and name like {}", format!("%{}%", name)).as_str();
         }
         if let Some(pdat) = page {
             sql += format!(" limit {} offset {}", pdat.limit, pdat.offset).as_str();
         }
         let data = Select::type_new::<RbacResModel>()
             .fetch_all_by_where_call::<RbacResModel, _, _>(
-                sql,
+                &sql,
                 |mut tmp, _| {
                     tmp = tmp.bind(user_id).bind(RbacResStatus::Enable as i8);
                     tmp
@@ -270,7 +275,7 @@ impl RbacRes {
 
         let res = Select::type_new::<RbacResModel>()
             .fetch_one_by_where_call::<RbacResModel, _, _>(
-                "user_id=? and res_key=? and status=?".to_string(),
+                "user_id=? and res_key=? and status=?",
                 |mut res, _| {
                     res = res.bind(user_id);
                     res = res.bind(key.clone());
@@ -443,7 +448,7 @@ impl RbacRes {
         let db = &self.db;
         let data = Select::type_new::<RbacResOpModel>()
             .fetch_all_by_where_call::<RbacResOpModel, _, _>(
-                sql_format!("res_id IN ({}) and status=?", res_ids).to_string(),
+                &sql_format!("res_id IN ({}) and status=?", res_ids),
                 |tmp, _| tmp.bind(RbacResStatus::Enable as i8),
                 db,
             )
@@ -479,7 +484,7 @@ impl RbacRes {
 
         let fops = Select::type_new::<RbacResOpModel>()
             .fetch_all_by_where_call::<RbacResOpModel, _, _>(
-                "res_id=? and status=?".to_string(),
+                "res_id=? and status=?",
                 |tmp, _| tmp.bind(res.id).bind(RbacResOpStatus::Enable as i8),
                 db,
             )
@@ -542,7 +547,10 @@ impl RbacRes {
             });
 
             let tmp = Update::<sqlx::MySql, RbacResOpModel, _>::new(ddata)
-                .execute_by_where(Some(sql_format!("id in ({})", del_op)), &mut db)
+                .execute_by_where(
+                    &sqlx_model::WhereOption::Where(sql_format!("id in ({})", del_op)),
+                    &mut db,
+                )
                 .await;
             if let Err(e) = tmp {
                 db.rollback().await?;
@@ -611,7 +619,7 @@ impl RbacRes {
             let res_id = res.iter().map(|res| res.id).collect::<Vec<_>>();
             Select::type_new::<RbacResOpModel>()
                 .fetch_all_by_where_call::<RbacResOpModel, _, _>(
-                    sql_format!("res_id in ({}) and status =? order by id desc", res_id),
+                    &sql_format!("res_id in ({}) and status =? order by id desc", res_id),
                     |mut res, _| {
                         res = res.bind(RbacResOpStatus::Enable as i8);
                         res

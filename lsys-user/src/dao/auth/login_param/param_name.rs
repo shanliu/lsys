@@ -13,8 +13,7 @@ use std::sync::Arc;
 
 use super::super::LoginEnv;
 use super::auth_check_user_password;
-use redis::aio::ConnectionManager;
-use tokio::sync::Mutex;
+
 pub struct NameLogin {
     pub name: String,
     pub password: String,
@@ -38,7 +37,7 @@ impl LoginParam for NameLogin {
     async fn get_type(
         &self,
         _db: &Pool<MySql>,
-        _redis: &Arc<Mutex<ConnectionManager>>,
+        _redis: &deadpool_redis::Pool,
         fluent: &Arc<FluentMessage>,
     ) -> UserAuthResult<LoginType> {
         Ok(LoginType {
@@ -49,7 +48,7 @@ impl LoginParam for NameLogin {
     async fn get_user(
         &self,
         _db: &Pool<MySql>,
-        _redis: &Arc<Mutex<ConnectionManager>>,
+        _redis: &deadpool_redis::Pool,
         fluent: &Arc<FluentMessage>,
         account: &Arc<UserAccount>,
         _: &LoginEnv,

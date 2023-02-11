@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use captcha::filters::{Dots, Noise, Wave};
 use captcha::Captcha;
 use lsys_core::{ValidCodeData, ValidCodeResult};
-use redis::aio::ConnectionManager;
+use redis::aio::Connection;
 
 pub struct ValidCodeDataCaptcha {
     pub code: String,
@@ -15,7 +15,7 @@ pub struct ValidCodeDataCaptcha {
 impl ValidCodeData for ValidCodeDataCaptcha {
     async fn get_code<'t>(
         &mut self,
-        _: &'t mut ConnectionManager,
+        _: &'t mut Connection,
         _: &'t Option<String>,
         _: &'t str,
         _: &'t str,
@@ -24,7 +24,7 @@ impl ValidCodeData for ValidCodeDataCaptcha {
     }
     async fn clear_code<'t>(
         &mut self,
-        _: &'t mut ConnectionManager,
+        _: &'t mut Connection,
         _: &'t str,
         _: &'t str,
     ) -> ValidCodeResult<()> {

@@ -6,15 +6,14 @@ pub use self::rbac::*;
 
 use self::rbac::Rbac;
 use lsys_core::{AppCore, AppCoreError, FluentMessage};
-use redis::aio::ConnectionManager;
+
 use sqlx::{MySql, Pool};
-use tokio::sync::Mutex;
 
 pub struct RbacDao {
     //内部依赖
     pub fluent: Arc<FluentMessage>,
     pub db: Pool<MySql>,
-    pub redis: Arc<Mutex<ConnectionManager>>,
+    pub redis: deadpool_redis::Pool,
     // 权限相关
     pub rbac: Arc<Rbac>,
 }
@@ -23,7 +22,7 @@ impl RbacDao {
     pub async fn new(
         app_core: Arc<AppCore>,
         db: Pool<MySql>,
-        redis: Arc<Mutex<ConnectionManager>>,
+        redis: deadpool_redis::Pool,
         system_role: Option<Box<dyn SystemRoleCheckData>>,
         use_cache: bool,
     ) -> Result<RbacDao, AppCoreError> {

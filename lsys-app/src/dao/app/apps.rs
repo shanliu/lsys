@@ -6,12 +6,12 @@ use lsys_core::{
     get_message, now_time, AppCore, FluentMessage, PageParam,
 };
 
-use redis::aio::ConnectionManager;
 use regex::Regex;
 use sqlx::{Acquire, MySql, Pool, Transaction};
-use sqlx_model::{model_option_set, sql_format, Insert, ModelTableName, Select, Update};
+use sqlx_model::{
+    model_option_set, sql_format, Insert, ModelTableName, Select, Update, WhereOption,
+};
 use sqlx_model::{SqlExpr, SqlQuote};
-use tokio::sync::Mutex;
 
 use super::{range_client_key, AppsError, AppsResult};
 
@@ -34,7 +34,7 @@ impl Apps {
     pub fn new(
         app_core: Arc<AppCore>,
         db: Pool<MySql>,
-        redis: Arc<Mutex<ConnectionManager>>,
+        redis: deadpool_redis::Pool,
         fluent: Arc<FluentMessage>,
     ) -> Self {
         Self {
@@ -82,18 +82,24 @@ impl Apps {
         app_where: &AppDataWhere<'t>,
         page: &Option<PageParam>,
     ) -> AppsResult<Vec<AppsModel>> {
-        let mut sql = match self.app_data_sql(app_where) {
+        let where_sql = match self.app_data_sql(app_where) {
             Some(sql) => sql,
             None => return Ok(vec![]),
         };
-        if sql.is_empty() {
-            sql = "1=1".to_string();
-        }
-        if let Some(pdat) = page {
-            sql += format!(" limit {} offset {}", pdat.limit, pdat.offset).as_str();
-        }
+        let page_sql = if let Some(pdat) = page {
+            format!(" limit {} offset {}", pdat.limit, pdat.offset)
+        } else {
+            "".to_string()
+        };
+        let sql = if !where_sql.is_empty() {
+            WhereOption::Where(where_sql + page_sql.as_str())
+        } else if page.is_some() {
+            WhereOption::NoWhere(page_sql)
+        } else {
+            WhereOption::None
+        };
         let data = Select::type_new::<AppsModel>()
-            .fetch_all_by_where::<AppsModel, _>(Some(sql), &self.db)
+            .fetch_all_by_where::<AppsModel, _>(&sql, &self.db)
             .await?;
         Ok(data)
     }
@@ -215,7 +221,7 @@ impl Apps {
         let (name, client_id, domain) = self.check_app_param(name, client_id, domain)?;
         let app_res = Select::type_new::<AppsModel>()
             .fetch_one_by_where_call::<AppsModel, _, _>(
-                "id!=? and client_id=?".to_string(),
+                "id!=? and client_id=?",
                 |mut res, _| {
                     res = res.bind(app.id);
                     res = res.bind(client_id.clone());
@@ -364,7 +370,7 @@ impl Apps {
         let (name, client_id, domain) = self.check_app_param(name, client_id, domain)?;
         let app_res = Select::type_new::<AppsModel>()
             .fetch_one_by_where_call::<AppsModel, _, _>(
-                " client_id=?".to_string(),
+                " client_id=?",
                 |mut res, _| {
                     res = res.bind(client_id.clone());
                     res
@@ -428,7 +434,7 @@ impl Apps {
     pub async fn find_by_client_id(&self, client_id: &String) -> AppsResult<AppsModel> {
         let useremal = Select::type_new::<AppsModel>()
             .fetch_one_by_where_call::<AppsModel, _, _>(
-                "client_id=? ".to_string(),
+                "client_id=? ",
                 |mut res, _| {
                     res = res.bind(client_id.to_owned());
                     res

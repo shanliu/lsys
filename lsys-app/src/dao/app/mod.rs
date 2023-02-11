@@ -4,6 +4,7 @@ use std::{
     time::SystemTimeError,
 };
 
+use deadpool_redis::PoolError;
 use lsys_core::now_time;
 use lsys_user::dao::account::UserAccountError;
 use rand::seq::SliceRandom;
@@ -37,7 +38,7 @@ pub use oauth::*;
 pub enum AppsError {
     Sqlx(sqlx::Error),
     System(String),
-    Redis(RedisError),
+    Redis(String),
 }
 impl Display for AppsError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -53,7 +54,12 @@ impl From<sqlx::Error> for AppsError {
 }
 impl From<RedisError> for AppsError {
     fn from(err: RedisError) -> Self {
-        AppsError::Redis(err)
+        AppsError::Redis(err.to_string())
+    }
+}
+impl From<PoolError> for AppsError {
+    fn from(err: PoolError) -> Self {
+        AppsError::Redis(err.to_string())
     }
 }
 impl From<SystemTimeError> for AppsError {

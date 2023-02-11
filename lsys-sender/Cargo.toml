@@ -8,20 +8,25 @@ edition = "2021"
 [dependencies]
 lsys-rbac = { version = "0.0.1", path = "../lsys-rbac"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-app = { version = "0.0.1", path = "../lsys-app"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-web = { version = "0.0.1", path = "../lsys-web"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-user = { version = "0.0.1", path = "../lsys-user"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-core = { version = "0.0.1", path = "../lsys-core"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
 serde={ version = "1.0.*"}
 serde_json="1.0.*"
 
+tokio = {version="~1.25"}
+deadpool-redis = { version = "0.11" }
+redis = { version = "~0.22"  }
 
-tokio = {version="~1.25.0"}
+sqlx = {version = "~0.6.*",features = [ "mysql","runtime-tokio-native-tls","offline"]}
+sqlx-model = {version = "~0.2.0", default-features=false,features = ["sqlx-mysql"]}
+
 # mail send
 lettre ={ version = "0.10.1", features = [ "smtp-transport","native-tls", "tokio1","tokio1-native-tls", "builder"] } 
 
 # sms send
 sms = "0.1.8"
 
+hostname = "~0.3.*"
 
 
 config = "0.13.2"
@@ -37,3 +42,7 @@ tracing-subscriber = {version="0.3.11",features=["env-filter"]}
 
 #模板
 tera = "1.17.0"
+
+async-trait = "~0.1.*"
+
+num_cpus="1.15.0"

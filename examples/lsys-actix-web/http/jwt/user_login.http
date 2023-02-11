@@ -32,7 +32,7 @@ Content-Type: application/json
 {
     "email": "shan.liu@msn.com",
      "captcha":  {
-        "code":"gDHMb",
+        "code":"c9e",
         "key":"shan.liu@msn.com"
     }
 }
@@ -111,7 +111,7 @@ Content-Type: application/json
     "email": "shan.liu@msn.com",
     "password": "bb1111",
      "captcha":  {
-        "code":"gDHMb",
+        "code":"32e",
         "key":"shan.liu@msn.com"
     }
 }
@@ -148,7 +148,7 @@ Content-Type: application/json
     "mobile": "13800138000",
     "area_code": "86",
     "captcha":  {
-        "code":"gDHMb",
+        "code":"lbG",
         "key":"8613800138000"
     }
 }

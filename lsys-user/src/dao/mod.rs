@@ -5,9 +5,8 @@ pub mod auth;
 
 use crate::dao::auth::UserAuth;
 use lsys_core::{AppCore, AppCoreError, FluentMessage};
-use redis::aio::ConnectionManager;
+
 use sqlx::{MySql, Pool};
-use tokio::sync::Mutex;
 
 use self::account::UserAccount;
 use self::auth::{UserAuthConfig, UserAuthStore};
@@ -16,7 +15,7 @@ pub struct UserDao<T: UserAuthStore> {
     //内部依赖
     pub fluent: Arc<FluentMessage>,
     pub db: Pool<MySql>,
-    pub redis: Arc<Mutex<ConnectionManager>>,
+    pub redis: deadpool_redis::Pool,
     // 授权相关
     pub user_auth: Arc<UserAuth<T>>,
     // 账号相关
@@ -27,7 +26,7 @@ impl<T: UserAuthStore + Send + Sync> UserDao<T> {
     pub async fn new(
         app_core: Arc<AppCore>,
         db: Pool<MySql>,
-        redis: Arc<Mutex<ConnectionManager>>,
+        redis: deadpool_redis::Pool,
         store: T,
         config: Option<UserAuthConfig>,
     ) -> Result<UserDao<T>, AppCoreError> {

@@ -1,8 +1,6 @@
-use std::{fmt::Display, str::FromStr, sync::Arc};
+use std::{fmt::Display, str::FromStr};
 
 use lsys_core::ValidCode;
-use redis::aio::ConnectionManager;
-use tokio::sync::Mutex;
 
 use crate::module::captcha::ValidCodeDataCaptcha;
 
@@ -52,11 +50,11 @@ impl Display for CaptchaKey {
 }
 
 pub struct WebAppCaptcha {
-    redis: Arc<Mutex<ConnectionManager>>,
+    redis: deadpool_redis::Pool,
 }
 
 impl WebAppCaptcha {
-    pub fn new(redis: Arc<Mutex<ConnectionManager>>) -> Self {
+    pub fn new(redis: deadpool_redis::Pool) -> Self {
         Self { redis }
     }
     pub fn valid_code(&self, captcha_key: &CaptchaKey) -> ValidCode {

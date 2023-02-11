@@ -177,7 +177,7 @@ pub async fn user_login_mobile_send_code<
             &mut req_dao.web_dao.captcha.valid_code_builder(),
         )
         .await;
-    Ok(JsonData::message("login mail is send").set_data(json!({ "ttl": data.1 })))
+    Ok(JsonData::message("login sms is send").set_data(json!({ "ttl": data.1 })))
 }
 
 #[derive(Deserialize)]

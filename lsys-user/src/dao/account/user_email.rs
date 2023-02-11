@@ -7,12 +7,10 @@ use crate::model::{UserEmailModel, UserEmailModelRef, UserEmailStatus, UserModel
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::{get_message, now_time, FluentMessage};
 
-use redis::aio::ConnectionManager;
-
 use sqlx::{Acquire, MySql, Pool, Transaction};
 use sqlx_model::SqlQuote;
 use sqlx_model::{model_option_set, sql_format, Insert, ModelTableName, Select, Update};
-use tokio::sync::Mutex;
+
 use tracing::warn;
 
 use super::user_index::UserIndex;
@@ -20,7 +18,7 @@ use super::{check_email, UserAccountError};
 
 pub struct UserEmail {
     db: Pool<MySql>,
-    redis: Arc<Mutex<ConnectionManager>>,
+    redis: deadpool_redis::Pool,
     fluent: Arc<FluentMessage>,
     index: Arc<UserIndex>,
     pub cache: Arc<LocalCache<u64, Vec<UserEmailModel>>>,
@@ -29,7 +27,7 @@ pub struct UserEmail {
 impl UserEmail {
     pub fn new(
         db: Pool<MySql>,
-        redis: Arc<Mutex<ConnectionManager>>,
+        redis: deadpool_redis::Pool,
         fluent: Arc<FluentMessage>,
         index: Arc<UserIndex>,
     ) -> Self {
@@ -48,7 +46,7 @@ impl UserEmail {
     pub async fn find_by_last_email(&self, email: String) -> UserAccountResult<UserEmailModel> {
         let useremal = Select::type_new::<UserEmailModel>()
             .fetch_one_by_where_call::<UserEmailModel, _, _>(
-                "email=? and status in (?,?) order by id desc".to_string(),
+                "email=? and status in (?,?) order by id desc",
                 |mut res, _| {
                     res = res.bind(email);
                     res = res.bind(UserEmailStatus::Init as i8);
@@ -71,7 +69,7 @@ impl UserEmail {
         check_email(&self.fluent, email.as_str())?;
         let email_res = Select::type_new::<UserEmailModel>()
             .fetch_one_by_where_call::<UserEmailModel, _, _>(
-                " email=? and status in (?,?)".to_string(),
+                " email=? and status in (?,?)",
                 |mut res, _| {
                     res = res.bind(email.clone());
                     res = res.bind(UserEmailStatus::Valid as i8);
@@ -187,7 +185,7 @@ impl UserEmail {
     pub async fn confirm_email(&self, email: &UserEmailModel) -> UserAccountResult<u64> {
         let email_res = Select::type_new::<UserEmailModel>()
             .fetch_one_by_where_call::<UserEmailModel, _, _>(
-                " email=? and status = ? and user_id!=? and id!=?".to_string(),
+                " email=? and status = ? and user_id!=? and id!=?",
                 |mut res, _| {
                     res = res.bind(email.email.clone());
                     res = res.bind(UserEmailStatus::Valid as i8);

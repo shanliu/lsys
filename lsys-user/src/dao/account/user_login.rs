@@ -29,7 +29,7 @@ impl UserLogin {
         if user_id.is_some() {
             where_sql.push("user_id=?")
         }
-        if let Some(ref tmp)=login_account {
+        if let Some(ref tmp) = login_account {
             if !tmp.is_empty() {
                 where_sql.push("login_account=?")
             }
@@ -46,7 +46,7 @@ impl UserLogin {
         }
         let user_res = Select::type_new::<UserLoginModel>()
             .fetch_all_by_where_call::<UserLoginModel, _, _>(
-                sql,
+                &sql,
                 |mut res, _| {
                     if let Some(tmp) = user_id {
                         res = res.bind(tmp);

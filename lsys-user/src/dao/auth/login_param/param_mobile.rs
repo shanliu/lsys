@@ -9,12 +9,11 @@ use lsys_core::FluentMessage;
 
 use super::super::{LoginData, LoginEnv};
 use super::auth_check_user_password;
-use redis::aio::ConnectionManager;
+
 use serde::{Deserialize, Serialize};
 use sqlx::{MySql, Pool};
 use sqlx_model::Select;
 use std::sync::Arc;
-use tokio::sync::Mutex;
 pub struct MobileLogin {
     pub area_code: String,
     pub mobile: String,
@@ -39,7 +38,7 @@ impl LoginParam for MobileLogin {
     async fn get_type(
         &self,
         _db: &Pool<MySql>,
-        _redis: &Arc<Mutex<ConnectionManager>>,
+        _redis: &deadpool_redis::Pool,
         fluent: &Arc<FluentMessage>,
     ) -> UserAuthResult<LoginType> {
         Ok(LoginType {
@@ -50,7 +49,7 @@ impl LoginParam for MobileLogin {
     async fn get_user(
         &self,
         _db: &Pool<MySql>,
-        _redis: &Arc<Mutex<ConnectionManager>>,
+        _redis: &deadpool_redis::Pool,
         fluent: &Arc<FluentMessage>,
         account: &Arc<UserAccount>,
         _: &LoginEnv,

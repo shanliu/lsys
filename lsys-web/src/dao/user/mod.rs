@@ -5,12 +5,10 @@ use lsys_user::dao::{
     UserDao,
 };
 
-use redis::aio::ConnectionManager;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sqlx::{MySql, Pool};
 use std::sync::Arc;
-use tokio::sync::Mutex;
 
 use crate::RelationParam;
 
@@ -30,7 +28,7 @@ pub struct WebUser {
     pub user_dao: Arc<UserDao<UserAuthRedisStore>>,
     pub rbac_dao: Arc<RbacDao>,
     pub db: Pool<MySql>,
-    pub redis: Arc<Mutex<ConnectionManager>>,
+    pub redis: deadpool_redis::Pool,
     pub captcha: Arc<WebAppCaptcha>,
     pub app_core: Arc<AppCore>,
     fluent: Arc<FluentMessage>,
@@ -41,7 +39,7 @@ impl WebUser {
         user_dao: Arc<UserDao<UserAuthRedisStore>>,
         rbac_dao: Arc<RbacDao>,
         db: Pool<MySql>,
-        redis: Arc<Mutex<ConnectionManager>>,
+        redis: deadpool_redis::Pool,
         captcha: Arc<WebAppCaptcha>,
         app_core: Arc<AppCore>,
         fluent: Arc<FluentMessage>,

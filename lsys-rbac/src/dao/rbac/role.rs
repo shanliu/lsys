@@ -12,7 +12,7 @@ use lsys_core::{
 use sqlx::{Acquire, FromRow, MySql, Pool, Row, Transaction};
 use sqlx_model::{
     executor_option, model_option_set, sql_format, Insert, ModelTableName, Select, SqlExpr,
-    SqlQuote, Update,
+    SqlQuote, Update, WhereOption,
 };
 
 use crate::model::{
@@ -197,7 +197,7 @@ impl RbacRole {
 
         let data = Select::type_new::<RbacRoleModel>()
             .fetch_all_by_where_call::<RbacRoleModel, _, _>(
-                sql,
+                &sql,
                 |mut tmp, _| {
                     tmp = tmp.bind(user_id).bind(RbacRoleStatus::Enable as i8);
                     tmp
@@ -278,7 +278,7 @@ impl RbacRole {
     ) -> Result<RbacRoleModel, sqlx::Error> {
         Select::type_new::<RbacRoleModel>()
             .fetch_one_by_where_call::<RbacRoleModel, _, _>(
-                "user_id=? and name=? and status=?".to_string(),
+                "user_id=? and name=? and status=?",
                 |mut res, _| {
                     res = res.bind(user_id);
                     res = res.bind(name);
@@ -303,7 +303,7 @@ impl RbacRole {
         );
         Select::type_new::<RbacRoleModel>()
             .fetch_all_by_where_call::<RbacRoleModel, _, _>(
-                sql,
+                &sql,
                 |mut res, _| {
                     res = res.bind(user_id);
                     res = res.bind(RbacRoleStatus::Enable as i8);
@@ -320,7 +320,7 @@ impl RbacRole {
     ) -> Result<RbacRoleModel, sqlx::Error> {
         Select::type_new::<RbacRoleModel>()
             .fetch_one_by_where_call::<RbacRoleModel, _, _>(
-                "user_id=? and relation_key=? and status=?".to_string(),
+                "user_id=? and relation_key=? and status=?",
                 |mut res, _| {
                     res = res.bind(user_id);
                     res = res.bind(relation_key);
@@ -587,7 +587,7 @@ impl RbacRole {
         {
             Select::type_new::<RbacRoleUserModel>()
                 .fetch_all_by_where_call::<RbacRoleUserModel, _, _>(
-                    "role_id=? and status=?".to_string(),
+                    "role_id=? and status=?",
                     |tmp, _| tmp.bind(role.id).bind(RbacRoleUserStatus::Enable as i8),
                     &self.db,
                 )
@@ -603,7 +603,7 @@ impl RbacRole {
         {
             Select::type_new::<RbacRoleOpModel>()
                 .fetch_all_by_where_call::<RbacRoleOpModel, _, _>(
-                    "role_id=? and status=?".to_string(),
+                    "role_id=? and status=?",
                     |tmp, _| tmp.bind(role.id).bind(RbacRoleOpStatus::Enable as i8),
                     &self.db,
                 )
@@ -922,7 +922,7 @@ impl RbacRole {
         let change_user = if RbacRoleUserRange::User.eq(role.user_range) {
             Select::type_new::<RbacRoleUserModel>()
                 .fetch_all_by_where_call::<RbacRoleUserModel, _, _>(
-                    "role_id=? and status=?".to_string(),
+                    "role_id=? and status=?",
                     |tmp, _| tmp.bind(role.id).bind(RbacRoleUserStatus::Enable as i8),
                     &self.db,
                 )
@@ -934,7 +934,7 @@ impl RbacRole {
         let change_op = if RbacRoleResOpRange::AllowCustom.eq(role.res_op_range) {
             Select::type_new::<RbacRoleOpModel>()
                 .fetch_all_by_where_call::<RbacRoleOpModel, _, _>(
-                    "role_id=? and status=?".to_string(),
+                    "role_id=? and status=?",
                     |tmp, _| tmp.bind(role.id).bind(RbacRoleOpStatus::Enable as i8),
                     &self.db,
                 )
@@ -1106,7 +1106,7 @@ impl RbacRole {
 
         let res = Select::type_new::<RbacRoleUserModel>()
             .fetch_one_by_where_call::<RbacRoleUserModel, _, _>(
-                sql_format!("user_id in ({}) and role_id=? and status=?", user_id_vec),
+                &sql_format!("user_id in ({}) and role_id=? and status=?", user_id_vec),
                 |mut res, _| {
                     res = res.bind(role.id);
                     res = res.bind(RbacRoleUserStatus::Enable as i8);
@@ -1179,7 +1179,7 @@ impl RbacRole {
         {
             let change_op = Select::type_new::<RbacRoleOpModel>()
                 .fetch_all_by_where_call::<RbacRoleOpModel, _, _>(
-                    "role_id=? and status=?".to_string(),
+                    "role_id=? and status=?",
                     |tmp, _| tmp.bind(role.id).bind(RbacRoleOpStatus::Enable as i8),
                     &self.db,
                 )
@@ -1257,7 +1257,7 @@ impl RbacRole {
         {
             let change_op = Select::type_new::<RbacRoleOpModel>()
                 .fetch_all_by_where_call::<RbacRoleOpModel, _, _>(
-                    "role_id=? and status=?".to_string(),
+                    "role_id=? and status=?",
                     |tmp, _| tmp.bind(role.id).bind(RbacRoleOpStatus::Enable as i8),
                     &self.db,
                 )
@@ -1332,7 +1332,7 @@ impl RbacRole {
         }
         let data = Select::type_new::<RbacRoleUserModel>()
             .fetch_all_by_where_call::<RbacRoleUserModel, _, _>(
-                sql,
+                &sql,
                 |tmp, _| tmp.bind(RbacRoleUserStatus::Enable as i8),
                 db,
             )
@@ -1376,7 +1376,7 @@ impl RbacRole {
         let db = &self.db;
         let data = Select::type_new::<RbacRoleOpModel>()
             .fetch_all_by_where_call::<RbacRoleOpModel, _, _>(
-                sql_format!("role_id IN ({}) and status=?", role_ids),
+                &sql_format!("role_id IN ({}) and status=?", role_ids),
                 |tmp, _| tmp.bind(RbacRoleStatus::Enable as i8),
                 db,
             )
@@ -1399,7 +1399,7 @@ impl RbacRole {
         } else {
             Select::type_new::<RbacRoleOpModel>()
                 .fetch_all_by_where_call::<RbacRoleOpModel, _, _>(
-                    sql_format!("res_op_id in ({}) and status=?", role_op_id_vec),
+                    &sql_format!("res_op_id in ({}) and status=?", role_op_id_vec),
                     |tmp, _| tmp.bind(RbacRoleOpStatus::Enable as i8),
                     &self.db,
                 )
@@ -1410,7 +1410,7 @@ impl RbacRole {
         } else {
             Select::type_new::<RbacRoleModel>()
                 .fetch_all_by_where::<RbacRoleModel, _>(
-                    Some(sql_format!(
+                    &WhereOption::Where(sql_format!(
                         "id in ({}) ",
                         rops.iter().map(|e| e.role_id).collect::<Vec<u64>>()
                     )),
@@ -1431,7 +1431,10 @@ impl RbacRole {
         });
         if !del_op.is_empty() {
             let tmp = Update::<sqlx::MySql, RbacRoleOpModel, _>::new(ddata)
-                .execute_by_where(Some(sql_format!("id in ({})", del_op)), &mut db)
+                .execute_by_where(
+                    &WhereOption::Where(sql_format!("id in ({})", del_op)),
+                    &mut db,
+                )
                 .await;
             if let Err(e) = tmp {
                 db.rollback().await?;
@@ -1474,7 +1477,7 @@ impl RbacRole {
             {
                 let user_ops = Select::type_new::<RbacRoleUserModel>()
                     .fetch_all_by_where_call::<RbacRoleUserModel, _, _>(
-                        "role_id=? and status=?".to_string(),
+                        "role_id=? and status=?",
                         |tmp, _| tmp.bind(r.id).bind(RbacRoleUserStatus::Enable as i8),
                         &self.db,
                     )
@@ -1524,7 +1527,7 @@ impl RbacRole {
         } else {
             Select::type_new::<RbacResModel>()
                 .fetch_all_by_where_call::<RbacResModel, _, _>(
-                    sql_format!("id in ({}) and status=?", res_id),
+                    &sql_format!("id in ({}) and status=?", res_id),
                     |tmp, _| tmp.bind(RbacResStatus::Enable as i8),
                     db,
                 )
@@ -1562,7 +1565,7 @@ impl RbacRole {
         } else {
             Select::type_new::<RbacResOpModel>()
                 .fetch_all_by_where_call::<RbacResOpModel, _, _>(
-                    sql_format!("id in ({}) and status=?", res_op_id),
+                    &sql_format!("id in ({}) and status=?", res_op_id),
                     |tmp, _| tmp.bind(RbacRoleOpStatus::Enable as i8),
                     db,
                 )
@@ -1595,7 +1598,7 @@ impl RbacRole {
         //确认需要移除的权限
         let rops = Select::type_new::<RbacRoleOpModel>()
             .fetch_all_by_where_call::<RbacRoleOpModel, _, _>(
-                "role_id=? and status=?".to_string(),
+                "role_id=? and status=?",
                 |tmp, _| tmp.bind(role.id).bind(RbacRoleOpStatus::Enable as i8),
                 db,
             )
@@ -1663,7 +1666,7 @@ impl RbacRole {
             });
             let tmp = Update::<sqlx::MySql, RbacRoleOpModel, _>::new(ddata)
                 .execute_by_where(
-                    Some(sql_format!(
+                    &WhereOption::Where(sql_format!(
                         "id in ({})",
                         del_op.iter().map(|e| e.0).collect::<Vec<u64>>()
                     )),
@@ -1716,7 +1719,7 @@ impl RbacRole {
         {
             let user_ops = Select::type_new::<RbacRoleUserModel>()
                 .fetch_all_by_where_call::<RbacRoleUserModel, _, _>(
-                    "role_id=? and status=?".to_string(),
+                    "role_id=? and status=?",
                     |tmp, _| tmp.bind(role.id).bind(RbacRoleUserStatus::Enable as i8),
                     &self.db,
                 )
@@ -1777,7 +1780,7 @@ impl RbacRole {
             } else {
                 Select::type_new::<RbacRoleOpModel>()
                     .fetch_all_by_where_call::<RbacRoleOpModel, _, _>(
-                        sql_format!("role_id in ({}) and status =? order by id desc", res_id),
+                        &sql_format!("role_id in ({}) and status =? order by id desc", res_id),
                         |mut res, _| {
                             res = res.bind(RbacRoleOpStatus::Enable as i8);
                             res

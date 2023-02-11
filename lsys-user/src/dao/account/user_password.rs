@@ -5,10 +5,10 @@ use crate::dao::auth::UserPasswordHash;
 
 use crate::model::{UserModel, UserModelRef, UserPasswordModel, UserPasswordModelRef};
 use lsys_core::{get_message, now_time, FluentMessage};
-use redis::aio::ConnectionManager;
+
 use sqlx::{Acquire, MySql, Pool, Transaction};
-use sqlx_model::{model_option_set, Insert,  Select, SqlQuote, Update};
-use tokio::sync::Mutex;
+use sqlx_model::{model_option_set, Insert, Select, SqlQuote, Update};
+
 use tracing::warn;
 
 use super::UserAccountError;
@@ -16,7 +16,7 @@ use super::UserAccountError;
 pub struct UserPassword {
     db: Pool<MySql>,
     fluent: Arc<FluentMessage>,
-    redis: Arc<Mutex<ConnectionManager>>,
+    redis: deadpool_redis::Pool,
     user_passwrd_hash: Arc<UserPasswordHash>,
 }
 
@@ -24,7 +24,7 @@ impl UserPassword {
     pub fn new(
         db: Pool<MySql>,
         fluent: Arc<FluentMessage>,
-        redis: Arc<Mutex<ConnectionManager>>,
+        redis: deadpool_redis::Pool,
         user_passwrd_hash: Arc<UserPasswordHash>,
     ) -> Self {
         Self {
@@ -80,7 +80,7 @@ impl UserPassword {
         if user.password_id > 0 {
             let user_pass_res = Select::type_new::<UserPasswordModel>()
                 .fetch_one_by_where_call::<UserPasswordModel, _, _>(
-                    "user_id=? and id=?".to_string(),
+                    "user_id=? and id=?",
                     |mut res, _| {
                         res = res.bind(user.id);
                         res = res.bind(user.password_id);
@@ -169,7 +169,7 @@ impl UserPassword {
         user: &UserModel,
         check_password: &String,
     ) -> UserAccountResult<bool> {
-        let user_password =self.find_by_id(&user.password_id).await?;
+        let user_password = self.find_by_id(&user.password_id).await?;
         Ok(self.user_passwrd_hash.hash_password(check_password).await == user_password.password)
     }
 }

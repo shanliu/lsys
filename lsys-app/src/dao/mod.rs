@@ -1,11 +1,9 @@
 use lsys_core::{AppCore, AppCoreError, FluentMessage};
 use lsys_user::dao::account::UserAccount;
-use redis::aio::ConnectionManager;
-use sqlx::{MySql, Pool};
-use std::sync::Arc;
-use tokio::sync::Mutex;
 
 use self::app::{Apps, AppsOauth};
+use sqlx::{MySql, Pool};
+use std::sync::Arc;
 
 pub mod app;
 pub mod session;
@@ -15,7 +13,7 @@ pub struct AppDao {
     pub app: Arc<Apps>,
     pub app_oauth: Arc<AppsOauth>,
     pub db: Pool<MySql>,
-    pub redis: Arc<Mutex<ConnectionManager>>,
+    pub redis: deadpool_redis::Pool,
     pub(crate) fluent: Arc<FluentMessage>,
 }
 
@@ -24,7 +22,7 @@ impl AppDao {
         user_account: Arc<UserAccount>,
         app_core: Arc<AppCore>,
         db: Pool<MySql>,
-        redis: Arc<Mutex<ConnectionManager>>,
+        redis: deadpool_redis::Pool,
         time_out: u64,
     ) -> Result<AppDao, AppCoreError> {
         let app_locale_dir = app_core.app_dir.join("locale/lsys-app");

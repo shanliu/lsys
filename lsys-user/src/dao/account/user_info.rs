@@ -2,11 +2,10 @@ use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
     now_time,
 };
-use redis::aio::ConnectionManager;
+
 use sqlx::{Acquire, MySql, Pool, Transaction};
 use sqlx_model::{Insert, Select, SqlQuote, Update};
 use std::{collections::HashMap, sync::Arc};
-use tokio::sync::Mutex;
 
 use crate::model::{UserInfoModel, UserInfoModelRef, UserModel};
 
@@ -22,12 +21,7 @@ pub struct UserInfo {
 //  find_by_id_impl!(UserInfo,UserInfoModel,cache,user_id,"");
 
 impl UserInfo {
-    pub fn new(
-        db: Pool<MySql>,
-
-        redis: Arc<Mutex<ConnectionManager>>,
-        index: Arc<UserIndex>,
-    ) -> Self {
+    pub fn new(db: Pool<MySql>, redis: deadpool_redis::Pool, index: Arc<UserIndex>) -> Self {
         Self {
             cache: Arc::from(LocalCache::new(redis, LocalCacheConfig::new("user-info"))),
             db,
@@ -48,7 +42,7 @@ impl UserInfo {
         let db = &self.db;
         let user_res = Select::type_new::<UserInfoModel>()
             .fetch_one_by_where_call::<UserInfoModel, _, _>(
-                "user_id=?".to_string(),
+                "user_id=?",
                 |mut res, _| {
                     res = res.bind(user.id);
                     res

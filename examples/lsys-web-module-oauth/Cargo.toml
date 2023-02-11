@@ -20,4 +20,4 @@ labrador={ version = "0.2.0", features = [ "wechat"] }
 
 rand = "~0.8.*"
 
-redis = { version = "~0.22.1", features = ["tokio-comp","connection-manager"] }
+redis = { version = "~0.22"  }

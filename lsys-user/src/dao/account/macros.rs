@@ -58,12 +58,10 @@ macro_rules! impl_account_valid_code_method {
 #[test]
 fn valid_code_test() {
     use crate::dao::account::UserAccountResult;
-    use redis::aio::ConnectionManager;
-    use std::sync::Arc;
-    use tokio::sync::Mutex;
+
     #[allow(dead_code)]
     struct Test1 {
-        redis: Arc<Mutex<ConnectionManager>>,
+        redis: deadpool_redis::Pool,
     }
     #[allow(dead_code)]
     impl Test1 {

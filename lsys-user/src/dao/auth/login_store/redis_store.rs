@@ -6,25 +6,25 @@ use crate::model::UserModel;
 use async_trait::async_trait;
 use lsys_core::now_time;
 use rand::seq::SliceRandom;
-use redis::aio::ConnectionManager;
+
 use redis::AsyncCommands;
 use std::collections::HashMap;
 use std::ops::Add;
 use std::prelude::v1::Result::Err;
 use std::result::Result::Ok;
 use std::string::FromUtf8Error;
-use std::sync::Arc;
+
 use std::time::SystemTime;
-use tokio::sync::Mutex;
+
 use tracing::{debug, trace, warn};
 
 use super::super::{LoginData, UserAuthError};
 
 pub struct UserAuthRedisStore {
-    redis: Arc<Mutex<ConnectionManager>>,
+    redis: deadpool_redis::Pool,
 }
 impl UserAuthRedisStore {
-    pub fn new(redis: Arc<Mutex<ConnectionManager>>) -> Self {
+    pub fn new(redis: deadpool_redis::Pool) -> Self {
         Self { redis }
     }
 }
@@ -66,7 +66,7 @@ impl UserAuthStore for UserAuthRedisStore {
             UserAuthTokenData::new(login_key(LOGIN_KEY_LEN)?, account.id, time_out)
         };
         let mut set_time_out: u64 = 0;
-        let mut redis = self.redis.lock().await;
+        let mut redis = self.redis.get().await?;
         let redis_data_opt: Option<HashMap<String, String>> = redis.hgetall(key.as_str()).await?;
         let redis_data = redis_data_opt.unwrap_or_default();
         debug!(login_id = %account.id,login_type=%login_type.type_name,"login count : {:?}",redis_data.len());
@@ -105,13 +105,13 @@ impl UserAuthStore for UserAuthRedisStore {
     async fn clear_data(&mut self, token: &UserAuthTokenData) -> UserAuthResult<()> {
         let key = format!("login::{}", token.user_id);
         debug!(login_id = %token.user_id,"login out");
-        let mut redis = self.redis.lock().await;
+        let mut redis = self.redis.get().await?;
         let _: () = redis.hdel(key, token.to_string()).await?;
         UserAuthResult::Ok(())
     }
     async fn get_data(&self, token: &UserAuthTokenData) -> UserAuthResult<UserAuthData> {
         let key = format!("login::{}", token.user_id);
-        let mut redis = self.redis.lock().await;
+        let mut redis = self.redis.get().await?;
         let user_data: Option<String> = redis.hget(key, token.to_string()).await?;
         match user_data {
             Some(data) => {
@@ -121,10 +121,10 @@ impl UserAuthStore for UserAuthRedisStore {
             None => Err(UserAuthError::NotLogin("token not find".to_string())),
         }
     }
-    async fn exist_data(&self, token: &UserAuthTokenData) -> bool {
+    async fn exist_data(&self, token: &UserAuthTokenData) -> UserAuthResult<bool> {
         let key = format!("login::{}", token.user_id);
-        let mut redis = self.redis.lock().await;
+        let mut redis = self.redis.get().await?;
         let is_login = redis.hexists(key, token.to_string()).await.unwrap_or(false);
-        return is_login;
+        return Ok(is_login);
     }
 }

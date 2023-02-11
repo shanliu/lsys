@@ -1,7 +1,8 @@
 use lsys_core::{now_time, PageParam};
 use sqlx::{Acquire, MySql, Pool, Transaction};
 use sqlx_model::{
-    executor_option, model_option_set, sql_format, Insert, ModelTableName, Select, SqlQuote, Update,
+    executor_option, model_option_set, sql_format, Insert, ModelTableName, Select, SqlQuote,
+    Update, WhereOption,
 };
 
 use crate::model::{RbacTagsModel, RbacTagsModelRef, RbacTagsSource, RbacTagsStatus};
@@ -22,7 +23,7 @@ impl RbacTags {
         name: &[String],
         from_ids: &Option<Vec<u64>>,
         sorce: RbacTagsSource,
-        other_where:Option<&String>
+        other_where: Option<&String>,
     ) -> UserRbacResult<i64> {
         if name.is_empty() {
             return Ok(0);
@@ -38,8 +39,8 @@ impl RbacTags {
             }
             sql += &sql_format!(" and from_id IN ({})", fids);
         }
-        if let Some(wsql)=other_where{
-            sql +=wsql;
+        if let Some(wsql) = other_where {
+            sql += wsql;
         }
         let mut query = sqlx::query_scalar::<_, i64>(&sql);
         query = query
@@ -76,7 +77,7 @@ impl RbacTags {
         }
         let data = Select::type_new::<RbacTagsModel>()
             .fetch_all_by_where_call::<RbacTagsModel, _, _>(
-                sql,
+                &sql,
                 |mut tmp, _| {
                     tmp = tmp
                         .bind(user_id)
@@ -100,7 +101,7 @@ impl RbacTags {
         }
         let data = Select::type_new::<RbacTagsModel>()
             .fetch_all_by_where_call::<RbacTagsModel, _, _>(
-                sql_format!("from_id IN ({}) and from_source=? and status=?", from_ids),
+                &sql_format!("from_id IN ({}) and from_source=? and status=?", from_ids),
                 |tmp, _| tmp.bind(sorce as i8).bind(RbacTagsStatus::Enable as i8),
                 &self.db,
             )
@@ -171,7 +172,7 @@ impl RbacTags {
 
         let ftags = Select::type_new::<RbacTagsModel>()
             .fetch_all_by_where_call::<RbacTagsModel, _, _>(
-                "from_source=? and from_id=? and status=?".to_string(),
+                "from_source=? and from_id=? and status=?",
                 |tmp, _| {
                     tmp.bind(from_source)
                         .bind(from_id)
@@ -227,7 +228,10 @@ impl RbacTags {
                 status:(RbacTagsStatus::Delete as i8),
             });
             let tmp = Update::<sqlx::MySql, RbacTagsModel, _>::new(ddata)
-                .execute_by_where(Some(sql_format!("id in ({})", del_tag)), &mut db)
+                .execute_by_where(
+                    &WhereOption::Where(sql_format!("id in ({})", del_tag)),
+                    &mut db,
+                )
                 .await;
 
             match tmp {

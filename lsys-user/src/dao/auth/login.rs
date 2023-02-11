@@ -6,7 +6,7 @@ use ip2location::Record;
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::{get_message, FluentMessage};
 use lsys_core::{now_time, PageParam};
-use redis::aio::ConnectionManager;
+
 use serde::Deserialize;
 use serde::Serialize;
 use sqlx::{MySql, Pool};
@@ -68,7 +68,7 @@ pub trait LoginParam {
     async fn get_user(
         &self,
         db: &Pool<MySql>,
-        redis: &Arc<Mutex<ConnectionManager>>,
+        redis: &deadpool_redis::Pool,
         fluent: &Arc<FluentMessage>,
         account: &Arc<UserAccount>,
         login_env: &LoginEnv,
@@ -77,7 +77,7 @@ pub trait LoginParam {
     async fn get_type(
         &self,
         db: &Pool<MySql>,
-        redis: &Arc<Mutex<ConnectionManager>>,
+        redis: &deadpool_redis::Pool,
         fluent: &Arc<FluentMessage>,
     ) -> UserAuthResult<LoginType>;
     fn show_name(&self) -> String;
@@ -270,14 +270,14 @@ pub trait UserAuthStore {
     //从存储的数据中获取登录数据
     async fn get_data(&self, token: &UserAuthTokenData) -> UserAuthResult<UserAuthData>;
     //是否存在此登录数据
-    async fn exist_data(&self, token: &UserAuthTokenData) -> bool;
+    async fn exist_data(&self, token: &UserAuthTokenData) -> UserAuthResult<bool>;
 }
 
 //验证登录相关接口
 //不包含登录状态
 pub struct UserAuth<T: UserAuthStore> {
     db: Pool<MySql>,
-    redis: Arc<Mutex<ConnectionManager>>,
+    redis: deadpool_redis::Pool,
     fluent: Arc<FluentMessage>,
     account: Arc<UserAccount>,
     login_store: RwLock<T>,
@@ -289,7 +289,7 @@ impl<T: UserAuthStore + Send + Sync> UserAuth<T> {
     /// 对外对象创建
     pub fn new(
         db: Pool<MySql>,
-        redis: Arc<Mutex<ConnectionManager>>,
+        redis: deadpool_redis::Pool,
         fluent: Arc<FluentMessage>,
         account: Arc<UserAccount>,
         store: T,
@@ -581,14 +581,18 @@ impl<T: UserAuthStore + Send + Sync> UserAuth<T> {
         }
     }
     //获取当前登录
-    pub async fn is_login(&self, user_token: &SessionToken<UserAuthTokenData>) -> bool {
+    pub async fn is_login(
+        &self,
+        user_token: &SessionToken<UserAuthTokenData>,
+    ) -> UserAuthResult<bool> {
         if let Some(user_token_data) = user_token.data() {
             if let Ok(now_time) = now_time() {
                 if self.cache.get(&user_token_data.token).await.is_some() {
-                    return true;
+                    return Ok(true);
                 }
                 let store = self.login_store.read().await;
-                if store.exist_data(user_token_data).await {
+                let is_find = store.exist_data(user_token_data).await?;
+                if is_find {
                     if self.cache.config().cache_time > 0 {
                         if let Ok(ua) = store.get_data(user_token_data).await {
                             if ua.user_data().time_out > now_time {
@@ -596,18 +600,18 @@ impl<T: UserAuthStore + Send + Sync> UserAuth<T> {
                                 self.cache
                                     .set(user_token_data.token.clone(), ua, set_time)
                                     .await;
-                                return true;
+                                return Ok(true);
                             } else {
                                 self.cache.clear(&user_token_data.token).await;
                             }
                         }
                     } else {
-                        return true;
+                        return Ok(true);
                     }
                 }
             }
         }
-        false
+        Ok(false)
     }
 }
 
@@ -647,7 +651,7 @@ impl<T: UserAuthStore + Send + Sync> UserAuthSession<T> {
     ) -> UserAuthSession<T> {
         Self { auth, user_token }
     }
-    pub async fn is_login(&self) -> bool {
+    pub async fn is_login(&self) -> UserAuthResult<bool> {
         self.auth.is_login(&self.user_token).await
     }
     pub fn set_session_token_str(&mut self, token_str: &str) {

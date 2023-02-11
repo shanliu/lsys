@@ -1,4 +1,5 @@
 use config::ConfigError;
+use deadpool_redis::PoolError;
 use lsys_core::ValidCodeError;
 use lsys_rbac::dao::rbac::UserRbacError;
 use lsys_user::dao::{account::UserAccountError, auth::UserAuthError};
@@ -230,4 +231,5 @@ result_impl_system_error!(FromUtf8Error, 500);
 result_impl_system_error!(std::io::Error, 500);
 result_impl_system_error!(reqwest::Error, 500);
 result_impl_system_error!(tera::Error, 500);
+result_impl_system_error!(PoolError, 500);
 result_impl_system_error!(ScopeError, 200);

@@ -7,10 +7,10 @@ use crate::model::{UserMobileModel, UserMobileModelRef, UserMobileStatus, UserMo
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::FluentMessage;
 use lsys_core::{get_message, now_time};
-use redis::aio::ConnectionManager;
+
 use sqlx::{Acquire, MySql, Pool, Transaction};
 use sqlx_model::{model_option_set, sql_format, Insert, ModelTableName, Select, SqlQuote, Update};
-use tokio::sync::Mutex;
+
 use tracing::log::warn;
 
 use super::user_index::UserIndex;
@@ -21,7 +21,7 @@ pub trait UserMobileValid {
 
 pub struct UserMobile {
     db: Pool<MySql>,
-    redis: Arc<Mutex<ConnectionManager>>,
+    redis: deadpool_redis::Pool,
     fluent: Arc<FluentMessage>,
     index: Arc<UserIndex>,
     pub cache: Arc<LocalCache<u64, Vec<UserMobileModel>>>,
@@ -30,7 +30,7 @@ pub struct UserMobile {
 impl UserMobile {
     pub fn new(
         db: Pool<MySql>,
-        redis: Arc<Mutex<ConnectionManager>>,
+        redis: deadpool_redis::Pool,
         fluent: Arc<FluentMessage>,
         index: Arc<UserIndex>,
     ) -> Self {
@@ -55,7 +55,7 @@ impl UserMobile {
         let select = Select::type_new::<UserMobileModel>();
         let res = select
             .fetch_one_by_where_call::<UserMobileModel, _, _>(
-                "mobile=? and area_code=?  and status in (?,?) order by id desc".to_string(),
+                "mobile=? and area_code=?  and status in (?,?) order by id desc",
                 |mut res, _| {
                     res = res.bind(mobile);
                     res = res.bind(area_code);
@@ -83,7 +83,7 @@ impl UserMobile {
         check_mobile(&self.fluent, area_code.as_str(), mobile.as_str())?;
         let mobile_res = Select::type_new::<UserMobileModel>()
             .fetch_one_by_where_call::<UserMobileModel, _, _>(
-                "area_code=? and mobile=? and status in (?,?)".to_string(),
+                "area_code=? and mobile=? and status in (?,?)",
                 |mut res, _| {
                     res = res.bind(area_code.clone());
                     res = res.bind(mobile.clone());
@@ -211,7 +211,7 @@ impl UserMobile {
     pub async fn confirm_mobile(&self, user_mobile: &UserMobileModel) -> UserAccountResult<u64> {
         let mobile_res = Select::type_new::<UserMobileModel>()
             .fetch_one_by_where_call::<UserMobileModel, _, _>(
-                " area_code=? and mobile=? and status =? and user_id!=? and id!=?".to_string(),
+                " area_code=? and mobile=? and status =? and user_id!=? and id!=?",
                 |mut res, _| {
                     res = res.bind(user_mobile.area_code.clone());
                     res = res.bind(user_mobile.mobile.clone());

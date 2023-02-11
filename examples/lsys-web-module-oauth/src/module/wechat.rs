@@ -115,7 +115,7 @@ impl WechatLogin {
             .parse_state(&user_auth.state)
             .map_err(JsonData::message_error)?;
         let login_key = login_data_key(&statek);
-        let mut redis = webuser.redis.lock().await;
+        let mut redis = webuser.redis.get().await?;
         let login_data = serde_json::to_string(&user_auth)?;
         redis
             .set_ex(&login_key, login_data, self.timeout)
@@ -131,7 +131,7 @@ impl WechatLogin {
     ) -> JsonResult<(bool, Option<WechatCallbackParam>)> {
         let state_ukey = &state.chars().take(6).collect::<String>();
         let state_key = state_key(state_ukey);
-        let mut redis = webuser.redis.lock().await;
+        let mut redis = webuser.redis.get().await?;
         let data_opt: Option<String> = redis
             .get(state_key.as_str())
             .await
@@ -200,7 +200,7 @@ impl OauthLogin<WechatLoginParam, WechatCallbackParam, WechatExternalData> for W
         }
         let state_rand = state_rand(self.rand_length);
         let state_key = state_key(state_ukey);
-        let mut redis = webuser.redis.lock().await;
+        let mut redis = webuser.redis.get().await.map_err(|e| e.to_string())?;
         redis
             .set_ex(state_key.as_str(), state_rand.clone(), self.timeout)
             .await
@@ -223,7 +223,7 @@ impl OauthLogin<WechatLoginParam, WechatCallbackParam, WechatExternalData> for W
     ) -> Result<(OauthLoginData, WechatExternalData), String> {
         let (statek, state_rand) = self.parse_state(&param.state)?;
         let state_key = state_key(&statek);
-        let mut redis = webuser.redis.lock().await;
+        let mut redis = webuser.redis.get().await.map_err(|e| e.to_string())?;
         let save_state_opt: Option<String> = redis
             .get(state_key.as_str())
             .await

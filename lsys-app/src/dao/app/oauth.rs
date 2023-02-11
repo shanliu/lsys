@@ -9,13 +9,13 @@ use lsys_core::{get_message, now_time, FluentMessage};
 use lsys_user::dao::account::UserAccount;
 use lsys_user::dao::auth::{SessionToken, SessionUserData};
 use lsys_user::model::UserModel;
-use redis::{aio::ConnectionManager, AsyncCommands};
+
+use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
 use sqlx::{MySql, Pool};
-use sqlx_model::{SqlQuote, Update};
+use sqlx_model::{SqlQuote, Update, WhereOption};
 
 use sqlx_model::{model_option_set, sql_format, Insert, Select};
-use tokio::sync::Mutex;
 
 use crate::dao::session::{RestAuthData, RestAuthTokenData};
 use crate::model::AppsTokenStatus;
@@ -29,7 +29,7 @@ use super::{AppsError, AppsResult};
 pub struct AppsOauth {
     user_account: Arc<UserAccount>,
     db: Pool<MySql>,
-    redis: Arc<Mutex<ConnectionManager>>,
+    redis: deadpool_redis::Pool,
     fluent: Arc<FluentMessage>,
     pub cache: Arc<LocalCache<String, RestAuthData>>,
     time_out: u64,
@@ -52,7 +52,7 @@ impl AppsOauth {
     pub fn new(
         user_account: Arc<UserAccount>,
         db: Pool<MySql>,
-        redis: Arc<Mutex<ConnectionManager>>,
+        redis: deadpool_redis::Pool,
         fluent: Arc<FluentMessage>,
         time_out: u64,
     ) -> Self {
@@ -76,7 +76,7 @@ impl AppsOauth {
         scope: &String,
         user_id: u64,
     ) -> AppsResult<String> {
-        let mut redis = self.redis.lock().await;
+        let mut redis = self.redis.get().await?;
         let code = range_client_key();
         let save_key = create_save_key("code", app.id, &code);
         let val = serde_json::to_string(&OauthData {
@@ -162,7 +162,7 @@ impl AppsOauth {
         code: String,
     ) -> AppsResult<(AppsTokenModel, UserModel)> {
         let save_key = create_save_key("code", app.id, &code);
-        let mut redis = self.redis.lock().await;
+        let mut redis = self.redis.get().await?;
         let data_opt: Option<String> = redis.get(save_key.as_str()).await?;
         let data = data_opt.unwrap_or_default();
         if data.is_empty() {
@@ -179,7 +179,7 @@ impl AppsOauth {
                 let status = AppsTokenStatus::Enable.to();
                 let data = Select::type_new::<AppsTokenModel>()
                     .fetch_one_by_where::<AppsTokenModel, _>(
-                        Some(sql_format!(
+                        &WhereOption::Where(sql_format!(
                             "app_id={} and code={} and status={}",
                             app.id,
                             code,

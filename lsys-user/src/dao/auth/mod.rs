@@ -2,6 +2,7 @@ mod login;
 mod login_param;
 mod login_store;
 mod session;
+use deadpool_redis::PoolError;
 pub use login::*;
 pub use login_store::*;
 pub use session::*;
@@ -35,7 +36,7 @@ pub enum UserAuthError {
     System(String),
     CheckUserLock(u64),
     CheckCaptchaNeed(String),
-    Redis(RedisError),
+    Redis(String),
 }
 impl Display for UserAuthError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -58,7 +59,12 @@ impl From<SystemTimeError> for UserAuthError {
 }
 impl From<RedisError> for UserAuthError {
     fn from(err: RedisError) -> Self {
-        UserAuthError::Redis(err)
+        UserAuthError::Redis(err.to_string())
+    }
+}
+impl From<PoolError> for UserAuthError {
+    fn from(err: PoolError) -> Self {
+        UserAuthError::Redis(err.to_string())
     }
 }
 impl From<serde_json::Error> for UserAuthError {

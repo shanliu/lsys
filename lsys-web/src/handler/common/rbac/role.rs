@@ -199,7 +199,7 @@ pub async fn rbac_role_add(
 
     let role = Select::type_new::<RbacRoleModel>()
         .fetch_one_by_where_call::<RbacRoleModel, _, _>(
-            "id=?".to_string(),
+            "id=?",
             |mut res, _| {
                 res = res.bind(id.to_owned());
                 res

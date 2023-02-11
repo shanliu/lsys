@@ -9,12 +9,11 @@ pub use cache::*;
 pub use data::*;
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::FluentMessage;
-use redis::aio::ConnectionManager;
+
 pub use res::*;
 pub use role::*;
 use sqlx::{MySql, Pool};
 pub use tags::*;
-use tokio::sync::Mutex;
 
 mod access;
 mod cache;
@@ -63,7 +62,7 @@ impl Rbac {
     pub fn new(
         fluent: Arc<FluentMessage>,
         db: Pool<MySql>,
-        redis: Arc<Mutex<ConnectionManager>>,
+        redis: deadpool_redis::Pool,
         system_role: Option<Box<dyn SystemRoleCheckData>>,
         use_cache: bool,
     ) -> Self {
