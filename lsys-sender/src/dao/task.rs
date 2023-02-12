@@ -129,6 +129,7 @@ pub struct Task<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Disp
     read_lock_timeout: usize,
     task_list_key: String,
     exec_num_key: String,
+    pub is_check: bool,
     pub check_timeout: usize,
     pub task_size: usize,
     pub read_size: usize,
@@ -144,19 +145,27 @@ impl<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display, T: Tas
         read_lock_key: String,
         task_list_key: String,
         exec_num_key: String,
-        check_timeout: usize, //任务数据超时检测或失败时重试间隔时间
+        is_check: bool,       //是否进行定期任务检测
+        check_timeout: usize, //当使用任务检测时的时间间隔
     ) -> Self {
         let cpu_num = num_cpus::get();
-        let mut read_lock_timeout = 5 * 60;
+        let mut read_lock_timeout = 5 * 60; //最大5分钟
         if read_lock_timeout > check_timeout {
             read_lock_timeout = check_timeout;
         }
+        let check_timeout = if check_timeout == 0 {
+            read_lock_timeout
+        } else {
+            check_timeout
+        };
+        let check_timeout = if is_check { 60 } else { check_timeout };
         Self {
             list_notify,
             read_lock_key,
             read_lock_timeout,
             task_list_key,
             exec_num_key,
+            is_check,
             check_timeout,
             task_size: cpu_num,
             read_size: cpu_num,
@@ -193,46 +202,48 @@ impl<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display, T: Tas
         };
         let task_redis_client = redis_client.clone();
         tokio::spawn(async move {
-            debug!("start send task:{}", task_list_key);
-            match channel_receiver.recv().await {
-                Some(v) => {
-                    debug!("send task start[{}]:{}", task_list_key, v.to_task_pk());
-                    let task_list_key = task_list_key.clone();
-                    let execer = task_executioner.clone();
-                    let task_redis = task_redis_client.clone();
-                    tokio::spawn(async move {
-                        debug!("async task start:{}", task_list_key);
-                        let pk = v.to_task_pk();
-                        match execer.exec(v).await {
-                            Ok(()) => match task_redis.get_async_connection().await {
-                                Ok(mut redis) => {
-                                    match redis.hdel(&task_list_key, &pk).await {
-                                        Ok(()) => {}
-                                        Err(err) => {
-                                            warn!("exec task succ,connect redis fail:{}", err);
-                                        }
-                                    };
-                                }
+            loop {
+                debug!("start send task:{}", task_list_key);
+                match channel_receiver.recv().await {
+                    Some(v) => {
+                        debug!("send task start[{}]:{}", task_list_key, v.to_task_pk());
+                        let task_list_key = task_list_key.clone();
+                        let execer = task_executioner.clone();
+                        let task_redis = task_redis_client.clone();
+                        tokio::spawn(async move {
+                            debug!("async task start:{}", task_list_key);
+                            let pk = v.to_task_pk();
+                            match execer.exec(v).await {
+                                Ok(()) => match task_redis.get_async_connection().await {
+                                    Ok(mut redis) => {
+                                        match redis.hdel(&task_list_key, &pk).await {
+                                            Ok(()) => {}
+                                            Err(err) => {
+                                                warn!("exec task succ,connect redis fail:{}", err);
+                                            }
+                                        };
+                                    }
+                                    Err(err) => {
+                                        warn!("exec task succ,remove runing task fail:{}", err);
+                                    }
+                                },
                                 Err(err) => {
-                                    warn!("exec task succ,remove runing task fail:{}", err);
+                                    warn!("exec fail on {} error:{}", pk, err);
                                 }
-                            },
-                            Err(err) => {
-                                warn!("exec fail on {} error:{}", pk, err);
                             }
-                        }
-                        debug!("send task end[{}]:{}", task_list_key, pk);
-                    });
-                }
-                None => {
-                    if let Err(e) = channel_receiver.try_recv() {
-                        error!("task channel error:{}", e);
-                    } else {
-                        warn!("task channel close");
+                            debug!("send task end[{}]:{}", task_list_key, pk);
+                        });
                     }
-                    sleep(Duration::from_secs(1)).await;
-                }
-            };
+                    None => {
+                        if let Err(e) = channel_receiver.try_recv() {
+                            error!("task channel error:{}", e);
+                        } else {
+                            warn!("task channel close");
+                        }
+                        sleep(Duration::from_secs(1)).await;
+                    }
+                };
+            }
         });
         debug!("connect redis {}", self.task_list_key);
         loop {
@@ -252,6 +263,9 @@ impl<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display, T: Tas
                     match block {
                         Ok(a) => {
                             if a.is_none() {
+                                if !self.is_check {
+                                    continue;
+                                }
                                 info!("timeout check task:{}", self.task_list_key);
                             } else {
                                 debug!("read task data:{}", self.task_list_key);
@@ -259,6 +273,8 @@ impl<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display, T: Tas
                         }
                         Err(err) => {
                             warn!("read pop error[{}]:{}", self.task_list_key, err);
+                            sleep(Duration::from_secs(1)).await;
+                            continue;
                         }
                     };
 
@@ -382,15 +398,10 @@ impl<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display, T: Tas
                                     warn!("remove task num error:{}", err);
                                 }
                             };
+                        } else {
+                            debug!("send task add[{}]:{}", self.task_list_key, pk);
                         }
-                        debug!("send task add[{}]:{}", self.task_list_key, pk);
                     }
-                    match redis.del(&self.read_lock_key).await {
-                        Ok(()) => {}
-                        Err(err) => {
-                            warn!("del read lock error:{}", err);
-                        }
-                    };
                     debug!("listen next send task :{}", self.task_list_key);
                 }
                 Err(err) => {

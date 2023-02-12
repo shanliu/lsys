@@ -33,6 +33,7 @@ impl Smser {
         app_core: Arc<AppCore>,
         redis: deadpool_redis::Pool,
         db: Pool<MySql>,
+        is_check: bool,
         check_timeout: usize,
         try_num: usize,
     ) -> Self {
@@ -41,6 +42,7 @@ impl Smser {
             format!("{}-read-lock", SMSER_REDIS_PREFIX),
             format!("{}-run-task", SMSER_REDIS_PREFIX),
             format!("{}-run-num", SMSER_REDIS_PREFIX),
+            is_check,
             check_timeout,
         );
         let record = SmsTaskRecord::new(db.clone(), try_num);
