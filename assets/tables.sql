@@ -336,7 +336,7 @@ CREATE TABLE
         `mobile` varchar(32) NOT NULL COMMENT '手机号',
         `tpl_id` varchar(32) NOT NULL COMMENT '模板ID',
         `tpl_var` varchar(512) NOT NULL DEFAULT '' COMMENT '模板变量',
-        `try_num` SMALLINT(3) NOT NULL COMMENT '发送次数',
+        `try_num` SMALLINT(3) unsigned NOT NULL DEFAULT 0 COMMENT '发送次数',
         `status` tinyint(1) NOT NULL COMMENT '发送状态',
         `add_time` bigint unsigned NOT NULL COMMENT '申请时间',
         `send_time` bigint unsigned NOT NULL COMMENT '确认时间',
