@@ -33,8 +33,8 @@ impl Smser {
         app_core: Arc<AppCore>,
         redis: deadpool_redis::Pool,
         db: Pool<MySql>,
+        task_timeout: usize,
         is_check: bool,
-        check_timeout: usize,
         try_num: usize,
     ) -> Self {
         let task = Task::new(
@@ -42,8 +42,9 @@ impl Smser {
             format!("{}-read-lock", SMSER_REDIS_PREFIX),
             format!("{}-run-task", SMSER_REDIS_PREFIX),
             format!("{}-run-num", SMSER_REDIS_PREFIX),
+            task_timeout,
             is_check,
-            check_timeout,
+            task_timeout,
         );
         let record = SmsTaskRecord::new(db.clone(), try_num);
         Self {
@@ -161,6 +162,7 @@ impl SmsTaskRecord {
     }
     pub async fn finish_send(
         &self,
+        send_type: String,
         val: &SenderSmsMessageModel,
         res: &Result<(), String>,
     ) -> Result<(), sqlx::Error> {
@@ -173,6 +175,7 @@ impl SmsTaskRecord {
         let idata = sqlx_model::model_option_set!(SenderSmsHistoryModelRef,{
             sms_message_id:val.id,
             status:status,
+            send_type:send_type,
             send_message:err_msg,
             send_time:send_time,
         });

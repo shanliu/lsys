@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use lsys_core::AppCore;
+use lsys_core::{now_time, AppCore};
 use redis::aio::Connection;
 use redis::{
     AsyncCommands, ErrorKind, FromRedisValue, RedisError, RedisResult, ToRedisArgs, Value,
@@ -13,6 +13,7 @@ use std::marker::PhantomData;
 use std::str::from_utf8;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::Mutex;
 use tokio::time::sleep;
 use tracing::{debug, error, info, warn};
 
@@ -80,7 +81,7 @@ impl<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display, T: Tas
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct TaskValue {
     pub host: String,
     pub time: u64,
@@ -131,6 +132,7 @@ pub struct Task<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Disp
     exec_num_key: String,
     pub is_check: bool,
     pub check_timeout: usize,
+    pub task_timeout: usize,
     pub task_size: usize,
     pub read_size: usize,
     marker_i: PhantomData<I>,
@@ -145,20 +147,22 @@ impl<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display, T: Tas
         read_lock_key: String,
         task_list_key: String,
         exec_num_key: String,
+        task_timeout: usize,  //任务最大执行时间
         is_check: bool,       //是否进行定期任务检测
-        check_timeout: usize, //当使用任务检测时的时间间隔
+        check_timeout: usize, //当使用任务检测时的时间间隔，大于等于任务最大执行时间
     ) -> Self {
         let cpu_num = num_cpus::get();
-        let mut read_lock_timeout = 5 * 60; //最大5分钟
-        if read_lock_timeout > check_timeout {
-            read_lock_timeout = check_timeout;
-        }
-        let check_timeout = if check_timeout == 0 {
-            read_lock_timeout
+        let task_timeout = if task_timeout == 0 {
+            5 * 60
+        } else {
+            task_timeout
+        };
+        let check_timeout = if check_timeout < task_timeout {
+            task_timeout
         } else {
             check_timeout
         };
-        let check_timeout = if is_check { 60 } else { check_timeout };
+        let read_lock_timeout = check_timeout;
         Self {
             list_notify,
             read_lock_key,
@@ -167,6 +171,7 @@ impl<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display, T: Tas
             exec_num_key,
             is_check,
             check_timeout,
+            task_timeout,
             task_size: cpu_num,
             read_size: cpu_num,
             marker_i: PhantomData::default(),
@@ -184,6 +189,17 @@ impl<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display, T: Tas
             .await
             .map_err(|e| TaskError::Redis(e.to_string()))
     }
+    pub async fn task_data(
+        &self,
+        redis: &mut Connection,
+    ) -> Result<HashMap<I, TaskValue>, TaskError> {
+        let redis_data_opt: Result<Option<HashMap<I, TaskValue>>, _> =
+            redis.hgetall(&self.task_list_key).await;
+        match redis_data_opt {
+            Ok(data) => Ok(data.unwrap_or_default()),
+            Err(err) => Err(TaskError::Redis(err.to_string())),
+        }
+    }
     pub async fn dispatch<R: TaskAcquisition<I, T>, E: TaskExecutioner<I, T>>(
         &self,
         app_core: Arc<AppCore>,
@@ -193,6 +209,7 @@ impl<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display, T: Tas
         let (channel_sender, mut channel_receiver) =
             tokio::sync::mpsc::channel::<T>(self.task_size);
         let task_list_key = self.task_list_key.clone();
+        let exec_num_key = self.exec_num_key.clone();
         let redis_client = match app_core.create_redis_client() {
             Ok(redis_client) => redis_client,
             Err(err) => {
@@ -202,36 +219,48 @@ impl<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display, T: Tas
         };
         let task_redis_client = redis_client.clone();
         tokio::spawn(async move {
+            let conn = loop {
+                match task_redis_client.get_tokio_connection_manager().await {
+                    Ok(conn) => break conn,
+                    Err(err) => {
+                        warn!("task redis get fail :{}", err);
+                        sleep(Duration::from_secs(1)).await;
+                    }
+                }
+            };
+            let redis_conn = Arc::new(Mutex::new(conn));
             loop {
                 debug!("start send task:{}", task_list_key);
                 match channel_receiver.recv().await {
                     Some(v) => {
                         debug!("send task start[{}]:{}", task_list_key, v.to_task_pk());
                         let task_list_key = task_list_key.clone();
+                        let exec_num_key = exec_num_key.clone();
                         let execer = task_executioner.clone();
-                        let task_redis = task_redis_client.clone();
+                        let task_redis = redis_conn.clone();
                         tokio::spawn(async move {
-                            debug!("async task start:{}", task_list_key);
                             let pk = v.to_task_pk();
-                            match execer.exec(v).await {
-                                Ok(()) => match task_redis.get_async_connection().await {
-                                    Ok(mut redis) => {
-                                        match redis.hdel(&task_list_key, &pk).await {
-                                            Ok(()) => {}
-                                            Err(err) => {
-                                                warn!("exec task succ,connect redis fail:{}", err);
-                                            }
-                                        };
-                                    }
+                            debug!("async task start [{}]:{}", task_list_key, pk);
+                            let res = execer.exec(v).await;
+                            let mut redis = task_redis.lock().await;
+                            if let Err(err) = res {
+                                warn!("exec fail on {} error:{}", pk, err);
+                                match redis.hincr(&exec_num_key, &pk, -1).await {
+                                    Ok(()) => {}
                                     Err(err) => {
-                                        warn!("exec task succ,remove runing task fail:{}", err);
+                                        warn!("remove task num error:{}", err);
                                     }
-                                },
+                                };
+                            }
+                            match redis.hdel(&task_list_key, &pk).await {
+                                Ok(()) => {
+                                    debug!("clear runing task:{}", pk);
+                                }
                                 Err(err) => {
-                                    warn!("exec fail on {} error:{}", pk, err);
+                                    warn!("clear runing task fail:{}", err);
                                 }
                             }
-                            debug!("send task end[{}]:{}", task_list_key, pk);
+                            debug!("async task end [{}]:{}", task_list_key, pk);
                         });
                     }
                     None => {
@@ -301,63 +330,83 @@ impl<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display, T: Tas
                                 Ok(()) => {}
                                 Err(err) => {
                                     warn!("expire set fail,delete lock fail:{}", err);
-                                    continue;
                                 }
                             };
                             warn!("set expire error:{}", err);
                             continue;
                         }
                     };
-                    let redis_data_opt: Result<Option<HashMap<I, TaskValue>>, _> =
-                        redis.hgetall(&self.task_list_key).await;
-                    let redis_data = match redis_data_opt {
-                        Ok(data) => data.unwrap_or_default(),
+                    //完成读取锁定
+
+                    //获取当前任务中数据
+                    let redis_data = match self.task_data(&mut redis).await {
+                        Ok(data) => data,
                         Err(err) => {
                             warn!("get run task data error:{}", err);
-
                             match redis.del(&self.read_lock_key).await {
                                 Ok(()) => {}
                                 Err(err) => {
                                     warn!("get run task data fail,and read lock error:{}", err);
-                                    continue;
                                 }
                             };
-
                             continue;
                         }
                     };
-                    debug!("on task data:{}", redis_data.len());
-                    let task_data = match task_reader.read_record(&redis_data, self.read_size).await
-                    {
-                        Ok(data) => data,
-                        Err(err) => {
-                            warn!("read task record error:{}", err);
-                            match redis.del(&self.read_lock_key).await {
+                    let nt = now_time().unwrap_or_default();
+                    let mut filter_data = HashMap::new();
+                    //过滤掉超时的任务中的数据
+                    for (k, v) in redis_data {
+                        if v.time + (self.check_timeout as u64) < nt {
+                            match redis.hdel(&self.task_list_key, &k).await {
                                 Ok(()) => {}
                                 Err(err) => {
-                                    warn!("read task fail ,del read lock error:{}", err);
-                                    continue;
+                                    warn!("time out clean runing task fail:{}", err);
                                 }
-                            };
+                            }
                             continue;
+                        }
+                        filter_data.insert(k, v);
+                    }
+                    debug!("on task data:{}", filter_data.len());
+                    let task_data =
+                        match task_reader.read_record(&filter_data, self.read_size).await {
+                            Ok(data) => data,
+                            Err(err) => {
+                                warn!("read task record error:{}", err);
+                                match redis.del(&self.read_lock_key).await {
+                                    Ok(()) => {}
+                                    Err(err) => {
+                                        warn!("read task fail ,del read lock error:{}", err);
+                                    }
+                                };
+                                continue;
+                            }
+                        };
+                    //数据读取完成，解读取锁定
+                    match redis.del(&self.read_lock_key).await {
+                        Ok(()) => {}
+                        Err(err) => {
+                            warn!("read task fail ,del read lock error:{}", err);
                         }
                     };
                     if task_data.result.is_empty() {
+                        //无任务重新监听
                         info!("not task record data ");
                         continue;
                     }
+                    //添加任务中的数据
                     let mut add_task = Vec::with_capacity(task_data.result.len());
-                    for tmp in task_data.result.iter() {
-                        add_task.push((tmp.to_task_pk(), tmp.to_task_value()));
-                    }
-                    match redis.hset_multiple(&self.task_list_key, &add_task).await {
-                        Ok(()) => {}
-                        Err(err) => {
-                            warn!("set run task error:{}", err);
-                            continue;
-                        }
-                    };
-                    for (i, _) in add_task {
+
+                    for r in task_data.result {
+                        let i = r.to_task_pk();
+                        let v = r.to_task_value();
+                        match redis.hset(&self.task_list_key, &i, v.clone()).await {
+                            Ok(()) => add_task.push(r),
+                            Err(err) => {
+                                warn!("set run task error[{}]:{}", i, err);
+                                continue;
+                            }
+                        };
                         let add_res: Result<u64, _> = redis.hincr(&self.exec_num_key, &i, 1).await;
                         match add_res {
                             Ok(add_num) => {
@@ -370,19 +419,12 @@ impl<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display, T: Tas
                             }
                         };
                     }
-                    match redis.del(&self.read_lock_key).await {
-                        Ok(()) => {}
-                        Err(err) => {
-                            warn!("del read lock error:{}", err);
-                            continue;
-                        }
-                    };
                     if task_data.next {
                         if let Err(err) = self.notify(&mut redis).await {
                             warn!("notify next task fail:{}", err);
                         }
                     }
-                    for tmp in task_data.result {
+                    for tmp in add_task {
                         let pk = tmp.to_task_pk();
                         if let Err(err) = channel_sender.send(tmp).await {
                             warn!("add task fail ,remove task fail:{}", err);

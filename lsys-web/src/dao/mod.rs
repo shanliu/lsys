@@ -135,8 +135,8 @@ impl WebDao {
             app_core.clone(),
             redis.clone(),
             db.clone(),
-            true, //定时检测是否有未发送的信息
-            300,  //定时检测间隔时间
+            300,  //任务最大执行时间
+            true, //定时检测遗漏任务
             3,    //失败重试次数
         ));
         let web_smser = Arc::new(WebAppSmser::new(smser.clone(), user_dao.fluent.clone()));

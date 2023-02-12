@@ -104,7 +104,7 @@ impl TaskExecutioner<u64, SenderSmsMessageModel> for AliyunSender {
             Err(err) => Err(err.to_string()),
         };
         self.record
-            .finish_send(&val, &res)
+            .finish_send("aliyun".to_string(), &val, &res)
             .await
             .map_err(|e| TaskError::Exec(e.to_string()))?;
         res.map_err(TaskError::Exec)
