@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
 use config::ConfigError;
-use lsys_core::FluentMessage;
-use lsys_sender::dao::Smser;
+use lsys_core::{AppCore, FluentMessage};
+use lsys_sender::dao::{AliyunSender, AliyunSmsTaskAcquisition, Smser};
 use lsys_user::dao::account::{check_mobile, UserAccountError};
+use sqlx::{MySql, Pool};
 use tera::Context;
 
 pub enum WebAppSmserError {
@@ -44,13 +45,35 @@ impl From<WebAppSmserError> for UserAccountError {
     }
 }
 pub struct WebAppSmser {
-    smser: Arc<Smser>,
+    smser: Arc<Smser<AliyunSmsTaskAcquisition, ()>>,
     fluent: Arc<FluentMessage>,
 }
 
 impl WebAppSmser {
-    pub fn new(smser: Arc<Smser>, fluent: Arc<FluentMessage>) -> Self {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        app_core: Arc<AppCore>,
+        redis: deadpool_redis::Pool,
+        db: Pool<MySql>,
+        fluent: Arc<FluentMessage>,
+        task_size: Option<usize>,
+        task_timeout: usize,
+        is_check: bool,
+        try_num: usize,
+    ) -> Self {
+        let smser = Arc::new(Smser::new(
+            app_core,
+            redis,
+            db.clone(),
+            task_size,
+            task_timeout,
+            is_check,
+            AliyunSmsTaskAcquisition::new(try_num, db),
+        ));
         Self { smser, fluent }
+    }
+    pub async fn task(&self) {
+        self.smser.task::<AliyunSender, _>().await;
     }
     pub async fn send(
         &self,

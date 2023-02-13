@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 use lsys_core::{now_time, AppCore};
-use redis::aio::Connection;
+use redis::aio::{Connection, ConnectionManager};
 use redis::{
     AsyncCommands, ErrorKind, FromRedisValue, RedisError, RedisResult, ToRedisArgs, Value,
 };
@@ -13,25 +13,33 @@ use std::marker::PhantomData;
 use std::str::from_utf8;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::Mutex;
+use tokio::task::{AbortHandle, JoinSet};
 use tokio::time::sleep;
 use tracing::{debug, error, info, warn};
 
+// 发送执行
+// 具体的发送接口实现该特征
 #[async_trait]
 pub trait TaskExecutioner<
-    I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display,
+    I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display + Clone,
     T: TaskItem<I>,
 >: Clone + Send + Sync + 'static
 {
     async fn exec(&self, val: T) -> Result<(), TaskError>;
 }
 
+// 发送任务获取
 #[async_trait]
 pub trait TaskAcquisition<
-    I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display,
+    I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display + Clone,
     T: TaskItem<I>,
 >
 {
+    // @var tasking_record 为当前正在发送中的任务ID,时间,及所在HOST
+    // @var limit 返回的最大发送任务量
+    // @return 需发送的任务结果集
     async fn read_record(
         &self,
         tasking_record: &HashMap<I, TaskValue>,
@@ -39,7 +47,7 @@ pub trait TaskAcquisition<
     ) -> Result<TaskRecord<I, T>, TaskError>;
 }
 
-pub trait TaskItem<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display>:
+pub trait TaskItem<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display + Clone>:
     Send + 'static
 {
     fn to_task_pk(&self) -> I;
@@ -61,16 +69,20 @@ impl Display for TaskError {
     }
 }
 pub struct TaskRecord<
-    I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display,
+    I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display + Clone,
     T: TaskItem<I>,
 > {
+    // 任务数据,传入 TaskExecutioner 中完成具体发送任务
     pub result: Vec<T>,
+    // 是否有下一页任务,返回TRUE将继续下一次获取发送任务
     pub next: bool,
     marker_i: PhantomData<I>,
 }
 
-impl<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display, T: TaskItem<I>>
-    TaskRecord<I, T>
+impl<
+        I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display + Clone,
+        T: TaskItem<I>,
+    > TaskRecord<I, T>
 {
     pub fn new(result: Vec<T>, next: bool) -> Self {
         Self {
@@ -83,7 +95,9 @@ impl<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display, T: Tas
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct TaskValue {
+    //执行发送任务的HOST
     pub host: String,
+    //执行发送任务时间
     pub time: u64,
 }
 impl FromRedisValue for TaskValue {
@@ -123,35 +137,59 @@ impl ToRedisArgs for TaskValue {
     }
 }
 
-pub struct Task<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display, T: TaskItem<I>>
-{
+pub struct Task<
+    I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display + Clone,
+    T: TaskItem<I>,
+> {
+    //任务触发监听的REDIS KEY
     list_notify: String,
+    //任务读取锁定Redis KEY
     read_lock_key: String,
+    //任务读取锁定超时,大于等于check_timeout ,task_timeout
     read_lock_timeout: usize,
+    //存放执行中任务的REDIS key
     task_list_key: String,
+    //执行中任务的数量的REDIS KEY
     exec_num_key: String,
+    //是否定时检测遗漏发送任务
     pub is_check: bool,
+    //定时检测遗漏发送任务时间
     pub check_timeout: usize,
+    //任务最大执行时间,超过此时间在被再次执行
     pub task_timeout: usize,
+    //同时执行任务数量
     pub task_size: usize,
+    //每次获取记录数量,等于 同时执行任务数量
     pub read_size: usize,
     marker_i: PhantomData<I>,
     marker_t: PhantomData<T>,
 }
 
-impl<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display, T: TaskItem<I>>
-    Task<I, T>
+impl<
+        I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display + Clone,
+        T: TaskItem<I>,
+    > Task<I, T>
 {
+    /// * `list_notify` - 任务触发监听的REDIS KEY
+    /// * `read_lock_key` - 任务读取锁定Redis KEY
+    /// * `task_list_key` - 存放执行中任务的REDIS key
+    /// * `exec_num_key` - 执行中任务的数量的REDIS KEY
+    /// * `task_size` - 同时发送任务数量,默认等于CPU数量2倍
+    /// * `task_timeout` - 任务最大执行时间
+    /// * `is_check` - 是否定时检测遗漏发送任务
+    /// * `check_timeout` - 当使用任务检测时的时间间隔，大于等于任务最大执行时间
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         list_notify: String,
         read_lock_key: String,
         task_list_key: String,
         exec_num_key: String,
-        task_timeout: usize,  //任务最大执行时间
-        is_check: bool,       //是否进行定期任务检测
-        check_timeout: usize, //当使用任务检测时的时间间隔，大于等于任务最大执行时间
+        task_size: Option<usize>,
+        task_timeout: usize,
+        is_check: bool,
+        check_timeout: usize,
     ) -> Self {
-        let cpu_num = num_cpus::get();
+        let task_size = task_size.unwrap_or_else(|| num_cpus::get() * 2);
         let task_timeout = if task_timeout == 0 {
             5 * 60
         } else {
@@ -172,23 +210,29 @@ impl<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display, T: Tas
             is_check,
             check_timeout,
             task_timeout,
-            task_size: cpu_num,
-            read_size: cpu_num,
+            task_size,
+            read_size: task_size,
             marker_i: PhantomData::default(),
             marker_t: PhantomData::default(),
         }
     }
 }
 
-impl<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display, T: TaskItem<I>>
-    Task<I, T>
+impl<
+        I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display + Clone,
+        T: TaskItem<I>,
+    > Task<I, T>
 {
+    /// 通知发送模块进行发送操作
+    /// * `redis` - 存放发送任务的RDIS
     pub async fn notify(&self, redis: &mut Connection) -> Result<(), TaskError> {
         redis
             .lpush(&self.list_notify, 1)
             .await
             .map_err(|e| TaskError::Redis(e.to_string()))
     }
+    /// 获得发送中任务信息
+    /// * `redis` - 存放发送任务的RDIS
     pub async fn task_data(
         &self,
         redis: &mut Connection,
@@ -200,12 +244,57 @@ impl<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display, T: Tas
             Err(err) => Err(TaskError::Redis(err.to_string())),
         }
     }
+    // 任务执行
+    #[allow(clippy::too_many_arguments)]
+    async fn run_task<E: TaskExecutioner<I, T>>(
+        task_set: &mut JoinSet<()>,
+        task_ing: &mut Vec<(I, AbortHandle)>,
+        v: T,
+        redis_conn: Arc<Mutex<ConnectionManager>>,
+        exec_num_key: String,
+        task_list_key: String,
+        task_executioner: E,
+        run_size: &mut usize,
+    ) {
+        //任务大小减一
+        *run_size -= 1;
+        let pk = v.to_task_pk();
+        debug!("add async task start [{}]:{}", task_list_key, pk);
+        //并行发送任务
+        let abort = task_set.spawn(async move {
+            let pk = v.to_task_pk();
+            debug!("async task start [{}]:{}", task_list_key, pk);
+            let res = task_executioner.exec(v).await;
+            debug!("async task end [{}]:{}", task_list_key, pk);
+            if let Err(err) = res {
+                //任务执行失败,执行次数减一,PANIC捕捉有问题,不处理...
+                warn!("exec fail on {} error:{}", pk, err);
+                let mut redis = redis_conn.lock().await;
+                match redis.hincr(&exec_num_key, &pk, -1).await {
+                    Ok(()) => {}
+                    Err(err) => {
+                        warn!("remove task num error:{}", err);
+                    }
+                };
+            }
+        });
+        debug!("add async task end :{}", pk);
+        task_ing.push((pk, abort));
+    }
+    /// 获得发送中任务信息
+    /// * `app_core` - 公共APP句柄,用于创建REDIS
+    /// * `task_reader` - 任务读取实现
+    /// * `task_executioner` - 任务发送实现
     pub async fn dispatch<R: TaskAcquisition<I, T>, E: TaskExecutioner<I, T>>(
         &self,
         app_core: Arc<AppCore>,
         task_reader: &R,
         task_executioner: E,
     ) {
+        if self.task_size == 0 {
+            error!("task can't is 0");
+            return;
+        }
         let (channel_sender, mut channel_receiver) =
             tokio::sync::mpsc::channel::<T>(self.task_size);
         let task_list_key = self.task_list_key.clone();
@@ -218,7 +307,11 @@ impl<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display, T: Tas
             }
         };
         let task_redis_client = redis_client.clone();
+        let max_size = self.task_size;
+
+        //从channel 中拿数据并发送
         tokio::spawn(async move {
+            //连接REDIS
             let conn = loop {
                 match task_redis_client.get_tokio_connection_manager().await {
                     Ok(conn) => break conn,
@@ -229,29 +322,95 @@ impl<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display, T: Tas
                 }
             };
             let redis_conn = Arc::new(Mutex::new(conn));
+            let mut run_size = max_size;
+            let mut task_empty;
+            let mut task_set = JoinSet::new(); //进行中任务,没法将任务数据在这关联,所以用 task_ing 关联
+            let mut task_ing = vec![]; //任务数据跟任务处理关联数组
+
             loop {
                 debug!("start send task:{}", task_list_key);
-                match channel_receiver.recv().await {
-                    Some(v) => {
-                        debug!("send task start[{}]:{}", task_list_key, v.to_task_pk());
-                        let task_list_key = task_list_key.clone();
-                        let exec_num_key = exec_num_key.clone();
-                        let execer = task_executioner.clone();
-                        let task_redis = redis_conn.clone();
-                        tokio::spawn(async move {
-                            let pk = v.to_task_pk();
-                            debug!("async task start [{}]:{}", task_list_key, pk);
-                            let res = execer.exec(v).await;
-                            let mut redis = task_redis.lock().await;
-                            if let Err(err) = res {
-                                warn!("exec fail on {} error:{}", pk, err);
-                                match redis.hincr(&exec_num_key, &pk, -1).await {
-                                    Ok(()) => {}
-                                    Err(err) => {
-                                        warn!("remove task num error:{}", err);
-                                    }
-                                };
-                            }
+
+                //从channel 获取任务,不阻塞
+                task_empty = match channel_receiver.try_recv() {
+                    Ok(v) => {
+                        //获取到任务,执行任务
+                        Self::run_task(
+                            &mut task_set,
+                            &mut task_ing,
+                            v,
+                            redis_conn.clone(),
+                            exec_num_key.clone(),
+                            task_list_key.clone(),
+                            task_executioner.clone(),
+                            &mut run_size,
+                        )
+                        .await;
+                        false
+                    }
+                    Err(err) => {
+                        if err != TryRecvError::Empty {
+                            error!("task channel error:{}", err);
+                            sleep(Duration::from_secs(1)).await;
+                            false
+                        } else {
+                            //未获取到任务,下一步阻塞等待
+                            true
+                        }
+                    }
+                };
+                //未获取到任务,且还有闲置发送
+                if task_empty && run_size > 0 {
+                    //异步阻塞等待任务
+                    match channel_receiver.recv().await {
+                        Some(v) => {
+                            Self::run_task(
+                                &mut task_set,
+                                &mut task_ing,
+                                v,
+                                redis_conn.clone(),
+                                exec_num_key.clone(),
+                                task_list_key.clone(),
+                                task_executioner.clone(),
+                                &mut run_size,
+                            )
+                            .await;
+                        }
+                        None => {
+                            //异步阻塞未获取任务,可能发生错误,重新回到不阻塞 try_recv 去获取详细
+                            info!("channel no task ");
+                            continue;
+                        }
+                    }
+                }
+                //任务处理已满,需等待进行中任务处理完在继续
+                if run_size == 0 && !task_set.is_empty() {
+                    while let Some(res) = task_set.join_next().await {
+                        if let Err(err) = res {
+                            //有任务PANIC了,非稳定版没法捕捉到任务ID,等TOKIO升级后在修改...
+                            error!("task error:{:?}", err);
+                        }
+                        //查找已完成任务列表
+                        let mut finsih_pk = Vec::with_capacity(max_size);
+                        task_ing = task_ing
+                            .into_iter()
+                            .filter(|(pk, abt)| {
+                                if abt.is_finished() {
+                                    finsih_pk.push(pk.to_owned());
+                                    false
+                                } else {
+                                    true
+                                }
+                            })
+                            .collect::<Vec<(I, AbortHandle)>>();
+                        //未查找到已完成任务,可能上一次已处理完.重新进入等待
+                        if finsih_pk.is_empty() {
+                            continue;
+                        }
+                        //存在处理完任务,进行REDIS解锁及增加空闲任务数量
+                        //REDIS一次性全部解锁完在释放,省的多次获取锁
+                        let mut redis = redis_conn.lock().await;
+                        for pk in finsih_pk {
+                            run_size += 1;
                             match redis.hdel(&task_list_key, &pk).await {
                                 Ok(()) => {
                                     debug!("clear runing task:{}", pk);
@@ -260,18 +419,11 @@ impl<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display, T: Tas
                                     warn!("clear runing task fail:{}", err);
                                 }
                             }
-                            debug!("async task end [{}]:{}", task_list_key, pk);
-                        });
-                    }
-                    None => {
-                        if let Err(e) = channel_receiver.try_recv() {
-                            error!("task channel error:{}", e);
-                        } else {
-                            warn!("task channel close");
                         }
-                        sleep(Duration::from_secs(1)).await;
+                        break;
+                        //退出任务完成检测,进入任务处理流程
                     }
-                };
+                }
             }
         });
         debug!("connect redis {}", self.task_list_key);
@@ -401,6 +553,7 @@ impl<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display, T: Tas
                         let i = r.to_task_pk();
                         let v = r.to_task_value();
                         match redis.hset(&self.task_list_key, &i, v.clone()).await {
+                            //必须添加成功到发送中才进行发送
                             Ok(()) => add_task.push(r),
                             Err(err) => {
                                 warn!("set run task error[{}]:{}", i, err);
@@ -419,11 +572,13 @@ impl<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display, T: Tas
                             }
                         };
                     }
+                    //有下一页数据,通知其他执行服务器继续
                     if task_data.next {
                         if let Err(err) = self.notify(&mut redis).await {
                             warn!("notify next task fail:{}", err);
                         }
                     }
+                    //把数据添加到发送channel
                     for tmp in add_task {
                         let pk = tmp.to_task_pk();
                         if let Err(err) = channel_sender.send(tmp).await {

@@ -4,7 +4,6 @@ use lsys_core::cache::{LocalCacheClear, LocalCacheClearItem};
 use lsys_core::{AppCore, AppCoreError};
 use lsys_rbac::dao::rbac::RbacLocalCacheClear;
 use lsys_rbac::dao::{RbacDao, SystemRole};
-use lsys_sender::dao::{AliyunSender, Smser};
 use lsys_user::dao::account::cache::UserAccountLocalCacheClear;
 use lsys_user::dao::auth::{UserAuthConfig, UserAuthRedisStore};
 use lsys_user::dao::UserDao;
@@ -131,18 +130,18 @@ impl WebDao {
             tera.clone(),
             user_dao.fluent.clone(),
         ));
-        let smser = Arc::new(Smser::new(
+        let web_smser = Arc::new(WebAppSmser::new(
             app_core.clone(),
             redis.clone(),
             db.clone(),
-            300,  //任务最大执行时间
-            true, //定时检测遗漏任务
-            3,    //失败重试次数
+            user_dao.fluent.clone(),
+            None,
+            300, //任务最大执行时间
+            true,
+            3,
         ));
-        let web_smser = Arc::new(WebAppSmser::new(smser.clone(), user_dao.fluent.clone()));
-
-        tokio::spawn(async move { smser.task::<AliyunSender, _>().await });
-
+        let task_web_smse = web_smser.clone();
+        tokio::spawn(async move { task_web_smse.task().await });
         let captcha = Arc::new(WebAppCaptcha::new(redis.clone()));
 
         let clear_rbac_dao = rbac_dao.clone();

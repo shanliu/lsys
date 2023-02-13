@@ -11,8 +11,7 @@ async fn user_dao() -> UserDao<UserAuthRedisStore> {
     let db: Pool<MySql> = app_core.create_db().await.unwrap();
     let redis = app_core.create_redis().await.unwrap();
     let login_store = UserAuthRedisStore::new(redis.clone());
-    let userdao = UserDao::new(Arc::new(app_core), db, redis, login_store, None)
+    UserDao::new(Arc::new(app_core), db, redis, login_store, None)
         .await
-        .unwrap();
-    userdao
+        .unwrap()
 }

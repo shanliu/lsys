@@ -15,7 +15,7 @@ tracing = {version="0.1.*",features=["log"]}# log-always 保持log的输出 当�
 async-trait = "0.1.57"
 config = "0.13.2"
 # oauth 
-labrador={ version = "0.2.0", features = [ "wechat"] } 
+labrador={ version = "0.2.2", features = [ "wechat"]} 
 
 
 rand = "~0.8.*"
