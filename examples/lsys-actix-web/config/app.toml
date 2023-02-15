@@ -10,3 +10,6 @@ root_user_id=[1,17]#超级管理员id
 
 #ip城市数据卡
 ip_city_db="data/IP2LOCATION-LITE-DB11.BIN"
+
+#snowflake_machine_id=1
+#snowflake_node_id=1

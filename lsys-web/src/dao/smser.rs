@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use config::ConfigError;
 use lsys_core::{AppCore, FluentMessage};
-use lsys_sender::dao::{AliyunSender, AliyunSmsTaskAcquisition, Smser};
+use lsys_sender::dao::{AliyunSenderTask, AliyunSmsRecord, SmsSender};
 use lsys_user::dao::account::{check_mobile, UserAccountError};
 use sqlx::{MySql, Pool};
 use tera::Context;
@@ -45,8 +45,9 @@ impl From<WebAppSmserError> for UserAccountError {
     }
 }
 pub struct WebAppSmser {
-    smser: Arc<Smser<AliyunSmsTaskAcquisition, ()>>,
+    smser: Arc<SmsSender<AliyunSmsRecord, ()>>,
     fluent: Arc<FluentMessage>,
+    db: Pool<MySql>,
 }
 
 impl WebAppSmser {
@@ -61,20 +62,23 @@ impl WebAppSmser {
         is_check: bool,
         try_num: usize,
     ) -> Self {
-        let smser = Arc::new(Smser::new(
-            app_core,
+        let smser = Arc::new(SmsSender::new(
+            app_core.clone(),
             redis,
-            db.clone(),
             task_size,
             task_timeout,
             is_check,
-            AliyunSmsTaskAcquisition::new(try_num, db),
+            AliyunSmsRecord::new(try_num, app_core, db.clone()),
         ));
-        Self { smser, fluent }
+        Self { smser, fluent, db }
     }
+    // 短信后台任务
     pub async fn task(&self) {
-        self.smser.task::<AliyunSender, _>().await;
+        self.smser
+            .task::<_, _>(AliyunSenderTask::new(self.db.clone()))
+            .await;
     }
+    // 短信发送接口
     pub async fn send(
         &self,
         tpl_type: &str,
@@ -85,7 +89,7 @@ impl WebAppSmser {
         check_mobile(&self.fluent, area, mobile)
             .map_err(|e| WebAppSmserError::System(e.to_string()))?;
         self.smser
-            .send(area, mobile, tpl_type, body)
+            .send(None, &[(area, mobile)], tpl_type, body, None, None, None)
             .await
             .map_err(WebAppSmserError::System)
             .map(|_| ())

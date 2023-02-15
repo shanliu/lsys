@@ -11,8 +11,11 @@
 3. 常用发送方式的封装方便调用，如：验证码，批量广告，定时通知等
 
 
+#### 具体发送实例参考:
 
-#### 流程图:
+> [短信发送流程](./src/dao/smser/README.MD)
+
+#### 公共发送流程:
 
 ```mermaid
 flowchart TB
@@ -45,16 +48,9 @@ flowchart TB
     end
 ```
 
-#### 运行任务结果集 的数据格式:
+#### 运行任务结果集 REDIS存储的数据格式:
 
 ```
-run-task-num[$task_id]=1//原子增
-run-task[$task_id]={time:'任务开始',host:'任务所在主机'}
+run-task-num[$task_id]=1//发送中任务计数
+run-task[$task_id]={time:'任务开始',host:'任务所在主机'}//发送中记录数据
 ```
-
-#### 配置
-
-> 任务处理channel的大小
-
-> 每次获取数据库记录数量,且`>=`任务处理channel的大小
-

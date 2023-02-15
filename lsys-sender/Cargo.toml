@@ -46,3 +46,9 @@ tera = "1.17.0"
 async-trait = "~0.1.*"
 
 num_cpus="1.15.0"
+
+
+rs-snowflake = "0.6.0"
+crc32fast = "1.3.2"
+
+parking_lot = "~0.12.*"

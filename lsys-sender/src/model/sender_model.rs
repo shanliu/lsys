@@ -28,6 +28,10 @@ pub struct SenderAliyunConfigModel {
     /// 添加时间
     #[sqlx(default)]
     pub add_time: u64,
+
+    /// 删除时间
+    #[sqlx(default)]
+    pub delete_time: u64,
 }
 
 #[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
@@ -65,13 +69,17 @@ pub struct SenderSmsAliyunModel {
     #[sqlx(default)]
     pub user_id: u64,
 
+    /// 删除用户ID
+    #[sqlx(default)]
+    pub delete_user_id: u64,
+
     /// 添加时间
     #[sqlx(default)]
     pub add_time: u64,
 
     /// 更新时间
     #[sqlx(default)]
-    pub change_time: u64,
+    pub delete_time: u64,
 }
 
 #[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
@@ -85,13 +93,17 @@ pub struct SenderSmsConfigModel {
     #[sqlx(default)]
     pub app_id: u64,
 
-    /// 时间间隔
+    /// 优先级
     #[sqlx(default)]
-    pub time_range: u32,
+    pub priority: i8,
 
-    /// 限制数量
+    /// 配置类型
     #[sqlx(default)]
-    pub send_limit: u32,
+    pub config_type: i8,
+
+    /// 配置数据 JSON
+    #[sqlx(default)]
+    pub config_data: String,
 
     /// 0 禁用 1 启用
     #[sqlx(default)]
@@ -101,13 +113,17 @@ pub struct SenderSmsConfigModel {
     #[sqlx(default)]
     pub user_id: u64,
 
+    /// 删除用户ID
+    #[sqlx(default)]
+    pub delete_user_id: u64,
+
     /// 添加时间
     #[sqlx(default)]
     pub add_time: u64,
 
     /// 发送时间
     #[sqlx(default)]
-    pub send_time: u64,
+    pub delete_time: u64,
 }
 
 #[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
@@ -149,14 +165,50 @@ pub struct SenderSmsMessageModel {
     #[sqlx(default)]
     pub add_time: u64,
 
-    /// 发送时间
+    /// 预期发送时间
+    #[sqlx(default)]
+    pub expected_time: u64,
+
+    /// 实际发送时间
     #[sqlx(default)]
     pub send_time: u64,
+
+    /// 外部发送用户ID
+    #[sqlx(default)]
+    pub user_id: u64,
 }
 
 #[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(table_name = "sender_sms_history")]
-pub struct SenderSmsHistoryModel {
+#[sqlx_model(table_name = "sender_sms_cancel")]
+pub struct SenderSmsCancelModel {
+    /// 消息ID
+    #[sqlx(default)]
+    pub id: u64,
+
+    /// 取消句柄
+    #[sqlx(default)]
+    pub cancel_hand: String,
+
+    /// 消息id
+    #[sqlx(default)]
+    pub sms_message_id: u64,
+
+    /// 日志状态 1 待发送 4 取消
+    #[sqlx(default)]
+    pub status: i8,
+
+    /// 取消用户ID
+    #[sqlx(default)]
+    pub user_id: u64,
+
+    /// 取消时间
+    #[sqlx(default)]
+    pub cancel_time: u64,
+}
+
+#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(table_name = "sender_sms_log")]
+pub struct SenderSmsLogModel {
     /// 消息ID
     #[sqlx(default)]
     pub id: u64,
@@ -165,19 +217,27 @@ pub struct SenderSmsHistoryModel {
     #[sqlx(default)]
     pub sms_message_id: u64,
 
-    /// 发送类型
+    /// 应用ID
+    #[sqlx(default)]
+    pub app_id: u64,
+
+    /// 日志类型
+    #[sqlx(default)]
+    pub log_type: i8,
+
+    /// 触发来源
     #[sqlx(default)]
     pub send_type: String,
 
-    /// 2 已发送 3 发送失败
+    /// 日志状态 2 成功 3 失败
     #[sqlx(default)]
     pub status: i8,
 
-    /// 发送消息
+    /// 日志消息
     #[sqlx(default)]
-    pub send_message: String,
+    pub message: String,
 
     /// 发送时间
     #[sqlx(default)]
-    pub send_time: u64,
+    pub create_time: u64,
 }
