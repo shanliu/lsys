@@ -55,7 +55,7 @@ pub async fn user_info_set_username<
         .await
         .refresh_session(false)
         .await?;
-    Ok(JsonData::message("set name succ"))
+    Ok(JsonData::message("success"))
 }
 
 #[derive(Debug, Deserialize)]
@@ -93,11 +93,10 @@ pub async fn user_info_check_username<
         .find_by_name(param.name)
         .await;
     match user_res {
-        Err(UserAccountError::Sqlx(sqlx::Error::RowNotFound)) => {
-            Ok(JsonData::message("set name succ").set_data(json!({
+        Err(UserAccountError::Sqlx(sqlx::Error::RowNotFound)) => Ok(JsonData::message("success")
+            .set_data(json!({
                 "pass":"1"
-            })))
-        }
+            }))),
         Err(err) => Err(err.into()),
         Ok(user) => Ok(
             JsonData::message(format!("Username already exists [{}]", user.id))

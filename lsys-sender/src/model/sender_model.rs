@@ -9,6 +9,10 @@ pub struct SenderAliyunConfigModel {
     #[sqlx(default)]
     pub id: u64,
 
+    /// 显示给用户配置名
+    #[sqlx(default)]
+    pub name: String,
+
     /// Id
     #[sqlx(default)]
     pub access_id: String,
@@ -60,6 +64,10 @@ pub struct SenderSmsAliyunModel {
     /// 阿里云模板名
     #[sqlx(default)]
     pub aliyun_sms_tpl: String,
+
+    /// 最大发送次数
+    #[sqlx(default)]
+    pub max_try_num: u16,
 
     /// 0 禁用 1 启用
     #[sqlx(default)]

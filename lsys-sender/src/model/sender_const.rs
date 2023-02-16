@@ -56,9 +56,10 @@ pub struct SenderSmsConfigLimit {
     pub max_send: u32,
 }
 //配置数据
+
 pub enum SenderSmsConfigData {
     Limit(SenderSmsConfigLimit), //限制频率
-    MaxOfSend(u16),              //每次最大发送数量
+    MaxOfSend(u32),              //每次最大发送数量
     Block(String, String),       //屏蔽的手机号
     PassTpl(String),             //不检测限制指定模板
     Close,                       //关闭发送功能

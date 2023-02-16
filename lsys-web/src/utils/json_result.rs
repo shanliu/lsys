@@ -209,7 +209,11 @@ impl From<ValidCodeError> for JsonData {
             .set_message(err.to_string())
     }
 }
-
+impl From<String> for JsonData {
+    fn from(err: String) -> Self {
+        JsonData::default().set_message(err)
+    }
+}
 macro_rules! result_impl_system_error {
     ($err_type:ty,$code:literal) => {
         impl From<$err_type> for JsonData {

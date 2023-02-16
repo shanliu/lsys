@@ -2,13 +2,14 @@ use std::{collections::HashMap, sync::Arc};
 
 use crate::model::{
     SenderSmsCancelModel, SenderSmsCancelModelRef, SenderSmsCancelStatus, SenderSmsConfigData,
-    SenderSmsConfigLimit, SenderSmsConfigModel, SenderSmsConfigStatus, SenderSmsConfigType,
-    SenderSmsLogModel, SenderSmsLogModelRef, SenderSmsLogStatus, SenderSmsLogType,
-    SenderSmsMessageModel, SenderSmsMessageModelRef, SenderSmsMessageStatus,
+    SenderSmsConfigLimit, SenderSmsConfigModel, SenderSmsConfigModelRef, SenderSmsConfigStatus,
+    SenderSmsConfigType, SenderSmsLogModel, SenderSmsLogModelRef, SenderSmsLogStatus,
+    SenderSmsLogType, SenderSmsMessageModel, SenderSmsMessageModelRef, SenderSmsMessageStatus,
 };
 use lsys_core::{now_time, AppCore};
 
 use parking_lot::Mutex;
+use serde_json::Value;
 use snowflake::SnowflakeIdGenerator;
 use sqlx::{MySql, Pool};
 use sqlx_model::{sql_format, Insert, ModelTableName, Select, SqlExpr, Update};
@@ -21,13 +22,12 @@ use sqlx_model::SqlQuote;
 //短信任务记录
 #[derive(Clone)]
 pub struct SmsTaskRecord {
-    pub(crate) try_num: usize,
     pub(crate) db: Pool<sqlx::MySql>,
     pub(crate) id_generator: Arc<Mutex<SnowflakeIdGenerator>>,
 }
 
 impl SmsTaskRecord {
-    pub fn new(db: Pool<sqlx::MySql>, app_core: Arc<AppCore>, try_num: usize) -> Self {
+    pub fn new(db: Pool<sqlx::MySql>, app_core: Arc<AppCore>) -> Self {
         let machine_id = app_core.config.get_int("snowflake_machine_id").unwrap_or(1);
         let node_id = app_core
             .config
@@ -45,11 +45,7 @@ impl SmsTaskRecord {
             machine_id as i32,
             node_id as i32,
         )));
-        Self {
-            db,
-            try_num,
-            id_generator,
-        }
+        Self { db, id_generator }
     }
     //读取短信任务数据
     pub async fn read(
@@ -87,9 +83,9 @@ impl SmsTaskRecord {
         mobiles: &[(String, String)],
         tpl_id: &str,
         tpl_var: &str,
-        expected_time: u64,
-        user_id: Option<u64>,
-        cancel_key: Option<String>,
+        expected_time: &u64,
+        user_id: &Option<u64>,
+        cancel_key: &Option<String>,
     ) -> Result<u64, String> {
         let user_id = user_id.unwrap_or_default();
         let add_time = now_time().unwrap_or_default();
@@ -148,14 +144,7 @@ impl SmsTaskRecord {
         }
         Ok(row)
     }
-    pub async fn config_add(&self) {
-        //SenderSmsConfigModel
-        todo!("待实现");
-    }
-    pub async fn config_del(&self) {
-        //SenderSmsConfigModel
-        todo!("待实现");
-    }
+
     //取消指定的数据
     pub async fn cancel_id(
         &self,
@@ -230,6 +219,7 @@ impl SmsTaskRecord {
         send_type: String,
         val: &SenderSmsMessageModel,
         res: &Result<(), String>,
+        try_num: u16,
     ) -> Result<(), sqlx::Error> {
         let (status, log_status, err_msg) = match res {
             Ok(()) => (
@@ -266,7 +256,7 @@ impl SmsTaskRecord {
             try_num:set_try_num
         });
         if SenderSmsMessageStatus::IsSend.eq(status)
-            || (SenderSmsMessageStatus::SendFail.eq(status) && val.try_num as usize >= self.try_num)
+            || (SenderSmsMessageStatus::SendFail.eq(status) && val.try_num >= try_num)
         {
             change.status = Some(&status);
         }
@@ -275,10 +265,115 @@ impl SmsTaskRecord {
             .await?;
         Ok(())
     }
+    lsys_core::impl_dao_fetch_one_by_one!(
+        db,
+        find_config_by_id,
+        u64,
+        SenderSmsConfigModel,
+        Result<SenderSmsConfigModel,sqlx::Error>,
+        id,
+        "id={id}"
+    );
+    pub async fn config_add(
+        &self,
+        app_id: Option<u64>,
+        priority: i8,
+        config_type: SenderSmsConfigType,
+        config_data: Value,
+        user_id: u64,
+    ) -> Result<u64, String> {
+        let app_id = app_id.unwrap_or_default();
+        let time = now_time().unwrap_or_default();
+        let config_data = match config_type {
+            SenderSmsConfigType::Limit => {
+                macro_rules! param_get {
+                    ($name:literal,$asfn:ident,$miss_err:literal,$wrong_err:literal) => {
+                        match config_data.get($name) {
+                            Some(val) => match val.$asfn() {
+                                Some(val) => val,
+                                None => return Err($wrong_err.to_string()),
+                            },
+                            None => {
+                                return Err($miss_err.to_string());
+                            }
+                        }
+                    };
+                }
+                let range_time = param_get!(
+                    "range_time",
+                    as_u64,
+                    "range time param miss ",
+                    "range time param wrong "
+                );
+                let max_send = param_get!(
+                    "max_send",
+                    as_u64,
+                    "range time param miss ",
+                    "range time param wrong "
+                ) as u32;
+                match serde_json::to_string(&SenderSmsConfigLimit {
+                    range_time,
+                    max_send,
+                }) {
+                    Ok(val) => val,
+                    Err(err) => {
+                        return Err(err.to_string());
+                    }
+                }
+            }
+            SenderSmsConfigType::Block => "".to_string(),
+            SenderSmsConfigType::Close => "".to_string(),
+            SenderSmsConfigType::PassTpl => config_data.to_string(),
+            SenderSmsConfigType::MaxOfSend => match config_data.as_u64() {
+                Some(num) => (num as u32).to_string(),
+                None => {
+                    return Err("send max need number".to_string());
+                }
+            },
+        };
+        let config_type = config_type as i8;
+        let add = sqlx_model::model_option_set!(SenderSmsConfigModelRef, {
+            app_id:app_id,
+            priority:priority,
+            config_type:config_type,
+            user_id:user_id,
+            add_time:time,
+            status:SenderSmsConfigStatus::Enable as i8,
+            config_data:config_data,
+        });
+        Insert::<sqlx::MySql, SenderSmsConfigModel, _>::new(add)
+            .execute(&self.db)
+            .await
+            .map(|e| e.last_insert_id())
+            .map_err(|e| e.to_string())
+    }
+    pub async fn config_del(
+        &self,
+        config: &SenderSmsConfigModel,
+        user_id: u64,
+    ) -> Result<u64, String> {
+        let time = now_time().unwrap_or_default();
+        let change = sqlx_model::model_option_set!(SenderSmsConfigModelRef,{
+            status:SenderSmsConfigStatus::Delete as i8,
+            delete_time:time,
+            delete_user_id:user_id
+        });
+        let res = Update::<sqlx::MySql, SenderSmsConfigModel, _>::new(change)
+            .execute_by_pk(config, &self.db)
+            .await;
+        match res {
+            Err(e) => Err(e.to_string())?,
+            Ok(mr) => {
+                //清理缓存
+                Ok(mr.rows_affected())
+            }
+        }
+    }
     pub async fn config_list(
         &self,
-        app_id: u64,
+        app_id: Option<u64>,
     ) -> Result<Vec<(SenderSmsConfigModel, SenderSmsConfigData)>, sqlx::Error> {
+        let app_id = app_id.unwrap_or_default();
         let sql = sql_format!(
             "app_id = {} and status ={} order by id desc",
             app_id,
@@ -307,7 +402,7 @@ impl SmsTaskRecord {
                                 }
                                 SenderSmsConfigType::Close => SenderSmsConfigData::Close,
                                 SenderSmsConfigType::MaxOfSend => {
-                                    match v.config_data.parse::<u16>() {
+                                    match v.config_data.parse::<u32>() {
                                         Ok(u) => SenderSmsConfigData::MaxOfSend(u),
                                         Err(_) => SenderSmsConfigData::None,
                                     }
@@ -331,7 +426,7 @@ impl SmsTaskRecord {
     //检测指定发送是否符合配置规则
     pub async fn send_check(
         &self,
-        app_id: u64,
+        app_id: Option<u64>,
         tpl_id: &str,
         mobiles: &[(String, String)],
         send_time: u64,

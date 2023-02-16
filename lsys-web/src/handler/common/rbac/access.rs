@@ -58,7 +58,7 @@ pub async fn rbac_access_check(
         })
         .collect::<Vec<Vec<AccessRes>>>();
     dao.check(user_id, &rkey, &check_res).await?;
-    Ok(JsonData::message("set name succ").set_data(json!({ "pass": 1 })))
+    Ok(JsonData::message("success").set_data(json!({ "pass": 1 })))
 }
 
 #[derive(Debug, Deserialize)]

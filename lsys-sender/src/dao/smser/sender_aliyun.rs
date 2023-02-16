@@ -26,27 +26,46 @@ use tracing::debug;
 //aliyun 短信发送
 
 #[derive(Clone)]
-pub struct AliyunSms {
+pub struct AliyunSender {
     db: Pool<MySql>,
 }
 
-impl AliyunSms {
+impl AliyunSender {
     pub fn new(db: Pool<sqlx::MySql>) -> Self {
         Self { db }
     }
+    lsys_core::impl_dao_fetch_one_by_one!(
+        db,
+        find_config_by_id,
+        u64,
+        SenderAliyunConfigModel,
+        Result<SenderAliyunConfigModel,sqlx::Error>,
+        id,
+        "id={id}"
+    );
     //列出有效的aliyun短信配置
     pub async fn list_config(
         &self,
-        ali_config_id: &[u64],
+        ali_config_ids: Option<&[u64]>,
     ) -> Result<Vec<SenderAliyunConfigModel>, sqlx::Error> {
-        if ali_config_id.is_empty() {
-            return Ok(vec![]);
-        }
-        let sql = sql_format!(
-            "id in ({}) and status ={} order by id desc",
-            ali_config_id,
-            SenderAliyunConfigStatus::Enable
-        );
+        let sql = match ali_config_ids {
+            Some(ali_config_id) => {
+                if ali_config_id.is_empty() {
+                    return Ok(vec![]);
+                }
+                sql_format!(
+                    "id in ({}) and status ={} order by id desc",
+                    ali_config_id,
+                    SenderAliyunConfigStatus::Enable
+                )
+            }
+            None => {
+                sql_format!(
+                    " status ={} order by id desc",
+                    SenderAliyunConfigStatus::Enable
+                )
+            }
+        };
         let ali_res = Select::type_new::<SenderAliyunConfigModel>()
             .fetch_all_by_where::<SenderAliyunConfigModel, _>(
                 &sqlx_model::WhereOption::Where(sql),
@@ -92,14 +111,17 @@ impl AliyunSms {
     pub async fn edit_config(
         &self,
         config: &SenderAliyunConfigModel,
+        name: &str,
         access_id: &str,
         access_secret: &str,
         user_id: &u64,
     ) -> Result<u64, sqlx::Error> {
         let access_id = access_id.to_owned();
         let access_secret = access_secret.to_owned();
+        let name = name.to_owned();
         let time = now_time().unwrap_or_default();
         let change = sqlx_model::model_option_set!(SenderAliyunConfigModelRef,{
+            name:name,
             access_id:access_id,
             access_secret:access_secret,
             add_time:time,
@@ -119,32 +141,63 @@ impl AliyunSms {
     //添加aliyun短信配置
     pub async fn add_config(
         &self,
+        name: &str,
         access_id: &str,
         access_secret: &str,
         user_id: &u64,
     ) -> Result<u64, sqlx::Error> {
         let access_id = access_id.to_owned();
         let access_secret = access_secret.to_owned();
+        let name = name.to_owned();
         let time = now_time().unwrap_or_default();
+        let add_access_id = access_id.to_owned();
         let add = sqlx_model::model_option_set!(SenderAliyunConfigModelRef,{
-            access_id:access_id,
+            name:name,
+            access_id:add_access_id,
             access_secret:access_secret,
             add_time:time,
             user_id:user_id,
             status:SenderAliyunConfigStatus::Enable as i8,
         });
+        let res = Select::type_new::<SenderAliyunConfigModel>()
+            .fetch_one_by_where_call::<SenderAliyunConfigModel, _, _>(
+                "access_id=? and status=?",
+                |b, _| {
+                    b.bind(access_id)
+                        .bind(SenderAliyunConfigStatus::Enable as i8)
+                },
+                &self.db,
+            )
+            .await;
+        match res {
+            Ok(row) => return Ok(row.id),
+            Err(sqlx::Error::RowNotFound) => {}
+            Err(err) => return Err(err),
+        }
         Insert::<sqlx::MySql, SenderAliyunConfigModel, _>::new(add)
             .execute(&self.db)
             .await
             .map(|e| e.last_insert_id())
     }
+    lsys_core::impl_dao_fetch_one_by_one!(
+        db,
+        find_app_config_by_id,
+        u64,
+        SenderSmsAliyunModel,
+        Result<SenderSmsAliyunModel,sqlx::Error>,
+        id,
+        "id={id}"
+    );
     //关联发送跟aliyun短信的配置
+    #[allow(clippy::too_many_arguments)]
     pub async fn add_app_config(
         &self,
+        app_id: &u64,
         aliyun_config: &SenderAliyunConfigModel,
         sms_tpl: &str,
         aliyun_sms_tpl: &str,
         aliyun_sign_name: &str,
+        try_num: &u16,
         user_id: &u64,
     ) -> Result<u64, sqlx::Error> {
         let sms_tpl = sms_tpl.to_owned();
@@ -152,6 +205,8 @@ impl AliyunSms {
         let aliyun_sms_tpl = aliyun_sms_tpl.to_owned();
         let time = now_time().unwrap_or_default();
         let add = sqlx_model::model_option_set!(SenderSmsAliyunModelRef,{
+            max_try_num:try_num,
+            app_id:app_id,
             sms_tpl:sms_tpl,
             aliyun_sign_name:aliyun_sign_name,
             aliyun_sms_tpl:aliyun_sms_tpl,
@@ -214,7 +269,7 @@ impl AliyunSms {
             .iter()
             .map(|e| e.to_owned())
             .collect::<Vec<u64>>();
-        let ali_res = self.list_config(&ids).await?;
+        let ali_res = self.list_config(Some(&ids)).await?;
         if ali_res.is_empty() {
             return Ok(vec![]);
         }
@@ -235,9 +290,9 @@ pub struct AliyunSmsRecord {
     records: SmsTaskRecord,
 }
 impl AliyunSmsRecord {
-    pub fn new(try_num: usize, app_core: Arc<AppCore>, db: Pool<sqlx::MySql>) -> Self {
+    pub fn new(app_core: Arc<AppCore>, db: Pool<sqlx::MySql>) -> Self {
         Self {
-            records: SmsTaskRecord::new(db, app_core, try_num),
+            records: SmsTaskRecord::new(db, app_core),
         }
     }
 }
@@ -250,8 +305,7 @@ impl TaskAcquisition<u64, SmsTaskItem<()>> for AliyunSmsRecord {
         tasking_record: &HashMap<u64, TaskValue>,
         limit: usize,
     ) -> Result<TaskRecord<u64, SmsTaskItem<()>>, TaskError> {
-        <Self as TaskAcquisition<u64, SmsTaskItem<()>>>::read_record(self, tasking_record, limit)
-            .await
+        SmsTaskAcquisition::read_record(self, tasking_record, limit).await
     }
 }
 
@@ -274,14 +328,14 @@ impl SmsTaskAcquisition<()> for AliyunSmsRecord {
 }
 #[derive(Clone)]
 pub struct AliyunSenderTask {
-    alisms: AliyunSms,
+    alisms: AliyunSender,
     i: Arc<AtomicU32>,
 }
 
 impl AliyunSenderTask {
-    pub fn new(db: Pool<sqlx::MySql>) -> Self {
+    pub fn new(alisms: AliyunSender) -> Self {
         Self {
-            alisms: AliyunSms::new(db),
+            alisms,
             i: Arc::new(AtomicU32::new(0)),
         }
     }
@@ -329,11 +383,16 @@ impl SmserTaskExecutioner<()> for AliyunSenderTask {
                 Err(err) => Err(err.to_string()),
             };
             record
-                .finish("aliyun".to_string(), &val.sms, &res)
+                .finish("aliyun".to_string(), &val.sms, &res, smsconfig.max_try_num)
                 .await
                 .map_err(|e| TaskError::Exec(e.to_string()))?;
             return res.map_err(TaskError::Exec);
         }
-        Err(TaskError::Exec("not config send".to_string()))
+        let err = "not config send".to_string();
+        record
+            .finish("aliyun".to_string(), &val.sms, &Err(err.clone()), 0)
+            .await
+            .map_err(|e| TaskError::Exec(e.to_string()))?;
+        Err(TaskError::Exec(err))
     }
 }

@@ -52,9 +52,9 @@ impl<A: SmsTaskAcquisition<T>, T: Send + Sync + 'static + Clone> SmsSender<A, T>
         mobiles: &[(&str, &str)],
         tpl_id: &str,
         tpl_var: &str,
-        send_time: Option<u64>,
-        user_id: Option<u64>,
-        cancel_key: Option<String>,
+        send_time: &Option<u64>,
+        user_id: &Option<u64>,
+        cancel_key: &Option<String>,
     ) -> Result<u64, String> {
         let mobiles = mobiles
             .iter()
@@ -62,7 +62,7 @@ impl<A: SmsTaskAcquisition<T>, T: Send + Sync + 'static + Clone> SmsSender<A, T>
             .into_iter()
             .map(|e| (e.0.to_owned(), e.1.to_owned()))
             .collect::<Vec<(String, String)>>();
-        let app_id = app_id.unwrap_or_default();
+
         let nt = now_time().unwrap_or_default();
         let send_time = send_time.unwrap_or(nt);
         let send_time = if send_time < nt { nt } else { send_time };
@@ -73,7 +73,7 @@ impl<A: SmsTaskAcquisition<T>, T: Send + Sync + 'static + Clone> SmsSender<A, T>
         let id = self
             .acquisition
             .sms_record()
-            .add(&mobiles, tpl_id, tpl_var, send_time, user_id, cancel_key)
+            .add(&mobiles, tpl_id, tpl_var, &send_time, user_id, cancel_key)
             .await?;
         let mut redis = self.redis.get().await.map_err(|e| e.to_string())?;
         if let Err(err) = self.task.notify(&mut redis).await {

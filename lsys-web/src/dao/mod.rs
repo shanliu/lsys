@@ -138,7 +138,6 @@ impl WebDao {
             None,
             300, //任务最大执行时间
             true,
-            3,
         ));
         let task_web_smse = web_smser.clone();
         tokio::spawn(async move { task_web_smse.task().await });

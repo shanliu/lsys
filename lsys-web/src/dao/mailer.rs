@@ -66,7 +66,7 @@ impl WebAppMailer {
             fluent,
         }
     }
-    pub async fn send(&self, email: Message) -> Result<(), WebAppMailerError> {
+    async fn send(&self, email: Message) -> Result<(), WebAppMailerError> {
         let host = self.app_core.config.get_string("smtp_host")?;
         let name = self
             .app_core
@@ -99,7 +99,7 @@ impl WebAppMailer {
         context.insert("ttl", ttl);
         self.tpl_send(to, "valid_code", &context).await
     }
-    pub async fn tpl_send(
+    async fn tpl_send(
         &self,
         to: &str,
         tpl_type: &str,

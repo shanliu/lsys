@@ -308,7 +308,10 @@ impl<
         };
         let task_redis_client = redis_client.clone();
         let max_size = self.task_size;
-
+        debug!(
+            "Concurrent send max[{}]:{} task",
+            task_list_key, self.task_size
+        );
         //从channel 中拿数据并发送
         tokio::spawn(async move {
             //连接REDIS
@@ -360,6 +363,37 @@ impl<
                 };
                 //未获取到任务,且还有闲置发送
                 if task_empty && run_size > 0 {
+                    //查找已完成任务列表
+                    let mut finsih_pk = Vec::with_capacity(max_size);
+                    task_ing = task_ing
+                        .into_iter()
+                        .filter(|(pk, abt)| {
+                            if abt.is_finished() {
+                                finsih_pk.push(pk.to_owned());
+                                false
+                            } else {
+                                true
+                            }
+                        })
+                        .collect::<Vec<(I, AbortHandle)>>();
+                    //未查找到已完成任务,可能上一次已处理完.重新进入等待
+                    if !finsih_pk.is_empty() {
+                        //存在处理完任务,进行REDIS解锁及增加空闲任务数量
+                        //REDIS一次性全部解锁完在释放,省的多次获取锁
+                        let mut redis = redis_conn.lock().await;
+                        for pk in finsih_pk {
+                            run_size += 1;
+                            match redis.hdel(&task_list_key, &pk).await {
+                                Ok(()) => {
+                                    debug!("clear runing task:{}", pk);
+                                }
+                                Err(err) => {
+                                    warn!("clear runing task fail:{}", err);
+                                }
+                            }
+                        }
+                    }
+
                     //异步阻塞等待任务
                     match channel_receiver.recv().await {
                         Some(v) => {

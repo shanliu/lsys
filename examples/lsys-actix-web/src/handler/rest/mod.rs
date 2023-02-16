@@ -22,6 +22,7 @@ where
         scope("/rest")
             .service(subapp::access)
             .service(subapp::app)
+            .service(subapp::sms)
             .service(subapp::demo_app),
     )
     .service(

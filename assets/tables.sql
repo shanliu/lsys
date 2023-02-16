@@ -269,6 +269,7 @@ CREATE TABLE `yaf_app_oauth_token` (
 -- ----------- lsys-sender  ---------------
 CREATE TABLE `yaf_sender_aliyun_config` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
+    `name` varchar(32) NOT NULL COMMENT '应用端配置显示名',
     `access_id` varchar(32) NOT NULL COMMENT '阿里云key',
     `access_secret` varchar(64) NOT NULL COMMENT '阿里云secret',
     `status` tinyint(1) NOT NULL COMMENT '状态',
@@ -285,6 +286,7 @@ CREATE TABLE `yaf_sender_sms_aliyun` (
     `aliyun_sign_name` varchar(32) NOT NULL COMMENT '阿里云签名',
     `aliyun_sms_tpl` varchar(32) NOT NULL COMMENT '阿里云模板名',
     `status` tinyint(1) NOT NULL COMMENT '状态',
+    `max_try_num` SMALLINT(3) unsigned NOT NULL DEFAULT 0 COMMENT '最大发送次数',
     `user_id` bigint unsigned NOT NULL COMMENT '用户id',
     `add_time` bigint unsigned NOT NULL COMMENT '申请时间',
     `delete_user_id` bigint unsigned NOT NULL COMMENT '删除用户id',
@@ -292,7 +294,7 @@ CREATE TABLE `yaf_sender_sms_aliyun` (
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB AUTO_INCREMENT = 28 DEFAULT CHARSET = utf8mb4;
 CREATE TABLE `yaf_sender_sms_config` (
-    `id` bigint unsigned NOT NULL COMMENT 'ID,由应用生成',
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID,由应用生成',
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
     `priority` tinyint(3) DEFAULT 99,
     `config_type` tinyint(3) NOT NULL COMMENT '配置类型',
@@ -319,7 +321,7 @@ CREATE TABLE `yaf_sender_sms_message` (
     `user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '用户id',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB AUTO_INCREMENT = 28 DEFAULT CHARSET = utf8mb4;
-CREATE TABLE `sender_sms_cancel` (
+CREATE TABLE `yaf_sender_sms_cancel` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
     `sms_message_id` bigint unsigned NOT NULL COMMENT 'ID',
     `cancel_hand` varchar(32) NOT NULL COMMENT '取消key',
@@ -328,7 +330,7 @@ CREATE TABLE `sender_sms_cancel` (
     `cancel_time` bigint unsigned NOT NULL COMMENT '确认时间',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB AUTO_INCREMENT = 28 DEFAULT CHARSET = utf8mb4;
-CREATE TABLE `sender_sms_log` (
+CREATE TABLE `yaf_sender_sms_log` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
     `sms_message_id` bigint unsigned NOT NULL COMMENT 'ID',
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',

@@ -22,6 +22,7 @@ pub enum ResData {
     //admin
     AdminManage,
     AdminSetting,
+    AdminAliSmsConfig,
     AdminTest,
     //system res
     SystemReSetPassword,
@@ -52,6 +53,7 @@ pub enum ResData {
     UserConfirmApp,
     //app
     AppView(u64, u64),
+    AppSender(u64, u64),
     AppRbacCheck(u64),
 }
 
@@ -84,6 +86,10 @@ impl ResData {
                 vec![access_res!(["admin", access_op!(["setting", true])])],
                 Some(vec![Self::AdminManage]),
             )),
+            ResData::AdminAliSmsConfig => Ok((
+                vec![access_res!(["admin", access_op!(["alisms-config", true])])],
+                Some(vec![Self::AdminManage]),
+            )),
             ResData::AppView(app_id, user_id) => Ok((
                 vec![
                     access_res!([
@@ -94,6 +100,20 @@ impl ResData {
                         format!("app-{}", app_id),
                         *user_id,
                         access_op!(["app-view", true])
+                    ]),
+                ],
+                None,
+            )),
+            ResData::AppSender(app_id, user_id) => Ok((
+                vec![
+                    access_res!([
+                        format!("app-{}", app_id),
+                        access_op!(["global-app-sender-config", true])
+                    ]),
+                    access_res!([
+                        format!("app-{}", app_id),
+                        *user_id,
+                        access_op!(["app-sender-config", true])
                     ]),
                 ],
                 None,

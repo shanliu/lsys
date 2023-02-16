@@ -1,7 +1,7 @@
 
 @host_url= http://127.0.0.1:8080
 @user_url = {{host_url}}/api/user
-@jwt_token = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwidG9rZW4iOiJNVGN0VGtSWVNGbE5Wa0ZEVVVWVFRFZEpWMXBRVDBaTFVsUlZMVEUyTnpJNU1UQTNNalU9IiwiZXhwIjoxNTE2MjM5MDIyMTF9._p2A33VfAi8woUtKeyOnxhE_mNU9vKoeMsh70Kz6ctU
+@jwt_token = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwidG9rZW4iOiJNVGN0VDBaQ1VFbFJXa0ZPV0ZkRFNGVkxVMHBXVWsxRldWUkVMVEUyTnpZMk1UazFNalUiLCJleHAiOjE1MTYyMzkwMjIxfQ.q8rEUYVWIyAN5TsdJ1BH9C4zkSGWahGbMGEJTw5fTFs
 
 # jwt 字段
 #  pub exp: i64,
@@ -62,7 +62,7 @@ Content-Type: application/json
     "mobile": "13800138000",
     "area_code": "86",
     "captcha":  {
-        "code":"gDHMb",
+        "code":"TpS",
         "key":"8613800138000"
     }
 }
@@ -128,7 +128,7 @@ Content-Type: application/json
     "area_code": "86",
     "password": "987654",
     "captcha":  {
-        "code":"gDHMb",
+        "code":"w5q",
         "key":"13800138000[86]"
     }
 }

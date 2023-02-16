@@ -1,8 +1,11 @@
 use std::sync::Arc;
 
 use config::ConfigError;
+use lsys_app::model::AppsModel;
 use lsys_core::{AppCore, FluentMessage};
-use lsys_sender::dao::{AliyunSenderTask, AliyunSmsRecord, SmsSender};
+use lsys_sender::dao::{
+    AliyunSender, AliyunSenderTask, AliyunSmsRecord, SmsSender, SmsTaskAcquisition, SmsTaskRecord,
+};
 use lsys_user::dao::account::{check_mobile, UserAccountError};
 use sqlx::{MySql, Pool};
 use tera::Context;
@@ -45,9 +48,10 @@ impl From<WebAppSmserError> for UserAccountError {
     }
 }
 pub struct WebAppSmser {
+    pub aliyun_sender: AliyunSender,
     smser: Arc<SmsSender<AliyunSmsRecord, ()>>,
+    sms_record: SmsTaskRecord,
     fluent: Arc<FluentMessage>,
-    db: Pool<MySql>,
 }
 
 impl WebAppSmser {
@@ -60,26 +64,77 @@ impl WebAppSmser {
         task_size: Option<usize>,
         task_timeout: usize,
         is_check: bool,
-        try_num: usize,
     ) -> Self {
+        let acquisition = AliyunSmsRecord::new(app_core.clone(), db.clone());
+        let sms_record = acquisition.sms_record().to_owned();
         let smser = Arc::new(SmsSender::new(
-            app_core.clone(),
+            app_core,
             redis,
             task_size,
             task_timeout,
             is_check,
-            AliyunSmsRecord::new(try_num, app_core, db.clone()),
+            acquisition, //结构不大,不用Arc,引用,方便处理,不然生命周期太难搞
         ));
-        Self { smser, fluent, db }
+        let aliyun_sender = AliyunSender::new(db);
+        Self {
+            smser,
+            fluent,
+            sms_record,
+            aliyun_sender,
+        }
     }
     // 短信后台任务
     pub async fn task(&self) {
         self.smser
-            .task::<_, _>(AliyunSenderTask::new(self.db.clone()))
+            .task::<_, _>(AliyunSenderTask::new(self.aliyun_sender.clone()))
             .await;
     }
+    // 短信后台任务
+    pub fn sms_record(&self) -> &SmsTaskRecord {
+        &self.sms_record
+    }
     // 短信发送接口
-    pub async fn send(
+    #[allow(clippy::too_many_arguments)]
+    pub async fn app_send(
+        &self,
+        app: &AppsModel,
+        tpl_type: &str,
+        area: &str,
+        mobile: &str,
+        body: &str,
+        send_time: Option<u64>,
+        cancel_key: &Option<String>,
+    ) -> Result<(), WebAppSmserError> {
+        check_mobile(&self.fluent, area, mobile)
+            .map_err(|e| WebAppSmserError::System(e.to_string()))?;
+        self.smser
+            .send(
+                Some(app.id),
+                &[(area, mobile)],
+                tpl_type,
+                body,
+                &send_time,
+                &Some(app.user_id),
+                cancel_key,
+            )
+            .await
+            .map_err(WebAppSmserError::System)
+            .map(|_| ())
+    }
+    // 短信发送接口
+    pub async fn app_send_cancel(
+        &self,
+        app: &AppsModel,
+        cancel_key: &str,
+    ) -> Result<(), WebAppSmserError> {
+        self.smser
+            .cancal(cancel_key, &app.user_id)
+            .await
+            .map_err(WebAppSmserError::System)
+            .map(|_| ())
+    }
+    // 短信发送接口
+    async fn send(
         &self,
         tpl_type: &str,
         area: &str,
@@ -89,7 +144,7 @@ impl WebAppSmser {
         check_mobile(&self.fluent, area, mobile)
             .map_err(|e| WebAppSmserError::System(e.to_string()))?;
         self.smser
-            .send(None, &[(area, mobile)], tpl_type, body, None, None, None)
+            .send(None, &[(area, mobile)], tpl_type, body, &None, &None, &None)
             .await
             .map_err(WebAppSmserError::System)
             .map(|_| ())
@@ -104,35 +159,7 @@ impl WebAppSmser {
         let mut context = Context::new();
         context.insert("code", code);
         context.insert("time", &ttl);
-        self.tpl_send(area, mobile, "valid_code", context).await
-    }
-    pub async fn tpl_send(
-        &self,
-        area: &str,
-        mobile: &str,
-        tpl_type: &str,
-        context: Context,
-    ) -> Result<(), WebAppSmserError> {
-        // # [sms_notify.valid_code]
-        // # tpl="sms/valid_code.txt"
-        // # sms_tpl="valid_code"
-        // let notifys = self.app_core.config.get_table("sms_notify")?;
-        // let notify = notifys
-        //     .get(tpl_type)
-        //     .ok_or_else(|| {
-        //         err_result!(format!("not find {} notify config [sms_notify]", tpl_type))
-        //     })?
-        //     .to_owned()
-        //     .into_table()
-        //     .map_err(|e| err_result!(e.to_string() + "[sms_notify_parse]"))?;
-        // let template_name = notify
-        //     .get("tpl")
-        //     .ok_or_else(|| err_result!(format!("not find tpl on {}", tpl_type)))?
-        //     .to_owned()
-        //     .into_string()
-        //     .map_err(|e| err_result!(e.to_string() + "[sms_notify_tpl]"))?;
-        // let body = self.tera.render(&template_name, context)?;
-        self.send(tpl_type, area, mobile, &context.into_json().to_string())
+        self.send("valid_code", area, mobile, &context.into_json().to_string())
             .await
     }
 }

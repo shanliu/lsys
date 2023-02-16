@@ -2,6 +2,7 @@ use actix_service::ServiceFactory;
 use actix_web::{dev::ServiceRequest, options, web::scope, App, Error, HttpResponse, Responder};
 
 mod app;
+mod sender;
 mod user;
 
 #[options("/{_:.*}")]
@@ -46,4 +47,5 @@ where
             .service(options),
     )
     .service(scope("/api/app").service(app::app).service(options))
+    .service(scope("/api/sender").service(sender::smser).service(options))
 }
