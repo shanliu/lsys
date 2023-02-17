@@ -6,10 +6,11 @@ use lsys_sender::model::{SenderAliyunConfigStatus, SenderSmsAliyunStatus};
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
 use serde::Deserialize;
 use serde_json::json;
-
+use serde_json::Value;
 #[derive(Debug, Deserialize)]
 pub struct SmserAliConfigListParam {
     pub ids: Option<Vec<u64>>,
+    pub full_data: Option<bool>,
 }
 
 pub async fn smser_ali_config_list<
@@ -21,22 +22,38 @@ pub async fn smser_ali_config_list<
     param: SmserAliConfigListParam,
     req_dao: &RequestDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
-        .user
-        .rbac_dao
-        .rbac
-        .access
-        .check(
-            req_auth.user_data().user_id,
-            &[],
-            &res_data!(AdminAliSmsConfig),
-        )
-        .await?;
     let alisender = &req_dao.web_dao.smser.aliyun_sender;
     let row = alisender.list_config(param.ids.as_deref()).await?;
-    Ok(JsonData::data(json!({ "data": row })))
+    let row = if param.full_data.unwrap_or(false) {
+        let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+        req_dao
+            .web_dao
+            .user
+            .rbac_dao
+            .rbac
+            .access
+            .check(
+                req_auth.user_data().user_id,
+                &[],
+                &res_data!(AdminAliSmsConfig),
+            )
+            .await?;
+        json!({ "data": row })
+    } else {
+        let row = row
+            .into_iter()
+            .map(|e| {
+                let len=e.access_id.chars().count();
+                json!({
+                   "id": e.id,
+                   "name": e.name,
+                   "app_id":format!("{}**{}",e.access_id.chars().take(2).collect::<String>(),e.access_id.chars().skip(if len-2>0{len-2}else{len}).take(2).collect::<String>()),
+                })
+            })
+            .collect::<Vec<Value>>();
+        json!({ "data": row })
+    };
+    Ok(JsonData::data(row))
 }
 
 #[derive(Debug, Deserialize)]

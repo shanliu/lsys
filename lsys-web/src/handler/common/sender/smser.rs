@@ -144,21 +144,5 @@ pub async fn smser_config_list<'t, T: SessionTokenData, D: SessionData, S: UserS
         })
         .collect::<Vec<Value>>();
 
-    let alisender = &req_dao.web_dao.smser.aliyun_sender;
-    let ali_config = alisender
-        .list_config(None)
-        .await?
-        .into_iter()
-        .map(|e| {
-            json!({
-               "id": e.id,
-               "name": e.name,
-               "app_id":format!("{}***",e.access_id.chars().take(4).collect::<String>()),
-            })
-        })
-        .collect::<Vec<Value>>();
-
-    Ok(JsonData::data(
-        json!({ "config": data,"ali_config": ali_config}),
-    ))
+    Ok(JsonData::data(json!({ "data": data })))
 }
