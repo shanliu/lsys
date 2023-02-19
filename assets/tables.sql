@@ -249,8 +249,8 @@ CREATE TABLE `yaf_app` (
     `user_id` bigint unsigned NOT NULL COMMENT '添加用户ID',
     `add_user_id` bigint unsigned NOT NULL COMMENT '申请用户',
     `add_time` bigint unsigned NOT NULL COMMENT '申请时间',
-    `confirm_user_id` bigint unsigned NOT NULL COMMENT '确认用户',
-    `confirm_time` bigint unsigned NOT NULL COMMENT '确认时间',
+    `confirm_user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '确认用户',
+    `confirm_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '确认时间',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB AUTO_INCREMENT = 28 DEFAULT CHARSET = utf8mb4;
 CREATE TABLE `yaf_app_oauth_token` (
@@ -275,7 +275,7 @@ CREATE TABLE `yaf_sender_aliyun_config` (
     `status` tinyint(1) NOT NULL COMMENT '状态',
     `user_id` bigint unsigned NOT NULL COMMENT '申请时间',
     `add_time` bigint unsigned NOT NULL COMMENT '申请时间',
-    `delete_time` bigint unsigned NOT NULL COMMENT '确认时间',
+    `delete_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '确认时间',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB AUTO_INCREMENT = 28 DEFAULT CHARSET = utf8mb4;
 CREATE TABLE `yaf_sender_sms_aliyun` (

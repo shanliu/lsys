@@ -89,7 +89,7 @@ pub async fn smser_ali_config_add<'t, T: SessionTokenData, D: SessionData, S: Us
             &req_auth.user_data().user_id,
         )
         .await?;
-    Ok(JsonData::data(json!({ "num": row })))
+    Ok(JsonData::data(json!({ "id": row })))
 }
 
 #[derive(Debug, Deserialize)]
@@ -252,5 +252,5 @@ pub async fn smser_app_ali_config_add<
             &req_auth.user_data().user_id,
         )
         .await?;
-    Ok(JsonData::data(json!({ "num": row })))
+    Ok(JsonData::data(json!({ "id": row })))
 }
