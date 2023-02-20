@@ -321,7 +321,7 @@ impl SmsTaskRecord {
                     }
                 }
             }
-            SenderSmsConfigType::Block => "".to_string(),
+            SenderSmsConfigType::Block =>config_data.to_string(),
             SenderSmsConfigType::Close => "".to_string(),
             SenderSmsConfigType::PassTpl => config_data.to_string(),
             SenderSmsConfigType::MaxOfSend => match config_data.as_u64() {
@@ -371,14 +371,17 @@ impl SmsTaskRecord {
     }
     pub async fn config_list(
         &self,
+        user_id: Option<u64>,
         app_id: Option<u64>,
     ) -> Result<Vec<(SenderSmsConfigModel, SenderSmsConfigData)>, sqlx::Error> {
-        let app_id = app_id.unwrap_or_default();
-        let sql = sql_format!(
-            "app_id = {} and status ={} order by id desc",
-            app_id,
-            SenderSmsConfigStatus::Enable
-        );
+        let mut sqlwhere = vec![sql_format!(" status ={}", SenderSmsConfigStatus::Enable)];
+        if let Some(aid) = app_id {
+            sqlwhere.push(sql_format!("app_id = {}  ", aid));
+        }
+        if let Some(uid) = user_id {
+            sqlwhere.push(sql_format!("user_id={} ", uid));
+        }
+        let sql = format!("{}  order by id desc", sqlwhere.join(" and "));
         Select::type_new::<SenderSmsConfigModel>()
             .fetch_all_by_where::<SenderSmsConfigModel, _>(
                 &sqlx_model::WhereOption::Where(sql),
@@ -434,7 +437,10 @@ impl SmsTaskRecord {
         if mobiles.is_empty() {
             return Err("miss mobile".to_string());
         }
-        let mut rule = self.config_list(app_id).await.map_err(|e| e.to_string())?;
+        let mut rule = self
+            .config_list(None, Some(app_id.unwrap_or_default()))
+            .await
+            .map_err(|e| e.to_string())?;
         let mut limit_sql = vec![];
         let nowt = send_time;
         rule.sort_by(|a, b| a.0.priority.cmp(&b.0.priority));

@@ -246,13 +246,21 @@ impl AliyunSender {
     //查找指定应用的发送跟aliyun短信的配置
     pub async fn find_app_config(
         &self,
-        app_id: &u64,
+        user_id: &Option<u64>,
+        app_id: &Option<u64>,
+        sms_tpl: &Option<String>,
     ) -> Result<Vec<(SenderSmsAliyunModel, SenderAliyunConfigModel)>, sqlx::Error> {
-        let sql = sql_format!(
-            "app_id = {} and status ={} order by id desc",
-            app_id,
-            SenderSmsAliyunStatus::Enable
-        );
+        let mut sqlwhere = vec![sql_format!(" status ={}", SenderSmsAliyunStatus::Enable)];
+        if let Some(aid) = app_id {
+            sqlwhere.push(sql_format!("app_id = {}  ", aid));
+        }
+        if let Some(uid) = user_id {
+            sqlwhere.push(sql_format!("user_id={} ", uid));
+        }
+        if let Some(tpl) = sms_tpl {
+            sqlwhere.push(sql_format!("sms_tpl={} ", tpl));
+        }
+        let sql = format!("{}  order by id desc", sqlwhere.join(" and "));
         let res = Select::type_new::<SenderSmsAliyunModel>()
             .fetch_all_by_where::<SenderSmsAliyunModel, _>(
                 &sqlx_model::WhereOption::Where(sql),
@@ -346,7 +354,7 @@ impl SmserTaskExecutioner<()> for AliyunSenderTask {
     async fn exec(&self, val: SmsTaskItem<()>, record: &SmsTaskRecord) -> Result<(), TaskError> {
         let config = self
             .alisms
-            .find_app_config(&val.sms.app_id)
+            .find_app_config(&None, &Some(val.sms.app_id), &None)
             .await
             .map_err(|e| TaskError::Exec(e.to_string()))?;
         let len = config.len();

@@ -5,6 +5,7 @@ use actix_web::post;
 use lsys_web::handler::api::sender::{
     smser_ali_config_add, smser_ali_config_del, smser_ali_config_edit, smser_ali_config_list,
     smser_app_ali_config_add, smser_app_ali_config_del, smser_config_add, smser_config_del,
+    smser_app_ali_config_list,SmserAppAliConfigListParam,
     smser_config_list, SmserAliConfigAddParam, SmserAliConfigDelParam, SmserAliConfigEditParam,
     SmserAliConfigListParam, SmserAppAliConfigAddParam, SmserAppAliConfigDelParam,
     SmserConfigAddParam, SmserConfigDeleteParam, SmserConfigListParam,
@@ -38,6 +39,9 @@ pub(crate) async fn smser<'t>(
         }
         "ali_app_config_del" => {
             smser_app_ali_config_del(rest.param::<SmserAppAliConfigDelParam>()?, &auth_dao).await
+        }
+        "ali_app_config_list" => {
+            smser_app_ali_config_list(rest.param::<SmserAppAliConfigListParam>()?, &auth_dao).await
         }
         name => handler_not_found!(name),
     }?

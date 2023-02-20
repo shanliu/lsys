@@ -94,7 +94,8 @@ pub async fn smser_config_del<'t, T: SessionTokenData, D: SessionData, S: UserSe
 
 #[derive(Debug, Deserialize)]
 pub struct SmserConfigListParam {
-    pub app_id: u64,
+    pub user_id: u64,
+    pub app_id: Option<u64>,
 }
 
 pub async fn smser_config_list<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
@@ -111,14 +112,14 @@ pub async fn smser_config_list<'t, T: SessionTokenData, D: SessionData, S: UserS
         .check(
             req_auth.user_data().user_id,
             &[],
-            &res_data!(AppSender(param.app_id, req_auth.user_data().user_id)),
+            &res_data!(AppSender(param.app_id.unwrap_or_default(), param.user_id)),
         )
         .await?;
     let data = req_dao
         .web_dao
         .smser
         .sms_record()
-        .config_list(Some(param.app_id))
+        .config_list(Some(param.user_id), param.app_id)
         .await?;
     let data = data
         .into_iter()

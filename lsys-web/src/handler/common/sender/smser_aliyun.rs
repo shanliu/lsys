@@ -254,3 +254,51 @@ pub async fn smser_app_ali_config_add<
         .await?;
     Ok(JsonData::data(json!({ "id": row })))
 }
+
+#[derive(Debug, Deserialize)]
+pub struct SmserAppAliConfigListParam {
+    pub user_id: u64,
+    pub app_id: Option<u64>,
+    pub tpl: Option<String>,
+}
+
+pub async fn smser_app_ali_config_list<
+    't,
+    T: SessionTokenData,
+    D: SessionData,
+    S: UserSession<T, D>,
+>(
+    param: SmserAppAliConfigListParam,
+    req_dao: &RequestDao<T, D, S>,
+) -> JsonResult<JsonData> {
+    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    req_dao
+        .web_dao
+        .user
+        .rbac_dao
+        .rbac
+        .access
+        .check(
+            req_auth.user_data().user_id,
+            &[],
+            &res_data!(AppSender(
+                param.app_id.unwrap_or_default(),
+                req_auth.user_data().user_id
+            )),
+        )
+        .await?;
+    let alisender = &req_dao.web_dao.smser.aliyun_sender;
+    let row = alisender
+        .find_app_config(&Some(param.user_id), &param.app_id, &param.tpl)
+        .await?
+        .into_iter()
+        .map(|e| {
+            json!({
+                "config":e.0,
+                "aliyun_id":e.1.id,
+                "aliyun_name":e.1.name,
+            })
+        })
+        .collect::<Vec<_>>();
+    Ok(JsonData::data(json!({ "data": row })))
+}
