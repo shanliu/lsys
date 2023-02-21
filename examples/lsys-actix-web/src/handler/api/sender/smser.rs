@@ -4,11 +4,13 @@ use crate::common::handler::{
 use actix_web::post;
 use lsys_web::handler::api::sender::{
     smser_ali_config_add, smser_ali_config_del, smser_ali_config_edit, smser_ali_config_list,
-    smser_app_ali_config_add, smser_app_ali_config_del, smser_config_add, smser_config_del,
-    smser_app_ali_config_list,SmserAppAliConfigListParam,
-    smser_config_list, SmserAliConfigAddParam, SmserAliConfigDelParam, SmserAliConfigEditParam,
-    SmserAliConfigListParam, SmserAppAliConfigAddParam, SmserAppAliConfigDelParam,
-    SmserConfigAddParam, SmserConfigDeleteParam, SmserConfigListParam,
+    smser_app_ali_config_add, smser_app_ali_config_del, smser_app_ali_config_list,
+    smser_config_add, smser_config_del, smser_config_list, smser_message_cancel,
+    smser_message_history, smser_message_list, SmserAliConfigAddParam, SmserAliConfigDelParam,
+    SmserAliConfigEditParam, SmserAliConfigListParam, SmserAppAliConfigAddParam,
+    SmserAppAliConfigDelParam, SmserAppAliConfigListParam, SmserConfigAddParam,
+    SmserConfigDeleteParam, SmserConfigListParam, SmserMessageCancelParam,
+    SmserMessageHistoryParam, SmserMessageListParam,
 };
 #[post("/smser/{method}")]
 pub(crate) async fn smser<'t>(
@@ -42,6 +44,15 @@ pub(crate) async fn smser<'t>(
         }
         "ali_app_config_list" => {
             smser_app_ali_config_list(rest.param::<SmserAppAliConfigListParam>()?, &auth_dao).await
+        }
+        "message_list" => {
+            smser_message_list(rest.param::<SmserMessageListParam>()?, &auth_dao).await
+        }
+        "message_cancel" => {
+            smser_message_cancel(rest.param::<SmserMessageCancelParam>()?, &auth_dao).await
+        }
+        "message_history" => {
+            smser_message_history(rest.param::<SmserMessageHistoryParam>()?, &auth_dao).await
         }
         name => handler_not_found!(name),
     }?

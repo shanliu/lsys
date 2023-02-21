@@ -289,8 +289,8 @@ CREATE TABLE `yaf_sender_sms_aliyun` (
     `max_try_num` SMALLINT(3) unsigned NOT NULL DEFAULT 1 COMMENT '最大发送次数',
     `user_id` bigint unsigned NOT NULL COMMENT '用户id',
     `add_time` bigint unsigned NOT NULL COMMENT '申请时间',
-    `delete_user_id` bigint unsigned NOT NULL COMMENT '删除用户id',
-    `delete_time` bigint unsigned NOT NULL COMMENT '删除时间',
+    `delete_user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '删除用户id',
+    `delete_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '删除时间',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB AUTO_INCREMENT = 28 DEFAULT CHARSET = utf8mb4;
 CREATE TABLE `yaf_sender_sms_config` (
@@ -301,9 +301,9 @@ CREATE TABLE `yaf_sender_sms_config` (
     `config_data` varchar(512) NOT NULL COMMENT '配置数据',
     `status` tinyint(1) NOT NULL COMMENT '启用状态',
     `user_id` bigint unsigned NOT NULL COMMENT '用户id',
-    `delete_user_id` bigint unsigned NOT NULL COMMENT '删除用户id',
+    `delete_user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '删除用户id',
     `add_time` bigint unsigned NOT NULL COMMENT '申请时间',
-    `delete_time` bigint unsigned NOT NULL COMMENT '删除时间',
+    `delete_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '删除时间',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB AUTO_INCREMENT = 28 DEFAULT CHARSET = utf8mb4;
 CREATE TABLE `yaf_sender_sms_message` (
@@ -319,10 +319,12 @@ CREATE TABLE `yaf_sender_sms_message` (
     `expected_time` bigint unsigned NOT NULL COMMENT '预计发送时间',
     `send_time` bigint unsigned NOT NULL COMMENT '发送时间',
     `user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '用户id',
-    PRIMARY KEY (`id`)
+    PRIMARY KEY (`id`),
+    KEY `sender_record_data_IDX` (`expected_time`, `status`, `id`) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 28 DEFAULT CHARSET = utf8mb4;
 CREATE TABLE `yaf_sender_sms_cancel` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
+    `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
     `sms_message_id` bigint unsigned NOT NULL COMMENT 'ID',
     `cancel_hand` varchar(32) NOT NULL COMMENT '取消key',
     `status` tinyint(1) NOT NULL COMMENT '取消状态',

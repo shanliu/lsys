@@ -21,14 +21,16 @@ pub enum SenderSmsLogType {
 #[sqlx_model_status(type = "i8")]
 pub enum SenderSmsCancelStatus {
     Init = 1,     //待发送
-    IsCancel = 4, //已取消
+    IsCancel = 4, //取消
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, SqlxModelStatus, PartialEq, Eq)]
 #[sqlx_model_status(type = "i8")]
 pub enum SenderSmsLogStatus {
-    Succ = 2, //成功
-    Fail = 3, //失败
+    Succ = 2,          //成功
+    Fail = 3,          //失败
+    KeyCancel = 4,     //取消
+    MessageCancel = 5, //取消
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, SqlxModelStatus, PartialEq, Eq)]

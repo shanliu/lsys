@@ -1,11 +1,162 @@
 use crate::{
     dao::RequestDao,
-    {JsonData, JsonResult},
+    PageParam, {JsonData, JsonResult},
 };
-use lsys_sender::model::{SenderSmsConfigStatus, SenderSmsConfigType};
+use lsys_sender::model::{SenderSmsConfigStatus, SenderSmsConfigType, SenderSmsMessageStatus};
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
 use serde::Deserialize;
 use serde_json::{json, Value};
+
+#[derive(Debug, Deserialize)]
+pub struct SmserMessageHistoryParam {
+    pub message_id: String,
+    pub count_num: Option<bool>,
+    pub page: Option<PageParam>,
+}
+
+pub async fn smser_message_history<
+    't,
+    T: SessionTokenData,
+    D: SessionData,
+    S: UserSession<T, D>,
+>(
+    param: SmserMessageHistoryParam,
+    req_dao: &RequestDao<T, D, S>,
+) -> JsonResult<JsonData> {
+    let message_id = param.message_id.parse::<u64>().map_err(JsonData::message)?;
+    let data = req_dao
+        .web_dao
+        .smser
+        .sms_record()
+        .find_message_by_id(&message_id)
+        .await?;
+    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    req_dao
+        .web_dao
+        .user
+        .rbac_dao
+        .rbac
+        .access
+        .check(
+            req_auth.user_data().user_id,
+            &[],
+            &res_data!(AppSender(data.app_id, req_auth.user_data().user_id)),
+        )
+        .await?;
+    let res = req_dao
+        .web_dao
+        .smser
+        .sms_record()
+        .message_history_list(&message_id, &param.page.map(|e| e.into()))
+        .await?;
+    let count = if param.count_num.unwrap_or(false) {
+        Some(
+            req_dao
+                .web_dao
+                .smser
+                .sms_record()
+                .message_history_count(&message_id)
+                .await?,
+        )
+    } else {
+        None
+    };
+    Ok(JsonData::message("ok").set_data(json!({ "data": res,"count":count})))
+}
+#[derive(Debug, Deserialize)]
+pub struct SmserMessageListParam {
+    pub user_id: u64,
+    pub app_id: Option<u64>,
+    pub tpl_id: Option<String>,
+    pub status: Option<i8>,
+    pub count_num: Option<bool>,
+    pub page: Option<PageParam>,
+}
+
+pub async fn smser_message_list<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
+    param: SmserMessageListParam,
+    req_dao: &RequestDao<T, D, S>,
+) -> JsonResult<JsonData> {
+    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    req_dao
+        .web_dao
+        .user
+        .rbac_dao
+        .rbac
+        .access
+        .check(
+            req_auth.user_data().user_id,
+            &[],
+            &res_data!(AppSender(param.app_id.unwrap_or_default(), param.user_id)),
+        )
+        .await?;
+    let status = if let Some(e) = param.status {
+        Some(SenderSmsMessageStatus::try_from(e)?)
+    } else {
+        None
+    };
+    let res = req_dao
+        .web_dao
+        .smser
+        .sms_record()
+        .message_list(
+            &Some(param.user_id),
+            &param.app_id,
+            &param.tpl_id,
+            &status,
+            &param.page.map(|e| e.into()),
+        )
+        .await?;
+    let count = if param.count_num.unwrap_or(false) {
+        Some(
+            req_dao
+                .web_dao
+                .smser
+                .sms_record()
+                .message_count(&Some(param.user_id), &param.app_id, &param.tpl_id, &status)
+                .await?,
+        )
+    } else {
+        None
+    };
+    Ok(JsonData::message("ok").set_data(json!({ "data": res,"count":count})))
+}
+#[derive(Debug, Deserialize)]
+pub struct SmserMessageCancelParam {
+    pub message_id: String,
+}
+
+pub async fn smser_message_cancel<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
+    param: SmserMessageCancelParam,
+    req_dao: &RequestDao<T, D, S>,
+) -> JsonResult<JsonData> {
+    let message_id = param.message_id.parse::<u64>().map_err(JsonData::message)?;
+    let data = req_dao
+        .web_dao
+        .smser
+        .sms_record()
+        .find_message_by_id(&message_id)
+        .await?;
+    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    req_dao
+        .web_dao
+        .user
+        .rbac_dao
+        .rbac
+        .access
+        .check(
+            req_auth.user_data().user_id,
+            &[],
+            &res_data!(AppSender(data.app_id, req_auth.user_data().user_id)),
+        )
+        .await?;
+    req_dao
+        .web_dao
+        .smser
+        .send_cancel(&data, req_auth.user_data().user_id)
+        .await?;
+    Ok(JsonData::message("ok"))
+}
 
 #[derive(Debug, Deserialize)]
 pub struct SmserConfigAddParam {

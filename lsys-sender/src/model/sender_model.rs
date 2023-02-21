@@ -193,6 +193,9 @@ pub struct SenderSmsCancelModel {
     #[sqlx(default)]
     pub id: u64,
 
+    /// 冗余appid
+    #[sqlx(default)]
+    pub app_id: u64,
     /// 取消句柄
     #[sqlx(default)]
     pub cancel_hand: String,
@@ -248,4 +251,8 @@ pub struct SenderSmsLogModel {
     /// 发送时间
     #[sqlx(default)]
     pub create_time: u64,
+
+    /// 操作用户
+    #[sqlx(default)]
+    pub user_id: u64,
 }

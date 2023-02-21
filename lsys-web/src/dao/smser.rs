@@ -3,8 +3,12 @@ use std::sync::Arc;
 use config::ConfigError;
 use lsys_app::model::AppsModel;
 use lsys_core::{AppCore, FluentMessage};
-use lsys_sender::dao::{
-    AliyunSender, AliyunSenderTask, AliyunSmsRecord, SmsSender, SmsTaskAcquisition, SmsTaskRecord,
+use lsys_sender::{
+    dao::{
+        AliyunSender, AliyunSenderTask, AliyunSmsRecord, SmsSender, SmsTaskAcquisition,
+        SmsTaskRecord,
+    },
+    model::SenderSmsMessageModel,
 };
 use lsys_user::dao::account::{check_mobile, UserAccountError};
 use sqlx::{MySql, Pool};
@@ -99,18 +103,23 @@ impl WebAppSmser {
         &self,
         app: &AppsModel,
         tpl_type: &str,
-        area: &str,
-        mobile: &str,
+        mobile: &[String],
         body: &str,
         send_time: Option<u64>,
         cancel_key: &Option<String>,
     ) -> Result<(), WebAppSmserError> {
-        check_mobile(&self.fluent, area, mobile)
-            .map_err(|e| WebAppSmserError::System(e.to_string()))?;
+        let mb = mobile
+            .iter()
+            .map(|e| ("86", e.as_str()))
+            .collect::<Vec<_>>();
+        for tmp in mb.iter() {
+            check_mobile(&self.fluent, tmp.0, tmp.1)
+                .map_err(|e| WebAppSmserError::System(e.to_string()))?;
+        }
         self.smser
             .send(
                 Some(app.id),
-                &[(area, mobile)],
+                &mb,
                 tpl_type,
                 body,
                 &send_time,
@@ -128,7 +137,19 @@ impl WebAppSmser {
         cancel_key: &str,
     ) -> Result<(), WebAppSmserError> {
         self.smser
-            .cancal(cancel_key, &app.user_id)
+            .cancal_from_key(cancel_key, &app.user_id)
+            .await
+            .map_err(WebAppSmserError::System)
+            .map(|_| ())
+    }
+    // 短信发送接口
+    pub async fn send_cancel(
+        &self,
+        message: &SenderSmsMessageModel,
+        user_id: u64,
+    ) -> Result<(), WebAppSmserError> {
+        self.smser
+            .cancal_from_message(message, &user_id)
             .await
             .map_err(WebAppSmserError::System)
             .map(|_| ())

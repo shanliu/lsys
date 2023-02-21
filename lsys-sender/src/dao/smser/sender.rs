@@ -4,7 +4,7 @@ use lsys_core::{now_time, AppCore};
 
 use tracing::warn;
 
-use crate::dao::task::TaskExecutioner;
+use crate::{dao::task::TaskExecutioner, model::SenderSmsMessageModel};
 
 use super::{super::task::Task, SmsTaskAcquisition, SmsTaskItem, SmserTask, SmserTaskExecutioner};
 
@@ -64,25 +64,58 @@ impl<A: SmsTaskAcquisition<T>, T: Send + Sync + 'static + Clone> SmsSender<A, T>
             .collect::<Vec<(String, String)>>();
 
         let nt = now_time().unwrap_or_default();
-        let send_time = send_time.unwrap_or(nt);
-        let send_time = if send_time < nt { nt } else { send_time };
+        let sendtime = send_time.unwrap_or(nt);
+        let sendtime = if sendtime < nt { nt } else { sendtime };
         self.acquisition
             .sms_record()
-            .send_check(app_id, tpl_id, &mobiles, send_time)
+            .send_check(app_id, tpl_id, &mobiles, sendtime)
             .await?;
         let id = self
             .acquisition
             .sms_record()
-            .add(&mobiles, tpl_id, tpl_var, &send_time, user_id, cancel_key)
+            .add(
+                &mobiles,
+                &app_id.unwrap_or_default(),
+                tpl_id,
+                tpl_var,
+                &sendtime,
+                user_id,
+                cancel_key,
+            )
             .await?;
-        let mut redis = self.redis.get().await.map_err(|e| e.to_string())?;
-        if let Err(err) = self.task.notify(&mut redis).await {
-            warn!("sms is add [{}] ,but send fail :{}", id, err)
+        if send_time
+            .map(|e| e - 1 <= now_time().unwrap_or_default())
+            .unwrap_or(true)
+        {
+            let mut redis = self.redis.get().await.map_err(|e| e.to_string())?;
+            if let Err(err) = self.task.notify(&mut redis).await {
+                warn!("sms is add [{}] ,but send fail :{}", id, err)
+            }
         }
         Ok(id)
     }
-    //取消发送
-    pub async fn cancal(&self, cancel_key: &str, user_id: &u64) -> Result<u64, String> {
+    //通过ID取消发送
+    pub async fn cancal_from_message(
+        &self,
+        msg: &SenderSmsMessageModel,
+        user_id: &u64,
+    ) -> Result<u64, String> {
+        let mut redis = self.redis.get().await.map_err(|e| e.to_string())?;
+        let tdata = self
+            .task
+            .task_data(&mut redis)
+            .await
+            .map_err(|e| e.to_string())?;
+        if tdata.get(&msg.id).is_none() {
+            self.acquisition
+                .sms_record()
+                .cancel_form_id(msg, user_id)
+                .await?;
+        }
+        Ok(1)
+    }
+    //通过KEY取消发送
+    pub async fn cancal_from_key(&self, cancel_key: &str, user_id: &u64) -> Result<u64, String> {
         let data = self
             .acquisition
             .sms_record()
@@ -99,7 +132,7 @@ impl<A: SmsTaskAcquisition<T>, T: Send + Sync + 'static + Clone> SmsSender<A, T>
             if tdata.get(&tmp.id).is_none() {
                 self.acquisition
                     .sms_record()
-                    .cancel_id(&tmp, user_id)
+                    .cancel_form_key(&tmp, user_id)
                     .await?;
                 succ += 1;
             }

@@ -1,14 +1,15 @@
 use crate::{dao::WebDao, JsonData, JsonResult};
+use chrono::NaiveDateTime;
 use lsys_app::model::AppsModel;
 use serde::Deserialize;
-use serde_json::json;
 
 #[derive(Debug, Deserialize)]
 pub struct SmsSendParam {
-    pub mobile: String,
+    pub mobile: Vec<String>,
     pub tpl: String,
     pub data: String,
     pub cancel: Option<String>,
+    pub send_time: Option<String>,
 }
 pub async fn sms_send(
     app_dao: &WebDao,
@@ -26,19 +27,31 @@ pub async fn sms_send(
             &res_data!(AppSender(app.id, app.user_id)),
         )
         .await?;
+    let send_time = if let Some(t) = param.send_time {
+        if t.is_empty() {
+            None
+        } else {
+            let dt =
+                NaiveDateTime::parse_from_str(&t, "%Y-%m-%d %H:%M:%S").map_err(JsonData::error)?;
+            Some(dt.timestamp() as u64 - 8 * 3600)
+        }
+    } else {
+        None
+    };
+    // 字符串转时间对象
+
     app_dao
         .smser
         .app_send(
             app,
             &param.tpl,
-            "86",
             &param.mobile,
             &param.data,
-            None,
+            send_time,
             &param.cancel,
         )
         .await?;
-    Ok(JsonData::message("success").set_data(json!({ "pass": 1 })))
+    Ok(JsonData::message("success"))
 }
 
 #[derive(Debug, Deserialize)]
@@ -62,5 +75,5 @@ pub async fn sms_cancel(
         )
         .await?;
     app_dao.smser.app_send_cancel(app, &param.cancel).await?;
-    Ok(JsonData::message("success").set_data(json!({ "pass": 1 })))
+    Ok(JsonData::message("success"))
 }
