@@ -1,6 +1,6 @@
 use crate::{dao::WebDao, JsonData, JsonResult};
-use chrono::NaiveDateTime;
 use lsys_app::model::AppsModel;
+use lsys_core::str_time;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -31,9 +31,7 @@ pub async fn sms_send(
         if t.is_empty() {
             None
         } else {
-            let dt =
-                NaiveDateTime::parse_from_str(&t, "%Y-%m-%d %H:%M:%S").map_err(JsonData::error)?;
-            Some(dt.timestamp() as u64 - 8 * 3600)
+            Some(str_time(&t)?.timestamp() as u64)
         }
     } else {
         None
