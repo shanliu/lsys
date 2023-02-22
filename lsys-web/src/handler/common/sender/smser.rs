@@ -167,6 +167,7 @@ pub async fn smser_message_list<'t, T: SessionTokenData, D: SessionData, S: User
                 "tpl_id":e.tpl_id,
                 "try_num":e.try_num,
                 "add_time":e.add_time,
+                "status":e.status,
                 "expected_time":e.expected_time,
                 "send_time":e.send_time
             })
