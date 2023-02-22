@@ -27,7 +27,7 @@ pub struct SenderAliyunConfigModel {
 
     /// 添加用户ID
     #[sqlx(default)]
-    pub user_id: u64,
+    pub add_user_id: u64,
 
     /// 添加时间
     #[sqlx(default)]
@@ -48,7 +48,9 @@ pub struct SenderSmsAliyunModel {
     /// 应用ID
     #[sqlx(default)]
     pub app_id: u64,
-
+    /// 名称
+    #[sqlx(default)]
+    pub name: String,
     /// 内部模板名
     #[sqlx(default)]
     pub sms_tpl: String,
@@ -73,9 +75,13 @@ pub struct SenderSmsAliyunModel {
     #[sqlx(default)]
     pub status: i8,
 
-    /// 添加用户ID
+    /// 属于用户ID
     #[sqlx(default)]
     pub user_id: u64,
+
+    /// 添加用户ID
+    #[sqlx(default)]
+    pub add_user_id: u64,
 
     /// 删除用户ID
     #[sqlx(default)]
@@ -117,9 +123,13 @@ pub struct SenderSmsConfigModel {
     #[sqlx(default)]
     pub status: i8,
 
-    /// 添加用户ID
+    /// 属于用户ID
     #[sqlx(default)]
     pub user_id: u64,
+
+    /// 添加用户ID
+    #[sqlx(default)]
+    pub add_user_id: u64,
 
     /// 删除用户ID
     #[sqlx(default)]
@@ -181,7 +191,7 @@ pub struct SenderSmsMessageModel {
     #[sqlx(default)]
     pub send_time: u64,
 
-    /// 外部发送用户ID
+    /// 发送用户ID
     #[sqlx(default)]
     pub user_id: u64,
 }
@@ -208,9 +218,9 @@ pub struct SenderSmsCancelModel {
     #[sqlx(default)]
     pub status: i8,
 
-    /// 取消用户ID
+    /// 执行取消用户ID
     #[sqlx(default)]
-    pub user_id: u64,
+    pub cancel_user_id: u64,
 
     /// 取消时间
     #[sqlx(default)]

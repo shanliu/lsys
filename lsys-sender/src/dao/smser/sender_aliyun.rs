@@ -125,7 +125,7 @@ impl AliyunSender {
             access_id:access_id,
             access_secret:access_secret,
             add_time:time,
-            user_id:user_id,
+            add_user_id:user_id,
         });
         let res = Update::<sqlx::MySql, SenderAliyunConfigModel, _>::new(change)
             .execute_by_pk(config, &self.db)
@@ -156,7 +156,7 @@ impl AliyunSender {
             access_id:add_access_id,
             access_secret:access_secret,
             add_time:time,
-            user_id:user_id,
+            add_user_id:user_id,
             status:SenderAliyunConfigStatus::Enable as i8,
         });
         let res = Select::type_new::<SenderAliyunConfigModel>()
@@ -192,6 +192,7 @@ impl AliyunSender {
     #[allow(clippy::too_many_arguments)]
     pub async fn add_app_config(
         &self,
+        name: &String,
         app_id: &u64,
         aliyun_config: &SenderAliyunConfigModel,
         sms_tpl: &str,
@@ -199,12 +200,15 @@ impl AliyunSender {
         aliyun_sign_name: &str,
         try_num: &u16,
         user_id: &u64,
+        add_user_id: &u64,
     ) -> Result<u64, sqlx::Error> {
+        let name = name.to_owned();
         let sms_tpl = sms_tpl.to_owned();
         let aliyun_sign_name = aliyun_sign_name.to_owned();
         let aliyun_sms_tpl = aliyun_sms_tpl.to_owned();
         let time = now_time().unwrap_or_default();
         let add = sqlx_model::model_option_set!(SenderSmsAliyunModelRef,{
+            name:name,
             max_try_num:try_num,
             app_id:app_id,
             sms_tpl:sms_tpl,
@@ -212,6 +216,7 @@ impl AliyunSender {
             aliyun_sms_tpl:aliyun_sms_tpl,
             add_time:time,
             user_id:user_id,
+            add_user_id:add_user_id,
             aliyun_config_id:aliyun_config.id,
             status:SenderSmsAliyunStatus::Enable as i8,
         });
@@ -246,11 +251,15 @@ impl AliyunSender {
     //查找指定应用的发送跟aliyun短信的配置
     pub async fn find_app_config(
         &self,
+        id: &Option<u64>,
         user_id: &Option<u64>,
         app_id: &Option<u64>,
         sms_tpl: &Option<String>,
     ) -> Result<Vec<(SenderSmsAliyunModel, SenderAliyunConfigModel)>, sqlx::Error> {
         let mut sqlwhere = vec![sql_format!(" status ={}", SenderSmsAliyunStatus::Enable)];
+        if let Some(aid) = id {
+            sqlwhere.push(sql_format!("id = {}  ", aid));
+        }
         if let Some(aid) = app_id {
             sqlwhere.push(sql_format!("app_id = {}  ", aid));
         }
@@ -354,7 +363,12 @@ impl SmserTaskExecutioner<()> for AliyunSenderTask {
     async fn exec(&self, val: SmsTaskItem<()>, record: &SmsTaskRecord) -> Result<(), TaskError> {
         let config = self
             .alisms
-            .find_app_config(&None, &Some(val.sms.app_id), &None)
+            .find_app_config(
+                &None,
+                &None,
+                &Some(val.sms.app_id),
+                &Some(val.sms.tpl_id.clone()),
+            )
             .await
             .map_err(|e| TaskError::Exec(e.to_string()))?;
         let len = config.len();
@@ -369,8 +383,21 @@ impl SmserTaskExecutioner<()> for AliyunSenderTask {
             if i != now {
                 continue;
             }
+
             let aliconfig = &c.1;
             let smsconfig = &c.0;
+
+            debug!(
+                "msgid:{}  mapid:{} mobie:{} access_id:{} sign_name:{} tpl:{} var:{}",
+                val.sms.id,
+                val.sms.mobile,
+                smsconfig.id,
+                aliconfig.access_id,
+                smsconfig.aliyun_sign_name,
+                smsconfig.aliyun_sms_tpl,
+                val.sms.tpl_var
+            );
+
             let res = match Aliyun::new(&aliconfig.access_id, &aliconfig.access_secret)
                 .send_sms(
                     &val.sms.mobile,
@@ -396,7 +423,7 @@ impl SmserTaskExecutioner<()> for AliyunSenderTask {
                 .map_err(|e| TaskError::Exec(e.to_string()))?;
             return res.map_err(TaskError::Exec);
         }
-        let err = "not config send".to_string();
+        let err = "not find sms config".to_string();
         record
             .finish("aliyun".to_string(), &val.sms, &Err(err.clone()), 0)
             .await

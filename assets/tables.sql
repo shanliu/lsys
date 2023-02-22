@@ -136,7 +136,7 @@ CREATE TABLE `yaf_user_email` (
 CREATE TABLE `yaf_user_external` (
     `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
     `user_id` bigint(11) unsigned NOT NULL COMMENT '用户ID',
-    `external_type` varchar(64) unsigned NOT NULL COMMENT '类型 wechat 微信 ',
+    `external_type` varchar(64) NOT NULL COMMENT '类型 wechat 微信 ',
     `external_id` varchar(125) NOT NULL COMMENT '其他网站用户表示',
     `external_name` varchar(255) NOT NULL DEFAULT '' COMMENT '其他网站用户名',
     `external_gender` varchar(4) NOT NULL DEFAULT '' COMMENT '性别',
@@ -212,15 +212,6 @@ CREATE TABLE `yaf_user_password` (
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB AUTO_INCREMENT = 2 DEFAULT CHARSET = utf8;
 -- test.yaf_users definition
-CREATE TABLE `yaf_users` (
-    `id` int(11) unsigned NOT NULL AUTO_INCREMENT COMMENT '用户ID',
-    `nickname` varchar(32) DEFAULT NULL COMMENT '昵称',
-    `gender` tinyint(3) unsigned NOT NULL DEFAULT 0 COMMENT '性别 1 男 2 女',
-    `headimg` varchar(64) DEFAULT NULL COMMENT '头像地址',
-    `password_id` int(10) unsigned NOT NULL DEFAULT 0 COMMENT '密码ID',
-    `add_time` int(10) unsigned NOT NULL COMMENT '添加时间',
-    PRIMARY KEY (`id`)
-) ENGINE = InnoDB AUTO_INCREMENT = 932 DEFAULT CHARSET = utf8mb4;
 CREATE TABLE `yaf_user_index` (
     `id` int(11) unsigned NOT NULL AUTO_INCREMENT COMMENT '用户ID',
     `user_id` bigint(11) unsigned NOT NULL COMMENT '用户ID',
@@ -273,7 +264,7 @@ CREATE TABLE `yaf_sender_aliyun_config` (
     `access_id` varchar(32) NOT NULL COMMENT '阿里云key',
     `access_secret` varchar(64) NOT NULL COMMENT '阿里云secret',
     `status` tinyint(1) NOT NULL COMMENT '状态',
-    `user_id` bigint unsigned NOT NULL COMMENT '申请时间',
+    `add_user_id` bigint unsigned NOT NULL COMMENT '添加用户',
     `add_time` bigint unsigned NOT NULL COMMENT '申请时间',
     `delete_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '确认时间',
     PRIMARY KEY (`id`)
@@ -282,11 +273,13 @@ CREATE TABLE `yaf_sender_sms_aliyun` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
     `aliyun_config_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT 'yaf_sender_aliyun_config ID',
+    `name` varchar(32) NOT NULL COMMENT '名称',
     `sms_tpl` varchar(32) NOT NULL COMMENT '模板KEY',
     `aliyun_sign_name` varchar(32) NOT NULL COMMENT '阿里云签名',
     `aliyun_sms_tpl` varchar(32) NOT NULL COMMENT '阿里云模板名',
     `status` tinyint(1) NOT NULL COMMENT '状态',
     `max_try_num` SMALLINT(3) unsigned NOT NULL DEFAULT 1 COMMENT '最大发送次数',
+    `add_user_id` bigint unsigned NOT NULL COMMENT '添加用户',
     `user_id` bigint unsigned NOT NULL COMMENT '用户id',
     `add_time` bigint unsigned NOT NULL COMMENT '申请时间',
     `delete_user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '删除用户id',
@@ -301,6 +294,7 @@ CREATE TABLE `yaf_sender_sms_config` (
     `config_data` varchar(512) NOT NULL COMMENT '配置数据',
     `status` tinyint(1) NOT NULL COMMENT '启用状态',
     `user_id` bigint unsigned NOT NULL COMMENT '用户id',
+    `add_user_id` bigint unsigned NOT NULL COMMENT '用户id',
     `delete_user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '删除用户id',
     `add_time` bigint unsigned NOT NULL COMMENT '申请时间',
     `delete_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '删除时间',
@@ -328,8 +322,8 @@ CREATE TABLE `yaf_sender_sms_cancel` (
     `sms_message_id` bigint unsigned NOT NULL COMMENT 'ID',
     `cancel_hand` varchar(32) NOT NULL COMMENT '取消key',
     `status` tinyint(1) NOT NULL COMMENT '取消状态',
-    `user_id` bigint unsigned NOT NULL COMMENT '用户id',
-    `cancel_time` bigint unsigned NOT NULL COMMENT '确认时间',
+    `cancel_user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '用户id',
+    `cancel_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '确认时间',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB AUTO_INCREMENT = 28 DEFAULT CHARSET = utf8mb4;
 CREATE TABLE `yaf_sender_sms_log` (
@@ -340,6 +334,7 @@ CREATE TABLE `yaf_sender_sms_log` (
     `send_type` varchar(32) NOT NULL COMMENT '触发来源',
     `message` varchar(255) NOT NULL COMMENT '发送消息',
     `status` tinyint(1) NOT NULL COMMENT '操作状态',
+    `user_id` bigint unsigned NOT NULL COMMENT '操作用户id',
     `create_time` bigint unsigned NOT NULL COMMENT '确认时间',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB AUTO_INCREMENT = 28 DEFAULT CHARSET = utf8mb4;

@@ -142,7 +142,7 @@ impl SmsTaskRecord {
                         sms_message_id:id,
                         cancel_hand:hk,
                         status:SenderSmsCancelStatus::Init as i8,
-                        user_id:0,
+                        cancel_user_id:0,
                         cancel_time:add_time,
                     }));
                 }
@@ -201,6 +201,7 @@ impl SmsTaskRecord {
         user_id: &Option<u64>,
         app_id: &Option<u64>,
         tpl_id: &Option<String>,
+        mobile: &Option<String>,
         status: &Option<SenderSmsMessageStatus>,
         page: &Option<PageParam>,
     ) -> Result<Vec<SenderSmsMessageModel>, sqlx::Error> {
@@ -213,6 +214,9 @@ impl SmsTaskRecord {
         }
         if let Some(t) = tpl_id {
             sqlwhere.push(sql_format!("tpl_id={} ", t));
+        }
+        if let Some(m) = mobile {
+            sqlwhere.push(sql_format!("mobile={} ", m));
         }
         if let Some(s) = status {
             sqlwhere.push(sql_format!("status={} ", *s as i8));
@@ -301,7 +305,7 @@ impl SmsTaskRecord {
         let mut db = self.db.begin().await.map_err(|e| e.to_string())?;
         let change = sqlx_model::model_option_set!(SenderSmsCancelModelRef,{
             status:SenderSmsCancelStatus::IsCancel as i8,
-            user_id:user_id
+            cancel_user_id:user_id
         });
         let res = Update::<MySql, SenderSmsCancelModel, _>::new(change)
             .execute_by_pk(smsc, &mut db)
@@ -432,6 +436,7 @@ impl SmsTaskRecord {
         config_type: SenderSmsConfigType,
         config_data: Value,
         user_id: u64,
+        add_user_id: u64,
     ) -> Result<u64, String> {
         let app_id = app_id.unwrap_or_default();
         let time = now_time().unwrap_or_default();
@@ -488,6 +493,7 @@ impl SmsTaskRecord {
             priority:priority,
             config_type:config_type,
             user_id:user_id,
+            add_user_id:add_user_id,
             add_time:time,
             status:SenderSmsConfigStatus::Enable as i8,
             config_data:config_data,
@@ -523,11 +529,15 @@ impl SmsTaskRecord {
     pub async fn config_list(
         &self,
         user_id: Option<u64>,
+        id: Option<u64>,
         app_id: Option<u64>,
     ) -> Result<Vec<(SenderSmsConfigModel, SenderSmsConfigData)>, sqlx::Error> {
         let mut sqlwhere = vec![sql_format!(" status ={}", SenderSmsConfigStatus::Enable)];
         if let Some(aid) = app_id {
             sqlwhere.push(sql_format!("app_id = {}  ", aid));
+        }
+        if let Some(uid) = id {
+            sqlwhere.push(sql_format!("id={} ", uid));
         }
         if let Some(uid) = user_id {
             sqlwhere.push(sql_format!("user_id={} ", uid));
@@ -589,7 +599,7 @@ impl SmsTaskRecord {
             return Err("miss mobile".to_string());
         }
         let mut rule = self
-            .config_list(None, Some(app_id.unwrap_or_default()))
+            .config_list(None, None, Some(app_id.unwrap_or_default()))
             .await
             .map_err(|e| e.to_string())?;
         let mut limit_sql = vec![];
@@ -619,12 +629,11 @@ impl SmsTaskRecord {
                     let stime = nowt - limit.range_time;
                     let sql = sql_format!(
                         "select count(*) as total,{} as limit_id,area,mobile from {}
-                        where app_id={} and log_type={} and status={} and expected_time>={} and ({}) group by area,mobile",
+                        where app_id={} and status={} and expected_time>={} and ({}) group by area,mobile",
                         c.id,
                         SenderSmsMessageModel::table_name(),
                         c.app_id,
-                        SenderSmsLogType::Send,
-                        SenderSmsLogStatus::Succ,
+                        SenderSmsMessageStatus::IsSend,
                         stime,
                         SqlExpr(msql)
                     );
@@ -652,7 +661,7 @@ impl SmsTaskRecord {
                 .map(|e| e.0.as_str())
                 .collect::<Vec<&str>>()
                 .join(" union all ");
-            let data = sqlx::query_as::<_, (i64, u64, String, String)>(&format!(
+            let data = sqlx::query_as::<_, (i64, i64, String, String)>(&format!(
                 "select * from ({}) as t",
                 &sqls
             ))
@@ -660,10 +669,10 @@ impl SmsTaskRecord {
             .await
             .map_err(|e| e.to_string())?;
             for (_, id, limit) in limit_sql {
-                if let Some(t) = data.iter().find(|e| e.1 == id) {
-                    if t.0 > limit.max_send.into() {
+                if let Some(t) = data.iter().find(|e| e.1 as u64 == id) {
+                    if t.0 >= limit.max_send.into() {
                         return Err(format!(
-                            "send sms limit :{} on {}{} [{}]",
+                            "trigger limit rule :{} on {}{} [{}]",
                             limit.max_send, t.2, t.3, id
                         ));
                     }
