@@ -42,6 +42,7 @@ jobs:
         run: cargo install clippy-sarif sarif-fmt
 
       - name: Run rust-clippy
+        working-directory: ./server
         run:
           cargo clippy
           --all-features
@@ -50,6 +51,7 @@ jobs:
 
       - name: Upload analysis results to GitHub
         uses: github/codeql-action/upload-sarif@v1
+        working-directory: ./server
         with:
           sarif_file: rust-clippy-results.sarif
           wait-for-processing: true
