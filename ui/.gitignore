@@ -1,0 +1,11 @@
+.idea
+.vscode
+.history
+web/node_modules
+web/package-lock.json
+public/*
+dump.rdb
+wap/node_modules
+wap/package-lock.json
+package-lock.json
+web/yarn.lock

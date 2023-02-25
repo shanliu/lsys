@@ -1,4 +1,4 @@
-### rust实现的`面向内部应用的开放平台`实现
+### rust实现的`面向内部应用的应用管理中心`实现
 
 > 目标：轻量级 统一用户登陆,站内通用应用管理(如：发送短信，邮件 等) 的实现。
 
@@ -6,111 +6,88 @@
 > 1. 当你使用rust开发web应用时，使用本项目二次开发可以减少重复工作量，部份功能(如：发送短信，邮件 等)的开箱即用。
 > 2. 当进行分模块独立开发（如：公司内分团队的各自独立开发）时，可用本项目作为一个应用管理中心，及常用功能(如：发送短信，邮件 等)收归实现统一的管理。
 
-> 本项目依赖服务为: mysql+redis 在 ./examples/lsys-actix-web/.env 配置
 
-> 使用示例[examples]目前基于 actix-web 作为接入web框架，你可选择其他基于 tokio 的web框架
-
-> 已实现统一登陆的oauth服务，更多的通用应用实现中。。。
-
-##### 后端服务安装
+##### [后端服务](server) 安装
 
 1. 编译 【中途有失败再次执行】
 ```
-cargo build -r
+cd server && cargo build -r && cd ..
 ```
 
 2. 导入SQL到数据库
 ```
-导入 ./assets/tables.sql 到MYSQL
+导入 ./server/assets/tables.sql 到MYSQL
 ```
 
 3. 修改你的REDIS,MYSQL等的配置
-> [./examples/lsys-actix-web/.env 的配置覆盖./examples/lsys-actix-web/config/下配置]
+> [./server/examples/lsys-actix-web/.env 的配置覆盖./server/examples/lsys-actix-web/config/下配置]
 
 ```
-./examples/lsys-actix-web/.env 
+./server/examples/lsys-actix-web/.env 
 ```
 
 4. 执行 启动服务
 ```
-cd ./examples/lsys-actix-web/ && ../../target/release/lsys-actix-web
+cd ./server/examples/lsys-actix-web/ && ../../target/release/lsys-actix-web
 ```
 
 
-##### 管理UI安装
+##### [管理UI](ui) 安装 
 
-> git: https://github.com/shanliu/lsys-ui
-
-1. 编译
+1. 修改配置,设置服务地址跟jwt的token等
 ```
-cd web && npm i && npm run build && cd ..
-cd wap && npm i && npm run build && cd ..
+./ui/web/config.json
+./ui/wap/config.json
 ```
 
-2. 修改配置,设置服务域名等
+2. 编译
 ```
-./web/config.json
-```
-
-3. 拷贝编译文件到lsys-actix-web静态文件目录中,静态文件目录配置在文件：./examples/lsys-actix-web/app.toml : ui_dir 中
-> 备注: UI部分可以自行部署如NGINX服务器中
-```
-cp ./public/* ../examples/lsys-actix-web/static/ui
+cd ./ui/web && npm i && npm run build && cd ../..
+cd ./ui/wap && npm i && npm run build && cd ../..
+cd ..
 ```
 
-4. 访问 http://127.0.0.1/ui/
+3. 访问 http://127.0.0.1/ui/
 
-5. 在线示例：http://175.178.90.181/ui/#
+4. 在线示例：http://175.178.90.181/ui/#
 
 ```
 示例账号：aaaaa
 示例密码：000000
 ```
 
-
-##### 外部应用实现示例[GO实现]
-
-> git: https://github.com/shanliu/lsys-subapp
-
-> 具体示例参见 lsys-subapp/examples/sub_app && lsys-subapp/examples/basic
-
-
 #### 二次开发参考时序:
 
-##### 内部应用:[基于RUST库方式二次开发]
+##### 基于rust二次开发
 
->  直接访问:[lsys-ui 管理节目 实现此方式]
+> [可参考示例:server/examples/lsys-web-subapp-demo](server/examples/lsys-web-subapp-demo/)
 
-> 使用协议为 examples/lsys-actix-web/src/handler/api 实现的JWT协议
-
-> 可基于 基于RUST库方式 开发 内部应用 [可参考examples/lsys-web-subapp-dome实现]
+> 基础类功能建议用此方式
 
 ```mermaid
 sequenceDiagram
-    par lsys-ui 管理实现
+    par 管理ui实现
     前端->>lsys服务: 前端请求到 lsys-actix-web[actix-web] 服务
     lsys服务-->>前端: 返回结果
     end
     par 自行开发RUST内部应用实现
     前端->>lsys服务: 前端请求到 lsys-actix-web[actix-web] 服务
-    lsys服务->>内部应用: 参考示例应用[lsys-web-subapp-dome]
-    内部应用-->>lsys服务: 在 内部应用 中可以库方式访问lsys服务
+    lsys服务->>内部rust实现: 参考示例应用[lsys-web-subapp-dome]
+    内部rust实现-->>lsys服务: 在 内部应用 中可以库方式访问lsys服务
     lsys服务-->>前端: 返回结果
     end
 ```
 
 
-##### 外部应用:[基于HTTP接口方式]
+##### 基于HTTP接口方式接入
 
-> 外部应用服务层 [通过HTTP接口应用,自行选择开发语言]
+> 通过HTTP接口接入 [go sdk](sdk/go/) 业务类功能建议用此方式
 
-> 外部应用访问lsys服务 使用协议为 examples/lsys-actix-web/src/handler/rest 实现接口协议
+> GO实现外部应用示例 参考 [基本使用](sdk/go/examples/basic/)  && [外部应用服务层](sdk/go/examples/sub_app/)
 
-> 应用可在 lsys-ui 后台实现管理
+> 备注:应用信息查询接口使用了本地 LruCache 缓存
 
-> lsys服务对应用进行了本地 LruCache ,所以 外部应用服务层 查询APP信息 自行判断是否在加缓存
-
-> GO实现外部应用示例: https://github.com/shanliu/lsys-subapp
+> 备注:[rest服务层接口代码路径:server/examples/lsys-actix-web/src/handler/rest](server/examples/lsys-actix-web/src/handler/rest)
 
 ```mermaid
 sequenceDiagram

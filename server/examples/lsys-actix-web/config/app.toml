@@ -1,0 +1,15 @@
+#app_host="127.0.0.1"
+
+app_oauth_key=""
+app_jwt_key="bbb"#jwt 密钥
+
+rbac_cache=true#rbac是否使用缓存
+
+ui_dir="../../../ui/public/"#静态文件目录
+root_user_id=[1,17]#超级管理员id
+
+#ip城市数据卡
+ip_city_db="data/IP2LOCATION-LITE-DB11.BIN"
+
+#snowflake_machine_id=1
+#snowflake_node_id=1

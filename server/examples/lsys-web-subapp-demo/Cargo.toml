@@ -1,0 +1,17 @@
+[package]
+name = "lsys-web-subapp-demo"
+version = "0.0.1"
+authors = ["liushan <shan.liu@msn.com>"]
+edition = "2021"
+
+
+[dependencies]
+lsys-rbac = { version = "0.0.1", path = "../../lsys-rbac"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-app = { version = "0.0.1", path = "../../lsys-app"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-web = { version = "0.0.1", path = "../../lsys-web"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-user = { version = "0.0.1", path = "../../lsys-user"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-core = { version = "0.0.1", path = "../../lsys-core"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-sender = { version = "0.0.1", path = "../../lsys-sender"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
+serde={ version = "1.0.*"}
+serde_json="1.0.*"
+
