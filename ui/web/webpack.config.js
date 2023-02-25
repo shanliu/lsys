@@ -43,11 +43,6 @@ let plugins = [
         },
         template: __dirname + "/src/oauth_app.html",
         nodeModules: node_modules
-    }),
-    //jwt
-    new webpack.ProvidePlugin({
-        process: 'process/browser.js',
-        Buffer: ['buffer', 'Buffer']
     })
 ];
 if (process.env.npm_config_analyzer) {
@@ -96,13 +91,6 @@ let config = {
         ]
     },
     plugins: plugins,
-    resolve: {
-        //jwt
-        fallback: {
-            crypto: require.resolve("crypto-browserify"),
-            stream: require.resolve("stream-browserify")
-        }
-    },
     // optimization: {
     //     splitChunks: {
     //         chunks: 'all'

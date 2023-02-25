@@ -1,4 +1,5 @@
-import jwt from 'jsonwebtoken';
+
+import CryptoJS from "crypto-js";
 import React, { createContext, useReducer } from "react";
 import { useUpdateEffect } from 'usehooks-ts';
 import config from "../../config.json";
@@ -6,6 +7,30 @@ import { userSessionClear, userSessionGet, userSessionSet } from "../utils/rest"
 function initializer() {
     return userSessionGet()
 }
+
+
+function base64UrlEncode(str) {
+    var encodedSource = CryptoJS.enc.Base64.stringify(str);
+    var reg = new RegExp('/', 'g');
+    encodedSource = encodedSource.replace(/=+$/, '').replace(/\+/g, '-').replace(reg, '_');
+    return encodedSource;
+}
+
+function signData(exp, token, jwt_token) {
+    let header = JSON.stringify({
+        "alg": "HS256",
+        "typ": "JWT"
+    })
+    let payload = JSON.stringify({
+        "exp": parseInt(exp),
+        "token": token
+    });
+    let before_sign = base64UrlEncode(CryptoJS.enc.Utf8.parse(header)) + '.' + base64UrlEncode(CryptoJS.enc.Utf8.parse(payload));
+    let signature = CryptoJS.HmacSHA256(before_sign, jwt_token);
+    signature = base64UrlEncode(signature);
+    return before_sign + '.' + signature;
+}
+
 //登录信息上下文
 export const UserSessionContext = createContext({
     reload: false,
@@ -26,10 +51,7 @@ export const SessionSetData = (auth_data, keep_login) => {
         playload: {
             keep: keep_login,
             user: auth_data,
-            jwt: jwt.sign({
-                exp: auth_data.auth_data.time_out,
-                token: auth_data.token
-            }, config.jwt_token)
+            jwt: signData(auth_data.auth_data.time_out, auth_data.token, config.jwt_token)
         }
     }
 }
@@ -90,10 +112,7 @@ export const UserProvider = props => {
                                     token: userData.login_token,
                                     auth_data: data.auth_data,
                                 },
-                                jwt: jwt.sign({
-                                    exp: data.auth_data.time_out,
-                                    token: userData.login_token
-                                }, config.jwt_token)
+                                jwt: signData(data.auth_data.time_out, userData.login_token, config.jwt_token)
                             }
                         })
                     } else {

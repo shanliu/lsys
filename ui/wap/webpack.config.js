@@ -1,4 +1,3 @@
-let webpack = require('webpack');
 let path = require("path");
 let HtmlWebpackPlugin = require('html-webpack-plugin');
 let { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
