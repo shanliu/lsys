@@ -49,7 +49,7 @@ function HistoryBox(props) {
             setHistoryData({
                 ...historyData,
                 rows: data.data ?? [],
-                rows_total: data.count || 0,
+                rows_total: data.total || 0,
                 loading: false,
 
             })
@@ -523,7 +523,7 @@ export default function AppSmsMessage(props) {
                 <BaseTablePage
                     rows={loadData.data}
                     columns={columns}
-                    count={loadData.count}
+                    count={loadData.total}
                     page={page || 0}
                     onPageChange={(e, newPage) => {
                         onSearchChange({

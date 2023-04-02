@@ -25,7 +25,7 @@ pub struct CaptchaParam {
     pub code: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct RelationParam {
     pub role_key: String,
     pub user_id: u64,

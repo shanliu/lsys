@@ -1,5 +1,6 @@
 use crate::{
-    dao::{access::AppScope, RequestDao, RestAuthQueryDao, WebDao},
+    dao::{RequestDao, RestAuthQueryDao, WebDao},
+    handler::access::{AccessOauthUserEmail, AccessOauthUserInfo, AccessOauthUserMobile},
     {JsonData, JsonResult},
 };
 use lsys_app::model::AppsModel;
@@ -12,21 +13,35 @@ async fn get_scope<'a>(
     web_dao: &'a WebDao,
     app: &AppsModel,
     scope: &'a str,
-) -> JsonResult<AppScope<'a>> {
-    let scope = AppScope::try_from(scope)?;
-    let res = scope.to_check_res();
-    web_dao
-        .user
-        .rbac_dao
-        .rbac
-        .access
-        .check(
-            app.user_id,
-            &[web_dao.app.app_relation_key(app).await],
-            &res,
-        )
-        .await?;
-    Ok(scope)
+) -> JsonResult<Vec<&'a str>> {
+    let spoces = scope.split(',').collect::<Vec<&str>>();
+    let mut out = vec![];
+    for tmp in spoces {
+        let rbac = &web_dao.user.rbac_dao.rbac;
+        match tmp {
+            "user_info" => {
+                rbac.check(&AccessOauthUserInfo {
+                    app: app.to_owned(),
+                })
+                .await?;
+            }
+            "user_email" => {
+                rbac.check(&AccessOauthUserEmail {
+                    app: app.to_owned(),
+                })
+                .await?;
+            }
+            "user_mobile" => {
+                rbac.check(&AccessOauthUserMobile {
+                    app: app.to_owned(),
+                })
+                .await?;
+            }
+            _ => return Err(JsonData::message(format!("not support {}", tmp))),
+        };
+        out.push(tmp);
+    }
+    Ok(out)
 }
 
 #[derive(Debug, Deserialize)]
@@ -49,7 +64,7 @@ pub async fn oauth_scope_get<T: SessionTokenData, D: SessionData, S: UserSession
         .find_by_client_id(&param.client_id)
         .await?;
     let scope = get_scope(&req_dao.web_dao, &app, &param.scope).await?;
-    Ok(JsonData::message("token code").set_data(json!({ "scope": scope.to_show_data()})))
+    Ok(JsonData::message("token code").set_data(json!({ "scope": scope })))
 }
 
 #[derive(Debug, Deserialize)]
@@ -144,7 +159,7 @@ async fn check_app_secret(
         .oauth_secret(&app.client_secret)
         .await;
     if *client_secret != oauth_secret {
-        return Err(JsonData::message_error("client_secret not match"));
+        return Err(JsonData::message("client_secret not match"));
     }
     Ok(app)
 }

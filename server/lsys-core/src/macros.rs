@@ -26,11 +26,12 @@ macro_rules! get_message {
 
 #[macro_export]
 macro_rules! impl_dao_fetch_one_by_one {
+    //通过一个值查找一个记录 一对一关系
     ($db_field:ident,$fn:ident,$fetch_type:ty,$model:ty,$result:ty,$where_id_name:ident,$where_sql:literal $(,$pat:ident=$pav:expr),*) => {
-        pub async fn $fn(&self, id: &$fetch_type) -> $result {
+        pub async fn $fn(&self, $where_id_name: &$fetch_type) -> $result {
             let data = sqlx_model::Select::type_new::<$model>()
                 .fetch_one_by_where::<$model, _>(
-                    &sqlx_model::WhereOption::Where(sqlx_model::sql_format!($where_sql, $where_id_name = id.to_owned(),$($pat=$pav),*)),
+                    &sqlx_model::WhereOption::Where(sqlx_model::sql_format!($where_sql, $where_id_name = $where_id_name.to_owned(),$($pat=$pav),*)),
                     &self.$db_field,
                 )
                 .await?;
@@ -41,6 +42,7 @@ macro_rules! impl_dao_fetch_one_by_one {
 
 #[macro_export]
 macro_rules! impl_dao_fetch_vec_by_one {
+    //通过一个值查找一批值 一对多关系
     ($db_field:ident,$fn:ident,$fetch_type:ty,$model:ty,$result:ty,$where_id_name:ident,$where_sql:literal $(,$pat:ident=$pav:expr),*) => {
         pub async fn $fn(&self, id: &$fetch_type) -> $result {
             let data = sqlx_model::Select::type_new::<$model>()
@@ -56,6 +58,7 @@ macro_rules! impl_dao_fetch_vec_by_one {
 
 #[macro_export]
 macro_rules! impl_dao_fetch_map_by_vec {
+    //通过一批值查找一批值 一对一关系
     ($db_field:ident,$fn:ident,$fetch_type:ty,$model:ty,$result:ty,$field_name:ident,$where_id_name:ident ,$where_sql:literal$(,$pat:ident=$pav:expr),*) => {
         pub async fn $fn(&self, ids: &[$fetch_type]) -> $result {
             if ids.is_empty() {
@@ -79,6 +82,7 @@ macro_rules! impl_dao_fetch_map_by_vec {
 
 #[macro_export]
 macro_rules! impl_dao_fetch_vec_by_vec {
+    //通过一批值查找一批值 一对多关系
     ($db_field:ident,$fn:ident,$fetch_type:ty,$model:ty,$result:ty,$field_name:ident,$where_id_name:ident,$where_sql:literal $(,$pat:ident=$pav:expr),*) => {
         pub async fn $fn(&self, ids: &[$fetch_type]) -> $result {
             let mut hash = std::collections::HashMap::new();

@@ -2,21 +2,34 @@
 
 > RBAC权限模块实现 逻辑跟验证权限过程参见以下说明
 
-
 #### 权限中角色-用户-资源关系
 
+> 资源属性: 资源操作 资源属于用户 资源句柄 例:
+```
+用户文章 
+    资源操作:文章修改,文章新增,文章删除
+    资源属于用户:文章用户ID
+    资源句柄:文章ID+自定义字符生成
+```
+
+> 角色 用于关联用户跟资源 
+```
+用户:可以是指定用户ID,或全部用户,或已登录用户 [即:用户范围]
+资源:可以是上面定义的,或任意资源,或禁止访问资源 [即:权限范围]
+```
+> 资源 - 角色 - 用户 ER 图
 ```mermaid
 erDiagram
     RbacResModel ||--|{ RbacResOpModel : "资源 关联 资源操作"
     RbacResModel{
         int id PK "资源ID,可以当做一批待需授权操作的组"
         int user_id "用户ID"
-        string res_key "资源句柄,用在代码中"
+        string res_key "资源句柄,用在代码中 可包含变量,如文章ID等"
         bool status "是否启用"
     }
     RbacResOpModel{
         int id PK "资源可执行操作ID"
-        string name "资源操作名称,如查看,编辑"
+        string name "资源操作名称,如查看,编辑,固定 不包含变量"
         string op_key "操作句柄,用在代码中"
         bool status "是否启用"
     }
@@ -54,12 +67,13 @@ erDiagram
     }
 ```
 
-#### 用户范围-角色-资源范围关系
+#### 权限校验代码入口
 
-> 参见 RbacAccess 的 check 方法
+> 参见 RbacAccess 的 check 方法,参数如下:
 
 > 由 user_id 跟 relation_key_roles 作为 用户范围 来源 
 ```
+参数作用说明:
 通过 user_id 可以获取 公开用户 登陆用户 或 RbacRoleUserModel 3个途径的角色数据
 通过 relation_key_roles 可以获取 特定关系 的角色
     当 relation_key_roles 中的 user_id = 0 时为系统控制的某些角色 如某subapp是否可以发送短信
@@ -68,11 +82,12 @@ erDiagram
 
 > 由 check_vec 作为 权限范围 其中一个来源
 ```
+参数作用说明:
 check_vec 由 RbacRoleOpModel 配置
 RbacRoleResOpRange::AllowAll｜AllowSelf｜DenyAll 由代码定义特定逻辑
 ```
 
-> 由上面的数据确定最后授权结果
+> 由上面的数据确定最后授权结果,如下图:
 
 
 ```mermaid
@@ -102,7 +117,7 @@ flowchart TB
     角色 --> 查询角色可以操作的资源 --> 排序角色并对跟请求的需操作的资源 --> 得出授权结果
 ```
 
-#### 授权过程
+#### 完整授权流程
 
 ```mermaid
 stateDiagram-v2
@@ -129,9 +144,10 @@ stateDiagram-v2
     根据优先级合并角色 --> 授权结果:根据合并后角色信息确定是否得到授权
 ```
 
-#### 授权路径
 
-> 资源类型
+#### 授权使用示例
+
+> 确定资源类型
 
 1. 系统资源 
 ```
@@ -144,16 +160,11 @@ stateDiagram-v2
 例: 用户发表文章能否被另一个用户查看 oauth用户时登陆信息被应用获取等
 ```
 
-> 用户类型
+> 确定用户范围
 
 1. 未登陆用户
 2. 已登陆用户
 
-
-> 定义一个授权可按以下步骤分解
-
-1. 确定资源类型
-2. 确定用户访问路径
 
 ```
 例1 子应用的发送短信权限

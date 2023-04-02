@@ -8,7 +8,6 @@ use std::string::FromUtf8Error;
 use std::{collections::HashMap, error::Error};
 use tracing::warn;
 
-use crate::dao::access::ScopeError;
 use crate::dao::{WebAppMailerError, WebAppSmserError};
 use lsys_app::dao::app::AppsError;
 
@@ -103,6 +102,7 @@ impl From<UserAuthError> for JsonData {
             UserAuthError::StatusError(_) => out.set_sub_code("status_wrong"),
             UserAuthError::UserNotFind(_) => out.set_sub_code("not_find"),
             UserAuthError::NotLogin(_) => out.set_sub_code("not_login"),
+            UserAuthError::Sqlx(sqlx::Error::RowNotFound) => out.set_sub_code("not_found"),
             UserAuthError::Sqlx(_) => out.set_code(501).set_sub_code("sqlx"),
             UserAuthError::UserAccount(_) => out.set_sub_code("system"),
             UserAuthError::System(_) => out.set_code(500).set_sub_code("system"),
@@ -131,7 +131,7 @@ impl From<sqlx::Error> for JsonData {
         let mut code = 501;
         let sub_code = match &err {
             sqlx::Error::RowNotFound => {
-                code = 404;
+                code = 200;
                 "not_found"
             }
             _err => "system",
@@ -178,15 +178,15 @@ impl From<UserRbacError> for JsonData {
         let mut json = JsonData::default();
         let sub_code = match &err {
             UserRbacError::Sqlx(sqlx::Error::RowNotFound) => {
-                code = 404;
+                code = 200;
                 "not_found".to_string()
             }
-            UserRbacError::NotLogin(err) => {
-                code = 403;
-                err.to_owned()
+            UserRbacError::NotLogin(_) => {
+                code = 200;
+                "not_login".to_string()
             }
             UserRbacError::Check(err) => {
-                code = 401;
+                code = 200;
                 let mut hash = HashMap::<&String, Vec<&String>>::new();
                 for (k, v) in err {
                     hash.entry(k).or_default().push(v);
@@ -236,4 +236,3 @@ result_impl_system_error!(std::io::Error, 500);
 result_impl_system_error!(reqwest::Error, 500);
 result_impl_system_error!(tera::Error, 500);
 result_impl_system_error!(PoolError, 500);
-result_impl_system_error!(ScopeError, 200);

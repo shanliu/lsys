@@ -1,5 +1,6 @@
 use crate::{
     dao::RequestDao,
+    handler::access::{AccessSystemMobileConfirm, AccessUserMobileEdit, AccessUserMobileView},
     {CaptchaParam, JsonData, JsonResult},
 };
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
@@ -30,13 +31,12 @@ pub async fn user_mobile_add<'t, T: SessionTokenData, D: SessionData, S: UserSes
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(
-            req_auth.user_data().user_id,
-            &[],
-            &res_data!(UserMobileEdit(req_auth.user_data().user_id)),
-        )
+        .check(&AccessUserMobileEdit {
+            user_id: req_auth.user_data().user_id,
+            res_user_id: req_auth.user_data().user_id,
+        })
         .await?;
+
     let mut status = UserMobileStatus::Init;
     if let Some(code) = param.code {
         req_dao
@@ -109,20 +109,18 @@ pub async fn user_mobile_send_code<
                 return Err(err.into());
             }
         }
-    }
-
+    };
     req_dao
         .web_dao
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(
-            req_auth.user_data().user_id,
-            &[],
-            &res_data!(UserMobileEdit(req_auth.user_data().user_id)),
-        )
+        .check(&AccessUserMobileEdit {
+            user_id: req_auth.user_data().user_id,
+            res_user_id: req_auth.user_data().user_id,
+        })
         .await?;
+
     let (code, ttl) = req_dao
         .web_dao
         .user
@@ -175,9 +173,9 @@ pub async fn user_mobile_confirm<'t, T: SessionTokenData, D: SessionData, S: Use
             .user
             .rbac_dao
             .rbac
-            .access
-            .check(0, &[], &res_data!(SystemMobileConfirm))
+            .check(&AccessSystemMobileConfirm {})
             .await?;
+
         req_dao
             .web_dao
             .user
@@ -217,13 +215,12 @@ pub async fn user_mobile_delete<'t, T: SessionTokenData, D: SessionData, S: User
                     .user
                     .rbac_dao
                     .rbac
-                    .access
-                    .check(
-                        req_auth.user_data().user_id,
-                        &[],
-                        &res_data!(UserMobileEdit(req_auth.user_data().user_id)),
-                    )
+                    .check(&AccessUserMobileEdit {
+                        user_id: req_auth.user_data().user_id,
+                        res_user_id: mobile.user_id,
+                    })
                     .await?;
+
                 req_dao
                     .web_dao
                     .user
@@ -262,13 +259,12 @@ pub async fn user_mobile_list_data<
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(
-            req_auth.user_data().user_id,
-            &[],
-            &res_data!(UserMobileView(req_auth.user_data().user_id)),
-        )
+        .check(&AccessUserMobileView {
+            user_id: req_auth.user_data().user_id,
+            res_user_id: req_auth.user_data().user_id,
+        })
         .await?;
+
     let status = if let Some(e) = param.status {
         let mut out = Vec::with_capacity(e.len());
         for tmp in e {

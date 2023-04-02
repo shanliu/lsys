@@ -1,11 +1,13 @@
 use std::sync::Arc;
 
 use crate::{
+    handler::access::{AccessResEdit, AccessResView},
     PageParam, {JsonData, JsonResult},
 };
 
 use lsys_rbac::{
-    dao::{RbacDao, RbacRes, ResKey, ResOp, ResParam},
+    access_res_tpl,
+    dao::{RbacDao, RbacRes, ResOp, ResParam},
     model::{RbacResModel, RbacResOpModel, RbacTagsModel},
 };
 use serde::{Deserialize, Serialize};
@@ -42,11 +44,12 @@ pub async fn rbac_res_add(
     user_id: u64,
 ) -> JsonResult<JsonData> {
     let add_user_id = param.user_id.unwrap_or(user_id);
-
     rbac_dao
         .rbac
-        .access
-        .check(user_id, &[], &res_data!(UserResEdit(add_user_id)))
+        .check(&AccessResEdit {
+            user_id,
+            res_user_id: add_user_id,
+        })
         .await?;
 
     let dao = &rbac_dao.rbac.res;
@@ -83,7 +86,7 @@ pub async fn rbac_res_add(
         return Err(e);
     };
     transaction.commit().await?;
-    Ok(JsonData::message("set succ").set_data(json!({ "id": id })))
+    Ok(JsonData::message("ok").set_data(json!({ "id": id })))
 }
 
 #[derive(Debug, Deserialize)]
@@ -104,9 +107,12 @@ pub async fn rbac_res_edit(
     let res = dao.find_by_id(&param.res_id).await?;
     rbac_dao
         .rbac
-        .access
-        .check(user_id, &[], &res_data!(UserResEdit(res.user_id)))
+        .check(&AccessResEdit {
+            user_id,
+            res_user_id: res.user_id,
+        })
         .await?;
+
     let mut transaction = rbac_dao.db.begin().await?;
     if let Err(e) = dao
         .edit_res(&res, param.name, user_id, Some(&mut transaction))
@@ -163,8 +169,10 @@ pub async fn rbac_res_delete(
     let res = resdao.find_by_id(&param.res_id).await?;
     rbac_dao
         .rbac
-        .access
-        .check(user_id, &[], &res_data!(UserResEdit(res.user_id)))
+        .check(&AccessResEdit {
+            user_id,
+            res_user_id: res.user_id,
+        })
         .await?;
     resdao.del_res(&res, user_id, None).await?;
     Ok(JsonData::message("del succ"))
@@ -182,8 +190,10 @@ pub async fn rbac_res_tags(
     let see_user_id = param.user_id.unwrap_or(user_id);
     rbac_dao
         .rbac
-        .access
-        .check(user_id, &[], &res_data!(UserResView(see_user_id)))
+        .check(&AccessResView {
+            user_id,
+            res_user_id: see_user_id,
+        })
         .await?;
     let out = rbac_dao.rbac.res.user_res_tags(see_user_id).await?;
     Ok(JsonData::message("tags data").set_data(json!({ "data": out })))
@@ -202,7 +212,7 @@ pub struct ResListDataParam {
 }
 
 #[derive(Debug, Serialize)]
-pub struct ResData {
+pub struct ResShowData {
     res: RbacResModel,
     tags: Option<Vec<RbacTagsModel>>,
     ops: Option<Vec<RbacResOpModel>>,
@@ -215,8 +225,10 @@ pub async fn rbac_res_list_data(
     let see_user_id = param.user_id.unwrap_or(user_id);
     rbac_dao
         .rbac
-        .access
-        .check(user_id, &[], &res_data!(UserResView(see_user_id)))
+        .check(&AccessResView {
+            user_id,
+            res_user_id: see_user_id,
+        })
         .await?;
 
     let dao = &rbac_dao.rbac.data;
@@ -233,12 +245,12 @@ pub async fn rbac_res_list_data(
         .await?;
     let out = res
         .into_iter()
-        .map(|e| ResData {
+        .map(|e| ResShowData {
             res: e.0,
             tags: if param.tags { Some(e.2) } else { None },
             ops: if param.ops { Some(e.1) } else { None },
         })
-        .collect::<Vec<ResData>>();
+        .collect::<Vec<ResShowData>>();
     let count = if param.count_num.unwrap_or(false) {
         Some(
             dao.res_count(
@@ -252,14 +264,13 @@ pub async fn rbac_res_list_data(
     } else {
         None
     };
-    Ok(JsonData::message("res data").set_data(json!({ "data": out,"count":count})))
+    Ok(JsonData::message("res data").set_data(json!({ "data": out,"total":count})))
 }
 
 #[derive(Debug, Serialize)]
 pub struct ShowResItem {
     pub op: String,
-    pub must_authorize: bool, //是否必须被验证权限，为否且不被管理时不验证权限
-    pub is_must: bool,        //是否已经被管理的权限，即数据库里有权限的记录
+    pub is_must: bool, //是否已经被管理的权限，即数据库里有权限的记录
 }
 #[derive(Debug, Serialize)]
 pub struct ShowResData {
@@ -270,7 +281,7 @@ pub struct ShowResData {
 
 #[derive(Debug, Deserialize)]
 pub struct ResAllParam {
-    pub user_id: Option<u64>,
+    pub global_res: Option<bool>,
 }
 
 //资源授权
@@ -279,57 +290,16 @@ pub async fn rbac_all_res_list(
     rbac_dao: &RbacDao,
     user_id: u64,
 ) -> JsonResult<JsonData> {
-    let see_user_id = param.user_id.unwrap_or(user_id);
     rbac_dao
         .rbac
-        .access
-        .check(user_id, &[], &res_data!(UserResAllView(see_user_id)))
+        .check(&AccessResView {
+            user_id,
+            res_user_id: user_id,
+        })
         .await?;
-    let data = crate::dao::access::ResData::all_res(see_user_id);
-    let keys = data
-        .iter()
-        .flat_map(|e| {
-            e.ops
-                .iter()
-                .map(|t| ResKey {
-                    res_key: t.op.to_owned(),
-                    user_id: e.user_id,
-                })
-                .collect::<Vec<ResKey>>()
-        })
-        .collect::<Vec<ResKey>>();
-    let dbres = rbac_dao.rbac.res.find_by_keys(&keys).await?;
-    let out = data
-        .iter()
-        .map(|e| {
-            let ops = e
-                .ops
-                .iter()
-                .map(|t| ShowResItem {
-                    op: t.op.to_owned(),
-                    must_authorize: t.must_authorize,
-                    is_must: dbres
-                        .iter()
-                        .filter_map(|e| e.1.as_ref().map(|t| (e.0, t)))
-                        .any(|o| {
-                            let t1 = ResKey {
-                                res_key: t.op.clone(),
-                                user_id: e.user_id,
-                            };
-                            if *o.0 == t1 {
-                                o.1.ops.iter().any(|n| n.op_key == t.op)
-                            } else {
-                                false
-                            }
-                        }),
-                })
-                .collect::<Vec<ShowResItem>>();
-            ShowResData {
-                user_id: if e.user_id > 0 { Some(e.user_id) } else { None },
-                res: e.res.to_owned(),
-                ops,
-            }
-        })
-        .collect::<Vec<ShowResData>>();
-    Ok(JsonData::message("res data").set_data(json!({ "data": out })))
+    let res = access_res_tpl!(AccessResView, AccessResEdit)
+        .into_iter()
+        .filter(|e| param.global_res.unwrap_or(false) != e.user)
+        .collect::<Vec<_>>();
+    Ok(JsonData::message("res data").set_data(json!({ "data": res })))
 }

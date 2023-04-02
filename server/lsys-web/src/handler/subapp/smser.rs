@@ -1,4 +1,4 @@
-use crate::{dao::WebDao, JsonData, JsonResult};
+use crate::{dao::WebDao, handler::access::AccessAppSenderDoSms, JsonData, JsonResult};
 use lsys_app::model::AppsModel;
 use lsys_core::str_time;
 use serde::Deserialize;
@@ -20,13 +20,11 @@ pub async fn sms_send(
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(
-            app.user_id,
-            &[app_dao.app.app_relation_key(app).await],
-            &res_data!(AppSenderDo),
-        )
+        .check(&AccessAppSenderDoSms {
+            app: app.to_owned(),
+        })
         .await?;
+
     let send_time = if let Some(t) = param.send_time {
         if t.is_empty() {
             None
@@ -65,12 +63,9 @@ pub async fn sms_cancel(
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(
-            app.user_id,
-            &[app_dao.app.app_relation_key(app).await],
-            &res_data!(AppSenderDo),
-        )
+        .check(&AccessAppSenderDoSms {
+            app: app.to_owned(),
+        })
         .await?;
     app_dao.smser.app_send_cancel(app, &param.cancel).await?;
     Ok(JsonData::message("success"))

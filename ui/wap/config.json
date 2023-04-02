@@ -1,5 +1,4 @@
 {
   "serverURL": "http://175.178.90.181",
-  "restPath": "/api",
   "jwt_token": "bbb"
 }

@@ -6,19 +6,22 @@ mod macros;
 
 pub use access::*;
 pub use cache::*;
+pub use check::*;
 pub use data::*;
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::FluentMessage;
-
 pub use res::*;
+pub use res_tpl::*;
 pub use role::*;
 use sqlx::{MySql, Pool};
 pub use tags::*;
 
 mod access;
 mod cache;
+mod check;
 mod data;
 mod res;
+mod res_tpl;
 mod role;
 mod tags;
 
@@ -31,7 +34,6 @@ pub enum UserRbacError {
     Sqlx(sqlx::Error),
     System(String),
     Check(Vec<(String, String)>),
-    // Access(String),
 }
 impl Display for UserRbacError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -92,7 +94,6 @@ impl Rbac {
             role.clone(),
             res_key_cache.clone(),
         ));
-
         let access = Arc::from(RbacAccess::new(
             fluent,
             res.clone(),

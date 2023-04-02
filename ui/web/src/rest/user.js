@@ -2,7 +2,7 @@ import isEmail from "validator/lib/isEmail";
 import { fialResult, globalRest, restResult,sessionRest } from "../utils/rest";
 
 function userRest() {
-    return sessionRest('/user')
+    return sessionRest('/api/user')
 };
 
 
@@ -23,7 +23,7 @@ export async function loginHistroy(param, config) {
             "limit": parseInt(page_size)
         }
     }, config);
-    return restResult(response)
+    return restResult(response,['not_found'])
 }
 
 
@@ -124,7 +124,7 @@ export async function mobileList(status, config) {
     let response = await userRest().post("/mobile/list_data", {
         "status": statarr,
     }, config);
-    return restResult(response)
+    return restResult(response,['not_found'])
 }
 
 
@@ -214,7 +214,7 @@ export async function emailList(status, config) {
     let response = await userRest().post("/email/list_data", {
         "status": statarr,
     }, config);
-    return restResult(response)
+    return restResult(response,['not_found'])
 }
 
 export async function emailAdd(param, config) {
@@ -301,7 +301,7 @@ export async function oauthList(login_type, config) {
     let response = await userRest().post("/external/list_data", {
         "oauth_type": statarr,
     })
-    return restResult(response)
+    return restResult(response,['not_found'])
 }
 
 export async function oauthDelete(id, config) {

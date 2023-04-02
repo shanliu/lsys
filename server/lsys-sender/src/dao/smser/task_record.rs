@@ -557,10 +557,10 @@ impl SmsTaskRecord {
                             Ok(t) => match t {
                                 SenderSmsConfigType::Block => {
                                     let mut split = v.config_data.split('-');
-                                    SenderSmsConfigData::Block(
-                                        split.next().unwrap_or("").to_owned(),
-                                        split.next().unwrap_or("").to_owned(),
-                                    )
+                                    SenderSmsConfigData::Block {
+                                        area: split.next().unwrap_or("").to_owned(),
+                                        mobile: split.next().unwrap_or("").to_owned(),
+                                    }
                                 }
                                 SenderSmsConfigType::PassTpl => {
                                     SenderSmsConfigData::PassTpl(v.config_data.to_owned())
@@ -645,7 +645,7 @@ impl SmsTaskRecord {
                         break;
                     }
                 }
-                SenderSmsConfigData::Block(area, mobile) => {
+                SenderSmsConfigData::Block { area, mobile } => {
                     if mobiles.iter().any(|a| *a.0 == *area && *a.1 == *mobile) {
                         return Err(format!("send block on :{}{} [{}]", area, mobile, c.id));
                     }

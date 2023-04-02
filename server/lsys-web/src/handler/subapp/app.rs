@@ -4,6 +4,7 @@ use serde_json::json;
 
 use crate::dao::WebDao;
 
+use crate::handler::access::AccessAppView;
 use crate::{JsonData, JsonResult};
 
 #[derive(Debug, Deserialize)]
@@ -31,13 +32,12 @@ pub async fn subapp_view(
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(
-            app.user_id,
-            &[app_dao.app.app_relation_key(app).await],
-            &res_data!(AppView(out_app.id, out_app.user_id)),
-        )
+        .check(&AccessAppView {
+            app: app.clone(),
+            see_app: out_app.clone(),
+        })
         .await?;
+
     Ok(JsonData::message("app data").set_data(json!({
         "name": out_app.name,
         "client_id":out_app.client_id,

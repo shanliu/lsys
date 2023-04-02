@@ -1,5 +1,6 @@
 use crate::{
     dao::RequestDao,
+    handler::access::{AccessUserInfoEdit, AccessUserNameEdit},
     {JsonData, JsonResult},
 };
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
@@ -26,12 +27,10 @@ pub async fn user_info_set_username<
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(
-            req_auth.user_data().user_id,
-            &[],
-            &res_data!(UserNameEdit(req_auth.user_data().user_id)),
-        )
+        .check(&AccessUserNameEdit {
+            user_id: req_auth.user_data().user_id,
+            res_user_id: req_auth.user_data().user_id,
+        })
         .await?;
     let user = req_dao
         .web_dao
@@ -77,12 +76,10 @@ pub async fn user_info_check_username<
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(
-            req_auth.user_data().user_id,
-            &[],
-            &res_data!(UserNameEdit(req_auth.user_data().user_id)),
-        )
+        .check(&AccessUserNameEdit {
+            user_id: req_auth.user_data().user_id,
+            res_user_id: req_auth.user_data().user_id,
+        })
         .await?;
     let user_res = req_dao
         .web_dao
@@ -122,13 +119,12 @@ pub async fn user_info_set_data<'t, T: SessionTokenData, D: SessionData, S: User
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(
-            req_auth.user_data().user_id,
-            &[],
-            &res_data!(UserInfoEdit(req_auth.user_data().user_id)),
-        )
+        .check(&AccessUserInfoEdit {
+            user_id: req_auth.user_data().user_id,
+            res_user_id: req_auth.user_data().user_id,
+        })
         .await?;
+
     let user = req_dao
         .web_dao
         .user
@@ -187,13 +183,12 @@ pub async fn password_last_modify<'t, T: SessionTokenData, D: SessionData, S: Us
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(
-            req_auth.user_data().user_id,
-            &[],
-            &res_data!(UserInfoEdit(req_auth.user_data().user_id)),
-        )
+        .check(&AccessUserInfoEdit {
+            user_id: req_auth.user_data().user_id,
+            res_user_id: req_auth.user_data().user_id,
+        })
         .await?;
+
     let user = req_dao
         .web_dao
         .user

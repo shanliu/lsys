@@ -40,7 +40,7 @@ function errorHandler(error) {
 export function globalRest() {
 
     let ax = axios.create({
-        baseURL: config.serverURL + config.restPath + '/user/',
+        baseURL: config.serverURL + '/api/user/',
         timeout: timeout,
         validateStatus: function (status) {
             return status >= 200 && status < 600;

@@ -1,5 +1,6 @@
 use crate::{
     dao::RequestDao,
+    handler::access::AccessSystemLogin,
     {CaptchaParam, JsonData, JsonResult},
 };
 
@@ -19,13 +20,12 @@ macro_rules! login_method {
             req_dao: &RequestDao<UserAuthTokenData,UserAuthData,UserAuthSession<UserAuthRedisStore>>,
         ) -> JsonResult<JsonData> {
             req_dao
-                .web_dao
-                .user
-                .rbac_dao
-                .rbac
-                .access
-                .check(0, &[],&res_data!(SystemLogin) )
-                .await?;
+            .web_dao
+            .user
+            .rbac_dao
+            .rbac
+            .check(&AccessSystemLogin {})
+            .await?;
             let (token, data) = req_dao
                 .web_dao
                 .user

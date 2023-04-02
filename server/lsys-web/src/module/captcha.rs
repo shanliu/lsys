@@ -49,7 +49,7 @@ impl ValidCodeDataCaptcha {
             .apply_filter(Noise::new(0.2))
             .apply_filter(Wave::new(1.0, 5.0).horizontal())
             .apply_filter(Wave::new(1.0, 5.0).vertical())
-            .view(150, 40)
+            .view(150, 50)
             .apply_filter(Dots::new(3));
         Self {
             code: catpcha.chars_as_string(),

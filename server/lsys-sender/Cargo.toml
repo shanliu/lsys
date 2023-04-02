@@ -10,7 +10,7 @@ lsys-core = { version = "0.0.1", path = "../lsys-core"}#path 替换为 :,git = "
 serde={ version = "1.0.*"}
 serde_json="1.0.*"
 
-tokio = {version="~1.25"}
+tokio = {version="~1.27"}
 deadpool-redis = { version = "0.11" }
 redis = { version = "~0.22",features=[ "tokio-comp","connection-manager" ] }
 

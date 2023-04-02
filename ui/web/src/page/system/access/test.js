@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function SystemTestAccessPage() {
+export default function SystemAccessTestPage() {
     return <div>
         sss
     </div>

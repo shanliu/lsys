@@ -1,5 +1,6 @@
 use crate::{
     dao::RequestDao,
+    handler::access::{AccessUserAddressEdit, AccessUserAddressView},
     {JsonData, JsonResult},
 };
 use lsys_user::{
@@ -32,18 +33,18 @@ pub async fn user_address_add<'t, T: SessionTokenData, D: SessionData, S: UserSe
         .user
         .find_by_id(&req_auth.user_data().user_id)
         .await?;
+
     req_dao
         .web_dao
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(
-            req_auth.user_data().user_id,
-            &[],
-            &res_data!(UserAddressEdit(req_auth.user_data().user_id)),
-        )
+        .check(&AccessUserAddressEdit {
+            user_id: req_auth.user_data().user_id,
+            res_user_id: req_auth.user_data().user_id,
+        })
         .await?;
+
     let adm = model_option_set!(UserAddressModelRef, {
         address_code: param.code,
         address_info: param.info,
@@ -88,12 +89,10 @@ pub async fn user_address_delete<'t, T: SessionTokenData, D: SessionData, S: Use
                     .user
                     .rbac_dao
                     .rbac
-                    .access
-                    .check(
-                        req_auth.user_data().user_id,
-                        &[],
-                        &res_data!(UserAddressEdit(req_auth.user_data().user_id)),
-                    )
+                    .check(&AccessUserAddressEdit {
+                        user_id: req_auth.user_data().user_id,
+                        res_user_id: address.user_id,
+                    })
                     .await?;
 
                 req_dao
@@ -129,12 +128,10 @@ pub async fn user_address_list_data<
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(
-            req_auth.user_data().user_id,
-            &[],
-            &res_data!(UserAddressView(req_auth.user_data().user_id)),
-        )
+        .check(&AccessUserAddressView {
+            user_id: req_auth.user_data().user_id,
+            res_user_id: req_auth.user_data().user_id,
+        })
         .await?;
     let data = req_dao
         .web_dao

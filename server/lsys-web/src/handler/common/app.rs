@@ -6,6 +6,7 @@ use serde_json::json;
 
 use crate::dao::RequestDao;
 
+use crate::handler::access::{AccessUserAppConfirm, AccessUserAppEdit, AccessUserAppView};
 use crate::{JsonData, JsonResult, PageParam};
 
 #[derive(Debug, Deserialize)]
@@ -27,12 +28,10 @@ pub async fn app_add<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(
-            req_auth.user_data().user_id,
-            &[],
-            &res_data!(UserEditApp(user_id)),
-        )
+        .check(&AccessUserAppEdit {
+            user_id: req_auth.user_data().user_id,
+            res_user_id: user_id,
+        })
         .await?;
     let app_id = req_dao
         .web_dao
@@ -77,12 +76,10 @@ pub async fn app_edit<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(
-            req_auth.user_data().user_id,
-            &[],
-            &res_data!(UserViewApp(app.user_id)),
-        )
+        .check(&AccessUserAppEdit {
+            user_id: req_auth.user_data().user_id,
+            res_user_id: app.user_id,
+        })
         .await?;
     req_dao
         .web_dao
@@ -122,13 +119,12 @@ pub async fn app_reset_secret<T: SessionTokenData, D: SessionData, S: UserSessio
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(
-            req_auth.user_data().user_id,
-            &[],
-            &res_data!(UserViewApp(app.user_id)),
-        )
+        .check(&AccessUserAppView {
+            user_id: req_auth.user_data().user_id,
+            res_user_id: app.user_id,
+        })
         .await?;
+
     let client_secret = req_dao
         .web_dao
         .app
@@ -169,12 +165,10 @@ pub async fn app_view_secret<T: SessionTokenData, D: SessionData, S: UserSession
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(
-            req_auth.user_data().user_id,
-            &[],
-            &res_data!(UserViewApp(app.user_id)),
-        )
+        .check(&AccessUserAppView {
+            user_id: req_auth.user_data().user_id,
+            res_user_id: app.user_id,
+        })
         .await?;
     let oauth_secret = req_dao
         .web_dao
@@ -202,12 +196,9 @@ pub async fn app_confirm<T: SessionTokenData, D: SessionData, S: UserSession<T, 
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(
-            req_auth.user_data().user_id,
-            &[],
-            &res_data!(UserConfirmApp),
-        )
+        .check(&AccessUserAppConfirm {
+            user_id: req_auth.user_data().user_id,
+        })
         .await?;
     let app = req_dao
         .web_dao
@@ -275,12 +266,10 @@ pub async fn app_list<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(
-            req_auth.user_data().user_id,
-            &[],
-            &res_data!(UserViewApp(see_user_id.unwrap_or(0))),
-        )
+        .check(&AccessUserAppView {
+            user_id: req_auth.user_data().user_id,
+            res_user_id: see_user_id.unwrap_or(0),
+        })
         .await?;
     let status = if let Some(e) = param.status {
         let mut out = Vec::with_capacity(e.len());

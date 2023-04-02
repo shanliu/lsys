@@ -9,7 +9,7 @@ edition = "2021"
 futures-util="~0.3.*"
 dotenv = "~0.15.*"
 
-tokio = {version="~1.25", features = ["fs"]}
+tokio = {version="~1.27.0", features = ["fs"]}
 deadpool-redis = { version = "0.11" }
 redis = { version = "~0.22"  }
 
@@ -29,7 +29,7 @@ tracing-appender="~0.2.*"#写日志文件
 tracing-subscriber = {version="~0.3.*",features=["env-filter"]}
 
 #模板
-tera = "~1.17.*"
+tera = "~1.18.1"
 
 
 #代替标准库的锁

@@ -86,31 +86,6 @@ impl WechatLogin {
         webuser: &WebUser,
         user_auth: &WechatCallbackParam,
     ) -> JsonResult<JsonData> {
-        // let (data, _) = self
-        //     .login_callback(webuser, user_auth)
-        //     .await
-        //     .map_err(JsonData::message_error)?;
-        // let user_ext_rs = webuser
-        //     .user_dao
-        //     .user_account
-        //     .user_external
-        //     .find_by_external(&data.config_name, &data.external_type, &data.external_id)
-        //     .await;
-        // match user_ext_rs {
-        //     Ok(ue) => {
-        //         if UserExternalStatus::Delete.eq(ue.status) {
-        //             return Ok(JsonData::message(format!(
-        //                 "account [{}] is be delete",
-        //                 ue.external_nikename
-        //             )));
-        //         }
-        //     }
-        //     Err(err) => {
-        //         if !err.is_not_found() {
-        //             return Err(JsonData::message(err.to_string()));
-        //         }
-        //     }
-        // }
         let (statek, _) = self
             .parse_state(&user_auth.state)
             .map_err(JsonData::message_error)?;

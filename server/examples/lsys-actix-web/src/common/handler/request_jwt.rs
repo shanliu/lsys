@@ -87,7 +87,7 @@ impl Future for JwtExtractFut {
                 }
                 Err(e) => Err(JsonData::error(e).set_sub_code("jwt_parse_header").into()),
             },
-            None => Err(JsonData::message_error("jwt miss Authorization header")
+            None => Err(JsonData::message("jwt miss Authorization header")
                 .set_sub_code("jwt_miss_header")
                 .into()),
         };

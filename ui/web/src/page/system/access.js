@@ -4,13 +4,17 @@ import { TabLayout } from '../layout';
 export default function SystemAccessPage() {
     const InfoNav = [
         {
+            key: "test",
+            name: "授权测试"
+        },
+        {
             key: "role",
             name: "系统角色"
         },
         {
             key: "res",
             name: "资源管理"
-        },
+        }
     ];
     const navigate = useNavigate();
     return <TabLayout onChange={

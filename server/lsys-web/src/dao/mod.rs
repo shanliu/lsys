@@ -22,8 +22,6 @@ mod mailer;
 mod request;
 mod smser;
 pub mod user;
-#[macro_use]
-pub mod access;
 
 use self::app::WebApp;
 use self::captcha::WebAppCaptcha;

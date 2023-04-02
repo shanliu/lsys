@@ -13,7 +13,10 @@ export function useSearchChange(defaultInit) {
             let val = searchParam.get(key);
             val=val===null?'':val;
             val=val===undefined?'':val;
-            if (val != nextInit[key]) {
+            let tval=nextInit[key];
+            tval=tval===null?'':tval;
+            tval=tval===undefined?'':tval;
+            if (val != tval) {
                 isChange = true;
             }
         })
@@ -32,7 +35,7 @@ export function useSearchChange(defaultInit) {
         Object.keys(nextInit).map((key) => {
             let def = typeof defaultInit[key] == 'number' ? (defaultInit[key] + '') : defaultInit[key];
             let set = typeof nextInit[key] == 'number' ? (nextInit[key] + '') : nextInit[key];
-            if (set === def) {
+            if (set === def ||nextInit[key]===null||nextInit[key]===undefined||nextInit[key]==='') {
                 delete nextInit[key];
             }
         })

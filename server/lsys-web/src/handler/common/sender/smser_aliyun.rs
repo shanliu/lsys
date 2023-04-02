@@ -1,5 +1,6 @@
 use crate::{
     dao::RequestDao,
+    handler::access::{AccessAdminAliSmsConfig, AccessAppSender},
     {JsonData, JsonResult},
 };
 use lsys_sender::model::{SenderAliyunConfigStatus, SenderSmsAliyunStatus};
@@ -31,12 +32,9 @@ pub async fn smser_ali_config_list<
             .user
             .rbac_dao
             .rbac
-            .access
-            .check(
-                req_auth.user_data().user_id,
-                &[],
-                &res_data!(AdminAliSmsConfig),
-            )
+            .check(&AccessAdminAliSmsConfig {
+                user_id: req_auth.user_data().user_id,
+            })
             .await?;
         json!({ "data": row })
     } else {
@@ -73,12 +71,9 @@ pub async fn smser_ali_config_add<'t, T: SessionTokenData, D: SessionData, S: Us
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(
-            req_auth.user_data().user_id,
-            &[],
-            &res_data!(AdminAliSmsConfig),
-        )
+        .check(&AccessAdminAliSmsConfig {
+            user_id: req_auth.user_data().user_id,
+        })
         .await?;
     let alisender = &req_dao.web_dao.smser.aliyun_sender;
     let row = alisender
@@ -115,12 +110,9 @@ pub async fn smser_ali_config_edit<
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(
-            req_auth.user_data().user_id,
-            &[],
-            &res_data!(AdminAliSmsConfig),
-        )
+        .check(&AccessAdminAliSmsConfig {
+            user_id: req_auth.user_data().user_id,
+        })
         .await?;
     let alisender = &req_dao.web_dao.smser.aliyun_sender;
     let config = alisender.find_config_by_id(&param.id).await?;
@@ -151,12 +143,9 @@ pub async fn smser_ali_config_del<'t, T: SessionTokenData, D: SessionData, S: Us
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(
-            req_auth.user_data().user_id,
-            &[],
-            &res_data!(AdminAliSmsConfig),
-        )
+        .check(&AccessAdminAliSmsConfig {
+            user_id: req_auth.user_data().user_id,
+        })
         .await?;
     let alisender = &req_dao.web_dao.smser.aliyun_sender;
     let config = alisender.find_config_by_id(&param.id).await?;
@@ -189,18 +178,19 @@ pub async fn smser_app_ali_config_del<
     if SenderSmsAliyunStatus::Delete.eq(config.status) {
         return Ok(JsonData::data(json!({ "num": 0 })));
     }
+
     req_dao
         .web_dao
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(
-            req_auth.user_data().user_id,
-            &[],
-            &res_data!(AppSender(config.app_id, req_auth.user_data().user_id)),
-        )
+        .check(&AccessAppSender {
+            user_id: req_auth.user_data().user_id,
+            res_user_id: req_auth.user_data().user_id,
+            app_id: config.app_id,
+        })
         .await?;
+
     let row = alisender
         .del_app_config(&config, &req_auth.user_data().user_id)
         .await?;
@@ -230,18 +220,19 @@ pub async fn smser_app_ali_config_add<
 ) -> JsonResult<JsonData> {
     let req_auth = req_dao.user_session.read().await.get_session_data().await?;
     let uid = param.user_id.unwrap_or(req_auth.user_data().user_id);
+
     req_dao
         .web_dao
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(
-            req_auth.user_data().user_id,
-            &[],
-            &res_data!(AppSender(param.app_id, uid)),
-        )
+        .check(&AccessAppSender {
+            user_id: req_auth.user_data().user_id,
+            res_user_id: uid,
+            app_id: param.app_id,
+        })
         .await?;
+
     let alisender = &req_dao.web_dao.smser.aliyun_sender;
     let config = alisender.find_config_by_id(&param.ali_config_id).await?;
     let row = alisender
@@ -278,21 +269,19 @@ pub async fn smser_app_ali_config_list<
     req_dao: &RequestDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(
-            req_auth.user_data().user_id,
-            &[],
-            &res_data!(AppSender(
-                param.app_id.unwrap_or_default(),
-                param.user_id.unwrap_or(req_auth.user_data().user_id)
-            )),
-        )
+        .check(&AccessAppSender {
+            user_id: req_auth.user_data().user_id,
+            res_user_id: param.user_id.unwrap_or(req_auth.user_data().user_id),
+            app_id: param.app_id.unwrap_or_default(),
+        })
         .await?;
+
     let alisender = &req_dao.web_dao.smser.aliyun_sender;
     let row = alisender
         .find_app_config(&param.id, &param.user_id, &param.app_id, &param.tpl)

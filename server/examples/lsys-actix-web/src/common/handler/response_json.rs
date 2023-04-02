@@ -7,7 +7,7 @@ use actix_web::{
 };
 use lsys_core::now_time;
 use lsys_user::dao::auth::{SessionToken, UserAuthTokenData};
-use lsys_web::{dao::access::ScopeError, JsonData};
+use lsys_web::JsonData;
 use reqwest::StatusCode;
 use serde_json::to_string_pretty;
 use std::fmt::{Display, Formatter, Result as FmtResult};
@@ -109,4 +109,3 @@ result_impl_system_error!(PayloadError);
 result_impl_system_error!(actix_web::Error);
 result_impl_system_error!(BlockingError);
 result_impl_system_error!(MailboxError);
-result_impl_system_error!(ScopeError);

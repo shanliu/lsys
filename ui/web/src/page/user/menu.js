@@ -16,7 +16,7 @@ export const Menus = [
     {
         url: "/user/info/index",
         icon: ManageAccountsIcon,
-        text: "用户设置",
+        text: "用户设置"
     },
     {
         url: "/user/app",
@@ -42,12 +42,12 @@ export const Menus = [
         url: "/system/",
         icon: AdminPanelSettingsIcon,
         text: "系统管理",
-        rbac: [[
-            {
-                res: "system",
-                ops: ["admin"]
-            }
-        ]]
+        rbac: [{
+            key: "admin-main",
+            access: [{
+                name: "admin-main"
+            }]
+        }]
     },
 ];
 

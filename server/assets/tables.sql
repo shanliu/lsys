@@ -10,7 +10,7 @@ CREATE TABLE `yaf_rbac_res` (
     `change_user_id` bigint(11) unsigned NOT NULL,
     `change_time` bigint(11) unsigned NOT NULL,
     PRIMARY KEY (`id`)
-) ENGINE = InnoDB AUTO_INCREMENT = 6 DEFAULT CHARSET = utf8;
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '资源';
 -- test.yaf_rbac_res_op definition
 CREATE TABLE `yaf_rbac_res_op` (
     `id` bigint(11) unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
@@ -21,7 +21,7 @@ CREATE TABLE `yaf_rbac_res_op` (
     `change_user_id` bigint(11) unsigned NOT NULL,
     `change_time` bigint(11) unsigned NOT NULL,
     PRIMARY KEY (`id`)
-) ENGINE = InnoDB AUTO_INCREMENT = 6 DEFAULT CHARSET = utf8;
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '资源可用操作';
 -- test.yaf_rbac_role definition
 CREATE TABLE `yaf_rbac_role` (
     `id` bigint(11) unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
@@ -49,7 +49,7 @@ CREATE TABLE `yaf_rbac_role` (
         `id`
     ) USING BTREE,
     KEY `yaf_rbac_role_priority_IDX` (`priority`, `id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 768686 DEFAULT CHARSET = utf8;
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '角色';
 -- test.yaf_rbac_role_op definition
 CREATE TABLE `yaf_rbac_role_op` (
     `id` bigint(11) unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
@@ -65,7 +65,7 @@ CREATE TABLE `yaf_rbac_role_op` (
         `res_op_id`,
         `status`
     ) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 6 DEFAULT CHARSET = utf8;
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '角色关联的资源操作';
 -- test.yaf_rbac_role_user definition
 CREATE TABLE `yaf_rbac_role_user` (
     `id` bigint(11) unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
@@ -77,7 +77,7 @@ CREATE TABLE `yaf_rbac_role_user` (
     `change_time` bigint(11) unsigned NOT NULL,
     PRIMARY KEY (`id`),
     KEY `yaf_rbac_role_user_IDX` (`role_id`, `user_id`, `status`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 6 DEFAULT CHARSET = utf8;
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '角色关联的用户';
 -- test.yaf_rbac_tags definition
 CREATE TABLE `yaf_rbac_tags` (
     `id` bigint(11) unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
@@ -89,7 +89,7 @@ CREATE TABLE `yaf_rbac_tags` (
     `change_user_id` bigint(11) unsigned NOT NULL,
     `change_time` bigint(11) unsigned NOT NULL,
     PRIMARY KEY (`id`)
-) ENGINE = InnoDB AUTO_INCREMENT = 6 DEFAULT CHARSET = utf8;
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = 'TAG,用于分组资源跟角色';
 -- ----------- lsys-rbac  ---------------
 -- ----------- lsys-user  ---------------
 -- test.yaf_user definition
@@ -106,7 +106,7 @@ CREATE TABLE `yaf_user` (
     `add_time` bigint(11) unsigned NOT NULL COMMENT '添加时间',
     `delete_time` bigint(11) unsigned NOT NULL DEFAULT 0 COMMENT '删除时间',
     PRIMARY KEY (`id`)
-) ENGINE = InnoDB AUTO_INCREMENT = 6 DEFAULT CHARSET = utf8;
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户';
 -- test.yaf_user_address definition
 CREATE TABLE `yaf_user_address` (
     `id` bigint(11) unsigned NOT NULL AUTO_INCREMENT,
@@ -120,7 +120,7 @@ CREATE TABLE `yaf_user_address` (
     `add_time` int(11) unsigned NOT NULL COMMENT '添加时间',
     `delete_time` int(11) unsigned NOT NULL DEFAULT 0 COMMENT '删除时间',
     PRIMARY KEY (`id`)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8 COMMENT = '用户收货地址';
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户收货地址';
 -- test.yaf_user_email definition
 CREATE TABLE `yaf_user_email` (
     `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
@@ -131,7 +131,7 @@ CREATE TABLE `yaf_user_email` (
     `add_time` int(11) unsigned NOT NULL COMMENT '添加时间',
     `delete_time` int(11) unsigned NOT NULL DEFAULT 0 COMMENT '删除时间',
     PRIMARY KEY (`id`)
-) ENGINE = InnoDB AUTO_INCREMENT = 15 DEFAULT CHARSET = utf8;
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户关联邮箱';
 -- test.yaf_user_external definition
 CREATE TABLE `yaf_user_external` (
     `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
@@ -151,7 +151,7 @@ CREATE TABLE `yaf_user_external` (
     `token_data` varchar(256) NOT NULL DEFAULT '',
     `token_timeout` int(10) unsigned DEFAULT 0,
     PRIMARY KEY (`id`)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8 COMMENT = '外部账号登录';
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '外部账号登录';
 -- test.yaf_user_info definition
 CREATE TABLE `yaf_user_info` (
     `id` bigint(11) unsigned NOT NULL AUTO_INCREMENT,
@@ -165,7 +165,7 @@ CREATE TABLE `yaf_user_info` (
     `confirm_time` int(10) unsigned NOT NULL DEFAULT 0 COMMENT '确认时间',
     `change_time` int(10) unsigned NOT NULL DEFAULT 0,
     PRIMARY KEY (`id`)
-) ENGINE = InnoDB AUTO_INCREMENT = 2 DEFAULT CHARSET = utf8 COMMENT = '用户资料表';
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户资料表';
 -- test.yaf_user_login definition
 CREATE TABLE `yaf_user_login` (
     `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -180,7 +180,7 @@ CREATE TABLE `yaf_user_login` (
     `login_msg` varchar(100) DEFAULT '' NOT NULL COMMENT '登陆消息',
     `login_city` varchar(100) DEFAULT '' NOT NULL COMMENT '登陆城市',
     PRIMARY KEY (`id`)
-) ENGINE = InnoDB AUTO_INCREMENT = 226 DEFAULT CHARSET = utf8 COMMENT = '用户登录记录';
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户登录记录';
 -- test.yaf_user_mobile definition
 CREATE TABLE `yaf_user_mobile` (
     `id` bigint(11) unsigned NOT NULL AUTO_INCREMENT,
@@ -192,7 +192,7 @@ CREATE TABLE `yaf_user_mobile` (
     `confirm_time` bigint(11) unsigned NOT NULL DEFAULT 0,
     `delete_time` bigint(11) unsigned NOT NULL DEFAULT 0,
     PRIMARY KEY (`id`)
-) ENGINE = InnoDB AUTO_INCREMENT = 5 DEFAULT CHARSET = utf8;
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户登关联手机号';
 -- test.yaf_user_name definition
 CREATE TABLE `yaf_user_name` (
     `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -201,7 +201,7 @@ CREATE TABLE `yaf_user_name` (
     `add_time` bigint(20) unsigned NOT NULL,
     `change_time` bigint(20) unsigned NOT NULL DEFAULT 0,
     PRIMARY KEY (`id`)
-) ENGINE = InnoDB AUTO_INCREMENT = 2 DEFAULT CHARSET = utf8 COMMENT = '用户名表';
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户登录账号';
 -- test.yaf_user_password definition
 CREATE TABLE `yaf_user_password` (
     `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
@@ -210,7 +210,7 @@ CREATE TABLE `yaf_user_password` (
     `change_time` int(11) unsigned NOT NULL DEFAULT 0 COMMENT '更改时间',
     `add_time` int(11) unsigned NOT NULL COMMENT '绑定时间',
     PRIMARY KEY (`id`)
-) ENGINE = InnoDB AUTO_INCREMENT = 2 DEFAULT CHARSET = utf8;
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户登录密码';
 -- test.yaf_users definition
 CREATE TABLE `yaf_user_index` (
     `id` int(11) unsigned NOT NULL AUTO_INCREMENT COMMENT '用户ID',
@@ -227,7 +227,7 @@ CREATE TABLE `yaf_user_index` (
         `status`
     ) USING BTREE,
     KEY `yaf_user_index_user` (`user_id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 1 DEFAULT CHARSET = utf8mb4;
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户数据索引,尝试用外部搜索引擎代替';
 -- ----------- lsys-user  ---------------
 -- ----------- lsys-app  ---------------
 CREATE TABLE `yaf_app` (
@@ -243,7 +243,7 @@ CREATE TABLE `yaf_app` (
     `confirm_user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '确认用户',
     `confirm_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '确认时间',
     PRIMARY KEY (`id`)
-) ENGINE = InnoDB AUTO_INCREMENT = 28 DEFAULT CHARSET = utf8mb4;
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '应用数据';
 CREATE TABLE `yaf_app_oauth_token` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
     `app_id` bigint unsigned NOT NULL COMMENT '应用ID',
@@ -255,7 +255,7 @@ CREATE TABLE `yaf_app_oauth_token` (
     `token_time` bigint unsigned NOT NULL COMMENT '授权时间',
     `timeout` bigint unsigned NOT NULL COMMENT '超时',
     PRIMARY KEY (`id`)
-) ENGINE = InnoDB AUTO_INCREMENT = 28 DEFAULT CHARSET = utf8mb4;
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '应用OAUTH登录数据';
 -- ----------- lsys-app  ---------------
 -- ----------- lsys-sender  ---------------
 CREATE TABLE `yaf_sender_aliyun_config` (
@@ -268,7 +268,7 @@ CREATE TABLE `yaf_sender_aliyun_config` (
     `add_time` bigint unsigned NOT NULL COMMENT '申请时间',
     `delete_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '确认时间',
     PRIMARY KEY (`id`)
-) ENGINE = InnoDB AUTO_INCREMENT = 28 DEFAULT CHARSET = utf8mb4;
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '短信ALIYUN配置数据';
 CREATE TABLE `yaf_sender_sms_aliyun` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
@@ -285,7 +285,7 @@ CREATE TABLE `yaf_sender_sms_aliyun` (
     `delete_user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '删除用户id',
     `delete_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '删除时间',
     PRIMARY KEY (`id`)
-) ENGINE = InnoDB AUTO_INCREMENT = 28 DEFAULT CHARSET = utf8mb4;
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '短信ALIYUN跟内部短信映射';
 CREATE TABLE `yaf_sender_sms_config` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID,由应用生成',
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
@@ -299,7 +299,7 @@ CREATE TABLE `yaf_sender_sms_config` (
     `add_time` bigint unsigned NOT NULL COMMENT '申请时间',
     `delete_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '删除时间',
     PRIMARY KEY (`id`)
-) ENGINE = InnoDB AUTO_INCREMENT = 28 DEFAULT CHARSET = utf8mb4;
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '内部短信配置,如发送限额等';
 CREATE TABLE `yaf_sender_sms_message` (
     `id` bigint unsigned NOT NULL COMMENT 'ID,由应用生成',
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
@@ -315,7 +315,7 @@ CREATE TABLE `yaf_sender_sms_message` (
     `user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '用户id',
     PRIMARY KEY (`id`),
     KEY `sender_record_data_IDX` (`expected_time`, `status`, `id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 28 DEFAULT CHARSET = utf8mb4;
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '发送短信数据';
 CREATE TABLE `yaf_sender_sms_cancel` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
@@ -325,7 +325,7 @@ CREATE TABLE `yaf_sender_sms_cancel` (
     `cancel_user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '用户id',
     `cancel_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '确认时间',
     PRIMARY KEY (`id`)
-) ENGINE = InnoDB AUTO_INCREMENT = 28 DEFAULT CHARSET = utf8mb4;
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '取消发送短信记录';
 CREATE TABLE `yaf_sender_sms_log` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
     `sms_message_id` bigint unsigned NOT NULL COMMENT 'ID',
@@ -337,5 +337,5 @@ CREATE TABLE `yaf_sender_sms_log` (
     `user_id` bigint unsigned NOT NULL COMMENT '操作用户id',
     `create_time` bigint unsigned NOT NULL COMMENT '确认时间',
     PRIMARY KEY (`id`)
-) ENGINE = InnoDB AUTO_INCREMENT = 28 DEFAULT CHARSET = utf8mb4;
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '取消发送短信日志';
 -- ----------- lsys-sender  ---------------

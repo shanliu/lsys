@@ -15,3 +15,5 @@ lsys-sender = { version = "0.0.1", path = "../../lsys-sender"}#path 替换为 :,
 serde={ version = "1.0.*"}
 serde_json="1.0.*"
 
+
+async-trait = "0.1.57"

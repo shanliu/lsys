@@ -5,17 +5,18 @@ import SearchIcon from '@mui/icons-material/Search';
 import { Alert, Autocomplete, Box, Button, Divider, Drawer, FormControl, FormLabel, Grid, IconButton, InputLabel, List, ListItem, MenuItem, Paper, Select, Skeleton, TableBody, TableCell, TableRow, TextField, Typography } from '@mui/material';
 import Table from '@mui/material/Table';
 import { Stack } from '@mui/system';
-import React, { Fragment, useCallback, useContext, useEffect, useState } from 'react';
+import React, { Fragment, useContext, useEffect, useState } from 'react';
 import { Form } from 'react-router-dom';
-import { ToastContext } from '../../context/toast';
-import { ConfirmButton } from '../../library/dialog';
-import { ClearTextField, InputTagSelect, TagSelect } from '../../library/input';
-import { LoadingButton, Progress } from '../../library/loading';
-import { BaseTableBodyRow, BaseTableFooter, BaseTableHead, BaseTableNoRows } from '../../library/table_page';
-import { resAdd, resAll, resDelete, resEdit, resListData, resTags } from '../../rest/access';
-import { useSearchChange } from '../../utils/hook';
-import { showTime } from '../../utils/utils';
-import { ResOpItem, UserTags } from '../library/user';
+import { ToastContext } from '../../../context/toast';
+import { ConfirmButton } from '../../../library/dialog';
+import { ClearTextField, InputTagSelect, TagSelect } from '../../../library/input';
+import { LoadingButton, Progress } from '../../../library/loading';
+import { BaseTableBodyRow, BaseTableFooter, BaseTableHead, BaseTableNoRows } from '../../../library/table_page';
+import { resAdd, resAll, resDelete, resEdit, resListData, resTags } from '../../../rest/access';
+import { useSearchChange } from '../../../utils/hook';
+import { showTime } from '../../../utils/utils';
+import { ResOpItem, UserTags } from '../../library/user';
+import { ResEditBox } from './res_edit_box';
 //页面提交
 
 export function AddBox(props) {
@@ -30,9 +31,8 @@ export function AddBox(props) {
         res_key: '',
         res_key_open: false,
         tags: [],
-        input_op_name: '',
-        input_op_key: '',
         op_items: [],
+        op_focused: false
     };
     const [resData, setResData] = useState(init_res_data);
     useEffect(() => {
@@ -54,83 +54,18 @@ export function AddBox(props) {
     }, [props.item])
     const [res_keys, set_res_keys] = useState({
         keys: [],
-        key_ops: {}
     });
-    const get_res_keys = useCallback(function (
-        user_id,
-    ) {
-        let param = {
-            global_res: parseInt(user_id) == 0,
-        };
-        return resAll(param);
-    }, []);
     useEffect(() => {
-        get_res_keys(resData.user_id).then((data) => {
+        resAll({
+            global_res: resData.user_id == 0
+        }).then((data) => {
             if (data.status) {
                 set_res_keys({
-                    keys: data.data.map((e) => { return e.res }),
-                    key_ops: data.data
+                    keys: (data.data ?? []),
                 })
             }
         })
     }, [resData.user_id])
-
-
-    const submitAdd = useCallback(function (
-        user_id,
-        key,
-        name,
-        ops,
-        tags,
-    ) {
-        tags = tags.map((e) => {
-            return e
-                .replace(/^\s+/)
-                .replace(/\s+$/)
-        }).filter((e) => {
-            return e.length > 0
-        })
-        ops = ops.map((e) => {
-            if (!e.key || e.key.length <= 0 || !e.name || e.name.length <= 0) return;
-            return e;
-        }).filter((e) => { return e })
-        let param = {
-            user_id: parseInt(user_id),
-            name: name,
-            "key": key,
-            "ops": ops,
-            "tags": tags,
-        };
-        return resAdd(param);
-    }, []);
-    const submitEdit = useCallback(function (
-        res_id,
-        key,
-        name,
-        ops,
-        tags,
-    ) {
-        tags = tags.map((e) => {
-            return e
-                .replace(/^\s+/)
-                .replace(/\s+$/)
-        }).filter((e) => {
-            return e.length > 0
-        })
-        ops = ops.map((e) => {
-            if (!e.key || e.key.length <= 0 || !e.name || e.name.length <= 0) return;
-            return e;
-        }).filter((e) => { return e })
-        let param = {
-            res_id: parseInt(res_id),
-            name: name,
-            key: key,
-            ops: ops,
-            tags: tags,
-        };
-        return resEdit(param);
-    }, []);
-
     const { toast } = useContext(ToastContext);
 
     return (
@@ -229,7 +164,7 @@ export function AddBox(props) {
                             }}
                             disabled={resData.loading}
                             value={resData.res_key}
-                            options={res_keys.keys}
+                            options={res_keys.keys.map((e) => e.key)}
                             open={resData.res_key_open}
                             getOptionLabel={(option) => option}
                             noOptionsText={"回车确认使用该值"}
@@ -255,7 +190,7 @@ export function AddBox(props) {
                                     }}
                                     onKeyUp={(e) => {
                                         if (!res_keys.keys.map((item) => {
-                                            return item == e.target.value
+                                            return item.key == e.target.value
                                         })) {
                                             e.stopPropagation();
                                             e.preventDefault();
@@ -290,177 +225,51 @@ export function AddBox(props) {
                                 })
                             }}
                         />
-                        <FormControl sx={{
-                            mt: 2,
-                            p: 1,
-                            mb: 2,
-                        }}>
-                            <FormLabel style={{
-                                position: "absolute",
-                                transform: "translate(0, -12px) scale(0.75)"
-                            }}>权限操作</FormLabel>
-                            <Box className='MuiInputBase-root MuiOutlinedInput-root MuiInputBase-colorPrimary MuiInputBase-formControl MuiInputBase-sizeSmall'
-                                style={{
-                                    borderRadius: "4px"
-                                }}>
-                                <fieldset style={{
-                                    textAlign: "left",
-                                    position: "absolute",
-                                    bottom: 0,
-                                    right: 0,
-                                    top: "-5px",
-                                    left: 0,
-                                    margin: 0,
-                                    padding: "0 8px",
-                                    pointerEvents: "none",
-                                    borderRadius: "inherit",
-                                    borderStyle: "solid",
-                                    borderWidth: "1px ",
-                                    overflow: "hidden",
-                                    borderColor: " rgba(0, 0, 0, 0.23)",
-                                }} className="MuiOutlinedInput-notchedOutline "><legend style={{
-                                    visibility: "hidden"
-                                }} ><span>权限操作</span></legend></fieldset>
-                            </Box>
-                            <Box sx={{ mt: "5px" }}>
-                                {resData.op_items.length == 0 ? <div style={{
-                                    textAlign: "center",
-                                    fontSize: "0.9rem",
-                                    color: "#999",
-                                    lineHeight: 3
-                                }}>请添加操作</div> : resData.op_items.map((item, i) => {
-                                    return <ResOpItem
-                                        key={`add-res-key-${i}`}
-                                        style={{ margin: "8px 8px 0px 0px" }}
-                                        name={item.op_name}
-                                        opKey={item.op_key}
-                                        onDelete={() => {
-                                            let items = resData.op_items.map((dd) => {
-                                                if (item.op_key != dd.op_key) {
-                                                    return dd;
-                                                }
-                                            }).filter((e) => { return e });
-                                            setResData({
-                                                ...resData,
-                                                op_items: items
-                                            })
-                                        }}
-                                        onClick={(e, data) => {
-                                            setResData({
-                                                ...resData,
-                                                input_op_name: data.name,
-                                                input_op_key: data.opKey
-                                            })
-                                        }}
-                                    />
-                                })}
-
-                            </Box>
-                            <Divider sx={{ mb: 1, mt: 1 }}></Divider>
-                            <Grid container spacing={1}>
-                                <Grid item xs={5}>
-                                    <TextField
-                                        disabled={resData.loading}
-                                        label="操作名称"
-                                        variant="outlined"
-                                        name="name"
-                                        size="small"
-                                        onChange={(e) => {
-                                            setResData({
-                                                ...resData,
-                                                input_op_name: e.target.value
-                                            })
-                                        }}
-                                        value={resData.input_op_name}
-
-                                    />
-                                </Grid>
-                                <Grid item xs={5}>
-                                    <TextField
-                                        disabled={resData.loading}
-                                        label="操作标识"
-                                        variant="outlined"
-                                        name="name"
-                                        size="small"
-                                        onChange={(e) => {
-                                            setResData({
-                                                ...resData,
-                                                input_op_key: e.target.value
-                                            })
-                                        }}
-                                        value={resData.input_op_key}
-
-                                    />
-                                </Grid>
-                                <Grid item xs={2}>
-                                    <Button variant="outlined"
-                                        onClick={() => {
-                                            if (resData.input_op_key == '' || resData.input_op_name == '') return
-
-                                            let find = false;
-                                            let items = resData.op_items.map((item) => {
-                                                if (item.op_key == resData.input_op_key) {
-                                                    find = true;
-                                                    return {
-                                                        op_key: item.op_key,
-                                                        op_name: resData.input_op_name
-                                                    }
-                                                } else {
-                                                    return item;
-                                                }
-                                            })
-                                            if (!find) {
-                                                items.push({
-                                                    op_key: resData.input_op_key,
-                                                    op_name: resData.input_op_name
-                                                })
-                                            }
-                                            setResData({
-                                                ...resData,
-                                                op_items: items,
-                                                input_op_name: '',
-                                                input_op_key: ''
-                                            })
-                                        }}
-                                        sx={{
-                                            borderColor: "#aaa",
-                                            minWidth: "30px",
-                                            padding: "7px 14px",
-
-                                            '&:hover svg': {
-                                                color: '#1976d2'
-                                            }
-                                        }} >
-                                        <AddCircleOutlineIcon sx={{
-                                            color: "#666",
-                                        }} />
-                                    </Button>
-                                </Grid>
-                            </Grid>
-                        </FormControl>
+                        <ResEditBox
+                            focused={resData.op_focused}
+                            opItems={resData.op_items}
+                            sx={{
+                                mt: 1,
+                                p: 1,
+                                mb: 2,
+                            }} onChange={(data) => {
+                                let sdata = data ?? [];
+                                setResData({
+                                    ...resData,
+                                    op_items: sdata,
+                                    op_focused: sdata.length == 0
+                                })
+                            }} />
                     </Grid>
                     <Grid item xs={10}>
                         <LoadingButton sx={{
                             width: 1,
                             mb: 3
                         }} variant="contained"
-                            loading={false}
-                            disabled={false}
+                            loading={resData.loading}
+                            disabled={resData.loading}
                             onClick={() => {
+                                if (!resData.op_items || resData.op_items.length == 0) {
+                                    setResData({
+                                        ...resData,
+                                        op_focused: true
+                                    })
+                                    return
+                                }
                                 setResData({
                                     ...resData,
                                     loading: true
                                 })
                                 if (res && res.res && res.res.id > 0) {
-                                    submitEdit(
-                                        res.res.id,
-                                        resData.res_key,
-                                        resData.res_name,
-                                        resData.op_items.map((e) => {
+                                    resEdit({
+                                        res_id: res.res.id,
+                                        key: resData.res_key,
+                                        name: resData.res_name,
+                                        ops: resData.op_items.map((e) => {
                                             return { name: e.op_name, key: e.op_key }
                                         }),
-                                        resData.tags
-                                    ).then((data) => {
+                                        tags: resData.tags
+                                    }).then((data) => {
                                         setResData({
                                             ...resData,
                                             loading: false
@@ -473,15 +282,15 @@ export function AddBox(props) {
                                         }
                                     })
                                 } else {
-                                    submitAdd(
-                                        resData.user_id,
-                                        resData.res_key,
-                                        resData.res_name,
-                                        resData.op_items.map((e) => {
+                                    resAdd({
+                                        user_id: resData.user_id,
+                                        key: resData.res_key,
+                                        name: resData.res_name,
+                                        ops: resData.op_items.map((e) => {
                                             return { name: e.op_name, key: e.op_key }
                                         }),
-                                        resData.tags
-                                    ).then((data) => {
+                                        tags: resData.tags
+                                    }).then((data) => {
                                         if (!data.status) {
                                             toast(data.message)
                                             setResData({
@@ -624,31 +433,6 @@ export default function SystemAccessResPage(props) {
         rows_error: null,
         rows_loading: true,
     })
-    const getRowData = useCallback(function (user_id, tag, res_id, res_name, page, pageSize) {
-        let param = {
-            "user_id": parseInt(user_id),
-            "tags": true,
-            "ops": true,
-            "page": {
-                "page": parseInt(page) + 1,
-                "limit": parseInt(pageSize)
-            }
-        };
-        if (typeof tag == 'string' && tag.length > 0) {
-            param.tags_filter = [tag];
-        }
-        if (typeof res_name == 'string' && res_name.length > 0) {
-            param.res_name = res_name;
-        }
-        if (typeof res_id == 'string') {
-            res_id = res_id.split(",").map((e) => parseInt(e));
-            res_id = res_id.filter((e) => !isNaN(e))
-            if (res_id.length > 0) {
-                param.res_id = res_id;
-            }
-        }
-        return resListData(param);
-    }, [props]);
     const [pageTagData, setPageTagData] = useState({
         init: false,
         user_id: 0,
@@ -659,11 +443,6 @@ export default function SystemAccessResPage(props) {
         tag_rows_error: null,
         tag_rows_loading: true,
     })
-    const getTagData = useCallback(function (uid) {
-        return resTags({
-            user_id: parseInt(uid)
-        });
-    }, [props]);
     //页面数据初始化
     const loadResData = () => {
         let set_data = { ...pageTagData }
@@ -685,14 +464,17 @@ export default function SystemAccessResPage(props) {
                 ...pageRowData,
                 rows_loading: true
             })
-            getRowData(
-                searchParam.get("user_id"),
-                searchParam.get("tag"),
-                searchParam.get("res_id"),
-                searchParam.get("res_name"),
-                searchParam.get("page"),
-                searchParam.get("page_size")
-            ).then((data) => {
+            resListData({
+                tags: true,
+                ops: true,
+                count_num: true,
+                user_id: searchParam.get("user_id"),
+                tag: searchParam.get("tag"),
+                res_id: searchParam.get("res_id"),
+                res_name: searchParam.get("res_name"),
+                page: searchParam.get("page"),
+                page_size: searchParam.get("page_size")
+            }).then((data) => {
                 if (!data.status) {
                     setPageRowData({
                         ...pageRowData,
@@ -704,7 +486,7 @@ export default function SystemAccessResPage(props) {
                 setPageRowData({
                     ...pageRowData,
                     rows: data.data ?? [],
-                    rows_total: data.count ?? 0,
+                    rows_total: data.total ?? 0,
                     rows_loading: false
                 })
             })
@@ -715,7 +497,9 @@ export default function SystemAccessResPage(props) {
         if (user_id === pageTagData.load_user_id) {
             loadRow();
         } else {
-            getTagData(user_id).then((data) => {
+            resTags({
+                user_id: parseInt(user_id)
+            }).then((data) => {
                 if (!data.status) {
                     setPageTagData({
                         ...set_data,

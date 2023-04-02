@@ -53,7 +53,7 @@ function errorHandler(error) {
 export function globalRest() {
 
     let ax = axios.create({
-        baseURL: config.serverURL + config.restPath + '/user/',
+        baseURL: config.serverURL + '/api/user/',
         timeout: timeout,
         validateStatus: function (status) {
             return status >= 200 && status < 600;
@@ -71,7 +71,7 @@ export function sessionRest(path) {
     let session = userSessionGet();
     if (!session) throw new Error("not login can't call user rest");
     let ax = axios.create({
-        baseURL: config.serverURL + config.restPath + path,
+        baseURL: config.serverURL  + path,
         timeout: timeout,
         transformResponse: [
             (data)=>{
@@ -105,7 +105,7 @@ export function fialResult(field, message) {
     }
 };
 
-export function restResult(res) {
+export function restResult(res,ignore) {
     if (res?.data?.result?.code != 200) {
         return {
             ...(res?.data?.result ?? {}),
@@ -113,23 +113,29 @@ export function restResult(res) {
             data: res?.data?.response ?? null
         }
     }
-    if (res.data.result.state != "ok") {
-        if (res.data.result.state == "not_login") {
-            userSessionClear()
-        }
-        return {
-            ...res.data.result,
-            ...fialResult(res.data.result.state == "valid_code" ? {
-                captcha: res.data.result.message
-            } : {}, res.data.result.message),
-            is_captcha: res.data.result.state == "need_captcha",
-            data: res.data.response
-        }
+    if (typeof ignore== 'string'){
+        ignore=[ignore]
     }
-    return {
-        status: true,
-        ...res.data.response
-    };
+    switch (res.data.result.state){
+        case "not_login":
+            userSessionClear()
+        default:
+            if(res.data.result.state=='ok'||(ignore&&ignore.length>0&&ignore.includes(res.data.result.state))){
+                if(!res.data.response)res.data.response=[];
+                return {
+                    status: true,
+                    ...res.data.response
+                };
+            }
+            return {
+                ...res.data.result,
+                ...fialResult(res.data.result.state == "valid_code" ? {
+                    captcha: res.data.result.message
+                } : {}, res.data.result.message),
+                is_captcha: res.data.result.state == "need_captcha",
+                data: res.data.response
+            }
+    }
 };
 
 export function userSessionGet(session) {

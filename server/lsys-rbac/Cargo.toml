@@ -12,7 +12,7 @@ sqlx = {version = "~0.6.*",features = [ "mysql","runtime-tokio-native-tls","offl
 sqlx-model = {version = "~0.2.0", default-features=false,features = ["sqlx-mysql"]}
 
 
-tokio = {version="~1.25", features = ["macros"]}
+tokio = {version="~1.27.0", features = ["macros"]}
 deadpool-redis = { version = "0.11" }
 redis = { version = "~0.22"  }
 
@@ -30,3 +30,5 @@ config = "~0.13.*"
 
 
 async-trait = "~0.1.*"
+
+async-recursion = "~1.0.0"

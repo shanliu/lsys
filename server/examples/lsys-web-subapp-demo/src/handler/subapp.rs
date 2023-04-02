@@ -1,7 +1,30 @@
 use lsys_app::model::AppsModel;
+use lsys_rbac::dao::{AccessRes, RbacAccess, RbacCheck, RoleRelationKey, UserRbacResult};
 use lsys_web::{dao::WebDao, JsonData, JsonResult};
 use serde::Deserialize;
 use serde_json::json;
+
+//这里定义访问权限验证
+pub struct DomeAccess {
+    pub app: AppsModel,
+}
+
+#[async_trait::async_trait]
+impl RbacCheck for DomeAccess {
+    async fn check(&self, access: &RbacAccess) -> UserRbacResult<()> {
+        access
+            .check(
+                self.app.user_id,                                           //资源访问用户
+                &[RoleRelationKey::system(format!("app-{}", self.app.id))], //资源关系
+                &[AccessRes::system(
+                    &format!("app-{}", self.app.id), //资源KEY
+                    &["global-dome-auth"],           //必须验证权限
+                    &[],                             //可选验证权限
+                )],
+            )
+            .await
+    }
+}
 
 #[derive(Debug, Deserialize)]
 pub struct DemoParam {
@@ -17,12 +40,9 @@ pub async fn demo_handler(
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(
-            app.user_id,
-            &[app_dao.app.app_relation_key(app).await],
-            &res_data!(DomeRes(app.id)),
-        )
+        .check(&DomeAccess {
+            app: app.to_owned(),
+        })
         .await?;
     //业务逻辑。。。
     Ok(JsonData::message("dome message").set_data(json!({ "text":param.text })))

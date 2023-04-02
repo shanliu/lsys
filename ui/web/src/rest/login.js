@@ -2,7 +2,7 @@ import isEmail from "validator/lib/isEmail";
 import { fialResult, globalRest, restResult,sessionRest } from "../utils/rest";
 
 function loginRest() {
-    return sessionRest('/user')
+    return sessionRest('/api/user')
 };
 
 

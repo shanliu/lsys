@@ -13,7 +13,7 @@ import { DesktopDateTimePicker } from '@mui/x-date-pickers/DesktopDateTimePicker
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import dayjs from 'dayjs';
 import PropTypes from 'prop-types';
-import React, { Fragment, useCallback, useContext, useEffect, useState } from 'react';
+import React, { Fragment, useContext, useEffect, useState } from 'react';
 import { Form } from 'react-router-dom';
 import { ToastContext } from '../../context/toast';
 import { ConfirmButton } from '../../library/dialog';
@@ -36,24 +36,6 @@ function UserResSelect(props) {
         disabled,
         ...other
     } = props;
-    const getRes = useCallback((res_id, page, show) => {
-        let rid = parseInt(res_id);
-        let param = {
-            user_id: userId,
-            tags: false,
-            ops: false,
-            count_num: rid == 0,
-            page: {
-                page: page,
-                limit: show
-            }
-        };
-        if (rid > 0) {
-            param.res_id = [rid];
-            param.ops = true;
-        }
-        return resListData(param)
-    }, [props.userId]);
     const [resData, setResData] = useState({
         loading: false,
         next: true,
@@ -72,7 +54,7 @@ function UserResSelect(props) {
     //[{res_key:'',res_name:'',ops:[{op_name: '',op_key: '',allow:false,op_id:1}]}]
     const [listResData, setListResData] = useState([])
     const changeListResData = (resData) => {
-        setListResData(resData)//@todo 
+        setListResData(resData)
         onChange(resData)
     }
     useEffect(() => {
@@ -196,7 +178,15 @@ function UserResSelect(props) {
                                 })
                                 return;
                             }
-                            getRes(res.id, 1, 1).then((data) => {
+                            resListData({
+                                user_id: userId,
+                                tags: false,
+                                res_id: res.id,
+                                ops: res.id > 0,
+                                count_num: res.id == 0,
+                                page: 0,
+                                page_size: 1
+                            }).then((data) => {
                                 if (!data.status) {
                                     setResData({
                                         ...resData,
@@ -219,7 +209,14 @@ function UserResSelect(props) {
                         }}
                         onLoad={() => {
                             setResData({ ...resData, loading: true })
-                            getRes(0, resData.page, resData.show).then((data) => {
+                            resListData({
+                                user_id: userId,
+                                tags: false,
+                                ops: false,
+                                count_num: true,
+                                page: resData.page,
+                                page_size: resData.show
+                            }).then((data) => {
                                 if (!data.status) {
                                     setResData({
                                         ...resData,
@@ -237,7 +234,7 @@ function UserResSelect(props) {
                                     items: [...resData.items, ...items],
                                     loading: false,
                                     page: resData.page + 1,
-                                    next: resData.page * resData.show < data.count
+                                    next: resData.page * resData.show < data.total
                                 })
                             })
                         }}
@@ -436,96 +433,6 @@ function UserRoleAdd(props) {
         })
     }, [rowData])
 
-    const submitAdd = useCallback(function (
-        user_id,
-        name,
-        user_range,
-        role_op_range,
-        priority,
-        relation_key,
-        tags,
-        role_ops
-    ) {
-
-        user_id = parseInt(user_id)
-        user_range = parseInt(user_range)
-        role_op_range = parseInt(role_op_range)
-        priority = parseInt(priority)
-        tags = tags.map((e) => {
-            return e
-                .replace(/^\s+/)
-                .replace(/\s+$/)
-        }).filter((e) => {
-            return e.length > 0
-        })
-        role_ops = role_ops.map((e) => {
-            let op_id = parseInt(e.op_id);
-            let op_positivity = parseInt(e.op_positivity);
-            if (isNaN(op_id) || isNaN(op_positivity)) return;
-            return {
-                op_id: op_id,
-                op_positivity: op_positivity
-            }
-        }).filter((e) => { return e })
-        let param = {
-            user_id: user_id,
-            name: name,
-            user_range: user_range,
-            role_op_range: role_op_range,
-            priority: priority,
-            relation_key: relation_key + '',
-            tags: tags,
-            role_user: [],
-        };
-        if (role_op_range == 1) {
-            param.role_ops = role_ops;
-        }
-        return roleAdd(param);
-    }, []);
-    const submitEdit = useCallback(function (
-        role_id,
-        name,
-        user_range,
-        role_op_range,
-        priority,
-        relation_key,
-        tags,
-        role_ops
-    ) {
-        role_id = parseInt(role_id)
-        user_range = parseInt(user_range)
-        role_op_range = parseInt(role_op_range)
-        priority = parseInt(priority)
-        tags = tags.map((e) => {
-            return e
-                .replace(/^\s+/)
-                .replace(/\s+$/)
-        }).filter((e) => {
-            return e.length > 0
-        })
-        role_ops = role_ops.map((e) => {
-            let op_id = parseInt(e.op_id);
-            let op_positivity = parseInt(e.op_positivity);
-            if (isNaN(op_id) || isNaN(op_positivity)) return;
-            return {
-                op_id: op_id,
-                op_positivity: op_positivity
-            }
-        }).filter((e) => { return e })
-        let param = {
-            role_id: role_id,
-            name: name,
-            user_range: user_range,
-            role_op_range: role_op_range,
-            priority: priority,
-            relation_key: relation_key,
-            tags: tags,
-        };
-        if (role_op_range == 1) {
-            param.role_ops = role_ops;
-        }
-        return roleEdit(param);
-    }, []);
     const { toast } = useContext(ToastContext);
     const submitAction = () => {
         setAddData({
@@ -544,16 +451,16 @@ function UserRoleAdd(props) {
         })
         let doAction;
         if (rowData && rowData.role && rowData.role.id > 0) {
-            return submitEdit(
-                rowData.role.id,
-                addData.res_name,
-                addData.user_range,
-                addData.res_range,
-                addData.priority,
-                addData.user_access_key,
-                addData.tags,
-                ops,
-            ).then((data) => {
+            return roleEdit({
+                role_id: rowData.role.id,
+                name: addData.res_name,
+                user_range: addData.user_range,
+                role_op_range: addData.res_range,
+                priority: addData.priority,
+                relation_key: addData.user_access_key,
+                tags: addData.tags,
+                role_ops: ops
+            }).then((data) => {
                 if (data.status) {
                     onSave(rowData.role.id, addData.res_name, addData.user_range)
                     toast("已保存")
@@ -567,16 +474,16 @@ function UserRoleAdd(props) {
                 return data
             })
         } else {
-            doAction = submitAdd(
-                initData.user_id,
-                addData.res_name,
-                addData.user_range,
-                addData.res_range,
-                addData.priority,
-                addData.user_access_key,
-                addData.tags,
-                ops,
-            ).then((data) => {
+            doAction = roleAdd({
+                user_id: initData.user_id,
+                name: addData.res_name,
+                user_range: addData.user_range,
+                role_op_range: addData.res_range,
+                priority: addData.priority,
+                relation_key: addData.user_access_key,
+                tags: addData.tags,
+                role_ops: ops,
+            }).then((data) => {
                 if (data.status) {
                     onSave(data.id, addData.res_name, addData.user_range)
                 }
@@ -661,14 +568,14 @@ function UserRoleAdd(props) {
                                     })
                                 }}
                             />
-                            <SliderInput fullWidth 
+                            <SliderInput fullWidth
                                 sx={{
                                     width: 1,
                                     mb: 2,
                                     mt: 2,
                                     padding: "0 16px",
                                     textAlign: "center"
-                                }}  
+                                }}
                                 label="优先级"
                                 loading={addData.loading}
                                 value={addData.priority}
@@ -836,29 +743,17 @@ function UserRoleListUser(props) {
         error: null,
     })
 
-    const getUserData = useCallback(function (op_user_id, page, pageSize) {
-        op_user_id = parseInt(op_user_id)
-        let param = {
-            role_id: [parseInt(roleId)],
-            count_num: true,
-            page: {
-                page: parseInt(page) + 1,
-                limit: parseInt(pageSize)
-            },
-        };
-        if (op_user_id > 0) {
-            param.user_id = [op_user_id]
-        }
-        return roleListUser(param);
-    }, [props]);
-
 
     const loadUserData = () => {
         setUserData({
             ...userData,
             loading: true
         })
-        getUserData(userDataParam.op_user_id, userDataParam.page, userDataParam.page_size).then((data) => {
+        roleListUser({
+            op_user_id: userDataParam.op_user_id,
+            page: userDataParam.page,
+            page_size: userDataParam.page_size
+        }).then((data) => {
             if (!data.status) {
                 setUserData({
                     ...userData,
@@ -870,11 +765,11 @@ function UserRoleListUser(props) {
             setUserData({
                 ...userData,
                 rows: data.data[roleId] ?? [],
-                rows_total: data.count || 0,
+                rows_total: data.total || 0,
                 loading: false,
 
             })
-            if (parseInt(data.count) == 0) {
+            if (parseInt(data.total) == 0) {
                 setUserDataInput({
                     ...userDataInput,
                     input_user_id: userDataParam.op_user_id,
@@ -888,34 +783,6 @@ function UserRoleListUser(props) {
     useEffect(() => {
         loadUserData();
     }, [userDataParam])
-
-
-    const addUser = useCallback(function (roleId, op_user_id, timeout) {
-        op_user_id = parseInt(op_user_id)
-        if (isNaN(op_user_id) || op_user_id < 0) return;
-        let user_param = {
-            role_id: roleId,
-            user_vec: [
-                {
-                    "user_id": op_user_id,
-                    "timeout": timeout
-                }
-            ]
-        };
-        return roleAddUser(user_param)
-    }, [props]);
-
-    const delUser = useCallback(function (roleId, op_user_id) {
-        op_user_id = parseInt(op_user_id)
-        if (isNaN(op_user_id) || op_user_id < 0) return;
-        let user_param = {
-            role_id: roleId,
-            user_vec: [
-                op_user_id
-            ]
-        };
-        return roleDeleteUser(user_param)
-    }, [props]);
 
     const columns = [
         {
@@ -976,7 +843,10 @@ function UserRoleListUser(props) {
                     <ConfirmButton
                         message={`确定要移除该角色下的用户ID [${row.user_id}] ?`}
                         onAction={() => {
-                            return delUser(roleId, row.user_id).then((data) => {
+                            return roleDeleteUser({
+                                roleId: roleId,
+                                op_user_id: row.user_id
+                            }).then((data) => {
                                 if (!data.status) return data;
                                 setUserDataParam({
                                     ...userDataParam,
@@ -1274,29 +1144,29 @@ function UserRoleListUser(props) {
                                                         ...userDataInput,
                                                         add_loading: true
                                                     })
-
-                                                    addUser(
-                                                        roleId,
-                                                        userDataInput.input_user_id,
-                                                        userDataInput.need_timeout ? userDataInput.timeout.unix() : 0).then((data) => {
-                                                            if (!data.status) {
-                                                                setUserDataInput({
-                                                                    ...userDataInput,
-                                                                    add_loading: false,
-                                                                    add_error: data.message
-                                                                })
-                                                            } else {
-                                                                setUserDataInput({
-                                                                    ...userDataInput,
-                                                                    add_loading: false,
-                                                                    op_user_id: userDataInput.input_user_id
-                                                                })
-                                                                setUserDataParam({
-                                                                    ...userDataParam,
-                                                                    op_user_id: userDataInput.input_user_id
-                                                                });
-                                                            }
-                                                        })
+                                                    roleAddUser({
+                                                        roleId: roleId,
+                                                        op_user_id: userDataInput.input_user_id,
+                                                        timeout: userDataInput.need_timeout ? userDataInput.timeout.unix() : 0
+                                                    }).then((data) => {
+                                                        if (!data.status) {
+                                                            setUserDataInput({
+                                                                ...userDataInput,
+                                                                add_loading: false,
+                                                                add_error: data.message
+                                                            })
+                                                        } else {
+                                                            setUserDataInput({
+                                                                ...userDataInput,
+                                                                add_loading: false,
+                                                                op_user_id: userDataInput.input_user_id
+                                                            })
+                                                            setUserDataParam({
+                                                                ...userDataParam,
+                                                                op_user_id: userDataInput.input_user_id
+                                                            });
+                                                        }
+                                                    })
                                                 }}
                                             >
                                                 添加用户ID到角色
@@ -1482,111 +1352,14 @@ export function UserRolePage(props) {
         rows_error: null,
         rows_loading: true,
     })
-    const getRowData = useCallback(function (
-        user_id,
-        user_range,
-        res_range,
-        tag,
-        role_id,
-        role_name,
-        page,
-        pageSize
-    ) {
-        let param = {
-            count_num: true,
-            user_id: parseInt(userId),
-            tags: true,
-            user_data: false,
-            ops: 2,
-            page: {
-                page: parseInt(page) + 1,
-                limit: parseInt(pageSize)
-            },
-            user_data_group: 2,
-            user_data_page: { page: 0, limit: 0 }
-        };
-        user_range = parseInt(user_range)
-        if (user_range > 0) {
-            param.user_range = [user_range];
-        }
-        res_range = parseInt(res_range)
-        if (res_range > 0) {
-            param.res_range = [res_range];
-        }
-        if (typeof tag == 'string' && tag.length > 0) {
-            param.tags_filter = [tag];
-        }
-        if (typeof role_name == 'string' && role_name.length > 0) {
-            param.role_name = role_name;
-        }
-        if (typeof role_id == 'string') {
-            role_id = role_id.split(",").map((e) => parseInt(e));
-            role_id = role_id.filter((e) => !isNaN(e))
-            if (role_id.length > 0) {
-                param.role_id = role_id;
-            }
-        }
-        return roleListData(param)
-    }, []);
+
     const [pageTagData, setPageTagData] = useState({
         tag_rows: [],
         tag_rows_error: null,
         tag_rows_loading: true,
         load_user_id: false
     })
-    const getTagData = useCallback(function (uid) {
-        return roleTags({
-            user_id: parseInt(uid)
-        })
-    }, []);
-    let configData = useCallback((userId) => {
-        //@todo 关系应该不能全部已知,所以应该是搜索得到部分在查询
-        // 关系应该要分组
-        const user_access_keys = [
-            {
-                key: "vip1",
-                name: "等级1",
-                is_use: false,
-                time: null
-            },
-            {
-                key: "vip2",
-                name: "等级2",
-                is_use: false,
-                time: null
-            },
-        ]
-        let param = {
-            user_id: userId,
-            user_range: true,
-            res_range: true,
-        };
-        param.relation_key = user_access_keys.map((e) => {
-            return e.key
-        });
-        return roleOptions(param).then((data) => {
-            if (!data.status) return data;
 
-            return {
-                ...data,
-                user_access_keys: user_access_keys.map((item) => {
-                    if (!data.exist_relation_role) {
-                        return item;
-                    } else {
-                        let out = { ...item };
-                        let sout = data.exist_relation_role.find((sitem) => {
-                            return sitem.relation_key == item.key
-                        });
-                        if (sout) {
-                            out.is_use = true;
-                            out.time = sout.change_time;
-                        }
-                        return out;
-                    }
-                })
-            }
-        });
-    });
 
     const loadRoleData = () => {
         let set_data = { ...pageTagData }
@@ -1595,16 +1368,16 @@ export function UserRolePage(props) {
                 ...pageRowData,
                 rows_loading: true
             })
-            getRowData(
-                userId,
-                searchParam.get("user_range"),
-                searchParam.get("res_range"),
-                searchParam.get("tag"),
-                searchParam.get("role_id"),
-                searchParam.get("role_name"),
-                searchParam.get("page"),
-                searchParam.get("page_size")
-            ).then((data) => {
+            roleListData({
+                user_id: userId,
+                user_range: searchParam.get("user_range"),
+                res_range: searchParam.get("res_range"),
+                tag: searchParam.get("tag"),
+                role_id: searchParam.get("role_id"),
+                role_name: searchParam.get("role_name"),
+                page: searchParam.get("page"),
+                page_size: searchParam.get("page_size")
+            }).then((data) => {
                 if (!data.status) {
                     setPageRowData({
                         ...pageRowData,
@@ -1616,13 +1389,15 @@ export function UserRolePage(props) {
                 setPageRowData({
                     ...pageRowData,
                     rows: data.data ?? [],
-                    rows_total: data.count ?? 0,
+                    rows_total: data.total ?? 0,
                     rows_loading: false
                 })
             })
         };
 
-        configData(userId).then((data) => {
+        roleOptions({
+            user_id: userId
+        }).then((data) => {
             if (!data.status) {
                 setPageTagData({
                     ...set_data,
@@ -1637,7 +1412,9 @@ export function UserRolePage(props) {
                 user_range: data.user_range ?? [],
                 user_access_keys: data.user_access_keys ?? []
             });
-            getTagData(userId).then((data) => {
+            roleTags({
+                user_id: parseInt(userId)
+            }).then((data) => {
                 if (!data.status) {
                     setPageTagData({
                         ...set_data,
@@ -1714,18 +1491,6 @@ export function UserRolePage(props) {
             rpage = <UserRoleListUser roleId={showPage.role.id} roleName={showPage.role.name} />
             break;
     }
-
-
-
-    const delRole = useCallback(function (role_id) {
-        role_id = parseInt(role_id)
-        if (isNaN(role_id) || role_id <= 0) return;
-        let param = {
-            role_id: role_id
-        };
-        return roleDelete(param);
-
-    }, []);
 
     const columns = [
         {
@@ -1829,7 +1594,9 @@ export function UserRolePage(props) {
                     <ConfirmButton
                         message={`确定要删除角色 [${row.name}] 吗?`}
                         onAction={() => {
-                            return delRole(row.id).then((data) => {
+                            return roleDelete({
+                                role_id: row.id
+                            }).then((data) => {
                                 if (!data.status) return data;
                                 let rows = pageRowData.rows.filter((item) => {
                                     if (item.role.id != row.id) return item;

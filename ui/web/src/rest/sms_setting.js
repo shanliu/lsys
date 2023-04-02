@@ -40,7 +40,7 @@ export const LimitStatusMap = [
     }
 ];
 function smsSettingRest() {
-    return sessionRest('/sender/smser')
+    return sessionRest('/api/sender/smser')
 };
 export async function addSmsConfig(param, config) {
     const {app_id,priority,user_id, config_type,config_data} = param;
@@ -123,7 +123,7 @@ export async function listSmsConfig(param, config) {
         data.user_id=parseInt(user_id);
     }
     let response = await smsSettingRest().post("config_list", data, config);
-    return restResult(response)
+    return restResult(response,['not_found'])
 }
 export async function delSmsConfig(param, config) {
     const {config_id} = param;
@@ -144,7 +144,7 @@ export async function listAliConfig(param, config) {
         data.full_data=full_data;
     }
     let response = await smsSettingRest().post("ali_config_list", data, config);
-    return restResult(response)
+    return restResult(response,['not_found'])
 }
 export async function addAliConfig(param, config) {
     const { name, access_id, access_secret } = param;
@@ -222,7 +222,7 @@ export async function listAppAliConfig(param, config) {
         return fialResult(errors);
     }
     let response = await smsSettingRest().post("/ali_app_config_list", data, config);
-    return restResult(response)
+    return restResult(response,['not_found'])
 }
 
 
@@ -357,7 +357,7 @@ export async function listAppMessage(param, config) {
         return fialResult(errors);
     }
     let response = await smsSettingRest().post("/message_list", data, config);
-    return restResult(response)
+    return restResult(response,['not_found'])
 }
 
 
@@ -372,7 +372,7 @@ export async function listAppMessageHistory(param, config) {
         }
     };
     let response = await smsSettingRest().post("/message_history", data, config);
-    return restResult(response)
+    return restResult(response,['not_found'])
 }
 
 

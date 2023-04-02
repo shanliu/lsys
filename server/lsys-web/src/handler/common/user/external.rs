@@ -1,5 +1,6 @@
 use crate::{
     dao::{RequestDao, WebDao},
+    handler::access::{AccessSystemLogin, AccessUserExternalEdit},
     module::oauth::{OauthCallbackParam, OauthLogin, OauthLoginParam},
     {JsonData, JsonResult},
 };
@@ -35,12 +36,10 @@ pub async fn user_external_delete<'t, T: SessionTokenData, D: SessionData, S: Us
                     .user
                     .rbac_dao
                     .rbac
-                    .access
-                    .check(
-                        req_auth.user_data().user_id,
-                        &[],
-                        &res_data!(UserExternalEdit(req_auth.user_data().user_id)),
-                    )
+                    .check(&AccessUserExternalEdit {
+                        user_id: req_auth.user_data().user_id,
+                        res_user_id: req_auth.user_data().user_id,
+                    })
                     .await?;
                 req_dao
                     .web_dao
@@ -106,8 +105,7 @@ pub async fn user_external_login_url<
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(0, &[], &res_data!(SystemLogin))
+        .check(&AccessSystemLogin {})
         .await?;
     let url = app_dao
         .user

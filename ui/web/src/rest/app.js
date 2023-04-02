@@ -1,6 +1,6 @@
 import { fialResult, restResult,sessionRest } from "../utils/rest";
 function appRest() {
-    return sessionRest('/app')
+    return sessionRest('/api/app')
 };
 
 
@@ -26,7 +26,7 @@ export async function appList(param, config) {
         params.app_id = [parseInt(app_id)];
     }
     let response = await appRest().post("list", params, config);
-    return restResult(response)
+    return restResult(response,['not_found'])
 }
 
 export async function appAdd(param, config) {

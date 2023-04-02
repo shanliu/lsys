@@ -253,7 +253,7 @@ function AddBox(props) {
                                 data: data
                             })
                         }}
-                        loading={false}
+                        loading={configData.loading}
                         priority={50}
                         configType={1}
                         configData={{}}

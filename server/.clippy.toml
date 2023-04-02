@@ -1,0 +1,2 @@
+msrv = "1.49"
+type-complexity-threshold = 256

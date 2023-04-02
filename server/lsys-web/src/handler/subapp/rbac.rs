@@ -3,8 +3,9 @@ use serde::Deserialize;
 
 use crate::dao::WebDao;
 
+use crate::handler::access::AccessAppRbacCheck;
 use crate::handler::common::rbac::{
-    rbac_access_check, rbac_menu_check, AccessCheckParam, MenuCheckParam,
+    rbac_access_check, rbac_menu_check, AccessCheckParam, RbacMenuParam,
 };
 use crate::{JsonData, JsonResult};
 
@@ -23,12 +24,9 @@ pub async fn subapp_rbac_access_check(
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(
-            app.user_id,
-            &[app_dao.app.app_relation_key(app).await],
-            &res_data!(AppRbacCheck(app.id)),
-        )
+        .check(&AccessAppRbacCheck {
+            app: app.to_owned(),
+        })
         .await?;
     rbac_access_check(param.user_id, param.access, &app_dao.user.rbac_dao).await
 }
@@ -36,7 +34,7 @@ pub async fn subapp_rbac_access_check(
 #[derive(Debug, Deserialize)]
 pub struct MenuParam {
     pub user_id: u64,
-    pub menu: MenuCheckParam,
+    pub menu: RbacMenuParam,
 }
 
 pub async fn subapp_rbac_menu_check(
@@ -48,12 +46,9 @@ pub async fn subapp_rbac_menu_check(
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(
-            app.user_id,
-            &[app_dao.app.app_relation_key(app).await],
-            &res_data!(AppRbacCheck(app.id)),
-        )
+        .check(&AccessAppRbacCheck {
+            app: app.to_owned(),
+        })
         .await?;
     rbac_menu_check(param.user_id, param.menu, &app_dao.user.rbac_dao).await
 }

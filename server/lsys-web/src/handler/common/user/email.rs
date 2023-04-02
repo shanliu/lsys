@@ -1,5 +1,6 @@
 use crate::{
     dao::RequestDao,
+    handler::access::{AccessSystemEmailConfirm, AccessUserEmailEdit, AccessUserEmailView},
     {CaptchaParam, JsonData, JsonResult},
 };
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
@@ -28,12 +29,10 @@ pub async fn user_email_add<'t, T: SessionTokenData, D: SessionData, S: UserSess
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(
-            req_auth.user_data().user_id,
-            &[],
-            &res_data!(UserEmailEdit(req_auth.user_data().user_id)),
-        )
+        .check(&AccessUserEmailEdit {
+            user_id: req_auth.user_data().user_id,
+            res_user_id: req_auth.user_data().user_id,
+        })
         .await?;
 
     let status = lsys_user::model::UserEmailStatus::Init;
@@ -97,18 +96,18 @@ pub async fn user_email_send_code<'t, T: SessionTokenData, D: SessionData, S: Us
             }
         }
     };
+
     req_dao
         .web_dao
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(
-            req_auth.user_data().user_id,
-            &[],
-            &res_data!(UserEmailEdit(req_auth.user_data().user_id)),
-        )
+        .check(&AccessUserEmailEdit {
+            user_id: req_auth.user_data().user_id,
+            res_user_id: email.user_id,
+        })
         .await?;
+
     let res = req_dao
         .web_dao
         .user
@@ -161,9 +160,9 @@ pub async fn user_email_confirm<'t, T: SessionTokenData, D: SessionData, S: User
             .user
             .rbac_dao
             .rbac
-            .access
-            .check(0, &[], &res_data!(SystemEmailConfirm))
+            .check(&AccessSystemEmailConfirm {})
             .await?;
+
         req_dao
             .web_dao
             .user
@@ -204,13 +203,12 @@ pub async fn user_email_delete<'t, T: SessionTokenData, D: SessionData, S: UserS
                     .user
                     .rbac_dao
                     .rbac
-                    .access
-                    .check(
-                        req_auth.user_data().user_id,
-                        &[],
-                        &res_data!(UserEmailEdit(req_auth.user_data().user_id)),
-                    )
+                    .check(&AccessUserEmailEdit {
+                        user_id: req_auth.user_data().user_id,
+                        res_user_id: email.user_id,
+                    })
                     .await?;
+
                 req_dao
                     .web_dao
                     .user
@@ -239,18 +237,18 @@ pub async fn user_email_list_data<'t, T: SessionTokenData, D: SessionData, S: Us
     req_dao: &RequestDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(
-            req_auth.user_data().user_id,
-            &[],
-            &res_data!(UserEmailView(req_auth.user_data().user_id)),
-        )
+        .check(&AccessUserEmailView {
+            user_id: req_auth.user_data().user_id,
+            res_user_id: req_auth.user_data().user_id,
+        })
         .await?;
+
     let status = if let Some(e) = param.status {
         let mut out = Vec::with_capacity(e.len());
         for tmp in e {

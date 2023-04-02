@@ -13,11 +13,11 @@ const MainPage = React.lazy(() => import('./page/main'));
 const FindPasswordPage = React.lazy(() => import('./page/password'));
 const RegisterPage = React.lazy(() => import('./page/register'));
 const SystemAccessPage = React.lazy(() => import('./page/system/access'));
-const SystemAccessResPage = React.lazy(() => import('./page/system/access_res'));
-const SystemAccessRolePage = React.lazy(() => import('./page/system/access_role'));
+const SystemAccessResPage = React.lazy(() => import('./page/system/access/res'));
+const SystemAccessRolePage = React.lazy(() => import('./page/system/access/role'));
+const SystemAccessTestPage = React.lazy(() => import('./page/system/access/test'));
 const SystemMainPage = React.lazy(() => import('./page/system/main'));
 const SystemSettingPage = React.lazy(() => import('./page/system/setting'));
-const SystemTestPage = React.lazy(() => import('./page/system/test'));
 const SystemAppPage = React.lazy(() => import('./page/system/app'));
 const SystemSmsSettingPage = React.lazy(() => import('./page/system/sms_setting'));
 const SystemSmsSettingAlismsPage = React.lazy(() => import('./page/system/sms_setting/alisms_config'));
@@ -25,7 +25,6 @@ const SystemAppSmsAliSmsMapPage = React.lazy(() => import('./page/system/sms_set
 const SystemAppSmsLimitPage = React.lazy(() => import('./page/system/sms_setting/sms_limit'));
 const SystemAppSmsMessagePage = React.lazy(() => import('./page/system/sms_setting/sms_message'));
 const SystemUserPage = React.lazy(() => import('./page/system/user'));
-const SystemTestAccessPage = React.lazy(() => import('./page/system/test_access'));
 const UserIndexPage = React.lazy(() => import('./page/user'));
 const UserAccessPage = React.lazy(() => import('./page/user/access'));
 const UserAppPage = React.lazy(() => import('./page/user/app'));
@@ -64,10 +63,9 @@ function App() {
           <Route path="access" element={<Suspense fallback={<PageProgress />}><SystemAccessPage /></Suspense>} >
             <Route path="role" element={<Suspense fallback={<PageProgress />}><SystemAccessRolePage /></Suspense>} />
             <Route path="res" element={<Suspense fallback={<PageProgress />}><SystemAccessResPage /></Suspense>} />
+            <Route path="test" element={<Suspense fallback={<PageProgress />}><SystemAccessTestPage /></Suspense>} />
           </Route>
-          <Route path="test" element={<Suspense fallback={<PageProgress />}><SystemTestPage /></Suspense>} >
-            <Route path="access" element={<Suspense fallback={<PageProgress />}><SystemTestAccessPage /></Suspense>} />
-          </Route>
+
         </Route>
         <Route path="user/*" element={<Suspense fallback={<PageProgress />}><UserMainPage /></Suspense>}  >
           <Route path="info" element={<Suspense fallback={<PageProgress />}><UserInfoPage /></Suspense>} >
@@ -81,10 +79,10 @@ function App() {
           <Route path="access" element={<Suspense fallback={<PageProgress />}><UserAccessPage /></Suspense>} />
           <Route path="app" element={<Suspense fallback={<PageProgress />}><UserAppPage /></Suspense>} />
           <Route path="sms" element={<Suspense fallback={<PageProgress />}><UserAppSmsPage /></Suspense>} >
-              <Route path="limit" element={<Suspense fallback={<PageProgress />}><UserAppSmsLimitPage /></Suspense>} />
-              <Route path="alisms_map" element={<Suspense fallback={<PageProgress />}><UserAppSmsAliSmsMapPage /></Suspense>} />
-              <Route path="message" element={<Suspense fallback={<PageProgress />}><UserAppSmsMessagePage /></Suspense>} />
-            </Route>
+            <Route path="limit" element={<Suspense fallback={<PageProgress />}><UserAppSmsLimitPage /></Suspense>} />
+            <Route path="alisms_map" element={<Suspense fallback={<PageProgress />}><UserAppSmsAliSmsMapPage /></Suspense>} />
+            <Route path="message" element={<Suspense fallback={<PageProgress />}><UserAppSmsMessagePage /></Suspense>} />
+          </Route>
           <Route path="login_history" element={<Suspense fallback={<PageProgress />}><UserLoginHistroyPage /></Suspense>} />
           <Route path="*" element={<Suspense fallback={<PageProgress />}><UserIndexPage /></Suspense>} />
         </Route>

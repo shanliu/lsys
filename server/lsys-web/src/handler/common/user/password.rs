@@ -3,6 +3,7 @@ use serde_json::json;
 
 use crate::{
     dao::RequestDao,
+    handler::access::{AccessSystemReSetPassword, AccessUserSetPassword},
     {CaptchaParam, JsonData, JsonResult},
 };
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
@@ -29,24 +30,21 @@ pub async fn user_set_password<'t, T: SessionTokenData, D: SessionData, S: UserS
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(
-            req_auth.user_data().user_id,
-            &[],
-            &res_data!(UserSetPassword(req_auth.user_data().user_id)),
-        )
+        .check(&AccessUserSetPassword {
+            user_id: req_auth.user_data().user_id,
+            res_user_id: req_auth.user_data().user_id,
+        })
         .await?;
+
     let user_password = &req_dao.web_dao.user.user_dao.user_account.user_password;
     if user.password_id > 0 {
         if let Some(ref old_passwrod) = param.old_password {
             let check = user_password.check_password(&user, old_passwrod).await?;
             if !check {
-                return Ok(
-                    JsonData::message_error("old password is wrong").set_sub_code("bad_passwrod")
-                );
+                return Ok(JsonData::message("old password is wrong").set_sub_code("bad_passwrod"));
             }
         } else {
-            return Ok(JsonData::message_error("your need submit old password")
+            return Ok(JsonData::message("your need submit old password")
                 .set_sub_code("need_old_passwrod"));
         }
     }
@@ -259,9 +257,9 @@ async fn reset_password<'t, T: SessionTokenData, D: SessionData, S: UserSession<
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(0, &[], &res_data!(SystemReSetPassword))
+        .check(&AccessSystemReSetPassword {})
         .await?;
+
     let user = req_dao
         .web_dao
         .user

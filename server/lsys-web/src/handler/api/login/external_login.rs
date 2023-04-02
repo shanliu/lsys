@@ -2,6 +2,7 @@ use std::net::IpAddr;
 
 use crate::{
     dao::{user::ShowUserAuthData, UserAuthQueryDao},
+    handler::access::AccessSystemLogin,
     module::oauth::{OauthCallbackParam, OauthLogin, OauthLoginParam},
     {JsonData, JsonResult},
 };
@@ -32,8 +33,7 @@ pub async fn user_external_login_callback<
         .user
         .rbac_dao
         .rbac
-        .access
-        .check(0, &[], &res_data!(SystemLogin))
+        .check(&AccessSystemLogin {})
         .await?;
     let res = req_dao
         .web_dao

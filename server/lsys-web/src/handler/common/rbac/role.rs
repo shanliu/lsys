@@ -1,7 +1,10 @@
 use std::{convert::TryFrom, sync::Arc};
 
 use crate::{
-    dao::access::RoleOpCheck,
+    handler::access::{
+        AccessUserRoleAdd, AccessUserRoleEdit, AccessUserRoleView, AccessUserRoleViewList,
+        RoleOpCheck,
+    },
     {
         PageParam, {JsonData, JsonResult},
     },
@@ -145,14 +148,13 @@ pub async fn rbac_role_add(
     let res_op_check = rbac_role_get_res_check(&param.role_ops, &res_ops).await?;
     rbac_dao
         .rbac
-        .access
-        .check(
+        .check(&AccessUserRoleAdd {
             user_id,
-            &[],
-            &res_data!(UserRoleAdd(see_user_id, param.role_op_range, res_op_check)),
-        )
+            res_user_id: see_user_id,
+            op_range: param.role_op_range,
+            op_param: res_op_check,
+        })
         .await?;
-
     let dao = &rbac_dao.rbac.role;
     let mut transaction = rbac_dao.db.begin().await?;
     let user_range = RbacRoleUserRange::try_from(param.user_range)?;
@@ -263,18 +265,15 @@ pub async fn rbac_role_edit(
         None
     };
     let res_op_check = rbac_role_get_res_check(&param.role_ops, &res_ops).await?;
+
     rbac_dao
         .rbac
-        .access
-        .check(
+        .check(&AccessUserRoleEdit {
             user_id,
-            &[],
-            &res_data!(UserRoleEdit(
-                role.user_id,
-                param.role_op_range,
-                res_op_check
-            )),
-        )
+            res_user_id: role.user_id,
+            op_range: param.role_op_range,
+            op_param: res_op_check,
+        })
         .await?;
 
     let mut transaction = rbac_dao.db.begin().await?;
@@ -378,8 +377,10 @@ pub async fn rbac_role_list_user(
     if !user_ids.is_empty() {
         rbac_dao
             .rbac
-            .access
-            .check(user_id, &[], &res_data!(UserRoleViewList(user_ids)))
+            .check(&AccessUserRoleViewList {
+                user_id,
+                res_user_ids: user_ids,
+            })
             .await?;
     }
     let rid = role.keys().map(|e| e.to_owned()).collect::<Vec<u64>>();
@@ -392,7 +393,7 @@ pub async fn rbac_role_list_user(
         None
     };
 
-    Ok(JsonData::message("del succ").set_data(json!({ "data": data,"count":total })))
+    Ok(JsonData::message("del succ").set_data(json!({ "data": data,"total":total })))
 }
 #[derive(Debug, Deserialize)]
 pub struct RoleAddUserParam {
@@ -409,12 +410,12 @@ pub async fn rbac_role_add_user(
 
     rbac_dao
         .rbac
-        .access
-        .check(
+        .check(&AccessUserRoleEdit {
             user_id,
-            &[],
-            &res_data!(UserRoleEdit(role.user_id, None, None)),
-        )
+            res_user_id: role.user_id,
+            op_range: None,
+            op_param: None,
+        })
         .await?;
 
     let user_vec = param
@@ -441,12 +442,12 @@ pub async fn rbac_role_delete_user(
 
     rbac_dao
         .rbac
-        .access
-        .check(
+        .check(&AccessUserRoleEdit {
             user_id,
-            &[],
-            &res_data!(UserRoleEdit(role.user_id, None, None)),
-        )
+            res_user_id: role.user_id,
+            op_range: None,
+            op_param: None,
+        })
         .await?;
 
     dao.role_del_user(&role, &param.user_vec, user_id, None)
@@ -464,17 +465,19 @@ pub async fn rbac_role_delete(
     user_id: u64,
 ) -> JsonResult<JsonData> {
     let dao = &rbac_dao.rbac.role;
-    let res = dao.find_by_id(&param.role_id).await?;
+    let role = dao.find_by_id(&param.role_id).await?;
+
     rbac_dao
         .rbac
-        .access
-        .check(
+        .check(&AccessUserRoleEdit {
             user_id,
-            &[],
-            &res_data!(UserRoleEdit(res.user_id, None, None)),
-        )
+            res_user_id: role.user_id,
+            op_range: None,
+            op_param: None,
+        })
         .await?;
-    dao.del_role(&res, user_id, None).await?;
+
+    dao.del_role(&role, user_id, None).await?;
     Ok(JsonData::message("list data"))
 }
 
@@ -516,11 +519,15 @@ pub async fn rbac_role_list_data(
     user_id: u64,
 ) -> JsonResult<JsonData> {
     let see_user_id = param.user_id.unwrap_or(user_id);
+
     rbac_dao
         .rbac
-        .access
-        .check(user_id, &[], &res_data!(UserRoleView(see_user_id)))
+        .check(&AccessUserRoleView {
+            user_id,
+            res_user_id: see_user_id,
+        })
         .await?;
+
     let dao = &rbac_dao.rbac.data;
 
     let user_data_group = match param.user_data_group.unwrap_or(0) {
@@ -610,7 +617,7 @@ pub async fn rbac_role_list_data(
     } else {
         None
     };
-    Ok(JsonData::message("data succ").set_data(json!({ "data": out,"count":count})))
+    Ok(JsonData::message("data succ").set_data(json!({ "data": out,"total":count})))
 }
 
 #[derive(Debug, Deserialize)]
@@ -623,11 +630,15 @@ pub async fn rbac_role_tags(
     user_id: u64,
 ) -> JsonResult<JsonData> {
     let see_user_id = param.user_id.unwrap_or(user_id);
+
     rbac_dao
         .rbac
-        .access
-        .check(user_id, &[], &res_data!(UserRoleView(see_user_id)))
+        .check(&AccessUserRoleView {
+            user_id,
+            res_user_id: see_user_id,
+        })
         .await?;
+
     let out = rbac_dao.rbac.role.user_role_tags(see_user_id).await?;
     Ok(JsonData::message("tags data").set_data(json!({ "data": out })))
 }
@@ -693,12 +704,12 @@ pub async fn rbac_user_role_options(
         if see_user_id == 0 {
             if rbac_dao
                 .rbac
-                .access
-                .check(
+                .check(&AccessUserRoleAdd {
                     user_id,
-                    &[],
-                    &res_data!(UserRoleAdd(0, RbacRoleResOpRange::AllowAll as i8, None)),
-                )
+                    res_user_id: 0,
+                    op_range: RbacRoleResOpRange::AllowAll as i8,
+                    op_param: None,
+                })
                 .await
                 .is_ok()
             {
@@ -709,12 +720,12 @@ pub async fn rbac_user_role_options(
             }
             if rbac_dao
                 .rbac
-                .access
-                .check(
+                .check(&AccessUserRoleAdd {
                     user_id,
-                    &[],
-                    &res_data!(UserRoleAdd(0, RbacRoleResOpRange::DenyAll as i8, None)),
-                )
+                    res_user_id: 0,
+                    op_range: RbacRoleResOpRange::DenyAll as i8,
+                    op_param: None,
+                })
                 .await
                 .is_ok()
             {

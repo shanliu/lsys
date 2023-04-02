@@ -60,12 +60,12 @@ pub struct SenderSmsConfigLimit {
 //配置数据
 
 pub enum SenderSmsConfigData {
-    Limit(SenderSmsConfigLimit), //限制频率
-    MaxOfSend(u32),              //每次最大发送数量
-    Block(String, String),       //屏蔽的手机号
-    PassTpl(String),             //不检测限制指定模板
-    Close,                       //关闭发送功能
-    None,                        //类型或数据异常
+    Limit(SenderSmsConfigLimit),            //限制频率
+    MaxOfSend(u32),                         //每次最大发送数量
+    Block { area: String, mobile: String }, //屏蔽的手机号
+    PassTpl(String),                        //不检测限制指定模板
+    Close,                                  //关闭发送功能
+    None,                                   //类型或数据异常
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, SqlxModelStatus, PartialEq, Eq)]
