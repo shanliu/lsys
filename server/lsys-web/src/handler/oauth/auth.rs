@@ -20,21 +20,30 @@ async fn get_scope<'a>(
         let rbac = &web_dao.user.rbac_dao.rbac;
         match tmp {
             "user_info" => {
-                rbac.check(&AccessOauthUserInfo {
-                    app: app.to_owned(),
-                })
+                rbac.check(
+                    &AccessOauthUserInfo {
+                        app: app.to_owned(),
+                    },
+                    None,
+                )
                 .await?;
             }
             "user_email" => {
-                rbac.check(&AccessOauthUserEmail {
-                    app: app.to_owned(),
-                })
+                rbac.check(
+                    &AccessOauthUserEmail {
+                        app: app.to_owned(),
+                    },
+                    None,
+                )
                 .await?;
             }
             "user_mobile" => {
-                rbac.check(&AccessOauthUserMobile {
-                    app: app.to_owned(),
-                })
+                rbac.check(
+                    &AccessOauthUserMobile {
+                        app: app.to_owned(),
+                    },
+                    None,
+                )
                 .await?;
             }
             _ => return Err(JsonData::message(format!("not support {}", tmp))),

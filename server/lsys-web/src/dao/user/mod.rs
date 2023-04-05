@@ -10,8 +10,6 @@ use serde_json::{json, Value};
 use sqlx::{MySql, Pool};
 use std::sync::Arc;
 
-use crate::RelationParam;
-
 use super::captcha::WebAppCaptcha;
 
 mod del;
@@ -53,27 +51,6 @@ impl WebUser {
             app_core,
             fluent,
         }
-    }
-    pub async fn user_relation_key(
-        &self,
-        user_auth_data: &SessionUserData,
-        res_user_id: &[u64],
-    ) -> Vec<RelationParam> {
-        //todo 待定
-        let mut rk = vec![];
-        if res_user_id.contains(&10) {
-            rk.push(RelationParam {
-                role_key: "vip1".to_string(),
-                user_id: 0,
-            }); //一些等级角色
-        }
-        if user_auth_data.user_id == 1 && res_user_id.contains(&2) {
-            rk.push(RelationParam {
-                role_key: "firend".to_string(),
-                user_id: 2,
-            }); //用户资源
-        }
-        rk
     }
 }
 

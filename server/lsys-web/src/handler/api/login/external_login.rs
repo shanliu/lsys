@@ -33,7 +33,7 @@ pub async fn user_external_login_callback<
         .user
         .rbac_dao
         .rbac
-        .check(&AccessSystemLogin {})
+        .check(&AccessSystemLogin {}, None)
         .await?;
     let res = req_dao
         .web_dao

@@ -14,6 +14,7 @@ use sqlx_model::{
     executor_option, model_option_set, sql_format, Insert, ModelTableName, Select, SqlExpr,
     SqlQuote, Update, WhereOption,
 };
+use tracing::{debug, error};
 
 use crate::model::{
     RbacResModel, RbacResOpModel, RbacResStatus, RbacRoleModel, RbacRoleModelRef, RbacRoleOpModel,
@@ -1855,7 +1856,7 @@ impl RbacRole {
     }
     fn find_role_sql_by_public_res(&self, user_range: RbacRoleUserRange, op_id: u64) -> String {
         sql_format!(
-            r#"SELECT rop.res_op_id as res_op_id,rop.positivity as positivity,ro.*
+            r#"SELECT CONVERT(rop.res_op_id,UNSIGNED) as res_op_id,rop.positivity as positivity,ro.*
                 FROM {rbac_role} as ro 
                 join {rbac_role_op} as rop 
                 on ro.user_range={role_user_range} and ro.status ={role_status} and  ro.res_op_range={role_res_op_range} 
@@ -1875,7 +1876,7 @@ impl RbacRole {
     }
     fn find_role_sql_by_public_global(&self, user_range: i8) -> String {
         sql_format!(
-            r#"SELECT 0 as res_op_id,0 as positivity,ro.*
+            r#"SELECT CONVERT(0,UNSIGNED) as res_op_id,0 as positivity,ro.*
             FROM {rbac_role} as ro WHERE ro.user_range={role_user_range} and ro.status ={role_status} and  ro.res_op_range IN ({role_res_op_range})
             order by ro.priority desc,ro.id desc  limit 1  "#,
             rbac_role = RbacRoleModel::table_name(),
@@ -1896,7 +1897,7 @@ impl RbacRole {
         user_id: u64,
     ) -> String {
         sql_format!(
-            r#"SELECT 0 as res_op_id,0 as positivity,ro.*
+            r#"SELECT CONVERT(0,UNSIGNED) as res_op_id,0 as positivity,ro.*
             FROM {rbac_role} as ro WHERE ro.user_range={role_user_range} and ro.status ={role_status} and  ro.res_op_range ={role_res_op_range} and ro.user_id = {role_user_id}
             order by ro.priority desc,ro.id desc  limit 1 "#,
             rbac_role = RbacRoleModel::table_name(),
@@ -1972,7 +1973,17 @@ impl RbacRole {
                     } else {
                         0
                     };
-                    let res_op_id = row.try_get::<u64, &str>("res_op_id").unwrap_or(0);
+                    let res_op_id = match row.try_get::<u64, &str>("res_op_id") {
+                        Ok(id) => id,
+                        Err(err) => {
+                            // dbg!("{:?}", err);
+                            error!(
+                                "find_role_by_sqls get res_op_id fail:{:?} on id :{}",
+                                err, role.id
+                            );
+                            0
+                        }
+                    };
                     Ok(RoleAccessRow {
                         role,
                         res_op_id,
@@ -1991,6 +2002,7 @@ impl RbacRole {
         find_role_data: Vec<RoleAccessRow>,
         check_vec: &[RbacResData],
     ) -> UserRbacResult<RoleCheckData> {
+        debug!("filter role :{:?} on check {:?}", find_role_data, check_vec);
         let res_op_len = check_vec.iter().fold(0, |acc, res| acc + res.ops.len());
         let mut out = Vec::with_capacity(res_op_len);
         for check_item in check_vec {
@@ -2014,7 +2026,7 @@ impl RbacRole {
                 }
                 tmp.sort_by(|a, b| a.0.priority.cmp(&b.0.priority));
                 out.push(RoleCheckRow::ModelRole {
-                    role: tmp.get(0).map(|e| e.to_owned()),
+                    role: tmp.first().map(|e| e.to_owned()),
                     res_op_id: res_op.id,
                 });
             }
@@ -2029,7 +2041,7 @@ impl RbacRole {
         let time = now_time().unwrap_or(0);
         sql_format!(
             r#"
-            SELECT rop.res_op_id as res_op_id,rop.positivity as positivity,ro.*,ru.timeout
+            SELECT CONVERT(rop.res_op_id,UNSIGNED) as res_op_id,rop.positivity as positivity,ro.*,ru.timeout
             FROM {rbac_role}  as ro 
             join {rbac_role_user} as ru on ro.user_range={role_user_range} and ro.status ={role_status} and ro.res_op_range={role_res_op_range} 
                 and ru.status ={role_user_status} and ru.user_id = {role_user_user_id}  and (ru.timeout>{timeout} or ru.timeout=0) and ro.id =ru.role_id
@@ -2055,7 +2067,7 @@ impl RbacRole {
         let time = now_time().unwrap_or(0);
         sql_format!(
             r#"
-            SELECT 0 as res_op_id,0 as positivity,ro.*,ru.timeout
+            SELECT CONVERT(0,UNSIGNED) as res_op_id,0 as positivity,ro.*,ru.timeout
             FROM {rbac_role}  as ro 
                 join {rbac_role_user} as ru on ro.user_range={role_user_range} and ro.status ={role_status} and ro.res_op_range IN ({role_res_op_range}) 
                 and ru.status ={role_user_status} and ru.user_id =  {role_user_user_id} and (ru.timeout>{timeout} or ru.timeout=0) and ro.id =ru.role_id 
@@ -2081,7 +2093,7 @@ impl RbacRole {
         let time = now_time().unwrap_or(0);
         sql_format!(
             r#"
-            SELECT 0 as res_op_id,0 as positivity,ro.*,ru.timeout
+            SELECT CONVERT(0,UNSIGNED) as res_op_id,0 as positivity,ro.*,ru.timeout
             FROM {rbac_role}  as ro 
             join {rbac_role_user} as ru on ro.user_range={role_user_range} and ro.status ={role_status} and ro.res_op_range ={role_res_op_range}
             and ro.user_id = {role_user_id} and ru.status ={role_user_status} and ru.user_id =  {role_user_user_id}  and (ru.timeout>{timeout} or ru.timeout=0) and ro.id =ru.role_id

@@ -11,7 +11,7 @@ import { ConfirmButton } from '../../library/dialog';
 import { ClearTextField } from '../../library/input';
 import { LoadingButton, Progress } from '../../library/loading';
 import { BaseTablePage } from '../../library/table_page';
-import { cancelAppMessage, listAppMessage, listAppMessageHistory, MessageLogStatus, MessageLogType, MessageStatus, viewAppMessage } from '../../rest/sms_setting';
+import { cancelAppMessage, listAppMessage, listAppMessageLog, MessageLogStatus, MessageLogType, MessageStatus, viewAppMessage } from '../../rest/sms_setting';
 import { showTime } from '../../utils/utils';
 import ArticleIcon from '@mui/icons-material/Article';
 
@@ -37,7 +37,7 @@ function HistoryBox(props) {
             page: historyDataParam.page,
             page_size: historyDataParam.page_size
         };
-        listAppMessageHistory(param).then((data) => {
+        listAppMessageLog(param).then((data) => {
             if (!data.status) {
                 setHistoryData({
                     ...historyData,
@@ -395,6 +395,7 @@ export default function AppSmsMessage(props) {
             setLoadData({
                 ...loadData,
                 ...data,
+                data: data.status ? data.data : [],
                 loading: false
             })
         })

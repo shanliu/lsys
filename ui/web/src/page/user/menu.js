@@ -42,12 +42,11 @@ export const Menus = [
         url: "/system/",
         icon: AdminPanelSettingsIcon,
         text: "系统管理",
-        rbac: [{
-            key: "admin-main",
-            access: [{
-                name: "admin-main"
-            }]
-        }]
+        rbac: [
+            {
+                name:"admin-main"
+            }
+        ]
     },
 ];
 

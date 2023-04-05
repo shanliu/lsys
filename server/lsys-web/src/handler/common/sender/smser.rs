@@ -1,6 +1,6 @@
 use crate::{
     dao::RequestDao,
-    handler::access::{AccessAppSender, AccessAppSenderSms},
+    handler::access::{AccessAppSenderSmsConfig, AccessAppSenderSmsMsg},
     PageParam, {JsonData, JsonResult},
 };
 use lsys_sender::model::{SenderSmsConfigStatus, SenderSmsConfigType, SenderSmsMessageStatus};
@@ -9,19 +9,14 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 #[derive(Debug, Deserialize)]
-pub struct SmserMessageHistoryParam {
+pub struct SmserMessageLogParam {
     pub message_id: String,
     pub count_num: Option<bool>,
     pub page: Option<PageParam>,
 }
 
-pub async fn smser_message_history<
-    't,
-    T: SessionTokenData,
-    D: SessionData,
-    S: UserSession<T, D>,
->(
-    param: SmserMessageHistoryParam,
+pub async fn smser_message_log<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
+    param: SmserMessageLogParam,
     req_dao: &RequestDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     let message_id = param.message_id.parse::<u64>().map_err(JsonData::message)?;
@@ -38,18 +33,21 @@ pub async fn smser_message_history<
         .user
         .rbac_dao
         .rbac
-        .check(&AccessAppSender {
-            user_id: req_auth.user_data().user_id,
-            res_user_id: req_auth.user_data().user_id,
-            app_id: data.app_id,
-        })
+        .check(
+            &AccessAppSenderSmsMsg {
+                user_id: req_auth.user_data().user_id,
+                res_user_id: data.user_id,
+                app_id: Some(data.app_id),
+            },
+            None,
+        )
         .await?;
 
     let res = req_dao
         .web_dao
         .smser
         .sms_record()
-        .message_history_list(&message_id, &param.page.map(|e| e.into()))
+        .message_log_list(&message_id, &param.page.map(|e| e.into()))
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
@@ -57,7 +55,7 @@ pub async fn smser_message_history<
                 .web_dao
                 .smser
                 .sms_record()
-                .message_history_count(&message_id)
+                .message_log_count(&message_id)
                 .await?,
         )
     } else {
@@ -89,11 +87,14 @@ pub async fn smser_message_body<'t, T: SessionTokenData, D: SessionData, S: User
         .user
         .rbac_dao
         .rbac
-        .check(&AccessAppSender {
-            user_id: req_auth.user_data().user_id,
-            res_user_id: req_auth.user_data().user_id,
-            app_id: data.app_id,
-        })
+        .check(
+            &AccessAppSenderSmsMsg {
+                user_id: req_auth.user_data().user_id,
+                res_user_id: data.user_id,
+                app_id: Some(data.app_id),
+            },
+            None,
+        )
         .await?;
 
     Ok(JsonData::message("ok").set_data(json!({ "body": data.tpl_var})))
@@ -120,11 +121,14 @@ pub async fn smser_message_list<'t, T: SessionTokenData, D: SessionData, S: User
         .user
         .rbac_dao
         .rbac
-        .check(&AccessAppSenderSms {
-            user_id: req_auth.user_data().user_id,
-            res_user_id: param.user_id,
-            app_id: param.app_id,
-        })
+        .check(
+            &AccessAppSenderSmsMsg {
+                user_id: req_auth.user_data().user_id,
+                res_user_id: param.user_id.unwrap_or(req_auth.user_data().user_id),
+                app_id: param.app_id,
+            },
+            None,
+        )
         .await?;
     let status = if let Some(e) = param.status {
         Some(SenderSmsMessageStatus::try_from(e)?)
@@ -196,11 +200,14 @@ pub async fn smser_message_cancel<'t, T: SessionTokenData, D: SessionData, S: Us
         .user
         .rbac_dao
         .rbac
-        .check(&AccessAppSender {
-            user_id: req_auth.user_data().user_id,
-            res_user_id: req_auth.user_data().user_id,
-            app_id: data.app_id,
-        })
+        .check(
+            &AccessAppSenderSmsMsg {
+                user_id: req_auth.user_data().user_id,
+                res_user_id: data.user_id,
+                app_id: Some(data.app_id),
+            },
+            None,
+        )
         .await?;
 
     req_dao
@@ -231,11 +238,14 @@ pub async fn smser_config_add<'t, T: SessionTokenData, D: SessionData, S: UserSe
         .user
         .rbac_dao
         .rbac
-        .check(&AccessAppSender {
-            user_id: req_auth.user_data().user_id,
-            res_user_id: uid,
-            app_id: param.app_id,
-        })
+        .check(
+            &AccessAppSenderSmsConfig {
+                user_id: req_auth.user_data().user_id,
+                res_user_id: uid,
+                app_id: param.app_id,
+            },
+            None,
+        )
         .await?;
 
     let config_type = SenderSmsConfigType::try_from(param.config_type)?;
@@ -275,11 +285,14 @@ pub async fn smser_config_del<'t, T: SessionTokenData, D: SessionData, S: UserSe
                     .user
                     .rbac_dao
                     .rbac
-                    .check(&AccessAppSender {
-                        user_id: req_auth.user_data().user_id,
-                        res_user_id: req_auth.user_data().user_id,
-                        app_id: config.app_id,
-                    })
+                    .check(
+                        &AccessAppSenderSmsConfig {
+                            user_id: req_auth.user_data().user_id,
+                            res_user_id: config.user_id,
+                            app_id: config.app_id,
+                        },
+                        None,
+                    )
                     .await?;
 
                 sms_record
@@ -317,11 +330,14 @@ pub async fn smser_config_list<'t, T: SessionTokenData, D: SessionData, S: UserS
         .user
         .rbac_dao
         .rbac
-        .check(&AccessAppSender {
-            user_id: req_auth.user_data().user_id,
-            res_user_id: param.user_id.unwrap_or(req_auth.user_data().user_id),
-            app_id: param.app_id.unwrap_or_default(),
-        })
+        .check(
+            &AccessAppSenderSmsConfig {
+                user_id: req_auth.user_data().user_id,
+                res_user_id: param.user_id.unwrap_or(req_auth.user_data().user_id),
+                app_id: param.app_id.unwrap_or_default(),
+            },
+            None,
+        )
         .await?;
 
     let data = req_dao

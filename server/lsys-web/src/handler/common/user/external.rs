@@ -36,10 +36,13 @@ pub async fn user_external_delete<'t, T: SessionTokenData, D: SessionData, S: Us
                     .user
                     .rbac_dao
                     .rbac
-                    .check(&AccessUserExternalEdit {
-                        user_id: req_auth.user_data().user_id,
-                        res_user_id: req_auth.user_data().user_id,
-                    })
+                    .check(
+                        &AccessUserExternalEdit {
+                            user_id: req_auth.user_data().user_id,
+                            res_user_id: req_auth.user_data().user_id,
+                        },
+                        None,
+                    )
                     .await?;
                 req_dao
                     .web_dao
@@ -105,7 +108,7 @@ pub async fn user_external_login_url<
         .user
         .rbac_dao
         .rbac
-        .check(&AccessSystemLogin {})
+        .check(&AccessSystemLogin {}, None)
         .await?;
     let url = app_dao
         .user

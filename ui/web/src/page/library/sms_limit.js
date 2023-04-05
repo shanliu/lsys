@@ -16,38 +16,38 @@ import { addSmsConfig, delSmsConfig, LimitStatusMap, listSmsConfig } from '../..
 import { showTime } from '../../utils/utils';
 
 function RuleBox(props) {
-    const {loading,priority,configType,configData,onChange}=props;
+    const { loading, priority, configType, configData, onChange } = props;
     const [ruleData, setRuleData] = useState({
-        config_data:configData,
+        config_data: configData,
         config_type: configType,
         priority: priority
     });
-    useEffect(()=>{
+    useEffect(() => {
         onChange(ruleData)
-    },[ruleData])
-    return  <Stack>
+    }, [ruleData])
+    return <Stack>
         <SliderInput
-            fullWidth 
+            fullWidth
             sx={{
                 width: 1,
                 mb: 2,
                 mt: 2,
                 padding: "0 16px",
                 textAlign: "center"
-            }}  
+            }}
             label="优先级"
             loading={loading}
             value={ruleData.priority}
             onChange={(e) => {
                 setRuleData({
                     ...ruleData,
-                    priority:e.target.value
+                    priority: e.target.value
                 })
             }}
         />
-        <FormControl   sx={{
-                mb: 2,
-            }}  >
+        <FormControl sx={{
+            mb: 2,
+        }}  >
             <InputLabel size="small" id="sms-limit-select-label">类型</InputLabel>
             <Select
                 disabled={loading}
@@ -58,8 +58,8 @@ function RuleBox(props) {
                 onChange={(e) => {
                     setRuleData({
                         ...ruleData,
-                        config_type:e.target.value,
-                        config_data:{}
+                        config_type: e.target.value,
+                        config_data: {}
                     })
                 }}
                 value={ruleData.config_type}
@@ -67,56 +67,56 @@ function RuleBox(props) {
                 {LimitStatusMap.map((item) => { return <MenuItem key={`sms-limit-type-${item.key}`} value={item.key}>{item.val}</MenuItem> })}
             </Select>
         </FormControl>
-        
-        {ruleData.config_type==1?<Fragment>
+
+        {ruleData.config_type == 1 ? <Fragment>
             <TextField
                 variant="outlined"
                 label={`间隔时间:秒`}
                 type="number"
                 size="small"
                 onChange={(e) => {
-                    let val=parseInt(e.target.value);
-                    if(val<=0)return
+                    let val = parseInt(e.target.value);
+                    if (val <= 0) return
                     setRuleData({
                         ...ruleData,
-                        config_data:{
-                            range_time:val,
-                            max_send:ruleData.config_data.max_send??''
+                        config_data: {
+                            range_time: val,
+                            max_send: ruleData.config_data.max_send ?? ''
                         }
                     })
                 }}
-                value={ruleData.config_data.range_time??''}
+                value={ruleData.config_data.range_time ?? ''}
                 sx={{
                     width: 1,
                     paddingBottom: 2
                 }}
                 required
             />
-             <TextField
+            <TextField
                 variant="outlined"
                 label={`间隔可发送次数`}
                 type="number"
                 size="small"
                 onChange={(e) => {
-                    let val=parseInt(e.target.value);
-                    if(val<=0)return
+                    let val = parseInt(e.target.value);
+                    if (val <= 0) return
                     setRuleData({
                         ...ruleData,
-                        config_data:{
-                            range_time:ruleData.config_data.range_time??'',
-                            max_send:val
+                        config_data: {
+                            range_time: ruleData.config_data.range_time ?? '',
+                            max_send: val
                         }
                     })
                 }}
-                value={ruleData.config_data.max_send??''}
+                value={ruleData.config_data.max_send ?? ''}
                 sx={{
                     width: 1,
                     paddingBottom: 2
                 }}
                 required
             />
-        </Fragment>:null}
-        {ruleData.config_type==2?<Fragment>
+        </Fragment> : null}
+        {ruleData.config_type == 2 ? <Fragment>
             <TextField
                 variant="outlined"
                 label={`需屏蔽的手机号`}
@@ -125,18 +125,18 @@ function RuleBox(props) {
                 onChange={(e) => {
                     setRuleData({
                         ...ruleData,
-                        config_data:e.target.value
+                        config_data: e.target.value
                     })
                 }}
-                value={typeof ruleData.config_data=='string'?ruleData.config_data:''}
+                value={typeof ruleData.config_data == 'string' ? ruleData.config_data : ''}
                 sx={{
                     width: 1,
                     paddingBottom: 2
                 }}
                 required
             />
-        </Fragment>:null}
-        {ruleData.config_type==4?<Fragment>
+        </Fragment> : null}
+        {ruleData.config_type == 4 ? <Fragment>
             <TextField
                 variant="outlined"
                 label={`忽略限制的模板`}
@@ -145,46 +145,46 @@ function RuleBox(props) {
                 onChange={(e) => {
                     setRuleData({
                         ...ruleData,
-                        config_data:e.target.value
+                        config_data: e.target.value
                     })
                 }}
                 sx={{
                     width: 1,
                     paddingBottom: 2
                 }}
-                value={typeof ruleData.config_data=='string'?ruleData.config_data:''}
+                value={typeof ruleData.config_data == 'string' ? ruleData.config_data : ''}
                 required
             />
-        </Fragment>:null}
-        {ruleData.config_type==5?<Fragment>
+        </Fragment> : null}
+        {ruleData.config_type == 5 ? <Fragment>
             <TextField
                 variant="outlined"
                 label={`批量发送最大数量`}
                 type="number"
                 size="small"
                 onChange={(e) => {
-                    let val=parseInt(e.target.value);
-                    if(val<=0)return
+                    let val = parseInt(e.target.value);
+                    if (val <= 0) return
                     setRuleData({
                         ...ruleData,
-                        config_data:val
+                        config_data: val
                     })
                 }}
-                value={typeof ruleData.config_data=='object'?'':ruleData.config_data}
+                value={typeof ruleData.config_data == 'object' ? '' : ruleData.config_data}
                 sx={{
                     width: 1,
                     paddingBottom: 2
                 }}
                 required
             />
-        </Fragment>:null}
-        </Stack>
+        </Fragment> : null}
+    </Stack>
 }
 function AddBox(props) {
-    const { onAdd, userId,appId,appName} = props;
+    const { onAdd, userId, appId, appName } = props;
     const { toast } = useContext(ToastContext);
     const [configData, setConfigData] = useState({
-        data:{},
+        data: {},
         loading: false,
     });
     const doAdd = function () {
@@ -193,8 +193,8 @@ function AddBox(props) {
             loading: true
         })
         addSmsConfig({
-            user_id:userId,
-            app_id:appId,
+            user_id: userId,
+            app_id: appId,
             ...configData.data
         }).then((data) => {
             if (!data.status) {
@@ -206,7 +206,7 @@ function AddBox(props) {
             } else {
                 setConfigData({
                     ...configData,
-                    data:{},
+                    data: {},
                     loading: false,
                 })
                 onAdd(data.id)
@@ -246,23 +246,23 @@ function AddBox(props) {
                     alignItems="center"
                 >
                     <Grid item xs={10}>
-                    <RuleBox 
-                        onChange={(data)=>{
-                            setConfigData({
-                                ...configData,
-                                data: data
-                            })
-                        }}
-                        loading={configData.loading}
-                        priority={50}
-                        configType={1}
-                        configData={{}}
-                    />
+                        <RuleBox
+                            onChange={(data) => {
+                                setConfigData({
+                                    ...configData,
+                                    data: data
+                                })
+                            }}
+                            loading={configData.loading}
+                            priority={50}
+                            configType={1}
+                            configData={{}}
+                        />
                     </Grid>
                     <Grid item xs={10}>
-                    <LoadingButton sx={{
-                        width: 1,
-                    }} variant="contained" type="submit">添加</LoadingButton>
+                        <LoadingButton sx={{
+                            width: 1,
+                        }} variant="contained" type="submit">添加</LoadingButton>
                     </Grid>
                 </Grid>
             </Form >
@@ -279,7 +279,7 @@ export default function AppSmsLimit(props) {
         page,
         pageSize,
         onSearchChange,
-    }=props;
+    } = props;
     let [loadData, setLoadData] = useState({
         status: false,
         message: null,
@@ -302,11 +302,11 @@ export default function AppSmsLimit(props) {
         {
             style: { width: 180 },
             label: '类型',
-            render:(row)=>{
-                let f=LimitStatusMap.find((e)=>{return e.key==row.config_type});
-                if(!f){
+            render: (row) => {
+                let f = LimitStatusMap.find((e) => { return e.key == row.config_type });
+                if (!f) {
                     return "未知类型";
-                }else{
+                } else {
                     return f.val;
                 }
             }
@@ -314,11 +314,11 @@ export default function AppSmsLimit(props) {
         {
             style: { width: 260 },
             label: '相关数据',
-            render:(row)=>{
-                let f=LimitStatusMap.find((e)=>{return e.key==row.config_type});
-                if(!f){
+            render: (row) => {
+                let f = LimitStatusMap.find((e) => { return e.key == row.config_type });
+                if (!f) {
                     return "未知类型";
-                }else{
+                } else {
                     return f.show(row.config_data);
                 }
             }
@@ -331,7 +331,7 @@ export default function AppSmsLimit(props) {
         {
             style: { width: 180 },
             label: '添加时间',
-            render:(row)=>{
+            render: (row) => {
                 return showTime(row.add_time, "未知")
             }
         },
@@ -353,25 +353,27 @@ export default function AppSmsLimit(props) {
                     })
                 };
                 return <Fragment>
-                <ConfirmButton
-                    message={`确定删除短信限制配置 [${row.id}] 吗?`}
-                    onAction={delAction}
-                    renderButton={(props) => {
-                        return <IconButton  {...props} size='small' ><DeleteIcon fontSize="small" /></IconButton>
-                    }} />
-            </Fragment>
+                    <ConfirmButton
+                        message={`确定删除短信限制配置 [${row.id}] 吗?`}
+                        onAction={delAction}
+                        renderButton={(props) => {
+                            return <IconButton  {...props} size='small' ><DeleteIcon fontSize="small" /></IconButton>
+                        }} />
+                </Fragment>
             }
         }
     ];
 
-    if(!props.children){
-        columns=columns.filter((e)=>{return e.field!='app_id'})
+    if (!props.children) {
+        columns = columns.filter((e) => { return e.field != 'app_id' })
     }
-    
-   
-    const [filterData, setfilterData] = useState({...{
-        id: limitId,
-    }, ...props.children?{app_id: appId}:{}})
+
+
+    const [filterData, setfilterData] = useState({
+        ...{
+            id: limitId,
+        }, ...props.children ? { app_id: appId } : {}
+    })
     const loadAppData = () => {
         setLoadData({
             ...loadData,
@@ -380,33 +382,36 @@ export default function AppSmsLimit(props) {
         return listSmsConfig({
             user_id: parseInt(userId),
             id: limitId,
-            app_id: (props.children&&!appId)?-1:appId,
+            app_id: (props.children && !appId) ? -1 : appId,
             page: page,
-            page_size:pageSize
+            page_size: pageSize
         }).then((data) => {
             setLoadData({
                 ...loadData,
                 ...data,
+                data: data.status ? data.data : [],
                 loading: false
             })
         })
     }
     useEffect(() => {
-        setfilterData({...{
-            ...filterData,
-            id: limitId,
-        }, ...props.children?{app_id: appId}:{}})
+        setfilterData({
+            ...{
+                ...filterData,
+                id: limitId,
+            }, ...props.children ? { app_id: appId } : {}
+        })
         loadAppData()
     }, [props])
 
-    const [changeBoxState, setChangeBox] = useState({show:0});
+    const [changeBoxState, setChangeBox] = useState({ show: 0 });
 
     let showBox
     switch (changeBoxState.show) {
         case 1:
             showBox = <AddBox
                 userId={parseInt(userId)}
-                appId={(props.children&&!appId)?-1:appId}
+                appId={(props.children && !appId) ? -1 : appId}
                 appName={appName}
                 onAdd={(id) => {
                     onSearchChange({
@@ -414,7 +419,7 @@ export default function AppSmsLimit(props) {
                         app_id: appId,
                         page: 0
                     }, loadAppData)
-                    setChangeBox({show:0})
+                    setChangeBox({ show: 0 })
                 }} />;
             break;
     };
@@ -425,7 +430,7 @@ export default function AppSmsLimit(props) {
             anchor={"right"}
             open={changeBoxState.show != 0}
             onClose={() => {
-                setChangeBox({show:0})
+                setChangeBox({ show: 0 })
             }}
         >
             <Box
@@ -435,12 +440,12 @@ export default function AppSmsLimit(props) {
                 {showBox}
             </Box>
         </Drawer>
-      
+
         <Paper
             sx={{ p: 2, display: 'flex', alignItems: 'center', marginBottom: 1, marginTop: 1 }}
         >
             {props.children}
-             <FormControl sx={{ minWidth: 120, mr: 1 }} size="small"  >
+            <FormControl sx={{ minWidth: 120, mr: 1 }} size="small"  >
                 <ClearTextField
                     sx={{ mr: 1 }}
                     variant="outlined"
@@ -473,16 +478,16 @@ export default function AppSmsLimit(props) {
             >
                 过滤
             </LoadingButton>
-            {appName?<Button
+            {appName ? <Button
                 variant="outlined"
                 size="medium"
                 startIcon={<AddCircleOutlineIcon />}
                 sx={{ mr: 1, p: "7px 15px" }}
                 onClick={() => {
-                    setChangeBox({show:1})
+                    setChangeBox({ show: 1 })
                 }}>
                 添加
-            </Button>:null}
+            </Button> : null}
         </Paper>
 
         {(loadData.status || loadData.loading)

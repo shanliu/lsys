@@ -19,8 +19,8 @@ export async function loginHistroy(param, config) {
         "login_account": login_account,
         "is_login": is_login == '' ? null : parseInt(is_login),
         "page": {
-            "page": parseInt(page) + 1,
-            "limit": parseInt(page_size)
+            page: parseInt(page)>=0?(parseInt(page) + 1):1,
+            limit: parseInt(page_size)>0?parseInt(page_size):10
         }
     }, config);
     return restResult(response,['not_found'])

@@ -15,7 +15,7 @@ redis = { version = "~0.22"  }
 
 
 #db
-sqlx = {version = "~0.6.*",features = ["runtime-tokio-native-tls","offline"]}
+sqlx = {version = "~0.6.3",features = ["runtime-tokio-native-tls","offline"]}
 sqlx-model = {version = "~0.2.0", default-features=false}
 
 

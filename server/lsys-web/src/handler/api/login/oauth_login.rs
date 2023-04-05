@@ -32,7 +32,7 @@ pub async fn user_external_callback<
         .user
         .rbac_dao
         .rbac
-        .check(&AccessSystemLogin {})
+        .check(&AccessSystemLogin {}, None)
         .await?;
     let (ext_model, _, ext_data) = req_dao
         .web_dao

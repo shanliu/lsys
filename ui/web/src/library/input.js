@@ -263,7 +263,7 @@ export function TagSelect(props) {
             labelId="tag-select-small"
             id="tag-select-small"
             label="标签"
-            value={value}
+            value={value??''}
             onChange={onChange}
         >
             <MenuItem value="">

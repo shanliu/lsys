@@ -9,8 +9,8 @@ export async function appList(param, config) {
     let params = {
         "count_num": true,
         "page": {
-            "page": parseInt(page) + 1,
-            "limit": parseInt(page_size)
+            page: parseInt(page)>=0?(parseInt(page) + 1):1,
+            limit: parseInt(page_size)>0?parseInt(page_size):10
         }
     };
     if (parseInt(user_id) > 0) {

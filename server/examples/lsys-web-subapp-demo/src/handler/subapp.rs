@@ -11,7 +11,11 @@ pub struct DomeAccess {
 
 #[async_trait::async_trait]
 impl RbacCheck for DomeAccess {
-    async fn check(&self, access: &RbacAccess) -> UserRbacResult<()> {
+    async fn check<'t>(
+        &self,
+        access: &'t RbacAccess,
+        _relation: &'t [RoleRelationKey],
+    ) -> UserRbacResult<()> {
         access
             .check(
                 self.app.user_id,                                           //资源访问用户
@@ -40,9 +44,12 @@ pub async fn demo_handler(
         .user
         .rbac_dao
         .rbac
-        .check(&DomeAccess {
-            app: app.to_owned(),
-        })
+        .check(
+            &DomeAccess {
+                app: app.to_owned(),
+            },
+            None,
+        )
         .await?;
     //业务逻辑。。。
     Ok(JsonData::message("dome message").set_data(json!({ "text":param.text })))

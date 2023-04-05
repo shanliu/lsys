@@ -9,55 +9,50 @@ export const Menus = [
         url: "/system/setting",
         icon: SettingsIcon,
         text: "全局设置",
-        rbac: [{
-            key: "admin-setting",
-            access: [{
+        rbac: [
+            //该菜单涉及所有接口权限列表
+            {
+                name:"admin-main"
+            },
+            {
                 name: "admin-setting"
-            }]
-        }]
+            }
+        ]
     },
     {
         url: "/system/app",
         icon: ApiIcon,
         text: "应用审核",
         rbac: [{
-            key: "admin-app",
-            access: [{
-                name: "admin-app"
-            }]
+            name: "admin-app"
         }]
     },
     {
         url: "/system/sms_setting/message",
         icon: ApiIcon,
         text: "短信管理",
-        rbac: [{
-            key: "admin-sms",
-            access: [{
-                name: "admin-sms"
-            }]
+        rbac:  [{
+            name: "admin-ali-sms-config"
+        },{
+            name: "admin-sender-config"
         }]
     },
-    {
-        url: "/system/user",
-        icon: ManageAccountsIcon,
-        text: "用户管理",
-        rbac: [{
-            key: "admin-user",
-            access: [{
-                name: "admin-user"
-            }]
-        }]
-    },
+    // {
+    //     url: "/system/user",
+    //     icon: ManageAccountsIcon,
+    //     text: "用户管理",
+    //     rbac: [{
+    //         name: "admin-user"
+    //     }]
+    // },
     {
         url: "/system/access/test",
         icon: KeyIcon,
         text: "授权管理",
-        rbac: [{
-            key: "admin-test",
-            access: [{
-                name: "admin-test"
-            }]
+        rbac:  [{
+            name: "res-view"
+        },{
+            name: "role-view"
         }]
     }
 ];

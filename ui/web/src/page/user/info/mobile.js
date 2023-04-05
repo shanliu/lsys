@@ -38,6 +38,7 @@ export default function UserMobilePage(props) {
             setLoadData({
                 ...loadData,
                 ...data,
+                data: data.status ? data.data : [],
                 loading: false
             })
         })

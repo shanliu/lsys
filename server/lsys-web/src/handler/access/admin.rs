@@ -1,18 +1,35 @@
-use lsys_rbac::dao::{AccessRes, RbacAccess, RbacCheck, RbacCheckDepend, UserRbacResult};
+use lsys_rbac::dao::{
+    AccessRes, RbacAccess, RbacCheck, RbacCheckDepend, RbacResTpl, ResTpl, RoleRelationKey,
+    UserRbacResult,
+};
 
 pub struct AccessAdminManage {
     pub user_id: u64,
 }
 #[async_trait::async_trait]
 impl RbacCheck for AccessAdminManage {
-    async fn check(&self, access: &RbacAccess) -> UserRbacResult<()> {
+    async fn check<'t>(
+        &self,
+        access: &'t RbacAccess,
+        relation: &'t [RoleRelationKey],
+    ) -> UserRbacResult<()> {
         access
             .check(
                 self.user_id,
-                &[],
-                &[AccessRes::system("admin", &["main"], &[])],
+                relation,
+                &[AccessRes::system("global-system", &["main"], &[])],
             )
             .await
+    }
+}
+impl RbacResTpl for AccessAdminManage {
+    fn tpl_data() -> Vec<ResTpl> {
+        vec![ResTpl {
+            tags: vec![],
+            user: false,
+            key: "global-system",
+            ops: vec!["main"],
+        }]
     }
 }
 
@@ -21,12 +38,16 @@ pub struct AccessAdminSetting {
 }
 #[async_trait::async_trait]
 impl RbacCheck for AccessAdminSetting {
-    async fn check(&self, access: &RbacAccess) -> UserRbacResult<()> {
+    async fn check<'t>(
+        &self,
+        access: &'t RbacAccess,
+        relation: &'t [RoleRelationKey],
+    ) -> UserRbacResult<()> {
         access
             .check(
                 self.user_id,
-                &[],
-                &[AccessRes::system("admin", &["setting"], &[])],
+                relation,
+                &[AccessRes::system("global-system", &["setting"], &[])],
             )
             .await
     }
@@ -34,5 +55,15 @@ impl RbacCheck for AccessAdminSetting {
         vec![Box::new(AccessAdminManage {
             user_id: self.user_id,
         })]
+    }
+}
+impl RbacResTpl for AccessAdminSetting {
+    fn tpl_data() -> Vec<ResTpl> {
+        vec![ResTpl {
+            tags: vec![],
+            user: false,
+            key: "global-system",
+            ops: vec!["setting"],
+        }]
     }
 }

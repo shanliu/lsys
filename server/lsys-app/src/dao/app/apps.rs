@@ -87,9 +87,12 @@ impl Apps {
             None => return Ok(vec![]),
         };
         let page_sql = if let Some(pdat) = page {
-            format!(" limit {} offset {}", pdat.limit, pdat.offset)
+            format!(
+                " order by id desc limit {} offset {} ",
+                pdat.limit, pdat.offset
+            )
         } else {
-            "".to_string()
+            " order by id desc".to_string()
         };
         let sql = if !where_sql.is_empty() {
             WhereOption::Where(where_sql + page_sql.as_str())

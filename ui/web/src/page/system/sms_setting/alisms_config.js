@@ -23,15 +23,15 @@ import { showTime } from '../../../utils/utils';
 function AddBox(props) {
     const {
         rowData,
-       onFinish
+        onFinish
     } = props;
 
     const { toast } = useContext(ToastContext);
-    
+
     let [addData, setAddData] = useState({
-        name: rowData?rowData.name:'',
-        access_id: rowData?rowData.access_id:'',
-        access_secret: rowData?rowData.access_secret:'',
+        name: rowData ? rowData.name : '',
+        access_id: rowData ? rowData.access_id : '',
+        access_secret: rowData ? rowData.access_secret : '',
         loading: false,
     });
     const [addError, setAddError] = useState({
@@ -40,18 +40,18 @@ function AddBox(props) {
         access_secret: '',
     });
 
-    let onSubmit=()=>{
+    let onSubmit = () => {
         setAddData({
             ...addData,
             loading: true
         })
-        if(rowData&&rowData.id){
+        if (rowData && rowData.id) {
             editAliConfig({
-                id:rowData.id,
+                id: rowData.id,
                 name: addData.name,
                 access_id: addData.access_id,
                 access_secret: addData.access_secret
-            }) .then((data) => {
+            }).then((data) => {
                 if (!data.status) {
                     toast(data.message)
                     setAddError({
@@ -75,12 +75,12 @@ function AddBox(props) {
                     onFinish(rowData.id);
                 }
             })
-        }else{
+        } else {
             addAliConfig({
                 name: addData.name,
                 access_id: addData.access_id,
                 access_secret: addData.access_secret
-            }) .then((data) => {
+            }).then((data) => {
                 if (!data.status) {
                     toast(data.message)
                     setAddError({
@@ -107,7 +107,7 @@ function AddBox(props) {
                 }
             })
         }
-      
+
     };
 
 
@@ -127,7 +127,7 @@ function AddBox(props) {
                     textDecoration: 'none',
                 }}
             >
-               阿里短信配置
+                阿里短信配置
             </Typography>
             <Divider variant="middle" />
             <Form method="post" onSubmit={(e) => {
@@ -149,10 +149,10 @@ function AddBox(props) {
                             type="text"
                             name="name"
                             size="small"
-                            onChange={(e)=>{
+                            onChange={(e) => {
                                 setAddData({
                                     ...addData,
-                                    name:e.target.value
+                                    name: e.target.value
                                 })
                             }}
                             value={addData.name}
@@ -173,10 +173,10 @@ function AddBox(props) {
                             type="text"
                             name="name"
                             size="small"
-                            onChange={(e)=>{
+                            onChange={(e) => {
                                 setAddData({
                                     ...addData,
-                                    access_id:e.target.value
+                                    access_id: e.target.value
                                 })
                             }}
                             value={addData.access_id}
@@ -197,10 +197,10 @@ function AddBox(props) {
                             type="text"
                             name="name"
                             size="small"
-                            onChange={(e)=>{
+                            onChange={(e) => {
                                 setAddData({
                                     ...addData,
-                                    access_secret:e.target.value
+                                    access_secret: e.target.value
                                 })
                             }}
                             value={addData.access_secret}
@@ -217,7 +217,7 @@ function AddBox(props) {
                     <Grid item xs={10}>
                         <LoadingButton sx={{
                             width: 1,
-                        }} variant="contained" type="submit" loading={addData.loading} disabled={addData.loading} >{rowData?"修改":"添加"}</LoadingButton>
+                        }} variant="contained" type="submit" loading={addData.loading} disabled={addData.loading} >{rowData ? "修改" : "添加"}</LoadingButton>
                     </Grid>
                 </Grid>
             </Form ></Fragment>)
@@ -283,18 +283,18 @@ export default function SystemSmsSettingAlismsPage(props) {
                     })
                 };
                 return <Fragment>
-                    <IconButton size='small' onClick={()=>{
-                        setChangeBox({data:row,show:2})
+                    <IconButton size='small' onClick={() => {
+                        setChangeBox({ data: row, show: 2 })
                     }}>
-                           <EditIcon fontSize="small" />
+                        <EditIcon fontSize="small" />
                     </IconButton>
-                <ConfirmButton
-                    message={`确定删除配置 [${row.name}] 吗?`}
-                    onAction={delAction}
-                    renderButton={(props) => {
-                        return <IconButton  {...props} size='small' ><DeleteIcon fontSize="small" /></IconButton>
-                    }} />
-            </Fragment>
+                    <ConfirmButton
+                        message={`确定删除配置 [${row.name}] 吗?`}
+                        onAction={delAction}
+                        renderButton={(props) => {
+                            return <IconButton  {...props} size='small' ><DeleteIcon fontSize="small" /></IconButton>
+                        }} />
+                </Fragment>
             }
         },
     ];
@@ -311,11 +311,12 @@ export default function SystemSmsSettingAlismsPage(props) {
         })
         return listAliConfig({
             id: searchParam.get("id"),
-            full_data:true
+            full_data: true
         }).then((data) => {
             setLoadData({
                 ...loadData,
                 ...data,
+                data: data.status ? data.data : [],
                 loading: false
             })
         })
@@ -329,32 +330,32 @@ export default function SystemSmsSettingAlismsPage(props) {
     }, [searchParam])
 
 
-      //添加跟更新
+    //添加跟更新
     const [changeBoxState, setChangeBox] = useState({
-        show:0,
-        data:{}
+        show: 0,
+        data: {}
     });
     let showBox
     switch (changeBoxState.show) {
         case 1:
             showBox = <AddBox
                 onFinish={(id) => {
-                    setChangeBox({data:{},show:0})
+                    setChangeBox({ data: {}, show: 0 })
                     setSearchParam({
                         ...filterData,
-                        id:id
+                        id: id
                     }, loadConfigData)
                 }}
             />;
             break
         case 2:
             showBox = <AddBox
-            rowData={changeBoxState.data}
+                rowData={changeBoxState.data}
                 onFinish={(id) => {
-                    setChangeBox({data:{},show:0})
+                    setChangeBox({ data: {}, show: 0 })
                     setSearchParam({
                         ...filterData,
-                        id:id
+                        id: id
                     }, loadConfigData)
                 }}
             />;
@@ -369,7 +370,7 @@ export default function SystemSmsSettingAlismsPage(props) {
             anchor={"right"}
             open={changeBoxState.show != 0}
             onClose={() => {
-                setChangeBox({data:{},show:0})
+                setChangeBox({ data: {}, show: 0 })
             }}
         >
             <Box
@@ -417,10 +418,10 @@ export default function SystemSmsSettingAlismsPage(props) {
             <Button
                 variant="outlined"
                 size="medium"
-                startIcon={<AddCircleOutlineIcon/>}
+                startIcon={<AddCircleOutlineIcon />}
                 sx={{ mr: 1, p: "7px 15px" }}
                 onClick={() => {
-                    setChangeBox({data:{},show:1})
+                    setChangeBox({ data: {}, show: 1 })
                 }}>
                 新增配置
             </Button>
@@ -436,7 +437,7 @@ export default function SystemSmsSettingAlismsPage(props) {
                         <BaseTableBody
                             columns={columns}
                             loading={loadData.loading}
-                            rows={loadData.data??[]}
+                            rows={loadData.data ?? []}
                         />
                     </Table>
                 </TableContainer>

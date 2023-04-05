@@ -1,74 +1,75 @@
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import { Box, Button, Chip, Divider, FormControl, FormLabel, Grid, TextField, Typography } from '@mui/material';
 import React, { Fragment, useEffect, useState } from 'react';
 import { ResOpItem } from '../../library/user';
 
-export function ResKeyEditBox(props){
-    const {loading,value,onChange, ...other}=props;
+export function ResKeyEditBox(props) {
+    const { loading, value, onChange, ...other } = props;
     const [resData, setResData] = useState({
-        vars:[],
-        value:value
+        vars: [],
+        value: value
     });
     return <FormControl {...other}>
-    <TextField  
-        label="资源KEY"
-        variant="outlined"
-        name="name"
-        size="small"
-        disabled={loading}
-        value={value}
-        onChange={(e) => {
-            let val=e.target.value+'';
-            let reg=RegExp(/\${([a-z0-9_]+)}/ig);
-            let mt=val.match(reg);
-            if(mt&&mt.length){
-                mt=mt.map((e)=>{
-                    return e.replace('${','').replace('}','')
+        <TextField
+            label="资源KEY"
+            variant="outlined"
+            name="name"
+            size="small"
+            disabled={loading}
+            value={value}
+            onChange={(e) => {
+                let val = e.target.value + '';
+                let reg = RegExp(/\${([a-z0-9_]+)}/ig);
+                let mt = val.match(reg);
+                if (mt && mt.length) {
+                    mt = mt.map((e) => {
+                        return e.replace('${', '').replace('}', '')
+                    })
+                    mt = mt.filter((item, index) => {
+                        return mt.indexOf(item) === index;
+                    })
+                } else { mt = [] }
+                setResData({
+                    value: val,
+                    vars: mt
                 })
-                mt=mt.filter((item,index)=>{
-                    return mt.indexOf(item) === index;
-                })
-            }else{mt=[]}
-            setResData({
-                value: val,
-                vars:mt
-            })
-            onChange&&onChange(e)
-        }}
-        sx={{
-            width: 1,
-          
-        }}
-        required
-    />
-    <Box sx={{
-        background: '#f9f9f9',
-        padding: '8px'
-    }}>
-        {resData.vars.length>0?<Fragment>
-            <Typography variant="caption" display="block" gutterBottom>
-            已声明变量
-        </Typography>
-        <Box>
-            {resData.vars.map((e)=>{
-                return <Chip key={`var-${e}`} fontSize="small" label={e} variant="outlined" sx={{mr:1}}/>
-            })}
+                onChange && onChange(e)
+            }}
+            sx={{
+                width: 1,
+
+            }}
+            required
+        />
+        <Box sx={{
+            background: '#f9f9f9',
+            padding: '8px'
+        }}>
+            {resData.vars.length > 0 ? <Fragment>
+                <Typography variant="caption" display="block" gutterBottom>
+                    已声明变量
+                </Typography>
+                <Box>
+                    {resData.vars.map((e) => {
+                        return <Chip key={`var-${e}`} fontSize="small" label={e} variant="outlined" sx={{ mr: 1 }} />
+                    })}
+                </Box>
+            </Fragment> : <Typography variant="caption" display="block" gutterBottom>
+                使用{"${}"}声明变量,例如:{"${var1}"}
+            </Typography>}
         </Box>
-        </Fragment>:<Typography variant="caption" display="block" gutterBottom>
-        使用{"${}"}声明变量,例如:{"${var1}"}
-        </Typography>}
-    </Box>
     </FormControl>
 }
-export function ResEditBox(props){
-    const {opItems,loading,onChange,focused, ...other}=props;
+export function ResEditBox(props) {
+    const { opItems, loading, onChange, focused, ...other } = props;
     let init_res_data = {
         input_op_name: '',
         input_op_key: '',
     };
-    let op_items=opItems??[];
+    let op_items = opItems ?? [];
     const [resData, setResData] = useState(init_res_data);
-    return    <FormControl {...other}>
+    return <FormControl {...other}>
         <FormLabel style={{
             position: "absolute",
             transform: "translate(0, -12px) scale(0.75)"
@@ -104,8 +105,9 @@ export function ResEditBox(props){
                 lineHeight: 3
             }}>请添加操作</div> : op_items.map((item, i) => {
                 return <ResOpItem
+                    tips="点击修改"
                     key={`add-res-key-${i}`}
-                    style={{ margin: "8px 8px 0px 0px" }}
+                    style={item.op_key == resData.input_op_key ? { margin: "8px 8px 0px 0px", background: "#e8ecff" } : { margin: "8px 8px 0px 0px" }}
                     name={item.op_name}
                     opKey={item.op_key}
                     onDelete={() => {
@@ -114,7 +116,7 @@ export function ResEditBox(props){
                                 return dd;
                             }
                         }).filter((e) => { return e });
-                        
+
                         onChange(items)
                     }}
                     onClick={(e, data) => {
@@ -203,9 +205,17 @@ export function ResEditBox(props){
                             color: '#1976d2'
                         }
                     }} >
-                    <AddCircleOutlineIcon disabled={loading} sx={{
-                        color: "#666",
-                    }} />
+
+                    {
+                        op_items.find((item) => {
+                            return item.op_key == resData.input_op_key
+                        }) ? <CheckCircleOutlineIcon disabled={loading} sx={{
+                            color: "#666",
+                        }} /> : <AddCircleOutlineIcon disabled={loading} sx={{
+                            color: "#666",
+                        }} />
+                    }
+
                 </Button>
             </Grid>
         </Grid>

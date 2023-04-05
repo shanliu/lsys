@@ -1,7 +1,6 @@
 use crate::handler::common::rbac::{
-    rbac_all_res_list, rbac_res_add, rbac_res_delete, rbac_res_edit, rbac_res_list_data,
-    rbac_res_tags, ResAddParam, ResAllParam, ResDeleteParam, ResEditParam, ResListDataParam,
-    ResTagsParam,
+    rbac_res_add, rbac_res_delete, rbac_res_edit, rbac_res_list_data, rbac_res_tags, ResAddParam,
+    ResDeleteParam, ResEditParam, ResListDataParam, ResTagsParam,
 };
 use crate::{
     dao::RequestDao,
@@ -66,18 +65,6 @@ pub async fn user_res_tags<'t, T: SessionTokenData, D: SessionData, S: UserSessi
 ) -> JsonResult<JsonData> {
     let req_auth = req_dao.user_session.read().await.get_session_data().await?;
     rbac_res_tags(
-        param,
-        &req_dao.web_dao.user.rbac_dao,
-        req_auth.user_data().user_id,
-    )
-    .await
-}
-pub async fn user_all_res_list<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
-    param: ResAllParam,
-    req_dao: &RequestDao<T, D, S>,
-) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-    rbac_all_res_list(
         param,
         &req_dao.web_dao.user.rbac_dao,
         req_auth.user_data().user_id,

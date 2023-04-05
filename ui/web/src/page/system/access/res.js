@@ -32,7 +32,8 @@ export function AddBox(props) {
         res_key_open: false,
         tags: [],
         op_items: [],
-        op_focused: false
+        op_focused: false,
+        res_focused: false
     };
     const [resData, setResData] = useState(init_res_data);
     useEffect(() => {
@@ -57,7 +58,7 @@ export function AddBox(props) {
     });
     useEffect(() => {
         resAll({
-            global_res: resData.user_id == 0
+            global_res: resData.res_type == 1
         }).then((data) => {
             if (data.status) {
                 set_res_keys({
@@ -65,8 +66,51 @@ export function AddBox(props) {
                 })
             }
         })
-    }, [resData.user_id])
+    }, [resData.res_type])
     const { toast } = useContext(ToastContext);
+
+
+    let sysDataFill = (res_key) => {
+        let set_data = {}
+        let sres = res_keys.keys.find((k) => {
+            return k.key == res_key
+        })
+        if (sres) {
+            if (resData.res_key != res_key) {
+
+                let add_ops = sres.ops.map((e) => {
+                    return {
+                        op_key: e,
+                        op_name: e,
+                    }
+                })
+                set_data = {
+                    tags: [...sres.tags],
+                    op_items: add_ops,
+                }
+            } else {
+                let add_tag = sres.tags.filter((e) => {
+                    let check = resData.tags.find((t) => { return t == e })
+                    return !resData.tags || !check
+                })
+                let add_ops = sres.ops.filter((e) => {
+                    return !resData.op_items || !resData.op_items.find((t) => { return t.op_key == e })
+                }).map((e) => {
+                    return {
+                        op_key: e,
+                        op_name: e,
+                    }
+                })
+                set_data = {
+                    tags: [...resData.tags, ...add_tag],
+                    op_items: [...resData.op_items, ...add_ops],
+                }
+            }
+
+
+        }
+        return set_data
+    }
 
     return (
         <Fragment>
@@ -101,11 +145,20 @@ export function AddBox(props) {
                             <InputLabel size="small" id="res-add-select-label">选择资源</InputLabel>
                             <Select
                                 onChange={(e) => {
+                                    if (res && res.res && res.res.id > 0) {
+                                        return
+                                    }
+
                                     setResData({
                                         ...resData,
                                         user_id: 0,
-                                        res_type: e.target.value
+                                        res_type: e.target.value,
+                                        tags: [],
+                                        op_items: [],
+                                        res_key: ""
                                     })
+
+
                                 }}
                                 value={resData.res_type}
                                 disabled={resData.loading || !!res}
@@ -136,8 +189,6 @@ export function AddBox(props) {
                                 }}
                             /> : null
                         }
-
-
                         <TextField
                             label="名称"
                             variant="outlined"
@@ -162,7 +213,14 @@ export function AddBox(props) {
                                 width: 1,
                                 paddingBottom: 2
                             }}
-                            disabled={resData.loading}
+                            onChange={(e) => {
+                                setResData({
+                                    ...resData,
+                                    res_key_open: false,
+                                })
+                            }}
+
+                            disabled={resData.loading || !!res}
                             value={resData.res_key}
                             options={res_keys.keys.map((e) => e.key)}
                             open={resData.res_key_open}
@@ -175,17 +233,26 @@ export function AddBox(props) {
                                     label="标识符"
                                     size="small"
                                     placeholder="输入标识符"
-
-                                    onFocus={() => {
+                                    focused={resData.res_focused}
+                                    onClick={(e) => {
                                         setResData({
                                             ...resData,
                                             res_key_open: true,
                                         })
                                     }}
-                                    onBlur={() => {
+                                    onFocus={(e) => {
                                         setResData({
                                             ...resData,
+                                            res_key_open: true,
+                                        })
+                                    }}
+                                    onBlur={(e) => {
+                                        setResData({
+                                            ...resData,
+                                            res_focused: false,
+                                            res_key: e.target.value,
                                             res_key_open: false,
+                                            ...sysDataFill(e.target.value)
                                         })
                                     }}
                                     onKeyUp={(e) => {
@@ -194,7 +261,6 @@ export function AddBox(props) {
                                         })) {
                                             e.stopPropagation();
                                             e.preventDefault();
-
                                         }
                                     }}
                                     onKeyDown={(e) => {
@@ -204,14 +270,16 @@ export function AddBox(props) {
                                             ...resData,
                                             res_key: e.target.value,
                                             res_key_open: false,
+                                            ...sysDataFill(e.target.value)
                                         })
                                         e.stopPropagation();
                                         e.preventDefault();
-
                                     }}
                                 />
                             )}
                         />
+
+
                         <InputTagSelect
                             name="tag"
                             size="small"
@@ -256,6 +324,15 @@ export function AddBox(props) {
                                     })
                                     return
                                 }
+                                let res_r = /\{.*\}/.exec(resData.res_key);
+                                if (res_r && res_r.length > 0) {
+                                    toast("请先替换资源变量:" + res_r[0])
+                                    setResData({
+                                        ...resData,
+                                        res_focused: true
+                                    })
+                                    return
+                                }
                                 setResData({
                                     ...resData,
                                     loading: true
@@ -263,7 +340,6 @@ export function AddBox(props) {
                                 if (res && res.res && res.res.id > 0) {
                                     resEdit({
                                         res_id: res.res.id,
-                                        key: resData.res_key,
                                         name: resData.res_name,
                                         ops: resData.op_items.map((e) => {
                                             return { name: e.op_name, key: e.op_key }
@@ -468,7 +544,7 @@ export default function SystemAccessResPage(props) {
                 tags: true,
                 ops: true,
                 count_num: true,
-                user_id: searchParam.get("user_id"),
+                user_id: searchParam.get("user_id") ?? 0,
                 tag: searchParam.get("tag"),
                 res_id: searchParam.get("res_id"),
                 res_name: searchParam.get("res_name"),
@@ -492,7 +568,8 @@ export default function SystemAccessResPage(props) {
             })
         };
         let user_id = searchParam.get("user_id");
-        user_id = parseInt(user_id);
+        if (user_id == null) user_id = 0
+        else user_id = parseInt(user_id);
         if (isNaN(user_id)) return;
         if (user_id === pageTagData.load_user_id) {
             loadRow();

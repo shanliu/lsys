@@ -1,58 +1,123 @@
-use lsys_app::model::AppsModel;
-use lsys_rbac::dao::{AccessRes, RbacAccess, RbacCheck, RbacCheckDepend, UserRbacResult};
+use lsys_rbac::dao::{
+    AccessRes, RbacAccess, RbacCheck, RbacCheckDepend, RbacResTpl, ResTpl, RoleRelationKey,
+    UserRbacResult,
+};
 
 use crate::handler::access::AccessAdminManage;
 
-use super::app_relation_key;
 pub struct AccessSystemLogin {}
 #[async_trait::async_trait]
 impl RbacCheck for AccessSystemLogin {
-    async fn check(&self, access: &RbacAccess) -> UserRbacResult<()> {
+    async fn check<'t>(
+        &self,
+        access: &'t RbacAccess,
+        relation: &'t [RoleRelationKey],
+    ) -> UserRbacResult<()> {
         access
-            .check(0, &[], &[AccessRes::system("user", &[], &["global-login"])])
+            .check(
+                0,
+                relation,
+                &[AccessRes::system("global-system", &[], &["login"])],
+            )
             .await
+    }
+}
+
+impl RbacResTpl for AccessSystemLogin {
+    fn tpl_data() -> Vec<ResTpl> {
+        vec![ResTpl {
+            tags: vec!["system"],
+            user: false,
+            key: "global-system",
+            ops: vec!["login"],
+        }]
     }
 }
 
 pub struct AccessSystemEmailConfirm {}
 #[async_trait::async_trait]
 impl RbacCheck for AccessSystemEmailConfirm {
-    async fn check(&self, access: &RbacAccess) -> UserRbacResult<()> {
+    async fn check<'t>(
+        &self,
+        access: &'t RbacAccess,
+        relation: &'t [RoleRelationKey],
+    ) -> UserRbacResult<()> {
         access
             .check(
                 0,
-                &[],
-                &[AccessRes::system("user", &[], &["global-email-confirm"])],
+                relation,
+                &[AccessRes::system("global-system", &[], &["email-confirm"])],
             )
             .await
+    }
+}
+
+impl RbacResTpl for AccessSystemEmailConfirm {
+    fn tpl_data() -> Vec<ResTpl> {
+        vec![ResTpl {
+            tags: vec!["system"],
+            user: false,
+            key: "global-system",
+            ops: vec!["email-confirm"],
+        }]
     }
 }
 
 pub struct AccessSystemMobileConfirm {}
 #[async_trait::async_trait]
 impl RbacCheck for AccessSystemMobileConfirm {
-    async fn check(&self, access: &RbacAccess) -> UserRbacResult<()> {
+    async fn check<'t>(
+        &self,
+        access: &'t RbacAccess,
+        relation: &'t [RoleRelationKey],
+    ) -> UserRbacResult<()> {
         access
             .check(
                 0,
-                &[],
-                &[AccessRes::system("user", &[], &["global-mobile-confirm"])],
+                relation,
+                &[AccessRes::system("global-system", &[], &["mobile-confirm"])],
             )
             .await
+    }
+}
+
+impl RbacResTpl for AccessSystemMobileConfirm {
+    fn tpl_data() -> Vec<ResTpl> {
+        vec![ResTpl {
+            tags: vec!["system"],
+            user: false,
+            key: "global-system",
+            ops: vec!["mobile-confirm"],
+        }]
     }
 }
 
 pub struct AccessSystemReSetPassword {}
 #[async_trait::async_trait]
 impl RbacCheck for AccessSystemReSetPassword {
-    async fn check(&self, access: &RbacAccess) -> UserRbacResult<()> {
+    async fn check<'t>(
+        &self,
+        access: &'t RbacAccess,
+        relation: &'t [RoleRelationKey],
+    ) -> UserRbacResult<()> {
         access
             .check(
                 0,
-                &[],
-                &[AccessRes::system("user", &[], &["global-reset-confirm"])],
+                relation,
+                &[AccessRes::system("global-system", &[], &["reset-confirm"])],
             )
             .await
+    }
+}
+
+impl RbacResTpl for AccessSystemReSetPassword {
+    fn tpl_data() -> Vec<ResTpl> {
+        vec![ResTpl {
+            tags: vec!["system"],
+            user: false,
+            key: "global-system",
+            ops: vec!["reset-confirm"],
+        }]
     }
 }
 
@@ -62,22 +127,45 @@ pub struct AccessUserAddressView {
 }
 #[async_trait::async_trait]
 impl RbacCheck for AccessUserAddressView {
-    async fn check(&self, access: &RbacAccess) -> UserRbacResult<()> {
+    async fn check<'t>(
+        &self,
+        access: &'t RbacAccess,
+        relation: &'t [RoleRelationKey],
+    ) -> UserRbacResult<()> {
         access
             .list_check(
                 self.user_id,
-                &[],
+                relation,
                 &[
                     vec![AccessRes::user(
                         self.res_user_id,
-                        "user",
-                        &["address-view"],
+                        "user-address",
+                        &["view"],
                         &[],
                     )],
-                    vec![AccessRes::system("user", &["global-address-view"], &[])],
+                    vec![AccessRes::system("global-user-address", &["view"], &[])],
                 ],
             )
             .await
+    }
+}
+
+impl RbacResTpl for AccessUserAddressView {
+    fn tpl_data() -> Vec<ResTpl> {
+        vec![
+            ResTpl {
+                tags: vec!["user"],
+                user: true,
+                key: "user-address",
+                ops: vec!["view"],
+            },
+            ResTpl {
+                tags: vec!["system"],
+                user: false,
+                key: "global-user-address",
+                ops: vec!["view"],
+            },
+        ]
     }
 }
 
@@ -87,19 +175,23 @@ pub struct AccessUserAddressEdit {
 }
 #[async_trait::async_trait]
 impl RbacCheck for AccessUserAddressEdit {
-    async fn check(&self, access: &RbacAccess) -> UserRbacResult<()> {
+    async fn check<'t>(
+        &self,
+        access: &'t RbacAccess,
+        relation: &'t [RoleRelationKey],
+    ) -> UserRbacResult<()> {
         access
             .list_check(
                 self.user_id,
-                &[],
+                relation,
                 &[
                     vec![AccessRes::user(
                         self.res_user_id,
-                        "user",
-                        &["address-edit"],
+                        "user-address",
+                        &["edit"],
                         &[],
                     )],
-                    vec![AccessRes::system("user", &["global-address-edit"], &[])],
+                    vec![AccessRes::system("global-user-address", &["edit"], &[])],
                 ],
             )
             .await
@@ -112,25 +204,59 @@ impl RbacCheck for AccessUserAddressEdit {
     }
 }
 
+impl RbacResTpl for AccessUserAddressEdit {
+    fn tpl_data() -> Vec<ResTpl> {
+        vec![
+            ResTpl {
+                tags: vec!["user"],
+                user: true,
+                key: "user-address",
+                ops: vec!["edit"],
+            },
+            ResTpl {
+                tags: vec!["system"],
+                user: false,
+                key: "global-user-address",
+                ops: vec!["edit"],
+            },
+        ]
+    }
+}
+
 pub struct AccessUserExternalEdit {
     pub user_id: u64,
     pub res_user_id: u64,
 }
 #[async_trait::async_trait]
 impl RbacCheck for AccessUserExternalEdit {
-    async fn check(&self, access: &RbacAccess) -> UserRbacResult<()> {
+    async fn check<'t>(
+        &self,
+        access: &'t RbacAccess,
+        relation: &'t [RoleRelationKey],
+    ) -> UserRbacResult<()> {
         access
             .check(
                 self.user_id,
-                &[],
+                relation,
                 &[AccessRes::user(
                     self.res_user_id,
-                    "user",
-                    &["external-change"],
+                    "user-external",
+                    &["change"],
                     &[],
                 )],
             )
             .await
+    }
+}
+
+impl RbacResTpl for AccessUserExternalEdit {
+    fn tpl_data() -> Vec<ResTpl> {
+        vec![ResTpl {
+            tags: vec!["user"],
+            user: true,
+            key: "user-external",
+            ops: vec!["change"],
+        }]
     }
 }
 
@@ -140,22 +266,45 @@ pub struct AccessUserSetPassword {
 }
 #[async_trait::async_trait]
 impl RbacCheck for AccessUserSetPassword {
-    async fn check(&self, access: &RbacAccess) -> UserRbacResult<()> {
+    async fn check<'t>(
+        &self,
+        access: &'t RbacAccess,
+        relation: &'t [RoleRelationKey],
+    ) -> UserRbacResult<()> {
         access
             .list_check(
                 self.user_id,
-                &[],
+                relation,
                 &[
                     vec![AccessRes::user(
                         self.res_user_id,
-                        "user",
-                        &["set-password"],
+                        "user-password",
+                        &["set"],
                         &[],
                     )],
-                    vec![AccessRes::system("user", &["global-set-password"], &[])],
+                    vec![AccessRes::system("global-user-password", &["set"], &[])],
                 ],
             )
             .await
+    }
+}
+
+impl RbacResTpl for AccessUserSetPassword {
+    fn tpl_data() -> Vec<ResTpl> {
+        vec![
+            ResTpl {
+                tags: vec!["user"],
+                user: true,
+                key: "user-password",
+                ops: vec!["set"],
+            },
+            ResTpl {
+                tags: vec!["system"],
+                user: false,
+                key: "global-user-password",
+                ops: vec!["set"],
+            },
+        ]
     }
 }
 
@@ -165,22 +314,45 @@ pub struct AccessUserNameEdit {
 }
 #[async_trait::async_trait]
 impl RbacCheck for AccessUserNameEdit {
-    async fn check(&self, access: &RbacAccess) -> UserRbacResult<()> {
+    async fn check<'t>(
+        &self,
+        access: &'t RbacAccess,
+        relation: &'t [RoleRelationKey],
+    ) -> UserRbacResult<()> {
         access
             .list_check(
                 self.user_id,
-                &[],
+                relation,
                 &[
                     vec![AccessRes::user(
                         self.res_user_id,
-                        "user",
-                        &["name-edit"],
+                        "user-name",
+                        &["edit"],
                         &[],
                     )],
-                    vec![AccessRes::system("user", &["global-name-edit"], &[])],
+                    vec![AccessRes::system("global-user-name", &["edit"], &[])],
                 ],
             )
             .await
+    }
+}
+
+impl RbacResTpl for AccessUserNameEdit {
+    fn tpl_data() -> Vec<ResTpl> {
+        vec![
+            ResTpl {
+                tags: vec!["user"],
+                user: true,
+                key: "user-name",
+                ops: vec!["edit"],
+            },
+            ResTpl {
+                tags: vec!["system"],
+                user: false,
+                key: "global-user-name",
+                ops: vec!["edit"],
+            },
+        ]
     }
 }
 
@@ -190,22 +362,45 @@ pub struct AccessUserInfoEdit {
 }
 #[async_trait::async_trait]
 impl RbacCheck for AccessUserInfoEdit {
-    async fn check(&self, access: &RbacAccess) -> UserRbacResult<()> {
+    async fn check<'t>(
+        &self,
+        access: &'t RbacAccess,
+        relation: &'t [RoleRelationKey],
+    ) -> UserRbacResult<()> {
         access
             .list_check(
                 self.user_id,
-                &[],
+                relation,
                 &[
                     vec![AccessRes::user(
                         self.res_user_id,
-                        "user",
-                        &["info-edit"],
+                        "user-info",
+                        &["edit"],
                         &[],
                     )],
-                    vec![AccessRes::system("user", &["global-info-edit"], &[])],
+                    vec![AccessRes::system("global-user-info", &["edit"], &[])],
                 ],
             )
             .await
+    }
+}
+
+impl RbacResTpl for AccessUserInfoEdit {
+    fn tpl_data() -> Vec<ResTpl> {
+        vec![
+            ResTpl {
+                tags: vec!["user"],
+                user: true,
+                key: "user-info",
+                ops: vec!["edit"],
+            },
+            ResTpl {
+                tags: vec!["system"],
+                user: false,
+                key: "global-user-info",
+                ops: vec!["edit"],
+            },
+        ]
     }
 }
 
@@ -215,22 +410,45 @@ pub struct AccessUserEmailView {
 }
 #[async_trait::async_trait]
 impl RbacCheck for AccessUserEmailView {
-    async fn check(&self, access: &RbacAccess) -> UserRbacResult<()> {
+    async fn check<'t>(
+        &self,
+        access: &'t RbacAccess,
+        relation: &'t [RoleRelationKey],
+    ) -> UserRbacResult<()> {
         access
             .list_check(
                 self.user_id,
-                &[],
+                relation,
                 &[
                     vec![AccessRes::user(
                         self.res_user_id,
-                        "user",
-                        &["email-view"],
+                        "user-email",
+                        &["view"],
                         &[],
                     )],
-                    vec![AccessRes::system("user", &["global-email-view"], &[])],
+                    vec![AccessRes::system("global-user-email", &["view"], &[])],
                 ],
             )
             .await
+    }
+}
+
+impl RbacResTpl for AccessUserEmailView {
+    fn tpl_data() -> Vec<ResTpl> {
+        vec![
+            ResTpl {
+                tags: vec!["user"],
+                user: true,
+                key: "user-email",
+                ops: vec!["view"],
+            },
+            ResTpl {
+                tags: vec!["system"],
+                user: false,
+                key: "global-user-email",
+                ops: vec!["view"],
+            },
+        ]
     }
 }
 
@@ -240,19 +458,23 @@ pub struct AccessUserEmailEdit {
 }
 #[async_trait::async_trait]
 impl RbacCheck for AccessUserEmailEdit {
-    async fn check(&self, access: &RbacAccess) -> UserRbacResult<()> {
+    async fn check<'t>(
+        &self,
+        access: &'t RbacAccess,
+        relation: &'t [RoleRelationKey],
+    ) -> UserRbacResult<()> {
         access
             .list_check(
                 self.user_id,
-                &[],
+                relation,
                 &[
                     vec![AccessRes::user(
                         self.res_user_id,
-                        "user",
-                        &["email-edit"],
+                        "user-email",
+                        &["edit"],
                         &[],
                     )],
-                    vec![AccessRes::system("user", &["global-email-edit"], &[])],
+                    vec![AccessRes::system("global-user-email", &["edit"], &[])],
                 ],
             )
             .await
@@ -265,24 +487,66 @@ impl RbacCheck for AccessUserEmailEdit {
     }
 }
 
+impl RbacResTpl for AccessUserEmailEdit {
+    fn tpl_data() -> Vec<ResTpl> {
+        vec![
+            ResTpl {
+                tags: vec!["user"],
+                user: true,
+                key: "user-email",
+                ops: vec!["edit"],
+            },
+            ResTpl {
+                tags: vec!["system"],
+                user: false,
+                key: "global-user-email",
+                ops: vec!["edit"],
+            },
+        ]
+    }
+}
+
 pub struct AccessUserAppView {
     pub user_id: u64,
     pub res_user_id: u64,
 }
 #[async_trait::async_trait]
 impl RbacCheck for AccessUserAppView {
-    async fn check(&self, access: &RbacAccess) -> UserRbacResult<()> {
+    async fn check<'t>(
+        &self,
+        access: &'t RbacAccess,
+        relation: &'t [RoleRelationKey],
+    ) -> UserRbacResult<()> {
         access
             .check(
                 self.user_id,
-                &[],
+                relation,
                 &[if self.res_user_id == 0 {
-                    AccessRes::system("app", &["global-app-view"], &[])
+                    AccessRes::system("global-system", &["app-confirm"], &[])
                 } else {
-                    AccessRes::user(self.res_user_id, "user", &["app-view"], &[])
+                    AccessRes::user(self.res_user_id, "user-app", &["view"], &[])
                 }],
             )
             .await
+    }
+}
+
+impl RbacResTpl for AccessUserAppView {
+    fn tpl_data() -> Vec<ResTpl> {
+        vec![
+            ResTpl {
+                tags: vec!["user"],
+                user: true,
+                key: "user-app",
+                ops: vec!["view"],
+            },
+            ResTpl {
+                tags: vec!["system"],
+                user: false,
+                key: "global-system",
+                ops: vec!["app-confirm"],
+            },
+        ]
     }
 }
 
@@ -292,18 +556,41 @@ pub struct AccessUserAppEdit {
 }
 #[async_trait::async_trait]
 impl RbacCheck for AccessUserAppEdit {
-    async fn check(&self, access: &RbacAccess) -> UserRbacResult<()> {
+    async fn check<'t>(
+        &self,
+        access: &'t RbacAccess,
+        relation: &'t [RoleRelationKey],
+    ) -> UserRbacResult<()> {
         access
             .check(
                 self.user_id,
-                &[],
+                relation,
                 &[if self.res_user_id == 0 {
-                    AccessRes::system("app", &["global-app-edit"], &[])
+                    AccessRes::system("global-user-app", &["edit"], &[])
                 } else {
-                    AccessRes::user(self.res_user_id, "user", &["app-edit"], &[])
+                    AccessRes::user(self.res_user_id, "user-app", &["edit"], &[])
                 }],
             )
             .await
+    }
+}
+
+impl RbacResTpl for AccessUserAppEdit {
+    fn tpl_data() -> Vec<ResTpl> {
+        vec![
+            ResTpl {
+                tags: vec!["user"],
+                user: true,
+                key: "user-app",
+                ops: vec!["edit"],
+            },
+            ResTpl {
+                tags: vec!["system"],
+                user: false,
+                key: "global-user-app",
+                ops: vec!["edit"],
+            },
+        ]
     }
 }
 
@@ -313,22 +600,45 @@ pub struct AccessUserMobileView {
 }
 #[async_trait::async_trait]
 impl RbacCheck for AccessUserMobileView {
-    async fn check(&self, access: &RbacAccess) -> UserRbacResult<()> {
+    async fn check<'t>(
+        &self,
+        access: &'t RbacAccess,
+        relation: &'t [RoleRelationKey],
+    ) -> UserRbacResult<()> {
         access
             .list_check(
                 self.user_id,
-                &[],
+                relation,
                 &[
                     vec![AccessRes::user(
                         self.res_user_id,
-                        "user",
-                        &["mobile-view"],
+                        "user-mobile",
+                        &["view"],
                         &[],
                     )],
-                    vec![AccessRes::system("user", &["global-mobile-view"], &[])],
+                    vec![AccessRes::system("global-user-mobile", &["view"], &[])],
                 ],
             )
             .await
+    }
+}
+
+impl RbacResTpl for AccessUserMobileView {
+    fn tpl_data() -> Vec<ResTpl> {
+        vec![
+            ResTpl {
+                tags: vec!["user"],
+                user: true,
+                key: "user-mobile",
+                ops: vec!["view"],
+            },
+            ResTpl {
+                tags: vec!["system"],
+                user: false,
+                key: "global-user-mobile",
+                ops: vec!["view"],
+            },
+        ]
     }
 }
 
@@ -338,19 +648,23 @@ pub struct AccessUserMobileEdit {
 }
 #[async_trait::async_trait]
 impl RbacCheck for AccessUserMobileEdit {
-    async fn check(&self, access: &RbacAccess) -> UserRbacResult<()> {
+    async fn check<'t>(
+        &self,
+        access: &'t RbacAccess,
+        relation: &'t [RoleRelationKey],
+    ) -> UserRbacResult<()> {
         access
             .list_check(
                 self.user_id,
-                &[],
+                relation,
                 &[
                     vec![AccessRes::user(
                         self.res_user_id,
-                        "user",
-                        &["mobile-edit"],
+                        "user-mobile",
+                        &["edit"],
                         &[],
                     )],
-                    vec![AccessRes::system("user", &["global-mobile-edit"], &[])],
+                    vec![AccessRes::system("global-user-mobile", &["edit"], &[])],
                 ],
             )
             .await
@@ -362,52 +676,23 @@ impl RbacCheck for AccessUserMobileEdit {
         })]
     }
 }
-pub struct AccessAppView {
-    pub app: AppsModel,
-    pub see_app: AppsModel,
-}
-#[async_trait::async_trait]
-impl RbacCheck for AccessAppView {
-    async fn check(&self, access: &RbacAccess) -> UserRbacResult<()> {
-        access
-            .list_check(
-                self.app.user_id,
-                &app_relation_key(&self.app),
-                &[
-                    vec![AccessRes::system(
-                        &format!("app-{}", self.app.id),
-                        &["global-app-view"],
-                        &[],
-                    )],
-                    vec![AccessRes::user(
-                        self.see_app.user_id,
-                        &format!("app-{}", self.app.id),
-                        &["app-view"],
-                        &[],
-                    )],
-                ],
-            )
-            .await
-    }
-}
 
-pub struct AccessAppRbacCheck {
-    pub app: AppsModel,
-}
-#[async_trait::async_trait]
-impl RbacCheck for AccessAppRbacCheck {
-    async fn check(&self, access: &RbacAccess) -> UserRbacResult<()> {
-        access
-            .check(
-                self.app.user_id,
-                &[],
-                &[AccessRes::system(
-                    &format!("app-{}", self.app.id),
-                    &["global-rbac-check"],
-                    &[],
-                )],
-            )
-            .await
+impl RbacResTpl for AccessUserMobileEdit {
+    fn tpl_data() -> Vec<ResTpl> {
+        vec![
+            ResTpl {
+                tags: vec!["user"],
+                user: true,
+                key: "user-mobile",
+                ops: vec!["edit"],
+            },
+            ResTpl {
+                tags: vec!["system"],
+                user: false,
+                key: "global-user-mobile",
+                ops: vec!["edit"],
+            },
+        ]
     }
 }
 
@@ -416,12 +701,16 @@ pub struct AccessUserAppConfirm {
 }
 #[async_trait::async_trait]
 impl RbacCheck for AccessUserAppConfirm {
-    async fn check(&self, access: &RbacAccess) -> UserRbacResult<()> {
+    async fn check<'t>(
+        &self,
+        access: &'t RbacAccess,
+        relation: &'t [RoleRelationKey],
+    ) -> UserRbacResult<()> {
         access
             .check(
                 self.user_id,
-                &[],
-                &[AccessRes::system("app", &["global-app-confirm"], &[])],
+                relation,
+                &[AccessRes::system("global-system", &["app-confirm"], &[])],
             )
             .await
     }
@@ -429,5 +718,16 @@ impl RbacCheck for AccessUserAppConfirm {
         vec![Box::new(AccessAdminManage {
             user_id: self.user_id,
         })]
+    }
+}
+
+impl RbacResTpl for AccessUserAppConfirm {
+    fn tpl_data() -> Vec<ResTpl> {
+        vec![ResTpl {
+            tags: vec!["system"],
+            user: false,
+            key: "global-system",
+            ops: vec!["app-confirm"],
+        }]
     }
 }

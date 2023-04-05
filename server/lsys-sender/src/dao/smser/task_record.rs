@@ -234,7 +234,7 @@ impl SmsTaskRecord {
             .await?;
         Ok(data)
     }
-    pub async fn message_history_count(&self, message_id: &u64) -> Result<i64, sqlx::Error> {
+    pub async fn message_log_count(&self, message_id: &u64) -> Result<i64, sqlx::Error> {
         let sqlwhere = vec![sql_format!("sms_message_id = {}  ", message_id)];
         let sql = sql_format!(
             "select count(*) as total from {} where {}",
@@ -245,7 +245,7 @@ impl SmsTaskRecord {
         let res = query.fetch_one(&self.db).await?;
         Ok(res)
     }
-    pub async fn message_history_list(
+    pub async fn message_log_list(
         &self,
         message_id: &u64,
         page: &Option<PageParam>,

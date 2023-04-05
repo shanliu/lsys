@@ -85,7 +85,7 @@ export function RoleResOpGroupItem(props) {
 
 //资源操作元素显示
 export function ResOpItem(props) {
-    const { name, opKey, onDelete, style,onClick } = props;
+    const { name, opKey, onDelete, style, onClick } = props;
     let delEl;
     if (onDelete) {
         delEl = <RemoveCircleRoundedIcon
@@ -104,14 +104,18 @@ export function ResOpItem(props) {
         />
     }
     let item = <div style={{ marginLeft: 0, borderRadius: 16, color: "#333", background: "#eee", padding: 6, display: "inline-flex", ...style }}>
-        <span onClick={(event)=>{onClick&&onClick(event,{
-            name:name,
-            opKey:opKey
-        })}} style={{ paddingRight: 8, paddingLeft: 8, }}>{name}</span>
-        <span onClick={(event)=>{onClick&&onClick(event,{
-            name:name,
-            opKey:opKey
-        })}} style={{ paddingLeft: 12, paddingRight: 12, paddingBottom: 1, color: "#999", background: "#fff", borderRadius: 12 }}>{opKey}</span>
+        <span onClick={(event) => {
+            onClick && onClick(event, {
+                name: name,
+                opKey: opKey
+            })
+        }} style={{ paddingRight: 8, paddingLeft: 8, cursor: "default" }}>{name}</span>
+        <span onClick={(event) => {
+            onClick && onClick(event, {
+                name: name,
+                opKey: opKey
+            })
+        }} style={{ cursor: "default", paddingLeft: 12, paddingRight: 12, paddingBottom: 1, color: "#999", background: "#fff", borderRadius: 12 }}>{opKey}</span>
         {delEl}
     </div>;
     if (props.tips) {

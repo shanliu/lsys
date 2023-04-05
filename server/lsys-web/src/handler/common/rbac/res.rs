@@ -1,7 +1,17 @@
 use std::sync::Arc;
 
 use crate::{
-    handler::access::{AccessResEdit, AccessResView},
+    handler::access::{
+        AccessAdminAliSmsConfig, AccessAdminManage, AccessAdminSetting, AccessAppSenderDoSms,
+        AccessAppSenderSmsConfig, AccessAppSenderSmsMsg, AccessOauthUserEmail, AccessOauthUserInfo,
+        AccessOauthUserMobile, AccessResEdit, AccessResView, AccessRoleEdit, AccessRoleView,
+        AccessRoleViewList, AccessSubAppRbacCheck, AccessSubAppView, AccessSystemEmailConfirm,
+        AccessSystemLogin, AccessSystemMobileConfirm, AccessSystemReSetPassword,
+        AccessUserAddressEdit, AccessUserAddressView, AccessUserAppConfirm, AccessUserAppEdit,
+        AccessUserAppView, AccessUserEmailEdit, AccessUserEmailView, AccessUserExternalEdit,
+        AccessUserInfoEdit, AccessUserMobileEdit, AccessUserMobileView, AccessUserNameEdit,
+        AccessUserSetPassword,
+    },
     PageParam, {JsonData, JsonResult},
 };
 
@@ -46,10 +56,13 @@ pub async fn rbac_res_add(
     let add_user_id = param.user_id.unwrap_or(user_id);
     rbac_dao
         .rbac
-        .check(&AccessResEdit {
-            user_id,
-            res_user_id: add_user_id,
-        })
+        .check(
+            &AccessResEdit {
+                user_id,
+                res_user_id: add_user_id,
+            },
+            None,
+        )
         .await?;
 
     let dao = &rbac_dao.rbac.res;
@@ -92,7 +105,6 @@ pub async fn rbac_res_add(
 #[derive(Debug, Deserialize)]
 pub struct ResEditParam {
     pub res_id: u64,
-    pub key: Option<String>,
     pub name: Option<String>,
     pub ops: Option<Vec<ResOpParam>>,
     pub tags: Option<Vec<String>>,
@@ -107,10 +119,13 @@ pub async fn rbac_res_edit(
     let res = dao.find_by_id(&param.res_id).await?;
     rbac_dao
         .rbac
-        .check(&AccessResEdit {
-            user_id,
-            res_user_id: res.user_id,
-        })
+        .check(
+            &AccessResEdit {
+                user_id,
+                res_user_id: res.user_id,
+            },
+            None,
+        )
         .await?;
 
     let mut transaction = rbac_dao.db.begin().await?;
@@ -169,10 +184,13 @@ pub async fn rbac_res_delete(
     let res = resdao.find_by_id(&param.res_id).await?;
     rbac_dao
         .rbac
-        .check(&AccessResEdit {
-            user_id,
-            res_user_id: res.user_id,
-        })
+        .check(
+            &AccessResEdit {
+                user_id,
+                res_user_id: res.user_id,
+            },
+            None,
+        )
         .await?;
     resdao.del_res(&res, user_id, None).await?;
     Ok(JsonData::message("del succ"))
@@ -190,10 +208,13 @@ pub async fn rbac_res_tags(
     let see_user_id = param.user_id.unwrap_or(user_id);
     rbac_dao
         .rbac
-        .check(&AccessResView {
-            user_id,
-            res_user_id: see_user_id,
-        })
+        .check(
+            &AccessResView {
+                user_id,
+                res_user_id: see_user_id,
+            },
+            None,
+        )
         .await?;
     let out = rbac_dao.rbac.res.user_res_tags(see_user_id).await?;
     Ok(JsonData::message("tags data").set_data(json!({ "data": out })))
@@ -225,10 +246,13 @@ pub async fn rbac_res_list_data(
     let see_user_id = param.user_id.unwrap_or(user_id);
     rbac_dao
         .rbac
-        .check(&AccessResView {
-            user_id,
-            res_user_id: see_user_id,
-        })
+        .check(
+            &AccessResView {
+                user_id,
+                res_user_id: see_user_id,
+            },
+            None,
+        )
         .await?;
 
     let dao = &rbac_dao.rbac.data;
@@ -285,21 +309,47 @@ pub struct ResAllParam {
 }
 
 //资源授权
-pub async fn rbac_all_res_list(
-    param: ResAllParam,
-    rbac_dao: &RbacDao,
-    user_id: u64,
-) -> JsonResult<JsonData> {
-    rbac_dao
-        .rbac
-        .check(&AccessResView {
-            user_id,
-            res_user_id: user_id,
-        })
-        .await?;
-    let res = access_res_tpl!(AccessResView, AccessResEdit)
-        .into_iter()
-        .filter(|e| param.global_res.unwrap_or(false) != e.user)
-        .collect::<Vec<_>>();
+pub async fn rbac_all_res_list(param: ResAllParam) -> JsonResult<JsonData> {
+    let res = access_res_tpl!(
+        AccessAdminManage,
+        AccessAdminSetting,
+        AccessAppSenderDoSms,
+        AccessSubAppView,
+        AccessSubAppRbacCheck,
+        AccessOauthUserInfo,
+        AccessOauthUserEmail,
+        AccessOauthUserMobile,
+        AccessAdminAliSmsConfig,
+        AccessAppSenderSmsConfig,
+        AccessAppSenderSmsMsg,
+        AccessResView,
+        AccessResEdit,
+        AccessRoleView,
+        AccessRoleEdit,
+        AccessRoleViewList,
+        AccessUserAppConfirm,
+        AccessUserMobileEdit,
+        AccessUserMobileView,
+        AccessUserAppEdit,
+        AccessUserAppView,
+        AccessUserEmailEdit,
+        AccessUserEmailView,
+        AccessUserInfoEdit,
+        AccessUserNameEdit,
+        AccessUserAddressEdit,
+        AccessUserAddressView,
+        AccessSystemLogin,
+        AccessSystemEmailConfirm,
+        AccessSystemMobileConfirm,
+        AccessSystemReSetPassword,
+        AccessUserExternalEdit,
+        AccessUserSetPassword
+    )
+    .into_iter()
+    .filter(|e| match param.global_res {
+        Some(g) => g != e.user,
+        None => true,
+    })
+    .collect::<Vec<_>>();
     Ok(JsonData::message("res data").set_data(json!({ "data": res })))
 }

@@ -1,6 +1,6 @@
 use crate::{
     dao::RequestDao,
-    handler::access::{AccessAdminAliSmsConfig, AccessAppSender},
+    handler::access::{AccessAdminAliSmsConfig, AccessAppSenderSmsConfig},
     {JsonData, JsonResult},
 };
 use lsys_sender::model::{SenderAliyunConfigStatus, SenderSmsAliyunStatus};
@@ -32,9 +32,12 @@ pub async fn smser_ali_config_list<
             .user
             .rbac_dao
             .rbac
-            .check(&AccessAdminAliSmsConfig {
-                user_id: req_auth.user_data().user_id,
-            })
+            .check(
+                &AccessAdminAliSmsConfig {
+                    user_id: req_auth.user_data().user_id,
+                },
+                None,
+            )
             .await?;
         json!({ "data": row })
     } else {
@@ -71,9 +74,12 @@ pub async fn smser_ali_config_add<'t, T: SessionTokenData, D: SessionData, S: Us
         .user
         .rbac_dao
         .rbac
-        .check(&AccessAdminAliSmsConfig {
-            user_id: req_auth.user_data().user_id,
-        })
+        .check(
+            &AccessAdminAliSmsConfig {
+                user_id: req_auth.user_data().user_id,
+            },
+            None,
+        )
         .await?;
     let alisender = &req_dao.web_dao.smser.aliyun_sender;
     let row = alisender
@@ -110,9 +116,12 @@ pub async fn smser_ali_config_edit<
         .user
         .rbac_dao
         .rbac
-        .check(&AccessAdminAliSmsConfig {
-            user_id: req_auth.user_data().user_id,
-        })
+        .check(
+            &AccessAdminAliSmsConfig {
+                user_id: req_auth.user_data().user_id,
+            },
+            None,
+        )
         .await?;
     let alisender = &req_dao.web_dao.smser.aliyun_sender;
     let config = alisender.find_config_by_id(&param.id).await?;
@@ -143,9 +152,12 @@ pub async fn smser_ali_config_del<'t, T: SessionTokenData, D: SessionData, S: Us
         .user
         .rbac_dao
         .rbac
-        .check(&AccessAdminAliSmsConfig {
-            user_id: req_auth.user_data().user_id,
-        })
+        .check(
+            &AccessAdminAliSmsConfig {
+                user_id: req_auth.user_data().user_id,
+            },
+            None,
+        )
         .await?;
     let alisender = &req_dao.web_dao.smser.aliyun_sender;
     let config = alisender.find_config_by_id(&param.id).await?;
@@ -184,11 +196,14 @@ pub async fn smser_app_ali_config_del<
         .user
         .rbac_dao
         .rbac
-        .check(&AccessAppSender {
-            user_id: req_auth.user_data().user_id,
-            res_user_id: req_auth.user_data().user_id,
-            app_id: config.app_id,
-        })
+        .check(
+            &AccessAppSenderSmsConfig {
+                user_id: req_auth.user_data().user_id,
+                res_user_id: config.user_id,
+                app_id: config.app_id,
+            },
+            None,
+        )
         .await?;
 
     let row = alisender
@@ -226,11 +241,14 @@ pub async fn smser_app_ali_config_add<
         .user
         .rbac_dao
         .rbac
-        .check(&AccessAppSender {
-            user_id: req_auth.user_data().user_id,
-            res_user_id: uid,
-            app_id: param.app_id,
-        })
+        .check(
+            &AccessAppSenderSmsConfig {
+                user_id: req_auth.user_data().user_id,
+                res_user_id: uid,
+                app_id: param.app_id,
+            },
+            None,
+        )
         .await?;
 
     let alisender = &req_dao.web_dao.smser.aliyun_sender;
@@ -275,11 +293,14 @@ pub async fn smser_app_ali_config_list<
         .user
         .rbac_dao
         .rbac
-        .check(&AccessAppSender {
-            user_id: req_auth.user_data().user_id,
-            res_user_id: param.user_id.unwrap_or(req_auth.user_data().user_id),
-            app_id: param.app_id.unwrap_or_default(),
-        })
+        .check(
+            &AccessAppSenderSmsConfig {
+                user_id: req_auth.user_data().user_id,
+                res_user_id: param.user_id.unwrap_or(req_auth.user_data().user_id),
+                app_id: param.app_id.unwrap_or_default(),
+            },
+            None,
+        )
         .await?;
 
     let alisender = &req_dao.web_dao.smser.aliyun_sender;

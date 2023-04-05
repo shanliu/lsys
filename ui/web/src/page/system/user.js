@@ -152,12 +152,13 @@ export default function SystemUserPage(props) {
             user_id: parseInt(userData.user_data.user_id),
             status: searchParam.get("status"),
             client_id: searchParam.get("client_id"),
-            page: searchParam.get("page")||0,
-            page_size: searchParam.get("page_size")||10
+            page: searchParam.get("page") || 0,
+            page_size: searchParam.get("page_size") || 10
         }).then((data) => {
             setLoadData({
                 ...loadData,
                 ...data,
+                data: data.status ? data.data : [],
                 loading: false
             })
         })

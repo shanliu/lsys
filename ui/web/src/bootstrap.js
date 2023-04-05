@@ -12,9 +12,10 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import React, { Fragment, useEffect, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router';
-import { useRouteError } from 'react-router-dom';
+import { Link, useRouteError } from 'react-router-dom';
 import { SessionClear, UserSessionContext } from './context/session';
 import { logout } from './rest/login';
+
 
 
 
@@ -112,8 +113,8 @@ export function LayoutAppBar(props) {
                 <Typography
                     variant="h6"
                     noWrap
-                    component="a"
-                    href="/"
+                    component={Link}
+                    to="/"
                     sx={{
                         mr: 2,
                         display: { xs: 'none', md: 'flex' },
@@ -124,7 +125,7 @@ export function LayoutAppBar(props) {
                         textDecoration: 'none',
                     }}
                 >
-                    RBAC
+                    LSYS
                 </Typography>
                 <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' } }}>
                     {/* <Button

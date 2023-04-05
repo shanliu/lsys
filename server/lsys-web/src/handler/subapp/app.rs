@@ -4,7 +4,7 @@ use serde_json::json;
 
 use crate::dao::WebDao;
 
-use crate::handler::access::AccessAppView;
+use crate::handler::access::AccessSubAppView;
 use crate::{JsonData, JsonResult};
 
 #[derive(Debug, Deserialize)]
@@ -19,7 +19,7 @@ pub async fn subapp_view(
 ) -> JsonResult<JsonData> {
     // 请求   -> 模块
     //   -> 系统分配appid
-    //   -> 系统[访问用户+查询指定appid组成的关系key,检查权限[资源id:global-app-access-{appid}]]
+    //   -> 系统[访问用户+查询指定appid组成的关系key,检查权限[资源id:app-{appid}]]
     //   -> 返回查询appid密钥
     let out_app = app_dao
         .app
@@ -32,10 +32,13 @@ pub async fn subapp_view(
         .user
         .rbac_dao
         .rbac
-        .check(&AccessAppView {
-            app: app.clone(),
-            see_app: out_app.clone(),
-        })
+        .check(
+            &AccessSubAppView {
+                app: app.clone(),
+                see_app: out_app.clone(),
+            },
+            None,
+        )
         .await?;
 
     Ok(JsonData::message("app data").set_data(json!({

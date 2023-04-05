@@ -39,7 +39,7 @@ function UserResSelect(props) {
     const [resData, setResData] = useState({
         loading: false,
         next: true,
-        page: 1,
+        page: 0,
         show: 10,
         items: [],
         item_ops: [],
@@ -750,6 +750,7 @@ function UserRoleListUser(props) {
             loading: true
         })
         roleListUser({
+            role_id: roleId,
             op_user_id: userDataParam.op_user_id,
             page: userDataParam.page,
             page_size: userDataParam.page_size

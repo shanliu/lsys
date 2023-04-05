@@ -10,7 +10,7 @@ POST {{user_url}}/res/all
 Authorization: {{jwt_token}}
 
 {
-    "global_res":false
+  //  "global_res":true
 }
 
 ### 用户已配置资源列表

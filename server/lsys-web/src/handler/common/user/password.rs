@@ -30,10 +30,13 @@ pub async fn user_set_password<'t, T: SessionTokenData, D: SessionData, S: UserS
         .user
         .rbac_dao
         .rbac
-        .check(&AccessUserSetPassword {
-            user_id: req_auth.user_data().user_id,
-            res_user_id: req_auth.user_data().user_id,
-        })
+        .check(
+            &AccessUserSetPassword {
+                user_id: req_auth.user_data().user_id,
+                res_user_id: req_auth.user_data().user_id,
+            },
+            None,
+        )
         .await?;
 
     let user_password = &req_dao.web_dao.user.user_dao.user_account.user_password;
@@ -257,7 +260,7 @@ async fn reset_password<'t, T: SessionTokenData, D: SessionData, S: UserSession<
         .user
         .rbac_dao
         .rbac
-        .check(&AccessSystemReSetPassword {})
+        .check(&AccessSystemReSetPassword {}, None)
         .await?;
 
     let user = req_dao

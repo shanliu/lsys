@@ -161,12 +161,13 @@ export default function UserLoginHistroyPage(props) {
             login_type: searchParam.get("login_type"),
             login_account: searchParam.get("login_account"),
             is_login: searchParam.get("is_login"),
-            page: searchParam.get("page")||0,
-            page_size: searchParam.get("page_size")||10
+            page: searchParam.get("page") || 0,
+            page_size: searchParam.get("page_size") || 10
         }).then((data) => {
             setLoadData({
                 ...loadData,
                 ...data,
+                data: data.status ? data.data : [],
                 loading: false
             })
         })

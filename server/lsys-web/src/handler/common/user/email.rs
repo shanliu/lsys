@@ -29,10 +29,13 @@ pub async fn user_email_add<'t, T: SessionTokenData, D: SessionData, S: UserSess
         .user
         .rbac_dao
         .rbac
-        .check(&AccessUserEmailEdit {
-            user_id: req_auth.user_data().user_id,
-            res_user_id: req_auth.user_data().user_id,
-        })
+        .check(
+            &AccessUserEmailEdit {
+                user_id: req_auth.user_data().user_id,
+                res_user_id: req_auth.user_data().user_id,
+            },
+            None,
+        )
         .await?;
 
     let status = lsys_user::model::UserEmailStatus::Init;
@@ -102,10 +105,13 @@ pub async fn user_email_send_code<'t, T: SessionTokenData, D: SessionData, S: Us
         .user
         .rbac_dao
         .rbac
-        .check(&AccessUserEmailEdit {
-            user_id: req_auth.user_data().user_id,
-            res_user_id: email.user_id,
-        })
+        .check(
+            &AccessUserEmailEdit {
+                user_id: req_auth.user_data().user_id,
+                res_user_id: email.user_id,
+            },
+            None,
+        )
         .await?;
 
     let res = req_dao
@@ -160,7 +166,7 @@ pub async fn user_email_confirm<'t, T: SessionTokenData, D: SessionData, S: User
             .user
             .rbac_dao
             .rbac
-            .check(&AccessSystemEmailConfirm {})
+            .check(&AccessSystemEmailConfirm {}, None)
             .await?;
 
         req_dao
@@ -203,10 +209,13 @@ pub async fn user_email_delete<'t, T: SessionTokenData, D: SessionData, S: UserS
                     .user
                     .rbac_dao
                     .rbac
-                    .check(&AccessUserEmailEdit {
-                        user_id: req_auth.user_data().user_id,
-                        res_user_id: email.user_id,
-                    })
+                    .check(
+                        &AccessUserEmailEdit {
+                            user_id: req_auth.user_data().user_id,
+                            res_user_id: email.user_id,
+                        },
+                        None,
+                    )
                     .await?;
 
                 req_dao
@@ -243,10 +252,13 @@ pub async fn user_email_list_data<'t, T: SessionTokenData, D: SessionData, S: Us
         .user
         .rbac_dao
         .rbac
-        .check(&AccessUserEmailView {
-            user_id: req_auth.user_data().user_id,
-            res_user_id: req_auth.user_data().user_id,
-        })
+        .check(
+            &AccessUserEmailView {
+                user_id: req_auth.user_data().user_id,
+                res_user_id: req_auth.user_data().user_id,
+            },
+            None,
+        )
         .await?;
 
     let status = if let Some(e) = param.status {

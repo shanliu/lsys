@@ -27,10 +27,13 @@ pub async fn user_info_set_username<
         .user
         .rbac_dao
         .rbac
-        .check(&AccessUserNameEdit {
-            user_id: req_auth.user_data().user_id,
-            res_user_id: req_auth.user_data().user_id,
-        })
+        .check(
+            &AccessUserNameEdit {
+                user_id: req_auth.user_data().user_id,
+                res_user_id: req_auth.user_data().user_id,
+            },
+            None,
+        )
         .await?;
     let user = req_dao
         .web_dao
@@ -76,10 +79,13 @@ pub async fn user_info_check_username<
         .user
         .rbac_dao
         .rbac
-        .check(&AccessUserNameEdit {
-            user_id: req_auth.user_data().user_id,
-            res_user_id: req_auth.user_data().user_id,
-        })
+        .check(
+            &AccessUserNameEdit {
+                user_id: req_auth.user_data().user_id,
+                res_user_id: req_auth.user_data().user_id,
+            },
+            None,
+        )
         .await?;
     let user_res = req_dao
         .web_dao
@@ -119,10 +125,13 @@ pub async fn user_info_set_data<'t, T: SessionTokenData, D: SessionData, S: User
         .user
         .rbac_dao
         .rbac
-        .check(&AccessUserInfoEdit {
-            user_id: req_auth.user_data().user_id,
-            res_user_id: req_auth.user_data().user_id,
-        })
+        .check(
+            &AccessUserInfoEdit {
+                user_id: req_auth.user_data().user_id,
+                res_user_id: req_auth.user_data().user_id,
+            },
+            None,
+        )
         .await?;
 
     let user = req_dao
@@ -183,10 +192,13 @@ pub async fn password_last_modify<'t, T: SessionTokenData, D: SessionData, S: Us
         .user
         .rbac_dao
         .rbac
-        .check(&AccessUserInfoEdit {
-            user_id: req_auth.user_data().user_id,
-            res_user_id: req_auth.user_data().user_id,
-        })
+        .check(
+            &AccessUserInfoEdit {
+                user_id: req_auth.user_data().user_id,
+                res_user_id: req_auth.user_data().user_id,
+            },
+            None,
+        )
         .await?;
 
     let user = req_dao

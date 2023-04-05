@@ -1,10 +1,7 @@
 use std::{convert::TryFrom, sync::Arc};
 
 use crate::{
-    handler::access::{
-        AccessUserRoleAdd, AccessUserRoleEdit, AccessUserRoleView, AccessUserRoleViewList,
-        RoleOpCheck,
-    },
+    handler::access::{AccessRoleEdit, AccessRoleView, AccessRoleViewList, RoleOpCheck},
     {
         PageParam, {JsonData, JsonResult},
     },
@@ -42,16 +39,6 @@ pub struct RoleOpParam {
     op_id: u64,
     op_positivity: i8,
 }
-
-// impl From<RoleOpParam> for RoleSetOp {
-//     fn from(p: RoleOpParam) -> Self {
-//         RoleSetOp {
-//             res_op_id: p.op_id,
-//             res_op_positivity: RbacRoleOpPositivity::try_from(p.op_positivity)
-//                 .unwrap_or(RbacRoleOpPositivity::Allow),
-//         }
-//     }
-// }
 
 #[derive(Debug, Deserialize)]
 pub struct RoleAddParam {
@@ -148,12 +135,15 @@ pub async fn rbac_role_add(
     let res_op_check = rbac_role_get_res_check(&param.role_ops, &res_ops).await?;
     rbac_dao
         .rbac
-        .check(&AccessUserRoleAdd {
-            user_id,
-            res_user_id: see_user_id,
-            op_range: param.role_op_range,
-            op_param: res_op_check,
-        })
+        .check(
+            &AccessRoleEdit {
+                user_id,
+                res_user_id: see_user_id,
+                op_range: Some(param.role_op_range),
+                op_param: res_op_check,
+            },
+            None,
+        )
         .await?;
     let dao = &rbac_dao.rbac.role;
     let mut transaction = rbac_dao.db.begin().await?;
@@ -268,12 +258,15 @@ pub async fn rbac_role_edit(
 
     rbac_dao
         .rbac
-        .check(&AccessUserRoleEdit {
-            user_id,
-            res_user_id: role.user_id,
-            op_range: param.role_op_range,
-            op_param: res_op_check,
-        })
+        .check(
+            &AccessRoleEdit {
+                user_id,
+                res_user_id: role.user_id,
+                op_range: param.role_op_range,
+                op_param: res_op_check,
+            },
+            None,
+        )
         .await?;
 
     let mut transaction = rbac_dao.db.begin().await?;
@@ -377,10 +370,13 @@ pub async fn rbac_role_list_user(
     if !user_ids.is_empty() {
         rbac_dao
             .rbac
-            .check(&AccessUserRoleViewList {
-                user_id,
-                res_user_ids: user_ids,
-            })
+            .check(
+                &AccessRoleViewList {
+                    user_id,
+                    res_user_ids: user_ids,
+                },
+                None,
+            )
             .await?;
     }
     let rid = role.keys().map(|e| e.to_owned()).collect::<Vec<u64>>();
@@ -410,12 +406,15 @@ pub async fn rbac_role_add_user(
 
     rbac_dao
         .rbac
-        .check(&AccessUserRoleEdit {
-            user_id,
-            res_user_id: role.user_id,
-            op_range: None,
-            op_param: None,
-        })
+        .check(
+            &AccessRoleEdit {
+                user_id,
+                res_user_id: role.user_id,
+                op_range: None,
+                op_param: None,
+            },
+            None,
+        )
         .await?;
 
     let user_vec = param
@@ -442,12 +441,15 @@ pub async fn rbac_role_delete_user(
 
     rbac_dao
         .rbac
-        .check(&AccessUserRoleEdit {
-            user_id,
-            res_user_id: role.user_id,
-            op_range: None,
-            op_param: None,
-        })
+        .check(
+            &AccessRoleEdit {
+                user_id,
+                res_user_id: role.user_id,
+                op_range: None,
+                op_param: None,
+            },
+            None,
+        )
         .await?;
 
     dao.role_del_user(&role, &param.user_vec, user_id, None)
@@ -469,12 +471,15 @@ pub async fn rbac_role_delete(
 
     rbac_dao
         .rbac
-        .check(&AccessUserRoleEdit {
-            user_id,
-            res_user_id: role.user_id,
-            op_range: None,
-            op_param: None,
-        })
+        .check(
+            &AccessRoleEdit {
+                user_id,
+                res_user_id: role.user_id,
+                op_range: None,
+                op_param: None,
+            },
+            None,
+        )
         .await?;
 
     dao.del_role(&role, user_id, None).await?;
@@ -522,10 +527,13 @@ pub async fn rbac_role_list_data(
 
     rbac_dao
         .rbac
-        .check(&AccessUserRoleView {
-            user_id,
-            res_user_id: see_user_id,
-        })
+        .check(
+            &AccessRoleView {
+                user_id,
+                res_user_id: see_user_id,
+            },
+            None,
+        )
         .await?;
 
     let dao = &rbac_dao.rbac.data;
@@ -633,10 +641,13 @@ pub async fn rbac_role_tags(
 
     rbac_dao
         .rbac
-        .check(&AccessUserRoleView {
-            user_id,
-            res_user_id: see_user_id,
-        })
+        .check(
+            &AccessRoleView {
+                user_id,
+                res_user_id: see_user_id,
+            },
+            None,
+        )
         .await?;
 
     let out = rbac_dao.rbac.role.user_role_tags(see_user_id).await?;
@@ -704,12 +715,15 @@ pub async fn rbac_user_role_options(
         if see_user_id == 0 {
             if rbac_dao
                 .rbac
-                .check(&AccessUserRoleAdd {
-                    user_id,
-                    res_user_id: 0,
-                    op_range: RbacRoleResOpRange::AllowAll as i8,
-                    op_param: None,
-                })
+                .check(
+                    &AccessRoleEdit {
+                        user_id,
+                        res_user_id: 0,
+                        op_range: Some(RbacRoleResOpRange::AllowAll as i8),
+                        op_param: None,
+                    },
+                    None,
+                )
                 .await
                 .is_ok()
             {
@@ -720,12 +734,15 @@ pub async fn rbac_user_role_options(
             }
             if rbac_dao
                 .rbac
-                .check(&AccessUserRoleAdd {
-                    user_id,
-                    res_user_id: 0,
-                    op_range: RbacRoleResOpRange::DenyAll as i8,
-                    op_param: None,
-                })
+                .check(
+                    &AccessRoleEdit {
+                        user_id,
+                        res_user_id: 0,
+                        op_range: Some(RbacRoleResOpRange::DenyAll as i8),
+                        op_param: None,
+                    },
+                    None,
+                )
                 .await
                 .is_ok()
             {

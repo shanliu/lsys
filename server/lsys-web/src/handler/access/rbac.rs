@@ -1,7 +1,7 @@
 use lsys_rbac::{
     dao::{
-        AccessRes, RbacAccess, RbacCheck, RbacCheckDepend, RbacResTpl, ResTpl, UserRbacError,
-        UserRbacResult,
+        AccessRes, RbacAccess, RbacCheck, RbacCheckDepend, RbacResTpl, ResTpl, RoleRelationKey,
+        UserRbacError, UserRbacResult,
     },
     model::RbacRoleResOpRange,
 };
@@ -12,11 +12,15 @@ pub struct AccessResEdit {
 }
 #[async_trait::async_trait]
 impl RbacCheck for AccessResEdit {
-    async fn check(&self, access: &RbacAccess) -> UserRbacResult<()> {
+    async fn check<'t>(
+        &self,
+        access: &'t RbacAccess,
+        relation: &'t [RoleRelationKey],
+    ) -> UserRbacResult<()> {
         access
             .check(
                 self.user_id,
-                &[],
+                relation,
                 &[AccessRes::system("global-rbac-res", &["edit"], &[])],
             )
             .await
@@ -31,7 +35,7 @@ impl RbacCheck for AccessResEdit {
 impl RbacResTpl for AccessResEdit {
     fn tpl_data() -> Vec<ResTpl> {
         vec![ResTpl {
-            tags: vec![],
+            tags: vec!["rbac", "res"],
             user: false,
             key: "global-rbac-res",
             ops: vec!["edit"],
@@ -45,94 +49,107 @@ pub struct AccessResView {
 }
 #[async_trait::async_trait]
 impl RbacCheck for AccessResView {
-    async fn check(&self, access: &RbacAccess) -> UserRbacResult<()> {
-        access
-            .check(
-                self.user_id,
-                &[],
-                &[AccessRes::system("global-rbac-res", &["view"], &[])],
-            )
-            .await
+    async fn check<'t>(
+        &self,
+        access: &'t RbacAccess,
+        relation: &'t [RoleRelationKey],
+    ) -> UserRbacResult<()> {
+        if self.res_user_id > 0 {
+            access
+                .list_check(
+                    self.user_id,
+                    relation,
+                    &[
+                        vec![AccessRes::user(
+                            self.res_user_id,
+                            "rbac-res",
+                            &["view"],
+                            &[],
+                        )],
+                        vec![AccessRes::system("global-rbac-res", &["view"], &[])],
+                    ],
+                )
+                .await
+        } else {
+            access
+                .check(
+                    self.user_id,
+                    relation,
+                    &[AccessRes::system("global-rbac-res", &["view"], &[])],
+                )
+                .await
+        }
     }
 }
 impl RbacResTpl for AccessResView {
     fn tpl_data() -> Vec<ResTpl> {
-        vec![ResTpl {
-            tags: vec![],
-            user: false,
-            key: "global-rbac-res",
-            ops: vec!["view"],
-        }]
+        vec![
+            ResTpl {
+                tags: vec!["rbac", "res"],
+                user: true,
+                key: "rbac-res",
+                ops: vec!["view"],
+            },
+            ResTpl {
+                tags: vec!["rbac", "res"],
+                user: false,
+                key: "global-rbac-res",
+                ops: vec!["view"],
+            },
+        ]
     }
 }
 
-pub struct AccessUserResEdit {
-    pub user_id: u64,
-}
-#[async_trait::async_trait]
-impl RbacCheck for AccessUserResEdit {
-    async fn check(&self, access: &RbacAccess) -> UserRbacResult<()> {
-        access
-            .check(
-                self.user_id,
-                &[],
-                &[
-                    //自己不能管理自己资源,通过系统权限管理
-                    AccessRes::system("rbac", &["global-res-view", "global-res-change"], &[]),
-                    AccessRes::system("admin", &["main"], &[]),
-                ],
-            )
-            .await
-    }
-}
-
-pub struct AccessUserResView {
+pub struct AccessRoleView {
     pub user_id: u64,
     pub res_user_id: u64,
 }
 #[async_trait::async_trait]
-impl RbacCheck for AccessUserResView {
-    async fn check(&self, access: &RbacAccess) -> UserRbacResult<()> {
+impl RbacCheck for AccessRoleView {
+    async fn check<'t>(
+        &self,
+        access: &'t RbacAccess,
+        relation: &'t [RoleRelationKey],
+    ) -> UserRbacResult<()> {
         access
             .list_check(
                 self.user_id,
-                &[],
+                relation,
                 &[
                     vec![AccessRes::user(
                         self.res_user_id,
-                        "rbac",
-                        &["res-view"],
+                        "rbac-role",
+                        &["view"],
                         &[],
                     )],
-                    vec![AccessRes::system("rbac", &["global-res-view"], &[])],
+                    vec![AccessRes::system("global-rbac-role", &["view"], &[])],
                 ],
             )
             .await
     }
+    fn depends(&self) -> Vec<Box<RbacCheckDepend>> {
+        vec![Box::new(AccessResView {
+            user_id: self.user_id,
+            res_user_id: self.res_user_id,
+        })]
+    }
 }
-
-pub struct AccessUserRoleView {
-    pub user_id: u64,
-    pub res_user_id: u64,
-}
-#[async_trait::async_trait]
-impl RbacCheck for AccessUserRoleView {
-    async fn check(&self, access: &RbacAccess) -> UserRbacResult<()> {
-        access
-            .list_check(
-                self.user_id,
-                &[],
-                &[
-                    vec![AccessRes::user(
-                        self.res_user_id,
-                        "rbac",
-                        &["role-view"],
-                        &[],
-                    )],
-                    vec![AccessRes::system("rbac", &["global-role-view"], &[])],
-                ],
-            )
-            .await
+impl RbacResTpl for AccessRoleView {
+    fn tpl_data() -> Vec<ResTpl> {
+        vec![
+            ResTpl {
+                tags: vec!["rbac", "role"],
+                user: true,
+                key: "rbac-role",
+                ops: vec!["view"],
+            },
+            ResTpl {
+                tags: vec!["rbac", "role"],
+                user: false,
+                key: "global-rbac-role",
+                ops: vec!["view"],
+            },
+        ]
     }
 }
 
@@ -141,70 +158,19 @@ pub struct RoleOpCheck {
     pub op_user_id: u64,
 }
 
-pub struct AccessUserRoleAdd {
+pub struct AccessRoleEdit {
     pub user_id: u64,
-    pub res_user_id: u64,
-    pub op_range: i8,                       //权限操作范围
-    pub op_param: Option<Vec<RoleOpCheck>>, //权限操作相关参数
-}
-#[async_trait::async_trait]
-impl RbacCheck for AccessUserRoleAdd {
-    async fn check(&self, access: &RbacAccess) -> UserRbacResult<()> {
-        if let Some(ref rop) = self.op_param {
-            for tmp in rop {
-                if self.res_user_id > 0 && tmp.op_user_id != self.res_user_id {
-                    return Err(UserRbacError::Check(vec![(
-                        "bad-user".to_string(),
-                        "can't add other user res to your role".to_string(),
-                    )]));
-                }
-            }
-        }
-        //添加不同数据需要不同权限
-        let mut gres = vec![AccessRes::user(
-            self.res_user_id,
-            "rbac",
-            &["role-change"],
-            &[],
-        )];
-        if RbacRoleResOpRange::AllowAll.eq(self.op_range) {
-            gres.push(AccessRes::system("rbac", &["role-allow-res"], &[]));
-        } else if RbacRoleResOpRange::DenyAll.eq(self.op_range) {
-            gres.push(AccessRes::system("rbac", &["role-deny-res"], &[]));
-        }
-        access
-            .list_check(
-                self.user_id,
-                &[],
-                &[
-                    gres,
-                    vec![AccessRes::user(
-                        self.res_user_id,
-                        "rbac",
-                        &["global-role-change"],
-                        &[],
-                    )],
-                ],
-            )
-            .await
-    }
-    fn depends(&self) -> Vec<Box<RbacCheckDepend>> {
-        vec![Box::new(AccessUserResView {
-            user_id: self.user_id,
-            res_user_id: self.res_user_id,
-        })]
-    }
-}
-
-pub struct AccessUserRoleEdit {
-    pub user_id: u64,
-    pub res_user_id: u64,
+    pub res_user_id: u64,                   //当为0时表示系统资源
     pub op_range: Option<i8>,               //权限操作范围
     pub op_param: Option<Vec<RoleOpCheck>>, //权限操作相关参数
 }
 #[async_trait::async_trait]
-impl RbacCheck for AccessUserRoleEdit {
-    async fn check(&self, access: &RbacAccess) -> UserRbacResult<()> {
+impl RbacCheck for AccessRoleEdit {
+    async fn check<'t>(
+        &self,
+        access: &'t RbacAccess,
+        relation: &'t [RoleRelationKey],
+    ) -> UserRbacResult<()> {
         if let Some(ref rop) = self.op_param {
             for tmp in rop {
                 if self.res_user_id > 0 && tmp.op_user_id != self.res_user_id {
@@ -218,46 +184,64 @@ impl RbacCheck for AccessUserRoleEdit {
         //添加不同数据需要不同权限
         let mut gres = vec![AccessRes::user(
             self.res_user_id,
-            "rbac",
-            &["role-change"],
+            "rbac-role",
+            &["change"],
             &[],
         )];
+        //操作范围为全局,必须有全局权限
         if RbacRoleResOpRange::AllowAll.eq(self.op_range.unwrap_or(0)) {
-            gres.push(AccessRes::system("rbac", &["role-allow-res"], &[]));
+            gres.push(AccessRes::system("global-rbac-role", &["allow-res"], &[]));
         } else if RbacRoleResOpRange::DenyAll.eq(self.op_range.unwrap_or(0)) {
-            gres.push(AccessRes::system("rbac", &["role-deny-res"], &[]));
+            gres.push(AccessRes::system("global-rbac-role", &["deny-res"], &[]));
         }
         access
             .list_check(
                 self.user_id,
-                &[],
+                relation,
                 &[
                     gres,
-                    vec![AccessRes::user(
-                        self.res_user_id,
-                        "rbac",
-                        &["global-role-change"],
-                        &[],
-                    )],
+                    vec![AccessRes::system("global-rbac-role", &["change-all"], &[])],
                 ],
             )
             .await
     }
     fn depends(&self) -> Vec<Box<RbacCheckDepend>> {
-        vec![Box::new(AccessUserResView {
+        vec![Box::new(AccessResView {
             user_id: self.user_id,
             res_user_id: self.res_user_id,
         })]
     }
 }
+impl RbacResTpl for AccessRoleEdit {
+    fn tpl_data() -> Vec<ResTpl> {
+        vec![
+            ResTpl {
+                tags: vec!["rbac", "role"],
+                user: true,
+                key: "rbac-role",
+                ops: vec!["change"],
+            },
+            ResTpl {
+                tags: vec!["rbac", "role"],
+                user: false,
+                key: "global-rbac-role",
+                ops: vec!["change-all", "allow-res", "deny-res"],
+            },
+        ]
+    }
+}
 
-pub struct AccessUserRoleViewList {
+pub struct AccessRoleViewList {
     pub user_id: u64,
     pub res_user_ids: Vec<u64>,
 }
 #[async_trait::async_trait]
-impl RbacCheck for AccessUserRoleViewList {
-    async fn check(&self, access: &RbacAccess) -> UserRbacResult<()> {
+impl RbacCheck for AccessRoleViewList {
+    async fn check<'t>(
+        &self,
+        access: &'t RbacAccess,
+        relation: &'t [RoleRelationKey],
+    ) -> UserRbacResult<()> {
         if self.res_user_ids.is_empty() {
             Ok(())
         } else {
@@ -267,43 +251,36 @@ impl RbacCheck for AccessUserRoleViewList {
                 .into_iter()
                 .collect::<std::collections::HashSet<u64>>()
                 .iter()
-                .map(|e| AccessRes::user(*e, "rbac", &["role-view"], &[]))
+                .map(|e| AccessRes::user(*e, "rbac-role", &["view"], &[]))
                 .collect::<Vec<lsys_rbac::dao::AccessRes>>();
             access
                 .list_check(
                     self.user_id,
-                    &[],
+                    relation,
                     &[
                         roles,
-                        vec![AccessRes::system("rbac", &["global-role-view"], &[])],
+                        vec![AccessRes::system("global-rbac-role", &["view"], &[])],
                     ],
                 )
                 .await
         }
     }
 }
-
-pub struct AccessUserResAllView {
-    pub user_id: u64,
-    pub res_user_id: u64,
-}
-#[async_trait::async_trait]
-impl RbacCheck for AccessUserResAllView {
-    async fn check(&self, access: &RbacAccess) -> UserRbacResult<()> {
-        access
-            .list_check(
-                self.user_id,
-                &[],
-                &[
-                    vec![AccessRes::user(
-                        self.res_user_id,
-                        "rbac",
-                        &["res-view-all"],
-                        &[],
-                    )],
-                    vec![AccessRes::system("rbac", &["global-res-view-all"], &[])],
-                ],
-            )
-            .await
+impl RbacResTpl for AccessRoleViewList {
+    fn tpl_data() -> Vec<ResTpl> {
+        vec![
+            ResTpl {
+                tags: vec!["rbac", "role"],
+                user: true,
+                key: "rbac-role",
+                ops: vec!["view"],
+            },
+            ResTpl {
+                tags: vec!["rbac", "role"],
+                user: false,
+                key: "global-rbac-role",
+                ops: vec!["view"],
+            },
+        ]
     }
 }

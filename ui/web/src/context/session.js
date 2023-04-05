@@ -4,6 +4,7 @@ import React, { createContext, useReducer } from "react";
 import { useUpdateEffect } from 'usehooks-ts';
 import config from "../../config.json";
 import { userSessionClear, userSessionGet, userSessionSet } from "../utils/rest";
+import { loginData } from "../rest/login";
 function initializer() {
     return userSessionGet()
 }
@@ -100,7 +101,7 @@ export const UserProvider = props => {
             userSessionClear()
         } else {
             if (userData.reload) {
-                userData({
+                loginData({
                     "auth": true
                 }).then((data) => {
                     if (data.status && data.auth_data) {

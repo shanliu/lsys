@@ -29,7 +29,7 @@ jsonwebtoken  = "8.1.1"
 lexical-core="0.8.5"
 pin-project-lite = "0.2.9"
 #db
-sqlx = {version = "0.6.1",features = [ "mysql","runtime-tokio-native-tls","offline"]}
+sqlx = {version = "~0.6.3",features = [ "mysql","runtime-tokio-native-tls","offline"]}
 sqlx-model = {version = "0.2.0", default-features=false,features = [ "sqlx-mysql"]}
 simple_asn1="0.6.2"
 html-escape="~0.2.*"

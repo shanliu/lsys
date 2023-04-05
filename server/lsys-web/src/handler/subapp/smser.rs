@@ -20,9 +20,12 @@ pub async fn sms_send(
         .user
         .rbac_dao
         .rbac
-        .check(&AccessAppSenderDoSms {
-            app: app.to_owned(),
-        })
+        .check(
+            &AccessAppSenderDoSms {
+                app: app.to_owned(),
+            },
+            None,
+        )
         .await?;
 
     let send_time = if let Some(t) = param.send_time {
@@ -63,9 +66,12 @@ pub async fn sms_cancel(
         .user
         .rbac_dao
         .rbac
-        .check(&AccessAppSenderDoSms {
-            app: app.to_owned(),
-        })
+        .check(
+            &AccessAppSenderDoSms {
+                app: app.to_owned(),
+            },
+            None,
+        )
         .await?;
     app_dao.smser.app_send_cancel(app, &param.cancel).await?;
     Ok(JsonData::message("success"))

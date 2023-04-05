@@ -137,6 +137,7 @@ export default function UserOauthPage(props) {
             setLoadData({
                 ...loadData,
                 ...data,
+                data: data.status ? data.data : [],
                 loading: false
             })
         })
@@ -310,7 +311,7 @@ export default function UserOauthPage(props) {
                         }}>检测登录中</span> : <span style={{
                             display: "block",
                             fontSize: "0.5em"
-                        }}>请稍后...</span>}
+                        }}>请用微信扫码...</span>}
                     </DialogContentText>
                 }
             </DialogContent>

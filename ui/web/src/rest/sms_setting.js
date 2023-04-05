@@ -109,8 +109,8 @@ export async function listSmsConfig(param, config) {
     const {id,app_id,user_id ,page,page_size} = param;
     let data={
         "page": {
-            "page": parseInt(page) + 1,
-            "limit": parseInt(page_size)
+            page: parseInt(page)>=0?(parseInt(page) + 1):1,
+            limit: parseInt(page_size)>0?parseInt(page_size):10
         }
     };
     if (id>0){
@@ -201,8 +201,8 @@ export async function listAppAliConfig(param, config) {
     const { id,app_id,tpl,user_id,page,page_size} = param;
     let data={
         "page": {
-            "page": parseInt(page) + 1,
-            "limit": parseInt(page_size)
+            page: parseInt(page)>=0?(parseInt(page) + 1):1,
+            limit: parseInt(page_size)>0?parseInt(page_size):10
         }
     };
     let errors={};
@@ -333,8 +333,8 @@ export async function listAppMessage(param, config) {
     let data={
         count_num:true,
         page: {
-            page: parseInt(page) + 1,
-            limit: parseInt(page_size)
+            page: parseInt(page)>=0?(parseInt(page) + 1):1,
+      limit: parseInt(page_size)>0?parseInt(page_size):10
         }
     };
     let errors={};
@@ -361,17 +361,17 @@ export async function listAppMessage(param, config) {
 }
 
 
-export async function listAppMessageHistory(param, config) {
+export async function listAppMessageLog(param, config) {
     const { message_id,page,page_size} = param;
     let data={
         count_num:true,
         message_id:message_id.toString(),
         page: {
-            page: parseInt(page) + 1,
-            limit: parseInt(page_size)
+            page: parseInt(page)>=0?(parseInt(page) + 1):1,
+            limit: parseInt(page_size)>0?parseInt(page_size):10
         }
     };
-    let response = await smsSettingRest().post("/message_history", data, config);
+    let response = await smsSettingRest().post("/message_log", data, config);
     return restResult(response,['not_found'])
 }
 

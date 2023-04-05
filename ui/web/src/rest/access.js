@@ -42,7 +42,7 @@ export async function resAdd(params, config) {
 }
 
 export async function resEdit(params, config) {
-  let { res_id, key, name, ops, tags } = params;
+  let { res_id, name, ops, tags } = params;
   tags = tags.map((e) => {
     return e
       .replace(/^\s+/)
@@ -57,7 +57,6 @@ export async function resEdit(params, config) {
   let param = {
     res_id: parseInt(res_id),
     name: name,
-    key: key,
     ops: ops,
     tags: tags,
   };
@@ -75,8 +74,8 @@ export async function resListData(params, config) {
     ops: params.ops ? true : false,
     count_num: params.count_num ? true : false,
     page: {
-      page: parseInt(page) + 1,
-      limit: parseInt(page_size)
+      page: parseInt(page) >= 0 ? (parseInt(page) + 1) : 1,
+      limit: parseInt(page_size) > 0 ? parseInt(page_size) : 10
     }
   };
   if (typeof tag == 'string' && tag.length > 0) {
@@ -93,7 +92,7 @@ export async function resListData(params, config) {
     }
   }
   if (typeof res_id == 'number') {
-    param.res_id = res_id;
+    param.res_id = [res_id];
   }
   let response = await accessRest().post("/res/list_data", param, config);
   return restResult(response, ['not_found'])
@@ -210,14 +209,14 @@ export async function roleEdit(params, config) {
 
 
 export async function roleListUser(params, config) {
-  let { op_user_id, page, page_size } = params;
+  let { op_user_id, page, page_size, role_id } = params;
   op_user_id = parseInt(op_user_id)
   let param = {
-    role_id: [parseInt(roleId)],
+    role_id: [parseInt(role_id)],
     count_num: true,
     page: {
-      page: parseInt(page) + 1,
-      limit: parseInt(page_size)
+      page: parseInt(page) >= 0 ? (parseInt(page) + 1) : 1,
+      limit: parseInt(page_size) > 0 ? parseInt(page_size) : 10
     },
   };
   if (op_user_id > 0) {
@@ -240,7 +239,7 @@ export async function roleAddUser(params, config) {
       }
     ]
   };
-  let response = await accessRest().post("/role/add_user", param, config);
+  let response = await accessRest().post("/role/add_user", user_param, config);
   return restResult(response)
 }
 
@@ -256,7 +255,7 @@ export async function roleDeleteUser(params, config) {
       op_user_id
     ]
   };
-  let response = await accessRest().post("/role/delete_user", param, config);
+  let response = await accessRest().post("/role/delete_user", user_param, config);
   return restResult(response)
 }
 
@@ -280,8 +279,8 @@ export async function roleListData(params, config) {
     user_data: false,
     ops: 2,
     page: {
-      page: parseInt(page) + 1,
-      limit: parseInt(page_size)
+      page: parseInt(page) >= 0 ? (parseInt(page) + 1) : 1,
+      limit: parseInt(page_size) > 0 ? parseInt(page_size) : 10
     },
     user_data_group: 2,
     user_data_page: { page: 0, limit: 0 }
@@ -393,16 +392,12 @@ export async function accessMenu(menus, config) {
       out.push(item);
       return;
     }
-    item.rbac.map((res_group) => {
-      if (res_group.access && res_group.access.length) {
-        res_group.access.map((e) => {
-          if (!e.data) e.data = null;
-          if (!param.find((t) => {
-            return t.name == e.name && t.data == e.data;
-          })) {
-            param.push(e)
-          }
-        })
+    item.rbac.map((e) => {
+      if (!e.data) e.data = null;
+      if (!param.find((t) => {
+        return t.name == e.name && t.data == e.data;
+      })) {
+        param.push(e)
       }
     })
   })
@@ -419,17 +414,12 @@ export async function accessMenu(menus, config) {
       if (!item.rbac || item.rbac.length == 0) {
         return;
       }
-
-      if (item.rbac.find((res_group) => {
+      if (item.rbac.find((e) => {
         let find = false;
-        if (res_group.access && res_group.access.length) {
-          res_group.access.map((e) => {
-            if (data.data.find((t) => {
-              return t.name == e.name && t.status
-            })) {
-              find = true;
-            }
-          })
+        if (data.data.find((t) => {
+          return t.name == e.name && t.status
+        })) {
+          find = true;
         }
         return find
       })) {

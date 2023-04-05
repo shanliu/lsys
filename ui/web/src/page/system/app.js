@@ -158,12 +158,13 @@ export default function SystemAppPage(props) {
             status: searchParam.get("status"),
             client_id: searchParam.get("client_id"),
             user_id: searchParam.get("user_id"),
-            page: searchParam.get("page")||0,
-            page_size: searchParam.get("page_size")||10
+            page: searchParam.get("page") || 0,
+            page_size: searchParam.get("page_size") || 10
         }).then((data) => {
             setLoadData({
                 ...loadData,
                 ...data,
+                data: data.status ? data.data : [],
                 loading: false
             })
         })

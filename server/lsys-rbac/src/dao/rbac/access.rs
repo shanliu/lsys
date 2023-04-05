@@ -88,7 +88,7 @@ impl ToString for RoleCheckRow {
                         role.priority,
                     )
                 }
-                None => "model role:none".to_string(),
+                None => "model role not find".to_string(),
             },
             RoleCheckRow::InnerRole {
                 res_op_id,

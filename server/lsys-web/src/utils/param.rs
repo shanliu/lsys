@@ -1,4 +1,3 @@
-use lsys_rbac::dao::RoleRelationKey;
 use serde::Deserialize;
 
 // 定义一些公共参数
@@ -23,19 +22,4 @@ impl From<PageParam> for lsys_core::PageParam {
 pub struct CaptchaParam {
     pub key: String,
     pub code: String,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct RelationParam {
-    pub role_key: String,
-    pub user_id: u64,
-}
-
-impl From<RelationParam> for RoleRelationKey {
-    fn from(p: RelationParam) -> Self {
-        RoleRelationKey {
-            relation_key: p.role_key,
-            user_id: p.user_id,
-        }
-    }
 }

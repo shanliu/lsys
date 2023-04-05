@@ -16,8 +16,8 @@ import { addAppAliConfig, delAppAliConfig, listAliConfig, listAppAliConfig } fro
 import { showTime } from '../../utils/utils';
 
 
- function AddBox(props) {
-    const { onAdd,appId,appName, userId } = props;
+function AddBox(props) {
+    const { onAdd, appId, appName, userId } = props;
     const { toast } = useContext(ToastContext);
     const [aliConfigData, setAliConfigData] = useState({
         data: [],
@@ -29,7 +29,7 @@ import { showTime } from '../../utils/utils';
         sms_tpl: '',
         aliyun_sign_name: '',
         aliyun_sms_tpl: '',
-        max_try_num:1,
+        max_try_num: 1,
         loading: false,
     });
     const [addError, setAddError] = useState({
@@ -38,30 +38,30 @@ import { showTime } from '../../utils/utils';
         sms_tpl: '',
         aliyun_sign_name: '',
         aliyun_sms_tpl: '',
-        max_try_num:'',
+        max_try_num: '',
     });
 
-    useEffect(()=>{
+    useEffect(() => {
         setAliConfigData({
             ...aliConfigData,
             loading: true
         })
         listAliConfig({}).then((data) => {
-            if(!data.status){
+            if (!data.status) {
                 setAliConfigData({
                     ...aliConfigData,
                     loading: false
                 })
                 toast(data.message);
-                return 
+                return
             }
             setAliConfigData({
                 ...aliConfigData,
-                data:data.data,
+                data: data.data,
                 loading: false
             })
         })
-    },[]);
+    }, []);
 
     const doAdd = function () {
         setConfigData({
@@ -70,7 +70,7 @@ import { showTime } from '../../utils/utils';
         })
         addAppAliConfig({
             user_id: userId,
-            app_id:appId,
+            app_id: appId,
             name: configData.name,
             aliconfig_id: configData.aliconfig_id,
             sms_tpl: configData.sms_tpl,
@@ -93,7 +93,7 @@ import { showTime } from '../../utils/utils';
                     ...configData,
                     sms_tpl: '',
                     aliyun_sign_name: '',
-                    aliyun_sms_tpl:'',
+                    aliyun_sms_tpl: '',
                     max_try_num: 1,
                     loading: false,
                 })
@@ -133,33 +133,33 @@ import { showTime } from '../../utils/utils';
                     justifyContent="center"
                     alignItems="center"
                 >
-                    
+
                     <Grid item xs={10}>
-                    <FormControl fullWidth sx={{
-                                width: 1,
-                                paddingBottom: 2
-                            }}>
-                        <InputLabel size="small" id="res-select-label">选择阿里云端口</InputLabel>    
-                        <Select
-                            fullWidth
-                            size='small'
-                            value={configData.aliconfig_id}
-                            onChange={
-                                (e)=>{
-                                    setConfigData({
-                                        ...configData,
-                                        aliconfig_id: e.target.value
-                                    })
+                        <FormControl fullWidth sx={{
+                            width: 1,
+                            paddingBottom: 2
+                        }}>
+                            <InputLabel size="small" id="res-select-label">选择阿里云端口</InputLabel>
+                            <Select
+                                fullWidth
+                                size='small'
+                                value={configData.aliconfig_id}
+                                onChange={
+                                    (e) => {
+                                        setConfigData({
+                                            ...configData,
+                                            aliconfig_id: e.target.value
+                                        })
+                                    }
                                 }
-                            }
-                            labelId="config-select-small"
-                            id="config-select-small"
-                            label="选择阿里云端口">
-                                {aliConfigData.data.map((item)=>{
-                                return  <MenuItem value={item.id}>{item.name}[{item.app_id}]</MenuItem>
+                                labelId="config-select-small"
+                                id="config-select-small"
+                                label="选择阿里云端口">
+                                {aliConfigData.data.map((item) => {
+                                    return <MenuItem value={item.id}>{item.name}[{item.app_id}]</MenuItem>
                                 })}
-                        </Select>
-                    </FormControl>
+                            </Select>
+                        </FormControl>
                     </Grid>
                     <Grid item xs={10}>
                         <TextField
@@ -256,8 +256,8 @@ import { showTime } from '../../utils/utils';
                             type="number"
                             size="small"
                             onChange={(e) => {
-                                let val=parseInt(e.target.value)
-                                if(val<=0)val=1;
+                                let val = parseInt(e.target.value)
+                                if (val <= 0) val = 1;
                                 setConfigData({
                                     ...configData,
                                     max_try_num: val
@@ -294,7 +294,7 @@ export default function AppSmsAliSmsMap(props) {
         page,
         pageSize,
         onSearchChange,
-    }=props;
+    } = props;
     let [loadData, setLoadData] = useState({
         status: false,
         message: null,
@@ -307,73 +307,73 @@ export default function AppSmsAliSmsMap(props) {
             label: 'ID',
             align: "right",
             style: { width: 80 },
-            render:(row)=>{
+            render: (row) => {
                 return row.config.id
             }
         },
         {
-            field:"app_id",
+            field: "app_id",
             style: { width: 120 },
             label: '应用ID',
-            render:(row)=>{
+            render: (row) => {
                 return row.config.app_id
             }
         },
         {
             style: { width: 120 },
             label: '名称',
-            render:(row)=>{
+            render: (row) => {
                 return row.config.name
             }
         },
         {
-            
+
             style: { width: 160 },
             label: '模板名',
-            render:(row)=>{
+            render: (row) => {
                 return row.config.sms_tpl
             }
         },
         {
             style: { width: 160 },
             label: '阿里云端口',
-            render:(row)=>{
-                return row.aliyun_name+' (id:'+row.aliyun_id+')'
+            render: (row) => {
+                return row.aliyun_name + ' (id:' + row.aliyun_id + ')'
             }
         },
         {
-          
+
             style: { width: 160 },
             label: '阿里云签名',
-            render:(row)=>{
+            render: (row) => {
                 return row.config.aliyun_sign_name
             }
         },
         {
-           
+
             style: { width: 160 },
             label: '阿里云模板名',
-            render:(row)=>{
+            render: (row) => {
                 return row.config.aliyun_sms_tpl
             }
         },
         {
-            align:"center",
+            align: "center",
             style: { width: 100 },
             label: '尝试次数',
-            render:(row)=>{
+            render: (row) => {
                 return row.config.max_try_num
             }
         },
         {
             style: { width: 180 },
             label: '添加时间',
-            render:(row)=>{
+            render: (row) => {
                 return showTime(row.config.add_time, "未知")
             }
         },
         {
-           
+
             label: '操作',
             render: (row) => {
                 let delAction = () => {
@@ -391,48 +391,53 @@ export default function AppSmsAliSmsMap(props) {
                     })
                 };
                 return <Fragment>
-                <ConfirmButton
-                    message={`确定删除关系 [${row.config.id}] 吗?`}
-                    onAction={delAction}
-                    renderButton={(props) => {
-                        return <IconButton  {...props} size='small' ><DeleteIcon fontSize="small" /></IconButton>
-                    }} />
-            </Fragment>
+                    <ConfirmButton
+                        message={`确定删除关系 [${row.config.id}] 吗?`}
+                        onAction={delAction}
+                        renderButton={(props) => {
+                            return <IconButton  {...props} size='small' ><DeleteIcon fontSize="small" /></IconButton>
+                        }} />
+                </Fragment>
             }
         }
     ];
 
-    if(!props.children){
-        columns=columns.filter((e)=>{return e.field!='app_id'})
+    if (!props.children) {
+        columns = columns.filter((e) => { return e.field != 'app_id' })
     }
-   
-    const [filterData, setfilterData] = useState({...{
-        id:mapId,
-    }, ...props.children?{app_id: appId}:{}})
+
+    const [filterData, setfilterData] = useState({
+        ...{
+            id: mapId,
+        }, ...props.children ? { app_id: appId } : {}
+    })
     const loadAppData = () => {
         setLoadData({
             ...loadData,
             loading: true
         })
         return listAppAliConfig({
-            id:mapId,
+            id: mapId,
             user_id: parseInt(userId),
-            app_id: (props.children&&!appId)?-1:appId,
-            page: page||0,
-            page_size: pageSize||10
+            app_id: (props.children && !appId) ? -1 : appId,
+            page: page || 0,
+            page_size: pageSize || 10
         }).then((data) => {
             setLoadData({
                 ...loadData,
                 ...data,
+                data: data.status ? data.data : [],
                 loading: false
             })
         })
     }
     useEffect(() => {
-        setfilterData({...{
-            ...filterData,
-            id: mapId,
-        }, ...props.children?{app_id: appId}:{}})
+        setfilterData({
+            ...{
+                ...filterData,
+                id: mapId,
+            }, ...props.children ? { app_id: appId } : {}
+        })
         loadAppData()
     }, [props])
     const [changeBoxState, setChangeBox] = useState(0);
@@ -441,11 +446,11 @@ export default function AppSmsAliSmsMap(props) {
         case 1:
             showBox = <AddBox
                 userId={parseInt(userId)}
-                appId={(props.children&&!appId)?-1:appId}
+                appId={(props.children && !appId) ? -1 : appId}
                 appName={appName}
                 onAdd={(id) => {
                     onSearchChange({
-                        id:id,
+                        id: id,
                         app_id: appId,
                         page: 0
                     }, loadAppData)
@@ -470,12 +475,12 @@ export default function AppSmsAliSmsMap(props) {
                 {showBox}
             </Box>
         </Drawer>
-      
+
         <Paper
             sx={{ p: 2, display: 'flex', alignItems: 'center', marginBottom: 1, marginTop: 1 }}
         >
             {props.children}
-             <FormControl sx={{ minWidth: 120, mr: 1 }} size="small"  >
+            <FormControl sx={{ minWidth: 120, mr: 1 }} size="small"  >
                 <ClearTextField
                     sx={{ mr: 1 }}
                     variant="outlined"
@@ -508,7 +513,7 @@ export default function AppSmsAliSmsMap(props) {
             >
                 过滤
             </LoadingButton>
-            {appName?<Button
+            {appName ? <Button
                 variant="outlined"
                 size="medium"
                 startIcon={<AddCircleOutlineIcon />}
@@ -517,7 +522,7 @@ export default function AppSmsAliSmsMap(props) {
                     setChangeBox(1)
                 }}>
                 添加
-            </Button>:null}
+            </Button> : null}
         </Paper>
 
         {(loadData.status || loadData.loading)

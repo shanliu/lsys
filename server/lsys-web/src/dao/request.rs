@@ -9,7 +9,7 @@ use lsys_user::dao::auth::{
 use tokio::sync::RwLock;
 use tracing::warn;
 
-use crate::{dao::WebDao, RelationParam};
+use crate::dao::WebDao;
 
 pub struct RequestEnv {
     pub request_id: String,
@@ -60,19 +60,6 @@ impl<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>> RequestDao<T
         } else {
             set.set_session_token(user_token);
         };
-    }
-    /// 当前登录用户跟指定资源的用户的关系
-    /// res_user_id 资源用户id，非用户资源传入0
-    pub async fn get_user_relation_role(&self, res_user_id: &[u64]) -> Vec<RelationParam> {
-        let auth = self.user_session.read().await;
-        if let Ok(ut) = auth.get_session_data().await {
-            return self
-                .web_dao
-                .user
-                .user_relation_key(ut.user_data(), res_user_id)
-                .await;
-        }
-        vec![]
     }
 }
 

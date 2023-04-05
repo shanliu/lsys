@@ -1,4 +1,3 @@
-use lsys_app::model::AppsModel;
 use lsys_app::{dao::app::AppDataWhere, model::AppStatus};
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
 use serde::{Deserialize, Serialize};
@@ -6,7 +5,9 @@ use serde_json::json;
 
 use crate::dao::RequestDao;
 
-use crate::handler::access::{AccessUserAppConfirm, AccessUserAppEdit, AccessUserAppView};
+use crate::handler::access::{
+    AccessAppSenderDoSms, AccessUserAppConfirm, AccessUserAppEdit, AccessUserAppView,
+};
 use crate::{JsonData, JsonResult, PageParam};
 
 #[derive(Debug, Deserialize)]
@@ -28,10 +29,13 @@ pub async fn app_add<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
         .user
         .rbac_dao
         .rbac
-        .check(&AccessUserAppEdit {
-            user_id: req_auth.user_data().user_id,
-            res_user_id: user_id,
-        })
+        .check(
+            &AccessUserAppEdit {
+                user_id: req_auth.user_data().user_id,
+                res_user_id: user_id,
+            },
+            None,
+        )
         .await?;
     let app_id = req_dao
         .web_dao
@@ -76,10 +80,13 @@ pub async fn app_edit<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>
         .user
         .rbac_dao
         .rbac
-        .check(&AccessUserAppEdit {
-            user_id: req_auth.user_data().user_id,
-            res_user_id: app.user_id,
-        })
+        .check(
+            &AccessUserAppEdit {
+                user_id: req_auth.user_data().user_id,
+                res_user_id: app.user_id,
+            },
+            None,
+        )
         .await?;
     req_dao
         .web_dao
@@ -119,10 +126,13 @@ pub async fn app_reset_secret<T: SessionTokenData, D: SessionData, S: UserSessio
         .user
         .rbac_dao
         .rbac
-        .check(&AccessUserAppView {
-            user_id: req_auth.user_data().user_id,
-            res_user_id: app.user_id,
-        })
+        .check(
+            &AccessUserAppView {
+                user_id: req_auth.user_data().user_id,
+                res_user_id: app.user_id,
+            },
+            None,
+        )
         .await?;
 
     let client_secret = req_dao
@@ -165,10 +175,13 @@ pub async fn app_view_secret<T: SessionTokenData, D: SessionData, S: UserSession
         .user
         .rbac_dao
         .rbac
-        .check(&AccessUserAppView {
-            user_id: req_auth.user_data().user_id,
-            res_user_id: app.user_id,
-        })
+        .check(
+            &AccessUserAppView {
+                user_id: req_auth.user_data().user_id,
+                res_user_id: app.user_id,
+            },
+            None,
+        )
         .await?;
     let oauth_secret = req_dao
         .web_dao
@@ -196,9 +209,12 @@ pub async fn app_confirm<T: SessionTokenData, D: SessionData, S: UserSession<T, 
         .user
         .rbac_dao
         .rbac
-        .check(&AccessUserAppConfirm {
-            user_id: req_auth.user_data().user_id,
-        })
+        .check(
+            &AccessUserAppConfirm {
+                user_id: req_auth.user_data().user_id,
+            },
+            None,
+        )
         .await?;
     let app = req_dao
         .web_dao
@@ -238,21 +254,7 @@ pub struct ShowAppData {
     pub add_time: u64,
     pub confirm_user_id: u64,
     pub confirm_time: u64,
-}
-impl From<AppsModel> for ShowAppData {
-    fn from(app: AppsModel) -> Self {
-        ShowAppData {
-            id: app.id,
-            name: app.name,
-            client_id: app.client_id,
-            callback_domain: app.callback_domain,
-            status: app.status,
-            user_id: app.user_id,
-            add_time: app.add_time,
-            confirm_user_id: app.confirm_user_id,
-            confirm_time: app.confirm_time,
-        }
-    }
+    pub is_sms: bool,
 }
 
 pub async fn app_list<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
@@ -266,10 +268,13 @@ pub async fn app_list<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>
         .user
         .rbac_dao
         .rbac
-        .check(&AccessUserAppView {
-            user_id: req_auth.user_data().user_id,
-            res_user_id: see_user_id.unwrap_or(0),
-        })
+        .check(
+            &AccessUserAppView {
+                user_id: req_auth.user_data().user_id,
+                res_user_id: see_user_id.unwrap_or(0),
+            },
+            None,
+        )
         .await?;
     let status = if let Some(e) = param.status {
         let mut out = Vec::with_capacity(e.len());
@@ -289,16 +294,37 @@ pub async fn app_list<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>
         client_ids: &param.client_ids,
         app_ids: &param.app_id,
     };
-    let app = req_dao
+    let appdata = req_dao
         .web_dao
         .app
         .app_dao
         .app
         .app_data(&app_param, &param.page.map(|e| e.into()))
-        .await?
-        .into_iter()
-        .map(ShowAppData::from)
-        .collect::<Vec<ShowAppData>>();
+        .await?;
+    let mut out = Vec::with_capacity(appdata.len());
+    for tmp in appdata {
+        let is_sms = req_dao
+            .web_dao
+            .user
+            .rbac_dao
+            .rbac
+            .check(&AccessAppSenderDoSms { app: tmp.clone() }, None)
+            .await
+            .map(|_| true)
+            .unwrap_or(false);
+        out.push(ShowAppData {
+            id: tmp.id,
+            name: tmp.name,
+            client_id: tmp.client_id,
+            callback_domain: tmp.callback_domain,
+            status: tmp.status,
+            user_id: tmp.user_id,
+            add_time: tmp.add_time,
+            confirm_user_id: tmp.confirm_user_id,
+            confirm_time: tmp.confirm_time,
+            is_sms,
+        });
+    }
     let count = if param.count_num.unwrap_or(false) {
         Some(
             req_dao
@@ -312,5 +338,5 @@ pub async fn app_list<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>
     } else {
         None
     };
-    Ok(JsonData::message("app data").set_data(json!({ "data": app,"total":count })))
+    Ok(JsonData::message("app data").set_data(json!({ "data": out,"total":count })))
 }

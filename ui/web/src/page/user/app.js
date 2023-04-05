@@ -437,11 +437,13 @@ export default function UserAppIndexPage(props) {
                 </IconButton>);
                 let resetBut;
                 if (row.status == 2) {
-                    button.push(<IconButton title="应用功能-短信发送" key={`${row.id}-sms`} onClick={() => {
-                        navigate("/user/sms/limit?app_id=" + row.id);
-                    }} size='small'>
-                        <SmsIcon fontSize='small' />
-                    </IconButton>);
+                    if (row.is_sms) {
+                        button.push(<IconButton title="应用功能-短信发送" key={`${row.id}-sms`} onClick={() => {
+                            navigate("/user/sms/limit?app_id=" + row.id);
+                        }} size='small'>
+                            <SmsIcon fontSize='small' />
+                        </IconButton>);
+                    }
                     let resetAction = () => {
                         return resetSecretApp({ appid: row.id }).then((data) => {
                             if (!data.status) {
@@ -539,6 +541,7 @@ export default function UserAppIndexPage(props) {
             setLoadData({
                 ...loadData,
                 ...data,
+                data: data.status ? data.data : [],
                 loading: false
             })
         })
