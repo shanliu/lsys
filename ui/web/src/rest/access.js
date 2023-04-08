@@ -260,12 +260,34 @@ export async function roleDeleteUser(params, config) {
 }
 
 
-
+//todo 待使用
+export async function roleRelationData(params, config) {
+  let {
+    user_id,
+    relation_prefix,
+    page,
+    page_size
+  } = params;
+  let param = {
+    count_num: true,
+    user_id: parseInt(user_id),
+    page: {
+      page: parseInt(page) >= 0 ? (parseInt(page) + 1) : 1,
+      limit: parseInt(page_size) > 0 ? parseInt(page_size) : 10
+    },
+  };
+  if (typeof relation_prefix == 'string' && relation_prefix.length > 0) {
+    param.relation_prefix = relation_prefix;
+  }
+  let response = await accessRest().post("/role/relation", param, config);
+  return restResult(response, ['not_found'])
+}
 export async function roleListData(params, config) {
   let {
     user_id,
     user_range,
     res_range,
+    relation_prefix,
     tag,
     role_id,
     role_name,
@@ -299,6 +321,10 @@ export async function roleListData(params, config) {
   if (typeof role_name == 'string' && role_name.length > 0) {
     param.role_name = role_name;
   }
+  if (typeof relation_prefix == 'string' && relation_prefix.length > 0) {
+    param.relation_prefix = relation_prefix;
+  }
+  
   if (typeof role_id == 'string') {
     role_id = role_id.split(",").map((e) => parseInt(e));
     role_id = role_id.filter((e) => !isNaN(e))
@@ -345,7 +371,8 @@ export async function roleOptions(params, config) {
   param.relation_key = user_access_keys.map((e) => {
     return e.key
   });
-  let response = await accessRest().post("/role/options", param, config).then((data) => {
+  let response = await accessRest().post("/role/options", param, config);
+  let data= restResult(response, ['not_found'])
     if (!data.status) return data;
     return {
       ...data,
@@ -365,8 +392,6 @@ export async function roleOptions(params, config) {
         }
       })
     }
-  });
-  return restResult(response, ['not_found'])
 }
 
 export async function roleDelete(params, config) {

@@ -48,6 +48,12 @@ CREATE TABLE `yaf_rbac_role` (
         `priority`,
         `id`
     ) USING BTREE,
+     KEY `yaf_rbac_role_relation_key_IDX` (
+        `user_id`,
+        `status`,
+        `user_range`,
+        `relation_key`
+    ) USING BTREE,
     KEY `yaf_rbac_role_priority_IDX` (`priority`, `id`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '角色';
 -- test.yaf_rbac_role_op definition

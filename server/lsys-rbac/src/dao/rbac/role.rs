@@ -126,7 +126,7 @@ impl RbacRole {
         "id in ({id}) and status = {status}",
         status = RbacRoleStatus::Enable
     );
-    /// 获取指定用户和ID的数量
+    /// 获取指定条件的角色数量
     pub async fn get_count(
         &self,
         user_id: u64,
@@ -167,12 +167,14 @@ impl RbacRole {
             .await
     }
     /// 获取指定用户和ID的列表
+    #[allow(clippy::too_many_arguments)]
     pub async fn get_role(
         &self,
         user_id: u64,
         user_range: &Option<Vec<i8>>,
         res_range: &Option<Vec<i8>>,
         role_name: &Option<String>,
+        relation_prefix: &Option<String>,
         role_ids: &Option<Vec<u64>>,
         page: &Option<PageParam>,
     ) -> UserRbacResult<Vec<RbacRoleModel>> {
@@ -189,6 +191,9 @@ impl RbacRole {
         }
         if let Some(ref rr) = res_range {
             sql += &sql_format!(" and res_op_range in ({})", rr);
+        }
+        if let Some(ref rr) = relation_prefix {
+            sql += sql_format!(" and relation_key like {}", format!("{}%", rr)).as_str();
         }
         if let Some(name) = role_name {
             sql += sql_format!(" and name like {}", format!("%{}%", name)).as_str();
@@ -273,6 +278,7 @@ impl RbacRole {
         }
         Ok(())
     }
+    //根据角色名获取启用的角色
     pub async fn find_enable_role_by_name(
         &self,
         user_id: u64,
@@ -291,6 +297,7 @@ impl RbacRole {
             )
             .await
     }
+    //根据关系名获取角色列表
     pub async fn find_enable_role_by_relation_keys(
         &self,
         user_id: u64,
@@ -315,6 +322,7 @@ impl RbacRole {
             )
             .await
     }
+    //根据关系名获取角色
     pub async fn find_enable_role_by_relation_key(
         &self,
         user_id: u64,
@@ -440,6 +448,7 @@ impl RbacRole {
             Err(err) => Err(err.into()),
         }
     }
+    //添加角色
     #[allow(clippy::too_many_arguments)]
     pub async fn add_role<'t>(
         &self,
@@ -464,7 +473,7 @@ impl RbacRole {
         )
         .await
     }
-
+    //添加关系角色
     #[allow(clippy::too_many_arguments)]
     pub async fn add_relation_role<'t>(
         &self,
@@ -829,6 +838,7 @@ impl RbacRole {
 
         Ok(())
     }
+    //编辑角色
     #[allow(clippy::too_many_arguments)]
     pub async fn edit_role<'t>(
         &self,
@@ -856,6 +866,7 @@ impl RbacRole {
         )
         .await
     }
+    //根据关系key编辑关系角色
     #[allow(clippy::too_many_arguments)]
     pub async fn edit_relation_role<'t>(
         &self,
@@ -1275,6 +1286,7 @@ impl RbacRole {
         //cache clean----------------------------
         Ok(res.rows_affected())
     }
+    //汇总指定角色的用户数量
     pub async fn role_group_users(
         &self,
         role_ids: &[u64],
@@ -1345,7 +1357,51 @@ impl RbacRole {
         }
         Ok(result)
     }
-    /// 角色获取用户
+    /// 获取指定用户的关系角色key
+    pub async fn get_role_relation_data(
+        &self,
+        user_id: &u64,
+        prefix: &Option<String>,
+        page: &Option<PageParam>,
+    ) -> UserRbacResult<Vec<String>> {
+        let mut sql = sql_format!(
+            "select relation_key from {} where user_id = {} and status={} and user_range={}",
+            RbacRoleModel::table_name(),
+            user_id,
+            RbacRoleUserStatus::Enable,
+            RbacRoleUserRange::Relation
+        );
+        if let Some(prefix) = prefix {
+            sql += &sql_format!(" and relation_key like {}", format!("{}%", prefix));
+        }
+        if let Some(pdat) = page {
+            sql += format!(" limit {} offset {}", pdat.limit, pdat.offset).as_str();
+        }
+        let query = sqlx::query_scalar::<_, String>(&sql);
+        let res = query.fetch_all(&self.db).await?;
+        Ok(res)
+    }
+    /// 获取指定用户的关系角色数量
+    pub async fn get_role_relation_count(
+        &self,
+        user_id: &u64,
+        prefix: &Option<String>,
+    ) -> UserRbacResult<i64> {
+        let mut sql = sql_format!(
+            "select count(*) as total from {} where user_id = {} and status={} and user_range={}",
+            RbacRoleModel::table_name(),
+            user_id,
+            RbacRoleUserStatus::Enable,
+            RbacRoleUserRange::Relation
+        );
+        if let Some(prefix) = prefix {
+            sql += &sql_format!(" and relation_key like {}", format!("{}%", prefix));
+        }
+        let query = sqlx::query_scalar::<_, i64>(&sql);
+        let res = query.fetch_one(&self.db).await?;
+        Ok(res)
+    }
+    /// 角色获取用户数量
     pub async fn role_get_user_count(
         &self,
         role_ids: &[u64],
@@ -1501,7 +1557,7 @@ impl RbacRole {
 
         Ok(())
     }
-    /// 角色设置操作
+    /// 角色设置资源的操作
     pub async fn role_set_ops<'t>(
         &self,
         role: &RbacRoleModel,
@@ -1744,7 +1800,7 @@ impl RbacRole {
         //cache clean----------------------------
         Ok(())
     }
-    /// 获取指定关系KEY的角色数据
+    /// 获取指定关系KEY的角色详细数据
     pub async fn find_role_detail_by_relation_key(
         &self,
         relation_role: &[RoleRelationKey],
@@ -1843,6 +1899,7 @@ impl RbacRole {
         }
         RoleCheckData::new(relation_data)
     }
+    //根据关系key获取待检测角色数据
     pub async fn find_role_by_relation(
         &self,
         relation_role: &[RoleRelationKey],
@@ -1929,6 +1986,7 @@ impl RbacRole {
         }
         self.filter_find_role(self.find_role_by_sqls(sqls, false).await?, check_vec)
     }
+    //获取游客的待检测角色数据
     pub async fn find_role_by_guest_user(
         &self,
         check_vec: &[RbacResData],
@@ -1936,6 +1994,7 @@ impl RbacRole {
         self.find_role_by_public(RbacRoleUserRange::Guest, check_vec)
             .await
     }
+    //获取登陆用户的待检测角色数据
     pub async fn find_role_by_login_user(
         &self,
         check_vec: &[RbacResData],
@@ -2109,7 +2168,8 @@ impl RbacRole {
             timeout = time
         )
     }
-    /// 返回访问用户跟指定资源的优先角色列表
+    /// 获取指定用户的待检测角色数据
+    /// 并根据资源的优先级排序结果
     // 公开角色：资源key->资源id反查->角色且公开【纬度由访问用户决定】 得到资源数据库角色（建这样公开角色时自动建资源）
     // 用户-角色关系配置角色：访问用户通过角色配置得到数据库角色
     pub async fn find_role_by_user(
@@ -2133,17 +2193,6 @@ impl RbacRole {
             sqls.push(self.find_role_sql_by_user_res_user_id(user_id, res.res.user_id))
         }
         self.filter_find_role(self.find_role_by_sqls(sqls, true).await?, check_vec)
-    }
-    pub async fn res_get_tags(
-        &self,
-        res_ids: &[u64],
-    ) -> UserRbacResult<BTreeMap<u64, Vec<RbacTagsModel>>> {
-        let data = self.tags.find_by_ids(res_ids, RbacTagsSource::Role).await?;
-        let mut result = BTreeMap::<u64, Vec<RbacTagsModel>>::new();
-        for res_op in data {
-            result.entry(res_op.from_id).or_default().push(res_op);
-        }
-        Ok(result)
     }
     pub fn cache(&self) -> RbacRoleCache<'_> {
         RbacRoleCache { role: self }

@@ -1,9 +1,10 @@
 use lsys_app::model::AppsModel;
 use lsys_rbac::dao::{
-    AccessRes, RbacAccess, RbacCheck, RbacResTpl, ResTpl, RoleRelationKey, UserRbacResult,
+    AccessRes, RbacAccess, RbacCheck, RbacRelationTpl, RbacResTpl, ResTpl, RoleRelationKey,
+    UserRbacResult,
 };
 
-use super::app_relation_key;
+use super::RelationApp;
 
 //这里定义Oauth服务中用到资源
 pub struct AccessOauthUserInfo {
@@ -14,12 +15,12 @@ impl RbacCheck for AccessOauthUserInfo {
     async fn check<'t>(
         &self,
         access: &'t RbacAccess,
-        _relation: &'t [RoleRelationKey],
+        relation: &'t [RoleRelationKey],
     ) -> UserRbacResult<()> {
         access
             .check(
                 self.app.user_id,
-                &app_relation_key(&self.app).await,
+                &RelationApp { app: &self.app }.extend(relation),
                 &[AccessRes::system("global-oauth", &[], &["user-info"])],
             )
             .await
@@ -44,12 +45,12 @@ impl RbacCheck for AccessOauthUserEmail {
     async fn check<'t>(
         &self,
         access: &'t RbacAccess,
-        _relation: &'t [RoleRelationKey],
+        relation: &'t [RoleRelationKey],
     ) -> UserRbacResult<()> {
         access
             .check(
                 self.app.user_id,
-                &app_relation_key(&self.app).await,
+                &RelationApp { app: &self.app }.extend(relation),
                 &[AccessRes::system("global-oauth", &["user-email"], &[])],
             )
             .await
@@ -74,12 +75,12 @@ impl RbacCheck for AccessOauthUserMobile {
     async fn check<'t>(
         &self,
         access: &'t RbacAccess,
-        _relation: &'t [RoleRelationKey],
+        relation: &'t [RoleRelationKey],
     ) -> UserRbacResult<()> {
         access
             .check(
                 self.app.user_id,
-                &app_relation_key(&self.app).await,
+                &RelationApp { app: &self.app }.extend(relation),
                 &[AccessRes::system("global-oauth", &["user-mobile"], &[])],
             )
             .await

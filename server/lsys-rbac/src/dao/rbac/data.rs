@@ -38,6 +38,7 @@ pub struct RoleParam<'t> {
     pub user_range: &'t Option<Vec<i8>>,
     pub res_range: &'t Option<Vec<i8>>,
     pub role_name: &'t Option<String>,
+    pub relation_prefix: &'t Option<String>,
     pub role_id: &'t Option<Vec<u64>>,
     pub filter_tags: &'t Option<Vec<String>>,
     pub out_ops: bool,
@@ -262,6 +263,7 @@ impl RbacData {
                     role_param.user_range,
                     role_param.res_range,
                     role_param.role_name,
+                    role_param.relation_prefix,
                     &Some(tags.iter().map(|e| e.from_id).collect()),
                     role_param.page,
                 )
@@ -273,6 +275,7 @@ impl RbacData {
                     role_param.user_range,
                     role_param.res_range,
                     role_param.role_name,
+                    role_param.relation_prefix,
                     role_param.role_id,
                     role_param.page,
                 )

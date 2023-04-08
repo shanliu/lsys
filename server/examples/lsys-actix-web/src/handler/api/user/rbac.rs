@@ -5,7 +5,7 @@ use actix_web::post;
 
 use lsys_web::handler::api::rbac::{
     rbac_all_res_list, RbacAccessParam, RbacMenuParam, ResAddParam, ResDeleteParam, ResEditParam,
-    ResListDataParam,
+    ResListDataParam, RoleRelationDataParam,
 };
 use lsys_web::handler::api::rbac::{ResAllParam, ResTagsParam, RoleOptionsParam, RoleTagsParam};
 use lsys_web::handler::api::rbac::{
@@ -22,6 +22,7 @@ use lsys_web::handler::api::user::{
     user_role_add, user_role_add_user, user_role_delete, user_role_delete_user, user_role_edit,
     user_role_list_data, user_role_list_user,
 };
+use lsys_web::handler::oauth::user::user_relation_data;
 
 #[post("/res/{method}")]
 pub async fn res<'t>(
@@ -62,6 +63,7 @@ pub async fn role<'t>(
         "list_user" => user_role_list_user(rest.param::<RoleListUserParam>()?, &auth_dao).await,
         "list_data" => user_role_list_data(rest.param::<RoleListDataParam>()?, &auth_dao).await,
         "options" => user_role_options(rest.param::<RoleOptionsParam>()?, &auth_dao).await,
+        "relation" => user_relation_data(rest.param::<RoleRelationDataParam>()?, &auth_dao).await,
         "tags" => user_role_tags(rest.param::<RoleTagsParam>()?, &auth_dao).await,
         name => Err(lsys_web::JsonData::message(name).set_sub_code("method_not_found")),
     };

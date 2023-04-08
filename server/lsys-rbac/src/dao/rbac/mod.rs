@@ -11,7 +11,7 @@ pub use data::*;
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::FluentMessage;
 pub use res::*;
-pub use res_tpl::*;
+// pub use res_tpl::*;
 pub use role::*;
 use sqlx::{MySql, Pool};
 pub use tags::*;
@@ -21,7 +21,7 @@ mod cache;
 mod check;
 mod data;
 mod res;
-mod res_tpl;
+// mod res_tpl;
 mod role;
 mod tags;
 

@@ -1,12 +1,12 @@
 use lsys_app::model::AppsModel;
 use lsys_rbac::dao::{
-    AccessRes, RbacAccess, RbacCheck, RbacCheckDepend, RbacResTpl, ResTpl, RoleRelationKey,
-    UserRbacResult,
+    AccessRes, RbacAccess, RbacCheck, RbacCheckDepend, RbacRelationTpl, RbacResTpl, ResTpl,
+    RoleRelationKey, UserRbacResult,
 };
 
 use crate::handler::access::AccessAdminManage;
 
-use super::app_relation_key;
+use super::RelationApp;
 
 pub struct AccessAdminAliSmsConfig {
     pub user_id: u64,
@@ -164,12 +164,12 @@ impl RbacCheck for AccessAppSenderDoSms {
     async fn check<'t>(
         &self,
         access: &'t RbacAccess,
-        _relation: &'t [RoleRelationKey],
+        relation: &'t [RoleRelationKey],
     ) -> UserRbacResult<()> {
         access
             .check(
                 self.app.user_id,
-                &app_relation_key(&self.app).await,
+                &RelationApp { app: &self.app }.extend(relation),
                 &[AccessRes::system(
                     &format!("global-app-sms-{}", self.app.id),
                     &["sms-send"],

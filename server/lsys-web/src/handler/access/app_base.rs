@@ -1,9 +1,10 @@
 use lsys_app::model::AppsModel;
 use lsys_rbac::dao::{
-    AccessRes, RbacAccess, RbacCheck, RbacResTpl, ResTpl, RoleRelationKey, UserRbacResult,
+    AccessRes, RbacAccess, RbacCheck, RbacRelationTpl, RbacResTpl, ResTpl, RoleRelationKey,
+    UserRbacResult,
 };
 
-use super::app_relation_key;
+use super::RelationApp;
 
 pub struct AccessSubAppView {
     pub app: AppsModel,
@@ -14,12 +15,12 @@ impl RbacCheck for AccessSubAppView {
     async fn check<'t>(
         &self,
         access: &'t RbacAccess,
-        _relation: &'t [RoleRelationKey],
+        relation: &'t [RoleRelationKey],
     ) -> UserRbacResult<()> {
         access
             .list_check(
                 self.app.user_id,
-                &app_relation_key(&self.app).await,
+                &RelationApp { app: &self.app }.extend(relation),
                 &[
                     vec![AccessRes::system(
                         //系统控制指定用户APP之间查看

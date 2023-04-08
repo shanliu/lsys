@@ -11,7 +11,7 @@ export function RoleResOpItem(props) {
         <span style={{
             paddingRight: 8,
             paddingLeft: 8,
-
+            paddingTop: 3,
             fontSize: " 0.9rem",
             color: "#333"
         }}>{opName}</span>

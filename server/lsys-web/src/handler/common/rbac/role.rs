@@ -1,13 +1,16 @@
 use std::{convert::TryFrom, sync::Arc};
 
 use crate::{
-    handler::access::{AccessRoleEdit, AccessRoleView, AccessRoleViewList, RoleOpCheck},
+    handler::access::{
+        AccessRoleEdit, AccessRoleView, AccessRoleViewList, RelationApp, RoleOpCheck,
+    },
     {
         PageParam, {JsonData, JsonResult},
     },
 };
 
 use lsys_rbac::{
+    access_relation_tpl,
     dao::{RbacDao, RbacRole, RoleAddUser, RoleParam, RoleSetOp, RoleUserGroupParam},
     model::{
         RbacResModel, RbacResOpModel, RbacRoleModel, RbacRoleOpModel, RbacRoleOpPositivity,
@@ -491,6 +494,7 @@ pub struct RoleListDataParam {
     pub count_num: Option<bool>,
     pub user_id: Option<u64>,
     pub role_name: Option<String>,
+    pub relation_prefix: Option<String>,
     pub user_range: Option<Vec<i8>>,
     pub res_range: Option<Vec<i8>>,
     pub role_id: Option<Vec<u64>>,
@@ -550,6 +554,7 @@ pub async fn rbac_role_list_data(
             user_range: &param.user_range,
             res_range: &param.res_range,
             role_name: &param.role_name,
+            relation_prefix: &param.relation_prefix,
             role_id: &param.role_id,
             filter_tags: &param.tags_filter,
             out_ops: param.ops.map(|e| e > 0).unwrap_or(false),
@@ -767,9 +772,61 @@ pub async fn rbac_user_role_options(
     } else {
         None
     };
+    let relation_tpl = access_relation_tpl!(RelationApp);
     Ok(JsonData::message("tags data").set_data(json!({
         "user_range":user_range,
         "res_range":res_range,
-        "exist_relation_role":relation_key
+        "exist_relation_role":relation_key,
+        "relation_tpl":relation_tpl
+    })))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RoleRelationDataParam {
+    pub count_num: Option<bool>,
+    pub user_id: Option<u64>,
+    pub relation_prefix: Option<String>,
+    pub page: Option<PageParam>,
+}
+
+pub async fn rbac_user_relation_data(
+    param: RoleRelationDataParam,
+    rbac_dao: &RbacDao,
+    user_id: u64,
+) -> JsonResult<JsonData> {
+    let see_user_id = param.user_id.unwrap_or(user_id);
+    rbac_dao
+        .rbac
+        .check(
+            &AccessRoleView {
+                user_id,
+                res_user_id: see_user_id,
+            },
+            None,
+        )
+        .await?;
+    let data = rbac_dao
+        .rbac
+        .role
+        .get_role_relation_data(
+            &see_user_id,
+            &param.relation_prefix,
+            &param.page.map(|e| e.into()),
+        )
+        .await?;
+    let total = if param.count_num.unwrap_or(false) {
+        Some(
+            rbac_dao
+                .rbac
+                .role
+                .get_role_relation_count(&see_user_id, &param.relation_prefix)
+                .await?,
+        )
+    } else {
+        None
+    };
+    Ok(JsonData::message("relation data").set_data(json!({
+        "data":data,
+        "total":total
     })))
 }

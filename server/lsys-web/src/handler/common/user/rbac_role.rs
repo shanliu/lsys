@@ -1,8 +1,9 @@
 use crate::handler::common::rbac::{
     rbac_role_add, rbac_role_add_user, rbac_role_delete, rbac_role_delete_user, rbac_role_edit,
-    rbac_role_list_data, rbac_role_list_user, rbac_role_tags, rbac_user_role_options, RoleAddParam,
-    RoleAddUserParam, RoleDeleteParam, RoleDeleteUserParam, RoleEditParam, RoleListDataParam,
-    RoleListUserParam, RoleOptionsParam, RoleTagsParam,
+    rbac_role_list_data, rbac_role_list_user, rbac_role_tags, rbac_user_relation_data,
+    rbac_user_role_options, RoleAddParam, RoleAddUserParam, RoleDeleteParam, RoleDeleteUserParam,
+    RoleEditParam, RoleListDataParam, RoleListUserParam, RoleOptionsParam, RoleRelationDataParam,
+    RoleTagsParam,
 };
 use crate::{
     dao::RequestDao,
@@ -124,6 +125,19 @@ pub async fn user_role_options<'t, T: SessionTokenData, D: SessionData, S: UserS
 ) -> JsonResult<JsonData> {
     let req_auth = req_dao.user_session.read().await.get_session_data().await?;
     rbac_user_role_options(
+        param,
+        &req_dao.web_dao.user.rbac_dao,
+        req_auth.user_data().user_id,
+    )
+    .await
+}
+
+pub async fn user_relation_data<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
+    param: RoleRelationDataParam,
+    req_dao: &RequestDao<T, D, S>,
+) -> JsonResult<JsonData> {
+    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    rbac_user_relation_data(
         param,
         &req_dao.web_dao.user.rbac_dao,
         req_auth.user_data().user_id,
