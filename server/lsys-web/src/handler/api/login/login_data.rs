@@ -1,5 +1,8 @@
 use crate::{
-    dao::{user::UserDataOption, UserAuthQueryDao},
+    dao::{
+        user::{ShowUserAuthData, UserDataOption},
+        UserAuthQueryDao,
+    },
     {JsonData, JsonResult},
 };
 use lsys_user::dao::auth::{SessionData, UserSession};
@@ -63,15 +66,16 @@ pub async fn login_data_from_user_auth(
         .user
         .user_detail(auth_data.user_data().user_id, data_option)
         .await?;
+
     let (token_str, auth_data) = if param.reload_auth.unwrap_or(false) {
         let mut session = req_dao.user_session.write().await;
         let _ = session.refresh_session(true).await;
         (
             Some(session.get_session_token().to_string()),
-            Some(session.get_session_data().await?),
+            Some(ShowUserAuthData::from(session.get_session_data().await?)),
         )
     } else if param.auth.unwrap_or(false) {
-        (None, Some(auth_data))
+        (None, Some(ShowUserAuthData::from(auth_data)))
     } else {
         (None, None)
     };

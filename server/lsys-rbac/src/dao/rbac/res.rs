@@ -137,20 +137,24 @@ impl RbacRes {
                 let op_status = row.try_get::<i8, &str>("op_status").unwrap_or(0);
                 let op_change_user_id = row.try_get::<u64, &str>("op_change_user_id").unwrap_or(0);
                 let op_change_time = row.try_get::<u64, &str>("op_change_time").unwrap_or(0);
-                let res = RbacResModel::from_row(&row)?;
-                let res_id = res.id;
-                Ok((
-                    res,
-                    RbacResOpModel {
-                        id: op_id,
-                        name: op_name,
-                        op_key,
-                        res_id,
-                        status: op_status,
-                        change_user_id: op_change_user_id,
-                        change_time: op_change_time,
-                    },
-                ))
+                match RbacResModel::from_row(&row) {
+                    Ok(res) => {
+                        let res_id = res.id;
+                        Ok((
+                            res,
+                            RbacResOpModel {
+                                id: op_id,
+                                name: op_name,
+                                op_key,
+                                res_id,
+                                status: op_status,
+                                change_user_id: op_change_user_id,
+                                change_time: op_change_time,
+                            },
+                        ))
+                    }
+                    Err(e) => Err(e),
+                }
             })
             .fetch_all(&self.db)
             .await?;

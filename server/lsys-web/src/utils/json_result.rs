@@ -2,6 +2,7 @@ use config::ConfigError;
 use deadpool_redis::PoolError;
 use lsys_core::ValidCodeError;
 use lsys_rbac::dao::rbac::UserRbacError;
+use lsys_sender::dao::SenderError;
 use lsys_user::dao::{account::UserAccountError, auth::UserAuthError};
 use serde_json::{json, Value};
 use std::string::FromUtf8Error;
@@ -209,11 +210,29 @@ impl From<ValidCodeError> for JsonData {
             .set_message(err.to_string())
     }
 }
+impl From<SenderError> for JsonData {
+    fn from(err: SenderError) -> Self {
+        match err {
+            SenderError::Sqlx(err) => JsonData::default()
+                .set_code(500)
+                .set_sub_code("sqlx")
+                .set_message(err.to_string()),
+            SenderError::Redis(err) => JsonData::default()
+                .set_code(500)
+                .set_sub_code("redis")
+                .set_message(err),
+            SenderError::Exec(err) => JsonData::default().set_sub_code("exec").set_message(err),
+            SenderError::System(err) => JsonData::default().set_sub_code("system").set_message(err),
+        }
+    }
+}
+
 impl From<String> for JsonData {
     fn from(err: String) -> Self {
         JsonData::default().set_message(err)
     }
 }
+
 macro_rules! result_impl_system_error {
     ($err_type:ty,$code:literal) => {
         impl From<$err_type> for JsonData {

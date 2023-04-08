@@ -257,11 +257,19 @@ export default function SystemSmsSettingAlismsPage(props) {
             label: 'access secret',
         },
         {
-            field: 'add_time',
+           
             style: { width: 180 },
-            label: '添加时间',
+            label: '更新用户ID',
             render: (row) => {
-                return showTime(row.add_time, "未知")
+                return showTime(row.last_user_id, "未知")
+            }
+        },
+        {
+           
+            style: { width: 180 },
+            label: '更新时间',
+            render: (row) => {
+                return showTime(row.last_change_time, "未知")
             }
         },
         {

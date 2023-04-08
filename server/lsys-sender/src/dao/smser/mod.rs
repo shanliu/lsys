@@ -4,7 +4,10 @@ use crate::model::SenderSmsMessageModel;
 use async_trait::async_trait;
 use lsys_core::now_time;
 
-use super::task::{TaskAcquisition, TaskError, TaskExecutioner, TaskItem, TaskRecord, TaskValue};
+use super::{
+    task::{TaskAcquisition, TaskExecutioner, TaskItem, TaskRecord, TaskValue},
+    SenderResult,
+};
 
 pub struct SmsTaskItem<T: Send + Sync + 'static + Clone> {
     pub sms: SenderSmsMessageModel,
@@ -33,18 +36,14 @@ pub trait SmsTaskAcquisition<T: Send + Sync + 'static + Clone>:
     async fn read_record_attr(
         &self,
         res: Vec<SenderSmsMessageModel>,
-    ) -> Result<Vec<SmsTaskItem<T>>, TaskError>;
+    ) -> SenderResult<Vec<SmsTaskItem<T>>>;
     fn sms_record(&self) -> &SmsTaskRecord;
     async fn read_record(
         &self,
         tasking_record: &HashMap<u64, TaskValue>,
         limit: usize,
-    ) -> Result<TaskRecord<u64, SmsTaskItem<T>>, TaskError> {
-        let (app_res, next) = self
-            .sms_record()
-            .read(tasking_record, limit)
-            .await
-            .map_err(TaskError::Sqlx)?;
+    ) -> SenderResult<TaskRecord<u64, SmsTaskItem<T>>> {
+        let (app_res, next) = self.sms_record().read(tasking_record, limit).await?;
         let app_res = self.read_record_attr(app_res).await?;
         Ok(TaskRecord::new(app_res, next))
     }
@@ -54,7 +53,7 @@ pub trait SmsTaskAcquisition<T: Send + Sync + 'static + Clone>:
 pub trait SmserTaskExecutioner<T: Send + Sync + 'static + Clone>:
     Sync + Send + 'static + Clone
 {
-    async fn exec(&self, val: SmsTaskItem<T>, record: &SmsTaskRecord) -> Result<(), TaskError>;
+    async fn exec(&self, val: SmsTaskItem<T>, record: &SmsTaskRecord) -> SenderResult<()>;
 }
 
 #[derive(Clone)]
@@ -78,7 +77,7 @@ impl<T: Send + Sync + 'static + Clone, SE: SmserTaskExecutioner<T>> SmserTask<T,
 impl<T: Send + Sync + 'static + Clone, SE: SmserTaskExecutioner<T>>
     TaskExecutioner<u64, SmsTaskItem<T>> for SmserTask<T, SE>
 {
-    async fn exec(&self, val: SmsTaskItem<T>) -> Result<(), TaskError> {
+    async fn exec(&self, val: SmsTaskItem<T>) -> SenderResult<()> {
         self.inner.exec(val, &self.record).await
     }
 }

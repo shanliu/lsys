@@ -1,10 +1,13 @@
 use std::{collections::HashMap, sync::Arc};
 
-use crate::model::{
-    SenderSmsCancelModel, SenderSmsCancelModelRef, SenderSmsCancelStatus, SenderSmsConfigData,
-    SenderSmsConfigLimit, SenderSmsConfigModel, SenderSmsConfigModelRef, SenderSmsConfigStatus,
-    SenderSmsConfigType, SenderSmsLogModel, SenderSmsLogModelRef, SenderSmsLogStatus,
-    SenderSmsLogType, SenderSmsMessageModel, SenderSmsMessageModelRef, SenderSmsMessageStatus,
+use crate::{
+    dao::{SenderError, SenderResult},
+    model::{
+        SenderSmsCancelModel, SenderSmsCancelModelRef, SenderSmsCancelStatus, SenderSmsConfigData,
+        SenderSmsConfigLimit, SenderSmsConfigModel, SenderSmsConfigModelRef, SenderSmsConfigStatus,
+        SenderSmsConfigType, SenderSmsLogModel, SenderSmsLogModelRef, SenderSmsLogStatus,
+        SenderSmsLogType, SenderSmsMessageModel, SenderSmsMessageModelRef, SenderSmsMessageStatus,
+    },
 };
 use lsys_core::{now_time, AppCore, PageParam};
 
@@ -53,7 +56,7 @@ impl SmsTaskRecord {
         &self,
         tasking_record: &HashMap<u64, TaskValue>,
         limit: usize,
-    ) -> Result<(Vec<SenderSmsMessageModel>, bool), sqlx::Error> {
+    ) -> SenderResult<(Vec<SenderSmsMessageModel>, bool)> {
         let mut sql_vec = vec![];
         sql_vec.push(sql_format!(
             "expected_time<={} and status = {}",
@@ -93,7 +96,7 @@ impl SmsTaskRecord {
         expected_time: &u64,
         user_id: &Option<u64>,
         cancel_key: &Option<String>,
-    ) -> Result<u64, String> {
+    ) -> SenderResult<u64> {
         let user_id = user_id.unwrap_or_default();
         let add_time = now_time().unwrap_or_default();
         let tpl_id = tpl_id.to_owned();
@@ -127,14 +130,13 @@ impl SmsTaskRecord {
         }
         let row = Insert::<sqlx::MySql, SenderSmsMessageModel, _>::new_vec(idata)
             .execute(&self.db)
-            .await
-            .map_err(|e| e.to_string())?
+            .await?
             .rows_affected();
         if let Some(hk) = cancel_key {
             let hk = hk.trim().to_string();
             if !hk.is_empty() {
                 if hk.len() > 32 {
-                    return Err("cancel key can't >32".to_owned());
+                    return Err(SenderError::System("cancel key can't >32".to_owned()));
                 }
                 let mut idata = Vec::with_capacity(mobiles.len());
                 for (id, _, _) in add_data.iter() {
@@ -149,8 +151,7 @@ impl SmsTaskRecord {
                 }
                 Insert::<sqlx::MySql, SenderSmsCancelModel, _>::new_vec(idata)
                     .execute(&self.db)
-                    .await
-                    .map_err(|e| e.to_string())?;
+                    .await?;
             }
         }
         Ok(row)
@@ -160,7 +161,7 @@ impl SmsTaskRecord {
         find_message_by_id,
         u64,
         SenderSmsMessageModel,
-        Result<SenderSmsMessageModel,sqlx::Error>,
+        SenderResult<SenderSmsMessageModel>,
         id,
         "id={id}"
     );
@@ -170,7 +171,7 @@ impl SmsTaskRecord {
         app_id: &Option<u64>,
         tpl_id: &Option<String>,
         status: &Option<SenderSmsMessageStatus>,
-    ) -> Result<i64, sqlx::Error> {
+    ) -> SenderResult<i64> {
         let mut sqlwhere = vec![];
         if let Some(aid) = app_id {
             sqlwhere.push(sql_format!("app_id = {}  ", aid));
@@ -205,7 +206,7 @@ impl SmsTaskRecord {
         mobile: &Option<String>,
         status: &Option<SenderSmsMessageStatus>,
         page: &Option<PageParam>,
-    ) -> Result<Vec<SenderSmsMessageModel>, sqlx::Error> {
+    ) -> SenderResult<Vec<SenderSmsMessageModel>> {
         let mut sqlwhere = vec![];
         if let Some(aid) = app_id {
             sqlwhere.push(sql_format!("app_id = {}  ", aid));
@@ -234,7 +235,7 @@ impl SmsTaskRecord {
             .await?;
         Ok(data)
     }
-    pub async fn message_log_count(&self, message_id: &u64) -> Result<i64, sqlx::Error> {
+    pub async fn message_log_count(&self, message_id: &u64) -> SenderResult<i64> {
         let sqlwhere = vec![sql_format!("sms_message_id = {}  ", message_id)];
         let sql = sql_format!(
             "select count(*) as total from {} where {}",
@@ -249,7 +250,7 @@ impl SmsTaskRecord {
         &self,
         message_id: &u64,
         page: &Option<PageParam>,
-    ) -> Result<Vec<SenderSmsLogModel>, sqlx::Error> {
+    ) -> SenderResult<Vec<SenderSmsLogModel>> {
         let sqlwhere = vec![sql_format!("sms_message_id = {}  ", message_id)];
         let mut sql = format!("{}  order by id desc", sqlwhere.join(" and "));
         if let Some(pdat) = page {
@@ -267,14 +268,13 @@ impl SmsTaskRecord {
         &self,
         message: &SenderSmsMessageModel,
         user_id: &u64,
-    ) -> Result<(), String> {
+    ) -> SenderResult<()> {
         let change = sqlx_model::model_option_set!(SenderSmsMessageModelRef, {
             status: SenderSmsMessageStatus::IsCancel as i8
         });
         Update::<MySql, SenderSmsMessageModel, _>::new(change)
             .execute_by_pk(message, &self.db)
-            .await
-            .map_err(|e| e.to_string())?;
+            .await?;
         let send_time = now_time().unwrap_or_default();
         let log_type = SenderSmsLogType::Cancel as i8;
         let send_type = "aliyun".to_string();
@@ -302,32 +302,30 @@ impl SmsTaskRecord {
         &self,
         smsc: &SenderSmsCancelModel,
         user_id: &u64,
-    ) -> Result<(), String> {
-        let mut db = self.db.begin().await.map_err(|e| e.to_string())?;
+    ) -> SenderResult<()> {
+        let mut db = self.db.begin().await?;
         let change = sqlx_model::model_option_set!(SenderSmsCancelModelRef,{
             status:SenderSmsCancelStatus::IsCancel as i8,
             cancel_user_id:user_id
         });
         let res = Update::<MySql, SenderSmsCancelModel, _>::new(change)
             .execute_by_pk(smsc, &mut db)
-            .await
-            .map_err(|e| e.to_string());
+            .await;
         if res.is_err() {
-            db.rollback().await.map_err(|e| e.to_string())?;
-            return res.map(|_| ());
+            db.rollback().await?;
+            return res.map(|_| ()).map_err(|e| e.into());
         }
         let change = sqlx_model::model_option_set!(SenderSmsMessageModelRef, {
             status: SenderSmsMessageStatus::IsCancel as i8
         });
         let res = Update::<MySql, SenderSmsMessageModel, _>::new(change)
             .execute_by_where_call("id=?", |b, _| b.bind(smsc.sms_message_id), &mut db)
-            .await
-            .map_err(|e| e.to_string());
+            .await;
         if res.is_err() {
-            db.rollback().await.map_err(|e| e.to_string())?;
-            return res.map(|_| ());
+            db.rollback().await?;
+            return res.map(|_| ()).map_err(|e| e.into());
         }
-        db.commit().await.map_err(|e| e.to_string())?;
+        db.commit().await?;
         let send_time = now_time().unwrap_or_default();
         let log_type = SenderSmsLogType::Cancel as i8;
         let send_type = "aliyun".to_string();
@@ -354,7 +352,7 @@ impl SmsTaskRecord {
         Ok(())
     }
     //可取消发送的数据
-    pub async fn cancel_data(&self, cancel_key: &str) -> Result<Vec<SenderSmsCancelModel>, String> {
+    pub async fn cancel_data(&self, cancel_key: &str) -> SenderResult<Vec<SenderSmsCancelModel>> {
         let status = SenderSmsCancelStatus::Init as i8;
         let cancel_key = cancel_key.to_owned();
         let rows = Select::type_new::<SenderSmsCancelModel>()
@@ -363,8 +361,7 @@ impl SmsTaskRecord {
                 |bind, _| bind.bind(cancel_key).bind(status),
                 &self.db,
             )
-            .await
-            .map_err(|e| e.to_string())?;
+            .await?;
         Ok(rows)
     }
     //完成指定短信任务
@@ -374,7 +371,7 @@ impl SmsTaskRecord {
         val: &SenderSmsMessageModel,
         res: &Result<(), String>,
         try_num: u16,
-    ) -> Result<(), sqlx::Error> {
+    ) -> SenderResult<()> {
         let (status, log_status, err_msg) = match res {
             Ok(()) => (
                 SenderSmsMessageStatus::IsSend as i8,
@@ -426,7 +423,7 @@ impl SmsTaskRecord {
         find_config_by_id,
         u64,
         SenderSmsConfigModel,
-        Result<SenderSmsConfigModel,sqlx::Error>,
+        SenderResult<SenderSmsConfigModel>,
         id,
         "id={id}"
     );
@@ -438,7 +435,7 @@ impl SmsTaskRecord {
         config_data: Value,
         user_id: u64,
         add_user_id: u64,
-    ) -> Result<u64, String> {
+    ) -> SenderResult<u64> {
         let app_id = app_id.unwrap_or_default();
         let time = now_time().unwrap_or_default();
         let config_data = match config_type {
@@ -448,10 +445,10 @@ impl SmsTaskRecord {
                         match config_data.get($name) {
                             Some(val) => match val.$asfn() {
                                 Some(val) => val,
-                                None => return Err($wrong_err.to_string()),
+                                None => return Err(SenderError::System($wrong_err.to_string())),
                             },
                             None => {
-                                return Err($miss_err.to_string());
+                                return Err(SenderError::System($miss_err.to_string()));
                             }
                         }
                     };
@@ -474,7 +471,7 @@ impl SmsTaskRecord {
                 }) {
                     Ok(val) => val,
                     Err(err) => {
-                        return Err(err.to_string());
+                        return Err(SenderError::System(err.to_string()));
                     }
                 }
             }
@@ -484,7 +481,7 @@ impl SmsTaskRecord {
             SenderSmsConfigType::MaxOfSend => match config_data.as_u64() {
                 Some(num) => (num as u32).to_string(),
                 None => {
-                    return Err("send max need number".to_string());
+                    return Err(SenderError::System("send max need number".to_string()));
                 }
             },
         };
@@ -503,13 +500,13 @@ impl SmsTaskRecord {
             .execute(&self.db)
             .await
             .map(|e| e.last_insert_id())
-            .map_err(|e| e.to_string())
+            .map_err(|e| e.into())
     }
     pub async fn config_del(
         &self,
         config: &SenderSmsConfigModel,
         user_id: u64,
-    ) -> Result<u64, String> {
+    ) -> SenderResult<u64> {
         let time = now_time().unwrap_or_default();
         let change = sqlx_model::model_option_set!(SenderSmsConfigModelRef,{
             status:SenderSmsConfigStatus::Delete as i8,
@@ -520,7 +517,7 @@ impl SmsTaskRecord {
             .execute_by_pk(config, &self.db)
             .await;
         match res {
-            Err(e) => Err(e.to_string())?,
+            Err(e) => Err(SenderError::Sqlx(e))?,
             Ok(mr) => {
                 //清理缓存
                 Ok(mr.rows_affected())
@@ -532,7 +529,7 @@ impl SmsTaskRecord {
         user_id: Option<u64>,
         id: Option<u64>,
         app_id: Option<u64>,
-    ) -> Result<Vec<(SenderSmsConfigModel, SenderSmsConfigData)>, sqlx::Error> {
+    ) -> SenderResult<Vec<(SenderSmsConfigModel, SenderSmsConfigData)>> {
         let mut sqlwhere = vec![sql_format!(" status ={}", SenderSmsConfigStatus::Enable)];
         if let Some(aid) = app_id {
             sqlwhere.push(sql_format!("app_id = {}  ", aid));
@@ -587,6 +584,7 @@ impl SmsTaskRecord {
                     })
                     .collect::<Vec<_>>()
             })
+            .map_err(|e| e.into())
     }
     //检测指定发送是否符合配置规则
     pub async fn send_check(
@@ -595,14 +593,13 @@ impl SmsTaskRecord {
         tpl_id: &str,
         mobiles: &[(String, String)],
         send_time: u64,
-    ) -> Result<(), String> {
+    ) -> SenderResult<()> {
         if mobiles.is_empty() {
-            return Err("miss mobile".to_string());
+            return Err(SenderError::System("miss mobile".to_string()));
         }
         let mut rule = self
             .config_list(None, None, Some(app_id.unwrap_or_default()))
-            .await
-            .map_err(|e| e.to_string())?;
+            .await?;
         let mut limit_sql = vec![];
         let nowt = send_time;
         rule.sort_by(|a, b| a.0.priority.cmp(&b.0.priority));
@@ -614,7 +611,10 @@ impl SmsTaskRecord {
             }
             None
         })() {
-            return Err(format!("send mobile limit :{}", max_send));
+            return Err(SenderError::System(format!(
+                "send mobile limit :{}",
+                max_send
+            )));
         }
         for (c, r) in rule.iter() {
             match r {
@@ -647,11 +647,14 @@ impl SmsTaskRecord {
                 }
                 SenderSmsConfigData::Block { area, mobile } => {
                     if mobiles.iter().any(|a| *a.0 == *area && *a.1 == *mobile) {
-                        return Err(format!("send block on :{}{} [{}]", area, mobile, c.id));
+                        return Err(SenderError::System(format!(
+                            "send block on :{}{} [{}]",
+                            area, mobile, c.id
+                        )));
                     }
                 }
                 SenderSmsConfigData::Close => {
-                    return Err("send sms is close".to_string());
+                    return Err(SenderError::System("send sms is close".to_string()));
                 }
                 _ => {}
             }
@@ -667,15 +670,14 @@ impl SmsTaskRecord {
                 &sqls
             ))
             .fetch_all(&self.db)
-            .await
-            .map_err(|e| e.to_string())?;
+            .await?;
             for (_, id, limit) in limit_sql {
                 if let Some(t) = data.iter().find(|e| e.1 as u64 == id) {
                     if t.0 >= limit.max_send.into() {
-                        return Err(format!(
+                        return Err(SenderError::System(format!(
                             "trigger limit rule :{} on {}{} [{}]",
                             limit.max_send, t.2, t.3, id
-                        ));
+                        )));
                     }
                 }
             }

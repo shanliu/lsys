@@ -5,7 +5,7 @@ import CardContent from '@mui/material/CardContent';
 import CardHeader from '@mui/material/CardHeader';
 import { red } from '@mui/material/colors';
 import React, { useEffect, useState } from 'react';
-import { Link as RouteLink, Navigate, NavLink, Outlet, useParams } from 'react-router-dom';
+import { Link as RouteLink, Navigate, NavLink, Outlet, useParams, useLocation, useNavigate } from 'react-router-dom';
 import { UserSessionContext } from '../../context/session';
 import { Progress } from '../../library/loading';
 import { ActiveNavLink } from '../../library/nav';
@@ -21,6 +21,8 @@ export default function UserMainPage() {
     if (!userData) {
         return <Navigate to={"/login/main"} />
     }
+
+    const navigate = useNavigate();
 
     let [loadMenu, setLoadMenu] = useState({
         loading: true,
@@ -62,7 +64,7 @@ export default function UserMainPage() {
                             </Avatar>
                         </Link>
                     }
-                    title={<span onClick={() => { setAddNameBox(true) }}>{userData.user_data.user_nickname}</span>}
+                    title={<span onClick={() => { navigate("/user") }}>{userData.user_data.user_nickname}</span>}
                     subheader={
                         <div style={
                             {

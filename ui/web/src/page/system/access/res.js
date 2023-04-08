@@ -492,7 +492,7 @@ export default function SystemAccessResPage(props) {
         })
         setPageTagData({
             ...pageTagData,
-            init: searchParam.get("user_id") == pageTagData.user_id,
+            init: parseInt(searchParam.get("user_id") ?? '0') == parseInt(pageTagData.user_id ?? '0'),
             user_id: searchParam.get("user_id")
         })
     }, [searchParam])

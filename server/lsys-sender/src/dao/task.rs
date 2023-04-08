@@ -7,7 +7,7 @@ use redis::{
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
+use std::fmt::Display;
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::str::from_utf8;
@@ -19,6 +19,8 @@ use tokio::task::{AbortHandle, JoinSet};
 use tokio::time::sleep;
 use tracing::{debug, error, info, warn};
 
+use super::{SenderError, SenderResult};
+
 // 发送执行
 // 具体的发送接口实现该特征
 #[async_trait]
@@ -27,7 +29,7 @@ pub trait TaskExecutioner<
     T: TaskItem<I>,
 >: Clone + Send + Sync + 'static
 {
-    async fn exec(&self, val: T) -> Result<(), TaskError>;
+    async fn exec(&self, val: T) -> Result<(), SenderError>;
 }
 
 // 发送任务获取
@@ -44,7 +46,7 @@ pub trait TaskAcquisition<
         &self,
         tasking_record: &HashMap<I, TaskValue>,
         limit: usize,
-    ) -> Result<TaskRecord<I, T>, TaskError>;
+    ) -> SenderResult<TaskRecord<I, T>>;
 }
 
 pub trait TaskItem<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display + Clone>:
@@ -54,20 +56,20 @@ pub trait TaskItem<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + D
     fn to_task_value(&self) -> TaskValue;
 }
 
-pub enum TaskError {
-    Sqlx(sqlx::Error),
-    Redis(String),
-    Exec(String),
-}
-impl Display for TaskError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            TaskError::Sqlx(e) => write!(f, "{:?}", e),
-            TaskError::Redis(e) => write!(f, "{:?}", e),
-            TaskError::Exec(e) => write!(f, "{:?}", e),
-        }
-    }
-}
+// pub enum TaskError {
+//     Sqlx(sqlx::Error),
+//     Redis(String),
+//     Exec(String),
+// }
+// impl Display for TaskError {
+//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+//         match self {
+//             TaskError::Sqlx(e) => write!(f, "{:?}", e),
+//             TaskError::Redis(e) => write!(f, "{:?}", e),
+//             TaskError::Exec(e) => write!(f, "{:?}", e),
+//         }
+//     }
+// }
 pub struct TaskRecord<
     I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display + Clone,
     T: TaskItem<I>,
@@ -225,23 +227,20 @@ impl<
 {
     /// 通知发送模块进行发送操作
     /// * `redis` - 存放发送任务的RDIS
-    pub async fn notify(&self, redis: &mut Connection) -> Result<(), TaskError> {
+    pub async fn notify(&self, redis: &mut Connection) -> SenderResult<()> {
         redis
             .lpush(&self.list_notify, 1)
             .await
-            .map_err(|e| TaskError::Redis(e.to_string()))
+            .map_err(|e| SenderError::Redis(e.to_string()))
     }
     /// 获得发送中任务信息
     /// * `redis` - 存放发送任务的RDIS
-    pub async fn task_data(
-        &self,
-        redis: &mut Connection,
-    ) -> Result<HashMap<I, TaskValue>, TaskError> {
+    pub async fn task_data(&self, redis: &mut Connection) -> SenderResult<HashMap<I, TaskValue>> {
         let redis_data_opt: Result<Option<HashMap<I, TaskValue>>, _> =
             redis.hgetall(&self.task_list_key).await;
         match redis_data_opt {
             Ok(data) => Ok(data.unwrap_or_default()),
-            Err(err) => Err(TaskError::Redis(err.to_string())),
+            Err(err) => Err(SenderError::Redis(err.to_string())),
         }
     }
     // 任务执行

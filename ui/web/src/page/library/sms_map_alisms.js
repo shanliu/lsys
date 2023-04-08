@@ -338,7 +338,7 @@ export default function AppSmsAliSmsMap(props) {
             style: { width: 160 },
             label: '阿里云端口',
             render: (row) => {
-                return row.aliyun_name + ' (id:' + row.aliyun_id + ')'
+                return row.aliyun_name + ' [' + row.aliyun_id + ']'
             }
         },
         {

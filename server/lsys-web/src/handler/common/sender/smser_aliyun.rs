@@ -3,7 +3,7 @@ use crate::{
     handler::access::{AccessAdminAliSmsConfig, AccessAppSenderSmsConfig},
     {JsonData, JsonResult},
 };
-use lsys_sender::model::{SenderAliyunConfigStatus, SenderSmsAliyunStatus};
+use lsys_sender::model::SenderSmsAliyunStatus;
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
 use serde::Deserialize;
 use serde_json::json;
@@ -24,7 +24,7 @@ pub async fn smser_ali_config_list<
     req_dao: &RequestDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     let alisender = &req_dao.web_dao.smser.aliyun_sender;
-    let row = alisender.list_config(param.ids.as_deref()).await?;
+    let row = alisender.list_config(&param.ids).await?;
     let row = if param.full_data.unwrap_or(false) {
         let req_auth = req_dao.user_session.read().await.get_session_data().await?;
         req_dao
@@ -44,11 +44,10 @@ pub async fn smser_ali_config_list<
         let row = row
             .into_iter()
             .map(|e| {
-                let len=e.access_id.chars().count();
                 json!({
                    "id": e.id,
                    "name": e.name,
-                   "app_id":format!("{}**{}",e.access_id.chars().take(2).collect::<String>(),e.access_id.chars().skip(if len-2>0{len-2}else{len}).take(2).collect::<String>()),
+                   "app_id":e.hide_access_id
                 })
             })
             .collect::<Vec<Value>>();
@@ -124,10 +123,9 @@ pub async fn smser_ali_config_edit<
         )
         .await?;
     let alisender = &req_dao.web_dao.smser.aliyun_sender;
-    let config = alisender.find_config_by_id(&param.id).await?;
     let row = alisender
         .edit_config(
-            &config,
+            &param.id,
             &param.name,
             &param.access_id,
             &param.access_secret,
@@ -160,11 +158,9 @@ pub async fn smser_ali_config_del<'t, T: SessionTokenData, D: SessionData, S: Us
         )
         .await?;
     let alisender = &req_dao.web_dao.smser.aliyun_sender;
-    let config = alisender.find_config_by_id(&param.id).await?;
-    if SenderAliyunConfigStatus::Delete.eq(config.status) {
-        return Ok(JsonData::data(json!({ "num": 0 })));
-    }
-    let row = alisender.del_config(&config).await?;
+    let row = alisender
+        .del_config(&param.id, &req_auth.user_data().user_id)
+        .await?;
     Ok(JsonData::data(json!({ "num": row })))
 }
 
@@ -252,12 +248,11 @@ pub async fn smser_app_ali_config_add<
         .await?;
 
     let alisender = &req_dao.web_dao.smser.aliyun_sender;
-    let config = alisender.find_config_by_id(&param.ali_config_id).await?;
     let row = alisender
         .add_app_config(
             &param.name,
             &param.app_id,
-            &config,
+            &param.ali_config_id,
             &param.sms_tpl,
             &param.aliyun_sms_tpl,
             &param.aliyun_sign_name,
@@ -311,8 +306,8 @@ pub async fn smser_app_ali_config_list<
         .map(|e| {
             json!({
                 "config":e.0,
-                "aliyun_id":e.1.id,
-                "aliyun_name":e.1.name,
+                "aliyun_id":e.1.hide_access_id(),
+                "aliyun_name":e.1.model().name,
             })
         })
         .collect::<Vec<_>>();

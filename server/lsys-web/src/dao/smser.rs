@@ -10,6 +10,7 @@ use lsys_sender::{
     },
     model::SenderSmsMessageModel,
 };
+use lsys_setting::dao::{MultipleSetting};
 use lsys_user::dao::account::{check_mobile, UserAccountError};
 use sqlx::{MySql, Pool};
 use tera::Context;
@@ -65,6 +66,7 @@ impl WebAppSmser {
         redis: deadpool_redis::Pool,
         db: Pool<MySql>,
         fluent: Arc<FluentMessage>,
+        setting: Arc<MultipleSetting>,
         task_size: Option<usize>,
         task_timeout: usize,
         is_check: bool,
@@ -79,7 +81,7 @@ impl WebAppSmser {
             is_check,
             acquisition, //结构不大,不用Arc,引用,方便处理,不然生命周期太难搞
         ));
-        let aliyun_sender = AliyunSender::new(db);
+        let aliyun_sender = AliyunSender::new(db, setting);
         Self {
             smser,
             fluent,
@@ -127,7 +129,7 @@ impl WebAppSmser {
                 cancel_key,
             )
             .await
-            .map_err(WebAppSmserError::System)
+            .map_err(|e| WebAppSmserError::System(e.to_string()))
             .map(|_| ())
     }
     // 短信发送接口
@@ -139,7 +141,7 @@ impl WebAppSmser {
         self.smser
             .cancal_from_key(cancel_key, &app.user_id)
             .await
-            .map_err(WebAppSmserError::System)
+            .map_err(|e| WebAppSmserError::System(e.to_string()))
             .map(|_| ())
     }
     // 短信发送接口
@@ -151,7 +153,7 @@ impl WebAppSmser {
         self.smser
             .cancal_from_message(message, &user_id)
             .await
-            .map_err(WebAppSmserError::System)
+            .map_err(|e| WebAppSmserError::System(e.to_string()))
             .map(|_| ())
     }
     // 短信发送接口
@@ -167,7 +169,7 @@ impl WebAppSmser {
         self.smser
             .send(None, &[(area, mobile)], tpl_type, body, &None, &None, &None)
             .await
-            .map_err(WebAppSmserError::System)
+            .map_err(|e| WebAppSmserError::System(e.to_string()))
             .map(|_| ())
     }
     pub async fn send_valid_code(

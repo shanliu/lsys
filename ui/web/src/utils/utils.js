@@ -1,7 +1,7 @@
 
 export function showTime(unixTime, defText) {
     if (!unixTime || unixTime <= 0 || unixTime == '') {
-        return defText;
+        return defText + '';
     }
     var date = new Date(unixTime * 1000);
     var datetime = "";

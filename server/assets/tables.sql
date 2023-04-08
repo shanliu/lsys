@@ -257,22 +257,25 @@ CREATE TABLE `yaf_app_oauth_token` (
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '应用OAUTH登录数据';
 -- ----------- lsys-app  ---------------
--- ----------- lsys-sender  ---------------
-CREATE TABLE `yaf_sender_aliyun_config` (
+-- ----------- lsys-setting  ---------------
+CREATE TABLE `yaf_setting` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
+    `setting_type` tinyint(1) NOT NULL COMMENT '类型',
     `name` varchar(32) NOT NULL COMMENT '应用端配置显示名',
-    `access_id` varchar(32) NOT NULL COMMENT '阿里云key',
-    `access_secret` varchar(64) NOT NULL COMMENT '阿里云secret',
+    `setting_key` varchar(32) NOT NULL COMMENT '应用端配置key',
+    `setting_data` text NOT NULL COMMENT '内容',
+    `user_id` bigint unsigned NOT NULL COMMENT '用户 0 系统',
     `status` tinyint(1) NOT NULL COMMENT '状态',
-    `add_user_id` bigint unsigned NOT NULL COMMENT '添加用户',
-    `add_time` bigint unsigned NOT NULL COMMENT '申请时间',
-    `delete_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '确认时间',
+    `last_user_id` bigint unsigned NOT NULL COMMENT '修改用户',
+    `last_change_time` bigint unsigned NOT NULL COMMENT '修改时间',
     PRIMARY KEY (`id`)
-) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '短信ALIYUN配置数据';
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '配置数据';
+-- ----------- lsys-setting  ---------------
+-- ----------- lsys-sender  ---------------
 CREATE TABLE `yaf_sender_sms_aliyun` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
-    `aliyun_config_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT 'yaf_sender_aliyun_config ID',
+    `aliyun_config_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT 'yaf_setting.setting_key=ali-sms-config ID',
     `name` varchar(32) NOT NULL COMMENT '名称',
     `sms_tpl` varchar(32) NOT NULL COMMENT '模板KEY',
     `aliyun_sign_name` varchar(32) NOT NULL COMMENT '阿里云签名',

@@ -102,7 +102,7 @@ export const UserProvider = props => {
         } else {
             if (userData.reload) {
                 loginData({
-                    "auth": true
+                    auth: true
                 }).then((data) => {
                     if (data.status && data.auth_data) {
                         dispatch({

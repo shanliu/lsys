@@ -11,6 +11,8 @@ lsys-rbac = { version = "0.0.1", path = "../lsys-rbac"}
 lsys-user = { version = "0.0.1", path = "../lsys-user"}
 lsys-app = { version = "0.0.1", path = "../lsys-app"}
 lsys-sender = { version = "0.0.1", path = "../lsys-sender"}
+lsys-setting = { version = "0.0.1", path = "../lsys-setting"}
+
 pin-project = "1.0.*"
 futures-util="0.3.*"
 serde={ version = "1.0.*"}

@@ -87,7 +87,7 @@ export default function UserInfoIndexPage() {
                     ...pageData,
                     loading: false
                 })
-                if (userData.user_nickname != pageData.nikename) {
+                if (userData.user_data.user_nickname != pageData.nikename) {
                     dispatch(SessionReloadData())
                 }
                 toast("设置完成")

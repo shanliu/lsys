@@ -4,6 +4,7 @@ use lsys_core::cache::{LocalCacheClear, LocalCacheClearItem};
 use lsys_core::{AppCore, AppCoreError};
 use lsys_rbac::dao::rbac::RbacLocalCacheClear;
 use lsys_rbac::dao::{RbacDao, SystemRole};
+use lsys_setting::dao::Setting;
 use lsys_user::dao::account::cache::UserAccountLocalCacheClear;
 use lsys_user::dao::auth::{UserAuthConfig, UserAuthRedisStore};
 use lsys_user::dao::UserDao;
@@ -44,6 +45,7 @@ pub struct WebDao {
     pub db: Pool<MySql>,
     pub redis: deadpool_redis::Pool,
     pub tera: Arc<Tera>,
+    pub setting: Arc<Setting>,
 }
 
 impl WebDao {
@@ -68,6 +70,9 @@ impl WebDao {
         let tera = Arc::new(app_core.create_tera(&tera_tpl)?);
 
         let redis = app_core.create_redis().await?;
+
+        let setting = Arc::new(Setting::new(app_core.clone(), db.clone(), redis.clone()).await?);
+
         let root_user_id = app_core
             .config
             .get_array("root_user_id")
@@ -133,6 +138,7 @@ impl WebDao {
             redis.clone(),
             db.clone(),
             user_dao.fluent.clone(),
+            setting.multiple.clone(),
             None,
             300, //任务最大执行时间
             true,
@@ -187,6 +193,7 @@ impl WebDao {
             db,
             redis,
             tera,
+            setting,
         })
     }
     pub fn bind_addr(&self) -> String {

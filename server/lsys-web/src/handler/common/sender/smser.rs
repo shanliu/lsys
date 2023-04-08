@@ -3,7 +3,10 @@ use crate::{
     handler::access::{AccessAppSenderSmsConfig, AccessAppSenderSmsMsg},
     PageParam, {JsonData, JsonResult},
 };
-use lsys_sender::model::{SenderSmsConfigStatus, SenderSmsConfigType, SenderSmsMessageStatus};
+use lsys_sender::{
+    dao::SenderError,
+    model::{SenderSmsConfigStatus, SenderSmsConfigType, SenderSmsMessageStatus},
+};
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -301,7 +304,7 @@ pub async fn smser_config_del<'t, T: SessionTokenData, D: SessionData, S: UserSe
             }
         }
         Err(err) => match err {
-            sqlx::Error::RowNotFound => {
+            SenderError::Sqlx(sqlx::Error::RowNotFound) => {
                 return Ok(JsonData::message("email not find"));
             }
             _ => {

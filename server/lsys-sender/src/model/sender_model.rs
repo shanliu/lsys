@@ -3,42 +3,6 @@ use sqlx::FromRow;
 use sqlx_model::SqlxModel;
 
 #[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(table_name = "sender_aliyun_config")]
-pub struct SenderAliyunConfigModel {
-    /// 消息ID
-    #[sqlx(default)]
-    pub id: u64,
-
-    /// 显示给用户配置名
-    #[sqlx(default)]
-    pub name: String,
-
-    /// Id
-    #[sqlx(default)]
-    pub access_id: String,
-
-    ///secret
-    #[sqlx(default)]
-    pub access_secret: String,
-
-    /// 0 禁用 1 启用
-    #[sqlx(default)]
-    pub status: i8,
-
-    /// 添加用户ID
-    #[sqlx(default)]
-    pub add_user_id: u64,
-
-    /// 添加时间
-    #[sqlx(default)]
-    pub add_time: u64,
-
-    /// 删除时间
-    #[sqlx(default)]
-    pub delete_time: u64,
-}
-
-#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
 #[sqlx_model(table_name = "sender_sms_aliyun")]
 pub struct SenderSmsAliyunModel {
     /// 消息ID
