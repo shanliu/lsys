@@ -130,7 +130,8 @@ impl MultipleSetting {
         let key = T::key().to_string();
         let uid = user_id.unwrap_or_default();
         let mut sql = sql_format!(
-            "setting_type={} and setting_key={} and  user_id={}",
+            "status={} and setting_type={} and setting_key={} and  user_id={}",
+            SettingStatus::Enable as i8,
             SettingType::Multiple as i8,
             key,
             uid
@@ -159,8 +160,9 @@ impl MultipleSetting {
         let key = T::key().to_string();
         let uid = user_id.unwrap_or_default();
         let sql = sql_format!(
-            "select count(*) as total from {} where setting_type={} and setting_key={} and  user_id={}",
+            "select count(*) as total from {} where status={} and setting_type={} and setting_key={} and  user_id={}",
             SettingModel::table_name(),
+            SettingStatus::Enable as i8,
             SettingType::Multiple as i8,
             key,
             uid

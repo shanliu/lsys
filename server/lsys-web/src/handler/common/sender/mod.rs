@@ -1,5 +1,10 @@
+mod mailer;
+mod mailer_smtp;
 mod smser;
 mod smser_aliyun;
-
+mod tpl;
+pub use mailer::*;
+pub use mailer_smtp::*;
 pub use smser::*;
 pub use smser_aliyun::*;
+pub use tpl::*;

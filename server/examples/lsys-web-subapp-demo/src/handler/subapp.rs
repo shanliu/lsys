@@ -52,5 +52,5 @@ pub async fn demo_handler(
         )
         .await?;
     //业务逻辑。。。
-    Ok(JsonData::message("dome message").set_data(json!({ "text":param.text })))
+    Ok(JsonData::data(json!({ "text":param.text })))
 }

@@ -40,7 +40,7 @@ pub async fn sms_send(
     // 字符串转时间对象
 
     app_dao
-        .smser
+        .sender_smser
         .app_send(
             app,
             &param.tpl,
@@ -73,6 +73,9 @@ pub async fn sms_cancel(
             None,
         )
         .await?;
-    app_dao.smser.app_send_cancel(app, &param.cancel).await?;
+    app_dao
+        .sender_smser
+        .app_send_cancel(app, &param.cancel)
+        .await?;
     Ok(JsonData::message("success"))
 }

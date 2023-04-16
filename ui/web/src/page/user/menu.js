@@ -9,6 +9,7 @@ import React from 'react';
 import { Link as RouteLink, useParams } from 'react-router-dom';
 import ApiIcon from '@mui/icons-material/Api';
 import SmsIcon from '@mui/icons-material/Sms';
+import MailIcon from '@mui/icons-material/Mail';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 
 
@@ -29,6 +30,11 @@ export const Menus = [
         text: "短信管理"
     },
     {
+        url: "/user/mail/message",
+        icon: MailIcon,
+        text: "邮件管理"
+    },
+    {
         url: "/user/access",
         icon: KeyIcon,
         text: "授权管理"
@@ -39,12 +45,12 @@ export const Menus = [
         text: "登陆历史"
     },
     {
-        url: "/system/",
+        url: "/system/app",
         icon: AdminPanelSettingsIcon,
         text: "系统管理",
         rbac: [
             {
-                name:"admin-main"
+                name: "admin-main"
             }
         ]
     },

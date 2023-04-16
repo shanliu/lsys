@@ -25,14 +25,14 @@ impl RbacCheck for AccessSubAppView {
                     vec![AccessRes::system(
                         //系统控制指定用户APP之间查看
                         &format!("global-app-{}", self.app.id),
-                        &["view-app"],
+                        &["app-view"],
                         &[],
                     )],
                     vec![AccessRes::user(
                         //用户控制用户APP之间查看
                         self.see_app.user_id,
                         &format!("app-{}", self.app.id),
-                        &["view-app"],
+                        &["app-view"],
                         &[],
                     )],
                 ],
@@ -48,13 +48,13 @@ impl RbacResTpl for AccessSubAppView {
                 tags: vec!["user"],
                 user: true,
                 key: "app-{appid}",
-                ops: vec!["view-app"],
+                ops: vec!["app-view"],
             },
             ResTpl {
                 tags: vec!["system"],
                 user: false,
                 key: "global-app-{appid}",
-                ops: vec!["view-app"],
+                ops: vec!["app-view"],
             },
         ]
     }

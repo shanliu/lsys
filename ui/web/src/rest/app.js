@@ -1,16 +1,17 @@
-import { fialResult, restResult,sessionRest } from "../utils/rest";
+import { fialResult, restResult, sessionRest } from "../utils/rest";
+import { isDomain } from "../utils/utils";
 function appRest() {
     return sessionRest('/api/app')
 };
 
 
 export async function appList(param, config) {
-    const { app_id,status, user_id, client_id, page, page_size } = param;
+    const { app_id, status, user_id, client_id, page, page_size } = param;
     let params = {
         "count_num": true,
         "page": {
-            page: parseInt(page)>=0?(parseInt(page) + 1):1,
-            limit: parseInt(page_size)>0?parseInt(page_size):10
+            page: parseInt(page) >= 0 ? (parseInt(page) + 1) : 1,
+            limit: parseInt(page_size) > 0 ? parseInt(page_size) : 10
         }
     };
     if (parseInt(user_id) > 0) {
@@ -22,11 +23,11 @@ export async function appList(param, config) {
     if (client_id && client_id != '') {
         params.client_ids = [client_id];
     }
-    if (app_id && app_id>0) {
+    if (app_id && app_id > 0) {
         params.app_id = [parseInt(app_id)];
     }
     let response = await appRest().post("list", params, config);
-    return restResult(response,['not_found'])
+    return restResult(response, ['not_found'])
 }
 
 export async function appAdd(param, config) {
@@ -39,8 +40,7 @@ export async function appAdd(param, config) {
         errors.client_id = "appid 必须大于3个字符";
     }
     if (typeof domain == "string" && domain.length > 0) {
-        if (!/^[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}(:[\d]{1,5})?$/.test(domain)
-            && !/^[0-9a-zA-Z]{0,1}[0-9a-zA-Z-]*(\.[0-9a-zA-Z-]*)*(\.[0-9a-zA-Z]*)+(:[\d]{1,5})?$/.test(domain)) {
+        if (!isDomain(domain, true)) {
             errors.domain = "回地域名[IP]格式错误,不需要请留空";
         }
     }

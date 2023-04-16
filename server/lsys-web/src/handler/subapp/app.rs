@@ -41,7 +41,7 @@ pub async fn subapp_view(
         )
         .await?;
 
-    Ok(JsonData::message("app data").set_data(json!({
+    Ok(JsonData::data(json!({
         "name": out_app.name,
         "client_id":out_app.client_id,
         "client_secret": out_app.client_secret,

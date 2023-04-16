@@ -23,7 +23,7 @@ pub async fn smser_ali_config_list<
     param: SmserAliConfigListParam,
     req_dao: &RequestDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let alisender = &req_dao.web_dao.smser.aliyun_sender;
+    let alisender = &req_dao.web_dao.sender_smser.aliyun_sender;
     let row = alisender.list_config(&param.ids).await?;
     let row = if param.full_data.unwrap_or(false) {
         let req_auth = req_dao.user_session.read().await.get_session_data().await?;
@@ -80,7 +80,7 @@ pub async fn smser_ali_config_add<'t, T: SessionTokenData, D: SessionData, S: Us
             None,
         )
         .await?;
-    let alisender = &req_dao.web_dao.smser.aliyun_sender;
+    let alisender = &req_dao.web_dao.sender_smser.aliyun_sender;
     let row = alisender
         .add_config(
             &param.name,
@@ -122,7 +122,7 @@ pub async fn smser_ali_config_edit<
             None,
         )
         .await?;
-    let alisender = &req_dao.web_dao.smser.aliyun_sender;
+    let alisender = &req_dao.web_dao.sender_smser.aliyun_sender;
     let row = alisender
         .edit_config(
             &param.id,
@@ -157,7 +157,7 @@ pub async fn smser_ali_config_del<'t, T: SessionTokenData, D: SessionData, S: Us
             None,
         )
         .await?;
-    let alisender = &req_dao.web_dao.smser.aliyun_sender;
+    let alisender = &req_dao.web_dao.sender_smser.aliyun_sender;
     let row = alisender
         .del_config(&param.id, &req_auth.user_data().user_id)
         .await?;
@@ -179,7 +179,7 @@ pub async fn smser_app_ali_config_del<
     req_dao: &RequestDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-    let alisender = &req_dao.web_dao.smser.aliyun_sender;
+    let alisender = &req_dao.web_dao.sender_smser.aliyun_sender;
     let config = alisender
         .find_app_config_by_id(&param.app_config_id)
         .await?;
@@ -214,7 +214,7 @@ pub struct SmserAppAliConfigAddParam {
     pub user_id: Option<u64>,
     pub ali_config_id: u64,
     pub name: String,
-    pub sms_tpl: String,
+    pub tpl_id: String,
     pub aliyun_sms_tpl: String,
     pub aliyun_sign_name: String,
     pub try_num: u16,
@@ -247,13 +247,13 @@ pub async fn smser_app_ali_config_add<
         )
         .await?;
 
-    let alisender = &req_dao.web_dao.smser.aliyun_sender;
+    let alisender = &req_dao.web_dao.sender_smser.aliyun_sender;
     let row = alisender
         .add_app_config(
             &param.name,
             &param.app_id,
             &param.ali_config_id,
-            &param.sms_tpl,
+            &param.tpl_id,
             &param.aliyun_sms_tpl,
             &param.aliyun_sign_name,
             &param.try_num,
@@ -298,7 +298,7 @@ pub async fn smser_app_ali_config_list<
         )
         .await?;
 
-    let alisender = &req_dao.web_dao.smser.aliyun_sender;
+    let alisender = &req_dao.web_dao.sender_smser.aliyun_sender;
     let row = alisender
         .find_app_config(&param.id, &param.user_id, &param.app_id, &param.tpl)
         .await?

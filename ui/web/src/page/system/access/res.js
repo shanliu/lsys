@@ -219,8 +219,7 @@ export function AddBox(props) {
                                     res_key_open: false,
                                 })
                             }}
-
-                            disabled={resData.loading || !!res}
+                            disabled={resData.loading}
                             value={resData.res_key}
                             options={res_keys.keys.map((e) => e.key)}
                             open={resData.res_key_open}
@@ -250,7 +249,7 @@ export function AddBox(props) {
                                         setResData({
                                             ...resData,
                                             res_focused: false,
-                                            res_key: e.target.value,
+                                            res_key: res ? resData.res_key : e.target.value,
                                             res_key_open: false,
                                             ...sysDataFill(e.target.value)
                                         })
@@ -268,7 +267,7 @@ export function AddBox(props) {
                                             return
                                         setResData({
                                             ...resData,
-                                            res_key: e.target.value,
+                                            res_key: res ? resData.res_key : e.target.value,
                                             res_key_open: false,
                                             ...sysDataFill(e.target.value)
                                         })
@@ -419,7 +418,7 @@ function UserAccessResItem(props) {
                         <TableCell colSpan={6} style={{ padding: 4, borderBottom: "1px solid #f0f0f0" }}>
                             <Grid container>
                                 <Grid sx={{ width: 80, lineHeight: "52px", fontWeight: 500, fontSize: "0.875rem", textAlign: "right", mr: 1 }}>可用操作</Grid>
-                                <Grid sx={{ flexGrow: 1 }}>
+                                <Grid sx={{ flex: 1,paddingBottom:1 }}>
                                     {
                                         item.ops.map((op) => {
                                             return <ResOpItem
@@ -438,7 +437,7 @@ function UserAccessResItem(props) {
                         <TableCell colSpan={6} style={{ padding: 4, borderBottom: "1px solid #f0f0f0" }}>
                             <Grid container >
                                 <Grid sx={{ width: 80, lineHeight: "52px", fontWeight: 500, fontSize: "0.875rem", textAlign: "right", mr: 1 }}>标记</Grid>
-                                <Grid sx={{ flexGrow: 1, color: "#333", paddingTop: "2px" }}>
+                                <Grid sx={{ flex: 1, color: "#333", paddingTop: "2px" }}>
                                     {
                                         item.tags.map((tag) => {
                                             return <UserTags
@@ -781,7 +780,7 @@ export default function SystemAccessResPage(props) {
         </Drawer>
         <Paper
             component="form"
-            sx={{ p: 2, display: 'flex', alignItems: 'center', marginBottom: 1, marginTop: 1, minWidth: 770 }}
+            sx={{ p: 2, display: 'flex', alignItems: 'center', marginBottom: 1, marginTop: 1, minWidth: 900 }}
         >
             <Stack direction="row" spacing={1} sx={{ mr: 2 }}>
                 <FormControl >
@@ -852,7 +851,7 @@ export default function SystemAccessResPage(props) {
                             page: 0,
                         }, loadResData)
                     }}
-                    sx={{ pt: "4px" }}
+                    sx={{ pt: "4px", minWidth: 100 }}
                 >查询</LoadingButton>
             </Stack >
             {
@@ -909,7 +908,7 @@ export default function SystemAccessResPage(props) {
                             variant="outlined"
                             size="medium"
                             startIcon={<SearchIcon />}
-                            sx={{ mr: 1, p: "7px 15px" }}
+                            sx={{ mr: 1, p: "7px 15px", minWidth: 85 }}
                             onClick={() => {
                                 setSearchParam({
                                     ...filterData

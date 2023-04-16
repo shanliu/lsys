@@ -224,7 +224,7 @@ pub async fn rbac_role_add(
         return Err(e);
     };
     transaction.commit().await?;
-    Ok(JsonData::message("add succ").set_data(json!({ "id": id })))
+    Ok(JsonData::data(json!({ "id": id })))
 }
 
 #[derive(Debug, Deserialize)]
@@ -392,7 +392,7 @@ pub async fn rbac_role_list_user(
         None
     };
 
-    Ok(JsonData::message("del succ").set_data(json!({ "data": data,"total":total })))
+    Ok(JsonData::data(json!({ "data": data,"total":total })))
 }
 #[derive(Debug, Deserialize)]
 pub struct RoleAddUserParam {
@@ -630,7 +630,7 @@ pub async fn rbac_role_list_data(
     } else {
         None
     };
-    Ok(JsonData::message("data succ").set_data(json!({ "data": out,"total":count})))
+    Ok(JsonData::data(json!({ "data": out,"total":count})))
 }
 
 #[derive(Debug, Deserialize)]
@@ -656,7 +656,7 @@ pub async fn rbac_role_tags(
         .await?;
 
     let out = rbac_dao.rbac.role.user_role_tags(see_user_id).await?;
-    Ok(JsonData::message("tags data").set_data(json!({ "data": out })))
+    Ok(JsonData::data(json!({ "data": out })))
 }
 
 #[derive(Debug, Deserialize)]
@@ -664,7 +664,8 @@ pub struct RoleOptionsParam {
     pub user_id: Option<u64>,
     pub user_range: Option<bool>,
     pub res_range: Option<bool>,
-    pub relation_key: Option<Vec<String>>,
+    pub relation_tpl: Option<bool>,
+    pub relation_find: Option<Vec<String>>,
 }
 
 #[derive(Debug, Serialize)]
@@ -706,15 +707,15 @@ pub async fn rbac_user_role_options(
         let mut res_range = vec![
             OptionItem {
                 key: RbacRoleResOpRange::AllowSelf as i8,
-                name: if see_user_id == user_id {
-                    "用户所有资源"
+                name: if see_user_id == 0 {
+                    "授权访问系统资源"
                 } else {
-                    "指定用户资源"
+                    "授权访问当前用户所有资源"
                 },
             },
             OptionItem {
                 key: RbacRoleResOpRange::AllowCustom as i8,
-                name: "指定资源",
+                name: "自定义配置访问资源",
             },
         ];
         if see_user_id == 0 {
@@ -734,7 +735,7 @@ pub async fn rbac_user_role_options(
             {
                 res_range.push(OptionItem {
                     key: RbacRoleResOpRange::AllowAll as i8,
-                    name: "授权全局资源",
+                    name: "授权访问任何资源",
                 });
             }
             if rbac_dao
@@ -753,7 +754,7 @@ pub async fn rbac_user_role_options(
             {
                 res_range.push(OptionItem {
                     key: RbacRoleResOpRange::DenyAll as i8,
-                    name: "禁止任何资源",
+                    name: "禁止访问任何资源",
                 });
             }
         }
@@ -762,7 +763,7 @@ pub async fn rbac_user_role_options(
         None
     };
 
-    let relation_key = if let Some(ref key) = param.relation_key {
+    let relation_key = if let Some(ref key) = param.relation_find {
         let res = rbac_dao
             .rbac
             .role
@@ -772,11 +773,21 @@ pub async fn rbac_user_role_options(
     } else {
         None
     };
-    let relation_tpl = access_relation_tpl!(RelationApp);
-    Ok(JsonData::message("tags data").set_data(json!({
+    let relation_tpl = if param.relation_tpl.unwrap_or(false) {
+        Some(
+            access_relation_tpl!(RelationApp)
+                .into_iter()
+                .filter(|e| if see_user_id > 0 { e.user } else { !e.user })
+                .map(|e| e.key)
+                .collect::<Vec<_>>(),
+        )
+    } else {
+        None
+    };
+    Ok(JsonData::data(json!({
         "user_range":user_range,
         "res_range":res_range,
-        "exist_relation_role":relation_key,
+        "relation_find":relation_key,
         "relation_tpl":relation_tpl
     })))
 }
@@ -825,7 +836,7 @@ pub async fn rbac_user_relation_data(
     } else {
         None
     };
-    Ok(JsonData::message("relation data").set_data(json!({
+    Ok(JsonData::data(json!({
         "data":data,
         "total":total
     })))

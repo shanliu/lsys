@@ -12,7 +12,7 @@ pub async fn rbac_access_check(
     rbac_dao: &RbacDao,
 ) -> JsonResult<JsonData> {
     access_check(rbac_dao, user_id, &param).await?;
-    Ok(JsonData::message("success").set_data(json!({ "pass": 1 })))
+    Ok(JsonData::data(json!({ "pass": 1 })))
 }
 
 #[derive(Debug, Deserialize)]
@@ -41,5 +41,5 @@ pub async fn rbac_menu_check(
             name: e.name,
         })
     }
-    Ok(JsonData::message("check menu record").set_data(json!({ "data": out })))
+    Ok(JsonData::data(json!({ "data": out })))
 }

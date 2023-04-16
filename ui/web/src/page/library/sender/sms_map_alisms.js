@@ -7,13 +7,13 @@ import { Alert, Button, Divider, Drawer, FormControl, Grid, IconButton, InputLab
 import Box from '@mui/material/Box';
 import React, { Fragment, useContext, useEffect, useState } from 'react';
 import { Form } from 'react-router-dom';
-import { ToastContext } from '../../context/toast';
-import { ConfirmButton } from '../../library/dialog';
-import { ClearTextField } from '../../library/input';
-import { LoadingButton } from '../../library/loading';
-import { BaseTablePage } from '../../library/table_page';
-import { addAppAliConfig, delAppAliConfig, listAliConfig, listAppAliConfig } from '../../rest/sms_setting';
-import { showTime } from '../../utils/utils';
+import { ToastContext } from '../../../context/toast';
+import { ConfirmButton } from '../../../library/dialog';
+import { ClearTextField } from '../../../library/input';
+import { LoadingButton } from '../../../library/loading';
+import { BaseTablePage } from '../../../library/table_page';
+import { smsAddAppAliConfig, smsDelAppAliConfig, smsListAliConfig, smsListAppAliConfig } from '../../../rest/sender_setting';
+import { showTime } from '../../../utils/utils';
 
 
 function AddBox(props) {
@@ -46,7 +46,7 @@ function AddBox(props) {
             ...aliConfigData,
             loading: true
         })
-        listAliConfig({}).then((data) => {
+        smsListAliConfig({}).then((data) => {
             if (!data.status) {
                 setAliConfigData({
                     ...aliConfigData,
@@ -68,12 +68,12 @@ function AddBox(props) {
             ...configData,
             loading: true
         })
-        addAppAliConfig({
+        smsAddAppAliConfig({
             user_id: userId,
             app_id: appId,
             name: configData.name,
             aliconfig_id: configData.aliconfig_id,
-            sms_tpl: configData.sms_tpl,
+            tpl_id: configData.sms_tpl,
             aliyun_sign_name: configData.aliyun_sign_name,
             aliyun_sms_tpl: configData.aliyun_sms_tpl,
             max_try_num: configData.max_try_num
@@ -156,7 +156,7 @@ function AddBox(props) {
                                 id="config-select-small"
                                 label="选择阿里云端口">
                                 {aliConfigData.data.map((item) => {
-                                    return <MenuItem value={item.id}>{item.name}[{item.app_id}]</MenuItem>
+                                    return <MenuItem key={`s-${item.app_id}`} value={item.id}>{item.name}[{item.app_id}]</MenuItem>
                                 })}
                             </Select>
                         </FormControl>
@@ -328,7 +328,7 @@ export default function AppSmsAliSmsMap(props) {
         },
         {
 
-            style: { width: 160 },
+            style: { width: 120 },
             label: '模板名',
             render: (row) => {
                 return row.config.sms_tpl
@@ -359,7 +359,7 @@ export default function AppSmsAliSmsMap(props) {
         },
         {
             align: "center",
-            style: { width: 100 },
+            style: { width: 80 },
             label: '尝试次数',
             render: (row) => {
                 return row.config.max_try_num
@@ -377,7 +377,7 @@ export default function AppSmsAliSmsMap(props) {
             label: '操作',
             render: (row) => {
                 let delAction = () => {
-                    return delAppAliConfig({ id: row.config.id }).then((data) => {
+                    return smsDelAppAliConfig({ id: row.config.id }).then((data) => {
                         if (!data.status) return data;
                         let rows = loadData.data.filter((item) => {
                             if (item.config.id == row.config.id) return;
@@ -416,7 +416,7 @@ export default function AppSmsAliSmsMap(props) {
             ...loadData,
             loading: true
         })
-        return listAppAliConfig({
+        return smsListAppAliConfig({
             id: mapId,
             user_id: parseInt(userId),
             app_id: (props.children && !appId) ? -1 : appId,

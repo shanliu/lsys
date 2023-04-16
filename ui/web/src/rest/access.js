@@ -266,10 +266,11 @@ export async function roleRelationData(params, config) {
     user_id,
     relation_prefix,
     page,
-    page_size
+    page_size,
+    count_num
   } = params;
   let param = {
-    count_num: true,
+    count_num: !!count_num,
     user_id: parseInt(user_id),
     page: {
       page: parseInt(page) >= 0 ? (parseInt(page) + 1) : 1,
@@ -324,7 +325,7 @@ export async function roleListData(params, config) {
   if (typeof relation_prefix == 'string' && relation_prefix.length > 0) {
     param.relation_prefix = relation_prefix;
   }
-  
+
   if (typeof role_id == 'string') {
     role_id = role_id.split(",").map((e) => parseInt(e));
     role_id = role_id.filter((e) => !isNaN(e))
@@ -343,55 +344,32 @@ export async function roleTags(param, config) {
 }
 
 
+
+export async function roleRelationCheck(params, config) {
+  let {
+    user_id,
+    relation_find
+  } = params;
+  let param = {
+    user_id: user_id,
+    relation_find: relation_find
+  };
+  let response = await accessRest().post("/role/options", param, config);
+  return restResult(response, ['not_found'])
+}
+
 export async function roleOptions(params, config) {
   let {
     user_id
   } = params;
-  //@todo 关系应该不能全部已知,所以应该是搜索得到部分在查询
-  // 关系应该要分组
-  const user_access_keys = [
-    {
-      key: "vip1",
-      name: "等级1",
-      is_use: false,
-      time: null
-    },
-    {
-      key: "vip2",
-      name: "等级2",
-      is_use: false,
-      time: null
-    },
-  ]
   let param = {
     user_id: user_id,
     user_range: true,
     res_range: true,
+    relation_tpl: true,
   };
-  param.relation_key = user_access_keys.map((e) => {
-    return e.key
-  });
   let response = await accessRest().post("/role/options", param, config);
-  let data= restResult(response, ['not_found'])
-    if (!data.status) return data;
-    return {
-      ...data,
-      user_access_keys: user_access_keys.map((item) => {
-        if (!data.exist_relation_role) {
-          return item;
-        } else {
-          let out = { ...item };
-          let sout = data.exist_relation_role.find((sitem) => {
-            return sitem.relation_key == item.key
-          });
-          if (sout) {
-            out.is_use = true;
-            out.time = sout.change_time;
-          }
-          return out;
-        }
-      })
-    }
+  return restResult(response, ['not_found'])
 }
 
 export async function roleDelete(params, config) {

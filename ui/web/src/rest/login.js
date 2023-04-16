@@ -1,5 +1,5 @@
 import isEmail from "validator/lib/isEmail";
-import { fialResult, globalRest, restResult,sessionRest } from "../utils/rest";
+import { fialResult, globalRest, restResult, sessionRest } from "../utils/rest";
 
 function loginRest() {
     return sessionRest('/api/user')
@@ -289,7 +289,7 @@ export async function mobileSignupSendCode(param, config) {
 
 export async function mobileSignup(param, config) {
     const { mobile, nikename, password, code } = param;
-
+    let errors = {};
     if (typeof code !== "string" || code.code < 1) {
         errors.code = "请输入验证码";
     }

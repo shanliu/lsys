@@ -50,3 +50,7 @@ rs-snowflake = "0.6.0"
 crc32fast = "1.3.2"
 
 parking_lot = "~0.12.*"
+
+
+fluent = "~0.16.*"
+fluent-syntax="~0.11.*"

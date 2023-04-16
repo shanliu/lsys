@@ -263,7 +263,7 @@ export function TagSelect(props) {
             labelId="tag-select-small"
             id="tag-select-small"
             label="标签"
-            value={value??''}
+            value={value ?? ''}
             onChange={onChange}
         >
             <MenuItem value="">
@@ -350,6 +350,7 @@ export function CaptchaInput(props) {
                 <img style={{
                     alignSelf: "center",
                     width: "100%",
+                    height: "40px",
                     borderRadius: 4,
                     cursor: "pointer"
                 }}
@@ -373,48 +374,48 @@ CaptchaInput.propTypes = {
 
 //范围输入框
 export function SliderInput(props) {
-    const { label,loading, onChange, value, sx,...other} = props;
+    const { label, loading, onChange, value, sx, ...other } = props;
 
-return <FormControl sx={sx} {...other}>
-    <FormLabel style={{
-        position: "absolute",
-        transform: "translate(-4px, -12px) scale(0.75)"
-    }}>{label}</FormLabel>
-    <Box className='MuiInputBase-root MuiOutlinedInput-root MuiInputBase-colorPrimary MuiInputBase-formControl MuiInputBase-sizeSmall'
-        style={{
-            borderRadius: "4px"
-        }}>
-        <fieldset style={{
-            textAlign: "left",
+    return <FormControl sx={sx} {...other}>
+        <FormLabel style={{
             position: "absolute",
-            bottom: 0,
-            right: 0,
-            top: "-13px",
-            left: 0,
-            margin: 0,
-            padding: "0 8px",
-            pointerEvents: "none",
-            borderRadius: "inherit",
-            borderStyle: "solid",
-            borderWidth: "1px ",
-            overflow: "hidden",
-            borderColor: " rgba(0, 0, 0, 0.23)",
-        }} className="MuiOutlinedInput-notchedOutline "><legend style={{
-            visibility: "hidden"
-        }} ><span>{label}</span></legend></fieldset>
-    </Box>
-    <Slider
-        disabled={loading}
-        sx={{ color: "#aaa", mt: 1, mb: 1 }}
-        value={value}
-        onChange={onChange}
-        step={1}
-        marks
-        min={1}
-        max={100}
-        size="small"
-        valueLabelDisplay="auto"
-    />
-</FormControl>
+            transform: "translate(-4px, -12px) scale(0.75)"
+        }}>{label}</FormLabel>
+        <Box className='MuiInputBase-root MuiOutlinedInput-root MuiInputBase-colorPrimary MuiInputBase-formControl MuiInputBase-sizeSmall'
+            style={{
+                borderRadius: "4px"
+            }}>
+            <fieldset style={{
+                textAlign: "left",
+                position: "absolute",
+                bottom: 0,
+                right: 0,
+                top: "-13px",
+                left: 0,
+                margin: 0,
+                padding: "0 8px",
+                pointerEvents: "none",
+                borderRadius: "inherit",
+                borderStyle: "solid",
+                borderWidth: "1px ",
+                overflow: "hidden",
+                borderColor: " rgba(0, 0, 0, 0.23)",
+            }} className="MuiOutlinedInput-notchedOutline "><legend style={{
+                visibility: "hidden"
+            }} ><span>{label}</span></legend></fieldset>
+        </Box>
+        <Slider
+            disabled={loading}
+            sx={{ color: "#aaa", mt: 1, mb: 1 }}
+            value={value}
+            onChange={onChange}
+            step={1}
+            marks
+            min={1}
+            max={100}
+            size="small"
+            valueLabelDisplay="auto"
+        />
+    </FormControl>
 }
 

@@ -18,7 +18,7 @@ func TestSms(t *testing.T) {
 	})
 
 	//示例1
-	//app信息获取
+	//短信发送示例
 	err1 := sysApi.SmsSend(
 		context.Background(),
 		[]string{

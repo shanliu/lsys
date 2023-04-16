@@ -266,7 +266,7 @@ export default function UserLoginHistroyPage(props) {
                 variant="outlined"
                 size="medium"
                 startIcon={<SearchIcon />}
-                sx={{ mr: 1, p: "7px 15px" }}
+                sx={{ mr: 1, p: "7px 15px", minWidth: 85 }}
                 loading={loadData.loading}
                 disabled={loadData.loading}
             >

@@ -13,7 +13,7 @@ use lsys_web::handler::api::sender::{
     SmserMessageCancelParam, SmserMessageListParam, SmserMessageLogParam,
 };
 #[post("/smser/{method}")]
-pub(crate) async fn smser<'t>(
+pub(crate) async fn sender_smser<'t>(
     jwt: JwtQuery,
     path: actix_web::web::Path<(String,)>,
     rest: JsonQuery,

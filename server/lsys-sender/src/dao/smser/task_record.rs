@@ -1,89 +1,127 @@
 use std::{collections::HashMap, sync::Arc};
 
 use crate::{
-    dao::{SenderError, SenderResult},
+    dao::{
+        SenderError, SenderResult, TaskAcquisition, MessageCancel, SenderConfig, MessageLogs, TaskRecord,
+        MessageReader,
+    },
     model::{
-        SenderSmsCancelModel, SenderSmsCancelModelRef, SenderSmsCancelStatus, SenderSmsConfigData,
-        SenderSmsConfigLimit, SenderSmsConfigModel, SenderSmsConfigModelRef, SenderSmsConfigStatus,
-        SenderSmsConfigType, SenderSmsLogModel, SenderSmsLogModelRef, SenderSmsLogStatus,
-        SenderSmsLogType, SenderSmsMessageModel, SenderSmsMessageModelRef, SenderSmsMessageStatus,
+        SenderConfigModel, SenderKeyCancelModel, SenderLogModel, SenderSmsConfigData,
+        SenderSmsConfigLimit, SenderSmsConfigType, SenderSmsMessageModel, SenderSmsMessageModelRef,
+        SenderSmsMessageStatus, SenderType,
     },
 };
-use lsys_core::{now_time, AppCore, PageParam};
+use async_trait::async_trait;
+use lsys_core::{now_time, AppCore, FluentMessage, PageParam};
 
-use parking_lot::Mutex;
 use serde_json::Value;
-use snowflake::SnowflakeIdGenerator;
 use sqlx::{MySql, Pool};
-use sqlx_model::{sql_format, Insert, ModelTableName, Select, SqlExpr, Update};
+use sqlx_model::{sql_format, Insert, ModelTableName, SqlExpr, Update};
 
-use tracing::warn;
-
-use super::super::task::TaskValue;
+use super::{SmsTaskAcquisition, SmsTaskItem, TaskData};
 use sqlx_model::SqlQuote;
 
 //短信任务记录
-#[derive(Clone)]
+
 pub struct SmsTaskRecord {
     pub(crate) db: Pool<sqlx::MySql>,
-    pub(crate) id_generator: Arc<Mutex<SnowflakeIdGenerator>>,
+    pub(crate) config: SenderConfig,
+    pub(crate) cancel: MessageCancel,
+    pub(crate) logs: MessageLogs,
+    pub(crate) record: MessageReader<SenderSmsMessageModel>,
 }
 
 impl SmsTaskRecord {
-    pub fn new(db: Pool<sqlx::MySql>, app_core: Arc<AppCore>) -> Self {
-        let machine_id = app_core.config.get_int("snowflake_machine_id").unwrap_or(1);
-        let node_id = app_core
-            .config
-            .get_int("snowflake_node_id")
-            .unwrap_or_else(|_| {
-                crc32fast::hash(
-                    hostname::get()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                        .as_bytes(),
-                )
-                .into()
-            });
-        //TODO  这个生成ID 库有BUG...
-        let id_generator = Arc::new(Mutex::new(SnowflakeIdGenerator::new(
-            machine_id as i32,
-            node_id as i32,
-        )));
-        Self { db, id_generator }
+    pub fn new(db: Pool<sqlx::MySql>, app_core: Arc<AppCore>, fluent: Arc<FluentMessage>) -> Self {
+        Self {
+            config: SenderConfig::new(db.clone(), SenderType::Smser),
+            cancel: MessageCancel::new(db.clone(), SenderType::Smser),
+            logs: MessageLogs::new(db.clone(), SenderType::Smser),
+            record: MessageReader::new(db.clone(), app_core, fluent),
+            db,
+        }
     }
     //读取短信任务数据
     pub async fn read(
         &self,
-        tasking_record: &HashMap<u64, TaskValue>,
+        tasking_record: &HashMap<u64, TaskData>,
         limit: usize,
     ) -> SenderResult<(Vec<SenderSmsMessageModel>, bool)> {
-        let mut sql_vec = vec![];
-        sql_vec.push(sql_format!(
-            "expected_time<={} and status = {}",
-            now_time().unwrap_or_default(),
-            SenderSmsMessageStatus::Init
-        ));
-        let ids = tasking_record.keys().copied().collect::<Vec<u64>>();
-        if !ids.is_empty() {
-            sql_vec.push(sql_format!(" id not in ({})", ids));
+        self.record
+            .read(tasking_record, SenderSmsMessageStatus::Init as i8, limit)
+            .await
+    }
+    //根据ID获取消息
+    pub async fn find_message_by_id(&self, id: &u64) -> SenderResult<SenderSmsMessageModel> {
+        self.record.find_message_by_id(id).await
+    }
+    //消息数量
+    pub async fn message_count(
+        &self,
+        user_id: &Option<u64>,
+        app_id: &Option<u64>,
+        tpl_id: &Option<String>,
+        status: &Option<SenderSmsMessageStatus>,
+        mobile: &Option<String>,
+    ) -> SenderResult<i64> {
+        let mut sqlwhere = vec![];
+        if let Some(s) = mobile {
+            sqlwhere.push(sql_format!("mobile={}", s));
         }
-        let mut app_res = Select::type_new::<SenderSmsMessageModel>()
-            .fetch_all_by_where::<SenderSmsMessageModel, _>(
-                &sqlx_model::WhereOption::Where(format!(
-                    "{} order by id asc limit {}",
-                    sql_vec.join(" and "),
-                    limit + 1
-                )),
-                &self.db,
+        self.record
+            .message_count(
+                user_id,
+                app_id,
+                tpl_id,
+                &status.map(|e| e as i8),
+                if sqlwhere.is_empty() {
+                    None
+                } else {
+                    Some(sqlwhere.join(" and "))
+                },
             )
-            .await?;
-        let next = if app_res.len() > limit {
-            app_res.pop();
-            true
-        } else {
-            false
-        };
-        Ok((app_res, next))
+            .await
+    }
+    //消息列表
+    pub async fn message_list(
+        &self,
+        user_id: &Option<u64>,
+        app_id: &Option<u64>,
+        tpl_id: &Option<String>,
+        status: &Option<SenderSmsMessageStatus>,
+        mobile: &Option<String>,
+        page: &Option<PageParam>,
+    ) -> SenderResult<Vec<SenderSmsMessageModel>> {
+        let mut sqlwhere = vec![];
+        if let Some(s) = mobile {
+            sqlwhere.push(sql_format!("mobile={}", s));
+        }
+        self.record
+            .message_list(
+                user_id,
+                app_id,
+                tpl_id,
+                &status.map(|e| e as i8),
+                if sqlwhere.is_empty() {
+                    None
+                } else {
+                    Some(sqlwhere.join(" and "))
+                },
+                page,
+            )
+            .await
+    }
+    //消息日志数量
+    pub async fn message_log_count(&self, message_id: &u64) -> SenderResult<i64> {
+        self.logs.list_count(message_id).await
+    }
+    //消息日志列表
+    pub async fn message_log_list(
+        &self,
+        message_id: &u64,
+        page: &Option<PageParam>,
+    ) -> SenderResult<Vec<SenderLogModel>> {
+        self.logs.list_data(message_id, page).await
     }
     //添加短信任务
     #[allow(clippy::too_many_arguments)]
@@ -105,11 +143,7 @@ impl SmsTaskRecord {
 
         let add_data = mobiles
             .iter()
-            .map(|e| {
-                let id = self.id_generator.lock().real_time_generate() as u64;
-
-                (id, &e.0, &e.1)
-            })
+            .map(|e| (self.record.message_id(), &e.0, &e.1))
             .collect::<Vec<_>>();
         for (id, area, mobile) in add_data.iter() {
             #[allow(clippy::needless_update)]
@@ -128,143 +162,24 @@ impl SmsTaskRecord {
                 expected_time:expected_time,
             }));
         }
+        let mut tran = self.db.begin().await?;
         let row = Insert::<sqlx::MySql, SenderSmsMessageModel, _>::new_vec(idata)
-            .execute(&self.db)
+            .execute(&mut tran)
             .await?
             .rows_affected();
         if let Some(hk) = cancel_key {
-            let hk = hk.trim().to_string();
-            if !hk.is_empty() {
-                if hk.len() > 32 {
-                    return Err(SenderError::System("cancel key can't >32".to_owned()));
-                }
-                let mut idata = Vec::with_capacity(mobiles.len());
-                for (id, _, _) in add_data.iter() {
-                    idata.push(sqlx_model::model_option_set!(SenderSmsCancelModelRef,{
-                        app_id:app_id,
-                        sms_message_id:id,
-                        cancel_hand:hk,
-                        status:SenderSmsCancelStatus::Init as i8,
-                        cancel_user_id:0,
-                        cancel_time:add_time,
-                    }));
-                }
-                Insert::<sqlx::MySql, SenderSmsCancelModel, _>::new_vec(idata)
-                    .execute(&self.db)
-                    .await?;
+            let ids = add_data.into_iter().map(|e| e.0).collect::<Vec<u64>>();
+            let res = self.cancel.add(app_id, &ids, hk, Some(&mut tran)).await;
+            if let Err(err) = res {
+                tran.rollback().await?;
+                return Err(err);
             }
         }
+        tran.commit().await?;
         Ok(row)
     }
-    lsys_core::impl_dao_fetch_one_by_one!(
-        db,
-        find_message_by_id,
-        u64,
-        SenderSmsMessageModel,
-        SenderResult<SenderSmsMessageModel>,
-        id,
-        "id={id}"
-    );
-    pub async fn message_count(
-        &self,
-        user_id: &Option<u64>,
-        app_id: &Option<u64>,
-        tpl_id: &Option<String>,
-        status: &Option<SenderSmsMessageStatus>,
-    ) -> SenderResult<i64> {
-        let mut sqlwhere = vec![];
-        if let Some(aid) = app_id {
-            sqlwhere.push(sql_format!("app_id = {}  ", aid));
-        }
-        if let Some(uid) = user_id {
-            sqlwhere.push(sql_format!("user_id={} ", uid));
-        }
-        if let Some(t) = tpl_id {
-            sqlwhere.push(sql_format!("tpl_id={} ", t));
-        }
-        if let Some(s) = status {
-            sqlwhere.push(sql_format!("status={} ", *s as i8));
-        }
-        let sql = sql_format!(
-            "select count(*) as total from {} {}",
-            SenderSmsMessageModel::table_name(),
-            SqlExpr(if sqlwhere.is_empty() {
-                "".to_string()
-            } else {
-                format!("where {}", sqlwhere.join(" and "))
-            })
-        );
-        let query = sqlx::query_scalar::<_, i64>(&sql);
-        let res = query.fetch_one(&self.db).await?;
-        Ok(res)
-    }
-    pub async fn message_list(
-        &self,
-        user_id: &Option<u64>,
-        app_id: &Option<u64>,
-        tpl_id: &Option<String>,
-        mobile: &Option<String>,
-        status: &Option<SenderSmsMessageStatus>,
-        page: &Option<PageParam>,
-    ) -> SenderResult<Vec<SenderSmsMessageModel>> {
-        let mut sqlwhere = vec![];
-        if let Some(aid) = app_id {
-            sqlwhere.push(sql_format!("app_id = {}  ", aid));
-        }
-        if let Some(uid) = user_id {
-            sqlwhere.push(sql_format!("user_id={} ", uid));
-        }
-        if let Some(t) = tpl_id {
-            sqlwhere.push(sql_format!("tpl_id={} ", t));
-        }
-        if let Some(m) = mobile {
-            sqlwhere.push(sql_format!("mobile={} ", m));
-        }
-        if let Some(s) = status {
-            sqlwhere.push(sql_format!("status={} ", *s as i8));
-        }
-        let mut sql = format!("{}  order by id desc", sqlwhere.join(" and "));
-        if let Some(pdat) = page {
-            sql += format!(" limit {} offset {}", pdat.limit, pdat.offset).as_str();
-        }
-        let data = Select::type_new::<SenderSmsMessageModel>()
-            .fetch_all_by_where::<SenderSmsMessageModel, _>(
-                &sqlx_model::WhereOption::Where(sql),
-                &self.db,
-            )
-            .await?;
-        Ok(data)
-    }
-    pub async fn message_log_count(&self, message_id: &u64) -> SenderResult<i64> {
-        let sqlwhere = vec![sql_format!("sms_message_id = {}  ", message_id)];
-        let sql = sql_format!(
-            "select count(*) as total from {} where {}",
-            SenderSmsLogModel::table_name(),
-            SqlExpr(sqlwhere.join(" and "))
-        );
-        let query = sqlx::query_scalar::<_, i64>(&sql);
-        let res = query.fetch_one(&self.db).await?;
-        Ok(res)
-    }
-    pub async fn message_log_list(
-        &self,
-        message_id: &u64,
-        page: &Option<PageParam>,
-    ) -> SenderResult<Vec<SenderSmsLogModel>> {
-        let sqlwhere = vec![sql_format!("sms_message_id = {}  ", message_id)];
-        let mut sql = format!("{}  order by id desc", sqlwhere.join(" and "));
-        if let Some(pdat) = page {
-            sql += format!(" limit {} offset {}", pdat.limit, pdat.offset).as_str();
-        }
-        let data = Select::type_new::<SenderSmsLogModel>()
-            .fetch_all_by_where::<SenderSmsLogModel, _>(
-                &sqlx_model::WhereOption::Where(sql),
-                &self.db,
-            )
-            .await?;
-        Ok(data)
-    }
-    pub async fn cancel_form_id(
+    //取消短信发送
+    pub async fn cancel_form_message(
         &self,
         message: &SenderSmsMessageModel,
         user_id: &u64,
@@ -275,135 +190,57 @@ impl SmsTaskRecord {
         Update::<MySql, SenderSmsMessageModel, _>::new(change)
             .execute_by_pk(message, &self.db)
             .await?;
-        let send_time = now_time().unwrap_or_default();
-        let log_type = SenderSmsLogType::Cancel as i8;
-        let send_type = "aliyun".to_string();
-        let log = "cancal send".to_string();
-        let idata = sqlx_model::model_option_set!(SenderSmsLogModelRef,{
-            app_id:message.app_id,
-            sms_message_id:message.id,
-            log_type:log_type,
-            status: SenderSmsLogStatus::MessageCancel as i8,
-            send_type:send_type,
-            message:log,
-            create_time:send_time,
-            user_id:user_id,
-        });
-        let tmp = Insert::<sqlx::MySql, SenderSmsLogModel, _>::new(idata)
-            .execute(&self.db)
+        self.logs
+            .add_cancel_log(message.app_id, message.id, user_id)
             .await;
-        if let Err(ie) = tmp {
-            warn!("sms[{}] is cancel ,add history fail : {:?}", message.id, ie);
-        }
         Ok(())
     }
-    //取消指定的数据
+    //通过KEY取消短信发送
     pub async fn cancel_form_key(
         &self,
-        smsc: &SenderSmsCancelModel,
+        smsc: &SenderKeyCancelModel,
         user_id: &u64,
     ) -> SenderResult<()> {
         let mut db = self.db.begin().await?;
-        let change = sqlx_model::model_option_set!(SenderSmsCancelModelRef,{
-            status:SenderSmsCancelStatus::IsCancel as i8,
-            cancel_user_id:user_id
-        });
-        let res = Update::<MySql, SenderSmsCancelModel, _>::new(change)
-            .execute_by_pk(smsc, &mut db)
-            .await;
+        let res = self.cancel.cancel(smsc, user_id, Some(&mut db)).await;
         if res.is_err() {
             db.rollback().await?;
-            return res.map(|_| ()).map_err(|e| e.into());
+            return res.map(|_| ());
         }
         let change = sqlx_model::model_option_set!(SenderSmsMessageModelRef, {
             status: SenderSmsMessageStatus::IsCancel as i8
         });
         let res = Update::<MySql, SenderSmsMessageModel, _>::new(change)
-            .execute_by_where_call("id=?", |b, _| b.bind(smsc.sms_message_id), &mut db)
+            .execute_by_where_call("id=?", |b, _| b.bind(smsc.message_id), &mut db)
             .await;
         if res.is_err() {
             db.rollback().await?;
             return res.map(|_| ()).map_err(|e| e.into());
         }
         db.commit().await?;
-        let send_time = now_time().unwrap_or_default();
-        let log_type = SenderSmsLogType::Cancel as i8;
-        let send_type = "aliyun".to_string();
-        let message = "cancal send".to_string();
-        let idata = sqlx_model::model_option_set!(SenderSmsLogModelRef,{
-            sms_message_id:smsc.sms_message_id,
-            log_type:log_type,
-            app_id:smsc.app_id,
-            status: SenderSmsLogStatus::KeyCancel as i8,
-            send_type:send_type,
-            message:message,
-            create_time:send_time,
-            user_id:user_id,
-        });
-        let tmp = Insert::<sqlx::MySql, SenderSmsLogModel, _>::new(idata)
-            .execute(&self.db)
+        self.logs
+            .add_cancel_log(smsc.app_id, smsc.message_id, user_id)
             .await;
-        if let Err(ie) = tmp {
-            warn!(
-                "sms[{}] is cancel ,add history fail : {:?}",
-                smsc.sms_message_id, ie
-            );
-        }
         Ok(())
     }
-    //可取消发送的数据
-    pub async fn cancel_data(&self, cancel_key: &str) -> SenderResult<Vec<SenderSmsCancelModel>> {
-        let status = SenderSmsCancelStatus::Init as i8;
-        let cancel_key = cancel_key.to_owned();
-        let rows = Select::type_new::<SenderSmsCancelModel>()
-            .fetch_all_by_where_call::<SenderSmsCancelModel, _, _>(
-                "cancel_hand =? and status=?",
-                |bind, _| bind.bind(cancel_key).bind(status),
-                &self.db,
-            )
-            .await?;
-        Ok(rows)
-    }
-    //完成指定短信任务
+    //完成指定短信任务回调
     pub async fn finish(
         &self,
-        send_type: String,
+        event_type: String,
+        channel: String,
         val: &SenderSmsMessageModel,
         res: &Result<(), String>,
         try_num: u16,
     ) -> SenderResult<()> {
-        let (status, log_status, err_msg) = match res {
-            Ok(()) => (
-                SenderSmsMessageStatus::IsSend as i8,
-                SenderSmsLogStatus::Succ as i8,
-                "".to_string(),
-            ),
-            Err(err) => (
-                SenderSmsMessageStatus::SendFail as i8,
-                SenderSmsLogStatus::Fail as i8,
-                err.to_owned(),
-            ),
+        let status = match res {
+            Ok(()) => SenderSmsMessageStatus::IsSend as i8,
+            Err(_) => SenderSmsMessageStatus::SendFail as i8,
         };
         let set_try_num = val.try_num + 1;
         let send_time = now_time().unwrap_or_default();
-        let log_type = SenderSmsLogType::Send as i8;
-        let idata = sqlx_model::model_option_set!(SenderSmsLogModelRef,{
-            sms_message_id:val.id,
-            app_id:val.app_id,
-            log_type:log_type,
-            status:log_status,
-            send_type:send_type,
-            message:err_msg,
-            create_time:send_time,
-            user_id:0,
-        });
-
-        let tmp = Insert::<sqlx::MySql, SenderSmsLogModel, _>::new(idata)
-            .execute(&self.db)
+        self.logs
+            .add_finish_log(event_type, val.app_id, val.id, channel, res)
             .await;
-        if let Err(ie) = tmp {
-            warn!("sms[{}] is send ,add history fail : {:?}", val.id, ie);
-        }
         let mut change = sqlx_model::model_option_set!(SenderSmsMessageModelRef,{
             send_time:send_time,
             try_num:set_try_num
@@ -418,15 +255,11 @@ impl SmsTaskRecord {
             .await?;
         Ok(())
     }
-    lsys_core::impl_dao_fetch_one_by_one!(
-        db,
-        find_config_by_id,
-        u64,
-        SenderSmsConfigModel,
-        SenderResult<SenderSmsConfigModel>,
-        id,
-        "id={id}"
-    );
+    //查找短信基本配置
+    pub async fn find_config_by_id(&self, id: &u64) -> SenderResult<SenderConfigModel> {
+        self.config.find_by_id(id).await
+    }
+    //短信配置添加
     pub async fn config_add(
         &self,
         app_id: Option<u64>,
@@ -436,8 +269,6 @@ impl SmsTaskRecord {
         user_id: u64,
         add_user_id: u64,
     ) -> SenderResult<u64> {
-        let app_id = app_id.unwrap_or_default();
-        let time = now_time().unwrap_or_default();
         let config_data = match config_type {
             SenderSmsConfigType::Limit => {
                 macro_rules! param_get {
@@ -485,106 +316,63 @@ impl SmsTaskRecord {
                 }
             },
         };
-        let config_type = config_type as i8;
-        let add = sqlx_model::model_option_set!(SenderSmsConfigModelRef, {
-            app_id:app_id,
-            priority:priority,
-            config_type:config_type,
-            user_id:user_id,
-            add_user_id:add_user_id,
-            add_time:time,
-            status:SenderSmsConfigStatus::Enable as i8,
-            config_data:config_data,
-        });
-        Insert::<sqlx::MySql, SenderSmsConfigModel, _>::new(add)
-            .execute(&self.db)
+        self.config
+            .add(
+                app_id,
+                priority,
+                config_type as i8,
+                config_data,
+                user_id,
+                add_user_id,
+            )
             .await
-            .map(|e| e.last_insert_id())
-            .map_err(|e| e.into())
     }
-    pub async fn config_del(
-        &self,
-        config: &SenderSmsConfigModel,
-        user_id: u64,
-    ) -> SenderResult<u64> {
-        let time = now_time().unwrap_or_default();
-        let change = sqlx_model::model_option_set!(SenderSmsConfigModelRef,{
-            status:SenderSmsConfigStatus::Delete as i8,
-            delete_time:time,
-            delete_user_id:user_id
-        });
-        let res = Update::<sqlx::MySql, SenderSmsConfigModel, _>::new(change)
-            .execute_by_pk(config, &self.db)
-            .await;
-        match res {
-            Err(e) => Err(SenderError::Sqlx(e))?,
-            Ok(mr) => {
-                //清理缓存
-                Ok(mr.rows_affected())
-            }
-        }
+    //短信配置删除
+    pub async fn config_del(&self, config: &SenderConfigModel, user_id: u64) -> SenderResult<u64> {
+        self.config.del(config, user_id).await
     }
+    //短信配置列表数据
     pub async fn config_list(
         &self,
         user_id: Option<u64>,
         id: Option<u64>,
         app_id: Option<u64>,
-    ) -> SenderResult<Vec<(SenderSmsConfigModel, SenderSmsConfigData)>> {
-        let mut sqlwhere = vec![sql_format!(" status ={}", SenderSmsConfigStatus::Enable)];
-        if let Some(aid) = app_id {
-            sqlwhere.push(sql_format!("app_id = {}  ", aid));
-        }
-        if let Some(uid) = id {
-            sqlwhere.push(sql_format!("id={} ", uid));
-        }
-        if let Some(uid) = user_id {
-            sqlwhere.push(sql_format!("user_id={} ", uid));
-        }
-        let sql = format!("{}  order by id desc", sqlwhere.join(" and "));
-        Select::type_new::<SenderSmsConfigModel>()
-            .fetch_all_by_where::<SenderSmsConfigModel, _>(
-                &sqlx_model::WhereOption::Where(sql),
-                &self.db,
-            )
-            .await
-            .map(|e| {
-                e.into_iter()
-                    .map(|v| {
-                        let cd = match SenderSmsConfigType::try_from(v.config_type) {
-                            Ok(t) => match t {
-                                SenderSmsConfigType::Block => {
-                                    let mut split = v.config_data.split('-');
-                                    SenderSmsConfigData::Block {
-                                        area: split.next().unwrap_or("").to_owned(),
-                                        mobile: split.next().unwrap_or("").to_owned(),
-                                    }
-                                }
-                                SenderSmsConfigType::PassTpl => {
-                                    SenderSmsConfigData::PassTpl(v.config_data.to_owned())
-                                }
-                                SenderSmsConfigType::Close => SenderSmsConfigData::Close,
-                                SenderSmsConfigType::MaxOfSend => {
-                                    match v.config_data.parse::<u32>() {
-                                        Ok(u) => SenderSmsConfigData::MaxOfSend(u),
-                                        Err(_) => SenderSmsConfigData::None,
-                                    }
-                                }
-                                SenderSmsConfigType::Limit => {
-                                    match serde_json::from_slice::<SenderSmsConfigLimit>(
-                                        v.config_data.as_bytes(),
-                                    ) {
-                                        Ok(t) => SenderSmsConfigData::Limit(t),
-                                        Err(_) => SenderSmsConfigData::None,
-                                    }
-                                }
-                            },
+    ) -> SenderResult<Vec<(SenderConfigModel, SenderSmsConfigData)>> {
+        let data = self.config.list_data(user_id, id, app_id).await?;
+        Ok(data
+            .into_iter()
+            .map(|v| {
+                let cd = match SenderSmsConfigType::try_from(v.config_type) {
+                    Ok(t) => match t {
+                        SenderSmsConfigType::Block => {
+                            let mut split = v.config_data.split('-');
+                            SenderSmsConfigData::Block {
+                                area: split.next().unwrap_or("").to_owned(),
+                                mobile: split.next().unwrap_or("").to_owned(),
+                            }
+                        }
+                        SenderSmsConfigType::PassTpl => {
+                            SenderSmsConfigData::PassTpl(v.config_data.to_owned())
+                        }
+                        SenderSmsConfigType::Close => SenderSmsConfigData::Close,
+                        SenderSmsConfigType::MaxOfSend => match v.config_data.parse::<u32>() {
+                            Ok(u) => SenderSmsConfigData::MaxOfSend(u),
                             Err(_) => SenderSmsConfigData::None,
-                        };
-                        (v, cd)
-                    })
-                    .collect::<Vec<_>>()
+                        },
+                        SenderSmsConfigType::Limit => {
+                            match serde_json::from_slice::<SenderSmsConfigLimit>(
+                                v.config_data.as_bytes(),
+                            ) {
+                                Ok(t) => SenderSmsConfigData::Limit(t),
+                                Err(_) => SenderSmsConfigData::None,
+                            }
+                        }
+                    },
+                    Err(_) => SenderSmsConfigData::None,
+                };
+                (v, cd)
             })
-            .map_err(|e| e.into())
+            .collect::<Vec<_>>())
     }
     //检测指定发送是否符合配置规则
     pub async fn send_check(
@@ -683,5 +471,44 @@ impl SmsTaskRecord {
             }
         }
         Ok(())
+    }
+}
+
+pub struct SmsTaskAcquisitionRecord {
+    records: Arc<SmsTaskRecord>,
+}
+impl SmsTaskAcquisitionRecord {
+    pub fn new(records: Arc<SmsTaskRecord>) -> Self {
+        Self { records }
+    }
+}
+
+#[async_trait]
+impl TaskAcquisition<u64, SmsTaskItem<()>> for SmsTaskAcquisitionRecord {
+    //复用父结构体方法实现
+    async fn read_record(
+        &self,
+        tasking_record: &HashMap<u64, TaskData>,
+        limit: usize,
+    ) -> SenderResult<TaskRecord<u64, SmsTaskItem<()>>> {
+        SmsTaskAcquisition::read_record(self, tasking_record, limit).await
+    }
+}
+
+#[async_trait]
+impl SmsTaskAcquisition<()> for SmsTaskAcquisitionRecord {
+    //获取每个发送记录的关联记录数据，阿里云短信没用到，所以返回()
+    async fn read_record_attr(
+        &self,
+        res: Vec<SenderSmsMessageModel>,
+    ) -> SenderResult<Vec<SmsTaskItem<()>>> {
+        Ok(res
+            .into_iter()
+            .map(|e| SmsTaskItem { sms: e, attr: () })
+            .collect())
+    }
+    //短信管理引用
+    fn sms_record(&self) -> &SmsTaskRecord {
+        &self.records
     }
 }

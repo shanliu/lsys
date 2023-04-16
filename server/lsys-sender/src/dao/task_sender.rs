@@ -21,88 +21,15 @@ use tracing::{debug, error, info, warn};
 
 use super::{SenderError, SenderResult};
 
-// 发送执行
-// 具体的发送接口实现该特征
-#[async_trait]
-pub trait TaskExecutioner<
-    I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display + Clone,
-    T: TaskItem<I>,
->: Clone + Send + Sync + 'static
-{
-    async fn exec(&self, val: T) -> Result<(), SenderError>;
-}
-
-// 发送任务获取
-#[async_trait]
-pub trait TaskAcquisition<
-    I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display + Clone,
-    T: TaskItem<I>,
->
-{
-    // @var tasking_record 为当前正在发送中的任务ID,时间,及所在HOST
-    // @var limit 返回的最大发送任务量
-    // @return 需发送的任务结果集
-    async fn read_record(
-        &self,
-        tasking_record: &HashMap<I, TaskValue>,
-        limit: usize,
-    ) -> SenderResult<TaskRecord<I, T>>;
-}
-
-pub trait TaskItem<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display + Clone>:
-    Send + 'static
-{
-    fn to_task_pk(&self) -> I;
-    fn to_task_value(&self) -> TaskValue;
-}
-
-// pub enum TaskError {
-//     Sqlx(sqlx::Error),
-//     Redis(String),
-//     Exec(String),
-// }
-// impl Display for TaskError {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-//         match self {
-//             TaskError::Sqlx(e) => write!(f, "{:?}", e),
-//             TaskError::Redis(e) => write!(f, "{:?}", e),
-//             TaskError::Exec(e) => write!(f, "{:?}", e),
-//         }
-//     }
-// }
-pub struct TaskRecord<
-    I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display + Clone,
-    T: TaskItem<I>,
-> {
-    // 任务数据,传入 TaskExecutioner 中完成具体发送任务
-    pub result: Vec<T>,
-    // 是否有下一页任务,返回TRUE将继续下一次获取发送任务
-    pub next: bool,
-    marker_i: PhantomData<I>,
-}
-
-impl<
-        I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display + Clone,
-        T: TaskItem<I>,
-    > TaskRecord<I, T>
-{
-    pub fn new(result: Vec<T>, next: bool) -> Self {
-        Self {
-            result,
-            next,
-            marker_i: PhantomData::default(),
-        }
-    }
-}
-
+//任务相关数据
 #[derive(Serialize, Deserialize, Clone)]
-pub struct TaskValue {
+pub struct TaskData {
     //执行发送任务的HOST
     pub host: String,
     //执行发送任务时间
     pub time: u64,
 }
-impl FromRedisValue for TaskValue {
+impl FromRedisValue for TaskData {
     fn from_redis_value(val: &Value) -> RedisResult<Self> {
         let valstr = match *val {
             Value::Data(ref bytes) => from_utf8(bytes)?.to_string(),
@@ -117,7 +44,7 @@ impl FromRedisValue for TaskValue {
                 )))
             }
         };
-        match serde_json::from_str::<TaskValue>(&valstr) {
+        match serde_json::from_str::<TaskData>(&valstr) {
             Ok(data) => Ok(data),
             Err(err) => Err(RedisError::from((
                 ErrorKind::TypeError,
@@ -130,7 +57,7 @@ impl FromRedisValue for TaskValue {
         }
     }
 }
-impl ToRedisArgs for TaskValue {
+impl ToRedisArgs for TaskData {
     fn write_redis_args<W>(&self, out: &mut W)
     where
         W: ?Sized + redis::RedisWrite,
@@ -139,7 +66,64 @@ impl ToRedisArgs for TaskValue {
     }
 }
 
-pub struct Task<
+// 任务特征
+pub trait TaskItem<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync>: Send {
+    fn to_task_pk(&self) -> I;
+    fn to_task_data(&self) -> TaskData {
+        TaskData {
+            host: hostname::get()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string(),
+            time: now_time().unwrap_or_default(),
+        }
+    }
+}
+
+// 发送执行
+// 具体的发送接口实现该特征
+#[async_trait]
+pub trait TaskExecutioner<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync, T: TaskItem<I>>:
+    Send + Sync + Clone + 'static
+{
+    async fn exec(&self, val: T) -> Result<(), SenderError>;
+}
+
+// 任务获取结果
+pub struct TaskRecord<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync, T: TaskItem<I>> {
+    // 任务数据,传入 TaskExecutioner 中完成具体发送任务
+    pub result: Vec<T>,
+    // 是否有下一页任务,返回TRUE将继续下一次获取发送任务
+    pub next: bool,
+    marker_i: PhantomData<I>,
+}
+// 新建任务获取结果
+impl<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync, T: TaskItem<I>> TaskRecord<I, T> {
+    pub fn new(result: Vec<T>, next: bool) -> Self {
+        Self {
+            result,
+            next,
+            marker_i: PhantomData::default(),
+        }
+    }
+}
+
+// 发送任务获取约束
+#[async_trait]
+pub trait TaskAcquisition<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync, T: TaskItem<I>>
+{
+    // @var tasking_record 为当前正在发送中的任务ID,时间,及所在HOST
+    // @var limit 返回的最大发送任务量
+    // @return 需发送的任务结果集
+    async fn read_record(
+        &self,
+        tasking_record: &HashMap<I, TaskData>,
+        limit: usize,
+    ) -> SenderResult<TaskRecord<I, T>>;
+}
+
+// 发送任务抽象实现
+pub struct TaskSender<
     I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display + Clone,
     T: TaskItem<I>,
 > {
@@ -170,7 +154,7 @@ pub struct Task<
 impl<
         I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display + Clone,
         T: TaskItem<I>,
-    > Task<I, T>
+    > TaskSender<I, T>
 {
     /// * `list_notify` - 任务触发监听的REDIS KEY
     /// * `read_lock_key` - 任务读取锁定Redis KEY
@@ -222,8 +206,8 @@ impl<
 
 impl<
         I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display + Clone,
-        T: TaskItem<I>,
-    > Task<I, T>
+        T: TaskItem<I> + 'static,
+    > TaskSender<I, T>
 {
     /// 通知发送模块进行发送操作
     /// * `redis` - 存放发送任务的RDIS
@@ -235,8 +219,8 @@ impl<
     }
     /// 获得发送中任务信息
     /// * `redis` - 存放发送任务的RDIS
-    pub async fn task_data(&self, redis: &mut Connection) -> SenderResult<HashMap<I, TaskValue>> {
-        let redis_data_opt: Result<Option<HashMap<I, TaskValue>>, _> =
+    pub async fn task_data(&self, redis: &mut Connection) -> SenderResult<HashMap<I, TaskData>> {
+        let redis_data_opt: Result<Option<HashMap<I, TaskData>>, _> =
             redis.hgetall(&self.task_list_key).await;
         match redis_data_opt {
             Ok(data) => Ok(data.unwrap_or_default()),
@@ -584,7 +568,7 @@ impl<
 
                     for r in task_data.result {
                         let i = r.to_task_pk();
-                        let v = r.to_task_value();
+                        let v = r.to_task_data();
                         match redis.hset(&self.task_list_key, &i, v.clone()).await {
                             //必须添加成功到发送中才进行发送
                             Ok(()) => add_task.push(r),

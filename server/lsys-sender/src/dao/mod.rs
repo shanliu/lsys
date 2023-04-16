@@ -1,20 +1,34 @@
+mod app_config_reader;
 mod mailer;
+mod message_cancel;
+mod message_logs;
+mod message_reader;
+mod message_tpls;
+mod sender_config;
 mod smser;
-mod task;
+mod task_sender;
 use std::{
     error::Error,
     fmt::{Display, Formatter},
 };
 
+pub use app_config_reader::*;
 use deadpool_redis::PoolError;
 use lsys_setting::dao::SettingError;
 pub use mailer::*;
+pub use message_cancel::*;
+pub use message_logs::*;
+pub use message_reader::*;
+pub use message_tpls::*;
+pub use sender_config::*;
 pub use smser::*;
+pub use task_sender::*;
 
 #[derive(Debug)]
 pub enum SenderError {
     Sqlx(sqlx::Error),
     Redis(String),
+    Tpl(tera::Error),
     Exec(String),
     System(String),
 }
@@ -47,6 +61,11 @@ impl From<SettingError> for SenderError {
             SettingError::Sqlx(e) => SenderError::Sqlx(e),
             SettingError::System(e) => SenderError::System(e),
         }
+    }
+}
+impl From<tera::Error> for SenderError {
+    fn from(err: tera::Error) -> Self {
+        SenderError::Tpl(err)
     }
 }
 

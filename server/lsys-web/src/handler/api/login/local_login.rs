@@ -168,7 +168,7 @@ pub async fn user_login_mobile_send_code<
     .await?;
     req_dao
         .web_dao
-        .smser
+        .sender_smser
         .send_valid_code(&param.area_code, &param.mobile, &data.0, &data.1)
         .await?;
     let _ = valid_code
@@ -177,7 +177,7 @@ pub async fn user_login_mobile_send_code<
             &mut req_dao.web_dao.captcha.valid_code_builder(),
         )
         .await;
-    Ok(JsonData::message("login sms is send").set_data(json!({ "ttl": data.1 })))
+    Ok(JsonData::data(json!({ "ttl": data.1 })))
 }
 
 #[derive(Deserialize)]
@@ -210,7 +210,7 @@ pub async fn user_login_email_send_code<
     .await?;
     req_dao
         .web_dao
-        .mailer
+        .sender_mailer
         .send_valid_code(&param.email, &data.0, &data.1)
         .await?;
     let _ = valid_code
@@ -219,5 +219,5 @@ pub async fn user_login_email_send_code<
             &mut req_dao.web_dao.captcha.valid_code_builder(),
         )
         .await;
-    Ok(JsonData::message("login mail is send").set_data(json!({ "ttl": data.1 })))
+    Ok(JsonData::data(json!({ "ttl": data.1 })))
 }

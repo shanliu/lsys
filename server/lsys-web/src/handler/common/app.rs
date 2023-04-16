@@ -6,7 +6,8 @@ use serde_json::json;
 use crate::dao::RequestDao;
 
 use crate::handler::access::{
-    AccessAppSenderDoSms, AccessUserAppConfirm, AccessUserAppEdit, AccessUserAppView,
+    AccessAppSenderDoMail, AccessAppSenderDoSms, AccessUserAppConfirm, AccessUserAppEdit,
+    AccessUserAppView,
 };
 use crate::{JsonData, JsonResult, PageParam};
 
@@ -52,7 +53,7 @@ pub async fn app_add<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
             None,
         )
         .await?;
-    Ok(JsonData::message("add succ").set_data(json!({ "id": app_id })))
+    Ok(JsonData::data(json!({ "id": app_id })))
 }
 
 #[derive(Debug, Deserialize)]
@@ -230,7 +231,7 @@ pub async fn app_confirm<T: SessionTokenData, D: SessionData, S: UserSession<T, 
         .app
         .confirm_app(&app, req_auth.user_data().user_id, None)
         .await?;
-    Ok(JsonData::message("confrim succ").set_data(json!({ "change": change })))
+    Ok(JsonData::data(json!({ "change": change })))
 }
 
 #[derive(Debug, Deserialize)]
@@ -255,6 +256,7 @@ pub struct ShowAppData {
     pub confirm_user_id: u64,
     pub confirm_time: u64,
     pub is_sms: bool,
+    pub is_mail: bool,
 }
 
 pub async fn app_list<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
@@ -312,6 +314,15 @@ pub async fn app_list<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>
             .await
             .map(|_| true)
             .unwrap_or(false);
+        let is_mail = req_dao
+            .web_dao
+            .user
+            .rbac_dao
+            .rbac
+            .check(&AccessAppSenderDoMail { app: tmp.clone() }, None)
+            .await
+            .map(|_| true)
+            .unwrap_or(false);
         out.push(ShowAppData {
             id: tmp.id,
             name: tmp.name,
@@ -323,6 +334,7 @@ pub async fn app_list<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>
             confirm_user_id: tmp.confirm_user_id,
             confirm_time: tmp.confirm_time,
             is_sms,
+            is_mail,
         });
     }
     let count = if param.count_num.unwrap_or(false) {
@@ -338,5 +350,5 @@ pub async fn app_list<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>
     } else {
         None
     };
-    Ok(JsonData::message("app data").set_data(json!({ "data": out,"total":count })))
+    Ok(JsonData::data(json!({ "data": out,"total":count })))
 }

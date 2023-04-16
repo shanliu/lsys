@@ -220,7 +220,7 @@ pub async fn password_last_modify<'t, T: SessionTokenData, D: SessionData, S: Us
         .user_password
         .find_by_id(&user.password_id)
         .await?;
-    Ok(JsonData::message("last change").set_data(json!({
+    Ok(JsonData::data(json!({
         "last_time":user.add_time
     })))
 }

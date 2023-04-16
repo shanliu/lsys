@@ -73,7 +73,7 @@ pub async fn oauth_scope_get<T: SessionTokenData, D: SessionData, S: UserSession
         .find_by_client_id(&param.client_id)
         .await?;
     let scope = get_scope(&req_dao.web_dao, &app, &param.scope).await?;
-    Ok(JsonData::message("token code").set_data(json!({ "scope": scope })))
+    Ok(JsonData::data(json!({ "scope": scope })))
 }
 
 #[derive(Debug, Deserialize)]
@@ -137,7 +137,7 @@ pub async fn oauth_create_code<T: SessionTokenData, D: SessionData, S: UserSessi
         .app_oauth
         .create_code(&app, &param.scope, user.id)
         .await?;
-    Ok(JsonData::message("token code").set_data(json!({ "code": code })))
+    Ok(JsonData::data(json!({ "code": code })))
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -202,7 +202,7 @@ pub async fn oauth_create_token(webdao: &WebDao, code: OauthCodeParam) -> JsonRe
         scope: token.scope,
         expires_in: token.timeout.to_string(),
     };
-    Ok(JsonData::message("token data").set_data(json!(session)))
+    Ok(JsonData::data(json!(session)))
 }
 
 #[derive(Debug, Deserialize)]
@@ -230,5 +230,5 @@ pub async fn oauth_refresh_token(
         scope: token.scope,
         expires_in: token.timeout.to_string(),
     };
-    Ok(JsonData::message("token data").set_data(json!(session)))
+    Ok(JsonData::data(json!(session)))
 }

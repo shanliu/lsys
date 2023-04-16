@@ -4,7 +4,7 @@ use lsys_core::{
 };
 
 use sqlx::{Acquire, MySql, Pool, Transaction};
-use sqlx_model::{Insert, Select, SqlQuote, Update};
+use sqlx_model::{Insert, Select,  Update};
 use std::{collections::HashMap, sync::Arc};
 
 use crate::model::{UserInfoModel, UserInfoModelRef, UserModel};

@@ -3,7 +3,7 @@ import AllOutIcon from '@mui/icons-material/AllOut';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import SearchIcon from '@mui/icons-material/Search';
-import { Alert, Box, Button, Divider, Drawer, FormControl, FormControlLabel, FormGroup, FormHelperText, FormLabel, Grid, IconButton, InputLabel, List, ListItem, MenuItem, Paper, Select, Switch, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
+import { Alert, Autocomplete, Box, Button, Divider, Drawer, FormControl, FormControlLabel, FormGroup, FormHelperText, FormLabel, Grid, IconButton, InputLabel, List, ListItem, MenuItem, Paper, Select, Switch, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -21,10 +21,11 @@ import { ClearTextField, InputTagSelect, LoadSelect, SliderInput, TagSelect } fr
 import { LoadingButton, Progress } from '../../library/loading';
 import { BaseTableBodyRow, BaseTableFooter, BaseTableHead, BaseTableNoRows, BaseTablePage } from '../../library/table_page';
 import { ItemTooltip } from '../../library/tips';
-import { resListData, roleAdd, roleAddUser, roleDelete, roleDeleteUser, roleEdit, roleListData, roleListUser, roleOptions, roleTags } from '../../rest/access';
+import { resListData, roleAdd, roleAddUser, roleDelete, roleDeleteUser, roleEdit, roleListData, roleListUser, roleOptions, roleRelationCheck, roleTags } from '../../rest/access';
 import { useSearchChange } from '../../utils/hook';
 import { showTime } from '../../utils/utils';
 import { RoleResOpGroupItem, RoleResOpItem, UserTags } from './user';
+import { roleRelationData } from '../../rest/access';
 
 //添加角色资源选择
 function UserResSelect(props) {
@@ -386,9 +387,162 @@ function UserResSelect(props) {
     </FormControl >
 }
 
+
+//关系KEY输入框
+function UserRoleRelationInput(props) {
+    const { value, options, onFinish, onChange, disabled, ...params } = props;
+    //过滤组件数据
+    const [relationData, setRelationData] = useState({
+        relation_open: false,
+        value: value
+    })
+    useEffect(() => {
+        setRelationData({
+            ...relationData,
+            value: value
+        })
+    }, [props.value])
+    return <Autocomplete
+        {...params}
+        disabled={disabled}
+        value={relationData.value ?? ''}
+        options={options ?? []}
+        getOptionLabel={(option) => {
+            return option
+        }}
+        noOptionsText={"回车确认"}
+        open={relationData.relation_open && !disabled}
+        renderInput={(params) => (
+            <TextField
+                {...params}
+                variant="outlined"
+                onChange={onChange}
+                onClick={(e) => {
+                    setRelationData({
+                        ...relationData,
+                        relation_open: true,
+                    })
+                }}
+                onFocus={(e) => {
+                    setRelationData({
+                        ...relationData,
+                        relation_open: true,
+                    })
+                    onFinish(e.target.value);
+                }}
+                onBlur={(e) => {
+
+                    setRelationData({
+                        ...relationData,
+                        relation_open: false,
+                    })
+                    onFinish(e.target.value);
+                }}
+                onKeyUp={(e) => {
+                    if (!options.map((item) => {
+                        return item == e.target.value
+                    })) {
+                        e.stopPropagation();
+                        e.preventDefault();
+                    }
+                }}
+                onKeyDown={(e) => {
+                    if (e.key != 'Enter')
+                        return
+                    setRelationData({
+                        ...relationData,
+                        relation_open: false,
+                    })
+                    e.stopPropagation();
+                    e.preventDefault();
+                    onFinish(e.target.value);
+                }}
+            />
+        )}
+    />;
+}
+
+
+function UserRoleRelationSet(props) {
+    const { userId, options, value, ...params } = props;
+    const { toast } = useContext(ToastContext);
+    const [relationData, setRelationData] = useState({
+        abort: null,
+        timeout: null,
+        now_value: "",
+        err: null,
+        data: options,
+    })
+    useEffect(() => {
+        if (relationData.timeout) {
+            clearTimeout(relationData.timeout)
+        }
+        if (relationData.abort) {
+            relationData.abort.abort()
+        }
+        if (!relationData.now_value || relationData.now_value.length == 0) return
+        setRelationData({
+            ...relationData,
+            timeout: setTimeout(() => {
+                let abort = new AbortController();
+                setRelationData({
+                    ...relationData,
+                    abort: abort
+                })
+                roleRelationCheck({
+                    user_id: parseInt(userId),
+                    relation_find: [relationData.now_value],
+                }, {
+                    signal: abort.signal
+                }).then((data) => {
+                    if (!data.status) {
+                        if (!(data.message + '').indexOf("cancel")) {
+                            toast("关系数据获取异常:" + data.message)
+                        }
+                    } else {
+                        if (data.relation_find && data.relation_find.length > 0) {
+                            setRelationData({
+                                ...relationData,
+                                abort: null,
+                                timeout: null,
+                                err: `已存在${data.relation_find[0].relation_key}关系角色 名称 :${data.relation_find[0].name} ID:${data.relation_find[0].id}`
+                            })
+                        } else {
+                            setRelationData({
+                                ...relationData,
+                                abort: null,
+                                timeout: null,
+                            })
+                        }
+
+                    }
+                })
+            }, 800)
+        })
+    }, [relationData.now_value])
+
+
+    return <Fragment>
+        <UserRoleRelationInput
+            {...params}
+            options={relationData.data}
+            value={value ?? ""}
+            onChange={(e) => {
+                let val = e.target.value;
+                setRelationData({
+                    ...relationData,
+                    now_value: val.replace(/^\s+/, '').replace(/\s+$/, '')
+                })
+            }} />
+        {relationData.err ? <Alert sx={{
+            marginTop: 1
+        }} severity="error">{relationData.err}</Alert> : null}
+    </Fragment>
+}
+
 //角色添加或编辑弹出页
 function UserRoleAdd(props) {
-    const { title, tags, rowData, initData, onSave } = props;
+    const { title, tags, rowData, initData, onSave, userId } = props;
     let tags_options = (tags ?? []).map((e) => { return e[0] })
     const initAddData = {
 
@@ -449,6 +603,21 @@ function UserRoleAdd(props) {
                 })
             })
         })
+
+        if (addData.user_access_key && addData.user_access_key.length > 0) {
+            let r_r = /\{.*\}/.exec(addData.user_access_key);
+            if (r_r && r_r.length > 0) {
+                toast("请先替换关系变量:" + r_r[0])
+                setAddData({
+                    ...addData,
+                    loading: false
+                })
+                return
+            }
+        }
+
+
+
         let doAction;
         if (rowData && rowData.role && rowData.role.id > 0) {
             return roleEdit({
@@ -625,35 +794,22 @@ function UserRoleAdd(props) {
                                     width: 1,
                                     paddingBottom: 2
                                 }}>
-                                    <InputLabel size="small" id="user-select-label">关系选择</InputLabel>
-                                    <Select
-                                        disabled={addData.loading || !!rowData?.role}
-                                        label="关系选择"
-                                        name="name"
+                                    <UserRoleRelationSet
+                                        label="选择关系"
                                         size="small"
                                         sx={{
                                             width: 1
                                         }}
+                                        options={initData.options_relation ?? []}
+                                        disabled={addData.loading || !!rowData?.role}
+                                        userId={userId}
                                         value={addData.user_access_key}
-                                        onChange={(e) => {
+                                        onFinish={(value) => {
                                             setAddData({
                                                 ...addData,
-                                                user_access_key: e.target.value
+                                                user_access_key: value
                                             });
-                                        }}
-                                        required
-                                    >
-                                        {
-                                            initData.user_access_keys.map((item) => {
-                                                return <MenuItem
-                                                    disabled={item.is_use}
-                                                    key={`res_range_${item.key}`}
-                                                    value={item.key}>
-                                                    {item.is_use ? `${item.name}[已创建]` : item.name}
-                                                </MenuItem>
-                                            })
-                                        }
-                                    </Select>
+                                        }} />
                                 </FormControl> : null}
                             <FormControl fullWidth sx={{
                                 width: 1,
@@ -1307,6 +1463,70 @@ function UserRoleRow(props) {
 }
 
 
+function UserRoleRelationFind(props) {
+    const { userId, value, ...params } = props;
+    const { toast } = useContext(ToastContext);
+    const [relationData, setRelationData] = useState({
+        data: [],
+        abort: null,
+        timeout: null,
+        now_value: "",
+    })
+    useEffect(() => {
+        if (relationData.timeout) {
+            clearTimeout(relationData.timeout)
+        }
+        if (relationData.abort) {
+            relationData.abort.abort()
+        }
+        setRelationData({
+            ...relationData,
+            timeout: setTimeout(() => {
+                let abort = new AbortController();
+                setRelationData({
+                    ...relationData,
+                    abort: abort
+                })
+                roleRelationData({
+                    user_id: parseInt(userId),
+                    relation_prefix: relationData.now_value,
+                    page: 0,
+                    page_size: 20,
+                    count_num: false
+                }, {
+                    signal: abort.signal
+                }).then((data) => {
+                    if (!data.status) {
+                        if (!(data.message + '').indexOf("cancel")) {
+                            toast("关系数据获取异常:" + data.message)
+                        }
+                    } else {
+                        setRelationData({
+                            ...relationData,
+                            abort: null,
+                            timeout: null,
+                            data: data.data
+                        })
+                    }
+                })
+            }, 800)
+        })
+    }, [relationData.now_value])
+    return <UserRoleRelationInput
+        {...params}
+        value={value ?? ""}
+        options={relationData.data}
+        onChange={(e) => {
+            let val = e.target.value;
+            setRelationData({
+                ...relationData,
+                now_value: val.replace(/^\s+/, '').replace(/\s+$/, '')
+            })
+        }} />
+}
+
+
+
 //角色管理页面
 export function UserRolePage(props) {
     const { userId } = props;
@@ -1317,9 +1537,11 @@ export function UserRolePage(props) {
         role_name: "",
         user_range: "",
         res_range: "",
+        relation_prefix: "",
         page: 0,
         page_size: 10,
     });
+
 
     //过滤组件数据
     const [filterData, setfilterData] = useState({
@@ -1328,6 +1550,7 @@ export function UserRolePage(props) {
         role_name: '',
         user_range: "",
         res_range: "",
+        relation_prefix: "",
     })
 
     useEffect(() => {
@@ -1338,6 +1561,7 @@ export function UserRolePage(props) {
             role_name: searchParam.get("role_name"),
             user_range: searchParam.get("user_range"),
             res_range: searchParam.get("res_range"),
+            relation_prefix: searchParam.get("relation_prefix")
         })
     }, [searchParam])
     //初始化数据
@@ -1345,7 +1569,7 @@ export function UserRolePage(props) {
         user_id: userId,
         res_range: [],
         user_range: [],
-        user_access_key: [],
+        options_relation: [],
     }, [props.userId])
     const [pageRowData, setPageRowData] = useState({
         rows: [],
@@ -1373,6 +1597,7 @@ export function UserRolePage(props) {
                 user_id: userId,
                 user_range: searchParam.get("user_range"),
                 res_range: searchParam.get("res_range"),
+                relation_prefix: searchParam.get("relation_prefix"),
                 tag: searchParam.get("tag"),
                 role_id: searchParam.get("role_id"),
                 role_name: searchParam.get("role_name"),
@@ -1411,7 +1636,7 @@ export function UserRolePage(props) {
                 ...pageInitData,
                 res_range: data.res_range ?? [],
                 user_range: data.user_range ?? [],
-                user_access_keys: data.user_access_keys ?? []
+                options_relation: data.relation_tpl ?? [],
             });
             roleTags({
                 user_id: parseInt(userId)
@@ -1453,10 +1678,17 @@ export function UserRolePage(props) {
     switch (showPage.page) {
         case "add":
             rpage = <UserRoleAdd
+                userId={userId}
                 onSave={(id, name, user_range) => {
                     setSearchParam({
                         role_id: id,
-                        page: 0
+                        page: 0,
+                        tag: '',
+
+                        role_name: '',
+                        user_range: "",
+                        res_range: "",
+                        relation_prefix: "",
                     }, loadRoleData)
                     if (user_range == 3) {
                         setShowPage({
@@ -1476,11 +1708,18 @@ export function UserRolePage(props) {
             break;
         case "edit":
             rpage = <UserRoleAdd
+                userId={userId}
                 title="编辑角色"
                 onSave={(id) => {
                     setSearchParam({
                         role_id: id,
-                        page: 0
+                        page: 0,
+                        tag: '',
+
+                        role_name: '',
+                        user_range: "",
+                        res_range: "",
+                        relation_prefix: "",
                     }, loadRoleData)
                 }}
                 tags={pageTagData.tag_rows}
@@ -1659,7 +1898,7 @@ export function UserRolePage(props) {
                     labelId="res-select-label"
                     id="res-select"
                     label="资源范围"
-                    value={filterData.res_range}
+                    value={filterData.res_range ?? ''}
                     onChange={(event) => {
                         setfilterData({
                             ...filterData,
@@ -1686,11 +1925,12 @@ export function UserRolePage(props) {
                     labelId="user-select-label"
                     id="user-select"
                     label="用户范围"
-                    value={filterData.user_range}
+                    value={filterData.user_range ?? ''}
                     onChange={(e) => {
                         setfilterData({
                             ...filterData,
-                            user_range: e.target.value
+                            user_range: e.target.value,
+                            relation_prefix: e.target.value == 4 ? filterData.relation_prefix : ""
                         })
                     }}
                 >
@@ -1705,6 +1945,23 @@ export function UserRolePage(props) {
                 </Select>
 
             </FormControl>
+            {filterData.user_range == 4 ? <FormControl sx={{ mr: 1 }} size="small"  >
+                <UserRoleRelationFind
+
+                    label="关系名"
+                    size="small"
+                    sx={{
+                        width: 130
+                    }}
+                    userId={userId}
+                    value={filterData.relation_prefix}
+                    onFinish={(value) => {
+                        setfilterData({
+                            ...filterData,
+                            relation_prefix: value,
+                        });
+                    }} />
+            </FormControl> : null}
 
             {pageTagData.tag_rows.length > 0 ? <TagSelect
                 loading={pageTagData.tag_rows_loading}
@@ -1757,7 +2014,7 @@ export function UserRolePage(props) {
                 variant="outlined"
                 size="medium"
                 startIcon={<SearchIcon />}
-                sx={{ mr: 1, p: "7px 15px" }}
+                sx={{ mr: 1, p: "7px 15px", minWidth: 85 }}
                 onClick={() => {
                     setSearchParam({
                         ...filterData,
@@ -1771,7 +2028,7 @@ export function UserRolePage(props) {
                 variant="outlined"
                 size="medium"
                 startIcon={<AddCircleOutlineIcon />}
-                sx={{ mr: 1, p: "7px 15px" }}
+                sx={{ mr: 1, p: "7px 15px", minWidth: 120 }}
                 onClick={() => {
                     setShowPage({
                         show: true,

@@ -47,5 +47,11 @@ where
             .service(options),
     )
     .service(scope("/api/app").service(app::app).service(options))
-    .service(scope("/api/sender").service(sender::smser).service(options))
+    .service(
+        scope("/api/sender")
+            .service(sender::sender_smser)
+            .service(sender::sender_mailer)
+            .service(sender::sender_tpls)
+            .service(options),
+    )
 }

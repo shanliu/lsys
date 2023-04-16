@@ -5,12 +5,12 @@ use lsys_app::model::AppsModel;
 use lsys_core::{AppCore, FluentMessage};
 use lsys_sender::{
     dao::{
-        AliyunSender, AliyunSenderTask, AliyunSmsRecord, SmsSender, SmsTaskAcquisition,
+        AliyunSender, AliyunSenderTask, SenderError, SmsSender, SmsTaskAcquisitionRecord,
         SmsTaskRecord,
     },
     model::SenderSmsMessageModel,
 };
-use lsys_setting::dao::{MultipleSetting};
+use lsys_setting::dao::MultipleSetting;
 use lsys_user::dao::account::{check_mobile, UserAccountError};
 use sqlx::{MySql, Pool};
 use tera::Context;
@@ -46,17 +46,26 @@ impl From<tera::Error> for WebAppSmserError {
         WebAppSmserError::Tera(err)
     }
 }
+impl From<SenderError> for WebAppSmserError {
+    fn from(err: SenderError) -> Self {
+        WebAppSmserError::System(err.to_string())
+    }
+}
 
 impl From<WebAppSmserError> for UserAccountError {
     fn from(err: WebAppSmserError) -> Self {
         UserAccountError::System(err.to_string())
     }
 }
+
 pub struct WebAppSmser {
     pub aliyun_sender: AliyunSender,
-    smser: Arc<SmsSender<AliyunSmsRecord, ()>>,
-    sms_record: SmsTaskRecord,
+    smser: Arc<SmsSender<SmsTaskAcquisitionRecord, ()>>,
+    app_core: Arc<AppCore>,
+    sms_record: Arc<SmsTaskRecord>,
     fluent: Arc<FluentMessage>,
+    setting: Arc<MultipleSetting>,
+    db: Pool<MySql>,
 }
 
 impl WebAppSmser {
@@ -71,29 +80,43 @@ impl WebAppSmser {
         task_timeout: usize,
         is_check: bool,
     ) -> Self {
-        let acquisition = AliyunSmsRecord::new(app_core.clone(), db.clone());
-        let sms_record = acquisition.sms_record().to_owned();
+        let sms_record = Arc::new(SmsTaskRecord::new(
+            db.clone(),
+            app_core.clone(),
+            fluent.clone(),
+        ));
+        let acquisition = SmsTaskAcquisitionRecord::new(sms_record.clone());
         let smser = Arc::new(SmsSender::new(
-            app_core,
             redis,
             task_size,
             task_timeout,
             is_check,
-            acquisition, //结构不大,不用Arc,引用,方便处理,不然生命周期太难搞
+            acquisition,
         ));
-        let aliyun_sender = AliyunSender::new(db, setting);
+        let aliyun_sender = AliyunSender::new(db.clone(), setting.clone());
         Self {
+            app_core,
             smser,
             fluent,
             sms_record,
             aliyun_sender,
+            setting,
+            db,
         }
     }
     // 短信后台任务
-    pub async fn task(&self) {
-        self.smser
-            .task::<_, _>(AliyunSenderTask::new(self.aliyun_sender.clone()))
-            .await;
+    pub async fn task(&self) -> Result<(), WebAppSmserError> {
+        Ok(self
+            .smser
+            .task(
+                self.app_core.clone(),
+                self.sms_record.clone(),
+                vec![Box::new(AliyunSenderTask::new(AliyunSender::new(
+                    self.db.clone(),
+                    self.setting.clone(),
+                )))],
+            )
+            .await?)
     }
     // 短信后台任务
     pub fn sms_record(&self) -> &SmsTaskRecord {

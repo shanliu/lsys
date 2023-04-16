@@ -3,6 +3,7 @@ import { default as AddCircleOutlineIcon } from '@mui/icons-material/AddCircleOu
 import EditIcon from '@mui/icons-material/Edit';
 import KeyIcon from '@mui/icons-material/Key';
 import SmsIcon from '@mui/icons-material/Sms';
+import MailIcon from '@mui/icons-material/Mail';
 import SearchIcon from '@mui/icons-material/Search';
 import LogoDevIcon from '@mui/icons-material/LogoDev';
 import { Alert, Button, Dialog, DialogActions, DialogContent, DialogContentText, Divider, Drawer, FormControl, Grid, IconButton, InputLabel, MenuItem, Paper, Select, TextField, Typography } from '@mui/material';
@@ -439,11 +440,19 @@ export default function UserAppIndexPage(props) {
                 if (row.status == 2) {
                     if (row.is_sms) {
                         button.push(<IconButton title="应用功能-短信发送" key={`${row.id}-sms`} onClick={() => {
-                            navigate("/user/sms/limit?app_id=" + row.id);
+                            navigate("/user/sms/message?app_id=" + row.id);
                         }} size='small'>
                             <SmsIcon fontSize='small' />
                         </IconButton>);
                     }
+                    if (row.is_mail) {
+                        button.push(<IconButton title="应用功能-邮件发送" key={`${row.id}-sms`} onClick={() => {
+                            navigate("/user/mail/message?app_id=" + row.id);
+                        }} size='small'>
+                            <MailIcon fontSize='small' />
+                        </IconButton>);
+                    }
+
                     let resetAction = () => {
                         return resetSecretApp({ appid: row.id }).then((data) => {
                             if (!data.status) {
@@ -661,7 +670,7 @@ export default function UserAppIndexPage(props) {
                 variant="outlined"
                 size="medium"
                 startIcon={<SearchIcon />}
-                sx={{ mr: 1, p: "7px 15px" }}
+                sx={{ mr: 1, p: "7px 15px", minWidth: 85 }}
                 loading={loadData.loading}
                 disabled={loadData.loading}
             >
@@ -671,7 +680,7 @@ export default function UserAppIndexPage(props) {
                 variant="outlined"
                 size="medium"
                 startIcon={<AddCircleOutlineIcon />}
-                sx={{ mr: 1, p: "7px 15px" }}
+                sx={{ mr: 1, p: "7px 15px", minWidth: 130 }}
                 onClick={() => {
                     setChangeBox(1)
                 }}>
@@ -681,7 +690,7 @@ export default function UserAppIndexPage(props) {
                 variant="outlined"
                 size="medium"
                 startIcon={<LogoDevIcon />}
-                sx={{ mr: 1, p: "7px 15px" }}
+                sx={{ mr: 1, p: "7px 15px", minWidth: 120 }}
                 onClick={() => {
                     https://github.com/shanliu/lsys/
                     window.open("https://github.com/shanliu/lsys/tree/main/sdk/go", "_blank")

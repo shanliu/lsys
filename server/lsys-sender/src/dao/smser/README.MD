@@ -17,8 +17,8 @@
 ```mermaid
 flowchart LR
     subgraph send[发送接口]
-        客户端发起发送 -- 参数:应用ID,手机号,模板ID,变量,发送时间:过滤重复号码 --> 开始发送操作 -- 根据 应用ID --> 查询发送配置:sender_sms_config--> 检测发送规则
-        开始发送操作  -- 根据 应用ID --> 查询发送历史:sender_sms_history -->检测发送规则
+        客户端发起发送 -- 参数:应用ID,手机号,模板ID,变量,发送时间:过滤重复号码 --> 开始发送操作 -- 根据 应用ID --> 查询发送配置:sender_config--> 检测发送规则
+        开始发送操作  -- 根据 应用ID --> 查询发送历史:sender_log -->检测发送规则
         检测发送规则 --> 不符合发送规则 --> 退出提示错误
         检测发送规则 --> 符合发送规则 --> 插入发送记录:sender_sms_message -.-通知 -.-> 后台发送任务
         插入发送记录:sender_sms_message --> 返回发送任务sender_sms_message.id

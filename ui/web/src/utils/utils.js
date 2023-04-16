@@ -14,3 +14,14 @@ export function showTime(unixTime, defText) {
     return datetime;
 }
 
+
+
+export function isDomain(domain, allow_ip = true) {
+    if (allow_ip && !/^[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}(:[\d]{1,5})?$/.test(domain)) {
+        return true
+    }
+    if (!/^[0-9a-zA-Z]{0,1}[0-9a-zA-Z-]*(\.[0-9a-zA-Z-]*)*(\.[0-9a-zA-Z]*)+(:[\d]{1,5})?$/.test(domain)) {
+        return true
+    }
+    return false
+}

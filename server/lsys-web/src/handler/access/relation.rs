@@ -1,5 +1,5 @@
 use lsys_app::model::AppsModel;
-use lsys_rbac::dao::{RbacRelationTpl, RoleRelationKey};
+use lsys_rbac::dao::{RbacRelationTpl, RelationTpl, RoleRelationKey};
 
 //app 关系
 pub struct RelationApp<'t> {
@@ -9,7 +9,10 @@ impl<'t> RbacRelationTpl for RelationApp<'t> {
     fn relation_data(&self) -> Vec<RoleRelationKey> {
         vec![RoleRelationKey::system(format!("app-{}", self.app.id))]
     }
-    fn tpl_data() -> Vec<&'static str> {
-        vec!["app-{appid}"]
+    fn tpl_data() -> Vec<RelationTpl> {
+        vec![RelationTpl {
+            key: "app-{appid}",
+            user: false,
+        }]
     }
 }

@@ -4,6 +4,7 @@ use lsys_core::cache::{LocalCacheClear, LocalCacheClearItem};
 use lsys_core::{AppCore, AppCoreError};
 use lsys_rbac::dao::rbac::RbacLocalCacheClear;
 use lsys_rbac::dao::{RbacDao, SystemRole};
+use lsys_sender::dao::MessageTpls;
 use lsys_setting::dao::Setting;
 use lsys_user::dao::account::cache::UserAccountLocalCacheClear;
 use lsys_user::dao::auth::{UserAuthConfig, UserAuthRedisStore};
@@ -15,7 +16,7 @@ use std::vec;
 use std::{path::PathBuf, str::FromStr, sync::Arc};
 use tera::Tera;
 use tokio::sync::Mutex;
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
 pub mod app;
 mod captcha;
@@ -39,8 +40,9 @@ pub struct WebDao {
     pub user: Arc<WebUser>,
     pub app: Arc<WebApp>,
     pub captcha: Arc<WebAppCaptcha>,
-    pub mailer: Arc<WebAppMailer>,
-    pub smser: Arc<WebAppSmser>,
+    pub sender_mailer: Arc<WebAppMailer>,
+    pub sender_smser: Arc<WebAppSmser>,
+    pub sender_tpl: Arc<MessageTpls>,
     pub app_core: Arc<AppCore>,
     pub db: Pool<MySql>,
     pub redis: deadpool_redis::Pool,
@@ -130,9 +132,20 @@ impl WebDao {
         let apps = WebApp::new(app_dao).await;
         let mailer = Arc::new(WebAppMailer::new(
             app_core.clone(),
-            tera.clone(),
             user_dao.fluent.clone(),
+            redis.clone(),
+            db.clone(),
+            setting.multiple.clone(),
+            None,
+            300, //任务最大执行时间
+            true,
         ));
+        let task_web_mailer = mailer.clone();
+        tokio::spawn(async move {
+            if let Err(err) = task_web_mailer.task().await {
+                error!("mailer error:{}", err.to_string())
+            }
+        });
         let web_smser = Arc::new(WebAppSmser::new(
             app_core.clone(),
             redis.clone(),
@@ -143,8 +156,12 @@ impl WebDao {
             300, //任务最大执行时间
             true,
         ));
-        let task_web_smse = web_smser.clone();
-        tokio::spawn(async move { task_web_smse.task().await });
+        let task_web_smser = web_smser.clone();
+        tokio::spawn(async move {
+            if let Err(err) = task_web_smser.task().await {
+                error!("smser error:{}", err.to_string())
+            }
+        });
         let captcha = Arc::new(WebAppCaptcha::new(redis.clone()));
 
         let clear_rbac_dao = rbac_dao.clone();
@@ -175,6 +192,7 @@ impl WebDao {
                 .create_fluent(cargo_dir.to_owned() + "/locale")
                 .await?
         });
+        let sender_tpl = Arc::new(MessageTpls::new(db.clone(), fluents_message.clone()));
         Ok(WebDao {
             user: Arc::new(WebUser::new(
                 user_dao,
@@ -187,8 +205,9 @@ impl WebDao {
             )),
             app: Arc::new(apps),
             captcha,
-            mailer,
-            smser: web_smser,
+            sender_mailer: mailer,
+            sender_smser: web_smser,
+            sender_tpl,
             app_core,
             db,
             redis,

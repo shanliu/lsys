@@ -35,7 +35,7 @@ pub async fn user_reg_from_name<'t, T: SessionTokenData, D: SessionData, S: User
             info: Some(info),
         })
         .await?;
-    Ok(JsonData::message("reg ok").set_data(json!({
+    Ok(JsonData::data(json!({
         "id":user.id,
     })))
 }
@@ -97,7 +97,7 @@ pub async fn user_reg_send_code_from_mobile<
         .await?;
     req_dao
         .web_dao
-        .smser
+        .sender_smser
         .send_valid_code(&param.area_code, &param.mobile, &data.0, &data.1)
         .await?;
     req_dao
@@ -105,7 +105,7 @@ pub async fn user_reg_send_code_from_mobile<
         .captcha
         .clear_code(&valid_code, &param.captcha.key)
         .await;
-    Ok(JsonData::message("reg sms is send").set_data(json!({ "ttl": data.1 })))
+    Ok(JsonData::data(json!({ "ttl": data.1 })))
 }
 #[derive(Debug, Deserialize)]
 pub struct RegSendCodeFromEmailParam {
@@ -161,7 +161,7 @@ pub async fn user_reg_send_code_from_email<
         .await?;
     req_dao
         .web_dao
-        .mailer
+        .sender_mailer
         .send_valid_code(&param.email, &data.0, &data.1)
         .await?;
     req_dao
@@ -170,7 +170,7 @@ pub async fn user_reg_send_code_from_email<
         .clear_code(&valid_code, &param.email)
         .await;
 
-    Ok(JsonData::message("reg mail is send").set_data(json!({ "ttl": data.1 })))
+    Ok(JsonData::data(json!({ "ttl": data.1 })))
 }
 
 #[derive(Deserialize)]
@@ -218,7 +218,7 @@ pub async fn user_reg_from_email<'t, T: SessionTokenData, D: SessionData, S: Use
         .user_email
         .valid_code_clear(&0, &param.email)
         .await;
-    Ok(JsonData::message("reg ok").set_data(json!({
+    Ok(JsonData::data(json!({
         "id":user.id,
     })))
 }
@@ -273,7 +273,7 @@ pub async fn user_reg_from_mobile<'t, T: SessionTokenData, D: SessionData, S: Us
         .user_mobile
         .valid_code_clear(&param.area_code, &param.mobile)
         .await;
-    Ok(JsonData::message("reg ok").set_data(json!({
+    Ok(JsonData::data(json!({
         "id":user.id,
     })))
 }

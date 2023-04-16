@@ -543,6 +543,14 @@ impl RbacAccess {
                 Some(ref res) => {
                     for otmp in &tmp.check_res.ops {
                         if !res.ops.iter().any(|e| e.op_key == *otmp) {
+                            debug!(
+                                "user {} acces, res[{}] {}:{}  op not find :{}",
+                                user_id,
+                                res.res.id,
+                                &tmp.check_res.res,
+                                tmp.check_res.user_id,
+                                otmp
+                            );
                             bad_tmp.push((tmp.check_res.res.clone(),
                                 get_message!(&self.fluent, "rbac-access-check-res-empty", "Authorization not find user [{$user_id}] in res[{$res}:{$res_id}] on op {$op} [{$view_user}]",[
                                 "res_id"=>res.res.id,
@@ -557,6 +565,10 @@ impl RbacAccess {
                 }
                 None => {
                     for tmp_op in &tmp.check_res.ops {
+                        debug!(
+                            "user {} acces, res not find {}:{} op :{}",
+                            user_id, &tmp.check_res.res, tmp.check_res.user_id, tmp_op
+                        );
                         bad_tmp.push((tmp.check_res.res.clone(),
                             get_message!(&self.fluent, "rbac-access-check-res-empty", "Authorization not find  user [{$user_id}] res [{$res}] on op {$op} [{$view_user}]",[
                             "res"=>tmp.check_res.res.clone(),

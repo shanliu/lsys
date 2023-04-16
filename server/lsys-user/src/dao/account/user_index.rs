@@ -31,16 +31,20 @@ impl UserIndex {
         for t in index_data.iter() {
             vdata.push(model_option_set!(UserIndexModelRef,{
                 index_cat:index_cat,
-                status:status,
                 index_data:t,
                 user_id:user_id,
+                status:status,
                 add_time:time,
             }));
         }
+        let update = model_option_set!(UserIndexModelRef,{
+            status:status,
+            add_time:time,
+        });
         let res = executor_option!(
             {
                 Insert::<sqlx::MySql, UserIndexModel, _>::new_vec(vdata)
-                    .execute(db)
+                    .execute_update(&Update::<MySql, UserIndexModel, _>::new(update), db)
                     .await?
             },
             transaction,
@@ -117,5 +121,8 @@ impl UserIndex {
             db
         )?;
         Ok(res.rows_affected())
+    }
+    pub async fn find(&self) -> UserAccountResult<Vec<u64>> {
+        todo!("ddd")
     }
 }

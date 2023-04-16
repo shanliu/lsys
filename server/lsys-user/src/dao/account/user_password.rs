@@ -7,7 +7,7 @@ use crate::model::{UserModel, UserModelRef, UserPasswordModel, UserPasswordModel
 use lsys_core::{get_message, now_time, FluentMessage};
 
 use sqlx::{Acquire, MySql, Pool, Transaction};
-use sqlx_model::{model_option_set, Insert, Select, SqlQuote, Update};
+use sqlx_model::{model_option_set, Insert, Select, Update};
 
 use tracing::warn;
 

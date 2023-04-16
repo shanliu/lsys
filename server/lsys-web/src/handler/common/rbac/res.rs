@@ -2,15 +2,16 @@ use std::sync::Arc;
 
 use crate::{
     handler::access::{
-        AccessAdminAliSmsConfig, AccessAdminManage, AccessAdminSetting, AccessAppSenderDoSms,
-        AccessAppSenderSmsConfig, AccessAppSenderSmsMsg, AccessOauthUserEmail, AccessOauthUserInfo,
-        AccessOauthUserMobile, AccessResEdit, AccessResView, AccessRoleEdit, AccessRoleView,
-        AccessRoleViewList, AccessSubAppRbacCheck, AccessSubAppView, AccessSystemEmailConfirm,
-        AccessSystemLogin, AccessSystemMobileConfirm, AccessSystemReSetPassword,
-        AccessUserAddressEdit, AccessUserAddressView, AccessUserAppConfirm, AccessUserAppEdit,
-        AccessUserAppView, AccessUserEmailEdit, AccessUserEmailView, AccessUserExternalEdit,
-        AccessUserInfoEdit, AccessUserMobileEdit, AccessUserMobileView, AccessUserNameEdit,
-        AccessUserSetPassword,
+        AccessAdminAliSmsConfig, AccessAdminManage, AccessAdminSenderTplView, AccessAdminSetting,
+        AccessAdminSmtpConfig, AccessAppSenderDoMail, AccessAppSenderDoSms,
+        AccessAppSenderMailConfig, AccessAppSenderMailMsg, AccessAppSenderSmsConfig,
+        AccessAppSenderSmsMsg, AccessOauthUserEmail, AccessOauthUserInfo, AccessOauthUserMobile,
+        AccessResEdit, AccessResView, AccessRoleEdit, AccessRoleView, AccessRoleViewList,
+        AccessSubAppRbacCheck, AccessSubAppView, AccessSystemEmailConfirm, AccessSystemLogin,
+        AccessSystemMobileConfirm, AccessSystemReSetPassword, AccessUserAddressEdit,
+        AccessUserAddressView, AccessUserAppConfirm, AccessUserAppEdit, AccessUserAppView,
+        AccessUserEmailEdit, AccessUserEmailView, AccessUserExternalEdit, AccessUserInfoEdit,
+        AccessUserMobileEdit, AccessUserMobileView, AccessUserNameEdit, AccessUserSetPassword, AccessAdminSenderTplEdit,
     },
     PageParam, {JsonData, JsonResult},
 };
@@ -99,7 +100,7 @@ pub async fn rbac_res_add(
         return Err(e);
     };
     transaction.commit().await?;
-    Ok(JsonData::message("ok").set_data(json!({ "id": id })))
+    Ok(JsonData::data(json!({ "id": id })))
 }
 
 #[derive(Debug, Deserialize)]
@@ -217,7 +218,7 @@ pub async fn rbac_res_tags(
         )
         .await?;
     let out = rbac_dao.rbac.res.user_res_tags(see_user_id).await?;
-    Ok(JsonData::message("tags data").set_data(json!({ "data": out })))
+    Ok(JsonData::data(json!({ "data": out })))
 }
 
 #[derive(Debug, Deserialize)]
@@ -288,7 +289,7 @@ pub async fn rbac_res_list_data(
     } else {
         None
     };
-    Ok(JsonData::message("res data").set_data(json!({ "data": out,"total":count})))
+    Ok(JsonData::data(json!({ "data": out,"total":count})))
 }
 
 #[derive(Debug, Serialize)]
@@ -311,6 +312,10 @@ pub struct ResAllParam {
 //资源授权
 pub async fn rbac_all_res_list(param: ResAllParam) -> JsonResult<JsonData> {
     let res = access_res_tpl!(
+        AccessAdminSmtpConfig,
+        AccessAppSenderMailConfig,
+        AccessAppSenderMailMsg,
+        AccessAppSenderDoMail,
         AccessAdminManage,
         AccessAdminSetting,
         AccessAppSenderDoSms,
@@ -343,7 +348,9 @@ pub async fn rbac_all_res_list(param: ResAllParam) -> JsonResult<JsonData> {
         AccessSystemMobileConfirm,
         AccessSystemReSetPassword,
         AccessUserExternalEdit,
-        AccessUserSetPassword
+        AccessUserSetPassword,
+        AccessAdminSenderTplView,
+        AccessAdminSenderTplEdit
     )
     .into_iter()
     .filter(|e| match param.global_res {
@@ -351,5 +358,5 @@ pub async fn rbac_all_res_list(param: ResAllParam) -> JsonResult<JsonData> {
         None => true,
     })
     .collect::<Vec<_>>();
-    Ok(JsonData::message("res data").set_data(json!({ "data": res })))
+    Ok(JsonData::data(json!({ "data": res })))
 }

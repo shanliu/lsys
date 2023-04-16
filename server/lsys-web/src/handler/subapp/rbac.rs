@@ -73,7 +73,7 @@ pub async fn subapp_rbac_check(
         })
         .collect::<Vec<Vec<_>>>();
     dao.list_check(param.user_id, &rkey, &check_res).await?;
-    Ok(JsonData::message("success").set_data(json!({ "pass": 1 })))
+    Ok(JsonData::data(json!({ "pass": 1 })))
 }
 
 #[derive(Debug, Deserialize)]

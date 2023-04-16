@@ -1,36 +1,40 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{
+    collections::HashSet,
+    sync::{atomic::AtomicU32, Arc},
+};
 
+use async_trait::async_trait;
 use lsys_core::{now_time, AppCore};
 
 use tracing::warn;
 
 use crate::{
-    dao::{task::TaskExecutioner, SenderResult},
+    dao::{SenderError, SenderResult, TaskExecutioner},
     model::SenderSmsMessageModel,
 };
 
-use super::{super::task::Task, SmsTaskAcquisition, SmsTaskItem, SmserTask, SmserTaskExecutioner};
+use super::{
+    super::TaskSender, SmsTaskAcquisition, SmsTaskItem, SmsTaskRecord, SmserTaskExecutioner,
+};
 
 const SMSER_REDIS_PREFIX: &str = "sender-sms-";
 
 pub struct SmsSender<A: SmsTaskAcquisition<T>, T: Send + Sync + 'static + Clone> {
-    app_core: Arc<AppCore>,
     redis: deadpool_redis::Pool,
-    task: Task<u64, SmsTaskItem<T>>,
+    task: TaskSender<u64, SmsTaskItem<T>>,
     acquisition: A,
 }
 
 impl<A: SmsTaskAcquisition<T>, T: Send + Sync + 'static + Clone> SmsSender<A, T> {
     //短信发送
     pub fn new(
-        app_core: Arc<AppCore>,
         redis: deadpool_redis::Pool,
         task_size: Option<usize>,
         task_timeout: usize,
         is_check: bool,
         acquisition: A,
     ) -> Self {
-        let task = Task::new(
+        let task = TaskSender::new(
             format!("{}-notify", SMSER_REDIS_PREFIX),
             format!("{}-read-lock", SMSER_REDIS_PREFIX),
             format!("{}-run-task", SMSER_REDIS_PREFIX),
@@ -40,8 +44,8 @@ impl<A: SmsTaskAcquisition<T>, T: Send + Sync + 'static + Clone> SmsSender<A, T>
             is_check,
             task_timeout,
         );
+
         Self {
-            app_core,
             redis,
             task,
             acquisition,
@@ -108,7 +112,7 @@ impl<A: SmsTaskAcquisition<T>, T: Send + Sync + 'static + Clone> SmsSender<A, T>
         if tdata.get(&msg.id).is_none() {
             self.acquisition
                 .sms_record()
-                .cancel_form_id(msg, user_id)
+                .cancel_form_message(msg, user_id)
                 .await?;
         }
         Ok(1)
@@ -118,6 +122,7 @@ impl<A: SmsTaskAcquisition<T>, T: Send + Sync + 'static + Clone> SmsSender<A, T>
         let data = self
             .acquisition
             .sms_record()
+            .cancel
             .cancel_data(cancel_key)
             .await?;
         let mut redis = self.redis.get().await?;
@@ -135,18 +140,60 @@ impl<A: SmsTaskAcquisition<T>, T: Send + Sync + 'static + Clone> SmsSender<A, T>
         Ok(succ)
     }
     //后台发送任务，内部循环不退出
-    pub async fn task<ST: Send + Sync + 'static + Clone, SE: SmserTaskExecutioner<ST>>(
+    pub async fn task(
         &self,
-        se: SE,
-    ) where
-        SmserTask<ST, SE>: TaskExecutioner<u64, SmsTaskItem<T>>,
-    {
+        app_core: Arc<AppCore>,
+        sms_record: Arc<SmsTaskRecord>,
+        se: Vec<Box<dyn SmserTaskExecutioner<T>>>,
+    ) -> SenderResult<()> {
         self.task
             .dispatch(
-                self.app_core.clone(),
+                app_core,
                 &self.acquisition,
-                SmserTask::<_, _>::new(self.acquisition.sms_record().to_owned(), se),
+                SmserTask::<_>::new(sms_record, se)?,
             )
             .await;
+        Ok(())
+    }
+}
+
+#[derive(Clone)]
+pub struct SmserTask<T: Send + Sync> {
+    inner: Arc<Vec<Box<dyn SmserTaskExecutioner<T>>>>,
+    record: Arc<SmsTaskRecord>,
+    i: Arc<AtomicU32>,
+}
+
+impl<T: Send + Sync + Clone> SmserTask<T> {
+    pub fn new(
+        record: Arc<SmsTaskRecord>,
+        se: Vec<Box<dyn SmserTaskExecutioner<T>>>,
+    ) -> SenderResult<SmserTask<T>> {
+        if se.is_empty() {
+            return Err(SenderError::System("can't set task is empty".to_string()));
+        }
+        Ok(SmserTask {
+            inner: Arc::new(se),
+            record,
+            i: AtomicU32::new(0).into(),
+        })
+    }
+}
+
+#[async_trait]
+impl<T: Send + Sync + 'static + Clone> TaskExecutioner<u64, SmsTaskItem<T>> for SmserTask<T> {
+    async fn exec(&self, val: SmsTaskItem<T>) -> SenderResult<()> {
+        let len = self.inner.len();
+        let now = if self.i.load(std::sync::atomic::Ordering::Relaxed) as usize > len {
+            self.i.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        } else {
+            self.i.store(0, std::sync::atomic::Ordering::Relaxed);
+            0
+        } as usize;
+        let now = if now > len { len } else { now };
+        if let Some(tmp) = self.inner.get(now) {
+            tmp.exec(val, &self.record).await?;
+        }
+        Ok(())
     }
 }

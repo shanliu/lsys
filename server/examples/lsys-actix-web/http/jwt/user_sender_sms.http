@@ -7,7 +7,7 @@
 
 
 ### 添加短信配置
-POST {{url}}/smser/config_add
+POST {{url}}/sender-smser/config_add
 Authorization: {{jwt_token}}
 
 {
@@ -19,7 +19,7 @@ Authorization: {{jwt_token}}
 
 
 ### 删除短信配置
-POST {{url}}/smser/config_del
+POST {{url}}/sender-smser/config_del
 Authorization: {{jwt_token}}
 
 {
@@ -27,7 +27,7 @@ Authorization: {{jwt_token}}
 }
 
 ### 短信配置列表
-POST {{url}}/smser/config_list
+POST {{url}}/sender-smser/config_list
 Authorization: {{jwt_token}}
 
 {
@@ -35,7 +35,7 @@ Authorization: {{jwt_token}}
 }
 
 ### 阿里短信配置列表
-POST {{url}}/smser/ali_config_list
+POST {{url}}/sender-smser/ali_config_list
 Authorization: {{jwt_token}}
 
 {
@@ -45,7 +45,7 @@ Authorization: {{jwt_token}}
 
 
 ###  阿里短信配置添加
-POST {{url}}/smser/ali_config_add
+POST {{url}}/sender-smser/ali_config_add
 Authorization: {{jwt_token}}
 
 {
@@ -56,7 +56,7 @@ Authorization: {{jwt_token}}
 
 
 ###  阿里短信配置删除
-POST {{url}}/smser/ali_config_del
+POST {{url}}/sender-smser/ali_config_del
 Authorization: {{jwt_token}}
 
 {
@@ -66,7 +66,7 @@ Authorization: {{jwt_token}}
 
 
 ###  阿里短信配置编辑
-POST {{url}}/smser/ali_config_edit
+POST {{url}}/sender-smser/ali_config_edit
 Authorization: {{jwt_token}}
 
 {
@@ -78,13 +78,13 @@ Authorization: {{jwt_token}}
 
 
 ###  阿里短信配置关联短信发送
-POST {{url}}/smser/ali_app_config_add
+POST {{url}}/sender-smser/ali_app_config_add
 Authorization: {{jwt_token}}
 
 {
     "app_id": 1,
     "ali_config_id":29,
-    "sms_tpl": "adfad",
+    "tpl_id": "adfad",
     "aliyun_sms_tpl": "adfad",
     "aliyun_sign_name": "adfad"
 }
@@ -92,7 +92,7 @@ Authorization: {{jwt_token}}
 
 
 ### 阿里短信配置关联短信发送删除
-POST {{url}}/smser/ali_app_config_del
+POST {{url}}/sender-smser/ali_app_config_del
 Authorization: {{jwt_token}}
 
 {

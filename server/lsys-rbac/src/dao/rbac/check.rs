@@ -43,6 +43,12 @@ impl Rbac {
 
 // 提供一个方式方便收集代码中使用到的关系数据
 // 关系模板获取trait 定义,用在 access_relation_tpl 宏中
+// 资源模板
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RelationTpl {
+    pub key: &'static str, //资源KEY
+    pub user: bool,        //系统资源还是用户资源
+}
 pub trait RbacRelationTpl {
     fn extend(&self, relation: &[RoleRelationKey]) -> Vec<RoleRelationKey> {
         let mut e = self.relation_data();
@@ -50,14 +56,15 @@ pub trait RbacRelationTpl {
         e
     }
     fn relation_data(&self) -> Vec<RoleRelationKey>;
-    fn tpl_data() -> Vec<&'static str>;
+    fn tpl_data() -> Vec<RelationTpl>;
 }
 
 #[macro_export]
 macro_rules! access_relation_tpl {
     ($($res_type:ty),+) => {{
         use $crate::dao::RbacRelationTpl;
-        let mut data = Vec::<&'static str>::new();
+        use $crate::dao::RelationTpl;
+        let mut data = Vec::<RelationTpl>::new();
         $(
             data.extend(<$res_type>::tpl_data());
 

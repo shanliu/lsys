@@ -12,6 +12,7 @@ import { ItemTooltip } from '../../library/tips';
 import { appList, confirmApp, disableApp } from '../../rest/app';
 import { useSearchChange } from '../../utils/hook';
 import { showTime } from '../../utils/utils';
+import { PageNav } from './menu';
 const filterStatus = {
     status: [
         { key: 1, val: '待审核' },
@@ -179,10 +180,11 @@ export default function SystemAppPage(props) {
     }, [searchParam])
 
     return <Fragment>
-
+        <PageNav />
         <Paper
             sx={{ p: 2, display: 'flex', alignItems: 'center', marginBottom: 1, marginTop: 1 }}
         >
+
             <FormControl sx={{ minWidth: 110, mr: 1 }} size="small"  >
                 <InputLabel id="select-type">审核状态</InputLabel>
                 <Select
@@ -255,7 +257,7 @@ export default function SystemAppPage(props) {
                 variant="outlined"
                 size="medium"
                 startIcon={<SearchIcon />}
-                sx={{ mr: 1, p: "7px 15px" }}
+                sx={{ mr: 1, p: "7px 15px", minWidth: 85 }}
                 loading={loadData.loading}
             >
                 过滤

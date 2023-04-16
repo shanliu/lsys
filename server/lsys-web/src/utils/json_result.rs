@@ -33,7 +33,7 @@ impl Default for JsonData {
 }
 impl JsonData {
     pub fn data(value: Value) -> Self {
-        JsonData::default().set_data(value)
+        JsonData::default().set_message("ok").set_data(value)
     }
     pub fn error<T: Error>(error: T) -> Self {
         JsonData::message_error(format!("err:{}", error))
@@ -223,6 +223,9 @@ impl From<SenderError> for JsonData {
                 .set_message(err),
             SenderError::Exec(err) => JsonData::default().set_sub_code("exec").set_message(err),
             SenderError::System(err) => JsonData::default().set_sub_code("system").set_message(err),
+            SenderError::Tpl(err) => JsonData::default()
+                .set_sub_code("tpl")
+                .set_message(format!("tpl error:{}", err)),
         }
     }
 }

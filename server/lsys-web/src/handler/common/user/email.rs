@@ -134,7 +134,7 @@ pub async fn user_email_send_code<'t, T: SessionTokenData, D: SessionData, S: Us
         .await?;
     req_dao
         .web_dao
-        .mailer
+        .sender_mailer
         .send_valid_code(&email.email, &res.0, &res.1)
         .await?;
     Ok(JsonData::message("mail is send"))

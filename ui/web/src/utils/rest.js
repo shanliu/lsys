@@ -71,15 +71,15 @@ export function sessionRest(path) {
     let session = userSessionGet();
     if (!session) throw new Error("not login can't call user rest");
     let ax = axios.create({
-        baseURL: config.serverURL  + path,
+        baseURL: config.serverURL + path,
         timeout: timeout,
         transformResponse: [
-            (data)=>{
-              try {
-                return JSONBig.parse(data)
-              } catch (err) {
-                return data
-              }
+            (data) => {
+                try {
+                    return JSONBig.parse(data)
+                } catch (err) {
+                    return data
+                }
             }
         ],
         validateStatus: function (status) {
@@ -95,8 +95,8 @@ export function sessionRest(path) {
 }
 
 export function fialResult(field, message) {
-    if (!message){
-        message=Object.values(field).join(";")
+    if (!message) {
+        message = Object.values(field).join(";")
     }
     return {
         status: false,
@@ -105,7 +105,7 @@ export function fialResult(field, message) {
     }
 };
 
-export function restResult(res,ignore) {
+export function restResult(res, ignore) {
     if (res?.data?.result?.code != 200) {
         return {
             ...(res?.data?.result ?? {}),
@@ -113,15 +113,15 @@ export function restResult(res,ignore) {
             data: res?.data?.response ?? null
         }
     }
-    if (typeof ignore== 'string'){
-        ignore=[ignore]
+    if (typeof ignore == 'string') {
+        ignore = [ignore]
     }
-    switch (res.data.result.state){
+    switch (res.data.result.state) {
         case "not_login":
             userSessionClear()
         default:
-            if(res.data.result.state=='ok'||(ignore&&ignore.length>0&&ignore.includes(res.data.result.state))){
-                if(!res.data.response)res.data.response=[];
+            if (res.data.result.state == 'ok' || (ignore && ignore.length > 0 && ignore.includes(res.data.result.state))) {
+                if (!res.data.response) res.data.response = [];
                 return {
                     status: true,
                     ...res.data.response

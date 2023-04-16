@@ -109,7 +109,7 @@ pub async fn user_reset_password_send_code_from_mobile<
         .await?;
     req_dao
         .web_dao
-        .smser
+        .sender_smser
         .send_valid_code(&param.area_code, &param.mobile, &data.0, &data.1)
         .await?;
     req_dao
@@ -117,7 +117,7 @@ pub async fn user_reset_password_send_code_from_mobile<
         .captcha
         .clear_code(&valid_code, &param.captcha.key)
         .await;
-    Ok(JsonData::message("reset sms is send").set_data(json!({ "ttl": data.1 })))
+    Ok(JsonData::data(json!({ "ttl": data.1 })))
 }
 #[derive(Debug, Deserialize)]
 pub struct ResetPasswordSendCodeFromEmailParam {
@@ -169,7 +169,7 @@ pub async fn user_reset_password_send_code_from_email<
         .await?;
     req_dao
         .web_dao
-        .mailer
+        .sender_mailer
         .send_valid_code(&param.email, &data.0, &data.1)
         .await?;
     req_dao
@@ -177,7 +177,7 @@ pub async fn user_reset_password_send_code_from_email<
         .captcha
         .clear_code(&valid_code, &param.captcha.key)
         .await;
-    Ok(JsonData::message("reset mail is send").set_data(json!({ "ttl": data.1 })))
+    Ok(JsonData::data(json!({ "ttl": data.1 })))
 }
 
 #[derive(Debug, Deserialize)]

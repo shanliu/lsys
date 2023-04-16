@@ -147,10 +147,10 @@ pub async fn user_mobile_send_code<
         .await?;
     req_dao
         .web_dao
-        .smser
+        .sender_smser
         .send_valid_code(&param.area_code, &param.mobile, &code, &ttl)
         .await?;
-    Ok(JsonData::message("sms is send").set_data(json!({ "ttl": ttl })))
+    Ok(JsonData::data(json!({ "ttl": ttl })))
 }
 
 #[derive(Debug, Deserialize)]
