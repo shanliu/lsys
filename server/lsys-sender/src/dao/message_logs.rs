@@ -77,7 +77,7 @@ impl MessageLogs {
     pub async fn list_count(&self, message_id: &u64) -> SenderResult<i64> {
         let sender_type = self.send_type as i8;
         let sqlwhere = vec![sql_format!(
-            "sender_type={} and sms_message_id = {}  ",
+            "sender_type={} and message_id = {}  ",
             sender_type,
             message_id
         )];
@@ -97,7 +97,7 @@ impl MessageLogs {
     ) -> SenderResult<Vec<SenderLogModel>> {
         let sender_type = self.send_type as i8;
         let sqlwhere = vec![sql_format!(
-            "sender_type={} and sms_message_id = {}  ",
+            "sender_type={} and message_id = {}  ",
             sender_type,
             message_id
         )];

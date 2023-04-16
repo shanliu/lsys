@@ -197,7 +197,7 @@ impl RbacCheck for AccessAppSenderDoMail {
                 &RelationApp { app: &self.app }.extend(relation),
                 &[AccessRes::system(
                     &format!("global-app-{}", self.app.id),
-                    &["mail-send"],
+                    &["app-mail-send"],
                     &[],
                 )],
             )
@@ -210,7 +210,7 @@ impl RbacResTpl for AccessAppSenderDoMail {
             tags: vec!["app", "mail"],
             user: false,
             key: "global-app-{appid}",
-            ops: vec!["mail-send"],
+            ops: vec!["app-mail-send"],
         }]
     }
 }
