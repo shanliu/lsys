@@ -6,7 +6,7 @@ import { appList } from '../../../rest/app';
 
 
 export function AppSelect(props) {
-    const { appId, userId, onChange, onLoad } = props;
+    const { appId, userId, onChange, onLoad, checkSms, checkMail } = props;
     const [appData, setAppData] = useState({
         init: false,
         loading: false,
@@ -28,7 +28,9 @@ export function AppSelect(props) {
                     app_id: appId,
                     page: 0,
                     page_size: 1,
-                    user_id: userId
+                    user_id: userId,
+                    check_sms: checkSms,
+                    check_mail: checkMail,
                 }).then((data) => {
                     if (!data.status || !data.data[0]) {
                         if (data.message) {
@@ -82,6 +84,8 @@ export function AppSelect(props) {
                     user_id: userId,
                     page: appData.page,
                     page_size: appData.page_size,
+                    check_sms: checkSms,
+                    check_mail: checkMail,
                 }).then((data) => {
                     if (!data.status) {
                         setAppData({
@@ -104,8 +108,12 @@ export function AppSelect(props) {
             }}
         >   <MenuItem value=''>全部</MenuItem>
             {appData.items.map((item) => {
-
-                return <MenuItem key={`app-${appId}-${item.id}`} value={item.id}>{item.name}({item.id})</MenuItem>
+                let accok = "";
+                if ((checkMail && item.is_mail)
+                    || (checkSms && item.is_sms)) {
+                    accok = "[已授权]"
+                }
+                return <MenuItem key={`app-${appId}-${item.id}`} value={item.id}>{item.name}({item.id}){accok}</MenuItem>
             })}
         </LoadSelect>
     </FormControl>

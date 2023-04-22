@@ -2,4 +2,5 @@
 pub mod app;
 pub mod rbac;
 pub mod sender;
+pub mod setting;
 pub mod user;

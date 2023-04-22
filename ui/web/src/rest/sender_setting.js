@@ -2,8 +2,9 @@ import isEmail from "validator/lib/isEmail";
 import { fialResult, restResult, sessionRest } from "../utils/rest";
 import { isDomain } from "../utils/utils";
 
-export const SenderTypeMail = 1;
-export const SenderTypeSms = 2;
+export const SenderTypeSms = 1;
+export const SenderTypeMail = 2;
+
 export const SenderType = [
 
     {
@@ -519,6 +520,7 @@ export async function mailAddSmtpConfig(param, config) {
         port,
         timeout,
         user,
+        email,
         password,
         tls_domain, } = param;
     var errors = {};
@@ -537,8 +539,11 @@ export async function mailAddSmtpConfig(param, config) {
     if (parseInt(timeout) <= 0) {
         errors.timeout = "超时不能为空";
     }
-    if (typeof tls_domain == "string" && !isDomain(tls_domain, true)) {
+    if (typeof tls_domain == "string" && tls_domain.length > 0 && !isDomain(tls_domain, true)) {
         errors.tls_domain = "tls_domain需要为域名或IP";
+    }
+    if (typeof email == "string" && email.length > 0 && !isEmail(email)) {
+        errors.email = "请输入邮箱或留空";
     }
     if (Object.keys(errors).length) {
         return fialResult(errors);
@@ -549,6 +554,7 @@ export async function mailAddSmtpConfig(param, config) {
         port: parseInt(port),
         timeout: parseInt(timeout),
         user: user + '',
+        email: email + '',
         password: password + '',
         tls_domain: tls_domain + '',
     }, config);
@@ -560,6 +566,7 @@ export async function mailEditSmtpConfig(param, config) {
         port,
         timeout,
         user,
+        email,
         password,
         tls_domain, } = param;
     var errors = {};
@@ -585,6 +592,9 @@ export async function mailEditSmtpConfig(param, config) {
     if (parseInt(timeout) <= 0) {
         errors.timeout = "超时不能为空";
     }
+    if (typeof email == "string" && email.length > 0 && !isEmail(email)) {
+        errors.email = "请输入邮箱或留空";
+    }
     if (Object.keys(errors).length) {
         return fialResult(errors);
     }
@@ -594,6 +604,7 @@ export async function mailEditSmtpConfig(param, config) {
         port: parseInt(port),
         timeout: parseInt(timeout),
         user: user + '',
+        email: email + '',
         password: password + '',
         tls_domain: tls_domain + '',
         id: sid,
@@ -671,8 +682,8 @@ export async function mailAddAppSmtpConfig(param, config) {
     if (typeof body_tpl_id !== "string" || body_tpl_id.length <= 2) {
         errors.body_tpl_id = "请选择内容模板";
     }
-    if (typeof from_email == "string" && from_email.length > 0 && !isEmail(from_email)) {
-        errors.from_email = "来源邮箱请留空或输入邮箱地址";
+    if (typeof from_email !== "string" || !isEmail(from_email)) {
+        errors.from_email = "来源邮箱不能为空";
     }
     if (typeof subject_tpl_id !== "string" || subject_tpl_id.length <= 1) {
         errors.subject_tpl_id = "请选择标题模板";
@@ -753,8 +764,8 @@ export async function tplsListConfig(param, config) {
     if (!isNaN(parseInt(id)) && parseInt(id) > 0) {
         errors.id = parseInt(id);
     }
-    if (typeof tpl_id !== "string" || tpl_id.length < 1) {
-        errors.tpl_id = "请输入模板内容";
+    if (typeof tpl_id == "string" && tpl_id.length > 1) {
+        data.tpl_id = tpl_id;
     }
     let response = await senderSettingRest("tpls").post("/list", data, config);
     return restResult(response)

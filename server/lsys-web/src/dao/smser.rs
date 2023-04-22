@@ -155,7 +155,7 @@ impl WebAppSmser {
             .map_err(|e| WebAppSmserError::System(e.to_string()))
             .map(|_| ())
     }
-    // 短信发送接口
+    // APP 短信短信取消发送
     pub async fn app_send_cancel(
         &self,
         app: &AppsModel,
@@ -167,7 +167,7 @@ impl WebAppSmser {
             .map_err(|e| WebAppSmserError::System(e.to_string()))
             .map(|_| ())
     }
-    // 短信发送接口
+    // 通过消息取消发送
     pub async fn send_cancel(
         &self,
         message: &SenderSmsMessageModel,

@@ -8,7 +8,7 @@ use super::RelationApp;
 
 pub struct AccessSubAppView {
     pub app: AppsModel,
-    pub see_app: AppsModel,
+    pub see_app: Option<AppsModel>,
 }
 #[async_trait::async_trait]
 impl RbacCheck for AccessSubAppView {
@@ -17,27 +17,42 @@ impl RbacCheck for AccessSubAppView {
         access: &'t RbacAccess,
         relation: &'t [RoleRelationKey],
     ) -> UserRbacResult<()> {
-        access
-            .list_check(
-                self.app.user_id,
-                &RelationApp { app: &self.app }.extend(relation),
-                &[
-                    vec![AccessRes::system(
+        if let Some(ref see_app) = self.see_app {
+            access
+                .list_check(
+                    self.app.user_id,
+                    &RelationApp { app: &self.app }.extend(relation),
+                    &[
+                        vec![AccessRes::system(
+                            //系统控制指定用户APP之间查看
+                            &format!("global-app-{}", self.app.id),
+                            &["app-view"],
+                            &[],
+                        )],
+                        vec![AccessRes::user(
+                            //用户控制用户APP之间查看
+                            see_app.user_id,
+                            &format!("app-{}", self.app.id),
+                            &["app-view"],
+                            &[],
+                        )],
+                    ],
+                )
+                .await
+        } else {
+            access
+                .list_check(
+                    self.app.user_id,
+                    &RelationApp { app: &self.app }.extend(relation),
+                    &[vec![AccessRes::system(
                         //系统控制指定用户APP之间查看
                         &format!("global-app-{}", self.app.id),
                         &["app-view"],
                         &[],
-                    )],
-                    vec![AccessRes::user(
-                        //用户控制用户APP之间查看
-                        self.see_app.user_id,
-                        &format!("app-{}", self.app.id),
-                        &["app-view"],
-                        &[],
-                    )],
-                ],
-            )
-            .await
+                    )]],
+                )
+                .await
+        }
     }
 }
 

@@ -1,5 +1,6 @@
 use lsys_core::{AppCore, FluentMessage};
 use lsys_rbac::dao::RbacDao;
+use lsys_setting::dao::Setting;
 use lsys_user::dao::{
     auth::{LoginData, SessionData, SessionUserData, UserAuthData, UserAuthRedisStore},
     UserDao,
@@ -29,10 +30,12 @@ pub struct WebUser {
     pub redis: deadpool_redis::Pool,
     pub captcha: Arc<WebAppCaptcha>,
     pub app_core: Arc<AppCore>,
+    pub setting: Arc<Setting>,
     fluent: Arc<FluentMessage>,
 }
 
 impl WebUser {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         user_dao: Arc<UserDao<UserAuthRedisStore>>,
         rbac_dao: Arc<RbacDao>,
@@ -41,6 +44,7 @@ impl WebUser {
         captcha: Arc<WebAppCaptcha>,
         app_core: Arc<AppCore>,
         fluent: Arc<FluentMessage>,
+        setting: Arc<Setting>,
     ) -> Self {
         WebUser {
             user_dao,
@@ -50,6 +54,7 @@ impl WebUser {
             redis,
             app_core,
             fluent,
+            setting,
         }
     }
 }

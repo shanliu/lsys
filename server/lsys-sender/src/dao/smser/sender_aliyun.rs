@@ -122,7 +122,10 @@ impl AliyunSender {
     }
     //删除指定的aliyun短信配置
     pub async fn del_config(&self, id: &u64, user_id: &u64) -> SenderResult<u64> {
-        Ok(self.setting.del::<AliyunConfig>(&None, id, user_id).await?)
+        Ok(self
+            .setting
+            .del::<AliyunConfig>(&None, id, user_id, None)
+            .await?)
     }
     //编辑指定的aliyun短信配置
     pub async fn edit_config(
@@ -144,6 +147,7 @@ impl AliyunSender {
                     access_secret: access_secret.to_owned(),
                 },
                 user_id,
+                None,
             )
             .await?)
     }
@@ -165,6 +169,7 @@ impl AliyunSender {
                     access_secret: access_secret.to_owned(),
                 },
                 user_id,
+                None,
             )
             .await?)
     }
@@ -268,11 +273,7 @@ impl AliyunSenderTask {
             i: Arc::new(AtomicU32::new(0)),
         }
     }
-}
-#[async_trait]
-impl SmserTaskExecutioner<()> for AliyunSenderTask {
-    //执行短信发送
-    async fn exec(&self, val: SmsTaskItem<()>, record: &SmsTaskRecord) -> SenderResult<()> {
+    async fn do_exec(&self, val: &SmsTaskItem<()>) -> SenderResult<(u16, String)> {
         let config = self
             .alisms
             .find_app_config(
@@ -318,36 +319,48 @@ impl SmserTaskExecutioner<()> for AliyunSenderTask {
                 Ok(resp) => {
                     debug!("aliyun sms resp :{:?}", resp);
                     if resp.get("Code").map(|e| e == "OK").unwrap_or(false) {
-                        Ok(())
+                        Ok((smsconfig.max_try_num, aliconfig.access_id.to_string()))
                     } else {
                         Err(format!("aliyun error:{:?} ", resp.get("Message")))
                     }
                 }
                 Err(err) => Err(err.to_string()),
             };
-            record
-                .finish(
-                    "aliyun".to_string(),
-                    aliconfig.access_id.to_string(),
-                    &val.sms,
-                    &res,
-                    smsconfig.max_try_num,
-                )
-                .await
-                .map_err(|e| SenderError::Exec(e.to_string()))?;
             return res.map_err(SenderError::Exec);
         }
         let err = "not find sms config".to_string();
-        record
-            .finish(
-                "aliyun".to_string(),
-                "".to_string(),
-                &val.sms,
-                &Err(err.clone()),
-                0,
-            )
-            .await
-            .map_err(|e| SenderError::Exec(e.to_string()))?;
         Err(SenderError::Exec(err))
+    }
+}
+#[async_trait]
+impl SmserTaskExecutioner<()> for AliyunSenderTask {
+    //执行短信发送
+    async fn exec(&self, val: SmsTaskItem<()>, record: &SmsTaskRecord) -> SenderResult<()> {
+        match self.do_exec(&val).await {
+            Ok((try_num, channel)) => {
+                record
+                    .finish(
+                        "aliyun-sms".to_string(),
+                        channel,
+                        &val.sms,
+                        &Ok(()),
+                        try_num,
+                    )
+                    .await
+            }
+            Err(err) => {
+                record
+                    .finish(
+                        "aliyun-sms".to_string(),
+                        "".to_string(),
+                        &val.sms,
+                        &Err(err.to_string()),
+                        0,
+                    )
+                    .await
+            }
+        }
+        .map_err(|e| SenderError::Exec(e.to_string()))?;
+        Ok(())
     }
 }

@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use sqlx_model::SqlxModel;
 
-#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
+#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize, Default)]
 #[sqlx_model(table_name = "setting")]
 pub struct SettingModel {
     /// 消息ID

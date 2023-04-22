@@ -1,9 +1,13 @@
 import isEmail from "validator/lib/isEmail";
 import { fialResult, globalRest, restResult, sessionRest } from "../utils/rest";
 
-function loginRest() {
+function LoggedRest() {
     return sessionRest('/api/user')
 };
+function LoginRest() {
+    return globalRest('/api/user')
+};
+
 
 
 export async function nameLogin(login_type, param, config) {
@@ -49,7 +53,7 @@ export async function nameLogin(login_type, param, config) {
     if (Object.keys(errors).length) {
         return fialResult(errors);
     }
-    let response = await globalRest().post("login/" + login_type, param, config);
+    let response = await LoginRest().post("login/" + login_type, param, config);
     return restResult(response)
 }
 
@@ -86,7 +90,7 @@ export async function emailLoginSendCode(param, config) {
             key: captcha_key
         }
     };
-    let response = await globalRest().post("/login/email-send-code", param, config);
+    let response = await LoginRest().post("/login/email-send-code", param, config);
     return restResult(response)
 }
 
@@ -117,7 +121,7 @@ export async function emailCodeLogin(param, config) {
     if (Object.keys(errors).length) {
         return fialResult(errors);
     }
-    let response = await globalRest().post("/login/email-code", param, config);
+    let response = await LoginRest().post("/login/email-code", param, config);
     return restResult(response)
 }
 
@@ -147,7 +151,7 @@ export async function emailLogin(param, config) {
     if (Object.keys(errors).length) {
         return fialResult(errors);
     }
-    let response = await globalRest().post("/login/email-code", param, config);
+    let response = await LoginRest().post("/login/email-code", param, config);
     return restResult(response)
 }
 
@@ -179,7 +183,7 @@ export async function mobileCodeLogin(param, config) {
     if (Object.keys(errors).length) {
         return fialResult(errors);
     }
-    let response = await globalRest().post("/login/sms-code", param, config);
+    let response = await LoginRest().post("/login/sms-code", param, config);
     return restResult(response)
 }
 
@@ -204,7 +208,7 @@ export async function mobileLoginSendCode(param, config) {
             key: captcha_key
         }
     };
-    let response = await globalRest().post("/login/sms-send-code", param, config);
+    let response = await LoginRest().post("/login/sms-send-code", param, config);
     return restResult(response)
 }
 
@@ -230,7 +234,7 @@ export async function emailSignupSendCode(param, config) {
             key: captcha_key
         }
     };
-    let response = await globalRest().post("/signup/email-code", param, config);
+    let response = await LoginRest().post("/signup/email-code", param, config);
     return restResult(response)
 }
 
@@ -258,7 +262,7 @@ export async function emailSignup(param, config) {
         password: password,
         nikename: nikename
     };
-    let response = await globalRest().post("/signup/email", param, config);
+    let response = await LoginRest().post("/signup/email", param, config);
     return restResult(response)
 }
 
@@ -283,7 +287,7 @@ export async function mobileSignupSendCode(param, config) {
             key: captcha_key
         }
     };
-    let response = await globalRest().post("/signup/sms-code", param, config);
+    let response = await LoginRest().post("/signup/sms-code", param, config);
     return restResult(response)
 }
 
@@ -316,7 +320,7 @@ export async function mobileSignup(param, config) {
         password: password,
         nikename: nikename
     };
-    let response = await globalRest().post("/signup/sms", param, config);
+    let response = await LoginRest().post("/signup/sms", param, config);
     return restResult(response)
 }
 
@@ -340,7 +344,7 @@ export async function emailFindPasswordSendCode(param, config) {
             key: captcha_key
         }
     };
-    let response = await globalRest().post("/password_reset/email_code", param, config);
+    let response = await LoginRest().post("/password_reset/email_code", param, config);
     return restResult(response)
 }
 
@@ -365,7 +369,7 @@ export async function emailFindPassword(param, config) {
         code: code,
         new_password: password
     };
-    let response = await globalRest().post("/password_reset/email", param, config);
+    let response = await LoginRest().post("/password_reset/email", param, config);
     return restResult(response)
 }
 
@@ -394,7 +398,7 @@ export async function mobileFindPasswordSendCode(param, config) {
         }
     };
 
-    let response = await globalRest().post("/password_reset/mobile_code", param, config);
+    let response = await LoginRest().post("/password_reset/mobile_code", param, config);
     return restResult(response)
 }
 
@@ -421,18 +425,18 @@ export async function mobileFindPassword(param, config) {
         code: code,
         new_password: password
     };
-    let response = await globalRest().post("/password_reset/mobile", param, config);
+    let response = await LoginRest().post("/password_reset/mobile", param, config);
     return restResult(response)
 }
 
 export async function loginData(param, config) {
-    let response = await loginRest().post("/login_data", param, config);
+    let response = await LoggedRest().post("/login_data", param, config);
     return restResult(response)
 }
 
 
 export async function logout(config) {
-    let response = await loginRest().get("/logout", config);
+    let response = await LoggedRest().get("/logout", config);
     return restResult(response)
 }
 
@@ -449,7 +453,7 @@ export async function QrcodeLogin(login_type, login_state, config) {
         default:
             return fialResult({}, `绑定类型[${login_type}]不支持`);
     }
-    let response = await globalRest().post("/external_login_url", {
+    let response = await LoginRest().post("/external_login_url", {
         "login_type": login_type,
         "login_callback": url,
         "login_state": login_state
@@ -458,7 +462,7 @@ export async function QrcodeLogin(login_type, login_state, config) {
 }
 
 export async function QrcodeLoginCheck(login_type, login_state, config) {
-    let response = await globalRest().post("/external_state_check", {
+    let response = await LoginRest().post("/external_state_check", {
         "login_state": login_state,
         "login_type": login_type,
     }, config)
@@ -466,18 +470,21 @@ export async function QrcodeLoginCheck(login_type, login_state, config) {
 }
 
 export async function OauthGetScope(client_id, scope, config) {
-    let response = await loginRest().post("/oauth/scope", {
+    let response = await LoggedRest().post("/oauth/scope", {
         "client_id": client_id,
         "scope": scope,
     }, config)
     return restResult(response)
 }
 export async function OauthDo(client_id, scope, redirect_uri, config) {
-    let response = await loginRest().post("/oauth/do", {
+    let response = await LoggedRest().post("/oauth/do", {
         "client_id": client_id,
         "scope": scope,
         "redirect_uri": redirect_uri
     }, config)
     return restResult(response)
 }
+
+
+
 

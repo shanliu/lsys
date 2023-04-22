@@ -39,6 +39,12 @@ pub struct JwtClaims {
     data: Option<Value>,
 }
 
+impl JwtClaims {
+    pub fn new(exp: i64, token: String, data: Option<Value>) -> Self {
+        Self { exp, token, data }
+    }
+}
+
 pub struct JwtExtractFut {
     req: HttpRequest,
 }
@@ -46,27 +52,28 @@ pub struct JwtExtractFut {
 impl Future for JwtExtractFut {
     type Output = Result<JwtQuery, ResponseJson>;
     fn poll(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Self::Output> {
-        let res = match self.req.headers().get("Authorization") {
-            Some(head) => match head.to_str() {
-                Ok(mut token) => {
-                    token = token.trim_start();
-                    if !token.starts_with("Bearer ") {
-                        Err(JsonData::message("not bearer header")
-                            .set_sub_code("jwt_parse_header")
-                            .into())
-                    } else {
-                        token = &token[7..];
-                        token = token.trim();
+        let res =
+            match self.req.headers().get("Authorization") {
+                Some(head) => match head.to_str() {
+                    Ok(mut token) => {
+                        token = token.trim_start();
+                        if !token.starts_with("Bearer ") {
+                            Err(JsonData::message("not bearer header")
+                                .set_sub_code("jwt_parse_header")
+                                .into())
+                        } else {
+                            token = &token[7..];
+                            token = token.trim();
 
-                        let config_opt = self.req.app_data::<JwtQueryConfig>();
-                        match config_opt {
-                            Some(config) => {
-                                let token_data_opt = decode::<JwtClaims>(
-                                    token,
-                                    &config.decode_key,
-                                    &config.validation,
-                                );
-                                match token_data_opt {
+                            let config_opt = self.req.app_data::<JwtQueryConfig>();
+                            match config_opt {
+                                Some(config) => {
+                                    let token_data_opt = decode::<JwtClaims>(
+                                        token,
+                                        &config.decode_key,
+                                        &config.validation,
+                                    );
+                                    match token_data_opt {
                                     Ok(token_data) => {
                                         let token_str = token.to_owned();
                                         Ok(JwtQuery {
@@ -74,23 +81,37 @@ impl Future for JwtExtractFut {
                                             token_str,
                                         })
                                     }
-                                    Err(e) => Err(JsonData::error(e)
-                                        .set_sub_code("jwt_parse_header")
-                                        .into()),
+                                    Err(e) => Err(match e.kind() {
+                                        jsonwebtoken::errors::ErrorKind::InvalidToken
+                                        | jsonwebtoken::errors::ErrorKind::InvalidSignature
+                                        | jsonwebtoken::errors::ErrorKind::InvalidAlgorithmName
+                                        | jsonwebtoken::errors::ErrorKind::RsaFailedSigning
+                                        | jsonwebtoken::errors::ErrorKind::MissingRequiredClaim(_)
+                                        | jsonwebtoken::errors::ErrorKind::ExpiredSignature
+                                        | jsonwebtoken::errors::ErrorKind::MissingAlgorithm
+                                        | jsonwebtoken::errors::ErrorKind::InvalidAlgorithm
+                                        | jsonwebtoken::errors::ErrorKind::ImmatureSignature
+                                        | jsonwebtoken::errors::ErrorKind::InvalidSubject => {
+                                            JsonData::error(e).set_sub_code("jwt_bad_token").into()
+                                        }
+                                        _ => JsonData::error(e)
+                                            .set_sub_code("jwt_parse_system")
+                                            .into(),
+                                    }),
                                 }
+                                }
+                                None => Err(JsonData::message("jwt config not find")
+                                    .set_sub_code("jwt_config")
+                                    .into()),
                             }
-                            None => Err(JsonData::message("jwt config not find")
-                                .set_sub_code("jwt_config")
-                                .into()),
                         }
                     }
-                }
-                Err(e) => Err(JsonData::error(e).set_sub_code("jwt_parse_header").into()),
-            },
-            None => Err(JsonData::message("jwt miss Authorization header")
-                .set_sub_code("jwt_miss_header")
-                .into()),
-        };
+                    Err(e) => Err(JsonData::error(e).set_sub_code("jwt_parse_header").into()),
+                },
+                None => Err(JsonData::message("jwt miss Authorization header")
+                    .set_sub_code("jwt_miss_header")
+                    .into()),
+            };
         Poll::Ready(res)
     }
 }

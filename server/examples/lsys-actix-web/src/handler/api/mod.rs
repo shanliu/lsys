@@ -3,6 +3,7 @@ use actix_web::{dev::ServiceRequest, options, web::scope, App, Error, HttpRespon
 
 mod app;
 mod sender;
+mod site;
 mod user;
 
 #[options("/{_:.*}")]
@@ -44,6 +45,17 @@ where
             .service(user::access)
             .service(user::reg)
             .service(user::oauth)
+            .service(options),
+    )
+    .service(
+        scope("/api/setting")
+            .service(site::oauth_config)
+            .service(site::system_config)
+            .service(options),
+    )
+    .service(
+        scope("/api/site")
+            .service(site::system_info)
             .service(options),
     )
     .service(scope("/api/app").service(app::app).service(options))

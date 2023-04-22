@@ -4,7 +4,7 @@ import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import CardHeader from '@mui/material/CardHeader';
 import { red } from '@mui/material/colors';
-import React, { useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { Link as RouteLink, Navigate, NavLink, Outlet, useParams, useLocation, useNavigate } from 'react-router-dom';
 import { UserSessionContext } from '../../context/session';
 import { Progress } from '../../library/loading';
@@ -12,32 +12,34 @@ import { ActiveNavLink } from '../../library/nav';
 import { accessMenu } from '../../rest/access';
 import { showTime } from '../../utils/utils';
 import { Menus } from './menu';
+import { ToastContext } from '../../context/toast';
 const drawerWidth = 240;
 
 
 export default function UserMainPage() {
-
-    const { userData } = React.useContext(UserSessionContext)
-    if (!userData) {
-        return <Navigate to={"/login/main"} />
-    }
-
+    const { userData } = useContext(UserSessionContext)
     const navigate = useNavigate();
-
+    const { toast } = useContext(ToastContext);
     let [loadMenu, setLoadMenu] = useState({
         loading: true,
         menu: [],
     });
     useEffect(() => {
         accessMenu(Menus).then((data) => {
-            setLoadMenu({
-                ...loadMenu,
-                loading: false,
-                menu: data
-            })
+            if (!data.status) {
+                data.message && toast(data.message)
+            } else {
+                setLoadMenu({
+                    ...loadMenu,
+                    loading: false,
+                    menu: data.data
+                })
+            }
         })
     }, [])
-
+    if (!userData) {
+        return <Navigate to={"/login/main"} />
+    }
 
     return loadMenu.loading ? <Progress /> : <Box sx={{ display: 'flex' }}>
         <Paper variant="permanent"

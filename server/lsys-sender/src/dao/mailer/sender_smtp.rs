@@ -18,7 +18,7 @@ use lettre::{
 };
 use lsys_core::{now_time, FluentMessage};
 use lsys_setting::dao::{
-    MultipleSetting, SettingData, SettingDecode, SettingEncode, SettingError, SettingKey,
+    MultipleSetting, SettingData, SettingDecode, SettingEncode, SettingJson, SettingKey,
     SettingResult,
 };
 use serde::{Deserialize, Serialize};
@@ -56,6 +56,7 @@ pub struct SmtpConfig {
     pub port: u16,
     pub timeout: u64,
     pub user: String,
+    pub email: String,
     pub password: String,
     pub tls_domain: String,
 }
@@ -87,7 +88,7 @@ impl SmtpConfig {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Default)]
 pub struct ShowSmtpConfig {
     pub id: u64,
     pub name: String,
@@ -95,6 +96,7 @@ pub struct ShowSmtpConfig {
     pub port: u16,
     pub timeout: u64,
     pub user: String,
+    pub email: String,
     pub hide_user: String,
     pub password: String,
     pub hide_password: String,
@@ -107,18 +109,18 @@ impl SettingKey for SmtpConfig {
         "smtp-config"
     }
 }
+
 impl SettingDecode for SmtpConfig {
     fn decode(data: &str) -> SettingResult<Self> {
-        serde_json::from_slice::<SmtpConfig>(data.as_bytes())
-            .map_err(|e| SettingError::System(e.to_string()))
+        SettingJson::decode(data)
     }
 }
-
 impl SettingEncode for SmtpConfig {
     fn encode(&self) -> String {
-        serde_json::to_string(&self).unwrap_or_default()
+        SettingJson::encode(self)
     }
 }
+impl SettingJson<'_> for SmtpConfig {}
 
 pub struct SmtpSender {
     db: Pool<MySql>,
@@ -154,6 +156,11 @@ impl SmtpSender {
                 port: e.port,
                 timeout: e.timeout,
                 user: e.user.clone(),
+                email: if e.email.is_empty() {
+                    e.user.clone()
+                } else {
+                    e.email.clone()
+                },
                 hide_user: e.hide_user(),
                 password: e.password.clone(),
                 hide_password: e.hide_password(),
@@ -163,7 +170,10 @@ impl SmtpSender {
     }
     //删除指定的smtp配置
     pub async fn del_config(&self, id: &u64, user_id: &u64) -> SenderResult<u64> {
-        Ok(self.setting.del::<SmtpConfig>(&None, id, user_id).await?)
+        Ok(self
+            .setting
+            .del::<SmtpConfig>(&None, id, user_id, None)
+            .await?)
     }
     //编辑指定的smtp配置
     pub async fn edit_config(
@@ -174,7 +184,10 @@ impl SmtpSender {
         user_id: &u64,
     ) -> SenderResult<u64> {
         self.check_config(config).await?;
-        Ok(self.setting.edit(&None, id, name, config, user_id).await?)
+        Ok(self
+            .setting
+            .edit(&None, id, name, config, user_id, None)
+            .await?)
     }
     //添加smtp配置
     pub async fn add_config(
@@ -184,11 +197,15 @@ impl SmtpSender {
         user_id: &u64,
     ) -> SenderResult<u64> {
         self.check_config(config).await?;
-        Ok(self.setting.add(&None, name, config, user_id).await?)
+        Ok(self.setting.add(&None, name, config, user_id, None).await?)
     }
     //检测smtp配置
     pub async fn check_config(&self, config: &SmtpConfig) -> SenderResult<()> {
-        connect(config).await?;
+        connect(config)
+            .await?
+            .test_connection()
+            .await
+            .map_err(|e| SenderError::System(e.to_string()))?;
         Ok(())
     }
     // 配置设置跟app关联
@@ -230,11 +247,14 @@ impl SmtpSender {
         user_id: &u64,
         add_user_id: &u64,
     ) -> SenderResult<u64> {
+        let from_email = from_email.to_owned();
+        from_email
+            .parse::<Mailbox>()
+            .map_err(|e| SenderError::Exec(format!("form mail wrong: {}", e)))?;
         let name = name.to_owned();
         let tpl_id = tpl_id.to_owned();
         let time = now_time().unwrap_or_default();
         let smtp_config_id = smtp_config_id.to_owned();
-        let from_email = from_email.to_owned();
         let subject_tpl_id = subject_tpl_id.to_owned();
         let body_tpl_id = body_tpl_id.to_owned();
         let add = sqlx_model::model_option_set!(SenderMailSmtpModelRef,{
@@ -298,11 +318,8 @@ impl SmtpSenderTask {
             tpls: Arc::new(MessageTpls::new(db, fluent)),
         }
     }
-}
-#[async_trait]
-impl MailerTaskExecutioner<()> for SmtpSenderTask {
     //执行短信发送
-    async fn exec(&self, val: MailTaskItem<()>, record: &MailTaskRecord) -> SenderResult<()> {
+    async fn do_exec(&self, val: &MailTaskItem<()>) -> SenderResult<(u16, String)> {
         let var_tpl = serde_json::from_str::<Value>(&val.mail.tpl_var)
             .map_err(|e| SenderError::Exec(e.to_string()))?;
         let context = Context::from_value(var_tpl).map_err(|e| SenderError::Exec(e.to_string()))?;
@@ -327,40 +344,40 @@ impl MailerTaskExecutioner<()> for SmtpSenderTask {
         if let Some((mail, config)) = config.get(now) {
             debug!("msgid:{} config_id:{} ", mail.id, config.model().id,);
 
-            let subject = self
-                .tpls
-                .render(SenderType::Mailer, &mail.subject_tpl_id, &context)
-                .await
-                .map_err(|e| SenderError::Exec(e.to_string()))?;
-            let body = self
-                .tpls
-                .render(SenderType::Mailer, &mail.body_tpl_id, &context)
-                .await
-                .map_err(|e| SenderError::Exec(e.to_string()))?;
+            let mut email_builder = Message::builder();
             let to = val
                 .mail
                 .to_mail
                 .parse::<Mailbox>()
-                .map_err(|e| SenderError::Exec(e.to_string()))?;
-
+                .map_err(|e| SenderError::Exec(format!("parse to mail fail: {}", e)))?;
+            email_builder = email_builder.to(to);
             let from = mail
                 .from_email
                 .parse::<Mailbox>()
-                .map_err(|e| SenderError::Exec(e.to_string()))?;
-
-            let reply_mail = if val.mail.reply_mail.is_empty() {
-                from.clone()
-            } else {
-                val.mail
+                .map_err(|e| SenderError::Exec(format!("parse from mail fail: {}", e)))?;
+            email_builder = email_builder.from(from);
+            if !val.mail.reply_mail.is_empty() {
+                let reply_mail = val
+                    .mail
                     .reply_mail
                     .parse::<Mailbox>()
-                    .map_err(|e| SenderError::Exec(e.to_string()))?
-            };
-            let email = Message::builder()
-                .from(from)
-                .reply_to(reply_mail)
-                .to(to)
-                .subject(subject)
+                    .map_err(|e| SenderError::Exec(format!("parse reply mail fail: {}", e)))?;
+                email_builder = email_builder.reply_to(reply_mail);
+            }
+            let subject = self
+                .tpls
+                .render(SenderType::Mailer, &mail.subject_tpl_id, &context)
+                .await
+                .map_err(|e| SenderError::Exec(format!("render subject fail: {}", e)))?;
+            email_builder = email_builder.subject(subject);
+
+            let body = self
+                .tpls
+                .render(SenderType::Mailer, &mail.body_tpl_id, &context)
+                .await
+                .map_err(|e| SenderError::Exec(format!("render body fail: {}", e)))?;
+
+            let email = email_builder
                 .multipart(
                     MultiPart::alternative() // This is composed of two parts.
                         .singlepart(
@@ -369,39 +386,45 @@ impl MailerTaskExecutioner<()> for SmtpSenderTask {
                                 .body(body),
                         ),
                 )
-                .map_err(|e| SenderError::Exec(e.to_string()))?;
+                .map_err(|e| SenderError::Exec(format!("parse mail body fail: {}", e)))?;
             let res = match self.mailer.write().await.entry(config.model().id) {
                 Entry::Occupied(entry) => entry.into_mut(),
                 Entry::Vacant(entry) => entry.insert(connect(config).await?),
             }
             .send(email)
-            .await
-            .map(|_| {})
-            .map_err(|e| e.to_string());
-
-            record
-                .finish(
-                    "smtp".to_string(),
-                    format!("{}-{}", config.host, config.user),
-                    &val.mail,
-                    &res,
-                    mail.max_try_num,
-                )
-                .await
-                .map_err(|e| SenderError::Exec(e.to_string()))?;
-            return res.map_err(SenderError::Exec);
+            .await;
+            return res
+                .map_err(|e| SenderError::Exec(format!("send email fail: {}", e)))
+                .map(|_| (mail.max_try_num, format!("{}-{}", config.host, config.user)));
         }
-        let err = "not find sms config".to_string();
-        record
-            .finish(
-                "smtp".to_string(),
-                "".to_string(),
-                &val.mail,
-                &Err(err.clone()),
-                0,
-            )
-            .await
-            .map_err(|e| SenderError::Exec(e.to_string()))?;
+        let err = "not find smtp map config".to_string();
         Err(SenderError::Exec(err))
+    }
+}
+
+#[async_trait]
+impl MailerTaskExecutioner<()> for SmtpSenderTask {
+    //执行短信发送
+    async fn exec(&self, val: MailTaskItem<()>, record: &MailTaskRecord) -> SenderResult<()> {
+        match self.do_exec(&val).await {
+            Ok((try_num, channel)) => {
+                record
+                    .finish("smtp".to_string(), channel, &val.mail, &Ok(()), try_num)
+                    .await
+            }
+            Err(err) => {
+                record
+                    .finish(
+                        "smtp".to_string(),
+                        "".to_string(),
+                        &val.mail,
+                        &Err(err.to_string()),
+                        0,
+                    )
+                    .await
+            }
+        }
+        .map_err(|e| SenderError::Exec(e.to_string()))?;
+        Ok(())
     }
 }

@@ -4,7 +4,6 @@ use crate::dao::SenderResult;
 
 use lsys_core::{now_time, AppCore, FluentMessage, PageParam};
 use parking_lot::Mutex;
-use snowflake::SnowflakeIdGenerator;
 use sqlx::{FromRow, MySql, Pool};
 use sqlx_model::{sql_format, ModelTableField, ModelTableName, Select, SqlExpr};
 
@@ -19,7 +18,7 @@ where
         FromRow<'t, sqlx::mysql::MySqlRow> + Send + Unpin + ModelTableName + ModelTableField<MySql>,
 {
     db: Pool<MySql>,
-    id_generator: Arc<Mutex<SnowflakeIdGenerator>>,
+    id_generator: Arc<Mutex<snowflake::SnowflakeIdGenerator>>,
     marker: std::marker::PhantomData<M>,
 }
 
@@ -31,6 +30,7 @@ where
     pub fn new(db: Pool<sqlx::MySql>, app_core: Arc<AppCore>, _fluent: Arc<FluentMessage>) -> Self {
         //TODO  这个生成ID 库有BUG...
         let machine_id = app_core.config.get_int("snowflake_machine_id").unwrap_or(1);
+        let machine_id = (machine_id.abs() % 31) as i32;
         let node_id = app_core
             .config
             .get_int("snowflake_node_id")
@@ -43,16 +43,18 @@ where
                 )
                 .into()
             });
-        //TODO  这个生成ID 库有BUG...
-        let id_generator = Arc::new(Mutex::new(SnowflakeIdGenerator::new(
-            machine_id as i32,
-            node_id as i32,
+        let node_id = (node_id.abs() % 31) as i32;
+        let id_generator = Arc::new(Mutex::new(snowflake::SnowflakeIdGenerator::new(
+            machine_id, node_id,
         )));
         Self {
             id_generator,
             db,
             marker: std::marker::PhantomData::default(),
         }
+    }
+    pub fn message_id(&self) -> u64 {
+        self.id_generator.lock().real_time_generate() as u64
     }
     //读取邮件任务数据
     pub async fn read(
@@ -168,8 +170,5 @@ where
             .fetch_all_by_where::<M, _>(&sqlx_model::WhereOption::Where(sql), &self.db)
             .await?;
         Ok(data)
-    }
-    pub fn message_id(&self) -> u64 {
-        self.id_generator.lock().real_time_generate() as u64
     }
 }

@@ -21,18 +21,7 @@ async fn main() {
         //on dev
         env!("CARGO_MANIFEST_DIR")
     };
-    let app_core = Arc::new(
-        AppCore::init(
-            app_dir,
-            &[
-                "config/app.toml",
-                "config/mail.toml",
-                "config/oauth.toml",
-            ],
-        )
-        .await
-        .unwrap(),
-    );
+    let app_core = Arc::new(AppCore::init(app_dir, &["config/app.toml"]).await.unwrap());
     let app_dao = Data::new(WebDao::new(app_core.clone()).await.unwrap());
     let bind_addr = app_dao.bind_addr();
     let server = HttpServer::new(move || {

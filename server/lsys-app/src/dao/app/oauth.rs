@@ -26,6 +26,12 @@ use crate::{
 
 use super::{AppsError, AppsResult};
 
+// OAUTH流程
+// 验证登录用户成功->创建CODE(create_code)并返回->通过CODE创建TOKEN返回->通过TOKEN请求REST接口
+// 生成CODE时保存:用户ID,需相关授权信息
+// TOKEN 作用应该等于普通登录 UserTokenData
+
+// oauth 登录服务器实现
 pub struct AppsOauth {
     user_account: Arc<UserAccount>,
     db: Pool<MySql>,

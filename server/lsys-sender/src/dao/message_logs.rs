@@ -32,9 +32,11 @@ impl MessageLogs {
         };
         let send_time = now_time().unwrap_or_default();
         let log_type = SenderLogType::Send as i8;
+        let sender_type = self.send_type as i8;
         let idata = sqlx_model::model_option_set!(SenderLogModelRef,{
             message_id:message_id,
             app_id:app_id,
+            sender_type:sender_type,
             log_type:log_type,
             status:log_status,
             event_type:event_type,

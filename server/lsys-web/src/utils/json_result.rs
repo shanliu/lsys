@@ -3,6 +3,7 @@ use deadpool_redis::PoolError;
 use lsys_core::ValidCodeError;
 use lsys_rbac::dao::rbac::UserRbacError;
 use lsys_sender::dao::SenderError;
+use lsys_setting::dao::SettingError;
 use lsys_user::dao::{account::UserAccountError, auth::UserAuthError};
 use serde_json::{json, Value};
 use std::string::FromUtf8Error;
@@ -248,6 +249,7 @@ macro_rules! result_impl_system_error {
         }
     };
 }
+result_impl_system_error!(SettingError, 500);
 result_impl_system_error!(AppsError, 200);
 result_impl_system_error!(WebAppSmserError, 200);
 result_impl_system_error!(WebAppMailerError, 200);

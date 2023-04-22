@@ -54,10 +54,11 @@ impl MessageTpls {
         let status = SenderTplStatus::Enable as i8;
         let res = Select::type_new::<SenderTplsModel>()
             .fetch_one_by_where_call::<SenderTplsModel, _, _>(
-                " tpl_id=? and status = ?",
+                " tpl_id=? and status = ? and user_id = ?",
                 |mut res, _| {
                     res = res.bind(tpl_id.clone());
                     res = res.bind(SenderTplStatus::Enable as i8);
+                    res = res.bind(user_id);
                     res
                 },
                 &self.db,
@@ -155,7 +156,7 @@ impl MessageTpls {
         if self.tera.read().await.templates.get(tkey).is_none() {
             let tpl = Select::type_new::<SenderTplsModel>()
                 .fetch_one_by_where_call::<SenderTplsModel, _, _>(
-                    "send_type=? and tpl_id=? and status = ?",
+                    "sender_type=? and tpl_id=? and status = ?",
                     |mut res, _| {
                         res = res.bind(sender_type);
                         res = res.bind(tpl_id.to_owned());

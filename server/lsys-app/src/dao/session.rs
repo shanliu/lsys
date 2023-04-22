@@ -12,7 +12,7 @@ use crate::model::AppsTokenModel;
 
 use super::AppDao;
 
-//登录产生标识
+//OAUTH 登录后产生标识
 #[derive(Clone, Debug)]
 pub struct RestAuthTokenData {
     pub client_id: String,
@@ -62,6 +62,9 @@ impl RestAuthSession {
         })
     }
 }
+
+// 实现 UserSession 调用方保持跟其他方式登录一致
+// 不同处理在此 UserSession 实现
 #[async_trait]
 impl UserSession<RestAuthTokenData, RestAuthData> for RestAuthSession {
     fn get_session_token(&self) -> &SessionToken<RestAuthTokenData> {

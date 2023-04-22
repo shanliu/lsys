@@ -1,4 +1,5 @@
 use lsys_core::AppCore;
+use lsys_setting::dao::Setting;
 use lsys_user::dao::{auth::UserAuthRedisStore, UserDao};
 use sqlx::{MySql, Pool};
 use std::sync::Arc;
@@ -10,8 +11,12 @@ async fn user_dao() -> UserDao<UserAuthRedisStore> {
     let app_core = AppCore::init("", &[]).await.unwrap();
     let db: Pool<MySql> = app_core.create_db().await.unwrap();
     let redis = app_core.create_redis().await.unwrap();
+    let app_core = Arc::new(app_core);
+    let config = Setting::new(app_core.clone(), db.clone(), redis.clone())
+    .await
+    .unwrap();
     let login_store = UserAuthRedisStore::new(redis.clone());
-    UserDao::new(Arc::new(app_core), db, redis, login_store, None)
+    UserDao::new(app_core, db, redis, config.single, login_store, None)
         .await
         .unwrap()
 }

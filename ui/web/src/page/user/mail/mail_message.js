@@ -40,6 +40,7 @@ export default function UserAppMailMessagePage(props) {
             接口调用示例
         </Button>
         <AppSelect
+            checkMail={true}
             userId={parseInt(userData.user_data.user_id)}
             appId={searchParam.get("app_id") ?? ''}
             onChange={(e) => {

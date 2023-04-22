@@ -6,7 +6,9 @@ function appRest() {
 
 
 export async function appList(param, config) {
-    const { app_id, status, user_id, client_id, page, page_size } = param;
+    const { app_id, status, user_id, client_id,
+        check_view_app, check_sms, check_mail,
+        page, page_size } = param;
     let params = {
         "count_num": true,
         "page": {
@@ -26,6 +28,9 @@ export async function appList(param, config) {
     if (app_id && app_id > 0) {
         params.app_id = [parseInt(app_id)];
     }
+    params.check_sms = !!check_sms;
+    params.check_mail = !!check_mail;
+    params.check_view_app = !!check_view_app;
     let response = await appRest().post("list", params, config);
     return restResult(response, ['not_found'])
 }

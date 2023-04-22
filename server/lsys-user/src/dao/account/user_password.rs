@@ -6,6 +6,11 @@ use crate::dao::auth::UserPasswordHash;
 use crate::model::{UserModel, UserModelRef, UserPasswordModel, UserPasswordModelRef};
 use lsys_core::{get_message, now_time, FluentMessage};
 
+use lsys_setting::dao::{
+    NotFoundDefault, SettingDecode, SettingEncode, SettingJson, SettingKey, SettingResult,
+    SingleSetting,
+};
+use serde::{Deserialize, Serialize};
 use sqlx::{Acquire, MySql, Pool, Transaction};
 use sqlx_model::{model_option_set, Insert, Select, Update};
 
@@ -13,16 +18,41 @@ use tracing::warn;
 
 use super::UserAccountError;
 
+#[derive(Deserialize, Serialize, Clone, Default)]
+pub struct UserPasswordConfig {
+    pub timeout: u64,
+    pub disable_old_password: bool,
+}
+
+impl SettingKey for UserPasswordConfig {
+    fn key<'t>() -> &'t str {
+        "user-password"
+    }
+}
+impl SettingDecode for UserPasswordConfig {
+    fn decode(data: &str) -> SettingResult<Self> {
+        SettingJson::decode(data)
+    }
+}
+impl SettingEncode for UserPasswordConfig {
+    fn encode(&self) -> String {
+        SettingJson::encode(self)
+    }
+}
+impl SettingJson<'_> for UserPasswordConfig {}
+
 pub struct UserPassword {
     db: Pool<MySql>,
     fluent: Arc<FluentMessage>,
     redis: deadpool_redis::Pool,
     user_passwrd_hash: Arc<UserPasswordHash>,
+    setting: Arc<SingleSetting>,
 }
 
 impl UserPassword {
     pub fn new(
         db: Pool<MySql>,
+        setting: Arc<SingleSetting>,
         fluent: Arc<FluentMessage>,
         redis: deadpool_redis::Pool,
         user_passwrd_hash: Arc<UserPasswordHash>,
@@ -32,6 +62,7 @@ impl UserPassword {
             fluent,
             redis,
             user_passwrd_hash,
+            setting,
         }
     }
     impl_account_valid_code_method!("passwrod",{
@@ -73,7 +104,7 @@ impl UserPassword {
                 "password length need 6-32 char"
             )));
         }
-        let nh_passwrod = self.user_passwrd_hash.hash_password(&new_password).await;
+
         let db = &self.db;
         let time = now_time()?;
         let mut ta;
@@ -117,6 +148,34 @@ impl UserPassword {
                 Some(pb) => pb.begin().await?,
                 None => db.begin().await?,
             };
+        }
+        let nh_passwrod = self.user_passwrd_hash.hash_password(&new_password).await;
+
+        let config = self
+            .setting
+            .load::<UserPasswordConfig>(&None)
+            .await
+            .notfound_default()?;
+
+        if config.disable_old_password {
+            let old_pass_res = Select::type_new::<UserPasswordModel>()
+                .fetch_one_by_where_call::<UserPasswordModel, _, _>(
+                    "user_id=? and password=?",
+                    |mut res, _| {
+                        res = res.bind(user.id);
+                        res = res.bind(nh_passwrod.clone());
+                        res
+                    },
+                    db,
+                )
+                .await;
+            if old_pass_res.is_ok() {
+                return Err(UserAccountError::System(get_message!(
+                    &self.fluent,
+                    "user-old-passwrod",
+                    "can't old password"
+                )));
+            }
         }
 
         let new_data = model_option_set!(UserPasswordModelRef,{
@@ -171,5 +230,24 @@ impl UserPassword {
     ) -> UserAccountResult<bool> {
         let user_password = self.find_by_id(&user.password_id).await?;
         Ok(self.user_passwrd_hash.hash_password(check_password).await == user_password.password)
+    }
+    /// 检测指定ID密码是否超时
+    pub async fn password_timeout(&self, password_id: &u64) -> UserAccountResult<bool> {
+        if let Ok(set) = self
+            .setting
+            .load::<UserPasswordConfig>(&None)
+            .await
+            .notfound_default()
+        {
+            if set.timeout == 0 {
+                return Ok(false);
+            }
+            if let Ok(password) = self.find_by_id(password_id).await {
+                if password.add_time + set.timeout < now_time().unwrap_or_default() {
+                    return Ok(true);
+                }
+            }
+        }
+        Ok(false)
     }
 }

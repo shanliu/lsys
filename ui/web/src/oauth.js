@@ -1,13 +1,14 @@
 import { Alert, Box, CssBaseline, List, ListItem, ListItemText, Paper, Stack, ThemeProvider, Typography } from '@mui/material';
 import { default as React, Fragment, useContext, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { LayoutAppBar } from './bootstrap';
 import { UserProvider, UserSessionContext } from './context/session';
 import { ToastProvider } from './context/toast';
 import { LoadingButton, Progress } from './library/loading';
 import { OauthDo, OauthGetScope } from './rest/login';
 import "./style/main.css";
 import { theme } from './style/theme';
+import { ConfigProvider } from './context/config';
+import { LayoutAppBar } from './bootstrap';
 
 
 
@@ -61,7 +62,7 @@ export default function OauthAppPage() {
                 loading: false,
                 error: '未登陆，前往登陆中。。。。。',
             })
-            let url = window.location.href.replace("oauth.html", "");
+            let url = window.location.href.replace(/oauth\.html.*$/, "");
             url += "#/login/name?redirect_uri=" + encodeURIComponent(window.location.href);
             window.location.href = url
             return;
@@ -223,12 +224,14 @@ function OauthApp() {
     return <>
         <ThemeProvider theme={theme} >
             <CssBaseline />
-            <ToastProvider>
-                <UserProvider>
-                    <LayoutAppBar />
-                    <OauthAppPage />
-                </UserProvider>
-            </ToastProvider>
+            <ConfigProvider>
+                <ToastProvider>
+                    <UserProvider>
+                        <LayoutAppBar />
+                        <OauthAppPage />
+                    </UserProvider>
+                </ToastProvider>
+            </ConfigProvider>
         </ThemeProvider>
     </>;
 }

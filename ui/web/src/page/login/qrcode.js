@@ -7,10 +7,13 @@ import { SessionSetData, UserSessionContext } from "../../context/session";
 import { ToastContext } from "../../context/toast";
 import { Progress } from "../../library/loading";
 import { QrcodeLogin, QrcodeLoginCheck } from "../../rest/login";
+import { ConfigContext, ConfigTipPassword } from "../../context/config";
+
 export function QrCodeLoginPage(props) {
     const { type, label, onLogged } = props;
     const { toast } = useContext(ToastContext);
     const { dispatch } = useContext(UserSessionContext);
+    const configCtx = useContext(ConfigContext);
     const [qrData, setQrData] = useState({
         src: null,
         state: randomString(),
@@ -31,6 +34,7 @@ export function QrCodeLoginPage(props) {
             })
         }
     }, [props.type])
+
     useEffect(() => {
         if (qrCheck.hand || !qrCheck.check) return
         let hand = setTimeout(() => {
@@ -42,6 +46,9 @@ export function QrCodeLoginPage(props) {
             QrcodeLoginCheck(type, qrData.state).then((data) => {
                 if (data.auth_data && data.token) {
                     dispatch(SessionSetData(data, true))
+                    if (data.passwrod_timeout) {
+                        configCtx.dispatch(ConfigTipPassword())
+                    }
                     onLogged()
                     return
                 }

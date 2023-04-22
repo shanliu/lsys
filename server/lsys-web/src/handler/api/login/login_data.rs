@@ -21,6 +21,7 @@ pub struct UserAuthDataOptionParam {
     pub external: Option<Vec<String>>,
     pub email: Option<Vec<i8>>,
     pub mobile: Option<Vec<i8>>,
+    pub password_timeout: Option<bool>, 
 }
 
 pub async fn login_data_from_user_auth(
@@ -52,6 +53,7 @@ pub async fn login_data_from_user_auth(
     } else {
         None
     };
+
     let data_option = UserDataOption {
         user: param.user.unwrap_or(false),
         name: param.name.unwrap_or(false),
@@ -67,6 +69,20 @@ pub async fn login_data_from_user_auth(
         .user_detail(auth_data.user_data().user_id, data_option)
         .await?;
 
+    let passwrod_timeout = if param.password_timeout.unwrap_or(false) {
+        req_dao
+            .web_dao
+            .user
+            .user_dao
+            .user_account
+            .user_password
+            .password_timeout(&auth_data.user_data().user_password_id)
+            .await
+            .unwrap_or(false)
+    } else {
+        false
+    };
+
     let (token_str, auth_data) = if param.reload_auth.unwrap_or(false) {
         let mut session = req_dao.user_session.write().await;
         let _ = session.refresh_session(true).await;
@@ -79,6 +95,7 @@ pub async fn login_data_from_user_auth(
     } else {
         (None, None)
     };
+
     Ok(JsonData::data(json!({
         "auth_token":token_str,
         "auth_data": auth_data ,
@@ -90,6 +107,7 @@ pub async fn login_data_from_user_auth(
             "email":user_data.4,
             "external":user_data.5,
             "mobile":user_data.6,
+            "passwrod_timeut":passwrod_timeout
         }),
     })))
 }

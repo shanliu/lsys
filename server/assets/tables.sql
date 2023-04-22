@@ -330,7 +330,19 @@ CREATE TABLE `yaf_sender_log` (
     KEY `message_id` (`message_id`) USING BTREE,
     KEY `sender_type` (`sender_type`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '取消发送短信日志';
-
+CREATE TABLE `yaf_sender_tpls` (
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
+    `sender_type` tinyint(1) NOT NULL COMMENT '发送类型',
+    `tpl_id` varchar(32) NOT NULL COMMENT ' 模板ID',
+    `tpl_data` text NOT NULL COMMENT '模板',
+    `status` tinyint(1) NOT NULL COMMENT '操作状态',
+    `user_id` bigint unsigned NOT NULL COMMENT '操作用户id',
+    `change_time` bigint unsigned NOT NULL COMMENT '最后更改时间',
+    `change_user_id` bigint unsigned NOT NULL COMMENT '最后更改用户id',
+    PRIMARY KEY (`id`),
+    KEY `tpl_id` (`tpl_id`, `status`) USING BTREE,
+    KEY `sender_type` (`sender_type`) USING BTREE
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '取消发送短信日志';
 CREATE TABLE `yaf_sender_mail_message` (
     `id` bigint unsigned NOT NULL COMMENT 'ID,由应用生成',
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',

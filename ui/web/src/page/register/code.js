@@ -11,6 +11,8 @@ import { CaptchaInput, PasswordInput } from '../../library/input';
 import { LoadingButton } from '../../library/loading';
 import { emailSignup, emailSignupSendCode, mobileSignup, mobileSignupSendCode, nameLogin } from '../../rest/login';
 import { captchaSrc } from '../../utils/rest';
+import { ConfigContext, ConfigTipPassword } from '../../context/config';
+
 
 
 
@@ -36,6 +38,7 @@ function CodeSignupBox(props) {
     const navigate = useNavigate();
     const { toast } = useContext(ToastContext);
     const { dispatch } = useContext(UserSessionContext);
+    const configCtx = useContext(ConfigContext);
     const doHome = () => {
         navigate("/")
     }
@@ -70,6 +73,9 @@ function CodeSignupBox(props) {
                     loading: false,
                 })
                 dispatch(SessionSetData(data, false))
+                if (data.passwrod_timeout) {
+                    configCtx.dispatch(ConfigTipPassword())
+                }
                 navigate("/");
             }
         })

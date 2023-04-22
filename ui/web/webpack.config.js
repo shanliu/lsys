@@ -32,6 +32,7 @@ let plugins = [
         templateParameters: {
             js: jslib,
         },
+        favicon: __dirname + './../../server/examples/lsys-actix-web/static/favicon.ico',
         template: __dirname + "/src/app.html",
         nodeModules: node_modules
     }),
@@ -41,6 +42,7 @@ let plugins = [
         templateParameters: {
             js: jslib,
         },
+        favicon: __dirname + './../../server/examples/lsys-actix-web/static/favicon.ico',
         template: __dirname + "/src/oauth_app.html",
         nodeModules: node_modules
     })

@@ -349,9 +349,18 @@ export default function UserAppIndexPage(props) {
             style: { width: 80 }
         },
         {
-            field: 'name',
+
             style: { width: 120 },
             label: '名称',
+            render: (row) => {
+                if (row.is_view_app) {
+                    return <Fragment>
+                        <ItemTooltip title={'此应用已被授权访问任意app信息'} placement="top"><span style={{ color: '#9d5432' }} >{row.name}</span></ItemTooltip>
+                    </Fragment>
+                } else {
+                    return row.name;
+                }
+            }
         },
         {
             field: 'client_id',
@@ -400,14 +409,14 @@ export default function UserAppIndexPage(props) {
                     secret: '',
                     oauth_secret: ''
                 });
-                let button = [];
-                button.push(<IconButton title="编辑 App 信息" key={`${row.id}-edit`} onClick={() => {
+                let button_add = [];
+                button_add.push(<IconButton title="编辑 App 信息" key={`${row.id}-edit`} onClick={() => {
                     setAppEditData(row);
                     setChangeBox(2)
                 }} size='small'>
                     <EditIcon fontSize='small' />
                 </IconButton>);
-                button.push(<IconButton title="查看 App Secret" key={`${row.id}-key`} onClick={() => {
+                button_add.push(<IconButton title="查看 App Secret" key={`${row.id}-key`} onClick={() => {
                     setKeyBox({
                         ...keyBox,
                         open: true,
@@ -439,14 +448,14 @@ export default function UserAppIndexPage(props) {
                 let resetBut;
                 if (row.status == 2) {
                     if (row.is_sms) {
-                        button.push(<IconButton title="应用功能-短信发送" key={`${row.id}-sms`} onClick={() => {
+                        button_add.push(<IconButton title="应用功能-短信发送" key={`${row.id}-sms`} onClick={() => {
                             navigate("/user/sms/message?app_id=" + row.id);
                         }} size='small'>
                             <SmsIcon fontSize='small' />
                         </IconButton>);
                     }
                     if (row.is_mail) {
-                        button.push(<IconButton title="应用功能-邮件发送" key={`${row.id}-sms`} onClick={() => {
+                        button_add.push(<IconButton title="应用功能-邮件发送" key={`${row.id}-mail`} onClick={() => {
                             navigate("/user/mail/message?app_id=" + row.id);
                         }} size='small'>
                             <MailIcon fontSize='small' />
@@ -479,6 +488,7 @@ export default function UserAppIndexPage(props) {
                             </Button>
                         }} />;
                 }
+
                 return <Fragment>
                     <Dialog
                         open={keyBox.open}
@@ -520,7 +530,7 @@ export default function UserAppIndexPage(props) {
                             </Button>
                         </DialogActions>
                     </Dialog>
-                    {button.map((e) => e)}
+                    {button_add.map((e) => e)}
                 </Fragment>
             }
         },
@@ -545,7 +555,10 @@ export default function UserAppIndexPage(props) {
             status: searchParam.get("status") ?? '',
             client_id: searchParam.get("client_id") ?? '',
             page: searchParam.get("page") || 0,
-            page_size: searchParam.get("page_size") || 10
+            page_size: searchParam.get("page_size") || 10,
+            check_sms: true,
+            check_mail: true,
+            check_view_app: true,
         }).then((data) => {
             setLoadData({
                 ...loadData,

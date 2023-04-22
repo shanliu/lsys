@@ -10,6 +10,7 @@ lsys-core = { version = "0.0.1", path = "../../lsys-core" } #path 替换为 :,gi
 lsys-user = { version = "0.0.1", path = "../../lsys-user"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-app = { version = "0.0.1", path = "../../lsys-app"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-web = { version = "0.0.1", path = "../../lsys-web"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-rbac = { version = "0.0.1", path = "../../lsys-rbac"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-web-module-oauth = { version = "0.0.1", path = "../lsys-web-module-oauth"}
 lsys-web-subapp-demo = { version = "0.0.1", path = "../lsys-web-subapp-demo"}
 

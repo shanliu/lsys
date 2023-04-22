@@ -1,24 +1,12 @@
 use std::sync::Arc;
 
 use crate::{
-    handler::access::{
-        AccessAdminAliSmsConfig, AccessAdminManage, AccessAdminSenderTplView, AccessAdminSetting,
-        AccessAdminSmtpConfig, AccessAppSenderDoMail, AccessAppSenderDoSms,
-        AccessAppSenderMailConfig, AccessAppSenderMailMsg, AccessAppSenderSmsConfig,
-        AccessAppSenderSmsMsg, AccessOauthUserEmail, AccessOauthUserInfo, AccessOauthUserMobile,
-        AccessResEdit, AccessResView, AccessRoleEdit, AccessRoleView, AccessRoleViewList,
-        AccessSubAppRbacCheck, AccessSubAppView, AccessSystemEmailConfirm, AccessSystemLogin,
-        AccessSystemMobileConfirm, AccessSystemReSetPassword, AccessUserAddressEdit,
-        AccessUserAddressView, AccessUserAppConfirm, AccessUserAppEdit, AccessUserAppView,
-        AccessUserEmailEdit, AccessUserEmailView, AccessUserExternalEdit, AccessUserInfoEdit,
-        AccessUserMobileEdit, AccessUserMobileView, AccessUserNameEdit, AccessUserSetPassword, AccessAdminSenderTplEdit,
-    },
+    handler::access::{AccessResEdit, AccessResView},
     PageParam, {JsonData, JsonResult},
 };
 
 use lsys_rbac::{
-    access_res_tpl,
-    dao::{RbacDao, RbacRes, ResOp, ResParam},
+    dao::{RbacDao, RbacRes, ResOp, ResParam, ResTpl},
     model::{RbacResModel, RbacResOpModel, RbacTagsModel},
 };
 use serde::{Deserialize, Serialize};
@@ -310,53 +298,13 @@ pub struct ResAllParam {
 }
 
 //资源授权
-pub async fn rbac_all_res_list(param: ResAllParam) -> JsonResult<JsonData> {
-    let res = access_res_tpl!(
-        AccessAdminSmtpConfig,
-        AccessAppSenderMailConfig,
-        AccessAppSenderMailMsg,
-        AccessAppSenderDoMail,
-        AccessAdminManage,
-        AccessAdminSetting,
-        AccessAppSenderDoSms,
-        AccessSubAppView,
-        AccessSubAppRbacCheck,
-        AccessOauthUserInfo,
-        AccessOauthUserEmail,
-        AccessOauthUserMobile,
-        AccessAdminAliSmsConfig,
-        AccessAppSenderSmsConfig,
-        AccessAppSenderSmsMsg,
-        AccessResView,
-        AccessResEdit,
-        AccessRoleView,
-        AccessRoleEdit,
-        AccessRoleViewList,
-        AccessUserAppConfirm,
-        AccessUserMobileEdit,
-        AccessUserMobileView,
-        AccessUserAppEdit,
-        AccessUserAppView,
-        AccessUserEmailEdit,
-        AccessUserEmailView,
-        AccessUserInfoEdit,
-        AccessUserNameEdit,
-        AccessUserAddressEdit,
-        AccessUserAddressView,
-        AccessSystemLogin,
-        AccessSystemEmailConfirm,
-        AccessSystemMobileConfirm,
-        AccessSystemReSetPassword,
-        AccessUserExternalEdit,
-        AccessUserSetPassword,
-        AccessAdminSenderTplView,
-        AccessAdminSenderTplEdit
-    )
-    .into_iter()
-    .filter(|e| match param.global_res {
-        Some(g) => g != e.user,
-        None => true,
-    })
-    .collect::<Vec<_>>();
+pub async fn rbac_all_res_list(res_tpl: &[ResTpl], param: ResAllParam) -> JsonResult<JsonData> {
+    let res = res_tpl
+        .iter()
+        .filter(|e| match param.global_res {
+            Some(g) => g != e.user,
+            None => true,
+        })
+        .collect::<Vec<_>>();
     Ok(JsonData::data(json!({ "data": res })))
 }

@@ -72,9 +72,7 @@ impl FromRequest for UserAuthQuery {
                     req: req.to_owned(),
                 })
             }
-            None => err(JsonData::message_error("not find webdao")
-                
-                .into()),
+            None => err(JsonData::message_error("not find webdao").into()),
         }
     }
 }
@@ -118,7 +116,7 @@ impl<'t> RequestToken<UserAuthTokenData> for CookieToken<'t> {
     }
 }
 
-//oauth 登陆实现，已普通登陆实现方式不相同
+//oauth 登陆实现，跟普通登陆实现方式不相同
 pub struct OauthAuthQuery {
     pub inner: RestAuthQueryDao,
     pub req: HttpRequest,
@@ -170,9 +168,7 @@ impl FromRequest for OauthAuthQuery {
                     req: req.to_owned(),
                 })
             }
-            None => err(JsonData::message_error("not find webdao")
-           
-                .into()),
+            None => err(JsonData::message_error("not find webdao").into()),
         }
     }
 }

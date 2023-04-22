@@ -22,9 +22,9 @@ pub mod app;
 mod captcha;
 mod mailer;
 mod request;
+pub mod site_config;
 mod smser;
 pub mod user;
-
 use self::app::WebApp;
 use self::captcha::WebAppCaptcha;
 use self::mailer::WebAppMailer;
@@ -32,6 +32,7 @@ use self::mailer::WebAppMailer;
 pub use self::captcha::CaptchaKey;
 pub use self::mailer::WebAppMailerError;
 pub use self::request::*;
+pub use self::site_config::*;
 use self::smser::WebAppSmser;
 pub use self::smser::WebAppSmserError;
 use self::user::WebUser;
@@ -114,6 +115,7 @@ impl WebDao {
                 app_core.clone(),
                 db.clone(),
                 redis.clone(),
+                setting.single.clone(),
                 login_store,
                 Some(login_config),
             )
@@ -202,6 +204,7 @@ impl WebDao {
                 captcha.clone(),
                 app_core.clone(),
                 fluents_message,
+                setting.clone(),
             )),
             app: Arc::new(apps),
             captcha,

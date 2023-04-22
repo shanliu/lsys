@@ -32,7 +32,7 @@ func TestSms(t *testing.T) {
 		"", //取消句柄,取消发送用 例:dddd
 	)
 	if err1 == nil {
-		fmt.Printf("ok")
+		fmt.Printf("ok\n")
 	} else {
 		fmt.Printf("err :%s \n", err1)
 	}

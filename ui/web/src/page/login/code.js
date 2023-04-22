@@ -9,6 +9,7 @@ import { CaptchaInput, ClearTextField } from '../../library/input';
 import { LoadingButton } from '../../library/loading';
 import { emailCodeLogin, emailLoginSendCode, mobileCodeLogin, mobileLoginSendCode } from '../../rest/login';
 import { captchaSrc } from '../../utils/rest';
+import { ConfigContext, ConfigTipPassword } from '../../context/config';
 
 function CodeLoginBox(props) {
   const { captchaType, captchaKey, name, onPrev, type, label, onLogged } = props;
@@ -32,9 +33,9 @@ function CodeLoginBox(props) {
     captcha: '',
     code: '',
   });
-  const navigate = useNavigate();
   const { toast } = useContext(ToastContext);
   const { dispatch } = useContext(UserSessionContext);
+  const configCtx = useContext(ConfigContext);
   const doLogin = () => {
     setDoData({
       ...doData,
@@ -99,6 +100,9 @@ function CodeLoginBox(props) {
           loading: false,
         })
         dispatch(SessionSetData(data, doData.keep_login))
+        if (data.passwrod_timeout) {
+          configCtx.dispatch(ConfigTipPassword())
+        }
         onLogged()
 
       }

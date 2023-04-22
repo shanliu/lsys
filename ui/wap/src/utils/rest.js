@@ -37,10 +37,9 @@ function errorHandler(error) {
     return Promise.resolve(error);
 }
 
-export function globalRest() {
-
+export function globalRest(path) {
     let ax = axios.create({
-        baseURL: config.serverURL + '/api/user/',
+        baseURL: config.serverURL + path,
         timeout: timeout,
         validateStatus: function (status) {
             return status >= 200 && status < 600;

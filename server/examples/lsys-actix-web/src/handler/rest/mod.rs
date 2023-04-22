@@ -23,6 +23,7 @@ where
             .service(subapp::access)
             .service(subapp::app)
             .service(subapp::sms)
+            .service(subapp::mail)
             .service(subapp::demo_app),
     )
     .service(

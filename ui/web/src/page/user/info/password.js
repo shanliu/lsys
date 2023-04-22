@@ -19,6 +19,7 @@ export default function UserInfoPasswordPage() {
         val: '',
         old_val: '',
         last_time: 0,
+        password_timeout: false,
     })
 
     useEffect(() => {
@@ -33,7 +34,8 @@ export default function UserInfoPasswordPage() {
                 setPageData({
                     ...pageData,
                     init: true,
-                    last_time: data.last_time ?? 0
+                    last_time: data.last_time ?? 0,
+                    password_timeout: data.password_timeout,
                 })
             }
         })
@@ -69,6 +71,7 @@ export default function UserInfoPasswordPage() {
                     loading: false,
                     val: '',
                     old_val: '',
+                    password_timeout: false,
                     last_time: parseInt(new Date().getTime() / 1000)
                 })
                 if (pageData.last_time == 0) { toast("密码已设置") }
@@ -88,11 +91,17 @@ export default function UserInfoPasswordPage() {
                 <Progress />
             </Stack> :
                 pageData.err ? <Alert severity="error">{pageData.err}</Alert> :
-                    <Fragment>{
-                        pageData.last_time == 0 ?
-                            <Alert severity="info">还未设置登陆密码</Alert>
-                            : <Alert severity="info">最后一次修改密码时间: {showTime(pageData.last_time)}</Alert>
-                    }
+                    <Fragment>
+                        {
+                            pageData.last_time > 0 && pageData.password_timeout ?
+                                <Alert sx={{ mb: 2 }} severity="warning">你已经长时间未修改密码,建议立即修改</Alert>
+                                : null
+                        }
+                        {
+                            pageData.last_time == 0 ?
+                                <Alert severity="info">还未设置登陆密码</Alert>
+                                : <Alert severity="info">最后一次修改密码时间: {showTime(pageData.last_time)}</Alert>
+                        }
                         <Form method="post" onSubmit={(e) => {
                             e.preventDefault();
                             onSave();

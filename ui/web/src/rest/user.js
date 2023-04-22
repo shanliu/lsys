@@ -1,5 +1,5 @@
 import isEmail from "validator/lib/isEmail";
-import { fialResult, globalRest, restResult,sessionRest } from "../utils/rest";
+import { fialResult, globalRest, restResult, sessionRest } from "../utils/rest";
 
 function userRest() {
     return sessionRest('/api/user')
@@ -19,11 +19,11 @@ export async function loginHistroy(param, config) {
         "login_account": login_account,
         "is_login": is_login == '' ? null : parseInt(is_login),
         "page": {
-            page: parseInt(page)>=0?(parseInt(page) + 1):1,
-            limit: parseInt(page_size)>0?parseInt(page_size):10
+            page: parseInt(page) >= 0 ? (parseInt(page) + 1) : 1,
+            limit: parseInt(page_size) > 0 ? parseInt(page_size) : 10
         }
     }, config);
-    return restResult(response,['not_found'])
+    return restResult(response, ['not_found'])
 }
 
 
@@ -124,7 +124,7 @@ export async function mobileList(status, config) {
     let response = await userRest().post("/mobile/list_data", {
         "status": statarr,
     }, config);
-    return restResult(response,['not_found'])
+    return restResult(response, ['not_found'])
 }
 
 
@@ -214,7 +214,7 @@ export async function emailList(status, config) {
     let response = await userRest().post("/email/list_data", {
         "status": statarr,
     }, config);
-    return restResult(response,['not_found'])
+    return restResult(response, ['not_found'])
 }
 
 export async function emailAdd(param, config) {
@@ -269,7 +269,7 @@ export async function emailConfirm(param, config) {
         email_id: parseInt(id),
         code: code
     };
-    let response = await globalRest().post("/email_confirm", param, config);
+    let response = await globalRest('/api/user').post("/email_confirm", param, config);
     return restResult(response)
 }
 
@@ -301,7 +301,7 @@ export async function oauthList(login_type, config) {
     let response = await userRest().post("/external/list_data", {
         "oauth_type": statarr,
     })
-    return restResult(response,['not_found'])
+    return restResult(response, ['not_found'])
 }
 
 export async function oauthDelete(id, config) {

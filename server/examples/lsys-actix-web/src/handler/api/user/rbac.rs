@@ -3,6 +3,7 @@ use crate::common::handler::{
 };
 use actix_web::post;
 
+use lsys_web::handler::access::res_tpls;
 use lsys_web::handler::api::rbac::{
     rbac_all_res_list, RbacAccessParam, RbacMenuParam, ResAddParam, ResDeleteParam, ResEditParam,
     ResListDataParam, RoleRelationDataParam,
@@ -38,7 +39,7 @@ pub async fn res<'t>(
         "delete" => user_res_delete(rest.param::<ResDeleteParam>()?, &auth_dao).await,
         "list_data" => user_res_list_data(rest.param::<ResListDataParam>()?, &auth_dao).await,
         "tags" => user_res_tags(rest.param::<ResTagsParam>()?, &auth_dao).await,
-        "all" => rbac_all_res_list(rest.param::<ResAllParam>()?).await,
+        "all" => rbac_all_res_list(&res_tpls(), rest.param::<ResAllParam>()?).await,
         name => handler_not_found!(name),
     };
     Ok(data?.into())

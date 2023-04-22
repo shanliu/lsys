@@ -260,7 +260,7 @@ export async function roleDeleteUser(params, config) {
 }
 
 
-//todo 待使用
+//关系角色数据
 export async function roleRelationData(params, config) {
   let {
     user_id,
@@ -405,31 +405,38 @@ export async function accessMenu(menus, config) {
     })
   })
   if (param.length == 0) {
-    return Promise.resolve(out)
+    return Promise.resolve({
+      status: true,
+      data: out
+    })
   }
   let response = await accessRest().post("/access/menu", {
     check_res: param
   }, config);
   let data = restResult(response, ['not_found'])
-  if (data.status && data.data && data.data.length > 0) {
-
-    menus.map((item) => {
-      if (!item.rbac || item.rbac.length == 0) {
-        return;
-      }
-      if (item.rbac.find((e) => {
-        let find = false;
-        if (data.data.find((t) => {
-          return t.name == e.name && t.status
-        })) {
-          find = true;
-        }
-        return find
-      })) {
-        out.push(item);
-      }
-    })
+  if (!data.status) {
+    return data;
   }
-  return out;
+  let finddata = data.data ?? [];
+  menus.map((item) => {
+    if (!item.rbac || item.rbac.length == 0) {
+      return;
+    }
+    if (item.rbac.find((e) => {
+      let find = false;
+      if (finddata.find((t) => {
+        return t.name == e.name && t.status
+      })) {
+        find = true;
+      }
+      return find
+    })) {
+      out.push(item);
+    }
+  })
+  return {
+    status: true,
+    data: out
+  };
 }
 

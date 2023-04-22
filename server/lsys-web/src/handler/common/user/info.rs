@@ -220,8 +220,18 @@ pub async fn password_last_modify<'t, T: SessionTokenData, D: SessionData, S: Us
         .user_password
         .find_by_id(&user.password_id)
         .await?;
+    let passwrod_timeout = req_dao
+        .web_dao
+        .user
+        .user_dao
+        .user_account
+        .user_password
+        .password_timeout(&user.id)
+        .await
+        .unwrap_or(false);
     Ok(JsonData::data(json!({
-        "last_time":user.add_time
+        "last_time":user.add_time,
+        "password_timeout":passwrod_timeout,
     })))
 }
 

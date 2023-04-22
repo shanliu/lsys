@@ -4,6 +4,7 @@ use crate::{
     {CaptchaParam, JsonData, JsonResult},
 };
 
+use crate::dao::user::ShowUserAuthData;
 use lsys_user::dao::auth::UserAuthRedisStore;
 use lsys_user::dao::auth::{
     EmailCodeLogin, EmailLogin, MobileCodeLogin, MobileLogin, NameLogin, UserAuthData,
@@ -12,13 +13,12 @@ use lsys_user::dao::auth::{
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
 use serde::Deserialize;
 use serde_json::json;
-
 macro_rules! login_method {
     ($fn:ident,{$($name:ident:$name_type:ty),+$(,)*},{$($login_param:expr),+$(,)*}) => {
         pub async fn $fn<'t>(
             $($name:$name_type),+,
             req_dao: &RequestDao<UserAuthTokenData,UserAuthData,UserAuthSession<UserAuthRedisStore>>,
-        ) -> JsonResult<JsonData> {
+        ) -> JsonResult<(UserAuthTokenData, ShowUserAuthData)> {
             req_dao
             .web_dao
             .user
@@ -26,7 +26,7 @@ macro_rules! login_method {
             .rbac
             .check(&AccessSystemLogin {}, None)
             .await?;
-            let (token, data) = req_dao
+            Ok(req_dao
                 .web_dao
                 .user
                 .user_login(
@@ -34,11 +34,7 @@ macro_rules! login_method {
                     &req_dao.req_env,
                     $($login_param),+
                 )
-                .await?;
-            Ok(JsonData::data(json!({
-                "auth_data":data,
-                "token":token.to_string(),
-            })))
+                .await?)
         }
     };
 }

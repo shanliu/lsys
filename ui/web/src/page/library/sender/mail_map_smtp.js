@@ -166,10 +166,20 @@ function AddBox(props) {
                                 value={configData.smtp_config_id}
                                 onChange={
                                     (e) => {
-                                        setConfigData({
-                                            ...configData,
-                                            smtp_config_id: e.target.value
-                                        })
+                                        let ifind = smtpConfigData.data.find((item) => item.id == e.target.value)
+                                        if (!ifind) return
+                                        if ((!configData.from_email || (configData.from_email + '').length <= 0) && ifind.email) {
+                                            setConfigData({
+                                                ...configData,
+                                                smtp_config_id: e.target.value,
+                                                from_email: ifind.email
+                                            })
+                                        } else {
+                                            setConfigData({
+                                                ...configData,
+                                                smtp_config_id: e.target.value
+                                            })
+                                        }
                                     }
                                 }
                                 labelId="config-select-small"
@@ -242,7 +252,7 @@ function AddBox(props) {
                                 width: 1,
                                 paddingBottom: 2
                             }}
-
+                            required
                             error={!!addError.from_email}
                             helperText={addError.from_email}
                         />
@@ -554,11 +564,7 @@ export default function AppMailSmtpMap(props) {
             style: { width: 160 },
             label: '来源邮箱',
             render: (row) => {
-                if (row.config.from_email && row.config.from_email.length > 0) {
-                    return row.config.from_email;
-                } else {
-                    return "使用smtp配置"
-                }
+                return row.config.from_email;
             }
         },
         {

@@ -8,6 +8,7 @@ import { ToastProvider } from './context/toast';
 import { Progress } from './library/loading';
 import "./style/main.css";
 import { theme } from './style/theme';
+import { ConfigProvider } from './context/config';
 const LoginPage = React.lazy(() => import('./page/login'));
 const MainPage = React.lazy(() => import('./page/main'));
 const FindPasswordPage = React.lazy(() => import('./page/password'));
@@ -139,13 +140,13 @@ function App() {
   return <>
     <ThemeProvider theme={theme} >
       <CssBaseline />
-      <ToastProvider>
-        <UserProvider>
-
-          <RouterProvider router={router} />
-
-        </UserProvider>
-      </ToastProvider>
+      <ConfigProvider>
+        <ToastProvider>
+          <UserProvider>
+            <RouterProvider router={router} />
+          </UserProvider>
+        </ToastProvider>
+      </ConfigProvider>
     </ThemeProvider>
   </>;
 }

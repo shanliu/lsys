@@ -12,6 +12,8 @@ const (
 	AccessCheck = iota
 	SmeSend     = iota
 	SmeCancel   = iota
+	MailSend    = iota
+	MailCancel  = iota
 )
 
 // RestApiClient 对外请求
@@ -31,6 +33,12 @@ func (res *RestApiClient) ConfigBuilds(_ context.Context) (map[int]rest_client.R
 			Method:     "view",
 			Timeout:    60 * time.Second,
 		},
+		AccessCheck: &rest_client.AppRestBuild{
+			HttpMethod: http.MethodPost,
+			Path:       "/rbac/access",
+			Method:     "check",
+			Timeout:    60 * time.Second,
+		},
 		SmeSend: &rest_client.AppRestBuild{
 			HttpMethod: http.MethodPost,
 			Path:       "/rest/sms",
@@ -43,10 +51,16 @@ func (res *RestApiClient) ConfigBuilds(_ context.Context) (map[int]rest_client.R
 			Method:     "cancel",
 			Timeout:    60 * time.Second,
 		},
-		AccessCheck: &rest_client.AppRestBuild{
+		MailSend: &rest_client.AppRestBuild{
 			HttpMethod: http.MethodPost,
-			Path:       "/rbac/access",
-			Method:     "check",
+			Path:       "/rest/mail",
+			Method:     "send",
+			Timeout:    60 * time.Second,
+		},
+		MailCancel: &rest_client.AppRestBuild{
+			HttpMethod: http.MethodPost,
+			Path:       "/rest/mail",
+			Method:     "cancel",
 			Timeout:    60 * time.Second,
 		},
 	}, nil

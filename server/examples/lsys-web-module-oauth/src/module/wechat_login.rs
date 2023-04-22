@@ -1,6 +1,4 @@
 use async_trait::async_trait;
-// TODO  替换掉这个库,有问题不升级...
-use labrador::{SimpleStorage, WechatCpClient, WechatMpClient};
 
 use lsys_web::{
     dao::user::WebUser,
@@ -11,6 +9,8 @@ use rand::seq::SliceRandom;
 
 use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
+
+use super::{WeChatConfig, WeChatLib};
 
 pub const OAUTH_TYPE_WECHAT: &str = "wechat";
 
@@ -49,19 +49,17 @@ pub struct WechatCallbackParam {
 impl OauthCallbackParam for WechatCallbackParam {}
 
 pub struct WechatLogin {
-    app_id: String,
-    app_secret: String,
     config: String,
     rand_length: usize,
     timeout: usize,  //state保存时间
     timeskip: usize, //剩余多少秒时加载下一个二维码
+    lib: WeChatLib,
 }
 
 impl WechatLogin {
     pub fn new(app_id: String, app_secret: String, config: String) -> Self {
         Self {
-            app_id,
-            app_secret,
+            lib: WeChatLib::new(app_id, app_secret, None),
             config,
             rand_length: 6,
             timeout: 60,
@@ -142,23 +140,17 @@ impl OauthLogin<WechatLoginParam, WechatCallbackParam, WechatExternalData> for W
     where
         Self: std::marker::Sized,
     {
-        let config = &webuser.app_core.config;
-        let wx_config = config
-            .get_table(&format!("oauth_{}", key))
-            .map_err(|e| format!("wechat config err:{}", e))?;
-        let app_id = wx_config
-            .get("app_id")
-            .ok_or_else(|| format!("[{}]config not wechat app id", key))?
-            .to_owned()
-            .into_string()
-            .unwrap_or_default();
-        let app_secret = wx_config
-            .get("app_secret")
-            .ok_or_else(|| format!("[{}]config not wechat app secret", key))?
-            .to_owned()
-            .into_string()
-            .unwrap_or_default();
-        Ok(WechatLogin::new(app_id, app_secret, key.to_owned()))
+        let config = webuser
+            .setting
+            .single
+            .load::<WeChatConfig>(&None)
+            .await
+            .map_err(|e| format!("load wechat error:{}", e))?;
+        Ok(WechatLogin::new(
+            config.app_id.to_owned(),
+            config.app_secret.to_owned(),
+            key.to_owned(),
+        ))
     }
     async fn login_url(
         &self,
@@ -180,13 +172,8 @@ impl OauthLogin<WechatLoginParam, WechatCallbackParam, WechatExternalData> for W
             .set_ex(state_key.as_str(), state_rand.clone(), self.timeout)
             .await
             .map_err(|e| e.to_string())?;
-        let c = WechatCpClient::<SimpleStorage>::new(
-            self.app_id.to_owned(),
-            self.app_secret.to_owned(),
-        );
-        let url = c.oauth2().build_authorization_url(
+        let url = self.lib.build_authorization_url(
             &param.callback_url,
-            "snsapi_userinfo",
             Some(format!("{}{}", state_rand, state_ukey).as_str()),
         );
         Ok(url)
@@ -207,19 +194,11 @@ impl OauthLogin<WechatLoginParam, WechatCallbackParam, WechatExternalData> for W
         if state_rand != save_state_rand {
             return Err("state timeout or wrong".to_string());
         }
-        let c = WechatMpClient::<SimpleStorage>::new(
-            self.app_id.to_owned(),
-            self.app_secret.to_owned(),
-        );
-        let auth = c.oauth2();
-        let resp = auth
-            .oauth2_token(&param.code)
-            .await
-            .map_err(|e| e.to_string())?;
-        let info = auth
+        let resp = self.lib.oauth2_token(&param.code).await?;
+        let info = self
+            .lib
             .oauth2_userinfo(&resp.access_token, &resp.openid)
-            .await
-            .map_err(|e| e.to_string())?;
+            .await?;
         Ok((
             OauthLoginData {
                 config_name: self.config.to_owned(),

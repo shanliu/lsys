@@ -8,6 +8,7 @@ let plugins = [
         filename: 'wechat-login.html',
         chunks: ['wechat'],//需要导入的JS
         template: __dirname + "/src/wechat/login.html",
+        favicon: __dirname + './../../server/examples/lsys-actix-web/static/favicon.ico',
         nodeModules: process.env.NODE_ENV !== 'production' ? path.resolve(__dirname, '../node_modules') : false
     }),
 ];

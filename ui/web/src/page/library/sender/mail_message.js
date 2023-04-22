@@ -9,8 +9,8 @@ import { LoadingButton } from '../../../library/loading';
 import { BaseTablePage } from '../../../library/table_page';
 import { MessageStatus, senderListAppMessage } from '../../../rest/sender_setting';
 import { showTime } from '../../../utils/utils';
-import { MessageLogBox, MessageSeeBody } from './lib_message';
-
+import { MessageDeleteButton, MessageLogBox, MessageSeeBody } from './lib_message';
+import { ItemTooltip } from '../../../library/tips';
 
 export function AppMailMessage(props) {
     const {
@@ -47,17 +47,17 @@ export function AppMailMessage(props) {
         },
         {
             field: "to_mail",
-            style: { width: 160 },
+            style: { width: 120 },
             label: '发送邮箱'
         },
         {
             field: "reply_to",
-            style: { width: 160 },
+            style: { width: 120 },
             label: '回复邮箱'
         },
         {
             field: "tpl_id",
-            style: { width: 120 },
+            style: { width: 100 },
             label: '模板'
         },
         {
@@ -69,7 +69,7 @@ export function AppMailMessage(props) {
         },
         {
 
-            style: { width: 100 },
+            style: { width: 120 },
             label: '状态',
             render: (row) => {
                 let f = MessageStatus.find((e) => { return e.key == row.status });
@@ -104,7 +104,7 @@ export function AppMailMessage(props) {
             }
         },
         {
-            style: { width: 160 },
+            style: { width: 120 },
             label: '添加时间',
             render: (row) => {
                 return showTime(row.add_time, "未知")

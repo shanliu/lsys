@@ -2,7 +2,7 @@ use std::{convert::TryFrom, sync::Arc};
 
 use crate::{
     handler::access::{
-        AccessRoleEdit, AccessRoleView, AccessRoleViewList, RelationApp, RoleOpCheck,
+        relation_tpls, AccessRoleEdit, AccessRoleView, AccessRoleViewList, RoleOpCheck,
     },
     {
         PageParam, {JsonData, JsonResult},
@@ -10,7 +10,6 @@ use crate::{
 };
 
 use lsys_rbac::{
-    access_relation_tpl,
     dao::{RbacDao, RbacRole, RoleAddUser, RoleParam, RoleSetOp, RoleUserGroupParam},
     model::{
         RbacResModel, RbacResOpModel, RbacRoleModel, RbacRoleOpModel, RbacRoleOpPositivity,
@@ -775,7 +774,7 @@ pub async fn rbac_user_role_options(
     };
     let relation_tpl = if param.relation_tpl.unwrap_or(false) {
         Some(
-            access_relation_tpl!(RelationApp)
+            relation_tpls()
                 .into_iter()
                 .filter(|e| if see_user_id > 0 { e.user } else { !e.user })
                 .map(|e| e.key)

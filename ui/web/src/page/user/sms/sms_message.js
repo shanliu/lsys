@@ -40,6 +40,7 @@ export default function UserAppSmsMessagePage(props) {
             接口调用示例
         </Button>
         <AppSelect
+            checkSms={true}
             userId={parseInt(userData.user_data.user_id)}
             appId={searchParam.get("app_id") ?? ''}
             onChange={(e) => {

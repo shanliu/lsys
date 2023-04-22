@@ -11,6 +11,7 @@ use super::auth::UserPasswordHash;
 use deadpool_redis::PoolError;
 use lsys_core::{FluentMessage, ValidCodeError};
 
+use lsys_setting::dao::{SettingError, SingleSetting};
 use redis::RedisError;
 use sqlx::{MySql, Pool};
 use std::sync::Arc;
@@ -89,7 +90,14 @@ impl From<ValidCodeError> for UserAccountError {
         UserAccountError::ValidCode(err)
     }
 }
-
+impl From<SettingError> for UserAccountError {
+    fn from(err: SettingError) -> Self {
+        match err {
+            SettingError::Sqlx(err) => UserAccountError::Sqlx(err),
+            SettingError::System(err) => UserAccountError::System(err),
+        }
+    }
+}
 pub struct UserAccount {
     pub user: Arc<User>,
     pub user_email: Arc<UserEmail>,
@@ -104,7 +112,12 @@ pub struct UserAccount {
 }
 
 impl UserAccount {
-    pub fn new(db: Pool<MySql>, redis: deadpool_redis::Pool, fluent: Arc<FluentMessage>) -> Self {
+    pub fn new(
+        db: Pool<MySql>,
+        redis: deadpool_redis::Pool,
+        fluent: Arc<FluentMessage>,
+        setting: Arc<SingleSetting>,
+    ) -> Self {
         let user_index = Arc::from(UserIndex::new(db.clone()));
         let password_hash = Arc::from(UserPasswordHash::default());
         UserAccount {
@@ -147,6 +160,7 @@ impl UserAccount {
             )),
             user_password: Arc::from(UserPassword::new(
                 db.clone(),
+                setting,
                 fluent,
                 redis,
                 password_hash.clone(),

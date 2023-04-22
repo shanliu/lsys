@@ -1,4 +1,4 @@
-import { FormControl, InputLabel, MenuItem, Select, Stack, TextField } from '@mui/material';
+import { Alert, FormControl, InputLabel, MenuItem, Select, Stack, TextField } from '@mui/material';
 import { Box } from '@mui/system';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DesktopDatePicker } from '@mui/x-date-pickers/DesktopDatePicker';
@@ -36,6 +36,7 @@ export default function UserInfoIndexPage() {
         nikename: '',
         gender: 0,
         birthday: null,
+        err: ''
     });
 
     useEffect(() => {
@@ -100,9 +101,11 @@ export default function UserInfoIndexPage() {
         marginTop: 4,
         maxWidth: 400,
     }}>
+
         {!pageData.init ? <Stack sx={{ width: 1 }} spacing={2}>
             <Progress />
         </Stack> : <LocalizationProvider dateAdapter={AdapterDayjs}>
+            {pageData.err ? <Alert severity="error">{pageData.err}</Alert> : null}
             <Form method="post" onSubmit={(e) => {
                 e.preventDefault();
                 onSave();

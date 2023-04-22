@@ -1,7 +1,9 @@
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::{now_time, FluentMessage, PageParam};
-use sqlx::{MySql, Pool};
-use sqlx_model::{model_option_set, sql_format, Insert, ModelTableName, Select, Update};
+use sqlx::{MySql, Pool, Transaction};
+use sqlx_model::{
+    executor_option, model_option_set, sql_format, Insert, ModelTableName, Select, Update,
+};
 use std::sync::Arc;
 
 use super::{SettingData, SettingDecode, SettingEncode, SettingResult};
@@ -22,12 +24,13 @@ impl MultipleSetting {
             // fluent,
         }
     }
-    pub async fn add<T: SettingEncode>(
+    pub async fn add<'t, T: SettingEncode>(
         &self,
         user_id: &Option<u64>,
         name: &str,
         data: &T,
         change_user_id: &u64,
+        transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
     ) -> SettingResult<u64> {
         let change_user_id = change_user_id.to_owned();
         let setting_type = SettingType::Multiple as i8;
@@ -47,19 +50,27 @@ impl MultipleSetting {
             last_user_id: change_user_id,
             last_change_time: time,
         });
-        let dat = Insert::<sqlx::MySql, SettingModel, _>::new(new_data)
-            .execute(&self.db)
-            .await?;
+        let dat = executor_option!(
+            {
+                Insert::<sqlx::MySql, SettingModel, _>::new(new_data)
+                    .execute(db)
+                    .await?
+            },
+            transaction,
+            &self.db,
+            db
+        );
         self.cache.clear(&format!("{}-{}", key, uid)).await;
         Ok(dat.last_insert_id())
     }
-    pub async fn edit<T: SettingEncode>(
+    pub async fn edit<'t, T: SettingEncode>(
         &self,
         user_id: &Option<u64>,
         id: &u64,
         name: &str,
         data: &T,
         change_user_id: &u64,
+        transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
     ) -> SettingResult<u64> {
         let id = id.to_owned();
         let change_user_id = change_user_id.to_owned();
@@ -74,26 +85,36 @@ impl MultipleSetting {
             last_change_time: time,
         });
         let uid = user_id.unwrap_or_default();
-        let cu = Update::<sqlx::MySql, SettingModel, _>::new(change)
-            .execute_by_where_call(
-                "id=? and setting_type=? and setting_key=? and user_id=?",
-                |res, _| {
-                    res.bind(id)
-                        .bind(SettingType::Multiple as i8)
-                        .bind(key.clone())
-                        .bind(uid)
-                },
-                &self.db,
-            )
-            .await?;
+
+        let cu = executor_option!(
+            {
+                Update::<sqlx::MySql, SettingModel, _>::new(change)
+                    .execute_by_where_call(
+                        "id=? and setting_type=? and setting_key=? and user_id=?",
+                        |res, _| {
+                            res.bind(id)
+                                .bind(SettingType::Multiple as i8)
+                                .bind(key.clone())
+                                .bind(uid)
+                        },
+                        db,
+                    )
+                    .await?
+            },
+            transaction,
+            &self.db,
+            db
+        );
+
         self.cache.clear(&format!("{}-{}", key, uid)).await;
         Ok(cu.rows_affected())
     }
-    pub async fn del<T: SettingEncode>(
+    pub async fn del<'t, T: SettingEncode>(
         &self,
         user_id: &Option<u64>,
         id: &u64,
         change_user_id: &u64,
+        transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
     ) -> SettingResult<u64> {
         let change_user_id = change_user_id.to_owned();
         let id = id.to_owned();
@@ -106,18 +127,26 @@ impl MultipleSetting {
             last_change_time: time,
         });
         let uid = user_id.unwrap_or_default();
-        let cu = Update::<sqlx::MySql, SettingModel, _>::new(change)
-            .execute_by_where_call(
-                "id=? and setting_type=? and setting_key=? and  user_id=?",
-                |res, _| {
-                    res.bind(id)
-                        .bind(SettingType::Multiple as i8)
-                        .bind(key.clone())
-                        .bind(uid)
-                },
-                &self.db,
-            )
-            .await?;
+
+        let cu = executor_option!(
+            {
+                Update::<sqlx::MySql, SettingModel, _>::new(change)
+                    .execute_by_where_call(
+                        "id=? and setting_type=? and setting_key=? and  user_id=?",
+                        |res, _| {
+                            res.bind(id)
+                                .bind(SettingType::Multiple as i8)
+                                .bind(key.clone())
+                                .bind(uid)
+                        },
+                        db,
+                    )
+                    .await?
+            },
+            transaction,
+            &self.db,
+            db
+        );
         self.cache.clear(&format!("{}-{}", key, uid)).await;
         Ok(cu.rows_affected())
     }

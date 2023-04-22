@@ -49,6 +49,7 @@ pub async fn mailer_smtp_config_list<
                    "id": e.id,
                    "name": e.name,
                    "user":e.hide_user,
+                   "email":e.email,
                 })
             })
             .collect::<Vec<Value>>();
@@ -63,6 +64,7 @@ pub struct MailerSmtpConfigAddParam {
     pub host: String,
     pub port: u16,
     pub timeout: u64,
+    pub email: String,
     pub user: String,
     pub password: String,
     pub tls_domain: String,
@@ -98,6 +100,11 @@ pub async fn mailer_smtp_config_add<
                 host: param.host,
                 port: param.port,
                 timeout: param.timeout,
+                email: if param.email.is_empty() {
+                    param.user.clone()
+                } else {
+                    param.email
+                },
                 user: param.user,
                 password: param.password,
                 tls_domain: param.tls_domain,
@@ -113,6 +120,7 @@ pub struct MailerSmtpConfigCheckParam {
     pub host: String,
     pub port: u16,
     pub timeout: u64,
+    pub email: String,
     pub user: String,
     pub password: String,
     pub tls_domain: String,
@@ -146,6 +154,11 @@ pub async fn mailer_smtp_config_check<
             host: param.host,
             port: param.port,
             timeout: param.timeout,
+            email: if param.email.is_empty() {
+                param.user.clone()
+            } else {
+                param.email
+            },
             user: param.user,
             password: param.password,
             tls_domain: param.tls_domain,
@@ -161,6 +174,7 @@ pub struct MailerSmtpConfigEditParam {
     pub host: String,
     pub port: u16,
     pub timeout: u64,
+    pub email: String,
     pub user: String,
     pub password: String,
     pub tls_domain: String,
@@ -197,6 +211,11 @@ pub async fn mailer_smtp_config_edit<
                 host: param.host,
                 port: param.port,
                 timeout: param.timeout,
+                email: if param.email.is_empty() {
+                    param.user.clone()
+                } else {
+                    param.email
+                },
                 user: param.user,
                 password: param.password,
                 tls_domain: param.tls_domain,
@@ -385,8 +404,9 @@ pub async fn mailer_app_smtp_config_list<
         .map(|e| {
             json!({
                 "config":e.0,
-                "user":e.1.user,
+                "user":e.1.hide_user(),
                 "name":e.1.model().name,
+                "email":e.1.email,
             })
         })
         .collect::<Vec<_>>();

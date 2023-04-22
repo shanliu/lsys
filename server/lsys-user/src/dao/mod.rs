@@ -6,6 +6,7 @@ pub mod auth;
 use crate::dao::auth::UserAuth;
 use lsys_core::{AppCore, AppCoreError, FluentMessage};
 
+use lsys_setting::dao::SingleSetting;
 use sqlx::{MySql, Pool};
 
 use self::account::UserAccount;
@@ -27,6 +28,7 @@ impl<T: UserAuthStore + Send + Sync> UserDao<T> {
         app_core: Arc<AppCore>,
         db: Pool<MySql>,
         redis: deadpool_redis::Pool,
+        setting: Arc<SingleSetting>,
         store: T,
         config: Option<UserAuthConfig>,
     ) -> Result<UserDao<T>, AppCoreError> {
@@ -40,7 +42,12 @@ impl<T: UserAuthStore + Send + Sync> UserDao<T> {
                 .await?
         });
 
-        let user_account = Arc::from(UserAccount::new(db.clone(), redis.clone(), fluent.clone()));
+        let user_account = Arc::from(UserAccount::new(
+            db.clone(),
+            redis.clone(),
+            fluent.clone(),
+            setting,
+        ));
         let user_auth = Arc::from(UserAuth::new(
             db.clone(),
             redis.clone(),

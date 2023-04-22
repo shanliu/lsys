@@ -1,10 +1,13 @@
 use crate::common::handler::{
-    JsonQuery, JwtQuery, ResponseJson, ResponseJsonResult, UserAuthQuery,
+    JsonQuery, JwtClaims, JwtQuery, ResponseJson, ResponseJsonResult, UserAuthQuery,
 };
 
 use actix_web::web::Data;
 use actix_web::{get, post};
 
+use jsonwebtoken::{encode, EncodingKey, Header};
+use lsys_user::dao::auth::UserAuthTokenData;
+use lsys_web::dao::user::ShowUserAuthData;
 use lsys_web::dao::WebDao;
 use lsys_web::handler::api::login::login_data_from_user_auth;
 use lsys_web::handler::api::login::user_login_from_email;
@@ -25,12 +28,45 @@ use lsys_web::handler::api::login::{user_external_login_callback, user_login_ema
 use lsys_web::handler::api::user::user_login_history;
 use lsys_web::handler::api::user::user_logout;
 use lsys_web::handler::api::user::LoginHistoryParam;
-use lsys_web::JsonData;
+use lsys_web::{JsonData, JsonResult};
 
 use lsys_web::handler::oauth::user::user_external_login_url;
 use lsys_web_module_oauth::module::{WechatCallbackParam, WechatLogin, WechatLoginParam};
 use serde::Deserialize;
 use serde_json::json;
+
+async fn jwt_login_data(
+    auth_dao: &UserAuthQuery,
+    token: UserAuthTokenData,
+    data: ShowUserAuthData,
+) -> JsonResult<JsonData> {
+    let app_jwt_key = auth_dao
+        .web_dao
+        .app_core
+        .config
+        .get_string("app_jwt_key")
+        .unwrap_or_default();
+    let token = encode(
+        &Header::default(),
+        &JwtClaims::new(token.time_out as i64, token.to_string(), Some(json!(data))),
+        &EncodingKey::from_secret(app_jwt_key.as_bytes()),
+    )
+    .map_err(JsonData::message_error)?;
+    let passwrod_timeout = auth_dao
+        .web_dao
+        .user
+        .user_dao
+        .user_account
+        .user_password
+        .password_timeout(&data.user_password_id)
+        .await
+        .unwrap_or(false);
+    Ok(JsonData::data(json!({
+        "auth_data":data,
+        "jwt":token,
+        "passwrod_timeout":passwrod_timeout,
+    })))
+}
 
 #[post("/login/{type}")]
 pub(crate) async fn login<'t>(
@@ -39,22 +75,29 @@ pub(crate) async fn login<'t>(
     auth_dao: UserAuthQuery,
 ) -> ResponseJsonResult<ResponseJson> {
     let res = match path.0.to_string().as_str() {
-        "name" => user_login_from_name(rest.param::<NameLoginParam>()?, &auth_dao).await,
-        "sms" => user_login_from_mobile(rest.param::<MobileLoginParam>()?, &auth_dao).await,
-        "email" => user_login_from_email(rest.param::<EmailLoginParam>()?, &auth_dao).await,
         "sms-send-code" => {
             user_login_mobile_send_code(rest.param::<MobileSendCodeLoginParam>()?, &auth_dao).await
-        }
-        "sms-code" => {
-            user_login_from_mobile_code(rest.param::<MobileCodeLoginParam>()?, &auth_dao).await
         }
         "email-send-code" => {
             user_login_email_send_code(rest.param::<EmailSendCodeLoginParam>()?, &auth_dao).await
         }
-        "email-code" => {
-            user_login_from_email_code(rest.param::<EmailCodeLoginParam>()?, &auth_dao).await
+        e => {
+            let (token, data) = match e {
+                "name" => user_login_from_name(rest.param::<NameLoginParam>()?, &auth_dao).await,
+                "sms" => user_login_from_mobile(rest.param::<MobileLoginParam>()?, &auth_dao).await,
+                "email" => user_login_from_email(rest.param::<EmailLoginParam>()?, &auth_dao).await,
+                "sms-code" => {
+                    user_login_from_mobile_code(rest.param::<MobileCodeLoginParam>()?, &auth_dao)
+                        .await
+                }
+                "email-code" => {
+                    user_login_from_email_code(rest.param::<EmailCodeLoginParam>()?, &auth_dao)
+                        .await
+                }
+                name => handler_not_found!(name),
+            }?;
+            jwt_login_data(&auth_dao, token, data).await
         }
-        name => handler_not_found!(name),
     };
     Ok(res?.into())
 }
@@ -149,10 +192,12 @@ pub async fn external_state_check(
                 .state_check(&auth_dao.web_dao.user, &login_param.login_state)
                 .await?;
             if let Some(ldat) = login_data {
-                user_external_login_callback::<WechatLogin, WechatLoginParam, _, _>(
-                    "wechat", &auth_dao, &ldat,
-                )
-                .await
+                let (token, data) =
+                    user_external_login_callback::<WechatLogin, WechatLoginParam, _, _>(
+                        "wechat", &auth_dao, &ldat,
+                    )
+                    .await?;
+                jwt_login_data(&auth_dao, token, data).await
             } else {
                 Ok(JsonData::data(json!({ "reload": reload })))
             }

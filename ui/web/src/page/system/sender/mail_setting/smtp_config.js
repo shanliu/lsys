@@ -34,6 +34,7 @@ function AddBox(props) {
         port: rowData ? rowData.port : '25',
         timeout: rowData ? rowData.timeout : '60',
         user: rowData ? rowData.user : '',
+        email: rowData ? rowData.email : '',
         password: rowData ? rowData.password : '',
         tls_domain: rowData ? rowData.tls_domain : '',
         loading: false,
@@ -44,6 +45,7 @@ function AddBox(props) {
         port: '',
         timeout: '',
         user: '',
+        email: '',
         password: '',
         tls_domain: '',
     });
@@ -62,6 +64,7 @@ function AddBox(props) {
                 port: addData.port,
                 timeout: addData.timeout,
                 user: addData.user,
+                email: addData.email,
                 password: addData.password,
                 tls_domain: addData.tls_domain,
             }).then((data) => {
@@ -99,6 +102,7 @@ function AddBox(props) {
                 port: addData.port,
                 timeout: addData.timeout,
                 user: addData.user,
+                email: addData.email,
                 password: addData.password,
                 tls_domain: addData.tls_domain,
             }).then((data) => {
@@ -318,6 +322,29 @@ function AddBox(props) {
                     <Grid item xs={10}>
                         <TextField
                             variant="outlined"
+                            label="邮箱地址"
+                            type="text"
+                            name="email"
+                            size="small"
+                            onChange={(e) => {
+                                setAddData({
+                                    ...addData,
+                                    email: e.target.value
+                                })
+                            }}
+                            value={addData.email}
+                            sx={{
+                                width: 1,
+                                paddingBottom: 2
+                            }}
+                            disabled={addData.loading}
+                            error={!!addError.email}
+                            helperText={addError.email}
+                        />
+                    </Grid>
+                    <Grid item xs={10}>
+                        <TextField
+                            variant="outlined"
                             label="TLS 验证域名[不使用留空]"
                             type="text"
                             name="tls_domain"
@@ -379,7 +406,13 @@ export default function SystemSmsSettingSmtpMailPage(props) {
             }
         },
         {
-
+            style: { width: 80 },
+            label: '发送邮箱',
+            render: (row) => {
+                return row.email
+            }
+        },
+        {
             style: { width: 80 },
             label: '用户',
             render: (row) => {
@@ -390,6 +423,7 @@ export default function SystemSmsSettingSmtpMailPage(props) {
 
             style: { width: 80 },
             label: '超时',
+            align: "right",
             render: (row) => {
                 return row.timeout
             }
@@ -397,19 +431,20 @@ export default function SystemSmsSettingSmtpMailPage(props) {
         {
             field: 'tls_domain',
             label: 'TLS 校验域名',
-            style: { width: 150 }
+            style: { width: 120 }
         },
         {
 
-            style: { width: 180 },
+            style: { width: 120 },
             label: '更新用户ID',
+            align: "right",
             render: (row) => {
-                return showTime(row.last_user_id, "未知")
+                return row.last_user_id
             }
         },
         {
 
-            style: { width: 180 },
+            style: { width: 170 },
             label: '更新时间',
             render: (row) => {
                 return showTime(row.last_change_time, "未知")

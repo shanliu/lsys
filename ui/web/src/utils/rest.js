@@ -50,10 +50,9 @@ function errorHandler(error) {
     return Promise.resolve(error);
 }
 
-export function globalRest() {
-
+export function globalRest(path) {
     let ax = axios.create({
-        baseURL: config.serverURL + '/api/user/',
+        baseURL: config.serverURL + path,
         timeout: timeout,
         validateStatus: function (status) {
             return status >= 200 && status < 600;
@@ -69,7 +68,12 @@ export function globalRest() {
 
 export function sessionRest(path) {
     let session = userSessionGet();
-    if (!session) throw new Error("not login can't call user rest");
+    if (!session) {
+        let url = window.location.href.replace(/#\/.*$/, "");
+        url += "#/login/name?redirect_uri=" + encodeURIComponent(window.location.href);
+        window.location.href = url
+        return;
+    }
     let ax = axios.create({
         baseURL: config.serverURL + path,
         timeout: timeout,
@@ -107,6 +111,11 @@ export function fialResult(field, message) {
 
 export function restResult(res, ignore) {
     if (res?.data?.result?.code != 200) {
+        switch (res?.data?.result?.state) {
+            case "jwt_bad_token":
+                userSessionClear()
+                break
+        }
         return {
             ...(res?.data?.result ?? {}),
             ...fialResult({}, res?.data?.result?.message ?? "未知错误"),

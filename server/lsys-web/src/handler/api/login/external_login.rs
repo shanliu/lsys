@@ -4,12 +4,11 @@ use crate::{
     dao::{user::ShowUserAuthData, UserAuthQueryDao},
     handler::access::AccessSystemLogin,
     module::oauth::{OauthCallbackParam, OauthLogin, OauthLoginParam},
-    {JsonData, JsonResult},
+    JsonResult,
 };
 
-use lsys_user::dao::auth::{ExternalLogin, LoginEnv, UserSession};
+use lsys_user::dao::auth::{ExternalLogin, LoginEnv, UserAuthTokenData, UserSession};
 use serde::Serialize;
-use serde_json::json;
 
 //检查权限并完成回调
 pub async fn user_external_login_callback<
@@ -22,7 +21,7 @@ pub async fn user_external_login_callback<
     config_key: &str,
     req_dao: &UserAuthQueryDao,
     param: &P,
-) -> JsonResult<JsonData> {
+) -> JsonResult<(UserAuthTokenData, ShowUserAuthData)> {
     let oauth = &req_dao
         .web_dao
         .user
@@ -64,8 +63,5 @@ pub async fn user_external_login_callback<
         .set_session_token(token.clone().into());
     let user_data = req_dao.user_session.read().await.get_session_data().await?;
     let data = ShowUserAuthData::from(user_data);
-    Ok(JsonData::data(json!({
-        "auth_data":data,
-        "token":token.to_string()
-    })))
+    Ok((token, data))
 }

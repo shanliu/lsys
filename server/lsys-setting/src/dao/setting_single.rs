@@ -1,7 +1,7 @@
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::{now_time, FluentMessage};
-use sqlx::{MySql, Pool};
-use sqlx_model::{model_option_set, Insert, Select, Update};
+use sqlx::{MySql, Pool, Transaction};
+use sqlx_model::{executor_option, model_option_set, Insert, Select, Update};
 use std::sync::Arc;
 
 use crate::model::{SettingModel, SettingModelRef, SettingStatus, SettingType};
@@ -21,18 +21,20 @@ impl SingleSetting {
             //  fluent,
         }
     }
-    pub async fn save<T: SettingEncode>(
+    pub async fn save<'t, T: SettingEncode>(
         &self,
-        user_id: Option<u64>,
+        user_id: &Option<u64>,
         name: &str,
         data: &T,
-        change_user_id: u64,
+        change_user_id: &u64,
+        transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
     ) -> SettingResult<u64> {
         let name = name.to_owned();
         let edata = data.encode();
         let key = T::key().to_string();
         let time = now_time().unwrap_or_default();
         let uid = user_id.unwrap_or_default();
+        let change_user_id = change_user_id.to_owned();
         let user_name_res = Select::type_new::<SettingModel>()
             .fetch_one_by_where_call::<SettingModel, _, _>(
                 "setting_type=? and setting_key=? and user_id=? order by id desc",
@@ -58,9 +60,16 @@ impl SingleSetting {
                     last_user_id: change_user_id,
                     last_change_time: time,
                 });
-                let dat = Insert::<sqlx::MySql, SettingModel, _>::new(new_data)
-                    .execute(&self.db)
-                    .await?;
+                let dat = executor_option!(
+                    {
+                        Insert::<sqlx::MySql, SettingModel, _>::new(new_data)
+                            .execute(db)
+                            .await?
+                    },
+                    transaction,
+                    &self.db,
+                    db
+                );
                 self.cache.clear(&format!("{}-{}", key, uid)).await;
                 dat.last_insert_id()
             }
@@ -71,9 +80,16 @@ impl SingleSetting {
                     last_user_id: change_user_id,
                     last_change_time: time,
                 });
-                Update::<sqlx::MySql, SettingModel, _>::new(change)
-                    .execute_by_pk(&set, &self.db)
-                    .await?;
+                executor_option!(
+                    {
+                        Update::<sqlx::MySql, SettingModel, _>::new(change)
+                            .execute_by_pk(&set, db)
+                            .await?;
+                    },
+                    transaction,
+                    &self.db,
+                    db
+                );
                 self.cache
                     .clear(&format!("{}-{}", set.setting_key, set.user_id))
                     .await;
@@ -85,7 +101,7 @@ impl SingleSetting {
     }
     pub async fn load<T: SettingDecode>(
         &self,
-        user_id: Option<u64>,
+        user_id: &Option<u64>,
     ) -> SettingResult<SettingData<T>> {
         let key = T::key().to_string();
         let uid = user_id.unwrap_or_default();

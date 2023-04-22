@@ -35,7 +35,7 @@ pub async fn subapp_view(
         .check(
             &AccessSubAppView {
                 app: app.clone(),
-                see_app: out_app.clone(),
+                see_app: Some(out_app.clone()),
             },
             None,
         )

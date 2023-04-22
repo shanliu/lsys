@@ -25,6 +25,7 @@ export default function UserAppMailLimitPage(props) {
         onSearchChange={setSearchParam}
     >
         <AppSelect
+            checkMail={true}
             userId={parseInt(userData.user_data.user_id)}
             appId={searchParam.get("app_id") ?? ''}
             onLoad={(data) => {

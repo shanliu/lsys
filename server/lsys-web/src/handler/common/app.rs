@@ -6,8 +6,8 @@ use serde_json::json;
 use crate::dao::RequestDao;
 
 use crate::handler::access::{
-    AccessAppSenderDoMail, AccessAppSenderDoSms, AccessUserAppConfirm, AccessUserAppEdit,
-    AccessUserAppView,
+    AccessAppSenderDoMail, AccessAppSenderDoSms, AccessSubAppView, AccessUserAppConfirm,
+    AccessUserAppEdit, AccessUserAppView,
 };
 use crate::{JsonData, JsonResult, PageParam};
 
@@ -242,6 +242,9 @@ pub struct AppListParam {
     pub status: Option<Vec<i8>>,
     pub client_ids: Option<Vec<String>>,
     pub page: Option<PageParam>,
+    pub check_sms: Option<bool>,
+    pub check_mail: Option<bool>,
+    pub check_view_app: Option<bool>,
 }
 
 #[derive(Debug, Serialize)]
@@ -257,6 +260,7 @@ pub struct ShowAppData {
     pub confirm_time: u64,
     pub is_sms: bool,
     pub is_mail: bool,
+    pub is_view_app: bool,
 }
 
 pub async fn app_list<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
@@ -305,24 +309,51 @@ pub async fn app_list<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>
         .await?;
     let mut out = Vec::with_capacity(appdata.len());
     for tmp in appdata {
-        let is_sms = req_dao
-            .web_dao
-            .user
-            .rbac_dao
-            .rbac
-            .check(&AccessAppSenderDoSms { app: tmp.clone() }, None)
-            .await
-            .map(|_| true)
-            .unwrap_or(false);
-        let is_mail = req_dao
-            .web_dao
-            .user
-            .rbac_dao
-            .rbac
-            .check(&AccessAppSenderDoMail { app: tmp.clone() }, None)
-            .await
-            .map(|_| true)
-            .unwrap_or(false);
+        let is_sms = if param.check_sms.unwrap_or(false) {
+            req_dao
+                .web_dao
+                .user
+                .rbac_dao
+                .rbac
+                .check(&AccessAppSenderDoSms { app: tmp.clone() }, None)
+                .await
+                .map(|_| true)
+                .unwrap_or(false)
+        } else {
+            false
+        };
+        let is_mail = if param.check_mail.unwrap_or(false) {
+            req_dao
+                .web_dao
+                .user
+                .rbac_dao
+                .rbac
+                .check(&AccessAppSenderDoMail { app: tmp.clone() }, None)
+                .await
+                .map(|_| true)
+                .unwrap_or(false)
+        } else {
+            false
+        };
+        let is_view_app = if param.check_view_app.unwrap_or(false) {
+            req_dao
+                .web_dao
+                .user
+                .rbac_dao
+                .rbac
+                .check(
+                    &AccessSubAppView {
+                        app: tmp.clone(),
+                        see_app: None,
+                    },
+                    None,
+                )
+                .await
+                .map(|_| true)
+                .unwrap_or(false)
+        } else {
+            false
+        };
         out.push(ShowAppData {
             id: tmp.id,
             name: tmp.name,
@@ -335,6 +366,7 @@ pub async fn app_list<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>
             confirm_time: tmp.confirm_time,
             is_sms,
             is_mail,
+            is_view_app,
         });
     }
     let count = if param.count_num.unwrap_or(false) {

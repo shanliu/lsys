@@ -8,6 +8,8 @@ import { CaptchaInput, PasswordInput } from '../../library/input';
 import { LoadingButton } from '../../library/loading';
 import { matchNameLogin } from '../../rest/login';
 import { captchaSrc } from '../../utils/rest';
+import { ConfigContext, ConfigTipPassword } from '../../context/config';
+
 
 export function PasswordLoginPage(props) {
     const { onLogged } = props;
@@ -31,6 +33,7 @@ export function PasswordLoginPage(props) {
     });
     const { toast } = useContext(ToastContext);
     const { dispatch } = useContext(UserSessionContext);
+    const configCtx = useContext(ConfigContext);
     const navigate = useNavigate();
     const doLogin = () => {
         setLoginData({
@@ -67,6 +70,9 @@ export function PasswordLoginPage(props) {
                     loading: false,
                 })
                 dispatch(SessionSetData(data, loginData.keep_login))
+                if (data.passwrod_timeout) {
+                    configCtx.dispatch(ConfigTipPassword())
+                }
                 onLogged()
             }
         })

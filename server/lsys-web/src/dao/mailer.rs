@@ -1,4 +1,5 @@
 use config::ConfigError;
+use lsys_app::model::AppsModel;
 use lsys_core::{AppCore, FluentMessage};
 use lsys_sender::{
     dao::{
@@ -114,7 +115,7 @@ impl WebAppMailer {
         self.send("valid_code", to, &context.into_json().to_string())
             .await
     }
-    // 短信发送接口
+    // 发送接口
     async fn send(&self, tpl_type: &str, to: &str, body: &str) -> Result<(), WebAppMailerError> {
         check_email(&self.fluent, to).map_err(|e| WebAppMailerError::System(e.to_string()))?;
         self.mailer
@@ -138,11 +139,11 @@ impl WebAppMailer {
             )
             .await?)
     }
-    // 短信后台任务
+    // 后台任务
     pub fn mail_record(&self) -> &MailTaskRecord {
         &self.mail_record
     }
-    // 短信发送接口
+    // 取消发送接口
     pub async fn send_cancel(
         &self,
         message: &SenderMailMessageModel,
@@ -150,6 +151,54 @@ impl WebAppMailer {
     ) -> Result<(), WebAppMailerError> {
         self.mailer
             .cancal_from_message(message, &user_id)
+            .await
+            .map_err(|e| WebAppMailerError::System(e.to_string()))
+            .map(|_| ())
+    }
+    // 发送接口
+    #[allow(clippy::too_many_arguments)]
+    pub async fn app_send(
+        &self,
+        app: &AppsModel,
+        tpl_type: &str,
+        to: &[String],
+        body: &str,
+        send_time: Option<u64>,
+        reply: &Option<String>,
+        cancel_key: &Option<String>,
+    ) -> Result<(), WebAppMailerError> {
+        for tmp in to.iter() {
+            check_email(&self.fluent, tmp).map_err(|e| WebAppMailerError::System(e.to_string()))?;
+        }
+        if let Some(ref cr) = reply {
+            if !cr.is_empty() {
+                check_email(&self.fluent, cr)
+                    .map_err(|e| WebAppMailerError::System(e.to_string()))?;
+            }
+        }
+        self.mailer
+            .send(
+                Some(app.id),
+                &to.iter().map(|e| e.as_str()).collect::<Vec<_>>(),
+                tpl_type,
+                body,
+                &send_time,
+                &Some(app.user_id),
+                reply,
+                cancel_key,
+            )
+            .await
+            .map_err(|e| WebAppMailerError::System(e.to_string()))
+            .map(|_| ())
+    }
+    // APP 取消发送
+    pub async fn app_send_cancel(
+        &self,
+        app: &AppsModel,
+        cancel_key: &str,
+    ) -> Result<(), WebAppMailerError> {
+        self.mailer
+            .cancal_from_key(cancel_key, &app.user_id)
             .await
             .map_err(|e| WebAppMailerError::System(e.to_string()))
             .map(|_| ())

@@ -13,26 +13,31 @@ import { Progress } from '../../library/loading';
 import { ActiveNavLink } from '../../library/nav';
 import { accessMenu } from '../../rest/access';
 import { Menus } from './menu';
+import { ToastContext } from '../../context/toast';
 
 
 export default function SystemMainPage() {
     const { userData } = useContext(UserSessionContext)
-    let param = useParams()//从请求url中获取数据
     if (!userData) {
         return <Navigate to={"/login/main"} />
     }
-
+    const { toast } = useContext(ToastContext);
     let [loadMenu, setLoadMenu] = useState({
         loading: true,
         menu: [],
     });
     useEffect(() => {
         accessMenu(Menus).then((data) => {
-            setLoadMenu({
-                ...loadMenu,
-                loading: false,
-                menu: data
-            })
+            if (!data.status) {
+                data.message && toast(data.message)
+            } else {
+                setLoadMenu({
+                    ...loadMenu,
+                    loading: false,
+                    menu: data.data
+                })
+            }
+
         })
     }, [])
 

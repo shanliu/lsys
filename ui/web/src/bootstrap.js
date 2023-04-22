@@ -1,4 +1,4 @@
-import { Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@mui/material';
+import { Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Link } from '@mui/material';
 import AppBar from '@mui/material/AppBar';
 import Avatar from '@mui/material/Avatar';
 import Box from '@mui/material/Box';
@@ -12,7 +12,7 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import React, { Fragment, useEffect, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router';
-import { Link, useRouteError } from 'react-router-dom';
+import { useRouteError, Link as RLink } from 'react-router-dom';
 import { SessionClear, UserSessionContext } from './context/session';
 import { logout } from './rest/login';
 
@@ -97,7 +97,9 @@ function NavUser() {
             onClose={handleCloseUserMenu}
         >
             <MenuItem onClick={handleCloseUserMenu}>
-                <Typography textAlign="center">用户中心</Typography>
+                <Typography textAlign="center">
+                    <Link component={RLink} to={"/user"}>用户中心</Link>
+                </Typography>
             </MenuItem>
             <MenuItem onClick={handleLogout}>
                 <Typography textAlign="center">退出登陆</Typography>
@@ -107,14 +109,15 @@ function NavUser() {
 }
 
 export function LayoutAppBar(props) {
+    let url = window.location.href.replace(/#\/.*$/, "");
     return <AppBar position="static" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, position: "relative" }}>
         <Container maxWidth="xl">
             <Toolbar disableGutters>
                 <Typography
                     variant="h6"
                     noWrap
-                    component={Link}
-                    to="/"
+                    component={"a"}
+                    href={url}
                     sx={{
                         mr: 2,
                         display: { xs: 'none', md: 'flex' },

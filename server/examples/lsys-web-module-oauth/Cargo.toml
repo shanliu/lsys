@@ -7,16 +7,27 @@ edition = "2021"
 
 [dependencies]
 lsys-web = { version = "0.0.1", path = "../../lsys-web"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-setting = { version = "0.0.1", path = "../../lsys-setting"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-rbac = { version = "0.0.1", path = "../../lsys-rbac"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-user = { version = "0.0.1", path = "../../lsys-user"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
 serde={ version = "1.0.*"}
 serde_json="1.0.*"
 #日志
 tracing = {version="0.1.*",features=["log"]}# log-always 保持log的输出 当使用tracing时会出现两次
 async-trait = "0.1.57"
 config = "0.13.2"
-# oauth 
-labrador={ version = "0.2.2", features = [ "wechat"]} 
 
 
 rand = "~0.8.*"
 
 redis = { version = "~0.22"  }
+
+
+urlencoding = { version = "2.1.0"  }
+
+
+reqwest = { version = "~0.11.*", features = ["json","stream"] }
+
+
+sqlx = {version = "~0.6.3",features = [ "mysql","runtime-tokio-native-tls","offline"]}
+sqlx-model = {version = "~0.2.0", default-features=false,features = ["sqlx-mysql"]}
