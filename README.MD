@@ -1,12 +1,12 @@
 ### rust实现的`面向内部应用的应用管理中心`实现
 
-> 目标：轻量级 统一用户登陆,站内通用应用管理(如：发送短信，邮件 等) 的实现。
-
 > 适用场景：
-> 1. 当你需要一个包含oauth的轻量级开放平台服务时，可以用此项目快速搭建
-> 2. 当你使用rust开发web应用时，使用本项目二次开发可以减少重复工作量，部份功能(如：发送短信，邮件 等)的开箱即用。
-> 3. 当进行分模块独立开发（如：公司内分团队的各自独立开发）时，可用本项目作为一个内部应用管理中心，及常用功能(如：发送短信，邮件 等)的统一管理。
+> 1. 当你使用rust开发web应用时，使用本项目二次开发可以减少重复工作量。
+> 2. 当你需要一个包含oauth的轻量级开放平台服务时,可基于本项目快速实现鉴权，应用管理等.
+> 3. 当进行分模块独立开发（如：公司内分团队的各自独立开发）时，可用本项目作为一个内部应用管理中心。
+> 4. 当你希望把一些常用服务（如：发送短信，邮件 等）抽离出来公用时,本项目实现.
 
+> 在线示例: http://175.178.90.181/ui/#
 
 ##### [后端服务](server) 安装
 
@@ -20,8 +20,8 @@ cd server && cargo build -r && cd ..
 导入 ./server/assets/tables.sql 到MYSQL
 ```
 
-3. 修改你的REDIS,MYSQL等的配置
-> [./server/examples/lsys-actix-web/.env 的配置覆盖./server/examples/lsys-actix-web/config/下配置]
+3. 修改你的监听端口,REDIS,MYSQL等
+> [./server/examples/lsys-actix-web/.env 会覆盖./server/examples/lsys-actix-web/config/]
 
 ```
 ./server/examples/lsys-actix-web/.env 
@@ -50,20 +50,11 @@ cd ..
 
 3. 访问 http://127.0.0.1/ui/
 
-4. 在线示例：http://175.178.90.181/ui/#
-
-```
-示例账号：aaaaa
-示例密码：000000
-```
-
 #### 二次开发参考时序:
 
 ##### 基于rust二次开发
 
-> [可参考示例:server/examples/lsys-web-subapp-demo](server/examples/lsys-web-subapp-demo/)
-
-> 基础类功能建议用此方式
+> [基于rust二次开发示例](server/examples/lsys-web-subapp-demo/)
 
 ```mermaid
 sequenceDiagram
@@ -80,15 +71,9 @@ sequenceDiagram
 ```
 
 
-##### 基于HTTP接口方式接入
+##### 基于HTTP接口方式二次开发
 
-> 通过HTTP接口接入 [go sdk](sdk/go/) 业务类功能建议用此方式
-
-> GO实现外部应用示例 参考 [基本使用](sdk/go/examples/basic/)  && [外部应用服务层](sdk/go/examples/sub_app/)
-
-> 备注:应用信息查询接口使用了本地 LruCache 缓存
-
-> 备注:[rest服务层接口代码路径:server/examples/lsys-actix-web/src/handler/rest](server/examples/lsys-actix-web/src/handler/rest)
+> [通过HTTP接口接入示例(go实现)](sdk/go/) 
 
 ```mermaid
 sequenceDiagram
