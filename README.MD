@@ -64,7 +64,8 @@ sequenceDiagram
     end
     par 自行开发RUST内部应用实现
     前端->>lsys服务: 前端请求到 lsys-actix-web[actix-web] 服务
-    lsys服务->>内部rust实现: 参考示例应用[lsys-web-subapp-dome]
+    lsys服务->>内部rust实现: 由 actix-web 进行接入，可换其他支持tokio运行时框架
+    内部rust实现->>内部rust实现: 实现你的业务逻辑，示例应用[lsys-web-subapp-dome]
     内部rust实现-->>lsys服务: 可以库调用访问lsys服务[lsys-rbac,lsys-user等]
     lsys服务-->>前端: 返回结果
     end
