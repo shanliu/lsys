@@ -1,51 +1,26 @@
 use std::collections::HashMap;
-use std::string::FromUtf8Error;
+
 use std::sync::Arc;
 
 use crate::dao::account::UserAccountResult;
-use crate::model::{
-    UserEmailModel, UserEmailModelRef, UserEmailStatus, UserIndexCat, UserIndexModel,
-    UserIndexStatus, UserMobileModel, UserMobileModelRef, UserMobileStatus, UserModel,
-    UserModelRef, UserNameModel, UserNameModelRef, UserStatus,
-};
+use crate::model::{UserIndexCat, UserModel, UserModelRef, UserStatus};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{get_message, now_time, FluentMessage, VecStringJoin};
-use rand::prelude::SliceRandom;
+use lsys_core::{get_message, now_time, FluentMessage, LimitParam, RequestEnv};
+use lsys_logger::dao::ChangeLogger;
 
 use sqlx::{Acquire, MySql, Pool, Transaction};
-use sqlx_model::{model_option_set, Insert, ModelTableName, Select, Update};
-use sqlx_model::{sql_format, SqlQuote};
+use sqlx_model::{model_option_set, Insert, Select, Update};
 
-use super::user_index::UserIndex;
+use super::logger::LogUser;
+use super::user_index::{UserIndex, UserItem};
 use super::UserAccountError;
-
-fn del_rand_name() -> Result<String, FromUtf8Error> {
-    const BASE_STR: &str = "0123456789";
-    let mut rng = &mut rand::thread_rng();
-    String::from_utf8(
-        BASE_STR
-            .as_bytes()
-            .choose_multiple(&mut rng, 6)
-            .cloned()
-            .collect(),
-    )
-}
 
 pub struct User {
     db: Pool<MySql>,
     fluent: Arc<FluentMessage>,
     index: Arc<UserIndex>,
     pub cache: Arc<LocalCache<u64, UserModel>>,
-}
-
-pub struct FindUserParam {
-    email: Option<String>,
-    mobile: Option<String>,
-    username: Option<String>,
-    nikename: Option<String>,
-    external_type: Option<String>,
-    address_info: Option<String>,
-    user_status: Option<UserStatus>,
+    logger: Arc<ChangeLogger>,
 }
 
 // find_by_id_impl!(User,UserModel,cache,id,"");
@@ -56,12 +31,14 @@ impl User {
         fluent: Arc<FluentMessage>,
         redis: deadpool_redis::Pool,
         index: Arc<UserIndex>,
+        logger: Arc<ChangeLogger>,
     ) -> Self {
         Self {
             cache: Arc::from(LocalCache::new(redis, LocalCacheConfig::new("user"))),
             db,
             fluent,
             index,
+            logger,
         }
     }
     /// 添加用户
@@ -70,6 +47,7 @@ impl User {
         nickname: String,
         status: UserStatus,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> UserAccountResult<UserModel> {
         if UserStatus::Init != status && UserStatus::Enable != status {
             return Err(UserAccountError::System(String::from(
@@ -78,12 +56,18 @@ impl User {
         }
         let time = now_time()?;
         let u_status = status as i8;
-        let new_data = model_option_set!(UserModelRef,{
+        let mut new_data = model_option_set!(UserModelRef,{
             nickname:nickname,
             add_time:time,
+            change_time:time,
             use_name:0,
             status:u_status,
         });
+
+        if UserStatus::Enable == status {
+            new_data.confirm_time = Some(&time);
+        }
+
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
@@ -118,10 +102,10 @@ impl User {
         };
         if let Err(ie) = self
             .index
-            .add(
+            .cat_one_add(
                 crate::model::UserIndexCat::UserStatus,
                 user.id,
-                &[user.status.to_string()],
+                &user.status.to_string(),
                 Some(&mut db),
             )
             .await
@@ -130,6 +114,22 @@ impl User {
             return Err(ie);
         }
         db.commit().await?;
+
+        self.logger
+            .add(
+                &LogUser {
+                    action: "add",
+                    nickname,
+                    status: u_status,
+                },
+                &Some(user.id),
+                &Some(user.id),
+                &Some(user.id),
+                None,
+                env_data,
+            )
+            .await;
+
         Ok(user)
     }
     //激活用户
@@ -137,6 +137,7 @@ impl User {
         &self,
         user: &UserModel,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> UserAccountResult<()> {
         if UserStatus::Delete.eq(user.status) {
             return Err(UserAccountError::System(String::from("user is delete")));
@@ -144,7 +145,10 @@ impl User {
         if UserStatus::Enable.eq(user.status) {
             return Ok(());
         }
+        let time = now_time().unwrap_or_default();
         let change = sqlx_model::model_option_set!(UserModelRef,{
+            change_time:time,
+            confirm_time:time,
             status:UserStatus::Enable as i8,
         });
         let mut db = match transaction {
@@ -160,23 +164,10 @@ impl User {
         }
         if let Err(ie) = self
             .index
-            .del(
+            .cat_one_add(
                 crate::model::UserIndexCat::UserStatus,
                 user.id,
-                &[user.status.to_string()],
-                Some(&mut db),
-            )
-            .await
-        {
-            db.rollback().await?;
-            return Err(ie);
-        }
-        if let Err(ie) = self
-            .index
-            .add(
-                crate::model::UserIndexCat::UserStatus,
-                user.id,
-                &[(UserStatus::Enable as i8).to_string()],
+                &(UserStatus::Enable as i8).to_string(),
                 Some(&mut db),
             )
             .await
@@ -185,6 +176,22 @@ impl User {
             return Err(ie);
         }
         db.commit().await?;
+
+        self.logger
+            .add(
+                &LogUser {
+                    action: "enable",
+                    nickname: user.nickname.to_owned(),
+                    status: UserStatus::Enable as i8,
+                },
+                &Some(user.id),
+                &Some(user.id),
+                &Some(user.id),
+                None,
+                env_data,
+            )
+            .await;
+
         Ok(())
     }
     //删除用户
@@ -193,64 +200,17 @@ impl User {
         user: &UserModel,
         del_name: Option<String>,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> UserAccountResult<()> {
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
         let time = now_time()?;
-
-        //change name is del_**
-        let mut username = "del_".to_string() + time.to_string().as_str();
-        if let Ok(rand) = del_rand_name() {
-            username += rand.as_str();
-        }
-        let name_change = sqlx_model::model_option_set!(UserNameModelRef,{
-            username:username,
-            change_time:time
-        });
-        let res = Update::<sqlx::MySql, UserNameModel, _>::new(name_change)
-            .execute_by_where_call("user_id=?", |e, _| e.bind(user.id), &mut db)
-            .await;
-        if let Err(e) = res {
-            db.rollback().await?;
-            return Err(e.into());
-        }
-
-        //delete all email
-        let email_change = model_option_set!(UserEmailModelRef,{
-            status:UserEmailStatus::Delete as i8,
-            delete_time:time
-        });
-        let res = Update::<sqlx::MySql, UserEmailModel, _>::new(email_change)
-            .execute_by_where_call("user_id=?", |e, _| e.bind(user.id), &mut db)
-            .await;
-        if let Err(e) = res {
-            db.rollback().await?;
-            return Err(e.into());
-        }
-
-        //delete all mobile
-        let mobile_change = model_option_set!(UserMobileModelRef,{
-            status:UserMobileStatus::Delete as i8,
-            delete_time:time
-        });
-        let res = Update::<sqlx::MySql, UserMobileModel, _>::new(mobile_change)
-            .execute_by_where_call("user_id=?", |e, _| e.bind(user.id), &mut db)
-            .await;
-        if let Err(e) = res {
-            db.rollback().await?;
-            return Err(e.into());
-        }
-        //delete index data
-        if let Err(ie) = self.index.user_del(user.id, Some(&mut db)).await {
-            db.rollback().await?;
-            return Err(ie);
-        }
         //delete user data
         let mut change = sqlx_model::model_option_set!(UserModelRef,{
             status:UserStatus::Delete as i8,
-            delete_time:time
+            change_time:time
         });
         change.nickname = del_name.as_ref();
         let tmp = Update::<sqlx::MySql, UserModel, _>::new(change)
@@ -260,9 +220,26 @@ impl User {
             db.rollback().await?;
             return Err(e.into());
         }
-
+        if let Err(ie) = self.index.user_del(user.id, Some(&mut db)).await {
+            db.rollback().await?;
+            return Err(ie);
+        }
         db.commit().await?;
         self.cache.clear(&user.id).await;
+        self.logger
+            .add(
+                &LogUser {
+                    action: "del",
+                    nickname: user.nickname.to_owned(),
+                    status: UserStatus::Delete as i8,
+                },
+                &Some(user.id),
+                &Some(user.id),
+                &Some(user.id),
+                None,
+                env_data,
+            )
+            .await;
         Ok(())
     }
     pub async fn set_nikename<'t>(
@@ -270,6 +247,7 @@ impl User {
         user: &UserModel,
         nikename: String,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> UserAccountResult<u64> {
         let nikename = nikename.trim().to_string();
         if nikename.is_empty() || nikename.len() > 32 {
@@ -279,7 +257,9 @@ impl User {
                 "username length need 1-32 char"
             )));
         }
+        let time = now_time().unwrap_or_default();
         let change = sqlx_model::model_option_set!(UserModelRef,{
+            change_time:time,
             nickname:nikename,
         });
         let mut db = match transaction {
@@ -289,7 +269,7 @@ impl User {
         let res = Update::<sqlx::MySql, UserModel, _>::new(change)
             .execute_by_pk(user, &mut db)
             .await;
-        match res {
+        let out = match res {
             Err(e) => {
                 db.rollback().await?;
                 Err(e)?
@@ -297,23 +277,10 @@ impl User {
             Ok(mr) => {
                 if let Err(ie) = self
                     .index
-                    .del(
+                    .cat_one_add(
                         crate::model::UserIndexCat::NikeName,
                         user.id,
-                        &[user.nickname.to_owned()],
-                        Some(&mut db),
-                    )
-                    .await
-                {
-                    db.rollback().await?;
-                    return Err(ie);
-                }
-                if let Err(ie) = self
-                    .index
-                    .add(
-                        crate::model::UserIndexCat::NikeName,
-                        user.id,
-                        &[user.nickname.to_owned()],
+                        &user.nickname,
                         Some(&mut db),
                     )
                     .await
@@ -326,80 +293,23 @@ impl User {
                 self.cache.clear(&user.id).await;
                 Ok(mr.last_insert_id())
             }
-        }
-    }
-    /// 通过内置索引查找用户数据
-    pub async fn find_user(&self, param: &FindUserParam) -> UserAccountResult<Vec<i64>> {
-        let mut where_sql = vec![];
-        if let Some(ref tmp) = param.email {
-            where_sql.push(sql_format!(
-                "index_cat={} and index_data={}",
-                UserIndexCat::Email as i8,
-                tmp
-            ));
-        }
-        if let Some(ref tmp) = param.mobile {
-            where_sql.push(sql_format!(
-                "index_cat={} and index_data={}",
-                UserIndexCat::Mobile as i8,
-                tmp
-            ));
-        }
-        if let Some(ref tmp) = param.username {
-            where_sql.push(sql_format!(
-                "index_cat={} and index_data={}",
-                UserIndexCat::UserName as i8,
-                tmp
-            ));
-        }
-        if let Some(ref tmp) = param.nikename {
-            where_sql.push(sql_format!(
-                "index_cat={} and index_data={}",
-                UserIndexCat::NikeName as i8,
-                tmp
-            ));
-        }
-        if let Some(ref tmp) = param.external_type {
-            where_sql.push(sql_format!(
-                "index_cat={} and index_data={}",
-                UserIndexCat::ExternalType as i8,
-                tmp
-            ));
-        }
-        if let Some(ref tmp) = param.address_info {
-            where_sql.push(sql_format!(
-                "index_cat={} and index_data={}",
-                UserIndexCat::Address as i8,
-                tmp
-            ));
-        }
-        if let Some(tmp) = param.user_status {
-            where_sql.push(sql_format!(
-                "index_cat={} and index_data={}",
-                UserIndexCat::UserStatus as i8,
-                (tmp as i8).to_string()
-            ));
-        }
-        let sql = if where_sql.is_empty() {
-            sql_format!(
-                "select user_id from {} order by id asc",
-                UserModel::table_name(),
-            )
-        } else {
-            sql_format!(
-                "select user_id,count(*) as total from {} where status={} and {} group by user_id having total >={}",
-                UserIndexModel::table_name(),
-                UserIndexStatus::Enable as i8,
-                where_sql.string_join(" and "),
-                where_sql.len()
-            )
         };
-        let res = sqlx::query_scalar::<_, i64>(sql.as_str())
-            .fetch_all(&self.db)
-            .await?;
-        Ok(res)
+        self.logger
+            .add(
+                &LogUser {
+                    action: "nikename",
+                    nickname: user.nickname.to_owned(),
+                    status: user.status,
+                },
+                &Some(user.id),
+                &Some(user.id),
+                &Some(user.id),
+                None,
+                env_data,
+            )
+            .await;
+        out
     }
-
     lsys_core::impl_dao_fetch_one_by_one!(
         db,
         find_by_id,
@@ -421,6 +331,32 @@ impl User {
         "id in ({ids}) and status in ({status})",
         status = [UserStatus::Enable as i8, UserStatus::Init as i8]
     );
+    //搜索用户
+    pub async fn search_user(
+        &self,
+        key_word: &str,
+        enable_user: bool,
+        limit: &Option<LimitParam>,
+    ) -> UserAccountResult<(Vec<UserItem>, Option<u64>)> {
+        self.index
+            .search_user(
+                if enable_user {
+                    &[UserStatus::Enable]
+                } else {
+                    &[UserStatus::Enable, UserStatus::Init]
+                },
+                key_word,
+                &[
+                    UserIndexCat::NikeName,
+                    UserIndexCat::UserName,
+                    UserIndexCat::Email,
+                    UserIndexCat::Mobile,
+                ],
+                limit,
+            )
+            .await
+    }
+
     pub fn cache(&'_ self) -> UserCache<'_> {
         UserCache { dao: self }
     }

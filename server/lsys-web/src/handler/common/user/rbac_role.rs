@@ -19,6 +19,7 @@ pub async fn user_role_add<'t, T: SessionTokenData, D: SessionData, S: UserSessi
         param,
         &req_dao.web_dao.user.rbac_dao,
         req_auth.user_data().user_id,
+        Some(&req_dao.req_env),
     )
     .await
 }
@@ -32,6 +33,7 @@ pub async fn user_role_edit<'t, T: SessionTokenData, D: SessionData, S: UserSess
         param,
         &req_dao.web_dao.user.rbac_dao,
         req_auth.user_data().user_id,
+        Some(&req_dao.req_env),
     )
     .await
 }
@@ -58,6 +60,7 @@ pub async fn user_role_add_user<'t, T: SessionTokenData, D: SessionData, S: User
         param,
         &req_dao.web_dao.user.rbac_dao,
         req_auth.user_data().user_id,
+        Some(&req_dao.req_env),
     )
     .await
 }
@@ -76,6 +79,7 @@ pub async fn user_role_delete_user<
         param,
         &req_dao.web_dao.user.rbac_dao,
         req_auth.user_data().user_id,
+        Some(&req_dao.req_env),
     )
     .await
 }
@@ -89,6 +93,7 @@ pub async fn user_role_delete<'t, T: SessionTokenData, D: SessionData, S: UserSe
         param,
         &req_dao.web_dao.user.rbac_dao,
         req_auth.user_data().user_id,
+        Some(&req_dao.req_env),
     )
     .await
 }

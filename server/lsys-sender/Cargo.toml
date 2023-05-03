@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 lsys-core = { version = "0.0.1", path = "../lsys-core"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-setting = { version = "0.0.1", path = "../lsys-setting"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-logger = { version = "0.0.1", path = "../lsys-logger"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
 serde={ version = "1.0.*"}
 serde_json="1.0.*"
 

@@ -1,7 +1,11 @@
 use crate::{
     dao::{user::UserDataOption, RestAuthQueryDao},
+    handler::access::{
+        AccessOauthUserAddress, AccessOauthUserEmail, AccessOauthUserInfo, AccessOauthUserMobile,
+    },
     {JsonData, JsonResult},
 };
+use lsys_app::model::AppsModel;
 use lsys_user::dao::auth::{SessionData, UserSession};
 use lsys_user::model::{UserEmailStatus, UserMobileStatus};
 use serde::Deserialize;
@@ -14,37 +18,85 @@ pub struct OauthDataOptionParam {
     pub name: Option<bool>,
     pub info: Option<bool>,
     pub address: Option<bool>,
-    pub external: Option<Vec<String>>,
-    pub email: Option<Vec<i8>>,
-    pub mobile: Option<Vec<i8>>,
+    pub email: Option<bool>,
+    pub mobile: Option<bool>,
 }
 
 pub async fn login_data_from_oauth(
     param: OauthDataOptionParam,
+    app: &AppsModel,
     req_dao: &RestAuthQueryDao,
 ) -> JsonResult<JsonData> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let email = if let Some(e) = param.email {
-        let mut out = Vec::with_capacity(e.len());
-        for tmp in e {
-            match UserEmailStatus::try_from(tmp) {
-                Ok(ts) => out.push(ts),
-                Err(err) => return Err(JsonData::error(err)),
-            };
-        }
-        Some(out)
+
+    if param.info.unwrap_or(false) || param.name.unwrap_or(false) {
+        req_dao
+            .web_dao
+            .user
+            .rbac_dao
+            .rbac
+            .check(
+                &AccessOauthUserInfo {
+                    app: app.to_owned(),
+                },
+                None,
+            )
+            .await?;
+        auth_data.check_scope("user_info")?;
+    }
+    if param.address.unwrap_or(false) {
+        req_dao
+            .web_dao
+            .user
+            .rbac_dao
+            .rbac
+            .check(
+                &AccessOauthUserAddress {
+                    app: app.to_owned(),
+                },
+                None,
+            )
+            .await?;
+        auth_data.check_scope("user_address")?;
+    }
+    if param.email.unwrap_or(false) {
+        req_dao
+            .web_dao
+            .user
+            .rbac_dao
+            .rbac
+            .check(
+                &AccessOauthUserEmail {
+                    app: app.to_owned(),
+                },
+                None,
+            )
+            .await?;
+        auth_data.check_scope("user_email")?;
+    }
+    if param.mobile.unwrap_or(false) {
+        req_dao
+            .web_dao
+            .user
+            .rbac_dao
+            .rbac
+            .check(
+                &AccessOauthUserMobile {
+                    app: app.to_owned(),
+                },
+                None,
+            )
+            .await?;
+        auth_data.check_scope("user_mobile")?;
+    }
+
+    let email: Option<Vec<UserEmailStatus>> = if param.email.unwrap_or(false) {
+        Some(vec![UserEmailStatus::Valid])
     } else {
         None
     };
-    let mobile = if let Some(e) = param.mobile {
-        let mut out = Vec::with_capacity(e.len());
-        for tmp in e {
-            match UserMobileStatus::try_from(tmp) {
-                Ok(ts) => out.push(ts),
-                Err(err) => return Err(JsonData::error(err)),
-            };
-        }
-        Some(out)
+    let mobile = if param.mobile.unwrap_or(false) {
+        Some(vec![UserMobileStatus::Valid])
     } else {
         None
     };
@@ -54,7 +106,7 @@ pub async fn login_data_from_oauth(
         info: param.info.unwrap_or(false),
         address: param.address.unwrap_or(false),
         email: email.as_deref(),
-        external: param.external.as_deref(),
+        external: None,
         mobile: mobile.as_deref(),
     };
     let user_data = req_dao
@@ -69,7 +121,6 @@ pub async fn login_data_from_oauth(
             "info":user_data.2,
             "address":user_data.3,
             "email":user_data.4,
-            "external":user_data.5,
             "mobile":user_data.6,
         }),
     })))

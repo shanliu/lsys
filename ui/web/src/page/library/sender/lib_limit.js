@@ -11,7 +11,7 @@ import { ToastContext } from '../../../context/toast';
 import { ConfirmButton } from '../../../library/dialog';
 import { ClearTextField, SliderInput } from '../../../library/input';
 import { LoadingButton } from '../../../library/loading';
-import { BaseTablePage } from '../../../library/table_page';
+import { SimpleTablePage } from '../../../library/table_page';
 import { senderAddConfig, senderDelConfig, senderListConfig } from '../../../rest/sender_setting';
 import { showTime } from '../../../utils/utils';
 
@@ -422,6 +422,7 @@ export function SenderLimit(props) {
             ...loadData,
             loading: true
         })
+        window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
         return senderListConfig(limitType, {
             user_id: parseInt(userId),
             id: limitId,
@@ -429,6 +430,7 @@ export function SenderLimit(props) {
             page: page,
             page_size: pageSize
         }).then((data) => {
+
             setLoadData({
                 ...loadData,
                 ...data,
@@ -537,7 +539,7 @@ export function SenderLimit(props) {
 
         {(loadData.status || loadData.loading)
             ? <Box sx={{ height: 1, width: '100%' }}>
-                <BaseTablePage
+                <SimpleTablePage
                     rows={loadData.data}
                     columns={columns}
                     count={loadData.total}

@@ -96,3 +96,33 @@ impl RbacResTpl for AccessOauthUserMobile {
         }]
     }
 }
+
+pub struct AccessOauthUserAddress {
+    pub app: AppsModel,
+}
+#[async_trait::async_trait]
+impl RbacCheck for AccessOauthUserAddress {
+    async fn check<'t>(
+        &self,
+        access: &'t RbacAccess,
+        relation: &'t [RoleRelationKey],
+    ) -> UserRbacResult<()> {
+        access
+            .check(
+                self.app.user_id,
+                &RelationApp { app: &self.app }.extend(relation),
+                &[AccessRes::system("global-oauth", &["user-address"], &[])],
+            )
+            .await
+    }
+}
+impl RbacResTpl for AccessOauthUserAddress {
+    fn tpl_data() -> Vec<ResTpl> {
+        vec![ResTpl {
+            tags: vec!["oauth", "app"],
+            user: false,
+            key: "global-oauth",
+            ops: vec!["user-address"],
+        }]
+    }
+}

@@ -51,6 +51,7 @@ pub async fn site_config_set<T: SessionTokenData, D: SessionData, S: UserSession
             },
             &req_auth.user_data().user_id,
             Some(&mut transaction),
+            None,
         )
         .await
     {
@@ -69,6 +70,7 @@ pub async fn site_config_set<T: SessionTokenData, D: SessionData, S: UserSession
             },
             &req_auth.user_data().user_id,
             Some(&mut transaction),
+            None,
         )
         .await
     {

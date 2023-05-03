@@ -9,7 +9,7 @@ use crate::common::handler::{ResponseJsonResult, RestRfc};
 
 impl RestRfc {
     pub async fn to_app_model(&self, apps: &Apps) -> ResponseJsonResult<AppsModel> {
-        apps.find_by_client_id(&self.app)
+        apps.find_by_client_id(&self.app_id)
             .await
             .map_err(|e| JsonData::message(e.to_string()).into())
     }

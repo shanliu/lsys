@@ -4,7 +4,8 @@ mod role;
 
 use crate::handler::access::{
     AccessAdminAliSmsConfig, AccessAdminManage, AccessAdminSetting, AccessAdminSmtpConfig,
-    AccessAppSenderSmsConfig, AccessResView, AccessRoleView, AccessUserAppConfirm,
+    AccessAdminUserFull, AccessAppSenderSmsConfig, AccessResView, AccessRoleView,
+    AccessUserAppConfirm,
 };
 pub use access::*;
 use lsys_rbac::dao::{RbacDao, RoleRelationKey, UserRbacError, UserRbacResult};
@@ -64,6 +65,7 @@ pub(crate) async fn access_check(
     check!("admin-app", AccessUserAppConfirm { user_id });
     check!("admin-main", AccessAdminManage { user_id });
     check!("admin-setting", AccessAdminSetting { user_id });
+    check!("admin-user", AccessAdminUserFull { user_id });
     let res_user_id = check_res.data.as_u64().unwrap_or(0);
     check!(
         "res-view",

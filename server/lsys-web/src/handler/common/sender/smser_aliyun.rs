@@ -87,6 +87,7 @@ pub async fn smser_ali_config_add<'t, T: SessionTokenData, D: SessionData, S: Us
             &param.access_id,
             &param.access_secret,
             &req_auth.user_data().user_id,
+            Some(&req_dao.req_env),
         )
         .await?;
     Ok(JsonData::data(json!({ "id": row })))
@@ -130,6 +131,7 @@ pub async fn smser_ali_config_edit<
             &param.access_id,
             &param.access_secret,
             &req_auth.user_data().user_id,
+            Some(&req_dao.req_env),
         )
         .await?;
     Ok(JsonData::data(json!({ "num": row })))
@@ -159,7 +161,11 @@ pub async fn smser_ali_config_del<'t, T: SessionTokenData, D: SessionData, S: Us
         .await?;
     let alisender = &req_dao.web_dao.sender_smser.aliyun_sender;
     let row = alisender
-        .del_config(&param.id, &req_auth.user_data().user_id)
+        .del_config(
+            &param.id,
+            &req_auth.user_data().user_id,
+            Some(&req_dao.req_env),
+        )
         .await?;
     Ok(JsonData::data(json!({ "num": row })))
 }

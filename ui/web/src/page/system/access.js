@@ -1,12 +1,12 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TabLayout } from '../layout';
+import { TabLayout } from '../library/layout';
 export default function SystemAccessPage() {
     const InfoNav = [
-        {
-            key: "test",
-            name: "授权测试"
-        },
+        // {
+        //     key: "test",
+        //     name: "授权测试"
+        // },
         {
             key: "role",
             name: "系统角色"

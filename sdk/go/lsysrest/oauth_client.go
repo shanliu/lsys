@@ -2,10 +2,10 @@ package lsysrest
 
 import (
 	"context"
-	"rest_client"
 	"github.com/tidwall/gjson"
 	"net/http"
 	"net/url"
+	"rest_client"
 	"time"
 )
 

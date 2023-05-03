@@ -1,9 +1,8 @@
-import { Alert } from "@mui/material";
+import { Alert, Box, IconButton, Snackbar } from "@mui/material";
 import React, { Fragment, createContext, useEffect, useReducer, useState } from "react";
 import { PageProgress } from "../library/loading";
 import { loadSiteConfigInfo } from "../rest/setting";
-import { Link } from "react-router-dom";
-
+import CloseIcon from '@mui/icons-material/Close';
 
 export const ConfigPasswordTips = 'password-tips'
 export const ConfigReload = 'reload'
@@ -18,6 +17,34 @@ export const ConfigTipPassword = () => {
     return {
         type: ConfigPasswordTips
     }
+}
+
+
+function SiteTips(props) {
+    const { site_tips } = props
+    const [open, setOpen] = useState(true)
+    return <Snackbar
+        anchorOrigin={{
+            vertical: 'bottom',
+            horizontal: 'left',
+        }}
+        open={open}
+    >
+        <Box>
+            <Alert action={
+                <IconButton
+                    size="small"
+                    aria-label="close"
+                    color="inherit"
+
+                    onClick={() => { setOpen(false) }}
+                >
+                    <CloseIcon fontSize="small" />
+                </IconButton>
+            } sx={{ m: 0, p: 1, mt: 1, paddingRight: 2 }} severity="info">{site_tips}</Alert>
+
+        </Box>
+    </Snackbar >
 }
 
 //登录信息处理 reducer 
@@ -43,7 +70,7 @@ const reducer = (data, action) => {
         case ConfigData:
             let site_tips = null;
             if (action.data.site_tips) {
-                site_tips = <Alert sx={{ m: 0, p: "2px 9px" }} severity='info'>{action.data.site_tips}</Alert>
+                site_tips = <SiteTips site_tips={action.data.site_tips} />
             }
             delete action.data.site_tips;
             return {
@@ -90,6 +117,7 @@ export const ConfigProvider = props => {
     }, [configData.reload])
     return (
         <Fragment>
+
             {configData.site_tips}
             {configData.password_tips}
             {configData.loading ? <PageProgress /> :

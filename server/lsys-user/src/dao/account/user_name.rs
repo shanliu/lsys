@@ -1,23 +1,36 @@
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
-    get_message, now_time, FluentMessage,
+    get_message, now_time, FluentMessage, RequestEnv,
 };
 
+use lsys_logger::dao::ChangeLogger;
+use rand::seq::SliceRandom;
 use sqlx::{Acquire, MySql, Pool, Transaction};
-use sqlx_model::{
-    executor_option, model_option_set, sql_format, Insert, ModelTableName, Select, SqlQuote, Update,
-};
-use std::{collections::HashMap, sync::Arc};
+use sqlx_model::{model_option_set, sql_format, Insert, ModelTableName, Select, SqlQuote, Update};
+use std::{collections::HashMap, string::FromUtf8Error, sync::Arc};
 
-use crate::model::{UserModel, UserNameModel, UserNameModelRef};
+use crate::model::{UserModel, UserNameModel, UserNameModelRef, UserNameStatus};
 
-use super::{user_index::UserIndex, UserAccountError, UserAccountResult};
+use super::{logger::LogUserName, user_index::UserIndex, UserAccountError, UserAccountResult};
 
 pub struct UserName {
     db: Pool<MySql>,
     fluent: Arc<FluentMessage>,
     index: Arc<UserIndex>,
     pub cache: Arc<LocalCache<u64, UserNameModel>>,
+    logger: Arc<ChangeLogger>,
+}
+
+fn del_rand_name() -> Result<String, FromUtf8Error> {
+    const BASE_STR: &str = "0123456789";
+    let mut rng = &mut rand::thread_rng();
+    String::from_utf8(
+        BASE_STR
+            .as_bytes()
+            .choose_multiple(&mut rng, 6)
+            .cloned()
+            .collect(),
+    )
 }
 
 impl UserName {
@@ -26,12 +39,14 @@ impl UserName {
         redis: deadpool_redis::Pool,
         fluent: Arc<FluentMessage>,
         index: Arc<UserIndex>,
+        logger: Arc<ChangeLogger>,
     ) -> Self {
         Self {
             cache: Arc::from(LocalCache::new(redis, LocalCacheConfig::new("user-name"))),
             db,
             fluent,
             index,
+            logger,
         }
     }
     /// 根据用户名查找记录
@@ -39,9 +54,10 @@ impl UserName {
         let select = Select::type_new::<UserNameModel>();
         let res = select
             .fetch_one_by_where_call::<UserNameModel, _, _>(
-                "username=?",
+                "username=? and status=?",
                 |mut res, _| {
                     res = res.bind(name);
+                    res = res.bind(UserNameStatus::Enable as i8);
                     res
                 },
                 &self.db,
@@ -49,19 +65,76 @@ impl UserName {
             .await?;
         Ok(res)
     }
+    /// 移除用户登录
+    pub async fn remove_username<'t>(
+        &self,
+        user: &UserModel,
+        transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
+    ) -> UserAccountResult<()> {
+        //change name is del_**
+        let ntime = now_time().unwrap_or_default();
+        let mut username = "delete_".to_string() + ntime.to_string().as_str();
+        if let Ok(rand) = del_rand_name() {
+            username += rand.as_str();
+        }
+        let status = UserNameStatus::Delete as i8;
+        let name_change = sqlx_model::model_option_set!(UserNameModelRef,{
+            username:username,
+            change_time:ntime,
+            status:status
+        });
+
+        let mut db = match transaction {
+            Some(pb) => pb.begin().await?,
+            None => self.db.begin().await?,
+        };
+        let res = Update::<sqlx::MySql, UserNameModel, _>::new(name_change)
+            .execute_by_where_call("user_id=?", |e, _| e.bind(user.id), &mut db)
+            .await;
+        if let Err(e) = res {
+            db.rollback().await?;
+            return Err(e.into());
+        }
+        if let Err(ie) = self
+            .index
+            .cat_del(crate::model::UserIndexCat::UserName, user.id, Some(&mut db))
+            .await
+        {
+            db.rollback().await?;
+            return Err(ie);
+        }
+        db.commit().await?;
+
+        self.logger
+            .add(
+                &LogUserName {
+                    action: "del",
+                    username,
+                },
+                &Some(user.id),
+                &Some(user.id),
+                &Some(user.id),
+                None,
+                env_data,
+            )
+            .await;
+        Ok(())
+    }
     /// 更改用户名
     pub async fn change_username<'t>(
         &self,
         user: &UserModel,
         username: String,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> UserAccountResult<()> {
         let username = username.trim().to_string();
-        if username.len() < 3 || username.len() > 32 {
+        if username.len() < 3 || username.len() > 32 || username.starts_with("delete_") {
             return Err(UserAccountError::System(get_message!(
                 &self.fluent,
                 "user-username-wrong",
-                "username length need 3-32 char"
+                "username length need 3-32 char and username can't start [delete_]"
             )));
         }
         let time = now_time()?;
@@ -76,7 +149,7 @@ impl UserName {
                 db,
             )
             .await;
-        match user_name_res {
+        let out = match user_name_res {
             Err(sqlx::Error::RowNotFound) => {
                 let user_name_res = Select::type_new::<UserNameModel>()
                     .fetch_one_by_where_call::<UserNameModel, _, _>(
@@ -88,42 +161,61 @@ impl UserName {
                         db,
                     )
                     .await;
-
                 match user_name_res {
                     Err(sqlx::Error::RowNotFound) => {
+                        let status = UserNameStatus::Enable as i8;
                         let new_data = model_option_set!(UserNameModelRef,{
                             user_id:user.id,
                             username:username,
+                            status:status,
                             change_time: time,
-                            add_time: time,
                         });
-
-                        executor_option!(
-                            {
-                                Insert::<sqlx::MySql, UserNameModel, _>::new(new_data)
-                                    .execute(db.as_copy())
-                                    .await?;
-                                sqlx::query(
-                                    sql_format!(
-                                        "UPDATE {} SET use_name=1 WHERE id=?",
-                                        UserModel::table_name(),
-                                    )
-                                    .as_str(),
-                                )
-                                .bind(user.id)
-                                .execute(db.as_copy())
-                                .await?;
-                            },
-                            transaction,
-                            db,
-                            db
-                        );
-
+                        let mut db = match transaction {
+                            Some(pb) => pb.begin().await?,
+                            None => self.db.begin().await?,
+                        };
+                        let tmp = Insert::<sqlx::MySql, UserNameModel, _>::new(new_data)
+                            .execute(&mut db)
+                            .await;
+                        if let Err(ie) = tmp {
+                            db.rollback().await?;
+                            return Err(ie.into());
+                        }
+                        let tmp = sqlx::query(
+                            sql_format!(
+                                "UPDATE {} SET use_name=1 WHERE id=?",
+                                UserModel::table_name(),
+                            )
+                            .as_str(),
+                        )
+                        .bind(user.id)
+                        .execute(&mut db)
+                        .await;
+                        if let Err(ie) = tmp {
+                            db.rollback().await?;
+                            return Err(ie.into());
+                        }
+                        if let Err(ie) = self
+                            .index
+                            .cat_one_add(
+                                crate::model::UserIndexCat::UserName,
+                                user.id,
+                                &username,
+                                Some(&mut db),
+                            )
+                            .await
+                        {
+                            db.rollback().await?;
+                            return Err(ie);
+                        }
+                        db.commit().await?;
                         self.cache.clear(&user.id).await;
                         Ok(())
                     }
                     Ok(user_name) => {
+                        let status = UserNameStatus::Enable as i8;
                         let change = sqlx_model::model_option_set!(UserNameModelRef,{
+                            status:status,
                             username:username,
                             change_time:time
                         });
@@ -140,23 +232,10 @@ impl UserName {
                         }
                         if let Err(ie) = self
                             .index
-                            .del(
+                            .cat_one_add(
                                 crate::model::UserIndexCat::UserName,
                                 user_name.user_id,
-                                &[user_name.username.to_owned()],
-                                Some(&mut db),
-                            )
-                            .await
-                        {
-                            db.rollback().await?;
-                            return Err(ie);
-                        }
-                        if let Err(ie) = self
-                            .index
-                            .add(
-                                crate::model::UserIndexCat::UserName,
-                                user_name.user_id,
-                                &[username.clone()],
+                                &username,
                                 Some(&mut db),
                             )
                             .await
@@ -176,12 +255,28 @@ impl UserName {
                     Ok(())
                 } else {
                     Err(UserAccountError::System(
-                        get_message!(&self.fluent,"user-name-exits","name {$name} already exists",["name"=>username]),
+                        get_message!(&self.fluent,"user-name-exits","name {$name} already exists",["name"=>username.clone()]),
                     ))
                 }
             }
             Err(err) => Err(err.into()),
+        };
+        if out.is_ok() {
+            self.logger
+                .add(
+                    &LogUserName {
+                        action: "set",
+                        username,
+                    },
+                    &Some(user.id),
+                    &Some(user.id),
+                    &Some(user.id),
+                    None,
+                    env_data,
+                )
+                .await;
         }
+        out
     }
 
     lsys_core::impl_dao_fetch_one_by_one!(

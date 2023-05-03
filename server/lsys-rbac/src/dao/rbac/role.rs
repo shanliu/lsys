@@ -6,9 +6,11 @@ use std::{
 
 use lsys_core::{
     cache::LocalCache, get_message, impl_dao_fetch_map_by_vec, impl_dao_fetch_one_by_one, now_time,
-    FluentMessage, PageParam,
+    FluentMessage, PageParam, RequestEnv,
 };
 
+use lsys_logger::dao::ChangeLogger;
+use serde::Serialize;
 use sqlx::{Acquire, FromRow, MySql, Pool, Row, Transaction};
 use sqlx_model::{
     executor_option, model_option_set, sql_format, Insert, ModelTableName, Select, SqlExpr,
@@ -23,7 +25,10 @@ use crate::model::{
     RbacTagsSource,
 };
 
-use super::{RbacResData, RbacTags, RoleCheckData, RoleCheckRow, UserRbacError, UserRbacResult};
+use super::{
+    logger::{LogRole, LogRoleOp, LogRoleUser, LogRoleUserAction},
+    RbacResData, RbacTags, RoleCheckData, RoleCheckRow, UserRbacError, UserRbacResult,
+};
 
 pub const ROLE_PRIORITY_NONE: i8 = -1;
 pub const ROLE_PRIORITY_MIN: i8 = 0;
@@ -75,15 +80,16 @@ pub struct RbacRole {
     tags: Arc<RbacTags>,
     cache_relation: Arc<LocalCache<String, Option<RoleDetailRow>>>,
     cache_access: Arc<LocalCache<String, Option<RoleAccessRow>>>,
+    logger: Arc<ChangeLogger>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct RoleAddUser {
     pub user_id: u64,
     pub timeout: u64, //换成时间不超过此值，查询时要有此值
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct RoleSetOp {
     pub res: RbacResModel,
     pub res_op: Vec<(RbacResOpModel, RbacRoleOpPositivity)>,
@@ -96,6 +102,7 @@ impl RbacRole {
         tags: Arc<RbacTags>,
         cache_relation: Arc<LocalCache<String, Option<RoleDetailRow>>>,
         cache_access: Arc<LocalCache<String, Option<RoleAccessRow>>>,
+        logger: Arc<ChangeLogger>,
     ) -> Self {
         Self {
             cache_relation,
@@ -103,6 +110,7 @@ impl RbacRole {
             db,
             fluent,
             tags,
+            logger,
         }
     }
     impl_dao_fetch_one_by_one!(
@@ -233,6 +241,7 @@ impl RbacRole {
         tags: &[String],
         user_id: u64,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> UserRbacResult<()> {
         let tags = {
             let mut tout = Vec::with_capacity(tags.len());
@@ -249,6 +258,7 @@ impl RbacRole {
                 &tags,
                 user_id,
                 transaction,
+                env_data,
             )
             .await
     }
@@ -353,6 +363,7 @@ impl RbacRole {
         priority: i8,
         add_user_id: u64,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> UserRbacResult<u64> {
         self.priority_check(priority)?;
         let name = check_length!(&self.fluent, name, "name", 32);
@@ -376,6 +387,7 @@ impl RbacRole {
                 let ur = user_range as i8;
                 let orr = res_op_range as i8;
                 let piy = priority;
+                let relation_key_tmp = relation_key.clone();
                 let idata = model_option_set!(RbacRoleModelRef,{
                     name:name,
                     user_range:ur,
@@ -383,7 +395,7 @@ impl RbacRole {
                     priority: piy,
                     user_id:user_id,
                     change_time:time,
-                    relation_key:relation_key,
+                    relation_key:relation_key_tmp,
                     change_user_id:add_user_id,
                     status:(RbacRoleStatus::Enable as i8),
                 });
@@ -434,7 +446,7 @@ impl RbacRole {
                     self.cache_relation
                         .clear(
                             &RoleRelationKey {
-                                relation_key,
+                                relation_key: relation_key.clone(),
                                 user_id,
                             }
                             .to_string(),
@@ -442,6 +454,24 @@ impl RbacRole {
                         .await;
                 }
                 //cache clean----------------------------
+
+                self.logger
+                    .add(
+                        &LogRole {
+                            name,
+                            relation_key,
+                            priority,
+                            user_range,
+                            res_op_range,
+                            action: "add",
+                        },
+                        &Some(id),
+                        &Some(user_id),
+                        &Some(add_user_id),
+                        None,
+                        env_data,
+                    )
+                    .await;
 
                 Ok(id)
             }
@@ -459,6 +489,7 @@ impl RbacRole {
         priority: i8,
         add_user_id: u64,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> UserRbacResult<u64> {
         self.not_relation_check(user_range)?;
         self.inner_add_role(
@@ -470,6 +501,7 @@ impl RbacRole {
             priority,
             add_user_id,
             transaction,
+            env_data,
         )
         .await
     }
@@ -484,6 +516,7 @@ impl RbacRole {
         priority: i8,
         add_user_id: u64,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> UserRbacResult<u64> {
         if relation_key.is_empty() {
             return Err(UserRbacError::System(get_message!(
@@ -514,6 +547,7 @@ impl RbacRole {
                     priority,
                     add_user_id,
                     transaction,
+                    env_data,
                 )
                 .await
             }
@@ -533,6 +567,7 @@ impl RbacRole {
         res_op_range: Option<RbacRoleResOpRange>,
         change_user_id: u64,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> UserRbacResult<()> {
         let name = if let Some(name) = name {
             Some(check_length!(&self.fluent, name, "name", 32))
@@ -836,6 +871,30 @@ impl RbacRole {
         }
         //cache clean----------------------------
 
+        self.logger
+            .add(
+                &LogRole {
+                    priority: priority.unwrap_or(role.priority),
+                    user_range: user_range.unwrap_or(
+                        RbacRoleUserRange::try_from(role.user_range)
+                            .unwrap_or(RbacRoleUserRange::Guest),
+                    ),
+                    res_op_range: res_op_range.unwrap_or(
+                        RbacRoleResOpRange::try_from(role.res_op_range)
+                            .unwrap_or(RbacRoleResOpRange::AllowAll),
+                    ),
+                    relation_key: relation_key.unwrap_or(role.relation_key.to_owned()),
+                    name: name.unwrap_or(role.name.clone().to_owned()),
+                    action: "edit",
+                },
+                &Some(role.id),
+                &Some(role.user_id),
+                &Some(change_user_id),
+                None,
+                env_data,
+            )
+            .await;
+
         Ok(())
     }
     //编辑角色
@@ -849,6 +908,7 @@ impl RbacRole {
         res_op_range: Option<RbacRoleResOpRange>,
         change_user_id: u64,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> UserRbacResult<()> {
         self.not_relation_check(RbacRoleUserRange::try_from(role.user_range)?)?;
         if let Some(ur) = user_range {
@@ -863,6 +923,7 @@ impl RbacRole {
             res_op_range,
             change_user_id,
             transaction,
+            env_data,
         )
         .await
     }
@@ -877,6 +938,7 @@ impl RbacRole {
         res_op_range: Option<RbacRoleResOpRange>,
         change_user_id: u64,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> UserRbacResult<()> {
         if let Some(n) = &relation_key {
             let tname = n.to_owned();
@@ -914,6 +976,7 @@ impl RbacRole {
             res_op_range,
             change_user_id,
             transaction,
+            env_data,
         )
         .await
     }
@@ -924,6 +987,7 @@ impl RbacRole {
         role: &RbacRoleModel,
         delete_user_id: u64,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> UserRbacResult<()> {
         let time = now_time().unwrap_or_default();
         let change = sqlx_model::model_option_set!(RbacRoleModelRef,{
@@ -969,7 +1033,13 @@ impl RbacRole {
         }
         let tmp = self
             .tags
-            .del_tags(role.id, RbacTagsSource::Role, delete_user_id, Some(&mut db))
+            .del_tags(
+                role.id,
+                RbacTagsSource::Role,
+                delete_user_id,
+                Some(&mut db),
+                env_data,
+            )
             .await;
         if let Err(e) = tmp {
             db.rollback().await?;
@@ -1091,6 +1161,27 @@ impl RbacRole {
             }
         }
         //cache clean----------------------------
+
+        self.logger
+            .add(
+                &LogRole {
+                    name: role.name.clone(),
+                    relation_key: role.relation_key.clone(),
+                    priority: role.priority,
+                    user_range: RbacRoleUserRange::try_from(role.user_range)
+                        .unwrap_or(RbacRoleUserRange::Guest),
+                    res_op_range: RbacRoleResOpRange::try_from(role.res_op_range)
+                        .unwrap_or(RbacRoleResOpRange::AllowAll),
+                    action: "del",
+                },
+                &Some(role.id),
+                &Some(role.user_id),
+                &Some(delete_user_id),
+                None,
+                env_data,
+            )
+            .await;
+
         Ok(())
     }
     /// 角色添加用户
@@ -1100,6 +1191,7 @@ impl RbacRole {
         user_vec: &[RoleAddUser],
         add_user_id: u64,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> UserRbacResult<()> {
         if user_vec.is_empty() {
             return Ok(());
@@ -1206,6 +1298,23 @@ impl RbacRole {
             }
         }
         //cache clean----------------------------
+
+        self.logger
+            .add(
+                &LogRoleUser {
+                    action: LogRoleUserAction::Add,
+                    name: role.name.clone(),
+                    add_user: Some(user_vec.to_owned()),
+                    del_user: None,
+                },
+                &Some(role.id),
+                &Some(role.user_id),
+                &Some(add_user_id),
+                None,
+                env_data,
+            )
+            .await;
+
         Ok(())
     }
     /// 角色删除用户
@@ -1215,6 +1324,7 @@ impl RbacRole {
         user_id_vec: &[u64],
         del_user_id: u64,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> UserRbacResult<u64> {
         if user_id_vec.is_empty() {
             return Ok(0);
@@ -1284,6 +1394,22 @@ impl RbacRole {
             }
         }
         //cache clean----------------------------
+
+        self.logger
+            .add(
+                &LogRoleUser {
+                    action: LogRoleUserAction::Del,
+                    name: role.name.clone(),
+                    add_user: None,
+                    del_user: Some(user_id_vec.to_owned()),
+                },
+                &Some(role.id),
+                &Some(role.user_id),
+                &Some(del_user_id),
+                None,
+                env_data,
+            )
+            .await;
         Ok(res.rows_affected())
     }
     //汇总指定角色的用户数量
@@ -1564,6 +1690,7 @@ impl RbacRole {
         role_op_vec: &[RoleSetOp],
         set_user_id: u64,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> UserRbacResult<()> {
         if !RbacRoleResOpRange::AllowCustom.eq(role.res_op_range) {
             return Err(UserRbacError::System(
@@ -1798,6 +1925,21 @@ impl RbacRole {
             }
         }
         //cache clean----------------------------
+
+        self.logger
+            .add(
+                &LogRoleOp {
+                    name: role.name.to_owned(),
+                    role_op_vec: role_op_vec.to_owned(),
+                },
+                &Some(role.id),
+                &Some(role.user_id),
+                &Some(set_user_id),
+                None,
+                env_data,
+            )
+            .await;
+
         Ok(())
     }
     /// 获取指定关系KEY的角色详细数据

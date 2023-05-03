@@ -2,16 +2,16 @@
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SearchIcon from '@mui/icons-material/Search';
-import { Alert, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, FormControl, InputLabel, MenuItem, Paper, Select } from '@mui/material';
+import { Alert, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, FormControl, IconButton, InputLabel, MenuItem, Paper, Select } from '@mui/material';
 import Box from '@mui/material/Box';
-import { DataGrid, GridActionsCellItem } from '@mui/x-data-grid';
 import { toDataURL } from 'qrcode';
 import randomString from 'random-string';
 import React, { Fragment, useContext, useEffect, useState } from 'react';
 import { ToastContext } from '../../../context/toast';
 import { ConfirmButton } from '../../../library/dialog';
 import { LoadingButton, Progress } from '../../../library/loading';
-import { oauthAdd, oauthCheck, OauthConfig, oauthDelete, oauthList, OauthType } from '../../../rest/user';
+import { DataPaginationTablePage } from '../../../library/table_page';
+import { OauthConfig, OauthType, oauthAdd, oauthCheck, oauthDelete, oauthList } from '../../../rest/user';
 import { useSearchChange } from '../../../utils/hook';
 import { showTime } from '../../../utils/utils';
 export default function UserOauthPage(props) {
@@ -26,77 +26,66 @@ export default function UserOauthPage(props) {
     const columns = [
         {
             field: 'id',
-            headerName: 'ID',
-            width: 90,
-            type: 'number',
+            label: 'ID',
+
+            style: { width: 90 },
+            align: "right"
         },
         {
-            field: 'external_type',
-            width: 80,
-            headerName: '类型',
 
-            valueGetter: (params) => {
-                let item = OauthType.find((e) => { return e.key == params.row.external_type });
-                return item ? item.val : params.row.external_type
+            style: { width: 90 },
+            label: '类型',
+
+            render: (params) => {
+                let item = OauthType.find((e) => { return e.key == params.external_type });
+                return item ? item.val : params.external_type
             }
         },
         {
             field: 'external_id',
-            width: 140,
-            headerName: '外部ID',
-            sortable: false
-        },
-        {
-            field: 'external_name',
-            width: 140,
-            headerName: '外部账号',
+            style: { width: 140 },
+            label: '外部ID',
 
-            valueGetter: (params) => {
-                if (params.row.external_nikename.length > 0) {
-                    return params.row.external_name + '(' + params.row.external_nikename + ')';
+        },
+        {
+
+            style: { width: 140 },
+            label: '外部账号',
+
+            render: (params) => {
+                if (params.external_nikename.length > 0) {
+                    return params.external_name + '(' + params.external_nikename + ')';
                 }
-                return params.row.external_name
+                return params.external_name
             }
         },
         {
-            field: 'add_time',
-            width: 180,
-            headerName: '添加时间',
-            sortable: false,
-            valueGetter: (params) => {
-                return showTime(params.row.add_time, "未知")
-            }
-        },
-        {
-            field: 'change_time',
-            width: 180,
-            headerName: '最后登陆时间',
-            sortable: false,
-            valueGetter: (params) => {
-                return showTime(params.row.change_time, "未知")
+            style: { width: 180 },
+            label: '最后登陆时间',
+
+            render: (params) => {
+                return showTime(params.change_time, "未知")
             }
         },
         {
             field: 'token_data',
             width: 100,
-            sortable: false,
-            headerName: '登陆Token',
+            style: { width: 100 },
+            label: '登陆Token',
             align: "left"
         },
         {
-            headerName: '操作',
-            type: 'actions',
-            field: "actions",
+            label: '操作',
             align: "center",
-            getActions: (params) => {
+            render: (params) => {
                 return [
-                    <ConfirmButton
-                        message={`确定要解除账号 ${params.row.external_name}[${params.row.external_id}] 的绑定?`}
+                    <ConfirmButton key={`${params.id}-del`}
+                        message={`确定要解除账号 ${params.external_name}[${params.external_id}] 的绑定?`}
                         onAction={() => {
-                            return oauthDelete(params.row.id).then((res) => {
+                            return oauthDelete(params.id).then((res) => {
                                 if (!res.status) return res;
                                 let rows = loadData.data.filter((item) => {
-                                    if (item.id != params.row.id) return item;
+                                    if (item.id != params.id) return item;
                                 })
                                 setLoadData({
                                     ...loadData,
@@ -110,7 +99,10 @@ export default function UserOauthPage(props) {
                             });
                         }}
                         renderButton={(props) => {
-                            return <GridActionsCellItem {...props} icon={<DeleteIcon />} label="解除绑定" />
+                            return <IconButton title="解除绑定" key={`${params.id}-oauth`} {...props} size='small'>
+                                <DeleteIcon fontSize='small' />
+                            </IconButton>
+
                         }
                         } />]
 
@@ -123,6 +115,8 @@ export default function UserOauthPage(props) {
 
     const [searchParam, setSearchParam] = useSearchChange({
         oauth_type: "",
+        page: 0,
+        page_size: 10,
     });
     const [filterData, setfilterData] = useState({
         oauth_type: searchParam.get("oauth_type"),
@@ -133,7 +127,9 @@ export default function UserOauthPage(props) {
             ...loadData,
             loading: true
         })
+        window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
         oauthList(searchParam.get("oauth_type")).then((data) => {
+
             setLoadData({
                 ...loadData,
                 ...data,
@@ -147,15 +143,12 @@ export default function UserOauthPage(props) {
             ...filterData,
             oauth_type: searchParam.get("oauth_type"),
         })
-        LoadOauthData();
+
     }, [searchParam])
+    useEffect(() => {
+        LoadOauthData();
+    }, [])
 
-
-    const execFilterData = () => {
-        setSearchParam({
-            ...filterData
-        }, LoadOauthData)
-    }
 
 
 
@@ -229,7 +222,11 @@ export default function UserOauthPage(props) {
                         ...filterData,
                         oauth_type: addOauth.load_type
                     })
-                    execFilterData()
+                    LoadOauthData()
+                    setSearchParam({
+                        ...filterData,
+                        page: 0,
+                    })
                     return
                 }
                 if (!data.status) {
@@ -361,7 +358,11 @@ export default function UserOauthPage(props) {
                 </Select>
             </FormControl>
             <Button
-                onClick={execFilterData}
+                onClick={() => {
+                    setSearchParam({
+                        ...filterData
+                    }, LoadOauthData)
+                }}
                 variant="outlined"
                 size="medium"
                 startIcon={<SearchIcon />}
@@ -391,25 +392,24 @@ export default function UserOauthPage(props) {
 
         {(loadData.status || loadData.loading)
             ? <Box sx={{ height: 1, width: '100%' }}>
-                < DataGrid
-                    sx={{
-                        "&.MuiDataGrid-root .MuiDataGrid-cell:focus-within": {
-                            outline: "none !important",
-                        },
-                        "&.MuiDataGrid-root .MuiDataGrid-columnHeader:focus-within": {
-                            outline: "none !important",
-                        },
-                    }}
-                    rows={loadData.data}
+                <DataPaginationTablePage
+                    rows={(loadData.data ?? []).filter((item) => {
+                        if (!searchParam.get('status') || item.status == searchParam.get('status')) return item;
+                    })}
                     columns={columns}
-                    autoHeight={true}
-                    autoPageSize={true}
-                    pageSize={10}
-                    disableColumnFilter={true}
-                    disableColumnMenu={true}
-                    disableSelectionOnClick={true}
-                    rowCount={loadData.data.length}
-                    editMode="cell"
+                    page={searchParam.get("page") || 0}
+                    onPageChange={(e, newPage) => {
+                        setSearchParam({
+                            page: newPage
+                        }, LoadOauthData)
+                    }}
+                    rowsPerPage={searchParam.get("page_size") || 10}
+                    onRowsPerPageChange={(e) => {
+                        setSearchParam({
+                            page_size: e.target.value,
+                            page: 0
+                        }, LoadOauthData)
+                    }}
                     loading={loadData.loading}
                 />
             </Box> : <Alert severity="error">{loadData.message}</Alert>}

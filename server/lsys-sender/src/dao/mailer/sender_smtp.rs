@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    dao::{AppConfigReader, MessageTpls, SenderError, SenderResult},
+    dao::{logger::LogMailAppConfig, AppConfigReader, MessageTpls, SenderError, SenderResult},
     model::{SenderMailSmtpModel, SenderMailSmtpModelRef, SenderMailSmtpStatus, SenderType},
 };
 use async_trait::async_trait;
@@ -16,7 +16,8 @@ use lettre::{
     },
     AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
 };
-use lsys_core::{now_time, FluentMessage};
+use lsys_core::{now_time, FluentMessage, RequestEnv};
+use lsys_logger::dao::ChangeLogger;
 use lsys_setting::dao::{
     MultipleSetting, SettingData, SettingDecode, SettingEncode, SettingJson, SettingKey,
     SettingResult,
@@ -101,8 +102,8 @@ pub struct ShowSmtpConfig {
     pub password: String,
     pub hide_password: String,
     pub tls_domain: String,
-    pub last_user_id: u64,
-    pub last_change_time: u64,
+    pub change_user_id: u64,
+    pub change_time: u64,
 }
 impl SettingKey for SmtpConfig {
     fn key<'t>() -> &'t str {
@@ -126,14 +127,20 @@ pub struct SmtpSender {
     db: Pool<MySql>,
     setting: Arc<MultipleSetting>,
     app_config_read: AppConfigReader<SenderMailSmtpModel, SmtpConfig>,
+    logger: Arc<ChangeLogger>,
 }
 
 impl SmtpSender {
-    pub fn new(db: Pool<sqlx::MySql>, setting: Arc<MultipleSetting>) -> Self {
+    pub fn new(
+        db: Pool<sqlx::MySql>,
+        setting: Arc<MultipleSetting>,
+        logger: Arc<ChangeLogger>,
+    ) -> Self {
         Self {
             app_config_read: AppConfigReader::new(db.clone(), setting.clone()),
             db,
             setting,
+            logger,
         }
     }
     //列出有效的smtp配置
@@ -150,8 +157,8 @@ impl SmtpSender {
             .map(|e| ShowSmtpConfig {
                 id: e.model().id,
                 name: e.model().name.to_owned(),
-                last_user_id: e.model().last_user_id,
-                last_change_time: e.model().last_change_time,
+                change_user_id: e.model().change_user_id,
+                change_time: e.model().change_time,
                 host: e.host.clone(),
                 port: e.port,
                 timeout: e.timeout,
@@ -169,10 +176,15 @@ impl SmtpSender {
             .collect::<Vec<_>>())
     }
     //删除指定的smtp配置
-    pub async fn del_config(&self, id: &u64, user_id: &u64) -> SenderResult<u64> {
+    pub async fn del_config(
+        &self,
+        id: &u64,
+        user_id: &u64,
+        env_data: Option<&RequestEnv>,
+    ) -> SenderResult<u64> {
         Ok(self
             .setting
-            .del::<SmtpConfig>(&None, id, user_id, None)
+            .del::<SmtpConfig>(&None, id, user_id, None, env_data)
             .await?)
     }
     //编辑指定的smtp配置
@@ -182,11 +194,12 @@ impl SmtpSender {
         name: &str,
         config: &SmtpConfig,
         user_id: &u64,
+        env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         self.check_config(config).await?;
         Ok(self
             .setting
-            .edit(&None, id, name, config, user_id, None)
+            .edit(&None, id, name, config, user_id, None, env_data)
             .await?)
     }
     //添加smtp配置
@@ -195,9 +208,13 @@ impl SmtpSender {
         name: &str,
         config: &SmtpConfig,
         user_id: &u64,
+        env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         self.check_config(config).await?;
-        Ok(self.setting.add(&None, name, config, user_id, None).await?)
+        Ok(self
+            .setting
+            .add(&None, name, config, user_id, None, env_data)
+            .await?)
     }
     //检测smtp配置
     pub async fn check_config(&self, config: &SmtpConfig) -> SenderResult<()> {
@@ -246,6 +263,7 @@ impl SmtpSender {
         try_num: &u16,
         user_id: &u64,
         add_user_id: &u64,
+        env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         let from_email = from_email.to_owned();
         from_email
@@ -266,27 +284,51 @@ impl SmtpSender {
             subject_tpl_id:subject_tpl_id,
             body_tpl_id:body_tpl_id,
             max_try_num:try_num,
-            add_time:time,
+            change_time:time,
             user_id:user_id,
-            add_user_id:add_user_id,
+            change_user_id:add_user_id,
             status:SenderMailSmtpStatus::Enable as i8,
         });
-        Ok(Insert::<sqlx::MySql, SenderMailSmtpModel, _>::new(add)
+        let id = Insert::<sqlx::MySql, SenderMailSmtpModel, _>::new(add)
             .execute(&self.db)
             .await
-            .map(|e| e.last_insert_id())?)
+            .map(|e| e.last_insert_id())?;
+
+        self.logger
+            .add(
+                &LogMailAppConfig {
+                    action: "add",
+                    app_id: app_id.to_owned(),
+                    name,
+                    tpl_id,
+                    from_email,
+                    smtp_config_id,
+                    subject_tpl_id,
+                    body_tpl_id,
+                    max_try_num: try_num.to_owned(),
+                },
+                &Some(id),
+                &Some(user_id.to_owned()),
+                &Some(add_user_id.to_owned()),
+                None,
+                env_data,
+            )
+            .await;
+
+        Ok(id)
     }
     //删除发送跟smtp的配置
     pub async fn del_app_config(
         &self,
         mail_smtp: &SenderMailSmtpModel,
         user_id: &u64,
+        env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         let time = now_time().unwrap_or_default();
         let change = sqlx_model::model_option_set!(SenderMailSmtpModelRef,{
             status:SenderMailSmtpStatus::Delete as i8,
-            delete_time:time,
-            delete_user_id:user_id
+            change_time:time,
+            change_user_id:user_id
         });
         let res = Update::<sqlx::MySql, SenderMailSmtpModel, _>::new(change)
             .execute_by_pk(mail_smtp, &self.db)
@@ -295,6 +337,28 @@ impl SmtpSender {
             Err(e) => Err(e)?,
             Ok(mr) => {
                 //清理缓存
+
+                self.logger
+                    .add(
+                        &LogMailAppConfig {
+                            action: "del",
+                            app_id: mail_smtp.app_id,
+                            name: mail_smtp.name.to_owned(),
+                            tpl_id: mail_smtp.tpl_id.to_owned(),
+                            from_email: mail_smtp.from_email.to_owned(),
+                            smtp_config_id: mail_smtp.smtp_config_id,
+                            subject_tpl_id: mail_smtp.subject_tpl_id.to_owned(),
+                            body_tpl_id: mail_smtp.body_tpl_id.to_owned(),
+                            max_try_num: mail_smtp.max_try_num,
+                        },
+                        &Some(mail_smtp.id),
+                        &Some(mail_smtp.user_id),
+                        &Some(user_id.to_owned()),
+                        None,
+                        env_data,
+                    )
+                    .await;
+
                 Ok(mr.rows_affected())
             }
         }
@@ -310,12 +374,17 @@ pub struct SmtpSenderTask {
 }
 
 impl SmtpSenderTask {
-    pub fn new(smtp: SmtpSender, db: Pool<sqlx::MySql>, fluent: Arc<FluentMessage>) -> Self {
+    pub fn new(
+        smtp: SmtpSender,
+        db: Pool<sqlx::MySql>,
+        fluent: Arc<FluentMessage>,
+        logger: Arc<ChangeLogger>,
+    ) -> Self {
         Self {
             smtp: Arc::new(smtp),
             i: Arc::new(AtomicU32::new(0)),
             mailer: Arc::new(RwLock::new(HashMap::new())),
-            tpls: Arc::new(MessageTpls::new(db, fluent)),
+            tpls: Arc::new(MessageTpls::new(db, fluent, logger)),
         }
     }
     //执行短信发送

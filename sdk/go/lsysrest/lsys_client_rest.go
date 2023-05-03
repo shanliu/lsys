@@ -27,37 +27,43 @@ func (res *RestApiClient) ConfigName(_ context.Context) (string, error) {
 // ConfigBuilds 统一配置调用接口
 func (res *RestApiClient) ConfigBuilds(_ context.Context) (map[int]rest_client.RestBuild, error) {
 	return map[int]rest_client.RestBuild{
-		AppInfo: &rest_client.AppRestBuild{
+		AppInfo: &RestClientBuild{
+			Payload: http.MethodPost,
 			HttpMethod: http.MethodPost,
 			Path:       "/rest/app",
 			Method:     "view",
 			Timeout:    60 * time.Second,
 		},
-		AccessCheck: &rest_client.AppRestBuild{
+		AccessCheck: &RestClientBuild{
+			Payload: http.MethodPost,
 			HttpMethod: http.MethodPost,
 			Path:       "/rbac/access",
 			Method:     "check",
 			Timeout:    60 * time.Second,
 		},
-		SmeSend: &rest_client.AppRestBuild{
+		SmeSend: &RestClientBuild{
+			Payload: http.MethodPost,
 			HttpMethod: http.MethodPost,
 			Path:       "/rest/sms",
 			Method:     "send",
 			Timeout:    60 * time.Second,
 		},
-		SmeCancel: &rest_client.AppRestBuild{
+		SmeCancel: &RestClientBuild{
+			Payload: http.MethodPost,
 			HttpMethod: http.MethodPost,
 			Path:       "/rest/sms",
 			Method:     "cancel",
 			Timeout:    60 * time.Second,
 		},
-		MailSend: &rest_client.AppRestBuild{
+		MailSend: &RestClientBuild{
+			Payload: http.MethodPost,
 			HttpMethod: http.MethodPost,
 			Path:       "/rest/mail",
 			Method:     "send",
 			Timeout:    60 * time.Second,
 		},
-		MailCancel: &rest_client.AppRestBuild{
+		MailCancel: &RestClientBuild{
+			Payload: http.MethodPost,
 			HttpMethod: http.MethodPost,
 			Path:       "/rest/mail",
 			Method:     "cancel",

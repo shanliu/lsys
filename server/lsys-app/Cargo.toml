@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 lsys-core = { version = "0.0.1", path = "../lsys-core"}
 lsys-user = { version = "0.0.1", path = "../lsys-user"}# OAUTH登录相关实现依赖
+lsys-logger = { version = "0.0.1", path = "../lsys-logger"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
 pin-project = "1.0.*"
 futures-util="0.3.*"
 serde={ version = "1.0.*"}

@@ -4,7 +4,7 @@ use std::{
 };
 
 use async_trait::async_trait;
-use lsys_core::{now_time, AppCore};
+use lsys_core::{now_time, AppCore, RequestEnv};
 
 use tracing::warn;
 
@@ -62,6 +62,7 @@ impl<A: SmsTaskAcquisition<T>, T: Send + Sync + 'static + Clone> SmsSender<A, T>
         send_time: &Option<u64>,
         user_id: &Option<u64>,
         cancel_key: &Option<String>,
+        env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         let mobiles = mobiles
             .iter()
@@ -88,6 +89,7 @@ impl<A: SmsTaskAcquisition<T>, T: Send + Sync + 'static + Clone> SmsSender<A, T>
                 &sendtime,
                 user_id,
                 cancel_key,
+                env_data,
             )
             .await?;
         if send_time
@@ -106,19 +108,25 @@ impl<A: SmsTaskAcquisition<T>, T: Send + Sync + 'static + Clone> SmsSender<A, T>
         &self,
         msg: &SenderSmsMessageModel,
         user_id: &u64,
+        env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         let mut redis = self.redis.get().await?;
         let tdata = self.task.task_data(&mut redis).await?;
         if tdata.get(&msg.id).is_none() {
             self.acquisition
                 .sms_record()
-                .cancel_form_message(msg, user_id)
+                .cancel_form_message(msg, user_id, env_data)
                 .await?;
         }
         Ok(1)
     }
     //通过KEY取消发送
-    pub async fn cancal_from_key(&self, cancel_key: &str, user_id: &u64) -> SenderResult<u64> {
+    pub async fn cancal_from_key(
+        &self,
+        cancel_key: &str,
+        user_id: &u64,
+        env_data: Option<&RequestEnv>,
+    ) -> SenderResult<u64> {
         let data = self
             .acquisition
             .sms_record()
@@ -132,7 +140,7 @@ impl<A: SmsTaskAcquisition<T>, T: Send + Sync + 'static + Clone> SmsSender<A, T>
             if tdata.get(&tmp.id).is_none() {
                 self.acquisition
                     .sms_record()
-                    .cancel_form_key(&tmp, user_id)
+                    .cancel_form_key(&tmp, user_id, env_data)
                     .await?;
                 succ += 1;
             }

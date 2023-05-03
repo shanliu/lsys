@@ -2,13 +2,13 @@ import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SearchIcon from '@mui/icons-material/Search';
 import SendIcon from '@mui/icons-material/Send';
-import { Alert, Button, Drawer, FormControl, InputLabel, MenuItem, Paper, Select } from '@mui/material';
+import { Alert, Button, Drawer, FormControl, IconButton, InputLabel, MenuItem, Paper, Select } from '@mui/material';
 import Box from '@mui/material/Box';
-import { DataGrid, GridActionsCellItem } from '@mui/x-data-grid';
 import randomString from 'random-string';
 import React, { Fragment, useContext, useEffect, useState } from 'react';
 import { ToastContext } from '../../../context/toast';
 import { ConfirmButton } from '../../../library/dialog';
+import { DataPaginationTablePage } from '../../../library/table_page';
 import { emailAdd, emailComfirmStatus, emailConfirm, emailDelete, emailList, emailSendCode } from '../../../rest/user';
 import { useSearchChange } from '../../../utils/hook';
 import { captchaSrc } from '../../../utils/rest';
@@ -25,16 +25,19 @@ export default function UserEmailPage(props) {
         data: [],
         message: null,
     });
-
     const [param, setParam] = useSearchChange({
-        status: ""
+        status: "",
+        page: 0,
+        page_size: 10
     });
-    const emailData = (status) => {
+    const loadEmailData = () => {
         setLoadData({
             ...loadData,
             loading: true
         })
-        emailList(status).then((data) => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+        emailList().then((data) => {
+
             setLoadData({
                 ...loadData,
                 ...data,
@@ -43,10 +46,7 @@ export default function UserEmailPage(props) {
             })
         })
     };
-    const loadEmailData = () => {
-        emailData(param.get("status"));
-    }
-    useEffect(loadEmailData, [param])
+    useEffect(loadEmailData, [])
     const captchaType = 'add-email'
     const showCodeBox = (id, name) => {
         const captchaKey = randomString()
@@ -103,10 +103,11 @@ export default function UserEmailPage(props) {
                     name: '',
                     loading: false,
                 })
+                loadEmailData()
                 setParam({
+                    page: 0,
                     status: comfirmStatus[0].key
-                }, loadEmailData)
-                emailData(param.get("status"));
+                })
             }
         })
     };
@@ -193,9 +194,10 @@ export default function UserEmailPage(props) {
                 })
             } else {
                 toast("完成绑定")
+                loadEmailData()
                 setParam({
                     status: comfirmStatus[1].key
-                }, loadEmailData)
+                })
                 setConfrimData({
                     ...confrimData,
                     loading: false,
@@ -209,63 +211,63 @@ export default function UserEmailPage(props) {
     const columns = [
         {
             field: 'id',
-            headerName: 'ID',
-            width: 90,
-            type: 'number',
+            label: 'ID',
+            style: { width: 90 },
+            align: "right",
         },
         {
             field: 'email',
-            width: 250,
-            headerName: '邮箱',
-            sortable: false,
+            style: { width: 250 },
+
+            label: '邮箱',
+
 
         },
         {
-            field: 'status',
-            headerName: '状态',
-            sortable: false,
-            valueGetter: (params) => {
-                return comfirmStatus.find((e) => { return e.key == params.row.status })?.val ?? "未知";
+
+            label: '状态',
+            render: (row) => {
+                return comfirmStatus.find((e) => { return e.key == row.status })?.val ?? "未知";
             }
         },
         {
-            field: 'add_time',
-            width: 180,
-            headerName: '添加时间',
-            sortable: false,
-            valueGetter: (params) => {
-                return showTime(params.row.add_time, "未知")
+
+            style: { width: 180 },
+            label: '确认时间',
+
+            render: (row) => {
+                return showTime(row.confirm_time, "未确认")
             }
         },
         {
-            field: 'confirm_time',
-            width: 180,
-            headerName: '确认时间',
-            sortable: false,
-            valueGetter: (params) => {
-                return showTime(params.row.confirm_time, "未确认")
+            style: { width: 180 },
+            label: '添加时间',
+
+            render: (row) => {
+                return showTime(row.change_time, "未知")
             }
         },
         {
-            headerName: '操作',
-            type: 'actions',
-            field: "actions",
-            align: "center",
-            getActions: (params) => {
+            label: '操作',
+            render: (row) => {
                 let icon = [];
-                if (params.row.status != 2) {
+                if (row.status != 2) {
                     icon.push(
-                        <GridActionsCellItem onClick={() => {
-                            showCodeBox(params.row.id, params.row.email)
-                        }} icon={<SendIcon />} label="发送验证邮件" />)
+                        <IconButton title="发送验证邮件" key={`${row.id}-send`} onClick={() => {
+                            showCodeBox(row.id, row.email)
+                        }} size='small'>
+                            <SendIcon fontSize='small' />
+                        </IconButton>
+                    )
                 }
                 icon.push(<ConfirmButton
-                    message={`确定要删除邮箱 [${params.row.email}] ?`}
+                    key={`${row.id}-confirm`}
+                    message={`确定要删除邮箱 [${row.email}] ?`}
                     onAction={() => {
-                        return emailDelete(params.row.id).then((res) => {
+                        return emailDelete(row.id).then((res) => {
                             if (!res.status) return res;
                             let rows = loadData.data.filter((item) => {
-                                if (item.id != params.row.id) return item;
+                                if (item.id != row.id) return item;
                             })
                             setLoadData({
                                 ...loadData,
@@ -273,13 +275,18 @@ export default function UserEmailPage(props) {
                             })
                             toast("删除完成");
                             if (rows.length == 0) {
-                                emailData(param.get("status"));
+                                loadEmailData()
+                                setParam({
+                                    page: param.get("page") - 1 >= 0 ? param.get("page") : 0,
+                                });
                             }
                             return res;
                         });
                     }}
                     renderButton={(props) => {
-                        return <GridActionsCellItem {...props} icon={<DeleteIcon />} label="删除" />
+                        return <IconButton title="删除" key={`${row.id}-sms`} {...props} size='small'>
+                            <DeleteIcon fontSize='small' />
+                        </IconButton>
                     }} />)
                 return icon;
             }
@@ -368,17 +375,7 @@ export default function UserEmailPage(props) {
     useEffect(() => {
         setEmailStatus(param.get("status"))
     }, [param])
-    const execFilterData = () => {
-        if (emailStatus) {
-            setParam({
-                status: emailStatus
-            }, loadEmailData)
-        } else {
-            setParam({
-                status: ""
-            }, loadEmailData);
-        }
-    }
+
 
     return <Fragment>
         <Drawer
@@ -422,7 +419,12 @@ export default function UserEmailPage(props) {
                 </Select>
             </FormControl>
             <Button
-                onClick={execFilterData}
+                onClick={() => {
+                    setParam({
+                        page: 0,
+                        status: emailStatus ?? ''
+                    }, loadEmailData)
+                }}
                 variant="outlined"
                 size="medium"
                 startIcon={<SearchIcon />}
@@ -444,27 +446,27 @@ export default function UserEmailPage(props) {
 
         {(loadData.status || loadData.loading)
             ? <Box sx={{ height: 1, width: '100%' }}>
-                < DataGrid
-                    sx={{
-                        "&.MuiDataGrid-root .MuiDataGrid-cell:focus-within": {
-                            outline: "none !important",
-                        },
-                        "&.MuiDataGrid-root .MuiDataGrid-columnHeader:focus-within": {
-                            outline: "none !important",
-                        },
-                    }}
-                    rows={loadData.data}
+                <DataPaginationTablePage
+                    rows={(loadData.data ?? []).filter((item) => {
+                        if (!param.get('status') || item.status == param.get('status')) return item;
+                    })}
                     columns={columns}
-                    autoHeight={true}
-                    autoPageSize={true}
-                    pageSize={10}
-                    disableColumnFilter={true}
-                    disableColumnMenu={true}
-                    disableSelectionOnClick={true}
-                    rowCount={loadData.data.length}
-                    editMode="cell"
+                    page={param.get("page") || 0}
+                    onPageChange={(e, newPage) => {
+                        setParam({
+                            page: newPage
+                        }, loadEmailData)
+                    }}
+                    rowsPerPage={param.get("page_size") || 10}
+                    onRowsPerPageChange={(e) => {
+                        setParam({
+                            page_size: e.target.value,
+                            page: 0
+                        }, loadEmailData)
+                    }}
                     loading={loadData.loading}
                 />
+
             </Box> : <Alert severity="error">{loadData.message}</Alert>}
     </Fragment>
 }

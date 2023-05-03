@@ -1,14 +1,7 @@
-use std::{
-    error::Error,
-    fmt::{Display, Formatter},
-    time::SystemTimeError,
-};
-
-use deadpool_redis::PoolError;
 use lsys_core::now_time;
-use lsys_user::dao::account::UserAccountError;
+use lsys_logger::dao::ChangeLogData;
+
 use rand::seq::SliceRandom;
-use redis::RedisError;
 
 fn range_client_key() -> String {
     const BASE_STR: &str = "0123456789abcdef0123456789abcdef";
@@ -33,49 +26,26 @@ mod oauth;
 
 pub use apps::*;
 pub use oauth::*;
+use serde::Serialize;
 
-#[derive(Debug)]
-pub enum AppsError {
-    Sqlx(sqlx::Error),
-    System(String),
-    Redis(String),
-}
-impl Display for AppsError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-impl Error for AppsError {}
-
-impl From<sqlx::Error> for AppsError {
-    fn from(err: sqlx::Error) -> Self {
-        AppsError::Sqlx(err)
-    }
-}
-impl From<RedisError> for AppsError {
-    fn from(err: RedisError) -> Self {
-        AppsError::Redis(err.to_string())
-    }
-}
-impl From<PoolError> for AppsError {
-    fn from(err: PoolError) -> Self {
-        AppsError::Redis(err.to_string())
-    }
-}
-impl From<SystemTimeError> for AppsError {
-    fn from(err: SystemTimeError) -> Self {
-        AppsError::System(err.to_string())
-    }
-}
-impl From<serde_json::Error> for AppsError {
-    fn from(err: serde_json::Error) -> Self {
-        AppsError::System(format!("{:?}", err))
-    }
-}
-impl From<UserAccountError> for AppsError {
-    fn from(err: UserAccountError) -> Self {
-        AppsError::System(format!("user error {:?}", err))
-    }
+//日志
+#[derive(Serialize)]
+pub(crate) struct AppLog {
+    pub action: &'static str,
+    pub name: String,
+    pub client_id: String,
+    pub client_secret: String,
+    pub callback_domain: String,
 }
 
-pub type AppsResult<T> = Result<T, AppsError>;
+impl ChangeLogData for AppLog {
+    fn log_type<'t>() -> &'t str {
+        "setting"
+    }
+    fn format(&self) -> String {
+        format!("{}:{}[{}]", self.action, self.name, self.client_id)
+    }
+    fn encode(&self) -> String {
+        serde_json::to_string(&self).unwrap_or_default()
+    }
+}

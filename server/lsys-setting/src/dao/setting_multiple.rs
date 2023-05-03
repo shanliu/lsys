@@ -1,27 +1,35 @@
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{now_time, FluentMessage, PageParam};
+use lsys_core::{now_time, FluentMessage, PageParam, RequestEnv};
+use lsys_logger::dao::ChangeLogger;
 use sqlx::{MySql, Pool, Transaction};
 use sqlx_model::{
     executor_option, model_option_set, sql_format, Insert, ModelTableName, Select, Update,
 };
 use std::sync::Arc;
 
-use super::{SettingData, SettingDecode, SettingEncode, SettingResult};
+use super::{SettingData, SettingDecode, SettingEncode, SettingLog, SettingResult};
 use crate::model::{SettingModel, SettingModelRef, SettingStatus, SettingType};
 use sqlx_model::SqlQuote;
 
 pub struct MultipleSetting {
     db: Pool<MySql>,
+    logger: Arc<ChangeLogger>,
     //fluent: Arc<FluentMessage>,
     pub cache: Arc<LocalCache<String, Vec<SettingModel>>>,
 }
 
 impl MultipleSetting {
-    pub fn new(db: Pool<MySql>, _fluent: Arc<FluentMessage>, redis: deadpool_redis::Pool) -> Self {
+    pub fn new(
+        db: Pool<MySql>,
+        _fluent: Arc<FluentMessage>,
+        redis: deadpool_redis::Pool,
+        logger: Arc<ChangeLogger>,
+    ) -> Self {
         Self {
             cache: Arc::from(LocalCache::new(redis, LocalCacheConfig::new("setting"))),
             db,
             // fluent,
+            logger,
         }
     }
     pub async fn add<'t, T: SettingEncode>(
@@ -31,6 +39,7 @@ impl MultipleSetting {
         data: &T,
         change_user_id: &u64,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> SettingResult<u64> {
         let change_user_id = change_user_id.to_owned();
         let setting_type = SettingType::Multiple as i8;
@@ -47,8 +56,8 @@ impl MultipleSetting {
             setting_data: edata,
             user_id: uid,
             status: status,
-            last_user_id: change_user_id,
-            last_change_time: time,
+            change_user_id: change_user_id,
+            change_time: time,
         });
         let dat = executor_option!(
             {
@@ -61,8 +70,25 @@ impl MultipleSetting {
             db
         );
         self.cache.clear(&format!("{}-{}", key, uid)).await;
+        self.logger
+            .add(
+                &SettingLog {
+                    action: "multiple_add",
+                    setting_key: key,
+                    setting_type: SettingType::Multiple,
+                    name,
+                    setting_data: edata,
+                },
+                &Some(dat.last_insert_id()),
+                &Some(uid),
+                &Some(change_user_id),
+                None,
+                env_data,
+            )
+            .await;
         Ok(dat.last_insert_id())
     }
+    #[allow(clippy::too_many_arguments)]
     pub async fn edit<'t, T: SettingEncode>(
         &self,
         user_id: &Option<u64>,
@@ -71,6 +97,7 @@ impl MultipleSetting {
         data: &T,
         change_user_id: &u64,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> SettingResult<u64> {
         let id = id.to_owned();
         let change_user_id = change_user_id.to_owned();
@@ -81,8 +108,8 @@ impl MultipleSetting {
         let change = sqlx_model::model_option_set!(SettingModelRef,{
             setting_data: edata,
             name:name,
-            last_user_id: change_user_id,
-            last_change_time: time,
+            change_user_id: change_user_id,
+            change_time: time,
         });
         let uid = user_id.unwrap_or_default();
 
@@ -107,6 +134,24 @@ impl MultipleSetting {
         );
 
         self.cache.clear(&format!("{}-{}", key, uid)).await;
+
+        self.logger
+            .add(
+                &SettingLog {
+                    action: "multiple_edit",
+                    setting_key: key,
+                    setting_type: SettingType::Multiple,
+                    name,
+                    setting_data: edata,
+                },
+                &Some(id),
+                &Some(uid),
+                &Some(change_user_id),
+                None,
+                env_data,
+            )
+            .await;
+
         Ok(cu.rows_affected())
     }
     pub async fn del<'t, T: SettingEncode>(
@@ -115,6 +160,7 @@ impl MultipleSetting {
         id: &u64,
         change_user_id: &u64,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> SettingResult<u64> {
         let change_user_id = change_user_id.to_owned();
         let id = id.to_owned();
@@ -123,32 +169,60 @@ impl MultipleSetting {
         let time = now_time().unwrap_or_default();
         let change = sqlx_model::model_option_set!(SettingModelRef,{
             status: status,
-            last_user_id: change_user_id,
-            last_change_time: time,
+            change_user_id: change_user_id,
+            change_time: time,
         });
         let uid = user_id.unwrap_or_default();
 
-        let cu = executor_option!(
-            {
-                Update::<sqlx::MySql, SettingModel, _>::new(change)
-                    .execute_by_where_call(
-                        "id=? and setting_type=? and setting_key=? and  user_id=?",
-                        |res, _| {
-                            res.bind(id)
-                                .bind(SettingType::Multiple as i8)
-                                .bind(key.clone())
-                                .bind(uid)
+        let data = Select::type_new::<SettingModel>()
+            .fetch_one_by_where_call::<SettingModel, _, _>(
+                "id=? and setting_type=? and setting_key=? and  user_id=?",
+                |res, _| {
+                    res.bind(id)
+                        .bind(SettingType::Multiple as i8)
+                        .bind(key.clone())
+                        .bind(uid)
+                },
+                &self.db,
+            )
+            .await;
+        match data {
+            Ok(item) => {
+                let cu = executor_option!(
+                    {
+                        Update::<sqlx::MySql, SettingModel, _>::new(change)
+                            .execute_by_pk(&item, db)
+                            .await?
+                    },
+                    transaction,
+                    &self.db,
+                    db
+                );
+                self.cache.clear(&format!("{}-{}", key, uid)).await;
+
+                self.logger
+                    .add(
+                        &SettingLog {
+                            action: "multiple_del",
+                            setting_key: item.setting_key,
+                            setting_type: SettingType::Multiple,
+                            name: item.name,
+                            setting_data: item.setting_data,
                         },
-                        db,
+                        &Some(id),
+                        &Some(uid),
+                        &Some(change_user_id),
+                        None,
+                        env_data,
                     )
-                    .await?
-            },
-            transaction,
-            &self.db,
-            db
-        );
-        self.cache.clear(&format!("{}-{}", key, uid)).await;
-        Ok(cu.rows_affected())
+                    .await;
+
+                Ok(cu.rows_affected())
+            }
+            Err(sqlx::Error::RowNotFound) => Ok(0),
+            Err(err) => Err(err.into()),
+        }
+        //todo
     }
     pub async fn list_data<T: SettingDecode>(
         &self,

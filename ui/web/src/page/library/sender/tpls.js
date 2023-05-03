@@ -3,7 +3,7 @@ import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import SearchIcon from '@mui/icons-material/Search';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
-import { Alert, Button, Dialog, DialogActions, DialogContent, DialogContentText, Divider, Drawer, FormControl, Grid, IconButton, InputLabel, MenuItem, Paper, Select, Table, TableContainer, TextField, Typography } from '@mui/material';
+import { Alert, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider, Drawer, FormControl, Grid, IconButton, InputLabel, MenuItem, Paper, Select, Table, TableContainer, TextField, Typography } from '@mui/material';
 import Box from '@mui/material/Box';
 import React, { Fragment, useContext, useEffect, useState } from 'react';
 import { Form } from 'react-router-dom';
@@ -12,11 +12,11 @@ import { ToastContext } from '../../../context/toast';
 import { ConfirmButton } from '../../../library/dialog';
 import { ClearTextField } from '../../../library/input';
 import { LoadingButton } from '../../../library/loading';
-import { BaseTableBody, BaseTableHead, BaseTablePage } from '../../../library/table_page';
+import { BaseTableBody, BaseTableHead, SimpleTablePage } from '../../../library/table_page';
 import { SenderType, smsAddAliConfig, smsDelAliConfig, smsEditAliConfig, smsListAliConfig, tplsAddConfig, tplsDelConfig, tplsEditConfig, tplsListConfig } from '../../../rest/sender_setting';
 import { useSearchChange } from '../../../utils/hook';
 import { showTime } from '../../../utils/utils';
-
+import CodeEditor from '@uiw/react-textarea-code-editor';
 
 function AddBox(props) {
     const {
@@ -30,7 +30,13 @@ function AddBox(props) {
 
     let [addData, setAddData] = useState({
 
-        tpl_data: rowData ? rowData.tpl_data : '',
+        tpl_data: rowData ? rowData.tpl_data : `<html>
+    <head>
+        <title></title>
+        <meta charset="utf-8">
+    </head>
+    <body></body>
+</html>`,
         tpl_id: rowData ? rowData.tpl_id : '',
         loading: false,
     });
@@ -168,15 +174,14 @@ function AddBox(props) {
                             helperText={addError.tpl_id}
                         />
                     </Grid>
-                    <Grid item xs={10}>
-                        <TextField
-                            multiline
-                            rows={8}
-                            variant="outlined"
-                            label="模板内容"
-                            type="text"
-                            name="name"
-                            size="small"
+                    <Grid item xs={10} sx={{
+                        width: 1,
+                        paddingBottom: 2
+                    }}>
+                        <CodeEditor
+                            minHeight={180}
+                            language="html"
+                            placeholder="输入邮件模板内容,变量示例:{{var}}"
                             onChange={(e) => {
                                 setAddData({
                                     ...addData,
@@ -184,9 +189,10 @@ function AddBox(props) {
                                 })
                             }}
                             value={addData.tpl_data}
-                            sx={{
-                                width: 1,
-                                paddingBottom: 2
+                            style={{
+                                fontSize: 12,
+                                backgroundColor: "#f5f5f5",
+                                fontFamily: 'ui-monospace,SFMono-Regular,SF Mono,Consolas,Liberation Mono,Menlo,monospace',
                             }}
                             required
                             disabled={addData.loading}
@@ -241,11 +247,24 @@ export default function SenderTplsPage(props) {
                         open={showBox.open}
                         onClose={() => { setShowBox({ ...showBox, open: false }) }}
                     >
+                        <DialogTitle>模板 {row.tpl_id} 内容</DialogTitle>
                         <DialogContent sx={{
                             minWidth: 350
                         }}>
+
                             <DialogContentText>
-                                {row.tpl_data}
+                                <CodeEditor
+                                    minHeight={180}
+                                    language="html"
+                                    value={row.tpl_data}
+                                    style={{
+                                        fontSize: 12,
+                                        backgroundColor: "#f5f5f5",
+                                        fontFamily: 'ui-monospace,SFMono-Regular,SF Mono,Consolas,Liberation Mono,Menlo,monospace',
+                                    }}
+                                    readOnly={true}
+                                />
+
                             </DialogContentText>
                         </DialogContent>
                         <DialogActions>
@@ -263,18 +282,17 @@ export default function SenderTplsPage(props) {
             }
         },
         {
-
             style: { width: 180 },
             label: '更新用户ID',
             render: (row) => {
-                return showTime(row.last_user_id, "未知")
+                return row.change_user_id
             }
         },
         {
             style: { width: 180 },
             label: '更新时间',
             render: (row) => {
-                return showTime(row.last_change_time, "未知")
+                return showTime(row.change_time, "未知")
             }
         },
         {
@@ -328,6 +346,7 @@ export default function SenderTplsPage(props) {
             ...loadData,
             loading: true
         })
+        window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
         return tplsListConfig({
             user_id: userId,
             id: searchParam.get("id"),
@@ -336,6 +355,7 @@ export default function SenderTplsPage(props) {
             page_size: searchParam.get("page_size") || 10,
             tpl_id: searchParam.get("tpl_id")
         }).then((data) => {
+
             setLoadData({
                 ...loadData,
                 ...data,
@@ -474,7 +494,7 @@ export default function SenderTplsPage(props) {
 
         {(loadData.status || loadData.loading)
             ? <Box sx={{ height: 1, width: '100%' }}>
-                <BaseTablePage
+                <SimpleTablePage
                     rows={loadData.data ?? []}
                     columns={columns}
                     count={loadData.total}

@@ -15,7 +15,7 @@ import { BaseTableBodyRow, BaseTableFooter, BaseTableHead, BaseTableNoRows } fro
 import { resAdd, resAll, resDelete, resEdit, resListData, resTags } from '../../../rest/access';
 import { useSearchChange } from '../../../utils/hook';
 import { showTime } from '../../../utils/utils';
-import { ResOpItem, UserTags } from '../../library/user';
+import { ResOpItem, UserSearchInput, UserTags } from '../../library/user';
 import { ResEditBox } from './res_edit_box';
 //页面提交
 
@@ -171,23 +171,27 @@ export function AddBox(props) {
                             </Select>
                         </FormControl>
                         {
-                            resData.res_type == 2 ? <TextField
-                                label="用户ID"
-                                size="small"
-                                disabled={resData.loading || !!res}
-                                placeholder="输入用户ID"
-                                sx={{ width: 1, mb: 2 }}
-                                variant="outlined"
-                                value={resData.user_id > 0 ? resData.user_id : ''}
-                                onChange={(e) => {
-                                    if (!e || !e.target) return;
-                                    let value = (e.target.value + '').replace(/[^0-9]+/, '');
-                                    setResData({
-                                        ...resData,
-                                        user_id: value
-                                    })
-                                }}
-                            /> : null
+                            resData.res_type == 2 ?
+                                <UserSearchInput
+                                    onSelect={(nval) => {
+
+                                        let value = (nval + '').replace(/[^0-9]+/, '');
+                                        setResData({
+                                            ...resData,
+                                            user_id: value
+                                        })
+                                    }}
+                                    sx={{ width: 1, mb: 2 }}
+                                    variant="outlined"
+                                    label={`选择用户`}
+                                    value={resData.user_id > 0 ? resData.user_id : ''}
+                                    type="text"
+                                    name="code"
+
+                                    size="small"
+                                    disabled={resData.loading || !!res}
+                                    enableUser={true}
+                                /> : null
                         }
                         <TextField
                             label="名称"
@@ -418,7 +422,7 @@ function UserAccessResItem(props) {
                         <TableCell colSpan={6} style={{ padding: 4, borderBottom: "1px solid #f0f0f0" }}>
                             <Grid container>
                                 <Grid sx={{ width: 80, lineHeight: "52px", fontWeight: 500, fontSize: "0.875rem", textAlign: "right", mr: 1 }}>可用操作</Grid>
-                                <Grid sx={{ flex: 1,paddingBottom:1 }}>
+                                <Grid sx={{ flex: 1, paddingBottom: 1 }}>
                                     {
                                         item.ops.map((op) => {
                                             return <ResOpItem
@@ -511,7 +515,7 @@ export default function SystemAccessResPage(props) {
     const [pageTagData, setPageTagData] = useState({
         init: false,
         user_id: 0,
-        user_focused: false,
+        // user_focused: false,
         load_user_id: false,
         res_type: 1,
         tag_rows: [],
@@ -539,6 +543,7 @@ export default function SystemAccessResPage(props) {
                 ...pageRowData,
                 rows_loading: true
             })
+            window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
             resListData({
                 tags: true,
                 ops: true,
@@ -550,6 +555,7 @@ export default function SystemAccessResPage(props) {
                 page: searchParam.get("page"),
                 page_size: searchParam.get("page_size")
             }).then((data) => {
+
                 if (!data.status) {
                     setPageRowData({
                         ...pageRowData,
@@ -685,7 +691,7 @@ export default function SystemAccessResPage(props) {
             label: '更新时间',
             style: { width: 140, borderBottom: "1px solid #f3f3f3" },
             render: (row) => {
-                return showTime(row.add_time, "未知")
+                return showTime(row.change_time, "未知")
             }
         },
         {
@@ -803,30 +809,27 @@ export default function SystemAccessResPage(props) {
                     </Select>
                 </FormControl>
                 {
-                    pageTagData.res_type == 2 ? <ClearTextField
-                        label="用户ID"
-                        size="small"
-                        disabled={pageTagData.tag_rows_loading}
-                        placeholder="输入用户ID"
-                        sx={{ width: 100 }}
-                        variant="outlined"
-                        focused={pageTagData.user_focused}
-                        value={pageTagData.user_id > 0 ? pageTagData.user_id : ''}
-                        onChange={(e, nval) => {
-                            if (!e || !e.target) return;
-                            let value = (nval + '').replace(/[^0-9]+/, '');
-                            setPageTagData({
-                                ...pageTagData,
-                                user_id: value
-                            })
-                        }}
-                        onKeyUp={(e) => {
-                            if (e.key != 'Enter') return;
-                            setSearchParam({
-                                user_id: pageTagData.user_id,
-                            }, loadResData)
-                        }}
-                    /> : null
+                    pageTagData.res_type == 2 ?
+                        <UserSearchInput
+                            onSelect={(nval) => {
+                                let value = (nval + '').replace(/[^0-9]+/, '');
+                                setPageTagData({
+                                    ...pageTagData,
+                                    user_id: value
+                                })
+                            }}
+                            sx={{ mr: 1, width: 150 }}
+                            variant="outlined"
+                            label={`选择用户`}
+                            value={pageTagData.user_id > 0 ? pageTagData.user_id : ''}
+                            type="text"
+                            name="code"
+
+                            size="small"
+                            disabled={pageTagData.tag_rows_loading}
+                            enableUser={true}
+                        />
+                        : null
                 }
                 <LoadingButton
                     variant="outlined"
@@ -837,10 +840,10 @@ export default function SystemAccessResPage(props) {
                     onClick={() => {
                         if (pageTagData.res_type == 2
                             && (pageTagData.user_id == 0 || pageTagData.user_id == '')) {
-                            setPageTagData({
-                                ...pageTagData,
-                                user_focused: true
-                            })
+                            // setPageTagData({
+                            //     ...pageTagData,
+                            //     user_focused: true
+                            // })
                             return;
                         }
                         setSearchParam({

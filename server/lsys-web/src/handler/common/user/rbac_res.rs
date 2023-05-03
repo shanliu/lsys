@@ -16,6 +16,7 @@ pub async fn user_res_add<'t, T: SessionTokenData, D: SessionData, S: UserSessio
         param,
         &req_dao.web_dao.user.rbac_dao,
         req_auth.user_data().user_id,
+        Some(&req_dao.req_env),
     )
     .await
 }
@@ -29,6 +30,7 @@ pub async fn user_res_edit<'t, T: SessionTokenData, D: SessionData, S: UserSessi
         param,
         &req_dao.web_dao.user.rbac_dao,
         req_auth.user_data().user_id,
+        Some(&req_dao.req_env),
     )
     .await
 }
@@ -42,6 +44,7 @@ pub async fn user_res_delete<'t, T: SessionTokenData, D: SessionData, S: UserSes
         param,
         &req_dao.web_dao.user.rbac_dao,
         req_auth.user_data().user_id,
+        Some(&req_dao.req_env),
     )
     .await
 }

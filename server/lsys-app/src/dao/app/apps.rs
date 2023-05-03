@@ -3,9 +3,10 @@ use std::sync::Arc;
 use crate::model::{AppStatus, AppsModel, AppsModelRef};
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
-    get_message, now_time, AppCore, FluentMessage, PageParam,
+    get_message, now_time, AppCore, FluentMessage, PageParam, RequestEnv,
 };
 
+use lsys_logger::dao::ChangeLogger;
 use regex::Regex;
 use sqlx::{Acquire, MySql, Pool, Transaction};
 use sqlx_model::{
@@ -13,13 +14,14 @@ use sqlx_model::{
 };
 use sqlx_model::{SqlExpr, SqlQuote};
 
-use super::{range_client_key, AppsError, AppsResult};
-
+use super::super::{AppsError, AppsResult};
+use super::{range_client_key, AppLog};
 pub struct Apps {
     app_core: Arc<AppCore>,
     db: Pool<MySql>,
     pub(crate) fluent: Arc<FluentMessage>,
     pub cache: Arc<LocalCache<String, AppsModel>>,
+    logger: Arc<ChangeLogger>,
 }
 
 #[derive(Clone, Debug)]
@@ -36,12 +38,14 @@ impl Apps {
         db: Pool<MySql>,
         redis: deadpool_redis::Pool,
         fluent: Arc<FluentMessage>,
+        logger: Arc<ChangeLogger>,
     ) -> Self {
         Self {
             app_core,
             db,
             fluent,
             cache: Arc::from(LocalCache::new(redis, LocalCacheConfig::new("apps"))),
+            logger,
         }
     }
     fn app_data_sql(&self, app_where: &AppDataWhere) -> Option<String> {
@@ -156,11 +160,17 @@ impl Apps {
     pub async fn reset_secret<'t>(
         &self,
         app: &AppsModel,
+        change_user_id: &u64,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> AppsResult<String> {
+        let time = now_time().unwrap_or_default();
         let client_secret = range_client_key();
+        let change_user_id = change_user_id.to_owned();
         let change = sqlx_model::model_option_set!(AppsModelRef,{
             client_secret:client_secret,
+            change_user_id:change_user_id,
+            change_time:time,
         });
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
@@ -175,6 +185,24 @@ impl Apps {
         }
         db.commit().await?;
         self.cache.clear(&app.client_id).await;
+
+        self.logger
+            .add(
+                &AppLog {
+                    action: "reset_secret",
+                    name: app.name.to_owned(),
+                    client_id: app.client_id.to_owned(),
+                    client_secret: app.client_secret.to_owned(),
+                    callback_domain: app.callback_domain.to_owned(),
+                },
+                &Some(app.id),
+                &Some(app.user_id),
+                &Some(change_user_id),
+                None,
+                env_data,
+            )
+            .await;
+
         Ok(client_secret)
     }
     //确认APP
@@ -219,7 +247,9 @@ impl Apps {
         name: String,
         client_id: String,
         domain: String,
+        change_user_id: u64,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> AppsResult<u64> {
         let (name, client_id, domain) = self.check_app_param(name, client_id, domain)?;
         let app_res = Select::type_new::<AppsModel>()
@@ -245,10 +275,13 @@ impl Apps {
                 return Err(err.into());
             }
         }
+        let change_time = now_time().unwrap_or_default();
         let change = sqlx_model::model_option_set!(AppsModelRef,{
             name:name,
             client_id:client_id,
             callback_domain:domain,
+            change_user_id:change_user_id,
+            change_time:change_time,
         });
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
@@ -266,6 +299,24 @@ impl Apps {
         };
         db.commit().await?;
         self.cache.clear(&app.client_id).await;
+
+        self.logger
+            .add(
+                &AppLog {
+                    action: "edit",
+                    name,
+                    client_id,
+                    client_secret: app.client_secret.to_owned(),
+                    callback_domain: domain,
+                },
+                &Some(app.id),
+                &Some(app.user_id),
+                &Some(change_user_id),
+                None,
+                env_data,
+            )
+            .await;
+
         Ok(res.rows_affected())
     }
     //添加内部APP
@@ -279,6 +330,7 @@ impl Apps {
         domain: String,
         status: AppStatus,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> AppsResult<u64> {
         self.add_app(
             uesr_id,
@@ -288,6 +340,7 @@ impl Apps {
             status,
             add_user_id,
             transaction,
+            env_data,
         )
         .await
     }
@@ -369,6 +422,7 @@ impl Apps {
         status: AppStatus,
         add_user_id: u64,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> AppsResult<u64> {
         let (name, client_id, domain) = self.check_app_param(name, client_id, domain)?;
         let app_res = Select::type_new::<AppsModel>()
@@ -409,8 +463,8 @@ impl Apps {
             client_secret:client_secret,
             status:status,
             user_id:user_id,
-            add_user_id:add_user_id,
-            add_time:time,
+            change_user_id:add_user_id,
+            change_time:time,
             callback_domain:domain
         });
 
@@ -429,6 +483,24 @@ impl Apps {
             }
             Ok(mr) => {
                 db.commit().await?;
+
+                self.logger
+                    .add(
+                        &AppLog {
+                            action: "add",
+                            name,
+                            client_id,
+                            client_secret,
+                            callback_domain: domain,
+                        },
+                        &Some(mr.last_insert_id()),
+                        &Some(user_id),
+                        &Some(add_user_id),
+                        None,
+                        env_data,
+                    )
+                    .await;
+
                 Ok(mr.last_insert_id())
             }
         }

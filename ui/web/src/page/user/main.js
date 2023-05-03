@@ -25,6 +25,7 @@ export default function UserMainPage() {
         menu: [],
     });
     useEffect(() => {
+        if (!userData) { return }
         accessMenu(Menus).then((data) => {
             if (!data.status) {
                 data.message && toast(data.message)
@@ -40,7 +41,6 @@ export default function UserMainPage() {
     if (!userData) {
         return <Navigate to={"/login/main"} />
     }
-
     return loadMenu.loading ? <Progress /> : <Box sx={{ display: 'flex' }}>
         <Paper variant="permanent"
             anchor="left"

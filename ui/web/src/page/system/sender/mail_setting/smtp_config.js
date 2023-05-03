@@ -439,7 +439,7 @@ export default function SystemSmsSettingSmtpMailPage(props) {
             label: '更新用户ID',
             align: "right",
             render: (row) => {
-                return row.last_user_id
+                return row.change_user_id
             }
         },
         {
@@ -447,7 +447,7 @@ export default function SystemSmsSettingSmtpMailPage(props) {
             style: { width: 170 },
             label: '更新时间',
             render: (row) => {
-                return showTime(row.last_change_time, "未知")
+                return showTime(row.change_time, "未知")
             }
         },
         {
@@ -495,10 +495,12 @@ export default function SystemSmsSettingSmtpMailPage(props) {
             ...loadData,
             loading: true
         })
+        window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
         return mailListSmtpConfig({
             id: searchParam.get("id"),
             full_data: true
         }).then((data) => {
+
             setLoadData({
                 ...loadData,
                 ...data,

@@ -1,21 +1,26 @@
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
-    get_message, now_time, FluentMessage,
+    get_message, now_time, FluentMessage, RequestEnv,
 };
 
+use lsys_logger::dao::ChangeLogger;
 use sqlx::{Acquire, MySql, Pool, Transaction};
 use sqlx_model::{sql_format, Insert, ModelTableName, Select, SqlQuote, Update};
 use std::{collections::HashMap, sync::Arc};
 
 use crate::model::{UserAddressModel, UserAddressModelRef, UserAddressStatus, UserModel};
 
-use super::{check_mobile, user_index::UserIndex, UserAccountError, UserAccountResult};
+use super::{
+    check_mobile, logger::LogUserAddress, user_index::UserIndex, UserAccountError,
+    UserAccountResult,
+};
 
 pub struct UserAddress {
     db: Pool<MySql>,
     fluent: Arc<FluentMessage>,
     index: Arc<UserIndex>,
     pub cache: Arc<LocalCache<u64, Vec<UserAddressModel>>>,
+    logger: Arc<ChangeLogger>,
 }
 
 impl UserAddress {
@@ -24,6 +29,7 @@ impl UserAddress {
         fluent: Arc<FluentMessage>,
         redis: deadpool_redis::Pool,
         index: Arc<UserIndex>,
+        logger: Arc<ChangeLogger>,
     ) -> Self {
         Self {
             cache: Arc::from(LocalCache::new(
@@ -33,6 +39,7 @@ impl UserAddress {
             db,
             fluent,
             index,
+            logger,
         }
     }
     /// 添加用户地址
@@ -41,6 +48,7 @@ impl UserAddress {
         user: &UserModel,
         mut address: UserAddressModelRef<'t2>,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> UserAccountResult<u64> {
         macro_rules! check_data {
             ($addr_var:ident,$name:literal) => {
@@ -87,7 +95,7 @@ impl UserAddress {
         }
 
         let time = now_time()?;
-        address.add_time = Some(&time);
+        address.change_time = Some(&time);
         address.status = Some(&(UserAddressStatus::Enable as i8));
         address.user_id = Some(&user.id);
 
@@ -126,7 +134,7 @@ impl UserAddress {
                             .add(
                                 crate::model::UserIndexCat::Address,
                                 user.id,
-                                &[address_info],
+                                &[address_info.clone()],
                                 Some(&mut db),
                             )
                             .await
@@ -137,7 +145,28 @@ impl UserAddress {
 
                         db.commit().await?;
                         self.cache.clear(&user.id).await;
-                        Ok(mr.last_insert_id())
+
+                        let aid = mr.last_insert_id();
+
+                        self.logger
+                            .add(
+                                &LogUserAddress {
+                                    action: "add",
+                                    address_code,
+                                    address_info,
+                                    address_detail,
+                                    name,
+                                    mobile,
+                                },
+                                &Some(aid),
+                                &Some(user.id),
+                                &Some(user.id),
+                                None,
+                                env_data,
+                            )
+                            .await;
+
+                        Ok(aid)
                     }
                 }
             }
@@ -148,11 +177,12 @@ impl UserAddress {
         &self,
         address: &UserAddressModel,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> UserAccountResult<u64> {
         let time = now_time()?;
         let change = sqlx_model::model_option_set!(UserAddressModelRef,{
             status:UserAddressStatus::Delete as i8,
-            delete_time:time,
+            change_time:time,
         });
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
@@ -199,6 +229,25 @@ impl UserAddress {
 
                         db.commit().await?;
                         self.cache.clear(&address.user_id).await;
+
+                        self.logger
+                            .add(
+                                &LogUserAddress {
+                                    action: "del",
+                                    address_code: address.address_code.to_owned(),
+                                    address_info: address.address_info.to_owned(),
+                                    address_detail: address.address_detail.to_owned(),
+                                    name: address.name.to_owned(),
+                                    mobile: address.mobile.to_owned(),
+                                },
+                                &Some(address.id),
+                                &Some(address.user_id),
+                                &Some(address.user_id),
+                                None,
+                                env_data,
+                            )
+                            .await;
+
                         Ok(mr.rows_affected())
                     }
                 }

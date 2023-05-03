@@ -9,20 +9,26 @@ use lsys_web::handler::api::user::{
 #[post("/signup/{type}")]
 pub(crate) async fn reg<'t>(
     path: actix_web::web::Path<(String,)>,
-    rest: JsonQuery,
+    json_param: JsonQuery,
     auth_dao: UserAuthQuery,
 ) -> ResponseJsonResult<ResponseJson> {
     let res = match path.0.to_string().as_str() {
-        "name" => user_reg_from_name(rest.param::<RegFromNameParam>()?, &auth_dao).await,
-        "sms" => user_reg_from_mobile(rest.param::<RegFromMobileParam>()?, &auth_dao).await,
+        "name" => user_reg_from_name(json_param.param::<RegFromNameParam>()?, &auth_dao).await,
+        "sms" => user_reg_from_mobile(json_param.param::<RegFromMobileParam>()?, &auth_dao).await,
         "sms-code" => {
-            user_reg_send_code_from_mobile(rest.param::<RegSendCodeFromMobileParam>()?, &auth_dao)
-                .await
+            user_reg_send_code_from_mobile(
+                json_param.param::<RegSendCodeFromMobileParam>()?,
+                &auth_dao,
+            )
+            .await
         }
-        "email" => user_reg_from_email(rest.param::<RegFromEmailParam>()?, &auth_dao).await,
+        "email" => user_reg_from_email(json_param.param::<RegFromEmailParam>()?, &auth_dao).await,
         "email-code" => {
-            user_reg_send_code_from_email(rest.param::<RegSendCodeFromEmailParam>()?, &auth_dao)
-                .await
+            user_reg_send_code_from_email(
+                json_param.param::<RegSendCodeFromEmailParam>()?,
+                &auth_dao,
+            )
+            .await
         }
         name => handler_not_found!(name),
     };

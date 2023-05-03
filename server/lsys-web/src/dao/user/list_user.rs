@@ -1,27 +1,14 @@
 use lsys_user::{
     dao::account::UserAccountResult,
     model::{
-        UserAddressModel, UserAddressStatus, UserEmailModel, UserEmailStatus, UserExternalModel,
-        UserExternalStatus, UserInfoModel, UserMobileModel, UserMobileStatus, UserModel,
-        UserNameModel,
+        UserAddressModel, UserEmailModel, UserEmailStatus, UserExternalModel, UserInfoModel,
+        UserMobileModel, UserMobileStatus, UserModel, UserNameModel,
     },
 };
 
 use std::collections::HashMap;
 
-use super::WebUser;
-
-#[derive(Default)]
-pub struct UserDataOption<'a> {
-    pub user_id: u64,
-    pub user: bool,
-    pub name: bool,
-    pub info: bool,
-    pub address: Option<&'a [UserAddressStatus]>,
-    pub email: Option<&'a [UserEmailStatus]>,
-    pub external: Option<&'a [UserExternalStatus]>,
-    pub mobile: Option<&'a [UserMobileStatus]>,
-}
+use super::{UserDataOption, WebUser};
 
 macro_rules! list_data_map_status_filter {
     ($vec_data:expr,$use_status:expr,$type:ty,$def_status:expr) => {
@@ -50,7 +37,7 @@ impl WebUser {
     pub async fn list_user<'t>(
         &self,
         ids: &[u64],
-        data_option: UserDataOption<'t>,
+        data_option: &UserDataOption<'t>,
     ) -> UserAccountResult<
         HashMap<
             u64,
@@ -100,23 +87,15 @@ impl WebUser {
         }
 
         let mut out_user_address = None;
-        if let Some(mut status) = data_option.address {
-            if status.is_empty() {
-                status = &[UserAddressStatus::Enable];
-            }
-            let tmp = self
-                .user_dao
-                .user_account
-                .user_address
-                .cache()
-                .find_by_user_ids_vec(ids)
-                .await?;
-            out_user_address = Some(list_data_map_status_filter!(
-                tmp,
-                status,
-                UserAddressModel,
-                UserAddressStatus::Enable
-            ));
+        if data_option.address {
+            out_user_address = Some(
+                self.user_dao
+                    .user_account
+                    .user_address
+                    .cache()
+                    .find_by_user_ids_vec(ids)
+                    .await?,
+            );
         }
         let mut out_user_email = None;
         if let Some(mut status) = data_option.email {
@@ -138,10 +117,7 @@ impl WebUser {
             ));
         }
         let mut out_user_external = None;
-        if let Some(mut status) = data_option.external {
-            if status.is_empty() {
-                status = &[UserExternalStatus::Enable];
-            }
+        if let Some(exttype) = data_option.external {
             let tmp = self
                 .user_dao
                 .user_account
@@ -149,12 +125,20 @@ impl WebUser {
                 .cache()
                 .find_by_user_ids_vec(ids)
                 .await?;
-            out_user_external = Some(list_data_map_status_filter!(
-                tmp,
-                status,
-                UserExternalModel,
-                UserExternalStatus::Enable
-            ));
+            out_user_external = Some(if exttype.is_empty() {
+                tmp
+            } else {
+                tmp.into_iter()
+                    .map(|(i, data)| {
+                        (
+                            i,
+                            data.into_iter()
+                                .filter(|e| exttype.contains(&e.external_type))
+                                .collect::<Vec<UserExternalModel>>(),
+                        )
+                    })
+                    .collect::<HashMap<u64, Vec<UserExternalModel>>>()
+            });
         }
         let mut out_user_mobile = None;
         if let Some(mut status) = data_option.mobile {

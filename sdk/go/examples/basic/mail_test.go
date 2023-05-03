@@ -18,26 +18,28 @@ func TestMail(t *testing.T) {
 	})
 	//示例1
 	//邮件发送示例
+	for i := 0; i < 1000; i++ {
 
-	err1 := sysApi.MailSend(
-		context.Background(),
-		[]string{
-			"shan.liu@msn.com",
-		},
-		"dddd",
-		map[string]string{
-			"code": "sss",
-		},
-		"", //非必须 例:2023-12-11 11:11:11
-		"", //回复邮箱
-		"", //取消句柄,取消发送用 例:dddd
-	)
-	if err1 == nil {
-		fmt.Printf("ok\n")
-	} else {
-		fmt.Printf("err :%s \n", err1)
+		err1 := sysApi.MailSend(
+			context.Background(),
+			[]string{
+				fmt.Sprintf("shan.liu@msn%d.com", i),
+			},
+			"dddd",
+			map[string]string{
+				"code": "sss",
+			},
+			"", //非必须 例:2023-12-11 11:11:11
+			"", //回复邮箱
+			"", //取消句柄,取消发送用 例:dddd
+		)
+		if err1 == nil {
+			fmt.Printf("ok\n")
+		} else {
+			fmt.Printf("err :%s \n", err1)
+		}
+
 	}
-
 	//取消发送
 	//err1 = sysApi.MailCancel(context.Background(), "dddd")
 	//if err1 == nil {

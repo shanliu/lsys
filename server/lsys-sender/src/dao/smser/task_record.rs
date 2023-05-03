@@ -2,8 +2,8 @@ use std::{collections::HashMap, sync::Arc};
 
 use crate::{
     dao::{
-        SenderError, SenderResult, TaskAcquisition, MessageCancel, SenderConfig, MessageLogs, TaskRecord,
-        MessageReader,
+        MessageCancel, MessageLogs, MessageReader, SenderConfig, SenderError, SenderResult,
+        TaskAcquisition, TaskRecord,
     },
     model::{
         SenderConfigModel, SenderKeyCancelModel, SenderLogModel, SenderSmsConfigData,
@@ -12,8 +12,9 @@ use crate::{
     },
 };
 use async_trait::async_trait;
-use lsys_core::{now_time, AppCore, FluentMessage, PageParam};
+use lsys_core::{now_time, AppCore, FluentMessage, LimitParam, PageParam, RequestEnv};
 
+use lsys_logger::dao::ChangeLogger;
 use serde_json::Value;
 use sqlx::{MySql, Pool};
 use sqlx_model::{sql_format, Insert, ModelTableName, SqlExpr, Update};
@@ -27,16 +28,21 @@ pub struct SmsTaskRecord {
     pub(crate) db: Pool<sqlx::MySql>,
     pub(crate) config: SenderConfig,
     pub(crate) cancel: MessageCancel,
-    pub(crate) logs: MessageLogs,
+    pub(crate) msg_logs: MessageLogs,
     pub(crate) record: MessageReader<SenderSmsMessageModel>,
 }
 
 impl SmsTaskRecord {
-    pub fn new(db: Pool<sqlx::MySql>, app_core: Arc<AppCore>, fluent: Arc<FluentMessage>) -> Self {
+    pub fn new(
+        db: Pool<sqlx::MySql>,
+        app_core: Arc<AppCore>,
+        fluent: Arc<FluentMessage>,
+        logger: Arc<ChangeLogger>,
+    ) -> Self {
         Self {
-            config: SenderConfig::new(db.clone(), SenderType::Smser),
+            config: SenderConfig::new(db.clone(), logger, SenderType::Smser),
             cancel: MessageCancel::new(db.clone(), SenderType::Smser),
-            logs: MessageLogs::new(db.clone(), SenderType::Smser),
+            msg_logs: MessageLogs::new(db.clone(), SenderType::Smser),
             record: MessageReader::new(db.clone(), app_core, fluent),
             db,
         }
@@ -90,8 +96,8 @@ impl SmsTaskRecord {
         tpl_id: &Option<String>,
         status: &Option<SenderSmsMessageStatus>,
         mobile: &Option<String>,
-        page: &Option<PageParam>,
-    ) -> SenderResult<Vec<SenderSmsMessageModel>> {
+        limit: &Option<LimitParam>,
+    ) -> SenderResult<(Vec<SenderSmsMessageModel>, Option<u64>)> {
         let mut sqlwhere = vec![];
         if let Some(s) = mobile {
             sqlwhere.push(sql_format!("mobile={}", s));
@@ -107,13 +113,14 @@ impl SmsTaskRecord {
                 } else {
                     Some(sqlwhere.join(" and "))
                 },
-                page,
+                limit,
             )
             .await
+            .map(|(e, n)| (e, n.map(|t| t.id)))
     }
     //消息日志数量
     pub async fn message_log_count(&self, message_id: &u64) -> SenderResult<i64> {
-        self.logs.list_count(message_id).await
+        self.msg_logs.list_count(message_id).await
     }
     //消息日志列表
     pub async fn message_log_list(
@@ -121,7 +128,7 @@ impl SmsTaskRecord {
         message_id: &u64,
         page: &Option<PageParam>,
     ) -> SenderResult<Vec<SenderLogModel>> {
-        self.logs.list_data(message_id, page).await
+        self.msg_logs.list_data(message_id, page).await
     }
     //添加短信任务
     #[allow(clippy::too_many_arguments)]
@@ -134,6 +141,7 @@ impl SmsTaskRecord {
         expected_time: &u64,
         user_id: &Option<u64>,
         cancel_key: &Option<String>,
+        env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         let user_id = user_id.unwrap_or_default();
         let add_time = now_time().unwrap_or_default();
@@ -167,8 +175,8 @@ impl SmsTaskRecord {
             .execute(&mut tran)
             .await?
             .rows_affected();
+        let ids = add_data.into_iter().map(|e| e.0).collect::<Vec<u64>>();
         if let Some(hk) = cancel_key {
-            let ids = add_data.into_iter().map(|e| e.0).collect::<Vec<u64>>();
             let res = self.cancel.add(app_id, &ids, hk, Some(&mut tran)).await;
             if let Err(err) = res {
                 tran.rollback().await?;
@@ -176,6 +184,9 @@ impl SmsTaskRecord {
             }
         }
         tran.commit().await?;
+
+        self.msg_logs.add_init_log(app_id, &ids, env_data).await;
+
         Ok(row)
     }
     //取消短信发送
@@ -183,6 +194,7 @@ impl SmsTaskRecord {
         &self,
         message: &SenderSmsMessageModel,
         user_id: &u64,
+        env_data: Option<&RequestEnv>,
     ) -> SenderResult<()> {
         let change = sqlx_model::model_option_set!(SenderSmsMessageModelRef, {
             status: SenderSmsMessageStatus::IsCancel as i8
@@ -190,8 +202,8 @@ impl SmsTaskRecord {
         Update::<MySql, SenderSmsMessageModel, _>::new(change)
             .execute_by_pk(message, &self.db)
             .await?;
-        self.logs
-            .add_cancel_log(message.app_id, message.id, user_id)
+        self.msg_logs
+            .add_cancel_log(message.app_id, message.id, user_id, env_data)
             .await;
         Ok(())
     }
@@ -200,6 +212,7 @@ impl SmsTaskRecord {
         &self,
         smsc: &SenderKeyCancelModel,
         user_id: &u64,
+        env_data: Option<&RequestEnv>,
     ) -> SenderResult<()> {
         let mut db = self.db.begin().await?;
         let res = self.cancel.cancel(smsc, user_id, Some(&mut db)).await;
@@ -218,8 +231,8 @@ impl SmsTaskRecord {
             return res.map(|_| ()).map_err(|e| e.into());
         }
         db.commit().await?;
-        self.logs
-            .add_cancel_log(smsc.app_id, smsc.message_id, user_id)
+        self.msg_logs
+            .add_cancel_log(smsc.app_id, smsc.message_id, user_id, env_data)
             .await;
         Ok(())
     }
@@ -238,7 +251,7 @@ impl SmsTaskRecord {
         };
         let set_try_num = val.try_num + 1;
         let send_time = now_time().unwrap_or_default();
-        self.logs
+        self.msg_logs
             .add_finish_log(event_type, val.app_id, val.id, channel, res)
             .await;
         let mut change = sqlx_model::model_option_set!(SenderSmsMessageModelRef,{
@@ -260,6 +273,7 @@ impl SmsTaskRecord {
         self.config.find_by_id(id).await
     }
     //短信配置添加
+    #[allow(clippy::too_many_arguments)]
     pub async fn config_add(
         &self,
         app_id: Option<u64>,
@@ -268,6 +282,7 @@ impl SmsTaskRecord {
         config_data: Value,
         user_id: u64,
         add_user_id: u64,
+        env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         let config_data = match config_type {
             SenderSmsConfigType::Limit => {
@@ -316,7 +331,8 @@ impl SmsTaskRecord {
                 }
             },
         };
-        self.config
+        let id = self
+            .config
             .add(
                 app_id,
                 priority,
@@ -324,12 +340,19 @@ impl SmsTaskRecord {
                 config_data,
                 user_id,
                 add_user_id,
+                env_data,
             )
-            .await
+            .await?;
+        Ok(id)
     }
     //短信配置删除
-    pub async fn config_del(&self, config: &SenderConfigModel, user_id: u64) -> SenderResult<u64> {
-        self.config.del(config, user_id).await
+    pub async fn config_del(
+        &self,
+        config: &SenderConfigModel,
+        user_id: u64,
+        env_data: Option<&RequestEnv>,
+    ) -> SenderResult<u64> {
+        self.config.del(config, user_id, env_data).await
     }
     //短信配置列表数据
     pub async fn config_list(

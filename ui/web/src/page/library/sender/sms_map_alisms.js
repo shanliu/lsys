@@ -11,7 +11,7 @@ import { ToastContext } from '../../../context/toast';
 import { ConfirmButton } from '../../../library/dialog';
 import { ClearTextField } from '../../../library/input';
 import { LoadingButton } from '../../../library/loading';
-import { BaseTablePage } from '../../../library/table_page';
+import { SimpleTablePage } from '../../../library/table_page';
 import { smsAddAppAliConfig, smsDelAppAliConfig, smsListAliConfig, smsListAppAliConfig } from '../../../rest/sender_setting';
 import { showTime } from '../../../utils/utils';
 
@@ -359,7 +359,7 @@ export default function AppSmsAliSmsMap(props) {
         },
         {
             align: "center",
-            style: { width: 80 },
+            style: { width: 120 },
             label: '尝试次数',
             render: (row) => {
                 return row.config.max_try_num
@@ -367,9 +367,9 @@ export default function AppSmsAliSmsMap(props) {
         },
         {
             style: { width: 180 },
-            label: '添加时间',
+            label: '修改时间',
             render: (row) => {
-                return showTime(row.config.add_time, "未知")
+                return showTime(row.config.change_time, "未知")
             }
         },
         {
@@ -527,7 +527,7 @@ export default function AppSmsAliSmsMap(props) {
 
         {(loadData.status || loadData.loading)
             ? <Box sx={{ height: 1, width: '100%' }}>
-                <BaseTablePage
+                <SimpleTablePage
                     rows={loadData.data}
                     columns={columns}
                     count={loadData.total}

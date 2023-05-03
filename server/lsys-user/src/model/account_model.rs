@@ -45,9 +45,13 @@ pub struct UserModel {
     #[sqlx(default)]
     pub add_time: u64,
 
-    /// 删除时间
+    /// 状态确认时间,激活时间
     #[sqlx(default)]
-    pub delete_time: u64,
+    pub confirm_time: u64,
+
+    /// 最后更改时间
+    #[sqlx(default)]
+    pub change_time: u64,
 }
 
 #[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
@@ -84,13 +88,9 @@ pub struct UserAddressModel {
     #[sqlx(default)]
     pub status: i8,
 
-    /// 添加时间
+    /// 最后更改时间
     #[sqlx(default)]
-    pub add_time: u64,
-
-    /// 删除时间
-    #[sqlx(default)]
-    pub delete_time: u64,
+    pub change_time: u64,
 }
 
 #[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
@@ -111,17 +111,13 @@ pub struct UserEmailModel {
     #[sqlx(default)]
     pub status: i8,
 
-    /// 绑定时间
-    #[sqlx(default)]
-    pub add_time: u64,
-
     /// 确认时间
     #[sqlx(default)]
     pub confirm_time: u64,
 
-    /// 删除时间
+    /// 最后更改时间
     #[sqlx(default)]
-    pub delete_time: u64,
+    pub change_time: u64,
 }
 
 #[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
@@ -138,7 +134,7 @@ pub struct UserExternalModel {
     #[sqlx(default)]
     pub user_id: u64,
 
-    /// 类型 1 微信 
+    /// 类型 1 微信
     #[sqlx(default)]
     pub external_type: String,
 
@@ -178,17 +174,9 @@ pub struct UserExternalModel {
     #[sqlx(default)]
     pub token_timeout: u64,
 
-    /// 绑定时间
-    #[sqlx(default)]
-    pub add_time: u64,
-
     /// 更新时间
     #[sqlx(default)]
     pub change_time: u64,
-
-    /// 删除时间
-    #[sqlx(default)]
-    pub delete_time: u64,
 }
 
 #[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
@@ -212,10 +200,6 @@ pub struct UserInfoModel {
     /// 生日
     #[sqlx(default)]
     pub birthday: String,
-
-    /// 屏蔽时间  default:  0
-    #[sqlx(default)]
-    pub block_time: u64,
 
     /// 注册IP
     #[sqlx(default)]
@@ -295,16 +279,13 @@ pub struct UserMobileModel {
     #[sqlx(default)]
     pub status: i8,
 
-    /// 添加时间
-    #[sqlx(default)]
-    pub add_time: u64,
-
+    /// 确认时间
     #[sqlx(default)]
     pub confirm_time: u64,
 
-    /// 删除时间
+    /// 最后更改时间
     #[sqlx(default)]
-    pub delete_time: u64,
+    pub change_time: u64,
 }
 
 #[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
@@ -325,9 +306,9 @@ pub struct UserNameModel {
     #[sqlx(default)]
     pub change_time: u64,
 
-    /// 启用时间
+    /// 绑定状态1正常 2待验证 3关闭  default:  0
     #[sqlx(default)]
-    pub add_time: u64,
+    pub status: i8,
 }
 
 #[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
@@ -344,13 +325,13 @@ pub struct UserPasswordModel {
     #[sqlx(default)]
     pub password: String,
 
-    /// 更改时间  default:  0
-    #[sqlx(default)]
-    pub change_time: u64,
-
     /// 绑定时间
     #[sqlx(default)]
     pub add_time: u64,
+
+    /// 停用时间  default:  0
+    #[sqlx(default)]
+    pub disable_time: u64,
 }
 
 #[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
@@ -375,10 +356,7 @@ pub struct UserIndexModel {
     #[sqlx(default)]
     pub status: i8,
 
-    /// 绑定时间
+    /// 最后更新时间
     #[sqlx(default)]
-    pub add_time: u64,
-    /// 删除时间
-    #[sqlx(default)]
-    pub delete_time: u64,
+    pub change_time: u64,
 }

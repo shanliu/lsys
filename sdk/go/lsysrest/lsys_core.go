@@ -27,7 +27,7 @@ type RestApi struct {
 func NewRestApi(config *RestApiConfig) *RestApi {
 	client := rest_client.NewRestClientManager()
 	//配置
-	client.SetRestConfig(&rest_client.AppRestConfig{
+	client.SetRestConfig(&RestClientConfig{
 		Name:      "l-sys-rest-config",
 		AppKey:    config.AppId,
 		AppSecret: config.AppSecret,

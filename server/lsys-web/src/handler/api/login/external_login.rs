@@ -37,11 +37,16 @@ pub async fn user_external_login_callback<
     let res = req_dao
         .web_dao
         .user
-        .user_external_login::<O, L, P, Q>(oauth, &req_dao.req_env, param)
+        .user_external_login::<O, L, P, Q>(oauth, &req_dao.req_env, param, Some(&req_dao.req_env))
         .await?;
     let (ext_model, _, ext_data) = res;
     let login_env = LoginEnv {
-        login_ip: req_dao.req_env.ip.parse::<IpAddr>().ok(),
+        login_ip: req_dao
+            .req_env
+            .request_ip
+            .as_ref()
+            .map(|e| e.parse::<IpAddr>().ok())
+            .unwrap_or_default(),
     };
     let token = req_dao
         .web_dao

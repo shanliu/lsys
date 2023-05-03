@@ -16,6 +16,7 @@ use sqlx::{MySql, Pool};
 use sqlx_model::{SqlQuote, Update, WhereOption};
 
 use sqlx_model::{model_option_set, sql_format, Insert, Select};
+use tracing::warn;
 
 use crate::dao::session::{RestAuthData, RestAuthTokenData};
 use crate::model::AppsTokenStatus;
@@ -24,7 +25,7 @@ use crate::{
     model::{AppsModel, AppsTokenModel, AppsTokenModelRef},
 };
 
-use super::{AppsError, AppsResult};
+use super::super::{Apps, AppsError, AppsResult};
 
 // OAUTH流程
 // 验证登录用户成功->创建CODE(create_code)并返回->通过CODE创建TOKEN返回->通过TOKEN请求REST接口
@@ -33,6 +34,7 @@ use super::{AppsError, AppsResult};
 
 // oauth 登录服务器实现
 pub struct AppsOauth {
+    app: Arc<Apps>,
     user_account: Arc<UserAccount>,
     db: Pool<MySql>,
     redis: deadpool_redis::Pool,
@@ -56,17 +58,23 @@ struct OauthData {
 
 impl AppsOauth {
     pub fn new(
+        app: Arc<Apps>,
         user_account: Arc<UserAccount>,
         db: Pool<MySql>,
         redis: deadpool_redis::Pool,
         fluent: Arc<FluentMessage>,
         time_out: u64,
     ) -> Self {
+        let config = LocalCacheConfig {
+            //配置缓存
+            cache_name: "apps-oauth",
+            cache_time: 1800,
+            cache_size: 1000,
+            refresh_time: 1700,
+        };
         Self {
-            cache: Arc::from(LocalCache::new(
-                redis.clone(),
-                LocalCacheConfig::new("apps-oauth"),
-            )),
+            app,
+            cache: Arc::from(LocalCache::new(redis.clone(), config)),
             user_account,
             db,
             redis,
@@ -94,7 +102,7 @@ impl AppsOauth {
         Ok(code)
     }
     //从数据库中移除app token，返回移除数量
-    pub async fn remove_token(&self, app: &AppsTokenModel) -> AppsResult<u64> {
+    async fn remove_token(&self, app: &AppsTokenModel) -> AppsResult<u64> {
         let status = AppsTokenStatus::Delete.to();
         let change = sqlx_model::model_option_set!(AppsTokenModelRef,{
             status:status,
@@ -195,7 +203,15 @@ impl AppsOauth {
                     )
                     .await;
                 match data {
-                    Ok(code) => Ok((code, user)),
+                    Ok(code) => {
+                        match redis.del(save_key).await {
+                            Ok(()) => {}
+                            Err(err) => {
+                                warn!("remove oauth code fail:{}", err);
+                            }
+                        }
+                        Ok((code, user))
+                    }
                     Err(sqlx::Error::RowNotFound) => {
                         let otoken = self
                             .add_token(app, oauth.scope, oauth.user_id, code)
@@ -217,14 +233,15 @@ impl AppsOauth {
         app: &AppsModel,
         app_token: &AppsTokenModel,
         user: &UserModel,
-    ) -> AppsResult<()> {
+    ) -> AppsResult<RestAuthData> {
         let save_key = create_save_key("token", &app.client_id, &app_token.token);
         let data = self.cache.get(&save_key).await;
-        match data {
+        let out = match data {
             Some(user_auth) => {
                 if user_auth.token.id != app_token.id {
                     self.cache.clear(&save_key).await;
                 }
+                user_auth
             }
             None => {
                 if app_token.timeout < now_time().unwrap_or_default() {
@@ -248,10 +265,13 @@ impl AppsOauth {
                     },
                     app_token.to_owned(),
                 );
-                self.cache.set(save_key, save_data, self.time_out).await;
+                self.cache
+                    .set(save_key, save_data.clone(), self.time_out)
+                    .await;
+                save_data
             }
-        }
-        Ok(())
+        };
+        Ok(out)
     }
     //根据rest token获取session数据
     pub async fn get_session_data(
@@ -262,11 +282,37 @@ impl AppsOauth {
         let data = self.cache.get(&save_key).await;
         match data {
             Some(ad) => Ok(ad),
-            None => Err(AppsError::System(get_message!(
-                &self.fluent,
-                "token-is-timeout",
-                "your submit code is timeout or wrong"
-            ))),
+            None => {
+                let app = self
+                    .app
+                    .cache()
+                    .find_by_client_id(&user_token_data.client_id)
+                    .await?;
+                let res = Select::type_new::<AppsTokenModel>()
+                    .fetch_one_by_where::<AppsTokenModel, _>(
+                        &WhereOption::Where(sql_format!(
+                            "app_id={} and token={} and status={} order by id desc",
+                            app.id,
+                            user_token_data.token,
+                            AppsTokenStatus::Enable as i8,
+                        )),
+                        &self.db,
+                    )
+                    .await;
+                match res {
+                    Ok(token) => {
+                        let user = self.find_user_id(&token.access_user_id).await?;
+                        let udata = self.create_session(&app, &token, &user).await?;
+                        Ok(udata)
+                    }
+                    Err(sqlx::Error::RowNotFound) => Err(AppsError::System(get_message!(
+                        &self.fluent,
+                        "token-is-timeout",
+                        "your submit token not find"
+                    ))),
+                    Err(err) => Err(err.into()),
+                }
+            }
         }
     }
     //删除session
@@ -275,12 +321,15 @@ impl AppsOauth {
         user_token: &SessionToken<RestAuthTokenData>,
     ) -> AppsResult<()> {
         if let Some(user_token_data) = user_token.data() {
-            let rest_data = self.get_session_data(user_token_data).await?;
-            self.remove_token(&rest_data.token).await?;
-            let save_key =
-                create_save_key("token", &user_token_data.client_id, &user_token_data.token);
-            self.cache.clear(&save_key).await;
+            self.clear_user_token(user_token_data).await?;
         }
+        Ok(())
+    }
+    async fn clear_user_token(&self, user_token_data: &RestAuthTokenData) -> AppsResult<()> {
+        let rest_data = self.get_session_data(user_token_data).await?;
+        self.remove_token(&rest_data.token).await?;
+        let save_key = create_save_key("token", &user_token_data.client_id, &user_token_data.token);
+        self.cache.clear(&save_key).await;
         Ok(())
     }
     //刷新登陆session数据
@@ -292,12 +341,27 @@ impl AppsOauth {
     ) -> AppsResult<RestAuthTokenData> {
         let auth_data = self.get_session_data(user_token_data).await?;
         let token = if reset_token {
-            let oldtoken = auth_data.token.clone();
-            let token = self
-                .add_token(app, oldtoken.scope, oldtoken.access_user_id, oldtoken.code)
-                .await?;
-            self.remove_token(&auth_data.token).await?;
-            token
+            let res = Select::type_new::<AppsTokenModel>()
+                .reload::<AppsTokenModel, _>(&auth_data.token, &self.db)
+                .await;
+            match res {
+                Ok(oldtoken) => {
+                    let token = self
+                        .add_token(app, oldtoken.scope, oldtoken.access_user_id, oldtoken.code)
+                        .await?;
+                    self.clear_user_token(user_token_data).await?;
+                    token
+                }
+                Err(sqlx::Error::RowNotFound) => {
+                    self.clear_user_token(user_token_data).await?;
+                    return Err(AppsError::System(get_message!(
+                        &self.fluent,
+                        "token-is-delete",
+                        "your submit token is delete"
+                    )));
+                }
+                Err(err) => return Err(err.into()),
+            }
         } else {
             auth_data.token
         };

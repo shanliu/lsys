@@ -115,12 +115,8 @@ export const mobileComfirmStatus = [
     { key: 2, val: '已确认' },
 ];
 
-export async function mobileList(status, config) {
-    let statarr = []
-    if (!status || status == '') statarr = mobileComfirmStatus.map((e) => { return e.key });
-    else {
-        statarr = [parseInt(status)]
-    }
+export async function mobileList(config) {
+    let statarr = mobileComfirmStatus.map((e) => { return e.key });
     let response = await userRest().post("/mobile/list_data", {
         "status": statarr,
     }, config);
@@ -205,12 +201,8 @@ export const emailComfirmStatus = [
     { key: 2, val: '已确认' },
 ];
 
-export async function emailList(status, config) {
-    let statarr = []
-    if (!status || status == '') statarr = emailComfirmStatus.map((e) => { return e.key });
-    else {
-        statarr = [parseInt(status)]
-    }
+export async function emailList(config) {
+    let statarr = emailComfirmStatus.map((e) => { return e.key });
     let response = await userRest().post("/email/list_data", {
         "status": statarr,
     }, config);
@@ -293,14 +285,11 @@ export const OauthConfig = [
     { key: "wechat", val: '微信', type: "qrcode" },
 ];
 
-export async function oauthList(login_type, config) {
+export async function oauthList(config) {
     let statarr = []
-    if (login_type && login_type != '') {
-        statarr = [login_type]
-    }
     let response = await userRest().post("/external/list_data", {
         "oauth_type": statarr,
-    })
+    }, config)
     return restResult(response, ['not_found'])
 }
 
@@ -334,5 +323,86 @@ export async function oauthCheck(login_type, login_state, config) {
         "login_state": login_state,
         "login_type": login_type,
     }, config)
+    return restResult(response)
+}
+
+
+export const userStatus = [
+    { key: 1, val: '待确认' },
+    { key: 2, val: '已确认' },
+];
+
+export const searchType = [
+    { key: 'mobile', val: '手机号' },
+    { key: 'email', val: '邮箱' },
+    { key: 'username', val: '登录名' },
+    { key: 'nikename', val: '昵称' },
+];
+
+
+export async function userSearch(param, config) {
+    const { enable_user, key_word, page_size, more, end_pos, start_pos, opt } = param;
+    // pub name: Option<bool>,
+    // pub info: Option<bool>,
+    // pub address: Option<bool>,
+    // pub external: Option<Vec<String>>,
+    // pub email: Option<Vec<i8>>,
+    // pub mobile: Option<Vec<i8>>,
+    var param = {
+        key_word: key_word,
+        enable: !!enable_user,
+        base: !!opt,
+        name: !!opt,
+        info: !!opt,
+        address: !!opt,
+        external: opt ? [] : null,
+        email: opt ? [] : null,
+        mobile: opt ? [] : null,
+        limit: {
+            limit: parseInt(page_size) > 0 ? parseInt(page_size) : 10,
+            next: false,
+            more: more,
+        },
+    };
+    if (end_pos && end_pos != '0' && end_pos != '') {
+        param.limit = {
+            ...param.limit,
+            pos: end_pos,
+            eq_pos: false,
+            next: true,
+        }
+    } else if (start_pos && start_pos != '0' && start_pos != '') {
+        param.limit = {
+            ...param.limit,
+            pos: start_pos,
+            eq_pos: true,
+        }
+    }
+
+
+    let response = await userRest().post("/list/search", param, config);
+    return restResult(response)
+}
+
+
+export async function userIdSearch(param, config) {
+    const { user_id, opt } = param;
+    // pub name: Option<bool>,
+    // pub info: Option<bool>,
+    // pub address: Option<bool>,
+    // pub external: Option<Vec<String>>,
+    // pub email: Option<Vec<i8>>,
+    // pub mobile: Option<Vec<i8>>,
+    var param = {
+        user_id: parseInt(user_id),
+        base: !!opt,
+        name: !!opt,
+        info: !!opt,
+        address: !!opt,
+        external: opt ? [] : null,
+        email: opt ? [] : null,
+        mobile: opt ? [] : null,
+    };
+    let response = await userRest().post("/list/id_search", param, config);
     return restResult(response)
 }

@@ -1,24 +1,31 @@
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{now_time, FluentMessage};
+use lsys_core::{now_time, FluentMessage, RequestEnv};
+use lsys_logger::dao::ChangeLogger;
 use sqlx::{MySql, Pool, Transaction};
 use sqlx_model::{executor_option, model_option_set, Insert, Select, Update};
 use std::sync::Arc;
 
 use crate::model::{SettingModel, SettingModelRef, SettingStatus, SettingType};
 
-use super::{SettingData, SettingDecode, SettingEncode, SettingResult};
+use super::{SettingData, SettingDecode, SettingEncode, SettingLog, SettingResult};
 pub struct SingleSetting {
     db: Pool<MySql>,
+    logger: Arc<ChangeLogger>,
     //fluent: Arc<FluentMessage>,
     pub cache: Arc<LocalCache<String, SettingModel>>,
 }
 
 impl SingleSetting {
-    pub fn new(db: Pool<MySql>, _fluent: Arc<FluentMessage>, redis: deadpool_redis::Pool) -> Self {
+    pub fn new(
+        db: Pool<MySql>,
+        _fluent: Arc<FluentMessage>,
+        redis: deadpool_redis::Pool,
+        logger: Arc<ChangeLogger>,
+    ) -> Self {
         Self {
             cache: Arc::from(LocalCache::new(redis, LocalCacheConfig::new("setting"))),
             db,
-            //  fluent,
+            logger, //  fluent,
         }
     }
     pub async fn save<'t, T: SettingEncode>(
@@ -28,6 +35,7 @@ impl SingleSetting {
         data: &T,
         change_user_id: &u64,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> SettingResult<u64> {
         let name = name.to_owned();
         let edata = data.encode();
@@ -57,8 +65,8 @@ impl SingleSetting {
                     user_id: uid,
                     name:name,
                     status: status,
-                    last_user_id: change_user_id,
-                    last_change_time: time,
+                    change_user_id: change_user_id,
+                    change_time: time,
                 });
                 let dat = executor_option!(
                     {
@@ -77,8 +85,8 @@ impl SingleSetting {
                 let change = sqlx_model::model_option_set!(SettingModelRef,{
                     setting_data: edata,
                     name:name,
-                    last_user_id: change_user_id,
-                    last_change_time: time,
+                    change_user_id: change_user_id,
+                    change_time: time,
                 });
                 executor_option!(
                     {
@@ -97,6 +105,22 @@ impl SingleSetting {
             }
             Err(err) => return Err(err.into()),
         };
+        self.logger
+            .add(
+                &SettingLog {
+                    action: "single_save",
+                    setting_key: key,
+                    setting_type: SettingType::Single,
+                    name,
+                    setting_data: edata,
+                },
+                &Some(did),
+                &Some(uid),
+                &Some(change_user_id),
+                None,
+                env_data,
+            )
+            .await;
         Ok(did)
     }
     pub async fn load<T: SettingDecode>(

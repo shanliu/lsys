@@ -110,7 +110,13 @@ pub async fn user_reset_password_send_code_from_mobile<
     req_dao
         .web_dao
         .sender_smser
-        .send_valid_code(&param.area_code, &param.mobile, &data.0, &data.1)
+        .send_valid_code(
+            &param.area_code,
+            &param.mobile,
+            &data.0,
+            &data.1,
+            Some(&req_dao.req_env),
+        )
         .await?;
     req_dao
         .web_dao
@@ -170,7 +176,7 @@ pub async fn user_reset_password_send_code_from_email<
     req_dao
         .web_dao
         .sender_mailer
-        .send_valid_code(&param.email, &data.0, &data.1)
+        .send_valid_code(&param.email, &data.0, &data.1, Some(&req_dao.req_env))
         .await?;
     req_dao
         .web_dao

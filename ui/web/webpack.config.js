@@ -89,6 +89,12 @@ let config = {
                         loader: "css-loader"
                     }
                 ]
+            },
+            {
+                test: /\.jpg|\.png|\.gif|\.webp$/,
+                use: {
+                    loader: "file-loader"
+                }
             }
         ]
     },

@@ -1,31 +1,38 @@
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
-    now_time,
+    now_time, RequestEnv,
 };
 
+use lsys_logger::dao::ChangeLogger;
 use sqlx::{Acquire, MySql, Pool, Transaction};
-use sqlx_model::{Insert, Select,  Update};
+use sqlx_model::{Insert, Select, Update};
 use std::{collections::HashMap, sync::Arc};
 
 use crate::model::{UserInfoModel, UserInfoModelRef, UserModel};
 
-use super::{user_index::UserIndex, UserAccountResult};
+use super::{logger::LogUserInfo, user_index::UserIndex, UserAccountResult};
 
 pub struct UserInfo {
     db: Pool<MySql>,
 
     index: Arc<UserIndex>,
     pub cache: Arc<LocalCache<u64, UserInfoModel>>,
+    logger: Arc<ChangeLogger>,
 }
 
 //  find_by_id_impl!(UserInfo,UserInfoModel,cache,user_id,"");
 
 impl UserInfo {
-    pub fn new(db: Pool<MySql>, redis: deadpool_redis::Pool, index: Arc<UserIndex>) -> Self {
+    pub fn new(
+        db: Pool<MySql>,
+        redis: deadpool_redis::Pool,
+        index: Arc<UserIndex>,
+        logger: Arc<ChangeLogger>,
+    ) -> Self {
         Self {
             cache: Arc::from(LocalCache::new(redis, LocalCacheConfig::new("user-info"))),
             db,
-
+            logger,
             index,
         }
     }
@@ -35,7 +42,13 @@ impl UserInfo {
         user: &UserModel,
         mut info: UserInfoModelRef<'t2>,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> UserAccountResult<()> {
+        let reg_from = info.reg_from.map(|e| e.to_string()).unwrap_or_default();
+        let reg_ip = info.reg_ip.map(|e| e.to_string()).unwrap_or_default();
+        let birthday = info.birthday.map(|e| e.to_string()).unwrap_or_default();
+        let headimg = info.headimg.map(|e| e.to_string()).unwrap_or_default();
+        let gender = info.gender.map(|e| e.to_owned()).unwrap_or_default();
         let time = now_time()?;
         info.user_id = Some(&user.id);
         info.change_time = Some(&time);
@@ -61,10 +74,10 @@ impl UserInfo {
                     if !rf.is_empty() {
                         if let Err(ie) = self
                             .index
-                            .add(
+                            .cat_one_add(
                                 crate::model::UserIndexCat::RegFrom,
                                 user.id,
-                                &[rf.to_owned()],
+                                rf.as_str(),
                                 Some(&mut db),
                             )
                             .await
@@ -80,39 +93,6 @@ impl UserInfo {
                     .await
             }
             Ok(user_info) => {
-                if !user_info.reg_from.is_empty() {
-                    if let Err(ie) = self
-                        .index
-                        .del(
-                            crate::model::UserIndexCat::RegFrom,
-                            user.id,
-                            &[user_info.reg_from.to_owned()],
-                            Some(&mut db),
-                        )
-                        .await
-                    {
-                        db.rollback().await?;
-                        return Err(ie);
-                    }
-                }
-                if let Some(rf) = info.reg_from {
-                    if !rf.is_empty() {
-                        if let Err(ie) = self
-                            .index
-                            .add(
-                                crate::model::UserIndexCat::RegFrom,
-                                user.id,
-                                &[rf.to_owned()],
-                                Some(&mut db),
-                            )
-                            .await
-                        {
-                            db.rollback().await?;
-                            return Err(ie);
-                        }
-                    }
-                }
-
                 Update::<sqlx::MySql, UserInfoModel, _>::new(info)
                     .execute_by_pk(&user_info, &mut db)
                     .await
@@ -127,6 +107,24 @@ impl UserInfo {
         };
         db.commit().await?;
         self.cache.clear(&user.id).await;
+
+        self.logger
+            .add(
+                &LogUserInfo {
+                    gender,
+                    headimg,
+                    birthday,
+                    reg_ip,
+                    reg_from,
+                },
+                &Some(user.id),
+                &Some(user.id),
+                &Some(user.id),
+                None,
+                env_data,
+            )
+            .await;
+
         Ok(())
     }
     lsys_core::impl_dao_fetch_one_by_one!(

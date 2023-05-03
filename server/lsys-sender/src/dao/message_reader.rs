@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use crate::dao::SenderResult;
 
-use lsys_core::{now_time, AppCore, FluentMessage, PageParam};
+use lsys_core::{now_time, AppCore, FluentMessage, LimitParam};
 use parking_lot::Mutex;
 use sqlx::{FromRow, MySql, Pool};
 use sqlx_model::{sql_format, ModelTableField, ModelTableName, Select, SqlExpr};
@@ -144,8 +144,8 @@ where
         tpl_id: &Option<String>,
         status: &Option<i8>,
         sql_where: Option<String>,
-        page: &Option<PageParam>,
-    ) -> SenderResult<Vec<M>> {
+        limit: &Option<LimitParam>,
+    ) -> SenderResult<(Vec<M>, Option<M>)> {
         let mut sqlwhere = vec![];
         if let Some(aid) = app_id {
             sqlwhere.push(sql_format!("app_id = {}  ", aid));
@@ -162,13 +162,25 @@ where
         if let Some(s) = sql_where {
             sqlwhere.push(s);
         }
-        let mut sql = format!("{}  order by id desc", sqlwhere.join(" and "));
-        if let Some(pdat) = page {
-            sql += format!(" limit {} offset {}", pdat.limit, pdat.offset).as_str();
-        }
-        let data = Select::type_new::<M>()
+
+        let sql = if let Some(page) = limit {
+            format!(
+                "{} {} order by {} {} ",
+                sqlwhere.join(" and "),
+                page.where_sql("id"),
+                page.order_sql("id"),
+                page.limit_sql(),
+            )
+        } else {
+            format!("{}  order by id desc", sqlwhere.join(" and "))
+        };
+        let mut data = Select::type_new::<M>()
             .fetch_all_by_where::<M, _>(&sqlx_model::WhereOption::Where(sql), &self.db)
             .await?;
-        Ok(data)
+        let next = limit
+            .as_ref()
+            .map(|page| page.tidy(&mut data))
+            .unwrap_or_default();
+        Ok((data, next))
     }
 }

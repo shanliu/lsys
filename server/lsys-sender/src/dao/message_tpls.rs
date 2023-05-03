@@ -2,8 +2,9 @@ use std::sync::Arc;
 
 use crate::dao::{SenderError, SenderResult};
 use crate::model::{SenderTplStatus, SenderTplsModel, SenderTplsModelRef, SenderType};
-use lsys_core::{get_message, now_time, FluentMessage, PageParam};
+use lsys_core::{get_message, now_time, FluentMessage, PageParam, RequestEnv};
 
+use lsys_logger::dao::ChangeLogger;
 use sqlx::Pool;
 use sqlx_model::{
     model_option_set, sql_format, Insert, ModelTableName, Select, Update, WhereOption,
@@ -11,19 +12,27 @@ use sqlx_model::{
 use sqlx_model::{SqlExpr, SqlQuote};
 use tera::{Context, Template, Tera};
 use tokio::sync::RwLock;
+
+use super::logger::LogMessageTpls;
 //公用模板
 pub struct MessageTpls {
     db: Pool<sqlx::MySql>,
     tera: RwLock<Tera>,
     fluent: Arc<FluentMessage>,
+    logger: Arc<ChangeLogger>,
 }
 
 impl MessageTpls {
-    pub fn new(db: Pool<sqlx::MySql>, fluent: Arc<FluentMessage>) -> Self {
+    pub fn new(
+        db: Pool<sqlx::MySql>,
+        fluent: Arc<FluentMessage>,
+        logger: Arc<ChangeLogger>,
+    ) -> Self {
         Self {
             db,
             tera: RwLock::new(Tera::default()),
             fluent,
+            logger,
         }
     }
     lsys_core::impl_dao_fetch_one_by_one!(
@@ -42,6 +51,7 @@ impl MessageTpls {
         tpl_data: &str,
         user_id: &u64,
         add_user_id: &u64,
+        env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         let sender_type = sender_type as i8;
         Template::new(&self.tpl_key(sender_type, tpl_id), None, tpl_data)
@@ -89,18 +99,35 @@ impl MessageTpls {
             change_user_id:add_user_id,
             status:status,
         });
-        Ok(Insert::<sqlx::MySql, SenderTplsModel, _>::new(idata)
+        let id = Insert::<sqlx::MySql, SenderTplsModel, _>::new(idata)
             .execute(&self.db)
             .await?
-            .last_insert_id())
+            .last_insert_id();
+
+        self.logger
+            .add(
+                &LogMessageTpls {
+                    action: "add",
+                    sender_type,
+                    tpl_id,
+                    tpl_data,
+                },
+                &Some(id),
+                &Some(user_id),
+                &Some(add_user_id.to_owned()),
+                None,
+                env_data,
+            )
+            .await;
+        Ok(id)
     }
     //可取消发送的数据
     pub async fn edit(
         &self,
         tpl: &SenderTplsModel,
-
         tpl_data: &str,
         user_id: &u64,
+        env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         let tkey = self.tpl_key(tpl.sender_type, &tpl.tpl_id);
         Template::new(&tkey, None, tpl_data)?;
@@ -109,21 +136,41 @@ impl MessageTpls {
         let tpl_data = tpl_data.to_owned();
 
         let change = model_option_set!(SenderTplsModelRef,{
-
             tpl_data:tpl_data,
-            user_id:user_id,
+            change_user_id:user_id,
             change_time:time,
         });
         let row = Update::<sqlx::MySql, SenderTplsModel, _>::new(change)
             .execute_by_pk(tpl, &self.db)
             .await?
             .rows_affected();
-        self.tera.write().await.templates.remove(&tkey);
-        self.tera.write().await.build_inheritance_chains()?;
+        self.tera.write().await.add_raw_template(&tkey, &tpl_data)?;
+
+        self.logger
+            .add(
+                &LogMessageTpls {
+                    action: "edit",
+                    sender_type: tpl.sender_type,
+                    tpl_id: tpl.tpl_id.to_owned(),
+                    tpl_data,
+                },
+                &Some(tpl.id),
+                &Some(tpl.user_id),
+                &Some(user_id),
+                None,
+                env_data,
+            )
+            .await;
+
         Ok(row)
     }
     //可取消发送的数据
-    pub async fn del(&self, tpl: &SenderTplsModel, user_id: &u64) -> SenderResult<u64> {
+    pub async fn del(
+        &self,
+        tpl: &SenderTplsModel,
+        user_id: &u64,
+        env_data: Option<&RequestEnv>,
+    ) -> SenderResult<u64> {
         let user_id = user_id.to_owned();
         let time = now_time().unwrap_or_default();
         let status = SenderTplStatus::Delete as i8;
@@ -139,6 +186,23 @@ impl MessageTpls {
         let tkey = self.tpl_key(tpl.sender_type, &tpl.tpl_id);
         self.tera.write().await.templates.remove(&tkey);
         self.tera.write().await.build_inheritance_chains()?;
+
+        self.logger
+            .add(
+                &LogMessageTpls {
+                    action: "del",
+                    sender_type: tpl.sender_type,
+                    tpl_id: tpl.tpl_id.to_owned(),
+                    tpl_data: tpl.tpl_data.to_owned(),
+                },
+                &Some(tpl.id),
+                &Some(tpl.user_id),
+                &Some(user_id),
+                None,
+                env_data,
+            )
+            .await;
+
         Ok(row)
     }
     fn tpl_key(&self, send_type: i8, tpl_id: &str) -> String {

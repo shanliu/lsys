@@ -5,13 +5,15 @@ use crate::dao::account::{UserAccountError, UserAccountResult};
 
 use crate::model::{UserExternalModel, UserExternalModelRef, UserExternalStatus, UserModel};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{get_message, now_time, FluentMessage};
+use lsys_core::{get_message, now_time, FluentMessage, RequestEnv};
 
+use lsys_logger::dao::ChangeLogger;
 use sqlx::{Acquire, MySql, Pool, Transaction};
 use sqlx_model::{
     executor_option, model_option_set, sql_format, Insert, ModelTableName, Select, SqlQuote, Update,
 };
 
+use super::logger::LogUserExternal;
 use super::user_index::UserIndex;
 
 pub struct UserExternal {
@@ -19,6 +21,7 @@ pub struct UserExternal {
     index: Arc<UserIndex>,
     fluent: Arc<FluentMessage>,
     pub cache: Arc<LocalCache<u64, Vec<UserExternalModel>>>,
+    logger: Arc<ChangeLogger>,
 }
 
 impl UserExternal {
@@ -27,6 +30,7 @@ impl UserExternal {
         redis: deadpool_redis::Pool,
         fluent: Arc<FluentMessage>,
         index: Arc<UserIndex>,
+        logger: Arc<ChangeLogger>,
     ) -> Self {
         Self {
             cache: Arc::from(LocalCache::new(
@@ -36,6 +40,7 @@ impl UserExternal {
             db,
             fluent,
             index,
+            logger,
         }
     }
 
@@ -86,7 +91,9 @@ impl UserExternal {
             .await?;
         Ok(res)
     }
+
     /// 新增第三方登录信息
+    #[allow(clippy::too_many_arguments)]
     pub async fn add_external<'t>(
         &self,
         user: &UserModel,
@@ -95,6 +102,7 @@ impl UserExternal {
         external_id: String,
         external_name: String,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> UserAccountResult<u64> {
         let db = &self.db;
         let user_ext_res = Select::type_new::<UserExternalModel>()
@@ -110,7 +118,7 @@ impl UserExternal {
             )
             .await;
         let time = now_time()?;
-        match user_ext_res {
+        let aid = match user_ext_res {
             Ok(user_ext) => {
                 if user_ext.user_id != user.id {
                     return Err(UserAccountError::System(get_message!(&self.fluent,
@@ -121,7 +129,7 @@ impl UserExternal {
                 let change = sqlx_model::model_option_set!(UserExternalModelRef,{
                     status:UserExternalStatus::Enable as i8,
                     external_name:external_name,
-                    add_time:time
+                    change_time:time
                 });
                 executor_option!(
                     {
@@ -133,7 +141,7 @@ impl UserExternal {
                     db,
                     db
                 );
-                Ok(user_ext.id)
+                user_ext.id
             }
             Err(sqlx::Error::RowNotFound) => {
                 let new_data = model_option_set!(UserExternalModelRef,{
@@ -144,7 +152,6 @@ impl UserExternal {
                     external_id:external_id,
                     external_name:external_name,
                     change_time:time,
-                    add_time:time
                 });
 
                 let mut db = match transaction {
@@ -157,7 +164,7 @@ impl UserExternal {
                 match res {
                     Err(e) => {
                         db.rollback().await?;
-                        Err(e)?
+                        return Err(e.into());
                     }
                     Ok(mr) => {
                         let res = sqlx::query(
@@ -173,7 +180,7 @@ impl UserExternal {
                         match res {
                             Err(e) => {
                                 db.rollback().await?;
-                                Err(e.into())
+                                return Err(e.into());
                             }
                             Ok(_) => {
                                 if let Err(ie) = self
@@ -181,7 +188,7 @@ impl UserExternal {
                                     .add(
                                         crate::model::UserIndexCat::ExternalType,
                                         user.id,
-                                        &[external_type],
+                                        &[external_type.clone()],
                                         Some(&mut db),
                                     )
                                     .await
@@ -192,14 +199,40 @@ impl UserExternal {
 
                                 db.commit().await?;
                                 self.cache.clear(&user.id).await;
-                                Ok(mr.last_insert_id())
+                                mr.last_insert_id()
                             }
                         }
                     }
                 }
             }
-            Err(err) => Err(err)?,
-        }
+            Err(err) => return Err(err.into()),
+        };
+
+        self.logger
+            .add(
+                &LogUserExternal {
+                    action: "add",
+                    config_name,
+                    external_type,
+                    external_id,
+                    external_name,
+                    external_gender: "".to_string(),
+                    external_link: "".to_string(),
+                    external_pic: "".to_string(),
+                    external_nikename: "".to_string(),
+                    status: UserExternalStatus::Enable as i8,
+                    token_data: "".to_string(),
+                    token_timeout: 0,
+                },
+                &Some(aid),
+                &Some(user.id),
+                &Some(user.id),
+                None,
+                env_data,
+            )
+            .await;
+
+        Ok(aid)
     }
     /// 刷新第三方登录token
     #[allow(clippy::too_many_arguments)]
@@ -213,6 +246,7 @@ impl UserExternal {
         external_gender: Option<String>,
         external_link: Option<String>,
         external_pic: Option<String>,
+        env_data: Option<&RequestEnv>,
     ) -> UserAccountResult<()> {
         let time = now_time()?;
         let mut change = sqlx_model::model_option_set!(UserExternalModelRef,{
@@ -229,6 +263,31 @@ impl UserExternal {
             .execute_by_pk(user_ext, &self.db)
             .await?;
         self.cache.clear(&user_ext.user_id).await;
+
+        self.logger
+            .add(
+                &LogUserExternal {
+                    action: "update",
+                    config_name: user_ext.config_name.to_owned(),
+                    external_type: user_ext.external_type.to_owned(),
+                    external_id: user_ext.external_id.to_owned(),
+                    external_name: external_name.to_owned(),
+                    external_gender: external_gender.unwrap_or_default(),
+                    external_link: external_link.unwrap_or_default(),
+                    external_pic: external_pic.unwrap_or_default(),
+                    external_nikename: external_nikename.unwrap_or_default(),
+                    status: UserExternalStatus::Enable as i8,
+                    token_data,
+                    token_timeout,
+                },
+                &Some(user_ext.id),
+                &Some(user_ext.user_id),
+                &Some(user_ext.user_id),
+                None,
+                env_data,
+            )
+            .await;
+
         Ok(())
     }
     /// 删除用户外部账号
@@ -236,11 +295,12 @@ impl UserExternal {
         &self,
         user_ext: &UserExternalModel,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> UserAccountResult<u64> {
         let time = now_time()?;
         let change = sqlx_model::model_option_set!(UserExternalModelRef,{
             status:UserExternalStatus::Delete as i8,
-            delete_time:time
+            change_time:time
         });
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
@@ -249,7 +309,7 @@ impl UserExternal {
         let res = Update::<sqlx::MySql, UserExternalModel, _>::new(change)
             .execute_by_pk(user_ext, &mut db)
             .await;
-        match res {
+        let out = match res {
             Err(e) => {
                 db.rollback().await?;
                 Err(e)?
@@ -287,7 +347,33 @@ impl UserExternal {
                     }
                 }
             }
-        }
+        };
+
+        self.logger
+            .add(
+                &LogUserExternal {
+                    action: "del",
+                    config_name: user_ext.config_name.to_owned(),
+                    external_type: user_ext.external_type.to_owned(),
+                    external_id: user_ext.external_id.to_owned(),
+                    external_name: user_ext.external_name.to_owned(),
+                    external_gender: user_ext.external_gender.to_owned(),
+                    external_link: user_ext.external_link.to_owned(),
+                    external_pic: user_ext.external_pic.to_owned(),
+                    external_nikename: user_ext.external_nikename.to_owned(),
+                    status: UserExternalStatus::Delete as i8,
+                    token_data: user_ext.token_data.to_owned(),
+                    token_timeout: user_ext.token_timeout.to_owned(),
+                },
+                &Some(user_ext.id),
+                &Some(user_ext.user_id),
+                &Some(user_ext.user_id),
+                None,
+                env_data,
+            )
+            .await;
+
+        out
     }
     lsys_core::impl_dao_fetch_one_by_one!(
         db,

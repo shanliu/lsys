@@ -5,6 +5,7 @@ use crate::{
     PageParam, {JsonData, JsonResult},
 };
 
+use lsys_core::RequestEnv;
 use lsys_rbac::{
     dao::{RbacDao, RbacRes, ResOp, ResParam, ResTpl},
     model::{RbacResModel, RbacResOpModel, RbacTagsModel},
@@ -41,6 +42,7 @@ pub async fn rbac_res_add(
     param: ResAddParam,
     rbac_dao: &RbacDao,
     user_id: u64,
+    env_data: Option<&RequestEnv>,
 ) -> JsonResult<JsonData> {
     let add_user_id = param.user_id.unwrap_or(user_id);
     rbac_dao
@@ -63,6 +65,7 @@ pub async fn rbac_res_add(
             param.key,
             user_id,
             Some(&mut transaction),
+            env_data,
         )
         .await
     {
@@ -83,7 +86,17 @@ pub async fn rbac_res_add(
             &mut transaction,
         )
         .await?;
-    if let Err(e) = set_attr(dao, &res, param.ops, param.tags, user_id, &mut transaction).await {
+    if let Err(e) = set_attr(
+        dao,
+        &res,
+        param.ops,
+        param.tags,
+        user_id,
+        &mut transaction,
+        env_data,
+    )
+    .await
+    {
         transaction.rollback().await?;
         return Err(e);
     };
@@ -103,6 +116,7 @@ pub async fn rbac_res_edit(
     param: ResEditParam,
     rbac_dao: &RbacDao,
     user_id: u64,
+    env_data: Option<&RequestEnv>,
 ) -> JsonResult<JsonData> {
     let dao = &rbac_dao.rbac.res;
     let res = dao.find_by_id(&param.res_id).await?;
@@ -119,13 +133,23 @@ pub async fn rbac_res_edit(
 
     let mut transaction = rbac_dao.db.begin().await?;
     if let Err(e) = dao
-        .edit_res(&res, param.name, user_id, Some(&mut transaction))
+        .edit_res(&res, param.name, user_id, Some(&mut transaction), env_data)
         .await
     {
         transaction.rollback().await?;
         return Err(e.into());
     };
-    if let Err(e) = set_attr(dao, &res, param.ops, param.tags, user_id, &mut transaction).await {
+    if let Err(e) = set_attr(
+        dao,
+        &res,
+        param.ops,
+        param.tags,
+        user_id,
+        &mut transaction,
+        env_data,
+    )
+    .await
+    {
         transaction.rollback().await?;
         return Err(e);
     };
@@ -141,6 +165,7 @@ async fn set_attr<'t>(
     tags: Option<Vec<String>>,
     change_user_id: u64,
     transaction: &mut Transaction<'t, sqlx::MySql>,
+    env_data: Option<&RequestEnv>,
 ) -> JsonResult<()> {
     if let Some(tmp) = ops {
         let ops = tmp
@@ -150,11 +175,11 @@ async fn set_attr<'t>(
                 key: e.key,
             })
             .collect();
-        dao.res_set_ops(res, ops, change_user_id, Some(transaction))
+        dao.res_set_ops(res, ops, change_user_id, Some(transaction), env_data)
             .await?;
     }
     if let Some(ref tmp) = tags {
-        dao.res_set_tags(res, tmp, change_user_id, Some(transaction))
+        dao.res_set_tags(res, tmp, change_user_id, Some(transaction), env_data)
             .await?
     }
     Ok(())
@@ -168,6 +193,7 @@ pub async fn rbac_res_delete(
     param: ResDeleteParam,
     rbac_dao: &RbacDao,
     user_id: u64,
+    env_data: Option<&RequestEnv>,
 ) -> JsonResult<JsonData> {
     let resdao = &rbac_dao.rbac.res;
     let res = resdao.find_by_id(&param.res_id).await?;
@@ -181,7 +207,7 @@ pub async fn rbac_res_delete(
             None,
         )
         .await?;
-    resdao.del_res(&res, user_id, None).await?;
+    resdao.del_res(&res, user_id, None, env_data).await?;
     Ok(JsonData::message("del succ"))
 }
 
@@ -253,7 +279,7 @@ pub async fn rbac_res_list_data(
             filter_tags: &param.tags_filter,
             out_ops: param.ops,
             out_tags: param.tags,
-            page: &param.page.map(|e| e.into()),
+            page: &Some(param.page.unwrap_or_default().into()),
         })
         .await?;
     let out = res

@@ -19,12 +19,12 @@ import { ToastContext } from '../../context/toast';
 import { ConfirmButton } from '../../library/dialog';
 import { ClearTextField, InputTagSelect, LoadSelect, SliderInput, TagSelect } from '../../library/input';
 import { LoadingButton, Progress } from '../../library/loading';
-import { BaseTableBodyRow, BaseTableFooter, BaseTableHead, BaseTableNoRows, BaseTablePage } from '../../library/table_page';
+import { BaseTableBodyRow, BaseTableFooter, BaseTableHead, BaseTableNoRows, SimpleTablePage } from '../../library/table_page';
 import { ItemTooltip } from '../../library/tips';
 import { resListData, roleAdd, roleAddUser, roleDelete, roleDeleteUser, roleEdit, roleListData, roleListUser, roleOptions, roleRelationCheck, roleTags } from '../../rest/access';
 import { useSearchChange } from '../../utils/hook';
 import { showTime } from '../../utils/utils';
-import { RoleResOpGroupItem, RoleResOpItem, UserTags } from './user';
+import { RoleResOpGroupItem, RoleResOpItem, UserSearchInput, UserTags } from './user';
 import { roleRelationData } from '../../rest/access';
 
 //添加角色资源选择
@@ -1084,23 +1084,26 @@ function UserRoleListUser(props) {
 
                         >
                             <Grid item xs={3.6}>
-                                <TextField
-                                    sx={{
-                                        width: 1,
-                                    }}
-                                    label="用户ID"
-                                    variant="outlined"
-                                    name="name"
-                                    size="small"
-                                    value={userDataInput.op_user_id > 0 ? userDataInput.op_user_id : ''}
-                                    onChange={(e) => {
-                                        let value = (e.target.value + '').replace(/[^0-9]+/, '');
+                                <UserSearchInput
+                                    onSelect={(nval) => {
+                                        let value = (nval + '').replace(/[^0-9]+/, '');
                                         setUserDataInput({
                                             ...userDataInput,
                                             op_user_id: value
                                         })
                                     }}
+                                    sx={{
+                                        width: 1,
+                                    }}
+                                    variant="outlined"
+                                    label={`选择用户`}
+                                    value={userDataInput.op_user_id > 0 ? userDataInput.op_user_id : ''}
+                                    type="text"
+                                    name="code"
+
+                                    size="small"
                                     disabled={userDataInput.add_loading || userData.loading}
+                                    enableUser={true}
                                     required
                                 />
                             </Grid>
@@ -1333,7 +1336,7 @@ function UserRoleListUser(props) {
                                     </LocalizationProvider>
                                 </Paper>
                             </Fragment> :
-                            <BaseTablePage
+                            <SimpleTablePage
                                 rows={userData.rows ?? []}
                                 columns={columns}
                                 count={userData.rows_total ?? 0}
@@ -1463,7 +1466,7 @@ function UserRoleRow(props) {
 }
 
 
-function UserRoleRelationFind(props) {
+function UserRoleRelationFindInput(props) {
     const { userId, value, ...params } = props;
     const { toast } = useContext(ToastContext);
     const [relationData, setRelationData] = useState({
@@ -1593,6 +1596,7 @@ export function UserRolePage(props) {
                 ...pageRowData,
                 rows_loading: true
             })
+            window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
             roleListData({
                 user_id: userId,
                 user_range: searchParam.get("user_range"),
@@ -1604,6 +1608,7 @@ export function UserRolePage(props) {
                 page: searchParam.get("page"),
                 page_size: searchParam.get("page_size")
             }).then((data) => {
+
                 if (!data.status) {
                     setPageRowData({
                         ...pageRowData,
@@ -1754,7 +1759,9 @@ export function UserRolePage(props) {
                 if (row.user_range == 3) {
                     return <Fragment>
                         <span style={{ marginRight: "3px" }}> {item ? item.name : row.user_range}</span>
-                        <Button onClick={() => {
+                        <Button sx={{
+                            fontSize: "0.6rem"
+                        }} onClick={() => {
                             let pageItem = pageRowData.rows.find((e) => {
                                 return e.role.id == row.id
                             })
@@ -1946,7 +1953,7 @@ export function UserRolePage(props) {
 
             </FormControl>
             {filterData.user_range == 4 ? <FormControl sx={{ mr: 1 }} size="small"  >
-                <UserRoleRelationFind
+                <UserRoleRelationFindInput
 
                     label="关系名"
                     size="small"

@@ -12,8 +12,9 @@ use crate::{
     },
 };
 use async_trait::async_trait;
-use lsys_core::{now_time, AppCore, FluentMessage, PageParam};
+use lsys_core::{now_time, AppCore, FluentMessage, LimitParam, PageParam, RequestEnv};
 
+use lsys_logger::dao::ChangeLogger;
 use serde_json::Value;
 use sqlx::{MySql, Pool};
 use sqlx_model::{sql_format, Insert, ModelTableName, SqlExpr, Update};
@@ -27,16 +28,21 @@ pub struct MailTaskRecord {
     pub(crate) db: Pool<sqlx::MySql>,
     pub(crate) config: SenderConfig,
     pub(crate) cancel: MessageCancel,
-    pub(crate) logs: MessageLogs,
+    pub(crate) msg_logs: MessageLogs,
     pub(crate) record: MessageReader<SenderMailMessageModel>,
 }
 
 impl MailTaskRecord {
-    pub fn new(db: Pool<sqlx::MySql>, app_core: Arc<AppCore>, fluent: Arc<FluentMessage>) -> Self {
+    pub fn new(
+        db: Pool<sqlx::MySql>,
+        app_core: Arc<AppCore>,
+        fluent: Arc<FluentMessage>,
+        logger: Arc<ChangeLogger>,
+    ) -> Self {
         Self {
-            config: SenderConfig::new(db.clone(), SenderType::Mailer),
+            config: SenderConfig::new(db.clone(), logger, SenderType::Mailer),
             cancel: MessageCancel::new(db.clone(), SenderType::Mailer),
-            logs: MessageLogs::new(db.clone(), SenderType::Mailer),
+            msg_logs: MessageLogs::new(db.clone(), SenderType::Mailer),
             record: MessageReader::new(db.clone(), app_core, fluent),
             db,
         }
@@ -87,8 +93,8 @@ impl MailTaskRecord {
         tpl_id: &Option<String>,
         status: &Option<SenderMailMessageStatus>,
         to_mail: &Option<String>,
-        page: &Option<PageParam>,
-    ) -> SenderResult<Vec<SenderMailMessageModel>> {
+        limit: &Option<LimitParam>,
+    ) -> SenderResult<(Vec<SenderMailMessageModel>, Option<u64>)> {
         let mut sqlwhere = vec![];
         if let Some(s) = to_mail {
             sqlwhere.push(sql_format!("to_mail={}", s));
@@ -104,19 +110,20 @@ impl MailTaskRecord {
                 } else {
                     Some(sqlwhere.join(" and "))
                 },
-                page,
+                limit,
             )
             .await
+            .map(|(e, n)| (e, n.map(|t| t.id)))
     }
     pub async fn message_log_count(&self, message_id: &u64) -> SenderResult<i64> {
-        self.logs.list_count(message_id).await
+        self.msg_logs.list_count(message_id).await
     }
     pub async fn message_log_list(
         &self,
         message_id: &u64,
         page: &Option<PageParam>,
     ) -> SenderResult<Vec<SenderLogModel>> {
-        self.logs.list_data(message_id, page).await
+        self.msg_logs.list_data(message_id, page).await
     }
 
     //添加短信任务
@@ -131,6 +138,7 @@ impl MailTaskRecord {
         reply_mail: &Option<String>,
         user_id: &Option<u64>,
         cancel_key: &Option<String>,
+        env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         let user_id = user_id.unwrap_or_default();
         let add_time = now_time().unwrap_or_default();
@@ -164,8 +172,8 @@ impl MailTaskRecord {
             .execute(&mut tran)
             .await?
             .rows_affected();
+        let ids = add_data.into_iter().map(|e| e.0).collect::<Vec<u64>>();
         if let Some(hk) = cancel_key {
-            let ids = add_data.into_iter().map(|e| e.0).collect::<Vec<u64>>();
             let res = self.cancel.add(app_id, &ids, hk, Some(&mut tran)).await;
             if let Err(err) = res {
                 tran.rollback().await?;
@@ -173,12 +181,16 @@ impl MailTaskRecord {
             }
         }
         tran.commit().await?;
+
+        self.msg_logs.add_init_log(app_id, &ids, env_data).await;
+
         Ok(row)
     }
     pub async fn cancel_form_message(
         &self,
         message: &SenderMailMessageModel,
         user_id: &u64,
+        env_data: Option<&RequestEnv>,
     ) -> SenderResult<()> {
         let change = sqlx_model::model_option_set!(SenderMailMessageModelRef, {
             status: SenderMailMessageStatus::IsCancel as i8
@@ -186,8 +198,8 @@ impl MailTaskRecord {
         Update::<MySql, SenderMailMessageModel, _>::new(change)
             .execute_by_pk(message, &self.db)
             .await?;
-        self.logs
-            .add_cancel_log(message.app_id, message.id, user_id)
+        self.msg_logs
+            .add_cancel_log(message.app_id, message.id, user_id, env_data)
             .await;
         Ok(())
     }
@@ -196,6 +208,7 @@ impl MailTaskRecord {
         &self,
         smsc: &SenderKeyCancelModel,
         user_id: &u64,
+        env_data: Option<&RequestEnv>,
     ) -> SenderResult<()> {
         let mut db = self.db.begin().await?;
         let res = self.cancel.cancel(smsc, user_id, Some(&mut db)).await;
@@ -214,8 +227,8 @@ impl MailTaskRecord {
             return res.map(|_| ()).map_err(|e| e.into());
         }
         db.commit().await?;
-        self.logs
-            .add_cancel_log(smsc.app_id, smsc.message_id, user_id)
+        self.msg_logs
+            .add_cancel_log(smsc.app_id, smsc.message_id, user_id, env_data)
             .await;
         Ok(())
     }
@@ -234,7 +247,7 @@ impl MailTaskRecord {
         };
         let set_try_num = val.try_num + 1;
         let send_time = now_time().unwrap_or_default();
-        self.logs
+        self.msg_logs
             .add_finish_log(event_type, val.app_id, val.id, channel, res)
             .await;
         let mut change = sqlx_model::model_option_set!(SenderMailMessageModelRef,{
@@ -254,6 +267,7 @@ impl MailTaskRecord {
     pub async fn find_config_by_id(&self, id: &u64) -> SenderResult<SenderConfigModel> {
         self.config.find_by_id(id).await
     }
+    #[allow(clippy::too_many_arguments)]
     pub async fn config_add(
         &self,
         app_id: Option<u64>,
@@ -262,6 +276,7 @@ impl MailTaskRecord {
         config_data: Value,
         user_id: u64,
         add_user_id: u64,
+        env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         let config_data = match config_type {
             SenderMailConfigType::Limit => {
@@ -319,11 +334,17 @@ impl MailTaskRecord {
                 config_data,
                 user_id,
                 add_user_id,
+                env_data,
             )
             .await
     }
-    pub async fn config_del(&self, config: &SenderConfigModel, user_id: u64) -> SenderResult<u64> {
-        self.config.del(config, user_id).await
+    pub async fn config_del(
+        &self,
+        config: &SenderConfigModel,
+        user_id: u64,
+        env_data: Option<&RequestEnv>,
+    ) -> SenderResult<u64> {
+        self.config.del(config, user_id, env_data).await
     }
     pub async fn config_list(
         &self,
@@ -409,8 +430,8 @@ impl MailTaskRecord {
                         .join(" or ");
                     let stime = nowt - limit.range_time;
                     let sql = sql_format!(
-                        "select count(*) as total,{} as limit_id,to from {}
-                        where app_id={} and status={} and expected_time>={} and ({}) group by to",
+                        "select count(*) as total,{} as limit_id,to_mail from {}
+                        where app_id={} and status={} and expected_time>={} and ({}) group by to_mail",
                         c.id,
                         SenderMailMessageModel::table_name(),
                         c.app_id,

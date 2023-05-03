@@ -1,7 +1,7 @@
 use crate::{
     dao::RequestDao,
     handler::access::{AccessAppSenderMailConfig, AccessAppSenderMailMsg},
-    PageParam, {JsonData, JsonResult},
+    LimitParam, PageParam, {JsonData, JsonResult},
 };
 use lsys_sender::{
     dao::SenderError,
@@ -50,7 +50,7 @@ pub async fn mailer_message_log<'t, T: SessionTokenData, D: SessionData, S: User
         .web_dao
         .sender_mailer
         .mail_record()
-        .message_log_list(&message_id, &param.page.map(|e| e.into()))
+        .message_log_list(&message_id, &Some(param.page.unwrap_or_default().into()))
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
@@ -111,7 +111,7 @@ pub struct MailerMessageListParam {
     pub status: Option<i8>,
     pub to_mail: Option<String>,
     pub count_num: Option<bool>,
-    pub page: Option<PageParam>,
+    pub limit: Option<LimitParam>,
 }
 
 pub async fn mailer_message_list<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
@@ -148,7 +148,7 @@ pub async fn mailer_message_list<'t, T: SessionTokenData, D: SessionData, S: Use
             &param.tpl_id,
             &status,
             &param.to_mail,
-            &param.page.map(|e| e.into()),
+            &Some(param.limit.unwrap_or_default().into()),
         )
         .await?;
     let count = if param.count_num.unwrap_or(false) {
@@ -169,7 +169,9 @@ pub async fn mailer_message_list<'t, T: SessionTokenData, D: SessionData, S: Use
     } else {
         None
     };
+    let next = res.1;
     let res = res
+        .0
         .into_iter()
         .map(|e| {
             json!({
@@ -185,7 +187,9 @@ pub async fn mailer_message_list<'t, T: SessionTokenData, D: SessionData, S: Use
             })
         })
         .collect::<Vec<_>>();
-    Ok(JsonData::data(json!({ "data": res,"total":count})))
+    Ok(JsonData::data(
+        json!({ "data": res,"total":count,"next":next}),
+    ))
 }
 
 #[derive(Debug, Deserialize)]
@@ -228,7 +232,7 @@ pub async fn mailer_message_cancel<
     req_dao
         .web_dao
         .sender_mailer
-        .send_cancel(&data, req_auth.user_data().user_id)
+        .send_cancel(&data, req_auth.user_data().user_id, Some(&req_dao.req_env))
         .await?;
     Ok(JsonData::message("ok"))
 }
@@ -275,6 +279,7 @@ pub async fn mailer_config_add<'t, T: SessionTokenData, D: SessionData, S: UserS
             param.config_data,
             uid,
             req_auth.user_data().user_id,
+            Some(&req_dao.req_env),
         )
         .await?;
     Ok(JsonData::data(json!({ "id": id })))
@@ -311,7 +316,11 @@ pub async fn mailer_config_del<'t, T: SessionTokenData, D: SessionData, S: UserS
                     .await?;
 
                 mail_record
-                    .config_del(&config, req_auth.user_data().user_id)
+                    .config_del(
+                        &config,
+                        req_auth.user_data().user_id,
+                        Some(&req_dao.req_env),
+                    )
                     .await?;
             }
         }
@@ -377,7 +386,7 @@ pub async fn mailer_config_list<'t, T: SessionTokenData, D: SessionData, S: User
                "id": e.id,
                "app_id": e.app_id,
                "config_type": e.config_type,
-               "add_time": e.add_time,
+               "add_time": e.change_time,
                "priority": e.priority,
                "config_data": config_data,
             })

@@ -7,12 +7,13 @@ import { UserSessionContext } from '../../context/session';
 import { ConfirmButton } from '../../library/dialog';
 import { ClearTextField } from '../../library/input';
 import { LoadingButton } from '../../library/loading';
-import { BaseTablePage } from '../../library/table_page';
+import { SimpleTablePage } from '../../library/table_page';
 import { ItemTooltip } from '../../library/tips';
 import { appList, confirmApp, disableApp } from '../../rest/app';
 import { useSearchChange } from '../../utils/hook';
 import { showTime } from '../../utils/utils';
 import { PageNav } from './menu';
+import { UserSearchInput } from '../library/user';
 const filterStatus = {
     status: [
         { key: 1, val: '待审核' },
@@ -131,10 +132,9 @@ export default function SystemAppPage(props) {
             }
         },
         {
-            field: 'add_time',
-            label: '申请时间',
+            label: '更新时间',
             render: (row) => {
-                return showTime(row.add_time, "未知")
+                return showTime(row.change_time, "未知")
             }
         },
     ];
@@ -155,6 +155,7 @@ export default function SystemAppPage(props) {
             ...loadData,
             loading: true
         })
+        window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
         return appList({
             status: searchParam.get("status"),
             client_id: searchParam.get("client_id"),
@@ -162,6 +163,7 @@ export default function SystemAppPage(props) {
             page: searchParam.get("page") || 0,
             page_size: searchParam.get("page_size") || 10,
         }).then((data) => {
+
             setLoadData({
                 ...loadData,
                 ...data,
@@ -210,23 +212,26 @@ export default function SystemAppPage(props) {
                     }
                 </Select>
             </FormControl>
-            <FormControl sx={{ minWidth: 80, mr: 1 }} size="small"  >
-                <ClearTextField
-                    sx={{ mr: 1 }}
-                    variant="outlined"
-                    label={`用户ID`}
-                    type="text"
-                    name="code"
-                    value={filterData.user_id}
-                    size="small"
-                    disabled={loadData.loading}
-                    onChange={(event, nval) => {
+            <FormControl sx={{ minWidth: 120, mr: 1 }} size="small"  >
+           
+                <UserSearchInput
+                    onSelect={(nval)=>{
                         setfilterData({
                             ...filterData,
                             user_id: nval
                         })
                     }}
+                    sx={{ mr: 1,width:200 }}
+                    variant="outlined"
+                    label={`搜索用户`}
+                    type="text"
+                    name="code"
+                    value={filterData.user_id}
+                    size="small"
+                    disabled={loadData.loading}
+                    enableUser={true}
                 />
+
             </FormControl>
             <FormControl sx={{ minWidth: 80, mr: 1 }} size="small"  >
                 <ClearTextField
@@ -266,7 +271,7 @@ export default function SystemAppPage(props) {
 
         {(loadData.status || loadData.loading)
             ? <Box sx={{ height: 1, width: '100%' }}>
-                <BaseTablePage
+                <SimpleTablePage
                     rows={loadData.data}
                     columns={columns}
                     count={loadData.total}

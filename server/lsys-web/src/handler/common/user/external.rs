@@ -50,7 +50,7 @@ pub async fn user_external_delete<'t, T: SessionTokenData, D: SessionData, S: Us
                     .user_dao
                     .user_account
                     .user_external
-                    .del_external(&ext, None)
+                    .del_external(&ext, None, Some(&req_dao.req_env))
                     .await?;
             }
         }

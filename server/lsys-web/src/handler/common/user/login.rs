@@ -20,7 +20,7 @@ pub struct LoginHistoryParam {
     pub login_type: Option<String>,
     pub login_account: Option<String>,
     pub is_login: Option<i8>,
-    pub page: PageParam,
+    pub page: Option<PageParam>,
 }
 pub async fn user_login_history<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: LoginHistoryParam,
@@ -38,7 +38,7 @@ pub async fn user_login_history<'t, T: SessionTokenData, D: SessionData, S: User
             param.login_account,
             param.is_login,
             param.login_type.clone(),
-            &Some(param.page.into()),
+            &Some(param.page.unwrap_or_default().into()),
         )
         .await?;
     let total = req_dao

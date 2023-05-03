@@ -49,7 +49,7 @@ pub async fn user_info_set_username<
         .user_dao
         .user_account
         .user_name
-        .change_username(&user, param.name, None)
+        .change_username(&user, param.name, None, Some(&req_dao.req_env))
         .await?;
     req_dao
         .user_session
@@ -150,7 +150,7 @@ pub async fn user_info_set_data<'t, T: SessionTokenData, D: SessionData, S: User
             .user_dao
             .user_account
             .user
-            .set_nikename(&user, nikename, Some(&mut db))
+            .set_nikename(&user, nikename, Some(&mut db), Some(&req_dao.req_env))
             .await;
         if let Err(err) = res {
             db.rollback().await?;
@@ -167,7 +167,7 @@ pub async fn user_info_set_data<'t, T: SessionTokenData, D: SessionData, S: User
         .user_dao
         .user_account
         .user_info
-        .set_info(&user, info, Some(&mut db))
+        .set_info(&user, info, Some(&mut db), Some(&req_dao.req_env))
         .await;
     if let Err(err) = res {
         db.rollback().await?;
@@ -250,10 +250,7 @@ pub async fn user_delete<'t, T: SessionTokenData, D: SessionData, S: UserSession
     req_dao
         .web_dao
         .user
-        .user_dao
-        .user_account
-        .user
-        .del_user(&user, None, None)
+        .del_user(&user, Some(&req_dao.req_env))
         .await?;
     let _ = req_dao.user_session.write().await.clear_session().await;
     Ok(JsonData::message("delete succ"))

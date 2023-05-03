@@ -1,8 +1,9 @@
 import RemoveCircleRoundedIcon from '@mui/icons-material/RemoveCircleRounded';
-import { Chip, Typography } from '@mui/material';
-import React from 'react';
+import { Autocomplete, Box, Chip, Stack, TextField, Typography } from '@mui/material';
+import React, { Fragment, useContext, useEffect, useState } from 'react';
 import { ItemTooltip } from '../../library/tips';
-
+import { searchType, userIdSearch, userSearch } from '../../rest/user';
+import { ToastContext } from '../../context/toast';
 //角色中显示的单个资源块
 export function RoleResOpItem(props) {
     const { allow, opName, opKey, onDelete, tips } = props;
@@ -136,4 +137,203 @@ export function UserTags(props) {
         tag = <ItemTooltip placement="top" arrow title={tips}>{tag}</ItemTooltip>
     }
     return tag;
+}
+
+
+//用户搜索输入框
+
+export function UserSearchInput(props) {
+    const { label, enableUser, value, onSelect, disabled, ...params } = props;
+    const { toast } = useContext(ToastContext);
+    //todo 存在值时加载指定用户
+    const [userData, setUserData] = useState({
+        data: [],
+        show_value: '',
+        show_name: '',
+        input_value: '',
+        select_value: '',
+        is_select: false,
+        open: false,
+        loading: false,
+    })
+    useEffect(() => {
+        if (!value || value == '') return;
+        if ((!userData.input_value || userData.input_value == '')
+            || userData.select_value != value) {
+            userIdSearch({
+                user_id: value,
+                opt: false,
+            }).then((data) => {
+                if (!data.status) {
+                    toast("加载用户数据失败:" + data.message)
+                    return;
+                }
+                if (!data.data.user) {
+                    setUserData({
+                        ...userData,
+                        show_value: '',
+                        input_value: ''
+                    })
+                    return;
+                }
+                let name = data.data.user.nickname;
+                setUserData({
+                    ...userData,
+                    show_value: name,
+                    input_value: name,
+                    show_name: name
+                })
+            })
+        }
+    }, [props.value]);
+
+    const [reqData] = useState({
+        abort: null,
+        timeout: null,
+    })
+    useEffect(() => {
+        if (userData.is_select) return;
+        if (reqData.timeout) {
+            clearTimeout(reqData.timeout)
+        }
+        if (reqData.abort) {
+            reqData.abort.abort()
+        }
+        setUserData({
+            ...userData,
+            loading: true,
+        })
+        let timeout = setTimeout(() => {
+            if (reqData.timeout != timeout) return;
+            let abort = new AbortController();
+            reqData.abort = abort
+            let param = {
+                opt: false,
+                more: false,
+                key_word: userData.input_value,
+                start_pos: '',
+                end_pos: '',
+                page_size: 10,
+                enable_user: enableUser,
+            }
+            return userSearch(param, {
+                signal: abort.signal
+            }).then((data) => {
+                let setData = data.status && data.data && data.data.length > 0 ? data.data : [];
+                setData = setData.map((e) => {
+                    let cat = e.user.nickname;
+                    let name = e.user.nickname
+                    if (e.cat && e.cat.length) {
+                        cat = e.cat[0].val
+                        searchType.map((t) => {
+                            if (t.key == e.cat[0].type) {
+                                name = t.val + ":" + e.cat[0].val
+                            }
+                        })
+
+                    }
+                    return {
+                        "input": cat,
+                        "val": e.user.id,
+                        "name": name
+                    }
+                })
+                setUserData({
+                    ...userData,
+                    status: data.status ?? false,
+                    message: data.message ?? '',
+                    data: setData,
+                    loading: false,
+                })
+            })
+        }, 800);
+        reqData.timeout = timeout
+    }, [userData.input_value])
+    return <Autocomplete
+
+        {...params}
+        disabled={disabled}
+        value={userData.show_value ?? ""}
+        options={userData.data ?? []}
+        getOptionLabel={(option) => {
+            if (option && option.input) return option.input;
+            return option
+        }}
+        isOptionEqualToValue={(a, b) => {
+            if (!a) return b
+            if (a.val == b) return a
+        }}
+        onChange={(_, v) => {
+            let input = '';
+            let val = '';
+            let name = '';
+            if (v) {
+                val = v.val
+                input = v.input
+                name = v.name
+            }
+            if (val == '' || !val) {
+                input = ''
+                name = ''
+            }
+            setUserData({
+                ...userData,
+                open: false,
+                show_value: input,
+                show_name: name,
+                select_value: val
+            })
+            onSelect(val)
+        }}
+        noOptionsText={userData.loading ? "数据加载中..." : "无匹配用户"}
+        open={userData.open}
+        renderInput={(params) => (
+            <Box sx={{ position: "relative" }}>
+                <TextField
+                    {...params}
+                    disabled={disabled}
+                    label={label}
+                    onChange={(e) => {
+                        setUserData({
+                            ...userData,
+                            is_select: e.target.value == userData.input_value,
+                            input_value: e.target.value
+                        })
+                    }}
+                    variant="outlined"
+                    onClick={(e) => {
+                        setUserData({
+                            ...userData,
+                            open: disabled ? false : true,
+                        })
+                    }}
+                    onFocus={(e) => {
+                        setUserData({
+                            ...userData,
+                            open: disabled ? false : true,
+                        })
+
+                    }}
+                    onBlur={(e) => {
+                        let show_value = userData.show_value;
+                        let show_name = userData.show_name;
+                        if (value == '') {
+                            show_value = ''
+                            show_name = ''
+                        }
+                        setUserData({
+                            ...userData,
+                            open: false,
+                            show_value: show_value,
+                            show_name: show_name,
+                        })
+                    }}
+                />
+                {value ? <Box sx={{ zIndex: 1, position: "absolute", right: 30, top: 6, color: "#666", background: "#eee", borderRadius: '2px', padding: "1px 5px" }}>
+                    <ItemTooltip title={userData.show_name} placement="top">
+                        <span>ID:{value}</span>
+                    </ItemTooltip></Box> : null}
+            </Box>
+        )}
+    />;
 }

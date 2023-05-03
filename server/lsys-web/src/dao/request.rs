@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use lsys_app::dao::session::{RestAuthData, RestAuthSession, RestAuthTokenData};
+use lsys_core::RequestEnv;
 use lsys_user::dao::auth::{
     SessionData, SessionToken, SessionTokenData, UserAuthData, UserAuthRedisStore, UserAuthSession,
     UserAuthTokenData, UserSession,
@@ -11,11 +12,11 @@ use tracing::warn;
 
 use crate::dao::WebDao;
 
-pub struct RequestEnv {
-    pub request_id: String,
-    pub ip: String,
-    pub user_agent: String,
-}
+// pub struct RequestEnv {
+//     pub request_id: String,
+//     pub ip: String,
+//     pub user_agent: String,
+// }
 
 pub struct RequestDao<T: SessionTokenData, D: SessionData, S: UserSession<T, D>> {
     pub web_dao: Arc<WebDao>,

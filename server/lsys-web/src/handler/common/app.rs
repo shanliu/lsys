@@ -51,6 +51,7 @@ pub async fn app_add<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
             param.domain.unwrap_or_default(),
             AppStatus::Init,
             None,
+            Some(&req_dao.req_env),
         )
         .await?;
     Ok(JsonData::data(json!({ "id": app_id })))
@@ -99,7 +100,9 @@ pub async fn app_edit<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>
             param.name,
             param.client_id,
             param.domain.unwrap_or_default(),
+            req_auth.user_data().user_id,
             None,
+            Some(&req_dao.req_env),
         )
         .await?;
     Ok(JsonData::message("edit succ"))
@@ -141,7 +144,12 @@ pub async fn app_reset_secret<T: SessionTokenData, D: SessionData, S: UserSessio
         .app
         .app_dao
         .app
-        .reset_secret(&app, None)
+        .reset_secret(
+            &app,
+            &req_auth.user_data().user_id,
+            None,
+            Some(&req_dao.req_env),
+        )
         .await?;
     let oauth_secret = req_dao
         .web_dao
@@ -255,7 +263,7 @@ pub struct ShowAppData {
     pub callback_domain: String,
     pub status: i8,
     pub user_id: u64,
-    pub add_time: u64,
+    pub change_time: u64,
     pub confirm_user_id: u64,
     pub confirm_time: u64,
     pub is_sms: bool,
@@ -305,7 +313,7 @@ pub async fn app_list<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>
         .app
         .app_dao
         .app
-        .app_data(&app_param, &param.page.map(|e| e.into()))
+        .app_data(&app_param, &Some(param.page.unwrap_or_default().into()))
         .await?;
     let mut out = Vec::with_capacity(appdata.len());
     for tmp in appdata {
@@ -361,7 +369,7 @@ pub async fn app_list<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>
             callback_domain: tmp.callback_domain,
             status: tmp.status,
             user_id: tmp.user_id,
-            add_time: tmp.add_time,
+            change_time: tmp.change_time,
             confirm_user_id: tmp.confirm_user_id,
             confirm_time: tmp.confirm_time,
             is_sms,

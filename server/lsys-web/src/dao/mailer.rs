@@ -1,6 +1,7 @@
 use config::ConfigError;
 use lsys_app::model::AppsModel;
-use lsys_core::{AppCore, FluentMessage};
+use lsys_core::{AppCore, FluentMessage, RequestEnv};
+use lsys_logger::dao::ChangeLogger;
 use lsys_sender::{
     dao::{
         MailSender, MailTaskAcquisitionRecord, MailTaskRecord, SenderError, SmtpSender,
@@ -65,6 +66,7 @@ pub struct WebAppMailer {
     mail_record: Arc<MailTaskRecord>,
     setting: Arc<MultipleSetting>,
     db: Pool<MySql>,
+    logger: Arc<ChangeLogger>,
 }
 
 impl WebAppMailer {
@@ -75,6 +77,7 @@ impl WebAppMailer {
         redis: deadpool_redis::Pool,
         db: Pool<MySql>,
         setting: Arc<MultipleSetting>,
+        logger: Arc<ChangeLogger>,
         task_size: Option<usize>,
         task_timeout: usize,
         is_check: bool,
@@ -83,6 +86,7 @@ impl WebAppMailer {
             db.clone(),
             app_core.clone(),
             fluent.clone(),
+            logger.clone(),
         ));
         let acquisition = MailTaskAcquisitionRecord::new(mail_record.clone());
         let mailer = Arc::new(MailSender::new(
@@ -92,7 +96,7 @@ impl WebAppMailer {
             is_check,
             acquisition,
         ));
-        let smtp_sender = SmtpSender::new(db.clone(), setting.clone());
+        let smtp_sender = SmtpSender::new(db.clone(), setting.clone(), logger.clone());
         Self {
             app_core,
             fluent,
@@ -101,6 +105,7 @@ impl WebAppMailer {
             mail_record,
             setting,
             db,
+            logger,
         }
     }
     pub async fn send_valid_code(
@@ -108,18 +113,35 @@ impl WebAppMailer {
         to: &str,
         code: &str,
         ttl: &usize,
+        env_data: Option<&RequestEnv>,
     ) -> Result<(), WebAppMailerError> {
         let mut context = Context::new();
         context.insert("code", code);
         context.insert("ttl", ttl);
-        self.send("valid_code", to, &context.into_json().to_string())
+        self.send("valid_code", to, &context.into_json().to_string(), env_data)
             .await
     }
     // 发送接口
-    async fn send(&self, tpl_type: &str, to: &str, body: &str) -> Result<(), WebAppMailerError> {
+    async fn send(
+        &self,
+        tpl_type: &str,
+        to: &str,
+        body: &str,
+        env_data: Option<&RequestEnv>,
+    ) -> Result<(), WebAppMailerError> {
         check_email(&self.fluent, to).map_err(|e| WebAppMailerError::System(e.to_string()))?;
         self.mailer
-            .send(None, &[to], tpl_type, body, &None, &None, &None, &None)
+            .send(
+                None,
+                &[to],
+                tpl_type,
+                body,
+                &None,
+                &None,
+                &None,
+                &None,
+                env_data,
+            )
             .await
             .map_err(|e| WebAppMailerError::System(e.to_string()))
             .map(|_| ())
@@ -132,9 +154,10 @@ impl WebAppMailer {
                 self.app_core.clone(),
                 self.mail_record.clone(),
                 vec![Box::new(SmtpSenderTask::new(
-                    SmtpSender::new(self.db.clone(), self.setting.clone()),
+                    SmtpSender::new(self.db.clone(), self.setting.clone(), self.logger.clone()),
                     self.db.clone(),
                     self.fluent.clone(),
+                    self.logger.clone(),
                 ))],
             )
             .await?)
@@ -148,9 +171,10 @@ impl WebAppMailer {
         &self,
         message: &SenderMailMessageModel,
         user_id: u64,
+        env_data: Option<&RequestEnv>,
     ) -> Result<(), WebAppMailerError> {
         self.mailer
-            .cancal_from_message(message, &user_id)
+            .cancal_from_message(message, &user_id, env_data)
             .await
             .map_err(|e| WebAppMailerError::System(e.to_string()))
             .map(|_| ())
@@ -166,6 +190,7 @@ impl WebAppMailer {
         send_time: Option<u64>,
         reply: &Option<String>,
         cancel_key: &Option<String>,
+        env_data: Option<&RequestEnv>,
     ) -> Result<(), WebAppMailerError> {
         for tmp in to.iter() {
             check_email(&self.fluent, tmp).map_err(|e| WebAppMailerError::System(e.to_string()))?;
@@ -186,6 +211,7 @@ impl WebAppMailer {
                 &Some(app.user_id),
                 reply,
                 cancel_key,
+                env_data,
             )
             .await
             .map_err(|e| WebAppMailerError::System(e.to_string()))
@@ -196,9 +222,10 @@ impl WebAppMailer {
         &self,
         app: &AppsModel,
         cancel_key: &str,
+        env_data: Option<&RequestEnv>,
     ) -> Result<(), WebAppMailerError> {
         self.mailer
-            .cancal_from_key(cancel_key, &app.user_id)
+            .cancal_from_key(cancel_key, &app.user_id, env_data)
             .await
             .map_err(|e| WebAppMailerError::System(e.to_string()))
             .map(|_| ())

@@ -18,22 +18,25 @@ pub async fn user_reg_from_name<'t, T: SessionTokenData, D: SessionData, S: User
     param: RegFromNameParam,
     req_dao: &RequestDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let reg_op = req_dao.req_env.ip.clone();
+    let reg_ip = req_dao.req_env.request_ip.clone().unwrap_or_default();
     let info = model_option_set!(UserInfoModelRef,{
-        reg_ip:reg_op,
+        reg_ip:  reg_ip,
     });
     let user = req_dao
         .web_dao
         .user
-        .reg_user(UserRegData {
-            nikename: param.nikename.unwrap_or_else(|| param.name.clone()),
-            passwrod: Some(param.password),
-            name: Some(param.name),
-            email: None,
-            mobile: None,
-            external: None,
-            info: Some(info),
-        })
+        .reg_user(
+            UserRegData {
+                nikename: param.nikename.unwrap_or_else(|| param.name.clone()),
+                passwrod: Some(param.password),
+                name: Some(param.name),
+                email: None,
+                mobile: None,
+                external: None,
+                info: Some(info),
+            },
+            Some(&req_dao.req_env),
+        )
         .await?;
     Ok(JsonData::data(json!({
         "id":user.id,
@@ -98,7 +101,13 @@ pub async fn user_reg_send_code_from_mobile<
     req_dao
         .web_dao
         .sender_smser
-        .send_valid_code(&param.area_code, &param.mobile, &data.0, &data.1)
+        .send_valid_code(
+            &param.area_code,
+            &param.mobile,
+            &data.0,
+            &data.1,
+            Some(&req_dao.req_env),
+        )
         .await?;
     req_dao
         .web_dao
@@ -162,7 +171,7 @@ pub async fn user_reg_send_code_from_email<
     req_dao
         .web_dao
         .sender_mailer
-        .send_valid_code(&param.email, &data.0, &data.1)
+        .send_valid_code(&param.email, &data.0, &data.1, Some(&req_dao.req_env))
         .await?;
     req_dao
         .web_dao
@@ -193,22 +202,25 @@ pub async fn user_reg_from_email<'t, T: SessionTokenData, D: SessionData, S: Use
         .user_email
         .valid_code_check(&param.code, &0, &param.email)
         .await?;
-    let reg_op = req_dao.req_env.ip.clone();
+    let reg_ip = req_dao.req_env.request_ip.clone().unwrap_or_default();
     let info = model_option_set!(UserInfoModelRef,{
-        reg_ip:reg_op,
+        reg_ip:reg_ip,
     });
     let user = req_dao
         .web_dao
         .user
-        .reg_user(UserRegData {
-            nikename: param.nikename.clone(),
-            passwrod: Some(param.password),
-            name: None,
-            email: Some((param.email.clone(), UserEmailStatus::Valid)),
-            mobile: None,
-            external: None,
-            info: Some(info),
-        })
+        .reg_user(
+            UserRegData {
+                nikename: param.nikename.clone(),
+                passwrod: Some(param.password),
+                name: None,
+                email: Some((param.email.clone(), UserEmailStatus::Valid)),
+                mobile: None,
+                external: None,
+                info: Some(info),
+            },
+            Some(&req_dao.req_env),
+        )
         .await?;
     let _ = req_dao
         .web_dao
@@ -244,26 +256,30 @@ pub async fn user_reg_from_mobile<'t, T: SessionTokenData, D: SessionData, S: Us
         .user_mobile
         .valid_code_check(&param.code, &param.area_code, &param.mobile)
         .await?;
-    let reg_op = req_dao.req_env.ip.clone();
+
+    let reg_op = req_dao.req_env.request_ip.clone().unwrap_or_default();
     let info = model_option_set!(UserInfoModelRef,{
         reg_ip:reg_op,
     });
     let user = req_dao
         .web_dao
         .user
-        .reg_user(UserRegData {
-            nikename: param.nikename.clone(),
-            passwrod: Some(param.password),
-            name: None,
-            email: None,
-            mobile: Some((
-                param.area_code.clone(),
-                param.mobile.clone(),
-                UserMobileStatus::Valid,
-            )),
-            external: None,
-            info: Some(info),
-        })
+        .reg_user(
+            UserRegData {
+                nikename: param.nikename.clone(),
+                passwrod: Some(param.password),
+                name: None,
+                email: None,
+                mobile: Some((
+                    param.area_code.clone(),
+                    param.mobile.clone(),
+                    UserMobileStatus::Valid,
+                )),
+                external: None,
+                info: Some(info),
+            },
+            Some(&req_dao.req_env),
+        )
         .await?;
     let _ = req_dao
         .web_dao

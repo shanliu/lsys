@@ -16,16 +16,19 @@ export default function UserAppSmsMessagePage(props) {
         tpl_id: '',
         mobile: '',
         status: '',
-        page: 0,
+        start_pos: '',
+        end_pos: '',
         page_size: 10,
     });
+
     return <AppSmsMessage
         userId={userData.user_data.user_id}
         appId={searchParam.get("app_id") ?? ''}
         tplId={searchParam.get("tpl_id") ?? ''}
         mobile={searchParam.get("mobile") ?? ''}
         status={searchParam.get("status") ?? ''}
-        page={searchParam.get("page") ?? 0}
+        startPos={searchParam.get("start_pos") ?? ''}
+        endPos={searchParam.get("end_pos") ?? ''}
         pageSize={searchParam.get("page_size") ?? 10}
         onSearchChange={setSearchParam}
     >

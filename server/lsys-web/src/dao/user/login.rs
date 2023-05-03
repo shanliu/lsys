@@ -1,5 +1,6 @@
 use std::net::IpAddr;
 
+use lsys_core::RequestEnv;
 use lsys_user::dao::auth::{
     LoginEnv, LoginParam, UserAuthError, UserAuthResult, UserAuthSession, UserAuthStore,
     UserAuthTokenData, UserSession,
@@ -7,7 +8,7 @@ use lsys_user::dao::auth::{
 
 use tokio::sync::RwLock;
 
-use crate::{dao::RequestEnv, CaptchaParam};
+use crate::CaptchaParam;
 
 use super::{ShowUserAuthData, WebUser};
 
@@ -20,7 +21,11 @@ impl WebUser {
         code: Option<CaptchaParam>,
     ) -> UserAuthResult<(UserAuthTokenData, ShowUserAuthData)> {
         let lenv = LoginEnv {
-            login_ip: req_env.ip.parse::<IpAddr>().ok(),
+            login_ip: req_env
+                .request_ip
+                .as_ref()
+                .map(|e| e.parse::<IpAddr>().ok())
+                .unwrap_or_default(),
         };
         let res = self.user_dao.user_auth.check(&param, &lenv).await;
         if let Err(UserAuthError::CheckCaptchaNeed(_)) = &res {

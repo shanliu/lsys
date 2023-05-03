@@ -1,6 +1,6 @@
 use crate::dao::SenderResult;
 use crate::model::{SenderLogModel, SenderLogModelRef, SenderLogStatus, SenderLogType, SenderType};
-use lsys_core::{now_time, PageParam};
+use lsys_core::{now_time, PageParam, RequestEnv};
 
 use sqlx::Pool;
 use sqlx_model::{sql_format, Insert, ModelTableName, Select, SqlExpr};
@@ -17,6 +17,63 @@ pub struct MessageLogs {
 impl MessageLogs {
     pub fn new(db: Pool<sqlx::MySql>, send_type: SenderType) -> Self {
         Self { db, send_type }
+    }
+    pub async fn add_init_log(
+        &self,
+        app_id: &u64,
+        message_ids: &[u64],
+        env_data: Option<&RequestEnv>,
+    ) {
+        if message_ids.is_empty() {
+            return;
+        }
+        let send_time = now_time().unwrap_or_default();
+        let log_type = SenderLogType::Init as i8;
+        let sender_type = self.send_type as i8;
+        let status = SenderLogStatus::Succ as i8;
+        let mut idata = Vec::with_capacity(message_ids.len());
+        let tmp = "".to_string();
+        let event_type = "init".to_string();
+        let user_ip = env_data
+            .as_ref()
+            .map(|e| {
+                e.request_ip
+                    .as_ref()
+                    .map(|e| e.to_owned())
+                    .unwrap_or("".to_string())
+            })
+            .unwrap_or("".to_string());
+        let request_id = env_data
+            .as_ref()
+            .map(|e| {
+                e.request_id
+                    .as_ref()
+                    .map(|e| e.to_owned())
+                    .unwrap_or("".to_string())
+            })
+            .unwrap_or("".to_string());
+        for id in message_ids {
+            idata.push(sqlx_model::model_option_set!(SenderLogModelRef, {
+                message_id:id,
+                app_id:app_id,
+                sender_type:sender_type,
+                log_type:log_type,
+                status:status ,
+                event_type:event_type,
+                send_channel:tmp,
+                message:tmp,
+                create_time:send_time,
+                user_id:0,
+                user_ip:user_ip,
+                request_id:request_id
+            }));
+        }
+        let tmp = Insert::<sqlx::MySql, SenderLogModel, _>::new_vec(idata)
+            .execute(&self.db)
+            .await;
+        if let Err(ie) = tmp {
+            warn!("sms add log fail {} :{}", app_id, ie);
+        }
     }
     pub async fn add_finish_log(
         &self,
@@ -52,12 +109,36 @@ impl MessageLogs {
             warn!("sms[{}] is send ,add history fail : {:?}", message_id, ie);
         }
     }
-    pub async fn add_cancel_log(&self, app_id: u64, message_id: u64, user_id: &u64) {
+    pub async fn add_cancel_log(
+        &self,
+        app_id: u64,
+        message_id: u64,
+        user_id: &u64,
+        env_data: Option<&RequestEnv>,
+    ) {
         let send_time = now_time().unwrap_or_default();
         let log_type = SenderLogType::Cancel as i8;
         let event_type = "cancel".to_string();
         let sender_type = self.send_type as i8;
         let log = "cancal send".to_string();
+        let user_ip = env_data
+            .as_ref()
+            .map(|e| {
+                e.request_ip
+                    .as_ref()
+                    .map(|e| e.to_owned())
+                    .unwrap_or("".to_string())
+            })
+            .unwrap_or("".to_string());
+        let request_id = env_data
+            .as_ref()
+            .map(|e| {
+                e.request_id
+                    .as_ref()
+                    .map(|e| e.to_owned())
+                    .unwrap_or("".to_string())
+            })
+            .unwrap_or("".to_string());
         let idata = sqlx_model::model_option_set!(SenderLogModelRef,{
             app_id:app_id,
             message_id:message_id,
@@ -68,6 +149,8 @@ impl MessageLogs {
             message:log,
             create_time:send_time,
             user_id:*user_id,
+            user_ip:user_ip,
+            request_id:request_id
         });
         let tmp = Insert::<sqlx::MySql, SenderLogModel, _>::new(idata)
             .execute(&self.db)

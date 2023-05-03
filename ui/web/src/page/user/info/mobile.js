@@ -2,13 +2,13 @@ import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SearchIcon from '@mui/icons-material/Search';
 import SendIcon from '@mui/icons-material/Send';
-import { Alert, Button, Drawer, FormControl, InputLabel, MenuItem, Paper, Select } from '@mui/material';
+import { Alert, Button, Drawer, FormControl, IconButton, InputLabel, MenuItem, Paper, Select } from '@mui/material';
 import Box from '@mui/material/Box';
-import { DataGrid, GridActionsCellItem } from '@mui/x-data-grid';
 import randomString from 'random-string';
 import React, { Fragment, useContext, useEffect, useState } from 'react';
 import { ToastContext } from '../../../context/toast';
 import { ConfirmButton } from '../../../library/dialog';
+import { DataPaginationTablePage } from '../../../library/table_page';
 import { mobileAdd, mobileComfirmStatus, mobileConfirm, mobileDelete, mobileList, mobileSendCode } from '../../../rest/user';
 import { useSearchChange } from '../../../utils/hook';
 import { captchaSrc } from '../../../utils/rest';
@@ -27,14 +27,18 @@ export default function UserMobilePage(props) {
     });
 
     const [param, setParam] = useSearchChange({
-        status: ""
+        status: "",
+        page: 0,
+        page_size: 10
     });
-    const mobileData = (status) => {
+    const loadMobileData = () => {
         setLoadData({
             ...loadData,
             loading: true
         })
-        mobileList(status).then((data) => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+        mobileList().then((data) => {
+
             setLoadData({
                 ...loadData,
                 ...data,
@@ -43,10 +47,8 @@ export default function UserMobilePage(props) {
             })
         })
     };
-    const loadMobileData = () => {
-        mobileData(param.get("status"));
-    }
-    useEffect(loadMobileData, [param])
+
+    useEffect(loadMobileData, [])
 
 
 
@@ -108,9 +110,11 @@ export default function UserMobilePage(props) {
                     name: '',
                     loading: false,
                 })
+                loadMobileData()
                 setParam({
+                    page: 0,
                     status: comfirmStatus[0].key
-                }, loadMobileData)
+                })
             }
         })
     };
@@ -202,9 +206,10 @@ export default function UserMobilePage(props) {
                     code: ''
                 })
                 toast("完成绑定")
+                loadMobileData()
                 setParam({
                     status: comfirmStatus[1].key
-                }, loadMobileData)
+                })
                 setChangeBox(0)
             }
         })
@@ -214,63 +219,68 @@ export default function UserMobilePage(props) {
     const columns = [
         {
             field: 'id',
-            headerName: 'ID',
-            width: 90,
-            type: 'number',
+            label: 'ID',
+            style: { width: 90 },
+            align: "right",
         },
         {
             field: 'mobile',
-            width: 250,
-            headerName: '手机',
-            sortable: false,
+
+            style: { width: 250 },
+            label: '手机号',
+
 
         },
         {
             field: 'status',
-            headerName: '状态',
-            sortable: false,
-            valueGetter: (params) => {
-                return comfirmStatus.find((e) => { return e.key == params.row.status })?.val ?? "未知";
-            }
-        },
-        {
-            field: 'add_time',
-            width: 180,
-            headerName: '添加时间',
-            sortable: false,
-            valueGetter: (params) => {
-                return showTime(params.row.add_time, "未知")
+
+            label: '状态',
+
+            render: (params) => {
+                return comfirmStatus.find((e) => { return e.key == params.status })?.val ?? "未知";
             }
         },
         {
             field: 'confirm_time',
-            width: 180,
-            headerName: '确认时间',
-            sortable: false,
-            valueGetter: (params) => {
-                return showTime(params.row.confirm_time, "未确认")
+
+            style: { width: 180 },
+            label: '确认时间',
+
+            render: (params) => {
+                return showTime(params.confirm_time, "未确认")
             }
         },
         {
-            headerName: '操作',
-            type: 'actions',
-            field: "actions",
+            field: 'change_time',
+
+            style: { width: 180 },
+            label: '添加时间',
+
+            render: (params) => {
+                return showTime(params.change_time, "未知")
+            }
+        },
+        {
+            label: '操作',
+
             align: "center",
-            getActions: (params) => {
+            render: (params) => {
                 let icon = [];
-                if (params.row.status != 2) {
+                if (params.status != 2) {
                     icon.push(
-                        <GridActionsCellItem onClick={() => {
-                            showCodeBox(params.row.id, params.row.mobile)
-                        }} icon={<SendIcon />} label="发送验证邮件" />)
+                        <IconButton title="发送验证短信" key={`${params.id}-send`} onClick={() => {
+                            showCodeBox(params.id, params.mobile)
+                        }} size='small'>
+                            <SendIcon fontSize='small' />
+                        </IconButton>)
                 }
-                icon.push(<ConfirmButton
-                    message={`确定要删除手机号 [${params.row.mobile}] ?`}
+                icon.push(<ConfirmButton key={`${params.id}-del`}
+                    message={`确定要删除手机号 [${params.mobile}] ?`}
                     onAction={() => {
-                        return mobileDelete(params.row.id).then((res) => {
+                        return mobileDelete(params.id).then((res) => {
                             if (!res.status) return res;
                             let rows = loadData.data.filter((item) => {
-                                if (item.id != params.row.id) return item;
+                                if (item.id != params.id) return item;
                             })
                             setLoadData({
                                 ...loadData,
@@ -278,13 +288,18 @@ export default function UserMobilePage(props) {
                             })
                             toast("删除完成");
                             if (rows.length == 0) {
-                                mobileData(param.get("status"));
+                                loadMobileData()
+                                setParam({
+                                    page: param.get("page") - 1 >= 0 ? param.get("page") : 0,
+                                });
                             }
                             return res;
                         });
                     }}
                     renderButton={(props) => {
-                        return <GridActionsCellItem {...props} icon={<DeleteIcon />} label="删除" />
+                        return <IconButton title="删除" key={`${params.id}-mail`} {...props} size='small'>
+                            <DeleteIcon fontSize='small' />
+                        </IconButton>
                     }} />)
                 return icon;
             }
@@ -371,17 +386,7 @@ export default function UserMobilePage(props) {
     useEffect(() => {
         setMobileStatus(param.get("status"))
     }, [param])
-    const execFilterData = () => {
-        if (mobileStatus) {
-            setParam({
-                status: mobileStatus
-            }, loadMobileData)
-        } else {
-            setParam({
-                status: ""
-            }, loadMobileData);
-        }
-    }
+
 
     return <Fragment>
         <Drawer
@@ -425,7 +430,12 @@ export default function UserMobilePage(props) {
                 </Select>
             </FormControl>
             <Button
-                onClick={execFilterData}
+                onClick={() => {
+                    setParam({
+                        page: 0,
+                        status: mobileStatus ?? ''
+                    }, loadMobileData)
+                }}
                 variant="outlined"
                 size="medium"
                 startIcon={<SearchIcon />}
@@ -447,25 +457,24 @@ export default function UserMobilePage(props) {
 
         {(loadData.status || loadData.loading)
             ? <Box sx={{ height: 1, width: '100%' }}>
-                < DataGrid
-                    sx={{
-                        "&.MuiDataGrid-root .MuiDataGrid-cell:focus-within": {
-                            outline: "none !important",
-                        },
-                        "&.MuiDataGrid-root .MuiDataGrid-columnHeader:focus-within": {
-                            outline: "none !important",
-                        },
-                    }}
-                    rows={loadData.data}
+                <DataPaginationTablePage
+                    rows={(loadData.data ?? []).filter((item) => {
+                        if (!param.get('status') || item.status == param.get('status')) return item;
+                    })}
                     columns={columns}
-                    autoHeight={true}
-                    autoPageSize={true}
-                    pageSize={10}
-                    disableColumnFilter={true}
-                    disableColumnMenu={true}
-                    disableSelectionOnClick={true}
-                    rowCount={loadData.data.length}
-                    editMode="cell"
+                    page={param.get("page") || 0}
+                    onPageChange={(e, newPage) => {
+                        setParam({
+                            page: newPage
+                        }, loadMobileData)
+                    }}
+                    rowsPerPage={param.get("page_size") || 10}
+                    onRowsPerPageChange={(e) => {
+                        setParam({
+                            page_size: e.target.value,
+                            page: 0
+                        }, loadMobileData)
+                    }}
                     loading={loadData.loading}
                 />
             </Box> : <Alert severity="error">{loadData.message}</Alert>}

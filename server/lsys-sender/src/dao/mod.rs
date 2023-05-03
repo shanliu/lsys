@@ -1,4 +1,5 @@
 mod app_config_reader;
+mod logger;
 mod mailer;
 mod message_cancel;
 mod message_logs;
@@ -14,6 +15,7 @@ use std::{
 
 pub use app_config_reader::*;
 use deadpool_redis::PoolError;
+
 use lsys_setting::dao::SettingError;
 pub use mailer::*;
 pub use message_cancel::*;

@@ -67,3 +67,75 @@ impl RbacResTpl for AccessAdminSetting {
         }]
     }
 }
+
+pub struct AccessAdminUserBase {
+    pub user_id: u64,
+}
+#[async_trait::async_trait]
+impl RbacCheck for AccessAdminUserBase {
+    async fn check<'t>(
+        &self,
+        access: &'t RbacAccess,
+        relation: &'t [RoleRelationKey],
+    ) -> UserRbacResult<()> {
+        access
+            .list_check(
+                self.user_id,
+                relation,
+                &[vec![
+                    AccessRes::system("global-system", &["main"], &[]),
+                    AccessRes::system(&format!("global-user-{}", self.user_id), &["base"], &[]),
+                ]],
+            )
+            .await
+    }
+}
+impl RbacResTpl for AccessAdminUserBase {
+    fn tpl_data() -> Vec<ResTpl> {
+        vec![ResTpl {
+            tags: vec!["system", "user-list"],
+            user: false,
+            key: "global-user-{user_id}",
+            ops: vec!["base"],
+        }]
+    }
+}
+
+pub struct AccessAdminUserFull {
+    pub user_id: u64,
+}
+#[async_trait::async_trait]
+impl RbacCheck for AccessAdminUserFull {
+    async fn check<'t>(
+        &self,
+        access: &'t RbacAccess,
+        relation: &'t [RoleRelationKey],
+    ) -> UserRbacResult<()> {
+        access
+            .list_check(
+                self.user_id,
+                relation,
+                &[vec![AccessRes::system(
+                    &format!("global-user-{}", self.user_id),
+                    &["full"],
+                    &[],
+                )]],
+            )
+            .await
+    }
+    fn depends(&self) -> Vec<Box<RbacCheckDepend>> {
+        vec![Box::new(AccessAdminUserBase {
+            user_id: self.user_id,
+        })]
+    }
+}
+impl RbacResTpl for AccessAdminUserFull {
+    fn tpl_data() -> Vec<ResTpl> {
+        vec![ResTpl {
+            tags: vec!["system", "user-list"],
+            user: false,
+            key: "global-user-{user_id}",
+            ops: vec!["full"],
+        }]
+    }
+}

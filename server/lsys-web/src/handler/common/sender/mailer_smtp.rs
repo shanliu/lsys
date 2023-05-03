@@ -110,6 +110,7 @@ pub async fn mailer_smtp_config_add<
                 tls_domain: param.tls_domain,
             },
             &req_auth.user_data().user_id,
+            Some(&req_dao.req_env),
         )
         .await?;
     Ok(JsonData::data(json!({ "id": row })))
@@ -221,6 +222,7 @@ pub async fn mailer_smtp_config_edit<
                 tls_domain: param.tls_domain,
             },
             &req_auth.user_data().user_id,
+            Some(&req_dao.req_env),
         )
         .await?;
     Ok(JsonData::data(json!({ "num": row })))
@@ -255,7 +257,11 @@ pub async fn mailer_smtp_config_del<
         .await?;
     let smtp_sender = &req_dao.web_dao.sender_mailer.smtp_sender;
     let row = smtp_sender
-        .del_config(&param.id, &req_auth.user_data().user_id)
+        .del_config(
+            &param.id,
+            &req_auth.user_data().user_id,
+            Some(&req_dao.req_env),
+        )
         .await?;
     Ok(JsonData::data(json!({ "num": row })))
 }
@@ -299,7 +305,11 @@ pub async fn mailer_app_smtp_config_del<
         .await?;
 
     let row = smtp_sender
-        .del_app_config(&config, &req_auth.user_data().user_id)
+        .del_app_config(
+            &config,
+            &req_auth.user_data().user_id,
+            Some(&req_dao.req_env),
+        )
         .await?;
     Ok(JsonData::data(json!({ "num": row })))
 }
@@ -357,6 +367,7 @@ pub async fn mailer_app_smtp_config_add<
             &param.try_num,
             &uid,
             &req_auth.user_data().user_id,
+            Some(&req_dao.req_env),
         )
         .await?;
     Ok(JsonData::data(json!({ "id": row })))

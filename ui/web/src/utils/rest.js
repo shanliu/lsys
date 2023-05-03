@@ -3,6 +3,7 @@ import randomString from "random-string";
 import store from 'store2';
 import config from '../../config.json';
 import JSONBig from 'json-bigint'
+import { redirectLoginPage } from "./utils";
 const timeout = 10000;
 
 
@@ -66,13 +67,15 @@ export function globalRest(path) {
 };
 
 
+
 export function sessionRest(path) {
     let session = userSessionGet();
     if (!session) {
-        let url = window.location.href.replace(/#\/.*$/, "");
-        url += "#/login/name?redirect_uri=" + encodeURIComponent(window.location.href);
-        window.location.href = url
-        return;
+        redirectLoginPage()
+        return axios.create({//防止报错。。。
+            timeout: timeout,
+            baseURL: config.serverURL + path,
+        })
     }
     let ax = axios.create({
         baseURL: config.serverURL + path,

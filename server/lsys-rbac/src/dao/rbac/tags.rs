@@ -1,4 +1,5 @@
-use lsys_core::{now_time, PageParam};
+use lsys_core::{now_time, PageParam, RequestEnv};
+use lsys_logger::dao::ChangeLogger;
 use sqlx::{Acquire, MySql, Pool, Transaction};
 use sqlx_model::{
     executor_option, model_option_set, sql_format, Insert, ModelTableName, Select, SqlQuote,
@@ -7,15 +8,16 @@ use sqlx_model::{
 
 use crate::model::{RbacTagsModel, RbacTagsModelRef, RbacTagsSource, RbacTagsStatus};
 
-use super::UserRbacResult;
-
+use super::{LogTag, UserRbacResult};
+use std::sync::Arc;
 pub struct RbacTags {
     db: Pool<MySql>,
+    logger: Arc<ChangeLogger>,
 }
 
 impl RbacTags {
-    pub fn new(db: Pool<MySql>) -> Self {
-        Self { db }
+    pub fn new(db: Pool<MySql>, logger: Arc<ChangeLogger>) -> Self {
+        Self { db, logger }
     }
     pub async fn count_by_name(
         &self,
@@ -134,6 +136,7 @@ impl RbacTags {
         source: RbacTagsSource,
         delete_user_id: u64,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> UserRbacResult<()> {
         let time = now_time().unwrap_or_default();
         let change = sqlx_model::model_option_set!(RbacTagsModelRef,{
@@ -155,9 +158,26 @@ impl RbacTags {
             &self.db,
             db
         );
+
+        self.logger
+            .add(
+                &LogTag {
+                    action: "del",
+                    tags: None,
+                    from_source: source,
+                },
+                &Some(from_id),
+                &None,
+                &Some(delete_user_id),
+                None,
+                env_data,
+            )
+            .await;
+
         Ok(())
     }
     /// 设置指定目标的TAG
+    #[allow(clippy::too_many_arguments)]
     pub async fn set_tags<'t>(
         &self,
         from_id: u64,
@@ -166,6 +186,7 @@ impl RbacTags {
         tags: &[String],
         change_user_id: u64,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> UserRbacResult<()> {
         let from_source = source as i8;
         let time = now_time().unwrap_or_default();
@@ -246,6 +267,22 @@ impl RbacTags {
         } else {
             db.commit().await?;
         }
+
+        self.logger
+            .add(
+                &LogTag {
+                    action: "set",
+                    tags: Some(tags.to_owned()),
+                    from_source: source,
+                },
+                &Some(from_id),
+                &Some(user_id),
+                &Some(change_user_id),
+                None,
+                env_data,
+            )
+            .await;
+
         Ok(())
     }
 }

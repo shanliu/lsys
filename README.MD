@@ -73,7 +73,7 @@ sequenceDiagram
 
 ##### 基于HTTP接口方式二次开发
 
-> [通过HTTP接口接入示例(go实现)](sdk/go/) 
+> [通过HTTP接口接入文档](sdk/) 
 
 ```mermaid
 sequenceDiagram

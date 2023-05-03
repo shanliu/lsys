@@ -3,6 +3,7 @@ mod setting_multiple;
 mod setting_single;
 
 use lsys_core::{AppCore, AppCoreError};
+use lsys_logger::dao::ChangeLogger;
 pub use setting::*;
 pub use setting_multiple::*;
 pub use setting_single::*;
@@ -19,6 +20,7 @@ impl Setting {
         app_core: Arc<AppCore>,
         db: Pool<MySql>,
         redis: deadpool_redis::Pool,
+        logger: Arc<ChangeLogger>,
     ) -> Result<Self, AppCoreError> {
         let app_locale_dir = app_core.app_dir.join("locale/lsys-rbac");
         let fluents_message = Arc::new(if app_locale_dir.exists() {
@@ -34,8 +36,9 @@ impl Setting {
                 db.clone(),
                 fluents_message.clone(),
                 redis.clone(),
+                logger.clone(),
             )),
-            multiple: Arc::from(MultipleSetting::new(db, fluents_message, redis)),
+            multiple: Arc::from(MultipleSetting::new(db, fluents_message, redis, logger)),
         })
     }
 }

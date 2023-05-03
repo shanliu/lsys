@@ -34,13 +34,13 @@ pub struct ExternalBindCheckParam {
 pub(crate) async fn external<'t>(
     jwt: JwtQuery,
     path: actix_web::web::Path<(String,)>,
-    rest: JsonQuery,
+    json_param: JsonQuery,
     auth_dao: UserAuthQuery,
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
     Ok(match path.0.to_string().as_str() {
         "list_data" => {
-            user_external_list_data(rest.param::<ExternalListDataParam>()?, &auth_dao).await
+            user_external_list_data(json_param.param::<ExternalListDataParam>()?, &auth_dao).await
         }
         "bind_check" => {
             let req_auth = auth_dao
@@ -50,7 +50,7 @@ pub(crate) async fn external<'t>(
                 .get_session_data()
                 .await
                 .map_err(JsonData::from)?;
-            let login_param = rest.param::<ExternalBindCheckParam>()?;
+            let login_param = json_param.param::<ExternalBindCheckParam>()?;
             match login_param.login_type.as_str() {
                 "wechat" => {
                     let wechat = &auth_dao
@@ -66,7 +66,12 @@ pub(crate) async fn external<'t>(
                         let (ext_model, _, _) = &auth_dao
                             .web_dao
                             .user
-                            .user_external_bind(wechat, &ldat, req_auth.user_data().user_id)
+                            .user_external_bind(
+                                wechat,
+                                &ldat,
+                                req_auth.user_data().user_id,
+                                Some(&auth_dao.req_env),
+                            )
                             .await
                             .map_err(JsonData::from)?;
                         Ok(JsonData::data(json!({ "id": ext_model.id })))
@@ -85,7 +90,7 @@ pub(crate) async fn external<'t>(
                 .get_session_data()
                 .await
                 .map_err(Into::<JsonData>::into)?;
-            let param = rest.param::<ExternalBindUrlParam>()?;
+            let param = json_param.param::<ExternalBindUrlParam>()?;
             match param.login_type.as_str() {
                 "wechat" => {
                     user_external_login_url::<WechatLogin, WechatLoginParam, _, _>(
@@ -104,7 +109,9 @@ pub(crate) async fn external<'t>(
                 ),
             }
         }
-        "delete" => user_external_delete(rest.param::<ExternalDeleteParam>()?, &auth_dao).await,
+        "delete" => {
+            user_external_delete(json_param.param::<ExternalDeleteParam>()?, &auth_dao).await
+        }
         name => handler_not_found!(name),
     }?
     .into())

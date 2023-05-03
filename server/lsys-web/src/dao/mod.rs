@@ -2,6 +2,7 @@ use ip2location::LocationDB;
 use lsys_app::dao::AppDao;
 use lsys_core::cache::{LocalCacheClear, LocalCacheClearItem};
 use lsys_core::{AppCore, AppCoreError};
+use lsys_logger::dao::ChangeLogger;
 use lsys_rbac::dao::rbac::RbacLocalCacheClear;
 use lsys_rbac::dao::{RbacDao, SystemRole};
 use lsys_sender::dao::MessageTpls;
@@ -73,8 +74,16 @@ impl WebDao {
         let tera = Arc::new(app_core.create_tera(&tera_tpl)?);
 
         let redis = app_core.create_redis().await?;
-
-        let setting = Arc::new(Setting::new(app_core.clone(), db.clone(), redis.clone()).await?);
+        let change_logger = Arc::new(ChangeLogger::new(db.clone()));
+        let setting = Arc::new(
+            Setting::new(
+                app_core.clone(),
+                db.clone(),
+                redis.clone(),
+                change_logger.clone(),
+            )
+            .await?,
+        );
 
         let root_user_id = app_core
             .config
@@ -88,6 +97,7 @@ impl WebDao {
                 app_core.clone(),
                 db.clone(),
                 redis.clone(),
+                change_logger.clone(),
                 Some(Box::new(SystemRole::new(true, root_user_id))),
                 app_core.config.get_bool("rbac_cache").unwrap_or(false),
             )
@@ -116,6 +126,7 @@ impl WebDao {
                 db.clone(),
                 redis.clone(),
                 setting.single.clone(),
+                change_logger.clone(),
                 login_store,
                 Some(login_config),
             )
@@ -127,6 +138,7 @@ impl WebDao {
                 app_core.clone(),
                 db.clone(),
                 redis.clone(),
+                change_logger.clone(),
                 7 * 24 * 3600, //TOKEN有效期7天
             )
             .await?,
@@ -138,6 +150,7 @@ impl WebDao {
             redis.clone(),
             db.clone(),
             setting.multiple.clone(),
+            change_logger.clone(),
             None,
             300, //任务最大执行时间
             true,
@@ -154,6 +167,7 @@ impl WebDao {
             db.clone(),
             user_dao.fluent.clone(),
             setting.multiple.clone(),
+            change_logger.clone(),
             None,
             300, //任务最大执行时间
             true,
@@ -194,7 +208,11 @@ impl WebDao {
                 .create_fluent(cargo_dir.to_owned() + "/locale")
                 .await?
         });
-        let sender_tpl = Arc::new(MessageTpls::new(db.clone(), fluents_message.clone()));
+        let sender_tpl = Arc::new(MessageTpls::new(
+            db.clone(),
+            fluents_message.clone(),
+            change_logger,
+        ));
         Ok(WebDao {
             user: Arc::new(WebUser::new(
                 user_dao,

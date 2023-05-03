@@ -15,7 +15,7 @@ import { ToastContext } from '../../context/toast';
 import { ConfirmButton } from '../../library/dialog';
 import { ClearTextField } from '../../library/input';
 import { LoadingButton, Progress } from '../../library/loading';
-import { BaseTablePage } from '../../library/table_page';
+import { SimpleTablePage } from '../../library/table_page';
 import { ItemTooltip } from '../../library/tips';
 import { appAdd, appEdit, appList, resetSecretApp, viewSecretApp } from '../../rest/app';
 import { useSearchChange } from '../../utils/hook';
@@ -395,7 +395,7 @@ export default function UserAppIndexPage(props) {
             style: { width: 180 },
             label: '申请时间',
             render: (row) => {
-                return showTime(row.add_time, "未知")
+                return showTime(row.change_time, "未知")
             }
         },
         {
@@ -550,6 +550,7 @@ export default function UserAppIndexPage(props) {
             ...loadData,
             loading: true
         })
+        window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
         return appList({
             user_id: parseInt(userData.user_data.user_id),
             status: searchParam.get("status") ?? '',
@@ -560,6 +561,7 @@ export default function UserAppIndexPage(props) {
             check_mail: true,
             check_view_app: true,
         }).then((data) => {
+
             setLoadData({
                 ...loadData,
                 ...data,
@@ -714,7 +716,7 @@ export default function UserAppIndexPage(props) {
 
         {(loadData.status || loadData.loading)
             ? <Box sx={{ height: 1, width: '100%' }}>
-                <BaseTablePage
+                <SimpleTablePage
                     rows={loadData.data}
                     columns={columns}
                     count={loadData.total}

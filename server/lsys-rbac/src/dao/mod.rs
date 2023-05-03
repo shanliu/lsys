@@ -7,6 +7,7 @@ pub use self::rbac::*;
 use self::rbac::Rbac;
 use lsys_core::{AppCore, AppCoreError, FluentMessage};
 
+use lsys_logger::dao::ChangeLogger;
 use sqlx::{MySql, Pool};
 
 pub struct RbacDao {
@@ -23,6 +24,7 @@ impl RbacDao {
         app_core: Arc<AppCore>,
         db: Pool<MySql>,
         redis: deadpool_redis::Pool,
+        logger: Arc<ChangeLogger>,
         system_role: Option<Box<dyn SystemRoleCheckData>>,
         use_cache: bool,
     ) -> Result<RbacDao, AppCoreError> {
@@ -41,6 +43,7 @@ impl RbacDao {
             redis.clone(),
             system_role,
             use_cache,
+            logger,
         ));
         Ok(RbacDao {
             fluent: fluents_message,

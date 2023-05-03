@@ -1,3 +1,4 @@
+use lsys_core::RequestEnv;
 use lsys_user::{
     dao::account::UserAccountResult,
     model::{UserEmailStatus, UserInfoModelRef, UserMobileStatus, UserModel, UserStatus},
@@ -17,13 +18,22 @@ pub struct UserRegData<'a> {
 
 impl WebUser {
     // 注册用户
-    pub async fn reg_user<'a>(&self, reg_data: UserRegData<'a>) -> UserAccountResult<UserModel> {
+    pub async fn reg_user<'a>(
+        &self,
+        reg_data: UserRegData<'a>,
+        env_data: Option<&RequestEnv>,
+    ) -> UserAccountResult<UserModel> {
         let mut tran = self.db.begin().await?;
         let user = self
             .user_dao
             .user_account
             .user
-            .add_user(reg_data.nikename, UserStatus::Enable, Some(&mut tran))
+            .add_user(
+                reg_data.nikename,
+                UserStatus::Enable,
+                Some(&mut tran),
+                env_data,
+            )
             .await?;
         if let Some(pw) = reg_data.passwrod {
             let res = self
@@ -42,7 +52,7 @@ impl WebUser {
                 .user_dao
                 .user_account
                 .user_email
-                .add_email(&user, un, st, Some(&mut tran))
+                .add_email(&user, un, st, Some(&mut tran), env_data)
                 .await;
             if let Err(err) = res {
                 tran.rollback().await?;
@@ -54,7 +64,7 @@ impl WebUser {
                 .user_dao
                 .user_account
                 .user_name
-                .change_username(&user, un, Some(&mut tran))
+                .change_username(&user, un, Some(&mut tran), env_data)
                 .await;
             if let Err(err) = res {
                 tran.rollback().await?;
@@ -66,7 +76,7 @@ impl WebUser {
                 .user_dao
                 .user_account
                 .user_mobile
-                .add_mobile(&user, area, mob, st, Some(&mut tran))
+                .add_mobile(&user, area, mob, st, Some(&mut tran), env_data)
                 .await;
             if let Err(err) = res {
                 tran.rollback().await?;
@@ -85,6 +95,7 @@ impl WebUser {
                     external_id,
                     external_name,
                     Some(&mut tran),
+                    env_data,
                 )
                 .await;
             if let Err(err) = res {
@@ -97,7 +108,7 @@ impl WebUser {
                 .user_dao
                 .user_account
                 .user_info
-                .set_info(&user, info_ref, Some(&mut tran))
+                .set_info(&user, info_ref, Some(&mut tran), env_data)
                 .await;
             if let Err(err) = res {
                 tran.rollback().await?;

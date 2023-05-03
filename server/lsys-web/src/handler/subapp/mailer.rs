@@ -1,6 +1,6 @@
 use crate::{dao::WebDao, handler::access::AccessAppSenderDoMail, JsonData, JsonResult};
 use lsys_app::model::AppsModel;
-use lsys_core::str_time;
+use lsys_core::{str_time, RequestEnv};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -16,6 +16,7 @@ pub async fn mail_send(
     app_dao: &WebDao,
     app: &AppsModel,
     param: MailSendParam,
+    env_data: Option<&RequestEnv>,
 ) -> JsonResult<JsonData> {
     app_dao
         .user
@@ -50,6 +51,7 @@ pub async fn mail_send(
             send_time,
             &param.reply,
             &param.cancel,
+            env_data,
         )
         .await?;
     Ok(JsonData::message("success"))
@@ -63,6 +65,7 @@ pub async fn mail_cancel(
     app_dao: &WebDao,
     app: &AppsModel,
     param: MailCancelParam,
+    env_data: Option<&RequestEnv>,
 ) -> JsonResult<JsonData> {
     app_dao
         .user
@@ -77,7 +80,7 @@ pub async fn mail_cancel(
         .await?;
     app_dao
         .sender_smser
-        .app_send_cancel(app, &param.cancel)
+        .app_send_cancel(app, &param.cancel, env_data)
         .await?;
     Ok(JsonData::message("success"))
 }

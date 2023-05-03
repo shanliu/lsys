@@ -25,6 +25,7 @@ where
     app.service(
         scope("/api/user")
             .service(user::address)
+            .service(user::user_list)
             .service(user::email)
             .service(user::email_confirm)
             .service(user::external)

@@ -1,9 +1,15 @@
 use lsys_core::cache::LocalCache;
 use lsys_core::{
     get_message, impl_cache_fetch_vec, impl_dao_fetch_one_by_one, now_time, FluentMessage,
-    PageParam,
+    PageParam, RequestEnv,
 };
+use serde::Serialize;
 
+use crate::model::{
+    RbacResModel, RbacResModelRef, RbacResOpModel, RbacResOpModelRef, RbacResOpStatus,
+    RbacResStatus, RbacTagsModel, RbacTagsSource,
+};
+use lsys_logger::dao::ChangeLogger;
 use sqlx::{Acquire, FromRow, MySql, Pool, Row, Transaction};
 use sqlx_model::{
     executor_option, model_option_set, sql_format, Insert, ModelTableName, Select, SqlExpr,
@@ -14,12 +20,8 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::vec;
 
-use crate::model::{
-    RbacResModel, RbacResModelRef, RbacResOpModel, RbacResOpModelRef, RbacResOpStatus,
-    RbacResStatus, RbacTagsModel, RbacTagsSource,
-};
-
-use super::{RbacRole, RbacTags, UserRbacError, UserRbacResult};
+use super::logger::LogResOp;
+use super::{LogRes, RbacRole, RbacTags, UserRbacError, UserRbacResult};
 
 pub struct RbacRes {
     fluent: Arc<FluentMessage>,
@@ -27,6 +29,7 @@ pub struct RbacRes {
     tags: Arc<RbacTags>,
     cache_key_res: Arc<LocalCache<ResKey, Option<RbacResData>>>, // res_key:res edit,res_op all
     role: Arc<RbacRole>,
+    logger: Arc<ChangeLogger>,
 }
 
 #[derive(Clone, Debug)]
@@ -41,7 +44,7 @@ pub struct ResKey {
     pub user_id: u64,    //资源用户ID
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct ResOp {
     pub name: String, //操作名
     pub key: String,  //操作key
@@ -78,6 +81,7 @@ impl RbacRes {
         tags: Arc<RbacTags>,
         role: Arc<RbacRole>,
         cache_key_res: Arc<LocalCache<ResKey, Option<RbacResData>>>,
+        logger: Arc<ChangeLogger>,
     ) -> Self {
         Self {
             cache_key_res,
@@ -85,6 +89,7 @@ impl RbacRes {
             tags,
             fluent,
             role,
+            logger,
         }
     }
     impl_dao_fetch_one_by_one!(
@@ -245,6 +250,7 @@ impl RbacRes {
         tags: &[String],
         user_id: u64,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> UserRbacResult<()> {
         let tags = {
             let mut tout = Vec::with_capacity(tags.len());
@@ -261,6 +267,7 @@ impl RbacRes {
                 &tags,
                 user_id,
                 transaction,
+                env_data,
             )
             .await
     }
@@ -273,6 +280,7 @@ impl RbacRes {
         key: String,
         add_user_id: u64,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> UserRbacResult<u64> {
         let key = check_length!(&self.fluent, key, "key", 32);
         let name = check_length!(&self.fluent, name, "name", 32);
@@ -304,8 +312,7 @@ impl RbacRes {
                     res_key:key,
                     user_id:user_id,
                     change_time:time,
-                    add_user_id:add_user_id,
-                    change_user_id:0,
+                    change_user_id:add_user_id,
                     status:(RbacResStatus::Enable as i8),
                 });
                 let id = executor_option!(
@@ -321,10 +328,26 @@ impl RbacRes {
                 );
                 self.cache_key_res
                     .clear(&ResKey {
-                        res_key: key,
+                        res_key: key.clone(),
                         user_id,
                     })
                     .await;
+
+                self.logger
+                    .add(
+                        &LogRes {
+                            action: "add",
+                            name,
+                            res_key: key,
+                        },
+                        &Some(id),
+                        &Some(user_id),
+                        &Some(add_user_id),
+                        None,
+                        env_data,
+                    )
+                    .await;
+
                 Ok(id)
             }
             Err(e) => Err(e)?,
@@ -337,6 +360,7 @@ impl RbacRes {
         name: Option<String>,
         change_user_id: u64,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> UserRbacResult<u64> {
         let time = now_time().unwrap_or_default();
         let mut change = sqlx_model::model_option_set!(RbacResModelRef,{
@@ -367,6 +391,22 @@ impl RbacRes {
                 user_id: res.user_id,
             })
             .await;
+
+        self.logger
+            .add(
+                &LogRes {
+                    action: "edit",
+                    name: res.name.to_owned(),
+                    res_key: res.res_key.to_owned(),
+                },
+                &Some(res.id),
+                &Some(res.user_id),
+                &Some(change_user_id),
+                None,
+                env_data,
+            )
+            .await;
+
         fout
     }
     /// 删除资源
@@ -375,6 +415,7 @@ impl RbacRes {
         res: &RbacResModel,
         delete_user_id: u64,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> UserRbacResult<()> {
         let time = now_time().unwrap_or_default();
         let change = sqlx_model::model_option_set!(RbacResModelRef,{
@@ -402,7 +443,13 @@ impl RbacRes {
         }
         let tmp = self
             .tags
-            .del_tags(res.id, RbacTagsSource::Res, delete_user_id, Some(&mut db))
+            .del_tags(
+                res.id,
+                RbacTagsSource::Res,
+                delete_user_id,
+                Some(&mut db),
+                env_data,
+            )
             .await;
         if let Err(e) = tmp {
             db.rollback().await?;
@@ -439,6 +486,22 @@ impl RbacRes {
                 user_id: res.user_id,
             })
             .await;
+
+        self.logger
+            .add(
+                &LogRes {
+                    action: "del",
+                    name: res.name.to_owned(),
+                    res_key: res.res_key.to_owned(),
+                },
+                &Some(res.id),
+                &Some(res.user_id),
+                &Some(delete_user_id),
+                None,
+                env_data,
+            )
+            .await;
+
         Ok(())
     }
     /// 获取资源操作
@@ -470,6 +533,7 @@ impl RbacRes {
         ops: Vec<ResOp>,
         change_user_id: u64,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> UserRbacResult<()> {
         let time = now_time().unwrap_or_default();
         let db = &self.db;
@@ -514,7 +578,7 @@ impl RbacRes {
 
         let sop = fops.into_iter().map(|e| e.op_key).collect::<Vec<_>>();
         let add_op = ops
-            .into_iter()
+            .iter()
             .filter(|e| !sop.contains(&e.key))
             .collect::<Vec<_>>();
 
@@ -591,6 +655,22 @@ impl RbacRes {
                 user_id: res.user_id,
             })
             .await;
+
+        self.logger
+            .add(
+                &LogResOp {
+                    ops: ops.clone(),
+                    name: res.name.clone(),
+                    key: res.res_key.clone(),
+                },
+                &Some(res.id),
+                &Some(res.user_id),
+                &Some(change_user_id),
+                None,
+                env_data,
+            )
+            .await;
+
         Ok(())
     }
     /// 根据资源KEY获取资源

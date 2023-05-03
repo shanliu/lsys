@@ -261,7 +261,7 @@ export default function SystemSmsSettingAlismsPage(props) {
             style: { width: 180 },
             label: '更新用户ID',
             render: (row) => {
-                return showTime(row.last_user_id, "未知")
+                return row.change_user_id
             }
         },
         {
@@ -269,7 +269,7 @@ export default function SystemSmsSettingAlismsPage(props) {
             style: { width: 180 },
             label: '更新时间',
             render: (row) => {
-                return showTime(row.last_change_time, "未知")
+                return showTime(row.change_time, "未知")
             }
         },
         {
@@ -317,10 +317,12 @@ export default function SystemSmsSettingAlismsPage(props) {
             ...loadData,
             loading: true
         })
+        window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
         return smsListAliConfig({
             id: searchParam.get("id"),
             full_data: true
         }).then((data) => {
+
             setLoadData({
                 ...loadData,
                 ...data,

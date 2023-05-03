@@ -9,6 +9,7 @@ use crate::{
     },
 };
 
+use lsys_core::RequestEnv;
 use lsys_rbac::{
     dao::{RbacDao, RbacRole, RoleAddUser, RoleParam, RoleSetOp, RoleUserGroupParam},
     model::{
@@ -121,6 +122,7 @@ pub async fn rbac_role_add(
     param: RoleAddParam,
     rbac_dao: &RbacDao,
     user_id: u64,
+    env_data: Option<&RequestEnv>,
 ) -> JsonResult<JsonData> {
     let see_user_id = param.user_id.unwrap_or(user_id);
     let res_ops = if let Some(ref rp) = param.role_ops {
@@ -161,6 +163,7 @@ pub async fn rbac_role_add(
                 param.priority,
                 user_id,
                 Some(&mut transaction),
+                env_data,
             )
             .await
         {
@@ -180,6 +183,7 @@ pub async fn rbac_role_add(
                 param.priority,
                 user_id,
                 Some(&mut transaction),
+                env_data,
             )
             .await
         {
@@ -206,7 +210,7 @@ pub async fn rbac_role_add(
             .into_iter()
             .map(|e| e.into())
             .collect::<Vec<RoleAddUser>>();
-        dao.role_add_user(&role, &user_vec, user_id, Some(&mut transaction))
+        dao.role_add_user(&role, &user_vec, user_id, Some(&mut transaction), env_data)
             .await?;
     }
     if let Err(e) = set_attr(
@@ -216,6 +220,7 @@ pub async fn rbac_role_add(
         rbac_role_op_to_op_set(&param.role_ops, &res_ops)?,
         user_id,
         &mut transaction,
+        env_data,
     )
     .await
     {
@@ -242,6 +247,7 @@ pub async fn rbac_role_edit(
     param: RoleEditParam,
     rbac_dao: &RbacDao,
     user_id: u64,
+    env_data: Option<&RequestEnv>,
 ) -> JsonResult<JsonData> {
     let dao = &rbac_dao.rbac.role;
     let role = dao.find_by_id(&param.role_id).await?;
@@ -292,6 +298,7 @@ pub async fn rbac_role_edit(
                 res_op_range,
                 user_id,
                 Some(&mut transaction),
+                env_data,
             )
             .await
         {
@@ -307,6 +314,7 @@ pub async fn rbac_role_edit(
             res_op_range,
             user_id,
             Some(&mut transaction),
+            env_data,
         )
         .await
     {
@@ -323,6 +331,7 @@ pub async fn rbac_role_edit(
         rbac_role_op_to_op_set(&param.role_ops, &res_ops)?,
         user_id,
         &mut transaction,
+        env_data,
     )
     .await
     {
@@ -341,14 +350,15 @@ async fn set_attr<'t>(
     role_op_vec: Option<Vec<RoleSetOp>>,
     change_user_id: u64,
     transaction: &mut Transaction<'t, sqlx::MySql>,
+    env_data: Option<&RequestEnv>,
 ) -> JsonResult<()> {
     if let Some(op_vec) = role_op_vec {
-        dao.role_set_ops(role, &op_vec, change_user_id, Some(transaction))
+        dao.role_set_ops(role, &op_vec, change_user_id, Some(transaction), env_data)
             .await?;
     }
 
     if let Some(ref tmp) = tags {
-        dao.role_set_tags(role, tmp, change_user_id, Some(transaction))
+        dao.role_set_tags(role, tmp, change_user_id, Some(transaction), env_data)
             .await?
     }
     Ok(())
@@ -383,7 +393,11 @@ pub async fn rbac_role_list_user(
     }
     let rid = role.keys().map(|e| e.to_owned()).collect::<Vec<u64>>();
     let data = dao
-        .role_get_users(&rid, &param.user_id, &param.page.map(|e| e.into()))
+        .role_get_users(
+            &rid,
+            &param.user_id,
+            &Some(param.page.unwrap_or_default().into()),
+        )
         .await?;
     let total = if param.count_num.unwrap_or(false) {
         Some(dao.role_get_user_count(&rid, &param.user_id).await?)
@@ -402,6 +416,7 @@ pub async fn rbac_role_add_user(
     param: RoleAddUserParam,
     rbac_dao: &RbacDao,
     user_id: u64,
+    env_data: Option<&RequestEnv>,
 ) -> JsonResult<JsonData> {
     let dao = &rbac_dao.rbac.role;
     let role = dao.find_by_id(&param.role_id).await?;
@@ -424,7 +439,8 @@ pub async fn rbac_role_add_user(
         .into_iter()
         .map(|e| e.into())
         .collect::<Vec<RoleAddUser>>();
-    dao.role_add_user(&role, &user_vec, user_id, None).await?;
+    dao.role_add_user(&role, &user_vec, user_id, None, env_data)
+        .await?;
     Ok(JsonData::message("add succ"))
 }
 
@@ -437,6 +453,7 @@ pub async fn rbac_role_delete_user(
     param: RoleDeleteUserParam,
     rbac_dao: &RbacDao,
     user_id: u64,
+    env_data: Option<&RequestEnv>,
 ) -> JsonResult<JsonData> {
     let dao = &rbac_dao.rbac.role;
     let role = dao.find_by_id(&param.role_id).await?;
@@ -454,7 +471,7 @@ pub async fn rbac_role_delete_user(
         )
         .await?;
 
-    dao.role_del_user(&role, &param.user_vec, user_id, None)
+    dao.role_del_user(&role, &param.user_vec, user_id, None, env_data)
         .await?;
     Ok(JsonData::message("del succ"))
 }
@@ -467,6 +484,7 @@ pub async fn rbac_role_delete(
     param: RoleDeleteParam,
     rbac_dao: &RbacDao,
     user_id: u64,
+    env_data: Option<&RequestEnv>,
 ) -> JsonResult<JsonData> {
     let dao = &rbac_dao.rbac.role;
     let role = dao.find_by_id(&param.role_id).await?;
@@ -484,7 +502,7 @@ pub async fn rbac_role_delete(
         )
         .await?;
 
-    dao.del_role(&role, user_id, None).await?;
+    dao.del_role(&role, user_id, None, env_data).await?;
     Ok(JsonData::message("list data"))
 }
 
@@ -560,7 +578,7 @@ pub async fn rbac_role_list_data(
             out_tags: param.tags.unwrap_or(false),
             out_user_data: param.user_data.unwrap_or(false),
             out_user_group: user_data_group,
-            page: &param.page.map(|e| e.into()),
+            page: &Some(param.page.unwrap_or_default().into()),
             user_data_page: &param.user_data_page.map(|e| e.into()),
         })
         .await?;
@@ -821,7 +839,7 @@ pub async fn rbac_user_relation_data(
         .get_role_relation_data(
             &see_user_id,
             &param.relation_prefix,
-            &param.page.map(|e| e.into()),
+            &Some(param.page.unwrap_or_default().into()),
         )
         .await?;
     let total = if param.count_num.unwrap_or(false) {

@@ -2,9 +2,10 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::ops::Deref;
 
+use lsys_logger::dao::ChangeLogData;
 use serde::{Deserialize, Serialize};
 
-use crate::model::SettingModel;
+use crate::model::{SettingModel, SettingType};
 
 #[derive(Debug)]
 pub enum SettingError {
@@ -88,5 +89,26 @@ impl<T: SettingDecode> Deref for SettingData<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
         &self.data
+    }
+}
+
+#[derive(Serialize)]
+pub(crate) struct SettingLog {
+    pub action: &'static str,
+    pub setting_key: String,
+    pub setting_type: SettingType,
+    pub name: String,
+    pub setting_data: String,
+}
+
+impl ChangeLogData for SettingLog {
+    fn log_type<'t>() -> &'t str {
+        "setting"
+    }
+    fn format(&self) -> String {
+        format!("{}:{}[{}]", self.action, self.name, self.setting_key)
+    }
+    fn encode(&self) -> String {
+        serde_json::to_string(&self).unwrap_or_default()
     }
 }

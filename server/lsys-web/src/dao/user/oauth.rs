@@ -1,4 +1,4 @@
-use lsys_core::get_message;
+use lsys_core::{get_message, RequestEnv};
 use lsys_user::{
     dao::{
         account::{UserAccountError, UserAccountResult},
@@ -9,10 +9,7 @@ use lsys_user::{
 use serde::Serialize;
 use sqlx_model::model_option_set;
 
-use crate::{
-    dao::RequestEnv,
-    module::oauth::{OauthCallbackParam, OauthLogin, OauthLoginData, OauthLoginParam},
-};
+use crate::module::oauth::{OauthCallbackParam, OauthLogin, OauthLoginData, OauthLoginParam};
 
 use super::{UserRegData, WebUser};
 
@@ -61,6 +58,7 @@ impl WebUser {
         oauth: &T,
         req_env: &RequestEnv,
         param: &P,
+        env_data: Option<&RequestEnv>,
     ) -> UserAuthResult<(UserExternalModel, OauthLoginData, D)> {
         let (data, ext_data) = oauth
             .login_callback(self, param)
@@ -92,7 +90,11 @@ impl WebUser {
         let user_ext = match ext_op {
             None => {
                 let reg_from = format!("oauth-{}", data.external_type);
-                let reg_op = req_env.ip.clone();
+                let reg_op = req_env
+                    .request_id
+                    .as_ref()
+                    .map(|e| e.to_string())
+                    .unwrap_or_default();
                 let mut info = model_option_set!(UserInfoModelRef,{
                     reg_ip:reg_op,
                     reg_from:reg_from,
@@ -101,20 +103,23 @@ impl WebUser {
                     info.headimg = Some(img);
                 }
                 let user = self
-                    .reg_user(UserRegData {
-                        nikename: data.external_nikename.clone(),
-                        passwrod: None,
-                        name: None,
-                        email: None,
-                        mobile: None,
-                        external: Some((
-                            data.config_name.to_owned(),
-                            data.external_type.clone(),
-                            data.external_id.clone(),
-                            data.external_name.clone(),
-                        )),
-                        info: Some(info),
-                    })
+                    .reg_user(
+                        UserRegData {
+                            nikename: data.external_nikename.clone(),
+                            passwrod: None,
+                            name: None,
+                            email: None,
+                            mobile: None,
+                            external: Some((
+                                data.config_name.to_owned(),
+                                data.external_type.clone(),
+                                data.external_id.clone(),
+                                data.external_name.clone(),
+                            )),
+                            info: Some(info),
+                        },
+                        env_data,
+                    )
                     .await?;
                 let user_ext = self
                     .user_dao
@@ -139,6 +144,7 @@ impl WebUser {
                         data.external_gender.clone(),
                         data.external_link.clone(),
                         data.external_pic.clone(),
+                        env_data,
                     )
                     .await?;
                 user_ext
@@ -159,6 +165,7 @@ impl WebUser {
         oauth: &T,
         param: &P,
         user_id: u64,
+        env_data: Option<&RequestEnv>,
     ) -> UserAccountResult<(UserExternalModel, OauthLoginData, D)> {
         let (param, ext_data) = oauth
             .login_callback(self, param)
@@ -202,6 +209,7 @@ impl WebUser {
                         param.external_id.clone(),
                         param.external_name.clone(),
                         None,
+                        env_data,
                     )
                     .await?;
                 user_external.find_by_id(&ext_id).await?
@@ -217,6 +225,7 @@ impl WebUser {
                 param.external_gender.to_owned(),
                 param.external_link.to_owned(),
                 param.external_pic.to_owned(),
+                env_data,
             )
             .await?;
         Ok((ext, param, ext_data))

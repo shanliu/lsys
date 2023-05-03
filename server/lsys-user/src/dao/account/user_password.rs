@@ -133,7 +133,7 @@ impl UserPassword {
                         None => db.begin().await?,
                     };
                     let change =
-                        sqlx_model::model_option_set!(UserPasswordModelRef, { change_time: time });
+                        sqlx_model::model_option_set!(UserPasswordModelRef, { disable_time: time });
                     //ta.execute(query)
                     Update::<sqlx::MySql, UserPasswordModel, _>::new(change)
                         .execute_by_pk(&user_pass, &mut ta)
@@ -181,7 +181,7 @@ impl UserPassword {
         let new_data = model_option_set!(UserPasswordModelRef,{
             user_id:user.id,
             password:nh_passwrod,
-            change_time: time,
+            disable_time: 0,
             add_time: time,
         });
         let res = Insert::<sqlx::MySql, UserPasswordModel, _>::new(new_data)
@@ -196,6 +196,7 @@ impl UserPassword {
                 let pid = data.last_insert_id();
                 let change = sqlx_model::model_option_set!(UserModelRef,{
                     password_id:pid,
+                    change_time:time,
                 });
                 let u_res = Update::<sqlx::MySql, UserModel, _>::new(change)
                     .execute_by_pk(user, &mut ta)
@@ -228,7 +229,19 @@ impl UserPassword {
         user: &UserModel,
         check_password: &String,
     ) -> UserAccountResult<bool> {
-        let user_password = self.find_by_id(&user.password_id).await?;
+        let user_password = match self.find_by_id(&user.password_id).await {
+            Ok(up) => up,
+            Err(err) => match err {
+                UserAccountError::Sqlx(sqlx::Error::RowNotFound) => {
+                    return Err(UserAccountError::System(get_message!(
+                        &self.fluent,
+                        "user-passwrod-delete",
+                        "can't password,may be is delete"
+                    )));
+                }
+                _ => return Err(err),
+            },
+        };
         Ok(self.user_passwrd_hash.hash_password(check_password).await == user_password.password)
     }
     /// 检测指定ID密码是否超时

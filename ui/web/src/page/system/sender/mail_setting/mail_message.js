@@ -12,7 +12,8 @@ export default function SystemAppMailMessagePage(props) {
         tpl_id: '',
         to_mail: '',
         status: '',
-        page: 0,
+        start_pos: '',
+        end_pos: '',
         page_size: 10,
     });
     return <AppMailMessage
@@ -20,7 +21,8 @@ export default function SystemAppMailMessagePage(props) {
         tplId={searchParam.get("tpl_id") ?? ''}
         to_mail={searchParam.get("to_mail") ?? ''}
         status={searchParam.get("status") ?? ''}
-        page={searchParam.get("page") ?? 0}
+        startPos={searchParam.get("start_pos") ?? ''}
+        endPos={searchParam.get("end_pos") ?? ''}
         pageSize={searchParam.get("page_size") ?? 10}
         onSearchChange={setSearchParam}
     >

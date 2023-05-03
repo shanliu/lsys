@@ -39,21 +39,13 @@ pub struct SenderConfigModel {
     #[sqlx(default)]
     pub user_id: u64,
 
-    /// 添加用户ID
+    /// 最后更新用户id
     #[sqlx(default)]
-    pub add_user_id: u64,
+    pub change_user_id: u64,
 
-    /// 删除用户ID
+    /// 最后更新时间
     #[sqlx(default)]
-    pub delete_user_id: u64,
-
-    /// 添加时间
-    #[sqlx(default)]
-    pub add_time: u64,
-
-    /// 发送时间
-    #[sqlx(default)]
-    pub delete_time: u64,
+    pub change_time: u64,
 }
 
 #[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
@@ -131,6 +123,14 @@ pub struct SenderLogModel {
     #[sqlx(default)]
     pub message: String,
 
+    /// 操作者IP
+    #[sqlx(default)]
+    pub user_ip: String,
+
+    /// 请求id
+    #[sqlx(default)]
+    pub request_id: String,
+
     /// 发送时间
     #[sqlx(default)]
     pub create_time: u64,
@@ -167,11 +167,11 @@ pub struct SenderTplsModel {
     #[sqlx(default)]
     pub user_id: u64,
 
-    /// 添加时间
+    /// 修改时间
     #[sqlx(default)]
     pub change_user_id: u64,
 
-    /// 添加时间
+    /// 修改时间
     #[sqlx(default)]
     pub change_time: u64,
 }
@@ -279,21 +279,13 @@ pub struct SenderMailSmtpModel {
     #[sqlx(default)]
     pub user_id: u64,
 
-    /// 添加用户ID
+    /// 修改时间
     #[sqlx(default)]
-    pub add_user_id: u64,
+    pub change_user_id: u64,
 
-    /// 删除用户ID
+    /// 修改时间
     #[sqlx(default)]
-    pub delete_user_id: u64,
-
-    /// 添加时间
-    #[sqlx(default)]
-    pub add_time: u64,
-
-    /// 更新时间
-    #[sqlx(default)]
-    pub delete_time: u64,
+    pub change_time: u64,
 }
 
 // 短信公共表 -start
@@ -396,19 +388,11 @@ pub struct SenderSmsAliyunModel {
     #[sqlx(default)]
     pub user_id: u64,
 
-    /// 添加用户ID
+    /// 修改时间
     #[sqlx(default)]
-    pub add_user_id: u64,
+    pub change_user_id: u64,
 
-    /// 删除用户ID
+    /// 修改时间
     #[sqlx(default)]
-    pub delete_user_id: u64,
-
-    /// 添加时间
-    #[sqlx(default)]
-    pub add_time: u64,
-
-    /// 更新时间
-    #[sqlx(default)]
-    pub delete_time: u64,
+    pub change_time: u64,
 }

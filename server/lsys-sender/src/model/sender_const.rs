@@ -13,8 +13,9 @@ pub enum SenderType {
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, SqlxModelStatus, PartialEq, Eq)]
 #[sqlx_model_status(type = "i8")]
 pub enum SenderLogType {
-    Send = 1,   //发送日志
-    Cancel = 2, //取消发送
+    Init = 1,   //新增完成
+    Send = 2,   //发送日志
+    Cancel = 3, //取消发送
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, SqlxModelStatus, PartialEq, Eq)]

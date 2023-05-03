@@ -58,7 +58,14 @@ pub async fn user_mobile_add<'t, T: SessionTokenData, D: SessionData, S: UserSes
         .user_dao
         .user_account
         .user_mobile
-        .add_mobile(&user, param.area_code, param.mobile, status, None)
+        .add_mobile(
+            &user,
+            param.area_code,
+            param.mobile,
+            status,
+            None,
+            Some(&req_dao.req_env),
+        )
         .await?;
     Ok(JsonData::data(json!({ "id": mobile_id })))
 }
@@ -148,7 +155,13 @@ pub async fn user_mobile_send_code<
     req_dao
         .web_dao
         .sender_smser
-        .send_valid_code(&param.area_code, &param.mobile, &code, &ttl)
+        .send_valid_code(
+            &param.area_code,
+            &param.mobile,
+            &code,
+            &ttl,
+            Some(&req_dao.req_env),
+        )
         .await?;
     Ok(JsonData::data(json!({ "ttl": ttl })))
 }
@@ -188,7 +201,7 @@ pub async fn user_mobile_confirm<'t, T: SessionTokenData, D: SessionData, S: Use
             .user_dao
             .user_account
             .user_mobile
-            .confirm_mobile_from_code(&mobile, &param.code)
+            .confirm_mobile_from_code(&mobile, &param.code, Some(&req_dao.req_env))
             .await?;
     }
     Ok(JsonData::message("edit mobile ok"))
@@ -236,7 +249,7 @@ pub async fn user_mobile_delete<'t, T: SessionTokenData, D: SessionData, S: User
                     .user_dao
                     .user_account
                     .user_mobile
-                    .del_mobile(&mobile, None)
+                    .del_mobile(&mobile, None, Some(&req_dao.req_env))
                     .await?;
             }
         }

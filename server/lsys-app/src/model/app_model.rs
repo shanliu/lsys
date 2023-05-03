@@ -34,11 +34,11 @@ pub struct AppsModel {
 
     /// 密码ID  default:  0
     #[sqlx(default)]
-    pub add_user_id: u64,
+    pub change_user_id: u64,
 
     /// 添加时间
     #[sqlx(default)]
-    pub add_time: u64,
+    pub change_time: u64,
 
     /// 确认用户ID
     #[sqlx(default)]

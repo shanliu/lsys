@@ -5,7 +5,7 @@ use crate::{
     model::{SenderSmsAliyunModel, SenderSmsAliyunModelRef, SenderSmsAliyunStatus},
 };
 use async_trait::async_trait;
-use lsys_core::now_time;
+use lsys_core::{now_time, RequestEnv};
 use lsys_setting::dao::{
     MultipleSetting, SettingData, SettingDecode, SettingEncode, SettingKey, SettingResult,
 };
@@ -60,8 +60,8 @@ pub struct ShowAliyunConfig {
     pub access_id: String,
     pub hide_access_id: String,
     pub access_secret: String,
-    pub last_user_id: u64,
-    pub last_change_time: u64,
+    pub change_user_id: u64,
+    pub change_time: u64,
 }
 impl SettingKey for AliyunConfig {
     fn key<'t>() -> &'t str {
@@ -115,16 +115,21 @@ impl AliyunSender {
                 access_id: e.access_id.to_owned(),
                 hide_access_id: e.hide_access_id(),
                 access_secret: e.access_secret.to_owned(),
-                last_user_id: e.model().last_user_id,
-                last_change_time: e.model().last_change_time,
+                change_user_id: e.model().change_user_id,
+                change_time: e.model().change_time,
             })
             .collect::<Vec<_>>())
     }
     //删除指定的aliyun短信配置
-    pub async fn del_config(&self, id: &u64, user_id: &u64) -> SenderResult<u64> {
+    pub async fn del_config(
+        &self,
+        id: &u64,
+        user_id: &u64,
+        env_data: Option<&RequestEnv>,
+    ) -> SenderResult<u64> {
         Ok(self
             .setting
-            .del::<AliyunConfig>(&None, id, user_id, None)
+            .del::<AliyunConfig>(&None, id, user_id, None, env_data)
             .await?)
     }
     //编辑指定的aliyun短信配置
@@ -135,6 +140,7 @@ impl AliyunSender {
         access_id: &str,
         access_secret: &str,
         user_id: &u64,
+        env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         Ok(self
             .setting
@@ -148,6 +154,7 @@ impl AliyunSender {
                 },
                 user_id,
                 None,
+                env_data,
             )
             .await?)
     }
@@ -158,6 +165,7 @@ impl AliyunSender {
         access_id: &str,
         access_secret: &str,
         user_id: &u64,
+        env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         Ok(self
             .setting
@@ -170,6 +178,7 @@ impl AliyunSender {
                 },
                 user_id,
                 None,
+                env_data,
             )
             .await?)
     }
@@ -224,9 +233,9 @@ impl AliyunSender {
             tpl_id:tpl_id,
             aliyun_sign_name:aliyun_sign_name,
             aliyun_sms_tpl:aliyun_sms_tpl,
-            add_time:time,
+            change_time:time,
             user_id:user_id,
-            add_user_id:add_user_id,
+            change_user_id:add_user_id,
             aliyun_config_id:aliyun_config.model().id,
             status:SenderSmsAliyunStatus::Enable as i8,
         });
@@ -244,8 +253,8 @@ impl AliyunSender {
         let time = now_time().unwrap_or_default();
         let change = sqlx_model::model_option_set!(SenderSmsAliyunModelRef,{
             status:SenderSmsAliyunStatus::Delete as i8,
-            delete_time:time,
-            delete_user_id:user_id
+            change_time:time,
+            change_user_id:user_id
         });
         let res = Update::<sqlx::MySql, SenderSmsAliyunModel, _>::new(change)
             .execute_by_pk(sms_aliyun, &self.db)

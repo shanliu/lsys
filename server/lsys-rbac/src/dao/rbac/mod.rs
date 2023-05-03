@@ -8,10 +8,11 @@ pub use access::*;
 pub use cache::*;
 pub use check::*;
 pub use data::*;
+use logger::*;
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::FluentMessage;
+use lsys_logger::dao::ChangeLogger;
 pub use res::*;
-// pub use res_tpl::*;
 pub use role::*;
 use sqlx::{MySql, Pool};
 pub use tags::*;
@@ -22,6 +23,7 @@ mod check;
 mod data;
 mod res;
 // mod res_tpl;
+mod logger;
 mod role;
 mod tags;
 
@@ -67,8 +69,9 @@ impl Rbac {
         redis: deadpool_redis::Pool,
         system_role: Option<Box<dyn SystemRoleCheckData>>,
         use_cache: bool,
+        logger: Arc<ChangeLogger>,
     ) -> Self {
-        let tags = Arc::from(RbacTags::new(db.clone()));
+        let tags = Arc::from(RbacTags::new(db.clone(), logger.clone()));
         let res_key_cache = Arc::from(LocalCache::new(
             redis.clone(),
             LocalCacheConfig::new("key-res"),
@@ -86,6 +89,7 @@ impl Rbac {
             tags.clone(),
             role_relation_cache.clone(),
             role_access_cache.clone(),
+            logger.clone(),
         ));
         let res = Arc::from(RbacRes::new(
             db,
@@ -93,6 +97,7 @@ impl Rbac {
             tags.clone(),
             role.clone(),
             res_key_cache.clone(),
+            logger,
         ));
         let access = Arc::from(RbacAccess::new(
             fluent,

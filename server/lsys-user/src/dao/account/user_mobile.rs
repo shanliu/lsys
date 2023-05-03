@@ -5,14 +5,16 @@ use crate::dao::account::UserAccountResult;
 
 use crate::model::{UserMobileModel, UserMobileModelRef, UserMobileStatus, UserModel};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::FluentMessage;
 use lsys_core::{get_message, now_time};
+use lsys_core::{FluentMessage, RequestEnv};
 
+use lsys_logger::dao::ChangeLogger;
 use sqlx::{Acquire, MySql, Pool, Transaction};
 use sqlx_model::{model_option_set, sql_format, Insert, ModelTableName, Select, SqlQuote, Update};
 
 use tracing::log::warn;
 
+use super::logger::LogUserMobile;
 use super::user_index::UserIndex;
 use super::{check_mobile, UserAccountError};
 pub trait UserMobileValid {
@@ -25,6 +27,7 @@ pub struct UserMobile {
     fluent: Arc<FluentMessage>,
     index: Arc<UserIndex>,
     pub cache: Arc<LocalCache<u64, Vec<UserMobileModel>>>,
+    logger: Arc<ChangeLogger>,
 }
 
 impl UserMobile {
@@ -33,6 +36,7 @@ impl UserMobile {
         redis: deadpool_redis::Pool,
         fluent: Arc<FluentMessage>,
         index: Arc<UserIndex>,
+        logger: Arc<ChangeLogger>,
     ) -> Self {
         Self {
             cache: Arc::from(LocalCache::new(
@@ -43,6 +47,7 @@ impl UserMobile {
             redis,
             fluent,
             index,
+            logger,
         }
     }
 
@@ -76,6 +81,7 @@ impl UserMobile {
         mobile: String,
         mut status: UserMobileStatus,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> UserAccountResult<u64> {
         if status == UserMobileStatus::Delete {
             status = UserMobileStatus::Init;
@@ -113,17 +119,13 @@ impl UserMobile {
 
         let time = now_time()?;
         let _status = status as i8;
-        let mut idata = model_option_set!(UserMobileModelRef,{
+        let idata = model_option_set!(UserMobileModelRef,{
             mobile:mobile,
             status:_status,
             area_code:area_code,
             user_id:user.id,
-            add_time:time,
+            change_time:time,
         });
-
-        if status == UserMobileStatus::Valid {
-            idata.confirm_time = Some(&time);
-        }
 
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
@@ -133,10 +135,10 @@ impl UserMobile {
         let res = Insert::<sqlx::MySql, UserMobileModel, _>::new(idata)
             .execute(&mut db)
             .await;
-        match res {
+        let aid = match res {
             Err(e) => {
                 db.rollback().await?;
-                Err(e)?
+                return Err(e.into());
             }
             Ok(mr) => {
                 let res = sqlx::query(
@@ -152,7 +154,7 @@ impl UserMobile {
                 match res {
                     Err(e) => {
                         db.rollback().await?;
-                        Err(e.into())
+                        return Err(e.into());
                     }
                     Ok(_) => {
                         if UserMobileStatus::Valid == status {
@@ -161,7 +163,7 @@ impl UserMobile {
                                 .add(
                                     crate::model::UserIndexCat::Mobile,
                                     user.id,
-                                    &[mobile],
+                                    &[mobile.clone()],
                                     Some(&mut db),
                                 )
                                 .await
@@ -173,11 +175,28 @@ impl UserMobile {
 
                         db.commit().await?;
                         self.cache.clear(&user.id).await;
-                        Ok(mr.last_insert_id())
+                        mr.last_insert_id()
                     }
                 }
             }
-        }
+        };
+
+        self.logger
+            .add(
+                &LogUserMobile {
+                    action: "add",
+                    area_code,
+                    mobile: mobile.to_owned(),
+                    status: status as i8,
+                },
+                &Some(aid),
+                &Some(user.id),
+                &Some(user.id),
+                None,
+                env_data,
+            )
+            .await;
+        Ok(aid)
     }
     impl_account_valid_code_method!("mobile",{
         area_code: &String,
@@ -190,10 +209,11 @@ impl UserMobile {
         &self,
         user_mobile: &UserMobileModel,
         code: &String,
+        env_data: Option<&RequestEnv>,
     ) -> UserAccountResult<u64> {
         self.valid_code_check(code, &user_mobile.area_code, &user_mobile.mobile)
             .await?;
-        let res = self.confirm_mobile(user_mobile).await;
+        let res = self.confirm_mobile(user_mobile, env_data).await;
         if res.is_ok() {
             if let Err(err) = self
                 .valid_code_clear(&user_mobile.area_code, &user_mobile.mobile)
@@ -208,7 +228,11 @@ impl UserMobile {
         res
     }
     //确认手机号
-    pub async fn confirm_mobile(&self, user_mobile: &UserMobileModel) -> UserAccountResult<u64> {
+    pub async fn confirm_mobile(
+        &self,
+        user_mobile: &UserMobileModel,
+        env_data: Option<&RequestEnv>,
+    ) -> UserAccountResult<u64> {
         let mobile_res = Select::type_new::<UserMobileModel>()
             .fetch_one_by_where_call::<UserMobileModel, _, _>(
                 " area_code=? and mobile=? and status =? and user_id!=? and id!=?",
@@ -267,6 +291,23 @@ impl UserMobile {
         }
         db.commit().await?;
         self.cache.clear(&user_mobile.user_id).await;
+
+        self.logger
+            .add(
+                &LogUserMobile {
+                    action: "confirm",
+                    area_code: user_mobile.area_code.clone(),
+                    mobile: user_mobile.mobile.clone(),
+                    status: UserMobileStatus::Valid as i8,
+                },
+                &Some(user_mobile.id),
+                &Some(user_mobile.user_id),
+                &Some(user_mobile.user_id),
+                None,
+                env_data,
+            )
+            .await;
+
         Ok(res.rows_affected())
     }
     /// 删除用户手机号
@@ -274,11 +315,12 @@ impl UserMobile {
         &self,
         user_mobile: &UserMobileModel,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> UserAccountResult<u64> {
         let time = now_time()?;
         let change = sqlx_model::model_option_set!(UserMobileModelRef,{
             status:UserMobileStatus::Delete as i8,
-            delete_time:time
+            change_time:time
         });
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
@@ -287,7 +329,7 @@ impl UserMobile {
         let res = Update::<sqlx::MySql, UserMobileModel, _>::new(change)
             .execute_by_pk(user_mobile, &mut db)
             .await;
-        match res {
+        let out = match res {
             Err(e) => {
                 db.rollback().await?;
                 Err(e)?
@@ -325,7 +367,24 @@ impl UserMobile {
                     }
                 }
             }
-        }
+        };
+
+        self.logger
+            .add(
+                &LogUserMobile {
+                    action: "del",
+                    area_code: user_mobile.area_code.clone(),
+                    mobile: user_mobile.mobile.clone(),
+                    status: UserMobileStatus::Valid as i8,
+                },
+                &Some(user_mobile.id),
+                &Some(user_mobile.user_id),
+                &Some(user_mobile.user_id),
+                None,
+                env_data,
+            )
+            .await;
+        out
     }
     lsys_core::impl_dao_fetch_one_by_one!(
         db,

@@ -10,7 +10,8 @@ use lsys_web::{
 
 #[post("access")]
 pub(crate) async fn access(
-    rest: RestQuery,
+    mut rest: RestQuery,
+
     app_dao: Data<WebDao>,
 ) -> ResponseJsonResult<ResponseJson> {
     Ok(match rest.rfc.method.as_deref() {

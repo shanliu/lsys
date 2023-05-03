@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	lSysApi "lsysrest/lsysrest"
+	"math/rand"
 )
 
 func main() {
@@ -20,23 +22,37 @@ func main() {
 	//oauth 登录
 	//第一步
 	//登录地址
-	url := sysApi.OAuthAuthorizationUrl(context.Background(), "http://127.0.0.1:8080/", "user_info", "aa")
+	b := make([]byte, 6)
+	rand.Read(b)
+	url := sysApi.OAuthAuthorizationUrl(context.Background(), "http://127.0.0.1:8080/", "user_info,user_mobile", hex.EncodeToString(b))
 	fmt.Printf("url :%s \n", url)
 
 	//第二步
 	//登录后获取TOKEN
-	token, er := sysApi.OAuthAccessToken(context.Background(), "52f5861337c1947beab40df90ade268c")
-	if er == nil {
-		fmt.Printf("token :%s \n", token)
-	} else {
-		fmt.Printf("err :%s \n", er)
-	}
-	//通过TOKEN得到用户信息
-	tokenApi := sysApi.TokenRestApi(token.AccessToken)
+	//token, er := sysApi.OAuthAccessToken(context.Background(), "da0c6285c513b7a4e92e7913f86d4b0f")
+	//if er == nil {
+	//	fmt.Printf("token :%s \n", token)
+	//} else {
+	//	fmt.Printf("err :%s \n", er)
+	//	return
+	//}
+
+	////通过TOKEN得到用户信息
+	tokenApi := sysApi.TokenRestApi("23b711e8cd05726f83fbd4a69a4c590e")
 	data, err := tokenApi.OAuthUserInfo(context.Background(), true, true, false, false, false, false)
 	if err == nil {
 		fmt.Printf("sub app output :%s", data)
 	} else {
 		fmt.Printf("error :%s", err)
 	}
+	//
+	////刷新TOKEN
+	//tokenApi := sysApi.TokenRestApi("b8b504d63ae1dcaf7e6458092719f23c")
+	//token1, er := tokenApi.OAuthRefreshToken(context.Background())
+	//if er == nil {
+	//	fmt.Printf("token :%s \n", token1)
+	//} else {
+	//	fmt.Printf("err :%s \n", er)
+	//	return
+	//}
 }

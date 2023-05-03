@@ -5,7 +5,7 @@ import Box from '@mui/material/Box';
 import React, { useEffect, useState } from 'react';
 import { ClearTextField } from '../../library/input';
 import { LoadingButton } from '../../library/loading';
-import { BaseTablePage } from '../../library/table_page';
+import { SimpleTablePage } from '../../library/table_page';
 import { loginHistroy } from '../../rest/user';
 import { useSearchChange } from '../../utils/hook';
 import { showTime } from '../../utils/utils';
@@ -157,6 +157,7 @@ export default function UserLoginHistroyPage(props) {
             ...loadData,
             loading: true
         })
+        window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
         return loginHistroy({
             login_type: searchParam.get("login_type"),
             login_account: searchParam.get("login_account"),
@@ -164,6 +165,7 @@ export default function UserLoginHistroyPage(props) {
             page: searchParam.get("page") || 0,
             page_size: searchParam.get("page_size") || 10
         }).then((data) => {
+
             setLoadData({
                 ...loadData,
                 ...data,
@@ -276,7 +278,7 @@ export default function UserLoginHistroyPage(props) {
 
         {(loadData.status || loadData.loading)
             ? <Box sx={{ height: 1, width: '100%' }}>
-                <BaseTablePage
+                <SimpleTablePage
                     rows={loadData.data}
                     columns={columns}
                     count={loadData.total}

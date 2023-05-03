@@ -8,7 +8,7 @@ use lsys_web::{
 
 #[post("sms")]
 pub(crate) async fn sms(
-    rest: RestQuery,
+    mut rest: RestQuery,
     app_dao: Data<WebDao>,
 ) -> ResponseJsonResult<ResponseJson> {
     Ok(match rest.rfc.method.as_deref() {
@@ -18,6 +18,7 @@ pub(crate) async fn sms(
                 &app_dao,
                 &rest.rfc.to_app_model(&app_dao.app.app_dao.app).await?,
                 param,
+                Some(&rest.req_env),
             )
             .await
         }
@@ -27,6 +28,7 @@ pub(crate) async fn sms(
                 &app_dao,
                 &rest.rfc.to_app_model(&app_dao.app.app_dao.app).await?,
                 param,
+                Some(&rest.req_env),
             )
             .await
         }

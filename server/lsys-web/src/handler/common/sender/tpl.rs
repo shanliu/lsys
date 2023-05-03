@@ -15,7 +15,7 @@ pub struct TplListParam {
     pub id: Option<u64>,
     pub tpl_id: Option<String>,
     pub count_num: Option<bool>,
-    pub page: PageParam,
+    pub page: Option<PageParam>,
 }
 pub async fn tpl_list<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: TplListParam,
@@ -47,7 +47,7 @@ pub async fn tpl_list<'t, T: SessionTokenData, D: SessionData, S: UserSession<T,
             &sender_type,
             &param.id,
             &param.tpl_id,
-            &Some(param.page.into()),
+            &Some(param.page.unwrap_or_default().into()),
         )
         .await?;
     let count = if param.count_num.unwrap_or(false) {
@@ -105,6 +105,7 @@ pub async fn tpl_add<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, 
             &param.tpl_data,
             &param.user_id.unwrap_or(req_auth.user_data().user_id),
             &req_auth.user_data().user_id,
+            Some(&req_dao.req_env),
         )
         .await?;
     Ok(JsonData::data(json!({ "id": id })))
@@ -137,7 +138,12 @@ pub async fn tpl_edit<'t, T: SessionTokenData, D: SessionData, S: UserSession<T,
     req_dao
         .web_dao
         .sender_tpl
-        .edit(&tpl, &param.tpl_data, &req_auth.user_data().user_id)
+        .edit(
+            &tpl,
+            &param.tpl_data,
+            &req_auth.user_data().user_id,
+            Some(&req_dao.req_env),
+        )
         .await?;
     Ok(JsonData::message("change ok"))
 }
@@ -175,7 +181,7 @@ pub async fn tpl_del<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, 
     req_dao
         .web_dao
         .sender_tpl
-        .del(&data, &req_auth.user_data().user_id)
+        .del(&data, &req_auth.user_data().user_id, Some(&req_dao.req_env))
         .await?;
     Ok(JsonData::message("ok"))
 }

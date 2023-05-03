@@ -1,6 +1,7 @@
+use lsys_core::RequestEnv;
 use lsys_user::{
     dao::account::UserAccountResult,
-    model::{UserInfoModelRef, UserStatus},
+    model::{UserInfoModelRef, UserModel, UserStatus},
 };
 
 use sqlx_model::model_option_set;
@@ -9,8 +10,11 @@ use super::WebUser;
 
 impl WebUser {
     //删除用户
-    pub async fn del_user(&self, id: &u64) -> UserAccountResult<()> {
-        let user = self.user_dao.user_account.user.find_by_id(id).await?;
+    pub async fn del_user(
+        &self,
+        user: &UserModel,
+        env_data: Option<&RequestEnv>,
+    ) -> UserAccountResult<()> {
         if UserStatus::Delete.eq(user.status) {
             return Ok(());
         }
@@ -26,7 +30,7 @@ impl WebUser {
                 .user_dao
                 .user_account
                 .user_email
-                .del_email(&email, Some(&mut tran))
+                .del_email(&email, Some(&mut tran), env_data)
                 .await;
             if let Err(err) = res {
                 tran.rollback().await?;
@@ -44,7 +48,7 @@ impl WebUser {
                 .user_dao
                 .user_account
                 .user_mobile
-                .del_mobile(&mobile, Some(&mut tran))
+                .del_mobile(&mobile, Some(&mut tran), env_data)
                 .await;
             if let Err(err) = res {
                 tran.rollback().await?;
@@ -62,7 +66,7 @@ impl WebUser {
                 .user_dao
                 .user_account
                 .user_external
-                .del_external(&external, Some(&mut tran))
+                .del_external(&external, Some(&mut tran), env_data)
                 .await;
             if let Err(err) = res {
                 tran.rollback().await?;
@@ -77,7 +81,17 @@ impl WebUser {
             .user_dao
             .user_account
             .user_info
-            .set_info(&user, info_ref, Some(&mut tran))
+            .set_info(user, info_ref, Some(&mut tran), env_data)
+            .await;
+        if let Err(err) = res {
+            tran.rollback().await?;
+            return Err(err);
+        }
+        let res = self
+            .user_dao
+            .user_account
+            .user_name
+            .remove_username(user, Some(&mut tran), env_data)
             .await;
         if let Err(err) = res {
             tran.rollback().await?;
@@ -87,7 +101,12 @@ impl WebUser {
             .user_dao
             .user_account
             .user
-            .del_user(&user, Some(String::from("delete user")), Some(&mut tran))
+            .del_user(
+                user,
+                Some(String::from("delete user")),
+                Some(&mut tran),
+                env_data,
+            )
             .await;
         if let Err(err) = res {
             tran.rollback().await?;

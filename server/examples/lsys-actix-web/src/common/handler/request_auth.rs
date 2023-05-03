@@ -4,10 +4,10 @@ use actix_utils::future::{err, ok, Ready};
 use actix_web::{dev::Payload, web::Data, FromRequest, HttpMessage, HttpRequest};
 
 use lsys_app::dao::session::RestAuthSession;
-use lsys_core::now_time;
+use lsys_core::{now_time, RequestEnv};
 use lsys_user::dao::auth::{SessionToken, UserAuthSession, UserAuthTokenData};
 use lsys_web::{
-    dao::{RequestDao as Request, RequestEnv, RequestToken, RestAuthQueryDao},
+    dao::{RequestDao as Request, RequestToken, RestAuthQueryDao},
     dao::{UserAuthQueryDao, WebDao},
     JsonData,
 };
@@ -59,11 +59,7 @@ impl FromRequest for UserAuthQuery {
                 ok(Self {
                     inner: Request::new(
                         app_dao.clone().into_inner(),
-                        RequestEnv {
-                            request_id,
-                            ip,
-                            user_agent,
-                        },
+                        RequestEnv::new(Some(ip), Some(request_id), Some(user_agent)),
                         UserAuthSession::new(
                             app_dao.user.user_dao.user_auth.clone(),
                             SessionToken::default(),
@@ -158,11 +154,7 @@ impl FromRequest for OauthAuthQuery {
                 ok(Self {
                     inner: Request::new(
                         app_dao.clone().into_inner(),
-                        RequestEnv {
-                            request_id,
-                            ip,
-                            user_agent,
-                        },
+                        RequestEnv::new(Some(ip), Some(request_id), Some(user_agent)),
                         RestAuthSession::new(app_dao.app.app_dao.clone(), SessionToken::default()),
                     ),
                     req: req.to_owned(),

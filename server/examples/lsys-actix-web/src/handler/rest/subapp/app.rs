@@ -14,7 +14,7 @@ use lsys_web::{
 //       -> 授权查询...
 #[post("app")]
 pub(crate) async fn app(
-    rest: RestQuery,
+    mut rest: RestQuery,
     app_dao: Data<WebDao>,
 ) -> ResponseJsonResult<ResponseJson> {
     Ok(match rest.rfc.method.as_deref() {

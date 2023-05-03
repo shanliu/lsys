@@ -35,9 +35,9 @@ pub struct SettingModel {
 
     /// 最后修改uid
     #[sqlx(default)]
-    pub last_user_id: u64,
+    pub change_user_id: u64,
 
     /// 最后修改时间
     #[sqlx(default)]
-    pub last_change_time: u64,
+    pub change_time: u64,
 }

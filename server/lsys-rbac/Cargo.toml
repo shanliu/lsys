@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 
 lsys-core = { version = "~0.0.*", path = "../lsys-core"}
+lsys-logger = { version = "0.0.1", path = "../lsys-logger"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
 sqlx = {version = "~0.6.3",features = [ "mysql","runtime-tokio-native-tls","offline"]}
 sqlx-model = {version = "~0.2.0", default-features=false,features = ["sqlx-mysql"]}
 

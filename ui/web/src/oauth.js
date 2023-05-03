@@ -8,16 +8,15 @@ import { OauthDo, OauthGetScope } from './rest/login';
 import "./style/main.css";
 import { theme } from './style/theme';
 import { ConfigProvider } from './context/config';
-import { LayoutAppBar } from './bootstrap';
-
-
+import { LayoutAppBar } from './page/library/public';
 
 
 export default function OauthAppPage() {
     const [doData, setDoData] = useState({
         loading: true,
         error: '',
-        scope: []
+        scope: [],
+        show_box: true,
     });
     const params = new URLSearchParams(window.location.search);
     const scope = params.get("scope");
@@ -53,6 +52,7 @@ export default function OauthAppPage() {
                 ...doData,
                 loading: false,
                 error: '请勿直接访问此页面',
+                show_box: false
             })
             return;
         }
@@ -69,11 +69,19 @@ export default function OauthAppPage() {
         }
         OauthGetScope(client_id, scope).then((data) => {
             if (!data.status) {
-                setDoData({
-                    ...doData,
-                    loading: false,
-                    error: data.message,
-                })
+                if (data.state == 'not_found') {
+                    setDoData({
+                        ...doData,
+                        loading: false,
+                        error: "应用不存在或被禁用",
+                    })
+                } else {
+                    setDoData({
+                        ...doData,
+                        loading: false,
+                        error: data.message,
+                    })
+                }
 
             } else {
                 setDoData({
@@ -133,7 +141,8 @@ export default function OauthAppPage() {
             >
                 <Box sx={{ width: '90%', margin: 'auto' }}>
                     <Fragment>
-                        <Stack sx={{
+
+                        {doData.show_box ? <Stack sx={{
                             alignItems: "center",
                         }}>
                             {
@@ -152,7 +161,7 @@ export default function OauthAppPage() {
                                             }} severity='error' > {oauthData.error}</Alert> : ''}
 
                                             {doData.scope.length > 0 ?
-                                                <Fragment> <Typography
+                                                <Fragment><Typography
                                                     align="center"
                                                     variant="subtitle1"
                                                     noWrap
@@ -174,13 +183,17 @@ export default function OauthAppPage() {
                                                         border: "1px #ccc dotted",
                                                         background: "#fcfcfc",
                                                         margin: "24px",
-                                                        borderRadius: "3px"
+                                                        borderRadius: "3px",
+
                                                     }}>
                                                         {doData.scope.map((item) => {
-                                                            return <ListItem key={`scope-${item.name}`} >
+                                                            return <ListItem sx={{
+                                                                pt: 0,
+                                                                pb: 0
+                                                            }} key={`scope-${item.key}`} >
                                                                 <ListItemText
-                                                                    primary={item.text ?? item.name}
-                                                                    secondary={item.name}
+                                                                    primary={item.name ?? item.key}
+                                                                    secondary={item.key}
                                                                 />
                                                             </ListItem>
                                                         })}
@@ -203,7 +216,9 @@ export default function OauthAppPage() {
                                                 >
                                                     授权应用登录
                                                 </Typography>}
-                                            {doData.error ? <Alert severity='error' > {doData.error}</Alert> : ""}
+                                            {doData.error ? <Alert severity='error' sx={{
+                                                m: 1
+                                            }} > {doData.error}</Alert> : ""}
                                             {!oauthData.message ? <LoadingButton variant="contained" loading={oauthData.loading} onClick={doAuth}>确认授权</LoadingButton> :
                                                 <Alert sx={{
                                                     m: "8px",
@@ -211,7 +226,10 @@ export default function OauthAppPage() {
                                         </Paper>
                                     </Box>
                             }
-                        </Stack>
+                        </Stack> : <Alert severity='error' sx={{
+                            m: 1
+                        }} > {doData.error}</Alert>}
+
                     </Fragment>
                 </Box>
             </Paper >
@@ -224,14 +242,12 @@ function OauthApp() {
     return <>
         <ThemeProvider theme={theme} >
             <CssBaseline />
-            <ConfigProvider>
-                <ToastProvider>
-                    <UserProvider>
-                        <LayoutAppBar />
-                        <OauthAppPage />
-                    </UserProvider>
-                </ToastProvider>
-            </ConfigProvider>
+            <ToastProvider>
+                <UserProvider>
+                    <LayoutAppBar />
+                    <OauthAppPage />
+                </UserProvider>
+            </ToastProvider>
         </ThemeProvider>
     </>;
 }

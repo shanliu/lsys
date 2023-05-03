@@ -2,7 +2,7 @@
 
 import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, Divider, Grid, IconButton, Typography } from '@mui/material';
 import React, { Fragment, useEffect, useState } from 'react';
-import { BaseTablePage } from '../../../library/table_page';
+import { SimpleTablePage } from '../../../library/table_page';
 import { MessageLogStatus, MessageLogType, senderListAppMessageLog, senderSeeAppMessage } from '../../../rest/sender_setting';
 import { showTime } from '../../../utils/utils';
 import { ConfirmButton } from '../../../library/dialog';
@@ -135,8 +135,8 @@ export function MessageLogBox(props) {
                 rows: data.data ?? [],
                 rows_total: data.total || 0,
                 loading: false,
-
             })
+
         });
     }
 
@@ -223,7 +223,7 @@ export function MessageLogBox(props) {
                     {historyData.error ?
                         <Alert severity="error">{historyData.error}</Alert>
                         :
-                        <BaseTablePage
+                        <SimpleTablePage
                             rows={historyData.rows ?? []}
                             columns={columns}
                             count={historyData.rows_total ?? 0}

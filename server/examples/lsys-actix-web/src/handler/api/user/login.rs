@@ -71,28 +71,42 @@ async fn jwt_login_data(
 #[post("/login/{type}")]
 pub(crate) async fn login<'t>(
     path: actix_web::web::Path<(String,)>,
-    rest: JsonQuery,
+    json_param: JsonQuery,
     auth_dao: UserAuthQuery,
 ) -> ResponseJsonResult<ResponseJson> {
     let res = match path.0.to_string().as_str() {
         "sms-send-code" => {
-            user_login_mobile_send_code(rest.param::<MobileSendCodeLoginParam>()?, &auth_dao).await
+            user_login_mobile_send_code(json_param.param::<MobileSendCodeLoginParam>()?, &auth_dao)
+                .await
         }
         "email-send-code" => {
-            user_login_email_send_code(rest.param::<EmailSendCodeLoginParam>()?, &auth_dao).await
+            user_login_email_send_code(json_param.param::<EmailSendCodeLoginParam>()?, &auth_dao)
+                .await
         }
         e => {
             let (token, data) = match e {
-                "name" => user_login_from_name(rest.param::<NameLoginParam>()?, &auth_dao).await,
-                "sms" => user_login_from_mobile(rest.param::<MobileLoginParam>()?, &auth_dao).await,
-                "email" => user_login_from_email(rest.param::<EmailLoginParam>()?, &auth_dao).await,
+                "name" => {
+                    user_login_from_name(json_param.param::<NameLoginParam>()?, &auth_dao).await
+                }
+                "sms" => {
+                    user_login_from_mobile(json_param.param::<MobileLoginParam>()?, &auth_dao).await
+                }
+                "email" => {
+                    user_login_from_email(json_param.param::<EmailLoginParam>()?, &auth_dao).await
+                }
                 "sms-code" => {
-                    user_login_from_mobile_code(rest.param::<MobileCodeLoginParam>()?, &auth_dao)
-                        .await
+                    user_login_from_mobile_code(
+                        json_param.param::<MobileCodeLoginParam>()?,
+                        &auth_dao,
+                    )
+                    .await
                 }
                 "email-code" => {
-                    user_login_from_email_code(rest.param::<EmailCodeLoginParam>()?, &auth_dao)
-                        .await
+                    user_login_from_email_code(
+                        json_param.param::<EmailCodeLoginParam>()?,
+                        &auth_dao,
+                    )
+                    .await
                 }
                 name => handler_not_found!(name),
             }?;
@@ -106,11 +120,11 @@ pub(crate) async fn login<'t>(
 pub(crate) async fn user_data<'t>(
     jwt: JwtQuery,
     auth_dao: UserAuthQuery,
-    rest: JsonQuery,
+    json_param: JsonQuery,
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
     Ok(
-        login_data_from_user_auth(rest.param::<UserAuthDataOptionParam>()?, &auth_dao)
+        login_data_from_user_auth(json_param.param::<UserAuthDataOptionParam>()?, &auth_dao)
             .await?
             .into(),
     )
@@ -119,11 +133,11 @@ pub(crate) async fn user_data<'t>(
 #[post("/login_history")]
 pub async fn login_history<'t>(
     auth_dao: UserAuthQuery,
-    rest: JsonQuery,
+    json_param: JsonQuery,
     jwt: JwtQuery,
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
-    let res = user_login_history(rest.param::<LoginHistoryParam>()?, &auth_dao).await;
+    let res = user_login_history(json_param.param::<LoginHistoryParam>()?, &auth_dao).await;
     Ok(res?.into())
 }
 
@@ -147,10 +161,10 @@ pub struct ExternalLoginParam {
 //获取外部登录URL地址
 #[post("/external_login_url")]
 pub async fn external_login_url(
-    rest: JsonQuery,
+    json_param: JsonQuery,
     app_dao: Data<WebDao>,
 ) -> ResponseJsonResult<ResponseJson> {
-    let login_param = rest.param::<ExternalLoginParam>()?;
+    let login_param = json_param.param::<ExternalLoginParam>()?;
     let res = match login_param.login_type.as_str() {
         "wechat" => {
             user_external_login_url::<WechatLogin, _, _, _>(
@@ -176,10 +190,10 @@ pub struct ExternalLoginStateCheckParam {
 //扫码登录检测是否已经完成登录
 #[post("/external_state_check")]
 pub async fn external_state_check(
-    rest: JsonQuery,
+    json_param: JsonQuery,
     auth_dao: UserAuthQuery,
 ) -> ResponseJsonResult<ResponseJson> {
-    let login_param = rest.param::<ExternalLoginStateCheckParam>()?;
+    let login_param = json_param.param::<ExternalLoginStateCheckParam>()?;
     let res = match login_param.login_type.as_str() {
         "wechat" => {
             let wechat = &auth_dao
@@ -217,10 +231,10 @@ pub struct ExternalLoginStateCallbackParam {
 //请求此回调地址完成登录操作
 #[post("/external_state_callback")]
 pub async fn external_state_callback(
-    rest: JsonQuery,
+    json_param: JsonQuery,
     app_dao: Data<WebDao>,
 ) -> ResponseJsonResult<ResponseJson> {
-    let login_param = rest.param::<ExternalLoginStateCallbackParam>()?;
+    let login_param = json_param.param::<ExternalLoginStateCallbackParam>()?;
     let res = match login_param.login_type.as_str() {
         "wechat" => {
             let wechat = &app_dao
@@ -253,10 +267,10 @@ pub struct ExternalCallbackParam {
 
 #[post("/external_login_callback")]
 pub async fn external_login_callback<'t>(
-    rest: JsonQuery,
+    json_param: JsonQuery,
     _auth_dao: UserAuthQuery,
 ) -> ResponseJsonResult<ResponseJson> {
-    let login_param = rest.param::<ExternalCallbackParam>()?;
+    let login_param = json_param.param::<ExternalCallbackParam>()?;
     let res = match login_param.login_type.as_str() {
         "qq" => {
             Ok(JsonData::message("未实现"))

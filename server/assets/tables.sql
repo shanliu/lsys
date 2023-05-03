@@ -1,39 +1,50 @@
--- test.yaf_rbac_res definition
+CREATE TABLE `yaf_change_logs` (
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+    `log_type` varchar(32) NOT NULL COMMENT '日志类型',
+    `log_data` text NOT NULL COMMENT '日志数据',
+    `user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '操作记录用户ID',
+    `source_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '相关操作记录ID',
+    `add_user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '操作用户ID',
+    `user_ip` varchar(40) NOT NULL DEFAULT '' COMMENT '操作者IP',
+    `request_id` varchar(32) NOT NULL DEFAULT '' COMMENT '请求id',
+    `request_user_agent` varchar(254) NOT NULL DEFAULT '' COMMENT '请求UA',
+    `add_time` bigint unsigned NOT NULL COMMENT '添加时间',
+    PRIMARY KEY (`id`)
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '操作日志';
 -- ----------- lsys-rbac  ---------------
 CREATE TABLE `yaf_rbac_res` (
-    `id` bigint(11) unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
-    `user_id` bigint(11) unsigned NOT NULL,
-    `name` varchar(32) NOT NULL,
-    `res_key` varchar(32) NOT NULL,
-    `status` tinyint(1) NOT NULL,
-    `add_user_id` bigint(11) unsigned NOT NULL,
-    `change_user_id` bigint(11) unsigned NOT NULL,
-    `change_time` bigint(11) unsigned NOT NULL,
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+    `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
+    `name` varchar(32) NOT NULL COMMENT '资源名',
+    `res_key` varchar(32) NOT NULL COMMENT '资源KEY',
+    `status` tinyint NOT NULL COMMENT '状态',
+    `change_user_id` bigint unsigned NOT NULL COMMENT '最后更新用户',
+    `change_time` bigint unsigned NOT NULL COMMENT '最后更改时间',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '资源';
 -- test.yaf_rbac_res_op definition
 CREATE TABLE `yaf_rbac_res_op` (
-    `id` bigint(11) unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
-    `name` varchar(32) NOT NULL,
-    `op_key` varchar(32) NOT NULL,
-    `res_id` bigint(11) unsigned NOT NULL,
-    `status` tinyint(1) NOT NULL,
-    `change_user_id` bigint(11) unsigned NOT NULL,
-    `change_time` bigint(11) unsigned NOT NULL,
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+    `name` varchar(32) NOT NULL COMMENT '资源操作名',
+    `op_key` varchar(32) NOT NULL COMMENT '资源操作KEY',
+    `res_id` bigint unsigned NOT NULL COMMENT '资源ID',
+    `status` tinyint NOT NULL COMMENT '状态',
+    `change_user_id` bigint unsigned NOT NULL COMMENT '最后更新用户',
+    `change_time` bigint unsigned NOT NULL COMMENT '最后更改时间',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '资源可用操作';
 -- test.yaf_rbac_role definition
 CREATE TABLE `yaf_rbac_role` (
-    `id` bigint(11) unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
-    `user_id` bigint(11) unsigned NOT NULL,
-    `name` varchar(32) NOT NULL,
-    `relation_key` varchar(32) NOT NULL,
-    `user_range` tinyint(1) NOT NULL,
-    `res_op_range` tinyint(1) NOT NULL,
-    `status` tinyint(1) NOT NULL,
-    `change_user_id` bigint(11) unsigned NOT NULL,
-    `change_time` bigint(11) unsigned NOT NULL,
-    `priority` tinyint(3) DEFAULT 99,
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+    `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
+    `name` varchar(32) NOT NULL COMMENT '角色名',
+    `relation_key` varchar(32) NOT NULL COMMENT '关系角色KEY,其他角色类型为空',
+    `user_range` tinyint NOT NULL COMMENT '角色包含用户范围',
+    `res_op_range` tinyint NOT NULL COMMENT '角色可操作资源范围',
+    `status` tinyint NOT NULL COMMENT '状态',
+    `change_user_id` bigint unsigned NOT NULL COMMENT '最后更新用户',
+    `change_time` bigint unsigned NOT NULL COMMENT '最后更改时间',
+    `priority` tinyint DEFAULT 99,
     PRIMARY KEY (`id`),
     KEY `yaf_rbac_role_user_id_IDX` (
         `user_id`,
@@ -58,13 +69,13 @@ CREATE TABLE `yaf_rbac_role` (
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '角色';
 -- test.yaf_rbac_role_op definition
 CREATE TABLE `yaf_rbac_role_op` (
-    `id` bigint(11) unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
-    `res_op_id` bigint(11) unsigned NOT NULL,
-    `role_id` bigint(11) unsigned NOT NULL,
-    `positivity` tinyint(1) NOT NULL,
-    `status` tinyint(1) NOT NULL,
-    `change_user_id` bigint(11) unsigned NOT NULL,
-    `change_time` bigint(11) unsigned NOT NULL,
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+    `res_op_id` bigint unsigned NOT NULL COMMENT '角色关联资源操作ID',
+    `role_id` bigint unsigned NOT NULL COMMENT '角色ID',
+    `positivity` tinyint NOT NULL COMMENT '授权类型: 授权操作 禁止操作',
+    `status` tinyint NOT NULL COMMENT '状态',
+    `change_user_id` bigint unsigned NOT NULL COMMENT '最后更新用户',
+    `change_time` bigint unsigned NOT NULL COMMENT '最后更改时间',
     PRIMARY KEY (`id`),
     KEY `yaf_rbac_role_op_IDX` (
         `role_id`,
@@ -74,74 +85,73 @@ CREATE TABLE `yaf_rbac_role_op` (
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '角色关联的资源操作';
 -- test.yaf_rbac_role_user definition
 CREATE TABLE `yaf_rbac_role_user` (
-    `id` bigint(11) unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
-    `role_id` bigint(11) unsigned NOT NULL,
-    `user_id` bigint(11) unsigned NOT NULL,
-    `timeout` bigint(11) unsigned NOT NULL,
-    `status` tinyint(1) NOT NULL,
-    `change_user_id` bigint(11) unsigned NOT NULL,
-    `change_time` bigint(11) unsigned NOT NULL,
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+    `role_id` bigint unsigned NOT NULL COMMENT '角色ID',
+    `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
+    `timeout` bigint unsigned NOT NULL COMMENT '角色关联用户超时',
+    `status` tinyint NOT NULL COMMENT '状态',
+    `change_user_id` bigint unsigned NOT NULL COMMENT '最后更新用户',
+    `change_time` bigint unsigned NOT NULL COMMENT '最后更改时间',
     PRIMARY KEY (`id`),
     KEY `yaf_rbac_role_user_IDX` (`role_id`, `user_id`, `status`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '角色关联的用户';
 -- test.yaf_rbac_tags definition
 CREATE TABLE `yaf_rbac_tags` (
-    `id` bigint(11) unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
-    `from_id` bigint(11) unsigned NOT NULL,
-    `from_source` tinyint(1) NOT NULL,
-    `user_id` bigint(11) unsigned NOT NULL,
-    `name` varchar(32) NOT NULL,
-    `status` tinyint(1) NOT NULL,
-    `change_user_id` bigint(11) unsigned NOT NULL,
-    `change_time` bigint(11) unsigned NOT NULL,
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+    `from_id` bigint unsigned NOT NULL COMMENT 'TAG关联来源 ID',
+    `from_source` tinyint NOT NULL COMMENT 'TAG关联来源 res role',
+    `user_id` bigint unsigned NOT NULL COMMENT 'TAG建立用户ID',
+    `name` varchar(32) NOT NULL COMMENT 'TAG名称',
+    `status` tinyint NOT NULL COMMENT '状态',
+    `change_user_id` bigint unsigned NOT NULL COMMENT '最后更新用户',
+    `change_time` bigint unsigned NOT NULL COMMENT '最后更改时间',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = 'TAG,用于分组资源跟角色';
 -- ----------- lsys-rbac  ---------------
 -- ----------- lsys-user  ---------------
 -- test.yaf_user definition
 CREATE TABLE `yaf_user` (
-    `id` bigint(11) unsigned NOT NULL AUTO_INCREMENT COMMENT '用户ID',
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '用户ID',
     `nickname` varchar(32) DEFAULT NULL COMMENT '昵称',
-    `status` tinyint(11) NOT NULL DEFAULT 1 COMMENT '1bit 是否激活 2bit 是否屏蔽 default:  1',
-    `password_id` bigint(11) unsigned NOT NULL DEFAULT 0 COMMENT '密码ID default:  0',
-    `use_name` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否启用用户名  default:  0',
-    `email_count` int(11) unsigned NOT NULL DEFAULT 0 COMMENT '绑定邮箱数量  default:  0',
-    `mobile_count` int(11) unsigned NOT NULL DEFAULT 0 COMMENT '绑定手机数量  default:  0',
-    `external_count` int(11) unsigned NOT NULL DEFAULT 0 COMMENT '绑定外部账号数量  default:  0',
-    `address_count` int(11) unsigned NOT NULL DEFAULT 0 COMMENT '收货地址数量  default:  0',
-    `add_time` bigint(11) unsigned NOT NULL COMMENT '添加时间',
-    `delete_time` bigint(11) unsigned NOT NULL DEFAULT 0 COMMENT '删除时间',
+    `status` tinyint NOT NULL DEFAULT 1 COMMENT '状态',
+    `password_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '密码ID',
+    `use_name` tinyint NOT NULL DEFAULT 0 COMMENT '是否启用用户名',
+    `email_count` int unsigned NOT NULL DEFAULT 0 COMMENT '绑定邮箱数量 ',
+    `mobile_count` int unsigned NOT NULL DEFAULT 0 COMMENT '绑定手机数量  ',
+    `external_count` int unsigned NOT NULL DEFAULT 0 COMMENT '绑定外部账号数量 ',
+    `address_count` int unsigned NOT NULL DEFAULT 0 COMMENT '收货地址数量 ',
+    `add_time` bigint unsigned NOT NULL COMMENT '添加时间',
+    `confirm_time` int unsigned NOT NULL DEFAULT 0 COMMENT '状态确认时间,激活时间',
+    `change_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '最后更改时间',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户';
 -- test.yaf_user_address definition
 CREATE TABLE `yaf_user_address` (
-    `id` bigint(11) unsigned NOT NULL AUTO_INCREMENT,
-    `user_id` bigint(11) unsigned NOT NULL COMMENT '用户ID',
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+    `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
     `address_code` varchar(21) NOT NULL COMMENT '地址代码',
     `address_info` varchar(64) NOT NULL COMMENT '地址信息,冗余,显示用',
     `address_detail` varchar(128) NOT NULL COMMENT '地址详细',
     `name` varchar(12) NOT NULL COMMENT '姓名',
     `mobile` varchar(13) NOT NULL COMMENT '电话',
-    `status` tinyint(11) NOT NULL DEFAULT 1 COMMENT '1bit 是否激活 2bit 是否屏蔽 default:  1',
-    `add_time` int(11) unsigned NOT NULL COMMENT '添加时间',
-    `delete_time` int(11) unsigned NOT NULL DEFAULT 0 COMMENT '删除时间',
+    `status` tinyint NOT NULL DEFAULT 1 COMMENT '状态',
+    `change_time` int unsigned NOT NULL DEFAULT 0 COMMENT '最后更改时间',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户收货地址';
 -- test.yaf_user_email definition
 CREATE TABLE `yaf_user_email` (
-    `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
-    `user_id` bigint(11) unsigned NOT NULL COMMENT '用户ID',
+    `id` int unsigned NOT NULL AUTO_INCREMENT,
+    `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
     `email` varchar(150) NOT NULL COMMENT '邮箱',
-    `status` tinyint(1) NOT NULL DEFAULT 1 COMMENT '绑定状态1正常 2待验证 3关闭',
-    `confirm_time` int(11) unsigned NOT NULL DEFAULT 0 COMMENT '确认时间',
-    `add_time` int(11) unsigned NOT NULL COMMENT '添加时间',
-    `delete_time` int(11) unsigned NOT NULL DEFAULT 0 COMMENT '删除时间',
+    `status` tinyint NOT NULL DEFAULT 1 COMMENT '绑定状态',
+    `confirm_time` int unsigned NOT NULL DEFAULT 0 COMMENT '确认时间',
+    `change_time` int unsigned NOT NULL DEFAULT 0 COMMENT '最后更改时间',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户关联邮箱';
 -- test.yaf_user_external definition
 CREATE TABLE `yaf_user_external` (
-    `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
-    `user_id` bigint(11) unsigned NOT NULL COMMENT '用户ID',
+    `id` int unsigned NOT NULL AUTO_INCREMENT,
+    `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
     `external_type` varchar(64) NOT NULL COMMENT '类型 wechat 微信 ',
     `external_id` varchar(125) NOT NULL COMMENT '其他网站用户表示',
     `external_name` varchar(255) NOT NULL DEFAULT '' COMMENT '其他网站用户名',
@@ -149,39 +159,36 @@ CREATE TABLE `yaf_user_external` (
     `external_link` varchar(256) NOT NULL DEFAULT '' COMMENT '其他网站用户链接',
     `external_pic` varchar(512) NOT NULL DEFAULT '' COMMENT '其他网站用户头像',
     `external_nikename` varchar(64) NOT NULL DEFAULT '' COMMENT '其他网站用户显示名',
-    `status` tinyint(1) NOT NULL DEFAULT 1 COMMENT '是否标注为删除 0 表示删除 1 表示正常',
+    `status` tinyint NOT NULL DEFAULT 1 COMMENT '状态',
     `config_name` varchar(32) NOT NULL COMMENT '使用配置名',
-    `add_time` int(10) unsigned NOT NULL COMMENT '添加时间',
-    `delete_time` int(10) unsigned NOT NULL DEFAULT 0 COMMENT '删除时间',
-    `change_time` int(10) unsigned NOT NULL DEFAULT 0 COMMENT '时间',
-    `token_data` varchar(256) NOT NULL DEFAULT '',
-    `token_timeout` int(10) unsigned DEFAULT 0,
+    `change_time` int unsigned NOT NULL COMMENT '最后更改时间',
+    `token_data` varchar(256) NOT NULL DEFAULT '' COMMENT '外部站点登录TOKEN数据',
+    `token_timeout` int unsigned DEFAULT 0 COMMENT '外部站点登录超时',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '外部账号登录';
 -- test.yaf_user_info definition
 CREATE TABLE `yaf_user_info` (
-    `id` bigint(11) unsigned NOT NULL AUTO_INCREMENT,
-    `user_id` bigint(11) unsigned NOT NULL COMMENT '用户ID',
-    `gender` tinyint(1) NOT NULL DEFAULT 0 COMMENT '性别 1 男 2 女',
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+    `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
+    `gender` tinyint NOT NULL DEFAULT 0 COMMENT '性别 1 男 2 女',
     `headimg` varchar(512) NOT NULL DEFAULT '' COMMENT '头像地址',
     `birthday` varchar(10) NOT NULL DEFAULT '' COMMENT '生日',
-    `block_time` int(10) unsigned NOT NULL DEFAULT 0 COMMENT '屏蔽时间',
     `reg_from` varchar(32) NOT NULL DEFAULT '' COMMENT '注册来源',
     `reg_ip` varchar(32) NOT NULL DEFAULT '' COMMENT '注册IP',
-    `confirm_time` int(10) unsigned NOT NULL DEFAULT 0 COMMENT '确认时间',
-    `change_time` int(10) unsigned NOT NULL DEFAULT 0,
-    PRIMARY KEY (`id`)
+    `change_time` int unsigned NOT NULL DEFAULT 0 COMMENT '最后更改时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `yaf_user_user_id_IDX` (`user_id`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户资料表';
 -- test.yaf_user_login definition
 CREATE TABLE `yaf_user_login` (
-    `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-    `login_type` varchar(32) NOT NULL COMMENT '登录方式 ID密码登录 1 账号密码登录2 邮箱登录3 手机登录4 手机验证码登录5 外部账号登录6 链接登录7',
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+    `login_type` varchar(32) NOT NULL COMMENT '登录方式 账号密码登录 邮箱登录 手机登录 手机验证码登录 外部账号登录 链接登录',
     `auth_session` varchar(12) NOT NULL DEFAULT '' COMMENT '验证方式 ',
     `login_account` varchar(128) NOT NULL COMMENT '尝试登录账号',
     `login_ip` varchar(15) NOT NULL DEFAULT '' COMMENT '登陆者IP',
-    `user_id` bigint(20) unsigned NOT NULL DEFAULT 0 COMMENT '尝试登录账号对应用户ID',
-    `is_login` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否登录成功',
-    `add_time` bigint(20) unsigned NOT NULL COMMENT '登录时间',
+    `user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '尝试登录账号对应用户ID',
+    `is_login` tinyint NOT NULL DEFAULT 0 COMMENT '是否登录成功',
+    `add_time` bigint unsigned NOT NULL COMMENT '登录时间',
     `login_token` varchar(100) DEFAULT '' NOT NULL COMMENT '登陆token',
     `login_msg` varchar(100) DEFAULT '' NOT NULL COMMENT '登陆消息',
     `login_city` varchar(100) DEFAULT '' NOT NULL COMMENT '登陆城市',
@@ -189,56 +196,48 @@ CREATE TABLE `yaf_user_login` (
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户登录记录';
 -- test.yaf_user_mobile definition
 CREATE TABLE `yaf_user_mobile` (
-    `id` bigint(11) unsigned NOT NULL AUTO_INCREMENT,
-    `user_id` bigint(11) unsigned NOT NULL COMMENT '用户ID',
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+    `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
     `area_code` char(4) NOT NULL COMMENT '电话区号',
     `mobile` char(13) NOT NULL COMMENT '手机号',
-    `status` tinyint(1) NOT NULL DEFAULT 1 COMMENT '绑定状态1正常 2待验证 3关闭',
-    `add_time` bigint(11) unsigned NOT NULL COMMENT '添加时间',
-    `confirm_time` bigint(11) unsigned NOT NULL DEFAULT 0,
-    `delete_time` bigint(11) unsigned NOT NULL DEFAULT 0,
+    `status` tinyint NOT NULL DEFAULT 1 COMMENT '绑定状态',
+    `confirm_time` int unsigned NOT NULL DEFAULT 0 COMMENT '确认时间',
+    `change_time` int unsigned NOT NULL DEFAULT 0 COMMENT '最后更改时间',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户登关联手机号';
 -- test.yaf_user_name definition
 CREATE TABLE `yaf_user_name` (
-    `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-    `user_id` bigint(11) unsigned NOT NULL COMMENT '用户ID',
-    `username` varchar(100) NOT NULL DEFAULT '',
-    `add_time` bigint(20) unsigned NOT NULL,
-    `change_time` bigint(20) unsigned NOT NULL DEFAULT 0,
-    PRIMARY KEY (`id`)
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+    `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
+    `username` varchar(100) NOT NULL DEFAULT '' COMMENT '登录用户名',
+    `change_time` int unsigned NOT NULL DEFAULT 0 COMMENT '最后更改时间',
+    `status` tinyint NOT NULL DEFAULT 1 COMMENT '状态',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `yaf_user_user_id_IDX` (`user_id`) USING BTREE,
+    UNIQUE KEY `yaf_user_username_IDX` (`username`,`status`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户登录账号';
 -- test.yaf_user_password definition
 CREATE TABLE `yaf_user_password` (
-    `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
-    `user_id` bigint(11) unsigned NOT NULL COMMENT '用户ID',
+    `id` int unsigned NOT NULL AUTO_INCREMENT,
+    `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
     `password` varchar(150) NOT NULL COMMENT '密码',
-    `change_time` int(11) unsigned NOT NULL DEFAULT 0 COMMENT '更改时间',
-    `add_time` int(11) unsigned NOT NULL COMMENT '绑定时间',
+    `add_time` int unsigned NOT NULL COMMENT '绑定时间',
+    `disable_time` int unsigned NOT NULL DEFAULT 0 COMMENT '停用时间',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户登录密码';
 -- test.yaf_users definition
 CREATE TABLE `yaf_user_index` (
-    `id` int(11) unsigned NOT NULL AUTO_INCREMENT COMMENT '用户ID',
-    `user_id` bigint(11) unsigned NOT NULL COMMENT '用户ID',
+    `id` int(10) unsigned NOT NULL AUTO_INCREMENT COMMENT '用户ID',
+    `user_id` bigint(20) unsigned NOT NULL COMMENT '用户ID',
     `index_cat` tinyint(3) unsigned NOT NULL COMMENT '索引分类',
     `index_data` varchar(255) DEFAULT NULL COMMENT '索引分词',
-    `status` tinyint(1) NOT NULL DEFAULT 1 COMMENT '索引状态 ',
-    `add_time` int(10) unsigned NOT NULL COMMENT '添加时间',
-    `delete_time` int(10) unsigned DEFAULT 0 NOT NULL COMMENT '删除时间',
+    `status` tinyint(4) NOT NULL DEFAULT 1 COMMENT '索引状态 ',
+    `change_time` int(10) unsigned NOT NULL DEFAULT 0 COMMENT '最后更改时间',
     PRIMARY KEY (`id`),
-    UNIQUE KEY `yaf_user_index_unique` (
-        `index_cat`,
-        `index_data`,
-        `user_id`
-    ) USING BTREE,
-    KEY `yaf_user_index_cat` (
-        `index_cat`,
-        `index_data`,
-        `status`
-    ) USING BTREE,
-    KEY `yaf_user_index_user` (`user_id`) USING BTREE
-) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户数据索引,尝试用外部搜索引擎代替';
+    UNIQUE KEY `yaf_user_index_user_id_IDX` (`user_id`,`index_cat`,`index_data`) USING BTREE,
+    KEY `yaf_user_index_index_data_IDX` (`index_data`,`status`) USING BTREE,
+    KEY `yaf_user_index_user_id_status_IDX` (`user_id`,`status`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 18221001 DEFAULT CHARSET = utf8mb4 COMMENT = '用户数据索引,尝试用外部搜索引擎代替';
 -- ----------- lsys-user  ---------------
 -- ----------- lsys-app  ---------------
 CREATE TABLE `yaf_app` (
@@ -247,10 +246,10 @@ CREATE TABLE `yaf_app` (
     `client_id` varchar(32) NOT NULL COMMENT '应用key',
     `client_secret` varchar(32) NOT NULL COMMENT '应用秘钥',
     `callback_domain` varchar(255) NOT NULL DEFAULT '' COMMENT '回调域名',
-    `status` tinyint(1) NOT NULL COMMENT '状态',
+    `status` tinyint NOT NULL COMMENT '状态',
     `user_id` bigint unsigned NOT NULL COMMENT '添加用户ID',
-    `add_user_id` bigint unsigned NOT NULL COMMENT '申请用户',
-    `add_time` bigint unsigned NOT NULL COMMENT '申请时间',
+    `change_user_id` bigint unsigned NOT NULL COMMENT '最后更新用户',
+    `change_time` bigint unsigned NOT NULL COMMENT '最后更改时间',
     `confirm_user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '确认用户',
     `confirm_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '确认时间',
     PRIMARY KEY (`id`)
@@ -262,7 +261,7 @@ CREATE TABLE `yaf_app_oauth_token` (
     `code` varchar(32) NOT NULL COMMENT '来源CODE',
     `token` varchar(32) NOT NULL COMMENT '授权TOKEN',
     `scope` varchar(512) NOT NULL COMMENT '授权范围',
-    `status` tinyint(1) NOT NULL COMMENT '状态',
+    `status` tinyint NOT NULL COMMENT '状态',
     `token_time` bigint unsigned NOT NULL COMMENT '授权时间',
     `timeout` bigint unsigned NOT NULL COMMENT '超时',
     PRIMARY KEY (`id`)
@@ -270,42 +269,40 @@ CREATE TABLE `yaf_app_oauth_token` (
 -- ----------- lsys-app  ---------------
 -- ----------- lsys-setting  ---------------
 CREATE TABLE `yaf_setting` (
-    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
-    `setting_type` tinyint(1) NOT NULL COMMENT '类型',
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+    `setting_type` tinyint NOT NULL COMMENT '类型',
     `name` varchar(32) NOT NULL COMMENT '应用端配置显示名',
     `setting_key` varchar(32) NOT NULL COMMENT '应用端配置key',
     `setting_data` text NOT NULL COMMENT '内容',
-    `user_id` bigint unsigned NOT NULL COMMENT '用户 0 系统',
-    `status` tinyint(1) NOT NULL COMMENT '状态',
-    `last_user_id` bigint unsigned NOT NULL COMMENT '修改用户',
-    `last_change_time` bigint unsigned NOT NULL COMMENT '修改时间',
+    `user_id` bigint unsigned NOT NULL COMMENT '用户ID 系统为0',
+    `status` tinyint NOT NULL COMMENT '状态',
+    `change_user_id` bigint unsigned NOT NULL COMMENT '最后修改用户',
+    `change_time` bigint unsigned NOT NULL COMMENT '最后修改时间',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '配置数据';
 -- ----------- lsys-setting  ---------------
 -- ----------- lsys-sender  ---------------
 CREATE TABLE `yaf_sender_config` (
-    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID,由应用生成',
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
-    `priority` tinyint(3) DEFAULT 99,
-    `sender_type` tinyint(1) NOT NULL COMMENT '发送类型',
-    `config_type` tinyint(3) NOT NULL COMMENT '配置类型',
+    `priority` tinyint DEFAULT 99,
+    `sender_type` tinyint NOT NULL COMMENT '发送类型',
+    `config_type` tinyint NOT NULL COMMENT '配置类型',
     `config_data` varchar(512) NOT NULL COMMENT '配置数据',
-    `status` tinyint(1) NOT NULL COMMENT '启用状态',
+    `status` tinyint NOT NULL COMMENT '启用状态',
     `user_id` bigint unsigned NOT NULL COMMENT '用户id',
-    `add_user_id` bigint unsigned NOT NULL COMMENT '用户id',
-    `delete_user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '删除用户id',
-    `add_time` bigint unsigned NOT NULL COMMENT '申请时间',
-    `delete_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '删除时间',
+    `change_user_id` bigint unsigned NOT NULL COMMENT '最后修改用户id',
+    `change_time` bigint unsigned NOT NULL COMMENT '最后修改时间',
     PRIMARY KEY (`id`),
     KEY `appid` (`app_id`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '内部短信配置,如发送限额等';
 CREATE TABLE `yaf_sender_key_cancel` (
-    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
-    `sender_type` tinyint(1) NOT NULL COMMENT '发送类型',
+    `sender_type` tinyint NOT NULL COMMENT '发送类型',
     `message_id` bigint unsigned NOT NULL COMMENT '消息ID',
     `cancel_key` varchar(32) NOT NULL COMMENT '取消key',
-    `status` tinyint(1) NOT NULL COMMENT '取消状态',
+    `status` tinyint NOT NULL COMMENT '取消状态',
     `cancel_user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '用户id',
     `cancel_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '确认时间',
     PRIMARY KEY (`id`),
@@ -314,16 +311,18 @@ CREATE TABLE `yaf_sender_key_cancel` (
     KEY `sender_type` (`sender_type`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '取消KEY记录';
 CREATE TABLE `yaf_sender_log` (
-    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
-    `sender_type` tinyint(1) NOT NULL COMMENT '发送类型',
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+    `sender_type` tinyint NOT NULL COMMENT '发送类型',
     `message_id` bigint unsigned NOT NULL COMMENT 'ID',
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
-    `log_type` tinyint(3) NOT NULL COMMENT '日志类型,如发送,取消等',
+    `log_type` tinyint NOT NULL COMMENT '日志类型,如发送,取消等',
     `event_type` varchar(32) NOT NULL COMMENT '触发来源',
     `send_channel` varchar(32) NOT NULL COMMENT '发送渠道:如阿里云的 access_id',
     `message` varchar(255) NOT NULL COMMENT '发送相关消息',
-    `status` tinyint(1) NOT NULL COMMENT '操作状态',
+    `status` tinyint NOT NULL COMMENT '操作状态',
     `user_id` bigint unsigned NOT NULL COMMENT '操作用户id',
+    `user_ip` varchar(40) NOT NULL DEFAULT '' COMMENT '操作者IP',
+    `request_id` varchar(32) NOT NULL DEFAULT '' COMMENT '请求id',
     `create_time` bigint unsigned NOT NULL COMMENT '创建时间',
     PRIMARY KEY (`id`),
     KEY `appid` (`app_id`) USING BTREE,
@@ -331,11 +330,11 @@ CREATE TABLE `yaf_sender_log` (
     KEY `sender_type` (`sender_type`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '取消发送短信日志';
 CREATE TABLE `yaf_sender_tpls` (
-    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
-    `sender_type` tinyint(1) NOT NULL COMMENT '发送类型',
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+    `sender_type` tinyint NOT NULL COMMENT '发送类型',
     `tpl_id` varchar(32) NOT NULL COMMENT ' 模板ID',
     `tpl_data` text NOT NULL COMMENT '模板',
-    `status` tinyint(1) NOT NULL COMMENT '操作状态',
+    `status` tinyint NOT NULL COMMENT '操作状态',
     `user_id` bigint unsigned NOT NULL COMMENT '操作用户id',
     `change_time` bigint unsigned NOT NULL COMMENT '最后更改时间',
     `change_user_id` bigint unsigned NOT NULL COMMENT '最后更改用户id',
@@ -350,8 +349,8 @@ CREATE TABLE `yaf_sender_mail_message` (
     `reply_mail` varchar(254) NOT NULL COMMENT '回复',
     `tpl_id` varchar(32) NOT NULL COMMENT '模板ID',
     `tpl_var` varchar(512) NOT NULL DEFAULT '' COMMENT '模板变量',
-    `try_num` SMALLINT(3) unsigned NOT NULL DEFAULT 0 COMMENT '发送次数',
-    `status` tinyint(1) NOT NULL COMMENT '启用状态',
+    `try_num` smallint unsigned NOT NULL DEFAULT 0 COMMENT '发送次数',
+    `status` tinyint NOT NULL COMMENT '启用状态',
     `add_time` bigint unsigned NOT NULL COMMENT '申请时间',
     `expected_time` bigint unsigned NOT NULL COMMENT '预计发送时间',
     `send_time` bigint unsigned NOT NULL COMMENT '发送时间',
@@ -360,21 +359,19 @@ CREATE TABLE `yaf_sender_mail_message` (
     KEY `sender_record_data_IDX` (`expected_time`, `status`, `id`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '发送短信数据';
 CREATE TABLE `yaf_sender_mail_smtp` (
-    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID,由应用生成',
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
     `name` varchar(32) NOT NULL COMMENT '邮箱',
     `tpl_id` varchar(32) NOT NULL COMMENT '模板ID',
     `from_email` varchar(254) NOT NULL DEFAULT '' COMMENT '模板变量',
-    `smtp_config_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT 'SMTP配置ID',
+    `smtp_config_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT 'SMTP配置ID 参见 yaf_setting表',
     `subject_tpl_id` varchar(32) NOT NULL DEFAULT '' COMMENT '模板变量',
     `body_tpl_id` varchar(32) NOT NULL DEFAULT '' COMMENT '模板变量',
-    `max_try_num` SMALLINT(3) unsigned NOT NULL DEFAULT 0 COMMENT '发送次数',
-    `status` tinyint(1) NOT NULL COMMENT '启用状态',
+    `max_try_num` smallint unsigned NOT NULL DEFAULT 0 COMMENT '发送次数',
+    `status` tinyint NOT NULL COMMENT '启用状态',
     `user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '用户id',
-    `add_time` bigint unsigned NOT NULL COMMENT '申请时间',
-    `delete_time` bigint unsigned NOT NULL  DEFAULT 0  COMMENT '发送时间',
-    `add_user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '添加用户id',
-    `delete_user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '用户id',
+    `change_time` bigint unsigned NOT NULL COMMENT '最后更改时间',
+    `change_user_id` bigint unsigned NOT NULL COMMENT '最后更改用户id',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '发送短信数据';
 CREATE TABLE `yaf_sender_sms_message` (
@@ -384,8 +381,8 @@ CREATE TABLE `yaf_sender_sms_message` (
     `mobile` varchar(32) NOT NULL COMMENT '手机号',
     `tpl_id` varchar(32) NOT NULL COMMENT '模板ID',
     `tpl_var` varchar(512) NOT NULL DEFAULT '' COMMENT '模板变量',
-    `try_num` SMALLINT(3) unsigned NOT NULL DEFAULT 0 COMMENT '发送次数',
-    `status` tinyint(1) NOT NULL COMMENT '启用状态',
+    `try_num` smallint unsigned NOT NULL DEFAULT 0 COMMENT '发送次数',
+    `status` tinyint NOT NULL COMMENT '启用状态',
     `add_time` bigint unsigned NOT NULL COMMENT '申请时间',
     `expected_time` bigint unsigned NOT NULL COMMENT '预计发送时间',
     `send_time` bigint unsigned NOT NULL COMMENT '发送时间',
@@ -394,20 +391,18 @@ CREATE TABLE `yaf_sender_sms_message` (
     KEY `sender_record_data_IDX` (`expected_time`, `status`, `id`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '发送短信数据';
 CREATE TABLE `yaf_sender_sms_aliyun` (
-    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
-    `aliyun_config_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT 'yaf_setting.setting_key=ali-sms-config ID',
+    `aliyun_config_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '阿里云短信配置ID 参见 yaf_setting表 setting_key=ali-sms-config ',
     `name` varchar(32) NOT NULL COMMENT '名称',
     `tpl_id` varchar(32) NOT NULL COMMENT '模板KEY',
     `aliyun_sign_name` varchar(32) NOT NULL COMMENT '阿里云签名',
     `aliyun_sms_tpl` varchar(32) NOT NULL COMMENT '阿里云模板名',
-    `status` tinyint(1) NOT NULL COMMENT '状态',
-    `max_try_num` SMALLINT(3) unsigned NOT NULL DEFAULT 1 COMMENT '最大发送次数',
-    `add_user_id` bigint unsigned NOT NULL COMMENT '添加用户',
+    `status` tinyint NOT NULL COMMENT '状态',
+    `max_try_num` smallint unsigned NOT NULL DEFAULT 1 COMMENT '最大发送次数',
     `user_id` bigint unsigned NOT NULL COMMENT '用户id',
-    `add_time` bigint unsigned NOT NULL COMMENT '申请时间',
-    `delete_user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '删除用户id',
-    `delete_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '删除时间',
+    `change_time` bigint unsigned NOT NULL COMMENT '最后更改时间',
+    `change_user_id` bigint unsigned NOT NULL COMMENT '最后更改用户id',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '短信ALIYUN跟内部短信映射';
 -- ----------- lsys-sender  ---------------

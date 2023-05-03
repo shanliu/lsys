@@ -2,13 +2,15 @@ import { CssBaseline, ThemeProvider } from '@mui/material';
 import React, { Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createHashRouter, createRoutesFromElements, Route, RouterProvider } from 'react-router-dom';
-import { ErrorPage, Layout } from './bootstrap';
 import { UserProvider } from './context/session';
 import { ToastProvider } from './context/toast';
 import { Progress } from './library/loading';
 import "./style/main.css";
 import { theme } from './style/theme';
 import { ConfigProvider } from './context/config';
+import { PageLayout } from './page/library/layout';
+import { ErrorPage } from './page/error';
+import DocPage from './page/doc';
 const LoginPage = React.lazy(() => import('./page/login'));
 const MainPage = React.lazy(() => import('./page/main'));
 const FindPasswordPage = React.lazy(() => import('./page/password'));
@@ -73,7 +75,7 @@ function App() {
   const router = createHashRouter(
     createRoutesFromElements(
 
-      <Route path="/*" element={<Layout />} errorElement={<ErrorPage />}>
+      <Route path="/*" element={<PageLayout />} errorElement={<ErrorPage />}>
         <Route path="system/*" element={<Suspense fallback={<PageProgress />}><SystemMainPage /></Suspense>} >
 
           <Route path="setting" element={<Suspense fallback={<PageProgress />}><SystemSettingPage /></Suspense>} >
@@ -132,6 +134,7 @@ function App() {
         <Route path="register/:type" element={<Suspense fallback={<PageProgress />}><RegisterPage /></Suspense>} />
         <Route path="find_password/:type" element={<Suspense fallback={<PageProgress />}><FindPasswordPage /></Suspense>} />
         <Route path="login/:type" element={<Suspense fallback={<PageProgress />}><LoginPage /></Suspense>} />
+        <Route path="doc" element={<Suspense fallback={<PageProgress />}><DocPage /></Suspense>} />
         <Route path="" element={<Suspense fallback={<PageProgress />}><MainPage /></Suspense>} />
 
       </Route >

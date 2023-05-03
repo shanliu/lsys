@@ -190,14 +190,30 @@ export async function senderDelConfig(type, param, config) {
 //message
 
 export async function senderListAppMessage(type, param, config) {
-    const { app_id, user_id, tpl_id, mobile, status, page, page_size } = param;
+    const { app_id, user_id, tpl_id, mobile, status, start_pos, end_pos, page_size } = param;
     let data = {
-        count_num: true,
-        page: {
-            page: parseInt(page) >= 0 ? (parseInt(page) + 1) : 1,
-            limit: parseInt(page_size) > 0 ? parseInt(page_size) : 10
+        count_num: false,
+        limit: {
+            limit: parseInt(page_size) > 0 ? parseInt(page_size) : 10,
+            next: false,
+            more: true,
         }
     };
+    if (end_pos && end_pos != '0' && end_pos != '') {
+        data.limit = {
+            ...data.limit,
+            pos: end_pos,
+            eq_pos: false,
+            next: true,
+        }
+    } else if (start_pos && start_pos != '0' && start_pos != '') {
+        data.limit = {
+            ...data.limit,
+            pos: start_pos,
+            eq_pos: true,
+            next: false,
+        }
+    }
     let errors = {};
     if (parseInt(user_id) > 0) {
         data.user_id = parseInt(user_id);
@@ -740,7 +756,7 @@ export async function tplsEditConfig(param, config) {
     if (Object.keys(errors).length) {
         return fialResult(errors);
     }
-    let response = await senderSettingRest("tpls").post("/add", {
+    let response = await senderSettingRest("tpls").post("/edit", {
         id: parseInt(id),
 
         tpl_data: tpl_data,

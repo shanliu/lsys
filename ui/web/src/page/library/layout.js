@@ -1,22 +1,17 @@
-import { Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Link } from '@mui/material';
-import AppBar from '@mui/material/AppBar';
+import { Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Link, Tab, Tabs } from '@mui/material';
 import Avatar from '@mui/material/Avatar';
-import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Container from '@mui/material/Container';
 import IconButton from '@mui/material/IconButton';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
-import Toolbar from '@mui/material/Toolbar';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
-import React, { Fragment, useEffect, useState } from 'react';
-import { Outlet, useNavigate } from 'react-router';
-import { useRouteError, Link as RLink } from 'react-router-dom';
-import { SessionClear, UserSessionContext } from './context/session';
-import { logout } from './rest/login';
-
-
+import { Box } from '@mui/system';
+import { Fragment, default as React } from 'react';
+import { Outlet, Link as RLink, useNavigate, useParams } from 'react-router-dom';
+import { SessionClear, UserSessionContext } from '../../context/session';
+import { logout } from '../../rest/login';
+import { LayoutAppBar } from './public';
 
 
 function NavUser() {
@@ -108,73 +103,41 @@ function NavUser() {
     </Box >
 }
 
-export function LayoutAppBar(props) {
-    let url = window.location.href.replace(/#\/.*$/, "");
-    return <AppBar position="static" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, position: "relative" }}>
-        <Container maxWidth="xl">
-            <Toolbar disableGutters>
-                <Typography
-                    variant="h6"
-                    noWrap
-                    component={"a"}
-                    href={url}
-                    sx={{
-                        mr: 2,
-                        display: { xs: 'none', md: 'flex' },
-                        fontFamily: 'monospace',
-                        fontWeight: 700,
-                        letterSpacing: '.3rem',
-                        color: 'inherit',
-                        textDecoration: 'none',
-                    }}
-                >
-                    LSYS
-                </Typography>
-                <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' } }}>
-                    {/* <Button
-                    sx={{ my: 2, color: 'white', display: 'block' }}
-                >
-                    解析二维码
-                </Button> */}
-                </Box>
-                {props.children}
-            </Toolbar>
-        </Container>
-    </AppBar>
-}
-
-export function Layout() {
+export function PageLayout() {
     return <Fragment>
         <LayoutAppBar>
+            <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' } }}>
+                {/* <Button
+                    component={RLink}
+                    to="/doc"
+                    sx={{ my: 2, color: 'white', display: 'block' }}
+                >
+                    开发文档
+                </Button> */}
+            </Box>
             <NavUser />
         </LayoutAppBar >
         <Outlet />
     </Fragment>
 }
 
-export function ErrorPage() {
-    const error = useRouteError();//错误信息
-    const [go, setGo] = useState(10)
-    useEffect(() => {
-        let a = setInterval(() => {
-            if (go - 1 <= 0) {
-                window.location.reload();
-                return;
-            }
-            setGo(go - 1)
-        }, 1000);
-        return () => {
-            clearInterval(a)
-        }
-    })
+
+
+export function TabLayout(props) {
+    let param = useParams();
+    let type = param['*'].split('/')[1];
     return (
-        <Box id="error-page">
-            <h1>发生错误!</h1>
-            <p>你请求的页码当前不可用,请稍后再尝试.错误信息如下:</p>
-            <p>
-                <i>{error.statusText || error.message}</i>
-            </p>
-            {<Box>将在 {go} 秒后刷新本页面</Box>}
-        </Box>
-    );
+        <Box >
+            <Box sx={{ borderBottom: 1, borderColor: 'divider', marginBottom: 2 }}>
+                <Tabs value={type} onChange={props.onChange}>
+                    {
+                        props.menus.map((e) => {
+                            return <Tab label={e.name} value={e.key} key={`nav-${e.key}`} />
+                        })
+                    }
+                </Tabs>
+            </Box>
+            <Outlet />
+        </Box >)
+
 }

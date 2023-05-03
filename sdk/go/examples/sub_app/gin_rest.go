@@ -2,18 +2,20 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/gin-gonic/gin"
-	"rest_client"
+	"io/ioutil"
 	"lsysrest/lsysrest"
-	"net/http"
+	"rest_client"
 	"sync"
 	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
 // 基于GIN的 REST接口实现
 
 // RestRequest 接口请求
 type RestRequest struct {
+	RequestIp string
 	RequestId string
 	Method    string
 	AppKey    string
@@ -122,59 +124,29 @@ func init() {
 // RestCheckSign 检查请求签名
 func RestCheckSign(ctx *gin.Context, restApi *lsysrest.RestApi) (*RestRequest, *JsonResponse) {
 	param := map[string]string{
-		"app":       "",
+		"app_id":    "",
 		"version":   "",
 		"timestamp": "",
-		"content":   "",
 	}
-	var sign string
-	var find bool
-	if ctx.Request.Method == http.MethodPost && ctx.Request.Header.Get("Content-type") == "application/x-www-form-urlencoded" {
-		sign, find = ctx.GetPostForm("sign")
-		if !find {
-			return nil, RestJsonResponse().setState("miss_param").setMessage("not find sign param")
+	sign, find := ctx.GetQuery("sign")
+	if !find {
+		return nil, RestJsonResponse().setState("miss_sign").setMessage("not find sign param")
+	}
+	for key := range param {
+		if value, find := ctx.GetQuery(key); find {
+			param[key] = value
+		} else {
+			return nil, RestJsonResponse().setState("miss_param").setMessage("request miss param:" + key)
 		}
-		for key := range param {
-			if value, find := ctx.GetPostForm(key); find {
-				param[key] = value
-			} else {
-				return nil, RestJsonResponse().setState("miss_param").setMessage("request miss param:" + key)
-			}
-		}
-		if token, find := ctx.GetPostForm("token"); find {
-			param["token"] = token
-		}
-		if method, find := ctx.GetPostForm("method"); find {
-			param["method"] = method
-		}
-	} else {
-		sign, find = ctx.GetQuery("sign")
-		if !find {
-			return nil, RestJsonResponse().setState("miss_param").setMessage("not find sign param")
-		}
-		for key := range param {
-			if value, find := ctx.GetQuery(key); find {
-				param[key] = value
-			} else {
-				return nil, RestJsonResponse().setState("miss_param").setMessage("request miss param:" + key)
-			}
-		}
-		if token, find := ctx.GetQuery("token"); find {
-			param["token"] = token
-		}
-
-		if method, find := ctx.GetPostForm("method"); find {
-			param["method"] = method
-		}
-
 	}
 	timestamp, err := time.Parse("2006-01-02 15:04:05", param["timestamp"])
 	if err != nil {
 		return nil, RestJsonResponse().setState("miss_param").setMessage("request timestamp format error :" + err.Error())
 	}
+
 	var appInfo *rest_client.JsonData
 	appInfoCacheData.lock.RLock()
-	appId := param["app"]
+	appId := param["app_id"]
 	if tmp, ok := appInfoCacheData.appData[appId]; ok {
 		if tmp.timeout.After(time.Now()) {
 			appInfo = tmp.appData
@@ -184,7 +156,7 @@ func RestCheckSign(ctx *gin.Context, restApi *lsysrest.RestApi) (*RestRequest, *
 	if appInfo == nil {
 		appInfoCacheData.lock.Lock()
 		defer appInfoCacheData.lock.Unlock()
-		err, appInfo = restApi.AppInfo(ctx, param["app"])
+		err, appInfo = restApi.AppInfo(ctx, param["app_id"])
 		if err != nil {
 			return nil, RestJsonResponse().setState("app_error").setMessage(err.Error())
 		}
@@ -193,19 +165,54 @@ func RestCheckSign(ctx *gin.Context, restApi *lsysrest.RestApi) (*RestRequest, *
 			timeout: time.Now().Add(appInfoCacheTime),
 		}
 	}
-	var tokenPtr *string
-	if token, ok := param["token"]; ok {
-		tokenPtr = &token
+	if token, find := ctx.GetQuery("token"); find {
+		param["token"] = token
+	} else {
+		param["token"] = ""
+	}
+	if method, find := ctx.GetQuery("method"); find {
+		param["method"] = method
+	} else {
+		param["method"] = ""
+	}
+	if requestIp, find := ctx.GetQuery("request_ip"); find {
+		param["request_ip"] = requestIp
+	} else {
+		param["token"] = ""
+	}
+	requestId := ctx.Request.Header.Get("X-Request-ID")
+	var payload string
+	if ctx.Request.Header.Get("Content-type") == "application/json" {
+		data, err := ioutil.ReadAll(ctx.Request.Body)
+		if err != nil {
+			return nil, RestJsonResponse().setState("app_body_wrong").setMessage(err.Error())
+		} else {
+			payload = string(data)
+		}
+	} else {
+		if pl, find := ctx.GetQuery("payload"); find {
+			payload = pl
+		}
 	}
 
-	RSign := rest_client.AppRestParamSign(param["version"], param["app"], param["method"], param["timestamp"], param["content"], appInfo.Get("client_secret").String(), tokenPtr)
+	RSign := lsysrest.RestParamSign(
+		param["version"],
+		param["app_id"],
+		param["method"],
+		param["timestamp"],
+		appInfo.Get("client_secret").String(),
+		param["request_ip"],
+		param["token"],
+		payload)
 	if sign != RSign {
 		return nil, RestJsonResponse().setState("app_error").setMessage("your submit param sign wrong")
 	}
 	return &RestRequest{
+		RequestId: requestId,
+		RequestIp: param["request_ip"],
 		AppInfo:   appInfo,
 		Method:    param["method"],
-		AppKey:    param["app"],
+		AppKey:    param["app_id"],
 		Timestamp: timestamp,
 		Content:   param["content"],
 		Token:     param["token"],

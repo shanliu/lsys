@@ -1,7 +1,7 @@
 use crate::{
     dao::RequestDao,
     handler::access::{AccessAppSenderSmsConfig, AccessAppSenderSmsMsg},
-    PageParam, {JsonData, JsonResult},
+    LimitParam, PageParam, {JsonData, JsonResult},
 };
 use lsys_sender::{
     dao::SenderError,
@@ -50,7 +50,7 @@ pub async fn smser_message_log<'t, T: SessionTokenData, D: SessionData, S: UserS
         .web_dao
         .sender_smser
         .sms_record()
-        .message_log_list(&message_id, &param.page.map(|e| e.into()))
+        .message_log_list(&message_id, &Some(param.page.unwrap_or_default().into()))
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
@@ -111,7 +111,7 @@ pub struct SmserMessageListParam {
     pub status: Option<i8>,
     pub mobile: Option<String>,
     pub count_num: Option<bool>,
-    pub page: Option<PageParam>,
+    pub limit: Option<LimitParam>,
 }
 
 pub async fn smser_message_list<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
@@ -138,6 +138,7 @@ pub async fn smser_message_list<'t, T: SessionTokenData, D: SessionData, S: User
     } else {
         None
     };
+
     let res = req_dao
         .web_dao
         .sender_smser
@@ -148,7 +149,7 @@ pub async fn smser_message_list<'t, T: SessionTokenData, D: SessionData, S: User
             &param.tpl_id,
             &status,
             &param.mobile,
-            &param.page.map(|e| e.into()),
+            &Some(param.limit.unwrap_or_default().into()),
         )
         .await?;
     let count = if param.count_num.unwrap_or(false) {
@@ -169,7 +170,9 @@ pub async fn smser_message_list<'t, T: SessionTokenData, D: SessionData, S: User
     } else {
         None
     };
+    let next = res.1;
     let res = res
+        .0
         .into_iter()
         .map(|e| {
             json!({
@@ -185,7 +188,9 @@ pub async fn smser_message_list<'t, T: SessionTokenData, D: SessionData, S: User
             })
         })
         .collect::<Vec<_>>();
-    Ok(JsonData::data(json!({ "data": res,"total":count})))
+    Ok(JsonData::data(
+        json!({ "data": res,"total":count,"next":next}),
+    ))
 }
 #[derive(Debug, Deserialize)]
 pub struct SmserMessageCancelParam {
@@ -222,7 +227,7 @@ pub async fn smser_message_cancel<'t, T: SessionTokenData, D: SessionData, S: Us
     req_dao
         .web_dao
         .sender_smser
-        .send_cancel(&data, req_auth.user_data().user_id)
+        .send_cancel(&data, req_auth.user_data().user_id, Some(&req_dao.req_env))
         .await?;
     Ok(JsonData::message("ok"))
 }
@@ -269,6 +274,7 @@ pub async fn smser_config_add<'t, T: SessionTokenData, D: SessionData, S: UserSe
             param.config_data,
             uid,
             req_auth.user_data().user_id,
+            Some(&req_dao.req_env),
         )
         .await?;
     Ok(JsonData::data(json!({ "id": id })))
@@ -305,7 +311,11 @@ pub async fn smser_config_del<'t, T: SessionTokenData, D: SessionData, S: UserSe
                     .await?;
 
                 sms_record
-                    .config_del(&config, req_auth.user_data().user_id)
+                    .config_del(
+                        &config,
+                        req_auth.user_data().user_id,
+                        Some(&req_dao.req_env),
+                    )
                     .await?;
             }
         }
@@ -372,7 +382,7 @@ pub async fn smser_config_list<'t, T: SessionTokenData, D: SessionData, S: UserS
                "id": e.id,
                "app_id": e.app_id,
                "config_type": e.config_type,
-               "add_time": e.add_time,
+               "add_time": e.change_time,
                "priority": e.priority,
                "config_data": config_data,
             })

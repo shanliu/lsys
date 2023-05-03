@@ -1,3 +1,4 @@
+import { userSessionClear } from "./rest";
 
 export function showTime(unixTime, defText) {
     if (!unixTime || unixTime <= 0 || unixTime == '') {
@@ -14,6 +15,13 @@ export function showTime(unixTime, defText) {
     return datetime;
 }
 
+
+export function redirectLoginPage() {
+    userSessionClear()
+    let url = window.location.href.replace(/#\/.*$/, "");
+    url += "#/login/name?redirect_uri=" + encodeURIComponent(window.location.href);
+    window.location.href = url
+}
 
 
 export function isDomain(domain, allow_ip = true) {

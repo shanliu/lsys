@@ -1,6 +1,8 @@
 use crate::{
     dao::{RequestDao, RestAuthQueryDao, WebDao},
-    handler::access::{AccessOauthUserEmail, AccessOauthUserInfo, AccessOauthUserMobile},
+    handler::access::{
+        AccessOauthUserAddress, AccessOauthUserEmail, AccessOauthUserInfo, AccessOauthUserMobile,
+    },
     {JsonData, JsonResult},
 };
 use lsys_app::model::AppsModel;
@@ -8,17 +10,22 @@ use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
+#[derive(Debug, Serialize)]
+pub struct ScopeItem {
+    pub name: &'static str,
+    pub key: &'static str,
+}
 //指定app跟对应scope权限校验跟获取
 async fn get_scope<'a>(
     web_dao: &'a WebDao,
     app: &AppsModel,
     scope: &'a str,
-) -> JsonResult<Vec<&'a str>> {
+) -> JsonResult<Vec<ScopeItem>> {
     let spoces = scope.split(',').collect::<Vec<&str>>();
     let mut out = vec![];
     for tmp in spoces {
         let rbac = &web_dao.user.rbac_dao.rbac;
-        match tmp {
+        let data = match tmp {
             "user_info" => {
                 rbac.check(
                     &AccessOauthUserInfo {
@@ -27,6 +34,10 @@ async fn get_scope<'a>(
                     None,
                 )
                 .await?;
+                ScopeItem {
+                    name: "用户资料",
+                    key: "user_info",
+                }
             }
             "user_email" => {
                 rbac.check(
@@ -36,6 +47,10 @@ async fn get_scope<'a>(
                     None,
                 )
                 .await?;
+                ScopeItem {
+                    name: "用户邮箱",
+                    key: "user_email",
+                }
             }
             "user_mobile" => {
                 rbac.check(
@@ -45,10 +60,27 @@ async fn get_scope<'a>(
                     None,
                 )
                 .await?;
+                ScopeItem {
+                    name: "用户手机号",
+                    key: "user_mobile",
+                }
+            }
+            "user_address" => {
+                rbac.check(
+                    &AccessOauthUserAddress {
+                        app: app.to_owned(),
+                    },
+                    None,
+                )
+                .await?;
+                ScopeItem {
+                    name: "用户收货地址",
+                    key: "user_address",
+                }
             }
             _ => return Err(JsonData::message(format!("not support {}", tmp))),
         };
-        out.push(tmp);
+        out.push(data);
     }
     Ok(out)
 }

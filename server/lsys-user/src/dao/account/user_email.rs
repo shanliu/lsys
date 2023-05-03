@@ -5,14 +5,16 @@ use crate::dao::account::UserAccountResult;
 
 use crate::model::{UserEmailModel, UserEmailModelRef, UserEmailStatus, UserModel};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{get_message, now_time, FluentMessage};
+use lsys_core::{get_message, now_time, FluentMessage, RequestEnv};
 
+use lsys_logger::dao::ChangeLogger;
 use sqlx::{Acquire, MySql, Pool, Transaction};
 use sqlx_model::SqlQuote;
 use sqlx_model::{model_option_set, sql_format, Insert, ModelTableName, Select, Update};
 
 use tracing::warn;
 
+use super::logger::LogUserEmail;
 use super::user_index::UserIndex;
 use super::{check_email, UserAccountError};
 
@@ -22,6 +24,7 @@ pub struct UserEmail {
     fluent: Arc<FluentMessage>,
     index: Arc<UserIndex>,
     pub cache: Arc<LocalCache<u64, Vec<UserEmailModel>>>,
+    logger: Arc<ChangeLogger>,
 }
 
 impl UserEmail {
@@ -30,6 +33,7 @@ impl UserEmail {
         redis: deadpool_redis::Pool,
         fluent: Arc<FluentMessage>,
         index: Arc<UserIndex>,
+        logger: Arc<ChangeLogger>,
     ) -> Self {
         Self {
             cache: Arc::from(LocalCache::new(
@@ -40,6 +44,7 @@ impl UserEmail {
             redis,
             fluent,
             index,
+            logger,
         }
     }
     /// 根据用户邮箱找到对应的记录
@@ -65,6 +70,7 @@ impl UserEmail {
         email: String,
         status: UserEmailStatus,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> UserAccountResult<u64> {
         check_email(&self.fluent, email.as_str())?;
         let email_res = Select::type_new::<UserEmailModel>()
@@ -101,7 +107,7 @@ impl UserEmail {
         let idata = model_option_set!(UserEmailModelRef,{
             email:email,
             user_id:user.id,
-            add_time:time,
+            change_time:time,
             status:_status,
         });
 
@@ -141,7 +147,7 @@ impl UserEmail {
                                 .add(
                                     crate::model::UserIndexCat::Email,
                                     user.id,
-                                    &[email],
+                                    &[email.clone()],
                                     Some(&mut db),
                                 )
                                 .await
@@ -153,7 +159,25 @@ impl UserEmail {
 
                         db.commit().await?;
                         self.cache.clear(&user.id).await;
-                        Ok(mr.last_insert_id())
+
+                        let aid = mr.last_insert_id();
+
+                        self.logger
+                            .add(
+                                &LogUserEmail {
+                                    action: "add",
+                                    email,
+                                    status: status as i8,
+                                },
+                                &Some(aid),
+                                &Some(user.id),
+                                &Some(user.id),
+                                None,
+                                env_data,
+                            )
+                            .await;
+
+                        Ok(aid)
                     }
                 }
             }
@@ -170,10 +194,11 @@ impl UserEmail {
         &self,
         email: &UserEmailModel,
         code: &String,
+        env_data: Option<&RequestEnv>,
     ) -> UserAccountResult<u64> {
         self.valid_code_check(code, &email.user_id, &email.email)
             .await?;
-        let res = self.confirm_email(email).await;
+        let res = self.confirm_email(email, env_data).await;
         if res.is_ok() {
             if let Err(err) = self.valid_code_clear(&email.user_id, &email.email).await {
                 warn!("email {} valid clear fail:{}", &email.email, err);
@@ -182,7 +207,11 @@ impl UserEmail {
         res
     }
     /// 确认用户邮箱
-    pub async fn confirm_email(&self, email: &UserEmailModel) -> UserAccountResult<u64> {
+    pub async fn confirm_email(
+        &self,
+        email: &UserEmailModel,
+        env_data: Option<&RequestEnv>,
+    ) -> UserAccountResult<u64> {
         let email_res = Select::type_new::<UserEmailModel>()
             .fetch_one_by_where_call::<UserEmailModel, _, _>(
                 " email=? and status = ? and user_id!=? and id!=?",
@@ -244,6 +273,22 @@ impl UserEmail {
         db.commit().await?;
 
         self.cache.clear(&email.user_id).await;
+
+        self.logger
+            .add(
+                &LogUserEmail {
+                    action: "confirm",
+                    email: email.email.to_owned(),
+                    status: UserEmailStatus::Valid as i8,
+                },
+                &Some(email.id),
+                &Some(email.user_id),
+                &Some(email.user_id),
+                None,
+                env_data,
+            )
+            .await;
+
         Ok(res.rows_affected())
     }
     /// 删除用户邮箱
@@ -251,11 +296,12 @@ impl UserEmail {
         &self,
         email: &UserEmailModel,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> UserAccountResult<u64> {
         let time = now_time()?;
         let change = sqlx_model::model_option_set!(UserEmailModelRef,{
             status:UserEmailStatus::Delete as i8,
-            delete_time:time,
+            change_time:time,
         });
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
@@ -303,6 +349,22 @@ impl UserEmail {
 
                         db.commit().await?;
                         self.cache.clear(&email.user_id).await;
+
+                        self.logger
+                            .add(
+                                &LogUserEmail {
+                                    action: "del",
+                                    email: email.email.to_owned(),
+                                    status: UserEmailStatus::Valid as i8,
+                                },
+                                &Some(email.id),
+                                &Some(email.user_id),
+                                &Some(email.user_id),
+                                None,
+                                env_data,
+                            )
+                            .await;
+
                         Ok(mr.rows_affected())
                     }
                 }

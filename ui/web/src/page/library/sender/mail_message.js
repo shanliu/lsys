@@ -6,7 +6,7 @@ import React, { Fragment, useContext, useEffect, useState } from 'react';
 import { ToastContext } from '../../../context/toast';
 import { ClearTextField } from '../../../library/input';
 import { LoadingButton } from '../../../library/loading';
-import { BaseTablePage } from '../../../library/table_page';
+import { SimplePaginationTablePage } from '../../../library/table_page';
 import { MessageStatus, senderListAppMessage } from '../../../rest/sender_setting';
 import { showTime } from '../../../utils/utils';
 import { MessageDeleteButton, MessageLogBox, MessageSeeBody } from './lib_message';
@@ -19,7 +19,8 @@ export function AppMailMessage(props) {
         tplId,
         to_mail,
         status,
-        page,
+        startPos,
+        endPos,
         pageSize,
         onSearchChange,
     } = props;
@@ -28,9 +29,12 @@ export function AppMailMessage(props) {
         message: null,
         loading: true,
         data: [],
-        total: 0,
+        startPos: '',
+        nextPos: '',
+        isFirst: (!startPos || startPos == '') ? true : false,
+        isEnd: true,
     });
-    const { toast } = useContext(ToastContext);
+
     let columns = [
         {
             label: 'ID',
@@ -46,14 +50,14 @@ export function AppMailMessage(props) {
             label: 'AppID'
         },
         {
-            field: "to_mail",
             style: { width: 120 },
-            label: '发送邮箱'
-        },
-        {
-            field: "reply_to",
-            style: { width: 120 },
-            label: '回复邮箱'
+            label: '发送邮箱',
+            render: (row) => {
+                if (row.reply_to && row.reply_to.length > 0) {
+                    return row.to_mail + `<br>回复:${row.reply_to}`
+                }
+                return row.to_mail
+            }
         },
         {
             field: "tpl_id",
@@ -61,7 +65,7 @@ export function AppMailMessage(props) {
             label: '模板'
         },
         {
-            style: { width: 100 },
+            style: { width: 60 },
             label: '数据',
             render: (row) => {
                 return <MessageSeeBody row={row} msgType="mailer" />
@@ -69,7 +73,7 @@ export function AppMailMessage(props) {
         },
         {
 
-            style: { width: 120 },
+            style: { width: 100 },
             label: '状态',
             render: (row) => {
                 let f = MessageStatus.find((e) => { return e.key == row.status });
@@ -81,7 +85,7 @@ export function AppMailMessage(props) {
             }
         },
         {
-            style: { width: 300 },
+            style: { width: 280 },
             label: '发送详细',
             render: (row) => {
                 let num_txt = "还未开始";
@@ -104,7 +108,7 @@ export function AppMailMessage(props) {
             }
         },
         {
-            style: { width: 120 },
+            style: { width: 130 },
             label: '添加时间',
             render: (row) => {
                 return showTime(row.add_time, "未知")
@@ -113,7 +117,7 @@ export function AppMailMessage(props) {
         {
 
             style: { width: 160 },
-            label: '操作',
+            label: '发送历史',
             align: "center",
             render: (row) => {
                 return <Fragment>
@@ -155,26 +159,50 @@ export function AppMailMessage(props) {
             to_mail: to_mail,
         }, ...props.children ? { app_id: appId } : {}
     })
+
     const loadMsgData = () => {
         setLoadData({
             ...loadData,
             loading: true
         })
+        window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
         return senderListAppMessage("mailer", {
             user_id: parseInt(userId),
             app_id: (props.children && !appId) ? -1 : appId,
             tpl_id: tplId,
             to_mail: to_mail,
             status: status,
-            page: page || 0,
+            start_pos: startPos || '',
+            end_pos: endPos || '',
             page_size: pageSize || 10
         }).then((data) => {
-            setLoadData({
-                ...loadData,
-                ...data,
-                data: data.status ? data.data : [],
-                loading: false
-            })
+            let setData = data.status && data.data && data.data.length > 0 ? data.data : [];
+            if (endPos && endPos != '') {
+                setLoadData({
+                    ...loadData,
+                    status: data.status ?? false,
+                    message: data.message ?? '',
+                    data: setData,
+                    loading: false,
+                    startPos: setData.length > 0 ? setData[0].id : '',
+                    nextPos: endPos,
+                    isFirst: !data.status || !data.next || data.next == '',
+                    isEnd: false,
+                })
+            } else {
+                setLoadData({
+                    ...loadData,
+                    status: data.status ?? false,
+                    message: data.message ?? '',
+                    data: setData,
+                    loading: false,
+                    startPos: setData.length > 0 ? setData[0].id : '',
+                    nextPos: data.status && data.next ? data.next : '',
+                    isFirst: !startPos || startPos == '',
+                    isEnd: !data.status || !data.next || data.next == '',
+                })
+            }
+
         })
     }
     useEffect(() => {
@@ -265,7 +293,7 @@ export function AppMailMessage(props) {
                 <ClearTextField
                     sx={{ mr: 1 }}
                     variant="outlined"
-                    label={`手机号`}
+                    label={`邮箱`}
                     type="text"
                     value={filterData.to_mail}
                     size="small"
@@ -283,7 +311,8 @@ export function AppMailMessage(props) {
                 onClick={() => {
                     onSearchChange({
                         ...filterData,
-                        page: 0
+                        start_pos: '',
+                        end_pos: '',
                     }, loadMsgData)
                 }}
                 variant="outlined"
@@ -299,21 +328,28 @@ export function AppMailMessage(props) {
 
         {(loadData.status || loadData.loading)
             ? <Box sx={{ height: 1, width: '100%' }}>
-                <BaseTablePage
-                    rows={loadData.data}
+                <SimplePaginationTablePage
+                    rows={loadData.data ?? []}
                     columns={columns}
-                    count={loadData.total}
-                    page={page || 0}
-                    onPageChange={(e, newPage) => {
-                        onSearchChange({
-                            page: newPage
-                        }, loadMsgData)
+                    isFirst={loadData.isFirst}
+                    isEnd={loadData.isEnd}
+                    onPageChange={(e, next) => {
+                        if (next) {
+                            onSearchChange({
+                                start_pos: loadData.nextPos,
+                                end_pos: '',
+                            }, loadMsgData)
+                        } else {
+                            onSearchChange({
+                                start_pos: '',
+                                end_pos: loadData.startPos,
+                            }, loadMsgData)
+                        }
                     }}
                     rowsPerPage={pageSize || 10}
                     onRowsPerPageChange={(e) => {
                         onSearchChange({
                             page_size: e.target.value,
-                            page: 0
                         }, loadMsgData)
                     }}
                     loading={loadData.loading}

@@ -25,11 +25,7 @@ pub struct RbacResModel {
     #[sqlx(default)]
     pub status: i8,
 
-    /// 添加用户
-    #[sqlx(default)]
-    pub add_user_id: u64,
-
-    /// 添加用户
+    /// 最后修改用户
     #[sqlx(default)]
     pub change_user_id: u64,
 

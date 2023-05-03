@@ -3,8 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
-	"rest_client"
+	"lsysrest/lsysrest"
 	"net/http"
+	"rest_client"
 	"testing"
 	"time"
 )
@@ -22,7 +23,8 @@ func (res *DomeApiClient) ConfigName(_ context.Context) (string, error) {
 // ConfigBuilds 统一配置调用接口
 func (res *DomeApiClient) ConfigBuilds(_ context.Context) (map[int]rest_client.RestBuild, error) {
 	return map[int]rest_client.RestBuild{
-		TestApi1: &rest_client.AppRestBuild{
+		TestApi1: &lsysrest.RestClientBuild{
+			Payload:    http.MethodPost,
 			HttpMethod: http.MethodPost,
 			Path:       "/test",
 			Method:     "test1",
@@ -30,6 +32,7 @@ func (res *DomeApiClient) ConfigBuilds(_ context.Context) (map[int]rest_client.R
 		},
 	}, nil
 }
+
 func TestExampleServer(t *testing.T) {
 	client := rest_client.NewRestClientManager()
 	//应用在 http://175.178.90.181/ui/#/user/app 申请

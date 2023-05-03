@@ -61,7 +61,7 @@ pub async fn user_address_add<'t, T: SessionTokenData, D: SessionData, S: UserSe
         .user_dao
         .user_account
         .user_address
-        .add_address(&user, adm, None)
+        .add_address(&user, adm, None, Some(&req_dao.req_env))
         .await?;
     Ok(JsonData::data(json!({ "id": id })))
 }
@@ -107,7 +107,7 @@ pub async fn user_address_delete<'t, T: SessionTokenData, D: SessionData, S: Use
                     .user_dao
                     .user_account
                     .user_address
-                    .del_address(&address, None)
+                    .del_address(&address, None, Some(&req_dao.req_env))
                     .await?;
             }
         }

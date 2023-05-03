@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use config::ConfigError;
 use lsys_app::model::AppsModel;
-use lsys_core::{AppCore, FluentMessage};
+use lsys_core::{AppCore, FluentMessage, RequestEnv};
+use lsys_logger::dao::ChangeLogger;
 use lsys_sender::{
     dao::{
         AliyunSender, AliyunSenderTask, SenderError, SmsSender, SmsTaskAcquisitionRecord,
@@ -76,6 +77,7 @@ impl WebAppSmser {
         db: Pool<MySql>,
         fluent: Arc<FluentMessage>,
         setting: Arc<MultipleSetting>,
+        logger: Arc<ChangeLogger>,
         task_size: Option<usize>,
         task_timeout: usize,
         is_check: bool,
@@ -84,6 +86,7 @@ impl WebAppSmser {
             db.clone(),
             app_core.clone(),
             fluent.clone(),
+            logger,
         ));
         let acquisition = SmsTaskAcquisitionRecord::new(sms_record.clone());
         let smser = Arc::new(SmsSender::new(
@@ -132,6 +135,7 @@ impl WebAppSmser {
         body: &str,
         send_time: Option<u64>,
         cancel_key: &Option<String>,
+        env_data: Option<&RequestEnv>,
     ) -> Result<(), WebAppSmserError> {
         let mb = mobile
             .iter()
@@ -150,6 +154,7 @@ impl WebAppSmser {
                 &send_time,
                 &Some(app.user_id),
                 cancel_key,
+                env_data,
             )
             .await
             .map_err(|e| WebAppSmserError::System(e.to_string()))
@@ -160,9 +165,10 @@ impl WebAppSmser {
         &self,
         app: &AppsModel,
         cancel_key: &str,
+        env_data: Option<&RequestEnv>,
     ) -> Result<(), WebAppSmserError> {
         self.smser
-            .cancal_from_key(cancel_key, &app.user_id)
+            .cancal_from_key(cancel_key, &app.user_id, env_data)
             .await
             .map_err(|e| WebAppSmserError::System(e.to_string()))
             .map(|_| ())
@@ -172,9 +178,10 @@ impl WebAppSmser {
         &self,
         message: &SenderSmsMessageModel,
         user_id: u64,
+        env_data: Option<&RequestEnv>,
     ) -> Result<(), WebAppSmserError> {
         self.smser
-            .cancal_from_message(message, &user_id)
+            .cancal_from_message(message, &user_id, env_data)
             .await
             .map_err(|e| WebAppSmserError::System(e.to_string()))
             .map(|_| ())
@@ -186,11 +193,21 @@ impl WebAppSmser {
         area: &str,
         mobile: &str,
         body: &str,
+        env_data: Option<&RequestEnv>,
     ) -> Result<(), WebAppSmserError> {
         check_mobile(&self.fluent, area, mobile)
             .map_err(|e| WebAppSmserError::System(e.to_string()))?;
         self.smser
-            .send(None, &[(area, mobile)], tpl_type, body, &None, &None, &None)
+            .send(
+                None,
+                &[(area, mobile)],
+                tpl_type,
+                body,
+                &None,
+                &None,
+                &None,
+                env_data,
+            )
             .await
             .map_err(|e| WebAppSmserError::System(e.to_string()))
             .map(|_| ())
@@ -201,11 +218,18 @@ impl WebAppSmser {
         mobile: &str,
         code: &str,
         ttl: &usize,
+        env_data: Option<&RequestEnv>,
     ) -> Result<(), WebAppSmserError> {
         let mut context = Context::new();
         context.insert("code", code);
         context.insert("time", &ttl);
-        self.send("valid_code", area, mobile, &context.into_json().to_string())
-            .await
+        self.send(
+            "valid_code",
+            area,
+            mobile,
+            &context.into_json().to_string(),
+            env_data,
+        )
+        .await
     }
 }

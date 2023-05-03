@@ -3,9 +3,9 @@ package lsysrest
 import (
 	"context"
 	"fmt"
-	"rest_client"
 	"net/http"
 	url2 "net/url"
+	"rest_client"
 	"time"
 )
 
@@ -53,7 +53,8 @@ func (res *RestTokenApiClient) ConfigName(_ context.Context) (string, error) {
 // ConfigBuilds 统一配置调用接口
 func (res *RestTokenApiClient) ConfigBuilds(_ context.Context) (map[int]rest_client.RestBuild, error) {
 	return map[int]rest_client.RestBuild{
-		UserInfo: &rest_client.AppRestBuild{
+		UserInfo: &RestClientBuild{
+			Payload:    http.MethodPost,
 			HttpMethod: http.MethodPost,
 			Path:       "/oauth/user",
 			Method:     "info",
@@ -98,6 +99,7 @@ func (receiver *RestApi) OAuthAuthorizationUrl(_ context.Context, callbackUrl st
 }
 
 // OAuthAccessToken Oauth 通过CODE得到TOKEN
+// code 用户授权登录后返回
 func (receiver *RestApi) OAuthAccessToken(ctx context.Context, code string) (*TokenData, error) {
 	req := <-receiver.oauth.Do(ctx, TokenCreate, map[string]string{
 		"code":          code,
@@ -113,6 +115,7 @@ func (receiver *RestApi) OAuthAccessToken(ctx context.Context, code string) (*To
 }
 
 // TokenRestApi 获取需要TOKEN的rest接口实例
+// token 从 OAuthAccessToken 接口获取
 func (receiver *RestApi) TokenRestApi(token string) *TokenRestApi {
 	return &TokenRestApi{
 		api: receiver,
@@ -125,7 +128,7 @@ func (receiver *RestApi) TokenRestApi(token string) *TokenRestApi {
 
 // OAuthRefreshToken Oauth 刷新TOKEN
 func (receiver *TokenRestApi) OAuthRefreshToken(ctx context.Context) (*TokenData, error) {
-	req := <-receiver.rest.Do(ctx, TokenRefresh, map[string]string{
+	req := <-receiver.api.oauth.Do(ctx, TokenRefresh, map[string]string{
 		"refresh_token": receiver.token,
 		"client_secret": receiver.api.config.AppOAuthSecret,
 		"client_id":     receiver.api.config.AppId,
@@ -143,21 +146,13 @@ func (receiver *TokenRestApi) OAuthRefreshToken(ctx context.Context) (*TokenData
 
 // OAuthUserInfo 获取用户资料
 func (receiver *TokenRestApi) OAuthUserInfo(ctx context.Context, user bool, name bool, info bool, address bool, email bool, mobile bool) (*rest_client.JsonData, error) {
-	var emailVar []int
-	if email {
-		emailVar = []int{1}
-	}
-	var mobileVar []int
-	if mobile {
-		mobileVar = []int{1}
-	}
 	req := <-receiver.rest.Do(ctx, UserInfo, map[string]interface{}{
 		"user":    user,
 		"name":    name,
 		"info":    info,
 		"address": address,
-		"email":   emailVar,
-		"mobile":  mobileVar,
+		"email":   email,
+		"mobile":  mobile,
 	})
 	res := req.JsonResult().GetData("response")
 	if res.Err() != nil {

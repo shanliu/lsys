@@ -21,7 +21,7 @@ pub struct UserAuthDataOptionParam {
     pub external: Option<Vec<String>>,
     pub email: Option<Vec<i8>>,
     pub mobile: Option<Vec<i8>>,
-    pub password_timeout: Option<bool>, 
+    pub password_timeout: Option<bool>,
 }
 
 pub async fn login_data_from_user_auth(

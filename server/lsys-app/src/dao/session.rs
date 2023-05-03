@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::model::AppsTokenModel;
 
-use super::AppDao;
+use super::{AppDao, AppsError, AppsResult};
 
 //OAUTH 登录后产生标识
 #[derive(Clone, Debug)]
@@ -26,6 +26,7 @@ pub struct RestAuthData {
     session_data: SessionUserData,
     pub token: AppsTokenModel,
 }
+
 impl SessionData for RestAuthData {
     fn user_data(&self) -> &SessionUserData {
         &self.session_data
@@ -37,6 +38,15 @@ impl RestAuthData {
             session_data,
             token,
         }
+    }
+    pub fn check_scope(&self, scope: &str) -> AppsResult<()> {
+        let split = scope.split(',');
+        for sp in split {
+            if !self.token.scope.contains(sp) {
+                return Err(AppsError::ScopeNotFind(format!("Unauthorized:{}", sp)));
+            }
+        }
+        Ok(())
     }
 }
 

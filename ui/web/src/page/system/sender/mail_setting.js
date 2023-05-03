@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TabLayout } from '../../layout';
+import { TabLayout } from '../../library/layout';
 export default function SystemSmsSettingPage() {
     const InfoNav = [
         {

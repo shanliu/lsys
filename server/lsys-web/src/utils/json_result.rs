@@ -11,7 +11,7 @@ use std::{collections::HashMap, error::Error};
 use tracing::warn;
 
 use crate::dao::{WebAppMailerError, WebAppSmserError};
-use lsys_app::dao::app::AppsError;
+use lsys_app::dao::AppsError;
 
 pub type JsonResult<T> = Result<T, JsonData>;
 
@@ -214,10 +214,16 @@ impl From<ValidCodeError> for JsonData {
 impl From<SenderError> for JsonData {
     fn from(err: SenderError) -> Self {
         match err {
-            SenderError::Sqlx(err) => JsonData::default()
-                .set_code(500)
-                .set_sub_code("sqlx")
-                .set_message(err.to_string()),
+            SenderError::Sqlx(err) => match err {
+                sqlx::Error::RowNotFound => JsonData::default()
+                    .set_code(200)
+                    .set_sub_code("not_found")
+                    .set_message(err.to_string()),
+                _ => JsonData::default()
+                    .set_code(500)
+                    .set_sub_code("system")
+                    .set_message(err.to_string()),
+            },
             SenderError::Redis(err) => JsonData::default()
                 .set_code(500)
                 .set_sub_code("redis")
@@ -231,6 +237,55 @@ impl From<SenderError> for JsonData {
     }
 }
 
+impl From<AppsError> for JsonData {
+    fn from(err: AppsError) -> Self {
+        match err {
+            AppsError::Sqlx(err) => match err {
+                sqlx::Error::RowNotFound => JsonData::default()
+                    .set_code(200)
+                    .set_sub_code("not_found")
+                    .set_message(err.to_string()),
+                _ => JsonData::default()
+                    .set_code(500)
+                    .set_sub_code("system")
+                    .set_message(err.to_string()),
+            },
+            AppsError::System(_) => JsonData::default()
+                .set_code(200)
+                .set_sub_code("system")
+                .set_message(err.to_string()),
+            AppsError::Redis(err) => JsonData::default()
+                .set_code(500)
+                .set_sub_code("system")
+                .set_message(err),
+            AppsError::ScopeNotFind(err) => JsonData::default()
+                .set_code(200)
+                .set_sub_code("need_access")
+                .set_message(err),
+        }
+    }
+}
+
+impl From<SettingError> for JsonData {
+    fn from(err: SettingError) -> Self {
+        match err {
+            SettingError::Sqlx(err) => match err {
+                sqlx::Error::RowNotFound => JsonData::default()
+                    .set_code(200)
+                    .set_sub_code("not_found")
+                    .set_message(err.to_string()),
+                _ => JsonData::default()
+                    .set_code(500)
+                    .set_sub_code("system")
+                    .set_message(err.to_string()),
+            },
+            SettingError::System(_) => JsonData::default()
+                .set_code(200)
+                .set_sub_code("system")
+                .set_message(err.to_string()),
+        }
+    }
+}
 impl From<String> for JsonData {
     fn from(err: String) -> Self {
         JsonData::default().set_message(err)
@@ -249,8 +304,7 @@ macro_rules! result_impl_system_error {
         }
     };
 }
-result_impl_system_error!(SettingError, 500);
-result_impl_system_error!(AppsError, 200);
+
 result_impl_system_error!(WebAppSmserError, 200);
 result_impl_system_error!(WebAppMailerError, 200);
 result_impl_system_error!(std::cell::BorrowError, 200);

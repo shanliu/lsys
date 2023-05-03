@@ -11,6 +11,7 @@ use super::auth::UserPasswordHash;
 use deadpool_redis::PoolError;
 use lsys_core::{FluentMessage, ValidCodeError};
 
+use lsys_logger::dao::ChangeLogger;
 use lsys_setting::dao::{SettingError, SingleSetting};
 use redis::RedisError;
 use sqlx::{MySql, Pool};
@@ -26,6 +27,7 @@ use user_password::UserPassword;
 #[macro_use]
 mod macros;
 
+mod logger;
 mod user_index;
 mod utils;
 pub use utils::*;
@@ -117,6 +119,7 @@ impl UserAccount {
         redis: deadpool_redis::Pool,
         fluent: Arc<FluentMessage>,
         setting: Arc<SingleSetting>,
+        logger: Arc<ChangeLogger>,
     ) -> Self {
         let user_index = Arc::from(UserIndex::new(db.clone()));
         let password_hash = Arc::from(UserPasswordHash::default());
@@ -126,37 +129,48 @@ impl UserAccount {
                 fluent.clone(),
                 redis.clone(),
                 user_index.clone(),
+                logger.clone(),
             )),
             user_email: Arc::from(UserEmail::new(
                 db.clone(),
                 redis.clone(),
                 fluent.clone(),
                 user_index.clone(),
+                logger.clone(),
             )),
             user_external: Arc::from(UserExternal::new(
                 db.clone(),
                 redis.clone(),
                 fluent.clone(),
                 user_index.clone(),
+                logger.clone(),
             )),
             user_mobile: Arc::from(UserMobile::new(
                 db.clone(),
                 redis.clone(),
                 fluent.clone(),
                 user_index.clone(),
+                logger.clone(),
             )),
             user_name: Arc::from(UserName::new(
                 db.clone(),
                 redis.clone(),
                 fluent.clone(),
                 user_index.clone(),
+                logger.clone(),
             )),
-            user_info: Arc::from(UserInfo::new(db.clone(), redis.clone(), user_index.clone())),
+            user_info: Arc::from(UserInfo::new(
+                db.clone(),
+                redis.clone(),
+                user_index.clone(),
+                logger.clone(),
+            )),
             user_address: Arc::from(UserAddress::new(
                 db.clone(),
                 fluent.clone(),
                 redis.clone(),
                 user_index,
+                logger,
             )),
             user_password: Arc::from(UserPassword::new(
                 db.clone(),

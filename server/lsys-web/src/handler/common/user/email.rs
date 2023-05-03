@@ -45,7 +45,7 @@ pub async fn user_email_add<'t, T: SessionTokenData, D: SessionData, S: UserSess
         .user_dao
         .user_account
         .user_email
-        .add_email(&user, param.email, status, None)
+        .add_email(&user, param.email, status, None, Some(&req_dao.req_env))
         .await?;
     Ok(JsonData::data(json!({ "id": email_id })))
 }
@@ -135,7 +135,7 @@ pub async fn user_email_send_code<'t, T: SessionTokenData, D: SessionData, S: Us
     req_dao
         .web_dao
         .sender_mailer
-        .send_valid_code(&email.email, &res.0, &res.1)
+        .send_valid_code(&email.email, &res.0, &res.1, Some(&req_dao.req_env))
         .await?;
     Ok(JsonData::message("mail is send"))
 }
@@ -175,7 +175,7 @@ pub async fn user_email_confirm<'t, T: SessionTokenData, D: SessionData, S: User
             .user_dao
             .user_account
             .user_email
-            .confirm_email_from_code(&email, &param.code)
+            .confirm_email_from_code(&email, &param.code, Some(&req_dao.req_env))
             .await?;
         Ok(JsonData::message("email confirm success"))
     } else {
@@ -224,7 +224,7 @@ pub async fn user_email_delete<'t, T: SessionTokenData, D: SessionData, S: UserS
                     .user_dao
                     .user_account
                     .user_email
-                    .del_email(&email, None)
+                    .del_email(&email, None, Some(&req_dao.req_env))
                     .await?;
             }
         }

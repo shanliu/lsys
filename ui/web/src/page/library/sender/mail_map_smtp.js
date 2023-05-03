@@ -11,7 +11,7 @@ import { ToastContext } from '../../../context/toast';
 import { ConfirmButton } from '../../../library/dialog';
 import { ClearTextField, LoadSelect } from '../../../library/input';
 import { LoadingButton } from '../../../library/loading';
-import { BaseTablePage } from '../../../library/table_page';
+import { SimpleTablePage } from '../../../library/table_page';
 import { SenderTypeMail, mailAddAppSmtpConfig, mailAddSmtpConfig, mailDelAppSmtpConfig, mailListAppSmtpConfig, mailListSmtpConfig, } from '../../../rest/sender_setting';
 import { showTime } from '../../../utils/utils';
 import { tplsListConfig } from '../../../rest/sender_setting';
@@ -593,9 +593,9 @@ export default function AppMailSmtpMap(props) {
         },
         {
             style: { width: 180 },
-            label: '添加时间',
+            label: '更新时间',
             render: (row) => {
-                return showTime(row.config.add_time, "未知")
+                return showTime(row.config.change_time, "未知")
             }
         },
         {
@@ -642,6 +642,7 @@ export default function AppMailSmtpMap(props) {
             ...loadData,
             loading: true
         })
+        window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
         return mailListAppSmtpConfig({
             id: mapId,
             user_id: parseInt(userId),
@@ -655,6 +656,7 @@ export default function AppMailSmtpMap(props) {
                 data: data.status ? data.data : [],
                 loading: false
             })
+
         })
     }
     useEffect(() => {
@@ -753,7 +755,7 @@ export default function AppMailSmtpMap(props) {
 
         {(loadData.status || loadData.loading)
             ? <Box sx={{ height: 1, width: '100%' }}>
-                <BaseTablePage
+                <SimpleTablePage
                     rows={loadData.data}
                     columns={columns}
                     count={loadData.total}
