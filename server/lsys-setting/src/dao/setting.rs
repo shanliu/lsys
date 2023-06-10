@@ -105,7 +105,7 @@ impl ChangeLogData for SettingLog {
     fn log_type<'t>() -> &'t str {
         "setting"
     }
-    fn format(&self) -> String {
+    fn message(&self) -> String {
         format!("{}:{}[{}]", self.action, self.name, self.setting_key)
     }
     fn encode(&self) -> String {

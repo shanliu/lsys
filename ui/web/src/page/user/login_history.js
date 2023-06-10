@@ -143,6 +143,7 @@ export default function UserLoginHistroyPage(props) {
     const [searchParam, setSearchParam] = useSearchChange({
         login_type: "",
         login_account: "",
+        login_ip: "",
         is_login: '',
         page: 0,
         page_size: 10,
@@ -150,7 +151,8 @@ export default function UserLoginHistroyPage(props) {
     const [filterData, setfilterData] = useState({
         is_login: 0,
         login_type: searchParam.get("login_type"),
-        login_account: searchParam.get("login_account")
+        login_account: searchParam.get("login_account"),
+        login_ip: searchParam.get("login_ip"),
     })
     const loadHistoryData = () => {
         setLoadData({
@@ -161,6 +163,7 @@ export default function UserLoginHistroyPage(props) {
         return loginHistroy({
             login_type: searchParam.get("login_type"),
             login_account: searchParam.get("login_account"),
+            login_ip: searchParam.get("login_ip"),
             is_login: searchParam.get("is_login"),
             page: searchParam.get("page") || 0,
             page_size: searchParam.get("page_size") || 10
@@ -259,6 +262,24 @@ export default function UserLoginHistroyPage(props) {
                         setfilterData({
                             ...filterData,
                             login_account: nval
+                        })
+                    }}
+                />
+            </FormControl>
+            <FormControl sx={{ minWidth: 120, mr: 1 }} size="small"  >
+                <ClearTextField
+                    sx={{ mr: 1 }}
+                    variant="outlined"
+                    label={`登录IP`}
+                    type="text"
+                    name="code"
+                    value={filterData.login_ip}
+                    size="small"
+                    disabled={loadData.loading}
+                    onChange={(event, nval) => {
+                        setfilterData({
+                            ...filterData,
+                            login_ip: nval
                         })
                     }}
                 />

@@ -252,7 +252,7 @@ export default function SenderTplsPage(props) {
                             minWidth: 350
                         }}>
 
-                            <DialogContentText>
+                           
                                 <CodeEditor
                                     minHeight={180}
                                     language="html"
@@ -265,7 +265,7 @@ export default function SenderTplsPage(props) {
                                     readOnly={true}
                                 />
 
-                            </DialogContentText>
+                           
                         </DialogContent>
                         <DialogActions>
 

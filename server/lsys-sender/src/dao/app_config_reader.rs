@@ -37,8 +37,8 @@ where
     pub fn new(db: Pool<sqlx::MySql>, setting: Arc<MultipleSetting>) -> Self {
         Self {
             db,
-            marker_model: std::marker::PhantomData::default(),
-            marker_config: std::marker::PhantomData::default(),
+            marker_model: std::marker::PhantomData,
+            marker_config: std::marker::PhantomData,
             setting,
         }
     }

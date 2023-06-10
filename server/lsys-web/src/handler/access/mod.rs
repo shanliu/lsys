@@ -34,6 +34,8 @@ pub fn res_tpls() -> Vec<ResTpl> {
         AccessAppSenderMailMsg,
         AccessAppSenderDoMail,
         AccessAdminManage,
+        AccessAdminChangeLogsView,
+        AccessAdminDocsEdit,
         AccessAdminSetting,
         AccessAdminUserFull,
         AccessAdminUserBase,

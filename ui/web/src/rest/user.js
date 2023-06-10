@@ -13,9 +13,10 @@ export async function getPasswordModify(config) {
 
 
 export async function loginHistroy(param, config) {
-    const { login_type, login_account, is_login, page, page_size } = param;
+    const { login_type, login_account, login_ip, is_login, page, page_size } = param;
     let response = await userRest().post("/login_history", {
         "login_type": login_type === '' ? null : login_type,
+        "login_ip": login_ip == '' ? null : login_ip,
         "login_account": login_account,
         "is_login": is_login == '' ? null : parseInt(is_login),
         "page": {
@@ -191,6 +192,95 @@ export async function mobileDelete(id, config) {
     return restResult(response)
 }
 
+
+//address page
+
+
+export async function AddressList(config) {
+    let statarr = mobileComfirmStatus.map((e) => { return e.key });
+    let response = await userRest().post("/address/list_data", {
+
+    }, config);
+    return restResult(response, ['not_found'])
+}
+
+
+
+
+export async function AddressEdit(param, config) {
+    const { id, code, info, detail, name, mobile } = param;
+    var errors = {};
+    if (!id || id <= 0) {
+        errors.name = "ID异常";
+    }
+    if (!mobile || !/^1[0-9]{10}$/.test(mobile)) {
+        errors.name = "手机格式错误";
+    }
+    if (!code || code.length == 0) {
+        errors.name = "地区编码错误";
+    }
+    if (!info || info.length == 0) {
+        errors.name = "请选择地区";
+    }
+    if (!detail || detail.length == 0) {
+        errors.name = "详细地址为空";
+    }
+    if (!name || name.length == 0) {
+        errors.name = "收货名称错误";
+    }
+    if (Object.keys(errors).length) {
+        return fialResult(errors);
+    }
+    var param = {
+        address_id: id,
+        code: code,
+        info: info,
+        detail: detail,
+        name: name,
+        mobile: mobile,
+    };
+    let response = await userRest().post("/address/edit", param, config);
+    return restResult(response)
+}
+export async function AddressAdd(param, config) {
+    const { code, info, detail, name, mobile } = param;
+    var errors = {};
+    if (!mobile || !/^1[0-9]{10}$/.test(mobile)) {
+        errors.name = "手机格式错误";
+    }
+    if (!code || code.length == 0) {
+        errors.name = "地区编码错误";
+    }
+    if (!info || info.length == 0) {
+        errors.name = "请选择地区";
+    }
+    if (!detail || detail.length == 0) {
+        errors.name = "详细地址为空";
+    }
+    if (!name || name.length == 0) {
+        errors.name = "收货名称错误";
+    }
+    if (Object.keys(errors).length) {
+        return fialResult(errors);
+    }
+    var param = {
+        code: code,
+        info: info,
+        detail: detail,
+        name: name,
+        mobile: mobile,
+    };
+    let response = await userRest().post("/address/add", param, config);
+    return restResult(response)
+}
+
+export async function AddressDelete(id, config) {
+    id = parseInt(id)
+    let response = await userRest().post("/address/delete", {
+        "address_id": id,
+    }, config);
+    return restResult(response)
+}
 
 
 //email page
@@ -404,5 +494,66 @@ export async function userIdSearch(param, config) {
         mobile: opt ? [] : null,
     };
     let response = await userRest().post("/list/id_search", param, config);
+    return restResult(response)
+}
+
+
+
+export const logsMap = {
+    logType: [
+        { key: "sender-tpl", val: '消息发送-模板' },
+        { key: "sender-config", val: '消息发送-配置' },
+        { key: "user-mobile", val: '用户-设置手机号' },
+        { key: "user-email", val: '用户-设置邮箱' },
+        { key: "user-info", val: '用户-变更资料' },
+        { key: "user-name", val: '用户-更改登陆名' },
+        { key: "user-address", val: '用户-更改收货地址' },
+        { key: "user", val: '用户-基本资料' },
+        { key: "sender-mail-app-config", val: '消息发送-邮件配置' },
+        { key: "user-external", val: '用户-外部账号' },
+        { key: "rbac-tag", val: '权限-设置标签' },
+        { key: "rbac-res", val: '权限-编辑资源' },
+        { key: "rbac-res-op", val: '权限-资源设置操作' },
+        { key: "rbac-role", val: '权限-编辑角色' },
+        { key: "rbac-role-user", val: '权限-角色关联用户' },
+        { key: "rbac-role-op", val: '权限-角色关联操作' },
+        { key: "setting", val: '系统设置' },
+        { key: "app", val: '应用操作' },
+    ],
+};
+
+export async function userLogs(param, config) {
+    const { user_id, log_type, add_user_id, page_size, more, end_pos, start_pos } = param;
+    var param = {
+        limit: {
+            limit: parseInt(page_size) > 0 ? parseInt(page_size) : 10,
+            next: false,
+            more: more,
+        },
+    };
+    if (end_pos && end_pos != '0' && end_pos != '') {
+        param.limit = {
+            ...param.limit,
+            pos: end_pos,
+            eq_pos: false,
+            next: true,
+        }
+    } else if (start_pos && start_pos != '0' && start_pos != '') {
+        param.limit = {
+            ...param.limit,
+            pos: start_pos,
+            eq_pos: true,
+        }
+    }
+    if (parseInt(user_id) >= 0 && !isNaN(parseInt(user_id))) {
+        param.user_id = parseInt(user_id)
+    }
+    if (parseInt(add_user_id) >= 0 && !isNaN(parseInt(add_user_id))) {
+        param.add_user_id = parseInt(add_user_id)
+    }
+    if (typeof log_type == 'string' && log_type.length > 0) {
+        param.log_type = log_type
+    }
+    let response = await userRest().post("/logs/change", param, config);
     return restResult(response)
 }

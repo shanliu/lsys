@@ -773,7 +773,7 @@ export default function SystemAccessResPage(props) {
             open={boxPage.show}
             onClose={() => {
                 setBoxPage({
-                    page: null,
+                    item: null,
                     show: false
                 })
             }}

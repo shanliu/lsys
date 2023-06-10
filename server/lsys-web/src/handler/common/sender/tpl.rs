@@ -145,7 +145,7 @@ pub async fn tpl_edit<'t, T: SessionTokenData, D: SessionData, S: UserSession<T,
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::message("change ok"))
+    Ok(JsonData::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -183,5 +183,5 @@ pub async fn tpl_del<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, 
         .sender_tpl
         .del(&data, &req_auth.user_data().user_id, Some(&req_dao.req_env))
         .await?;
-    Ok(JsonData::message("ok"))
+    Ok(JsonData::default())
 }

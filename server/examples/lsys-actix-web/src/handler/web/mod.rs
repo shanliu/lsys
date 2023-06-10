@@ -3,7 +3,7 @@ pub(crate) mod index;
 use std::{path::PathBuf, str::FromStr, sync::Arc};
 
 use actix_service::ServiceFactory;
-use actix_web::{dev::ServiceRequest, App, Error};
+use actix_web::{dev::ServiceRequest, web, App, Error};
 use lsys_web::dao::WebDao;
 use tracing::{info, warn};
 
@@ -21,8 +21,8 @@ where
         }
         if let Ok(ui_buf) = ui_path {
             if ui_buf.exists() {
-                return app.service(
-                    actix_files::Files::new("/ui", ui_buf)
+                return app.service(web::redirect("/ui", "/ui/")).service(
+                    actix_files::Files::new("/ui/", ui_buf)
                         .index_file("index.html")
                         .show_files_listing(),
                 );

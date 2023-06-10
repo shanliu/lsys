@@ -9,7 +9,7 @@ use lsys_web::{
             user_external_delete, user_external_list_data, ExternalDeleteParam,
             ExternalListDataParam,
         },
-        oauth::user::user_external_login_url,
+        oauth::user_external_login_url,
     },
     JsonData,
 };

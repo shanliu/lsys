@@ -6,12 +6,47 @@ use handler::router_main;
 use jsonwebtoken::{DecodingKey, Validation};
 use lsys_core::AppCore;
 use lsys_web::dao::WebDao;
+
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
+use rustls::server::ServerConfig;
+use rustls::{Certificate, PrivateKey};
+use rustls_pemfile::{certs, read_one, Item};
+use std::{fs::File, io::BufReader};
+
 mod common;
 mod handler;
+
+fn load_rustls_config(config_dir: &str) -> ServerConfig {
+    // init server config builder with safe defaults
+    let config = ServerConfig::builder()
+        .with_safe_defaults()
+        .with_no_client_auth();
+
+    // load TLS key/cert files
+
+    let cert_file =
+        &mut BufReader::new(File::open(config_dir.to_owned() + "data/cert.pem").unwrap());
+    let key_file = &mut BufReader::new(File::open(config_dir.to_owned() + "data/key.pem").unwrap());
+
+    // convert files to key/cert objects
+    let cert_chain = certs(cert_file)
+        .unwrap()
+        .into_iter()
+        .map(Certificate)
+        .collect();
+    let key = match read_one(key_file).unwrap() {
+        Some(Item::PKCS8Key(key)) => key,
+        _ => {
+            panic!("private not support");
+        }
+    };
+    config
+        .with_single_cert(cert_chain, PrivateKey(key))
+        .unwrap()
+}
 
 #[actix_web::main]
 async fn main() {
@@ -24,7 +59,8 @@ async fn main() {
     let app_core = Arc::new(AppCore::init(app_dir, &["config/app.toml"]).await.unwrap());
     let app_dao = Data::new(WebDao::new(app_core.clone()).await.unwrap());
     let bind_addr = app_dao.bind_addr();
-    let server = HttpServer::new(move || {
+    let bind_ssl_addr = app_dao.bind_ssl_addr();
+    let mut server = HttpServer::new(move || {
         let app_jwt_key = app_dao.app_core.config.get_string("app_jwt_key").unwrap();
         let jwt_config = JwtQueryConfig::new(
             DecodingKey::from_secret(app_jwt_key.as_bytes()),
@@ -73,5 +109,11 @@ async fn main() {
             .app_data(rest_config);
         router_main(app, &app_dao)
     });
-    server.bind(bind_addr).unwrap().run().await.unwrap();
+    server = server.bind(bind_addr).unwrap();
+    if let Some(ssl_addr) = bind_ssl_addr {
+        server = server
+            .bind_rustls(ssl_addr, load_rustls_config(app_dir))
+            .unwrap();
+    }
+    server.run().await.unwrap();
 }

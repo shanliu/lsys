@@ -18,7 +18,7 @@ impl ChangeLogData for LogTag {
     fn log_type<'t>() -> &'t str {
         "rbac-tag"
     }
-    fn format(&self) -> String {
+    fn message(&self) -> String {
         match self.from_source {
             RbacTagsSource::Role => format!("{} role tag ", self.action),
             RbacTagsSource::Res => format!("{} res tag ", self.action),
@@ -40,7 +40,7 @@ impl ChangeLogData for LogRes {
     fn log_type<'t>() -> &'t str {
         "rbac-res"
     }
-    fn format(&self) -> String {
+    fn message(&self) -> String {
         format!("{} {} [{}]", self.action, self.name, self.res_key)
     }
     fn encode(&self) -> String {
@@ -59,7 +59,7 @@ impl ChangeLogData for LogResOp {
     fn log_type<'t>() -> &'t str {
         "rbac-res-op"
     }
-    fn format(&self) -> String {
+    fn message(&self) -> String {
         format!("set op {} {} [{:?}]", self.name, self.key, self.ops)
     }
     fn encode(&self) -> String {
@@ -81,7 +81,7 @@ impl ChangeLogData for LogRole {
     fn log_type<'t>() -> &'t str {
         "rbac-role"
     }
-    fn format(&self) -> String {
+    fn message(&self) -> String {
         format!("{} {} ", self.action, self.name)
     }
     fn encode(&self) -> String {
@@ -119,7 +119,7 @@ impl ChangeLogData for LogRoleUser {
     fn log_type<'t>() -> &'t str {
         "rbac-role-user"
     }
-    fn format(&self) -> String {
+    fn message(&self) -> String {
         format!(
             "{} {} :{} ",
             self.action,
@@ -149,7 +149,7 @@ impl ChangeLogData for LogRoleOp {
     fn log_type<'t>() -> &'t str {
         "rbac-role-op"
     }
-    fn format(&self) -> String {
+    fn message(&self) -> String {
         format!("ser role op {:?} user:{:?} ", self.name, self.role_op_vec)
     }
     fn encode(&self) -> String {

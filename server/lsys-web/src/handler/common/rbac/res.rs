@@ -155,7 +155,7 @@ pub async fn rbac_res_edit(
     };
     transaction.commit().await?;
 
-    Ok(JsonData::message("save succ"))
+    Ok(JsonData::default())
 }
 
 async fn set_attr<'t>(
@@ -208,7 +208,7 @@ pub async fn rbac_res_delete(
         )
         .await?;
     resdao.del_res(&res, user_id, None, env_data).await?;
-    Ok(JsonData::message("del succ"))
+    Ok(JsonData::default())
 }
 
 #[derive(Debug, Deserialize)]

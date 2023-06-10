@@ -1,8 +1,9 @@
 use crate::{
     dao::RequestDao,
-    handler::access::{AccessAppSenderMailConfig, AccessAppSenderMailMsg},
+    handler::access::{AccessAppSenderDoMail, AccessAppSenderMailConfig, AccessAppSenderMailMsg},
     LimitParam, PageParam, {JsonData, JsonResult},
 };
+use lsys_core::str_time;
 use lsys_sender::{
     dao::SenderError,
     model::{SenderConfigStatus, SenderMailConfigType, SenderMailMessageStatus},
@@ -234,7 +235,7 @@ pub async fn mailer_message_cancel<
         .sender_mailer
         .send_cancel(&data, req_auth.user_data().user_id, Some(&req_dao.req_env))
         .await?;
-    Ok(JsonData::message("ok"))
+    Ok(JsonData::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -333,7 +334,7 @@ pub async fn mailer_config_del<'t, T: SessionTokenData, D: SessionData, S: UserS
             }
         },
     }
-    Ok(JsonData::message("del ok"))
+    Ok(JsonData::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -394,4 +395,64 @@ pub async fn mailer_config_list<'t, T: SessionTokenData, D: SessionData, S: User
         .collect::<Vec<Value>>();
 
     Ok(JsonData::data(json!({ "data": data })))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct MailerMessageSendParam {
+    pub app_id: u64,
+    pub to: Vec<String>,
+    pub tpl: String,
+    pub data: String,
+    pub reply: Option<String>,
+    pub cancel: Option<String>,
+    pub send_time: Option<String>,
+}
+//后台界面发送邮件接口
+pub async fn mailer_message_send<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
+    param: MailerMessageSendParam,
+    req_dao: &RequestDao<T, D, S>,
+) -> JsonResult<JsonData> {
+    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let app = req_dao
+        .web_dao
+        .app
+        .app_dao
+        .app
+        .find_by_id(&param.app_id)
+        .await?;
+    if req_auth.user_data().user_id != app.user_id {
+        return Ok(JsonData::message("can't use other user app"));
+    }
+    req_dao
+        .web_dao
+        .user
+        .rbac_dao
+        .rbac
+        .check(&AccessAppSenderDoMail { app: app.clone() }, None)
+        .await?;
+    let send_time = if let Some(t) = param.send_time {
+        if t.is_empty() {
+            None
+        } else {
+            Some(str_time(&t)?.timestamp() as u64)
+        }
+    } else {
+        None
+    };
+    // 字符串转时间对象
+    req_dao
+        .web_dao
+        .sender_mailer
+        .app_send(
+            &app,
+            &param.tpl,
+            &param.to,
+            &param.data,
+            send_time,
+            &param.reply,
+            &param.cancel,
+            Some(&req_dao.req_env),
+        )
+        .await?;
+    Ok(JsonData::default())
 }

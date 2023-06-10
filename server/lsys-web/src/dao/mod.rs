@@ -2,6 +2,7 @@ use ip2location::LocationDB;
 use lsys_app::dao::AppDao;
 use lsys_core::cache::{LocalCacheClear, LocalCacheClearItem};
 use lsys_core::{AppCore, AppCoreError};
+use lsys_docs::dao::DocsDao;
 use lsys_logger::dao::ChangeLogger;
 use lsys_rbac::dao::rbac::RbacLocalCacheClear;
 use lsys_rbac::dao::{RbacDao, SystemRole};
@@ -40,6 +41,7 @@ use self::user::WebUser;
 
 pub struct WebDao {
     pub user: Arc<WebUser>,
+    pub docs: Arc<DocsDao>,
     pub app: Arc<WebApp>,
     pub captcha: Arc<WebAppCaptcha>,
     pub sender_mailer: Arc<WebAppMailer>,
@@ -50,6 +52,7 @@ pub struct WebDao {
     pub redis: deadpool_redis::Pool,
     pub tera: Arc<Tera>,
     pub setting: Arc<Setting>,
+    pub logger: Arc<ChangeLogger>,
 }
 
 impl WebDao {
@@ -109,17 +112,28 @@ impl WebDao {
         let ip_db_path = app_core.config.get_string("ip_city_db").unwrap_or_default();
         if !ip_db_path.is_empty() {
             let city_data = app_core.app_dir.join(ip_db_path);
-            match LocationDB::from_file(city_data) {
+            match LocationDB::from_file(&city_data) {
                 Ok(city_db) => {
                     login_config.ip_db = Some(Mutex::new(ip2location::DB::LocationDb(city_db)));
                 }
                 Err(err) => {
-                    warn!("ip city db error:{:?}", err)
+                    warn!(
+                        "read ip city db error[{}]:{:?}",
+                        city_data.to_string_lossy(),
+                        err
+                    )
                 }
             }
         } else {
             info!("ip city db not config")
         }
+        let docs = Arc::new(DocsDao::new(db.clone(), setting.single.clone()).await);
+
+        let task_docs = docs.task.clone();
+        tokio::spawn(async move {
+            task_docs.dispatch().await;
+        });
+
         let user_dao = Arc::new(
             UserDao::new(
                 app_core.clone(),
@@ -211,9 +225,10 @@ impl WebDao {
         let sender_tpl = Arc::new(MessageTpls::new(
             db.clone(),
             fluents_message.clone(),
-            change_logger,
+            change_logger.clone(),
         ));
         Ok(WebDao {
+            docs,
             user: Arc::new(WebUser::new(
                 user_dao,
                 rbac_dao,
@@ -234,11 +249,19 @@ impl WebDao {
             redis,
             tera,
             setting,
+            logger: change_logger,
         })
     }
     pub fn bind_addr(&self) -> String {
         let host = self.app_core.config.get_string("app_host").unwrap();
         let port = self.app_core.config.get_string("app_port").unwrap();
         format!("{}:{}", host, port)
+    }
+    pub fn bind_ssl_addr(&self) -> Option<String> {
+        let host = self.app_core.config.get_string("app_host").unwrap();
+        let port = self.app_core.config.get_string("app_ssl_port");
+        port.ok()
+            .map(|port| Some(format!("{}:{}", host, port)))
+            .unwrap_or_default()
     }
 }

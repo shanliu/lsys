@@ -50,7 +50,7 @@ where
         Self {
             id_generator,
             db,
-            marker: std::marker::PhantomData::default(),
+            marker: std::marker::PhantomData,
         }
     }
     pub fn message_id(&self) -> u64 {
@@ -167,7 +167,7 @@ where
             format!(
                 "{} {} order by {} {} ",
                 sqlwhere.join(" and "),
-                page.where_sql("id"),
+                page.where_sql("id", Some("and")),
                 page.order_sql("id"),
                 page.limit_sql(),
             )

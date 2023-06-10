@@ -139,3 +139,73 @@ impl RbacResTpl for AccessAdminUserFull {
         }]
     }
 }
+
+pub struct AccessAdminChangeLogsView {
+    pub user_id: u64,
+}
+#[async_trait::async_trait]
+impl RbacCheck for AccessAdminChangeLogsView {
+    async fn check<'t>(
+        &self,
+        access: &'t RbacAccess,
+        relation: &'t [RoleRelationKey],
+    ) -> UserRbacResult<()> {
+        access
+            .check(
+                self.user_id,
+                relation,
+                &[AccessRes::system("global-system", &["see-change-log"], &[])],
+            )
+            .await
+    }
+    fn depends(&self) -> Vec<Box<RbacCheckDepend>> {
+        vec![Box::new(AccessAdminManage {
+            user_id: self.user_id,
+        })]
+    }
+}
+impl RbacResTpl for AccessAdminChangeLogsView {
+    fn tpl_data() -> Vec<ResTpl> {
+        vec![ResTpl {
+            tags: vec!["system", "change log"],
+            user: false,
+            key: "global-system",
+            ops: vec!["see-change-log"],
+        }]
+    }
+}
+
+pub struct AccessAdminDocsEdit {
+    pub user_id: u64,
+}
+#[async_trait::async_trait]
+impl RbacCheck for AccessAdminDocsEdit {
+    async fn check<'t>(
+        &self,
+        access: &'t RbacAccess,
+        relation: &'t [RoleRelationKey],
+    ) -> UserRbacResult<()> {
+        access
+            .check(
+                self.user_id,
+                relation,
+                &[AccessRes::system("global-system", &["edit-docs"], &[])],
+            )
+            .await
+    }
+    fn depends(&self) -> Vec<Box<RbacCheckDepend>> {
+        vec![Box::new(AccessAdminManage {
+            user_id: self.user_id,
+        })]
+    }
+}
+impl RbacResTpl for AccessAdminDocsEdit {
+    fn tpl_data() -> Vec<ResTpl> {
+        vec![ResTpl {
+            tags: vec!["system", "docs"],
+            user: false,
+            key: "global-system",
+            ops: vec!["edit-docs"],
+        }]
+    }
+}

@@ -62,7 +62,7 @@ export default function UserMainPage() {
                     avatar={
                         <Link component={RouteLink} to="" underline="none" >
                             <Avatar sx={{ bgcolor: red[500] }}>
-                                R
+                                {userData.user_data.user_nickname.substr(0,1)}
                             </Avatar>
                         </Link>
                     }

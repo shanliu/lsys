@@ -1,6 +1,8 @@
 use config::ConfigError;
 use deadpool_redis::PoolError;
 use lsys_core::ValidCodeError;
+use lsys_docs::dao::GitDocError;
+use lsys_logger::dao::LoggerError;
 use lsys_rbac::dao::rbac::UserRbacError;
 use lsys_sender::dao::SenderError;
 use lsys_setting::dao::SettingError;
@@ -286,6 +288,52 @@ impl From<SettingError> for JsonData {
         }
     }
 }
+
+impl From<GitDocError> for JsonData {
+    fn from(err: GitDocError) -> Self {
+        match err {
+            GitDocError::Sqlx(err) => match err {
+                sqlx::Error::RowNotFound => JsonData::default()
+                    .set_code(200)
+                    .set_sub_code("not_found")
+                    .set_message(err.to_string()),
+                _ => JsonData::default()
+                    .set_code(500)
+                    .set_sub_code("system")
+                    .set_message(err.to_string()),
+            },
+            GitDocError::System(err) => JsonData::default()
+                .set_code(200)
+                .set_sub_code("system")
+                .set_message(err),
+            GitDocError::Redis(err) => JsonData::default()
+                .set_code(200)
+                .set_sub_code("system")
+                .set_message(err),
+        }
+    }
+}
+impl From<LoggerError> for JsonData {
+    fn from(err: LoggerError) -> Self {
+        match err {
+            LoggerError::Sqlx(err) => match err {
+                sqlx::Error::RowNotFound => JsonData::default()
+                    .set_code(200)
+                    .set_sub_code("not_found")
+                    .set_message(err.to_string()),
+                _ => JsonData::default()
+                    .set_code(500)
+                    .set_sub_code("system")
+                    .set_message(err.to_string()),
+            },
+            LoggerError::System(_) => JsonData::default()
+                .set_code(200)
+                .set_sub_code("system")
+                .set_message(err.to_string()),
+        }
+    }
+}
+
 impl From<String> for JsonData {
     fn from(err: String) -> Self {
         JsonData::default().set_message(err)

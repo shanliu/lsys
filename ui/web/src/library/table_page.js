@@ -461,3 +461,33 @@ export function DataPaginationTablePage(props) {
     </TableContainer >
 
 }
+
+
+//公用表显示
+
+export function DataTablePage(props) {
+    const {
+        rows,
+        columns,
+        loading
+    } = props;
+
+    return <TableContainer component={Paper}>
+        <Table>
+            <BaseTableHead
+                columns={columns}
+            />
+
+            {rows && rows.length > 0 ? <BaseTableBody
+                columns={columns}
+                loading={loading}
+                rows={rows}
+            /> : <TableBody><TableRow key={`not-rows`}>
+                <TableCell key={`not-rows-cell`} colSpan={columns.length} >
+                    <BaseTableNoRows />
+                </TableCell>
+            </TableRow></TableBody>}
+        </Table>
+    </TableContainer >
+
+}

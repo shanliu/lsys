@@ -10,7 +10,7 @@ lsys-core = { version = "0.0.1", path = "../lsys-core"}#path 替换为 :,git = "
 serde={ version = "1.0.*"}
 serde_json="1.0.*"
 
-tokio = {version="~1.27"}
+tokio = {version="~1.28"}
 
 sqlx = {version = "~0.6.3",features = [ "mysql","runtime-tokio-native-tls","offline"]}
 sqlx-model = {version = "~0.2.0", default-features=false,features = ["sqlx-mysql"]}

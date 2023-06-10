@@ -267,9 +267,9 @@ impl UserIndex {
     //         );
     //         if let Some(page) = limit {
     //             sql = format!(
-    //                 "{}  {} group by user_id order by {} {} ",
+    //                 "{} {} group by user_id order by {} {} ",
     //                 sql,
-    //                 page.where_sql("t.user_id"),
+    //                 page.where_sql("t.user_id",Some("and")),
     //                 page.order_sql("t.user_id"),
     //                 page.limit_sql(),
     //             );
@@ -341,9 +341,9 @@ impl UserIndex {
         };
         if let Some(page) = limit {
             sql = format!(
-                "{}  {} group by k.user_id order by {} {} ",
+                "{} {} group by k.user_id order by {} {} ",
                 sql,
-                page.where_sql("k.user_id"),
+                page.where_sql("k.user_id", Some("and")),
                 page.order_sql("k.user_id"),
                 page.limit_sql(),
             );

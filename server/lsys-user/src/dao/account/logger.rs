@@ -15,7 +15,7 @@ impl ChangeLogData for LogUserAddress {
     fn log_type<'t>() -> &'t str {
         "user-address"
     }
-    fn format(&self) -> String {
+    fn message(&self) -> String {
         format!("{} role tag ", self.action)
     }
     fn encode(&self) -> String {
@@ -34,7 +34,7 @@ impl ChangeLogData for LogUserEmail {
     fn log_type<'t>() -> &'t str {
         "user-email"
     }
-    fn format(&self) -> String {
+    fn message(&self) -> String {
         format!("{} role tag ", self.action)
     }
     fn encode(&self) -> String {
@@ -62,7 +62,7 @@ impl ChangeLogData for LogUserExternal {
     fn log_type<'t>() -> &'t str {
         "user-external"
     }
-    fn format(&self) -> String {
+    fn message(&self) -> String {
         format!("{} {} ", self.action, self.external_id)
     }
     fn encode(&self) -> String {
@@ -83,7 +83,7 @@ impl ChangeLogData for LogUserInfo {
     fn log_type<'t>() -> &'t str {
         "user-info"
     }
-    fn format(&self) -> String {
+    fn message(&self) -> String {
         "set user info ".to_string()
     }
     fn encode(&self) -> String {
@@ -103,7 +103,7 @@ impl ChangeLogData for LogUserMobile {
     fn log_type<'t>() -> &'t str {
         "user-mobile"
     }
-    fn format(&self) -> String {
+    fn message(&self) -> String {
         format!("{} ", self.action)
     }
     fn encode(&self) -> String {
@@ -121,7 +121,7 @@ impl ChangeLogData for LogUserName {
     fn log_type<'t>() -> &'t str {
         "user-name"
     }
-    fn format(&self) -> String {
+    fn message(&self) -> String {
         format!("{} name {} ", self.action, self.username)
     }
     fn encode(&self) -> String {
@@ -140,7 +140,7 @@ impl ChangeLogData for LogUser {
     fn log_type<'t>() -> &'t str {
         "user"
     }
-    fn format(&self) -> String {
+    fn message(&self) -> String {
         format!("{} user {} ", self.action, self.nickname)
     }
     fn encode(&self) -> String {

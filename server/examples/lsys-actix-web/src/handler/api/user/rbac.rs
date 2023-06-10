@@ -17,13 +17,12 @@ use lsys_web::handler::api::user::{
     user_access_check, user_menu_check, user_res_tags, user_role_options, user_role_tags,
 };
 use lsys_web::handler::api::user::{
-    user_res_add, user_res_delete, user_res_edit, user_res_list_data,
+    user_relation_data, user_role_add, user_role_add_user, user_role_delete, user_role_delete_user,
+    user_role_edit, user_role_list_data, user_role_list_user,
 };
 use lsys_web::handler::api::user::{
-    user_role_add, user_role_add_user, user_role_delete, user_role_delete_user, user_role_edit,
-    user_role_list_data, user_role_list_user,
+    user_res_add, user_res_delete, user_res_edit, user_res_list_data,
 };
-use lsys_web::handler::oauth::user::user_relation_data;
 
 #[post("/res/{method}")]
 pub async fn res<'t>(

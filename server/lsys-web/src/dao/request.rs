@@ -41,8 +41,8 @@ impl<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>> RequestDao<T
             user_session: RwLock::new(user_session),
             web_dao,
             req_env,
-            marker_t: std::marker::PhantomData::default(),
-            marker_d: std::marker::PhantomData::default(),
+            marker_t: std::marker::PhantomData,
+            marker_d: std::marker::PhantomData,
         }
     }
     pub async fn set_request_token(&self, token: &impl RequestToken<T>) {

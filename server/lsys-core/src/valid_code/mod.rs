@@ -1,15 +1,12 @@
 use std::{
     fmt::{Display, Formatter},
     string::FromUtf8Error,
-   
 };
 
 use async_trait::async_trait;
-use deadpool_redis::PoolError;
+use deadpool_redis::{redis::AsyncCommands, Connection, PoolError};
 use rand::prelude::SliceRandom;
-use redis::{aio::Connection, AsyncCommands,  RedisError};
-
-
+use redis::RedisError;
 const CODE_SAVE_KEY: &str = "valid-save";
 
 pub struct ValidCode {

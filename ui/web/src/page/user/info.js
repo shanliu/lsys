@@ -28,6 +28,10 @@ export default function UserInfoPage() {
             name: "绑定手机号"
         },
         {
+            key: "address",
+            name: "收货地址"
+        },
+        {
             key: "oauth",
             name: "第三方账号"
         }

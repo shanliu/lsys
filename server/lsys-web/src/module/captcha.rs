@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use captcha::filters::{Dots, Noise, Wave};
 use captcha::Captcha;
+use deadpool_redis::Connection;
 use lsys_core::{ValidCodeData, ValidCodeResult};
-use redis::aio::Connection;
 
 pub struct ValidCodeDataCaptcha {
     pub code: String,

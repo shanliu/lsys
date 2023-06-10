@@ -17,6 +17,10 @@ pub struct ChangeLogModel {
     #[sqlx(default)]
     pub log_data: String,
 
+    /// 简化消息
+    #[sqlx(default)]
+    pub message: String,
+
     /// 用户ID
     #[sqlx(default)]
     pub user_id: u64,

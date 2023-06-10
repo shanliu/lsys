@@ -310,7 +310,8 @@ export default function AppSmsMessage(props) {
                 onClick={() => {
                     onSearchChange({
                         ...filterData,
-                        page: 0
+                        start_pos: '',
+                        end_pos: ''
                     }, loadMsgData)
                 }}
                 variant="outlined"

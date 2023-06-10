@@ -6,11 +6,12 @@ use lsys_web::handler::api::sender::{
     smser_ali_config_add, smser_ali_config_del, smser_ali_config_edit, smser_ali_config_list,
     smser_app_ali_config_add, smser_app_ali_config_del, smser_app_ali_config_list,
     smser_config_add, smser_config_del, smser_config_list, smser_message_body,
-    smser_message_cancel, smser_message_list, smser_message_log, SmserAliConfigAddParam,
-    SmserAliConfigDelParam, SmserAliConfigEditParam, SmserAliConfigListParam,
-    SmserAppAliConfigAddParam, SmserAppAliConfigDelParam, SmserAppAliConfigListParam,
-    SmserConfigAddParam, SmserConfigDeleteParam, SmserConfigListParam, SmserMessageBodyParam,
-    SmserMessageCancelParam, SmserMessageListParam, SmserMessageLogParam,
+    smser_message_cancel, smser_message_list, smser_message_log, smser_message_send,
+    SmserAliConfigAddParam, SmserAliConfigDelParam, SmserAliConfigEditParam,
+    SmserAliConfigListParam, SmserAppAliConfigAddParam, SmserAppAliConfigDelParam,
+    SmserAppAliConfigListParam, SmserConfigAddParam, SmserConfigDeleteParam, SmserConfigListParam,
+    SmserMessageBodyParam, SmserMessageCancelParam, SmserMessageListParam, SmserMessageLogParam,
+    SmserMessageSendParam,
 };
 #[post("/smser/{method}")]
 pub(crate) async fn sender_smser<'t>(
@@ -53,6 +54,9 @@ pub(crate) async fn sender_smser<'t>(
         "ali_app_config_list" => {
             smser_app_ali_config_list(json_param.param::<SmserAppAliConfigListParam>()?, &auth_dao)
                 .await
+        }
+        "message_send" => {
+            smser_message_send(json_param.param::<SmserMessageSendParam>()?, &auth_dao).await
         }
         "message_list" => {
             smser_message_list(json_param.param::<SmserMessageListParam>()?, &auth_dao).await

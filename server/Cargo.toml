@@ -8,5 +8,6 @@ members = [
     "lsys-sender",
     "lsys-setting",
     "lsys-logger",
+    "lsys-docs",
     "examples/*"
 ]

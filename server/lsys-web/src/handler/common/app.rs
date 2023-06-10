@@ -105,7 +105,7 @@ pub async fn app_edit<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::message("edit succ"))
+    Ok(JsonData::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -199,7 +199,7 @@ pub async fn app_view_secret<T: SessionTokenData, D: SessionData, S: UserSession
         .app
         .oauth_secret(&app.client_secret)
         .await;
-    Ok(JsonData::message("secret data")
+    Ok(JsonData::default()
         .set_data(json!({ "secret": app.client_secret,"oauth_secret":oauth_secret })))
 }
 
@@ -237,7 +237,12 @@ pub async fn app_confirm<T: SessionTokenData, D: SessionData, S: UserSession<T, 
         .app
         .app_dao
         .app
-        .confirm_app(&app, req_auth.user_data().user_id, None)
+        .confirm_app(
+            &app,
+            req_auth.user_data().user_id,
+            None,
+            Some(&req_dao.req_env),
+        )
         .await?;
     Ok(JsonData::data(json!({ "change": change })))
 }

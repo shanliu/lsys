@@ -1,15 +1,12 @@
 mod clear;
 #[macro_use]
 mod macros;
+use deadpool_redis::redis::AsyncCommands;
 use hashlink::LruCache;
-use redis::AsyncCommands;
 
 use std::{
     str::FromStr,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        
-    },
+    sync::atomic::{AtomicBool, Ordering},
 };
 use tokio::sync::Mutex;
 use tracing::{debug, warn};

@@ -94,7 +94,7 @@ impl WechatLogin {
             .set_ex(&login_key, login_data, self.timeout)
             .await
             .map_err(|e| JsonData::message_error(e.to_string()))?;
-        Ok(JsonData::message("ok"))
+        Ok(JsonData::default())
     }
     // pc定时从服务器获取登陆数据
     pub async fn state_check(

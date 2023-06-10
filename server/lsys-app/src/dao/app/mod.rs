@@ -40,9 +40,9 @@ pub(crate) struct AppLog {
 
 impl ChangeLogData for AppLog {
     fn log_type<'t>() -> &'t str {
-        "setting"
+        "app"
     }
-    fn format(&self) -> String {
+    fn message(&self) -> String {
         format!("{}:{}[{}]", self.action, self.name, self.client_id)
     }
     fn encode(&self) -> String {

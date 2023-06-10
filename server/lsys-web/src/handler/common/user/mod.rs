@@ -1,4 +1,5 @@
 mod address;
+mod change_log;
 mod email;
 mod external;
 mod info;
@@ -12,6 +13,7 @@ mod rbac_role;
 mod register;
 
 pub use address::*;
+pub use change_log::*;
 pub use email::*;
 pub use external::*;
 pub use info::*;

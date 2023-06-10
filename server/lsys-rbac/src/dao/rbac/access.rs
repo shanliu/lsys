@@ -229,10 +229,12 @@ pub struct CheckResData {
 //系统角色实现
 //用代码方式实现角色
 pub trait SystemRoleCheckData: Sync + Send {
-    /// 过滤掉无需检查授权资源
+    /// 过滤掉无需检查授权资源 [为实现跳过一些未资源表注册资源检查，如超级用户访问时未注册也需有权限]
+    /// items 为外部传入待检测授权资源
     /// 返回需检查授权资源
     fn filter_check_res(&self, user_id: u64, items: &[CheckResData]) -> Vec<CheckResData>;
     /// 根据需要验证资源返回角色检测数据，跟数据库中查找到记录合并后进行权限校验
+    /// 如超级用户访问赋予通过权限，自己访问自己资源赋予可操作权限
     fn role_check_data(&self, user_id: u64, check_vec: &[RbacResData]) -> RoleCheckData;
 }
 
@@ -258,6 +260,7 @@ impl SystemRoleCheckData for SystemRole {
         if self.root_user_id.iter().any(|e| *e == user_id) {
             let mut tmp =
                 Vec::with_capacity(check_vec.iter().fold(0, |acc, res| acc + res.ops.len()));
+            //超级用户，返回最高权限且通过检查的权限检测结果
             for check_item in check_vec.iter() {
                 for res_op in check_item.ops.iter() {
                     tmp.push(RoleCheckRow::InnerRole {
@@ -272,6 +275,8 @@ impl SystemRoleCheckData for SystemRole {
         if self.self_res {
             let mut tmp =
                 Vec::with_capacity(check_vec.iter().fold(0, |acc, res| acc + res.ops.len()));
+            //自身资源，返回最底权限且通过检查的权限检测结果
+            //外部有其他权限规则时覆盖这个默认规则
             for check_item in check_vec.iter() {
                 if user_id == check_item.res.user_id {
                     for res_op in check_item.ops.iter() {
@@ -289,9 +294,11 @@ impl SystemRoleCheckData for SystemRole {
     }
     fn filter_check_res(&self, user_id: u64, items: &[CheckResData]) -> Vec<CheckResData> {
         if self.root_user_id.iter().any(|e| *e == user_id) {
+            //超级用户访问，不检查权限是否在数据库里有资源记录
             return vec![];
         }
         if self.self_res {
+            //对于访问自身资源，不检查是否在在数据库有资源记录
             return items
                 .iter()
                 .filter(|e| e.check_res.user_id != user_id)
@@ -618,6 +625,7 @@ impl RbacAccess {
             };
         }
         if self.use_cache {
+            //使用权限缓存
             let cache = self.role.cache();
             find_role_data!(cache);
         } else {

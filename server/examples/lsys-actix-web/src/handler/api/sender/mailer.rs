@@ -5,14 +5,14 @@ use actix_web::post;
 use lsys_web::handler::api::sender::{
     mailer_app_smtp_config_add, mailer_app_smtp_config_del, mailer_app_smtp_config_list,
     mailer_config_add, mailer_config_del, mailer_config_list, mailer_message_body,
-    mailer_message_cancel, mailer_message_list, mailer_message_log, mailer_smtp_config_add,
-    mailer_smtp_config_check, mailer_smtp_config_del, mailer_smtp_config_edit,
-    mailer_smtp_config_list, MailerAppSmtpConfigAddParam, MailerAppSmtpConfigDelParam,
-    MailerAppSmtpConfigListParam, MailerConfigAddParam, MailerConfigDeleteParam,
-    MailerConfigListParam, MailerMessageBodyParam, MailerMessageCancelParam,
-    MailerMessageListParam, MailerMessageLogParam, MailerSmtpConfigAddParam,
-    MailerSmtpConfigCheckParam, MailerSmtpConfigDelParam, MailerSmtpConfigEditParam,
-    MailerSmtpConfigListParam,
+    mailer_message_cancel, mailer_message_list, mailer_message_log, mailer_message_send,
+    mailer_smtp_config_add, mailer_smtp_config_check, mailer_smtp_config_del,
+    mailer_smtp_config_edit, mailer_smtp_config_list, MailerAppSmtpConfigAddParam,
+    MailerAppSmtpConfigDelParam, MailerAppSmtpConfigListParam, MailerConfigAddParam,
+    MailerConfigDeleteParam, MailerConfigListParam, MailerMessageBodyParam,
+    MailerMessageCancelParam, MailerMessageListParam, MailerMessageLogParam,
+    MailerMessageSendParam, MailerSmtpConfigAddParam, MailerSmtpConfigCheckParam,
+    MailerSmtpConfigDelParam, MailerSmtpConfigEditParam, MailerSmtpConfigListParam,
 };
 #[post("/mailer/{method}")]
 pub(crate) async fn sender_mailer<'t>(
@@ -31,6 +31,9 @@ pub(crate) async fn sender_mailer<'t>(
         }
         "config_list" => {
             mailer_config_list(json_param.param::<MailerConfigListParam>()?, &auth_dao).await
+        }
+        "message_send" => {
+            mailer_message_send(json_param.param::<MailerMessageSendParam>()?, &auth_dao).await
         }
         "message_list" => {
             mailer_message_list(json_param.param::<MailerMessageListParam>()?, &auth_dao).await

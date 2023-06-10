@@ -211,6 +211,7 @@ impl Apps {
         app: &AppsModel,
         user_id: u64,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
     ) -> AppsResult<u64> {
         if AppStatus::Ok.eq(app.status) {
             return Ok(0);
@@ -237,6 +238,24 @@ impl Apps {
         };
         db.commit().await?;
         self.cache.clear(&app.client_id).await;
+
+        self.logger
+            .add(
+                &AppLog {
+                    action: "confirm",
+                    name: app.name.to_owned(),
+                    client_id: app.client_id.to_owned(),
+                    client_secret: app.client_secret.to_owned(),
+                    callback_domain: app.callback_domain.to_owned(),
+                },
+                &Some(app.id),
+                &Some(app.user_id),
+                &Some(user_id),
+                None,
+                env_data,
+            )
+            .await;
+
         Ok(res.rows_affected())
     }
     //添加内部APP

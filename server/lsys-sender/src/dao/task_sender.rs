@@ -103,7 +103,7 @@ impl<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync, T: TaskItem<I>> 
         Self {
             result,
             next,
-            marker_i: PhantomData::default(),
+            marker_i: PhantomData,
         }
     }
 }
@@ -198,8 +198,8 @@ impl<
             task_timeout,
             task_size,
             read_size: task_size,
-            marker_i: PhantomData::default(),
-            marker_t: PhantomData::default(),
+            marker_i: PhantomData,
+            marker_t: PhantomData,
         }
     }
 }
@@ -240,6 +240,7 @@ impl<
         run_size: &mut usize,
     ) {
         //任务大小减一
+        //把run_size 放到这里减,方便后期扩展,如启动任务失败时可不加
         *run_size -= 1;
         let pk = v.to_task_pk();
         debug!("add async task start [{}]:{}", task_list_key, pk);
@@ -275,7 +276,7 @@ impl<
         task_executioner: E,
     ) {
         if self.task_size == 0 {
-            error!("task can't is 0");
+            info!("sender task not runing [task size is zero]");
             return;
         }
         let (channel_sender, mut channel_receiver) =
@@ -313,7 +314,7 @@ impl<
             let mut task_set = JoinSet::new(); //进行中任务,没法将任务数据在这关联,所以用 task_ing 关联
             let mut task_ing = vec![]; //任务数据跟任务处理关联数组
 
-            loop {
+            'task_main: loop {
                 debug!("start send task:{}", task_list_key);
 
                 //从channel 获取任务,不阻塞
@@ -377,25 +378,98 @@ impl<
                         }
                     }
 
-                    //异步阻塞等待任务
-                    match channel_receiver.recv().await {
-                        Some(v) => {
-                            Self::run_task(
-                                &mut task_set,
-                                &mut task_ing,
-                                v,
-                                redis_conn.clone(),
-                                exec_num_key.clone(),
-                                task_list_key.clone(),
-                                task_executioner.clone(),
-                                &mut run_size,
-                            )
-                            .await;
-                        }
-                        None => {
-                            //异步阻塞未获取任务,可能发生错误,重新回到不阻塞 try_recv 去获取详细
-                            info!("channel no task ");
-                            continue;
+                    'recv: loop {
+                        if task_set.is_empty() {
+                            //异步阻塞等待任务
+                            match channel_receiver.recv().await {
+                                Some(v) => {
+                                    Self::run_task(
+                                        &mut task_set,
+                                        &mut task_ing,
+                                        v,
+                                        redis_conn.clone(),
+                                        exec_num_key.clone(),
+                                        task_list_key.clone(),
+                                        task_executioner.clone(),
+                                        &mut run_size,
+                                    )
+                                    .await;
+                                    break 'recv;
+                                }
+                                None => {
+                                    //异步阻塞未获取任务,可能发生错误,重新回到不阻塞 try_recv 去获取详细
+                                    info!("channel no task ");
+                                    continue 'task_main;
+                                }
+                            }
+                        } else {
+                            //有进行中任务,监听任务完成跟新增
+                            tokio::select! {
+                                res = channel_receiver.recv() => {
+                                    match res {
+                                        Some(v) => {
+                                            Self::run_task(
+                                                &mut task_set,
+                                                &mut task_ing,
+                                                v,
+                                                redis_conn.clone(),
+                                                exec_num_key.clone(),
+                                                task_list_key.clone(),
+                                                task_executioner.clone(),
+                                                &mut run_size,
+                                            )
+                                            .await;
+                                            break 'recv;
+                                        }
+                                        None => {
+                                            //异步阻塞未获取任务,可能发生错误,重新回到不阻塞 try_recv 去获取详细
+                                            info!("channel no task ");
+                                            continue 'task_main;
+                                        }
+                                    }
+                                }
+                                res = task_set.join_next()=> {
+                                    if let Some(res)=res{//理论上不会NONE
+                                        if let Err(err) = res {
+                                            //有任务PANIC了,非稳定版没法捕捉到任务ID,等TOKIO升级后在修改...
+                                            error!("sender task error[select]:{:?}", err);
+                                        }
+                                        //查找已完成任务列表
+                                        let mut finsih_pk = Vec::with_capacity(max_size);
+                                        task_ing = task_ing
+                                            .into_iter()
+                                            .filter(|(pk, abt)| {
+                                                if abt.is_finished() {
+                                                    finsih_pk.push(pk.to_owned());
+                                                    false
+                                                } else {
+                                                    true
+                                                }
+                                            })
+                                            .collect::<Vec<(I, AbortHandle)>>();
+                                        //未查找到已完成任务,可能上一次已处理完.重新进入等待
+                                        if !finsih_pk.is_empty() {
+                                            //存在处理完任务,进行REDIS解锁及增加空闲任务数量
+                                            //REDIS一次性全部解锁完在释放,省的多次获取锁
+                                            let mut redis = redis_conn.lock().await;
+                                            for pk in finsih_pk {
+                                                run_size += 1;
+                                                match redis.hdel(&task_list_key, &pk).await {
+                                                    Ok(()) => {
+                                                        debug!("clear runing task[select]:{}", pk);
+                                                    }
+                                                    Err(err) => {
+                                                        warn!("clear runing task fail[select]:{}", err);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }else{
+                                        warn!("[sender task] select task set is empty");//理论上,永远不会进入这里
+                                    }
+                                    continue 'recv;
+                                },
+                            };
                         }
                     }
                 }
@@ -404,7 +478,7 @@ impl<
                     while let Some(res) = task_set.join_next().await {
                         if let Err(err) = res {
                             //有任务PANIC了,非稳定版没法捕捉到任务ID,等TOKIO升级后在修改...
-                            error!("task error:{:?}", err);
+                            error!("sender task error:{:?}", err);
                         }
                         //查找已完成任务列表
                         let mut finsih_pk = Vec::with_capacity(max_size);

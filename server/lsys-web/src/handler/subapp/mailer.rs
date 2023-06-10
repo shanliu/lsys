@@ -54,7 +54,7 @@ pub async fn mail_send(
             env_data,
         )
         .await?;
-    Ok(JsonData::message("success"))
+    Ok(JsonData::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -82,5 +82,5 @@ pub async fn mail_cancel(
         .sender_smser
         .app_send_cancel(app, &param.cancel, env_data)
         .await?;
-    Ok(JsonData::message("success"))
+    Ok(JsonData::default())
 }

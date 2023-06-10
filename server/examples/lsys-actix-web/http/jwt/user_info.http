@@ -51,3 +51,15 @@ Authorization: {{jwt_token}}
     "old_password": "xxx",
     "new_password": "123456"
 }
+
+### 用户操作日志
+POST {{user_url}}/logs/change
+Content-Type: application/json
+Authorization: {{jwt_token}}
+
+{
+    
+}
+
+
+

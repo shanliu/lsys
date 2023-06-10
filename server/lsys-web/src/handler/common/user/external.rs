@@ -60,7 +60,7 @@ pub async fn user_external_delete<'t, T: SessionTokenData, D: SessionData, S: Us
             }
         }
     }
-    Ok(JsonData::message("del ext ok"))
+    Ok(JsonData::default())
 }
 
 #[derive(Debug, Deserialize)]

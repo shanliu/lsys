@@ -75,7 +75,7 @@ function NavUser() {
                 <Avatar alt={userData.user_data?.name?.username} />
             </IconButton>
         </Tooltip>
-        <Menu
+        {anchorElUser ? <Menu
             sx={{ mt: '45px' }}
             id="menu-appbar"
             anchorEl={anchorElUser}
@@ -99,7 +99,8 @@ function NavUser() {
             <MenuItem onClick={handleLogout}>
                 <Typography textAlign="center">退出登陆</Typography>
             </MenuItem>
-        </Menu>
+        </Menu> : null}
+
     </Box >
 }
 

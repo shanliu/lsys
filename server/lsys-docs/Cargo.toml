@@ -1,0 +1,43 @@
+[package]
+name = "lsys-docs"
+version = "0.0.1"
+authors = ["liushan <shan.liu@msn.com>"]
+edition = "2021"
+
+
+[dependencies]
+lsys-core = { version = "0.0.1", path = "../lsys-core"}
+lsys-logger = { version = "0.0.1", path = "../lsys-logger"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-setting = { version = "0.0.1", path = "../lsys-setting"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
+
+serde={ version = "1.0.*"}
+serde_json="1.0.*"
+
+#db
+sqlx = {version = "~0.6.3",features = [ "mysql","runtime-tokio-native-tls","offline"]}
+sqlx-model = {version = "0.2.0", default-features=false,features = [ "sqlx-mysql"]}
+
+
+redis = { version = "~0.23",features=[ "tokio-comp","connection-manager","aio" ] }
+
+#日志
+tracing = {version="0.1.*",features=["log"]}# log-always 保持log的输出 当使用tracing时会出现两次
+
+tokio = {version="~1.28"}
+
+fluent-syntax="0.11.0"
+fluent = "0.16.0"
+
+
+
+hostname = "~0.3.*"
+
+git2 = "0.17.1"
+
+
+tempfile = "3.2.0"
+
+url = "2.2.2"
+
+
+regex = "~1.8.0"

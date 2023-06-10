@@ -204,7 +204,7 @@ pub async fn user_mobile_confirm<'t, T: SessionTokenData, D: SessionData, S: Use
             .confirm_mobile_from_code(&mobile, &param.code, Some(&req_dao.req_env))
             .await?;
     }
-    Ok(JsonData::message("edit mobile ok"))
+    Ok(JsonData::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -259,7 +259,7 @@ pub async fn user_mobile_delete<'t, T: SessionTokenData, D: SessionData, S: User
             }
         }
     }
-    Ok(JsonData::message("del mobile ok"))
+    Ok(JsonData::default())
 }
 
 #[derive(Debug, Deserialize)]

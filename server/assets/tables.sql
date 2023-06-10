@@ -2,6 +2,7 @@ CREATE TABLE `yaf_change_logs` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `log_type` varchar(32) NOT NULL COMMENT '日志类型',
     `log_data` text NOT NULL COMMENT '日志数据',
+    `message` varchar(255) DEFAULT '' NULL COMMENT '消息',
     `user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '操作记录用户ID',
     `source_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '相关操作记录ID',
     `add_user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '操作用户ID',
@@ -129,6 +130,7 @@ CREATE TABLE `yaf_user` (
 CREATE TABLE `yaf_user_address` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
+    `country_code` varchar(6) NOT NULL COMMENT '国家代码',
     `address_code` varchar(21) NOT NULL COMMENT '地址代码',
     `address_info` varchar(64) NOT NULL COMMENT '地址信息,冗余,显示用',
     `address_detail` varchar(128) NOT NULL COMMENT '地址详细',
@@ -214,7 +216,7 @@ CREATE TABLE `yaf_user_name` (
     `status` tinyint NOT NULL DEFAULT 1 COMMENT '状态',
     PRIMARY KEY (`id`),
     UNIQUE KEY `yaf_user_user_id_IDX` (`user_id`) USING BTREE,
-    UNIQUE KEY `yaf_user_username_IDX` (`username`,`status`) USING BTREE
+    UNIQUE KEY `yaf_user_username_IDX` (`username`, `status`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户登录账号';
 -- test.yaf_user_password definition
 CREATE TABLE `yaf_user_password` (
@@ -234,9 +236,9 @@ CREATE TABLE `yaf_user_index` (
     `status` tinyint(4) NOT NULL DEFAULT 1 COMMENT '索引状态 ',
     `change_time` int(10) unsigned NOT NULL DEFAULT 0 COMMENT '最后更改时间',
     PRIMARY KEY (`id`),
-    UNIQUE KEY `yaf_user_index_user_id_IDX` (`user_id`,`index_cat`,`index_data`) USING BTREE,
-    KEY `yaf_user_index_index_data_IDX` (`index_data`,`status`) USING BTREE,
-    KEY `yaf_user_index_user_id_status_IDX` (`user_id`,`status`) USING BTREE
+    UNIQUE KEY `yaf_user_index_user_id_IDX` (`user_id`, `index_cat`, `index_data`) USING BTREE,
+    KEY `yaf_user_index_index_data_IDX` (`index_data`, `status`) USING BTREE,
+    KEY `yaf_user_index_user_id_status_IDX` (`user_id`, `status`) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 18221001 DEFAULT CHARSET = utf8mb4 COMMENT = '用户数据索引,尝试用外部搜索引擎代替';
 -- ----------- lsys-user  ---------------
 -- ----------- lsys-app  ---------------
@@ -406,3 +408,70 @@ CREATE TABLE `yaf_sender_sms_aliyun` (
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '短信ALIYUN跟内部短信映射';
 -- ----------- lsys-sender  ---------------
+-- ----------- lsys-doc  ---------------
+CREATE TABLE `yaf_doc_git` (
+    `id` int unsigned NOT NULL AUTO_INCREMENT,
+    `url` varchar(255) NOT NULL COMMENT 'GIT地址,包含用户名',
+    `branch` varchar(128) NOT NULL COMMENT '分支名',
+    `is_update` tinyint NOT NULL COMMENT '保持最新版,0否 1 是',
+    `is_tag` tinyint NOT NULL COMMENT '分支是否是TAG,0否 1 是',
+    `build_version` varchar(64) NOT NULL COMMENT '当前使用构建版本',
+    `clear_rule` varchar(512) NOT NULL DEFAULT "" COMMENT '清理路径表达式',
+    `status` tinyint NOT NULL COMMENT '状态:删除 正常',
+    `finish_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '第一个成功时间,修改时重置为0,更新时加build_version约束',
+    `change_user_id` bigint unsigned NOT NULL COMMENT '最后修改用户',
+    `change_time` bigint unsigned NOT NULL COMMENT '最后修改时间',
+    PRIMARY KEY (`id`)
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '文档GIT来源';
+CREATE TABLE `yaf_doc_menu` (
+    `id` int unsigned NOT NULL AUTO_INCREMENT,
+    `doc_git_id` int unsigned NOT NULL COMMENT '文档GIT来源ID',
+    `build_version` varchar(64) NOT NULL COMMENT '当前使用构建版本',
+    `menu_path` varchar(254) NOT NULL COMMENT '目录文件路径',
+    `access_path` varchar(254) NOT NULL COMMENT '访问路径限制',
+    `status` tinyint NOT NULL COMMENT '状态 正常 删除 ',
+    `finish_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '第一个成功时间,修改时重置为0,更新时加build_version约束',
+    `change_user_id` bigint unsigned NOT NULL COMMENT '最后修改用户',
+    `change_time` bigint unsigned NOT NULL COMMENT '最后修改时间',
+    PRIMARY KEY (`id`)
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '文档目录文件配置';
+CREATE TABLE `yaf_doc_clone` (
+    `id` int unsigned NOT NULL AUTO_INCREMENT,
+    `doc_git_id` int unsigned NOT NULL COMMENT '文档GIT来源ID',
+    `host` varchar(255) NOT NULL COMMENT '克隆主机',
+    `build_version` varchar(64) NOT NULL COMMENT '当前使用构建版本',
+    `clone_time` bigint unsigned NOT NULL COMMENT '最后CLONE开始时间',
+    `finish_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '克隆完成时间',
+    `clone_try` tinyint NOT NULL COMMENT '尝试克隆次数',
+    `status` tinyint NOT NULL COMMENT '状态:待克隆 已克隆 已删除',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `yaf_user_clone_IDX` (`doc_git_id`, `host`, `build_version`) USING BTREE
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '文档GIT来源';
+CREATE TABLE `yaf_doc_build` (
+    `id` int unsigned NOT NULL AUTO_INCREMENT,
+    `doc_git_id` int unsigned NOT NULL COMMENT '文档GIT来源ID',
+    `doc_menu_id` int unsigned NOT NULL COMMENT '文档GIT来源ID',
+    `host` varchar(255) NOT NULL COMMENT '克隆主机',
+    `build_version` varchar(64) NOT NULL COMMENT '当前使用构建版本',
+    `build_data` text NOT NULL COMMENT '目录内容,仅保留成功',
+    `finish_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '完成时间',
+    `status` tinyint NOT NULL COMMENT '状态:部分完成,失败,完成 已删除',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `yaf_user_clone_IDX` (
+        `doc_git_id`,
+        `doc_menu_id`,
+        `host`,
+        `build_version`
+    ) USING BTREE
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '文档GIT来源';
+CREATE TABLE `yaf_doc_logs` (
+    `id` int unsigned NOT NULL AUTO_INCREMENT,
+    `doc_git_id` int unsigned NOT NULL COMMENT '文档GIT来源ID',
+    `doc_menu_id` int unsigned NOT NULL DEFAULT 0 COMMENT '目录配置ID,可为0',
+    `host` varchar(255) NOT NULL COMMENT '执行时主机名',
+    `build_version` varchar(64) NOT NULL COMMENT '当前使用构建版本',
+    `message` varchar(255) NOT NULL COMMENT '消息内容',
+    `add_time` bigint unsigned NOT NULL COMMENT '最后修改时间',
+    PRIMARY KEY (`id`)
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '文档日志';
+-- ----------- lsys-doc  ---------------

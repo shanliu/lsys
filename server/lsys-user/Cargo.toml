@@ -6,9 +6,9 @@ edition = "2021"
 
 
 [dependencies]
-tokio = {version="~1.27"}
-deadpool-redis = { version = "0.11" }
-redis = { version = "~0.22"  }
+tokio = {version="~1.28"}
+deadpool-redis = { version = "0.12" }
+redis = { version = "~0.23"  }
 
 lsys-core = { version = "~0.0.*", path = "../lsys-core"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-setting = { version = "~0.0.*", path = "../lsys-setting"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
@@ -48,14 +48,14 @@ hashlink="~0.8.*"
 hostname = "~0.3.*"
 
 
-ip2location = "~0.3.*"
+ip2location = "~0.4.*"
 
 
 
-regex = "~1.7.0"
+regex = "~1.8.0"
 
 config = "~0.13.*"
 
 
 [dev-dependencies]
-tokio = {version="~1.27.0",features=["test-util"]}
+tokio = {version="~1.28.0",features=["test-util"]}

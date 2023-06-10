@@ -2,6 +2,7 @@ use actix_service::ServiceFactory;
 use actix_web::{dev::ServiceRequest, options, web::scope, App, Error, HttpResponse, Responder};
 
 mod app;
+mod docs;
 mod sender;
 mod site;
 mod user;
@@ -26,6 +27,7 @@ where
         scope("/api/user")
             .service(user::address)
             .service(user::user_list)
+            .service(user::user_logs)
             .service(user::email)
             .service(user::email_confirm)
             .service(user::external)
@@ -52,6 +54,13 @@ where
         scope("/api/setting")
             .service(site::oauth_config)
             .service(site::system_config)
+            .service(options),
+    )
+    .service(
+        scope("/api/docs")
+            .service(docs::docs_setting)
+            .service(docs::docs_raw)
+            .service(docs::docs_setting)
             .service(options),
     )
     .service(

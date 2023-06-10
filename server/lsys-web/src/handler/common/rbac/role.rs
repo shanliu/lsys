@@ -340,7 +340,7 @@ pub async fn rbac_role_edit(
     };
     transaction.commit().await?;
 
-    Ok(JsonData::message("save succ"))
+    Ok(JsonData::default())
 }
 
 async fn set_attr<'t>(
@@ -441,7 +441,7 @@ pub async fn rbac_role_add_user(
         .collect::<Vec<RoleAddUser>>();
     dao.role_add_user(&role, &user_vec, user_id, None, env_data)
         .await?;
-    Ok(JsonData::message("add succ"))
+    Ok(JsonData::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -473,7 +473,7 @@ pub async fn rbac_role_delete_user(
 
     dao.role_del_user(&role, &param.user_vec, user_id, None, env_data)
         .await?;
-    Ok(JsonData::message("del succ"))
+    Ok(JsonData::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -503,7 +503,7 @@ pub async fn rbac_role_delete(
         .await?;
 
     dao.del_role(&role, user_id, None, env_data).await?;
-    Ok(JsonData::message("list data"))
+    Ok(JsonData::default())
 }
 
 #[derive(Debug, Deserialize)]

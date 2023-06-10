@@ -234,7 +234,7 @@ pub async fn user_email_delete<'t, T: SessionTokenData, D: SessionData, S: UserS
             }
         }
     }
-    Ok(JsonData::message("del email ok"))
+    Ok(JsonData::default())
 }
 
 #[derive(Debug, Deserialize)]

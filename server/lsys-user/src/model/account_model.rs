@@ -64,6 +64,10 @@ pub struct UserAddressModel {
     #[sqlx(default)]
     pub user_id: u64,
 
+    /// 国家代码
+    #[sqlx(default)]
+    pub country_code: String,
+
     /// 地址代码
     #[sqlx(default)]
     pub address_code: String,

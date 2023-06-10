@@ -23,6 +23,7 @@ impl UserLogin {
         login_account: Option<String>,
         is_login: Option<i8>,
         login_type: Option<String>,
+        login_ip: Option<String>,
         page: &Option<PageParam>,
     ) -> UserAccountResult<Vec<UserLoginModel>> {
         let mut where_sql = vec![];
@@ -36,6 +37,9 @@ impl UserLogin {
         }
         if is_login.is_some() {
             where_sql.push("is_login=?")
+        }
+        if login_ip.is_some() {
+            where_sql.push("login_ip=?")
         }
         if login_type.is_some() {
             where_sql.push("login_type=?")
@@ -57,6 +61,9 @@ impl UserLogin {
                         }
                     }
                     if let Some(tmp) = is_login {
+                        res = res.bind(tmp);
+                    }
+                    if let Some(tmp) = login_ip {
                         res = res.bind(tmp);
                     }
                     if let Some(tmp) = login_type {

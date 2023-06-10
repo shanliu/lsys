@@ -13,9 +13,9 @@ sqlx = {version = "~0.6.3",features = [ "mysql","runtime-tokio-native-tls","offl
 sqlx-model = {version = "~0.2.0", default-features=false,features = ["sqlx-mysql"]}
 
 
-tokio = {version="~1.27.0", features = ["macros"]}
-deadpool-redis = { version = "0.11" }
-redis = { version = "~0.22"  }
+tokio = {version="~1.28.0", features = ["macros"]}
+deadpool-redis = { version = "0.12" }
+redis = { version = "~0.23"  }
 
 serde={ version = "1.0.*" }
 serde_json="1.0.*"

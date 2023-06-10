@@ -30,7 +30,7 @@ use lsys_web::handler::api::user::user_logout;
 use lsys_web::handler::api::user::LoginHistoryParam;
 use lsys_web::{JsonData, JsonResult};
 
-use lsys_web::handler::oauth::user::user_external_login_url;
+use lsys_web::handler::oauth::user_external_login_url;
 use lsys_web_module_oauth::module::{WechatCallbackParam, WechatLogin, WechatLoginParam};
 use serde::Deserialize;
 use serde_json::json;

@@ -57,7 +57,7 @@ pub async fn user_info_set_username<
         .await
         .refresh_session(false)
         .await?;
-    Ok(JsonData::message("success"))
+    Ok(JsonData::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -180,7 +180,7 @@ pub async fn user_info_set_data<'t, T: SessionTokenData, D: SessionData, S: User
         .await
         .refresh_session(false)
         .await?;
-    Ok(JsonData::message("save succ"))
+    Ok(JsonData::default())
 }
 
 pub async fn password_last_modify<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
@@ -253,5 +253,5 @@ pub async fn user_delete<'t, T: SessionTokenData, D: SessionData, S: UserSession
         .del_user(&user, Some(&req_dao.req_env))
         .await?;
     let _ = req_dao.user_session.write().await.clear_session().await;
-    Ok(JsonData::message("delete succ"))
+    Ok(JsonData::default())
 }

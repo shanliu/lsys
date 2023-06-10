@@ -12,9 +12,9 @@ lsys-logger = { version = "0.0.1", path = "../lsys-logger"}#path 替换为 :,git
 serde={ version = "1.0.*"}
 serde_json="1.0.*"
 
-tokio = {version="~1.27"}
-deadpool-redis = { version = "0.11" }
-redis = { version = "~0.22",features=[ "tokio-comp","connection-manager" ] }
+tokio = {version="~1.28"}
+deadpool-redis = { version = "0.12" }
+redis = { version = "~0.23",features=[ "tokio-comp","connection-manager","aio" ] }
 
 sqlx = {version = "~0.6.3",features = [ "mysql","runtime-tokio-native-tls","offline"]}
 sqlx-model = {version = "~0.2.0", default-features=false,features = ["sqlx-mysql"]}
@@ -24,6 +24,7 @@ lettre ={ version = "0.10.1", features = [ "smtp-transport","native-tls", "tokio
 
 # sms send
 sms = "0.1.8"
+
 
 hostname = "~0.3.*"
 

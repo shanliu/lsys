@@ -25,7 +25,10 @@ const SystemSettingPage = React.lazy(() => import('./page/system/setting'));
 const SystemSettingOauthLoginPage = React.lazy(() => import('./page/system/setting/oauth_login'));
 const SystemSettingSitePage = React.lazy(() => import('./page/system/setting/site'));
 
+const SystemLogsPage = React.lazy(() => import('./page/system/logs'));
 const SystemAppPage = React.lazy(() => import('./page/system/app'));
+const SystemDocsPage = React.lazy(() => import('./page/system/docs'));
+
 const SystemSmsSettingPage = React.lazy(() => import('./page/system/sender/sms_setting'));
 const SystemSmsSettingAlismsPage = React.lazy(() => import('./page/system/sender/sms_setting/alisms_config'));
 const SystemAppSmsAliSmsMapPage = React.lazy(() => import('./page/system/sender/sms_setting/alisms_map'));
@@ -62,6 +65,7 @@ const UserInfoPage = React.lazy(() => import('./page/user/info'));
 const UserEmailPage = React.lazy(() => import('./page/user/info/email'));
 const UserInfoIndexPage = React.lazy(() => import('./page/user/info/index'));
 const UserMobilePage = React.lazy(() => import('./page/user/info/mobile'));
+const UserAddressPage = React.lazy(() => import('./page/user/info/address'));
 const UserInfoNamePage = React.lazy(() => import('./page/user/info/name'));
 const UserOauthPage = React.lazy(() => import('./page/user/info/oauth'));
 const UserInfoPasswordPage = React.lazy(() => import('./page/user/info/password'));
@@ -82,8 +86,11 @@ function App() {
             <Route path="oauth" element={<Suspense fallback={<PageProgress />}><SystemSettingOauthLoginPage /></Suspense>} />
             <Route path="site" element={<Suspense fallback={<PageProgress />}><SystemSettingSitePage /></Suspense>} />
           </Route>
+          <Route path="logs" element={<Suspense fallback={<PageProgress />}><SystemLogsPage /></Suspense>} />
 
           <Route path="app" element={<Suspense fallback={<PageProgress />}><SystemAppPage /></Suspense>} />
+          <Route path="docs" element={<Suspense fallback={<PageProgress />}><SystemDocsPage /></Suspense>} />
+
           <Route path="sender_sms" element={<Suspense fallback={<PageProgress />}><SystemSmsSettingPage /></Suspense>} >
             <Route path="alisms" element={<Suspense fallback={<PageProgress />}><SystemSmsSettingAlismsPage /></Suspense>} />
             <Route path="alisms_map" element={<Suspense fallback={<PageProgress />}><SystemAppSmsAliSmsMapPage /></Suspense>} />
@@ -113,6 +120,7 @@ function App() {
             <Route path="name" element={<Suspense fallback={<PageProgress />}><UserInfoNamePage /></Suspense>} />
             <Route path="email" element={<Suspense fallback={<PageProgress />}><UserEmailPage /></Suspense>} />
             <Route path="mobile" element={<Suspense fallback={<PageProgress />}><UserMobilePage /></Suspense>} />
+            <Route path="address" element={<Suspense fallback={<PageProgress />}><UserAddressPage /></Suspense>} />
             <Route path="oauth" element={<Suspense fallback={<PageProgress />}><UserOauthPage /></Suspense>} />
           </Route>
           <Route path="access" element={<Suspense fallback={<PageProgress />}><UserAccessPage /></Suspense>} />

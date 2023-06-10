@@ -9,9 +9,9 @@ edition = "2021"
 futures-util="~0.3.*"
 dotenv = "~0.15.*"
 
-tokio = {version="~1.27.0", features = ["fs"]}
-deadpool-redis = { version = "0.11" }
-redis = { version = "~0.22"  }
+tokio = {version="~1.28.0", features = ["fs"]}
+deadpool-redis = { version = "0.12" }
+redis = { version = "~0.23", features = ["aio","tokio-comp"]  }
 
 
 #db

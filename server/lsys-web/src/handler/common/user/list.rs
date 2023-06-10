@@ -5,7 +5,10 @@ use crate::{
 };
 use lsys_user::{
     dao::auth::{SessionData, SessionTokenData, UserSession},
-    model::{UserEmailStatus, UserIndexCat, UserMobileStatus},
+    model::{
+        UserAddressModel, UserEmailModel, UserEmailStatus, UserExternalModel, UserIndexCat,
+        UserInfoModel, UserMobileModel, UserMobileStatus, UserModel, UserNameModel,
+    },
 };
 use serde::Deserialize;
 use serde_json::json;
@@ -119,6 +122,20 @@ pub async fn user_search<'t, T: SessionTokenData, D: SessionData, S: UserSession
             &data_option,
         )
         .await?;
+
+    let mut user_data = user_data.into_iter().collect::<Vec<(
+        u64,
+        (
+            Option<UserModel>,
+            Option<UserNameModel>,
+            Option<UserInfoModel>,
+            Option<Vec<UserAddressModel>>,
+            Option<Vec<UserEmailModel>>,
+            Option<Vec<UserExternalModel>>,
+            Option<Vec<UserMobileModel>>,
+        ),
+    )>>();
+    user_data.sort_by(|a, b| b.0.cmp(&a.0));
 
     let mut out = Vec::with_capacity(user_data.len());
     for (uid, udat) in user_data {

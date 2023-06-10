@@ -44,7 +44,7 @@ impl LimitParam {
             }
         }
     }
-    pub fn where_sql(&self, field: &str) -> String {
+    pub fn where_sql(&self, field: &str, prefix: Option<&str>) -> String {
         match self {
             LimitParam::Next {
                 pos,
@@ -52,7 +52,13 @@ impl LimitParam {
                 more: _,
                 eq_pos,
             } => match pos {
-                Some(p) => format!(" and {} {} {}", field, if *eq_pos { ">=" } else { ">" }, p),
+                Some(p) => format!(
+                    "{} {} {} {}",
+                    prefix.unwrap_or_default(),
+                    field,
+                    if *eq_pos { ">=" } else { ">" },
+                    p
+                ),
                 None => "".to_string(),
             },
             LimitParam::Prev {
@@ -61,7 +67,13 @@ impl LimitParam {
                 more: _,
                 eq_pos,
             } => match pos {
-                Some(p) => format!(" and {} {} {}", field, if *eq_pos { "<=" } else { "<" }, p),
+                Some(p) => format!(
+                    "{} {} {} {}",
+                    prefix.unwrap_or_default(),
+                    field,
+                    if *eq_pos { "<=" } else { "<" },
+                    p
+                ),
                 None => "".to_string(),
             },
         }

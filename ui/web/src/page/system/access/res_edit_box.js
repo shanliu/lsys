@@ -209,9 +209,9 @@ export function ResEditBox(props) {
                     {
                         op_items.find((item) => {
                             return item.op_key == resData.input_op_key
-                        }) ? <CheckCircleOutlineIcon disabled={loading} sx={{
+                        }) ? <CheckCircleOutlineIcon color={loading ? "disabled" : "primary"} sx={{
                             color: "#666",
-                        }} /> : <AddCircleOutlineIcon disabled={loading} sx={{
+                        }} /> : <AddCircleOutlineIcon color={loading ? "disabled" : "primary"} sx={{
                             color: "#666",
                         }} />
                     }

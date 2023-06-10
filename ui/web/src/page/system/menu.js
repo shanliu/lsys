@@ -9,7 +9,10 @@ import { Link } from '@mui/material';
 import Typography from '@mui/material/Typography';
 import React from 'react';
 import { Link as RouteLink } from 'react-router-dom';
-
+import SmsIcon from '@mui/icons-material/Sms';
+import MailIcon from '@mui/icons-material/Mail';
+import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
+import IntegrationInstructionsOutlinedIcon from '@mui/icons-material/IntegrationInstructionsOutlined';
 export const Menus = [
 
     {
@@ -22,7 +25,7 @@ export const Menus = [
     },
     {
         url: "/system/sender_sms/message",
-        icon: ApiIcon,
+        icon: SmsIcon,
         text: "短信管理",
         rbac: [{
             name: "admin-ali-sms-config"
@@ -32,7 +35,7 @@ export const Menus = [
     },
     {
         url: "/system/sender_mail/message",
-        icon: ApiIcon,
+        icon: MailIcon,
         text: "邮件管理",
         rbac: [{
             name: "admin-smtp-config"
@@ -40,16 +43,16 @@ export const Menus = [
             name: "admin-sender-config"
         }]
     },
-    // {
-    //     url: "/system/user",
-    //     icon: ManageAccountsIcon,
-    //     text: "用户管理",
-    //     rbac: [{
-    //         name: "admin-user"
-    //     }]
-    // },
     {
-        url: "/system/access/test",
+        url: "/system/user",
+        icon: ManageAccountsIcon,
+        text: "用户管理",
+        rbac: [{
+            name: "admin-user"
+        }]
+    },
+    {
+        url: "/system/access/role",
         icon: KeyIcon,
         text: "授权管理",
         rbac: [{
@@ -57,7 +60,25 @@ export const Menus = [
         }, {
             name: "role-view"
         }]
-    }, {
+    },
+    {
+        url: "/system/docs",
+        icon: IntegrationInstructionsOutlinedIcon,
+        text: "开发文档",
+        rbac: [{
+            name: "role-view"
+            //name: "docs-edit"
+        }]
+    },
+    {
+        url: "/system/logs",
+        icon: HistoryOutlinedIcon,
+        text: "系统日志",
+        rbac: [{
+            name: "admin-logs"
+        }]
+    },
+    {
         url: "/system/setting/site",
         icon: SettingsIcon,
         text: "全局设置",

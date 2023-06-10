@@ -396,7 +396,7 @@ impl RbacRes {
             .add(
                 &LogRes {
                     action: "edit",
-                    name: res.name.to_owned(),
+                    name: opt_name.unwrap_or(res.name.to_owned()),
                     res_key: res.res_key.to_owned(),
                 },
                 &Some(res.id),

@@ -13,7 +13,7 @@ impl ChangeLogData for LogMessageTpls {
     fn log_type<'t>() -> &'t str {
         "sender-tpl"
     }
-    fn format(&self) -> String {
+    fn message(&self) -> String {
         format!("{} role tag ", self.action)
     }
     fn encode(&self) -> String {
@@ -38,7 +38,7 @@ impl ChangeLogData for LogMailAppConfig {
     fn log_type<'t>() -> &'t str {
         "sender-mail-app-config"
     }
-    fn format(&self) -> String {
+    fn message(&self) -> String {
         format!(
             "{} mail app {} config {} ",
             self.action, self.app_id, self.name
@@ -63,7 +63,7 @@ impl ChangeLogData for LogSenderConfig {
     fn log_type<'t>() -> &'t str {
         "sender-config"
     }
-    fn format(&self) -> String {
+    fn message(&self) -> String {
         format!(" {} sender config :{} ", self.action, self.app_id,)
     }
     fn encode(&self) -> String {

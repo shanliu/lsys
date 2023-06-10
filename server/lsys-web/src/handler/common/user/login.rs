@@ -19,6 +19,7 @@ pub async fn user_logout<'t, T: SessionTokenData, D: SessionData, S: UserSession
 pub struct LoginHistoryParam {
     pub login_type: Option<String>,
     pub login_account: Option<String>,
+    pub login_ip: Option<String>,
     pub is_login: Option<i8>,
     pub page: Option<PageParam>,
 }
@@ -38,6 +39,7 @@ pub async fn user_login_history<'t, T: SessionTokenData, D: SessionData, S: User
             param.login_account,
             param.is_login,
             param.login_type.clone(),
+            param.login_ip.clone(),
             &Some(param.page.unwrap_or_default().into()),
         )
         .await?;

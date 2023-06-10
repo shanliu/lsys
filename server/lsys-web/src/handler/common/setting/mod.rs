@@ -43,7 +43,7 @@ pub async fn setting_set<
         )
         .await
         .map_err(|e| e.to_string())?;
-    Ok(JsonData::message("ok"))
+    Ok(JsonData::default())
 }
 
 pub async fn setting_get<
@@ -80,3 +80,6 @@ pub async fn setting_get<
 
 mod site_config;
 pub use site_config::*;
+
+mod docs;
+pub use docs::*;

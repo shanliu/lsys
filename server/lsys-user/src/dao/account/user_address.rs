@@ -42,17 +42,26 @@ impl UserAddress {
             logger,
         }
     }
+
     /// 添加用户地址
-    pub async fn add_address<'t, 't2>(
+    pub async fn edit_address<'t, 't2>(
         &self,
+        address: &UserAddressModel,
         user: &UserModel,
-        mut address: UserAddressModelRef<'t2>,
+        mut address_data: UserAddressModelRef<'t2>,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
-    ) -> UserAccountResult<u64> {
+    ) -> UserAccountResult<()> {
+        if !UserAddressStatus::Enable.eq(address.status) {
+            return Err(UserAccountError::System(get_message!(
+                &self.fluent,
+                "user-address-is-delete",
+                format!("address is delete:{}", address.id)
+            )));
+        }
         macro_rules! check_data {
             ($addr_var:ident,$name:literal) => {
-                let $addr_var = if let Some($addr_var) = address.$addr_var {
+                let $addr_var = if let Some($addr_var) = address_data.$addr_var {
                     $addr_var.trim().to_owned()
                 } else {
                     "".to_string()
@@ -64,7 +73,108 @@ impl UserAddress {
                         concat!("address ", $name, " can't be nul")
                     )));
                 }
-                address.$addr_var = Some(&$addr_var);
+                address_data.$addr_var = Some(&$addr_var);
+            };
+        }
+        check_data!(address_info, "info");
+        check_data!(address_code, "code");
+        check_data!(address_detail, "detail");
+        check_data!(name, "name");
+        check_data!(mobile, "mobile");
+        check_mobile(&self.fluent, "", &mobile)?;
+
+        let time = now_time()?;
+        address_data.change_time = Some(&time);
+        address_data.user_id = Some(&address.user_id); //防止被外面给改了
+        address_data.id = None; //防止被外面给改了
+
+        let mut db = match transaction {
+            Some(pb) => pb.begin().await?,
+            None => self.db.begin().await?,
+        };
+        let tmp = Update::<sqlx::MySql, UserAddressModel, _>::new(address_data)
+            .execute_by_pk(address, &mut db)
+            .await;
+        match tmp {
+            Err(e) => {
+                db.rollback().await?;
+                Err(e)?
+            }
+            Ok(_) => {
+                if let Err(ie) = self
+                    .index
+                    .del(
+                        crate::model::UserIndexCat::Address,
+                        user.id,
+                        &[address.address_info.clone()],
+                        Some(&mut db),
+                    )
+                    .await
+                {
+                    db.rollback().await?;
+                    return Err(ie);
+                }
+                if let Err(ie) = self
+                    .index
+                    .add(
+                        crate::model::UserIndexCat::Address,
+                        user.id,
+                        &[address_info.clone()],
+                        Some(&mut db),
+                    )
+                    .await
+                {
+                    db.rollback().await?;
+                    return Err(ie);
+                }
+                db.commit().await?;
+                self.cache.clear(&user.id).await;
+
+                self.logger
+                    .add(
+                        &LogUserAddress {
+                            action: "edit",
+                            address_code,
+                            address_info,
+                            address_detail,
+                            name,
+                            mobile,
+                        },
+                        &Some(address.id),
+                        &Some(address.user_id),
+                        &Some(user.id),
+                        None,
+                        env_data,
+                    )
+                    .await;
+
+                Ok(())
+            }
+        }
+    }
+    /// 添加用户地址
+    pub async fn add_address<'t, 't2>(
+        &self,
+        user: &UserModel,
+        mut address_data: UserAddressModelRef<'t2>,
+        transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        env_data: Option<&RequestEnv>,
+    ) -> UserAccountResult<u64> {
+        macro_rules! check_data {
+            ($addr_var:ident,$name:literal) => {
+                let $addr_var = if let Some($addr_var) = address_data.$addr_var {
+                    $addr_var.trim().to_owned()
+                } else {
+                    "".to_string()
+                };
+                if $addr_var.is_empty() {
+                    return Err(UserAccountError::System(get_message!(
+                        &self.fluent,
+                        concat!("user-address-", $name, "-empty"),
+                        concat!("address ", $name, " can't be nul")
+                    )));
+                }
+                address_data.$addr_var = Some(&$addr_var);
             };
         }
         check_data!(address_info, "info");
@@ -95,16 +205,21 @@ impl UserAddress {
         }
 
         let time = now_time()?;
-        address.change_time = Some(&time);
-        address.status = Some(&(UserAddressStatus::Enable as i8));
-        address.user_id = Some(&user.id);
+        address_data.change_time = Some(&time);
+        address_data.status = Some(&(UserAddressStatus::Enable as i8));
+
+        if address_data.user_id.is_none() {
+            address_data.user_id = Some(&user.id);
+        }
+
+        let address_user_id = *address_data.user_id.unwrap_or(&user.id);
 
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
 
-        let res = Insert::<sqlx::MySql, UserAddressModel, _>::new(address)
+        let res = Insert::<sqlx::MySql, UserAddressModel, _>::new(address_data)
             .execute(&mut db)
             .await;
         match res {
@@ -159,7 +274,7 @@ impl UserAddress {
                                     mobile,
                                 },
                                 &Some(aid),
-                                &Some(user.id),
+                                &Some(address_user_id),
                                 &Some(user.id),
                                 None,
                                 env_data,

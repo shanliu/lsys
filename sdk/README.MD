@@ -53,7 +53,7 @@
 
 ---
 
-> 假设Content-type 为 application/json的POST请求:
+> `假设Content-type 为 application/json的POST请求:`
 ```
 GET:app_id=1212f&version=2.0&timestamp=2023-04-24 15:36:20&method=view&request_ip=fe80::e1bd:c78d:610f:3d03
 POST:{"client_id":"1212f"}
@@ -78,7 +78,7 @@ POST:{"client_id":"1212f"}
 
 
 
-> 假设Content-type 非 application/json的GET请求(其中GET存在可选参数 request_ip,payload):
+> `假设Content-type 非 application/json的GET请求(其中GET存在可选参数 request_ip,payload):`
 ```
 GET:app_id=1212f&payload={"client_id":"1212f"}&request_ip=fe80::e1bd:c78d:610f:3d03&timestamp=2023-04-24:15:45:22&version=2.0
 ```
