@@ -11,8 +11,9 @@ use lsys_sender::{
 };
 use lsys_setting::dao::MultipleSetting;
 use lsys_user::dao::account::{check_email, UserAccountError};
+use serde_json::json;
 use sqlx::{MySql, Pool};
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use tera::Context;
 
 pub enum WebAppMailerError {
@@ -124,7 +125,7 @@ impl WebAppMailer {
     // 发送接口
     async fn send(
         &self,
-        tpl_type: &str,
+        tpl_id: &str,
         to: &str,
         body: &str,
         env_data: Option<&RequestEnv>,
@@ -134,7 +135,7 @@ impl WebAppMailer {
             .send(
                 None,
                 &[to],
-                tpl_type,
+                tpl_id,
                 body,
                 &None,
                 &None,
@@ -184,9 +185,9 @@ impl WebAppMailer {
     pub async fn app_send(
         &self,
         app: &AppsModel,
-        tpl_type: &str,
+        tpl_id: &str,
         to: &[String],
-        body: &str,
+        body: &HashMap<String, String>,
         send_time: Option<u64>,
         reply: &Option<String>,
         cancel_key: &Option<String>,
@@ -205,8 +206,8 @@ impl WebAppMailer {
             .send(
                 Some(app.id),
                 &to.iter().map(|e| e.as_str()).collect::<Vec<_>>(),
-                tpl_type,
-                body,
+                tpl_id,
+                &json!(body).to_string(),
                 &send_time,
                 &Some(app.user_id),
                 reply,

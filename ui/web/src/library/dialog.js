@@ -51,7 +51,7 @@ export function ConfirmButton(props) {
 }
 
 ConfirmButton.propTypes = {
-    message: PropTypes.string.isRequired,
+    message: PropTypes.any.isRequired,
     renderButton: PropTypes.func.isRequired,
     onAction: PropTypes.func.isRequired,
 };

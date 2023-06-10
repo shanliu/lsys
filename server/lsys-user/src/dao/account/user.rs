@@ -5,7 +5,7 @@ use std::sync::Arc;
 use crate::dao::account::UserAccountResult;
 use crate::model::{UserIndexCat, UserModel, UserModelRef, UserStatus};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{get_message, now_time, FluentMessage, LimitParam, RequestEnv};
+use lsys_core::{get_message, now_time, FluentMessage, LimitParam, RemoteNotify, RequestEnv};
 use lsys_logger::dao::ChangeLogger;
 
 use sqlx::{Acquire, MySql, Pool, Transaction};
@@ -29,12 +29,15 @@ impl User {
     pub fn new(
         db: Pool<MySql>,
         fluent: Arc<FluentMessage>,
-        redis: deadpool_redis::Pool,
+        remote_notify: Arc<RemoteNotify>,
         index: Arc<UserIndex>,
         logger: Arc<ChangeLogger>,
     ) -> Self {
         Self {
-            cache: Arc::from(LocalCache::new(redis, LocalCacheConfig::new("user"))),
+            cache: Arc::from(LocalCache::new(
+                remote_notify,
+                LocalCacheConfig::new("user"),
+            )),
             db,
             fluent,
             index,

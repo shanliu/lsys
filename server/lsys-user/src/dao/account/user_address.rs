@@ -1,6 +1,6 @@
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
-    get_message, now_time, FluentMessage, RequestEnv,
+    get_message, now_time, FluentMessage, RemoteNotify, RequestEnv,
 };
 
 use lsys_logger::dao::ChangeLogger;
@@ -27,13 +27,13 @@ impl UserAddress {
     pub fn new(
         db: Pool<MySql>,
         fluent: Arc<FluentMessage>,
-        redis: deadpool_redis::Pool,
+        remote_notify: Arc<RemoteNotify>,
         index: Arc<UserIndex>,
         logger: Arc<ChangeLogger>,
     ) -> Self {
         Self {
             cache: Arc::from(LocalCache::new(
-                redis,
+                remote_notify,
                 LocalCacheConfig::new("user-address"),
             )),
             db,

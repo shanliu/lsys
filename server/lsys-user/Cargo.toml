@@ -25,7 +25,7 @@ futures-util="0.3.*"
 pin-project = "1.0.*"
 
 
-rand = "~0.8.*"
+# rand = "~0.8.*"
 
 fluent = "~0.16.*"
 fluent-syntax="~0.11.*"

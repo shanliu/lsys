@@ -2,7 +2,7 @@ mod setting;
 mod setting_multiple;
 mod setting_single;
 
-use lsys_core::{AppCore, AppCoreError};
+use lsys_core::{AppCore, AppCoreError, RemoteNotify};
 use lsys_logger::dao::ChangeLogger;
 pub use setting::*;
 pub use setting_multiple::*;
@@ -19,7 +19,7 @@ impl Setting {
     pub async fn new(
         app_core: Arc<AppCore>,
         db: Pool<MySql>,
-        redis: deadpool_redis::Pool,
+        remote_notify: Arc<RemoteNotify>,
         logger: Arc<ChangeLogger>,
     ) -> Result<Self, AppCoreError> {
         let app_locale_dir = app_core.app_dir.join("locale/lsys-rbac");
@@ -35,10 +35,15 @@ impl Setting {
             single: Arc::from(SingleSetting::new(
                 db.clone(),
                 fluents_message.clone(),
-                redis.clone(),
+                remote_notify.clone(),
                 logger.clone(),
             )),
-            multiple: Arc::from(MultipleSetting::new(db, fluents_message, redis, logger)),
+            multiple: Arc::from(MultipleSetting::new(
+                db,
+                fluents_message,
+                remote_notify,
+                logger,
+            )),
         })
     }
 }

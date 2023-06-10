@@ -297,7 +297,7 @@ export default function SystemUserPage(props) {
         key_word: "",
         start_pos: '',
         end_pos: '',
-        page_size: 10,
+        page_size: 25,
     });
     let [loadData, setLoadData] = useState({
         status: false,
@@ -419,7 +419,7 @@ export default function SystemUserPage(props) {
             key_word: searchParam.get("key_word"),
             start_pos: searchParam.get("start_pos") ?? '',
             end_pos: searchParam.get("end_pos") ?? '',
-            page_size: searchParam.get("page_size") || 10,
+            page_size: searchParam.get("page_size") || 25,
             enable_user: false,
         }
         return userSearch(param).then((data) => {
@@ -573,7 +573,7 @@ export default function SystemUserPage(props) {
                             }, loadUserData)
                         }
                     }}
-                    rowsPerPage={searchParam.get("page_size") || 10}
+                    rowsPerPage={searchParam.get("page_size") || 25}
                     onRowsPerPageChange={(e) => {
                         setSearchParam({
                             page_size: e.target.value,

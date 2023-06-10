@@ -6,6 +6,7 @@ edition = "2021"
 
 
 [dependencies]
+lsys-core = { version = "0.0.1", path = "../../lsys-core"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-web = { version = "0.0.1", path = "../../lsys-web"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-setting = { version = "0.0.1", path = "../../lsys-setting"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-rbac = { version = "0.0.1", path = "../../lsys-rbac"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
@@ -18,7 +19,6 @@ async-trait = "0.1.57"
 config = "0.13.2"
 
 
-rand = "~0.8.*"
 
 redis = { version = "~0.23"  }
 

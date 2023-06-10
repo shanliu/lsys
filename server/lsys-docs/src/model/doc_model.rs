@@ -8,21 +8,44 @@ pub struct DocGitModel {
     #[sqlx(default)]
     pub id: u32,
 
-    /// GIT地址,包含用户名
+    /// GIT 名称
+    #[sqlx(default)]
+    pub name: String,
+
+    /// GIT地址,包含用户名 当 doc_tag 中 tag 跟 build_version 存在源中时可替换
     #[sqlx(default)]
     pub url: String,
 
+    /// 状态:删除 正常
+    #[sqlx(default)]
+    pub status: i8,
+
+    /// 尝试次数
+    #[sqlx(default)]
+    pub max_try: u8,
+
+    /// 最后修改用户
+    #[sqlx(default)]
+    pub change_user_id: u64,
+
+    /// 最后修改时间
+    #[sqlx(default)]
+    pub change_time: u64,
+}
+
+#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(table_name = "doc_tag")]
+pub struct DocGitTagModel {
+    #[sqlx(default)]
+    pub id: u64,
+
+    /// 文档GIT来源ID
+    #[sqlx(default)]
+    pub doc_git_id: u32,
+
     /// 分支名
     #[sqlx(default)]
-    pub branch: String,
-
-    /// 保持最新版,0否 1 是
-    #[sqlx(default)]
-    pub is_update: i8,
-
-    /// 分支是否是TAG,0否 1 是
-    #[sqlx(default)]
-    pub is_tag: i8,
+    pub tag: String,
 
     /// 当前使用构建版本
     #[sqlx(default)]
@@ -32,153 +55,95 @@ pub struct DocGitModel {
     #[sqlx(default)]
     pub clear_rule: String,
 
-    /// 状态:删除 正常
+    /// 状态:删除 未启用 已启用[必须有一个CLONE成功]
     #[sqlx(default)]
     pub status: i8,
 
-    /// 第一个成功时间,修改时重置为0,更新时加build_version约束  default:  0
-    #[sqlx(default)]
-    pub finish_time: u64,
-
     /// 最后修改用户
     #[sqlx(default)]
-    pub change_user_id: u64,
+    pub add_user_id: u64,
 
     /// 最后修改时间
     #[sqlx(default)]
-    pub change_time: u64,
+    pub add_time: u64,
+}
+
+#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(table_name = "doc_clone")]
+pub struct DocGitCloneModel {
+    #[sqlx(default)]
+    pub id: u64,
+
+    /// 文档GIT来源ID
+    #[sqlx(default)]
+    pub doc_tag_id: u64,
+
+    /// 克隆主机
+    #[sqlx(default)]
+    pub host: String,
+
+    /// 最后CLONE开始时间
+    #[sqlx(default)]
+    pub start_time: u64,
+
+    /// 克隆完成时间  default:  0
+    #[sqlx(default)]
+    pub finish_time: u64,
+
+    /// 状态:待克隆 已克隆 克隆失败 已删除[删除已克隆时,必须存在大于一个]
+    /// 克隆完更新时,status!=已删除
+    #[sqlx(default)]
+    pub status: i8,
 }
 
 #[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
 #[sqlx_model(table_name = "doc_menu")]
 pub struct DocMenuModel {
     #[sqlx(default)]
-    pub id: u32,
+    pub id: u64,
 
     /// 文档GIT来源ID
     #[sqlx(default)]
-    pub doc_git_id: u32,
-
-    /// 当前使用构建版本
-    #[sqlx(default)]
-    pub build_version: String,
+    pub doc_tag_id: u64,
 
     /// 目录文件路径
     #[sqlx(default)]
     pub menu_path: String,
 
-    /// 访问路径限制
+    /// 添加时检测主机,查问题用
     #[sqlx(default)]
-    pub access_path: String,
+    pub menu_check_host: String,
 
     /// 状态 正常 删除  
     #[sqlx(default)]
     pub status: i8,
 
-    /// 第一个成功时间,修改时重置为0,更新时加build_version约束  default:  0
-    #[sqlx(default)]
-    pub finish_time: u64,
-
     /// 最后修改用户
     #[sqlx(default)]
-    pub change_user_id: u64,
+    pub add_user_id: u64,
 
     /// 最后修改时间
     #[sqlx(default)]
-    pub change_time: u64,
-}
-
-#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(table_name = "doc_clone")]
-pub struct DocCloneModel {
-    #[sqlx(default)]
-    pub id: u64,
-
-    /// 文档GIT来源ID
-    #[sqlx(default)]
-    pub doc_git_id: u32,
-
-    /// 克隆主机
-    #[sqlx(default)]
-    pub host: String,
-
-    /// 当前使用构建版本
-    #[sqlx(default)]
-    pub build_version: String,
-
-    /// 最后CLONE开始时间
-    #[sqlx(default)]
-    pub clone_time: u64,
-
-    /// 克隆完成时间  default:  0
-    #[sqlx(default)]
-    pub finish_time: u64,
-
-    /// 尝试克隆次数
-    #[sqlx(default)]
-    pub clone_try: i8,
-
-    /// 状态:待克隆 已克隆 已删除
-    #[sqlx(default)]
-    pub status: i8,
-}
-
-#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(table_name = "doc_build")]
-pub struct DocBuildModel {
-    #[sqlx(default)]
-    pub id: u64,
-
-    /// 文档GIT来源ID
-    #[sqlx(default)]
-    pub doc_git_id: u32,
-
-    /// 文档GIT来源ID
-    #[sqlx(default)]
-    pub doc_menu_id: u32,
-
-    /// 克隆主机
-    #[sqlx(default)]
-    pub host: String,
-
-    /// 当前使用构建版本
-    #[sqlx(default)]
-    pub build_version: String,
-
-    /// 目录内容,仅保留成功
-    #[sqlx(default)]
-    pub build_data: String,
-
-    /// 完成时间  default:  0
-    #[sqlx(default)]
-    pub finish_time: u64,
-
-    /// 状态:部分完成,失败,完成 已删除
-    #[sqlx(default)]
-    pub status: i8,
+    pub add_time: u64,
 }
 
 #[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
 #[sqlx_model(table_name = "doc_logs")]
 pub struct DocLogsModel {
     #[sqlx(default)]
-    pub id: u32,
+    pub id: u64,
 
     /// 文档GIT来源ID
     #[sqlx(default)]
-    pub doc_git_id: u32,
+    pub doc_tag_id: u64,
 
-    /// 目录配置ID,可为0  default:  0
+    /// 文件CLONE表ID
     #[sqlx(default)]
-    pub doc_menu_id: u32,
+    pub doc_clone_id: u64,
 
     /// 执行时主机名
     #[sqlx(default)]
     pub host: String,
-
-    /// 当前使用构建版本
-    #[sqlx(default)]
-    pub build_version: String,
 
     /// 消息内容
     #[sqlx(default)]

@@ -160,7 +160,7 @@ export async function senderListConfig(type, param, config) {
     let data = {
         "page": {
             page: parseInt(page) >= 0 ? (parseInt(page) + 1) : 1,
-            limit: parseInt(page_size) > 0 ? parseInt(page_size) : 10
+            limit: parseInt(page_size) > 0 ? parseInt(page_size) : 25
         }
     };
     if (id > 0) {
@@ -194,7 +194,7 @@ export async function senderListAppMessage(type, param, config) {
     let data = {
         count_num: false,
         limit: {
-            limit: parseInt(page_size) > 0 ? parseInt(page_size) : 10,
+            limit: parseInt(page_size) > 0 ? parseInt(page_size) : 25,
             next: false,
             more: true,
         }
@@ -245,7 +245,7 @@ export async function senderListAppMessageLog(type, param, config) {
         message_id: message_id.toString(),
         page: {
             page: parseInt(page) >= 0 ? (parseInt(page) + 1) : 1,
-            limit: parseInt(page_size) > 0 ? parseInt(page_size) : 10
+            limit: parseInt(page_size) > 0 ? parseInt(page_size) : 25
         }
     };
     let response = await senderSettingRest(type).post("/message_log", data, config);
@@ -388,7 +388,7 @@ export async function smsListAppAliConfig(param, config) {
     let data = {
         "page": {
             page: parseInt(page) >= 0 ? (parseInt(page) + 1) : 1,
-            limit: parseInt(page_size) > 0 ? parseInt(page_size) : 10
+            limit: parseInt(page_size) > 0 ? parseInt(page_size) : 25
         }
     };
     let errors = {};
@@ -641,7 +641,7 @@ export async function mailListAppSmtpConfig(param, config) {
     let data = {
         "page": {
             page: parseInt(page) >= 0 ? (parseInt(page) + 1) : 1,
-            limit: parseInt(page_size) > 0 ? parseInt(page_size) : 10
+            limit: parseInt(page_size) > 0 ? parseInt(page_size) : 25
         }
     };
     let errors = {};
@@ -773,7 +773,7 @@ export async function tplsListConfig(param, config) {
         count_num: true,
         page: {
             page: parseInt(page) >= 0 ? (parseInt(page) + 1) : 1,
-            limit: parseInt(page_size) > 0 ? parseInt(page_size) : 10
+            limit: parseInt(page_size) > 0 ? parseInt(page_size) : 25
         }
     }
     let errors = {};

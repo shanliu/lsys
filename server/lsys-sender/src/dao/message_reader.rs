@@ -28,25 +28,7 @@ where
         FromRow<'r, sqlx::mysql::MySqlRow> + Send + Unpin + ModelTableName + ModelTableField<MySql>,
 {
     pub fn new(db: Pool<sqlx::MySql>, app_core: Arc<AppCore>, _fluent: Arc<FluentMessage>) -> Self {
-        //TODO  这个生成ID 库有BUG...
-        let machine_id = app_core.config.get_int("snowflake_machine_id").unwrap_or(1);
-        let machine_id = (machine_id.abs() % 31) as i32;
-        let node_id = app_core
-            .config
-            .get_int("snowflake_node_id")
-            .unwrap_or_else(|_| {
-                crc32fast::hash(
-                    hostname::get()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                        .as_bytes(),
-                )
-                .into()
-            });
-        let node_id = (node_id.abs() % 31) as i32;
-        let id_generator = Arc::new(Mutex::new(snowflake::SnowflakeIdGenerator::new(
-            machine_id, node_id,
-        )));
+        let id_generator = Arc::new(Mutex::new(app_core.create_snowflake_id_generator()));
         Self {
             id_generator,
             db,

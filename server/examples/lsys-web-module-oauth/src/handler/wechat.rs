@@ -2,7 +2,7 @@ use crate::module::WeChatConfig;
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
 use lsys_web::{
     dao::RequestDao,
-    handler::api::setting::{setting_get, setting_set},
+    handler::api::utils::{setting_get, setting_set},
     JsonData, JsonResult,
 };
 use serde::Deserialize;

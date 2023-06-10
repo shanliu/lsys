@@ -14,7 +14,7 @@ export default function UserAppSmsAliSmsMapPage(props) {
         id: '',
         app_id: '',
         page: 0,
-        page_size: 10,
+        page_size: 25,
     });
     return <AppSmsAliSmsMap
         userId={userData.user_data.user_id}
@@ -22,7 +22,7 @@ export default function UserAppSmsAliSmsMapPage(props) {
         appId={searchParam.get("app_id") ?? ''}
         appName={appData.name ?? ''}
         page={searchParam.get("page") ?? 0}
-        pageSize={searchParam.get("page_size") ?? 10}
+        pageSize={searchParam.get("page_size") ?? 25}
         onSearchChange={setSearchParam}
     >
         <AppSelect

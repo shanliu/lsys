@@ -21,7 +21,7 @@ export async function loginHistroy(param, config) {
         "is_login": is_login == '' ? null : parseInt(is_login),
         "page": {
             page: parseInt(page) >= 0 ? (parseInt(page) + 1) : 1,
-            limit: parseInt(page_size) > 0 ? parseInt(page_size) : 10
+            limit: parseInt(page_size) > 0 ? parseInt(page_size) : 25
         }
     }, config);
     return restResult(response, ['not_found'])
@@ -449,7 +449,7 @@ export async function userSearch(param, config) {
         email: opt ? [] : null,
         mobile: opt ? [] : null,
         limit: {
-            limit: parseInt(page_size) > 0 ? parseInt(page_size) : 10,
+            limit: parseInt(page_size) > 0 ? parseInt(page_size) : 25,
             next: false,
             more: more,
         },
@@ -526,7 +526,7 @@ export async function userLogs(param, config) {
     const { user_id, log_type, add_user_id, page_size, more, end_pos, start_pos } = param;
     var param = {
         limit: {
-            limit: parseInt(page_size) > 0 ? parseInt(page_size) : 10,
+            limit: parseInt(page_size) > 0 ? parseInt(page_size) : 25,
             next: false,
             more: more,
         },

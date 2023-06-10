@@ -109,7 +109,7 @@ export function MessageLogBox(props) {
     })
     const [historyDataParam, setHistoryDataParam] = useState({
         page: 0,
-        page_size: 10
+        page_size: 25
     });
     const loadhistoryData = () => {
         setHistoryData({

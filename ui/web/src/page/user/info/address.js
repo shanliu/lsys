@@ -217,7 +217,7 @@ export default function UserAddressPage(props) {
     });
     const [param, setParam] = useSearchChange({
         page: 0,
-        page_size: 10
+        page_size: 25
     });
     const loadAddressData = () => {
         setLoadData({
@@ -398,7 +398,7 @@ export default function UserAddressPage(props) {
                             page: newPage
                         }, loadAddressData)
                     }}
-                    rowsPerPage={param.get("page_size") || 10}
+                    rowsPerPage={param.get("page_size") || 25}
                     onRowsPerPageChange={(e) => {
                         setParam({
                             page_size: e.target.value,

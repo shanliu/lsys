@@ -9,7 +9,7 @@ use self::user_login::UserLogin;
 use super::auth::UserPasswordHash;
 
 use deadpool_redis::PoolError;
-use lsys_core::{FluentMessage, ValidCodeError};
+use lsys_core::{FluentMessage, RemoteNotify, ValidCodeError};
 
 use lsys_logger::dao::ChangeLogger;
 use lsys_setting::dao::{SettingError, SingleSetting};
@@ -119,6 +119,7 @@ impl UserAccount {
         redis: deadpool_redis::Pool,
         fluent: Arc<FluentMessage>,
         setting: Arc<SingleSetting>,
+        remote_notify: Arc<RemoteNotify>,
         logger: Arc<ChangeLogger>,
     ) -> Self {
         let user_index = Arc::from(UserIndex::new(db.clone()));
@@ -127,7 +128,7 @@ impl UserAccount {
             user: Arc::from(User::new(
                 db.clone(),
                 fluent.clone(),
-                redis.clone(),
+                remote_notify.clone(),
                 user_index.clone(),
                 logger.clone(),
             )),
@@ -135,13 +136,14 @@ impl UserAccount {
                 db.clone(),
                 redis.clone(),
                 fluent.clone(),
+                remote_notify.clone(),
                 user_index.clone(),
                 logger.clone(),
             )),
             user_external: Arc::from(UserExternal::new(
                 db.clone(),
-                redis.clone(),
                 fluent.clone(),
+                remote_notify.clone(),
                 user_index.clone(),
                 logger.clone(),
             )),
@@ -149,26 +151,27 @@ impl UserAccount {
                 db.clone(),
                 redis.clone(),
                 fluent.clone(),
+                remote_notify.clone(),
                 user_index.clone(),
                 logger.clone(),
             )),
             user_name: Arc::from(UserName::new(
                 db.clone(),
-                redis.clone(),
+                remote_notify.clone(),
                 fluent.clone(),
                 user_index.clone(),
                 logger.clone(),
             )),
             user_info: Arc::from(UserInfo::new(
                 db.clone(),
-                redis.clone(),
+                remote_notify.clone(),
                 user_index.clone(),
                 logger.clone(),
             )),
             user_address: Arc::from(UserAddress::new(
                 db.clone(),
                 fluent.clone(),
-                redis.clone(),
+                remote_notify,
                 user_index,
                 logger,
             )),

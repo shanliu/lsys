@@ -14,6 +14,9 @@ deadpool-redis = { version = "0.12" }
 redis = { version = "~0.23", features = ["aio","tokio-comp"]  }
 
 
+serde={ version = "1.0.*" }
+serde_json="1.0.*"
+
 #db
 sqlx = {version = "~0.6.3",features = ["runtime-tokio-native-tls","offline"]}
 sqlx-model = {version = "~0.2.0", default-features=false}
@@ -55,3 +58,9 @@ hostname = "~0.3.*"
 
 
 chrono = "0.4.19"
+
+
+
+
+rs-snowflake = "0.6.0"
+crc32fast = "1.3.2"

@@ -1,5 +1,5 @@
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{now_time, FluentMessage, PageParam, RequestEnv};
+use lsys_core::{now_time, FluentMessage, PageParam, RemoteNotify, RequestEnv};
 use lsys_logger::dao::ChangeLogger;
 use sqlx::{MySql, Pool, Transaction};
 use sqlx_model::{
@@ -22,11 +22,14 @@ impl MultipleSetting {
     pub fn new(
         db: Pool<MySql>,
         _fluent: Arc<FluentMessage>,
-        redis: deadpool_redis::Pool,
+        remote_notify: Arc<RemoteNotify>,
         logger: Arc<ChangeLogger>,
     ) -> Self {
         Self {
-            cache: Arc::from(LocalCache::new(redis, LocalCacheConfig::new("setting"))),
+            cache: Arc::from(LocalCache::new(
+                remote_notify,
+                LocalCacheConfig::new("setting"),
+            )),
             db,
             // fluent,
             logger,

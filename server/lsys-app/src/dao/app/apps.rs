@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::model::{AppStatus, AppsModel, AppsModelRef};
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
-    get_message, now_time, AppCore, FluentMessage, PageParam, RequestEnv,
+    get_message, now_time, AppCore, FluentMessage, PageParam, RemoteNotify, RequestEnv,
 };
 
 use lsys_logger::dao::ChangeLogger;
@@ -36,7 +36,7 @@ impl Apps {
     pub fn new(
         app_core: Arc<AppCore>,
         db: Pool<MySql>,
-        redis: deadpool_redis::Pool,
+        remote_notify: Arc<RemoteNotify>,
         fluent: Arc<FluentMessage>,
         logger: Arc<ChangeLogger>,
     ) -> Self {
@@ -44,7 +44,10 @@ impl Apps {
             app_core,
             db,
             fluent,
-            cache: Arc::from(LocalCache::new(redis, LocalCacheConfig::new("apps"))),
+            cache: Arc::from(LocalCache::new(
+                remote_notify,
+                LocalCacheConfig::new("apps"),
+            )),
             logger,
         }
     }

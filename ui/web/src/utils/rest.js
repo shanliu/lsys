@@ -16,6 +16,7 @@ export function captchaSrc(type, rand = false) {
 
 
 
+
 function dataHandle(data) {
     if (typeof data.data != "object") {
         data.data = {

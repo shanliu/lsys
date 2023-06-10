@@ -50,7 +50,7 @@ function AddBox(props) {
         loading: false,
         next: true,
         page: 0,
-        show: 10,
+        show: 25,
         items: [],
         item_ops: [],
         item_ops_cache: {},
@@ -648,7 +648,7 @@ export default function AppMailSmtpMap(props) {
             user_id: parseInt(userId),
             app_id: (props.children && !appId) ? -1 : appId,
             page: page || 0,
-            page_size: pageSize || 10
+            page_size: pageSize || 25
         }).then((data) => {
             setLoadData({
                 ...loadData,
@@ -765,7 +765,7 @@ export default function AppMailSmtpMap(props) {
                             page: newPage
                         }, loadAppData)
                     }}
-                    rowsPerPage={pageSize || 10}
+                    rowsPerPage={pageSize || 25}
                     onRowsPerPageChange={(e) => {
                         onSearchChange({
                             page_size: e.target.value,

@@ -18,7 +18,7 @@ export default function UserAppMailMessagePage(props) {
         status: '',
         start_pos: '',
         end_pos: '',
-        page_size: 10,
+        page_size: 25,
     });
     return <AppMailMessage
         userId={userData.user_data.user_id}
@@ -28,7 +28,7 @@ export default function UserAppMailMessagePage(props) {
         status={searchParam.get("status") ?? ''}
         startPos={searchParam.get("start_pos") ?? ''}
         endPos={searchParam.get("end_pos") ?? ''}
-        pageSize={searchParam.get("page_size") ?? 10}
+        pageSize={searchParam.get("page_size") ?? 25}
         onSearchChange={setSearchParam}
     >
         <Button

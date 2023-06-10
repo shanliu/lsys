@@ -5,7 +5,7 @@ use crate::dao::account::UserAccountResult;
 
 use crate::model::{UserMobileModel, UserMobileModelRef, UserMobileStatus, UserModel};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{get_message, now_time};
+use lsys_core::{get_message, now_time, RemoteNotify};
 use lsys_core::{FluentMessage, RequestEnv};
 
 use lsys_logger::dao::ChangeLogger;
@@ -35,12 +35,13 @@ impl UserMobile {
         db: Pool<MySql>,
         redis: deadpool_redis::Pool,
         fluent: Arc<FluentMessage>,
+        remote_notify: Arc<RemoteNotify>,
         index: Arc<UserIndex>,
         logger: Arc<ChangeLogger>,
     ) -> Self {
         Self {
             cache: Arc::from(LocalCache::new(
-                redis.clone(),
+                remote_notify,
                 LocalCacheConfig::new("user-mobile"),
             )),
             db,

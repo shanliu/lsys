@@ -5,7 +5,7 @@ use crate::dao::account::UserAccountResult;
 
 use crate::model::{UserEmailModel, UserEmailModelRef, UserEmailStatus, UserModel};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{get_message, now_time, FluentMessage, RequestEnv};
+use lsys_core::{get_message, now_time, FluentMessage, RemoteNotify, RequestEnv};
 
 use lsys_logger::dao::ChangeLogger;
 use sqlx::{Acquire, MySql, Pool, Transaction};
@@ -32,12 +32,13 @@ impl UserEmail {
         db: Pool<MySql>,
         redis: deadpool_redis::Pool,
         fluent: Arc<FluentMessage>,
+        remote_notify: Arc<RemoteNotify>,
         index: Arc<UserIndex>,
         logger: Arc<ChangeLogger>,
     ) -> Self {
         Self {
             cache: Arc::from(LocalCache::new(
-                redis.clone(),
+                remote_notify,
                 LocalCacheConfig::new("user-email"),
             )),
             db,

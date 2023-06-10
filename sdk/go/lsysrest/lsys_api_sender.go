@@ -2,7 +2,6 @@ package lsysrest
 
 import (
 	"context"
-	"encoding/json"
 )
 
 // SmsSend 发送短信
@@ -12,14 +11,10 @@ import (
 // sendTime 发送时间,小于当前时间或空立即发送
 // cancelKey 取消句柄,不需要取消为空
 func (receiver *RestApi) SmsSend(ctx context.Context, mobile []string, tplId string, tplData map[string]string, sendTime string, cancelKey string) error {
-	data, err := json.Marshal(tplData)
-	if err != nil {
-		return err
-	}
 	data1 := (<-receiver.rest.Do(ctx, SmeSend, map[string]interface{}{
 		"mobile":    mobile,
 		"tpl":       tplId,
-		"data":      string(data),
+		"data":      tplData,
 		"cancel":    cancelKey,
 		"send_time": sendTime,
 	})).JsonResult()
@@ -49,14 +44,10 @@ func (receiver *RestApi) SmsCancel(ctx context.Context, cancelKey string) error 
 // reply 回复邮件地址.不需要留空
 // cancelKey 取消句柄,不需要取消为空
 func (receiver *RestApi) MailSend(ctx context.Context, to []string, tplId string, tplData map[string]string, sendTime string, reply string, cancelKey string) error {
-	data, err := json.Marshal(tplData)
-	if err != nil {
-		return err
-	}
 	data1 := (<-receiver.rest.Do(ctx, MailSend, map[string]interface{}{
 		"to":        to,
 		"tpl":       tplId,
-		"data":      string(data),
+		"data":      tplData,
 		"cancel":    cancelKey,
 		"reply":     reply,
 		"send_time": sendTime,

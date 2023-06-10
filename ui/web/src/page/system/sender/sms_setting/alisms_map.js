@@ -10,7 +10,7 @@ export default function SystemAppSmsAliSmsMapPage(props) {
     const [searchParam, setSearchParam] = useSearchChange({
         id: '',
         page: 0,
-        page_size: 10,
+        page_size: 25,
     });
     return <UserAppSmsAliSmsMap
         appId={0}
@@ -18,7 +18,7 @@ export default function SystemAppSmsAliSmsMapPage(props) {
         mapId={searchParam.get("id") ?? ''}
         appName={'系统'}
         page={searchParam.get("page") ?? 0}
-        pageSize={searchParam.get("page_size") ?? 10}
+        pageSize={searchParam.get("page_size") ?? 25}
         onSearchChange={setSearchParam}
     >
     </UserAppSmsAliSmsMap>

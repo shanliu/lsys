@@ -144,9 +144,7 @@ function App() {
         <Route path="login/:type" element={<Suspense fallback={<PageProgress />}><LoginPage /></Suspense>} />
         <Route path="doc" element={<Suspense fallback={<PageProgress />}><DocPage /></Suspense>} />
         <Route path="" element={<Suspense fallback={<PageProgress />}><MainPage /></Suspense>} />
-
       </Route >
-
     ));
   return <>
     <ThemeProvider theme={theme} >

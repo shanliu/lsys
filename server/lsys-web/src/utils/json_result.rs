@@ -310,6 +310,10 @@ impl From<GitDocError> for JsonData {
                 .set_code(200)
                 .set_sub_code("system")
                 .set_message(err),
+            GitDocError::Remote(err) => JsonData::default()
+                .set_code(200)
+                .set_sub_code("system")
+                .set_message(err),
         }
     }
 }

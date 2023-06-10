@@ -1,6 +1,6 @@
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
-    now_time, RequestEnv,
+    now_time, RemoteNotify, RequestEnv,
 };
 
 use lsys_logger::dao::ChangeLogger;
@@ -25,12 +25,15 @@ pub struct UserInfo {
 impl UserInfo {
     pub fn new(
         db: Pool<MySql>,
-        redis: deadpool_redis::Pool,
+        remote_notify: Arc<RemoteNotify>,
         index: Arc<UserIndex>,
         logger: Arc<ChangeLogger>,
     ) -> Self {
         Self {
-            cache: Arc::from(LocalCache::new(redis, LocalCacheConfig::new("user-info"))),
+            cache: Arc::from(LocalCache::new(
+                remote_notify,
+                LocalCacheConfig::new("user-info"),
+            )),
             db,
             logger,
             index,

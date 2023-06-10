@@ -146,7 +146,7 @@ export default function UserLoginHistroyPage(props) {
         login_ip: "",
         is_login: '',
         page: 0,
-        page_size: 10,
+        page_size: 25,
     });
     const [filterData, setfilterData] = useState({
         is_login: 0,
@@ -166,7 +166,7 @@ export default function UserLoginHistroyPage(props) {
             login_ip: searchParam.get("login_ip"),
             is_login: searchParam.get("is_login"),
             page: searchParam.get("page") || 0,
-            page_size: searchParam.get("page_size") || 10
+            page_size: searchParam.get("page_size") || 25
         }).then((data) => {
 
             setLoadData({
@@ -310,7 +310,7 @@ export default function UserLoginHistroyPage(props) {
                             page: newPage
                         }, loadHistoryData)
                     }}
-                    rowsPerPage={searchParam.get("page_size") || 10}
+                    rowsPerPage={searchParam.get("page_size") || 25}
                     onRowsPerPageChange={(e) => {
                         setSearchParam({
 

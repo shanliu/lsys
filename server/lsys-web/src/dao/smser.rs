@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use config::ConfigError;
 use lsys_app::model::AppsModel;
@@ -13,13 +13,12 @@ use lsys_sender::{
 };
 use lsys_setting::dao::MultipleSetting;
 use lsys_user::dao::account::{check_mobile, UserAccountError};
+use serde_json::json;
 use sqlx::{MySql, Pool};
-use tera::Context;
 
 pub enum WebAppSmserError {
     Config(ConfigError),
     System(String),
-    Tera(tera::Error),
 }
 impl ToString for WebAppSmserError {
     fn to_string(&self) -> String {
@@ -30,9 +29,6 @@ impl ToString for WebAppSmserError {
             WebAppSmserError::System(err) => {
                 format!("error:{}", err)
             }
-            WebAppSmserError::Tera(err) => {
-                format!("tpl error:{}", err)
-            }
         }
     }
 }
@@ -42,11 +38,6 @@ impl From<ConfigError> for WebAppSmserError {
     }
 }
 
-impl From<tera::Error> for WebAppSmserError {
-    fn from(err: tera::Error) -> Self {
-        WebAppSmserError::Tera(err)
-    }
-}
 impl From<SenderError> for WebAppSmserError {
     fn from(err: SenderError) -> Self {
         WebAppSmserError::System(err.to_string())
@@ -132,7 +123,7 @@ impl WebAppSmser {
         app: &AppsModel,
         tpl_type: &str,
         mobile: &[String],
-        body: &str,
+        body: &HashMap<String, String>,
         send_time: Option<u64>,
         cancel_key: &Option<String>,
         env_data: Option<&RequestEnv>,
@@ -150,7 +141,7 @@ impl WebAppSmser {
                 Some(app.id),
                 &mb,
                 tpl_type,
-                body,
+                &json!(body).to_string(),
                 &send_time,
                 &Some(app.user_id),
                 cancel_key,
@@ -220,14 +211,14 @@ impl WebAppSmser {
         ttl: &usize,
         env_data: Option<&RequestEnv>,
     ) -> Result<(), WebAppSmserError> {
-        let mut context = Context::new();
-        context.insert("code", code);
-        context.insert("time", &ttl);
+        let mut context = HashMap::new();
+        context.insert("code", code.to_owned());
+        context.insert("time", ttl.to_string());
         self.send(
             "valid_code",
             area,
             mobile,
-            &context.into_json().to_string(),
+            &json!(context).to_string(),
             env_data,
         )
         .await

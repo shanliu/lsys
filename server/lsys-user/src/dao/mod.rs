@@ -4,7 +4,7 @@ pub mod account;
 pub mod auth;
 
 use crate::dao::auth::UserAuth;
-use lsys_core::{AppCore, AppCoreError, FluentMessage};
+use lsys_core::{AppCore, AppCoreError, FluentMessage, RemoteNotify};
 
 use lsys_logger::dao::ChangeLogger;
 use lsys_setting::dao::SingleSetting;
@@ -25,12 +25,14 @@ pub struct UserDao<T: UserAuthStore> {
 }
 
 impl<T: UserAuthStore + Send + Sync> UserDao<T> {
+    #[allow(clippy::too_many_arguments)]
     pub async fn new(
         app_core: Arc<AppCore>,
         db: Pool<MySql>,
         redis: deadpool_redis::Pool,
         setting: Arc<SingleSetting>,
         logger: Arc<ChangeLogger>,
+        remote_notify: Arc<RemoteNotify>,
         store: T,
         config: Option<UserAuthConfig>,
     ) -> Result<UserDao<T>, AppCoreError> {
@@ -49,12 +51,14 @@ impl<T: UserAuthStore + Send + Sync> UserDao<T> {
             redis.clone(),
             fluent.clone(),
             setting,
+            remote_notify.clone(),
             logger,
         ));
         let user_auth = Arc::from(UserAuth::new(
             db.clone(),
             redis.clone(),
             fluent.clone(),
+            remote_notify.clone(),
             user_account.clone(),
             store,
             config,

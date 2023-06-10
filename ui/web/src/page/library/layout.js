@@ -107,19 +107,19 @@ function NavUser() {
 export function PageLayout() {
     return <Fragment>
         <LayoutAppBar>
-            <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' } }}>
-                {/* <Button
+            <Box sx={{ flexGrow: 1, mr: 3, display: { xs: 'none', md: 'flex' }, justifyContent: "flex-end" }}>
+                <Button
                     component={RLink}
                     to="/doc"
                     sx={{ my: 2, color: 'white', display: 'block' }}
                 >
                     开发文档
-                </Button> */}
+                </Button>
             </Box>
             <NavUser />
         </LayoutAppBar >
         <Outlet />
-    </Fragment>
+    </Fragment >
 }
 
 

@@ -143,7 +143,7 @@ export default function SystemAppPage(props) {
         client_id: "",
         user_id: "",
         page: 0,
-        page_size: 10,
+        page_size: 25,
     });
     const [filterData, setfilterData] = useState({
         status: searchParam.get("status"),
@@ -161,7 +161,7 @@ export default function SystemAppPage(props) {
             client_id: searchParam.get("client_id"),
             user_id: searchParam.get("user_id"),
             page: searchParam.get("page") || 0,
-            page_size: searchParam.get("page_size") || 10,
+            page_size: searchParam.get("page_size") || 25,
         }).then((data) => {
 
             setLoadData({
@@ -213,15 +213,15 @@ export default function SystemAppPage(props) {
                 </Select>
             </FormControl>
             <FormControl sx={{ minWidth: 120, mr: 1 }} size="small"  >
-           
+
                 <UserSearchInput
-                    onSelect={(nval)=>{
+                    onSelect={(nval) => {
                         setfilterData({
                             ...filterData,
                             user_id: nval
                         })
                     }}
-                    sx={{ mr: 1,width:200 }}
+                    sx={{ mr: 1, width: 200 }}
                     variant="outlined"
                     label={`搜索用户`}
                     type="text"
@@ -281,7 +281,7 @@ export default function SystemAppPage(props) {
                             page: newPage
                         }, loadAppData)
                     }}
-                    rowsPerPage={searchParam.get("page_size") || 10}
+                    rowsPerPage={searchParam.get("page_size") || 25}
                     onRowsPerPageChange={(e) => {
                         setSearchParam({
                             page_size: e.target.value,

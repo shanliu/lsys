@@ -91,7 +91,7 @@ func RestParamSign(version, appKey, method, timestamp, appSecret, requestIp, tok
 	for k := range reqParam {
 		keys = append(keys, k)
 	}
-	sort.Sort(sort.StringSlice(keys))
+	sort.Strings(keys)
 	data := url.Values{}
 	for _, key := range keys {
 		data.Set(key, reqParam[key])
@@ -191,7 +191,7 @@ func (clt *RestClientBuild) BuildRequest(ctx context.Context, client *rest_clien
 	}
 	paramStr := pData.Encode()
 	apiUrl += clt.Path
-	if strings.Index(apiUrl, "?") == -1 {
+	if !strings.Contains(apiUrl, "?") {
 		apiUrl += "?" + paramStr
 	} else {
 		apiUrl += "&" + paramStr

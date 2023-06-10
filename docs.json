@@ -1,0 +1,27 @@
+{
+	"id": "root",
+	"name": "开发文档(v1版)",
+	"children": [
+		{
+			"name": "接入协议&OAuth登陆",
+			"path": "sdk/README.MD"
+		},
+		{
+			"name": "发送服务",
+			"children": [
+				{
+					"name": "系统结构",
+					"path": "server/lsys-sender/src/dao/README.MD"
+				},
+				{
+					"name": "邮件发送",
+					"path": "server/lsys-sender/src/dao/mailer/README.MD"
+				},
+				{
+					"name": "短信发送",
+					"path": "server/lsys-sender/src/dao/smser/README.MD"
+				}
+			]
+		}
+	]
+}

@@ -12,7 +12,7 @@ export function AppSelect(props) {
         loading: false,
         next: true,
         page: 0,
-        page_size: 10,
+        page_size: 25,
         items: [],
         value: '',
         error: null

@@ -1,9 +1,11 @@
+use std::collections::HashMap;
+
 use crate::{
     dao::RequestDao,
     handler::access::{AccessAppSenderDoMail, AccessAppSenderMailConfig, AccessAppSenderMailMsg},
     LimitParam, PageParam, {JsonData, JsonResult},
 };
-use lsys_core::str_time;
+use lsys_core::{rand_str, str_time, RandType};
 use lsys_sender::{
     dao::SenderError,
     model::{SenderConfigStatus, SenderMailConfigType, SenderMailMessageStatus},
@@ -400,13 +402,13 @@ pub async fn mailer_config_list<'t, T: SessionTokenData, D: SessionData, S: User
 #[derive(Debug, Deserialize)]
 pub struct MailerMessageSendParam {
     pub app_id: u64,
-    pub to: Vec<String>,
     pub tpl: String,
-    pub data: String,
+    pub data: HashMap<String, String>,
+    pub to: Vec<String>,
     pub reply: Option<String>,
-    pub cancel: Option<String>,
     pub send_time: Option<String>,
 }
+
 //后台界面发送邮件接口
 pub async fn mailer_message_send<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: MailerMessageSendParam,
@@ -450,7 +452,7 @@ pub async fn mailer_message_send<'t, T: SessionTokenData, D: SessionData, S: Use
             &param.data,
             send_time,
             &param.reply,
-            &param.cancel,
+            &Some(rand_str(RandType::UpperHex, 12)),
             Some(&req_dao.req_env),
         )
         .await?;

@@ -5,7 +5,7 @@ use crate::dao::account::{UserAccountError, UserAccountResult};
 
 use crate::model::{UserExternalModel, UserExternalModelRef, UserExternalStatus, UserModel};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{get_message, now_time, FluentMessage, RequestEnv};
+use lsys_core::{get_message, now_time, FluentMessage, RemoteNotify, RequestEnv};
 
 use lsys_logger::dao::ChangeLogger;
 use sqlx::{Acquire, MySql, Pool, Transaction};
@@ -27,14 +27,14 @@ pub struct UserExternal {
 impl UserExternal {
     pub fn new(
         db: Pool<MySql>,
-        redis: deadpool_redis::Pool,
         fluent: Arc<FluentMessage>,
+        remote_notify: Arc<RemoteNotify>,
         index: Arc<UserIndex>,
         logger: Arc<ChangeLogger>,
     ) -> Self {
         Self {
             cache: Arc::from(LocalCache::new(
-                redis,
+                remote_notify,
                 LocalCacheConfig::new("user-external"),
             )),
             db,

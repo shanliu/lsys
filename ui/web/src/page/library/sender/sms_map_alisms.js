@@ -421,7 +421,7 @@ export default function AppSmsAliSmsMap(props) {
             user_id: parseInt(userId),
             app_id: (props.children && !appId) ? -1 : appId,
             page: page || 0,
-            page_size: pageSize || 10
+            page_size: pageSize || 25
         }).then((data) => {
             setLoadData({
                 ...loadData,
@@ -537,7 +537,7 @@ export default function AppSmsAliSmsMap(props) {
                             page: newPage
                         }, loadAppData)
                     }}
-                    rowsPerPage={pageSize || 10}
+                    rowsPerPage={pageSize || 25}
                     onRowsPerPageChange={(e) => {
                         onSearchChange({
                             page_size: e.target.value,

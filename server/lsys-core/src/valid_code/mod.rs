@@ -5,8 +5,9 @@ use std::{
 
 use async_trait::async_trait;
 use deadpool_redis::{redis::AsyncCommands, Connection, PoolError};
-use rand::prelude::SliceRandom;
 use redis::RedisError;
+
+use crate::{rand_str, RandType};
 const CODE_SAVE_KEY: &str = "valid-save";
 
 pub struct ValidCode {
@@ -99,15 +100,16 @@ impl ValidCodeDataRandom {
         Self { valid_code_time }
     }
     fn create_code(&self) -> ValidCodeResult<String> {
-        const BASE_STR: &str = "0123456789";
-        let mut rng = &mut rand::thread_rng();
-        Ok(String::from_utf8(
-            BASE_STR
-                .as_bytes()
-                .choose_multiple(&mut rng, 6)
-                .cloned()
-                .collect(),
-        )?)
+        Ok(rand_str(RandType::Number, 6))
+        // const BASE_STR: &str = "0123456789";
+        // let mut rng = &mut rand::thread_rng();
+        // Ok(String::from_utf8(
+        //     BASE_STR
+        //         .as_bytes()
+        //         .choose_multiple(&mut rng, 6)
+        //         .cloned()
+        //         .collect(),
+        // )?)
     }
 }
 #[async_trait]

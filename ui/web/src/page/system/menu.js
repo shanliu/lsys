@@ -66,8 +66,7 @@ export const Menus = [
         icon: IntegrationInstructionsOutlinedIcon,
         text: "开发文档",
         rbac: [{
-            name: "role-view"
-            //name: "docs-edit"
+            name: "docs-edit"
         }]
     },
     {

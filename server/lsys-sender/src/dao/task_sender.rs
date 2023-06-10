@@ -175,7 +175,7 @@ impl<
         is_check: bool,
         check_timeout: usize,
     ) -> Self {
-        let task_size = task_size.unwrap_or_else(|| num_cpus::get() * 2);
+        let task_size = task_size.unwrap_or_else(num_cpus::get);
         let task_timeout = if task_timeout == 0 {
             5 * 60
         } else {

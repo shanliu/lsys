@@ -473,7 +473,7 @@ export default function SystemAccessResPage(props) {
         res_id: "",
         res_name: "",
         page: 0,
-        page_size: 10,
+        page_size: 25,
     });
 
 
@@ -974,7 +974,7 @@ export default function SystemAccessResPage(props) {
                                         page: newPage
                                     }, loadResData)
                                 }}
-                                rowsPerPage={parseInt(searchParam.get("page_size")) || 10}
+                                rowsPerPage={parseInt(searchParam.get("page_size")) || 25}
                                 onRowsPerPageChange={(e) => {
                                     setSearchParam({
 

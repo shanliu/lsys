@@ -213,7 +213,7 @@ export function UserSearchInput(props) {
                 key_word: userData.input_value,
                 start_pos: '',
                 end_pos: '',
-                page_size: 10,
+                page_size: 25,
                 enable_user: enableUser,
             }
             return userSearch(param, {

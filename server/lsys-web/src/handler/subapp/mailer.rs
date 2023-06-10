@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{dao::WebDao, handler::access::AccessAppSenderDoMail, JsonData, JsonResult};
 use lsys_app::model::AppsModel;
 use lsys_core::{str_time, RequestEnv};
@@ -7,7 +9,7 @@ use serde::Deserialize;
 pub struct MailSendParam {
     pub to: Vec<String>,
     pub tpl: String,
-    pub data: String,
+    pub data: HashMap<String, String>,
     pub reply: Option<String>,
     pub cancel: Option<String>,
     pub send_time: Option<String>,

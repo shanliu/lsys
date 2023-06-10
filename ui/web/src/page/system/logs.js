@@ -1,6 +1,6 @@
 
 import SearchIcon from '@mui/icons-material/Search';
-import { Alert, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, FormControl, IconButton, InputLabel, MenuItem, Paper, Select } from '@mui/material';
+import { Alert, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, FormControl, IconButton, InputLabel, MenuItem, Paper, Select, Stack } from '@mui/material';
 import Box from '@mui/material/Box';
 import React, { Fragment, useEffect, useState } from 'react';
 import { LoadingButton } from '../../library/loading';
@@ -11,6 +11,7 @@ import { showTime } from '../../utils/utils';
 import { UserSearchInput } from '../library/user';
 import CodeEditor from '@uiw/react-textarea-code-editor';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
+import { ShowCode } from '../library/show_code';
 export default function SystemLogsPage(props) {
     const [searchParam, setSearchParam] = useSearchChange({
         user_id: "",
@@ -18,7 +19,7 @@ export default function SystemLogsPage(props) {
         log_type: "",
         start_pos: '',
         end_pos: '',
-        page_size: 10,
+        page_size: 25,
     });
     let [loadData, setLoadData] = useState({
         status: false,
@@ -70,41 +71,10 @@ export default function SystemLogsPage(props) {
         {
             label: '操作信息',
             render: (row) => {
-                const [showBox, setShowBox] = useState({
-                    open: false,
-                    data: "{}"
-                });
-                return <Fragment>
-                    <span>{row.message}</span>
-                    <Dialog
-                        open={showBox.open}
-                        onClose={() => { setShowBox({ ...showBox, open: false }) }}
-                    >
-                        <DialogTitle>操作相关数据({row.id}):</DialogTitle>
-                        <DialogContent sx={{
-                            minWidth: 350
-                        }}>
-
-                            <CodeEditor
-                                minHeight={180}
-                                language="json"
-                                value={showBox.data}
-                                style={{
-                                    fontSize: 12,
-                                    backgroundColor: "#f5f5f5",
-                                    fontFamily: 'ui-monospace,SFMono-Regular,SF Mono,Consolas,Liberation Mono,Menlo,monospace',
-                                }}
-                                readOnly={true}
-                            />
-
-                        </DialogContent>
-                        <DialogActions>
-                            <Button onClick={() => { setShowBox({ data: "{}", open: false }) }} >
-                                关闭
-                            </Button>
-                        </DialogActions>
-                    </Dialog>
-                    <IconButton onClick={() => {
+                return <Stack direction={"row"}><Box sx={{ lineHeight: "32px" }}>{row.message}</Box> <ShowCode
+                    language="json"
+                    title={`操作相关数据${row.id}`}
+                    dataCallback={() => {
                         let data = JSON.parse(row.log_data);
                         if (data) {
                             data = JSON.stringify(data, null, 2);
@@ -112,12 +82,14 @@ export default function SystemLogsPage(props) {
                         if (!data) {
                             data = row.log_data
                         }
-                        setShowBox({
-                            open: true,
-                            data: data
-                        })
-                    }}><MoreHorizIcon fontSize='small' /></IconButton>
-                </Fragment>
+                        return data
+                    }}
+                    sx={{
+                        minWidth: 350
+                    }} > <IconButton ><MoreHorizIcon fontSize='small' /></IconButton>
+                </ShowCode>
+                </Stack>
+
             }
         },
         {
@@ -159,7 +131,7 @@ export default function SystemLogsPage(props) {
             log_type: searchParam.get("log_type"),
             start_pos: searchParam.get("start_pos") ?? '',
             end_pos: searchParam.get("end_pos") ?? '',
-            page_size: searchParam.get("page_size") || 10,
+            page_size: searchParam.get("page_size") || 25,
         }
         return userLogs(param).then((data) => {
             let setData = data.status && data.data && data.data.length > 0 ? data.data : [];
@@ -303,7 +275,7 @@ export default function SystemLogsPage(props) {
                             }, loadLogsData)
                         }
                     }}
-                    rowsPerPage={searchParam.get("page_size") || 10}
+                    rowsPerPage={searchParam.get("page_size") || 25}
                     onRowsPerPageChange={(e) => {
                         setSearchParam({
                             page_size: e.target.value,

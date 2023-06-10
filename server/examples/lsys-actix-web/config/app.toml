@@ -21,3 +21,7 @@ ip_city_db="data/IP2LOCATION-LITE-DB11.BIN"
 
 # jwt token 
 app_jwt_key="bbb"#jwt 密钥
+
+
+#git doc save dir
+doc_git_dir="/tmp/"

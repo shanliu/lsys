@@ -549,7 +549,7 @@ export function SenderLimit(props) {
                             page: newPage
                         }, loadAppData)
                     }}
-                    rowsPerPage={pageSize || 10}
+                    rowsPerPage={pageSize || 25}
                     onRowsPerPageChange={(e) => {
                         onSearchChange({
                             page_size: e.target.value,

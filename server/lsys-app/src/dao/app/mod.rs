@@ -1,24 +1,25 @@
-use lsys_core::now_time;
+use lsys_core::{rand_str, RandType};
 use lsys_logger::dao::ChangeLogData;
 
-use rand::seq::SliceRandom;
+// use rand::seq::SliceRandom;
 
 fn range_client_key() -> String {
-    const BASE_STR: &str = "0123456789abcdef0123456789abcdef";
-    let mut rng = &mut rand::thread_rng();
-    String::from_utf8(
-        BASE_STR
-            .as_bytes()
-            .choose_multiple(&mut rng, 64)
-            .cloned()
-            .collect(),
-    )
-    .unwrap_or_else(|_| {
-        format!(
-            "{:x}",
-            md5::compute(now_time().unwrap_or_default().to_string().as_bytes())
-        )
-    })
+    rand_str(RandType::LowerHex, 64)
+    // const BASE_STR: &str = "0123456789abcdef0123456789abcdef";
+    // let mut rng = &mut rand::thread_rng();
+    // String::from_utf8(
+    //     BASE_STR
+    //         .as_bytes()
+    //         .choose_multiple(&mut rng, 64)
+    //         .cloned()
+    //         .collect(),
+    // )
+    // .unwrap_or_else(|_| {
+    //     format!(
+    //         "{:x}",
+    //         md5::compute(now_time().unwrap_or_default().to_string().as_bytes())
+    //     )
+    // })
 }
 
 mod apps;

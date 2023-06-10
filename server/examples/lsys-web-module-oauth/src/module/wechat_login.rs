@@ -1,11 +1,12 @@
 use async_trait::async_trait;
 
+use lsys_core::{rand_str, RandType};
 use lsys_web::{
     dao::user::WebUser,
     module::oauth::{OauthCallbackParam, OauthLogin, OauthLoginData, OauthLoginParam},
     JsonData, JsonResult,
 };
-use rand::seq::SliceRandom;
+// use rand::seq::SliceRandom;
 
 use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
@@ -14,18 +15,18 @@ use super::{WeChatConfig, WeChatLib};
 
 pub const OAUTH_TYPE_WECHAT: &str = "wechat";
 
-fn state_rand(len: usize) -> String {
-    const BASE_STR: &str = "0123456789";
-    let mut rng = &mut rand::thread_rng();
-    String::from_utf8(
-        BASE_STR
-            .as_bytes()
-            .choose_multiple(&mut rng, len)
-            .cloned()
-            .collect(),
-    )
-    .unwrap_or_default()
-}
+// fn state_rand(len: usize) -> String {
+//     const BASE_STR: &str = "0123456789";
+//     let mut rng = &mut rand::thread_rng();
+//     String::from_utf8(
+//         BASE_STR
+//             .as_bytes()
+//             .choose_multiple(&mut rng, len)
+//             .cloned()
+//             .collect(),
+//     )
+//     .unwrap_or_default()
+// }
 fn state_key(state: &str) -> String {
     format!("wechat-{}", state)
 }
@@ -158,14 +159,14 @@ impl OauthLogin<WechatLoginParam, WechatCallbackParam, WechatExternalData> for W
         param: &WechatLoginParam,
     ) -> Result<String, String> {
         let state_ukey = &if param.state.is_empty() {
-            state_rand(self.rand_length)
+            rand_str(RandType::Number, self.rand_length)
         } else {
             param.state.chars().take(6).collect::<String>()
         };
         if state_ukey.len() < 5 {
             return Err("state length can't <5".to_string());
         }
-        let state_rand = state_rand(self.rand_length);
+        let state_rand = rand_str(RandType::Number, self.rand_length);
         let state_key = state_key(state_ukey);
         let mut redis = webuser.redis.get().await.map_err(|e| e.to_string())?;
         redis

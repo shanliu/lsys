@@ -13,7 +13,7 @@ export default function UserAppSmsLimitPage(props) {
         app_id: '',
         id: '',
         page: 0,
-        page_size: 10,
+        page_size: 25,
     });
     return <AppSmsLimit
         userId={userData.user_data.user_id}
@@ -21,7 +21,7 @@ export default function UserAppSmsLimitPage(props) {
         limitId={searchParam.get("id") ?? ''}
         appName={appData.name ?? ''}
         page={searchParam.get("page") ?? 0}
-        pageSize={searchParam.get("page_size") ?? 10}
+        pageSize={searchParam.get("page_size") ?? 25}
         onSearchChange={setSearchParam}
     >
         <AppSelect

@@ -10,7 +10,7 @@ pub use check::*;
 pub use data::*;
 use logger::*;
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::FluentMessage;
+use lsys_core::{FluentMessage, RemoteNotify};
 use lsys_logger::dao::ChangeLogger;
 pub use res::*;
 pub use role::*;
@@ -66,22 +66,24 @@ impl Rbac {
     pub fn new(
         fluent: Arc<FluentMessage>,
         db: Pool<MySql>,
-        redis: deadpool_redis::Pool,
+        remote_notify: Arc<RemoteNotify>,
         system_role: Option<Box<dyn SystemRoleCheckData>>,
         use_cache: bool,
         logger: Arc<ChangeLogger>,
     ) -> Self {
         let tags = Arc::from(RbacTags::new(db.clone(), logger.clone()));
         let res_key_cache = Arc::from(LocalCache::new(
-            redis.clone(),
+            remote_notify.clone(),
             LocalCacheConfig::new("key-res"),
         ));
         let role_relation_cache = Arc::from(LocalCache::new(
-            redis.clone(),
+            remote_notify.clone(),
             LocalCacheConfig::new("role-relation"),
         ));
-        let role_access_cache =
-            Arc::from(LocalCache::new(redis, LocalCacheConfig::new("role-access")));
+        let role_access_cache = Arc::from(LocalCache::new(
+            remote_notify,
+            LocalCacheConfig::new("role-access"),
+        ));
 
         let role = Arc::from(RbacRole::new(
             db.clone(),

@@ -1,4 +1,4 @@
-use lsys_core::{AppCore, AppCoreError, FluentMessage};
+use lsys_core::{AppCore, AppCoreError, FluentMessage, RemoteNotify};
 use lsys_user::dao::account::UserAccount;
 use std::{
     error::Error,
@@ -81,6 +81,7 @@ impl AppDao {
         app_core: Arc<AppCore>,
         db: Pool<MySql>,
         redis: deadpool_redis::Pool,
+        remote_notify: Arc<RemoteNotify>,
         logger: Arc<ChangeLogger>,
         time_out: u64,
     ) -> Result<AppDao, AppCoreError> {
@@ -97,7 +98,7 @@ impl AppDao {
         let app = Arc::from(Apps::new(
             app_core.clone(),
             db.clone(),
-            redis.clone(),
+            remote_notify.clone(),
             fluent.clone(),
             logger,
         ));
@@ -107,6 +108,7 @@ impl AppDao {
             db.clone(),
             redis.clone(),
             fluent.clone(),
+            remote_notify,
             time_out,
         ));
         Ok(AppDao {

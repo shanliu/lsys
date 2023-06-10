@@ -4,8 +4,8 @@ use crate::dao::auth::{
 };
 use crate::model::UserModel;
 use async_trait::async_trait;
-use lsys_core::now_time;
-use rand::seq::SliceRandom;
+use lsys_core::{now_time, rand_str, RandType};
+// use rand::seq::SliceRandom;
 
 use redis::AsyncCommands;
 use std::collections::HashMap;
@@ -32,15 +32,16 @@ impl UserAuthRedisStore {
 const LOGIN_KEY_LEN: usize = 24;
 
 fn login_key(size: usize) -> Result<String, FromUtf8Error> {
-    const BASE_STR: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    let mut rng = &mut rand::thread_rng();
-    String::from_utf8(
-        BASE_STR
-            .as_bytes()
-            .choose_multiple(&mut rng, size)
-            .cloned()
-            .collect(),
-    )
+    Ok(rand_str(RandType::Upper, size))
+    // const BASE_STR: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    // let mut rng = &mut rand::thread_rng();
+    // String::from_utf8(
+    //     BASE_STR
+    //         .as_bytes()
+    //         .choose_multiple(&mut rng, size)
+    //         .cloned()
+    //         .collect(),
+    // )
 }
 
 #[async_trait]

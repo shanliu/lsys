@@ -1,52 +1,31 @@
 use std::error::Error;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::path::Path;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 mod docs;
+mod git;
+mod logger;
 mod task;
 pub use docs::*;
-use lsys_setting::dao::SettingDecode;
-use lsys_setting::dao::SettingEncode;
-use lsys_setting::dao::SettingError;
-use lsys_setting::dao::SettingJson;
-use lsys_setting::dao::SettingKey;
-use lsys_setting::dao::SettingResult;
-use lsys_setting::dao::SingleSetting;
-use serde::Deserialize;
-use serde::Serialize;
-use sqlx::MySql;
-use sqlx::Pool;
+
+use lsys_core::AppCore;
+use lsys_core::RemoteNotify;
+use lsys_logger::dao::ChangeLogger;
+use relative_path::RelativePath;
 pub use task::*;
 
-#[derive(Deserialize, Serialize)]
-pub struct DocSetting {
-    pub save_dir: String,
-}
-
-impl SettingKey for DocSetting {
-    fn key<'t>() -> &'t str {
-        "docs-setting"
-    }
-}
-
-impl SettingDecode for DocSetting {
-    fn decode(data: &str) -> SettingResult<Self> {
-        SettingJson::decode(data)
-    }
-}
-impl SettingEncode for DocSetting {
-    fn encode(&self) -> String {
-        SettingJson::encode(self)
-    }
-}
-impl SettingJson<'_> for DocSetting {}
+use sqlx::MySql;
+use sqlx::Pool;
 
 #[derive(Debug)]
 pub enum GitDocError {
     Sqlx(sqlx::Error),
     Redis(String),
     System(String),
+    Remote(String),
 }
 impl Display for GitDocError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -61,14 +40,6 @@ impl From<sqlx::Error> for GitDocError {
         GitDocError::Sqlx(err)
     }
 }
-impl From<SettingError> for GitDocError {
-    fn from(err: SettingError) -> Self {
-        match err {
-            SettingError::Sqlx(e) => GitDocError::Sqlx(e),
-            SettingError::System(e) => GitDocError::System(e),
-        }
-    }
-}
 
 pub type GitDocResult<T> = Result<T, GitDocError>;
 
@@ -79,9 +50,49 @@ pub struct DocsDao {
 }
 
 impl DocsDao {
-    pub async fn new(db: Pool<MySql>, setting: Arc<SingleSetting>) -> Self {
-        let docs = Arc::from(GitDocs::new(db.clone(), setting));
-        let task = Arc::from(GitTask::new(db));
+    pub async fn new(
+        app_core: Arc<AppCore>,
+        db: Pool<MySql>,
+        remote_notify: Arc<RemoteNotify>,
+        logger: Arc<ChangeLogger>,
+        task_size: Option<usize>,
+    ) -> Self {
+        let task = Arc::from(GitTask::new(
+            app_core.clone(),
+            db.clone(),
+            remote_notify,
+            task_size,
+        ));
+        let docs = Arc::from(GitDocs::new(db, app_core, logger, task.clone()));
         DocsDao { docs, task }
     }
+}
+
+async fn git_doc_path(
+    save_dir: &str,
+    clone_id: &u64,
+    sub_path: &Option<String>,
+) -> GitDocResult<PathBuf> {
+    let mut clear_path = save_dir.to_owned();
+    clear_path += &format!(
+        "{}{}/",
+        if clear_path.ends_with('/') || clear_path.ends_with('\\') {
+            ""
+        } else {
+            "/"
+        },
+        clone_id,
+    );
+    //PathBuf::from(access_path).parent() .to_string_lossy()
+    if let Some(file_path) = sub_path {
+        if !file_path.trim().is_empty() {
+            let file_path = file_path.trim();
+            let file_path = file_path.strip_suffix('/').unwrap_or(file_path);
+            let file_path = file_path.strip_suffix('\\').unwrap_or(file_path);
+            clear_path += file_path;
+        }
+    }
+    let mut path = Path::new("/").to_path_buf();
+    path.push(RelativePath::new(&clear_path).to_logical_path(""));
+    Ok(path)
 }

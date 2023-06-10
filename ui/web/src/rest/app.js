@@ -13,7 +13,7 @@ export async function appList(param, config) {
         "count_num": true,
         "page": {
             page: parseInt(page) >= 0 ? (parseInt(page) + 1) : 1,
-            limit: parseInt(page_size) > 0 ? parseInt(page_size) : 10
+            limit: parseInt(page_size) > 0 ? parseInt(page_size) : 25
         }
     };
     if (parseInt(user_id) > 0) {

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{dao::WebDao, handler::access::AccessAppSenderDoSms, JsonData, JsonResult};
 use lsys_app::model::AppsModel;
 use lsys_core::{str_time, RequestEnv};
@@ -7,7 +9,7 @@ use serde::Deserialize;
 pub struct SmsSendParam {
     pub mobile: Vec<String>,
     pub tpl: String,
-    pub data: String,
+    pub data: HashMap<String, String>,
     pub cancel: Option<String>,
     pub send_time: Option<String>,
 }

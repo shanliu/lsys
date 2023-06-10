@@ -4,8 +4,7 @@ pub mod rbac;
 
 pub use self::rbac::*;
 
-use self::rbac::Rbac;
-use lsys_core::{AppCore, AppCoreError, FluentMessage};
+use lsys_core::{AppCore, AppCoreError, FluentMessage, RemoteNotify};
 
 use lsys_logger::dao::ChangeLogger;
 use sqlx::{MySql, Pool};
@@ -14,7 +13,7 @@ pub struct RbacDao {
     //内部依赖
     pub fluent: Arc<FluentMessage>,
     pub db: Pool<MySql>,
-    pub redis: deadpool_redis::Pool,
+    //   pub redis: deadpool_redis::Pool,
     // 权限相关
     pub rbac: Arc<Rbac>,
 }
@@ -23,7 +22,7 @@ impl RbacDao {
     pub async fn new(
         app_core: Arc<AppCore>,
         db: Pool<MySql>,
-        redis: deadpool_redis::Pool,
+        remote_notify: Arc<RemoteNotify>,
         logger: Arc<ChangeLogger>,
         system_role: Option<Box<dyn SystemRoleCheckData>>,
         use_cache: bool,
@@ -40,7 +39,7 @@ impl RbacDao {
         let rbac = Arc::from(Rbac::new(
             fluents_message.clone(),
             db.clone(),
-            redis.clone(),
+            remote_notify,
             system_role,
             use_cache,
             logger,
@@ -49,7 +48,7 @@ impl RbacDao {
             fluent: fluents_message,
             rbac,
             db,
-            redis,
+            // redis,
         })
     }
 }

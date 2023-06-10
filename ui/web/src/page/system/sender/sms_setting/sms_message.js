@@ -14,7 +14,7 @@ export default function SystemAppSmsMessagePage(props) {
         status: '',
         start_pos: '',
         end_pos: '',
-        page_size: 10,
+        page_size: 25,
     });
     return <AppSmsMessage
         appId={0}
@@ -23,7 +23,7 @@ export default function SystemAppSmsMessagePage(props) {
         status={searchParam.get("status") ?? ''}
         startPos={searchParam.get("start_pos") ?? ''}
         endPos={searchParam.get("end_pos") ?? ''}
-        pageSize={searchParam.get("page_size") ?? 10}
+        pageSize={searchParam.get("page_size") ?? 25}
         onSearchChange={setSearchParam}
     >
     </AppSmsMessage>

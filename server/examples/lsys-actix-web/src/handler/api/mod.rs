@@ -60,7 +60,7 @@ where
         scope("/api/docs")
             .service(docs::docs_setting)
             .service(docs::docs_raw)
-            .service(docs::docs_setting)
+            .service(docs::docs_read)
             .service(options),
     )
     .service(

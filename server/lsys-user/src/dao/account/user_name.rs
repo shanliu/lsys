@@ -1,10 +1,10 @@
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
-    get_message, now_time, FluentMessage, RequestEnv,
+    get_message, now_time, rand_str, FluentMessage, RandType, RemoteNotify, RequestEnv,
 };
 
 use lsys_logger::dao::ChangeLogger;
-use rand::seq::SliceRandom;
+// use rand::seq::SliceRandom;
 use sqlx::{Acquire, MySql, Pool, Transaction};
 use sqlx_model::{model_option_set, sql_format, Insert, ModelTableName, Select, SqlQuote, Update};
 use std::{collections::HashMap, string::FromUtf8Error, sync::Arc};
@@ -22,27 +22,31 @@ pub struct UserName {
 }
 
 fn del_rand_name() -> Result<String, FromUtf8Error> {
-    const BASE_STR: &str = "0123456789";
-    let mut rng = &mut rand::thread_rng();
-    String::from_utf8(
-        BASE_STR
-            .as_bytes()
-            .choose_multiple(&mut rng, 6)
-            .cloned()
-            .collect(),
-    )
+    Ok(rand_str(RandType::LowerHex, 6))
+    // const BASE_STR: &str = "0123456789";
+    // let mut rng = &mut rand::thread_rng();
+    // String::from_utf8(
+    //     BASE_STR
+    //         .as_bytes()
+    //         .choose_multiple(&mut rng, 6)
+    //         .cloned()
+    //         .collect(),
+    // )
 }
 
 impl UserName {
     pub fn new(
         db: Pool<MySql>,
-        redis: deadpool_redis::Pool,
+        remote_notify: Arc<RemoteNotify>,
         fluent: Arc<FluentMessage>,
         index: Arc<UserIndex>,
         logger: Arc<ChangeLogger>,
     ) -> Self {
         Self {
-            cache: Arc::from(LocalCache::new(redis, LocalCacheConfig::new("user-name"))),
+            cache: Arc::from(LocalCache::new(
+                remote_notify,
+                LocalCacheConfig::new("user-name"),
+            )),
             db,
             fluent,
             index,

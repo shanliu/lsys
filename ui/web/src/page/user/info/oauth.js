@@ -116,7 +116,7 @@ export default function UserOauthPage(props) {
     const [searchParam, setSearchParam] = useSearchChange({
         oauth_type: "",
         page: 0,
-        page_size: 10,
+        page_size: 25,
     });
     const [filterData, setfilterData] = useState({
         oauth_type: searchParam.get("oauth_type"),
@@ -403,7 +403,7 @@ export default function UserOauthPage(props) {
                             page: newPage
                         }, LoadOauthData)
                     }}
-                    rowsPerPage={searchParam.get("page_size") || 10}
+                    rowsPerPage={searchParam.get("page_size") || 25}
                     onRowsPerPageChange={(e) => {
                         setSearchParam({
                             page_size: e.target.value,

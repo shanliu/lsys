@@ -7,7 +7,7 @@ export default function SystemAppMailLimitPage(props) {
     const [searchParam, setSearchParam] = useSearchChange({
         id: '',
         page: 0,
-        page_size: 10,
+        page_size: 25,
     });
     return <AppMailLimit
         appId={0}
@@ -15,7 +15,7 @@ export default function SystemAppMailLimitPage(props) {
         limitId={searchParam.get("id") ?? ''}
         appName={'系统'}
         page={searchParam.get("page") ?? 0}
-        pageSize={searchParam.get("page_size") ?? 10}
+        pageSize={searchParam.get("page_size") ?? 25}
         onSearchChange={setSearchParam}
     >
     </AppMailLimit>

@@ -8,7 +8,6 @@ edition = "2021"
 [dependencies]
 lsys-core = { version = "0.0.1", path = "../lsys-core"}
 lsys-logger = { version = "0.0.1", path = "../lsys-logger"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-setting = { version = "0.0.1", path = "../lsys-setting"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
 
 serde={ version = "1.0.*"}
 serde_json="1.0.*"
@@ -17,7 +16,9 @@ serde_json="1.0.*"
 sqlx = {version = "~0.6.3",features = [ "mysql","runtime-tokio-native-tls","offline"]}
 sqlx-model = {version = "0.2.0", default-features=false,features = [ "sqlx-mysql"]}
 
+futures-util="~0.3.*"
 
+deadpool-redis = { version = "0.12" }
 redis = { version = "~0.23",features=[ "tokio-comp","connection-manager","aio" ] }
 
 #日志
@@ -28,7 +29,7 @@ tokio = {version="~1.28"}
 fluent-syntax="0.11.0"
 fluent = "0.16.0"
 
-
+num_cpus="1.15.0"
 
 hostname = "~0.3.*"
 
@@ -41,3 +42,11 @@ url = "2.2.2"
 
 
 regex = "~1.8.0"
+
+
+walkdir="*"
+
+relative-path = "1.8.0"
+
+
+async-trait = "~0.1.*"

@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::time::SystemTime;
 
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{get_message, now_time, FluentMessage};
+use lsys_core::{get_message, now_time, FluentMessage, RemoteNotify};
 
 use lsys_user::dao::account::UserAccount;
 use lsys_user::dao::auth::{SessionToken, SessionUserData};
@@ -63,6 +63,7 @@ impl AppsOauth {
         db: Pool<MySql>,
         redis: deadpool_redis::Pool,
         fluent: Arc<FluentMessage>,
+        remote_notify: Arc<RemoteNotify>,
         time_out: u64,
     ) -> Self {
         let config = LocalCacheConfig {
@@ -74,7 +75,7 @@ impl AppsOauth {
         };
         Self {
             app,
-            cache: Arc::from(LocalCache::new(redis.clone(), config)),
+            cache: Arc::from(LocalCache::new(remote_notify, config)),
             user_account,
             db,
             redis,

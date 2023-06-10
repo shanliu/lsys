@@ -64,6 +64,7 @@ export function BaseTableBody(props) {
     } = props;
     let load_rows;
     let not_rows;
+
     if (loading) {
         let tips_rows;
         if (!rows || rows.length == 0) {
@@ -351,7 +352,7 @@ export function SimplePaginationTableFooter(props) {
                             onChange={onRowsPerPageChange}
                         >
                             <MenuItem value={10}>10</MenuItem>
-                            <MenuItem value={20}>20</MenuItem>
+                            <MenuItem value={25}>25</MenuItem>
                             <MenuItem value={50}>50</MenuItem>
                             <MenuItem value={100}>100</MenuItem>
                         </Select>
@@ -438,6 +439,7 @@ export function DataPaginationTablePage(props) {
             {rows && rows.length > 0 ? <BaseTableBody
                 columns={columns}
                 loading={loading}
+
                 rows={rowsPerPage > 0
                     ? rows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                     : rows}
@@ -471,14 +473,13 @@ export function DataTablePage(props) {
         columns,
         loading
     } = props;
-
     return <TableContainer component={Paper}>
         <Table>
             <BaseTableHead
                 columns={columns}
             />
 
-            {rows && rows.length > 0 ? <BaseTableBody
+            {(rows && rows.length > 0) || loading ? <BaseTableBody
                 columns={columns}
                 loading={loading}
                 rows={rows}

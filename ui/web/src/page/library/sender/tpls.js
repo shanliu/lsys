@@ -17,6 +17,7 @@ import { SenderType, smsAddAliConfig, smsDelAliConfig, smsEditAliConfig, smsList
 import { useSearchChange } from '../../../utils/hook';
 import { showTime } from '../../../utils/utils';
 import CodeEditor from '@uiw/react-textarea-code-editor';
+import { ShowCode } from '../show_code';
 
 function AddBox(props) {
     const {
@@ -239,46 +240,17 @@ export default function SenderTplsPage(props) {
             style: { width: 100 },
             label: '模板内容',
             render: (row) => {
-                const [showBox, setShowBox] = useState({
-                    open: false
-                });
-                return <Fragment>
-                    <Dialog
-                        open={showBox.open}
-                        onClose={() => { setShowBox({ ...showBox, open: false }) }}
-                    >
-                        <DialogTitle>模板 {row.tpl_id} 内容</DialogTitle>
-                        <DialogContent sx={{
-                            minWidth: 350
-                        }}>
-
-                           
-                                <CodeEditor
-                                    minHeight={180}
-                                    language="html"
-                                    value={row.tpl_data}
-                                    style={{
-                                        fontSize: 12,
-                                        backgroundColor: "#f5f5f5",
-                                        fontFamily: 'ui-monospace,SFMono-Regular,SF Mono,Consolas,Liberation Mono,Menlo,monospace',
-                                    }}
-                                    readOnly={true}
-                                />
-
-                           
-                        </DialogContent>
-                        <DialogActions>
-
-                            <Button onClick={() => { setShowBox({ ...showBox, open: false }) }} >
-                                关闭
-                            </Button>
-                        </DialogActions>
-                    </Dialog>
-                    <Button onClick={() => {
-                        setShowBox({ ...showBox, open: true })
-                    }
-                    }>查看</Button>
-                </Fragment>
+                return <ShowCode
+                    language="html"
+                    title={`模板 ${row.tpl_id} 内容`}
+                    dataCallback={() => {
+                        return row.tpl_data
+                    }}
+                    sx={{
+                        minWidth: 350
+                    }} >
+                    <Button>查看</Button>
+                </ShowCode>
             }
         },
         {
@@ -352,7 +324,7 @@ export default function SenderTplsPage(props) {
             id: searchParam.get("id"),
             sender_type: tplType,
             page: searchParam.get("page") || 0,
-            page_size: searchParam.get("page_size") || 10,
+            page_size: searchParam.get("page_size") || 25,
             tpl_id: searchParam.get("tpl_id")
         }).then((data) => {
 
@@ -504,7 +476,7 @@ export default function SenderTplsPage(props) {
                             page: newPage
                         }, loadConfigData)
                     }}
-                    rowsPerPage={searchParam.get("page_size") || 10}
+                    rowsPerPage={searchParam.get("page_size") || 25}
                     onRowsPerPageChange={(e) => {
                         setSearchParam({
                             page_size: e.target.value,

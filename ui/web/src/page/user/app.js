@@ -539,7 +539,7 @@ export default function UserAppIndexPage(props) {
         status: "",
         client_id: "",
         page: 0,
-        page_size: 10,
+        page_size: 25,
     });
     const [filterData, setfilterData] = useState({
         status: searchParam.get("status"),
@@ -556,7 +556,7 @@ export default function UserAppIndexPage(props) {
             status: searchParam.get("status") ?? '',
             client_id: searchParam.get("client_id") ?? '',
             page: searchParam.get("page") || 0,
-            page_size: searchParam.get("page_size") || 10,
+            page_size: searchParam.get("page_size") || 25,
             check_sms: true,
             check_mail: true,
             check_view_app: true,
@@ -726,7 +726,7 @@ export default function UserAppIndexPage(props) {
                             page: newPage
                         }, loadAppData)
                     }}
-                    rowsPerPage={searchParam.get("page_size") || 10}
+                    rowsPerPage={searchParam.get("page_size") || 25}
                     onRowsPerPageChange={(e) => {
                         setSearchParam({
                             page_size: e.target.value,

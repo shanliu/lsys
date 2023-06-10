@@ -117,7 +117,7 @@ export default function AppSmsMessage(props) {
         {
 
             style: { width: 160 },
-            label: '发送历史',
+            label: '发送日志',
             align: "center",
             render: (row) => {
                 return <Fragment>
@@ -173,7 +173,7 @@ export default function AppSmsMessage(props) {
             status: status,
             start_pos: startPos || '',
             end_pos: endPos || '',
-            page_size: pageSize || 10
+            page_size: pageSize || 25
         }).then((data) => {
             let setData = data.status && data.data && data.data.length > 0 ? data.data : [];
             if (endPos && endPos != '') {
@@ -345,7 +345,7 @@ export default function AppSmsMessage(props) {
                             }, loadMsgData)
                         }
                     }}
-                    rowsPerPage={pageSize || 10}
+                    rowsPerPage={pageSize || 25}
                     onRowsPerPageChange={(e) => {
                         onSearchChange({
                             page_size: e.target.value,

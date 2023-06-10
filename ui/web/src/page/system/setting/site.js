@@ -70,7 +70,11 @@ function SiteConfigTabs() {
         {
             getPath: "base-get",
             text: "站点设置",
-        }
+        },
+        // {
+        //     getPath: "git-doc-get",
+        //     text: "开发文档配置",
+        // }
     ];
     useEffect(() => {
         let data = Menus[tabVal] ?? null
@@ -100,8 +104,8 @@ function SiteConfigTabs() {
                 orientation="vertical"
                 variant="scrollable"
                 value={tabVal}
-                onChange={(e) => {
-                    setTabVal(e)
+                onChange={(e, val) => {
+                    setTabVal(val)
                 }}
                 aria-label="Vertical tabs example"
                 sx={{ borderRight: 1, borderColor: 'divider', minWidth: 120 }}
@@ -119,6 +123,11 @@ function SiteConfigTabs() {
                             return onSave("base-set", data)
                         }} />
                         break;
+                    case "git-doc-get":
+                        box = <SystemGitDocConfig initData={loadData.data ?? {}} loading={loadData.loading} onSave={(data) => {
+                            return onSave("git-doc-set", data)
+                        }} />
+                        break;
                 }
                 return <TabPanel key={`vertical-body-${e.getPath}`} value={tabVal} index={i}>
                     <Box sx={{
@@ -133,6 +142,68 @@ function SiteConfigTabs() {
         </Box >
     </Paper >
         ;
+}
+
+function SystemGitDocConfig(props) {
+    const { initData, loading, onSave } = props;
+    let max_try = 10;
+    const [loadData, setLoadData] = useState({
+        save_dir: '',
+        max_try: max_try
+    });
+    useEffect(() => {
+        setLoadData({
+            ...loadData,
+            save_dir: initData.save_dir ?? '',
+            max_try: initData.max_try ?? max_try,
+        })
+    }, [initData])
+
+    return <Form method="post" onSubmit={(e) => {
+        e.preventDefault();
+        onSave(loadData)
+    }}>
+        <TextField
+            sx={{
+                paddingBottom: 2
+            }}
+            label="文档clone保存目录"
+            variant="outlined"
+            type="text"
+            size="small"
+            fullWidth
+            disabled={loading}
+            value={loadData.save_dir}
+            onChange={(e) => {
+                setLoadData({
+                    ...loadData,
+                    save_dir: e.target.value + ''
+                })
+            }}
+        />
+        <TextField
+            sx={{
+                paddingBottom: 2
+            }}
+            label="失败重试次数"
+            variant="outlined"
+            type="number"
+            size="small"
+            fullWidth
+            disabled={loading}
+            value={loadData.max_try}
+            onChange={(e) => {
+                let tmp = parseInt(e.target.value);
+                if (tmp > try_num) tmp = try_num;
+                if (tmp <= 0) tmp = 1;
+                setLoadData({
+                    ...loadData,
+                    max_try: tmp
+                })
+            }}
+        />
+        <LoadingButton disabled={loading} loading={loading} fullWidth variant="contained" type="submit">保存</LoadingButton>
+    </Form >
 }
 
 

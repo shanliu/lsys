@@ -1,19 +1,23 @@
 mod clear;
 #[macro_use]
 mod macros;
-use deadpool_redis::redis::AsyncCommands;
 use hashlink::LruCache;
 
 use std::{
     str::FromStr,
-    sync::atomic::{AtomicBool, Ordering},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
 };
 use tokio::sync::Mutex;
 use tracing::{debug, warn};
 
 pub use clear::*;
 
-use crate::now_time;
+use crate::{now_time, LocalExecType, RemoteNotify};
+
+pub const REMOTE_NOTIFY_TYPE_CACHE: u8 = 101;
 
 #[derive(Clone, Debug)]
 pub struct CacheData<T: Clone> {
@@ -51,9 +55,9 @@ where
     T: Clone,
 {
     cache_config: LocalCacheConfig,
-    redis: deadpool_redis::Pool,
     cache_data: Mutex<LruCache<K, CacheData<T>>>,
     refresh_lock: AtomicBool,
+    remote_notify: Arc<RemoteNotify>,
 }
 
 impl<K, T> LocalCache<K, T>
@@ -61,7 +65,7 @@ where
     K: ToString + std::cmp::Eq + std::hash::Hash + FromStr,
     T: Clone,
 {
-    pub fn new(redis: deadpool_redis::Pool, mut cache_config: LocalCacheConfig) -> Self {
+    pub fn new(remote_notify: Arc<RemoteNotify>, mut cache_config: LocalCacheConfig) -> Self {
         if cache_config.cache_size == 0 && cache_config.cache_time > 0 {
             cache_config.cache_size = 1;
         }
@@ -69,7 +73,7 @@ where
             cache_config.refresh_time = cache_config.cache_time;
         }
         LocalCache {
-            redis,
+            remote_notify,
             cache_config,
             refresh_lock: AtomicBool::new(false),
             cache_data: Mutex::new(LruCache::new(cache_config.cache_size)),
@@ -131,18 +135,20 @@ where
     }
     pub async fn clear(&self, key: &K) {
         self.del(key).await;
-        let send_msg = channel_message_create(self.cache_config.cache_name, key.to_string());
-        let redis_res = self.redis.get().await;
-        match redis_res {
-            Ok(mut redis) => {
-                let res: Result<(), _> = redis.publish(REDIS_CHANNEL_NAME, send_msg).await;
-                if let Err(err) = res {
-                    warn!("notify redis clear cache fail :{}", err);
-                };
-            }
-            Err(err) => {
-                warn!("notify redis connect fail,can't clear cache error:{}", err);
-            }
+        let send_msg =
+            LocalCacheMessage::new(self.cache_config.cache_name.to_string(), key.to_string());
+        if let Err(err) = self
+            .remote_notify
+            .call(
+                REMOTE_NOTIFY_TYPE_CACHE,
+                send_msg,
+                None,
+                LocalExecType::RemoteExec,
+                None,
+            )
+            .await
+        {
+            warn!("notify clear cache error:{}", err);
         }
     }
 }

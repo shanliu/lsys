@@ -23,6 +23,7 @@ use tokio::io::AsyncReadExt;
 use sqlx_model::TableName;
 
 use crate::fluent_message::FluentMessage;
+use crate::RemoteNotifyError;
 
 #[derive(Debug)]
 pub enum AppCoreError {
@@ -52,6 +53,15 @@ impl From<sqlx::Error> for AppCoreError {
 impl From<CreatePoolError> for AppCoreError {
     fn from(err: CreatePoolError) -> Self {
         AppCoreError::Redis(err.to_string())
+    }
+}
+impl From<RemoteNotifyError> for AppCoreError {
+    fn from(err: RemoteNotifyError) -> Self {
+        match err {
+            RemoteNotifyError::System(e) => AppCoreError::System(e),
+            RemoteNotifyError::Redis(e) => AppCoreError::Redis(e),
+            RemoteNotifyError::RemoteTimeOut => AppCoreError::System("remote timeout ".to_string()),
+        }
     }
 }
 
@@ -220,6 +230,24 @@ impl AppCore {
             .connect_with(option)
             .await?;
         Ok(poll)
+    }
+    pub fn create_snowflake_id_generator(&self) -> snowflake::SnowflakeIdGenerator {
+        let machine_id = self.config.get_int("snowflake_machine_id").unwrap_or(1);
+        let machine_id = (machine_id.abs() % 31) as i32;
+        let node_id = self
+            .config
+            .get_int("snowflake_node_id")
+            .unwrap_or_else(|_| {
+                crc32fast::hash(
+                    hostname::get()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .as_bytes(),
+                )
+                .into()
+            });
+        let node_id = (node_id.abs() % 31) as i32;
+        snowflake::SnowflakeIdGenerator::new(machine_id, node_id)
     }
     pub fn create_redis_client(&self) -> Result<redis::Client, AppCoreError> {
         let redis_url = self.config.get_string("redis_url").unwrap_or_default();

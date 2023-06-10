@@ -1,9 +1,11 @@
+use std::collections::HashMap;
+
 use crate::{
     dao::RequestDao,
     handler::access::{AccessAppSenderDoSms, AccessAppSenderSmsConfig, AccessAppSenderSmsMsg},
     LimitParam, PageParam, {JsonData, JsonResult},
 };
-use lsys_core::str_time;
+use lsys_core::{rand_str, str_time, RandType};
 use lsys_sender::{
     dao::SenderError,
     model::{SenderConfigStatus, SenderSmsConfigType, SenderSmsMessageStatus},
@@ -398,8 +400,9 @@ pub struct SmserMessageSendParam {
     pub app_id: u64,
     pub mobile: Vec<String>,
     pub tpl: String,
-    pub data: String,
-    pub cancel: Option<String>,
+    //body 对外统一格式{key:val}
+    // 这里判断不同发送端进行统一转换匹配
+    pub data: HashMap<String, String>,
     pub send_time: Option<String>,
 }
 //后台界面发送短信接口
@@ -434,7 +437,7 @@ pub async fn smser_message_send<'t, T: SessionTokenData, D: SessionData, S: User
     } else {
         None
     };
-    // 字符串转时间对象
+
     req_dao
         .web_dao
         .sender_smser
@@ -444,7 +447,7 @@ pub async fn smser_message_send<'t, T: SessionTokenData, D: SessionData, S: User
             &param.mobile,
             &param.data,
             send_time,
-            &param.cancel,
+            &Some(rand_str(RandType::UpperHex, 12)),
             Some(&req_dao.req_env),
         )
         .await?;

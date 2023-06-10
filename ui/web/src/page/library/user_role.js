@@ -41,7 +41,7 @@ function UserResSelect(props) {
         loading: false,
         next: true,
         page: 0,
-        show: 10,
+        show: 25,
         items: [],
         item_ops: [],
         item_ops_cache: {},
@@ -890,7 +890,7 @@ function UserRoleListUser(props) {
     const [userDataParam, setUserDataParam] = useState({
         op_user_id: 0,
         page: 0,
-        page_size: 10
+        page_size: 25
     });
     const [userData, setUserData] = useState({
         loading: false,
@@ -1072,7 +1072,9 @@ function UserRoleListUser(props) {
                 alignItems="center"
             >
                 <Grid item xs={11}>
-                    <Form method="post" >
+                    <Form method="post" onSubmit={(e) => {
+                        e.preventDefault();
+                    }} >
                         <Grid
                             container item
                             justifyContent="center"
@@ -1542,7 +1544,7 @@ export function UserRolePage(props) {
         res_range: "",
         relation_prefix: "",
         page: 0,
-        page_size: 10,
+        page_size: 25,
     });
 
 
@@ -2086,7 +2088,7 @@ export function UserRolePage(props) {
                                 <BaseTableFooter
                                     count={pageRowData.rows_total}
                                     page={parseInt(searchParam.get("page")) || 0}
-                                    rowsPerPage={parseInt(searchParam.get("page_size")) || 10}
+                                    rowsPerPage={parseInt(searchParam.get("page_size")) || 25}
                                     onPageChange={(e, newPage) => {
                                         setSearchParam({
 

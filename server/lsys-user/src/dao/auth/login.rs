@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use base64::Engine;
 use ip2location::Record;
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{get_message, FluentMessage};
+use lsys_core::{get_message, FluentMessage, RemoteNotify};
 use lsys_core::{now_time, PageParam};
 
 use serde::Deserialize;
@@ -291,13 +291,14 @@ impl<T: UserAuthStore + Send + Sync> UserAuth<T> {
         db: Pool<MySql>,
         redis: deadpool_redis::Pool,
         fluent: Arc<FluentMessage>,
+        remote_notify: Arc<RemoteNotify>,
         account: Arc<UserAccount>,
         store: T,
         config: Option<UserAuthConfig>,
     ) -> Self {
         let login_config = config.unwrap_or_default();
         UserAuth {
-            cache: LocalCache::new(redis.clone(), login_config.cache_config),
+            cache: LocalCache::new(remote_notify, login_config.cache_config),
             login_store: RwLock::new(store),
             account,
             login_config,

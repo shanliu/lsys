@@ -1,8 +1,8 @@
 use ip2location::LocationDB;
 use lsys_app::dao::AppDao;
 use lsys_core::cache::{LocalCacheClear, LocalCacheClearItem};
-use lsys_core::{AppCore, AppCoreError};
-use lsys_docs::dao::DocsDao;
+use lsys_core::{AppCore, AppCoreError, RemoteNotify};
+use lsys_docs::dao::{DocsDao, GitRemoteTask};
 use lsys_logger::dao::ChangeLogger;
 use lsys_rbac::dao::rbac::RbacLocalCacheClear;
 use lsys_rbac::dao::{RbacDao, SystemRole};
@@ -13,7 +13,6 @@ use lsys_user::dao::auth::{UserAuthConfig, UserAuthRedisStore};
 use lsys_user::dao::UserDao;
 
 use sqlx::{MySql, Pool};
-use std::time::Duration;
 use std::vec;
 use std::{path::PathBuf, str::FromStr, sync::Arc};
 use tera::Tera;
@@ -75,14 +74,19 @@ impl WebDao {
             tpl_dir
         };
         let tera = Arc::new(app_core.create_tera(&tera_tpl)?);
-
         let redis = app_core.create_redis().await?;
+        let remote_notify = Arc::new(RemoteNotify::new(
+            "lsys-remote-notify",
+            app_core.clone(),
+            redis.clone(),
+        )?);
+
         let change_logger = Arc::new(ChangeLogger::new(db.clone()));
         let setting = Arc::new(
             Setting::new(
                 app_core.clone(),
                 db.clone(),
-                redis.clone(),
+                remote_notify.clone(),
                 change_logger.clone(),
             )
             .await?,
@@ -99,7 +103,7 @@ impl WebDao {
             RbacDao::new(
                 app_core.clone(),
                 db.clone(),
-                redis.clone(),
+                remote_notify.clone(),
                 change_logger.clone(),
                 Some(Box::new(SystemRole::new(true, root_user_id))),
                 app_core.config.get_bool("rbac_cache").unwrap_or(false),
@@ -127,7 +131,17 @@ impl WebDao {
         } else {
             info!("ip city db not config")
         }
-        let docs = Arc::new(DocsDao::new(db.clone(), setting.single.clone()).await);
+
+        let docs = Arc::new(
+            DocsDao::new(
+                app_core.clone(),
+                db.clone(),
+                remote_notify.clone(),
+                change_logger.clone(),
+                None,
+            )
+            .await,
+        );
 
         let task_docs = docs.task.clone();
         tokio::spawn(async move {
@@ -141,6 +155,7 @@ impl WebDao {
                 redis.clone(),
                 setting.single.clone(),
                 change_logger.clone(),
+                remote_notify.clone(),
                 login_store,
                 Some(login_config),
             )
@@ -152,6 +167,7 @@ impl WebDao {
                 app_core.clone(),
                 db.clone(),
                 redis.clone(),
+                remote_notify.clone(),
                 change_logger.clone(),
                 7 * 24 * 3600, //TOKEN有效期7天
             )
@@ -194,25 +210,6 @@ impl WebDao {
         });
         let captcha = Arc::new(WebAppCaptcha::new(redis.clone()));
 
-        let clear_rbac_dao = rbac_dao.clone();
-        let clear_user_dao = user_dao.clone();
-        let clear_app_core = app_core.clone();
-
-        tokio::spawn(async move {
-            let mut cache_item: Vec<Box<dyn LocalCacheClearItem + Sync + Send + 'static>> = vec![];
-            for item in RbacLocalCacheClear::new_clears(&clear_rbac_dao.rbac) {
-                cache_item.push(Box::new(item))
-            }
-            for item in UserAccountLocalCacheClear::new_clears(&clear_user_dao.user_account) {
-                cache_item.push(Box::new(item))
-            }
-            let local_cache_clear = LocalCacheClear::new(cache_item);
-            loop {
-                let redis_client = clear_app_core.create_redis_client().unwrap();
-                local_cache_clear.listen(redis_client).await;
-                tokio::time::sleep(Duration::from_secs(1)).await;
-            }
-        });
         let app_locale_dir = app_core.app_dir.join("locale/lsys-web");
         let fluents_message = Arc::new(if app_locale_dir.exists() {
             app_core.create_fluent(app_locale_dir).await?
@@ -227,6 +224,28 @@ impl WebDao {
             fluents_message.clone(),
             change_logger.clone(),
         ));
+
+        // local cache
+        let mut cache_item: Vec<Box<dyn LocalCacheClearItem + Sync + Send + 'static>> = vec![];
+        for item in RbacLocalCacheClear::new_clears(&rbac_dao.rbac) {
+            cache_item.push(Box::new(item))
+        }
+        for item in UserAccountLocalCacheClear::new_clears(&user_dao.user_account) {
+            cache_item.push(Box::new(item))
+        }
+        let local_cache_clear = LocalCacheClear::new(cache_item);
+        remote_notify.push_run(Box::new(local_cache_clear)).await;
+
+        //git doc
+        remote_notify
+            .push_run(Box::new(GitRemoteTask::new(docs.task.clone())))
+            .await;
+
+        tokio::spawn(async move {
+            //listen redis notify
+            remote_notify.listen().await;
+        });
+
         Ok(WebDao {
             docs,
             user: Arc::new(WebUser::new(

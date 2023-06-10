@@ -75,7 +75,7 @@ export async function resListData(params, config) {
     count_num: params.count_num ? true : false,
     page: {
       page: parseInt(page) >= 0 ? (parseInt(page) + 1) : 1,
-      limit: parseInt(page_size) > 0 ? parseInt(page_size) : 10
+      limit: parseInt(page_size) > 0 ? parseInt(page_size) : 25
     }
   };
   if (typeof tag == 'string' && tag.length > 0) {
@@ -216,7 +216,7 @@ export async function roleListUser(params, config) {
     count_num: true,
     page: {
       page: parseInt(page) >= 0 ? (parseInt(page) + 1) : 1,
-      limit: parseInt(page_size) > 0 ? parseInt(page_size) : 10
+      limit: parseInt(page_size) > 0 ? parseInt(page_size) : 25
     },
   };
   if (op_user_id > 0) {
@@ -274,7 +274,7 @@ export async function roleRelationData(params, config) {
     user_id: parseInt(user_id),
     page: {
       page: parseInt(page) >= 0 ? (parseInt(page) + 1) : 1,
-      limit: parseInt(page_size) > 0 ? parseInt(page_size) : 10
+      limit: parseInt(page_size) > 0 ? parseInt(page_size) : 25
     },
   };
   if (typeof relation_prefix == 'string' && relation_prefix.length > 0) {
@@ -303,7 +303,7 @@ export async function roleListData(params, config) {
     ops: 2,
     page: {
       page: parseInt(page) >= 0 ? (parseInt(page) + 1) : 1,
-      limit: parseInt(page_size) > 0 ? parseInt(page_size) : 10
+      limit: parseInt(page_size) > 0 ? parseInt(page_size) : 25
     },
     user_data_group: 2,
     user_data_page: { page: 0, limit: 0 }
