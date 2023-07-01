@@ -297,7 +297,7 @@ CREATE TABLE `yaf_sender_config` (
     `change_time` bigint unsigned NOT NULL COMMENT '最后修改时间',
     PRIMARY KEY (`id`),
     KEY `appid` (`app_id`) USING BTREE
-) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '内部短信配置,如发送限额等';
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '发送配置,如发送限额等';
 CREATE TABLE `yaf_sender_key_cancel` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
@@ -318,8 +318,7 @@ CREATE TABLE `yaf_sender_log` (
     `message_id` bigint unsigned NOT NULL COMMENT 'ID',
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
     `log_type` tinyint NOT NULL COMMENT '日志类型,如发送,取消等',
-    `event_type` varchar(32) NOT NULL COMMENT '触发来源',
-    `send_channel` varchar(32) NOT NULL COMMENT '发送渠道:如阿里云的 access_id',
+    `send_note` varchar(32) NOT NULL COMMENT '发送时信息,发送时使用的外部应用ID等',
     `message` varchar(255) NOT NULL COMMENT '发送相关消息',
     `status` tinyint NOT NULL COMMENT '操作状态',
     `user_id` bigint unsigned NOT NULL COMMENT '操作用户id',
@@ -330,8 +329,22 @@ CREATE TABLE `yaf_sender_log` (
     KEY `appid` (`app_id`) USING BTREE,
     KEY `message_id` (`message_id`) USING BTREE,
     KEY `sender_type` (`sender_type`) USING BTREE
-) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '取消发送短信日志';
-CREATE TABLE `yaf_sender_tpls` (
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '发送日志';
+CREATE TABLE `yaf_sender_tpl_config` (
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+    `sender_type` tinyint NOT NULL COMMENT '发送类型',
+    `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
+    `name` varchar(32) NOT NULL COMMENT '名称',
+    `tpl_id` varchar(32) NOT NULL COMMENT '模板KEY',
+    `setting_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '配置ID',
+    `config_data` text NOT NULL COMMENT '配置JSON数据',
+    `status` tinyint NOT NULL COMMENT '状态',
+    `user_id` bigint unsigned NOT NULL COMMENT '用户id',
+    `change_time` bigint unsigned NOT NULL COMMENT '最后更改时间',
+    `change_user_id` bigint unsigned NOT NULL COMMENT '最后更改用户id',
+    PRIMARY KEY (`id`)
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '发送模板配置';
+CREATE TABLE `yaf_sender_tpl_body` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `sender_type` tinyint NOT NULL COMMENT '发送类型',
     `tpl_id` varchar(32) NOT NULL COMMENT ' 模板ID',
@@ -343,7 +356,7 @@ CREATE TABLE `yaf_sender_tpls` (
     PRIMARY KEY (`id`),
     KEY `tpl_id` (`tpl_id`, `status`) USING BTREE,
     KEY `sender_type` (`sender_type`) USING BTREE
-) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '取消发送短信日志';
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '发送模板内容,有些接口不用这个';
 CREATE TABLE `yaf_sender_mail_message` (
     `id` bigint unsigned NOT NULL COMMENT 'ID,由应用生成',
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
@@ -352,6 +365,7 @@ CREATE TABLE `yaf_sender_mail_message` (
     `tpl_id` varchar(32) NOT NULL COMMENT '模板ID',
     `tpl_var` varchar(512) NOT NULL DEFAULT '' COMMENT '模板变量',
     `try_num` smallint unsigned NOT NULL DEFAULT 0 COMMENT '发送次数',
+    `max_try_num` smallint unsigned NOT NULL DEFAULT 1 COMMENT '最大发送次数',
     `status` tinyint NOT NULL COMMENT '启用状态',
     `add_time` bigint unsigned NOT NULL COMMENT '申请时间',
     `expected_time` bigint unsigned NOT NULL COMMENT '预计发送时间',
@@ -359,23 +373,7 @@ CREATE TABLE `yaf_sender_mail_message` (
     `user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '用户id',
     PRIMARY KEY (`id`),
     KEY `sender_record_data_IDX` (`expected_time`, `status`, `id`) USING BTREE
-) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '发送短信数据';
-CREATE TABLE `yaf_sender_mail_smtp` (
-    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-    `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
-    `name` varchar(32) NOT NULL COMMENT '邮箱',
-    `tpl_id` varchar(32) NOT NULL COMMENT '模板ID',
-    `from_email` varchar(254) NOT NULL DEFAULT '' COMMENT '模板变量',
-    `smtp_config_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT 'SMTP配置ID 参见 yaf_setting表',
-    `subject_tpl_id` varchar(32) NOT NULL DEFAULT '' COMMENT '模板变量',
-    `body_tpl_id` varchar(32) NOT NULL DEFAULT '' COMMENT '模板变量',
-    `max_try_num` smallint unsigned NOT NULL DEFAULT 0 COMMENT '发送次数',
-    `status` tinyint NOT NULL COMMENT '启用状态',
-    `user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '用户id',
-    `change_time` bigint unsigned NOT NULL COMMENT '最后更改时间',
-    `change_user_id` bigint unsigned NOT NULL COMMENT '最后更改用户id',
-    PRIMARY KEY (`id`)
-) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '发送短信数据';
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '发送邮件数据';
 CREATE TABLE `yaf_sender_sms_message` (
     `id` bigint unsigned NOT NULL COMMENT 'ID,由应用生成',
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
@@ -384,6 +382,7 @@ CREATE TABLE `yaf_sender_sms_message` (
     `tpl_id` varchar(32) NOT NULL COMMENT '模板ID',
     `tpl_var` varchar(512) NOT NULL DEFAULT '' COMMENT '模板变量',
     `try_num` smallint unsigned NOT NULL DEFAULT 0 COMMENT '发送次数',
+    `max_try_num` smallint unsigned NOT NULL DEFAULT 1 COMMENT '最大发送次数',
     `status` tinyint NOT NULL COMMENT '启用状态',
     `add_time` bigint unsigned NOT NULL COMMENT '申请时间',
     `expected_time` bigint unsigned NOT NULL COMMENT '预计发送时间',
@@ -392,21 +391,6 @@ CREATE TABLE `yaf_sender_sms_message` (
     PRIMARY KEY (`id`),
     KEY `sender_record_data_IDX` (`expected_time`, `status`, `id`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '发送短信数据';
-CREATE TABLE `yaf_sender_sms_aliyun` (
-    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-    `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
-    `aliyun_config_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '阿里云短信配置ID 参见 yaf_setting表 setting_key=ali-sms-config ',
-    `name` varchar(32) NOT NULL COMMENT '名称',
-    `tpl_id` varchar(32) NOT NULL COMMENT '模板KEY',
-    `aliyun_sign_name` varchar(32) NOT NULL COMMENT '阿里云签名',
-    `aliyun_sms_tpl` varchar(32) NOT NULL COMMENT '阿里云模板名',
-    `status` tinyint NOT NULL COMMENT '状态',
-    `max_try_num` smallint unsigned NOT NULL DEFAULT 1 COMMENT '最大发送次数',
-    `user_id` bigint unsigned NOT NULL COMMENT '用户id',
-    `change_time` bigint unsigned NOT NULL COMMENT '最后更改时间',
-    `change_user_id` bigint unsigned NOT NULL COMMENT '最后更改用户id',
-    PRIMARY KEY (`id`)
-) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '短信ALIYUN跟内部短信映射';
 -- ----------- lsys-sender  ---------------
 -- ----------- lsys-doc  ---------------
 CREATE TABLE `yaf_doc_git` (
@@ -431,7 +415,7 @@ CREATE TABLE `yaf_doc_tag` (
     PRIMARY KEY (`id`),
     KEY `yaf_user_tag_IDX` (`doc_git_id`) USING BTREE,
     KEY `yaf_tag_IDX` (`tag`) USING BTREE,
-    KEY `yaf_tag_IDX` (`build_version`) USING BTREE
+    KEY `yaf_ver_IDX` (`build_version`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '文档GIT-TAG';
 CREATE TABLE `yaf_doc_clone` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,

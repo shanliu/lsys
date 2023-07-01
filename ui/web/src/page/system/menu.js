@@ -28,7 +28,11 @@ export const Menus = [
         icon: SmsIcon,
         text: "短信管理",
         rbac: [{
-            name: "admin-ali-sms-config"
+            name: "admin-aliyun-sms-config"
+        }, {
+            name: "admin-tenyun-sms-config"
+        }, {
+            name: "admin-hwyun-sms-config"
         }, {
             name: "admin-sender-config"
         }]
@@ -78,7 +82,7 @@ export const Menus = [
         }]
     },
     {
-        url: "/system/setting/site",
+        url: "/system/setting/site/setting",
         icon: SettingsIcon,
         text: "全局设置",
         rbac: [

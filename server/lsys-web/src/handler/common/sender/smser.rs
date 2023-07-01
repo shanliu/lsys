@@ -14,6 +14,8 @@ use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
+use super::{tpl_config_del, tpl_config_list, TplConfigDelParam, TplConfigListParam};
+
 #[derive(Debug, Deserialize)]
 pub struct SmserMessageLogParam {
     pub message_id: String,
@@ -184,6 +186,7 @@ pub async fn smser_message_list<'t, T: SessionTokenData, D: SessionData, S: User
                 "mobile":format!("{}-{}",e.area,e.mobile),
                 "tpl_id":e.tpl_id,
                 "try_num":e.try_num,
+                "max_try_num":e.max_try_num,
                 "add_time":e.add_time,
                 "status":e.status,
                 "expected_time":e.expected_time,
@@ -395,11 +398,29 @@ pub async fn smser_config_list<'t, T: SessionTokenData, D: SessionData, S: UserS
     Ok(JsonData::data(json!({ "data": data })))
 }
 
+pub async fn smser_tpl_config_list<
+    't,
+    T: SessionTokenData,
+    D: SessionData,
+    S: UserSession<T, D>,
+>(
+    param: TplConfigListParam,
+    req_dao: &RequestDao<T, D, S>,
+) -> JsonResult<JsonData> {
+    tpl_config_list(param, req_dao.web_dao.sender_smser.tpl_config(), req_dao).await
+}
+
+pub async fn smser_tpl_config_del<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
+    param: TplConfigDelParam,
+    req_dao: &RequestDao<T, D, S>,
+) -> JsonResult<JsonData> {
+    tpl_config_del(param, req_dao.web_dao.sender_smser.tpl_config(), req_dao).await
+}
+
 #[derive(Debug, Deserialize)]
 pub struct SmserMessageSendParam {
-    pub app_id: u64,
+    pub tpl_id: u64,
     pub mobile: Vec<String>,
-    pub tpl: String,
     //body 对外统一格式{key:val}
     // 这里判断不同发送端进行统一转换匹配
     pub data: HashMap<String, String>,
@@ -411,12 +432,19 @@ pub async fn smser_message_send<'t, T: SessionTokenData, D: SessionData, S: User
     req_dao: &RequestDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+
+    let tpl = req_dao
+        .web_dao
+        .sender_smser
+        .tpl_config()
+        .find_by_id(&param.tpl_id)
+        .await?;
     let app = req_dao
         .web_dao
         .app
         .app_dao
         .app
-        .find_by_id(&param.app_id)
+        .find_by_id(&tpl.app_id)
         .await?;
     if req_auth.user_data().user_id != app.user_id {
         return Ok(JsonData::message("can't use other user app"));
@@ -443,11 +471,12 @@ pub async fn smser_message_send<'t, T: SessionTokenData, D: SessionData, S: User
         .sender_smser
         .app_send(
             &app,
-            &param.tpl,
+            &tpl.tpl_id,
             &param.mobile,
             &param.data,
-            send_time,
+            &send_time,
             &Some(rand_str(RandType::UpperHex, 12)),
+            &None,
             Some(&req_dao.req_env),
         )
         .await?;

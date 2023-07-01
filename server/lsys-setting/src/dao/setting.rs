@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::ops::Deref;
@@ -5,7 +6,75 @@ use std::ops::Deref;
 use lsys_logger::dao::ChangeLogData;
 use serde::{Deserialize, Serialize};
 
-use crate::model::{SettingModel, SettingType};
+use crate::model::{SettingModel, SettingStatus, SettingType};
+
+use sqlx::{MySql, Pool};
+use std::sync::Arc;
+
+use super::{MultipleSetting, SingleSetting};
+
+use lsys_core::{AppCore, AppCoreError, RemoteNotify};
+use lsys_logger::dao::ChangeLogger;
+pub struct Setting {
+    db: Pool<MySql>,
+    pub single: Arc<SingleSetting>,
+    pub multiple: Arc<MultipleSetting>,
+}
+
+impl Setting {
+    pub async fn new(
+        app_core: Arc<AppCore>,
+        db: Pool<MySql>,
+        remote_notify: Arc<RemoteNotify>,
+        logger: Arc<ChangeLogger>,
+    ) -> Result<Self, AppCoreError> {
+        let app_locale_dir = app_core.app_dir.join("locale/lsys-rbac");
+        let fluents_message = Arc::new(if app_locale_dir.exists() {
+            app_core.create_fluent(app_locale_dir).await?
+        } else {
+            let cargo_dir = env!("CARGO_MANIFEST_DIR");
+            app_core
+                .create_fluent(cargo_dir.to_owned() + "/locale")
+                .await?
+        });
+        Ok(Self {
+            single: Arc::from(SingleSetting::new(
+                db.clone(),
+                fluents_message.clone(),
+                remote_notify.clone(),
+                logger.clone(),
+            )),
+            multiple: Arc::from(MultipleSetting::new(
+                db.clone(),
+                fluents_message,
+                remote_notify,
+                logger,
+            )),
+            db,
+        })
+    }
+    lsys_core::impl_dao_fetch_one_by_one!(
+        db,
+        find_by_id,
+        u64,
+        SettingModel,
+        SettingResult<SettingModel>,
+        id,
+        "id={id} and status = {status}",
+        status = SettingStatus::Enable
+    );
+    lsys_core::impl_dao_fetch_map_by_vec!(
+        db,
+        find_by_ids,
+        u64,
+        SettingModel,
+        SettingResult<HashMap<u64, SettingModel>>,
+        id,
+        ids,
+        "id in ({ids}) and  status = {status}",
+        status = SettingStatus::Enable
+    );
+}
 
 #[derive(Debug)]
 pub enum SettingError {
@@ -67,6 +136,13 @@ pub trait SettingJson<'t>: SettingDecode + Deserialize<'t> + SettingEncode + Ser
 pub struct SettingData<T: SettingDecode> {
     model: SettingModel,
     data: T,
+}
+impl<T: SettingDecode> TryFrom<SettingModel> for SettingData<T> {
+    type Error = SettingError;
+    fn try_from(model: SettingModel) -> Result<Self, Self::Error> {
+        let data = T::decode(&model.setting_data)?;
+        Ok(Self::new(data, model))
+    }
 }
 impl<T: SettingDecode> SettingData<T> {
     pub fn new(data: T, model: SettingModel) -> Self {

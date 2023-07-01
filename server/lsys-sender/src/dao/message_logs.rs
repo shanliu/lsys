@@ -8,7 +8,7 @@ use sqlx_model::{sql_format, Insert, ModelTableName, Select, SqlExpr};
 use sqlx_model::SqlQuote;
 use tracing::warn;
 
-//短信任务记录
+//发送任务日志相关操作实现
 pub struct MessageLogs {
     db: Pool<sqlx::MySql>,
     send_type: SenderType,
@@ -33,7 +33,6 @@ impl MessageLogs {
         let status = SenderLogStatus::Succ as i8;
         let mut idata = Vec::with_capacity(message_ids.len());
         let tmp = "".to_string();
-        let event_type = "init".to_string();
         let user_ip = env_data
             .as_ref()
             .map(|e| {
@@ -59,8 +58,7 @@ impl MessageLogs {
                 sender_type:sender_type,
                 log_type:log_type,
                 status:status ,
-                event_type:event_type,
-                send_channel:tmp,
+                send_note:tmp,
                 message:tmp,
                 create_time:send_time,
                 user_id:0,
@@ -77,28 +75,26 @@ impl MessageLogs {
     }
     pub async fn add_finish_log(
         &self,
-        event_type: String,
         app_id: u64,
         message_id: u64,
-        channel: String,
-        res: &Result<(), String>,
+        status: &SenderLogStatus,
+        send_note: &str,
+        message: &str,
     ) {
-        let (log_status, err_msg) = match res {
-            Ok(()) => (SenderLogStatus::Succ as i8, "".to_string()),
-            Err(err) => (SenderLogStatus::Fail as i8, err.to_owned()),
-        };
         let send_time = now_time().unwrap_or_default();
         let log_type = SenderLogType::Send as i8;
         let sender_type = self.send_type as i8;
-        let idata = sqlx_model::model_option_set!(SenderLogModelRef,{
+        let log_status = *status as i8;
+        let send_note = send_note.to_owned();
+        let message = message.to_owned();
+        let idata: SenderLogModelRef<'_> = sqlx_model::model_option_set!(SenderLogModelRef,{
             message_id:message_id,
             app_id:app_id,
             sender_type:sender_type,
             log_type:log_type,
             status:log_status,
-            event_type:event_type,
-            send_channel:channel,
-            message:err_msg,
+            send_note:send_note,
+            message:message,
             create_time:send_time,
             user_id:0,
         });
@@ -118,8 +114,8 @@ impl MessageLogs {
     ) {
         let send_time = now_time().unwrap_or_default();
         let log_type = SenderLogType::Cancel as i8;
-        let event_type = "cancel".to_string();
         let sender_type = self.send_type as i8;
+        let send_note = "".to_owned();
         let log = "cancal send".to_string();
         let user_ip = env_data
             .as_ref()
@@ -145,7 +141,7 @@ impl MessageLogs {
             sender_type:sender_type,
             log_type:log_type,
             status: SenderLogStatus::MessageCancel as i8,
-            event_type:event_type,
+            send_note:send_note,
             message:log,
             create_time:send_time,
             user_id:*user_id,

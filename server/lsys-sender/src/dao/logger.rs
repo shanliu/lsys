@@ -1,6 +1,8 @@
 use lsys_logger::dao::ChangeLogData;
 use serde::Serialize;
 
+//发送系统日志
+
 #[derive(Serialize)]
 pub(crate) struct LogMessageTpls {
     pub action: &'static str,
@@ -22,27 +24,22 @@ impl ChangeLogData for LogMessageTpls {
 }
 
 #[derive(Serialize)]
-pub(crate) struct LogMailAppConfig {
+pub(crate) struct LogAppConfig {
     pub action: &'static str,
+    pub sender_type: u8,
     pub app_id: u64,
     pub name: String,
     pub tpl_id: String,
-    pub from_email: String,
-    pub smtp_config_id: u64,
-    pub subject_tpl_id: String,
-    pub body_tpl_id: String,
-    pub max_try_num: u16,
+    pub setting_id: u64,
+    pub config_data: String,
 }
 
-impl ChangeLogData for LogMailAppConfig {
+impl ChangeLogData for LogAppConfig {
     fn log_type<'t>() -> &'t str {
-        "sender-mail-app-config"
+        "sender-app-config"
     }
     fn message(&self) -> String {
-        format!(
-            "{} mail app {} config {} ",
-            self.action, self.app_id, self.name
-        )
+        format!("{} app {} config {} ", self.action, self.app_id, self.name)
     }
     fn encode(&self) -> String {
         serde_json::to_string(&self).unwrap_or_default()

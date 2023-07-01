@@ -3,9 +3,10 @@ mod res;
 mod role;
 
 use crate::handler::access::{
-    AccessAdminAliSmsConfig, AccessAdminChangeLogsView, AccessAdminDocsEdit, AccessAdminManage,
-    AccessAdminSetting, AccessAdminSmtpConfig, AccessAdminUserFull, AccessAppSenderSmsConfig,
-    AccessResView, AccessRoleView, AccessUserAppConfirm,
+    AccessAdminAliSmsConfig, AccessAdminChangeLogsView, AccessAdminDocsEdit,
+    AccessAdminHwSmsConfig, AccessAdminManage, AccessAdminSetting, AccessAdminSmtpConfig,
+    AccessAdminUserFull, AccessAppSenderSmsConfig, AccessResView, AccessRoleView,
+    AccessUserAppConfirm,
 };
 pub use access::*;
 use lsys_rbac::dao::{RbacDao, RoleRelationKey, UserRbacError, UserRbacResult};
@@ -51,7 +52,15 @@ pub(crate) async fn access_check(
             }
         };
     }
-    check!("admin-ali-sms-config", AccessAdminAliSmsConfig { user_id });
+    check!("admin-hwyun-sms-config", AccessAdminHwSmsConfig { user_id });
+    check!(
+        "admin-aliyun-sms-config",
+        AccessAdminAliSmsConfig { user_id }
+    );
+    check!(
+        "admin-tenyun-sms-config",
+        AccessAdminAliSmsConfig { user_id }
+    );
     check!(
         "admin-sender-config",
         AccessAppSenderSmsConfig {

@@ -14,6 +14,8 @@ use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
+use super::{tpl_config_del, tpl_config_list, TplConfigDelParam, TplConfigListParam};
+
 #[derive(Debug, Deserialize)]
 pub struct MailerMessageLogParam {
     pub message_id: String,
@@ -183,6 +185,7 @@ pub async fn mailer_message_list<'t, T: SessionTokenData, D: SessionData, S: Use
                 "to_mail":e.to_mail,
                 "tpl_id":e.tpl_id,
                 "try_num":e.try_num,
+                "max_try_num":e.max_try_num,
                 "add_time":e.add_time,
                 "status":e.status,
                 "expected_time":e.expected_time,
@@ -399,10 +402,33 @@ pub async fn mailer_config_list<'t, T: SessionTokenData, D: SessionData, S: User
     Ok(JsonData::data(json!({ "data": data })))
 }
 
+pub async fn mailer_tpl_config_list<
+    't,
+    T: SessionTokenData,
+    D: SessionData,
+    S: UserSession<T, D>,
+>(
+    param: TplConfigListParam,
+    req_dao: &RequestDao<T, D, S>,
+) -> JsonResult<JsonData> {
+    tpl_config_list(param, req_dao.web_dao.sender_mailer.tpl_config(), req_dao).await
+}
+
+pub async fn mailer_tpl_config_del<
+    't,
+    T: SessionTokenData,
+    D: SessionData,
+    S: UserSession<T, D>,
+>(
+    param: TplConfigDelParam,
+    req_dao: &RequestDao<T, D, S>,
+) -> JsonResult<JsonData> {
+    tpl_config_del(param, req_dao.web_dao.sender_mailer.tpl_config(), req_dao).await
+}
+
 #[derive(Debug, Deserialize)]
 pub struct MailerMessageSendParam {
-    pub app_id: u64,
-    pub tpl: String,
+    pub tpl_id: u64,
     pub data: HashMap<String, String>,
     pub to: Vec<String>,
     pub reply: Option<String>,
@@ -415,12 +441,18 @@ pub async fn mailer_message_send<'t, T: SessionTokenData, D: SessionData, S: Use
     req_dao: &RequestDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let tpl = req_dao
+        .web_dao
+        .sender_mailer
+        .tpl_config()
+        .find_by_id(&param.tpl_id)
+        .await?;
     let app = req_dao
         .web_dao
         .app
         .app_dao
         .app
-        .find_by_id(&param.app_id)
+        .find_by_id(&tpl.app_id)
         .await?;
     if req_auth.user_data().user_id != app.user_id {
         return Ok(JsonData::message("can't use other user app"));
@@ -447,10 +479,10 @@ pub async fn mailer_message_send<'t, T: SessionTokenData, D: SessionData, S: Use
         .sender_mailer
         .app_send(
             &app,
-            &param.tpl,
+            &tpl.tpl_id,
             &param.to,
             &param.data,
-            send_time,
+            &send_time,
             &param.reply,
             &Some(rand_str(RandType::UpperHex, 12)),
             Some(&req_dao.req_env),

@@ -91,10 +91,21 @@ Authorization: {{jwt_token}}
 
 
 
-### 阿里短信配置关联短信发送删除
-POST {{url}}/sender-smser/ali_app_config_del
+### 短信配置关联删除
+POST {{url}}/sender-smser/tpl_config_del
 Authorization: {{jwt_token}}
 
 {
     "app_config_id": 29
+}
+
+### 短信配置关联列表
+POST {{url}}/sender-smser/tpl_config_list
+Authorization: {{jwt_token}}
+
+{
+    // "id": 29,
+    // "user_id": 29,
+    // "app_id": 29,
+    // "tpl": 29
 }

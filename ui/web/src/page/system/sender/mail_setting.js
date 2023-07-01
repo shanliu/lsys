@@ -1,33 +1,42 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { TabLayout } from '../../library/layout';
 export default function SystemSmsSettingPage() {
     const InfoNav = [
         {
-            key: "message",
+            value: "message",
             name: "系统邮件列表"
         },
         {
-            key: "smtp_map",
-            name: "系统邮件映射"
-        },
-        {
-            key: "tpls",
-            name: "邮件模板"
-        },
-        {
-            key: "limit",
+            value: "limit",
             name: "系统邮件限额"
         },
         {
-            key: "smtp",
-            name: "SMTP配置"
+            value: "tpl_body",
+            name: "系统邮件内容"
+        },
+        {
+            value: "tpl_config",
+            name: "系统邮件模板"
+        },
+
+        {
+            to: "map_config/smtp",
+            value: "map_config",
+            name: "系统邮件端口"
         }
     ];
     const navigate = useNavigate();
-    return <TabLayout onChange={
+    let param = useParams();
+    let type = param['*'].split('/')[1];
+    return <TabLayout value={type} onChange={
         (event, newValue) => {
-            navigate('/system/sender_mail/' + newValue);
+            let find = InfoNav.find((item) => { return item.value == newValue })
+            if (find) {
+                let url = '/system/sender_mail/' + (find.to ? find.to : find.value);
+                navigate(url);
+            }
+
         }
     } menus={InfoNav} />
 }

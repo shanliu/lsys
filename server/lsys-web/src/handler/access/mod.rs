@@ -47,6 +47,7 @@ pub fn res_tpls() -> Vec<ResTpl> {
         AccessOauthUserMobile,
         AccessOauthUserAddress,
         AccessAdminAliSmsConfig,
+        AccessAdminHwSmsConfig,
         AccessAppSenderSmsConfig,
         AccessAppSenderSmsMsg,
         AccessResView,

@@ -43,7 +43,14 @@ pub enum SenderConfigStatus {
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, SqlxModelStatus, PartialEq, Eq)]
 #[sqlx_model_status(type = "i8")]
-pub enum SenderTplStatus {
+pub enum SenderTplBodyStatus {
+    Enable = 1,
+    Delete = 2,
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, SqlxModelStatus, PartialEq, Eq)]
+#[sqlx_model_status(type = "i8")]
+pub enum SenderTplConfigStatus {
     Enable = 1,
     Delete = 2,
 }

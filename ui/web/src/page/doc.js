@@ -3,11 +3,11 @@ import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined';
 import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import TreeItem, { treeItemClasses } from '@mui/lab/TreeItem';
 import TreeView from '@mui/lab/TreeView';
-import { Alert, Box, Grid, Link } from '@mui/material';
+import { Alert, Box, Grid, Link, Stack } from '@mui/material';
 import Typography from '@mui/material/Typography';
 import { styled } from '@mui/material/styles';
 import MarkdownPreview from '@uiw/react-markdown-preview';
-import React, { Fragment, useEffect, useState } from 'react';
+import React, { Fragment, useEffect, useRef, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import config from '../../config.json';
 import { Progress } from '../library/loading';
@@ -30,7 +30,7 @@ function generateId(node, pids, menu) {
 function mergeJSONs(json1, json2) {
     if ((!json1.children || json1.children.length == 0)
         && (!json2.children || json2.children.length == 0)) {
-        if (json1.menu?.id>json2.menu?.id) return json1
+        if (json1.menu?.id > json2.menu?.id) return json1
         else return json2
     }
     if (!json1.children) {
@@ -58,7 +58,7 @@ function mergeJSONs(json1, json2) {
         }
     });
     return {
-        ...(json1.menu?.id>json2.menu?.id)?json1:json2,
+        ...(json1.menu?.id > json2.menu?.id) ? json1 : json2,
         name: (json1.name && json1.name != '') ? json1.name : json2.name,
         children: mergedChildren
     };
@@ -75,21 +75,21 @@ function findFirstDOC(jsondata) {
     }
 }
 //查找打开菜单节点
-function findNowOpenNode(muneData,id,path,parent) {
-    for (var jsondata of muneData){
-        let mpath=((jsondata?.path?jsondata?.path:'')+'').replace(/^\.\//,'').replace(/^\//,'');
-        let spath=(path?path:'').replace(/^\.\//,'').replace(/^\//,'');
-       
-        if(jsondata?.menu?.id==id&&mpath==spath){
+function findNowOpenNode(muneData, id, path, parent) {
+    for (var jsondata of muneData) {
+        let mpath = ((jsondata?.path ? jsondata?.path : '') + '').replace(/^\.\//, '').replace(/^\//, '');
+        let spath = (path ? path : '').replace(/^\.\//, '').replace(/^\//, '');
+
+        if (jsondata?.menu?.id == id && mpath == spath) {
             parent.push(jsondata.id)
             return parent
-       }
-       if (jsondata.children) {
-           let tmp=[...parent];
-           tmp.push(jsondata.id)
-           let f = findNowOpenNode(jsondata.children,id,path,tmp)
-           if (f.length>0) return f
-       }
+        }
+        if (jsondata.children) {
+            let tmp = [...parent];
+            tmp.push(jsondata.id)
+            let f = findNowOpenNode(jsondata.children, id, path, tmp)
+            if (f.length > 0) return f
+        }
     }
     return []
 }
@@ -110,7 +110,7 @@ const StyledTreeItemRoot = styled(TreeItem)(({ theme }) => ({
     color: theme.palette.text.secondary,
     [`& .${treeItemClasses.content}`]: {
         color: theme.palette.text.secondary,
-       
+
         fontWeight: theme.typography.fontWeightMedium,
         '&.Mui-expanded': {
             fontWeight: theme.typography.fontWeightRegular,
@@ -142,8 +142,8 @@ function StyledTreeItem(props) {
         ...other
     } = props;
 
-    let label=<Box sx={{ display: 'flex', alignItems: 'center', p: 0.7, pl:0, pr: 0 }}>
-        <Box fontSize={"small"} component={LabelIcon} color="inherit" sx={{ mr: 1 }} />
+    let label = <Box sx={{ display: 'flex', alignItems: 'center', p: 0.7, pl: 0, pr: 0 }}>
+        {LabelIcon ? <LabelIcon fontSize={"inherit"} color="inherit" sx={{ mr: 0.6 }} /> : null}
         <Typography variant="body2" sx={{ fontWeight: 'inherit', flexGrow: 1 }}>
             {labelText}
         </Typography>
@@ -151,13 +151,13 @@ function StyledTreeItem(props) {
             {labelInfo}
         </Typography>
     </Box>;
-    if(to){
-        label= <Link underline="none" sx={{
+    if (to) {
+        label = <Link underline="none" sx={{
             display: "block"
         }} component={RouterLink} to={to} >{label}</Link>
     }
     return (
-        
+
         <StyledTreeItemRoot
             label={label}
             style={{
@@ -170,27 +170,29 @@ function StyledTreeItem(props) {
 }
 
 function TreeMenuView(props) {
-    const { data,...other } = props
-    const renderTree = (nodes) => {return (
-        
-        <StyledTreeItem to={
-            nodes.path?`?id=${nodes.menu.id}&path=${nodes.path}`:null
-        } sx={{ pb: 1 }} key={nodes.id} 
-        nodeId={nodes.id} 
-        labelIcon={nodes.children&&nodes.children.length?null:ArticleOutlinedIcon} 
-        labelText={
-            nodes.name ?? nodes.path
-        } title={nodes.title ?? null} >
-            {Array.isArray(nodes.children) && nodes.children
-                ? nodes.children.map((node) => renderTree(node))
-                : null}
-        </StyledTreeItem>
-    )};
+    const { data, ...other } = props
+    const renderTree = (nodes) => {
+        return (
 
-    
-    
+            <StyledTreeItem to={
+                nodes.path ? `?id=${nodes.menu.id}&path=${nodes.path}` : null
+            } sx={{ pb: 1 }} key={nodes.id}
+                nodeId={nodes.id}
+                labelIcon={nodes.children && nodes.children.length ? null : ArticleOutlinedIcon}
+                labelText={
+                    nodes.name ?? nodes.path
+                } title={nodes.title ?? null} >
+                {Array.isArray(nodes.children) && nodes.children
+                    ? nodes.children.map((node) => renderTree(node))
+                    : null}
+            </StyledTreeItem>
+        )
+    };
+
+
+
     return <TreeView
-    
+
         defaultCollapseIcon={<FolderOpenOutlinedIcon />}
         defaultExpanded={['root']}
         defaultExpandIcon={<FolderOutlinedIcon />}
@@ -215,21 +217,21 @@ export default function DocPage() {
 
 
     const handleToggle = (event, nodeIds) => {
-        setExpanded(Array.isArray(nodeIds)?nodeIds:[nodeIds]);
+        setExpanded(Array.isArray(nodeIds) ? nodeIds : [nodeIds]);
     };
 
-    const handleSelect = (event,nodeIds ) => {
-       setMenuSelect(nodeIds);
+    const handleSelect = (event, nodeIds) => {
+        setMenuSelect(nodeIds);
     };
 
-    const initMenuSelect=(menuData,id,path)=>{
-        if (!id || !path)return ;
-        let sitem=findNowOpenNode(menuData,id,path,[]);
-        if (sitem.length==0)return;
+    const initMenuSelect = (menuData, id, path) => {
+        if (!id || !path) return;
+        let sitem = findNowOpenNode(menuData, id, path, []);
+        if (sitem.length == 0) return;
         setExpanded(sitem)
-        setMenuSelect(sitem.pop()  )
+        setMenuSelect(sitem.pop())
     }
-    
+
 
 
     const loadMenuData = () => {
@@ -283,16 +285,14 @@ export default function DocPage() {
                 status: true,
             })
 
-            initMenuSelect(mdata,searchParam.get("id"),searchParam.get("path"));
+            initMenuSelect(mdata, searchParam.get("id"), searchParam.get("path"));
 
         })
     }
 
-    
 
-
+    let ajaxReq = useRef(null)
     let [docData, setDocData] = useState({
-        abort: null,
         loading: true,
         status: true,
         data: '',
@@ -330,10 +330,10 @@ export default function DocPage() {
     useEffect(() => {
         if (checkInitPage()) return;
         if (!searchParam.get("id") || !searchParam.get("path")) return;
-        if (docData.abort) {
-            docData.abort.abort()
+        if (ajaxReq.current) {
+            ajaxReq.current.abort()
         }
-        docData.abort = new AbortController();
+        ajaxReq.current = new AbortController();
         setDocData({
             ...docData,
             loading: true,
@@ -343,11 +343,12 @@ export default function DocPage() {
             url: searchParam.get("path"),
         };
 
-        initMenuSelect(menuData.data,req_param.menu_id,req_param.url);
-           
+        initMenuSelect(menuData.data, req_param.menu_id, req_param.url);
+
         docsMdReads(req_param, {
-            signal: docData.abort.signal
+            signal: ajaxReq.current.signal
         }).then((data) => {
+            ajaxReq.current = null;
             if (!data.status) {
                 setDocData({
                     ...docData,
@@ -370,39 +371,38 @@ export default function DocPage() {
                 message: null,
             })
 
-            
+
 
         })
     }, [searchParam])
 
 
-    return  <Fragment>
+    return <Fragment>
         {
             menuData.loading ? <Progress /> :
                 !menuData.status ?
                     <Alert sx={{ m: 3, width: 1 }} severity="error">{menuData.message}</Alert> :
-                   
-                         <Grid
-                            container
-                            direction="row"
-                            justifyContent="space-between"
-                            alignItems="stretch"
-                            spacing={1}
-                            sx={{flexWrap:"nowrap"}}
-                            >
-                                <Grid item xs={2}  >
-                                    <TreeMenuView 
-                                        sx={{m:2,minWidth:220}} 
-                                        data={menuData.data} 
-                                        expanded={expanded}
-                                        selected={menuSelect}
-                                        onNodeToggle={handleToggle}
-                                        onNodeSelect={handleSelect}
 
-                                    />
-                                </Grid>
-                                <Grid item xs={10} >
-                      
+                    <Stack
+
+                        direction="row"
+
+                    >
+                        <Box sx={{
+                            width: 280,
+                        }} >
+                            <TreeMenuView
+                                sx={{ m: 2, minWidth: 220 }}
+                                data={menuData.data}
+                                expanded={expanded}
+                                selected={menuSelect}
+                                onNodeToggle={handleToggle}
+                                onNodeSelect={handleSelect}
+
+                            />
+                        </Box>
+                        <Box sx={{ flex: 1, overflow: "auto" }} >
+
                             {docData.loading ? <Progress /> : null}
                             {docData.message ? <Alert sx={{ m: 3 }} severity="error">{docData.message}</Alert> : null}
                             {docData.status ? <MarkdownPreview
@@ -440,9 +440,9 @@ export default function DocPage() {
                                     }
                                 } : null}
                                 source={docData.data} /> : null}
-                        </Grid> 
-                        </Grid> 
-                       
+                        </Box>
+                    </Stack>
+
         }
     </Fragment >
         ;

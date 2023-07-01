@@ -6,7 +6,7 @@ import { appList } from '../../../rest/app';
 
 
 export function AppSelect(props) {
-    const { appId, userId, onChange, onLoad, checkSms, checkMail } = props;
+    const { appId, userId, onChange, onLoad, checkSms, checkMail,...other } = props;
     const [appData, setAppData] = useState({
         init: false,
         loading: false,
@@ -57,10 +57,7 @@ export function AppSelect(props) {
         }
     }, [props.appId])
     const { toast } = useContext(ToastContext);
-    return <FormControl fullWidth sx={{
-        width: 200,
-        marginRight: 1
-    }}>
+    return <FormControl fullWidth  {...other}>
         <InputLabel size="small" id="user-res-select-label">选择App</InputLabel>
         <LoadSelect
             size="small"

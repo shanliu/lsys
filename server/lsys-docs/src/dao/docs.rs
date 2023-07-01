@@ -465,7 +465,8 @@ impl GitDocs {
             )));
         }
 
-        let clear_rule = serde_json::json!(param.clear_rule).to_string();
+        let clear_rule = serde_json::to_string(&param.clear_rule)
+            .map_err(|e| GitDocError::System(e.to_string()))?;
         let status = DocGitTagStatus::Build as i8;
         let add_time = now_time().unwrap_or_default();
         let vdata = model_option_set!(DocGitTagModelRef, {

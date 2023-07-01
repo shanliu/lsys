@@ -21,27 +21,22 @@ export default function UserAppMailMessagePage(props) {
         page_size: 25,
     });
     return <AppMailMessage
+        toMail={searchParam.get("to_mail") ?? ''}
         userId={userData.user_data.user_id}
         appId={searchParam.get("app_id") ?? ''}
         tplId={searchParam.get("tpl_id") ?? ''}
-        mobile={searchParam.get("mobile") ?? ''}
         status={searchParam.get("status") ?? ''}
         startPos={searchParam.get("start_pos") ?? ''}
         endPos={searchParam.get("end_pos") ?? ''}
         pageSize={searchParam.get("page_size") ?? 25}
         onSearchChange={setSearchParam}
     >
-        <Button
-            variant="outlined"
-            size="medium"
-            startIcon={<LogoDevIcon />}
-            sx={{ mr: 1, p: "7px 15px", minWidth: 150 }}
-            onClick={() => {
-                window.open("https://github.com/shanliu/lsys/tree/main/sdk/go/examples/basic/mail_test.go", "_blank")
-            }}>
-            接口调用示例
-        </Button>
+
         <AppSelect
+            sx={{
+                width: 200,
+                marginRight: 1
+            }}
             checkMail={true}
             userId={parseInt(userData.user_data.user_id)}
             appId={searchParam.get("app_id") ?? ''}

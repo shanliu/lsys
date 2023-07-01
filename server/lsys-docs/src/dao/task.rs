@@ -344,7 +344,7 @@ impl GitTask {
     /// 获得发送中任务信息
     /// * `app_core` - 公共APP句柄,用于创建REDIS
     /// * `task_reader` - 任务读取实现
-    /// * `task_executioner` - 任务发送实现
+    /// * `task_executor` - 任务发送实现
     pub async fn dispatch(&self) {
         if self.task_size == 0 {
             error!("task can't is 0");

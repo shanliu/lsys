@@ -52,7 +52,7 @@ export default function SystemLogsPage(props) {
         {
             style: { width: 110 },
             label: '资源用户ID',
-
+            align: "center",
             render: (row) => {
                 return row.user_id ? row.user_id : "系统";
             }
@@ -61,7 +61,7 @@ export default function SystemLogsPage(props) {
         {
             style: { width: 110 },
             label: '操作用户ID',
-
+            align: "center",
             render: (row) => {
                 return row.add_user_id ? row.add_user_id : "系统";
 
@@ -248,7 +248,7 @@ export default function SystemLogsPage(props) {
                 variant="outlined"
                 size="medium"
                 startIcon={<SearchIcon />}
-                sx={{ mr: 1, p: "7px 15px", minWidth: 85 }}
+                sx={{ mr: 1, p: "7px 15px", minWidth: 110 }}
                 loading={loadData.loading}
             >
                 过滤

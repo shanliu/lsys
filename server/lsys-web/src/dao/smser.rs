@@ -6,12 +6,12 @@ use lsys_core::{AppCore, FluentMessage, RequestEnv};
 use lsys_logger::dao::ChangeLogger;
 use lsys_sender::{
     dao::{
-        AliyunSender, AliyunSenderTask, SenderError, SmsSender, SmsTaskAcquisitionRecord,
-        SmsTaskRecord,
+        AliYunSenderTask, HwYunSenderTask, SenderAliYunConfig, SenderError, SenderHwYunConfig,
+        SenderTenYunConfig, SenderTplConfig, SmsRecord, SmsSender, TenyunSenderTask,
     },
     model::SenderSmsMessageModel,
 };
-use lsys_setting::dao::MultipleSetting;
+use lsys_setting::dao::Setting;
 use lsys_user::dao::account::{check_mobile, UserAccountError};
 use serde_json::json;
 use sqlx::{MySql, Pool};
@@ -51,13 +51,11 @@ impl From<WebAppSmserError> for UserAccountError {
 }
 
 pub struct WebAppSmser {
-    pub aliyun_sender: AliyunSender,
-    smser: Arc<SmsSender<SmsTaskAcquisitionRecord, ()>>,
-    app_core: Arc<AppCore>,
-    sms_record: Arc<SmsTaskRecord>,
+    aliyun_sender: SenderAliYunConfig,
+    hwyun_sender: SenderHwYunConfig,
+    tenyun_sender: SenderTenYunConfig,
+    smser: Arc<SmsSender>,
     fluent: Arc<FluentMessage>,
-    setting: Arc<MultipleSetting>,
-    db: Pool<MySql>,
 }
 
 impl WebAppSmser {
@@ -67,54 +65,63 @@ impl WebAppSmser {
         redis: deadpool_redis::Pool,
         db: Pool<MySql>,
         fluent: Arc<FluentMessage>,
-        setting: Arc<MultipleSetting>,
+        setting: Arc<Setting>,
         logger: Arc<ChangeLogger>,
         task_size: Option<usize>,
         task_timeout: usize,
         is_check: bool,
     ) -> Self {
-        let sms_record = Arc::new(SmsTaskRecord::new(
-            db.clone(),
-            app_core.clone(),
+        let smser = Arc::new(SmsSender::new(
+            app_core,
+            redis,
+            db,
+            setting.clone(),
             fluent.clone(),
             logger,
-        ));
-        let acquisition = SmsTaskAcquisitionRecord::new(sms_record.clone());
-        let smser = Arc::new(SmsSender::new(
-            redis,
             task_size,
             task_timeout,
             is_check,
-            acquisition,
         ));
-        let aliyun_sender = AliyunSender::new(db.clone(), setting.clone());
+        let aliyun_sender =
+            SenderAliYunConfig::new(setting.multiple.clone(), smser.tpl_config.clone());
+        let hwyun_sender =
+            SenderHwYunConfig::new(setting.multiple.clone(), smser.tpl_config.clone());
+        let tenyun_sender =
+            SenderTenYunConfig::new(setting.multiple.clone(), smser.tpl_config.clone());
+
         Self {
-            app_core,
             smser,
             fluent,
-            sms_record,
             aliyun_sender,
-            setting,
-            db,
+            hwyun_sender,
+            tenyun_sender,
         }
+    }
+    pub fn tpl_config(&self) -> &SenderTplConfig {
+        &self.smser.tpl_config
+    }
+    pub fn hwyun_sender(&self) -> &SenderHwYunConfig {
+        &self.hwyun_sender
+    }
+    pub fn aliyun_sender(&self) -> &SenderAliYunConfig {
+        &self.aliyun_sender
+    }
+    pub fn tenyun_sender(&self) -> &SenderTenYunConfig {
+        &self.tenyun_sender
+    }
+    pub fn sms_record(&self) -> &SmsRecord {
+        &self.smser.sms_record
     }
     // 短信后台任务
     pub async fn task(&self) -> Result<(), WebAppSmserError> {
         Ok(self
             .smser
-            .task(
-                self.app_core.clone(),
-                self.sms_record.clone(),
-                vec![Box::new(AliyunSenderTask::new(AliyunSender::new(
-                    self.db.clone(),
-                    self.setting.clone(),
-                )))],
-            )
+            .task(vec![
+                Box::<AliYunSenderTask>::default(),
+                Box::<HwYunSenderTask>::default(),
+                Box::<TenyunSenderTask>::default(),
+            ])
             .await?)
-    }
-    // 短信后台任务
-    pub fn sms_record(&self) -> &SmsTaskRecord {
-        &self.sms_record
     }
     // 短信发送接口
     #[allow(clippy::too_many_arguments)]
@@ -124,8 +131,9 @@ impl WebAppSmser {
         tpl_type: &str,
         mobile: &[String],
         body: &HashMap<String, String>,
-        send_time: Option<u64>,
+        send_time: &Option<u64>,
         cancel_key: &Option<String>,
+        max_try_num: &Option<u16>,
         env_data: Option<&RequestEnv>,
     ) -> Result<(), WebAppSmserError> {
         let mb = mobile
@@ -142,9 +150,10 @@ impl WebAppSmser {
                 &mb,
                 tpl_type,
                 &json!(body).to_string(),
-                &send_time,
+                send_time,
                 &Some(app.user_id),
                 cancel_key,
+                max_try_num,
                 env_data,
             )
             .await
@@ -184,6 +193,7 @@ impl WebAppSmser {
         area: &str,
         mobile: &str,
         body: &str,
+        max_try_num: &Option<u16>,
         env_data: Option<&RequestEnv>,
     ) -> Result<(), WebAppSmserError> {
         check_mobile(&self.fluent, area, mobile)
@@ -197,6 +207,7 @@ impl WebAppSmser {
                 &None,
                 &None,
                 &None,
+                max_try_num,
                 env_data,
             )
             .await
@@ -219,6 +230,7 @@ impl WebAppSmser {
             area,
             mobile,
             &json!(context).to_string(),
+            &None,
             env_data,
         )
         .await

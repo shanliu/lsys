@@ -153,17 +153,25 @@ impl RemoteNotify {
                 None => true,
             }
         {
-            let send_msg = serde_json::json!(MsgBody::Send(msg.to_owned())).to_string();
-            let mut redis = self
-                .redis
-                .get()
-                .await
-                .map_err(|e| RemoteNotifyError::Redis(e.to_string()))?;
-            let res: Result<(), _> = redis.publish(self.channel_name, send_msg).await;
-            if let Err(err) = res {
-                warn!("notify redis clear cache fail :{}", err);
-                return Err(RemoteNotifyError::Redis(err.to_string()));
+            match  serde_json::to_string(&MsgBody::Send(msg.to_owned())){
+                Ok(send_msg) => {
+                    let mut redis = self
+                        .redis
+                        .get()
+                        .await
+                        .map_err(|e| RemoteNotifyError::Redis(e.to_string()))?;
+                    let res: Result<(), _> = redis.publish(self.channel_name, send_msg).await;
+                    if let Err(err) = res {
+                        warn!("notify redis clear cache fail :{}", err);
+                        return Err(RemoteNotifyError::Redis(err.to_string()));
+                    };
+                },
+                Err(err) => {
+                    warn!("create notify message fail :{}", err);
+                    return Err(RemoteNotifyError::System(err.to_string()));
+                },
             };
+           
         }
         if local_exe_type==LocalExecType::LocalExec//本机直接执行
             && match &target_host {
@@ -279,16 +287,23 @@ impl RemoteNotify {
                                 reply_id,
                                 from_host: self.hostname.clone(),
                             };
-                            let send_msg = serde_json::json!(MsgBody::Result(msg)).to_string();
-                            let mut redis = self
-                                .redis
-                                .get()
-                                .await
-                                .map_err(|e| e.to_string())?;
-                            let res: Result<(), _> = redis.publish(self.channel_name, send_msg).await;
-                            if let Err(err) = res {
-                                warn!("reply exec to redis fail :{}", err);
-                            };
+                            match serde_json::to_string(&MsgBody::Result(msg)){
+                                Ok(send_msg) => {
+                                    let mut redis = self
+                                        .redis
+                                        .get()
+                                        .await
+                                        .map_err(|e| e.to_string())?;
+                                    let res: Result<(), _> = redis.publish(self.channel_name, send_msg).await;
+                                    if let Err(err) = res {
+                                        warn!("reply exec to redis fail :{}", err);
+                                    };
+                                },
+                                Err(err) => {
+                                    warn!("crate notify message fail :{}", err);
+                                },
+                            }
+                           
                         }
                         return Ok(());
                     }

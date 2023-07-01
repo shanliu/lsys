@@ -519,6 +519,10 @@ export const logsMap = {
         { key: "rbac-role-op", val: '权限-角色关联操作' },
         { key: "setting", val: '系统设置' },
         { key: "app", val: '应用操作' },
+        { key: "sender-app-config", val: '邮件或短信模板操作' },
+        { key: "git-add-tag", val: '文档git设置' },
+        { key: "git-doc-menu", val: '文档目录设置' },
+        { key: "git-add-tag", val: '文档版本设置' }
     ],
 };
 

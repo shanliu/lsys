@@ -230,7 +230,6 @@ impl From<SenderError> for JsonData {
                 .set_code(500)
                 .set_sub_code("redis")
                 .set_message(err),
-            SenderError::Exec(err) => JsonData::default().set_sub_code("exec").set_message(err),
             SenderError::System(err) => JsonData::default().set_sub_code("system").set_message(err),
             SenderError::Tpl(err) => JsonData::default()
                 .set_sub_code("tpl")

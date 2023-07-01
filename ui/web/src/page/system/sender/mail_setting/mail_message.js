@@ -19,7 +19,7 @@ export default function SystemAppMailMessagePage(props) {
     return <AppMailMessage
         appId={0}
         tplId={searchParam.get("tpl_id") ?? ''}
-        to_mail={searchParam.get("to_mail") ?? ''}
+        toMail={searchParam.get("to_mail") ?? ''}
         status={searchParam.get("status") ?? ''}
         startPos={searchParam.get("start_pos") ?? ''}
         endPos={searchParam.get("end_pos") ?? ''}

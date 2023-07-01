@@ -12,7 +12,6 @@ export const ItemTooltip = styled(({ className, ...props }) => (
     },
     [`& .${tooltipClasses.tooltip}`]: {
         backgroundColor: theme.palette ? theme.palette.grey[500] : '#ccc',
-        position: "relative",
         top: "8px"
     },
 }));

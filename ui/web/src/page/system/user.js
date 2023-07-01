@@ -546,7 +546,7 @@ export default function SystemUserPage(props) {
                 variant="outlined"
                 size="medium"
                 startIcon={<SearchIcon />}
-                sx={{ mr: 1, p: "7px 15px", minWidth: 85 }}
+                sx={{ mr: 1, p: "7px 15px", minWidth: 110 }}
                 loading={loadData.loading}
             >
                 过滤

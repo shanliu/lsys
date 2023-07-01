@@ -179,7 +179,7 @@ impl WebDao {
             user_dao.fluent.clone(),
             redis.clone(),
             db.clone(),
-            setting.multiple.clone(),
+            setting.clone(),
             change_logger.clone(),
             None,
             300, //任务最大执行时间
@@ -196,7 +196,7 @@ impl WebDao {
             redis.clone(),
             db.clone(),
             user_dao.fluent.clone(),
-            setting.multiple.clone(),
+            setting.clone(),
             change_logger.clone(),
             None,
             300, //任务最大执行时间

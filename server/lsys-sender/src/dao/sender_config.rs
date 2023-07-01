@@ -12,7 +12,9 @@ use sqlx_model::SqlQuote;
 
 use super::logger::LogSenderConfig;
 
-//短信任务记录
+//发送限制等配置
+
+//发送配置
 pub struct SenderConfig {
     db: Pool<sqlx::MySql>,
     send_type: SenderType,

@@ -308,7 +308,7 @@ pub async fn app_list<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>
         None
     };
     let app_param = AppDataWhere {
-        user_id: see_user_id,
+        user_id: &see_user_id,
         status: &status,
         client_ids: &param.client_ids,
         app_ids: &param.app_id,

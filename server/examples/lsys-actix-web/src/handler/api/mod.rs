@@ -73,7 +73,7 @@ where
         scope("/api/sender")
             .service(sender::sender_smser)
             .service(sender::sender_mailer)
-            .service(sender::sender_tpls)
+            .service(sender::sender_tpl_body)
             .service(options),
     )
 }

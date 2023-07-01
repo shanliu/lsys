@@ -50,7 +50,7 @@ pub async fn mail_send(
             &param.tpl,
             &param.to,
             &param.data,
-            send_time,
+            &send_time,
             &param.reply,
             &param.cancel,
             env_data,

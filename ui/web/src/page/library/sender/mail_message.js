@@ -7,7 +7,7 @@ import { ToastContext } from '../../../context/toast';
 import { ClearTextField } from '../../../library/input';
 import { LoadingButton } from '../../../library/loading';
 import { SimplePaginationTablePage } from '../../../library/table_page';
-import { MessageStatus, senderListAppMessage } from '../../../rest/sender_setting';
+import { MessageStatus, mailListAppMessage, senderListAppMessage } from '../../../rest/sender_setting';
 import { showTime } from '../../../utils/utils';
 import { MessageDeleteButton, MessageLogBox, MessageSeeBody } from './lib_message';
 import { ItemTooltip } from '../../../library/tips';
@@ -17,7 +17,7 @@ export function AppMailMessage(props) {
         userId,
         appId,
         tplId,
-        to_mail,
+        toMail,
         status,
         startPos,
         endPos,
@@ -61,7 +61,7 @@ export function AppMailMessage(props) {
         },
         {
             field: "tpl_id",
-            style: { width: 100 },
+            style: { width: 80 },
             label: '模板'
         },
         {
@@ -78,7 +78,7 @@ export function AppMailMessage(props) {
             render: (row) => {
                 let f = MessageStatus.find((e) => { return e.key == row.status });
                 if (!f) {
-                    return "未知类型";
+                    return "未知";
                 } else {
                     return f.val;
                 }
@@ -100,11 +100,13 @@ export function AppMailMessage(props) {
                 if (row.status == 3) {
                     stime = "失败于:" + showTime(row.send_time, "未知")
                 } else if (row.status == 1) {
-                    stime = "预计于:" + showTime(row.send_time, "未知")
+                    stime = "预计于:" + showTime(row.expected_time, "未知")
+                } else if (row.status == 4) {
+                    stime = "取消发送"
                 }
                 return <ItemTooltip title={num_txt} placement="top">
-                    <span> {stime}</span>
-                </ItemTooltip>
+                    < span > {stime}</span >
+                </ItemTooltip >
             }
         },
         {
@@ -156,7 +158,7 @@ export function AppMailMessage(props) {
         ...{
             status: status,
             tpl_id: tplId,
-            to_mail: to_mail,
+            to_mail: toMail,
         }, ...props.children ? { app_id: appId } : {}
     })
 
@@ -166,11 +168,11 @@ export function AppMailMessage(props) {
             loading: true
         })
         window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
-        return senderListAppMessage("mailer", {
+        return mailListAppMessage({
             user_id: parseInt(userId),
             app_id: (props.children && !appId) ? -1 : appId,
             tpl_id: tplId,
-            to_mail: to_mail,
+            to_mail: toMail,
             status: status,
             start_pos: startPos || '',
             end_pos: endPos || '',
@@ -205,6 +207,8 @@ export function AppMailMessage(props) {
 
         })
     }
+
+
     useEffect(() => {
         setfilterData({
             ...{
@@ -212,7 +216,15 @@ export function AppMailMessage(props) {
             }, ...props.children ? { app_id: appId } : {}
         })
         loadMsgData()
-    }, [props])
+    }, [
+        props.appId,
+        props.tplId,
+        props.toMail,
+        props.status,
+        props.startPos,
+        props.endPos,
+        props.pageSize,
+    ])
     const [changeBoxState, setChangeBox] = useState({ show: 0, data: null });
 
     let showBox
@@ -318,7 +330,7 @@ export function AppMailMessage(props) {
                 variant="outlined"
                 size="medium"
                 startIcon={<SearchIcon />}
-                sx={{ mr: 1, p: "7px 15px", minWidth: 85 }}
+                sx={{ mr: 1, p: "7px 15px", minWidth: 110 }}
                 loading={loadData.loading}
                 disabled={loadData.loading}
             >

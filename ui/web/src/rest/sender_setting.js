@@ -1,6 +1,7 @@
 import isEmail from "validator/lib/isEmail";
 import { fialResult, restResult, sessionRest } from "../utils/rest";
 import { isDomain } from "../utils/utils";
+import dayjs from "dayjs";
 
 export const SenderTypeSms = 1;
 export const SenderTypeMail = 2;
@@ -21,11 +22,11 @@ export const MessageLogType = [
 
     {
         key: 1,
-        val: '发送操作'
+        val: '发送相关'
     },
     {
         key: 2,
-        val: '取消发送'
+        val: '取消相关'
     }
 ];
 export const MessageLogStatus = [
@@ -56,11 +57,11 @@ export const MessageStatus = [
     },
     {
         key: 2,
-        val: '发送完成'
+        val: '已完成'
     },
     {
         key: 3,
-        val: '发送失败'
+        val: '已失败'
     },
     {
         key: 4,
@@ -189,7 +190,55 @@ export async function senderDelConfig(type, param, config) {
 
 //message
 
-export async function senderListAppMessage(type, param, config) {
+export async function mailListAppMessage(param, config) {
+    const { app_id, user_id, tpl_id, to_mail, status, start_pos, end_pos, page_size } = param;
+    let data = {
+        count_num: false,
+        limit: {
+            limit: parseInt(page_size) > 0 ? parseInt(page_size) : 25,
+            next: false,
+            more: true,
+        }
+    };
+    if (end_pos && end_pos != '0' && end_pos != '') {
+        data.limit = {
+            ...data.limit,
+            pos: end_pos,
+            eq_pos: false,
+            next: true,
+        }
+    } else if (start_pos && start_pos != '0' && start_pos != '') {
+        data.limit = {
+            ...data.limit,
+            pos: start_pos,
+            eq_pos: true,
+            next: false,
+        }
+    }
+    let errors = {};
+    if (parseInt(user_id) > 0) {
+        data.user_id = parseInt(user_id);
+    }
+    if (parseInt(status) > 0) {
+        data.status = parseInt(status);
+    }
+    if (parseInt(app_id) >= 0) {
+        data.app_id = parseInt(app_id);
+    }
+    if (typeof tpl_id == "string" && tpl_id.length > 0) {
+        data.tpl_id = tpl_id;
+    }
+    if (typeof to_mail == "string" && to_mail.length > 0) {
+        data.to_mail = to_mail;
+    }
+    if (Object.keys(errors).length) {
+        return fialResult(errors);
+    }
+    let response = await senderSettingRest("mailer").post("/message_list", data, config);
+    return restResult(response, ['not_found'])
+}
+
+export async function smsListAppMessage(param, config) {
     const { app_id, user_id, tpl_id, mobile, status, start_pos, end_pos, page_size } = param;
     let data = {
         count_num: false,
@@ -233,7 +282,7 @@ export async function senderListAppMessage(type, param, config) {
     if (Object.keys(errors).length) {
         return fialResult(errors);
     }
-    let response = await senderSettingRest(type).post("/message_list", data, config);
+    let response = await senderSettingRest("smser").post("/message_list", data, config);
     return restResult(response, ['not_found'])
 }
 
@@ -320,6 +369,78 @@ export const SmsLimitStatusMap = [
 
 ];
 
+
+
+export async function smsListTplConfig(param, config) {
+    const { id, app_id, tpl, user_id, page, page_size, app_info } = param;
+    let data = {
+        count_num: true,
+        app_info: app_info ? true : false,
+        page: {
+            page: parseInt(page) >= 0 ? (parseInt(page) + 1) : 1,
+            limit: parseInt(page_size) > 0 ? parseInt(page_size) : 25
+        }
+    };
+    let errors = {};
+    if (parseInt(user_id) >= 0) {
+        data.user_id = parseInt(user_id);
+    }
+    if (parseInt(app_id) >= 0) {
+        data.app_id = parseInt(app_id);
+    }
+    if (parseInt(id) > 0) {
+        data.id = parseInt(id);
+    }
+    if (typeof tpl !== "string" || tpl.length > 1) {
+        data.tpl = tpl;
+    }
+    if (Object.keys(errors).length) {
+        return fialResult(errors);
+    }
+    let response = await senderSettingRest("smser").post("/tpl_config_list", data, config);
+    return restResult(response, ['not_found'])
+}
+
+export async function smsDelTplConfig(param, config) {
+    const { id } = param;
+    let response = await senderSettingRest("smser").post("/tpl_config_del", {
+        "app_config_id": parseInt(id),
+    }, config);
+    return restResult(response)
+}
+
+
+
+
+export async function smsAppSend(param, config) {
+    const { tpl_id, data, mobile, send_time } = param;
+    let errors = {};
+    if (parseInt(tpl_id) <= 0) {
+        errors.tpl_id = "模板未选择"
+    }
+    if (!mobile || mobile.length <= 0) {
+        errors.mobile = "请输入接收手机号"
+    }
+    for (var tmp of mobile) {
+        if (!tmp || !/^1[0-9]{10}$/.test(tmp)) {
+            errors.mobile = "手机格式错误";
+            break;
+        }
+    }
+    if (Object.keys(errors).length) {
+        return fialResult(errors);
+    }
+    let response = await senderSettingRest("smser").post("/message_send", {
+        tpl_id: parseInt(tpl_id),
+        data: data,
+        mobile: mobile,
+        send_time: send_time
+    }, config);
+    return restResult(response)
+}
+
+
+//阿里短信相关接口
 export async function smsListAliConfig(param, config) {
     const { id, full_data } = param;
     let data = {};
@@ -381,39 +502,8 @@ export async function smsDelAliConfig(param, config) {
     }, config);
     return restResult(response)
 }
-
-
-export async function smsListAppAliConfig(param, config) {
-    const { id, app_id, tpl, user_id, page, page_size } = param;
-    let data = {
-        "page": {
-            page: parseInt(page) >= 0 ? (parseInt(page) + 1) : 1,
-            limit: parseInt(page_size) > 0 ? parseInt(page_size) : 25
-        }
-    };
-    let errors = {};
-    if (parseInt(user_id) > 0) {
-        data.user_id = parseInt(user_id);
-    }
-    if (parseInt(app_id) >= 0) {
-        data.app_id = parseInt(app_id);
-    }
-    if (parseInt(id) > 0) {
-        data.id = parseInt(id);
-    }
-    if (typeof tpl !== "string" || tpl.length > 1) {
-        data.tpl = tpl;
-    }
-    if (Object.keys(errors).length) {
-        return fialResult(errors);
-    }
-    let response = await senderSettingRest("smser").post("/ali_app_config_list", data, config);
-    return restResult(response, ['not_found'])
-}
-
-
 export async function smsAddAppAliConfig(param, config) {
-    const { app_id, user_id, aliconfig_id, name, tpl_id, aliyun_sms_tpl, aliyun_sign_name, max_try_num } = param;
+    const { app_id, user_id, aliconfig_id, name, tpl_id, aliyun_sms_tpl, aliyun_sign_name } = param;
     let errors = {};
     let data = {
         name: name,
@@ -421,7 +511,7 @@ export async function smsAddAppAliConfig(param, config) {
         tpl_id: tpl_id,
         aliyun_sms_tpl: aliyun_sms_tpl,
         aliyun_sign_name: aliyun_sign_name,
-        try_num: max_try_num > 0 ? parseInt(max_try_num) : 1
+
     };
     if (user_id >= 0) {
         data.user_id = parseInt(user_id);
@@ -451,14 +541,239 @@ export async function smsAddAppAliConfig(param, config) {
     return restResult(response)
 }
 
-export async function smsDelAppAliConfig(param, config) {
-    const { id } = param;
-    let response = await senderSettingRest("smser").post("/ali_app_config_del", {
-        "app_config_id": parseInt(id),
+//华为云短信相关接口
+export async function smsListHwConfig(param, config) {
+    const { id, full_data } = param;
+    let data = {};
+    if (id > 0) {
+        data.ids = [parseInt(id)];
+    }
+    if (typeof full_data == 'boolean') {
+        data.full_data = full_data;
+    }
+    let response = await senderSettingRest("smser").post("hw_config_list", data, config);
+    return restResult(response, ['not_found'])
+}
+export async function smsAddHwConfig(param, config) {
+    const { name, app_key,  app_secret } = param;
+    var errors = {};
+    if (typeof name !== "string" || name.length < 1) {
+        errors.name = "应用名不能为空";
+    }
+    if (typeof app_key !== "string" || app_key.length < 12) {
+        errors.app_key = " key 错误";
+    }
+    if (typeof app_secret !== "string" || app_secret.length < 12) {
+        errors.app_secret = " secret 错误";
+    }
+    if (Object.keys(errors).length) {
+        return fialResult(errors);
+    }
+    let response = await senderSettingRest("smser").post("/hw_config_add", param, config);
+    return restResult(response)
+}
+export async function smsEditHwConfig(param, config) {
+    const { id, name,app_key, app_secret } = param;
+    var errors = {};
+    if (parseInt(id) <= 0) {
+        errors.name = "id未知";
+    }
+    if (typeof name !== "string" || name.length < 1) {
+        errors.name = "应用名不能为空";
+    } 
+    if (typeof app_key !== "string" || app_key.length < 12) {
+        errors.app_key = "access id 错误";
+    }
+    if (typeof app_secret !== "string" || app_secret.length < 12) {
+        errors.app_secret = "access secret 错误";
+    }
+    if (Object.keys(errors).length) {
+        return fialResult(errors);
+    }
+    let response = await senderSettingRest("smser").post("/hw_config_edit", {
+        ...param,
+        id: parseInt(id),
     }, config);
     return restResult(response)
 }
+export async function smsDelHwConfig(param, config) {
+    const { id } = param;
+    let response = await senderSettingRest("smser").post("/hw_config_del", {
+        "id": parseInt(id),
+    }, config);
+    return restResult(response)
+}
+export async function smsAddAppHwConfig(param, config) {
+    const { app_id, url,  user_id, hw_config_id, name, tpl_id, template_map, signature, sender, template_id, } = param;
+    let errors = {};
+    let data = {
+        name: name,
+        url:url,
+        hw_config_id: parseInt(hw_config_id),
+        tpl_id: tpl_id,
+        template_map: map_data,
+        signature: signature,
+        sender: sender,
+        template_id: template_id,
+    };
+    if (user_id >= 0) {
+        data.user_id = parseInt(user_id);
+    }
+    if (app_id < 0) {
+        errors.app_id = "请提供操作应用";
+    } else {
+        data.app_id = parseInt(app_id);
+    }
+    if (typeof url !== "string" || (
+        url.substr(0, 7) != 'http://' &&
+        url.substr(0, 8) != 'https://'
+    )) {
+        errors.url = "提供URL";
+    }
+    if (typeof name !== "string" || name.length < 1) {
+        errors.name = "名称必须大于等于2个字符";
+    }
+    if (typeof tpl_id !== "string" || tpl_id.length <= 2) {
+        errors.tpl_id = "模板名必须大于等于3个字符";
+    }
+    if (typeof template_id !== "string" || template_id.length <= 2) {
+        errors.template_id = "模板ID错误";
+    }
+    if (typeof signature !== "string" || signature.length <= 2) {
+        errors.signature = "模板签名错误";
+    }
+    if (typeof sender !== "string" || sender.length < 1) {
+        errors.sender = "模板通道错误";
+    }
+    if (Object.keys(errors).length) {
+        return fialResult(errors);
+    }
+    let map_data = (template_map + '').split(",");
+    map_data = map_data.filter((e) => e)
+    map_data = map_data.join(",")
+    map_data = map_data.split("，")
+    map_data = map_data.filter((e) => e)
+    data.template_map = map_data.join(",")
+  
+    let response = await senderSettingRest("smser").post("/hw_app_config_add", data, config);
+    return restResult(response)
+}
 
+
+//腾讯云短信相关接口
+export async function smsListTenConfig(param, config) {
+    const { id, full_data } = param;
+    let data = {};
+    if (id > 0) {
+        data.ids = [parseInt(id)];
+    }
+    if (typeof full_data == 'boolean') {
+        data.full_data = full_data;
+    }
+    let response = await senderSettingRest("smser").post("ten_config_list", data, config);
+    return restResult(response, ['not_found'])
+}
+export async function smsAddTenConfig(param, config) {
+    const { name, secret_id,  secret_key } = param;
+    var errors = {};
+    if (typeof name !== "string" || name.length < 1) {
+        errors.name = "应用名不能为空";
+    }
+    if (typeof secret_id !== "string" || secret_id.length < 12) {
+        errors.secret_id = " id 错误";
+    }
+    if (typeof secret_key !== "string" || secret_key.length < 12) {
+        errors.secret_key = " secret 错误";
+    }
+    if (Object.keys(errors).length) {
+        return fialResult(errors);
+    }
+    let response = await senderSettingRest("smser").post("/ten_config_add", param, config);
+    return restResult(response)
+}
+export async function smsEditTenConfig(param, config) {
+    const { id, name,secret_id, secret_key } = param;
+    var errors = {};
+    if (parseInt(id) <= 0) {
+        errors.name = "id未知";
+    }
+    if (typeof name !== "string" || name.length < 1) {
+        errors.name = "应用名不能为空";
+    } 
+    if (typeof secret_id !== "string" || secret_id.length < 12) {
+        errors.secret_id = " id 错误";
+    }
+    if (typeof secret_key !== "string" || secret_key.length < 12) {
+        errors.secret_key = " secret 错误";
+    }
+    if (Object.keys(errors).length) {
+        return fialResult(errors);
+    }
+    let response = await senderSettingRest("smser").post("/ten_config_edit", {
+        ...param,
+        id: parseInt(id),
+    }, config);
+    return restResult(response)
+}
+export async function smsDelTenConfig(param, config) {
+    const { id } = param;
+    let response = await senderSettingRest("smser").post("/ten_config_del", {
+        "id": parseInt(id),
+    }, config);
+    return restResult(response)
+}
+export async function smsAddAppTenConfig(param, config) {
+    const { app_id,  user_id, config_id, name, tpl_id, template_map, region, sms_app_id,sign_name, template_id, } = param;
+    let errors = {};
+    let data = {
+        name: name,
+        config_id: parseInt(config_id),
+        tpl_id: tpl_id,
+     
+        region: region,
+        sms_app_id: sms_app_id,
+        sign_name: sign_name,
+        template_id: template_id,
+    };
+    if (user_id >= 0) {
+        data.user_id = parseInt(user_id);
+    }
+    if (app_id < 0) {
+        errors.app_id = "请提供操作应用";
+    } else {
+        data.app_id = parseInt(app_id);
+    }
+    if (typeof name !== "string" || name.length < 1) {
+        errors.name = "名称必须大于等于2个字符";
+    }
+    if (typeof tpl_id !== "string" || tpl_id.length <= 2) {
+        errors.tpl_id = "模板名必须大于等于3个字符";
+    }
+    if (typeof template_id !== "string" || template_id.length <= 2) {
+        errors.template_id = "模板ID错误";
+    }
+    if (typeof region !== "string" || region.length <= 2) {
+        errors.region = "请输入发送区域";
+    }
+    if (typeof sms_app_id !== "string" || sms_app_id.length <= 2) {
+        errors.sms_app_id = "腾讯短信应用ID错误";
+    }
+    if (typeof sign_name !== "string" || sign_name.length < 1) {
+        errors.sign_name = "签名必填";
+    }
+    if (Object.keys(errors).length) {
+        return fialResult(errors);
+    }
+    let map_data = (template_map + '').split(",");
+    map_data = map_data.filter((e) => e)
+    map_data = map_data.join(",")
+    map_data = map_data.split("，")
+    map_data = map_data.filter((e) => e)
+    data.template_map = map_data.join(",")
+   
+    let response = await senderSettingRest("smser").post("/ten_app_config_add", data, config);
+    return restResult(response)
+}
 
 //mail
 
@@ -636,16 +951,18 @@ export async function mailDelSmtpConfig(param, config) {
 }
 
 
-export async function mailListAppSmtpConfig(param, config) {
-    const { id, app_id, tpl, user_id, page, page_size } = param;
+export async function mailListTplConfig(param, config) {
+    const { id, app_id, tpl, user_id, page, page_size, app_info } = param;
     let data = {
-        "page": {
+        count_num: true,
+        app_info: app_info ? true : false,
+        page: {
             page: parseInt(page) >= 0 ? (parseInt(page) + 1) : 1,
             limit: parseInt(page_size) > 0 ? parseInt(page_size) : 25
         }
     };
     let errors = {};
-    if (parseInt(user_id) > 0) {
+    if (parseInt(user_id) >= 0) {
         data.user_id = parseInt(user_id);
     }
     if (parseInt(app_id) >= 0) {
@@ -660,13 +977,47 @@ export async function mailListAppSmtpConfig(param, config) {
     if (Object.keys(errors).length) {
         return fialResult(errors);
     }
-    let response = await senderSettingRest("mailer").post("/smtp_app_config_list", data, config);
+    let response = await senderSettingRest("mailer").post("/tpl_config_list", data, config);
     return restResult(response, ['not_found'])
 }
 
 
+export async function mailAppSend(param, config) {
+    const { tpl_id, data, to, reply, send_time } = param;
+    let errors = {};
+    if (parseInt(tpl_id) <= 0) {
+        errors.tpl_id = "模板未选择"
+    }
+    if (typeof reply === "string" && reply.length > 0) {
+        if (!isEmail(reply)) {
+            errors.reply = "回复邮箱格式错误"
+        }
+    }
+    if (!to || to.length <= 0) {
+        errors.to = "请输入接收邮箱"
+    }
+    for (var tmp of to) {
+        if (!isEmail(tmp)) {
+            errors.to = "接收邮箱地址错误:" + tmp
+            break;
+        }
+    }
+    if (Object.keys(errors).length) {
+        return fialResult(errors);
+    }
+    let response = await senderSettingRest("mailer").post("/message_send", {
+        tpl_id: parseInt(tpl_id),
+        data: data,
+        to: to,
+        reply: reply,
+        send_time: send_time
+    }, config);
+    return restResult(response)
+}
+
+
 export async function mailAddAppSmtpConfig(param, config) {
-    const { app_id, user_id, smtp_config_id, name, tpl_id, from_email, body_tpl_id, subject_tpl_id, try_num } = param;
+    const { app_id, user_id, smtp_config_id, name, tpl_id, from_email, reply_email, body_tpl_id, subject_tpl_id } = param;
     let errors = {};
 
     let data = {
@@ -674,9 +1025,10 @@ export async function mailAddAppSmtpConfig(param, config) {
         smtp_config_id: parseInt(smtp_config_id),
         tpl_id: tpl_id,
         from_email: from_email,
+        reply_email: reply_email,
         body_tpl_id: body_tpl_id,
         subject_tpl_id: subject_tpl_id,
-        try_num: try_num > 0 ? parseInt(try_num) : 1
+
     };
     if (user_id >= 0) {
         data.user_id = parseInt(user_id);
@@ -695,13 +1047,16 @@ export async function mailAddAppSmtpConfig(param, config) {
     if (typeof tpl_id !== "string" || tpl_id.length <= 2) {
         errors.tpl_id = "模板名必须大于等于3个字符";
     }
-    if (typeof body_tpl_id !== "string" || body_tpl_id.length <= 2) {
+    if (typeof body_tpl_id !== "string" || body_tpl_id.length < 1) {
         errors.body_tpl_id = "请选择内容模板";
     }
     if (typeof from_email !== "string" || !isEmail(from_email)) {
         errors.from_email = "来源邮箱不能为空";
     }
-    if (typeof subject_tpl_id !== "string" || subject_tpl_id.length <= 1) {
+    if (typeof reply_email === "string" && reply_email.length > 0 && !isEmail(reply_email)) {
+        errors.reply_email = "回复邮箱格式错误";
+    }
+    if (typeof subject_tpl_id !== "string" || subject_tpl_id.length < 1) {
         errors.subject_tpl_id = "请选择标题模板";
     }
     if (Object.keys(errors).length) {
@@ -711,9 +1066,9 @@ export async function mailAddAppSmtpConfig(param, config) {
     return restResult(response)
 }
 
-export async function mailDelAppSmtpConfig(param, config) {
+export async function mailDelAppTplConfig(param, config) {
     const { id } = param;
-    let response = await senderSettingRest("mailer").post("/smtp_app_config_del", {
+    let response = await senderSettingRest("mailer").post("/tpl_config_del", {
         "app_config_id": parseInt(id),
     }, config);
     return restResult(response)
@@ -722,12 +1077,14 @@ export async function mailDelAppSmtpConfig(param, config) {
 
 export async function tplsAddConfig(param, config) {
     const { tpl_id, tpl_data, sender_type, user_id } = param;
+    let set_id = tpl_id.replace(/\s*$/, '').replace(/^\s*/, '');
+    let set_data = tpl_data.replace(/\s*$/, '').replace(/^\s*/, '');
     let errors = {};
-    if (typeof tpl_id !== "string" || tpl_id.length < 1) {
+    if (typeof set_id !== "string" || set_id.length < 1) {
         errors.tpl_id = "请输入模板内容";
     }
 
-    if (typeof tpl_data !== "string" || tpl_data.length < 1) {
+    if (typeof set_data !== "string" || set_data.length < 1) {
         errors.tpl_data = "请输入模板内容";
     }
 
@@ -737,9 +1094,8 @@ export async function tplsAddConfig(param, config) {
 
     let data = {
         sender_type: parseInt(sender_type),
-        tpl_id: tpl_id,
-
-        tpl_data: tpl_data,
+        tpl_id: set_id,
+        tpl_data: set_data,
         user_id: parseInt(user_id),
     };
     let response = await senderSettingRest("tpls").post("/add", data, config);
@@ -749,7 +1105,8 @@ export async function tplsAddConfig(param, config) {
 export async function tplsEditConfig(param, config) {
     const { id, tpl_data } = param;
     let errors = {};
-    if (typeof tpl_data !== "string" || tpl_data.length < 1) {
+    let set_data = tpl_data.replace(/\s*$/, '').replace(/^\s*/, '');
+    if (typeof set_data !== "string" || set_data.length < 1) {
         errors.name = "请输入模板内容";
     }
 
@@ -758,8 +1115,7 @@ export async function tplsEditConfig(param, config) {
     }
     let response = await senderSettingRest("tpls").post("/edit", {
         id: parseInt(id),
-
-        tpl_data: tpl_data,
+        tpl_data: set_data,
     }, config);
     return restResult(response)
 }

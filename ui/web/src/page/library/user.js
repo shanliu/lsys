@@ -1,6 +1,6 @@
 import RemoveCircleRoundedIcon from '@mui/icons-material/RemoveCircleRounded';
 import { Autocomplete, Box, Chip, Stack, TextField, Typography } from '@mui/material';
-import React, { Fragment, useContext, useEffect, useState } from 'react';
+import React, { Fragment, useContext, useEffect, useRef, useState } from 'react';
 import { ItemTooltip } from '../../library/tips';
 import { searchType, userIdSearch, userSearch } from '../../rest/user';
 import { ToastContext } from '../../context/toast';
@@ -186,27 +186,24 @@ export function UserSearchInput(props) {
             })
         }
     }, [props.value]);
-
-    const [reqData] = useState({
-        abort: null,
-        timeout: null,
-    })
+    let ajaxReq = useRef(null)
+    let ajaxTimeout = useRef(null)
     useEffect(() => {
         if (userData.is_select) return;
-        if (reqData.timeout) {
-            clearTimeout(reqData.timeout)
+        if (ajaxTimeout.current) {
+            clearTimeout(ajaxTimeout.current)
+            ajaxTimeout.current = null;
         }
-        if (reqData.abort) {
-            reqData.abort.abort()
+        if (ajaxReq.current) {
+            ajaxReq.current.abort()
         }
         setUserData({
             ...userData,
             loading: true,
         })
         let timeout = setTimeout(() => {
-            if (reqData.timeout != timeout) return;
-            let abort = new AbortController();
-            reqData.abort = abort
+            if (ajaxTimeout.current != timeout) return;
+            ajaxReq.current = new AbortController();
             let param = {
                 opt: false,
                 more: false,
@@ -217,8 +214,9 @@ export function UserSearchInput(props) {
                 enable_user: enableUser,
             }
             return userSearch(param, {
-                signal: abort.signal
+                signal: ajaxReq.current.signal
             }).then((data) => {
+                ajaxReq.current = null;
                 let setData = data.status && data.data && data.data.length > 0 ? data.data : [];
                 setData = setData.map((e) => {
                     let cat = e.user.nickname;
@@ -247,7 +245,7 @@ export function UserSearchInput(props) {
                 })
             })
         }, 800);
-        reqData.timeout = timeout
+        ajaxTimeout.current = timeout
     }, [userData.input_value])
     return <Autocomplete
 

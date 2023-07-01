@@ -5,7 +5,8 @@ use lsys_core::now_time;
 use sqlx::{MySql, Pool, Transaction};
 use sqlx_model::{executor_option, Insert, Select, Update};
 
-//短信任务记录
+//短信取消发送公共代码
+
 pub struct MessageCancel {
     db: Pool<sqlx::MySql>,
     send_type: SenderType,
@@ -55,10 +56,7 @@ impl MessageCancel {
         Ok(())
     }
     //可取消发送的数据
-    pub async fn cancel_data<'t>(
-        &self,
-        cancel_key: &str,
-    ) -> SenderResult<Vec<SenderKeyCancelModel>> {
+    pub async fn cancel_data(&self, cancel_key: &str) -> SenderResult<Vec<SenderKeyCancelModel>> {
         let sender_type = self.send_type as i8;
         let status = SenderCancelStatus::Init as i8;
 

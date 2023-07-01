@@ -143,7 +143,6 @@ impl SingleSetting {
                 &self.db,
             )
             .await?;
-        let data = T::decode(&model.setting_data)?;
-        Ok(SettingData::new(data, model))
+        SettingData::try_from(model)
     }
 }

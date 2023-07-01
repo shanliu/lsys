@@ -5,8 +5,6 @@ import { UserSessionContext } from '../../../context/session';
 import { useSearchChange } from '../../../utils/hook';
 import AppSmsMessage from '../../library/sender/sms_message';
 import { AppSelect } from '../../library/sender/lib_app_select';
-import { Button } from '@mui/material';
-import LogoDevIcon from '@mui/icons-material/LogoDev';
 
 
 export default function UserAppSmsMessagePage(props) {
@@ -32,17 +30,11 @@ export default function UserAppSmsMessagePage(props) {
         pageSize={searchParam.get("page_size") ?? 25}
         onSearchChange={setSearchParam}
     >
-        <Button
-            variant="outlined"
-            size="medium"
-            startIcon={<LogoDevIcon />}
-            sx={{ mr: 1, p: "7px 15px", minWidth: 150 }}
-            onClick={() => {
-                window.open("https://github.com/shanliu/lsys/tree/main/sdk/go/examples/basic/sms_test.go", "_blank")
-            }}>
-            接口调用示例
-        </Button>
         <AppSelect
+            sx={{
+                width: 200,
+                marginRight: 1
+            }}
             checkSms={true}
             userId={parseInt(userData.user_data.user_id)}
             appId={searchParam.get("app_id") ?? ''}

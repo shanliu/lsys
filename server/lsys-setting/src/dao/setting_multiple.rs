@@ -6,6 +6,7 @@ use sqlx_model::{
     executor_option, model_option_set, sql_format, Insert, ModelTableName, Select, Update,
 };
 use std::sync::Arc;
+use tracing::log::warn;
 
 use super::{SettingData, SettingDecode, SettingEncode, SettingLog, SettingResult};
 use crate::model::{SettingModel, SettingModelRef, SettingStatus, SettingType};
@@ -225,7 +226,6 @@ impl MultipleSetting {
             Err(sqlx::Error::RowNotFound) => Ok(0),
             Err(err) => Err(err.into()),
         }
-        //todo
     }
     pub async fn list_data<T: SettingDecode>(
         &self,
@@ -257,8 +257,14 @@ impl MultipleSetting {
             .await?;
         let mut out = Vec::with_capacity(data.len());
         for model in data {
-            let dat = T::decode(&model.setting_data)?;
-            out.push(SettingData::new(dat, model));
+            match SettingData::try_from(model) {
+                Ok(dat) => {
+                    out.push(dat);
+                }
+                Err(err) => {
+                    warn!("setting parse fail:{}", err);
+                }
+            }
         }
         Ok(out)
     }
@@ -297,7 +303,6 @@ impl MultipleSetting {
                 &self.db,
             )
             .await?;
-        let data = T::decode(&model.setting_data)?;
-        Ok(SettingData::new(data, model))
+        SettingData::try_from(model)
     }
 }

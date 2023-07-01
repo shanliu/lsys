@@ -1,30 +1,30 @@
-## 接口文档
-
-> 目前已提供 go 封装,可参考[示例](go/examples/)
+> 接口文档，目前已提供 go 封装,可参考[示例](go/examples/)
 
 
 
 
-## 请求参数及请求签名生成说明(非OAUTH)
+## 接口请求参数及签名生成说明
 
 > 当 Content-type 为 application/json 时 将尝试把请求内容[如:POST内容]做为JSON字符串并解析为接口参数
 
 > 当 Content-type 非 application/json 时 将尝试把GET参数中的 payload 做为JSON并解析为接口参数
 
 
+### 请求参数说明:
 
-###  公共请求HEADER:
+
+
+> 以下参数通过GET形式传递
+
+> 当 Content-type:application/json 时,POST参数为JSON字符串,并作为 `GET payload` 参数代替
+
+>  HEADER参数:
 
 | 参数            | 类型      | 是否必填 | 最大长度 | 描述             | 示例值        |
 |---------------|---------|------|------|----------------|------------|
 | X-Request-ID	 | String	 | 否		  | 32		 | 请求ID,每次请求不同			 | xxxxx12456 |
 
-
-### 公共参数:
-
-> 以下参数通过GET形式传递
-
-> 当 Content-type:application/json 时,POST参数为JSON字符串,并作为 `GET payload` 参数代替
+> GET参数:
 
 | 参数         | 类型      | 是否必填 | 最大长度  | 描述                               | 示例值                                  |
 |------------|---------|------|-------|----------------------------------|--------------------------------------|
@@ -35,25 +35,28 @@
 | request_ip | String	 | 否		  | 40		  | 客户端IP,存在时加入签名                    | 127.0.0.1                            |
 | method		   | String	 | 否		  | 128		 | 接口名称,可以放到URL中,存在时加入签名            | product.detail                       |
 | token	     | String	 | 否		  | 无		   | OAUTH登录后获取TOKEN,存在时需加入签名              | MTQtSldES1RIUVVZT0NGUkVNUEdJQlpBTlhM |
-| payload	     | String	 | 否		  | 无		   | Content-type 非 application/json 时的作为接口参数,内容为JSON字符串      | {"id":1} |
+| payload	     | String	 | 否		  | 无		   | Header的Content-type非 application/json 时的有效,内容为JSON     | {"id":1} |
 
-####  签名生成方法及示例:
+> POST参数:
 
-##### 签名涉及参数
+> 仅当 Header的 Content-type 为 application/json 时有效,内容为JSON字符串,使用此方式时忽略GET的payload参数
+
+### 签名生成方法及示例:
+
+#### 签名涉及参数
 
 > 使用 app,version,timestamp,request_ip,method,token 及 请求 [`如POST中JSON`或`GET中payload`] 生成秘钥.
 > 其中 request_ip,method,token 及 [`如POST中JSON`或`GET中payload`] 为可选值
 
-##### 签名生成示例
+#### 签名生成示例
 
 >  假设签名秘钥
 ```
 3f95638a1e07b87df2b64e09c2541dac
 ```
 
----
 
-> `假设Content-type 为 application/json的POST请求:`
+### 假设Content-type 为 application/json的POST请求示例:
 ```
 GET:app_id=1212f&version=2.0&timestamp=2023-04-24 15:36:20&method=view&request_ip=fe80::e1bd:c78d:610f:3d03
 POST:{"client_id":"1212f"}
@@ -74,11 +77,10 @@ d5d21befc41d017064e28a807ecd65b6
 GET:app_id=1212f&version=2.0&timestamp=2023-04-24+15%3A36%3A20&method=view&request_ip=fe80%3A%3Ae1bd%3Ac78d%3A610f%3A3d03&sign=d5d21befc41d017064e28a807ecd65b6
 POST:{"client_id":"1212f"}
 ```
----
 
 
 
-> `假设Content-type 非 application/json的GET请求(其中GET存在可选参数 request_ip,payload):`
+###  假设Content-type 非 application/json的GET请求(其中GET存在可选参数 request_ip,payload)示例:
 ```
 GET:app_id=1212f&payload={"client_id":"1212f"}&request_ip=fe80::e1bd:c78d:610f:3d03&timestamp=2023-04-24:15:45:22&version=2.0
 ```
@@ -98,12 +100,9 @@ app_id=1212f&request_ip=fe80%3A%3Ae1bd%3Ac78d%3A610f%3A3d03&timestamp=2023-04-24
 ```
 GET:app_id=1212f&payload=%7B%22client_id%22%3A%221212f%22%7D&request_ip=fe80%3A%3Ae1bd%3Ac78d%3A610f%3A3d03&timestamp=2023-04-24+15%3A45%3A22&version=2.0&sign=8fea66dc4b9928fa0664cbe06947e630
 ```
----
 
 
-
-
-## OAUTH 请求参数
+## OAuth接口请求参数说明
 
 ### 登录地址获取
 
@@ -138,6 +137,14 @@ http://127.0.0.1:8080/?code=27b5591cb788309dfee63da4fc264a10&state=aa
 > 请求路径为: ${APP_HOST}/oauth/token
 
 > 无需签名,请求方式为GET
+
+>  HEADER参数:
+
+| 参数            | 类型      | 是否必填 | 最大长度 | 描述             | 示例值        |
+|---------------|---------|------|------|----------------|------------|
+| X-Request-ID	 | String	 | 否		  | 32		 | 请求ID,每次请求不同			 | xxxxx12456 |
+
+> GET跟POST参数:
 
 | 参数            | 类型      | 是否必填 | 最大长度 | 描述             | 示例值        |
 |---------------|---------|------|------|----------------|------------|
@@ -177,6 +184,14 @@ GET:http://175.178.90.181/oauth/token?client_id=1212f&client_secret=2a97bf1b4f07
 
 > 无需签名,请求方式为GET
 
+>  HEADER参数:
+
+| 参数            | 类型      | 是否必填 | 最大长度 | 描述             | 示例值        |
+|---------------|---------|------|------|----------------|------------|
+| X-Request-ID	 | String	 | 否		  | 32		 | 请求ID,每次请求不同			 | xxxxx12456 |
+
+> GET跟POST参数:
+
 | 参数            | 类型      | 是否必填 | 最大长度 | 描述             | 示例值        |
 |---------------|---------|------|------|----------------|------------|
 | client_id  	 | String	 | 是		  | 32		 | 应用ID,跟非OAUTH的参数app_id相同| xxxxx12456 |
@@ -212,7 +227,7 @@ GET:http://175.178.90.181/oauth/refresh_token?client_id=1212f&client_secret=2a97
 
 > 请求路径为: ${APP_HOST}/oauth/user
 
-> 需签名,参考`请求参数及加密秘钥生成说明(非OAUTH)`
+> 需签名,参考`接口请求参数及签名生成说明`
 
 > 请求方式为POST,设置Content-Type:application/json
 
@@ -221,6 +236,15 @@ GET:http://175.178.90.181/oauth/refresh_token?client_id=1212f&client_secret=2a97
 > GET参数 method 为 `info` ,其他参数查看`公共参数`说明
 
 > POST参数[JSON序列化]
+
+
+>  HEADER参数:
+
+| 参数            | 类型      | 是否必填 | 最大长度 | 描述             | 示例值        |
+|---------------|---------|------|------|----------------|------------|
+| X-Request-ID	 | String	 | 否		  | 32		 | 请求ID,每次请求不同			 | xxxxx12456 |
+
+> GET跟POST参数:
 
 | 参数            | 类型      | 是否必填 | 最大长度 | 描述             | 示例值        |
 |---------------|---------|------|------|----------------|------------|
@@ -285,17 +309,17 @@ POST:{"address":false,"email":false,"info":false,"mobile":false,"name":true,"use
 ## 返回数据说明
 
 > OAUTH跟非OAUTH的请求格式返回一致
+### 公共返回参数说明:
 
-###  公共返回HEADER:
+> 当code为200时系统正常,当state为ok时业务无异常
+
+> 返回HEADER:
 
 | 参数            | 类型      | 是否必填 | 最大长度 | 描述                      | 示例值        |
 |---------------|---------|------|------|-------------------------|------------|
 | X-Request-ID	 | String	 | 否		  | 32		 | 如果请求时存在原样返回,否则系统内部会生成一个 | xxxxx12456 |
 
-
-### 公共返回参数说明:
-
-> 当code为200时系统正常,当state为ok时业务无异常
+> 返回JSON内容:
 
 | 参数              | 类型            | 是否必返回 | 最大长度 | 描述                    |
 |-----------------|---------------|-------|------|-----------------------|
@@ -304,7 +328,7 @@ POST:{"address":false,"email":false,"info":false,"mobile":false,"name":true,"use
 | result.message	 | String	       | 是			  | 256  | 相关消息                  |
 | response		      | Array,Object	 | 是			  | 无    | 接口数据,可能为:{}或[],参见具体接口说明     |
 
-#### 返回参数示例:
+### 返回参数示例:
 
 ```
 {

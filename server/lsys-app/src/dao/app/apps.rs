@@ -1,9 +1,10 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use crate::model::{AppStatus, AppsModel, AppsModelRef};
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
-    get_message, now_time, AppCore, FluentMessage, PageParam, RemoteNotify, RequestEnv,
+    get_message, impl_dao_fetch_map_by_vec, now_time, AppCore, FluentMessage, PageParam,
+    RemoteNotify, RequestEnv,
 };
 
 use lsys_logger::dao::ChangeLogger;
@@ -26,7 +27,7 @@ pub struct Apps {
 
 #[derive(Clone, Debug)]
 pub struct AppDataWhere<'t> {
-    pub user_id: Option<u64>,
+    pub user_id: &'t Option<u64>,
     pub status: &'t Option<Vec<AppStatus>>,
     pub client_ids: &'t Option<Vec<String>>,
     pub app_ids: &'t Option<Vec<u64>>,
@@ -133,6 +134,16 @@ impl Apps {
         let res = query.fetch_one(&self.db).await?;
         Ok(res)
     }
+    impl_dao_fetch_map_by_vec!(
+        db,
+        find_by_ids,
+        u64,
+        AppsModel,
+        AppsResult<HashMap<u64, AppsModel>>,
+        id,
+        id,
+        "id in ({id}) "
+    );
     lsys_core::impl_dao_fetch_one_by_one!(
         db,
         find_by_id,

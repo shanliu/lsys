@@ -3,13 +3,10 @@ use lsys_app::model::AppsModel;
 use lsys_core::{AppCore, FluentMessage, RequestEnv};
 use lsys_logger::dao::ChangeLogger;
 use lsys_sender::{
-    dao::{
-        MailSender, MailTaskAcquisitionRecord, MailTaskRecord, SenderError, SmtpSender,
-        SmtpSenderTask,
-    },
+    dao::{MailRecord, MailSender, SenderError, SenderSmtpConfig, SenderTplConfig, SmtpSenderTask},
     model::SenderMailMessageModel,
 };
-use lsys_setting::dao::MultipleSetting;
+use lsys_setting::dao::Setting;
 use lsys_user::dao::account::{check_email, UserAccountError};
 use serde_json::json;
 use sqlx::{MySql, Pool};
@@ -60,14 +57,12 @@ impl From<WebAppMailerError> for UserAccountError {
 }
 
 pub struct WebAppMailer {
-    app_core: Arc<AppCore>,
     fluent: Arc<FluentMessage>,
-    pub smtp_sender: SmtpSender,
-    mailer: Arc<MailSender<MailTaskAcquisitionRecord, ()>>,
-    mail_record: Arc<MailTaskRecord>,
-    setting: Arc<MultipleSetting>,
+    mailer: Arc<MailSender>,
+
     db: Pool<MySql>,
     logger: Arc<ChangeLogger>,
+    smtp_sender: SenderSmtpConfig,
 }
 
 impl WebAppMailer {
@@ -77,37 +72,44 @@ impl WebAppMailer {
         fluent: Arc<FluentMessage>,
         redis: deadpool_redis::Pool,
         db: Pool<MySql>,
-        setting: Arc<MultipleSetting>,
+        setting: Arc<Setting>,
         logger: Arc<ChangeLogger>,
         task_size: Option<usize>,
         task_timeout: usize,
         is_check: bool,
     ) -> Self {
-        let mail_record = Arc::new(MailTaskRecord::new(
-            db.clone(),
-            app_core.clone(),
-            fluent.clone(),
-            logger.clone(),
-        ));
-        let acquisition = MailTaskAcquisitionRecord::new(mail_record.clone());
         let mailer = Arc::new(MailSender::new(
+            app_core,
             redis,
+            db.clone(),
+            fluent.clone(),
+            setting.clone(),
+            logger.clone(),
             task_size,
             task_timeout,
             is_check,
-            acquisition,
         ));
-        let smtp_sender = SmtpSender::new(db.clone(), setting.clone(), logger.clone());
+        let smtp_sender = SenderSmtpConfig::new(
+            fluent.clone(),
+            setting.multiple.clone(),
+            mailer.tpl_config.clone(),
+        );
         Self {
-            app_core,
+            mailer,
             fluent,
             smtp_sender,
-            mailer,
-            mail_record,
-            setting,
             db,
             logger,
         }
+    }
+    pub fn tpl_config(&self) -> &SenderTplConfig {
+        &self.mailer.tpl_config
+    }
+    pub fn mail_record(&self) -> &MailRecord {
+        &self.mailer.mail_record
+    }
+    pub fn smtp_sender(&self) -> &SenderSmtpConfig {
+        &self.smtp_sender
     }
     pub async fn send_valid_code(
         &self,
@@ -141,6 +143,7 @@ impl WebAppMailer {
                 &None,
                 &None,
                 &None,
+                &None,
                 env_data,
             )
             .await
@@ -151,22 +154,14 @@ impl WebAppMailer {
     pub async fn task(&self) -> Result<(), WebAppMailerError> {
         Ok(self
             .mailer
-            .task(
-                self.app_core.clone(),
-                self.mail_record.clone(),
-                vec![Box::new(SmtpSenderTask::new(
-                    SmtpSender::new(self.db.clone(), self.setting.clone(), self.logger.clone()),
-                    self.db.clone(),
-                    self.fluent.clone(),
-                    self.logger.clone(),
-                ))],
-            )
+            .task(vec![Box::new(SmtpSenderTask::new(
+                self.db.clone(),
+                self.fluent.clone(),
+                self.logger.clone(),
+            ))])
             .await?)
     }
-    // 后台任务
-    pub fn mail_record(&self) -> &MailTaskRecord {
-        &self.mail_record
-    }
+
     // 取消发送接口
     pub async fn send_cancel(
         &self,
@@ -188,7 +183,7 @@ impl WebAppMailer {
         tpl_id: &str,
         to: &[String],
         body: &HashMap<String, String>,
-        send_time: Option<u64>,
+        send_time: &Option<u64>,
         reply: &Option<String>,
         cancel_key: &Option<String>,
         env_data: Option<&RequestEnv>,
@@ -208,10 +203,11 @@ impl WebAppMailer {
                 &to.iter().map(|e| e.as_str()).collect::<Vec<_>>(),
                 tpl_id,
                 &json!(body).to_string(),
-                &send_time,
+                send_time,
                 &Some(app.user_id),
                 reply,
                 cancel_key,
+                &None,
                 env_data,
             )
             .await

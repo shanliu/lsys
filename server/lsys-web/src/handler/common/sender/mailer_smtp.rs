@@ -1,13 +1,30 @@
 use crate::{
     dao::RequestDao,
-    handler::access::{AccessAdminSmtpConfig, AccessAppSenderSmsConfig},
+    handler::access::{AccessAdminSmtpConfig, AccessAppSenderMailConfig},
     {JsonData, JsonResult},
 };
-use lsys_sender::{dao::SmtpConfig, model::SenderSmsAliyunStatus};
+use lsys_sender::dao::SmtpConfig;
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use serde_json::Value;
+
+#[derive(Serialize, Default)]
+pub struct ShowSmtpConfig {
+    pub id: u64,
+    pub name: String,
+    pub host: String,
+    pub port: u16,
+    pub timeout: u64,
+    pub user: String,
+    pub email: String,
+    pub hide_user: String,
+    pub password: String,
+    pub hide_password: String,
+    pub tls_domain: String,
+    pub change_user_id: u64,
+    pub change_time: u64,
+}
 
 #[derive(Debug, Deserialize)]
 pub struct MailerSmtpConfigListParam {
@@ -24,9 +41,10 @@ pub async fn mailer_smtp_config_list<
     param: MailerSmtpConfigListParam,
     req_dao: &RequestDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let smtp_sender = &req_dao.web_dao.sender_mailer.smtp_sender;
+    let smtp_sender = &req_dao.web_dao.sender_mailer.smtp_sender();
     let row = smtp_sender.list_config(&param.ids).await?;
-    let row = if param.full_data.unwrap_or(false) {
+
+    let out = if param.full_data.unwrap_or(false) {
         let req_auth = req_dao.user_session.read().await.get_session_data().await?;
         req_dao
             .web_dao
@@ -40,22 +58,44 @@ pub async fn mailer_smtp_config_list<
                 None,
             )
             .await?;
-        json!({ "data": row })
+        let data = row
+            .into_iter()
+            .map(|e| ShowSmtpConfig {
+                id: e.model().id,
+                name: e.model().name.to_owned(),
+                change_user_id: e.model().change_user_id,
+                change_time: e.model().change_time,
+                host: e.host.clone(),
+                port: e.port,
+                timeout: e.timeout,
+                user: e.user.clone(),
+                email: if e.email.is_empty() {
+                    e.user.clone()
+                } else {
+                    e.email.clone()
+                },
+                hide_user: e.hide_user(),
+                password: e.password.clone(),
+                hide_password: e.hide_password(),
+                tls_domain: e.tls_domain.clone(),
+            })
+            .collect::<Vec<_>>();
+        json!({ "data": data })
     } else {
         let row = row
             .into_iter()
             .map(|e| {
                 json!({
-                   "id": e.id,
-                   "name": e.name,
-                   "user":e.hide_user,
+                   "id": e.model().id,
+                   "name": e.model().name,
+                   "user":e.user,
                    "email":e.email,
                 })
             })
             .collect::<Vec<Value>>();
         json!({ "data": row })
     };
-    Ok(JsonData::data(row))
+    Ok(JsonData::data(out))
 }
 
 #[derive(Debug, Deserialize)]
@@ -92,7 +132,7 @@ pub async fn mailer_smtp_config_add<
             None,
         )
         .await?;
-    let smtp_sender = &req_dao.web_dao.sender_mailer.smtp_sender;
+    let smtp_sender = &req_dao.web_dao.sender_mailer.smtp_sender();
     let row = smtp_sender
         .add_config(
             &param.name,
@@ -149,7 +189,7 @@ pub async fn mailer_smtp_config_check<
             None,
         )
         .await?;
-    let smtp_sender = &req_dao.web_dao.sender_mailer.smtp_sender;
+    let smtp_sender = &req_dao.web_dao.sender_mailer.smtp_sender();
     smtp_sender
         .check_config(&SmtpConfig {
             host: param.host,
@@ -203,7 +243,7 @@ pub async fn mailer_smtp_config_edit<
             None,
         )
         .await?;
-    let smtp_sender = &req_dao.web_dao.sender_mailer.smtp_sender;
+    let smtp_sender = &req_dao.web_dao.sender_mailer.smtp_sender();
     let row = smtp_sender
         .edit_config(
             &param.id,
@@ -255,58 +295,10 @@ pub async fn mailer_smtp_config_del<
             None,
         )
         .await?;
-    let smtp_sender = &req_dao.web_dao.sender_mailer.smtp_sender;
+    let smtp_sender = &req_dao.web_dao.sender_mailer.smtp_sender();
     let row = smtp_sender
         .del_config(
             &param.id,
-            &req_auth.user_data().user_id,
-            Some(&req_dao.req_env),
-        )
-        .await?;
-    Ok(JsonData::data(json!({ "num": row })))
-}
-
-#[derive(Debug, Deserialize)]
-pub struct MailerAppSmtpConfigDelParam {
-    pub app_config_id: u64,
-}
-
-pub async fn mailer_app_smtp_config_del<
-    't,
-    T: SessionTokenData,
-    D: SessionData,
-    S: UserSession<T, D>,
->(
-    param: MailerAppSmtpConfigDelParam,
-    req_dao: &RequestDao<T, D, S>,
-) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-    let smtp_sender = &req_dao.web_dao.sender_mailer.smtp_sender;
-    let config = smtp_sender
-        .find_app_config_by_id(&param.app_config_id)
-        .await?;
-    if SenderSmsAliyunStatus::Delete.eq(config.status) {
-        return Ok(JsonData::data(json!({ "num": 0 })));
-    }
-
-    req_dao
-        .web_dao
-        .user
-        .rbac_dao
-        .rbac
-        .check(
-            &AccessAppSenderSmsConfig {
-                user_id: req_auth.user_data().user_id,
-                res_user_id: config.user_id,
-                app_id: config.app_id,
-            },
-            None,
-        )
-        .await?;
-
-    let row = smtp_sender
-        .del_app_config(
-            &config,
             &req_auth.user_data().user_id,
             Some(&req_dao.req_env),
         )
@@ -322,9 +314,9 @@ pub struct MailerAppSmtpConfigAddParam {
     pub name: String,
     pub tpl_id: String,
     pub from_email: String,
+    pub reply_email: String,
     pub subject_tpl_id: String,
     pub body_tpl_id: String,
-    pub try_num: u16,
 }
 
 pub async fn mailer_app_smtp_config_add<
@@ -345,7 +337,7 @@ pub async fn mailer_app_smtp_config_add<
         .rbac_dao
         .rbac
         .check(
-            &AccessAppSenderSmsConfig {
+            &AccessAppSenderMailConfig {
                 user_id: req_auth.user_data().user_id,
                 res_user_id: uid,
                 app_id: param.app_id,
@@ -354,7 +346,7 @@ pub async fn mailer_app_smtp_config_add<
         )
         .await?;
 
-    let smtp_sender = &req_dao.web_dao.sender_mailer.smtp_sender;
+    let smtp_sender = &req_dao.web_dao.sender_mailer.smtp_sender();
     let row = smtp_sender
         .add_app_config(
             &param.name,
@@ -362,64 +354,13 @@ pub async fn mailer_app_smtp_config_add<
             &param.tpl_id,
             &param.smtp_config_id,
             &param.from_email,
+            &param.reply_email,
             &param.subject_tpl_id,
             &param.body_tpl_id,
-            &param.try_num,
             &uid,
             &req_auth.user_data().user_id,
             Some(&req_dao.req_env),
         )
         .await?;
     Ok(JsonData::data(json!({ "id": row })))
-}
-
-#[derive(Debug, Deserialize)]
-pub struct MailerAppSmtpConfigListParam {
-    pub user_id: Option<u64>,
-    pub id: Option<u64>,
-    pub app_id: Option<u64>,
-    pub tpl_id: Option<String>,
-}
-
-pub async fn mailer_app_smtp_config_list<
-    't,
-    T: SessionTokenData,
-    D: SessionData,
-    S: UserSession<T, D>,
->(
-    param: MailerAppSmtpConfigListParam,
-    req_dao: &RequestDao<T, D, S>,
-) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-
-    req_dao
-        .web_dao
-        .user
-        .rbac_dao
-        .rbac
-        .check(
-            &AccessAppSenderSmsConfig {
-                user_id: req_auth.user_data().user_id,
-                res_user_id: param.user_id.unwrap_or(req_auth.user_data().user_id),
-                app_id: param.app_id.unwrap_or_default(),
-            },
-            None,
-        )
-        .await?;
-
-    let smtp_sender = &req_dao.web_dao.sender_mailer.smtp_sender;
-    let row = smtp_sender
-        .find_app_config(&param.id, &param.user_id, &param.app_id, &param.tpl_id)
-        .await?
-        .into_iter()
-        .map(|e| {
-            json!({
-                "config":e.0,
-                "user":e.1.hide_user(),
-                "name":e.1.model().name,
-                "email":e.1.email,
-            })
-        })
-        .collect::<Vec<_>>();
-    Ok(JsonData::data(json!({ "data": row })))
 }

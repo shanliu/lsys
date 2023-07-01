@@ -17,7 +17,7 @@ pub struct TplListParam {
     pub count_num: Option<bool>,
     pub page: Option<PageParam>,
 }
-pub async fn tpl_list<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
+pub async fn tpl_body_list<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: TplListParam,
     req_dao: &RequestDao<T, D, S>,
 ) -> JsonResult<JsonData> {
@@ -77,7 +77,7 @@ pub struct TplAddParam {
     pub sender_type: i8,
     pub user_id: Option<u64>,
 }
-pub async fn tpl_add<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
+pub async fn tpl_body_add<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: TplAddParam,
     req_dao: &RequestDao<T, D, S>,
 ) -> JsonResult<JsonData> {
@@ -116,7 +116,7 @@ pub struct TplEditParam {
     pub id: u64,
     pub tpl_data: String,
 }
-pub async fn tpl_edit<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
+pub async fn tpl_body_edit<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: TplEditParam,
     req_dao: &RequestDao<T, D, S>,
 ) -> JsonResult<JsonData> {
@@ -152,7 +152,7 @@ pub async fn tpl_edit<'t, T: SessionTokenData, D: SessionData, S: UserSession<T,
 pub struct TplDelParam {
     pub id: u64,
 }
-pub async fn tpl_del<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
+pub async fn tpl_body_del<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: TplDelParam,
     req_dao: &RequestDao<T, D, S>,
 ) -> JsonResult<JsonData> {

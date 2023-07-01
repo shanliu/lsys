@@ -3,7 +3,7 @@
 import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, Divider, Grid, IconButton, Typography } from '@mui/material';
 import React, { Fragment, useEffect, useState } from 'react';
 import { SimpleTablePage } from '../../../library/table_page';
-import { MessageLogStatus, MessageLogType, senderListAppMessageLog, senderSeeAppMessage } from '../../../rest/sender_setting';
+import { MessageLogStatus, MessageLogType, senderCancelAppMessage, senderListAppMessageLog, senderSeeAppMessage } from '../../../rest/sender_setting';
 import { showTime } from '../../../utils/utils';
 import { ConfirmButton } from '../../../library/dialog';
 import CancelIcon from '@mui/icons-material/Cancel';
@@ -86,13 +86,13 @@ export function MessageDeleteButton(props) {
     let delAction = () => {
         return senderCancelAppMessage(msgType, { message_id: row.id }).then((data) => {
             if (!data.status) return data;
-            delCallback(row.id)
+            onDelete(row)
             return data;
         })
     };
     return row.status == 1 ? <ConfirmButton
         message={message}
-        onAction={() => { delAction(row) }}
+        onAction={() => { return delAction(row) }}
         renderButton={(props) => {
             return <IconButton title="取消发送"  {...props} size='small' ><CancelIcon fontSize="small" /></IconButton>
         }} /> : null
@@ -154,7 +154,7 @@ export function MessageLogBox(props) {
         },
         {
             label: "类型",
-            style: { width: 70 },
+            style: { width: 100 },
             render: (row) => {
                 let val = MessageLogType.find((e) => {
                     return row.log_type == e.key
@@ -162,11 +162,6 @@ export function MessageLogBox(props) {
                 if (!val) return "未知";
                 return val.val;
             }
-        },
-        {
-            field: "event_type",
-            label: "触发于",
-            style: { width: 80 }
         },
         {
             label: "状态",
@@ -182,7 +177,7 @@ export function MessageLogBox(props) {
         },
         {
             label: "时间",
-            style: { width: 180 },
+            style: { width: 160 },
             render: (row) => {
                 return showTime(row.create_time, "未知")
             }

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::dao::{SenderError, SenderResult};
-use crate::model::{SenderTplStatus, SenderTplsModel, SenderTplsModelRef, SenderType};
+use crate::model::{SenderTplBodyModel, SenderTplBodyModelRef, SenderTplBodyStatus, SenderType};
 use lsys_core::{get_message, now_time, FluentMessage, PageParam, RequestEnv};
 
 use lsys_logger::dao::ChangeLogger;
@@ -39,8 +39,8 @@ impl MessageTpls {
         db,
         find_by_id,
         u64,
-        SenderTplsModel,
-        SenderResult<SenderTplsModel>,
+        SenderTplBodyModel,
+        SenderResult<SenderTplBodyModel>,
         id,
         "id={id}"
     );
@@ -61,13 +61,13 @@ impl MessageTpls {
         let time = now_time().unwrap_or_default();
 
         let tpl_data = tpl_data.to_owned();
-        let status = SenderTplStatus::Enable as i8;
-        let res = Select::type_new::<SenderTplsModel>()
-            .fetch_one_by_where_call::<SenderTplsModel, _, _>(
+        let status = SenderTplBodyStatus::Enable as i8;
+        let res = Select::type_new::<SenderTplBodyModel>()
+            .fetch_one_by_where_call::<SenderTplBodyModel, _, _>(
                 " tpl_id=? and status = ? and user_id = ?",
                 |mut res, _| {
                     res = res.bind(tpl_id.clone());
-                    res = res.bind(SenderTplStatus::Enable as i8);
+                    res = res.bind(SenderTplBodyStatus::Enable as i8);
                     res = res.bind(user_id);
                     res
                 },
@@ -90,7 +90,7 @@ impl MessageTpls {
                 return Err(err.into());
             }
         }
-        let idata = model_option_set!(SenderTplsModelRef,{
+        let idata = model_option_set!(SenderTplBodyModelRef,{
             sender_type:sender_type,
             tpl_id:tpl_id,
             tpl_data:tpl_data,
@@ -99,7 +99,7 @@ impl MessageTpls {
             change_user_id:add_user_id,
             status:status,
         });
-        let id = Insert::<sqlx::MySql, SenderTplsModel, _>::new(idata)
+        let id = Insert::<sqlx::MySql, SenderTplBodyModel, _>::new(idata)
             .execute(&self.db)
             .await?
             .last_insert_id();
@@ -124,7 +124,7 @@ impl MessageTpls {
     //可取消发送的数据
     pub async fn edit(
         &self,
-        tpl: &SenderTplsModel,
+        tpl: &SenderTplBodyModel,
         tpl_data: &str,
         user_id: &u64,
         env_data: Option<&RequestEnv>,
@@ -135,12 +135,12 @@ impl MessageTpls {
         let time = now_time().unwrap_or_default();
         let tpl_data = tpl_data.to_owned();
 
-        let change = model_option_set!(SenderTplsModelRef,{
+        let change = model_option_set!(SenderTplBodyModelRef,{
             tpl_data:tpl_data,
             change_user_id:user_id,
             change_time:time,
         });
-        let row = Update::<sqlx::MySql, SenderTplsModel, _>::new(change)
+        let row = Update::<sqlx::MySql, SenderTplBodyModel, _>::new(change)
             .execute_by_pk(tpl, &self.db)
             .await?
             .rows_affected();
@@ -167,19 +167,19 @@ impl MessageTpls {
     //可取消发送的数据
     pub async fn del(
         &self,
-        tpl: &SenderTplsModel,
+        tpl: &SenderTplBodyModel,
         user_id: &u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         let user_id = user_id.to_owned();
         let time = now_time().unwrap_or_default();
-        let status = SenderTplStatus::Delete as i8;
-        let change = model_option_set!(SenderTplsModelRef,{
+        let status = SenderTplBodyStatus::Delete as i8;
+        let change = model_option_set!(SenderTplBodyModelRef,{
             status:status,
             user_id:user_id,
             change_time:time,
         });
-        let row = Update::<sqlx::MySql, SenderTplsModel, _>::new(change)
+        let row = Update::<sqlx::MySql, SenderTplBodyModel, _>::new(change)
             .execute_by_pk(tpl, &self.db)
             .await?
             .rows_affected();
@@ -218,13 +218,13 @@ impl MessageTpls {
         let sender_type = sender_type as i8;
         let tkey = &self.tpl_key(sender_type, tpl_id);
         if self.tera.read().await.templates.get(tkey).is_none() {
-            let tpl = Select::type_new::<SenderTplsModel>()
-                .fetch_one_by_where_call::<SenderTplsModel, _, _>(
+            let tpl = Select::type_new::<SenderTplBodyModel>()
+                .fetch_one_by_where_call::<SenderTplBodyModel, _, _>(
                     "sender_type=? and tpl_id=? and status = ?",
                     |mut res, _| {
                         res = res.bind(sender_type);
                         res = res.bind(tpl_id.to_owned());
-                        res = res.bind(SenderTplStatus::Enable as i8);
+                        res = res.bind(SenderTplBodyStatus::Enable as i8);
                         res
                     },
                     &self.db,
@@ -248,7 +248,7 @@ impl MessageTpls {
         let mut sqlwhere = vec![sql_format!(
             "user_id={} and status ={}",
             user_id,
-            SenderTplStatus::Enable
+            SenderTplBodyStatus::Enable
         )];
         if let Some(s) = sender_type {
             sqlwhere.push(sql_format!("sender_type={} ", s));
@@ -268,7 +268,7 @@ impl MessageTpls {
         id: &Option<u64>,
         tpl_id: &Option<String>,
         page: &Option<PageParam>,
-    ) -> SenderResult<Vec<SenderTplsModel>> {
+    ) -> SenderResult<Vec<SenderTplBodyModel>> {
         let sqlwhere = self.list_where_sql(user_id, sender_type, id, tpl_id);
         let page_sql = if let Some(pdat) = page {
             format!(
@@ -283,8 +283,8 @@ impl MessageTpls {
         } else {
             WhereOption::None
         };
-        Ok(Select::type_new::<SenderTplsModel>()
-            .fetch_all_by_where::<SenderTplsModel, _>(&sql, &self.db)
+        Ok(Select::type_new::<SenderTplBodyModel>()
+            .fetch_all_by_where::<SenderTplBodyModel, _>(&sql, &self.db)
             .await?)
     }
     pub async fn list_count(
@@ -297,7 +297,7 @@ impl MessageTpls {
         let sqlwhere = self.list_where_sql(user_id, sender_type, id, tpl_id);
         let sql = sql_format!(
             "select count(*) as total from {} where {}",
-            SenderTplsModel::table_name(),
+            SenderTplBodyModel::table_name(),
             SqlExpr(sqlwhere)
         );
         let query = sqlx::query_scalar::<_, i64>(&sql);

@@ -1,4 +1,4 @@
-import { Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Link, Tab, Tabs } from '@mui/material';
+import { Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Link, Paper, Stack, Tab, Tabs } from '@mui/material';
 import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
@@ -12,7 +12,7 @@ import { Outlet, Link as RLink, useNavigate, useParams } from 'react-router-dom'
 import { SessionClear, UserSessionContext } from '../../context/session';
 import { logout } from '../../rest/login';
 import { LayoutAppBar } from './public';
-
+import PropTypes from 'prop-types';
 
 function NavUser() {
     const { userData, dispatch } = React.useContext(UserSessionContext)
@@ -125,15 +125,14 @@ export function PageLayout() {
 
 
 export function TabLayout(props) {
-    let param = useParams();
-    let type = param['*'].split('/')[1];
+    const { menus, onChange, value } = props;
     return (
         <Box >
             <Box sx={{ borderBottom: 1, borderColor: 'divider', marginBottom: 2 }}>
-                <Tabs value={type} onChange={props.onChange}>
+                <Tabs value={value} onChange={onChange}>
                     {
-                        props.menus.map((e) => {
-                            return <Tab label={e.name} value={e.key} key={`nav-${e.key}`} />
+                        menus.map((e) => {
+                            return <Tab label={e.name} value={e.value} key={`nav-${e.value}`} />
                         })
                     }
                 </Tabs>
@@ -142,3 +141,41 @@ export function TabLayout(props) {
         </Box >)
 
 }
+
+TabLayout.propTypes = {
+    menus: PropTypes.array.isRequired,
+    onChange: PropTypes.func.isRequired,
+    value: PropTypes.string.isRequired
+};
+
+
+export function VerticalTabsLayout(props) {
+    const { menus, onChange, value,navWidth} = props;
+    return <Fragment>
+        <Stack direction={"row"}>
+             <Box  sx={{ width: navWidth>0?navWidth:130,}}>
+            <Tabs
+                orientation="vertical"
+                variant="scrollable"
+                value={value}
+                onChange={onChange}
+                aria-label="Vertical tabs example"
+                sx={{ borderRight: 1, borderColor: 'divider',width:1 }}
+            >
+                {menus.map((e, i) => {
+                    return <Tab key={`vertical-key-${i}`} label={e.name} value={e.value} id={`vertical-tab-${i}`} aria-controls={`vertical - tabpanel - ${i}`} />
+                })}
+            </Tabs>
+            </Box>
+            <Box sx={{ flex: 1}}>
+                <Outlet />
+            </Box>
+        </ Stack >
+    </ Fragment >
+        ;
+}
+
+VerticalTabsLayout.propTypes = {
+    menus: PropTypes.array.isRequired,
+    onChange: PropTypes.func.isRequired
+};

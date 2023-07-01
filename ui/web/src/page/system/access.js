@@ -1,25 +1,30 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { TabLayout } from '../library/layout';
 export default function SystemAccessPage() {
     const InfoNav = [
         // {
-        //     key: "test",
+        //     value: "test",
         //     name: "授权测试"
         // },
         {
-            key: "role",
+            value: "role",
             name: "系统角色"
         },
         {
-            key: "res",
+            value: "res",
             name: "资源管理"
         }
     ];
     const navigate = useNavigate();
-    return <TabLayout onChange={
+    let param = useParams();
+    let type = param['*'].split('/')[1];
+    return <TabLayout value={type} onChange={
         (event, newValue) => {
-            navigate('/system/access/' + newValue);
+            let find = InfoNav.find((item) => { return item.value == newValue })
+            if (find) {
+                navigate('/system/access/' + find.value);
+            }
         }
     } menus={InfoNav} />
 }

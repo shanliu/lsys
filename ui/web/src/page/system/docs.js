@@ -334,9 +334,7 @@ function GitBox(props) {
 }
 
 export function MenuInput(props) {
-
     const { label, tagId, value, onSelect, disabled, ...params } = props;
-    //todo 存在值时加载指定用户
     const [pathData, setPathData] = useState({
         data: [],
         loading: false,
@@ -346,10 +344,8 @@ export function MenuInput(props) {
     const [inputData, setInputData] = useState({
         open: false,
     })
-    const [reqData] = useState({
-        abort: null,
-        timeout: null,
-    })
+    let ajaxReq = useRef(null)
+    let ajaxTimeout = useRef(null)
     useEffect(() => {
         if (pathData.data.find((t) => {
             return t.url_path == value && !t.is_dir
@@ -358,27 +354,28 @@ export function MenuInput(props) {
             return t.url_path == value && t.is_dir
         }) || pathData.data.length == 0)) return
 
-        if (reqData.timeout) {
-            clearTimeout(reqData.timeout)
+        if (ajaxTimeout.current) {
+            clearTimeout(ajaxTimeout.current)
+            ajaxTimeout.current = null
         }
-        if (reqData.abort) {
-            reqData.abort.abort()
+        if (ajaxReq.current) {
+            ajaxReq.current.abort()
         }
         setPathData({
             ...pathData,
             data: [],
             loading: true,
         })
-        let timeout = setTimeout(() => {
-            if (reqData.timeout != timeout) return;
-            let abort = new AbortController();
-            reqData.abort = abort
+        ajaxTimeout.current = setTimeout(() => {
+            ajaxReq.current = new AbortController();
             return docsTagDir({
                 prefix: value,
                 tag_id: tagId
             }, {
-                signal: abort.signal
+                signal: ajaxReq.current.signal
             }).then((data) => {
+                ajaxReq.current = null;
+                ajaxTimeout.current = null
                 let setData = data.status && data.data && data.data.length > 0 ? data.data : [];
                 setPathData({
                     ...pathData,
@@ -389,7 +386,6 @@ export function MenuInput(props) {
                 })
             })
         }, 800);
-        reqData.timeout = timeout
     }, [value])
 
     return <Autocomplete
@@ -790,10 +786,10 @@ function TagBox(props) {
         version: '',
         clear_rule: ''
     });
+    let ajaxGitReq = useRef(null)
     const [gitData, setGitData] = useState({
         data: null,
         loading: false,
-        abort: null
     });
 
     useEffect(() => {
@@ -804,8 +800,10 @@ function TagBox(props) {
             return e.id == addData.git_id
         });
         if (!gitSelect) return;
-        if (gitData.abort) gitData.abort.abort()
-        gitData.abort = new AbortController();
+        if (ajaxGitReq.current) {
+            ajaxGitReq.current.abort()
+        }
+        ajaxGitReq.current = new AbortController();
         setGitData({
             ...gitData,
             loading: true
@@ -813,8 +811,9 @@ function TagBox(props) {
         docsGitDetail({
             url: gitSelect.url + '',
         }, {
-            signal: gitData.abort.signal
+            signal: ajaxGitReq.current.signal
         }).then((data) => {
+            ajaxGitReq.current = null;
             if (data.status && (
                 !data.data ||
                 data.data.length == 0
@@ -941,10 +940,8 @@ function TagBox(props) {
                                         git_id: e.target.value,
                                     })
                                     setGitData({
-
                                         data: null,
                                         loading: false,
-                                        abort: null
                                     })
                                 }}
                             >
@@ -1587,7 +1584,7 @@ export default function SystemDocsPage(props) {
                 variant="outlined"
                 size="medium"
                 startIcon={<SearchIcon />}
-                sx={{ mr: 2, p: "7px 15px", minWidth: 85 }}
+                sx={{ mr: 2, p: "7px 15px", minWidth: 110 }}
                 loading={loadData.loading}
                 disabled={loadData.loading}
             >

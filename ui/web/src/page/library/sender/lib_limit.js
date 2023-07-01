@@ -447,7 +447,15 @@ export function SenderLimit(props) {
             }, ...props.children ? { app_id: appId } : {}
         })
         loadAppData()
-    }, [props])
+    }, [
+        props.limitType,
+        props.userId,
+        props.appId,
+        props.appName,
+        props.limitId,
+        props.page,
+        props.pageSize,
+    ])
 
     const [changeBoxState, setChangeBox] = useState({ show: 0 });
 

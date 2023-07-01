@@ -13,7 +13,7 @@ import { DesktopDateTimePicker } from '@mui/x-date-pickers/DesktopDateTimePicker
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import dayjs from 'dayjs';
 import PropTypes from 'prop-types';
-import React, { Fragment, useContext, useEffect, useState } from 'react';
+import React, { Fragment, useContext, useEffect, useRef, useState } from 'react';
 import { Form } from 'react-router-dom';
 import { ToastContext } from '../../context/toast';
 import { ConfirmButton } from '../../library/dialog';
@@ -466,59 +466,47 @@ function UserRoleRelationInput(props) {
 function UserRoleRelationSet(props) {
     const { userId, options, value, ...params } = props;
     const { toast } = useContext(ToastContext);
+
     const [relationData, setRelationData] = useState({
-        abort: null,
-        timeout: null,
         now_value: "",
         err: null,
         data: options,
     })
+    let ajaxReq = useRef(null)
+    let timeReq = useRef(null)
     useEffect(() => {
-        if (relationData.timeout) {
-            clearTimeout(relationData.timeout)
+        if (timeReq.current) {
+            clearTimeout(timeReq.current)
         }
-        if (relationData.abort) {
-            relationData.abort.abort()
+        if (ajaxReq.current) {
+            ajaxReq.current.abort()
         }
         if (!relationData.now_value || relationData.now_value.length == 0) return
-        setRelationData({
-            ...relationData,
-            timeout: setTimeout(() => {
-                let abort = new AbortController();
-                setRelationData({
-                    ...relationData,
-                    abort: abort
-                })
-                roleRelationCheck({
-                    user_id: parseInt(userId),
-                    relation_find: [relationData.now_value],
-                }, {
-                    signal: abort.signal
-                }).then((data) => {
-                    if (!data.status) {
-                        if (!(data.message + '').indexOf("cancel")) {
-                            toast("关系数据获取异常:" + data.message)
-                        }
-                    } else {
-                        if (data.relation_find && data.relation_find.length > 0) {
-                            setRelationData({
-                                ...relationData,
-                                abort: null,
-                                timeout: null,
-                                err: `已存在${data.relation_find[0].relation_key}关系角色 名称 :${data.relation_find[0].name} ID:${data.relation_find[0].id}`
-                            })
-                        } else {
-                            setRelationData({
-                                ...relationData,
-                                abort: null,
-                                timeout: null,
-                            })
-                        }
-
+        timeReq.current = setTimeout(() => {
+            timeReq.current = null;
+            ajaxReq.current = new AbortController();
+            roleRelationCheck({
+                user_id: parseInt(userId),
+                relation_find: [relationData.now_value],
+            }, {
+                signal: ajaxReq.current.signal
+            }).then((data) => {
+                if (!data.status) {
+                    if (!(data.message + '').indexOf("cancel")) {
+                        toast("关系数据获取异常:" + data.message)
                     }
-                })
-            }, 800)
-        })
+                } else {
+                    ajaxReq.current = null;
+                    if (data.relation_find && data.relation_find.length > 0) {
+                        setRelationData({
+                            ...relationData,
+
+                            err: `已存在${data.relation_find[0].relation_key}关系角色 名称 :${data.relation_find[0].name} ID:${data.relation_find[0].id}`
+                        })
+                    }
+                }
+            })
+        }, 800);
     }, [relationData.now_value])
 
 
@@ -945,7 +933,7 @@ function UserRoleListUser(props) {
         {
             label: "用户ID",
             style: { width: 100 },
-            align: "right",
+            align: "center",
             field: "user_id",
         },
         {
@@ -1471,51 +1459,44 @@ function UserRoleRow(props) {
 function UserRoleRelationFindInput(props) {
     const { userId, value, ...params } = props;
     const { toast } = useContext(ToastContext);
+    let ajaxReq = useRef(null)
+    let timeReq = useRef(null)
     const [relationData, setRelationData] = useState({
         data: [],
-        abort: null,
-        timeout: null,
         now_value: "",
     })
     useEffect(() => {
-        if (relationData.timeout) {
-            clearTimeout(relationData.timeout)
+        if (timeReq.current) {
+            clearTimeout(timeReq.current)
         }
-        if (relationData.abort) {
-            relationData.abort.abort()
+        if (ajaxReq.current) {
+            ajaxReq.current.abort()
         }
-        setRelationData({
-            ...relationData,
-            timeout: setTimeout(() => {
-                let abort = new AbortController();
-                setRelationData({
-                    ...relationData,
-                    abort: abort
-                })
-                roleRelationData({
-                    user_id: parseInt(userId),
-                    relation_prefix: relationData.now_value,
-                    page: 0,
-                    page_size: 20,
-                    count_num: false
-                }, {
-                    signal: abort.signal
-                }).then((data) => {
-                    if (!data.status) {
-                        if (!(data.message + '').indexOf("cancel")) {
-                            toast("关系数据获取异常:" + data.message)
-                        }
-                    } else {
-                        setRelationData({
-                            ...relationData,
-                            abort: null,
-                            timeout: null,
-                            data: data.data
-                        })
+        timeReq.current = setTimeout(() => {
+            timeReq.current = null;
+            ajaxReq.current = new AbortController();
+            roleRelationData({
+                user_id: parseInt(userId),
+                relation_prefix: relationData.now_value,
+                page: 0,
+                page_size: 20,
+                count_num: false
+            }, {
+                signal: ajaxReq.current.signal
+            }).then((data) => {
+                ajaxReq.current = null;
+                if (!data.status) {
+                    if (!(data.message + '').indexOf("cancel")) {
+                        toast("关系数据获取异常:" + data.message)
                     }
-                })
-            }, 800)
-        })
+                } else {
+                    setRelationData({
+                        ...relationData,
+                        data: data.data
+                    })
+                }
+            })
+        }, 800)
     }, [relationData.now_value])
     return <UserRoleRelationInput
         {...params}

@@ -187,6 +187,7 @@ export function LoadSelect(props) {
         next,
         onLoad,
         error,
+        MenuProps,
         ...other
     } = props;
     let itemRef = useRef();
@@ -202,7 +203,8 @@ export function LoadSelect(props) {
         {...other}
         MenuProps={
             {
-                ref: itemRef
+                ref: itemRef,
+                ...MenuProps
             }
         }
         error={!!error}

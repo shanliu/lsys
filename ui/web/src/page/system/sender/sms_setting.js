@@ -1,29 +1,36 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { TabLayout } from '../../library/layout';
 export default function SystemSmsSettingPage() {
     const InfoNav = [
         {
-            key: "message",
+            value: "message",
             name: "系统短信列表"
         },
         {
-            key: "alisms_map",
-            name: "系统短信映射"
-        },
-        {
-            key: "limit",
+            value: "limit",
             name: "系统短信限额"
         },
         {
-            key: "alisms",
-            name: "阿里短信配置"
+            value: "tpl_config",
+            name: "系统短信模板"
+        },
+        {
+            to: "map_config/alisms",
+            value: "map_config",
+            name: "短信端口配置"
         }
     ];
     const navigate = useNavigate();
-    return <TabLayout onChange={
+    let param = useParams();
+    let type = param['*'].split('/')[1];
+    return <TabLayout value={type} onChange={
         (event, newValue) => {
-            navigate('/system/sender_sms/' + newValue);
+            let find = InfoNav.find((item) => { return item.value == newValue })
+            if (find) {
+                let url = '/system/sender_sms/' + (find.to ? find.to : find.value);
+                navigate(url);
+            }
         }
     } menus={InfoNav} />
 }
