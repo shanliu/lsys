@@ -27,10 +27,10 @@ export default function UserInfoPage() {
             value: "mobile",
             name: "绑定手机号"
         },
-        // {
-        //     value: "address",
-        //     name: "收货地址"
-        // },
+        {
+            value: "address",
+            name: "收货地址"
+        },
         {
             value: "oauth",
             name: "第三方账号"

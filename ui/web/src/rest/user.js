@@ -214,16 +214,16 @@ export async function AddressEdit(param, config) {
         errors.name = "ID异常";
     }
     if (!mobile || !/^1[0-9]{10}$/.test(mobile)) {
-        errors.name = "手机格式错误";
+        errors.mobile = "手机格式错误";
     }
     if (!code || code.length == 0) {
-        errors.name = "地区编码错误";
+        errors.code = "地区编码错误";
     }
     if (!info || info.length == 0) {
-        errors.name = "请选择地区";
+        errors.info = "请选择地区";
     }
     if (!detail || detail.length == 0) {
-        errors.name = "详细地址为空";
+        errors.detail = "详细地址为空";
     }
     if (!name || name.length == 0) {
         errors.name = "收货名称错误";
@@ -246,16 +246,16 @@ export async function AddressAdd(param, config) {
     const { code, info, detail, name, mobile } = param;
     var errors = {};
     if (!mobile || !/^1[0-9]{10}$/.test(mobile)) {
-        errors.name = "手机格式错误";
+        errors.mobile = "手机格式错误";
     }
     if (!code || code.length == 0) {
-        errors.name = "地区编码错误";
+        errors.code = "地区编码错误";
     }
     if (!info || info.length == 0) {
-        errors.name = "请选择地区";
+        errors.info = "请选择地区";
     }
     if (!detail || detail.length == 0) {
-        errors.name = "详细地址为空";
+        errors.detail = "详细地址为空";
     }
     if (!name || name.length == 0) {
         errors.name = "收货名称错误";

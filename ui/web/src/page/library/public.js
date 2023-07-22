@@ -6,9 +6,9 @@ import React from 'react';
 import { Box, Link } from '@mui/material';
 
 export function LayoutAppBar(props) {
-    let url = window.location.href.replace(/\/[^\/]*$/, '').replace(/#\/.*$/, "");
+    let url = window.location.href.replace(/\/[^\/]*$/, '').replace(/#\/.*$/, "#");
     if (url[url.length - 1] != '/') url += '/';
-    return <AppBar position="static" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, position: "relative" }}>
+    return <AppBar position="sticky" sx={{ top: 0, zIndex: (theme) => theme.zIndex.drawer + 1, position: "sticky" }}>
         <Container maxWidth="xl">
             <Toolbar disableGutters>
                 <Box sx={{

@@ -14,10 +14,11 @@ import { AddressSelect } from '../../library/address';
 import { Form } from 'react-router-dom';
 import { LoadingButton } from '../../../library/loading';
 import { showTime } from '../../../utils/utils';
-
+import { ItemTooltip } from '../../../library/tips';
 
 
 function AddressBox(props) {
+    const { toast } = useContext(ToastContext);
     const { onFinish, row } = props;
     // add
     const [sendData, setSendData] = useState({
@@ -80,14 +81,12 @@ function AddressBox(props) {
                         ...data.field
                     })
                 } else {
-                    setSendData({
-                        ...sendData,
+                    setSendError({
                         name: '',
                         code: '',
                         info: '',
                         detail: '',
                         mobile: '',
-                        loading: false,
                     })
                     onFinish()
                 }
@@ -107,7 +106,19 @@ function AddressBox(props) {
                 } else {
                     setSendData({
                         ...sendData,
+                        name: '',
+                        code: '',
+                        info: '',
+                        detail: '',
+                        mobile: '',
                         loading: false,
+                    })
+                    setSendError({
+                        name: '',
+                        code: '',
+                        info: '',
+                        detail: '',
+                        mobile: '',
                     })
                     onFinish()
                 }
@@ -145,17 +156,38 @@ function AddressBox(props) {
                         m: 3,
                     }}
                 >
-                    <AddressSelect size="small" sx={{
-                        width: 1,
-                        mb: 1
-                    }} />
+                    <AddressSelect 
+                        onChange={(code,info)=>{
+                            setSendData({
+                                ...sendData,
+                                info:info,
+                                code:code
+                            })
+                        }}
+                        label={"选择地址"}
+                        type="text"
+                        addrCode={sendData.code+''} 
+                        addrInfo={sendData.info+''} 
+                        size={"small"}
+                        sx={{
+                            width: 1,
+                            mb: 1
+                        }} />
                     <TextField
                         variant="outlined"
                         label={"输入详细地址"}
                         type="text"
                         name="name"
                         size="small"
-
+                        onChange={(e)=>{
+                            let val = e.target.value ?? '';
+                            val = val.replace(/^\s+/, '');
+                            val = val.replace(/\s+$/, '');
+                            setSendData({
+                                ...sendData,
+                                detail:val,
+                            })
+                        }}
                         value={sendData.detail}
                         sx={{
                             width: 1,
@@ -172,7 +204,15 @@ function AddressBox(props) {
                         type="text"
                         name="name"
                         size="small"
-
+                        onChange={(e)=>{
+                            let val = e.target.value ?? '';
+                            val = val.replace(/^\s+/, '');
+                            val = val.replace(/\s+$/, '');
+                            setSendData({
+                                ...sendData,
+                                name:val,
+                            })
+                        }}
                         value={sendData.name}
                         sx={{
                             width: 1,
@@ -186,10 +226,18 @@ function AddressBox(props) {
                     <TextField
                         variant="outlined"
                         label={"收货人电话"}
-                        type="text"
+                        type="number"
                         name="name"
                         size="small"
-
+                        onChange={(e)=>{
+                            let val = e.target.value ?? '';
+                            val = val.replace(/^\s+/, '');
+                            val = val.replace(/\s+$/, '');
+                            setSendData({
+                                ...sendData,
+                                mobile:val,
+                            })
+                        }}
                         value={sendData.mobile}
                         sx={{
                             width: 1,
@@ -251,18 +299,17 @@ export default function UserAddressPage(props) {
             align: "right",
         },
         {
-            field: 'address_code',
-            style: { width: 160 },
-            label: '地区编码',
-        },
-        {
-            field: 'address_info',
-            style: { width: 160 },
+            style: { width: 240 },
             label: '收货地区',
+            render:(row)=>{
+                return <ItemTooltip title={`地区编码:${row.address_code}`} placement="top">
+                    <span>{row.address_info}</span>
+                </ItemTooltip>;
+            }
         },
         {
             field: 'address_detail',
-            style: { width: 160 },
+            style: { width: 180 },
             label: '地址详细',
         },
         {
@@ -277,7 +324,7 @@ export default function UserAddressPage(props) {
             style: { width: 180 },
             label: '更改时间',
             render: (row) => {
-                return showTime(row.confirm_time, "未确认")
+                return showTime(row.change_time, "未知")
             }
         },
         {

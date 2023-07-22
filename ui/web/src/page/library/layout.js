@@ -150,24 +150,24 @@ TabLayout.propTypes = {
 
 
 export function VerticalTabsLayout(props) {
-    const { menus, onChange, value,navWidth} = props;
+    const { menus, onChange, value, navWidth } = props;
     return <Fragment>
         <Stack direction={"row"}>
-             <Box  sx={{ width: navWidth>0?navWidth:130,}}>
-            <Tabs
-                orientation="vertical"
-                variant="scrollable"
-                value={value}
-                onChange={onChange}
-                aria-label="Vertical tabs example"
-                sx={{ borderRight: 1, borderColor: 'divider',width:1 }}
-            >
-                {menus.map((e, i) => {
-                    return <Tab key={`vertical-key-${i}`} label={e.name} value={e.value} id={`vertical-tab-${i}`} aria-controls={`vertical - tabpanel - ${i}`} />
-                })}
-            </Tabs>
+            <Box sx={{ width: navWidth > 0 ? navWidth : 130, }}>
+                <Tabs
+                    orientation="vertical"
+                    variant="scrollable"
+                    value={value}
+                    onChange={onChange}
+                    aria-label="Vertical tabs example"
+                    sx={{ borderRight: 1, borderColor: 'divider', width: 1 }}
+                >
+                    {menus.map((e, i) => {
+                        return <Tab key={`vertical-key-${i}`} label={e.name} value={e.value} id={`vertical-tab-${i}`} aria-controls={`vertical - tabpanel - ${i}`} />
+                    })}
+                </Tabs>
             </Box>
-            <Box sx={{ flex: 1}}>
+            <Box sx={{ flex: 1 }}>
                 <Outlet />
             </Box>
         </ Stack >

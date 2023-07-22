@@ -14,7 +14,7 @@ use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use super::{tpl_config_del, tpl_config_list, TplConfigDelParam, TplConfigListParam};
+use super::{tpl_config_del, tpl_config_list, MessageView, TplConfigDelParam, TplConfigListParam};
 
 #[derive(Debug, Deserialize)]
 pub struct SmserMessageLogParam {
@@ -104,6 +104,22 @@ pub async fn smser_message_body<'t, T: SessionTokenData, D: SessionData, S: User
             None,
         )
         .await?;
+
+    req_dao
+        .web_dao
+        .logger
+        .add(
+            &MessageView {
+                msg_type: "sms",
+                id: message_id,
+            },
+            &Some(message_id),
+            &Some(data.user_id),
+            &Some(req_auth.user_data().user_id),
+            None,
+            Some(&req_dao.req_env),
+        )
+        .await;
 
     Ok(JsonData::data(json!({ "body": data.tpl_var})))
 }

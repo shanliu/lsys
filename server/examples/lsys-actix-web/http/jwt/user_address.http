@@ -1,9 +1,33 @@
 
-@host_url= http://127.0.0.1:8080
+@host_url= http://175.178.90.181
 @user_url = {{host_url}}/api/user
 @jwt_token = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwidG9rZW4iOiJNVEV0VFVsUlEwdEZRVXhHVkVkUFFrUlZVbGRJV2xaVFdWaFFMVEUyTmpZNE16WXlNVEk9IiwiZXhwIjoxNTE2MjM5MDIyMTF9.lhF6VQmmzFbXRJPOHuH8Ml_C3lwImP2GBPpG1puuKMU
 
+@area_url = {{host_url}}/api/area
 
+### list 
+POST {{area_url}}/list
+Content-Type: application/json
+
+{
+    "code": ""
+}
+
+### search 
+POST {{area_url}}/search
+Content-Type: application/json
+
+{
+    "key_word": "meizhou"
+}
+
+### search 
+POST {{area_url}}/detail
+Content-Type: application/json
+
+{
+    "code": "4414"
+}
 
 
 ### add 

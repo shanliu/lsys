@@ -6,6 +6,7 @@ edition = "2021"
 
 
 [dependencies]
+area-db = { version = "0.0.10",git = "https://github.com/shanliu/area-db", default-features=false,features=["data-csv-embed-code"]}
 lsys-core = { version = "0.0.1", path = "../lsys-core"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-rbac = { version = "0.0.1", path = "../lsys-rbac"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-user = { version = "0.0.1", path = "../lsys-user"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
@@ -14,7 +15,7 @@ lsys-sender = { version = "0.0.1", path = "../lsys-sender"}#path 替换为 :,git
 lsys-setting = { version = "0.0.1", path = "../lsys-setting"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-logger = { version = "0.0.1", path = "../lsys-logger"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-docs = { version = "0.0.1", path = "../lsys-docs"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
-pin-project = "1.0.*"
+pin-project = "1.1.*"
 futures-util="0.3.*"
 serde={ version = "1.0.*"}
 serde_json="1.0.*"
@@ -25,7 +26,7 @@ deadpool-redis = { version = "0.12" }
 redis = { version = "~0.23"  }
 
 
-form_urlencoded = "1.0.1"
+form_urlencoded = "~1.2.0"
 jsonwebtoken  = "8.1.1"
 
 
@@ -90,7 +91,7 @@ config = "0.13.2"
 
 
 # mail send
-lettre ={ version = "0.10.1", features = [ "smtp-transport","native-tls", "tokio1","tokio1-native-tls", "builder"] } 
+lettre ={ version = "0.10.1", features = [ "smtp-transport","native-tls", "tokio1","tokio1-native-tls", "builder"] }
 
 # sms send
 sms = "0.1.8"
@@ -106,5 +107,5 @@ lazy_static = "1.4.0"
 
 hostname = "~0.3.*"
 
-
-# rand = "~0.8.*"
+#debug
+tokio-console = "0.1.9"

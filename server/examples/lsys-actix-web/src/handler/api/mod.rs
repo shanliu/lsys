@@ -2,6 +2,7 @@ use actix_service::ServiceFactory;
 use actix_web::{dev::ServiceRequest, options, web::scope, App, Error, HttpResponse, Responder};
 
 mod app;
+mod area;
 mod docs;
 mod sender;
 mod site;
@@ -56,6 +57,7 @@ where
             .service(site::system_config)
             .service(options),
     )
+    .service(scope("/api/area").service(area::area_data).service(options))
     .service(
         scope("/api/docs")
             .service(docs::docs_setting)

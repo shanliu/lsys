@@ -57,6 +57,8 @@ async fn main() {
         env!("CARGO_MANIFEST_DIR")
     };
     let app_core = Arc::new(AppCore::init(app_dir, &["config/app.toml"]).await.unwrap());
+    app_core.init_tracing().unwrap();
+    //console_subscriber::init();
     let app_dao = Data::new(WebDao::new(app_core.clone()).await.unwrap());
     let bind_addr = app_dao.bind_addr();
     let bind_ssl_addr = app_dao.bind_ssl_addr();

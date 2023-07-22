@@ -5,7 +5,7 @@ import { UserProvider, UserSessionContext } from './context/session';
 import { ToastProvider } from './context/toast';
 import { LoadingButton, Progress } from './library/loading';
 import { OauthDo, OauthGetScope } from './rest/login';
-import "./style/main.css";
+import "./style/oauth.css";
 import { theme } from './style/theme';
 import { ConfigProvider } from './context/config';
 import { LayoutAppBar } from './page/library/public';

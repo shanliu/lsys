@@ -6,15 +6,19 @@ let { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
 let mode = process.env.npm_lifecycle_script.indexOf("mode=production") > 0 ? "production" : "development";
 let version = new Date().getTime()
 let node_modules = null;
-let jslib = [
+let basejslib = [
     "https://npm.elemecdn.com/react@18.2.0/umd/react.production.min.js",
-    "https://npm.elemecdn.com/react-dom@18.2.0/umd/react-dom.production.min.js",
+    "https://npm.elemecdn.com/react-dom@18.2.0/umd/react-dom.production.min.js"
+];
+let jslib = [
+    ...basejslib,
     "https://npm.elemecdn.com/@mui/material@5.11.10/umd/material-ui.production.min.js"
 ];
 let externals = {
     'react': 'React',
     'react-dom': 'ReactDOM',
     '@mui/material': 'MaterialUI',
+    'starback': 'Starback',
 };
 let devtool = "hidden-source-map";
 if (mode !== "production") {
@@ -29,6 +33,19 @@ let plugins = [
     new HtmlWebpackPlugin({
         filename: 'index.html',
         chunks: ['index'],//需要导入的JS
+        templateParameters: {
+            js: [
+                ...basejslib,
+                'https://npm.elemecdn.com/starback@2.1.1/dist/starback.global.js'
+            ],
+        },
+        favicon: __dirname + './../../server/examples/lsys-actix-web/static/favicon.ico',
+        template: __dirname + "/src/index.html",
+        nodeModules: node_modules
+    }),
+    new HtmlWebpackPlugin({
+        filename: 'app.html',
+        chunks: ['app'],//需要导入的JS
         templateParameters: {
             js: jslib,
         },
@@ -55,7 +72,8 @@ let config = {
     mode: mode,
     devtool: devtool,
     entry: {
-        index: __dirname + `/src/app.js`,
+        index: __dirname + `/src/index.js`,
+        app: __dirname + `/src/app.js`,
         oauth: __dirname + `/src/oauth.js`,
     },
     output: {

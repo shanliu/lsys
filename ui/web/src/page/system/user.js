@@ -277,7 +277,10 @@ function SystemUserDetail(props) {
                                             <HomeOutlinedIcon fontSize='small' />
                                         </ListItemIcon>
                                         <ListItemText
-                                            primary={row.address_info + row.address_detail}
+                                            primary={<Box>
+                                                <Box>{row.address_info + row.address_detail}</Box>
+                                                <Box sx={{fontSize:"0.9rem"}}>名称:{row.name} 手机:{row.mobile}</Box>
+                                            </Box>}
                                             secondary={`添加时间:${showTime(row.change_time, "未知")}`}
                                         />
                                     </ListItem>

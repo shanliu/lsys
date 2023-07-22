@@ -16,7 +16,7 @@ impl ChangeLogData for LogMessageTpls {
         "sender-tpl"
     }
     fn message(&self) -> String {
-        format!("{} role tag ", self.action)
+        format!("{} message tpl ", self.action)
     }
     fn encode(&self) -> String {
         serde_json::to_string(&self).unwrap_or_default()

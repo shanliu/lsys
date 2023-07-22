@@ -47,7 +47,12 @@ pub async fn user_address_add<'t, T: SessionTokenData, D: SessionData, S: UserSe
             None,
         )
         .await?;
-    //TODO 检测CODE是否合法
+    let area = req_dao.web_dao.area.code_detail(&param.code)?;
+    if area.is_empty() {
+        return Ok(
+            JsonData::message("your submit area code not find any data").set_code("bad_code")
+        );
+    }
     let country_code = "CHN".to_string();
     let adm = model_option_set!(UserAddressModelRef, {
         country_code:country_code,
@@ -115,6 +120,13 @@ pub async fn user_address_edit<'t, T: SessionTokenData, D: SessionData, S: UserS
         )
         .await?;
     let country_code = "CHN".to_string();
+
+    let area = req_dao.web_dao.area.code_find(&param.code)?;
+    if area.is_empty() {
+        return Ok(
+            JsonData::message("your submit area code not find any data").set_code("bad_code")
+        );
+    }
     let adm = model_option_set!(UserAddressModelRef, {
         country_code:country_code,
         address_code: param.code,
@@ -215,8 +227,37 @@ pub async fn user_address_list_data<
         .user
         .user_address(req_auth.user_data().user_id)
         .await?;
+    let area = &req_dao.web_dao.area;
+    let data_list = data
+        .iter()
+        .map(|e| {
+            let code_detail = match area.code_find(&e.address_code) {
+                Ok(e) => e
+                    .into_iter()
+                    .map(|es| {
+                        json!({
+                            "name":es.name,
+                            "code":es.code,
+                        })
+                    })
+                    .collect::<Vec<_>>(),
+                Err(_) => vec![],
+            };
+            json!({
+                "id":e.id,
+                "country_code":e.country_code,
+                "address_code":e.address_code,
+                "address_info":e.address_info,
+                "code_detail":code_detail,
+                "address_detail":e.address_detail,
+                "name":e.name,
+                "mobile":e.mobile,
+                "change_time":e.change_time,
+            })
+        })
+        .collect::<Vec<_>>();
     Ok(JsonData::data(json!({
-        "data": data ,
+        "data": data_list,
         "total":data.len(),
     })))
 }

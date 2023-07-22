@@ -1,3 +1,4 @@
+use area_lib::{AreaDao, CsvAreaCodeData, CsvAreaData};
 use ip2location::LocationDB;
 use lsys_app::dao::AppDao;
 use lsys_core::cache::{LocalCacheClear, LocalCacheClearItem};
@@ -52,13 +53,12 @@ pub struct WebDao {
     pub tera: Arc<Tera>,
     pub setting: Arc<Setting>,
     pub logger: Arc<ChangeLogger>,
+    pub area: Arc<AreaDao>,
 }
 
 impl WebDao {
     pub async fn new(app_core: Arc<AppCore>) -> Result<WebDao, AppCoreError> {
-        app_core.init_tracing()?;
         let db = app_core.create_db().await?;
-
         let tera_dir = app_core.app_dir.join("src/template");
         let tera_tpl = if tera_dir.exists() {
             String::from(tera_dir.to_string_lossy())
@@ -245,7 +245,8 @@ impl WebDao {
             //listen redis notify
             remote_notify.listen().await;
         });
-
+        let data = CsvAreaData::new(CsvAreaCodeData::from_inner_data().unwrap(), None);
+        let area = Arc::new(AreaDao::new(data).map_err(|e| AppCoreError::System(e.to_string()))?);
         Ok(WebDao {
             docs,
             user: Arc::new(WebUser::new(
@@ -269,6 +270,7 @@ impl WebDao {
             tera,
             setting,
             logger: change_logger,
+            area,
         })
     }
     pub fn bind_addr(&self) -> String {

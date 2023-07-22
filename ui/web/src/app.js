@@ -5,7 +5,7 @@ import { createHashRouter, createRoutesFromElements, Route, RouterProvider } fro
 import { UserProvider } from './context/session';
 import { ToastProvider } from './context/toast';
 import { Progress } from './library/loading';
-import "./style/main.css";
+import "./style/app.css";
 import { theme } from './style/theme';
 import { ConfigProvider } from './context/config';
 import { PageLayout } from './page/library/layout';
@@ -40,7 +40,7 @@ const SystemAppSmsTplConfigPage = React.lazy(() => import('./page/system/sender/
 const SystemAppSmsMapConfigPage = React.lazy(() => import('./page/system/sender/sms_setting/map_config'));
 const SystemAppSmsSettingAlismsPage = React.lazy(() => import('./page/library/sender/sms/alisms'));
 const SystemAppSmsSettingHwsmsPage = React.lazy(() => import('./page/library/sender/sms/hwsms'));
-const SystemAppSmsSettingTensmsPage=React.lazy(() => import('./page/library/sender/sms/tensms'));
+const SystemAppSmsSettingTensmsPage = React.lazy(() => import('./page/library/sender/sms/tensms'));
 
 
 const SystemMailSettingPage = React.lazy(() => import('./page/system/sender/mail_setting'));

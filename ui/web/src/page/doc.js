@@ -13,6 +13,8 @@ import config from '../../config.json';
 import { Progress } from '../library/loading';
 import { docsMdReads, docsMenu } from '../rest/docs';
 import { useSearchChange } from '../utils/hook';
+import Toc from "react-toc2";
+
 //填充菜单中ID
 function generateId(node, pids, menu) {
     if (!node) return {};
@@ -327,6 +329,9 @@ export default function DocPage() {
     useEffect(() => {
         checkInitPage();
     }, [menuData.data])
+
+
+
     useEffect(() => {
         if (checkInitPage()) return;
         if (!searchParam.get("id") || !searchParam.get("path")) return;
@@ -361,6 +366,8 @@ export default function DocPage() {
             let path = req_param.url.split("/");
             path.length > 0 && path.pop();
             path = path.join("/")
+
+
             setDocData({
                 ...docData,
                 menu_id: req_param.menu_id,
@@ -377,19 +384,20 @@ export default function DocPage() {
     }, [searchParam])
 
 
+
     return <Fragment>
         {
             menuData.loading ? <Progress /> :
                 !menuData.status ?
                     <Alert sx={{ m: 3, width: 1 }} severity="error">{menuData.message}</Alert> :
 
-                    <Stack
-
-                        direction="row"
-
-                    >
+                    <Fragment>
                         <Box sx={{
-                            width: 280,
+                            p: 1,
+                            left: 0,
+                            position: "fixed",
+                            top: 65,
+                            width: 300,
                         }} >
                             <TreeMenuView
                                 sx={{ m: 2, minWidth: 220 }}
@@ -401,48 +409,74 @@ export default function DocPage() {
 
                             />
                         </Box>
-                        <Box sx={{ flex: 1, overflow: "auto" }} >
+                        <Box sx={{ ml: 35, mr: docData.data.length > 0 ? 40 : 0 }} >
 
                             {docData.loading ? <Progress /> : null}
                             {docData.message ? <Alert sx={{ m: 3 }} severity="error">{docData.message}</Alert> : null}
-                            {docData.status ? <MarkdownPreview
-                                style={{ padding: 24 }}
-                                wrapperElement={{
-                                    "data-color-mode": "light"
-                                }}
-                                rehypeRewrite={docData.menu_id > 0 ? (node, index, parent) => {
 
-                                    switch (node.tagName) {
-                                        case 'img':
-                                            if (needChangePath(node.properties.src ?? '')) {
-                                                let src = node.properties.src;
-                                                if (/^\//.test(src)) {
-                                                    src = src.substr(1);
-                                                } else {
-                                                    src = (docData.path && docData.path.length > 0 ? (docData.path + '/') : '') + src;
-                                                }
-                                                node.properties.src = docFileSrc(docData.menu_id, src)
-                                            }
-                                            break;
-                                        case 'a':
-                                            if (needChangePath(node.properties.href ?? '')) {
-                                                let href = node.properties.href;
-                                                if (/^\//.test(href)) {
-                                                    href = href.substr(1);
-                                                } else {
-                                                    if ((docData.path + '').indexOf("/") > 0) {
-                                                        src = docData.path + '/' + href;
+
+                            {docData.status ?
+
+                                <MarkdownPreview
+                                    style={{ padding: 24 }}
+                                    wrapperElement={{
+                                        "data-color-mode": "light"
+                                    }}
+                                    rehypeRewrite={docData.menu_id > 0 ? (node, index, parent) => {
+                                        switch (node.tagName) {
+                                            case 'img':
+                                                if (needChangePath(node.properties.src ?? '')) {
+                                                    let src = node.properties.src;
+                                                    if (/^\//.test(src)) {
+                                                        src = src.substr(1);
+                                                    } else {
+                                                        src = (docData.path && docData.path.length > 0 ? (docData.path + '/') : '') + src;
                                                     }
+                                                    node.properties.src = docFileSrc(docData.menu_id, src)
                                                 }
-                                                node.properties.href = `#/doc?id=${docData.menu_id}&path=` + href
-                                            }
-                                            break;
-                                    }
-                                } : null}
-                                source={docData.data} /> : null}
+                                                break;
+                                            case 'a':
+                                                if (needChangePath(node.properties.href ?? '')) {
+                                                    let href = node.properties.href;
+                                                    if (/^\//.test(href)) {
+                                                        href = href.substr(1);
+                                                    } else {
+                                                        if ((docData.path + '').indexOf("/") > 0) {
+                                                            src = docData.path + '/' + href;
+                                                        }
+                                                    }
+                                                    node.properties.href = `#/doc?id=${docData.menu_id}&path=` + href
+                                                }
+                                                break;
+                                        }
+                                    } : null}
+                                    source={docData.data} />
+                                : null}
                         </Box>
-                    </Stack>
+                        {
+                            docData.data && docData.data.length > 0 ?
+                                <Box sx={{
+                                    width: 290,
+                                    p: 1,
+                                    right: 0,
+                                    position: "fixed",
+                                    top: 65,
+                                }} >
+                                    <Typography sx={{
+                                        mt: 2,
+                                        color: '#6b7a90'
+                                    }} variant="subtitle1" gutterBottom>
+                                        内容导航
+                                    </Typography>
 
+                                    <Toc
+                                        className='md_menu'
+                                        markdownText={docData.data}
+                                        customMatchers={{ "[:#\/\)\(,]": "", "^\s+": "", " ": "-", "^-": "" }} />
+
+                                </Box> : null
+                        }
+                    </Fragment>
         }
     </Fragment >
         ;

@@ -16,7 +16,7 @@ impl ChangeLogData for LogUserAddress {
         "user-address"
     }
     fn message(&self) -> String {
-        format!("{} role tag ", self.action)
+        format!("{} user address", self.action)
     }
     fn encode(&self) -> String {
         serde_json::to_string(&self).unwrap_or_default()

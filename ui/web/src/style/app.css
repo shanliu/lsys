@@ -1,0 +1,30 @@
+/*app css*/
+.center_page {
+    position: relative;
+    margin-top: 8%;
+}
+
+.MuiList-root .active {
+    background-color: #eee;
+}
+
+.md_menu {
+    margin: 0;
+    padding-left: 0;
+}
+
+.md_menu a {
+    color: #666;
+    text-decoration: none;
+}
+
+.md_menu ul {
+    padding-left: 16px;
+    margin-bottom: 8px;
+}
+
+.md_menu ul li {
+    line-height: 1.5;
+    font-size: 0.8rem;
+    margin-bottom: 4px;
+}
