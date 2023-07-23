@@ -113,7 +113,7 @@ CREATE TABLE `yaf_rbac_tags` (
 -- test.yaf_user definition
 CREATE TABLE `yaf_user` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '用户ID',
-    `nickname` varchar(32) DEFAULT NULL COMMENT '昵称',
+    `nickname` varchar(32) DEFAULT '' NOT NULL COMMENT '昵称',
     `status` tinyint NOT NULL DEFAULT 1 COMMENT '状态',
     `password_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '密码ID',
     `use_name` tinyint NOT NULL DEFAULT 0 COMMENT '是否启用用户名',
