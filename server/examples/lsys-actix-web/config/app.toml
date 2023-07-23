@@ -9,6 +9,8 @@ rbac_cache=true
 
 #静态文件目录
 ui_dir="../../../ui/public/"
+#静态文件访问路径,默认:/ui/
+#ui_path="/ui/"
 #超级管理员id
 root_user_id=[1,17]
 
