@@ -5,7 +5,7 @@ use actix_web::web::Data;
 use actix_web::{get, HttpResponse};
 use lsys_web::dao::{CaptchaKey, WebDao};
 
-#[get("/captcha/{type}/{tag}")]
+#[get("/{type}/{tag}")]
 pub(crate) async fn captcha(
     path: actix_web::web::Path<(String, String)>,
     web_dao: Data<WebDao>,

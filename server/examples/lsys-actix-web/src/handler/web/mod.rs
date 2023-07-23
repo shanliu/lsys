@@ -3,7 +3,11 @@ pub(crate) mod index;
 use std::{path::PathBuf, str::FromStr, sync::Arc};
 
 use actix_service::ServiceFactory;
-use actix_web::{dev::ServiceRequest, web, App, Error};
+use actix_web::{
+    dev::ServiceRequest,
+    web::{self, scope},
+    App, Error,
+};
 use lsys_web::dao::WebDao;
 use tracing::{info, warn};
 
@@ -50,7 +54,7 @@ pub(crate) fn router<T>(app: App<T>, _app_dao: &Arc<WebDao>) -> App<T>
 where
     T: ServiceFactory<ServiceRequest, Config = (), Error = Error, InitError = ()>,
 {
-    app.service(captcha::captcha)
+    app.service(scope("/captcha").service(captcha::captcha))
         .service(index::index)
         .service(actix_files::Files::new("/static", "./static").show_files_listing())
 }
