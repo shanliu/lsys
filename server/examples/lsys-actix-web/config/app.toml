@@ -12,7 +12,7 @@ ui_dir="../../../ui/public/"
 #静态文件访问路径,默认:/ui/
 #ui_path="/ui/"
 #超级管理员id
-root_user_id=[1,17]
+root_user_id=[1]
 
 #ip城市数据
 ip_city_db="data/IP2LOCATION-LITE-DB11.BIN"
