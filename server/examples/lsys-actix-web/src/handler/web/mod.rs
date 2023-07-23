@@ -50,11 +50,17 @@ where
     app
 }
 
-pub(crate) fn router<T>(app: App<T>, _app_dao: &Arc<WebDao>) -> App<T>
+pub(crate) fn router<T>(app: App<T>, app_dao: &Arc<WebDao>) -> App<T>
 where
     T: ServiceFactory<ServiceRequest, Config = (), Error = Error, InitError = ()>,
 {
-    app.service(scope("/captcha").service(captcha::captcha))
-        .service(index::index)
-        .service(actix_files::Files::new("/static", "./static").show_files_listing())
+    let mut app = app
+        .service(scope("/captcha").service(captcha::captcha))
+        .service(actix_files::Files::new("/static", "./static").show_files_listing());
+    if let Ok(tmp) = app_dao.app_core.config.get_string("ui_path") {
+        if !tmp.is_empty() && tmp != *"./" && tmp != *"/" {
+            app = app.service(index::index);
+        }
+    }
+    app
 }

@@ -18,7 +18,7 @@ where
 {
     let app = api::router(app);
     let app = rest::router(app);
-    let app = web::router_ui(app, app_dao);
     let app = web::router(app, app_dao);
+    let app = web::router_ui(app, app_dao);
     app.default_service(to(index::render_404))
 }
