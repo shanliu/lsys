@@ -35,7 +35,7 @@ export default function IndexAppPage() {
             </div>
         </header>
         <div class="content">
-            <h1>轻量级～开放平台及内部服务管理应用</h1>
+            <h1>轻量级～开放平台及内部应用管理系统</h1>
             <div class="buttons">
                 <a href="app.html" class="btn btn-light">在线示例</a>
                 <a href="app.html#/doc" class="btn btn-light">开发文档</a>
