@@ -53,8 +53,12 @@ function errorHandler(error) {
 }
 
 export function globalRest(path) {
+    let api_host = config.serverURL;
+    if (window.location.protocol == 'https:') {
+        api_host = config.serverSslURL;
+    }
     let ax = axios.create({
-        baseURL: config.serverURL + path,
+        baseURL: api_host + path,
         timeout: timeout,
         validateStatus: function (status) {
             return status >= 200 && status < 600;
@@ -70,16 +74,20 @@ export function globalRest(path) {
 
 
 export function sessionRest(path) {
+    let api_host = config.serverURL;
+    if (window.location.protocol == 'https:') {
+        api_host = config.serverSslURL;
+    }
     let session = userSessionGet();
     if (!session) {
         redirectLoginPage()
         return axios.create({//防止报错。。。
             timeout: timeout,
-            baseURL: config.serverURL + path,
+            baseURL: api_host + path,
         })
     }
     let ax = axios.create({
-        baseURL: config.serverURL + path,
+        baseURL: api_host + path,
         timeout: timeout,
         transformResponse: [
             (data) => {

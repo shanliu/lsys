@@ -104,7 +104,11 @@ function needChangePath(path) {
 }
 //替换文件路径,图片
 function docFileSrc(id, file) {
-    let url = `${config.serverURL}/api/docs/raw/${id}/${file}`;
+    let api_host = config.serverURL;
+    if (window.location.protocol == 'https:') {
+        api_host = config.serverSslURL;
+    }
+    let url = `${api_host}/api/docs/raw/${id}/${file}`;
     return url;
 }
 
