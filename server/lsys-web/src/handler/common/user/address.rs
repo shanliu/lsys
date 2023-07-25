@@ -47,7 +47,7 @@ pub async fn user_address_add<'t, T: SessionTokenData, D: SessionData, S: UserSe
             None,
         )
         .await?;
-    let area = req_dao.web_dao.area.code_detail(&param.code)?;
+    let area = req_dao.web_dao.area.code_related(&param.code)?;
     if area.is_empty() {
         return Ok(
             JsonData::message("your submit area code not find any data").set_code("bad_code")

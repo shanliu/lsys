@@ -27,7 +27,7 @@ pub async fn area_list(param: AreaCodeParam, web_dao: &WebDao) -> JsonResult<Jso
 pub async fn area_detail(param: AreaCodeParam, web_dao: &WebDao) -> JsonResult<JsonData> {
     let data = web_dao
         .area
-        .code_detail(&param.code)?
+        .code_related(&param.code)?
         .into_iter()
         .map(|e| {
             e.into_iter()

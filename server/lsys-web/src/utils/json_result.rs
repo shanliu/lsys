@@ -354,7 +354,7 @@ impl From<area_lib::AreaError> for JsonData {
                 .set_code(500)
                 .set_sub_code("system")
                 .set_message(err),
-            area_lib::AreaError::NonFind(_) => {
+            area_lib::AreaError::NotFind(_) => {
                 JsonData::default().set_message("not find area record")
             }
         }
