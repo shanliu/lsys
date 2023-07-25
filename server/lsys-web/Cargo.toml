@@ -6,52 +6,62 @@ edition = "2021"
 
 
 [dependencies]
-area-db = { version = "0.0.10",git = "https://github.com/shanliu/area-db", default-features=false,features=["data-csv-embed-code"]}
-lsys-core = { version = "0.0.1", path = "../lsys-core"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-rbac = { version = "0.0.1", path = "../lsys-rbac"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-user = { version = "0.0.1", path = "../lsys-user"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-app = { version = "0.0.1", path = "../lsys-app"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-sender = { version = "0.0.1", path = "../lsys-sender"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-setting = { version = "0.0.1", path = "../lsys-setting"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-logger = { version = "0.0.1", path = "../lsys-logger"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-docs = { version = "0.0.1", path = "../lsys-docs"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
+area-db = { version = "~0.0.*", git = "https://github.com/shanliu/area-db", default-features = false, features = [
+    "data-csv-embed-code",
+] }
+lsys-core = { version = "0.0.1", path = "../lsys-core" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-rbac = { version = "0.0.1", path = "../lsys-rbac" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-user = { version = "0.0.1", path = "../lsys-user" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-app = { version = "0.0.1", path = "../lsys-app" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-sender = { version = "0.0.1", path = "../lsys-sender" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-setting = { version = "0.0.1", path = "../lsys-setting" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-logger = { version = "0.0.1", path = "../lsys-logger" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-docs = { version = "0.0.1", path = "../lsys-docs" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
 pin-project = "1.1.*"
-futures-util="0.3.*"
-serde={ version = "1.0.*"}
-serde_json="1.0.*"
+futures-util = "0.3.*"
+serde = { version = "1.0.*" }
+serde_json = "1.0.*"
 dotenv = "0.15.*"
 
-tokio = {version="~1.28",features=["fs"]}
+tokio = { version = "~1.28", features = ["fs"] }
 deadpool-redis = { version = "0.12" }
-redis = { version = "~0.23"  }
+redis = { version = "~0.23" }
 
 
 form_urlencoded = "~1.2.0"
-jsonwebtoken  = "8.1.1"
+jsonwebtoken = "8.1.1"
 
 
-lexical-core="0.8.5"
+lexical-core = "0.8.5"
 pin-project-lite = "0.2.9"
 #db
-sqlx = {version = "~0.6.3",features = [ "mysql","runtime-tokio-native-tls","offline"]}
-sqlx-model = {version = "0.2.0", default-features=false,features = [ "sqlx-mysql"]}
-simple_asn1="0.6.2"
-html-escape="~0.2.*"
+sqlx = { version = "~0.6.3", features = [
+    "mysql",
+    "runtime-tokio-native-tls",
+    "offline",
+] }
+sqlx-model = { version = "0.2.0", default-features = false, features = [
+    "sqlx-mysql",
+] }
+simple_asn1 = "0.6.2"
+html-escape = "~0.2.*"
 
 #客户端
-reqwest = { version = "~0.11.*", features = ["json","stream"] }
+reqwest = { version = "~0.11.*", features = ["json", "stream"] }
 async-stream = "0.3.3"
-log = "0.4.17" # 使用trace中宏 这里可以不要
-serde_urlencoded="0.7"
+log = "0.4.17"                                                   # 使用trace中宏 这里可以不要
+serde_urlencoded = "0.7"
 
 #日志
-tracing = {version="0.1.*",features=["log"]}# log-always 保持log的输出 当使用tracing时会出现两次
+tracing = { version = "0.1.*", features = [
+    "log",
+] } # log-always 保持log的输出 当使用tracing时会出现两次
 
-tracing-futures = { version = "~0.2.*",features = ["futures-03"] }
-tracing-attributes ="0.1.22" #日志属性宏
-tracing-appender="0.2.2"#写日志文件
-tracing-serde ="0.1.3"#可序列化变量赋值
-tracing-subscriber = {version="0.3.11",features=["env-filter"]}
+tracing-futures = { version = "~0.2.*", features = ["futures-03"] }
+tracing-attributes = "0.1.22"                                          #日志属性宏
+tracing-appender = "0.2.2"                                             #写日志文件
+tracing-serde = "0.1.3"                                                #可序列化变量赋值
+tracing-subscriber = { version = "0.3.11", features = ["env-filter"] }
 
 #模板
 tera = "1.17.0"
@@ -63,10 +73,10 @@ tera = "1.17.0"
 #代替标准库的锁
 parking_lot = "0.12.1"
 
-fluent-syntax="0.11.0"
+fluent-syntax = "0.11.0"
 fluent = "0.16.0"
-unic-langid={version="0.9",features=["unic-langid-macros"]}
-intl-memoizer="0.5.1"
+unic-langid = { version = "0.9", features = ["unic-langid-macros"] }
+intl-memoizer = "0.5.1"
 
 
 mime = "0.3.16"
@@ -89,20 +99,23 @@ async-trait = "0.1.57"
 config = "0.13.2"
 
 
-
 # mail send
-lettre ={ version = "0.10.1", features = [ "smtp-transport","native-tls", "tokio1","tokio1-native-tls", "builder"] }
+lettre = { version = "0.10.1", features = [
+    "smtp-transport",
+    "native-tls",
+    "tokio1",
+    "tokio1-native-tls",
+    "builder",
+] }
 
 # sms send
 sms = "0.1.8"
-
 
 
 regex = "~1.8.0"
 
 
 lazy_static = "1.4.0"
-
 
 
 hostname = "~0.3.*"
