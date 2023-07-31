@@ -1,4 +1,4 @@
-use area_lib::AreaDao;
+use area_db::AreaDao;
 use ip2location::LocationDB;
 use lsys_app::dao::AppDao;
 use lsys_core::cache::{LocalCacheClear, LocalCacheClearItem};
@@ -245,8 +245,8 @@ impl WebDao {
             //listen redis notify
             remote_notify.listen().await;
         });
-        let data = area_lib::inner_csv_area_data(false)
-            .map_err(|e| AppCoreError::System(e.to_string()))?;
+        let data =
+            area_db::inner_csv_area_data(false).map_err(|e| AppCoreError::System(e.to_string()))?;
         let area = Arc::new(AreaDao::new(data).map_err(|e| AppCoreError::System(e.to_string()))?);
         Ok(WebDao {
             docs,

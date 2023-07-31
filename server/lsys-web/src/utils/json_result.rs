@@ -343,18 +343,18 @@ impl From<String> for JsonData {
     }
 }
 
-impl From<area_lib::AreaError> for JsonData {
-    fn from(err: area_lib::AreaError) -> Self {
+impl From<area_db::AreaError> for JsonData {
+    fn from(err: area_db::AreaError) -> Self {
         match err {
-            area_lib::AreaError::DB(err) => JsonData::default()
+            area_db::AreaError::DB(err) => JsonData::default()
                 .set_code(500)
                 .set_sub_code("system")
                 .set_message(err),
-            area_lib::AreaError::System(err) => JsonData::default()
+            area_db::AreaError::System(err) => JsonData::default()
                 .set_code(500)
                 .set_sub_code("system")
                 .set_message(err),
-            area_lib::AreaError::NotFind(_) => {
+            area_db::AreaError::NotFind(_) => {
                 JsonData::default().set_message("not find area record")
             }
         }
