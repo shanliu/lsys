@@ -245,8 +245,14 @@ impl WebDao {
             //listen redis notify
             remote_notify.listen().await;
         });
-        let data =
-            area_db::inner_csv_area_data(false).map_err(|e| AppCoreError::System(e.to_string()))?;
+
+        let area_code_path = app_core.config.get_string("area_code_db")?;
+        let code_path = std::path::PathBuf::from(&area_code_path);
+        let data = area_db::CsvAreaData::new(
+            area_db::CsvAreaCodeData::from_inner_path(code_path, true)
+                .map_err(|e| AppCoreError::System(format!("area code db load fail on {} [download url:https://github.com/shanliu/area-db/blob/main/data/2023-7-area-code.csv.gz],error detail:{}",area_code_path,e)))?,
+            None,
+        );
         let area = Arc::new(AreaDao::new(data).map_err(|e| AppCoreError::System(e.to_string()))?);
         Ok(WebDao {
             docs,

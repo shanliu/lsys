@@ -6,7 +6,7 @@ edition = "2021"
 
 
 [dependencies]
-area-db = { version = "~0.0.19", git = "https://github.com/shanliu/area-db", default-features = false, features = [
+area-db = { version = "~0.0.20", default-features = false, features = [
     "data-csv",
 ] }
 lsys-core = { version = "0.0.1", path = "../lsys-core" } #path 替换为 :,git = "https://github.com/shanliu/lsys"

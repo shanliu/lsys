@@ -2,28 +2,31 @@
 
 #app 中通过 client_secret 加app_oauth_key 再次hash得到 oauth_secret 使用
 #注意：项目初始化时设置，不可修改
-app_oauth_key=""
+app_oauth_key = ""
 
 #rbac是否使用缓存
-rbac_cache=true
+rbac_cache = true
 
 #静态文件目录
-ui_dir="../../../ui/public/"
+ui_dir = "../../../ui/public/"
 #静态文件访问路径,默认:/ui/
 #ui_path="/ui/"
 #超级管理员id
-root_user_id=[1]
+root_user_id = [1]
+
+
+area_code_db = "data/2023-7-area-code.csv.gz"
 
 #ip城市数据
-ip_city_db="data/IP2LOCATION-LITE-DB11.BIN"
+ip_city_db = "data/IP2LOCATION-LITE-DB11.BIN"
 
 #发送邮件 短信 生成唯一ID用
 #snowflake_machine_id=1 #最大31
 #snowflake_node_id=1 #最大31
 
 # jwt token 
-app_jwt_key="bbb"#jwt 密钥
+app_jwt_key = "bbb" #jwt 密钥
 
 
 #git doc save dir
-doc_git_dir="/tmp/"
+doc_git_dir = "/tmp/"
