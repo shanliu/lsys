@@ -16,6 +16,10 @@ root_user_id = [1]
 
 
 area_code_db = "data/2023-7-area-code.csv.gz"
+#地址库索引文件目录
+# area_index_dir = "/tmp/area_index"
+#地址库索引时使用内存大小
+# area_index_size = 500_000_000
 
 #ip城市数据
 ip_city_db = "data/IP2LOCATION-LITE-DB11.BIN"

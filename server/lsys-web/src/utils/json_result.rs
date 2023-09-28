@@ -357,6 +357,12 @@ impl From<area_db::AreaError> for JsonData {
             area_db::AreaError::NotFind(_) => {
                 JsonData::default().set_message("not find area record")
             }
+            area_db::AreaError::Store(e) => {
+                JsonData::default().set_message(format!("index area data fail:{}", e))
+            }
+            area_db::AreaError::Tantivy(e) => {
+                JsonData::default().set_message(format!("tantivy area data fail:{}", e))
+            }
         }
     }
 }

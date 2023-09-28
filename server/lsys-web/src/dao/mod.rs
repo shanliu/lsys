@@ -253,7 +253,27 @@ impl WebDao {
                 .map_err(|e| AppCoreError::System(format!("area code db load fail on {} [download url:https://github.com/shanliu/area-db/blob/main/data/2023-7-area-code.csv.gz],error detail:{}",area_code_path,e)))?,
             None,
         );
-        let area = Arc::new(AreaDao::new(data).map_err(|e| AppCoreError::System(e.to_string()))?);
+        let area_index_dir = app_core
+            .config
+            .get_string("area_index_dir")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| {
+                let mut index_dir = std::env::temp_dir();
+                index_dir.push("area-db-data");
+                index_dir
+            });
+        let area_index_size = app_core
+            .config
+            .get_int("area_index_size")
+            .map(|e| e.abs() as usize)
+            .ok();
+
+        let area_store = area_db::AreaStoreDisk::new(area_index_dir, area_index_size)
+            .map_err(|e| AppCoreError::System(e.to_string()))?;
+        let area = Arc::new(
+            AreaDao::from_csv_disk(data, area_store)
+                .map_err(|e| AppCoreError::System(e.to_string()))?,
+        );
         Ok(WebDao {
             docs,
             user: Arc::new(WebUser::new(
