@@ -259,7 +259,7 @@ impl WebDao {
             .map(PathBuf::from)
             .unwrap_or_else(|_| {
                 let mut index_dir = std::env::temp_dir();
-                index_dir.push("area-db-data");
+                index_dir.push("lsys_area_cache");
                 index_dir
             });
         let area_index_size = app_core

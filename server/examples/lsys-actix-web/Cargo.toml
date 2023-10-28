@@ -6,13 +6,13 @@ edition = "2021"
 
 
 [dependencies]
-lsys-core = { version = "0.0.1", path = "../../lsys-core" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-user = { version = "0.0.1", path = "../../lsys-user"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-app = { version = "0.0.1", path = "../../lsys-app"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-web = { version = "0.0.1", path = "../../lsys-web"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-rbac = { version = "0.0.1", path = "../../lsys-rbac"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-web-module-oauth = { version = "0.0.1", path = "../lsys-web-module-oauth"}
-lsys-web-subapp-demo = { version = "0.0.1", path = "../lsys-web-subapp-demo"}
+lsys-core = { path = "../../lsys-core" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-user = {  path = "../../lsys-user"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-app = { path = "../../lsys-app"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-web = {  path = "../../lsys-web"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-rbac = {  path = "../../lsys-rbac"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-web-module-oauth = {  path = "../lsys-web-module-oauth"}
+lsys-web-subapp-demo = {  path = "../lsys-web-subapp-demo"}
 
 actix="~0.13.0"
 actix-web = {version="4.3.1", features = ["rustls"]}

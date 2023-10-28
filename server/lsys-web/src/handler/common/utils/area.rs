@@ -8,7 +8,7 @@ pub struct AreaCodeParam {
     pub code: String,
 }
 
-pub async fn area_list(param: AreaCodeParam, web_dao: &WebDao) -> JsonResult<JsonData> {
+pub fn area_list(param: AreaCodeParam, web_dao: &WebDao) -> JsonResult<JsonData> {
     let data = web_dao
         .area
         .code_childs(&param.code)?
@@ -24,7 +24,7 @@ pub async fn area_list(param: AreaCodeParam, web_dao: &WebDao) -> JsonResult<Jso
     Ok(JsonData::data(json!({ "area": data })))
 }
 
-pub async fn area_detail(param: AreaCodeParam, web_dao: &WebDao) -> JsonResult<JsonData> {
+pub fn area_detail(param: AreaCodeParam, web_dao: &WebDao) -> JsonResult<JsonData> {
     let data = web_dao
         .area
         .code_related(&param.code)?
@@ -50,7 +50,7 @@ pub struct AreaSearchParam {
     pub key_word: String,
 }
 
-pub async fn area_search(param: AreaSearchParam, web_dao: &WebDao) -> JsonResult<JsonData> {
+pub fn area_search(param: AreaSearchParam, web_dao: &WebDao) -> JsonResult<JsonData> {
     let data = web_dao
         .area
         .code_search(&param.key_word, 10)?

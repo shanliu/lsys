@@ -6,7 +6,7 @@ import (
 
 // RestApiConfig 配置
 type RestApiConfig struct {
-	//应用可在 http://175.178.90.181/ui/#/user/app 申请
+	//应用可在 http://www.lsys.cc/ui/#/user/app 申请
 	AppId     string //应用ID
 	AppHost   string //应用HOST
 	AppSecret string //应用Secret

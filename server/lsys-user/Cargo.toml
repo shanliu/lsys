@@ -10,9 +10,9 @@ tokio = {version="~1.28"}
 deadpool-redis = { version = "0.12" }
 redis = { version = "~0.23"  }
 
-lsys-core = { version = "~0.0.*", path = "../lsys-core"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-setting = { version = "~0.0.*", path = "../lsys-setting"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-logger = { version = "0.0.1", path = "../lsys-logger"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-core = {  path = "../lsys-core"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-setting = {  path = "../lsys-setting"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-logger = {  path = "../lsys-logger"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
 sqlx = {version = "~0.6.3",features = [ "mysql","runtime-tokio-native-tls","offline"]}
 sqlx-model = {version = "~0.2.0", default-features=false,features = ["sqlx-mysql"]}
 

@@ -6,9 +6,9 @@ edition = "2021"
 
 
 [dependencies]
-lsys-core = { version = "0.0.1", path = "../lsys-core"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-setting = { version = "0.0.1", path = "../lsys-setting"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-logger = { version = "0.0.1", path = "../lsys-logger"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-core = {  path = "../lsys-core"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-setting = {  path = "../lsys-setting"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-logger = { path = "../lsys-logger"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
 serde={ version = "1.0.*"}
 serde_json="1.0.*"
 
@@ -24,6 +24,8 @@ lettre ={ version = "0.10.1", features = [ "smtp-transport","native-tls", "tokio
 
 # sms send
 sms = "0.1.8"
+# jdcloud_signer = "0.1"
+# http="*"
 
 
 hostname = "~0.3.*"

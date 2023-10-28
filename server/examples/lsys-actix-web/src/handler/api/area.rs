@@ -14,11 +14,12 @@ pub async fn area_data(
     web_dao: Data<WebDao>,
     json_param: JsonQuery,
 ) -> ResponseJsonResult<ResponseJson> {
-    let res = match path.0.to_string().as_str() {
-        "list" => area_list(json_param.param::<AreaCodeParam>()?, &web_dao).await,
-        "detail" => area_detail(json_param.param::<AreaCodeParam>()?, &web_dao).await,
-        "search" => area_search(json_param.param::<AreaSearchParam>()?, &web_dao).await,
+    let res = actix_web::web::block(move || match path.0.to_string().as_str() {
+        "list" => area_list(json_param.param::<AreaCodeParam>()?, &web_dao),
+        "detail" => area_detail(json_param.param::<AreaCodeParam>()?, &web_dao),
+        "search" => area_search(json_param.param::<AreaSearchParam>()?, &web_dao),
         name => handler_not_found!(name),
-    };
+    })
+    .await?;
     Ok(res?.into())
 }

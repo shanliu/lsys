@@ -35,7 +35,7 @@ func (res *DomeApiClient) ConfigBuilds(_ context.Context) (map[int]rest_client.R
 
 func TestExampleServer(t *testing.T) {
 	client := rest_client.NewRestClientManager()
-	//应用在 http://175.178.90.181/ui/#/user/app 申请
+	//应用在 http://www.lsys.cc/ui/#/user/app 申请
 	client.SetRestConfig(&rest_client.AppRestConfig{
 		Name:      "dome",
 		AppKey:    "llllll",

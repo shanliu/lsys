@@ -6,3 +6,6 @@ pub use sender_huawei::*;
 
 mod sender_tencent;
 pub use sender_tencent::*;
+
+// mod sender_jdcloud;
+// pub use sender_jdcloud::*;
