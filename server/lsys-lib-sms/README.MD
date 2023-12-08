@@ -2,7 +2,7 @@
 
 > 已封装以下接口
 
-> 基于此库实现的在线群发跟短信管理平台: https://lsys.cc/app.html#/user/sms/send
+> 基于此库实现的短信在线群发及管理平台: https://lsys.cc/app.html#/user/sms/send  [测试账号:aaaaa 密码:000000] 源码即本项目
 
 1. 阿里云短信
 https://github.com/shanliu/lsys/blob/f677abd19b7d079b98ab28ba2b7bcd8121f0f3bb/server/lsys-lib-sms/tests/sender_aliyun.rs#L2-L35
