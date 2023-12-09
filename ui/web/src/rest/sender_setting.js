@@ -339,16 +339,16 @@ export async function senderSeeAppMessage(type, param, config) {
 
 
 export async function senderSetMessageNotify(type, param, config) {
-    const { url, app_id} = param;
+    const { url, app_id } = param;
     if (app_id <= 0) {
         return fialResult({ app_id: "缺少ID" });
     }
-    if (url.substr(0,7) !="http://"&&url.substr(0,8) !="https://") {
+    if (url.substr(0, 7) != "http://" && url.substr(0, 8) != "https://") {
         return fialResult({ url: "url错误" });
     }
     let response = await senderSettingRest(type).post("/notify_set_config", {
         app_id: parseInt(app_id),
-        url:url
+        url: url
     }, config);
     return restResult(response)
 }
@@ -357,7 +357,7 @@ export async function senderSetMessageNotify(type, param, config) {
 
 export async function senderGetMessageNotify(type, config) {
     let response = await senderSettingRest(type).post("/notify_get_config", {
-      
+
     }, config);
     return restResult(response)
 }
@@ -451,7 +451,7 @@ export async function smsDelTplConfig(param, config) {
 
 
 export async function smsAppSend(param, config) {
-    const { tpl_id, data, mobile, send_time } = param;
+    const { tpl_id, data, mobile, send_time, max_try } = param;
     let errors = {};
     if (parseInt(tpl_id) <= 0) {
         errors.tpl_id = "模板未选择"
@@ -465,15 +465,18 @@ export async function smsAppSend(param, config) {
             break;
         }
     }
+
     if (Object.keys(errors).length) {
         return fialResult(errors);
     }
-    let response = await senderSettingRest("smser").post("/message_send", {
+    let sp = {
         tpl_id: parseInt(tpl_id),
         data: data,
         mobile: mobile,
-        send_time: send_time
-    }, config);
+        send_time: send_time,
+    }
+    if (max_try > 0) sp.max_try = max_try;
+    let response = await senderSettingRest("smser").post("/message_send", sp, config);
     return restResult(response)
 }
 
@@ -1397,7 +1400,7 @@ export async function mailListTplConfig(param, config) {
 
 
 export async function mailAppSend(param, config) {
-    const { tpl_id, data, to, reply, send_time } = param;
+    const { tpl_id, data, to, reply, send_time, max_try } = param;
     let errors = {};
     if (parseInt(tpl_id) <= 0) {
         errors.tpl_id = "模板未选择"
@@ -1419,13 +1422,15 @@ export async function mailAppSend(param, config) {
     if (Object.keys(errors).length) {
         return fialResult(errors);
     }
-    let response = await senderSettingRest("mailer").post("/message_send", {
+    let sp = {
         tpl_id: parseInt(tpl_id),
         data: data,
         to: to,
         reply: reply,
-        send_time: send_time
-    }, config);
+        send_time: send_time,
+    };
+    if (max_try > 0) sp.max_try = max_try;
+    let response = await senderSettingRest("mailer").post("/message_send", sp, config);
     return restResult(response)
 }
 

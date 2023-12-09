@@ -61,6 +61,7 @@ export default function UserAppMailSendPage(props) {
                 data: sdata,
                 to: tmp.mail,
                 reply: sendData.reply,
+                max_try: tmp.tryNum,
                 send_time: tmp.nowSend ? null : tmp.sendTime.format('YYYY-MM-DD HH:mm:ss')
             }, {
                 signal: ajaxReq.current.signal
@@ -221,7 +222,9 @@ export default function UserAppMailSendPage(props) {
 #示例1:变量名:变量值,变量名:变量值;接收邮箱,接收邮箱
 var1:111,var2:222;1@1.com,1@1.com
 #示例2:变量名: 变量值,变量名:变量值;发送时间;接收邮箱,接收邮箱,
-var1:111,var2:222;2023-11-11 11:11:11;1@1.com,1@1.com`}
+var1:111,var2:222;2023-11-11 11:11:11;1@1.com,1@1.com
+#示例2:变量名: 变量值,变量名:变量值;发送时间;接收邮箱,接收邮箱;重试次数,
+var1:111,var2:222;2023-11-11 11:11:11;1@1.com,1@1.com;3`}
                                 sx={{ flexGrow: 1, }}
                                 checkValue={(val) => {
                                     if (!isEmail(val)) {
@@ -237,6 +240,7 @@ var1:111,var2:222;2023-11-11 11:11:11;1@1.com,1@1.com`}
                                                 mail: tmp.to,
                                                 nowSend: tmp.nowSend,
                                                 sendTime: tmp.sendTime,
+                                                tryNum: tmp.tryNum,
                                                 loading: false,
                                                 error: null,
                                                 finish: false
@@ -276,12 +280,14 @@ var1:111,var2:222;2023-11-11 11:11:11;1@1.com,1@1.com`}
                             tplData={item.tplData}
                             nowSend={item.nowSend}
                             sendTime={item.sendTime}
-                            onTplDataChange={(tplData, nowSend, sendTime) => {
+                            tryNum={item.tryNum ?? 0}
+                            onTplDataChange={(tplData, nowSend, sendTime, num) => {
                                 //                                console.log("---", tplData, nowSend, sendTime);
                                 let data = [...sendData.data];
                                 data[i].tplData = tplData;
                                 data[i].nowSend = nowSend;
                                 data[i].sendTime = sendTime ? sendTime : null;
+                                data[i].tryNum = num <= 0 ? null : num;
                                 setSendData({
                                     ...sendData,
                                     data: data

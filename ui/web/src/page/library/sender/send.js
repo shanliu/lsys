@@ -59,7 +59,8 @@ UserAppSendDataItem.propTypes = {
 
 
 function UserAppSendDataTime(props) {
-    const { nowSend, sendTime, changeSendTime, disabled } = props
+    const { nowSend, sendTime, tryNum, changeSendTime, changeTryNum, disabled } = props
+
     return <Stack direction="row">
         <FormControl fullWidth>
             <DesktopDateTimePicker
@@ -79,12 +80,14 @@ function UserAppSendDataTime(props) {
                     }} />}
             />
         </FormControl>
+
         <FormControlLabel
-            fontSize="0.8rem"
-            label="立即发送"
-            sx={{ color: "#666", width: 150, ml: 2 }}
+
+            label={<span style={{ fontSize: "0.75rem" }}>立即发送</span>
+            }
+            sx={{ color: "#666", width: 180, ml: 1 }}
             control={
-                <Switch
+                < Switch
                     checked={nowSend}
                     disabled={disabled}
                     size="small"
@@ -93,7 +96,23 @@ function UserAppSendDataTime(props) {
                     }} />
             }
         />
-    </Stack>
+        < FormControl
+            sx={{ width: 220, ml: 1 }}
+        >
+            <TextField
+                disabled={disabled}
+                size="small"
+                label={`失败重试(次)`}
+                type='number'
+                value={tryNum > 0 ? tryNum : ""}
+                onChange={(e) => {
+                    let num = parseInt(e.target.value);
+                    num = num > 0 ? num : null
+                    changeTryNum(num)
+                }}
+            />
+        </FormControl >
+    </Stack >
 }
 
 UserAppSendDataTime.propTypes = {
@@ -101,10 +120,11 @@ UserAppSendDataTime.propTypes = {
     sendTime: PropTypes.object,
     disabled: PropTypes.bool.isRequired,
     changeSendTime: PropTypes.func.isRequired,
+    tryNum: PropTypes.number.isRequired,
 };
 
 export const UserAppSendBox = forwardRef((props, ref) => {
-    const { tplData, onTplDataChange, nowSend, sendTime, error, finish, loading, onDelete, disabled } = props
+    const { tplData, onTplDataChange, nowSend, sendTime, tryNum, error, finish, loading, onDelete, disabled } = props
     return <Paper sx={{ width: 500 }} ref={ref}>
         <Stack spacing={1} >
             <Stack spacing={1} sx={{ p: 2, pb: 0 }}
@@ -120,7 +140,7 @@ export const UserAppSendBox = forwardRef((props, ref) => {
                         onClick={() => {
                             let setData = [...tplData];
                             setData.push({ name: '', val: '' });
-                            onTplDataChange(setData, nowSend, sendTime)
+                            onTplDataChange(setData, nowSend, sendTime, tryNum)
                         }}>
                         添加变量
                     </Button>
@@ -152,13 +172,13 @@ export const UserAppSendBox = forwardRef((props, ref) => {
                             if (ti == i) setData.push(dat);
                             else setData.push(tplData[ti]);
                         }
-                        onTplDataChange(setData, nowSend, sendTime)
+                        onTplDataChange(setData, nowSend, sendTime, tryNum)
                     }} onDelete={() => {
                         let setData = [];
                         for (const ti in tplData) {
                             if (ti != i) setData.push(tplData[ti]);
                         }
-                        onTplDataChange(setData, nowSend, sendTime)
+                        onTplDataChange(setData, nowSend, sendTime, tryNum)
                     }} />
                 })}
                 {props.children}
@@ -166,8 +186,12 @@ export const UserAppSendBox = forwardRef((props, ref) => {
                     disabled={disabled || finish}
                     nowSend={nowSend}
                     sendTime={sendTime}
+                    tryNum={tryNum}
+                    changeTryNum={(num) => {
+                        onTplDataChange(tplData, nowSend, sendTime, num)
+                    }}
                     changeSendTime={(nowSend, sendTime) => {
-                        onTplDataChange(tplData, nowSend, sendTime)
+                        onTplDataChange(tplData, nowSend, sendTime, tryNum)
                     }} />
             </Stack>
         </Stack>
@@ -184,6 +208,7 @@ UserAppSendBox.propTypes = {
     onDelete: PropTypes.func.isRequired,
     nowSend: PropTypes.bool.isRequired,
     sendTime: PropTypes.object,
+    tryNum: PropTypes.number.isRequired,
 };
 
 UserAppSendParseBox.propTypes = {
@@ -272,13 +297,25 @@ export function UserAppSendParseBox(props) {
                     let error;
                     let valdat = boxData.val.replaceAll("\r\n", "\n").split("\n")
                     for (let ind in valdat) {
+                        ind = parseInt(ind);
                         if (!valdat[ind] || valdat[ind].trim() == '' || /^\s*#/.test(valdat[ind])) {
                             continue;
                         }
                         let items = valdat[ind].split(";");
-                        if (items.length != 2 && items.length != 3) {
-                            error = "解析第" + (ind + 1) + "行失败,仅能包含2个以内的;号"
+                        if (items.length != 2 && items.length != 3 && items.length != 4) {
+                            error = "解析第" + (ind + 1) + "行失败,仅能包含3个以内的;号"
                             break;
+                        }
+                        let numTry = null;
+                        if (items.length == 4) {
+                            let tmp = parseInt(items.pop())
+                            if (tmp > 0 && tmp < 20) {
+                                numTry = tmp
+                            }
+                        } else if (items.length == 3) {
+                            if (/^\d+$/.test(items[2])) {
+                                numTry = parseInt(items.pop())
+                            }
                         }
                         let out_val = [];
                         let vals = (items.pop() + '').split(",")
@@ -319,11 +356,13 @@ export function UserAppSendParseBox(props) {
                             st = dayjs(time);
                             ns = false
                         }
+
                         out.push({
                             tplData: out_var,
                             to: out_val,
                             nowSend: ns,
                             sendTime: st,
+                            tryNum: numTry
                         })
                     }
                     if (error) {

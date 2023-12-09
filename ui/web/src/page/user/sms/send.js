@@ -56,6 +56,7 @@ export default function UserAppSmsSendPage(props) {
                 tpl_id: sendData.tpl_id,
                 data: sdata,
                 mobile: tmp.mobile,
+                max_try: tmp.tryNum,
                 send_time: tmp.nowSend ? null : tmp.sendTime.format('YYYY-MM-DD HH:mm:ss')
             }, {
                 signal: ajaxReq.current.signal
@@ -181,7 +182,9 @@ export default function UserAppSmsSendPage(props) {
 #示例1:变量名:变量值,变量名:变量值;接收手机号,接收手机号
 var1:111,var2:222;13800138000,13800138001
 #示例2:变量名:变量值,变量名:变量值;发送时间;接收手机号,接收手机号
-var1:111,var2:222;2023-11-11 11:11:11;13800138000,13800138001`}
+var1:111,var2:222;2023-11-11 11:11:11;13800138000,13800138001
+#示例2:变量名:变量值,变量名:变量值;发送时间;接收手机号,接收手机号;重试次数
+var1:111,var2:222;2023-11-11 11:11:11;13800138000,13800138001;1`}
                                 sx={{ flexGrow: 1, }}
                                 checkValue={(val) => {
                                     if (!val || !/^1[0-9]{10}$/.test(val)) {
@@ -197,6 +200,7 @@ var1:111,var2:222;2023-11-11 11:11:11;13800138000,13800138001`}
                                                 mobile: tmp.to,
                                                 nowSend: tmp.nowSend,
                                                 sendTime: tmp.sendTime,
+                                                tryNum: tmp.tryNum,
                                                 loading: false,
                                                 error: null,
                                                 finish: false
@@ -236,12 +240,14 @@ var1:111,var2:222;2023-11-11 11:11:11;13800138000,13800138001`}
                             tplData={item.tplData}
                             nowSend={item.nowSend}
                             sendTime={item.sendTime}
-                            onTplDataChange={(tplData, nowSend, sendTime) => {
+                            tryNum={item.tryNum ?? 0}
+                            onTplDataChange={(tplData, nowSend, sendTime, num) => {
                                 //                                console.log("---", tplData, nowSend, sendTime);
                                 let data = [...sendData.data];
                                 data[i].tplData = tplData;
                                 data[i].nowSend = nowSend;
                                 data[i].sendTime = sendTime ? sendTime : null;
+                                data[i].tryNum = num <= 0 ? null : num;
                                 setSendData({
                                     ...sendData,
                                     data: data

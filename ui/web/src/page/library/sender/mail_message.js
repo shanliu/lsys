@@ -106,7 +106,6 @@ export function AppMailMessage(props) {
                     } else if (row.now_send) {
                         stime = "准备发送"
                     } else {
-                        on_task
                         stime = "发送时间:" + showTime(row.send_time, "未知")
                     }
                 } else if (row.status == 4) {
