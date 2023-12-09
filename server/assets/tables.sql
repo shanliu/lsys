@@ -291,7 +291,7 @@ CREATE TABLE `yaf_notify_config` (
     `call_url` varchar(512) NOT NULL COMMENT '请求URL',
     `user_id` bigint unsigned NOT NULL COMMENT '用户id',
     `change_user_id` bigint unsigned NOT NULL COMMENT '最后修改用户id',
-    `change_time` bigint unsigned NOT NULL COMMENT '最后更新时间',
+    `change_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '最后更新时间',
     `create_time` bigint unsigned NOT NULL COMMENT '创建时间',
     PRIMARY KEY (`id`),
     UNIQUE KEY `yaf_notify_config_id_IDX` (`app_id`, `method`) USING BTREE

@@ -61,7 +61,7 @@ impl MailSender {
         let message_reader = Arc::new(MessageReader::new(
             db.clone(),
             app_core.clone(),
-            SenderType::Smser,
+            SenderType::Mailer,
             fluent,
         ));
         let mail_record = Arc::new(MailRecord::new(
@@ -104,7 +104,7 @@ impl MailSender {
         send_time: &Option<u64>,
         user_id: &Option<u64>,
         reply_mail: &Option<String>,
-        max_try_num: &Option<u16>,
+        max_try_num: &Option<u8>,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<(u64, Vec<(u64, &'t str)>)> {
         let tmp = mail

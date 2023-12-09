@@ -227,7 +227,7 @@ impl MailRecord {
         expected_time: &u64,
         reply_mail: &Option<String>,
         user_id: &Option<u64>,
-        max_try_num: &Option<u16>,
+        max_try_num: &Option<u8>,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<(u64, Vec<(u64, &'t str)>)> {
         let user_id = user_id.unwrap_or_default();
@@ -235,7 +235,13 @@ impl MailRecord {
         let reply_mail = reply_mail.to_owned().unwrap_or_default();
         let tpl_id = tpl_id.to_owned();
         let tpl_var = tpl_var.to_owned();
-        let max_try_num = max_try_num.unwrap_or(3);
+        let mut max_try_num = max_try_num.unwrap_or(1);
+        if max_try_num == 0 {
+            max_try_num = 1
+        }
+        if max_try_num > 10 {
+            max_try_num = 10
+        }
         let mut idata = Vec::with_capacity(mail.len());
         let reqid = env_data
             .map(|t| t.request_ip.to_owned().unwrap_or_default())
@@ -262,7 +268,7 @@ impl MailRecord {
                 status:SenderMailBodyStatus::Init as i8,
                 add_time:add_time,
                 reply_mail:reply_mail,
-                max_try_num:max_try_num,
+                max_try_num:max_try_num as u16,
                 user_id:user_id,
                 user_ip:user_ip,
                 expected_time:expected_time,
@@ -290,6 +296,22 @@ impl MailRecord {
             .rows_affected();
 
         tran.commit().await?;
+
+        self.logger
+            .add(
+                &LogMessage {
+                    action: "add",
+                    body_id: msg_id,
+                    message_id: None,
+                    sender_type: SenderType::Mailer as i8,
+                },
+                &Some(msg_id),
+                &Some(user_id),
+                &Some(user_id),
+                None,
+                env_data,
+            )
+            .await;
 
         Ok((
             row,

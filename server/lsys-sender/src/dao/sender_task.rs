@@ -73,12 +73,26 @@ pub trait SenderTaskAcquisition<
         sending_data: &[u64],
         limit: u16,
     ) -> Result<D, String>;
-    async fn finish_send_task(
+    async fn task_send_success(
         &self,
         setting: &SettingModel,
         task: &G,
         record: &D,
-        exec_res: SenderTaskResult,
+        res_items: &[SenderTaskResultItem],
+    );
+    async fn task_record_send_fail(
+        &self,
+        setting: &SettingModel,
+        task: &G,
+        record: &D,
+        error: &SenderExecError,
+    );
+    async fn task_send_fail(
+        &self,
+        task: &G,
+        in_task_id: &[u64],
+        error: &SenderExecError,
+        setting: Option<&SettingModel>,
     );
 }
 
@@ -89,7 +103,7 @@ pub enum SenderTaskStatus {
 }
 
 pub struct SenderTaskResultItem {
-    pub id: u64,
+    pub id: u64, // SenderTaskData item id
     pub status: SenderTaskStatus,
     pub message: String,
     pub send_id: String,
@@ -137,12 +151,16 @@ pub(crate) async fn group_exec<
     inner: &[SenderTaskExecutorBox<I, G, D>], //可用发送适配器数组
 ) -> Result<(), String> {
     if inner.is_empty() {
-        return Err("can't find any sender apapter".to_string());
+        let msg = "can't find any sender apapter".to_string();
+        acquisition
+            .task_send_fail(val, &[], &SenderExecError::Finish(msg.clone()), None)
+            .await;
+        return Err(msg);
     }
     let len = inner.len();
     let start = index_get(index_store, len);
     //获取任务消息可用的发送模板.
-    let config = tpl_config
+    let config = match tpl_config
         .list_config(
             &None,
             &None,
@@ -151,7 +169,16 @@ pub(crate) async fn group_exec<
             &None,
         )
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())
+    {
+        Ok(t) => t,
+        Err(err) => {
+            acquisition
+                .task_send_fail(val, &[], &SenderExecError::Next(err.clone()), None)
+                .await;
+            return Err(err);
+        }
+    };
 
     //根据历史发送整理发送模板数据
     type SendItem<'a, I, G, D> = Vec<(
@@ -206,10 +233,11 @@ pub(crate) async fn group_exec<
     }
 
     if send_group.is_empty() {
-        return Err(format!(
-            "can't find any tpl config on tpl :{}",
-            val.tpl_id()
-        ));
+        let msg = format!("can't find any tpl config on tpl :{}", val.tpl_id());
+        acquisition
+            .task_send_fail(val, &[], &SenderExecError::Next(msg.clone()), None)
+            .await;
+        return Err(msg);
     }
 
     let mut futures = FuturesUnordered::new();
@@ -226,7 +254,22 @@ pub(crate) async fn group_exec<
                 .iter()
                 .flat_map(|e| e.1 .2.to_owned())
                 .collect::<Vec<u64>>();
-            let res = acquisition.read_send_record(val, &in_ids, limit).await?;
+            let res = match acquisition.read_send_record(val, &in_ids, limit).await {
+                Ok(r) => r,
+                Err(err) => {
+                    let msg = format!("read send record fail :{}", err);
+                    acquisition
+                        .task_send_fail(
+                            val,
+                            &[],
+                            &SenderExecError::Next(msg.clone()),
+                            Some(setting),
+                        )
+                        .await;
+                    return Err(msg);
+                }
+            };
+
             let pks = res.to_pks();
             if pks.is_empty() {
                 send_ids.insert(tpl_config.id, (&setting.setting_key, 0, vec![]));
@@ -237,9 +280,18 @@ pub(crate) async fn group_exec<
                     async move {
                         let exec_res = exec_er.exec(val, &res, tpl_config, setting).await;
                         let is_ok = exec_res.is_ok();
-                        acquisition
-                            .finish_send_task(setting, val, &res, exec_res)
-                            .await;
+                        match exec_res {
+                            Ok(res_items) => {
+                                acquisition
+                                    .task_send_success(setting, val, &res, &res_items)
+                                    .await;
+                            }
+                            Err(err) => {
+                                acquisition
+                                    .task_record_send_fail(setting, val, &res, &err)
+                                    .await;
+                            }
+                        }
                         (is_ok, setting.setting_key.clone(), tpl_config.id)
                     }
                     .boxed(),
@@ -290,22 +342,47 @@ pub(crate) async fn group_exec<
                         .collect::<Vec<u64>>();
                     if let Some(tmp)=send_ids.get_mut(&tpl_config.id){
                         let limit = exec_er.limit(setting).await;
-                        let res = acquisition.read_send_record(val, &in_ids, limit).await?;
-                        let pks=res.to_pks();
-                        if pks.is_empty() {
-                            tmp.2=vec![];
-                        } else {
-                            tmp.2=pks;
-                            tmp.1 += 1;
-                            futures.push(
-                                async move {
-                                    let exec_res = exec_er.exec(val, &res, tpl_config, setting).await;
-                                    let is_ok = exec_res.is_ok();
-                                    acquisition.finish_send_task(setting,val,&res, exec_res).await;
-                                    (is_ok, setting.setting_key.clone(),tpl_config.id)
+                        match acquisition.read_send_record(val, &in_ids, limit).await {
+                            Ok(res) => {
+                                let pks=res.to_pks();
+                                if pks.is_empty() {
+                                    tmp.2=vec![];
+                                } else {
+                                    tmp.2=pks;
+                                    tmp.1 += 1;
+                                    futures.push(
+                                        async move {
+                                            let exec_res = exec_er.exec(val, &res, tpl_config, setting).await;
+                                            let is_ok = exec_res.is_ok();
+                                            match exec_res {
+                                                Ok(res_items) => {
+                                                    acquisition
+                                                        .task_send_success(setting, val, &res, &res_items)
+                                                        .await;
+                                                }
+                                                Err(err) => {
+                                                    acquisition
+                                                        .task_record_send_fail(setting, val, &res, &err)
+                                                        .await;
+                                                }
+                                            }
+                                            (is_ok, setting.setting_key.clone(),tpl_config.id)
+                                        }
+                                        .boxed(),
+                                    );
                                 }
-                                .boxed(),
-                            );
+                            },
+                            Err(err) => {
+                                let msg = format!("read send record fail [in task] :{}", err);
+                                acquisition
+                                    .task_send_fail(
+                                        val,
+                                        &in_ids,
+                                        &SenderExecError::Next(msg.clone()),
+                                        Some(setting),
+                                    )
+                                    .await;
+                            }
                         }
                     }
                 }

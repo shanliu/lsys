@@ -120,9 +120,15 @@ impl WebAppMailer {
         let mut context = Context::new();
         context.insert("code", code);
         context.insert("ttl", ttl);
-        self.send("valid_code", to, &context.into_json().to_string(), env_data)
-            .await
-            .map(|_| ())
+        self.send(
+            "valid_code",
+            to,
+            &context.into_json().to_string(),
+            &Some(1),
+            env_data,
+        )
+        .await
+        .map(|_| ())
     }
     // 发送接口
     async fn send(
@@ -130,6 +136,7 @@ impl WebAppMailer {
         tpl_id: &str,
         to: &str,
         body: &str,
+        max_try_num: &Option<u8>,
         env_data: Option<&RequestEnv>,
     ) -> Result<u64, WebAppMailerError> {
         check_email(&self.fluent, to).map_err(|e| WebAppMailerError::System(e.to_string()))?;
@@ -143,7 +150,7 @@ impl WebAppMailer {
                 &None,
                 &None,
                 &None,
-                &None,
+                max_try_num,
                 env_data,
             )
             .await
@@ -179,6 +186,7 @@ impl WebAppMailer {
         body: &HashMap<String, String>,
         send_time: &Option<u64>,
         reply: &Option<String>,
+        max_try_num: &Option<u8>,
         env_data: Option<&RequestEnv>,
     ) -> Result<Vec<(u64, &'t str)>, WebAppMailerError> {
         for tmp in to.iter() {
@@ -200,7 +208,7 @@ impl WebAppMailer {
                 send_time,
                 &Some(app.user_id),
                 reply,
-                &None,
+                max_try_num,
                 env_data,
             )
             .await

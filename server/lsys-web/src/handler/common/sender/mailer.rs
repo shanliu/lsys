@@ -512,6 +512,7 @@ pub struct MailerMessageSendParam {
     pub to: Vec<String>,
     pub reply: Option<String>,
     pub send_time: Option<String>,
+    pub max_try: Option<u8>,
 }
 
 //后台界面发送邮件接口
@@ -565,6 +566,7 @@ pub async fn mailer_message_send<'t, T: SessionTokenData, D: SessionData, S: Use
             &param.data,
             &send_time,
             &param.reply,
+            &param.max_try,
             Some(&req_dao.req_env),
         )
         .await?;

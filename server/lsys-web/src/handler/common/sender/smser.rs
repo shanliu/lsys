@@ -645,6 +645,7 @@ pub struct SmserMessageSendParam {
     pub tpl_id: u64,
     pub area: Option<String>,
     pub mobile: Vec<String>,
+    pub max_try: Option<u8>,
     //body 对外统一格式{key:val}
     // 这里判断不同发送端进行统一转换匹配
     pub data: HashMap<String, String>,
@@ -701,7 +702,7 @@ pub async fn smser_message_send<'t, T: SessionTokenData, D: SessionData, S: User
             &mobile,
             &param.data,
             &send_time,
-            &None,
+            &param.max_try,
             Some(&req_dao.req_env),
         )
         .await?;

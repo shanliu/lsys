@@ -231,7 +231,7 @@ impl SmsRecord {
         tpl_var: &str,
         expected_time: &u64,
         user_id: &Option<u64>,
-        max_try_num: &Option<u16>,
+        max_try_num: &Option<u8>,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<(u64, Vec<(u64, &'t str, &'t str)>)> {
         let user_id = user_id.unwrap_or_default();
@@ -239,7 +239,13 @@ impl SmsRecord {
         let tpl_id = tpl_id.to_owned();
         let tpl_var = tpl_var.to_owned();
         let mut idata = Vec::with_capacity(mobiles.len());
-        let max_try_num = max_try_num.unwrap_or(3);
+        let mut max_try_num = max_try_num.unwrap_or(0);
+        if max_try_num == 0 {
+            max_try_num = 1
+        }
+        if max_try_num > 10 {
+            max_try_num = 10
+        }
         let add_data = mobiles
             .iter()
             .map(|e| {
@@ -264,7 +270,7 @@ impl SmsRecord {
                 tpl_var:tpl_var,
                 status:SenderSmsBodyStatus::Init as i8,
                 add_time:add_time,
-                max_try_num:max_try_num,
+                max_try_num:max_try_num as u16,
                 user_id:user_id,
                 user_ip:user_ip,
                 expected_time:expected_time,
@@ -304,10 +310,10 @@ impl SmsRecord {
                 &LogMessage {
                     action: "add",
                     sender_type: SenderType::Smser as i8,
-                    body_id: row,
+                    body_id: msg_id,
                     message_id: None,
                 },
-                &Some(row),
+                &Some(msg_id),
                 &Some(user_id),
                 &Some(user_id),
                 None,

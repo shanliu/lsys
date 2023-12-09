@@ -12,6 +12,7 @@ pub struct SmsSendParam {
     pub mobile: Vec<String>,
     pub tpl: String,
     pub data: HashMap<String, String>,
+    pub max_try: Option<u8>,
     pub send_time: Option<String>,
 }
 pub async fn sms_send(
@@ -52,7 +53,7 @@ pub async fn sms_send(
             &mobile,
             &param.data,
             &send_time,
-            &None,
+            &param.max_try,
             env_data,
         )
         .await?;

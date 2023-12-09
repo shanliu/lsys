@@ -13,6 +13,7 @@ pub struct MailSendParam {
     pub data: HashMap<String, String>,
     pub reply: Option<String>,
     pub send_time: Option<String>,
+    pub max_try: Option<u8>,
 }
 pub async fn mail_send(
     app_dao: &WebDao,
@@ -52,6 +53,7 @@ pub async fn mail_send(
             &param.data,
             &send_time,
             &param.reply,
+            &param.max_try,
             env_data,
         )
         .await?;

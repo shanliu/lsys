@@ -149,7 +149,7 @@ impl SmsSender {
         tpl_var: &str,
         send_time: &Option<u64>,
         user_id: &Option<u64>,
-        max_try_num: &Option<u16>,
+        max_try_num: &Option<u8>,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<(u64, Vec<(u64, &'t str, &'t str)>)> {
         let tmp = mobiles

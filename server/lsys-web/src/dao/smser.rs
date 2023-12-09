@@ -154,7 +154,7 @@ impl WebAppSmser {
         mobile: &[&'t str],
         body: &HashMap<String, String>,
         send_time: &Option<u64>,
-        max_try_num: &Option<u16>,
+        max_try_num: &Option<u8>,
         env_data: Option<&RequestEnv>,
     ) -> Result<Vec<(u64, &'t str)>, WebAppSmserError> {
         let mb = mobile.iter().map(|e| (area, *e)).collect::<Vec<_>>();
@@ -210,7 +210,7 @@ impl WebAppSmser {
         area: &str,
         mobile: &str,
         body: &str,
-        max_try_num: &Option<u16>,
+        max_try_num: &Option<u8>,
         env_data: Option<&RequestEnv>,
     ) -> Result<(), WebAppSmserError> {
         check_mobile(&self.fluent, area, mobile)
@@ -246,7 +246,7 @@ impl WebAppSmser {
             area,
             mobile,
             &json!(context).to_string(),
-            &None,
+            &Some(1),
             env_data,
         )
         .await
