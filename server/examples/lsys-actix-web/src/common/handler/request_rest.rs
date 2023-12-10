@@ -249,7 +249,7 @@ impl RequestToken<RestAuthTokenData> for RestQuery {
                     SessionToken::from_data(Some(data))
                 }
             })
-            .unwrap_or_else(SessionToken::<RestAuthTokenData>::default)
+            .unwrap_or_default()
     }
     fn is_refresh(&self, _token: &SessionToken<RestAuthTokenData>) -> bool {
         false

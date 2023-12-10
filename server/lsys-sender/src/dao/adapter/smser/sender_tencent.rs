@@ -1,12 +1,20 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use crate::{
-    dao::{SenderExecError, SenderResult, SenderTaskExecutor, SenderTplConfig, SmsTaskItem},
-    model::SenderTplConfigModel,
+    dao::{
+        adapter::smser::sms_result_to_task, create_sender_client, SenderError, SenderExecError,
+        SenderResult, SenderTaskExecutor, SenderTaskResult, SenderTplConfig, SmsSendNotifyParse,
+        SmsTaskData, SmsTaskItem,
+    },
+    model::{SenderSmsMessageModel, SenderTplConfigModel},
 };
 use async_trait::async_trait;
-use hmac::{Hmac, Mac};
-use lsys_core::{now_time, RequestEnv};
+
+use chrono::NaiveDateTime;
+use lsys_core::RequestEnv;
+use lsys_lib_sms::{
+    template_map_to_arr, SendDetailItem, SendError, SendNotifyError, SendNotifyItem, TenSms,
+};
 use lsys_setting::{
     dao::{
         MultipleSetting, SettingData, SettingDecode, SettingEncode, SettingError, SettingKey,
@@ -14,21 +22,22 @@ use lsys_setting::{
     },
     model::SettingModel,
 };
-use reqwest::{
-    header::{HeaderMap, HeaderValue},
-    Method, StatusCode,
-};
+
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use tracing::{debug, warn};
+use tracing::debug;
 
 //腾讯云 短信发送
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct TenYunConfig {
+    pub region: String,
     pub secret_id: String,
     pub secret_key: String,
+    pub sms_app_id: String,
+    pub branch_limit: u16,
+    pub callback_key: String,
 }
 
 impl TenYunConfig {
@@ -77,8 +86,6 @@ impl SettingEncode for TenYunConfig {
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct TenYunTplConfig {
-    pub region: String,
-    pub sms_app_id: String,
     pub template_id: String,
     pub sign_name: String,
     pub template_map: String,
@@ -127,11 +134,21 @@ impl SenderTenYunConfig {
         &self,
         id: &u64,
         name: &str,
+        region: &str,
         secret_id: &str,
         secret_key: &str,
+        sms_app_id: &str,
+        branch_limit: &u16,
+        callback_key: &str,
         user_id: &u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
+        if *branch_limit > TenSms::branch_limit() {
+            return Err(SenderError::System(format!(
+                "limit max:{}",
+                TenSms::branch_limit()
+            )));
+        }
         Ok(self
             .setting
             .edit(
@@ -139,8 +156,12 @@ impl SenderTenYunConfig {
                 id,
                 name,
                 &TenYunConfig {
+                    region: region.to_owned(),
+                    sms_app_id: sms_app_id.to_owned(),
+                    branch_limit: branch_limit.to_owned(),
                     secret_id: secret_id.to_owned(),
                     secret_key: secret_key.to_owned(),
+                    callback_key: callback_key.to_owned(),
                 },
                 user_id,
                 None,
@@ -149,22 +170,37 @@ impl SenderTenYunConfig {
             .await?)
     }
     //添加tenyun短信配置
+    #[allow(clippy::too_many_arguments)]
     pub async fn add_config(
         &self,
         name: &str,
+        region: &str,
         secret_id: &str,
         secret_key: &str,
+        sms_app_id: &str,
+        branch_limit: &u16,
+        callback_key: &str,
         user_id: &u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
+        if *branch_limit > TenSms::branch_limit() {
+            return Err(SenderError::System(format!(
+                "limit max:{}",
+                TenSms::branch_limit()
+            )));
+        }
         Ok(self
             .setting
             .add(
                 &None,
                 name,
                 &TenYunConfig {
+                    region: region.to_owned(),
+                    sms_app_id: sms_app_id.to_owned(),
+                    branch_limit: branch_limit.to_owned(),
                     secret_id: secret_id.to_owned(),
                     secret_key: secret_key.to_owned(),
+                    callback_key: callback_key.to_owned(),
                 },
                 user_id,
                 None,
@@ -180,8 +216,6 @@ impl SenderTenYunConfig {
         app_id: &u64,
         setting_id: &u64,
         tpl_id: &str,
-        region: &str,
-        sms_app_id: &str,
         sign_name: &str,
         template_id: &str,
         template_map: &str,
@@ -197,8 +231,6 @@ impl SenderTenYunConfig {
                 setting_id,
                 tpl_id,
                 &TenYunTplConfig {
-                    region: region.to_owned(),
-                    sms_app_id: sms_app_id.to_owned(),
                     template_id: template_id.to_owned(),
                     sign_name: sign_name.to_owned(),
                     template_map: template_map.to_owned(),
@@ -211,247 +243,175 @@ impl SenderTenYunConfig {
     }
 }
 
-// {
-//     "Response": {
-//         "SendStatusSet": [
-//             {
-//                 "SerialNo": "5000:1045710669157053657849499619",
-//                 "PhoneNumber": "+8618511122233",
-//                 "Fee": 1,
-//                 "SessionContext": "test",
-//                 "Code": "Ok",
-//                 "Message": "send success",
-//                 "IsoCode": "CN"
-//             },
-//             {
-//                 "SerialNo": "5000:1045710669157053657849499718",
-//                 "PhoneNumber": "+8618511122266",
-//                 "Fee": 1,
-//                 "SessionContext": "test",
-//                 "Code": "Ok",
-//                 "Message": "send success",
-//                 "IsoCode": "CN"
-//             }
-//         ],
-//         "RequestId": "a0aabda6-cf91-4f3e-a81f-9198114a2279"
-//     }
-// }
-#[derive(Debug, Clone, Deserialize)]
-struct TenyunResponseItem {
-    #[serde(rename = "Code")]
-    pub code: String,
-    #[serde(rename = "Message")]
-    pub message: String,
-}
-#[derive(Debug, Clone, Deserialize)]
-struct TenyunResponse {
-    #[serde(rename = "Response")]
-    pub response: Vec<TenyunResponseItem>,
-}
-impl TenyunResponse {
-    pub fn is_success(&self) -> bool {
-        if let Some(dat) = self.response.get(0) {
-            return dat.code == "Ok";
-        }
-        false
-    }
-    pub fn message(&self) -> &str {
-        if let Some(dat) = self.response.get(0) {
-            return &dat.message;
-        }
-        "not find any send data"
-    }
-}
-use chrono::NaiveDateTime;
-use sha2::{Digest, Sha256};
 //腾讯云发送短信后台发送任务实现
 #[derive(Clone, Default)]
 pub struct TenyunSenderTask {}
 
 #[async_trait]
-impl SenderTaskExecutor<u64, SmsTaskItem> for TenyunSenderTask {
+impl SenderTaskExecutor<u64, SmsTaskItem, SmsTaskData> for TenyunSenderTask {
     fn setting_key(&self) -> String {
         TenYunConfig::key().to_owned()
+    }
+    async fn limit(&self, setting: &SettingModel) -> u16 {
+        SettingData::<TenYunConfig>::try_from(setting.to_owned())
+            .map(|e| {
+                if e.branch_limit == 0 {
+                    TenSms::branch_limit()
+                } else {
+                    e.branch_limit
+                }
+            })
+            .unwrap_or(TenSms::branch_limit())
     }
     //执行短信发送
     async fn exec(
         &self,
         val: &SmsTaskItem,
+        sms_data: &SmsTaskData,
         tpl_config: &SenderTplConfigModel,
         setting: &SettingModel,
-    ) -> Result<String, SenderExecError> {
-        let sub_tpl_config = serde_json::from_str::<TenYunTplConfig>(&tpl_config.config_data)
-            .map_err(|e| {
-                SenderExecError::Next(format!("parse config to tenyun tpl config fail:{}", e))
-            })?;
+    ) -> SenderTaskResult {
         let sub_setting =
             SettingData::<TenYunConfig>::try_from(setting.to_owned()).map_err(|e| {
                 SenderExecError::Next(format!("parse config to tenyun setting fail:{}", e))
             })?;
+        let sub_tpl_config = serde_json::from_str::<TenYunTplConfig>(&tpl_config.config_data)
+            .map_err(|e| {
+                SenderExecError::Next(format!(
+                    "parse config to tenyun tpl config fail[{}]:{}",
+                    sub_setting.secret_id, e
+                ))
+            })?;
         debug!(
-            "msgid:{}  mobie:{}  tpl_config_id:{} sms_app_id:{} tpl:{} sign:{} region:{} var:{}",
+            "msgid:{}   tpl_config_id:{} sms_app_id:{} tpl:{} sign:{} region:{} var:{}",
             val.sms.id,
-            val.sms.mobile,
             tpl_config.id,
-            sub_tpl_config.sms_app_id,
+            sub_setting.sms_app_id,
             sub_tpl_config.template_id,
             sub_tpl_config.sign_name,
-            sub_tpl_config.region,
+            sub_setting.region,
             val.sms.tpl_var
         );
-        let client = reqwest::Client::builder();
-        let client = client.build().map_err(|e| {
-            SenderExecError::Next(format!("Tenyun request client create fail:{}", e))
-        })?;
-        let now_time = now_time().unwrap_or_default();
-        let mut headers = HeaderMap::new();
-        if let Ok(value) = HeaderValue::from_str("sms.tencentcloudapi.com") {
-            headers.insert("Host", value);
-        }
-        if let Ok(value) = HeaderValue::from_str("application/json; charset=utf-8") {
-            headers.insert("Content-Type", value);
-        }
-        if let Ok(value) = HeaderValue::from_str(&now_time.to_string()) {
-            headers.insert("X-TC-Timestamp", value);
-        }
-        if let Ok(value) = HeaderValue::from_str(&sub_tpl_config.region) {
-            headers.insert("X-TC-Region", value);
-        }
-        if let Ok(value) = HeaderValue::from_str("2017-03-12") {
-            headers.insert("X-TC-Version", value);
-        }
-        if let Ok(value) = HeaderValue::from_str("SendSms") {
-            headers.insert("X-TC-Action", value);
-        }
-        if let Ok(value) = HeaderValue::from_str("zh-CN") {
-            headers.insert("X-TC-Language", value);
-        }
+        let mobile = sms_data
+            .data
+            .iter()
+            .map(|e| e.mobile.as_str())
+            .collect::<Vec<_>>();
 
-        let datetime = NaiveDateTime::from_timestamp_opt(now_time as i64, 0).unwrap_or_default();
-
-        let var_data =
-            if let Ok(tmp) = serde_json::from_str::<HashMap<String, String>>(&val.sms.tpl_var) {
-                let map_data = sub_tpl_config.template_map.split(',');
-                let mut set_data = vec![];
-                if !tmp.is_empty() {
-                    for sp in map_data {
-                        if let Some(tv) = tmp.get(sp) {
-                            set_data.push(tv.to_owned())
-                        }
-                    }
-                }
-                set_data
-            } else {
-                vec![]
-            };
-
-        let reqjson = json!({
-            "PhoneNumberSet": [
-                val.sms.mobile,
-            ],
-            "SmsSdkAppId": sub_tpl_config.sms_app_id,
-            "SignName": sub_tpl_config.sign_name,
-            "TemplateId": sub_tpl_config.template_id,
-            "TemplateParamSet": var_data,
-        })
-        .to_string();
-
-        let mut hasher = Sha256::new();
-        hasher.update(&reqjson);
-        let result = hasher.finalize();
-
-        let sign = format!(
-            r#"POST
-/
-
-content-type:application/json; charset=utf-8
-host:sms.tencentcloudapi.com
-x-tc-action:sendsms
-
-content-type;host;x-tc-action
-{}"#,
-            format!("{:x}", result).to_lowercase()
-        );
-
-        let mut hasher1 = Sha256::new();
-        hasher1.update(&sign);
-        let result = hasher1.finalize();
-
-        let string_to_sign = format!(
-            r#"TC3-HMAC-SHA256
-{}
-{}/sms/tc3_request
-{}"#,
-            now_time,
-            datetime.format("%Y-%m-%d"),
-            format!("{:x}", result).to_lowercase()
-        );
-
-        let mut mac = Hmac::<sha2::Sha256>::new_from_slice(
-            datetime.format("%Y-%m-%d").to_string().as_bytes(),
+        match TenSms::branch_send(
+            create_sender_client()?,
+            &sub_setting.region,
+            &sub_setting.secret_id,
+            &sub_setting.secret_key,
+            &sub_setting.sms_app_id,
+            &sub_tpl_config.sign_name,
+            &sub_tpl_config.template_id,
+            template_map_to_arr(&val.sms.tpl_var, &sub_tpl_config.template_map),
+            &mobile,
         )
-        .map_err(|e| SenderExecError::Finish(format!("use data key on sha256 fail:{}", e)))?;
-        mac.update(format!("TC3{}", sub_setting.secret_key).as_bytes());
-        let result = mac.finalize();
+        .await
+        {
+            Ok(resp) => Ok({
+                let resp = resp
+                    .into_iter()
+                    .map(|mut e| {
+                        e.send_id = format!("{}{}", e.send_id, e.mobile);
+                        e
+                    })
+                    .collect::<Vec<_>>();
 
-        let mut mac1 = Hmac::<sha2::Sha256>::new_from_slice(b"sms")
-            .map_err(|e| SenderExecError::Finish(format!("use sms on sha256 fail:{}", e)))?;
-        mac1.update(&result.into_bytes());
-        let result = mac1.finalize();
-
-        let mut mac2 = Hmac::<sha2::Sha256>::new_from_slice(b"tc3_request").map_err(|e| {
-            SenderExecError::Finish(format!("use tc3_request on sha256 fail:{}", e))
-        })?;
-        mac2.update(&result.into_bytes());
-        let secret_signing = mac2.finalize();
-
-        let mut tmp3 =
-            Hmac::<sha2::Sha256>::new_from_slice(string_to_sign.as_bytes()).map_err(|e| {
-                SenderExecError::Finish(format!("use tc3_request on sha256 fail:{}", e))
-            })?;
-        tmp3.update(&secret_signing.into_bytes());
-        let signature = tmp3.finalize();
-
-        let authdata =format!(
-            "TC3-HMAC-SHA256 Credential={}/{}/sms/tc3_request, SignedHeaders=content-type;host;x-tc-action, Signature={}",
-            sub_setting.secret_id,
-            datetime.format("%Y-%m-%d"),
-            hex::encode(signature.into_bytes())
-        );
-        if let Ok(value) = HeaderValue::from_str(&authdata) {
-            headers.insert("Authorization", value);
+                sms_result_to_task(&sms_data.data, &resp)
+            }),
+            Err(err) => Err(match err {
+                SendError::Next(e) => SenderExecError::Next(e),
+                SendError::Finish(e) => SenderExecError::Finish(e),
+            }),
         }
+    }
+}
 
-        let request = client
-            .request(Method::POST, "https://sms.tencentcloudapi.com/")
-            .headers(headers)
-            .form(&reqjson);
-        let result = request
-            .send()
-            .await
-            .map_err(|e| SenderExecError::Next(format!("Tenyun request send fail:{}", e)))?;
-        let status = result.status();
-        let data = result
-            .bytes()
-            .await
-            .map_err(|e| SenderExecError::Next(format!("Tenyun request read body fail:{}", e)))?;
-        let res = unsafe { String::from_utf8_unchecked(data.to_vec()) };
-        if status != StatusCode::OK {
-            warn!("Tenyun sms response fail: {}", &res);
-        } else {
-            debug!("Tenyun sms response succ: {}", &res);
+pub struct TenYunNotify<'t> {
+    callback_key: &'t str,
+    notify_data: &'t str,
+}
+impl<'t> TenYunNotify<'t> {
+    pub fn new(callback_key: &'t str, notify_data: &'t str) -> TenYunNotify<'t> {
+        Self {
+            callback_key,
+            notify_data,
         }
-        let resp = serde_json::from_str::<TenyunResponse>(&res)
-            .map_err(|e| SenderExecError::Next(format!("Tenyun response body parse fail:{}", e)))?;
-        if !resp.is_success() {
-            return Err(SenderExecError::Next(format!(
-                "Tenyun response return fail:{}",
-                resp.message()
+    }
+}
+
+#[async_trait]
+impl<'t> SmsSendNotifyParse for TenYunNotify<'t> {
+    type T = TenYunConfig;
+    fn notify_items(
+        &self,
+        config: &SettingData<TenYunConfig>,
+    ) -> Result<Vec<SendNotifyItem>, SendNotifyError> {
+        if !config.callback_key.is_empty() && config.callback_key.as_str() != self.callback_key {
+            return Err(SendNotifyError::Sign(format!(
+                "callback key is match :{}",
+                self.callback_key
             )));
         }
-        Ok(format!(
-            "{}-{}",
-            sub_setting.secret_id, sub_tpl_config.sms_app_id
-        ))
+        TenSms::send_notify_parse(self.notify_data).map(|resp| {
+            resp.into_iter()
+                .flat_map(|mut e| match e.mobile.as_ref() {
+                    Some(m) => {
+                        e.send_id = format!("{}{}", e.send_id, m);
+                        Some(e)
+                    }
+                    None => None,
+                })
+                .collect::<Vec<_>>()
+        })
+    }
+    fn output(res: &Result<(), String>) -> (u16, String) {
+        (200, TenSms::send_notify_output(res))
+    }
+}
+
+#[derive(Default)]
+pub struct TenYunSendStatus {}
+#[async_trait]
+impl crate::dao::SmsStatusTaskExecutor for TenYunSendStatus {
+    fn setting_key(&self) -> String {
+        TenYunConfig::key().to_owned()
+    }
+    async fn exec(
+        &self,
+        msg: &SenderSmsMessageModel,
+        setting: &SettingModel,
+    ) -> Result<Vec<SendDetailItem>, SenderExecError> {
+        let setting_data =
+            SettingData::<TenYunConfig>::try_from(setting.to_owned()).map_err(|e| {
+                SenderExecError::Next(format!("parse config to ten yun setting fail:{}", e))
+            })?;
+        let naive_date_time =
+            NaiveDateTime::from_timestamp_opt(msg.send_time as i64, 0).unwrap_or_default();
+        TenSms::send_detail(
+            create_sender_client()?,
+            &setting_data.region,
+            &setting_data.secret_id,
+            &setting_data.secret_key,
+            &setting_data.sms_app_id,
+            &msg.mobile,
+            &naive_date_time.date().to_string(),
+        )
+        .await
+        .map(|resp| {
+            resp.into_iter()
+                .flat_map(|mut e| match e.mobile.as_ref() {
+                    Some(m) => {
+                        e.send_id = format!("{}{}", e.send_id, m);
+                        Some(e)
+                    }
+                    None => None,
+                })
+                .collect::<Vec<_>>()
+        })
+        .map_err(SenderExecError::Next)
     }
 }

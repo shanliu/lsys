@@ -25,10 +25,10 @@ export default function UserAppSmsLimitPage(props) {
         onSearchChange={setSearchParam}
     >
         <AppSelect
-         sx={{
-            width:200,
-            marginRight: 1
-        }}
+            sx={{
+                width: 200,
+                marginRight: 1
+            }}
             checkSms={true}
             userId={parseInt(userData.user_data.user_id)}
             appId={searchParam.get("app_id") ?? ''}

@@ -16,6 +16,16 @@ export default function SystemAppMailMapConfigPage(props) {
         {
             value: "tensms",
             name: "腾讯云短信配置"
+        },
+        {
+            value: "jdsms",
+            name: "京东云短信配置"
+        }, {
+            value: "cloopensms",
+            name: "融连云短信配置"
+        }, {
+            value: "163sms",
+            name: "网易云短信配置"
         }
     ];
     let param = useParams();

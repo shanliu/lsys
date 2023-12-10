@@ -33,3 +33,10 @@ export function isDomain(domain, allow_ip = true) {
     }
     return false
 }
+
+export function isCallbackKey(callback_key) {
+    if (/^[0-9a-zA-Z]{0,32}$/.test(callback_key)) {
+        return true
+    }
+    return false
+}

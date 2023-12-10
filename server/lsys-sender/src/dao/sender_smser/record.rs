@@ -1,15 +1,18 @@
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 use crate::{
-    dao::{MessageCancel, MessageLogs, MessageReader, SenderConfig, SenderError, SenderResult},
+    dao::{
+        logger::LogMessage, MessageLogs, MessageReader, SenderConfig, SenderError, SenderResult,
+    },
     model::{
-        SenderConfigModel, SenderKeyCancelModel, SenderLogModel, SenderSmsConfigData,
-        SenderSmsConfigLimit, SenderSmsConfigType, SenderSmsMessageModel, SenderSmsMessageModelRef,
-        SenderSmsMessageStatus,
+        SenderConfigModel, SenderLogModel, SenderSmsBodyModel, SenderSmsBodyModelRef,
+        SenderSmsBodyStatus, SenderSmsConfigData, SenderSmsConfigLimit, SenderSmsConfigType,
+        SenderSmsMessageModel, SenderSmsMessageModelRef, SenderSmsMessageStatus, SenderType,
     },
 };
 use lsys_core::{now_time, LimitParam, PageParam, RequestEnv};
 
+use lsys_logger::dao::ChangeLogger;
 use serde_json::Value;
 use sqlx::{MySql, Pool};
 use sqlx_model::{sql_format, Insert, ModelTableName, SqlExpr, Update};
@@ -21,22 +24,22 @@ use sqlx_model::SqlQuote;
 pub struct SmsRecord {
     db: Pool<sqlx::MySql>,
     config: Arc<SenderConfig>,
-    cancel: Arc<MessageCancel>,
     message_logs: Arc<MessageLogs>,
-    message_reader: Arc<MessageReader<SenderSmsMessageModel>>,
+    logger: Arc<ChangeLogger>,
+    message_reader: Arc<MessageReader<SenderSmsBodyModel, SenderSmsMessageModel>>,
 }
 
 impl SmsRecord {
     pub fn new(
         db: Pool<sqlx::MySql>,
         config: Arc<SenderConfig>,
-        cancel: Arc<MessageCancel>,
+        logger: Arc<ChangeLogger>,
         message_logs: Arc<MessageLogs>,
-        message_reader: Arc<MessageReader<SenderSmsMessageModel>>,
+        message_reader: Arc<MessageReader<SenderSmsBodyModel, SenderSmsMessageModel>>,
     ) -> Self {
         Self {
             config,
-            cancel,
+            logger,
             message_logs,
             message_reader,
             db,
@@ -47,62 +50,164 @@ impl SmsRecord {
     pub async fn find_message_by_id(&self, id: &u64) -> SenderResult<SenderSmsMessageModel> {
         self.message_reader.find_message_by_id(id).await
     }
+    pub async fn find_body_by_id(&self, id: &u64) -> SenderResult<SenderSmsBodyModel> {
+        self.message_reader.find_body_by_id(id).await
+    }
     //消息数量
     pub async fn message_count(
         &self,
         user_id: &Option<u64>,
         app_id: &Option<u64>,
         tpl_id: &Option<String>,
+        body_id: &Option<u64>,
         status: &Option<SenderSmsMessageStatus>,
         mobile: &Option<String>,
     ) -> SenderResult<i64> {
         let mut sqlwhere = vec![];
         if let Some(s) = mobile {
-            sqlwhere.push(sql_format!("mobile={}", s));
+            sqlwhere.push(sql_format!("m.mobile={}", s));
         }
-        self.message_reader
-            .message_count(
-                user_id,
-                app_id,
-                tpl_id,
-                &status.map(|e| e as i8),
-                if sqlwhere.is_empty() {
-                    None
-                } else {
-                    Some(sqlwhere.join(" and "))
-                },
-            )
-            .await
+
+        if let Some(aid) = app_id {
+            sqlwhere.push(sql_format!("b.app_id = {}  ", aid));
+        }
+        if let Some(uid) = user_id {
+            sqlwhere.push(sql_format!("b.user_id={} ", uid));
+        }
+        if let Some(t) = tpl_id {
+            sqlwhere.push(sql_format!("b.tpl_id={} ", t));
+        }
+        if let Some(s) = status {
+            sqlwhere.push(sql_format!("m.status={} ", *s));
+        }
+        if let Some(s) = body_id {
+            sqlwhere.push(sql_format!("m.sender_body_id={} ", *s));
+        }
+        let sql = sql_format!(
+            "select count(*) as total from {} as m join {} as b on m.sender_body_id=b.id {}",
+            SenderSmsBodyModel::table_name(),
+            SenderSmsMessageModel::table_name(),
+            SqlExpr(if sqlwhere.is_empty() {
+                "".to_string()
+            } else {
+                format!("where {}", sqlwhere.join(" and "))
+            })
+        );
+        let query = sqlx::query_scalar::<_, i64>(&sql);
+        let res = query.fetch_one(&self.db).await?;
+        Ok(res)
     }
     //消息列表
+    #[allow(clippy::too_many_arguments)]
     pub async fn message_list(
         &self,
         user_id: &Option<u64>,
         app_id: &Option<u64>,
         tpl_id: &Option<String>,
+        body_id: &Option<u64>,
         status: &Option<SenderSmsMessageStatus>,
         mobile: &Option<String>,
         limit: &Option<LimitParam>,
-    ) -> SenderResult<(Vec<SenderSmsMessageModel>, Option<u64>)> {
+    ) -> SenderResult<(
+        Vec<(SenderSmsMessageModel, Option<SenderSmsBodyModel>)>,
+        Option<u64>,
+    )> {
         let mut sqlwhere = vec![];
         if let Some(s) = mobile {
-            sqlwhere.push(sql_format!("mobile={}", s));
+            sqlwhere.push(sql_format!("m.mobile={}", s));
         }
-        self.message_reader
-            .message_list(
-                user_id,
-                app_id,
-                tpl_id,
-                &status.map(|e| e as i8),
+
+        if let Some(aid) = app_id {
+            sqlwhere.push(sql_format!("b.app_id = {}  ", aid));
+        }
+        if let Some(uid) = user_id {
+            sqlwhere.push(sql_format!("b.user_id={} ", uid));
+        }
+        if let Some(t) = tpl_id {
+            sqlwhere.push(sql_format!("b.tpl_id={} ", t));
+        }
+        if let Some(s) = status {
+            sqlwhere.push(sql_format!("m.status={} ", *s));
+        }
+        if let Some(s) = body_id {
+            sqlwhere.push(sql_format!("m.sender_body_id={} ", *s));
+        }
+
+        let where_sql = if let Some(page) = limit {
+            let page_where = page.where_sql(
+                "m.id",
                 if sqlwhere.is_empty() {
                     None
                 } else {
-                    Some(sqlwhere.join(" and "))
+                    Some("and")
                 },
-                limit,
+            );
+            format!(
+                "{} {} {} order by {} {} ",
+                if !sqlwhere.is_empty() || !page_where.is_empty() {
+                    "where "
+                } else {
+                    ""
+                },
+                sqlwhere.join(" and "),
+                page_where,
+                page.order_sql("m.id"),
+                page.limit_sql(),
             )
-            .await
-            .map(|(e, n)| (e, n.map(|t| t.id)))
+        } else {
+            format!(
+                "{} {}  order by id desc",
+                if sqlwhere.is_empty() { "where " } else { "" },
+                sqlwhere.join(" and ")
+            )
+        };
+
+        let sql = sql_format!(
+            "select m.* from {} as m join {} as b on m.sender_body_id=b.id {}",
+            SenderSmsMessageModel::table_name(),
+            SenderSmsBodyModel::table_name(),
+            SqlExpr(where_sql)
+        );
+
+        let res = sqlx::query_as::<_, SenderSmsMessageModel>(sql.as_str());
+        let mut m_data = res.fetch_all(&self.db).await?;
+
+        let next = limit
+            .as_ref()
+            .map(|page| page.tidy(&mut m_data))
+            .unwrap_or_default();
+
+        let pks = m_data
+            .iter()
+            .map(|t| t.sender_body_id)
+            .collect::<HashSet<u64>>()
+            .into_iter()
+            .collect::<Vec<u64>>();
+
+        let b_data = if !pks.is_empty() {
+            let sql = sql_format!(
+                "select * from {} where id in ({})",
+                SenderSmsBodyModel::table_name(),
+                pks
+            );
+            let res = sqlx::query_as::<_, SenderSmsBodyModel>(&sql);
+            res.fetch_all(&self.db).await?
+        } else {
+            vec![]
+        };
+
+        let out_data = m_data
+            .into_iter()
+            .map(|e| {
+                let tmp = b_data
+                    .iter()
+                    .find(|t| t.id == e.sender_body_id)
+                    .map(|s| s.to_owned());
+                (e, tmp)
+            })
+            .collect::<Vec<_>>();
+
+        Ok((out_data, next.map(|t| t.id)))
     }
     //消息日志数量
     pub async fn message_log_count(&self, message_id: &u64) -> SenderResult<i64> {
@@ -118,18 +223,17 @@ impl SmsRecord {
     }
     //添加短信任务
     #[allow(clippy::too_many_arguments)]
-    pub async fn add(
+    pub(crate) async fn add<'t>(
         &self,
-        mobiles: &[(String, String)],
+        mobiles: &[(&'t str, &'t str)],
         app_id: &u64,
         tpl_id: &str,
         tpl_var: &str,
         expected_time: &u64,
         user_id: &Option<u64>,
-        cancel_key: &Option<String>,
         max_try_num: &Option<u16>,
         env_data: Option<&RequestEnv>,
-    ) -> SenderResult<u64> {
+    ) -> SenderResult<(u64, Vec<(u64, &'t str, &'t str)>)> {
         let user_id = user_id.unwrap_or_default();
         let add_time = now_time().unwrap_or_default();
         let tpl_id = tpl_id.to_owned();
@@ -138,94 +242,128 @@ impl SmsRecord {
         let max_try_num = max_try_num.unwrap_or(3);
         let add_data = mobiles
             .iter()
-            .map(|e| (self.message_reader.message_id(), &e.0, &e.1))
+            .map(|e| {
+                let id = self.message_reader.message_id();
+
+                (id, e.0, e.1, e.0.to_owned(), e.1.to_owned())
+            })
             .collect::<Vec<_>>();
-        for (id, area, mobile) in add_data.iter() {
-            #[allow(clippy::needless_update)]
-            idata.push(sqlx_model::model_option_set!(SenderSmsMessageModelRef,{
-                id:id,
-                mobile:*mobile,
+
+        let mut tran = self.db.begin().await?;
+        let user_ip = env_data
+            .map(|e| e.request_ip.clone().unwrap_or_default())
+            .unwrap_or_default();
+        let reqid = env_data
+            .map(|t| t.request_ip.to_owned().unwrap_or_default())
+            .unwrap_or_default();
+        let res = Insert::<sqlx::MySql, SenderSmsBodyModel, _>::new(
+            sqlx_model::model_option_set!(SenderSmsBodyModelRef,{
                 app_id:*app_id,
-                area:*area,
                 tpl_id:tpl_id,
+                request_id:reqid,
                 tpl_var:tpl_var,
-                try_num:0,
-                status:SenderSmsMessageStatus::Init as i8,
+                status:SenderSmsBodyStatus::Init as i8,
                 add_time:add_time,
                 max_try_num:max_try_num,
-                send_time:0,
                 user_id:user_id,
+                user_ip:user_ip,
                 expected_time:expected_time,
+            }),
+        )
+        .execute(&mut tran)
+        .await;
+        let msg_id = match res {
+            Ok(e) => e.last_insert_id(),
+            Err(err) => {
+                tran.rollback().await?;
+                return Err(err.into());
+            }
+        };
+        let res_data = "".to_string();
+        for (id, _, _, area, mobile) in add_data.iter() {
+            idata.push(sqlx_model::model_option_set!(SenderSmsMessageModelRef,{
+                id:id,
+                sender_body_id:msg_id,
+                mobile:*mobile,
+                area:*area,
+                try_num:0,
+                status:SenderSmsMessageStatus::Init as i8,
+                send_time:0,
+                res_data:res_data,
             }));
         }
-        let mut tran = self.db.begin().await?;
         let row = Insert::<sqlx::MySql, SenderSmsMessageModel, _>::new_vec(idata)
             .execute(&mut tran)
             .await?
             .rows_affected();
-        let ids = add_data.into_iter().map(|e| e.0).collect::<Vec<u64>>();
-        if let Some(hk) = cancel_key {
-            let res = self.cancel.add(app_id, &ids, hk, Some(&mut tran)).await;
-            if let Err(err) = res {
-                tran.rollback().await?;
-                return Err(err);
-            }
-        }
+
         tran.commit().await?;
 
-        self.message_logs.add_init_log(app_id, &ids, env_data).await;
+        self.logger
+            .add(
+                &LogMessage {
+                    action: "add",
+                    sender_type: SenderType::Smser as i8,
+                    body_id: row,
+                    message_id: None,
+                },
+                &Some(row),
+                &Some(user_id),
+                &Some(user_id),
+                None,
+                env_data,
+            )
+            .await;
 
-        Ok(row)
+        Ok((
+            row,
+            add_data
+                .into_iter()
+                .map(|e| (e.0, e.1, e.2))
+                .collect::<Vec<_>>(),
+        ))
     }
     //取消短信发送
-    pub async fn cancel_form_message(
+    pub(crate) async fn cancel_form_message(
         &self,
+        body: &SenderSmsBodyModel,
         message: &SenderSmsMessageModel,
         user_id: &u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<()> {
-        let change = sqlx_model::model_option_set!(SenderSmsMessageModelRef, {
-            status: SenderSmsMessageStatus::IsCancel as i8
-        });
-        Update::<MySql, SenderSmsMessageModel, _>::new(change)
-            .execute_by_pk(message, &self.db)
-            .await?;
-        self.message_logs
-            .add_cancel_log(message.app_id, message.id, user_id, env_data)
-            .await;
-        Ok(())
-    }
-    pub async fn cancel_data(&self, cancel_key: &str) -> SenderResult<Vec<SenderKeyCancelModel>> {
-        self.cancel.cancel_data(cancel_key).await
-    }
-    //通过KEY取消短信发送
-    pub async fn cancel_form_key(
-        &self,
-        smsc: &SenderKeyCancelModel,
-        user_id: &u64,
-        env_data: Option<&RequestEnv>,
-    ) -> SenderResult<()> {
-        let mut db = self.db.begin().await?;
-        let res = self.cancel.cancel(smsc, user_id, Some(&mut db)).await;
-        if res.is_err() {
-            db.rollback().await?;
-            return res.map(|_| ());
+        if SenderSmsMessageStatus::IsCancel.eq(message.status) {
+            return Ok(());
         }
-        let change = sqlx_model::model_option_set!(SenderSmsMessageModelRef, {
-            status: SenderSmsMessageStatus::IsCancel as i8
-        });
-        let res = Update::<MySql, SenderSmsMessageModel, _>::new(change)
-            .execute_by_where_call("id=?", |b, _| b.bind(smsc.message_id), &mut db)
-            .await;
-        if res.is_err() {
-            db.rollback().await?;
-            return res.map(|_| ()).map_err(|e| e.into());
+        if SenderSmsMessageStatus::Init.eq(message.status) {
+            let change = sqlx_model::model_option_set!(SenderSmsMessageModelRef, {
+                status: SenderSmsMessageStatus::IsCancel as i8
+            });
+            Update::<MySql, SenderSmsMessageModel, _>::new(change)
+                .execute_by_pk(message, &self.db)
+                .await?;
+
+            self.logger
+                .add(
+                    &LogMessage {
+                        action: "cancel",
+                        sender_type: SenderType::Smser as i8,
+                        body_id: body.id,
+                        message_id: Some(message.id),
+                    },
+                    &Some(message.id),
+                    &Some(*user_id),
+                    &Some(*user_id),
+                    None,
+                    env_data,
+                )
+                .await;
+
+            return Ok(());
         }
-        db.commit().await?;
-        self.message_logs
-            .add_cancel_log(smsc.app_id, smsc.message_id, user_id, env_data)
-            .await;
-        Ok(())
+        Err(SenderError::System(format!(
+            "can't be cancel,status:{}",
+            message.status
+        )))
     }
     //查找短信基本配置
     pub async fn find_config_by_id(&self, id: &u64) -> SenderResult<SenderConfigModel> {
@@ -361,7 +499,7 @@ impl SmsRecord {
         &self,
         app_id: Option<u64>,
         tpl_id: &str,
-        mobiles: &[(String, String)],
+        mobiles: &[(&str, &str)],
         send_time: u64,
     ) -> SenderResult<()> {
         if mobiles.is_empty() {
@@ -400,11 +538,11 @@ impl SmsRecord {
                     let stime = nowt - limit.range_time;
                     let sql = sql_format!(
                         "select count(*) as total,{} as limit_id,area,mobile from {}
-                        where app_id={} and status={} and expected_time>={} and ({}) group by area,mobile",
+                        where app_id={} and status in ({}) and expected_time>={} and ({}) group by area,mobile",
                         c.id,
-                        SenderSmsMessageModel::table_name(),
+                        SenderSmsBodyModel::table_name(),
                         c.app_id,
-                        SenderSmsMessageStatus::IsSend,
+                        &[SenderSmsMessageStatus::IsSend as i8,SenderSmsMessageStatus::IsReceived  as i8],
                         stime,
                         SqlExpr(msql)
                     );

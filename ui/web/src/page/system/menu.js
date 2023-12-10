@@ -28,11 +28,7 @@ export const Menus = [
         icon: SmsIcon,
         text: "短信管理",
         rbac: [{
-            name: "admin-aliyun-sms-config"
-        }, {
-            name: "admin-tenyun-sms-config"
-        }, {
-            name: "admin-hwyun-sms-config"
+            name: "admin-sms-config"
         }, {
             name: "admin-sender-config"
         }]
@@ -42,7 +38,7 @@ export const Menus = [
         icon: MailIcon,
         text: "邮件管理",
         rbac: [{
-            name: "admin-smtp-config"
+            name: "admin-mail-config"
         }, {
             name: "admin-sender-config"
         }]

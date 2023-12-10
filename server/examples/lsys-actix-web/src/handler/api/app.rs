@@ -15,7 +15,8 @@ pub(crate) async fn app<'t>(
     auth_dao: UserAuthQuery,
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
-    Ok(match path.0.to_string().as_str() {
+    let (path,): (String,) = path.into_inner();
+    Ok(match path.as_str() {
         "add" => app_add(json_param.param::<AppAddParam>()?, &auth_dao).await,
         "edit" => app_edit(json_param.param::<AppEditParam>()?, &auth_dao).await,
         "confirm" => app_confirm(json_param.param::<AppConfrimParam>()?, &auth_dao).await,

@@ -31,12 +31,18 @@ function SystemAppSmsSettingHwsmsBox(props) {
         name: rowData ? rowData.name : '',
         app_key: rowData ? rowData.app_key : '',
         app_secret: rowData ? rowData.app_secret : '',
+        url: rowData ? rowData.url : '',
+        callback_key: rowData ? rowData.callback_key : '',
+        limit: rowData ? rowData.limit : 100,
         loading: false,
     });
     const [addError, setAddError] = useState({
         name: '',
         app_key: '',
         app_secret: '',
+        url: '',
+        callback_key: '',
+        limit: ''
     });
 
     let onSubmit = () => {
@@ -49,7 +55,10 @@ function SystemAppSmsSettingHwsmsBox(props) {
                 id: rowData.id,
                 name: addData.name,
                 app_key: addData.app_key,
-                app_secret: addData.app_secret
+                app_secret: addData.app_secret,
+                url: addData.url,
+                callback_key: addData.callback_key,
+                limit:parseInt( addData.limit),
             }).then((data) => {
                 if (!data.status) {
                     toast(data.message)
@@ -77,7 +86,9 @@ function SystemAppSmsSettingHwsmsBox(props) {
             })
         } else {
             smsAddHwConfig({
-
+                url: addData.url,
+                callback_key: addData.callback_key,
+                limit:parseInt( addData.limit),
                 name: addData.name,
                 app_key: addData.app_key,
                 app_secret: addData.app_secret
@@ -219,6 +230,78 @@ function SystemAppSmsSettingHwsmsBox(props) {
                         />
                     </Grid>
                     <Grid item xs={10}>
+                        <TextField
+                            variant="outlined"
+                            label="接口URL"
+                            type="text"
+                            name="url"
+                            size="small"
+                            onChange={(e) => {
+                                setAddData({
+                                    ...addData,
+                                    url: e.target.value
+                                })
+                            }}
+                            value={addData.url}
+                            sx={{
+                                width: 1,
+                                paddingBottom: 2
+                            }}
+                            required
+                            disabled={addData.loading}
+                            error={!!addError.url}
+                            helperText={addError.url}
+                        />
+                    </Grid>
+                    <Grid item xs={10}>
+                        <TextField
+                            variant="outlined"
+                            label="回调KEY,为空不校验"
+                            type="text"
+                            name="callback_key"
+                            size="small"
+                            onChange={(e) => {
+                                setAddData({
+                                    ...addData,
+                                    callback_key: e.target.value
+                                })
+                            }}
+                            value={addData.callback_key}
+                            sx={{
+                                width: 1,
+                                paddingBottom: 2
+                            }}
+                            required
+                            disabled={addData.loading}
+                            error={!!addError.callback_key}
+                            helperText={addError.callback_key}
+                        />
+                    </Grid>
+                    <Grid item xs={10}>
+                        <TextField
+                            variant="outlined"
+                            label="单次发送量"
+                            type="number"
+                            name="limit"
+                            size="small"
+                            onChange={(e) => {
+                                setAddData({
+                                    ...addData,
+                                    limit: e.target.value
+                                })
+                            }}
+                            value={addData.limit}
+                            sx={{
+                                width: 1,
+                                paddingBottom: 2
+                            }}
+                            required
+                            disabled={addData.loading}
+                            error={!!addError.limit}
+                            helperText={addError.limit}
+                        />
+                    </Grid>
+                    <Grid item xs={10}>
                         <LoadingButton sx={{
                             width: 1,
                         }} variant="contained" type="submit" loading={addData.loading} disabled={addData.loading} >{rowData ? "修改" : "添加"}</LoadingButton>
@@ -259,6 +342,21 @@ export default function SystemAppSmsSettingHwsmsPage(props) {
             field: 'app_secret',
             style: { width: 120 },
             label: 'app secret',
+        },
+        {
+            field: 'url',
+            style: { width: 120 },
+            label: '接口地址',
+        },
+        {
+            field: 'callback_url',
+            style: { width: 120 },
+            label: '回调地址',
+        },
+        {
+            field: 'limit',
+            style: { width: 100 },
+            label: '单次发送量',
         },
         {
 
@@ -470,8 +568,7 @@ export default function SystemAppSmsSettingHwsmsPage(props) {
 export function AppSmsTplConfigHwShowDetail(row) {
     return <Box>
         <Box>{`华为云短信端口:${row.setting_name}`}</Box>
-        <Box>{`模板:${row.config_data?.template_id} 签名:${row.config_data?.signature} 通道:${row.config_data?.sender}`}</Box>
-        <Box>{`接入点:${row.config_data?.url}`}</Box>
+        <Box>{`模板:${row.config_data?.template_id}  签名:${row.config_data?.signature} 通道:${row.config_data?.sender}`}</Box>
         {row.config_data?.template_map ? <Box>{`key映射:${row.config_data?.template_map}`}</Box> : null}
     </Box>;
 }
@@ -484,7 +581,7 @@ export function AppSmsTplConfigHwAddBox(props) {
     });
     const [configData, setConfigData] = useState({
         hw_config_id: '',
-        url: '',
+
         name: '',
         sms_tpl: '',
         signature: '',
@@ -495,7 +592,7 @@ export function AppSmsTplConfigHwAddBox(props) {
     });
     const [addError, setAddError] = useState({
         hw_config_id: '',
-        url: '',
+
         name: '',
         sms_tpl: '',
         signature: '',
@@ -537,7 +634,7 @@ export function AppSmsTplConfigHwAddBox(props) {
         smsAddAppHwConfig({
             user_id: userId,
             app_id: appId,
-            url: configData.url,
+
             name: configData.name,
             hw_config_id: configData.hw_config_id,
             tpl_id: configData.sms_tpl,
@@ -561,7 +658,7 @@ export function AppSmsTplConfigHwAddBox(props) {
                 setConfigData({
                     ...configData,
                     sms_tpl: '',
-                    url: '',
+
                     signature: '',
                     sender: '',
                     template_id: '',
@@ -623,31 +720,6 @@ export function AppSmsTplConfigHwAddBox(props) {
             error={!!addError.name}
             helperText={addError.name}
         />
-
-        <TextField
-            variant="outlined"
-            label="接入点"
-            type="text"
-            name="name"
-            size="small"
-            onChange={(e) => {
-                setConfigData({
-                    ...configData,
-                    url: e.target.value
-                })
-
-            }}
-            value={configData.url}
-            sx={{
-                width: 1,
-                paddingBottom: 2
-            }}
-            required
-            disabled={configData.loading}
-            error={!!addError.url}
-            helperText={addError.url}
-        />
-
 
         <TextField
             variant="outlined"

@@ -13,7 +13,7 @@
 
 #### 具体发送实例参考:
 
-> [短信发送流程](./src/dao/smser/README.MD)
+> [短信发送流程](./src/dao/sender_smser/README.MD)
 
 #### 公共发送流程:
 
@@ -54,3 +54,71 @@ flowchart TB
 run-task-num[$task_id]=1//发送中任务计数
 run-task[$task_id]={time:'任务开始',host:'任务所在主机'}//发送中记录数据
 ```
+
+
+
+
+
+//@TODO 接口层批量发送问题
+msg ->1:1-> task -> 执行容器
+
+
+
+消息记录表 排除指定任务ID方式获取任务列表
+
+SMS -> 读取任务[] -> 执行任务[]
+
+
+
+
+获取任务记录,标记任务 ->执行容器->完成->删除任务标记
+
+$端口组 = [
+	端口A:[
+		MGS 多个TO 1000
+	]
+	端口B:[
+		MGS 多个TO 10
+	]
+]
+ $POLL=[];
+ let err=None;
+
+ loop{
+	 main':
+	if $端口组.is_empty(){
+		return 错误
+	}
+	for $端口组{
+		for ${
+			1. 获取数量,查询待发送结果,加ID入进行中,加入发送$POLL
+		}
+	]
+	lable':
+	SELECT($POLL){
+		'DD':ok{
+			//成功,更新状态
+			//失败[完成],退出-->return 
+			//失败[继续],into_iter().c..`移除$端口组内数据`
+			//移除ID进行中
+			//写入日志
+			if !$端口组.is_empty(){
+				if 检测数据库记录,未发送完成{
+					回到 loop main' 继续添加	
+				}
+			}else{
+				err=Some(失败[继续])
+			}
+			continue 'lable
+		}
+		finish{
+			break
+		}
+	}	
+}
+if err.is_some(){
+	//未完成,有错误,
+}
+
+
+

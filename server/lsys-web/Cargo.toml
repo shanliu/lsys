@@ -6,19 +6,29 @@ edition = "2021"
 
 
 [dependencies]
-area-db = { version = "~0.1.1", default-features = false, features = [
+area-db = { version = "~0.1.2", default-features = false, features = [
     "data-csv",
     "index-disk",
 ] }
-lsys-core = {  path = "../lsys-core" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-rbac = {  path = "../lsys-rbac" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-user = {  path = "../lsys-user" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-app = {  path = "../lsys-app" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-sender = { path = "../lsys-sender" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+
+lsys-core = { path = "../lsys-core" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-rbac = { path = "../lsys-rbac" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-user = { path = "../lsys-user" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-app = { path = "../lsys-app" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-sender = { path = "../lsys-sender", features = [
+    "sms-aliyun",
+    "sms-jdcloud",
+    "sms-huawei",
+    "sms-jdcloud",
+    "sms-netease",
+    "sms-tencent",
+    "sms-cloopen",
+] } #path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-setting = { path = "../lsys-setting" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-logger = { path = "../lsys-logger" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-docs = {  path = "../lsys-docs" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
-pin-project = "1.1.*"
+lsys-docs = { path = "../lsys-docs" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-notify = { path = "../lsys-notify" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+
 futures-util = "0.3.*"
 serde = { version = "1.0.*" }
 serde_json = "1.0.*"
@@ -30,10 +40,8 @@ redis = { version = "~0.23" }
 
 
 form_urlencoded = "~1.2.0"
-jsonwebtoken = "8.1.1"
 
 
-lexical-core = "0.8.5"
 pin-project-lite = "0.2.9"
 #db
 sqlx = { version = "~0.6.3", features = [
@@ -44,25 +52,17 @@ sqlx = { version = "~0.6.3", features = [
 sqlx-model = { version = "0.2.0", default-features = false, features = [
     "sqlx-mysql",
 ] }
-simple_asn1 = "0.6.2"
-html-escape = "~0.2.*"
+# simple_asn1 = "0.6.2"
+# html-escape = "~0.2.*"
 
 #客户端
 reqwest = { version = "~0.11.*", features = ["json", "stream"] }
-async-stream = "0.3.3"
-log = "0.4.17"                                                   # 使用trace中宏 这里可以不要
+
+log = "0.4.17"           # 使用trace中宏 这里可以不要
 serde_urlencoded = "0.7"
 
 #日志
-tracing = { version = "0.1.*", features = [
-    "log",
-] } # log-always 保持log的输出 当使用tracing时会出现两次
-
-tracing-futures = { version = "~0.2.*", features = ["futures-03"] }
-tracing-attributes = "0.1.22"                                          #日志属性宏
-tracing-appender = "0.2.2"                                             #写日志文件
-tracing-serde = "0.1.3"                                                #可序列化变量赋值
-tracing-subscriber = { version = "0.3.11", features = ["env-filter"] }
+tracing = { version = "0.1.*" } # log-always 保持log的输出 当使用tracing时会出现两次
 
 #模板
 tera = "1.17.0"
@@ -88,9 +88,6 @@ mime = "0.3.16"
 #tracing-log="*"
 
 
-nanoid = "0.4.0"
-
-
 ip2location = "~0.4.0"
 
 captcha = "0.0.9"
@@ -108,9 +105,6 @@ lettre = { version = "0.10.1", features = [
     "tokio1-native-tls",
     "builder",
 ] }
-
-# sms send
-sms = "0.1.8"
 
 
 regex = "~1.8.0"

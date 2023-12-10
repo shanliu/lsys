@@ -14,7 +14,7 @@ import { Progress } from '../library/loading';
 import { docsMdReads, docsMenu } from '../rest/docs';
 import { useSearchChange } from '../utils/hook';
 import Toc from "react-toc2";
-
+import { Code } from "../library/md_code";
 //填充菜单中ID
 function generateId(node, pids, menu) {
     if (!node) return {};
@@ -105,9 +105,6 @@ function needChangePath(path) {
 //替换文件路径,图片
 function docFileSrc(id, file) {
     let api_host = config.serverURL;
-    if (window.location.protocol == 'https:') {
-        api_host = config.serverSslURL;
-    }
     let url = `${api_host}/api/docs/raw/${id}/${file}`;
     return url;
 }
@@ -425,6 +422,9 @@ export default function DocPage() {
                                     style={{ padding: 24 }}
                                     wrapperElement={{
                                         "data-color-mode": "light"
+                                    }}
+                                    components={{
+                                        code: Code
                                     }}
                                     rehypeRewrite={docData.menu_id > 0 ? (node, index, parent) => {
                                         switch (node.tagName) {

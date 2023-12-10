@@ -1,8 +1,10 @@
 use crate::{
     dao::RequestDao,
-    handler::access::{AccessAdminAliSmsConfig, AccessAppSenderSmsConfig},
+    handler::access::{AccessAdminSmsConfig, AccessAppSenderSmsConfig},
     {JsonData, JsonResult},
 };
+use lsys_sender::dao::AliYunConfig;
+use lsys_setting::dao::SettingData;
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -17,11 +19,15 @@ pub struct SmserAliConfigListParam {
 pub struct ShowAliYunConfig {
     pub id: u64,
     pub name: String,
+    pub region: String,
     pub access_id: String,
     pub hide_access_id: String,
     pub access_secret: String,
     pub change_user_id: u64,
     pub change_time: u64,
+    pub limit: u16,
+    pub callback_url: String,
+    pub callback_key: String,
 }
 
 pub async fn smser_ali_config_list<
@@ -31,9 +37,10 @@ pub async fn smser_ali_config_list<
     S: UserSession<T, D>,
 >(
     param: SmserAliConfigListParam,
+    callback_call: impl Fn(&SettingData<AliYunConfig>) -> String,
     req_dao: &RequestDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let alisender = &req_dao.web_dao.sender_smser.aliyun_sender();
+    let alisender = &req_dao.web_dao.sender_smser.aliyun_sender;
     let row = alisender.list_config(&param.ids).await?;
     let out = if param.full_data.unwrap_or(false) {
         let req_auth = req_dao.user_session.read().await.get_session_data().await?;
@@ -43,7 +50,7 @@ pub async fn smser_ali_config_list<
             .rbac_dao
             .rbac
             .check(
-                &AccessAdminAliSmsConfig {
+                &AccessAdminSmsConfig {
                     user_id: req_auth.user_data().user_id,
                 },
                 None,
@@ -55,10 +62,14 @@ pub async fn smser_ali_config_list<
                 id: e.model().id,
                 name: e.model().name.to_owned(),
                 access_id: e.access_id.to_owned(),
+                region: e.region.to_owned(),
                 hide_access_id: e.hide_access_id(),
                 access_secret: e.access_secret.to_owned(),
                 change_user_id: e.model().change_user_id,
                 change_time: e.model().change_time,
+                limit: e.branch_limit,
+                callback_url: callback_call(&e),
+                callback_key: e.callback_key.to_owned(),
             })
             .collect::<Vec<_>>();
         json!({ "data": tmp })
@@ -83,6 +94,9 @@ pub struct SmserAliConfigAddParam {
     pub name: String,
     pub access_id: String,
     pub access_secret: String,
+    pub region: String,
+    pub callback_key: String,
+    pub limit: Option<u16>,
 }
 
 pub async fn smser_ali_config_add<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
@@ -96,18 +110,21 @@ pub async fn smser_ali_config_add<'t, T: SessionTokenData, D: SessionData, S: Us
         .rbac_dao
         .rbac
         .check(
-            &AccessAdminAliSmsConfig {
+            &AccessAdminSmsConfig {
                 user_id: req_auth.user_data().user_id,
             },
             None,
         )
         .await?;
-    let alisender = &req_dao.web_dao.sender_smser.aliyun_sender();
+    let alisender = &req_dao.web_dao.sender_smser.aliyun_sender;
     let row = alisender
         .add_config(
             &param.name,
             &param.access_id,
             &param.access_secret,
+            &param.region,
+            &param.callback_key,
+            &param.limit.unwrap_or_default(),
             &req_auth.user_data().user_id,
             Some(&req_dao.req_env),
         )
@@ -121,6 +138,9 @@ pub struct SmserAliConfigEditParam {
     pub name: String,
     pub access_id: String,
     pub access_secret: String,
+    pub region: String,
+    pub callback_key: String,
+    pub limit: Option<u16>,
 }
 
 pub async fn smser_ali_config_edit<
@@ -139,19 +159,22 @@ pub async fn smser_ali_config_edit<
         .rbac_dao
         .rbac
         .check(
-            &AccessAdminAliSmsConfig {
+            &AccessAdminSmsConfig {
                 user_id: req_auth.user_data().user_id,
             },
             None,
         )
         .await?;
-    let alisender = &req_dao.web_dao.sender_smser.aliyun_sender();
+    let alisender = &req_dao.web_dao.sender_smser.aliyun_sender;
     let row = alisender
         .edit_config(
             &param.id,
             &param.name,
             &param.access_id,
             &param.access_secret,
+            &param.region,
+            &param.callback_key,
+            &param.limit.unwrap_or_default(),
             &req_auth.user_data().user_id,
             Some(&req_dao.req_env),
         )
@@ -175,13 +198,13 @@ pub async fn smser_ali_config_del<'t, T: SessionTokenData, D: SessionData, S: Us
         .rbac_dao
         .rbac
         .check(
-            &AccessAdminAliSmsConfig {
+            &AccessAdminSmsConfig {
                 user_id: req_auth.user_data().user_id,
             },
             None,
         )
         .await?;
-    let alisender = &req_dao.web_dao.sender_smser.aliyun_sender();
+    let alisender = &req_dao.web_dao.sender_smser.aliyun_sender;
     let row = alisender
         .del_config(
             &param.id,
@@ -203,7 +226,12 @@ pub struct SmserAppAliConfigAddParam {
     pub aliyun_sign_name: String,
 }
 
-pub async fn smser_config_add_ali<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
+pub async fn smser_ali_app_config_add<
+    't,
+    T: SessionTokenData,
+    D: SessionData,
+    S: UserSession<T, D>,
+>(
     param: SmserAppAliConfigAddParam,
     req_dao: &RequestDao<T, D, S>,
 ) -> JsonResult<JsonData> {
@@ -225,7 +253,7 @@ pub async fn smser_config_add_ali<'t, T: SessionTokenData, D: SessionData, S: Us
         )
         .await?;
 
-    let alisender = &req_dao.web_dao.sender_smser.aliyun_sender();
+    let alisender = &req_dao.web_dao.sender_smser.aliyun_sender;
     let row = alisender
         .add_app_config(
             &param.name,

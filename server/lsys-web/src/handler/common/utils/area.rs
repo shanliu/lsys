@@ -9,8 +9,7 @@ pub struct AreaCodeParam {
 }
 
 pub fn area_list(param: AreaCodeParam, web_dao: &WebDao) -> JsonResult<JsonData> {
-    let data = web_dao
-        .area
+    let data = get_area!(web_dao.area)
         .code_childs(&param.code)?
         .into_iter()
         .map(|e| {
@@ -25,8 +24,7 @@ pub fn area_list(param: AreaCodeParam, web_dao: &WebDao) -> JsonResult<JsonData>
 }
 
 pub fn area_detail(param: AreaCodeParam, web_dao: &WebDao) -> JsonResult<JsonData> {
-    let data = web_dao
-        .area
+    let data = get_area!(web_dao.area)
         .code_related(&param.code)?
         .into_iter()
         .map(|e| {
@@ -51,8 +49,7 @@ pub struct AreaSearchParam {
 }
 
 pub fn area_search(param: AreaSearchParam, web_dao: &WebDao) -> JsonResult<JsonData> {
-    let data = web_dao
-        .area
+    let data = get_area!(web_dao.area)
         .code_search(&param.key_word, 10)?
         .into_iter()
         .map(|e| {

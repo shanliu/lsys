@@ -6,7 +6,7 @@ use crate::dao::WebDao;
 
 use crate::handler::access::AccessSubAppRbacCheck;
 use crate::handler::common::rbac::{
-    rbac_access_check, rbac_menu_check, RbacAccessParam, RbacMenuParam, RelationParam,
+    rbac_menu_check, RbacAccessParam, RbacMenuParam, RelationParam,
 };
 use crate::{JsonData, JsonResult};
 use serde_json::json;
@@ -79,7 +79,7 @@ pub async fn subapp_rbac_check(
 #[derive(Debug, Deserialize)]
 pub struct MenuParam {
     pub user_id: u64,
-    pub menu: RbacMenuParam,
+    pub check_res: Vec<RbacAccessParam>,
 }
 
 pub async fn subapp_rbac_menu_check(
@@ -98,30 +98,37 @@ pub async fn subapp_rbac_menu_check(
             None,
         )
         .await?;
-    rbac_menu_check(param.user_id, param.menu, &app_dao.user.rbac_dao).await
+    rbac_menu_check(
+        param.user_id,
+        RbacMenuParam {
+            check_res: param.check_res,
+        },
+        &app_dao.user.rbac_dao,
+    )
+    .await
 }
 
-#[derive(Debug, Deserialize)]
-pub struct AccessParam {
-    pub user_id: u64,
-    pub access: RbacAccessParam,
-}
+// #[derive(Debug, Deserialize)]
+// pub struct AccessParam {
+//     pub user_id: u64,
+//     pub access: RbacAccessParam,
+// }
 
-pub async fn subapp_rbac_access_check(
-    app_dao: &WebDao,
-    app: &AppsModel,
-    param: AccessParam,
-) -> JsonResult<JsonData> {
-    app_dao
-        .user
-        .rbac_dao
-        .rbac
-        .check(
-            &AccessSubAppRbacCheck {
-                app: app.to_owned(),
-            },
-            None,
-        )
-        .await?;
-    rbac_access_check(param.user_id, param.access, &app_dao.user.rbac_dao).await
-}
+// pub async fn subapp_rbac_access_check(
+//     app_dao: &WebDao,
+//     app: &AppsModel,
+//     param: AccessParam,
+// ) -> JsonResult<JsonData> {
+//     app_dao
+//         .user
+//         .rbac_dao
+//         .rbac
+//         .check(
+//             &AccessSubAppRbacCheck {
+//                 app: app.to_owned(),
+//             },
+//             None,
+//         )
+//         .await?;
+//     rbac_access_check(param.user_id, param.access, &app_dao.user.rbac_dao).await
+// }

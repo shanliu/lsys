@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use reqwest::{Method, StatusCode, Url};
 use serde::Deserialize;
 use tracing::{debug, warn};
@@ -89,7 +91,10 @@ impl WeChatLib {
         let mut http_url = Url::parse(http_url).map_err(|e| e.to_string())?;
         http_url.query_pairs_mut().extend_pairs(params.into_iter());
         let client = reqwest::Client::builder();
-        let client = client.build().map_err(|e| e.to_string())?;
+        let client = client
+            .timeout(Duration::from_secs(60))
+            .build()
+            .map_err(|e| e.to_string())?;
         let request = client.request(Method::GET, http_url.to_owned());
         debug!("wechat oauth url: {}", http_url.as_str(),);
         let result = request.send().await.map_err(|e| e.to_string())?;

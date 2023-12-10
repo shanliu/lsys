@@ -31,12 +31,20 @@ function SystemAppSmsSettingTensmsBox(props) {
         name: rowData ? rowData.name : '',
         secret_id: rowData ? rowData.secret_id : '',
         secret_key: rowData ? rowData.secret_key : '',
+        region: rowData ? rowData.region : '',
+        sms_app_id: rowData ? rowData.sms_app_id : '',
+        callback_key: rowData ? rowData.callback_key : '',
+        limit: rowData ? rowData.limit : 100,
         loading: false,
     });
     const [addError, setAddError] = useState({
         name: '',
         secret_id: '',
         secret_key: '',
+        sms_app_id: '',
+        region: '',
+        callback_key: '',
+        limit: '',
     });
 
     let onSubmit = () => {
@@ -49,7 +57,11 @@ function SystemAppSmsSettingTensmsBox(props) {
                 id: rowData.id,
                 name: addData.name,
                 secret_id: addData.secret_id,
-                secret_key: addData.secret_key
+                secret_key: addData.secret_key,
+                sms_app_id: addData.sms_app_id,
+                region: addData.region,
+                callback_key: addData.callback_key,
+                limit:parseInt( addData.limit),
             }).then((data) => {
                 if (!data.status) {
                     toast(data.message)
@@ -66,6 +78,10 @@ function SystemAppSmsSettingTensmsBox(props) {
                         name: '',
                         secret_id: '',
                         secret_key: '',
+                        callback_key: '',
+                        sms_app_id: '',
+                        region: '',
+                        limit: '100',
                     })
                     setAddData({
                         ...addData,
@@ -78,7 +94,11 @@ function SystemAppSmsSettingTensmsBox(props) {
             smsAddTenConfig({
                 name: addData.name,
                 secret_id: addData.secret_id,
-                secret_key: addData.secret_key
+                secret_key: addData.secret_key,
+                sms_app_id: addData.sms_app_id,
+                region: addData.region,
+                callback_key: addData.callback_key,
+                limit:parseInt( addData.limit),
             }).then((data) => {
                 if (!data.status) {
                     toast(data.message)
@@ -93,13 +113,19 @@ function SystemAppSmsSettingTensmsBox(props) {
                 } else {
                     setAddError({
                         name: '',
-                        
+                        callback_key: '',
+                        region: '',
+                        limit: '100',
+                        sms_app_id: '',
                         secret_id: '',
                         secret_key: '',
                     })
                     setAddData({
                         name: '',
-                      
+                        callback_key: '',
+                        region: '',
+                        sms_app_id: '',
+                        limit: '100',
                         secret_id: '',
                         secret_key: '',
                         loading: false
@@ -167,7 +193,7 @@ function SystemAppSmsSettingTensmsBox(props) {
                             helperText={addError.name}
                         />
                     </Grid>
-                
+
                     <Grid item xs={10}>
                         <TextField
                             variant="outlined"
@@ -217,6 +243,103 @@ function SystemAppSmsSettingTensmsBox(props) {
                         />
                     </Grid>
                     <Grid item xs={10}>
+                        <TextField
+                            variant="outlined"
+                            label="短信应用ID"
+                            type="text"
+                            name="sms_app_id"
+                            size="small"
+                            onChange={(e) => {
+                                setAddData({
+                                    ...addData,
+                                    sms_app_id: e.target.value
+                                })
+                            }}
+                            value={addData.sms_app_id}
+                            sx={{
+                                width: 1,
+                                paddingBottom: 2
+                            }}
+                            required
+                            disabled={addData.loading}
+                            error={!!addError.sms_app_id}
+                            helperText={addError.sms_app_id}
+                        />
+                    </Grid>
+
+                    <Grid item xs={10}>
+                        <TextField
+                            variant="outlined"
+                            label="区域"
+                            type="text"
+                            name="region"
+                            size="small"
+                            onChange={(e) => {
+                                setAddData({
+                                    ...addData,
+                                    region: e.target.value
+                                })
+                            }}
+                            value={addData.region}
+                            sx={{
+                                width: 1,
+                                paddingBottom: 2
+                            }}
+                            required
+                            disabled={addData.loading}
+                            error={!!addError.region}
+                            helperText={addError.region}
+                        />
+                    </Grid>
+                    <Grid item xs={10}>
+                        <TextField
+                            variant="outlined"
+                            label="回调KEY,为空不校验"
+                            type="text"
+                            name="callback_key"
+                            size="small"
+                            onChange={(e) => {
+                                setAddData({
+                                    ...addData,
+                                    callback_key: e.target.value
+                                })
+                            }}
+                            value={addData.callback_key}
+                            sx={{
+                                width: 1,
+                                paddingBottom: 2
+                            }}
+                            required
+                            disabled={addData.loading}
+                            error={!!addError.callback_key}
+                            helperText={addError.callback_key}
+                        />
+                    </Grid>
+                    <Grid item xs={10}>
+                        <TextField
+                            variant="outlined"
+                            label="单次发送量"
+                            type="number"
+                            name="limit"
+                            size="small"
+                            onChange={(e) => {
+                                setAddData({
+                                    ...addData,
+                                    limit: e.target.value
+                                })
+                            }}
+                            value={addData.limit}
+                            sx={{
+                                width: 1,
+                                paddingBottom: 2
+                            }}
+                            required
+                            disabled={addData.loading}
+                            error={!!addError.limit}
+                            helperText={addError.limit}
+                        />
+                    </Grid>
+                    <Grid item xs={10}>
                         <LoadingButton sx={{
                             width: 1,
                         }} variant="contained" type="submit" loading={addData.loading} disabled={addData.loading} >{rowData ? "修改" : "添加"}</LoadingButton>
@@ -257,6 +380,27 @@ export default function SystemAppSmsSettingTensmsPage(props) {
             field: 'secret_key',
             style: { width: 120 },
             label: 'secret key',
+        },
+        {
+            field: 'region',
+            style: { width: 120 },
+            label: '区域',
+        },
+        {
+            field: 'sms_app_id',
+            style: { width: 120 },
+            label: '短信应用ID',
+        },
+
+        {
+            field: 'callback_url',
+            style: { width: 120 },
+            label: '回调地址',
+        },
+        {
+            field: 'limit',
+            style: { width: 100 },
+            label: '单次发送量',
         },
         {
 
@@ -468,7 +612,7 @@ export default function SystemAppSmsSettingTensmsPage(props) {
 export function AppSmsTplConfigTenShowDetail(row) {
     return <Box>
         <Box>{`腾讯云短信端口:${row.setting_name}`}</Box>
-        <Box>{`模板:${row.config_data?.template_id} 签名:${row.config_data?.sign_name} 应用id:${row.config_data?.sms_app_id} 区域:${row.config_data?.region}`}</Box>
+        <Box>{`模板:${row.config_data?.template_id} 签名:${row.config_data?.sign_name} `}</Box>
         {row.config_data?.template_map ? <Box>{`key映射:${row.config_data?.template_map}`}</Box> : null}
     </Box>;
 }
@@ -482,10 +626,9 @@ export function AppSmsTplConfigTenAddBox(props) {
     const [configData, setConfigData] = useState({
         config_id: '',
         name: '',
-        tpl_id:'',
+        tpl_id: '',
         sign_name: '',
-        sms_app_id: '',
-        region: '',
+
         template_id: '',
         template_map: '',
         loading: false,
@@ -493,10 +636,9 @@ export function AppSmsTplConfigTenAddBox(props) {
     const [addError, setAddError] = useState({
         config_id: '',
         name: '',
-        tpl_id:'',
+        tpl_id: '',
         sign_name: '',
-        sms_app_id: '',
-        region: '',
+
         template_id: '',
         template_map: '',
     });
@@ -538,8 +680,6 @@ export function AppSmsTplConfigTenAddBox(props) {
             tpl_id: configData.tpl_id,
             config_id: configData.config_id,
             sign_name: configData.sign_name,
-            sms_app_id: configData.sms_app_id,
-            region: configData.region,
             template_id: configData.template_id,
             template_map: configData.template_map,
 
@@ -559,10 +699,9 @@ export function AppSmsTplConfigTenAddBox(props) {
                     ...configData,
                     tpl_id: '',
                     sign_name: '',
-                    sms_app_id: '',
-                    region: '',
+
                     template_id: '',
-                    template_map:'',
+                    template_map: '',
                     loading: false,
                 })
                 onAdd(data.id)
@@ -661,47 +800,6 @@ export function AppSmsTplConfigTenAddBox(props) {
             required
             error={!!addError.sign_name}
             helperText={addError.sign_name}
-        />
-        <TextField
-            variant="outlined"
-            label={`接入区域`}
-            type="text"
-            size="small"
-            onChange={(e) => {
-                setConfigData({
-                    ...configData,
-                    region: e.target.value
-                })
-            }}
-            value={configData.region ?? ''}
-            sx={{
-                width: 1,
-                paddingBottom: 2
-            }}
-            required
-            error={!!addError.region}
-            helperText={addError.region}
-        />
-
-        <TextField
-            variant="outlined"
-            label={`腾讯云短信应用ID`}
-            type="text"
-            size="small"
-            onChange={(e) => {
-                setConfigData({
-                    ...configData,
-                    sms_app_id: e.target.value
-                })
-            }}
-            value={configData.sms_app_id ?? ''}
-            sx={{
-                width: 1,
-                paddingBottom: 2
-            }}
-            required
-            error={!!addError.sms_app_id}
-            helperText={addError.sms_app_id}
         />
 
         <TextField

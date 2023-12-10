@@ -88,7 +88,7 @@ export function AppMailMessage(props) {
             style: { width: 280 },
             label: '发送详细',
             render: (row) => {
-                let num_txt = "还未开始";
+                let num_txt = "发送中";
                 if (row.try_num > 0) {
                     if (row.status == 1) {
                         num_txt = "已失败" + row.try_num + "次";
@@ -96,17 +96,30 @@ export function AppMailMessage(props) {
                         num_txt = "发送" + row.try_num + "次";
                     }
                 }
-                let stime = "发送于:" + showTime(row.send_time, "未知");
+
+                let stime = "发送时间:" + showTime(row.send_time, "未知")
                 if (row.status == 3) {
-                    stime = "失败于:" + showTime(row.send_time, "未知")
+                    stime = "发送失败,不重试"
                 } else if (row.status == 1) {
-                    stime = "预计于:" + showTime(row.expected_time, "未知")
+                    if (row.on_task) {
+                        stime = "发送中"
+                    } else if (row.now_send) {
+                        stime = "准备发送"
+                    } else {
+                        on_task
+                        stime = "发送时间:" + showTime(row.send_time, "未知")
+                    }
                 } else if (row.status == 4) {
                     stime = "取消发送"
+                } else if (row.status == 5) {
+                    stime = "已接收,时间:" + showTime(row.expected_time, "未知")
                 }
+
                 return <ItemTooltip title={num_txt} placement="top">
-                    < span > {stime}</span >
-                </ItemTooltip >
+                    <span onClick={() => {
+                        setChangeBox({ show: 1, data: row })
+                    }}> {stime}</span>
+                </ItemTooltip>
             }
         },
         {

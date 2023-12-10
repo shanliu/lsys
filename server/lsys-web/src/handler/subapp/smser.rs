@@ -4,13 +4,14 @@ use crate::{dao::WebDao, handler::access::AccessAppSenderDoSms, JsonData, JsonRe
 use lsys_app::model::AppsModel;
 use lsys_core::{str_time, RequestEnv};
 use serde::Deserialize;
+use serde_json::{json, Value};
 
 #[derive(Debug, Deserialize)]
 pub struct SmsSendParam {
+    pub area: Option<String>,
     pub mobile: Vec<String>,
     pub tpl: String,
     pub data: HashMap<String, String>,
-    pub cancel: Option<String>,
     pub send_time: Option<String>,
 }
 pub async fn sms_send(
@@ -41,26 +42,37 @@ pub async fn sms_send(
         None
     };
     // 字符串转时间对象
-
-    app_dao
+    let mobile = param.mobile.iter().map(|e| e.as_str()).collect::<Vec<_>>();
+    let data = app_dao
         .sender_smser
         .app_send(
             app,
             &param.tpl,
-            &param.mobile,
+            param.area.as_deref().unwrap_or("86"),
+            &mobile,
             &param.data,
             &send_time,
-            &param.cancel,
             &None,
             env_data,
         )
         .await?;
-    Ok(JsonData::default())
+    let detail = data
+        .into_iter()
+        .map(|e| {
+            json!({
+                "id":e.0.to_string(),
+                "mobile":e.1,
+            })
+        })
+        .collect::<Vec<Value>>();
+    Ok(JsonData::data(json!(
+       { "detail":detail}
+    )))
 }
 
 #[derive(Debug, Deserialize)]
 pub struct SmsCancelParam {
-    pub cancel: String,
+    pub id_data: Vec<String>,
 }
 pub async fn sms_cancel(
     app_dao: &WebDao,
@@ -79,9 +91,24 @@ pub async fn sms_cancel(
             None,
         )
         .await?;
-    app_dao
+    let mut ids = Vec::with_capacity(param.id_data.len());
+    for e in param.id_data {
+        ids.push(e.parse::<u64>().map_err(JsonData::message)?);
+    }
+    let data = app_dao
         .sender_smser
-        .app_send_cancel(app, &param.cancel, env_data)
+        .app_send_cancel(app, &ids, env_data)
         .await?;
-    Ok(JsonData::default())
+    let detail = data
+        .into_iter()
+        .map(|e| {
+            json!({
+                "id":e.0.to_string(),
+                "sending":e.1,
+            })
+        })
+        .collect::<Vec<Value>>();
+    Ok(JsonData::data(json!(
+       { "detail":detail}
+    )))
 }

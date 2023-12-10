@@ -1,11 +1,13 @@
 use std::collections::HashMap;
 
+use super::{tpl_config_del, tpl_config_list, MessageView, TplConfigDelParam, TplConfigListParam};
 use crate::{
     dao::RequestDao,
     handler::access::{AccessAppSenderDoMail, AccessAppSenderMailConfig, AccessAppSenderMailMsg},
     LimitParam, PageParam, {JsonData, JsonResult},
 };
-use lsys_core::{rand_str, str_time, RandType};
+use lsys_core::now_time;
+use lsys_core::str_time;
 use lsys_sender::{
     dao::SenderError,
     model::{SenderConfigStatus, SenderMailConfigType, SenderMailMessageStatus},
@@ -13,8 +15,6 @@ use lsys_sender::{
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
 use serde::Deserialize;
 use serde_json::{json, Value};
-
-use super::{tpl_config_del, tpl_config_list, MessageView, TplConfigDelParam, TplConfigListParam};
 
 #[derive(Debug, Deserialize)]
 pub struct MailerMessageLogParam {
@@ -28,11 +28,19 @@ pub async fn mailer_message_log<'t, T: SessionTokenData, D: SessionData, S: User
     req_dao: &RequestDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     let message_id = param.message_id.parse::<u64>().map_err(JsonData::message)?;
-    let data = req_dao
+    let msg = req_dao
         .web_dao
         .sender_mailer
-        .mail_record()
+        .mailer
+        .mail_record
         .find_message_by_id(&message_id)
+        .await?;
+    let body = req_dao
+        .web_dao
+        .sender_mailer
+        .mailer
+        .mail_record
+        .find_body_by_id(&msg.sender_body_id)
         .await?;
     let req_auth = req_dao.user_session.read().await.get_session_data().await?;
 
@@ -44,8 +52,8 @@ pub async fn mailer_message_log<'t, T: SessionTokenData, D: SessionData, S: User
         .check(
             &AccessAppSenderMailMsg {
                 user_id: req_auth.user_data().user_id,
-                res_user_id: data.user_id,
-                app_id: Some(data.app_id),
+                res_user_id: body.user_id,
+                app_id: Some(body.app_id),
             },
             None,
         )
@@ -54,7 +62,8 @@ pub async fn mailer_message_log<'t, T: SessionTokenData, D: SessionData, S: User
     let res = req_dao
         .web_dao
         .sender_mailer
-        .mail_record()
+        .mailer
+        .mail_record
         .message_log_list(&message_id, &Some(param.page.unwrap_or_default().into()))
         .await?;
     let count = if param.count_num.unwrap_or(false) {
@@ -62,7 +71,8 @@ pub async fn mailer_message_log<'t, T: SessionTokenData, D: SessionData, S: User
             req_dao
                 .web_dao
                 .sender_mailer
-                .mail_record()
+                .mailer
+                .mail_record
                 .message_log_count(&message_id)
                 .await?,
         )
@@ -82,11 +92,19 @@ pub async fn mailer_message_body<'t, T: SessionTokenData, D: SessionData, S: Use
     req_dao: &RequestDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     let message_id = param.message_id.parse::<u64>().map_err(JsonData::message)?;
-    let data = req_dao
+    let msg = req_dao
         .web_dao
         .sender_mailer
-        .mail_record()
+        .mailer
+        .mail_record
         .find_message_by_id(&message_id)
+        .await?;
+    let body = req_dao
+        .web_dao
+        .sender_mailer
+        .mailer
+        .mail_record
+        .find_body_by_id(&msg.sender_body_id)
         .await?;
     let req_auth = req_dao.user_session.read().await.get_session_data().await?;
 
@@ -98,8 +116,8 @@ pub async fn mailer_message_body<'t, T: SessionTokenData, D: SessionData, S: Use
         .check(
             &AccessAppSenderMailMsg {
                 user_id: req_auth.user_data().user_id,
-                res_user_id: data.user_id,
-                app_id: Some(data.app_id),
+                res_user_id: body.user_id,
+                app_id: Some(body.app_id),
             },
             None,
         )
@@ -113,13 +131,13 @@ pub async fn mailer_message_body<'t, T: SessionTokenData, D: SessionData, S: Use
                 id: message_id,
             },
             &Some(message_id),
-            &Some(data.user_id),
+            &Some(body.user_id),
             &Some(req_auth.user_data().user_id),
             None,
             Some(&req_dao.req_env),
         )
         .await;
-    Ok(JsonData::data(json!({ "body": data.tpl_var})))
+    Ok(JsonData::data(json!({ "body": body.tpl_var})))
 }
 
 #[derive(Debug, Deserialize)]
@@ -128,6 +146,7 @@ pub struct MailerMessageListParam {
     pub app_id: Option<u64>,
     pub tpl_id: Option<String>,
     pub status: Option<i8>,
+    pub body_id: Option<u64>,
     pub to_mail: Option<String>,
     pub count_num: Option<bool>,
     pub limit: Option<LimitParam>,
@@ -160,11 +179,13 @@ pub async fn mailer_message_list<'t, T: SessionTokenData, D: SessionData, S: Use
     let res = req_dao
         .web_dao
         .sender_mailer
-        .mail_record()
+        .mailer
+        .mail_record
         .message_list(
             &param.user_id,
             &param.app_id,
             &param.tpl_id,
+            &param.body_id,
             &status,
             &param.to_mail,
             &Some(param.limit.unwrap_or_default().into()),
@@ -175,11 +196,13 @@ pub async fn mailer_message_list<'t, T: SessionTokenData, D: SessionData, S: Use
             req_dao
                 .web_dao
                 .sender_mailer
-                .mail_record()
+                .mailer
+                .mail_record
                 .message_count(
                     &param.user_id,
                     &param.app_id,
                     &param.tpl_id,
+                    &param.body_id,
                     &status,
                     &param.to_mail,
                 )
@@ -188,22 +211,35 @@ pub async fn mailer_message_list<'t, T: SessionTokenData, D: SessionData, S: Use
     } else {
         None
     };
+    let ntime = now_time().unwrap_or_default();
     let next = res.1;
-    let res = res
-        .0
+    let res_data = req_dao
+        .web_dao
+        .sender_mailer
+        .mailer
+        .task_is_run(res.0.iter().map(|t| (&t.0.id, t)).collect::<Vec<_>>())
+        .await?;
+    let res = res_data
         .into_iter()
-        .map(|e| {
+        .map(|(e, s)| {
+            let now_send = SenderMailMessageStatus::Init.eq(e.0.status)
+                && e.1
+                    .as_ref()
+                    .map(|t| t.expected_time <= ntime)
+                    .unwrap_or(true);
             json!({
-                "id":e.id,
-                "app_id":e.app_id,
-                "to_mail":e.to_mail,
-                "tpl_id":e.tpl_id,
-                "try_num":e.try_num,
-                "max_try_num":e.max_try_num,
-                "add_time":e.add_time,
-                "status":e.status,
-                "expected_time":e.expected_time,
-                "send_time":e.send_time
+                "id":e.0.id,
+                "app_id":e.1.as_ref().map(|t|t.app_id),
+                "tpl_id":e.1.as_ref().map(|t|t.tpl_id.to_owned()),
+                "max_try_num":e.1.as_ref().map(|t|t.max_try_num),
+                "add_time":e.1.as_ref().map(|t|t.add_time),
+                "expected_time":e.1.as_ref().map(|t|t.expected_time),
+                "to_mail":e.0.to_mail,
+                "try_num":e.0.try_num,
+                "status":e.0.status,
+                "now_send":now_send,
+                "on_task":s.is_some(),
+                "send_time":e.0.send_time
             })
         })
         .collect::<Vec<_>>();
@@ -227,11 +263,19 @@ pub async fn mailer_message_cancel<
     req_dao: &RequestDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     let message_id = param.message_id.parse::<u64>().map_err(JsonData::message)?;
-    let data = req_dao
+    let msg = req_dao
         .web_dao
         .sender_mailer
-        .mail_record()
+        .mailer
+        .mail_record
         .find_message_by_id(&message_id)
+        .await?;
+    let body = req_dao
+        .web_dao
+        .sender_mailer
+        .mailer
+        .mail_record
+        .find_body_by_id(&msg.sender_body_id)
         .await?;
     let req_auth = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
@@ -242,19 +286,28 @@ pub async fn mailer_message_cancel<
         .check(
             &AccessAppSenderMailMsg {
                 user_id: req_auth.user_data().user_id,
-                res_user_id: data.user_id,
-                app_id: Some(data.app_id),
+                res_user_id: body.user_id,
+                app_id: Some(body.app_id),
             },
             None,
         )
         .await?;
-
-    req_dao
+    let status = req_dao
         .web_dao
         .sender_mailer
-        .send_cancel(&data, req_auth.user_data().user_id, Some(&req_dao.req_env))
-        .await?;
-    Ok(JsonData::default())
+        .send_cancel(
+            &body,
+            &[&msg],
+            req_auth.user_data().user_id,
+            Some(&req_dao.req_env),
+        )
+        .await?
+        .first()
+        .map(|e| e.1)
+        .unwrap_or(true);
+    Ok(JsonData::data(json!({
+        "sending":status
+    })))
 }
 
 #[derive(Debug, Deserialize)]
@@ -291,7 +344,8 @@ pub async fn mailer_config_add<'t, T: SessionTokenData, D: SessionData, S: UserS
     let id = req_dao
         .web_dao
         .sender_mailer
-        .mail_record()
+        .mailer
+        .mail_record
         .config_add(
             Some(param.app_id),
             param.priority,
@@ -314,7 +368,7 @@ pub async fn mailer_config_del<'t, T: SessionTokenData, D: SessionData, S: UserS
     req_dao: &RequestDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-    let mail_record = req_dao.web_dao.sender_mailer.mail_record();
+    let mail_record = &req_dao.web_dao.sender_mailer.mailer.mail_record;
     let res = mail_record.find_config_by_id(&param.config_id).await;
 
     match res {
@@ -387,7 +441,8 @@ pub async fn mailer_config_list<'t, T: SessionTokenData, D: SessionData, S: User
     let data = req_dao
         .web_dao
         .sender_mailer
-        .mail_record()
+        .mailer
+        .mail_record
         .config_list(param.user_id, param.id, param.app_id)
         .await?;
     let data = data
@@ -425,7 +480,12 @@ pub async fn mailer_tpl_config_list<
     param: TplConfigListParam,
     req_dao: &RequestDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    tpl_config_list(param, req_dao.web_dao.sender_mailer.tpl_config(), req_dao).await
+    tpl_config_list(
+        param,
+        &req_dao.web_dao.sender_mailer.mailer.tpl_config,
+        req_dao,
+    )
+    .await
 }
 
 pub async fn mailer_tpl_config_del<
@@ -437,7 +497,12 @@ pub async fn mailer_tpl_config_del<
     param: TplConfigDelParam,
     req_dao: &RequestDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    tpl_config_del(param, req_dao.web_dao.sender_mailer.tpl_config(), req_dao).await
+    tpl_config_del(
+        param,
+        &req_dao.web_dao.sender_mailer.mailer.tpl_config,
+        req_dao,
+    )
+    .await
 }
 
 #[derive(Debug, Deserialize)]
@@ -458,7 +523,8 @@ pub async fn mailer_message_send<'t, T: SessionTokenData, D: SessionData, S: Use
     let tpl = req_dao
         .web_dao
         .sender_mailer
-        .tpl_config()
+        .mailer
+        .tpl_config
         .find_by_id(&param.tpl_id)
         .await?;
     let app = req_dao
@@ -487,6 +553,7 @@ pub async fn mailer_message_send<'t, T: SessionTokenData, D: SessionData, S: Use
     } else {
         None
     };
+    let to = param.to.iter().map(|e| e.as_str()).collect::<Vec<_>>();
     // 字符串转时间对象
     req_dao
         .web_dao
@@ -494,11 +561,10 @@ pub async fn mailer_message_send<'t, T: SessionTokenData, D: SessionData, S: Use
         .app_send(
             &app,
             &tpl.tpl_id,
-            &param.to,
+            &to,
             &param.data,
             &send_time,
             &param.reply,
-            &Some(rand_str(RandType::UpperHex, 12)),
             Some(&req_dao.req_env),
         )
         .await?;

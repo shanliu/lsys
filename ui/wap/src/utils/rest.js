@@ -39,9 +39,6 @@ function errorHandler(error) {
 
 export function globalRest(path) {
     let api_host = config.serverURL;
-    if (window.location.protocol == 'https:') {
-        api_host = config.serverSslURL;
-    }
     let ax = axios.create({
         baseURL: api_host + path,
         timeout: timeout,

@@ -260,7 +260,7 @@ export async function roleDeleteUser(params, config) {
 }
 
 
-//关系角色数据
+//指定关系角色数据
 export async function roleRelationData(params, config) {
   let {
     user_id,

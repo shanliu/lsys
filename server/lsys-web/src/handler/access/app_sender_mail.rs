@@ -8,11 +8,11 @@ use crate::handler::access::AccessAdminManage;
 
 use super::RelationApp;
 
-pub struct AccessAdminSmtpConfig {
+pub struct AccessAdminMailConfig {
     pub user_id: u64,
 }
 #[async_trait::async_trait]
-impl RbacCheck for AccessAdminSmtpConfig {
+impl RbacCheck for AccessAdminMailConfig {
     async fn check<'t>(
         &self,
         access: &'t RbacAccess,
@@ -36,7 +36,7 @@ impl RbacCheck for AccessAdminSmtpConfig {
         })]
     }
 }
-impl RbacResTpl for AccessAdminSmtpConfig {
+impl RbacResTpl for AccessAdminMailConfig {
     fn tpl_data() -> Vec<ResTpl> {
         vec![ResTpl {
             tags: vec!["app", "mail"],

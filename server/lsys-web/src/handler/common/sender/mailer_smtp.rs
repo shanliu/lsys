@@ -1,6 +1,6 @@
 use crate::{
     dao::RequestDao,
-    handler::access::{AccessAdminSmtpConfig, AccessAppSenderMailConfig},
+    handler::access::{AccessAdminMailConfig, AccessAppSenderMailConfig},
     {JsonData, JsonResult},
 };
 use lsys_sender::dao::SmtpConfig;
@@ -41,7 +41,7 @@ pub async fn mailer_smtp_config_list<
     param: MailerSmtpConfigListParam,
     req_dao: &RequestDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let smtp_sender = &req_dao.web_dao.sender_mailer.smtp_sender();
+    let smtp_sender = &req_dao.web_dao.sender_mailer.smtp_sender;
     let row = smtp_sender.list_config(&param.ids).await?;
 
     let out = if param.full_data.unwrap_or(false) {
@@ -52,7 +52,7 @@ pub async fn mailer_smtp_config_list<
             .rbac_dao
             .rbac
             .check(
-                &AccessAdminSmtpConfig {
+                &AccessAdminMailConfig {
                     user_id: req_auth.user_data().user_id,
                 },
                 None,
@@ -108,6 +108,7 @@ pub struct MailerSmtpConfigAddParam {
     pub user: String,
     pub password: String,
     pub tls_domain: String,
+    pub branch_limit: Option<u16>,
 }
 
 pub async fn mailer_smtp_config_add<
@@ -126,13 +127,13 @@ pub async fn mailer_smtp_config_add<
         .rbac_dao
         .rbac
         .check(
-            &AccessAdminSmtpConfig {
+            &AccessAdminMailConfig {
                 user_id: req_auth.user_data().user_id,
             },
             None,
         )
         .await?;
-    let smtp_sender = &req_dao.web_dao.sender_mailer.smtp_sender();
+    let smtp_sender = &req_dao.web_dao.sender_mailer.smtp_sender;
     let row = smtp_sender
         .add_config(
             &param.name,
@@ -148,6 +149,10 @@ pub async fn mailer_smtp_config_add<
                 user: param.user,
                 password: param.password,
                 tls_domain: param.tls_domain,
+                branch_limit: param
+                    .branch_limit
+                    .map(|e| if e == 0 { 1 } else { e })
+                    .unwrap_or(1),
             },
             &req_auth.user_data().user_id,
             Some(&req_dao.req_env),
@@ -165,6 +170,7 @@ pub struct MailerSmtpConfigCheckParam {
     pub user: String,
     pub password: String,
     pub tls_domain: String,
+    pub branch_limit: Option<u16>,
 }
 
 pub async fn mailer_smtp_config_check<
@@ -183,13 +189,13 @@ pub async fn mailer_smtp_config_check<
         .rbac_dao
         .rbac
         .check(
-            &AccessAdminSmtpConfig {
+            &AccessAdminMailConfig {
                 user_id: req_auth.user_data().user_id,
             },
             None,
         )
         .await?;
-    let smtp_sender = &req_dao.web_dao.sender_mailer.smtp_sender();
+    let smtp_sender = &req_dao.web_dao.sender_mailer.smtp_sender;
     smtp_sender
         .check_config(&SmtpConfig {
             host: param.host,
@@ -203,6 +209,10 @@ pub async fn mailer_smtp_config_check<
             user: param.user,
             password: param.password,
             tls_domain: param.tls_domain,
+            branch_limit: param
+                .branch_limit
+                .map(|e| if e == 0 { 1 } else { e })
+                .unwrap_or(1),
         })
         .await?;
     Ok(JsonData::data(json!({ "status": "ok" })))
@@ -219,6 +229,7 @@ pub struct MailerSmtpConfigEditParam {
     pub user: String,
     pub password: String,
     pub tls_domain: String,
+    pub branch_limit: u16,
 }
 
 pub async fn mailer_smtp_config_edit<
@@ -237,13 +248,13 @@ pub async fn mailer_smtp_config_edit<
         .rbac_dao
         .rbac
         .check(
-            &AccessAdminSmtpConfig {
+            &AccessAdminMailConfig {
                 user_id: req_auth.user_data().user_id,
             },
             None,
         )
         .await?;
-    let smtp_sender = &req_dao.web_dao.sender_mailer.smtp_sender();
+    let smtp_sender = &req_dao.web_dao.sender_mailer.smtp_sender;
     let row = smtp_sender
         .edit_config(
             &param.id,
@@ -260,6 +271,7 @@ pub async fn mailer_smtp_config_edit<
                 user: param.user,
                 password: param.password,
                 tls_domain: param.tls_domain,
+                branch_limit: param.branch_limit,
             },
             &req_auth.user_data().user_id,
             Some(&req_dao.req_env),
@@ -289,13 +301,13 @@ pub async fn mailer_smtp_config_del<
         .rbac_dao
         .rbac
         .check(
-            &AccessAdminSmtpConfig {
+            &AccessAdminMailConfig {
                 user_id: req_auth.user_data().user_id,
             },
             None,
         )
         .await?;
-    let smtp_sender = &req_dao.web_dao.sender_mailer.smtp_sender();
+    let smtp_sender = &req_dao.web_dao.sender_mailer.smtp_sender;
     let row = smtp_sender
         .del_config(
             &param.id,
@@ -346,7 +358,7 @@ pub async fn mailer_app_smtp_config_add<
         )
         .await?;
 
-    let smtp_sender = &req_dao.web_dao.sender_mailer.smtp_sender();
+    let smtp_sender = &req_dao.web_dao.sender_mailer.smtp_sender;
     let row = smtp_sender
         .add_app_config(
             &param.name,

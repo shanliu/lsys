@@ -3,6 +3,7 @@ use deadpool_redis::PoolError;
 use lsys_core::ValidCodeError;
 use lsys_docs::dao::GitDocError;
 use lsys_logger::dao::LoggerError;
+use lsys_notify::dao::NotifyError;
 use lsys_rbac::dao::rbac::UserRbacError;
 use lsys_sender::dao::SenderError;
 use lsys_setting::dao::SettingError;
@@ -213,6 +214,7 @@ impl From<ValidCodeError> for JsonData {
             .set_message(err.to_string())
     }
 }
+
 impl From<SenderError> for JsonData {
     fn from(err: SenderError) -> Self {
         match err {
@@ -288,6 +290,30 @@ impl From<SettingError> for JsonData {
     }
 }
 
+impl From<NotifyError> for JsonData {
+    fn from(err: NotifyError) -> Self {
+        match err {
+            NotifyError::Sqlx(err) => match err {
+                sqlx::Error::RowNotFound => JsonData::default()
+                    .set_code(200)
+                    .set_sub_code("not_found")
+                    .set_message(err.to_string()),
+                _ => JsonData::default()
+                    .set_code(500)
+                    .set_sub_code("system")
+                    .set_message(err.to_string()),
+            },
+            NotifyError::Redis(err) => JsonData::default()
+                .set_code(200)
+                .set_sub_code("system")
+                .set_message(err),
+            NotifyError::System(err) => JsonData::default()
+                .set_code(200)
+                .set_sub_code("system")
+                .set_message(err),
+        }
+    }
+}
 impl From<GitDocError> for JsonData {
     fn from(err: GitDocError) -> Self {
         match err {

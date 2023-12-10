@@ -1,0 +1,158 @@
+use actix_web::dev::Server;
+use actix_web::web::{Data, JsonConfig};
+use actix_web::{error, http, middleware as middlewares, App, HttpResponse, HttpServer};
+use common::handler::{JwtQueryConfig, RestQueryConfig};
+
+use handler::router_main;
+use jsonwebtoken::{DecodingKey, Validation};
+use lsys_core::{AppCore, AppCoreError};
+use lsys_web::dao::WebDao;
+use rustls::server::ServerConfig;
+use rustls::{Certificate, PrivateKey};
+use rustls_pemfile::{certs, read_one, Item};
+
+use std::fmt::{Display, Formatter};
+use std::sync::Arc;
+use std::{fs::File, io::BufReader};
+
+mod common;
+mod handler;
+
+#[derive(Debug)]
+pub enum AppError {
+    AppCore(AppCoreError),
+    Rustls(rustls::Error),
+}
+
+impl Display for AppError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+impl std::error::Error for AppError {}
+impl From<AppCoreError> for AppError {
+    fn from(err: AppCoreError) -> Self {
+        AppError::AppCore(err)
+    }
+}
+impl From<rustls::Error> for AppError {
+    fn from(err: rustls::Error) -> Self {
+        AppError::Rustls(err)
+    }
+}
+
+fn load_rustls_config(
+    app_dir: &str,
+    cert_path: &str,
+    key_path: &str,
+) -> Result<ServerConfig, AppError> {
+    // init server config builder with safe defaults
+    let config = ServerConfig::builder()
+        .with_safe_defaults()
+        .with_no_client_auth();
+
+    // load TLS key/cert files
+    //config_dir.to_owned() + "data/cert.pem"
+    let cert_path = if cert_path.strip_suffix('/').is_some() {
+        cert_path.to_string()
+    } else {
+        app_dir.to_string() + cert_path
+    };
+    let key_path = if key_path.strip_suffix('/').is_some() {
+        key_path.to_string()
+    } else {
+        app_dir.to_string() + key_path
+    };
+    let cert_file = &mut BufReader::new(File::open(cert_path).map_err(AppCoreError::Io)?);
+    //config_dir.to_owned() + "data/key.pem"
+    let key_file = &mut BufReader::new(File::open(key_path).map_err(AppCoreError::Io)?);
+
+    // convert files to key/cert objects
+    let cert_chain = certs(cert_file)
+        .map_err(AppCoreError::Io)?
+        .into_iter()
+        .map(Certificate)
+        .collect();
+    let key = match read_one(key_file).map_err(AppCoreError::Io)? {
+        Some(Item::PKCS8Key(key)) => key,
+        _ => {
+            return Err(AppError::AppCore(AppCoreError::System(
+                "only support pcks key".to_owned(),
+            )))
+        }
+    };
+    Ok(config.with_single_cert(cert_chain, PrivateKey(key))?)
+}
+
+pub async fn create_server(app_dir: &str, config_files: &[&str]) -> Result<Server, AppError> {
+    let app_core = Arc::new(AppCore::init(app_dir, config_files).await?);
+    app_core.init_tracing()?;
+    //console_subscriber::init();
+    let app_dao = Data::new(WebDao::new(app_core.clone()).await?);
+    let bind_addr = app_dao.bind_addr();
+    let bind_ssl_data = app_dao.bind_ssl_data();
+    let app_jwt_key = app_dao
+        .app_core
+        .config
+        .get_string("app_jwt_key")
+        .map_err(AppCoreError::Config)?;
+    // let app_rest_config = app_dao.app_core.config.get_table("app_rest").unwrap();
+    let mut server = HttpServer::new(move || {
+        let jwt_config = JwtQueryConfig::new(
+            DecodingKey::from_secret(app_jwt_key.as_bytes()),
+            Validation::default(),
+        );
+        let app_json_limit = app_dao
+            .app_core
+            .config
+            .get_int("app_json_limit")
+            .unwrap_or(4096);
+        let json_config = JsonConfig::default()
+            .limit(app_json_limit as usize)
+            .error_handler(|err, _req| {
+                error::InternalError::from_response(err, HttpResponse::Conflict().finish()).into()
+            });
+
+        let rest_config =
+            RestQueryConfig::default().app_key_fn(Box::new(move |app_key, app_data| {
+                // Box::pin(async move {
+                //     sleep(Duration::from_secs(1)).await;
+                //     if app_key == "app01" {
+                //         Ok("f4dea3417a2f52ae29a635be00537395".to_owned())
+                //     } else {
+                //         Err("key not find".to_owned())
+                //     }
+                // })
+                let apps = app_data.app.app_dao.app.clone();
+                Box::pin(async move { apps.innernal_client_id_get(&app_key).await })
+            }));
+
+        let app = App::new()
+            .wrap(middlewares::Logger::default())
+            .wrap(
+                middlewares::ErrorHandlers::new()
+                    .handler(http::StatusCode::INTERNAL_SERVER_ERROR, handler::render_500),
+            )
+            .wrap(common::middleware::LangSet::new(
+                app_dao.clone().into_inner(),
+            ))
+            .wrap(middlewares::DefaultHeaders::new().add(("Access-Control-Allow-Origin", "*")))
+            .wrap(common::middleware::RequestID::new(None))
+            .app_data(app_dao.clone())
+            .app_data(json_config)
+            .app_data(jwt_config)
+            .app_data(rest_config);
+        router_main(app, &app_dao)
+    });
+    server = server.bind(bind_addr).map_err(AppCoreError::Io)?;
+    if let Some((ssl_addr, cert_file, key_file)) = bind_ssl_data {
+        server = server
+            .bind_rustls(
+                ssl_addr,
+                load_rustls_config(app_dir, &cert_file, &key_file)?,
+            )
+            .map_err(AppCoreError::Io)?;
+    }
+    let s = server.run();
+    Ok(s)
+}

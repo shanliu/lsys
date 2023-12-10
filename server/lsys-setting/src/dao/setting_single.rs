@@ -126,23 +126,24 @@ impl SingleSetting {
             .await;
         Ok(did)
     }
-    pub async fn load<T: SettingDecode>(
-        &self,
-        user_id: &Option<u64>,
-    ) -> SettingResult<SettingData<T>> {
-        let key = T::key().to_string();
+    pub async fn find(&self, user_id: &Option<u64>, key: &str) -> SettingResult<SettingModel> {
         let uid = user_id.unwrap_or_default();
-        let model = Select::type_new::<SettingModel>()
+        Ok(Select::type_new::<SettingModel>()
             .fetch_one_by_where_call::<SettingModel, _, _>(
                 "setting_type=? and setting_key=? and user_id=? order by id desc",
                 |res, _| {
                     res.bind(SettingType::Single as i8)
-                        .bind(key.clone())
+                        .bind(key.to_string())
                         .bind(uid)
                 },
                 &self.db,
             )
-            .await?;
-        SettingData::try_from(model)
+            .await?)
+    }
+    pub async fn load<T: SettingDecode>(
+        &self,
+        user_id: &Option<u64>,
+    ) -> SettingResult<SettingData<T>> {
+        SettingData::try_from(self.find(user_id, T::key()).await?)
     }
 }

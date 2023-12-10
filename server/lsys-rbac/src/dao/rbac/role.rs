@@ -277,7 +277,7 @@ impl RbacRole {
         }
         Ok(())
     }
-    /// 非关系角色检查
+    /// 非 指定关系角色 检查
     fn not_relation_check(&self, user_range: RbacRoleUserRange) -> UserRbacResult<()> {
         if user_range == RbacRoleUserRange::Relation {
             return Err(UserRbacError::System(get_message!(
@@ -505,7 +505,7 @@ impl RbacRole {
         )
         .await
     }
-    //添加关系角色
+    //添加用户 指定关系角色
     #[allow(clippy::too_many_arguments)]
     pub async fn add_relation_role<'t>(
         &self,
@@ -927,7 +927,7 @@ impl RbacRole {
         )
         .await
     }
-    //根据关系key编辑关系角色
+    //根据关系key编辑指定关系角色
     #[allow(clippy::too_many_arguments)]
     pub async fn edit_relation_role<'t>(
         &self,
@@ -1412,7 +1412,7 @@ impl RbacRole {
             .await;
         Ok(res.rows_affected())
     }
-    //汇总指定角色的用户数量
+    //汇总指定关系角色的用户数量
     pub async fn role_group_users(
         &self,
         role_ids: &[u64],
@@ -1483,7 +1483,7 @@ impl RbacRole {
         }
         Ok(result)
     }
-    /// 获取指定用户的关系角色key
+    /// 获取指定用户的指定关系角色key
     pub async fn get_role_relation_data(
         &self,
         user_id: &u64,
@@ -1507,7 +1507,7 @@ impl RbacRole {
         let res = query.fetch_all(&self.db).await?;
         Ok(res)
     }
-    /// 获取指定用户的关系角色数量
+    /// 获取指定用户的指定关系角色数量
     pub async fn get_role_relation_count(
         &self,
         user_id: &u64,
@@ -2034,7 +2034,7 @@ impl RbacRole {
                 }
                 tmp.sort_by(|a, b| a.0.priority.cmp(&b.0.priority));
                 relation_data.push(RoleCheckRow::ModelRole {
-                    role: tmp.get(0).map(|e| e.to_owned()),
+                    role: tmp.first().map(|e| e.to_owned()),
                     res_op_id: res_op.id,
                 });
             }

@@ -1,9 +1,6 @@
 mod mailer;
 mod mailer_smtp;
 mod smser;
-mod smser_aliyun;
-mod smser_hwyun;
-mod smser_tenyun;
 mod tpl;
 mod tpl_config;
 use lsys_logger::dao::ChangeLogData;
@@ -11,11 +8,21 @@ pub use mailer::*;
 pub use mailer_smtp::*;
 use serde::Serialize;
 pub use smser::*;
-pub use smser_aliyun::*;
-pub use smser_hwyun::*;
-pub use smser_tenyun::*;
 pub use tpl::*;
 pub use tpl_config::*;
+
+mod smser_aliyun;
+mod smser_cloopen;
+mod smser_hwyun;
+mod smser_jdyun;
+mod smser_netease;
+mod smser_tenyun;
+pub use smser_aliyun::*;
+pub use smser_cloopen::*;
+pub use smser_hwyun::*;
+pub use smser_jdyun::*;
+pub use smser_netease::*;
+pub use smser_tenyun::*;
 
 #[derive(Serialize)]
 pub(crate) struct MessageView {

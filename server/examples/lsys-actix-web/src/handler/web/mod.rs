@@ -1,6 +1,6 @@
 mod captcha;
 pub(crate) mod index;
-use std::{path::PathBuf, str::FromStr, sync::Arc};
+use std::sync::Arc;
 
 use actix_service::ServiceFactory;
 use actix_web::{
@@ -20,30 +20,21 @@ where
         .config
         .get_string("ui_path")
         .unwrap_or_else(|_| "/ui".to_string());
-    if let Ok(ui_config) = app_dao.app_core.config.get_string("ui_dir") {
-        let mut ui_dir = PathBuf::from_str(&ui_config);
-        if let Ok(ref ui_buf) = ui_dir {
-            if !ui_buf.exists() && !ui_buf.is_absolute() {
-                let cargo_dir = env!("CARGO_MANIFEST_DIR");
-                ui_dir = PathBuf::from_str(&format!("{}/{}", cargo_dir, ui_config))
-            }
+    if let Ok(ui_config) = app_dao.app_core.get_config_path("ui_dir") {
+        if ui_config.exists() {
+            let ui_path_full = ui_path.trim_matches('/').to_string() + "/";
+            return app
+                .service(web::redirect(
+                    ui_path.trim_matches('/').to_string(),
+                    ui_path_full.to_owned(),
+                ))
+                .service(
+                    actix_files::Files::new(&ui_path_full, ui_config)
+                        .index_file("index.html")
+                        .show_files_listing(),
+                );
         }
-        if let Ok(ui_buf) = ui_dir {
-            if ui_buf.exists() {
-                let ui_path_full = ui_path.trim_matches('/').to_string() + "/";
-                return app
-                    .service(web::redirect(
-                        ui_path.trim_matches('/').to_string(),
-                        ui_path_full.to_owned(),
-                    ))
-                    .service(
-                        actix_files::Files::new(&ui_path_full, ui_buf)
-                            .index_file("index.html")
-                            .show_files_listing(),
-                    );
-            }
-        }
-        warn!("not find ui dir : {}", ui_config);
+        warn!("not find ui dir : {}", ui_config.display());
     } else {
         info!("not set ui dir");
     }
@@ -56,7 +47,8 @@ where
 {
     let mut app = app
         .service(scope("/captcha").service(captcha::captcha))
-        .service(actix_files::Files::new("/static", "./static").show_files_listing());
+       // .service(actix_files::Files::new("/static", "./static").show_files_listing())
+        ;
     if let Ok(tmp) = app_dao.app_core.config.get_string("ui_path") {
         if !tmp.is_empty() && tmp != *"./" && tmp != *"/" {
             app = app.service(index::index);

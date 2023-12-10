@@ -6,29 +6,33 @@ edition = "2021"
 
 
 [dependencies]
-lsys-core = { path = "../lsys-core"}
-lsys-user = {  path = "../lsys-user"}# OAUTH登录相关实现依赖
-lsys-logger = {  path = "../lsys-logger"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-core = { path = "../lsys-core" }
+lsys-user = { path = "../lsys-user" }     # OAUTH登录相关实现依赖
+lsys-logger = { path = "../lsys-logger" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
 
-serde={ version = "1.0.*"}
-serde_json="1.0.*"
+serde = { version = "1.0.*" }
+serde_json = "1.0.*"
 
 deadpool-redis = { version = "0.12" }
-redis = { version = "~0.23"  }
+redis = { version = "~0.23" }
 
 #db
-sqlx = {version = "~0.6.3",features = [ "mysql","runtime-tokio-native-tls","offline"]}
-sqlx-model = {version = "0.2.0", default-features=false,features = [ "sqlx-mysql"]}
+sqlx = { version = "~0.6.3", features = [
+    "mysql",
+    "runtime-tokio-native-tls",
+    "offline",
+] }
+sqlx-model = { version = "0.2.0", default-features = false, features = [
+    "sqlx-mysql",
+] }
 
 
 #日志
-tracing = {version="0.1.*",features=["log"]}# log-always 保持log的输出 当使用tracing时会出现两次
+tracing = { version = "0.1.*" } # log-always 保持log的输出 当使用tracing时会出现两次
 
 
-
-fluent-syntax="0.11.0"
+fluent-syntax = "0.11.0"
 fluent = "0.16.0"
-
 
 
 async-trait = "0.1.57"

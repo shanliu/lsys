@@ -38,12 +38,18 @@ function SystemAppSmsSettingAlismsBox(props) {
         name: rowData ? rowData.name : '',
         access_id: rowData ? rowData.access_id : '',
         access_secret: rowData ? rowData.access_secret : '',
+        region: rowData ? rowData.region : '',
+        callback_key: rowData ? rowData.callback_key : '',
+        limit: rowData ? rowData.limit : 50,
         loading: false,
     });
     const [addError, setAddError] = useState({
         name: '',
         access_id: '',
         access_secret: '',
+        region: '',
+        callback_key: '',
+        limit: '',
     });
 
     let onSubmit = () => {
@@ -56,7 +62,10 @@ function SystemAppSmsSettingAlismsBox(props) {
                 id: rowData.id,
                 name: addData.name,
                 access_id: addData.access_id,
-                access_secret: addData.access_secret
+                access_secret: addData.access_secret,
+                region: addData.region,
+                callback_key: addData.callback_key,
+                limit:parseInt( addData.limit),
             }).then((data) => {
                 if (!data.status) {
                     toast(data.message)
@@ -73,6 +82,9 @@ function SystemAppSmsSettingAlismsBox(props) {
                         name: '',
                         access_id: '',
                         access_secret: '',
+                        callback_key: '',
+                        region: '',
+                        limit: '1',
                     })
                     setAddData({
                         ...addData,
@@ -85,7 +97,10 @@ function SystemAppSmsSettingAlismsBox(props) {
             smsAddAliConfig({
                 name: addData.name,
                 access_id: addData.access_id,
-                access_secret: addData.access_secret
+                access_secret: addData.access_secret,
+                region: addData.region,
+                callback_key: addData.callback_key,
+                limit:parseInt( addData.limit),
             }).then((data) => {
                 if (!data.status) {
                     toast(data.message)
@@ -102,12 +117,18 @@ function SystemAppSmsSettingAlismsBox(props) {
                         name: '',
                         access_id: '',
                         access_secret: '',
+                        callback_key: '',
+                        region: '',
+                        limit: '1',
                     })
                     setAddData({
                         name: '',
                         access_id: '',
                         access_secret: '',
-                        loading: false
+                        loading: false,
+                        callback_key: '',
+                        region: '',
+                        limit: '1',
                     })
                     onFinish(data.id);
                 }
@@ -221,6 +242,78 @@ function SystemAppSmsSettingAlismsBox(props) {
                         />
                     </Grid>
                     <Grid item xs={10}>
+                        <TextField
+                            variant="outlined"
+                            label="区域"
+                            type="text"
+                            name="region"
+                            size="small"
+                            onChange={(e) => {
+                                setAddData({
+                                    ...addData,
+                                    region: e.target.value
+                                })
+                            }}
+                            value={addData.region}
+                            sx={{
+                                width: 1,
+                                paddingBottom: 2
+                            }}
+                            required
+                            disabled={addData.loading}
+                            error={!!addError.region}
+                            helperText={addError.region}
+                        />
+                    </Grid>
+                    <Grid item xs={10}>
+                        <TextField
+                            variant="outlined"
+                            label="回调KEY,为空不校验"
+                            type="text"
+                            name="callback_key"
+                            size="small"
+                            onChange={(e) => {
+                                setAddData({
+                                    ...addData,
+                                    callback_key: e.target.value
+                                })
+                            }}
+                            value={addData.callback_key}
+                            sx={{
+                                width: 1,
+                                paddingBottom: 2
+                            }}
+                            required
+                            disabled={addData.loading}
+                            error={!!addError.callback_key}
+                            helperText={addError.callback_key}
+                        />
+                    </Grid>
+                    <Grid item xs={10}>
+                        <TextField
+                            variant="outlined"
+                            label="单次发送量"
+                            type="number"
+                            name="limit"
+                            size="small"
+                            onChange={(e) => {
+                                setAddData({
+                                    ...addData,
+                                    limit: e.target.value
+                                })
+                            }}
+                            value={addData.limit}
+                            sx={{
+                                width: 1,
+                                paddingBottom: 2
+                            }}
+                            required
+                            disabled={addData.loading}
+                            error={!!addError.limit}
+                            helperText={addError.limit}
+                        />
+                    </Grid>
+                    <Grid item xs={10}>
                         <LoadingButton sx={{
                             width: 1,
                         }} variant="contained" type="submit" loading={addData.loading} disabled={addData.loading} >{rowData ? "修改" : "添加"}</LoadingButton>
@@ -260,6 +353,21 @@ export default function SystemAppSmsSettingAlismsPage(props) {
             field: 'access_secret',
             style: { width: 120 },
             label: 'access secret',
+        },
+        {
+            field: 'region',
+            style: { width: 120 },
+            label: '区域',
+        },
+        {
+            field: 'callback_url',
+            style: { width: 120 },
+            label: '回调地址',
+        },
+        {
+            field: 'limit',
+            style: { width: 100 },
+            label: '单次发送量',
         },
         {
 

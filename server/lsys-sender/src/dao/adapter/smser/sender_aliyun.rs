@@ -1,26 +1,38 @@
 use std::sync::Arc;
 
 use crate::{
-    dao::{SenderExecError, SenderResult, SenderTaskExecutor, SenderTplConfig, SmsTaskItem},
-    model::SenderTplConfigModel,
+    dao::{
+        adapter::smser::sms_result_to_task, create_sender_client, SenderError, SenderExecError,
+        SenderResult, SenderTaskExecutor, SenderTaskResult, SenderTplConfig, SmsSendNotifyParse,
+        SmsTaskData, SmsTaskItem,
+    },
+    model::{SenderSmsMessageModel, SenderTplConfigModel},
 };
 use async_trait::async_trait;
+use chrono::NaiveDateTime;
 use lsys_core::RequestEnv;
+use lsys_lib_sms::{AliSms, SendDetailItem, SendError, SendNotifyError};
 use lsys_setting::{
-    dao::{MultipleSetting, SettingData, SettingDecode, SettingEncode, SettingKey, SettingResult},
+    dao::{
+        MultipleSetting, SettingData, SettingDecode, SettingEncode, SettingError, SettingKey,
+        SettingResult,
+    },
     model::SettingModel,
 };
 use serde::{Deserialize, Serialize};
 
-use sms::aliyun::Aliyun;
+use lsys_lib_sms::SendNotifyItem;
+use serde_json::json;
 use tracing::debug;
-
 //aliyun 短信发送
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct AliYunConfig {
     pub access_id: String,
     pub access_secret: String,
+    pub region: String,
+    pub branch_limit: u16,
+    pub callback_key: String,
 }
 
 impl AliYunConfig {
@@ -52,22 +64,18 @@ impl AliYunConfig {
 
 impl SettingKey for AliYunConfig {
     fn key<'t>() -> &'t str {
-        "aliyun-sms-config"
+        "ali-sms-config"
     }
 }
 impl SettingDecode for AliYunConfig {
     fn decode(data: &str) -> SettingResult<Self> {
-        let mut out = data.split(',');
-        Ok(AliYunConfig {
-            access_id: out.next().unwrap_or_default().to_string(),
-            access_secret: out.next().unwrap_or_default().to_string(),
-        })
+        serde_json::from_str::<Self>(data).map_err(|e| SettingError::System(e.to_string()))
     }
 }
 
 impl SettingEncode for AliYunConfig {
     fn encode(&self) -> String {
-        format!("{},{}", self.access_id, self.access_secret)
+        json!(self).to_string()
     }
 }
 
@@ -114,15 +122,25 @@ impl SenderAliYunConfig {
             .await?)
     }
     //编辑指定的aliyun短信配置
+    #[allow(clippy::too_many_arguments)]
     pub async fn edit_config(
         &self,
         id: &u64,
         name: &str,
         access_id: &str,
         access_secret: &str,
+        region: &str,
+        callback_key: &str,
+        branch_limit: &u16,
         user_id: &u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
+        if *branch_limit > AliSms::branch_limit() {
+            return Err(SenderError::System(format!(
+                "limit max:{}",
+                AliSms::branch_limit()
+            )));
+        }
         Ok(self
             .setting
             .edit(
@@ -132,6 +150,9 @@ impl SenderAliYunConfig {
                 &AliYunConfig {
                     access_id: access_id.to_owned(),
                     access_secret: access_secret.to_owned(),
+                    region: region.to_owned(),
+                    branch_limit: *branch_limit,
+                    callback_key: callback_key.to_string(),
                 },
                 user_id,
                 None,
@@ -140,14 +161,24 @@ impl SenderAliYunConfig {
             .await?)
     }
     //添加aliyun短信配置
+    #[allow(clippy::too_many_arguments)]
     pub async fn add_config(
         &self,
         name: &str,
         access_id: &str,
         access_secret: &str,
+        region: &str,
+        callback_key: &str,
+        branch_limit: &u16,
         user_id: &u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
+        if *branch_limit > AliSms::branch_limit() {
+            return Err(SenderError::System(format!(
+                "limit max:{}",
+                AliSms::branch_limit()
+            )));
+        }
         Ok(self
             .setting
             .add(
@@ -156,6 +187,9 @@ impl SenderAliYunConfig {
                 &AliYunConfig {
                     access_id: access_id.to_owned(),
                     access_secret: access_secret.to_owned(),
+                    region: region.to_owned(),
+                    branch_limit: *branch_limit,
+                    callback_key: callback_key.to_string(),
                 },
                 user_id,
                 None,
@@ -203,56 +237,184 @@ impl SenderAliYunConfig {
 pub struct AliYunSenderTask {}
 
 #[async_trait]
-impl SenderTaskExecutor<u64, SmsTaskItem> for AliYunSenderTask {
+impl SenderTaskExecutor<u64, SmsTaskItem, SmsTaskData> for AliYunSenderTask {
     fn setting_key(&self) -> String {
         AliYunConfig::key().to_owned()
+    }
+    async fn limit(&self, setting: &SettingModel) -> u16 {
+        SettingData::<AliYunConfig>::try_from(setting.to_owned())
+            .map(|e| {
+                if e.branch_limit == 0 {
+                    AliSms::branch_limit()
+                } else {
+                    e.branch_limit
+                }
+            })
+            .unwrap_or(AliSms::branch_limit())
     }
     //执行短信发送
     async fn exec(
         &self,
         val: &SmsTaskItem,
+        sms_data: &SmsTaskData,
         tpl_config: &SenderTplConfigModel,
         setting: &SettingModel,
-    ) -> Result<String, SenderExecError> {
-        let ali_config =
-            serde_json::from_str::<AliYunTplConfig>(&tpl_config.config_data).map_err(|e| {
-                SenderExecError::Next(format!("parse config to aliyun tpl config fail:{}", e))
-            })?;
+    ) -> SenderTaskResult {
         let ali_setting =
             SettingData::<AliYunConfig>::try_from(setting.to_owned()).map_err(|e| {
                 SenderExecError::Next(format!("parse config to aliyun setting fail:{}", e))
             })?;
+        let ali_config =
+            serde_json::from_str::<AliYunTplConfig>(&tpl_config.config_data).map_err(|e| {
+                SenderExecError::Next(format!(
+                    "parse config to aliyun tpl config fail[{}]:{}",
+                    ali_setting.access_id, e
+                ))
+            })?;
         debug!(
-            "msgid:{}   mobie:{}  tpl_config_id:{} access_id:{} sign_name:{} tpl:{} var:{}",
+            "msgid:{}  tpl_config_id:{} access_id:{} sign_name:{} tpl:{} var:{}",
             val.sms.id,
-            val.sms.mobile,
             tpl_config.id,
             ali_setting.access_id,
             ali_config.aliyun_sign_name,
             ali_config.aliyun_sms_tpl,
             val.sms.tpl_var
         );
-        match Aliyun::new(&ali_setting.access_id, &ali_setting.access_secret)
-            .send_sms(
-                &val.sms.mobile,
-                &ali_config.aliyun_sign_name,
-                &ali_config.aliyun_sms_tpl,
-                &val.sms.tpl_var,
-            )
-            .await
+        let mobile = sms_data
+            .data
+            .iter()
+            .map(|e| e.mobile.as_str())
+            .collect::<Vec<_>>();
+
+        match AliSms::branch_send(
+            create_sender_client()?,
+            &ali_setting.region,
+            &ali_setting.access_id,
+            &ali_setting.access_secret,
+            &ali_config.aliyun_sign_name,
+            &ali_config.aliyun_sms_tpl,
+            &val.sms.tpl_var,
+            &mobile,
+            "",
+            &val.sms.user_ip,
+        )
+        .await
         {
-            Ok(resp) => {
-                debug!("aliyun sms resp :{:?}", resp);
-                if resp.get("Code").map(|e| e == "OK").unwrap_or(false) {
-                    Ok(ali_setting.access_id.to_string())
-                } else {
-                    Err(SenderExecError::Next(format!(
-                        "aliyun error:{:?} ",
-                        resp.get("Message")
-                    )))
-                }
-            }
-            Err(err) => Err(SenderExecError::Next(err.to_string())),
+            Ok(resp) => Ok({
+                let resp = resp
+                    .into_iter()
+                    .map(|mut e| {
+                        e.send_id = format!("{}{}", e.send_id, e.mobile);
+                        e
+                    })
+                    .collect::<Vec<_>>();
+                sms_result_to_task(&sms_data.data, &resp)
+            }),
+            Err(err) => Err(match err {
+                SendError::Next(e) => SenderExecError::Next(e),
+                SendError::Finish(e) => SenderExecError::Finish(e),
+            }),
         }
+    }
+}
+
+pub struct AliYunNotify<'t> {
+    callback_key: &'t str,
+    notify_data: &'t str,
+}
+
+impl<'t> AliYunNotify<'t> {
+    pub fn new(callback_key: &'t str, notify_data: &'t str) -> AliYunNotify<'t> {
+        Self {
+            callback_key,
+            notify_data,
+        }
+    }
+}
+
+impl<'t> SmsSendNotifyParse for AliYunNotify<'t> {
+    type T = AliYunConfig;
+    fn notify_items(
+        &self,
+        config: &SettingData<AliYunConfig>,
+    ) -> Result<Vec<SendNotifyItem>, SendNotifyError> {
+        if !config.callback_key.is_empty() && config.callback_key.as_str() != self.callback_key {
+            return Err(SendNotifyError::Sign(format!(
+                "callback key is match :{}",
+                self.callback_key
+            )));
+        }
+        AliSms::send_notify_parse(self.notify_data)
+    }
+    fn output(res: &Result<(), String>) -> (u16, String) {
+        (200, AliSms::send_notify_output(res))
+    }
+    fn parse_send_id(&self, items: &[SendNotifyItem]) -> Vec<String> {
+        items
+            .iter()
+            .map(|e| format!("{}{}", e.send_id, e.mobile.as_deref().unwrap_or_default()))
+            .collect::<Vec<_>>()
+    }
+    fn parse_data(
+        &self,
+        items: &[SendNotifyItem],
+        msg: Vec<SenderSmsMessageModel>,
+    ) -> Result<Vec<(Option<SenderSmsMessageModel>, SendNotifyItem)>, String> {
+        return Ok(items
+            .iter()
+            .map(|e| {
+                let tmp = msg
+                    .iter()
+                    .find(|t| match &e.mobile {
+                        Some(m) => t.res_data == format!("{}{}", e.send_id, m),
+                        None => false,
+                    })
+                    .map(|t| t.to_owned());
+                (tmp, e.to_owned())
+            })
+            .collect::<Vec<_>>());
+    }
+}
+
+#[derive(Default)]
+pub struct AliYunSendStatus {}
+#[async_trait]
+impl crate::dao::SmsStatusTaskExecutor for AliYunSendStatus {
+    fn setting_key(&self) -> String {
+        AliYunConfig::key().to_owned()
+    }
+    async fn exec(
+        &self,
+        msg: &SenderSmsMessageModel,
+        setting: &SettingModel,
+    ) -> Result<Vec<SendDetailItem>, SenderExecError> {
+        let ali_setting =
+            SettingData::<AliYunConfig>::try_from(setting.to_owned()).map_err(|e| {
+                SenderExecError::Next(format!("parse config to aliyun setting fail:{}", e))
+            })?;
+        let naive_date_time =
+            NaiveDateTime::from_timestamp_opt(msg.send_time as i64, 0).unwrap_or_default();
+
+        AliSms::send_detail(
+            create_sender_client()?,
+            &ali_setting.access_id,
+            &ali_setting.access_secret,
+            &msg.res_data,
+            &msg.mobile,
+            &naive_date_time.date().to_string(),
+        )
+        .await
+        .map(|e| {
+            e.into_iter()
+                .flat_map(|mut m| match m.mobile.as_ref() {
+                    Some(mm) => {
+                        m.send_id = format!("{}{}", m.send_id, mm);
+                        Some(m)
+                    }
+                    None => None,
+                })
+                .collect()
+        })
+        .map_err(SenderExecError::Next)
     }
 }

@@ -174,18 +174,20 @@ impl AppCore {
             .get_string("log_name")
             .unwrap_or_else(|_| String::from("std::out"));
         if !name.is_empty() {
-            let write = match name.as_str() {
+            match name.as_str() {
                 "std::out" => {
                     sub.with_writer(std::io::stdout)
                         .with_max_level(log_max_level)
                         .with_env_filter(log_level) //格式 模块:最大等级 mod:level
                         .try_init()
+                        .ok()
                 }
                 "std::err" => {
                     sub.with_writer(std::io::stderr)
                         .with_max_level(log_max_level)
                         .with_env_filter(log_level) //格式 模块:最大等级 mod:level
                         .try_init()
+                        .ok()
                 }
                 _ => {
                     let file_appender = tracing_appender::rolling::hourly(dir, name);
@@ -196,10 +198,11 @@ impl AppCore {
                         // 基于span过滤 target[span{field=value}]=level
                         .with_env_filter(log_level) //格式 模块:最大等级 mod:level
                         .try_init()
+                        .ok()
                 }
             };
-            write //只能有一个writer
-                .map_err(|e| AppCoreError::Log(e.to_string()))?;
+            // write //只能有一个writer
+            //     .map_err(|e| AppCoreError::Log(e.to_string()));
         }
 
         Ok(())
@@ -267,7 +270,7 @@ impl AppCore {
             .unwrap_or_default()
             .into_iter()
             .map(|e| e.into_string().unwrap_or_default())
-            .filter(|e| e.is_empty())
+            .filter(|e| !e.is_empty())
             .collect::<Vec<String>>();
         if tpl_exts.is_empty() {
             tpl_exts = vec!["txt", "html", "htm", "xml"]
@@ -351,5 +354,14 @@ impl AppCore {
             fluents: RwLock::new(fluents),
             fluent_def: RwLock::new(bundle),
         })
+    }
+    pub fn get_config_path(&self, config_key: &str) -> Result<PathBuf, AppCoreError> {
+        let path = self.config.get_string(config_key).map(PathBuf::from)?;
+        if path.is_absolute() {
+            return Ok(path);
+        }
+        let mut tmp = self.app_dir.clone();
+        tmp.push(path);
+        Ok(tmp)
     }
 }

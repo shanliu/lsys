@@ -5,9 +5,12 @@ use crate::{
     handler::access::{AccessAppSenderDoSms, AccessAppSenderSmsConfig, AccessAppSenderSmsMsg},
     LimitParam, PageParam, {JsonData, JsonResult},
 };
-use lsys_core::{rand_str, str_time, RandType};
+use log::warn;
+use lsys_app::{dao::app::AppDataWhere, model::AppStatus};
+use lsys_core::{now_time, str_time};
+use lsys_notify::dao::NotifyData;
 use lsys_sender::{
-    dao::SenderError,
+    dao::{NotifySmsItem, SenderError},
     model::{SenderConfigStatus, SenderSmsConfigType, SenderSmsMessageStatus},
 };
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
@@ -28,11 +31,19 @@ pub async fn smser_message_log<'t, T: SessionTokenData, D: SessionData, S: UserS
     req_dao: &RequestDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     let message_id = param.message_id.parse::<u64>().map_err(JsonData::message)?;
-    let data = req_dao
+    let msg = req_dao
         .web_dao
         .sender_smser
-        .sms_record()
+        .smser
+        .sms_record
         .find_message_by_id(&message_id)
+        .await?;
+    let body = req_dao
+        .web_dao
+        .sender_smser
+        .smser
+        .sms_record
+        .find_body_by_id(&msg.sender_body_id)
         .await?;
     let req_auth = req_dao.user_session.read().await.get_session_data().await?;
 
@@ -44,8 +55,8 @@ pub async fn smser_message_log<'t, T: SessionTokenData, D: SessionData, S: UserS
         .check(
             &AccessAppSenderSmsMsg {
                 user_id: req_auth.user_data().user_id,
-                res_user_id: data.user_id,
-                app_id: Some(data.app_id),
+                res_user_id: body.user_id,
+                app_id: Some(body.app_id),
             },
             None,
         )
@@ -54,7 +65,8 @@ pub async fn smser_message_log<'t, T: SessionTokenData, D: SessionData, S: UserS
     let res = req_dao
         .web_dao
         .sender_smser
-        .sms_record()
+        .smser
+        .sms_record
         .message_log_list(&message_id, &Some(param.page.unwrap_or_default().into()))
         .await?;
     let count = if param.count_num.unwrap_or(false) {
@@ -62,7 +74,8 @@ pub async fn smser_message_log<'t, T: SessionTokenData, D: SessionData, S: UserS
             req_dao
                 .web_dao
                 .sender_smser
-                .sms_record()
+                .smser
+                .sms_record
                 .message_log_count(&message_id)
                 .await?,
         )
@@ -82,11 +95,19 @@ pub async fn smser_message_body<'t, T: SessionTokenData, D: SessionData, S: User
     req_dao: &RequestDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     let message_id = param.message_id.parse::<u64>().map_err(JsonData::message)?;
-    let data = req_dao
+    let msg = req_dao
         .web_dao
         .sender_smser
-        .sms_record()
+        .smser
+        .sms_record
         .find_message_by_id(&message_id)
+        .await?;
+    let body = req_dao
+        .web_dao
+        .sender_smser
+        .smser
+        .sms_record
+        .find_body_by_id(&msg.sender_body_id)
         .await?;
     let req_auth = req_dao.user_session.read().await.get_session_data().await?;
 
@@ -98,8 +119,8 @@ pub async fn smser_message_body<'t, T: SessionTokenData, D: SessionData, S: User
         .check(
             &AccessAppSenderSmsMsg {
                 user_id: req_auth.user_data().user_id,
-                res_user_id: data.user_id,
-                app_id: Some(data.app_id),
+                res_user_id: body.user_id,
+                app_id: Some(body.app_id),
             },
             None,
         )
@@ -114,14 +135,14 @@ pub async fn smser_message_body<'t, T: SessionTokenData, D: SessionData, S: User
                 id: message_id,
             },
             &Some(message_id),
-            &Some(data.user_id),
+            &Some(body.user_id),
             &Some(req_auth.user_data().user_id),
             None,
             Some(&req_dao.req_env),
         )
         .await;
 
-    Ok(JsonData::data(json!({ "body": data.tpl_var})))
+    Ok(JsonData::data(json!({ "body": body.tpl_var})))
 }
 
 #[derive(Debug, Deserialize)]
@@ -129,6 +150,7 @@ pub struct SmserMessageListParam {
     pub user_id: Option<u64>,
     pub app_id: Option<u64>,
     pub tpl_id: Option<String>,
+    pub body_id: Option<u64>,
     pub status: Option<i8>,
     pub mobile: Option<String>,
     pub count_num: Option<bool>,
@@ -163,11 +185,13 @@ pub async fn smser_message_list<'t, T: SessionTokenData, D: SessionData, S: User
     let res = req_dao
         .web_dao
         .sender_smser
-        .sms_record()
+        .smser
+        .sms_record
         .message_list(
             &param.user_id,
             &param.app_id,
             &param.tpl_id,
+            &param.body_id,
             &status,
             &param.mobile,
             &Some(param.limit.unwrap_or_default().into()),
@@ -178,11 +202,13 @@ pub async fn smser_message_list<'t, T: SessionTokenData, D: SessionData, S: User
             req_dao
                 .web_dao
                 .sender_smser
-                .sms_record()
+                .smser
+                .sms_record
                 .message_count(
                     &param.user_id,
                     &param.app_id,
                     &param.tpl_id,
+                    &param.body_id,
                     &status,
                     &param.mobile,
                 )
@@ -191,22 +217,51 @@ pub async fn smser_message_list<'t, T: SessionTokenData, D: SessionData, S: User
     } else {
         None
     };
+
+    if let Err(err) = req_dao
+        .web_dao
+        .sender_smser
+        .smser
+        .add_status_query(
+            &res.0
+                .iter()
+                .flat_map(|(m, b)| if b.is_some() { Some(m) } else { None })
+                .collect::<Vec<_>>(),
+        )
+        .await
+    {
+        warn!("query status fail:{}", err);
+    }
+    let ntime = now_time().unwrap_or_default();
     let next = res.1;
-    let res = res
-        .0
+    let res_data = req_dao
+        .web_dao
+        .sender_smser
+        .smser
+        .task_is_run(res.0.iter().map(|t| (&t.0.id, t)).collect::<Vec<_>>())
+        .await?;
+    let res = res_data
         .into_iter()
-        .map(|e| {
+        .map(|(e, s)| {
+            let now_send = SenderSmsMessageStatus::Init.eq(e.0.status)
+                && e.1
+                    .as_ref()
+                    .map(|t| t.expected_time <= ntime)
+                    .unwrap_or(true);
+
             json!({
-                "id":e.id,
-                "app_id":e.app_id,
-                "mobile":format!("{}-{}",e.area,e.mobile),
-                "tpl_id":e.tpl_id,
-                "try_num":e.try_num,
-                "max_try_num":e.max_try_num,
-                "add_time":e.add_time,
-                "status":e.status,
-                "expected_time":e.expected_time,
-                "send_time":e.send_time
+                "id":e.0.id,
+                "app_id":e.1.as_ref().map(|t|t.app_id),
+                "mobile":format!("{}-{}",e.0.area,e.0.mobile),
+                "tpl_id":e.1.as_ref().map(|t|t.tpl_id.to_owned()),
+                "try_num":e.0.try_num,
+                "max_try_num":e.1.as_ref().map(|t|t.max_try_num),
+                "add_time":e.1.as_ref().map(|t|t.add_time),
+                "status":e.0.status,
+                "now_send":now_send,
+                "on_task":s.is_some(),
+                "expected_time":e.1.as_ref().map(|t|t.expected_time),
+               "send_time":e.0.send_time
             })
         })
         .collect::<Vec<_>>();
@@ -224,11 +279,19 @@ pub async fn smser_message_cancel<'t, T: SessionTokenData, D: SessionData, S: Us
     req_dao: &RequestDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     let message_id = param.message_id.parse::<u64>().map_err(JsonData::message)?;
-    let data = req_dao
+    let msg = req_dao
         .web_dao
         .sender_smser
-        .sms_record()
+        .smser
+        .sms_record
         .find_message_by_id(&message_id)
+        .await?;
+    let body = req_dao
+        .web_dao
+        .sender_smser
+        .smser
+        .sms_record
+        .find_body_by_id(&msg.sender_body_id)
         .await?;
     let req_auth = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
@@ -239,19 +302,28 @@ pub async fn smser_message_cancel<'t, T: SessionTokenData, D: SessionData, S: Us
         .check(
             &AccessAppSenderSmsMsg {
                 user_id: req_auth.user_data().user_id,
-                res_user_id: data.user_id,
-                app_id: Some(data.app_id),
+                res_user_id: body.user_id,
+                app_id: Some(body.app_id),
             },
             None,
         )
         .await?;
-
-    req_dao
+    let status = req_dao
         .web_dao
         .sender_smser
-        .send_cancel(&data, req_auth.user_data().user_id, Some(&req_dao.req_env))
-        .await?;
-    Ok(JsonData::default())
+        .send_cancel(
+            &body,
+            &[&msg],
+            req_auth.user_data().user_id,
+            Some(&req_dao.req_env),
+        )
+        .await?
+        .first()
+        .map(|e| e.1)
+        .unwrap_or(true);
+    Ok(JsonData::data(json!({
+        "sending":status
+    })))
 }
 
 #[derive(Debug, Deserialize)]
@@ -288,7 +360,8 @@ pub async fn smser_config_add<'t, T: SessionTokenData, D: SessionData, S: UserSe
     let id = req_dao
         .web_dao
         .sender_smser
-        .sms_record()
+        .smser
+        .sms_record
         .config_add(
             Some(param.app_id),
             param.priority,
@@ -311,7 +384,7 @@ pub async fn smser_config_del<'t, T: SessionTokenData, D: SessionData, S: UserSe
     req_dao: &RequestDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-    let sms_record = req_dao.web_dao.sender_smser.sms_record();
+    let sms_record = &req_dao.web_dao.sender_smser.smser.sms_record;
     let res = sms_record.find_config_by_id(&param.config_id).await;
 
     match res {
@@ -384,7 +457,8 @@ pub async fn smser_config_list<'t, T: SessionTokenData, D: SessionData, S: UserS
     let data = req_dao
         .web_dao
         .sender_smser
-        .sms_record()
+        .smser
+        .sms_record
         .config_list(param.user_id, param.id, param.app_id)
         .await?;
     let data = data
@@ -414,6 +488,129 @@ pub async fn smser_config_list<'t, T: SessionTokenData, D: SessionData, S: UserS
     Ok(JsonData::data(json!({ "data": data })))
 }
 
+pub async fn smser_notify_get_config<
+    't,
+    T: SessionTokenData,
+    D: SessionData,
+    S: UserSession<T, D>,
+>(
+    req_dao: &RequestDao<T, D, S>,
+) -> JsonResult<JsonData> {
+    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    req_dao
+        .web_dao
+        .user
+        .rbac_dao
+        .rbac
+        .check(
+            &AccessAppSenderSmsConfig {
+                user_id: req_auth.user_data().user_id,
+                res_user_id: req_auth.user_data().user_id,
+                app_id: 0,
+            },
+            None,
+        )
+        .await?;
+
+    let app_param = AppDataWhere {
+        user_id: &Some(req_auth.user_data().user_id),
+        status: &Some(vec![AppStatus::Ok]),
+        client_ids: &None,
+        app_ids: &None,
+    };
+    let apps = req_dao
+        .web_dao
+        .app
+        .app_dao
+        .app
+        .app_data(&app_param, &None)
+        .await?;
+
+    let notify = req_dao
+        .web_dao
+        .notify
+        .record
+        .find_config_by_apps(
+            &apps.iter().map(|e| e.id).collect::<Vec<_>>(),
+            &NotifySmsItem::method(),
+        )
+        .await?;
+    let data = apps
+        .into_iter()
+        .map(|e| {
+            let n = notify.iter().find(|t| t.app_id == e.id);
+            let url = n.map(|t| &t.call_url);
+            let change_time = n.map(|t| {
+                if t.change_time > 0 {
+                    t.change_time
+                } else {
+                    t.create_time
+                }
+            });
+            let change_user_id = n.map(|t| t.change_user_id);
+            json!({
+                "app_id":e.id,
+                "app_name":e.name,
+                 "call_url":url,
+                 "change_time":change_time,
+                 "change_user_id":change_user_id,
+            })
+        })
+        .collect::<Vec<_>>();
+    Ok(JsonData::data(json!({
+        "data":data,
+    })))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SmserNotifyConfigParam {
+    pub user_id: Option<u64>,
+    pub app_id: u64,
+    pub url: String,
+}
+
+pub async fn smser_notify_set_config<
+    't,
+    T: SessionTokenData,
+    D: SessionData,
+    S: UserSession<T, D>,
+>(
+    param: SmserNotifyConfigParam,
+    req_dao: &RequestDao<T, D, S>,
+) -> JsonResult<JsonData> {
+    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+
+    req_dao
+        .web_dao
+        .user
+        .rbac_dao
+        .rbac
+        .check(
+            &AccessAppSenderSmsConfig {
+                user_id: req_auth.user_data().user_id,
+                res_user_id: param.user_id.unwrap_or(req_auth.user_data().user_id),
+                app_id: param.app_id,
+            },
+            None,
+        )
+        .await?;
+
+    req_dao
+        .web_dao
+        .notify
+        .record
+        .set_app_config(
+            &param.app_id,
+            &NotifySmsItem::method(),
+            &param.url,
+            &req_auth.user_data().user_id,
+            Some(&req_dao.req_env),
+        )
+        .await?;
+
+    Ok(JsonData::default())
+}
+
 pub async fn smser_tpl_config_list<
     't,
     T: SessionTokenData,
@@ -423,19 +620,30 @@ pub async fn smser_tpl_config_list<
     param: TplConfigListParam,
     req_dao: &RequestDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    tpl_config_list(param, req_dao.web_dao.sender_smser.tpl_config(), req_dao).await
+    tpl_config_list(
+        param,
+        &req_dao.web_dao.sender_smser.smser.tpl_config,
+        req_dao,
+    )
+    .await
 }
 
 pub async fn smser_tpl_config_del<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: TplConfigDelParam,
     req_dao: &RequestDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    tpl_config_del(param, req_dao.web_dao.sender_smser.tpl_config(), req_dao).await
+    tpl_config_del(
+        param,
+        &req_dao.web_dao.sender_smser.smser.tpl_config,
+        req_dao,
+    )
+    .await
 }
 
 #[derive(Debug, Deserialize)]
 pub struct SmserMessageSendParam {
     pub tpl_id: u64,
+    pub area: Option<String>,
     pub mobile: Vec<String>,
     //body 对外统一格式{key:val}
     // 这里判断不同发送端进行统一转换匹配
@@ -452,7 +660,8 @@ pub async fn smser_message_send<'t, T: SessionTokenData, D: SessionData, S: User
     let tpl = req_dao
         .web_dao
         .sender_smser
-        .tpl_config()
+        .smser
+        .tpl_config
         .find_by_id(&param.tpl_id)
         .await?;
     let app = req_dao
@@ -481,17 +690,17 @@ pub async fn smser_message_send<'t, T: SessionTokenData, D: SessionData, S: User
     } else {
         None
     };
-
+    let mobile = param.mobile.iter().map(|e| e.as_str()).collect::<Vec<_>>();
     req_dao
         .web_dao
         .sender_smser
         .app_send(
             &app,
             &tpl.tpl_id,
-            &param.mobile,
+            param.area.as_deref().unwrap_or("86"),
+            &mobile,
             &param.data,
             &send_time,
-            &Some(rand_str(RandType::UpperHex, 12)),
             &None,
             Some(&req_dao.req_env),
         )

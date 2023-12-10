@@ -2,13 +2,14 @@ use std::{collections::HashMap, sync::Arc};
 
 use crate::{
     dao::{
-        SenderError, SenderExecError, SenderResult, SenderTaskExecutor, SenderTplConfig,
-        SmsTaskItem,
+        adapter::smser::sms_result_to_task, create_sender_client, SenderError, SenderExecError,
+        SenderResult, SenderTaskExecutor, SenderTaskResult, SenderTplConfig, SmsSendNotifyParse,
+        SmsTaskData, SmsTaskItem,
     },
     model::SenderTplConfigModel,
 };
 use async_trait::async_trait;
-use lsys_core::{rand_str, RandType, RequestEnv};
+use lsys_core::RequestEnv;
 use lsys_setting::{
     dao::{
         MultipleSetting, SettingData, SettingDecode, SettingEncode, SettingError, SettingKey,
@@ -16,22 +17,12 @@ use lsys_setting::{
     },
     model::SettingModel,
 };
-use reqwest::{
-    header::{HeaderMap, HeaderValue},
-    Method, StatusCode,
-};
+
+use lsys_lib_sms::{template_map_to_arr, HwSms, SendError, SendNotifyError, SendNotifyItem};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use tracing::{debug, warn};
-
-use base64::{
-    alphabet,
-    engine::{self, general_purpose},
-    Engine,
-};
-use chrono::Utc;
-use sha2::{Digest, Sha256};
+use tracing::debug;
 
 //华为 短信发送
 
@@ -39,6 +30,9 @@ use sha2::{Digest, Sha256};
 pub struct HwYunConfig {
     pub app_key: String,
     pub app_secret: String,
+    pub branch_limit: u16,
+    pub callback_key: String,
+    pub url: String,
 }
 
 impl HwYunConfig {
@@ -87,7 +81,6 @@ impl SettingEncode for HwYunConfig {
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct HwYunTplConfig {
-    pub url: String,
     pub signature: String,
     pub sender: String,
     pub template_id: String,
@@ -137,11 +130,26 @@ impl SenderHwYunConfig {
         &self,
         id: &u64,
         name: &str,
+        url: &str,
         app_key: &str,
         app_secret: &str,
+        branch_limit: &u16,
+        callback_key: &str,
         user_id: &u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
+        if *branch_limit > HwSms::branch_limit() {
+            return Err(SenderError::System(format!(
+                "limit max:{}",
+                HwSms::branch_limit()
+            )));
+        }
+        if !url.starts_with("http://") && !url.starts_with("https://") {
+            return Err(SenderError::System(format!(
+                "your submit url [{}] is wrong",
+                url
+            )));
+        }
         Ok(self
             .setting
             .edit(
@@ -149,8 +157,11 @@ impl SenderHwYunConfig {
                 id,
                 name,
                 &HwYunConfig {
+                    url: url.to_owned(),
                     app_key: app_key.to_owned(),
                     app_secret: app_secret.to_owned(),
+                    branch_limit: branch_limit.to_owned(),
+                    callback_key: callback_key.to_owned(),
                 },
                 user_id,
                 None,
@@ -159,22 +170,41 @@ impl SenderHwYunConfig {
             .await?)
     }
     //添加huawei短信配置
+    #[allow(clippy::too_many_arguments)]
     pub async fn add_config(
         &self,
         name: &str,
+        url: &str,
         app_key: &str,
         app_secret: &str,
+        branch_limit: &u16,
+        callback_key: &str,
         user_id: &u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
+        if *branch_limit > HwSms::branch_limit() {
+            return Err(SenderError::System(format!(
+                "limit max:{}",
+                HwSms::branch_limit()
+            )));
+        }
+        if !url.starts_with("http://") && !url.starts_with("https://") {
+            return Err(SenderError::System(format!(
+                "your submit url [{}] is wrong",
+                url
+            )));
+        }
         Ok(self
             .setting
             .add(
                 &None,
                 name,
                 &HwYunConfig {
+                    url: url.to_owned(),
                     app_key: app_key.to_owned(),
                     app_secret: app_secret.to_owned(),
+                    branch_limit: branch_limit.to_owned(),
+                    callback_key: callback_key.to_owned(),
                 },
                 user_id,
                 None,
@@ -187,7 +217,6 @@ impl SenderHwYunConfig {
     pub async fn add_app_config(
         &self,
         name: &str,
-        url: &str,
         app_id: &u64,
         setting_id: &u64,
         tpl_id: &str,
@@ -199,12 +228,6 @@ impl SenderHwYunConfig {
         add_user_id: &u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
-        if !url.starts_with("http://") && !url.starts_with("https://") {
-            return Err(SenderError::System(format!(
-                "your submit url [{}] is wrong",
-                url
-            )));
-        }
         self.setting.load::<HwYunConfig>(&None, setting_id).await?;
         self.tpl_config
             .add_config(
@@ -213,7 +236,6 @@ impl SenderHwYunConfig {
                 setting_id,
                 tpl_id,
                 &HwYunTplConfig {
-                    url: url.to_owned(),
                     template_map: template_map.to_owned(),
                     signature: signature.to_owned(),
                     sender: sender.to_owned(),
@@ -227,163 +249,114 @@ impl SenderHwYunConfig {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
-struct HwYunResponse {
-    pub errcode: Option<i64>,
-    pub errmsg: Option<String>,
-}
-impl HwYunResponse {
-    pub fn is_success(&self) -> bool {
-        self.errcode.unwrap_or(0) == 0
-    }
-}
-
-const CUSTOM_ENGINE: engine::GeneralPurpose =
-    engine::GeneralPurpose::new(&alphabet::URL_SAFE, general_purpose::NO_PAD);
-
 //阿里云发送短信后台发送任务实现
 #[derive(Clone, Default)]
-pub struct HwYunSenderTask {}
+pub struct HwYunSenderTask {
+    callback_url: String,
+}
 
 #[async_trait]
-impl SenderTaskExecutor<u64, SmsTaskItem> for HwYunSenderTask {
+impl SenderTaskExecutor<u64, SmsTaskItem, SmsTaskData> for HwYunSenderTask {
     fn setting_key(&self) -> String {
         HwYunConfig::key().to_owned()
+    }
+    async fn limit(&self, setting: &SettingModel) -> u16 {
+        SettingData::<HwYunConfig>::try_from(setting.to_owned())
+            .map(|e| {
+                if e.branch_limit == 0 {
+                    HwSms::branch_limit()
+                } else {
+                    e.branch_limit
+                }
+            })
+            .unwrap_or(HwSms::branch_limit())
     }
     //执行短信发送
     async fn exec(
         &self,
         val: &SmsTaskItem,
+        sms_data: &SmsTaskData,
         tpl_config: &SenderTplConfigModel,
         setting: &SettingModel,
-    ) -> Result<String, SenderExecError> {
-        let sub_tpl_config = serde_json::from_str::<HwYunTplConfig>(&tpl_config.config_data)
-            .map_err(|e| {
-                SenderExecError::Next(format!("parse config to huawei tpl config fail:{}", e))
-            })?;
+    ) -> SenderTaskResult {
         let sub_setting =
             SettingData::<HwYunConfig>::try_from(setting.to_owned()).map_err(|e| {
                 SenderExecError::Next(format!("parse config to huawei setting fail:{}", e))
             })?;
+        let sub_tpl_config = serde_json::from_str::<HwYunTplConfig>(&tpl_config.config_data)
+            .map_err(|e| {
+                SenderExecError::Next(format!(
+                    "parse config to huawei tpl config fail[{}]:{}",
+                    sub_setting.app_key, e
+                ))
+            })?;
         debug!(
-            "msgid:{}  mobie:{}  tpl_config_id:{} access_id:{} tpl:{} var:{}",
+            "msgid:{}   tpl_config_id:{} access_id:{} tpl:{} var:{}",
             val.sms.id,
-            val.sms.mobile,
             tpl_config.id,
             sub_setting.app_key,
             sub_tpl_config.template_id,
             val.sms.tpl_var
         );
-        let client = reqwest::Client::builder();
-        let client = client
-            .build()
-            .map_err(|e| SenderExecError::Next(format!("hw request client create fail:{}", e)))?;
+        let mobile = sms_data
+            .data
+            .iter()
+            .map(|e| e.mobile.as_str())
+            .collect::<Vec<_>>();
 
-        let mut headers = HeaderMap::new();
-
-        if let Ok(value) = HeaderValue::from_str("application/x-www-form-urlencoded") {
-            headers.insert("Content-Type", value);
-        }
-
-        if let Ok(value) =
-            HeaderValue::from_str(r#"WSSE realm="SDP",profile="UsernameToken",type="Appkey""#)
+        match HwSms::branch_send(
+            create_sender_client()?,
+            &sub_setting.url,
+            &sub_setting.app_key,
+            &sub_setting.app_secret,
+            &sub_tpl_config.signature,
+            &sub_tpl_config.sender,
+            &sub_tpl_config.template_id,
+            template_map_to_arr(&val.sms.tpl_var, &sub_tpl_config.template_map),
+            &mobile,
+            &self.callback_url,
+            "",
+        )
+        .await
         {
-            headers.insert("Authorization", value);
+            Ok(resp) => Ok(sms_result_to_task(&sms_data.data, &resp)),
+            Err(err) => Err(match err {
+                SendError::Next(e) => SenderExecError::Next(e),
+                SendError::Finish(e) => SenderExecError::Finish(e),
+            }),
         }
+    }
+}
 
-        let dt = Utc::now();
-        let formatted = dt.format("%Y-%m-%dT%H:%M:%SZ").to_string();
-        if let Ok(value) = HeaderValue::from_str(&formatted) {
-            headers.insert("X-Sdk-Date", value);
+pub struct HwYunNotify<'t> {
+    callback_key: &'t str,
+    notify_data: &'t HashMap<String, String>,
+}
+impl<'t> HwYunNotify<'t> {
+    pub fn new(callback_key: &'t str, notify_data: &'t HashMap<String, String>) -> HwYunNotify<'t> {
+        Self {
+            callback_key,
+            notify_data,
         }
+    }
+}
 
-        let rand_s = rand_str(RandType::UpperHex, 32);
-        let mut hasher = Sha256::new();
-        hasher.update(format!("{}{}{}", &rand_s, &formatted, &sub_setting.app_secret).as_bytes());
-        let passdi = CUSTOM_ENGINE.encode(hasher.finalize());
-
-        let sign = format!(
-            r#"UsernameToken Username="{}",PasswordDigest="{}",Nonce="{}",Created="{}""#,
-            sub_setting.app_key, passdi, rand_s, formatted
-        );
-        if let Ok(value) = HeaderValue::from_str(&sign) {
-            headers.insert("x-wsse", value);
-        }
-
-        let mut form_data = vec![];
-        form_data.push(format!(
-            "from={}",
-            serde_urlencoded::to_string(&sub_tpl_config.sender)
-                .map_err(|e| { SenderExecError::Finish(format!("url encode from fail:{}", e)) })?
-        ));
-        form_data.push(format!(
-            "to={}",
-            serde_urlencoded::to_string(&val.sms.mobile)
-                .map_err(|e| { SenderExecError::Finish(format!("url encode to fail:{}", e)) })?
-        ));
-        form_data.push(format!(
-            "templateId={}",
-            serde_urlencoded::to_string(&sub_tpl_config.template_id).map_err(|e| {
-                SenderExecError::Finish(format!("url encode template_id fail:{}", e))
-            })?
-        ));
-        form_data.push(format!(
-            "signature={}",
-            serde_urlencoded::to_string(&sub_tpl_config.signature).map_err(|e| {
-                SenderExecError::Finish(format!("url encode signature fail:{}", e))
-            })?
-        ));
-
-        if let Ok(tmp) = serde_json::from_str::<HashMap<String, String>>(&val.sms.tpl_var) {
-            let map_data = sub_tpl_config.template_map.split(',');
-            let mut set_data = vec![];
-            if !tmp.is_empty() {
-                for sp in map_data {
-                    if let Some(tv) = tmp.get(sp) {
-                        set_data.push(tv.to_owned())
-                    }
-                }
-            }
-            if !set_data.is_empty() {
-                form_data.push(format!(
-                    "templateParas={}",
-                    serde_urlencoded::to_string(&set_data).map_err(|e| {
-                        SenderExecError::Finish(format!("url encode templateParas fail:{}", e))
-                    })?
-                ));
-            }
-        }
-
-        let request = client
-            .request(
-                Method::POST,
-                format!("{}/sms/batchSendSms/v1", sub_tpl_config.url),
-            )
-            .headers(headers)
-            .form(&form_data);
-        let result = request
-            .send()
-            .await
-            .map_err(|e| SenderExecError::Next(format!("hw request send fail:{}", e)))?;
-        let status = result.status();
-        let data = result
-            .bytes()
-            .await
-            .map_err(|e| SenderExecError::Next(format!("hw request read body fail:{}", e)))?;
-        let res = unsafe { String::from_utf8_unchecked(data.to_vec()) };
-        if status != StatusCode::OK {
-            warn!("hw sms response fail: {}", &res);
-        } else {
-            debug!("hw sms response succ: {}", &res);
-        }
-        let resp = serde_json::from_str::<HwYunResponse>(&res)
-            .map_err(|e| SenderExecError::Next(format!("hw response body parse fail:{}", e)))?;
-        if !resp.is_success() {
-            return Err(SenderExecError::Next(format!(
-                "hw response return fail:{}",
-                resp.errmsg.unwrap_or(res)
+#[async_trait]
+impl<'t> SmsSendNotifyParse for HwYunNotify<'t> {
+    type T = HwYunConfig;
+    fn notify_items(
+        &self,
+        config: &SettingData<HwYunConfig>,
+    ) -> Result<Vec<SendNotifyItem>, SendNotifyError> {
+        if !config.callback_key.is_empty() && config.callback_key.as_str() != self.callback_key {
+            return Err(SendNotifyError::Sign(format!(
+                "callback key is match :{}",
+                self.callback_key
             )));
         }
-        Ok(sub_setting.app_key.to_owned())
+        HwSms::send_notify_parse(self.notify_data)
+    }
+    fn output(res: &Result<(), String>) -> (u16, String) {
+        (200, HwSms::send_notify_output(res))
     }
 }

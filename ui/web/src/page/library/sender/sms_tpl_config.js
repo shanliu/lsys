@@ -12,10 +12,12 @@ import { LoadingButton } from '../../../library/loading';
 import { SimpleTablePage } from '../../../library/table_page';
 import { smsDelTplConfig, smsListTplConfig } from '../../../rest/sender_setting';
 import { showTime } from '../../../utils/utils';
-import { AppSmsTplConfigAliShowDetail } from './sms/alisms';
-import { AppSmsTplConfigAliAddBox } from './sms/alisms';
+import { AppSmsTplConfigAliShowDetail,AppSmsTplConfigAliAddBox } from './sms/alisms';
 import { AppSmsTplConfigHwAddBox, AppSmsTplConfigHwShowDetail } from './sms/hwsms';
 import { AppSmsTplConfigTenAddBox, AppSmsTplConfigTenShowDetail } from './sms/tensms';
+import { AppSmsTplConfigJdAddBox, AppSmsTplConfigJdShowDetail } from './sms/jdsms';
+import { AppSmsTplConfigCloOpenAddBox, AppSmsTplConfigCloOpenShowDetail } from './sms/cloopensms';
+import { AppSmsTplConfigNeteaseAddBox, AppSmsTplConfigNeteaseShowDetail } from './sms/neteasesms';
 
 export const SmsSenderType = [
     {
@@ -35,6 +37,22 @@ export const SmsSenderType = [
         val: '腾讯云短信端口',
         showDetail: AppSmsTplConfigTenShowDetail,
         addBox: AppSmsTplConfigTenAddBox,
+    },
+    {
+        key: 'jd-cloud-sms-config',
+        val: '京东云短信端口',
+        showDetail: AppSmsTplConfigJdShowDetail,
+        addBox: AppSmsTplConfigJdAddBox,
+    }, {
+        key: 'col-sms-config',
+        val: '融连云短信端口',
+        showDetail: AppSmsTplConfigCloOpenShowDetail,
+        addBox: AppSmsTplConfigCloOpenAddBox,
+    }, {
+        key: '163-sms-config',
+        val: '网易云短信端口',
+        showDetail: AppSmsTplConfigNeteaseShowDetail,
+        addBox: AppSmsTplConfigNeteaseAddBox,
     }
 ];
 

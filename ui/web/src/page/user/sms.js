@@ -24,6 +24,11 @@ export default function UserAppSmsPage() {
             value: "tpl_config",
             name: "模板配置"
         }
+        ,
+        {
+            value: "notify",
+            name: "回调设置"
+        }
     ];
     const [searchParam, _] = useSearchParams();
     let app_id = searchParam.get("app_id") ?? 0;

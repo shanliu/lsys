@@ -1,6 +1,6 @@
 module lsysrest
 
-go 1.17
+go 1.20
 
 replace rest_client v0.0.54 => github.com/hsbteam/rest_client v0.0.54
 

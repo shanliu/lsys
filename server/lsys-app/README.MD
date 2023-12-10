@@ -3,6 +3,6 @@
 
 > 提供服务内应用信息,OAUTH应用及OAUTH登录等
 
-
+> 接入文档:[README.MD](../../sdk/README.MD)
 
 

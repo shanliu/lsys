@@ -89,7 +89,17 @@ where
         let now_time = now_time().unwrap_or_default();
         let mut lc = self.cache_data.lock().await;
         if let Some(ua) = lc.get(key) {
-            debug!("cache get timeout:{} now_time:{}", ua.time_out, now_time);
+            debug!(
+                "cache get {} timeout:{} now_time:{} ttl:{}",
+                key.to_string(),
+                ua.time_out,
+                now_time,
+                if ua.time_out > now_time {
+                    ua.time_out - now_time
+                } else {
+                    0
+                }
+            );
             if ua.time_out > now_time {
                 if self.cache_config.refresh_time > 0
                     && ua.time_out > now_time + self.cache_config.refresh_time

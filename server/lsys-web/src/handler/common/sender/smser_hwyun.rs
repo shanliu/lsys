@@ -1,8 +1,10 @@
 use crate::{
     dao::RequestDao,
-    handler::access::{AccessAdminHwSmsConfig, AccessAppSenderSmsConfig},
+    handler::access::{AccessAdminSmsConfig, AccessAppSenderSmsConfig},
     {JsonData, JsonResult},
 };
+use lsys_sender::dao::HwYunConfig;
+use lsys_setting::dao::SettingData;
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -12,12 +14,15 @@ use serde_json::Value;
 pub struct ShowHwConfig {
     pub id: u64,
     pub name: String,
-
+    pub url: String,
     pub app_key: String,
     pub hide_app_key: String,
     pub app_secret: String,
     pub change_user_id: u64,
     pub change_time: u64,
+    pub callback_url: String,
+    pub limit: u16,
+    pub callback_key: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -28,9 +33,10 @@ pub struct SmserHwConfigListParam {
 
 pub async fn smser_hw_config_list<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: SmserHwConfigListParam,
+    callback_call: impl Fn(&SettingData<HwYunConfig>) -> String,
     req_dao: &RequestDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let hwsender = req_dao.web_dao.sender_smser.hwyun_sender();
+    let hwsender = &req_dao.web_dao.sender_smser.hwyun_sender;
     let data = hwsender.list_config(&param.ids).await?;
     let row = if param.full_data.unwrap_or(false) {
         let req_auth = req_dao.user_session.read().await.get_session_data().await?;
@@ -40,7 +46,7 @@ pub async fn smser_hw_config_list<'t, T: SessionTokenData, D: SessionData, S: Us
             .rbac_dao
             .rbac
             .check(
-                &AccessAdminHwSmsConfig {
+                &AccessAdminSmsConfig {
                     user_id: req_auth.user_data().user_id,
                 },
                 None,
@@ -50,12 +56,17 @@ pub async fn smser_hw_config_list<'t, T: SessionTokenData, D: SessionData, S: Us
             .into_iter()
             .map(|e| ShowHwConfig {
                 id: e.model().id,
+                url: e.url.clone(),
                 name: e.model().name.to_owned(),
                 app_key: e.app_key.to_owned(),
                 hide_app_key: e.hide_access_key(),
                 app_secret: e.app_secret.to_owned(),
                 change_user_id: e.model().change_user_id,
                 change_time: e.model().change_time,
+                callback_url: callback_call(&e),
+                callback_key: e.callback_key.to_string(),
+
+                limit: e.branch_limit,
             })
             .collect::<Vec<_>>();
         json!({ "data": tmp })
@@ -78,9 +89,11 @@ pub async fn smser_hw_config_list<'t, T: SessionTokenData, D: SessionData, S: Us
 #[derive(Debug, Deserialize)]
 pub struct SmserHwConfigAddParam {
     pub name: String,
-
+    pub url: String,
     pub app_key: String,
     pub app_secret: String,
+    pub limit: Option<u16>,
+    pub callback_key: String,
 }
 
 pub async fn smser_hw_config_add<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
@@ -94,18 +107,21 @@ pub async fn smser_hw_config_add<'t, T: SessionTokenData, D: SessionData, S: Use
         .rbac_dao
         .rbac
         .check(
-            &AccessAdminHwSmsConfig {
+            &AccessAdminSmsConfig {
                 user_id: req_auth.user_data().user_id,
             },
             None,
         )
         .await?;
-    let hwsender = &req_dao.web_dao.sender_smser.hwyun_sender();
+    let hwsender = &req_dao.web_dao.sender_smser.hwyun_sender;
     let row = hwsender
         .add_config(
             &param.name,
+            &param.url,
             &param.app_key,
             &param.app_secret,
+            &param.limit.unwrap_or_default(),
+            &param.callback_key,
             &req_auth.user_data().user_id,
             Some(&req_dao.req_env),
         )
@@ -117,9 +133,11 @@ pub async fn smser_hw_config_add<'t, T: SessionTokenData, D: SessionData, S: Use
 pub struct SmserHwConfigEditParam {
     pub id: u64,
     pub name: String,
-
+    pub url: String,
     pub app_key: String,
     pub app_secret: String,
+    pub limit: Option<u16>,
+    pub callback_key: String,
 }
 
 pub async fn smser_hw_config_edit<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
@@ -133,19 +151,22 @@ pub async fn smser_hw_config_edit<'t, T: SessionTokenData, D: SessionData, S: Us
         .rbac_dao
         .rbac
         .check(
-            &AccessAdminHwSmsConfig {
+            &AccessAdminSmsConfig {
                 user_id: req_auth.user_data().user_id,
             },
             None,
         )
         .await?;
-    let hwsender = req_dao.web_dao.sender_smser.hwyun_sender();
+    let hwsender = &req_dao.web_dao.sender_smser.hwyun_sender;
     let row = hwsender
         .edit_config(
             &param.id,
             &param.name,
+            &param.url,
             &param.app_key,
             &param.app_secret,
+            &param.limit.unwrap_or_default(),
+            &param.callback_key,
             &req_auth.user_data().user_id,
             Some(&req_dao.req_env),
         )
@@ -169,13 +190,13 @@ pub async fn smser_hw_config_del<'t, T: SessionTokenData, D: SessionData, S: Use
         .rbac_dao
         .rbac
         .check(
-            &AccessAdminHwSmsConfig {
+            &AccessAdminSmsConfig {
                 user_id: req_auth.user_data().user_id,
             },
             None,
         )
         .await?;
-    let hwsender = req_dao.web_dao.sender_smser.hwyun_sender();
+    let hwsender = &req_dao.web_dao.sender_smser.hwyun_sender;
     let row = hwsender
         .del_config(
             &param.id,
@@ -191,7 +212,7 @@ pub struct SmserAppHwConfigAddParam {
     pub app_id: u64,
     pub user_id: Option<u64>,
     pub hw_config_id: u64,
-    pub url: String,
+
     pub name: String,
     pub tpl_id: String,
     pub signature: String,
@@ -200,7 +221,12 @@ pub struct SmserAppHwConfigAddParam {
     pub template_map: String,
 }
 
-pub async fn smser_config_add_hw<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
+pub async fn smser_hw_app_config_add<
+    't,
+    T: SessionTokenData,
+    D: SessionData,
+    S: UserSession<T, D>,
+>(
     param: SmserAppHwConfigAddParam,
     req_dao: &RequestDao<T, D, S>,
 ) -> JsonResult<JsonData> {
@@ -222,11 +248,10 @@ pub async fn smser_config_add_hw<'t, T: SessionTokenData, D: SessionData, S: Use
         )
         .await?;
 
-    let hwsender = req_dao.web_dao.sender_smser.hwyun_sender();
+    let hwsender = &req_dao.web_dao.sender_smser.hwyun_sender;
     let row = hwsender
         .add_app_config(
             &param.name,
-            &param.url,
             &param.app_id,
             &param.hw_config_id,
             &param.tpl_id,

@@ -1,13 +1,13 @@
 
 @host_url= http://127.0.0.1:8080
 @url = {{host_url}}/api/sender
-@jwt_token = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwidG9rZW4iOiJNVGN0VDBaQ1VFbFJXa0ZPV0ZkRFNGVkxVMHBXVWsxRldWUkVMVEUyTnpZMk1UazFNalUiLCJleHAiOjE1MTYyMzkwMjIxfQ.q8rEUYVWIyAN5TsdJ1BH9C4zkSGWahGbMGEJTw5fTFs
+@jwt_token = Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE3MDIxMTIyNzAsInRva2VuIjoiTVMxQlZWSlRUa0pSVmt0RFIwbFBVRVZYVEUxS1JFaGFWRmt0TVRjd01qRXhNakkzTUEiLCJkYXRhIjp7ImxvZ2luX2RhdGEiOnsiY2hhbmdlX3RpbWUiOjE3MDE4NDUxMTksImlkIjoxLCJzdGF0dXMiOjEsInVzZXJfaWQiOjEsInVzZXJuYW1lIjoiYWFhYWEifSwibG9naW5fdGltZSI6MTcwMjAyNTg3MCwibG9naW5fdHlwZSI6Im5hbWUiLCJ0aW1lX291dCI6MTcwMjExMjI3MCwidXNlcl9pZCI6MSwidXNlcl9uaWNrbmFtZSI6ImFkbWluIiwidXNlcl9wYXNzd29yZF9pZCI6MX19.54NB-KfRYhuPllfmLchlTtx-Xe-SKgBStNnfCAwDu1E
 
 ###### rbac ########
 
 
 ### 添加短信配置
-POST {{url}}/sender-smser/config_add
+POST {{url}}/smser/config_add
 Authorization: {{jwt_token}}
 
 {
@@ -19,7 +19,7 @@ Authorization: {{jwt_token}}
 
 
 ### 删除短信配置
-POST {{url}}/sender-smser/config_del
+POST {{url}}/smser/config_del
 Authorization: {{jwt_token}}
 
 {
@@ -27,7 +27,7 @@ Authorization: {{jwt_token}}
 }
 
 ### 短信配置列表
-POST {{url}}/sender-smser/config_list
+POST {{url}}/smser/config_list
 Authorization: {{jwt_token}}
 
 {
@@ -35,7 +35,7 @@ Authorization: {{jwt_token}}
 }
 
 ### 阿里短信配置列表
-POST {{url}}/sender-smser/ali_config_list
+POST {{url}}/smser/ali_config_list
 Authorization: {{jwt_token}}
 
 {
@@ -45,7 +45,7 @@ Authorization: {{jwt_token}}
 
 
 ###  阿里短信配置添加
-POST {{url}}/sender-smser/ali_config_add
+POST {{url}}/smser/ali_config_add
 Authorization: {{jwt_token}}
 
 {
@@ -56,7 +56,7 @@ Authorization: {{jwt_token}}
 
 
 ###  阿里短信配置删除
-POST {{url}}/sender-smser/ali_config_del
+POST {{url}}/smser/ali_config_del
 Authorization: {{jwt_token}}
 
 {
@@ -66,7 +66,7 @@ Authorization: {{jwt_token}}
 
 
 ###  阿里短信配置编辑
-POST {{url}}/sender-smser/ali_config_edit
+POST {{url}}/smser/ali_config_edit
 Authorization: {{jwt_token}}
 
 {
@@ -78,7 +78,7 @@ Authorization: {{jwt_token}}
 
 
 ###  阿里短信配置关联短信发送
-POST {{url}}/sender-smser/ali_app_config_add
+POST {{url}}/smser/ali_app_config_add
 Authorization: {{jwt_token}}
 
 {
@@ -92,7 +92,7 @@ Authorization: {{jwt_token}}
 
 
 ### 短信配置关联删除
-POST {{url}}/sender-smser/tpl_config_del
+POST {{url}}/smser/tpl_config_del
 Authorization: {{jwt_token}}
 
 {
@@ -100,7 +100,7 @@ Authorization: {{jwt_token}}
 }
 
 ### 短信配置关联列表
-POST {{url}}/sender-smser/tpl_config_list
+POST {{url}}/smser/tpl_config_list
 Authorization: {{jwt_token}}
 
 {
@@ -109,3 +109,30 @@ Authorization: {{jwt_token}}
     // "app_id": 29,
     // "tpl": 29
 }
+
+
+###  设置回调地址
+POST {{url}}/smser/notify_set_config
+Authorization: {{jwt_token}}
+
+{
+    "url": "http://ssss.com",
+    "app_id": 2
+}
+
+
+### 获取回调地址
+POST {{url}}/smser/notify_get_config
+Authorization: {{jwt_token}}
+
+{}
+
+
+
+
+### 重置KEY
+POST {{host_url}}/notify/sms/1/dsdfsdf
+Content-Type: application/json
+
+ [{"send_time" : "2017-08-30 00:00:00","report_time" : "2017-08-30 00:00:00","success" : true,"err_msg" : "用户接收成功","err_code" : "DELIVERED","phone_number" : "18612345678","sms_size" : "1","biz_id" : "932702304080415357^0","out_id" : "1184585343"}]
+

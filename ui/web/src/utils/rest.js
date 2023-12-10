@@ -54,9 +54,6 @@ function errorHandler(error) {
 
 export function globalRest(path) {
     let api_host = config.serverURL;
-    if (window.location.protocol == 'https:') {
-        api_host = config.serverSslURL;
-    }
     let ax = axios.create({
         baseURL: api_host + path,
         timeout: timeout,
@@ -75,9 +72,6 @@ export function globalRest(path) {
 
 export function sessionRest(path) {
     let api_host = config.serverURL;
-    if (window.location.protocol == 'https:') {
-        api_host = config.serverSslURL;
-    }
     let session = userSessionGet();
     if (!session) {
         redirectLoginPage()

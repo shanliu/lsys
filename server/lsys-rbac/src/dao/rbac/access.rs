@@ -541,10 +541,13 @@ impl RbacAccess {
             res_data
         };
         if res_data.is_empty() {
+            //需要验证资源为空,返回授权通过
             return Ok(());
         }
         let mut res_vec = vec![];
         let mut bad_tmp = vec![];
+
+        //遍历待检测权限资源,收集是否存在需要授权,但数据库中缺失对应记录的资源
         for tmp in res_data {
             match tmp.find_res {
                 Some(ref res) => {
@@ -587,7 +590,7 @@ impl RbacAccess {
                 }
             };
         }
-
+        //存在需要授权,但数据库里没对应记录的资源,返回授权失败
         if !bad_tmp.is_empty() {
             return Err(UserRbacError::Check(bad_tmp));
         }
@@ -595,12 +598,16 @@ impl RbacAccess {
             return Ok(());
         }
 
-        //获取系统角色
+        //获取内置角色
         let mut role_data = if let Some(ref sys_role) = self.system_role {
             sys_role.role_check_data(user_id, &res_vec)
         } else {
             RoleCheckData::new(vec![])
         };
+        //查找数据库中配置角色
+        //1. 游客,所有用户共享的角色
+        //2. 指定关系角色,由外部传入的角色
+        //3. 当user_id>0时,登录用户共享的角色,当前用户独有的角色
         macro_rules! find_role_data {
             ($find_obj:expr) => {
                 if user_id > 0 {
@@ -631,6 +638,7 @@ impl RbacAccess {
         } else {
             find_role_data!(self.role);
         }
+        //对获取到所有角色跟待验证资源进行授权验证
         let mut bad_tmp = vec![];
         for check_item in res_vec.iter() {
             for res_op in check_item.ops.iter() {
@@ -674,6 +682,7 @@ impl RbacAccess {
         if bad_tmp.is_empty() {
             Ok(())
         } else {
+            //根据角色算出有未被授权资源
             Err(UserRbacError::Check(bad_tmp))
         }
     }

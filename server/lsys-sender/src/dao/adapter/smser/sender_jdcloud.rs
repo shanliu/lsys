@@ -1,13 +1,17 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use crate::{
-    dao::{SenderExecError, SenderResult, SenderTaskExecutor, SenderTplConfig, SmsTaskItem},
-    model::SenderTplConfigModel,
+    dao::{
+        adapter::smser::sms_result_to_task, create_sender_client, SenderError, SenderExecError,
+        SenderResult, SenderTaskExecutor, SenderTaskResult, SenderTplConfig, SmsTaskData,
+        SmsTaskItem,
+    },
+    model::{SenderSmsMessageModel, SenderTplConfigModel},
 };
 use async_trait::async_trait;
-use http::Request;
-use jdcloud_signer::{Client, Credential, Signer};
+
 use lsys_core::RequestEnv;
+use lsys_lib_sms::{template_map_to_arr, JdSms, SendDetailItem, SendError};
 use lsys_setting::{
     dao::{
         MultipleSetting, SettingData, SettingDecode, SettingEncode, SettingError, SettingKey,
@@ -22,8 +26,10 @@ use tracing::debug;
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct JDCloudConfig {
+    pub region: String,
     pub access_key: String,
     pub access_secret: String,
+    pub branch_limit: u16,
 }
 
 impl JDCloudConfig {
@@ -72,8 +78,6 @@ impl SettingEncode for JDCloudConfig {
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct JDCloudTplConfig {
-    pub sms_app_id: String,
-    pub region: String,
     pub template_id: String,
     pub sign_id: String,
     pub template_map: String,
@@ -122,11 +126,19 @@ impl SenderJDCloudConfig {
         &self,
         id: &u64,
         name: &str,
+        region: &str,
         access_key: &str,
         access_secret: &str,
+        branch_limit: &u16,
         user_id: &u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
+        if *branch_limit > JdSms::branch_limit() {
+            return Err(SenderError::System(format!(
+                "limit max:{}",
+                JdSms::branch_limit()
+            )));
+        }
         Ok(self
             .setting
             .edit(
@@ -134,8 +146,10 @@ impl SenderJDCloudConfig {
                 id,
                 name,
                 &JDCloudConfig {
+                    region: region.to_owned(),
                     access_key: access_key.to_owned(),
                     access_secret: access_secret.to_owned(),
+                    branch_limit: branch_limit.to_owned(),
                 },
                 user_id,
                 None,
@@ -144,22 +158,34 @@ impl SenderJDCloudConfig {
             .await?)
     }
     //添加jd_cloud短信配置
+
+    #[allow(clippy::too_many_arguments)]
     pub async fn add_config(
         &self,
         name: &str,
+        region: &str,
         access_key: &str,
         access_secret: &str,
+        branch_limit: &u16,
         user_id: &u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
+        if *branch_limit > JdSms::branch_limit() {
+            return Err(SenderError::System(format!(
+                "limit max:{}",
+                JdSms::branch_limit()
+            )));
+        }
         Ok(self
             .setting
             .add(
                 &None,
                 name,
                 &JDCloudConfig {
+                    region: region.to_owned(),
                     access_key: access_key.to_owned(),
                     access_secret: access_secret.to_owned(),
+                    branch_limit: branch_limit.to_owned(),
                 },
                 user_id,
                 None,
@@ -175,8 +201,6 @@ impl SenderJDCloudConfig {
         app_id: &u64,
         setting_id: &u64,
         tpl_id: &str,
-        region: &str,
-        sms_app_id: &str,
         sign_id: &str,
         template_id: &str,
         template_map: &str,
@@ -194,8 +218,6 @@ impl SenderJDCloudConfig {
                 setting_id,
                 tpl_id,
                 &JDCloudTplConfig {
-                    region: region.to_owned(),
-                    sms_app_id: sms_app_id.to_owned(),
                     template_id: template_id.to_owned(),
                     sign_id: sign_id.to_owned(),
                     template_map: template_map.to_owned(),
@@ -210,97 +232,131 @@ impl SenderJDCloudConfig {
 
 //腾讯云发送短信后台发送任务实现
 #[derive(Clone, Default)]
-pub struct JDCloudSenderTask {}
+pub struct JDCloudSenderTask {
+    use_jd_cloud: bool,
+}
 
 #[async_trait]
-impl SenderTaskExecutor<u64, SmsTaskItem> for JDCloudSenderTask {
+impl SenderTaskExecutor<u64, SmsTaskItem, SmsTaskData> for JDCloudSenderTask {
     fn setting_key(&self) -> String {
         JDCloudConfig::key().to_owned()
+    }
+    async fn limit(&self, setting: &SettingModel) -> u16 {
+        SettingData::<JDCloudConfig>::try_from(setting.to_owned())
+            .map(|e| {
+                if e.branch_limit == 0 {
+                    JdSms::branch_limit()
+                } else {
+                    e.branch_limit
+                }
+            })
+            .unwrap_or(JdSms::branch_limit())
     }
     //执行短信发送
     async fn exec(
         &self,
         val: &SmsTaskItem,
+        sms_data: &SmsTaskData,
         tpl_config: &SenderTplConfigModel,
         setting: &SettingModel,
-    ) -> Result<String, SenderExecError> {
-        let sub_tpl_config = serde_json::from_str::<JDCloudTplConfig>(&tpl_config.config_data)
-            .map_err(|e| {
-                SenderExecError::Next(format!("parse config to jd_cloud tpl config fail:{}", e))
-            })?;
+    ) -> SenderTaskResult {
         let sub_setting =
             SettingData::<JDCloudConfig>::try_from(setting.to_owned()).map_err(|e| {
                 SenderExecError::Next(format!("parse config to jd_cloud setting fail:{}", e))
             })?;
-
+        let sub_tpl_config = serde_json::from_str::<JDCloudTplConfig>(&tpl_config.config_data)
+            .map_err(|e| {
+                SenderExecError::Next(format!(
+                    "parse config to jd_cloud tpl config fail[{}]:{}",
+                    sub_setting.access_key, e
+                ))
+            })?;
         debug!(
-            "msgid:{}  mobie:{}  tpl_config_id:{} sms_app_id:{} tpl:{} sign:{} region:{} var:{}",
+            "msgid:{}  tpl_config_id:{}  tpl:{} sign:{} region:{} var:{}",
             val.sms.id,
-            val.sms.mobile,
             tpl_config.id,
-            sub_tpl_config.sms_app_id,
             sub_tpl_config.template_id,
             sub_tpl_config.sign_id,
-            sub_tpl_config.region,
+            sub_setting.region,
             val.sms.tpl_var
         );
 
-        let var_data =
-            if let Ok(tmp) = serde_json::from_str::<HashMap<String, String>>(&val.sms.tpl_var) {
-                let map_data = sub_tpl_config.template_map.split(',');
-                let mut set_data = vec![];
-                if !tmp.is_empty() {
-                    for sp in map_data {
-                        if let Some(tv) = tmp.get(sp) {
-                            set_data.push(tv.to_owned())
-                        }
-                    }
-                }
-                set_data
-            } else {
-                vec![]
-            };
+        let mobile = sms_data
+            .data
+            .iter()
+            .map(|e| e.mobile.as_str())
+            .collect::<Vec<_>>();
 
-        let reqjson = json!({
-            "templateId" :sub_tpl_config.template_id,
-            "signId" : sub_tpl_config.sign_id,
-            "phoneList": [
-                val.sms.mobile,
-            ],
-            "params" :var_data,
-        })
-        .to_string();
+        match JdSms::branch_send(
+            create_sender_client()?,
+            self.use_jd_cloud,
+            &sub_setting.region,
+            &sub_setting.access_key,
+            &sub_setting.access_secret,
+            &sub_tpl_config.sign_id,
+            &sub_tpl_config.template_id,
+            template_map_to_arr(&val.sms.tpl_var, &sub_tpl_config.template_map),
+            &mobile,
+        )
+        .await
+        {
+            Ok(resp) => Ok({
+                let resp = resp
+                    .into_iter()
+                    .map(|mut e| {
+                        e.send_id = format!("{}{}", e.send_id, e.mobile);
+                        e
+                    })
+                    .collect::<Vec<_>>();
 
-        let url = format!(
-            "https://sms.jdcloud-api.com/v1/regions/{}/batchSend",
-            sub_tpl_config.region
-        );
-
-        let credential = Credential::new(&sub_setting.access_key, &sub_setting.access_secret);
-        let signer = Signer::new(credential, "sms".to_string(), sub_tpl_config.region);
-
-        let mut req = Request::builder();
-        let mut req = req
-            .method("POST")
-            .uri(url)
-            .body(reqjson)
-            .map_err(|e| SenderExecError::Finish(format!("creata req fail:{}", e)))?;
-        signer
-            .sign_request(&mut req)
-            .map_err(|e| SenderExecError::Finish(format!(" sign fail:{}", e)))?;
-        let client = Client::new();
-        let mut res = client
-            .execute(req)
-            .map_err(|e| SenderExecError::Finish(format!(" req fail:{}", e)))?;
-        if !res.status().is_success() {
-            return Err(SenderExecError::Next(format!(
-                "JDCloud response return fail:{:?}",
-                res.text()
-            )));
+                sms_result_to_task(&sms_data.data, &resp)
+            }),
+            Err(err) => Err(match err {
+                SendError::Next(e) => SenderExecError::Next(e),
+                SendError::Finish(e) => SenderExecError::Finish(e),
+            }),
         }
-        Ok(format!(
-            "{}-{}",
-            sub_setting.access_key, sub_tpl_config.sms_app_id
-        ))
+    }
+}
+
+#[derive(Default)]
+pub struct JDSendStatus {
+    use_jd_cloud: bool,
+}
+#[async_trait]
+impl crate::dao::SmsStatusTaskExecutor for JDSendStatus {
+    fn setting_key(&self) -> String {
+        JDCloudConfig::key().to_owned()
+    }
+    async fn exec(
+        &self,
+        msg: &SenderSmsMessageModel,
+        setting: &SettingModel,
+    ) -> Result<Vec<SendDetailItem>, SenderExecError> {
+        let setting_data = SettingData::<JDCloudConfig>::try_from(setting.to_owned())
+            .map_err(|e| SenderExecError::Next(format!("parse config to jd setting fail:{}", e)))?;
+
+        JdSms::send_detail(
+            create_sender_client()?,
+            self.use_jd_cloud,
+            &setting_data.region,
+            &setting_data.access_key,
+            &setting_data.access_secret,
+            &msg.res_data,
+            Some(vec![msg.mobile.clone()]),
+        )
+        .await
+        .map(|resp| {
+            resp.into_iter()
+                .flat_map(|mut e| match e.mobile.as_ref() {
+                    Some(m) => {
+                        e.send_id = format!("{}{}", e.send_id, m);
+                        Some(e)
+                    }
+                    None => None,
+                })
+                .collect::<Vec<_>>()
+        })
+        .map_err(SenderExecError::Next)
     }
 }

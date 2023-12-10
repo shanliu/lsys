@@ -11,6 +11,7 @@ import { ConfigProvider } from './context/config';
 import { PageLayout } from './page/library/layout';
 import { ErrorPage } from './page/error';
 import DocPage from './page/doc';
+
 const LoginPage = React.lazy(() => import('./page/login'));
 const MainPage = React.lazy(() => import('./page/main'));
 const FindPasswordPage = React.lazy(() => import('./page/password'));
@@ -41,6 +42,9 @@ const SystemAppSmsMapConfigPage = React.lazy(() => import('./page/system/sender/
 const SystemAppSmsSettingAlismsPage = React.lazy(() => import('./page/library/sender/sms/alisms'));
 const SystemAppSmsSettingHwsmsPage = React.lazy(() => import('./page/library/sender/sms/hwsms'));
 const SystemAppSmsSettingTensmsPage = React.lazy(() => import('./page/library/sender/sms/tensms'));
+const SystemAppSmsSettingNeteasesmsPage = React.lazy(() => import('./page/library/sender/sms/neteasesms'));
+const SystemAppSmsSettingCloOpensmsPage = React.lazy(() => import('./page/library/sender/sms/cloopensms'));
+const SystemAppSmsSettingJdsmsPage = React.lazy(() => import('./page/library/sender/sms/jdsms'));
 
 
 const SystemMailSettingPage = React.lazy(() => import('./page/system/sender/mail_setting'));
@@ -64,6 +68,8 @@ const UserAppSmsSendPage = React.lazy(() => import('./page/user/sms/send'));
 const UserAppSmsLimitPage = React.lazy(() => import('./page/user/sms/sms_limit'));
 const UserAppSmsMessagePage = React.lazy(() => import('./page/user/sms/sms_message'));
 const UserAppSmsTplConfigPage = React.lazy(() => import('./page/user/sms/tpl_config'));
+const UserAppSmsNotifyPage = React.lazy(() => import('./page/user/sms/sms_notify'));
+
 
 const UserAppMailSendPage = React.lazy(() => import('./page/user/mail/send'));
 const UserAppMailLimitPage = React.lazy(() => import('./page/user/mail/mail_limit'));
@@ -114,6 +120,9 @@ function App() {
               <Route path="alisms" element={<Suspense fallback={<PageProgress />}><SystemAppSmsSettingAlismsPage /></Suspense>} />
               <Route path="hwsms" element={<Suspense fallback={<PageProgress />}><SystemAppSmsSettingHwsmsPage /></Suspense>} />
               <Route path="tensms" element={<Suspense fallback={<PageProgress />}><SystemAppSmsSettingTensmsPage /></Suspense>} />
+              <Route path="jdsms" element={<Suspense fallback={<PageProgress />}><SystemAppSmsSettingJdsmsPage /></Suspense>} />
+              <Route path="cloopensms" element={<Suspense fallback={<PageProgress />}><SystemAppSmsSettingCloOpensmsPage /></Suspense>} />
+              <Route path="163sms" element={<Suspense fallback={<PageProgress />}><SystemAppSmsSettingNeteasesmsPage /></Suspense>} />
             </Route>
           </Route>
           <Route path="sender_mail" element={<Suspense fallback={<PageProgress />}><SystemMailSettingPage /></Suspense>} >
@@ -149,6 +158,7 @@ function App() {
           <Route path="app" element={<Suspense fallback={<PageProgress />}><UserAppPage /></Suspense>} />
           <Route path="sms" element={<Suspense fallback={<PageProgress />}><UserAppSmsPage /></Suspense>} >
             <Route path="limit" element={<Suspense fallback={<PageProgress />}><UserAppSmsLimitPage /></Suspense>} />
+            <Route path="notify" element={<Suspense fallback={<PageProgress />}><UserAppSmsNotifyPage /></Suspense>} />
             <Route path="message" element={<Suspense fallback={<PageProgress />}><UserAppSmsMessagePage /></Suspense>} />
             <Route path="send" element={<Suspense fallback={<PageProgress />}><UserAppSmsSendPage /></Suspense>} />
             <Route path="tpl_config" element={<Suspense fallback={<PageProgress />}><UserAppSmsTplConfigPage /></Suspense>} />

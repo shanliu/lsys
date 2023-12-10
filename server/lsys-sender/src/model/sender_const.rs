@@ -18,20 +18,22 @@ pub enum SenderLogType {
     Cancel = 3, //取消发送
 }
 
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, SqlxModelStatus, PartialEq, Eq)]
-#[sqlx_model_status(type = "i8")]
-pub enum SenderCancelStatus {
-    Init = 1,     //待发送
-    IsCancel = 4, //取消
-}
+// #[derive(Serialize, Deserialize, Clone, Copy, Debug, SqlxModelStatus, PartialEq, Eq)]
+// #[sqlx_model_status(type = "i8")]
+// pub enum SenderCancelStatus {
+//     Init = 1,     //待发送
+//     IsCancel = 4, //取消
+// }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, SqlxModelStatus, PartialEq, Eq)]
 #[sqlx_model_status(type = "i8")]
 pub enum SenderLogStatus {
-    Succ = 2,          //成功
-    Fail = 3,          //失败
-    KeyCancel = 4,     //取消
+    Succ = 2, //成功
+    Fail = 3, //失败
+
     MessageCancel = 5, //取消
+    NotifySucc = 6,    //回调成功
+    NotifyFail = 7,    //回调失败
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, SqlxModelStatus, PartialEq, Eq)]
@@ -89,11 +91,19 @@ pub enum SenderSmsConfigData {
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, SqlxModelStatus, PartialEq, Eq)]
 #[sqlx_model_status(type = "i8")]
+pub enum SenderSmsBodyStatus {
+    Init = 1,   //待发送
+    Finish = 2, //已发送
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, SqlxModelStatus, PartialEq, Eq)]
+#[sqlx_model_status(type = "i8")]
 pub enum SenderSmsMessageStatus {
-    Init = 1,     //待发送
-    IsSend = 2,   //已发送
-    SendFail = 3, //发送失败
-    IsCancel = 4, //已取消
+    Init = 1,       //待发送
+    IsSend = 2,     //已发送
+    IsReceived = 5, //已接收
+    SendFail = 3,   //发送失败
+    IsCancel = 4,   //已取消
 }
 
 //短信公共常量-end
@@ -142,11 +152,19 @@ pub enum SenderMailConfigData {
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, SqlxModelStatus, PartialEq, Eq)]
 #[sqlx_model_status(type = "i8")]
+pub enum SenderMailBodyStatus {
+    Init = 1,   //待发送
+    Finish = 2, //已发送
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, SqlxModelStatus, PartialEq, Eq)]
+#[sqlx_model_status(type = "i8")]
 pub enum SenderMailMessageStatus {
-    Init = 1,     //待发送
-    IsSend = 2,   //已发送
-    SendFail = 3, //发送失败
-    IsCancel = 4, //已取消
+    Init = 1,       //待发送
+    IsSend = 2,     //已发送
+    IsReceived = 5, //已接收
+    SendFail = 3,   //发送失败
+    IsCancel = 4,   //已取消
 }
 
 //邮件公共常量-end

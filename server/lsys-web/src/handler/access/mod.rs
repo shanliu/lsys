@@ -29,7 +29,7 @@ pub fn relation_tpls() -> Vec<RelationTpl> {
 
 pub fn res_tpls() -> Vec<ResTpl> {
     access_res_tpl!(
-        AccessAdminSmtpConfig,
+        AccessAdminMailConfig,
         AccessAppSenderMailConfig,
         AccessAppSenderMailMsg,
         AccessAppSenderDoMail,
@@ -46,8 +46,7 @@ pub fn res_tpls() -> Vec<ResTpl> {
         AccessOauthUserEmail,
         AccessOauthUserMobile,
         AccessOauthUserAddress,
-        AccessAdminAliSmsConfig,
-        AccessAdminHwSmsConfig,
+        AccessAdminSmsConfig,
         AccessAppSenderSmsConfig,
         AccessAppSenderSmsMsg,
         AccessResView,

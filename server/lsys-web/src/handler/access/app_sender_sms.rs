@@ -160,11 +160,11 @@ impl RbacResTpl for AccessAppSenderDoSms {
     }
 }
 
-pub struct AccessAdminAliSmsConfig {
+pub struct AccessAdminSmsConfig {
     pub user_id: u64,
 }
 #[async_trait::async_trait]
-impl RbacCheck for AccessAdminAliSmsConfig {
+impl RbacCheck for AccessAdminSmsConfig {
     async fn check<'t>(
         &self,
         access: &'t RbacAccess,
@@ -174,11 +174,7 @@ impl RbacCheck for AccessAdminAliSmsConfig {
             .check(
                 self.user_id,
                 relation,
-                &[AccessRes::system(
-                    "global-system",
-                    &["app-alisms-config"],
-                    &[],
-                )],
+                &[AccessRes::system("global-system", &["app-sms-config"], &[])],
             )
             .await
     }
@@ -188,91 +184,13 @@ impl RbacCheck for AccessAdminAliSmsConfig {
         })]
     }
 }
-impl RbacResTpl for AccessAdminAliSmsConfig {
+impl RbacResTpl for AccessAdminSmsConfig {
     fn tpl_data() -> Vec<ResTpl> {
         vec![ResTpl {
             tags: vec!["app", "sms"],
             user: false,
             key: "global-system",
-            ops: vec!["app-alisms-config"],
-        }]
-    }
-}
-
-pub struct AccessAdminHwSmsConfig {
-    pub user_id: u64,
-}
-#[async_trait::async_trait]
-impl RbacCheck for AccessAdminHwSmsConfig {
-    async fn check<'t>(
-        &self,
-        access: &'t RbacAccess,
-        relation: &'t [RoleRelationKey],
-    ) -> UserRbacResult<()> {
-        access
-            .check(
-                self.user_id,
-                relation,
-                &[AccessRes::system(
-                    "global-system",
-                    &["app-hwsms-config"],
-                    &[],
-                )],
-            )
-            .await
-    }
-    fn depends(&self) -> Vec<Box<RbacCheckDepend>> {
-        vec![Box::new(AccessAdminManage {
-            user_id: self.user_id,
-        })]
-    }
-}
-impl RbacResTpl for AccessAdminHwSmsConfig {
-    fn tpl_data() -> Vec<ResTpl> {
-        vec![ResTpl {
-            tags: vec!["app", "sms"],
-            user: false,
-            key: "global-system",
-            ops: vec!["app-hwsms-config"],
-        }]
-    }
-}
-
-pub struct AccessAdminTenSmsConfig {
-    pub user_id: u64,
-}
-#[async_trait::async_trait]
-impl RbacCheck for AccessAdminTenSmsConfig {
-    async fn check<'t>(
-        &self,
-        access: &'t RbacAccess,
-        relation: &'t [RoleRelationKey],
-    ) -> UserRbacResult<()> {
-        access
-            .check(
-                self.user_id,
-                relation,
-                &[AccessRes::system(
-                    "global-system",
-                    &["app-tenyun-config"],
-                    &[],
-                )],
-            )
-            .await
-    }
-    fn depends(&self) -> Vec<Box<RbacCheckDepend>> {
-        vec![Box::new(AccessAdminManage {
-            user_id: self.user_id,
-        })]
-    }
-}
-impl RbacResTpl for AccessAdminTenSmsConfig {
-    fn tpl_data() -> Vec<ResTpl> {
-        vec![ResTpl {
-            tags: vec!["app", "sms"],
-            user: false,
-            key: "global-system",
-            ops: vec!["app-tenyun-config"],
+            ops: vec!["app-sms-config"],
         }]
     }
 }

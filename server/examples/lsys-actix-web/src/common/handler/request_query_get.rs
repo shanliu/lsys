@@ -15,16 +15,12 @@ pub trait QueryGetTrait {
 
 impl QueryGetTrait for Query<QueryGet> {
     fn get_string(&self, key: &str) -> Result<String> {
-        return self.0.iter().fold(
-            Result::Err(ErrorBadRequest(format!("not find {} param", key))),
-            |xx, x| {
-                if x.0 == key {
-                    Result::Ok(x.1.to_string())
-                } else {
-                    xx
-                }
-            },
-        );
+        for tmp in self.0.iter() {
+            if tmp.0 == key {
+                return Ok(tmp.1.to_owned());
+            }
+        }
+        Err(ErrorBadRequest(format!("not find {} param", key)))
     }
     /// get request get param and parse
     fn get_parse<T>(&self, key: &str) -> Result<T>

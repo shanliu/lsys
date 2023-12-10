@@ -1,50 +1,66 @@
 use std::{collections::HashMap, sync::Arc};
 
-use crate::dao::SenderResult;
+use crate::{
+    dao::SenderResult,
+    model::{SenderMessageCancelModel, SenderType},
+};
 
-use lsys_core::{now_time, AppCore, FluentMessage, LimitParam};
+use lsys_core::{now_time, AppCore, FluentMessage};
 use parking_lot::Mutex;
 use sqlx::{FromRow, MySql, Pool};
 use sqlx_model::{sql_format, ModelTableField, ModelTableName, Select, SqlExpr};
 
-use super::TaskData;
+use lsys_core::{TaskData, TaskItem};
 use sqlx_model::SqlQuote;
 
 //统一任务消息读取实现
 
-pub struct MessageReader<M>
+pub struct MessageReader<BM, MM>
 where
-    for<'t> M:
+    for<'t> BM:
+        FromRow<'t, sqlx::mysql::MySqlRow> + Send + Unpin + ModelTableName + ModelTableField<MySql>,
+    for<'t> MM:
         FromRow<'t, sqlx::mysql::MySqlRow> + Send + Unpin + ModelTableName + ModelTableField<MySql>,
 {
     db: Pool<MySql>,
     id_generator: Arc<Mutex<snowflake::SnowflakeIdGenerator>>,
-    marker: std::marker::PhantomData<M>,
+    marker_task: std::marker::PhantomData<BM>,
+    marker_message: std::marker::PhantomData<MM>,
+    send_type: SenderType,
 }
 
-impl<M> MessageReader<M>
+impl<BM, MM> MessageReader<BM, MM>
 where
-    for<'r> M:
+    for<'r> BM:
         FromRow<'r, sqlx::mysql::MySqlRow> + Send + Unpin + ModelTableName + ModelTableField<MySql>,
+    for<'t> MM:
+        FromRow<'t, sqlx::mysql::MySqlRow> + Send + Unpin + ModelTableName + ModelTableField<MySql>,
 {
-    pub fn new(db: Pool<sqlx::MySql>, app_core: Arc<AppCore>, _fluent: Arc<FluentMessage>) -> Self {
+    pub fn new(
+        db: Pool<sqlx::MySql>,
+        app_core: Arc<AppCore>,
+        send_type: SenderType,
+        _fluent: Arc<FluentMessage>,
+    ) -> Self {
         let id_generator = Arc::new(Mutex::new(app_core.create_snowflake_id_generator()));
         Self {
             id_generator,
             db,
-            marker: std::marker::PhantomData,
+            marker_task: std::marker::PhantomData,
+            marker_message: std::marker::PhantomData,
+            send_type,
         }
     }
     pub fn message_id(&self) -> u64 {
         self.id_generator.lock().real_time_generate() as u64
     }
     //读取邮件任务数据
-    pub async fn read(
+    pub async fn read_task(
         &self,
         tasking_record: &HashMap<u64, TaskData>,
         status: i8,
         limit: usize,
-    ) -> SenderResult<(Vec<M>, bool)> {
+    ) -> SenderResult<(Vec<BM>, bool)> {
         let mut sql_vec = vec![];
         sql_vec.push(sql_format!(
             "expected_time<={} and status = {}",
@@ -55,8 +71,8 @@ where
         if !ids.is_empty() {
             sql_vec.push(sql_format!(" id not in ({})", ids));
         }
-        let mut app_res = Select::type_new::<M>()
-            .fetch_all_by_where::<M, _>(
+        let mut app_res = Select::type_new::<BM>()
+            .fetch_all_by_where::<BM, _>(
                 &sqlx_model::WhereOption::Where(format!(
                     "{} order by id asc limit {}",
                     sql_vec.join(" and "),
@@ -73,96 +89,70 @@ where
         };
         Ok((app_res, next))
     }
+    //读取邮件任务数据
+    pub async fn read_message<TD: TaskItem<u64>>(
+        &self,
+        record: &TD,
+        sending_data: &[u64],
+        status: i8,
+        limit: u16,
+    ) -> SenderResult<Vec<MM>> {
+        let mut sql_vec = vec![];
+        sql_vec.push(sql_format!(
+            "sender_body_id={} and status = {} and id not in (select id from {} where sender_body_id={} and sender_type={})",
+            record.to_task_pk(),
+            status,
+            SqlExpr(SenderMessageCancelModel::table_name()),
+            record.to_task_pk(),
+            self.send_type as i8,
+        ));
+
+        if !sending_data.is_empty() {
+            sql_vec.push(sql_format!(" id not in ({})", sending_data));
+        }
+        Ok(Select::type_new::<MM>()
+            .fetch_all_by_where::<MM, _>(
+                &sqlx_model::WhereOption::Where(format!(
+                    "{} order by id asc limit {}",
+                    sql_vec.join(" and "),
+                    limit
+                )),
+                &self.db,
+            )
+            .await?)
+    }
+    pub async fn find_message_by_id_vec(&self, ids: &[u64]) -> SenderResult<Vec<MM>> {
+        Ok(Select::type_new::<MM>()
+            .fetch_all_by_where::<MM, _>(
+                &sqlx_model::WhereOption::Where(sql_format!("id in ({})", ids)),
+                &self.db,
+            )
+            .await?)
+    }
     lsys_core::impl_dao_fetch_one_by_one!(
         db,
         find_message_by_id,
         u64,
-        M,
-        SenderResult<M>,
+        MM,
+        SenderResult<MM>,
         id,
         "id={id}"
     );
-    pub async fn message_count(
-        &self,
-        user_id: &Option<u64>,
-        app_id: &Option<u64>,
-        tpl_id: &Option<String>,
-        status: &Option<i8>,
-        sql_where: Option<String>,
-    ) -> SenderResult<i64> {
-        let mut sqlwhere = vec![];
-        if let Some(aid) = app_id {
-            sqlwhere.push(sql_format!("app_id = {}  ", aid));
-        }
-        if let Some(uid) = user_id {
-            sqlwhere.push(sql_format!("user_id={} ", uid));
-        }
-        if let Some(t) = tpl_id {
-            sqlwhere.push(sql_format!("tpl_id={} ", t));
-        }
-        if let Some(s) = status {
-            sqlwhere.push(sql_format!("status={} ", *s));
-        }
-        if let Some(s) = sql_where {
-            sqlwhere.push(s);
-        }
-        let sql = sql_format!(
-            "select count(*) as total from {} {}",
-            M::table_name(),
-            SqlExpr(if sqlwhere.is_empty() {
-                "".to_string()
-            } else {
-                format!("where {}", sqlwhere.join(" and "))
-            })
-        );
-        let query = sqlx::query_scalar::<_, i64>(&sql);
-        let res = query.fetch_one(&self.db).await?;
-        Ok(res)
-    }
-    pub async fn message_list(
-        &self,
-        user_id: &Option<u64>,
-        app_id: &Option<u64>,
-        tpl_id: &Option<String>,
-        status: &Option<i8>,
-        sql_where: Option<String>,
-        limit: &Option<LimitParam>,
-    ) -> SenderResult<(Vec<M>, Option<M>)> {
-        let mut sqlwhere = vec![];
-        if let Some(aid) = app_id {
-            sqlwhere.push(sql_format!("app_id = {}  ", aid));
-        }
-        if let Some(uid) = user_id {
-            sqlwhere.push(sql_format!("user_id={} ", uid));
-        }
-        if let Some(t) = tpl_id {
-            sqlwhere.push(sql_format!("tpl_id={} ", t));
-        }
-        if let Some(s) = status {
-            sqlwhere.push(sql_format!("status={} ", *s));
-        }
-        if let Some(s) = sql_where {
-            sqlwhere.push(s);
-        }
-
-        let sql = if let Some(page) = limit {
-            format!(
-                "{} {} order by {} {} ",
-                sqlwhere.join(" and "),
-                page.where_sql("id", Some("and")),
-                page.order_sql("id"),
-                page.limit_sql(),
+    lsys_core::impl_dao_fetch_one_by_one!(
+        db,
+        find_body_by_id,
+        u64,
+        BM,
+        SenderResult<BM>,
+        id,
+        "id={id}"
+    );
+    pub async fn find_body_by_id_vec(&self, ids: &[u64]) -> SenderResult<Vec<BM>> {
+        Ok(Select::type_new::<BM>()
+            .fetch_all_by_where::<BM, _>(
+                &sqlx_model::WhereOption::Where(sql_format!("id in ({})", ids)),
+                &self.db,
             )
-        } else {
-            format!("{}  order by id desc", sqlwhere.join(" and "))
-        };
-        let mut data = Select::type_new::<M>()
-            .fetch_all_by_where::<M, _>(&sqlx_model::WhereOption::Where(sql), &self.db)
-            .await?;
-        let next = limit
-            .as_ref()
-            .map(|page| page.tidy(&mut data))
-            .unwrap_or_default();
-        Ok((data, next))
+            .await?)
     }
 }

@@ -11,16 +11,22 @@ type CheckRes interface {
 }
 
 // CheckRelation 校验权限关系
-type CheckRelation struct {
-	inner []map[string]interface{}
+type CheckRelation interface {
+	ToCheckRelation() []map[string]interface{}
+}
+type EmptyCheckRelation struct {
+}
+
+func (EmptyCheckRelation) ToCheckRelation() []map[string]interface{} {
+	return make([]map[string]interface{}, 0)
 }
 
 // RbacCheck 权限校验
-func (receiver *RestApi) RbacCheck(ctx context.Context, userId int, relation *CheckRelation, checkRes CheckRes) error {
+func (receiver *RestApi) RbacCheck(ctx context.Context, userId int, relation CheckRelation, checkRes CheckRes) error {
 	data1 := (<-receiver.rest.Do(ctx, AccessCheck, map[string]interface{}{
 		"user_id": userId,
 		"access": map[string]interface{}{
-			"relation_key": relation.inner,
+			"relation_key": relation.ToCheckRelation(),
 			"check_res":    checkRes.ToRbacRes(),
 		},
 	})).JsonResult()

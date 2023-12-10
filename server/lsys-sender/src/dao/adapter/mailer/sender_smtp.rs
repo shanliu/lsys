@@ -1,11 +1,13 @@
 use std::{
     collections::{hash_map::Entry, HashMap},
     sync::Arc,
+    time::Duration,
 };
 
 use crate::{
     dao::{
-        MailTaskItem, MessageTpls, SenderError, SenderExecError, SenderResult, SenderTaskExecutor,
+        MailTaskData, MailTaskItem, MessageTpls, SenderError, SenderExecError, SenderResult,
+        SenderTaskExecutor, SenderTaskResult, SenderTaskResultItem, SenderTaskStatus,
         SenderTplConfig,
     },
     model::{SenderTplConfigModel, SenderType},
@@ -35,7 +37,7 @@ use tera::Context;
 use tokio::sync::RwLock;
 
 use sqlx::Pool;
-use tracing::{debug, info};
+use tracing::debug;
 
 // 邮件发送 smtp 适配
 
@@ -48,6 +50,7 @@ pub struct SmtpConfig {
     pub email: String,
     pub password: String,
     pub tls_domain: String,
+    pub branch_limit: u16,
 }
 
 impl SmtpConfig {
@@ -190,7 +193,7 @@ impl SenderSmtpConfig {
     }
     //检测smtp配置
     pub async fn check_config(&self, config: &SmtpConfig) -> SenderResult<()> {
-        connect(config)
+        connect(config, 5)
             .await
             .map_err(SenderError::System)?
             .test_connection()
@@ -266,56 +269,106 @@ impl SmtpSenderTask {
             tpls: Arc::new(MessageTpls::new(db, fluent, logger)),
         }
     }
-    async fn email_builder(
+}
+
+#[async_trait]
+impl SenderTaskExecutor<u64, MailTaskItem, MailTaskData> for SmtpSenderTask {
+    fn setting_key(&self) -> String {
+        SmtpConfig::key().to_owned()
+    }
+    async fn limit(&self, setting: &SettingModel) -> u16 {
+        SettingData::<SmtpConfig>::try_from(setting.to_owned())
+            .map(|e| {
+                if e.branch_limit == 0 {
+                    1
+                } else {
+                    e.branch_limit
+                }
+            })
+            .ok()
+            .unwrap_or(1)
+    }
+    //执行短信发送
+    async fn exec(
         &self,
-        mail: &SmtpTplConfig,
         val: &MailTaskItem,
-        context: &Context,
-    ) -> Result<Message, String> {
+        data: &MailTaskData,
+        tpl_config: &SenderTplConfigModel,
+        setting: &SettingModel,
+    ) -> SenderTaskResult {
+        debug!("msgid:{} config_id:{} ", val.mail.id, tpl_config.id,);
+        let smtp_setting =
+            SettingData::<SmtpConfig>::try_from(setting.to_owned()).map_err(|e| {
+                SenderExecError::Next(format!("parse config to smtp setting fail:{}", e))
+            })?;
+        let hand_id = format!("{}-{}", smtp_setting.host, smtp_setting.user);
+        let mail_tpl_config = serde_json::from_str::<SmtpTplConfig>(&tpl_config.config_data)
+            .map_err(|e| {
+                SenderExecError::Next(format!(
+                    "parse config to smtp tpl config fail[{}]:{}",
+                    hand_id, e
+                ))
+            })?;
+        let var_tpl = serde_json::from_str::<Value>(&val.mail.tpl_var)
+            .map_err(|e| SenderExecError::Finish(format!("load tpl fail[{}]:{}", hand_id, e)))?;
+        let context = Context::from_value(var_tpl)
+            .map_err(|e| SenderExecError::Finish(format!("prare tpl fail[{}]:{}", hand_id, e)))?;
+
+        let mut bad_res = vec![];
         let mut email_builder = Message::builder();
-        let to = val
-            .mail
-            .to_mail
-            .parse::<Mailbox>()
-            .map_err(|e| format!("parse to mail fail: {}", e))?;
-        email_builder = email_builder.to(to);
-        if let Ok(from) = mail
-            .from_email
-            .parse::<Mailbox>()
-            .map_err(|e| info!("parse from mail from fail: {}", e))
-        {
+
+        if let Ok(from) = mail_tpl_config.from_email.parse::<Mailbox>() {
             email_builder = email_builder.from(from);
         }
-
         if !val.mail.reply_mail.is_empty() {
-            let reply_mail = val
-                .mail
-                .reply_mail
-                .parse::<Mailbox>()
-                .map_err(|e| format!("parse reply mail fail: {}", e))?;
-            email_builder = email_builder.reply_to(reply_mail);
-        } else if let Ok(reply) = mail
-            .reply_email
-            .parse::<Mailbox>()
-            .map_err(|e| info!("parse reply mail from fail: {}", e))
-        {
+            if let Ok(reply_mail) = val.mail.reply_mail.parse::<Mailbox>() {
+                email_builder = email_builder.reply_to(reply_mail);
+            }
+        } else if let Ok(reply) = mail_tpl_config.reply_email.parse::<Mailbox>() {
             email_builder = email_builder.reply_to(reply);
+        }
+
+        let mut is_send = false;
+        for tmp in data.data.iter() {
+            email_builder = match tmp.to_mail.parse::<Mailbox>() {
+                Ok(dat) => {
+                    is_send = true;
+                    email_builder.to(dat)
+                }
+                Err(err) => {
+                    bad_res.push(SenderTaskResultItem {
+                        id: tmp.id,
+                        status: SenderTaskStatus::Failed(false),
+                        message: err.to_string(),
+                        send_id: "".to_owned(),
+                    });
+                    continue;
+                }
+            };
         }
 
         let subject = self
             .tpls
-            .render(SenderType::Mailer, &mail.subject_tpl_id, context)
+            .render(
+                SenderType::Mailer,
+                &mail_tpl_config.subject_tpl_id,
+                &context,
+            )
             .await
-            .map_err(|e| format!("render subject fail: {}", e))?;
+            .map_err(|e| {
+                SenderExecError::Finish(format!("render subject fail [{}]: {}", hand_id, e))
+            })?;
         email_builder = email_builder.subject(subject);
 
         let body = self
             .tpls
-            .render(SenderType::Mailer, &mail.body_tpl_id, context)
+            .render(SenderType::Mailer, &mail_tpl_config.body_tpl_id, &context)
             .await
-            .map_err(|e| format!("render body fail: {}", e))?;
+            .map_err(|e| {
+                SenderExecError::Finish(format!("render body fail[{}]: {}", hand_id, e))
+            })?;
 
-        email_builder
+        let msg = email_builder
             .multipart(
                 MultiPart::alternative() // This is composed of two parts.
                     .singlepart(
@@ -324,62 +377,63 @@ impl SmtpSenderTask {
                             .body(body),
                     ),
             )
-            .map_err(|e| format!("parse mail body fail: {}", e))
-    }
-}
-
-#[async_trait]
-impl SenderTaskExecutor<u64, MailTaskItem> for SmtpSenderTask {
-    fn setting_key(&self) -> String {
-        SmtpConfig::key().to_owned()
-    }
-    //执行短信发送
-    async fn exec(
-        &self,
-        val: &MailTaskItem,
-        tpl_config: &SenderTplConfigModel,
-        setting: &SettingModel,
-    ) -> Result<String, SenderExecError> {
-        debug!("msgid:{} config_id:{} ", val.mail.id, tpl_config.id,);
-        let smtp_setting =
-            SettingData::<SmtpConfig>::try_from(setting.to_owned()).map_err(|e| {
-                SenderExecError::Next(format!("parse config to smtp setting fail:{}", e))
-            })?;
-        let mail_tpl_config = serde_json::from_str::<SmtpTplConfig>(&tpl_config.config_data)
             .map_err(|e| {
-                SenderExecError::Next(format!("parse config to smtp tpl config fail:{}", e))
+                SenderExecError::Finish(format!("parse mail body fail[{}]: {}", hand_id, e))
             })?;
-        let var_tpl = serde_json::from_str::<Value>(&val.mail.tpl_var)
-            .map_err(|e| SenderExecError::Finish(e.to_string()))?;
-        let context =
-            Context::from_value(var_tpl).map_err(|e| SenderExecError::Finish(e.to_string()))?;
-        let msg = self
-            .email_builder(&mail_tpl_config, val, &context)
-            .await
-            .map_err(|e| SenderExecError::Finish(format!("build emial fail:{}", e)))?;
-        let res = match self.mailer.write().await.entry(tpl_config.id) {
-            Entry::Occupied(entry) => entry.into_mut(),
-            Entry::Vacant(entry) => entry.insert(
-                connect(&smtp_setting)
-                    .await
-                    .map_err(|e| SenderExecError::Next(format!("connect fail: {}", e)))?,
-            ),
-        }
-        .send(msg)
-        .await;
-        match res {
-            Ok(_) => return Ok(format!("{}-{}", smtp_setting.host, smtp_setting.user)),
-            Err(err) => Err(SenderExecError::Next(format!("send email fail: {}", err))),
+
+        if is_send {
+            let res = match self.mailer.write().await.entry(tpl_config.id) {
+                Entry::Occupied(entry) => entry.into_mut(),
+                Entry::Vacant(entry) => {
+                    entry.insert(connect(&smtp_setting, smtp_setting.timeout).await.map_err(
+                        |e| SenderExecError::Next(format!("connect fail{}: {}", hand_id, e)),
+                    )?)
+                }
+            }
+            .send(msg)
+            .await;
+            let mut send_res = match res {
+                Ok(response) => data
+                    .data
+                    .iter()
+                    .map(|e| SenderTaskResultItem {
+                        id: e.id,
+                        status: SenderTaskStatus::Completed,
+                        message: response.message().collect::<Vec<&str>>().join(","),
+                        send_id: "".to_owned(),
+                    })
+                    .collect::<Vec<_>>(),
+                Err(err) => data
+                    .data
+                    .iter()
+                    .map(|e| SenderTaskResultItem {
+                        id: e.id,
+                        status: SenderTaskStatus::Failed(true),
+                        message: format!("send email fail: {}", err),
+                        send_id: "".to_owned(),
+                    })
+                    .collect::<Vec<_>>(),
+            };
+            send_res.extend(bad_res);
+            Ok(send_res)
+        } else {
+            Ok(bad_res)
         }
     }
 }
 
-async fn connect(config: &SmtpConfig) -> Result<AsyncSmtpTransport<Tokio1Executor>, String> {
+async fn connect(
+    config: &SmtpConfig,
+    timeout: u64,
+) -> Result<AsyncSmtpTransport<Tokio1Executor>, String> {
     let mut mailer_builder = AsyncSmtpTransport::<Tokio1Executor>::relay(config.host.as_str())
         .map_err(|e| e.to_string())?;
     if !config.user.is_empty() || !config.password.is_empty() {
         let creds = Credentials::new(config.user.clone(), config.password.clone());
         mailer_builder = mailer_builder.credentials(creds)
+    }
+    if timeout > 0 {
+        mailer_builder = mailer_builder.timeout(Some(Duration::from_secs(timeout)));
     }
     if !config.tls_domain.is_empty() {
         let tls = TlsParametersBuilder::new(config.tls_domain.clone())

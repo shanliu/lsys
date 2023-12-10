@@ -28,7 +28,7 @@ pub enum RbacRoleUserRange {
     Guest = 1,    //游客
     Login = 2,    //登录用户
     User = 3,     //指定用户 由RbacRoleUserModel决定
-    Relation = 4, //关系角色
+    Relation = 4, //指定关系角色
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, SqlxModelStatus, PartialEq, Eq)]

@@ -4,6 +4,26 @@ use serde::Serialize;
 //发送系统日志
 
 #[derive(Serialize)]
+pub(crate) struct LogMessage {
+    pub action: &'static str,
+    pub sender_type: i8,
+    pub body_id: u64,
+    pub message_id: Option<u64>,
+}
+
+impl ChangeLogData for LogMessage {
+    fn log_type<'t>() -> &'t str {
+        "sender-message"
+    }
+    fn message(&self) -> String {
+        format!("{} {}", self.sender_type, self.action)
+    }
+    fn encode(&self) -> String {
+        serde_json::to_string(&self).unwrap_or_default()
+    }
+}
+
+#[derive(Serialize)]
 pub(crate) struct LogMessageTpls {
     pub action: &'static str,
     pub sender_type: i8,

@@ -5,6 +5,7 @@ use lsys_core::cache::{LocalCacheClear, LocalCacheClearItem};
 use lsys_core::{AppCore, AppCoreError, RemoteNotify};
 use lsys_docs::dao::{DocsDao, GitRemoteTask};
 use lsys_logger::dao::ChangeLogger;
+use lsys_notify::dao::Notify;
 use lsys_rbac::dao::rbac::RbacLocalCacheClear;
 use lsys_rbac::dao::{RbacDao, SystemRole};
 use lsys_sender::dao::MessageTpls;
@@ -53,7 +54,8 @@ pub struct WebDao {
     pub tera: Arc<Tera>,
     pub setting: Arc<Setting>,
     pub logger: Arc<ChangeLogger>,
-    pub area: Arc<AreaDao>,
+    pub area: Option<Arc<AreaDao>>,
+    pub notify: Arc<Notify>,
 }
 
 impl WebDao {
@@ -113,23 +115,18 @@ impl WebDao {
         let login_store = UserAuthRedisStore::new(redis.clone());
         let mut login_config = UserAuthConfig::default();
 
-        let ip_db_path = app_core.config.get_string("ip_city_db").unwrap_or_default();
-        if !ip_db_path.is_empty() {
-            let city_data = app_core.app_dir.join(ip_db_path);
-            match LocationDB::from_file(&city_data) {
+        match app_core.get_config_path("ip_city_db") {
+            Ok(ip_db_path) => match LocationDB::from_file(&ip_db_path) {
                 Ok(city_db) => {
                     login_config.ip_db = Some(Mutex::new(ip2location::DB::LocationDb(city_db)));
                 }
                 Err(err) => {
-                    warn!(
-                        "read ip city db error[{}]:{:?}",
-                        city_data.to_string_lossy(),
-                        err
-                    )
+                    warn!("read ip city db error[{}]:{:?}", ip_db_path.display(), err)
                 }
+            },
+            Err(err) => {
+                info!("ip city db not config:{}", err);
             }
-        } else {
-            info!("ip city db not config")
         }
 
         let docs = Arc::new(
@@ -142,7 +139,7 @@ impl WebDao {
             )
             .await,
         );
-
+        // 文档后台同步任务
         let task_docs = docs.task.clone();
         tokio::spawn(async move {
             task_docs.dispatch().await;
@@ -185,12 +182,34 @@ impl WebDao {
             300, //任务最大执行时间
             true,
         ));
+        // 邮件发送任务
         let task_web_mailer = mailer.clone();
         tokio::spawn(async move {
             if let Err(err) = task_web_mailer.task().await {
                 error!("mailer error:{}", err.to_string())
             }
         });
+
+        let notify = Arc::new(Notify::new(
+            redis.clone(),
+            db.clone(),
+            app_core.clone(),
+            apps.app_dao.app.clone(),
+            change_logger.clone(),
+            None,
+            None,
+            None,
+            true,
+        ));
+
+        //启动回调任务
+        let notify_task = notify.clone();
+        tokio::spawn(async move {
+            if let Err(err) = notify_task.task().await {
+                error!("smser sender error:{}", err.to_string())
+            }
+        });
+
         let web_smser = Arc::new(WebAppSmser::new(
             app_core.clone(),
             redis.clone(),
@@ -198,14 +217,24 @@ impl WebDao {
             user_dao.fluent.clone(),
             setting.clone(),
             change_logger.clone(),
+            notify.clone(),
+            None,
             None,
             300, //任务最大执行时间
             true,
         ));
-        let task_web_smser = web_smser.clone();
+        //启动短信发送任务
+        let task_sender = web_smser.clone();
         tokio::spawn(async move {
-            if let Err(err) = task_web_smser.task().await {
-                error!("smser error:{}", err.to_string())
+            if let Err(err) = task_sender.task_sender().await {
+                error!("smser sender error:{}", err.to_string())
+            }
+        });
+        //启动短信状态查询任务
+        let task_notify = web_smser.clone();
+        tokio::spawn(async move {
+            if let Err(err) = task_notify.task_status_query().await {
+                error!("smser notify error:{}", err.to_string())
             }
         });
         let captcha = Arc::new(WebAppCaptcha::new(redis.clone()));
@@ -225,7 +254,7 @@ impl WebDao {
             change_logger.clone(),
         ));
 
-        // local cache
+        // 本地lua缓存清理 local cache
         let mut cache_item: Vec<Box<dyn LocalCacheClearItem + Sync + Send + 'static>> = vec![];
         for item in RbacLocalCacheClear::new_clears(&rbac_dao.rbac) {
             cache_item.push(Box::new(item))
@@ -236,44 +265,52 @@ impl WebDao {
         let local_cache_clear = LocalCacheClear::new(cache_item);
         remote_notify.push_run(Box::new(local_cache_clear)).await;
 
-        //git doc
+        //git文档 远程同步任务
         remote_notify
             .push_run(Box::new(GitRemoteTask::new(docs.task.clone())))
             .await;
-
+        //远程任务后台任务
         tokio::spawn(async move {
             //listen redis notify
             remote_notify.listen().await;
         });
 
-        let area_code_path = app_core.config.get_string("area_code_db")?;
-        let code_path = std::path::PathBuf::from(&area_code_path);
-        let data = area_db::CsvAreaData::new(
-            area_db::CsvAreaCodeData::from_inner_path(code_path, true)
-                .map_err(|e| AppCoreError::System(format!("area code db load fail on {} [download url:https://github.com/shanliu/area-db/blob/main/data/2023-7-area-code.csv.gz],error detail:{}",area_code_path,e)))?,
-            None,
-        );
-        let area_index_dir = app_core
-            .config
-            .get_string("area_index_dir")
-            .map(PathBuf::from)
-            .unwrap_or_else(|_| {
-                let mut index_dir = std::env::temp_dir();
-                index_dir.push("lsys_area_cache");
-                index_dir
-            });
-        let area_index_size = app_core
-            .config
-            .get_int("area_index_size")
-            .map(|e| e.abs() as usize)
-            .ok();
-
-        let area_store = area_db::AreaStoreDisk::new(area_index_dir, area_index_size)
-            .map_err(|e| AppCoreError::System(e.to_string()))?;
-        let area = Arc::new(
-            AreaDao::from_csv_disk(data, area_store)
-                .map_err(|e| AppCoreError::System(e.to_string()))?,
-        );
+        //行政区域地址库数据初始化
+        let mut area = None;
+        match app_core.get_config_path("area_code_db") {
+            Ok(code_path) => {
+                match area_db::CsvAreaCodeData::from_inner_path(code_path.clone(), true) {
+                    Ok(tmp) => {
+                        let data = area_db::CsvAreaData::new(tmp, None);
+                        let area_index_dir = app_core
+                            .get_config_path("area_index_dir")
+                            .unwrap_or_else(|_| {
+                                let mut index_dir = std::env::temp_dir();
+                                index_dir.push("lsys_area_cache");
+                                index_dir
+                            });
+                        let area_index_size = app_core
+                            .config
+                            .get_int("area_index_size")
+                            .map(|e| e.abs() as usize)
+                            .ok();
+                        let area_store =
+                            area_db::AreaStoreDisk::new(area_index_dir, area_index_size)
+                                .map_err(|e| AppCoreError::System(e.to_string()))?;
+                        area = Some(Arc::new(
+                            AreaDao::from_csv_disk(data, area_store)
+                                .map_err(|e| AppCoreError::System(e.to_string()))?,
+                        ));
+                    }
+                    Err(err) => {
+                        warn!("area code db load fail on {} [download url:https://github.com/shanliu/area-db/blob/main/data/2023-7-area-code.csv.gz],error detail:{}",code_path.display(),err);
+                    }
+                }
+            }
+            Err(err) => {
+                error!("load area data fail:{}", err.to_string())
+            }
+        }
         Ok(WebDao {
             docs,
             user: Arc::new(WebUser::new(
@@ -298,18 +335,35 @@ impl WebDao {
             setting,
             logger: change_logger,
             area,
+            notify,
         })
     }
     pub fn bind_addr(&self) -> String {
-        let host = self.app_core.config.get_string("app_host").unwrap();
-        let port = self.app_core.config.get_string("app_port").unwrap();
+        let host = self
+            .app_core
+            .config
+            .get_string("app_host")
+            .unwrap_or("127.0.0.1".to_owned());
+        let port = self
+            .app_core
+            .config
+            .get_string("app_port")
+            .unwrap_or("80".to_owned());
         format!("{}:{}", host, port)
     }
-    pub fn bind_ssl_addr(&self) -> Option<String> {
-        let host = self.app_core.config.get_string("app_host").unwrap();
-        let port = self.app_core.config.get_string("app_ssl_port");
-        port.ok()
-            .map(|port| Some(format!("{}:{}", host, port)))
-            .unwrap_or_default()
+    pub fn bind_ssl_data(&self) -> Option<(String, String, String)> {
+        let host = self
+            .app_core
+            .config
+            .get_string("app_host")
+            .unwrap_or("127.0.0.1".to_owned());
+        let port = self
+            .app_core
+            .config
+            .get_string("app_ssl_port")
+            .unwrap_or("443".to_string());
+        let cert = self.app_core.config.get_string("app_ssl_cert").ok()?;
+        let key = self.app_core.config.get_string("app_ssl_key").ok()?;
+        Some((format!("{}:{}", host, port), cert, key))
     }
 }

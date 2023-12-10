@@ -47,7 +47,10 @@ pub async fn user_address_add<'t, T: SessionTokenData, D: SessionData, S: UserSe
             None,
         )
         .await?;
-    let area = req_dao.web_dao.area.code_related(&param.code)?;
+    if param.code.trim().len() < 6 {
+        return Ok(JsonData::message("your submit area miss city").set_code("bad_code"));
+    }
+    let area = get_area!(req_dao.web_dao.area).code_related(&param.code)?;
     if area.is_empty() {
         return Ok(
             JsonData::message("your submit area code not find any data").set_code("bad_code")
@@ -120,8 +123,10 @@ pub async fn user_address_edit<'t, T: SessionTokenData, D: SessionData, S: UserS
         )
         .await?;
     let country_code = "CHN".to_string();
-
-    let area = req_dao.web_dao.area.code_find(&param.code)?;
+    if param.code.trim().len() < 6 {
+        return Ok(JsonData::message("your submit area miss city").set_code("bad_code"));
+    }
+    let area = get_area!(req_dao.web_dao.area).code_find(&param.code)?;
     if area.is_empty() {
         return Ok(
             JsonData::message("your submit area code not find any data").set_code("bad_code")
@@ -227,7 +232,7 @@ pub async fn user_address_list_data<
         .user
         .user_address(req_auth.user_data().user_id)
         .await?;
-    let area = &req_dao.web_dao.area;
+    let area = get_area!(req_dao.web_dao.area);
     let data_list = data
         .iter()
         .map(|e| {

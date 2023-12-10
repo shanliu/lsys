@@ -8,7 +8,7 @@ use sqlx_model::{
 use std::sync::Arc;
 use tracing::log::warn;
 
-use super::{SettingData, SettingDecode, SettingEncode, SettingLog, SettingResult};
+use super::{SettingData, SettingDecode, SettingEncode, SettingError, SettingLog, SettingResult};
 use crate::model::{SettingModel, SettingModelRef, SettingStatus, SettingType};
 use sqlx_model::SqlQuote;
 
@@ -283,26 +283,26 @@ impl MultipleSetting {
         let res = query.fetch_one(&self.db).await?;
         Ok(res)
     }
+    pub async fn find(&self, user_id: &Option<u64>, id: &u64) -> SettingResult<SettingModel> {
+        let id = id.to_owned();
+        let uid = user_id.unwrap_or_default();
+        Ok(Select::type_new::<SettingModel>()
+            .fetch_one_by_where_call::<SettingModel, _, _>(
+                "id=? and setting_type=? and  user_id=?",
+                |res, _| res.bind(id).bind(SettingType::Multiple as i8).bind(uid),
+                &self.db,
+            )
+            .await?)
+    }
     pub async fn load<T: SettingDecode>(
         &self,
         user_id: &Option<u64>,
         id: &u64,
     ) -> SettingResult<SettingData<T>> {
-        let id = id.to_owned();
-        let key = T::key().to_string();
-        let uid = user_id.unwrap_or_default();
-        let model = Select::type_new::<SettingModel>()
-            .fetch_one_by_where_call::<SettingModel, _, _>(
-                "id=? and setting_type=? and setting_key=? and user_id=?",
-                |res, _| {
-                    res.bind(id)
-                        .bind(SettingType::Multiple as i8)
-                        .bind(key.clone())
-                        .bind(uid)
-                },
-                &self.db,
-            )
-            .await?;
+        let model = self.find(user_id, id).await?;
+        if T::key() != model.setting_key.as_str() {
+            return Err(SettingError::Sqlx(sqlx::error::Error::RowNotFound));
+        }
         SettingData::try_from(model)
     }
 }

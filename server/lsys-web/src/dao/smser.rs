@@ -4,12 +4,15 @@ use config::ConfigError;
 use lsys_app::model::AppsModel;
 use lsys_core::{AppCore, FluentMessage, RequestEnv};
 use lsys_logger::dao::ChangeLogger;
+use lsys_notify::dao::Notify;
 use lsys_sender::{
     dao::{
-        AliYunSenderTask, HwYunSenderTask, SenderAliYunConfig, SenderError, SenderHwYunConfig,
-        SenderTenYunConfig, SenderTplConfig, SmsRecord, SmsSender, TenyunSenderTask,
+        AliYunSendStatus, AliYunSenderTask, CloOpenSenderTask, HwYunSenderTask, JDCloudSenderTask,
+        JDSendStatus, NetEaseSendStatus, NetEaseSenderTask, SenderAliYunConfig,
+        SenderCloOpenConfig, SenderError, SenderHwYunConfig, SenderJDCloudConfig,
+        SenderNetEaseConfig, SenderTenYunConfig, SmsSender, TenYunSendStatus, TenyunSenderTask,
     },
-    model::SenderSmsMessageModel,
+    model::{SenderSmsBodyModel, SenderSmsMessageModel},
 };
 use lsys_setting::dao::Setting;
 use lsys_user::dao::account::{check_mobile, UserAccountError};
@@ -51,10 +54,13 @@ impl From<WebAppSmserError> for UserAccountError {
 }
 
 pub struct WebAppSmser {
-    aliyun_sender: SenderAliYunConfig,
-    hwyun_sender: SenderHwYunConfig,
-    tenyun_sender: SenderTenYunConfig,
-    smser: Arc<SmsSender>,
+    pub aliyun_sender: SenderAliYunConfig,
+    pub hwyun_sender: SenderHwYunConfig,
+    pub tenyun_sender: SenderTenYunConfig,
+    pub cloopen_sender: SenderCloOpenConfig,
+    pub netease_sender: SenderNetEaseConfig,
+    pub jd_sender: SenderJDCloudConfig,
+    pub smser: Arc<SmsSender>,
     fluent: Arc<FluentMessage>,
 }
 
@@ -67,21 +73,27 @@ impl WebAppSmser {
         fluent: Arc<FluentMessage>,
         setting: Arc<Setting>,
         logger: Arc<ChangeLogger>,
-        task_size: Option<usize>,
+        notify: Arc<Notify>,
+        sender_task_size: Option<usize>,
+        notify_task_size: Option<usize>,
         task_timeout: usize,
         is_check: bool,
     ) -> Self {
         let smser = Arc::new(SmsSender::new(
             app_core,
-            redis,
-            db,
+            redis.clone(),
+            db.clone(),
             setting.clone(),
             fluent.clone(),
             logger,
-            task_size,
+            notify,
+            sender_task_size,
+            notify_task_size,
             task_timeout,
             is_check,
+            None,
         ));
+
         let aliyun_sender =
             SenderAliYunConfig::new(setting.multiple.clone(), smser.tpl_config.clone());
         let hwyun_sender =
@@ -89,62 +101,69 @@ impl WebAppSmser {
         let tenyun_sender =
             SenderTenYunConfig::new(setting.multiple.clone(), smser.tpl_config.clone());
 
+        let cloopen_sender =
+            SenderCloOpenConfig::new(setting.multiple.clone(), smser.tpl_config.clone());
+        let netease_sender =
+            SenderNetEaseConfig::new(setting.multiple.clone(), smser.tpl_config.clone());
+        let jd_sender =
+            SenderJDCloudConfig::new(setting.multiple.clone(), smser.tpl_config.clone());
         Self {
             smser,
             fluent,
             aliyun_sender,
             hwyun_sender,
             tenyun_sender,
+            cloopen_sender,
+            netease_sender,
+            jd_sender,
         }
     }
-    pub fn tpl_config(&self) -> &SenderTplConfig {
-        &self.smser.tpl_config
-    }
-    pub fn hwyun_sender(&self) -> &SenderHwYunConfig {
-        &self.hwyun_sender
-    }
-    pub fn aliyun_sender(&self) -> &SenderAliYunConfig {
-        &self.aliyun_sender
-    }
-    pub fn tenyun_sender(&self) -> &SenderTenYunConfig {
-        &self.tenyun_sender
-    }
-    pub fn sms_record(&self) -> &SmsRecord {
-        &self.smser.sms_record
-    }
     // 短信后台任务
-    pub async fn task(&self) -> Result<(), WebAppSmserError> {
+    pub async fn task_sender(&self) -> Result<(), WebAppSmserError> {
         Ok(self
             .smser
-            .task(vec![
+            .task_sender(vec![
                 Box::<AliYunSenderTask>::default(),
                 Box::<HwYunSenderTask>::default(),
                 Box::<TenyunSenderTask>::default(),
+                Box::<NetEaseSenderTask>::default(),
+                Box::<JDCloudSenderTask>::default(),
+                Box::<CloOpenSenderTask>::default(),
+            ])
+            .await?)
+    }
+    // 短信发送状态查询任务
+    pub async fn task_status_query(&self) -> Result<(), WebAppSmserError> {
+        Ok(self
+            .smser
+            .task_status_query(vec![
+                Box::<AliYunSendStatus>::default(),
+                Box::<JDSendStatus>::default(),
+                Box::<NetEaseSendStatus>::default(),
+                Box::<TenYunSendStatus>::default(),
             ])
             .await?)
     }
     // 短信发送接口
     #[allow(clippy::too_many_arguments)]
-    pub async fn app_send(
+    pub async fn app_send<'t>(
         &self,
         app: &AppsModel,
         tpl_type: &str,
-        mobile: &[String],
+        area: &'t str,
+        mobile: &[&'t str],
         body: &HashMap<String, String>,
         send_time: &Option<u64>,
-        cancel_key: &Option<String>,
         max_try_num: &Option<u16>,
         env_data: Option<&RequestEnv>,
-    ) -> Result<(), WebAppSmserError> {
-        let mb = mobile
-            .iter()
-            .map(|e| ("86", e.as_str()))
-            .collect::<Vec<_>>();
+    ) -> Result<Vec<(u64, &'t str)>, WebAppSmserError> {
+        let mb = mobile.iter().map(|e| (area, *e)).collect::<Vec<_>>();
         for tmp in mb.iter() {
             check_mobile(&self.fluent, tmp.0, tmp.1)
                 .map_err(|e| WebAppSmserError::System(e.to_string()))?;
         }
-        self.smser
+        let out = self
+            .smser
             .send(
                 Some(app.id),
                 &mb,
@@ -152,39 +171,37 @@ impl WebAppSmser {
                 &json!(body).to_string(),
                 send_time,
                 &Some(app.user_id),
-                cancel_key,
                 max_try_num,
                 env_data,
             )
             .await
-            .map_err(|e| WebAppSmserError::System(e.to_string()))
-            .map(|_| ())
+            .map_err(|e| WebAppSmserError::System(e.to_string()))?;
+        Ok(out.1.into_iter().map(|e| (e.0, e.2)).collect::<Vec<_>>())
     }
     // APP 短信短信取消发送
     pub async fn app_send_cancel(
         &self,
         app: &AppsModel,
-        cancel_key: &str,
+        id_data: &[u64],
         env_data: Option<&RequestEnv>,
-    ) -> Result<(), WebAppSmserError> {
+    ) -> Result<Vec<(u64, bool)>, WebAppSmserError> {
         self.smser
-            .cancal_from_key(cancel_key, &app.user_id, env_data)
+            .cancal_from_message_id_vec(id_data, &app.user_id, env_data)
             .await
             .map_err(|e| WebAppSmserError::System(e.to_string()))
-            .map(|_| ())
     }
     // 通过消息取消发送
     pub async fn send_cancel(
         &self,
-        message: &SenderSmsMessageModel,
+        body: &SenderSmsBodyModel,
+        message: &[&SenderSmsMessageModel],
         user_id: u64,
         env_data: Option<&RequestEnv>,
-    ) -> Result<(), WebAppSmserError> {
+    ) -> Result<Vec<(u64, bool)>, WebAppSmserError> {
         self.smser
-            .cancal_from_message(message, &user_id, env_data)
+            .cancal_from_message(body, message, &user_id, env_data)
             .await
             .map_err(|e| WebAppSmserError::System(e.to_string()))
-            .map(|_| ())
     }
     // 短信发送接口
     async fn send(
@@ -204,7 +221,6 @@ impl WebAppSmser {
                 &[(area, mobile)],
                 tpl_type,
                 body,
-                &None,
                 &None,
                 &None,
                 max_try_num,
