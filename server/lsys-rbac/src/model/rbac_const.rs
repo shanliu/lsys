@@ -25,7 +25,7 @@ pub enum RbacRoleOpPositivity {
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, SqlxModelStatus, PartialEq, Eq)]
 #[sqlx_model_status(type = "i8")]
 pub enum RbacRoleUserRange {
-    Guest = 1,    //游客
+    AllUser = 1,  //游客
     Login = 2,    //登录用户
     User = 3,     //指定用户 由RbacRoleUserModel决定
     Relation = 4, //指定关系角色
@@ -34,8 +34,8 @@ pub enum RbacRoleUserRange {
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, SqlxModelStatus, PartialEq, Eq)]
 #[sqlx_model_status(type = "i8")]
 pub enum RbacRoleResOpRange {
-    AllowAll = 3,    //允许所有权限[需单独授权]
-    AllowSelf = 2,   //允许自身资源
+    AllowAll = 3, //允许所有权限[需单独授权]
+    // AllowSelf = 2,   //允许自身资源
     AllowCustom = 1, //由RbacRoleOpModel决定[用户ID不等于当前访问用户,RbacRoleUser添加需单独授权]
     DenyAll = 0,     //禁止所有权限[需单独授权]
 }

@@ -12,52 +12,6 @@ use super::{
     ROLE_PRIORITY_NONE,
 };
 
-// 授权前提
-// 资源  属性: 1. 用户 2. 可执行操作【必须明确授权】
-// 角色  访问用户对资源用户纬度: 1. 为指定关系 2.为特定分组关系 3.为任意用户
-
-//需求
-//用户 是否有对 资源【RbacResModel】 进行 资源某些操作的权限【RbacResOpModel】
-//需明确:
-//  资源 用户【全局，还是指定用户】
-
-//核心流程
-//用户 -> 角色 -> 资源(操作) -> 是否满足权限
-
-//操作流程
-
-//入参：
-//  1. 进行访问用户id  @check的 user_id 参数
-//  2. 需要访问资源及对该资源的操作,可能需要多个资源权限 @check的 check_vec 参数
-//      1. 资源是系统还是某用户 【CheckRes.user_id】
-//      2. 要资源的操作列表【【CheckRes.ops】
-//      3. 涉及到多个权限时，存在任意一个未授权都认为未授权，即 check_vec 多个值
-//  3. 资源所属用户 跟 进行访问用户 的角色关系key  @check的 relation_role 参数
-//      1. 系统资源 关系key示例：会员等级
-//      2. 特定用户资源 关系key示例：指定某些组或用户有查看权限
-//  4. 访问某资源属于 访问用户 对该资源操作是否不检查权限 @check的 self_res_skip 参数
-
-//  资源操作权限 默认是否需要授权：
-//      1. 资源操作权限【RbacResModel】不存在资源记录即未创建
-//          1. 默认需要授权【如后台页面：管理页面】，认为无权限
-//          2. 默认不需要授权【如前台页面：登录，首页等】，认为有权限
-//      2. 资源操作权限 存在记录 由角色管控
-//  资源权限 分类：
-//      1. 用户资源 user_id>0
-//      2. 系统资源 user_id=0
-
-//查询 进行访问用户 拥有角色
-//  得到公共角色:
-//      1. 系统资源 公共权限角色 即 【RbacRoleModel user_id=0】的角色
-//      2. 如果为 被访问用户 的资源【资源user_id>0】,由被访问用户决定是否能被访问 进行访问用户
-//         通过【传入自定义key:RbacRoleRelationModel + 该key的用户id，可以设置为 被访问用户ID】确定 被访问用户的关系
-//        【传入自定义key】+  查 被访问用户 的对该关系用户 公共权限角色
-//
-//  得到 进行访问用户 被配置角色 通过 RbacRoleUserModel 获取
-
-//合并 进行访问用户 拥有角色，根据 RbacRoleOpModel 得到 拥有的资源操作权限 和 禁止的资源操作权限
-//在比较需要访问资源操作是否通过权限验证【存在任意一个禁止则无权操作】
-
 //待检查权限角色记录
 #[derive(Clone, Debug)]
 pub enum RoleCheckRow {
@@ -611,23 +565,23 @@ impl RbacAccess {
         macro_rules! find_role_data {
             ($find_obj:expr) => {
                 if user_id > 0 {
-                    let (relation, guest, login, user) = tokio::try_join!(
+                    let (relation, all_user, login, user) = tokio::try_join!(
                         $find_obj.find_role_by_relation(relation_key_roles, &res_vec),
-                        $find_obj.find_role_by_guest_user(&res_vec),
+                        $find_obj.find_role_by_all_user(&res_vec),
                         $find_obj.find_role_by_login_user(&res_vec),
                         $find_obj.find_role_by_user(user_id, &res_vec),
                     )?;
                     role_data = role_data.merge(relation);
-                    role_data = role_data.merge(guest);
+                    role_data = role_data.merge(all_user);
                     role_data = role_data.merge(login);
                     role_data = role_data.merge(user);
                 } else {
-                    let (relation, guest) = tokio::try_join!(
+                    let (relation, all_user) = tokio::try_join!(
                         $find_obj.find_role_by_relation(relation_key_roles, &res_vec),
-                        $find_obj.find_role_by_guest_user(&res_vec),
+                        $find_obj.find_role_by_all_user(&res_vec),
                     )?;
                     role_data = role_data.merge(relation);
-                    role_data = role_data.merge(guest);
+                    role_data = role_data.merge(all_user);
                 }
             };
         }

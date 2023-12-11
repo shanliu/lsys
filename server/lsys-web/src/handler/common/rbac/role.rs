@@ -700,8 +700,8 @@ pub async fn rbac_user_role_options(
     let user_range = if param.user_range.unwrap_or(false) {
         let user_range = vec![
             OptionItem {
-                key: RbacRoleUserRange::Guest as i8,
-                name: "任何用户",
+                key: RbacRoleUserRange::AllUser as i8,
+                name: "任意用户",
             },
             OptionItem {
                 key: RbacRoleUserRange::Login as i8,
@@ -721,21 +721,11 @@ pub async fn rbac_user_role_options(
         None
     };
     let res_range = if param.user_range.unwrap_or(false) {
-        let mut res_range = vec![
-            OptionItem {
-                key: RbacRoleResOpRange::AllowSelf as i8,
-                name: if see_user_id == 0 {
-                    "授权访问系统资源"
-                } else {
-                    "授权访问当前用户所有资源"
-                },
-            },
-            OptionItem {
+        let res_range = if see_user_id == 0 {
+            let mut res_range = vec![OptionItem {
                 key: RbacRoleResOpRange::AllowCustom as i8,
                 name: "自定义配置访问资源",
-            },
-        ];
-        if see_user_id == 0 {
+            }];
             if rbac_dao
                 .rbac
                 .check(
@@ -774,7 +764,23 @@ pub async fn rbac_user_role_options(
                     name: "禁止访问任何资源",
                 });
             }
-        }
+            res_range
+        } else {
+            vec![
+                OptionItem {
+                    key: RbacRoleResOpRange::AllowAll as i8,
+                    name: "授权访问当前用户所有资源",
+                },
+                OptionItem {
+                    key: RbacRoleResOpRange::DenyAll as i8,
+                    name: "禁止访问当前用户所有资源",
+                },
+                OptionItem {
+                    key: RbacRoleResOpRange::AllowCustom as i8,
+                    name: "自定义配置访问资源",
+                },
+            ]
+        };
         Some(res_range)
     } else {
         None
