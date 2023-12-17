@@ -18,7 +18,7 @@ sqlx = { version = "~0.6.3", features = [
     "runtime-tokio-native-tls",
     "offline",
 ] }
-sqlx-model = { version = "0.2.0", default-features = false, features = [
+sqlx-model = { version = "=0.2.0", default-features = false, features = [
     "sqlx-mysql",
 ] }
 
