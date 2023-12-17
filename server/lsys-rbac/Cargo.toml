@@ -7,24 +7,30 @@ edition = "2021"
 
 [dependencies]
 
-lsys-core = { path = "../lsys-core"}
-lsys-logger = {  path = "../lsys-logger"}#path 替换为 :,git = "https://github.com/shanliu/lsys"
-sqlx = {version = "~0.6.3",features = [ "mysql","runtime-tokio-native-tls","offline"]}
-sqlx-model = {version = "~0.2.0", default-features=false,features = ["sqlx-mysql"]}
+lsys-core = { path = "../lsys-core" }
+lsys-logger = { path = "../lsys-logger" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+sqlx = { version = "~0.6.3", features = [
+    "mysql",
+    "runtime-tokio-native-tls",
+    "offline",
+] }
+sqlx-model = { version = "0.2.0", default-features = false, features = [
+    "sqlx-mysql",
+] }
 
 
-tokio = {version="~1.28.0", features = ["macros"]}
+tokio = { version = "~1.28.0", features = ["macros"] }
 deadpool-redis = { version = "0.12" }
-redis = { version = "~0.23"  }
+redis = { version = "~0.23" }
 
-serde={ version = "1.0.*" }
-serde_json="1.0.*"
+serde = { version = "1.0.*" }
+serde_json = "1.0.*"
 
 
 fluent = "~0.16.*"
-fluent-syntax="~0.11.*"
+fluent-syntax = "~0.11.*"
 
-tracing = {version="~0.1.*"}
+tracing = { version = "~0.1.*" }
 
 
 config = "~0.13.*"

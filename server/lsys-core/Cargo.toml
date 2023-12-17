@@ -6,30 +6,35 @@ edition = "2021"
 
 
 [dependencies]
-futures-util="~0.3.*"
+futures-util = "~0.3.*"
 dotenv = "~0.15.*"
 
-tokio = {version="~1.28.0", features = ["fs","macros"]}
+tokio = { version = "~1.28.0", features = ["fs", "macros"] }
 deadpool-redis = { version = "0.12" }
-redis = { version = "~0.23", features = ["aio","tokio-comp"]  }
+redis = { version = "~0.23", features = ["aio", "tokio-comp"] }
 
 
-serde={ version = "1.0.*" }
-serde_json="1.0.*"
+serde = { version = "1.0.*" }
+serde_json = "1.0.*"
 
 #db
-sqlx = {version = "~0.6.3",features = ["runtime-tokio-native-tls","offline"]}
-sqlx-model = {version = "~0.2.0", default-features=false}
+sqlx = { version = "~0.6.3", features = [
+    "runtime-tokio-native-tls",
+    "offline",
+] }
+sqlx-model = { version = "0.2.0", default-features = false }
 
 
 #客户端
 log = "~0.4.*" # 使用trace中宏 这里可以不要
 
 #日志
-tracing = {version="~0.1.*",features=["log"]}# log-always 保持log的输出 当使用tracing时会出现两次
-tracing-attributes ="~0.1.*" #日志属性宏
-tracing-appender="~0.2.*"#写日志文件
-tracing-subscriber = {version="~0.3.*",features=["env-filter"]}
+tracing = { version = "~0.1.*", features = [
+    "log",
+] } # log-always 保持log的输出 当使用tracing时会出现两次
+tracing-attributes = "~0.1.*" #日志属性宏
+tracing-appender = "~0.2.*" #写日志文件
+tracing-subscriber = { version = "~0.3.*", features = ["env-filter"] }
 
 #模板
 tera = "~1.18.1"
@@ -38,10 +43,10 @@ tera = "~1.18.1"
 #代替标准库的锁
 parking_lot = "~0.12.*"
 
-fluent-syntax="~0.11.*"
+fluent-syntax = "~0.11.*"
 fluent = "~0.16.*"
-unic-langid={version="~0.9.*",features=["unic-langid-macros"]}
-intl-memoizer="~0.5.*"
+unic-langid = { version = "~0.9.*", features = ["unic-langid-macros"] }
+intl-memoizer = "~0.5.*"
 
 
 async-trait = "~0.1.*"
@@ -53,13 +58,11 @@ rand = "~0.8.*"
 config = "~0.13.*"
 
 
-hashlink="~0.8.*"
+hashlink = "~0.8.*"
 hostname = "~0.3.*"
 
 
 chrono = "0.4.19"
-
-
 
 
 rs-snowflake = "0.6.0"
