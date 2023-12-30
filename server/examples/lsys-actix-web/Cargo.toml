@@ -7,14 +7,14 @@ edition = "2021"
 
 [dependencies]
 lsys-core = { path = "../../lsys-core" }                      #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-setting = { path = "../../lsys-setting" }                #path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-user = { path = "../../lsys-user" }                      #path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-app = { path = "../../lsys-app" }                        #path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-web = { path = "../../lsys-web" }                        #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-rbac = { path = "../../lsys-rbac" }                      #path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-sender = { path = "../../lsys-sender" }                  #path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-web-module-oauth = { path = "../lsys-web-module-oauth" }
 lsys-web-subapp-demo = { path = "../lsys-web-subapp-demo" }
+#lsys-setting = { path = "../../lsys-setting" }              
+#lsys-rbac = { path = "../../lsys-rbac" }                    
 
 actix = "~0.13.0"
 actix-web = { version = "4.3.1", features = ["rustls"] }

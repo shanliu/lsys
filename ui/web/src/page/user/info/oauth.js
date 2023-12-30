@@ -357,7 +357,7 @@ export default function UserOauthPage(props) {
                     }
                 </Select>
             </FormControl>
-            <Button
+            <LoadingButton
                 onClick={() => {
                     setSearchParam({
                         ...filterData
@@ -367,9 +367,11 @@ export default function UserOauthPage(props) {
                 size="medium"
                 startIcon={<SearchIcon />}
                 sx={{ mr: 1, p: "7px 15px", minWidth: 110 }}
+                loading={loadData.loading}
+                disabled={loadData.loading}
             >
                 过滤
-            </Button>
+            </LoadingButton>
             {
                 OauthConfig.map((item) => {
                     return <LoadingButton

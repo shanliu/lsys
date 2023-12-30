@@ -1,9 +1,5 @@
 #app_host="127.0.0.1"
 
-#app 中通过 client_secret 加app_oauth_key 再次hash得到 oauth_secret 使用
-#注意：项目初始化时设置，不可修改
-app_oauth_key = ""
-
 #rbac是否使用缓存
 rbac_cache = true
 

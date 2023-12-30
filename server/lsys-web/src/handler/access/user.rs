@@ -731,3 +731,39 @@ impl RbacResTpl for AccessUserAppConfirm {
         }]
     }
 }
+
+pub struct AccessUserAppStatus {
+    pub user_id: u64,
+}
+#[async_trait::async_trait]
+impl RbacCheck for AccessUserAppStatus {
+    async fn check<'t>(
+        &self,
+        access: &'t RbacAccess,
+        relation: &'t [RoleRelationKey],
+    ) -> UserRbacResult<()> {
+        access
+            .check(
+                self.user_id,
+                relation,
+                &[AccessRes::system("global-system", &["app-status"], &[])],
+            )
+            .await
+    }
+    fn depends(&self) -> Vec<Box<RbacCheckDepend>> {
+        vec![Box::new(AccessAdminManage {
+            user_id: self.user_id,
+        })]
+    }
+}
+
+impl RbacResTpl for AccessUserAppStatus {
+    fn tpl_data() -> Vec<ResTpl> {
+        vec![ResTpl {
+            tags: vec!["system"],
+            user: false,
+            key: "global-system",
+            ops: vec!["app-status"],
+        }]
+    }
+}

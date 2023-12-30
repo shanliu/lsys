@@ -12,7 +12,7 @@ use lsys_user::dao::account::UserAccountError;
 
 use redis::RedisError;
 
-use self::app::{Apps, AppsOauth};
+use self::app::{Apps, AppsOauth, SubApps};
 use lsys_logger::dao::ChangeLogger;
 use sqlx::{MySql, Pool};
 use std::sync::Arc;
@@ -69,6 +69,7 @@ pub type AppsResult<T> = Result<T, AppsError>;
 pub struct AppDao {
     //内部依赖
     pub app: Arc<Apps>,
+    pub sub_app: Arc<SubApps>,
     pub app_oauth: Arc<AppsOauth>,
     pub db: Pool<MySql>,
     pub redis: deadpool_redis::Pool,
@@ -94,13 +95,17 @@ impl AppDao {
                 .create_fluent(cargo_dir.to_owned() + "/locale")
                 .await?
         });
-
+        let sub_app = Arc::from(SubApps::new(
+            db.clone(),
+            remote_notify.clone(),
+            logger.clone(),
+        ));
         let app = Arc::from(Apps::new(
-            app_core.clone(),
             db.clone(),
             remote_notify.clone(),
             fluent.clone(),
             logger,
+            sub_app.clone(),
         ));
         let app_oauth = Arc::from(AppsOauth::new(
             app.clone(),
@@ -113,6 +118,7 @@ impl AppDao {
         ));
         Ok(AppDao {
             app,
+            sub_app,
             app_oauth,
             db,
             fluent,

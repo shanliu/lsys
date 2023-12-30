@@ -20,7 +20,7 @@ pub struct UserExternal {
     db: Pool<MySql>,
     index: Arc<UserIndex>,
     fluent: Arc<FluentMessage>,
-    pub cache: Arc<LocalCache<u64, Vec<UserExternalModel>>>,
+    pub(crate) cache: Arc<LocalCache<u64, Vec<UserExternalModel>>>,
     logger: Arc<ChangeLogger>,
 }
 
@@ -53,15 +53,13 @@ impl UserExternal {
     ) -> UserAccountResult<UserExternalModel> {
         let select = Select::type_new::<UserExternalModel>();
         let res = select
-            .fetch_one_by_where_call::<UserExternalModel, _, _>(
-                "config_name=? and external_type=? and external_id=? and status=? order by id desc",
-                |mut res, _| {
-                    res = res.bind(config_name.to_owned());
-                    res = res.bind(external_type.to_owned());
-                    res = res.bind(external_id.to_owned());
-                    res = res.bind(UserExternalStatus::Enable as i8);
-                    res
-                },
+            .fetch_one_by_where::<UserExternalModel, _>(
+                &sqlx_model::WhereOption::Where(
+                    sql_format!(
+                        "config_name={} and external_type={} and external_id={} and status={} order by id desc",
+                        config_name,external_type,external_id,UserExternalStatus::Enable
+                    )
+                ),
                 &self.db,
             )
             .await?;
@@ -77,15 +75,12 @@ impl UserExternal {
     ) -> UserAccountResult<UserExternalModel> {
         let select = Select::type_new::<UserExternalModel>();
         let res = select
-            .fetch_one_by_where_call::<UserExternalModel, _, _>(
-                "user_id=? and config_name=? and external_type=? and external_id=? and status = ? order by id desc",
-                | res, _| {
-                   res.bind(user.id)
-                    .bind(config_name)
-                    .bind(external_type)
-                    .bind(external_id)
-                    .bind(UserExternalStatus::Enable as i8)
-                },
+            .fetch_one_by_where::<UserExternalModel, _>(
+                &sqlx_model::WhereOption::Where(sql_format!(
+                    "user_id={} and config_name={} and external_type={} and external_id={} and status = {} order by id desc",
+                    user.id,config_name,external_type,external_id,UserExternalStatus::Enable
+                ))
+               ,
                 &self.db,
             )
             .await?;
@@ -106,14 +101,14 @@ impl UserExternal {
     ) -> UserAccountResult<u64> {
         let db = &self.db;
         let user_ext_res = Select::type_new::<UserExternalModel>()
-            .fetch_one_by_where_call::<UserExternalModel, _, _>(
-                "config_name=? and  external_type=? and external_id=? and status = ?",
-                |res, _| {
-                    res.bind(config_name.clone())
-                        .bind(external_type.clone())
-                        .bind(external_id.clone())
-                        .bind(UserExternalStatus::Enable as i8)
-                },
+            .fetch_one_by_where::<UserExternalModel, _>(
+                &sqlx_model::WhereOption::Where(sql_format!(
+                    "config_name={} and  external_type={} and external_id={} and status = {}",
+                    config_name,
+                    external_type,
+                    external_id,
+                    UserExternalStatus::Enable
+                )),
                 db,
             )
             .await;

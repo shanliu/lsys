@@ -1,4 +1,3 @@
-use lsys_app::model::AppsModel;
 use lsys_rbac::dao::{
     AccessRes, RbacAccess, RbacCheck, RbacCheckDepend, RbacRelationTpl, RbacResTpl, ResTpl,
     RoleRelationKey, UserRbacResult,
@@ -182,7 +181,8 @@ impl RbacResTpl for AccessAppSenderMailMsg {
 }
 
 pub struct AccessAppSenderDoMail {
-    pub app: AppsModel,
+    pub user_id: u64,
+    pub app_id: u64,
 }
 #[async_trait::async_trait]
 impl RbacCheck for AccessAppSenderDoMail {
@@ -193,10 +193,13 @@ impl RbacCheck for AccessAppSenderDoMail {
     ) -> UserRbacResult<()> {
         access
             .check(
-                self.app.user_id,
-                &RelationApp { app: &self.app }.extend(relation),
+                self.user_id,
+                &RelationApp {
+                    app_id: self.app_id,
+                }
+                .extend(relation),
                 &[AccessRes::system(
-                    &format!("global-app-{}", self.app.id),
+                    &format!("global-app-{}", self.app_id),
                     &["app-mail-send"],
                     &[],
                 )],

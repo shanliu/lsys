@@ -1,10 +1,10 @@
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
-use sqlx_model::SqlxModel;
+use sqlx_model::sqlx_model;
 
 //资源
-#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(table_name = "rbac_res")]
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(db_type = "MySql", table_name = "rbac_res")]
 pub struct RbacResModel {
     #[sqlx(default)]
     pub id: u64,
@@ -34,8 +34,8 @@ pub struct RbacResModel {
     pub change_time: u64,
 }
 //资源可进行操作，如对某资源进行：查看 删除 编辑等
-#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(table_name = "rbac_res_op")]
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(db_type = "MySql", table_name = "rbac_res_op")]
 pub struct RbacResOpModel {
     #[sqlx(default)]
     pub id: u64,
@@ -67,8 +67,8 @@ pub struct RbacResOpModel {
     pub change_time: u64,
 }
 //角色
-#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(table_name = "rbac_role")]
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(db_type = "MySql", table_name = "rbac_role")]
 pub struct RbacRoleModel {
     #[sqlx(default)]
     pub id: u64,
@@ -111,8 +111,8 @@ pub struct RbacRoleModel {
 }
 
 /// 角色关联用户  
-#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(table_name = "rbac_role_user")]
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(db_type = "MySql", table_name = "rbac_role_user")]
 pub struct RbacRoleUserModel {
     #[sqlx(default)]
     pub id: u64,
@@ -142,8 +142,8 @@ pub struct RbacRoleUserModel {
     pub change_time: u64,
 }
 /// 角色的可进行操作 关联 角色【RbacRoleModel】跟资源【RbacResOpModel】操作  
-#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(table_name = "rbac_role_op")]
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(db_type = "MySql", table_name = "rbac_role_op")]
 pub struct RbacRoleOpModel {
     #[sqlx(default)]
     pub id: u64,
@@ -178,8 +178,8 @@ pub struct RbacRoleOpModel {
 }
 
 /// 给角色 资源分组用的tag
-#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(table_name = "rbac_tags")]
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(db_type = "MySql", table_name = "rbac_tags")]
 pub struct RbacTagsModel {
     #[sqlx(default)]
     pub id: u64,

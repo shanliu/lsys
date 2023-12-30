@@ -15,8 +15,8 @@ use super::{
 };
 use crate::{
     dao::{
-        MessageCancel, MessageLogs, MessageReader, SenderConfig, SenderResult, SenderTaskExecutor,
-        SenderTplConfig,
+        MessageCancel, MessageLogs, MessageReader, SenderConfig, SenderError, SenderResult,
+        SenderTaskExecutor, SenderTplConfig,
     },
     model::{SenderSmsBodyModel, SenderSmsMessageModel, SenderType},
 };
@@ -208,7 +208,7 @@ impl SmsSender {
         msg_data: &[u64],
         user_id: &u64,
         env_data: Option<&RequestEnv>,
-    ) -> SenderResult<Vec<(u64, bool)>> {
+    ) -> SenderResult<Vec<(u64, bool, Option<SenderError>)>> {
         let res = self.message_reader.find_message_by_id_vec(msg_data).await?;
         if res.is_empty() {
             return Ok(vec![]);
@@ -236,7 +236,7 @@ impl SmsSender {
         msg_data: &[&SenderSmsMessageModel],
         user_id: &u64,
         env_data: Option<&RequestEnv>,
-    ) -> SenderResult<Vec<(u64, bool)>> {
+    ) -> SenderResult<Vec<(u64, bool, Option<SenderError>)>> {
         self.cancel
             .add(
                 &body.app_id,
@@ -252,12 +252,18 @@ impl SmsSender {
             .task_is_run(msg_data.iter().map(|e| (&e.id, *e)).collect::<Vec<_>>())
             .await?
         {
-            if task_data.is_none() {
+            let err = if task_data.is_none() {
                 self.sms_record
                     .cancel_form_message(body, msg, user_id, env_data)
-                    .await?;
-            }
-            out.push((msg.id, task_data.is_none()))
+                    .await
+                    .err()
+            } else {
+                Some(SenderError::System(format!(
+                    "sms {} is sending:{}",
+                    msg.mobile, msg.id
+                )))
+            };
+            out.push((msg.id, task_data.is_none(), err))
         }
         Ok(out)
     }

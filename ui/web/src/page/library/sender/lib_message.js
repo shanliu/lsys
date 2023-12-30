@@ -76,7 +76,7 @@ export function MessageSeeBody(props) {
 }
 
 
-export function MessageDeleteButton(props) {
+export function MessageCancelButton(props) {
     const {
         row,
         message,

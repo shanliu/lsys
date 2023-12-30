@@ -3,7 +3,7 @@ use actix_web::post;
 use actix_web::web::Data;
 use lsys_web::{
     dao::WebDao,
-    handler::subapp::{subapp_view, SubAppViewParam},
+    handler::app::{subapp_view, SubAppViewParam},
 };
 
 // 请求   -> 模块

@@ -31,18 +31,20 @@ func (clf *RestClientConfig) GetName() string {
 }
 
 type RestClientError struct {
+	Data    gjson.Result
 	Msg     string
 	Code    string
 	SubCode string
 }
 
 func (err *RestClientError) Error() string {
-	return fmt.Sprintf("%s [%s]", err.Msg, err.Code)
+	return err.Msg
 }
 
 // NewRestClientError  错误创建
-func NewRestClientError(code string, subCode string, msg string) *RestClientError {
+func NewRestClientError(code string, subCode string, msg string, data gjson.Result) *RestClientError {
 	return &RestClientError{
+		Data:    data,
 		Code:    code,
 		Msg:     msg,
 		SubCode: subCode,
@@ -110,7 +112,7 @@ func (clt *RestClientBuild) BuildRequest(ctx context.Context, client *rest_clien
 	}
 	config, ok := tConfig.(*RestClientConfig)
 	if !ok {
-		return rest_client.NewRestResultFromError(NewRestClientError("11", "bad", "build config is wrong"), &rest_client.RestEventNoop{})
+		return rest_client.NewRestResultFromError(NewRestClientError("11", "bad", "build config is wrong", gjson.Parse("{}")), &rest_client.RestEventNoop{})
 	}
 
 	var event rest_client.RestEvent
@@ -240,8 +242,9 @@ func (clt *RestClientBuild) CheckJsonResult(body string) error {
 		msg := gjson.Get(body, "result.message").String()
 		if len(msg) == 0 {
 			msg = body
+
 		}
-		return NewRestClientError(code, gjson.Get(body, "result.state").String(), "server return fail:"+msg)
+		return NewRestClientError(code, gjson.Get(body, "result.state").String(), msg, gjson.Get(body, "response"))
 	}
 	return nil
 }

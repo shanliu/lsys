@@ -11,7 +11,7 @@ import { LoadingButton } from '../../../library/loading';
 import { SimplePaginationTablePage } from '../../../library/table_page';
 import { MessageStatus, smsListAppMessage } from '../../../rest/sender_setting';
 import { showTime } from '../../../utils/utils';
-import { MessageDeleteButton, MessageLogBox, MessageSeeBody } from './lib_message';
+import { MessageCancelButton, MessageLogBox, MessageSeeBody } from './lib_message';
 import { ItemTooltip } from '../../../library/tips';
 
 export default function AppSmsMessage(props) {
@@ -142,7 +142,7 @@ export default function AppSmsMessage(props) {
                             setChangeBox({ show: 1, data: row })
                         }}
                     ><ManageSearchIcon fontSize="small" /></IconButton>
-                    <MessageDeleteButton
+                    <MessageCancelButton
                         row={row}
                         message={`确定取消发送短信 [${row.id}] 吗?`}
                         msgType="smser"

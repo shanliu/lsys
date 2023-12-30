@@ -181,6 +181,7 @@ impl From<UserRbacError> for JsonData {
     fn from(err: UserRbacError) -> Self {
         let mut code = 500;
         let mut json = JsonData::default();
+        let mut msg = err.to_string();
         let sub_code = match &err {
             UserRbacError::Sqlx(sqlx::Error::RowNotFound) => {
                 code = 200;
@@ -199,11 +200,12 @@ impl From<UserRbacError> for JsonData {
                 json = json.set_data(json!( {
                     "check_detail":hash,
                 }));
+                msg = "authorization verification failure".to_string();
                 "check_fail".to_string()
             }
             _err => "system".to_string(),
         };
-        json.set_code(code).set_sub_code(sub_code).set_message(err)
+        json.set_code(code).set_sub_code(sub_code).set_message(msg)
     }
 }
 

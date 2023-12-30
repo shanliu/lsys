@@ -20,7 +20,8 @@ use lsys_rbac::{
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::Transaction;
-use sqlx_model::Select;
+use sqlx_model::SqlQuote;
+use sqlx_model::{sql_format, Select};
 
 #[derive(Debug, Deserialize)]
 pub struct RoleUserParam {
@@ -196,12 +197,8 @@ pub async fn rbac_role_add(
     };
 
     let role = Select::type_new::<RbacRoleModel>()
-        .fetch_one_by_where_call::<RbacRoleModel, _, _>(
-            "id=?",
-            |mut res, _| {
-                res = res.bind(id.to_owned());
-                res
-            },
+        .fetch_one_by_where::<RbacRoleModel, _>(
+            &sqlx_model::WhereOption::Where(sql_format!("id={}", id,)),
             &mut transaction,
         )
         .await?;

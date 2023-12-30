@@ -1,10 +1,10 @@
 use std::{collections::HashMap, sync::Arc};
 
-use crate::model::{AppStatus, AppsModel, AppsModelRef};
+use crate::model::{AppStatus, AppSubAppsModel, AppSubAppsStatus, AppsModel, AppsModelRef};
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
-    get_message, impl_dao_fetch_map_by_vec, now_time, AppCore, FluentMessage, PageParam,
-    RemoteNotify, RequestEnv,
+    get_message, impl_dao_fetch_map_by_vec, now_time, FluentMessage, PageParam, RemoteNotify,
+    RequestEnv,
 };
 
 use lsys_logger::dao::ChangeLogger;
@@ -15,14 +15,17 @@ use sqlx_model::{
 };
 use sqlx_model::{SqlExpr, SqlQuote};
 
-use super::super::{AppsError, AppsResult};
+use super::{
+    super::{AppsError, AppsResult},
+    SubApps,
+};
 use super::{range_client_key, AppLog};
 pub struct Apps {
-    app_core: Arc<AppCore>,
     db: Pool<MySql>,
     pub(crate) fluent: Arc<FluentMessage>,
-    pub cache: Arc<LocalCache<String, AppsModel>>,
+    pub(crate) cache: Arc<LocalCache<String, AppsModel>>,
     logger: Arc<ChangeLogger>,
+    sub_app: Arc<SubApps>,
 }
 
 #[derive(Clone, Debug)]
@@ -35,14 +38,13 @@ pub struct AppDataWhere<'t> {
 
 impl Apps {
     pub fn new(
-        app_core: Arc<AppCore>,
         db: Pool<MySql>,
         remote_notify: Arc<RemoteNotify>,
         fluent: Arc<FluentMessage>,
         logger: Arc<ChangeLogger>,
+        sub_app: Arc<SubApps>,
     ) -> Self {
         Self {
-            app_core,
             db,
             fluent,
             cache: Arc::from(LocalCache::new(
@@ -50,6 +52,7 @@ impl Apps {
                 LocalCacheConfig::new("apps"),
             )),
             logger,
+            sub_app,
         }
     }
     fn app_data_sql(&self, app_where: &AppDataWhere) -> Option<String> {
@@ -153,23 +156,6 @@ impl Apps {
         id,
         "id={id}"
     );
-    //app 的Oauth秘钥
-    pub async fn oauth_secret(&self, client_secret: &str) -> String {
-        format!(
-            "{:x}",
-            md5::compute(
-                format!(
-                    "{}{}",
-                    client_secret,
-                    self.app_core
-                        .config
-                        .get_string("app_oauth_key")
-                        .unwrap_or_default()
-                )
-                .as_bytes()
-            )
-        )
-    }
     //重设secret
     pub async fn reset_secret<'t>(
         &self,
@@ -177,12 +163,14 @@ impl Apps {
         change_user_id: &u64,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
-    ) -> AppsResult<String> {
+    ) -> AppsResult<(String, String)> {
         let time = now_time().unwrap_or_default();
         let client_secret = range_client_key();
         let change_user_id = change_user_id.to_owned();
+        let oauth_secret = range_client_key();
         let change = sqlx_model::model_option_set!(AppsModelRef,{
             client_secret:client_secret,
+            oauth_secret:oauth_secret,
             change_user_id:change_user_id,
             change_time:time,
         });
@@ -204,6 +192,7 @@ impl Apps {
             .add(
                 &AppLog {
                     action: "reset_secret",
+                    status: app.status,
                     name: app.name.to_owned(),
                     client_id: app.client_id.to_owned(),
                     client_secret: app.client_secret.to_owned(),
@@ -217,7 +206,7 @@ impl Apps {
             )
             .await;
 
-        Ok(client_secret)
+        Ok((client_secret, oauth_secret))
     }
     //确认APP
     pub async fn confirm_app<'t>(
@@ -257,6 +246,7 @@ impl Apps {
             .add(
                 &AppLog {
                     action: "confirm",
+                    status: AppStatus::Ok as i8,
                     name: app.name.to_owned(),
                     client_id: app.client_id.to_owned(),
                     client_secret: app.client_secret.to_owned(),
@@ -272,6 +262,88 @@ impl Apps {
 
         Ok(res.rows_affected())
     }
+    pub async fn app_status(
+        &self,
+        app: &AppsModel,
+        status: bool,
+        change_user_id: &u64,
+        env_data: Option<&RequestEnv>,
+    ) -> AppsResult<()> {
+        if !AppStatus::Delete.eq(app.status) && !AppStatus::Ok.eq(app.status) {
+            return Err(AppsError::System(format!(
+                "app {} status not confirm",
+                app.name
+            )));
+        }
+        if (status && AppStatus::Ok.eq(app.status)) || (!status && AppStatus::Delete.eq(app.status))
+        {
+            return Ok(());
+        }
+
+        let db_status = if status {
+            AppStatus::Ok as i8
+        } else {
+            AppStatus::Delete as i8
+        };
+        let change_time = now_time().unwrap_or_default();
+        let change_user_id = change_user_id.to_owned();
+        let change = sqlx_model::model_option_set!(AppsModelRef,{
+            status:db_status,
+            change_user_id:change_user_id,
+            change_time:change_time,
+        });
+        Update::<sqlx::MySql, AppsModel, _>::new(change)
+            .execute_by_pk(app, &self.db)
+            .await?;
+        if !status {
+            self.clear_app_cache(app).await;
+        }
+
+        self.logger
+            .add(
+                &AppLog {
+                    action: "status",
+                    status: db_status,
+                    name: app.name.to_owned(),
+                    client_id: app.client_id.to_owned(),
+                    client_secret: app.client_secret.to_owned(),
+                    callback_domain: app.callback_domain.to_owned(),
+                },
+                &Some(app.id),
+                &Some(app.user_id),
+                &Some(change_user_id),
+                None,
+                env_data,
+            )
+            .await;
+
+        Ok(())
+    }
+    async fn clear_app_cache(&self, app: &AppsModel) {
+        //清除查询缓存
+        self.cache.clear(&app.client_id).await;
+        let sql = sql_format!(
+            "select 
+                app_id
+                    from {} as app_sub 
+                    where sub_app_id={} and status in ({})",
+            AppSubAppsModel::table_name(),
+            app.id,
+            &[
+                AppSubAppsStatus::Enable as i8,
+                AppSubAppsStatus::Disable as i8,
+            ]
+        );
+        let query = sqlx::query_scalar::<_, u64>(&sql);
+        if let Ok(tmps) = query.fetch_all(&self.db).await {
+            for tmp in tmps {
+                self.sub_app
+                    .cache()
+                    .clear_sub_secret_cache(tmp, &app.client_id)
+                    .await;
+            }
+        }
+    }
     //添加内部APP
     #[allow(clippy::too_many_arguments)]
     pub async fn innernal_app_edit<'t>(
@@ -286,13 +358,8 @@ impl Apps {
     ) -> AppsResult<u64> {
         let (name, client_id, domain) = self.check_app_param(name, client_id, domain)?;
         let app_res = Select::type_new::<AppsModel>()
-            .fetch_one_by_where_call::<AppsModel, _, _>(
-                "id!=? and client_id=?",
-                |mut res, _| {
-                    res = res.bind(app.id);
-                    res = res.bind(client_id.clone());
-                    res
-                },
+            .fetch_one_by_where::<AppsModel, _>(
+                &WhereOption::Where(sql_format!("id!={} and client_id={}", app.id, client_id)),
                 &self.db,
             )
             .await;
@@ -331,13 +398,18 @@ impl Apps {
             }
         };
         db.commit().await?;
-        self.cache.clear(&app.client_id).await;
+
+        if client_id != app.client_id {
+            //清除查询缓存
+            self.clear_app_cache(app).await;
+        }
 
         self.logger
             .add(
                 &AppLog {
                     action: "edit",
                     name,
+                    status: app.status,
                     client_id,
                     client_secret: app.client_secret.to_owned(),
                     callback_domain: domain,
@@ -459,12 +531,8 @@ impl Apps {
     ) -> AppsResult<u64> {
         let (name, client_id, domain) = self.check_app_param(name, client_id, domain)?;
         let app_res = Select::type_new::<AppsModel>()
-            .fetch_one_by_where_call::<AppsModel, _, _>(
-                " client_id=?",
-                |mut res, _| {
-                    res = res.bind(client_id.clone());
-                    res
-                },
+            .fetch_one_by_where::<AppsModel, _>(
+                &WhereOption::Where(sql_format!(" client_id={}", client_id)),
                 &self.db,
             )
             .await;
@@ -489,10 +557,11 @@ impl Apps {
         let status = status as i8;
 
         let client_secret = range_client_key();
-
+        let oauth_secret = range_client_key();
         let idata = model_option_set!(AppsModelRef,{
             name:name,
             client_id:client_id,
+            oauth_secret:oauth_secret,
             client_secret:client_secret,
             status:status,
             user_id:user_id,
@@ -522,6 +591,7 @@ impl Apps {
                         &AppLog {
                             action: "add",
                             name,
+                            status,
                             client_id,
                             client_secret,
                             callback_domain: domain,
@@ -538,22 +608,18 @@ impl Apps {
             }
         }
     }
-    /// 根据APP id 找到对应记录
+    /// 根据APP client_id 找到对应记录
     pub async fn find_by_client_id(&self, client_id: &String) -> AppsResult<AppsModel> {
         let useremal = Select::type_new::<AppsModel>()
-            .fetch_one_by_where_call::<AppsModel, _, _>(
-                "client_id=? ",
-                |mut res, _| {
-                    res = res.bind(client_id.to_owned());
-                    res
-                },
+            .fetch_one_by_where::<AppsModel, _>(
+                &WhereOption::Where(sql_format!(" client_id={}", client_id)),
                 &self.db,
             )
             .await?;
         Ok(useremal)
     }
     //内部APP secret 获取
-    pub async fn innernal_client_id_get(&self, client_id: &String) -> Result<String, String> {
+    pub async fn find_secret_by_client_id(&self, client_id: &String) -> Result<String, String> {
         let apps = self.cache().find_by_client_id(client_id).await;
         match apps {
             Ok(app) => {

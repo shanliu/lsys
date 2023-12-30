@@ -3,7 +3,7 @@ use actix_web::post;
 use actix_web::web::Data;
 use lsys_web::{
     dao::WebDao,
-    handler::subapp::{sms_cancel, sms_send, SmsCancelParam, SmsSendParam},
+    handler::app::{sms_cancel, sms_send, SmsCancelParam, SmsSendParam},
 };
 
 #[post("sms")]

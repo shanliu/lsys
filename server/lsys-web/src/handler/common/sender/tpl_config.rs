@@ -63,7 +63,7 @@ pub struct TplConfigListParam {
     pub page: Option<PageParam>,
     pub count_num: Option<bool>,
 }
-
+//模板列表
 pub(crate) async fn tpl_config_list<
     't,
     T: SessionTokenData,

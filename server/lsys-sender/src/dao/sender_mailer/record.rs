@@ -152,7 +152,7 @@ impl MailRecord {
             )
         } else {
             format!(
-                "{} {}  order by id desc",
+                "{} {}  order by m.id desc",
                 if sqlwhere.is_empty() { "where " } else { "" },
                 sqlwhere.join(" and ")
             )

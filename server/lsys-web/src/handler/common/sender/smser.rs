@@ -308,7 +308,7 @@ pub async fn smser_message_cancel<'t, T: SessionTokenData, D: SessionData, S: Us
             None,
         )
         .await?;
-    let status = req_dao
+    let mut res = req_dao
         .web_dao
         .sender_smser
         .send_cancel(
@@ -317,12 +317,17 @@ pub async fn smser_message_cancel<'t, T: SessionTokenData, D: SessionData, S: Us
             req_auth.user_data().user_id,
             Some(&req_dao.req_env),
         )
-        .await?
-        .first()
-        .map(|e| e.1)
-        .unwrap_or(true);
+        .await?;
+    let mut out = None;
+    if !res.is_empty() {
+        if let Some(err) = res.remove(0).2 {
+            return Err(err.into());
+        } else {
+            out = Some(message_id.to_string())
+        }
+    }
     Ok(JsonData::data(json!({
-        "sending":status
+        "data":out
     })))
 }
 
@@ -680,7 +685,13 @@ pub async fn smser_message_send<'t, T: SessionTokenData, D: SessionData, S: User
         .user
         .rbac_dao
         .rbac
-        .check(&AccessAppSenderDoSms { app: app.clone() }, None)
+        .check(
+            &AccessAppSenderDoSms {
+                app_id: app.id,
+                user_id: app.user_id,
+            },
+            None,
+        )
         .await?;
     let send_time = if let Some(t) = param.send_time {
         if t.is_empty() {

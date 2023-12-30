@@ -170,7 +170,7 @@ impl WebAppMailer {
         message: &[&SenderMailMessageModel],
         user_id: u64,
         env_data: Option<&RequestEnv>,
-    ) -> Result<Vec<(u64, bool)>, WebAppMailerError> {
+    ) -> Result<Vec<(u64, bool, Option<SenderError>)>, WebAppMailerError> {
         self.mailer
             .cancal_from_message(body, message, &user_id, env_data)
             .await
@@ -221,11 +221,10 @@ impl WebAppMailer {
         app: &AppsModel,
         id_data: &[u64],
         env_data: Option<&RequestEnv>,
-    ) -> Result<(), WebAppMailerError> {
+    ) -> Result<Vec<(u64, bool, Option<SenderError>)>, WebAppMailerError> {
         self.mailer
             .cancal_from_message_id_vec(id_data, &app.user_id, env_data)
             .await
             .map_err(|e| WebAppMailerError::System(e.to_string()))
-            .map(|_| ())
     }
 }

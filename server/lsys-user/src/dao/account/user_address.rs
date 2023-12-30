@@ -5,7 +5,7 @@ use lsys_core::{
 
 use lsys_logger::dao::ChangeLogger;
 use sqlx::{Acquire, MySql, Pool, Transaction};
-use sqlx_model::{sql_format, Insert, ModelTableName, Select, SqlQuote, Update};
+use sqlx_model::{sql_format, Insert, ModelTableName, Select, SqlQuote, Update, WhereOption};
 use std::{collections::HashMap, sync::Arc};
 
 use crate::model::{UserAddressModel, UserAddressModelRef, UserAddressStatus, UserModel};
@@ -19,7 +19,7 @@ pub struct UserAddress {
     db: Pool<MySql>,
     fluent: Arc<FluentMessage>,
     index: Arc<UserIndex>,
-    pub cache: Arc<LocalCache<u64, Vec<UserAddressModel>>>,
+    pub(crate) cache: Arc<LocalCache<u64, Vec<UserAddressModel>>>,
     logger: Arc<ChangeLogger>,
 }
 
@@ -185,18 +185,16 @@ impl UserAddress {
         check_mobile(&self.fluent, "", &mobile)?;
 
         let address_res = Select::type_new::<UserAddressModel>()
-        .fetch_one_by_where_call::<UserAddressModel, _, _>(
-            " user_id=? and address_code=? and address_info=? and address_detail=? and name=? and mobile=? and status=?",
-            |mut res, _| {
-                res = res.bind(user.id);
-                res = res.bind(address_code.clone());
-                res = res.bind(address_info.clone());
-                res = res.bind(address_detail.clone());
-                res = res.bind(name.clone());
-                res = res.bind(mobile.clone());
-                res = res.bind(UserAddressStatus::Enable as i8);
-                res
-            },
+        .fetch_one_by_where::<UserAddressModel, _>(
+            &WhereOption::Where(sql_format!(
+            " user_id={} and address_code={} and address_info={} and address_detail={} and name={} and mobile={} and status={}",
+            user.id,
+                address_code,
+                address_info,
+                address_detail,
+                name,
+                mobile,
+                UserAddressStatus::Enable)),
             &self.db,
         )
         .await;

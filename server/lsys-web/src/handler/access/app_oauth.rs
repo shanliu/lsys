@@ -1,4 +1,3 @@
-use lsys_app::model::AppsModel;
 use lsys_rbac::dao::{
     AccessRes, RbacAccess, RbacCheck, RbacRelationTpl, RbacResTpl, ResTpl, RoleRelationKey,
     UserRbacResult,
@@ -8,7 +7,8 @@ use super::RelationApp;
 
 //这里定义Oauth服务中用到资源
 pub struct AccessOauthUserInfo {
-    pub app: AppsModel,
+    pub user_id: u64,
+    pub app_id: u64,
 }
 #[async_trait::async_trait]
 impl RbacCheck for AccessOauthUserInfo {
@@ -19,8 +19,11 @@ impl RbacCheck for AccessOauthUserInfo {
     ) -> UserRbacResult<()> {
         access
             .check(
-                self.app.user_id,
-                &RelationApp { app: &self.app }.extend(relation),
+                self.user_id,
+                &RelationApp {
+                    app_id: self.app_id,
+                }
+                .extend(relation),
                 &[AccessRes::system("global-oauth", &[], &["user-info"])],
             )
             .await
@@ -38,7 +41,8 @@ impl RbacResTpl for AccessOauthUserInfo {
 }
 
 pub struct AccessOauthUserEmail {
-    pub app: AppsModel,
+    pub user_id: u64,
+    pub app_id: u64,
 }
 #[async_trait::async_trait]
 impl RbacCheck for AccessOauthUserEmail {
@@ -49,8 +53,11 @@ impl RbacCheck for AccessOauthUserEmail {
     ) -> UserRbacResult<()> {
         access
             .check(
-                self.app.user_id,
-                &RelationApp { app: &self.app }.extend(relation),
+                self.user_id,
+                &RelationApp {
+                    app_id: self.app_id,
+                }
+                .extend(relation),
                 &[AccessRes::system("global-oauth", &["user-email"], &[])],
             )
             .await
@@ -68,7 +75,8 @@ impl RbacResTpl for AccessOauthUserEmail {
 }
 
 pub struct AccessOauthUserMobile {
-    pub app: AppsModel,
+    pub user_id: u64,
+    pub app_id: u64,
 }
 #[async_trait::async_trait]
 impl RbacCheck for AccessOauthUserMobile {
@@ -79,8 +87,11 @@ impl RbacCheck for AccessOauthUserMobile {
     ) -> UserRbacResult<()> {
         access
             .check(
-                self.app.user_id,
-                &RelationApp { app: &self.app }.extend(relation),
+                self.user_id,
+                &RelationApp {
+                    app_id: self.app_id,
+                }
+                .extend(relation),
                 &[AccessRes::system("global-oauth", &["user-mobile"], &[])],
             )
             .await
@@ -98,7 +109,8 @@ impl RbacResTpl for AccessOauthUserMobile {
 }
 
 pub struct AccessOauthUserAddress {
-    pub app: AppsModel,
+    pub user_id: u64,
+    pub app_id: u64,
 }
 #[async_trait::async_trait]
 impl RbacCheck for AccessOauthUserAddress {
@@ -109,8 +121,11 @@ impl RbacCheck for AccessOauthUserAddress {
     ) -> UserRbacResult<()> {
         access
             .check(
-                self.app.user_id,
-                &RelationApp { app: &self.app }.extend(relation),
+                self.user_id,
+                &RelationApp {
+                    app_id: self.app_id,
+                }
+                .extend(relation),
                 &[AccessRes::system("global-oauth", &["user-address"], &[])],
             )
             .await

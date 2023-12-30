@@ -29,7 +29,8 @@ async fn get_scope<'a>(
             "user_info" => {
                 rbac.check(
                     &AccessOauthUserInfo {
-                        app: app.to_owned(),
+                        app_id: app.id,
+                        user_id: app.user_id,
                     },
                     None,
                 )
@@ -42,7 +43,8 @@ async fn get_scope<'a>(
             "user_email" => {
                 rbac.check(
                     &AccessOauthUserEmail {
-                        app: app.to_owned(),
+                        app_id: app.id,
+                        user_id: app.user_id,
                     },
                     None,
                 )
@@ -55,7 +57,8 @@ async fn get_scope<'a>(
             "user_mobile" => {
                 rbac.check(
                     &AccessOauthUserMobile {
-                        app: app.to_owned(),
+                        app_id: app.id,
+                        user_id: app.user_id,
                     },
                     None,
                 )
@@ -68,7 +71,8 @@ async fn get_scope<'a>(
             "user_address" => {
                 rbac.check(
                     &AccessOauthUserAddress {
-                        app: app.to_owned(),
+                        app_id: app.id,
+                        user_id: app.user_id,
                     },
                     None,
                 )
@@ -178,7 +182,7 @@ pub struct OauthSessionData {
     refresh_token: Option<String>,
     openid: String,
     scope: String,
-    expires_in: String,
+    expires_in: u64,
 }
 
 async fn check_app_secret(
@@ -193,13 +197,7 @@ async fn check_app_secret(
         .cache()
         .find_by_client_id(client_id)
         .await?;
-    let oauth_secret = webdao
-        .app
-        .app_dao
-        .app
-        .oauth_secret(&app.client_secret)
-        .await;
-    if *client_secret != oauth_secret {
+    if *client_secret != app.oauth_secret {
         return Err(JsonData::message("client_secret not match"));
     }
     Ok(app)
@@ -232,7 +230,7 @@ pub async fn oauth_create_token(webdao: &WebDao, code: OauthCodeParam) -> JsonRe
         refresh_token: None,
         openid: token.access_user_id.to_string(),
         scope: token.scope,
-        expires_in: token.timeout.to_string(),
+        expires_in: token.timeout,
     };
     Ok(JsonData::data(json!(session)))
 }
@@ -260,7 +258,7 @@ pub async fn oauth_refresh_token(
         refresh_token: Some(old_token.token.token),
         openid: token.access_user_id.to_string(),
         scope: token.scope,
-        expires_in: token.timeout.to_string(),
+        expires_in: token.timeout,
     };
     Ok(JsonData::data(json!(session)))
 }

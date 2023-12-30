@@ -1,24 +1,24 @@
 use std::collections::HashMap;
 
-use crate::{dao::WebDao, handler::access::AccessAppSenderDoSms, JsonData, JsonResult};
+use crate::{dao::WebDao, handler::access::AccessAppSenderDoMail, JsonData, JsonResult};
 use lsys_app::model::AppsModel;
 use lsys_core::{str_time, RequestEnv};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
 #[derive(Debug, Deserialize)]
-pub struct SmsSendParam {
-    pub area: Option<String>,
-    pub mobile: Vec<String>,
+pub struct MailSendParam {
+    pub to: Vec<String>,
     pub tpl: String,
     pub data: HashMap<String, String>,
-    pub max_try: Option<u8>,
+    pub reply: Option<String>,
     pub send_time: Option<String>,
+    pub max_try: Option<u8>,
 }
-pub async fn sms_send(
+pub async fn mail_send(
     app_dao: &WebDao,
     app: &AppsModel,
-    param: SmsSendParam,
+    param: MailSendParam,
     env_data: Option<&RequestEnv>,
 ) -> JsonResult<JsonData> {
     app_dao
@@ -26,8 +26,9 @@ pub async fn sms_send(
         .rbac_dao
         .rbac
         .check(
-            &AccessAppSenderDoSms {
-                app: app.to_owned(),
+            &AccessAppSenderDoMail {
+                app_id: app.id,
+                user_id: app.user_id,
             },
             None,
         )
@@ -43,16 +44,16 @@ pub async fn sms_send(
         None
     };
     // 字符串转时间对象
-    let mobile = param.mobile.iter().map(|e| e.as_str()).collect::<Vec<_>>();
+    let to = param.to.iter().map(|e| e.as_str()).collect::<Vec<_>>();
     let data = app_dao
-        .sender_smser
+        .sender_mailer
         .app_send(
             app,
             &param.tpl,
-            param.area.as_deref().unwrap_or("86"),
-            &mobile,
+            &to,
             &param.data,
             &send_time,
+            &param.reply,
             &param.max_try,
             env_data,
         )
@@ -62,23 +63,23 @@ pub async fn sms_send(
         .map(|e| {
             json!({
                 "id":e.0.to_string(),
-                "mobile":e.1,
+                "mail":e.1,
             })
         })
         .collect::<Vec<Value>>();
-    Ok(JsonData::data(json!(
-       { "detail":detail}
-    )))
+    Ok(JsonData::data(json!( {
+        "detail":detail
+    })))
 }
 
 #[derive(Debug, Deserialize)]
-pub struct SmsCancelParam {
+pub struct MailCancelParam {
     pub id_data: Vec<String>,
 }
-pub async fn sms_cancel(
+pub async fn mail_cancel(
     app_dao: &WebDao,
     app: &AppsModel,
-    param: SmsCancelParam,
+    param: MailCancelParam,
     env_data: Option<&RequestEnv>,
 ) -> JsonResult<JsonData> {
     app_dao
@@ -86,18 +87,21 @@ pub async fn sms_cancel(
         .rbac_dao
         .rbac
         .check(
-            &AccessAppSenderDoSms {
-                app: app.to_owned(),
+            &AccessAppSenderDoMail {
+                app_id: app.id,
+                user_id: app.user_id,
             },
             None,
         )
         .await?;
+
     let mut ids = Vec::with_capacity(param.id_data.len());
     for e in param.id_data {
         ids.push(e.parse::<u64>().map_err(JsonData::message)?);
     }
+
     let data = app_dao
-        .sender_smser
+        .sender_mailer
         .app_send_cancel(app, &ids, env_data)
         .await?;
     let detail = data
@@ -105,11 +109,13 @@ pub async fn sms_cancel(
         .map(|e| {
             json!({
                 "id":e.0.to_string(),
-                "sending":e.1,
+                "status":!e.1&&e.2.is_none(),
+              //  "sending":e.1,
+                "msg":e.2.map(|e|e.to_string())
             })
         })
         .collect::<Vec<Value>>();
-    Ok(JsonData::data(json!(
-       { "detail":detail}
-    )))
+    Ok(JsonData::data(json!( {
+        "detail":detail
+    })))
 }

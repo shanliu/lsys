@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
-use sqlx_model::SqlxModel;
+use sqlx_model::sqlx_model;
 
-#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(table_name = "user")]
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(db_type = "MySql", table_name = "user")]
 pub struct UserModel {
     /// 用户ID
     #[sqlx(default)]
@@ -54,8 +54,8 @@ pub struct UserModel {
     pub change_time: u64,
 }
 
-#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(table_name = "user_address")]
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(db_type = "MySql", table_name = "user_address")]
 pub struct UserAddressModel {
     #[sqlx(default)]
     pub id: u64,
@@ -97,8 +97,8 @@ pub struct UserAddressModel {
     pub change_time: u64,
 }
 
-#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(table_name = "user_email")]
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(db_type = "MySql", table_name = "user_email")]
 pub struct UserEmailModel {
     #[sqlx(default)]
     pub id: u64,
@@ -124,8 +124,8 @@ pub struct UserEmailModel {
     pub change_time: u64,
 }
 
-#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(table_name = "user_external")]
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(db_type = "MySql", table_name = "user_external")]
 pub struct UserExternalModel {
     #[sqlx(default)]
     pub id: u64,
@@ -183,8 +183,8 @@ pub struct UserExternalModel {
     pub change_time: u64,
 }
 
-#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(table_name = "user_info")]
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(db_type = "MySql", table_name = "user_info")]
 pub struct UserInfoModel {
     #[sqlx(default)]
     pub id: u64,
@@ -218,8 +218,8 @@ pub struct UserInfoModel {
     pub change_time: u64,
 }
 
-#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(table_name = "user_login")]
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(db_type = "MySql", table_name = "user_login")]
 pub struct UserLoginModel {
     #[sqlx(default)]
     pub id: u64,
@@ -261,8 +261,8 @@ pub struct UserLoginModel {
     pub add_time: u64,
 }
 
-#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(table_name = "user_mobile")]
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(db_type = "MySql", table_name = "user_mobile")]
 pub struct UserMobileModel {
     #[sqlx(default)]
     pub id: u64,
@@ -292,8 +292,8 @@ pub struct UserMobileModel {
     pub change_time: u64,
 }
 
-#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(table_name = "user_name")]
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(db_type = "MySql", table_name = "user_name")]
 pub struct UserNameModel {
     #[sqlx(default)]
     pub id: u64,
@@ -315,8 +315,8 @@ pub struct UserNameModel {
     pub status: i8,
 }
 
-#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(table_name = "user_password")]
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(db_type = "MySql", table_name = "user_password")]
 pub struct UserPasswordModel {
     #[sqlx(default)]
     pub id: u64,
@@ -338,8 +338,8 @@ pub struct UserPasswordModel {
     pub disable_time: u64,
 }
 
-#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(table_name = "user_index")]
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(db_type = "MySql", table_name = "user_index")]
 pub struct UserIndexModel {
     #[sqlx(default)]
     pub id: u64,

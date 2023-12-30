@@ -65,8 +65,11 @@ impl RbacTags {
             return Ok(vec![]);
         }
         let mut sql = sql_format!(
-            "name IN ({}) and user_id = ? and  from_source=? and status=?",
-            name
+            "name IN ({}) and user_id = {} and  from_source={} and status={}",
+            name,
+            user_id,
+            sorce,
+            RbacTagsStatus::Enable
         );
         if let Some(fids) = from_ids {
             if fids.is_empty() {
@@ -78,17 +81,7 @@ impl RbacTags {
             sql += format!(" limit {} offset {}", pdat.limit, pdat.offset).as_str();
         }
         let data = Select::type_new::<RbacTagsModel>()
-            .fetch_all_by_where_call::<RbacTagsModel, _, _>(
-                &sql,
-                |mut tmp, _| {
-                    tmp = tmp
-                        .bind(user_id)
-                        .bind(sorce as i8)
-                        .bind(RbacTagsStatus::Enable as i8);
-                    tmp
-                },
-                &self.db,
-            )
+            .fetch_all_by_where::<RbacTagsModel, _>(&WhereOption::Where(sql), &self.db)
             .await?;
         Ok(data)
     }
@@ -102,9 +95,13 @@ impl RbacTags {
             return Ok(vec![]);
         }
         let data = Select::type_new::<RbacTagsModel>()
-            .fetch_all_by_where_call::<RbacTagsModel, _, _>(
-                &sql_format!("from_id IN ({}) and from_source=? and status=?", from_ids),
-                |tmp, _| tmp.bind(sorce as i8).bind(RbacTagsStatus::Enable as i8),
+            .fetch_all_by_where::<RbacTagsModel, _>(
+                &WhereOption::Where(sql_format!(
+                    "from_id IN ({}) and from_source={} and status={}",
+                    from_ids,
+                    sorce,
+                    RbacTagsStatus::Enable
+                )),
                 &self.db,
             )
             .await?;
@@ -147,9 +144,12 @@ impl RbacTags {
         executor_option!(
             {
                 Update::<sqlx::MySql, RbacTagsModel, _>::new(change)
-                    .execute_by_where_call(
-                        "from_source=? and from_id=?",
-                        |temp, _| temp.bind(source as i8).bind(from_id),
+                    .execute_by_where(
+                        &WhereOption::Where(sql_format!(
+                            "from_source={} and from_id={}",
+                            source,
+                            from_id
+                        )),
                         db,
                     )
                     .await?;
@@ -192,13 +192,13 @@ impl RbacTags {
         let time = now_time().unwrap_or_default();
 
         let ftags = Select::type_new::<RbacTagsModel>()
-            .fetch_all_by_where_call::<RbacTagsModel, _, _>(
-                "from_source=? and from_id=? and status=?",
-                |tmp, _| {
-                    tmp.bind(from_source)
-                        .bind(from_id)
-                        .bind(RbacTagsStatus::Enable as i8)
-                },
+            .fetch_all_by_where::<RbacTagsModel, _>(
+                &WhereOption::Where(sql_format!(
+                    "from_source={} and from_id={} and status={}",
+                    from_source,
+                    from_id,
+                    RbacTagsStatus::Enable
+                )),
                 &self.db,
             )
             .await?;

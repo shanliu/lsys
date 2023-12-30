@@ -4,6 +4,7 @@ use lsys_logger::dao::ChangeLogger;
 use sqlx::{MySql, Pool, Transaction};
 use sqlx_model::{
     executor_option, model_option_set, sql_format, Insert, ModelTableName, Select, Update,
+    WhereOption,
 };
 use std::sync::Arc;
 use tracing::log::warn;
@@ -16,7 +17,7 @@ pub struct MultipleSetting {
     db: Pool<MySql>,
     logger: Arc<ChangeLogger>,
     //fluent: Arc<FluentMessage>,
-    pub cache: Arc<LocalCache<String, Vec<SettingModel>>>,
+    pub(crate) cache: Arc<LocalCache<String, Vec<SettingModel>>>,
 }
 
 impl MultipleSetting {
@@ -120,14 +121,14 @@ impl MultipleSetting {
         let cu = executor_option!(
             {
                 Update::<sqlx::MySql, SettingModel, _>::new(change)
-                    .execute_by_where_call(
-                        "id=? and setting_type=? and setting_key=? and user_id=?",
-                        |res, _| {
-                            res.bind(id)
-                                .bind(SettingType::Multiple as i8)
-                                .bind(key.clone())
-                                .bind(uid)
-                        },
+                    .execute_by_where(
+                        &WhereOption::Where(sql_format!(
+                            "id={} and setting_type={} and setting_key={} and user_id={}",
+                            id,
+                            SettingType::Multiple,
+                            key,
+                            uid,
+                        )),
                         db,
                     )
                     .await?
@@ -179,14 +180,14 @@ impl MultipleSetting {
         let uid = user_id.unwrap_or_default();
 
         let data = Select::type_new::<SettingModel>()
-            .fetch_one_by_where_call::<SettingModel, _, _>(
-                "id=? and setting_type=? and setting_key=? and  user_id=?",
-                |res, _| {
-                    res.bind(id)
-                        .bind(SettingType::Multiple as i8)
-                        .bind(key.clone())
-                        .bind(uid)
-                },
+            .fetch_one_by_where::<SettingModel, _>(
+                &WhereOption::Where(sql_format!(
+                    "id={} and setting_type={} and setting_key={} and  user_id={}",
+                    id,
+                    SettingType::Multiple,
+                    key,
+                    uid
+                )),
                 &self.db,
             )
             .await;
@@ -287,9 +288,13 @@ impl MultipleSetting {
         let id = id.to_owned();
         let uid = user_id.unwrap_or_default();
         Ok(Select::type_new::<SettingModel>()
-            .fetch_one_by_where_call::<SettingModel, _, _>(
-                "id=? and setting_type=? and  user_id=?",
-                |res, _| res.bind(id).bind(SettingType::Multiple as i8).bind(uid),
+            .fetch_one_by_where::<SettingModel, _>(
+                &WhereOption::Where(sql_format!(
+                    "id={} and setting_type={} and  user_id={}",
+                    id,
+                    SettingType::Multiple,
+                    uid
+                )),
                 &self.db,
             )
             .await?)

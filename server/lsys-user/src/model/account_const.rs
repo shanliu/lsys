@@ -1,60 +1,60 @@
 use serde::{Deserialize, Serialize};
-use sqlx_model::SqlxModelStatus;
+use sqlx_model::sqlx_model_status;
 
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, SqlxModelStatus, PartialEq, Eq)]
-#[sqlx_model_status(type = "i8")]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[sqlx_model_status(field_type = "i8")]
 pub enum UserStatus {
     Enable = 2,
     Init = 1,
     Delete = -1,
 }
 
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, SqlxModelStatus, PartialEq, Eq)]
-#[sqlx_model_status(type = "i8")]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[sqlx_model_status(field_type = "i8")]
 pub enum UserEmailStatus {
     Init = 1,
     Valid = 2,
     Delete = -1,
 }
 
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, SqlxModelStatus, PartialEq, Eq)]
-#[sqlx_model_status(type = "i8")]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[sqlx_model_status(field_type = "i8")]
 pub enum UserMobileStatus {
     Init = 1,
     Valid = 2,
     Delete = -1,
 }
 
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, SqlxModelStatus, PartialEq, Eq)]
-#[sqlx_model_status(type = "i8")]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[sqlx_model_status(field_type = "i8")]
 pub enum UserNameStatus {
     Enable = 1,
     Delete = -1,
 }
 
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, SqlxModelStatus, PartialEq, Eq)]
-#[sqlx_model_status(type = "i8")]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[sqlx_model_status(field_type = "i8")]
 pub enum UserExternalStatus {
     Enable = 1,
     Delete = -1,
 }
 
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, SqlxModelStatus, PartialEq, Eq)]
-#[sqlx_model_status(type = "i8")]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[sqlx_model_status(field_type = "i8")]
 pub enum UserAddressStatus {
     Enable = 1,
     Delete = -1,
 }
 
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, SqlxModelStatus, PartialEq, Eq)]
-#[sqlx_model_status(type = "i8")]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[sqlx_model_status(field_type = "i8")]
 pub enum UserIndexStatus {
     Enable = 1,
     Delete = -1,
 }
 
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, SqlxModelStatus, PartialEq, Eq, Hash)]
-#[sqlx_model_status(type = "i8")]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[sqlx_model_status(field_type = "i8")]
 pub enum UserIndexCat {
     Address = 1,      //多个
     Email = 2,        //多个

@@ -64,9 +64,13 @@ impl UserIndex {
                 change_time:time
             });
             let tmp = Update::<sqlx::MySql, UserIndexModel, _>::new(change)
-                .execute_by_where_call(
-                    "user_id=? and index_cat=? and id!=?",
-                    |res, _| res.bind(user_id).bind(index_cat).bind(addid),
+                .execute_by_where(
+                    &sqlx_model::WhereOption::Where(sql_format!(
+                        "user_id={} and index_cat={} and id!={}",
+                        user_id,
+                        index_cat,
+                        addid
+                    )),
                     &mut db,
                 )
                 .await;
@@ -137,17 +141,13 @@ impl UserIndex {
         let res = executor_option!(
             {
                 Update::<sqlx::MySql, UserIndexModel, _>::new(change)
-                    .execute_by_where_call(
-                        &sql_format!(
-                            "index_data  in ({}) and index_cat=? and user_id=?",
-                            index_data
-                        ),
-                        |mut res, _| {
-                            res = res.bind(index_cat);
-                            res = res.bind(user_id);
-
-                            res
-                        },
+                    .execute_by_where(
+                        &sqlx_model::WhereOption::Where(sql_format!(
+                            "index_data  in ({}) and index_cat={} and user_id={}",
+                            index_data,
+                            index_cat,
+                            user_id
+                        )),
                         db,
                     )
                     .await
@@ -173,13 +173,12 @@ impl UserIndex {
         let res = executor_option!(
             {
                 Update::<sqlx::MySql, UserIndexModel, _>::new(change)
-                    .execute_by_where_call(
-                        &sql_format!("index_cat=? and user_id=?"),
-                        |mut res, _| {
-                            res = res.bind(index_cat);
-                            res = res.bind(user_id);
-                            res
-                        },
+                    .execute_by_where(
+                        &sqlx_model::WhereOption::Where(sql_format!(
+                            "index_cat={} and user_id={}",
+                            index_cat,
+                            user_id
+                        )),
                         db,
                     )
                     .await
@@ -203,12 +202,8 @@ impl UserIndex {
         let res = executor_option!(
             {
                 Update::<sqlx::MySql, UserIndexModel, _>::new(change)
-                    .execute_by_where_call(
-                        "user_id=?",
-                        |mut res, _| {
-                            res = res.bind(user_id);
-                            res
-                        },
+                    .execute_by_where(
+                        &sqlx_model::WhereOption::Where(sql_format!("user_id={}", user_id)),
                         db,
                     )
                     .await

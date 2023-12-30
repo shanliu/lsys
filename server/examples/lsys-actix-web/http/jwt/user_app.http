@@ -1,7 +1,7 @@
 
 @host_url= http://127.0.0.1:8080
 @app_url = {{host_url}}/api/app
-@jwt_token = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwidG9rZW4iOiJNVGN0VGtSWVNGbE5Wa0ZEVVVWVFRFZEpWMXBRVDBaTFVsUlZMVEUyTnpJNU1UQTNNalU9IiwiZXhwIjoxNTE2MjM5MDIyMTF9._p2A33VfAi8woUtKeyOnxhE_mNU9vKoeMsh70Kz6ctU
+@jwt_token = Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE3MDM1ODQ3ODMsInRva2VuIjoiTVMxU1RGcFRUVVpEVDBKQlIwdEpWRmRGU2toRVZsRlFWVTR0TVRjd016VTRORGM0TXciLCJkYXRhIjp7ImxvZ2luX2RhdGEiOnsiY2hhbmdlX3RpbWUiOjE3MDIwMjYxMDAsImlkIjoxLCJzdGF0dXMiOjEsInVzZXJfaWQiOjEsInVzZXJuYW1lIjoiYWFhYWEifSwibG9naW5fdGltZSI6MTcwMzQ5ODM4MywibG9naW5fdHlwZSI6Im5hbWUiLCJ0aW1lX291dCI6MTcwMzU4NDc4MywidXNlcl9pZCI6MSwidXNlcl9uaWNrbmFtZSI6InJvb3QiLCJ1c2VyX3Bhc3N3b3JkX2lkIjoxfX0.xFDZBZ6VvrNYKn7qImmrr-pAbyIPMFGik688AC4NZEo
 
 ### 重置KEY
 POST {{app_url}}/reset_secret
@@ -9,7 +9,7 @@ Authorization: {{jwt_token}}
 Content-Type: application/json
 
 {
-   "app_id": 28
+   "app_id": 2
 }
 
 ### 列表
@@ -34,7 +34,7 @@ Content-Type: application/json
 {
     "user_id": 17,
     "name": "1111111",
-    "client_id": "11111"
+    "client_id": "ddffddd"
 }
 
 
@@ -44,5 +44,92 @@ Authorization: {{jwt_token}}
 Content-Type: application/json
 
 {
-   "app_id": 29
+   "app_id": 5
 }
+
+
+### 查看秘钥
+POST {{app_url}}/view_secret
+Authorization: {{jwt_token}}
+Content-Type: application/json
+
+{
+   "app_id": 3
+}
+
+
+
+### 设置可访问应用的用户
+POST {{app_url}}/set_sub_user
+Authorization: {{jwt_token}}
+Content-Type: application/json
+
+{
+   "app_id": 4,
+   "user_id":17,
+   "used":true
+}
+
+### 列出可访问用户
+POST {{app_url}}/list_sub_user
+Authorization: {{jwt_token}}
+Content-Type: application/json
+
+{
+   "app_id": 4,
+   //"user_id":1,
+   "count_num":true
+}
+
+
+
+### 列出某应用的子应用
+POST {{app_url}}/list_sub_app
+Authorization: {{jwt_token}}
+Content-Type: application/json
+
+{
+   "app_id": 4,
+   //"user_id":1,
+   "count_num":true
+}
+
+
+
+
+### 列出指定应用已关联的父应用
+POST {{app_url}}/list_parent_app
+Authorization: {{jwt_token}}
+Content-Type: application/json
+
+{
+   "app_id": 3,
+   //"is_set":null,
+   "count_num":true
+}
+
+
+
+
+### 指定应用关联指定父应用
+POST {{app_url}}/set_parent_app
+Authorization: {{jwt_token}}
+Content-Type: application/json
+
+{
+    "app_id": 3,
+   "parent_app_id":4,
+   "sub_secret":"xxxx"
+}
+
+
+### 移除指定应用关联指定父应用
+POST {{app_url}}/del_parent_app
+Authorization: {{jwt_token}}
+Content-Type: application/json
+
+{
+      "app_id": 3,
+   "parent_app_id":4
+}
+

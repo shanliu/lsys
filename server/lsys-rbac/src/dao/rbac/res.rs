@@ -199,7 +199,7 @@ impl RbacRes {
         res_ids: &Option<Vec<u64>>,
         page: &Option<PageParam>,
     ) -> UserRbacResult<Vec<RbacResModel>> {
-        let mut sql = "user_id = ? and status=?".to_string();
+        let mut sql = sql_format!("user_id = {} and status={}", user_id, RbacResStatus::Enable);
         if let Some(ref rid) = res_ids {
             if rid.is_empty() {
                 return Ok(vec![]);
@@ -214,14 +214,7 @@ impl RbacRes {
             sql += format!(" limit {} offset {}", pdat.limit, pdat.offset).as_str();
         }
         let data = Select::type_new::<RbacResModel>()
-            .fetch_all_by_where_call::<RbacResModel, _, _>(
-                &sql,
-                |mut tmp, _| {
-                    tmp = tmp.bind(user_id).bind(RbacResStatus::Enable as i8);
-                    tmp
-                },
-                &self.db,
-            )
+            .fetch_all_by_where::<RbacResModel, _>(&sqlx_model::WhereOption::Where(sql), &self.db)
             .await?;
         Ok(data)
     }
@@ -286,14 +279,13 @@ impl RbacRes {
         let name = check_length!(&self.fluent, name, "name", 32);
 
         let res = Select::type_new::<RbacResModel>()
-            .fetch_one_by_where_call::<RbacResModel, _, _>(
-                "user_id=? and res_key=? and status=?",
-                |mut res, _| {
-                    res = res.bind(user_id);
-                    res = res.bind(key.clone());
-                    res = res.bind(RbacResStatus::Enable as i8);
-                    res
-                },
+            .fetch_one_by_where::<RbacResModel, _>(
+                &sqlx_model::WhereOption::Where(sql_format!(
+                    "user_id={} and res_key={} and status={}",
+                    user_id,
+                    key,
+                    RbacResStatus::Enable
+                )),
                 &self.db,
             )
             .await;
@@ -461,7 +453,10 @@ impl RbacRes {
             status:(RbacResOpStatus::Delete as i8)
         });
         let tmp = Update::<sqlx::MySql, RbacResOpModel, _>::new(change)
-            .execute_by_where_call("res_id=?", |temp, _| temp.bind(res.id), &mut db)
+            .execute_by_where(
+                &sqlx_model::WhereOption::Where(sql_format!("res_id={}", res.id)),
+                &mut db,
+            )
             .await;
         if let Err(e) = tmp {
             db.rollback().await?;
@@ -514,9 +509,12 @@ impl RbacRes {
         }
         let db = &self.db;
         let data = Select::type_new::<RbacResOpModel>()
-            .fetch_all_by_where_call::<RbacResOpModel, _, _>(
-                &sql_format!("res_id IN ({}) and status=?", res_ids),
-                |tmp, _| tmp.bind(RbacResStatus::Enable as i8),
+            .fetch_all_by_where::<RbacResOpModel, _>(
+                &sqlx_model::WhereOption::Where(sql_format!(
+                    "res_id IN ({}) and status={}",
+                    res_ids,
+                    RbacResStatus::Enable
+                )),
                 db,
             )
             .await?;
@@ -551,9 +549,12 @@ impl RbacRes {
         };
 
         let fops = Select::type_new::<RbacResOpModel>()
-            .fetch_all_by_where_call::<RbacResOpModel, _, _>(
-                "res_id=? and status=?",
-                |tmp, _| tmp.bind(res.id).bind(RbacResOpStatus::Enable as i8),
+            .fetch_all_by_where::<RbacResOpModel, _>(
+                &sqlx_model::WhereOption::Where(sql_format!(
+                    "res_id={} and status={}",
+                    res.id,
+                    RbacResOpStatus::Enable
+                )),
                 db,
             )
             .await?;
@@ -631,7 +632,10 @@ impl RbacRes {
                 name:cn,
             });
             let tmp = Update::<sqlx::MySql, RbacResOpModel, _>::new(ddata)
-                .execute_by_where_call("id = ?", |temp, _| temp.bind(cid), &mut db)
+                .execute_by_where(
+                    &sqlx_model::WhereOption::Where(sql_format!("id = {} ", cid)),
+                    &mut db,
+                )
                 .await;
             if let Err(e) = tmp {
                 db.rollback().await?;
@@ -702,12 +706,12 @@ impl RbacRes {
         let res_op = if !res.is_empty() {
             let res_id = res.iter().map(|res| res.id).collect::<Vec<_>>();
             Select::type_new::<RbacResOpModel>()
-                .fetch_all_by_where_call::<RbacResOpModel, _, _>(
-                    &sql_format!("res_id in ({}) and status =? order by id desc", res_id),
-                    |mut res, _| {
-                        res = res.bind(RbacResOpStatus::Enable as i8);
-                        res
-                    },
+                .fetch_all_by_where::<RbacResOpModel, _>(
+                    &sqlx_model::WhereOption::Where(sql_format!(
+                        "res_id in ({}) and status ={} order by id desc",
+                        res_id,
+                        RbacResOpStatus::Enable
+                    )),
                     &self.db,
                 )
                 .await?

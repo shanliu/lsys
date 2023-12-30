@@ -5,18 +5,18 @@ use lsys_core::{
 
 use lsys_logger::dao::ChangeLogger;
 use sqlx::{Acquire, MySql, Pool, Transaction};
-use sqlx_model::{Insert, Select, Update};
+use sqlx_model::{sql_format, Insert, Select, Update};
 use std::{collections::HashMap, sync::Arc};
 
 use crate::model::{UserInfoModel, UserInfoModelRef, UserModel};
 
 use super::{logger::LogUserInfo, user_index::UserIndex, UserAccountResult};
-
+use sqlx_model::SqlQuote;
 pub struct UserInfo {
     db: Pool<MySql>,
 
     index: Arc<UserIndex>,
-    pub cache: Arc<LocalCache<u64, UserInfoModel>>,
+    pub(crate) cache: Arc<LocalCache<u64, UserInfoModel>>,
     logger: Arc<ChangeLogger>,
 }
 
@@ -57,12 +57,8 @@ impl UserInfo {
         info.change_time = Some(&time);
         let db = &self.db;
         let user_res = Select::type_new::<UserInfoModel>()
-            .fetch_one_by_where_call::<UserInfoModel, _, _>(
-                "user_id=?",
-                |mut res, _| {
-                    res = res.bind(user.id);
-                    res
-                },
+            .fetch_one_by_where::<UserInfoModel, _>(
+                &sqlx_model::WhereOption::Where(sql_format!("user_id={}", user.id)),
                 db,
             )
             .await;

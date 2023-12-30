@@ -12,8 +12,8 @@ use lsys_setting::dao::{
 };
 use serde::{Deserialize, Serialize};
 use sqlx::{Acquire, MySql, Pool, Transaction};
-use sqlx_model::{model_option_set, Insert, Select, Update};
-
+use sqlx_model::SqlQuote;
+use sqlx_model::{model_option_set, sql_format, Insert, Select, Update};
 use tracing::warn;
 
 use super::UserAccountError;
@@ -110,13 +110,12 @@ impl UserPassword {
         let mut ta;
         if user.password_id > 0 {
             let user_pass_res = Select::type_new::<UserPasswordModel>()
-                .fetch_one_by_where_call::<UserPasswordModel, _, _>(
-                    "user_id=? and id=?",
-                    |mut res, _| {
-                        res = res.bind(user.id);
-                        res = res.bind(user.password_id);
-                        res
-                    },
+                .fetch_one_by_where::<UserPasswordModel, _>(
+                    &sqlx_model::WhereOption::Where(sql_format!(
+                        "user_id={} and id={}",
+                        user.id,
+                        user.password_id,
+                    )),
                     db,
                 )
                 .await;
@@ -159,13 +158,12 @@ impl UserPassword {
 
         if config.disable_old_password {
             let old_pass_res = Select::type_new::<UserPasswordModel>()
-                .fetch_one_by_where_call::<UserPasswordModel, _, _>(
-                    "user_id=? and password=?",
-                    |mut res, _| {
-                        res = res.bind(user.id);
-                        res = res.bind(nh_passwrod.clone());
-                        res
-                    },
+                .fetch_one_by_where::<UserPasswordModel, _>(
+                    &sqlx_model::WhereOption::Where(sql_format!(
+                        "user_id={} and password={}",
+                        user.id,
+                        nh_passwrod
+                    )),
                     db,
                 )
                 .await;

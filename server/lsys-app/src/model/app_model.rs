@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
-use sqlx_model::SqlxModel;
+use sqlx_model::sqlx_model;
 
-#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(table_name = "app")]
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(db_type = "MySql", table_name = "app")]
 pub struct AppsModel {
     /// 用户ID
     #[sqlx(default)]
@@ -20,6 +20,10 @@ pub struct AppsModel {
     /// 秘钥
     #[sqlx(default)]
     pub client_secret: String,
+
+    /// oauth 秘钥
+    #[sqlx(default)]
+    pub oauth_secret: String,
 
     #[sqlx(default)]
     pub callback_domain: String,
@@ -49,8 +53,62 @@ pub struct AppsModel {
     pub confirm_time: u64,
 }
 
-#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(table_name = "app_oauth_token")]
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(db_type = "MySql", table_name = "app_sub_user")]
+pub struct AppSubUserModel {
+    #[sqlx(default)]
+    pub id: u64,
+
+    /// app id
+    #[sqlx(default)]
+    pub app_id: u64,
+
+    /// sub app id
+    #[sqlx(default)]
+    pub user_id: u64,
+
+    /// 状态
+    #[sqlx(default)]
+    pub status: i8,
+
+    /// 确认时间时间
+    #[sqlx(default)]
+    pub change_time: u64,
+}
+
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(db_type = "MySql", table_name = "app_sub_app")]
+pub struct AppSubAppsModel {
+    #[sqlx(default)]
+    pub id: u64,
+
+    /// sub app id
+    #[sqlx(default)]
+    pub user_id: u64,
+
+    /// app id
+    #[sqlx(default)]
+    pub app_id: u64,
+
+    /// app id
+    #[sqlx(default)]
+    pub sub_app_id: u64,
+
+    /// client_secret
+    #[sqlx(default)]
+    pub sub_client_secret: String,
+
+    /// 状态
+    #[sqlx(default)]
+    pub status: i8,
+
+    /// 确认时间时间
+    #[sqlx(default)]
+    pub change_time: u64,
+}
+
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(db_type = "MySql", table_name = "app_oauth_token")]
 pub struct AppsTokenModel {
     #[sqlx(default)]
     pub id: u64,

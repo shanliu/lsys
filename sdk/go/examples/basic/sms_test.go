@@ -7,9 +7,11 @@ import (
 	"testing"
 )
 
+// 短信发送示例
+
 func TestSms(t *testing.T) {
 	sysApi := lSysApi.NewRestApi(&lSysApi.RestApiConfig{
-		//应用在 http://www.lsys.cc/ui/#/user/app 申请
+		//应用在 https://www.lsys.cc/app.html#/user/app 申请
 		AppId:          "1212f",                            //应用ID
 		AppSecret:      "3f95638a1e07b87df2b64e09c2541dac", //应用Secret
 		AppHost:        "http://www.lsys.cc",               //应用HOST
@@ -19,7 +21,7 @@ func TestSms(t *testing.T) {
 
 	//示例1
 	//短信发送示例
-	err1 := sysApi.SmsSend(
+	err1, data := sysApi.SmsSend(
 		context.Background(),
 		[]string{
 			"13800138000",
@@ -29,19 +31,20 @@ func TestSms(t *testing.T) {
 			"code": "sss",
 		},
 		"", //非必须 例:2023-12-11 11:11:11
-		"", //取消句柄,取消发送用 例:dddd
+		1,
 	)
 	if err1 == nil {
+		println("send ok")
+		//取消发送
+		err2, res2 := sysApi.SmsCancel(context.Background(), []string{data[0].Id})
+		if err2 == nil {
+			println(res2)
+		} else {
+			fmt.Printf("err :%s \n", err1.Error())
+		}
 		fmt.Printf("ok\n")
 	} else {
-		fmt.Printf("err :%s \n", err1)
+		fmt.Printf("err :%s \n", err1.Error())
 	}
 
-	////取消发送
-	//err1 = sysApi.SmsCancel(context.Background(), "dddd")
-	//if err1 == nil {
-	//	fmt.Printf("ok")
-	//} else {
-	//	fmt.Printf("err :%s \n", err1)
-	//}
 }

@@ -6,8 +6,8 @@ use serde_json::json;
 use crate::dao::RequestDao;
 
 use crate::handler::access::{
-    AccessAppSenderDoMail, AccessAppSenderDoSms, AccessSubAppView, AccessUserAppConfirm,
-    AccessUserAppEdit, AccessUserAppView,
+    AccessAppSenderDoMail, AccessAppSenderDoSms, AccessUserAppConfirm, AccessUserAppEdit,
+    AccessUserAppView,
 };
 use crate::{JsonData, JsonResult, PageParam};
 
@@ -77,6 +77,12 @@ pub async fn app_edit<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>
         .app
         .find_by_id(&param.app_id)
         .await?;
+    if AppStatus::Ok.eq(app.status) && param.client_id != app.client_id {
+        return Ok(JsonData::default()
+            .set_code(403)
+            .set_message("已审核应用不能修改应用id"));
+    }
+
     req_dao
         .web_dao
         .user
@@ -139,7 +145,7 @@ pub async fn app_reset_secret<T: SessionTokenData, D: SessionData, S: UserSessio
         )
         .await?;
 
-    let client_secret = req_dao
+    let (client_secret, oauth_secret) = req_dao
         .web_dao
         .app
         .app_dao
@@ -151,13 +157,6 @@ pub async fn app_reset_secret<T: SessionTokenData, D: SessionData, S: UserSessio
             Some(&req_dao.req_env),
         )
         .await?;
-    let oauth_secret = req_dao
-        .web_dao
-        .app
-        .app_dao
-        .app
-        .oauth_secret(&app.client_secret)
-        .await;
     Ok(JsonData::message("secret data")
         .set_data(json!({ "secret": client_secret,"oauth_secret":oauth_secret  })))
 }
@@ -192,15 +191,8 @@ pub async fn app_view_secret<T: SessionTokenData, D: SessionData, S: UserSession
             None,
         )
         .await?;
-    let oauth_secret = req_dao
-        .web_dao
-        .app
-        .app_dao
-        .app
-        .oauth_secret(&app.client_secret)
-        .await;
     Ok(JsonData::default()
-        .set_data(json!({ "secret": app.client_secret,"oauth_secret":oauth_secret })))
+        .set_data(json!({ "secret": app.client_secret,"oauth_secret":app.oauth_secret })))
 }
 
 #[derive(Debug, Deserialize)]
@@ -257,7 +249,6 @@ pub struct AppListParam {
     pub page: Option<PageParam>,
     pub check_sms: Option<bool>,
     pub check_mail: Option<bool>,
-    pub check_view_app: Option<bool>,
 }
 
 #[derive(Debug, Serialize)]
@@ -273,7 +264,6 @@ pub struct ShowAppData {
     pub confirm_time: u64,
     pub is_sms: bool,
     pub is_mail: bool,
-    pub is_view_app: bool,
 }
 
 pub async fn app_list<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
@@ -328,7 +318,13 @@ pub async fn app_list<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>
                 .user
                 .rbac_dao
                 .rbac
-                .check(&AccessAppSenderDoSms { app: tmp.clone() }, None)
+                .check(
+                    &AccessAppSenderDoSms {
+                        app_id: tmp.id,
+                        user_id: tmp.user_id,
+                    },
+                    None,
+                )
                 .await
                 .map(|_| true)
                 .unwrap_or(false)
@@ -341,23 +337,10 @@ pub async fn app_list<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>
                 .user
                 .rbac_dao
                 .rbac
-                .check(&AccessAppSenderDoMail { app: tmp.clone() }, None)
-                .await
-                .map(|_| true)
-                .unwrap_or(false)
-        } else {
-            false
-        };
-        let is_view_app = if param.check_view_app.unwrap_or(false) {
-            req_dao
-                .web_dao
-                .user
-                .rbac_dao
-                .rbac
                 .check(
-                    &AccessSubAppView {
-                        app: tmp.clone(),
-                        see_app: None,
+                    &AccessAppSenderDoMail {
+                        app_id: tmp.id,
+                        user_id: tmp.user_id,
                     },
                     None,
                 )
@@ -367,6 +350,7 @@ pub async fn app_list<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>
         } else {
             false
         };
+
         out.push(ShowAppData {
             id: tmp.id,
             name: tmp.name,
@@ -379,7 +363,6 @@ pub async fn app_list<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>
             confirm_time: tmp.confirm_time,
             is_sms,
             is_mail,
-            is_view_app,
         });
     }
     let count = if param.count_num.unwrap_or(false) {

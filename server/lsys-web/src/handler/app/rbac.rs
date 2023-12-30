@@ -9,7 +9,6 @@ use crate::handler::common::rbac::{
     rbac_menu_check, RbacAccessParam, RbacMenuParam, RelationParam,
 };
 use crate::{JsonData, JsonResult};
-use serde_json::json;
 
 #[derive(Debug, Deserialize)]
 pub struct CheckResParam {
@@ -31,7 +30,7 @@ pub struct CheckParam {
     pub access: CheckAccessParam,
 }
 
-pub async fn subapp_rbac_check(
+pub async fn app_rbac_check(
     app_dao: &WebDao,
     app: &AppsModel,
     param: CheckParam,
@@ -42,7 +41,8 @@ pub async fn subapp_rbac_check(
         .rbac
         .check(
             &AccessSubAppRbacCheck {
-                app: app.to_owned(),
+                user_id: app.user_id,
+                app_id: app.id,
             },
             None,
         )
@@ -73,7 +73,7 @@ pub async fn subapp_rbac_check(
         })
         .collect::<Vec<Vec<_>>>();
     dao.list_check(param.user_id, &rkey, &check_res).await?;
-    Ok(JsonData::data(json!({ "pass": 1 })))
+    Ok(JsonData::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -82,7 +82,7 @@ pub struct MenuParam {
     pub check_res: Vec<RbacAccessParam>,
 }
 
-pub async fn subapp_rbac_menu_check(
+pub async fn app_rbac_menu_check(
     app_dao: &WebDao,
     app: &AppsModel,
     param: MenuParam,
@@ -93,7 +93,8 @@ pub async fn subapp_rbac_menu_check(
         .rbac
         .check(
             &AccessSubAppRbacCheck {
-                app: app.to_owned(),
+                user_id: app.user_id,
+                app_id: app.id,
             },
             None,
         )
@@ -114,7 +115,7 @@ pub async fn subapp_rbac_menu_check(
 //     pub access: RbacAccessParam,
 // }
 
-// pub async fn subapp_rbac_access_check(
+// pub async fn app_rbac_access_check(
 //     app_dao: &WebDao,
 //     app: &AppsModel,
 //     param: AccessParam,

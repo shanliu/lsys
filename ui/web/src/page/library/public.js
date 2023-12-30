@@ -6,15 +6,13 @@ import React from 'react';
 import { Box, Link } from '@mui/material';
 
 export function LayoutAppBar(props) {
-    let url = window.location.href.replace(/\/[^\/]*$/, '').replace(/#\/.*$/, "#");
-    if (url[url.length - 1] != '/') url += '/';
     return <AppBar position="sticky" sx={{ top: 0, zIndex: (theme) => theme.zIndex.drawer + 1, position: "sticky" }}>
         <Container maxWidth="xl">
             <Toolbar disableGutters>
                 <Box sx={{
                     mr: 5
                 }} title={"企业内部应用开放平台"}>
-                    <Link href={url}>
+                    <Link href={"/app.html"}>
                         <img style={{
                             width: 42,
                             marginTop: 8

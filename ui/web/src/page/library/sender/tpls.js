@@ -449,6 +449,7 @@ export default function SenderTplBodyPage(props) {
                     startIcon={<SearchIcon />}
                     sx={{ mr: 1, p: "7px 15px", minWidth: 110 }}
                     disabled={loadData.loading}
+                    loading={loadData.loading}
                 >
                     过滤
                 </LoadingButton>

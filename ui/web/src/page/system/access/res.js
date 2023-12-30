@@ -917,6 +917,8 @@ export default function SystemAccessResPage(props) {
                                     ...filterData
                                 }, loadResData)
                             }}
+                            disabled={pageTagData.tag_rows_loading||pageRowData.rows_loading}
+                            loading={pageTagData.tag_rows_loading||pageRowData.rows_loading}
                         >
                             过滤
                         </Button>
@@ -939,7 +941,7 @@ export default function SystemAccessResPage(props) {
             }
         </Paper>
         <Box sx={{ border: "1px solid #ddd", borderRadius: 1 }}>
-            {!page_error ? (!pageRowData.rows_loading ? (
+            {!page_error ? (!(pageRowData.rows_loading|| pageTagData.tag_rows_loading)? (
                 pageRowData.rows.length > 0 ?
                     <Fragment>
                         <Table stickyHeader

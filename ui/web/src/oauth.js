@@ -62,7 +62,7 @@ export default function OauthAppPage() {
                 loading: false,
                 error: '未登陆，前往登陆中。。。。。',
             })
-            let url = window.location.href.replace(/oauth\.html.*$/, "");
+            let url = window.location.href.replace(/oauth\.html.*$/, "app.html");
             url += "#/login/name?redirect_uri=" + encodeURIComponent(window.location.href);
             window.location.href = url
             return;

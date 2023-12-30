@@ -1,5 +1,5 @@
+mod app;
 mod oauth;
-mod subapp;
 use actix_service::ServiceFactory;
 use actix_web::{dev::ServiceRequest, web::scope, App, Error};
 use lsys_app::{dao::app::Apps, model::AppsModel};
@@ -20,11 +20,11 @@ where
 {
     app.service(
         scope("/rest")
-            .service(subapp::access)
-            .service(subapp::app)
-            .service(subapp::sms)
-            .service(subapp::mail)
-            .service(subapp::demo_app),
+            .service(app::access)
+            .service(app::app)
+            .service(app::sms)
+            .service(app::mail)
+            .service(app::demo_app),
     )
     .service(
         scope("/oauth")

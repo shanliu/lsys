@@ -63,14 +63,13 @@ impl MessageTpls {
         let tpl_data = tpl_data.to_owned();
         let status = SenderTplBodyStatus::Enable as i8;
         let res = Select::type_new::<SenderTplBodyModel>()
-            .fetch_one_by_where_call::<SenderTplBodyModel, _, _>(
-                " tpl_id=? and status = ? and user_id = ?",
-                |mut res, _| {
-                    res = res.bind(tpl_id.clone());
-                    res = res.bind(SenderTplBodyStatus::Enable as i8);
-                    res = res.bind(user_id);
-                    res
-                },
+            .fetch_one_by_where::<SenderTplBodyModel, _>(
+                &WhereOption::Where(sql_format!(
+                    " tpl_id={} and status = {} and user_id = {}",
+                    tpl_id,
+                    SenderTplBodyStatus::Enable,
+                    user_id
+                )),
                 &self.db,
             )
             .await;
@@ -219,14 +218,13 @@ impl MessageTpls {
         let tkey = &self.tpl_key(sender_type, tpl_id);
         if self.tera.read().await.templates.get(tkey).is_none() {
             let tpl = Select::type_new::<SenderTplBodyModel>()
-                .fetch_one_by_where_call::<SenderTplBodyModel, _, _>(
-                    "sender_type=? and tpl_id=? and status = ?",
-                    |mut res, _| {
-                        res = res.bind(sender_type);
-                        res = res.bind(tpl_id.to_owned());
-                        res = res.bind(SenderTplBodyStatus::Enable as i8);
-                        res
-                    },
+                .fetch_one_by_where::<SenderTplBodyModel, _>(
+                    &WhereOption::Where(sql_format!(
+                        "sender_type={} and tpl_id={} and status = {}",
+                        sender_type,
+                        tpl_id,
+                        SenderTplBodyStatus::Enable
+                    )),
                     &self.db,
                 )
                 .await?;

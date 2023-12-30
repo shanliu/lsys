@@ -184,7 +184,7 @@ impl WebAppSmser {
         app: &AppsModel,
         id_data: &[u64],
         env_data: Option<&RequestEnv>,
-    ) -> Result<Vec<(u64, bool)>, WebAppSmserError> {
+    ) -> Result<Vec<(u64, bool, Option<SenderError>)>, WebAppSmserError> {
         self.smser
             .cancal_from_message_id_vec(id_data, &app.user_id, env_data)
             .await
@@ -197,7 +197,7 @@ impl WebAppSmser {
         message: &[&SenderSmsMessageModel],
         user_id: u64,
         env_data: Option<&RequestEnv>,
-    ) -> Result<Vec<(u64, bool)>, WebAppSmserError> {
+    ) -> Result<Vec<(u64, bool, Option<SenderError>)>, WebAppSmserError> {
         self.smser
             .cancal_from_message(body, message, &user_id, env_data)
             .await

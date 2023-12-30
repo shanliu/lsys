@@ -57,9 +57,9 @@ pub struct Rbac {
     pub role: Arc<RbacRole>,
     pub access: Arc<RbacAccess>,
     pub data: Arc<RbacData>,
-    pub role_relation_cache: Arc<LocalCache<String, Option<RoleDetailRow>>>,
-    pub role_access_cache: Arc<LocalCache<String, Option<RoleAccessRow>>>,
-    pub res_key_cache: Arc<LocalCache<ResKey, Option<RbacResData>>>,
+    pub(crate) role_relation_cache: Arc<LocalCache<String, Option<RoleDetailRow>>>,
+    pub(crate) role_access_cache: Arc<LocalCache<String, Option<RoleAccessRow>>>,
+    pub(crate) res_key_cache: Arc<LocalCache<ResKey, Option<RbacResData>>>,
 }
 
 impl Rbac {

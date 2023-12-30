@@ -1999,8 +1999,9 @@ export function UserRolePage(props) {
                     }}
                 />
             </FormControl>
-            <Button
-
+            <LoadingButton
+                 disabled={pageRowData.rows_loading||pageTagData.tag_rows_loading }
+                 loading={pageRowData.rows_loading||pageTagData.tag_rows_loading }
                 variant="outlined"
                 size="medium"
                 startIcon={<SearchIcon />}
@@ -2013,7 +2014,7 @@ export function UserRolePage(props) {
                 }}
             >
                 过滤
-            </Button>
+            </LoadingButton>
             <Button
                 variant="outlined"
                 size="medium"
@@ -2030,12 +2031,14 @@ export function UserRolePage(props) {
             </Button>
         </Paper>
         <Box sx={{ border: "1px solid #ddd", borderRadius: 1 }}>
-            {pageTagData.tag_rows_loading ?
+         
+            {(pageTagData.tag_rows_loading ||pageRowData.rows_loading)?
                 <Fragment>
                     <Progress />
                 </Fragment> :
                 pageTagData.tag_rows_error ?
                     <Alert severity="error">{pageTagData.tag_rows_error}</Alert> :
+                    
                     (pageRowData.rows && pageRowData.rows.length == 0) ? <BaseTableNoRows /> :
                         <Fragment>
                             <Table sx={{ mb: 0 }}

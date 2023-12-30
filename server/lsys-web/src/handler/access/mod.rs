@@ -1,6 +1,6 @@
 mod admin;
-mod app_base;
 mod app_oauth;
+mod app_rbac;
 mod app_sender;
 mod app_sender_mail;
 mod app_sender_sms;
@@ -9,8 +9,8 @@ mod relation;
 mod setting;
 mod user;
 pub use admin::*;
-pub use app_base::*;
 pub use app_oauth::*;
+pub use app_rbac::*;
 pub use app_sender::*;
 pub use app_sender_mail::*;
 pub use app_sender_sms::*;
@@ -40,7 +40,6 @@ pub fn res_tpls() -> Vec<ResTpl> {
         AccessAdminUserFull,
         AccessAdminUserBase,
         AccessAppSenderDoSms,
-        AccessSubAppView,
         AccessSubAppRbacCheck,
         AccessOauthUserInfo,
         AccessOauthUserEmail,

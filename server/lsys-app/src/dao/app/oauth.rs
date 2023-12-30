@@ -39,7 +39,7 @@ pub struct AppsOauth {
     db: Pool<MySql>,
     redis: deadpool_redis::Pool,
     fluent: Arc<FluentMessage>,
-    pub cache: Arc<LocalCache<String, RestAuthData>>,
+    pub(crate) cache: Arc<LocalCache<String, RestAuthData>>,
     time_out: u64,
     duration_time: usize,
 }

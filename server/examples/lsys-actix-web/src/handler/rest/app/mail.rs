@@ -3,7 +3,7 @@ use actix_web::post;
 use actix_web::web::Data;
 use lsys_web::{
     dao::WebDao,
-    handler::subapp::{mail_cancel, mail_send, MailCancelParam, MailSendParam},
+    handler::app::{mail_cancel, mail_send, MailCancelParam, MailSendParam},
 };
 
 #[post("mail")]

@@ -89,10 +89,11 @@ export async function appEdit(param, config) {
     return restResult(response)
 }
 
-export async function disableApp(param, config) {
-    const { appid } = param;
-    let response = await appRest().post("disable", {
+export async function statusApp(param, config) {
+    const { appid,status} = param;
+    let response = await appRest().post("status", {
         "app_id": appid,
+        "status":status
     }, config);
     return restResult(response)
 }
@@ -119,6 +120,82 @@ export async function resetSecretApp(param, config) {
     const { appid } = param;
     let response = await appRest().post("reset_secret", {
         "app_id": appid,
+    }, config);
+    return restResult(response)
+}
+
+export async function setSubUser(param, config) {
+    const { appid,user_id,used } = param;
+    let response = await appRest().post("set_sub_user", {
+        "app_id": parseInt(appid),
+        "user_id": parseInt(user_id),
+        "used": !!used,
+    }, config);
+    return restResult(response)
+}
+
+
+export async function listSubUser(param, config) {
+    const { appid,user_id, page, page_size } = param;
+    let params={
+        "app_id": parseInt(appid),
+        "count_num":true,
+        "page": {
+            page: parseInt(page) >= 0 ? (parseInt(page) + 1) : 1,
+            limit: parseInt(page_size) > 0 ? parseInt(page_size) : 25
+        }
+    };
+    if (user_id>0){
+        params.user_id=parseInt(user_id)
+    }
+    let response = await appRest().post("list_sub_user", params, config);
+    return restResult(response)
+}
+
+export async function listSubApp(param, config) {
+    const { appid,user_id, page, page_size } = param;
+    let params= {
+        "app_id": parseInt(appid),
+        "count_num":true,
+        "page": {
+            page: parseInt(page) >= 0 ? (parseInt(page) + 1) : 1,
+            limit: parseInt(page_size) > 0 ? parseInt(page_size) : 25
+        }
+    }
+    if(user_id>0){
+        params.user_id=parseInt(user_id)
+    }
+    let response = await appRest().post("list_sub_app",params, config);
+    return restResult(response)
+}
+
+export async function listParentApp(param, config) {
+    const { appid, page, page_size } = param;
+    let response = await appRest().post("list_parent_app", {
+        "app_id": parseInt(appid),
+        "count_num":true,
+        "page": {
+            page: parseInt(page) >= 0 ? (parseInt(page) + 1) : 1,
+            limit: parseInt(page_size) > 0 ? parseInt(page_size) : 25
+        }
+    }, config);
+    return restResult(response)
+}
+
+export async function setParentApp(param, config) {
+    const { appid ,parent_appid,sub_secret} = param;
+    let response = await appRest().post("set_parent_app", {
+        "app_id": parseInt(appid),
+        "parent_app_id": parseInt(parent_appid),
+        "sub_secret":sub_secret
+    }, config);
+    return restResult(response)
+}
+export async function delParentApp(param, config) {
+    const { appid ,parent_appid} = param;
+    let response = await appRest().post("del_parent_app", {
+        "app_id": parseInt(appid),
+        "parent_app_id": parseInt(parent_appid),
     }, config);
     return restResult(response)
 }

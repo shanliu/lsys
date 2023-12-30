@@ -1,5 +1,5 @@
-// 提供一个方式 用于统一定义验证所需资源跟验证方式
-// !!!非必须,可外部自行组织!!!
+// !!!以下的实现为非必要,可外部自行组织!!!
+// 以下实现仅用于解决本系统的资源依赖跟关系角色定义问题，是相对于权限系统外的辅助工具的实现。
 use super::{Rbac, RbacAccess, RoleRelationKey, UserRbacResult};
 use serde::{Deserialize, Serialize};
 
@@ -41,7 +41,8 @@ impl Rbac {
     }
 }
 
-// 提供一个方式方便收集代码中使用到的关系数据
+// 提供一个方便方式 收集代码中使用到的关系数据
+// !!!非必须,可外部自行组织!!!
 // 关系模板获取trait 定义,用在 access_relation_tpl 宏中
 // 资源模板
 #[derive(Debug, Serialize, Deserialize)]
@@ -73,7 +74,7 @@ macro_rules! access_relation_tpl {
     }};
 }
 
-// 提供一个方式方便收集代码中使用到的资源
+// 提供一个方便方式 来收集代码中使用到的资源
 // !!!非必须,可外部自行组织!!!
 // 通过trait加宏操作方式实现 一般在实现了 RbacCheck trait 的结构上实现
 

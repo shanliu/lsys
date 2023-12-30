@@ -35,11 +35,11 @@
 | request_ip | String	 | 否		  | 40		  | 客户端IP,存在时加入签名                    | 127.0.0.1                            |
 | method		   | String	 | 否		  | 128		 | 接口名称,可以放到URL中,存在时加入签名            | product.detail                       |
 | token	     | String	 | 否		  | 无		   | OAUTH登录后获取TOKEN,存在时需加入签名              | MTQtSldES1RIUVVZT0NGUkVNUEdJQlpBTlhM |
-| payload	     | String	 | 否		  | 无		   | Header的Content-type非 application/json 时的有效,内容为JSON     | {"id":1} |
+| payload	     | String	 | 否		  | 无		   | Header的Content-type非 application/json 时的有效,内容为无换行的JSON     | {"id":1} |
 
 > POST参数:
 
-> 仅当 Header的 Content-type 为 application/json 时有效,内容为JSON字符串,使用此方式时忽略GET的payload参数
+> 仅当 Header的 Content-type 为 application/json 时有效,内容为JSON字符串,使用此方式将会忽略GET的payload参数
 
 ### 签名生成方法及示例:
 
@@ -108,7 +108,7 @@ GET:app_id=1212f&payload=%7B%22client_id%22%3A%221212f%22%7D&request_ip=fe80%3A%
 
 > 请求路径为: ${OAUTH_HOST}/oauth.html
 
-> 重定向到生成的路径
+> GET参数:
 
 | 参数            | 类型      | 是否必填 | 最大长度 | 描述             | 示例值        |
 |---------------|---------|------|------|----------------|------------|
@@ -144,13 +144,23 @@ http://127.0.0.1:8080/?code=27b5591cb788309dfee63da4fc264a10&state=aa
 |---------------|---------|------|------|----------------|------------|
 | X-Request-ID	 | String	 | 否		  | 32		 | 请求ID,每次请求不同			 | xxxxx12456 |
 
-> GET跟POST参数:
+> GET参数:
 
 | 参数            | 类型      | 是否必填 | 最大长度 | 描述             | 示例值        |
 |---------------|---------|------|------|----------------|------------|
 | client_id  	 | String	 | 是		  | 32		 | 应用ID,跟非OAUTH的参数app_id相同| xxxxx12456 |
 | client_secret  	 | String	 | 是		  | 32		 |OAuthSecret,从后台获取,注意:不是AppSecret | 2a97bf1b4f075b0ca7467e7c6b223f89 |
 | code  	 | String	 | 是		  | 4		 | 登录后返回的code| 2a97bf1b4f075b0ca7467e7c6b223f89 |
+
+> 返回response数据说明:
+
+| 参数            | 类型      | 是否必存在 |  描述             |
+|---------------|---------|------|----------------|
+| access_token  	 | String	 | 是		  |  授权TOKEN| 
+| expires_in  	 | u64	 | 是		  | 过期时间| 
+| openid  	 | String	 | 是		  |内部系统ID| 
+| refresh_token  	 | String	 | 否		  |  null| 
+| scope  	 | String	 | 是		  | 已授权范围| 
 
 ####  获取token示例:
 
@@ -164,7 +174,7 @@ GET:http://www.lsys.cc/oauth/token?client_id=1212f&client_secret=2a97bf1b4f075b0
 {
 	"response": {
 		"access_token": "a4985f6747962b0ceb1533a0e28dd1fc",
-		"expires_in": "1682929356",
+		"expires_in": 1682929356,
 		"openid": "1",
 		"refresh_token": null,
 		"scope": "user_info"
@@ -190,13 +200,24 @@ GET:http://www.lsys.cc/oauth/token?client_id=1212f&client_secret=2a97bf1b4f075b0
 |---------------|---------|------|------|----------------|------------|
 | X-Request-ID	 | String	 | 否		  | 32		 | 请求ID,每次请求不同			 | xxxxx12456 |
 
-> GET跟POST参数:
+> GET参数:
 
 | 参数            | 类型      | 是否必填 | 最大长度 | 描述             | 示例值        |
 |---------------|---------|------|------|----------------|------------|
 | client_id  	 | String	 | 是		  | 32		 | 应用ID,跟非OAUTH的参数app_id相同| xxxxx12456 |
 | client_secret  	 | String	 |是		  | 32		 |OAuthSecret,从后台获取,注意:不是AppSecret | 2a97bf1b4f075b0ca7467e7c6b223f89 |
 | refresh_token  	 | String	 | 是		  | 4		 | 通过oauth/token获取的TOKEN| 2a97bf1b4f075b0ca7467e7c6b223f89 |
+
+
+> 返回response数据说明:
+
+| 参数            | 类型      | 是否必存在 |  描述             |
+|---------------|---------|------|---------------|
+| access_token  	 | String	 | 是		  |  授权TOKEN| 
+| expires_in  	 | u64	 | 是		  | 过期时间| 
+| openid  	 | String	 | 是		  |内部系统ID| 
+| refresh_token  	 | String	 | 否		  |  刷新前TOKEN| 
+| scope  	 | String	 | 是		  | 已授权范围| 
 
 ####  获取token示例:
 
@@ -233,18 +254,24 @@ GET:http://www.lsys.cc/oauth/refresh_token?client_id=1212f&client_secret=2a97bf1
 
 #### 接口参数说明
 
-> GET参数 method 为 `info` ,其他参数查看`公共参数`说明
-
-> POST参数[JSON序列化]
-
-
 >  HEADER参数:
 
 | 参数            | 类型      | 是否必填 | 最大长度 | 描述             | 示例值        |
 |---------------|---------|------|------|----------------|------------|
 | X-Request-ID	 | String	 | 否		  | 32		 | 请求ID,每次请求不同			 | xxxxx12456 |
 
-> GET跟POST参数:
+> GET参数:
+
+| 参数         | 类型      | 是否必填 | 最大长度  | 描述                               | 示例值                                  |
+|------------|---------|------|-------|----------------------------------|--------------------------------------|
+| app_id     | String	 | 是		  | 32		  | 应用ID                             | test1                                |
+| version	   | String	 | 是		  | 3		   | 调用的接口版本                          | 固定为：2.0                              |
+| timestamp	 | String	 | 是		  | 19		  | 发送请求的时间,格式"yyyy-MM-dd HH:mm:ss"	 | 2014-07-24 03:07:50                  |
+| sign		     | String	 | 是		  | 32		  | 请求参数的签名串	                        | 生成方式参见`签名生成`                         |
+| request_ip | String	 | 否		  | 40		  | 客户端IP,存在时加入签名                    | 127.0.0.1                            |
+| method		   | String	 | 是		  | 4		 | 获取用户信息     | 固定为：info               |
+
+> POST参数[JSON序列化]:
 
 | 参数            | 类型      | 是否必填 | 最大长度 | 描述             | 示例值        |
 |---------------|---------|------|------|----------------|------------|
@@ -255,6 +282,17 @@ GET:http://www.lsys.cc/oauth/refresh_token?client_id=1212f&client_secret=2a97bf1
 | email  	 | bool	 | 否		  | 1		 |用户邮箱 需要 scope:user_email 授权 | true |
 | mobile  	 | bool	 | 否		  | 1		 |用户手机号 需要 scope:user_mobile 授权   | true |
 
+> 返回response数据说明:
+
+
+| 参数            | 类型      | 是否必存在 |  描述             |
+|---------------|---------|------|-----------|
+| user_data.address  	 | object	 | 否		  |  用户地址| 
+| user_data.email  	 | object	 | 否		  | 用户邮箱| 
+| user_data.info  	 | object	 | 否		  |用户信息| 
+| user_data.mobile  	 | object	 | 否		  |  用户手机| 
+| user_data.name  	 | object	 |否		  | 登录用户名| 
+| user_data.user  	 | object	 | 是		  | 用户基本信息| 
 
 ####  获取登录用户示例:
 
@@ -339,8 +377,8 @@ POST:{"address":false,"email":false,"info":false,"mobile":false,"name":true,"use
     },
     "response": {
 		"product":{
-			"name":"Iphone",
-			"sku":"111_11"
+			"name":"ddd",
+			"cat":"豆包"
 		}
 	}
 }

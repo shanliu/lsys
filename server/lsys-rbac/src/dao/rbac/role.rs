@@ -186,7 +186,12 @@ impl RbacRole {
         role_ids: &Option<Vec<u64>>,
         page: &Option<PageParam>,
     ) -> UserRbacResult<Vec<RbacRoleModel>> {
-        let mut sql = "user_id = ? and status=?".to_string();
+        let mut sql = sql_format!(
+            "user_id = {} and status={}",
+            user_id,
+            RbacRoleStatus::Enable
+        )
+        .to_string();
         if let Some(ref rid) = role_ids {
             if rid.is_empty() {
                 return Ok(vec![]);
@@ -211,14 +216,7 @@ impl RbacRole {
         }
 
         let data = Select::type_new::<RbacRoleModel>()
-            .fetch_all_by_where_call::<RbacRoleModel, _, _>(
-                &sql,
-                |mut tmp, _| {
-                    tmp = tmp.bind(user_id).bind(RbacRoleStatus::Enable as i8);
-                    tmp
-                },
-                &self.db,
-            )
+            .fetch_all_by_where::<RbacRoleModel, _>(&WhereOption::Where(sql), &self.db)
             .await?;
         Ok(data)
     }
@@ -295,14 +293,13 @@ impl RbacRole {
         name: String,
     ) -> Result<RbacRoleModel, sqlx::Error> {
         Select::type_new::<RbacRoleModel>()
-            .fetch_one_by_where_call::<RbacRoleModel, _, _>(
-                "user_id=? and name=? and status=?",
-                |mut res, _| {
-                    res = res.bind(user_id);
-                    res = res.bind(name);
-                    res = res.bind(RbacRoleStatus::Enable as i8);
-                    res
-                },
+            .fetch_one_by_where::<RbacRoleModel, _>(
+                &WhereOption::Where(sql_format!(
+                    "user_id={} and name={} and status={}",
+                    user_id,
+                    name,
+                    RbacRoleStatus::Enable
+                )),
                 &self.db,
             )
             .await
@@ -317,19 +314,13 @@ impl RbacRole {
             return Ok(vec![]);
         }
         let sql = sql_format!(
-            "user_id=? and relation_key in ({}) and status=?",
-            relation_keys
+            "user_id={} and relation_key in ({}) and status={}",
+            user_id,
+            relation_keys,
+            RbacRoleStatus::Enable
         );
         Select::type_new::<RbacRoleModel>()
-            .fetch_all_by_where_call::<RbacRoleModel, _, _>(
-                &sql,
-                |mut res, _| {
-                    res = res.bind(user_id);
-                    res = res.bind(RbacRoleStatus::Enable as i8);
-                    res
-                },
-                &self.db,
-            )
+            .fetch_all_by_where::<RbacRoleModel, _>(&WhereOption::Where(sql), &self.db)
             .await
     }
     //根据关系名获取角色
@@ -339,14 +330,13 @@ impl RbacRole {
         relation_key: String,
     ) -> Result<RbacRoleModel, sqlx::Error> {
         Select::type_new::<RbacRoleModel>()
-            .fetch_one_by_where_call::<RbacRoleModel, _, _>(
-                "user_id=? and relation_key=? and status=?",
-                |mut res, _| {
-                    res = res.bind(user_id);
-                    res = res.bind(relation_key);
-                    res = res.bind(RbacRoleStatus::Enable as i8);
-                    res
-                },
+            .fetch_one_by_where::<RbacRoleModel, _>(
+                &WhereOption::Where(sql_format!(
+                    "user_id={} and relation_key={} and status={}",
+                    user_id,
+                    relation_key,
+                    RbacRoleStatus::Enable
+                )),
                 &self.db,
             )
             .await
@@ -621,9 +611,12 @@ impl RbacRole {
                 .unwrap_or(false)
         {
             Select::type_new::<RbacRoleUserModel>()
-                .fetch_all_by_where_call::<RbacRoleUserModel, _, _>(
-                    "role_id=? and status=?",
-                    |tmp, _| tmp.bind(role.id).bind(RbacRoleUserStatus::Enable as i8),
+                .fetch_all_by_where::<RbacRoleUserModel, _>(
+                    &WhereOption::Where(sql_format!(
+                        "role_id={} and status={}",
+                        role.id,
+                        RbacRoleUserStatus::Enable
+                    )),
                     &self.db,
                 )
                 .await?
@@ -637,9 +630,12 @@ impl RbacRole {
                 .unwrap_or(false)
         {
             Select::type_new::<RbacRoleOpModel>()
-                .fetch_all_by_where_call::<RbacRoleOpModel, _, _>(
-                    "role_id=? and status=?",
-                    |tmp, _| tmp.bind(role.id).bind(RbacRoleOpStatus::Enable as i8),
+                .fetch_all_by_where::<RbacRoleOpModel, _>(
+                    &WhereOption::Where(sql_format!(
+                        "role_id={} and status={}",
+                        role.id,
+                        RbacRoleOpStatus::Enable
+                    )),
                     &self.db,
                 )
                 .await?
@@ -662,7 +658,10 @@ impl RbacRole {
                 status:(RbacRoleUserStatus::Delete as i8)
             });
             let tmp = Update::<sqlx::MySql, RbacRoleUserModel, _>::new(change_role_user)
-                .execute_by_where_call("role_id=?", |temp, _| temp.bind(role.id), &mut db)
+                .execute_by_where(
+                    &WhereOption::Where(sql_format!("role_id={}", role.id)),
+                    &mut db,
+                )
                 .await;
             if let Err(e) = tmp {
                 db.rollback().await?;
@@ -680,7 +679,10 @@ impl RbacRole {
                 status:(RbacRoleOpStatus::Delete as i8)
             });
             let tmp = Update::<sqlx::MySql, RbacRoleOpModel, _>::new(change_role_op)
-                .execute_by_where_call("role_id=?", |temp, _| temp.bind(role.id), &mut db)
+                .execute_by_where(
+                    &WhereOption::Where(sql_format!("role_id={}", role.id)),
+                    &mut db,
+                )
                 .await;
             if let Err(e) = tmp {
                 db.rollback().await?;
@@ -957,9 +959,12 @@ impl RbacRole {
 
         let change_user = if RbacRoleUserRange::User.eq(role.user_range) {
             Select::type_new::<RbacRoleUserModel>()
-                .fetch_all_by_where_call::<RbacRoleUserModel, _, _>(
-                    "role_id=? and status=?",
-                    |tmp, _| tmp.bind(role.id).bind(RbacRoleUserStatus::Enable as i8),
+                .fetch_all_by_where::<RbacRoleUserModel, _>(
+                    &WhereOption::Where(sql_format!(
+                        "role_id={} and status={}",
+                        role.id,
+                        RbacRoleUserStatus::Enable,
+                    )),
                     &self.db,
                 )
                 .await?
@@ -969,9 +974,12 @@ impl RbacRole {
 
         let change_op = if RbacRoleResOpRange::AllowCustom.eq(role.res_op_range) {
             Select::type_new::<RbacRoleOpModel>()
-                .fetch_all_by_where_call::<RbacRoleOpModel, _, _>(
-                    "role_id=? and status=?",
-                    |tmp, _| tmp.bind(role.id).bind(RbacRoleOpStatus::Enable as i8),
+                .fetch_all_by_where::<RbacRoleOpModel, _>(
+                    &WhereOption::Where(sql_format!(
+                        "role_id={} and status={}",
+                        role.id,
+                        RbacRoleOpStatus::Enable
+                    )),
                     &self.db,
                 )
                 .await?
@@ -1012,7 +1020,10 @@ impl RbacRole {
                 status:(RbacRoleUserStatus::Delete as i8)
             });
             let tmp = Update::<sqlx::MySql, RbacRoleUserModel, _>::new(change)
-                .execute_by_where_call("role_id=?", |temp, _| temp.bind(role.id), &mut db)
+                .execute_by_where(
+                    &WhereOption::Where(sql_format!("role_id={}", role.id)),
+                    &mut db,
+                )
                 .await;
             if let Err(e) = tmp {
                 db.rollback().await?;
@@ -1027,7 +1038,10 @@ impl RbacRole {
                 status:(RbacRoleOpStatus::Delete as i8)
             });
             let tmp = Update::<sqlx::MySql, RbacRoleOpModel, _>::new(change)
-                .execute_by_where_call("role_id=?", |temp, _| temp.bind(role.id), &mut db)
+                .execute_by_where(
+                    &WhereOption::Where(sql_format!("role_id={}", role.id)),
+                    &mut db,
+                )
                 .await;
             if let Err(e) = tmp {
                 db.rollback().await?;
@@ -1153,13 +1167,13 @@ impl RbacRole {
         let user_id_vec = user_vec.iter().map(|e| e.user_id).collect::<Vec<_>>();
 
         let res = Select::type_new::<RbacRoleUserModel>()
-            .fetch_one_by_where_call::<RbacRoleUserModel, _, _>(
-                &sql_format!("user_id in ({}) and role_id=? and status=?", user_id_vec),
-                |mut res, _| {
-                    res = res.bind(role.id);
-                    res = res.bind(RbacRoleUserStatus::Enable as i8);
-                    res
-                },
+            .fetch_one_by_where::<RbacRoleUserModel, _>(
+                &WhereOption::Where(sql_format!(
+                    "user_id in ({}) and role_id={} and status={}",
+                    user_id_vec,
+                    role.id,
+                    RbacRoleUserStatus::Enable
+                )),
                 db,
             )
             .await;
@@ -1217,9 +1231,12 @@ impl RbacRole {
             && !add_uids.is_empty()
         {
             let change_op = Select::type_new::<RbacRoleOpModel>()
-                .fetch_all_by_where_call::<RbacRoleOpModel, _, _>(
-                    "role_id=? and status=?",
-                    |tmp, _| tmp.bind(role.id).bind(RbacRoleOpStatus::Enable as i8),
+                .fetch_all_by_where::<RbacRoleOpModel, _>(
+                    &WhereOption::Where(sql_format!(
+                        "role_id={} and status={}",
+                        role.id,
+                        RbacRoleOpStatus::Enable
+                    )),
                     &self.db,
                 )
                 .await?;
@@ -1278,9 +1295,12 @@ impl RbacRole {
         let res = executor_option!(
             {
                 Update::<sqlx::MySql, RbacRoleUserModel, _>::new(ddata)
-                    .execute_by_where_call(
-                        &sql_format!("role_id =? and user_id  in ({})", user_id_vec),
-                        |temp, _| temp.bind(role.id),
+                    .execute_by_where(
+                        &WhereOption::Where(sql_format!(
+                            "role_id ={} and user_id  in ({})",
+                            role.id,
+                            user_id_vec
+                        )),
                         db,
                     )
                     .await?
@@ -1308,9 +1328,12 @@ impl RbacRole {
             && !user_id_vec.is_empty()
         {
             let change_op = Select::type_new::<RbacRoleOpModel>()
-                .fetch_all_by_where_call::<RbacRoleOpModel, _, _>(
-                    "role_id=? and status=?",
-                    |tmp, _| tmp.bind(role.id).bind(RbacRoleOpStatus::Enable as i8),
+                .fetch_all_by_where::<RbacRoleOpModel, _>(
+                    &WhereOption::Where(sql_format!(
+                        "role_id={} and status={}",
+                        role.id,
+                        RbacRoleOpStatus::Enable
+                    )),
                     &self.db,
                 )
                 .await?;
@@ -1395,7 +1418,11 @@ impl RbacRole {
             return Ok(BTreeMap::new());
         }
         let db = &self.db;
-        let mut sql = sql_format!("role_id in ({}) and status=?", role_ids);
+        let mut sql = sql_format!(
+            "role_id in ({}) and status={}",
+            role_ids,
+            RbacRoleUserStatus::Enable
+        );
 
         if let Some(u_ids) = user_ids {
             sql += &sql_format!(" and user_id in ({})", u_ids);
@@ -1404,11 +1431,7 @@ impl RbacRole {
             sql += format!(" limit {} offset {}", pdat.limit, pdat.offset).as_str();
         }
         let data = Select::type_new::<RbacRoleUserModel>()
-            .fetch_all_by_where_call::<RbacRoleUserModel, _, _>(
-                &sql,
-                |tmp, _| tmp.bind(RbacRoleUserStatus::Enable as i8),
-                db,
-            )
+            .fetch_all_by_where::<RbacRoleUserModel, _>(&WhereOption::Where(sql), db)
             .await?;
         let mut result = BTreeMap::<u64, Vec<RbacRoleUserModel>>::new();
         for op in data {
@@ -1492,9 +1515,12 @@ impl RbacRole {
         }
         let db = &self.db;
         let data = Select::type_new::<RbacRoleOpModel>()
-            .fetch_all_by_where_call::<RbacRoleOpModel, _, _>(
-                &sql_format!("role_id IN ({}) and status=?", role_ids),
-                |tmp, _| tmp.bind(RbacRoleStatus::Enable as i8),
+            .fetch_all_by_where::<RbacRoleOpModel, _>(
+                &WhereOption::Where(sql_format!(
+                    "role_id IN ({}) and status={}",
+                    role_ids,
+                    RbacRoleStatus::Enable
+                )),
                 db,
             )
             .await?;
@@ -1515,9 +1541,12 @@ impl RbacRole {
             vec![]
         } else {
             Select::type_new::<RbacRoleOpModel>()
-                .fetch_all_by_where_call::<RbacRoleOpModel, _, _>(
-                    &sql_format!("res_op_id in ({}) and status=?", role_op_id_vec),
-                    |tmp, _| tmp.bind(RbacRoleOpStatus::Enable as i8),
+                .fetch_all_by_where::<RbacRoleOpModel, _>(
+                    &WhereOption::Where(sql_format!(
+                        "res_op_id in ({}) and status={}",
+                        role_op_id_vec,
+                        RbacRoleOpStatus::Enable
+                    )),
                     &self.db,
                 )
                 .await?
@@ -1597,9 +1626,12 @@ impl RbacRole {
                 && RbacRoleResOpRange::AllowCustom.eq(r.res_op_range)
             {
                 let user_ops = Select::type_new::<RbacRoleUserModel>()
-                    .fetch_all_by_where_call::<RbacRoleUserModel, _, _>(
-                        "role_id=? and status=?",
-                        |tmp, _| tmp.bind(r.id).bind(RbacRoleUserStatus::Enable as i8),
+                    .fetch_all_by_where::<RbacRoleUserModel, _>(
+                        &WhereOption::Where(sql_format!(
+                            "role_id={} and status={}",
+                            r.id,
+                            RbacRoleUserStatus::Enable
+                        )),
                         &self.db,
                     )
                     .await?;
@@ -1652,9 +1684,12 @@ impl RbacRole {
             vec![]
         } else {
             Select::type_new::<RbacResModel>()
-                .fetch_all_by_where_call::<RbacResModel, _, _>(
-                    &sql_format!("id in ({}) and status=?", res_id),
-                    |tmp, _| tmp.bind(RbacResStatus::Enable as i8),
+                .fetch_all_by_where::<RbacResModel, _>(
+                    &WhereOption::Where(sql_format!(
+                        "id in ({}) and status={}",
+                        res_id,
+                        RbacResStatus::Enable
+                    )),
                     db,
                 )
                 .await?
@@ -1690,9 +1725,12 @@ impl RbacRole {
             vec![]
         } else {
             Select::type_new::<RbacResOpModel>()
-                .fetch_all_by_where_call::<RbacResOpModel, _, _>(
-                    &sql_format!("id in ({}) and status=?", res_op_id),
-                    |tmp, _| tmp.bind(RbacRoleOpStatus::Enable as i8),
+                .fetch_all_by_where::<RbacResOpModel, _>(
+                    &WhereOption::Where(sql_format!(
+                        "id in ({}) and status={}",
+                        res_op_id,
+                        RbacRoleOpStatus::Enable
+                    )),
                     db,
                 )
                 .await?
@@ -1723,9 +1761,12 @@ impl RbacRole {
 
         //确认需要移除的权限
         let rops = Select::type_new::<RbacRoleOpModel>()
-            .fetch_all_by_where_call::<RbacRoleOpModel, _, _>(
-                "role_id=? and status=?",
-                |tmp, _| tmp.bind(role.id).bind(RbacRoleOpStatus::Enable as i8),
+            .fetch_all_by_where::<RbacRoleOpModel, _>(
+                &WhereOption::Where(sql_format!(
+                    "role_id={} and status={}",
+                    role.id,
+                    RbacRoleOpStatus::Enable,
+                )),
                 db,
             )
             .await?;
@@ -1844,9 +1885,12 @@ impl RbacRole {
             && RbacRoleResOpRange::AllowCustom.eq(role.res_op_range)
         {
             let user_ops = Select::type_new::<RbacRoleUserModel>()
-                .fetch_all_by_where_call::<RbacRoleUserModel, _, _>(
-                    "role_id=? and status=?",
-                    |tmp, _| tmp.bind(role.id).bind(RbacRoleUserStatus::Enable as i8),
+                .fetch_all_by_where::<RbacRoleUserModel, _>(
+                    &WhereOption::Where(sql_format!(
+                        "role_id={} and status={}",
+                        role.id,
+                        RbacRoleUserStatus::Enable
+                    )),
                     &self.db,
                 )
                 .await?;
@@ -1922,12 +1966,12 @@ impl RbacRole {
                 vec![]
             } else {
                 Select::type_new::<RbacRoleOpModel>()
-                    .fetch_all_by_where_call::<RbacRoleOpModel, _, _>(
-                        &sql_format!("role_id in ({}) and status =? order by id desc", res_id),
-                        |mut res, _| {
-                            res = res.bind(RbacRoleOpStatus::Enable as i8);
-                            res
-                        },
+                    .fetch_all_by_where::<RbacRoleOpModel, _>(
+                        &sqlx_model::WhereOption::Where(sql_format!(
+                            "role_id in ({}) and status ={} order by id desc",
+                            res_id,
+                            RbacRoleOpStatus::Enable
+                        )),
                         &self.db,
                     )
                     .await?

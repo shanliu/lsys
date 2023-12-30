@@ -14,6 +14,7 @@ import { useSearchChange } from '../../../utils/hook';
 import { captchaSrc } from '../../../utils/rest';
 import { showTime } from '../../../utils/utils';
 import { AddBox, CodeBox, ConfirmBox } from './valid_box';
+import { LoadingButton } from '../../../library/loading';
 
 
 export default function UserMobilePage(props) {
@@ -429,7 +430,7 @@ export default function UserMobilePage(props) {
                     }
                 </Select>
             </FormControl>
-            <Button
+            <LoadingButton
                 onClick={() => {
                     setParam({
                         page: 0,
@@ -440,9 +441,11 @@ export default function UserMobilePage(props) {
                 size="medium"
                 startIcon={<SearchIcon />}
                 sx={{ mr: 1, p: "7px 15px", minWidth: 110 }}
+                loading={loadData.loading}
+                disabled={loadData.loading}
             >
                 过滤
-            </Button>
+            </LoadingButton>
             <Button
                 variant="outlined"
                 size="medium"

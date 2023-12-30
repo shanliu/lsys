@@ -37,7 +37,8 @@ pub async fn login_data_from_oauth(
             .rbac
             .check(
                 &AccessOauthUserInfo {
-                    app: app.to_owned(),
+                    app_id: app.id,
+                    user_id: app.user_id,
                 },
                 None,
             )
@@ -52,7 +53,8 @@ pub async fn login_data_from_oauth(
             .rbac
             .check(
                 &AccessOauthUserAddress {
-                    app: app.to_owned(),
+                    app_id: app.id,
+                    user_id: app.user_id,
                 },
                 None,
             )
@@ -67,7 +69,8 @@ pub async fn login_data_from_oauth(
             .rbac
             .check(
                 &AccessOauthUserEmail {
-                    app: app.to_owned(),
+                    app_id: app.id,
+                    user_id: app.user_id,
                 },
                 None,
             )
@@ -82,7 +85,8 @@ pub async fn login_data_from_oauth(
             .rbac
             .check(
                 &AccessOauthUserMobile {
-                    app: app.to_owned(),
+                    app_id: app.id,
+                    user_id: app.user_id,
                 },
                 None,
             )

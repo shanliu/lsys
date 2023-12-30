@@ -8,18 +8,18 @@ use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::{get_message, now_time, FluentMessage, LimitParam, RemoteNotify, RequestEnv};
 use lsys_logger::dao::ChangeLogger;
 
-use sqlx::{Acquire, MySql, Pool, Transaction};
-use sqlx_model::{model_option_set, Insert, Select, Update};
-
 use super::logger::LogUser;
 use super::user_index::{UserIndex, UserItem};
 use super::UserAccountError;
+use sqlx::{Acquire, MySql, Pool, Transaction};
+use sqlx_model::SqlQuote;
+use sqlx_model::{model_option_set, sql_format, Insert, Select, Update};
 
 pub struct User {
     db: Pool<MySql>,
     fluent: Arc<FluentMessage>,
     index: Arc<UserIndex>,
-    pub cache: Arc<LocalCache<u64, UserModel>>,
+    pub(crate) cache: Arc<LocalCache<u64, UserModel>>,
     logger: Arc<ChangeLogger>,
 }
 
@@ -87,12 +87,8 @@ impl User {
         };
         let user_id = res.last_insert_id();
         let tmp = Select::type_new::<UserModel>()
-            .fetch_one_by_where_call::<UserModel, _, _>(
-                "id=?",
-                |mut res, _| {
-                    res = res.bind(user_id);
-                    res
-                },
+            .fetch_one_by_where::<UserModel, _>(
+                &sqlx_model::WhereOption::Where(sql_format!("id={}", user_id,)),
                 &mut db,
             )
             .await;

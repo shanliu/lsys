@@ -1,11 +1,11 @@
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
-use sqlx_model::SqlxModel;
+use sqlx_model::sqlx_model;
 
 // 公共表 -start
 
-#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(table_name = "sender_config")]
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(db_type = "MySql", table_name = "sender_config")]
 pub struct SenderConfigModel {
     /// ID
     #[sqlx(default)]
@@ -48,8 +48,8 @@ pub struct SenderConfigModel {
     pub change_time: u64,
 }
 
-#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(table_name = "sender_log")]
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(db_type = "MySql", table_name = "sender_log")]
 pub struct SenderLogModel {
     /// 消息ID
     #[sqlx(default)]
@@ -89,8 +89,8 @@ pub struct SenderLogModel {
 }
 
 // 模板配置
-#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(table_name = "sender_tpl_config")]
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(db_type = "MySql", table_name = "sender_tpl_config")]
 pub struct SenderTplConfigModel {
     /// 消息ID
     #[sqlx(default)]
@@ -137,8 +137,8 @@ pub struct SenderTplConfigModel {
     pub change_time: u64,
 }
 // 模板内容
-#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(table_name = "sender_tpl_body")]
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(db_type = "MySql", table_name = "sender_tpl_body")]
 pub struct SenderTplBodyModel {
     /// 消息ID
     #[sqlx(default)]
@@ -173,8 +173,8 @@ pub struct SenderTplBodyModel {
     pub change_time: u64,
 }
 
-#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(table_name = "sender_message_cancel")]
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(db_type = "MySql", table_name = "sender_message_cancel")]
 pub struct SenderMessageCancelModel {
     /// 消息ID
     #[sqlx(default)]
@@ -207,8 +207,8 @@ pub struct SenderMessageCancelModel {
 
 // 短信数据
 
-#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(table_name = "sender_sms_body")]
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(db_type = "MySql", table_name = "sender_sms_body")]
 pub struct SenderSmsBodyModel {
     /// 消息ID
     #[sqlx(default)]
@@ -261,8 +261,8 @@ pub struct SenderSmsBodyModel {
 
 // 短信数据
 
-#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(table_name = "sender_sms_message")]
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(db_type = "MySql", table_name = "sender_sms_message")]
 pub struct SenderSmsMessageModel {
     /// 消息ID
     #[sqlx(default)]
@@ -307,8 +307,8 @@ pub struct SenderSmsMessageModel {
 
 // 邮件数据
 
-#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(table_name = "sender_mail_body")]
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(db_type = "MySql", table_name = "sender_mail_body")]
 pub struct SenderMailBodyModel {
     /// 消息ID
     #[sqlx(default)]
@@ -360,8 +360,8 @@ pub struct SenderMailBodyModel {
     pub request_id: String,
 }
 
-#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(table_name = "sender_mail_message")]
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(db_type = "MySql", table_name = "sender_mail_message")]
 pub struct SenderMailMessageModel {
     /// 消息ID
     #[sqlx(default)]

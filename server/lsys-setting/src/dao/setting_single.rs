@@ -1,18 +1,20 @@
+use crate::model::{SettingModel, SettingModelRef, SettingStatus, SettingType};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::{now_time, FluentMessage, RemoteNotify, RequestEnv};
 use lsys_logger::dao::ChangeLogger;
 use sqlx::{MySql, Pool, Transaction};
-use sqlx_model::{executor_option, model_option_set, Insert, Select, Update};
+use sqlx_model::SqlQuote;
+use sqlx_model::{
+    executor_option, model_option_set, sql_format, Insert, Select, Update, WhereOption,
+};
 use std::sync::Arc;
-
-use crate::model::{SettingModel, SettingModelRef, SettingStatus, SettingType};
 
 use super::{SettingData, SettingDecode, SettingEncode, SettingLog, SettingResult};
 pub struct SingleSetting {
     db: Pool<MySql>,
     logger: Arc<ChangeLogger>,
     //fluent: Arc<FluentMessage>,
-    pub cache: Arc<LocalCache<String, SettingModel>>,
+    pub(crate) cache: Arc<LocalCache<String, SettingModel>>,
 }
 
 impl SingleSetting {
@@ -47,13 +49,13 @@ impl SingleSetting {
         let uid = user_id.unwrap_or_default();
         let change_user_id = change_user_id.to_owned();
         let user_name_res = Select::type_new::<SettingModel>()
-            .fetch_one_by_where_call::<SettingModel, _, _>(
-                "setting_type=? and setting_key=? and user_id=? order by id desc",
-                |res, _| {
-                    res.bind(SettingType::Single as i8)
-                        .bind(key.clone())
-                        .bind(uid)
-                },
+            .fetch_one_by_where::<SettingModel, _>(
+                &WhereOption::Where(sql_format!(
+                    "setting_type={} and setting_key={} and user_id={} order by id desc",
+                    SettingType::Single,
+                    key,
+                    uid,
+                )),
                 &self.db,
             )
             .await;
@@ -129,13 +131,13 @@ impl SingleSetting {
     pub async fn find(&self, user_id: &Option<u64>, key: &str) -> SettingResult<SettingModel> {
         let uid = user_id.unwrap_or_default();
         Ok(Select::type_new::<SettingModel>()
-            .fetch_one_by_where_call::<SettingModel, _, _>(
-                "setting_type=? and setting_key=? and user_id=? order by id desc",
-                |res, _| {
-                    res.bind(SettingType::Single as i8)
-                        .bind(key.to_string())
-                        .bind(uid)
-                },
+            .fetch_one_by_where::<SettingModel, _>(
+                &WhereOption::Where(sql_format!(
+                    "setting_type={} and setting_key={} and user_id={} order by id desc",
+                    SettingType::Single,
+                    key,
+                    uid,
+                )),
                 &self.db,
             )
             .await?)

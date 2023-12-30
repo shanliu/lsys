@@ -23,7 +23,7 @@ pub struct UserEmail {
     redis: deadpool_redis::Pool,
     fluent: Arc<FluentMessage>,
     index: Arc<UserIndex>,
-    pub cache: Arc<LocalCache<u64, Vec<UserEmailModel>>>,
+    pub(crate) cache: Arc<LocalCache<u64, Vec<UserEmailModel>>>,
     logger: Arc<ChangeLogger>,
 }
 
@@ -51,14 +51,12 @@ impl UserEmail {
     /// 根据用户邮箱找到对应的记录
     pub async fn find_by_last_email(&self, email: String) -> UserAccountResult<UserEmailModel> {
         let useremal = Select::type_new::<UserEmailModel>()
-            .fetch_one_by_where_call::<UserEmailModel, _, _>(
-                "email=? and status in (?,?) order by id desc",
-                |mut res, _| {
-                    res = res.bind(email);
-                    res = res.bind(UserEmailStatus::Init as i8);
-                    res = res.bind(UserEmailStatus::Valid as i8);
-                    res
-                },
+            .fetch_one_by_where::<UserEmailModel, _>(
+                &sqlx_model::WhereOption::Where(sql_format!(
+                    "email={} and status in ({}) order by id desc",
+                    email,
+                    &[UserEmailStatus::Init as i8, UserEmailStatus::Valid as i8],
+                )),
                 &self.db,
             )
             .await?;
@@ -75,14 +73,12 @@ impl UserEmail {
     ) -> UserAccountResult<u64> {
         check_email(&self.fluent, email.as_str())?;
         let email_res = Select::type_new::<UserEmailModel>()
-            .fetch_one_by_where_call::<UserEmailModel, _, _>(
-                " email=? and status in (?,?)",
-                |mut res, _| {
-                    res = res.bind(email.clone());
-                    res = res.bind(UserEmailStatus::Valid as i8);
-                    res = res.bind(UserEmailStatus::Init as i8);
-                    res
-                },
+            .fetch_one_by_where::<UserEmailModel, _>(
+                &sqlx_model::WhereOption::Where(sql_format!(
+                    " email={} and status in ({})",
+                    email,
+                    &[UserEmailStatus::Valid as i8, UserEmailStatus::Init as i8]
+                )),
                 &self.db,
             )
             .await;
@@ -214,15 +210,14 @@ impl UserEmail {
         env_data: Option<&RequestEnv>,
     ) -> UserAccountResult<u64> {
         let email_res = Select::type_new::<UserEmailModel>()
-            .fetch_one_by_where_call::<UserEmailModel, _, _>(
-                " email=? and status = ? and user_id!=? and id!=?",
-                |mut res, _| {
-                    res = res.bind(email.email.clone());
-                    res = res.bind(UserEmailStatus::Valid as i8);
-                    res = res.bind(email.user_id);
-                    res = res.bind(email.id);
-                    res
-                },
+            .fetch_one_by_where::<UserEmailModel, _>(
+                &sqlx_model::WhereOption::Where(sql_format!(
+                    " email={} and status = {} and user_id!={} and id!={}",
+                    email.email,
+                    UserEmailStatus::Valid,
+                    email.user_id,
+                    email.id
+                )),
                 &self.db,
             )
             .await;

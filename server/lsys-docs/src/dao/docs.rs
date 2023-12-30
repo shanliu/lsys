@@ -399,9 +399,8 @@ impl GitDocs {
     /// 通知发送模块进行发送操作
     pub async fn git_list(&self) -> GitDocResult<Vec<DocGitModel>> {
         Ok(Select::type_new::<DocGitModel>()
-            .fetch_all_by_where_call::<DocGitModel, _, _>(
-                "status=?",
-                |e, _| e.bind(DocGitStatus::Enable as i8),
+            .fetch_all_by_where::<DocGitModel, _>(
+                &WhereOption::Where(sql_format!("status={}", DocGitStatus::Enable)),
                 &self.db,
             )
             .await?)

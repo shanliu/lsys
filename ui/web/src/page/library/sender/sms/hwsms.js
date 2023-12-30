@@ -527,6 +527,7 @@ export default function SystemAppSmsSettingHwsmsPage(props) {
                     startIcon={<SearchIcon />}
                     sx={{ mr: 1, p: "7px 15px", minWidth: 110 }}
                     loading={loadData.loading}
+                    disabled={loadData.loading}
                 >
                     过滤
                 </LoadingButton>

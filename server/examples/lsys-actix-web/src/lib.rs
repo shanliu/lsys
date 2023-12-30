@@ -124,7 +124,7 @@ pub async fn create_server(app_dir: &str, config_files: &[&str]) -> Result<Serve
                 //     }
                 // })
                 let apps = app_data.app.app_dao.app.clone();
-                Box::pin(async move { apps.innernal_client_id_get(&app_key).await })
+                Box::pin(async move { apps.find_secret_by_client_id(&app_key).await })
             }));
 
         let app = App::new()

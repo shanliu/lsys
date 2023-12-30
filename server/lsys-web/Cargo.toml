@@ -49,7 +49,7 @@ sqlx = { version = "~0.6.3", features = [
     "runtime-tokio-native-tls",
     "offline",
 ] }
-sqlx-model = { version = "=0.2.0", default-features = false, features = [
+sqlx-model = { version = "0.2.3", default-features = false, features = [
     "sqlx-mysql",
 ] }
 # simple_asn1 = "0.6.2"
@@ -114,6 +114,3 @@ lazy_static = "1.4.0"
 
 
 hostname = "~0.3.*"
-
-#debug
-tokio-console = "0.1.9"

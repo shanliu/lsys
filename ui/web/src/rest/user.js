@@ -17,7 +17,7 @@ export async function loginHistroy(param, config) {
     let response = await userRest().post("/login_history", {
         "login_type": login_type === '' ? null : login_type,
         "login_ip": login_ip == '' ? null : login_ip,
-        "login_account": login_account,
+        "login_account": login_account == '' ? null : login_account,
         "is_login": is_login == '' ? null : parseInt(is_login),
         "page": {
             page: parseInt(page) >= 0 ? (parseInt(page) + 1) : 1,

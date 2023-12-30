@@ -1,4 +1,4 @@
-package main
+package lib
 
 import (
 	"encoding/json"
@@ -41,26 +41,26 @@ func (res *JsonResponse) setCode(code string) *JsonResponse {
 	return res
 }
 
-// setState 设置返回状态
-func (res *JsonResponse) setState(code string) *JsonResponse {
+// SetState 设置返回状态
+func (res *JsonResponse) SetState(code string) *JsonResponse {
 	res.ResultState = code
 	return res
 }
 
-// setMessage 设置返回消息
-func (res *JsonResponse) setMessage(msg string) *JsonResponse {
+// SetMessage 设置返回消息
+func (res *JsonResponse) SetMessage(msg string) *JsonResponse {
 	res.ResultMessage = msg
 	return res
 }
 
-// setData 设置返回数据
-func (res *JsonResponse) setData(data interface{}) *JsonResponse {
+// SetData 设置返回数据
+func (res *JsonResponse) SetData(data interface{}) *JsonResponse {
 	res.Data = data
 	return res
 }
 
-// setPageData 设置返回带页码数据
-func (res *JsonResponse) setPageData(total int, data interface{}) *JsonResponse {
+// SetPageData 设置返回带页码数据
+func (res *JsonResponse) SetPageData(total int, data interface{}) *JsonResponse {
 	res.Data = map[string]interface{}{
 		"data":  data,
 		"total": total,
@@ -130,18 +130,18 @@ func RestCheckSign(ctx *gin.Context, restApi *lsysrest.RestApi) (*RestRequest, *
 	}
 	sign, find := ctx.GetQuery("sign")
 	if !find {
-		return nil, RestJsonResponse().setState("miss_sign").setMessage("not find sign param")
+		return nil, RestJsonResponse().SetState("miss_sign").SetMessage("not find sign param")
 	}
 	for key := range param {
 		if value, find := ctx.GetQuery(key); find {
 			param[key] = value
 		} else {
-			return nil, RestJsonResponse().setState("miss_param").setMessage("request miss param:" + key)
+			return nil, RestJsonResponse().SetState("miss_param").SetMessage("request miss param:" + key)
 		}
 	}
 	timestamp, err := time.Parse("2006-01-02 15:04:05", param["timestamp"])
 	if err != nil {
-		return nil, RestJsonResponse().setState("miss_param").setMessage("request timestamp format error :" + err.Error())
+		return nil, RestJsonResponse().SetState("miss_param").SetMessage("request timestamp format error :" + err.Error())
 	}
 
 	var appInfo *rest_client.JsonData
@@ -158,7 +158,7 @@ func RestCheckSign(ctx *gin.Context, restApi *lsysrest.RestApi) (*RestRequest, *
 		defer appInfoCacheData.lock.Unlock()
 		err, appInfo = restApi.AppInfo(ctx, param["app_id"])
 		if err != nil {
-			return nil, RestJsonResponse().setState("app_error").setMessage(err.Error())
+			return nil, RestJsonResponse().SetState("app_error").SetMessage(err.Error())
 		}
 		appInfoCacheData.appData[appId] = &appInfoItem{
 			appData: appInfo,
@@ -185,7 +185,7 @@ func RestCheckSign(ctx *gin.Context, restApi *lsysrest.RestApi) (*RestRequest, *
 	if ctx.Request.Header.Get("Content-type") == "application/json" {
 		data, err := ioutil.ReadAll(ctx.Request.Body)
 		if err != nil {
-			return nil, RestJsonResponse().setState("app_body_wrong").setMessage(err.Error())
+			return nil, RestJsonResponse().SetState("app_body_wrong").SetMessage(err.Error())
 		} else {
 			payload = string(data)
 		}
@@ -194,18 +194,21 @@ func RestCheckSign(ctx *gin.Context, restApi *lsysrest.RestApi) (*RestRequest, *
 			payload = pl
 		}
 	}
-
+	secret := appInfo.Get("sub_secret").String()
+	if len(secret) == 0 {
+		return nil, RestJsonResponse().SetState("app_body_wrong").SetMessage("app secret is empty or not config")
+	}
 	RSign := lsysrest.RestParamSign(
 		param["version"],
 		param["app_id"],
 		param["method"],
 		param["timestamp"],
-		appInfo.Get("client_secret").String(),
+		secret,
 		param["request_ip"],
 		param["token"],
 		payload)
 	if sign != RSign {
-		return nil, RestJsonResponse().setState("app_error").setMessage("your submit param sign wrong")
+		return nil, RestJsonResponse().SetState("app_error").SetMessage("your submit param sign wrong")
 	}
 	return &RestRequest{
 		RequestId: requestId,

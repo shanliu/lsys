@@ -28,7 +28,7 @@ impl Setting {
         remote_notify: Arc<RemoteNotify>,
         logger: Arc<ChangeLogger>,
     ) -> Result<Self, AppCoreError> {
-        let app_locale_dir = app_core.app_dir.join("locale/lsys-rbac");
+        let app_locale_dir = app_core.app_dir.join("locale/lsys-setting");
         let fluents_message = Arc::new(if app_locale_dir.exists() {
             app_core.create_fluent(app_locale_dir).await?
         } else {

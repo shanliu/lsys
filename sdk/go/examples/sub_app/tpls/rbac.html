@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>示例页面</title>
+</head>
+
+<body>
+    <a href="/">返回首页</a> [ <a
+        href="https://github.com/shanliu/lsys/blob/main/sdk/go/examples/sub_app/app/router/rbac.go">源码</a>]
+    {{ if .status }}
+    <div>
+        <p>
+            权限校验结果:{{.status}}
+        </p>
+        <p>
+            权限校验详细:{{.info}}
+        </p>
+    </div>
+    {{ end }}
+    <hr />
+    <div>
+        当前校验资源为:
+        <pre>
+    {{.res}}
+</pre>
+    </div>
+    <div>
+        <form method="post" action="?"><input type="submit" value="以用户ID(100)校验权限" /></form>
+    </div>
+    <hr />
+    <div>
+        关系数据为:
+        <pre>
+    {{.rel}}
+</pre>
+        <form method="post" action="?no_relation"><input type="submit" value="以用户ID(1)及上面关系跟资源校验权限" /></form>
+    </div>
+
+
+
+
+</body>
+
+</html>

@@ -7,14 +7,16 @@ import (
 	"testing"
 )
 
+//权限校验示例
+
 type UserPageCheckRes struct {
 }
 
-func (res UserPageCheckRes) ToRbacRes() [][]map[string]interface{} {
+func (res UserPageCheckRes) ToRbacRes(_ context.Context) [][]map[string]interface{} {
 	return [][]map[string]interface{}{{
 		map[string]interface{}{
 			"res":        "user-page",              //资源key
-			"user_id":    11,                       //资源用户ID
+			"user_id":    1,                        //资源用户ID
 			"ops":        []string{"view", "edit"}, //必须权限
 			"option_ops": []string{"del"},          //可选权限
 		},
@@ -24,18 +26,18 @@ func (res UserPageCheckRes) ToRbacRes() [][]map[string]interface{} {
 type UserPageCheckRelation struct {
 }
 
-func (res UserPageCheckRelation) ToCheckRelation() []map[string]interface{} {
+func (res UserPageCheckRelation) ToCheckRelation(_ context.Context) []map[string]interface{} {
 	return []map[string]interface{}{
-		map[string]interface{}{
+		{
 			"role_key": "friend", //关系角色KEY
-			"user_id":  2,        //关系角色属于用户ID
+			"user_id":  1,        //关系角色属于用户ID,资源用户ID或为0
 		},
 	}
 }
 
 func TestRbac(t *testing.T) {
 	sysApi := lSysApi.NewRestApi(&lSysApi.RestApiConfig{
-		//应用在 http://www.lsys.cc/ui/#/user/app 申请
+		//应用在 https://www.lsys.cc/app.html#/user/app 申请
 		AppId:          "1212f",                            //应用ID
 		AppSecret:      "3f95638a1e07b87df2b64e09c2541dac", //应用Secret
 		AppHost:        "http://www.lsys.cc",               //应用HOST
@@ -47,7 +49,7 @@ func TestRbac(t *testing.T) {
 	//校验权限
 	err1 := sysApi.RbacCheck(
 		context.Background(),
-		0,
+		100,
 		&UserPageCheckRelation{},
 		&UserPageCheckRes{},
 	)

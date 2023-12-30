@@ -6,7 +6,9 @@ use lsys_core::{
 use lsys_logger::dao::ChangeLogger;
 // use rand::seq::SliceRandom;
 use sqlx::{Acquire, MySql, Pool, Transaction};
-use sqlx_model::{model_option_set, sql_format, Insert, ModelTableName, Select, SqlQuote, Update};
+use sqlx_model::{
+    model_option_set, sql_format, Insert, ModelTableName, Select, SqlQuote, Update, WhereOption,
+};
 use std::{collections::HashMap, string::FromUtf8Error, sync::Arc};
 
 use crate::model::{UserModel, UserNameModel, UserNameModelRef, UserNameStatus};
@@ -17,7 +19,7 @@ pub struct UserName {
     db: Pool<MySql>,
     fluent: Arc<FluentMessage>,
     index: Arc<UserIndex>,
-    pub cache: Arc<LocalCache<u64, UserNameModel>>,
+    pub(crate) cache: Arc<LocalCache<u64, UserNameModel>>,
     logger: Arc<ChangeLogger>,
 }
 
@@ -57,13 +59,12 @@ impl UserName {
     pub async fn find_by_name(&self, name: String) -> UserAccountResult<UserNameModel> {
         let select = Select::type_new::<UserNameModel>();
         let res = select
-            .fetch_one_by_where_call::<UserNameModel, _, _>(
-                "username=? and status=?",
-                |mut res, _| {
-                    res = res.bind(name);
-                    res = res.bind(UserNameStatus::Enable as i8);
-                    res
-                },
+            .fetch_one_by_where::<UserNameModel, _>(
+                &WhereOption::Where(sql_format!(
+                    "username={} and status={}",
+                    name,
+                    UserNameStatus::Enable
+                )),
                 &self.db,
             )
             .await?;
@@ -94,7 +95,10 @@ impl UserName {
             None => self.db.begin().await?,
         };
         let res = Update::<sqlx::MySql, UserNameModel, _>::new(name_change)
-            .execute_by_where_call("user_id=?", |e, _| e.bind(user.id), &mut db)
+            .execute_by_where(
+                &WhereOption::Where(sql_format!("user_id={}", user.id)),
+                &mut db,
+            )
             .await;
         if let Err(e) = res {
             db.rollback().await?;
@@ -144,24 +148,16 @@ impl UserName {
         let time = now_time()?;
         let db = &self.db;
         let user_name_res = Select::type_new::<UserNameModel>()
-            .fetch_one_by_where_call::<UserNameModel, _, _>(
-                "username=?",
-                |mut res, _| {
-                    res = res.bind(username.clone());
-                    res
-                },
+            .fetch_one_by_where::<UserNameModel, _>(
+                &WhereOption::Where(sql_format!("username={}", username)),
                 db,
             )
             .await;
         let out = match user_name_res {
             Err(sqlx::Error::RowNotFound) => {
                 let user_name_res = Select::type_new::<UserNameModel>()
-                    .fetch_one_by_where_call::<UserNameModel, _, _>(
-                        "user_id=?",
-                        |mut res, _| {
-                            res = res.bind(user.id);
-                            res
-                        },
+                    .fetch_one_by_where::<UserNameModel, _>(
+                        &WhereOption::Where(sql_format!("user_id={}", user.id)),
                         db,
                     )
                     .await;

@@ -7,9 +7,11 @@ import (
 	"testing"
 )
 
-func TestApp(t *testing.T) {
+// 获取子应用数据,用于外部系统校验
+
+func TestGetSubAppInfo(t *testing.T) {
 	sysApi := lSysApi.NewRestApi(&lSysApi.RestApiConfig{
-		//应用在 http://www.lsys.cc/ui/#/user/app 申请
+		//应用在 https://www.lsys.cc/app.html#/user/app 申请
 		AppId:          "1212f",                            //应用ID
 		AppSecret:      "3f95638a1e07b87df2b64e09c2541dac", //应用Secret
 		AppHost:        "http://www.lsys.cc",               //应用HOST
@@ -19,7 +21,7 @@ func TestApp(t *testing.T) {
 
 	//示例1
 	//app信息获取
-	err1, data := sysApi.AppInfo(context.Background(), "1212f")
+	err1, data := sysApi.AppInfo(context.Background(), "afsd")
 	if err1 == nil {
 		fmt.Printf("token :%s \n", data)
 	} else {

@@ -27,52 +27,30 @@ impl UserLogin {
         page: &Option<PageParam>,
     ) -> UserAccountResult<Vec<UserLoginModel>> {
         let mut where_sql = vec![];
-        if user_id.is_some() {
-            where_sql.push("user_id=?")
+        if let Some(tmp) = user_id {
+            where_sql.push(sql_format!("user_id={}", tmp))
         }
-        if let Some(ref tmp) = login_account {
+        if let Some(tmp) = login_account {
             if !tmp.is_empty() {
-                where_sql.push("login_account=?")
+                where_sql.push(sql_format!("login_account={}", tmp))
             }
         }
-        if is_login.is_some() {
-            where_sql.push("is_login=?")
+        if let Some(tmp) = is_login {
+            where_sql.push(sql_format!("is_login={}", tmp))
         }
-        if login_ip.is_some() {
-            where_sql.push("login_ip=?")
+        if let Some(tmp) = login_ip {
+            where_sql.push(sql_format!("login_ip={}", tmp))
         }
-        if login_type.is_some() {
-            where_sql.push("login_type=?")
+        if let Some(tmp) = login_type {
+            where_sql.push(sql_format!("login_type={}", tmp))
         }
+
         let mut sql = where_sql.string_join(" and ") + "  order by id desc ";
         if let Some(pdat) = page {
             sql += format!(" limit {} offset {}", pdat.limit, pdat.offset).as_str();
         }
         let user_res = Select::type_new::<UserLoginModel>()
-            .fetch_all_by_where_call::<UserLoginModel, _, _>(
-                &sql,
-                |mut res, _| {
-                    if let Some(tmp) = user_id {
-                        res = res.bind(tmp);
-                    }
-                    if let Some(tmp) = login_account {
-                        if !tmp.is_empty() {
-                            res = res.bind(tmp);
-                        }
-                    }
-                    if let Some(tmp) = is_login {
-                        res = res.bind(tmp);
-                    }
-                    if let Some(tmp) = login_ip {
-                        res = res.bind(tmp);
-                    }
-                    if let Some(tmp) = login_type {
-                        res = res.bind(tmp);
-                    }
-                    res
-                },
-                &self.db.clone(),
-            )
+            .fetch_all_by_where::<UserLoginModel, _>(&sqlx_model::WhereOption::Where(sql), &self.db)
             .await?;
         Ok(user_res)
     }

@@ -9,7 +9,7 @@ import { ClearTextField } from '../../library/input';
 import { LoadingButton } from '../../library/loading';
 import { SimpleTablePage } from '../../library/table_page';
 import { ItemTooltip } from '../../library/tips';
-import { appList, confirmApp, disableApp } from '../../rest/app';
+import { appList, confirmApp, statusApp } from '../../rest/app';
 import { useSearchChange } from '../../utils/hook';
 import { showTime } from '../../utils/utils';
 import { PageNav } from './menu';
@@ -65,11 +65,14 @@ export default function SystemAppPage(props) {
             label: '审核状态',
             align: "center",
             render: (row) => {
-                let delAction = () => {
-                    return disableApp({ appid: row.id }).then((data) => {
+                let statusAction = (status) => {
+                    return statusApp({ appid: row.id,status:status }).then((data) => {
                         if (!data.status) return data;
                         let rows = loadData.data.map((item) => {
-                            if (item.id == row.id) item.status = -1;
+                            if (item.id == row.id) {
+                                if( status)  item.status =  2;
+                                else item.status =  -1;
+                            }
                             return item;
                         })
                         setLoadData({
@@ -108,7 +111,7 @@ export default function SystemAppPage(props) {
                             }} />
                         <ConfirmButton
                             message={`确定要禁用该应用 [${row.name}] 吗?`}
-                            onAction={delAction}
+                            onAction={()=>{return statusAction(false)}}
                             renderButton={(props) => {
                                 return <Button {...props} size='small'>
                                     禁用
@@ -120,14 +123,26 @@ export default function SystemAppPage(props) {
                         <ItemTooltip title={'审核时间:' + showTime(row.confirm_time, "未知")} placement="top"><span>已审核</span></ItemTooltip>
                         <ConfirmButton
                             message={`确定要禁用该应用 [${row.name}] 吗?`}
-                            onAction={delAction}
+                            onAction={()=>{return statusAction(false)}}
                             renderButton={(props) => {
                                 return <Button {...props} size='small'>
                                     禁用
                                 </Button>
                             }} />
                     </Fragment>
-                } else {
+                }else if (row.status == -1) {
+                    return <Fragment>
+                        <span>已禁用</span>
+                        <ConfirmButton
+                            message={`确定要重新启用该应用 [${row.name}] 吗?`}
+                            onAction={()=>{return statusAction(true)}}
+                            renderButton={(props) => {
+                                return <Button {...props} size='small'>
+                                    启用
+                                </Button>
+                            }} />
+                    </Fragment>
+                }  else {
                     return <span>{filterStatus.status.find((e) => { return e.key == row.status })?.val}</span>
                 }
             }
@@ -164,7 +179,6 @@ export default function SystemAppPage(props) {
             page: searchParam.get("page") || 0,
             page_size: searchParam.get("page_size") || 25,
         }).then((data) => {
-
             setLoadData({
                 ...loadData,
                 ...data,
@@ -265,6 +279,7 @@ export default function SystemAppPage(props) {
                 startIcon={<SearchIcon />}
                 sx={{ mr: 1, p: "7px 15px", minWidth: 110 }}
                 loading={loadData.loading}
+                disabled={loadData.loading}
             >
                 过滤
             </LoadingButton>

@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>用户页面</title>
+</head>
+
+<body>
+    <p>当前授权TOKEN是:{{.token}} 过期时间:{{.expires}}</p>
+    <p>登录用户是:{{.username}}[{{.nikename}}]</p>
+    <p>
+        <a href="?reload=1">刷新token</a>
+        <a href="/">返回首页</a>
+        [<a href="https://github.com/shanliu/lsys/blob/main/sdk/go/examples/sub_app/app/router/oauth.go">源码</a>]
+    </p>
+
+</body>
+
+</html>

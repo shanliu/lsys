@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
-use sqlx_model::SqlxModel;
+use sqlx_model::sqlx_model;
 
-#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(table_name = "notify_config")]
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(db_type = "MySql", table_name = "notify_config")]
 pub struct NotifyConfigModel {
     /// 用户ID
     #[sqlx(default)]
@@ -25,7 +25,6 @@ pub struct NotifyConfigModel {
     #[sqlx(default)]
     pub change_user_id: u64,
 
-    
     /// 应用ID
     #[sqlx(default)]
     pub user_id: u64,
@@ -39,8 +38,8 @@ pub struct NotifyConfigModel {
     pub create_time: u64,
 }
 
-#[derive(FromRow, SqlxModel, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(table_name = "notify_data")]
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[sqlx_model(db_type = "MySql", table_name = "notify_data")]
 pub struct NotifyDataModel {
     /// 用户ID
     #[sqlx(default)]

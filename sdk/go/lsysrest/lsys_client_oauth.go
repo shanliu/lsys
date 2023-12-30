@@ -81,7 +81,7 @@ type TokenData struct {
 	RefreshToken string `json:"refresh_token"`
 	OpenId       string `json:"openid"`
 	Scope        string `json:"scope"`
-	ExpiresIn    string `json:"expires_in"`
+	ExpiresIn    int64  `json:"expires_in"`
 }
 
 // OAuthAuthorizationUrl Oauth 登录URL生成
@@ -100,7 +100,7 @@ func (receiver *RestApi) OAuthAuthorizationUrl(_ context.Context, callbackUrl st
 
 // OAuthAccessToken Oauth 通过CODE得到TOKEN
 // code 用户授权登录后返回
-func (receiver *RestApi) OAuthAccessToken(ctx context.Context, code string) (*TokenData, error) {
+func (receiver *RestApi) OAuthAccessToken(ctx context.Context, code string) (error, *TokenData) {
 	req := <-receiver.oauth.Do(ctx, TokenCreate, map[string]string{
 		"code":          code,
 		"client_secret": receiver.config.AppOAuthSecret,
@@ -109,9 +109,9 @@ func (receiver *RestApi) OAuthAccessToken(ctx context.Context, code string) (*To
 	var tokenData TokenData
 	err := req.JsonResult().GetStruct("response", &tokenData)
 	if err != nil {
-		return nil, err
+		return err, nil
 	}
-	return &tokenData, nil
+	return nil, &tokenData
 }
 
 // TokenRestApi 获取需要TOKEN的rest接口实例
@@ -127,7 +127,7 @@ func (receiver *RestApi) TokenRestApi(token string) *TokenRestApi {
 }
 
 // OAuthRefreshToken Oauth 刷新TOKEN
-func (receiver *TokenRestApi) OAuthRefreshToken(ctx context.Context) (*TokenData, error) {
+func (receiver *TokenRestApi) OAuthRefreshToken(ctx context.Context) (error, *TokenData) {
 	req := <-receiver.api.oauth.Do(ctx, TokenRefresh, map[string]string{
 		"refresh_token": receiver.token,
 		"client_secret": receiver.api.config.AppOAuthSecret,
@@ -136,16 +136,16 @@ func (receiver *TokenRestApi) OAuthRefreshToken(ctx context.Context) (*TokenData
 	var tokenData TokenData
 	err := req.JsonResult().GetStruct("response", &tokenData)
 	if err != nil {
-		return nil, err
+		return err, nil
 	}
 	receiver.rest = receiver.api.client.NewApi(&RestTokenApiClient{
 		OAuthToken: tokenData.AccessToken,
 	})
-	return &tokenData, nil
+	return nil, &tokenData
 }
 
 // OAuthUserInfo 获取用户资料
-func (receiver *TokenRestApi) OAuthUserInfo(ctx context.Context, user bool, name bool, info bool, address bool, email bool, mobile bool) (*rest_client.JsonData, error) {
+func (receiver *TokenRestApi) OAuthUserInfo(ctx context.Context, user bool, name bool, info bool, address bool, email bool, mobile bool) (error, *rest_client.JsonData) {
 	req := <-receiver.rest.Do(ctx, UserInfo, map[string]interface{}{
 		"user":    user,
 		"name":    name,
@@ -156,7 +156,7 @@ func (receiver *TokenRestApi) OAuthUserInfo(ctx context.Context, user bool, name
 	})
 	res := req.JsonResult().GetData("response")
 	if res.Err() != nil {
-		return nil, res.Err()
+		return res.Err(), nil
 	}
-	return res, nil
+	return nil, res
 }

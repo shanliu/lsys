@@ -26,7 +26,7 @@ pub struct UserMobile {
     redis: deadpool_redis::Pool,
     fluent: Arc<FluentMessage>,
     index: Arc<UserIndex>,
-    pub cache: Arc<LocalCache<u64, Vec<UserMobileModel>>>,
+    pub(crate) cache: Arc<LocalCache<u64, Vec<UserMobileModel>>>,
     logger: Arc<ChangeLogger>,
 }
 
@@ -60,15 +60,13 @@ impl UserMobile {
     ) -> UserAccountResult<UserMobileModel> {
         let select = Select::type_new::<UserMobileModel>();
         let res = select
-            .fetch_one_by_where_call::<UserMobileModel, _, _>(
-                "mobile=? and area_code=?  and status in (?,?) order by id desc",
-                |mut res, _| {
-                    res = res.bind(mobile);
-                    res = res.bind(area_code);
-                    res = res.bind(UserMobileStatus::Init as i8);
-                    res = res.bind(UserMobileStatus::Valid as i8);
-                    res
-                },
+            .fetch_one_by_where::<UserMobileModel, _>(
+                &sqlx_model::WhereOption::Where(sql_format!(
+                    "mobile={} and area_code={}  and status in ({}) order by id desc",
+                    mobile,
+                    area_code,
+                    &[UserMobileStatus::Init as i8, UserMobileStatus::Valid as i8,]
+                )),
                 &self.db,
             )
             .await?;
@@ -89,15 +87,13 @@ impl UserMobile {
         }
         check_mobile(&self.fluent, area_code.as_str(), mobile.as_str())?;
         let mobile_res = Select::type_new::<UserMobileModel>()
-            .fetch_one_by_where_call::<UserMobileModel, _, _>(
-                "area_code=? and mobile=? and status in (?,?)",
-                |mut res, _| {
-                    res = res.bind(area_code.clone());
-                    res = res.bind(mobile.clone());
-                    res = res.bind(UserMobileStatus::Valid as i8);
-                    res = res.bind(UserMobileStatus::Init as i8);
-                    res
-                },
+            .fetch_one_by_where::<UserMobileModel, _>(
+                &sqlx_model::WhereOption::Where(sql_format!(
+                    "area_code={} and mobile={} and status in ({})",
+                    area_code,
+                    mobile,
+                    &[UserMobileStatus::Valid as i8, UserMobileStatus::Init as i8,]
+                )),
                 &self.db,
             )
             .await;
@@ -235,16 +231,15 @@ impl UserMobile {
         env_data: Option<&RequestEnv>,
     ) -> UserAccountResult<u64> {
         let mobile_res = Select::type_new::<UserMobileModel>()
-            .fetch_one_by_where_call::<UserMobileModel, _, _>(
-                " area_code=? and mobile=? and status =? and user_id!=? and id!=?",
-                |mut res, _| {
-                    res = res.bind(user_mobile.area_code.clone());
-                    res = res.bind(user_mobile.mobile.clone());
-                    res = res.bind(UserMobileStatus::Valid as i8);
-                    res = res.bind(user_mobile.user_id);
-                    res = res.bind(user_mobile.id);
-                    res
-                },
+            .fetch_one_by_where::<UserMobileModel, _>(
+                &sqlx_model::WhereOption::Where(sql_format!(
+                    " area_code={} and mobile={} and status ={} and user_id!={} and id!={}",
+                    user_mobile.area_code,
+                    user_mobile.mobile,
+                    UserMobileStatus::Valid,
+                    user_mobile.user_id,
+                    user_mobile.id
+                )),
                 &self.db,
             )
             .await;
