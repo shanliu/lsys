@@ -581,7 +581,7 @@ export default function SystemAppSmsSettingCloOpensmsPage(props) {
 export function AppSmsTplConfigCloOpenShowDetail(row) {
     return <Box>
         <Box>{`短信端口:${row.setting_name}`}</Box>
-        <Box>{`模板:${row.config_data?.template_id} `}</Box>
+        <Box>{`融连云模板:${row.config_data?.template_id} `}</Box>
         {row.config_data?.template_map ? <Box>{`key映射:${row.config_data?.template_map}`}</Box> : null}
     </Box>;
 }
@@ -753,7 +753,7 @@ export function AppSmsTplConfigCloOpenAddBox(props) {
 
         <TextField
             variant="outlined"
-            label={`模板`}
+            label={`融连云模板`}
             type="text"
             size="small"
             onChange={(e) => {

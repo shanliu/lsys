@@ -613,7 +613,7 @@ export default function SystemAppSmsSettingTensmsPage(props) {
 export function AppSmsTplConfigTenShowDetail(row) {
     return <Box>
         <Box>{`腾讯云短信端口:${row.setting_name}`}</Box>
-        <Box>{`模板:${row.config_data?.template_id} 签名:${row.config_data?.sign_name} `}</Box>
+        <Box>{`腾讯云模板:${row.config_data?.template_id} 腾讯云签名:${row.config_data?.sign_name} `}</Box>
         {row.config_data?.template_map ? <Box>{`key映射:${row.config_data?.template_map}`}</Box> : null}
     </Box>;
 }
@@ -784,7 +784,7 @@ export function AppSmsTplConfigTenAddBox(props) {
 
         <TextField
             variant="outlined"
-            label={`签名`}
+            label={`腾讯云签名`}
             type="text"
             size="small"
             onChange={(e) => {
@@ -805,7 +805,7 @@ export function AppSmsTplConfigTenAddBox(props) {
 
         <TextField
             variant="outlined"
-            label={`模板`}
+            label={`腾讯云模板`}
             type="text"
             size="small"
             onChange={(e) => {

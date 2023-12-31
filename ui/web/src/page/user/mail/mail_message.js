@@ -23,6 +23,7 @@ export default function UserAppMailMessagePage(props) {
     return <AppMailMessage
         toMail={searchParam.get("to_mail") ?? ''}
         userId={userData.user_data.user_id}
+        snId={searchParam.get("sn_id") ?? ''}
         appId={searchParam.get("app_id") ?? ''}
         tplId={searchParam.get("tpl_id") ?? ''}
         status={searchParam.get("status") ?? ''}

@@ -21,7 +21,7 @@ import { AppSmsTplConfigNeteaseAddBox, AppSmsTplConfigNeteaseShowDetail } from '
 
 export const SmsSenderType = [
     {
-        key: 'aliyun-sms-config',
+        key: 'ali-sms-config',
         val: '阿里云短信端口',
         showDetail: AppSmsTplConfigAliShowDetail,
         addBox: AppSmsTplConfigAliAddBox,

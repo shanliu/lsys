@@ -582,7 +582,7 @@ export default function SystemAppSmsSettingAlismsPage(props) {
 export function AppSmsTplConfigAliShowDetail(row) {
     return <Box>
         <Box>{`阿里云端口:${row.setting_name}`}</Box>
-        <Box>{`模板:${row.config_data?.aliyun_sms_tpl} 签名:${row.config_data?.aliyun_sign_name}`}</Box>
+        <Box>{`阿里云模板:${row.config_data?.aliyun_sms_tpl} 阿里云签名:${row.config_data?.aliyun_sign_name}`}</Box>
     </Box>;
 }
 export function AppSmsTplConfigAliAddBox(props) {

@@ -17,6 +17,7 @@ export function AppMailMessage(props) {
         userId,
         appId,
         tplId,
+        snId,
         toMail,
         status,
         startPos,
@@ -41,7 +42,7 @@ export function AppMailMessage(props) {
             align: "right",
             style: { width: 80 },
             render: (row) => {
-                return row.id.toString()
+                return row.snid.toString()
             }
         },
         {
@@ -170,6 +171,7 @@ export function AppMailMessage(props) {
         ...{
             status: status,
             tpl_id: tplId,
+            sn_id:snId,
             to_mail: toMail,
         }, ...props.children ? { app_id: appId } : {}
     })
@@ -184,6 +186,7 @@ export function AppMailMessage(props) {
             user_id: parseInt(userId),
             app_id: (props.children && !appId) ? -1 : appId,
             tpl_id: tplId,
+            sn_id:snId,
             to_mail: toMail,
             status: status,
             start_pos: startPos || '',
@@ -231,6 +234,7 @@ export function AppMailMessage(props) {
     }, [
         props.appId,
         props.tplId,
+        props.snId,
         props.toMail,
         props.status,
         props.startPos,
@@ -295,6 +299,23 @@ export function AppMailMessage(props) {
                         return <MenuItem key={`status-${item.key}`} value={item.key}>{item.val}</MenuItem>
                     })}
                 </Select>
+            </FormControl>
+            <FormControl sx={{ minWidth: 80 }} size="small"  >
+                <ClearTextField
+                    sx={{ mr: 1 }}
+                    variant="outlined"
+                    label={`消息ID`}
+                    type="text"
+                    value={filterData.sn_id}
+                    size="small"
+                    disabled={loadData.loading}
+                    onChange={(event, nval) => {
+                        setfilterData({
+                            ...filterData,
+                            sn_id: nval
+                        })
+                    }}
+                />
             </FormControl>
             <FormControl sx={{ minWidth: 80 }} size="small"  >
                 <ClearTextField

@@ -51,12 +51,14 @@ impl MailRecord {
     pub async fn find_body_by_id(&self, id: &u64) -> SenderResult<SenderMailBodyModel> {
         self.message_reader.find_body_by_id(id).await
     }
+    #[allow(clippy::too_many_arguments)]
     pub async fn message_count(
         &self,
         user_id: &Option<u64>,
         app_id: &Option<u64>,
         tpl_id: &Option<String>,
         body_id: &Option<u64>,
+        msg_snid: &Option<u64>,
         status: &Option<SenderMailMessageStatus>,
         to_mail: &Option<String>,
     ) -> SenderResult<i64> {
@@ -80,6 +82,9 @@ impl MailRecord {
         if let Some(s) = body_id {
             sqlwhere.push(sql_format!("m.sender_body_id={} ", *s));
         }
+        if let Some(s) = msg_snid {
+            sqlwhere.push(sql_format!("m.snid={} ", *s));
+        }
         let sql = sql_format!(
             "select count(*) as total from {} as m join {} as b on m.sender_body_id=b.id {}",
             SenderMailMessageModel::table_name(),
@@ -101,6 +106,7 @@ impl MailRecord {
         app_id: &Option<u64>,
         tpl_id: &Option<String>,
         body_id: &Option<u64>,
+        msg_snid: &Option<u64>,
         status: &Option<SenderMailMessageStatus>,
         to_mail: &Option<String>,
         limit: &Option<LimitParam>,
@@ -128,7 +134,9 @@ impl MailRecord {
         if let Some(s) = body_id {
             sqlwhere.push(sql_format!("m.sender_body_id={} ", *s));
         }
-
+        if let Some(s) = msg_snid {
+            sqlwhere.push(sql_format!("m.snid={} ", *s));
+        }
         let where_sql = if let Some(page) = limit {
             let page_where = page.where_sql(
                 "m.id",
@@ -259,7 +267,7 @@ impl MailRecord {
             .map(|e| e.request_ip.clone().unwrap_or_default())
             .unwrap_or_default();
 
-        let msg_id = Insert::<sqlx::MySql, SenderMailBodyModel, _>::new(
+        let body_id = Insert::<sqlx::MySql, SenderMailBodyModel, _>::new(
             sqlx_model::model_option_set!(SenderMailBodyModelRef,{
                 request_id:reqid,
                 app_id:*app_id,
@@ -280,12 +288,13 @@ impl MailRecord {
         let res_data = "".to_string();
         for (aid, _, to) in add_data.iter() {
             idata.push(sqlx_model::model_option_set!(SenderMailMessageModelRef,{
-                id:aid,
-                sender_body_id:msg_id,
+                snid:aid,
+                sender_body_id:body_id,
                 to_mail:to,
                 try_num:0,
                 status:SenderMailMessageStatus::Init as i8,
                 send_time:0,
+                add_time:add_time,
                 res_data:res_data,
             }));
         }
@@ -301,11 +310,11 @@ impl MailRecord {
             .add(
                 &LogMessage {
                     action: "add",
-                    body_id: msg_id,
+                    body_id,
                     message_id: None,
                     sender_type: SenderType::Mailer as i8,
                 },
-                &Some(msg_id),
+                &Some(body_id),
                 &Some(user_id),
                 &Some(user_id),
                 None,

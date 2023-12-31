@@ -62,7 +62,7 @@ pub async fn sms_send(
         .into_iter()
         .map(|e| {
             json!({
-                "id":e.0.to_string(),
+                "snid":e.0.to_string(),
                 "mobile":e.1,
             })
         })
@@ -74,7 +74,7 @@ pub async fn sms_send(
 
 #[derive(Debug, Deserialize)]
 pub struct SmsCancelParam {
-    pub id_data: Vec<String>,
+    pub snid_data: Vec<String>,
 }
 pub async fn sms_cancel(
     app_dao: &WebDao,
@@ -94,8 +94,8 @@ pub async fn sms_cancel(
             None,
         )
         .await?;
-    let mut ids = Vec::with_capacity(param.id_data.len());
-    for e in param.id_data {
+    let mut ids = Vec::with_capacity(param.snid_data.len());
+    for e in param.snid_data {
         ids.push(e.parse::<u64>().map_err(JsonData::message)?);
     }
     let data = app_dao

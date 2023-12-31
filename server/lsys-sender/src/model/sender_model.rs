@@ -264,9 +264,13 @@ pub struct SenderSmsBodyModel {
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
 #[sqlx_model(db_type = "MySql", table_name = "sender_sms_message")]
 pub struct SenderSmsMessageModel {
-    /// 消息ID
+    ///自增ID
     #[sqlx(default)]
     pub id: u64,
+
+    /// 消息ID
+    #[sqlx(default)]
+    pub snid: u64,
 
     /// 应用ID
     #[sqlx(default)]
@@ -287,6 +291,10 @@ pub struct SenderSmsMessageModel {
     /// 1 未发送 2 已发送 3 发送失败
     #[sqlx(default)]
     pub status: i8,
+
+    /// 添加时间
+    #[sqlx(default)]
+    pub add_time: u64,
 
     /// 实际发送时间
     #[sqlx(default)]
@@ -363,9 +371,13 @@ pub struct SenderMailBodyModel {
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
 #[sqlx_model(db_type = "MySql", table_name = "sender_mail_message")]
 pub struct SenderMailMessageModel {
-    /// 消息ID
+    /// 自增ID
     #[sqlx(default)]
     pub id: u64,
+
+    /// 消息ID
+    #[sqlx(default)]
+    pub snid: u64,
 
     /// 应用ID
     #[sqlx(default)]
@@ -381,6 +393,10 @@ pub struct SenderMailMessageModel {
     /// 1 未发送 2 已发送 3 发送失败
     #[sqlx(default)]
     pub status: i8,
+
+    /// 添加时间
+    #[sqlx(default)]
+    pub add_time: u64,
 
     /// 实际发送时间
     #[sqlx(default)]

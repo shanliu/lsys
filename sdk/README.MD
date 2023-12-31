@@ -123,7 +123,7 @@ GET:app_id=1212f&payload=%7B%22client_id%22%3A%221212f%22%7D&request_ip=fe80%3A%
 
 >  生成授权地址
 ```
-http://www.lsys.cc/ui/oauth.html?client_id=1212f&redirect_uri=http%3A%2F%2F127.0.0.1%3A8080%2F&response_type=code&scope=user_info&state=aa
+http://www.lsys.cc/oauth.html?client_id=1212f&redirect_uri=http%3A%2F%2F127.0.0.1%3A8080%2F&response_type=code&scope=user_info&state=aa
 ```
 
 > 授权完成后返回

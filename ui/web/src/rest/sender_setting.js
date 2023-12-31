@@ -202,7 +202,7 @@ export async function senderDelConfig(type, param, config) {
 //message
 
 export async function mailListAppMessage(param, config) {
-    const { app_id, user_id, tpl_id, to_mail, status, start_pos, end_pos, page_size } = param;
+    const { app_id, user_id,sn_id, tpl_id, to_mail, status, start_pos, end_pos, page_size } = param;
     let data = {
         count_num: false,
         limit: {
@@ -239,6 +239,9 @@ export async function mailListAppMessage(param, config) {
     if (typeof tpl_id == "string" && tpl_id.length > 0) {
         data.tpl_id = tpl_id;
     }
+    if (parseInt(sn_id) >= 0) {
+        data.snid = sn_id.toString();
+    }
     if (typeof to_mail == "string" && to_mail.length > 0) {
         data.to_mail = to_mail;
     }
@@ -250,7 +253,7 @@ export async function mailListAppMessage(param, config) {
 }
 
 export async function smsListAppMessage(param, config) {
-    const { app_id, user_id, tpl_id, mobile, status, start_pos, end_pos, page_size } = param;
+    const { app_id, user_id,sn_id, tpl_id, mobile, status, start_pos, end_pos, page_size } = param;
     let data = {
         count_num: false,
         limit: {
@@ -283,6 +286,9 @@ export async function smsListAppMessage(param, config) {
     }
     if (parseInt(app_id) >= 0) {
         data.app_id = parseInt(app_id);
+    }
+    if (parseInt(sn_id) >= 0) {
+        data.snid = sn_id.toString();
     }
     if (typeof tpl_id == "string" && tpl_id.length > 0) {
         data.tpl_id = tpl_id;

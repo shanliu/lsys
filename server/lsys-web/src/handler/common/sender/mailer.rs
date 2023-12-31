@@ -147,6 +147,7 @@ pub struct MailerMessageListParam {
     pub tpl_id: Option<String>,
     pub status: Option<i8>,
     pub body_id: Option<u64>,
+    pub snid: Option<String>,
     pub to_mail: Option<String>,
     pub count_num: Option<bool>,
     pub limit: Option<LimitParam>,
@@ -186,6 +187,7 @@ pub async fn mailer_message_list<'t, T: SessionTokenData, D: SessionData, S: Use
             &param.app_id,
             &param.tpl_id,
             &param.body_id,
+            &param.snid.as_ref().and_then(|e| e.parse::<u64>().ok()),
             &status,
             &param.to_mail,
             &Some(param.limit.unwrap_or_default().into()),
@@ -203,6 +205,7 @@ pub async fn mailer_message_list<'t, T: SessionTokenData, D: SessionData, S: Use
                     &param.app_id,
                     &param.tpl_id,
                     &param.body_id,
+                    &param.snid.as_ref().and_then(|e| e.parse::<u64>().ok()),
                     &status,
                     &param.to_mail,
                 )
@@ -229,6 +232,7 @@ pub async fn mailer_message_list<'t, T: SessionTokenData, D: SessionData, S: Use
                     .unwrap_or(true);
             json!({
                 "id":e.0.id,
+                "snid":e.0.snid,
                 "app_id":e.1.as_ref().map(|t|t.app_id),
                 "tpl_id":e.1.as_ref().map(|t|t.tpl_id.to_owned()),
                 "max_try_num":e.1.as_ref().map(|t|t.max_try_num),

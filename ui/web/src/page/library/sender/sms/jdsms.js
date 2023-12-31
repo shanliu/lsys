@@ -553,7 +553,7 @@ export default function SystemAppSmsSettingJdsmsPage(props) {
 export function AppSmsTplConfigJdShowDetail(row) {
     return <Box>
         <Box>{`短信端口:${row.setting_name}`}</Box>
-        <Box>{`模板:${row.config_data?.template_id} 签名:${row.config_data?.sign_id} `}</Box>
+        <Box>{`京东云模板:${row.config_data?.template_id} 京东云签名:${row.config_data?.sign_id} `}</Box>
         {row.config_data?.template_map ? <Box>{`key映射:${row.config_data?.template_map}`}</Box> : null}
     </Box>;
 }
@@ -725,7 +725,7 @@ export function AppSmsTplConfigJdAddBox(props) {
 
         <TextField
             variant="outlined"
-            label={`签名`}
+            label={`京东云签名`}
             type="text"
             size="small"
             onChange={(e) => {
@@ -746,7 +746,7 @@ export function AppSmsTplConfigJdAddBox(props) {
 
         <TextField
             variant="outlined"
-            label={`模板`}
+            label={`京东云模板`}
             type="text"
             size="small"
             onChange={(e) => {

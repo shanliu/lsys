@@ -33,7 +33,7 @@ export function MessageSeeBody(props) {
                 minWidth: 380
             }}>
                 <DialogContentText>
-                    <Box>消息ID:{row.id.toString()}</Box>
+                    <Box>消息ID:{row.snid.toString()}</Box>
                     <Box sx={{
                         mt: 1,
                         fontSize: "0.8rem"
@@ -203,7 +203,7 @@ export function MessageLogBox(props) {
                     textDecoration: 'none',
                 }}
             >
-                查看 {msgData.id.toString()} 日志
+                查看 {msgData.snid.toString()} 日志
             </Typography>
             <Divider variant="middle" />
             <Grid

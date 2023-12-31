@@ -151,6 +151,7 @@ pub struct SmserMessageListParam {
     pub app_id: Option<u64>,
     pub tpl_id: Option<String>,
     pub body_id: Option<u64>,
+    pub snid: Option<String>,
     pub status: Option<i8>,
     pub mobile: Option<String>,
     pub count_num: Option<bool>,
@@ -192,6 +193,7 @@ pub async fn smser_message_list<'t, T: SessionTokenData, D: SessionData, S: User
             &param.app_id,
             &param.tpl_id,
             &param.body_id,
+            &param.snid.as_ref().and_then(|e| e.parse::<u64>().ok()),
             &status,
             &param.mobile,
             &Some(param.limit.unwrap_or_default().into()),
@@ -209,6 +211,7 @@ pub async fn smser_message_list<'t, T: SessionTokenData, D: SessionData, S: User
                     &param.app_id,
                     &param.tpl_id,
                     &param.body_id,
+                    &param.snid.as_ref().and_then(|e| e.parse::<u64>().ok()),
                     &status,
                     &param.mobile,
                 )
@@ -251,6 +254,7 @@ pub async fn smser_message_list<'t, T: SessionTokenData, D: SessionData, S: User
 
             json!({
                 "id":e.0.id,
+                "snid":e.0.snid,
                 "app_id":e.1.as_ref().map(|t|t.app_id),
                 "mobile":format!("{}-{}",e.0.area,e.0.mobile),
                 "tpl_id":e.1.as_ref().map(|t|t.tpl_id.to_owned()),

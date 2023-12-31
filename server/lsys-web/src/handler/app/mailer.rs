@@ -62,7 +62,7 @@ pub async fn mail_send(
         .into_iter()
         .map(|e| {
             json!({
-                "id":e.0.to_string(),
+                "snid":e.0.to_string(),
                 "mail":e.1,
             })
         })
@@ -74,7 +74,7 @@ pub async fn mail_send(
 
 #[derive(Debug, Deserialize)]
 pub struct MailCancelParam {
-    pub id_data: Vec<String>,
+    pub snid_data: Vec<String>,
 }
 pub async fn mail_cancel(
     app_dao: &WebDao,
@@ -95,8 +95,8 @@ pub async fn mail_cancel(
         )
         .await?;
 
-    let mut ids = Vec::with_capacity(param.id_data.len());
-    for e in param.id_data {
+    let mut ids = Vec::with_capacity(param.snid_data.len());
+    for e in param.snid_data {
         ids.push(e.parse::<u64>().map_err(JsonData::message)?);
     }
 

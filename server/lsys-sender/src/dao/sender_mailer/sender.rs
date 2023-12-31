@@ -208,13 +208,16 @@ impl MailSender {
         }
         Ok(out)
     }
-    pub async fn cancal_from_message_id_vec(
+    pub async fn cancal_from_message_snid_vec(
         &self,
-        msg_data: &[u64],
+        msg_snid_data: &[u64],
         user_id: &u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<Vec<(u64, bool, Option<SenderError>)>> {
-        let res = self.message_reader.find_message_by_id_vec(msg_data).await?;
+        let res = self
+            .message_reader
+            .find_message_by_snid_vec(msg_snid_data)
+            .await?;
         if res.is_empty() {
             return Ok(vec![]);
         }

@@ -420,16 +420,20 @@ CREATE TABLE `yaf_sender_mail_body` (
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '发送邮件数据';
 CREATE TABLE `yaf_sender_mail_message` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID,由应用生成',
+    `snid` bigint unsigned NOT NULL COMMENT '消息ID',
     `sender_body_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '邮件内容ID',
     `to_mail` varchar(254) NOT NULL COMMENT '邮箱',
     `try_num` smallint unsigned NOT NULL DEFAULT 0 COMMENT '发送次数',
     `status` tinyint NOT NULL COMMENT '启用状态',
+    `add_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '添加时间冗余',
     `send_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '发送时间',
     `receive_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '接收时间',
     `setting_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '发送使用配置ID',
     `res_data` varchar(512) NOT NULL COMMENT '返回数据',
     PRIMARY KEY (`id`),
+    UNIQUE KEY(`snid`),
     KEY `sender_record_data_IDX` (`sender_body_id`) USING BTREE,
+    KEY `sender_add_time_IDX` (`add_time`) USING BTREE,
     KEY `sender_res_data_IDX` (`setting_id`, `res_data`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '发送邮件收件人信息';
 CREATE TABLE `yaf_sender_sms_body` (
@@ -450,17 +454,21 @@ CREATE TABLE `yaf_sender_sms_body` (
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '发送短信数据';
 CREATE TABLE `yaf_sender_sms_message` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID,由应用生成',
+    `snid` bigint unsigned NOT NULL COMMENT '消息ID',
     `sender_body_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '内容ID',
     `area` varchar(32) NOT NULL COMMENT '区号',
     `mobile` varchar(32) NOT NULL COMMENT '手机号',
     `try_num` smallint unsigned NOT NULL DEFAULT 0 COMMENT '发送次数',
     `status` tinyint NOT NULL COMMENT '启用状态',
+    `add_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '添加时间冗余',
     `send_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '发送时间',
     `receive_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '接收时间',
     `setting_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '发送使用配置ID',
     `res_data` varchar(512) NOT NULL COMMENT '返回数据',
     PRIMARY KEY (`id`),
+    UNIQUE KEY(`snid`),
     KEY `sender_record_data_IDX` (`sender_body_id`) USING BTREE,
+    KEY `sender_add_time_IDX` (`add_time`) USING BTREE,
     KEY `sender_res_data_IDX` (`setting_id`, `res_data`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '发送短信接收手机号';
 -- ----------- lsys-sender  ---------------
@@ -557,6 +565,7 @@ INSERT INTO yaf_user_index (
         status,
         change_time
     )
-VALUES (1, 5, 'aaaaa', 1, UNIX_TIMESTAMP()),
+VALUES (1, 5, 'root', 1, UNIX_TIMESTAMP()),
+    (1, 6, 'aaaaa', 1, UNIX_TIMESTAMP()),
     (1, 7, '2', 1, UNIX_TIMESTAMP());
 -- ----------- 初始用户  ---------------

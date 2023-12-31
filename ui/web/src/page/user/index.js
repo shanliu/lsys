@@ -7,7 +7,7 @@ export default function UserIndexPage() {
             这是一个服务端以 rust(actix-web)语言, 网页端以reactjs 为基础开发的项目。
         </p>
         <p>
-            目标：作为 内部公共应用管理 及 轻量级开放平台 的解决方案
+            目标：作为 内部应用管理 及 轻量级开放平台 的解决方案
         </p>
         <p>
             目前项目还在<b>迭代开发</b>中，将不定期更新。

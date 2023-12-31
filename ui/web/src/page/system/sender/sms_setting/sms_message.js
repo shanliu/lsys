@@ -18,6 +18,7 @@ export default function SystemAppSmsMessagePage(props) {
     });
     return <AppSmsMessage
         appId={0}
+        snId={searchParam.get("sn_id") ?? ''}
         tplId={searchParam.get("tpl_id") ?? ''}
         mobile={searchParam.get("mobile") ?? ''}
         status={searchParam.get("status") ?? ''}

@@ -16,7 +16,7 @@ func TestMail(t *testing.T) {
 		AppSecret:      "3f95638a1e07b87df2b64e09c2541dac", //应用Secret
 		AppHost:        "http://www.lsys.cc",               //应用HOST
 		AppOAuthSecret: "2a97bf1b4f075b0ca7467e7c6b223f89", //应用OauthSecret
-		AppOAuthHost:   "http://www.lsys.cc/ui/oauth.html",
+		AppOAuthHost:   "http://www.lsys.cc/oauth.html",
 	})
 	//示例1
 	//邮件发送示例

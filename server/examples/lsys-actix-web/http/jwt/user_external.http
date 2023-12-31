@@ -29,7 +29,7 @@ Content-Type: application/json
 {
     "login_type": "wechat",
     "login_state":"343444eee",
-    "callback_url":"http://www.lsys.cc/ui/#/user/info/oauth"
+    "callback_url":"http://www.lsys.cc/app.html#/user/info/oauth"
 }
 
 

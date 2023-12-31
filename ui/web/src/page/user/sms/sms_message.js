@@ -21,6 +21,7 @@ export default function UserAppSmsMessagePage(props) {
 
     return <AppSmsMessage
         userId={userData.user_data.user_id}
+        snId={searchParam.get("sn_id") ?? ''}
         appId={searchParam.get("app_id") ?? ''}
         tplId={searchParam.get("tpl_id") ?? ''}
         mobile={searchParam.get("mobile") ?? ''}

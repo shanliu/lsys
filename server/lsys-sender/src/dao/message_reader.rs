@@ -121,13 +121,13 @@ where
             )
             .await?)
     }
-    pub async fn find_message_by_id_vec(&self, ids: &[u64]) -> SenderResult<Vec<MM>> {
+    pub async fn find_message_by_snid_vec(&self, ids: &[u64]) -> SenderResult<Vec<MM>> {
         if ids.is_empty() {
             return Ok(vec![]);
         }
         Ok(Select::type_new::<MM>()
             .fetch_all_by_where::<MM, _>(
-                &sqlx_model::WhereOption::Where(sql_format!("id in ({})", ids)),
+                &sqlx_model::WhereOption::Where(sql_format!("snid in ({})", ids)),
                 &self.db,
             )
             .await?)

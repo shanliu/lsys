@@ -54,12 +54,14 @@ impl SmsRecord {
         self.message_reader.find_body_by_id(id).await
     }
     //消息数量
+    #[allow(clippy::too_many_arguments)]
     pub async fn message_count(
         &self,
         user_id: &Option<u64>,
         app_id: &Option<u64>,
         tpl_id: &Option<String>,
         body_id: &Option<u64>,
+        msg_snid: &Option<u64>,
         status: &Option<SenderSmsMessageStatus>,
         mobile: &Option<String>,
     ) -> SenderResult<i64> {
@@ -83,6 +85,9 @@ impl SmsRecord {
         if let Some(s) = body_id {
             sqlwhere.push(sql_format!("m.sender_body_id={} ", *s));
         }
+        if let Some(s) = msg_snid {
+            sqlwhere.push(sql_format!("m.snid={} ", *s));
+        }
         let sql = sql_format!(
             "select count(*) as total from {} as m join {} as b on m.sender_body_id=b.id {}",
             SenderSmsBodyModel::table_name(),
@@ -105,6 +110,7 @@ impl SmsRecord {
         app_id: &Option<u64>,
         tpl_id: &Option<String>,
         body_id: &Option<u64>,
+        msg_snid: &Option<u64>,
         status: &Option<SenderSmsMessageStatus>,
         mobile: &Option<String>,
         limit: &Option<LimitParam>,
@@ -128,6 +134,9 @@ impl SmsRecord {
         }
         if let Some(s) = status {
             sqlwhere.push(sql_format!("m.status={} ", *s));
+        }
+        if let Some(s) = msg_snid {
+            sqlwhere.push(sql_format!("m.snid={} ", *s));
         }
         if let Some(s) = body_id {
             sqlwhere.push(sql_format!("m.sender_body_id={} ", *s));
@@ -278,7 +287,7 @@ impl SmsRecord {
         )
         .execute(&mut tran)
         .await;
-        let msg_id = match res {
+        let body_id = match res {
             Ok(e) => e.last_insert_id(),
             Err(err) => {
                 tran.rollback().await?;
@@ -288,13 +297,14 @@ impl SmsRecord {
         let res_data = "".to_string();
         for (id, _, _, area, mobile) in add_data.iter() {
             idata.push(sqlx_model::model_option_set!(SenderSmsMessageModelRef,{
-                id:id,
-                sender_body_id:msg_id,
+                snid:id,
+                sender_body_id:body_id,
                 mobile:*mobile,
                 area:*area,
                 try_num:0,
                 status:SenderSmsMessageStatus::Init as i8,
                 send_time:0,
+                add_time:add_time,
                 res_data:res_data,
             }));
         }
@@ -310,10 +320,10 @@ impl SmsRecord {
                 &LogMessage {
                     action: "add",
                     sender_type: SenderType::Smser as i8,
-                    body_id: msg_id,
+                    body_id,
                     message_id: None,
                 },
-                &Some(msg_id),
+                &Some(body_id),
                 &Some(user_id),
                 &Some(user_id),
                 None,

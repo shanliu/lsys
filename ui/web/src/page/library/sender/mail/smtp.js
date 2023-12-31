@@ -635,7 +635,9 @@ export default function SystemAppMailSettingSmtpPage(props) {
 
 export function AppMailTplConfigSmtpShowDetail(row) {
     return <Box>
-        <Box>{`Smtp端口:${row.setting_name}`} {(row.config_data?.from_email && row.config_data?.from_email.length > 0) ? `发送邮箱:${row.config_data?.from_email}` : ``}</Box>
+        <Box>{`Smtp端口:${row.setting_name}`}</Box>
+        <Box>  {(row.config_data?.from_email && row.config_data?.from_email.length > 0) ? `发送邮箱:${row.config_data?.from_email}` : ``}</Box>
+        <Box>  {(row.config_data?.reply_email && row.config_data?.reply_email.length > 0) ? `回复邮箱:${row.config_data?.reply_email}` : ``}</Box>
         <Box>{`主题模板:${row.config_data?.subject_tpl_id} 内容模板:${row.config_data?.body_tpl_id}`}</Box>
     </Box>;
 }

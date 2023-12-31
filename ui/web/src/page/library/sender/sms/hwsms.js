@@ -569,7 +569,7 @@ export default function SystemAppSmsSettingHwsmsPage(props) {
 export function AppSmsTplConfigHwShowDetail(row) {
     return <Box>
         <Box>{`华为云短信端口:${row.setting_name}`}</Box>
-        <Box>{`模板:${row.config_data?.template_id}  签名:${row.config_data?.signature} 通道:${row.config_data?.sender}`}</Box>
+        <Box>{`华为云模板:${row.config_data?.template_id}  华为云签名:${row.config_data?.signature} 华为云通道号:${row.config_data?.sender}`}</Box>
         {row.config_data?.template_map ? <Box>{`key映射:${row.config_data?.template_map}`}</Box> : null}
     </Box>;
 }
@@ -745,7 +745,7 @@ export function AppSmsTplConfigHwAddBox(props) {
 
         <TextField
             variant="outlined"
-            label={`签名`}
+            label={`华为云签名`}
             type="text"
             size="small"
             onChange={(e) => {
@@ -766,7 +766,7 @@ export function AppSmsTplConfigHwAddBox(props) {
 
         <TextField
             variant="outlined"
-            label={`模板`}
+            label={`华为云模板`}
             type="text"
             size="small"
             onChange={(e) => {
@@ -787,7 +787,7 @@ export function AppSmsTplConfigHwAddBox(props) {
 
         <TextField
             variant="outlined"
-            label={`通道号`}
+            label={`华为云通道号`}
             type="text"
             size="small"
             onChange={(e) => {

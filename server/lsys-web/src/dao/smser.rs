@@ -182,11 +182,11 @@ impl WebAppSmser {
     pub async fn app_send_cancel(
         &self,
         app: &AppsModel,
-        id_data: &[u64],
+        snid_data: &[u64],
         env_data: Option<&RequestEnv>,
     ) -> Result<Vec<(u64, bool, Option<SenderError>)>, WebAppSmserError> {
         self.smser
-            .cancal_from_message_id_vec(id_data, &app.user_id, env_data)
+            .cancal_from_message_snid_vec(snid_data, &app.user_id, env_data)
             .await
             .map_err(|e| WebAppSmserError::System(e.to_string()))
     }

@@ -81,6 +81,10 @@ function AddressBox(props) {
                         ...data.field
                     })
                 } else {
+                    setSendData({
+                        ...sendData,
+                        loading: false,
+                    })
                     setSendError({
                         name: '',
                         code: '',

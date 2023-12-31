@@ -182,6 +182,24 @@ impl GitTask {
                         {
                             warn!("update clone succ status fail:{}", err);
                         }
+                        let host_name = hostname::get()
+                            .unwrap_or_default()
+                            .to_string_lossy()
+                            .to_string();
+                        let message = "clone finish".to_string();
+                        let vdata = model_option_set!(DocLogsModelRef, {
+                            doc_clone_id:clone_id,
+                            host:host_name,
+                            doc_tag_id:git_tag_data.id,
+                            message:message,
+                            add_time:finish_time,
+                        });
+                        if let Err(err) = Insert::<sqlx::MySql, DocLogsModel, _>::new(vdata)
+                            .execute(db)
+                            .await
+                        {
+                            warn!("add git clone succ log fail:{}", err);
+                        }
                     }
                 }
                 *run_size += 1;

@@ -19,6 +19,7 @@ export default function AppSmsMessage(props) {
         userId,
         appId,
         tplId,
+        snId,
         mobile,
         status,
         startPos,
@@ -43,7 +44,7 @@ export default function AppSmsMessage(props) {
             align: "right",
             style: { width: 80 },
             render: (row) => {
-                return row.id.toString()
+                return row.snid.toString()
             }
         },
         {
@@ -170,6 +171,7 @@ export default function AppSmsMessage(props) {
         ...{
             status: status,
             tpl_id: tplId,
+            sn_id:snId,
             mobile: mobile,
         }, ...props.children ? { app_id: appId } : {}
     })
@@ -183,6 +185,7 @@ export default function AppSmsMessage(props) {
             user_id: parseInt(userId),
             app_id: (props.children && !appId) ? -1 : appId,
             tpl_id: tplId,
+            sn_id:snId,
             mobile: mobile,
             status: status,
             start_pos: startPos || '',
@@ -229,6 +232,7 @@ export default function AppSmsMessage(props) {
         props.userId,
         props.appId,
         props.tplId,
+        props.snId,
         props.mobile,
         props.status,
         props.startPos,
@@ -293,6 +297,23 @@ export default function AppSmsMessage(props) {
                         return <MenuItem key={`status-${item.key}`} value={item.key}>{item.val}</MenuItem>
                     })}
                 </Select>
+            </FormControl>
+            <FormControl sx={{ minWidth: 80 }} size="small"  >
+                <ClearTextField
+                    sx={{ mr: 1 }}
+                    variant="outlined"
+                    label={`消息ID`}
+                    type="text"
+                    value={filterData.sn_id}
+                    size="small"
+                    disabled={loadData.loading}
+                    onChange={(event, nval) => {
+                        setfilterData({
+                            ...filterData,
+                            sn_id: nval
+                        })
+                    }}
+                />
             </FormControl>
             <FormControl sx={{ minWidth: 80 }} size="small"  >
                 <ClearTextField

@@ -46,7 +46,7 @@ type SmsCancelResult struct {
 // cancelKey 取消句柄,发送时设置
 func (receiver *RestApi) SmsCancel(ctx context.Context, cancelKeys []string) (error, []SmsCancelResult) {
 	data1 := (<-receiver.rest.Do(ctx, SmeCancel, map[string]interface{}{
-		"id_data": cancelKeys,
+		"snid_data": cancelKeys,
 	})).JsonResult()
 	if data1.Err() != nil {
 		return data1.Err(), nil
@@ -56,7 +56,7 @@ func (receiver *RestApi) SmsCancel(ctx context.Context, cancelKeys []string) (er
 		out = append(out, SmsCancelResult{
 			Status: tmp.Get("status").Bool(),
 			Msg:    tmp.Get("msg").String(),
-			Id:     tmp.Get("id").String(),
+			Id:     tmp.Get("snid").String(),
 		})
 	}
 	return nil, out
@@ -90,7 +90,7 @@ func (receiver *RestApi) MailSend(ctx context.Context, to []string, tplId string
 	for _, tmp := range data1.GetData("response.detail").Array() {
 		out = append(out, MailSendResult{
 			Mail: tmp.Get("mail").String(),
-			Id:   tmp.Get("id").String(),
+			Id:   tmp.Get("snid").String(),
 		})
 	}
 	return nil, out
@@ -106,7 +106,7 @@ type MailCancelResult struct {
 // cancelKey 取消句柄,发送时设置
 func (receiver *RestApi) MailCancel(ctx context.Context, sendId []string) (error, []MailCancelResult) {
 	data1 := (<-receiver.rest.Do(ctx, MailCancel, map[string]interface{}{
-		"id_data": sendId,
+		"snid_data": sendId,
 	})).JsonResult()
 	if data1.Err() != nil {
 		return data1.Err(), nil
