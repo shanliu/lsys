@@ -63,7 +63,6 @@ parking_lot = "~0.12.*"
 
 
 fluent = "~0.16.*"
-fluent-syntax = "~0.11.*"
 
 
 rs-snowflake = "0.6.0"

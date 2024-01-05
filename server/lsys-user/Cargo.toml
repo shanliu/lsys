@@ -33,9 +33,6 @@ futures-util = "0.3.*"
 # rand = "~0.8.*"
 
 fluent = "~0.16.*"
-fluent-syntax = "~0.11.*"
-intl-memoizer = "~0.5.*"
-unic-langid = { version = "~0.9.*", features = ["unic-langid-macros"] }
 
 
 md5 = "~0.7.*"

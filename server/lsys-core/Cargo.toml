@@ -43,7 +43,7 @@ tera = "~1.18.1"
 #代替标准库的锁
 parking_lot = "~0.12.*"
 
-fluent-syntax = "~0.11.*"
+
 fluent = "~0.16.*"
 unic-langid = { version = "~0.9.*", features = ["unic-langid-macros"] }
 intl-memoizer = "~0.5.*"

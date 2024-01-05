@@ -58,7 +58,7 @@ function SystemAppSmsSettingHwsmsBox(props) {
                 app_secret: addData.app_secret,
                 url: addData.url,
                 callback_key: addData.callback_key,
-                limit:parseInt( addData.limit),
+                limit: parseInt(addData.limit),
             }).then((data) => {
                 if (!data.status) {
                     toast(data.message)
@@ -88,7 +88,7 @@ function SystemAppSmsSettingHwsmsBox(props) {
             smsAddHwConfig({
                 url: addData.url,
                 callback_key: addData.callback_key,
-                limit:parseInt( addData.limit),
+                limit: parseInt(addData.limit),
                 name: addData.name,
                 app_key: addData.app_key,
                 app_secret: addData.app_secret
@@ -271,7 +271,7 @@ function SystemAppSmsSettingHwsmsBox(props) {
                                 width: 1,
                                 paddingBottom: 2
                             }}
-                            required
+
                             disabled={addData.loading}
                             error={!!addError.callback_key}
                             helperText={addError.callback_key}

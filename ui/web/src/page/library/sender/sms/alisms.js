@@ -65,7 +65,7 @@ function SystemAppSmsSettingAlismsBox(props) {
                 access_secret: addData.access_secret,
                 region: addData.region,
                 callback_key: addData.callback_key,
-                limit:parseInt( addData.limit),
+                limit: parseInt(addData.limit),
             }).then((data) => {
                 if (!data.status) {
                     toast(data.message)
@@ -100,7 +100,7 @@ function SystemAppSmsSettingAlismsBox(props) {
                 access_secret: addData.access_secret,
                 region: addData.region,
                 callback_key: addData.callback_key,
-                limit:parseInt( addData.limit),
+                limit: parseInt(addData.limit),
             }).then((data) => {
                 if (!data.status) {
                     toast(data.message)
@@ -283,7 +283,6 @@ function SystemAppSmsSettingAlismsBox(props) {
                                 width: 1,
                                 paddingBottom: 2
                             }}
-                            required
                             disabled={addData.loading}
                             error={!!addError.callback_key}
                             helperText={addError.callback_key}

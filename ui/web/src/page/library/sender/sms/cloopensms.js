@@ -14,7 +14,7 @@ import { ConfirmButton } from '../../../../library/dialog';
 import { ClearTextField } from '../../../../library/input';
 import { LoadingButton } from '../../../../library/loading';
 import { BaseTableBody, BaseTableHead } from '../../../../library/table_page';
-import { smsAddCloOpenConfig, smsDelCloOpenConfig, smsEditCloOpenConfig , smsAddAppCloOpenConfig, smsListCloOpenConfig } from '../../../../rest/sender_setting';
+import { smsAddCloOpenConfig, smsDelCloOpenConfig, smsEditCloOpenConfig, smsAddAppCloOpenConfig, smsListCloOpenConfig } from '../../../../rest/sender_setting';
 import { useSearchChange } from '../../../../utils/hook';
 import { showTime } from '../../../../utils/utils';
 
@@ -64,7 +64,7 @@ function SystemAppSmsSettingCloOpensmsBox(props) {
                 account_token: addData.account_token,
                 sms_app_id: addData.sms_app_id,
                 callback_key: addData.callback_key,
-                limit:parseInt( addData.limit),
+                limit: parseInt(addData.limit),
             }).then((data) => {
                 if (!data.status) {
                     toast(data.message)
@@ -99,7 +99,7 @@ function SystemAppSmsSettingCloOpensmsBox(props) {
                 account_token: addData.account_token,
                 sms_app_id: addData.sms_app_id,
                 callback_key: addData.callback_key,
-                limit:parseInt( addData.limit),
+                limit: parseInt(addData.limit),
             }).then((data) => {
                 if (!data.status) {
                     toast(data.message)
@@ -282,7 +282,6 @@ function SystemAppSmsSettingCloOpensmsBox(props) {
                                 width: 1,
                                 paddingBottom: 2
                             }}
-                            required
                             disabled={addData.loading}
                             error={!!addError.callback_key}
                             helperText={addError.callback_key}
@@ -596,7 +595,7 @@ export function AppSmsTplConfigCloOpenAddBox(props) {
         config_id: '',
         name: '',
         tpl_id: '',
- 
+
 
         template_id: '',
         template_map: '',
@@ -606,7 +605,7 @@ export function AppSmsTplConfigCloOpenAddBox(props) {
         config_id: '',
         name: '',
         tpl_id: '',
-      
+
 
         template_id: '',
         template_map: '',
@@ -648,7 +647,7 @@ export function AppSmsTplConfigCloOpenAddBox(props) {
             name: configData.name,
             tpl_id: configData.tpl_id,
             config_id: configData.config_id,
-           
+
             template_id: configData.template_id,
             template_map: configData.template_map,
 
@@ -667,7 +666,7 @@ export function AppSmsTplConfigCloOpenAddBox(props) {
                 setConfigData({
                     ...configData,
                     tpl_id: '',
-                   
+
                     template_id: '',
                     template_map: '',
                     loading: false,
@@ -749,7 +748,7 @@ export function AppSmsTplConfigCloOpenAddBox(props) {
             helperText={addError.tpl_id}
         />
 
-      
+
 
         <TextField
             variant="outlined"
