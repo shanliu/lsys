@@ -3,7 +3,7 @@ use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::dao::RequestDao;
+use crate::dao::RequestAuthDao;
 
 use crate::handler::access::{
     AccessAppSenderDoMail, AccessAppSenderDoSms, AccessUserAppConfirm, AccessUserAppEdit,
@@ -21,9 +21,15 @@ pub struct AppAddParam {
 
 pub async fn app_add<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: AppAddParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let user_id = param.user_id.unwrap_or(req_auth.user_data().user_id);
     req_dao
         .web_dao
@@ -37,7 +43,8 @@ pub async fn app_add<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let app_id = req_dao
         .web_dao
         .app
@@ -53,7 +60,8 @@ pub async fn app_add<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
             None,
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "id": app_id })))
 }
 
@@ -67,16 +75,23 @@ pub struct AppEditParam {
 
 pub async fn app_edit<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: AppEditParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let app = req_dao
         .web_dao
         .app
         .app_dao
         .app
         .find_by_id(&param.app_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     if AppStatus::Ok.eq(app.status) && param.client_id != app.client_id {
         return Ok(JsonData::default()
             .set_code(403)
@@ -95,7 +110,8 @@ pub async fn app_edit<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .app
@@ -110,7 +126,8 @@ pub async fn app_edit<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>
             None,
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::default())
 }
 
@@ -121,16 +138,23 @@ pub struct AppResetSecretParam {
 
 pub async fn app_reset_secret<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: AppResetSecretParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let app = req_dao
         .web_dao
         .app
         .app_dao
         .app
         .find_by_id(&param.app_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -143,7 +167,8 @@ pub async fn app_reset_secret<T: SessionTokenData, D: SessionData, S: UserSessio
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
 
     let (client_secret, oauth_secret) = req_dao
         .web_dao
@@ -156,8 +181,9 @@ pub async fn app_reset_secret<T: SessionTokenData, D: SessionData, S: UserSessio
             None,
             Some(&req_dao.req_env),
         )
-        .await?;
-    Ok(JsonData::message("secret data")
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    Ok(JsonData::default()
         .set_data(json!({ "secret": client_secret,"oauth_secret":oauth_secret  })))
 }
 
@@ -168,16 +194,23 @@ pub struct AppViewSecretParam {
 
 pub async fn app_view_secret<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: AppViewSecretParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let app = req_dao
         .web_dao
         .app
         .app_dao
         .app
         .find_by_id(&param.app_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -190,7 +223,8 @@ pub async fn app_view_secret<T: SessionTokenData, D: SessionData, S: UserSession
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::default()
         .set_data(json!({ "secret": app.client_secret,"oauth_secret":app.oauth_secret })))
 }
@@ -202,9 +236,15 @@ pub struct AppConfrimParam {
 
 pub async fn app_confirm<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: AppConfrimParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -216,14 +256,16 @@ pub async fn app_confirm<T: SessionTokenData, D: SessionData, S: UserSession<T, 
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let app = req_dao
         .web_dao
         .app
         .app_dao
         .app
         .find_by_id(&param.app_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let change = req_dao
         .web_dao
         .app
@@ -235,7 +277,8 @@ pub async fn app_confirm<T: SessionTokenData, D: SessionData, S: UserSession<T, 
             None,
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "change": change })))
 }
 
@@ -268,9 +311,15 @@ pub struct ShowAppData {
 
 pub async fn app_list<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: AppListParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let see_user_id = param.user_id;
     req_dao
         .web_dao
@@ -284,13 +333,14 @@ pub async fn app_list<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let status = if let Some(e) = param.status {
         let mut out = Vec::with_capacity(e.len());
         for tmp in e {
             match AppStatus::try_from(tmp) {
                 Ok(ts) => out.push(ts),
-                Err(err) => return Err(JsonData::error(err)),
+                Err(err) => return Err(req_dao.fluent_json_data(err)),
             };
         }
         Some(out)
@@ -309,7 +359,8 @@ pub async fn app_list<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>
         .app_dao
         .app
         .app_data(&app_param, &Some(param.page.unwrap_or_default().into()))
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let mut out = Vec::with_capacity(appdata.len());
     for tmp in appdata {
         let is_sms = if param.check_sms.unwrap_or(false) {
@@ -373,7 +424,8 @@ pub async fn app_list<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>
                 .app_dao
                 .app
                 .app_count(&app_param)
-                .await?,
+                .await
+                .map_err(|e| req_dao.fluent_json_data(e))?,
         )
     } else {
         None

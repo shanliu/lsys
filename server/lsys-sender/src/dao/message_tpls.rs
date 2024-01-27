@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::dao::{SenderError, SenderResult};
 use crate::model::{SenderTplBodyModel, SenderTplBodyModelRef, SenderTplBodyStatus, SenderType};
-use lsys_core::{get_message, now_time, FluentMessage, PageParam, RequestEnv};
+use lsys_core::{fluent_message, now_time, PageParam, RequestEnv};
 
 use lsys_logger::dao::ChangeLogger;
 use sqlx::Pool;
@@ -18,20 +18,15 @@ use super::logger::LogMessageTpls;
 pub struct MessageTpls {
     db: Pool<sqlx::MySql>,
     tera: RwLock<Tera>,
-    fluent: Arc<FluentMessage>,
     logger: Arc<ChangeLogger>,
 }
 
 impl MessageTpls {
-    pub fn new(
-        db: Pool<sqlx::MySql>,
-        fluent: Arc<FluentMessage>,
-        logger: Arc<ChangeLogger>,
-    ) -> Self {
+    pub fn new(db: Pool<sqlx::MySql>, logger: Arc<ChangeLogger>) -> Self {
         Self {
             db,
             tera: RwLock::new(Tera::default()),
-            fluent,
+
             logger,
         }
     }
@@ -55,7 +50,7 @@ impl MessageTpls {
     ) -> SenderResult<u64> {
         let sender_type = sender_type as i8;
         Template::new(&self.tpl_key(sender_type, tpl_id), None, tpl_data)
-            .map_err(SenderError::Tpl)?;
+            .map_err(SenderError::Tera)?;
         let tpl_id = tpl_id.to_owned();
         let user_id = user_id.to_owned();
         let time = now_time().unwrap_or_default();
@@ -78,9 +73,8 @@ impl MessageTpls {
                 if tpl.user_id == user_id {
                     return Ok(tpl.id);
                 } else {
-                    return Err(SenderError::System(get_message!(&self.fluent,
-                        "tpl-exits","tpl {$tpl_id} bind in other tpl [{$id}]",
-                        ["tpl_id"=>tpl_id,"id"=>tpl.id ]
+                    return Err(SenderError::System(fluent_message!("tpl-exits",
+                        {"tpl_id":tpl_id,"id":tpl.id }//"tpl {$tpl_id} bind in other tpl [{$id}]",
                     )));
                 }
             }

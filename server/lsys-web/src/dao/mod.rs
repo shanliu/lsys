@@ -2,7 +2,7 @@ use area_db::AreaDao;
 use ip2location::LocationDB;
 use lsys_app::dao::AppDao;
 use lsys_core::cache::{LocalCacheClear, LocalCacheClearItem};
-use lsys_core::{AppCore, AppCoreError, RemoteNotify};
+use lsys_core::{AppCore, AppCoreError, FluentMgr, RemoteNotify};
 use lsys_docs::dao::{DocsDao, GitRemoteTask};
 use lsys_logger::dao::ChangeLogger;
 use lsys_notify::dao::Notify;
@@ -15,8 +15,8 @@ use lsys_user::dao::auth::{UserAuthConfig, UserAuthRedisStore};
 use lsys_user::dao::UserDao;
 
 use sqlx::{MySql, Pool};
+use std::sync::Arc;
 use std::vec;
-use std::{path::PathBuf, str::FromStr, sync::Arc};
 use tera::Tera;
 use tokio::sync::Mutex;
 use tracing::{error, info, warn};
@@ -56,26 +56,16 @@ pub struct WebDao {
     pub logger: Arc<ChangeLogger>,
     pub area: Option<Arc<AreaDao>>,
     pub notify: Arc<Notify>,
+    pub fluent: FluentMgr,
 }
 
 impl WebDao {
     pub async fn new(app_core: Arc<AppCore>) -> Result<WebDao, AppCoreError> {
+        let path = app_core.config_path(app_core.config.find(None), "fluent_dir")?;
+        let fluent = FluentMgr::new(path, "app", None).await?;
+
         let db = app_core.create_db().await?;
-        let tera_dir = app_core.app_dir.join("src/template");
-        let tera_tpl = if tera_dir.exists() {
-            String::from(tera_dir.to_string_lossy())
-        } else {
-            let cargo_dir = env!("CARGO_MANIFEST_DIR");
-            let tpl_dir = format!("{}/src/template", cargo_dir);
-            if !PathBuf::from_str(&tpl_dir)?.exists() {
-                return Err(AppCoreError::AppDir(format!(
-                    "not find tpl dir :{}",
-                    tpl_dir
-                )));
-            }
-            tpl_dir
-        };
-        let tera = Arc::new(app_core.create_tera(&tera_tpl)?);
+        let tera = Arc::new(app_core.create_tera(None)?);
         let redis = app_core.create_redis().await?;
         let remote_notify = Arc::new(RemoteNotify::new(
             "lsys-remote-notify",
@@ -86,7 +76,7 @@ impl WebDao {
         let change_logger = Arc::new(ChangeLogger::new(db.clone()));
         let setting = Arc::new(
             Setting::new(
-                app_core.clone(),
+                //app_core.clone(),
                 db.clone(),
                 remote_notify.clone(),
                 change_logger.clone(),
@@ -96,6 +86,7 @@ impl WebDao {
 
         let root_user_id = app_core
             .config
+            .find(None)
             .get_array("root_user_id")
             .unwrap_or_default()
             .iter()
@@ -103,19 +94,22 @@ impl WebDao {
             .collect::<Vec<u64>>();
         let rbac_dao = Arc::new(
             RbacDao::new(
-                app_core.clone(),
                 db.clone(),
                 remote_notify.clone(),
                 change_logger.clone(),
                 Some(Box::new(SystemRole::new(true, root_user_id))),
-                app_core.config.get_bool("rbac_cache").unwrap_or(false),
+                app_core
+                    .config
+                    .find(None)
+                    .get_bool("rbac_cache")
+                    .unwrap_or(false),
             )
             .await?,
         );
         let login_store = UserAuthRedisStore::new(redis.clone());
         let mut login_config = UserAuthConfig::default();
 
-        match app_core.get_config_path("ip_city_db") {
+        match app_core.config_path(app_core.config.find(None), "ip_city_db") {
             Ok(ip_db_path) => match LocationDB::from_file(&ip_db_path) {
                 Ok(city_db) => {
                     login_config.ip_db = Some(Mutex::new(ip2location::DB::LocationDb(city_db)));
@@ -129,13 +123,15 @@ impl WebDao {
             }
         }
 
+        let doc_dir = app_core.config.find(None).get_string("doc_git_dir").ok();
         let docs = Arc::new(
             DocsDao::new(
-                app_core.clone(),
+                // app_core.clone(),
                 db.clone(),
                 remote_notify.clone(),
                 change_logger.clone(),
                 None,
+                doc_dir,
             )
             .await,
         );
@@ -147,7 +143,6 @@ impl WebDao {
 
         let user_dao = Arc::new(
             UserDao::new(
-                app_core.clone(),
                 db.clone(),
                 redis.clone(),
                 setting.single.clone(),
@@ -161,7 +156,6 @@ impl WebDao {
         let app_dao = Arc::new(
             AppDao::new(
                 user_dao.user_account.clone(),
-                app_core.clone(),
                 db.clone(),
                 redis.clone(),
                 remote_notify.clone(),
@@ -173,7 +167,6 @@ impl WebDao {
         let apps = WebApp::new(app_dao).await;
         let mailer = Arc::new(WebAppMailer::new(
             app_core.clone(),
-            user_dao.fluent.clone(),
             redis.clone(),
             db.clone(),
             setting.clone(),
@@ -214,7 +207,6 @@ impl WebDao {
             app_core.clone(),
             redis.clone(),
             db.clone(),
-            user_dao.fluent.clone(),
             setting.clone(),
             change_logger.clone(),
             notify.clone(),
@@ -239,20 +231,7 @@ impl WebDao {
         });
         let captcha = Arc::new(WebAppCaptcha::new(redis.clone()));
 
-        let app_locale_dir = app_core.app_dir.join("locale/lsys-web");
-        let fluents_message = Arc::new(if app_locale_dir.exists() {
-            app_core.create_fluent(app_locale_dir).await?
-        } else {
-            let cargo_dir = env!("CARGO_MANIFEST_DIR");
-            app_core
-                .create_fluent(cargo_dir.to_owned() + "/locale")
-                .await?
-        });
-        let sender_tpl = Arc::new(MessageTpls::new(
-            db.clone(),
-            fluents_message.clone(),
-            change_logger.clone(),
-        ));
+        let sender_tpl = Arc::new(MessageTpls::new(db.clone(), change_logger.clone()));
 
         // 本地lua缓存清理 local cache
         let mut cache_item: Vec<Box<dyn LocalCacheClearItem + Sync + Send + 'static>> = vec![];
@@ -277,13 +256,13 @@ impl WebDao {
 
         //行政区域地址库数据初始化
         let mut area = None;
-        match app_core.get_config_path("area_code_db") {
+        match app_core.config_path(app_core.config.find(None), "area_code_db") {
             Ok(code_path) => {
                 match area_db::CsvAreaCodeData::from_inner_path(code_path.clone(), true) {
                     Ok(tmp) => {
                         let data = area_db::CsvAreaData::new(tmp, None);
                         let area_index_dir = app_core
-                            .get_config_path("area_index_dir")
+                            .config_path(app_core.config.find(None), "area_index_dir")
                             .unwrap_or_else(|_| {
                                 let mut index_dir = std::env::temp_dir();
                                 index_dir.push("lsys_area_cache");
@@ -291,6 +270,7 @@ impl WebDao {
                             });
                         let area_index_size = app_core
                             .config
+                            .find(None)
                             .get_int("area_index_size")
                             .map(|e| e.abs() as usize)
                             .ok();
@@ -313,6 +293,7 @@ impl WebDao {
         }
         Ok(WebDao {
             docs,
+            fluent,
             user: Arc::new(WebUser::new(
                 user_dao,
                 rbac_dao,
@@ -320,7 +301,6 @@ impl WebDao {
                 redis.clone(),
                 captcha.clone(),
                 app_core.clone(),
-                fluents_message,
                 setting.clone(),
             )),
             app: Arc::new(apps),
@@ -342,11 +322,13 @@ impl WebDao {
         let host = self
             .app_core
             .config
+            .find(None)
             .get_string("app_host")
             .unwrap_or("127.0.0.1".to_owned());
         let port = self
             .app_core
             .config
+            .find(None)
             .get_string("app_port")
             .unwrap_or("80".to_owned());
         format!("{}:{}", host, port)
@@ -355,15 +337,27 @@ impl WebDao {
         let host = self
             .app_core
             .config
+            .find(None)
             .get_string("app_host")
             .unwrap_or("127.0.0.1".to_owned());
         let port = self
             .app_core
             .config
+            .find(None)
             .get_string("app_ssl_port")
             .unwrap_or("443".to_string());
-        let cert = self.app_core.config.get_string("app_ssl_cert").ok()?;
-        let key = self.app_core.config.get_string("app_ssl_key").ok()?;
+        let cert = self
+            .app_core
+            .config
+            .find(None)
+            .get_string("app_ssl_cert")
+            .ok()?;
+        let key = self
+            .app_core
+            .config
+            .find(None)
+            .get_string("app_ssl_key")
+            .ok()?;
         Some((format!("{}:{}", host, port), cert, key))
     }
 }

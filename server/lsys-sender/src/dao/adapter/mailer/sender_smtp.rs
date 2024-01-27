@@ -21,7 +21,7 @@ use lettre::{
     },
     AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
 };
-use lsys_core::{get_message, FluentMessage, RequestEnv};
+use lsys_core::{fluent_message, RequestEnv};
 use lsys_logger::dao::ChangeLogger;
 use lsys_setting::{
     dao::{
@@ -106,36 +106,38 @@ pub struct SmtpTplConfig {
     pub body_tpl_id: String,
 }
 
-pub fn check_email(fluent: &Arc<FluentMessage>, email: &str) -> SenderResult<()> {
+pub fn check_email(email: &str) -> SenderResult<()> {
     let re = Regex::new(r"^[A-Za-z0-9\u4e00-\u9fa5\.\-]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$")
         .map_err(|e| {
-            SenderError::System(get_message!(fluent, "check-email-error", e.to_string()))
+            SenderError::System(lsys_core::fluent_message!("check-email-error",
+                {
+                    "mail":email,
+                    "msg":e
+                }
+            ))
         })?;
     if !re.is_match(email) {
-        return Err(SenderError::System(get_message!(
-            fluent,
-            "check-email-error",
-            "submit email is invalid"
-        )));
+        return Err(SenderError::System(
+            lsys_core::fluent_message!("check-email-not-match",
+                {
+                    "mail":email,
+                }
+
+            ),
+        )); //  "submit email is invalid"
     }
     Ok(())
 }
 
 //邮件发送smtp配置
 pub struct SenderSmtpConfig {
-    fluent: Arc<FluentMessage>,
     setting: Arc<MultipleSetting>,
     tpl_config: Arc<SenderTplConfig>,
 }
 
 impl SenderSmtpConfig {
-    pub fn new(
-        fluent: Arc<FluentMessage>,
-        setting: Arc<MultipleSetting>,
-        tpl_config: Arc<SenderTplConfig>,
-    ) -> Self {
+    pub fn new(setting: Arc<MultipleSetting>, tpl_config: Arc<SenderTplConfig>) -> Self {
         Self {
-            fluent,
             tpl_config,
             setting,
         }
@@ -195,10 +197,10 @@ impl SenderSmtpConfig {
     pub async fn check_config(&self, config: &SmtpConfig) -> SenderResult<()> {
         connect(config, 5)
             .await
-            .map_err(SenderError::System)?
+            .map_err(|e| SenderError::System(fluent_message!("smtp-check-error", e)))?
             .test_connection()
             .await
-            .map_err(|e| SenderError::System(e.to_string()))?;
+            .map_err(|e| SenderError::System(fluent_message!("smtp-check-error", e)))?;
         Ok(())
     }
     //关联发送跟smtp的配置
@@ -220,9 +222,9 @@ impl SenderSmtpConfig {
         self.setting
             .load::<SmtpConfig>(&None, smtp_config_id)
             .await?;
-        check_email(&self.fluent, from_email)?;
+        check_email(from_email)?;
         if !reply_email.is_empty() {
-            check_email(&self.fluent, reply_email)?;
+            check_email(reply_email)?;
         }
         let from_email = from_email.to_owned();
         let reply_email = reply_email.to_owned();
@@ -259,14 +261,10 @@ pub struct SmtpSenderTask {
 }
 
 impl SmtpSenderTask {
-    pub fn new(
-        db: Pool<sqlx::MySql>,
-        fluent: Arc<FluentMessage>,
-        logger: Arc<ChangeLogger>,
-    ) -> Self {
+    pub fn new(db: Pool<sqlx::MySql>, logger: Arc<ChangeLogger>) -> Self {
         Self {
             mailer: Arc::new(RwLock::new(HashMap::new())),
-            tpls: Arc::new(MessageTpls::new(db, fluent, logger)),
+            tpls: Arc::new(MessageTpls::new(db, logger)),
         }
     }
 }

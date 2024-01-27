@@ -4,7 +4,7 @@ use crate::dao::auth::{
 };
 use crate::model::UserModel;
 use async_trait::async_trait;
-use lsys_core::{now_time, rand_str, RandType};
+use lsys_core::{fluent_message, now_time, rand_str, RandType};
 // use rand::seq::SliceRandom;
 
 use redis::AsyncCommands;
@@ -119,7 +119,9 @@ impl UserAuthStore for UserAuthRedisStore {
                 let user_auth = serde_json::from_str::<UserAuthData>(data.as_str())?;
                 Ok(user_auth)
             }
-            None => Err(UserAuthError::NotLogin("token not find".to_string())),
+            None => Err(UserAuthError::NotLogin(fluent_message!(
+                "not-login-empty-token"
+            ))),
         }
     }
     async fn exist_data(&self, token: &UserAuthTokenData) -> UserAuthResult<bool> {

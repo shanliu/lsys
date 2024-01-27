@@ -1,5 +1,5 @@
 use crate::{
-    dao::RequestDao,
+    dao::RequestAuthDao,
     handler::access::{AccessAdminSmsConfig, AccessAppSenderSmsConfig},
     {JsonData, JsonResult},
 };
@@ -30,20 +30,24 @@ pub struct ShowAliYunConfig {
     pub callback_key: String,
 }
 
-pub async fn smser_ali_config_list<
-    't,
-    T: SessionTokenData,
-    D: SessionData,
-    S: UserSession<T, D>,
->(
+pub async fn smser_ali_config_list<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: SmserAliConfigListParam,
     callback_call: impl Fn(&SettingData<AliYunConfig>) -> String,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     let alisender = &req_dao.web_dao.sender_smser.aliyun_sender;
-    let row = alisender.list_config(&param.ids).await?;
+    let row = alisender
+        .list_config(&param.ids)
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let out = if param.full_data.unwrap_or(false) {
-        let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+        let req_auth = req_dao
+            .user_session
+            .read()
+            .await
+            .get_session_data()
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
         req_dao
             .web_dao
             .user
@@ -55,7 +59,8 @@ pub async fn smser_ali_config_list<
                 },
                 None,
             )
-            .await?;
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
         let tmp = row
             .into_iter()
             .map(|e| ShowAliYunConfig {
@@ -99,11 +104,17 @@ pub struct SmserAliConfigAddParam {
     pub limit: Option<u16>,
 }
 
-pub async fn smser_ali_config_add<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
+pub async fn smser_ali_config_add<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: SmserAliConfigAddParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -115,7 +126,8 @@ pub async fn smser_ali_config_add<'t, T: SessionTokenData, D: SessionData, S: Us
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let alisender = &req_dao.web_dao.sender_smser.aliyun_sender;
     let row = alisender
         .add_config(
@@ -128,7 +140,8 @@ pub async fn smser_ali_config_add<'t, T: SessionTokenData, D: SessionData, S: Us
             &req_auth.user_data().user_id,
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "id": row })))
 }
 
@@ -143,16 +156,17 @@ pub struct SmserAliConfigEditParam {
     pub limit: Option<u16>,
 }
 
-pub async fn smser_ali_config_edit<
-    't,
-    T: SessionTokenData,
-    D: SessionData,
-    S: UserSession<T, D>,
->(
+pub async fn smser_ali_config_edit<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: SmserAliConfigEditParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -164,7 +178,8 @@ pub async fn smser_ali_config_edit<
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let alisender = &req_dao.web_dao.sender_smser.aliyun_sender;
     let row = alisender
         .edit_config(
@@ -178,7 +193,8 @@ pub async fn smser_ali_config_edit<
             &req_auth.user_data().user_id,
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "num": row })))
 }
 
@@ -187,11 +203,17 @@ pub struct SmserAliConfigDelParam {
     pub id: u64,
 }
 
-pub async fn smser_ali_config_del<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
+pub async fn smser_ali_config_del<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: SmserAliConfigDelParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -203,7 +225,8 @@ pub async fn smser_ali_config_del<'t, T: SessionTokenData, D: SessionData, S: Us
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let alisender = &req_dao.web_dao.sender_smser.aliyun_sender;
     let row = alisender
         .del_config(
@@ -211,7 +234,8 @@ pub async fn smser_ali_config_del<'t, T: SessionTokenData, D: SessionData, S: Us
             &req_auth.user_data().user_id,
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "num": row })))
 }
 
@@ -226,16 +250,17 @@ pub struct SmserAppAliConfigAddParam {
     pub aliyun_sign_name: String,
 }
 
-pub async fn smser_ali_app_config_add<
-    't,
-    T: SessionTokenData,
-    D: SessionData,
-    S: UserSession<T, D>,
->(
+pub async fn smser_ali_app_config_add<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: SmserAppAliConfigAddParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let uid = param.user_id.unwrap_or(req_auth.user_data().user_id);
 
     req_dao
@@ -251,8 +276,8 @@ pub async fn smser_ali_app_config_add<
             },
             None,
         )
-        .await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let alisender = &req_dao.web_dao.sender_smser.aliyun_sender;
     let row = alisender
         .add_app_config(
@@ -266,6 +291,7 @@ pub async fn smser_ali_app_config_add<
             &req_auth.user_data().user_id,
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "id": row })))
 }

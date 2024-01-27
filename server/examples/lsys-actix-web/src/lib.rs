@@ -3,6 +3,7 @@ use actix_web::web::{Data, JsonConfig};
 use actix_web::{error, http, middleware as middlewares, App, HttpResponse, HttpServer};
 use common::handler::{JwtQueryConfig, RestQueryConfig};
 
+use futures_util::TryFutureExt;
 use handler::router_main;
 use jsonwebtoken::{DecodingKey, Validation};
 use lsys_core::{AppCore, AppCoreError};
@@ -84,8 +85,8 @@ fn load_rustls_config(
     Ok(config.with_single_cert(cert_chain, PrivateKey(key))?)
 }
 
-pub async fn create_server(app_dir: &str, config_files: &[&str]) -> Result<Server, AppError> {
-    let app_core = Arc::new(AppCore::init(app_dir, config_files).await?);
+pub async fn create_server(app_dir: &str) -> Result<Server, AppError> {
+    let app_core = Arc::new(AppCore::init(app_dir, "config", None).await?);
     app_core.init_tracing()?;
     //console_subscriber::init();
     let app_dao = Data::new(WebDao::new(app_core.clone()).await?);
@@ -94,8 +95,9 @@ pub async fn create_server(app_dir: &str, config_files: &[&str]) -> Result<Serve
     let app_jwt_key = app_dao
         .app_core
         .config
+        .find(None)
         .get_string("app_jwt_key")
-        .map_err(AppCoreError::Config)?;
+        .map_err(|err| AppCoreError::Config(lsys_core::ConfigError::Config(err)))?;
     // let app_rest_config = app_dao.app_core.config.get_table("app_rest").unwrap();
     let mut server = HttpServer::new(move || {
         let jwt_config = JwtQueryConfig::new(
@@ -105,6 +107,7 @@ pub async fn create_server(app_dir: &str, config_files: &[&str]) -> Result<Serve
         let app_json_limit = app_dao
             .app_core
             .config
+            .find(None)
             .get_int("app_json_limit")
             .unwrap_or(4096);
         let json_config = JsonConfig::default()
@@ -124,7 +127,11 @@ pub async fn create_server(app_dir: &str, config_files: &[&str]) -> Result<Serve
                 //     }
                 // })
                 let apps = app_data.app.app_dao.app.clone();
-                Box::pin(async move { apps.find_secret_by_client_id(&app_key).await })
+                Box::pin(async move {
+                    apps.find_secret_by_client_id(&app_key)
+                        .map_err(|e| e.to_string())
+                        .await
+                })
             }));
 
         let app = App::new()
@@ -133,9 +140,6 @@ pub async fn create_server(app_dir: &str, config_files: &[&str]) -> Result<Serve
                 middlewares::ErrorHandlers::new()
                     .handler(http::StatusCode::INTERNAL_SERVER_ERROR, handler::render_500),
             )
-            .wrap(common::middleware::LangSet::new(
-                app_dao.clone().into_inner(),
-            ))
             .wrap(middlewares::DefaultHeaders::new().add(("Access-Control-Allow-Origin", "*")))
             .wrap(common::middleware::RequestID::new(None))
             .app_data(app_dao.clone())

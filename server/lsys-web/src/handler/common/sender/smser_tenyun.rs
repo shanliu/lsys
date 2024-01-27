@@ -1,5 +1,5 @@
 use crate::{
-    dao::RequestDao,
+    dao::RequestAuthDao,
     handler::access::{AccessAdminSmsConfig, AccessAppSenderSmsConfig},
     {JsonData, JsonResult},
 };
@@ -31,20 +31,24 @@ pub struct ShowTenYunConfig {
     pub limit: u16,
 }
 
-pub async fn smser_ten_config_list<
-    't,
-    T: SessionTokenData,
-    D: SessionData,
-    S: UserSession<T, D>,
->(
+pub async fn smser_ten_config_list<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: SmserTenConfigListParam,
     callback_call: impl Fn(&SettingData<TenYunConfig>) -> String,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     let tensender = &req_dao.web_dao.sender_smser.tenyun_sender;
-    let row = tensender.list_config(&param.ids).await?;
+    let row = tensender
+        .list_config(&param.ids)
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let out = if param.full_data.unwrap_or(false) {
-        let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+        let req_auth = req_dao
+            .user_session
+            .read()
+            .await
+            .get_session_data()
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
         req_dao
             .web_dao
             .user
@@ -56,7 +60,8 @@ pub async fn smser_ten_config_list<
                 },
                 None,
             )
-            .await?;
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
         let tmp = row
             .into_iter()
             .map(|e| ShowTenYunConfig {
@@ -104,9 +109,15 @@ pub struct SmserTenConfigAddParam {
 
 pub async fn smser_ten_config_add<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: SmserTenConfigAddParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -118,7 +129,8 @@ pub async fn smser_ten_config_add<'t, T: SessionTokenData, D: SessionData, S: Us
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let tensender = &req_dao.web_dao.sender_smser.tenyun_sender;
     let row = tensender
         .add_config(
@@ -132,7 +144,8 @@ pub async fn smser_ten_config_add<'t, T: SessionTokenData, D: SessionData, S: Us
             &req_auth.user_data().user_id,
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "id": row })))
 }
 
@@ -148,16 +161,17 @@ pub struct SmserTenConfigEditParam {
     pub callback_key: String,
 }
 
-pub async fn smser_ten_config_edit<
-    't,
-    T: SessionTokenData,
-    D: SessionData,
-    S: UserSession<T, D>,
->(
+pub async fn smser_ten_config_edit<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: SmserTenConfigEditParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -169,7 +183,8 @@ pub async fn smser_ten_config_edit<
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let tensender = &req_dao.web_dao.sender_smser.tenyun_sender;
     let row = tensender
         .edit_config(
@@ -184,7 +199,8 @@ pub async fn smser_ten_config_edit<
             &req_auth.user_data().user_id,
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "num": row })))
 }
 
@@ -195,9 +211,15 @@ pub struct SmserTenConfigDelParam {
 
 pub async fn smser_ten_config_del<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: SmserTenConfigDelParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -209,7 +231,8 @@ pub async fn smser_ten_config_del<'t, T: SessionTokenData, D: SessionData, S: Us
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let tensender = &req_dao.web_dao.sender_smser.tenyun_sender;
     let row = tensender
         .del_config(
@@ -217,7 +240,8 @@ pub async fn smser_ten_config_del<'t, T: SessionTokenData, D: SessionData, S: Us
             &req_auth.user_data().user_id,
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "num": row })))
 }
 
@@ -233,16 +257,17 @@ pub struct SmserAppTenConfigAddParam {
     pub template_map: String,
 }
 
-pub async fn smser_ten_app_config_add<
-    't,
-    T: SessionTokenData,
-    D: SessionData,
-    S: UserSession<T, D>,
->(
+pub async fn smser_ten_app_config_add<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: SmserAppTenConfigAddParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let uid = param.user_id.unwrap_or(req_auth.user_data().user_id);
 
     req_dao
@@ -258,8 +283,8 @@ pub async fn smser_ten_app_config_add<
             },
             None,
         )
-        .await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let tensender = &req_dao.web_dao.sender_smser.tenyun_sender;
 
     let row = tensender
@@ -275,6 +300,7 @@ pub async fn smser_ten_app_config_add<
             &req_auth.user_data().user_id,
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "id": row })))
 }

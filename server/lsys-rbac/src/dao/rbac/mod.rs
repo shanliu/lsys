@@ -32,10 +32,10 @@ pub const PRIORITY_MIN: i8 = 0;
 
 #[derive(Debug)]
 pub enum UserRbacError {
-    NotLogin(String),
+    NotLogin(FluentMessage),
     Sqlx(sqlx::Error),
-    System(String),
-    Check(Vec<(String, String)>),
+    System(FluentMessage),
+    Check(Vec<(String, FluentMessage)>),
 }
 impl Display for UserRbacError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -64,7 +64,6 @@ pub struct Rbac {
 
 impl Rbac {
     pub fn new(
-        fluent: Arc<FluentMessage>,
         db: Pool<MySql>,
         remote_notify: Arc<RemoteNotify>,
         system_role: Option<Box<dyn SystemRoleCheckData>>,
@@ -87,7 +86,7 @@ impl Rbac {
 
         let role = Arc::from(RbacRole::new(
             db.clone(),
-            fluent.clone(),
+            // fluent.clone(),
             tags.clone(),
             role_relation_cache.clone(),
             role_access_cache.clone(),
@@ -95,14 +94,14 @@ impl Rbac {
         ));
         let res = Arc::from(RbacRes::new(
             db,
-            fluent.clone(),
+            // fluent.clone(),
             tags.clone(),
             role.clone(),
             res_key_cache.clone(),
             logger,
         ));
         let access = Arc::from(RbacAccess::new(
-            fluent,
+            // fluent,
             res.clone(),
             role.clone(),
             system_role,

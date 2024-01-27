@@ -1,11 +1,11 @@
-use crate::common::handler::{OauthAuthQuery, ResponseJson, ResponseJsonResult, RestQuery};
+use crate::common::handler::{
+    OauthAuthQuery, ReqQuery, ResponseJson, ResponseJsonResult, RestQuery,
+};
 
-use actix_web::web::Data;
 use actix_web::{get, post, web::Query};
 use lsys_app::dao::session::RestAuthTokenData;
 use lsys_user::dao::auth::{SessionToken, UserSession};
 
-use lsys_web::dao::WebDao;
 use lsys_web::handler::oauth::{
     login_data_from_oauth, oauth_create_token, OauthCodeParam, OauthDataOptionParam,
 };
@@ -14,9 +14,9 @@ use lsys_web::handler::oauth::{oauth_refresh_token, OauthRefreshCodeParam};
 #[get("/token")]
 pub(crate) async fn token(
     token_param: Query<OauthCodeParam>,
-    web_dao: Data<WebDao>,
+    req_dao: ReqQuery,
 ) -> ResponseJsonResult<ResponseJson> {
-    Ok(oauth_create_token(&web_dao, token_param.into_inner())
+    Ok(oauth_create_token(&req_dao, token_param.into_inner())
         .await?
         .into())
 }
@@ -48,10 +48,7 @@ pub(crate) async fn user_data(
         Some("info") => {
             login_data_from_oauth(
                 rest.param::<OauthDataOptionParam>()?,
-                &rest
-                    .rfc
-                    .to_app_model(&oauth_param.web_dao.app.app_dao.app)
-                    .await?,
+                &rest.to_app_model().await?,
                 &oauth_param,
             )
             .await

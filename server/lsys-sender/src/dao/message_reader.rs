@@ -5,7 +5,7 @@ use crate::{
     model::{SenderMessageCancelModel, SenderType},
 };
 
-use lsys_core::{now_time, AppCore, FluentMessage};
+use lsys_core::{now_time, AppCore};
 use parking_lot::Mutex;
 use sqlx::{FromRow, MySql, Pool};
 use sqlx_model::{sql_format, ModelTableField, ModelTableName, Select, SqlExpr};
@@ -36,12 +36,7 @@ where
     for<'t> MM:
         FromRow<'t, sqlx::mysql::MySqlRow> + Send + Unpin + ModelTableName + ModelTableField<MySql>,
 {
-    pub fn new(
-        db: Pool<sqlx::MySql>,
-        app_core: Arc<AppCore>,
-        send_type: SenderType,
-        _fluent: Arc<FluentMessage>,
-    ) -> Self {
+    pub fn new(db: Pool<sqlx::MySql>, app_core: Arc<AppCore>, send_type: SenderType) -> Self {
         let id_generator = Arc::new(Mutex::new(app_core.create_snowflake_id_generator()));
         Self {
             id_generator,

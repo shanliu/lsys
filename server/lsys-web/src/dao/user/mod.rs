@@ -1,4 +1,4 @@
-use lsys_core::{AppCore, FluentMessage};
+use lsys_core::AppCore;
 use lsys_rbac::dao::RbacDao;
 use lsys_setting::dao::Setting;
 use lsys_user::dao::{
@@ -31,7 +31,6 @@ pub struct WebUser {
     pub captcha: Arc<WebAppCaptcha>,
     pub app_core: Arc<AppCore>,
     pub setting: Arc<Setting>,
-    fluent: Arc<FluentMessage>,
 }
 
 impl WebUser {
@@ -43,7 +42,7 @@ impl WebUser {
         redis: deadpool_redis::Pool,
         captcha: Arc<WebAppCaptcha>,
         app_core: Arc<AppCore>,
-        fluent: Arc<FluentMessage>,
+
         setting: Arc<Setting>,
     ) -> Self {
         WebUser {
@@ -53,7 +52,6 @@ impl WebUser {
             db,
             redis,
             app_core,
-            fluent,
             setting,
         }
     }

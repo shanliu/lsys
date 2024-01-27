@@ -61,15 +61,15 @@ impl MessageLogs {
     }
     pub async fn list_count(&self, message_id: &u64) -> SenderResult<i64> {
         let sender_type = self.send_type as i8;
-        let sqlwhere = vec![sql_format!(
+        let sqlwhere = sql_format!(
             "sender_type={} and sender_message_id = {}  ",
             sender_type,
             message_id
-        )];
+        );
         let sql = sql_format!(
             "select count(*) as total from {} where {}",
             SenderLogModel::table_name(),
-            SqlExpr(sqlwhere.join(" and "))
+            SqlExpr(sqlwhere)
         );
         let query = sqlx::query_scalar::<_, i64>(&sql);
         let res = query.fetch_one(&self.db).await?;
@@ -81,12 +81,12 @@ impl MessageLogs {
         page: &Option<PageParam>,
     ) -> SenderResult<Vec<SenderLogModel>> {
         let sender_type = self.send_type as i8;
-        let sqlwhere = vec![sql_format!(
+        let sqlwhere = sql_format!(
             "sender_type={} and sender_message_id = {}  ",
             sender_type,
             message_id
-        )];
-        let mut sql = format!("{}  order by id desc", sqlwhere.join(" and "));
+        );
+        let mut sql = format!("{}  order by id desc", sqlwhere);
         if let Some(pdat) = page {
             sql += format!(" limit {} offset {}", pdat.limit, pdat.offset).as_str();
         }

@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
 use crate::{
+    dao::RequestDao,
     handler::access::{AccessResEdit, AccessResView},
     PageParam, {JsonData, JsonResult},
 };
 
-use lsys_core::RequestEnv;
 use lsys_rbac::{
     dao::{RbacDao, RbacRes, ResOp, ResParam, ResTpl},
     model::{RbacResModel, RbacResOpModel, RbacTagsModel},
@@ -42,8 +42,9 @@ pub async fn rbac_res_add(
     param: ResAddParam,
     rbac_dao: &RbacDao,
     user_id: u64,
-    env_data: Option<&RequestEnv>,
+    req_dao: &RequestDao,
 ) -> JsonResult<JsonData> {
+    let env_data = Some(&req_dao.req_env);
     let add_user_id = param.user_id.unwrap_or(user_id);
     rbac_dao
         .rbac
@@ -54,10 +55,15 @@ pub async fn rbac_res_add(
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
 
     let dao = &rbac_dao.rbac.res;
-    let mut transaction = rbac_dao.db.begin().await?;
+    let mut transaction = rbac_dao
+        .db
+        .begin()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let id = match dao
         .add_res(
             add_user_id,
@@ -71,8 +77,11 @@ pub async fn rbac_res_add(
     {
         Ok(id) => id,
         Err(e) => {
-            transaction.rollback().await?;
-            return Err(e.into());
+            transaction
+                .rollback()
+                .await
+                .map_err(|e| req_dao.fluent_json_data(e))?;
+            return Err(req_dao.fluent_json_data(e));
         }
     };
 
@@ -81,7 +90,8 @@ pub async fn rbac_res_add(
             &sqlx_model::WhereOption::Where(sql_format!("id={}", id.to_owned())),
             &mut transaction,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     if let Err(e) = set_attr(
         dao,
         &res,
@@ -89,14 +99,20 @@ pub async fn rbac_res_add(
         param.tags,
         user_id,
         &mut transaction,
-        env_data,
+        req_dao,
     )
     .await
     {
-        transaction.rollback().await?;
+        transaction
+            .rollback()
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
         return Err(e);
     };
-    transaction.commit().await?;
+    transaction
+        .commit()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "id": id })))
 }
 
@@ -112,10 +128,13 @@ pub async fn rbac_res_edit(
     param: ResEditParam,
     rbac_dao: &RbacDao,
     user_id: u64,
-    env_data: Option<&RequestEnv>,
+    req_dao: &RequestDao,
 ) -> JsonResult<JsonData> {
     let dao = &rbac_dao.rbac.res;
-    let res = dao.find_by_id(&param.res_id).await?;
+    let res = dao
+        .find_by_id(&param.res_id)
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     rbac_dao
         .rbac
         .check(
@@ -125,15 +144,29 @@ pub async fn rbac_res_edit(
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
 
-    let mut transaction = rbac_dao.db.begin().await?;
+    let mut transaction = rbac_dao
+        .db
+        .begin()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     if let Err(e) = dao
-        .edit_res(&res, param.name, user_id, Some(&mut transaction), env_data)
+        .edit_res(
+            &res,
+            param.name,
+            user_id,
+            Some(&mut transaction),
+            Some(&req_dao.req_env),
+        )
         .await
     {
-        transaction.rollback().await?;
-        return Err(e.into());
+        transaction
+            .rollback()
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
+        return Err(req_dao.fluent_json_data(e));
     };
     if let Err(e) = set_attr(
         dao,
@@ -142,14 +175,20 @@ pub async fn rbac_res_edit(
         param.tags,
         user_id,
         &mut transaction,
-        env_data,
+        req_dao,
     )
     .await
     {
-        transaction.rollback().await?;
+        transaction
+            .rollback()
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
         return Err(e);
     };
-    transaction.commit().await?;
+    transaction
+        .commit()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
 
     Ok(JsonData::default())
 }
@@ -161,8 +200,9 @@ async fn set_attr<'t>(
     tags: Option<Vec<String>>,
     change_user_id: u64,
     transaction: &mut Transaction<'t, sqlx::MySql>,
-    env_data: Option<&RequestEnv>,
+    req_dao: &RequestDao,
 ) -> JsonResult<()> {
+    let env_data = Some(&req_dao.req_env);
     if let Some(tmp) = ops {
         let ops = tmp
             .into_iter()
@@ -172,11 +212,13 @@ async fn set_attr<'t>(
             })
             .collect();
         dao.res_set_ops(res, ops, change_user_id, Some(transaction), env_data)
-            .await?;
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
     }
     if let Some(ref tmp) = tags {
         dao.res_set_tags(res, tmp, change_user_id, Some(transaction), env_data)
-            .await?
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
     }
     Ok(())
 }
@@ -189,10 +231,14 @@ pub async fn rbac_res_delete(
     param: ResDeleteParam,
     rbac_dao: &RbacDao,
     user_id: u64,
-    env_data: Option<&RequestEnv>,
+    req_dao: &RequestDao,
 ) -> JsonResult<JsonData> {
+    let env_data = Some(&req_dao.req_env);
     let resdao = &rbac_dao.rbac.res;
-    let res = resdao.find_by_id(&param.res_id).await?;
+    let res = resdao
+        .find_by_id(&param.res_id)
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     rbac_dao
         .rbac
         .check(
@@ -202,8 +248,12 @@ pub async fn rbac_res_delete(
             },
             None,
         )
-        .await?;
-    resdao.del_res(&res, user_id, None, env_data).await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    resdao
+        .del_res(&res, user_id, None, env_data)
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::default())
 }
 
@@ -215,6 +265,7 @@ pub async fn rbac_res_tags(
     param: ResTagsParam,
     rbac_dao: &RbacDao,
     user_id: u64,
+    req_dao: &RequestDao,
 ) -> JsonResult<JsonData> {
     let see_user_id = param.user_id.unwrap_or(user_id);
     rbac_dao
@@ -226,8 +277,14 @@ pub async fn rbac_res_tags(
             },
             None,
         )
-        .await?;
-    let out = rbac_dao.rbac.res.user_res_tags(see_user_id).await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    let out = rbac_dao
+        .rbac
+        .res
+        .user_res_tags(see_user_id)
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "data": out })))
 }
 
@@ -253,6 +310,7 @@ pub async fn rbac_res_list_data(
     param: ResListDataParam,
     rbac_dao: &RbacDao,
     user_id: u64,
+    req_dao: &RequestDao,
 ) -> JsonResult<JsonData> {
     let see_user_id = param.user_id.unwrap_or(user_id);
     rbac_dao
@@ -264,7 +322,8 @@ pub async fn rbac_res_list_data(
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
 
     let dao = &rbac_dao.rbac.data;
     let res = dao
@@ -277,7 +336,8 @@ pub async fn rbac_res_list_data(
             out_tags: param.tags,
             page: &Some(param.page.unwrap_or_default().into()),
         })
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let out = res
         .into_iter()
         .map(|e| ResShowData {
@@ -294,7 +354,8 @@ pub async fn rbac_res_list_data(
                 &param.res_id,
                 &param.tags_filter,
             )
-            .await?,
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?,
         )
     } else {
         None

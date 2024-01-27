@@ -1,8 +1,9 @@
 use crate::{
-    dao::RequestDao,
+    dao::RequestAuthDao,
     handler::access::{AccessSystemEmailConfirm, AccessUserEmailEdit, AccessUserEmailView},
     {CaptchaParam, JsonData, JsonResult},
 };
+use lsys_core::fluent_message;
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
 use lsys_user::model::UserEmailStatus;
 use serde::Deserialize;
@@ -13,9 +14,15 @@ pub struct EmailAddParam {
 }
 pub async fn user_email_add<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: EmailAddParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let user = req_dao
         .web_dao
         .user
@@ -23,7 +30,8 @@ pub async fn user_email_add<'t, T: SessionTokenData, D: SessionData, S: UserSess
         .user_account
         .user
         .find_by_id(&req_auth.user_data().user_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -36,8 +44,8 @@ pub async fn user_email_add<'t, T: SessionTokenData, D: SessionData, S: UserSess
             },
             None,
         )
-        .await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let status = lsys_user::model::UserEmailStatus::Init;
     let email_id = req_dao
         .web_dao
@@ -46,7 +54,8 @@ pub async fn user_email_add<'t, T: SessionTokenData, D: SessionData, S: UserSess
         .user_account
         .user_email
         .add_email(&user, param.email, status, None, Some(&req_dao.req_env))
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "id": email_id })))
 }
 
@@ -57,18 +66,23 @@ pub struct EmailSendCodeParam {
 }
 pub async fn user_email_send_code<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: EmailSendCodeParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let valid_code = req_dao
         .web_dao
         .captcha
         .valid_code(&crate::dao::CaptchaKey::AddEmailCode);
     valid_code
         .check_code(&param.captcha.key, &param.captcha.code)
-        .await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let email_res = req_dao
         .web_dao
         .user
@@ -81,10 +95,15 @@ pub async fn user_email_send_code<'t, T: SessionTokenData, D: SessionData, S: Us
         Ok(email) => {
             if UserEmailStatus::Valid.eq(email.status) {
                 if email.user_id != req_auth.user_data().user_id {
-                    return Ok(JsonData::message(format!(
-                        "other user bind[{}]",
-                        email.user_id
-                    )));
+                    return Ok(
+                        req_dao
+                            .fluent_json_data(fluent_message!("mail-bind-other-user",{
+                                "other_user_id":email.user_id,
+                               // "user_id":req_auth.user_data().user_id
+                            }))
+                            .set_code("mail-exits"),
+                        // JsonData::message(format!("other user bind[{}]",)),
+                    );
                 } else {
                     return Ok(JsonData::message("the email is confirm"));
                 }
@@ -93,7 +112,7 @@ pub async fn user_email_send_code<'t, T: SessionTokenData, D: SessionData, S: Us
         }
         Err(err) => {
             if !err.is_not_found() {
-                return Err(err.into());
+                return Err(req_dao.fluent_json_data(err));
             } else {
                 return Ok(JsonData::message("email not find"));
             }
@@ -112,8 +131,8 @@ pub async fn user_email_send_code<'t, T: SessionTokenData, D: SessionData, S: Us
             },
             None,
         )
-        .await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let res = req_dao
         .web_dao
         .user
@@ -131,12 +150,14 @@ pub async fn user_email_send_code<'t, T: SessionTokenData, D: SessionData, S: Us
             &email.user_id,
             &email.email,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .sender_mailer
         .send_valid_code(&email.email, &res.0, &res.1, Some(&req_dao.req_env))
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::message("mail is send"))
 }
 
@@ -147,7 +168,7 @@ pub struct EmailConfirmParam {
 }
 pub async fn user_email_confirm<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: EmailConfirmParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     let email = req_dao
         .web_dao
@@ -156,7 +177,8 @@ pub async fn user_email_confirm<'t, T: SessionTokenData, D: SessionData, S: User
         .user_account
         .user_email
         .find_by_id(&param.email_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     if UserEmailStatus::Delete.eq(email.status) {
         return Ok(JsonData::message("email not find"));
     }
@@ -167,8 +189,8 @@ pub async fn user_email_confirm<'t, T: SessionTokenData, D: SessionData, S: User
             .rbac_dao
             .rbac
             .check(&AccessSystemEmailConfirm {}, None)
-            .await?;
-
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
         req_dao
             .web_dao
             .user
@@ -176,7 +198,8 @@ pub async fn user_email_confirm<'t, T: SessionTokenData, D: SessionData, S: User
             .user_account
             .user_email
             .confirm_email_from_code(&email, &param.code, Some(&req_dao.req_env))
-            .await?;
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
         Ok(JsonData::message("email confirm success"))
     } else {
         Ok(JsonData::message("email is confirm"))
@@ -189,9 +212,15 @@ pub struct EmailDeleteParam {
 }
 pub async fn user_email_delete<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: EmailDeleteParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let res = req_dao
         .web_dao
         .user
@@ -216,8 +245,8 @@ pub async fn user_email_delete<'t, T: SessionTokenData, D: SessionData, S: UserS
                         },
                         None,
                     )
-                    .await?;
-
+                    .await
+                    .map_err(|e| req_dao.fluent_json_data(e))?;
                 req_dao
                     .web_dao
                     .user
@@ -225,12 +254,13 @@ pub async fn user_email_delete<'t, T: SessionTokenData, D: SessionData, S: UserS
                     .user_account
                     .user_email
                     .del_email(&email, None, Some(&req_dao.req_env))
-                    .await?;
+                    .await
+                    .map_err(|e| req_dao.fluent_json_data(e))?;
             }
         }
         Err(e) => {
             if !e.is_not_found() {
-                return Err(e.into());
+                return Err(req_dao.fluent_json_data(e));
             }
         }
     }
@@ -243,10 +273,15 @@ pub struct EmailListDataParam {
 }
 pub async fn user_email_list_data<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: EmailListDataParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -259,14 +294,14 @@ pub async fn user_email_list_data<'t, T: SessionTokenData, D: SessionData, S: Us
             },
             None,
         )
-        .await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let status = if let Some(e) = param.status {
         let mut out = Vec::with_capacity(e.len());
         for tmp in e {
             match UserEmailStatus::try_from(tmp) {
                 Ok(ts) => out.push(ts),
-                Err(err) => return Err(JsonData::error(err)),
+                Err(err) => return Err(req_dao.fluent_json_data(err)),
             };
         }
         Some(out)
@@ -277,7 +312,8 @@ pub async fn user_email_list_data<'t, T: SessionTokenData, D: SessionData, S: Us
         .web_dao
         .user
         .user_email(req_auth.user_data().user_id, status.as_deref())
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({
         "data": data ,
         "total":data.len(),

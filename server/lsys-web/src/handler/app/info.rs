@@ -2,7 +2,7 @@ use lsys_app::model::AppsModel;
 use serde::Deserialize;
 use serde_json::json;
 
-use crate::dao::WebDao;
+use crate::dao::RequestDao;
 
 use crate::{JsonData, JsonResult};
 
@@ -12,20 +12,22 @@ pub struct SubAppViewParam {
 }
 
 pub async fn subapp_view(
-    app_dao: &WebDao,
+    req_dao: &RequestDao,
     app: &AppsModel,
     param: SubAppViewParam,
 ) -> JsonResult<JsonData> {
     // 请求   -> 模块
     //   -> 系统分配appid+请求子应用client_id
     //   -> 返回子应用的appid密钥
-    let out_app = app_dao
+    let out_app = req_dao
+        .web_dao
         .app
         .app_dao
         .sub_app
         .cache()
         .find_sub_secret_by_client_id(&app.id, &param.client_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
 
     Ok(JsonData::data(json!({
         "name": out_app.app_name,

@@ -1,5 +1,7 @@
 use std::collections::BTreeMap;
 
+use std::ops::Deref;
+use std::sync::Arc;
 use std::{
     future::Future,
     task::{Context, Poll},
@@ -14,7 +16,7 @@ use lsys_app::dao::session::RestAuthTokenData;
 use lsys_core::RequestEnv;
 use lsys_user::dao::auth::SessionToken;
 
-use lsys_web::dao::{RequestToken, WebDao};
+use lsys_web::dao::{RequestDao, RequestSessionToken, WebDao};
 use lsys_web::JsonData;
 
 use serde::{de::DeserializeOwned, Deserialize};
@@ -33,6 +35,7 @@ pub struct RestGet {
     pub request_ip: Option<String>,
     pub method: Option<String>,
     pub token: Option<String>,
+    pub lang: Option<String>,
 }
 
 pub struct RestRfc {
@@ -40,6 +43,7 @@ pub struct RestRfc {
     pub version: String,
     pub timestamp: String,
     pub sign: String,
+    pub request_lang: Option<String>,
     pub payload: Option<Value>,
     pub request_ip: Option<String>,
     pub request_id: Option<String>,
@@ -141,14 +145,16 @@ impl Future for RestExtractFut {
                                         Ok(body) => {
                                             rfc.payload = Some(body);
                                             check_sign(&rfc, &key_fn, app_dao.to_owned()).await?;
-                                            Ok(RestQuery {
-                                                req_env: RequestEnv::new(
+                                            Ok(RestQuery::new(
+                                                app_dao.into_inner(),
+                                                RequestEnv::new(
+                                                    rfc.request_lang.clone(),
                                                     rfc.request_ip.clone(),
                                                     rfc.request_id.clone(),
                                                     None,
                                                 ),
                                                 rfc,
-                                            })
+                                            ))
                                         }
                                         Err(err) => Err(err.into()),
                                     }
@@ -170,14 +176,16 @@ impl Future for RestExtractFut {
                             Some(rfc) => {
                                 let mut future = Box::pin(async move {
                                     check_sign(&rfc, &key_fn, app_dao.to_owned()).await?;
-                                    Ok(RestQuery {
-                                        req_env: RequestEnv::new(
+                                    Ok(RestQuery::new(
+                                        app_dao.into_inner(),
+                                        RequestEnv::new(
+                                            rfc.request_lang.clone(),
                                             rfc.request_ip.clone(),
                                             rfc.request_id.clone(),
                                             None,
                                         ),
                                         rfc,
-                                    })
+                                    ))
                                 });
                                 match future.as_mut().poll(cx) {
                                     Poll::Ready(item) => Poll::Ready(Ok(item?)),
@@ -229,11 +237,18 @@ impl Default for RestQueryConfig {
 }
 
 pub struct RestQuery {
+    inner: RequestDao,
     pub rfc: RestRfc,
-    pub req_env: RequestEnv,
 }
 
-impl RequestToken<RestAuthTokenData> for RestQuery {
+impl Deref for RestQuery {
+    type Target = RequestDao;
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl RequestSessionToken<RestAuthTokenData> for RestQuery {
     fn get_user_token(&self) -> SessionToken<RestAuthTokenData> {
         self.rfc
             .token
@@ -260,6 +275,12 @@ impl RequestToken<RestAuthTokenData> for RestQuery {
 }
 
 impl RestQuery {
+    pub fn new(web_dao: Arc<WebDao>, req_env: RequestEnv, rfc: RestRfc) -> Self {
+        Self {
+            inner: RequestDao::new(web_dao, req_env),
+            rfc,
+        }
+    }
     pub fn param<T: DeserializeOwned>(&mut self) -> Result<T, JsonData> {
         let body_data = self.rfc.payload.take();
         match body_data {
@@ -309,6 +330,7 @@ impl FromRequest for RestQuery {
                     let rest_dao = RestWebDao::AppDat(app_dao.clone(), app_key);
                     let mut rfc = RestRfc {
                         request_id,
+                        request_lang: get_param.lang,
                         app_id: get_param.app_id,
                         version: get_param.version,
                         timestamp: get_param.timestamp,

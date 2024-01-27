@@ -2,7 +2,7 @@ use serde::Deserialize;
 use serde_json::json;
 
 use crate::{
-    dao::RequestDao,
+    dao::RequestAuthDao,
     handler::access::{AccessSystemReSetPassword, AccessUserSetPassword},
     {CaptchaParam, JsonData, JsonResult},
 };
@@ -14,9 +14,15 @@ pub struct SetPasswordParam {
 }
 pub async fn user_set_password<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: &SetPasswordParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let user = req_dao
         .web_dao
         .user
@@ -24,7 +30,8 @@ pub async fn user_set_password<'t, T: SessionTokenData, D: SessionData, S: UserS
         .user_account
         .user
         .find_by_id(&req_auth.user_data().user_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -37,12 +44,15 @@ pub async fn user_set_password<'t, T: SessionTokenData, D: SessionData, S: UserS
             },
             None,
         )
-        .await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let user_password = &req_dao.web_dao.user.user_dao.user_account.user_password;
     if user.password_id > 0 {
         if let Some(ref old_passwrod) = param.old_password {
-            let check = user_password.check_password(&user, old_passwrod).await?;
+            let check = user_password
+                .check_password(&user, old_passwrod)
+                .await
+                .map_err(|e| req_dao.fluent_json_data(e))?;
             if !check {
                 return Ok(JsonData::message("old password is wrong").set_sub_code("bad_passwrod"));
             }
@@ -53,7 +63,8 @@ pub async fn user_set_password<'t, T: SessionTokenData, D: SessionData, S: UserS
     }
     let pid = user_password
         .set_passwrod(&user, param.new_password.clone(), None)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "id": pid })))
 }
 
@@ -64,13 +75,12 @@ pub struct ResetPasswordSendCodeFromMobileParam {
     pub captcha: CaptchaParam,
 }
 pub async fn user_reset_password_send_code_from_mobile<
-    't,
     T: SessionTokenData,
     D: SessionData,
     S: UserSession<T, D>,
 >(
     param: ResetPasswordSendCodeFromMobileParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     let mobile = req_dao
         .web_dao
@@ -79,8 +89,11 @@ pub async fn user_reset_password_send_code_from_mobile<
         .user_account
         .user_mobile
         .find_by_last_mobile(param.area_code.clone(), param.mobile.clone())
-        .await?;
-    mobile.is_enable()?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    mobile
+        .is_enable()
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let valid_code = req_dao
         .web_dao
         .captcha
@@ -88,7 +101,8 @@ pub async fn user_reset_password_send_code_from_mobile<
 
     valid_code
         .check_code(&param.captcha.key, &param.captcha.code)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let data = req_dao
         .web_dao
         .user
@@ -106,7 +120,8 @@ pub async fn user_reset_password_send_code_from_mobile<
             &mobile.user_id,
             &format!("mobile-{}-{}", param.area_code, param.mobile),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .sender_smser
@@ -117,7 +132,8 @@ pub async fn user_reset_password_send_code_from_mobile<
             &data.1,
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .captcha
@@ -131,13 +147,12 @@ pub struct ResetPasswordSendCodeFromEmailParam {
     pub captcha: CaptchaParam,
 }
 pub async fn user_reset_password_send_code_from_email<
-    't,
     T: SessionTokenData,
     D: SessionData,
     S: UserSession<T, D>,
 >(
     param: ResetPasswordSendCodeFromEmailParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     let user_email = req_dao
         .web_dao
@@ -146,15 +161,19 @@ pub async fn user_reset_password_send_code_from_email<
         .user_account
         .user_email
         .find_by_last_email(param.email.clone())
-        .await?;
-    user_email.is_enable()?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    user_email
+        .is_enable()
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let valid_code = req_dao
         .web_dao
         .captcha
         .valid_code(&crate::dao::CaptchaKey::ResetPasswordMail);
     valid_code
         .check_code(&param.captcha.key, &param.captcha.code)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let data = req_dao
         .web_dao
         .user
@@ -172,12 +191,14 @@ pub async fn user_reset_password_send_code_from_email<
             &user_email.user_id,
             &format!("mail-{}", param.email),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .sender_mailer
         .send_valid_code(&param.email, &data.0, &data.1, Some(&req_dao.req_env))
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .captcha
@@ -193,13 +214,12 @@ pub struct ResetPasswordFromEmailParam {
     pub new_password: String,
 }
 pub async fn user_reset_password_from_email<
-    't,
     T: SessionTokenData,
     D: SessionData,
     S: UserSession<T, D>,
 >(
     param: &ResetPasswordFromEmailParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     let email = req_dao
         .web_dao
@@ -208,8 +228,9 @@ pub async fn user_reset_password_from_email<
         .user_account
         .user_email
         .find_by_last_email(param.email.clone())
-        .await?;
-    email.is_enable()?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    email.is_enable().map_err(|e| req_dao.fluent_json_data(e))?;
     reset_password(
         &email.user_id,
         &param.new_password,
@@ -227,13 +248,12 @@ pub struct ResetPasswordFromMobileParam {
     pub new_password: String,
 }
 pub async fn user_reset_password_from_mobile<
-    't,
     T: SessionTokenData,
     D: SessionData,
     S: UserSession<T, D>,
 >(
     param: &ResetPasswordFromMobileParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     let mobile = req_dao
         .web_dao
@@ -242,8 +262,11 @@ pub async fn user_reset_password_from_mobile<
         .user_account
         .user_mobile
         .find_by_last_mobile(param.area_code.clone(), param.mobile.clone())
-        .await?;
-    mobile.is_enable()?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    mobile
+        .is_enable()
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     reset_password(
         &mobile.user_id,
         &param.new_password,
@@ -259,7 +282,7 @@ async fn reset_password<'t, T: SessionTokenData, D: SessionData, S: UserSession<
     new_password: &str,
     from_type: &String,
     code: &String,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     req_dao
         .web_dao
@@ -267,8 +290,8 @@ async fn reset_password<'t, T: SessionTokenData, D: SessionData, S: UserSession<
         .rbac_dao
         .rbac
         .check(&AccessSystemReSetPassword {}, None)
-        .await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let user = req_dao
         .web_dao
         .user
@@ -276,8 +299,9 @@ async fn reset_password<'t, T: SessionTokenData, D: SessionData, S: UserSession<
         .user_account
         .user
         .find_by_id(user_id)
-        .await?;
-    user.is_enable()?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    user.is_enable().map_err(|e| req_dao.fluent_json_data(e))?;
 
     let pid = req_dao
         .web_dao
@@ -286,6 +310,7 @@ async fn reset_password<'t, T: SessionTokenData, D: SessionData, S: UserSession<
         .user_account
         .user_password
         .set_passwrod_from_code(&user, new_password.to_owned(), from_type, code, None)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "id": pid })))
 }

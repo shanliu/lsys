@@ -1,5 +1,5 @@
 use lsys_core::{
-    now_time, AppCore, LocalExecType, MsgSendBody, RemoteNotify, RemoteTask, ReplyWait,
+    fluent_message, now_time, LocalExecType, MsgSendBody, RemoteNotify, RemoteTask, ReplyWait,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -58,17 +58,19 @@ pub struct GitTask {
     tx: Sender<()>,
     rx: Mutex<Option<Receiver<()>>>,
     task_size: usize,
-    app_core: Arc<AppCore>,
+    // app_core: Arc<AppCore>,
     task_ing: Arc<Mutex<Vec<TaskIngData>>>,
     remote_notify: Arc<RemoteNotify>,
+    save_dir: String,
 }
 
 impl GitTask {
     pub fn new(
-        app_core: Arc<AppCore>,
+        // app_core: Arc<AppCore>,
         db: Pool<MySql>,
         remote_notify: Arc<RemoteNotify>,
         task_size: Option<usize>,
+        save_dir: String,
     ) -> Self {
         let task_size = task_size.unwrap_or_else(num_cpus::get);
         let (tx, rx) = mpsc::channel::<()>(task_size);
@@ -76,10 +78,11 @@ impl GitTask {
             tx,
             db,
             remote_notify,
-            app_core,
+            // app_core,
             rx: Mutex::new(Some(rx)),
             task_size,
             task_ing: Arc::new(Mutex::new(vec![])),
+            save_dir,
         }
     }
     /// 通知发送模块进行发送操作
@@ -90,7 +93,10 @@ impl GitTask {
                 mpsc::error::TrySendError::Full(_) => Ok(()),
                 mpsc::error::TrySendError::Closed(_) => {
                     warn!("git task is close");
-                    Err(super::GitDocError::System(err.to_string()))
+                    Err(super::GitDocError::System(fluent_message!(
+                        "doc-notify-channel-close",
+                        err
+                    )))
                 }
             },
         }
@@ -282,7 +288,7 @@ impl GitTask {
     //返回是否正常添加任务
     async fn add_task(
         db: &Pool<MySql>,
-        app_core: &Arc<AppCore>,
+        save_dir: &str,
         task_set: &mut JoinSet<TaskResult>,
         task_ing: &Arc<Mutex<Vec<TaskIngData>>>, //进行中任务
         git_tag: DocGitTagModel,
@@ -337,12 +343,11 @@ impl GitTask {
             }
         };
 
-        let config_dir = app_core
-            .config
-            .get_string("doc_git_dir")
-            .unwrap_or_else(|_| env::temp_dir().to_string_lossy().to_string());
+        // let config_dir = config!(app_core.config)
+        //     .get_string("doc_git_dir")
+        //     .unwrap_or_else(|_| env::temp_dir().to_string_lossy().to_string());
 
-        let save_dir = match git_doc_path(&config_dir, &clone_id, &None).await {
+        let save_dir = match git_doc_path(save_dir, &clone_id, &None).await {
             Ok(set) => set,
             Err(err) => {
                 warn!("{} doc save file dir :{}", clone_id, err);
@@ -370,7 +375,8 @@ impl GitTask {
         }
         let db = self.db.clone();
         let max_size = self.task_size;
-        let app_core = self.app_core.clone();
+        // let app_core = self.app_core.clone();
+        let save_dir = self.save_dir.clone();
         let task_ing = self.task_ing.clone(); //任务数据跟任务处理关联数组
         match self.rx.lock().await.take() {
             Some(mut rx) => {
@@ -391,7 +397,7 @@ impl GitTask {
                                 //获取到任务,执行任务
                                 if !Self::add_task(
                                     &exe_db,
-                                    &app_core,
+                                    &save_dir,
                                     &mut task_set,
                                     &task_ing,
                                     v,
@@ -419,13 +425,13 @@ impl GitTask {
                             //异步阻塞等待任务
                             'recv: loop {
                                 if task_set.is_empty() {
-                                    Self::clear_delete_clone(&exe_db, &app_core).await;
+                                    Self::clear_delete_clone(&exe_db, &save_dir).await;
                                     //无进行中任务,只监听新增
                                     match channel_receiver.recv().await {
                                         Some(v) => {
                                             if !Self::add_task(
                                                 &exe_db,
-                                                &app_core,
+                                                &save_dir,
                                                 &mut task_set,
                                                 &task_ing,
                                                 v,
@@ -452,7 +458,7 @@ impl GitTask {
                                                 Some(v) => {
                                                     if !Self::add_task(
                                                         &exe_db,
-                                                        &app_core,
+                                                        &save_dir ,
                                                         &mut task_set,
                                                         &task_ing,
                                                         v,
@@ -584,7 +590,7 @@ impl GitTask {
         }
     }
     //清理已被标记删除，但实际未被删掉的文件
-    async fn clear_delete_clone(db: &Pool<MySql>, app_core: &Arc<AppCore>) {
+    async fn clear_delete_clone(db: &Pool<MySql>, save_dir: &str) {
         let mut start_id = 0;
         loop {
             let mut clear_time = now_time().unwrap_or_default();
@@ -609,7 +615,7 @@ impl GitTask {
                         break;
                     }
                     for tmp in data {
-                        Self::delete_clone_dir(app_core, &tmp).await;
+                        Self::delete_clone_dir(save_dir, &tmp).await;
                         start_id = tmp;
                     }
                 }
@@ -672,30 +678,32 @@ impl GitTask {
             .await
         {
             warn!("remote delete clone fail:{}", err);
-            return Err(GitDocError::Remote(err.to_string()));
+            return Err(GitDocError::Remote(fluent_message!(
+                "doc-notify-call-fail",
+                err
+            )));
         }
         Ok(())
     }
-    pub async fn delete_clone_dir(app_core: &Arc<AppCore>, clone_id: &u64) {
-        let config_dir = app_core
-            .config
-            .get_string("doc_git_dir")
-            .unwrap_or_else(|_| env::temp_dir().to_string_lossy().to_string());
-        let save_dir = match git_doc_path(&config_dir, clone_id, &None).await {
+    pub async fn delete_clone_dir(save_dir: &str, clone_id: &u64) {
+        // let config_dir = config!(app_core.config)
+        //     .get_string("doc_git_dir")
+        //     .unwrap_or_else(|_| env::temp_dir().to_string_lossy().to_string());
+        let save_path = match git_doc_path(save_dir, clone_id, &None).await {
             Ok(set) => set,
             Err(err) => {
                 warn!("{} doc save file dir :{}", clone_id, err);
                 return;
             }
         };
-        if fs::metadata(&save_dir).await.is_err() {
+        if fs::metadata(&save_path).await.is_err() {
             return;
         }
-        if let Err(err) = remove_dir_all(&save_dir).await {
+        if let Err(err) = remove_dir_all(&save_path).await {
             warn!(
                 "clear data {}({}) fail:{}",
                 clone_id,
-                save_dir.to_string_lossy().to_string(),
+                save_path.to_string_lossy().to_string(),
                 err
             );
         };
@@ -715,7 +723,7 @@ impl GitTask {
             .await
         {
             Ok(_) => {
-                Self::delete_clone_dir(&self.app_core, clone_id).await;
+                Self::delete_clone_dir(&self.save_dir, clone_id).await;
             }
             Err(err) => {
                 warn!("update clone bad status fail:{}", err);

@@ -20,6 +20,7 @@ pub(crate) async fn render_404(app: Data<WebDao>) -> impl Responder {
     let static_serve_from = app
         .app_core
         .config
+        .find(None)
         .get_string("static_serve_from")
         .unwrap_or_else(|_| String::from("./static"))
         + "/404.html";

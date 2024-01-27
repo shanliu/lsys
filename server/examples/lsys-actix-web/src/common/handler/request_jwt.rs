@@ -3,7 +3,7 @@ use std::{pin::Pin, str::FromStr};
 use actix_web::{dev::Payload, FromRequest, HttpRequest};
 
 use lsys_user::dao::auth::{SessionToken, UserAuthTokenData};
-use lsys_web::{dao::RequestToken, JsonData};
+use lsys_web::{dao::RequestSessionToken, JsonData};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value;
 
@@ -122,7 +122,7 @@ pub struct JwtQuery {
     pub token_str: String,
 }
 
-impl RequestToken<UserAuthTokenData> for JwtQuery {
+impl RequestSessionToken<UserAuthTokenData> for JwtQuery {
     fn get_user_token<'t>(&self) -> SessionToken<UserAuthTokenData> {
         SessionToken::<UserAuthTokenData>::from_str(self.token_data.claims.token.as_str())
             .unwrap_or_default()

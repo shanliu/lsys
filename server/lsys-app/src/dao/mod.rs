@@ -1,4 +1,4 @@
-use lsys_core::{AppCore, AppCoreError, FluentMessage, RemoteNotify};
+use lsys_core::{fluent_message, AppCoreError, FluentMessage, RemoteNotify};
 use lsys_user::dao::account::UserAccount;
 use std::{
     error::Error,
@@ -22,9 +22,12 @@ pub mod session;
 #[derive(Debug)]
 pub enum AppsError {
     Sqlx(sqlx::Error),
-    System(String),
-    Redis(String),
-    ScopeNotFind(String),
+    System(FluentMessage),
+    Redis(RedisError),
+    RedisPool(PoolError),
+    ScopeNotFind(FluentMessage),
+    UserAccount(UserAccountError),
+    SerdeJson(serde_json::Error),
 }
 impl Display for AppsError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -40,27 +43,27 @@ impl From<sqlx::Error> for AppsError {
 }
 impl From<RedisError> for AppsError {
     fn from(err: RedisError) -> Self {
-        AppsError::Redis(err.to_string())
+        AppsError::Redis(err)
     }
 }
 impl From<PoolError> for AppsError {
     fn from(err: PoolError) -> Self {
-        AppsError::Redis(err.to_string())
+        AppsError::RedisPool(err)
     }
 }
 impl From<SystemTimeError> for AppsError {
     fn from(err: SystemTimeError) -> Self {
-        AppsError::System(err.to_string())
+        AppsError::System(fluent_message!("time-error", err))
     }
 }
 impl From<serde_json::Error> for AppsError {
     fn from(err: serde_json::Error) -> Self {
-        AppsError::System(format!("{:?}", err))
+        AppsError::SerdeJson(err)
     }
 }
 impl From<UserAccountError> for AppsError {
     fn from(err: UserAccountError) -> Self {
-        AppsError::System(format!("user error {:?}", err))
+        AppsError::UserAccount(err)
     }
 }
 
@@ -73,28 +76,17 @@ pub struct AppDao {
     pub app_oauth: Arc<AppsOauth>,
     pub db: Pool<MySql>,
     pub redis: deadpool_redis::Pool,
-    pub(crate) fluent: Arc<FluentMessage>,
 }
 
 impl AppDao {
     pub async fn new(
         user_account: Arc<UserAccount>,
-        app_core: Arc<AppCore>,
         db: Pool<MySql>,
         redis: deadpool_redis::Pool,
         remote_notify: Arc<RemoteNotify>,
         logger: Arc<ChangeLogger>,
         time_out: u64,
     ) -> Result<AppDao, AppCoreError> {
-        let app_locale_dir = app_core.app_dir.join("locale/lsys-app");
-        let fluent = Arc::new(if app_locale_dir.exists() {
-            app_core.create_fluent(app_locale_dir).await?
-        } else {
-            let cargo_dir = env!("CARGO_MANIFEST_DIR");
-            app_core
-                .create_fluent(cargo_dir.to_owned() + "/locale")
-                .await?
-        });
         let sub_app = Arc::from(SubApps::new(
             db.clone(),
             remote_notify.clone(),
@@ -103,7 +95,7 @@ impl AppDao {
         let app = Arc::from(Apps::new(
             db.clone(),
             remote_notify.clone(),
-            fluent.clone(),
+            // fluent.clone(),
             logger,
             sub_app.clone(),
         ));
@@ -112,7 +104,7 @@ impl AppDao {
             user_account,
             db.clone(),
             redis.clone(),
-            fluent.clone(),
+            // fluent.clone(),
             remote_notify,
             time_out,
         ));
@@ -121,7 +113,7 @@ impl AppDao {
             sub_app,
             app_oauth,
             db,
-            fluent,
+            // fluent,
             redis,
         })
     }

@@ -1,6 +1,6 @@
 use lsys_app::model::AppsModel;
 use lsys_rbac::dao::{AccessRes, RbacAccess, RbacCheck, RoleRelationKey, UserRbacResult};
-use lsys_web::{dao::WebDao, JsonData, JsonResult};
+use lsys_web::{dao::RequestDao, JsonData, JsonResult};
 use serde::Deserialize;
 use serde_json::json;
 
@@ -35,12 +35,13 @@ pub struct DemoParam {
     pub text: String,
 }
 pub async fn demo_handler(
-    app_dao: &WebDao,
+    req_dao: &RequestDao,
     app: &AppsModel,
     param: DemoParam,
 ) -> JsonResult<JsonData> {
     //验证权限
-    app_dao
+    req_dao
+        .web_dao
         .user
         .rbac_dao
         .rbac
@@ -50,7 +51,8 @@ pub async fn demo_handler(
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     //业务逻辑。。。
     Ok(JsonData::data(json!({ "text":param.text })))
 }

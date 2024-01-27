@@ -1,10 +1,6 @@
 use crate::common::handler::{ResponseJson, ResponseJsonResult, RestQuery};
 use actix_web::post;
-use actix_web::web::Data;
-use lsys_web::{
-    dao::WebDao,
-    handler::app::{subapp_view, SubAppViewParam},
-};
+use lsys_web::handler::app::{subapp_view, SubAppViewParam};
 
 // 请求   -> 模块
 //       -> 系统分配appid
@@ -13,19 +9,11 @@ use lsys_web::{
 //       -> 检查签名
 //       -> 授权查询...
 #[post("app")]
-pub(crate) async fn app(
-    mut rest: RestQuery,
-    app_dao: Data<WebDao>,
-) -> ResponseJsonResult<ResponseJson> {
+pub(crate) async fn app(mut rest: RestQuery) -> ResponseJsonResult<ResponseJson> {
     Ok(match rest.rfc.method.as_deref() {
         Some("view") => {
             let param = rest.param::<SubAppViewParam>()?;
-            subapp_view(
-                &app_dao,
-                &rest.rfc.to_app_model(&app_dao.app.app_dao.app).await?,
-                param,
-            )
-            .await
+            subapp_view(&rest, &rest.to_app_model().await?, param).await
         }
         var => handler_not_found!(var.unwrap_or_default()),
     }?

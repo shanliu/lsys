@@ -6,7 +6,7 @@ use std::{
 
 use deadpool_redis::PoolError;
 use lsys_app::dao::app::Apps;
-use lsys_core::{AppCore, TaskDispatch};
+use lsys_core::{AppCore, FluentMessage, TaskDispatch};
 use lsys_logger::dao::ChangeLogger;
 use sqlx::Pool;
 use tracing::warn;
@@ -19,8 +19,9 @@ use super::{
 #[derive(Debug)]
 pub enum NotifyError {
     Sqlx(sqlx::Error),
-    Redis(String),
-    System(String),
+    Redis(redis::RedisError),
+    RedisPool(PoolError),
+    System(FluentMessage),
 }
 impl Display for NotifyError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -37,12 +38,12 @@ impl From<sqlx::Error> for NotifyError {
 }
 impl From<redis::RedisError> for NotifyError {
     fn from(err: redis::RedisError) -> Self {
-        NotifyError::Redis(err.to_string())
+        NotifyError::Redis(err)
     }
 }
 impl From<PoolError> for NotifyError {
     fn from(err: PoolError) -> Self {
-        NotifyError::Redis(err.to_string())
+        NotifyError::RedisPool(err)
     }
 }
 

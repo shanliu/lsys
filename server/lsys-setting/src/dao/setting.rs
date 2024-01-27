@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use super::{MultipleSetting, SingleSetting};
 
-use lsys_core::{AppCore, AppCoreError, RemoteNotify};
+use lsys_core::{AppCoreError, RemoteNotify};
 use lsys_logger::dao::ChangeLogger;
 pub struct Setting {
     db: Pool<MySql>,
@@ -23,30 +23,21 @@ pub struct Setting {
 
 impl Setting {
     pub async fn new(
-        app_core: Arc<AppCore>,
+        // app_core: Arc<AppCore>,
         db: Pool<MySql>,
         remote_notify: Arc<RemoteNotify>,
         logger: Arc<ChangeLogger>,
     ) -> Result<Self, AppCoreError> {
-        let app_locale_dir = app_core.app_dir.join("locale/lsys-setting");
-        let fluents_message = Arc::new(if app_locale_dir.exists() {
-            app_core.create_fluent(app_locale_dir).await?
-        } else {
-            let cargo_dir = env!("CARGO_MANIFEST_DIR");
-            app_core
-                .create_fluent(cargo_dir.to_owned() + "/locale")
-                .await?
-        });
         Ok(Self {
             single: Arc::from(SingleSetting::new(
                 db.clone(),
-                fluents_message.clone(),
+                // fluents_message.clone(),
                 remote_notify.clone(),
                 logger.clone(),
             )),
             multiple: Arc::from(MultipleSetting::new(
                 db.clone(),
-                fluents_message,
+                // fluents_message,
                 remote_notify,
                 logger,
             )),
@@ -79,7 +70,8 @@ impl Setting {
 #[derive(Debug)]
 pub enum SettingError {
     Sqlx(sqlx::Error),
-    System(String),
+    SerdeJson(serde_json::Error),
+    // System(FluentMessage),
 }
 impl Display for SettingError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -97,11 +89,11 @@ impl From<sqlx::Error> for SettingError {
 
 pub type SettingResult<T> = Result<T, SettingError>;
 
-pub trait NotFoundDefault {
+pub trait NotFoundResult {
     fn notfound_default(self) -> Self;
 }
 
-impl<T: Default> NotFoundDefault for SettingResult<T> {
+impl<T: Default> NotFoundResult for SettingResult<T> {
     fn notfound_default(self) -> Self {
         match self {
             Ok(s) => Ok(s),
@@ -124,8 +116,7 @@ pub trait SettingDecode: Sized + SettingKey {
 //JSON方式存储配置数据
 pub trait SettingJson<'t>: SettingDecode + Deserialize<'t> + SettingEncode + Serialize {
     fn decode(data: &'t str) -> SettingResult<Self> {
-        serde_json::from_slice::<Self>(data.as_bytes())
-            .map_err(|e| SettingError::System(e.to_string()))
+        serde_json::from_slice::<Self>(data.as_bytes()).map_err(SettingError::SerdeJson)
     }
     fn encode(&self) -> String {
         serde_json::to_string(&self).unwrap_or_default()

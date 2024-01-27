@@ -47,5 +47,5 @@ pub async fn system_config(
 
 #[get("/info")]
 pub async fn system_info(auth_dao: UserAuthQuery) -> ResponseJsonResult<ResponseJson> {
-    Ok(site_config_info(&auth_dao.web_dao).await?.into())
+    Ok(site_config_info(&auth_dao).await?.into())
 }

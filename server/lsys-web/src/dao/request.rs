@@ -1,7 +1,7 @@
-use std::sync::Arc;
+use std::{ops::Deref, sync::Arc};
 
 use lsys_app::dao::session::{RestAuthData, RestAuthSession, RestAuthTokenData};
-use lsys_core::RequestEnv;
+use lsys_core::{FluentBundle, RequestEnv};
 use lsys_user::dao::auth::{
     SessionData, SessionToken, SessionTokenData, UserAuthData, UserAuthRedisStore, UserAuthSession,
     UserAuthTokenData, UserSession,
@@ -10,23 +10,46 @@ use lsys_user::dao::auth::{
 use tokio::sync::RwLock;
 use tracing::warn;
 
-use crate::dao::WebDao;
+use crate::{dao::WebDao, JsonData, JsonDataFluent};
 
-// pub struct RequestEnv {
-//     pub request_id: String,
-//     pub ip: String,
-//     pub user_agent: String,
-// }
-
-pub struct RequestDao<T: SessionTokenData, D: SessionData, S: UserSession<T, D>> {
+pub struct RequestDao {
     pub web_dao: Arc<WebDao>,
     pub req_env: RequestEnv,
+    pub fluent: Arc<FluentBundle>,
+}
+
+impl RequestDao {
+    pub fn new(web_dao: Arc<WebDao>, req_env: RequestEnv) -> Self {
+        Self {
+            fluent: web_dao.fluent.locale(req_env.request_lang.as_deref()),
+            web_dao,
+            req_env,
+        }
+    }
+    pub fn fluent_json_data<F: JsonDataFluent>(&self, data: F) -> JsonData {
+        JsonData::fluent_from(&self.fluent, data)
+    }
+}
+
+pub struct RequestAuthDao<T: SessionTokenData, D: SessionData, S: UserSession<T, D>> {
+    req_dao: RequestDao,
+    // pub web_dao: Arc<WebDao>,
+    // pub req_env: RequestEnv,
     pub user_session: RwLock<S>,
+    // fluent: Arc<FluentBundle>,
     marker_t: std::marker::PhantomData<T>,
     marker_d: std::marker::PhantomData<D>,
 }
+
+impl<T: SessionTokenData, D: SessionData, S: UserSession<T, D>> Deref for RequestAuthDao<T, D, S> {
+    type Target = RequestDao;
+    fn deref(&self) -> &Self::Target {
+        &self.req_dao
+    }
+}
+
 //登陆信息特征
-pub trait RequestToken<T: SessionTokenData> {
+pub trait RequestSessionToken<T: SessionTokenData> {
     //获取登陆信息 SessionToken
     fn get_user_token(&self) -> SessionToken<T>;
     //是否可以支持刷新，如cookie等需要定时刷新登陆信息
@@ -35,17 +58,16 @@ pub trait RequestToken<T: SessionTokenData> {
     fn refresh_user_token(&self, token: &SessionToken<T>);
 }
 
-impl<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>> RequestDao<T, D, S> {
+impl<T: SessionTokenData, D: SessionData, S: UserSession<T, D>> RequestAuthDao<T, D, S> {
     pub fn new(web_dao: Arc<WebDao>, req_env: RequestEnv, user_session: S) -> Self {
         Self {
+            req_dao: RequestDao::new(web_dao, req_env),
             user_session: RwLock::new(user_session),
-            web_dao,
-            req_env,
             marker_t: std::marker::PhantomData,
             marker_d: std::marker::PhantomData,
         }
     }
-    pub async fn set_request_token(&self, token: &impl RequestToken<T>) {
+    pub async fn set_request_token(&self, token: &impl RequestSessionToken<T>) {
         let mut set = self.user_session.write().await;
         let user_token = token.get_user_token();
         if token.is_refresh(&user_token) {
@@ -65,6 +87,6 @@ impl<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>> RequestDao<T
 }
 
 pub type UserAuthQueryDao =
-    RequestDao<UserAuthTokenData, UserAuthData, UserAuthSession<UserAuthRedisStore>>;
+    RequestAuthDao<UserAuthTokenData, UserAuthData, UserAuthSession<UserAuthRedisStore>>;
 
-pub type RestAuthQueryDao = RequestDao<RestAuthTokenData, RestAuthData, RestAuthSession>;
+pub type RestAuthQueryDao = RequestAuthDao<RestAuthTokenData, RestAuthData, RestAuthSession>;

@@ -1,16 +1,17 @@
 use serde::Deserialize;
 use serde_json::json;
 
-use crate::{dao::WebDao, JsonData, JsonResult};
+use crate::{dao::RequestDao, JsonData, JsonResult};
 
 #[derive(Debug, Deserialize)]
 pub struct AreaCodeParam {
     pub code: String,
 }
 
-pub fn area_list(param: AreaCodeParam, web_dao: &WebDao) -> JsonResult<JsonData> {
-    let data = get_area!(web_dao.area)
-        .code_childs(&param.code)?
+pub fn area_list(param: AreaCodeParam, req_dao: &RequestDao) -> JsonResult<JsonData> {
+    let data = get_area!(req_dao.web_dao.area)
+        .code_childs(&param.code)
+        .map_err(|e| req_dao.fluent_json_data(e))?
         .into_iter()
         .map(|e| {
             json!({
@@ -23,9 +24,10 @@ pub fn area_list(param: AreaCodeParam, web_dao: &WebDao) -> JsonResult<JsonData>
     Ok(JsonData::data(json!({ "area": data })))
 }
 
-pub fn area_detail(param: AreaCodeParam, web_dao: &WebDao) -> JsonResult<JsonData> {
-    let data = get_area!(web_dao.area)
-        .code_related(&param.code)?
+pub fn area_detail(param: AreaCodeParam, req_dao: &RequestDao) -> JsonResult<JsonData> {
+    let data = get_area!(req_dao.web_dao.area)
+        .code_related(&param.code)
+        .map_err(|e| req_dao.fluent_json_data(e))?
         .into_iter()
         .map(|e| {
             e.into_iter()
@@ -48,9 +50,10 @@ pub struct AreaSearchParam {
     pub key_word: String,
 }
 
-pub fn area_search(param: AreaSearchParam, web_dao: &WebDao) -> JsonResult<JsonData> {
-    let data = get_area!(web_dao.area)
-        .code_search(&param.key_word, 10)?
+pub fn area_search(param: AreaSearchParam, req_dao: &RequestDao) -> JsonResult<JsonData> {
+    let data = get_area!(req_dao.web_dao.area)
+        .code_search(&param.key_word, 10)
+        .map_err(|e| req_dao.fluent_json_data(e))?
         .into_iter()
         .map(|e| {
             e.item

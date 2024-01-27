@@ -18,9 +18,13 @@ where
     let ui_path = app_dao
         .app_core
         .config
+        .find(None)
         .get_string("ui_path")
         .unwrap_or_else(|_| "/ui".to_string());
-    if let Ok(ui_config) = app_dao.app_core.get_config_path("ui_dir") {
+    if let Ok(ui_config) = app_dao
+        .app_core
+        .config_path(app_dao.app_core.config.find(None), "ui_dir")
+    {
         if ui_config.exists() {
             let ui_path_full = ui_path.trim_matches('/').to_string() + "/";
             return app
@@ -49,7 +53,7 @@ where
         .service(scope("/captcha").service(captcha::captcha))
        // .service(actix_files::Files::new("/static", "./static").show_files_listing())
         ;
-    if let Ok(tmp) = app_dao.app_core.config.get_string("ui_path") {
+    if let Ok(tmp) = app_dao.app_core.config.find(None).get_string("ui_path") {
         if !tmp.is_empty() && tmp != *"./" && tmp != *"/" {
             app = app.service(index::index);
         }

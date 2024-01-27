@@ -1,7 +1,7 @@
 use lsys_core::cache::LocalCache;
 use lsys_core::{
-    get_message, impl_cache_fetch_vec, impl_dao_fetch_one_by_one, now_time, FluentMessage,
-    PageParam, RequestEnv,
+    fluent_message, impl_cache_fetch_vec, impl_dao_fetch_one_by_one, now_time, PageParam,
+    RequestEnv,
 };
 use serde::Serialize;
 
@@ -24,7 +24,6 @@ use super::logger::LogResOp;
 use super::{LogRes, RbacRole, RbacTags, UserRbacError, UserRbacResult};
 
 pub struct RbacRes {
-    fluent: Arc<FluentMessage>,
     db: Pool<MySql>,
     tags: Arc<RbacTags>,
     cache_key_res: Arc<LocalCache<ResKey, Option<RbacResData>>>, // res_key:res edit,res_op all
@@ -60,15 +59,24 @@ impl FromStr for ResKey {
     type Err = UserRbacError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut token_split = s.split('-');
-        let user_id = token_split
-            .next()
-            .ok_or_else(|| UserRbacError::System(format!("res key parse fail:{}", s)))?;
-        let user_id = user_id
-            .parse::<u64>()
-            .map_err(|e| UserRbacError::System(e.to_string()))?;
+        let user_id = token_split.next().ok_or_else(|| {
+            UserRbacError::System(fluent_message!("parse-res-str-fail",{
+                "token":s
+            }))
+        })?;
+        let user_id = user_id.parse::<u64>().map_err(|e| {
+            UserRbacError::System(fluent_message!("parse-res-str-fail",{
+                "token":s,
+                "msg":e
+            }))
+        })?;
         let res_key = token_split
             .next()
-            .ok_or_else(|| UserRbacError::System("token is not split fail:token".to_string()))?
+            .ok_or_else(|| {
+                UserRbacError::System(fluent_message!("parse-res-str-fail",{
+                    "token":s,
+                }))
+            })?
             .to_string();
         Ok(ResKey { user_id, res_key })
     }
@@ -77,7 +85,7 @@ impl FromStr for ResKey {
 impl RbacRes {
     pub fn new(
         db: Pool<MySql>,
-        fluent: Arc<FluentMessage>,
+
         tags: Arc<RbacTags>,
         role: Arc<RbacRole>,
         cache_key_res: Arc<LocalCache<ResKey, Option<RbacResData>>>,
@@ -87,7 +95,7 @@ impl RbacRes {
             cache_key_res,
             db,
             tags,
-            fluent,
+            // fluent,
             role,
             logger,
         }
@@ -248,7 +256,7 @@ impl RbacRes {
         let tags = {
             let mut tout = Vec::with_capacity(tags.len());
             for tmp in tags.iter() {
-                tout.push(check_length!(&self.fluent, tmp, "name", 32));
+                tout.push(check_length!(tmp, "name", 32));
             }
             tout
         };
@@ -275,8 +283,8 @@ impl RbacRes {
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
     ) -> UserRbacResult<u64> {
-        let key = check_length!(&self.fluent, key, "key", 32);
-        let name = check_length!(&self.fluent, name, "name", 32);
+        let key = check_length!(key, "key", 32);
+        let name = check_length!(name, "name", 32);
 
         let res = Select::type_new::<RbacResModel>()
             .fetch_one_by_where::<RbacResModel, _>(
@@ -292,10 +300,10 @@ impl RbacRes {
 
         match res {
             Ok(rm) => Err(UserRbacError::System(
-                get_message!(&self.fluent,"rbac-res-exits","res [{$key}] already exists,name is:{$name}",[
-                    "key"=>key.clone(),
-                    "name"=>rm.name
-                ]),
+                fluent_message!("rbac-res-exits",{
+                    "key":key,
+                    "name":rm.name
+                }), //"res [{$key}] already exists,name is:{$name}",
             )),
             Err(sqlx::Error::RowNotFound) => {
                 let time = now_time().unwrap_or_default();
@@ -360,7 +368,7 @@ impl RbacRes {
             change_time:time,
         });
         let opt_name = if let Some(tname) = name {
-            Some(check_length!(&self.fluent, tname, "name", 32))
+            Some(check_length!(tname, "name", 32))
         } else {
             None
         };
@@ -541,8 +549,8 @@ impl RbacRes {
             for mut tmp in ops.into_iter() {
                 let key = tmp.key;
                 let name = tmp.name;
-                tmp.key = check_length!(&self.fluent, key, "key", 32);
-                tmp.name = check_length!(&self.fluent, name, "name", 32);
+                tmp.key = check_length!(key, "key", 32);
+                tmp.name = check_length!(name, "name", 32);
                 tout.push(tmp);
             }
             tout

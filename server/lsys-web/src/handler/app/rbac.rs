@@ -2,7 +2,7 @@ use lsys_app::model::AppsModel;
 use lsys_rbac::dao::{AccessRes, RoleRelationKey};
 use serde::Deserialize;
 
-use crate::dao::WebDao;
+use crate::dao::RequestDao;
 
 use crate::handler::access::AccessSubAppRbacCheck;
 use crate::handler::common::rbac::{
@@ -31,11 +31,12 @@ pub struct CheckParam {
 }
 
 pub async fn app_rbac_check(
-    app_dao: &WebDao,
+    req_dao: &RequestDao,
     app: &AppsModel,
     param: CheckParam,
 ) -> JsonResult<JsonData> {
-    app_dao
+    req_dao
+        .web_dao
         .user
         .rbac_dao
         .rbac
@@ -46,8 +47,9 @@ pub async fn app_rbac_check(
             },
             None,
         )
-        .await?;
-    let dao = &app_dao.user.rbac_dao.rbac.access;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    let dao = &req_dao.web_dao.user.rbac_dao.rbac.access;
     let rkey = param
         .access
         .relation_key
@@ -72,7 +74,9 @@ pub async fn app_rbac_check(
                 .collect::<Vec<_>>()
         })
         .collect::<Vec<Vec<_>>>();
-    dao.list_check(param.user_id, &rkey, &check_res).await?;
+    dao.list_check(param.user_id, &rkey, &check_res)
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::default())
 }
 
@@ -83,11 +87,12 @@ pub struct MenuParam {
 }
 
 pub async fn app_rbac_menu_check(
-    app_dao: &WebDao,
+    req_dao: &RequestDao,
     app: &AppsModel,
     param: MenuParam,
 ) -> JsonResult<JsonData> {
-    app_dao
+    req_dao
+        .web_dao
         .user
         .rbac_dao
         .rbac
@@ -98,13 +103,14 @@ pub async fn app_rbac_menu_check(
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     rbac_menu_check(
         param.user_id,
         RbacMenuParam {
             check_res: param.check_res,
         },
-        &app_dao.user.rbac_dao,
+        &req_dao.web_dao.user.rbac_dao,
     )
     .await
 }

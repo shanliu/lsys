@@ -2,6 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
 
+use lsys_core::fluent_message;
 use lsys_core::now_time;
 use lsys_notify::dao::Notify;
 use lsys_setting::dao::MultipleSetting;
@@ -174,7 +175,10 @@ impl SmsStatusTask {
         message_logs: Arc<MessageLogs>,
     ) -> Result<Self, SenderError> {
         if inner.is_empty() {
-            return Err(SenderError::System("can't set task is empty".to_string()));
+            return Err(SenderError::System(fluent_message!(
+                "sms-status-task-empty"
+            )));
+            // return Err(SenderError::System("can't set task is empty".to_string()));
         }
         Ok(Self {
             inner: Arc::new(inner.into_iter().collect::<Vec<_>>()),

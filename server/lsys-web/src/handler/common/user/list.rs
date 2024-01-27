@@ -1,5 +1,5 @@
 use crate::{
-    dao::{user::UserDataOption, RequestDao},
+    dao::{user::UserDataOption, RequestAuthDao},
     handler::access::{AccessAdminUserBase, AccessAdminUserFull},
     LimitParam, {JsonData, JsonResult},
 };
@@ -28,14 +28,14 @@ pub struct UserSearchParam {
 }
 pub async fn user_search<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: UserSearchParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     let email = if let Some(e) = param.email {
         let mut out = Vec::with_capacity(e.len());
         for tmp in e {
             match UserEmailStatus::try_from(tmp) {
                 Ok(ts) => out.push(ts),
-                Err(err) => return Err(JsonData::error(err)),
+                Err(err) => return Err(req_dao.fluent_json_data(err)),
             };
         }
         Some(out)
@@ -47,7 +47,7 @@ pub async fn user_search<'t, T: SessionTokenData, D: SessionData, S: UserSession
         for tmp in e {
             match UserMobileStatus::try_from(tmp) {
                 Ok(ts) => out.push(ts),
-                Err(err) => return Err(JsonData::error(err)),
+                Err(err) => return Err(req_dao.fluent_json_data(err)),
             };
         }
         Some(out)
@@ -64,7 +64,13 @@ pub async fn user_search<'t, T: SessionTokenData, D: SessionData, S: UserSession
         mobile: mobile.as_deref(),
     };
 
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let is_full = param.base.unwrap_or(false)
         || data_option.name
         || data_option.info
@@ -84,7 +90,8 @@ pub async fn user_search<'t, T: SessionTokenData, D: SessionData, S: UserSession
                 },
                 None,
             )
-            .await?;
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
     } else {
         req_dao
             .web_dao
@@ -97,7 +104,8 @@ pub async fn user_search<'t, T: SessionTokenData, D: SessionData, S: UserSession
                 },
                 None,
             )
-            .await?;
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
     }
 
     let user = req_dao
@@ -111,7 +119,8 @@ pub async fn user_search<'t, T: SessionTokenData, D: SessionData, S: UserSession
             param.enable,
             &Some(param.limit.unwrap_or_default().into()),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let next = user.1;
 
     let user_data = req_dao
@@ -121,8 +130,8 @@ pub async fn user_search<'t, T: SessionTokenData, D: SessionData, S: UserSession
             &user.0.iter().map(|e| e.user_id).collect::<Vec<_>>(),
             &data_option,
         )
-        .await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let mut user_data = user_data.into_iter().collect::<Vec<(
         u64,
         (
@@ -210,14 +219,14 @@ pub struct UserIdSearchParam {
 
 pub async fn user_id_search<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: UserIdSearchParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     let email = if let Some(e) = param.email {
         let mut out = Vec::with_capacity(e.len());
         for tmp in e {
             match UserEmailStatus::try_from(tmp) {
                 Ok(ts) => out.push(ts),
-                Err(err) => return Err(JsonData::error(err)),
+                Err(err) => return Err(req_dao.fluent_json_data(err)),
             };
         }
         Some(out)
@@ -229,7 +238,7 @@ pub async fn user_id_search<'t, T: SessionTokenData, D: SessionData, S: UserSess
         for tmp in e {
             match UserMobileStatus::try_from(tmp) {
                 Ok(ts) => out.push(ts),
-                Err(err) => return Err(JsonData::error(err)),
+                Err(err) => return Err(req_dao.fluent_json_data(err)),
             };
         }
         Some(out)
@@ -246,7 +255,13 @@ pub async fn user_id_search<'t, T: SessionTokenData, D: SessionData, S: UserSess
         mobile: mobile.as_deref(),
     };
 
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let is_full = param.base.unwrap_or(false)
         || data_option.name
         || data_option.info
@@ -266,7 +281,8 @@ pub async fn user_id_search<'t, T: SessionTokenData, D: SessionData, S: UserSess
                 },
                 None,
             )
-            .await?;
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
     } else {
         req_dao
             .web_dao
@@ -279,7 +295,8 @@ pub async fn user_id_search<'t, T: SessionTokenData, D: SessionData, S: UserSess
                 },
                 None,
             )
-            .await?;
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
     }
 
     if param.user_id == 0 {
@@ -292,7 +309,8 @@ pub async fn user_id_search<'t, T: SessionTokenData, D: SessionData, S: UserSess
         .web_dao
         .user
         .list_user(&[param.user_id], &data_option)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let udat = match user_data.get(&param.user_id) {
         Some(t) => t,
         None => {

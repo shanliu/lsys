@@ -1,6 +1,4 @@
-use config::ConfigError;
-use deadpool_redis::PoolError;
-use lsys_core::ValidCodeError;
+use lsys_core::{fluent_message, ConfigError, FluentBundle, FluentMessage, ValidCodeError};
 use lsys_docs::dao::GitDocError;
 use lsys_logger::dao::LoggerError;
 use lsys_notify::dao::NotifyError;
@@ -9,9 +7,8 @@ use lsys_sender::dao::SenderError;
 use lsys_setting::dao::SettingError;
 use lsys_user::dao::{account::UserAccountError, auth::UserAuthError};
 use serde_json::{json, Value};
-use std::string::FromUtf8Error;
-use std::{collections::HashMap, error::Error};
-use tracing::warn;
+
+use std::{collections::HashMap, num::ParseIntError};
 
 use crate::dao::{WebAppMailerError, WebAppSmserError};
 use lsys_app::dao::AppsError;
@@ -35,11 +32,19 @@ impl Default for JsonData {
         }
     }
 }
+
+pub trait JsonDataFluent {
+    fn fluent_from(&self, fluent: &FluentBundle) -> JsonData;
+}
+
 impl JsonData {
+    pub fn fluent_from<T: JsonDataFluent>(fluent: &FluentBundle, data: T) -> JsonData {
+        data.fluent_from(fluent)
+    }
     pub fn data(value: Value) -> Self {
         JsonData::default().set_message("ok").set_data(value)
     }
-    pub fn error<T: Error>(error: T) -> Self {
+    pub fn error<T: std::error::Error>(error: T) -> Self {
         JsonData::message_error(format!("err:{}", error))
     }
     pub fn message_error<T: ToString>(msg: T) -> Self {
@@ -94,326 +99,290 @@ impl JsonData {
     }
 }
 
-impl From<UserAuthError> for JsonData {
-    fn from(err: UserAuthError) -> Self {
-        let err_str = format!("{:?}", err);
-        warn!("user auth error: {}", err_str);
-        let mut out = JsonData::default()
-            .set_code(200)
-            .set_message(err.to_string());
-        match err {
-            UserAuthError::PasswordNotMatch(_) => out.set_sub_code("password_wrong"),
-            UserAuthError::PasswordNotSet(_) => out.set_sub_code("password_empty"),
-            UserAuthError::StatusError(_) => out.set_sub_code("status_wrong"),
-            UserAuthError::UserNotFind(_) => out.set_sub_code("not_find"),
-            UserAuthError::NotLogin(_) => out.set_sub_code("not_login"),
-            UserAuthError::Sqlx(sqlx::Error::RowNotFound) => out.set_sub_code("not_found"),
-            UserAuthError::Sqlx(_) => out.set_code(501).set_sub_code("sqlx"),
-            UserAuthError::UserAccount(_) => out.set_sub_code("system"),
-            UserAuthError::System(_) => out.set_code(500).set_sub_code("system"),
-            UserAuthError::CheckCaptchaNeed(_) => out.set_sub_code("need_captcha"),
-            UserAuthError::Redis(_) => out.set_code(502).set_sub_code("redis"),
-            UserAuthError::CheckUserLock(_) => out.set_sub_code("user_lock"),
-            UserAuthError::TokenParse(_) => out.set_sub_code("token_wrong"),
-            UserAuthError::ValidCode(err) => {
-                out = out.set_sub_code("valid_code");
-                match err {
-                    ValidCodeError::DelayTimeout(err) => out.set_data(json!({
-                        "type":err.prefix
-                    })),
-                    ValidCodeError::NotMatch(err) => out.set_data(json!({
-                        "type":err.prefix
-                    })),
-                    _ => out,
-                }
-            }
+impl JsonDataFluent for FluentMessage {
+    fn fluent_from(&self, fluent: &FluentBundle) -> JsonData {
+        JsonData::default()
+            .set_sub_code("system")
+            .set_message(fluent.format_message(self))
+    }
+}
+
+impl JsonDataFluent for UserAccountError {
+    fn fluent_from(&self, fluent: &FluentBundle) -> JsonData {
+        let out = JsonData::default().set_sub_code("valid_code");
+        match self {
+            UserAccountError::Sqlx(err) => err.fluent_from(fluent),
+            UserAccountError::System(err) => out.set_message(fluent.format_message(err)),
+            UserAccountError::Status((_, err)) => out.set_message(fluent.format_message(err)),
+            UserAccountError::Redis(err) => err.fluent_from(fluent),
+            UserAccountError::RedisPool(err) => err.fluent_from(fluent),
+            UserAccountError::ValidCode(err) => err.fluent_from(fluent),
+            UserAccountError::Param(err) => out.set_message(fluent.format_message(err)),
+            UserAccountError::Setting(err) => err.fluent_from(fluent),
         }
     }
 }
 
-impl From<sqlx::Error> for JsonData {
-    fn from(err: sqlx::Error) -> Self {
-        let mut code = 501;
-        let sub_code = match &err {
-            sqlx::Error::RowNotFound => {
-                code = 200;
-                "not_found"
-            }
-            _err => "system",
-        };
-        JsonData::default()
-            .set_code(code)
-            .set_sub_code(sub_code)
-            .set_message(err.to_string())
-    }
-}
-impl From<ConfigError> for JsonData {
-    fn from(err: ConfigError) -> Self {
-        JsonData::default()
-            .set_code(503)
-            .set_sub_code("config")
-            .set_message(err.to_string())
-    }
-}
-impl From<UserAccountError> for JsonData {
-    fn from(err: UserAccountError) -> Self {
-        let out = JsonData::default()
-            .set_code(200)
-            .set_message(err.to_string());
-        match &err {
-            UserAccountError::Sqlx(sqlx::Error::RowNotFound) => out.set_sub_code("not_found"),
-            UserAccountError::ValidCode(err) => match err {
-                ValidCodeError::DelayTimeout(err) => out.set_data(json!({
+impl JsonDataFluent for ValidCodeError {
+    fn fluent_from(&self, fluent: &FluentBundle) -> JsonData {
+        let out = JsonData::default().set_sub_code("valid_code");
+        match self {
+            ValidCodeError::DelayTimeout(err) => out
+                .set_data(json!({
                     "type":err.prefix
-                })),
-                ValidCodeError::NotMatch(err) => out.set_data(json!({
+                }))
+                .set_message(fluent.format_message(&err.message)),
+            ValidCodeError::NotMatch(err) => out
+                .set_data(json!({
                     "type":err.prefix
-                })),
-                _ => out,
-            },
-            UserAccountError::Param(_) => out.set_sub_code("param"),
-            _err => out.set_sub_code("param"),
+                }))
+                .set_message(fluent.format_message(&err.message)),
+            ValidCodeError::Utf8Err(err) => out.set_message(fluent.format_message(err)),
+            // ValidCodeError::Create(err) => out.set_message(fluent.format_message(&err.into())),
+            ValidCodeError::Redis(err) => err.fluent_from(fluent),
+            ValidCodeError::RedisPool(err) => err.fluent_from(fluent),
+            ValidCodeError::Tag(err) => out.set_message(fluent.format_message(err)),
         }
     }
 }
 
-impl From<UserRbacError> for JsonData {
-    fn from(err: UserRbacError) -> Self {
-        let mut code = 500;
-        let mut json = JsonData::default();
-        let mut msg = err.to_string();
-        let sub_code = match &err {
-            UserRbacError::Sqlx(sqlx::Error::RowNotFound) => {
-                code = 200;
-                "not_found".to_string()
-            }
-            UserRbacError::NotLogin(_) => {
-                code = 200;
-                "not_login".to_string()
-            }
+impl JsonDataFluent for UserAuthError {
+    fn fluent_from(&self, fluent: &FluentBundle) -> JsonData {
+        let out = JsonData::default();
+        match self {
+            UserAuthError::PasswordNotMatch((_, err)) => out
+                .set_sub_code("password_wrong")
+                .set_message(fluent.format_message(err)),
+            UserAuthError::PasswordNotSet((_, err)) => out
+                .set_sub_code("password_empty")
+                .set_message(fluent.format_message(err)),
+            UserAuthError::StatusError((_, err)) => out
+                .set_sub_code("status_wrong")
+                .set_message(fluent.format_message(err)),
+            UserAuthError::UserNotFind(err) => out
+                .set_sub_code("not_find")
+                .set_message(fluent.format_message(err)),
+            UserAuthError::NotLogin(err) => out
+                .set_sub_code("not_login")
+                .set_message(fluent.format_message(err)),
+            UserAuthError::Sqlx(err) => err.fluent_from(fluent),
+            UserAuthError::UserAccount(err) => err.fluent_from(fluent),
+            UserAuthError::ValidCode(err) => err.fluent_from(fluent),
+            UserAuthError::System(err) => out
+                .set_code(500)
+                .set_sub_code("system")
+                .set_message(fluent.format_message(err)),
+            UserAuthError::CheckCaptchaNeed(err) => out
+                .set_sub_code("need_captcha")
+                .set_message(fluent.format_message(err)),
+            UserAuthError::Redis(err) => err.fluent_from(fluent),
+            UserAuthError::RedisPool(err) => err.fluent_from(fluent),
+            UserAuthError::CheckUserLock((_, err)) => out
+                .set_sub_code("user_lock")
+                .set_message(fluent.format_message(err)),
+            UserAuthError::TokenParse(err) => out
+                .set_sub_code("token_wrong")
+                .set_message(fluent.format_message(err)),
+        }
+    }
+}
+
+impl JsonDataFluent for UserRbacError {
+    fn fluent_from(&self, fluent: &FluentBundle) -> JsonData {
+        let out = JsonData::default().set_sub_code("rbac");
+        match self {
+            UserRbacError::Sqlx(err) => err.fluent_from(fluent),
+            UserRbacError::NotLogin(err) => out.set_sub_code("not_login").set_message(err),
             UserRbacError::Check(err) => {
-                code = 200;
-                let mut hash = HashMap::<&String, Vec<&String>>::new();
+                let mut hash = HashMap::<&String, Vec<String>>::new();
                 for (k, v) in err {
-                    hash.entry(k).or_default().push(v);
+                    hash.entry(k).or_default().push(fluent.format_message(v));
                 }
-                json = json.set_data(json!( {
-                    "check_detail":hash,
-                }));
-                msg = "authorization verification failure".to_string();
-                "check_fail".to_string()
+                out.set_sub_code("check_fail")
+                    .set_data(json!( {
+                        "check_detail":hash,
+                    }))
+                    .set_message(fluent.format_message(&fluent_message!("rbac-check-fail")))
             }
-            _err => "system".to_string(),
-        };
-        json.set_code(code).set_sub_code(sub_code).set_message(msg)
-    }
-}
-
-impl From<ValidCodeError> for JsonData {
-    fn from(err: ValidCodeError) -> Self {
-        JsonData::default()
-            .set_sub_code("valid_code")
-            .set_message(err.to_string())
-    }
-}
-
-impl From<SenderError> for JsonData {
-    fn from(err: SenderError) -> Self {
-        match err {
-            SenderError::Sqlx(err) => match err {
-                sqlx::Error::RowNotFound => JsonData::default()
-                    .set_code(200)
-                    .set_sub_code("not_found")
-                    .set_message(err.to_string()),
-                _ => JsonData::default()
-                    .set_code(500)
-                    .set_sub_code("system")
-                    .set_message(err.to_string()),
-            },
-            SenderError::Redis(err) => JsonData::default()
-                .set_code(500)
-                .set_sub_code("redis")
-                .set_message(err),
-            SenderError::System(err) => JsonData::default().set_sub_code("system").set_message(err),
-            SenderError::Tpl(err) => JsonData::default()
-                .set_sub_code("tpl")
-                .set_message(format!("tpl error:{}", err)),
+            UserRbacError::System(err) => out.set_message(err),
         }
     }
 }
 
-impl From<AppsError> for JsonData {
-    fn from(err: AppsError) -> Self {
-        match err {
-            AppsError::Sqlx(err) => match err {
-                sqlx::Error::RowNotFound => JsonData::default()
-                    .set_code(200)
-                    .set_sub_code("not_found")
-                    .set_message(err.to_string()),
-                _ => JsonData::default()
-                    .set_code(500)
-                    .set_sub_code("system")
-                    .set_message(err.to_string()),
-            },
-            AppsError::System(_) => JsonData::default()
-                .set_code(200)
-                .set_sub_code("system")
-                .set_message(err.to_string()),
-            AppsError::Redis(err) => JsonData::default()
-                .set_code(500)
-                .set_sub_code("system")
-                .set_message(err),
-            AppsError::ScopeNotFind(err) => JsonData::default()
-                .set_code(200)
-                .set_sub_code("need_access")
-                .set_message(err),
+impl JsonDataFluent for SettingError {
+    fn fluent_from(&self, fluent: &FluentBundle) -> JsonData {
+        match self {
+            SettingError::Sqlx(err) => err.fluent_from(fluent),
+            SettingError::SerdeJson(err) => err.fluent_from(fluent),
         }
     }
 }
 
-impl From<SettingError> for JsonData {
-    fn from(err: SettingError) -> Self {
-        match err {
-            SettingError::Sqlx(err) => match err {
-                sqlx::Error::RowNotFound => JsonData::default()
-                    .set_code(200)
-                    .set_sub_code("not_found")
-                    .set_message(err.to_string()),
-                _ => JsonData::default()
-                    .set_code(500)
-                    .set_sub_code("system")
-                    .set_message(err.to_string()),
-            },
-            SettingError::System(_) => JsonData::default()
-                .set_code(200)
-                .set_sub_code("system")
-                .set_message(err.to_string()),
+impl JsonDataFluent for SenderError {
+    fn fluent_from(&self, fluent: &FluentBundle) -> JsonData {
+        let out = JsonData::default().set_code(500).set_sub_code("sender");
+        match self {
+            SenderError::Sqlx(err) => err.fluent_from(fluent),
+            SenderError::Redis(err) => err.fluent_from(fluent),
+            SenderError::RedisPool(err) => err.fluent_from(fluent),
+            SenderError::Tera(err) => err.fluent_from(fluent),
+            SenderError::System(err) => out.set_message(fluent.format_message(err)),
+            SenderError::Setting(err) => err.fluent_from(fluent),
         }
     }
 }
 
-impl From<NotifyError> for JsonData {
-    fn from(err: NotifyError) -> Self {
-        match err {
-            NotifyError::Sqlx(err) => match err {
-                sqlx::Error::RowNotFound => JsonData::default()
-                    .set_code(200)
-                    .set_sub_code("not_found")
-                    .set_message(err.to_string()),
-                _ => JsonData::default()
-                    .set_code(500)
-                    .set_sub_code("system")
-                    .set_message(err.to_string()),
-            },
-            NotifyError::Redis(err) => JsonData::default()
-                .set_code(200)
-                .set_sub_code("system")
-                .set_message(err),
+impl JsonDataFluent for WebAppSmserError {
+    fn fluent_from(&self, fluent: &FluentBundle) -> JsonData {
+        let out = JsonData::default().set_code(500).set_sub_code("sms");
+        match self {
+            WebAppSmserError::Config(err) => {
+                out.set_message(fluent.format_message(&err.to_string().into()))
+            }
+            WebAppSmserError::System(err) => out.set_message(fluent.format_message(err)),
+            WebAppSmserError::Sender(err) => err.fluent_from(fluent),
+        }
+    }
+}
+impl JsonDataFluent for WebAppMailerError {
+    fn fluent_from(&self, fluent: &FluentBundle) -> JsonData {
+        let out = JsonData::default().set_code(500).set_sub_code("sms");
+        match self {
+            WebAppMailerError::Config(err) => {
+                out.set_message(fluent.format_message(&err.to_string().into()))
+            }
+            WebAppMailerError::System(err) => out.set_message(fluent.format_message(err)),
+            WebAppMailerError::Sender(err) => err.fluent_from(fluent),
+            WebAppMailerError::Tera(err) => err.fluent_from(fluent),
+        }
+    }
+}
+
+impl JsonDataFluent for AppsError {
+    fn fluent_from(&self, fluent: &FluentBundle) -> JsonData {
+        let out = JsonData::default().set_code(500).set_sub_code("app");
+        match self {
+            AppsError::Sqlx(err) => err.fluent_from(fluent),
+            AppsError::System(err) => out.set_message(fluent.format_message(err)),
+            AppsError::Redis(err) => err.fluent_from(fluent),
+            AppsError::RedisPool(err) => err.fluent_from(fluent),
+            AppsError::ScopeNotFind(err) => out
+                .set_sub_code("app-bad-scope")
+                .set_message(fluent.format_message(err)),
+            AppsError::UserAccount(err) => err.fluent_from(fluent),
+            AppsError::SerdeJson(err) => err.fluent_from(fluent),
+        }
+    }
+}
+
+impl JsonDataFluent for ConfigError {
+    fn fluent_from(&self, fluent: &FluentBundle) -> JsonData {
+        match self {
+            ConfigError::Io(err) => err.fluent_from(fluent),
+            ConfigError::Config(err) => err.fluent_from(fluent),
+        }
+    }
+}
+
+impl JsonDataFluent for NotifyError {
+    fn fluent_from(&self, fluent: &FluentBundle) -> JsonData {
+        match self {
+            NotifyError::Sqlx(err) => err.fluent_from(fluent),
+            NotifyError::Redis(err) => err.fluent_from(fluent),
+            NotifyError::RedisPool(err) => err.fluent_from(fluent),
             NotifyError::System(err) => JsonData::default()
-                .set_code(200)
-                .set_sub_code("system")
-                .set_message(err),
+                .set_code(500)
+                .set_sub_code("notify")
+                .set_message(fluent.format_message(err)),
         }
     }
 }
-impl From<GitDocError> for JsonData {
-    fn from(err: GitDocError) -> Self {
-        match err {
-            GitDocError::Sqlx(err) => match err {
-                sqlx::Error::RowNotFound => JsonData::default()
-                    .set_code(200)
-                    .set_sub_code("not_found")
-                    .set_message(err.to_string()),
-                _ => JsonData::default()
-                    .set_code(500)
-                    .set_sub_code("system")
-                    .set_message(err.to_string()),
-            },
+
+impl JsonDataFluent for GitDocError {
+    fn fluent_from(&self, fluent: &FluentBundle) -> JsonData {
+        match self {
+            GitDocError::Sqlx(err) => err.fluent_from(fluent),
             GitDocError::System(err) => JsonData::default()
+                .set_sub_code("doc")
                 .set_code(200)
-                .set_sub_code("system")
-                .set_message(err),
-            GitDocError::Redis(err) => JsonData::default()
-                .set_code(200)
-                .set_sub_code("system")
-                .set_message(err),
+                .set_message(fluent.format_message(err)),
             GitDocError::Remote(err) => JsonData::default()
+                .set_sub_code("doc")
                 .set_code(200)
-                .set_sub_code("system")
-                .set_message(err),
-        }
-    }
-}
-impl From<LoggerError> for JsonData {
-    fn from(err: LoggerError) -> Self {
-        match err {
-            LoggerError::Sqlx(err) => match err {
-                sqlx::Error::RowNotFound => JsonData::default()
-                    .set_code(200)
-                    .set_sub_code("not_found")
-                    .set_message(err.to_string()),
-                _ => JsonData::default()
-                    .set_code(500)
-                    .set_sub_code("system")
-                    .set_message(err.to_string()),
-            },
-            LoggerError::System(_) => JsonData::default()
-                .set_code(200)
-                .set_sub_code("system")
-                .set_message(err.to_string()),
+                .set_message(fluent.format_message(err)),
+            GitDocError::Git(err) => err.fluent_from(fluent),
         }
     }
 }
 
-impl From<String> for JsonData {
-    fn from(err: String) -> Self {
-        JsonData::default().set_message(err)
+impl JsonDataFluent for LoggerError {
+    fn fluent_from(&self, fluent: &FluentBundle) -> JsonData {
+        match self {
+            LoggerError::Sqlx(err) => err.fluent_from(fluent),
+        }
     }
 }
 
-impl From<area_db::AreaError> for JsonData {
-    fn from(err: area_db::AreaError) -> Self {
-        match err {
+impl JsonDataFluent for area_db::AreaError {
+    fn fluent_from(&self, fluent: &FluentBundle) -> JsonData {
+        match self {
             area_db::AreaError::DB(err) => JsonData::default()
                 .set_code(500)
-                .set_sub_code("system")
-                .set_message(err),
+                .set_sub_code("area")
+                .set_message(fluent.format_message(&err.into())),
             area_db::AreaError::System(err) => JsonData::default()
                 .set_code(500)
-                .set_sub_code("system")
-                .set_message(err),
-            area_db::AreaError::NotFind(_) => {
-                JsonData::default().set_message("not find area record")
-            }
-            area_db::AreaError::Store(e) => {
-                JsonData::default().set_message(format!("index area data fail:{}", e))
-            }
+                .set_sub_code("area")
+                .set_message(fluent.format_message(&err.into())),
+            area_db::AreaError::NotFind(_) => JsonData::default()
+                .set_sub_code("not_found")
+                .set_message(fluent.format_message(&"not find area record".into())),
+            area_db::AreaError::Store(e) => JsonData::default()
+                .set_sub_code("area")
+                .set_message(fluent.format_message(&format!("index area data fail:{}", e).into())),
             area_db::AreaError::Tantivy(e) => {
-                JsonData::default().set_message(format!("tantivy area data fail:{}", e))
+                JsonData::default().set_sub_code("tantivy").set_message(
+                    fluent.format_message(&format!("tantivy area data fail:{}", e).into()),
+                )
             }
         }
     }
 }
 
-macro_rules! result_impl_system_error {
-    ($err_type:ty,$code:literal) => {
-        impl From<$err_type> for JsonData {
-            fn from(err: $err_type) -> Self {
+//lib error
+
+impl JsonDataFluent for sqlx::Error {
+    fn fluent_from(&self, fluent: &FluentBundle) -> JsonData {
+        let out = JsonData::default().set_code(500);
+        match self {
+            sqlx::Error::RowNotFound => out
+                .set_sub_code("not_found")
+                .set_code(404)
+                .set_message(fluent.format_message(&fluent_message!("system-not-found", self))),
+            _ => {
+                let msg = fluent.format_message(&self.to_string().into());
+                out.set_sub_code("sqlx").set_message(msg)
+            }
+        }
+    }
+}
+macro_rules! crate_error_fluent {
+    ($crate_error:ty,$code:literal) => {
+        impl JsonDataFluent for $crate_error {
+            fn fluent_from(&self, fluent: &FluentBundle) -> JsonData {
                 JsonData::default()
-                    .set_code($code)
-                    .set_sub_code("system")
-                    .set_message(err.to_string())
+                    .set_code(500)
+                    .set_sub_code($code)
+                    .set_message(fluent.format_message(&self.to_string().into()))
             }
         }
     };
 }
-
-result_impl_system_error!(WebAppSmserError, 200);
-result_impl_system_error!(WebAppMailerError, 200);
-result_impl_system_error!(std::cell::BorrowError, 200);
-result_impl_system_error!(serde_json::Error, 200);
-result_impl_system_error!(FromUtf8Error, 500);
-result_impl_system_error!(std::io::Error, 500);
-result_impl_system_error!(reqwest::Error, 500);
-result_impl_system_error!(tera::Error, 500);
-result_impl_system_error!(PoolError, 500);
+crate_error_fluent!(config::ConfigError, "config");
+crate_error_fluent!(std::io::Error, "io");
+crate_error_fluent!(tera::Error, "tera");
+crate_error_fluent!(lsys_docs::gitError, "git");
+crate_error_fluent!(redis::RedisError, "redis");
+crate_error_fluent!(deadpool_redis::PoolError, "redis");
+crate_error_fluent!(serde_json::Error, "serde");
+crate_error_fluent!(ParseIntError, "parse");

@@ -1,28 +1,28 @@
-#[macro_export]
-macro_rules! get_message {
-    ($bundle:expr,$msg_id:expr,$default:expr)=>{
-        {
-            let fluent=$bundle;
-            if !fluent.has_message($msg_id) {
-                fluent.set_message($msg_id.to_string(),$default.to_string());
-            }
-            fluent.get_message($msg_id,None)
-        }
-    };
-    ($bundle:expr,$msg_id:expr,$default:expr,[$($push_key:expr=>$push_val:expr),*])=>{
-        {
-            let fluent=$bundle;
-            let mut args: fluent::FluentArgs =fluent::FluentArgs::new();
-            $(
-                args.set($push_key, $push_val);
-            )*
-            if !fluent.has_message($msg_id) {
-                fluent.set_message($msg_id.to_string(),$default.to_string());
-            }
-            fluent.get_message($msg_id,Some(&args))
-        }
-    };
-}
+// #[macro_export]
+// macro_rules! get_message {
+//     ($bundle:expr,$msg_id:expr,$default:expr)=>{
+//         {
+//             let fluent=$bundle;
+//             if !fluent.has_message($msg_id) {
+//                 fluent.set_message($msg_id.to_string(),$default.to_string());
+//             }
+//             fluent.get_message($msg_id,None)
+//         }
+//     };
+//     ($bundle:expr,$msg_id:expr,$default:expr,[$($push_key:expr=>$push_val:expr),*])=>{
+//         {
+//             let fluent=$bundle;
+//             let mut args: fluent::FluentArgs =fluent::FluentArgs::new();
+//             $(
+//                 args.set($push_key, $push_val);
+//             )*
+//             if !fluent.has_message($msg_id) {
+//                 fluent.set_message($msg_id.to_string(),$default.to_string());
+//             }
+//             fluent.get_message($msg_id,Some(&args))
+//         }
+//     };
+// }
 
 #[macro_export]
 macro_rules! impl_dao_fetch_one_by_one {

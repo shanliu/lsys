@@ -10,9 +10,5 @@ async fn main() {
         //on dev
         env!("CARGO_MANIFEST_DIR")
     };
-    create_server(app_dir, &["config/app.toml"])
-        .await
-        .unwrap()
-        .await
-        .unwrap();
+    create_server(app_dir).await.unwrap().await.unwrap();
 }

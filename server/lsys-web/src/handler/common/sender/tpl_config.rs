@@ -6,7 +6,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::{
-    dao::RequestDao, handler::access::AccessAppSenderSmsConfig, JsonData, JsonResult, PageParam,
+    dao::RequestAuthDao, handler::access::AccessAppSenderSmsConfig, JsonData, JsonResult, PageParam,
 };
 
 #[derive(Debug, Deserialize)]
@@ -22,10 +22,19 @@ pub(crate) async fn tpl_config_del<
 >(
     param: TplConfigDelParam,
     tpl_config: &SenderTplConfig,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-    let config = tpl_config.find_by_id(&param.app_config_id).await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    let config = tpl_config
+        .find_by_id(&param.app_config_id)
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     if SenderTplConfigStatus::Delete.eq(config.status) {
         return Ok(JsonData::data(json!({ "num": 0 })));
     }
@@ -42,14 +51,16 @@ pub(crate) async fn tpl_config_del<
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let row = tpl_config
         .del_config(
             &config,
             &req_auth.user_data().user_id,
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "num": row })))
 }
 
@@ -72,10 +83,15 @@ pub(crate) async fn tpl_config_list<
 >(
     param: TplConfigListParam,
     tpl_config: &SenderTplConfig,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -89,7 +105,8 @@ pub(crate) async fn tpl_config_list<
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let tpl_data = tpl_config
         .list_config(
             &param.id,
@@ -98,8 +115,8 @@ pub(crate) async fn tpl_config_list<
             &param.tpl,
             &Some(param.page.unwrap_or_default().into()),
         )
-        .await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let app_data = if param.app_info.unwrap_or(false) && !tpl_data.is_empty() {
         req_dao
             .web_dao
@@ -107,7 +124,8 @@ pub(crate) async fn tpl_config_list<
             .app_dao
             .app
             .find_by_ids(&tpl_data.iter().map(|e| e.0.app_id).collect::<Vec<_>>())
-            .await?
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?
     } else {
         HashMap::new()
     };
@@ -152,7 +170,8 @@ pub(crate) async fn tpl_config_list<
                     &param.app_id,
                     &param.tpl,
                 )
-                .await?,
+                .await
+                .map_err(|e| req_dao.fluent_json_data(e))?,
         )
     } else {
         None

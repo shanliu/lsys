@@ -5,7 +5,7 @@ use crate::dao::account::UserAccountResult;
 
 use crate::model::{UserEmailModel, UserEmailModelRef, UserEmailStatus, UserModel};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{get_message, now_time, FluentMessage, RemoteNotify, RequestEnv};
+use lsys_core::{fluent_message, now_time, RemoteNotify, RequestEnv};
 
 use lsys_logger::dao::ChangeLogger;
 use sqlx::{Acquire, MySql, Pool, Transaction};
@@ -21,7 +21,7 @@ use super::{check_email, UserAccountError};
 pub struct UserEmail {
     db: Pool<MySql>,
     redis: deadpool_redis::Pool,
-    fluent: Arc<FluentMessage>,
+    // fluent: Arc<FluentBuild>,
     index: Arc<UserIndex>,
     pub(crate) cache: Arc<LocalCache<u64, Vec<UserEmailModel>>>,
     logger: Arc<ChangeLogger>,
@@ -31,7 +31,7 @@ impl UserEmail {
     pub fn new(
         db: Pool<MySql>,
         redis: deadpool_redis::Pool,
-        fluent: Arc<FluentMessage>,
+        // fluent: Arc<FluentBuild>,
         remote_notify: Arc<RemoteNotify>,
         index: Arc<UserIndex>,
         logger: Arc<ChangeLogger>,
@@ -43,7 +43,7 @@ impl UserEmail {
             )),
             db,
             redis,
-            fluent,
+            // fluent,
             index,
             logger,
         }
@@ -71,7 +71,7 @@ impl UserEmail {
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
     ) -> UserAccountResult<u64> {
-        check_email(&self.fluent, email.as_str())?;
+        check_email(email.as_str())?;
         let email_res = Select::type_new::<UserEmailModel>()
             .fetch_one_by_where::<UserEmailModel, _>(
                 &sqlx_model::WhereOption::Where(sql_format!(
@@ -87,10 +87,11 @@ impl UserEmail {
                 if email.user_id == user.id {
                     return Ok(email.id);
                 } else {
-                    return Err(UserAccountError::System(get_message!(&self.fluent,
-                        "user-email-exits","email {$name} bind in other account[{$id}]",
-                        ["name"=>email.email,"id"=>email.user_id ]
-                    )));
+                    return Err(UserAccountError::System(
+                        fluent_message!("user-email-exits-other-account",
+                            {"email":email.email,"id":email.user_id }
+                        ),
+                    )); //"email {$name} bind in other account[{$id}]",
                 }
             }
             Err(sqlx::Error::RowNotFound) => {}
@@ -223,10 +224,11 @@ impl UserEmail {
             .await;
         match email_res {
             Ok(tmp) => {
-                return Err(UserAccountError::System(get_message!(&self.fluent,
-                    "user-email-exits","comfirn error : email {$name} bind in other account[{$id}]",
-                    ["name"=>tmp.email,"id"=>tmp.user_id ]
-                )));
+                return Err(UserAccountError::System(
+                    fluent_message!("user-email-exits-other-account",
+                        {"email":tmp.email,"id":tmp.user_id }
+                    ),
+                )); //"comfirn error : email {$name} bind in other account[{$id}]",
             }
             Err(sqlx::Error::RowNotFound) => {}
             Err(err) => {

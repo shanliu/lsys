@@ -1,5 +1,5 @@
 use crate::{
-    dao::RequestDao,
+    dao::RequestAuthDao,
     {JsonData, JsonResult, PageParam},
 };
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
@@ -9,9 +9,15 @@ use serde_json::json;
 
 /// logout
 pub async fn user_logout<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    req_dao.user_session.write().await.clear_session().await?;
+    req_dao
+        .user_session
+        .write()
+        .await
+        .clear_session()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::message("logout ok"))
 }
 
@@ -25,9 +31,15 @@ pub struct LoginHistoryParam {
 }
 pub async fn user_login_history<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: LoginHistoryParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let data = req_dao
         .web_dao
         .user
@@ -42,7 +54,8 @@ pub async fn user_login_history<'t, T: SessionTokenData, D: SessionData, S: User
             param.login_ip.clone(),
             &Some(param.page.unwrap_or_default().into()),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let total = req_dao
         .web_dao
         .user
@@ -55,7 +68,8 @@ pub async fn user_login_history<'t, T: SessionTokenData, D: SessionData, S: User
             param.is_login,
             param.login_type,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({
         "data": data ,
         "total":total,

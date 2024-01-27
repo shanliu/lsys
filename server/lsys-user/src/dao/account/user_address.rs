@@ -1,6 +1,6 @@
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
-    get_message, now_time, FluentMessage, RemoteNotify, RequestEnv,
+    fluent_message, now_time, RemoteNotify, RequestEnv,
 };
 
 use lsys_logger::dao::ChangeLogger;
@@ -17,7 +17,7 @@ use super::{
 
 pub struct UserAddress {
     db: Pool<MySql>,
-    fluent: Arc<FluentMessage>,
+    // fluent: Arc<FluentBuild>,
     index: Arc<UserIndex>,
     pub(crate) cache: Arc<LocalCache<u64, Vec<UserAddressModel>>>,
     logger: Arc<ChangeLogger>,
@@ -26,7 +26,7 @@ pub struct UserAddress {
 impl UserAddress {
     pub fn new(
         db: Pool<MySql>,
-        fluent: Arc<FluentMessage>,
+        // fluent: Arc<FluentBuild>,
         remote_notify: Arc<RemoteNotify>,
         index: Arc<UserIndex>,
         logger: Arc<ChangeLogger>,
@@ -37,7 +37,7 @@ impl UserAddress {
                 LocalCacheConfig::new("user-address"),
             )),
             db,
-            fluent,
+            //  fluent,
             index,
             logger,
         }
@@ -53,11 +53,13 @@ impl UserAddress {
         env_data: Option<&RequestEnv>,
     ) -> UserAccountResult<()> {
         if !UserAddressStatus::Enable.eq(address.status) {
-            return Err(UserAccountError::System(get_message!(
-                &self.fluent,
-                "user-address-is-delete",
-                format!("address is delete:{}", address.id)
-            )));
+            return Err(UserAccountError::System(
+                fluent_message!("user-address-is-delete",
+                    {
+                        "id": address.id
+                    }
+                ),
+            )); //format!("address is delete:{}", address.id)
         }
         macro_rules! check_data {
             ($addr_var:ident,$name:literal) => {
@@ -67,11 +69,9 @@ impl UserAddress {
                     "".to_string()
                 };
                 if $addr_var.is_empty() {
-                    return Err(UserAccountError::System(get_message!(
-                        &self.fluent,
-                        concat!("user-address-", $name, "-empty"),
-                        concat!("address ", $name, " can't be nul")
-                    )));
+                    return Err(UserAccountError::System(fluent_message!("user-address-not-empty",
+                        {"name":$name}
+                    )));//concat!("address {$name} can't be nul")
                 }
                 address_data.$addr_var = Some(&$addr_var);
             };
@@ -81,7 +81,7 @@ impl UserAddress {
         check_data!(address_detail, "detail");
         check_data!(name, "name");
         check_data!(mobile, "mobile");
-        check_mobile(&self.fluent, "", &mobile)?;
+        check_mobile("", &mobile)?;
 
         let time = now_time()?;
         address_data.change_time = Some(&time);
@@ -168,11 +168,11 @@ impl UserAddress {
                     "".to_string()
                 };
                 if $addr_var.is_empty() {
-                    return Err(UserAccountError::System(get_message!(
-                        &self.fluent,
-                        concat!("user-address-", $name, "-empty"),
-                        concat!("address ", $name, " can't be nul")
+                    return Err(UserAccountError::System(fluent_message!("user-address-not-empty",
+                        {"name":$name}
                     )));
+                    // concat!("user-address-", $name, "-empty"),
+                    // concat!("address ", $name, " can't be nul")
                 }
                 address_data.$addr_var = Some(&$addr_var);
             };
@@ -182,7 +182,7 @@ impl UserAddress {
         check_data!(address_detail, "detail");
         check_data!(name, "name");
         check_data!(mobile, "mobile");
-        check_mobile(&self.fluent, "", &mobile)?;
+        check_mobile("", &mobile)?;
 
         let address_res = Select::type_new::<UserAddressModel>()
         .fetch_one_by_where::<UserAddressModel, _>(

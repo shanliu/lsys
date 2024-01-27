@@ -2,12 +2,12 @@ use std::collections::HashMap;
 
 use super::{tpl_config_del, tpl_config_list, MessageView, TplConfigDelParam, TplConfigListParam};
 use crate::{
-    dao::RequestDao,
+    dao::RequestAuthDao,
     handler::access::{AccessAppSenderDoMail, AccessAppSenderMailConfig, AccessAppSenderMailMsg},
     LimitParam, PageParam, {JsonData, JsonResult},
 };
-use lsys_core::now_time;
-use lsys_core::str_time;
+use lsys_core::{fluent_message, str_time};
+use lsys_core::{now_time, FluentMessage};
 use lsys_sender::{
     dao::SenderError,
     model::{SenderConfigStatus, SenderMailConfigType, SenderMailMessageStatus},
@@ -23,27 +23,37 @@ pub struct MailerMessageLogParam {
     pub page: Option<PageParam>,
 }
 
-pub async fn mailer_message_log<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
+pub async fn mailer_message_log<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: MailerMessageLogParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let message_id = param.message_id.parse::<u64>().map_err(JsonData::message)?;
+    let message_id = param
+        .message_id
+        .parse::<u64>()
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let msg = req_dao
         .web_dao
         .sender_mailer
         .mailer
         .mail_record
         .find_message_by_id(&message_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let body = req_dao
         .web_dao
         .sender_mailer
         .mailer
         .mail_record
         .find_body_by_id(&msg.sender_body_id)
-        .await?;
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -57,15 +67,16 @@ pub async fn mailer_message_log<'t, T: SessionTokenData, D: SessionData, S: User
             },
             None,
         )
-        .await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let res = req_dao
         .web_dao
         .sender_mailer
         .mailer
         .mail_record
         .message_log_list(&message_id, &Some(param.page.unwrap_or_default().into()))
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
             req_dao
@@ -74,7 +85,8 @@ pub async fn mailer_message_log<'t, T: SessionTokenData, D: SessionData, S: User
                 .mailer
                 .mail_record
                 .message_log_count(&message_id)
-                .await?,
+                .await
+                .map_err(|e| req_dao.fluent_json_data(e))?,
         )
     } else {
         None
@@ -87,27 +99,37 @@ pub struct MailerMessageBodyParam {
     pub message_id: String,
 }
 
-pub async fn mailer_message_body<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
+pub async fn mailer_message_body<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: MailerMessageBodyParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let message_id = param.message_id.parse::<u64>().map_err(JsonData::message)?;
+    let message_id = param
+        .message_id
+        .parse::<u64>()
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let msg = req_dao
         .web_dao
         .sender_mailer
         .mailer
         .mail_record
         .find_message_by_id(&message_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let body = req_dao
         .web_dao
         .sender_mailer
         .mailer
         .mail_record
         .find_body_by_id(&msg.sender_body_id)
-        .await?;
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -121,7 +143,8 @@ pub async fn mailer_message_body<'t, T: SessionTokenData, D: SessionData, S: Use
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .logger
@@ -153,11 +176,17 @@ pub struct MailerMessageListParam {
     pub limit: Option<LimitParam>,
 }
 
-pub async fn mailer_message_list<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
+pub async fn mailer_message_list<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: MailerMessageListParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -171,9 +200,10 @@ pub async fn mailer_message_list<'t, T: SessionTokenData, D: SessionData, S: Use
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let status = if let Some(e) = param.status {
-        Some(SenderMailMessageStatus::try_from(e)?)
+        Some(SenderMailMessageStatus::try_from(e).map_err(|e| req_dao.fluent_json_data(e))?)
     } else {
         None
     };
@@ -192,7 +222,8 @@ pub async fn mailer_message_list<'t, T: SessionTokenData, D: SessionData, S: Use
             &param.to_mail,
             &Some(param.limit.unwrap_or_default().into()),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
             req_dao
@@ -209,7 +240,8 @@ pub async fn mailer_message_list<'t, T: SessionTokenData, D: SessionData, S: Use
                     &status,
                     &param.to_mail,
                 )
-                .await?,
+                .await
+                .map_err(|e| req_dao.fluent_json_data(e))?,
         )
     } else {
         None
@@ -221,7 +253,8 @@ pub async fn mailer_message_list<'t, T: SessionTokenData, D: SessionData, S: Use
         .sender_mailer
         .mailer
         .task_is_run(res.0.iter().map(|t| (&t.0.id, t)).collect::<Vec<_>>())
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let res = res_data
         .into_iter()
         .map(|(e, s)| {
@@ -257,31 +290,37 @@ pub struct MailerMessageCancelParam {
     pub message_id: String,
 }
 
-pub async fn mailer_message_cancel<
-    't,
-    T: SessionTokenData,
-    D: SessionData,
-    S: UserSession<T, D>,
->(
+pub async fn mailer_message_cancel<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: MailerMessageCancelParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let message_id = param.message_id.parse::<u64>().map_err(JsonData::message)?;
+    let message_id = param
+        .message_id
+        .parse::<u64>()
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let msg = req_dao
         .web_dao
         .sender_mailer
         .mailer
         .mail_record
         .find_message_by_id(&message_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let body = req_dao
         .web_dao
         .sender_mailer
         .mailer
         .mail_record
         .find_body_by_id(&msg.sender_body_id)
-        .await?;
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -295,8 +334,8 @@ pub async fn mailer_message_cancel<
             },
             None,
         )
-        .await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let mut res = req_dao
         .web_dao
         .sender_mailer
@@ -306,11 +345,12 @@ pub async fn mailer_message_cancel<
             req_auth.user_data().user_id,
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let mut out = None;
     if !res.is_empty() {
         if let Some(err) = res.remove(0).2 {
-            return Err(err.into());
+            return Err(req_dao.fluent_json_data(err));
         } else {
             out = Some(message_id.to_string())
         }
@@ -329,11 +369,17 @@ pub struct MailerConfigAddParam {
     pub config_data: Value,
 }
 
-pub async fn mailer_config_add<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
+pub async fn mailer_config_add<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: MailerConfigAddParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let uid = param.user_id.unwrap_or(req_auth.user_data().user_id);
     req_dao
         .web_dao
@@ -348,9 +394,10 @@ pub async fn mailer_config_add<'t, T: SessionTokenData, D: SessionData, S: UserS
             },
             None,
         )
-        .await?;
-
-    let config_type = SenderMailConfigType::try_from(param.config_type)?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    let config_type = SenderMailConfigType::try_from(param.config_type)
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let id = req_dao
         .web_dao
         .sender_mailer
@@ -365,7 +412,8 @@ pub async fn mailer_config_add<'t, T: SessionTokenData, D: SessionData, S: UserS
             req_auth.user_data().user_id,
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "id": id })))
 }
 
@@ -373,11 +421,17 @@ pub async fn mailer_config_add<'t, T: SessionTokenData, D: SessionData, S: UserS
 pub struct MailerConfigDeleteParam {
     pub config_id: u64,
 }
-pub async fn mailer_config_del<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
+pub async fn mailer_config_del<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: MailerConfigDeleteParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let mail_record = &req_dao.web_dao.sender_mailer.mailer.mail_record;
     let res = mail_record.find_config_by_id(&param.config_id).await;
 
@@ -397,15 +451,16 @@ pub async fn mailer_config_del<'t, T: SessionTokenData, D: SessionData, S: UserS
                         },
                         None,
                     )
-                    .await?;
-
+                    .await
+                    .map_err(|e| req_dao.fluent_json_data(e))?;
                 mail_record
                     .config_del(
                         &config,
                         req_auth.user_data().user_id,
                         Some(&req_dao.req_env),
                     )
-                    .await?;
+                    .await
+                    .map_err(|e| req_dao.fluent_json_data(e))?;
             }
         }
         Err(err) => match err {
@@ -413,7 +468,7 @@ pub async fn mailer_config_del<'t, T: SessionTokenData, D: SessionData, S: UserS
                 return Ok(JsonData::message("email not find"));
             }
             _ => {
-                return Err(err.into());
+                return Err(req_dao.fluent_json_data(err));
             }
         },
     }
@@ -427,12 +482,17 @@ pub struct MailerConfigListParam {
     pub app_id: Option<u64>,
 }
 
-pub async fn mailer_config_list<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
+pub async fn mailer_config_list<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: MailerConfigListParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -446,15 +506,16 @@ pub async fn mailer_config_list<'t, T: SessionTokenData, D: SessionData, S: User
             },
             None,
         )
-        .await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let data = req_dao
         .web_dao
         .sender_mailer
         .mailer
         .mail_record
         .config_list(param.user_id, param.id, param.app_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let data = data
         .into_iter()
         .map(|(e, v)| {
@@ -481,14 +542,9 @@ pub async fn mailer_config_list<'t, T: SessionTokenData, D: SessionData, S: User
     Ok(JsonData::data(json!({ "data": data })))
 }
 
-pub async fn mailer_tpl_config_list<
-    't,
-    T: SessionTokenData,
-    D: SessionData,
-    S: UserSession<T, D>,
->(
+pub async fn mailer_tpl_config_list<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: TplConfigListParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     tpl_config_list(
         param,
@@ -498,14 +554,9 @@ pub async fn mailer_tpl_config_list<
     .await
 }
 
-pub async fn mailer_tpl_config_del<
-    't,
-    T: SessionTokenData,
-    D: SessionData,
-    S: UserSession<T, D>,
->(
+pub async fn mailer_tpl_config_del<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: TplConfigDelParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     tpl_config_del(
         param,
@@ -526,27 +577,36 @@ pub struct MailerMessageSendParam {
 }
 
 //后台界面发送邮件接口
-pub async fn mailer_message_send<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
+pub async fn mailer_message_send<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: MailerMessageSendParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let tpl = req_dao
         .web_dao
         .sender_mailer
         .mailer
         .tpl_config
         .find_by_id(&param.tpl_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let app = req_dao
         .web_dao
         .app
         .app_dao
         .app
         .find_by_id(&tpl.app_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     if req_auth.user_data().user_id != app.user_id {
-        return Ok(JsonData::message("can't use other user app"));
+        return Ok(req_dao.fluent_json_data(fluent_message!("mail-use-other-user-app")));
+        //JsonData::message("can't use other user app")
     }
     req_dao
         .web_dao
@@ -560,12 +620,17 @@ pub async fn mailer_message_send<'t, T: SessionTokenData, D: SessionData, S: Use
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let send_time = if let Some(t) = param.send_time {
         if t.is_empty() {
             None
         } else {
-            Some(str_time(&t)?.timestamp() as u64)
+            Some(
+                str_time(&t)
+                    .map_err(|e| req_dao.fluent_json_data(FluentMessage::from(e)))?
+                    .timestamp() as u64,
+            )
         }
     } else {
         None
@@ -585,6 +650,7 @@ pub async fn mailer_message_send<'t, T: SessionTokenData, D: SessionData, S: Use
             &param.max_try,
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::default())
 }

@@ -4,15 +4,18 @@ use std::{
 };
 
 use deadpool_redis::PoolError;
+use lsys_core::FluentMessage;
 use lsys_setting::dao::SettingError;
 
 //公共结构定义
 #[derive(Debug)]
 pub enum SenderError {
     Sqlx(sqlx::Error),
-    Redis(String),
-    Tpl(tera::Error),
-    System(String),
+    Redis(redis::RedisError),
+    RedisPool(PoolError),
+    Tera(tera::Error),
+    System(FluentMessage),
+    Setting(SettingError),
 }
 impl Display for SenderError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -29,25 +32,22 @@ impl From<sqlx::Error> for SenderError {
 }
 impl From<redis::RedisError> for SenderError {
     fn from(err: redis::RedisError) -> Self {
-        SenderError::Redis(err.to_string())
+        SenderError::Redis(err)
     }
 }
 impl From<PoolError> for SenderError {
     fn from(err: PoolError) -> Self {
-        SenderError::Redis(err.to_string())
+        SenderError::RedisPool(err)
     }
 }
 impl From<SettingError> for SenderError {
     fn from(err: SettingError) -> Self {
-        match err {
-            SettingError::Sqlx(e) => SenderError::Sqlx(e),
-            SettingError::System(e) => SenderError::System(e),
-        }
+        SenderError::Setting(err)
     }
 }
 impl From<tera::Error> for SenderError {
     fn from(err: tera::Error) -> Self {
-        SenderError::Tpl(err)
+        SenderError::Tera(err)
     }
 }
 

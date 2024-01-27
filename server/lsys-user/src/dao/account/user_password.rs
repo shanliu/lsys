@@ -4,10 +4,10 @@ use crate::dao::account::UserAccountResult;
 use crate::dao::auth::UserPasswordHash;
 
 use crate::model::{UserModel, UserModelRef, UserPasswordModel, UserPasswordModelRef};
-use lsys_core::{get_message, now_time, FluentMessage};
+use lsys_core::{fluent_message, now_time};
 
 use lsys_setting::dao::{
-    NotFoundDefault, SettingDecode, SettingEncode, SettingJson, SettingKey, SettingResult,
+    NotFoundResult, SettingDecode, SettingEncode, SettingJson, SettingKey, SettingResult,
     SingleSetting,
 };
 use serde::{Deserialize, Serialize};
@@ -43,7 +43,7 @@ impl SettingJson<'_> for UserPasswordConfig {}
 
 pub struct UserPassword {
     db: Pool<MySql>,
-    fluent: Arc<FluentMessage>,
+    // fluent: Arc<FluentBuild>,
     redis: deadpool_redis::Pool,
     user_passwrd_hash: Arc<UserPasswordHash>,
     setting: Arc<SingleSetting>,
@@ -53,13 +53,13 @@ impl UserPassword {
     pub fn new(
         db: Pool<MySql>,
         setting: Arc<SingleSetting>,
-        fluent: Arc<FluentMessage>,
+        //fluent: Arc<FluentBuild>,
         redis: deadpool_redis::Pool,
         user_passwrd_hash: Arc<UserPasswordHash>,
     ) -> Self {
         Self {
             db,
-            fluent,
+            // fluent,
             redis,
             user_passwrd_hash,
             setting,
@@ -98,11 +98,15 @@ impl UserPassword {
     ) -> UserAccountResult<u64> {
         let new_password = new_password.trim().to_string();
         if new_password.len() < 6 || new_password.len() > 32 {
-            return Err(UserAccountError::System(get_message!(
-                &self.fluent,
-                "user-passwrod-wrong",
-                "password length need 6-32 char"
-            )));
+            return Err(UserAccountError::System(
+                fluent_message!("user-passwrod-wrong",
+                    {
+                        "len":new_password.len(),
+                        "min":6,
+                        "max":32
+                    }
+                ),
+            )); //"password length need 6-32 char"
         }
 
         let db = &self.db;
@@ -168,11 +172,9 @@ impl UserPassword {
                 )
                 .await;
             if old_pass_res.is_ok() {
-                return Err(UserAccountError::System(get_message!(
-                    &self.fluent,
-                    "user-old-passwrod",
-                    "can't old password"
-                )));
+                return Err(UserAccountError::System(fluent_message!(
+                    "user-old-passwrod"
+                ))); //                    "can't old password"
             }
         }
 
@@ -231,11 +233,9 @@ impl UserPassword {
             Ok(up) => up,
             Err(err) => match err {
                 UserAccountError::Sqlx(sqlx::Error::RowNotFound) => {
-                    return Err(UserAccountError::System(get_message!(
-                        &self.fluent,
-                        "user-passwrod-delete",
-                        "can't password,may be is delete"
-                    )));
+                    return Err(UserAccountError::System(fluent_message!(
+                        "user-passwrod-delete"
+                    ))); //"can't password,may be is delete"
                 }
                 _ => return Err(err),
             },

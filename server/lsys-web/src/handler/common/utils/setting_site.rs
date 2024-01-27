@@ -6,11 +6,11 @@ use serde::Deserialize;
 use serde_json::json;
 
 use crate::{
-    dao::{RequestDao, SiteConfig, WebDao},
+    dao::{RequestAuthDao, RequestDao, SiteConfig},
     handler::access::AccessSiteSetting,
     JsonData, JsonResult,
 };
-use lsys_setting::dao::{NotFoundDefault, SettingKey};
+use lsys_setting::dao::{NotFoundResult, SettingKey};
 
 #[derive(Debug, Deserialize)]
 pub struct SiteConfigParam {
@@ -21,10 +21,15 @@ pub struct SiteConfigParam {
 
 pub async fn site_config_set<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: SiteConfigParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-    //验证权限
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?; //验证权限
     req_dao
         .web_dao
         .user
@@ -36,8 +41,14 @@ pub async fn site_config_set<T: SessionTokenData, D: SessionData, S: UserSession
             },
             None,
         )
-        .await?;
-    let mut transaction = req_dao.web_dao.db.begin().await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    let mut transaction = req_dao
+        .web_dao
+        .db
+        .begin()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     if let Err(e) = req_dao
         .web_dao
         .setting
@@ -55,8 +66,11 @@ pub async fn site_config_set<T: SessionTokenData, D: SessionData, S: UserSession
         )
         .await
     {
-        transaction.rollback().await?;
-        return Err(e.into());
+        transaction
+            .rollback()
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
+        return Err(req_dao.fluent_json_data(e));
     };
     if let Err(e) = req_dao
         .web_dao
@@ -74,15 +88,21 @@ pub async fn site_config_set<T: SessionTokenData, D: SessionData, S: UserSession
         )
         .await
     {
-        transaction.rollback().await?;
-        return Err(e.into());
+        transaction
+            .rollback()
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
+        return Err(req_dao.fluent_json_data(e));
     };
-    transaction.commit().await?;
+    transaction
+        .commit()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::default())
 }
 
 pub async fn site_config_get<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     let site_config = &*req_dao
         .web_dao
@@ -90,14 +110,16 @@ pub async fn site_config_get<T: SessionTokenData, D: SessionData, S: UserSession
         .single
         .load::<SiteConfig>(&None)
         .await
-        .notfound_default()?;
+        .notfound_default()
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let password = &*req_dao
         .web_dao
         .setting
         .single
         .load::<UserPasswordConfig>(&None)
         .await
-        .notfound_default()?;
+        .notfound_default()
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({
        "config":{
         "site_tips":site_config.site_tips,
@@ -107,13 +129,15 @@ pub async fn site_config_get<T: SessionTokenData, D: SessionData, S: UserSession
     })))
 }
 
-pub async fn site_config_info(web_dao: &WebDao) -> JsonResult<JsonData> {
-    let site_config = &*web_dao
+pub async fn site_config_info(req_dao: &RequestDao) -> JsonResult<JsonData> {
+    let site_config = req_dao
+        .web_dao
         .setting
         .single
         .load::<SiteConfig>(&None)
         .await
-        .notfound_default()?;
+        .notfound_default()
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "data": {
         "site_tips":site_config.site_tips
     }})))

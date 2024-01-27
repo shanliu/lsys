@@ -49,7 +49,7 @@ pub(crate) async fn external<'t>(
                 .await
                 .get_session_data()
                 .await
-                .map_err(JsonData::from)?;
+                .map_err(|e| auth_dao.fluent_json_data(e))?;
             let login_param = json_param.param::<ExternalBindCheckParam>()?;
             match login_param.login_type.as_str() {
                 "wechat" => {
@@ -58,9 +58,9 @@ pub(crate) async fn external<'t>(
                         .user
                         .user_external_oauth::<WechatLogin, WechatLoginParam, _, _>("wechat")
                         .await
-                        .map_err(JsonData::from)?;
+                        .map_err(|e| auth_dao.fluent_json_data(e))?;
                     let (reload, login_data) = wechat
-                        .state_check(&auth_dao.web_dao.user, &login_param.login_state)
+                        .state_check(&auth_dao, &login_param.login_state)
                         .await?;
                     if let Some(ldat) = login_data {
                         let (ext_model, _, _) = &auth_dao
@@ -73,7 +73,7 @@ pub(crate) async fn external<'t>(
                                 Some(&auth_dao.req_env),
                             )
                             .await
-                            .map_err(JsonData::from)?;
+                            .map_err(|e| auth_dao.fluent_json_data(e))?;
                         Ok(JsonData::data(json!({ "id": ext_model.id })))
                     } else {
                         Ok(JsonData::data(json!({ "reload": reload })))
@@ -89,17 +89,17 @@ pub(crate) async fn external<'t>(
                 .await
                 .get_session_data()
                 .await
-                .map_err(Into::<JsonData>::into)?;
+                .map_err(|e| auth_dao.fluent_json_data(e))?;
             let param = json_param.param::<ExternalBindUrlParam>()?;
             match param.login_type.as_str() {
                 "wechat" => {
                     user_external_login_url::<WechatLogin, WechatLoginParam, _, _>(
                         "wechat",
-                        &auth_dao.web_dao,
                         &WechatLoginParam {
                             state: param.login_state,
                             callback_url: param.callback_url,
                         },
+                        &auth_dao,
                     )
                     .await
                 }

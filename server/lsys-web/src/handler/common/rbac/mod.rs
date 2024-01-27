@@ -8,6 +8,7 @@ use crate::handler::access::{
     AccessResView, AccessRoleView, AccessUserAppConfirm,
 };
 pub use access::*;
+use lsys_core::fluent_message;
 use lsys_rbac::dao::{RbacDao, RoleRelationKey, UserRbacError, UserRbacResult};
 pub use res::*;
 pub use role::*;
@@ -85,5 +86,7 @@ pub(crate) async fn access_check(
         }
     );
 
-    Err(UserRbacError::System(format!("unkown {}", check_res.name)))
+    Err(UserRbacError::System(fluent_message!("rbac-unkown-res",{
+        "res":check_res.name
+    })))
 }

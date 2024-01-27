@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use deadpool_redis::{redis::AsyncCommands, Connection, PoolError};
 use redis::RedisError;
 
-use crate::{rand_str, RandType};
+use crate::{fluent_message, rand_str, FluentMessage, RandType};
 const CODE_SAVE_KEY: &str = "valid-save";
 
 pub struct ValidCode {
@@ -18,15 +18,15 @@ pub struct ValidCode {
 #[derive(Debug)]
 //不匹配错误
 pub struct ValidCodeCheckError {
-    pub message: String,
+    pub message: FluentMessage,
     pub prefix: String,
 }
 #[derive(Debug)]
 pub enum ValidCodeError {
-    Utf8Err(String),
-    Create(String),
-    Redis(String),
-    Tag(String),
+    Utf8Err(FluentMessage),
+    Redis(RedisError),
+    RedisPool(PoolError),
+    Tag(FluentMessage),
     DelayTimeout(ValidCodeCheckError),
     NotMatch(ValidCodeCheckError),
 }
@@ -37,17 +37,17 @@ impl Display for ValidCodeError {
 }
 impl From<FromUtf8Error> for ValidCodeError {
     fn from(err: FromUtf8Error) -> Self {
-        ValidCodeError::Utf8Err(err.to_string())
+        ValidCodeError::Utf8Err(fluent_message!("utf-error", err))
     }
 }
 impl From<RedisError> for ValidCodeError {
     fn from(err: RedisError) -> Self {
-        ValidCodeError::Redis(err.to_string())
+        ValidCodeError::Redis(err)
     }
 }
 impl From<PoolError> for ValidCodeError {
     fn from(err: PoolError) -> Self {
-        ValidCodeError::Redis(err.to_string())
+        ValidCodeError::RedisPool(err)
     }
 }
 
@@ -174,7 +174,10 @@ impl ValidCode {
     }
     pub async fn get_code(&self, tag: &String) -> ValidCodeResult<(String, usize)> {
         if tag.len() > 255 {
-            return Err(ValidCodeError::Tag(format!("tag over length:{}", tag)));
+            return Err(ValidCodeError::Tag(fluent_message!("valid-code-tag-len",{
+                "tag":tag,
+                "max":255
+            })));
         }
         let save_key = CODE_SAVE_KEY.to_owned() + self.prefix.as_str() + tag;
         let mut redis = self.redis.get().await?;
@@ -188,7 +191,10 @@ impl ValidCode {
         valid_code_builder: &mut T,
     ) -> ValidCodeResult<(String, usize)> {
         if tag.len() > 255 {
-            return Err(ValidCodeError::Tag(format!("tag over length:{}", tag)));
+            return Err(ValidCodeError::Tag(fluent_message!("valid-code-tag-len",{
+                "tag":tag,
+                "max":255
+            })));
         }
         let save_key = CODE_SAVE_KEY.to_owned() + self.prefix.as_str() + tag;
         let mut redis = self.redis.get().await?;
@@ -219,7 +225,7 @@ impl ValidCode {
         let (code, llt) = self.get_code(tag).await?;
         if code.is_empty() || llt <= 1 {
             return Err(ValidCodeError::DelayTimeout(ValidCodeCheckError {
-                message: "code is timeout".to_string(),
+                message: fluent_message!("valid-code-timeout"), //"code is timeout".to_string()
                 prefix: self.prefix.to_owned(),
             }));
         }
@@ -249,7 +255,7 @@ impl ValidCode {
         let c_code = code.trim();
         if c_code.is_empty() {
             return Err(ValidCodeError::NotMatch(ValidCodeCheckError {
-                message: format!("your submit code [{}] is empty", code),
+                message: fluent_message!("valid-code-submit-empty"),
                 prefix: self.prefix.to_owned(),
             }));
         }
@@ -259,7 +265,9 @@ impl ValidCode {
             s_code != *c_code
         } {
             return Err(ValidCodeError::NotMatch(ValidCodeCheckError {
-                message: format!("your submit code [{}] not match", code),
+                message: fluent_message!("valid-code-not-match",{//format!("your submit code [{}] not match", code)
+                    "code":code
+                }),
                 prefix: self.prefix.to_owned(),
             }));
         }

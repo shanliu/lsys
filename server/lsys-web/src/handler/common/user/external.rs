@@ -1,5 +1,5 @@
 use crate::{
-    dao::{RequestDao, WebDao},
+    dao::{RequestAuthDao, RequestDao},
     handler::access::{AccessSystemLogin, AccessUserExternalEdit},
     module::oauth::{OauthCallbackParam, OauthLogin, OauthLoginParam},
     {JsonData, JsonResult},
@@ -16,9 +16,15 @@ pub struct ExternalDeleteParam {
 }
 pub async fn user_external_delete<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: ExternalDeleteParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let res = req_dao
         .web_dao
         .user
@@ -43,7 +49,8 @@ pub async fn user_external_delete<'t, T: SessionTokenData, D: SessionData, S: Us
                         },
                         None,
                     )
-                    .await?;
+                    .await
+                    .map_err(|e| req_dao.fluent_json_data(e))?;
                 req_dao
                     .web_dao
                     .user
@@ -51,12 +58,13 @@ pub async fn user_external_delete<'t, T: SessionTokenData, D: SessionData, S: Us
                     .user_account
                     .user_external
                     .del_external(&ext, None, Some(&req_dao.req_env))
-                    .await?;
+                    .await
+                    .map_err(|e| req_dao.fluent_json_data(e))?;
             }
         }
         Err(e) => {
             if !e.is_not_found() {
-                return Err(e.into());
+                return Err(req_dao.fluent_json_data(e));
             }
         }
     }
@@ -68,21 +76,23 @@ pub struct ExternalListDataParam {
     pub oauth_type: Option<Vec<String>>,
 }
 
-pub async fn user_external_list_data<
-    't,
-    T: SessionTokenData,
-    D: SessionData,
-    S: UserSession<T, D>,
->(
+pub async fn user_external_list_data<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: ExternalListDataParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let data = req_dao
         .web_dao
         .user
         .user_external(req_auth.user_data().user_id, param.oauth_type.as_deref())
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({
         "data": data ,
         "total":data.len(),
@@ -97,22 +107,28 @@ pub async fn user_external_login_url<
     D: Serialize + Send + Sync,
 >(
     config_key: &str,
-    app_dao: &WebDao,
     param: &L,
+    req_dao: &RequestDao,
 ) -> JsonResult<JsonData> {
-    let oauth = &app_dao
+    let oauth = &req_dao
+        .web_dao
         .user
         .user_external_oauth::<T, L, P, D>(config_key)
-        .await?;
-    app_dao
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    req_dao
+        .web_dao
         .user
         .rbac_dao
         .rbac
         .check(&AccessSystemLogin {}, None)
-        .await?;
-    let url = app_dao
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    let url = req_dao
+        .web_dao
         .user
         .user_external_login_url::<T, L, P, D>(oauth, param)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "url": url })))
 }

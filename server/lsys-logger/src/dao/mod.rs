@@ -8,7 +8,7 @@ pub use change_log::*;
 #[derive(Debug)]
 pub enum LoggerError {
     Sqlx(sqlx::Error),
-    System(String),
+    // System(FluentMessage),
 }
 impl Display for LoggerError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

@@ -4,8 +4,6 @@ use crate::dao::auth::{LoginParam, LoginType, UserAuthError, UserAuthResult};
 
 use crate::model::{UserMobileModel, UserModel};
 use async_trait::async_trait;
-use lsys_core::get_message;
-use lsys_core::FluentMessage;
 
 use super::super::{LoginData, LoginEnv};
 use super::auth_check_user_password;
@@ -39,18 +37,16 @@ impl LoginParam for MobileLogin {
         &self,
         _db: &Pool<MySql>,
         _redis: &deadpool_redis::Pool,
-        fluent: &Arc<FluentMessage>,
     ) -> UserAuthResult<LoginType> {
         Ok(LoginType {
             time_out: 3600 * 24,
-            type_name: get_message!(fluent, "auth-login-type-mobile", "Mobile Login"),
+            type_name: "mobile".to_owned(), //"Mobile Login"
         })
     }
     async fn get_user(
         &self,
         _db: &Pool<MySql>,
         _redis: &deadpool_redis::Pool,
-        fluent: &Arc<FluentMessage>,
         account: &Arc<UserAccount>,
         _: &LoginEnv,
     ) -> UserAuthResult<(LoginData, UserModel)> {
@@ -58,7 +54,7 @@ impl LoginParam for MobileLogin {
             .user_mobile
             .find_by_last_mobile(self.area_code.clone(), self.mobile.clone())
             .await
-            .map_err(auth_user_not_found_map!(fluent, self.show_name(), "mobile"))?;
+            .map_err(auth_user_not_found_map!(self.show_name(), "mobile"))?;
         mobile.is_enable()?;
         let user =
             account
@@ -66,12 +62,11 @@ impl LoginParam for MobileLogin {
                 .find_by_id(&mobile.user_id)
                 .await
                 .map_err(auth_user_not_found_map!(
-                    fluent,
                     self.show_name(),
                     "mobile [user id]"
                 ))?;
         user.is_enable()?;
-        let user = auth_check_user_password(fluent, account, user, &self.password).await?;
+        let user = auth_check_user_password(account, user, &self.password).await?;
 
         Ok((LoginData::Mobile(MobileLoginData(mobile)), user))
     }

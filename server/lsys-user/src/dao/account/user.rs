@@ -5,7 +5,7 @@ use std::sync::Arc;
 use crate::dao::account::UserAccountResult;
 use crate::model::{UserIndexCat, UserModel, UserModelRef, UserStatus};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{get_message, now_time, FluentMessage, LimitParam, RemoteNotify, RequestEnv};
+use lsys_core::{fluent_message, now_time, LimitParam, RemoteNotify, RequestEnv};
 use lsys_logger::dao::ChangeLogger;
 
 use super::logger::LogUser;
@@ -17,7 +17,7 @@ use sqlx_model::{model_option_set, sql_format, Insert, Select, Update};
 
 pub struct User {
     db: Pool<MySql>,
-    fluent: Arc<FluentMessage>,
+
     index: Arc<UserIndex>,
     pub(crate) cache: Arc<LocalCache<u64, UserModel>>,
     logger: Arc<ChangeLogger>,
@@ -28,7 +28,7 @@ pub struct User {
 impl User {
     pub fn new(
         db: Pool<MySql>,
-        fluent: Arc<FluentMessage>,
+
         remote_notify: Arc<RemoteNotify>,
         index: Arc<UserIndex>,
         logger: Arc<ChangeLogger>,
@@ -39,7 +39,7 @@ impl User {
                 LocalCacheConfig::new("user"),
             )),
             db,
-            fluent,
+            // fluent,
             index,
             logger,
         }
@@ -53,9 +53,7 @@ impl User {
         env_data: Option<&RequestEnv>,
     ) -> UserAccountResult<UserModel> {
         if UserStatus::Init != status && UserStatus::Enable != status {
-            return Err(UserAccountError::System(String::from(
-                "submit status wrong",
-            )));
+            return Err(UserAccountError::System(fluent_message!("user-bad-status")));
         }
         let time = now_time()?;
         let u_status = status as i8;
@@ -139,7 +137,9 @@ impl User {
         env_data: Option<&RequestEnv>,
     ) -> UserAccountResult<()> {
         if UserStatus::Delete.eq(user.status) {
-            return Err(UserAccountError::System(String::from("user is delete")));
+            return Err(UserAccountError::System(fluent_message!("user-is-delete",{
+                "user":user.nickname
+            })));
         }
         if UserStatus::Enable.eq(user.status) {
             return Ok(());
@@ -250,11 +250,14 @@ impl User {
     ) -> UserAccountResult<u64> {
         let nikename = nikename.trim().to_string();
         if nikename.is_empty() || nikename.len() > 32 {
-            return Err(UserAccountError::System(get_message!(
-                &self.fluent,
-                "user-nikename-wrong",
-                "username length need 1-32 char"
-            )));
+            return Err(UserAccountError::System(
+                fluent_message!("user-nikename-wrong",{
+                        "len":nikename.len(),
+                        "max":32
+                    }
+                    // "username length need 1-32 char"
+                ),
+            ));
         }
         let time = now_time().unwrap_or_default();
         let change = sqlx_model::model_option_set!(UserModelRef,{

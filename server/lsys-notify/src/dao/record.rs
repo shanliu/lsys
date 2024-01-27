@@ -4,7 +4,7 @@ use std::time::Duration;
 use crate::model::{
     NotifyConfigModel, NotifyConfigModelRef, NotifyDataModel, NotifyDataModelRef, NotifyDataStatus,
 };
-use lsys_core::{now_time, LimitParam, RequestEnv};
+use lsys_core::{fluent_message, now_time, LimitParam, RequestEnv};
 
 use reqwest::Method;
 use serde::Serialize;
@@ -82,20 +82,18 @@ impl NotifyRecord {
         env_data: Option<&RequestEnv>,
     ) -> NotifyResult<u64> {
         if !call_url.starts_with("http://") && !call_url.starts_with("https://") {
-            return Err(NotifyError::System(
-                "your submit notify not support".to_string(),
-            ));
+            return Err(NotifyError::System(fluent_message!("notify-not-support")));
         }
         let client = reqwest::Client::builder();
         let client = client
             .timeout(Duration::from_secs(5))
             .build()
-            .map_err(|e| NotifyError::System(e.to_string()))?;
+            .map_err(|e| NotifyError::System(fluent_message!("notify-reqwest-build-error", e)))?;
         client
             .request(Method::POST, call_url)
             .send()
             .await
-            .map_err(|e| NotifyError::System(e.to_string()))?;
+            .map_err(|e| NotifyError::System(fluent_message!("notify-reqwest-check-error", e)))?;
 
         let call_url = call_url.to_owned();
         let change_user_id = change_user_id.to_owned();

@@ -1,3 +1,4 @@
+use lsys_core::fluent_message;
 use lsys_rbac::{
     dao::{
         AccessRes, RbacAccess, RbacCheck, RbacCheckDepend, RbacResTpl, ResTpl, RoleRelationKey,
@@ -176,8 +177,8 @@ impl RbacCheck for AccessRoleEdit {
                 if self.res_user_id > 0 && tmp.op_user_id != self.res_user_id {
                     return Err(UserRbacError::Check(vec![(
                         "bad-user".to_string(),
-                        "can't edit other user res to your role".to_string(),
-                    )]));
+                        fluent_message!("rbac-edit-role-bad-user"),
+                    )])); //"can't edit other user res to your role".to_string(),
                 }
             }
         }

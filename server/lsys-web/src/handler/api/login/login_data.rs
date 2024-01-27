@@ -28,13 +28,19 @@ pub async fn login_data_from_user_auth(
     param: UserAuthDataOptionParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let email = if let Some(e) = param.email {
         let mut out = Vec::with_capacity(e.len());
         for tmp in e {
             match UserEmailStatus::try_from(tmp) {
                 Ok(ts) => out.push(ts),
-                Err(err) => return Err(JsonData::error(err)),
+                Err(err) => return Err(req_dao.fluent_json_data(err)),
             };
         }
         Some(out)
@@ -46,7 +52,7 @@ pub async fn login_data_from_user_auth(
         for tmp in e {
             match UserMobileStatus::try_from(tmp) {
                 Ok(ts) => out.push(ts),
-                Err(err) => return Err(JsonData::error(err)),
+                Err(err) => return Err(req_dao.fluent_json_data(err)),
             };
         }
         Some(out)
@@ -67,7 +73,8 @@ pub async fn login_data_from_user_auth(
         .web_dao
         .user
         .user_detail(auth_data.user_data().user_id, data_option)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
 
     let passwrod_timeout = if param.password_timeout.unwrap_or(false) {
         req_dao
@@ -88,7 +95,12 @@ pub async fn login_data_from_user_auth(
         let _ = session.refresh_session(true).await;
         (
             Some(session.get_session_token().to_string()),
-            Some(ShowUserAuthData::from(session.get_session_data().await?)),
+            Some(ShowUserAuthData::from(
+                session
+                    .get_session_data()
+                    .await
+                    .map_err(|e| req_dao.fluent_json_data(e))?,
+            )),
         )
     } else if param.auth.unwrap_or(false) {
         (None, Some(ShowUserAuthData::from(auth_data)))

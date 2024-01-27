@@ -1,6 +1,6 @@
 use crate::model::{SettingModel, SettingModelRef, SettingStatus, SettingType};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{now_time, FluentMessage, RemoteNotify, RequestEnv};
+use lsys_core::{now_time, RemoteNotify, RequestEnv};
 use lsys_logger::dao::ChangeLogger;
 use sqlx::{MySql, Pool, Transaction};
 use sqlx_model::SqlQuote;
@@ -13,14 +13,14 @@ use super::{SettingData, SettingDecode, SettingEncode, SettingLog, SettingResult
 pub struct SingleSetting {
     db: Pool<MySql>,
     logger: Arc<ChangeLogger>,
-    //fluent: Arc<FluentMessage>,
+    //fluent: Arc<FluentBuild>,
     pub(crate) cache: Arc<LocalCache<String, SettingModel>>,
 }
 
 impl SingleSetting {
     pub fn new(
         db: Pool<MySql>,
-        _fluent: Arc<FluentMessage>,
+        // _fluent: Arc<FluentBuild>,
         remote_notify: Arc<RemoteNotify>,
         logger: Arc<ChangeLogger>,
     ) -> Self {

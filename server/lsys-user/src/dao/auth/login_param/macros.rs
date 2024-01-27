@@ -1,10 +1,10 @@
 macro_rules! auth_user_not_found_map {
-    ($fluent:expr,$name:expr,$login_type:literal)=>{
+    ($name:expr,$login_type:literal)=>{
         |err:UserAccountError|{
             return match err {
                 UserAccountError::Sqlx(sqlx::Error::RowNotFound) => {
                     UserAuthError::UserNotFind(
-                        get_message!($fluent,"auth-not-user",concat!($login_type," login, account {$user} not find",),["user"=>$name])
+                        lsys_core::fluent_message!("auth-not-user",{"name":$name})//concat!($login_type," login, account {$user} not find",)
                     )
                 }
                 _ => {

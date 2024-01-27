@@ -1,3 +1,4 @@
+use crate::common::handler::ReqQuery;
 use crate::common::handler::{
     JsonQuery, JwtQuery, ResponseJson, ResponseJsonResult, UserAuthQuery,
 };
@@ -111,12 +112,12 @@ pub async fn docs_setting(
 #[post("/read/{type}")]
 pub async fn docs_read(
     path: actix_web::web::Path<(String,)>,
-    web_dao: Data<WebDao>,
+    req_dao: ReqQuery,
     json_param: JsonQuery,
 ) -> ResponseJsonResult<ResponseJson> {
     let res = match path.0.to_string().as_str() {
-        "menu" => docs_menu(&web_dao).await,
-        "md" => docs_md_read(json_param.param::<DocsMdReadParam>()?, &web_dao).await,
+        "menu" => docs_menu(&req_dao).await,
+        "md" => docs_md_read(json_param.param::<DocsMdReadParam>()?, &req_dao).await,
         name => handler_not_found!(name),
     };
     Ok(res?.into())

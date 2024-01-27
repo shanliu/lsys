@@ -1,3 +1,4 @@
+use std::env;
 use std::error::Error;
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -11,7 +12,7 @@ mod logger;
 mod task;
 pub use docs::*;
 
-use lsys_core::AppCore;
+use lsys_core::FluentMessage;
 use lsys_core::RemoteNotify;
 use lsys_logger::dao::ChangeLogger;
 use relative_path::RelativePath;
@@ -23,9 +24,9 @@ use sqlx::Pool;
 #[derive(Debug)]
 pub enum GitDocError {
     Sqlx(sqlx::Error),
-    Redis(String),
-    System(String),
-    Remote(String),
+    Git(git2::Error),
+    System(FluentMessage),
+    Remote(FluentMessage),
 }
 impl Display for GitDocError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -34,7 +35,11 @@ impl Display for GitDocError {
 }
 
 impl Error for GitDocError {}
-
+impl From<git2::Error> for GitDocError {
+    fn from(err: git2::Error) -> Self {
+        GitDocError::Git(err)
+    }
+}
 impl From<sqlx::Error> for GitDocError {
     fn from(err: sqlx::Error) -> Self {
         GitDocError::Sqlx(err)
@@ -51,19 +56,26 @@ pub struct DocsDao {
 
 impl DocsDao {
     pub async fn new(
-        app_core: Arc<AppCore>,
         db: Pool<MySql>,
         remote_notify: Arc<RemoteNotify>,
         logger: Arc<ChangeLogger>,
         task_size: Option<usize>,
+        save_dir: Option<String>,
     ) -> Self {
+        let save_dir = save_dir.unwrap_or_else(|| {
+            env::temp_dir().to_string_lossy().to_string()
+            // let config_dir = config!(self.app_core.config)
+            // .get_string("doc_git_dir")
+            // .unwrap_or_else(|_| env::temp_dir().to_string_lossy().to_string());
+        });
         let task = Arc::from(GitTask::new(
-            app_core.clone(),
+            // app_core.clone(),
             db.clone(),
             remote_notify,
             task_size,
+            save_dir.clone(),
         ));
-        let docs = Arc::from(GitDocs::new(db, app_core, logger, task.clone()));
+        let docs = Arc::from(GitDocs::new(db, logger, task.clone(), save_dir));
         DocsDao { docs, task }
     }
 }

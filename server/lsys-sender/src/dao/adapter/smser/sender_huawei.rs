@@ -9,7 +9,7 @@ use crate::{
     model::SenderTplConfigModel,
 };
 use async_trait::async_trait;
-use lsys_core::RequestEnv;
+use lsys_core::{fluent_message, RequestEnv};
 use lsys_setting::{
     dao::{
         MultipleSetting, SettingData, SettingDecode, SettingEncode, SettingError, SettingKey,
@@ -69,7 +69,7 @@ impl SettingKey for HwYunConfig {
 }
 impl SettingDecode for HwYunConfig {
     fn decode(data: &str) -> SettingResult<Self> {
-        serde_json::from_str::<Self>(data).map_err(|e| SettingError::System(e.to_string()))
+        serde_json::from_str::<Self>(data).map_err(SettingError::SerdeJson)
     }
 }
 
@@ -139,16 +139,16 @@ impl SenderHwYunConfig {
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         if *branch_limit > HwSms::branch_limit() {
-            return Err(SenderError::System(format!(
-                "limit max:{}",
-                HwSms::branch_limit()
-            )));
+            return Err(SenderError::System(
+                fluent_message!("sms-config-branch-error",
+                    {"max":HwSms::branch_limit()}
+                ),
+            ));
         }
         if !url.starts_with("http://") && !url.starts_with("https://") {
-            return Err(SenderError::System(format!(
-                "your submit url [{}] is wrong",
-                url
-            )));
+            return Err(SenderError::System(fluent_message!("sms-config-url-error",
+                {"url":url}
+            ))); //"your submit url [{}] is wrong",
         }
         Ok(self
             .setting
@@ -183,15 +183,15 @@ impl SenderHwYunConfig {
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         if *branch_limit > HwSms::branch_limit() {
-            return Err(SenderError::System(format!(
-                "limit max:{}",
-                HwSms::branch_limit()
-            )));
+            return Err(SenderError::System(
+                fluent_message!("sms-config-branch-error",
+                    {"max":HwSms::branch_limit()}
+                ),
+            ));
         }
         if !url.starts_with("http://") && !url.starts_with("https://") {
-            return Err(SenderError::System(format!(
-                "your submit url [{}] is wrong",
-                url
+            return Err(SenderError::System(fluent_message!("sms-config-url-error",
+                {"url":url}
             )));
         }
         Ok(self

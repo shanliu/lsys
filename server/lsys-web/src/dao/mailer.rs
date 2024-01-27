@@ -1,13 +1,13 @@
 use config::ConfigError;
 use lsys_app::model::AppsModel;
-use lsys_core::{AppCore, FluentMessage, RequestEnv};
+use lsys_core::{fluent_message, AppCore, FluentMessage, RequestEnv};
 use lsys_logger::dao::ChangeLogger;
 use lsys_sender::{
     dao::{MailSender, SenderError, SenderSmtpConfig, SmtpSenderTask},
     model::{SenderMailBodyModel, SenderMailMessageModel},
 };
 use lsys_setting::dao::Setting;
-use lsys_user::dao::account::{check_email, UserAccountError};
+use lsys_user::dao::account::check_email;
 use serde_json::json;
 use sqlx::{MySql, Pool};
 use std::{collections::HashMap, sync::Arc};
@@ -15,8 +15,9 @@ use tera::Context;
 
 pub enum WebAppMailerError {
     Config(ConfigError),
-    System(String),
+    System(FluentMessage),
     Tera(tera::Error),
+    Sender(SenderError),
 }
 
 impl From<ConfigError> for WebAppMailerError {
@@ -36,6 +37,9 @@ impl ToString for WebAppMailerError {
             WebAppMailerError::Tera(err) => {
                 format!("tpl error:{}", err)
             }
+            WebAppMailerError::Sender(err) => {
+                format!("sender error:{}", err)
+            }
         }
     }
 }
@@ -46,18 +50,11 @@ impl From<tera::Error> for WebAppMailerError {
 }
 impl From<SenderError> for WebAppMailerError {
     fn from(err: SenderError) -> Self {
-        WebAppMailerError::System(err.to_string())
-    }
-}
-
-impl From<WebAppMailerError> for UserAccountError {
-    fn from(err: WebAppMailerError) -> Self {
-        UserAccountError::System(err.to_string())
+        WebAppMailerError::Sender(err)
     }
 }
 
 pub struct WebAppMailer {
-    fluent: Arc<FluentMessage>,
     pub mailer: Arc<MailSender>,
     db: Pool<MySql>,
     logger: Arc<ChangeLogger>,
@@ -68,7 +65,6 @@ impl WebAppMailer {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         app_core: Arc<AppCore>,
-        fluent: Arc<FluentMessage>,
         redis: deadpool_redis::Pool,
         db: Pool<MySql>,
         setting: Arc<Setting>,
@@ -81,35 +77,21 @@ impl WebAppMailer {
             app_core,
             redis,
             db.clone(),
-            fluent.clone(),
             setting.clone(),
             logger.clone(),
             task_size,
             task_timeout,
             is_check,
         ));
-        let smtp_sender = SenderSmtpConfig::new(
-            fluent.clone(),
-            setting.multiple.clone(),
-            mailer.tpl_config.clone(),
-        );
+        let smtp_sender =
+            SenderSmtpConfig::new(setting.multiple.clone(), mailer.tpl_config.clone());
         Self {
             mailer,
-            fluent,
             smtp_sender,
             db,
             logger,
         }
     }
-    // pub fn tpl_config(&self) -> &SenderTplConfig {
-    //     &self.mailer.tpl_config
-    // }
-    // pub fn mail_record(&self) -> &MailRecord {
-    //     &self.mailer.mail_record
-    // }
-    // pub fn smtp_sender(&self) -> &SenderSmtpConfig {
-    //     &self.smtp_sender
-    // }
     pub async fn send_valid_code(
         &self,
         to: &str,
@@ -139,7 +121,8 @@ impl WebAppMailer {
         max_try_num: &Option<u8>,
         env_data: Option<&RequestEnv>,
     ) -> Result<u64, WebAppMailerError> {
-        check_email(&self.fluent, to).map_err(|e| WebAppMailerError::System(e.to_string()))?;
+        check_email(to)
+            .map_err(|e| WebAppMailerError::System(fluent_message!("mail-send-check", e)))?;
         let out = self
             .mailer
             .send(
@@ -154,12 +137,12 @@ impl WebAppMailer {
                 env_data,
             )
             .await
-            .map_err(|e| WebAppMailerError::System(e.to_string()))?;
+            .map_err(|e| WebAppMailerError::System(fluent_message!("mail-send-error", e)))?;
         Ok(out.1.first().map(|e| e.0).unwrap_or_default())
     }
     // 后台任务
     pub async fn task(&self) -> Result<(), WebAppMailerError> {
-        let task = SmtpSenderTask::new(self.db.clone(), self.fluent.clone(), self.logger.clone());
+        let task = SmtpSenderTask::new(self.db.clone(), self.logger.clone());
         Ok(self.mailer.task(vec![Box::new(task)]).await?)
     }
 
@@ -174,7 +157,7 @@ impl WebAppMailer {
         self.mailer
             .cancal_from_message(body, message, &user_id, env_data)
             .await
-            .map_err(|e| WebAppMailerError::System(e.to_string()))
+            .map_err(WebAppMailerError::Sender)
     }
     // 发送接口
     #[allow(clippy::too_many_arguments)]
@@ -190,12 +173,17 @@ impl WebAppMailer {
         env_data: Option<&RequestEnv>,
     ) -> Result<Vec<(u64, &'t str)>, WebAppMailerError> {
         for tmp in to.iter() {
-            check_email(&self.fluent, tmp).map_err(|e| WebAppMailerError::System(e.to_string()))?;
+            check_email(tmp)
+                .map_err(|e| WebAppMailerError::System(fluent_message!("mail-send-check", e)))?;
         }
         if let Some(ref cr) = reply {
             if !cr.is_empty() {
-                check_email(&self.fluent, cr)
-                    .map_err(|e| WebAppMailerError::System(e.to_string()))?;
+                check_email(cr).map_err(|e| {
+                    WebAppMailerError::System(fluent_message!("mail-send-reply-check",{
+                        "msg":e,
+                        "reply":cr
+                    }))
+                })?;
             }
         }
         let tos = to.to_vec();
@@ -212,7 +200,7 @@ impl WebAppMailer {
                 env_data,
             )
             .await
-            .map_err(|e| WebAppMailerError::System(e.to_string()))
+            .map_err(WebAppMailerError::Sender)
             .map(|e| e.1)
     }
     // APP 取消发送
@@ -225,6 +213,6 @@ impl WebAppMailer {
         self.mailer
             .cancal_from_message_snid_vec(snid_data, &app.user_id, env_data)
             .await
-            .map_err(|e| WebAppMailerError::System(e.to_string()))
+            .map_err(WebAppMailerError::Sender)
     }
 }

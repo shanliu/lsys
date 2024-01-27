@@ -4,6 +4,7 @@ use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use deadpool_redis::PoolError;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use snowflake::SnowflakeIdGenerator;
@@ -20,7 +21,8 @@ use crate::AppCore;
 #[derive(Debug)]
 pub enum RemoteNotifyError {
     System(String),
-    Redis(String),
+    RedisPool(PoolError),
+    Redis(RedisError),
     RemoteTimeOut,
 }
 
@@ -32,7 +34,12 @@ impl Display for RemoteNotifyError {
 impl Error for RemoteNotifyError {}
 impl From<RedisError> for RemoteNotifyError {
     fn from(err: RedisError) -> Self {
-        RemoteNotifyError::Redis(err.to_string())
+        RemoteNotifyError::Redis(err)
+    }
+}
+impl From<PoolError> for RemoteNotifyError {
+    fn from(err: PoolError) -> Self {
+        RemoteNotifyError::RedisPool(err)
     }
 }
 
@@ -158,12 +165,11 @@ impl RemoteNotify {
                     let mut redis = self
                         .redis
                         .get()
-                        .await
-                        .map_err(|e| RemoteNotifyError::Redis(e.to_string()))?;
+                        .await?;
                     let res: Result<(), _> = redis.publish(self.channel_name, send_msg).await;
                     if let Err(err) = res {
                         warn!("notify redis clear cache fail :{}", err);
-                        return Err(RemoteNotifyError::Redis(err.to_string()));
+                        return Err(RemoteNotifyError::Redis(err));
                     };
                 },
                 Err(err) => {

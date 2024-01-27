@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use lsys_core::get_message;
+use lsys_core::fluent_message;
 use lsys_user::dao::auth::{
     SessionData, SessionToken, SessionTokenData, SessionUserData, UserAuthError, UserAuthResult,
     UserSession,
@@ -43,7 +43,9 @@ impl RestAuthData {
         let split = scope.split(',');
         for sp in split {
             if !self.token.scope.contains(sp) {
-                return Err(AppsError::ScopeNotFind(format!("Unauthorized:{}", sp)));
+                return Err(AppsError::ScopeNotFind(fluent_message!("app-bad-scope",{
+                    "scope":sp
+                })));
             }
         }
         Ok(())
@@ -64,11 +66,7 @@ impl RestAuthSession {
         user_token: &'t SessionToken<RestAuthTokenData>,
     ) -> UserAuthResult<&'t RestAuthTokenData> {
         user_token.data().ok_or_else(|| {
-            UserAuthError::System(get_message!(
-                &self.app.fluent,
-                "auth-not-login",
-                "user not login"
-            ))
+            UserAuthError::System(lsys_core::fluent_message!("auth-not-login")) //"user not login"
         })
     }
 }
@@ -90,7 +88,12 @@ impl UserSession<RestAuthTokenData, RestAuthData> for RestAuthSession {
             .app_oauth
             .get_session_data(token_data)
             .await
-            .map_err(|e| UserAuthError::System(e.to_string()))?;
+            .map_err(|e| {
+                UserAuthError::System(fluent_message!("user-session-get-error",{
+                    "client_id":token_data.client_id,
+                    "msg":e
+                }))
+            })?;
         Ok(data)
     }
     async fn refresh_session(&mut self, reset_token: bool) -> UserAuthResult<RestAuthTokenData> {
@@ -101,13 +104,23 @@ impl UserSession<RestAuthTokenData, RestAuthData> for RestAuthSession {
             .cache()
             .find_by_client_id(&token_data.client_id)
             .await
-            .map_err(|e| UserAuthError::System(e.to_string()))?;
+            .map_err(|e| {
+                UserAuthError::System(fluent_message!("user-session-refresh-error",{
+                    "client_id":token_data.client_id,
+                    "msg":e
+                }))
+            })?;
         let data = self
             .app
             .app_oauth
             .refresh_session(&app, token_data, reset_token)
             .await
-            .map_err(|e| UserAuthError::System(e.to_string()))?;
+            .map_err(|e| {
+                UserAuthError::System(fluent_message!("user-session-refresh-error",{
+                    "client_id":token_data.client_id,
+                    "msg":e
+                }))
+            })?;
         self.set_session_token(SessionToken::from(data.clone()));
         Ok(data)
     }
@@ -116,7 +129,7 @@ impl UserSession<RestAuthTokenData, RestAuthData> for RestAuthSession {
             .app_oauth
             .clear_session(&self.user_token)
             .await
-            .map_err(|e| UserAuthError::System(e.to_string()))?;
+            .map_err(|e| UserAuthError::System(fluent_message!("user-session-clear-error", e)))?;
         Ok(())
     }
 }

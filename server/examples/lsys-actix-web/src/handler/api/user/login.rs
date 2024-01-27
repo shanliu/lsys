@@ -1,14 +1,14 @@
 use crate::common::handler::{
-    JsonQuery, JwtClaims, JwtQuery, ResponseJson, ResponseJsonResult, UserAuthQuery,
+    JsonQuery, JwtClaims, JwtQuery, ReqQuery, ResponseJson, ResponseJsonResult, UserAuthQuery,
 };
 
-use actix_web::web::Data;
 use actix_web::{get, post};
 
 use jsonwebtoken::{encode, EncodingKey, Header};
+use lsys_core::fluent_message;
 use lsys_user::dao::auth::UserAuthTokenData;
 use lsys_web::dao::user::ShowUserAuthData;
-use lsys_web::dao::WebDao;
+
 use lsys_web::handler::api::login::login_data_from_user_auth;
 use lsys_web::handler::api::login::user_login_from_email;
 use lsys_web::handler::api::login::user_login_from_email_code;
@@ -44,6 +44,7 @@ async fn jwt_login_data(
         .web_dao
         .app_core
         .config
+        .find(None)
         .get_string("app_jwt_key")
         .unwrap_or_default();
     let token = encode(
@@ -51,7 +52,7 @@ async fn jwt_login_data(
         &JwtClaims::new(token.time_out as i64, token.to_string(), Some(json!(data))),
         &EncodingKey::from_secret(app_jwt_key.as_bytes()),
     )
-    .map_err(JsonData::message_error)?;
+    .map_err(|e| auth_dao.fluent_json_data(fluent_message!("jwt-encode-error", e)))?;
     let passwrod_timeout = auth_dao
         .web_dao
         .user
@@ -162,18 +163,18 @@ pub struct ExternalLoginParam {
 #[post("/external_login_url")]
 pub async fn external_login_url(
     json_param: JsonQuery,
-    app_dao: Data<WebDao>,
+    req_dao: ReqQuery,
 ) -> ResponseJsonResult<ResponseJson> {
     let login_param = json_param.param::<ExternalLoginParam>()?;
     let res = match login_param.login_type.as_str() {
         "wechat" => {
             user_external_login_url::<WechatLogin, _, _, _>(
                 "wechat",
-                &app_dao,
                 &WechatLoginParam {
                     state: login_param.login_state,
                     callback_url: login_param.login_callback,
                 },
+                &req_dao,
             )
             .await
         }
@@ -201,9 +202,9 @@ pub async fn external_state_check(
                 .user
                 .user_external_oauth::<WechatLogin, WechatLoginParam, _, _>("wechat")
                 .await
-                .map_err(JsonData::from)?;
+                .map_err(|e| auth_dao.fluent_json_data(e))?;
             let (reload, login_data) = wechat
-                .state_check(&auth_dao.web_dao.user, &login_param.login_state)
+                .state_check(&auth_dao, &login_param.login_state)
                 .await?;
             if let Some(ldat) = login_data {
                 let (token, data) =
@@ -232,19 +233,20 @@ pub struct ExternalLoginStateCallbackParam {
 #[post("/external_state_callback")]
 pub async fn external_state_callback(
     json_param: JsonQuery,
-    app_dao: Data<WebDao>,
+    app_dao: ReqQuery,
 ) -> ResponseJsonResult<ResponseJson> {
     let login_param = json_param.param::<ExternalLoginStateCallbackParam>()?;
     let res = match login_param.login_type.as_str() {
         "wechat" => {
             let wechat = &app_dao
+                .web_dao
                 .user
                 .user_external_oauth::<WechatLogin, WechatLoginParam, _, _>("wechat")
                 .await
-                .map_err(JsonData::from)?;
+                .map_err(|data| app_dao.fluent_json_data(data))?;
             wechat
                 .state_callback(
-                    &app_dao.user,
+                    &app_dao,
                     &WechatCallbackParam {
                         code: login_param.code,
                         state: login_param.callback_state,

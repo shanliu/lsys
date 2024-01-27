@@ -10,7 +10,7 @@ use crate::{
 };
 use async_trait::async_trait;
 
-use lsys_core::RequestEnv;
+use lsys_core::{fluent_message, RequestEnv};
 use lsys_lib_sms::{template_map_to_arr, CloOpenSms, SendError, SendNotifyError, SendNotifyItem};
 use lsys_setting::{
     dao::{
@@ -67,7 +67,7 @@ impl SettingKey for CloOpenConfig {
 }
 impl SettingDecode for CloOpenConfig {
     fn decode(data: &str) -> SettingResult<Self> {
-        serde_json::from_str::<Self>(data).map_err(|e| SettingError::System(e.to_string()))
+        serde_json::from_str::<Self>(data).map_err(SettingError::SerdeJson)
     }
 }
 
@@ -135,10 +135,11 @@ impl SenderCloOpenConfig {
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         if *branch_limit > CloOpenSms::branch_limit() {
-            return Err(SenderError::System(format!(
-                "limit max:{}",
-                CloOpenSms::branch_limit()
-            )));
+            return Err(SenderError::System(
+                fluent_message!("sms-config-branch-error",
+                    {"max":CloOpenSms::branch_limit()}
+                ),
+            ));
         }
         Ok(self
             .setting

@@ -4,7 +4,7 @@ use serde_json::json;
 use sqlx_model::model_option_set;
 
 use crate::{
-    dao::{user::UserRegData, RequestDao},
+    dao::{user::UserRegData, RequestAuthDao},
     {CaptchaParam, JsonData, JsonResult},
 };
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
@@ -16,7 +16,7 @@ pub struct RegFromNameParam {
 }
 pub async fn user_reg_from_name<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: RegFromNameParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     let reg_ip = req_dao.req_env.request_ip.clone().unwrap_or_default();
     let info = model_option_set!(UserInfoModelRef,{
@@ -37,7 +37,8 @@ pub async fn user_reg_from_name<'t, T: SessionTokenData, D: SessionData, S: User
             },
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({
         "id":user.id,
     })))
@@ -50,13 +51,12 @@ pub struct RegSendCodeFromMobileParam {
     pub captcha: CaptchaParam,
 }
 pub async fn user_reg_send_code_from_mobile<
-    't,
     T: SessionTokenData,
     D: SessionData,
     S: UserSession<T, D>,
 >(
     param: RegSendCodeFromMobileParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     let valid_code = req_dao
         .web_dao
@@ -64,7 +64,8 @@ pub async fn user_reg_send_code_from_mobile<
         .valid_code(&crate::dao::CaptchaKey::RegSms);
     valid_code
         .check_code(&param.captcha.key, &param.captcha.code)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let mobile_res = req_dao
         .web_dao
         .user
@@ -97,7 +98,8 @@ pub async fn user_reg_send_code_from_mobile<
             &param.area_code,
             &param.mobile,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .sender_smser
@@ -108,7 +110,8 @@ pub async fn user_reg_send_code_from_mobile<
             &data.1,
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .captcha
@@ -122,13 +125,12 @@ pub struct RegSendCodeFromEmailParam {
     pub captcha: CaptchaParam,
 }
 pub async fn user_reg_send_code_from_email<
-    't,
     T: SessionTokenData,
     D: SessionData,
     S: UserSession<T, D>,
 >(
     param: RegSendCodeFromEmailParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     let valid_code = req_dao
         .web_dao
@@ -149,7 +151,8 @@ pub async fn user_reg_send_code_from_email<
     }
     valid_code
         .check_code(&param.captcha.key, &param.captcha.code)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let data = req_dao
         .web_dao
         .user
@@ -167,12 +170,14 @@ pub async fn user_reg_send_code_from_email<
             &0,
             &param.email,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .sender_mailer
         .send_valid_code(&param.email, &data.0, &data.1, Some(&req_dao.req_env))
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .captcha
@@ -192,7 +197,7 @@ pub struct RegFromEmailParam {
 
 pub async fn user_reg_from_email<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: RegFromEmailParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     req_dao
         .web_dao
@@ -201,7 +206,8 @@ pub async fn user_reg_from_email<'t, T: SessionTokenData, D: SessionData, S: Use
         .user_account
         .user_email
         .valid_code_check(&param.code, &0, &param.email)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let reg_ip = req_dao.req_env.request_ip.clone().unwrap_or_default();
     let info = model_option_set!(UserInfoModelRef,{
         reg_ip:reg_ip,
@@ -221,7 +227,8 @@ pub async fn user_reg_from_email<'t, T: SessionTokenData, D: SessionData, S: Use
             },
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let _ = req_dao
         .web_dao
         .user
@@ -246,7 +253,7 @@ pub struct RegFromMobileParam {
 
 pub async fn user_reg_from_mobile<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: RegFromMobileParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     req_dao
         .web_dao
@@ -255,8 +262,8 @@ pub async fn user_reg_from_mobile<'t, T: SessionTokenData, D: SessionData, S: Us
         .user_account
         .user_mobile
         .valid_code_check(&param.code, &param.area_code, &param.mobile)
-        .await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let reg_op = req_dao.req_env.request_ip.clone().unwrap_or_default();
     let info = model_option_set!(UserInfoModelRef,{
         reg_ip:reg_op,
@@ -280,7 +287,8 @@ pub async fn user_reg_from_mobile<'t, T: SessionTokenData, D: SessionData, S: Us
             },
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let _ = req_dao
         .web_dao
         .user

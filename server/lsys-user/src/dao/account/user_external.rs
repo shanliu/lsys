@@ -5,7 +5,7 @@ use crate::dao::account::{UserAccountError, UserAccountResult};
 
 use crate::model::{UserExternalModel, UserExternalModelRef, UserExternalStatus, UserModel};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{get_message, now_time, FluentMessage, RemoteNotify, RequestEnv};
+use lsys_core::{fluent_message, now_time, RemoteNotify, RequestEnv};
 
 use lsys_logger::dao::ChangeLogger;
 use sqlx::{Acquire, MySql, Pool, Transaction};
@@ -19,7 +19,7 @@ use super::user_index::UserIndex;
 pub struct UserExternal {
     db: Pool<MySql>,
     index: Arc<UserIndex>,
-    fluent: Arc<FluentMessage>,
+    // fluent: Arc<FluentBuild>,
     pub(crate) cache: Arc<LocalCache<u64, Vec<UserExternalModel>>>,
     logger: Arc<ChangeLogger>,
 }
@@ -27,7 +27,7 @@ pub struct UserExternal {
 impl UserExternal {
     pub fn new(
         db: Pool<MySql>,
-        fluent: Arc<FluentMessage>,
+        // fluent: Arc<FluentBuild>,
         remote_notify: Arc<RemoteNotify>,
         index: Arc<UserIndex>,
         logger: Arc<ChangeLogger>,
@@ -38,7 +38,7 @@ impl UserExternal {
                 LocalCacheConfig::new("user-external"),
             )),
             db,
-            fluent,
+            // fluent,
             index,
             logger,
         }
@@ -116,10 +116,11 @@ impl UserExternal {
         let aid = match user_ext_res {
             Ok(user_ext) => {
                 if user_ext.user_id != user.id {
-                    return Err(UserAccountError::System(get_message!(&self.fluent,
-                        "user-external-other-bind","this account {$name} bind in other account[{$id}]",
-                        ["name"=>external_name,"id"=>user.id ]
-                    )));
+                    return Err(UserAccountError::System(
+                        fluent_message!("user-external-other-bind",
+                            {"name":external_name,"id":user.id }
+                        ),
+                    )); //"this account {$name} bind in other account[{$id}]",
                 }
                 let change = sqlx_model::model_option_set!(UserExternalModelRef,{
                     status:UserExternalStatus::Enable as i8,

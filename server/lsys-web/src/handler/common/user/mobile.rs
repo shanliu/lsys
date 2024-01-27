@@ -1,5 +1,5 @@
 use crate::{
-    dao::RequestDao,
+    dao::RequestAuthDao,
     handler::access::{AccessSystemMobileConfirm, AccessUserMobileEdit, AccessUserMobileView},
     {CaptchaParam, JsonData, JsonResult},
 };
@@ -15,9 +15,15 @@ pub struct MobileAddParam {
 }
 pub async fn user_mobile_add<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: MobileAddParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let user = req_dao
         .web_dao
         .user
@@ -25,7 +31,8 @@ pub async fn user_mobile_add<'t, T: SessionTokenData, D: SessionData, S: UserSes
         .user_account
         .user
         .find_by_id(&req_auth.user_data().user_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -38,8 +45,8 @@ pub async fn user_mobile_add<'t, T: SessionTokenData, D: SessionData, S: UserSes
             },
             None,
         )
-        .await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let mut status = UserMobileStatus::Init;
     if let Some(code) = param.code {
         req_dao
@@ -49,7 +56,8 @@ pub async fn user_mobile_add<'t, T: SessionTokenData, D: SessionData, S: UserSes
             .user_account
             .user_mobile
             .valid_code_check(&code, &param.area_code, &param.mobile)
-            .await?;
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
         status = UserMobileStatus::Valid;
     }
     let mobile_id = req_dao
@@ -66,7 +74,8 @@ pub async fn user_mobile_add<'t, T: SessionTokenData, D: SessionData, S: UserSes
             None,
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "id": mobile_id })))
 }
 
@@ -76,14 +85,9 @@ pub struct MobileSendCodeParam {
     pub mobile: String,
     pub captcha: CaptchaParam,
 }
-pub async fn user_mobile_send_code<
-    't,
-    T: SessionTokenData,
-    D: SessionData,
-    S: UserSession<T, D>,
->(
+pub async fn user_mobile_send_code<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: MobileSendCodeParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     let valid_code = req_dao
         .web_dao
@@ -91,8 +95,15 @@ pub async fn user_mobile_send_code<
         .valid_code(&crate::dao::CaptchaKey::AddSmsCode);
     valid_code
         .check_code(&param.captcha.key, &param.captcha.code)
-        .await?;
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let mobile_res = req_dao
         .web_dao
         .user
@@ -116,7 +127,7 @@ pub async fn user_mobile_send_code<
         }
         Err(err) => {
             if !err.is_not_found() {
-                return Err(err.into());
+                return Err(req_dao.fluent_json_data(err));
             }
         }
     };
@@ -132,8 +143,8 @@ pub async fn user_mobile_send_code<
             },
             None,
         )
-        .await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let (code, ttl) = req_dao
         .web_dao
         .user
@@ -151,7 +162,8 @@ pub async fn user_mobile_send_code<
             &param.area_code,
             &param.mobile,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .sender_smser
@@ -162,7 +174,8 @@ pub async fn user_mobile_send_code<
             &ttl,
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "ttl": ttl })))
 }
 
@@ -173,7 +186,7 @@ pub struct MobileConfirmParam {
 }
 pub async fn user_mobile_confirm<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: MobileConfirmParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     let mobile = req_dao
         .web_dao
@@ -182,7 +195,8 @@ pub async fn user_mobile_confirm<'t, T: SessionTokenData, D: SessionData, S: Use
         .user_account
         .user_mobile
         .find_by_id(&param.mobile_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     if UserMobileStatus::Delete.eq(mobile.status) {
         return Ok(JsonData::message("mobile not find"));
     }
@@ -193,8 +207,8 @@ pub async fn user_mobile_confirm<'t, T: SessionTokenData, D: SessionData, S: Use
             .rbac_dao
             .rbac
             .check(&AccessSystemMobileConfirm {}, None)
-            .await?;
-
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
         req_dao
             .web_dao
             .user
@@ -202,7 +216,8 @@ pub async fn user_mobile_confirm<'t, T: SessionTokenData, D: SessionData, S: Use
             .user_account
             .user_mobile
             .confirm_mobile_from_code(&mobile, &param.code, Some(&req_dao.req_env))
-            .await?;
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
     }
     Ok(JsonData::default())
 }
@@ -213,9 +228,15 @@ pub struct MobileDeleteParam {
 }
 pub async fn user_mobile_delete<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: MobileDeleteParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let res = req_dao
         .web_dao
         .user
@@ -241,8 +262,8 @@ pub async fn user_mobile_delete<'t, T: SessionTokenData, D: SessionData, S: User
                         },
                         None,
                     )
-                    .await?;
-
+                    .await
+                    .map_err(|e| req_dao.fluent_json_data(e))?;
                 req_dao
                     .web_dao
                     .user
@@ -250,12 +271,13 @@ pub async fn user_mobile_delete<'t, T: SessionTokenData, D: SessionData, S: User
                     .user_account
                     .user_mobile
                     .del_mobile(&mobile, None, Some(&req_dao.req_env))
-                    .await?;
+                    .await
+                    .map_err(|e| req_dao.fluent_json_data(e))?;
             }
         }
         Err(e) => {
             if !e.is_not_found() {
-                return Err(e.into());
+                return Err(req_dao.fluent_json_data(e));
             }
         }
     }
@@ -266,16 +288,17 @@ pub async fn user_mobile_delete<'t, T: SessionTokenData, D: SessionData, S: User
 pub struct MobileListDataParam {
     pub status: Option<Vec<i8>>,
 }
-pub async fn user_mobile_list_data<
-    't,
-    T: SessionTokenData,
-    D: SessionData,
-    S: UserSession<T, D>,
->(
+pub async fn user_mobile_list_data<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: MobileListDataParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -288,14 +311,14 @@ pub async fn user_mobile_list_data<
             },
             None,
         )
-        .await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let status = if let Some(e) = param.status {
         let mut out = Vec::with_capacity(e.len());
         for tmp in e {
             match UserMobileStatus::try_from(tmp) {
                 Ok(ts) => out.push(ts),
-                Err(err) => return Err(JsonData::error(err)),
+                Err(err) => return Err(req_dao.fluent_json_data(err)),
             };
         }
         Some(out)
@@ -306,7 +329,8 @@ pub async fn user_mobile_list_data<
         .web_dao
         .user
         .user_mobile(req_auth.user_data().user_id, status.as_deref())
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({
         "data": data ,
         "total":data.len(),

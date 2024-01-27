@@ -10,7 +10,7 @@ use crate::{
         SenderMailMessageModel, SenderMailMessageModelRef, SenderMailMessageStatus, SenderType,
     },
 };
-use lsys_core::{now_time, LimitParam, PageParam, RequestEnv};
+use lsys_core::{fluent_message, now_time, LimitParam, PageParam, RequestEnv};
 
 use lsys_logger::dao::ChangeLogger;
 use serde_json::Value;
@@ -252,7 +252,7 @@ impl MailRecord {
         }
         let mut idata = Vec::with_capacity(mail.len());
         let reqid = env_data
-            .map(|t| t.request_ip.to_owned().unwrap_or_default())
+            .map(|t| t.request_id.to_owned().unwrap_or_default())
             .unwrap_or_default();
         let add_data = mail
             .iter()
@@ -363,10 +363,12 @@ impl MailRecord {
 
             return Ok(());
         }
-        Err(SenderError::System(format!(
-            "can't be cancel,status:{}",
-            message.status
-        )))
+        Err(SenderError::System(
+            fluent_message!("mail-cancel-status-error",{
+                    "status":message.status
+                }
+            ),
+        )) //"can't be cancel,status:{}",
     }
     pub async fn find_config_by_id(&self, id: &u64) -> SenderResult<SenderConfigModel> {
         self.config.find_by_id(id).await
@@ -389,10 +391,25 @@ impl MailRecord {
                         match config_data.get($name) {
                             Some(val) => match val.$asfn() {
                                 Some(val) => val,
-                                None => return Err(SenderError::System($wrong_err.to_string())),
+                                None => {
+                                    return Err(SenderError::System(fluent_message!(
+                                        "mail-config-add-error",
+                                        {
+                                            "name":$name,
+                                            "msg": $miss_err
+                                           }
+                                    )))
+                                }
                             },
                             None => {
-                                return Err(SenderError::System($miss_err.to_string()));
+                                return Err(SenderError::System(fluent_message!(
+                                    "mail-config-add-error",
+
+                                   {
+                                    "name":$name,
+                                    "msg": $miss_err
+                                   }
+                                )));
                             }
                         }
                     };
@@ -415,7 +432,14 @@ impl MailRecord {
                 }) {
                     Ok(val) => val,
                     Err(err) => {
-                        return Err(SenderError::System(err.to_string()));
+                        return Err(SenderError::System(fluent_message!(
+                            "mail-config-add-error",
+                            {
+                                "name":"range_time,max_send",
+                                "msg": err
+                             }
+
+                        )));
                     }
                 }
             }
@@ -426,7 +450,9 @@ impl MailRecord {
             SenderMailConfigType::MaxOfSend => match config_data.as_u64() {
                 Some(num) => (num as u32).to_string(),
                 None => {
-                    return Err(SenderError::System("send max need number".to_string()));
+                    return Err(SenderError::System(fluent_message!(
+                        "mail-config-add-max-num-error" //"send max need number".to_string()
+                    )));
                 }
             },
         };
@@ -500,7 +526,9 @@ impl MailRecord {
         send_time: u64,
     ) -> SenderResult<()> {
         if mails.is_empty() {
-            return Err(SenderError::System("miss to mail box".to_string()));
+            return Err(SenderError::System(fluent_message!(
+                "mail-send-check-miss-error" //"miss to mail box".to_string()
+            )));
         }
         let mut rule = self
             .config_list(None, None, Some(app_id.unwrap_or_default()))
@@ -516,10 +544,13 @@ impl MailRecord {
             }
             None
         })() {
-            return Err(SenderError::System(format!(
-                "send mail limit :{}",
-                max_send
-            )));
+            return Err(SenderError::System(
+                fluent_message!("mail-send-check-max-send", //"send mail limit :{}",
+                    {
+                    "max":max_send
+                    }
+                ),
+            ));
         }
         for (c, r) in rule.iter() {
             match r {
@@ -552,10 +583,14 @@ impl MailRecord {
                 }
                 SenderMailConfigData::Block { to } => {
                     if mails.iter().any(|a| *a == *to) {
-                        return Err(SenderError::System(format!(
-                            "send block on :{} [{}]",
-                            to, c.id
-                        )));
+                        return Err(SenderError::System(
+                            fluent_message!("mail-send-check-block", //"send block on :{} [{}]",
+                                {
+                                "to":to,
+                                "config_id":c.id
+                                }
+                            ),
+                        ));
                     }
                 }
                 SenderMailConfigData::BlockDomain { domain } => {
@@ -563,14 +598,24 @@ impl MailRecord {
                         .iter()
                         .any(|a| a.split('@').nth(1).unwrap_or_default() == *domain)
                     {
-                        return Err(SenderError::System(format!(
-                            "send block on :{} [{}]",
-                            domain, c.id
-                        )));
+                        return Err(SenderError::System(
+                            fluent_message!("mail-send-check-block-domain", //"send block on :{} [{}]",
+                                {
+                                "domain":domain,
+                                "config_id":c.id
+                                }
+                            ),
+                        ));
                     }
                 }
                 SenderMailConfigData::Close => {
-                    return Err(SenderError::System("send mail is close".to_string()));
+                    return Err(SenderError::System(
+                        fluent_message!("mail-send-check-close", //"send mail is close"
+                            {
+                            "config_id":c.id
+                            }
+                        ),
+                    ));
                 }
                 _ => {}
             }
@@ -588,10 +633,15 @@ impl MailRecord {
             for (_, id, limit) in limit_sql {
                 if let Some(t) = data.iter().find(|e| e.1 as u64 == id) {
                     if t.0 >= limit.max_send.into() {
-                        return Err(SenderError::System(format!(
-                            "trigger limit rule :{} on {} [{}]",
-                            limit.max_send, t.2, id
-                        )));
+                        return Err(SenderError::System(
+                            fluent_message!("mail-send-check-limit", //  "trigger limit rule :{} on {} [{}]",
+                                {
+                                    "max_send":limit.max_send,
+                                    "to_mail":t.2,
+                                    "config_id":id
+                                }
+                            ),
+                        ));
                     }
                 }
             }

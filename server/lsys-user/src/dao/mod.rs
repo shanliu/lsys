@@ -4,7 +4,7 @@ pub mod account;
 pub mod auth;
 
 use crate::dao::auth::UserAuth;
-use lsys_core::{AppCore, AppCoreError, FluentMessage, RemoteNotify};
+use lsys_core::{AppCoreError, RemoteNotify};
 
 use lsys_logger::dao::ChangeLogger;
 use lsys_setting::dao::SingleSetting;
@@ -15,7 +15,6 @@ use self::auth::{UserAuthConfig, UserAuthStore};
 
 pub struct UserDao<T: UserAuthStore> {
     //内部依赖
-    pub fluent: Arc<FluentMessage>,
     pub db: Pool<MySql>,
     pub redis: deadpool_redis::Pool,
     // 授权相关
@@ -27,7 +26,6 @@ pub struct UserDao<T: UserAuthStore> {
 impl<T: UserAuthStore + Send + Sync> UserDao<T> {
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
-        app_core: Arc<AppCore>,
         db: Pool<MySql>,
         redis: deadpool_redis::Pool,
         setting: Arc<SingleSetting>,
@@ -36,20 +34,9 @@ impl<T: UserAuthStore + Send + Sync> UserDao<T> {
         store: T,
         config: Option<UserAuthConfig>,
     ) -> Result<UserDao<T>, AppCoreError> {
-        let app_locale_dir = app_core.app_dir.join("locale/lsys-user");
-        let fluent = Arc::new(if app_locale_dir.exists() {
-            app_core.create_fluent(app_locale_dir).await?
-        } else {
-            let cargo_dir = env!("CARGO_MANIFEST_DIR");
-            app_core
-                .create_fluent(cargo_dir.to_owned() + "/locale")
-                .await?
-        });
-
         let user_account = Arc::from(UserAccount::new(
             db.clone(),
             redis.clone(),
-            fluent.clone(),
             setting,
             remote_notify.clone(),
             logger,
@@ -57,7 +44,6 @@ impl<T: UserAuthStore + Send + Sync> UserDao<T> {
         let user_auth = Arc::from(UserAuth::new(
             db.clone(),
             redis.clone(),
-            fluent.clone(),
             remote_notify.clone(),
             user_account.clone(),
             store,
@@ -66,7 +52,6 @@ impl<T: UserAuthStore + Send + Sync> UserDao<T> {
         Ok(UserDao {
             user_auth,
             user_account,
-            fluent,
             db,
             redis,
         })

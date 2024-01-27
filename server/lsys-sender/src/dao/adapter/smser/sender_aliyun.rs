@@ -10,7 +10,7 @@ use crate::{
 };
 use async_trait::async_trait;
 use chrono::NaiveDateTime;
-use lsys_core::RequestEnv;
+use lsys_core::{fluent_message, RequestEnv};
 use lsys_lib_sms::{AliSms, SendDetailItem, SendError, SendNotifyError};
 use lsys_setting::{
     dao::{
@@ -69,7 +69,7 @@ impl SettingKey for AliYunConfig {
 }
 impl SettingDecode for AliYunConfig {
     fn decode(data: &str) -> SettingResult<Self> {
-        serde_json::from_str::<Self>(data).map_err(|e| SettingError::System(e.to_string()))
+        serde_json::from_str::<Self>(data).map_err(SettingError::SerdeJson)
     }
 }
 
@@ -136,10 +136,11 @@ impl SenderAliYunConfig {
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         if *branch_limit > AliSms::branch_limit() {
-            return Err(SenderError::System(format!(
-                "limit max:{}",
-                AliSms::branch_limit()
-            )));
+            return Err(SenderError::System(
+                fluent_message!("sms-config-branch-error",
+                    {"max":AliSms::branch_limit()}
+                ),
+            )); //"limit max:{}",
         }
         Ok(self
             .setting
@@ -174,10 +175,11 @@ impl SenderAliYunConfig {
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         if *branch_limit > AliSms::branch_limit() {
-            return Err(SenderError::System(format!(
-                "limit max:{}",
-                AliSms::branch_limit()
-            )));
+            return Err(SenderError::System(
+                fluent_message!("sms-config-branch-error",
+                    {"max":AliSms::branch_limit()}
+                ),
+            ));
         }
         Ok(self
             .setting

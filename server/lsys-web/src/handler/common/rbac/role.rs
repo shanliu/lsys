@@ -1,6 +1,7 @@
 use std::{convert::TryFrom, sync::Arc};
 
 use crate::{
+    dao::RequestDao,
     handler::access::{
         relation_tpls, AccessRoleEdit, AccessRoleView, AccessRoleViewList, RoleOpCheck,
     },
@@ -9,7 +10,7 @@ use crate::{
     },
 };
 
-use lsys_core::RequestEnv;
+use lsys_core::fluent_message;
 use lsys_rbac::{
     dao::{RbacDao, RbacRole, RoleAddUser, RoleParam, RoleSetOp, RoleUserGroupParam},
     model::{
@@ -57,6 +58,7 @@ pub struct RoleAddParam {
     pub tags: Option<Vec<String>>,
 }
 async fn rbac_role_get_res_check(
+    req_dao: &RequestDao,
     role_ops: &Option<Vec<RoleOpParam>>,
     res_ops_opt: &Option<Vec<(RbacResModel, RbacResOpModel)>>,
 ) -> JsonResult<Option<Vec<RoleOpCheck>>> {
@@ -64,8 +66,13 @@ async fn rbac_role_get_res_check(
         if let Some(role_ops) = res_ops_opt {
             for tmp in rop {
                 if !role_ops.iter().any(|e| e.1.id == tmp.op_id) {
-                    return Err(JsonData::message(format!("not find op id:{}", tmp.op_id))
-                        .set_sub_code("not_find_res_op"));
+                    return Err(
+                        req_dao
+                            .fluent_json_data(fluent_message!("rbac-bad-res-op",{
+                                "op_id":tmp.op_id
+                            }))
+                            .set_sub_code("not_find_res_op"), // JsonData::message(format!("not find op id:{}", tmp.op_id))
+                    );
                 }
             }
             let res_tmp = role_ops
@@ -84,6 +91,7 @@ async fn rbac_role_get_res_check(
 fn rbac_role_op_to_op_set(
     role_ops: &Option<Vec<RoleOpParam>>,
     res_ops_opt: &Option<Vec<(RbacResModel, RbacResOpModel)>>,
+    req_dao: &RequestDao,
 ) -> JsonResult<Option<Vec<RoleSetOp>>> {
     if let Some(rop) = role_ops {
         if let Some(role_ops) = res_ops_opt {
@@ -96,7 +104,8 @@ fn rbac_role_op_to_op_set(
                         if ts.res.id == role_op.0.id {
                             ts.res_op.push((
                                 role_op.1.to_owned(),
-                                RbacRoleOpPositivity::try_from(top.op_positivity)?,
+                                RbacRoleOpPositivity::try_from(top.op_positivity)
+                                    .map_err(|e| req_dao.fluent_json_data(e))?,
                             ));
                             find = true;
                             break;
@@ -107,7 +116,8 @@ fn rbac_role_op_to_op_set(
                             res: role_op.0.to_owned(),
                             res_op: vec![(
                                 role_op.1.to_owned(),
-                                RbacRoleOpPositivity::try_from(top.op_positivity)?,
+                                RbacRoleOpPositivity::try_from(top.op_positivity)
+                                    .map_err(|e| req_dao.fluent_json_data(e))?,
                             )],
                         });
                     }
@@ -123,8 +133,9 @@ pub async fn rbac_role_add(
     param: RoleAddParam,
     rbac_dao: &RbacDao,
     user_id: u64,
-    env_data: Option<&RequestEnv>,
+    req_dao: &RequestDao,
 ) -> JsonResult<JsonData> {
+    let env_data = Some(&req_dao.req_env);
     let see_user_id = param.user_id.unwrap_or(user_id);
     let res_ops = if let Some(ref rp) = param.role_ops {
         Some(
@@ -132,12 +143,13 @@ pub async fn rbac_role_add(
                 .rbac
                 .res
                 .find_by_op_ids(&rp.iter().map(|e| e.op_id).collect::<Vec<u64>>())
-                .await?,
+                .await
+                .map_err(|e| req_dao.fluent_json_data(e))?,
         )
     } else {
         None
     };
-    let res_op_check = rbac_role_get_res_check(&param.role_ops, &res_ops).await?;
+    let res_op_check = rbac_role_get_res_check(req_dao, &param.role_ops, &res_ops).await?;
     rbac_dao
         .rbac
         .check(
@@ -149,11 +161,18 @@ pub async fn rbac_role_add(
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let dao = &rbac_dao.rbac.role;
-    let mut transaction = rbac_dao.db.begin().await?;
-    let user_range = RbacRoleUserRange::try_from(param.user_range)?;
-    let res_op_range = RbacRoleResOpRange::try_from(param.role_op_range)?;
+    let mut transaction = rbac_dao
+        .db
+        .begin()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    let user_range =
+        RbacRoleUserRange::try_from(param.user_range).map_err(|e| req_dao.fluent_json_data(e))?;
+    let res_op_range = RbacRoleResOpRange::try_from(param.role_op_range)
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let id = if user_range == RbacRoleUserRange::Relation {
         match dao
             .add_relation_role(
@@ -170,8 +189,11 @@ pub async fn rbac_role_add(
         {
             Ok(id) => id,
             Err(e) => {
-                transaction.rollback().await?;
-                return Err(e.into());
+                transaction
+                    .rollback()
+                    .await
+                    .map_err(|e| req_dao.fluent_json_data(e))?;
+                return Err(req_dao.fluent_json_data(e));
             }
         }
     } else {
@@ -190,8 +212,11 @@ pub async fn rbac_role_add(
         {
             Ok(id) => id,
             Err(e) => {
-                transaction.rollback().await?;
-                return Err(e.into());
+                transaction
+                    .rollback()
+                    .await
+                    .map_err(|e| req_dao.fluent_json_data(e))?;
+                return Err(req_dao.fluent_json_data(e));
             }
         }
     };
@@ -201,30 +226,38 @@ pub async fn rbac_role_add(
             &sqlx_model::WhereOption::Where(sql_format!("id={}", id,)),
             &mut transaction,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     if let Some(user_data) = param.role_user {
         let user_vec = user_data
             .into_iter()
             .map(|e| e.into())
             .collect::<Vec<RoleAddUser>>();
         dao.role_add_user(&role, &user_vec, user_id, Some(&mut transaction), env_data)
-            .await?;
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
     }
     if let Err(e) = set_attr(
         dao,
         &role,
         param.tags,
-        rbac_role_op_to_op_set(&param.role_ops, &res_ops)?,
+        rbac_role_op_to_op_set(&param.role_ops, &res_ops, req_dao)?,
         user_id,
         &mut transaction,
-        env_data,
+        req_dao,
     )
     .await
     {
-        transaction.rollback().await?;
+        transaction
+            .rollback()
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
         return Err(e);
     };
-    transaction.commit().await?;
+    transaction
+        .commit()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "id": id })))
 }
 
@@ -244,23 +277,26 @@ pub async fn rbac_role_edit(
     param: RoleEditParam,
     rbac_dao: &RbacDao,
     user_id: u64,
-    env_data: Option<&RequestEnv>,
+    req_dao: &RequestDao,
 ) -> JsonResult<JsonData> {
     let dao = &rbac_dao.rbac.role;
-    let role = dao.find_by_id(&param.role_id).await?;
+    let role = dao
+        .find_by_id(&param.role_id)
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let res_ops = if let Some(ref rp) = param.role_ops {
         Some(
             rbac_dao
                 .rbac
                 .res
                 .find_by_op_ids(&rp.iter().map(|e| e.op_id).collect::<Vec<u64>>())
-                .await?,
+                .await
+                .map_err(|e| req_dao.fluent_json_data(e))?,
         )
     } else {
         None
     };
-    let res_op_check = rbac_role_get_res_check(&param.role_ops, &res_ops).await?;
-
+    let res_op_check = rbac_role_get_res_check(req_dao, &param.role_ops, &res_ops).await?;
     rbac_dao
         .rbac
         .check(
@@ -272,16 +308,20 @@ pub async fn rbac_role_edit(
             },
             None,
         )
-        .await?;
-
-    let mut transaction = rbac_dao.db.begin().await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    let mut transaction = rbac_dao
+        .db
+        .begin()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let user_range = if let Some(e) = param.user_range {
-        Some(RbacRoleUserRange::try_from(e)?)
+        Some(RbacRoleUserRange::try_from(e).map_err(|e| req_dao.fluent_json_data(e))?)
     } else {
         None
     };
     let res_op_range = if let Some(e) = param.role_op_range {
-        Some(RbacRoleResOpRange::try_from(e)?)
+        Some(RbacRoleResOpRange::try_from(e).map_err(|e| req_dao.fluent_json_data(e))?)
     } else {
         None
     };
@@ -295,12 +335,15 @@ pub async fn rbac_role_edit(
                 res_op_range,
                 user_id,
                 Some(&mut transaction),
-                env_data,
+                Some(&req_dao.req_env),
             )
             .await
         {
-            transaction.rollback().await?;
-            return Err(e.into());
+            transaction
+                .rollback()
+                .await
+                .map_err(|e| req_dao.fluent_json_data(e))?;
+            return Err(req_dao.fluent_json_data(e));
         };
     } else if let Err(e) = dao
         .edit_role(
@@ -311,32 +354,41 @@ pub async fn rbac_role_edit(
             res_op_range,
             user_id,
             Some(&mut transaction),
-            env_data,
+            Some(&req_dao.req_env),
         )
         .await
     {
-        transaction.rollback().await?;
-        return Err(e.into());
+        transaction
+            .rollback()
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
+        return Err(req_dao.fluent_json_data(e));
     }
     let role = Select::type_new::<RbacRoleModel>()
         .reload(&role, &mut transaction)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     if let Err(e) = set_attr(
         dao,
         &role,
         param.tags,
-        rbac_role_op_to_op_set(&param.role_ops, &res_ops)?,
+        rbac_role_op_to_op_set(&param.role_ops, &res_ops, req_dao)?,
         user_id,
         &mut transaction,
-        env_data,
+        req_dao,
     )
     .await
     {
-        transaction.rollback().await?;
+        transaction
+            .rollback()
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
         return Err(e);
     };
-    transaction.commit().await?;
-
+    transaction
+        .commit()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::default())
 }
 
@@ -347,16 +399,30 @@ async fn set_attr<'t>(
     role_op_vec: Option<Vec<RoleSetOp>>,
     change_user_id: u64,
     transaction: &mut Transaction<'t, sqlx::MySql>,
-    env_data: Option<&RequestEnv>,
+    req_dao: &RequestDao,
 ) -> JsonResult<()> {
     if let Some(op_vec) = role_op_vec {
-        dao.role_set_ops(role, &op_vec, change_user_id, Some(transaction), env_data)
-            .await?;
+        dao.role_set_ops(
+            role,
+            &op_vec,
+            change_user_id,
+            Some(transaction),
+            Some(&req_dao.req_env),
+        )
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     }
 
     if let Some(ref tmp) = tags {
-        dao.role_set_tags(role, tmp, change_user_id, Some(transaction), env_data)
-            .await?
+        dao.role_set_tags(
+            role,
+            tmp,
+            change_user_id,
+            Some(transaction),
+            Some(&req_dao.req_env),
+        )
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?
     }
     Ok(())
 }
@@ -372,9 +438,13 @@ pub async fn rbac_role_list_user(
     param: RoleListUserParam,
     rbac_dao: &RbacDao,
     user_id: u64,
+    req_dao: &RequestDao,
 ) -> JsonResult<JsonData> {
     let dao = &rbac_dao.rbac.role;
-    let role = dao.find_by_ids(&param.role_id).await?;
+    let role = dao
+        .find_by_ids(&param.role_id)
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let user_ids = role.values().map(|e| e.user_id).collect::<Vec<u64>>();
     if !user_ids.is_empty() {
         rbac_dao
@@ -386,7 +456,8 @@ pub async fn rbac_role_list_user(
                 },
                 None,
             )
-            .await?;
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
     }
     let rid = role.keys().map(|e| e.to_owned()).collect::<Vec<u64>>();
     let data = dao
@@ -395,9 +466,14 @@ pub async fn rbac_role_list_user(
             &param.user_id,
             &Some(param.page.unwrap_or_default().into()),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let total = if param.count_num.unwrap_or(false) {
-        Some(dao.role_get_user_count(&rid, &param.user_id).await?)
+        Some(
+            dao.role_get_user_count(&rid, &param.user_id)
+                .await
+                .map_err(|e| req_dao.fluent_json_data(e))?,
+        )
     } else {
         None
     };
@@ -413,11 +489,13 @@ pub async fn rbac_role_add_user(
     param: RoleAddUserParam,
     rbac_dao: &RbacDao,
     user_id: u64,
-    env_data: Option<&RequestEnv>,
+    req_dao: &RequestDao,
 ) -> JsonResult<JsonData> {
     let dao = &rbac_dao.rbac.role;
-    let role = dao.find_by_id(&param.role_id).await?;
-
+    let role = dao
+        .find_by_id(&param.role_id)
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     rbac_dao
         .rbac
         .check(
@@ -429,15 +507,16 @@ pub async fn rbac_role_add_user(
             },
             None,
         )
-        .await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let user_vec = param
         .user_vec
         .into_iter()
         .map(|e| e.into())
         .collect::<Vec<RoleAddUser>>();
-    dao.role_add_user(&role, &user_vec, user_id, None, env_data)
-        .await?;
+    dao.role_add_user(&role, &user_vec, user_id, None, Some(&req_dao.req_env))
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::default())
 }
 
@@ -450,11 +529,13 @@ pub async fn rbac_role_delete_user(
     param: RoleDeleteUserParam,
     rbac_dao: &RbacDao,
     user_id: u64,
-    env_data: Option<&RequestEnv>,
+    req_dao: &RequestDao,
 ) -> JsonResult<JsonData> {
     let dao = &rbac_dao.rbac.role;
-    let role = dao.find_by_id(&param.role_id).await?;
-
+    let role = dao
+        .find_by_id(&param.role_id)
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     rbac_dao
         .rbac
         .check(
@@ -466,10 +547,17 @@ pub async fn rbac_role_delete_user(
             },
             None,
         )
-        .await?;
-
-    dao.role_del_user(&role, &param.user_vec, user_id, None, env_data)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    dao.role_del_user(
+        &role,
+        &param.user_vec,
+        user_id,
+        None,
+        Some(&req_dao.req_env),
+    )
+    .await
+    .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::default())
 }
 
@@ -481,11 +569,13 @@ pub async fn rbac_role_delete(
     param: RoleDeleteParam,
     rbac_dao: &RbacDao,
     user_id: u64,
-    env_data: Option<&RequestEnv>,
+    req_dao: &RequestDao,
 ) -> JsonResult<JsonData> {
     let dao = &rbac_dao.rbac.role;
-    let role = dao.find_by_id(&param.role_id).await?;
-
+    let role = dao
+        .find_by_id(&param.role_id)
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     rbac_dao
         .rbac
         .check(
@@ -497,9 +587,11 @@ pub async fn rbac_role_delete(
             },
             None,
         )
-        .await?;
-
-    dao.del_role(&role, user_id, None, env_data).await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    dao.del_role(&role, user_id, None, Some(&req_dao.req_env))
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::default())
 }
 
@@ -540,6 +632,7 @@ pub async fn rbac_role_list_data(
     param: RoleListDataParam,
     rbac_dao: &RbacDao,
     user_id: u64,
+    req_dao: &RequestDao,
 ) -> JsonResult<JsonData> {
     let see_user_id = param.user_id.unwrap_or(user_id);
 
@@ -552,8 +645,8 @@ pub async fn rbac_role_list_data(
             },
             None,
         )
-        .await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let dao = &rbac_dao.rbac.data;
 
     let user_data_group = match param.user_data_group.unwrap_or(0) {
@@ -578,8 +671,8 @@ pub async fn rbac_role_list_data(
             page: &Some(param.page.unwrap_or_default().into()),
             user_data_page: &param.user_data_page.map(|e| e.into()),
         })
-        .await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let mut out = Vec::with_capacity(res.len());
     for e in res {
         let ops = match param.ops.unwrap_or(0) {
@@ -597,7 +690,8 @@ pub async fn rbac_role_list_data(
                     .rbac
                     .res
                     .find_by_op_ids(&e.2.iter().map(|tmp| tmp.res_op_id).collect::<Vec<u64>>())
-                    .await?;
+                    .await
+                    .map_err(|e| req_dao.fluent_json_data(e))?;
                 Some(
                     e.2.into_iter()
                         .map(|tmp| {
@@ -639,7 +733,8 @@ pub async fn rbac_role_list_data(
                 &param.role_id,
                 &param.tags_filter,
             )
-            .await?,
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?,
         )
     } else {
         None
@@ -655,6 +750,7 @@ pub async fn rbac_role_tags(
     param: RoleTagsParam,
     rbac_dao: &RbacDao,
     user_id: u64,
+    req_dao: &RequestDao,
 ) -> JsonResult<JsonData> {
     let see_user_id = param.user_id.unwrap_or(user_id);
 
@@ -667,9 +763,14 @@ pub async fn rbac_role_tags(
             },
             None,
         )
-        .await?;
-
-    let out = rbac_dao.rbac.role.user_role_tags(see_user_id).await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    let out = rbac_dao
+        .rbac
+        .role
+        .user_role_tags(see_user_id)
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "data": out })))
 }
 
@@ -692,6 +793,7 @@ pub async fn rbac_user_role_options(
     param: RoleOptionsParam,
     rbac_dao: &RbacDao,
     user_id: u64,
+    req_dao: &RequestDao,
 ) -> JsonResult<JsonData> {
     let see_user_id = param.user_id.unwrap_or(user_id);
     let user_range = if param.user_range.unwrap_or(false) {
@@ -788,7 +890,8 @@ pub async fn rbac_user_role_options(
             .rbac
             .role
             .find_enable_role_by_relation_keys(see_user_id, key)
-            .await?;
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
         Some(res)
     } else {
         None
@@ -824,6 +927,7 @@ pub async fn rbac_user_relation_data(
     param: RoleRelationDataParam,
     rbac_dao: &RbacDao,
     user_id: u64,
+    req_dao: &RequestDao,
 ) -> JsonResult<JsonData> {
     let see_user_id = param.user_id.unwrap_or(user_id);
     rbac_dao
@@ -835,7 +939,8 @@ pub async fn rbac_user_relation_data(
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let data = rbac_dao
         .rbac
         .role
@@ -844,14 +949,16 @@ pub async fn rbac_user_relation_data(
             &param.relation_prefix,
             &Some(param.page.unwrap_or_default().into()),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let total = if param.count_num.unwrap_or(false) {
         Some(
             rbac_dao
                 .rbac
                 .role
                 .get_role_relation_count(&see_user_id, &param.relation_prefix)
-                .await?,
+                .await
+                .map_err(|e| req_dao.fluent_json_data(e))?,
         )
     } else {
         None

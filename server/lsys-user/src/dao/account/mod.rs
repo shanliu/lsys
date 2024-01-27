@@ -9,7 +9,7 @@ use self::user_login::UserLogin;
 use super::auth::UserPasswordHash;
 
 use deadpool_redis::PoolError;
-use lsys_core::{FluentMessage, RemoteNotify, ValidCodeError};
+use lsys_core::{fluent_message, FluentMessage, RemoteNotify, ValidCodeError};
 
 use lsys_logger::dao::ChangeLogger;
 use lsys_setting::dao::{SettingError, SingleSetting};
@@ -45,11 +45,13 @@ pub mod user_password;
 #[derive(Debug)]
 pub enum UserAccountError {
     Sqlx(sqlx::Error),
-    System(String),
-    Status((u64, String)),
-    Redis(String),
+    System(FluentMessage),
+    Status((u64, FluentMessage)),
+    Redis(RedisError),
+    RedisPool(PoolError),
     ValidCode(ValidCodeError),
-    Param(String),
+    Setting(SettingError),
+    Param(FluentMessage),
 }
 impl Display for UserAccountError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -73,17 +75,17 @@ impl From<sqlx::Error> for UserAccountError {
 }
 impl From<RedisError> for UserAccountError {
     fn from(err: RedisError) -> Self {
-        UserAccountError::Redis(err.to_string())
+        UserAccountError::Redis(err)
     }
 }
 impl From<PoolError> for UserAccountError {
     fn from(err: PoolError) -> Self {
-        UserAccountError::Redis(err.to_string())
+        UserAccountError::RedisPool(err)
     }
 }
 impl From<SystemTimeError> for UserAccountError {
     fn from(err: SystemTimeError) -> Self {
-        UserAccountError::System(err.to_string())
+        UserAccountError::System(fluent_message!("time-error", err))
     }
 }
 
@@ -94,10 +96,7 @@ impl From<ValidCodeError> for UserAccountError {
 }
 impl From<SettingError> for UserAccountError {
     fn from(err: SettingError) -> Self {
-        match err {
-            SettingError::Sqlx(err) => UserAccountError::Sqlx(err),
-            SettingError::System(err) => UserAccountError::System(err),
-        }
+        UserAccountError::Setting(err)
     }
 }
 pub struct UserAccount {
@@ -117,7 +116,7 @@ impl UserAccount {
     pub fn new(
         db: Pool<MySql>,
         redis: deadpool_redis::Pool,
-        fluent: Arc<FluentMessage>,
+        // fluent: Arc<FluentBuild>,
         setting: Arc<SingleSetting>,
         remote_notify: Arc<RemoteNotify>,
         logger: Arc<ChangeLogger>,
@@ -127,7 +126,7 @@ impl UserAccount {
         UserAccount {
             user: Arc::from(User::new(
                 db.clone(),
-                fluent.clone(),
+                // fluent.clone(),
                 remote_notify.clone(),
                 user_index.clone(),
                 logger.clone(),
@@ -135,14 +134,14 @@ impl UserAccount {
             user_email: Arc::from(UserEmail::new(
                 db.clone(),
                 redis.clone(),
-                fluent.clone(),
+                // fluent.clone(),
                 remote_notify.clone(),
                 user_index.clone(),
                 logger.clone(),
             )),
             user_external: Arc::from(UserExternal::new(
                 db.clone(),
-                fluent.clone(),
+                // fluent.clone(),
                 remote_notify.clone(),
                 user_index.clone(),
                 logger.clone(),
@@ -150,7 +149,7 @@ impl UserAccount {
             user_mobile: Arc::from(UserMobile::new(
                 db.clone(),
                 redis.clone(),
-                fluent.clone(),
+                // fluent.clone(),
                 remote_notify.clone(),
                 user_index.clone(),
                 logger.clone(),
@@ -158,7 +157,7 @@ impl UserAccount {
             user_name: Arc::from(UserName::new(
                 db.clone(),
                 remote_notify.clone(),
-                fluent.clone(),
+                // fluent.clone(),
                 user_index.clone(),
                 logger.clone(),
             )),
@@ -170,7 +169,7 @@ impl UserAccount {
             )),
             user_address: Arc::from(UserAddress::new(
                 db.clone(),
-                fluent.clone(),
+                // fluent.clone(),
                 remote_notify,
                 user_index,
                 logger,
@@ -178,7 +177,7 @@ impl UserAccount {
             user_password: Arc::from(UserPassword::new(
                 db.clone(),
                 setting,
-                fluent,
+                // fluent,
                 redis,
                 password_hash.clone(),
             )),

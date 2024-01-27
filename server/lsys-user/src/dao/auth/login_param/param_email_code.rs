@@ -5,8 +5,6 @@ use crate::dao::auth::{LoginParam, LoginType, UserAuthError, UserAuthResult};
 
 use crate::model::{UserEmailModel, UserModel};
 use async_trait::async_trait;
-use lsys_core::get_message;
-use lsys_core::FluentMessage;
 
 use serde::{Deserialize, Serialize};
 use sqlx::{MySql, Pool};
@@ -47,18 +45,16 @@ impl LoginParam for EmailCodeLogin {
         &self,
         _db: &Pool<MySql>,
         _redis: &deadpool_redis::Pool,
-        fluent: &Arc<FluentMessage>,
     ) -> UserAuthResult<LoginType> {
         Ok(LoginType {
             time_out: 3600 * 24,
-            type_name: get_message!(fluent, "auth-login-type-email-code", "Email code Login"),
+            type_name: "email-code".to_owned(), //"Email code Login"
         })
     }
     async fn get_user(
         &self,
         _db: &Pool<MySql>,
         redis: &deadpool_redis::Pool,
-        fluent: &Arc<FluentMessage>,
         account: &Arc<UserAccount>,
         _: &LoginEnv,
     ) -> UserAuthResult<(LoginData, UserModel)> {
@@ -66,11 +62,7 @@ impl LoginParam for EmailCodeLogin {
             .user_email
             .find_by_last_email(self.email.clone())
             .await
-            .map_err(auth_user_not_found_map!(
-                fluent,
-                self.show_name(),
-                "email code"
-            ))?;
+            .map_err(auth_user_not_found_map!(self.show_name(), "email code"))?;
         email.is_enable()?;
 
         Self::valid_code_check(redis.to_owned(), &self.code, &self.email).await?;
@@ -81,7 +73,6 @@ impl LoginParam for EmailCodeLogin {
                 .find_by_id(&email.user_id)
                 .await
                 .map_err(auth_user_not_found_map!(
-                    fluent,
                     self.show_name(),
                     "email code [user id]"
                 ))?;

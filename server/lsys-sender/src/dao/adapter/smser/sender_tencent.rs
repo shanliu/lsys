@@ -11,7 +11,7 @@ use crate::{
 use async_trait::async_trait;
 
 use chrono::NaiveDateTime;
-use lsys_core::RequestEnv;
+use lsys_core::{fluent_message, RequestEnv};
 use lsys_lib_sms::{
     template_map_to_arr, SendDetailItem, SendError, SendNotifyError, SendNotifyItem, TenSms,
 };
@@ -74,7 +74,7 @@ impl SettingKey for TenYunConfig {
 }
 impl SettingDecode for TenYunConfig {
     fn decode(data: &str) -> SettingResult<Self> {
-        serde_json::from_str::<Self>(data).map_err(|e| SettingError::System(e.to_string()))
+        serde_json::from_str::<Self>(data).map_err(SettingError::SerdeJson)
     }
 }
 
@@ -144,10 +144,11 @@ impl SenderTenYunConfig {
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         if *branch_limit > TenSms::branch_limit() {
-            return Err(SenderError::System(format!(
-                "limit max:{}",
-                TenSms::branch_limit()
-            )));
+            return Err(SenderError::System(
+                fluent_message!("sms-config-branch-error",
+                    {"max":  TenSms::branch_limit()}
+                ),
+            ));
         }
         Ok(self
             .setting
@@ -184,10 +185,11 @@ impl SenderTenYunConfig {
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         if *branch_limit > TenSms::branch_limit() {
-            return Err(SenderError::System(format!(
-                "limit max:{}",
-                TenSms::branch_limit()
-            )));
+            return Err(SenderError::System(
+                fluent_message!("sms-config-branch-error",
+                    {"max":  TenSms::branch_limit()}
+                ),
+            ));
         }
         Ok(self
             .setting

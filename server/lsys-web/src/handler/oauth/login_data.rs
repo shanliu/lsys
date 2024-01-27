@@ -27,8 +27,13 @@ pub async fn login_data_from_oauth(
     app: &AppsModel,
     req_dao: &RestAuthQueryDao,
 ) -> JsonResult<JsonData> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-
+    let auth_data = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     if param.info.unwrap_or(false) || param.name.unwrap_or(false) {
         req_dao
             .web_dao
@@ -42,8 +47,11 @@ pub async fn login_data_from_oauth(
                 },
                 None,
             )
-            .await?;
-        auth_data.check_scope("user_info")?;
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
+        auth_data
+            .check_scope("user_info")
+            .map_err(|e| req_dao.fluent_json_data(e))?;
     }
     if param.address.unwrap_or(false) {
         req_dao
@@ -58,8 +66,11 @@ pub async fn login_data_from_oauth(
                 },
                 None,
             )
-            .await?;
-        auth_data.check_scope("user_address")?;
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
+        auth_data
+            .check_scope("user_address")
+            .map_err(|e| req_dao.fluent_json_data(e))?;
     }
     if param.email.unwrap_or(false) {
         req_dao
@@ -74,8 +85,11 @@ pub async fn login_data_from_oauth(
                 },
                 None,
             )
-            .await?;
-        auth_data.check_scope("user_email")?;
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
+        auth_data
+            .check_scope("user_email")
+            .map_err(|e| req_dao.fluent_json_data(e))?;
     }
     if param.mobile.unwrap_or(false) {
         req_dao
@@ -90,8 +104,11 @@ pub async fn login_data_from_oauth(
                 },
                 None,
             )
-            .await?;
-        auth_data.check_scope("user_mobile")?;
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
+        auth_data
+            .check_scope("user_mobile")
+            .map_err(|e| req_dao.fluent_json_data(e))?;
     }
 
     let email: Option<Vec<UserEmailStatus>> = if param.email.unwrap_or(false) {
@@ -117,7 +134,8 @@ pub async fn login_data_from_oauth(
         .web_dao
         .user
         .user_detail(auth_data.user_data().user_id, data_option)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({
         "user_data":json!({
             "user":user_data.0,

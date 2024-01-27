@@ -1,6 +1,6 @@
 use std::{collections::HashSet, sync::Arc};
 
-use lsys_core::{now_time, AppCore, FluentMessage, RequestEnv, TaskData};
+use lsys_core::{fluent_message, now_time, AppCore, RequestEnv, TaskData};
 
 use lsys_logger::dao::ChangeLogger;
 use lsys_setting::dao::Setting;
@@ -38,7 +38,6 @@ impl MailSender {
         app_core: Arc<AppCore>,
         redis: deadpool_redis::Pool,
         db: Pool<MySql>,
-        fluent: Arc<FluentMessage>,
         setting: Arc<Setting>,
         logger: Arc<ChangeLogger>,
         task_size: Option<usize>,
@@ -62,7 +61,6 @@ impl MailSender {
             db.clone(),
             app_core.clone(),
             SenderType::Mailer,
-            fluent,
         ));
         let mail_record = Arc::new(MailRecord::new(
             db.clone(),
@@ -186,10 +184,14 @@ impl MailSender {
                     .await
                     .err()
             } else {
-                Some(SenderError::System(format!(
-                    "mail {} is send:{}",
-                    msg.to_mail, msg.id
-                )))
+                Some(SenderError::System(
+                    fluent_message!("mail-send-ok-cancel", //  "mail {} is send:{}",
+                        {
+                            "to_mail":msg.to_mail,
+                            "msg_id":msg.id
+                        }
+                    ),
+                ))
             };
             out.push((msg.id, task_data.is_none(), err))
         }

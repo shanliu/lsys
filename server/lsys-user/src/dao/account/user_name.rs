@@ -1,6 +1,6 @@
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
-    get_message, now_time, rand_str, FluentMessage, RandType, RemoteNotify, RequestEnv,
+    fluent_message, now_time, rand_str, RandType, RemoteNotify, RequestEnv,
 };
 
 use lsys_logger::dao::ChangeLogger;
@@ -17,7 +17,7 @@ use super::{logger::LogUserName, user_index::UserIndex, UserAccountError, UserAc
 
 pub struct UserName {
     db: Pool<MySql>,
-    fluent: Arc<FluentMessage>,
+    // fluent: Arc<FluentBuild>,
     index: Arc<UserIndex>,
     pub(crate) cache: Arc<LocalCache<u64, UserNameModel>>,
     logger: Arc<ChangeLogger>,
@@ -40,7 +40,7 @@ impl UserName {
     pub fn new(
         db: Pool<MySql>,
         remote_notify: Arc<RemoteNotify>,
-        fluent: Arc<FluentMessage>,
+        //    fluent: Arc<FluentBuild>,
         index: Arc<UserIndex>,
         logger: Arc<ChangeLogger>,
     ) -> Self {
@@ -50,7 +50,7 @@ impl UserName {
                 LocalCacheConfig::new("user-name"),
             )),
             db,
-            fluent,
+            //    fluent,
             index,
             logger,
         }
@@ -139,11 +139,16 @@ impl UserName {
     ) -> UserAccountResult<()> {
         let username = username.trim().to_string();
         if username.len() < 3 || username.len() > 32 || username.starts_with("delete_") {
-            return Err(UserAccountError::System(get_message!(
-                &self.fluent,
-                "user-username-wrong",
-                "username length need 3-32 char and username can't start [delete_]"
-            )));
+            return Err(UserAccountError::System(
+                fluent_message!("user-username-error",
+                    {
+                        "len":username.len(),
+                        "min":3,
+                        "max":32,
+                        "bad_start":"delete_"
+                    }
+                ),
+            )); //"username length need 3-32 char and username can't start [delete_]"
         }
         let time = now_time()?;
         let db = &self.db;
@@ -255,7 +260,7 @@ impl UserName {
                     Ok(())
                 } else {
                     Err(UserAccountError::System(
-                        get_message!(&self.fluent,"user-name-exits","name {$name} already exists",["name"=>username.clone()]),
+                        fluent_message!("user-name-exits",{"name":username}), //"name {$name} already exists",
                     ))
                 }
             }

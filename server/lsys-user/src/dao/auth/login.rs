@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use base64::Engine;
 use ip2location::Record;
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{get_message, FluentMessage, RemoteNotify};
+use lsys_core::{fluent_message, RemoteNotify};
 use lsys_core::{now_time, PageParam};
 
 use serde::Deserialize;
@@ -69,7 +69,6 @@ pub trait LoginParam {
         &self,
         db: &Pool<MySql>,
         redis: &deadpool_redis::Pool,
-        fluent: &Arc<FluentMessage>,
         account: &Arc<UserAccount>,
         login_env: &LoginEnv,
     ) -> UserAuthResult<(LoginData, UserModel)>;
@@ -78,7 +77,6 @@ pub trait LoginParam {
         &self,
         db: &Pool<MySql>,
         redis: &deadpool_redis::Pool,
-        fluent: &Arc<FluentMessage>,
     ) -> UserAuthResult<LoginType>;
     fn show_name(&self) -> String;
 }
@@ -192,27 +190,25 @@ impl FromStr for UserAuthTokenData {
         let token_str = token_str.to_owned();
         let de64 = &CUSTOM_ENGINE
             .decode(token_str.as_bytes())
-            .map_err(|e| UserAuthError::TokenParse(e.to_string()))?;
+            .map_err(|e| UserAuthError::TokenParse(fluent_message!("user-auth-parse-error", e)))?;
         let token_str = String::from_utf8(de64.to_owned())
-            .map_err(|e| UserAuthError::TokenParse(e.to_string()))?;
+            .map_err(|e| UserAuthError::TokenParse(fluent_message!("user-auth-parse-error", e)))?;
         let mut token_split = token_str.split('-');
-        let user_id = token_split.next().ok_or_else(|| {
-            UserAuthError::TokenParse("token is not split fail:user_id".to_string())
-        })?;
+        let user_id = token_split
+            .next()
+            .ok_or_else(|| UserAuthError::TokenParse(fluent_message!("user-auth-parse-bad")))?;
         let user_id = user_id
             .parse::<u64>()
-            .map_err(|e| UserAuthError::TokenParse(e.to_string()))?;
+            .map_err(|e| UserAuthError::TokenParse(fluent_message!("user-auth-parse-error", e)))?;
         let token = token_split
             .next()
-            .ok_or_else(|| UserAuthError::TokenParse("token is not split fail:token".to_string()))?
+            .ok_or_else(|| UserAuthError::TokenParse(fluent_message!("user-auth-parse-bad")))?
             .to_string();
         let time_out = token_split
             .next()
-            .ok_or_else(|| {
-                UserAuthError::TokenParse("token is not split fail:timeout".to_string())
-            })?
+            .ok_or_else(|| UserAuthError::TokenParse(fluent_message!("user-auth-parse-bad")))?
             .parse::<u64>()
-            .map_err(|e| UserAuthError::TokenParse(e.to_string()))?;
+            .map_err(|e| UserAuthError::TokenParse(fluent_message!("user-auth-parse-error", e)))?;
         Ok(Self::new(token, user_id, time_out))
     }
 }
@@ -278,7 +274,6 @@ pub trait UserAuthStore {
 pub struct UserAuth<T: UserAuthStore> {
     db: Pool<MySql>,
     redis: deadpool_redis::Pool,
-    fluent: Arc<FluentMessage>,
     account: Arc<UserAccount>,
     login_store: RwLock<T>,
     pub cache: LocalCache<String, UserAuthData>,
@@ -290,7 +285,7 @@ impl<T: UserAuthStore + Send + Sync> UserAuth<T> {
     pub fn new(
         db: Pool<MySql>,
         redis: deadpool_redis::Pool,
-        fluent: Arc<FluentMessage>,
+
         remote_notify: Arc<RemoteNotify>,
         account: Arc<UserAccount>,
         store: T,
@@ -304,7 +299,6 @@ impl<T: UserAuthStore + Send + Sync> UserAuth<T> {
             login_config,
             redis,
             db,
-            fluent,
         }
     }
     /// 检测用户是否可以登录及是否需要登录验证码
@@ -359,9 +353,11 @@ impl<T: UserAuthStore + Send + Sync> UserAuth<T> {
                     if self.login_config.login_limit_time > 0
                         && last_time + self.login_config.login_limit_time > now_time
                     {
-                        return Err(UserAuthError::CheckUserLock(
-                            last_time + self.login_config.login_limit_time - now_time,
-                        ));
+                        let ctime = last_time + self.login_config.login_limit_time - now_time;
+                        return Err(UserAuthError::CheckUserLock((
+                            ctime,
+                            fluent_message!("check-user-lock",{"user":login_param.show_name(),"time":ctime}),
+                        )));
                     }
                 }
                 if is_captcha
@@ -369,7 +365,7 @@ impl<T: UserAuthStore + Send + Sync> UserAuth<T> {
                         && is_fail >= self.login_config.login_limit_captcha)
                 {
                     return Err(UserAuthError::CheckCaptchaNeed(
-                        get_message!(&self.fluent,"auth-user-captcha","{$user} login need captcha code",["user"=>login_param.show_name()]),
+                        fluent_message!("auth-user-captcha",{"user":login_param.show_name()}), //"{$user} login need captcha code"
                     ));
                 }
             }
@@ -389,9 +385,7 @@ impl<T: UserAuthStore + Send + Sync> UserAuth<T> {
         login_param: TO,
         login_env: LoginEnv,
     ) -> UserAuthResult<UserAuthTokenData> {
-        let login_type = login_param
-            .get_type(&self.db, &self.redis, &self.fluent)
-            .await?;
+        let login_type = login_param.get_type(&self.db, &self.redis).await?;
         let login_ip = login_env
             .login_ip
             .unwrap_or(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)))
@@ -476,18 +470,12 @@ impl<T: UserAuthStore + Send + Sync> UserAuth<T> {
     ) -> UserAuthResult<(LoginData, UserModel)> {
         let show_name = login_param.show_name().to_owned();
         let (login_type_data, account) = login_param
-            .get_user(
-                &self.db,
-                &self.redis,
-                &self.fluent,
-                &self.account,
-                &login_env,
-            )
+            .get_user(&self.db, &self.redis, &self.account, &login_env)
             .await?;
         if UserStatus::Delete.eq(account.status) {
             return Err(UserAuthError::StatusError((
                 account.id,
-                get_message!(&self.fluent,"auth-user-disable","{$user} is disable",["user"=>show_name]),
+                fluent_message!("auth-user-disable",{"user":show_name}), //"{$user} is disable",
             )));
         }
         Ok((login_type_data, account))
@@ -500,11 +488,7 @@ impl<T: UserAuthStore + Send + Sync> UserAuth<T> {
             .data()
             .and_then(|data| if data.is_timeout() { None } else { Some(data) })
             .ok_or_else(|| {
-                UserAuthError::NotLogin(get_message!(
-                    &self.fluent,
-                    "auth-not-login",
-                    "user not login"
-                ))
+                UserAuthError::NotLogin(fluent_message!("auth-not-login")) //   "user not login"
             })
     }
     //得到当前登陆用户

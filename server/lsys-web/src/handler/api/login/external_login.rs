@@ -12,7 +12,6 @@ use serde::Serialize;
 
 //检查权限并完成回调
 pub async fn user_external_login_callback<
-    't,
     O: OauthLogin<L, P, Q>,
     L: OauthLoginParam + Send + Sync,
     P: OauthCallbackParam + Send + Sync,
@@ -26,19 +25,22 @@ pub async fn user_external_login_callback<
         .web_dao
         .user
         .user_external_oauth::<O, L, P, Q>(config_key)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
         .rbac_dao
         .rbac
         .check(&AccessSystemLogin {}, None)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let res = req_dao
         .web_dao
         .user
         .user_external_login::<O, L, P, Q>(oauth, &req_dao.req_env, param, Some(&req_dao.req_env))
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let (ext_model, _, ext_data) = res;
     let login_env = LoginEnv {
         login_ip: req_dao
@@ -60,13 +62,20 @@ pub async fn user_external_login_callback<
             },
             login_env,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .user_session
         .write()
         .await
         .set_session_token(token.clone().into());
-    let user_data = req_dao.user_session.read().await.get_session_data().await?;
+    let user_data = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let data = ShowUserAuthData::from(user_data);
     Ok((token, data))
 }

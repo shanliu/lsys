@@ -2,7 +2,7 @@ use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
 use serde::Deserialize;
 use serde_json::json;
 
-use crate::dao::RequestDao;
+use crate::dao::RequestAuthDao;
 
 use crate::handler::access::{AccessUserAppEdit, AccessUserAppView};
 use crate::{JsonData, JsonResult, PageParam};
@@ -16,16 +16,23 @@ pub struct AppSetSubUserParam {
 //设置子用户
 pub async fn app_set_sub_user<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: AppSetSubUserParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let app = req_dao
         .web_dao
         .app
         .app_dao
         .app
         .find_by_id(&param.app_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -38,7 +45,8 @@ pub async fn app_set_sub_user<T: SessionTokenData, D: SessionData, S: UserSessio
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
 
     req_dao
         .web_dao
@@ -46,7 +54,8 @@ pub async fn app_set_sub_user<T: SessionTokenData, D: SessionData, S: UserSessio
         .app_dao
         .sub_app
         .set_sub_user(&app, &param.user_id, &param.used, Some(&req_dao.req_env))
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::default())
 }
 
@@ -60,16 +69,23 @@ pub struct AppListSubUserParam {
 //列出已设置的子用户
 pub async fn app_list_sub_user<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: AppListSubUserParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let app = req_dao
         .web_dao
         .app
         .app_dao
         .app
         .find_by_id(&param.app_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -82,7 +98,8 @@ pub async fn app_list_sub_user<T: SessionTokenData, D: SessionData, S: UserSessi
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
 
     let out = req_dao
         .web_dao
@@ -94,7 +111,8 @@ pub async fn app_list_sub_user<T: SessionTokenData, D: SessionData, S: UserSessi
             &param.user_id,
             &Some(param.page.unwrap_or_default().into()),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let count = if param.count_num.unwrap_or(false) {
         if param.user_id.is_some() {
             Some(out.len() as i64)
@@ -106,7 +124,8 @@ pub async fn app_list_sub_user<T: SessionTokenData, D: SessionData, S: UserSessi
                     .app_dao
                     .sub_app
                     .list_sub_user_count(&app)
-                    .await?,
+                    .await
+                    .map_err(|e| req_dao.fluent_json_data(e))?,
             )
         }
     } else {
@@ -125,16 +144,23 @@ pub struct AppListSubAppParam {
 //列出已注册子应用
 pub async fn app_list_sub_app<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: AppListSubAppParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let app = req_dao
         .web_dao
         .app
         .app_dao
         .app
         .find_by_id(&param.app_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -147,7 +173,8 @@ pub async fn app_list_sub_app<T: SessionTokenData, D: SessionData, S: UserSessio
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
 
     let out = req_dao
         .web_dao
@@ -159,7 +186,8 @@ pub async fn app_list_sub_app<T: SessionTokenData, D: SessionData, S: UserSessio
             &param.user_id,
             &Some(param.page.unwrap_or_default().into()),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
 
     let out = out
         .into_iter()
@@ -185,7 +213,8 @@ pub async fn app_list_sub_app<T: SessionTokenData, D: SessionData, S: UserSessio
                 .app_dao
                 .sub_app
                 .list_sub_app_count(&app, &param.user_id)
-                .await?,
+                .await
+                .map_err(|e| req_dao.fluent_json_data(e))?,
         )
     } else {
         None
@@ -203,9 +232,15 @@ pub struct ListParentAppParam {
 //列出当前应用已关联的父应用
 pub async fn list_parent_app<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: ListParentAppParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
 
     let app = req_dao
         .web_dao
@@ -213,7 +248,8 @@ pub async fn list_parent_app<T: SessionTokenData, D: SessionData, S: UserSession
         .app_dao
         .app
         .find_by_id(&param.app_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -226,7 +262,8 @@ pub async fn list_parent_app<T: SessionTokenData, D: SessionData, S: UserSession
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
 
     let out = req_dao
         .web_dao
@@ -238,7 +275,8 @@ pub async fn list_parent_app<T: SessionTokenData, D: SessionData, S: UserSession
             &param.is_set,
             &Some(param.page.unwrap_or_default().into()),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
 
     let out = out
         .into_iter()
@@ -266,7 +304,8 @@ pub async fn list_parent_app<T: SessionTokenData, D: SessionData, S: UserSession
                 .app_dao
                 .sub_app
                 .parent_app_count(&app, &param.is_set)
-                .await?,
+                .await
+                .map_err(|e| req_dao.fluent_json_data(e))?,
         )
     } else {
         None
@@ -283,24 +322,31 @@ pub struct AppSetParentAppParam {
 //列出当前应用已关联的父应用
 pub async fn app_set_parent_app<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: AppSetParentAppParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let app = req_dao
         .web_dao
         .app
         .app_dao
         .app
         .find_by_id(&param.app_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let parent_app = req_dao
         .web_dao
         .app
         .app_dao
         .app
         .find_by_id(&param.parent_app_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -313,7 +359,8 @@ pub async fn app_set_parent_app<T: SessionTokenData, D: SessionData, S: UserSess
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
 
     req_dao
         .web_dao
@@ -321,7 +368,8 @@ pub async fn app_set_parent_app<T: SessionTokenData, D: SessionData, S: UserSess
         .app_dao
         .sub_app
         .app_parent_set(&parent_app, &app, &param.sub_secret, Some(&req_dao.req_env))
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::default())
 }
 
@@ -333,9 +381,15 @@ pub struct AppDelParentAppParam {
 //列出当前应用已关联的父应用
 pub async fn app_del_parent_app<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: AppDelParentAppParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
 
     let app = req_dao
         .web_dao
@@ -343,14 +397,16 @@ pub async fn app_del_parent_app<T: SessionTokenData, D: SessionData, S: UserSess
         .app_dao
         .app
         .find_by_id(&param.app_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let parent_app = req_dao
         .web_dao
         .app
         .app_dao
         .app
         .find_by_id(&param.parent_app_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -363,7 +419,8 @@ pub async fn app_del_parent_app<T: SessionTokenData, D: SessionData, S: UserSess
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
 
     req_dao
         .web_dao
@@ -371,6 +428,7 @@ pub async fn app_del_parent_app<T: SessionTokenData, D: SessionData, S: UserSess
         .app_dao
         .sub_app
         .app_parent_del(&parent_app, &app, Some(&req_dao.req_env))
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::default())
 }

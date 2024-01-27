@@ -2,7 +2,7 @@ use lsys_rbac::dao::RbacDao;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::{JsonData, JsonResult};
+use crate::{dao::RequestDao, JsonData, JsonResult};
 
 use super::{access_check, RbacAccessParam};
 
@@ -10,8 +10,11 @@ pub async fn rbac_access_check(
     user_id: u64,
     param: RbacAccessParam,
     rbac_dao: &RbacDao,
+    req_dao: &RequestDao,
 ) -> JsonResult<JsonData> {
-    access_check(rbac_dao, user_id, &param).await?;
+    access_check(rbac_dao, user_id, &param)
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "pass": 1 })))
 }
 

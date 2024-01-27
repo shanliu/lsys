@@ -1,7 +1,7 @@
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
 use serde::Deserialize;
 
-use crate::dao::RequestDao;
+use crate::dao::RequestAuthDao;
 
 use crate::handler::access::AccessUserAppStatus;
 use crate::{JsonData, JsonResult};
@@ -14,16 +14,23 @@ pub struct AppStatusParam {
 
 pub async fn app_status<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: AppStatusParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let app = req_dao
         .web_dao
         .app
         .app_dao
         .app
         .find_by_id(&param.app_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -35,7 +42,8 @@ pub async fn app_status<T: SessionTokenData, D: SessionData, S: UserSession<T, D
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .app
@@ -47,6 +55,7 @@ pub async fn app_status<T: SessionTokenData, D: SessionData, S: UserSession<T, D
             &req_auth.user_data().user_id,
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::default())
 }

@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::time::SystemTime;
 
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{get_message, now_time, FluentMessage, RemoteNotify};
+use lsys_core::{fluent_message, now_time, RemoteNotify};
 
 use lsys_user::dao::account::UserAccount;
 use lsys_user::dao::auth::{SessionToken, SessionUserData};
@@ -38,7 +38,6 @@ pub struct AppsOauth {
     user_account: Arc<UserAccount>,
     db: Pool<MySql>,
     redis: deadpool_redis::Pool,
-    fluent: Arc<FluentMessage>,
     pub(crate) cache: Arc<LocalCache<String, RestAuthData>>,
     time_out: u64,
     duration_time: usize,
@@ -62,7 +61,7 @@ impl AppsOauth {
         user_account: Arc<UserAccount>,
         db: Pool<MySql>,
         redis: deadpool_redis::Pool,
-        fluent: Arc<FluentMessage>,
+
         remote_notify: Arc<RemoteNotify>,
         time_out: u64,
     ) -> Self {
@@ -79,7 +78,7 @@ impl AppsOauth {
             user_account,
             db,
             redis,
-            fluent,
+            // fluent,
             time_out,
             duration_time: time_out as usize,
         }
@@ -159,10 +158,9 @@ impl AppsOauth {
             .await
             .map_err(|err| {
                 if err.is_not_found() {
-                    AppsError::System(get_message!(
-                        &self.fluent,
-                        "user-not-find",
-                        "login user data is not find,may be is delete"
+                    AppsError::System(fluent_message!("user-not-find",{
+                            "user_id":user_id
+                        } // "login user data is not find,may be is delete"
                     ))
                 } else {
                     err.into()
@@ -181,10 +179,13 @@ impl AppsOauth {
         let data_opt: Option<String> = redis.get(save_key.as_str()).await?;
         let data = data_opt.unwrap_or_default();
         if data.is_empty() {
-            return Err(AppsError::System(get_message!(
-                &self.fluent,
-                "token-not-find",
-                "your submit token is not find"
+            return Err(AppsError::System(fluent_message!(
+                "token-not-find", //,
+                {
+                    "name":app.name,
+                    "code":code,
+                }
+                                 // "your submit token is not find"
             )));
         }
         let oauth_data = serde_json::from_slice::<OauthData>(data.as_bytes());
@@ -246,10 +247,9 @@ impl AppsOauth {
             }
             None => {
                 if app_token.timeout < now_time().unwrap_or_default() {
-                    return Err(AppsError::System(get_message!(
-                        &self.fluent,
-                        "token-is-timeout",
-                        "your submit code is timeout or wrong"
+                    return Err(AppsError::System(fluent_message!("token-is-timeout" ,
+                        {"token":app_token.token}
+                                           // "your submit code is timeout or wrong"
                     )));
                 }
                 let time_out = SystemTime::now()
@@ -306,10 +306,10 @@ impl AppsOauth {
                         let udata = self.create_session(&app, &token, &user).await?;
                         Ok(udata)
                     }
-                    Err(sqlx::Error::RowNotFound) => Err(AppsError::System(get_message!(
-                        &self.fluent,
-                        "token-is-timeout",
-                        "your submit token not find"
+                    Err(sqlx::Error::RowNotFound) => Err(AppsError::System(fluent_message!(
+                    "token-is-timeout" ,
+                        {"token":user_token_data.token}
+                                           // "your submit token not find"
                     ))),
                     Err(err) => Err(err.into()),
                 }
@@ -355,10 +355,9 @@ impl AppsOauth {
                 }
                 Err(sqlx::Error::RowNotFound) => {
                     self.clear_user_token(user_token_data).await?;
-                    return Err(AppsError::System(get_message!(
-                        &self.fluent,
-                        "token-is-delete",
-                        "your submit token is delete"
+                    return Err(AppsError::System(fluent_message!(
+                        "token-is-delete" // ,
+                                          // "your submit token is delete"
                     )));
                 }
                 Err(err) => return Err(err.into()),

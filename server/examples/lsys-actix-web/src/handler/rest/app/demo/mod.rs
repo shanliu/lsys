@@ -13,11 +13,8 @@ pub(crate) async fn demo_app(
         Some("method_dome") => {
             //接口名
             let param = rest.param::<DemoParam>()?;
-            let app = &rest
-                .rfc
-                .to_app_model(&oauth_param.web_dao.app.app_dao.app)
-                .await?;
-            demo_handler(&oauth_param.web_dao, app, param).await
+            let app = &rest.to_app_model().await?;
+            demo_handler(&oauth_param, app, param).await
         }
         var => handler_not_found!(var.unwrap_or_default()),
     }?

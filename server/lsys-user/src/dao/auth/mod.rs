@@ -3,12 +3,13 @@ mod login_param;
 mod login_store;
 mod session;
 use deadpool_redis::PoolError;
+
 pub use login::*;
 pub use login_store::*;
 pub use session::*;
 
 use crate::dao::account::UserAccountError;
-use lsys_core::ValidCodeError;
+use lsys_core::{fluent_message, FluentMessage, ValidCodeError};
 
 use redis::RedisError;
 
@@ -24,19 +25,20 @@ pub use self::login_param::*;
 //统一错误
 #[derive(Debug)]
 pub enum UserAuthError {
-    TokenParse(String),
-    PasswordNotMatch((u64, String)),
-    PasswordNotSet((u64, String)),
-    StatusError((u64, String)),
-    ValidCode(ValidCodeError),
-    UserNotFind(String),
-    NotLogin(String),
+    TokenParse(FluentMessage),
     Sqlx(sqlx::Error),
+    Redis(RedisError),
+    RedisPool(PoolError),
+    PasswordNotMatch((u64, FluentMessage)),
+    PasswordNotSet((u64, FluentMessage)),
+    StatusError((u64, FluentMessage)),
+    ValidCode(ValidCodeError),
+    UserNotFind(FluentMessage),
+    NotLogin(FluentMessage),
     UserAccount(UserAccountError),
-    System(String),
-    CheckUserLock(u64),
-    CheckCaptchaNeed(String),
-    Redis(String),
+    System(FluentMessage),
+    CheckUserLock((u64, FluentMessage)),
+    CheckCaptchaNeed(FluentMessage),
 }
 impl Display for UserAuthError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -54,44 +56,32 @@ impl From<sqlx::Error> for UserAuthError {
 }
 impl From<SystemTimeError> for UserAuthError {
     fn from(err: SystemTimeError) -> Self {
-        UserAuthError::System(err.to_string())
+        UserAuthError::System(err.to_string().into())
     }
 }
 impl From<RedisError> for UserAuthError {
     fn from(err: RedisError) -> Self {
-        UserAuthError::Redis(err.to_string())
+        UserAuthError::Redis(err)
     }
 }
 impl From<PoolError> for UserAuthError {
     fn from(err: PoolError) -> Self {
-        UserAuthError::Redis(err.to_string())
+        UserAuthError::RedisPool(err)
     }
 }
 impl From<serde_json::Error> for UserAuthError {
     fn from(err: serde_json::Error) -> Self {
-        UserAuthError::System(format!("{:?}", err))
+        UserAuthError::System(fluent_message!("serde-error", err))
     }
 }
 impl From<UserAccountError> for UserAuthError {
     fn from(err: UserAccountError) -> Self {
-        if let UserAccountError::Status((uid, err)) = err {
-            return UserAuthError::StatusError((uid, err));
-        }
-        if let UserAccountError::Sqlx(err) = err {
-            return UserAuthError::Sqlx(err);
-        }
-        if let UserAccountError::Redis(err) = err {
-            return UserAuthError::Redis(err);
-        }
-        if let UserAccountError::ValidCode(err) = err {
-            return UserAuthError::ValidCode(err);
-        }
         UserAuthError::UserAccount(err)
     }
 }
 impl From<FromUtf8Error> for UserAuthError {
     fn from(err: FromUtf8Error) -> Self {
-        UserAuthError::System(format!("{:?}", err))
+        UserAuthError::System(fluent_message!("utf-error", err))
     }
 }
 impl From<ValidCodeError> for UserAuthError {

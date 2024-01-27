@@ -1,5 +1,5 @@
-use crate::{dao::RequestDao, handler::access::AccessSiteSetting, JsonData, JsonResult};
-use lsys_setting::dao::NotFoundDefault;
+use crate::{dao::RequestAuthDao, handler::access::AccessSiteSetting, JsonData, JsonResult};
+use lsys_setting::dao::NotFoundResult;
 use lsys_setting::dao::{SettingDecode, SettingEncode, SettingKey};
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
 use serde::{Deserialize, Serialize};
@@ -13,10 +13,15 @@ pub async fn setting_set<
     S: UserSession<T, D>,
 >(
     param: P,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-    //验证权限
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?; //验证权限
     req_dao
         .web_dao
         .user
@@ -28,7 +33,8 @@ pub async fn setting_set<
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .setting
@@ -42,7 +48,7 @@ pub async fn setting_set<
             Some(&req_dao.req_env),
         )
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::default())
 }
 
@@ -53,9 +59,15 @@ pub async fn setting_get<
     D: SessionData,
     S: UserSession<T, D>,
 >(
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -67,13 +79,15 @@ pub async fn setting_get<
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let data = req_dao
         .web_dao
         .setting
         .single
         .load::<A>(&None)
         .await
-        .notfound_default()?;
+        .notfound_default()
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "config":  &*data })))
 }

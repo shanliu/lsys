@@ -5,8 +5,8 @@ use crate::dao::account::UserAccountResult;
 
 use crate::model::{UserMobileModel, UserMobileModelRef, UserMobileStatus, UserModel};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{get_message, now_time, RemoteNotify};
-use lsys_core::{FluentMessage, RequestEnv};
+use lsys_core::RequestEnv;
+use lsys_core::{fluent_message, now_time, RemoteNotify};
 
 use lsys_logger::dao::ChangeLogger;
 use sqlx::{Acquire, MySql, Pool, Transaction};
@@ -24,7 +24,7 @@ pub trait UserMobileValid {
 pub struct UserMobile {
     db: Pool<MySql>,
     redis: deadpool_redis::Pool,
-    fluent: Arc<FluentMessage>,
+    // fluent: Arc<FluentBuild>,
     index: Arc<UserIndex>,
     pub(crate) cache: Arc<LocalCache<u64, Vec<UserMobileModel>>>,
     logger: Arc<ChangeLogger>,
@@ -34,7 +34,7 @@ impl UserMobile {
     pub fn new(
         db: Pool<MySql>,
         redis: deadpool_redis::Pool,
-        fluent: Arc<FluentMessage>,
+        //  fluent: Arc<FluentBuild>,
         remote_notify: Arc<RemoteNotify>,
         index: Arc<UserIndex>,
         logger: Arc<ChangeLogger>,
@@ -46,7 +46,7 @@ impl UserMobile {
             )),
             db,
             redis,
-            fluent,
+            //  fluent,
             index,
             logger,
         }
@@ -85,7 +85,7 @@ impl UserMobile {
         if status == UserMobileStatus::Delete {
             status = UserMobileStatus::Init;
         }
-        check_mobile(&self.fluent, area_code.as_str(), mobile.as_str())?;
+        check_mobile(area_code.as_str(), mobile.as_str())?;
         let mobile_res = Select::type_new::<UserMobileModel>()
             .fetch_one_by_where::<UserMobileModel, _>(
                 &sqlx_model::WhereOption::Where(sql_format!(
@@ -102,10 +102,11 @@ impl UserMobile {
                 if mobile.user_id == user.id {
                     return Ok(mobile.id);
                 } else {
-                    return Err(UserAccountError::System(get_message!(&self.fluent,
-                        "user-mobile-exits","mobile {$name} bind on other account[{$id}]",
-                        ["name"=>mobile.mobile,"id"=>mobile.user_id ]
-                    )));
+                    return Err(UserAccountError::System(
+                        fluent_message!("user-mobile-exits",
+                            {"mobile":mobile.mobile,"id":mobile.user_id }//"mobile {$name} bind on other account[{$id}]",
+                        ),
+                    ));
                 }
             }
             Err(sqlx::Error::RowNotFound) => {}
@@ -245,10 +246,11 @@ impl UserMobile {
             .await;
         match mobile_res {
             Ok(mobile) => {
-                return Err(UserAccountError::System(get_message!(&self.fluent,
-                    "user-mobile-exits","confirm error : mobile {$name} bind on other account[{$id}]",
-                    ["name"=>mobile.mobile,"id"=>mobile.user_id ]
-                )));
+                return Err(UserAccountError::System(
+                    fluent_message!("user-mobile-exits",
+                        {"mobile":mobile.mobile,"id":mobile.user_id }//"confirm error : mobile {$name} bind on other account[{$id}]",
+                    ),
+                ));
             }
             Err(sqlx::Error::RowNotFound) => {}
             Err(err) => {

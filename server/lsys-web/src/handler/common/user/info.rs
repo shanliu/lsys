@@ -1,5 +1,5 @@
 use crate::{
-    dao::RequestDao,
+    dao::RequestAuthDao,
     handler::access::{AccessUserInfoEdit, AccessUserNameEdit},
     {JsonData, JsonResult},
 };
@@ -12,16 +12,17 @@ use sqlx_model::model_option_set;
 pub struct InfoSetUserNameParam {
     pub name: String,
 }
-pub async fn user_info_set_username<
-    't,
-    T: SessionTokenData,
-    D: SessionData,
-    S: UserSession<T, D>,
->(
+pub async fn user_info_set_username<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: InfoSetUserNameParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -34,7 +35,8 @@ pub async fn user_info_set_username<
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let user = req_dao
         .web_dao
         .user
@@ -42,7 +44,8 @@ pub async fn user_info_set_username<
         .user_account
         .user
         .find_by_id(&req_auth.user_data().user_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -50,13 +53,15 @@ pub async fn user_info_set_username<
         .user_account
         .user_name
         .change_username(&user, param.name, None, Some(&req_dao.req_env))
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .user_session
         .write()
         .await
         .refresh_session(false)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::default())
 }
 
@@ -64,16 +69,17 @@ pub async fn user_info_set_username<
 pub struct InfoCheckUserNameParam {
     pub name: String,
 }
-pub async fn user_info_check_username<
-    't,
-    T: SessionTokenData,
-    D: SessionData,
-    S: UserSession<T, D>,
->(
+pub async fn user_info_check_username<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: InfoCheckUserNameParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -86,7 +92,8 @@ pub async fn user_info_check_username<
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let user_res = req_dao
         .web_dao
         .user
@@ -100,7 +107,7 @@ pub async fn user_info_check_username<
             .set_data(json!({
                 "pass":"1"
             }))),
-        Err(err) => Err(err.into()),
+        Err(err) => Err(req_dao.fluent_json_data(err)),
         Ok(user) => Ok(
             JsonData::message(format!("Username already exists [{}]", user.id))
                 .set_sub_code("username_exists"),
@@ -117,9 +124,15 @@ pub struct InfoSetUserInfoParam {
 }
 pub async fn user_info_set_data<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: InfoSetUserInfoParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -132,8 +145,8 @@ pub async fn user_info_set_data<'t, T: SessionTokenData, D: SessionData, S: User
             },
             None,
         )
-        .await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let user = req_dao
         .web_dao
         .user
@@ -141,8 +154,14 @@ pub async fn user_info_set_data<'t, T: SessionTokenData, D: SessionData, S: User
         .user_account
         .user
         .find_by_id(&req_auth.user_data().user_id)
-        .await?;
-    let mut db = req_dao.web_dao.db.begin().await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    let mut db = req_dao
+        .web_dao
+        .db
+        .begin()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     if let Some(nikename) = param.nikename {
         let res = req_dao
             .web_dao
@@ -153,8 +172,10 @@ pub async fn user_info_set_data<'t, T: SessionTokenData, D: SessionData, S: User
             .set_nikename(&user, nikename, Some(&mut db), Some(&req_dao.req_env))
             .await;
         if let Err(err) = res {
-            db.rollback().await?;
-            return Err(err.into());
+            db.rollback()
+                .await
+                .map_err(|e| req_dao.fluent_json_data(e))?;
+            return Err(req_dao.fluent_json_data(err));
         }
     }
     let mut info = model_option_set!(UserInfoModelRef, {});
@@ -170,23 +191,32 @@ pub async fn user_info_set_data<'t, T: SessionTokenData, D: SessionData, S: User
         .set_info(&user, info, Some(&mut db), Some(&req_dao.req_env))
         .await;
     if let Err(err) = res {
-        db.rollback().await?;
-        return Err(err.into());
+        db.rollback()
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
+        return Err(req_dao.fluent_json_data(err));
     }
-    db.commit().await?;
+    db.commit().await.map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .user_session
         .write()
         .await
         .refresh_session(false)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::default())
 }
 
 pub async fn password_last_modify<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -199,8 +229,8 @@ pub async fn password_last_modify<'t, T: SessionTokenData, D: SessionData, S: Us
             },
             None,
         )
-        .await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let user = req_dao
         .web_dao
         .user
@@ -208,7 +238,8 @@ pub async fn password_last_modify<'t, T: SessionTokenData, D: SessionData, S: Us
         .user_account
         .user
         .find_by_id(&req_auth.user_data().user_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     if user.password_id == 0 {
         return Ok(JsonData::message("not set password").set_sub_code("not_set"));
     }
@@ -219,7 +250,8 @@ pub async fn password_last_modify<'t, T: SessionTokenData, D: SessionData, S: Us
         .user_account
         .user_password
         .find_by_id(&user.password_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let passwrod_timeout = req_dao
         .web_dao
         .user
@@ -236,9 +268,15 @@ pub async fn password_last_modify<'t, T: SessionTokenData, D: SessionData, S: Us
 }
 
 pub async fn user_delete<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let user = req_dao
         .web_dao
         .user
@@ -246,12 +284,14 @@ pub async fn user_delete<'t, T: SessionTokenData, D: SessionData, S: UserSession
         .user_account
         .user
         .find_by_id(&req_auth.user_data().user_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
         .del_user(&user, Some(&req_dao.req_env))
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let _ = req_dao.user_session.write().await.clear_session().await;
     Ok(JsonData::default())
 }

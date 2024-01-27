@@ -8,7 +8,7 @@ use crate::model::{
     AppSubUserModelRef, AppSubUserStatus, AppsModel,
 };
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{now_time, PageParam, RemoteNotify, RequestEnv};
+use lsys_core::{fluent_message, now_time, PageParam, RemoteNotify, RequestEnv};
 use lsys_logger::dao::ChangeLogger;
 use sqlx::{prelude::FromRow, MySql, Pool};
 use sqlx::{Row, ValueRef};
@@ -83,9 +83,8 @@ impl SubApps {
         env_data: Option<&RequestEnv>,
     ) -> AppsResult<()> {
         if *user_id == 0 {
-            return Err(AppsError::System(format!(
-                "can't add empty user on app :{}",
-                app.id
+            return Err(AppsError::System(fluent_message!("app-add-empty-user",
+                {"app":app.name}
             )));
         }
         match Select::type_new::<AppSubUserModel>()
@@ -298,16 +297,16 @@ impl SubApps {
         env_data: Option<&RequestEnv>,
     ) -> AppsResult<u64> {
         if parent_app.id == app.id {
-            return Err(AppsError::System(format!(
-                "can't set self,on appid :{}",
-                app.id
+            return Err(AppsError::System(fluent_message!("app-parent-add-self",
+                {"name":app.name}
             )));
         }
         if sub_secret.is_empty() {
-            return Err(AppsError::System(format!(
-                "sub secret can't be empty ,on appid :{}",
-                app.id
-            )));
+            return Err(AppsError::System(
+                fluent_message!("app-parent-secret-empty",
+                {"name":app.name}
+                ),
+            ));
         }
         let sql = sql_format!(
             "select id from {} where app_id={} and user_id={} and status={}",
@@ -318,10 +317,18 @@ impl SubApps {
         );
         if let Err(err) = sqlx::query_scalar::<_, u64>(&sql).fetch_one(&self.db).await {
             return Err(match err {
-                sqlx::Error::RowNotFound => AppsError::System(format!(
-                    "your can't add sub app to {} ,user id [{}] is not allowed ",
-                    parent_app.name, app.user_id
-                )),
+                sqlx::Error::RowNotFound => {
+                    AppsError::System(fluent_message!("app-parent-add-bad-user",
+                        {
+                            "name":app.name,
+                            "parent_name":parent_app.name,
+                            "user_id":app.user_id
+                        }
+                         // "your can't add sub app to {} ,user id [{}] is not allowed ",
+                           // parent_app.name,
+                           // app.user_id
+                    ))
+                }
                 err => err.into(),
             });
         }

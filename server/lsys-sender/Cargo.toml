@@ -62,9 +62,6 @@ async-trait = "~0.1.*"
 parking_lot = "~0.12.*"
 
 
-fluent = "~0.16.*"
-
-
 rs-snowflake = "0.6.0"
 
 

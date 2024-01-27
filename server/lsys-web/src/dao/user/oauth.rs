@@ -1,4 +1,4 @@
-use lsys_core::{get_message, RequestEnv};
+use lsys_core::{fluent_message, RequestEnv};
 use lsys_user::{
     dao::{
         account::{UserAccountError, UserAccountResult},
@@ -26,7 +26,7 @@ impl WebUser {
     ) -> UserAuthResult<T> {
         let oauth: T = T::load_config(self, config_key)
             .await
-            .map_err(UserAuthError::System)?;
+            .map_err(|e| UserAuthError::System(fluent_message!("user-external-oauth-error", e)))?;
         Ok(oauth)
     }
     //得到外部登录URL
@@ -43,7 +43,7 @@ impl WebUser {
         let url = oauth
             .login_url(self, param)
             .await
-            .map_err(UserAuthError::System)?;
+            .map_err(|e| UserAuthError::System(fluent_message!("user-external-login-url", e)))?;
         Ok(url)
     }
     //得到外部数据转为内部UserExternalModel
@@ -63,7 +63,7 @@ impl WebUser {
         let (data, ext_data) = oauth
             .login_callback(self, param)
             .await
-            .map_err(UserAuthError::System)?;
+            .map_err(|e| UserAccountError::System(fluent_message!("user-external-call", e)))?;
         let user_ext_rs = self
             .user_dao
             .user_account
@@ -170,7 +170,7 @@ impl WebUser {
         let (param, ext_data) = oauth
             .login_callback(self, param)
             .await
-            .map_err(UserAccountError::System)?;
+            .map_err(|e| UserAccountError::System(fluent_message!("user-external-call", e)))?;
         let user_external = &self.user_dao.user_account.user_external;
         let extdata = user_external
             .find_by_external(&param.config_name, &param.external_type, &param.external_id)
@@ -179,10 +179,11 @@ impl WebUser {
             Ok(ext) => {
                 if UserExternalStatus::Enable.eq(ext.status) {
                     if ext.user_id != user_id {
-                        return Err(UserAccountError::System(get_message!(&self.fluent,
-                            "user-external-other-bind","this account {$name} bind on other account[{$id}]",
-                            ["name"=>ext.external_name,"id"=>ext.user_id ]
-                        )));
+                        return Err(UserAccountError::System(
+                            fluent_message!("user-external-other-bind",
+                                {"name":ext.external_name,"id":ext.user_id }
+                            ),
+                        )); //"this account {$name} bind on other account[{$id}]",
                     }
                     Some(ext)
                 } else {

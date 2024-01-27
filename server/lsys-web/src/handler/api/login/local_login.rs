@@ -1,5 +1,5 @@
 use crate::{
-    dao::RequestDao,
+    dao::RequestAuthDao,
     handler::access::AccessSystemLogin,
     {CaptchaParam, JsonData, JsonResult},
 };
@@ -15,9 +15,9 @@ use serde::Deserialize;
 use serde_json::json;
 macro_rules! login_method {
     ($fn:ident,{$($name:ident:$name_type:ty),+$(,)*},{$($login_param:expr),+$(,)*}) => {
-        pub async fn $fn<'t>(
+        pub async fn $fn(
             $($name:$name_type),+,
-            req_dao: &RequestDao<UserAuthTokenData,UserAuthData,UserAuthSession<UserAuthRedisStore>>,
+            req_dao: &RequestAuthDao<UserAuthTokenData,UserAuthData,UserAuthSession<UserAuthRedisStore>>,
         ) -> JsonResult<(UserAuthTokenData, ShowUserAuthData)> {
             req_dao
             .web_dao
@@ -25,8 +25,8 @@ macro_rules! login_method {
             .rbac_dao
             .rbac
             .check(&AccessSystemLogin {}, None)
-            .await?;
-            Ok(req_dao
+            .await.map_err(|e| req_dao.fluent_json_data(e))?;
+            req_dao
                 .web_dao
                 .user
                 .user_login(
@@ -34,7 +34,7 @@ macro_rules! login_method {
                     &req_dao.req_env,
                     $($login_param),+
                 )
-                .await?)
+                .await.map_err(|e| req_dao.fluent_json_data(e))
         }
     };
 }
@@ -140,13 +140,12 @@ pub struct MobileSendCodeLoginParam {
 }
 
 pub async fn user_login_mobile_send_code<
-    't,
     T: SessionTokenData,
     D: SessionData,
     S: UserSession<T, D>,
 >(
     param: MobileSendCodeLoginParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     let valid_code = req_dao
         .web_dao
@@ -154,14 +153,16 @@ pub async fn user_login_mobile_send_code<
         .valid_code(&crate::dao::CaptchaKey::LoginSmsCode);
     valid_code
         .check_code(&param.captcha.key, &param.captcha.code)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let data = MobileCodeLogin::valid_code_set(
         req_dao.web_dao.redis.clone(),
         &mut EmailCodeLogin::valid_code_builder(),
         &param.area_code,
         &param.mobile,
     )
-    .await?;
+    .await
+    .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .sender_smser
@@ -172,7 +173,8 @@ pub async fn user_login_mobile_send_code<
             &data.1,
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let _ = valid_code
         .clear_code(
             &param.captcha.key,
@@ -189,13 +191,12 @@ pub struct EmailSendCodeLoginParam {
 }
 
 pub async fn user_login_email_send_code<
-    't,
     T: SessionTokenData,
     D: SessionData,
     S: UserSession<T, D>,
 >(
     param: EmailSendCodeLoginParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     let valid_code = req_dao
         .web_dao
@@ -203,18 +204,21 @@ pub async fn user_login_email_send_code<
         .valid_code(&crate::dao::CaptchaKey::LoginEmailCode);
     valid_code
         .check_code(&param.captcha.key, &param.captcha.code)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let data = EmailCodeLogin::valid_code_set(
         req_dao.web_dao.redis.clone(),
         &mut EmailCodeLogin::valid_code_builder(),
         &param.email,
     )
-    .await?;
+    .await
+    .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .sender_mailer
         .send_valid_code(&param.email, &data.0, &data.1, Some(&req_dao.req_env))
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let _ = valid_code
         .clear_code(
             &param.captcha.key,

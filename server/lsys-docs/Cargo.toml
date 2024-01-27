@@ -37,8 +37,6 @@ tracing = { version = "0.1.*" } # log-always 保持log的输出 当使用tracing
 tokio = { version = "~1.28" }
 
 
-fluent = "0.16.0"
-
 num_cpus = "1.15.0"
 
 hostname = "~0.3.*"

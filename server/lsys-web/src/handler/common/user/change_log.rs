@@ -1,5 +1,5 @@
 use crate::{
-    dao::RequestDao,
+    dao::RequestAuthDao,
     handler::access::AccessAdminChangeLogsView,
     LimitParam, {JsonData, JsonResult},
 };
@@ -17,10 +17,15 @@ pub struct ChangeLogsListParam {
 
 pub async fn change_logs_list<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: ChangeLogsListParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -32,8 +37,8 @@ pub async fn change_logs_list<'t, T: SessionTokenData, D: SessionData, S: UserSe
             },
             None,
         )
-        .await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let (res, next) = req_dao
         .web_dao
         .logger
@@ -43,7 +48,8 @@ pub async fn change_logs_list<'t, T: SessionTokenData, D: SessionData, S: UserSe
             &param.add_user_id,
             &Some(param.limit.unwrap_or_default().into()),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({
         "data": res,
         "next": next

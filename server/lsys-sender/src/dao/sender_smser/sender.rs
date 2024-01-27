@@ -1,6 +1,6 @@
 use std::{collections::HashSet, sync::Arc};
 
-use lsys_core::{now_time, AppCore, FluentMessage, RequestEnv, TaskData};
+use lsys_core::{fluent_message, now_time, AppCore, RequestEnv, TaskData};
 
 use lsys_logger::dao::ChangeLogger;
 use lsys_notify::dao::Notify;
@@ -50,7 +50,6 @@ impl SmsSender {
         redis: deadpool_redis::Pool,
         db: Pool<sqlx::MySql>,
         setting: Arc<Setting>,
-        fluent: Arc<FluentMessage>,
         logger: Arc<ChangeLogger>,
         notify: Arc<Notify>,
         sender_task_size: Option<usize>,
@@ -76,7 +75,6 @@ impl SmsSender {
             db.clone(),
             app_core.clone(),
             SenderType::Smser,
-            fluent,
         ));
         let sms_record = Arc::new(SmsRecord::new(
             db.clone(),
@@ -261,10 +259,14 @@ impl SmsSender {
                     .await
                     .err()
             } else {
-                Some(SenderError::System(format!(
-                    "sms {} is sending:{}",
-                    msg.mobile, msg.id
-                )))
+                Some(SenderError::System(
+                    fluent_message!("sms-send-ok-cancel", //  "sms {} is sending:{}",
+                        {
+                            "mobile":msg.mobile,
+                            "msg_id":msg.id
+                        }
+                    ),
+                ))
             };
             out.push((msg.id, task_data.is_none(), err))
         }

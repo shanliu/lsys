@@ -10,7 +10,7 @@ use crate::{
     },
 };
 use async_trait::async_trait;
-use lsys_core::now_time;
+use lsys_core::{fluent_message, now_time};
 use lsys_core::{TaskAcquisition, TaskData, TaskExecutor, TaskItem, TaskRecord};
 use lsys_setting::model::SettingModel;
 use sqlx_model::{ModelTableName, SqlExpr, SqlQuote};
@@ -482,7 +482,8 @@ impl MailerTask {
         se: Vec<Box<dyn SenderTaskExecutor<u64, MailTaskItem, MailTaskData>>>,
     ) -> SenderResult<MailerTask> {
         if se.is_empty() {
-            return Err(SenderError::System("can't set task is empty".to_string()));
+            // "can't set task is empty".to_string()
+            return Err(SenderError::System(fluent_message!("mail-task-empty")));
         }
         Ok(MailerTask {
             inner: Arc::new(

@@ -10,7 +10,7 @@ use crate::{
         SenderSmsMessageModel, SenderSmsMessageModelRef, SenderSmsMessageStatus, SenderType,
     },
 };
-use lsys_core::{now_time, LimitParam, PageParam, RequestEnv};
+use lsys_core::{fluent_message, now_time, LimitParam, PageParam, RequestEnv};
 
 use lsys_logger::dao::ChangeLogger;
 use serde_json::Value;
@@ -269,7 +269,7 @@ impl SmsRecord {
             .map(|e| e.request_ip.clone().unwrap_or_default())
             .unwrap_or_default();
         let reqid = env_data
-            .map(|t| t.request_ip.to_owned().unwrap_or_default())
+            .map(|t| t.request_id.to_owned().unwrap_or_default())
             .unwrap_or_default();
         let res = Insert::<sqlx::MySql, SenderSmsBodyModel, _>::new(
             sqlx_model::model_option_set!(SenderSmsBodyModelRef,{
@@ -376,10 +376,18 @@ impl SmsRecord {
 
             return Ok(());
         }
-        Err(SenderError::System(format!(
-            "can't be cancel,status:{}",
-            message.status
-        )))
+        Err(SenderError::System(
+            fluent_message!("sms-cancel-status-error",{
+                    "status":message.status
+                }
+            ),
+        )) //"can't be cancel,status:{}",
+           // Err(SenderError::System(
+
+        //     format!(
+        //     "can't be cancel,status:{}",
+        //     message.status
+        // )))
     }
     //查找短信基本配置
     pub async fn find_config_by_id(&self, id: &u64) -> SenderResult<SenderConfigModel> {
@@ -404,11 +412,29 @@ impl SmsRecord {
                         match config_data.get($name) {
                             Some(val) => match val.$asfn() {
                                 Some(val) => val,
-                                None => return Err(SenderError::System($wrong_err.to_string())),
+                                None => {
+                                    return Err(SenderError::System(fluent_message!(
+                                        "sms-config-add-error",
+                                        {
+                                            "name":$name,
+                                            "msg": $miss_err
+                                           }
+                                    )))
+                                }
+                                // None => return Err(SenderError::System($wrong_err.to_string())),
                             },
                             None => {
-                                return Err(SenderError::System($miss_err.to_string()));
-                            }
+                                return Err(SenderError::System(fluent_message!(
+                                    "sms-config-add-error",
+                                    {
+                                        "name":$name,
+                                        "msg": $miss_err
+                                       }
+                                )));
+                            } // None => {
+
+                              //     return Err(SenderError::System($miss_err.to_string()));
+                              // }
                         }
                     };
                 }
@@ -430,7 +456,14 @@ impl SmsRecord {
                 }) {
                     Ok(val) => val,
                     Err(err) => {
-                        return Err(SenderError::System(err.to_string()));
+                        return Err(SenderError::System(fluent_message!(
+                            "sms-config-add-error",
+                            {
+                                "name":"range_time,max_send",
+                                "msg": err
+                             }
+                        )));
+                        // return Err(SenderError::System(err.to_string()));
                     }
                 }
             }
@@ -440,7 +473,10 @@ impl SmsRecord {
             SenderSmsConfigType::MaxOfSend => match config_data.as_u64() {
                 Some(num) => (num as u32).to_string(),
                 None => {
-                    return Err(SenderError::System("send max need number".to_string()));
+                    return Err(SenderError::System(fluent_message!(
+                        "sms-config-add-max-num-error" //"send max need number".to_string()
+                    )));
+                    // return Err(SenderError::System("send max need number".to_string()));
                 }
             },
         };
@@ -519,7 +555,10 @@ impl SmsRecord {
         send_time: u64,
     ) -> SenderResult<()> {
         if mobiles.is_empty() {
-            return Err(SenderError::System("miss mobile".to_string()));
+            return Err(SenderError::System(fluent_message!(
+                "sms-send-check-miss-error" //"miss to sms box".to_string()
+            )));
+            // return Err(SenderError::System("miss mobile".to_string()));
         }
         let mut rule = self
             .config_list(None, None, Some(app_id.unwrap_or_default()))
@@ -535,10 +574,17 @@ impl SmsRecord {
             }
             None
         })() {
-            return Err(SenderError::System(format!(
-                "send mobile limit :{}",
-                max_send
-            )));
+            return Err(SenderError::System(
+                fluent_message!("sms-send-check-max-send", //"send sms limit :{}",
+                    {
+                    "max":max_send
+                    }
+                ),
+            ));
+            // return Err(SenderError::System(format!(
+            //     "send mobile limit :{}",
+            //     max_send
+            // )));
         }
         for (c, r) in rule.iter() {
             match r {
@@ -571,14 +617,30 @@ impl SmsRecord {
                 }
                 SenderSmsConfigData::Block { area, mobile } => {
                     if mobiles.iter().any(|a| *a.0 == *area && *a.1 == *mobile) {
-                        return Err(SenderError::System(format!(
-                            "send block on :{}{} [{}]",
-                            area, mobile, c.id
-                        )));
+                        return Err(SenderError::System(
+                            fluent_message!("sms-send-check-block", //"send block on :{} [{}]",
+                                {
+                                    "area":area,
+                                "mobile":mobile,
+                                "config_id":c.id
+                                }
+                            ),
+                        ));
+                        // return Err(SenderError::System(format!(
+                        //     "send block on :{}{} [{}]",
+                        //     area, mobile, c.id
+                        // )));
                     }
                 }
                 SenderSmsConfigData::Close => {
-                    return Err(SenderError::System("send sms is close".to_string()));
+                    return Err(SenderError::System(
+                        fluent_message!("sms-send-check-close", //"send sms is close"
+                            {
+                            "config_id":c.id
+                            }
+                        ),
+                    ));
+                    // return Err(SenderError::System("send sms is close".to_string()));
                 }
                 _ => {}
             }
@@ -598,10 +660,21 @@ impl SmsRecord {
             for (_, id, limit) in limit_sql {
                 if let Some(t) = data.iter().find(|e| e.1 as u64 == id) {
                     if t.0 >= limit.max_send.into() {
-                        return Err(SenderError::System(format!(
-                            "trigger limit rule :{} on {}{} [{}]",
-                            limit.max_send, t.2, t.3, id
-                        )));
+                        return Err(SenderError::System(
+                            fluent_message!("mail-send-check-limit", //  "trigger limit rule :{} on {} [{}]",
+                                {
+                                    "max_send":limit.max_send,
+                                    "area":t.2,
+                                    "mobile":t.3,
+                                    "config_id":id
+                                }
+                            ),
+                        ));
+
+                        // return Err(SenderError::System(format!(
+                        //     "trigger limit rule :{} on {}{} [{}]",
+                        //     limit.max_send, t.2, t.3, id
+                        // )));
                     }
                 }
             }

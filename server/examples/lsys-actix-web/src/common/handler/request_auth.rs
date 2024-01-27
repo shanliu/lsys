@@ -7,12 +7,12 @@ use lsys_app::dao::session::RestAuthSession;
 use lsys_core::{now_time, RequestEnv};
 use lsys_user::dao::auth::{SessionToken, UserAuthSession, UserAuthTokenData};
 use lsys_web::{
-    dao::{RequestDao as Request, RequestToken, RestAuthQueryDao},
+    dao::{RequestAuthDao as Request, RequestSessionToken, RestAuthQueryDao},
     dao::{UserAuthQueryDao, WebDao},
     JsonData,
 };
 
-use reqwest::header::HeaderValue;
+use reqwest::header::{self, HeaderValue};
 
 use super::{ResponseJson, AUTH_COOKIE_NAME};
 
@@ -37,6 +37,13 @@ impl FromRequest for UserAuthQuery {
         let user_dao_opt = req.app_data::<Data<WebDao>>();
         match user_dao_opt {
             Some(app_dao) => {
+                let user_lang = req
+                    .headers()
+                    .get(header::ACCEPT_LANGUAGE)
+                    .and_then(|t| t.to_str().map(|s| s.split(',').next().unwrap_or(s)).ok())
+                    .unwrap_or("zh_CN")
+                    .replace('-', "_")
+                    .to_owned();
                 let user_agent = req
                     .headers()
                     .get("User-Agent")
@@ -59,7 +66,12 @@ impl FromRequest for UserAuthQuery {
                 ok(Self {
                     inner: Request::new(
                         app_dao.clone().into_inner(),
-                        RequestEnv::new(Some(ip), Some(request_id), Some(user_agent)),
+                        RequestEnv::new(
+                            Some(user_lang),
+                            Some(ip),
+                            Some(request_id),
+                            Some(user_agent),
+                        ),
                         UserAuthSession::new(
                             app_dao.user.user_dao.user_auth.clone(),
                             SessionToken::default(),
@@ -91,7 +103,7 @@ impl<'t> CookieToken<'t> {
     }
 }
 
-impl<'t> RequestToken<UserAuthTokenData> for CookieToken<'t> {
+impl<'t> RequestSessionToken<UserAuthTokenData> for CookieToken<'t> {
     fn get_user_token(&self) -> SessionToken<UserAuthTokenData> {
         if let Some(cookie) = self.request_dao.req.cookie(AUTH_COOKIE_NAME) {
             SessionToken::<UserAuthTokenData>::from_str(cookie.value()).unwrap_or_default()
@@ -132,6 +144,13 @@ impl FromRequest for OauthAuthQuery {
         let user_dao_opt = req.app_data::<Data<WebDao>>();
         match user_dao_opt {
             Some(app_dao) => {
+                let user_lang = req
+                    .headers()
+                    .get(header::ACCEPT_LANGUAGE)
+                    .and_then(|t| t.to_str().map(|s| s.split(',').next().unwrap_or(s)).ok())
+                    .unwrap_or("zh_CN")
+                    .replace('-', "_")
+                    .to_owned();
                 let user_agent = req
                     .headers()
                     .get("User-Agent")
@@ -154,7 +173,12 @@ impl FromRequest for OauthAuthQuery {
                 ok(Self {
                     inner: Request::new(
                         app_dao.clone().into_inner(),
-                        RequestEnv::new(Some(ip), Some(request_id), Some(user_agent)),
+                        RequestEnv::new(
+                            Some(user_lang),
+                            Some(ip),
+                            Some(request_id),
+                            Some(user_agent),
+                        ),
                         RestAuthSession::new(app_dao.app.app_dao.clone(), SessionToken::default()),
                     ),
                     req: req.to_owned(),

@@ -5,8 +5,8 @@ use std::{
 };
 
 use lsys_core::{
-    cache::LocalCache, get_message, impl_dao_fetch_map_by_vec, impl_dao_fetch_one_by_one, now_time,
-    FluentMessage, PageParam, RequestEnv,
+    cache::LocalCache, fluent_message, impl_dao_fetch_map_by_vec, impl_dao_fetch_one_by_one,
+    now_time, PageParam, RequestEnv,
 };
 
 use lsys_logger::dao::ChangeLogger;
@@ -75,7 +75,6 @@ pub struct RoleAccessRow {
 
 //角色管理
 pub struct RbacRole {
-    fluent: Arc<FluentMessage>,
     db: Pool<MySql>,
     tags: Arc<RbacTags>,
     cache_relation: Arc<LocalCache<String, Option<RoleDetailRow>>>,
@@ -98,7 +97,7 @@ pub struct RoleSetOp {
 impl RbacRole {
     pub fn new(
         db: Pool<MySql>,
-        fluent: Arc<FluentMessage>,
+
         tags: Arc<RbacTags>,
         cache_relation: Arc<LocalCache<String, Option<RoleDetailRow>>>,
         cache_access: Arc<LocalCache<String, Option<RoleAccessRow>>>,
@@ -108,7 +107,7 @@ impl RbacRole {
             cache_relation,
             cache_access,
             db,
-            fluent,
+            // fluent,
             tags,
             logger,
         }
@@ -244,7 +243,7 @@ impl RbacRole {
         let tags = {
             let mut tout = Vec::with_capacity(tags.len());
             for tmp in tags.iter() {
-                tout.push(check_length!(&self.fluent, tmp, "name", 32));
+                tout.push(check_length!(tmp, "name", 32));
             }
             tout
         };
@@ -263,26 +262,23 @@ impl RbacRole {
     /// 检查优先级是否正确
     fn priority_check(&self, priority: i8) -> UserRbacResult<()> {
         if !(ROLE_PRIORITY_MIN..=ROLE_PRIORITY_MAX).contains(&priority) {
-            return Err(UserRbacError::System(get_message!(
-                &self.fluent,
-                "rbac-priority-range",
-                "priority Out of range: {$max}-{$min}",
-                [
-                    "max"=>ROLE_PRIORITY_MAX,
-                    "min"=>ROLE_PRIORITY_MIN
-                ]
-            )));
+            return Err(UserRbacError::System(
+                fluent_message!("rbac-priority-range",
+                    {
+                        "max":ROLE_PRIORITY_MAX,
+                        "min":ROLE_PRIORITY_MIN
+                    }
+                ),
+            )); // "priority Out of range: {$max}-{$min}",
         }
         Ok(())
     }
     /// 非 指定关系角色 检查
     fn not_relation_check(&self, user_range: RbacRoleUserRange) -> UserRbacResult<()> {
         if user_range == RbacRoleUserRange::Relation {
-            return Err(UserRbacError::System(get_message!(
-                &self.fluent,
-                "rbac-user-range-bad",
-                "relation role plase use relation method"
-            )));
+            return Err(UserRbacError::System(fluent_message!(
+                "rbac-user-range-bad"
+            ))); //"relation role plase use relation method"
         }
         Ok(())
     }
@@ -356,9 +352,9 @@ impl RbacRole {
         env_data: Option<&RequestEnv>,
     ) -> UserRbacResult<u64> {
         self.priority_check(priority)?;
-        let name = check_length!(&self.fluent, name, "name", 32);
+        let name = check_length!(name, "name", 32);
         let relation_key = if user_range == RbacRoleUserRange::Relation {
-            check_length!(&self.fluent, relation_key, "relation_key", 32)
+            check_length!(relation_key, "relation_key", 32)
         } else {
             "".to_string()
         };
@@ -367,10 +363,10 @@ impl RbacRole {
 
         match res {
             Ok(row) => Err(UserRbacError::System(
-                get_message!(&self.fluent,"rbac-role-exist","role {$name} already exists [{$id}]",[
-                    "name"=>row.name,
-                    "id"=>row.id
-                ]),
+                fluent_message!("rbac-role-exist",{
+                    "name":row.name,
+                    "id":row.id
+                }), //"role {$name} already exists [{$id}]"
             )),
             Err(sqlx::Error::RowNotFound) => {
                 let time = now_time().unwrap_or_default();
@@ -498,11 +494,9 @@ impl RbacRole {
         env_data: Option<&RequestEnv>,
     ) -> UserRbacResult<u64> {
         if relation_key.is_empty() {
-            return Err(UserRbacError::System(get_message!(
-                &self.fluent,
-                "rbac-miss-relation-key",
-                "set role relation key can't be empty"
-            )));
+            return Err(UserRbacError::System(fluent_message!(
+                "rbac-miss-relation-key"
+            ))); //"set role relation key can't be empty"
         }
         let user_range = RbacRoleUserRange::Relation;
         let res = self
@@ -510,11 +504,11 @@ impl RbacRole {
             .await;
         match res {
             Ok(row) => Err(UserRbacError::System(
-                get_message!(&self.fluent,"rbac-relation-key-exist","role relation key {$relation_key}  already exists on {$name}  [{$id}]",[
-                    "name"=>row.name,
-                    "id"=>row.id,
-                    "relation_key"=>relation_key
-                ]),
+                fluent_message!("rbac-relation-key-exist",{
+                    "name":row.name,
+                    "id":row.id,
+                    "relation_key":relation_key
+                }), //"role relation key {$relation_key}  already exists on {$name}  [{$id}]",
             )),
             Err(sqlx::Error::RowNotFound) => {
                 self.inner_add_role(
@@ -549,7 +543,7 @@ impl RbacRole {
         env_data: Option<&RequestEnv>,
     ) -> UserRbacResult<()> {
         let name = if let Some(name) = name {
-            Some(check_length!(&self.fluent, name, "name", 32))
+            Some(check_length!(name, "name", 32))
         } else {
             None
         };
@@ -559,12 +553,7 @@ impl RbacRole {
             || (RbacRoleUserRange::Relation.eq(role.res_op_range) && user_range.is_none())
         {
             if let Some(relation_key_inner) = relation_key {
-                Some(check_length!(
-                    &self.fluent,
-                    relation_key_inner,
-                    "relation_key",
-                    32
-                ))
+                Some(check_length!(relation_key_inner, "relation_key", 32))
             } else {
                 None
             }
@@ -581,11 +570,12 @@ impl RbacRole {
                 match self.find_enable_role_by_name(role.user_id, tname).await {
                     Ok(row) => {
                         return Err(UserRbacError::System(
-                            get_message!(&self.fluent,"rbac-role-exist","role name {$name} already exists in [{$id}]",[
-                                "name"=>row.name,
-                                "id"=>row.id
-                            ]),
-                        ))
+                            fluent_message!("rbac-role-exist",{
+                                "name":row.name,
+                                "id":row.id
+                            }),
+                            //"role name {$name} already exists in [{$id}]",
+                        ));
                     }
                     Err(sqlx::Error::RowNotFound) => {}
                     Err(err) => return Err(err.into()),
@@ -904,10 +894,9 @@ impl RbacRole {
         if let Some(n) = &relation_key {
             let tname = n.to_owned();
             if tname.is_empty() {
-                return Err(UserRbacError::System(get_message!(
-                    &self.fluent,
-                    "rbac-miss-relation-key",
-                    "set role relation key can't be empty"
+                return Err(UserRbacError::System(fluent_message!(
+                    "rbac-miss-relation-key" //,
+                                             //  "set role relation key can't be empty"
                 )));
             }
             if tname != role.relation_key {
@@ -917,11 +906,11 @@ impl RbacRole {
                 {
                     Ok(row) => {
                         return Err(UserRbacError::System(
-                            get_message!(&self.fluent,"rbac-role-exist","role relation_key {$name} already exists in [{$id}]",[
-                                "name"=>row.name,
-                                "id"=>row.id
-                            ]),
-                        ))
+                            fluent_message!("rbac-role-exist",{
+                                "name":row.name,
+                                "id":row.id
+                            }), //"role relation_key {$name} already exists in [{$id}]",
+                        ));
                     }
                     Err(sqlx::Error::RowNotFound) => {}
                     Err(err) => return Err(err.into()),
@@ -1155,11 +1144,11 @@ impl RbacRole {
         }
         if !RbacRoleUserRange::User.eq(role.user_range) {
             return Err(UserRbacError::System(
-                get_message!(&self.fluent,"rbac-res-op-user-wrong","role({$name})[range:{$range}] can't set user [{$role_id}]",[
-                    "name"=>role.name.clone(),
-                    "role_id"=>&role.id,
-                    "range"=>role.user_range
-                ]),
+                fluent_message!("rbac-res-op-user-wrong",{
+                    "name":role.name,
+                    "role_id":role.id,
+                    "range":role.user_range
+                }), //"role({$name})[range:{$range}] can't set user [{$role_id}]",
             ));
         }
         let db = &self.db;
@@ -1667,11 +1656,11 @@ impl RbacRole {
     ) -> UserRbacResult<()> {
         if !RbacRoleResOpRange::AllowCustom.eq(role.res_op_range) {
             return Err(UserRbacError::System(
-                get_message!(&self.fluent,"rbac-res-op-range-wrong","role({$name})[range:{$range}] can't set ops [{$role_id}]",[
-                    "name"=>role.name.clone(),
-                    "role_id"=>&role.id,
-                    "range"=>role.res_op_range
-                ]),
+                fluent_message!("rbac-res-op-range-wrong",{
+                    "name":role.name,
+                    "role_id":role.id,
+                    "range":role.res_op_range
+                }), //"role({$name})[range:{$range}] can't set ops [{$role_id}]",[
             ));
         }
 
@@ -1698,9 +1687,10 @@ impl RbacRole {
         for tmp in role_op_vec.iter() {
             if !fres.iter().any(|e| e.id == tmp.res.id) {
                 return Err(UserRbacError::System(
-                    get_message!(&self.fluent,"rbac-role-miss-res","res {$id} does not exist, may be delete",[
-                        "id"=>tmp.res.id
-                    ]),
+                    fluent_message!("rbac-role-miss-res",{
+                        "id":tmp.res.id,
+                        "name":tmp.res.name
+                    }), //"res {$id} does not exist, may be delete",[
                 ));
             }
         }
@@ -1708,10 +1698,10 @@ impl RbacRole {
             //限制非系统角色不能加非本角色用户资源
             if role.user_id > 0 && tmp.user_id != role.user_id {
                 return Err(UserRbacError::System(
-                    get_message!(&self.fluent,"rbac-role-bad-res-user","res[{$res}:{$user_id}] do not belong to you",[
-                        "res"=>tmp.name.clone(),
-                        "user_id"=>tmp.user_id
-                    ]),
+                    fluent_message!("rbac-role-bad-res-user",{
+                        "res":tmp.name,
+                        "user_id":tmp.user_id
+                    }), //,"res[{$res}:{$user_id}] do not belong to you"
                 ));
             }
         }
@@ -1741,19 +1731,21 @@ impl RbacRole {
                     if res_op.res_id != tmp.res.id {
                         //发现数据库中的res op 的res id 跟传入的res id 不一致
                         return Err(UserRbacError::System(
-                            get_message!(&self.fluent,"rbac-role-wrong-res-op","res op [{$id}:] res id not match [{$res_id}!={$p_res_id}] ",[
-                                "id"=>optmp.0.id,
-                                "res_id"=>optmp.0.res_id,
-                                "p_res_id"=>tmp.res.id
-                            ]),
+                            fluent_message!("rbac-role-wrong-res-op",{
+                                "id":optmp.0.id,
+                                "name":optmp.0.name,
+                                "res_id":optmp.0.res_id,
+                                "p_res_id":tmp.res.id
+                            }), //"res op [{$id}:] res id not match [{$res_id}!={$p_res_id}] ",
                         ));
                     }
                 } else {
                     //未发现数据库中的res op
                     return Err(UserRbacError::System(
-                        get_message!(&self.fluent,"rbac-role-miss-res-op","res op {$id} does not exist, may be delete",[
-                            "id"=>optmp.0.id
-                        ]),
+                        fluent_message!("rbac-role-miss-res-op",{
+                            "id":optmp.0.id,
+                            "name":optmp.0.name
+                        }), //"res op {$id} does not exist, may be delete",[
                     ));
                 }
             }

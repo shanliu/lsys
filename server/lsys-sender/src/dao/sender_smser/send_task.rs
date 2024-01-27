@@ -4,7 +4,7 @@ use std::{
 };
 
 use async_trait::async_trait;
-use lsys_core::now_time;
+use lsys_core::{fluent_message, now_time};
 
 use crate::{
     dao::{
@@ -494,7 +494,8 @@ impl SmsTask {
         se: Vec<Box<dyn SenderTaskExecutor<u64, SmsTaskItem, SmsTaskData>>>,
     ) -> SenderResult<SmsTask> {
         if se.is_empty() {
-            return Err(SenderError::System("can't set task is empty".to_string()));
+            return Err(SenderError::System(fluent_message!("sms-task-empty")));
+            // return Err(SenderError::System("can't set task is empty".to_string()));
         }
         Ok(SmsTask {
             inner: Arc::new(

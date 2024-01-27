@@ -1,8 +1,9 @@
 use crate::{
-    dao::RequestDao,
+    dao::RequestAuthDao,
     handler::access::{AccessUserAddressEdit, AccessUserAddressView},
     {JsonData, JsonResult},
 };
+use lsys_core::fluent_message;
 use lsys_user::{
     dao::auth::{SessionData, SessionTokenData, UserSession},
     model::{UserAddressModelRef, UserAddressStatus},
@@ -22,9 +23,15 @@ pub struct AddressAddParam {
 
 pub async fn user_address_add<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: AddressAddParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let user = req_dao
         .web_dao
         .user
@@ -32,8 +39,8 @@ pub async fn user_address_add<'t, T: SessionTokenData, D: SessionData, S: UserSe
         .user_account
         .user
         .find_by_id(&req_auth.user_data().user_id)
-        .await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -46,14 +53,24 @@ pub async fn user_address_add<'t, T: SessionTokenData, D: SessionData, S: UserSe
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     if param.code.trim().len() < 6 {
-        return Ok(JsonData::message("your submit area miss city").set_code("bad_code"));
+        return Ok(
+            req_dao
+                .fluent_json_data(fluent_message!("address-miss-city"))
+                .set_code("bad_code"), // JsonData::message("your submit area miss city").set_code("bad_code")
+        );
     }
-    let area = get_area!(req_dao.web_dao.area).code_related(&param.code)?;
+    let area = get_area!(req_dao.web_dao.area)
+        .code_related(&param.code)
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     if area.is_empty() {
         return Ok(
-            JsonData::message("your submit area code not find any data").set_code("bad_code")
+            req_dao
+                .fluent_json_data(fluent_message!("address-bad-area"))
+                .set_code("bad_code"),
+            // JsonData::message("your submit area code not find any data").set_code("bad_code")
         );
     }
     let country_code = "CHN".to_string();
@@ -73,7 +90,8 @@ pub async fn user_address_add<'t, T: SessionTokenData, D: SessionData, S: UserSe
         .user_account
         .user_address
         .add_address(&user, adm, None, Some(&req_dao.req_env))
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "id": id })))
 }
 
@@ -88,9 +106,15 @@ pub struct AddressEditParam {
 }
 pub async fn user_address_edit<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: AddressEditParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let user = req_dao
         .web_dao
         .user
@@ -98,8 +122,8 @@ pub async fn user_address_edit<'t, T: SessionTokenData, D: SessionData, S: UserS
         .user_account
         .user
         .find_by_id(&req_auth.user_data().user_id)
-        .await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let addres = req_dao
         .web_dao
         .user
@@ -107,8 +131,8 @@ pub async fn user_address_edit<'t, T: SessionTokenData, D: SessionData, S: UserS
         .user_account
         .user_address
         .find_by_id(&param.address_id)
-        .await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -121,15 +145,26 @@ pub async fn user_address_edit<'t, T: SessionTokenData, D: SessionData, S: UserS
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let country_code = "CHN".to_string();
     if param.code.trim().len() < 6 {
-        return Ok(JsonData::message("your submit area miss city").set_code("bad_code"));
+        return Ok(
+            req_dao
+                .fluent_json_data(fluent_message!("address-miss-city"))
+                .set_code("bad_code"),
+            //    JsonData::message("your submit area miss city").set_code("bad_code")
+        );
     }
-    let area = get_area!(req_dao.web_dao.area).code_find(&param.code)?;
+    let area = get_area!(req_dao.web_dao.area)
+        .code_find(&param.code)
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     if area.is_empty() {
         return Ok(
-            JsonData::message("your submit area code not find any data").set_code("bad_code")
+            req_dao
+                .fluent_json_data(fluent_message!("address-bad-area"))
+                .set_code("bad_code"),
+            // JsonData::message("your submit area code not find any data").set_code("bad_code")
         );
     }
     let adm = model_option_set!(UserAddressModelRef, {
@@ -147,7 +182,8 @@ pub async fn user_address_edit<'t, T: SessionTokenData, D: SessionData, S: UserS
         .user_account
         .user_address
         .edit_address(&addres, &user, adm, None, Some(&req_dao.req_env))
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::default())
 }
 
@@ -157,9 +193,15 @@ pub struct AddressDeleteParam {
 }
 pub async fn user_address_delete<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: AddressDeleteParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let res = req_dao
         .web_dao
         .user
@@ -184,8 +226,8 @@ pub async fn user_address_delete<'t, T: SessionTokenData, D: SessionData, S: Use
                         },
                         None,
                     )
-                    .await?;
-
+                    .await
+                    .map_err(|e| req_dao.fluent_json_data(e))?;
                 req_dao
                     .web_dao
                     .user
@@ -193,27 +235,29 @@ pub async fn user_address_delete<'t, T: SessionTokenData, D: SessionData, S: Use
                     .user_account
                     .user_address
                     .del_address(&address, None, Some(&req_dao.req_env))
-                    .await?;
+                    .await
+                    .map_err(|e| req_dao.fluent_json_data(e))?;
             }
         }
         Err(e) => {
             if !e.is_not_found() {
-                return Err(e.into());
+                return Err(req_dao.fluent_json_data(e));
             }
         }
     }
     Ok(JsonData::default())
 }
 
-pub async fn user_address_list_data<
-    't,
-    T: SessionTokenData,
-    D: SessionData,
-    S: UserSession<T, D>,
->(
-    req_dao: &RequestDao<T, D, S>,
+pub async fn user_address_list_data<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -226,12 +270,14 @@ pub async fn user_address_list_data<
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let data = req_dao
         .web_dao
         .user
         .user_address(req_auth.user_data().user_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let area = get_area!(req_dao.web_dao.area);
     let data_list = data
         .iter()

@@ -4,7 +4,7 @@ use crate::dao::auth::{LoginParam, LoginType, UserAuthError, UserAuthResult};
 
 use crate::model::{UserModel, UserNameModel};
 use async_trait::async_trait;
-use lsys_core::{get_message, FluentMessage};
+
 
 use serde::{Deserialize, Serialize};
 use sqlx::{MySql, Pool};
@@ -38,18 +38,17 @@ impl LoginParam for NameLogin {
         &self,
         _db: &Pool<MySql>,
         _redis: &deadpool_redis::Pool,
-        fluent: &Arc<FluentMessage>,
     ) -> UserAuthResult<LoginType> {
         Ok(LoginType {
             time_out: 3600 * 24,
-            type_name: get_message!(fluent, "auth-login-type-name", "name Login"),
+            type_name: "name".to_owned(),
         })
     }
     async fn get_user(
         &self,
         _db: &Pool<MySql>,
         _redis: &deadpool_redis::Pool,
-        fluent: &Arc<FluentMessage>,
+
         account: &Arc<UserAccount>,
         _: &LoginEnv,
     ) -> UserAuthResult<(LoginData, UserModel)> {
@@ -57,20 +56,15 @@ impl LoginParam for NameLogin {
             .user_name
             .find_by_name(self.name.clone())
             .await
-            .map_err(auth_user_not_found_map!(fluent, self.show_name(), "name"))?;
+            .map_err(auth_user_not_found_map!(self.show_name(), "name"))?;
 
-        let user =
-            account
-                .user
-                .find_by_id(&name.user_id)
-                .await
-                .map_err(auth_user_not_found_map!(
-                    fluent,
-                    self.show_name(),
-                    "name [user id]"
-                ))?;
+        let user = account
+            .user
+            .find_by_id(&name.user_id)
+            .await
+            .map_err(auth_user_not_found_map!(self.show_name(), "name [user id]"))?;
         user.is_enable()?;
-        let user = auth_check_user_password(fluent, account, user, &self.password).await?;
+        let user = auth_check_user_password(account, user, &self.password).await?;
         Ok((LoginData::Name(NameLoginData(name)), user))
     }
     fn show_name(&self) -> String {

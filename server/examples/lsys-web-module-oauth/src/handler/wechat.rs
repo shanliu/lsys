@@ -1,7 +1,7 @@
 use crate::module::WeChatConfig;
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
 use lsys_web::{
-    dao::RequestDao,
+    dao::RequestAuthDao,
     handler::api::utils::{setting_get, setting_set},
     JsonData, JsonResult,
 };
@@ -22,13 +22,13 @@ impl From<WechatSetConfigParam> for WeChatConfig {
 }
 pub async fn wechat_set_config<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: WechatSetConfigParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     setting_set::<WechatSetConfigParam, WeChatConfig, T, D, S>(param, req_dao).await
 }
 
 pub async fn wechat_get_config<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     setting_get::<WeChatConfig, T, D, S>(req_dao).await
 }

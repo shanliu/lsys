@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 
-use lsys_core::{rand_str, RandType};
+use lsys_core::{fluent_message, rand_str, RandType};
 use lsys_web::{
-    dao::user::WebUser,
+    dao::{user::WebUser, RequestDao},
     module::oauth::{OauthCallbackParam, OauthLogin, OauthLoginData, OauthLoginParam},
     JsonData, JsonResult,
 };
@@ -82,53 +82,69 @@ impl WechatLogin {
     // 微信扫码登陆完成后,进行登录数据回写
     pub async fn state_callback(
         &self,
-        webuser: &WebUser,
+        req_dao: &RequestDao,
         user_auth: &WechatCallbackParam,
     ) -> JsonResult<JsonData> {
-        let (statek, _) = self
-            .parse_state(&user_auth.state)
-            .map_err(JsonData::message_error)?;
+        let (statek, _) = self.parse_state(&user_auth.state).map_err(|e| {
+            req_dao.fluent_json_data(fluent_message!("wechat-parse-state-error", e))
+        })?;
         let login_key = login_data_key(&statek);
-        let mut redis = webuser.redis.get().await?;
-        let login_data = serde_json::to_string(&user_auth)?;
+        let mut redis = req_dao
+            .web_dao
+            .user
+            .redis
+            .get()
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
+        let login_data =
+            serde_json::to_string(&user_auth).map_err(|e| req_dao.fluent_json_data(e))?;
         redis
             .set_ex(&login_key, login_data, self.timeout)
             .await
-            .map_err(|e| JsonData::message_error(e.to_string()))?;
+            .map_err(|e| req_dao.fluent_json_data(e))?;
         Ok(JsonData::default())
     }
     // pc定时从服务器获取登陆数据
     pub async fn state_check(
         &self,
-        webuser: &WebUser,
+        req_dao: &RequestDao,
         state: &str,
     ) -> JsonResult<(bool, Option<WechatCallbackParam>)> {
         let state_ukey = &state.chars().take(6).collect::<String>();
         let state_key = state_key(state_ukey);
-        let mut redis = webuser.redis.get().await?;
+        let mut redis = req_dao
+            .web_dao
+            .user
+            .redis
+            .get()
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
         let data_opt: Option<String> = redis
             .get(state_key.as_str())
             .await
-            .map_err(|e| JsonData::message_error(e.to_string()))?;
+            .map_err(|e| req_dao.fluent_json_data(e))?;
         let data = data_opt.unwrap_or_default();
         let ttl: usize = redis
             .ttl(state_key.as_str())
             .await
-            .map_err(|e| JsonData::message_error(e.to_string()))?;
+            .map_err(|e| req_dao.fluent_json_data(e))?;
         let reload = data.is_empty() || self.timeout < ttl + self.timeskip;
         if !data.is_empty() {
             let login_key = login_data_key(state_ukey);
             let data_opt: Option<String> = redis
                 .get(login_key.as_str())
                 .await
-                .map_err(|e| JsonData::message_error(e.to_string()))?;
+                .map_err(|e| req_dao.fluent_json_data(e))?;
             let data = data_opt.unwrap_or_default();
             if data.is_empty() {
                 return Ok((false, None));
             }
             return Ok((
                 false,
-                Some(serde_json::from_str::<WechatCallbackParam>(&data)?),
+                Some(
+                    serde_json::from_str::<WechatCallbackParam>(&data)
+                        .map_err(|e| req_dao.fluent_json_data(e))?,
+                ),
             ));
         };
         Ok((reload, None))

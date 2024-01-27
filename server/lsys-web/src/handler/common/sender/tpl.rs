@@ -1,5 +1,5 @@
 use crate::{
-    dao::RequestDao,
+    dao::RequestAuthDao,
     handler::access::{AccessAdminSenderTplEdit, AccessAdminSenderTplView},
     JsonData, JsonResult, PageParam,
 };
@@ -19,9 +19,15 @@ pub struct TplListParam {
 }
 pub async fn tpl_body_list<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: TplListParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -34,9 +40,10 @@ pub async fn tpl_body_list<'t, T: SessionTokenData, D: SessionData, S: UserSessi
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let sender_type = match param.sender_type {
-        Some(e) => Some(SenderType::try_from(e)?),
+        Some(e) => Some(SenderType::try_from(e).map_err(|e| req_dao.fluent_json_data(e))?),
         None => None,
     };
     let data = req_dao
@@ -49,7 +56,8 @@ pub async fn tpl_body_list<'t, T: SessionTokenData, D: SessionData, S: UserSessi
             &param.tpl_id,
             &Some(param.page.unwrap_or_default().into()),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
             req_dao
@@ -61,7 +69,8 @@ pub async fn tpl_body_list<'t, T: SessionTokenData, D: SessionData, S: UserSessi
                     &param.id,
                     &param.tpl_id,
                 )
-                .await?,
+                .await
+                .map_err(|e| req_dao.fluent_json_data(e))?,
         )
     } else {
         None
@@ -79,9 +88,15 @@ pub struct TplAddParam {
 }
 pub async fn tpl_body_add<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: TplAddParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -94,8 +109,10 @@ pub async fn tpl_body_add<'t, T: SessionTokenData, D: SessionData, S: UserSessio
             },
             None,
         )
-        .await?;
-    let sender_type = SenderType::try_from(param.sender_type)?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    let sender_type =
+        SenderType::try_from(param.sender_type).map_err(|e| req_dao.fluent_json_data(e))?;
     let id = req_dao
         .web_dao
         .sender_tpl
@@ -107,7 +124,8 @@ pub async fn tpl_body_add<'t, T: SessionTokenData, D: SessionData, S: UserSessio
             &req_auth.user_data().user_id,
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "id": id })))
 }
 
@@ -118,10 +136,21 @@ pub struct TplEditParam {
 }
 pub async fn tpl_body_edit<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: TplEditParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-    let tpl = req_dao.web_dao.sender_tpl.find_by_id(&param.id).await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    let tpl = req_dao
+        .web_dao
+        .sender_tpl
+        .find_by_id(&param.id)
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -134,7 +163,8 @@ pub async fn tpl_body_edit<'t, T: SessionTokenData, D: SessionData, S: UserSessi
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .sender_tpl
@@ -144,7 +174,8 @@ pub async fn tpl_body_edit<'t, T: SessionTokenData, D: SessionData, S: UserSessi
             &req_auth.user_data().user_id,
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::default())
 }
 
@@ -154,16 +185,22 @@ pub struct TplDelParam {
 }
 pub async fn tpl_body_del<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: TplDelParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let res = req_dao.web_dao.sender_tpl.find_by_id(&param.id).await;
     let data = match res {
         Ok(d) => d,
         Err(SenderError::Sqlx(sqlx::Error::RowNotFound)) => {
             return Ok(JsonData::message("not find"))
         }
-        Err(e) => return Err(e.into()),
+        Err(e) => return Err(req_dao.fluent_json_data(e)),
     };
     req_dao
         .web_dao
@@ -177,11 +214,13 @@ pub async fn tpl_body_del<'t, T: SessionTokenData, D: SessionData, S: UserSessio
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .sender_tpl
         .del(&data, &req_auth.user_data().user_id, Some(&req_dao.req_env))
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::default())
 }

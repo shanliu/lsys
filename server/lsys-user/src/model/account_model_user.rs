@@ -10,30 +10,33 @@ macro_rules! model_enable_method {
         //判断是否正常启用
         pub fn is_enable(&self) -> UserAccountResult<()> {
             if !$status.eq(self.$status_field) {
-                return Err(UserAccountError::Status((self.$id_field,format!(
-                    "{} status invalid:[{}]",
-                    $name, self.$status_field
+                return Err(UserAccountError::Status((self.$id_field,lsys_core::fluent_message!("user-status-invalid",{
+                        "user":$name,
+                        "status":self.$status_field
+                    }
                 ))));
+                // "{} status invalid:[{}]",
+                // $name, self.$status_field
             }
             Ok(())
         }
     };
 }
 impl UserModel {
-    model_enable_method!(UserStatus::Enable,id, status, "user");
+    model_enable_method!(UserStatus::Enable, id, status, "user");
     pub fn show_name(&self) -> String {
         format!("{}-{}", self.nickname, self.id)
     }
 }
 impl UserEmailModel {
-    model_enable_method!(UserEmailStatus::Valid, id,status, "user email");
+    model_enable_method!(UserEmailStatus::Valid, id, status, "user email");
 }
 impl UserMobileModel {
-    model_enable_method!(UserMobileStatus::Valid, id,status, "user mobile");
+    model_enable_method!(UserMobileStatus::Valid, id, status, "user mobile");
 }
 impl UserAddressModel {
-    model_enable_method!(UserAddressStatus::Enable, id,status, "user address");
+    model_enable_method!(UserAddressStatus::Enable, id, status, "user address");
 }
 impl UserExternalModel {
-    model_enable_method!(UserExternalStatus::Enable, id,status, "user external");
+    model_enable_method!(UserExternalStatus::Enable, id, status, "user external");
 }

@@ -1,5 +1,5 @@
 use crate::{
-    dao::RequestDao,
+    dao::RequestAuthDao,
     handler::access::{AccessAdminSmsConfig, AccessAppSenderSmsConfig},
     {JsonData, JsonResult},
 };
@@ -34,12 +34,21 @@ pub struct SmserHwConfigListParam {
 pub async fn smser_hw_config_list<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: SmserHwConfigListParam,
     callback_call: impl Fn(&SettingData<HwYunConfig>) -> String,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
     let hwsender = &req_dao.web_dao.sender_smser.hwyun_sender;
-    let data = hwsender.list_config(&param.ids).await?;
+    let data = hwsender
+        .list_config(&param.ids)
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let row = if param.full_data.unwrap_or(false) {
-        let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+        let req_auth = req_dao
+            .user_session
+            .read()
+            .await
+            .get_session_data()
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
         req_dao
             .web_dao
             .user
@@ -51,7 +60,8 @@ pub async fn smser_hw_config_list<'t, T: SessionTokenData, D: SessionData, S: Us
                 },
                 None,
             )
-            .await?;
+            .await
+            .map_err(|e| req_dao.fluent_json_data(e))?;
         let tmp = data
             .into_iter()
             .map(|e| ShowHwConfig {
@@ -98,9 +108,15 @@ pub struct SmserHwConfigAddParam {
 
 pub async fn smser_hw_config_add<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: SmserHwConfigAddParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -112,7 +128,8 @@ pub async fn smser_hw_config_add<'t, T: SessionTokenData, D: SessionData, S: Use
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let hwsender = &req_dao.web_dao.sender_smser.hwyun_sender;
     let row = hwsender
         .add_config(
@@ -125,7 +142,8 @@ pub async fn smser_hw_config_add<'t, T: SessionTokenData, D: SessionData, S: Use
             &req_auth.user_data().user_id,
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "id": row })))
 }
 
@@ -142,9 +160,15 @@ pub struct SmserHwConfigEditParam {
 
 pub async fn smser_hw_config_edit<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: SmserHwConfigEditParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -156,7 +180,8 @@ pub async fn smser_hw_config_edit<'t, T: SessionTokenData, D: SessionData, S: Us
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let hwsender = &req_dao.web_dao.sender_smser.hwyun_sender;
     let row = hwsender
         .edit_config(
@@ -170,7 +195,8 @@ pub async fn smser_hw_config_edit<'t, T: SessionTokenData, D: SessionData, S: Us
             &req_auth.user_data().user_id,
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "num": row })))
 }
 
@@ -181,9 +207,15 @@ pub struct SmserHwConfigDelParam {
 
 pub async fn smser_hw_config_del<'t, T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: SmserHwConfigDelParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -195,7 +227,8 @@ pub async fn smser_hw_config_del<'t, T: SessionTokenData, D: SessionData, S: Use
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let hwsender = &req_dao.web_dao.sender_smser.hwyun_sender;
     let row = hwsender
         .del_config(
@@ -203,7 +236,8 @@ pub async fn smser_hw_config_del<'t, T: SessionTokenData, D: SessionData, S: Use
             &req_auth.user_data().user_id,
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "num": row })))
 }
 
@@ -221,16 +255,17 @@ pub struct SmserAppHwConfigAddParam {
     pub template_map: String,
 }
 
-pub async fn smser_hw_app_config_add<
-    't,
-    T: SessionTokenData,
-    D: SessionData,
-    S: UserSession<T, D>,
->(
+pub async fn smser_hw_app_config_add<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: SmserAppHwConfigAddParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let uid = param.user_id.unwrap_or(req_auth.user_data().user_id);
 
     req_dao
@@ -246,8 +281,8 @@ pub async fn smser_hw_app_config_add<
             },
             None,
         )
-        .await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let hwsender = &req_dao.web_dao.sender_smser.hwyun_sender;
     let row = hwsender
         .add_app_config(
@@ -263,6 +298,7 @@ pub async fn smser_hw_app_config_add<
             &req_auth.user_data().user_id,
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "id": row })))
 }

@@ -3,8 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use crate::model::{AppStatus, AppSubAppsModel, AppSubAppsStatus, AppsModel, AppsModelRef};
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
-    get_message, impl_dao_fetch_map_by_vec, now_time, FluentMessage, PageParam, RemoteNotify,
-    RequestEnv,
+    fluent_message, impl_dao_fetch_map_by_vec, now_time, PageParam, RemoteNotify, RequestEnv,
 };
 
 use lsys_logger::dao::ChangeLogger;
@@ -22,7 +21,7 @@ use super::{
 use super::{range_client_key, AppLog};
 pub struct Apps {
     db: Pool<MySql>,
-    pub(crate) fluent: Arc<FluentMessage>,
+
     pub(crate) cache: Arc<LocalCache<String, AppsModel>>,
     logger: Arc<ChangeLogger>,
     sub_app: Arc<SubApps>,
@@ -40,13 +39,13 @@ impl Apps {
     pub fn new(
         db: Pool<MySql>,
         remote_notify: Arc<RemoteNotify>,
-        fluent: Arc<FluentMessage>,
+
         logger: Arc<ChangeLogger>,
         sub_app: Arc<SubApps>,
     ) -> Self {
         Self {
             db,
-            fluent,
+            // fluent,
             cache: Arc::from(LocalCache::new(
                 remote_notify,
                 LocalCacheConfig::new("apps"),
@@ -270,9 +269,8 @@ impl Apps {
         env_data: Option<&RequestEnv>,
     ) -> AppsResult<()> {
         if !AppStatus::Delete.eq(app.status) && !AppStatus::Ok.eq(app.status) {
-            return Err(AppsError::System(format!(
-                "app {} status not confirm",
-                app.name
+            return Err(AppsError::System(fluent_message!("app-not-confirm",
+                {"name":app.name}
             )));
         }
         if (status && AppStatus::Ok.eq(app.status)) || (!status && AppStatus::Delete.eq(app.status))
@@ -365,9 +363,12 @@ impl Apps {
             .await;
         match app_res {
             Ok(app) => {
-                return Err(AppsError::System(get_message!(&self.fluent,
-                    "app-client-id-exits","client id {$client_id} already used",
-                    ["client_id"=>app.client_id]
+                return Err(AppsError::System(fluent_message!("app-client-id-exits",
+                    //"client id {$client_id} already used",
+                    {
+                        "client_id":app.client_id,
+                        "other_name":app.name
+                    }
                 )));
             }
             Err(sqlx::Error::RowNotFound) => {}
@@ -458,61 +459,38 @@ impl Apps {
         let domain = domain.trim().to_string();
         if !domain.is_empty() {
             let ipre = Regex::new(r"^[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}(:[\d]{1,5})?$")
-                .map_err(|e| {
-                    AppsError::System(get_message!(
-                        &self.fluent,
-                        "auth-alpha-ip-error",
-                        e.to_string()
-                    ))
-                })?;
+                .map_err(|e| AppsError::System(fluent_message!("auth-alpha-ip-error", e)))?;
             let dre = Regex::new(
                 r"^[0-9a-zA-Z]{0,1}[0-9a-zA-Z-]*(\.[0-9a-zA-Z-]*)*(\.[0-9a-zA-Z]*)+(:[\d]{1,5})?$",
             )
-            .map_err(|e| {
-                AppsError::System(get_message!(
-                    &self.fluent,
-                    "auth-alpha-domain-error",
-                    e.to_string()
-                ))
-            })?;
+            .map_err(|e| AppsError::System(fluent_message!("auth-alpha-domain-error", e)))?;
             if !ipre.is_match(&domain) && !dre.is_match(&domain) {
-                return Err(AppsError::System(get_message!(
-                    &self.fluent,
-                    "auth-alpha-domain-error",
-                    "submit domain is wrong"
+                return Err(AppsError::System(fluent_message!(
+                    "auth-alpha-domain-error"
                 )));
             }
         }
         let name = name.trim().to_string();
         if name.len() < 3 || name.len() > 32 {
-            return Err(AppsError::System(get_message!(
-                &self.fluent,
-                "app-name-wrong",
-                "name length need 3-32 char"
-            )));
+            return Err(AppsError::System(fluent_message!("app-name-wrong",
+                {"len": name.len(),
+                "min":2,
+            "max":31}
+                )));
         }
         let client_id = client_id.trim().to_string();
         if client_id.len() < 3 || client_id.len() > 32 {
-            return Err(AppsError::System(get_message!(
-                &self.fluent,
-                "app-client-id-wrong",
-                "client id length need 3-32 char"
+            return Err(AppsError::System(fluent_message!("app-client-id-wrong",
+                {"len": client_id.len(),
+                "min":2,
+            "max":31}
             )));
         }
 
-        let re = Regex::new(r"^[a-z0-9]+$").map_err(|e| {
-            AppsError::System(get_message!(
-                &self.fluent,
-                "auth-alpha-num-error",
-                e.to_string()
-            ))
-        })?;
+        let re = Regex::new(r"^[a-z0-9]+$")
+            .map_err(|e| AppsError::System(fluent_message!("auth-alpha-rule-error", e)))?;
         if !re.is_match(&client_id) {
-            return Err(AppsError::System(get_message!(
-                &self.fluent,
-                "auth-alpha-num-error",
-                "submit client not a alpha or num char"
-            )));
+            return Err(AppsError::System(fluent_message!("auth-alpha-check-error")));
         }
         Ok((name, client_id, domain))
     }
@@ -541,9 +519,11 @@ impl Apps {
                 if app.user_id == user_id {
                     return Ok(app.id);
                 } else {
-                    return Err(AppsError::System(get_message!(&self.fluent,
-                        "app-client-id-exits","client id {$client_id} already used",
-                        ["client_id"=>app.client_id]
+                    return Err(AppsError::System(fluent_message!("app-client-id-exits",
+                        //"client id {$client_id} already used",
+                        {"client_id":app.client_id,
+                        "other_name":app.name
+                    }
                     )));
                 }
             }
@@ -619,20 +599,20 @@ impl Apps {
         Ok(useremal)
     }
     //内部APP secret 获取
-    pub async fn find_secret_by_client_id(&self, client_id: &String) -> Result<String, String> {
+    pub async fn find_secret_by_client_id(&self, client_id: &String) -> Result<String, AppsError> {
         let apps = self.cache().find_by_client_id(client_id).await;
         match apps {
             Ok(app) => {
                 if !AppStatus::Ok.eq(app.status) {
                     return Err(
-                        get_message!(&self.fluent,"app-status","your app id [{$client_id}] not confrim ",[
-                            "client_id"=>client_id.clone()
-                        ]),
+                        AppsError::System(fluent_message!("app-find-bad-status",{
+                            "client_id":client_id
+                        })), //,"your app id [{$client_id}] not confrim "
                     );
                 }
                 Ok(app.client_secret)
             }
-            Err(err) => Err(err.to_string()),
+            Err(err) => Err(err),
         }
     }
     pub fn cache(&'_ self) -> AppsCache<'_> {

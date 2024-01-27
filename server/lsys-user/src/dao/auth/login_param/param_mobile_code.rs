@@ -5,8 +5,6 @@ use crate::dao::auth::{LoginParam, LoginType, UserAuthError, UserAuthResult};
 
 use crate::model::{UserMobileModel, UserModel};
 use async_trait::async_trait;
-use lsys_core::get_message;
-use lsys_core::FluentMessage;
 
 use serde::{Deserialize, Serialize};
 use sqlx::{MySql, Pool};
@@ -47,18 +45,17 @@ impl LoginParam for MobileCodeLogin {
         &self,
         _db: &Pool<MySql>,
         _redis: &deadpool_redis::Pool,
-        fluent: &Arc<FluentMessage>,
     ) -> UserAuthResult<LoginType> {
         Ok(LoginType {
             time_out: 3600 * 24,
-            type_name: get_message!(fluent, "auth-login-type-mobile", "Mobile Code Login"),
+            type_name: "mobile-code".to_owned(),
         })
     }
     async fn get_user(
         &self,
         _db: &Pool<MySql>,
         redis: &deadpool_redis::Pool,
-        fluent: &Arc<FluentMessage>,
+
         account: &Arc<UserAccount>,
         _: &LoginEnv,
     ) -> UserAuthResult<(LoginData, UserModel)> {
@@ -66,11 +63,7 @@ impl LoginParam for MobileCodeLogin {
             .user_mobile
             .find_by_last_mobile(self.area_code.clone(), self.mobile.clone())
             .await
-            .map_err(auth_user_not_found_map!(
-                fluent,
-                self.show_name(),
-                "mobile code"
-            ))?;
+            .map_err(auth_user_not_found_map!(self.show_name(), "mobile code"))?;
         mobile.is_enable()?;
 
         Self::valid_code_check(redis.clone(), &self.code, &self.area_code, &self.mobile).await?;
@@ -85,7 +78,6 @@ impl LoginParam for MobileCodeLogin {
             //     "mobile code"
             // ))
             .map_err(auth_user_not_found_map!(
-                fluent,
                 self.show_name(),
                 "mobile code [user id]"
             ))?;

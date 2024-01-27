@@ -1,5 +1,5 @@
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{now_time, FluentMessage, PageParam, RemoteNotify, RequestEnv};
+use lsys_core::{now_time, PageParam, RemoteNotify, RequestEnv};
 use lsys_logger::dao::ChangeLogger;
 use sqlx::{MySql, Pool, Transaction};
 use sqlx_model::{
@@ -16,14 +16,14 @@ use sqlx_model::SqlQuote;
 pub struct MultipleSetting {
     db: Pool<MySql>,
     logger: Arc<ChangeLogger>,
-    //fluent: Arc<FluentMessage>,
+    //fluent: Arc<FluentBuild>,
     pub(crate) cache: Arc<LocalCache<String, Vec<SettingModel>>>,
 }
 
 impl MultipleSetting {
     pub fn new(
         db: Pool<MySql>,
-        _fluent: Arc<FluentMessage>,
+        // _fluent: Arc<FluentBuild>,
         remote_notify: Arc<RemoteNotify>,
         logger: Arc<ChangeLogger>,
     ) -> Self {

@@ -14,7 +14,7 @@ use crate::{
         DocLogsModelRef, DocMenuModel, DocMenuModelRef, DocMenuStatus,
     },
 };
-use lsys_core::{now_time, AppCore, PageParam, RequestEnv};
+use lsys_core::{fluent_message, now_time, PageParam, RequestEnv};
 use serde::{Deserialize, Serialize};
 use sqlx::{MySql, Pool};
 use sqlx_model::{
@@ -48,22 +48,25 @@ use super::{
 pub struct GitDocs {
     db: Pool<MySql>,
     task: Arc<GitTask>,
-    app_core: Arc<AppCore>,
+    // app_core: Arc<AppCore>,
     logger: Arc<ChangeLogger>,
+    save_dir: String,
 }
 
 impl GitDocs {
     pub fn new(
         db: Pool<MySql>,
-        app_core: Arc<AppCore>,
+        // app_core: Arc<AppCore>,
         logger: Arc<ChangeLogger>,
         task: Arc<GitTask>,
+        save_dir: String,
     ) -> Self {
         Self {
             db,
-            app_core,
+            // app_core,
             logger,
             task,
+            save_dir,
         }
     }
 }
@@ -77,8 +80,12 @@ impl GitDocs {
     /// 通知发送模块进行发送操作
     pub async fn git_detail(&self, url: &str) -> GitDocResult<Vec<GitDetail>> {
         if let Err(err) = Url::parse(url) {
-            return Err(crate::dao::GitDocError::System(format!(
-                "url parse fail:{}",
+            // format!(
+            //     "url parse fail:{}",
+            //     err
+            // )
+            return Err(crate::dao::GitDocError::System(fluent_message!(
+                "doc-git-url-error",
                 err
             )));
         }
@@ -86,54 +93,25 @@ impl GitDocs {
         let tmp_dir = match tmp_dir {
             Ok(dir) => dir,
             Err(err) => {
-                return Err(crate::dao::GitDocError::System(format!(
-                    "create tmp dir fail:{}",
+                // format!(
+                //     "create tmp dir fail:{}",
+                //     err
+                // )
+                return Err(crate::dao::GitDocError::System(fluent_message!(
+                    "doc-git-tmpdir-error",
                     err
                 )));
             }
         };
         let url = url.to_owned();
         let task = tokio::task::spawn_blocking(move || {
-            let repo = match Repository::init(tmp_dir.path()) {
-                Ok(rep) => rep,
-                Err(err) => {
-                    return Err(crate::dao::GitDocError::System(format!(
-                        "init git fail:{}",
-                        err
-                    )));
-                }
-            };
-            let mut remote = match repo
+            let repo = Repository::init(tmp_dir.path())?;
+            let mut remote = repo
                 .find_remote(&url)
-                .or_else(|_| repo.remote_anonymous(&url))
-            {
-                Ok(rep) => rep,
-                Err(err) => {
-                    return Err(crate::dao::GitDocError::System(format!(
-                        "set remote fail:{}",
-                        err
-                    )));
-                }
-            };
+                .or_else(|_| repo.remote_anonymous(&url))?;
 
-            let connection = match remote.connect_auth(git2::Direction::Fetch, None, None) {
-                Ok(conn) => conn,
-                Err(err) => {
-                    return Err(crate::dao::GitDocError::System(format!(
-                        "connect git fail:{}",
-                        err
-                    )));
-                }
-            };
-            let list_data = match connection.list() {
-                Ok(head) => head,
-                Err(err) => {
-                    return Err(crate::dao::GitDocError::System(format!(
-                        "get git head data fail:{}",
-                        err
-                    )));
-                }
-            };
+            let connection = remote.connect_auth(git2::Direction::Fetch, None, None)?;
+            let list_data = connection.list()?;
             let mut out = vec![];
             // Get the list of references on the remote and print out their name next to
             // what they point to.
@@ -152,7 +130,10 @@ impl GitDocs {
             Ok(out)
         })
         .await;
-        task.map_err(|err| GitDocError::System(format!("create git task fail:{}", err)))?
+        task.map_err(|err| {
+            //format!("create git task fail:{}", err)
+            GitDocError::System(fluent_message!("doc-task-error", err))
+        })?
     }
 }
 
@@ -209,18 +190,21 @@ impl GitDocs {
         let url = match Url::parse(&param.url) {
             Ok(url) => url.to_string(),
             Err(err) => {
-                return Err(crate::dao::GitDocError::System(format!(
-                    "url parse fail:{}",
+                return Err(crate::dao::GitDocError::System(fluent_message!(
+                    "doc-git-url-error",
                     err
-                )))
+                )));
             }
         };
         self.git_detail(&url).await?;
         let name = {
             if param.name.trim().is_empty() {
-                return Err(crate::dao::GitDocError::System(
-                    "name can't be empty".to_string(),
-                ));
+                return Err(crate::dao::GitDocError::System(fluent_message!(
+                    "doc-git-name-empty"
+                )));
+                // return Err(crate::dao::GitDocError::System(
+                //     "name can't be empty".to_string(),
+                // ));
             }
             param.name.trim().to_string()
         };
@@ -270,17 +254,17 @@ impl GitDocs {
         let url = match Url::parse(&param.url) {
             Ok(url) => url.to_string(),
             Err(err) => {
-                return Err(crate::dao::GitDocError::System(format!(
-                    "url parse fail:{}",
+                return Err(crate::dao::GitDocError::System(fluent_message!(
+                    "doc-git-url-error",
                     err
-                )))
+                )));
             }
         };
         let name = {
             if param.name.trim().is_empty() {
-                return Err(crate::dao::GitDocError::System(
-                    "name can't be empty".to_string(),
-                ));
+                return Err(crate::dao::GitDocError::System(fluent_message!(
+                    "doc-git-name-empty"
+                )));
             }
             param.name.trim().to_string()
         };
@@ -304,10 +288,18 @@ impl GitDocs {
                     .iter()
                     .any(|e| e.version == tmp.build_version && e.tag == tmp.tag)
                 {
-                    return Err(crate::dao::GitDocError::System(format!(
-                        "can't update url to {} ,version not find:{} [{}]",
-                        param.url, tmp.tag, tmp.build_version
-                    )));
+                    return Err(crate::dao::GitDocError::System(
+                        fluent_message!("doc-git-version-not-find",
+                            {
+                                "url":param.url,
+                                "tag": tmp.tag,
+                                "version":tmp.build_version,
+                            }
+                        ), //     format!(
+                           //     "can't update url to {} ,version not find:{} [{}]",
+                           //     ,,
+                           // )
+                    ));
                 }
             }
         }
@@ -422,27 +414,35 @@ impl GitDocs {
     ) -> GitDocResult<u64> {
         if DocGitStatus::Delete.eq(doc_git.status) {
             return Err(crate::dao::GitDocError::System(
-                "doc git not find ".to_string(),
+                fluent_message!("doc-git-not-find"),
+                // "doc git not find ".to_string(),
             ));
         }
 
         if let Some(rule) = &param.clear_rule {
             for tmp in rule {
                 if let Err(re) = Regex::new(tmp) {
-                    return Err(crate::dao::GitDocError::System(format!(
-                        "clear rule is vaild:{}",
-                        re
-                    )));
+                    return Err(crate::dao::GitDocError::System(
+                        fluent_message!("doc-git-rule-error",
+                            {
+                                "rule":tmp,
+                                "msg": re,
+                            }
+                        ),
+                    ));
                 }
             }
         }
 
         if let Ok(re) = Regex::new(r"^[0-9a-f]{40}$") {
             if !re.is_match(&param.build_version) {
-                return Err(crate::dao::GitDocError::System(format!(
-                    "submit build version is wrong:{}",
-                    &param.build_version
-                )));
+                return Err(crate::dao::GitDocError::System(
+                    fluent_message!("doc-git-submit-version-error",
+                        {
+                            "version":param.build_version,
+                        }
+                    ),
+                ));
             }
         }
 
@@ -451,21 +451,33 @@ impl GitDocs {
             .iter()
             .any(|e| e.tag == param.tag && e.version == param.build_version)
         {
-            return Err(crate::dao::GitDocError::System(format!(
-                "git:{} not find your submit tag:{}[{}]",
-                doc_git.url, param.tag, param.build_version
-            )));
+            return Err(crate::dao::GitDocError::System(
+                fluent_message!("doc-git-version-not-find",
+                    {
+                        "version":param.build_version,
+                        "url": doc_git.url,
+                        "tag":param.tag,
+                    }
+                ),
+            ));
         }
 
         if param.tag.trim().is_empty() {
-            return Err(crate::dao::GitDocError::System(format!(
-                "submit tag is empty:{}",
-                param.tag
-            )));
+            return Err(crate::dao::GitDocError::System(
+                fluent_message!("doc-git-tag-empty",
+                    {
+                        "tag":param.tag,
+                    }
+                ),
+            ));
         }
 
-        let clear_rule = serde_json::to_string(&param.clear_rule)
-            .map_err(|e| GitDocError::System(e.to_string()))?;
+        let clear_rule = serde_json::to_string(&param.clear_rule).map_err(|e| {
+            GitDocError::System(fluent_message!(
+                "doc-git-rule-encode-error",
+                e //
+            ))
+        })?;
         let status = DocGitTagStatus::Build as i8;
         let add_time = now_time().unwrap_or_default();
         let vdata = model_option_set!(DocGitTagModelRef, {
@@ -637,18 +649,28 @@ impl GitDocs {
         env_data: Option<&RequestEnv>,
     ) -> GitDocResult<()> {
         if *status == DocGitTagStatus::Delete {
-            return Err(crate::dao::GitDocError::System(format!(
-                "plase use tags_del [{}]",
-                git_tag.id
-            )));
+            return Err(crate::dao::GitDocError::System(
+                fluent_message!("doc-git-status-wrong",{
+                        "id":git_tag.id,
+                        "tag":git_tag.tag,
+                    }
+                ),
+            ));
         }
         if status.eq(&DocGitTagStatus::Publish) {
             let data = self.menu_list(git_tag).await?;
             if data.is_empty() {
-                return Err(crate::dao::GitDocError::System(format!(
-                    "menu is empty,can't publish this tag [{}]",
-                    git_tag.id
-                )));
+                return Err(crate::dao::GitDocError::System(
+                    fluent_message!("doc-git-menu-empty",{
+                            "id":git_tag.id,
+                            "tag":git_tag.tag,
+                        }
+                    ),
+                ));
+                // format!(
+                //     "menu is empty,can't publish this tag [{}]",
+                //     git_tag.id
+                // )
             }
         }
         let status = *status as i8;
@@ -857,27 +879,32 @@ impl GitDocs {
             .await?;
 
         if !DocGitCloneStatus::Cloned.eq(clone_data.status) {
-            return Err(crate::dao::GitDocError::System(format!(
-                "tag {} [{}] is clone not yet on:{}",
-                tag.tag, tag.id, host_name
-            )));
+            return Err(crate::dao::GitDocError::System(
+                fluent_message!("doc-git-menu-empty",{
+                        "id":tag.id,
+                        "tag":tag.tag,
+                        "host_name":host_name
+                    }
+                ), //     format!(
+                   //     "tag {} [{}] is clone not yet on:{}",
+                   //     tag.tag, tag.id, host_name
+                   // )
+            ));
         }
 
-        let config_dir = self
-            .app_core
-            .config
-            .get_string("doc_git_dir")
-            .unwrap_or_else(|_| env::temp_dir().to_string_lossy().to_string());
-
-        let safe_path = git_doc_path(&config_dir, &clone_data.id, &None).await?;
+        let safe_path = git_doc_path(&self.save_dir, &clone_data.id, &None).await?;
         let file_path =
-            git_doc_path(&config_dir, &clone_data.id, &Some(prefix.to_string())).await?;
+            git_doc_path(&self.save_dir, &clone_data.id, &Some(prefix.to_string())).await?;
 
         if !prefix.is_empty() && !file_path.starts_with(&safe_path) {
-            return Err(crate::dao::GitDocError::System(format!(
-                "access fail on dir:{}",
-                prefix,
-            )));
+            return Err(crate::dao::GitDocError::System(
+                fluent_message!("doc-git-dir-access",{
+                        "prefix":prefix,
+                        "tag":tag.tag,
+                        "host_name":host_name
+                    }
+                ),
+            ));
         }
         debug!(
             "list dir :{} on tag:{}",
@@ -888,9 +915,14 @@ impl GitDocs {
         let dir = Path::new(&file_path);
         // 判断是否是目录
         if dir.is_dir() {
-            let mut entries = read_dir(dir)
-                .await
-                .map_err(|e| GitDocError::System(e.to_string()))?;
+            let mut entries = read_dir(dir).await.map_err(|e| {
+                GitDocError::System(fluent_message!("doc-git-dir-error",{
+                        "msg":e,
+                        "dir":dir.to_string_lossy(),
+                        "host_name":host_name
+                    }
+                ))
+            })?;
             while let Ok(Some(entry)) = entries.next_entry().await {
                 // 获取路径
                 let path = entry.path();
@@ -923,31 +955,49 @@ impl GitDocs {
             )
             .await?;
         if !DocGitCloneStatus::Cloned.eq(clone_data.status) {
-            return Err(crate::dao::GitDocError::System(format!(
-                "tag {} [{}] is clone not yet on:{}",
-                tag.tag, tag.id, host_name
-            )));
+            return Err(crate::dao::GitDocError::System(
+                fluent_message!("doc-git-menu-read-not-yet",{
+                        "id":tag.id,
+                        "tag":tag.tag,
+                        "host_name":host_name
+                    }
+                ), // format!(
+                   //     "tag {} [{}] is clone not yet on:{}",
+                   //     tag.tag, tag.id, host_name
+                   // )
+            ));
         }
-        let config_dir = self
-            .app_core
-            .config
-            .get_string("doc_git_dir")
-            .unwrap_or_else(|_| env::temp_dir().to_string_lossy().to_string());
 
-        let safe_path = git_doc_path(&config_dir, &clone_data.id, &None).await?;
+        let safe_path = git_doc_path(&self.save_dir, &clone_data.id, &None).await?;
         let file_path =
-            git_doc_path(&config_dir, &clone_data.id, &Some(menu_file.to_owned())).await?;
+            git_doc_path(&self.save_dir, &clone_data.id, &Some(menu_file.to_owned())).await?;
         if !file_path.starts_with(&safe_path) {
-            return Err(crate::dao::GitDocError::System(format!(
-                "access fail on file:{}",
-                menu_file,
-            )));
+            // format!(
+            //     "access fail on file:{}",
+            //     menu_file,
+            // )
+            return Err(crate::dao::GitDocError::System(
+                fluent_message!("doc-git-menu-read-access",{
+                        "file_path":file_path.to_string_lossy(),
+                        "host_name":host_name,
+                        "menu_file":menu_file,
+                    }
+                ),
+            ));
         }
         if !file_path.is_file() {
-            return Err(crate::dao::GitDocError::System(format!(
-                "file not find:{}",
-                file_path.to_string_lossy(),
-            )));
+            // format!(
+            //     "file not find:{}",
+            //     file_path.to_string_lossy(),
+            // )
+            return Err(crate::dao::GitDocError::System(
+                fluent_message!("doc-git-menu-read-notfile",{
+                       "file_path":file_path.to_string_lossy(),
+                        "host_name":host_name,
+                        "menu_file":menu_file,
+                    }
+                ),
+            ));
         }
         let rpath = match file_path.strip_prefix(&safe_path) {
             Ok(rpath) => rpath.to_path_buf(),
@@ -983,25 +1033,42 @@ impl GitDocs {
     ) -> GitDocResult<u64> {
         if menu_param.menu_path.trim().is_empty() {
             return Err(crate::dao::GitDocError::System(
-                "menu path can't be empty".to_string(),
+                fluent_message!("doc-git-menu-name-empty"), // "menu path can't be empty".to_string(),
             ));
         }
         let menu_file = self.menu_file_read(tag, &menu_param.menu_path).await?;
-        let dat_u8 = read(&menu_file.file_path)
-            .await
-            .map_err(|e| GitDocError::System(format!("your sumbit path,can't read data:{}", e)))?;
+        let dat_u8 = read(&menu_file.file_path).await.map_err(|e| {
+            // format!("your sumbit path,can't read data:{}", e)
+            GitDocError::System(fluent_message!("doc-git-menu-file-error",{
+                    "msg":e,
+                    "tag":tag.tag,
+                    "file_path":menu_file.file_path.to_string_lossy()
+                }
+            ))
+        })?;
         let dat_str = String::from_utf8_lossy(&dat_u8);
 
         if dat_str.trim().is_empty() || dat_str.trim() == "{}" {
             return Err(crate::dao::GitDocError::System(
-                "can't add empty menu".to_string(),
+                fluent_message!("doc-git-menu-file-empty",{
+                    "tag":tag.tag,
+                    "file_path":menu_file.file_path.to_string_lossy()
+                }), // "can't add empty menu".to_string(),
             ));
         }
         if let Err(err) = serde_json::from_slice::<Value>(&dat_u8) {
-            return Err(crate::dao::GitDocError::System(format!(
-                "menu check fail:{}",
-                err
-            )));
+            return Err(crate::dao::GitDocError::System(
+                fluent_message!("doc-git-menu-file-parse-error",{
+                    "tag":tag.tag,
+                    "file_path":menu_file.file_path.to_string_lossy(),
+                    "msg":err
+                    }
+                ),
+            ));
+            // format!(
+            //     "menu check fail:{}",
+            //     err
+            // )
         }
         let menu_path = menu_param.menu_path.trim().to_string();
 
@@ -1016,10 +1083,17 @@ impl GitDocs {
             .await
         {
             Ok(id) => {
-                return Err(GitDocError::System(format!(
-                    "path[{}] is add,on:{}",
-                    id.menu_path, id.id
-                )))
+                return Err(GitDocError::System(
+                    fluent_message!("doc-git-menu-path-isfind",{
+                            "menu_path":id.menu_path,
+                            "tag":tag.tag,
+                        }
+                    ),
+                ));
+                // format!(
+                //     "path[{}] is add,on:{}",
+                //     id.menu_path, id.id
+                // )
             }
             Err(sqlx::Error::RowNotFound) => {}
             Err(err) => return Err(err.into()),
@@ -1142,23 +1216,23 @@ impl GitDocs {
             .unwrap_or_else(|| PathBuf::from("./"));
         rel_file_path.push(PathBuf::from(path));
 
-        let config_dir = self
-            .app_core
-            .config
-            .get_string("doc_git_dir")
-            .unwrap_or_else(|_| env::temp_dir().to_string_lossy().to_string());
-        let safe_path = git_doc_path(&config_dir, &clone_id, &None).await?;
+        let safe_path = git_doc_path(&self.save_dir, &clone_id, &None).await?;
         let file_path = git_doc_path(
-            &config_dir,
+            &self.save_dir,
             &clone_id,
             &Some(rel_file_path.to_string_lossy().to_string()),
         )
         .await?;
         if !file_path.starts_with(&safe_path) {
-            return Err(crate::dao::GitDocError::System(format!(
-                "access fail on file:{:?}",
-                file_path,
-            )));
+            return Err(crate::dao::GitDocError::System(
+                fluent_message!("doc-menu-file-path-access",{
+                    "path":file_path.to_string_lossy()
+                }),
+            ));
+            // format!(
+            //     "access fail on file:{:?}",
+            //     file_path,
+            // )
         }
         let url_path = match file_path.strip_prefix(&safe_path) {
             Ok(rpath) => rpath.to_path_buf(),
@@ -1220,18 +1294,12 @@ impl GitDocs {
 
         let mut out = Vec::with_capacity(data.len());
 
-        let config_dir = self
-            .app_core
-            .config
-            .get_string("doc_git_dir")
-            .unwrap_or_else(|_| env::temp_dir().to_string_lossy().to_string());
-
         for (menu_id, tag_id, menu_path, version) in data {
             let menu_data = match clone_data.iter().find(|e| e.1 == tag_id) {
                 Some((clone_id, _)) => {
-                    let safe_path = git_doc_path(&config_dir, clone_id, &None).await?;
+                    let safe_path = git_doc_path(&self.save_dir, clone_id, &None).await?;
                     let file_path =
-                        git_doc_path(&config_dir, clone_id, &Some(menu_path.clone())).await?;
+                        git_doc_path(&self.save_dir, clone_id, &Some(menu_path.clone())).await?;
                     if !file_path.starts_with(&safe_path) {
                         Err(format!("access fail on file:{:?}", file_path,))
                     } else {

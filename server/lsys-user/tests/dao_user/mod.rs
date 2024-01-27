@@ -9,7 +9,7 @@ use std::sync::Arc;
 mod account_dao;
 #[allow(dead_code)]
 async fn user_dao() -> UserDao<UserAuthRedisStore> {
-    let app_core = AppCore::init("", &[]).await.unwrap();
+    let app_core = AppCore::init("", "config", None).await.unwrap();
     let db: Pool<MySql> = app_core.create_db().await.unwrap();
     let redis = app_core.create_redis().await.unwrap();
     let app_core = Arc::new(app_core);
@@ -17,7 +17,7 @@ async fn user_dao() -> UserDao<UserAuthRedisStore> {
     let remote_notify =
         Arc::new(RemoteNotify::new("lsys-remote-notify", app_core.clone(), redis.clone()).unwrap());
     let config = Setting::new(
-        app_core.clone(),
+        //   app_core.clone(),
         db.clone(),
         remote_notify.clone(),
         logger.clone(),
@@ -26,7 +26,6 @@ async fn user_dao() -> UserDao<UserAuthRedisStore> {
     .unwrap();
     let login_store = UserAuthRedisStore::new(redis.clone());
     UserDao::new(
-        app_core,
         db,
         redis,
         config.single,

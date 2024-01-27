@@ -5,7 +5,6 @@ use crate::dao::account::UserAccount;
 use crate::dao::auth::{LoginParam, LoginType, UserAuthError, UserAuthResult};
 use crate::model::{UserExternalModel, UserModel};
 use async_trait::async_trait;
-use lsys_core::{get_message, FluentMessage};
 
 use serde::{Deserialize, Serialize};
 use sqlx::{MySql, Pool};
@@ -46,18 +45,16 @@ impl<T: Serialize + Send + Sync> LoginParam for ExternalLogin<T> {
         &self,
         _db: &Pool<MySql>,
         _redis: &deadpool_redis::Pool,
-        fluent: &Arc<FluentMessage>,
     ) -> UserAuthResult<LoginType> {
         Ok(LoginType {
             time_out: 3600 * 24,
-            type_name: get_message!(fluent, "auth-login-type-external", "External Login"),
+            type_name: "external".to_owned(), //
         })
     }
     async fn get_user(
         &self,
         _db: &Pool<MySql>,
         _redis: &deadpool_redis::Pool,
-        fluent: &Arc<FluentMessage>,
         account: &Arc<UserAccount>,
         _: &LoginEnv,
     ) -> UserAuthResult<(LoginData, UserModel)> {
@@ -68,7 +65,6 @@ impl<T: Serialize + Send + Sync> LoginParam for ExternalLogin<T> {
             .find_by_id(&self.external.user_id)
             .await
             .map_err(auth_user_not_found_map!(
-                fluent,
                 self.show_name(),
                 "external account [user id]"
             ))?;

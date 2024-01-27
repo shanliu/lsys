@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use crate::{dao::WebDao, handler::access::AccessAppSenderDoMail, JsonData, JsonResult};
+use crate::{dao::RequestDao, handler::access::AccessAppSenderDoMail, JsonData, JsonResult};
 use lsys_app::model::AppsModel;
-use lsys_core::{str_time, RequestEnv};
+use lsys_core::{str_time, FluentMessage};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -16,12 +16,12 @@ pub struct MailSendParam {
     pub max_try: Option<u8>,
 }
 pub async fn mail_send(
-    app_dao: &WebDao,
+    req_dao: &RequestDao,
     app: &AppsModel,
     param: MailSendParam,
-    env_data: Option<&RequestEnv>,
 ) -> JsonResult<JsonData> {
-    app_dao
+    req_dao
+        .web_dao
         .user
         .rbac_dao
         .rbac
@@ -32,20 +32,26 @@ pub async fn mail_send(
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
 
     let send_time = if let Some(t) = param.send_time {
         if t.is_empty() {
             None
         } else {
-            Some(str_time(&t)?.timestamp() as u64)
+            Some(
+                str_time(&t)
+                    .map_err(|e| req_dao.fluent_json_data(FluentMessage::from(e)))?
+                    .timestamp() as u64,
+            )
         }
     } else {
         None
     };
     // 字符串转时间对象
     let to = param.to.iter().map(|e| e.as_str()).collect::<Vec<_>>();
-    let data = app_dao
+    let data = req_dao
+        .web_dao
         .sender_mailer
         .app_send(
             app,
@@ -55,9 +61,10 @@ pub async fn mail_send(
             &send_time,
             &param.reply,
             &param.max_try,
-            env_data,
+            Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let detail = data
         .into_iter()
         .map(|e| {
@@ -77,12 +84,12 @@ pub struct MailCancelParam {
     pub snid_data: Vec<String>,
 }
 pub async fn mail_cancel(
-    app_dao: &WebDao,
+    req_dao: &RequestDao,
     app: &AppsModel,
     param: MailCancelParam,
-    env_data: Option<&RequestEnv>,
 ) -> JsonResult<JsonData> {
-    app_dao
+    req_dao
+        .web_dao
         .user
         .rbac_dao
         .rbac
@@ -93,17 +100,20 @@ pub async fn mail_cancel(
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
 
     let mut ids = Vec::with_capacity(param.snid_data.len());
     for e in param.snid_data {
-        ids.push(e.parse::<u64>().map_err(JsonData::message)?);
+        ids.push(e.parse::<u64>().map_err(|e| req_dao.fluent_json_data(e))?);
     }
 
-    let data = app_dao
+    let data = req_dao
+        .web_dao
         .sender_mailer
-        .app_send_cancel(app, &ids, env_data)
-        .await?;
+        .app_send_cancel(app, &ids, Some(&req_dao.req_env))
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let detail = data
         .into_iter()
         .map(|e| {

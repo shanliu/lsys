@@ -1,6 +1,6 @@
 use std::{sync::Arc, vec};
 
-use lsys_core::{get_message, FluentMessage};
+use lsys_core::fluent_message;
 use tracing::{debug, info};
 
 use crate::model::{RbacRoleModel, RbacRoleOpPositivity};
@@ -265,7 +265,6 @@ impl SystemRoleCheckData for SystemRole {
 
 /// RBAC对外结构
 pub struct RbacAccess {
-    fluent: Arc<FluentMessage>,
     res: Arc<RbacRes>,
     role: Arc<RbacRole>,
     system_role: Option<Box<dyn SystemRoleCheckData>>,
@@ -274,14 +273,13 @@ pub struct RbacAccess {
 
 impl RbacAccess {
     pub fn new(
-        fluent: Arc<FluentMessage>,
         res: Arc<RbacRes>,
         role: Arc<RbacRole>,
         system_role: Option<Box<dyn SystemRoleCheckData>>,
         use_cache: bool,
     ) -> Self {
         RbacAccess {
-            fluent,
+            // fluent,
             res,
             role,
             system_role,
@@ -515,14 +513,17 @@ impl RbacAccess {
                                 tmp.check_res.user_id,
                                 otmp
                             );
-                            bad_tmp.push((tmp.check_res.res.clone(),
-                                get_message!(&self.fluent, "rbac-access-check-res-empty", "Authorization not find user [{$user_id}] in res[{$res}:{$res_id}] on op {$op} [{$view_user}]",[
-                                "res_id"=>res.res.id,
-                                "res"=>tmp.check_res.res.clone(),
-                                "op"=>otmp.to_owned(),
-                                "user_id"=>tmp.check_res.user_id,
-                                "view_user"=>user_id
-                            ])));
+                            bad_tmp.push((
+                                tmp.check_res.res.clone(),
+                                fluent_message!("rbac-access-check-res-empty",{
+                                   // "res_id":res.res.id,
+                                    "res":tmp.check_res.res,
+                                    "op":otmp,
+                                    "user_id":tmp.check_res.user_id,
+                                    "view_user_id":user_id
+                                }),
+                                //"Authorization not find user [{$user_id}] in res[{$res}:{$res_id}] on op {$op} [{$view_user}]"
+                            ));
                         }
                     }
                     res_vec.push(res.to_owned())
@@ -533,13 +534,15 @@ impl RbacAccess {
                             "user {} acces, res not find {}:{} op :{}",
                             user_id, &tmp.check_res.res, tmp.check_res.user_id, tmp_op
                         );
-                        bad_tmp.push((tmp.check_res.res.clone(),
-                            get_message!(&self.fluent, "rbac-access-check-res-empty", "Authorization not find  user [{$user_id}] res [{$res}] on op {$op} [{$view_user}]",[
-                            "res"=>tmp.check_res.res.clone(),
-                            "op"=>tmp_op.to_owned(),
-                            "user_id"=>tmp.check_res.user_id,
-                            "view_user"=>user_id
-                        ])));
+                        bad_tmp.push((
+                            tmp.check_res.res.clone(),
+                            fluent_message!("rbac-access-check-res-empty",{
+                                    "res":tmp.check_res.res,
+                                    "op":tmp_op,
+                                    "user_id":tmp.check_res.user_id,
+                                    "view_user":user_id
+                            }),
+                        )); // "Authorization not find  user [{$user_id}] res [{$res}] on op {$op} [{$view_user}]"
                     }
                 }
             };
@@ -598,12 +601,13 @@ impl RbacAccess {
             for res_op in check_item.ops.iter() {
                 let mut access = (
                     false,
-                    get_message!(&self.fluent, "rbac-access-check-access", "user[{$user_id}] not find access [{$res}:{$res_id}] on [{$res_op}]",[
-                        "res"=>check_item.res.name.clone(),
-                        "res_id"=>check_item.res.id,
-                        "res_op"=>res_op.op_key.clone(),
-                        "user_id"=>user_id
-                    ]),
+                    fluent_message!("rbac-access-check-access",{
+                            "res":check_item.res.name,
+                            "res_id":check_item.res.id,
+                            "user_id":check_item.res.user_id,
+                            "res_op":res_op.op_key,
+                            "view_user_id":user_id
+                    }), //"user[{$user_id}] not find access [{$res}:{$res_id}] on [{$res_op}]"
                 );
 
                 if let Some(role) = role_data.match_role(res_op.id) {

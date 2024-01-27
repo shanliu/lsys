@@ -9,7 +9,7 @@ use tokio::fs::read;
 use tracing::debug;
 
 use crate::{
-    dao::{RequestDao, WebDao},
+    dao::{RequestAuthDao, RequestDao, WebDao},
     handler::access::AccessAdminDocsEdit,
     JsonData, JsonResult, PageParam,
 };
@@ -22,10 +22,15 @@ pub struct DocsGitAddParam {
 }
 pub async fn docs_git_add<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: DocsGitAddParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-    //验证权限
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?; //验证权限
     req_dao
         .web_dao
         .user
@@ -37,7 +42,8 @@ pub async fn docs_git_add<T: SessionTokenData, D: SessionData, S: UserSession<T,
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let id = req_dao
         .web_dao
         .docs
@@ -51,7 +57,8 @@ pub async fn docs_git_add<T: SessionTokenData, D: SessionData, S: UserSession<T,
             req_auth.user_data().user_id,
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "id": id })))
 }
 
@@ -64,10 +71,15 @@ pub struct DocsGitEditParam {
 }
 pub async fn docs_git_edit<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: DocsGitEditParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-    //验证权限
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?; //验证权限
     req_dao
         .web_dao
         .user
@@ -79,9 +91,15 @@ pub async fn docs_git_edit<T: SessionTokenData, D: SessionData, S: UserSession<T
             },
             None,
         )
-        .await?;
-    let git_m = req_dao.web_dao.docs.docs.find_git_by_id(&param.id).await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    let git_m = req_dao
+        .web_dao
+        .docs
+        .docs
+        .find_git_by_id(&param.id)
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .docs
@@ -96,7 +114,8 @@ pub async fn docs_git_edit<T: SessionTokenData, D: SessionData, S: UserSession<T
             req_auth.user_data().user_id,
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::default())
 }
 
@@ -107,10 +126,15 @@ pub struct DocsGitDelParam {
 }
 pub async fn docs_git_del<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: DocsGitDelParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-    //验证权限
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?; //验证权限
     req_dao
         .web_dao
         .user
@@ -122,9 +146,15 @@ pub async fn docs_git_del<T: SessionTokenData, D: SessionData, S: UserSession<T,
             },
             None,
         )
-        .await?;
-    let git_m = req_dao.web_dao.docs.docs.find_git_by_id(&param.id).await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    let git_m = req_dao
+        .web_dao
+        .docs
+        .docs
+        .find_git_by_id(&param.id)
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .docs
@@ -135,15 +165,21 @@ pub async fn docs_git_del<T: SessionTokenData, D: SessionData, S: UserSession<T,
             &param.timeout.map(|e| e as u64).unwrap_or(60),
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::default())
 }
 
 pub async fn docs_git_list<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-    //验证权限
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?; //验证权限
     req_dao
         .web_dao
         .user
@@ -155,8 +191,15 @@ pub async fn docs_git_list<T: SessionTokenData, D: SessionData, S: UserSession<T
             },
             None,
         )
-        .await?;
-    let data = req_dao.web_dao.docs.docs.git_list().await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    let data = req_dao
+        .web_dao
+        .docs
+        .docs
+        .git_list()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "data": data })))
 }
 
@@ -170,10 +213,15 @@ pub struct DocsTagAddParam {
 
 pub async fn docs_tag_add<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: DocsTagAddParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-    //验证权限
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?; //验证权限
     req_dao
         .web_dao
         .user
@@ -185,14 +233,15 @@ pub async fn docs_tag_add<T: SessionTokenData, D: SessionData, S: UserSession<T,
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let git_m = req_dao
         .web_dao
         .docs
         .docs
         .find_git_by_id(&param.git_id)
-        .await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let id = req_dao
         .web_dao
         .docs
@@ -207,7 +256,8 @@ pub async fn docs_tag_add<T: SessionTokenData, D: SessionData, S: UserSession<T,
             req_auth.user_data().user_id,
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "id": id })))
 }
 
@@ -219,10 +269,15 @@ pub struct DocsTagDelParam {
 
 pub async fn docs_tag_del<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: DocsTagDelParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-    //验证权限
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?; //验证权限
     req_dao
         .web_dao
         .user
@@ -234,13 +289,15 @@ pub async fn docs_tag_del<T: SessionTokenData, D: SessionData, S: UserSession<T,
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let tag = req_dao
         .web_dao
         .docs
         .docs
         .find_tag_by_id(&param.tag_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .docs
@@ -251,7 +308,8 @@ pub async fn docs_tag_del<T: SessionTokenData, D: SessionData, S: UserSession<T,
             &param.timeout.map(|e| e as u64).unwrap_or(60),
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let _ = req_dao.web_dao.docs.task.notify();
     Ok(JsonData::default())
 }
@@ -266,10 +324,15 @@ pub struct DocsTagListParam {
 }
 pub async fn docs_tag_list<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: DocsTagListParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-    //验证权限
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?; //验证权限
     req_dao
         .web_dao
         .user
@@ -281,10 +344,10 @@ pub async fn docs_tag_list<T: SessionTokenData, D: SessionData, S: UserSession<T
             },
             None,
         )
-        .await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let status = match param.status {
-        Some(tmp) => Some(DocGitTagStatus::try_from(tmp)?),
+        Some(tmp) => Some(DocGitTagStatus::try_from(tmp).map_err(|e| req_dao.fluent_json_data(e))?),
         None => None,
     };
     let data = req_dao
@@ -297,8 +360,8 @@ pub async fn docs_tag_list<T: SessionTokenData, D: SessionData, S: UserSession<T
             &param.key_word,
             &Some(param.page.unwrap_or_default().into()),
         )
-        .await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
             req_dao
@@ -306,7 +369,8 @@ pub async fn docs_tag_list<T: SessionTokenData, D: SessionData, S: UserSession<T
                 .docs
                 .docs
                 .tags_count(&param.git_id, &status, &param.key_word)
-                .await?,
+                .await
+                .map_err(|e| req_dao.fluent_json_data(e))?,
         )
     } else {
         None
@@ -321,10 +385,15 @@ pub struct DocsTagStatusParam {
 }
 pub async fn docs_tag_status<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: DocsTagStatusParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-    //验证权限
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?; //验证权限
     req_dao
         .web_dao
         .user
@@ -336,14 +405,17 @@ pub async fn docs_tag_status<T: SessionTokenData, D: SessionData, S: UserSession
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let tag = req_dao
         .web_dao
         .docs
         .docs
         .find_tag_by_id(&param.tag_id)
-        .await?;
-    let status = DocGitTagStatus::try_from(param.status)?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    let status =
+        DocGitTagStatus::try_from(param.status).map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .docs
@@ -354,7 +426,8 @@ pub async fn docs_tag_status<T: SessionTokenData, D: SessionData, S: UserSession
             &req_auth.user_data().user_id,
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::default())
 }
 
@@ -365,9 +438,15 @@ pub struct DocsTagLogsParam {
 
 pub async fn docs_tag_logs<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: DocsTagLogsParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .user
@@ -379,8 +458,15 @@ pub async fn docs_tag_logs<T: SessionTokenData, D: SessionData, S: UserSession<T
             },
             None,
         )
-        .await?;
-    let data = req_dao.web_dao.docs.docs.tags_logs(&param.tag_id).await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    let data = req_dao
+        .web_dao
+        .docs
+        .docs
+        .tags_logs(&param.tag_id)
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "data": data })))
 }
 
@@ -392,10 +478,15 @@ pub struct DocsTagCLoneDelParam {
 
 pub async fn docs_tag_clone_del<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: DocsTagCLoneDelParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-    //验证权限
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?; //验证权限
     req_dao
         .web_dao
         .user
@@ -407,13 +498,15 @@ pub async fn docs_tag_clone_del<T: SessionTokenData, D: SessionData, S: UserSess
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let clone = req_dao
         .web_dao
         .docs
         .docs
         .find_clone_by_id(&param.clone_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .docs
@@ -424,7 +517,8 @@ pub async fn docs_tag_clone_del<T: SessionTokenData, D: SessionData, S: UserSess
             &req_auth.user_data().user_id,
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::default())
 }
 
@@ -435,10 +529,15 @@ pub struct DocsGitDetailParam {
 
 pub async fn docs_git_detail<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: DocsGitDetailParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-    //验证权限
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?; //验证权限
     req_dao
         .web_dao
         .user
@@ -450,10 +549,15 @@ pub async fn docs_git_detail<T: SessionTokenData, D: SessionData, S: UserSession
             },
             None,
         )
-        .await?;
-
-    let data = req_dao.web_dao.docs.docs.git_detail(&param.url).await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    let data = req_dao
+        .web_dao
+        .docs
+        .docs
+        .git_detail(&param.url)
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({
         "data":data,
     })))
@@ -466,10 +570,15 @@ pub struct DocsTagDirParam {
 }
 pub async fn docs_tag_dir<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: DocsTagDirParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-    //验证权限
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?; //验证权限
     req_dao
         .web_dao
         .user
@@ -481,19 +590,22 @@ pub async fn docs_tag_dir<T: SessionTokenData, D: SessionData, S: UserSession<T,
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let tag = req_dao
         .web_dao
         .docs
         .docs
         .find_tag_by_id(&param.tag_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let data = req_dao
         .web_dao
         .docs
         .docs
         .menu_file_list(&tag, &param.prefix.unwrap_or_default())
-        .await?
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?
         .into_iter()
         .map(|e| {
             json!({
@@ -515,10 +627,15 @@ pub struct DocsTagFileDataParam {
 }
 pub async fn docs_tag_file_data<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: DocsTagFileDataParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-    //验证权限
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?; //验证权限
     req_dao
         .web_dao
         .user
@@ -530,20 +647,25 @@ pub async fn docs_tag_file_data<T: SessionTokenData, D: SessionData, S: UserSess
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let tag = req_dao
         .web_dao
         .docs
         .docs
         .find_tag_by_id(&param.tag_id)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let data = req_dao
         .web_dao
         .docs
         .docs
         .menu_file_read(&tag, &param.file_path)
-        .await?;
-    let dat = read(data.file_path).await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    let dat = read(data.file_path)
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({
         "id":data.clone_id,
         "version": data.version,
@@ -559,10 +681,15 @@ pub struct DocsMenuAddParam {
 
 pub async fn docs_menu_add<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: DocsMenuAddParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-    //验证权限
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?; //验证权限
     req_dao
         .web_dao
         .user
@@ -574,14 +701,15 @@ pub async fn docs_menu_add<T: SessionTokenData, D: SessionData, S: UserSession<T
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let tag_m = req_dao
         .web_dao
         .docs
         .docs
         .find_tag_by_id(&param.tag_id)
-        .await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .docs
@@ -594,7 +722,8 @@ pub async fn docs_menu_add<T: SessionTokenData, D: SessionData, S: UserSession<T
             &req_auth.user_data().user_id,
             Some(&req_dao.req_env),
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::default())
 }
 
@@ -605,10 +734,15 @@ pub struct DocsMenuDelParam {
 
 pub async fn docs_menu_del<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: DocsMenuDelParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-    //验证权限
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?; //验证权限
     req_dao
         .web_dao
         .user
@@ -620,20 +754,22 @@ pub async fn docs_menu_del<T: SessionTokenData, D: SessionData, S: UserSession<T
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let menu = req_dao
         .web_dao
         .docs
         .docs
         .find_menu_by_id(&param.menu_id)
-        .await?;
-
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     req_dao
         .web_dao
         .docs
         .docs
         .menu_del(&menu, &req_auth.user_data().user_id, Some(&req_dao.req_env))
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::default())
 }
 
@@ -644,10 +780,15 @@ pub struct DocsMenuListParam {
 
 pub async fn docs_menu_list<T: SessionTokenData, D: SessionData, S: UserSession<T, D>>(
     param: DocsMenuListParam,
-    req_dao: &RequestDao<T, D, S>,
+    req_dao: &RequestAuthDao<T, D, S>,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-    //验证权限
+    let req_auth = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?; //验证权限
     req_dao
         .web_dao
         .user
@@ -659,14 +800,22 @@ pub async fn docs_menu_list<T: SessionTokenData, D: SessionData, S: UserSession<
             },
             None,
         )
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     let tag = req_dao
         .web_dao
         .docs
         .docs
         .find_tag_by_id(&param.tag_id)
-        .await?;
-    let data = req_dao.web_dao.docs.docs.menu_list(&tag).await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
+    let data = req_dao
+        .web_dao
+        .docs
+        .docs
+        .menu_list(&tag)
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({ "data": data })))
 }
 
@@ -680,12 +829,14 @@ pub async fn docs_file(param: &DocsRawReadParam, webdao: &WebDao) -> GitDocResul
     webdao.docs.docs.menu_file(param.menu_id, &param.url).await
 }
 
-pub async fn docs_menu(webdao: &WebDao) -> JsonResult<JsonData> {
-    let data = webdao
+pub async fn docs_menu(req_dao: &RequestDao) -> JsonResult<JsonData> {
+    let data = req_dao
+        .web_dao
         .docs
         .docs
         .menu()
-        .await?
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?
         .into_iter()
         .map(|e| {
             let mut err = None;
@@ -717,14 +868,18 @@ pub struct DocsMdReadParam {
     pub url: String,
     pub menu_id: u32,
 }
-pub async fn docs_md_read(param: DocsMdReadParam, webdao: &WebDao) -> JsonResult<JsonData> {
-    let data = webdao
+pub async fn docs_md_read(param: DocsMdReadParam, req_dao: &RequestDao) -> JsonResult<JsonData> {
+    let data = req_dao
+        .web_dao
         .docs
         .docs
         .menu_file(param.menu_id, &param.url)
-        .await?;
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     debug!("read markdown file:{}", &data.file_path.to_string_lossy());
-    let dat = read(data.file_path).await?;
+    let dat = read(data.file_path)
+        .await
+        .map_err(|e| req_dao.fluent_json_data(e))?;
     Ok(JsonData::data(json!({
         "id":data.clone_id,
         "version": data.version,
