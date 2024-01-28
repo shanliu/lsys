@@ -3,6 +3,7 @@ use crate::{
     handler::access::{AccessSystemMobileConfirm, AccessUserMobileEdit, AccessUserMobileView},
     {CaptchaParam, JsonData, JsonResult},
 };
+use lsys_core::fluent_message;
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
 use lsys_user::model::UserMobileStatus;
 use serde::Deserialize;
@@ -116,12 +117,16 @@ pub async fn user_mobile_send_code<T: SessionTokenData, D: SessionData, S: UserS
         Ok(mobile) => {
             if UserMobileStatus::Valid.eq(mobile.status) {
                 if mobile.user_id != req_auth.user_data().user_id {
-                    return Ok(JsonData::message(format!(
-                        "other user bind[{}]",
-                        mobile.user_id
-                    )));
+                    return Ok(
+                        req_dao.fluent_json_data(fluent_message!("mobile-bind-other-user",{
+                            "id": mobile.user_id
+                        })), //     JsonData::message(format!(
+                             //     "other user bind[{}]",
+
+                             // )
+                    );
                 } else {
-                    return Ok(JsonData::message("the mobile is bind"));
+                    return Ok(req_dao.fluent_json_data(fluent_message!("mobile-is-bind")));
                 }
             }
         }
@@ -198,7 +203,7 @@ pub async fn user_mobile_confirm<'t, T: SessionTokenData, D: SessionData, S: Use
         .await
         .map_err(|e| req_dao.fluent_json_data(e))?;
     if UserMobileStatus::Delete.eq(mobile.status) {
-        return Ok(JsonData::message("mobile not find"));
+        return Ok(req_dao.fluent_json_data(fluent_message!("mobile-bad-status")));
     }
     if UserMobileStatus::Init.eq(mobile.status) {
         req_dao

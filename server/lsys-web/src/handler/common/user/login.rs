@@ -18,7 +18,7 @@ pub async fn user_logout<'t, T: SessionTokenData, D: SessionData, S: UserSession
         .clear_session()
         .await
         .map_err(|e| req_dao.fluent_json_data(e))?;
-    Ok(JsonData::message("logout ok"))
+    Ok(JsonData::default())
 }
 
 #[derive(Debug, Deserialize)]

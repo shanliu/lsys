@@ -2,6 +2,7 @@ use crate::common::handler::{
     JsonQuery, JwtQuery, ResponseJson, ResponseJsonResult, UserAuthQuery,
 };
 use actix_web::post;
+use lsys_core::fluent_message;
 use lsys_user::dao::auth::{SessionData, UserSession};
 use lsys_web::{
     handler::{
@@ -104,8 +105,12 @@ pub(crate) async fn external<'t>(
                     .await
                 }
                 name => Ok(
-                    JsonData::message(format!("not support login type:{}", name))
-                        .set_sub_code("type_not_support"),
+                    auth_dao
+                        .fluent_json_data(fluent_message!("external-not-support",{
+                            "name":name
+                        }))
+                        .set_sub_code("type_not_support"), // JsonData::message(format!("not support login type:{}", name))
+                                                           //     .set_sub_code(""),
                 ),
             }
         }

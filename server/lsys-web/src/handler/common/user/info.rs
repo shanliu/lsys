@@ -3,6 +3,7 @@ use crate::{
     handler::access::{AccessUserInfoEdit, AccessUserNameEdit},
     {JsonData, JsonResult},
 };
+use lsys_core::fluent_message;
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
 use lsys_user::{dao::account::UserAccountError, model::UserInfoModelRef};
 use serde::Deserialize;
@@ -103,14 +104,19 @@ pub async fn user_info_check_username<T: SessionTokenData, D: SessionData, S: Us
         .find_by_name(param.name)
         .await;
     match user_res {
-        Err(UserAccountError::Sqlx(sqlx::Error::RowNotFound)) => Ok(JsonData::message("success")
-            .set_data(json!({
+        Err(UserAccountError::Sqlx(sqlx::Error::RowNotFound)) => {
+            Ok(JsonData::default().set_data(json!({
                 "pass":"1"
-            }))),
+            })))
+        }
         Err(err) => Err(req_dao.fluent_json_data(err)),
         Ok(user) => Ok(
-            JsonData::message(format!("Username already exists [{}]", user.id))
-                .set_sub_code("username_exists"),
+            req_dao
+                .fluent_json_data(fluent_message!("username-is-exists",{
+                    "id":user.id
+                }))
+                .set_sub_code("username_exists"), // JsonData::message(format!("Username already exists [{}]", user.id))
+                                                  //     ,
         ),
     }
 }
@@ -241,7 +247,9 @@ pub async fn password_last_modify<'t, T: SessionTokenData, D: SessionData, S: Us
         .await
         .map_err(|e| req_dao.fluent_json_data(e))?;
     if user.password_id == 0 {
-        return Ok(JsonData::message("not set password").set_sub_code("not_set"));
+        return Ok(req_dao
+            .fluent_json_data(fluent_message!("password-not-set"))
+            .set_sub_code("not_set"));
     }
     let user = req_dao
         .web_dao

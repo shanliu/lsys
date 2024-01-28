@@ -22,3 +22,27 @@ mail-bind-other-user = 邮箱已绑定其他账号[{$other_user_id}]
  
 rbac-check-fail = 权限校验失败
 system-not-found = 结果不存在
+
+user-old-passwrod-bad= 提交的原密码错误
+user-old-passwrod-empty= 请提交原密码
+
+mail-is-confirm=邮箱已经确认过了
+
+email-bad-status=邮箱不存在
+mobile-bad-status=手机号不存在
+
+external-not-support=登陆类型{$name}不支持
+
+username-is-exists=账号已经存在:{$id}
+
+password-not-set=登陆密码未设置
+
+client-secret-not-match=Secret 不匹配
+
+
+app-redirect-uri-not-match= 跳转域名[redirect_uri]不支持
+app-domain-not-config=请先在后台配置跳转域名
+reg-mobile-registered=该手机号已注册过账号
+
+mobile-bind-other-user=邮箱已绑定其他账号:{$id}
+mobile-is-bind=邮箱重复绑定

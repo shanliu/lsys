@@ -1,3 +1,4 @@
+use lsys_core::fluent_message;
 use lsys_user::model::{UserEmailStatus, UserInfoModelRef, UserMobileStatus};
 use serde::Deserialize;
 use serde_json::json;
@@ -77,7 +78,9 @@ pub async fn user_reg_send_code_from_mobile<
     if let Ok(mobile) = mobile_res {
         if UserMobileStatus::Valid.eq(mobile.status) {
             return Ok(
-                JsonData::message("this mobile is registered").set_sub_code("mobile_not_reg")
+                req_dao
+                    .fluent_json_data(fluent_message!("reg-mobile-registered"))
+                    .set_sub_code("mobile_is_reg"), // JsonData::message("this mobile is registered")
             );
         }
     }
@@ -146,7 +149,9 @@ pub async fn user_reg_send_code_from_email<
         .await;
     if let Ok(email) = email_res {
         if UserEmailStatus::Valid.eq(email.status) {
-            return Ok(JsonData::message("this email is registered").set_sub_code("email_not_reg"));
+            return Ok(req_dao
+                .fluent_json_data(fluent_message!("reg-mobile-registered"))
+                .set_sub_code("mobile_is_reg"));
         }
     }
     valid_code

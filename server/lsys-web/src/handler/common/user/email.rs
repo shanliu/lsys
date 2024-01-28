@@ -105,7 +105,11 @@ pub async fn user_email_send_code<'t, T: SessionTokenData, D: SessionData, S: Us
                         // JsonData::message(format!("other user bind[{}]",)),
                     );
                 } else {
-                    return Ok(JsonData::message("the email is confirm"));
+                    return Ok(
+                        req_dao
+                            .fluent_json_data(fluent_message!("mail-is-confirm"))
+                            .set_code("mail-is-confirm"), // JsonData::message("the email is confirm")
+                    );
                 }
             }
             email
@@ -114,7 +118,7 @@ pub async fn user_email_send_code<'t, T: SessionTokenData, D: SessionData, S: Us
             if !err.is_not_found() {
                 return Err(req_dao.fluent_json_data(err));
             } else {
-                return Ok(JsonData::message("email not find"));
+                return Ok(req_dao.fluent_json_data(err));
             }
         }
     };
@@ -158,7 +162,7 @@ pub async fn user_email_send_code<'t, T: SessionTokenData, D: SessionData, S: Us
         .send_valid_code(&email.email, &res.0, &res.1, Some(&req_dao.req_env))
         .await
         .map_err(|e| req_dao.fluent_json_data(e))?;
-    Ok(JsonData::message("mail is send"))
+    Ok(JsonData::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -180,7 +184,7 @@ pub async fn user_email_confirm<'t, T: SessionTokenData, D: SessionData, S: User
         .await
         .map_err(|e| req_dao.fluent_json_data(e))?;
     if UserEmailStatus::Delete.eq(email.status) {
-        return Ok(JsonData::message("email not find"));
+        return Ok(req_dao.fluent_json_data(fluent_message!("email-bad-status")));
     }
     if UserEmailStatus::Init.eq(email.status) {
         req_dao
@@ -200,10 +204,11 @@ pub async fn user_email_confirm<'t, T: SessionTokenData, D: SessionData, S: User
             .confirm_email_from_code(&email, &param.code, Some(&req_dao.req_env))
             .await
             .map_err(|e| req_dao.fluent_json_data(e))?;
-        Ok(JsonData::message("email confirm success"))
+        // Ok(JsonData::message("email confirm success"))
     } else {
-        Ok(JsonData::message("email is confirm"))
+        // Ok(JsonData::message("email is confirm"))
     }
+    Ok(JsonData::default())
 }
 
 #[derive(Debug, Deserialize)]

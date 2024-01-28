@@ -29,7 +29,7 @@ root_user_id = [1]
 fluent_dir = "locale/"
 
 #页面模板目录
-tpl_dir = "src/template/"
+tpl_dir = "static"
 
 #地址库数据文件压缩包
 area_code_db = "data/2023-7-area-code.csv.gz"

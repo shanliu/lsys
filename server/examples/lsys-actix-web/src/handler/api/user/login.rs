@@ -275,7 +275,7 @@ pub async fn external_login_callback<'t>(
     let login_param = json_param.param::<ExternalCallbackParam>()?;
     let res = match login_param.login_type.as_str() {
         "qq" => {
-            Ok(JsonData::message("未实现"))
+            Ok(JsonData::message("unimplemented"))
             // user_external_login_callback::<WechatLogin, WechatLoginParam, _, _>(
             //     "wechat", &auth_dao, &param,
             // )

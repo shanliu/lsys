@@ -6,6 +6,7 @@ use crate::{
     {JsonData, JsonResult},
 };
 use lsys_app::model::AppsModel;
+use lsys_core::fluent_message;
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -168,7 +169,11 @@ pub async fn oauth_create_code<T: SessionTokenData, D: SessionData, S: UserSessi
         .await
         .map_err(|e| req_dao.fluent_json_data(e))?;
     if app.callback_domain.is_empty() {
-        return Err(JsonData::message("not config callback domain").set_sub_code("domain_empty"));
+        return Err(
+            req_dao
+                .fluent_json_data(fluent_message!("app-domain-not-config"))
+                .set_sub_code("domain_empty"), // JsonData::message("not config callback domain").set_sub_code("")
+        );
     }
     if !param
         .redirect_uri
@@ -177,7 +182,11 @@ pub async fn oauth_create_code<T: SessionTokenData, D: SessionData, S: UserSessi
             .redirect_uri
             .starts_with(&("http://".to_string() + &app.callback_domain))
     {
-        return Err(JsonData::message("redirect_uri not match").set_sub_code("domain_no_match"));
+        return Err(
+            req_dao
+                .fluent_json_data(fluent_message!("app-redirect-uri-not-match"))
+                .set_sub_code("domain_no_match"), // JsonData::message("redirect_uri not match")
+        );
     }
     get_scope(req_dao, &app, &param.scope).await?;
     let code = req_dao
@@ -215,7 +224,7 @@ async fn check_app_secret(
         .await
         .map_err(|e| req_dao.fluent_json_data(e))?;
     if *client_secret != app.oauth_secret {
-        return Err(JsonData::message("client_secret not match"));
+        return Err(req_dao.fluent_json_data(fluent_message!("client-secret-not-match")));
     }
     Ok(app)
 }

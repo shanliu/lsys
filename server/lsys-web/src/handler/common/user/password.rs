@@ -1,3 +1,4 @@
+use lsys_core::fluent_message;
 use serde::Deserialize;
 use serde_json::json;
 
@@ -54,11 +55,18 @@ pub async fn user_set_password<'t, T: SessionTokenData, D: SessionData, S: UserS
                 .await
                 .map_err(|e| req_dao.fluent_json_data(e))?;
             if !check {
-                return Ok(JsonData::message("old password is wrong").set_sub_code("bad_passwrod"));
+                return Ok(req_dao
+                    .fluent_json_data(fluent_message!("user-old-passwrod-bad"))
+                    .set_sub_code("bad_passwrod"));
+                //   return Ok(JsonData::message("old password is wrong").set_sub_code("bad_passwrod"));
             }
         } else {
-            return Ok(JsonData::message("your need submit old password")
+            return Ok(req_dao
+                .fluent_json_data(fluent_message!("user-old-passwrod-empty"))
                 .set_sub_code("need_old_passwrod"));
+
+            // return Ok(JsonData::message("your need submit old password")
+            //     .set_sub_code(""));
         }
     }
     let pid = user_password

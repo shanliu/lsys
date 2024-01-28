@@ -21,3 +21,28 @@ mail-bind-other-user = Mailbox is bound to another account [{$other_user_id}].
  
 rbac-check-fail = permission check failed
 system-not-found = Result does not exist
+
+user-old-passwrod-bad= The original password was submitted incorrectly.
+user-old-passwrod-empty= Please submit the original password.
+
+mail-is-confirm=The mailbox has been confirmed.
+
+email-bad-status=Mailbox does not exist.
+mobile-bad-status=Mobile phone number does not exist.
+
+external-not-support=The login type {$name} is not supported.
+
+username-is-exists=Account already exists: {$id}
+
+password-not-set=The login password is not set.
+
+client-secret-not-match=Secret does not match.
+
+
+app-redirect-uri-not-match= Jump domain [redirect_uri] not supported
+app-domain-not-config=Please configure the domain name in the backend.
+reg-mobile-registered=This cell phone number has already been registered.
+
+mobile-bind-other-user=Mobile is bound to another account:{$id}
+mobile-is-bind=The mailbox is bound to another account.
+

@@ -661,7 +661,7 @@ impl SmsRecord {
                 if let Some(t) = data.iter().find(|e| e.1 as u64 == id) {
                     if t.0 >= limit.max_send.into() {
                         return Err(SenderError::System(
-                            fluent_message!("mail-send-check-limit", //  "trigger limit rule :{} on {} [{}]",
+                            fluent_message!("sms-send-check-limit", //  "trigger limit rule :{} on {} [{}]",
                                 {
                                     "max_send":limit.max_send,
                                     "area":t.2,

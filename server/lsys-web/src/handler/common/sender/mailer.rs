@@ -9,6 +9,7 @@ use crate::{
 use lsys_core::{fluent_message, str_time};
 use lsys_core::{now_time, FluentMessage};
 use lsys_sender::{
+    // dao::SenderError,
     dao::SenderError,
     model::{SenderConfigStatus, SenderMailConfigType, SenderMailMessageStatus},
 };
@@ -463,9 +464,9 @@ pub async fn mailer_config_del<T: SessionTokenData, D: SessionData, S: UserSessi
                     .map_err(|e| req_dao.fluent_json_data(e))?;
             }
         }
-        Err(err) => match err {
+        Err(err) => match &err {
             SenderError::Sqlx(sqlx::Error::RowNotFound) => {
-                return Ok(JsonData::message("email not find"));
+                return Ok(req_dao.fluent_json_data(err));
             }
             _ => {
                 return Err(req_dao.fluent_json_data(err));

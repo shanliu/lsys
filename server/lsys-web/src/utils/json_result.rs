@@ -45,7 +45,7 @@ impl JsonData {
         JsonData::default().set_message("ok").set_data(value)
     }
     pub fn error<T: std::error::Error>(error: T) -> Self {
-        JsonData::message_error(format!("err:{}", error))
+        JsonData::message_error(format!("error:{}", error))
     }
     pub fn message_error<T: ToString>(msg: T) -> Self {
         JsonData::message(msg).set_code(500).set_sub_code("system")

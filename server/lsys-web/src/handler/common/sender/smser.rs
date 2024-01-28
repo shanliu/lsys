@@ -483,9 +483,10 @@ pub async fn smser_config_del<'t, T: SessionTokenData, D: SessionData, S: UserSe
                     .map_err(|e| req_dao.fluent_json_data(e))?;
             }
         }
-        Err(err) => match err {
+        Err(err) => match &err {
             SenderError::Sqlx(sqlx::Error::RowNotFound) => {
-                return Ok(JsonData::message("email not find"));
+                return Ok(req_dao.fluent_json_data(err));
+                // return Ok(JsonData::message("email not find"));
             }
             _ => {
                 return Err(req_dao.fluent_json_data(err));

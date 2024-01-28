@@ -3,7 +3,7 @@ use crate::{
     handler::access::{AccessAdminSenderTplEdit, AccessAdminSenderTplView},
     JsonData, JsonResult, PageParam,
 };
-use lsys_sender::{dao::SenderError, model::SenderType};
+use lsys_sender::model::SenderType;
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
 use serde::Deserialize;
 use serde_json::json;
@@ -197,9 +197,9 @@ pub async fn tpl_body_del<'t, T: SessionTokenData, D: SessionData, S: UserSessio
     let res = req_dao.web_dao.sender_tpl.find_by_id(&param.id).await;
     let data = match res {
         Ok(d) => d,
-        Err(SenderError::Sqlx(sqlx::Error::RowNotFound)) => {
-            return Ok(JsonData::message("not find"))
-        }
+        // Err(SenderError::Sqlx(sqlx::Error::RowNotFound)) => {
+        //     return Ok(JsonData::message("not find"))
+        // }
         Err(e) => return Err(req_dao.fluent_json_data(e)),
     };
     req_dao
