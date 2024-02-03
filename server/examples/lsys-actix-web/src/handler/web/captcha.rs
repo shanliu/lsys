@@ -26,7 +26,7 @@ pub(crate) async fn captcha(
                         CacheDirective::MaxAge(valid_code_data.save_time as u32),
                     ]))
                     .body(valid_code_data.image_data),
-                Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
+                Err(err) => HttpResponse::InternalServerError().body(req_dao.fluent_string(err)),
             }
         }
         Err(_) => HttpResponse::NotFound().body("not find"),

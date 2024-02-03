@@ -118,7 +118,7 @@ impl RbacResTpl for AccessAppSenderSmsMsg {
             ResTpl {
                 tags: vec!["sms", "app"],
                 user: true,
-                key: "sender-sms",
+                key: "app-sender",
                 ops: vec!["app-sms-manage"],
             },
         ]

@@ -240,21 +240,16 @@ impl SmsRecord {
         tpl_var: &str,
         expected_time: &u64,
         user_id: &Option<u64>,
-        max_try_num: &Option<u8>,
+        max_try_num: &u8,
         env_data: Option<&RequestEnv>,
-    ) -> SenderResult<(u64, Vec<(u64, &'t str, &'t str)>)> {
+    ) -> SenderResult<(u64, Vec<(u64, &'t str, &'t str)>)> //返回(body id,<msg id,area,mobile>)
+    {
         let user_id = user_id.unwrap_or_default();
         let add_time = now_time().unwrap_or_default();
         let tpl_id = tpl_id.to_owned();
         let tpl_var = tpl_var.to_owned();
         let mut idata = Vec::with_capacity(mobiles.len());
-        let mut max_try_num = max_try_num.unwrap_or(0);
-        if max_try_num == 0 {
-            max_try_num = 1
-        }
-        if max_try_num > 10 {
-            max_try_num = 10
-        }
+        let mut max_try_num = max_try_num.to_owned();
         let add_data = mobiles
             .iter()
             .map(|e| {
@@ -271,12 +266,27 @@ impl SmsRecord {
         let reqid = env_data
             .map(|t| t.request_id.to_owned().unwrap_or_default())
             .unwrap_or_default();
+        let reply_host = if max_try_num == 0 {
+            hostname::get()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string()
+        } else {
+            "".to_string()
+        };
+        if max_try_num == 0 {
+            max_try_num = 1
+        }
+        if max_try_num > 10 {
+            max_try_num = 10
+        }
         let res = Insert::<sqlx::MySql, SenderSmsBodyModel, _>::new(
             sqlx_model::model_option_set!(SenderSmsBodyModelRef,{
                 app_id:*app_id,
                 tpl_id:tpl_id,
                 request_id:reqid,
                 tpl_var:tpl_var,
+                reply_host:reply_host,
                 status:SenderSmsBodyStatus::Init as i8,
                 add_time:add_time,
                 max_try_num:max_try_num as u16,
@@ -308,10 +318,9 @@ impl SmsRecord {
                 res_data:res_data,
             }));
         }
-        let row = Insert::<sqlx::MySql, SenderSmsMessageModel, _>::new_vec(idata)
+        Insert::<sqlx::MySql, SenderSmsMessageModel, _>::new_vec(idata)
             .execute(&mut tran)
-            .await?
-            .rows_affected();
+            .await?;
 
         tran.commit().await?;
 
@@ -332,7 +341,7 @@ impl SmsRecord {
             .await;
 
         Ok((
-            row,
+            body_id,
             add_data
                 .into_iter()
                 .map(|e| (e.0, e.1, e.2))
@@ -547,7 +556,7 @@ impl SmsRecord {
             .collect::<Vec<_>>())
     }
     //检测指定发送是否符合配置规则
-    pub async fn send_check(
+    pub(crate) async fn send_check(
         &self,
         app_id: Option<u64>,
         tpl_id: &str,
@@ -560,6 +569,7 @@ impl SmsRecord {
             )));
             // return Err(SenderError::System("miss mobile".to_string()));
         }
+
         let mut rule = self
             .config_list(None, None, Some(app_id.unwrap_or_default()))
             .await?;

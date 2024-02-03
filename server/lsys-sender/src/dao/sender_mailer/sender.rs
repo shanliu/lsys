@@ -1,6 +1,6 @@
 use std::{collections::HashSet, sync::Arc};
 
-use lsys_core::{fluent_message, now_time, AppCore, RequestEnv, TaskData};
+use lsys_core::{fluent_message, now_time, AppCore, FluentMessage, RequestEnv, TaskData};
 
 use lsys_logger::dao::ChangeLogger;
 use lsys_setting::dao::Setting;
@@ -11,7 +11,7 @@ use super::{MailRecord, MailTaskAcquisition, MailTaskData, MailTaskItem, MailerT
 use crate::{
     dao::{
         MessageCancel, MessageLogs, MessageReader, SenderConfig, SenderError, SenderResult,
-        SenderTaskExecutor, SenderTplConfig,
+        SenderTaskExecutor, SenderTplConfig, SenderWaitItem, SenderWaitNotify,
     },
     model::{SenderMailBodyModel, SenderMailMessageModel, SenderType},
 };
@@ -29,6 +29,7 @@ pub struct MailSender {
     cancel: Arc<MessageCancel>,
     message_reader: Arc<MessageReader<SenderMailBodyModel, SenderMailMessageModel>>,
     task: TaskDispatch<u64, MailTaskItem>,
+    send_wait: Arc<SenderWaitNotify>,
 }
 
 impl MailSender {
@@ -43,6 +44,7 @@ impl MailSender {
         task_size: Option<usize>,
         task_timeout: usize,
         is_check: bool,
+        wait_timeout: Option<u8>,
     ) -> Self {
         let config: Arc<SenderConfig> = Arc::new(SenderConfig::new(
             db.clone(),
@@ -69,6 +71,13 @@ impl MailSender {
             message_logs.clone(),
             message_reader.clone(),
         ));
+        let wait_status_key = format!("{}-status-data", MAILER_REDIS_PREFIX);
+        let send_wait = Arc::new(SenderWaitNotify::new(
+            &wait_status_key,
+            redis.clone(),
+            app_core.clone(),
+            wait_timeout.unwrap_or(30),
+        ));
 
         let task = TaskDispatch::new(
             format!("{}-notify", MAILER_REDIS_PREFIX),
@@ -88,6 +97,7 @@ impl MailSender {
             message_logs,
             message_reader,
             task,
+            send_wait,
             cancel,
         }
     }
@@ -104,7 +114,7 @@ impl MailSender {
         reply_mail: &Option<String>,
         max_try_num: &Option<u8>,
         env_data: Option<&RequestEnv>,
-    ) -> SenderResult<(u64, Vec<(u64, &'t str)>)> {
+    ) -> SenderResult<(u64, Vec<(u64, &'t str, Result<bool, FluentMessage>)>)> {
         let tmp = mail
             .iter()
             .collect::<HashSet<_>>()
@@ -114,6 +124,7 @@ impl MailSender {
         let nt = now_time().unwrap_or_default();
         let sendtime = send_time.unwrap_or(nt);
         let sendtime = if sendtime < nt { nt } else { sendtime };
+        let max_try_num = max_try_num.unwrap_or(1);
         self.mail_record
             .send_check(app_id, tpl_id, &tmp, sendtime)
             .await?;
@@ -127,10 +138,18 @@ impl MailSender {
                 &sendtime,
                 reply_mail,
                 user_id,
-                max_try_num,
+                &max_try_num,
                 env_data,
             )
             .await?;
+
+        let mut wait = None;
+        if max_try_num == 0 && mail.len() == 1 {
+            if let Some((msg_id, _)) = res.1.first() {
+                wait = Some(self.send_wait.wait(SenderWaitItem(res.0, *msg_id)).await);
+            }
+        };
+
         if send_time
             .map(|e| e - 1 <= now_time().unwrap_or_default())
             .unwrap_or(true)
@@ -140,19 +159,26 @@ impl MailSender {
                 warn!("mail is add [{}] ,but send fail :{}", res.0, err)
             }
         }
-        let tmp = mail
-            .iter()
-            .map(|e| {
-                (
-                    res.1
-                        .iter()
-                        .find(|t| t.1 == *e)
-                        .map(|e| e.0)
-                        .unwrap_or_default(),
-                    *e,
-                )
-            })
-            .collect::<Vec<_>>();
+
+        let mut tmp = vec![];
+        for e in mail {
+            let msg_id = res
+                .1
+                .iter()
+                .find(|t| t.1 == *e)
+                .map(|e| e.0)
+                .unwrap_or_default();
+            let item_res = if let Some(t) = wait.take() {
+                self.send_wait
+                    .wait_timeout(t)
+                    .await
+                    .map(|e| e.map_err(|c| fluent_message!("mail-send-fail", c)))
+                    .unwrap_or_else(|e| Err(fluent_message!("mail-send-wait-fail", e)))
+            } else {
+                Ok(true)
+            };
+            tmp.push((msg_id, *e, item_res));
+        }
         Ok((res.0, tmp))
     }
     //通过ID取消发送
@@ -240,14 +266,18 @@ impl MailSender {
         }
         Ok(out)
     }
-
+    //发送等待回调处理监听
+    pub async fn task_wait(&self) {
+        self.send_wait.listen().await;
+    }
     //后台发送任务，内部循环不退出
-    pub async fn task(
+    pub async fn task_sender(
         &self,
         se: Vec<Box<dyn SenderTaskExecutor<u64, MailTaskItem, MailTaskData>>>,
     ) -> SenderResult<()> {
         let acquisition = Arc::new(MailTaskAcquisition::new(
             self.db.clone(),
+            self.send_wait.clone(),
             self.message_logs.clone(),
             self.message_reader.clone(),
         ));

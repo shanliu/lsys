@@ -33,11 +33,9 @@ use self::captcha::WebAppCaptcha;
 use self::mailer::WebAppMailer;
 
 pub use self::captcha::CaptchaKey;
-pub use self::mailer::WebAppMailerError;
 pub use self::request::*;
 pub use self::site_config::*;
 use self::smser::WebAppSmser;
-pub use self::smser::WebAppSmserError;
 use self::user::WebUser;
 
 pub struct WebDao {
@@ -176,12 +174,14 @@ impl WebDao {
             true,
         ));
         // 邮件发送任务
-        let task_web_mailer = mailer.clone();
+        let mail_task = mailer.clone();
         tokio::spawn(async move {
-            if let Err(err) = task_web_mailer.task().await {
-                error!("mailer error:{}", err.to_string())
+            if let Err(err) = mail_task.task_sender().await {
+                error!("mailer task error:{}", err.to_string())
             }
         });
+        let mail_wait = mailer.clone();
+        tokio::spawn(async move { mail_wait.task_wait().await });
 
         let notify = Arc::new(Notify::new(
             redis.clone(),
@@ -216,19 +216,23 @@ impl WebDao {
             true,
         ));
         //启动短信发送任务
-        let task_sender = web_smser.clone();
+        let sms_task_sender = web_smser.clone();
         tokio::spawn(async move {
-            if let Err(err) = task_sender.task_sender().await {
+            if let Err(err) = sms_task_sender.task_sender().await {
                 error!("smser sender error:{}", err.to_string())
             }
         });
         //启动短信状态查询任务
-        let task_notify = web_smser.clone();
+        let sms_task_notify = web_smser.clone();
         tokio::spawn(async move {
-            if let Err(err) = task_notify.task_status_query().await {
+            if let Err(err) = sms_task_notify.task_status_query().await {
                 error!("smser notify error:{}", err.to_string())
             }
         });
+
+        let sms_task_wait = web_smser.clone();
+        tokio::spawn(async move { sms_task_wait.task_wait().await });
+
         let captcha = Arc::new(WebAppCaptcha::new(redis.clone()));
 
         let sender_tpl = Arc::new(MessageTpls::new(db.clone(), change_logger.clone()));

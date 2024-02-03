@@ -194,7 +194,7 @@ impl FluentBundle {
     pub fn format_message(&self, message: &FluentMessage) -> String {
         self.find_fluent_bundle(&message.crate_name)
             .and_then(|fluent| {
-                fluent.get_message(message.id).and_then(|msg| {
+                fluent.get_message(&message.id).and_then(|msg| {
                     msg.value().map(|pattern| {
                         let mut args: fluent::FluentArgs = fluent::FluentArgs::new();
                         for (k, v) in &message.data {

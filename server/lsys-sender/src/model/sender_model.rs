@@ -257,6 +257,10 @@ pub struct SenderSmsBodyModel {
     /// 请求ID
     #[sqlx(default)]
     pub request_id: String,
+
+    /// 发送返回主机
+    #[sqlx(default)]
+    pub reply_host: String,
 }
 
 // 短信数据
@@ -366,6 +370,10 @@ pub struct SenderMailBodyModel {
     /// 请求ID
     #[sqlx(default)]
     pub request_id: String,
+
+    /// 发送返回主机
+    #[sqlx(default)]
+    pub reply_host: String,
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]

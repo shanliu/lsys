@@ -80,8 +80,8 @@ export function AddBox(props) {
 
                 let add_ops = sres.ops.map((e) => {
                     return {
-                        op_key: e,
-                        op_name: e,
+                        op_key: e.key,
+                        op_name: e.name,
                     }
                 })
                 set_data = {
@@ -94,11 +94,11 @@ export function AddBox(props) {
                     return !resData.tags || !check
                 })
                 let add_ops = sres.ops.filter((e) => {
-                    return !resData.op_items || !resData.op_items.find((t) => { return t.op_key == e })
+                    return !resData.op_items || !resData.op_items.find((t) => { return t.op_key == e.key })
                 }).map((e) => {
                     return {
-                        op_key: e,
-                        op_name: e,
+                        op_key: e.key,
+                        op_name: e.name,
                     }
                 })
                 set_data = {
@@ -106,9 +106,8 @@ export function AddBox(props) {
                     op_items: [...resData.op_items, ...add_ops],
                 }
             }
-
-
         }
+        set_data.res_name = sres.name;
         return set_data
     }
 
@@ -917,8 +916,8 @@ export default function SystemAccessResPage(props) {
                                     ...filterData
                                 }, loadResData)
                             }}
-                            disabled={pageTagData.tag_rows_loading||pageRowData.rows_loading}
-                            loading={pageTagData.tag_rows_loading||pageRowData.rows_loading}
+                            disabled={pageTagData.tag_rows_loading || pageRowData.rows_loading}
+                            loading={pageTagData.tag_rows_loading || pageRowData.rows_loading}
                         >
                             过滤
                         </Button>
@@ -941,7 +940,7 @@ export default function SystemAccessResPage(props) {
             }
         </Paper>
         <Box sx={{ border: "1px solid #ddd", borderRadius: 1 }}>
-            {!page_error ? (!(pageRowData.rows_loading|| pageTagData.tag_rows_loading)? (
+            {!page_error ? (!(pageRowData.rows_loading || pageTagData.tag_rows_loading) ? (
                 pageRowData.rows.length > 0 ?
                     <Fragment>
                         <Table stickyHeader

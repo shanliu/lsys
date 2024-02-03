@@ -10,7 +10,7 @@ use crate::{
     dao::{
         group_exec, MessageLogs, MessageReader, SenderError, SenderExecError, SenderResult,
         SenderTaskAcquisition, SenderTaskData, SenderTaskExecutor, SenderTaskExecutorBox,
-        SenderTaskItem, SenderTaskResultItem, SenderTaskStatus, SenderTplConfig,
+        SenderTaskItem, SenderTaskResultItem, SenderTaskStatus, SenderTplConfig, SenderWaitNotify,
     },
     model::{
         SenderLogStatus, SenderMessageCancelModel, SenderSmsBodyModel, SenderSmsBodyModelRef,
@@ -73,17 +73,20 @@ pub trait SmsTaskExecutor: Sync + Send + 'static {
 
 pub struct SmsTaskAcquisition {
     db: Pool<sqlx::MySql>,
+    wait_notify: Arc<SenderWaitNotify>,
     message_logs: Arc<MessageLogs>,
     message_reader: Arc<MessageReader<SenderSmsBodyModel, SenderSmsMessageModel>>,
 }
 impl SmsTaskAcquisition {
-    pub fn new(
+    pub(crate) fn new(
         db: Pool<sqlx::MySql>,
+        wait_notify: Arc<SenderWaitNotify>,
         message_logs: Arc<MessageLogs>,
         message_reader: Arc<MessageReader<SenderSmsBodyModel, SenderSmsMessageModel>>,
     ) -> Self {
         Self {
             db,
+            wait_notify,
             message_logs,
             message_reader,
         }
@@ -207,6 +210,9 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
         error: &SenderExecError,
         setting: Option<&SettingModel>,
     ) {
+        self.wait_notify
+            .body_notify(&item.sms.reply_host, item.sms.id, Err(error.to_string()))
+            .await;
         let sql = match error {
             SenderExecError::Finish(_) => {
                 sql_format!(
@@ -314,6 +320,10 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
         for res_item in res_items {
             let sql = match res_item.status {
                 SenderTaskStatus::Completed => {
+                    self.wait_notify
+                        .msg_notify(&item.sms.reply_host, res_item.id, Ok(true))
+                        .await;
+
                     log_data.push((res_item.id, SenderLogStatus::Succ, res_item.send_id.clone()));
                     let ntime = now_time().unwrap_or_default();
                     sql_format!(
@@ -331,6 +341,10 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
                     )
                 }
                 SenderTaskStatus::Progress => {
+                    self.wait_notify
+                        .msg_notify(&item.sms.reply_host, res_item.id, Ok(false))
+                        .await;
+
                     log_data.push((res_item.id, SenderLogStatus::Succ, res_item.send_id.clone()));
                     let ntime = now_time().unwrap_or_default();
                     sql_format!(
@@ -370,6 +384,14 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
                             SenderSmsMessageStatus::Init as i8,
                         )
                     } else {
+                        self.wait_notify
+                            .msg_notify(
+                                &item.sms.reply_host,
+                                res_item.id,
+                                Err(res_item.message.to_owned()),
+                            )
+                            .await;
+
                         sql_format!(
                             r#"UPDATE {}
                                 SET try_num=try_num+1,status={}
@@ -402,7 +424,11 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
         error: &SenderExecError,
     ) {
         let fail_ids = record.data.iter().map(|e| e.id).collect::<Vec<_>>();
-
+        for tmp in fail_ids.iter() {
+            self.wait_notify
+                .msg_notify(&item.sms.reply_host, *tmp, Err(error.to_string()))
+                .await;
+        }
         let sql = match error {
             SenderExecError::Finish(_) => {
                 sql_format!(

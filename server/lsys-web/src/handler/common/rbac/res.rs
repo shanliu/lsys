@@ -6,6 +6,7 @@ use crate::{
     PageParam, {JsonData, JsonResult},
 };
 
+use lsys_core::FluentMessage;
 use lsys_rbac::{
     dao::{RbacDao, RbacRes, ResOp, ResParam, ResTpl},
     model::{RbacResModel, RbacResOpModel, RbacTagsModel},
@@ -381,12 +382,44 @@ pub struct ResAllParam {
 }
 
 //资源授权
-pub async fn rbac_all_res_list(res_tpl: &[ResTpl], param: ResAllParam) -> JsonResult<JsonData> {
+pub async fn rbac_all_res_list(
+    res_tpl: &[ResTpl],
+    param: ResAllParam,
+    req_dao: &RequestDao,
+) -> JsonResult<JsonData> {
     let res = res_tpl
         .iter()
         .filter(|e| match param.global_res {
             Some(g) => g != e.user,
             None => true,
+        })
+        .map(|e| {
+            let name = req_dao.fluent_string(FluentMessage {
+                id: format!("res-{}", e.key.replace('{', "").replace('}', "")),
+                crate_name: env!("CARGO_PKG_NAME").to_string(),
+                data: vec![],
+            });
+            let ops = e
+                .ops
+                .iter()
+                .map(|e| {
+                    json!({
+                        "key":e,
+                        "name": req_dao.fluent_string(FluentMessage {
+                            id: format!("res-op-{}", e.replace('{', "").replace('}', "")),
+                            crate_name: env!("CARGO_PKG_NAME").to_string(),
+                            data: vec![],
+                        })
+                    })
+                })
+                .collect::<Vec<_>>();
+            json!({
+                "tags":e.tags,
+                "key": e.key,
+                "user":e.user,
+                "ops": ops,
+                "name":name,
+            })
         })
         .collect::<Vec<_>>();
     Ok(JsonData::data(json!({ "data": res })))

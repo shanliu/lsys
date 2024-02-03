@@ -2,7 +2,7 @@ use crate::{
     dao::{
         group_exec, MessageLogs, MessageReader, SenderError, SenderExecError, SenderResult,
         SenderTaskAcquisition, SenderTaskData, SenderTaskExecutor, SenderTaskExecutorBox,
-        SenderTaskItem, SenderTaskResultItem, SenderTaskStatus, SenderTplConfig,
+        SenderTaskItem, SenderTaskResultItem, SenderTaskStatus, SenderTplConfig, SenderWaitNotify,
     },
     model::{
         SenderLogStatus, SenderMailBodyModel, SenderMailBodyModelRef, SenderMailBodyStatus,
@@ -61,18 +61,21 @@ impl SenderTaskData for MailTaskData {
 
 pub struct MailTaskAcquisition {
     db: Pool<sqlx::MySql>,
+    wait_notify: Arc<SenderWaitNotify>,
     message_logs: Arc<MessageLogs>,
     message_reader: Arc<MessageReader<SenderMailBodyModel, SenderMailMessageModel>>,
 }
 
 impl MailTaskAcquisition {
-    pub fn new(
+    pub(crate) fn new(
         db: Pool<sqlx::MySql>,
+        wait_notify: Arc<SenderWaitNotify>,
         message_logs: Arc<MessageLogs>,
         message_reader: Arc<MessageReader<SenderMailBodyModel, SenderMailMessageModel>>,
     ) -> Self {
         Self {
             db,
+            wait_notify,
             message_logs,
             message_reader,
         }
@@ -193,6 +196,9 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
         error: &SenderExecError,
         setting: Option<&SettingModel>,
     ) {
+        self.wait_notify
+            .body_notify(&item.mail.reply_host, item.mail.id, Err(error.to_string()))
+            .await;
         let sql = match error {
             SenderExecError::Finish(_) => {
                 sql_format!(
@@ -302,6 +308,10 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
         for res_item in res_items {
             let sql = match res_item.status {
                 SenderTaskStatus::Completed => {
+                    self.wait_notify
+                        .msg_notify(&item.mail.reply_host, res_item.id, Ok(true))
+                        .await;
+
                     log_data.push((res_item.id, SenderLogStatus::Succ, res_item.send_id.clone()));
                     let ntime = now_time().unwrap_or_default();
                     sql_format!(
@@ -319,6 +329,10 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
                     )
                 }
                 SenderTaskStatus::Progress => {
+                    self.wait_notify
+                        .msg_notify(&item.mail.reply_host, res_item.id, Ok(false))
+                        .await;
+
                     log_data.push((res_item.id, SenderLogStatus::Succ, res_item.send_id.clone()));
                     let ntime = now_time().unwrap_or_default();
                     sql_format!(
@@ -335,6 +349,14 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
                     )
                 }
                 SenderTaskStatus::Failed(retry) => {
+                    self.wait_notify
+                        .msg_notify(
+                            &item.mail.reply_host,
+                            res_item.id,
+                            Err(res_item.message.to_owned()),
+                        )
+                        .await;
+
                     log_data.push((
                         res_item.id,
                         SenderLogStatus::Fail,
@@ -391,6 +413,12 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
         error: &SenderExecError,
     ) {
         let fail_ids = record.data.iter().map(|e| e.id).collect::<Vec<_>>();
+
+        for tmp in fail_ids.iter() {
+            self.wait_notify
+                .msg_notify(&item.mail.reply_host, *tmp, Err(error.to_string()))
+                .await;
+        }
 
         let sql = match error {
             SenderExecError::Finish(_) => {

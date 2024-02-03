@@ -4,6 +4,9 @@ check-email-not-match  =  = 邮箱[{$mail}]格式错误
 smtp-check-error   = Smpt服务器异常:{$msg}
 sms-config-url-error  = 网关地址错误,仅支持http或https.
 sms-config-branch-error  = 批量发送数量不能超过:{$max}
+
+mail-send-fail = 邮件发送失败:{$msg}
+mail-send-wait-fail = 邮件发送中,获取发送结果失败:{$msg}
 mail-cancel-status-error = 邮件非待发送状态:{$status}
 mail-config-add-error  = 邮件配置:字段{$name}校验失败:{$msg}
 mail-config-add-max-num-error = 请提交每次最大邮件限制发送数
@@ -18,6 +21,8 @@ mail-send-ok-cancel  = 邮件已发送到邮箱:{$to_mail}[{$msg_id}]
 sms-cancel-status-error  = 短信非待发送状态:{$status}
 sms-config-add-error  = 短信配置:字段{$name}校验失败:{$msg}
 sms-config-add-max-num-error = 请提交每次最大短信限制发送数
+sms-send-fail = 短信发送失败:{$msg}
+sms-send-wait-fail = 短信发送中,获取发送结果失败:{$msg}
 sms-send-check-miss-error = 接收短信为空
 sms-send-check-max-send  = 超过每次最大短信发送量:{$max}
 sms-send-check-block  = 接收号码:{$mobile} 已被屏蔽[{$config_id}]

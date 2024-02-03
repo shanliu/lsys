@@ -38,7 +38,9 @@ pub async fn res<'t>(
         "delete" => user_res_delete(json_param.param::<ResDeleteParam>()?, &auth_dao).await,
         "list_data" => user_res_list_data(json_param.param::<ResListDataParam>()?, &auth_dao).await,
         "tags" => user_res_tags(json_param.param::<ResTagsParam>()?, &auth_dao).await,
-        "all" => rbac_all_res_list(&res_tpls(), json_param.param::<ResAllParam>()?).await,
+        "all" => {
+            rbac_all_res_list(&res_tpls(), json_param.param::<ResAllParam>()?, &auth_dao).await
+        }
         name => handler_not_found!(name),
     };
     Ok(data?.into())

@@ -1,6 +1,6 @@
 use std::{collections::HashSet, sync::Arc};
 
-use lsys_core::{fluent_message, now_time, AppCore, RequestEnv, TaskData};
+use lsys_core::{fluent_message, now_time, AppCore, FluentMessage, RequestEnv, TaskData};
 
 use lsys_logger::dao::ChangeLogger;
 use lsys_notify::dao::Notify;
@@ -16,7 +16,7 @@ use super::{
 use crate::{
     dao::{
         MessageCancel, MessageLogs, MessageReader, SenderConfig, SenderError, SenderResult,
-        SenderTaskExecutor, SenderTplConfig,
+        SenderTaskExecutor, SenderTplConfig, SenderWaitItem, SenderWaitNotify,
     },
     model::{SenderSmsBodyModel, SenderSmsMessageModel, SenderType},
 };
@@ -37,6 +37,7 @@ pub struct SmsSender {
     message_reader: Arc<MessageReader<SenderSmsBodyModel, SenderSmsMessageModel>>,
     task_sender: TaskDispatch<u64, SmsTaskItem>,
     task_status: TaskDispatch<u64, SmsStatusTaskItem>,
+    send_wait: Arc<SenderWaitNotify>,
     task_status_key: String,
     setting: Arc<Setting>,
     notify: Arc<Notify>,
@@ -57,6 +58,7 @@ impl SmsSender {
         task_timeout: usize,
         is_check: bool,
         notify_timeout: Option<u64>,
+        wait_timeout: Option<u8>,
     ) -> Self {
         let config: Arc<SenderConfig> = Arc::new(SenderConfig::new(
             db.clone(),
@@ -105,10 +107,19 @@ impl SmsSender {
         );
         let task_status_key = format!("{}-status-data", SMSER_REDIS_PREFIX);
         let sms_notify = Arc::new(SmsSendNotify::new(db.clone(), notify.clone()));
+
         let status_query = Arc::new(SmsStatusQuery::new(
             redis.clone(),
             task_status_key.clone(),
             notify_timeout.unwrap_or(1800),
+        ));
+
+        let wait_status_key = format!("{}-status-data", SMSER_REDIS_PREFIX);
+        let send_wait = Arc::new(SenderWaitNotify::new(
+            &wait_status_key,
+            redis.clone(),
+            app_core.clone(),
+            wait_timeout.unwrap_or(30),
         ));
 
         Self {
@@ -127,6 +138,7 @@ impl SmsSender {
             sms_notify,
             status_query,
             notify,
+            send_wait,
         }
     }
     pub async fn add_status_query(&self, items: &[&SenderSmsMessageModel]) -> SenderResult<()> {
@@ -149,14 +161,17 @@ impl SmsSender {
         user_id: &Option<u64>,
         max_try_num: &Option<u8>,
         env_data: Option<&RequestEnv>,
-    ) -> SenderResult<(u64, Vec<(u64, &'t str, &'t str)>)> {
+    ) -> SenderResult<(
+        u64,
+        Vec<(u64, &'t str, &'t str, Result<bool, FluentMessage>)>,
+    )> {
         let tmp = mobiles
             .iter()
             .collect::<HashSet<_>>()
             .into_iter()
             .map(|e| (e.0, e.1))
             .collect::<Vec<(&str, &str)>>();
-
+        let max_try_num = max_try_num.unwrap_or(1);
         let nt = now_time().unwrap_or_default();
         let sendtime = send_time.unwrap_or(nt);
         let sendtime = if sendtime < nt { nt } else { sendtime };
@@ -172,10 +187,18 @@ impl SmsSender {
                 tpl_var,
                 &sendtime,
                 user_id,
-                max_try_num,
+                &max_try_num,
                 env_data,
             )
             .await?;
+
+        let mut wait = None;
+        if max_try_num == 0 && mobiles.len() == 1 {
+            if let Some((msg_id, _, _)) = res.1.first() {
+                wait = Some(self.send_wait.wait(SenderWaitItem(res.0, *msg_id)).await);
+            }
+        };
+
         if send_time
             .map(|e| e - 1 <= now_time().unwrap_or_default())
             .unwrap_or(true)
@@ -185,20 +208,25 @@ impl SmsSender {
                 warn!("sms is add [{}] ,but send fail :{}", res.0, err)
             }
         }
-        let tmp = mobiles
-            .iter()
-            .map(|e| {
-                (
-                    res.1
-                        .iter()
-                        .find(|t| t.1 == e.0 && t.2 == e.1)
-                        .map(|e| e.0)
-                        .unwrap_or_default(),
-                    e.0,
-                    e.1,
-                )
-            })
-            .collect::<Vec<_>>();
+        let mut tmp = vec![];
+        for e in mobiles {
+            let msg_id = res
+                .1
+                .iter()
+                .find(|t| t.1 == e.0 && t.2 == e.1)
+                .map(|e| e.0)
+                .unwrap_or_default();
+            let item_res = if let Some(t) = wait.take() {
+                self.send_wait
+                    .wait_timeout(t)
+                    .await
+                    .map(|e| e.map_err(|c| fluent_message!("sms-send-fail", c)))
+                    .unwrap_or_else(|e| Err(fluent_message!("sms-send-wait-fail", e)))
+            } else {
+                Ok(true)
+            };
+            tmp.push((msg_id, e.0, e.1, item_res));
+        }
         Ok((res.0, tmp))
     }
     pub async fn cancal_from_message_snid_vec(
@@ -292,6 +320,7 @@ impl SmsSender {
     ) -> SenderResult<()> {
         let acquisition = Arc::new(SmsTaskAcquisition::new(
             self.db.clone(),
+            self.send_wait.clone(),
             self.message_logs.clone(),
             self.message_reader.clone(),
         ));
@@ -303,6 +332,10 @@ impl SmsSender {
             )
             .await;
         Ok(())
+    }
+    //发送等待回调处理监听
+    pub async fn task_wait(&self) {
+        self.send_wait.listen().await;
     }
     //后台发送任务，内部循环不退出
     pub async fn task_status_query(

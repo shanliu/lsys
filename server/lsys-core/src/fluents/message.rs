@@ -1,13 +1,17 @@
 #[derive(Debug)]
 pub struct FluentMessage {
-    pub id: &'static str,
+    pub id: String,
     pub crate_name: String,
     pub data: Vec<(String, String)>,
 }
 
 impl std::fmt::Display for FluentMessage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}:{}", self.id, serde_json::json!(self.data))
+        if self.data.is_empty() {
+            write!(f, "{}", self.id)
+        } else {
+            write!(f, "{}:{}", self.id, serde_json::json!(self.data))
+        }
     }
 }
 
@@ -16,7 +20,7 @@ macro_rules! fluent_message {
     ($key:literal) => {
         {
             $crate::FluentMessage {
-                id: $key,
+                id: $key.to_owned(),
                 crate_name:env!("CARGO_PKG_NAME").to_string(),
                 data:vec![]
             }
@@ -25,7 +29,7 @@ macro_rules! fluent_message {
     ($key:literal,{$($msg_key:literal:$msg_val:expr),+$(,)*}) => {
         {
             $crate::FluentMessage {
-                id: $key,
+                id: $key.to_owned(),
                 crate_name:env!("CARGO_PKG_NAME").to_string(),
                 data:vec![
                     $( ($msg_key.to_owned(), $msg_val.to_string()) ),*
@@ -36,7 +40,7 @@ macro_rules! fluent_message {
     ($key:literal,$msg_val:expr) => {
         {
             $crate::FluentMessage {
-                id: $key,
+                id: $key.to_owned(),
                 crate_name:env!("CARGO_PKG_NAME").to_string(),
                 data:vec![("msg".to_owned(),$msg_val.to_string())]
             }

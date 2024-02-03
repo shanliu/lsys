@@ -1,7 +1,6 @@
 // !!!以下的实现为非必要,可外部自行组织!!!
 // 以下实现仅用于解决本系统的资源依赖跟关系角色定义问题，是相对于权限系统外的辅助工具的实现。
 use super::{Rbac, RbacAccess, RoleRelationKey, UserRbacResult};
-use serde::{Deserialize, Serialize};
 
 // 授权依赖类型
 pub type RbacCheckDepend = dyn RbacCheck + std::marker::Sync + std::marker::Send;
@@ -45,7 +44,7 @@ impl Rbac {
 // !!!非必须,可外部自行组织!!!
 // 关系模板获取trait 定义,用在 access_relation_tpl 宏中
 // 资源模板
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct RelationTpl {
     pub key: &'static str, //资源KEY
     pub user: bool,        //系统资源还是用户资源
@@ -79,7 +78,7 @@ macro_rules! access_relation_tpl {
 // 通过trait加宏操作方式实现 一般在实现了 RbacCheck trait 的结构上实现
 
 // 资源模板
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct ResTpl {
     pub tags: Vec<&'static str>, //资源建议的TAG,分类用
     pub key: &'static str,       //资源KEY

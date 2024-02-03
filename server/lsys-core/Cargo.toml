@@ -11,7 +11,11 @@ dotenv = "~0.15.*"
 
 tokio = { version = "~1.28.0", features = ["fs", "macros"] }
 deadpool-redis = { version = "0.12" }
-redis = { version = "~0.23", features = ["aio", "tokio-comp"] }
+redis = { version = "~0.23", features = [
+    "aio",
+    "tokio-comp",
+    "connection-manager",
+] }
 
 
 serde = { version = "1.0.*" }

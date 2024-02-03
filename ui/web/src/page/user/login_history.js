@@ -16,8 +16,12 @@ const filterStatus = {
         { key: 1, val: '登陆成功' },
     ],
     login_type: [
-        { key: "name Login", val: '用户名登陆' },
-        { key: "Email Login", val: '邮箱登陆' },
+        { key: "name", val: '用户名登陆' },
+        { key: "email", val: '邮箱登陆' },
+        { key: "email-code", val: '邮箱验证码登陆' },
+        { key: "mobile", val: '手机号登陆' },
+        { key: "mobile-code", val: '短信登陆' },
+        { key: "external", val: '外部账号登陆' }
     ]
 };
 

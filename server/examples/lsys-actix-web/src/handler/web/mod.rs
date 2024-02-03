@@ -49,14 +49,15 @@ pub(crate) fn router<T>(app: App<T>, app_dao: &Arc<WebDao>) -> App<T>
 where
     T: ServiceFactory<ServiceRequest, Config = (), Error = Error, InitError = ()>,
 {
+    let static_serve_from = app_dao
+        .app_core
+        .config
+        .find(None)
+        .get_string("static_serve_from")
+        .unwrap_or_else(|_| String::from("./static"));
     let mut app = app
         .service(scope("/captcha").service(captcha::captcha))
-       // .service(actix_files::Files::new("/static", "./static").show_files_listing())
-        ;
-    if let Ok(tmp) = app_dao.app_core.config.find(None).get_string("ui_path") {
-        if !tmp.is_empty() && tmp != *"./" && tmp != *"/" {
-            app = app.service(index::index);
-        }
-    }
+        .service(actix_files::Files::new("/static", static_serve_from).show_files_listing());
+    app = app.service(index::dome);
     app
 }

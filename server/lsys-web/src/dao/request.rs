@@ -10,12 +10,12 @@ use lsys_user::dao::auth::{
 use tokio::sync::RwLock;
 use tracing::warn;
 
-use crate::{dao::WebDao, JsonData, JsonDataFluent};
+use crate::{dao::WebDao, FluentFormat, FluentJsonData, JsonData};
 
 pub struct RequestDao {
     pub web_dao: Arc<WebDao>,
     pub req_env: RequestEnv,
-    pub fluent: Arc<FluentBundle>,
+    fluent: Arc<FluentBundle>,
 }
 
 impl RequestDao {
@@ -26,8 +26,11 @@ impl RequestDao {
             req_env,
         }
     }
-    pub fn fluent_json_data<F: JsonDataFluent>(&self, data: F) -> JsonData {
+    pub fn fluent_json_data<F: FluentJsonData>(&self, data: F) -> JsonData {
         JsonData::fluent_from(&self.fluent, data)
+    }
+    pub fn fluent_string<F: FluentFormat>(&self, data: F) -> String {
+        data.fluent_format(&self.fluent)
     }
 }
 

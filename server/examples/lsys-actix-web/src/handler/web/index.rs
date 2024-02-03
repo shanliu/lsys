@@ -7,8 +7,8 @@ use actix_web::{get, HttpResponse, Responder};
 use actix_web::{http::StatusCode, Result};
 use lsys_web::dao::WebDao;
 
-#[get("/")]
-pub(crate) async fn index<'t>(web_dao: Data<WebDao>) -> Result<HttpResponse, WebHandError> {
+#[get("/dome")]
+pub(crate) async fn dome(web_dao: Data<WebDao>) -> Result<HttpResponse, WebHandError> {
     let mut ctx = tera::Context::new();
     ctx.insert("name", &"lsys".to_owned());
     ctx.insert("text", &"Welcome!".to_owned());

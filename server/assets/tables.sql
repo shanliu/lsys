@@ -415,6 +415,7 @@ CREATE TABLE `yaf_sender_mail_body` (
     `reply_mail` varchar(254) NOT NULL COMMENT '回复',
     `user_ip` varchar(40) NOT NULL DEFAULT '' COMMENT '操作者IP',
     `request_id` varchar(32) NOT NULL COMMENT '请求ID',
+    `reply_host` varchar(255) NOT NULL COMMENT '结果返回主机',
     PRIMARY KEY (`id`),
     KEY `sender_record_data_IDX` (`expected_time`, `status`, `id`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '发送邮件数据';
@@ -449,6 +450,7 @@ CREATE TABLE `yaf_sender_sms_body` (
     `user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '用户id',
     `user_ip` varchar(40) NOT NULL DEFAULT '' COMMENT '操作者IP',
     `request_id` varchar(32) NOT NULL COMMENT '请求ID',
+    `reply_host` varchar(255) NOT NULL COMMENT '结果返回主机',
     PRIMARY KEY (`id`),
     KEY `sender_record_data_IDX` (`expected_time`, `status`, `id`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '发送短信数据';

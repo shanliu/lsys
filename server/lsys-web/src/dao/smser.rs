@@ -1,8 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
-use config::ConfigError;
 use lsys_app::model::AppsModel;
-use lsys_core::{fluent_message, AppCore, FluentMessage, RequestEnv};
+use lsys_core::{fluent_message, AppCore, RequestEnv};
 use lsys_logger::dao::ChangeLogger;
 use lsys_notify::dao::Notify;
 use lsys_sender::{
@@ -10,7 +9,8 @@ use lsys_sender::{
         AliYunSendStatus, AliYunSenderTask, CloOpenSenderTask, HwYunSenderTask, JDCloudSenderTask,
         JDSendStatus, NetEaseSendStatus, NetEaseSenderTask, SenderAliYunConfig,
         SenderCloOpenConfig, SenderError, SenderHwYunConfig, SenderJDCloudConfig,
-        SenderNetEaseConfig, SenderTenYunConfig, SmsSender, TenYunSendStatus, TenyunSenderTask,
+        SenderNetEaseConfig, SenderResult, SenderTenYunConfig, SmsSender, TenYunSendStatus,
+        TenyunSenderTask,
     },
     model::{SenderSmsBodyModel, SenderSmsMessageModel},
 };
@@ -18,38 +18,6 @@ use lsys_setting::dao::Setting;
 use lsys_user::dao::account::check_mobile;
 use serde_json::json;
 use sqlx::{MySql, Pool};
-
-pub enum WebAppSmserError {
-    Config(ConfigError),
-    System(FluentMessage),
-    Sender(SenderError),
-}
-impl ToString for WebAppSmserError {
-    fn to_string(&self) -> String {
-        match self {
-            WebAppSmserError::Config(err) => {
-                format!("config error:{}", err)
-            }
-            WebAppSmserError::System(err) => {
-                format!("error:{}", err)
-            }
-            WebAppSmserError::Sender(err) => {
-                format!("sender error:{}", err)
-            }
-        }
-    }
-}
-impl From<ConfigError> for WebAppSmserError {
-    fn from(err: ConfigError) -> Self {
-        WebAppSmserError::Config(err)
-    }
-}
-
-impl From<SenderError> for WebAppSmserError {
-    fn from(err: SenderError) -> Self {
-        WebAppSmserError::Sender(err)
-    }
-}
 
 pub struct WebAppSmser {
     pub aliyun_sender: SenderAliYunConfig,
@@ -87,6 +55,7 @@ impl WebAppSmser {
             task_timeout,
             is_check,
             None,
+            None,
         ));
 
         let aliyun_sender =
@@ -112,10 +81,12 @@ impl WebAppSmser {
             jd_sender,
         }
     }
+    pub async fn task_wait(&self) {
+        self.smser.task_wait().await
+    }
     // 短信后台任务
-    pub async fn task_sender(&self) -> Result<(), WebAppSmserError> {
-        Ok(self
-            .smser
+    pub async fn task_sender(&self) -> SenderResult<()> {
+        self.smser
             .task_sender(vec![
                 Box::<AliYunSenderTask>::default(),
                 Box::<HwYunSenderTask>::default(),
@@ -124,19 +95,18 @@ impl WebAppSmser {
                 Box::<JDCloudSenderTask>::default(),
                 Box::<CloOpenSenderTask>::default(),
             ])
-            .await?)
+            .await
     }
     // 短信发送状态查询任务
-    pub async fn task_status_query(&self) -> Result<(), WebAppSmserError> {
-        Ok(self
-            .smser
+    pub async fn task_status_query(&self) -> SenderResult<()> {
+        self.smser
             .task_status_query(vec![
                 Box::<AliYunSendStatus>::default(),
                 Box::<JDSendStatus>::default(),
                 Box::<NetEaseSendStatus>::default(),
                 Box::<TenYunSendStatus>::default(),
             ])
-            .await?)
+            .await
     }
     // 短信发送接口
     #[allow(clippy::too_many_arguments)]
@@ -150,11 +120,11 @@ impl WebAppSmser {
         send_time: &Option<u64>,
         max_try_num: &Option<u8>,
         env_data: Option<&RequestEnv>,
-    ) -> Result<Vec<(u64, &'t str)>, WebAppSmserError> {
+    ) -> Result<Vec<(u64, &'t str)>, SenderError> {
         let mb = mobile.iter().map(|e| (area, *e)).collect::<Vec<_>>();
         for tmp in mb.iter() {
             check_mobile(tmp.0, tmp.1).map_err(|e| {
-                WebAppSmserError::System(fluent_message!("sms-send-check",{
+                SenderError::System(fluent_message!("sms-send-check",{
                     "mobile":tmp.1,
                     "msg":e
                 }))
@@ -172,8 +142,7 @@ impl WebAppSmser {
                 max_try_num,
                 env_data,
             )
-            .await
-            .map_err(WebAppSmserError::Sender)?;
+            .await?;
         Ok(out.1.into_iter().map(|e| (e.0, e.2)).collect::<Vec<_>>())
     }
     // APP 短信短信取消发送
@@ -182,11 +151,10 @@ impl WebAppSmser {
         app: &AppsModel,
         snid_data: &[u64],
         env_data: Option<&RequestEnv>,
-    ) -> Result<Vec<(u64, bool, Option<SenderError>)>, WebAppSmserError> {
+    ) -> Result<Vec<(u64, bool, Option<SenderError>)>, SenderError> {
         self.smser
             .cancal_from_message_snid_vec(snid_data, &app.user_id, env_data)
             .await
-            .map_err(WebAppSmserError::Sender)
     }
     // 通过消息取消发送
     pub async fn send_cancel(
@@ -195,11 +163,10 @@ impl WebAppSmser {
         message: &[&SenderSmsMessageModel],
         user_id: u64,
         env_data: Option<&RequestEnv>,
-    ) -> Result<Vec<(u64, bool, Option<SenderError>)>, WebAppSmserError> {
+    ) -> Result<Vec<(u64, bool, Option<SenderError>)>, SenderError> {
         self.smser
             .cancal_from_message(body, message, &user_id, env_data)
             .await
-            .map_err(WebAppSmserError::Sender)
     }
     // 短信发送接口
     async fn send(
@@ -210,14 +177,15 @@ impl WebAppSmser {
         body: &str,
         max_try_num: &Option<u8>,
         env_data: Option<&RequestEnv>,
-    ) -> Result<(), WebAppSmserError> {
+    ) -> Result<u64, SenderError> {
         check_mobile(area, mobile).map_err(|e| {
-            WebAppSmserError::System(fluent_message!("sms-send-check",{
+            SenderError::System(fluent_message!("sms-send-check",{
                 "mobile":mobile,
                 "msg":e
             }))
         })?;
-        self.smser
+        let mut out = self
+            .smser
             .send(
                 None,
                 &[(area, mobile)],
@@ -228,9 +196,20 @@ impl WebAppSmser {
                 max_try_num,
                 env_data,
             )
-            .await
-            .map_err(WebAppSmserError::Sender)
-            .map(|_| ())
+            .await?;
+
+        Ok(match out.1.pop() {
+            Some(tmp1) => {
+                tmp1.3.map_err(SenderError::System)?;
+                tmp1.0
+            }
+            None => {
+                return Err(SenderError::System(fluent_message!(
+                    "mail-send-check",
+                    "unkown error"
+                )))
+            }
+        })
     }
     pub async fn send_valid_code(
         &self,
@@ -239,7 +218,7 @@ impl WebAppSmser {
         code: &str,
         ttl: &usize,
         env_data: Option<&RequestEnv>,
-    ) -> Result<(), WebAppSmserError> {
+    ) -> Result<u64, SenderError> {
         let mut context = HashMap::new();
         context.insert("code", code.to_owned());
         context.insert("time", ttl.to_string());
@@ -248,7 +227,7 @@ impl WebAppSmser {
             area,
             mobile,
             &json!(context).to_string(),
-            &Some(1),
+            &Some(0),
             env_data,
         )
         .await
