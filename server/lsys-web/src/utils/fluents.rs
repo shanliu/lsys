@@ -192,7 +192,7 @@ impl FluentFormat for sqlx::Error {
     }
 }
 macro_rules! crate_error_fluent {
-    ($crate_error:ty,$code:literal) => {
+    ($crate_error:ty) => {
         impl FluentFormat for $crate_error {
             fn fluent_format(&self, fluent: &FluentBundle) -> String {
                 fluent.format_message(&self.to_string().into())
@@ -200,11 +200,11 @@ macro_rules! crate_error_fluent {
         }
     };
 }
-crate_error_fluent!(config::ConfigError, "config");
-crate_error_fluent!(std::io::Error, "io");
-crate_error_fluent!(tera::Error, "tera");
-crate_error_fluent!(lsys_docs::gitError, "git");
-crate_error_fluent!(redis::RedisError, "redis");
-crate_error_fluent!(deadpool_redis::PoolError, "redis");
-crate_error_fluent!(serde_json::Error, "serde");
-crate_error_fluent!(ParseIntError, "parse");
+crate_error_fluent!(config::ConfigError);
+crate_error_fluent!(std::io::Error);
+crate_error_fluent!(tera::Error);
+crate_error_fluent!(lsys_docs::gitError);
+crate_error_fluent!(redis::RedisError);
+crate_error_fluent!(deadpool_redis::PoolError);
+crate_error_fluent!(serde_json::Error);
+crate_error_fluent!(ParseIntError);
