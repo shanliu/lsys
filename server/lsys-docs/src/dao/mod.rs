@@ -1,7 +1,6 @@
 use std::env;
-use std::error::Error;
-use std::fmt::Display;
-use std::fmt::Formatter;
+// use std::error::Error;
+
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -12,7 +11,6 @@ mod logger;
 mod task;
 pub use docs::*;
 
-use lsys_core::FluentMessage;
 use lsys_core::RemoteNotify;
 use lsys_logger::dao::ChangeLogger;
 use relative_path::RelativePath;
@@ -20,33 +18,8 @@ pub use task::*;
 
 use sqlx::MySql;
 use sqlx::Pool;
-
-#[derive(Debug)]
-pub enum GitDocError {
-    Sqlx(sqlx::Error),
-    Git(git2::Error),
-    System(FluentMessage),
-    Remote(FluentMessage),
-}
-impl Display for GitDocError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-impl Error for GitDocError {}
-impl From<git2::Error> for GitDocError {
-    fn from(err: git2::Error) -> Self {
-        GitDocError::Git(err)
-    }
-}
-impl From<sqlx::Error> for GitDocError {
-    fn from(err: sqlx::Error) -> Self {
-        GitDocError::Sqlx(err)
-    }
-}
-
-pub type GitDocResult<T> = Result<T, GitDocError>;
+mod result;
+pub use result::*;
 
 pub struct DocsDao {
     //内部依赖

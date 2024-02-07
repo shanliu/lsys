@@ -5,8 +5,8 @@ use crate::dao::account::UserAccountResult;
 
 use crate::model::{UserMobileModel, UserMobileModelRef, UserMobileStatus, UserModel};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::RequestEnv;
 use lsys_core::{fluent_message, now_time, RemoteNotify};
+use lsys_core::{IntoFluentMessage, RequestEnv};
 
 use lsys_logger::dao::ChangeLogger;
 use sqlx::{Acquire, MySql, Pool, Transaction};
@@ -219,7 +219,9 @@ impl UserMobile {
             {
                 warn!(
                     "mobile {}-{} valid clear fail:{}",
-                    &user_mobile.area_code, &user_mobile.mobile, err
+                    &user_mobile.area_code,
+                    &user_mobile.mobile,
+                    err.to_fluent_message().default_format()
                 );
             }
         }

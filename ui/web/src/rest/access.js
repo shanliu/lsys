@@ -377,7 +377,7 @@ export async function roleDelete(params, config) {
     role_id
   } = params;
   role_id = parseInt(role_id)
-  if (isNaN(role_id) || role_id <= 0) return fialResult({ id: "缺少ID" });
+  if (isNaN(role_id) || role_id <= 0) return failResult({ id: "缺少ID" });
   let param = {
     role_id: role_id
   };

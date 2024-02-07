@@ -11,6 +11,7 @@ use actix_web::web::Data;
 use actix_web::CustomizeResponder;
 use actix_web::Responder;
 use actix_web::Result;
+use lsys_core::IntoFluentMessage;
 use lsys_web::dao::WebDao;
 use lsys_web::handler::api::utils::docs_file;
 use lsys_web::handler::api::utils::docs_git_add;
@@ -64,7 +65,7 @@ async fn docs_raw(
         &web_dao,
     )
     .await
-    .map_err(|e| InternalError::new(e.to_string(), StatusCode::OK))?;
+    .map_err(|e| InternalError::new(e.to_fluent_message().default_format(), StatusCode::OK))?;
     debug!("read raw file:{}", &path.file_path.to_string_lossy());
     let file = NamedFile::open_async(path.file_path).await?;
     let ftype = file.content_type().to_string();

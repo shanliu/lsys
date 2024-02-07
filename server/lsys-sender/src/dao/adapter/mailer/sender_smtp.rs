@@ -21,7 +21,7 @@ use lettre::{
     },
     AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
 };
-use lsys_core::{fluent_message, RequestEnv};
+use lsys_core::{fluent_message, IntoFluentMessage, RequestEnv};
 use lsys_logger::dao::ChangeLogger;
 use lsys_setting::{
     dao::{
@@ -297,7 +297,10 @@ impl SenderTaskExecutor<u64, MailTaskItem, MailTaskData> for SmtpSenderTask {
         debug!("msgid:{} config_id:{} ", val.mail.id, tpl_config.id,);
         let smtp_setting =
             SettingData::<SmtpConfig>::try_from(setting.to_owned()).map_err(|e| {
-                SenderExecError::Next(format!("parse config to smtp setting fail:{}", e))
+                SenderExecError::Next(format!(
+                    "parse config to smtp setting fail:{}",
+                    e.to_fluent_message().default_format()
+                ))
             })?;
         let hand_id = format!("{}-{}", smtp_setting.host, smtp_setting.user);
         let mail_tpl_config = serde_json::from_str::<SmtpTplConfig>(&tpl_config.config_data)
@@ -354,7 +357,11 @@ impl SenderTaskExecutor<u64, MailTaskItem, MailTaskData> for SmtpSenderTask {
             )
             .await
             .map_err(|e| {
-                SenderExecError::Finish(format!("render subject fail [{}]: {}", hand_id, e))
+                SenderExecError::Finish(format!(
+                    "render subject fail [{}]: {}",
+                    hand_id,
+                    e.to_fluent_message().default_format()
+                ))
             })?;
         email_builder = email_builder.subject(subject);
 
@@ -363,7 +370,11 @@ impl SenderTaskExecutor<u64, MailTaskItem, MailTaskData> for SmtpSenderTask {
             .render(SenderType::Mailer, &mail_tpl_config.body_tpl_id, &context)
             .await
             .map_err(|e| {
-                SenderExecError::Finish(format!("render body fail[{}]: {}", hand_id, e))
+                SenderExecError::Finish(format!(
+                    "render body fail[{}]: {}",
+                    hand_id,
+                    e.to_fluent_message().default_format()
+                ))
             })?;
 
         let msg = email_builder

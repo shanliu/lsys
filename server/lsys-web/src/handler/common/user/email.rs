@@ -101,14 +101,16 @@ pub async fn user_email_send_code<'t, T: SessionTokenData, D: SessionData, S: Us
                                 "other_user_id":email.user_id,
                                // "user_id":req_auth.user_data().user_id
                             }))
-                            .set_code("mail-exits"),
+                            .set_code(500)
+                            .set_sub_code("mail-exits"),
                         // JsonData::message(format!("other user bind[{}]",)),
                     );
                 } else {
                     return Ok(
                         req_dao
                             .fluent_json_data(fluent_message!("mail-is-confirm"))
-                            .set_code("mail-is-confirm"), // JsonData::message("the email is confirm")
+                            .set_code(500)
+                            .set_sub_code("mail-is-confirm"), // JsonData::message("the email is confirm")
                     );
                 }
             }

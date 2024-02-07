@@ -25,7 +25,7 @@ where
     app.service(
         scope("/rest")
             .service(app::access)
-            .service(app::app)
+            .service(app::app_info)
             .service(app::sms)
             .service(app::mail)
             .service(app::demo_app),

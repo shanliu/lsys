@@ -674,8 +674,8 @@ impl SmsRecord {
                             fluent_message!("sms-send-check-limit", //  "trigger limit rule :{} on {} [{}]",
                                 {
                                     "max_send":limit.max_send,
-                                    "area":t.2,
-                                    "mobile":t.3,
+                                    "area":&t.2,
+                                    "mobile":&t.3,
                                     "config_id":id
                                 }
                             ),

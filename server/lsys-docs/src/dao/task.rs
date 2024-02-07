@@ -1,5 +1,6 @@
 use lsys_core::{
-    fluent_message, now_time, LocalExecType, MsgSendBody, RemoteNotify, RemoteTask, ReplyWait,
+    fluent_message, now_time, IntoFluentMessage, LocalExecType, MsgSendBody, RemoteNotify,
+    RemoteTask, ReplyWait,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -29,12 +30,8 @@ use crate::{
 use sqlx_model::SqlQuote;
 use std::{env, format, path::Path, sync::Arc, time::Duration};
 
-use super::{git::git_download, GitDocResult};
-pub enum CloneError {
-    VerNotMatch(String),
-    Err(String),
-}
-type CloneResult = Result<(), CloneError>;
+use super::{git::git_download, CloneError, CloneResult, GitDocResult};
+
 type TaskResult = (DocGitModel, DocGitTagModel, u64, CloneResult); //git model,tag model,clone id,clone result
 type TaskIngData = (u64, u64, AbortHandle); //tag id ,clone id,abort hand
 
@@ -350,7 +347,11 @@ impl GitTask {
         let save_dir = match git_doc_path(save_dir, &clone_id, &None).await {
             Ok(set) => set,
             Err(err) => {
-                warn!("{} doc save file dir :{}", clone_id, err);
+                warn!(
+                    "{} doc save file dir :{}",
+                    clone_id,
+                    err.to_fluent_message().default_format()
+                );
                 return false;
             }
         };
@@ -652,7 +653,10 @@ impl GitTask {
             )
             .await
         {
-            warn!("notify clone fail:{}", err)
+            warn!(
+                "notify clone fail:{}",
+                err.to_fluent_message().default_format()
+            )
         }
     }
     pub async fn remote_delete_clone(
@@ -677,10 +681,13 @@ impl GitTask {
             )
             .await
         {
-            warn!("remote delete clone fail:{}", err);
+            warn!(
+                "remote delete clone fail:{}",
+                err.to_fluent_message().default_format()
+            );
             return Err(GitDocError::Remote(fluent_message!(
                 "doc-notify-call-fail",
-                err
+                err.to_fluent_message()
             )));
         }
         Ok(())
@@ -692,7 +699,11 @@ impl GitTask {
         let save_path = match git_doc_path(save_dir, clone_id, &None).await {
             Ok(set) => set,
             Err(err) => {
-                warn!("{} doc save file dir :{}", clone_id, err);
+                warn!(
+                    "{} doc save file dir :{}",
+                    clone_id,
+                    err.to_fluent_message().default_format()
+                );
                 return;
             }
         };
@@ -755,17 +766,24 @@ impl RemoteTask for GitRemoteTask {
             DocAction::Del { clone_id } => match self.task.delete_clone(&clone_id).await {
                 Ok(_) => {
                     if let Err(err) = self.task.notify() {
-                        warn!("delete clone after notify clone fail:{}", err);
+                        warn!(
+                            "delete clone after notify clone fail:{}",
+                            err.to_fluent_message().default_format()
+                        );
                     }
                 }
                 Err(err) => {
-                    warn!("delete clone fail:{}", err);
-                    return Err(err.to_string());
+                    let err_str = err.to_fluent_message().default_format();
+                    warn!("delete clone fail:{}", err_str);
+                    return Err(err_str);
                 }
             },
             DocAction::Clone => {
                 if let Err(err) = self.task.notify() {
-                    warn!("notify clone fail:{}", err);
+                    warn!(
+                        "notify clone fail:{}",
+                        err.to_fluent_message().default_format()
+                    );
                 }
             }
         }

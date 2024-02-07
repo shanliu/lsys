@@ -1,5 +1,5 @@
 use lsys_app::model::AppsModel;
-use lsys_core::{fluent_message, AppCore, RequestEnv};
+use lsys_core::{fluent_message, AppCore, IntoFluentMessage, RequestEnv};
 use lsys_logger::dao::ChangeLogger;
 use lsys_sender::{
     dao::{MailSender, SenderError, SenderSmtpConfig, SmtpSenderTask},
@@ -80,7 +80,9 @@ impl WebAppMailer {
         max_try_num: &Option<u8>,
         env_data: Option<&RequestEnv>,
     ) -> Result<u64, SenderError> {
-        check_email(to).map_err(|e| SenderError::System(fluent_message!("mail-send-check", e)))?;
+        check_email(to).map_err(|e| {
+            SenderError::System(fluent_message!("mail-send-check", e.to_fluent_message()))
+        })?;
         let mut out = self
             .mailer
             .send(
@@ -144,14 +146,15 @@ impl WebAppMailer {
         env_data: Option<&RequestEnv>,
     ) -> Result<Vec<(u64, &'t str)>, SenderError> {
         for tmp in to.iter() {
-            check_email(tmp)
-                .map_err(|e| SenderError::System(fluent_message!("mail-send-check", e)))?;
+            check_email(tmp).map_err(|e| {
+                SenderError::System(fluent_message!("mail-send-check", e.to_fluent_message()))
+            })?;
         }
         if let Some(ref cr) = reply {
             if !cr.is_empty() {
                 check_email(cr).map_err(|e| {
                     SenderError::System(fluent_message!("mail-send-reply-check",{
-                        "msg":e,
+                        "msg":e.to_fluent_message(),
                         "reply":cr
                     }))
                 })?;

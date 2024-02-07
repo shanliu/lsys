@@ -10,7 +10,7 @@ use crate::{
     },
 };
 use async_trait::async_trait;
-use lsys_core::{fluent_message, now_time};
+use lsys_core::{fluent_message, now_time, IntoFluentMessage};
 use lsys_core::{TaskAcquisition, TaskData, TaskExecutor, TaskItem, TaskRecord};
 use lsys_setting::model::SettingModel;
 use sqlx_model::{ModelTableName, SqlExpr, SqlQuote};
@@ -146,7 +146,7 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
                 limit,
             )
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| e.to_fluent_message().default_format())?;
 
         if app_res.is_empty() {
             let sql_where = sql_format!(
@@ -486,7 +486,7 @@ impl TaskAcquisition<u64, MailTaskItem> for MailTaskAcquisition {
             .message_reader
             .read_task(tasking_record, SenderMailMessageStatus::Init as i8, limit)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| e.to_fluent_message().default_format())?;
         let app_res = app_res
             .into_iter()
             .map(|e| MailTaskItem { mail: e })

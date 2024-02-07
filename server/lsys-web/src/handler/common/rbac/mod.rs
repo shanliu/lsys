@@ -87,6 +87,6 @@ pub(crate) async fn access_check(
     );
 
     Err(UserRbacError::System(fluent_message!("rbac-unkown-res",{
-        "res":check_res.name
+        "res":&check_res.name
     })))
 }

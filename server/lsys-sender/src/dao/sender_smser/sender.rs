@@ -1,6 +1,8 @@
 use std::{collections::HashSet, sync::Arc};
 
-use lsys_core::{fluent_message, now_time, AppCore, FluentMessage, RequestEnv, TaskData};
+use lsys_core::{
+    fluent_message, now_time, AppCore, FluentMessage, IntoFluentMessage, RequestEnv, TaskData,
+};
 
 use lsys_logger::dao::ChangeLogger;
 use lsys_notify::dao::Notify;
@@ -221,7 +223,9 @@ impl SmsSender {
                     .wait_timeout(t)
                     .await
                     .map(|e| e.map_err(|c| fluent_message!("sms-send-fail", c)))
-                    .unwrap_or_else(|e| Err(fluent_message!("sms-send-wait-fail", e)))
+                    .unwrap_or_else(|e| {
+                        Err(fluent_message!("sms-send-wait-fail", e.to_fluent_message()))
+                    })
             } else {
                 Ok(true)
             };
@@ -290,7 +294,7 @@ impl SmsSender {
                 Some(SenderError::System(
                     fluent_message!("sms-send-ok-cancel", //  "sms {} is sending:{}",
                         {
-                            "mobile":msg.mobile,
+                            "mobile":&msg.mobile,
                             "msg_id":msg.id
                         }
                     ),

@@ -270,7 +270,7 @@ impl Apps {
     ) -> AppsResult<()> {
         if !AppStatus::Delete.eq(app.status) && !AppStatus::Ok.eq(app.status) {
             return Err(AppsError::System(fluent_message!("app-not-confirm",
-                {"name":app.name}
+                {"name":&app.name}
             )));
         }
         if (status && AppStatus::Ok.eq(app.status)) || (!status && AppStatus::Delete.eq(app.status))

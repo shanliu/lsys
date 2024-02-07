@@ -84,7 +84,7 @@ impl SubApps {
     ) -> AppsResult<()> {
         if *user_id == 0 {
             return Err(AppsError::System(fluent_message!("app-add-empty-user",
-                {"app":app.name}
+                {"app":&app.name}
             )));
         }
         match Select::type_new::<AppSubUserModel>()
@@ -298,13 +298,13 @@ impl SubApps {
     ) -> AppsResult<u64> {
         if parent_app.id == app.id {
             return Err(AppsError::System(fluent_message!("app-parent-add-self",
-                {"name":app.name}
+                {"name":&app.name}
             )));
         }
         if sub_secret.is_empty() {
             return Err(AppsError::System(
                 fluent_message!("app-parent-secret-empty",
-                {"name":app.name}
+                {"name":&app.name}
                 ),
             ));
         }
@@ -320,8 +320,8 @@ impl SubApps {
                 sqlx::Error::RowNotFound => {
                     AppsError::System(fluent_message!("app-parent-add-bad-user",
                         {
-                            "name":app.name,
-                            "parent_name":parent_app.name,
+                            "name":&app.name,
+                            "parent_name":&parent_app.name,
                             "user_id":app.user_id
                         }
                          // "your can't add sub app to {} ,user id [{}] is not allowed ",

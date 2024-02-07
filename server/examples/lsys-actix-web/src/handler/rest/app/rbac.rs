@@ -9,15 +9,6 @@ pub(crate) async fn access(mut rest: RestQuery) -> ResponseJsonResult<ResponseJs
             let param = rest.param::<CheckParam>()?;
             app_rbac_check(&rest, &rest.to_app_model().await?, param).await
         }
-        // Some("access") => {
-        //     let param = rest.param::<AccessParam>()?;
-        //     subapp_rbac_access_check(
-        //         &rest,
-        //         &rest.rfc.to_app_model(&app_dao.app.app_dao.app).await?,
-        //         param,
-        //     )
-        //     .await
-        // }
         Some("menu") => {
             let param = rest.param::<MenuParam>()?;
             app_rbac_menu_check(&rest, &rest.to_app_model().await?, param).await

@@ -1,4 +1,4 @@
-### rust实现的`面向内部应用的应用管理中心`实现
+### rust实现的 `内部应用应用管理中心` 
 
 > 适用场景：
 > 1. 当你使用rust开发web应用时，使用本项目二次开发可以减少重复工作量。
@@ -10,49 +10,53 @@
 > 在线示例: https://lsys.cc/ [账号:aaaaa 密码:000000]
 
 
-##### [后端服务](server) 安装
+#### 配置跟编译
 
-1. 编译 【中途有失败再次执行】
+1. 修改UI访问服务器地址
 ```
-cd server && cargo build -r && cd ..
-```
-
-2. 导入SQL到数据库
-```
-导入 ./server/assets/tables.sql 到MYSQL
+./ui/web/config.json #修改配置
+./ui/wap/config.json #修改配置
 ```
 
-3. 修改你的监听端口,REDIS,MYSQL等
-> [./server/examples/lsys-actix-web/.env 会覆盖./server/examples/lsys-actix-web/config/]
+2. 执行编译
 
-```
-./server/examples/lsys-actix-web/.env 
-```
+> 编译生成文件在 `./build` 目录中,同时生成 `./build` 目录的压缩包
 
-4. 执行 启动服务
+> windows
 ```
-cd ./server/examples/lsys-actix-web/ && ../../target/release/lsys-actix-web
+.\build.cmd #生成 lsys.zip
 ```
 
-
-##### [管理UI](ui) 安装 
-
-1. 修改配置,设置服务地址跟jwt的token等
+> linux or macos
 ```
-./ui/web/config.json
-./ui/wap/config.json
+bash ./build.sh #生成 lsys.tar.gz
 ```
 
-2. 编译
+> 仅拷贝 `./build` 文件夹到你的服务器 或 把对应生成压缩包拷贝后解压，其他文件可以删除.
+
+3. 导入SQL到数据库
 ```
-cd ./ui/web && npm i && npm run build && cd ../..
-cd ./ui/wap && npm i && npm run build && cd ../..
-cd ..
+mysql -u your_username -p your_database < ./build/assets/tables.sql #导入到你的MYSQL
 ```
 
-3. 访问 http://127.0.0.1/ui/
+4. 根据实际情况，对 `Redis` `Mysql` `jwt token` `日志输出` 等配置进行修改。
+```
+./build/.env  #修改配置
+```
 
-#### 二次开发参考时序:
+5. 启动服务
+
+> 下载文件[2023-7-area-code.csv.gz](https://github.com/shanliu/area-db/blob/main/data/2023-7-area-code.csv.gz) 到 `build/data` 目录
+
+> [可选] 下载IP文件 `IP2LOCATION-LITE-DB11.BIN` 到 `build/data/` 目录
+
+> 执行 `./actix-web-dome ` 启动服务。注意:初次启动会慢一些。
+
+> 可使用 `nohup ./actix-web-dome &` 后台执行
+
+> 根据`.env`配置访问服务.默认地址:http://127.0.0.1:8080/ 
+
+#### 二次开发时序参考
 
 ##### 基于rust二次开发
 

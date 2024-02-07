@@ -1,8 +1,9 @@
 import ArticleOutlinedIcon from '@mui/icons-material/ArticleOutlined';
 import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined';
 import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
-import TreeItem, { treeItemClasses } from '@mui/lab/TreeItem';
-import TreeView from '@mui/lab/TreeView';
+import { TreeItem } from '@mui/x-tree-view/TreeItem';
+import { treeItemClasses } from '@mui/x-tree-view/TreeItem';
+import { TreeView } from '@mui/x-tree-view/TreeView';
 import { Alert, Box, Grid, Link, Stack } from '@mui/material';
 import Typography from '@mui/material/Typography';
 import { styled } from '@mui/material/styles';

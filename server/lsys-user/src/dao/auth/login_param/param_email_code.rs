@@ -6,6 +6,7 @@ use crate::dao::auth::{LoginParam, LoginType, UserAuthError, UserAuthResult};
 use crate::model::{UserEmailModel, UserModel};
 use async_trait::async_trait;
 
+use lsys_core::IntoFluentMessage;
 use serde::{Deserialize, Serialize};
 use sqlx::{MySql, Pool};
 use sqlx_model::Select;
@@ -79,7 +80,11 @@ impl LoginParam for EmailCodeLogin {
         user.is_enable()?;
 
         if let Err(err) = Self::valid_code_clear(redis.to_owned(), &self.email).await {
-            warn!("login email clear valid[{}] fail:{}", self.email, err)
+            warn!(
+                "login email clear valid[{}] fail:{}",
+                self.email,
+                err.to_fluent_message().default_format()
+            )
         }
 
         Ok((LoginData::EmailCode(EmailCodeLoginData(email)), user))

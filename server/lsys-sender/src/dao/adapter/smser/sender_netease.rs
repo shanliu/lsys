@@ -10,7 +10,7 @@ use crate::{
 };
 use async_trait::async_trait;
 
-use lsys_core::{fluent_message, RequestEnv};
+use lsys_core::{fluent_message, IntoFluentMessage, RequestEnv};
 use lsys_lib_sms::{
     template_map_to_arr, NeteaseSms, SendDetailItem, SendError, SendNotifyError, SendNotifyItem,
 };
@@ -96,7 +96,7 @@ impl SenderNetEaseConfig {
             tpl_config,
         }
     }
-    //列出有效的jd_cloud短信配置
+    //列出有效的netease短信配置
     pub async fn list_config(
         &self,
         config_ids: &Option<Vec<u64>>,
@@ -107,7 +107,7 @@ impl SenderNetEaseConfig {
             .await?;
         Ok(data)
     }
-    //删除指定的jd_cloud短信配置
+    //删除指定的netease短信配置
     pub async fn del_config(
         &self,
         id: &u64,
@@ -119,7 +119,7 @@ impl SenderNetEaseConfig {
             .del::<NetEaseConfig>(&None, id, user_id, None, env_data)
             .await?)
     }
-    //编辑指定的jd_cloud短信配置
+    //编辑指定的netease短信配置
 
     #[allow(clippy::too_many_arguments)]
     pub async fn edit_config(
@@ -156,7 +156,7 @@ impl SenderNetEaseConfig {
             )
             .await?)
     }
-    //添加jd_cloud短信配置
+    //添加netease短信配置
     pub async fn add_config(
         &self,
         name: &str,
@@ -189,7 +189,7 @@ impl SenderNetEaseConfig {
             )
             .await?)
     }
-    //关联发送跟jd_cloud短信的配置
+    //关联发送跟netease短信的配置
     #[allow(clippy::too_many_arguments)]
     pub async fn add_app_config(
         &self,
@@ -255,12 +255,15 @@ impl SenderTaskExecutor<u64, SmsTaskItem, SmsTaskData> for NetEaseSenderTask {
     ) -> SenderTaskResult {
         let sub_setting =
             SettingData::<NetEaseConfig>::try_from(setting.to_owned()).map_err(|e| {
-                SenderExecError::Next(format!("parse config to jd_cloud setting fail:{}", e))
+                SenderExecError::Next(format!(
+                    "parse config to netease setting fail:{}",
+                    e.to_fluent_message().default_format()
+                ))
             })?;
         let sub_tpl_config = serde_json::from_str::<NetEaseTplConfig>(&tpl_config.config_data)
             .map_err(|e| {
                 SenderExecError::Next(format!(
-                    "parse config to jd_cloud tpl config fail[{}]:{}",
+                    "parse config to netease tpl config fail[{}]:{}",
                     sub_setting.access_key, e
                 ))
             })?;
@@ -354,7 +357,10 @@ impl crate::dao::SmsStatusTaskExecutor for NetEaseSendStatus {
     ) -> Result<Vec<SendDetailItem>, SenderExecError> {
         let setting_data =
             SettingData::<NetEaseConfig>::try_from(setting.to_owned()).map_err(|e| {
-                SenderExecError::Next(format!("parse config to netease setting fail:{}", e))
+                SenderExecError::Next(format!(
+                    "parse config to netease setting fail:{}",
+                    e.to_fluent_message().default_format()
+                ))
             })?;
 
         NeteaseSms::send_detail(

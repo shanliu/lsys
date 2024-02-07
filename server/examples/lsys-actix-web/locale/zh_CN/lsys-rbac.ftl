@@ -14,3 +14,4 @@ rbac-role-miss-res-op = 未发现的资源[{$name}:{$id}]
 rbac-role-bad-res-user = 非系统角色不能加非本角色用户资源,资源未:{$res},用户为:{$user_id}
 rbac-role-wrong-res-op = 发现系统中的[{$name}:{$id}] 的 {$res_id} 跟传入的 {$p_res_id} 不一致
 rbac-user-range-bad = 关联角色请使用专门的接口添加
+rbac-check-fail = 权限校验失败

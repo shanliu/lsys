@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use lsys_core::{fluent_message, rand_str, RandType};
+use lsys_core::{fluent_message, rand_str, IntoFluentMessage, RandType};
 use lsys_web::{
     dao::{user::WebUser, RequestDao},
     module::oauth::{OauthCallbackParam, OauthLogin, OauthLoginData, OauthLoginParam},
@@ -162,7 +162,12 @@ impl OauthLogin<WechatLoginParam, WechatCallbackParam, WechatExternalData> for W
             .single
             .load::<WeChatConfig>(&None)
             .await
-            .map_err(|e| format!("load wechat error:{}", e))?;
+            .map_err(|e| {
+                format!(
+                    "load wechat error:{}",
+                    e.to_fluent_message().default_format()
+                )
+            })?;
         Ok(WechatLogin::new(
             config.app_id.to_owned(),
             config.app_secret.to_owned(),

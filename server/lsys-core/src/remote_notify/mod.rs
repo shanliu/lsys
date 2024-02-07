@@ -1,10 +1,10 @@
 use std::collections::HashMap;
-use std::error::Error;
-use std::fmt::{Display, Formatter};
+// use std::error::Error;
+
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use deadpool_redis::PoolError;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use snowflake::SnowflakeIdGenerator;
@@ -13,36 +13,13 @@ use tokio::time::Duration;
 
 use futures_util::StreamExt;
 
-use redis::{AsyncCommands, RedisError};
 use tracing::{debug, error, info, warn};
 
 use crate::AppCore;
-
-#[derive(Debug)]
-pub enum RemoteNotifyError {
-    System(String),
-    RedisPool(PoolError),
-    Redis(RedisError),
-    RemoteTimeOut,
-}
-
-impl Display for RemoteNotifyError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-impl Error for RemoteNotifyError {}
-impl From<RedisError> for RemoteNotifyError {
-    fn from(err: RedisError) -> Self {
-        RemoteNotifyError::Redis(err)
-    }
-}
-impl From<PoolError> for RemoteNotifyError {
-    fn from(err: PoolError) -> Self {
-        RemoteNotifyError::RedisPool(err)
-    }
-}
-
+mod result;
+pub use result::*;
+use crate::IntoFluentMessage;
+use redis::AsyncCommands as _;
 //发送消息
 #[derive(Serialize, Deserialize, Clone)]
 pub struct MsgSendBody {
@@ -384,7 +361,7 @@ impl RemoteNotify {
                     }
                 }
                 Err(err) => {
-                    warn!("create remote notify listen client fail:{}", err);
+                    warn!("create remote notify listen client fail:{}", err.to_fluent_message().default_format());
                     tokio::time::sleep(Duration::from_secs(1)).await;
                 }
             }

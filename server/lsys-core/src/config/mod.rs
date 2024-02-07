@@ -1,3 +1,6 @@
+mod result;
+pub use result::*;
+
 use std::{collections::HashMap, path::Path};
 
 use config::builder::DefaultState;
@@ -7,21 +10,6 @@ pub struct Config {
     configs: HashMap<String, config::Config>,
 }
 
-#[derive(Debug)]
-pub enum ConfigError {
-    Io(std::io::Error),
-    Config(config::ConfigError),
-}
-impl From<std::io::Error> for ConfigError {
-    fn from(err: std::io::Error) -> Self {
-        ConfigError::Io(err)
-    }
-}
-impl From<config::ConfigError> for ConfigError {
-    fn from(err: config::ConfigError) -> Self {
-        ConfigError::Config(err)
-    }
-}
 impl Config {
     fn default_config<P: AsRef<Path>>(
         path: &P,

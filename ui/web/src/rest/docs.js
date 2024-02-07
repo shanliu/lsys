@@ -1,5 +1,5 @@
 import config from '../../config.json';
-import { fialResult, globalRest, restResult, sessionRest } from "../utils/rest";
+import { failResult, globalRest, restResult, sessionRest } from "../utils/rest";
 
 function docsRest() {
     return sessionRest('/api/docs')
@@ -24,7 +24,7 @@ export async function docsGitAdd(params, config) {
         errors.url = "URL请提供git地址";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await docsRest().post(`/setting/git_add`, {
         name: name,
@@ -50,7 +50,7 @@ export async function docsGitEdit(params, config) {
         errors.url = "请提供URL";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await docsRest().post(`/setting/git_edit`, {
         id: parseInt(doc_id),
@@ -73,7 +73,7 @@ export async function docsDelGit(params, config) {
         errors.branch = "ID异常";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await docsRest().post(`/setting/git_del`, {
         id: parseInt(git_id),
@@ -94,7 +94,7 @@ export async function docsGitDetail(param, config) {
         errors.name = "URL请提供git地址";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await docsRest().post(`/setting/git_detail`, {
         url: url
@@ -127,7 +127,7 @@ export async function docsTagAdd(param, config) {
         errors.version = "请提供正确的版本信息";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await docsRest().post(`/setting/tag_add`, {
         git_id: git_id,
@@ -144,7 +144,7 @@ export async function docsTagDel(param, config) {
         errors.tag_id = "ID异常";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await docsRest().post(`/setting/tag_del`, { tag_id: tag_id }, config);
     return restResult(response)
@@ -177,7 +177,7 @@ export async function docsTagCloneDel(param, config) {
         errors.clone_id = "ID异常";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await docsRest().post(`/setting/tag_clone_del`, {
         clone_id: parseInt(clone_id)
@@ -192,7 +192,7 @@ export async function docsTagStatusSet(param, config) {
         errors.tag_id = "ID异常";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await docsRest().post(`/setting/tag_status`, {
         tag_id: parseInt(tag_id),
@@ -208,7 +208,7 @@ export async function docsTagDir(params, config) {
         errors.tag_id = "ID异常";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await docsRest().post(`/setting/tag_dir`, {
         tag_id: parseInt(tag_id),
@@ -223,7 +223,7 @@ export async function docsTagLogs(params, config) {
         errors.tag_id = "ID异常";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await docsRest().post(`/setting/tag_logs`, {
         tag_id: parseInt(tag_id)
@@ -240,7 +240,7 @@ export async function docsTagFileData(params, config) {
         errors.file_path = "请先提供查看路径";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await docsRest().post(`/setting/tag_file_data`, {
         tag_id: parseInt(tag_id),
@@ -255,7 +255,7 @@ export async function docsMenuList(params, config) {
         errors.tag_id = "ID异常";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await docsRest().post(`/setting/menu_list`, {
         tag_id: parseInt(tag_id),
@@ -272,7 +272,7 @@ export async function docsMenuAdd(params, config) {
         errors.menu_path = "请输入目录路径";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await docsRest().post(`/setting/menu_add`, {
         tag_id: parseInt(tag_id),
@@ -287,7 +287,7 @@ export async function docsMenuDel(params, config) {
         errors.menu_id = "ID异常";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await docsRest().post(`/setting/menu_del`, {
         menu_id: parseInt(menu_id),

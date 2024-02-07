@@ -4,6 +4,7 @@ use actix_http::StatusCode;
 use actix_web::web::{Bytes, Data};
 use actix_web::{post, HttpRequest, HttpResponse};
 
+use lsys_core::IntoFluentMessage;
 use lsys_sender::dao::{AliYunNotify, CloOpenNotify, HwYunNotify, NetEaseNotify, TenYunNotify};
 use lsys_web::dao::WebDao;
 
@@ -16,7 +17,7 @@ pub(crate) async fn notify(
 ) -> HttpResponse {
     let config = match web_dao.setting.multiple.find(&None, &path.0).await {
         Ok(e) => e,
-        Err(e) => return HttpResponse::Forbidden().body(e.to_string()),
+        Err(e) => return HttpResponse::Forbidden().body(e.to_fluent_message().default_format()),
     };
     let notify = &web_dao.sender_smser.smser.sms_notify;
     let (status, msg) = if notify.check::<AliYunNotify>(&config) {

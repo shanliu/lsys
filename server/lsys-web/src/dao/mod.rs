@@ -2,7 +2,7 @@ use area_db::AreaDao;
 use ip2location::LocationDB;
 use lsys_app::dao::AppDao;
 use lsys_core::cache::{LocalCacheClear, LocalCacheClearItem};
-use lsys_core::{AppCore, AppCoreError, FluentMgr, RemoteNotify};
+use lsys_core::{AppCore, AppCoreError, FluentMgr, IntoFluentMessage, RemoteNotify};
 use lsys_docs::dao::{DocsDao, GitRemoteTask};
 use lsys_logger::dao::ChangeLogger;
 use lsys_notify::dao::Notify;
@@ -117,7 +117,10 @@ impl WebDao {
                 }
             },
             Err(err) => {
-                info!("ip city db not config:{}", err);
+                info!(
+                    "ip city db not config:{}",
+                    err.to_fluent_message().default_format()
+                );
             }
         }
 
@@ -177,7 +180,10 @@ impl WebDao {
         let mail_task = mailer.clone();
         tokio::spawn(async move {
             if let Err(err) = mail_task.task_sender().await {
-                error!("mailer task error:{}", err.to_string())
+                error!(
+                    "mailer task error:{}",
+                    err.to_fluent_message().default_format()
+                )
             }
         });
         let mail_wait = mailer.clone();
@@ -199,7 +205,10 @@ impl WebDao {
         let notify_task = notify.clone();
         tokio::spawn(async move {
             if let Err(err) = notify_task.task().await {
-                error!("smser sender error:{}", err.to_string())
+                error!(
+                    "smser sender error:{}",
+                    err.to_fluent_message().default_format()
+                )
             }
         });
 
@@ -219,14 +228,20 @@ impl WebDao {
         let sms_task_sender = web_smser.clone();
         tokio::spawn(async move {
             if let Err(err) = sms_task_sender.task_sender().await {
-                error!("smser sender error:{}", err.to_string())
+                error!(
+                    "smser sender error:{}",
+                    err.to_fluent_message().default_format()
+                )
             }
         });
         //启动短信状态查询任务
         let sms_task_notify = web_smser.clone();
         tokio::spawn(async move {
             if let Err(err) = sms_task_notify.task_status_query().await {
-                error!("smser notify error:{}", err.to_string())
+                error!(
+                    "smser notify error:{}",
+                    err.to_fluent_message().default_format()
+                )
             }
         });
 
@@ -292,7 +307,10 @@ impl WebDao {
                 }
             }
             Err(err) => {
-                error!("load area data fail:{}", err.to_string())
+                error!(
+                    "load area data fail:{}",
+                    err.to_fluent_message().default_format()
+                )
             }
         }
         Ok(WebDao {

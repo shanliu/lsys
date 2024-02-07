@@ -18,7 +18,7 @@ use tokio::task::{AbortHandle, JoinSet};
 use tokio::time::sleep;
 use tracing::{debug, error, info, warn};
 
-use crate::{now_time, AppCore};
+use crate::{now_time, AppCore, IntoFluentMessage};
 
 //最外层的发送任务派发封装
 //不包含具体的发送逻辑
@@ -280,7 +280,10 @@ impl<
         let redis_client = match app_core.create_redis_client() {
             Ok(redis_client) => redis_client,
             Err(err) => {
-                error!("create redis fail:{}", err);
+                error!(
+                    "create redis fail:{}",
+                    err.to_fluent_message().default_format()
+                );
                 return;
             }
         };

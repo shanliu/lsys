@@ -1,53 +1,19 @@
 use std::{
-    error::Error,
-    fmt::{Display, Formatter},
+    // error::Error,
     sync::Arc,
 };
 
-use deadpool_redis::PoolError;
+
 use lsys_app::dao::app::Apps;
-use lsys_core::{AppCore, FluentMessage, TaskDispatch};
+use lsys_core::{AppCore, TaskDispatch};
 use lsys_logger::dao::ChangeLogger;
 use sqlx::Pool;
 use tracing::warn;
 
 use super::{
-    NotifyRecord, NotifyTask, NotifyTaskAcquisition, NotifyTaskItem, NOTIFY_MIN_DELAY_TIME,
+    NotifyRecord, NotifyResult, NotifyTask, NotifyTaskAcquisition, NotifyTaskItem,
+    NOTIFY_MIN_DELAY_TIME,
 };
-
-//公共结构定义
-#[derive(Debug)]
-pub enum NotifyError {
-    Sqlx(sqlx::Error),
-    Redis(redis::RedisError),
-    RedisPool(PoolError),
-    System(FluentMessage),
-}
-impl Display for NotifyError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-impl Error for NotifyError {}
-
-impl From<sqlx::Error> for NotifyError {
-    fn from(err: sqlx::Error) -> Self {
-        NotifyError::Sqlx(err)
-    }
-}
-impl From<redis::RedisError> for NotifyError {
-    fn from(err: redis::RedisError) -> Self {
-        NotifyError::Redis(err)
-    }
-}
-impl From<PoolError> for NotifyError {
-    fn from(err: PoolError) -> Self {
-        NotifyError::RedisPool(err)
-    }
-}
-
-pub type NotifyResult<T> = Result<T, NotifyError>;
 
 const NOTIFY_REDIS_PREFIX: &str = "notify-task";
 pub trait NotifyData {

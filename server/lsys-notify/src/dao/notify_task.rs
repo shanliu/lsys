@@ -7,7 +7,9 @@ use lsys_app::dao::{app::Apps, AppsError};
 
 use sqlx::{MySql, Pool};
 
-use lsys_core::{now_time, TaskAcquisition, TaskData, TaskExecutor, TaskItem, TaskRecord};
+use lsys_core::{
+    now_time, IntoFluentMessage, TaskAcquisition, TaskData, TaskExecutor, TaskItem, TaskRecord,
+};
 use sqlx_model::{sql_format, ModelTableName, Select, SqlExpr};
 use tracing::warn;
 
@@ -291,14 +293,14 @@ impl TaskExecutor<u64, NotifyTaskItem> for NotifyTask {
                         change_notify_error_status(&self.db, &val.0.id, &val.0.try_num, "miss app")
                             .await;
                     }
-                    Err(err) => return Err(err.to_string()),
+                    Err(err) => return Err(err.to_fluent_message().default_format()),
                 };
             }
             Err(NotifyError::Sqlx(sqlx::Error::RowNotFound)) => {
                 change_notify_error_status(&self.db, &val.0.id, &val.0.try_num, "miss config")
                     .await;
             }
-            Err(err) => return Err(err.to_string()),
+            Err(err) => return Err(err.to_fluent_message().default_format()),
         };
         Ok(())
     }

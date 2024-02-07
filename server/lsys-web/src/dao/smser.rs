@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use lsys_app::model::AppsModel;
-use lsys_core::{fluent_message, AppCore, RequestEnv};
+use lsys_core::{fluent_message, AppCore, IntoFluentMessage, RequestEnv};
 use lsys_logger::dao::ChangeLogger;
 use lsys_notify::dao::Notify;
 use lsys_sender::{
@@ -126,7 +126,7 @@ impl WebAppSmser {
             check_mobile(tmp.0, tmp.1).map_err(|e| {
                 SenderError::System(fluent_message!("sms-send-check",{
                     "mobile":tmp.1,
-                    "msg":e
+                    "msg":e.to_fluent_message()
                 }))
             })?;
         }
@@ -181,7 +181,7 @@ impl WebAppSmser {
         check_mobile(area, mobile).map_err(|e| {
             SenderError::System(fluent_message!("sms-send-check",{
                 "mobile":mobile,
-                "msg":e
+                "msg":e.to_fluent_message()
             }))
         })?;
         let mut out = self

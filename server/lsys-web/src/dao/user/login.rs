@@ -1,6 +1,6 @@
 use std::net::IpAddr;
 
-use lsys_core::RequestEnv;
+use lsys_core::{IntoFluentMessage, RequestEnv};
 use lsys_user::dao::auth::{
     LoginEnv, LoginParam, UserAuthError, UserAuthResult, UserAuthSession, UserAuthStore,
     UserAuthTokenData, UserSession,
@@ -43,7 +43,7 @@ impl WebUser {
                 {
                     tracing::warn!(
                         "clear login captcha fail:{} in [{}]",
-                        captcha_err,
+                        captcha_err.to_fluent_message().default_format(),
                         &param.show_name()
                     );
                 }

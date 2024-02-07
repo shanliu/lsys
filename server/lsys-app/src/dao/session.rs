@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use lsys_core::fluent_message;
+use lsys_core::{fluent_message, IntoFluentMessage};
 use lsys_user::dao::auth::{
     SessionData, SessionToken, SessionTokenData, SessionUserData, UserAuthError, UserAuthResult,
     UserSession,
@@ -90,8 +90,8 @@ impl UserSession<RestAuthTokenData, RestAuthData> for RestAuthSession {
             .await
             .map_err(|e| {
                 UserAuthError::System(fluent_message!("user-session-get-error",{
-                    "client_id":token_data.client_id,
-                    "msg":e
+                    "client_id":&token_data.client_id,
+                    "msg":e.to_fluent_message(),
                 }))
             })?;
         Ok(data)
@@ -106,8 +106,8 @@ impl UserSession<RestAuthTokenData, RestAuthData> for RestAuthSession {
             .await
             .map_err(|e| {
                 UserAuthError::System(fluent_message!("user-session-refresh-error",{
-                    "client_id":token_data.client_id,
-                    "msg":e
+                    "client_id":&token_data.client_id,
+                    "msg":e.to_fluent_message()
                 }))
             })?;
         let data = self
@@ -117,8 +117,8 @@ impl UserSession<RestAuthTokenData, RestAuthData> for RestAuthSession {
             .await
             .map_err(|e| {
                 UserAuthError::System(fluent_message!("user-session-refresh-error",{
-                    "client_id":token_data.client_id,
-                    "msg":e
+                    "client_id":&token_data.client_id,
+                    "msg":e.to_fluent_message()
                 }))
             })?;
         self.set_session_token(SessionToken::from(data.clone()));
@@ -129,7 +129,12 @@ impl UserSession<RestAuthTokenData, RestAuthData> for RestAuthSession {
             .app_oauth
             .clear_session(&self.user_token)
             .await
-            .map_err(|e| UserAuthError::System(fluent_message!("user-session-clear-error", e)))?;
+            .map_err(|e| {
+                UserAuthError::System(fluent_message!(
+                    "user-session-clear-error",
+                    e.to_fluent_message()
+                ))
+            })?;
         Ok(())
     }
 }

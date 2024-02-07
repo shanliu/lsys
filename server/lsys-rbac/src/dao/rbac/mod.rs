@@ -1,5 +1,5 @@
-use std::error::Error;
-use std::fmt::{Display, Formatter};
+// use std::error::Error;
+
 use std::sync::Arc;
 #[macro_use]
 mod macros;
@@ -10,7 +10,7 @@ pub use check::*;
 pub use data::*;
 use logger::*;
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{FluentMessage, RemoteNotify};
+use lsys_core::RemoteNotify;
 use lsys_logger::dao::ChangeLogger;
 pub use res::*;
 pub use role::*;
@@ -24,33 +24,13 @@ mod data;
 mod res;
 // mod res_tpl;
 mod logger;
+mod result;
 mod role;
 mod tags;
+pub use result::*;
 
 pub const PRIORITY_MAX: i8 = 100;
 pub const PRIORITY_MIN: i8 = 0;
-
-#[derive(Debug)]
-pub enum UserRbacError {
-    NotLogin(FluentMessage),
-    Sqlx(sqlx::Error),
-    System(FluentMessage),
-    Check(Vec<(String, FluentMessage)>),
-}
-impl Display for UserRbacError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-impl Error for UserRbacError {}
-
-pub type UserRbacResult<T> = Result<T, UserRbacError>;
-
-impl From<sqlx::Error> for UserRbacError {
-    fn from(err: sqlx::Error) -> Self {
-        UserRbacError::Sqlx(err)
-    }
-}
 
 pub struct Rbac {
     pub res: Arc<RbacRes>,

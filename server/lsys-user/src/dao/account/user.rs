@@ -138,7 +138,7 @@ impl User {
     ) -> UserAccountResult<()> {
         if UserStatus::Delete.eq(user.status) {
             return Err(UserAccountError::System(fluent_message!("user-is-delete",{
-                "user":user.nickname
+                "user":&user.nickname
             })));
         }
         if UserStatus::Enable.eq(user.status) {

@@ -8,6 +8,7 @@ use crate::{
     },
 };
 
+use lsys_core::IntoFluentMessage;
 use lsys_lib_sms::{SendNotifyError, SendNotifyItem, SendNotifyStatus};
 use lsys_notify::dao::{Notify, NotifyData};
 use lsys_setting::{
@@ -60,7 +61,10 @@ pub(crate) async fn add_notify_callback(
         }
     };
     if let Err(err) = notify.add_data(NotifySmsItem { app_id, sms }).await {
-        warn!("add notify data fail:{}", err);
+        warn!(
+            "add notify data fail:{}",
+            err.to_fluent_message().default_format()
+        );
     }
 }
 
@@ -131,7 +135,10 @@ impl SmsSendNotify {
         let sms_config = match SettingData::try_from(config) {
             Ok(c) => c,
             Err(e) => {
-                return Err(format!("parse setting fail:{}", e));
+                return Err(format!(
+                    "parse setting fail:{}",
+                    e.to_fluent_message().default_format()
+                ));
             }
         };
         let items = data.notify_items(&sms_config).map_err(|e| match e {

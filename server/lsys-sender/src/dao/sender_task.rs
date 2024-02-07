@@ -1,6 +1,6 @@
 use std::{
     collections::{hash_map::Entry, HashMap},
-    fmt::{Display, Formatter},
+    fmt::Display,
     hash::Hash,
     sync::atomic::AtomicU32,
 };
@@ -8,7 +8,7 @@ use std::{
 use async_trait::async_trait;
 
 use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
-use lsys_core::{TaskAcquisition, TaskItem};
+use lsys_core::{IntoFluentMessage, TaskAcquisition, TaskItem};
 use lsys_setting::model::SettingModel;
 use redis::{FromRedisValue, ToRedisArgs};
 
@@ -16,25 +16,10 @@ use tracing::warn;
 
 use crate::model::SenderTplConfigModel;
 
-use super::SenderTplConfig;
+use super::{SenderExecError, SenderTaskResult, SenderTaskResultItem, SenderTplConfig};
 
 //在发送任务封装下
 //增加多个发送适配支持
-
-#[derive(Debug)]
-pub enum SenderExecError {
-    Finish(String),
-    Next(String),
-}
-
-impl Display for SenderExecError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Finish(e) => write!(f, "{:?}", e),
-            Self::Next(e) => write!(f, "{:?}", e),
-        }
-    }
-}
 
 pub(crate) fn index_get(index_store: &AtomicU32, len: usize) -> usize {
     if len > 1 {
@@ -96,21 +81,6 @@ pub trait SenderTaskAcquisition<
     );
 }
 
-pub enum SenderTaskStatus {
-    Progress,
-    Completed,
-    Failed(bool), //失败是否重试
-}
-
-pub struct SenderTaskResultItem {
-    pub id: u64, // SenderTaskData item id
-    pub status: SenderTaskStatus,
-    pub message: String,
-    pub send_id: String,
-}
-
-pub type SenderTaskResult = Result<Vec<SenderTaskResultItem>, SenderExecError>;
-
 #[async_trait]
 pub trait SenderTaskExecutor<
     I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display,
@@ -169,7 +139,7 @@ pub(crate) async fn group_exec<
             &None,
         )
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_fluent_message().default_format())
     {
         Ok(t) => t,
         Err(err) => {

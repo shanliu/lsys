@@ -9,7 +9,7 @@ use crate::{
     model::SenderTplConfigModel,
 };
 use async_trait::async_trait;
-use lsys_core::{fluent_message, RequestEnv};
+use lsys_core::{fluent_message, IntoFluentMessage, RequestEnv};
 use lsys_setting::{
     dao::{
         MultipleSetting, SettingData, SettingDecode, SettingEncode, SettingError, SettingKey,
@@ -281,7 +281,10 @@ impl SenderTaskExecutor<u64, SmsTaskItem, SmsTaskData> for HwYunSenderTask {
     ) -> SenderTaskResult {
         let sub_setting =
             SettingData::<HwYunConfig>::try_from(setting.to_owned()).map_err(|e| {
-                SenderExecError::Next(format!("parse config to huawei setting fail:{}", e))
+                SenderExecError::Next(format!(
+                    "parse config to huawei setting fail:{}",
+                    e.to_fluent_message().default_format()
+                ))
             })?;
         let sub_tpl_config = serde_json::from_str::<HwYunTplConfig>(&tpl_config.config_data)
             .map_err(|e| {

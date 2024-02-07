@@ -20,7 +20,8 @@ address-bad-area = The submitted area code does not exist.
 mail-bind-other-user = Mailbox is bound to another account [{$other_user_id}].
  
 rbac-check-fail = permission check failed
-system-not-found = Result does not exist
+db-not-found = Result does not exist
+db-error = database error:{$msg}
 
 user-old-passwrod-bad= The original password was submitted incorrectly.
 user-old-passwrod-empty= Please submit the original password.

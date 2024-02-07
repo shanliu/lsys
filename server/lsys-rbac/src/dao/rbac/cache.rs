@@ -1,7 +1,10 @@
 use std::{str::FromStr, sync::Arc};
 
 use async_trait::async_trait;
-use lsys_core::cache::{LocalCache, LocalCacheClearItem};
+use lsys_core::{
+    cache::{LocalCache, LocalCacheClearItem},
+    IntoFluentMessage,
+};
 
 use super::{Rbac, RbacResData, ResKey, RoleAccessRow, RoleDetailRow};
 
@@ -35,7 +38,10 @@ impl LocalCacheClearItem for RbacLocalCacheClear {
         match self {
             RbacLocalCacheClear::ResKey(cache) => {
                 cache
-                    .del(&ResKey::from_str(msg).map_err(|e| e.to_string())?)
+                    .del(
+                        &ResKey::from_str(msg)
+                            .map_err(|e| e.to_fluent_message().default_format())?,
+                    )
                     .await
             }
             RbacLocalCacheClear::RoleRelation(cache) => cache.del(&msg.to_string()).await,

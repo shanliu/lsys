@@ -1,4 +1,4 @@
-### 应用管理ui
+### 管理UI安装 
 
 > 基于reactjs实现 
 
@@ -19,4 +19,6 @@
 cd web/
 npm i
 npm run dev
+# npm run build #or build
 ```
+

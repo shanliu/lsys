@@ -4,7 +4,7 @@ use std::{
 };
 
 use async_trait::async_trait;
-use lsys_core::{fluent_message, now_time};
+use lsys_core::{fluent_message, now_time, IntoFluentMessage};
 
 use crate::{
     dao::{
@@ -159,7 +159,7 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
                 limit,
             )
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| e.to_fluent_message().default_format())?;
 
         if app_res.is_empty() {
             let sql_where = sql_format!(
@@ -496,7 +496,7 @@ impl TaskAcquisition<u64, SmsTaskItem> for SmsTaskAcquisition {
             .message_reader
             .read_task(tasking_record, SenderSmsBodyStatus::Init as i8, limit)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| e.to_fluent_message().default_format())?;
         let app_res = app_res
             .into_iter()
             .map(|e| SmsTaskItem { sms: e })

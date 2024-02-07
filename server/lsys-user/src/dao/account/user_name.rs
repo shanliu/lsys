@@ -260,7 +260,7 @@ impl UserName {
                     Ok(())
                 } else {
                     Err(UserAccountError::System(
-                        fluent_message!("user-name-exits",{"name":username}), //"name {$name} already exists",
+                        fluent_message!("user-name-exits",{"name":&username}), //"name {$name} already exists",
                     ))
                 }
             }

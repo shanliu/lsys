@@ -14,7 +14,7 @@ use crate::{
         DocLogsModelRef, DocMenuModel, DocMenuModelRef, DocMenuStatus,
     },
 };
-use lsys_core::{fluent_message, now_time, PageParam, RequestEnv};
+use lsys_core::{fluent_message, now_time, IntoFluentMessage, PageParam, RequestEnv};
 use serde::{Deserialize, Serialize};
 use sqlx::{MySql, Pool};
 use sqlx_model::{
@@ -291,9 +291,9 @@ impl GitDocs {
                     return Err(crate::dao::GitDocError::System(
                         fluent_message!("doc-git-version-not-find",
                             {
-                                "url":param.url,
-                                "tag": tmp.tag,
-                                "version":tmp.build_version,
+                                "url":&param.url,
+                                "tag": &tmp.tag,
+                                "version":&tmp.build_version,
                             }
                         ), //     format!(
                            //     "can't update url to {} ,version not find:{} [{}]",
@@ -439,7 +439,7 @@ impl GitDocs {
                 return Err(crate::dao::GitDocError::System(
                     fluent_message!("doc-git-submit-version-error",
                         {
-                            "version":param.build_version,
+                            "version":&param.build_version,
                         }
                     ),
                 ));
@@ -454,9 +454,9 @@ impl GitDocs {
             return Err(crate::dao::GitDocError::System(
                 fluent_message!("doc-git-version-not-find",
                     {
-                        "version":param.build_version,
-                        "url": doc_git.url,
-                        "tag":param.tag,
+                        "version":&param.build_version,
+                        "url": &doc_git.url,
+                        "tag":&param.tag,
                     }
                 ),
             ));
@@ -466,7 +466,7 @@ impl GitDocs {
             return Err(crate::dao::GitDocError::System(
                 fluent_message!("doc-git-tag-empty",
                     {
-                        "tag":param.tag,
+                        "tag":&param.tag,
                     }
                 ),
             ));
@@ -577,7 +577,10 @@ impl GitDocs {
             .remote_delete_clone(&git_clone.id, &git_clone.host, timeout)
             .await
         {
-            info!("tag clone del fail:{}", err)
+            info!(
+                "tag clone del fail:{}",
+                err.to_fluent_message().default_format()
+            )
         };
         let rgit_clone = Select::type_new::<DocGitCloneModel>()
             .reload(git_clone, &self.db)
@@ -652,7 +655,7 @@ impl GitDocs {
             return Err(crate::dao::GitDocError::System(
                 fluent_message!("doc-git-status-wrong",{
                         "id":git_tag.id,
-                        "tag":git_tag.tag,
+                        "tag":&git_tag.tag,
                     }
                 ),
             ));
@@ -663,7 +666,7 @@ impl GitDocs {
                 return Err(crate::dao::GitDocError::System(
                     fluent_message!("doc-git-menu-empty",{
                             "id":git_tag.id,
-                            "tag":git_tag.tag,
+                            "tag":&git_tag.tag,
                         }
                     ),
                 ));
@@ -882,8 +885,8 @@ impl GitDocs {
             return Err(crate::dao::GitDocError::System(
                 fluent_message!("doc-git-menu-empty",{
                         "id":tag.id,
-                        "tag":tag.tag,
-                        "host_name":host_name
+                        "tag":&tag.tag,
+                        "host_name":&host_name
                     }
                 ), //     format!(
                    //     "tag {} [{}] is clone not yet on:{}",
@@ -899,9 +902,9 @@ impl GitDocs {
         if !prefix.is_empty() && !file_path.starts_with(&safe_path) {
             return Err(crate::dao::GitDocError::System(
                 fluent_message!("doc-git-dir-access",{
-                        "prefix":prefix,
-                        "tag":tag.tag,
-                        "host_name":host_name
+                        "prefix":&prefix,
+                        "tag":&tag.tag,
+                        "host_name":&host_name
                     }
                 ),
             ));
@@ -958,8 +961,8 @@ impl GitDocs {
             return Err(crate::dao::GitDocError::System(
                 fluent_message!("doc-git-menu-read-not-yet",{
                         "id":tag.id,
-                        "tag":tag.tag,
-                        "host_name":host_name
+                        "tag":&tag.tag,
+                        "host_name":&host_name
                     }
                 ), // format!(
                    //     "tag {} [{}] is clone not yet on:{}",
@@ -1041,7 +1044,7 @@ impl GitDocs {
             // format!("your sumbit path,can't read data:{}", e)
             GitDocError::System(fluent_message!("doc-git-menu-file-error",{
                     "msg":e,
-                    "tag":tag.tag,
+                    "tag":&tag.tag,
                     "file_path":menu_file.file_path.to_string_lossy()
                 }
             ))
@@ -1051,15 +1054,15 @@ impl GitDocs {
         if dat_str.trim().is_empty() || dat_str.trim() == "{}" {
             return Err(crate::dao::GitDocError::System(
                 fluent_message!("doc-git-menu-file-empty",{
-                    "tag":tag.tag,
-                    "file_path":menu_file.file_path.to_string_lossy()
+                    "tag":&tag.tag,
+                    "file_path":&menu_file.file_path.to_string_lossy()
                 }), // "can't add empty menu".to_string(),
             ));
         }
         if let Err(err) = serde_json::from_slice::<Value>(&dat_u8) {
             return Err(crate::dao::GitDocError::System(
                 fluent_message!("doc-git-menu-file-parse-error",{
-                    "tag":tag.tag,
+                    "tag":&tag.tag,
                     "file_path":menu_file.file_path.to_string_lossy(),
                     "msg":err
                     }
@@ -1086,7 +1089,7 @@ impl GitDocs {
                 return Err(GitDocError::System(
                     fluent_message!("doc-git-menu-path-isfind",{
                             "menu_path":id.menu_path,
-                            "tag":tag.tag,
+                            "tag":&tag.tag,
                         }
                     ),
                 ));

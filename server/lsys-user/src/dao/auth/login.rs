@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use base64::Engine;
 use ip2location::Record;
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{fluent_message, RemoteNotify};
+use lsys_core::{fluent_message, IntoFluentMessage, RemoteNotify};
 use lsys_core::{now_time, PageParam};
 
 use serde::Deserialize;
@@ -372,7 +372,7 @@ impl<T: UserAuthStore + Send + Sync> UserAuth<T> {
             Err(err) => {
                 warn!(
                     "check captcha fail: {} in account:{}",
-                    err.to_string(),
+                    err.to_fluent_message().default_format(),
                     login_param.show_name()
                 );
             }
@@ -436,11 +436,11 @@ impl<T: UserAuthStore + Send + Sync> UserAuth<T> {
                 let is_login = i8::from(user_token_res.is_ok());
                 let login_msg = match &user_token_res {
                     Ok(_) => "".to_string(),
-                    Err(err) => err.to_string(),
+                    Err(err) => err.to_fluent_message().default_format(),
                 };
                 let login_token = match &user_token_res {
                     Ok(user) => user.to_string(),
-                    Err(err) => err.to_string(),
+                    Err(err) => err.to_fluent_message().default_format(),
                 };
                 self.account
                     .user_login
@@ -457,7 +457,13 @@ impl<T: UserAuthStore + Send + Sync> UserAuth<T> {
                 };
                 self.account
                     .user_login
-                    .finish_history(login_id, 0, user_id, err.to_string(), "".to_string())
+                    .finish_history(
+                        login_id,
+                        0,
+                        user_id,
+                        err.to_fluent_message().default_format(),
+                        "".to_string(),
+                    )
                     .await?;
                 Err(err)
             }

@@ -182,8 +182,8 @@ impl AppsOauth {
             return Err(AppsError::System(fluent_message!(
                 "token-not-find", //,
                 {
-                    "name":app.name,
-                    "code":code,
+                    "name":&app.name,
+                    "code":&code,
                 }
                                  // "your submit token is not find"
             )));
@@ -248,7 +248,7 @@ impl AppsOauth {
             None => {
                 if app_token.timeout < now_time().unwrap_or_default() {
                     return Err(AppsError::System(fluent_message!("token-is-timeout" ,
-                        {"token":app_token.token}
+                        {"token":&app_token.token}
                                            // "your submit code is timeout or wrong"
                     )));
                 }
@@ -308,7 +308,7 @@ impl AppsOauth {
                     }
                     Err(sqlx::Error::RowNotFound) => Err(AppsError::System(fluent_message!(
                     "token-is-timeout" ,
-                        {"token":user_token_data.token}
+                        {"token":&user_token_data.token}
                                            // "your submit token not find"
                     ))),
                     Err(err) => Err(err.into()),

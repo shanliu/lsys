@@ -1,5 +1,5 @@
 import isEmail from "validator/lib/isEmail";
-import { fialResult, globalRest, restResult, sessionRest } from "../utils/rest";
+import { failResult, globalRest, restResult, sessionRest } from "../utils/rest";
 
 function userRest() {
     return sessionRest('/api/user')
@@ -46,7 +46,7 @@ export async function setInfo(param, config) {
         errors.gender = "性别选错错误";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     var param = {
         nikename: nikename,
@@ -66,7 +66,7 @@ export async function setUsername(param, config) {
         errors.name = "登陆名需大于1个字符";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     var param = {
         name: name,
@@ -99,7 +99,7 @@ export async function setPassword(param, config) {
     }
 
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     var param = {
         old_password: old_password,
@@ -132,7 +132,7 @@ export async function mobileAdd(param, config) {
         errors.name = "手机格式错误";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     var param = {
         area_code: "86",
@@ -153,7 +153,7 @@ export async function mobileSendCode(param, config) {
         errors.captcha = "验证码不能为空";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     var param = {
         area_code: "86",
@@ -174,7 +174,7 @@ export async function mobileConfirm(param, config) {
         errors.captcha = "验证码不能为空";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     var param = {
         mobile_id: parseInt(id),
@@ -229,7 +229,7 @@ export async function AddressEdit(param, config) {
         errors.name = "收货名称错误";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     var param = {
         address_id: id,
@@ -261,7 +261,7 @@ export async function AddressAdd(param, config) {
         errors.name = "收货名称错误";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     var param = {
         code: code,
@@ -306,7 +306,7 @@ export async function emailAdd(param, config) {
         errors.name = "邮箱格式错误";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     var param = {
         email: email,
@@ -325,7 +325,7 @@ export async function emailSendCode(param, config) {
         errors.captcha = "验证码不能为空";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     var param = {
         email: email,
@@ -345,7 +345,7 @@ export async function emailConfirm(param, config) {
         errors.captcha = "验证码不能为空";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     var param = {
         email_id: parseInt(id),
@@ -398,7 +398,7 @@ export async function oauthAdd(login_type, login_state, config) {
             url = window.location.protocol + "//" + window.location.host + window.location.pathname + "mobile/wechat-login.html";
             break
         default:
-            return fialResult({}, `绑定类型[${login_type}]不支持`);
+            return failResult({}, `绑定类型[${login_type}]不支持`);
     }
     let response = await userRest().post("/external/bind_url", {
         "login_state": login_state,

@@ -54,7 +54,7 @@ export function globalRest(path) {
 };
 
 
-export function fialResult(field, message) {
+export function failResult(field, message) {
     return {
         status: false,
         field: field,
@@ -69,7 +69,7 @@ export function restResult(res) {
         }
         return {
             ...res.data.result,
-            ...fialResult(res.data.result.state == "valid_code" ? {
+            ...failResult(res.data.result.state == "valid_code" ? {
                 captcha: res.data.result.message
             } : {}, res.data.result.message),
             is_captcha: res.data.result.state == "need_captcha",

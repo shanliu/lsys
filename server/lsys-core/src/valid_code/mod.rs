@@ -1,13 +1,13 @@
-use std::{
-    fmt::{Display, Formatter},
-    string::FromUtf8Error,
-};
+
 
 use async_trait::async_trait;
-use deadpool_redis::{redis::AsyncCommands, Connection, PoolError};
-use redis::RedisError;
+use deadpool_redis::{redis::AsyncCommands, Connection};
 
-use crate::{fluent_message, rand_str, FluentMessage, RandType};
+
+mod result;
+pub use result::*;
+
+use crate::{fluent_message, rand_str, RandType};
 const CODE_SAVE_KEY: &str = "valid-save";
 
 pub struct ValidCode {
@@ -15,42 +15,6 @@ pub struct ValidCode {
     ignore_case: bool,
     redis: deadpool_redis::Pool,
 }
-#[derive(Debug)]
-//不匹配错误
-pub struct ValidCodeCheckError {
-    pub message: FluentMessage,
-    pub prefix: String,
-}
-#[derive(Debug)]
-pub enum ValidCodeError {
-    Utf8Err(FluentMessage),
-    Redis(RedisError),
-    RedisPool(PoolError),
-    Tag(FluentMessage),
-    DelayTimeout(ValidCodeCheckError),
-    NotMatch(ValidCodeCheckError),
-}
-impl Display for ValidCodeError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-impl From<FromUtf8Error> for ValidCodeError {
-    fn from(err: FromUtf8Error) -> Self {
-        ValidCodeError::Utf8Err(fluent_message!("utf-error", err))
-    }
-}
-impl From<RedisError> for ValidCodeError {
-    fn from(err: RedisError) -> Self {
-        ValidCodeError::Redis(err)
-    }
-}
-impl From<PoolError> for ValidCodeError {
-    fn from(err: PoolError) -> Self {
-        ValidCodeError::RedisPool(err)
-    }
-}
-
 #[async_trait]
 pub trait ValidCodeData {
     async fn get_code<'t>(

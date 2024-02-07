@@ -22,6 +22,7 @@ rbac_cache = true
 ui_dir = "../../../ui/public/"
 #静态文件访问路径,默认:/ui/
 #ui_path="/ui/"
+ui_path="/"
 #超级管理员id
 root_user_id = [1]
 
@@ -29,7 +30,7 @@ root_user_id = [1]
 fluent_dir = "locale/"
 
 #页面模板目录
-tpl_dir = "static"
+tpl_dir = "./static"
 
 #地址库数据文件压缩包
 area_code_db = "data/2023-7-area-code.csv.gz"
@@ -46,8 +47,8 @@ ip_city_db = "data/IP2LOCATION-LITE-DB11.BIN"
 #snowflake_node_id=1 #最大31
 
 # jwt token 
-app_jwt_key = "bbb" #jwt 密钥
+#app_jwt_key = "bbb" #jwt 密钥
 
 
 #git doc save dir
-doc_git_dir = "/tmp/"
+#doc_git_dir = "/tmp/"

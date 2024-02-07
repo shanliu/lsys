@@ -1,5 +1,5 @@
 import isEmail from "validator/lib/isEmail";
-import { fialResult, restResult, sessionRest } from "../utils/rest";
+import { failResult, restResult, sessionRest } from "../utils/rest";
 import { isCallbackKey, isDomain } from "../utils/utils";
 import dayjs from "dayjs";
 
@@ -162,7 +162,7 @@ export async function senderAddConfig(type, param, config) {
             break;
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await senderSettingRest(type).post("config_add", data, config);
     return restResult(response)
@@ -202,7 +202,7 @@ export async function senderDelConfig(type, param, config) {
 //message
 
 export async function mailListAppMessage(param, config) {
-    const { app_id, user_id,sn_id, tpl_id, to_mail, status, start_pos, end_pos, page_size } = param;
+    const { app_id, user_id, sn_id, tpl_id, to_mail, status, start_pos, end_pos, page_size } = param;
     let data = {
         count_num: false,
         limit: {
@@ -246,14 +246,14 @@ export async function mailListAppMessage(param, config) {
         data.to_mail = to_mail;
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await senderSettingRest("mailer").post("/message_list", data, config);
     return restResult(response, ['not_found'])
 }
 
 export async function smsListAppMessage(param, config) {
-    const { app_id, user_id,sn_id, tpl_id, mobile, status, start_pos, end_pos, page_size } = param;
+    const { app_id, user_id, sn_id, tpl_id, mobile, status, start_pos, end_pos, page_size } = param;
     let data = {
         count_num: false,
         limit: {
@@ -297,7 +297,7 @@ export async function smsListAppMessage(param, config) {
         data.mobile = mobile;
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await senderSettingRest("smser").post("/message_list", data, config);
     return restResult(response, ['not_found'])
@@ -323,7 +323,7 @@ export async function senderListAppMessageLog(type, param, config) {
 export async function senderCancelAppMessage(type, param, config) {
     const { message_id } = param;
     if (message_id <= 0) {
-        return fialResult({ message_id: "缺少ID" });
+        return failResult({ message_id: "缺少ID" });
     }
     let response = await senderSettingRest(type).post("/message_cancel", {
         message_id: message_id.toString(),
@@ -334,7 +334,7 @@ export async function senderCancelAppMessage(type, param, config) {
 export async function senderSeeAppMessage(type, param, config) {
     const { message_id } = param;
     if (message_id <= 0) {
-        return fialResult({ message_id: "缺少ID" });
+        return failResult({ message_id: "缺少ID" });
     }
     let response = await senderSettingRest(type).post("/message_body", {
         message_id: message_id.toString(),
@@ -347,10 +347,10 @@ export async function senderSeeAppMessage(type, param, config) {
 export async function senderSetMessageNotify(type, param, config) {
     const { url, app_id } = param;
     if (app_id <= 0) {
-        return fialResult({ app_id: "缺少ID" });
+        return failResult({ app_id: "缺少ID" });
     }
     if (url.substr(0, 7) != "http://" && url.substr(0, 8) != "https://") {
-        return fialResult({ url: "url错误" });
+        return failResult({ url: "url错误" });
     }
     let response = await senderSettingRest(type).post("/notify_set_config", {
         app_id: parseInt(app_id),
@@ -439,7 +439,7 @@ export async function smsListTplConfig(param, config) {
         data.tpl = tpl;
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await senderSettingRest("smser").post("/tpl_config_list", data, config);
     return restResult(response, ['not_found'])
@@ -473,7 +473,7 @@ export async function smsAppSend(param, config) {
     }
 
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let sp = {
         tpl_id: parseInt(tpl_id),
@@ -519,7 +519,7 @@ export async function smsAddAliConfig(param, config) {
         errors.callback_key = "回调KEY错误,只能包含数字字母的字符串";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await senderSettingRest("smser").post("/ali_config_add", param, config);
     return restResult(response)
@@ -546,7 +546,7 @@ export async function smsEditAliConfig(param, config) {
         errors.callback_key = "回调KEY错误,只能包含数字字母的字符串";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await senderSettingRest("smser").post("/ali_config_edit", {
         ...param,
@@ -594,7 +594,7 @@ export async function smsAddAppAliConfig(param, config) {
     }
 
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await senderSettingRest("smser").post("/ali_app_config_add", data, config);
     return restResult(response)
@@ -635,7 +635,7 @@ export async function smsAddHwConfig(param, config) {
         errors.callback_key = "回调KEY错误,只能包含数字字母的字符串";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await senderSettingRest("smser").post("/hw_config_add", param, config);
     return restResult(response)
@@ -662,7 +662,7 @@ export async function smsEditHwConfig(param, config) {
         errors.url = "提供URL";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await senderSettingRest("smser").post("/hw_config_edit", {
         ...param,
@@ -714,7 +714,7 @@ export async function smsAddAppHwConfig(param, config) {
         errors.sender = "模板通道错误";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let map_data = (template_map + '').split(",");
     map_data = map_data.filter((e) => e)
@@ -763,7 +763,7 @@ export async function smsAddTenConfig(param, config) {
         errors.callback_key = "回调KEY错误,只能包含数字字母的字符串";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await senderSettingRest("smser").post("/ten_config_add", param, config);
     return restResult(response)
@@ -790,7 +790,7 @@ export async function smsEditTenConfig(param, config) {
         errors.region = "区域不能为空";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await senderSettingRest("smser").post("/ten_config_edit", {
         ...param,
@@ -840,7 +840,7 @@ export async function smsAddAppTenConfig(param, config) {
         errors.sign_name = "签名必填";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let map_data = (template_map + '').split(",");
     map_data = map_data.filter((e) => e)
@@ -887,7 +887,7 @@ export async function smsAddCloOpenConfig(param, config) {
         errors.callback_key = "回调KEY错误,只能包含数字字母的字符串";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await senderSettingRest("smser").post("/cloopen_config_add", param, config);
     return restResult(response)
@@ -913,7 +913,7 @@ export async function smsEditCloOpenConfig(param, config) {
     }
 
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await senderSettingRest("smser").post("/cloopen_config_edit", {
         ...param,
@@ -958,7 +958,7 @@ export async function smsAddAppCloOpenConfig(param, config) {
 
 
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let map_data = (template_map + '').split(",");
     map_data = map_data.filter((e) => e)
@@ -1005,7 +1005,7 @@ export async function smsAddJdConfig(param, config) {
         errors.region = "区域不能为空";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await senderSettingRest("smser").post("/jd_config_add", param, config);
     return restResult(response)
@@ -1029,7 +1029,7 @@ export async function smsEditJdConfig(param, config) {
         errors.region = "区域不能为空";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await senderSettingRest("smser").post("/jd_config_edit", {
         ...param,
@@ -1077,7 +1077,7 @@ export async function smsAddAppJdConfig(param, config) {
         errors.sign_id = "签名必填";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let map_data = (template_map + '').split(",");
     map_data = map_data.filter((e) => e)
@@ -1117,7 +1117,7 @@ export async function smsAddNeteaseConfig(param, config) {
     }
 
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await senderSettingRest("smser").post("/netease_config_add", param, config);
     return restResult(response)
@@ -1139,7 +1139,7 @@ export async function smsEditNeteaseConfig(param, config) {
     }
 
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await senderSettingRest("smser").post("/netease_config_edit", {
         ...param,
@@ -1183,7 +1183,7 @@ export async function smsAddAppNeteaseConfig(param, config) {
     }
 
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let map_data = (template_map + '').split(",");
     map_data = map_data.filter((e) => e)
@@ -1300,7 +1300,7 @@ export async function mailAddSmtpConfig(param, config) {
         errors.email = "请输入邮箱或留空";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await senderSettingRest("mailer").post("/smtp_config_add", {
         name: name + '',
@@ -1350,7 +1350,7 @@ export async function mailEditSmtpConfig(param, config) {
         errors.email = "请输入邮箱或留空";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await senderSettingRest("mailer").post("/smtp_config_edit", {
         name: name + '',
@@ -1398,7 +1398,7 @@ export async function mailListTplConfig(param, config) {
         data.tpl = tpl;
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await senderSettingRest("mailer").post("/tpl_config_list", data, config);
     return restResult(response, ['not_found'])
@@ -1426,7 +1426,7 @@ export async function mailAppSend(param, config) {
         }
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let sp = {
         tpl_id: parseInt(tpl_id),
@@ -1485,7 +1485,7 @@ export async function mailAddAppSmtpConfig(param, config) {
         errors.subject_tpl_id = "请选择标题模板";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await senderSettingRest("mailer").post("/smtp_app_config_add", data, config);
     return restResult(response)
@@ -1514,7 +1514,7 @@ export async function tplsAddConfig(param, config) {
     }
 
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
 
     let data = {
@@ -1536,7 +1536,7 @@ export async function tplsEditConfig(param, config) {
     }
 
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await senderSettingRest("tpls").post("/edit", {
         id: parseInt(id),

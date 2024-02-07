@@ -649,7 +649,7 @@ impl MailRecord {
                             fluent_message!("mail-send-check-limit", //  "trigger limit rule :{} on {} [{}]",
                                 {
                                     "max_send":limit.max_send,
-                                    "to_mail":t.2,
+                                    "to_mail":&t.2,
                                     "config_id":id
                                 }
                             ),

@@ -21,7 +21,8 @@ address-bad-area = 提交的区域编码不存在
 mail-bind-other-user = 邮箱已绑定其他账号[{$other_user_id}]
  
 rbac-check-fail = 权限校验失败
-system-not-found = 不存在相关记录
+db-not-found = 不存在相关记录
+db-error = 数据库错误:{$msg}
 
 user-old-passwrod-bad= 提交的原密码错误
 user-old-passwrod-empty= 请提交原密码
@@ -93,8 +94,6 @@ res-op-user-email=用户邮箱
 res-op-user-mobile=用户手机号
 res-op-user-address=用户守候地址
 
-res-op-view=查看
-res-op-edit=编辑
 
 
 res-op-change-all=资源更改

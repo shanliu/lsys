@@ -5,7 +5,7 @@ use crate::dao::account::UserAccountResult;
 
 use crate::model::{UserEmailModel, UserEmailModelRef, UserEmailStatus, UserModel};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{fluent_message, now_time, RemoteNotify, RequestEnv};
+use lsys_core::{fluent_message, now_time, IntoFluentMessage, RemoteNotify, RequestEnv};
 
 use lsys_logger::dao::ChangeLogger;
 use sqlx::{Acquire, MySql, Pool, Transaction};
@@ -199,7 +199,11 @@ impl UserEmail {
         let res = self.confirm_email(email, env_data).await;
         if res.is_ok() {
             if let Err(err) = self.valid_code_clear(&email.user_id, &email.email).await {
-                warn!("email {} valid clear fail:{}", &email.email, err);
+                warn!(
+                    "email {} valid clear fail:{}",
+                    &email.email,
+                    err.to_fluent_message().default_format()
+                );
             }
         }
         res

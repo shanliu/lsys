@@ -7,7 +7,7 @@ use crate::{
 };
 use log::warn;
 use lsys_app::{dao::app::AppDataWhere, model::AppStatus};
-use lsys_core::{fluent_message, now_time, str_time, FluentMessage};
+use lsys_core::{fluent_message, now_time, str_time, IntoFluentMessage};
 use lsys_notify::dao::NotifyData;
 use lsys_sender::{
     dao::{NotifySmsItem, SenderError},
@@ -264,7 +264,10 @@ pub async fn smser_message_list<'t, T: SessionTokenData, D: SessionData, S: User
         )
         .await
     {
-        warn!("query status fail:{}", err);
+        warn!(
+            "query status fail:{}",
+            err.to_fluent_message().default_format()
+        );
     }
     let ntime = now_time().unwrap_or_default();
     let next = res.1;
@@ -776,7 +779,7 @@ pub async fn smser_message_send<'t, T: SessionTokenData, D: SessionData, S: User
         } else {
             Some(
                 str_time(&t)
-                    .map_err(|e| req_dao.fluent_json_data(FluentMessage::from(e)))?
+                    .map_err(|e| req_dao.fluent_json_data(e))?
                     .timestamp() as u64,
             )
         }

@@ -1,4 +1,4 @@
-use std::fmt::Display;
+// use std::fmt::Display;
 
 use lsys_logger::dao::ChangeLogData;
 use serde::Serialize;
@@ -94,18 +94,18 @@ pub(crate) enum LogRoleUserAction {
     Add,
     Del,
 }
-impl Display for LogRoleUserAction {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                LogRoleUserAction::Add => "add",
-                LogRoleUserAction::Del => "del",
-            }
-        )
-    }
-}
+// impl Display for LogRoleUserAction {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         write!(
+//             f,
+//             "{}",
+//             match self {
+//                 LogRoleUserAction::Add => "add",
+//                 LogRoleUserAction::Del => "del",
+//             }
+//         )
+//     }
+// }
 
 #[derive(Serialize)]
 pub(crate) struct LogRoleUser {
@@ -120,9 +120,13 @@ impl ChangeLogData for LogRoleUser {
         "rbac-role-user"
     }
     fn message(&self) -> String {
+        let action_str = match self.action {
+            LogRoleUserAction::Add => "add",
+            LogRoleUserAction::Del => "del",
+        };
         format!(
             "{} {} :{} ",
-            self.action,
+            action_str,
             self.name,
             match self.action {
                 LogRoleUserAction::Add => {

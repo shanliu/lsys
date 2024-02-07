@@ -104,7 +104,7 @@ export function sessionRest(path) {
     return ax
 }
 
-export function fialResult(field, message) {
+export function failResult(field, message) {
     if (!message) {
         message = Object.values(field).join(";")
     }
@@ -116,41 +116,49 @@ export function fialResult(field, message) {
 };
 
 export function restResult(res, ignore) {
+    if (typeof ignore == 'string') {
+        ignore = [ignore]
+    }
+    if (!res?.data?.response) res.data.response = [];
     if (res?.data?.result?.code != 200) {
+
+        if (ignore && ignore.length > 0 && ignore.includes(res?.data?.result?.state)) {
+            return {
+                status: true,
+                ...res.data.response
+            };
+        }
+
         switch (res?.data?.result?.state) {
+            case "not_login":
+                userSessionClear()
             case "jwt_bad_token":
                 userSessionClear()
                 break
         }
         return {
             ...(res?.data?.result ?? {}),
-            ...fialResult({}, res?.data?.result?.message ?? "未知错误"),
+            ...failResult(res?.data?.result?.state == "valid_code" ? {
+                captcha: res.data.result.message
+            } : {}, res?.data?.result?.message ?? "未知错误"),
+            is_captcha: res.data.result.state == "need_captcha",
             data: res?.data?.response ?? null
         }
     }
-    if (typeof ignore == 'string') {
-        ignore = [ignore]
-    }
-    switch (res.data.result.state) {
-        case "not_login":
-            userSessionClear()
-        default:
-            if (res.data.result.state == 'ok' || (ignore && ignore.length > 0 && ignore.includes(res.data.result.state))) {
-                if (!res.data.response) res.data.response = [];
-                return {
-                    status: true,
-                    ...res.data.response
-                };
-            }
-            return {
-                ...res.data.result,
-                ...fialResult(res.data.result.state == "valid_code" ? {
-                    captcha: res.data.result.message
-                } : {}, res.data.result.message),
-                is_captcha: res.data.result.state == "need_captcha",
-                data: res.data.response
-            }
-    }
+    return {
+        status: true,
+        ...res.data.response
+    };
+
+
+    // return {
+    //     ...res.data.result,
+    //     ...failResult(res.data.result.state == "valid_code" ? {
+    //         captcha: res.data.result.message
+    //     } : {}, res.data.result.message),
+    //     is_captcha: res.data.result.state == "need_captcha",
+    //     data: res.data.response
+    // }
 };
 
 export function userSessionGet(session) {

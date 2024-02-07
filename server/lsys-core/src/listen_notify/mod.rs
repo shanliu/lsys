@@ -1,7 +1,6 @@
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::Debug;
 use std::sync::Arc;
 
-use deadpool_redis::PoolError;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -12,24 +11,9 @@ use tokio::time::{sleep, Duration};
 use redis::AsyncCommands;
 use tracing::{debug, error, info, warn};
 
-use crate::{fluent_message, AppCore, FluentMessage};
-
-#[derive(Debug)]
-pub enum WaitNotifyError {
-    System(FluentMessage),
-    Redis(redis::RedisError),
-    RedisPool(PoolError),
-    TimeOut,
-}
-
-impl Display for WaitNotifyError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-pub type WaitNotifyResult = Result<bool, String>;
-
+use crate::{fluent_message, AppCore, IntoFluentMessage};
+mod result;
+pub use result::*;
 pub trait WaitItem {
     fn eq(&self, other: &Self) -> bool;
 }
@@ -122,7 +106,6 @@ impl<T: WaitItem + Serialize + DeserializeOwned + Debug> WaitNotify<T> {
                     let con_res = redis_client.get_async_connection().await;
                     match con_res {
                         Ok(mut redis) => {
-                            debug!("notify is connect");
                             let channel_name = self.redis_channel_name(
                                 hostname::get()
                                     .unwrap_or_default()
@@ -167,7 +150,10 @@ impl<T: WaitItem + Serialize + DeserializeOwned + Debug> WaitNotify<T> {
                     }
                 }
                 Err(err) => {
-                    warn!("create remote notify listen client fail:{}", err);
+                    warn!(
+                        "create remote notify listen client fail:{}",
+                        err.to_fluent_message().default_format()
+                    );
                     tokio::time::sleep(Duration::from_secs(1)).await;
                 }
             }

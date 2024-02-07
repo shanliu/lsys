@@ -4,7 +4,7 @@ use crate::dao::account::UserAccountResult;
 use crate::dao::auth::UserPasswordHash;
 
 use crate::model::{UserModel, UserModelRef, UserPasswordModel, UserPasswordModelRef};
-use lsys_core::{fluent_message, now_time};
+use lsys_core::{fluent_message, now_time, IntoFluentMessage};
 
 use lsys_setting::dao::{
     NotFoundResult, SettingDecode, SettingEncode, SettingJson, SettingKey, SettingResult,
@@ -84,7 +84,11 @@ impl UserPassword {
         let res = self.set_passwrod(user, new_password, transaction).await;
         if res.is_ok() {
             if let Err(err) = self.valid_code_clear(&user.id, from_type).await {
-                warn!("email {} valid clear fail:{}", &user.id, err);
+                warn!(
+                    "email {} valid clear fail:{}",
+                    &user.id,
+                    err.to_fluent_message().default_format()
+                );
             }
         }
         res

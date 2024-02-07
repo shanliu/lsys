@@ -6,6 +6,7 @@ use crate::dao::auth::{LoginParam, LoginType, UserAuthError, UserAuthResult};
 use crate::model::{UserMobileModel, UserModel};
 use async_trait::async_trait;
 
+use lsys_core::IntoFluentMessage;
 use serde::{Deserialize, Serialize};
 use sqlx::{MySql, Pool};
 use sqlx_model::Select;
@@ -88,7 +89,9 @@ impl LoginParam for MobileCodeLogin {
         {
             warn!(
                 "login mobile clear valid[{}-{}] fail:{}",
-                &self.area_code, &self.mobile, err
+                &self.area_code,
+                &self.mobile,
+                err.to_fluent_message().default_format()
             )
         }
 

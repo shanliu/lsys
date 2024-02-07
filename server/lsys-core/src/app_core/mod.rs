@@ -1,14 +1,14 @@
+mod result;
+
 // use config::Config;
-use deadpool_redis::{Config as RedisConfig, CreatePoolError, Runtime};
+use deadpool_redis::{Config as RedisConfig, Runtime};
 use dotenv::dotenv;
 
 use log::LevelFilter;
-use redis::RedisError;
+
 use sqlx::pool::PoolOptions;
 use sqlx::{ConnectOptions, Connection, Database, Pool};
-use std::env::{self, VarError};
-use std::error::Error;
-use std::fmt::{Display, Formatter};
+use std::env;
 use std::str::FromStr;
 
 use std::path::{Path, PathBuf};
@@ -16,99 +16,13 @@ use tera::Tera;
 
 use sqlx_model::TableName;
 
-use crate::{Config, ConfigError, FluentBundleError, RemoteNotifyError};
+use crate::{Config, ConfigError};
 
-#[derive(Debug)]
-pub enum AppCoreError {
-    Sqlx(sqlx::Error),
-    Env(VarError),
-    Tera(tera::Error),
-    Io(std::io::Error),
-    System(String),
-    Log(String),
-    Redis(RedisError),
-    RedisPool(CreatePoolError),
-    Dotenv(dotenv::Error),
-    AppDir(String),
-    Config(ConfigError),
-    Fluent(FluentBundleError),
-    RemoteNotify(RemoteNotifyError),
-}
-
-impl Display for AppCoreError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-impl Error for AppCoreError {}
-impl From<sqlx::Error> for AppCoreError {
-    fn from(err: sqlx::Error) -> Self {
-        AppCoreError::Sqlx(err)
-    }
-}
-impl From<CreatePoolError> for AppCoreError {
-    fn from(err: CreatePoolError) -> Self {
-        AppCoreError::RedisPool(err)
-    }
-}
-impl From<RemoteNotifyError> for AppCoreError {
-    fn from(err: RemoteNotifyError) -> Self {
-        AppCoreError::RemoteNotify(err)
-    }
-}
-
-impl From<VarError> for AppCoreError {
-    fn from(err: VarError) -> Self {
-        AppCoreError::Env(err)
-    }
-}
-impl From<tera::Error> for AppCoreError {
-    fn from(err: tera::Error) -> Self {
-        AppCoreError::Tera(err)
-    }
-}
-impl From<std::io::Error> for AppCoreError {
-    fn from(err: std::io::Error) -> Self {
-        AppCoreError::Io(err)
-    }
-}
-impl From<RedisError> for AppCoreError {
-    fn from(err: RedisError) -> Self {
-        AppCoreError::Redis(err)
-    }
-}
-impl From<dotenv::Error> for AppCoreError {
-    fn from(err: dotenv::Error) -> Self {
-        AppCoreError::Dotenv(err)
-    }
-}
-// impl From<core::convert::Infallible> for AppCoreError {
-//     fn from(err: core::convert::Infallible) -> Self {
-//         AppCoreError::AppDir(err.to_string())
-//     }
-// }
-impl From<ConfigError> for AppCoreError {
-    fn from(err: ConfigError) -> Self {
-        AppCoreError::Config(err)
-    }
-}
-impl From<config::ConfigError> for AppCoreError {
-    fn from(err: config::ConfigError) -> Self {
-        AppCoreError::Config(ConfigError::Config(err))
-    }
-}
-impl From<FluentBundleError> for AppCoreError {
-    fn from(err: FluentBundleError) -> Self {
-        AppCoreError::Fluent(err)
-    }
-}
-
+pub use result::*;
 pub struct AppCore {
     pub app_path: PathBuf,
     pub config: Config,
 }
-
-pub type AppCoreResult = Result<AppCore, AppCoreError>;
 
 impl AppCore {
     pub async fn init(

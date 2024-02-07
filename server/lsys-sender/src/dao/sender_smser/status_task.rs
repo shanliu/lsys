@@ -4,6 +4,7 @@ use async_trait::async_trait;
 
 use lsys_core::fluent_message;
 use lsys_core::now_time;
+use lsys_core::IntoFluentMessage;
 use lsys_notify::dao::Notify;
 use lsys_setting::dao::MultipleSetting;
 
@@ -198,13 +199,13 @@ impl TaskExecutor<u64, SmsStatusTaskItem> for SmsStatusTask {
             .recrod
             .find_message_by_id(&val.0)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| e.to_fluent_message().default_format())?;
 
         let body = self
             .recrod
             .find_body_by_id(&sms.sender_body_id)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| e.to_fluent_message().default_format())?;
 
         match self.setting.find(&None, &sms.setting_id).await {
             Ok(setting) => {
@@ -305,7 +306,7 @@ impl TaskExecutor<u64, SmsStatusTaskItem> for SmsStatusTask {
                 }
             }
             Err(err) => {
-                return Err(err.to_string());
+                return Err(err.to_fluent_message().default_format());
             }
         };
         return Err(format!("not find any status apatar :{}", val.0));

@@ -7,7 +7,7 @@ use crate::{
     LimitParam, PageParam, {JsonData, JsonResult},
 };
 use lsys_core::{fluent_message, str_time};
-use lsys_core::{now_time, FluentMessage};
+use lsys_core::{now_time};
 use lsys_sender::{
     // dao::SenderError,
     dao::SenderError,
@@ -629,7 +629,7 @@ pub async fn mailer_message_send<T: SessionTokenData, D: SessionData, S: UserSes
         } else {
             Some(
                 str_time(&t)
-                    .map_err(|e| req_dao.fluent_json_data(FluentMessage::from(e)))?
+                    .map_err(|e| req_dao.fluent_json_data(e))?
                     .timestamp() as u64,
             )
         }

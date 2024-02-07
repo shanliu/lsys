@@ -15,6 +15,7 @@ use crate::{
     },
     model::{SenderMailBodyModel, SenderMailMessageModel, SenderType},
 };
+use lsys_core::IntoFluentMessage;
 use lsys_core::TaskDispatch;
 
 const MAILER_REDIS_PREFIX: &str = "sender-mail-";
@@ -173,7 +174,12 @@ impl MailSender {
                     .wait_timeout(t)
                     .await
                     .map(|e| e.map_err(|c| fluent_message!("mail-send-fail", c)))
-                    .unwrap_or_else(|e| Err(fluent_message!("mail-send-wait-fail", e)))
+                    .unwrap_or_else(|e| {
+                        Err(fluent_message!(
+                            "mail-send-wait-fail",
+                            e.to_fluent_message()
+                        ))
+                    })
             } else {
                 Ok(true)
             };
@@ -213,7 +219,7 @@ impl MailSender {
                 Some(SenderError::System(
                     fluent_message!("mail-send-ok-cancel", //  "mail {} is send:{}",
                         {
-                            "to_mail":msg.to_mail,
+                            "to_mail":&msg.to_mail,
                             "msg_id":msg.id
                         }
                     ),

@@ -10,7 +10,7 @@ use crate::{
 };
 use async_trait::async_trait;
 
-use lsys_core::{fluent_message, RequestEnv};
+use lsys_core::{fluent_message, IntoFluentMessage, RequestEnv};
 use lsys_lib_sms::{template_map_to_arr, JdSms, SendDetailItem, SendError};
 use lsys_setting::{
     dao::{
@@ -264,7 +264,10 @@ impl SenderTaskExecutor<u64, SmsTaskItem, SmsTaskData> for JDCloudSenderTask {
     ) -> SenderTaskResult {
         let sub_setting =
             SettingData::<JDCloudConfig>::try_from(setting.to_owned()).map_err(|e| {
-                SenderExecError::Next(format!("parse config to jd_cloud setting fail:{}", e))
+                SenderExecError::Next(format!(
+                    "parse config to jd_cloud setting fail:{}",
+                    e.to_fluent_message().default_format()
+                ))
             })?;
         let sub_tpl_config = serde_json::from_str::<JDCloudTplConfig>(&tpl_config.config_data)
             .map_err(|e| {
@@ -335,8 +338,13 @@ impl crate::dao::SmsStatusTaskExecutor for JDSendStatus {
         msg: &SenderSmsMessageModel,
         setting: &SettingModel,
     ) -> Result<Vec<SendDetailItem>, SenderExecError> {
-        let setting_data = SettingData::<JDCloudConfig>::try_from(setting.to_owned())
-            .map_err(|e| SenderExecError::Next(format!("parse config to jd setting fail:{}", e)))?;
+        let setting_data =
+            SettingData::<JDCloudConfig>::try_from(setting.to_owned()).map_err(|e| {
+                SenderExecError::Next(format!(
+                    "parse config to jd setting fail:{}",
+                    e.to_fluent_message().default_format()
+                ))
+            })?;
 
         JdSms::send_detail(
             create_sender_client()?,

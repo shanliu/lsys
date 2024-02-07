@@ -10,7 +10,7 @@ use crate::{
 };
 use async_trait::async_trait;
 use chrono::NaiveDateTime;
-use lsys_core::{fluent_message, RequestEnv};
+use lsys_core::{fluent_message, IntoFluentMessage, RequestEnv};
 use lsys_lib_sms::{AliSms, SendDetailItem, SendError, SendNotifyError};
 use lsys_setting::{
     dao::{
@@ -264,7 +264,10 @@ impl SenderTaskExecutor<u64, SmsTaskItem, SmsTaskData> for AliYunSenderTask {
     ) -> SenderTaskResult {
         let ali_setting =
             SettingData::<AliYunConfig>::try_from(setting.to_owned()).map_err(|e| {
-                SenderExecError::Next(format!("parse config to aliyun setting fail:{}", e))
+                SenderExecError::Next(format!(
+                    "parse config to aliyun setting fail:{}",
+                    e.to_fluent_message().default_format()
+                ))
             })?;
         let ali_config =
             serde_json::from_str::<AliYunTplConfig>(&tpl_config.config_data).map_err(|e| {
@@ -392,7 +395,10 @@ impl crate::dao::SmsStatusTaskExecutor for AliYunSendStatus {
     ) -> Result<Vec<SendDetailItem>, SenderExecError> {
         let ali_setting =
             SettingData::<AliYunConfig>::try_from(setting.to_owned()).map_err(|e| {
-                SenderExecError::Next(format!("parse config to aliyun setting fail:{}", e))
+                SenderExecError::Next(format!(
+                    "parse config to aliyun setting fail:{}",
+                    e.to_fluent_message().default_format()
+                ))
             })?;
         let naive_date_time =
             NaiveDateTime::from_timestamp_opt(msg.send_time as i64, 0).unwrap_or_default();

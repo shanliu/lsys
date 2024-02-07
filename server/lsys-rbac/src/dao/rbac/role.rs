@@ -1145,7 +1145,7 @@ impl RbacRole {
         if !RbacRoleUserRange::User.eq(role.user_range) {
             return Err(UserRbacError::System(
                 fluent_message!("rbac-res-op-user-wrong",{
-                    "name":role.name,
+                    "name":&role.name,
                     "role_id":role.id,
                     "range":role.user_range
                 }), //"role({$name})[range:{$range}] can't set user [{$role_id}]",
@@ -1657,7 +1657,7 @@ impl RbacRole {
         if !RbacRoleResOpRange::AllowCustom.eq(role.res_op_range) {
             return Err(UserRbacError::System(
                 fluent_message!("rbac-res-op-range-wrong",{
-                    "name":role.name,
+                    "name":&role.name,
                     "role_id":role.id,
                     "range":role.res_op_range
                 }), //"role({$name})[range:{$range}] can't set ops [{$role_id}]",[
@@ -1689,7 +1689,7 @@ impl RbacRole {
                 return Err(UserRbacError::System(
                     fluent_message!("rbac-role-miss-res",{
                         "id":tmp.res.id,
-                        "name":tmp.res.name
+                        "name":&tmp.res.name
                     }), //"res {$id} does not exist, may be delete",[
                 ));
             }
@@ -1699,7 +1699,7 @@ impl RbacRole {
             if role.user_id > 0 && tmp.user_id != role.user_id {
                 return Err(UserRbacError::System(
                     fluent_message!("rbac-role-bad-res-user",{
-                        "res":tmp.name,
+                        "res":&tmp.name,
                         "user_id":tmp.user_id
                     }), //,"res[{$res}:{$user_id}] do not belong to you"
                 ));
@@ -1733,7 +1733,7 @@ impl RbacRole {
                         return Err(UserRbacError::System(
                             fluent_message!("rbac-role-wrong-res-op",{
                                 "id":optmp.0.id,
-                                "name":optmp.0.name,
+                                "name":&optmp.0.name,
                                 "res_id":optmp.0.res_id,
                                 "p_res_id":tmp.res.id
                             }), //"res op [{$id}:] res id not match [{$res_id}!={$p_res_id}] ",
@@ -1744,7 +1744,7 @@ impl RbacRole {
                     return Err(UserRbacError::System(
                         fluent_message!("rbac-role-miss-res-op",{
                             "id":optmp.0.id,
-                            "name":optmp.0.name
+                            "name":&optmp.0.name
                         }), //"res op {$id} does not exist, may be delete",[
                     ));
                 }

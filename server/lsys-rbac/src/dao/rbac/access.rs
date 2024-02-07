@@ -517,7 +517,7 @@ impl RbacAccess {
                                 tmp.check_res.res.clone(),
                                 fluent_message!("rbac-access-check-res-empty",{
                                    // "res_id":res.res.id,
-                                    "res":tmp.check_res.res,
+                                    "res":&tmp.check_res.res,
                                     "op":otmp,
                                     "user_id":tmp.check_res.user_id,
                                     "view_user_id":user_id
@@ -537,7 +537,7 @@ impl RbacAccess {
                         bad_tmp.push((
                             tmp.check_res.res.clone(),
                             fluent_message!("rbac-access-check-res-empty",{
-                                    "res":tmp.check_res.res,
+                                    "res":&tmp.check_res.res,
                                     "op":tmp_op,
                                     "user_id":tmp.check_res.user_id,
                                     "view_user":user_id
@@ -602,10 +602,10 @@ impl RbacAccess {
                 let mut access = (
                     false,
                     fluent_message!("rbac-access-check-access",{
-                            "res":check_item.res.name,
+                            "res":&check_item.res.name,
                             "res_id":check_item.res.id,
                             "user_id":check_item.res.user_id,
-                            "res_op":res_op.op_key,
+                            "res_op":&res_op.op_key,
                             "view_user_id":user_id
                     }), //"user[{$user_id}] not find access [{$res}:{$res_id}] on [{$res_op}]"
                 );
@@ -629,10 +629,7 @@ impl RbacAccess {
                     }
                 }
                 if !access.0 {
-                    info!(
-                        "user {} access deny res :{},msg:{}",
-                        user_id, check_item.res.name, access.1
-                    );
+                    info!("user {} access deny res :{}", user_id, check_item.res.name);
                     bad_tmp.push((check_item.res.name.clone(), access.1));
                 }
             }

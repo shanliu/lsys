@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::error::Error;
-use std::fmt::{Display, Formatter};
+// use std::error::Error;
+
 use std::ops::Deref;
 
 use lsys_logger::dao::ChangeLogData;
@@ -11,7 +11,7 @@ use crate::model::{SettingModel, SettingStatus, SettingType};
 use sqlx::{MySql, Pool};
 use std::sync::Arc;
 
-use super::{MultipleSetting, SingleSetting};
+use super::{MultipleSetting, SettingError, SettingResult, SingleSetting};
 
 use lsys_core::{AppCoreError, RemoteNotify};
 use lsys_logger::dao::ChangeLogger;
@@ -65,42 +65,6 @@ impl Setting {
         "id in ({ids}) and  status = {status}",
         status = SettingStatus::Enable
     );
-}
-
-#[derive(Debug)]
-pub enum SettingError {
-    Sqlx(sqlx::Error),
-    SerdeJson(serde_json::Error),
-    // System(FluentMessage),
-}
-impl Display for SettingError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-impl Error for SettingError {}
-
-impl From<sqlx::Error> for SettingError {
-    fn from(err: sqlx::Error) -> Self {
-        SettingError::Sqlx(err)
-    }
-}
-
-pub type SettingResult<T> = Result<T, SettingError>;
-
-pub trait NotFoundResult {
-    fn notfound_default(self) -> Self;
-}
-
-impl<T: Default> NotFoundResult for SettingResult<T> {
-    fn notfound_default(self) -> Self {
-        match self {
-            Ok(s) => Ok(s),
-            Err(SettingError::Sqlx(sqlx::Error::RowNotFound)) => Ok(T::default()),
-            Err(e) => Err(e),
-        }
-    }
 }
 
 pub trait SettingKey {

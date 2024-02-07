@@ -59,7 +59,8 @@ pub async fn user_address_add<'t, T: SessionTokenData, D: SessionData, S: UserSe
         return Ok(
             req_dao
                 .fluent_json_data(fluent_message!("address-miss-city"))
-                .set_code("bad_code"), // JsonData::message("your submit area miss city").set_code("bad_code")
+                .set_code(500)
+                .set_sub_code("bad_code"), // JsonData::message("your submit area miss city").set_code("bad_code")
         );
     }
     let area = get_area!(req_dao.web_dao.area)
@@ -69,7 +70,8 @@ pub async fn user_address_add<'t, T: SessionTokenData, D: SessionData, S: UserSe
         return Ok(
             req_dao
                 .fluent_json_data(fluent_message!("address-bad-area"))
-                .set_code("bad_code"),
+                .set_code(500)
+                .set_sub_code("bad_code"),
             // JsonData::message("your submit area code not find any data").set_code("bad_code")
         );
     }
@@ -152,7 +154,7 @@ pub async fn user_address_edit<'t, T: SessionTokenData, D: SessionData, S: UserS
         return Ok(
             req_dao
                 .fluent_json_data(fluent_message!("address-miss-city"))
-                .set_code("bad_code"),
+                .set_sub_code("bad_code"),
             //    JsonData::message("your submit area miss city").set_code("bad_code")
         );
     }
@@ -163,7 +165,7 @@ pub async fn user_address_edit<'t, T: SessionTokenData, D: SessionData, S: UserS
         return Ok(
             req_dao
                 .fluent_json_data(fluent_message!("address-bad-area"))
-                .set_code("bad_code"),
+                .set_sub_code("bad_code"),
             // JsonData::message("your submit area code not find any data").set_code("bad_code")
         );
     }

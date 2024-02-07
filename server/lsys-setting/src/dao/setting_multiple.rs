@@ -1,5 +1,5 @@
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{now_time, PageParam, RemoteNotify, RequestEnv};
+use lsys_core::{now_time, IntoFluentMessage, PageParam, RemoteNotify, RequestEnv};
 use lsys_logger::dao::ChangeLogger;
 use sqlx::{MySql, Pool, Transaction};
 use sqlx_model::{
@@ -263,7 +263,10 @@ impl MultipleSetting {
                     out.push(dat);
                 }
                 Err(err) => {
-                    warn!("setting parse fail:{}", err);
+                    warn!(
+                        "setting parse fail:{}",
+                        err.to_fluent_message().default_format()
+                    );
                 }
             }
         }

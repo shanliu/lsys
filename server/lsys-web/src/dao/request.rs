@@ -1,7 +1,7 @@
 use std::{ops::Deref, sync::Arc};
 
 use lsys_app::dao::session::{RestAuthData, RestAuthSession, RestAuthTokenData};
-use lsys_core::{FluentBundle, RequestEnv};
+use lsys_core::{FluentBundle, IntoFluentMessage, RequestEnv};
 use lsys_user::dao::auth::{
     SessionData, SessionToken, SessionTokenData, UserAuthData, UserAuthRedisStore, UserAuthSession,
     UserAuthTokenData, UserSession,
@@ -26,7 +26,7 @@ impl RequestDao {
             req_env,
         }
     }
-    pub fn fluent_json_data<F: FluentJsonData>(&self, data: F) -> JsonData {
+    pub fn fluent_json_data<F: FluentJsonData + FluentFormat>(&self, data: F) -> JsonData {
         JsonData::fluent_from(&self.fluent, data)
     }
     pub fn fluent_string<F: FluentFormat>(&self, data: F) -> String {
@@ -80,7 +80,10 @@ impl<T: SessionTokenData, D: SessionData, S: UserSession<T, D>> RequestAuthDao<T
                     token.refresh_user_token(&rut.into());
                 }
                 Err(e) => {
-                    warn!("check user auth error:{}", e);
+                    warn!(
+                        "check user auth error:{}",
+                        e.to_fluent_message().default_format()
+                    );
                 }
             }
         } else {

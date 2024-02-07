@@ -11,7 +11,7 @@ use crate::{
 use async_trait::async_trait;
 
 use chrono::NaiveDateTime;
-use lsys_core::{fluent_message, RequestEnv};
+use lsys_core::{fluent_message, IntoFluentMessage, RequestEnv};
 use lsys_lib_sms::{
     template_map_to_arr, SendDetailItem, SendError, SendNotifyError, SendNotifyItem, TenSms,
 };
@@ -275,7 +275,10 @@ impl SenderTaskExecutor<u64, SmsTaskItem, SmsTaskData> for TenyunSenderTask {
     ) -> SenderTaskResult {
         let sub_setting =
             SettingData::<TenYunConfig>::try_from(setting.to_owned()).map_err(|e| {
-                SenderExecError::Next(format!("parse config to tenyun setting fail:{}", e))
+                SenderExecError::Next(format!(
+                    "parse config to tenyun setting fail:{}",
+                    e.to_fluent_message().default_format()
+                ))
             })?;
         let sub_tpl_config = serde_json::from_str::<TenYunTplConfig>(&tpl_config.config_data)
             .map_err(|e| {
@@ -389,7 +392,10 @@ impl crate::dao::SmsStatusTaskExecutor for TenYunSendStatus {
     ) -> Result<Vec<SendDetailItem>, SenderExecError> {
         let setting_data =
             SettingData::<TenYunConfig>::try_from(setting.to_owned()).map_err(|e| {
-                SenderExecError::Next(format!("parse config to ten yun setting fail:{}", e))
+                SenderExecError::Next(format!(
+                    "parse config to ten yun setting fail:{}",
+                    e.to_fluent_message().default_format()
+                ))
             })?;
         let naive_date_time =
             NaiveDateTime::from_timestamp_opt(msg.send_time as i64, 0).unwrap_or_default();

@@ -22,7 +22,7 @@ user-auth-parse-error = 解析TOKEN异常:{$msg}
 
 check-user-lock = 用户{$user}已被锁定,将在{$time}秒后恢复
 
-auth-user-captcha = 用户{$user}登录时提交验证错误
+auth-user-captcha = 用户{$user}登录时需要验证码
 
 auth-user-disable = 用户{$user}已被禁用
 
@@ -47,5 +47,5 @@ auth-email-not-match = 邮箱[{$mail}]格式错误
 auth-mobile-error = 手机号校验失败:{$msg}
 auth-mobile-area-error = 手机区号{$area}异常
 serde-error = 序列化异常:{$msg}
-utf-error = 字符串非有效UTF字符,错误详细:{$msg}
+utf-parse-error = 字符串非有效UTF字符,错误详细:{$msg}
 not-login-empty-token = 用户未登陆:token不存在

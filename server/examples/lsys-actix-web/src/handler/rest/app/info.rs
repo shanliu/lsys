@@ -9,7 +9,7 @@ use lsys_web::handler::app::{subapp_view, SubAppViewParam};
 //       -> 检查签名
 //       -> 授权查询...
 #[post("app")]
-pub(crate) async fn app(mut rest: RestQuery) -> ResponseJsonResult<ResponseJson> {
+pub(crate) async fn app_info(mut rest: RestQuery) -> ResponseJsonResult<ResponseJson> {
     Ok(match rest.rfc.method.as_deref() {
         Some("view") => {
             let param = rest.param::<SubAppViewParam>()?;

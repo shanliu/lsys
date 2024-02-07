@@ -15,7 +15,7 @@ use tracing::{debug, warn};
 
 pub use clear::*;
 
-use crate::{now_time, LocalExecType, RemoteNotify};
+use crate::{now_time, IntoFluentMessage, LocalExecType, RemoteNotify};
 
 pub const REMOTE_NOTIFY_TYPE_CACHE: u8 = 101;
 
@@ -158,7 +158,10 @@ where
             )
             .await
         {
-            warn!("notify clear cache error:{}", err);
+            warn!(
+                "notify clear cache error:{}",
+                err.to_fluent_message().default_format()
+            );
         }
     }
 }

@@ -2,7 +2,8 @@ use std::collections::HashMap;
 
 use crate::{dao::RequestDao, handler::access::AccessAppSenderDoMail, JsonData, JsonResult};
 use lsys_app::model::AppsModel;
-use lsys_core::{str_time, FluentMessage};
+
+use lsys_core::{str_time, IntoFluentMessage};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -41,7 +42,7 @@ pub async fn mail_send(
         } else {
             Some(
                 str_time(&t)
-                    .map_err(|e| req_dao.fluent_json_data(FluentMessage::from(e)))?
+                    .map_err(|e| req_dao.fluent_json_data(e))?
                     .timestamp() as u64,
             )
         }
@@ -121,7 +122,7 @@ pub async fn mail_cancel(
                 "id":e.0.to_string(),
                 "status":!e.1&&e.2.is_none(),
               //  "sending":e.1,
-                "msg":e.2.map(|e|e.to_string())
+                "msg":e.2.map(|e|e.to_fluent_message().default_format())
             })
         })
         .collect::<Vec<Value>>();

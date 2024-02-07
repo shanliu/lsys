@@ -1,5 +1,5 @@
 import isEmail from "validator/lib/isEmail";
-import { fialResult, globalRest, restResult, sessionRest } from "../utils/rest";
+import { failResult, globalRest, restResult, sessionRest } from "../utils/rest";
 
 function LoggedRest() {
     return sessionRest('/api/user')
@@ -51,7 +51,7 @@ export async function nameLogin(login_type, param, config) {
         }
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await LoginRest().post("login/" + login_type, param, config);
     return restResult(response)
@@ -81,7 +81,7 @@ export async function emailLoginSendCode(param, config) {
         errors.captcha = "验证码不能为空";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     var param = {
         email: email,
@@ -119,7 +119,7 @@ export async function emailCodeLogin(param, config) {
         }
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await LoginRest().post("/login/email-code", param, config);
     return restResult(response)
@@ -149,7 +149,7 @@ export async function emailLogin(param, config) {
         }
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await LoginRest().post("/login/email-code", param, config);
     return restResult(response)
@@ -181,7 +181,7 @@ export async function mobileCodeLogin(param, config) {
         }
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     let response = await LoginRest().post("/login/sms-code", param, config);
     return restResult(response)
@@ -198,7 +198,7 @@ export async function mobileLoginSendCode(param, config) {
         errors.captcha = "验证码不能为空";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     var param = {
         mobile: mobile,
@@ -225,7 +225,7 @@ export async function emailSignupSendCode(param, config) {
         errors.captcha = "验证码不能为空";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     var param = {
         email: email,
@@ -254,7 +254,7 @@ export async function emailSignup(param, config) {
         errors.name = "邮箱格式错误";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     var param = {
         email: email,
@@ -277,7 +277,7 @@ export async function mobileSignupSendCode(param, config) {
         errors.captcha = "验证码不能为空";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     var param = {
         mobile: mobile,
@@ -310,7 +310,7 @@ export async function mobileSignup(param, config) {
         errors.name = "手机号格式错误";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
 
     var param = {
@@ -335,7 +335,7 @@ export async function emailFindPasswordSendCode(param, config) {
         errors.captcha = "验证码不能为空";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     var param = {
         email: email,
@@ -362,7 +362,7 @@ export async function emailFindPassword(param, config) {
         errors.password = "密码不能小于6位";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     var param = {
         email: email,
@@ -387,7 +387,7 @@ export async function mobileFindPasswordSendCode(param, config) {
         errors.captcha = "验证码不能为空";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     var param = {
         mobile: mobile,
@@ -417,7 +417,7 @@ export async function mobileFindPassword(param, config) {
         errors.password = "密码不能小于6位";
     }
     if (Object.keys(errors).length) {
-        return fialResult(errors);
+        return failResult(errors);
     }
     var param = {
         mobile: mobile,
@@ -451,7 +451,7 @@ export async function QrcodeLogin(login_type, login_state, config) {
             url = window.location.protocol + "//" + window.location.host + window.location.pathname + "mobile/wechat-login.html";
             break
         default:
-            return fialResult({}, `绑定类型[${login_type}]不支持`);
+            return failResult({}, `绑定类型[${login_type}]不支持`);
     }
     let response = await LoginRest().post("/external_login_url", {
         "login_type": login_type,

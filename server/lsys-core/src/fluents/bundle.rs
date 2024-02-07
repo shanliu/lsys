@@ -3,22 +3,10 @@ use intl_memoizer::concurrent::IntlLangMemoizer;
 
 use crate::FluentMessage;
 
+use crate::FluentBundleError;
 use std::{collections::HashMap, path::Path, str::FromStr, sync::Arc};
 use tokio::io::AsyncReadExt;
 use unic_langid::LanguageIdentifier;
-
-#[derive(Debug)]
-pub enum FluentBundleError {
-    Io(std::io::Error),
-    System(String),
-}
-
-impl From<std::io::Error> for FluentBundleError {
-    fn from(err: std::io::Error) -> Self {
-        FluentBundleError::Io(err)
-    }
-}
-
 pub struct FluentMgr {
     default_bundle: Arc<FluentBundle>,
     default_lang: &'static str,
@@ -198,7 +186,11 @@ impl FluentBundle {
                     msg.value().map(|pattern| {
                         let mut args: fluent::FluentArgs = fluent::FluentArgs::new();
                         for (k, v) in &message.data {
-                            args.set(k, v.as_str());
+                            let tmp = match v {
+                                crate::FluentData::Message(fmsg) => self.format_message(fmsg),
+                                crate::FluentData::String(msg) => msg.to_owned(),
+                            };
+                            args.set(k, tmp);
                         }
                         let mut errors = vec![];
                         fluent
@@ -207,6 +199,12 @@ impl FluentBundle {
                     })
                 })
             })
-            .unwrap_or_else(|| message.to_string())
+            .unwrap_or_else(|| {
+                if message.data.is_empty() {
+                    message.id.to_string()
+                } else {
+                    message.default_format()
+                }
+            })
     }
 }
