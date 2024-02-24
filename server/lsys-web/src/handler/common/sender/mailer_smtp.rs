@@ -3,7 +3,7 @@ use crate::{
     handler::access::{AccessAdminMailConfig, AccessAppSenderMailConfig},
     {JsonData, JsonResult},
 };
-use lsys_sender::dao::SmtpConfig;
+use lsys_app_sender::dao::SmtpConfig;
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
 use serde::{Deserialize, Serialize};
 use serde_json::json;

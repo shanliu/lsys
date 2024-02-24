@@ -18,6 +18,19 @@ pub trait WaitItem {
     fn eq(&self, other: &Self) -> bool;
 }
 
+// 处理流程：
+
+// 监听端：
+// 建立`一次性channel`,监听超时跟该一次性channel接收端
+// `一次性channel`发送端 标识T 加入待返回 数组sender_data
+//
+// 监听redis： 【主机名】队列，加超时，返回-》读取队列
+// 	检查 数组sender_data 推送结果到 `一次性channel`发送端
+// 	并清理已被超时关闭的 `一次性channel`发送端
+//
+// 推送端：
+// 把 标识T + 消息推入【主机名】队列
+
 pub struct WaitNotify<T: WaitItem + Serialize + DeserializeOwned + Debug> {
     channel_name: String,
     sender_data: Mutex<Vec<(T, Sender<WaitNotifyResult>)>>,

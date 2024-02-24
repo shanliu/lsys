@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use lsys_sender::{dao::SenderTplConfig, model::SenderTplConfigStatus};
+use lsys_app_sender::{dao::SenderTplConfig, model::SenderTplConfigStatus};
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
 use serde::Deserialize;
 use serde_json::{json, Value};

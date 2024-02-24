@@ -12,13 +12,13 @@ use lsys_web_module_oauth::handler::{wechat_get_config, wechat_set_config, Wecha
 //OAUTH配置
 #[post("/oauth/{type}")]
 pub async fn oauth_config(
-    path: actix_web::web::Path<(String,)>,
+    path: actix_web::web::Path<String>,
     jwt: JwtQuery,
     auth_dao: UserAuthQuery,
     json_param: JsonQuery,
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
-    let res = match path.0.to_string().as_str() {
+    let res = match path.into_inner().as_str() {
         "wechat-get" => wechat_get_config(&auth_dao).await,
         "wechat-set" => {
             wechat_set_config(json_param.param::<WechatSetConfigParam>()?, &auth_dao).await
@@ -30,13 +30,13 @@ pub async fn oauth_config(
 
 #[post("/system/{type}")]
 pub async fn system_config(
-    path: actix_web::web::Path<(String,)>,
+    path: actix_web::web::Path<String>,
     jwt: JwtQuery,
     auth_dao: UserAuthQuery,
     json_param: JsonQuery,
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
-    let res = match path.0.to_string().as_str() {
+    let res = match path.into_inner().as_str() {
         "base-get" => site_config_get(&auth_dao).await,
         "base-set" => site_config_set(json_param.param::<SiteConfigParam>()?, &auth_dao).await,
 

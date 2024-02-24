@@ -3,7 +3,7 @@ use crate::{
     handler::access::{AccessAdminSenderTplEdit, AccessAdminSenderTplView},
     JsonData, JsonResult, PageParam,
 };
-use lsys_sender::model::SenderType;
+use lsys_app_sender::model::SenderType;
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
 use serde::Deserialize;
 use serde_json::json;

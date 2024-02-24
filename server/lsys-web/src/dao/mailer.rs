@@ -1,10 +1,10 @@
 use lsys_app::model::AppsModel;
-use lsys_core::{fluent_message, AppCore, IntoFluentMessage, RequestEnv};
-use lsys_logger::dao::ChangeLogger;
-use lsys_sender::{
+use lsys_app_sender::{
     dao::{MailSender, SenderError, SenderSmtpConfig, SmtpSenderTask},
     model::{SenderMailBodyModel, SenderMailMessageModel},
 };
+use lsys_core::{fluent_message, AppCore, IntoFluentMessage, RequestEnv};
+use lsys_logger::dao::ChangeLogger;
 use lsys_setting::dao::Setting;
 use lsys_user::dao::account::check_email;
 use serde_json::json;

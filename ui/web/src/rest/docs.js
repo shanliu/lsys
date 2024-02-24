@@ -1,8 +1,7 @@
-import config from '../../config.json';
 import { failResult, globalRest, restResult, sessionRest } from "../utils/rest";
 
 function docsRest() {
-    return sessionRest('/api/docs')
+    return sessionRest('api/docs')
 };
 
 
@@ -297,13 +296,13 @@ export async function docsMenuDel(params, config) {
 
 
 export async function docsMenu(config) {
-    let response = await globalRest('/api/docs').post(`/read/menu`, {}, config);
+    let response = await globalRest('api/docs').post(`/read/menu`, {}, config);
     return restResult(response)
 }
 
 export async function docsMdReads(params, config) {
     const { url, menu_id } = params;
-    let response = await globalRest('/api/docs').post(`/read/md`, {
+    let response = await globalRest('api/docs').post(`/read/md`, {
         url: url,
         menu_id: parseInt(menu_id)
     }, config);

@@ -2,10 +2,10 @@ import isEmail from "validator/lib/isEmail";
 import { failResult, globalRest, restResult, sessionRest } from "../utils/rest";
 
 function LoggedRest() {
-    return sessionRest('/api/user')
+    return sessionRest('api/user')
 };
 function LoginRest() {
-    return globalRest('/api/user')
+    return globalRest('api/user')
 };
 
 

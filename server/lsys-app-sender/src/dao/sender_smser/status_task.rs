@@ -2,10 +2,10 @@ use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
 
+use lsys_app_notify::dao::Notify;
 use lsys_core::fluent_message;
 use lsys_core::now_time;
 use lsys_core::IntoFluentMessage;
-use lsys_notify::dao::Notify;
 use lsys_setting::dao::MultipleSetting;
 
 use lsys_lib_sms::SendNotifyStatus;
@@ -281,15 +281,15 @@ impl TaskExecutor<u64, SmsStatusTaskItem> for SmsStatusTask {
                                                     &setting.setting_key,
                                                 )
                                                 .await;
-                                            add_notify_callback(
-                                                &self.db,
-                                                &self.notify,
-                                                body.app_id,
-                                                sms.id,
-                                            )
-                                            .await;
                                         }
                                     }
+                                    add_notify_callback(
+                                        &self.db,
+                                        &self.notify,
+                                        body.app_id,
+                                        sms.id,
+                                    )
+                                    .await;
                                 }
                                 return Ok(());
                             }

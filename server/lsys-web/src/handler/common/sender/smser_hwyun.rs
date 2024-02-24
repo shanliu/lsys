@@ -3,7 +3,7 @@ use crate::{
     handler::access::{AccessAdminSmsConfig, AccessAppSenderSmsConfig},
     {JsonData, JsonResult},
 };
-use lsys_sender::dao::HwYunConfig;
+use lsys_app_sender::dao::HwYunConfig;
 use lsys_setting::dao::SettingData;
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
 use serde::{Deserialize, Serialize};

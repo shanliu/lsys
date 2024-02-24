@@ -39,6 +39,7 @@ function errorHandler(error) {
 
 export function globalRest(path) {
     let api_host = config.serverURL;
+    if (!api_host) api_host = window.location.origin + '/';
     let ax = axios.create({
         baseURL: api_host + path,
         timeout: timeout,

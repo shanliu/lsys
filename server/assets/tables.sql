@@ -23,7 +23,6 @@ CREATE TABLE `yaf_rbac_res` (
     `change_time` bigint unsigned NOT NULL COMMENT '最后更改时间',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '资源';
--- test.yaf_rbac_res_op definition
 CREATE TABLE `yaf_rbac_res_op` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `name` varchar(32) NOT NULL COMMENT '资源操作名',
@@ -34,7 +33,6 @@ CREATE TABLE `yaf_rbac_res_op` (
     `change_time` bigint unsigned NOT NULL COMMENT '最后更改时间',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '资源可用操作';
--- test.yaf_rbac_role definition
 CREATE TABLE `yaf_rbac_role` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
@@ -68,7 +66,6 @@ CREATE TABLE `yaf_rbac_role` (
     ) USING BTREE,
     KEY `yaf_rbac_role_priority_IDX` (`priority`, `id`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '角色';
--- test.yaf_rbac_role_op definition
 CREATE TABLE `yaf_rbac_role_op` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `res_op_id` bigint unsigned NOT NULL COMMENT '角色关联资源操作ID',
@@ -84,7 +81,6 @@ CREATE TABLE `yaf_rbac_role_op` (
         `status`
     ) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '角色关联的资源操作';
--- test.yaf_rbac_role_user definition
 CREATE TABLE `yaf_rbac_role_user` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `role_id` bigint unsigned NOT NULL COMMENT '角色ID',
@@ -96,7 +92,6 @@ CREATE TABLE `yaf_rbac_role_user` (
     PRIMARY KEY (`id`),
     KEY `yaf_rbac_role_user_IDX` (`role_id`, `user_id`, `status`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '角色关联的用户';
--- test.yaf_rbac_tags definition
 CREATE TABLE `yaf_rbac_tags` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `from_id` bigint unsigned NOT NULL COMMENT 'TAG关联来源 ID',
@@ -110,7 +105,6 @@ CREATE TABLE `yaf_rbac_tags` (
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = 'TAG,用于分组资源跟角色';
 -- ----------- lsys-rbac  ---------------
 -- ----------- lsys-user  ---------------
--- test.yaf_user definition
 CREATE TABLE `yaf_user` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '用户ID',
     `nickname` varchar(32) DEFAULT '' NOT NULL COMMENT '昵称',
@@ -126,7 +120,6 @@ CREATE TABLE `yaf_user` (
     `change_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '最后更改时间',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户';
--- test.yaf_user_address definition
 CREATE TABLE `yaf_user_address` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
@@ -140,7 +133,6 @@ CREATE TABLE `yaf_user_address` (
     `change_time` int unsigned NOT NULL DEFAULT 0 COMMENT '最后更改时间',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户收货地址';
--- test.yaf_user_email definition
 CREATE TABLE `yaf_user_email` (
     `id` int unsigned NOT NULL AUTO_INCREMENT,
     `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
@@ -150,7 +142,6 @@ CREATE TABLE `yaf_user_email` (
     `change_time` int unsigned NOT NULL DEFAULT 0 COMMENT '最后更改时间',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户关联邮箱';
--- test.yaf_user_external definition
 CREATE TABLE `yaf_user_external` (
     `id` int unsigned NOT NULL AUTO_INCREMENT,
     `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
@@ -168,7 +159,6 @@ CREATE TABLE `yaf_user_external` (
     `token_timeout` int unsigned DEFAULT 0 COMMENT '外部站点登录超时',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '外部账号登录';
--- test.yaf_user_info definition
 CREATE TABLE `yaf_user_info` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
@@ -181,7 +171,6 @@ CREATE TABLE `yaf_user_info` (
     PRIMARY KEY (`id`),
     UNIQUE KEY `yaf_user_user_id_IDX` (`user_id`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户资料表';
--- test.yaf_user_login definition
 CREATE TABLE `yaf_user_login` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `login_type` varchar(32) NOT NULL COMMENT '登录方式 账号密码登录 邮箱登录 手机登录 手机验证码登录 外部账号登录 链接登录',
@@ -196,7 +185,6 @@ CREATE TABLE `yaf_user_login` (
     `login_city` varchar(100) DEFAULT '' NOT NULL COMMENT '登陆城市',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户登录记录';
--- test.yaf_user_mobile definition
 CREATE TABLE `yaf_user_mobile` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
@@ -207,7 +195,6 @@ CREATE TABLE `yaf_user_mobile` (
     `change_time` int unsigned NOT NULL DEFAULT 0 COMMENT '最后更改时间',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户登关联手机号';
--- test.yaf_user_name definition
 CREATE TABLE `yaf_user_name` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
@@ -218,7 +205,6 @@ CREATE TABLE `yaf_user_name` (
     UNIQUE KEY `yaf_user_user_id_IDX` (`user_id`) USING BTREE,
     UNIQUE KEY `yaf_user_username_IDX` (`username`, `status`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户登录账号';
--- test.yaf_user_password definition
 CREATE TABLE `yaf_user_password` (
     `id` int unsigned NOT NULL AUTO_INCREMENT,
     `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
@@ -227,7 +213,6 @@ CREATE TABLE `yaf_user_password` (
     `disable_time` int unsigned NOT NULL DEFAULT 0 COMMENT '停用时间',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户登录密码';
--- test.yaf_users definition
 CREATE TABLE `yaf_user_index` (
     `id` int(10) unsigned NOT NULL AUTO_INCREMENT COMMENT '用户ID',
     `user_id` bigint(20) unsigned NOT NULL COMMENT '用户ID',
@@ -241,6 +226,75 @@ CREATE TABLE `yaf_user_index` (
     KEY `yaf_user_index_user_id_status_IDX` (`user_id`, `status`) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 18221001 DEFAULT CHARSET = utf8mb4 COMMENT = '用户数据索引,尝试用外部搜索引擎代替';
 -- ----------- lsys-user  ---------------
+-- ----------- lsys-setting  ---------------
+CREATE TABLE `yaf_setting` (
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+    `setting_type` tinyint NOT NULL COMMENT '类型',
+    `name` varchar(32) NOT NULL COMMENT '应用端配置显示名',
+    `setting_key` varchar(32) NOT NULL COMMENT '应用端配置key',
+    `setting_data` text NOT NULL COMMENT '内容',
+    `user_id` bigint unsigned NOT NULL COMMENT '用户ID 系统为0',
+    `status` tinyint NOT NULL COMMENT '状态',
+    `change_user_id` bigint unsigned NOT NULL COMMENT '最后修改用户',
+    `change_time` bigint unsigned NOT NULL COMMENT '最后修改时间',
+    PRIMARY KEY (`id`)
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '配置数据';
+-- ----------- lsys-setting  ---------------
+-- ----------- lsys-doc  ---------------
+CREATE TABLE `yaf_doc_git` (
+    `id` int unsigned NOT NULL AUTO_INCREMENT,
+    `name` varchar(64) NOT NULL COMMENT '源名称',
+    `url` varchar(254) NOT NULL COMMENT 'GIT地址,包含用户名',
+    `status` tinyint NOT NULL COMMENT '状态:删除 正常',
+    `max_try` tinyint unsigned NOT NULL COMMENT '尝试克隆次数',
+    `change_user_id` bigint unsigned NOT NULL COMMENT '最后修改用户',
+    `change_time` bigint unsigned NOT NULL COMMENT '最后修改时间',
+    PRIMARY KEY (`id`)
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '文档GIT源';
+CREATE TABLE `yaf_doc_tag` (
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+    `doc_git_id` int unsigned NOT NULL COMMENT '文档GIT来源ID',
+    `tag` varchar(64) NOT NULL COMMENT 'Tag',
+    `build_version` varchar(64) NOT NULL COMMENT '当前使用构建版本',
+    `clear_rule` varchar(512) NOT NULL DEFAULT "" COMMENT '清理路径表达式',
+    `status` tinyint NOT NULL COMMENT '状态 删除 未启用 已启用',
+    `add_user_id` bigint unsigned NOT NULL COMMENT '最后修改用户',
+    `add_time` bigint unsigned NOT NULL COMMENT '最后修改时间',
+    PRIMARY KEY (`id`),
+    KEY `yaf_user_tag_IDX` (`doc_git_id`) USING BTREE,
+    KEY `yaf_tag_IDX` (`tag`) USING BTREE,
+    KEY `yaf_ver_IDX` (`build_version`) USING BTREE
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '文档GIT-TAG';
+CREATE TABLE `yaf_doc_clone` (
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+    `doc_tag_id` bigint unsigned NOT NULL COMMENT '文档GIT tag ID',
+    `host` varchar(255) NOT NULL COMMENT '克隆主机',
+    `start_time` bigint unsigned NOT NULL COMMENT '最后CLONE开始时间',
+    `finish_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '克隆完成时间',
+    `status` tinyint NOT NULL COMMENT '状态:待克隆 已克隆 克隆失败 已删除',
+    PRIMARY KEY (`id`),
+    KEY `yaf_user_clone_IDX` (`doc_tag_id`, `host`, `status`) USING BTREE
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '文档GIT CLONE记录';
+CREATE TABLE `yaf_doc_menu` (
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+    `doc_tag_id` bigint unsigned NOT NULL COMMENT '文档GIT tag ID',
+    `menu_path` varchar(254) NOT NULL COMMENT '目录文件路径',
+    `menu_check_host` varchar(255) NOT NULL COMMENT '天机是检测通过的机器',
+    `status` tinyint NOT NULL COMMENT '状态 正常 删除 ',
+    `add_user_id` bigint unsigned NOT NULL COMMENT '修改用户',
+    `add_time` bigint unsigned NOT NULL COMMENT '修改时间',
+    PRIMARY KEY (`id`)
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '文档目录文件配置';
+CREATE TABLE `yaf_doc_logs` (
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+    `doc_tag_id` bigint unsigned NOT NULL COMMENT '文档GIT tag ID',
+    `doc_clone_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '文档GIT来源ID',
+    `host` varchar(255) NOT NULL COMMENT '执行时主机名',
+    `message` varchar(255) NOT NULL COMMENT '消息内容',
+    `add_time` bigint unsigned NOT NULL COMMENT '最后修改时间',
+    PRIMARY KEY (`id`)
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '文档日志';
+-- ----------- lsys-doc  ---------------
 -- ----------- lsys-app  ---------------
 CREATE TABLE `yaf_app` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
@@ -290,21 +344,7 @@ CREATE TABLE `yaf_app_sub_app` (
     UNIQUE KEY `app_user_id` (`app_id`, `user_id`, `sub_app_id`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '子应用数据';
 -- ----------- lsys-app  ---------------
--- ----------- lsys-setting  ---------------
-CREATE TABLE `yaf_setting` (
-    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-    `setting_type` tinyint NOT NULL COMMENT '类型',
-    `name` varchar(32) NOT NULL COMMENT '应用端配置显示名',
-    `setting_key` varchar(32) NOT NULL COMMENT '应用端配置key',
-    `setting_data` text NOT NULL COMMENT '内容',
-    `user_id` bigint unsigned NOT NULL COMMENT '用户ID 系统为0',
-    `status` tinyint NOT NULL COMMENT '状态',
-    `change_user_id` bigint unsigned NOT NULL COMMENT '最后修改用户',
-    `change_time` bigint unsigned NOT NULL COMMENT '最后修改时间',
-    PRIMARY KEY (`id`)
-) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '配置数据';
--- ----------- lsys-setting  ---------------
--- ----------- lsys-notify  ---------------
+-- ----------- lsys-app-notify  ---------------
 CREATE TABLE `yaf_notify_config` (
     `id` int unsigned NOT NULL AUTO_INCREMENT,
     `app_id` bigint unsigned NOT NULL DEFAULT '0' COMMENT '应用ID',
@@ -330,8 +370,8 @@ CREATE TABLE `yaf_notify_data` (
     `create_time` bigint unsigned NOT NULL COMMENT '创建时间',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '结果推送数据';
--- ----------- lsys-doc  ---------------
--- ----------- lsys-sender  ---------------
+-- ----------- lsys-app-notify  ---------------
+-- ----------- lsys-app-sender  ---------------
 CREATE TABLE `yaf_sender_config` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
@@ -473,62 +513,7 @@ CREATE TABLE `yaf_sender_sms_message` (
     KEY `sender_add_time_IDX` (`add_time`) USING BTREE,
     KEY `sender_res_data_IDX` (`setting_id`, `res_data`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '发送短信接收手机号';
--- ----------- lsys-sender  ---------------
--- ----------- lsys-doc  ---------------
-CREATE TABLE `yaf_doc_git` (
-    `id` int unsigned NOT NULL AUTO_INCREMENT,
-    `name` varchar(64) NOT NULL COMMENT '源名称',
-    `url` varchar(254) NOT NULL COMMENT 'GIT地址,包含用户名',
-    `status` tinyint NOT NULL COMMENT '状态:删除 正常',
-    `max_try` tinyint unsigned NOT NULL COMMENT '尝试克隆次数',
-    `change_user_id` bigint unsigned NOT NULL COMMENT '最后修改用户',
-    `change_time` bigint unsigned NOT NULL COMMENT '最后修改时间',
-    PRIMARY KEY (`id`)
-) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '文档GIT源';
-CREATE TABLE `yaf_doc_tag` (
-    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-    `doc_git_id` int unsigned NOT NULL COMMENT '文档GIT来源ID',
-    `tag` varchar(64) NOT NULL COMMENT 'Tag',
-    `build_version` varchar(64) NOT NULL COMMENT '当前使用构建版本',
-    `clear_rule` varchar(512) NOT NULL DEFAULT "" COMMENT '清理路径表达式',
-    `status` tinyint NOT NULL COMMENT '状态 删除 未启用 已启用',
-    `add_user_id` bigint unsigned NOT NULL COMMENT '最后修改用户',
-    `add_time` bigint unsigned NOT NULL COMMENT '最后修改时间',
-    PRIMARY KEY (`id`),
-    KEY `yaf_user_tag_IDX` (`doc_git_id`) USING BTREE,
-    KEY `yaf_tag_IDX` (`tag`) USING BTREE,
-    KEY `yaf_ver_IDX` (`build_version`) USING BTREE
-) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '文档GIT-TAG';
-CREATE TABLE `yaf_doc_clone` (
-    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-    `doc_tag_id` bigint unsigned NOT NULL COMMENT '文档GIT tag ID',
-    `host` varchar(255) NOT NULL COMMENT '克隆主机',
-    `start_time` bigint unsigned NOT NULL COMMENT '最后CLONE开始时间',
-    `finish_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '克隆完成时间',
-    `status` tinyint NOT NULL COMMENT '状态:待克隆 已克隆 克隆失败 已删除',
-    PRIMARY KEY (`id`),
-    KEY `yaf_user_clone_IDX` (`doc_tag_id`, `host`, `status`) USING BTREE
-) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '文档GIT CLONE记录';
-CREATE TABLE `yaf_doc_menu` (
-    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-    `doc_tag_id` bigint unsigned NOT NULL COMMENT '文档GIT tag ID',
-    `menu_path` varchar(254) NOT NULL COMMENT '目录文件路径',
-    `menu_check_host` varchar(255) NOT NULL COMMENT '天机是检测通过的机器',
-    `status` tinyint NOT NULL COMMENT '状态 正常 删除 ',
-    `add_user_id` bigint unsigned NOT NULL COMMENT '修改用户',
-    `add_time` bigint unsigned NOT NULL COMMENT '修改时间',
-    PRIMARY KEY (`id`)
-) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '文档目录文件配置';
-CREATE TABLE `yaf_doc_logs` (
-    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-    `doc_tag_id` bigint unsigned NOT NULL COMMENT '文档GIT tag ID',
-    `doc_clone_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '文档GIT来源ID',
-    `host` varchar(255) NOT NULL COMMENT '执行时主机名',
-    `message` varchar(255) NOT NULL COMMENT '消息内容',
-    `add_time` bigint unsigned NOT NULL COMMENT '最后修改时间',
-    PRIMARY KEY (`id`)
-) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '文档日志';
--- ----------- lsys-doc  ---------------
+-- ----------- lsys-app-sender  ---------------
 -- ----------- 初始用户  ---------------
 INSERT INTO yaf_user (
         id,

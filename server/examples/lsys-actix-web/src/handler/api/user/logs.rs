@@ -9,10 +9,10 @@ pub(crate) async fn user_logs<'t>(
     jwt: JwtQuery,
     json_param: JsonQuery,
     auth_dao: UserAuthQuery,
-    path: actix_web::web::Path<(String,)>,
+    path: actix_web::web::Path<String>,
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
-    Ok(match path.0.to_string().as_str() {
+    Ok(match path.into_inner().as_str() {
         "change" => change_logs_list(json_param.param::<ChangeLogsListParam>()?, &auth_dao).await,
         name => handler_not_found!(name),
     }?

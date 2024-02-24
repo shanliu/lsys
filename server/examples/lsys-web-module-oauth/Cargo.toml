@@ -18,7 +18,7 @@ tracing = { version = "0.1.*", features = [
     "log",
 ] } # log-always 保持log的输出 当使用tracing时会出现两次
 async-trait = "0.1.57"
-config = "0.13.2"
+config = "~0.14"
 
 
 redis = { version = "~0.23" }

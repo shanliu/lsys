@@ -2,7 +2,7 @@ import isEmail from "validator/lib/isEmail";
 import { failResult, globalRest, restResult, sessionRest } from "../utils/rest";
 
 function userRest() {
-    return sessionRest('/api/user')
+    return sessionRest('api/user')
 };
 
 
@@ -351,7 +351,7 @@ export async function emailConfirm(param, config) {
         email_id: parseInt(id),
         code: code
     };
-    let response = await globalRest('/api/user').post("/email_confirm", param, config);
+    let response = await globalRest('api/user').post("/email_confirm", param, config);
     return restResult(response)
 }
 

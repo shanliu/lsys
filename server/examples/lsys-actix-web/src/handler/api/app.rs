@@ -14,13 +14,12 @@ use lsys_web::handler::api::app::{
 #[post("/{method}")]
 pub(crate) async fn app<'t>(
     jwt: JwtQuery,
-    path: actix_web::web::Path<(String,)>,
+    path: actix_web::web::Path<String>,
     json_param: JsonQuery,
     auth_dao: UserAuthQuery,
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
-    let (path,): (String,) = path.into_inner();
-    Ok(match path.as_str() {
+    Ok(match path.into_inner().as_str() {
         "status" => app_status(json_param.param::<AppStatusParam>()?, &auth_dao).await,
         "add" => app_add(json_param.param::<AppAddParam>()?, &auth_dao).await,
         "edit" => app_edit(json_param.param::<AppEditParam>()?, &auth_dao).await,

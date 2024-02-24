@@ -4,8 +4,8 @@ use lsys_core::{
     fluent_message, now_time, AppCore, FluentMessage, IntoFluentMessage, RequestEnv, TaskData,
 };
 
+use lsys_app_notify::dao::Notify;
 use lsys_logger::dao::ChangeLogger;
-use lsys_notify::dao::Notify;
 use lsys_setting::dao::Setting;
 use sqlx::Pool;
 use tracing::warn;

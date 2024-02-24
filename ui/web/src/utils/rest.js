@@ -9,7 +9,9 @@ const timeout = 10000;
 
 
 export function captchaSrc(type, rand = false) {
-    let url = `${config.serverURL}/captcha/${type}`;
+    let api_host = config.serverURL;
+    if (!api_host) api_host = window.location.origin + '/';
+    let url = `${api_host}captcha/${type}`;
     if (rand) return url + "?" + randomString();
     else return url;
 }
@@ -54,6 +56,7 @@ function errorHandler(error) {
 
 export function globalRest(path) {
     let api_host = config.serverURL;
+    if (!api_host) api_host = window.location.origin + '/';
     let ax = axios.create({
         baseURL: api_host + path,
         timeout: timeout,
@@ -72,6 +75,7 @@ export function globalRest(path) {
 
 export function sessionRest(path) {
     let api_host = config.serverURL;
+    if (!api_host) api_host = window.location.origin + '/';
     let session = userSessionGet();
     if (!session) {
         redirectLoginPage()

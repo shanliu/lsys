@@ -57,6 +57,7 @@ async fn docs_raw(
     web_dao: Data<WebDao>,
     info: web::Path<(u32, String)>,
 ) -> Result<CustomizeResponder<NamedFile>> {
+    let info = info.into_inner();
     let path = docs_file(
         &DocsRawReadParam {
             menu_id: info.0,
@@ -78,13 +79,13 @@ async fn docs_raw(
 
 #[post("/setting/{type}")]
 pub async fn docs_setting(
-    path: actix_web::web::Path<(String,)>,
+    path: actix_web::web::Path<String>,
     auth_dao: UserAuthQuery,
     json_param: JsonQuery,
     jwt: JwtQuery,
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
-    let res = match path.0.to_string().as_str() {
+    let res = match path.into_inner().as_str() {
         "git_add" => docs_git_add(json_param.param::<DocsGitAddParam>()?, &auth_dao).await,
         "git_edit" => docs_git_edit(json_param.param::<DocsGitEditParam>()?, &auth_dao).await,
         "git_del" => docs_git_del(json_param.param::<DocsGitDelParam>()?, &auth_dao).await,
@@ -112,11 +113,11 @@ pub async fn docs_setting(
 
 #[post("/read/{type}")]
 pub async fn docs_read(
-    path: actix_web::web::Path<(String,)>,
+    path: actix_web::web::Path<String>,
     req_dao: ReqQuery,
     json_param: JsonQuery,
 ) -> ResponseJsonResult<ResponseJson> {
-    let res = match path.0.to_string().as_str() {
+    let res = match path.into_inner().as_str() {
         "menu" => docs_menu(&req_dao).await,
         "md" => docs_md_read(json_param.param::<DocsMdReadParam>()?, &req_dao).await,
         name => handler_not_found!(name),

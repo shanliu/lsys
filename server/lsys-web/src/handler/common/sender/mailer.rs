@@ -6,13 +6,13 @@ use crate::{
     handler::access::{AccessAppSenderDoMail, AccessAppSenderMailConfig, AccessAppSenderMailMsg},
     LimitParam, PageParam, {JsonData, JsonResult},
 };
-use lsys_core::{fluent_message, str_time};
-use lsys_core::{now_time};
-use lsys_sender::{
+use lsys_app_sender::{
     // dao::SenderError,
     dao::SenderError,
     model::{SenderConfigStatus, SenderMailConfigType, SenderMailMessageStatus},
 };
+use lsys_core::now_time;
+use lsys_core::{fluent_message, str_time};
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -521,13 +521,13 @@ pub async fn mailer_config_list<T: SessionTokenData, D: SessionData, S: UserSess
         .into_iter()
         .map(|(e, v)| {
             let config_data = match v {
-                lsys_sender::model::SenderMailConfigData::Limit(t) => json!(&t).to_string(),
-                lsys_sender::model::SenderMailConfigData::MaxOfSend(u) => u.to_string(),
-                lsys_sender::model::SenderMailConfigData::Block { to } => to,
-                lsys_sender::model::SenderMailConfigData::BlockDomain { domain } => domain,
-                lsys_sender::model::SenderMailConfigData::PassTpl(val) => val,
-                lsys_sender::model::SenderMailConfigData::Close => "".to_string(),
-                lsys_sender::model::SenderMailConfigData::None => "".to_string(),
+                lsys_app_sender::model::SenderMailConfigData::Limit(t) => json!(&t).to_string(),
+                lsys_app_sender::model::SenderMailConfigData::MaxOfSend(u) => u.to_string(),
+                lsys_app_sender::model::SenderMailConfigData::Block { to } => to,
+                lsys_app_sender::model::SenderMailConfigData::BlockDomain { domain } => domain,
+                lsys_app_sender::model::SenderMailConfigData::PassTpl(val) => val,
+                lsys_app_sender::model::SenderMailConfigData::Close => "".to_string(),
+                lsys_app_sender::model::SenderMailConfigData::None => "".to_string(),
             };
             json!({
                "id": e.id,

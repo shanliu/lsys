@@ -1,9 +1,9 @@
+use lsys_app_notify::dao::NotifyError;
+use lsys_app_sender::dao::SenderError;
 use lsys_core::{ConfigError, FluentBundle, FluentMessage, ValidCodeError};
 use lsys_docs::dao::GitDocError;
 use lsys_logger::dao::LoggerError;
-use lsys_notify::dao::NotifyError;
 use lsys_rbac::dao::rbac::UserRbacError;
-use lsys_sender::dao::SenderError;
 use lsys_setting::dao::SettingError;
 use lsys_user::dao::{account::UserAccountError, auth::UserAuthError};
 use serde_json::{json, Value};

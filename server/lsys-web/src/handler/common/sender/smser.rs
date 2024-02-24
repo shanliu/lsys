@@ -7,12 +7,12 @@ use crate::{
 };
 use log::warn;
 use lsys_app::{dao::app::AppDataWhere, model::AppStatus};
-use lsys_core::{fluent_message, now_time, str_time, IntoFluentMessage};
-use lsys_notify::dao::NotifyData;
-use lsys_sender::{
+use lsys_app_notify::dao::NotifyData;
+use lsys_app_sender::{
     dao::{NotifySmsItem, SenderError},
     model::{SenderConfigStatus, SenderSmsConfigType, SenderSmsMessageStatus},
 };
+use lsys_core::{fluent_message, now_time, str_time, IntoFluentMessage};
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -544,14 +544,14 @@ pub async fn smser_config_list<'t, T: SessionTokenData, D: SessionData, S: UserS
         .into_iter()
         .map(|(e, v)| {
             let config_data = match v {
-                lsys_sender::model::SenderSmsConfigData::Limit(t) => json!(&t).to_string(),
-                lsys_sender::model::SenderSmsConfigData::MaxOfSend(u) => u.to_string(),
-                lsys_sender::model::SenderSmsConfigData::Block { area, mobile } => {
+                lsys_app_sender::model::SenderSmsConfigData::Limit(t) => json!(&t).to_string(),
+                lsys_app_sender::model::SenderSmsConfigData::MaxOfSend(u) => u.to_string(),
+                lsys_app_sender::model::SenderSmsConfigData::Block { area, mobile } => {
                     format!("{}{}", area, mobile)
                 }
-                lsys_sender::model::SenderSmsConfigData::PassTpl(val) => val,
-                lsys_sender::model::SenderSmsConfigData::Close => "".to_string(),
-                lsys_sender::model::SenderSmsConfigData::None => "".to_string(),
+                lsys_app_sender::model::SenderSmsConfigData::PassTpl(val) => val,
+                lsys_app_sender::model::SenderSmsConfigData::Close => "".to_string(),
+                lsys_app_sender::model::SenderSmsConfigData::None => "".to_string(),
             };
             json!({
                "id": e.id,

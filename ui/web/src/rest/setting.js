@@ -3,7 +3,7 @@
 import { globalRest, restResult, sessionRest } from "../utils/rest";
 
 function settingRest() {
-    return sessionRest('/api/setting')
+    return sessionRest('api/setting')
 };
 
 export async function loadLoginConfigGet(type, config) {
@@ -28,6 +28,6 @@ export async function loadSiteConfigSet(type, param, config) {
 
 
 export async function loadSiteConfigInfo(config) {
-    let response = await globalRest("/api/site").get(`/info`, {}, config);
+    let response = await globalRest("api/site").get(`/info`, {}, config);
     return restResult(response)
 }

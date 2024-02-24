@@ -6,8 +6,8 @@ edition = "2021"
 
 
 [dependencies]
-tokio = { version = "~1.28" }
-deadpool-redis = { version = "0.12" }
+tokio = { version = "~1.36" }
+deadpool-redis = { version = "~0.13" }
 redis = { version = "~0.23" }
 
 lsys-core = { path = "../lsys-core" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
@@ -37,18 +37,18 @@ base64 = "0.21.0"
 tracing = { version = "~0.1.*" } # log-always 保持log的输出 当使用tracing时会出现两次
 
 
-hashlink = "~0.8.*"
+hashlink = "~0.9"
 
 hostname = "~0.3.*"
 
 
-ip2location = "~0.4.*"
+ip2location = "~0.5"
 
 
-regex = "~1.8.0"
+regex = "~1.10"
 
-config = "~0.13.*"
+config = "~0.14"
 
 
 [dev-dependencies]
-tokio = { version = "~1.28.0", features = ["test-util"] }
+tokio = { version = "~1.36", features = ["test-util"] }

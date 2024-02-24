@@ -8,9 +8,9 @@ use crate::{
     },
 };
 
+use lsys_app_notify::dao::{Notify, NotifyData};
 use lsys_core::IntoFluentMessage;
 use lsys_lib_sms::{SendNotifyError, SendNotifyItem, SendNotifyStatus};
-use lsys_notify::dao::{Notify, NotifyData};
 use lsys_setting::{
     dao::{SettingData, SettingDecode, SettingKey},
     model::SettingModel,
@@ -50,6 +50,10 @@ pub(crate) async fn add_notify_callback(
     app_id: u64,
     sms_id: u64,
 ) {
+    if app_id == 0 {
+        warn!("System SMS Ignore on sms id:{}", sms_id);
+        return;
+    }
     let sms = match Select::type_new::<SenderSmsMessageModel>()
         .fetch_one_by_scalar_pk::<SenderSmsMessageModel, _, _>(sms_id, db)
         .await
@@ -249,6 +253,7 @@ impl SmsSendNotify {
 
                             match body {
                                 Some(b) => {
+                                    //正常解析的回调写日志跟进行回调通知
                                     self.message_logs
                                         .add_exec_log(&b.app_id, &[(m.id, status, msg)], "")
                                         .await;

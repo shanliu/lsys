@@ -11,12 +11,12 @@ use lsys_web::handler::api::user::{
 #[post("mobile/{method}")]
 pub(crate) async fn mobile<'t>(
     jwt: JwtQuery,
-    path: actix_web::web::Path<(String,)>,
+    path: actix_web::web::Path<String>,
     json_param: JsonQuery,
     auth_dao: UserAuthQuery,
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
-    Ok(match path.0.to_string().as_str() {
+    Ok(match path.into_inner().as_str() {
         "add" => user_mobile_add(json_param.param::<MobileAddParam>()?, &auth_dao).await,
         "send_code" => {
             user_mobile_send_code(json_param.param::<MobileSendCodeParam>()?, &auth_dao).await

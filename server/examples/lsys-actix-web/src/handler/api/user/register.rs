@@ -8,11 +8,11 @@ use lsys_web::handler::api::user::{
 
 #[post("/signup/{type}")]
 pub(crate) async fn reg<'t>(
-    path: actix_web::web::Path<(String,)>,
+    path: actix_web::web::Path<String>,
     json_param: JsonQuery,
     auth_dao: UserAuthQuery,
 ) -> ResponseJsonResult<ResponseJson> {
-    let res = match path.0.to_string().as_str() {
+    let res = match path.into_inner().as_str() {
         "name" => user_reg_from_name(json_param.param::<RegFromNameParam>()?, &auth_dao).await,
         "sms" => user_reg_from_mobile(json_param.param::<RegFromMobileParam>()?, &auth_dao).await,
         "sms-code" => {

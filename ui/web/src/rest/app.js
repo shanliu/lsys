@@ -1,7 +1,7 @@
 import { failResult, restResult, sessionRest } from "../utils/rest";
 import { isDomain } from "../utils/utils";
 function appRest() {
-    return sessionRest('/api/app')
+    return sessionRest('api/app')
 };
 
 

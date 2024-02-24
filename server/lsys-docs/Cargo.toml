@@ -24,7 +24,7 @@ sqlx-model = { version = "0.2.3", default-features = false, features = [
 
 futures-util = "~0.3.*"
 
-deadpool-redis = { version = "0.12" }
+deadpool-redis = { version = "~0.13" }
 redis = { version = "~0.23", features = [
     "tokio-comp",
     "connection-manager",
@@ -34,14 +34,14 @@ redis = { version = "~0.23", features = [
 #日志
 tracing = { version = "0.1.*" } # log-always 保持log的输出 当使用tracing时会出现两次
 
-tokio = { version = "~1.28" }
+tokio = { version = "~1.36" }
 
 
 num_cpus = "1.15.0"
 
 hostname = "~0.3.*"
 
-git2 = "0.17.1"
+git2 = "~0.18"
 
 
 tempfile = "3.2.0"
@@ -49,7 +49,7 @@ tempfile = "3.2.0"
 url = "2.2.2"
 
 
-regex = "~1.8.0"
+regex = "~1.10"
 
 
 walkdir = "*"

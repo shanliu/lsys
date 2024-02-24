@@ -3,6 +3,17 @@ use serde_json::json;
 
 use crate::{dao::RequestDao, JsonData, JsonResult};
 
+macro_rules! get_area {
+    ($area:expr) => {
+        match $area.as_ref() {
+            Some(area) => area,
+            None => {
+                return Ok(JsonData::message("area function is disable"));
+            }
+        }
+    };
+}
+
 #[derive(Debug, Deserialize)]
 pub struct AreaCodeParam {
     pub code: String,

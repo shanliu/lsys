@@ -11,10 +11,10 @@ pub(crate) async fn user_list<'t>(
     jwt: JwtQuery,
     json_param: JsonQuery,
     auth_dao: UserAuthQuery,
-    path: actix_web::web::Path<(String,)>,
+    path: actix_web::web::Path<String>,
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
-    Ok(match path.0.to_string().as_str() {
+    Ok(match path.into_inner().as_str() {
         "search" => user_search(json_param.param::<UserSearchParam>()?, &auth_dao).await,
         "id_search" => user_id_search(json_param.param::<UserIdSearchParam>()?, &auth_dao).await,
 

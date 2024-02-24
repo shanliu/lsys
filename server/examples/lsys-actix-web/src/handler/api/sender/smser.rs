@@ -31,13 +31,13 @@ use lsys_web::handler::api::sender::{
 #[post("/smser/{method}")]
 pub(crate) async fn sender_smser<'t>(
     jwt: JwtQuery,
-    path: actix_web::web::Path<(String,)>,
+    path: actix_web::web::Path<String>,
     json_param: JsonQuery,
     auth_dao: UserAuthQuery,
     req: HttpRequest,
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
-    Ok(match path.0.to_string().as_str() {
+    Ok(match path.into_inner().as_str() {
         "config_add" => {
             smser_config_add(json_param.param::<SmserConfigAddParam>()?, &auth_dao).await
         }
@@ -53,9 +53,7 @@ pub(crate) async fn sender_smser<'t>(
         "notify_set_config" => {
             smser_notify_set_config(json_param.param::<SmserNotifyConfigParam>()?, &auth_dao).await
         }
-        "notify_get_config" => {
-            smser_notify_get_config( &auth_dao).await
-        }
+        "notify_get_config" => smser_notify_get_config(&auth_dao).await,
         "tpl_config_del" => {
             smser_tpl_config_del(json_param.param::<TplConfigDelParam>()?, &auth_dao).await
         }

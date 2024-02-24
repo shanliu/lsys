@@ -4,13 +4,13 @@ members = [
     "lsys-core",
     "lsys-rbac",
     "lsys-user",
-    "lsys-app",
     "lsys-web",
-    "lsys-notify",
-    "lsys-sender",
-	"lsys-lib-sms",
+    "lsys-lib-sms",
     "lsys-setting",
     "lsys-logger",
+    "lsys-app",
+    "lsys-app-notify",
+    "lsys-app-sender",
     "lsys-docs",
-    "examples/*"
+    "examples/*",
 ]

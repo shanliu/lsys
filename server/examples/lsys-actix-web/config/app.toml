@@ -3,7 +3,7 @@
 #app_ssl_port=443
 
 #日志配置
-#log_level=sqlx_core=info,lsys_sender=debug,axtix_web=debug,actix=info,mio=error,lsys_user=trace,lsys_web=trace,lsys_core=trace,lsys_user=trace,lsys_rbac=trace,lsys_docs=trace,lsys_actix_web=trace,sqlx=trace,redis=debug
+#log_level=sqlx_core=info,lsys_app_sender=debug,axtix_web=debug,actix=info,mio=error,lsys_user=trace,lsys_web=trace,lsys_core=trace,lsys_user=trace,lsys_rbac=trace,lsys_docs=trace,lsys_actix_web=trace,sqlx=trace,redis=debug
 #log_dir="logs"
 #log_name="std::out"
 #log_gelf="127.0.0.1:12201"
@@ -22,7 +22,7 @@ rbac_cache = true
 ui_dir = "../../../ui/public/"
 #静态文件访问路径,默认:/ui/
 #ui_path="/ui/"
-ui_path="/"
+ui_path = "/"
 #超级管理员id
 root_user_id = [1]
 

@@ -1,7 +1,7 @@
 import { restResult, sessionRest } from "../utils/rest";
 
 function accessRest() {
-  return sessionRest('/api/user')
+  return sessionRest('api/user')
 };
 
 

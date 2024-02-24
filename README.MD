@@ -34,7 +34,9 @@ bash ./build.sh #生成 lsys.tar.gz
 
 > 仅拷贝 `./build` 文件夹到你的服务器 或 把对应生成压缩包拷贝后解压，其他文件可以删除.
 
-3. 导入SQL到数据库
+> 下载windows二进制版本,以上不需要操作.
+
+3. 导入SQL到数据库 
 ```
 mysql -u your_username -p your_database < ./build/assets/tables.sql #导入到你的MYSQL
 ```

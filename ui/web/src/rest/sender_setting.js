@@ -83,7 +83,7 @@ export const MessageStatus = [
 
 
 function senderSettingRest(type) {
-    return sessionRest(`/api/sender/${type}`)
+    return sessionRest(`api/sender/${type}`)
 };
 
 //config

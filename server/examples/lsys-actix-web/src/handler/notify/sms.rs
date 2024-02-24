@@ -4,8 +4,8 @@ use actix_http::StatusCode;
 use actix_web::web::{Bytes, Data};
 use actix_web::{post, HttpRequest, HttpResponse};
 
+use lsys_app_sender::dao::{AliYunNotify, CloOpenNotify, HwYunNotify, NetEaseNotify, TenYunNotify};
 use lsys_core::IntoFluentMessage;
-use lsys_sender::dao::{AliYunNotify, CloOpenNotify, HwYunNotify, NetEaseNotify, TenYunNotify};
 use lsys_web::dao::WebDao;
 
 #[post("/sms/{config_id}/{callback_key}", name = "sms_notify")]

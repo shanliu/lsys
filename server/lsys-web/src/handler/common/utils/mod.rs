@@ -6,5 +6,6 @@ pub use setting_site::*;
 mod docs;
 pub use docs::*;
 
+#[macro_use]
 mod area;
 pub use area::*;

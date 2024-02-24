@@ -27,12 +27,12 @@ use lsys_web::handler::api::user::{
 #[post("/res/{method}")]
 pub async fn res<'t>(
     jwt: JwtQuery,
-    path: actix_web::web::Path<(String,)>,
+    path: actix_web::web::Path<String>,
     json_param: JsonQuery,
     auth_dao: UserAuthQuery,
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
-    let data = match path.0.to_string().as_str() {
+    let data = match path.into_inner().as_str() {
         "add" => user_res_add(json_param.param::<ResAddParam>()?, &auth_dao).await,
         "edit" => user_res_edit(json_param.param::<ResEditParam>()?, &auth_dao).await,
         "delete" => user_res_delete(json_param.param::<ResDeleteParam>()?, &auth_dao).await,
@@ -49,12 +49,12 @@ pub async fn res<'t>(
 #[post("/role/{method}")]
 pub async fn role<'t>(
     jwt: JwtQuery,
-    path: actix_web::web::Path<(String,)>,
+    path: actix_web::web::Path<String>,
     json_param: JsonQuery,
     auth_dao: UserAuthQuery,
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
-    let data = match path.0.to_string().as_str() {
+    let data = match path.into_inner().as_str() {
         "add" => user_role_add(json_param.param::<RoleAddParam>()?, &auth_dao).await,
         "edit" => user_role_edit(json_param.param::<RoleEditParam>()?, &auth_dao).await,
         "delete" => user_role_delete(json_param.param::<RoleDeleteParam>()?, &auth_dao).await,
@@ -83,10 +83,10 @@ pub async fn access<'t>(
     jwt: JwtQuery,
     json_param: JsonQuery,
     auth_dao: UserAuthQuery,
-    path: actix_web::web::Path<(String,)>,
+    path: actix_web::web::Path<String>,
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
-    let data = match path.0.to_string().as_str() {
+    let data = match path.into_inner().as_str() {
         "check" => user_access_check(json_param.param::<RbacAccessParam>()?, &auth_dao).await,
         "menu" => user_menu_check(json_param.param::<RbacMenuParam>()?, &auth_dao).await,
         name => Err(lsys_web::JsonData::message(name).set_sub_code("method_not_found")),

@@ -402,10 +402,10 @@ impl<T: UserAuthStore + Send + Sync> UserAuth<T> {
                             city = [
                                 record
                                     .country
-                                    .map(|e| e.short_name)
-                                    .unwrap_or_else(String::new),
-                                record.region.unwrap_or_default(),
-                                record.city.unwrap_or_default(),
+                                    .map(|e| e.short_name.to_string())
+                                    .unwrap_or_default(),
+                                record.region.unwrap_or_default().to_string(),
+                                record.city.unwrap_or_default().to_string(),
                             ]
                             .into_iter()
                             .filter(|e| !e.is_empty() && *e != "-")

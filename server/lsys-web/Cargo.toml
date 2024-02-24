@@ -15,7 +15,7 @@ lsys-core = { path = "../lsys-core" } #path 替换为 :,git = "https://github.co
 lsys-rbac = { path = "../lsys-rbac" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-user = { path = "../lsys-user" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-app = { path = "../lsys-app" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-sender = { path = "../lsys-sender", features = [
+lsys-app-sender = { path = "../lsys-app-sender", features = [
     "sms-aliyun",
     "sms-jdcloud",
     "sms-huawei",
@@ -27,15 +27,15 @@ lsys-sender = { path = "../lsys-sender", features = [
 lsys-setting = { path = "../lsys-setting" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-logger = { path = "../lsys-logger" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-docs = { path = "../lsys-docs" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-notify = { path = "../lsys-notify" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-app-notify = { path = "../lsys-app-notify" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
 
 futures-util = "0.3.*"
 serde = { version = "1.0.*" }
 serde_json = "1.0.*"
 dotenv = "0.15.*"
 
-tokio = { version = "~1.28", features = ["fs"] }
-deadpool-redis = { version = "0.12" }
+tokio = { version = "~1.36", features = ["fs"] }
+deadpool-redis = { version = "~0.13" }
 redis = { version = "~0.23" }
 
 
@@ -86,29 +86,28 @@ mime = "0.3.16"
 #tracing-log="*"
 
 
-ip2location = "~0.4.0"
+ip2location = "~0.5.0"
 
 captcha = "0.0.9"
 
 async-trait = "0.1.57"
 
-config = "0.13.2"
-
+config = "~0.14"
 
 # mail send
-lettre = { version = "0.10.1", features = [
-    "smtp-transport",
-    "native-tls",
-    "tokio1",
-    "tokio1-native-tls",
-    "builder",
-] }
+# lettre = { version = "~0.11", features = [
+#     "smtp-transport",
+#     "native-tls",
+#     "tokio1",
+#     "tokio1-native-tls",
+#     "builder",
+# ] }
 
 
-regex = "~1.8.0"
+# regex = "~1.10"
 
 
-lazy_static = "1.4.0"
+# lazy_static = "1.4.0"
 
 
-hostname = "~0.3.*"
+# hostname = "~0.3.*"
