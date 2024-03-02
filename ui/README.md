@@ -9,14 +9,12 @@
 > 修改配置,设置服务域名等
 
 ```
-./ui/web/config.json
-./ui/wap/config.json
+./ui/src/config.js
 ```
 
 > 启动开发环境
 
 ```
-cd web/
 npm i
 npm run dev
 # npm run build #or build

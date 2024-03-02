@@ -12,15 +12,13 @@
 
 #### 配置跟编译
 
-1. 修改UI访问服务器地址
-```
-./ui/web/config.json #修改配置
-./ui/wap/config.json #修改配置
-```
+1. 执行编译
 
-2. 执行编译
+> 编译生成文件在 `./build` 中,并同时生成 `./build` 目录的压缩包
 
-> 编译生成文件在 `./build` 目录中,同时生成 `./build` 目录的压缩包
+> 仅拷贝生成的 `./build` 到你的服务器即可,其他文件可以删除.
+
+> Windows(64bit) 可以下载二进制版跳过此编译过程
 
 > windows
 ```
@@ -32,21 +30,27 @@
 bash ./build.sh #生成 lsys.tar.gz
 ```
 
-> 仅拷贝 `./build` 文件夹到你的服务器 或 把对应生成压缩包拷贝后解压，其他文件可以删除.
-
-> 下载windows二进制版本,以上不需要操作.
-
-3. 导入SQL到数据库 
+2. 导入SQL到数据库
 ```
 mysql -u your_username -p your_database < ./build/assets/tables.sql #导入到你的MYSQL
 ```
 
-4. 根据实际情况，对 `Redis` `Mysql` `jwt token` `日志输出` 等配置进行修改。
+3. 修改项目配置
+
+> 修改服务器配置。
+
 ```
-./build/.env  #修改配置
+./build/.env  # 配置文件
 ```
 
-5. 启动服务
+
+> 修改UI访问后台服务地址
+
+```
+./build/ui/config.js # ui 使用内置HTTP服务无需修改,自行部署(如nginx)时指定,示例: "serverURL": "//lsys.cc/"
+```
+
+4. 启动服务
 
 > 下载文件[2023-7-area-code.csv.gz](https://github.com/shanliu/area-db/blob/main/data/2023-7-area-code.csv.gz) 到 `build/data` 目录
 

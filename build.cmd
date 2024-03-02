@@ -8,9 +8,11 @@ cargo version
 rustc -V
 cargo update
 cargo build -r -vvv 
-cd ..\\..\\..
-
-xcopy /E /I /Y server\\assets build\\assets
+cd ..\\..
+call sql_merge.cmd
+cd ..
+mkdir build\\assets
+xcopy server\\tables.sql build\\assets\\ /Y
 xcopy server\\target\\release\\lsys-actix-web.exe build /Y 
 xcopy /E /I /Y server\\examples\\lsys-actix-web\\config build\\config
 xcopy /E /I /Y server\\examples\\lsys-actix-web\\data build\\data
@@ -18,16 +20,11 @@ xcopy /E /I /Y server\\examples\\lsys-actix-web\\locale build\\locale
 xcopy /E /I /Y server\\examples\\lsys-actix-web\\static build\\static
 xcopy server\\examples\\lsys-actix-web\\.env build /Y
 
-cd ui\\web 
+mkdir ui\\public
+cd ui
 call npm install
 call npm run build
-cd ..\\.. 
-mkdir ui\\public
-cd ui\\wap 
-call npm install
-call npm run build
-cd ..\\.. 
-mkdir ui\\public
+cd ..
 xcopy /E /I /Y ui\\public build\\ui
 
 
@@ -37,4 +34,5 @@ cd build
 powershell.exe -Command "Compress-Archive -Path './' -DestinationPath '../lsys.zip'"
 cd ..
 
-echo The compilation was successful, please enable the service with ( ./lsys-actix-web ) to the service and access it via http://127.0.0.1:8080
+echo off
+echo "The compilation was successful, please enable the service with ( cd build &&  .\lsys-actix-web ) to the service and access it via http://127.0.0.1:8080"

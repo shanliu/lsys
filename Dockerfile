@@ -6,7 +6,7 @@ RUN cargo build -r && sed -i 's|../../../ui/public/|./ui/|g' ./usr/src/lsys-web/
 FROM node:18-buster as node_builder
 WORKDIR /usr/src/lsys-web
 COPY ./ui .
-RUN cd ./web && npm run build && cd .. && cd ./web && npm run build
+RUN cd ./ui && npm run build && cd ..
 
 FROM debian:buster-slim
 WORKDIR /usr/local/lsys-web

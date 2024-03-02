@@ -13,8 +13,6 @@ lsys-web = { path = "../../lsys-web" }                        #path 替换为 :,
 lsys-app-sender = { path = "../../lsys-app-sender" }          #path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-web-module-oauth = { path = "../lsys-web-module-oauth" }
 lsys-web-subapp-demo = { path = "../lsys-web-subapp-demo" }
-#lsys-setting = { path = "../../lsys-setting" }              
-#lsys-rbac = { path = "../../lsys-rbac" }                    
 
 actix = "~0.13.0"
 actix-web = { version = "4.3.1", features = ["rustls"] }
@@ -57,16 +55,3 @@ reqwest = { version = "~0.11.*", features = ["json", "stream"] }
 md5 = "~0.7.0"
 mime = "~0.3.16"
 nanoid = "~0.4.0"
-
-
-#tokio 任务查看
-#tokio = {version="~1.36",features=["full","tracing"]}
-#tokio-console = "0.1.9"
-#console-subscriber = "0.1.10"
-
-
-#[profile.release]
-#panic = "unwind"
-
-# [profile.dev]
-# split-debuginfo = "unpacked"
