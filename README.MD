@@ -56,7 +56,7 @@ mysql -u your_username -p your_database < ./build/assets/tables.sql #导入到�
 
 4. 启动服务
 
-> 源码编译时，可在 （https://github.com/shanliu/lsys/releases/tag/v0.0.0)[https://github.com/shanliu/lsys/releases/tag/v0.0.0] 下载项目使用资源文件,放置于  `build/data` 中。
+> 源码编译时，可在 https://github.com/shanliu/lsys/releases/tag/v0.0.0[https://github.com/shanliu/lsys/releases/tag/v0.0.0] 下载项目使用资源文件,放置于  `build/data` 中。
 
 > 执行 `./actix-web-dome ` 启动服务。注意:初次启动会慢一些。
 
