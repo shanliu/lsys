@@ -12,9 +12,23 @@ name: rust-clippy analyze
 on:
   push:
     branches: [ "main" ]
+    paths:
+      - 'server/**/*'
+      - '!server/**/*.md'
+      - '!server/**/*.MD'
+      - '!server/**/*.cmd'
+      - '!server/**/.gitignore'
+      - '.github/workflows/rust_clippy.yml'
   pull_request:
     # The branches below must be a subset of the branches above
     branches: [ "main" ]
+    paths:
+      - 'server/**/*'
+      - '!server/**/*.md'
+      - '!server/**/*.MD'
+      - '!server/**/*.cmd'
+      - '!server/**/.gitignore'
+      - '.github/workflows/rust_clippy.yml'
   schedule:
     - cron: '21 6 * * 2'
 
