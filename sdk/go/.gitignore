@@ -3,3 +3,4 @@ go.work.sum
 example/basic/go.sum
 example/sub_app/go.sum
 .idea
+.vscode
