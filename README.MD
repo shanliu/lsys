@@ -56,15 +56,14 @@ mysql -u your_username -p your_database < ./build/assets/tables.sql #导入到�
 
 4. 启动服务
 
-> 下载文件[2023-7-area-code.csv.gz](https://github.com/shanliu/area-db/blob/main/data/2023-7-area-code.csv.gz) 到 `build/data` 目录
-
-> [可选] 下载IP文件 `IP2LOCATION-LITE-DB11.BIN` 到 `build/data/` 目录
+> 源码编译时，可在 （`https://github.com/shanliu/lsys/releases/tag/v0.0.0`)[https://github.com/shanliu/lsys/releases/tag/v0.0.0] 下载项目使用资源文件,放置于  `build/data` 中。
 
 > 执行 `./actix-web-dome ` 启动服务。注意:初次启动会慢一些。
 
 > 可使用 `nohup ./actix-web-dome &` 后台执行
 
 > 根据`.env`配置访问服务.默认地址:http://127.0.0.1:8080/ 
+
 
 #### 二次开发时序参考
 
