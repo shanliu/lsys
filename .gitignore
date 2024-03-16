@@ -8,4 +8,6 @@ sdk/go/.vscode/launch.json
 /server/.idea/*
 /build/*
 lsys.tar.gz
-lsys.zip
+lsys-for-windows.zip
+*/Cargo.lock
+

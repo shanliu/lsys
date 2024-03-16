@@ -20,9 +20,9 @@ export async function areaSearch(params, config) {
     }, config);
     return restResult(response)
 }
-export async function areaDetail(params, config) {
+export async function areaRelated(params, config) {
     const { code } = params;
-    let response = await areaRest().post(`/detail`, {
+    let response = await areaRest().post(`/related`, {
         code: code + '',
     }, config);
     return restResult(response)

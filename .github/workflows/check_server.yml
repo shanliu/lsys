@@ -1,0 +1,58 @@
+name: check lsys server
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'server/**/*'
+      - '!server/**/*.md'
+      - '!server/**/*.MD'
+      - '!server/**/*.cmd'
+      - '!server/**/.gitignore'
+      - '.github/workflows/check_server.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+    
+  server_check:
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis
+        ports:
+          - 6379:6379
+        options: --entrypoint redis-server
+      mysql:
+        image: mysql:5.7
+        env:
+          MYSQL_ROOT_PASSWORD: "000"
+          MYSQL_DATABASE: test2
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+    
+      - uses: actions/checkout@v3
+      
+      - name: init
+        run: |
+          cd ${{ github.workspace }}/server && bash ./sql_merge.sh &&  mysql -h 127.0.0.1 -u root -p000 test2 < ./tables.sql
+       
+      - name: build server rust
+        working-directory: ./server
+        run: cargo build --verbose
+
+      - name: init assest
+        working-directory: ./server/lsys-lib-area
+        run: |
+          curl -L -o "./data/2023-7-area-code.csv.gz" "https://github.com/shanliu/lsys/releases/download/v0.0.0/2023-7-area-code.csv.gz"
+          curl -L -o "./data/2023-7-area-geo.csv.gz" "https://github.com/shanliu/lsys/releases/download/v0.0.0/2023-7-area-geo.csv.gz"
+        
+      - name: run server rust tests
+        working-directory: ./server
+        run: cargo test --verbose
+        
+    

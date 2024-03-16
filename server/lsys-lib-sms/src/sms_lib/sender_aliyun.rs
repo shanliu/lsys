@@ -12,7 +12,7 @@ use crate::{
 };
 use hmac::{Hmac, Mac};
 
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, Utc};
 use reqwest::{
     header::{HeaderMap, HeaderValue},
     Client, Method,
@@ -256,7 +256,7 @@ impl AliSms {
         hasher.update(&req_json);
         let json_hash = format!("{:x}", hasher.finalize()).to_lowercase();
 
-        let datetime = NaiveDateTime::from_timestamp_opt(now_time as i64, 0).unwrap_or_default();
+        let datetime = DateTime::from_timestamp(now_time as i64, 0).unwrap_or_default();
 
         let datetime_str = datetime.format("%Y-%m-%dT%H:%M:%SZ").to_string();
         let rand_s = rand_str(32);

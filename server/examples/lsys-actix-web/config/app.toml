@@ -1,7 +1,8 @@
 #app_host="127.0.0.1"
 #app_port=8080
 #app_ssl_port=443
-
+#app_ssl_cert=config/cert.pem
+#app_ssl_key=config/key.pem
 #日志配置
 #log_level=sqlx_core=info,lsys_app_sender=debug,axtix_web=debug,actix=info,mio=error,lsys_user=trace,lsys_web=trace,lsys_core=trace,lsys_user=trace,lsys_rbac=trace,lsys_docs=trace,lsys_actix_web=trace,sqlx=trace,redis=debug
 #log_dir="logs"
@@ -30,16 +31,20 @@ root_user_id = [1]
 fluent_dir = "locale/"
 
 #页面模板目录
-tpl_dir = "./static"
+tpl_dir = "static"
 
 #地址库数据文件压缩包
 area_code_db = "data/2023-7-area-code.csv.gz"
+#地址库数据文件压缩包
+area_geo_db = "data/2023-7-area-geo.csv.gz"
 #地址库索引文件目录
 # area_index_dir = "/tmp/area_index"
 #地址库索引时使用内存大小
 # area_index_size = 500_000_000
 
-#ip城市数据
+# ip城市数据
+# 下载以下文件解压后得到
+# IP2LOCATION-LITE-DB11.BIN.zip 
 ip_city_db = "data/IP2LOCATION-LITE-DB11.BIN"
 
 #发送邮件 短信 生成唯一ID用

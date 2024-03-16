@@ -9,7 +9,7 @@ use crate::{
     model::{SenderSmsMessageModel, SenderTplConfigModel},
 };
 use async_trait::async_trait;
-use chrono::NaiveDateTime;
+use chrono::DateTime;
 use lsys_core::{fluent_message, IntoFluentMessage, RequestEnv};
 use lsys_lib_sms::{AliSms, SendDetailItem, SendError, SendNotifyError};
 use lsys_setting::{
@@ -400,8 +400,7 @@ impl crate::dao::SmsStatusTaskExecutor for AliYunSendStatus {
                     e.to_fluent_message().default_format()
                 ))
             })?;
-        let naive_date_time =
-            NaiveDateTime::from_timestamp_opt(msg.send_time as i64, 0).unwrap_or_default();
+        let naive_date_time = DateTime::from_timestamp(msg.send_time as i64, 0).unwrap_or_default();
 
         AliSms::send_detail(
             create_sender_client()?,
@@ -409,7 +408,7 @@ impl crate::dao::SmsStatusTaskExecutor for AliYunSendStatus {
             &ali_setting.access_secret,
             &msg.res_data,
             &msg.mobile,
-            &naive_date_time.date().to_string(),
+            &naive_date_time.date_naive().to_string(),
         )
         .await
         .map(|e| {

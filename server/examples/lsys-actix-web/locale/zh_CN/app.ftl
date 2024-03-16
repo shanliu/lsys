@@ -8,7 +8,7 @@ time-format-error=日期解析异常:{$msg}
 
 time-zone-error=日期时区异常
 
-area-db-error=数据库异常:{$msg}
+lsys-lib-area-error=数据库异常:{$msg}
 area-error=系统异常:{$msg}
 area-not-found=地址信息未找到
 area-store-error=存储异常:{$msg}

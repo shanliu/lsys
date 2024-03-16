@@ -1,0 +1,25 @@
+ARG_ENABLE('lib_area', 'lib_area support', 'no');
+ARG_ENABLE('lib_area_use_sqlite', 'lib_area sqlite data source support, You need to enable data-sqlite in cargo.toml first.', 'no');
+ARG_ENABLE('lib_area_use_mysql', 'lib_area mysql data source support, You need to enable data-mysql in cargo.toml first.', 'no');
+if (PHP_LIB_AREA != 'no') {
+
+    if (
+        CHECK_LIB("lsys_lib_area.lib", "lsys_lib_area", "ext\\lib_area\\lib")
+        && CHECK_HEADER_ADD_INCLUDE("lsys_lib_area.h", "CFLAGS", "ext\\lib_area\\lib;" + PHP_EXTRA_INCLUDES)
+    ) {
+        ADD_FLAG('LDFLAGS_LIB_AREA', "ext\\lib_area\\lib\\lsys_lib_area.lib");
+        AC_DEFINE('HAVE_LIB_AREA', 1, 'lib_area support enabled');
+
+        if (PHP_LIB_AREA_USE_SQLITE != 'no') {
+
+            AC_DEFINE('HAVE_LIB_AREA_USE_SQLITE', 1, 'lib_area sqlite data source support enabled');
+        }
+        if (PHP_LIB_AREA_USE_MYSQL != 'no') {
+            AC_DEFINE('HAVE_LIB_AREA_USE_MYSQL', 1, 'lib_area mysql data source support enabled');
+        }
+
+        EXTENSION('lib_area', 'lib_area.c lib_area_class.c lib_area_exception_class.c', null, '');
+    } else {
+        WARNING("lib_area not enabled; lib libraries or headers not found");
+    }
+}

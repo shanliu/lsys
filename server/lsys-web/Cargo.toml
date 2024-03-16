@@ -6,29 +6,6 @@ edition = "2021"
 
 
 [dependencies]
-area-db = { version = "~0.1.2", default-features = false, features = [
-    "data-csv",
-    "index-disk",
-] }
-
-lsys-core = { path = "../lsys-core" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-rbac = { path = "../lsys-rbac" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-user = { path = "../lsys-user" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-app = { path = "../lsys-app" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-app-sender = { path = "../lsys-app-sender", features = [
-    "sms-aliyun",
-    "sms-jdcloud",
-    "sms-huawei",
-    "sms-jdcloud",
-    "sms-netease",
-    "sms-tencent",
-    "sms-cloopen",
-] } #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-setting = { path = "../lsys-setting" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-logger = { path = "../lsys-logger" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-docs = { path = "../lsys-docs" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-app-notify = { path = "../lsys-app-notify" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
-
 futures-util = "0.3.*"
 serde = { version = "1.0.*" }
 serde_json = "1.0.*"
@@ -52,39 +29,23 @@ sqlx = { version = "~0.6.3", features = [
 sqlx-model = { version = "0.2.3", default-features = false, features = [
     "sqlx-mysql",
 ] }
-# simple_asn1 = "0.6.2"
-# html-escape = "~0.2.*"
+
 
 #客户端
 reqwest = { version = "~0.11.*", features = ["json", "stream"] }
 
-log = "0.4.17"           # 使用trace中宏 这里可以不要
 serde_urlencoded = "0.7"
 
 #日志
 tracing = { version = "0.1.*" } # log-always 保持log的输出 当使用tracing时会出现两次
 
-#模板
 tera = "1.17.0"
 
-#graylog 使用
-#tracing-gelf = "0.4"
-#tracing-log="*"
-
-#代替标准库的锁
 parking_lot = "0.12.1"
-
 
 fluent = "0.16.0"
 
-
 mime = "0.3.16"
-
-
-#graylog 使用
-#tracing-gelf = "0.4"
-#tracing-log="*"
-
 
 ip2location = "~0.5.0"
 
@@ -94,20 +55,31 @@ async-trait = "0.1.57"
 
 config = "~0.14"
 
-# mail send
-# lettre = { version = "~0.11", features = [
-#     "smtp-transport",
-#     "native-tls",
-#     "tokio1",
-#     "tokio1-native-tls",
-#     "builder",
-# ] }
+lsys-lib-area = { version = "~0.1.0", default-features = false, features = [
+    "data-csv",
+    "index-disk",
+], path = "../lsys-lib-area" }
 
+lsys-core = { path = "../lsys-core" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-rbac = { path = "../lsys-rbac" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-user = { path = "../lsys-user" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-app = { path = "../lsys-app" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-app-sender = { path = "../lsys-app-sender", features = [
+    "sms-aliyun",
+    "sms-jdcloud",
+    "sms-huawei",
+    "sms-jdcloud",
+    "sms-netease",
+    "sms-tencent",
+    "sms-cloopen",
+] } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-setting = { path = "../lsys-setting" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-logger = { path = "../lsys-logger" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-app-notify = { path = "../lsys-app-notify" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-docs = { path = "../lsys-docs", optional = true } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-app-barcode = { path = "../lsys-app-barcode", optional = true } #path 替换为 :,git = "https://github.com/shanliu/lsys"
 
-# regex = "~1.10"
-
-
-# lazy_static = "1.4.0"
-
-
-# hostname = "~0.3.*"
+[features]
+default = ["docs", "barcode"]
+docs = ["lsys-docs"]
+barcode = ["lsys-app-barcode"]

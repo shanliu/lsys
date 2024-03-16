@@ -1,4 +1,4 @@
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, Utc};
 
 use hmac::{Hmac, Mac};
 use reqwest::{
@@ -253,7 +253,7 @@ impl TenSms {
         if let Ok(value) = HeaderValue::from_str("application/json") {
             headers.insert("Content-Type", value);
         }
-        let datetime = NaiveDateTime::from_timestamp_opt(now_time as i64, 0).unwrap_or_default();
+        let datetime = DateTime::from_timestamp(now_time as i64, 0).unwrap_or_default();
 
         let reqjson = req_json.to_string();
 

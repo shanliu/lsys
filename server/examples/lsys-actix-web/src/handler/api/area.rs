@@ -2,11 +2,11 @@ use crate::common::handler::ReqQuery;
 use crate::common::handler::{JsonQuery, ResponseJson, ResponseJsonResult};
 use actix_web::post;
 
-use lsys_web::handler::api::utils::area_detail;
-use lsys_web::handler::api::utils::area_list;
 use lsys_web::handler::api::utils::area_search;
 use lsys_web::handler::api::utils::AreaCodeParam;
 use lsys_web::handler::api::utils::AreaSearchParam;
+use lsys_web::handler::api::utils::{area_find, area_list};
+use lsys_web::handler::api::utils::{area_geo, area_related, AreaGeoParam};
 
 #[post("/{type}")]
 pub async fn area_data(
@@ -17,8 +17,10 @@ pub async fn area_data(
     let req_dao = req.inner;
     let res = actix_web::web::block(move || match path.into_inner().as_str() {
         "list" => area_list(json_param.param::<AreaCodeParam>()?, &req_dao),
-        "detail" => area_detail(json_param.param::<AreaCodeParam>()?, &req_dao),
         "search" => area_search(json_param.param::<AreaSearchParam>()?, &req_dao),
+        "related" => area_related(json_param.param::<AreaCodeParam>()?, &req_dao),
+        "find" => area_find(json_param.param::<AreaCodeParam>()?, &req_dao),
+        "geo" => area_geo(json_param.param::<AreaGeoParam>()?, &req_dao),
         name => handler_not_found!(name),
     })
     .await?;

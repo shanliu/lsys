@@ -1,0 +1,29 @@
+[package]
+name = "lsys-app-barcode"
+version = "0.0.1"
+authors = ["liushan <shan.liu@msn.com>"]
+edition = "2021"
+
+
+[dependencies]
+lsys-core = { path = "../lsys-core" }       #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-setting = { path = "../lsys-setting" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-logger = { path = "../lsys-logger" }   #path 替换为 :,git = "https://github.com/shanliu/lsys"
+
+
+tokio = { version = "~1.36" }
+
+sqlx = { version = "~0.6.3", features = [
+    "mysql",
+    "runtime-tokio-native-tls",
+    "offline",
+] }
+sqlx-model = { version = "0.2.3", default-features = false, features = [
+    "sqlx-mysql",
+] }
+
+async-trait = "~0.1.*"
+
+serde = { version = "1.0.*" }
+
+image = "0.24.0"

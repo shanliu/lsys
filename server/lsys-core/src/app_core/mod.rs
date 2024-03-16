@@ -10,6 +10,7 @@ use sqlx::pool::PoolOptions;
 use sqlx::{ConnectOptions, Connection, Database, Pool};
 use std::env;
 use std::str::FromStr;
+use tracing_appender::non_blocking::WorkerGuard;
 
 use std::path::{Path, PathBuf};
 use tera::Tera;
@@ -22,6 +23,7 @@ pub use result::*;
 pub struct AppCore {
     pub app_path: PathBuf,
     pub config: Config,
+    log_guard: Option<WorkerGuard>,
 }
 
 impl AppCore {
@@ -53,6 +55,7 @@ impl AppCore {
         }
         Ok(AppCore {
             app_path,
+            log_guard: None,
             config: Config::new(config_path, "app", config_files).await?,
         })
     }
@@ -90,7 +93,7 @@ impl AppCore {
     //         //actix_web::rt::spawn(bg_task);
     //     }
     // }
-    pub fn init_tracing(&self) -> Result<(), AppCoreError> {
+    pub fn init_tracing(&mut self) -> Result<(), AppCoreError> {
         let log_level = self
             .config
             .find(None)
@@ -105,47 +108,51 @@ impl AppCore {
         )
         .unwrap_or(tracing::Level::TRACE);
 
-        let sub = tracing_subscriber::fmt()
-        // .compact() //是否隐藏参数
-        // .pretty()
-        ;
+        let sub = tracing_subscriber::fmt();
 
-        let dir = self
-            .config
-            .find(None)
-            .get_string("log_dir")
-            .unwrap_or_else(|_| String::from("./"));
         let name = self
             .config
             .find(None)
             .get_string("log_name")
-            .unwrap_or_else(|_| String::from("std::out"));
+            .unwrap_or_default();
         if !name.is_empty() {
             match name.as_str() {
-                "std::out" => {
-                    sub.with_writer(std::io::stdout)
-                        .with_max_level(log_max_level)
-                        .with_env_filter(log_level) //格式 模块:最大等级 mod:level
-                        .try_init()
-                        .ok()
-                }
-                "std::err" => {
-                    sub.with_writer(std::io::stderr)
-                        .with_max_level(log_max_level)
-                        .with_env_filter(log_level) //格式 模块:最大等级 mod:level
-                        .try_init()
-                        .ok()
+                "std::out" | "std::err" => {
+                    let sub = sub
+                        .compact() //是否隐藏参数
+                        .with_ansi(true)
+                        .pretty();
+                    if name.as_str() == "std::out" {
+                        sub.with_writer(std::io::stdout)
+                            .with_max_level(log_max_level)
+                            .with_env_filter(log_level)
+                            .try_init()
+                    } else {
+                        sub.with_writer(std::io::stderr)
+                            .with_max_level(log_max_level)
+                            .with_env_filter(log_level)
+                            .try_init()
+                    }
+                    .map_err(|e| AppCoreError::System(e.to_string()))?;
                 }
                 _ => {
-                    let file_appender = tracing_appender::rolling::hourly(dir, name);
-                    let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
-                    sub.with_writer(non_blocking)
+                    let dir = self
+                        .config
+                        .find(None)
+                        .get_string("log_dir")
+                        .unwrap_or_else(|_| String::from("./"));
+
+                    let file_appender = tracing_appender::rolling::daily(dir, name);
+                    let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
+                    sub.with_ansi(false)
+                        .with_writer(non_blocking)
                         .with_max_level(log_max_level)
                         //.with_env_filter(EnvFilter::from_default_env().add_directive("echo=trace".parse()?))//手动分开配置方式
                         // 基于span过滤 target[span{field=value}]=level
                         .with_env_filter(log_level) //格式 模块:最大等级 mod:level
                         .try_init()
-                        .ok()
+                        .map_err(|e| AppCoreError::System(e.to_string()))?;
+                    self.log_guard = Some(guard);
                 }
             };
             // write //只能有一个writer

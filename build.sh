@@ -1,31 +1,68 @@
 #!/bin/bash
-
-mkdir -p build
-cp  -fr ./README.MD ./build
-cp  -fr ./LICENSE ./build
+script_dir=`pwd`/$(dirname "$0")
+echo "build on :$script_dir"
+mkdir -p $script_dir/build
+cp  -fr $script_dir/README.MD $script_dir/build
+cp  -fr $script_dir/LICENSE $script_dir/build
 #
-mkdir -p ./server/examples/lsys-actix-web/data
-cd ./server/examples/lsys-actix-web  && cargo build \-r && cd ../..
-bash sql_merge.sh && cd .. && mkdir -p ./build/assets
-cp  -fr ./server/tables.sql ./build/assets
-cp  -fr ./server/target/release/lsys-actix-web ./build
-cp  -fr ./server/examples/lsys-actix-web/config ./build
-cp  -fr ./server/examples/lsys-actix-web/data ./build
-cp  -fr ./server/examples/lsys-actix-web/locale ./build
-cp  -fr ./server/examples/lsys-actix-web/static ./build
-cp  -fr ./server/examples/lsys-actix-web/.env ./build
+mkdir -p $script_dir/server/examples/lsys-actix-web/data
+cd $script_dir/server/examples/lsys-actix-web  
+cargo build \-r 
+cd $script_dir/server
+bash $script_dir/server/sql_merge.sh 
+cd $script_dir 
+mkdir -p $script_dir/build/assets
+cp  -fr $script_dir/server/tables.sql $script_dir/build/assets
+cp  -fr $script_dir/server/target/release/lsys-actix-web $script_dir/build
+cp  -fr $script_dir/server/examples/lsys-actix-web/config $script_dir/build
+cp  -fr $script_dir/server/examples/lsys-actix-web/data $script_dir/build
+cp  -fr $script_dir/server/examples/lsys-actix-web/locale $script_dir/build
+cp  -fr $script_dir/server/examples/lsys-actix-web/static $script_dir/build
+cp  -fr $script_dir/server/examples/lsys-actix-web/.env $script_dir/build
+mkdir -p $script_dir/build/logs
 #
-cd ui/ && npm i  && npm run build && cd ..
-cp  -fr ./ui/public/ ./build/ui/
+cd $script_dir/ui/ 
+npm i  && npm run build 
+cd $script_dir/
+cp -fr $script_dir/ui/public/ $script_dir/build/ui/
 #
 if [ "$(uname)" = "Darwin" ]; then
-   sed -i '' "s|../../../ui/public/|./ui/|g" ./build/config/app.toml
+   sed -i '' "s|../../../ui/public/|./ui/|g" $script_dir/build/config/app.toml
 else
-   sed -i "s|../../../ui/public/|./ui/|g" ./build/config/app.toml
+   sed -i "s|../../../ui/public/|./ui/|g" $script_dir/build/config/app.toml
 fi
 
-cd ./build && tar -cvf ../lsys.tar.gz ./ && cd ..
-#
+
+has_assets=false
+has_tar=false
+
+for arg in "$@"
+do
+  case $arg in
+    assets)
+      has_assets=true
+      ;;
+    tar)
+      has_tar=true
+      ;;
+  esac
+done
+
+if $has_assets; then
+   curl -L -o "$script_dir/build/data/2023-7-area-code.csv.gz" "https://github.com/shanliu/lsys/releases/download/v0.0.0/2023-7-area-code.csv.gz"
+   curl -L -o "$script_dir/build/data/2023-7-area-geo.csv.gz" "https://github.com/shanliu/lsys/releases/download/v0.0.0/2023-7-area-geo.csv.gz"
+   curl -L -o "$script_dir/build/data/IP2LOCATION-LITE-DB11.BIN.zip" "https://github.com/shanliu/lsys/releases/download/v0.0.0/IP2LOCATION-LITE-DB11.BIN.zip"
+   unzip -o "$script_dir/build/data/IP2LOCATION-LITE-DB11.BIN.zip" -d "$script_dir/build/data"
+   rm -rf "$script_dir/build/data/IP2LOCATION-LITE-DB11.BIN.zip"
+fi
+
+if $has_tar; then
+   cd $script_dir/build 
+   tar -cvf $script_dir/lsys.tar.gz ./
+   cd $script_dir
+fi
+
+
 
 echo -e "The compilation was successful, \
 Please start the service with ( cd ./build && ./lsys-actix-web ) \

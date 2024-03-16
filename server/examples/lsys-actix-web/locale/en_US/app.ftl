@@ -6,7 +6,7 @@ time-format-error=Date parsing exception: {$msg}
 
 time-zone-error=Date time zone exception.
 
-area-db-error=Database exception:{$msg}
+lsys-lib-area-error=Database exception:{$msg}
 area-error=System exception:{$msg}
 area-not-found=Address information not found.
 areaa-store-error=Store exception:{$msg}

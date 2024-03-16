@@ -1,11 +1,12 @@
-use area_db::AreaDao;
 use ip2location::LocationDB;
 use lsys_app::dao::AppDao;
 use lsys_app_notify::dao::Notify;
 use lsys_app_sender::dao::MessageTpls;
 use lsys_core::cache::{LocalCacheClear, LocalCacheClearItem};
 use lsys_core::{AppCore, AppCoreError, FluentMgr, IntoFluentMessage, RemoteNotify};
+#[cfg(feature = "docs")]
 use lsys_docs::dao::{DocsDao, GitRemoteTask};
+use lsys_lib_area::AreaDao;
 use lsys_logger::dao::ChangeLogger;
 use lsys_rbac::dao::rbac::RbacLocalCacheClear;
 use lsys_rbac::dao::{RbacDao, SystemRole};
@@ -40,6 +41,7 @@ use self::user::WebUser;
 
 pub struct WebDao {
     pub user: Arc<WebUser>,
+    #[cfg(feature = "docs")]
     pub docs: Arc<DocsDao>,
     pub app: Arc<WebApp>,
     pub captcha: Arc<WebAppCaptcha>,
@@ -113,7 +115,7 @@ impl WebDao {
                     login_config.ip_db = Some(Mutex::new(ip2location::DB::LocationDb(city_db)));
                 }
                 Err(err) => {
-                    warn!("read ip city db error[{}]:{:?}", ip_db_path.display(), err)
+                    warn!("read ip city db error[{}]:{:?} [download url: https://github.com/shanliu/lsys/releases/tag/v0.0.0 IP2LOCATION-LITE-DB11.BIN.zip (unzip) ]", ip_db_path.display(), err)
                 }
             },
             Err(err) => {
@@ -123,24 +125,27 @@ impl WebDao {
                 );
             }
         }
-
-        let doc_dir = app_core.config.find(None).get_string("doc_git_dir").ok();
-        let docs = Arc::new(
-            DocsDao::new(
-                // app_core.clone(),
-                db.clone(),
-                remote_notify.clone(),
-                change_logger.clone(),
-                None,
-                doc_dir,
-            )
-            .await,
-        );
-        // 文档后台同步任务
-        let task_docs = docs.task.clone();
-        tokio::spawn(async move {
-            task_docs.dispatch().await;
-        });
+        #[cfg(feature = "docs")]
+        let docs = {
+            let doc_dir = app_core.config.find(None).get_string("doc_git_dir").ok();
+            let docs = Arc::new(
+                DocsDao::new(
+                    // app_core.clone(),
+                    db.clone(),
+                    remote_notify.clone(),
+                    change_logger.clone(),
+                    None,
+                    doc_dir,
+                )
+                .await,
+            );
+            // 文档后台同步任务
+            let task_docs = docs.task.clone();
+            tokio::spawn(async move {
+                task_docs.dispatch().await;
+            });
+            docs
+        };
 
         let user_dao = Arc::new(
             UserDao::new(
@@ -264,9 +269,11 @@ impl WebDao {
         remote_notify.push_run(Box::new(local_cache_clear)).await;
 
         //git文档 远程同步任务
+        #[cfg(feature = "docs")]
         remote_notify
             .push_run(Box::new(GitRemoteTask::new(docs.task.clone())))
             .await;
+
         //远程任务后台任务
         tokio::spawn(async move {
             //listen redis notify
@@ -277,9 +284,27 @@ impl WebDao {
         let mut area = None;
         match app_core.config_path(app_core.config.find(None), "area_code_db") {
             Ok(code_path) => {
-                match area_db::CsvAreaCodeData::from_inner_path(code_path.clone(), true) {
+                match lsys_lib_area::CsvAreaCodeData::from_inner_path(code_path.clone(), true) {
                     Ok(tmp) => {
-                        let data = area_db::CsvAreaData::new(tmp, None);
+
+                        let  geo_data =  match app_core.config_path(app_core.config.find(None), "area_geo_db") {
+                            Ok(geo_path) => {
+                                match lsys_lib_area::CsvAreaGeoData::from_inner_path(geo_path.clone(), true){
+                                    Ok(geo_obj) => {
+                                        Some(geo_obj)
+                                    }
+                                    Err(err) => {
+                                        warn!("area code db load fail on {} [download url: https://github.com/shanliu/lsys/releases/tag/v0.0.0 2023-7-area-geo.csv.gz ],error detail:{}",geo_path.display(),err);
+                                        None
+                                    }
+                                }
+                            }
+                            Err(err) => {
+                                info!("area geo config load fail :{}", err.to_fluent_message().default_format());
+                                None
+                            }
+                        };
+                        let data = lsys_lib_area::CsvAreaData::new(tmp, geo_data);
                         let area_index_dir = app_core
                             .config_path(app_core.config.find(None), "area_index_dir")
                             .unwrap_or_else(|_| {
@@ -294,7 +319,7 @@ impl WebDao {
                             .map(|e| e.abs() as usize)
                             .ok();
                         let area_store =
-                            area_db::AreaStoreDisk::new(area_index_dir, area_index_size)
+                            lsys_lib_area::AreaStoreDisk::new(area_index_dir, area_index_size)
                                 .map_err(|e| AppCoreError::System(e.to_string()))?;
                         area = Some(Arc::new(
                             AreaDao::from_csv_disk(data, area_store)
@@ -302,18 +327,19 @@ impl WebDao {
                         ));
                     }
                     Err(err) => {
-                        warn!("area code db load fail on {} [download url:https://github.com/shanliu/area-db/blob/main/data/2023-7-area-code.csv.gz],error detail:{}",code_path.display(),err);
+                        warn!("area code db load fail on {} [download url: https://github.com/shanliu/lsys/releases/tag/v0.0.0 2023-7-area-code.csv.gz ],error detail:{}",code_path.display(),err);
                     }
                 }
             }
             Err(err) => {
                 error!(
-                    "load area data fail:{}",
+                    "load area config fail:{}",
                     err.to_fluent_message().default_format()
                 )
             }
         }
         Ok(WebDao {
+            #[cfg(feature = "docs")]
             docs,
             fluent,
             user: Arc::new(WebUser::new(

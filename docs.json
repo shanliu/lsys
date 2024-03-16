@@ -28,7 +28,19 @@
 			]
 		},
 		{
-			"name": "文档功能说明",
+			"name": "短信接口封装",
+			"path": "server/lsys-lib-sms/README.md"
+		},
+		{
+			"name": "地址库简介",
+			"path": "server/lsys-lib-area/README.md"
+		},
+		{
+			"name": "用户中心简介",
+			"path": "server/lsys-user/README.md"
+		},
+		{
+			"name": "在线文档功能简介",
 			"path": "server/lsys-docs/README.MD"
 		}
 	]

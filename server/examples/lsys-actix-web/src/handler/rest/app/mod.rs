@@ -8,3 +8,6 @@ pub(crate) use info::*;
 pub(crate) use mail::*;
 pub(crate) use rbac::*;
 pub(crate) use sms::*;
+
+#[cfg(feature = "barcode")]
+mod barcode;

@@ -5,7 +5,6 @@ use crate::{
     handler::access::{AccessAppSenderDoSms, AccessAppSenderSmsConfig, AccessAppSenderSmsMsg},
     LimitParam, PageParam, {JsonData, JsonResult},
 };
-use log::warn;
 use lsys_app::{dao::app::AppDataWhere, model::AppStatus};
 use lsys_app_notify::dao::NotifyData;
 use lsys_app_sender::{
@@ -16,6 +15,7 @@ use lsys_core::{fluent_message, now_time, str_time, IntoFluentMessage};
 use lsys_user::dao::auth::{SessionData, SessionTokenData, UserSession};
 use serde::Deserialize;
 use serde_json::{json, Value};
+use tracing::warn;
 
 use super::{tpl_config_del, tpl_config_list, MessageView, TplConfigDelParam, TplConfigListParam};
 

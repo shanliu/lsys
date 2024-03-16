@@ -1,0 +1,6 @@
+/data/*
+!/data/README.MD
+/config/cert.pem
+/config/key.pem
+/logs/*
+!/logs/README.MD

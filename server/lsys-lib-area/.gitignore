@@ -1,0 +1,15 @@
+/target
+/.vscode
+/wrappers/c_dome/cmake-build-debug*
+/wrappers/c_dome/.idea
+Cargo.lock
+.idea
+.gitmodules
+src/main.rs
+/sqlite-amalgamation*
+data/2023-7-area-code.csv.lock
+data/2023-7-area-geo.csv.lock
+build/*
+/wrappers/php/lsys_lib_area_php_ext.zip
+/data/*
+!/data/README.MD

@@ -1,5 +1,5 @@
 use base64::Engine;
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, Utc};
 
 use reqwest::header::HeaderMap;
 use reqwest::header::HeaderValue;
@@ -86,7 +86,7 @@ impl CloOpenSms {
     }
     /// 构建签名字符串
     fn sig(account_sid: &str, account_token: &str, time: u64) -> String {
-        let datetime = NaiveDateTime::from_timestamp_opt(time as i64, 0).unwrap_or_default();
+        let datetime = DateTime::from_timestamp(time as i64, 0).unwrap_or_default();
         let datetime_str = datetime.format("%Y%m%d%H%M%S").to_string();
         let sig_str = format!("{}{}{}", account_sid, account_token, datetime_str);
         let result = md5::compute(sig_str);
@@ -94,7 +94,7 @@ impl CloOpenSms {
     }
     /// 构建验证字符串
     fn auth(account_sid: &str, time: u64) -> String {
-        let datetime = NaiveDateTime::from_timestamp_opt(time as i64, 0).unwrap_or_default();
+        let datetime = DateTime::from_timestamp(time as i64, 0).unwrap_or_default();
         let datetime_str = datetime.format("%Y%m%d%H%M%S").to_string();
         let auth_str = format!("{}:{}", account_sid, datetime_str);
         CUSTOM_ENGINE.encode(auth_str)

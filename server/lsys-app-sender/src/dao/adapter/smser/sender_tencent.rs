@@ -10,7 +10,7 @@ use crate::{
 };
 use async_trait::async_trait;
 
-use chrono::NaiveDateTime;
+use chrono::DateTime;
 use lsys_core::{fluent_message, IntoFluentMessage, RequestEnv};
 use lsys_lib_sms::{
     template_map_to_arr, SendDetailItem, SendError, SendNotifyError, SendNotifyItem, TenSms,
@@ -397,8 +397,7 @@ impl crate::dao::SmsStatusTaskExecutor for TenYunSendStatus {
                     e.to_fluent_message().default_format()
                 ))
             })?;
-        let naive_date_time =
-            NaiveDateTime::from_timestamp_opt(msg.send_time as i64, 0).unwrap_or_default();
+        let naive_date_time = DateTime::from_timestamp(msg.send_time as i64, 0).unwrap_or_default();
         TenSms::send_detail(
             create_sender_client()?,
             &setting_data.region,
@@ -406,7 +405,7 @@ impl crate::dao::SmsStatusTaskExecutor for TenYunSendStatus {
             &setting_data.secret_key,
             &setting_data.sms_app_id,
             &msg.mobile,
-            &naive_date_time.date().to_string(),
+            &naive_date_time.date_naive().to_string(),
         )
         .await
         .map(|resp| {

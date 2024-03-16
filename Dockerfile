@@ -1,17 +1,18 @@
-FROM rust:latest as rust_rust_builder
-WORKDIR /usr/src/lsys-web
-COPY ./server .
-RUN cargo build -r && sed -i 's|../../../ui/public/|./ui/|g' ./usr/src/lsys-web/examples/lsys-actix-web/config/app.toml
+FROM debian:buster-slim as lsys-builder
+WORKDIR /tmp/lsys
+COPY . /tmp/lsys
+RUN apt-get update &&  apt-get install curl unzip git build-essential pkg-config wget libssl-dev -y && \
+	curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && . "$HOME/.cargo/env" && \
+	wget https://nodejs.org/dist/v20.11.1/node-v20.11.1-linux-x64.tar.xz -O /tmp/node-v20.11.1-linux-x64.tar.xz && \
+	mkdir -p /usr/local/lib/nodejs &&  tar -xJvf /tmp/node-v20.11.1-linux-x64.tar.xz -C /usr/local/lib/nodejs && \
+	export PATH=/usr/local/lib/nodejs/node-v20.11.1-linux-x64/bin:$PATH && . ~/.profile && \
+	./build.sh assets
 
-FROM node:18-buster as node_builder
-WORKDIR /usr/src/lsys-web
-COPY ./ui .
-RUN cd ./ui && npm run build && cd ..
+FROM debian:buster-slim as lsys-executor
+RUN apt-get update &&  apt-get install  -y libssl1.1 && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-FROM debian:buster-slim
+FROM lsys-executor
 WORKDIR /usr/local/lsys-web
-RUN apt-get update &&  apt-get install  -y libssl1.1 && rm -rf /var/lib/apt/lists/*
-
 ENV \
     APP_HOST=127.0.0.1 \
     APP_PORT=80 \
@@ -26,11 +27,5 @@ ENV \
     #redis 配置
     REDIS_URL="redis://127.0.0.1/"
 
-COPY --from=rust_builder /usr/src/lsys-web/examples/lsys-actix-web/static /usr/local/lsys-web/
-COPY --from=rust_builder /usr/src/lsys-web/examples/lsys-actix-web/config /usr/local/lsys-web/
-COPY --from=rust_builder /usr/src/lsys-web/examples/lsys-actix-web/locale /usr/local/lsys-web/
-COPY --from=rust_builder /usr/src/lsys-web/examples/lsys-actix-web/data /usr/local/lsys-web/
-COPY --from=rust_builder /usr/src/lsys-web/examples/lsys-actix-web/.env /usr/local/lsys-web/.env
-COPY --from=rust_builder /usr/src/lsys-web/examples/target/release/lsys-actix-web /usr/local/lsys-web/lsys-actix-web
-COPY --from=node_builder /usr/src/lsys-web/public /usr/local/lsys-web/ui
-CMD ["/usr/local/lsys-web/lsys-actix-web"]
+COPY --from=lsys-builder /tmp/lsys/build/ /usr/local/lsys-web/
+CMD ["./lsys-actix-web"]

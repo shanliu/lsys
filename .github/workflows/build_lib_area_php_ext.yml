@@ -1,0 +1,60 @@
+name: build lsys-lib-area php extension
+
+on:
+  push:
+    tags:
+      - "v*.*.*-php-lib-area-ext"
+
+jobs:
+  lib_area_windows_x64_php_ext:
+    runs-on: windows-2019
+    steps:
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1.12.0
+        with:
+          vsversion: 2019
+          arch: x64
+
+      - name: Set Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: build php 8 extension
+        run: |
+          cd ${{ github.workspace }}\server\lsys-lib-area\wrappers\php\ && .\build.cmd init
+          cd ${{ github.workspace }}\server\lsys-lib-area\wrappers\php\ && .\build.cmd php8
+          cd ${{ github.workspace }}\server\lsys-lib-area\wrappers\php\ && dir .
+          
+      - name: package php extension
+        run: |
+          cd ${{ github.workspace }} && mkdir server\lsys-lib-area\build\target\example\data
+          cd ${{ github.workspace }} && powershell -Command "Invoke-WebRequest -Uri 'https://github.com/shanliu/lsys/releases/download/v0.0.0/2023-7-area-code.csv.gz' -OutFile 'server\lsys-lib-area\build\target\example\data\2023-7-area-code.csv.gz'"
+          cd ${{ github.workspace }} && powershell -Command "Invoke-WebRequest -Uri 'https://github.com/shanliu/lsys/releases/download/v0.0.0/2023-7-area-geo.csv.gz' -OutFile 'server\lsys-lib-area\build\target\example\data\2023-7-area-geo.csv.gz'"
+          cd ${{ github.workspace }}\server\lsys-lib-area\wrappers\php\ && .\build.cmd archive
+          cd ${{ github.workspace }}\server\lsys-lib-area\wrappers\php\ && .\build.cmd clear
+          cd ${{ github.workspace }}\server\lsys-lib-area\wrappers\php\ && mv lsys_lib_area_php_ext.zip ..\..\..\..\
+          cd ${{ github.workspace }} && powershell -Command "Compress-Archive -Path '.\server\lsys-lib-area\*' -DestinationPath '.\lsys_lib_area_src.zip'"
+          cd ${{ github.workspace }} && dir .
+
+      - name: get current tag
+        id: get_tag
+        run: |
+          $tag = $env:GITHUB_REF -replace 'refs/tags/', ''
+          Write-Host "##[set-output name=tag;]$tag"
+
+      - uses: ncipollo/release-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          artifacts: "lsys_lib_area_php_ext.zip,lsys_lib_area_src.zip"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: ${{ steps.get_tag.outputs.tag }}
+          prerelease: true
+          tag: ${{ github.ref }}
+          body: |
+            lsys-lib-area crate for php(8.*)扩展,使用vs16(2019)编译

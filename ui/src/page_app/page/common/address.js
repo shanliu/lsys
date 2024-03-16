@@ -1,7 +1,7 @@
 import { Box, Chip, ClickAwayListener, Divider, FormControl, Input, InputBase, LinearProgress, ListItemText, MenuItem, MenuList, Paper, Popper, Stack, TextField, Typography } from '@mui/material';
 import React, { Fragment, forwardRef, useCallback, useContext, useDeferredValue, useEffect, useRef, useState } from 'react';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
-import { areaDetail, areaList, areaSearch } from '../../../common/rest/area';
+import { areaRelated, areaList, areaSearch } from '../../../common/rest/area';
 import { ToastContext } from '../../../common/context/toast';
 
 /**
@@ -86,7 +86,7 @@ export function AddressSelect(props) {
         }
         ajaxReq.current = new AbortController();
 
-        areaDetail({
+        areaRelated({
             code: code
         }, {
             signal: ajaxReq.current.signal

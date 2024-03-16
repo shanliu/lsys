@@ -1,0 +1,46 @@
+name: build lsys
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+      - "!v*.*.*-*"
+
+jobs:
+  build_for_windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: set nodejs
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: set rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: build release
+        run: ./build.cmd assets zip
+
+      - name: get current tag
+        id: get_tag
+        run: |
+          $tag = $env:GITHUB_REF -replace 'refs/tags/', ''
+          Write-Host "##[set-output name=tag;]$tag"
+
+      - uses: ncipollo/release-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          artifacts: "lsys-for-windows.zip"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: ${{ steps.get_tag.outputs.tag }}
+          prerelease: true
+          tag: ${{ github.ref }}
+          body: |
+            lsys for windows x64 下编译版本请下载 lsys-for-windows.zip
+            其他系统请下载源码`Source code`编译

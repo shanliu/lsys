@@ -87,8 +87,9 @@ fn load_rustls_config(
 }
 
 pub async fn create_server(app_dir: &str) -> Result<Server, AppError> {
-    let app_core = Arc::new(AppCore::init(app_dir, "config", None).await?);
+    let mut app_core = AppCore::init(app_dir, "config", None).await?;
     app_core.init_tracing()?;
+    let app_core = Arc::new(app_core);
     //console_subscriber::init();
     let app_dao = Data::new(WebDao::new(app_core.clone()).await?);
     let bind_addr = app_dao.bind_addr();

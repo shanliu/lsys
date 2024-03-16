@@ -35,7 +35,7 @@ pub fn area_list(param: AreaCodeParam, req_dao: &RequestDao) -> JsonResult<JsonD
     Ok(JsonData::data(json!({ "area": data })))
 }
 
-pub fn area_detail(param: AreaCodeParam, req_dao: &RequestDao) -> JsonResult<JsonData> {
+pub fn area_related(param: AreaCodeParam, req_dao: &RequestDao) -> JsonResult<JsonData> {
     let data = get_area!(req_dao.web_dao.area)
         .code_related(&param.code)
         .map_err(|e| req_dao.fluent_json_data(e))?
@@ -56,14 +56,31 @@ pub fn area_detail(param: AreaCodeParam, req_dao: &RequestDao) -> JsonResult<Jso
     Ok(JsonData::data(json!({ "area": data })))
 }
 
+pub fn area_find(param: AreaCodeParam, req_dao: &RequestDao) -> JsonResult<JsonData> {
+    let data = get_area!(req_dao.web_dao.area)
+        .code_find(&param.code)
+        .map_err(|e| req_dao.fluent_json_data(e))?
+        .into_iter()
+        .map(|e| {
+            json!({
+                "name":e.name,
+                "code":e.code,
+                "leaf":e.leaf,
+            })
+        })
+        .collect::<Vec<_>>();
+    Ok(JsonData::data(json!({ "area": data })))
+}
+
 #[derive(Debug, Deserialize)]
 pub struct AreaSearchParam {
     pub key_word: String,
+    pub limit: Option<usize>,
 }
 
 pub fn area_search(param: AreaSearchParam, req_dao: &RequestDao) -> JsonResult<JsonData> {
     let data = get_area!(req_dao.web_dao.area)
-        .code_search(&param.key_word, 10)
+        .code_search(&param.key_word, param.limit.unwrap_or(10))
         .map_err(|e| req_dao.fluent_json_data(e))?
         .into_iter()
         .map(|e| {
@@ -77,6 +94,28 @@ pub fn area_search(param: AreaSearchParam, req_dao: &RequestDao) -> JsonResult<J
                     })
                 })
                 .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    Ok(JsonData::data(json!({ "area": data })))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AreaGeoParam {
+    pub lat: f64,
+    pub lng: f64,
+}
+
+pub fn area_geo(param: AreaGeoParam, req_dao: &RequestDao) -> JsonResult<JsonData> {
+    let data = get_area!(req_dao.web_dao.area)
+        .geo_search(param.lat, param.lng)
+        .map_err(|e| req_dao.fluent_json_data(e))?
+        .into_iter()
+        .map(|e| {
+            json!({
+                "name":e.name,
+                "code":e.code,
+                "leaf":e.leaf,
+            })
         })
         .collect::<Vec<_>>();
     Ok(JsonData::data(json!({ "area": data })))

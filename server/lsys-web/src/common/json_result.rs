@@ -1,7 +1,7 @@
 use lsys_app_notify::dao::NotifyError;
 use lsys_app_sender::dao::SenderError;
 use lsys_core::{ConfigError, FluentBundle, FluentMessage, ValidCodeError};
-use lsys_docs::dao::GitDocError;
+
 use lsys_logger::dao::LoggerError;
 use lsys_rbac::dao::rbac::UserRbacError;
 use lsys_setting::dao::SettingError;
@@ -253,18 +253,6 @@ impl FluentJsonData for NotifyError {
     }
 }
 
-impl FluentJsonData for GitDocError {
-    fn set_data(&self, json_data: JsonData, fluent: &FluentBundle) -> JsonData {
-        let json_data = json_data.set_code(500).set_sub_code("doc");
-        match self {
-            GitDocError::Sqlx(err) => err.set_data(json_data, fluent),
-            GitDocError::Git(err) => err.set_data(json_data, fluent),
-            GitDocError::System(_) => json_data,
-            GitDocError::Remote(_) => json_data,
-        }
-    }
-}
-
 impl FluentJsonData for LoggerError {
     fn set_data(&self, json_data: JsonData, fluent: &FluentBundle) -> JsonData {
         match self {
@@ -273,14 +261,16 @@ impl FluentJsonData for LoggerError {
     }
 }
 
-impl FluentJsonData for area_db::AreaError {
+impl FluentJsonData for lsys_lib_area::AreaError {
     fn set_data(&self, json_data: JsonData, _: &FluentBundle) -> JsonData {
         match self {
-            area_db::AreaError::DB(_) => json_data.set_code(500).set_sub_code("area_db"),
-            area_db::AreaError::System(_) => json_data.set_code(500).set_sub_code("area"),
-            area_db::AreaError::NotFind(_) => json_data.set_sub_code("not_found"),
-            area_db::AreaError::Store(_) => json_data.set_sub_code("area_store"),
-            area_db::AreaError::Tantivy(_) => json_data.set_sub_code("area_tantivy"),
+            lsys_lib_area::AreaError::DB(_) => {
+                json_data.set_code(500).set_sub_code("lsys_lib_area")
+            }
+            lsys_lib_area::AreaError::System(_) => json_data.set_code(500).set_sub_code("area"),
+            lsys_lib_area::AreaError::NotFind(_) => json_data.set_sub_code("not_found"),
+            lsys_lib_area::AreaError::Store(_) => json_data.set_sub_code("area_store"),
+            lsys_lib_area::AreaError::Tantivy(_) => json_data.set_sub_code("area_tantivy"),
         }
     }
 }
@@ -307,9 +297,25 @@ macro_rules! crate_error_fluent {
 crate_error_fluent!(config::ConfigError, "config");
 crate_error_fluent!(std::io::Error, "io");
 crate_error_fluent!(tera::Error, "tera");
-crate_error_fluent!(lsys_docs::GitError, "git");
 crate_error_fluent!(redis::RedisError, "redis");
 crate_error_fluent!(deadpool_redis::PoolError, "redis");
 crate_error_fluent!(serde_json::Error, "serde");
 crate_error_fluent!(ParseIntError, "parse");
 crate_error_fluent!(std::string::FromUtf8Error, "parse");
+
+#[cfg(feature = "docs")]
+use lsys_docs::dao::GitDocError;
+#[cfg(feature = "docs")]
+crate_error_fluent!(lsys_docs::GitError, "git");
+#[cfg(feature = "docs")]
+impl FluentJsonData for GitDocError {
+    fn set_data(&self, json_data: JsonData, fluent: &FluentBundle) -> JsonData {
+        let json_data = json_data.set_code(500).set_sub_code("doc");
+        match self {
+            GitDocError::Sqlx(err) => err.set_data(json_data, fluent),
+            GitDocError::Git(err) => err.set_data(json_data, fluent),
+            GitDocError::System(_) => json_data,
+            GitDocError::Remote(_) => json_data,
+        }
+    }
+}

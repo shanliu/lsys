@@ -21,13 +21,32 @@ Content-Type: application/json
     "key_word": "meizhou"
 }
 
-### search 
-POST {{area_url}}/detail
+### related 
+POST {{area_url}}/related
 Content-Type: application/json
 
 {
     "code": "4414"
 }
+
+### find 
+POST {{area_url}}/find
+Content-Type: application/json
+
+{
+    "code": "4414"
+}
+
+
+### geo 
+POST {{area_url}}/geo
+Content-Type: application/json
+
+{
+    "lat": 26.61474, 
+    "lng": 114.13548
+}
+
 
 
 ### add 

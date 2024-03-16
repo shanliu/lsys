@@ -3,7 +3,12 @@ use actix_web::{dev::ServiceRequest, options, web::scope, App, Error, HttpRespon
 
 mod app;
 mod area;
+#[cfg(feature = "docs")]
 mod docs;
+
+#[cfg(feature = "barcode")]
+mod barcode;
+
 mod sender;
 mod site;
 mod user;
@@ -24,6 +29,25 @@ pub(crate) fn router<T>(app: App<T>) -> App<T>
 where
     T: ServiceFactory<ServiceRequest, Config = (), Error = Error, InitError = ()>,
 {
+    #[cfg(feature = "docs")]
+    let app = app.service(
+        scope("/api/docs")
+            .service(docs::docs_setting)
+            .service(docs::docs_raw)
+            .service(docs::docs_read)
+            .service(options),
+    );
+    #[cfg(feature = "barcode")]
+    let app = {
+        app.service(
+            scope("/api/barcode")
+                .service(barcode::create_code)
+                .service(barcode::qrcode_list)
+                .service(options),
+        )
+        .service(scope("/qrcode/").service(barcode::qrcode_show))
+    };
+
     app.service(
         scope("/api/user")
             .service(user::address)
@@ -58,13 +82,6 @@ where
             .service(options),
     )
     .service(scope("/api/area").service(area::area_data).service(options))
-    .service(
-        scope("/api/docs")
-            .service(docs::docs_setting)
-            .service(docs::docs_raw)
-            .service(docs::docs_read)
-            .service(options),
-    )
     .service(
         scope("/api/site")
             .service(site::system_info)

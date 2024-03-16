@@ -1,0 +1,58 @@
+[package]
+name = "lsys-lib-area"
+version = "0.1.0"
+authors = ["liushan <shan.liu@msn.com>"]
+edition = "2021"
+build = "src/build.rs"
+exclude = ["data/*", "wrappers/*", "sqlite-amalgamation/*"]
+license-file = "LICENSE"
+description = "行政区域数据,坐标对应城市数据"
+categories = ["web-programming", "geospatial"]
+repository = "https://github.com/shanliu/lsys/tree/main/server/lsys-lib-area"
+
+[dependencies]
+geo = "~0.28.*"
+rayon = "~1.9.*"
+flate2 = "~1.0.*"
+rusqlite = { version = "~0.31.0", optional = true }
+csv = { version = "~1.3.0", optional = true }
+mysql = { version = "~24.0.0", optional = true }
+log = "~0.4.17"
+#clap = "3.2.25"
+parking_lot = "~0.12.1"
+tantivy = "~0.21.0"
+unicode-segmentation = "~1.11.0"
+memmap2 = { version = "~0.9", optional = true }
+sha2 = "~0.10.8"
+
+[build-dependencies]
+cc = "~1.0.*"
+#glob = "~0.3.*"
+flate2 = "~1.0.*"
+cbindgen = "~0.26.0"
+
+[lib]
+name = "lsys_lib_area"
+crate-type = ["cdylib", "rlib"]
+
+
+[features]
+default = [
+    "data-csv",
+    #"data-sqlite-source",
+    #"data-mysql",
+    #"lib-clib",
+    "index-disk",
+]
+#启用C库接口
+lib-clib = []
+#启用CSV数据源
+data-csv = ["csv"]
+#启用SQLITE数据源
+data-sqlite = ["rusqlite"]
+#启用SQLITE数据源[内置C源码方式]
+data-sqlite-source = ["data-sqlite"]
+#启用mysql数据源支持
+data-mysql = ["mysql"]
+#索引数据使用硬盘存储
+index-disk = ["memmap2"]

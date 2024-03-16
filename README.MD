@@ -18,16 +18,20 @@
 
 > 仅拷贝生成的 `./build` 到你的服务器即可,其他文件可以删除.
 
-> Windows(64bit) 可以下载二进制版跳过此编译过程
+> Windows(64bit)系统下可以下载 lsys-for-windows.zip 跳过此编译过程
 
 > windows
 ```
-.\build.cmd #生成 lsys.zip
+.\build.cmd zip assets 
+#zip :可选,生成 lsys-for-windows.zip 
+#assets :可选,从github下载对应资源
 ```
 
 > linux or macos
 ```
-bash ./build.sh #生成 lsys.tar.gz
+bash ./build.sh tar assets
+#zip :可选,生成 lsys.tar.gz
+#assets :可选,从github下载对应资源
 ```
 
 2. 导入SQL到数据库

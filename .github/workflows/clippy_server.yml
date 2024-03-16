@@ -1,25 +1,31 @@
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
-# rust-clippy is a tool that runs a bunch of lints to catch common
-# mistakes in your Rust code and help improve your Rust code.
-# More details at https://github.com/rust-lang/rust-clippy
-# and https://rust-lang.github.io/rust-clippy/
-
-name: rust-clippy analyze
+name: rust-clippy server analyze
 
 on:
   push:
     branches: [ "main" ]
+    paths:
+      - 'server/**/*'
+      - '!server/**/*.md'
+      - '!server/**/*.MD'
+      - '!server/**/*.cmd'
+      - '!server/**/.gitignore'
+      - '.github/workflows/rust_clippy.yml'
+      
   pull_request:
-    # The branches below must be a subset of the branches above
     branches: [ "main" ]
+    paths:
+      - 'server/**/*'
+      - '!server/**/*.md'
+      - '!server/**/*.MD'
+      - '!server/**/*.cmd'
+      - '!server/**/.gitignore'
+      - '.github/workflows/rust_clippy.yml'
+      
   schedule:
     - cron: '29 15 * * 4'
 
 jobs:
-  rust-clippy-analyze:
+  rust-server-clippy-analyze:
     name: Run rust-clippy analyzing
     runs-on: ubuntu-latest
     permissions:
@@ -41,7 +47,7 @@ jobs:
       - name: Install required cargo
         run: cargo install clippy-sarif sarif-fmt
 
-      - name: Run rust-clippy
+      - name: Run server rust-clippy
         working-directory: ./server
         run:
           cargo clippy
@@ -49,7 +55,7 @@ jobs:
           --message-format=json | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
         continue-on-error: true
 
-      - name: Upload analysis results to GitHub
+      - name: Upload server analysis results to GitHub
         uses: github/codeql-action/upload-sarif@v2
         with:
           sarif_file: ./server/rust-clippy-results.sarif

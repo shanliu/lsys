@@ -6,11 +6,17 @@ members = [
     "lsys-user",
     "lsys-web",
     "lsys-lib-sms",
+    "lsys-lib-area",
     "lsys-setting",
     "lsys-logger",
     "lsys-app",
     "lsys-app-notify",
     "lsys-app-sender",
+    "lsys-app-barcode",
     "lsys-docs",
     "examples/*",
 ]
+
+
+[profile.release]
+codegen-units = 1

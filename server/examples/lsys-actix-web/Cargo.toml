@@ -9,10 +9,12 @@ edition = "2021"
 lsys-core = { path = "../../lsys-core" }                      #path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-user = { path = "../../lsys-user" }                      #path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-app = { path = "../../lsys-app" }                        #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-web = { path = "../../lsys-web" }                        #path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-app-sender = { path = "../../lsys-app-sender" }          #path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-web-module-oauth = { path = "../lsys-web-module-oauth" }
 lsys-web-subapp-demo = { path = "../lsys-web-subapp-demo" }
+
+lsys-web = { path = "../../lsys-web", features = [
+] } #path 替换为 :,git = "https://github.com/shanliu/lsys"
 
 actix = "~0.13.0"
 actix-web = { version = "4.3.1", features = ["rustls"] }
@@ -55,3 +57,9 @@ reqwest = { version = "~0.11.*", features = ["json", "stream"] }
 md5 = "~0.7.0"
 mime = "~0.3.16"
 nanoid = "~0.4.0"
+
+
+[features]
+default = ["docs"]
+docs = ["lsys-web/docs"]
+barcode = ["lsys-web/barcode"]

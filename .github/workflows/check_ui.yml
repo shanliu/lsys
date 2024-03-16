@@ -1,13 +1,18 @@
-name: NodeJS with Webpack
+name: check lsys ui
 
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    paths:
+      - 'ui/**/*'
+      - '!ui/**/*.md'
+      - '!ui/**/*.MD'
+      - '!ui/**/*.cmd'
+      - '!ui/**/.gitignore'
+      - '.github/workflows/check_ui.yml'
 
 jobs:
-  build:
+  ui_check:
     runs-on: ubuntu-latest
 
     strategy:
@@ -17,12 +22,12 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - name: Use Node.js ${{ matrix.node-version }}
+    - name: Use Nodejs
       uses: actions/setup-node@v3
       with:
         node-version: ${{ matrix.node-version }}
 
-    - name: Build-web
+    - name: Build ui
       working-directory: ./ui
       run: |
         npm install
