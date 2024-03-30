@@ -199,14 +199,14 @@ if "%1"=="download" (
 
 
 if "%1"=="php8" (
-	cd %crate_dir%wrappers\php && call build.cmd download https://windows.php.net/downloads/releases/php-8.0.30-src.zip php-8.0.30
-	cd %crate_dir%wrappers\php && call build.cmd build vs16 x64 8.0 php-8.0.30
-	cd %crate_dir%wrappers\php && call build.cmd download https://windows.php.net/downloads/releases/php-8.1.27-src.zip php-8.1.27
-	cd %crate_dir%wrappers\php && call build.cmd build vs16 x64 8.1 php-8.1.27 
-	cd %crate_dir%wrappers\php && call build.cmd download https://windows.php.net/downloads/releases/php-8.2.16-src.zip php-8.2.16
-	cd %crate_dir%wrappers\php && call build.cmd build vs16 x64 8.2 php-8.2.16
-	cd %crate_dir%wrappers\php && call build.cmd download https://windows.php.net/downloads/releases/php-8.3.3-src.zip php-8.3.3
-	cd %crate_dir%wrappers\php && call build.cmd build vs16 x64 8.3 php-8.3.3
+	cd %crate_dir%wrappers\php && call build.cmd download https://windows.php.net/downloads/releases/latest/php-8.0-src-latest.zip php-8.0
+	cd %crate_dir%wrappers\php && call build.cmd build vs16 x64 8.0 php-8.0
+	cd %crate_dir%wrappers\php && call build.cmd download https://windows.php.net/downloads/releases/latest/php-8.1-src-latest.zip php-8.1
+	cd %crate_dir%wrappers\php && call build.cmd build vs16 x64 8.1 php-8.1
+	cd %crate_dir%wrappers\php && call build.cmd download https://windows.php.net/downloads/releases/latest/php-8.2-src-latest.zip php-8.2
+	cd %crate_dir%wrappers\php && call build.cmd build vs16 x64 8.2 php-8.2
+	cd %crate_dir%wrappers\php && call build.cmd download https://windows.php.net/downloads/releases/latest/php-8.3-src-latest.zip php-8.3
+	cd %crate_dir%wrappers\php && call build.cmd build vs16 x64 8.3 php-8.3
 )
 
 @REM "先运行 build init 初始化环境"

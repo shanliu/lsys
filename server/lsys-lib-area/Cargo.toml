@@ -4,7 +4,6 @@ version = "0.1.0"
 authors = ["liushan <shan.liu@msn.com>"]
 edition = "2021"
 build = "src/build.rs"
-exclude = ["data/*", "wrappers/*", "sqlite-amalgamation/*"]
 license-file = "LICENSE"
 description = "行政区域数据,坐标对应城市数据"
 categories = ["web-programming", "geospatial"]

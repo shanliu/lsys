@@ -1,35 +1,36 @@
 #!/bin/bash
+set -e
 script_dir=`pwd`/$(dirname "$0")
 echo "build on :$script_dir"
-mkdir -p $script_dir/build
-cp  -fr $script_dir/README.MD $script_dir/build
-cp  -fr $script_dir/LICENSE $script_dir/build
+mkdir -p $script_dir/build || true
+cp  -fr $script_dir/README.MD $script_dir/build || true
+cp  -fr $script_dir/LICENSE $script_dir/build || true
 #
-mkdir -p $script_dir/server/examples/lsys-actix-web/data
-cd $script_dir/server/examples/lsys-actix-web  
+mkdir -p $script_dir/server/examples/lsys-actix-web/data || true
+cd $script_dir/server/examples/lsys-actix-web || true
 cargo build \-r 
 cd $script_dir/server
-bash $script_dir/server/sql_merge.sh 
+bash $script_dir/server/sql_merge.sh || true
 cd $script_dir 
-mkdir -p $script_dir/build/assets
-cp  -fr $script_dir/server/tables.sql $script_dir/build/assets
-cp  -fr $script_dir/server/target/release/lsys-actix-web $script_dir/build
-cp  -fr $script_dir/server/examples/lsys-actix-web/config $script_dir/build
-cp  -fr $script_dir/server/examples/lsys-actix-web/data $script_dir/build
-cp  -fr $script_dir/server/examples/lsys-actix-web/locale $script_dir/build
-cp  -fr $script_dir/server/examples/lsys-actix-web/static $script_dir/build
-cp  -fr $script_dir/server/examples/lsys-actix-web/.env $script_dir/build
-mkdir -p $script_dir/build/logs
+mkdir -p $script_dir/build/assets || true
+cp  -fr $script_dir/server/tables.sql $script_dir/build/assets || true
+cp  -fr $script_dir/server/target/release/lsys-actix-web $script_dir/build || true
+cp  -fr $script_dir/server/examples/lsys-actix-web/config $script_dir/build || true
+cp  -fr $script_dir/server/examples/lsys-actix-web/data $script_dir/build || true
+cp  -fr $script_dir/server/examples/lsys-actix-web/locale $script_dir/build || true
+cp  -fr $script_dir/server/examples/lsys-actix-web/static $script_dir/build || true
+cp  -fr $script_dir/server/examples/lsys-actix-web/.env $script_dir/build || true
+mkdir -p $script_dir/build/logs || true
 #
 cd $script_dir/ui/ 
 npm i  && npm run build 
 cd $script_dir/
-cp -fr $script_dir/ui/public/ $script_dir/build/ui/
+cp -fr $script_dir/ui/public/ $script_dir/build/ui/ || true
 #
 if [ "$(uname)" = "Darwin" ]; then
-   sed -i '' "s|../../../ui/public/|./ui/|g" $script_dir/build/config/app.toml
+   sed -i '' "s|../../../ui/public/|./ui/|g" $script_dir/build/config/app.toml || true
 else
-   sed -i "s|../../../ui/public/|./ui/|g" $script_dir/build/config/app.toml
+   sed -i "s|../../../ui/public/|./ui/|g" $script_dir/build/config/app.toml || true
 fi
 
 
@@ -53,7 +54,7 @@ if $has_assets; then
    curl -L -o "$script_dir/build/data/2023-7-area-geo.csv.gz" "https://github.com/shanliu/lsys/releases/download/v0.0.0/2023-7-area-geo.csv.gz"
    curl -L -o "$script_dir/build/data/IP2LOCATION-LITE-DB11.BIN.zip" "https://github.com/shanliu/lsys/releases/download/v0.0.0/IP2LOCATION-LITE-DB11.BIN.zip"
    unzip -o "$script_dir/build/data/IP2LOCATION-LITE-DB11.BIN.zip" -d "$script_dir/build/data"
-   rm -rf "$script_dir/build/data/IP2LOCATION-LITE-DB11.BIN.zip"
+   rm -rf "$script_dir/build/data/IP2LOCATION-LITE-DB11.BIN.zip" || true
 fi
 
 if $has_tar; then
