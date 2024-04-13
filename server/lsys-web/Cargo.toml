@@ -82,7 +82,7 @@ lsys-lib-area = { version = "~0.1.0", default-features = false, features = [
 
 lsys-docs = { path = "../lsys-docs", optional = true }                    #path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-app-barcode = { path = "../lsys-app-barcode", optional = true }      #path 替换为 :,git = "https://github.com/shanliu/lsys"
-image = { version = "0.24.9", default-features = false, optional = true }
+image = { version = "0.25.1", default-features = false, optional = true }
 base64 = { version = "~0.22.0", optional = true }
 
 [features]
