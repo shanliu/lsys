@@ -25,15 +25,14 @@ pub struct UserInfo {
 impl UserInfo {
     pub fn new(
         db: Pool<MySql>,
-        remote_notify: Arc<RemoteNotify>,
+      
         index: Arc<UserIndex>,
+        remote_notify: Arc<RemoteNotify>,
+        config:LocalCacheConfig,
         logger: Arc<ChangeLogger>,
     ) -> Self {
         Self {
-            cache: Arc::from(LocalCache::new(
-                remote_notify,
-                LocalCacheConfig::new("user-info"),
-            )),
+            cache:Arc::new(LocalCache::new(remote_notify, config)),
             db,
             logger,
             index,

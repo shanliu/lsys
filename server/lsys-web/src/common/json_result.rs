@@ -260,7 +260,7 @@ impl FluentJsonData for LoggerError {
         }
     }
 }
-
+#[cfg(feature = "area")]
 impl FluentJsonData for lsys_lib_area::AreaError {
     fn set_data(&self, json_data: JsonData, _: &FluentBundle) -> JsonData {
         match self {
@@ -271,6 +271,25 @@ impl FluentJsonData for lsys_lib_area::AreaError {
             lsys_lib_area::AreaError::NotFind(_) => json_data.set_sub_code("not_found"),
             lsys_lib_area::AreaError::Store(_) => json_data.set_sub_code("area_store"),
             lsys_lib_area::AreaError::Tantivy(_) => json_data.set_sub_code("area_tantivy"),
+        }
+    }
+}
+
+#[cfg(feature = "barcode")]
+impl FluentJsonData for lsys_app_barcode::dao::BarCodeError {
+    fn set_data(&self, json_data: JsonData, fluent: &FluentBundle) -> JsonData {
+        match self {
+            lsys_app_barcode::dao::BarCodeError::System(_) => {
+                json_data.set_code(500).set_sub_code("app_barcode")
+            }
+            lsys_app_barcode::dao::BarCodeError::DB(err) => err.set_data(json_data, fluent),
+            lsys_app_barcode::dao::BarCodeError::RXing(_) => {
+                json_data.set_code(500).set_sub_code("rxing")
+            }
+            lsys_app_barcode::dao::BarCodeError::Io(err) => err.set_data(json_data, fluent),
+            lsys_app_barcode::dao::BarCodeError::Image(_) => {
+                json_data.set_code(500).set_sub_code("image")
+            }
         }
     }
 }

@@ -16,7 +16,7 @@ use base64::Engine;
 use chrono::{DateTime, Utc};
 use sha2::{Digest, Sha256};
 
-use super::{rand_str, BranchSendResult, SendError, CUSTOM_ENGINE};
+use super::{rand_str, BranchSendResult, SendError};
 
 /// aliyun sms
 pub struct HwSms {}
@@ -114,7 +114,7 @@ impl HwSms {
         let mut hasher = Sha256::new();
         let sign_data = format!("{}{}{}", &rand_s, &formatted, &app_secret);
         hasher.update(sign_data.as_bytes());
-        let passdi = CUSTOM_ENGINE.encode(hasher.finalize());
+        let passdi =  base64::engine::general_purpose::STANDARD.encode(hasher.finalize());
 
         let sign = format!(
             r#"UsernameToken Username="{}",PasswordDigest="{}",Nonce="{}",Created="{}""#,

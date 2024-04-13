@@ -22,3 +22,4 @@ app-add-empty-user = Unable to add empty user to app {$name}.
 app-parent-add-self = Application {$name} cannot associate itself.
 app-parent-secret-empty = Please provide a secret when applying {$name} to the application.
 app-parent-add-bad-user = The current app {$name} can't associate {$parent_name} because the user {$user_id} is not authorized.
+app-not-found= app:{$app} does not exist

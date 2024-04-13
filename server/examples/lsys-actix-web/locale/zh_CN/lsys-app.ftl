@@ -22,3 +22,4 @@ app-add-empty-user = 无法向应用{$name}添加空用户
 app-parent-add-self = 应用{$name}进行不能关联自身
 app-parent-secret-empty = 应用{$name}进行关联应用时请提供secret
 app-parent-add-bad-user = 当前应用{$name}不能关联{$parent_name},因为用户{$user_id}未被授权
+app-not-found= 提交的应用:{$app} 不存在

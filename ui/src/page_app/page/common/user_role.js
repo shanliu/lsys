@@ -531,7 +531,7 @@ function UserRoleRelationSet(props) {
 //角色添加或编辑弹出页
 function UserRoleAdd(props) {
     const { title, tags, rowData, initData, onSave, userId } = props;
-    let tags_options = (tags ?? []).map((e) => { return e[0] })
+    let tags_options = (tags ?? []).map((e) => { return e.name })
     const initAddData = {
 
         loading: false,

@@ -21,7 +21,7 @@ pub(crate) async fn render_404(app: Data<WebDao>) -> impl Responder {
         .app_core
         .config
         .find(None)
-        .get_string("static_serve_from")
+        .get_string("static_file_dir")
         .unwrap_or_else(|_| String::from("./static"))
         + "/404.html";
     NamedFile::open_async(static_serve_from)

@@ -42,28 +42,6 @@ impl FluentFormat for FluentMessage {
     }
 }
 
-impl FluentFormat for lsys_lib_area::AreaError {
-    fn fluent_format(&self, fluent: &FluentBundle) -> String {
-        match self {
-            lsys_lib_area::AreaError::DB(err) => {
-                fluent.format_message(&fluent_message!("lsys-lib-area-error", err))
-            }
-            lsys_lib_area::AreaError::System(err) => {
-                fluent.format_message(&fluent_message!("area-error", err))
-            }
-            lsys_lib_area::AreaError::NotFind(_) => {
-                fluent.format_message(&fluent_message!("area-not-found"))
-            }
-            lsys_lib_area::AreaError::Store(err) => {
-                fluent.format_message(&fluent_message!("area-store-error", err))
-            }
-            lsys_lib_area::AreaError::Tantivy(err) => {
-                fluent.format_message(&fluent_message!("area-tantivy-error", err))
-            }
-        }
-    }
-}
-
 //crate error
 
 macro_rules! crate_error_fluent_string {
@@ -101,3 +79,47 @@ use lsys_docs::dao::GitDocError;
 crate_error_fluent_string!(lsys_docs::GitError, "git-error");
 #[cfg(feature = "docs")]
 self_error_fluent_string!(GitDocError);
+
+#[cfg(feature = "area")]
+impl FluentFormat for lsys_lib_area::AreaError {
+    fn fluent_format(&self, fluent: &FluentBundle) -> String {
+        match self {
+            lsys_lib_area::AreaError::DB(err) => {
+                fluent.format_message(&fluent_message!("lsys-lib-area-error", err))
+            }
+            lsys_lib_area::AreaError::System(err) => {
+                fluent.format_message(&fluent_message!("area-error", err))
+            }
+            lsys_lib_area::AreaError::NotFind(_) => {
+                fluent.format_message(&fluent_message!("area-not-found"))
+            }
+            lsys_lib_area::AreaError::Store(err) => {
+                fluent.format_message(&fluent_message!("area-store-error", err))
+            }
+            lsys_lib_area::AreaError::Tantivy(err) => {
+                fluent.format_message(&fluent_message!("area-tantivy-error", err))
+            }
+        }
+    }
+}
+
+#[cfg(feature = "barcode")]
+impl FluentFormat for lsys_app_barcode::dao::BarCodeError {
+    fn fluent_format(&self, fluent: &FluentBundle) -> String {
+        match self {
+            lsys_app_barcode::dao::BarCodeError::System(err) => fluent.format_message(err),
+            lsys_app_barcode::dao::BarCodeError::DB(err) => {
+                fluent.format_message(&fluent_message!("lsys-lib-area-error", err))
+            }
+            lsys_app_barcode::dao::BarCodeError::RXing(err) => {
+                fluent.format_message(&fluent_message!("lsys-rxing-error", err))
+            }
+            lsys_app_barcode::dao::BarCodeError::Io(err) => {
+                fluent.format_message(&fluent_message!("lsys-io-error", err))
+            }
+            lsys_app_barcode::dao::BarCodeError::Image(err) => {
+                fluent.format_message(&fluent_message!("lsys-image-error", err))
+            }
+        }
+    }
+}

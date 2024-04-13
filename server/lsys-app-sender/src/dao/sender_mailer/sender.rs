@@ -13,7 +13,7 @@ use crate::{
         MessageCancel, MessageLogs, MessageReader, SenderConfig, SenderError, SenderResult,
         SenderTaskExecutor, SenderTplConfig, SenderWaitItem, SenderWaitNotify,
     },
-    model::{SenderMailBodyModel, SenderMailMessageModel, SenderType},
+    model::{SenderMailBodyModel, SenderMailMessageModel, SenderMailMessageStatus, SenderType},
 };
 use lsys_core::IntoFluentMessage;
 use lsys_core::TaskDispatch;
@@ -195,19 +195,39 @@ impl MailSender {
         user_id: &u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<Vec<(u64, bool, Option<SenderError>)>> {
+        //消息id,是否在任务中，错误消息
+
+        let mut out = Vec::with_capacity(msg_data.len());
+        let mut cancel_data = vec![];
+        for tmp in msg_data {
+            if SenderMailMessageStatus::Init.eq(tmp.status) {
+                cancel_data.push(tmp);
+                continue;
+            }
+            if SenderMailMessageStatus::IsCancel.eq(tmp.status) {
+                out.push((tmp.snid, false, None));
+                continue;
+            }
+            out.push((
+                tmp.snid,
+                false,
+                Some(SenderError::System(fluent_message!(
+                    "mail-send-cancel-status-bad"
+                ))),
+            ));
+        }
         self.cancel
             .add(
                 &body.app_id,
                 &body.id,
-                &msg_data.iter().map(|e| e.id).collect::<Vec<_>>(),
+                &cancel_data.iter().map(|e| e.id).collect::<Vec<_>>(),
                 user_id,
                 None,
             )
             .await?;
 
-        let mut out = Vec::with_capacity(msg_data.len());
         for (msg, task_data) in self
-            .task_is_run(msg_data.iter().map(|e| (&e.id, *e)).collect::<Vec<_>>())
+            .task_is_run(cancel_data.iter().map(|e| (&e.id, *e)).collect::<Vec<_>>())
             .await?
         {
             let err = if task_data.is_none() {
@@ -217,7 +237,7 @@ impl MailSender {
                     .err()
             } else {
                 Some(SenderError::System(
-                    fluent_message!("mail-send-ok-cancel", //  "mail {} is send:{}",
+                    fluent_message!("mail-send-cancel-is-ing",
                         {
                             "to_mail":&msg.to_mail,
                             "msg_id":msg.id
@@ -225,7 +245,7 @@ impl MailSender {
                     ),
                 ))
             };
-            out.push((msg.id, task_data.is_none(), err))
+            out.push((msg.snid, task_data.is_some(), err))
         }
         Ok(out)
     }

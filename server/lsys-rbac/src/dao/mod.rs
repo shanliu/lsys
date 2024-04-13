@@ -21,16 +21,16 @@ impl RbacDao {
     pub async fn new(
         db: Pool<MySql>,
         remote_notify: Arc<RemoteNotify>,
+        config:RbacConfig,
         logger: Arc<ChangeLogger>,
         system_role: Option<Box<dyn SystemRoleCheckData>>,
-        use_cache: bool,
     ) -> Result<RbacDao, AppCoreError> {
         let rbac = Arc::from(Rbac::new(
             // fluents_message.clone(),
             db.clone(),
-            remote_notify,
             system_role,
-            use_cache,
+            remote_notify,
+            config,
             logger,
         ));
         Ok(RbacDao {

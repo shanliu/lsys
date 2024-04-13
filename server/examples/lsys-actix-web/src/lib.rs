@@ -6,7 +6,7 @@ use common::handler::{JwtQueryConfig, RestQueryConfig};
 use futures_util::TryFutureExt;
 use handler::router_main;
 use jsonwebtoken::{DecodingKey, Validation};
-use lsys_core::{AppCore, AppCoreError};
+use lsys_core::{fluent_message, AppCore, AppCoreError};
 use lsys_web::dao::WebDao;
 use lsys_web::FluentFormat;
 use rustls::server::ServerConfig;
@@ -131,7 +131,15 @@ pub async fn create_server(app_dir: &str) -> Result<Server, AppError> {
                 let apps = app_data.app.app_dao.app.clone();
                 Box::pin(async move {
                     apps.find_secret_by_client_id(&app_key)
-                        .map_err(|e| e.fluent_format(&app_data.fluent.locale(None)))
+                        .map_err(|e|{
+                            if e.app_not_found(){
+                                app_data.fluent.locale(None).format_message(&fluent_message!("app-not-found",{
+                                    "app":app_key.to_owned(),
+                                }))
+                            }else{
+                                e.fluent_format(&app_data.fluent.locale(None))
+                            }
+                        } )
                         .await
                 })
             }));

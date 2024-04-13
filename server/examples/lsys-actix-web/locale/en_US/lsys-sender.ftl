@@ -14,7 +14,9 @@ mail-send-check-block-domain = Receive mailbox domain:{$domain} Blocked [{$confi
 mail-send-check-close = Mail sending has been disabled [{$config_id}].
 mail-send-check-limit = Incoming mailbox [{$to_mail}] exceeded the maximum send:{$max_send}[{$config_id}]
 mail-task-empty = no mail send task configured
-mail-send-ok-cancel = mail sent to mailbox:{$to_mail}[{$msg_id}]
+mail-send-cancel-is-ing = mail is sending.
+mail-send-cancel-status-bad=bad mail send status.
+sms-send-cancel-status-bad=bad sms send status.
 sms-cancel-status-error = Message is not pending: {$status}
 sms-config-add-error = sms-config-add-error = sms-config:Failed to validate field {$name}:{$msg}
 sms-config-add-max-num-error = Please submit the maximum number of messages that can be sent at one time.
@@ -24,5 +26,5 @@ sms-send-check-block = Received number:{$mobile} has been blocked [{$config_id}]
 sms-send-check-close = SMS sending has been disabled [{$config_id}].
 sms-send-check-limit = Receive number [{$mobile}] exceeded max send:{$max_send}[{$config_id}
 sms-task-empty = no sms send task configured
-sms-send-ok-cancel = SMS sent:{$mobile}[{$msg_id}]
 sms-status-task-empty = No SMS status checking task configured
+sms-send-cancel-is-ing  = sms is sending.

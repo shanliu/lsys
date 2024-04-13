@@ -156,7 +156,7 @@ func RestCheckSign(ctx *gin.Context, restApi *lsysrest.RestApi) (*RestRequest, *
 	if appInfo == nil {
 		appInfoCacheData.lock.Lock()
 		defer appInfoCacheData.lock.Unlock()
-		err, appInfo = restApi.AppInfo(ctx, param["app_id"])
+		err, appInfo = restApi.SubAppInfo(ctx, param["app_id"])
 		if err != nil {
 			return nil, RestJsonResponse().SetState("app_error").SetMessage(err.Error())
 		}

@@ -24,14 +24,12 @@ impl SubApps {
     pub fn new(
         db: Pool<MySql>,
         remote_notify: Arc<RemoteNotify>,
+        config:LocalCacheConfig,
         logger: Arc<ChangeLogger>,
     ) -> Self {
         Self {
             db,
-            cache: Arc::from(LocalCache::new(
-                remote_notify,
-                LocalCacheConfig::new("apps-sub"),
-            )),
+            cache:Arc::new(LocalCache::new(remote_notify, config)),
             logger,
         }
     }

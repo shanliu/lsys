@@ -131,14 +131,14 @@ pub struct UserAuthConfig {
     pub ip_db: Option<Mutex<ip2location::DB>>,
 }
 
-impl Default for UserAuthConfig {
-    fn default() -> Self {
+impl  UserAuthConfig {
+    pub fn new(use_cache:bool) -> Self {
         Self {
             login_limit_captcha: 3,
             login_limit_lock: 8,
             login_limit_time: 300,
             ip_db: None,
-            cache_config: LocalCacheConfig::new("user-auth"),
+            cache_config: LocalCacheConfig::new("user-auth",if use_cache{None}else{Some(0)},None),
         }
     }
 }
@@ -285,13 +285,11 @@ impl<T: UserAuthStore + Send + Sync> UserAuth<T> {
     pub fn new(
         db: Pool<MySql>,
         redis: deadpool_redis::Pool,
-
         remote_notify: Arc<RemoteNotify>,
         account: Arc<UserAccount>,
         store: T,
-        config: Option<UserAuthConfig>,
+        login_config: UserAuthConfig,
     ) -> Self {
-        let login_config = config.unwrap_or_default();
         UserAuth {
             cache: LocalCache::new(remote_notify, login_config.cache_config),
             login_store: RwLock::new(store),

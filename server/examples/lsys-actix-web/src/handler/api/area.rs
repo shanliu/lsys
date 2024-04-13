@@ -2,11 +2,11 @@ use crate::common::handler::ReqQuery;
 use crate::common::handler::{JsonQuery, ResponseJson, ResponseJsonResult};
 use actix_web::post;
 
-use lsys_web::handler::api::utils::area_search;
-use lsys_web::handler::api::utils::AreaCodeParam;
-use lsys_web::handler::api::utils::AreaSearchParam;
-use lsys_web::handler::api::utils::{area_find, area_list};
-use lsys_web::handler::api::utils::{area_geo, area_related, AreaGeoParam};
+use lsys_web::handler::api::area::area_search;
+use lsys_web::handler::api::area::AreaCodeParam;
+use lsys_web::handler::api::area::AreaSearchParam;
+use lsys_web::handler::api::area::{area_find, area_list};
+use lsys_web::handler::api::area::{area_geo, area_related, AreaGeoParam};
 
 #[post("/{type}")]
 pub async fn area_data(

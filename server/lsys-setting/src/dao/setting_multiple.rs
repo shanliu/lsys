@@ -25,12 +25,13 @@ impl MultipleSetting {
         db: Pool<MySql>,
         // _fluent: Arc<FluentBuild>,
         remote_notify: Arc<RemoteNotify>,
+        config:LocalCacheConfig,
         logger: Arc<ChangeLogger>,
     ) -> Self {
         Self {
-            cache: Arc::from(LocalCache::new(
-                remote_notify,
-                LocalCacheConfig::new("setting"),
+            cache:Arc::from(LocalCache::new(
+                remote_notify.clone(),
+                config,
             )),
             db,
             // fluent,

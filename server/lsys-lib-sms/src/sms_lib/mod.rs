@@ -1,7 +1,4 @@
-use base64::{
-    alphabet,
-    engine::{self, general_purpose},
-};
+
 use rand::seq::SliceRandom;
 use reqwest::Response;
 use reqwest::StatusCode;
@@ -11,8 +8,7 @@ use std::{
     time::{SystemTime, SystemTimeError},
 };
 use tracing::debug;
-const CUSTOM_ENGINE: engine::GeneralPurpose =
-    engine::GeneralPurpose::new(&alphabet::URL_SAFE, general_purpose::PAD);
+
 
 #[derive(Debug)]
 pub enum SendError {

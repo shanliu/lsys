@@ -10,7 +10,7 @@ use serde_json::json;
 
 use tracing::warn;
 
-use super::{BranchSendResult, SendError, CUSTOM_ENGINE};
+use super::{BranchSendResult, SendError};
 use crate::BranchSendNotifyResult;
 use crate::SendNotifyError;
 use crate::SendNotifyItem;
@@ -97,7 +97,7 @@ impl CloOpenSms {
         let datetime = DateTime::from_timestamp(time as i64, 0).unwrap_or_default();
         let datetime_str = datetime.format("%Y%m%d%H%M%S").to_string();
         let auth_str = format!("{}:{}", account_sid, datetime_str);
-        CUSTOM_ENGINE.encode(auth_str)
+        base64::engine::general_purpose::STANDARD.encode(auth_str)
     }
 
     pub async fn send_detail(

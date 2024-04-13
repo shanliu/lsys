@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	AppInfo     = iota
+	SubAppInfo     = iota
 	AccessCheck = iota
 	SmeSend     = iota
 	SmeCancel   = iota
@@ -27,11 +27,11 @@ func (res *RestApiClient) ConfigName(_ context.Context) (string, error) {
 // ConfigBuilds 统一配置调用接口
 func (res *RestApiClient) ConfigBuilds(_ context.Context) (map[int]rest_client.RestBuild, error) {
 	return map[int]rest_client.RestBuild{
-		AppInfo: &RestClientBuild{
+		SubAppInfo: &RestClientBuild{
 			Payload:    http.MethodPost,
 			HttpMethod: http.MethodPost,
-			Path:       "/rest/app",
-			Method:     "view",
+			Path:       "/rest/subapp",
+			Method:     "info",
 			Timeout:    60 * time.Second,
 		},
 		AccessCheck: &RestClientBuild{

@@ -34,16 +34,14 @@ impl UserMobile {
     pub fn new(
         db: Pool<MySql>,
         redis: deadpool_redis::Pool,
-        //  fluent: Arc<FluentBuild>,
-        remote_notify: Arc<RemoteNotify>,
+    
         index: Arc<UserIndex>,
+        remote_notify: Arc<RemoteNotify>,
+        config:LocalCacheConfig,
         logger: Arc<ChangeLogger>,
     ) -> Self {
         Self {
-            cache: Arc::from(LocalCache::new(
-                remote_notify,
-                LocalCacheConfig::new("user-mobile"),
-            )),
+            cache:Arc::new(LocalCache::new(remote_notify, config)),
             db,
             redis,
             //  fluent,

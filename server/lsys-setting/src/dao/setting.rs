@@ -13,32 +13,54 @@ use std::sync::Arc;
 
 use super::{MultipleSetting, SettingError, SettingResult, SingleSetting};
 
-use lsys_core::{AppCoreError, RemoteNotify};
+use lsys_core::{cache:: LocalCacheConfig, AppCoreError, RemoteNotify};
 use lsys_logger::dao::ChangeLogger;
+
+
+pub struct SettingConfig{
+    pub single_cache:LocalCacheConfig,
+    pub multiple_cache:LocalCacheConfig,
+}
+
+impl  SettingConfig {
+   pub fn new(use_cache:bool)->Self{
+        Self{
+            single_cache:LocalCacheConfig::new("setting-single",if use_cache{None}else{Some(0)},None),
+            multiple_cache:LocalCacheConfig::new("setting-multiple",if use_cache{None}else{Some(0)},None),
+        }
+    }
+}
+
+
+
 pub struct Setting {
     db: Pool<MySql>,
     pub single: Arc<SingleSetting>,
     pub multiple: Arc<MultipleSetting>,
 }
 
+
 impl Setting {
     pub async fn new(
         // app_core: Arc<AppCore>,
         db: Pool<MySql>,
         remote_notify: Arc<RemoteNotify>,
+        config:SettingConfig,
         logger: Arc<ChangeLogger>,
     ) -> Result<Self, AppCoreError> {
         Ok(Self {
             single: Arc::from(SingleSetting::new(
                 db.clone(),
                 // fluents_message.clone(),
-                remote_notify.clone(),
+                remote_notify.clone(), 
+                config.single_cache,
                 logger.clone(),
             )),
             multiple: Arc::from(MultipleSetting::new(
                 db.clone(),
                 // fluents_message,
-                remote_notify,
+                remote_notify.clone(), 
+                config.multiple_cache,
                 logger,
             )),
             db,

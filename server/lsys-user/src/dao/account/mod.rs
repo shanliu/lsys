@@ -9,11 +9,11 @@ use self::user_login::UserLogin;
 use super::auth::UserPasswordHash;
 
 
-use lsys_core::{RemoteNotify};
+use lsys_core::{cache:: LocalCacheConfig, RemoteNotify};
 
 use lsys_logger::dao::ChangeLogger;
-use lsys_setting::dao::{SingleSetting};
 
+use lsys_setting::dao::SingleSetting;
 use sqlx::{MySql, Pool};
 use std::sync::Arc;
 use user::User;
@@ -44,6 +44,33 @@ pub mod user_mobile;
 pub mod user_name;
 pub mod user_password;
 
+
+
+pub struct UserAccountConfig{
+    pub user_cache:LocalCacheConfig,
+    pub email_cache:LocalCacheConfig,
+    pub mobile_cache:LocalCacheConfig,
+    pub name_cache:LocalCacheConfig,
+    pub info_cache:LocalCacheConfig,
+    pub address_cache:LocalCacheConfig,
+    pub external_cache:LocalCacheConfig,
+}
+
+impl UserAccountConfig {
+    pub fn new(use_cache:bool) -> Self {
+        Self {
+            user_cache:LocalCacheConfig::new("user",if use_cache{None}else{Some(0)},None),
+            email_cache:LocalCacheConfig::new("user-email",if use_cache{None}else{Some(0)},None),
+            mobile_cache:LocalCacheConfig::new("user-mobile",if use_cache{None}else{Some(0)},None),
+            name_cache: LocalCacheConfig::new("user-name",if use_cache{None}else{Some(0)},None),
+            info_cache:LocalCacheConfig::new("user-info",if use_cache{None}else{Some(0)},None),
+            address_cache: LocalCacheConfig::new("user-address",if use_cache{None}else{Some(0)},None),
+            external_cache: LocalCacheConfig::new("user-external",if use_cache{None}else{Some(0)},None),
+        }
+    }
+}
+
+
 pub struct UserAccount {
     pub user: Arc<User>,
     pub user_email: Arc<UserEmail>,
@@ -61,9 +88,9 @@ impl UserAccount {
     pub fn new(
         db: Pool<MySql>,
         redis: deadpool_redis::Pool,
-        // fluent: Arc<FluentBuild>,
         setting: Arc<SingleSetting>,
         remote_notify: Arc<RemoteNotify>,
+        config: UserAccountConfig,
         logger: Arc<ChangeLogger>,
     ) -> Self {
         let user_index = Arc::from(UserIndex::new(db.clone()));
@@ -72,51 +99,57 @@ impl UserAccount {
             user: Arc::from(User::new(
                 db.clone(),
                 // fluent.clone(),
-                remote_notify.clone(),
+         
                 user_index.clone(),
+                remote_notify.clone(),
+                config.user_cache,
                 logger.clone(),
             )),
             user_email: Arc::from(UserEmail::new(
                 db.clone(),
                 redis.clone(),
                 // fluent.clone(),
-                remote_notify.clone(),
+
                 user_index.clone(),
+                remote_notify.clone(),
+                config.email_cache,
                 logger.clone(),
             )),
             user_external: Arc::from(UserExternal::new(
                 db.clone(),
-                // fluent.clone(),
-                remote_notify.clone(),
+      
                 user_index.clone(),
+                remote_notify.clone(),
+                config.external_cache,
                 logger.clone(),
             )),
             user_mobile: Arc::from(UserMobile::new(
                 db.clone(),
                 redis.clone(),
-                // fluent.clone(),
-                remote_notify.clone(),
                 user_index.clone(),
+                remote_notify.clone(),
+                config.mobile_cache,
                 logger.clone(),
             )),
             user_name: Arc::from(UserName::new(
                 db.clone(),
-                remote_notify.clone(),
-                // fluent.clone(),
                 user_index.clone(),
+                remote_notify.clone(),
+                config.name_cache,
                 logger.clone(),
             )),
             user_info: Arc::from(UserInfo::new(
                 db.clone(),
-                remote_notify.clone(),
                 user_index.clone(),
+                remote_notify.clone(),
+                config.info_cache,
                 logger.clone(),
             )),
             user_address: Arc::from(UserAddress::new(
                 db.clone(),
-                // fluent.clone(),
-                remote_notify,
                 user_index,
+                remote_notify.clone(),
+                config.address_cache,
                 logger,
             )),
             user_password: Arc::from(UserPassword::new(

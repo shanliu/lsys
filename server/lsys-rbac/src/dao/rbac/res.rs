@@ -1,7 +1,6 @@
-use lsys_core::cache::LocalCache;
+use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::{
-    fluent_message, impl_cache_fetch_vec, impl_dao_fetch_one_by_one, now_time, PageParam,
-    RequestEnv,
+    fluent_message, impl_cache_fetch_vec, impl_dao_fetch_one_by_one, now_time, PageParam, RemoteNotify, RequestEnv
 };
 use serde::Serialize;
 
@@ -26,7 +25,7 @@ use super::{LogRes, RbacRole, RbacTags, UserRbacError, UserRbacResult};
 pub struct RbacRes {
     db: Pool<MySql>,
     tags: Arc<RbacTags>,
-    cache_key_res: Arc<LocalCache<ResKey, Option<RbacResData>>>, // res_key:res edit,res_op all
+    pub(crate) cache_key_res: Arc<LocalCache<ResKey, Option<RbacResData>>>, // res_key:res edit,res_op all
     role: Arc<RbacRole>,
     logger: Arc<ChangeLogger>,
 }
@@ -85,14 +84,17 @@ impl FromStr for ResKey {
 impl RbacRes {
     pub fn new(
         db: Pool<MySql>,
-
         tags: Arc<RbacTags>,
         role: Arc<RbacRole>,
-        cache_key_res: Arc<LocalCache<ResKey, Option<RbacResData>>>,
+        remote_notify: Arc<RemoteNotify>,
+        config:LocalCacheConfig,
         logger: Arc<ChangeLogger>,
     ) -> Self {
         Self {
-            cache_key_res,
+            cache_key_res:Arc::from(LocalCache::new(
+                remote_notify.clone(),
+                config,
+            )),
             db,
             tags,
             // fluent,

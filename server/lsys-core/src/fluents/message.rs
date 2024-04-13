@@ -31,7 +31,7 @@ impl FluentMessage {
                 .iter()
                 .map(|e| {
                     format!(
-                        "{}:{}",
+                        "{}:'{}'",
                         e.0,
                         match &e.1 {
                             FluentData::Message(e1) => e1.default_format(),
@@ -40,7 +40,7 @@ impl FluentMessage {
                     )
                 })
                 .collect::<Vec<String>>();
-            format!("{}:{}", self.id, serde_json::json!(data))
+            format!("{}:{{{}}}", self.id, data.join(","))
         }
     }
 }

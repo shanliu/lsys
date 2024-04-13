@@ -1,7 +1,7 @@
 use lsys_core::{AppCore, RemoteNotify};
 use lsys_logger::dao::ChangeLogger;
-use lsys_setting::dao::Setting;
-use lsys_user::dao::{auth::UserAuthRedisStore, UserDao};
+use lsys_setting::dao::{Setting, SettingConfig};
+use lsys_user::dao::{ auth::UserAuthRedisStore, UserConfig, UserDao};
 use sqlx::{MySql, Pool};
 use std::sync::Arc;
 
@@ -20,6 +20,7 @@ async fn user_dao() -> UserDao<UserAuthRedisStore> {
         //   app_core.clone(),
         db.clone(),
         remote_notify.clone(),
+        SettingConfig::new(false),
         logger.clone(),
     )
     .await
@@ -32,7 +33,7 @@ async fn user_dao() -> UserDao<UserAuthRedisStore> {
         logger,
         remote_notify,
         login_store,
-        None,
+        UserConfig::new(false),
     )
     .await
     .unwrap()

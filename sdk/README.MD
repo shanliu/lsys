@@ -35,7 +35,7 @@
 | request_ip | String	 | 否		  | 40		  | 客户端IP,存在时加入签名                    | 127.0.0.1                            |
 | method		   | String	 | 否		  | 128		 | 接口名称,可以放到URL中,存在时加入签名            | product.detail                       |
 | token	     | String	 | 否		  | 无		   | OAUTH登录后获取TOKEN,存在时需加入签名              | MTQtSldES1RIUVVZT0NGUkVNUEdJQlpBTlhM |
-| lang	     | String	 | 否		  | 无		   | 接口返回语言，默认简体中文(zh_CN)          | zh_CN |
+| lang	     | String	 | 否		  | 无		   | 接口返回语言，默认简体中文(zh_CN),不参与签名          | zh_CN |
 | payload	     | String	 | 否		  | 无		   | Header的Content-type非 application/json 时的有效,内容为无换行的JSON     | {"id":1} |
 
 > POST参数:

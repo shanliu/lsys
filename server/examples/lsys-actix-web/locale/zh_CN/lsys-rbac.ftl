@@ -1,5 +1,5 @@
-rbac-access-check-res-empty = 未找到用户[{$user_id}]的资源[{$res}]操作[{$op}],访问用户ID:{$view_user_id}
-rbac-access-check-access = 用户[{$user_id}]的资源[{$res}:{$res_id}]操作[{$res_op}]未被授权给你[{$view_user_id}]访问
+rbac-access-check-res-empty = 未找到用户ID[{$user_id}]的资源[{$res}]操作[{$op}],访问用户ID:{$view_user_id}
+rbac-access-check-access = 用户ID[{$user_id}]的资源[{$res}:{$res_id}]操作[{$res_op}]未被授权给你[{$view_user_id}]访问
 check-length = 字段[{$key}]校验失败:{$msg}
 parse-res-str-fail = 解析权限字符串失败:{$token}
 rbac-res-exits =  资源[{$name}:{$key}]已经存在

@@ -21,7 +21,7 @@ import { ResEditBox } from './res_edit_box';
 
 export function AddBox(props) {
     const { tags, res_type, res, onSave } = props;
-    let tags_options = (tags ?? []).map((e) => { return e[0] })
+    let tags_options = (tags ?? []).map((e) => { return e.name })
 
     let init_res_data = {
         res_type: res_type[0].key,

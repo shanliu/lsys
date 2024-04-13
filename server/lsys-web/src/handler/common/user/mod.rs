@@ -1,3 +1,4 @@
+#[cfg(feature = "area")]
 mod address;
 mod change_log;
 mod email;
@@ -11,7 +12,7 @@ mod rbac_access;
 mod rbac_res;
 mod rbac_role;
 mod register;
-
+#[cfg(feature = "area")]
 pub use address::*;
 pub use change_log::*;
 pub use email::*;

@@ -24,6 +24,9 @@ impl MessageCancel {
         cancel_user_id: &u64,
         transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
     ) -> SenderResult<()> {
+        if message_ids.is_empty(){
+            return Ok(());
+        }
         let add_time = now_time().unwrap_or_default();
         let sender_type = self.send_type as i8;
 

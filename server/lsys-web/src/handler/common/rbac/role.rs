@@ -23,7 +23,7 @@ use serde_json::json;
 use sqlx::Transaction;
 use sqlx_model::SqlQuote;
 use sqlx_model::{sql_format, Select};
-
+use serde_json::Value;
 #[derive(Debug, Deserialize)]
 pub struct RoleUserParam {
     user_id: u64,
@@ -770,7 +770,12 @@ pub async fn rbac_role_tags(
         .role
         .user_role_tags(see_user_id)
         .await
-        .map_err(|e| req_dao.fluent_json_data(e))?;
+        .map_err(|e| req_dao.fluent_json_data(e))?.into_iter().map(|e|{
+            json!({
+                "name":e.0,
+                "total":e.1,
+            })
+        }).collect::<Vec<Value>>();
     Ok(JsonData::data(json!({ "data": out })))
 }
 

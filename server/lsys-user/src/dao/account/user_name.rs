@@ -39,16 +39,14 @@ fn del_rand_name() -> Result<String, FromUtf8Error> {
 impl UserName {
     pub fn new(
         db: Pool<MySql>,
-        remote_notify: Arc<RemoteNotify>,
-        //    fluent: Arc<FluentBuild>,
+      
         index: Arc<UserIndex>,
+        remote_notify: Arc<RemoteNotify>,
+        config:LocalCacheConfig,
         logger: Arc<ChangeLogger>,
     ) -> Self {
         Self {
-            cache: Arc::from(LocalCache::new(
-                remote_notify,
-                LocalCacheConfig::new("user-name"),
-            )),
+            cache:Arc::new(LocalCache::new(remote_notify, config)),
             db,
             //    fluent,
             index,

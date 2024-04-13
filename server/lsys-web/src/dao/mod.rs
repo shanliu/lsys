@@ -1,19 +1,22 @@
 use ip2location::LocationDB;
-use lsys_app::dao::AppDao;
+use lsys_app::dao::{AppConfig, AppDao};
+use lsys_app_barcode::dao::BarCodeDao;
 use lsys_app_notify::dao::Notify;
 use lsys_app_sender::dao::MessageTpls;
 use lsys_core::cache::{LocalCacheClear, LocalCacheClearItem};
 use lsys_core::{AppCore, AppCoreError, FluentMgr, IntoFluentMessage, RemoteNotify};
 #[cfg(feature = "docs")]
 use lsys_docs::dao::{DocsDao, GitRemoteTask};
+#[cfg(feature = "area")]
 use lsys_lib_area::AreaDao;
 use lsys_logger::dao::ChangeLogger;
 use lsys_rbac::dao::rbac::RbacLocalCacheClear;
-use lsys_rbac::dao::{RbacDao, SystemRole};
-use lsys_setting::dao::Setting;
+use lsys_rbac::dao::{RbacConfig, RbacDao, SystemRole};
+use lsys_setting::dao::{Setting, SettingConfig};
 use lsys_user::dao::account::cache::UserAccountLocalCacheClear;
+use lsys_user::dao::account::UserAccountConfig;
 use lsys_user::dao::auth::{UserAuthConfig, UserAuthRedisStore};
-use lsys_user::dao::UserDao;
+use lsys_user::dao::{UserConfig, UserDao};
 
 use sqlx::{MySql, Pool};
 use std::sync::Arc;
@@ -54,9 +57,11 @@ pub struct WebDao {
     pub tera: Arc<Tera>,
     pub setting: Arc<Setting>,
     pub logger: Arc<ChangeLogger>,
+    #[cfg(feature = "area")]
     pub area: Option<Arc<AreaDao>>,
     pub notify: Arc<Notify>,
     pub fluent: FluentMgr,
+    pub barcode: Arc<BarCodeDao>,
 }
 
 impl WebDao {
@@ -73,12 +78,15 @@ impl WebDao {
             redis.clone(),
         )?);
 
+        let use_cache=app_core.config.find(None).get_bool("use_cache").unwrap_or(false);
+
         let change_logger = Arc::new(ChangeLogger::new(db.clone()));
         let setting = Arc::new(
             Setting::new(
                 //app_core.clone(),
                 db.clone(),
                 remote_notify.clone(),
+                SettingConfig::new(use_cache),
                 change_logger.clone(),
             )
             .await?,
@@ -96,18 +104,14 @@ impl WebDao {
             RbacDao::new(
                 db.clone(),
                 remote_notify.clone(),
+                RbacConfig::new(use_cache),
                 change_logger.clone(),
-                Some(Box::new(SystemRole::new(true, root_user_id))),
-                app_core
-                    .config
-                    .find(None)
-                    .get_bool("rbac_cache")
-                    .unwrap_or(false),
+                Some(Box::new(SystemRole::new(true, root_user_id)))
             )
             .await?,
         );
         let login_store = UserAuthRedisStore::new(redis.clone());
-        let mut login_config = UserAuthConfig::default();
+        let mut login_config = UserAuthConfig::new(use_cache);
 
         match app_core.config_path(app_core.config.find(None), "ip_city_db") {
             Ok(ip_db_path) => match LocationDB::from_file(&ip_db_path) {
@@ -155,7 +159,10 @@ impl WebDao {
                 change_logger.clone(),
                 remote_notify.clone(),
                 login_store,
-                Some(login_config),
+                UserConfig{
+                    account:UserAccountConfig::new(use_cache),
+                    oauth:login_config,
+                }
             )
             .await?,
         );
@@ -165,6 +172,7 @@ impl WebDao {
                 db.clone(),
                 redis.clone(),
                 remote_notify.clone(),
+                AppConfig::new(use_cache),
                 change_logger.clone(),
                 7 * 24 * 3600, //TOKEN有效期7天
             )
@@ -281,8 +289,8 @@ impl WebDao {
         });
 
         //行政区域地址库数据初始化
-        let mut area = None;
-        match app_core.config_path(app_core.config.find(None), "area_code_db") {
+        #[cfg(feature = "area")]
+        let area = match app_core.config_path(app_core.config.find(None), "area_code_db") {
             Ok(code_path) => {
                 match lsys_lib_area::CsvAreaCodeData::from_inner_path(code_path.clone(), true) {
                     Ok(tmp) => {
@@ -321,13 +329,14 @@ impl WebDao {
                         let area_store =
                             lsys_lib_area::AreaStoreDisk::new(area_index_dir, area_index_size)
                                 .map_err(|e| AppCoreError::System(e.to_string()))?;
-                        area = Some(Arc::new(
+                        Some(Arc::new(
                             AreaDao::from_csv_disk(data, area_store)
                                 .map_err(|e| AppCoreError::System(e.to_string()))?,
-                        ));
+                        ))
                     }
                     Err(err) => {
                         warn!("area code db load fail on {} [download url: https://github.com/shanliu/lsys/releases/tag/v0.0.0 2023-7-area-code.csv.gz ],error detail:{}",code_path.display(),err);
+                        None
                     }
                 }
             }
@@ -335,9 +344,14 @@ impl WebDao {
                 error!(
                     "load area config fail:{}",
                     err.to_fluent_message().default_format()
-                )
+                );
+                None
             }
-        }
+        };
+        #[cfg(feature = "barcode")]
+        let barcode=Arc::new(BarCodeDao::new(db.clone()));
+
+
         Ok(WebDao {
             #[cfg(feature = "docs")]
             docs,
@@ -362,8 +376,11 @@ impl WebDao {
             tera,
             setting,
             logger: change_logger,
+            #[cfg(feature = "area")]
             area,
             notify,
+            #[cfg(feature = "barcode")]
+            barcode,
         })
     }
     pub fn bind_addr(&self) -> String {

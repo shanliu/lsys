@@ -91,6 +91,7 @@ async fn check_sign(
                         url_data += body.to_string().as_str();
                     }
                     url_data += app_key.as_str();
+                    // dbg!(&url_data);
                     let digest = md5::compute(url_data.as_bytes());
                     let hash = format!("{:x}", digest);
 
@@ -99,7 +100,7 @@ async fn check_sign(
                     }
                     Ok(())
                 }
-                Err(err) => Err(JsonData::message_error(format!("{}:{}", data.app_id, err))
+                Err(err) => Err(JsonData::message_error(err)
                     .set_sub_code("rest_sign_key")),
             }
         }

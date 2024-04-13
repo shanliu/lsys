@@ -21,7 +21,7 @@ func TestGetSubAppInfo(t *testing.T) {
 
 	//示例1
 	//app信息获取
-	err1, data := sysApi.AppInfo(context.Background(), "afsd")
+	err1, data := sysApi.SubAppInfo(context.Background(), "afsd")
 	if err1 == nil {
 		fmt.Printf("token :%s \n", data)
 	} else {

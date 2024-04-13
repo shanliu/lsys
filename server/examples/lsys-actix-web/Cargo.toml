@@ -7,9 +7,10 @@ edition = "2021"
 
 [dependencies]
 lsys-core = { path = "../../lsys-core" }                      #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-user = { path = "../../lsys-user" }                      #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-app = { path = "../../lsys-app" }                        #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-app-sender = { path = "../../lsys-app-sender" }          #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-user = { path = "../../lsys-user" }
+lsys-app = { path = "../../lsys-app" }
+lsys-app-sender = { path = "../../lsys-app-sender" }
+lsys-app-barcode = { path = "../../lsys-app-barcode" }
 lsys-web-module-oauth = { path = "../lsys-web-module-oauth" }
 lsys-web-subapp-demo = { path = "../lsys-web-subapp-demo" }
 
@@ -22,9 +23,11 @@ actix-http = "~3.6.0"
 actix-utils = "~3.0.*"
 actix-service = "~2.0.*"                                 #中间件等辅助宏
 actix-web-validator = "~5.0.1"
-actix-multipart = "0.6.0"
+actix-multipart = "0.6.1"
 actix-files = "~0.6.0"
 actix-web-actors = "4.1.0"
+
+tokio = { version = "~1.36", features = ["fs"] }
 
 
 rustls = "~0.20"
@@ -59,7 +62,12 @@ mime = "~0.3.16"
 nanoid = "~0.4.0"
 
 
+tempfile = { version = "3.10.1", optional = true }
+
+image = { version = "0.24.9", default-features = false }
+
 [features]
-default = ["docs"]
+default = ["docs", "barcode", "area"]
 docs = ["lsys-web/docs"]
-barcode = ["lsys-web/barcode"]
+area = ["lsys-web/area"]
+barcode = ["lsys-web/barcode", "tempfile"]

@@ -27,10 +27,7 @@ sqlx = { version = "~0.6.3", features = [
     "offline",
 ] }
 sqlx-model = { version = "0.2.3", default-features = false }
-
-
-#客户端
-log = "~0.4.*" # 使用trace中宏 这里可以不要
+log = "~0.4.*"
 
 #日志
 tracing = { version = "~0.1.*", features = [

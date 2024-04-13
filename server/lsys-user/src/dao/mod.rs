@@ -4,14 +4,34 @@ pub mod account;
 pub mod auth;
 
 use crate::dao::auth::UserAuth;
+
 use lsys_core::{AppCoreError, RemoteNotify};
 
 use lsys_logger::dao::ChangeLogger;
 use lsys_setting::dao::SingleSetting;
 use sqlx::{MySql, Pool};
 
-use self::account::UserAccount;
+use self::account::{UserAccount, UserAccountConfig};
 use self::auth::{UserAuthConfig, UserAuthStore};
+
+
+pub struct UserConfig{
+    pub account:UserAccountConfig,
+    pub oauth:UserAuthConfig,
+}
+
+
+impl UserConfig {
+    pub fn new(use_cache:bool) -> Self {
+        Self {
+            account:UserAccountConfig::new(use_cache),
+            oauth:UserAuthConfig::new(use_cache),
+        }
+    }
+}
+
+
+
 
 pub struct UserDao<T: UserAuthStore> {
     //内部依赖
@@ -32,13 +52,14 @@ impl<T: UserAuthStore + Send + Sync> UserDao<T> {
         logger: Arc<ChangeLogger>,
         remote_notify: Arc<RemoteNotify>,
         store: T,
-        config: Option<UserAuthConfig>,
+        config: UserConfig,
     ) -> Result<UserDao<T>, AppCoreError> {
         let user_account = Arc::from(UserAccount::new(
             db.clone(),
             redis.clone(),
             setting,
             remote_notify.clone(),
+            config.account,
             logger,
         ));
         let user_auth = Arc::from(UserAuth::new(
@@ -47,7 +68,7 @@ impl<T: UserAuthStore + Send + Sync> UserDao<T> {
             remote_notify.clone(),
             user_account.clone(),
             store,
-            config,
+            config.oauth,
         ));
         Ok(UserDao {
             user_auth,

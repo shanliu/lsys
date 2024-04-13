@@ -55,10 +55,6 @@ async-trait = "0.1.57"
 
 config = "~0.14"
 
-lsys-lib-area = { version = "~0.1.0", default-features = false, features = [
-    "data-csv",
-    "index-disk",
-], path = "../lsys-lib-area" }
 
 lsys-core = { path = "../lsys-core" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-rbac = { path = "../lsys-rbac" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
@@ -76,10 +72,28 @@ lsys-app-sender = { path = "../lsys-app-sender", features = [
 lsys-setting = { path = "../lsys-setting" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-logger = { path = "../lsys-logger" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
 lsys-app-notify = { path = "../lsys-app-notify" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-docs = { path = "../lsys-docs", optional = true } #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-app-barcode = { path = "../lsys-app-barcode", optional = true } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+
+
+lsys-lib-area = { version = "~0.1.0", default-features = false, features = [
+    "data-csv",
+    "index-disk",
+], path = "../lsys-lib-area", optional = true }
+
+
+lsys-docs = { path = "../lsys-docs", optional = true }                    #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-app-barcode = { path = "../lsys-app-barcode", optional = true }      #path 替换为 :,git = "https://github.com/shanliu/lsys"
+image = { version = "0.24.9", default-features = false, optional = true }
+base64 = { version = "~0.22.0", optional = true }
 
 [features]
-default = ["docs", "barcode"]
+default = ["docs", "barcode", "area"]
 docs = ["lsys-docs"]
-barcode = ["lsys-app-barcode"]
+area = ["lsys-lib-area"]
+barcode = [
+    "lsys-app-barcode",
+    "image",
+    "base64",
+    "image/png",
+    "image/webp",
+    "image/jpeg",
+]

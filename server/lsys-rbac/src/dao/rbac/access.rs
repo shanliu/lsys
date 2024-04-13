@@ -268,7 +268,6 @@ pub struct RbacAccess {
     res: Arc<RbacRes>,
     role: Arc<RbacRole>,
     system_role: Option<Box<dyn SystemRoleCheckData>>,
-    use_cache: bool,
 }
 
 impl RbacAccess {
@@ -276,14 +275,12 @@ impl RbacAccess {
         res: Arc<RbacRes>,
         role: Arc<RbacRole>,
         system_role: Option<Box<dyn SystemRoleCheckData>>,
-        use_cache: bool,
     ) -> Self {
         RbacAccess {
             // fluent,
             res,
             role,
             system_role,
-            use_cache,
         }
     }
     pub async fn list_check(
@@ -415,11 +412,7 @@ impl RbacAccess {
             return Ok(vec![]);
         }
         //需要验证且数据库中存记录的资源
-        let res_vec = if self.use_cache {
-            self.res.cache().find_by_keys(&res_list).await
-        } else {
-            self.res.find_by_keys(&res_list).await
-        }?
+        let res_vec = self.res.cache().find_by_keys(&res_list).await?
         .into_values()
         .flatten()
         .map(|mut res_data| {
@@ -516,7 +509,6 @@ impl RbacAccess {
                             bad_tmp.push((
                                 tmp.check_res.res.clone(),
                                 fluent_message!("rbac-access-check-res-empty",{
-                                   // "res_id":res.res.id,
                                     "res":&tmp.check_res.res,
                                     "op":otmp,
                                     "user_id":tmp.check_res.user_id,
@@ -540,7 +532,7 @@ impl RbacAccess {
                                     "res":&tmp.check_res.res,
                                     "op":tmp_op,
                                     "user_id":tmp.check_res.user_id,
-                                    "view_user":user_id
+                                    "view_user_id":user_id
                             }),
                         )); // "Authorization not find  user [{$user_id}] res [{$res}] on op {$op} [{$view_user}]"
                     }
@@ -565,36 +557,27 @@ impl RbacAccess {
         //1. 游客,所有用户共享的角色
         //2. 指定关系角色,由外部传入的角色
         //3. 当user_id>0时,登录用户共享的角色,当前用户独有的角色
-        macro_rules! find_role_data {
-            ($find_obj:expr) => {
-                if user_id > 0 {
-                    let (relation, all_user, login, user) = tokio::try_join!(
-                        $find_obj.find_role_by_relation(relation_key_roles, &res_vec),
-                        $find_obj.find_role_by_all_user(&res_vec),
-                        $find_obj.find_role_by_login_user(&res_vec),
-                        $find_obj.find_role_by_user(user_id, &res_vec),
-                    )?;
-                    role_data = role_data.merge(relation);
-                    role_data = role_data.merge(all_user);
-                    role_data = role_data.merge(login);
-                    role_data = role_data.merge(user);
-                } else {
-                    let (relation, all_user) = tokio::try_join!(
-                        $find_obj.find_role_by_relation(relation_key_roles, &res_vec),
-                        $find_obj.find_role_by_all_user(&res_vec),
-                    )?;
-                    role_data = role_data.merge(relation);
-                    role_data = role_data.merge(all_user);
-                }
-            };
-        }
-        if self.use_cache {
-            //使用权限缓存
-            let cache = self.role.cache();
-            find_role_data!(cache);
+        let rbac_role=self.role.cache();
+        if user_id > 0 {
+            let (relation, all_user, login, user) = tokio::try_join!(
+                rbac_role.find_role_by_relation(relation_key_roles, &res_vec),
+                rbac_role.find_role_by_all_user(&res_vec),
+                rbac_role.find_role_by_login_user(&res_vec),
+                rbac_role.find_role_by_user(user_id, &res_vec),
+            )?;
+            role_data = role_data.merge(relation);
+            role_data = role_data.merge(all_user);
+            role_data = role_data.merge(login);
+            role_data = role_data.merge(user);
         } else {
-            find_role_data!(self.role);
+            let (relation, all_user) = tokio::try_join!(
+                rbac_role.find_role_by_relation(relation_key_roles, &res_vec),
+                rbac_role.find_role_by_all_user(&res_vec),
+            )?;
+            role_data = role_data.merge(relation);
+            role_data = role_data.merge(all_user);
         }
+      
         //对获取到所有角色跟待验证资源进行授权验证
         let mut bad_tmp = vec![];
         for check_item in res_vec.iter() {

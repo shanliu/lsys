@@ -4,7 +4,7 @@ use crate::common::handler::{
 use actix_web::get;
 use actix_web::post;
 
-use lsys_web::handler::api::utils::{
+use lsys_web::handler::api::setting::{
     site_config_get, site_config_info, site_config_set, SiteConfigParam,
 };
 use lsys_web_module_oauth::handler::{wechat_get_config, wechat_set_config, WechatSetConfigParam};

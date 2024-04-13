@@ -13,6 +13,7 @@ impl RestQuery {
             .app
             .app_dao
             .app
+            .cache()
             .find_by_client_id(&self.rfc.app_id)
             .await
             .map_err(|err| self.fluent_json_data(err))?)
@@ -25,7 +26,8 @@ where
     app.service(
         scope("/rest")
             .service(app::access)
-            .service(app::app_info)
+            .service(app::barcode)
+            .service(app::subapp)
             .service(app::sms)
             .service(app::mail)
             .service(app::demo_app),

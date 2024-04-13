@@ -25,5 +25,12 @@ sqlx-model = { version = "0.2.3", default-features = false, features = [
 async-trait = "~0.1.*"
 
 serde = { version = "1.0.*" }
+serde_json = "1.0.*"
 
-image = "0.24.0"
+image = { version = "0.24.9", default-features = false }
+rxing = { version = "0.5.8", default-features = false, features = [
+    "image",
+    "svg_read",
+] }
+sha2 = "~0.10.8"
+tracing = { version = "~0.1.*" } # log-always 保持log的输出 当使用tracing时会出现两次

@@ -21,7 +21,6 @@ use super::{
 use super::{range_client_key, AppLog};
 pub struct Apps {
     db: Pool<MySql>,
-
     pub(crate) cache: Arc<LocalCache<String, AppsModel>>,
     logger: Arc<ChangeLogger>,
     sub_app: Arc<SubApps>,
@@ -38,18 +37,14 @@ pub struct AppDataWhere<'t> {
 impl Apps {
     pub fn new(
         db: Pool<MySql>,
-        remote_notify: Arc<RemoteNotify>,
-
-        logger: Arc<ChangeLogger>,
         sub_app: Arc<SubApps>,
+        remote_notify: Arc<RemoteNotify>,
+        config:LocalCacheConfig,
+        logger: Arc<ChangeLogger>,
     ) -> Self {
         Self {
             db,
-            // fluent,
-            cache: Arc::from(LocalCache::new(
-                remote_notify,
-                LocalCacheConfig::new("apps"),
-            )),
+            cache:Arc::new(LocalCache::new(remote_notify, config)),
             logger,
             sub_app,
         }

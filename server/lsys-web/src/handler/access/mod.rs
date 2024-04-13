@@ -4,6 +4,7 @@ mod app_rbac;
 mod app_sender;
 mod app_sender_mail;
 mod app_sender_sms;
+mod barcode;
 mod rbac;
 mod relation;
 mod setting;
@@ -14,6 +15,7 @@ pub use app_rbac::*;
 pub use app_sender::*;
 pub use app_sender_mail::*;
 pub use app_sender_sms::*;
+pub use barcode::*;
 use lsys_rbac::{
     access_relation_tpl, access_res_tpl,
     dao::{RelationTpl, ResTpl},
@@ -72,6 +74,8 @@ pub fn res_tpls() -> Vec<ResTpl> {
         AccessUserSetPassword,
         AccessAdminSenderTplView,
         AccessAdminSenderTplEdit,
-        AccessSiteSetting
+        AccessSiteSetting,
+        AccessBarCodeView,
+        AccessBarCodeEdit
     )
 }

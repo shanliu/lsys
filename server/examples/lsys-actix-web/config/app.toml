@@ -16,8 +16,8 @@
 #redis 配置
 #redis_url="redis://127.0.0.1/"
 
-#rbac是否使用缓存
-rbac_cache = true
+#是否使用LUA缓存
+use_cache = false
 
 #静态文件目录
 ui_dir = "../../../ui/public/"
@@ -31,7 +31,10 @@ root_user_id = [1]
 fluent_dir = "locale/"
 
 #页面模板目录
-tpl_dir = "static"
+tpl_dir = "./static"
+
+#静态文件保存目录
+static_file_dir = "./static"
 
 #地址库数据文件压缩包
 area_code_db = "data/2023-7-area-code.csv.gz"
@@ -55,5 +58,5 @@ ip_city_db = "data/IP2LOCATION-LITE-DB11.BIN"
 #app_jwt_key = "bbb" #jwt 密钥
 
 
-#git doc save dir
+#文档临时文件保存目录
 #doc_git_dir = "/tmp/"

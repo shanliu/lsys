@@ -1,4 +1,5 @@
 mod captcha;
+mod barcode;
 pub(crate) mod index;
 use std::sync::Arc;
 
@@ -53,10 +54,11 @@ where
         .app_core
         .config
         .find(None)
-        .get_string("static_serve_from")
+        .get_string("static_file_dir")
         .unwrap_or_else(|_| String::from("./static"));
     let mut app = app
         .service(scope("/captcha").service(captcha::captcha))
+        .service(scope("/barcode").service(barcode::show_code))
         .service(actix_files::Files::new("/static", static_serve_from).show_files_listing());
     app = app.service(index::dome);
     app

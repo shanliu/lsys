@@ -1,3 +1,4 @@
+#[cfg(feature = "area")]
 mod address;
 mod email;
 mod external;
@@ -10,6 +11,7 @@ mod oauth;
 mod password;
 mod rbac;
 mod register;
+#[cfg(feature = "area")]
 pub use address::*;
 pub use email::*;
 pub use external::*;

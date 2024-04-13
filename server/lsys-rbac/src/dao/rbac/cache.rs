@@ -18,9 +18,9 @@ pub enum RbacLocalCacheClear {
 impl RbacLocalCacheClear {
     pub fn new_clears(rbac: &Rbac) -> Vec<Self> {
         vec![
-            RbacLocalCacheClear::ResKey(rbac.res_key_cache.clone()),
-            RbacLocalCacheClear::RoleRelation(rbac.role_relation_cache.clone()),
-            RbacLocalCacheClear::RoleAccess(rbac.role_access_cache.clone()),
+            RbacLocalCacheClear::ResKey(rbac.res.cache_key_res.clone()),
+            RbacLocalCacheClear::RoleRelation(rbac.role.cache_relation.clone()),
+            RbacLocalCacheClear::RoleAccess(rbac.role.cache_access.clone()),
         ]
     }
 }

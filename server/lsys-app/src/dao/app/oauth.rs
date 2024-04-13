@@ -61,20 +61,14 @@ impl AppsOauth {
         user_account: Arc<UserAccount>,
         db: Pool<MySql>,
         redis: deadpool_redis::Pool,
-
-        remote_notify: Arc<RemoteNotify>,
         time_out: u64,
+        remote_notify: Arc<RemoteNotify>,
+        config:LocalCacheConfig,
     ) -> Self {
-        let config = LocalCacheConfig {
-            //配置缓存
-            cache_name: "apps-oauth",
-            cache_time: 1800,
-            cache_size: 1000,
-            refresh_time: 1700,
-        };
+     
         Self {
             app,
-            cache: Arc::from(LocalCache::new(remote_notify, config)),
+            cache:Arc::new(LocalCache::new(remote_notify, config)),
             user_account,
             db,
             redis,

@@ -2,6 +2,7 @@ use actix_service::ServiceFactory;
 use actix_web::{dev::ServiceRequest, options, web::scope, App, Error, HttpResponse, Responder};
 
 mod app;
+#[cfg(feature = "area")]
 mod area;
 #[cfg(feature = "docs")]
 mod docs;
@@ -41,47 +42,51 @@ where
     let app = {
         app.service(
             scope("/api/barcode")
-                .service(barcode::create_code)
-                .service(barcode::qrcode_list)
+                .service(barcode::barcode)
                 .service(options),
         )
-        .service(scope("/qrcode/").service(barcode::qrcode_show))
     };
+   
 
-    app.service(
-        scope("/api/user")
-            .service(user::address)
-            .service(user::user_list)
-            .service(user::user_logs)
-            .service(user::email)
-            .service(user::email_confirm)
-            .service(user::external)
-            .service(user::set_info)
-            .service(user::login)
-            .service(user::user_data)
-            .service(user::logout)
-            .service(user::external_login_url)
-            .service(user::external_login_callback)
-            .service(user::external_state_check)
-            .service(user::external_state_callback)
-            .service(user::login_history)
-            .service(user::mobile)
-            .service(user::password_reset)
-            .service(user::password)
-            .service(user::res)
-            .service(user::role)
-            .service(user::access)
-            .service(user::reg)
-            .service(user::oauth)
-            .service(options),
-    )
+    let mut user_scope=scope("/api/user")
+    .service(user::user_list)
+    .service(user::user_logs)
+    .service(user::email)
+    .service(user::email_confirm)
+    .service(user::external)
+    .service(user::set_info)
+    .service(user::login)
+    .service(user::user_data)
+    .service(user::logout)
+    .service(user::external_login_url)
+    .service(user::external_login_callback)
+    .service(user::external_state_check)
+    .service(user::external_state_callback)
+    .service(user::login_history)
+    .service(user::mobile)
+    .service(user::password_reset)
+    .service(user::password)
+    .service(user::res)
+    .service(user::role)
+    .service(user::access)
+    .service(user::reg)
+    .service(user::oauth)
+    .service(options);
+    
+
+    #[cfg(feature = "area")]
+    let app = {
+        user_scope=user_scope.service(user::address);
+        app .service(scope("/api/area").service(area::area_data).service(options))
+    };
+    
+    app.service(user_scope)
     .service(
         scope("/api/setting")
             .service(site::oauth_config)
             .service(site::system_config)
             .service(options),
     )
-    .service(scope("/api/area").service(area::area_data).service(options))
     .service(
         scope("/api/site")
             .service(site::system_info)

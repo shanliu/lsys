@@ -21,7 +21,11 @@ pub enum AppsError {
     UserAccount(UserAccountError),
     SerdeJson(serde_json::Error),
 }
-
+impl AppsError {
+    pub fn app_not_found(&self)->bool{
+        matches!(self, Self::Sqlx(sqlx::Error::RowNotFound))
+    }
+}
 impl IntoFluentMessage for AppsError {
     fn to_fluent_message(&self) -> FluentMessage {
         match self {

@@ -5,8 +5,7 @@ use std::{
 };
 
 use lsys_core::{
-    cache::LocalCache, fluent_message, impl_dao_fetch_map_by_vec, impl_dao_fetch_one_by_one,
-    now_time, PageParam, RequestEnv,
+    cache::{LocalCache, LocalCacheConfig}, fluent_message, impl_dao_fetch_map_by_vec, impl_dao_fetch_one_by_one, now_time, PageParam, RemoteNotify, RequestEnv
 };
 
 use lsys_logger::dao::ChangeLogger;
@@ -77,8 +76,8 @@ pub struct RoleAccessRow {
 pub struct RbacRole {
     db: Pool<MySql>,
     tags: Arc<RbacTags>,
-    cache_relation: Arc<LocalCache<String, Option<RoleDetailRow>>>,
-    cache_access: Arc<LocalCache<String, Option<RoleAccessRow>>>,
+    pub(crate) cache_relation: Arc<LocalCache<String, Option<RoleDetailRow>>>,
+    pub(crate) cache_access: Arc<LocalCache<String, Option<RoleAccessRow>>>,
     logger: Arc<ChangeLogger>,
 }
 
@@ -94,20 +93,44 @@ pub struct RoleSetOp {
     pub res_op: Vec<(RbacResOpModel, RbacRoleOpPositivity)>,
 }
 
+
+
+pub struct RbacRoleConfig{
+    pub relation_cache:LocalCacheConfig,
+    pub access_cache:LocalCacheConfig,
+    
+}
+
+impl RbacRoleConfig {
+    pub fn new(use_cache:bool) -> Self {
+        Self {
+            relation_cache:LocalCacheConfig::new("rbac-relation",if use_cache{None}else{Some(0)},None),
+            access_cache:LocalCacheConfig::new("rbac-role",if use_cache{None}else{Some(0)},None),
+        }
+    }
+}
+
+
+
+
 impl RbacRole {
     pub fn new(
         db: Pool<MySql>,
-
         tags: Arc<RbacTags>,
-        cache_relation: Arc<LocalCache<String, Option<RoleDetailRow>>>,
-        cache_access: Arc<LocalCache<String, Option<RoleAccessRow>>>,
+        remote_notify: Arc<RemoteNotify>,
+        config:RbacRoleConfig,
         logger: Arc<ChangeLogger>,
     ) -> Self {
         Self {
-            cache_relation,
-            cache_access,
+            cache_relation: Arc::from(LocalCache::new(
+                remote_notify.clone(),
+                config.relation_cache,
+            )),
+            cache_access: Arc::from(LocalCache::new(
+                remote_notify,
+                config.access_cache,
+            )),
             db,
-            // fluent,
             tags,
             logger,
         }
@@ -2025,14 +2048,14 @@ impl RbacRole {
         RoleCheckData::new(relation_data)
     }
     //根据关系key获取待检测角色数据
-    pub(crate) async fn find_role_by_relation(
-        &self,
-        relation_role: &[RoleRelationKey],
-        check_vec: &[RbacResData],
-    ) -> UserRbacResult<RoleCheckData> {
-        let relaction_res = self.find_role_detail_by_relation_key(relation_role).await?;
-        Ok(self.filter_relation_role(relaction_res, check_vec).await)
-    }
+    // pub(crate) async fn find_role_by_relation(
+    //     &self,
+    //     relation_role: &[RoleRelationKey],
+    //     check_vec: &[RbacResData],
+    // ) -> UserRbacResult<RoleCheckData> {
+    //     let relaction_res = self.find_role_detail_by_relation_key(relation_role).await?;
+    //     Ok(self.filter_relation_role(relaction_res, check_vec).await)
+    // }
     fn find_role_cache_key_by_public_res(
         &self,
         user_range: i8,
@@ -2081,48 +2104,47 @@ impl RbacRole {
             user_id = role_user_id
         )
     }
-
-    async fn find_role_by_public(
-        &self,
-        user_range: RbacRoleUserRange,
-        check_vec: &[RbacResData],
-    ) -> UserRbacResult<RoleCheckData> {
-        if check_vec.is_empty() {
-            return Ok(RoleCheckData::new(vec![]));
-        }
-        let mut sqls = Vec::with_capacity(
-            check_vec.iter().fold(0, |acc, res| acc + res.ops.len()) + check_vec.len() + 1,
-        );
-        sqls.push(self.find_role_sql_by_public_global(user_range as i8, 0));
-        for res in check_vec {
-            sqls.push(self.find_role_sql_by_public_global(user_range as i8, res.res.user_id));
-            for role_op in &res.ops {
-                sqls.push(self.find_role_sql_by_public_res(user_range as i8, role_op.id, 0));
-                sqls.push(self.find_role_sql_by_public_res(
-                    user_range as i8,
-                    role_op.id,
-                    res.res.user_id,
-                ));
-            }
-        }
-        self.filter_find_role(self.find_role_by_sqls(sqls, false).await?, check_vec)
-    }
-    //获取游客的待检测角色数据
-    pub(crate) async fn find_role_by_all_user(
-        &self,
-        check_vec: &[RbacResData],
-    ) -> UserRbacResult<RoleCheckData> {
-        self.find_role_by_public(RbacRoleUserRange::AllUser, check_vec)
-            .await
-    }
-    //获取登陆用户的待检测角色数据
-    pub(crate) async fn find_role_by_login_user(
-        &self,
-        check_vec: &[RbacResData],
-    ) -> UserRbacResult<RoleCheckData> {
-        self.find_role_by_public(RbacRoleUserRange::Login, check_vec)
-            .await
-    }
+    // async fn find_role_by_public(
+    //     &self,
+    //     user_range: RbacRoleUserRange,
+    //     check_vec: &[RbacResData],
+    // ) -> UserRbacResult<RoleCheckData> {
+    //     if check_vec.is_empty() {
+    //         return Ok(RoleCheckData::new(vec![]));
+    //     }
+    //     let mut sqls = Vec::with_capacity(
+    //         check_vec.iter().fold(0, |acc, res| acc + res.ops.len()) + check_vec.len() + 1,
+    //     );
+    //     sqls.push(self.find_role_sql_by_public_global(user_range as i8, 0));
+    //     for res in check_vec {
+    //         sqls.push(self.find_role_sql_by_public_global(user_range as i8, res.res.user_id));
+    //         for role_op in &res.ops {
+    //             sqls.push(self.find_role_sql_by_public_res(user_range as i8, role_op.id, 0));
+    //             sqls.push(self.find_role_sql_by_public_res(
+    //                 user_range as i8,
+    //                 role_op.id,
+    //                 res.res.user_id,
+    //             ));
+    //         }
+    //     }
+    //     self.filter_find_role(self.find_role_by_sqls(sqls, false).await?, check_vec)
+    // }
+    // 获取游客的待检测角色数据
+    // pub(crate) async fn find_role_by_all_user(
+    //     &self,
+    //     check_vec: &[RbacResData],
+    // ) -> UserRbacResult<RoleCheckData> {
+    //     self.find_role_by_public(RbacRoleUserRange::AllUser, check_vec)
+    //         .await
+    // }
+    // //获取登陆用户的待检测角色数据
+    // pub(crate) async fn find_role_by_login_user(
+    //     &self,
+    //     check_vec: &[RbacResData],
+    // ) -> UserRbacResult<RoleCheckData> {
+    //     self.find_role_by_public(RbacRoleUserRange::Login, check_vec)
+    //         .await
+    // }
     async fn find_role_by_sqls(
         &self,
         sqls: Vec<String>,
@@ -2282,28 +2304,28 @@ impl RbacRole {
     /// 并根据资源的优先级排序结果
     // 公开角色：资源key->资源id反查->角色且公开【纬度由访问用户决定】 得到资源数据库角色（建这样公开角色时自动建资源）
     // 用户-角色关系配置角色：访问用户通过角色配置得到数据库角色
-    pub(crate) async fn find_role_by_user(
-        &self,
-        user_id: u64,
-        check_vec: &[RbacResData],
-    ) -> UserRbacResult<RoleCheckData> {
-        if check_vec.is_empty() {
-            return Ok(RoleCheckData::new(vec![]));
-        }
-        let mut sqls = Vec::with_capacity(
-            check_vec.iter().fold(0, |acc, res| acc + res.ops.len()) + check_vec.len() + 1,
-        );
+    // pub(crate) async fn find_role_by_user(
+    //     &self,
+    //     user_id: u64,
+    //     check_vec: &[RbacResData],
+    // ) -> UserRbacResult<RoleCheckData> {
+    //     if check_vec.is_empty() {
+    //         return Ok(RoleCheckData::new(vec![]));
+    //     }
+    //     let mut sqls = Vec::with_capacity(
+    //         check_vec.iter().fold(0, |acc, res| acc + res.ops.len()) + check_vec.len() + 1,
+    //     );
 
-        sqls.push(self.find_role_sql_by_user_global(user_id, 0));
-        for res in check_vec {
-            sqls.push(self.find_role_sql_by_user_global(user_id, res.res.user_id));
-            for role_op in &res.ops {
-                sqls.push(self.find_role_sql_by_user_res(user_id, role_op.id, 0));
-                sqls.push(self.find_role_sql_by_user_res(user_id, role_op.id, res.res.user_id));
-            }
-        }
-        self.filter_find_role(self.find_role_by_sqls(sqls, true).await?, check_vec)
-    }
+    //     sqls.push(self.find_role_sql_by_user_global(user_id, 0));
+    //     for res in check_vec {
+    //         sqls.push(self.find_role_sql_by_user_global(user_id, res.res.user_id));
+    //         for role_op in &res.ops {
+    //             sqls.push(self.find_role_sql_by_user_res(user_id, role_op.id, 0));
+    //             sqls.push(self.find_role_sql_by_user_res(user_id, role_op.id, res.res.user_id));
+    //         }
+    //     }
+    //     self.filter_find_role(self.find_role_by_sqls(sqls, true).await?, check_vec)
+    // }
     pub fn cache(&self) -> RbacRoleCache<'_> {
         RbacRoleCache { role: self }
     }

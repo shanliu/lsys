@@ -5,9 +5,9 @@ import (
 	"rest_client"
 )
 
-// AppInfo 应用信息
-func (receiver *RestApi) AppInfo(ctx context.Context, appId string) (error, *rest_client.JsonData) {
-	data1 := (<-receiver.rest.Do(ctx, AppInfo, map[string]interface{}{
+// SubAppInfo 应用信息
+func (receiver *RestApi) SubAppInfo(ctx context.Context, appId string) (error, *rest_client.JsonData) {
+	data1 := (<-receiver.rest.Do(ctx, SubAppInfo, map[string]interface{}{
 		"client_id": appId,
 	})).JsonResult()
 	if data1.Err() != nil {

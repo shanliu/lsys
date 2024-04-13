@@ -116,7 +116,7 @@ pub async fn sms_cancel(
         .into_iter()
         .map(|e| {
             json!({
-                "id":e.0.to_string(),
+                "snid":e.0.to_string(),
                 "status":!e.1&&e.2.is_none(),
                // "sending":e.1,
                 "msg":e.2.map(|e|e.to_fluent_message().default_format())
