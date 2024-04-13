@@ -15,7 +15,7 @@ on:
       - '!ui/**/*.MD'
       - '!ui/**/*.cmd'
       - '!ui/**/.gitignore'
-      - '.github/workflows/check_ui.yml'
+      - '.github/workflows/code_quality.yml'
 
       
 
