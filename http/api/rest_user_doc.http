@@ -1,0 +1,160 @@
+# @import ./rest_user_login.http
+# @ref name_login
+
+### 文档GIT源添加
+POST /api/docs/setting/git_add
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+{
+    "name":"ces" ,
+    "url": "https://gitee.com/shan_liu/test111111",
+    "max_try": 1
+}
+
+### 文档GIT源编辑
+POST /api/docs/setting/git_edit
+Authorization:Bearer {{login.response.jwt}}
+Content-Type: application/json
+
+{
+    "id":3,
+   "name":"ces" ,
+    "url": "https://gitee.com/shan_liu/test111111",
+    "max_try": 1
+}
+
+### 文档GIT源删除
+POST /api/docs/setting/git_del
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+   "id":2
+}
+
+### 文档GIT源列表
+POST /api/docs/setting/git_list
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+   
+}
+
+### 文档GIT源详细
+POST /api/docs/setting/git_detail
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+   "url":"https://gitee.com/shan_liu/test111111"
+}
+
+
+### 文档TAG添加
+POST /api/docs/setting/tag_add
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+   "git_id":3,
+   "tag":"0000",
+   "build_version":"6b1e892c3dd30d189afeeff0ce72fcb512c526c1",
+   "clear_rule":["\\.js$"]
+}
+
+### 文档TAG列表
+POST /api/docs/setting/tag_list
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+   "count_num":true
+}
+
+### 文档TAG删除
+POST /api/docs/setting/tag_del
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+   "tag_id":1
+}
+
+### 文档指定TAG列出文件
+POST /api/docs/setting/tag_dir
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+   "tag_id":4,
+   "prefix":""
+}
+
+### 文档指定TAG设置状态
+POST /api/docs/setting/tag_status
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+   "status":2,
+    "tag_id":4
+}
+
+
+### 文档指定TAG指定文件数据
+POST /api/docs/setting/tag_file_data
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+   "tag_id":4,
+   "file_path":"menu.json"
+}
+
+### 文档添加目录
+POST /api/docs/setting/menu_add
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+   "tag_id":4,
+   "menu_path":"menu1.json"
+}
+
+### 文档删除目录
+POST /api/docs/setting/menu_del
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+   "menu_id":2
+}
+
+### 文档目录列表
+POST /api/docs/setting/menu_list
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+   "tag_id":4
+}
+
+### 文档获取目录内容
+POST /api/docs/read/menu
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+  
+}
+
+### 文档获取指定文件内容
+POST /api/docs/read/md
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+   "menu_id":3,
+   "url":"README.md"
+}

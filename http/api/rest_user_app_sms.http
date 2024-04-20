@@ -1,0 +1,147 @@
+
+# @import ./rest_user_login.http
+# @ref name_login
+
+
+### 添加短信配置
+POST /api/sender/smser/config_add
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+    "app_id": 1,
+    "priority": 1,
+    "config_type": 3,
+    "config_data":"xxx"
+}
+
+
+### 删除短信配置
+POST /api/sender/smser/config_del
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+   "config_id":1
+}
+
+### 短信配置列表
+POST /api/sender/smser/config_list
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+   "app_id":1
+}
+
+### 阿里短信配置列表
+POST /api/sender/smser/ali_config_list
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+   "id":null,
+   "full_data":true
+}
+
+
+###  阿里短信配置添加
+POST /api/sender/smser/ali_config_add
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+    "name": "bbbb",
+    "access_id": "ssss",
+    "access_secret":"cccc"
+}
+
+
+###  阿里短信配置删除
+POST /api/sender/smser/ali_config_del
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+    "id":1
+}
+
+
+
+###  阿里短信配置编辑
+POST /api/sender/smser/ali_config_edit
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+    "id": 29,
+    "name": "faadsf",
+    "access_id": "adfad",
+    "access_secret":"asdfa"
+}
+
+
+###  阿里短信配置关联短信发送
+POST /api/sender/smser/ali_app_config_add
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+    "app_id": 1,
+    "ali_config_id":29,
+    "tpl_id": "adfad",
+    "aliyun_sms_tpl": "adfad",
+    "aliyun_sign_name": "adfad"
+}
+
+
+
+### 短信配置关联删除
+POST /api/sender/smser/tpl_config_del
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+    "app_config_id": 29
+}
+
+### 短信配置关联列表
+POST /api/sender/smser/tpl_config_list
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+    // "id": 29,
+    // "user_id": 29,
+    // "app_id": 29,
+    // "tpl": 29
+}
+
+
+###  设置回调地址
+POST /api/sender/smser/notify_set_config
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+    "url": "http://ssss.com",
+    "app_id": 2
+}
+
+
+### 获取回调地址
+POST /api/sender/smser/notify_get_config
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{}
+
+
+
+
+### 短信网关(如阿里云短信)发送完成回调
+POST {{APP_HOST}}/notify/sms/1/dsdfsdf
+Content-Type: application/json
+
+ [{"send_time" : "2017-08-30 00:00:00","report_time" : "2017-08-30 00:00:00","success" : true,"err_msg" : "用户接收成功","err_code" : "DELIVERED","phone_number" : "18612345678","sms_size" : "1","biz_id" : "932702304080415357^0","out_id" : "1184585343"}]
+

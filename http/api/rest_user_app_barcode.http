@@ -1,0 +1,90 @@
+# @import ./rest_user_login.http
+# @ref name_login
+
+
+
+### 
+POST /api/barcode/create_config_add
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+    "app_id": 1,
+    "barcode_type": "qrcode",
+    "status":1,
+    "image_format": "png",
+    "image_width": 100,
+    "image_height": 100,
+    "margin": 1,
+    "image_color":"000000",
+    "image_background":"ffffff"
+}
+
+
+### 
+POST /api/barcode/create_config_edit
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+    "id": 1,
+    "barcode_type": "qrcode",
+    "status":1,
+    "image_format": "jpg",
+    "image_width": 100,
+    "image_height": 100,
+    "margin": 1,
+    "image_color":"00663300",
+    "image_background":"ff003300"
+}
+
+
+### 
+POST /api/barcode/create_config_list
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+  
+}
+
+
+
+### 
+POST /api/barcode/create_config_delete
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+   "id": 1
+}
+
+
+
+### 
+POST /api/barcode/parse_record_delete
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+  
+}
+
+
+
+### 
+POST /api/barcode/parse_record_list
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+  
+}
+
+
+### 
+GET /barcode/5/DD12123DD
+
+
+
+

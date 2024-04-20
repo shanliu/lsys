@@ -1,0 +1,73 @@
+
+# @import ./rest_user_login.http
+# @ref name_login
+
+
+
+####### mobile ##############
+
+
+
+### add mobile
+POST /api/user/mobile/add
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+    "area_code":"86",
+    "mobile": "13800138004"
+  //  ,"code":"806457"
+}
+
+
+### send mobile code cpatcha
+GET  /captcha/add-sms/fasdfa
+
+
+### mobile send
+POST /api/user/mobile/send_code
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+    "captcha":  {
+        "code":"rk5",
+        "key":"fasdfa"
+    },
+    "area_code":"86",
+    "mobile": "13800138004"
+}
+
+### mobile confirm
+POST /api/user/mobile/confirm
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+    "area_code":"86",
+    "mobile_id": 8,
+    "code":"705391"
+}
+
+
+### mobile delete
+POST /api/user/mobile/delete
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+    "mobile_id": 8
+}
+
+
+### mobile list_data
+POST /api/user/mobile/list_data
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+    "status": [1]
+}
+
+
+

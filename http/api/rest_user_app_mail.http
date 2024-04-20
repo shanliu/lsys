@@ -1,0 +1,161 @@
+
+# @import ./rest_user_login.http
+# @ref name_login
+
+
+### 添加配置
+POST /api/sender/mailer/config_add
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+    "app_id": 1,
+    "priority": 1,
+    "config_type": 3,
+    "config_data":"xxx"
+}
+
+
+### 删除配置
+POST /api/sender/mailer/config_del
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+   "config_id":1
+}
+
+### 配置列表
+POST /api/sender/mailer/config_list
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+   "app_id":1
+}
+
+
+
+
+### 
+POST /api/sender/mailer/tpl_config_del
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+   
+}
+
+
+### 
+POST /api/sender/mailer/tpl_config_list
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+   
+}
+
+### 
+POST /api/sender/mailer/message_send
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+   
+}
+
+
+### 
+POST /api/sender/mailer/message_list
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+   
+}
+
+### 
+POST /api/sender/mailer/message_body
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+   
+}
+
+### 
+POST /api/sender/mailer/message_cancel
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+   
+}
+
+
+### 
+POST /api/sender/mailer/message_log
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+   
+}
+
+### 
+POST /api/sender/mailer/smtp_config_add
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+   
+}
+
+
+### 
+POST /api/sender/mailer/smtp_config_list
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+   
+}
+
+### 
+POST /api/sender/mailer/smtp_config_check
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+   
+}
+
+
+
+### 
+POST /api/sender/mailer/smtp_config_edit
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+   
+}
+   
+### 
+POST /api/sender/mailer/smtp_config_del
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+   
+}
+
+### 
+POST /api/sender/mailer/smtp_app_config_add
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+   
+}

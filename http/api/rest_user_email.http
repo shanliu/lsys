@@ -1,0 +1,61 @@
+# @import ./rest_user_login.http
+# @ref name_login
+
+
+####### email ##############
+
+### add mail
+POST /api/user/email/add
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+    "email": "ssss11121@qq.com"
+}
+
+
+### send mail code cpatcha
+GET  /captcha/add-email/ddddddddd
+
+### send mail code
+POST /api/user/email/send_code
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+     "captcha":  {
+        "code":"eb5",
+        "key":"ddddddddd"
+    },
+    "email":"ssss11121@qq.com"
+}
+
+
+### delete mail
+POST /api/user/email/delete
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+    "email_id": 16
+}
+
+
+### list mail
+POST /api/user/email/list_data
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+    "status": [2]
+}
+
+
+### confirm mail
+POST /api/user/email_confirm
+Content-Type: application/json
+
+{
+    "email_id": 22,
+    "code": "541029"
+}

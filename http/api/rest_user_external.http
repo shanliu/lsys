@@ -1,0 +1,46 @@
+
+# @import ./rest_user_login.http
+# @ref name_login
+
+POST /api/user/external/bind_check
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+    "login_type": "wechat",
+    "login_state":"343444eee"
+}
+
+
+### oauth bind
+POST /api/user/external/bind_url
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+    "login_type": "wechat",
+    "login_state":"343444eee",
+    "callback_url":"http://www.lsys.cc/app.html#/user/info/oauth"
+}
+
+
+### oauth list
+POST /api/user/external/list_data
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+  //  "oauth_type": ["wechat"]
+}
+
+
+
+### oauth delete
+POST /api/user/external/delete
+Content-Type:application/json
+Authorization:Bearer {{name_login.response.jwt}}
+
+{
+    "ext_id": 8
+}
+
