@@ -2,6 +2,9 @@
 
 > 接入方法及公共参数,可参考[接入文档](rest.md)
 
+
+> [go实现代码示例](https://github.com/shanliu/lsys/blob/main/sdk/go/examples/basic/mail_test.go)
+
 ### 发送邮件
 
 > 接口入参说明:
