@@ -11,6 +11,7 @@ use serde::Deserialize;
 use serde_json::json;
 use serde_json::Value;
 use std::io::Cursor;
+use lsys_app_barcode::model::BarcodeCreateModel;
 
 #[derive(Debug, Deserialize)]
 pub struct BarCodeShowParam {
@@ -21,14 +22,16 @@ pub struct BarCodeShowParam {
 pub async fn barcode_show(
     param: &BarCodeShowParam,
     req_dao: &RequestDao,
+    use_cache:bool,
 ) -> JsonResult<(ImageFormat, Vec<u8>)> {
-    let image_buffer = req_dao
-        .web_dao
-        .barcode
-        .create(&param.code_id, &param.contents)
-        .await
+    let dao=&req_dao.web_dao.barcode;
+    let image_buffer = if use_cache {
+            dao.cache() .create(&param.code_id, &param.contents).await
+        }else{
+            dao .create(&param.code_id, &param.contents).await
+        }
         .map_err(|e| req_dao.fluent_json_data(e))?;
-    if BarcodeCreateStatus::EnablePublic.eq(image_buffer.1.status) {
+    if !BarcodeCreateStatus::EnablePublic.eq(image_buffer.1.status) {
         return Err(req_dao.fluent_json_data(fluent_message!("barcode-bad-auth-error")));
     }
     let mut png_data: Vec<u8> = Vec::new();
@@ -56,6 +59,7 @@ pub async fn barcode_show(
 
 #[derive(Debug, Deserialize)]
 pub struct BarCodeCreateConfigListParam {
+    pub id: Option<u64>,
     pub app_id: Option<u64>,
     pub barcode_type: Option<String>,
     pub count_num: Option<bool>,
@@ -69,6 +73,7 @@ pub async fn barcode_create_config_list<
 >(
     param: BarCodeCreateConfigListParam,
     req_dao: &RequestAuthDao<T, D, S>,
+    url_callback:impl Fn(&BarcodeCreateModel)->String
 ) -> JsonResult<JsonData> {
     let req_auth = req_dao
         .user_session
@@ -96,12 +101,30 @@ pub async fn barcode_create_config_list<
         .barcode
         .list_create_config(
             &req_auth.user_data().user_id,
+            &param.id,
             &param.app_id,
             &param.barcode_type,
             &Some(param.page.unwrap_or_default().into()),
         )
         .await
-        .map_err(|e| req_dao.fluent_json_data(e))?;
+        .map_err(|e| req_dao.fluent_json_data(e))?
+        .into_iter().map(|e|{
+            let url=url_callback(&e);
+            json!({
+                "id":e.id,
+                "barcode_type":e.barcode_type,
+                "app_id":e.app_id,
+                "change_time":e.change_time,
+                "image_background":e.image_background,
+                "image_color":e.image_color,
+                "image_format":e.image_format,
+                "image_height":e.image_height,
+                "image_width":e.image_width,
+                "margin":e.margin,
+                "status":e.status,
+                "url":url,
+            })
+        }).collect::<Vec<_>>();
     let count = if param.count_num.unwrap_or(false) {
         Some(
             req_dao
@@ -109,6 +132,7 @@ pub async fn barcode_create_config_list<
                 .barcode
                 .count_create_config(
                     &req_auth.user_data().user_id,
+                    &param.id,
                     &param.app_id,
                     &param.barcode_type,
                 )
@@ -196,7 +220,8 @@ pub async fn barcode_parse_record_list<
                     "status":1,
                     "text":t.1.text,
                     "error":"",
-                    "hash":t.0.file_hash
+                    "hash":t.0.file_hash,
+                    "create_time":t.0.create_time
                 })
             },
             BarcodeParseRecord::Fail(t) => {
@@ -207,7 +232,8 @@ pub async fn barcode_parse_record_list<
                     "text":"",
                     "status":0,
                     "error":t.record,
-                    "hash":t.file_hash
+                    "hash":t.file_hash,
+                    "create_time":t.create_time
                 })
             },
         }

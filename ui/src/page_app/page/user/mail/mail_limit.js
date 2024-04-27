@@ -29,7 +29,10 @@ export default function UserAppMailLimitPage(props) {
                 width: 200,
                 marginRight: 1
             }}
-            checkMail={true}
+            urlParam={{
+                check_mail: true
+            }}
+            accCheck={(item) => item.is_mail}
             userId={parseInt(userData.user_data.user_id)}
             appId={searchParam.get("app_id") ?? ''}
             onLoad={(data) => {

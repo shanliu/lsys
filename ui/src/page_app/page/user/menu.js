@@ -35,6 +35,11 @@ export const Menus = [
         text: "邮件管理"
     },
     {
+        url: "/user/barcode/create",
+        icon: MailIcon,
+        text: "条码管理"
+    },
+    {
         url: "/user/access",
         icon: KeyIcon,
         text: "授权管理"

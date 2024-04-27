@@ -449,16 +449,6 @@ export default function UserAppIndexPage(props) {
                 }}>
                 示例代码
             </Button>
-            <Button
-                variant="outlined"
-                size="medium"
-                startIcon={<LogoDevIcon />}
-                sx={{ mr: 1, p: "7px 15px", minWidth: 120 }}
-                onClick={() => {
-                    window.open("http://www.lsys.cc:8080", "_blank")
-                }}>
-                在线示例
-            </Button>
         </Paper>
 
         {(loadData.status || loadData.loading)

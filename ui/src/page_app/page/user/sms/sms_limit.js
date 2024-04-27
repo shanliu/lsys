@@ -29,7 +29,10 @@ export default function UserAppSmsLimitPage(props) {
                 width: 200,
                 marginRight: 1
             }}
-            checkSms={true}
+            urlParam={{
+                check_sms: true
+            }}
+            accCheck={(item) => item.is_sms}
             userId={parseInt(userData.user_data.user_id)}
             appId={searchParam.get("app_id") ?? ''}
             onLoad={(data) => {

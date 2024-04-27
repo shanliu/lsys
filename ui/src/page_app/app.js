@@ -77,6 +77,11 @@ const UserAppMailMessagePage = React.lazy(() => import('./page/user/mail/mail_me
 const UserAppMailTplBodyPage = React.lazy(() => import('./page/user/mail/tpl_body'));
 const UserAppMailTplConfigPage = React.lazy(() => import('./page/user/mail/tpl_config'));
 
+const UserAppBarCodePage = React.lazy(() => import('./page/user/barcode'));
+const UserAppBarCodeCreatePage = React.lazy(() => import('./page/user/barcode/create'));
+const UserAppBarCodeParsePage = React.lazy(() => import('./page/user/barcode/parse'));
+
+
 
 const UserInfoPage = React.lazy(() => import('./page/user/info'));
 const UserEmailPage = React.lazy(() => import('./page/user/info/email'));
@@ -169,7 +174,10 @@ function App() {
             <Route path="send" element={<Suspense fallback={<PageProgress />}><UserAppMailSendPage /></Suspense>} />
             <Route path="tpl_body" element={<Suspense fallback={<PageProgress />}><UserAppMailTplBodyPage /></Suspense>} />
             <Route path="tpl_config" element={<Suspense fallback={<PageProgress />}><UserAppMailTplConfigPage /></Suspense>} />
-
+          </Route>
+          <Route path="barcode" element={<Suspense fallback={<PageProgress />}><UserAppBarCodePage /></Suspense>} >
+            <Route path="create" element={<Suspense fallback={<PageProgress />}><UserAppBarCodeCreatePage /></Suspense>} />
+            <Route path="parse" element={<Suspense fallback={<PageProgress />}><UserAppBarCodeParsePage /></Suspense>} />
           </Route>
           <Route path="login_history" element={<Suspense fallback={<PageProgress />}><UserLoginHistroyPage /></Suspense>} />
           <Route path="*" element={<Suspense fallback={<PageProgress />}><UserIndexPage /></Suspense>} />

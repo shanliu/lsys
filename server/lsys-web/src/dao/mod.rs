@@ -1,6 +1,6 @@
 use ip2location::LocationDB;
 use lsys_app::dao::{AppConfig, AppDao};
-use lsys_app_barcode::dao::BarCodeDao;
+use lsys_app_barcode::dao::{BarCodeCacheClear, BarCodeConfig, BarCodeDao};
 use lsys_app_notify::dao::Notify;
 use lsys_app_sender::dao::MessageTpls;
 use lsys_core::cache::{LocalCacheClear, LocalCacheClearItem};
@@ -267,6 +267,24 @@ impl WebDao {
 
         // 本地lua缓存清理 local cache
         let mut cache_item: Vec<Box<dyn LocalCacheClearItem + Sync + Send + 'static>> = vec![];
+
+        #[cfg(feature = "barcode")]
+        let barcode={
+            let create_max = app_core.config.find(None).get_int("barcode_create_max").map(|e|if e>0{e as u64}else{0}).unwrap_or(0);
+            let barcode=Arc::new(BarCodeDao::new(
+                db.clone(),
+                remote_notify.clone(),
+                BarCodeConfig::new(create_max,use_cache),
+                change_logger.clone(),
+                
+            ));
+            for item in BarCodeCacheClear::new_clears(&barcode) {
+                cache_item.push(Box::new(item))
+            }
+            barcode
+        };
+        
+        
         for item in RbacLocalCacheClear::new_clears(&rbac_dao.rbac) {
             cache_item.push(Box::new(item))
         }
@@ -348,8 +366,7 @@ impl WebDao {
                 None
             }
         };
-        #[cfg(feature = "barcode")]
-        let barcode=Arc::new(BarCodeDao::new(db.clone()));
+       
 
 
         Ok(WebDao {

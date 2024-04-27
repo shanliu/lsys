@@ -15,7 +15,7 @@ impl Config {
         path: &P,
         app_config: &str,
     ) -> config::ConfigBuilder<DefaultState> {
-        let mut config = config::Config::builder().add_source(config::Environment::default());
+        let mut config = config::Config::builder();
         let app_config_file = path
             .as_ref()
             .to_path_buf()
@@ -23,7 +23,7 @@ impl Config {
         if app_config_file.is_file() {
             config = config.add_source(config::File::from(app_config_file))
         }
-        config
+        config.add_source(config::Environment::default())
     }
     pub async fn new<P: AsRef<Path>>(
         path: P,

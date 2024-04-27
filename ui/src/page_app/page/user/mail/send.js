@@ -161,7 +161,7 @@ export default function UserAppMailSendPage(props) {
                             endIcon={<HelpOutlineOutlinedIcon fontSize='small' />}
                             sx={{ mr: 1, p: "7px 15px", minWidth: 110 }}
                             onClick={() => {
-                                window.open("https://github.com/shanliu/lsys/tree/main/sdk/go/examples/basic/mail_test.go", "_blank")
+                                window.open("https://github.com/shanliu/lsys/tree/main/http/rest/rest_mail.md", "_blank")
                             }}>
                             通过代码发送
                         </Button>

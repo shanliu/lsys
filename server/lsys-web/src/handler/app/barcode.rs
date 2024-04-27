@@ -65,7 +65,7 @@ pub async fn barcode_show_base64(
     param: &BarCodeShowParam,
     req_dao: &RequestDao,
 ) -> JsonResult<JsonData> {
-    let data = barcode_show(param, req_dao).await?;
+    let data = barcode_show(param, req_dao,false).await?;
     let base64 = base64::engine::general_purpose::STANDARD.encode(data.1);
     Ok(JsonData::data(
         json!({ "data": base64,"type":data.0.to_mime_type() }),

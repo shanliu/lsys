@@ -94,6 +94,7 @@ pub async fn create_server(app_dir: &str) -> Result<Server, AppError> {
     let app_dao = Data::new(WebDao::new(app_core.clone()).await?);
     let bind_addr = app_dao.bind_addr();
     let bind_ssl_data = app_dao.bind_ssl_data();
+    let is_redirect_http=bind_ssl_data.is_some();
     let app_jwt_key = app_dao
         .app_core
         .config
@@ -143,20 +144,21 @@ pub async fn create_server(app_dir: &str) -> Result<Server, AppError> {
                         .await
                 })
             }));
-
-        let app = App::new()
-            .wrap(middlewares::Logger::default())
-            .wrap(middlewares::Compress::default())
-            .wrap(
-                middlewares::ErrorHandlers::new()
-                    .handler(http::StatusCode::INTERNAL_SERVER_ERROR, handler::render_500),
-            )
-            .wrap(middlewares::DefaultHeaders::new().add(("Access-Control-Allow-Origin", "*")))
-            .wrap(common::middleware::RequestID::new(None))
-            .app_data(app_dao.clone())
-            .app_data(json_config)
-            .app_data(jwt_config)
-            .app_data(rest_config);
+       
+       let app= App::new()
+        .wrap(common::middleware::RedirectSsl::new(is_redirect_http))
+        .wrap(middlewares::Logger::default())
+        .wrap(middlewares::Compress::default())
+        .wrap(
+            middlewares::ErrorHandlers::new()
+                .handler(http::StatusCode::INTERNAL_SERVER_ERROR, handler::render_500),
+        )
+        .wrap(middlewares::DefaultHeaders::new().add(("Access-Control-Allow-Origin", "*")))
+        .wrap(common::middleware::RequestID::new(None))
+        .app_data(app_dao.clone())
+        .app_data(json_config)
+        .app_data(jwt_config)
+        .app_data(rest_config);
         router_main(app, &app_dao)
     });
     server = server.bind(bind_addr).map_err(AppCoreError::Io)?;

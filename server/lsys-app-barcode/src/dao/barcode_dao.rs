@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 
 use image::{ImageBuffer, ImageFormat, Rgb};
 use lsys_logger::dao::ChangeLogger;
@@ -16,7 +16,7 @@ use crate::model::{
     BarcodeCreateModel, BarcodeCreateModelRef, BarcodeCreateStatus, BarcodeParseModel,
     BarcodeParseModelRef, BarcodeParseStatus,
 };
-use lsys_core::{fluent_message, now_time,  PageParam, RequestEnv};
+use lsys_core::{cache::{LocalCache, LocalCacheConfig}, fluent_message, now_time, PageParam, RemoteNotify, RequestEnv};
 use sqlx_model::{
     model_option_set, sql_format, Insert, ModelTableName, Select, SqlExpr, Update, WhereOption,
 };
@@ -60,10 +60,33 @@ impl From<RXingResult> for ParseData {
     }
 }
 
+
+pub struct BarCodeConfig{
+    pub create_max_len:u64,
+    pub create_model_cache:LocalCacheConfig,
+    pub create_render_cache:LocalCacheConfig,
+    
+}
+
+impl BarCodeConfig {
+    pub fn new(create_max_len:u64,use_cache:bool) -> Self {
+        Self {
+            create_max_len,
+            create_model_cache:LocalCacheConfig::new("barcode-create-model",if use_cache{None}else{Some(0)},None),
+            create_render_cache:LocalCacheConfig::new("barcode-create-render",if use_cache{None}else{Some(0)},None),
+        }
+    }
+}
+
+
 pub struct BarCodeDao {
     db: Pool<MySql>,
     barcode: BarCodeCore,
-    logger: ChangeLogger,
+    logger:  Arc<ChangeLogger>,
+    create_max_len:u64,
+    pub(crate) create_model: Arc<LocalCache<u64, BarcodeCreateModel>>,
+    #[allow(clippy::type_complexity)]
+    pub(crate) create_render: Arc<LocalCache<String, ImageBuffer<Rgb<u8>, Vec<u8>>>>,
 }
 
 pub enum BarcodeParseRecord {
@@ -72,11 +95,22 @@ pub enum BarcodeParseRecord {
 }
 
 impl BarCodeDao {
-    pub fn new(db: Pool<MySql>) -> Self {
+    pub fn new(db: Pool<MySql>,remote_notify: Arc<RemoteNotify>,
+        config:BarCodeConfig,  
+        logger: Arc<ChangeLogger>,) -> Self {
         Self {
-            logger: ChangeLogger::new(db.clone()),
             db,
             barcode: BarCodeCore::default(),
+            create_model: Arc::from(LocalCache::new(
+                remote_notify.clone(),
+                config.create_model_cache,
+            )),
+            create_render: Arc::from(LocalCache::new(
+                remote_notify.clone(),
+                config.create_render_cache,
+            )),
+            create_max_len:config.create_max_len,
+            logger
         }
     }
     lsys_core::impl_dao_fetch_one_by_one!(
@@ -94,9 +128,10 @@ impl BarCodeDao {
         barcode_create_id: &u64,
         contents: &str,
     ) -> BarCodeResult<(ImageBuffer<Rgb<u8>, Vec<u8>>, BarcodeCreateModel)> {
-        let create = Select::type_new::<BarcodeCreateModel>()
-            .fetch_one_by_scalar_pk::<BarcodeCreateModel, _, _>(*barcode_create_id, &self.db)
-            .await?;
+        if self.create_max_len>0&&contents.len()>self.create_max_len as usize {
+            return Err(BarCodeError::System(fluent_message!("barcode-create-bad-len")));
+        }
+        let create =self.find_by_create_config_id(barcode_create_id).await?;
         self.barcode.render(&create, contents).map(|t| (t, create))
     }
     async fn find_by_hash(&self, app_id: &u64, file_hash: &str) -> sqlx::Result<BarcodeParseModel> {
@@ -262,6 +297,7 @@ impl BarCodeDao {
                 "val":format!("{}:{}",image_width,image_height)
             })));
         }
+        let image_color=image_color.trim_start_matches('#');
         if !is_hex_color(image_color) {
             return Err(BarCodeError::System(
                 fluent_message!("barcode-bad-font-color",{
@@ -269,6 +305,7 @@ impl BarCodeDao {
                 }),
             ));
         }
+        let image_background=image_background.trim_start_matches('#');
         if !is_hex_color(image_background) {
             return Err(BarCodeError::System(
                 fluent_message!("barcode-bad-back-color",{
@@ -366,6 +403,7 @@ impl BarCodeDao {
                 "val":format!("{}:{}",image_width,image_height)
             })));
         }
+        let image_color=image_color.trim_start_matches('#');
         if !is_hex_color(image_color) {
             return Err(BarCodeError::System(
                 fluent_message!("barcode-bad-font-color",{
@@ -373,6 +411,7 @@ impl BarCodeDao {
                 }),
             ));
         }
+        let image_background=image_background.trim_start_matches('#');
         if !is_hex_color(image_background) {
             return Err(BarCodeError::System(
                 fluent_message!("barcode-bad-back-color",{
@@ -469,6 +508,7 @@ impl BarCodeDao {
     fn list_create_config_where_sql(
         &self,
         user_id: &u64,
+        id: &Option<u64>,
         app_id: &Option<u64>,
         barcode_type: &Option<String>,
     ) -> String {
@@ -483,6 +523,9 @@ impl BarCodeDao {
         if let Some(s) = app_id {
             sqlwhere.push(sql_format!("app_id={} ", s));
         }
+        if let Some(s) = id {
+            sqlwhere.push(sql_format!("id={} ", s));
+        }
         if let Some(s) = barcode_type {
             sqlwhere.push(sql_format!("barcode_type={} ", s));
         }
@@ -492,11 +535,12 @@ impl BarCodeDao {
     pub async fn list_create_config(
         &self,
         user_id: &u64,
+        id: &Option<u64>,
         app_id: &Option<u64>,
         barcode_type: &Option<String>,
         page: &Option<PageParam>,
     ) -> BarCodeResult<Vec<BarcodeCreateModel>> {
-        let sqlwhere = self.list_create_config_where_sql(user_id, app_id, barcode_type);
+        let sqlwhere = self.list_create_config_where_sql(user_id,id, app_id, barcode_type);
         let page_sql = if let Some(pdat) = page {
             format!(
                 " order by id desc limit {} offset {} ",
@@ -518,10 +562,11 @@ impl BarCodeDao {
     pub async fn count_create_config(
         &self,
         user_id: &u64,
+        id: &Option<u64>,
         app_id: &Option<u64>,
         barcode_type: &Option<String>,
     ) -> BarCodeResult<i64> {
-        let sqlwhere = self.list_create_config_where_sql(user_id, app_id, barcode_type);
+        let sqlwhere = self.list_create_config_where_sql(user_id,id, app_id, barcode_type);
         let sql = sql_format!(
             "select count(*) as total from {} where {}",
             BarcodeCreateModel::table_name(),
@@ -636,8 +681,45 @@ impl BarCodeDao {
             .await;
         Ok(())
     }
+    pub fn cache(&'_ self) -> BarCodeCache<'_> {
+        BarCodeCache { dao: self }
+    }
 }
 
+pub struct BarCodeCache<'t> {
+    pub dao: &'t BarCodeDao,
+}
+impl<'t> BarCodeCache<'t> {
+    lsys_core::impl_cache_fetch_one!(
+        find_by_create_config_id,
+        dao,
+        create_model,
+        u64,
+        BarCodeResult<BarcodeCreateModel>
+    );
+    pub async fn create(
+        &self,
+        barcode_create_id: &u64,
+        contents: &str,
+    ) -> BarCodeResult<(ImageBuffer<Rgb<u8>, Vec<u8>>, BarcodeCreateModel)> {
+        if self.dao.create_max_len>0&&contents.len()>self.dao.create_max_len as usize {
+            return Err(BarCodeError::System(fluent_message!("barcode-create-bad-len")));
+        }
+        let create =self.find_by_create_config_id(barcode_create_id).await?;
+        let cont_data=contents.to_owned();
+        match self.dao.create_render.get(&cont_data).await {
+            Some(data) => Ok((data,create)),
+            None =>{
+                let data=self.dao.barcode.render(&create, contents)?;
+                self.dao
+                .create_render
+                .set(contents.to_owned(), data.clone(), 0)
+                .await;
+                Ok((data,create))
+            },
+        }     
+    }
+}
 
 fn parse_model_decode(mut s: BarcodeParseModel) -> BarcodeParseRecord{
     if BarcodeParseStatus::Succ.eq(s.status){

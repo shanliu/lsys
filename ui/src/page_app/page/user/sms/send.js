@@ -139,7 +139,7 @@ export default function UserAppSmsSendPage(props) {
                             endIcon={<HelpOutlineOutlinedIcon fontSize='small' />}
                             sx={{ mr: 1, p: "7px 15px", minWidth: 150 }}
                             onClick={() => {
-                                window.open("https://github.com/shanliu/lsys/tree/main/sdk/go/examples/basic/sms_test.go", "_blank")
+                                window.open("https://github.com/shanliu/lsys/tree/main/http/rest/rest_sms.md", "_blank")
                             }}>
                             通过代码发送
                         </Button>

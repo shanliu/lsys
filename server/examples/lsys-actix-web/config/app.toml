@@ -1,23 +1,26 @@
+
+
 #app_host="127.0.0.1"
 #app_port=8080
 #app_ssl_port=443
 #app_ssl_cert=config/cert.pem
 #app_ssl_key=config/key.pem
 #日志配置
-#log_level=sqlx_core=info,lsys_app_sender=debug,axtix_web=debug,actix=info,mio=error,lsys_user=trace,lsys_web=trace,lsys_core=trace,lsys_user=trace,lsys_rbac=trace,lsys_docs=trace,lsys_actix_web=trace,sqlx=trace,redis=debug
-#log_dir="logs"
-#log_name="std::out"
-#log_gelf="127.0.0.1:12201"
-
+log_level = "sqlx_core=info,lsys_app_sender=debug,axtix_web=debug,actix=info,mio=error,lsys_user=trace,lsys_web=trace,lsys_core=trace,lsys_user=trace,lsys_rbac=trace,lsys_docs=trace,lsys_actix_web=trace,sqlx=trace,redis=debug,lsys_app_barcode=trace"
+log_dir = "logs"
+log_name = "app"
 #数据库配置
 #database_url="mysql://root:000@127.0.0.1:3306/test"
 #公共表前缀
-#database_table_prefix="yaf_"
+database_table_prefix = "yaf_"
 #redis 配置
 #redis_url="redis://127.0.0.1/"
 
 #是否使用LUA缓存
 use_cache = false
+
+#二维码最大内容长度
+barcode_create_max = 500
 
 #静态文件目录
 ui_dir = "../../../ui/public/"

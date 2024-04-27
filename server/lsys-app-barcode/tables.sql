@@ -4,8 +4,8 @@ CREATE TABLE `yaf_barcode_create` (
     `app_id` bigint unsigned NOT NULL COMMENT '应用ID',
     `user_id` bigint unsigned NOT NULL COMMENT '用户id',
     `change_user_id` bigint unsigned NOT NULL COMMENT '最后修改用户id',
-    `change_time` bigint unsigned NOT NULL COMMENT '最后修改时间',
-    `create_time` bigint unsigned NOT NULL COMMENT '最后修改时间',
+    `change_time` bigint unsigned NOT NULL DEFAULT '0' COMMENT '最后修改时间',
+    `create_time` bigint unsigned NOT NULL COMMENT '添加时间',
     `status` tinyint NOT NULL COMMENT '状态',
     `barcode_type` varchar(12) NOT NULL COMMENT '二维码类型',
     `image_format` varchar(6) NOT NULL COMMENT '图片输出格式',
@@ -17,7 +17,7 @@ CREATE TABLE `yaf_barcode_create` (
     PRIMARY KEY (`id`),
     KEY `appid` (`app_id`) USING BTREE,
     KEY `user_id` (`user_id`) USING BTREE
-) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = 'barcode 应用输出配置';
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = 'barcode显示配置';
 CREATE TABLE `yaf_barcode_parse` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `user_id` bigint unsigned NOT NULL COMMENT '用户id',
@@ -27,7 +27,7 @@ CREATE TABLE `yaf_barcode_parse` (
     `record` text NOT NULL COMMENT '解析结果',
     `status` tinyint NOT NULL COMMENT '状态',
     `create_time` bigint unsigned NOT NULL COMMENT '解析时间',
-    `change_time` bigint unsigned NOT NULL COMMENT '最后修改时间',
+    `change_time` bigint unsigned NOT NULL DEFAULT '0' COMMENT '最后修改时间',
     PRIMARY KEY (`id`),
     KEY `appid` (`app_id`) USING BTREE,
     KEY `file_hash` (`file_hash`) USING BTREE,
