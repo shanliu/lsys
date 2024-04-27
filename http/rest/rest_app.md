@@ -2,6 +2,8 @@
 
 > 接入方法及公共参数,可参考[接入文档](rest.md)
 
+> [go代码示例](https://github.com/shanliu/lsys/blob/main/sdk/go/examples/basic/app_test.go)
+
 ### 查询子应用信息
 
 > 接口入参说明:
