@@ -445,7 +445,7 @@ export default function UserAppIndexPage(props) {
                 startIcon={<LogoDevIcon />}
                 sx={{ mr: 1, p: "7px 15px", minWidth: 120 }}
                 onClick={() => {
-                    window.open("https://github.com/shanliu/lsys/tree/main/sdk/go", "_blank")
+                    window.open("https://github.com/shanliu/lsys/blob/main/http/rest/rest_app.md", "_blank")
                 }}>
                 示例代码
             </Button>

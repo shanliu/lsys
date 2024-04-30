@@ -205,7 +205,7 @@ export default function UserAppBarCodeParsePage(props) {
                 endIcon={<HelpOutlineOutlinedIcon fontSize='small' />}
                 sx={{ mr: 1, p: "7px 15px", minWidth: 110 }}
                 onClick={() => {
-                    window.open("https://github.com/shanliu/lsys/tree/main/http/rest/rest_barcode.md", "_blank")
+                    window.open("https://github.com/shanliu/lsys/blob/main/http/rest/rest_barcode.md#%E4%BA%8C%E7%BB%B4%E7%A0%81%E8%A7%A3%E6%9E%90", "_blank")
                 }}>
                 请求示例
             </Button>

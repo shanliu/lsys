@@ -20,6 +20,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import { MuiColorInput } from 'mui-color-input';
 import { ItemTooltip } from '../../../../library/tips';
 import QrCodeIcon from '@mui/icons-material/QrCode';
+import HelpOutlineOutlinedIcon from '@mui/icons-material/HelpOutlineOutlined';
 import LogoDevIcon from '@mui/icons-material/LogoDev';
 function CreateBox(props) {
     const {
@@ -778,7 +779,17 @@ export default function UserAppBarCodeCreatePage(props) {
                 }}>
                 添加
             </Button> : null}
-
+            <Button
+                variant="outlined"
+                size="medium"
+                startIcon={<LogoDevIcon />}
+                endIcon={<HelpOutlineOutlinedIcon fontSize='small' />}
+                sx={{ mr: 1, p: "7px 15px", minWidth: 110 }}
+                onClick={() => {
+                    window.open("https://github.com/shanliu/lsys/blob/main/http/rest/rest_barcode.md#%E4%BA%8C%E7%BB%B4%E7%A0%81%E5%88%9B%E5%BB%BA", "_blank")
+                }}>
+                请求示例
+            </Button>
 
         </Paper>
 
