@@ -9,7 +9,7 @@ edition = "2021"
 
 lsys-core = { path = "../lsys-core" }
 lsys-logger = { path = "../lsys-logger" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
-sqlx = { version = "~0.6.3", features = [
+sqlx = { version = "~0.8.0", features = [
     "mysql",
     "runtime-tokio-native-tls",
     "offline",
