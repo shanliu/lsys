@@ -25,7 +25,7 @@ redis = { version = "~0.23", features = [
     "aio",
 ] }
 
-sqlx = { version = "~0.6.3", features = [
+sqlx = { version = "~0.8.0", features = [
     "mysql",
     "runtime-tokio-native-tls",
     "offline",
