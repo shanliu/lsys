@@ -6,7 +6,7 @@ use actix_web::dev::{JsonBody, Payload};
 use actix_web::FromRequest;
 use actix_web::HttpRequest;
 use futures_util::future::{FutureExt, LocalBoxFuture};
-use lsys_web::JsonData;
+use lsys_web:: common::JsonData;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use tracing::debug;

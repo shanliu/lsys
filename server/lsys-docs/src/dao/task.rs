@@ -1,14 +1,12 @@
+use lsys_core::db::{Insert, ModelTableName, SqlExpr, Update, WhereOption};
 use lsys_core::{
     fluent_message, now_time, IntoFluentMessage, LocalExecType, MsgSendBody, RemoteNotify,
     RemoteTask, ReplyWait,
 };
+use lsys_core::{model_option_set, sql_format};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::{MySql, Pool};
-use sqlx_model::{
-    model_option_set, sql_array_str, sql_format, Insert, ModelTableName, Select, Update,
-    WhereOption,
-};
 use tokio::{
     fs::{self, remove_dir_all},
     sync::{
@@ -27,7 +25,7 @@ use crate::{
         DocLogsModel, DocLogsModelRef,
     },
 };
-use sqlx_model::SqlQuote;
+use lsys_core::db::SqlQuote;
 use std::{env, format, path::Path, sync::Arc, time::Duration};
 
 use super::{git::git_download, CloneError, CloneResult, GitDocResult};
@@ -67,7 +65,7 @@ impl GitTask {
         db: Pool<MySql>,
         remote_notify: Arc<RemoteNotify>,
         task_size: Option<usize>,
-        save_dir: String,
+        save_dir: &str,
     ) -> Self {
         let task_size = task_size.unwrap_or_else(num_cpus::get);
         let (tx, rx) = mpsc::channel::<()>(task_size);
@@ -79,7 +77,7 @@ impl GitTask {
             rx: Mutex::new(Some(rx)),
             task_size,
             task_ing: Arc::new(Mutex::new(vec![])),
-            save_dir,
+            save_dir: save_dir.to_string(),
         }
     }
     /// 通知发送模块进行发送操作
@@ -121,7 +119,7 @@ impl GitTask {
                 match run_res {
                     Err(err) => {
                         let status = DocGitCloneStatus::Fail as i8;
-                        let change = sqlx_model::model_option_set!(DocGitCloneModelRef, {
+                        let change = lsys_core::model_option_set!(DocGitCloneModelRef, {
                             finish_time: finish_time,
                             status:status
                         });
@@ -168,7 +166,7 @@ impl GitTask {
                     //写doc_clone doc_build doc_logs 数据
                     Ok(_) => {
                         let status = DocGitCloneStatus::Cloned as i8;
-                        let change = sqlx_model::model_option_set!(DocGitCloneModelRef, {
+                        let change = lsys_core::model_option_set!(DocGitCloneModelRef, {
                             finish_time: finish_time,
                             status:status
                         });
@@ -219,7 +217,7 @@ impl GitTask {
                         *bad_task_res -= 1;
                         let finish_time: u64 = now_time().unwrap_or_default();
                         let status = DocGitCloneStatus::Fail as i8;
-                        let change = sqlx_model::model_option_set!(DocGitCloneModelRef, {
+                        let change = lsys_core::model_option_set!(DocGitCloneModelRef, {
                             finish_time: finish_time,
                             status:status
                         });
@@ -291,9 +289,14 @@ impl GitTask {
         git_tag: DocGitTagModel,
         run_size: &mut usize,
     ) -> bool {
-        let res = Select::type_new::<DocGitModel>()
-            .fetch_one_by_scalar_pk::<DocGitModel, _, _>(git_tag.doc_git_id, db)
-            .await;
+        let res = sqlx::query_as::<_, DocGitModel>(&sql_format!(
+            "select * from {} where id={}",
+            DocGitModel::table_name(),
+            git_tag.doc_git_id
+        ))
+        .fetch_one(db)
+        .await;
+
         let git_data = match res {
             Ok(data) => data,
             Err(err) => {
@@ -524,7 +527,6 @@ impl GitTask {
                                     .lock()
                                     .await
                                     .iter()
-                                    //todo ????
                                     .filter(|e| e.0 > start_id)
                                     .map(|e| e.0)
                                     .collect::<Vec<_>>();
@@ -532,26 +534,27 @@ impl GitTask {
                                     .unwrap_or_default()
                                     .to_string_lossy()
                                     .to_string();
-
-                                let git_res = Select::type_new::<DocGitTagModel>()
-                                    .fetch_all_by_where::<DocGitTagModel, _>(
-                                        &WhereOption::Where(sql_format!(
-                                            " id >{} and
+                                let git_res = sqlx::query_as::<_, DocGitTagModel>(&sql_format!(
+                                    "select * from {} where id >{} and
                                                 id not in (select doc_tag_id from {} where 
                                                     host={} and status in ({},{})) {} 
                                                     order by id asc limit {} ",
-                                            start_id,
-                                            DocGitCloneModel::table_name(),
-                                            hostname,
-                                            //'已克隆,克隆失败'
-                                            DocGitCloneStatus::Cloned,
-                                            DocGitCloneStatus::Fail,
-                                            sql_array_str!("and id not in  ({}) ", ing_id),
-                                            max_size
-                                        )),
-                                        &self.db,
-                                    )
-                                    .await;
+                                    DocGitTagModel::table_name(),
+                                    start_id,
+                                    DocGitCloneModel::table_name(),
+                                    hostname,
+                                    //'已克隆,克隆失败'
+                                    DocGitCloneStatus::Cloned,
+                                    DocGitCloneStatus::Fail,
+                                    if !ing_id.is_empty() {
+                                        SqlExpr(sql_format!("and id not in  ({}) ", ing_id))
+                                    } else {
+                                        SqlExpr("".to_string())
+                                    },
+                                    max_size
+                                ))
+                                .fetch_all(&self.db)
+                                .await;
 
                                 let git_data = match git_res {
                                     Ok(res) => res,
@@ -661,22 +664,20 @@ impl GitTask {
     }
     pub async fn remote_delete_clone(
         &self,
-        clone_id: &u64,
+        clone_id: u64,
         host: &str,
-        timeout: &u64,
+        timeout: u64,
     ) -> GitDocResult<()> {
         if let Err(err) = self
             .remote_notify
             .call(
                 REMOTE_NOTIFY_TYPE_DOC_TASK,
-                DocAction::Del {
-                    clone_id: clone_id.to_owned(),
-                },
-                Some(host.to_owned()),
+                DocAction::Del { clone_id },
+                Some(host),
                 LocalExecType::LocalExec,
                 Some(ReplyWait {
                     max_node: 1,
-                    timeout: timeout.to_owned(),
+                    timeout,
                 }),
             )
             .await
@@ -722,7 +723,7 @@ impl GitTask {
     pub async fn delete_clone(&self, clone_id: &u64) -> GitDocResult<()> {
         let finish_time = now_time().unwrap_or_default();
         let status = DocGitCloneStatus::Delete as i8;
-        let change = sqlx_model::model_option_set!(DocGitCloneModelRef, {
+        let change = lsys_core::model_option_set!(DocGitCloneModelRef, {
             finish_time: finish_time,
             status:status
         });

@@ -5,8 +5,10 @@ use std::str::FromStr;
 
 pub type QueryGet = Vec<(String, String)>;
 pub trait QueryGetTrait {
+    #[allow(unused)]
     fn get_string(&self, key: &str) -> Result<String>;
     /// get request get param and parse
+    #[allow(unused)]
     fn get_parse<T>(&self, key: &str) -> Result<T>
     where
         T: FromStr,

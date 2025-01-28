@@ -4,7 +4,7 @@ use std::{
 };
 
 use async_trait::async_trait;
-use lsys_core::{fluent_message, now_time, IntoFluentMessage};
+use lsys_core::{db::WhereOption, fluent_message, now_time, IntoFluentMessage};
 
 use crate::{
     dao::{
@@ -17,14 +17,15 @@ use crate::{
         SenderSmsBodyStatus, SenderSmsMessageModel, SenderSmsMessageStatus, SenderTplConfigModel,
     },
 };
+use lsys_core::db::{ModelTableName, SqlExpr, Update};
+use lsys_core::sql_format;
 use lsys_core::{TaskAcquisition, TaskData, TaskExecutor, TaskItem, TaskRecord};
 use lsys_setting::model::SettingModel;
 use sqlx::{MySql, Pool};
-use sqlx_model::{sql_format, ModelTableName, SqlExpr, Update};
 use tracing::warn;
 
 use super::SmsRecord;
-use sqlx_model::SqlQuote;
+use lsys_core::db::SqlQuote;
 
 pub struct SmsTaskItem {
     pub sms: SenderSmsBodyModel,
@@ -129,12 +130,12 @@ impl SmsTaskAcquisition {
     }
     async fn send_task_body_finish(&self, item_id: u64) {
         let finish_time = now_time().unwrap_or_default();
-        let change = sqlx_model::model_option_set!(SenderSmsBodyModelRef,{
+        let change = lsys_core::model_option_set!(SenderSmsBodyModelRef,{
             status:SenderSmsBodyStatus::Finish as i8,
             finish_time:finish_time
         });
         if let Err(err) = Update::<MySql, SenderSmsBodyModel, _>::new(change)
-            .execute_by_scalar_pk(item_id, &self.db)
+            .execute_by_where(&WhereOption::Where(sql_format!("id={}", item_id)), &self.db)
             .await
         {
             warn!("sms change finish status fail{}", err)
@@ -294,9 +295,10 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
             .fetch_all(&self.db)
             .await
         {
+            let err_str = error.to_string();
             let log_data = id_items
                 .into_iter()
-                .map(|e| (e, SenderLogStatus::Fail, error.to_string()))
+                .map(|e| (e, SenderLogStatus::Fail, err_str.as_str()))
                 .collect::<Vec<_>>();
             self.message_logs
                 .add_exec_log(
@@ -324,7 +326,11 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
                         .msg_notify(&item.sms.reply_host, res_item.id, Ok(true))
                         .await;
 
-                    log_data.push((res_item.id, SenderLogStatus::Succ, res_item.send_id.clone()));
+                    log_data.push((
+                        res_item.id,
+                        SenderLogStatus::Succ,
+                        res_item.send_id.as_str(),
+                    ));
                     let ntime = now_time().unwrap_or_default();
                     sql_format!(
                         r#"UPDATE {}
@@ -345,7 +351,11 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
                         .msg_notify(&item.sms.reply_host, res_item.id, Ok(false))
                         .await;
 
-                    log_data.push((res_item.id, SenderLogStatus::Succ, res_item.send_id.clone()));
+                    log_data.push((
+                        res_item.id,
+                        SenderLogStatus::Succ,
+                        res_item.send_id.as_str(),
+                    ));
                     let ntime = now_time().unwrap_or_default();
                     sql_format!(
                         r#"UPDATE {}
@@ -364,7 +374,7 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
                     log_data.push((
                         res_item.id,
                         SenderLogStatus::Fail,
-                        res_item.message.to_string(),
+                        res_item.message.as_str(),
                     ));
                     if retry {
                         sql_format!(
@@ -471,11 +481,11 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
             warn!("change finish status fail{}", err);
             return;
         };
-
+        let err_str = error.to_string();
         let log_data = record
             .data
             .iter()
-            .map(|e| (e.id, SenderLogStatus::Fail, error.to_string()))
+            .map(|e| (e.id, SenderLogStatus::Fail, err_str.as_str()))
             .collect::<Vec<_>>();
         self.message_logs
             .add_exec_log(&item.app_id(), &log_data, &setting.setting_key)

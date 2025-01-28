@@ -1,11 +1,11 @@
 #![allow(dead_code)]
+use actix_http::header::{HeaderName, HeaderValue};
 use actix_utils::future::{ready, Ready};
 use actix_web::{
     dev::{Service, ServiceRequest, ServiceResponse, Transform},
     Error,
 };
 use futures_util::ready;
-use reqwest::header::{HeaderName, HeaderValue};
 use std::{
     future::Future,
     marker::PhantomData,

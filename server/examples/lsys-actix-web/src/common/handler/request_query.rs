@@ -5,11 +5,11 @@ use actix_web::{dev::Payload, web::Data, FromRequest, HttpRequest};
 
 use lsys_core::RequestEnv;
 use lsys_web::{
-    dao::{RequestDao, WebDao},
-    JsonData,
+    common::{JsonData, RequestDao},
+    dao::WebDao,
 };
 
-use reqwest::header::{self, HeaderValue};
+use actix_http::header::{self, HeaderValue};
 
 use super::ResponseJson;
 
@@ -17,7 +17,7 @@ use super::ResponseJson;
 
 pub struct ReqQuery {
     pub inner: RequestDao,
-    pub req: HttpRequest,
+    // pub req: HttpRequest,
 }
 
 impl Deref for ReqQuery {
@@ -60,17 +60,25 @@ impl FromRequest for ReqQuery {
                     .realip_remote_addr()
                     .unwrap_or_default()
                     .to_owned();
+                let device_id = req
+                    .headers()
+                    .get("X-Device-ID")
+                    .unwrap_or(&HeaderValue::from_static(""))
+                    .to_str()
+                    .unwrap_or_default()
+                    .to_owned();
                 ok(Self {
                     inner: RequestDao::new(
                         app_dao.clone().into_inner(),
                         RequestEnv::new(
-                            Some(user_lang),
-                            Some(ip),
-                            Some(request_id),
-                            Some(user_agent),
+                            Some(&user_lang),
+                            Some(&ip),
+                            Some(&request_id),
+                            Some(&user_agent),
+                            Some(&device_id),
                         ),
                     ),
-                    req: req.to_owned(),
+                    // req: req.to_owned(),
                 })
             }
             None => err(JsonData::message_error("not find webdao").into()),

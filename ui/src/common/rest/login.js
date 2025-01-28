@@ -57,6 +57,36 @@ export async function nameLogin(login_type, param, config) {
     return restResult(response)
 }
 
+export async function appCodeLogin(param, config) {
+    const { client_id, login_code, captcha_key, captcha_code } = param;
+    var param = {
+        client_id: client_id,
+        login_code: login_code,
+    };
+    var errors = {};
+    if (typeof param.client_id !== "string" || param.client_id.length < 1) {
+        errors.info = "非法应用";
+    }
+    if (typeof param.login_code !== "string" || param.login_code.length < 10) {
+        errors.info = "非法登录";
+    }
+    if (typeof captcha_key == "string" && captcha_key.length > 0) {
+        if (typeof captcha_code !== "string" || captcha_code.length < 1) {
+            errors.captcha = "请输入图片验证码";
+        } else {
+            param.captcha = {
+                code: captcha_code,
+                key: captcha_key,
+            };
+        }
+    }
+    if (Object.keys(errors).length) {
+        return failResult(errors);
+    }
+    let response = await LoginRest().post("login/app-code", param, config);
+    return restResult(response)
+}
+
 export async function matchNameLogin(param, config) {
     const { name } = param
     var login_type;

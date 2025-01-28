@@ -1,17 +1,17 @@
 use serde::{Deserialize, Serialize};
-use sqlx_model::sqlx_model_status;
+use lsys_core::db::lsys_model_status;
 
 //发送模块公共常量 -start
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-#[sqlx_model_status(field_type = "i8")]
+#[lsys_model_status(field_type = "i8")]
 pub enum SenderType {
     Smser = 1,  //短信
     Mailer = 2, //邮件
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-#[sqlx_model_status(field_type = "i8")]
+#[lsys_model_status(field_type = "i8")]
 pub enum SenderLogType {
     Init = 1,   //新增完成
     Send = 2,   //发送日志
@@ -19,14 +19,14 @@ pub enum SenderLogType {
 }
 
 // #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-// #[sqlx_model_status(field_type = "i8")]
+// #[lsys_model_status(field_type = "i8")]
 // pub enum SenderCancelStatus {
 //     Init = 1,     //待发送
 //     IsCancel = 4, //取消
 // }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-#[sqlx_model_status(field_type = "i8")]
+#[lsys_model_status(field_type = "i8")]
 pub enum SenderLogStatus {
     Succ = 2, //成功
     Fail = 3, //失败
@@ -37,21 +37,21 @@ pub enum SenderLogStatus {
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-#[sqlx_model_status(field_type = "i8")]
+#[lsys_model_status(field_type = "i8")]
 pub enum SenderConfigStatus {
     Enable = 1,
     Delete = 2,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-#[sqlx_model_status(field_type = "i8")]
+#[lsys_model_status(field_type = "i8")]
 pub enum SenderTplBodyStatus {
     Enable = 1,
     Delete = 2,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-#[sqlx_model_status(field_type = "i8")]
+#[lsys_model_status(field_type = "i8")]
 pub enum SenderTplConfigStatus {
     Enable = 1,
     Delete = 2,
@@ -62,7 +62,7 @@ pub enum SenderTplConfigStatus {
 //短信公共常量-start
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-#[sqlx_model_status(field_type = "i8")]
+#[lsys_model_status(field_type = "i8")]
 pub enum SenderSmsConfigType {
     Close = 1,     // 关闭功能
     Limit = 2,     //频率限制
@@ -90,14 +90,14 @@ pub enum SenderSmsConfigData {
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-#[sqlx_model_status(field_type = "i8")]
+#[lsys_model_status(field_type = "i8")]
 pub enum SenderSmsBodyStatus {
     Init = 1,   //待发送
     Finish = 2, //已发送
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-#[sqlx_model_status(field_type = "i8")]
+#[lsys_model_status(field_type = "i8")]
 pub enum SenderSmsMessageStatus {
     Init = 1,       //待发送
     IsSend = 2,     //已发送
@@ -111,7 +111,7 @@ pub enum SenderSmsMessageStatus {
 //aliyun 短信相关常量 -start
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-#[sqlx_model_status(field_type = "i8")]
+#[lsys_model_status(field_type = "i8")]
 pub enum SenderSmsAliyunStatus {
     Enable = 1,
     Delete = 2,
@@ -121,7 +121,7 @@ pub enum SenderSmsAliyunStatus {
 //邮件公共常量-start
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-#[sqlx_model_status(field_type = "i8")]
+#[lsys_model_status(field_type = "i8")]
 pub enum SenderMailConfigType {
     Close = 1,        //关闭功能
     Limit = 2,        //频率限制
@@ -151,14 +151,14 @@ pub enum SenderMailConfigData {
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-#[sqlx_model_status(field_type = "i8")]
+#[lsys_model_status(field_type = "i8")]
 pub enum SenderMailBodyStatus {
     Init = 1,   //待发送
     Finish = 2, //已发送
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-#[sqlx_model_status(field_type = "i8")]
+#[lsys_model_status(field_type = "i8")]
 pub enum SenderMailMessageStatus {
     Init = 1,       //待发送
     IsSend = 2,     //已发送
@@ -172,7 +172,7 @@ pub enum SenderMailMessageStatus {
 //smtp 邮件相关常量
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-#[sqlx_model_status(field_type = "i8")]
+#[lsys_model_status(field_type = "i8")]
 pub enum SenderMailSmtpStatus {
     Enable = 1,
     Delete = 2,

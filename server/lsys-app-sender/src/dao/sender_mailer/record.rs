@@ -12,19 +12,20 @@ use crate::{
 };
 use lsys_core::{fluent_message, now_time, LimitParam, PageParam, RequestEnv};
 
-use lsys_logger::dao::ChangeLogger;
+use lsys_core::db::{Insert, ModelTableName, SqlExpr, Update};
+use lsys_core::sql_format;
+use lsys_logger::dao::ChangeLoggerDao;
 use serde_json::Value;
 use sqlx::{MySql, Pool};
-use sqlx_model::{sql_format, Insert, ModelTableName, SqlExpr, Update};
 
-use sqlx_model::SqlQuote;
+use lsys_core::db::SqlQuote;
 
 //短信任务记录
 
 pub struct MailRecord {
     db: Pool<sqlx::MySql>,
     config: Arc<SenderConfig>,
-    logger: Arc<ChangeLogger>,
+    logger: Arc<ChangeLoggerDao>,
     message_logs: Arc<MessageLogs>,
     message_reader: Arc<MessageReader<SenderMailBodyModel, SenderMailMessageModel>>,
 }
@@ -33,7 +34,7 @@ impl MailRecord {
     pub fn new(
         db: Pool<sqlx::MySql>,
         config: Arc<SenderConfig>,
-        logger: Arc<ChangeLogger>,
+        logger: Arc<ChangeLoggerDao>,
         message_logs: Arc<MessageLogs>,
         message_reader: Arc<MessageReader<SenderMailBodyModel, SenderMailMessageModel>>,
     ) -> Self {
@@ -54,13 +55,13 @@ impl MailRecord {
     #[allow(clippy::too_many_arguments)]
     pub async fn message_count(
         &self,
-        user_id: &Option<u64>,
-        app_id: &Option<u64>,
-        tpl_id: &Option<String>,
-        body_id: &Option<u64>,
-        msg_snid: &Option<u64>,
-        status: &Option<SenderMailMessageStatus>,
-        to_mail: &Option<String>,
+        user_id: Option<u64>,
+        app_id: Option<u64>,
+        tpl_id: Option<&str>,
+        body_id: Option<u64>,
+        msg_snid: Option<u64>,
+        status: Option<SenderMailMessageStatus>,
+        to_mail: Option<&str>,
     ) -> SenderResult<i64> {
         let mut sqlwhere = vec![];
         if let Some(s) = to_mail {
@@ -77,13 +78,13 @@ impl MailRecord {
             sqlwhere.push(sql_format!("b.tpl_id={} ", t));
         }
         if let Some(s) = status {
-            sqlwhere.push(sql_format!("m.status={} ", *s));
+            sqlwhere.push(sql_format!("m.status={} ", s));
         }
         if let Some(s) = body_id {
-            sqlwhere.push(sql_format!("m.sender_body_id={} ", *s));
+            sqlwhere.push(sql_format!("m.sender_body_id={} ", s));
         }
         if let Some(s) = msg_snid {
-            sqlwhere.push(sql_format!("m.snid={} ", *s));
+            sqlwhere.push(sql_format!("m.snid={} ", s));
         }
         let sql = sql_format!(
             "select count(*) as total from {} as m join {} as b on m.sender_body_id=b.id {}",
@@ -102,14 +103,14 @@ impl MailRecord {
     #[allow(clippy::too_many_arguments)]
     pub async fn message_list(
         &self,
-        user_id: &Option<u64>,
-        app_id: &Option<u64>,
-        tpl_id: &Option<String>,
-        body_id: &Option<u64>,
-        msg_snid: &Option<u64>,
-        status: &Option<SenderMailMessageStatus>,
-        to_mail: &Option<String>,
-        limit: &Option<LimitParam>,
+        user_id: Option<u64>,
+        app_id: Option<u64>,
+        tpl_id: Option<&str>,
+        body_id: Option<u64>,
+        msg_snid: Option<u64>,
+        status: Option<SenderMailMessageStatus>,
+        to_mail: Option<&str>,
+        limit: Option<&LimitParam>,
     ) -> SenderResult<(
         Vec<(SenderMailMessageModel, Option<SenderMailBodyModel>)>,
         Option<u64>,
@@ -129,13 +130,13 @@ impl MailRecord {
             sqlwhere.push(sql_format!("b.tpl_id={} ", t));
         }
         if let Some(s) = status {
-            sqlwhere.push(sql_format!("m.status={} ", *s));
+            sqlwhere.push(sql_format!("m.status={} ", s));
         }
         if let Some(s) = body_id {
-            sqlwhere.push(sql_format!("m.sender_body_id={} ", *s));
+            sqlwhere.push(sql_format!("m.sender_body_id={} ", s));
         }
         if let Some(s) = msg_snid {
-            sqlwhere.push(sql_format!("m.snid={} ", *s));
+            sqlwhere.push(sql_format!("m.snid={} ", s));
         }
         let where_sql = if let Some(page) = limit {
             let page_where = page.where_sql(
@@ -213,13 +214,13 @@ impl MailRecord {
 
         Ok((out_data, next.map(|t| t.id)))
     }
-    pub async fn message_log_count(&self, message_id: &u64) -> SenderResult<i64> {
+    pub async fn message_log_count(&self, message_id: u64) -> SenderResult<i64> {
         self.message_logs.list_count(message_id).await
     }
     pub async fn message_log_list(
         &self,
-        message_id: &u64,
-        page: &Option<PageParam>,
+        message_id: u64,
+        page: Option<&PageParam>,
     ) -> SenderResult<Vec<SenderLogModel>> {
         self.message_logs.list_data(message_id, page).await
     }
@@ -233,15 +234,15 @@ impl MailRecord {
         tpl_id: &str,
         tpl_var: &str,
         expected_time: &u64,
-        reply_mail: &Option<String>,
-        user_id: &Option<u64>,
+        reply_mail: Option<&str>,
+        user_id: Option<u64>,
         max_try_num: &u8,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<(u64, Vec<(u64, &'t str)>)> //(body id,<msg id,mail>)
     {
         let user_id = user_id.unwrap_or_default();
         let add_time = now_time().unwrap_or_default();
-        let reply_mail = reply_mail.to_owned().unwrap_or_default();
+        let reply_mail = reply_mail.unwrap_or_default().to_string();
         let tpl_id = tpl_id.to_owned();
         let tpl_var = tpl_var.to_owned();
         let mut max_try_num = max_try_num.to_owned();
@@ -279,7 +280,7 @@ impl MailRecord {
         }
 
         let body_id = Insert::<sqlx::MySql, SenderMailBodyModel, _>::new(
-            sqlx_model::model_option_set!(SenderMailBodyModelRef,{
+            lsys_core::model_option_set!(SenderMailBodyModelRef,{
                 request_id:reqid,
                 app_id:*app_id,
                 tpl_id:tpl_id,
@@ -294,12 +295,12 @@ impl MailRecord {
                 reply_host:reply_host,
             }),
         )
-        .execute(&mut tran)
+        .execute(&mut *tran)
         .await?
         .last_insert_id();
         let res_data = "".to_string();
         for (aid, _, to) in add_data.iter() {
-            idata.push(sqlx_model::model_option_set!(SenderMailMessageModelRef,{
+            idata.push(lsys_core::model_option_set!(SenderMailMessageModelRef,{
                 snid:aid,
                 sender_body_id:body_id,
                 to_mail:to,
@@ -312,7 +313,7 @@ impl MailRecord {
         }
 
         Insert::<sqlx::MySql, SenderMailMessageModel, _>::new_vec(idata)
-            .execute(&mut tran)
+            .execute(&mut *tran)
             .await?;
 
         tran.commit().await?;
@@ -322,12 +323,12 @@ impl MailRecord {
                 &LogMessage {
                     action: "add",
                     body_id,
+                    user_id,
                     message_id: None,
                     sender_type: SenderType::Mailer as i8,
                 },
-                &Some(body_id),
-                &Some(user_id),
-                &Some(user_id),
+                Some(body_id),
+                Some(user_id),
                 None,
                 env_data,
             )
@@ -349,7 +350,7 @@ impl MailRecord {
             return Ok(());
         }
         if SenderMailMessageStatus::Init.eq(message.status) {
-            let change = sqlx_model::model_option_set!(SenderMailMessageModelRef, {
+            let change = lsys_core::model_option_set!(SenderMailMessageModelRef, {
                 status: SenderMailMessageStatus::IsCancel as i8
             });
             Update::<MySql, SenderMailMessageModel, _>::new(change)
@@ -363,10 +364,10 @@ impl MailRecord {
                         body_id: body.id,
                         message_id: Some(message.id),
                         sender_type: SenderType::Mailer as i8,
+                        user_id: *user_id,
                     },
-                    &Some(message.id),
-                    &Some(*user_id),
-                    &Some(*user_id),
+                    Some(message.id),
+                    Some(*user_id),
                     None,
                     env_data,
                 )
@@ -390,7 +391,7 @@ impl MailRecord {
         app_id: Option<u64>,
         priority: i8,
         config_type: SenderMailConfigType,
-        config_data: Value,
+        config_data: &Value,
         user_id: u64,
         add_user_id: u64,
         env_data: Option<&RequestEnv>,
@@ -472,7 +473,7 @@ impl MailRecord {
                 app_id,
                 priority,
                 config_type as i8,
-                config_data,
+                &config_data,
                 user_id,
                 add_user_id,
                 env_data,

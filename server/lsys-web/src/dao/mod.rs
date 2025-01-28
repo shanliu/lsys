@@ -1,67 +1,77 @@
-use ip2location::LocationDB;
-use lsys_app::dao::{AppConfig, AppDao};
-use lsys_app_barcode::dao::{BarCodeCacheClear, BarCodeConfig, BarCodeDao};
-use lsys_app_notify::dao::Notify;
-use lsys_app_sender::dao::MessageTpls;
-use lsys_core::cache::{LocalCacheClear, LocalCacheClearItem};
-use lsys_core::{AppCore, AppCoreError, FluentMgr, IntoFluentMessage, RemoteNotify};
+mod app_area;
+mod app_captcha;
+mod app_notify;
+mod app_sender;
+mod web_access;
+mod web_account;
+mod web_app;
+mod web_rbac;
+mod web_setting;
+
+#[cfg(feature = "barcode")]
+mod app_barcode;
 #[cfg(feature = "docs")]
-use lsys_docs::dao::{DocsDao, GitRemoteTask};
-#[cfg(feature = "area")]
-use lsys_lib_area::AreaDao;
-use lsys_logger::dao::ChangeLogger;
-use lsys_rbac::dao::rbac::RbacLocalCacheClear;
-use lsys_rbac::dao::{RbacConfig, RbacDao, SystemRole};
-use lsys_setting::dao::{Setting, SettingConfig};
-use lsys_user::dao::account::cache::UserAccountLocalCacheClear;
-use lsys_user::dao::account::UserAccountConfig;
-use lsys_user::dao::auth::{UserAuthConfig, UserAuthRedisStore};
-use lsys_user::dao::{UserConfig, UserDao};
+mod web_doc;
+
+pub use app_captcha::*;
+pub use app_notify::*;
+pub use app_sender::*;
+use lsys_app_barcode::dao::BarCodeLocalCacheClear;
+use lsys_user::dao::login::{
+    EmailCodeLoginReload, EmailLoginReload, ExternalLoginReload, MobileCodeLoginReload,
+    MobileLoginReload, NameLoginReload,
+};
+pub use web_access::*;
+pub use web_account::*;
+pub use web_app::*;
+pub use web_rbac::*;
+pub use web_setting::*;
+
+pub use app_area::*;
+#[cfg(feature = "barcode")]
+pub use app_barcode::*;
+#[cfg(feature = "docs")]
+pub use web_doc::*;
+
+use lsys_access::dao::{AccessConfig, AccessDao, AccessLocalCacheClear};
+use lsys_app::dao::{AppConfig, AppDao};
+use lsys_app_notify::dao::NotifyDao;
+use lsys_core::cache::{LocalCacheClear, LocalCacheClearItem};
+use lsys_core::{AppCore, AppCoreError, FluentMgr, RemoteNotify};
+
+use lsys_logger::dao::ChangeLoggerDao;
+use lsys_rbac::dao::RbacLocalCacheClear;
+use lsys_rbac::dao::{RbacConfig, RbacDao};
+use lsys_setting::dao::{SettingConfig, SettingDao};
+use lsys_user::dao::{
+    AccountConfig, AccountDao, AccountLocalCacheClear, AuthAccount, AuthAccountConfig, AuthCode,
+    UserAuthDao, UserDao,
+};
 
 use sqlx::{MySql, Pool};
 use std::sync::Arc;
 use std::vec;
 use tera::Tera;
-use tokio::sync::Mutex;
-use tracing::{error, info, warn};
-
-pub mod app;
-mod captcha;
-mod mailer;
-mod request;
-pub mod site_config;
-mod smser;
-pub mod user;
-use self::app::WebApp;
-use self::captcha::WebAppCaptcha;
-use self::mailer::WebAppMailer;
-
-pub use self::captcha::CaptchaKey;
-pub use self::request::*;
-pub use self::site_config::*;
-use self::smser::WebAppSmser;
-use self::user::WebUser;
 
 pub struct WebDao {
-    pub user: Arc<WebUser>,
-    #[cfg(feature = "docs")]
-    pub docs: Arc<DocsDao>,
-    pub app: Arc<WebApp>,
-    pub captcha: Arc<WebAppCaptcha>,
-    pub sender_mailer: Arc<WebAppMailer>,
-    pub sender_smser: Arc<WebAppSmser>,
-    pub sender_tpl: Arc<MessageTpls>,
     pub app_core: Arc<AppCore>,
     pub db: Pool<MySql>,
     pub redis: deadpool_redis::Pool,
     pub tera: Arc<Tera>,
-    pub setting: Arc<Setting>,
-    pub logger: Arc<ChangeLogger>,
-    #[cfg(feature = "area")]
-    pub area: Option<Arc<AreaDao>>,
-    pub notify: Arc<Notify>,
     pub fluent: FluentMgr,
-    pub barcode: Arc<BarCodeDao>,
+    pub web_access: Arc<WebAccess>,
+    pub web_user: Arc<WebUser>,
+    pub web_rbac: Arc<WebRbac>,
+    pub web_setting: Arc<WebSetting>,
+    pub web_app: Arc<WebApp>,
+    pub app_captcha: Arc<AppCaptcha>,
+    pub app_notify: Arc<AppNotify>,
+    pub app_sender: Arc<AppSender>,
+    pub app_area: Arc<AppArea>,
+    #[cfg(feature = "docs")]
+    pub web_doc: Arc<WebDoc>,
+    #[cfg(feature = "barcode")]
+    pub app_barcode: Arc<AppBarCode>,
 }
 
 impl WebDao {
@@ -78,16 +88,40 @@ impl WebDao {
             redis.clone(),
         )?);
 
-        let use_cache=app_core.config.find(None).get_bool("use_cache").unwrap_or(false);
+        let use_cache = app_core
+            .config
+            .find(None)
+            .get_bool("use_cache")
+            .unwrap_or(false);
+        let change_logger = Arc::new(ChangeLoggerDao::new(db.clone()));
 
-        let change_logger = Arc::new(ChangeLogger::new(db.clone()));
         let setting = Arc::new(
-            Setting::new(
+            SettingDao::new(
                 //app_core.clone(),
                 db.clone(),
                 remote_notify.clone(),
                 SettingConfig::new(use_cache),
                 change_logger.clone(),
+            )
+            .await?,
+        );
+
+        let access_dao = Arc::new(AccessDao::new(
+            db.clone(),
+            redis.clone(),
+            remote_notify.clone(),
+            AccessConfig::new(use_cache),
+        ));
+
+        let app_dao = Arc::new(
+            AppDao::new(
+                access_dao.clone(),
+                db.clone(),
+                remote_notify.clone(),
+                AppConfig::new(use_cache),
+                change_logger.clone(),
+                120,           //oauth Code有效期120秒
+                7 * 24 * 3600, //TOKEN有效期7天
             )
             .await?,
         );
@@ -100,204 +134,135 @@ impl WebDao {
             .iter()
             .filter_map(|e| e.to_owned().into_int().map(|e| e as u64).ok())
             .collect::<Vec<u64>>();
-        let rbac_dao = Arc::new(
-            RbacDao::new(
-                db.clone(),
-                remote_notify.clone(),
-                RbacConfig::new(use_cache),
-                change_logger.clone(),
-                Some(Box::new(SystemRole::new(true, root_user_id)))
-            )
-            .await?,
-        );
-        let login_store = UserAuthRedisStore::new(redis.clone());
-        let mut login_config = UserAuthConfig::new(use_cache);
-
-        match app_core.config_path(app_core.config.find(None), "ip_city_db") {
-            Ok(ip_db_path) => match LocationDB::from_file(&ip_db_path) {
-                Ok(city_db) => {
-                    login_config.ip_db = Some(Mutex::new(ip2location::DB::LocationDb(city_db)));
-                }
-                Err(err) => {
-                    warn!("read ip city db error[{}]:{:?} [download url: https://github.com/shanliu/lsys/releases/tag/v0.0.0 IP2LOCATION-LITE-DB11.BIN.zip (unzip) ]", ip_db_path.display(), err)
-                }
-            },
-            Err(err) => {
-                info!(
-                    "ip city db not config:{}",
-                    err.to_fluent_message().default_format()
-                );
-            }
-        }
-        #[cfg(feature = "docs")]
-        let docs = {
-            let doc_dir = app_core.config.find(None).get_string("doc_git_dir").ok();
-            let docs = Arc::new(
-                DocsDao::new(
-                    // app_core.clone(),
+        let web_rbac = Arc::new(WebRbac::new(
+            Arc::new(
+                RbacDao::new(
                     db.clone(),
                     remote_notify.clone(),
+                    RbacConfig::new(root_user_id, use_cache),
                     change_logger.clone(),
-                    None,
-                    doc_dir,
                 )
-                .await,
-            );
-            // 文档后台同步任务
-            let task_docs = docs.task.clone();
-            tokio::spawn(async move {
-                task_docs.dispatch().await;
-            });
-            docs
-        };
+                .await?,
+            ),
+        ));
 
-        let user_dao = Arc::new(
-            UserDao::new(
-                db.clone(),
-                redis.clone(),
-                setting.single.clone(),
-                change_logger.clone(),
-                remote_notify.clone(),
-                login_store,
-                UserConfig{
-                    account:UserAccountConfig::new(use_cache),
-                    oauth:login_config,
-                }
-            )
-            .await?,
-        );
-        let app_dao = Arc::new(
-            AppDao::new(
-                user_dao.user_account.clone(),
-                db.clone(),
-                redis.clone(),
-                remote_notify.clone(),
-                AppConfig::new(use_cache),
-                change_logger.clone(),
-                7 * 24 * 3600, //TOKEN有效期7天
-            )
-            .await?,
-        );
-        let apps = WebApp::new(app_dao).await;
-        let mailer = Arc::new(WebAppMailer::new(
+        let app_area = Arc::new(AppArea::new(app_core.clone())?);
+
+        let app_captcha = Arc::new(AppCaptcha::new(redis.clone()));
+
+        let notify = Arc::new(NotifyDao::new(
+            redis.clone(),
+            db.clone(),
+            app_core.clone(),
+            app_dao.app.clone(),
+            change_logger.clone(),
+            None,
+            None,
+            None,
+            true,
+        ));
+
+        let app_sender = Arc::new(AppSender::new(
             app_core.clone(),
             redis.clone(),
             db.clone(),
+            notify.clone(),
             setting.clone(),
             change_logger.clone(),
-            None,
-            300, //任务最大执行时间
-            true,
-        ));
-        // 邮件发送任务
-        let mail_task = mailer.clone();
-        tokio::spawn(async move {
-            if let Err(err) = mail_task.task_sender().await {
-                error!(
-                    "mailer task error:{}",
-                    err.to_fluent_message().default_format()
-                )
-            }
-        });
-        let mail_wait = mailer.clone();
-        tokio::spawn(async move { mail_wait.task_wait().await });
+        )?);
 
-        let notify = Arc::new(Notify::new(
-            redis.clone(),
+        let account_dao = Arc::new(AccountDao::new(
             db.clone(),
-            app_core.clone(),
-            apps.app_dao.app.clone(),
+            redis.clone(),
+            setting.single.clone(),
+            access_dao.clone(),
+            AccountConfig::new(use_cache),
+            remote_notify.clone(),
             change_logger.clone(),
-            None,
-            None,
-            None,
-            true,
         ));
+        let auth_dao = Arc::new(UserAuthDao::new(
+            access_dao.clone(),
+            vec![
+                Box::new(NameLoginReload::new(account_dao.clone())),
+                Box::new(EmailLoginReload::new(account_dao.clone())),
+                Box::new(EmailCodeLoginReload::new(account_dao.clone())),
+                Box::new(MobileCodeLoginReload::new(account_dao.clone())),
+                Box::new(MobileLoginReload::new(account_dao.clone())),
+                Box::new(ExternalLoginReload::new(account_dao.clone())),
+            ],
+        ));
+        let auth_account_dao = Arc::new(AuthAccount::new(
+            account_dao.account_login_hostory.clone(),
+            access_dao.clone(),
+            AuthAccountConfig::new(None),
+        ));
+        let auth_code_dao = Arc::new(AuthCode::new(access_dao.clone(), app_core.clone()));
+
+        let user_dao = Arc::new(UserDao::new(
+            account_dao.clone(),
+            auth_dao,
+            auth_account_dao,
+            auth_code_dao,
+        ));
+
+        let web_user = Arc::new(WebUser::new(
+            db.clone(),
+            user_dao,
+            app_sender.clone(),
+            app_captcha.clone(),
+            app_area.clone(),
+            change_logger.clone(),
+        ));
+
+        let web_app = Arc::new(WebApp::new(app_dao.clone()).await);
+
+        let web_access = Arc::new(WebAccess::new(access_dao.clone()));
+
+        let web_setting = Arc::new(WebSetting::new(setting.clone(), db.clone()));
 
         //启动回调任务
-        let notify_task = notify.clone();
-        tokio::spawn(async move {
-            if let Err(err) = notify_task.task().await {
-                error!(
-                    "smser sender error:{}",
-                    err.to_fluent_message().default_format()
-                )
-            }
-        });
-
-        let web_smser = Arc::new(WebAppSmser::new(
-            app_core.clone(),
-            redis.clone(),
-            db.clone(),
-            setting.clone(),
-            change_logger.clone(),
-            notify.clone(),
-            None,
-            None,
-            300, //任务最大执行时间
-            true,
-        ));
-        //启动短信发送任务
-        let sms_task_sender = web_smser.clone();
-        tokio::spawn(async move {
-            if let Err(err) = sms_task_sender.task_sender().await {
-                error!(
-                    "smser sender error:{}",
-                    err.to_fluent_message().default_format()
-                )
-            }
-        });
-        //启动短信状态查询任务
-        let sms_task_notify = web_smser.clone();
-        tokio::spawn(async move {
-            if let Err(err) = sms_task_notify.task_status_query().await {
-                error!(
-                    "smser notify error:{}",
-                    err.to_fluent_message().default_format()
-                )
-            }
-        });
-
-        let sms_task_wait = web_smser.clone();
-        tokio::spawn(async move { sms_task_wait.task_wait().await });
-
-        let captcha = Arc::new(WebAppCaptcha::new(redis.clone()));
-
-        let sender_tpl = Arc::new(MessageTpls::new(db.clone(), change_logger.clone()));
+        let app_notify = Arc::new(AppNotify::new(notify.clone()));
 
         // 本地lua缓存清理 local cache
         let mut cache_item: Vec<Box<dyn LocalCacheClearItem + Sync + Send + 'static>> = vec![];
 
-        #[cfg(feature = "barcode")]
-        let barcode={
-            let create_max = app_core.config.find(None).get_int("barcode_create_max").map(|e|if e>0{e as u64}else{0}).unwrap_or(0);
-            let barcode=Arc::new(BarCodeDao::new(
+        for item in RbacLocalCacheClear::new_clears(&web_rbac.rbac_dao) {
+            cache_item.push(Box::new(item))
+        }
+        for item in AccountLocalCacheClear::new_clears(&account_dao) {
+            cache_item.push(Box::new(item))
+        }
+        for item in AccessLocalCacheClear::new_clears(&access_dao) {
+            cache_item.push(Box::new(item))
+        }
+
+        #[cfg(feature = "docs")]
+        let web_doc = Arc::new(
+            WebDoc::new(
+                app_core.clone(),
                 db.clone(),
                 remote_notify.clone(),
-                BarCodeConfig::new(create_max,use_cache),
                 change_logger.clone(),
-                
+            )
+            .await,
+        );
+
+        #[cfg(feature = "barcode")]
+        let app_barcode = {
+            let barcode = Arc::new(AppBarCode::new(
+                app_core.clone(),
+                db.clone(),
+                remote_notify.clone(),
+                change_logger.clone(),
             ));
-            for item in BarCodeCacheClear::new_clears(&barcode) {
+            for item in BarCodeLocalCacheClear::new_clears(&barcode.barcode_dao) {
                 cache_item.push(Box::new(item))
             }
             barcode
         };
-        
-        
-        for item in RbacLocalCacheClear::new_clears(&rbac_dao.rbac) {
-            cache_item.push(Box::new(item))
-        }
-        for item in UserAccountLocalCacheClear::new_clears(&user_dao.user_account) {
-            cache_item.push(Box::new(item))
-        }
-        let local_cache_clear = LocalCacheClear::new(cache_item);
-        remote_notify.push_run(Box::new(local_cache_clear)).await;
 
-        //git文档 远程同步任务
-        #[cfg(feature = "docs")]
         remote_notify
-            .push_run(Box::new(GitRemoteTask::new(docs.task.clone())))
+            .push_run(Box::new(LocalCacheClear::new(cache_item)))
             .await;
 
         //远程任务后台任务
@@ -306,98 +271,25 @@ impl WebDao {
             remote_notify.listen().await;
         });
 
-        //行政区域地址库数据初始化
-        #[cfg(feature = "area")]
-        let area = match app_core.config_path(app_core.config.find(None), "area_code_db") {
-            Ok(code_path) => {
-                match lsys_lib_area::CsvAreaCodeData::from_inner_path(code_path.clone(), true) {
-                    Ok(tmp) => {
-
-                        let  geo_data =  match app_core.config_path(app_core.config.find(None), "area_geo_db") {
-                            Ok(geo_path) => {
-                                match lsys_lib_area::CsvAreaGeoData::from_inner_path(geo_path.clone(), true){
-                                    Ok(geo_obj) => {
-                                        Some(geo_obj)
-                                    }
-                                    Err(err) => {
-                                        warn!("area code db load fail on {} [download url: https://github.com/shanliu/lsys/releases/tag/v0.0.0 2023-7-area-geo.csv.gz ],error detail:{}",geo_path.display(),err);
-                                        None
-                                    }
-                                }
-                            }
-                            Err(err) => {
-                                info!("area geo config load fail :{}", err.to_fluent_message().default_format());
-                                None
-                            }
-                        };
-                        let data = lsys_lib_area::CsvAreaData::new(tmp, geo_data);
-                        let area_index_dir = app_core
-                            .config_path(app_core.config.find(None), "area_index_dir")
-                            .unwrap_or_else(|_| {
-                                let mut index_dir = std::env::temp_dir();
-                                index_dir.push("lsys_area_cache");
-                                index_dir
-                            });
-                        let area_index_size = app_core
-                            .config
-                            .find(None)
-                            .get_int("area_index_size")
-                            .map(|e| e.abs() as usize)
-                            .ok();
-                        let area_store =
-                            lsys_lib_area::AreaStoreDisk::new(area_index_dir, area_index_size)
-                                .map_err(|e| AppCoreError::System(e.to_string()))?;
-                        Some(Arc::new(
-                            AreaDao::from_csv_disk(data, area_store)
-                                .map_err(|e| AppCoreError::System(e.to_string()))?,
-                        ))
-                    }
-                    Err(err) => {
-                        warn!("area code db load fail on {} [download url: https://github.com/shanliu/lsys/releases/tag/v0.0.0 2023-7-area-code.csv.gz ],error detail:{}",code_path.display(),err);
-                        None
-                    }
-                }
-            }
-            Err(err) => {
-                error!(
-                    "load area config fail:{}",
-                    err.to_fluent_message().default_format()
-                );
-                None
-            }
-        };
-       
-
-
         Ok(WebDao {
-            #[cfg(feature = "docs")]
-            docs,
-            fluent,
-            user: Arc::new(WebUser::new(
-                user_dao,
-                rbac_dao,
-                db.clone(),
-                redis.clone(),
-                captcha.clone(),
-                app_core.clone(),
-                setting.clone(),
-            )),
-            app: Arc::new(apps),
-            captcha,
-            sender_mailer: mailer,
-            sender_smser: web_smser,
-            sender_tpl,
             app_core,
             db,
             redis,
             tera,
-            setting,
-            logger: change_logger,
-            #[cfg(feature = "area")]
-            area,
-            notify,
+            fluent,
+            web_access,
+            web_user,
+            web_rbac,
+            web_setting,
+            web_app,
+            app_captcha,
+            app_notify,
+            app_sender,
+            app_area,
+            #[cfg(feature = "docs")]
+            web_doc,
             #[cfg(feature = "barcode")]
-            barcode,
+            app_barcode,
         })
     }
     pub fn bind_addr(&self) -> String {

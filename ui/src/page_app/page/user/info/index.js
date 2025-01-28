@@ -18,12 +18,14 @@ export default function UserInfoIndexPage() {
     const getData = () => {
         return loginData({
             "info": true,
-            "auth": true
+            "auth": true,
+            "user": true
         }).then((data) => {
             if (!data.status) return data;
             return {
                 info: data.user_data.info,
-                auth: data.auth_data,
+                user: data.user_data.user,
+                //auth: data.auth_data,
                 status: true
             }
         })
@@ -57,7 +59,7 @@ export default function UserInfoIndexPage() {
                 setPageData({
                     ...pageData,
                     init: true,
-                    nikename: data.auth.user_nickname,
+                    nikename: data.user.nickname,
                     gender: data.info?.gender,
                     birthday: birthday,
                 })

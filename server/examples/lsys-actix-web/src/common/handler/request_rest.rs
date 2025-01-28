@@ -11,13 +11,12 @@ use std::{pin::Pin, rc::Rc};
 use actix_web::web::{Data, JsonBody};
 use actix_web::{dev::Payload, Error, FromRequest, HttpRequest};
 use futures_util::{ready, FutureExt};
-use lsys_app::dao::session::RestAuthTokenData;
 
+use lsys_app::dao::RestAuthToken;
 use lsys_core::RequestEnv;
-use lsys_user::dao::auth::SessionToken;
 
-use lsys_web::dao::{RequestDao, RequestSessionToken, WebDao};
-use lsys_web::JsonData;
+use lsys_web::common::{JsonData, RequestDao, RequestSessionToken};
+use lsys_web::dao::WebDao;
 
 use serde::{de::DeserializeOwned, Deserialize};
 use serde_json::Value;
@@ -100,8 +99,7 @@ async fn check_sign(
                     }
                     Ok(())
                 }
-                Err(err) => Err(JsonData::message_error(err)
-                    .set_sub_code("rest_sign_key")),
+                Err(err) => Err(JsonData::message_error(err).set_sub_code("rest_sign_key")),
             }
         }
         None => Ok(()),
@@ -149,9 +147,10 @@ impl Future for RestExtractFut {
                                             Ok(RestQuery::new(
                                                 app_dao.into_inner(),
                                                 RequestEnv::new(
-                                                    rfc.request_lang.clone(),
-                                                    rfc.request_ip.clone(),
-                                                    rfc.request_id.clone(),
+                                                    rfc.request_lang.as_deref(),
+                                                    rfc.request_ip.as_deref(),
+                                                    rfc.request_id.as_deref(),
+                                                    None,
                                                     None,
                                                 ),
                                                 rfc,
@@ -180,9 +179,10 @@ impl Future for RestExtractFut {
                                     Ok(RestQuery::new(
                                         app_dao.into_inner(),
                                         RequestEnv::new(
-                                            rfc.request_lang.clone(),
-                                            rfc.request_ip.clone(),
-                                            rfc.request_id.clone(),
+                                            rfc.request_lang.as_deref(),
+                                            rfc.request_ip.as_deref(),
+                                            rfc.request_id.as_deref(),
+                                            None,
                                             None,
                                         ),
                                         rfc,
@@ -249,28 +249,27 @@ impl Deref for RestQuery {
     }
 }
 
-impl RequestSessionToken<RestAuthTokenData> for RestQuery {
-    fn get_user_token(&self) -> SessionToken<RestAuthTokenData> {
+impl RequestSessionToken<RestAuthToken> for RestQuery {
+    fn get_user_token(&self) -> RestAuthToken {
         self.rfc
             .token
             .as_ref()
             .map(|e| {
                 if e.is_empty() {
-                    SessionToken::default()
+                    RestAuthToken::default()
                 } else {
-                    let data = RestAuthTokenData {
+                    RestAuthToken {
                         client_id: self.rfc.app_id.clone(),
                         token: e.to_owned(),
-                    };
-                    SessionToken::from_data(Some(data))
+                    }
                 }
             })
             .unwrap_or_default()
     }
-    fn is_refresh(&self, _token: &SessionToken<RestAuthTokenData>) -> bool {
+    fn is_refresh(&self, _token: &RestAuthToken) -> bool {
         false
     }
-    fn refresh_user_token(&self, _token: &SessionToken<RestAuthTokenData>) {
+    fn refresh_user_token(&self, _token: &RestAuthToken) {
         unimplemented!("not support refresh");
     }
 }

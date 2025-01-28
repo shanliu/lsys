@@ -1,7 +1,5 @@
-mod common;
 #[macro_use]
+mod macros;
+pub mod common;
 pub mod dao;
 pub mod handler;
-pub mod module;
-
-pub use common::*;

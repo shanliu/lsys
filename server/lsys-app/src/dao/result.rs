@@ -1,3 +1,4 @@
+use lsys_access::dao::AccessError;
 use lsys_core::{fluent_message, FluentMessage, IntoFluentMessage};
 use std::{
     // error::Error,
@@ -7,82 +8,92 @@ use std::{
 
 use deadpool_redis::PoolError;
 
-use lsys_user::dao::account::UserAccountError;
-
 use redis::RedisError;
 
 #[derive(Debug)]
-pub enum AppsError {
+pub enum AppError {
+    AppNotFound(String),
+    AppBadStatus,
+    AppBadFeature(String,Vec<String>),
+    AppOAuthClientBadConfig(String),
     Sqlx(sqlx::Error),
     System(FluentMessage),
     Redis(RedisError),
     RedisPool(PoolError),
-    ScopeNotFind(FluentMessage),
-    UserAccount(UserAccountError),
+    ScopeBad(Vec<String>),
+    Access(AccessError),
     SerdeJson(serde_json::Error),
 }
-impl AppsError {
-    pub fn app_not_found(&self)->bool{
-        matches!(self, Self::Sqlx(sqlx::Error::RowNotFound))
-    }
-}
-impl IntoFluentMessage for AppsError {
+impl IntoFluentMessage for AppError {
     fn to_fluent_message(&self) -> FluentMessage {
         match self {
-            AppsError::System(e) => e.to_owned(),
-            AppsError::ScopeNotFind(e) => e.to_owned(),
-            AppsError::Sqlx(e) => {
+            AppError::System(e) => e.to_owned(),
+            AppError::ScopeBad(data) => fluent_message!("app-bad-scope",{"scope":data.join(",")}),
+            AppError::Sqlx(e) => {
                 fluent_message!("sqlx-error", e)
             }
-            AppsError::Redis(e) => {
+            AppError::Redis(e) => {
                 fluent_message!("redis-error", e)
             }
-            AppsError::RedisPool(e) => {
+            AppError::RedisPool(e) => {
                 fluent_message!("redis-error", e)
             }
-            AppsError::UserAccount(e) => e.to_fluent_message(),
-            AppsError::SerdeJson(e) => {
+            AppError::Access(e) => e.to_fluent_message(),
+            AppError::SerdeJson(e) => {
                 fluent_message!("serde-json-error", e)
+            }
+            AppError::AppNotFound(name) => {
+                fluent_message!("app-not-found",{
+                    "name":name
+                })
+            }
+            AppError::AppBadStatus => {
+                fluent_message!("app-bad-status")
+            }
+            AppError::AppBadFeature(name,feature)=> {
+                fluent_message!("app-feature-not-support",{
+                    "name":name,
+                    "feature":feature.join(","),
+                })
+            }
+            AppError::AppOAuthClientBadConfig(name) => {
+                fluent_message!("app-config-bad",{
+                    "name":name
+                })
             }
         }
     }
 }
 
-// impl Display for AppsError {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-//         write!(f, "{:?}", self)
-//     }
-// }
-
-impl From<sqlx::Error> for AppsError {
+impl From<sqlx::Error> for AppError {
     fn from(err: sqlx::Error) -> Self {
-        AppsError::Sqlx(err)
+        AppError::Sqlx(err)
     }
 }
-impl From<RedisError> for AppsError {
+impl From<RedisError> for AppError {
     fn from(err: RedisError) -> Self {
-        AppsError::Redis(err)
+        AppError::Redis(err)
     }
 }
-impl From<PoolError> for AppsError {
+impl From<PoolError> for AppError {
     fn from(err: PoolError) -> Self {
-        AppsError::RedisPool(err)
+        AppError::RedisPool(err)
     }
 }
-impl From<SystemTimeError> for AppsError {
+impl From<SystemTimeError> for AppError {
     fn from(err: SystemTimeError) -> Self {
-        AppsError::System(fluent_message!("time-error", err))
+        AppError::System(fluent_message!("time-error", err))
     }
 }
-impl From<serde_json::Error> for AppsError {
+impl From<serde_json::Error> for AppError {
     fn from(err: serde_json::Error) -> Self {
-        AppsError::SerdeJson(err)
+        AppError::SerdeJson(err)
     }
 }
-impl From<UserAccountError> for AppsError {
-    fn from(err: UserAccountError) -> Self {
-        AppsError::UserAccount(err)
+impl From<AccessError> for AppError {
+    fn from(err: AccessError) -> Self {
+        AppError::Access(err)
     }
 }
 
-pub type AppsResult<T> = Result<T, AppsError>;
+pub type AppResult<T> = Result<T, AppError>;

@@ -103,24 +103,24 @@ impl SenderHwYunConfig {
     //列出有效的huawei短信配置
     pub async fn list_config(
         &self,
-        config_ids: &Option<Vec<u64>>,
+        config_ids: Option<&[u64]>,
     ) -> SenderResult<Vec<SettingData<HwYunConfig>>> {
         let data = self
             .setting
-            .list_data::<HwYunConfig>(&None, config_ids, &None)
+            .list_data::<HwYunConfig>(None, config_ids, None)
             .await?;
         Ok(data)
     }
     //删除指定的huawei短信配置
     pub async fn del_config(
         &self,
-        id: &u64,
-        user_id: &u64,
+        id: u64,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         Ok(self
             .setting
-            .del::<HwYunConfig>(&None, id, user_id, None, env_data)
+            .del::<HwYunConfig>(None, id, user_id, None, env_data)
             .await?)
     }
     //编辑指定的huawei短信配置
@@ -128,17 +128,17 @@ impl SenderHwYunConfig {
     #[allow(clippy::too_many_arguments)]
     pub async fn edit_config(
         &self,
-        id: &u64,
+        id: u64,
         name: &str,
         url: &str,
         app_key: &str,
         app_secret: &str,
-        branch_limit: &u16,
+        branch_limit: u16,
         callback_key: &str,
-        user_id: &u64,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
-        if *branch_limit > HwSms::branch_limit() {
+        if branch_limit > HwSms::branch_limit() {
             return Err(SenderError::System(
                 fluent_message!("sms-config-branch-error",
                     {"max":HwSms::branch_limit()}
@@ -153,14 +153,14 @@ impl SenderHwYunConfig {
         Ok(self
             .setting
             .edit(
-                &None,
+                None,
                 id,
                 name,
                 &HwYunConfig {
                     url: url.to_owned(),
                     app_key: app_key.to_owned(),
                     app_secret: app_secret.to_owned(),
-                    branch_limit: branch_limit.to_owned(),
+                    branch_limit,
                     callback_key: callback_key.to_owned(),
                 },
                 user_id,
@@ -177,12 +177,12 @@ impl SenderHwYunConfig {
         url: &str,
         app_key: &str,
         app_secret: &str,
-        branch_limit: &u16,
+        branch_limit: u16,
         callback_key: &str,
-        user_id: &u64,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
-        if *branch_limit > HwSms::branch_limit() {
+        if branch_limit > HwSms::branch_limit() {
             return Err(SenderError::System(
                 fluent_message!("sms-config-branch-error",
                     {"max":HwSms::branch_limit()}
@@ -197,13 +197,13 @@ impl SenderHwYunConfig {
         Ok(self
             .setting
             .add(
-                &None,
+                None,
                 name,
                 &HwYunConfig {
                     url: url.to_owned(),
                     app_key: app_key.to_owned(),
                     app_secret: app_secret.to_owned(),
-                    branch_limit: branch_limit.to_owned(),
+                    branch_limit,
                     callback_key: callback_key.to_owned(),
                 },
                 user_id,
@@ -217,18 +217,18 @@ impl SenderHwYunConfig {
     pub async fn add_app_config(
         &self,
         name: &str,
-        app_id: &u64,
-        setting_id: &u64,
+        app_id: u64,
+        setting_id: u64,
         tpl_id: &str,
         signature: &str,
         sender: &str,
         template_id: &str,
         template_map: &str,
-        user_id: &u64,
-        add_user_id: &u64,
+        user_id: u64,
+        add_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
-        self.setting.load::<HwYunConfig>(&None, setting_id).await?;
+        self.setting.load::<HwYunConfig>(None, setting_id).await?;
         self.tpl_config
             .add_config(
                 name,
@@ -345,7 +345,7 @@ impl<'t> HwYunNotify<'t> {
 }
 
 #[async_trait]
-impl<'t> SmsSendNotifyParse for HwYunNotify<'t> {
+impl SmsSendNotifyParse for HwYunNotify<'_> {
     type T = HwYunConfig;
     fn notify_items(
         &self,

@@ -15,7 +15,7 @@ use tracing_appender::non_blocking::WorkerGuard;
 use std::path::{Path, PathBuf};
 use tera::Tera;
 
-use sqlx_model::TableName;
+use crate::db::TableName;
 
 use crate::{Config, ConfigError};
 
@@ -188,7 +188,7 @@ impl AppCore {
         let mut option = <DB::Connection as Connection>::Options::from_str(&database_url)
             .map_err(|e| AppCoreError::System(e.to_string()))?;
         let level = LevelFilter::from_str(&database_level).unwrap_or(LevelFilter::Trace);
-        option.log_statements(level);
+        option = option.log_statements(level);
         let poll = PoolOptions::<DB>::new()
             .max_connections(database_max)
             .connect_with(option)

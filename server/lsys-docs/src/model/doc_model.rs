@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
-use sqlx_model::sqlx_model;
+use lsys_core::db::lsys_model;
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(db_type = "MySql", table_name = "doc_git")]
+#[lsys_model(db_type = "MySql", table_name = "doc_git")]
 pub struct DocGitModel {
     #[sqlx(default)]
     pub id: u32,
@@ -34,7 +34,7 @@ pub struct DocGitModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(db_type = "MySql", table_name = "doc_tag")]
+#[lsys_model(db_type = "MySql", table_name = "doc_tag")]
 pub struct DocGitTagModel {
     #[sqlx(default)]
     pub id: u64,
@@ -69,7 +69,7 @@ pub struct DocGitTagModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(db_type = "MySql", table_name = "doc_clone")]
+#[lsys_model(db_type = "MySql", table_name = "doc_clone")]
 pub struct DocGitCloneModel {
     #[sqlx(default)]
     pub id: u64,
@@ -97,7 +97,7 @@ pub struct DocGitCloneModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(db_type = "MySql", table_name = "doc_menu")]
+#[lsys_model(db_type = "MySql", table_name = "doc_menu")]
 pub struct DocMenuModel {
     #[sqlx(default)]
     pub id: u64,
@@ -128,7 +128,7 @@ pub struct DocMenuModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(db_type = "MySql", table_name = "doc_logs")]
+#[lsys_model(db_type = "MySql", table_name = "doc_logs")]
 pub struct DocLogsModel {
     #[sqlx(default)]
     pub id: u64,

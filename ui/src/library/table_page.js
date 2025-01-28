@@ -100,10 +100,7 @@ export function BaseTableBody(props) {
         }
     </TableBody>
 }
-BaseTableBody.defaultProps = {
-    loading: false,
-    rows: []
-};
+
 BaseTableBody.propTypes = {
     columns: PropTypes.array.isRequired,
     loading: PropTypes.bool,
@@ -135,9 +132,7 @@ export function BaseTableBodyRow(props) {
         }
     </TableRow>
 }
-BaseTableBodyRow.defaultProps = {
-    row: {}
-};
+
 BaseTableBodyRow.propTypes = {
     columns: PropTypes.array.isRequired,
     row: PropTypes.object,

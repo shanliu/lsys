@@ -99,24 +99,24 @@ impl SenderCloOpenConfig {
     //列出有效的jd_cloud短信配置
     pub async fn list_config(
         &self,
-        config_ids: &Option<Vec<u64>>,
+        config_ids: Option<&[u64]>,
     ) -> SenderResult<Vec<SettingData<CloOpenConfig>>> {
         let data = self
             .setting
-            .list_data::<CloOpenConfig>(&None, config_ids, &None)
+            .list_data::<CloOpenConfig>(None, config_ids, None)
             .await?;
         Ok(data)
     }
     //删除指定的jd_cloud短信配置
     pub async fn del_config(
         &self,
-        id: &u64,
-        user_id: &u64,
+        id: u64,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         Ok(self
             .setting
-            .del::<CloOpenConfig>(&None, id, user_id, None, env_data)
+            .del::<CloOpenConfig>(None, id, user_id, None, env_data)
             .await?)
     }
     //编辑指定的jd_cloud短信配置
@@ -124,17 +124,17 @@ impl SenderCloOpenConfig {
     #[allow(clippy::too_many_arguments)]
     pub async fn edit_config(
         &self,
-        id: &u64,
+        id: u64,
         name: &str,
         account_sid: &str,
         account_token: &str,
         sms_app_id: &str,
-        branch_limit: &u16,
+        branch_limit: u16,
         callback_key: &str,
-        user_id: &u64,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
-        if *branch_limit > CloOpenSms::branch_limit() {
+        if branch_limit > CloOpenSms::branch_limit() {
             return Err(SenderError::System(
                 fluent_message!("sms-config-branch-error",
                     {"max":CloOpenSms::branch_limit()}
@@ -144,13 +144,13 @@ impl SenderCloOpenConfig {
         Ok(self
             .setting
             .edit(
-                &None,
+                None,
                 id,
                 name,
                 &CloOpenConfig {
                     account_sid: account_sid.to_owned(),
                     account_token: account_token.to_owned(),
-                    branch_limit: branch_limit.to_owned(),
+                    branch_limit,
                     sms_app_id: sms_app_id.to_owned(),
                     callback_key: callback_key.to_owned(),
                 },
@@ -168,21 +168,21 @@ impl SenderCloOpenConfig {
         account_sid: &str,
         account_token: &str,
         sms_app_id: &str,
-        branch_limit: &u16,
+        branch_limit: u16,
         callback_key: &str,
-        user_id: &u64,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         Ok(self
             .setting
             .add(
-                &None,
+                None,
                 name,
                 &CloOpenConfig {
                     account_sid: account_sid.to_owned(),
                     account_token: account_token.to_owned(),
                     sms_app_id: sms_app_id.to_owned(),
-                    branch_limit: branch_limit.to_owned(),
+                    branch_limit,
                     callback_key: callback_key.to_owned(),
                 },
                 user_id,
@@ -196,18 +196,16 @@ impl SenderCloOpenConfig {
     pub async fn add_app_config(
         &self,
         name: &str,
-        app_id: &u64,
-        setting_id: &u64,
+        app_id: u64,
+        setting_id: u64,
         tpl_id: &str,
         template_id: &str,
         template_map: &str,
-        user_id: &u64,
-        add_user_id: &u64,
+        user_id: u64,
+        add_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
-        self.setting
-            .load::<CloOpenConfig>(&None, setting_id)
-            .await?;
+        self.setting.load::<CloOpenConfig>(None, setting_id).await?;
         self.tpl_config
             .add_config(
                 name,
@@ -318,7 +316,7 @@ impl<'t> CloOpenNotify<'t> {
 }
 
 #[async_trait]
-impl<'t> SmsSendNotifyParse for CloOpenNotify<'t> {
+impl SmsSendNotifyParse for CloOpenNotify<'_> {
     type T = CloOpenConfig;
     fn notify_items(
         &self,

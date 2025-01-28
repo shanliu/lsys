@@ -8,28 +8,29 @@ use crate::model::{
 use super::logger::LogAppConfig;
 use super::SenderResult;
 use lsys_core::{now_time, PageParam, RequestEnv};
-use lsys_logger::dao::ChangeLogger;
-use lsys_setting::dao::Setting;
+use lsys_logger::dao::ChangeLoggerDao;
+use lsys_setting::dao::SettingDao;
 use lsys_setting::model::SettingModel;
 use serde::Serialize;
 use serde_json::json;
 use sqlx::Pool;
-use sqlx_model::{sql_format, Insert, ModelTableName, Update};
-use sqlx_model::{Select, SqlQuote};
+use lsys_core::db::SqlQuote;
+use lsys_core::{sql_format};
+use lsys_core::db::{ Insert, ModelTableName, SqlExpr, Update};
 //发送模板跟发送接口配置
 
 pub struct SenderTplConfig {
     db: Pool<sqlx::MySql>,
-    setting: Arc<Setting>,
+    setting: Arc<SettingDao>,
     send_type: SenderType,
-    logger: Arc<ChangeLogger>,
+    logger: Arc<ChangeLoggerDao>,
 }
 
 impl SenderTplConfig {
     pub fn new(
         db: Pool<sqlx::MySql>,
-        setting: Arc<Setting>,
-        logger: Arc<ChangeLogger>,
+        setting: Arc<SettingDao>,
+        logger: Arc<ChangeLoggerDao>,
         send_type: SenderType,
     ) -> Self {
         Self {
@@ -40,25 +41,24 @@ impl SenderTplConfig {
         }
     }
     pub async fn find_by_id(&self, id: &u64) -> SenderResult<SenderTplConfigModel> {
-        let data = sqlx_model::Select::type_new::<SenderTplConfigModel>()
-            .fetch_one_by_where::<SenderTplConfigModel, _>(
-                &sqlx_model::WhereOption::Where(sqlx_model::sql_format!(
-                    "sender_type={} and id={} and status={}",
-                    self.send_type,
-                    id,
-                    SenderTplConfigStatus::Enable as i8
-                )),
-                &self.db,
-            )
-            .await?;
+        let data = sqlx::query_as::<_, SenderTplConfigModel>(&sql_format!(
+            "select * from {} where sender_type={} and id={} and status={}",
+            SenderTplConfigModel::table_name(),
+            self.send_type,
+            id,
+            SenderTplConfigStatus::Enable as i8
+        ))
+        .fetch_one(&self.db)
+        .await?;
+
         Ok(data)
     }
     pub async fn count_config(
         &self,
-        id: &Option<u64>,
-        user_id: &Option<u64>,
-        app_id: &Option<u64>,
-        tpl_id: &Option<String>,
+        id: Option<u64>,
+        user_id: Option<u64>,
+        app_id: Option<u64>,
+        tpl_id: Option<&str>,
     ) -> SenderResult<i64> {
         let mut sqlwhere = vec![sql_format!(
             "sender_type={} and status ={}",
@@ -90,11 +90,11 @@ impl SenderTplConfig {
 
     pub async fn list_config(
         &self,
-        id: &Option<u64>,
-        user_id: &Option<u64>,
-        app_id: &Option<u64>,
-        tpl_id: &Option<String>,
-        page: &Option<PageParam>,
+        id: Option<u64>,
+        user_id: Option<u64>,
+        app_id: Option<u64>,
+        tpl_id: Option<&str>,
+        page: Option<&PageParam>,
     ) -> SenderResult<Vec<(SenderTplConfigModel, Option<SettingModel>)>> {
         let mut sqlwhere = vec![sql_format!(
             "sender_type={} and status ={}",
@@ -117,12 +117,15 @@ impl SenderTplConfig {
         if let Some(pdat) = page {
             sql += format!(" limit {} offset {}", pdat.limit, pdat.offset).as_str();
         }
-        let res = Select::type_new::<SenderTplConfigModel>()
-            .fetch_all_by_where::<SenderTplConfigModel, _>(
-                &sqlx_model::WhereOption::Where(sql),
-                &self.db,
-            )
-            .await?;
+
+        let res = sqlx::query_as::<_, SenderTplConfigModel>(&sql_format!(
+            "select * from {} where {}",
+            SenderTplConfigModel::table_name(),
+            SqlExpr(sql)
+        ))
+        .fetch_all(&self.db)
+        .await?;
+
         if res.is_empty() {
             return Ok(vec![]);
         }
@@ -154,12 +157,12 @@ impl SenderTplConfig {
     pub async fn add_config<C: Serialize>(
         &self,
         name: &str,
-        app_id: &u64,
-        setting_id: &u64,
+        app_id: u64,
+        setting_id: u64,
         tpl_id: &str,
         config_data: C,
-        user_id: &u64,
-        add_user_id: &u64,
+        user_id: u64,
+        add_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         let name = name.to_owned();
@@ -167,7 +170,7 @@ impl SenderTplConfig {
         let config_data = json!(config_data).to_string();
         let time = now_time().unwrap_or_default();
         let send_type = self.send_type as i8;
-        let add = sqlx_model::model_option_set!(SenderTplConfigModelRef,{
+        let add = lsys_core::model_option_set!(SenderTplConfigModelRef,{
             name:name,
             sender_type:send_type,
             app_id:app_id,
@@ -191,14 +194,14 @@ impl SenderTplConfig {
                     action: "add",
                     sender_type: self.send_type as u8,
                     app_id: app_id.to_owned(),
-                    name,
-                    tpl_id,
-                    setting_id: *setting_id,
-                    config_data,
+                    name: &name,
+                    tpl_id: &tpl_id,
+                    user_id,
+                    setting_id,
+                    config_data: &config_data,
                 },
-                &Some(id),
-                &Some(user_id.to_owned()),
-                &Some(add_user_id.to_owned()),
+                Some(id),
+                Some(add_user_id.to_owned()),
                 None,
                 env_data,
             )
@@ -209,11 +212,11 @@ impl SenderTplConfig {
     pub async fn del_config(
         &self,
         config: &SenderTplConfigModel,
-        user_id: &u64,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         let time = now_time().unwrap_or_default();
-        let change = sqlx_model::model_option_set!(SenderTplConfigModelRef,{
+        let change = lsys_core::model_option_set!(SenderTplConfigModelRef,{
             status:SenderTplConfigStatus::Delete as i8,
             change_time:time,
             change_user_id:user_id
@@ -228,14 +231,14 @@ impl SenderTplConfig {
                     action: "del",
                     sender_type: self.send_type as u8,
                     app_id: config.app_id,
-                    name: config.name.to_owned(),
-                    tpl_id: config.tpl_id.to_owned(),
+                    name: config.name.as_str(),
+                    tpl_id: config.tpl_id.as_str(),
+                    user_id: config.change_user_id,
                     setting_id: config.setting_id,
-                    config_data: config.config_data.to_owned(),
+                    config_data: config.config_data.as_str(),
                 },
-                &Some(config.id),
-                &Some(config.change_user_id.to_owned()),
-                &Some(user_id.to_owned()),
+                Some(config.id),
+                Some(user_id.to_owned()),
                 None,
                 env_data,
             )

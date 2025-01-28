@@ -2,15 +2,16 @@ use lsys_logger::dao::ChangeLogData;
 use serde::Serialize;
 
 #[derive(Serialize)]
-pub(crate) struct LogDocInfo {
-    pub action: &'static str,
-    pub name: String,
-    pub url: String,
+pub(crate) struct LogDocInfo<'t> {
+    pub action: &'t str,
+    pub name: &'t str,
+    pub url: &'t str,
     pub max_try: u8,
+    pub user_id: u64,
 }
 
-impl ChangeLogData for LogDocInfo {
-    fn log_type<'t>() -> &'t str {
+impl ChangeLogData for LogDocInfo<'_> {
+    fn log_type() -> &'static str {
         "git-doc"
     }
     fn message(&self) -> String {
@@ -22,16 +23,17 @@ impl ChangeLogData for LogDocInfo {
 }
 
 #[derive(Serialize)]
-pub(crate) struct LogDocTag {
-    pub action: &'static str,
+pub(crate) struct LogDocTag<'t> {
+    pub action: &'t str,
     pub doc_git_id: u32,
-    pub tag: String,
-    pub build_version: String,
-    pub clear_rule: String,
+    pub tag: &'t str,
+    pub build_version: &'t str,
+    pub clear_rule: &'t str,
+    pub user_id: u64,
 }
 
-impl ChangeLogData for LogDocTag {
-    fn log_type<'t>() -> &'t str {
+impl ChangeLogData for LogDocTag<'_> {
+    fn log_type() -> &'static str {
         "git-add-tag"
     }
     fn message(&self) -> String {
@@ -43,15 +45,16 @@ impl ChangeLogData for LogDocTag {
 }
 
 #[derive(Serialize)]
-pub(crate) struct LogDocMenu {
-    pub action: &'static str,
+pub(crate) struct LogDocMenu<'t> {
+    pub action: &'t str,
     pub doc_tag_id: u64,
-    pub menu_path: String,
-    pub menu_check_host: String,
+    pub menu_path: &'t str,
+    pub menu_check_host: &'t str,
+    pub user_id: u64,
 }
 
-impl ChangeLogData for LogDocMenu {
-    fn log_type<'t>() -> &'t str {
+impl ChangeLogData for LogDocMenu<'_> {
+    fn log_type() -> &'static str {
         "git-doc-menu"
     }
     fn message(&self) -> String {
@@ -63,16 +66,15 @@ impl ChangeLogData for LogDocMenu {
 }
 
 #[derive(Serialize)]
-pub(crate) struct LogDocClone {
-    pub action: &'static str,
-
+pub(crate) struct LogDocClone<'t> {
+    pub action: &'t str,
     pub doc_tag_id: u64,
-
-    pub host: String,
+    pub host: &'t str,
+    pub user_id: u64,
 }
 
-impl ChangeLogData for LogDocClone {
-    fn log_type<'t>() -> &'t str {
+impl ChangeLogData for LogDocClone<'_> {
+    fn log_type() -> &'static str {
         "git-clone"
     }
     fn message(&self) -> String {

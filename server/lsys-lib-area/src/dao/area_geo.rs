@@ -1,6 +1,7 @@
 use crate::{AreaError, AreaResult};
 use geo::coordinate_position::{CoordPos, CoordinatePosition};
-use geo::{coord, BoundingRect, Centroid, Coord, GeodesicDistance, LineString, Point, Polygon};
+use geo::Distance;
+use geo::{coord, BoundingRect, Centroid, Coord, Geodesic, LineString, Point, Polygon};
 use rayon::prelude::*;
 // 初始化
 
@@ -90,7 +91,7 @@ impl<AP: AreaGeoProvider> AreaGeo<AP> {
                 if let Some(rc_tmp) = detail.bounding_rect() {
                     let top_left = std::convert::Into::<Point>::into(rc_tmp.min());
                     let bottom_right = std::convert::Into::<Point>::into(rc_tmp.max());
-                    let longest_distance = top_left.geodesic_distance(&bottom_right);
+                    let longest_distance = Geodesic::distance(top_left, bottom_right);
                     if longest_distance > 0.0 && max_distance < longest_distance as u64 {
                         max_distance = longest_distance as u64;
                     }
@@ -137,7 +138,7 @@ impl<AP: AreaGeoProvider> AreaGeo<AP> {
         let mut dit_data = get_data
             .par_iter()
             .flat_map(|(i, code, center)| {
-                let distance = center.geodesic_distance(&point).round() as u64;
+                let distance = Geodesic::distance(*center, point).round() as u64;
                 if distance > max_distance {
                     return None;
                 }

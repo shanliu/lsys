@@ -3,16 +3,18 @@ use std::{ops::Deref, str::FromStr};
 use actix_utils::future::{err, ok, Ready};
 use actix_web::{dev::Payload, web::Data, FromRequest, HttpMessage, HttpRequest};
 
-use lsys_app::dao::session::RestAuthSession;
+use lsys_app::dao::{RestAuthSession, RestAuthToken};
 use lsys_core::{now_time, RequestEnv};
-use lsys_user::dao::auth::{SessionToken, UserAuthSession, UserAuthTokenData};
+use lsys_user::dao::{UserAuthSession, UserAuthToken};
 use lsys_web::{
-    dao::{RequestAuthDao as Request, RequestSessionToken, RestAuthQueryDao},
-    dao::{UserAuthQueryDao, WebDao},
-    JsonData,
+    common::{
+        JsonData, RequestAuthDao as Request, RequestSessionToken, RestAuthQueryDao,
+        UserAuthQueryDao,
+    },
+    dao::WebDao,
 };
 
-use reqwest::header::{self, HeaderValue};
+use actix_http::header::{self, HeaderValue};
 
 use super::{ResponseJson, AUTH_COOKIE_NAME};
 
@@ -58,6 +60,13 @@ impl FromRequest for UserAuthQuery {
                     .to_str()
                     .unwrap_or_default()
                     .to_owned();
+                let device_id = req
+                    .headers()
+                    .get("X-Device-ID")
+                    .unwrap_or(&HeaderValue::from_static(""))
+                    .to_str()
+                    .unwrap_or_default()
+                    .to_owned();
                 let ip = req
                     .connection_info()
                     .realip_remote_addr()
@@ -67,14 +76,15 @@ impl FromRequest for UserAuthQuery {
                     inner: Request::new(
                         app_dao.clone().into_inner(),
                         RequestEnv::new(
-                            Some(user_lang),
-                            Some(ip),
-                            Some(request_id),
-                            Some(user_agent),
+                            Some(&user_lang),
+                            Some(&ip),
+                            Some(&request_id),
+                            Some(&user_agent),
+                            Some(&device_id),
                         ),
                         UserAuthSession::new(
-                            app_dao.user.user_dao.user_auth.clone(),
-                            SessionToken::default(),
+                            app_dao.web_user.user_dao.auth_dao.clone(),
+                            UserAuthToken::default(),
                         ),
                     ),
                     req: req.to_owned(),
@@ -94,32 +104,30 @@ impl<'t> From<&'t UserAuthQuery> for CookieToken<'t> {
         Self { request_dao }
     }
 }
-impl<'t> CookieToken<'t> {
-    pub fn set_token(&self, token: SessionToken<UserAuthTokenData>) {
+impl CookieToken<'_> {
+    pub fn set_token(&self, token: UserAuthToken) {
         self.request_dao
             .req
             .extensions_mut()
-            .insert::<SessionToken<UserAuthTokenData>>(token);
+            .insert::<UserAuthToken>(token);
     }
 }
 
-impl<'t> RequestSessionToken<UserAuthTokenData> for CookieToken<'t> {
-    fn get_user_token(&self) -> SessionToken<UserAuthTokenData> {
+impl RequestSessionToken<UserAuthToken> for CookieToken<'_> {
+    fn get_user_token(&self) -> UserAuthToken {
         if let Some(cookie) = self.request_dao.req.cookie(AUTH_COOKIE_NAME) {
-            SessionToken::<UserAuthTokenData>::from_str(cookie.value()).unwrap_or_default()
+            UserAuthToken::from_str(cookie.value()).unwrap_or_default()
         } else {
-            SessionToken::<UserAuthTokenData>::default()
+            UserAuthToken::default()
         }
     }
-    fn is_refresh(&self, token: &SessionToken<UserAuthTokenData>) -> bool {
-        if token.is_ok() {
-            if let Some(data) = token.data() {
-                return now_time().unwrap_or_default() - 10 > data.time_out;
-            }
+    fn is_refresh(&self, token: &UserAuthToken) -> bool {
+        if !token.token.is_empty() {
+            return now_time().unwrap_or_default() - 30 > token.time_out;
         }
         false
     }
-    fn refresh_user_token(&self, token: &SessionToken<UserAuthTokenData>) {
+    fn refresh_user_token(&self, token: &UserAuthToken) {
         self.set_token(token.to_owned());
     }
 }
@@ -127,7 +135,7 @@ impl<'t> RequestSessionToken<UserAuthTokenData> for CookieToken<'t> {
 //oauth 登陆实现，跟普通登陆实现方式不相同
 pub struct OauthAuthQuery {
     pub inner: RestAuthQueryDao,
-    pub req: HttpRequest,
+    // pub req: HttpRequest,
 }
 
 impl Deref for OauthAuthQuery {
@@ -170,18 +178,29 @@ impl FromRequest for OauthAuthQuery {
                     .realip_remote_addr()
                     .unwrap_or_default()
                     .to_owned();
+                let device_id = req
+                    .headers()
+                    .get("X-Device-ID")
+                    .unwrap_or(&HeaderValue::from_static(""))
+                    .to_str()
+                    .unwrap_or_default()
+                    .to_owned();
                 ok(Self {
                     inner: Request::new(
                         app_dao.clone().into_inner(),
                         RequestEnv::new(
-                            Some(user_lang),
-                            Some(ip),
-                            Some(request_id),
-                            Some(user_agent),
+                            Some(&user_lang),
+                            Some(&ip),
+                            Some(&request_id),
+                            Some(&user_agent),
+                            Some(&device_id),
                         ),
-                        RestAuthSession::new(app_dao.app.app_dao.clone(), SessionToken::default()),
+                        RestAuthSession::new(
+                            app_dao.web_app.app_dao.clone(),
+                            RestAuthToken::default(),
+                        ),
                     ),
-                    req: req.to_owned(),
+                    //  req: req.to_owned(),
                 })
             }
             None => err(JsonData::message_error("not find webdao").into()),

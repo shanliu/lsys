@@ -28,8 +28,8 @@ user-old-passwrod-empty= Please submit the original password.
 
 mail-is-confirm=The mailbox has been confirmed.
 
-email-bad-status=Mailbox does not exist.
-mobile-bad-status=Mobile phone number does not exist.
+email-bad-status=Mailbox {$email} does not exist.
+mobile-bad-status=Mobile phone {$mobile} does not exist.
 
 external-not-support=The login type {$name} is not supported.
 
@@ -42,6 +42,7 @@ client-secret-not-match=Secret does not match.
 
 app-redirect-uri-not-match= Jump domain [redirect_uri] not supported
 app-domain-not-config=Please configure the domain name in the backend.
+app-external-not-support=External account login to internal system is not supported
 reg-mobile-registered=This cell phone number has already been registered.
 
 mobile-bind-other-user=Mobile is bound to another account:{$id}

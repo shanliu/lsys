@@ -1,37 +1,36 @@
 use lsys_core::{now_time, LimitParam, RequestEnv};
 
+use lsys_core::db::{Insert, ModelTableName, SqlExpr};
+use lsys_core::{db_option_executor, model_option_set, sql_format};
 use sqlx::{MySql, Pool, Transaction};
-use sqlx_model::{executor_option, model_option_set, sql_format, Insert, Select};
 use tracing::{debug, warn};
 
 use super::LoggerResult;
 use crate::model::{ChangeLogModel, ChangeLogModelRef};
-use sqlx_model::SqlQuote;
+use lsys_core::db::SqlQuote;
 
 pub trait ChangeLogData {
-    fn log_type<'t>() -> &'t str; //日志类型
+    fn log_type() -> &'static str; //日志类型
     fn message(&self) -> String; //保持时转换显示消息,不在显示时反序列化,防止结构改变时反序列化失败
     fn encode(&self) -> String; //更改是相关数据
 }
 
-pub struct ChangeLogger {
+pub struct ChangeLoggerDao {
     db: Pool<MySql>,
 }
 
-impl ChangeLogger {
+impl ChangeLoggerDao {
     pub fn new(db: Pool<MySql>) -> Self {
         Self { db }
     }
-    pub async fn add<'t, T: ChangeLogData>(
+    pub async fn add<T: ChangeLogData>(
         &self,
         data: &T,
-        source_id: &Option<u64>,
-        user_id: &Option<u64>,
-        add_user_id: &Option<u64>,
-        transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        source_id: Option<u64>,   //相关记录ID
+        add_user_id: Option<u64>, //当前操作用户ID
+        transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
     ) {
-        let user_id = user_id.unwrap_or_default();
         let add_user_id = add_user_id.unwrap_or_default();
         let source_id = source_id.unwrap_or_default();
         let log_data = data.encode();
@@ -75,51 +74,64 @@ impl ChangeLogger {
             .chars()
             .take(254)
             .collect();
+        let device_id = env_data
+            .as_ref()
+            .map(|e| {
+                e.device_id
+                    .as_ref()
+                    .map(|e| e.to_string())
+                    .unwrap_or_default()
+            })
+            .unwrap_or_default()
+            .chars()
+            .take(64)
+            .collect();
 
         let new_data = model_option_set!(ChangeLogModelRef, {
             log_type: log_type,
             message:message,
             log_data:log_data,
-            user_id:user_id,
             source_id:source_id,
             add_user_id:add_user_id,
-            user_ip:user_ip,
+            add_user_ip:user_ip,
             request_id:request_id,
             add_time:time,
+            device_id:device_id,
             request_user_agent:request_user_agent,
         });
-        let res = executor_option!(
+
+        let res = db_option_executor!(
+            db,
             {
                 Insert::<sqlx::MySql, ChangeLogModel, _>::new(new_data)
-                    .execute(db)
+                    .execute(db.as_executor())
                     .await
             },
             transaction,
-            &self.db,
-            db
+            &self.db
         );
         match res {
             Err(err) => warn!("add log fail:{}", err),
             Ok(r) => debug!("add log id:{}", r.last_insert_id()),
         };
     }
-    pub async fn list_data(
-        &self,
-        log_type: &Option<String>,
-        user_id: &Option<u64>,
-        add_user_id: &Option<u64>,
-        limit: &Option<LimitParam>,
-    ) -> LoggerResult<(Vec<ChangeLogModel>, Option<u64>)> {
+    fn list_where(&self, log_type: Option<&str>, add_user_id: Option<u64>) -> Vec<String> {
         let mut sqlwhere = vec![];
         if let Some(tmp) = log_type {
             sqlwhere.push(sql_format!("log_type = {}  ", tmp));
         }
-        if let Some(uid) = user_id {
-            sqlwhere.push(sql_format!("user_id={} ", uid));
-        }
         if let Some(uid) = add_user_id {
             sqlwhere.push(sql_format!("add_user_id={} ", uid));
         }
+        sqlwhere
+    }
+    pub async fn list_data(
+        &self,
+        log_type: Option<&str>,
+        add_user_id: Option<u64>,
+        limit: Option<&LimitParam>,
+    ) -> LoggerResult<(Vec<ChangeLogModel>, Option<u64>)> {
+        let sqlwhere = self.list_where(log_type, add_user_id);
         let tmp = if let Some(page) = limit {
             if sqlwhere.is_empty() {
                 format!(
@@ -140,25 +152,49 @@ impl ChangeLogger {
         } else {
             format!("{}  order by id desc", sqlwhere.join(" and "))
         };
-        let sql = if !sqlwhere.is_empty()
-            || limit
-                .as_ref()
-                .map(|e| e.pos())
-                .unwrap_or_default()
-                .is_some()
-        {
-            sqlx_model::WhereOption::Where(tmp)
-        } else {
-            sqlx_model::WhereOption::NoWhere(tmp)
-        };
-        let mut data = Select::type_new::<ChangeLogModel>()
-            .fetch_all_by_where::<ChangeLogModel, _>(&sql, &self.db)
-            .await?;
+
+        let mut data = sqlx::query_as::<_, ChangeLogModel>(&sql_format!(
+            "select * from {} {}",
+            ChangeLogModel::table_name(),
+            if !sqlwhere.is_empty()
+                || limit
+                    .as_ref()
+                    .map(|e| e.pos())
+                    .unwrap_or_default()
+                    .is_some()
+            {
+                SqlExpr(format!(" where {}", tmp))
+            } else {
+                SqlExpr(tmp)
+            }
+        ))
+        .fetch_all(&self.db)
+        .await?;
+
         let next = limit
             .as_ref()
             .map(|page| page.tidy(&mut data))
             .unwrap_or_default()
             .map(|e| e.id);
         Ok((data, next))
+    }
+    pub async fn list_count(
+        &self,
+        log_type: Option<&str>,
+        add_user_id: Option<u64>,
+    ) -> LoggerResult<i64> {
+        let sqlwhere = self.list_where(log_type, add_user_id);
+        let where_sql = if sqlwhere.is_empty() {
+            "".to_string()
+        } else {
+            format!("where {} ", sqlwhere.join(" and "))
+        };
+        return Ok(sqlx::query_scalar::<_, i64>(&sql_format!(
+            "select count(*) as total from {} where {}",
+            ChangeLogModel::table_name(),
+            SqlExpr(where_sql)
+        ))
+        .fetch_one(&self.db)
+        .await?);
     }
 }

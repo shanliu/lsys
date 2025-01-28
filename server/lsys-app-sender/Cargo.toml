@@ -6,33 +6,26 @@ edition = "2021"
 
 
 [dependencies]
-lsys-core = { path = "../lsys-core" }             #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-setting = { path = "../lsys-setting" }       #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-logger = { path = "../lsys-logger" }         #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-lib-sms = { path = "../lsys-lib-sms" }       #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-app-notify = { path = "../lsys-app-notify" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-core = { path = "../lsys-core" }
+lsys-setting = { path = "../lsys-setting" }
+lsys-logger = { path = "../lsys-logger" }
+lsys-lib-sms = { path = "../lsys-lib-sms" }
+lsys-app-notify = { path = "../lsys-app-notify" }
 
 
 chrono = { version = "~0.4.31" }
 serde = { version = "1.0.*" }
 serde_json = "1.0.*"
 futures = "0.3"
-tokio = { version = "~1.36" }
-deadpool-redis = { version = "~0.13" }
-redis = { version = "~0.23", features = [
+tokio = { version = "~1.43.0" }
+deadpool-redis = { version = "~0.18.0" }
+redis = { version = "~0.27.5", features = [
     "tokio-comp",
     "connection-manager",
     "aio",
 ] }
 
-sqlx = { version = "~0.6.3", features = [
-    "mysql",
-    "runtime-tokio-native-tls",
-    "offline",
-] }
-sqlx-model = { version = "0.2.3", default-features = false, features = [
-    "sqlx-mysql",
-] }
+sqlx = { version = "~0.8.3", features = ["mysql", "runtime-tokio-native-tls"] }
 
 # mail send
 lettre = { version = "~0.11", features = [
@@ -44,10 +37,10 @@ lettre = { version = "~0.11", features = [
 ] }
 
 
-hostname = "~0.3.*"
+hostname = "~0.4.0"
 
 
-config = "0.13.2"
+config = "~0.15"
 
 #日志
 tracing = { version = "0.1.*" } # log-always 保持log的输出 当使用tracing时会出现两次
@@ -68,7 +61,7 @@ rs-snowflake = "0.6.0"
 regex = "1.8.4"
 
 
-reqwest = { version = "~0.11.22", optional = true }
+reqwest = { version = "~0.12.9", optional = true }
 
 [features]
 sms-aliyun = ["reqwest"]

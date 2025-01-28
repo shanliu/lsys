@@ -12,8 +12,8 @@ impl Default for PageParam {
         Self { page: 1, limit: 10 }
     }
 }
-impl From<PageParam> for lsys_core::PageParam {
-    fn from(p: PageParam) -> Self {
+impl From<&PageParam> for lsys_core::PageParam {
+    fn from(p: &PageParam) -> Self {
         let limit = if p.limit > 100 { 100 } else { p.limit };
         lsys_core::PageParam::page(p.page, limit)
     }
@@ -38,10 +38,14 @@ impl Default for LimitParam {
         }
     }
 }
-impl From<LimitParam> for lsys_core::LimitParam {
-    fn from(p: LimitParam) -> Self {
+impl From<&LimitParam> for lsys_core::LimitParam {
+    fn from(p: &LimitParam) -> Self {
         let limit = if p.limit > 100 { 100 } else { p.limit };
-        let pos = p.pos.map(|e| e.parse::<u64>().ok()).unwrap_or_default();
+        let pos = p
+            .pos
+            .as_ref()
+            .map(|e| e.parse::<u64>().ok())
+            .unwrap_or_default();
         lsys_core::LimitParam::new(
             pos,
             p.eq_pos.unwrap_or(false),
@@ -56,4 +60,10 @@ impl From<LimitParam> for lsys_core::LimitParam {
 pub struct CaptchaParam {
     pub key: String,
     pub code: String,
+}
+
+impl<'t> From<&'t CaptchaParam> for lsys_core::CheckCodeData<'t> {
+    fn from(p: &'t CaptchaParam) -> lsys_core::CheckCodeData<'t> {
+        lsys_core::CheckCodeData::new(&p.key, &p.code)
+    }
 }

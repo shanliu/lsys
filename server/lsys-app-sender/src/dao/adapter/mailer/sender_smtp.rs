@@ -22,7 +22,7 @@ use lettre::{
     AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
 };
 use lsys_core::{fluent_message, IntoFluentMessage, RequestEnv};
-use lsys_logger::dao::ChangeLogger;
+use lsys_logger::dao::ChangeLoggerDao;
 use lsys_setting::{
     dao::{
         MultipleSetting, SettingData, SettingDecode, SettingEncode, SettingJson, SettingKey,
@@ -41,7 +41,7 @@ use tracing::debug;
 
 // 邮件发送 smtp 适配
 
-#[derive(Deserialize, Serialize, Clone, Default)]
+#[derive(Deserialize, Serialize, Default)]
 pub struct SmtpConfig {
     pub host: String,
     pub port: u16,
@@ -108,14 +108,7 @@ pub struct SmtpTplConfig {
 
 pub fn check_email(email: &str) -> SenderResult<()> {
     let re = Regex::new(r"^[A-Za-z0-9\u4e00-\u9fa5\.\-]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$")
-        .map_err(|e| {
-            SenderError::System(lsys_core::fluent_message!("check-email-error",
-                {
-                    "mail":email,
-                    "msg":e
-                }
-            ))
-        })?;
+        .map_err(|e| SenderError::System(lsys_core::fluent_message!("reg-rule-wrong", e)))?;
     if !re.is_match(email) {
         return Err(SenderError::System(
             lsys_core::fluent_message!("check-email-not-match",
@@ -145,38 +138,38 @@ impl SenderSmtpConfig {
     //列出有效的smtp配置
     pub async fn list_config(
         &self,
-        config_ids: &Option<Vec<u64>>,
+        config_ids: Option<&[u64]>,
     ) -> SenderResult<Vec<SettingData<SmtpConfig>>> {
         Ok(self
             .setting
-            .list_data::<SmtpConfig>(&None, config_ids, &None)
+            .list_data::<SmtpConfig>(None, config_ids, None)
             .await?)
     }
     //删除指定的smtp配置
     pub async fn del_config(
         &self,
-        id: &u64,
-        user_id: &u64,
+        id: u64,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         Ok(self
             .setting
-            .del::<SmtpConfig>(&None, id, user_id, None, env_data)
+            .del::<SmtpConfig>(None, id, user_id, None, env_data)
             .await?)
     }
     //编辑指定的smtp配置
     pub async fn edit_config(
         &self,
-        id: &u64,
+        id: u64,
         name: &str,
         config: &SmtpConfig,
-        user_id: &u64,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         self.check_config(config).await?;
         Ok(self
             .setting
-            .edit(&None, id, name, config, user_id, None, env_data)
+            .edit(None, id, name, config, user_id, None, env_data)
             .await?)
     }
     //添加smtp配置
@@ -184,13 +177,13 @@ impl SenderSmtpConfig {
         &self,
         name: &str,
         config: &SmtpConfig,
-        user_id: &u64,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         self.check_config(config).await?;
         Ok(self
             .setting
-            .add(&None, name, config, user_id, None, env_data)
+            .add(None, name, config, user_id, None, env_data)
             .await?)
     }
     //检测smtp配置
@@ -208,19 +201,19 @@ impl SenderSmtpConfig {
     pub async fn add_app_config(
         &self,
         name: &str,
-        app_id: &u64,
+        app_id: u64,
         tpl_id: &str,
-        smtp_config_id: &u64,
+        smtp_config_id: u64,
         from_email: &str,
         reply_email: &str,
         subject_tpl_id: &str,
         body_tpl_id: &str,
-        user_id: &u64,
-        add_user_id: &u64,
+        user_id: u64,
+        add_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         self.setting
-            .load::<SmtpConfig>(&None, smtp_config_id)
+            .load::<SmtpConfig>(None, smtp_config_id)
             .await?;
         check_email(from_email)?;
         if !reply_email.is_empty() {
@@ -261,7 +254,7 @@ pub struct SmtpSenderTask {
 }
 
 impl SmtpSenderTask {
-    pub fn new(db: Pool<sqlx::MySql>, logger: Arc<ChangeLogger>) -> Self {
+    pub fn new(db: Pool<sqlx::MySql>, logger: Arc<ChangeLoggerDao>) -> Self {
         Self {
             mailer: Arc::new(RwLock::new(HashMap::new())),
             tpls: Arc::new(MessageTpls::new(db, logger)),

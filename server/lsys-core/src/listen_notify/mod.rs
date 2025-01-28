@@ -105,7 +105,7 @@ impl<T: WaitItem + Serialize + DeserializeOwned + Debug> WaitNotify<T> {
             return Err(WaitNotifyError::Redis(err));
         };
         let res: Result<(), _> = redis
-            .expire(&channel_name, (self.clear_timeout * 2) as usize)
+            .expire(&channel_name, (self.clear_timeout * 2) as i64)
             .await;
         if let Err(err) = res {
             info!("notify redis set time out fail:{}", err);
@@ -116,7 +116,7 @@ impl<T: WaitItem + Serialize + DeserializeOwned + Debug> WaitNotify<T> {
         loop {
             match self.app_core.create_redis_client() {
                 Ok(redis_client) => {
-                    let con_res = redis_client.get_async_connection().await;
+                    let con_res = redis_client.get_multiplexed_async_connection().await;
                     match con_res {
                         Ok(mut redis) => {
                             let channel_name = self.redis_channel_name(
@@ -126,9 +126,8 @@ impl<T: WaitItem + Serialize + DeserializeOwned + Debug> WaitNotify<T> {
                                     .as_ref(),
                             );
                             //用list 不用subscribe 这里监听重启后也可以接着处理
-                            let msg: Result<(String, String), _> = redis
-                                .blpop(&channel_name, self.clear_timeout as usize)
-                                .await;
+                            let msg: Result<(String, String), _> =
+                                redis.blpop(&channel_name, self.clear_timeout as f64).await;
 
                             match msg {
                                 Ok(pubsub_msg) => {
@@ -214,12 +213,14 @@ async fn test_listen_notify() {
     )
     .await
     .unwrap();
-    impl crate::WaitItem for u64 {
+    #[derive(Serialize, Debug, Deserialize)]
+    struct TmpData(u64);
+    impl crate::WaitItem for TmpData {
         fn eq(&self, other: &Self) -> bool {
-            *self == *other
+            self.0 == other.0
         }
     }
-    let notify = std::sync::Arc::new(WaitNotify::<u64>::new(
+    let notify = std::sync::Arc::new(WaitNotify::<TmpData>::new(
         "sms",
         app_core.create_redis().await.unwrap(),
         Arc::new(app_core),
@@ -230,14 +231,14 @@ async fn test_listen_notify() {
     tokio::spawn(async move {
         tmp.listen().await;
     });
-    let wait = notify.wait(11).await;
+    let wait = notify.wait(TmpData(11)).await;
     notify
         .notify(
             hostname::get()
                 .unwrap_or_default()
                 .to_string_lossy()
                 .as_ref(),
-            11,
+            TmpData(11),
             Err("bad".to_string()),
         )
         .await

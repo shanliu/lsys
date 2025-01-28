@@ -8,10 +8,11 @@ use crate::{
 use lsys_core::{now_time, AppCore};
 use parking_lot::Mutex;
 use sqlx::{FromRow, MySql, Pool};
-use sqlx_model::{sql_format, ModelTableField, ModelTableName, Select, SqlExpr};
+use lsys_core::{sql_format};
+use lsys_core::db::{ ModelTableField, ModelTableName, SqlExpr};
 
 use lsys_core::{TaskData, TaskItem};
-use sqlx_model::SqlQuote;
+use lsys_core::db::SqlQuote;
 
 //统一任务消息读取实现
 
@@ -66,16 +67,16 @@ where
         if !ids.is_empty() {
             sql_vec.push(sql_format!(" id not in ({})", ids));
         }
-        let mut app_res = Select::type_new::<BM>()
-            .fetch_all_by_where::<BM, _>(
-                &sqlx_model::WhereOption::Where(format!(
-                    "{} order by id asc limit {}",
-                    sql_vec.join(" and "),
-                    limit + 1
-                )),
-                &self.db,
-            )
-            .await?;
+
+        let mut app_res = sqlx::query_as::<_, BM>(&sql_format!(
+            "select * from {} where {} order by id asc limit {}",
+            BM::table_name(),
+            SqlExpr(sql_vec.join(" and ")),
+            limit + 1
+        ))
+        .fetch_all(&self.db)
+        .await?;
+
         let next = if app_res.len() > limit {
             app_res.pop();
             true
@@ -105,27 +106,28 @@ where
         if !sending_data.is_empty() {
             sql_vec.push(sql_format!(" id not in ({})", sending_data));
         }
-        Ok(Select::type_new::<MM>()
-            .fetch_all_by_where::<MM, _>(
-                &sqlx_model::WhereOption::Where(format!(
-                    "{} order by id asc limit {}",
-                    sql_vec.join(" and "),
-                    limit
-                )),
-                &self.db,
-            )
-            .await?)
+
+        Ok(sqlx::query_as::<_, MM>(&sql_format!(
+            "select * from {} where {} order by id asc limit  {}",
+            MM::table_name(),
+            SqlExpr(sql_vec.join(" and ")),
+            limit
+        ))
+        .fetch_all(&self.db)
+        .await?)
     }
     pub async fn find_message_by_snid_vec(&self, ids: &[u64]) -> SenderResult<Vec<MM>> {
         if ids.is_empty() {
             return Ok(vec![]);
         }
-        Ok(Select::type_new::<MM>()
-            .fetch_all_by_where::<MM, _>(
-                &sqlx_model::WhereOption::Where(sql_format!("snid in ({})", ids)),
-                &self.db,
-            )
-            .await?)
+
+        Ok(sqlx::query_as::<_, MM>(&sql_format!(
+            "select * from {} where snid in ({}) ",
+            MM::table_name(),
+            ids
+        ))
+        .fetch_all(&self.db)
+        .await?)
     }
     lsys_core::impl_dao_fetch_one_by_one!(
         db,
@@ -146,11 +148,12 @@ where
         "id={id}"
     );
     pub async fn find_body_by_id_vec(&self, ids: &[u64]) -> SenderResult<Vec<BM>> {
-        Ok(Select::type_new::<BM>()
-            .fetch_all_by_where::<BM, _>(
-                &sqlx_model::WhereOption::Where(sql_format!("id in ({})", ids)),
-                &self.db,
-            )
-            .await?)
+        Ok(sqlx::query_as::<_, BM>(&sql_format!(
+            "select * from {} where id in ({}) ",
+            BM::table_name(),
+            ids
+        ))
+        .fetch_all(&self.db)
+        .await?)
     }
 }

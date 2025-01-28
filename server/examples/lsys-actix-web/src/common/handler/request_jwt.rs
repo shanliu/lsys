@@ -2,8 +2,8 @@ use std::{pin::Pin, str::FromStr};
 
 use actix_web::{dev::Payload, FromRequest, HttpRequest};
 
-use lsys_user::dao::auth::{SessionToken, UserAuthTokenData};
-use lsys_web::{dao::RequestSessionToken, JsonData};
+use lsys_user::dao::UserAuthToken;
+use lsys_web::common::{JsonData, RequestSessionToken};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value;
 
@@ -75,10 +75,10 @@ impl Future for JwtExtractFut {
                                     );
                                     match token_data_opt {
                                     Ok(token_data) => {
-                                        let token_str = token.to_owned();
+                                       // let token_str = token.to_owned();
                                         Ok(JwtQuery {
                                             token_data,
-                                            token_str,
+                                        //    token_str,
                                         })
                                     }
                                     Err(e) => Err(match e.kind() {
@@ -119,18 +119,17 @@ impl Future for JwtExtractFut {
 //jwt 登陆信息实现，服务器端处理跟cookie相同
 pub struct JwtQuery {
     pub token_data: TokenData<JwtClaims>,
-    pub token_str: String,
+    // pub token_str: String,
 }
 
-impl RequestSessionToken<UserAuthTokenData> for JwtQuery {
-    fn get_user_token<'t>(&self) -> SessionToken<UserAuthTokenData> {
-        SessionToken::<UserAuthTokenData>::from_str(self.token_data.claims.token.as_str())
-            .unwrap_or_default()
+impl RequestSessionToken<UserAuthToken> for JwtQuery {
+    fn get_user_token<'t>(&self) -> UserAuthToken {
+        UserAuthToken::from_str(self.token_data.claims.token.as_str()).unwrap_or_default()
     }
-    fn is_refresh(&self, _token: &SessionToken<UserAuthTokenData>) -> bool {
+    fn is_refresh(&self, _token: &UserAuthToken) -> bool {
         false
     }
-    fn refresh_user_token(&self, _token: &SessionToken<UserAuthTokenData>) {
+    fn refresh_user_token(&self, _token: &UserAuthToken) {
         unimplemented!("not support refresh");
     }
 }

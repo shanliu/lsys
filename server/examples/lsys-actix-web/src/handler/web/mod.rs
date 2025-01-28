@@ -1,5 +1,6 @@
-mod captcha;
+//页面及其他
 mod barcode;
+mod captcha;
 pub(crate) mod index;
 use std::sync::Arc;
 

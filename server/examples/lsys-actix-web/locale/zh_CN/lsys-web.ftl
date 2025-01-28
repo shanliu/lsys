@@ -29,8 +29,8 @@ user-old-passwrod-empty= 请提交原密码
 
 mail-is-confirm=邮箱已经确认过了
 
-email-bad-status=邮箱不存在
-mobile-bad-status=手机号不存在
+email-bad-status=邮箱{$email}不存在
+mobile-bad-status=手机号{$mobile}不存在
 
 external-not-support=登陆类型{$name}不支持
 
@@ -43,6 +43,7 @@ client-secret-not-match=Secret 不匹配
 
 app-redirect-uri-not-match= 跳转域名[redirect_uri]不支持
 app-domain-not-config=请先在后台配置跳转域名
+app-external-not-support=不支持外部账号登录内部应用
 reg-mobile-registered=该手机号已注册过账号
 
 mobile-bind-other-user=邮箱已绑定其他账号:{$id}

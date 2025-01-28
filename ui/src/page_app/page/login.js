@@ -1,10 +1,11 @@
 import { Box, Grid, Link, Paper, Tab, Tabs } from '@mui/material';
 import React, { useContext, useEffect } from 'react';
-import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
+import { Link as RouterLink, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { UserSessionContext } from '../../common/context/session';
 import { CodeLoginPage } from './login/code';
 import { PasswordLoginPage } from './login/password';
 import { QrCodeLoginPage } from './login/qrcode';
+import { AppCodeLoginPage } from './login/app_code';
 
 
 
@@ -32,7 +33,7 @@ export default function LoginPage() {
         }
     })
     let { type } = useParams();
-    const LoginData = [
+    let LoginData = [
         {
             key: "name",
             name: "密码登录",
@@ -62,6 +63,16 @@ export default function LoginPage() {
             name: "微信扫码登录"
         }
     ];
+
+    const [searchParam, _] = useSearchParams();
+    const client_id = searchParam.get("client_id") ?? '';
+    const login_code = searchParam.get("code") ?? '';
+    if (client_id.length > 0 && login_code.length > 0) {
+        LoginData.push({
+            key: "app",
+            name: "外部账号登录"
+        });
+    }
     let item = LoginData.find((e) => {
         if (e.key == type) {
             return true
@@ -80,6 +91,9 @@ export default function LoginPage() {
     switch (type) {
         case "name":
             page = <PasswordLoginPage onLogged={onLogged} />
+            break;
+        case "app":
+            page = <AppCodeLoginPage onLogged={onLogged} />
             break;
         case "wechat":
             page = <QrCodeLoginPage type="wechat" label="微信" onLogged={onLogged} />

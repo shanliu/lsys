@@ -23,9 +23,6 @@ export const LoadingButton = (props) => {
     }
 }
 
-LoadingButton.defaultProps = {
-    loading: false,
-};
 
 LoadingButton.propTypes = {
     loading: PropTypes.bool
@@ -40,7 +37,7 @@ export const Progress = (props) => {
 
 //页面进度条
 export const PageProgress = (props) => {
-    return  <Fragment>
+    return <Fragment>
         <LinearProgress {...props} />
         <Box sx={{ m: 2 }}>
             <Typography variant="h1"> <Skeleton /></Typography>

@@ -2,8 +2,8 @@ use std::{collections::HashSet, sync::Arc};
 
 use lsys_core::{fluent_message, now_time, AppCore, FluentMessage, RequestEnv, TaskData};
 
-use lsys_logger::dao::ChangeLogger;
-use lsys_setting::dao::Setting;
+use lsys_logger::dao::ChangeLoggerDao;
+use lsys_setting::dao::SettingDao;
 use sqlx::{MySql, Pool};
 use tracing::warn;
 
@@ -20,7 +20,7 @@ use lsys_core::TaskDispatch;
 
 const MAILER_REDIS_PREFIX: &str = "sender-mail-";
 
-pub struct MailSender {
+pub struct MailSenderDao {
     pub tpl_config: Arc<SenderTplConfig>,
     pub mail_record: Arc<MailRecord>,
     redis: deadpool_redis::Pool,
@@ -33,15 +33,15 @@ pub struct MailSender {
     send_wait: Arc<SenderWaitNotify>,
 }
 
-impl MailSender {
+impl MailSenderDao {
     //发送
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         app_core: Arc<AppCore>,
         redis: deadpool_redis::Pool,
         db: Pool<MySql>,
-        setting: Arc<Setting>,
-        logger: Arc<ChangeLogger>,
+        setting: Arc<SettingDao>,
+        logger: Arc<ChangeLoggerDao>,
         task_size: Option<usize>,
         task_timeout: usize,
         is_check: bool,
@@ -81,9 +81,9 @@ impl MailSender {
         ));
 
         let task = TaskDispatch::new(
-            format!("{}-notify", MAILER_REDIS_PREFIX),
-            format!("{}-read-lock", MAILER_REDIS_PREFIX),
-            format!("{}-run-task", MAILER_REDIS_PREFIX),
+            &format!("{}-notify", MAILER_REDIS_PREFIX),
+            &format!("{}-read-lock", MAILER_REDIS_PREFIX),
+            &format!("{}-run-task", MAILER_REDIS_PREFIX),
             task_size,
             task_timeout,
             is_check,
@@ -110,10 +110,10 @@ impl MailSender {
         mail: &[&'t str],
         tpl_id: &str,
         tpl_var: &str,
-        send_time: &Option<u64>,
-        user_id: &Option<u64>,
-        reply_mail: &Option<String>,
-        max_try_num: &Option<u8>,
+        send_time: Option<u64>,
+        user_id: Option<u64>,
+        reply_mail: Option<&str>,
+        max_try_num: Option<u8>,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<(u64, Vec<(u64, &'t str, Result<bool, FluentMessage>)>)> {
         let tmp = mail

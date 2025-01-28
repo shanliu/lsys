@@ -15,11 +15,17 @@ pub(crate) async fn notify(
     body: Bytes,
     req: HttpRequest,
 ) -> HttpResponse {
-    let config = match web_dao.setting.multiple.find(&None, &path.0).await {
+    let config = match web_dao
+        .web_setting
+        .setting_dao
+        .multiple
+        .find(None, path.0)
+        .await
+    {
         Ok(e) => e,
         Err(e) => return HttpResponse::Forbidden().body(e.to_fluent_message().default_format()),
     };
-    let notify = &web_dao.sender_smser.smser.sms_notify;
+    let notify = &web_dao.app_sender.smser.smser_dao.sms_notify;
     let (status, msg) = if notify.check::<AliYunNotify>(&config) {
         let notify_body = String::from_utf8_lossy(&body).to_string();
         let notify_data = AliYunNotify::new(path.1.as_deref().unwrap_or_default(), &notify_body);

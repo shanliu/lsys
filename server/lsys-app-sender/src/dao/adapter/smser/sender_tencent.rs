@@ -107,24 +107,24 @@ impl SenderTenYunConfig {
     //列出有效的tenyun短信配置
     pub async fn list_config(
         &self,
-        config_ids: &Option<Vec<u64>>,
+        config_ids: Option<&[u64]>,
     ) -> SenderResult<Vec<SettingData<TenYunConfig>>> {
         let data = self
             .setting
-            .list_data::<TenYunConfig>(&None, config_ids, &None)
+            .list_data::<TenYunConfig>(None, config_ids, None)
             .await?;
         Ok(data)
     }
     //删除指定的tenyun短信配置
     pub async fn del_config(
         &self,
-        id: &u64,
-        user_id: &u64,
+        id: u64,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         Ok(self
             .setting
-            .del::<TenYunConfig>(&None, id, user_id, None, env_data)
+            .del::<TenYunConfig>(None, id, user_id, None, env_data)
             .await?)
     }
     //编辑指定的tenyun短信配置
@@ -132,18 +132,18 @@ impl SenderTenYunConfig {
     #[allow(clippy::too_many_arguments)]
     pub async fn edit_config(
         &self,
-        id: &u64,
+        id: u64,
         name: &str,
         region: &str,
         secret_id: &str,
         secret_key: &str,
         sms_app_id: &str,
-        branch_limit: &u16,
+        branch_limit: u16,
         callback_key: &str,
-        user_id: &u64,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
-        if *branch_limit > TenSms::branch_limit() {
+        if branch_limit > TenSms::branch_limit() {
             return Err(SenderError::System(
                 fluent_message!("sms-config-branch-error",
                     {"max":  TenSms::branch_limit()}
@@ -153,13 +153,13 @@ impl SenderTenYunConfig {
         Ok(self
             .setting
             .edit(
-                &None,
+                None,
                 id,
                 name,
                 &TenYunConfig {
                     region: region.to_owned(),
                     sms_app_id: sms_app_id.to_owned(),
-                    branch_limit: branch_limit.to_owned(),
+                    branch_limit,
                     secret_id: secret_id.to_owned(),
                     secret_key: secret_key.to_owned(),
                     callback_key: callback_key.to_owned(),
@@ -179,12 +179,12 @@ impl SenderTenYunConfig {
         secret_id: &str,
         secret_key: &str,
         sms_app_id: &str,
-        branch_limit: &u16,
+        branch_limit: u16,
         callback_key: &str,
-        user_id: &u64,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
-        if *branch_limit > TenSms::branch_limit() {
+        if branch_limit > TenSms::branch_limit() {
             return Err(SenderError::System(
                 fluent_message!("sms-config-branch-error",
                     {"max":  TenSms::branch_limit()}
@@ -194,12 +194,12 @@ impl SenderTenYunConfig {
         Ok(self
             .setting
             .add(
-                &None,
+                None,
                 name,
                 &TenYunConfig {
                     region: region.to_owned(),
                     sms_app_id: sms_app_id.to_owned(),
-                    branch_limit: branch_limit.to_owned(),
+                    branch_limit,
                     secret_id: secret_id.to_owned(),
                     secret_key: secret_key.to_owned(),
                     callback_key: callback_key.to_owned(),
@@ -215,17 +215,17 @@ impl SenderTenYunConfig {
     pub async fn add_app_config(
         &self,
         name: &str,
-        app_id: &u64,
-        setting_id: &u64,
+        app_id: u64,
+        setting_id: u64,
         tpl_id: &str,
         sign_name: &str,
         template_id: &str,
         template_map: &str,
-        user_id: &u64,
-        add_user_id: &u64,
+        user_id: u64,
+        add_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
-        self.setting.load::<TenYunConfig>(&None, setting_id).await?;
+        self.setting.load::<TenYunConfig>(None, setting_id).await?;
         self.tpl_config
             .add_config(
                 name,
@@ -349,7 +349,7 @@ impl<'t> TenYunNotify<'t> {
 }
 
 #[async_trait]
-impl<'t> SmsSendNotifyParse for TenYunNotify<'t> {
+impl SmsSendNotifyParse for TenYunNotify<'_> {
     type T = TenYunConfig;
     fn notify_items(
         &self,

@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use redis::aio::Connection;
+use redis::aio::MultiplexedConnection;
 use redis::{
     AsyncCommands, ErrorKind, FromRedisValue, RedisError, RedisResult, ToRedisArgs, Value,
 };
@@ -34,7 +34,7 @@ pub struct TaskData {
 impl FromRedisValue for TaskData {
     fn from_redis_value(val: &Value) -> RedisResult<Self> {
         let valstr = match *val {
-            Value::Data(ref bytes) => from_utf8(bytes)?.to_string(),
+            Value::BulkString(ref bytes) => from_utf8(bytes)?.to_string(),
             _ => {
                 return Err(RedisError::from((
                     ErrorKind::TypeError,
@@ -177,9 +177,9 @@ impl<
     /// * `check_timeout` - 当使用任务检测时的时间间隔，大于等于任务最大执行时间
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        list_notify: String,
-        read_lock_key: String,
-        task_list_key: String,
+        list_notify: &str,
+        read_lock_key: &str,
+        task_list_key: &str,
         task_size: Option<usize>,
         task_timeout: usize,
         is_check: bool,
@@ -198,10 +198,10 @@ impl<
         };
         let read_lock_timeout = check_timeout;
         Self {
-            list_notify,
-            read_lock_key,
+            list_notify: list_notify.to_string(),
+            read_lock_key: read_lock_key.to_string(),
             read_lock_timeout,
-            task_list_key,
+            task_list_key: task_list_key.to_string(),
             is_check,
             check_timeout,
             task_timeout,
@@ -220,14 +220,14 @@ impl<
 {
     /// 通知发送模块进行发送操作
     /// * `redis` - 存放发送任务的RDIS
-    pub async fn notify(&self, redis: &mut Connection) -> Result<(), RedisError> {
+    pub async fn notify(&self, redis: &mut MultiplexedConnection) -> Result<(), RedisError> {
         redis.lpush(&self.list_notify, 1).await
     }
     /// 获得发送中任务信息
     /// * `redis` - 存放发送任务的RDIS
     pub async fn task_data(
         &self,
-        redis: &mut Connection,
+        redis: &mut MultiplexedConnection,
     ) -> Result<HashMap<I, TaskData>, RedisError> {
         let redis_data_opt: Result<Option<HashMap<I, TaskData>>, _> =
             redis.hgetall(&self.task_list_key).await;
@@ -297,7 +297,7 @@ impl<
         tokio::spawn(async move {
             //连接REDIS
             let conn = loop {
-                match task_redis_client.get_tokio_connection_manager().await {
+                match task_redis_client.get_connection_manager().await {
                     Ok(conn) => break conn,
                     Err(err) => {
                         warn!("task redis get fail :{}", err);
@@ -520,10 +520,11 @@ impl<
             // redis set task record and del redis lock bad go to listen
             // next true self.notify() bad add log
             // add record data to self.task_channel_sender
-            match redis_client.get_async_connection().await {
+            match redis_client.get_multiplexed_async_connection().await {
                 Ok(mut redis) => {
-                    let block: Result<Option<()>, _> =
-                        redis.blpop(&self.list_notify, self.check_timeout).await;
+                    let block: Result<Option<()>, _> = redis
+                        .blpop(&self.list_notify, self.check_timeout as f64)
+                        .await;
                     match block {
                         Ok(a) => {
                             if a.is_none() {
@@ -556,7 +557,7 @@ impl<
                         }
                     };
                     match redis
-                        .expire(&self.read_lock_key, self.read_lock_timeout)
+                        .expire(&self.read_lock_key, self.read_lock_timeout as i64)
                         .await
                     {
                         Ok(()) => {}

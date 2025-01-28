@@ -131,13 +131,7 @@ pub(crate) async fn group_exec<
     let start = index_get(index_store, len);
     //获取任务消息可用的发送模板.
     let config = match tpl_config
-        .list_config(
-            &None,
-            &None,
-            &Some(val.app_id()),
-            &Some(val.tpl_id()),
-            &None,
-        )
+        .list_config(None, None, Some(val.app_id()), Some(&val.tpl_id()), None)
         .await
         .map_err(|e| e.to_fluent_message().default_format())
     {

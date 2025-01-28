@@ -6,9 +6,9 @@ async fn test_find_by_id() {
     // let b = userdao
     //     .user_account
     //     .user
-    //     .add_user(
+    //     .add(
     //         "ddd".to_string(),
-    //         lsys_user::model::UserStatus::Enable,
+    //         lsys_user::model::AccountStatus::Enable,
     //         None,
     //     )
     //     .await

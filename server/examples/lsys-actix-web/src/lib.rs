@@ -6,9 +6,9 @@ use common::handler::{JwtQueryConfig, RestQueryConfig};
 use futures_util::TryFutureExt;
 use handler::router_main;
 use jsonwebtoken::{DecodingKey, Validation};
-use lsys_core::{fluent_message, AppCore, AppCoreError};
+use lsys_core::{AppCore, AppCoreError};
+use lsys_web::common::FluentFormat;
 use lsys_web::dao::WebDao;
-use lsys_web::FluentFormat;
 use rustls::server::ServerConfig;
 use rustls::{Certificate, PrivateKey};
 use rustls_pemfile::{certs, read_one, Item};
@@ -70,13 +70,17 @@ fn load_rustls_config(
     let key_file = &mut BufReader::new(File::open(key_path).map_err(AppCoreError::Io)?);
 
     // convert files to key/cert objects
-    let cert_chain = certs(cert_file)
-        .map_err(AppCoreError::Io)?
-        .into_iter()
-        .map(Certificate)
-        .collect();
+    let mut cert_chain = vec![];
+    for tmp in certs(cert_file) {
+        match tmp {
+            Ok(t) => {
+                cert_chain.push(Certificate(t.as_ref().to_vec()));
+            }
+            Err(err) => return Err(AppError::AppCore(AppCoreError::Io(err))),
+        }
+    }
     let key = match read_one(key_file).map_err(AppCoreError::Io)? {
-        Some(Item::PKCS8Key(key)) => key,
+        Some(Item::Pkcs8Key(key)) => key.secret_pkcs8_der().to_vec(),
         _ => {
             return Err(AppError::AppCore(AppCoreError::System(
                 "only support pcks key".to_owned(),
@@ -94,7 +98,7 @@ pub async fn create_server(app_dir: &str) -> Result<Server, AppError> {
     let app_dao = Data::new(WebDao::new(app_core.clone()).await?);
     let bind_addr = app_dao.bind_addr();
     let bind_ssl_data = app_dao.bind_ssl_data();
-    let is_redirect_http=bind_ssl_data.is_some();
+    let is_redirect_http = bind_ssl_data.is_some();
     let app_jwt_key = app_dao
         .app_core
         .config
@@ -129,36 +133,29 @@ pub async fn create_server(app_dir: &str) -> Result<Server, AppError> {
                 //         Err("key not find".to_owned())
                 //     }
                 // })
-                let apps = app_data.app.app_dao.app.clone();
+                let apps = app_data.web_app.app_dao.app.clone();
                 Box::pin(async move {
-                    apps.find_secret_by_client_id(&app_key)
-                        .map_err(|e|{
-                            if e.app_not_found(){
-                                app_data.fluent.locale(None).format_message(&fluent_message!("app-not-found",{
-                                    "app":app_key.to_owned(),
-                                }))
-                            }else{
-                                e.fluent_format(&app_data.fluent.locale(None))
-                            }
-                        } )
+                    apps.cache()
+                        .find_secret_by_client_id(&app_key)
+                        .map_err(|e| e.fluent_format(&app_data.fluent.locale(None)))
                         .await
                 })
             }));
-       
-       let app= App::new()
-        .wrap(common::middleware::RedirectSsl::new(is_redirect_http))
-        .wrap(middlewares::Logger::default())
-        .wrap(middlewares::Compress::default())
-        .wrap(
-            middlewares::ErrorHandlers::new()
-                .handler(http::StatusCode::INTERNAL_SERVER_ERROR, handler::render_500),
-        )
-        .wrap(middlewares::DefaultHeaders::new().add(("Access-Control-Allow-Origin", "*")))
-        .wrap(common::middleware::RequestID::new(None))
-        .app_data(app_dao.clone())
-        .app_data(json_config)
-        .app_data(jwt_config)
-        .app_data(rest_config);
+
+        let app = App::new()
+            .wrap(common::middleware::RedirectSsl::new(is_redirect_http))
+            .wrap(middlewares::Logger::default())
+            .wrap(middlewares::Compress::default())
+            .wrap(
+                middlewares::ErrorHandlers::new()
+                    .handler(http::StatusCode::INTERNAL_SERVER_ERROR, handler::render_500),
+            )
+            .wrap(middlewares::DefaultHeaders::new().add(("Access-Control-Allow-Origin", "*")))
+            .wrap(common::middleware::RequestID::new(None))
+            .app_data(app_dao.clone())
+            .app_data(json_config)
+            .app_data(jwt_config)
+            .app_data(rest_config);
         router_main(app, &app_dao)
     });
     server = server.bind(bind_addr).map_err(AppCoreError::Io)?;

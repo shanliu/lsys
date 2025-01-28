@@ -21,11 +21,11 @@ import { ClearTextField, InputTagSelect, LoadSelect, SliderInput, TagSelect } fr
 import { LoadingButton, Progress } from '../../../library/loading';
 import { BaseTableBodyRow, BaseTableFooter, BaseTableHead, BaseTableNoRows, SimpleTablePage } from '../../../library/table_page';
 import { ItemTooltip } from '../../../library/tips';
-import { resListData, roleAdd, roleAddUser, roleDelete, roleDeleteUser, roleEdit, roleListData, roleListUser, roleOptions, roleRelationCheck, roleTags } from '../../../common/rest/access';
+import { resListData, roleAdd, roleAddUser, roleDelete, roleDeleteUser, roleEdit, roleListData, roleListUser, roleOptions, roleKeyCheck, roleTags } from '../../../common/rest/access';
 import { useSearchChange } from '../../../common/utils/hook';
 import { showTime } from '../../../common/utils/utils';
 import { RoleResOpGroupItem, RoleResOpItem, UserSearchInput, UserTags } from './user';
-import { roleRelationData } from '../../../common/rest/access';
+import { roleKeyData } from '../../../common/rest/access';
 
 //添加角色资源选择
 function UserResSelect(props) {
@@ -389,7 +389,7 @@ function UserResSelect(props) {
 
 
 //关系KEY输入框
-function UserRoleRelationInput(props) {
+function UserRoleKeyInput(props) {
     const { value, options, onFinish, onChange, disabled, ...params } = props;
     //过滤组件数据
     const [relationData, setRelationData] = useState({
@@ -463,7 +463,7 @@ function UserRoleRelationInput(props) {
 }
 
 
-function UserRoleRelationSet(props) {
+function UserRoleKeySet(props) {
     const { userId, options, value, ...params } = props;
     const { toast } = useContext(ToastContext);
 
@@ -485,7 +485,7 @@ function UserRoleRelationSet(props) {
         timeReq.current = setTimeout(() => {
             timeReq.current = null;
             ajaxReq.current = new AbortController();
-            roleRelationCheck({
+            roleKeyCheck({
                 user_id: parseInt(userId),
                 relation_find: [relationData.now_value],
             }, {
@@ -501,7 +501,7 @@ function UserRoleRelationSet(props) {
                         setRelationData({
                             ...relationData,
 
-                            err: `已存在${data.relation_find[0].relation_key}关系角色 名称 :${data.relation_find[0].name} ID:${data.relation_find[0].id}`
+                            err: `已存在${data.relation_find[0].role_key}关系角色 名称 :${data.relation_find[0].name} ID:${data.relation_find[0].id}`
                         })
                     }
                 }
@@ -511,7 +511,7 @@ function UserRoleRelationSet(props) {
 
 
     return <Fragment>
-        <UserRoleRelationInput
+        <UserRoleKeyInput
             {...params}
             options={relationData.data}
             value={value ?? ""}
@@ -569,7 +569,7 @@ function UserRoleAdd(props) {
             priority: rowData.role.priority || 50,
             res_range: rowData.role.res_op_range || initData.res_range[0].key,
             user_range: rowData.role.user_range || initData.user_range[0].key,
-            user_access_key: rowData.role.relation_key || '',
+            user_access_key: rowData.role.role_key || '',
             tags: tags,
             user_select: user_select
         })
@@ -614,7 +614,7 @@ function UserRoleAdd(props) {
                 user_range: addData.user_range,
                 role_op_range: addData.res_range,
                 priority: addData.priority,
-                relation_key: addData.user_access_key,
+                role_key: addData.user_access_key,
                 tags: addData.tags,
                 role_ops: ops
             }).then((data) => {
@@ -637,7 +637,7 @@ function UserRoleAdd(props) {
                 user_range: addData.user_range,
                 role_op_range: addData.res_range,
                 priority: addData.priority,
-                relation_key: addData.user_access_key,
+                role_key: addData.user_access_key,
                 tags: addData.tags,
                 role_ops: ops,
             }).then((data) => {
@@ -782,7 +782,7 @@ function UserRoleAdd(props) {
                                     width: 1,
                                     paddingBottom: 2
                                 }}>
-                                    <UserRoleRelationSet
+                                    <UserRoleKeySet
                                         label="选择关系"
                                         size="small"
                                         sx={{
@@ -1456,7 +1456,7 @@ function UserRoleRow(props) {
 }
 
 
-function UserRoleRelationFindInput(props) {
+function UserRoleKeyFindInput(props) {
     const { userId, value, ...params } = props;
     const { toast } = useContext(ToastContext);
     let ajaxReq = useRef(null)
@@ -1475,7 +1475,7 @@ function UserRoleRelationFindInput(props) {
         timeReq.current = setTimeout(() => {
             timeReq.current = null;
             ajaxReq.current = new AbortController();
-            roleRelationData({
+            roleKeyData({
                 user_id: parseInt(userId),
                 relation_prefix: relationData.now_value,
                 page: 0,
@@ -1498,7 +1498,7 @@ function UserRoleRelationFindInput(props) {
             })
         }, 800)
     }, [relationData.now_value])
-    return <UserRoleRelationInput
+    return <UserRoleKeyInput
         {...params}
         value={value ?? ""}
         options={relationData.data}
@@ -1768,7 +1768,7 @@ export function UserRolePage(props) {
                             padding: "5px 9px",
                             borderRadius: 3,
                             color: " #fff"
-                        }}>{row.relation_key}</b>
+                        }}>{row.role_key}</b>
                     </Fragment>
                 } else {
                     return item ? item.name : row.user_range;
@@ -1936,7 +1936,7 @@ export function UserRolePage(props) {
 
             </FormControl>
             {filterData.user_range == 4 ? <FormControl sx={{ mr: 1 }} size="small"  >
-                <UserRoleRelationFindInput
+                <UserRoleKeyFindInput
 
                     label="关系名"
                     size="small"

@@ -53,7 +53,7 @@ pub struct AreaCodeIndexInfo {
 pub trait AreaCodeIndexData {
     fn clear(&mut self) -> AreaResult<()>;
     fn get(&self, key: &str) -> Option<AreaCodeIndexInfo>;
-    fn set(&mut self, key: String, val: AreaCodeIndexInfo) -> AreaResult<()>;
+    fn set(&mut self, key: &str, val: AreaCodeIndexInfo) -> AreaResult<()>;
     fn save(&mut self, version: &str) -> AreaResult<()>;
     fn version(&self) -> String;
     fn init(&mut self) -> AreaResult<()>;
@@ -140,7 +140,7 @@ impl<AP: AreaCodeProvider> AreaCode<AP> {
         for tmp_area in area_code_data.iter() {
             let code_name = tmp_area.name.as_str();
             code_data.set(
-                tmp_area.code.to_owned(),
+                &tmp_area.code,
                 AreaCodeIndexInfo {
                     hide: tmp_area.hide,
                     name: code_name.to_owned(),

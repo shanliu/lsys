@@ -38,11 +38,15 @@ pub struct LocalCacheConfig {
 }
 
 impl LocalCacheConfig {
-    pub fn new(cache_name: &'static str,cache_size:Option<usize>,save_time:Option<u64>) -> Self {
+    pub fn new(
+        cache_name: &'static str,
+        cache_size: Option<usize>,
+        save_time: Option<u64>,
+    ) -> Self {
         Self {
             cache_name,
-            cache_time: save_time.unwrap_or(120)+10,
-            cache_size:cache_size.unwrap_or(100),
+            cache_time: save_time.unwrap_or(120) + 10,
+            cache_size: cache_size.unwrap_or(100),
             refresh_time: save_time.unwrap_or(120),
         }
     }
@@ -85,8 +89,8 @@ where
         }
         let mut lc = self.cache_data.lock().await;
         if let Some(ua) = lc.get(key) {
-            if self.cache_config.cache_time==0{
-                debug!("get cache :{} msg:cache hit",key.to_string());
+            if self.cache_config.cache_time == 0 {
+                debug!("get cache :{} msg:cache hit", key.to_string());
                 return Some(ua.data.to_owned());
             }
             let now_time = now_time().unwrap_or_default();
@@ -110,31 +114,28 @@ where
                         .compare_exchange_weak(false, true, Ordering::Relaxed, Ordering::Relaxed)
                         .unwrap_or(false)
                 {
-                    debug!("get cache :{} msg:cache refresh",key.to_string());
+                    debug!("get cache :{} msg:cache refresh", key.to_string());
                     return None;
                 }
-                debug!("get cache :{} msg:cache hit",key.to_string());
+                debug!("get cache :{} msg:cache hit", key.to_string());
                 return Some(ua.data.to_owned());
             }
-            debug!("get cache :{} msg:cache timeout",key.to_string());
+            debug!("get cache :{} msg:cache timeout", key.to_string());
             lc.remove(key);
         }
-        debug!("get cache :{} msg:no cache",key.to_string());
+        debug!("get cache :{} msg:no cache", key.to_string());
         None
     }
     pub async fn set(&self, key: K, data: T, mut set_time: u64) {
         if self.cache_config.cache_size == 0 {
             return;
         }
-        if self.cache_config.cache_time==0{
-            debug!("save cache :{} msg:save finsh",key.to_string());
-            self.cache_data.lock().await.insert(
-                key,
-                CacheData {
-                    time_out: 0,
-                    data,
-                },
-            );
+        if self.cache_config.cache_time == 0 {
+            debug!("save cache :{} msg:save finsh", key.to_string());
+            self.cache_data
+                .lock()
+                .await
+                .insert(key, CacheData { time_out: 0, data });
             return;
         }
         let now_time = now_time().unwrap_or_default();
@@ -142,7 +143,12 @@ where
         if set_time > cache_time || set_time == 0 {
             set_time = cache_time;
         }
-        debug!("save cache :{} msg:save finsh,timeout:{} refresh clear:{}",key.to_string(),now_time + set_time,self.cache_config.refresh_time>0);
+        debug!(
+            "save cache :{} msg:save finsh,timeout:{} refresh clear:{}",
+            key.to_string(),
+            now_time + set_time,
+            self.cache_config.refresh_time > 0
+        );
         self.cache_data.lock().await.insert(
             key,
             CacheData {
@@ -165,8 +171,7 @@ where
             return;
         }
         self.del(key).await;
-        let send_msg =
-            LocalCacheMessage::new(self.cache_config.cache_name.to_string(), key.to_string());
+        let send_msg = LocalCacheMessage::new(self.cache_config.cache_name, &key.to_string());
         if let Err(err) = self
             .remote_notify
             .call(

@@ -784,7 +784,7 @@ export default function UserAppBarCodeCreatePage(props) {
                 size="medium"
                 startIcon={<LogoDevIcon />}
                 endIcon={<HelpOutlineOutlinedIcon fontSize='small' />}
-                sx={{ mr: 1, p: "7px 15px", minWidth: 110 }}
+                sx={{ mr: 1, p: "7px 15px", minWidth: 130 }}
                 onClick={() => {
                     window.open("https://github.com/shanliu/lsys/blob/main/http/rest/rest_barcode.md#%E4%BA%8C%E7%BB%B4%E7%A0%81%E5%88%9B%E5%BB%BA", "_blank")
                 }}>

@@ -8,14 +8,13 @@ use crate::model::BarcodeCreateModel;
 
 use super::BarCodeDao;
 
-
-pub enum BarCodeCacheClear {
+pub enum BarCodeLocalCacheClear {
     CreateModel(Arc<LocalCache<u64, BarcodeCreateModel>>),
     #[allow(clippy::type_complexity)]
     CreateBuffer(Arc<LocalCache<String, ImageBuffer<Rgb<u8>, Vec<u8>>>>),
 }
 
-impl BarCodeCacheClear {
+impl BarCodeLocalCacheClear {
     pub fn new_clears(bardao: &BarCodeDao) -> Vec<Self> {
         vec![
             Self::CreateModel(bardao.create_model.clone()),
@@ -25,7 +24,7 @@ impl BarCodeCacheClear {
 }
 
 #[async_trait]
-impl LocalCacheClearItem for BarCodeCacheClear {
+impl LocalCacheClearItem for BarCodeLocalCacheClear {
     fn cache_name(&self) -> &str {
         match self {
             Self::CreateModel(cache) => cache.config().cache_name,
@@ -34,13 +33,11 @@ impl LocalCacheClearItem for BarCodeCacheClear {
     }
     async fn clear_from_message(&self, msg: &str) -> Result<(), String> {
         match self {
-            Self::CreateModel(cache) =>{
+            Self::CreateModel(cache) => {
                 let key = &u64::from_str(msg).map_err(|e| e.to_string())?;
                 cache.del(key).await
-            },
-            Self::CreateBuffer(cache) => {
-                cache.del(&msg.to_owned()).await
-            },
+            }
+            Self::CreateBuffer(cache) => cache.del(&msg.to_owned()).await,
         };
         Ok(())
     }

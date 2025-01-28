@@ -99,24 +99,24 @@ impl SenderJDCloudConfig {
     //列出有效的jd_cloud短信配置
     pub async fn list_config(
         &self,
-        config_ids: &Option<Vec<u64>>,
+        config_ids: Option<&[u64]>,
     ) -> SenderResult<Vec<SettingData<JDCloudConfig>>> {
         let data = self
             .setting
-            .list_data::<JDCloudConfig>(&None, config_ids, &None)
+            .list_data::<JDCloudConfig>(None, config_ids, None)
             .await?;
         Ok(data)
     }
     //删除指定的jd_cloud短信配置
     pub async fn del_config(
         &self,
-        id: &u64,
-        user_id: &u64,
+        id: u64,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         Ok(self
             .setting
-            .del::<JDCloudConfig>(&None, id, user_id, None, env_data)
+            .del::<JDCloudConfig>(None, id, user_id, None, env_data)
             .await?)
     }
     //编辑指定的jd_cloud短信配置
@@ -124,16 +124,16 @@ impl SenderJDCloudConfig {
     #[allow(clippy::too_many_arguments)]
     pub async fn edit_config(
         &self,
-        id: &u64,
+        id: u64,
         name: &str,
         region: &str,
         access_key: &str,
         access_secret: &str,
-        branch_limit: &u16,
-        user_id: &u64,
+        branch_limit: u16,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
-        if *branch_limit > JdSms::branch_limit() {
+        if branch_limit > JdSms::branch_limit() {
             return Err(SenderError::System(
                 fluent_message!("sms-config-branch-error",
                     {"max":  JdSms::branch_limit()}
@@ -143,14 +143,14 @@ impl SenderJDCloudConfig {
         Ok(self
             .setting
             .edit(
-                &None,
+                None,
                 id,
                 name,
                 &JDCloudConfig {
                     region: region.to_owned(),
                     access_key: access_key.to_owned(),
                     access_secret: access_secret.to_owned(),
-                    branch_limit: branch_limit.to_owned(),
+                    branch_limit,
                 },
                 user_id,
                 None,
@@ -167,11 +167,11 @@ impl SenderJDCloudConfig {
         region: &str,
         access_key: &str,
         access_secret: &str,
-        branch_limit: &u16,
-        user_id: &u64,
+        branch_limit: u16,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
-        if *branch_limit > JdSms::branch_limit() {
+        if branch_limit > JdSms::branch_limit() {
             return Err(SenderError::System(
                 fluent_message!("sms-config-branch-error",
                     {"max":  JdSms::branch_limit()}
@@ -181,13 +181,13 @@ impl SenderJDCloudConfig {
         Ok(self
             .setting
             .add(
-                &None,
+                None,
                 name,
                 &JDCloudConfig {
                     region: region.to_owned(),
                     access_key: access_key.to_owned(),
                     access_secret: access_secret.to_owned(),
-                    branch_limit: branch_limit.to_owned(),
+                    branch_limit,
                 },
                 user_id,
                 None,
@@ -200,19 +200,17 @@ impl SenderJDCloudConfig {
     pub async fn add_app_config(
         &self,
         name: &str,
-        app_id: &u64,
-        setting_id: &u64,
+        app_id: u64,
+        setting_id: u64,
         tpl_id: &str,
         sign_id: &str,
         template_id: &str,
         template_map: &str,
-        user_id: &u64,
-        add_user_id: &u64,
+        user_id: u64,
+        add_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
-        self.setting
-            .load::<JDCloudConfig>(&None, setting_id)
-            .await?;
+        self.setting.load::<JDCloudConfig>(None, setting_id).await?;
         self.tpl_config
             .add_config(
                 name,

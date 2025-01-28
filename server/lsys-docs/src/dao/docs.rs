@@ -1,5 +1,5 @@
 use git2::Repository;
-use lsys_logger::dao::ChangeLogger;
+use lsys_logger::dao::ChangeLoggerDao;
 use regex::Regex;
 use serde_json::Value;
 use tokio::fs::{read, read_dir};
@@ -14,13 +14,12 @@ use crate::{
         DocLogsModelRef, DocMenuModel, DocMenuModelRef, DocMenuStatus,
     },
 };
+use lsys_core::db::{Insert, ModelTableName, Update, WhereOption};
+use lsys_core::db::{SqlExpr, SqlQuote};
 use lsys_core::{fluent_message, now_time, IntoFluentMessage, PageParam, RequestEnv};
+use lsys_core::{model_option_set, sql_format};
 use serde::{Deserialize, Serialize};
 use sqlx::{MySql, Pool};
-use sqlx_model::{
-    model_option_set, sql_format, Insert, ModelTableName, Select, Update, WhereOption,
-};
-use sqlx_model::{SqlExpr, SqlQuote};
 use std::{
     collections::HashSet,
     env, format,
@@ -49,7 +48,7 @@ pub struct GitDocs {
     db: Pool<MySql>,
     task: Arc<GitTask>,
     // app_core: Arc<AppCore>,
-    logger: Arc<ChangeLogger>,
+    logger: Arc<ChangeLoggerDao>,
     save_dir: String,
 }
 
@@ -57,16 +56,16 @@ impl GitDocs {
     pub fn new(
         db: Pool<MySql>,
         // app_core: Arc<AppCore>,
-        logger: Arc<ChangeLogger>,
+        logger: Arc<ChangeLoggerDao>,
         task: Arc<GitTask>,
-        save_dir: String,
+        save_dir: &str,
     ) -> Self {
         Self {
             db,
             // app_core,
             logger,
             task,
-            save_dir,
+            save_dir: save_dir.to_string(),
         }
     }
 }
@@ -137,12 +136,6 @@ impl GitDocs {
     }
 }
 
-pub struct GitDocsData {
-    pub name: String,
-    pub url: String,
-    pub max_try: u8,
-}
-
 impl GitDocs {
     lsys_core::impl_dao_fetch_one_by_one!(
         db,
@@ -180,14 +173,22 @@ impl GitDocs {
         id,
         "id={id}"
     );
+}
+
+pub struct GitDocsData<'t> {
+    pub name: &'t str,
+    pub url: &'t str,
+    pub max_try: u8,
+}
+impl GitDocs {
     /// 通知发送模块进行发送操作
     pub async fn git_add(
         &self,
-        param: &GitDocsData,
+        param: &GitDocsData<'_>,
         user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> GitDocResult<u32> {
-        let url = match Url::parse(&param.url) {
+        let url = match Url::parse(param.url) {
             Ok(url) => url.to_string(),
             Err(err) => {
                 return Err(crate::dao::GitDocError::System(fluent_message!(
@@ -230,13 +231,13 @@ impl GitDocs {
             .add(
                 &LogDocInfo {
                     action: "add",
-                    name,
-                    url,
+                    name: &name,
+                    user_id,
+                    url: &url,
                     max_try: param.max_try,
                 },
-                &Some(add_id),
-                &Some(user_id),
-                &Some(user_id),
+                Some(add_id),
+                Some(user_id),
                 None,
                 env_data,
             )
@@ -247,11 +248,11 @@ impl GitDocs {
     pub async fn git_edit(
         &self,
         git_model: &DocGitModel,
-        param: &GitDocsData,
+        param: &GitDocsData<'_>,
         user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> GitDocResult<()> {
-        let url = match Url::parse(&param.url) {
+        let url = match Url::parse(param.url) {
             Ok(url) => url.to_string(),
             Err(err) => {
                 return Err(crate::dao::GitDocError::System(fluent_message!(
@@ -269,19 +270,16 @@ impl GitDocs {
             param.name.trim().to_string()
         };
 
-        let tag_data = {
-            Select::type_new::<DocGitTagModel>()
-                .fetch_all_by_where::<DocGitTagModel, _>(
-                    &WhereOption::Where(sql_format!(
-                        "doc_git_id={} and status in ({})",
-                        git_model.id,
-                        &[DocGitTagStatus::Build as i8, DocGitTagStatus::Publish as i8]
-                    )),
-                    &self.db,
-                )
-                .await?
-        };
-        let data = self.git_detail(&param.url).await?;
+        let tag_data = sqlx::query_as::<_, DocGitTagModel>(&sql_format!(
+            "select * from {} where doc_git_id={} and status in ({})",
+            DocGitTagModel::table_name(),
+            git_model.id,
+            &[DocGitTagStatus::Build as i8, DocGitTagStatus::Publish as i8]
+        ))
+        .fetch_all(&self.db)
+        .await?;
+
+        let data = self.git_detail(param.url).await?;
         if !tag_data.is_empty() {
             for tmp in tag_data {
                 if !data
@@ -291,8 +289,8 @@ impl GitDocs {
                     return Err(crate::dao::GitDocError::System(
                         fluent_message!("doc-git-version-not-find",
                             {
-                                "url":&param.url,
-                                "tag": &tmp.tag,
+                                "url":param.url,
+                                "tag": tmp.tag,
                                 "version":&tmp.build_version,
                             }
                         ), //     format!(
@@ -319,13 +317,13 @@ impl GitDocs {
             .add(
                 &LogDocInfo {
                     action: "edit",
-                    name,
-                    url,
+                    name: &name,
+                    url: &url,
+                    user_id,
                     max_try: param.max_try,
                 },
-                &Some(git_model.id as u64),
-                &Some(user_id),
-                &Some(user_id),
+                Some(git_model.id as u64),
+                Some(user_id),
                 None,
                 env_data,
             )
@@ -336,27 +334,26 @@ impl GitDocs {
     pub async fn git_del(
         &self,
         git_model: &DocGitModel,
-        user_id: &u64,
-        timeout: &u64,
+        user_id: u64,
+        timeout: u64,
         env_data: Option<&RequestEnv>,
     ) -> GitDocResult<()> {
-        let clone_res = Select::type_new::<DocGitTagModel>()
-            .fetch_all_by_where(
-                &WhereOption::Where(sql_format!(
-                    "status!={} and doc_git_id={}",
-                    DocGitTagStatus::Delete as i8,
-                    git_model.id
-                )),
-                &self.db,
-            )
-            .await?;
+        let clone_res = sqlx::query_as::<_, DocGitTagModel>(&sql_format!(
+            "select * from {} where status!={} and doc_git_id={}",
+            DocGitTagModel::table_name(),
+            DocGitTagStatus::Delete as i8,
+            git_model.id
+        ))
+        .fetch_all(&self.db)
+        .await?;
+
         for tmp in clone_res {
             self.tag_del(&tmp, user_id, timeout, env_data).await?;
         }
         let change_user_id = user_id.to_owned();
         let change_time = now_time().unwrap_or_default();
         let status = DocGitStatus::Delete as i8;
-        let change = sqlx_model::model_option_set!(DocGitModelRef, {
+        let change = lsys_core::model_option_set!(DocGitModelRef, {
             status:status,
             change_user_id:change_user_id,
             change_time:change_time
@@ -375,13 +372,13 @@ impl GitDocs {
             .add(
                 &LogDocInfo {
                     action: "del",
-                    name: git_model.name.clone(),
-                    url: git_model.url.clone(),
+                    name: git_model.name.as_str(),
+                    url: git_model.url.as_str(),
                     max_try: git_model.max_try,
+                    user_id,
                 },
-                &Some(git_model.id as u64),
-                &Some(user_id.to_owned()),
-                &Some(user_id.to_owned()),
+                Some(git_model.id as u64),
+                Some(user_id),
                 None,
                 env_data,
             )
@@ -390,25 +387,26 @@ impl GitDocs {
     }
     /// 通知发送模块进行发送操作
     pub async fn git_list(&self) -> GitDocResult<Vec<DocGitModel>> {
-        Ok(Select::type_new::<DocGitModel>()
-            .fetch_all_by_where::<DocGitModel, _>(
-                &WhereOption::Where(sql_format!("status={}", DocGitStatus::Enable)),
-                &self.db,
-            )
-            .await?)
+        Ok(sqlx::query_as::<_, DocGitModel>(&sql_format!(
+            "select * from {} where status={}",
+            DocGitModel::table_name(),
+            DocGitStatus::Enable
+        ))
+        .fetch_all(&self.db)
+        .await?)
     }
 }
-pub struct GitDocsGitTag {
-    pub tag: String,
-    pub build_version: String,
-    pub clear_rule: Option<Vec<String>>,
+pub struct GitDocsGitTag<'t> {
+    pub tag: &'t str,
+    pub build_version: &'t str,
+    pub clear_rule: Option<&'t [&'t str]>,
 }
 
 impl GitDocs {
     pub async fn tag_add(
         &self,
         doc_git: &DocGitModel,
-        param: &GitDocsGitTag,
+        param: &GitDocsGitTag<'_>,
         user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> GitDocResult<u64> {
@@ -420,7 +418,7 @@ impl GitDocs {
         }
 
         if let Some(rule) = &param.clear_rule {
-            for tmp in rule {
+            for tmp in rule.iter() {
                 if let Err(re) = Regex::new(tmp) {
                     return Err(crate::dao::GitDocError::System(
                         fluent_message!("doc-git-rule-error",
@@ -435,7 +433,7 @@ impl GitDocs {
         }
 
         if let Ok(re) = Regex::new(r"^[0-9a-f]{40}$") {
-            if !re.is_match(&param.build_version) {
+            if !re.is_match(param.build_version) {
                 return Err(crate::dao::GitDocError::System(
                     fluent_message!("doc-git-submit-version-error",
                         {
@@ -480,10 +478,13 @@ impl GitDocs {
         })?;
         let status = DocGitTagStatus::Build as i8;
         let add_time = now_time().unwrap_or_default();
+        let tag = param.tag.trim().to_string();
+        let build_version = param.build_version.trim().to_string();
+
         let vdata = model_option_set!(DocGitTagModelRef, {
             doc_git_id:doc_git.id,
-            tag: param.tag,
-            build_version:param.build_version,
+            tag: tag,
+            build_version:build_version,
             clear_rule:clear_rule,
             status:status,
             add_user_id:user_id,
@@ -499,13 +500,13 @@ impl GitDocs {
                 &LogDocTag {
                     action: "add",
                     doc_git_id: doc_git.id,
-                    tag: param.tag.clone(),
-                    build_version: param.build_version.clone(),
-                    clear_rule,
+                    tag: param.tag,
+                    build_version: param.build_version,
+                    clear_rule: clear_rule.as_str(),
+                    user_id,
                 },
-                &Some(add_id),
-                &Some(user_id),
-                &Some(user_id),
+                Some(add_id),
+                Some(user_id),
                 None,
                 env_data,
             )
@@ -516,26 +517,24 @@ impl GitDocs {
     pub async fn tag_del(
         &self,
         git_tag: &DocGitTagModel,
-        user_id: &u64,
-        timeout: &u64,
+        user_id: u64,
+        timeout: u64,
         env_data: Option<&RequestEnv>,
     ) -> GitDocResult<()> {
-        let clone_res = Select::type_new::<DocGitCloneModel>()
-            .fetch_all_by_where(
-                &WhereOption::Where(sql_format!(
-                    "status!={} and doc_tag_id={}",
-                    DocGitCloneStatus::Delete as i8,
-                    git_tag.id
-                )),
-                &self.db,
-            )
-            .await?;
+        let clone_res = sqlx::query_as::<_, DocGitCloneModel>(&sql_format!(
+            "select * from {} where status!={} and doc_tag_id={}",
+            DocGitCloneModel::table_name(),
+            DocGitCloneStatus::Delete as i8,
+            git_tag.id
+        ))
+        .fetch_all(&self.db)
+        .await?;
 
         for tmp in clone_res {
             self.tag_clone_del(&tmp, timeout, user_id, env_data).await?;
         }
         let status = DocGitTagStatus::Delete as i8;
-        let change = sqlx_model::model_option_set!(DocGitTagModelRef, { status: status });
+        let change = lsys_core::model_option_set!(DocGitTagModelRef, { status: status });
         if let Err(err) = Update::<MySql, DocGitTagModel, _>::new(change)
             .execute_by_where(
                 &WhereOption::Where(sql_format!("id={}", git_tag.id,)),
@@ -552,13 +551,13 @@ impl GitDocs {
                 &LogDocTag {
                     action: "del",
                     doc_git_id: git_tag.doc_git_id,
-                    tag: git_tag.tag.clone(),
-                    build_version: git_tag.build_version.clone(),
-                    clear_rule: git_tag.clear_rule.clone(),
+                    tag: git_tag.tag.as_str(),
+                    build_version: git_tag.build_version.as_str(),
+                    clear_rule: git_tag.clear_rule.as_str(),
+                    user_id,
                 },
-                &Some(git_tag.id),
-                &Some(user_id.to_owned()),
-                &Some(user_id.to_owned()),
+                Some(git_tag.id),
+                Some(user_id),
                 None,
                 env_data,
             )
@@ -568,13 +567,13 @@ impl GitDocs {
     pub async fn tag_clone_del(
         &self,
         git_clone: &DocGitCloneModel,
-        timeout: &u64,
-        user_id: &u64,
+        timeout: u64,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> GitDocResult<()> {
         if let Err(err) = self
             .task
-            .remote_delete_clone(&git_clone.id, &git_clone.host, timeout)
+            .remote_delete_clone(git_clone.id, &git_clone.host, timeout)
             .await
         {
             info!(
@@ -582,13 +581,19 @@ impl GitDocs {
                 err.to_fluent_message().default_format()
             )
         };
-        let rgit_clone = Select::type_new::<DocGitCloneModel>()
-            .reload(git_clone, &self.db)
-            .await?;
+
+        let rgit_clone = sqlx::query_as::<_, DocGitCloneModel>(&sql_format!(
+            "select * from {} where id={}",
+            DocGitCloneModel::table_name(),
+            git_clone.id
+        ))
+        .fetch_one(&self.db)
+        .await?;
+
         if !DocGitCloneStatus::Delete.eq(rgit_clone.status) {
             let finish_time = now_time().unwrap_or_default();
             let status = DocGitCloneStatus::Delete as i8;
-            let change = sqlx_model::model_option_set!(DocGitCloneModelRef, {
+            let change = lsys_core::model_option_set!(DocGitCloneModelRef, {
                 finish_time: finish_time,
                 status:status
             });
@@ -624,11 +629,11 @@ impl GitDocs {
                 &LogDocClone {
                     doc_tag_id: git_clone.doc_tag_id,
                     action: "delete",
-                    host: git_clone.host.clone(),
+                    host: git_clone.host.as_str(),
+                    user_id,
                 },
-                &Some(git_clone.id),
-                &Some(user_id.to_owned()),
-                &Some(user_id.to_owned()),
+                Some(git_clone.id),
+                Some(user_id),
                 None,
                 env_data,
             )
@@ -647,11 +652,11 @@ impl GitDocs {
     pub async fn tags_status(
         &self,
         git_tag: &DocGitTagModel,
-        status: &DocGitTagStatus,
-        user_id: &u64,
+        status: DocGitTagStatus,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> GitDocResult<()> {
-        if *status == DocGitTagStatus::Delete {
+        if status == DocGitTagStatus::Delete {
             return Err(crate::dao::GitDocError::System(
                 fluent_message!("doc-git-status-wrong",{
                         "id":git_tag.id,
@@ -660,7 +665,7 @@ impl GitDocs {
                 ),
             ));
         }
-        if status.eq(&DocGitTagStatus::Publish) {
+        if status == DocGitTagStatus::Publish {
             let data = self.menu_list(git_tag).await?;
             if data.is_empty() {
                 return Err(crate::dao::GitDocError::System(
@@ -676,8 +681,8 @@ impl GitDocs {
                 // )
             }
         }
-        let status = *status as i8;
-        let change = sqlx_model::model_option_set!(DocGitTagModelRef, { status: status });
+        let status = status as i8;
+        let change = lsys_core::model_option_set!(DocGitTagModelRef, { status: status });
         if let Err(err) = Update::<MySql, DocGitTagModel, _>::new(change)
             .execute_by_pk(git_tag, &self.db)
             .await
@@ -690,13 +695,13 @@ impl GitDocs {
                 &LogDocTag {
                     action: "status",
                     doc_git_id: git_tag.doc_git_id,
-                    tag: git_tag.tag.clone(),
-                    build_version: git_tag.build_version.clone(),
-                    clear_rule: git_tag.clear_rule.clone(),
+                    tag: git_tag.tag.as_str(),
+                    build_version: git_tag.build_version.as_str(),
+                    clear_rule: git_tag.clear_rule.as_str(),
+                    user_id,
                 },
-                &Some(git_tag.id),
-                &Some(*user_id),
-                &Some(*user_id),
+                Some(git_tag.id),
+                Some(user_id),
                 None,
                 env_data,
             )
@@ -706,13 +711,13 @@ impl GitDocs {
     //TAG 列表
     pub async fn tags_list(
         &self,
-        git_id: &Option<u32>,
-        status: &Option<DocGitTagStatus>,
-        key_word: &Option<String>, //find tag or build_version
-        page: &Option<PageParam>,
+        git_id: Option<u32>,
+        status: Option<DocGitTagStatus>,
+        key_word: Option<&str>, //find tag or build_version
+        page: Option<&PageParam>,
     ) -> GitDocResult<Vec<DocTagItem>> {
         let mut where_sql = match status {
-            Some(s) => sql_format!("status = {}", *s as i8),
+            Some(s) => sql_format!("status = {}", s as i8),
             None => sql_format!(
                 "status in ({})",
                 &[DocGitTagStatus::Build as i8, DocGitTagStatus::Publish as i8,]
@@ -737,9 +742,14 @@ impl GitDocs {
             where_sql += " order by id desc"
         };
 
-        let data = Select::type_new::<DocGitTagModel>()
-            .fetch_all_by_where::<DocGitTagModel, _>(&WhereOption::Where(where_sql), &self.db)
-            .await?;
+        let data = sqlx::query_as::<_, DocGitTagModel>(&sql_format!(
+            "select * from {} where {}",
+            DocGitTagModel::table_name(),
+            SqlExpr(where_sql)
+        ))
+        .fetch_all(&self.db)
+        .await?;
+
         let git_ids = data
             .iter()
             .map(|e| e.doc_git_id)
@@ -747,28 +757,27 @@ impl GitDocs {
             .into_iter()
             .collect::<Vec<_>>();
         let git_all_data = if !git_ids.is_empty() {
-            Select::type_new::<DocGitModel>()
-                .fetch_all_by_where::<DocGitModel, _>(
-                    &WhereOption::Where(sql_format!("id in ({})", git_ids)),
-                    &self.db,
-                )
-                .await?
+            sqlx::query_as::<_, DocGitModel>(&sql_format!(
+                "select * from {} where id in ({})",
+                DocGitModel::table_name(),
+                git_ids
+            ))
+            .fetch_all(&self.db)
+            .await?
         } else {
             vec![]
         };
 
         let git_tag_ids = data.iter().map(|e| e.id).collect::<Vec<_>>();
         let mut clone_all_data = if !git_tag_ids.is_empty() {
-            Select::type_new::<DocGitCloneModel>()
-                .fetch_all_by_where::<DocGitCloneModel, _>(
-                    &WhereOption::Where(sql_format!(
-                        "doc_tag_id in ({}) and status!={}",
-                        git_tag_ids,
-                        DocGitCloneStatus::Delete as i8
-                    )),
-                    &self.db,
-                )
-                .await?
+            sqlx::query_as::<_, DocGitCloneModel>(&sql_format!(
+                "select * from {} where doc_tag_id in ({}) and status!={}",
+                DocGitCloneModel::table_name(),
+                git_tag_ids,
+                DocGitCloneStatus::Delete as i8
+            ))
+            .fetch_all(&self.db)
+            .await?
         } else {
             vec![]
         };
@@ -813,12 +822,12 @@ impl GitDocs {
     //TAG总数
     pub async fn tags_count(
         &self,
-        git_id: &Option<u32>,
-        status: &Option<DocGitTagStatus>,
-        key_word: &Option<String>, //find tag or build_version
+        git_id: Option<u32>,
+        status: Option<DocGitTagStatus>,
+        key_word: Option<&str>, //find tag or build_version
     ) -> GitDocResult<i64> {
         let mut where_sql = match status {
-            Some(s) => sql_format!("status = {}", *s as i8),
+            Some(s) => sql_format!("status = {}", s as i8),
             None => sql_format!(
                 "status in ({})",
                 &[DocGitTagStatus::Build as i8, DocGitTagStatus::Publish as i8,]
@@ -845,12 +854,13 @@ impl GitDocs {
     }
     //指定TAG的日志
     pub async fn tags_logs(&self, git_tag_id: &u32) -> GitDocResult<Vec<DocLogsModel>> {
-        Ok(Select::type_new::<DocLogsModel>()
-            .fetch_all_by_where::<DocLogsModel, _>(
-                &WhereOption::Where(sql_format!("doc_tag_id = {}", git_tag_id)),
-                &self.db,
-            )
-            .await?)
+        Ok(sqlx::query_as::<_, DocLogsModel>(&sql_format!(
+            "select * from {} where doc_tag_id = {}",
+            DocLogsModel::table_name(),
+            git_tag_id
+        ))
+        .fetch_all(&self.db)
+        .await?)
     }
 }
 #[derive(Debug, Serialize)]
@@ -870,16 +880,14 @@ impl GitDocs {
             .unwrap_or_default()
             .to_string_lossy()
             .to_string();
-        let clone_data = Select::type_new::<DocGitCloneModel>()
-            .fetch_one_by_where::<DocGitCloneModel, _>(
-                &WhereOption::Where(sql_format!(
-                    "doc_tag_id={}   and host={}",
-                    tag.id,
-                    host_name
-                )),
-                &self.db,
-            )
-            .await?;
+        let clone_data = sqlx::query_as::<_, DocGitCloneModel>(&sql_format!(
+            "select * from {} where doc_tag_id={}   and host={}",
+            DocGitCloneModel::table_name(),
+            tag.id,
+            host_name
+        ))
+        .fetch_one(&self.db)
+        .await?;
 
         if !DocGitCloneStatus::Cloned.eq(clone_data.status) {
             return Err(crate::dao::GitDocError::System(
@@ -951,12 +959,16 @@ impl GitDocs {
             .unwrap_or_default()
             .to_string_lossy()
             .to_string();
-        let clone_data = Select::type_new::<DocGitCloneModel>()
-            .fetch_one_by_where::<DocGitCloneModel, _>(
-                &WhereOption::Where(sql_format!("doc_tag_id={}  and host={}", tag.id, host_name)),
-                &self.db,
-            )
-            .await?;
+
+        let clone_data = sqlx::query_as::<_, DocGitCloneModel>(&sql_format!(
+            "select * from {} where doc_tag_id={}  and host={}",
+            DocGitCloneModel::table_name(),
+            tag.id,
+            host_name
+        ))
+        .fetch_one(&self.db)
+        .await?;
+
         if !DocGitCloneStatus::Cloned.eq(clone_data.status) {
             return Err(crate::dao::GitDocError::System(
                 fluent_message!("doc-git-menu-read-not-yet",{
@@ -1023,15 +1035,15 @@ pub struct DocPath {
     pub version: String,
 }
 
-pub struct GitDocsMenuData {
-    pub menu_path: String,
+pub struct GitDocsMenuData<'t> {
+    pub menu_path: &'t str,
 }
 impl GitDocs {
     pub async fn menu_add(
         &self,
         tag: &DocGitTagModel,
-        menu_param: &GitDocsMenuData,
-        user_id: &u64,
+        menu_param: &GitDocsMenuData<'_>,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> GitDocResult<u64> {
         if menu_param.menu_path.trim().is_empty() {
@@ -1039,7 +1051,7 @@ impl GitDocs {
                 fluent_message!("doc-git-menu-name-empty"), // "menu path can't be empty".to_string(),
             ));
         }
-        let menu_file = self.menu_file_read(tag, &menu_param.menu_path).await?;
+        let menu_file = self.menu_file_read(tag, menu_param.menu_path).await?;
         let dat_u8 = read(&menu_file.file_path).await.map_err(|e| {
             // format!("your sumbit path,can't read data:{}", e)
             GitDocError::System(fluent_message!("doc-git-menu-file-error",{
@@ -1081,9 +1093,14 @@ impl GitDocs {
             menu_path,
             DocMenuStatus::Enable as i8
         );
-        match Select::type_new::<DocMenuModel>()
-            .fetch_one_by_where::<DocMenuModel, _>(&WhereOption::Where(sql), &self.db)
-            .await
+
+        match sqlx::query_as::<_, DocMenuModel>(&sql_format!(
+            "select * from {} where  {}",
+            DocMenuModel::table_name(),
+            SqlExpr(sql)
+        ))
+        .fetch_one(&self.db)
+        .await
         {
             Ok(id) => {
                 return Err(GitDocError::System(
@@ -1126,26 +1143,26 @@ impl GitDocs {
                 &LogDocMenu {
                     action: "add",
                     doc_tag_id: tag.id,
-                    menu_path,
-                    menu_check_host: host_name,
+                    menu_path: &menu_path,
+                    user_id,
+                    menu_check_host: &host_name,
                 },
-                &Some(add_id),
-                &Some(user_id.to_owned()),
-                &Some(user_id.to_owned()),
+                Some(add_id),
+                Some(user_id),
                 None,
                 env_data,
             )
             .await;
         Ok(add_id)
     }
-    pub async fn menu_del<'t>(
+    pub async fn menu_del(
         &self,
         menu: &DocMenuModel,
-        user_id: &u64,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> GitDocResult<()> {
         let status = DocMenuStatus::Delete as i8;
-        let change = sqlx_model::model_option_set!(DocMenuModelRef, { status: status });
+        let change = lsys_core::model_option_set!(DocMenuModelRef, { status: status });
         if let Err(err) = Update::<MySql, DocMenuModel, _>::new(change)
             .execute_by_where(
                 &WhereOption::Where(sql_format!("id={}", menu.id,)),
@@ -1161,27 +1178,31 @@ impl GitDocs {
                 &LogDocMenu {
                     action: "del",
                     doc_tag_id: menu.doc_tag_id,
-                    menu_path: menu.menu_path.clone(),
-                    menu_check_host: menu.menu_check_host.clone(),
+                    menu_path: menu.menu_path.as_str(),
+                    menu_check_host: menu.menu_check_host.as_str(),
+                    user_id,
                 },
-                &Some(menu.id),
-                &Some(user_id.to_owned()),
-                &Some(user_id.to_owned()),
+                Some(menu.id),
+                Some(user_id),
                 None,
                 env_data,
             )
             .await;
         Ok(())
     }
-    pub async fn menu_list<'t>(&self, tag: &DocGitTagModel) -> GitDocResult<Vec<DocMenuModel>> {
+    pub async fn menu_list(&self, tag: &DocGitTagModel) -> GitDocResult<Vec<DocMenuModel>> {
         let sql = sql_format!(
             "doc_tag_id = {} and status={} order by id desc",
             tag.id,
             DocMenuStatus::Enable as i8
         );
-        Ok(Select::type_new::<DocMenuModel>()
-            .fetch_all_by_where::<DocMenuModel, _>(&WhereOption::Where(sql), &self.db)
-            .await?)
+        Ok(sqlx::query_as::<_, DocMenuModel>(&sql_format!(
+            "select * from {} where  {}",
+            DocMenuModel::table_name(),
+            SqlExpr(sql)
+        ))
+        .fetch_all(&self.db)
+        .await?)
     }
 }
 

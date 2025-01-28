@@ -6,11 +6,12 @@ edition = "2021"
 
 
 [dependencies]
-lsys-core = { path = "../../lsys-core" }       #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-web = { path = "../../lsys-web" }         #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-setting = { path = "../../lsys-setting" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-rbac = { path = "../../lsys-rbac" }       #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-user = { path = "../../lsys-user" }       #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-core = { path = "../../lsys-core" }
+lsys-web = { path = "../../lsys-web" }
+lsys-setting = { path = "../../lsys-setting" }
+lsys-rbac = { path = "../../lsys-rbac" }
+lsys-user = { path = "../../lsys-user" }
+lsys-access = { path = "../../lsys-access" }
 serde = { version = "1.0.*" }
 serde_json = "1.0.*"
 #日志
@@ -18,23 +19,16 @@ tracing = { version = "0.1.*", features = [
     "log",
 ] } # log-always 保持log的输出 当使用tracing时会出现两次
 async-trait = "0.1.57"
-config = "~0.14"
+config = "~0.15"
 
 
-redis = { version = "~0.23" }
+redis = { version = "~0.27.5" }
 
 
 urlencoding = { version = "2.1.0" }
 
 
-reqwest = { version = "~0.11.*", features = ["json", "stream"] }
+reqwest = { version = "~0.12.9", features = ["json", "stream"] }
 
 
-sqlx = { version = "~0.6.3", features = [
-    "mysql",
-    "runtime-tokio-native-tls",
-    "offline",
-] }
-sqlx-model = { version = "0.2.3", default-features = false, features = [
-    "sqlx-mysql",
-] }
+sqlx = { version = "~0.8.3", features = ["mysql", "runtime-tokio-native-tls"] }

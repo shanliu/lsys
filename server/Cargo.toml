@@ -1,12 +1,13 @@
 [workspace]
 resolver = "2"
 members = [
+    "lsys-core-macros",
+    "lsys-lib-sms",
+    "lsys-lib-area",
     "lsys-core",
     "lsys-rbac",
     "lsys-user",
     "lsys-web",
-    "lsys-lib-sms",
-    "lsys-lib-area",
     "lsys-setting",
     "lsys-logger",
     "lsys-app",
@@ -14,9 +15,9 @@ members = [
     "lsys-app-sender",
     "lsys-app-barcode",
     "lsys-docs",
+    "lsys-access",
     "examples/*",
 ]
-
 
 [profile.release]
 codegen-units = 1

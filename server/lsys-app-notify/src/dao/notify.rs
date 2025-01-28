@@ -3,10 +3,9 @@ use std::{
     sync::Arc,
 };
 
-
-use lsys_app::dao::app::Apps;
+use lsys_app::dao::App;
 use lsys_core::{AppCore, TaskDispatch};
-use lsys_logger::dao::ChangeLogger;
+use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::Pool;
 use tracing::warn;
 
@@ -19,26 +18,26 @@ const NOTIFY_REDIS_PREFIX: &str = "notify-task";
 pub trait NotifyData {
     fn to_string(&self) -> String;
     fn method() -> String;
-    fn app_id(&self) -> &u64;
+    fn app_id(&self) -> u64;
 }
-pub struct Notify {
+pub struct NotifyDao {
     app_core: Arc<AppCore>,
     db: Pool<sqlx::MySql>,
-    apps: Arc<Apps>,
+    app: Arc<App>,
     pub record: Arc<NotifyRecord>,
     task: TaskDispatch<u64, NotifyTaskItem>,
     redis: deadpool_redis::Pool,
     max_try: u16,
 }
 
-impl Notify {
+impl NotifyDao {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         redis: deadpool_redis::Pool,
         db: Pool<sqlx::MySql>,
         app_core: Arc<AppCore>,
-        apps: Arc<Apps>,
-        logger: Arc<ChangeLogger>,
+        app: Arc<App>,
+        logger: Arc<ChangeLoggerDao>,
         max_try: Option<u16>,
         task_size: Option<usize>,
         task_timeout: Option<usize>,
@@ -60,9 +59,9 @@ impl Notify {
         };
 
         let task = TaskDispatch::new(
-            format!("{}-notify", NOTIFY_REDIS_PREFIX),
-            format!("{}-notify-read-lock", NOTIFY_REDIS_PREFIX),
-            format!("{}-notify-run-task", NOTIFY_REDIS_PREFIX),
+            &format!("{}-notify", NOTIFY_REDIS_PREFIX),
+            &format!("{}-notify-read-lock", NOTIFY_REDIS_PREFIX),
+            &format!("{}-notify-run-task", NOTIFY_REDIS_PREFIX),
             task_size,
             task_timeout,
             is_check,
@@ -74,7 +73,7 @@ impl Notify {
             record,
             task,
             redis,
-            apps,
+            app,
             max_try: max_try.unwrap_or(5),
         }
     }
@@ -82,7 +81,7 @@ impl Notify {
         self.add(&T::method(), data.app_id(), &data.to_string())
             .await
     }
-    pub async fn add(&self, method: &str, app_id: &u64, data: &str) -> NotifyResult<u64> {
+    pub async fn add(&self, method: &str, app_id: u64, data: &str) -> NotifyResult<u64> {
         let id = self.record.add(method, app_id, data).await?;
         let mut redis = self.redis.get().await?;
         if let Err(err) = self.task.notify(&mut redis).await {
@@ -100,7 +99,7 @@ impl Notify {
                 &acquisition,
                 NotifyTask::new(
                     self.db.clone(),
-                    self.apps.clone(),
+                    self.app.clone(),
                     self.record.clone(),
                     self.max_try,
                 ),

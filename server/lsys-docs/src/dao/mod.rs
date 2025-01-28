@@ -12,7 +12,7 @@ mod task;
 pub use docs::*;
 
 use lsys_core::RemoteNotify;
-use lsys_logger::dao::ChangeLogger;
+use lsys_logger::dao::ChangeLoggerDao;
 use relative_path::RelativePath;
 pub use task::*;
 
@@ -31,11 +31,11 @@ impl DocsDao {
     pub async fn new(
         db: Pool<MySql>,
         remote_notify: Arc<RemoteNotify>,
-        logger: Arc<ChangeLogger>,
+        logger: Arc<ChangeLoggerDao>,
         task_size: Option<usize>,
-        save_dir: Option<String>,
+        save_dir: Option<&str>,
     ) -> Self {
-        let save_dir = save_dir.unwrap_or_else(|| {
+        let save_dir = save_dir.map(|e| e.to_string()).unwrap_or_else(|| {
             env::temp_dir().to_string_lossy().to_string()
             // let config_dir = config!(self.app_core.config)
             // .get_string("doc_git_dir")
@@ -46,9 +46,9 @@ impl DocsDao {
             db.clone(),
             remote_notify,
             task_size,
-            save_dir.clone(),
+            &save_dir,
         ));
-        let docs = Arc::from(GitDocs::new(db, logger, task.clone(), save_dir));
+        let docs = Arc::from(GitDocs::new(db, logger, task.clone(), &save_dir));
         DocsDao { docs, task }
     }
 }

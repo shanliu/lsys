@@ -101,41 +101,41 @@ impl SenderAliYunConfig {
     //列出有效的aliyun短信配置
     pub async fn list_config(
         &self,
-        ali_config_ids: &Option<Vec<u64>>,
+        ali_config_ids: Option<&[u64]>,
     ) -> SenderResult<Vec<SettingData<AliYunConfig>>> {
         let data = self
             .setting
-            .list_data::<AliYunConfig>(&None, ali_config_ids, &None)
+            .list_data::<AliYunConfig>(None, ali_config_ids, None)
             .await?;
         Ok(data)
     }
     //删除指定的aliyun短信配置
     pub async fn del_config(
         &self,
-        id: &u64,
-        user_id: &u64,
+        id: u64,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         Ok(self
             .setting
-            .del::<AliYunConfig>(&None, id, user_id, None, env_data)
+            .del::<AliYunConfig>(None, id, user_id, None, env_data)
             .await?)
     }
     //编辑指定的aliyun短信配置
     #[allow(clippy::too_many_arguments)]
     pub async fn edit_config(
         &self,
-        id: &u64,
+        id: u64,
         name: &str,
         access_id: &str,
         access_secret: &str,
         region: &str,
         callback_key: &str,
-        branch_limit: &u16,
-        user_id: &u64,
+        branch_limit: u16,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
-        if *branch_limit > AliSms::branch_limit() {
+        if branch_limit > AliSms::branch_limit() {
             return Err(SenderError::System(
                 fluent_message!("sms-config-branch-error",
                     {"max":AliSms::branch_limit()}
@@ -145,14 +145,14 @@ impl SenderAliYunConfig {
         Ok(self
             .setting
             .edit(
-                &None,
+                None,
                 id,
                 name,
                 &AliYunConfig {
                     access_id: access_id.to_owned(),
                     access_secret: access_secret.to_owned(),
                     region: region.to_owned(),
-                    branch_limit: *branch_limit,
+                    branch_limit,
                     callback_key: callback_key.to_string(),
                 },
                 user_id,
@@ -170,11 +170,11 @@ impl SenderAliYunConfig {
         access_secret: &str,
         region: &str,
         callback_key: &str,
-        branch_limit: &u16,
-        user_id: &u64,
+        branch_limit: u16,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
-        if *branch_limit > AliSms::branch_limit() {
+        if branch_limit > AliSms::branch_limit() {
             return Err(SenderError::System(
                 fluent_message!("sms-config-branch-error",
                     {"max":AliSms::branch_limit()}
@@ -184,13 +184,13 @@ impl SenderAliYunConfig {
         Ok(self
             .setting
             .add(
-                &None,
+                None,
                 name,
                 &AliYunConfig {
                     access_id: access_id.to_owned(),
                     access_secret: access_secret.to_owned(),
                     region: region.to_owned(),
-                    branch_limit: *branch_limit,
+                    branch_limit,
                     callback_key: callback_key.to_string(),
                 },
                 user_id,
@@ -204,16 +204,16 @@ impl SenderAliYunConfig {
     pub async fn add_app_config(
         &self,
         name: &str,
-        app_id: &u64,
-        setting_id: &u64,
+        app_id: u64,
+        setting_id: u64,
         tpl_id: &str,
         aliyun_sms_tpl: &str,
         aliyun_sign_name: &str,
-        user_id: &u64,
-        add_user_id: &u64,
+        user_id: u64,
+        add_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
-        self.setting.load::<AliYunConfig>(&None, setting_id).await?;
+        self.setting.load::<AliYunConfig>(None, setting_id).await?;
         let aliyun_sms_tpl = aliyun_sms_tpl.to_owned();
         let aliyun_sign_name = aliyun_sign_name.to_owned();
         self.tpl_config
@@ -337,7 +337,7 @@ impl<'t> AliYunNotify<'t> {
     }
 }
 
-impl<'t> SmsSendNotifyParse for AliYunNotify<'t> {
+impl SmsSendNotifyParse for AliYunNotify<'_> {
     type T = AliYunConfig;
     fn notify_items(
         &self,
@@ -365,7 +365,7 @@ impl<'t> SmsSendNotifyParse for AliYunNotify<'t> {
         items: &[SendNotifyItem],
         msg: Vec<SenderSmsMessageModel>,
     ) -> Result<Vec<(Option<SenderSmsMessageModel>, SendNotifyItem)>, String> {
-        return Ok(items
+        Ok(items
             .iter()
             .map(|e| {
                 let tmp = msg
@@ -377,7 +377,7 @@ impl<'t> SmsSendNotifyParse for AliYunNotify<'t> {
                     .map(|t| t.to_owned());
                 (tmp, e.to_owned())
             })
-            .collect::<Vec<_>>());
+            .collect::<Vec<_>>())
     }
 }
 

@@ -4,25 +4,27 @@ use std::time::Duration;
 use crate::model::{
     NotifyConfigModel, NotifyConfigModelRef, NotifyDataModel, NotifyDataModelRef, NotifyDataStatus,
 };
+use lsys_app::model::AppModel;
 use lsys_core::{fluent_message, now_time, LimitParam, RequestEnv};
 
+use lsys_core::db::{Insert, ModelTableName, SqlExpr, Update};
+use lsys_core::{model_option_set, sql_format};
 use reqwest::Method;
 use serde::Serialize;
-use sqlx::Pool;
-use sqlx_model::{model_option_set, sql_format, Insert, ModelTableName, SqlExpr, Update};
+use sqlx::{FromRow, Pool, Row};
 
-use sqlx_model::SqlQuote;
+use lsys_core::db::SqlQuote;
 use tracing::warn;
 
 use super::{NotifyError, NotifyResult};
 
 pub struct NotifyRecord {
     db: Pool<sqlx::MySql>,
-    logger: Arc<ChangeLogger>,
+    logger: Arc<ChangeLoggerDao>,
 }
 
 impl NotifyRecord {
-    pub fn new(db: Pool<sqlx::MySql>, logger: Arc<ChangeLogger>) -> Self {
+    pub fn new(db: Pool<sqlx::MySql>, logger: Arc<ChangeLoggerDao>) -> Self {
         Self { db, logger }
     }
     lsys_core::impl_dao_fetch_one_by_one!(
@@ -37,19 +39,17 @@ impl NotifyRecord {
 
     pub async fn find_config_by_app(
         &self,
-        app_id: &u64,
+        app_id: u64,
         method: &str,
     ) -> NotifyResult<NotifyConfigModel> {
-        let data = sqlx_model::Select::type_new::<NotifyConfigModel>()
-            .fetch_one_by_where::<NotifyConfigModel, _>(
-                &sqlx_model::WhereOption::Where(sqlx_model::sql_format!(
-                    "app_id={} and method={}",
-                    app_id,
-                    method
-                )),
-                &self.db,
-            )
-            .await?;
+        let data = sqlx::query_as::<_, NotifyConfigModel>(&sql_format!(
+            "select * from {} where app_id={} and method={}",
+            NotifyConfigModel::table_name(),
+            app_id,
+            method
+        ))
+        .fetch_one(&self.db)
+        .await?;
         Ok(data)
     }
     pub async fn find_config_by_apps(
@@ -60,25 +60,23 @@ impl NotifyRecord {
         if app_id.is_empty() {
             return Ok(vec![]);
         }
-        let data = sqlx_model::Select::type_new::<NotifyConfigModel>()
-            .fetch_all_by_where::<NotifyConfigModel, _>(
-                &sqlx_model::WhereOption::Where(sqlx_model::sql_format!(
-                    "app_id in ({}) and method={}",
-                    app_id,
-                    method
-                )),
-                &self.db,
-            )
-            .await?;
+        let data = sqlx::query_as::<_, NotifyConfigModel>(&sql_format!(
+            "select * from {} where app_id in ({}) and method={}",
+            NotifyConfigModel::table_name(),
+            app_id,
+            method
+        ))
+        .fetch_all(&self.db)
+        .await?;
         Ok(data)
     }
 
     pub async fn set_app_config(
         &self,
-        app_id: &u64,
+        app: &AppModel,
         method: &str,
         call_url: &str,
-        change_user_id: &u64,
+        change_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> NotifyResult<u64> {
         if !call_url.starts_with("http://") && !call_url.starts_with("https://") {
@@ -98,9 +96,9 @@ impl NotifyRecord {
         let call_url = call_url.to_owned();
         let change_user_id = change_user_id.to_owned();
         let create_time = now_time().unwrap_or_default();
-        let id = match self.find_config_by_app(app_id, method).await {
+        let id = match self.find_config_by_app(app.id, method).await {
             Ok(row) => {
-                let change = sqlx_model::model_option_set!(NotifyConfigModelRef,{
+                let change = lsys_core::model_option_set!(NotifyConfigModelRef,{
                     call_url:call_url,
                     change_time:create_time,
                     change_user_id:change_user_id,
@@ -114,10 +112,10 @@ impl NotifyRecord {
                 let method = method.to_owned();
                 let res = Insert::<sqlx::MySql, NotifyConfigModel, _>::new(
                     model_option_set!(NotifyConfigModelRef ,{
-                        app_id: *app_id,
+                        app_id: app.id,
                         method: method,
                         call_url:call_url,
-                        user_id:change_user_id,
+                        app_user_id:app.user_id,
                         change_user_id: change_user_id,
                         create_time: create_time,
                     }),
@@ -138,12 +136,12 @@ impl NotifyRecord {
         self.logger
             .add(
                 &AppNotifyConfigLog {
-                    method: method.to_owned(),
-                    url: call_url.to_owned(),
+                    method,
+                    url: &call_url,
+                    user_id: change_user_id,
                 },
-                &Some(id),
-                &Some(change_user_id),
-                &Some(change_user_id),
+                Some(id),
+                Some(change_user_id),
                 None,
                 env_data,
             )
@@ -151,14 +149,14 @@ impl NotifyRecord {
         Ok(id)
     }
 
-    pub async fn add(&self, method: &str, app_id: &u64, data: &str) -> NotifyResult<u64> {
+    pub async fn add(&self, method: &str, app_id: u64, data: &str) -> NotifyResult<u64> {
         let method = method.to_owned();
         let payload = data.to_owned();
         let create_time = now_time().unwrap_or_default();
         let status = NotifyDataStatus::Init as i8;
         let res =
             Insert::<sqlx::MySql, NotifyDataModel, _>::new(model_option_set!(NotifyDataModelRef ,{
-                app_id: *app_id,
+                app_id:app_id,
                 method: method,
                 payload: payload,
                 status: status,
@@ -177,9 +175,10 @@ impl NotifyRecord {
     //消息数量
     pub async fn data_count(
         &self,
-        app_id: &Option<u64>,
-        method: &Option<String>,
-        status: &Option<NotifyDataStatus>,
+        app_id: Option<u64>,
+        app_user_id: Option<u64>,
+        method: Option<&str>,
+        status: Option<NotifyDataStatus>,
     ) -> NotifyResult<i64> {
         let mut sqlwhere = vec![];
         if let Some(s) = method {
@@ -188,9 +187,15 @@ impl NotifyRecord {
         if let Some(aid) = app_id {
             sqlwhere.push(sql_format!("app_id = {}  ", aid));
         }
-
+        if let Some(uid) = app_user_id {
+            sqlwhere.push(sql_format!(
+                "app_id in ( select app_id from {} where app_user_id = {} )",
+                NotifyConfigModel::table_name(),
+                uid
+            ));
+        }
         if let Some(s) = status {
-            sqlwhere.push(sql_format!("status={} ", *s));
+            sqlwhere.push(sql_format!("status={} ", s));
         }
 
         let sql = sql_format!(
@@ -209,21 +214,24 @@ impl NotifyRecord {
     //消息列表
     pub async fn data_list(
         &self,
-        app_id: &Option<u64>,
-        method: &Option<String>,
-        status: &Option<NotifyDataStatus>,
-        limit: &Option<LimitParam>,
-    ) -> NotifyResult<(Vec<NotifyDataModel>, Option<u64>)> {
+        app_id: Option<u64>,
+        app_user_id: Option<u64>,
+        method: Option<&str>,
+        status: Option<NotifyDataStatus>,
+        limit: Option<&LimitParam>,
+    ) -> NotifyResult<(Vec<(NotifyDataModel, String)>, Option<u64>)> {
         let mut sqlwhere = vec![];
         if let Some(s) = method {
-            sqlwhere.push(sql_format!("method={}", s));
+            sqlwhere.push(sql_format!("d.method={}", s));
+        }
+        if let Some(uid) = app_user_id {
+            sqlwhere.push(sql_format!("c.app_user_id = {}  ", uid));
         }
         if let Some(aid) = app_id {
-            sqlwhere.push(sql_format!("app_id = {}  ", aid));
+            sqlwhere.push(sql_format!("d.app_id = {}  ", aid));
         }
-
         if let Some(s) = status {
-            sqlwhere.push(sql_format!("status={} ", *s));
+            sqlwhere.push(sql_format!("d.status={} ", s));
         }
 
         let where_sql = if let Some(page) = limit {
@@ -231,8 +239,8 @@ impl NotifyRecord {
                 "{} {} {} order by {} {} ",
                 if sqlwhere.is_empty() { "where " } else { "" },
                 sqlwhere.join(" and "),
-                page.where_sql("id", Some("and")),
-                page.order_sql("id"),
+                page.where_sql("d.id", Some("and")),
+                page.order_sql("d.id"),
                 page.limit_sql(),
             )
         } else {
@@ -244,32 +252,45 @@ impl NotifyRecord {
         };
 
         let sql = sql_format!(
-            "select m.* from {}   {}",
+            "select d.*,c.call_url from {} as d join {} as c on d.app_id=c.app_id and d.method=c.method
+            {}",
             NotifyDataModel::table_name(),
+            NotifyConfigModel::table_name(),
             where_sql
         );
 
-        let res = sqlx::query_as::<_, NotifyDataModel>(sql.as_str());
-        let mut m_data = res.fetch_all(&self.db).await?;
+        let mut m_data = sqlx::query(sql.as_str())
+            .try_map(
+                |row: sqlx::mysql::MySqlRow| match NotifyDataModel::from_row(&row) {
+                    Ok(res) => {
+                        let call_url = row.try_get::<String, &str>("call_url").unwrap_or_default();
+                        Ok((res, call_url))
+                    }
+                    Err(err) => Err(err),
+                },
+            )
+            .fetch_all(&self.db)
+            .await?;
 
         let next = limit
             .as_ref()
             .map(|page| page.tidy(&mut m_data))
             .unwrap_or_default();
 
-        Ok((m_data, next.map(|t| t.id)))
+        Ok((m_data, next.map(|t| t.0.id)))
     }
 }
 
-use lsys_logger::dao::{ChangeLogData, ChangeLogger};
+use lsys_logger::dao::{ChangeLogData, ChangeLoggerDao};
 #[derive(Serialize)]
-pub(crate) struct AppNotifyConfigLog {
-    pub method: String,
-    pub url: String,
+pub(crate) struct AppNotifyConfigLog<'t> {
+    pub method: &'t str,
+    pub url: &'t str,
+    pub user_id: u64,
 }
 
-impl ChangeLogData for AppNotifyConfigLog {
-    fn log_type<'t>() -> &'t str {
+impl ChangeLogData for AppNotifyConfigLog<'_> {
+    fn log_type() -> &'static str {
         "app-notify-set"
     }
     fn message(&self) -> String {

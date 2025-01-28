@@ -7,41 +7,34 @@ edition = "2021"
 
 [dependencies]
 lsys-core = { path = "../lsys-core" }
-lsys-logger = { path = "../lsys-logger" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-logger = { path = "../lsys-logger" }
 
 serde = { version = "1.0.*" }
 serde_json = "1.0.*"
 
 #db
-sqlx = { version = "~0.6.3", features = [
-    "mysql",
-    "runtime-tokio-native-tls",
-    "offline",
-] }
-sqlx-model = { version = "0.2.3", default-features = false, features = [
-    "sqlx-mysql",
-] }
+sqlx = { version = "~0.8.3", features = ["mysql", "runtime-tokio-native-tls"] }
 
-futures-util = "~0.3.*"
+futures-util = "0.3.31"
 
-deadpool-redis = { version = "~0.13" }
-redis = { version = "~0.23", features = [
+deadpool-redis = { version = "~0.18.0" }
+redis = { version = "~0.27.5", features = [
     "tokio-comp",
     "connection-manager",
     "aio",
 ] }
 
 #日志
-tracing = { version = "0.1.*" } # log-always 保持log的输出 当使用tracing时会出现两次
+tracing = { version = "0.1.40" } # log-always 保持log的输出 当使用tracing时会出现两次
 
-tokio = { version = "~1.36" }
+tokio = { version = "~1.43.0" }
 
 
 num_cpus = "1.15.0"
 
-hostname = "~0.3.*"
+hostname = "0.4.0"
 
-git2 = "~0.18"
+git2 = "0.20.0"
 
 
 tempfile = "3.10.1"
@@ -49,10 +42,10 @@ tempfile = "3.10.1"
 url = "2.2.2"
 
 
-regex = "~1.10"
+regex = "1.11.1"
 
 
-walkdir = "*"
+walkdir = "2.5.0"
 
 relative-path = "1.8.0"
 

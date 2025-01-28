@@ -14,10 +14,10 @@ pub struct LocalCacheMessage {
     pub message: String,
 }
 impl LocalCacheMessage {
-    pub fn new(cache_name: String, message: String) -> Self {
+    pub fn new(cache_name: &str, message: &str) -> Self {
         Self {
-            cache_name,
-            message,
+            cache_name: cache_name.to_string(),
+            message: message.to_string(),
         }
     }
 }

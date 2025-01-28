@@ -12,7 +12,7 @@ function initializer() {
 //登录信息上下文
 export const UserSessionContext = createContext({
     reload: false,
-    login_token: null,
+    //   login_token: null,
     jwt_header: null,
     user_data: null,
     session: false
@@ -62,7 +62,7 @@ const reducer = (data, action) => {
             }
             return {
                 reload: false,
-                login_token: action.playload.user.token,
+                //  login_token: action.playload.user.token,
                 jwt_header: action.playload.jwt,
                 user_data: action.playload.user.auth_data,
                 session: !action.playload.keep
@@ -89,10 +89,10 @@ export const UserProvider = (props) => {
                             playload: {
                                 keep: !userData.session,
                                 user: {
-                                    token: userData.login_token,
+                                    //    token: userData.login_token,
                                     auth_data: data.auth_data,
                                 },
-                                jwt: data.auth_data.jwt
+                                jwt: data.jwt
                             }
                         })
                         if (data.password_timeout) {
@@ -104,7 +104,7 @@ export const UserProvider = (props) => {
                             playload: {
                                 keep: !userData.session,
                                 user: {
-                                    token: userData.login_token,
+                                    //    token: userData.login_token,
                                     auth_data: userData.user_data,
                                 },
                                 jwt: userData.jwt_header

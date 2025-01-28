@@ -6,20 +6,13 @@ edition = "2021"
 
 
 [dependencies]
-lsys-core = { path = "../lsys-core" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-core = { path = "../lsys-core" }
 serde = { version = "1.0.*" }
 serde_json = "1.0.*"
 
-tokio = { version = "~1.36" }
+tokio = { version = "~1.43.0" }
 
-sqlx = { version = "~0.6.3", features = [
-    "mysql",
-    "runtime-tokio-native-tls",
-    "offline",
-] }
-sqlx-model = { version = "0.2.3", default-features = false, features = [
-    "sqlx-mysql",
-] }
+sqlx = { version = "~0.8.3", features = ["mysql", "runtime-tokio-native-tls"] }
 
 #日志
 tracing = { version = "0.1.*" } # log-always 保持log的输出 当使用tracing时会出现两次

@@ -5,7 +5,7 @@ use serde::Serialize;
 
 //config
 
-#[derive(Deserialize, Serialize, Clone, Default)]
+#[derive(Deserialize, Serialize, Default)]
 pub struct WeChatConfig {
     pub app_id: String,
     pub app_secret: String,

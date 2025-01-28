@@ -1,5 +1,5 @@
+// 内部应用示例对外公开接口示例
 use crate::common::handler::{OauthAuthQuery, ResponseJson, ResponseJsonResult, RestQuery};
-
 use actix_web::post;
 use lsys_web_subapp_demo::handler::{demo_handler, DemoParam};
 
@@ -13,10 +13,11 @@ pub(crate) async fn demo_app(
         Some("method_dome") => {
             //接口名
             let param = rest.param::<DemoParam>()?;
-            let app = &rest.to_app_model().await?;
-            demo_handler(&oauth_param, app, param).await
+            let app = &rest.get_app().await?;
+            demo_handler(&param, app, &oauth_param).await
         }
         var => handler_not_found!(var.unwrap_or_default()),
-    }?
+    }
+    .map_err(|e| oauth_param.fluent_error_json_data(&e))?
     .into())
 }

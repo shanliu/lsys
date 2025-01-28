@@ -6,7 +6,7 @@
 #app_ssl_cert=config/cert.pem
 #app_ssl_key=config/key.pem
 #日志配置
-log_level = "sqlx_core=info,lsys_app_sender=debug,axtix_web=debug,actix=info,mio=error,lsys_user=trace,lsys_web=trace,lsys_core=trace,lsys_user=trace,lsys_rbac=trace,lsys_docs=trace,lsys_actix_web=trace,sqlx=trace,redis=debug,lsys_app_barcode=trace"
+log_level = "sqlx_core=info,lsys_app_sender=debug,axtix_web=debug,actix=info,mio=error,lsys_access=trace,lsys_web=trace,lsys_core=trace,lsys_user=trace,lsys_rbac=trace,lsys_docs=trace,lsys_actix_web=trace,sqlx=trace,redis=debug,lsys_app_barcode=trace"
 log_dir = "logs"
 log_name = "app"
 #数据库配置
@@ -27,7 +27,7 @@ ui_dir = "../../../ui/public/"
 #静态文件访问路径,默认:/ui/
 #ui_path="/ui/"
 ui_path = "/"
-#超级管理员id
+#超级管理员id,user表id
 root_user_id = [1]
 
 #语言文件目录

@@ -1,3 +1,5 @@
+//基于 REDIS来实现通讯
+// 从而实现广播到其他主机执行任务并返回结果
 use std::collections::HashMap;
 // use std::error::Error;
 
@@ -103,15 +105,15 @@ impl RemoteNotify {
         &self,
         msg_type: u8,//类型，外部定义，别重复了
         data: T,//消息数据
-        target_host: Option<String>,//执行的目标机器
+        target_host: Option<&str>,//执行的目标机器
         local_exe_type: LocalExecType,//执行目标包含本机的执行方式
         reply_wait: Option<ReplyWait>,//执行完是否等待结果
     ) -> Result<Vec<MsgResultBody>, RemoteNotifyError> {
         let mut out = vec![];
         if local_exe_type == LocalExecType::IgnoreLocal//本机忽略执行
             //执行目标仅为本机
-            && match &target_host {
-                Some(th) => self.hostname == *th, 
+            && match target_host {
+                Some(th) => self.hostname.as_str() == th, 
                 None => false,                  
             }
         {
@@ -124,7 +126,7 @@ impl RemoteNotify {
             msg_type,
             id: msg_id,
             from_host: self.hostname.clone(),
-            target_host: target_host.to_owned(),
+            target_host: target_host.map(|e|e.to_owned()),
             ignore_local: match local_exe_type {
                 LocalExecType::RemoteExec => false,
                 LocalExecType::LocalExec | LocalExecType::IgnoreLocal => true,
@@ -314,10 +316,9 @@ impl RemoteNotify {
         loop {
             match self.app_core.create_redis_client() {
                 Ok(redis_client) => {
-                    let con_res = redis_client.get_async_connection().await;
+                    let con_res = redis_client.get_async_pubsub().await;
                     match con_res {
-                        Ok(con) => {
-                            let mut pubsub = con.into_pubsub();
+                        Ok(mut pubsub) => {
                             let res = pubsub.subscribe(self.channel_name).await;
                             if let Err(err) = res {
                                 error!("listen sub fail :{}", err);

@@ -4,15 +4,16 @@ use serde::Serialize;
 //发送系统日志
 
 #[derive(Serialize)]
-pub(crate) struct LogMessage {
-    pub action: &'static str,
+pub(crate) struct LogMessage<'t> {
+    pub action: &'t str,
     pub sender_type: i8,
+    pub user_id: u64,
     pub body_id: u64,
     pub message_id: Option<u64>,
 }
 
-impl ChangeLogData for LogMessage {
-    fn log_type<'t>() -> &'t str {
+impl ChangeLogData for LogMessage<'_> {
+    fn log_type() -> &'static str {
         "sender-message"
     }
     fn message(&self) -> String {
@@ -24,15 +25,16 @@ impl ChangeLogData for LogMessage {
 }
 
 #[derive(Serialize)]
-pub(crate) struct LogMessageTpls {
-    pub action: &'static str,
+pub(crate) struct LogMessageTpls<'t> {
+    pub action: &'t str,
     pub sender_type: i8,
-    pub tpl_id: String,
-    pub tpl_data: String,
+    pub tpl_id: &'t str,
+    pub user_id: u64,
+    pub tpl_data: &'t str,
 }
 
-impl ChangeLogData for LogMessageTpls {
-    fn log_type<'t>() -> &'t str {
+impl ChangeLogData for LogMessageTpls<'_> {
+    fn log_type() -> &'static str {
         "sender-tpl"
     }
     fn message(&self) -> String {
@@ -44,18 +46,19 @@ impl ChangeLogData for LogMessageTpls {
 }
 
 #[derive(Serialize)]
-pub(crate) struct LogAppConfig {
-    pub action: &'static str,
+pub(crate) struct LogAppConfig<'t> {
+    pub action: &'t str,
     pub sender_type: u8,
     pub app_id: u64,
-    pub name: String,
-    pub tpl_id: String,
+    pub name: &'t str,
+    pub tpl_id: &'t str,
     pub setting_id: u64,
-    pub config_data: String,
+    pub config_data: &'t str,
+    pub user_id: u64,
 }
 
-impl ChangeLogData for LogAppConfig {
-    fn log_type<'t>() -> &'t str {
+impl ChangeLogData for LogAppConfig<'_> {
+    fn log_type() -> &'static str {
         "sender-app-config"
     }
     fn message(&self) -> String {
@@ -67,17 +70,18 @@ impl ChangeLogData for LogAppConfig {
 }
 
 #[derive(Serialize)]
-pub(crate) struct LogSenderConfig {
-    pub action: &'static str,
+pub(crate) struct LogSenderConfig<'t> {
+    pub action: &'t str,
     pub app_id: u64,
+    pub user_id: u64,
     pub priority: i8,
     pub sender_type: i8,
     pub config_type: i8,
-    pub config_data: String,
+    pub config_data: &'t str,
 }
 
-impl ChangeLogData for LogSenderConfig {
-    fn log_type<'t>() -> &'t str {
+impl ChangeLogData for LogSenderConfig<'_> {
+    fn log_type() -> &'static str {
         "sender-config"
     }
     fn message(&self) -> String {

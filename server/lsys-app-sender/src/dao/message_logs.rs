@@ -2,10 +2,11 @@ use crate::dao::SenderResult;
 use crate::model::{SenderLogModel, SenderLogModelRef, SenderLogStatus, SenderLogType, SenderType};
 use lsys_core::{now_time, PageParam};
 
+use lsys_core::db::{Insert, ModelTableName, SqlExpr};
+use lsys_core::sql_format;
 use sqlx::Pool;
-use sqlx_model::{sql_format, Insert, ModelTableName, Select, SqlExpr};
 
-use sqlx_model::SqlQuote;
+use lsys_core::db::SqlQuote;
 use tracing::warn;
 
 //发送任务日志相关操作实现
@@ -21,7 +22,7 @@ impl MessageLogs {
     pub async fn add_exec_log(
         &self,
         app_id: &u64,
-        log_data: &[(u64, SenderLogStatus, String)],
+        log_data: &[(u64, SenderLogStatus, &str)],
         executor_type: &str,
     ) {
         if log_data.is_empty() {
@@ -35,10 +36,10 @@ impl MessageLogs {
         let mut idata = Vec::with_capacity(log_data.len());
         let tmp_dat = log_data
             .iter()
-            .map(|(a, b, c)| (*a, (*b as i8), c))
-            .collect::<Vec<(u64, i8, &String)>>();
+            .map(|(a, b, c)| (*a, (*b as i8), c.to_string()))
+            .collect::<Vec<(u64, i8, String)>>();
         for (message_id, log_status, message) in tmp_dat.iter() {
-            idata.push(sqlx_model::model_option_set!(SenderLogModelRef,{
+            idata.push(lsys_core::model_option_set!(SenderLogModelRef,{
                 sender_message_id:message_id,
                 app_id:app_id,
                 sender_type:sender_type,
@@ -59,7 +60,7 @@ impl MessageLogs {
             );
         }
     }
-    pub async fn list_count(&self, message_id: &u64) -> SenderResult<i64> {
+    pub async fn list_count(&self, message_id: u64) -> SenderResult<i64> {
         let sender_type = self.send_type as i8;
         let sqlwhere = sql_format!(
             "sender_type={} and sender_message_id = {}  ",
@@ -77,22 +78,25 @@ impl MessageLogs {
     }
     pub async fn list_data(
         &self,
-        message_id: &u64,
-        page: &Option<PageParam>,
+        message_id: u64,
+        page: Option<&PageParam>,
     ) -> SenderResult<Vec<SenderLogModel>> {
         let sender_type = self.send_type as i8;
-        let sqlwhere = sql_format!(
-            "sender_type={} and sender_message_id = {}  ",
+        let mut sql = sql_format!(
+            "sender_type={} and sender_message_id = {} order by id desc ",
             sender_type,
             message_id
         );
-        let mut sql = format!("{}  order by id desc", sqlwhere);
         if let Some(pdat) = page {
             sql += format!(" limit {} offset {}", pdat.limit, pdat.offset).as_str();
         }
-        let data = Select::type_new::<SenderLogModel>()
-            .fetch_all_by_where::<SenderLogModel, _>(&sqlx_model::WhereOption::Where(sql), &self.db)
-            .await?;
+        let data = sqlx::query_as::<_, SenderLogModel>(&sql_format!(
+            "select * from {} where {}",
+            SenderLogModel::table_name(),
+            SqlExpr(sql)
+        ))
+        .fetch_all(&self.db)
+        .await?;
         Ok(data)
     }
 }

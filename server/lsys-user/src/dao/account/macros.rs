@@ -6,7 +6,7 @@ macro_rules! impl_account_valid_code_method {
     ($me:ident,$valid_type:literal,{$($name:ident:$name_type:ty),+$(,)*},$key_block:block,$save_time:expr) => {
         /// 验证码生成
         pub fn valid_code(&$me) -> lsys_core::ValidCode {
-            lsys_core::ValidCode::new($me.redis.clone(), $valid_type.to_string(),true)
+            lsys_core::ValidCode::new($me.redis.clone(), $valid_type,true)
         }
         /// 获取验证码
         pub async fn valid_code_set<T: lsys_core::ValidCodeData>(
@@ -36,17 +36,18 @@ macro_rules! impl_account_valid_code_method {
         /// 检测验证码
         pub async fn valid_code_check(
             &$me,
-            code: &String,
+            code: &str,
             $($name:$name_type),+
-        ) -> UserAccountResult<()> {
+        ) -> AccountResult<()> {
+            use lsys_core::CheckCodeData;
             let key = $key_block;
-            $me.valid_code().check_code(&key, code).await?;
+            $me.valid_code().check_code(&CheckCodeData::new(&key,code)).await?;
             Ok(())
         }
         pub async fn valid_code_clear(
             &$me,
             $($name:$name_type),+
-        ) -> UserAccountResult<()> {
+        ) -> AccountResult<()> {
             let key = $key_block;
             let mut builder=$me.valid_code_builder();
             $me.valid_code().clear_code(&key,&mut builder ).await?;
@@ -57,7 +58,7 @@ macro_rules! impl_account_valid_code_method {
 
 #[test]
 fn valid_code_test() {
-    use crate::dao::account::UserAccountResult;
+    use crate::dao::AccountResult;
 
     #[allow(dead_code)]
     struct Test1 {
@@ -66,7 +67,7 @@ fn valid_code_test() {
     #[allow(dead_code)]
     impl Test1 {
         impl_account_valid_code_method!("sss",{
-            area_code:&String,
+            area_code: &str,
             mobile:&str,
         },{area_code.to_owned()+mobile},10);
     }

@@ -3,20 +3,21 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 use async_trait::async_trait;
 
 use chrono::{DateTime, Local};
-use lsys_app::dao::{app::Apps, AppsError};
+use lsys_app::dao::{App, AppError};
 
 use sqlx::{MySql, Pool};
 
+use lsys_core::db::{ModelTableName, SqlExpr};
+use lsys_core::sql_format;
 use lsys_core::{
     now_time, IntoFluentMessage, TaskAcquisition, TaskData, TaskExecutor, TaskItem, TaskRecord,
 };
-use sqlx_model::{sql_format, ModelTableName, Select, SqlExpr};
 use tracing::warn;
 
 use crate::model::{NotifyDataModel, NotifyDataStatus};
 
 use super::{NotifyError, NotifyRecord};
-use sqlx_model::SqlQuote;
+use lsys_core::db::SqlQuote;
 
 pub struct NotifyTaskItem(NotifyDataModel);
 impl TaskItem<u64> for NotifyTaskItem {
@@ -51,17 +52,15 @@ impl TaskAcquisition<u64, NotifyTaskItem> for NotifyTaskAcquisition {
         if !ids.is_empty() {
             sql_vec.push(sql_format!(" id not in ({})", ids));
         }
-        let mut app_res = Select::type_new::<NotifyDataModel>()
-            .fetch_all_by_where::<NotifyDataModel, _>(
-                &sqlx_model::WhereOption::Where(format!(
-                    "{} order by id asc limit {}",
-                    sql_vec.join(" and "),
-                    limit + 1
-                )),
-                &self.db,
-            )
-            .await
-            .map_err(|e| e.to_string())?;
+        let mut app_res = sqlx::query_as::<_, NotifyDataModel>(&format!(
+            "select * from {} where {} order by id asc limit {}",
+            NotifyDataModel::table_name(),
+            sql_vec.join(" and "),
+            limit + 1
+        ))
+        .fetch_all(&self.db)
+        .await
+        .map_err(|e| e.to_string())?;
         let next = if app_res.len() > limit {
             app_res.pop();
             true
@@ -78,7 +77,7 @@ impl TaskAcquisition<u64, NotifyTaskItem> for NotifyTaskAcquisition {
 #[derive(Clone)]
 pub struct NotifyTask {
     db: Pool<sqlx::MySql>,
-    apps: Arc<Apps>,
+    apps: Arc<App>,
     record: Arc<NotifyRecord>,
     max_try: u16,
 }
@@ -86,7 +85,7 @@ pub struct NotifyTask {
 impl NotifyTask {
     pub fn new(
         db: Pool<sqlx::MySql>,
-        apps: Arc<Apps>,
+        apps: Arc<App>,
         record: Arc<NotifyRecord>,
         max_try: u16,
     ) -> Self {
@@ -172,7 +171,7 @@ impl TaskExecutor<u64, NotifyTaskItem> for NotifyTask {
     async fn exec(&self, val: NotifyTaskItem) -> Result<(), String> {
         match self
             .record
-            .find_config_by_app(&val.0.app_id, &val.0.method)
+            .find_config_by_app(val.0.app_id, &val.0.method)
             .await
         {
             Ok(config) => {
@@ -289,7 +288,7 @@ impl TaskExecutor<u64, NotifyTaskItem> for NotifyTask {
                             }
                         };
                     }
-                    Err(AppsError::Sqlx(sqlx::Error::RowNotFound)) => {
+                    Err(AppError::Sqlx(sqlx::Error::RowNotFound)) => {
                         change_notify_error_status(&self.db, &val.0.id, &val.0.try_num, "miss app")
                             .await;
                     }

@@ -1,22 +1,23 @@
+//rest 接口
 mod app;
 mod oauth;
 use actix_service::ServiceFactory;
 use actix_web::{dev::ServiceRequest, web::scope, App, Error};
-use lsys_app::model::AppsModel;
+use lsys_app::model::AppModel;
 
 use crate::common::handler::{ResponseJsonResult, RestQuery};
 
 impl RestQuery {
-    pub async fn to_app_model(&self) -> ResponseJsonResult<AppsModel> {
+    pub async fn get_app(&self) -> ResponseJsonResult<AppModel> {
         Ok(self
             .web_dao
-            .app
+            .web_app
             .app_dao
             .app
             .cache()
             .find_by_client_id(&self.rfc.app_id)
             .await
-            .map_err(|err| self.fluent_json_data(err))?)
+            .map_err(|e| self.fluent_error_json_data(&e.into()))?)
     }
 }
 pub(crate) fn router<T>(app: App<T>) -> App<T>
@@ -30,6 +31,7 @@ where
             .service(app::subapp)
             .service(app::sms)
             .service(app::mail)
+            .service(app::auth)
             .service(app::demo_app),
     )
     .service(

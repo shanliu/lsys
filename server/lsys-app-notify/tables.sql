@@ -1,4 +1,3 @@
--- ----------- lsys-app-notify  ---------------
 CREATE TABLE `yaf_notify_config` (
     `id` int unsigned NOT NULL AUTO_INCREMENT,
     `app_id` bigint unsigned NOT NULL DEFAULT '0' COMMENT '应用ID',
@@ -9,7 +8,7 @@ CREATE TABLE `yaf_notify_config` (
     `change_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '最后更新时间',
     `create_time` bigint unsigned NOT NULL COMMENT '创建时间',
     PRIMARY KEY (`id`),
-    UNIQUE KEY `yaf_notify_config_id_IDX` (`app_id`, `method`) USING BTREE
+    UNIQUE KEY `notify_config_id_IDX` (`app_id`, `method`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '结果推送配置';
 CREATE TABLE `yaf_notify_data` (
     `id` int unsigned NOT NULL AUTO_INCREMENT,
@@ -24,4 +23,3 @@ CREATE TABLE `yaf_notify_data` (
     `create_time` bigint unsigned NOT NULL COMMENT '创建时间',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '结果推送数据';
--- ----------- lsys-app-notify  ---------------

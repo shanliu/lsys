@@ -38,9 +38,7 @@ export function ClearTextField(props) {
         {...props}
     />;
 }
-ClearTextField.defaultProps = {
-    value: '',
-};
+
 ClearTextField.propTypes = {
     value: PropTypes.string,
     onChange: PropTypes.func.isRequired,
@@ -86,9 +84,7 @@ export function PasswordInput(props) {
     </FormControl>
 }
 
-PasswordInput.defaultProps = {
-    sx: {},
-};
+
 PasswordInput.propTypes = {
     sx: PropTypes.object,
     label: PropTypes.string.isRequired,
@@ -169,10 +165,7 @@ export function InputTagSelect(props) {
     />
 }
 
-InputTagSelect.defaultProps = {
-    sx: {},
-    options: [],
-};
+
 
 InputTagSelect.propTypes = {
     sx: PropTypes.object,

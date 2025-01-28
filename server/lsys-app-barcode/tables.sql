@@ -1,4 +1,3 @@
--- ----------- lsys-app-barcode  ---------------
 CREATE TABLE `yaf_barcode_create` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `app_id` bigint unsigned NOT NULL COMMENT '应用ID',
@@ -33,4 +32,3 @@ CREATE TABLE `yaf_barcode_parse` (
     KEY `file_hash` (`file_hash`) USING BTREE,
     KEY `user_id` (`user_id`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = 'barcode 解析结果记录';
--- ----------- lsys-app-barcode  ---------------

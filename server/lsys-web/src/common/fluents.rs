@@ -1,20 +1,31 @@
+use lsys_access::dao::AccessError;
 use lsys_app_notify::dao::NotifyError;
 use lsys_app_sender::dao::SenderError;
-use lsys_core::{
-    fluent_message, ConfigError, FluentBundle, FluentMessage, IntoFluentMessage, ValidCodeError,
-};
+use lsys_core::{fluent_message, ConfigError, FluentBundle, IntoFluentMessage, ValidCodeError};
 
 use lsys_logger::dao::LoggerError;
-use lsys_rbac::dao::rbac::UserRbacError;
+use lsys_rbac::dao::RbacError;
 use lsys_setting::dao::SettingError;
-use lsys_user::dao::{account::UserAccountError, auth::UserAuthError};
+use lsys_user::dao::AccountError;
+use lsys_user::dao::UserAuthError;
 
 use std::num::ParseIntError;
 
-use lsys_app::dao::AppsError;
+use lsys_app::dao::AppError;
 
 pub trait FluentFormat {
     fn fluent_format(&self, fluent: &FluentBundle) -> String;
+}
+
+impl FluentFormat for sqlx::Error {
+    fn fluent_format(&self, fluent: &FluentBundle) -> String {
+        match self {
+            sqlx::Error::RowNotFound => {
+                fluent.format_message(&fluent_message!("db-not-found", self))
+            }
+            _ => fluent.format_message(&fluent_message!("db-error", self)),
+        }
+    }
 }
 macro_rules! self_error_fluent_string {
     ($self_error:ty) => {
@@ -25,22 +36,17 @@ macro_rules! self_error_fluent_string {
         }
     };
 }
-self_error_fluent_string!(UserAccountError);
+self_error_fluent_string!(AccountError);
 self_error_fluent_string!(ValidCodeError);
+self_error_fluent_string!(AccessError);
 self_error_fluent_string!(UserAuthError);
-self_error_fluent_string!(UserRbacError);
+self_error_fluent_string!(RbacError);
 self_error_fluent_string!(SettingError);
 self_error_fluent_string!(SenderError);
-self_error_fluent_string!(AppsError);
+self_error_fluent_string!(AppError);
 self_error_fluent_string!(ConfigError);
 self_error_fluent_string!(NotifyError);
 self_error_fluent_string!(LoggerError);
-
-impl FluentFormat for FluentMessage {
-    fn fluent_format(&self, fluent: &FluentBundle) -> String {
-        fluent.format_message(self)
-    }
-}
 
 //crate error
 
@@ -52,16 +58,6 @@ macro_rules! crate_error_fluent_string {
             }
         }
     };
-}
-impl FluentFormat for sqlx::Error {
-    fn fluent_format(&self, fluent: &FluentBundle) -> String {
-        match self {
-            sqlx::Error::RowNotFound => {
-                fluent.format_message(&fluent_message!("db-not-found", self))
-            }
-            _ => fluent.format_message(&fluent_message!("db-error", self)),
-        }
-    }
 }
 
 crate_error_fluent_string!(config::ConfigError, "config-error");
@@ -75,6 +71,7 @@ crate_error_fluent_string!(std::string::FromUtf8Error, "utf8-parse-error");
 
 #[cfg(feature = "docs")]
 use lsys_docs::dao::GitDocError;
+
 #[cfg(feature = "docs")]
 crate_error_fluent_string!(lsys_docs::GitError, "git-error");
 #[cfg(feature = "docs")]

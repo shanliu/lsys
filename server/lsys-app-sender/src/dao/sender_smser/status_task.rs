@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
 
-use lsys_app_notify::dao::Notify;
+use lsys_app_notify::dao::NotifyDao;
 use lsys_core::fluent_message;
 use lsys_core::now_time;
 use lsys_core::IntoFluentMessage;
@@ -11,12 +11,12 @@ use lsys_setting::dao::MultipleSetting;
 use lsys_lib_sms::SendNotifyStatus;
 use lsys_setting::model::SettingModel;
 
+use lsys_core::db::ModelTableName;
+use lsys_core::db::SqlQuote;
+use lsys_core::sql_format;
 use lsys_lib_sms::SendDetailItem;
 use redis::AsyncCommands;
 use sqlx::Pool;
-use sqlx_model::sql_format;
-use sqlx_model::ModelTableName;
-use sqlx_model::SqlQuote;
 use tracing::warn;
 
 use crate::dao::MessageLogs;
@@ -39,11 +39,11 @@ pub struct SmsStatusQuery {
 }
 
 impl SmsStatusQuery {
-    pub fn new(redis: deadpool_redis::Pool, notify_data_key: String, timeout: u64) -> Self {
+    pub fn new(redis: deadpool_redis::Pool, notify_data_key: &str, timeout: u64) -> Self {
         Self {
             redis,
             timeout,
-            notify_data_key,
+            notify_data_key: notify_data_key.to_string(),
         }
     }
 }
@@ -62,7 +62,7 @@ impl SmsStatusQuery {
             return Ok(());
         }
         let mut conn = self.redis.get().await?;
-        conn.sadd(&self.notify_data_key, query_ids).await?;
+        let _: () = conn.sadd(&self.notify_data_key, query_ids).await?;
 
         Ok(())
     }
@@ -163,7 +163,7 @@ pub struct SmsStatusTask {
     db: Pool<sqlx::MySql>,
     setting: Arc<MultipleSetting>,
     message_logs: Arc<MessageLogs>,
-    notify: Arc<Notify>,
+    notify: Arc<NotifyDao>,
 }
 
 impl SmsStatusTask {
@@ -171,7 +171,7 @@ impl SmsStatusTask {
         inner: Vec<Box<dyn SmsStatusTaskExecutor>>,
         recrod: Arc<SmsRecord>,
         db: Pool<sqlx::MySql>,
-        notify: Arc<Notify>,
+        notify: Arc<NotifyDao>,
         setting: Arc<MultipleSetting>,
         message_logs: Arc<MessageLogs>,
     ) -> Result<Self, SenderError> {
@@ -207,7 +207,7 @@ impl TaskExecutor<u64, SmsStatusTaskItem> for SmsStatusTask {
             .await
             .map_err(|e| e.to_fluent_message().default_format())?;
 
-        match self.setting.find(&None, &sms.setting_id).await {
+        match self.setting.find(None, sms.setting_id).await {
             Ok(setting) => {
                 for tmp in self.inner.iter() {
                     if tmp.setting_key() == setting.setting_key {
@@ -241,7 +241,7 @@ impl TaskExecutor<u64, SmsStatusTaskItem> for SmsStatusTask {
                                                     &[(
                                                         sms.id,
                                                         SenderLogStatus::NotifySucc,
-                                                        ntmp.message.to_string(),
+                                                        &ntmp.message,
                                                     )],
                                                     &setting.setting_key,
                                                 )
@@ -276,7 +276,7 @@ impl TaskExecutor<u64, SmsStatusTaskItem> for SmsStatusTask {
                                                     &[(
                                                         sms.id,
                                                         SenderLogStatus::NotifyFail,
-                                                        ntmp.message.to_string(),
+                                                        &ntmp.message,
                                                     )],
                                                     &setting.setting_key,
                                                 )

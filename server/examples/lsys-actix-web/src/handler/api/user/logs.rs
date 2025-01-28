@@ -15,6 +15,7 @@ pub(crate) async fn user_logs<'t>(
     Ok(match path.into_inner().as_str() {
         "change" => change_logs_list(json_param.param::<ChangeLogsListParam>()?, &auth_dao).await,
         name => handler_not_found!(name),
-    }?
+    }
+    .map_err(|e| auth_dao.fluent_error_json_data(&e))?
     .into())
 }

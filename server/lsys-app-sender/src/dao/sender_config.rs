@@ -4,11 +4,12 @@ use crate::dao::{SenderError, SenderResult};
 use crate::model::{SenderConfigModel, SenderConfigModelRef, SenderConfigStatus, SenderType};
 use lsys_core::{now_time, RequestEnv};
 
-use lsys_logger::dao::ChangeLogger;
+use lsys_core::db::{Insert, ModelTableName, Update};
+use lsys_core::sql_format;
+use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::Pool;
-use sqlx_model::{sql_format, Insert, Select, Update};
 
-use sqlx_model::SqlQuote;
+use lsys_core::db::SqlQuote;
 
 use super::logger::LogSenderConfig;
 
@@ -18,11 +19,11 @@ use super::logger::LogSenderConfig;
 pub struct SenderConfig {
     db: Pool<sqlx::MySql>,
     send_type: SenderType,
-    logger: Arc<ChangeLogger>,
+    logger: Arc<ChangeLoggerDao>,
 }
 
 impl SenderConfig {
-    pub fn new(db: Pool<sqlx::MySql>, logger: Arc<ChangeLogger>, send_type: SenderType) -> Self {
+    pub fn new(db: Pool<sqlx::MySql>, logger: Arc<ChangeLoggerDao>, send_type: SenderType) -> Self {
         Self {
             db,
             send_type,
@@ -30,16 +31,15 @@ impl SenderConfig {
         }
     }
     pub async fn find_by_id(&self, id: &u64) -> SenderResult<SenderConfigModel> {
-        let data = sqlx_model::Select::type_new::<SenderConfigModel>()
-            .fetch_one_by_where::<SenderConfigModel, _>(
-                &sqlx_model::WhereOption::Where(sqlx_model::sql_format!(
-                    "sender_type={} and id={}",
-                    self.send_type,
-                    id
-                )),
-                &self.db,
-            )
-            .await?;
+        let data = sqlx::query_as::<_, SenderConfigModel>(&sql_format!(
+            "select * from {} where sender_type={} and id={} ",
+            SenderConfigModel::table_name(),
+            self.send_type,
+            id
+        ))
+        .fetch_one(&self.db)
+        .await?;
+
         Ok(data)
     }
     #[allow(clippy::too_many_arguments)]
@@ -48,7 +48,7 @@ impl SenderConfig {
         app_id: Option<u64>,
         priority: i8,
         config_type: i8,
-        config_data: String,
+        config_data: &str,
         user_id: u64,
         add_user_id: u64,
         env_data: Option<&RequestEnv>,
@@ -56,8 +56,8 @@ impl SenderConfig {
         let sender_type = self.send_type as i8;
         let app_id = app_id.unwrap_or_default();
         let time = now_time().unwrap_or_default();
-
-        let add = sqlx_model::model_option_set!(SenderConfigModelRef, {
+        let config_data = config_data.to_string();
+        let add = lsys_core::model_option_set!(SenderConfigModelRef, {
             app_id:app_id,
             sender_type:sender_type,
             priority:priority,
@@ -78,14 +78,14 @@ impl SenderConfig {
                 &LogSenderConfig {
                     action: "add",
                     app_id,
+                    user_id,
                     priority,
                     sender_type,
                     config_type,
-                    config_data,
+                    config_data: &config_data,
                 },
-                &Some(id),
-                &Some(user_id),
-                &Some(add_user_id),
+                Some(id),
+                Some(add_user_id),
                 None,
                 env_data,
             )
@@ -100,7 +100,7 @@ impl SenderConfig {
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         let time = now_time().unwrap_or_default();
-        let change = sqlx_model::model_option_set!(SenderConfigModelRef,{
+        let change = lsys_core::model_option_set!(SenderConfigModelRef,{
             status:SenderConfigStatus::Delete as i8,
             change_time:time,
             change_user_id:user_id
@@ -117,13 +117,13 @@ impl SenderConfig {
                             action: "del",
                             app_id: config.app_id,
                             priority: config.priority,
+                            user_id: config.user_id,
                             sender_type: config.sender_type,
                             config_type: config.config_type,
-                            config_data: config.config_data.to_owned(),
+                            config_data: &config.config_data,
                         },
-                        &Some(config.id),
-                        &Some(config.user_id),
-                        &Some(user_id),
+                        Some(config.id),
+                        Some(user_id),
                         None,
                         env_data,
                     )
@@ -155,12 +155,13 @@ impl SenderConfig {
         if let Some(uid) = user_id {
             sqlwhere.push(sql_format!("user_id={} ", uid));
         }
-        let sql = format!("{}  order by id desc", sqlwhere.join(" and "));
-        Ok(Select::type_new::<SenderConfigModel>()
-            .fetch_all_by_where::<SenderConfigModel, _>(
-                &sqlx_model::WhereOption::Where(sql),
-                &self.db,
-            )
-            .await?)
+
+        Ok(sqlx::query_as::<_, SenderConfigModel>(&format!(
+            "select * from {} where {} order by id desc",
+            SenderConfigModel::table_name(),
+            sqlwhere.join(" and ")
+        ))
+        .fetch_all(&self.db)
+        .await?)
     }
 }

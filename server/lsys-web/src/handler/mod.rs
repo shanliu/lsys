@@ -1,5 +1,3 @@
-pub mod access;
+//对外接口实现
 pub mod api;
-pub mod app;
-mod common;
-pub mod oauth;
+pub mod rest;

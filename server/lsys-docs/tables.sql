@@ -1,4 +1,3 @@
--- ----------- lsys-doc  ---------------
 CREATE TABLE `yaf_doc_git` (
     `id` int unsigned NOT NULL AUTO_INCREMENT,
     `name` varchar(64) NOT NULL COMMENT '源名称',
@@ -19,9 +18,9 @@ CREATE TABLE `yaf_doc_tag` (
     `add_user_id` bigint unsigned NOT NULL COMMENT '最后修改用户',
     `add_time` bigint unsigned NOT NULL COMMENT '最后修改时间',
     PRIMARY KEY (`id`),
-    KEY `yaf_user_tag_IDX` (`doc_git_id`) USING BTREE,
-    KEY `yaf_tag_IDX` (`tag`) USING BTREE,
-    KEY `yaf_ver_IDX` (`build_version`) USING BTREE
+    KEY `user_tag_IDX` (`doc_git_id`) USING BTREE,
+    KEY `tag_IDX` (`tag`) USING BTREE,
+    KEY `ver_IDX` (`build_version`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '文档GIT-TAG';
 CREATE TABLE `yaf_doc_clone` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
@@ -31,7 +30,7 @@ CREATE TABLE `yaf_doc_clone` (
     `finish_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '克隆完成时间',
     `status` tinyint NOT NULL COMMENT '状态:待克隆 已克隆 克隆失败 已删除',
     PRIMARY KEY (`id`),
-    KEY `yaf_user_clone_IDX` (`doc_tag_id`, `host`, `status`) USING BTREE
+    KEY `user_clone_IDX` (`doc_tag_id`, `host`, `status`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '文档GIT CLONE记录';
 CREATE TABLE `yaf_doc_menu` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
@@ -52,4 +51,3 @@ CREATE TABLE `yaf_doc_logs` (
     `add_time` bigint unsigned NOT NULL COMMENT '最后修改时间',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '文档日志';
--- ----------- lsys-doc  ---------------

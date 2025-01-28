@@ -11,3 +11,4 @@ area-error=System exception:{$msg}
 area-not-found=Address information not found.
 areaa-store-error=Store exception:{$msg}
 area-tantivy-error=Search exception:{$msg}
+reg-rule-wrong = 校验规则异常,正则错误:{$msg}

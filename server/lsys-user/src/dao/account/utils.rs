@@ -1,18 +1,14 @@
 use regex::Regex;
 
-use super::{UserAccountError, UserAccountResult};
+use super::{AccountError, AccountResult};
 
-pub fn check_email(email: &str) -> UserAccountResult<()> {
+pub fn check_email(email: &str) -> AccountResult<()> {
     let re = Regex::new(r"^[A-Za-z0-9\u4e00-\u9fa5\.\-]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$")
         .map_err(|e| {
-            UserAccountError::Param(lsys_core::fluent_message!("auth-email-error",{
-                    "mail":email,
-                    "msg":e
-                }
-            ))
+            AccountError::Param(lsys_core::fluent_message!("reg-rule-wrong",e))
         })?;
     if !re.is_match(email) {
-        return Err(UserAccountError::Param(
+        return Err(AccountError::Param(
             lsys_core::fluent_message!("auth-email-not-match",{
                     "mail":email,
                 }
@@ -22,16 +18,13 @@ pub fn check_email(email: &str) -> UserAccountResult<()> {
     Ok(())
 }
 
-pub fn check_mobile(area: &str, mobile: &str) -> UserAccountResult<()> {
+pub fn check_mobile(area: &str, mobile: &str) -> AccountResult<()> {
     if !area.is_empty() {
         let area_re = Regex::new(r"^[\+\d]{0,1}[\d]{0,3}$").map_err(|e| {
-            UserAccountError::Param(lsys_core::fluent_message!("auth-mobile-error", {
-                "mobile":mobile,
-                "msg":e
-            }))
+            AccountError::Param(lsys_core::fluent_message!("reg-rule-wrong",e))
         })?;
         if !area_re.is_match(area) {
-            return Err(UserAccountError::Param(
+            return Err(AccountError::Param(
                 lsys_core::fluent_message!("auth-mobile-area-error",
                     {
                         "area":area,
@@ -41,15 +34,10 @@ pub fn check_mobile(area: &str, mobile: &str) -> UserAccountResult<()> {
         }
     }
     let mobile_re = Regex::new(r"^[\d]{0,1}[\-\d]{4,12}$").map_err(|e| {
-        UserAccountError::Param(lsys_core::fluent_message!("auth-mobile-error",
-            {
-                "mobile":mobile,
-                "msg":e
-            }
-        ))
+        AccountError::Param(lsys_core::fluent_message!("reg-rule-wrong",e))
     })?;
     if !mobile_re.is_match(mobile) {
-        return Err(UserAccountError::Param(
+        return Err(AccountError::Param(
             lsys_core::fluent_message!("auth-mobile-error",
                 {
                     "mobile":mobile,

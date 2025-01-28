@@ -1,9 +1,9 @@
+use lsys_core::db::lsys_model;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
-use sqlx_model::sqlx_model;
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize, Default)]
-#[sqlx_model(db_type = "MySql", table_name = "change_logs")]
+#[lsys_model(db_type = "MySql", table_name = "change_logs")]
 pub struct ChangeLogModel {
     /// 消息ID
     #[sqlx(default)]
@@ -23,10 +23,6 @@ pub struct ChangeLogModel {
 
     /// 用户ID
     #[sqlx(default)]
-    pub user_id: u64,
-
-    /// 用户ID
-    #[sqlx(default)]
     pub source_id: u64,
 
     /// 用户ID
@@ -35,7 +31,7 @@ pub struct ChangeLogModel {
 
     /// 操作者IP
     #[sqlx(default)]
-    pub user_ip: String,
+    pub add_user_ip: String,
 
     /// 操作者IP
     #[sqlx(default)]
@@ -44,6 +40,10 @@ pub struct ChangeLogModel {
     /// 浏览器头
     #[sqlx(default)]
     pub request_user_agent: String,
+
+    /// 设备ID
+    #[sqlx(default)]
+    pub device_id: String,
 
     /// 时间
     #[sqlx(default)]

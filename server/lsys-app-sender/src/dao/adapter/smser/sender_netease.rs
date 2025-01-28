@@ -99,24 +99,24 @@ impl SenderNetEaseConfig {
     //列出有效的netease短信配置
     pub async fn list_config(
         &self,
-        config_ids: &Option<Vec<u64>>,
+        config_ids: Option<&[u64]>,
     ) -> SenderResult<Vec<SettingData<NetEaseConfig>>> {
         let data = self
             .setting
-            .list_data::<NetEaseConfig>(&None, config_ids, &None)
+            .list_data::<NetEaseConfig>(None, config_ids, None)
             .await?;
         Ok(data)
     }
     //删除指定的netease短信配置
     pub async fn del_config(
         &self,
-        id: &u64,
-        user_id: &u64,
+        id: u64,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         Ok(self
             .setting
-            .del::<NetEaseConfig>(&None, id, user_id, None, env_data)
+            .del::<NetEaseConfig>(None, id, user_id, None, env_data)
             .await?)
     }
     //编辑指定的netease短信配置
@@ -124,15 +124,15 @@ impl SenderNetEaseConfig {
     #[allow(clippy::too_many_arguments)]
     pub async fn edit_config(
         &self,
-        id: &u64,
+        id: u64,
         name: &str,
         access_key: &str,
         access_secret: &str,
-        branch_limit: &u16,
-        user_id: &u64,
+        branch_limit: u16,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
-        if *branch_limit > NeteaseSms::branch_limit() {
+        if branch_limit > NeteaseSms::branch_limit() {
             return Err(SenderError::System(
                 fluent_message!("sms-config-branch-error",
                     {"max":  NeteaseSms::branch_limit()}
@@ -142,13 +142,13 @@ impl SenderNetEaseConfig {
         Ok(self
             .setting
             .edit(
-                &None,
+                None,
                 id,
                 name,
                 &NetEaseConfig {
                     access_key: access_key.to_owned(),
                     access_secret: access_secret.to_owned(),
-                    branch_limit: branch_limit.to_owned(),
+                    branch_limit,
                 },
                 user_id,
                 None,
@@ -162,11 +162,11 @@ impl SenderNetEaseConfig {
         name: &str,
         access_key: &str,
         access_secret: &str,
-        branch_limit: &u16,
-        user_id: &u64,
+        branch_limit: u16,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
-        if *branch_limit > NeteaseSms::branch_limit() {
+        if branch_limit > NeteaseSms::branch_limit() {
             return Err(SenderError::System(
                 fluent_message!("sms-config-branch-error",
                     {"max":  NeteaseSms::branch_limit()}
@@ -176,12 +176,12 @@ impl SenderNetEaseConfig {
         Ok(self
             .setting
             .add(
-                &None,
+                None,
                 name,
                 &NetEaseConfig {
                     access_key: access_key.to_owned(),
                     access_secret: access_secret.to_owned(),
-                    branch_limit: branch_limit.to_owned(),
+                    branch_limit,
                 },
                 user_id,
                 None,
@@ -194,19 +194,17 @@ impl SenderNetEaseConfig {
     pub async fn add_app_config(
         &self,
         name: &str,
-        app_id: &u64,
-        setting_id: &u64,
+        app_id: u64,
+        setting_id: u64,
         tpl_id: &str,
 
         template_id: &str,
         template_map: &str,
-        user_id: &u64,
-        add_user_id: &u64,
+        user_id: u64,
+        add_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
-        self.setting
-            .load::<NetEaseConfig>(&None, setting_id)
-            .await?;
+        self.setting.load::<NetEaseConfig>(None, setting_id).await?;
         self.tpl_config
             .add_config(
                 name,
@@ -319,7 +317,7 @@ impl<'t> NetEaseNotify<'t> {
 }
 
 #[async_trait]
-impl<'t> SmsSendNotifyParse for NetEaseNotify<'t> {
+impl SmsSendNotifyParse for NetEaseNotify<'_> {
     type T = NetEaseConfig;
     fn notify_items(
         &self,

@@ -10,14 +10,14 @@ import { Link as RouteLink, useParams } from 'react-router-dom';
 import ApiIcon from '@mui/icons-material/Api';
 import SmsIcon from '@mui/icons-material/Sms';
 import MailIcon from '@mui/icons-material/Mail';
+import QrCodeIcon from '@mui/icons-material/QrCode';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
-
-
 export const Menus = [
     {
         url: "/user/info/index",
         icon: ManageAccountsIcon,
-        text: "用户设置"
+        text: "用户设置",
+        dep_account: true
     },
     {
         url: "/user/app",
@@ -36,7 +36,7 @@ export const Menus = [
     },
     {
         url: "/user/barcode/create",
-        icon: MailIcon,
+        icon: QrCodeIcon,
         text: "条码管理"
     },
     {
@@ -47,7 +47,8 @@ export const Menus = [
     {
         url: "/user/login_history",
         icon: HistoryIcon,
-        text: "登陆历史"
+        text: "登陆历史",
+        dep_account: true
     },
     {
         url: "/system/app",

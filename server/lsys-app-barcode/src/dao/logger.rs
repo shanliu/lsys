@@ -2,20 +2,20 @@ use lsys_logger::dao::ChangeLogData;
 use serde::Serialize;
 
 #[derive(Serialize)]
-pub(crate) struct LogBarCodeCreateConfig {
-    pub action: &'static str,
-    pub barcode_type: String,
-    pub image_format: String,
+pub(crate) struct LogBarCodeCreateConfig<'t> {
+    pub action: &'t str,
+    pub user_id: u64,
+    pub barcode_type: &'t str,
+    pub image_format: &'t str,
     pub image_width: i32,
-    pub image_height:i32,
+    pub image_height: i32,
     pub margin: i32,
-    pub image_color:String,
-    pub image_background: String,
-  
+    pub image_color: &'t str,
+    pub image_background: &'t str,
 }
 
-impl ChangeLogData for LogBarCodeCreateConfig {
-    fn log_type<'t>() -> &'t str {
+impl ChangeLogData for LogBarCodeCreateConfig<'_> {
+    fn log_type() -> &'static str {
         "barcode-create-config"
     }
     fn message(&self) -> String {
@@ -26,16 +26,16 @@ impl ChangeLogData for LogBarCodeCreateConfig {
     }
 }
 
-
 #[derive(Serialize)]
-pub(crate) struct LogBarCodeParseRecord {
-    pub action: &'static str,
-    pub count:usize,
-    pub message: &'static str,
+pub(crate) struct LogBarCodeParseRecord<'t> {
+    pub action: &'t str,
+    pub count: usize,
+    pub user_id: u64,
+    pub message: &'t str,
 }
 
-impl ChangeLogData for LogBarCodeParseRecord {
-    fn log_type<'t>() -> &'t str {
+impl ChangeLogData for LogBarCodeParseRecord<'_> {
+    fn log_type() -> &'static str {
         "barcode-parse-record"
     }
     fn message(&self) -> String {

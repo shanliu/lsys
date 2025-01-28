@@ -4,9 +4,9 @@ use lsys_core::{
     fluent_message, now_time, AppCore, FluentMessage, IntoFluentMessage, RequestEnv, TaskData,
 };
 
-use lsys_app_notify::dao::Notify;
-use lsys_logger::dao::ChangeLogger;
-use lsys_setting::dao::Setting;
+use lsys_app_notify::dao::NotifyDao;
+use lsys_logger::dao::ChangeLoggerDao;
+use lsys_setting::dao::SettingDao;
 use sqlx::Pool;
 use tracing::warn;
 
@@ -26,7 +26,7 @@ use lsys_core::TaskDispatch;
 
 const SMSER_REDIS_PREFIX: &str = "sender-sms-";
 
-pub struct SmsSender {
+pub struct SmsSenderDao {
     pub tpl_config: Arc<SenderTplConfig>,
     pub sms_record: Arc<SmsRecord>,
     pub sms_notify: Arc<SmsSendNotify>,
@@ -41,20 +41,20 @@ pub struct SmsSender {
     task_status: TaskDispatch<u64, SmsStatusTaskItem>,
     send_wait: Arc<SenderWaitNotify>,
     task_status_key: String,
-    setting: Arc<Setting>,
-    notify: Arc<Notify>,
+    setting: Arc<SettingDao>,
+    notify: Arc<NotifyDao>,
 }
 
-impl SmsSender {
+impl SmsSenderDao {
     //短信发送
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         app_core: Arc<AppCore>,
         redis: deadpool_redis::Pool,
         db: Pool<sqlx::MySql>,
-        setting: Arc<Setting>,
-        logger: Arc<ChangeLogger>,
-        notify: Arc<Notify>,
+        setting: Arc<SettingDao>,
+        logger: Arc<ChangeLoggerDao>,
+        notify: Arc<NotifyDao>,
         sender_task_size: Option<usize>,
         notify_task_size: Option<usize>,
         task_timeout: usize,
@@ -89,9 +89,9 @@ impl SmsSender {
         ));
 
         let task_sender = TaskDispatch::new(
-            format!("{}-sender-notify", SMSER_REDIS_PREFIX),
-            format!("{}-sender-read-lock", SMSER_REDIS_PREFIX),
-            format!("{}-sender-run-task", SMSER_REDIS_PREFIX),
+            &format!("{}-sender-notify", SMSER_REDIS_PREFIX),
+            &format!("{}-sender-read-lock", SMSER_REDIS_PREFIX),
+            &format!("{}-sender-run-task", SMSER_REDIS_PREFIX),
             sender_task_size,
             task_timeout,
             is_check,
@@ -99,9 +99,9 @@ impl SmsSender {
         );
 
         let task_status = TaskDispatch::new(
-            format!("{}-status-notify", SMSER_REDIS_PREFIX),
-            format!("{}-status-read-lock", SMSER_REDIS_PREFIX),
-            format!("{}-status-run-task", SMSER_REDIS_PREFIX),
+            &format!("{}-status-notify", SMSER_REDIS_PREFIX),
+            &format!("{}-status-read-lock", SMSER_REDIS_PREFIX),
+            &format!("{}-status-run-task", SMSER_REDIS_PREFIX),
             notify_task_size,
             task_timeout,
             is_check,
@@ -112,7 +112,7 @@ impl SmsSender {
 
         let status_query = Arc::new(SmsStatusQuery::new(
             redis.clone(),
-            task_status_key.clone(),
+            &task_status_key,
             notify_timeout.unwrap_or(1800),
         ));
 
@@ -159,9 +159,9 @@ impl SmsSender {
         mobiles: &[(&'t str, &'t str)],
         tpl_id: &str,
         tpl_var: &str,
-        send_time: &Option<u64>,
-        user_id: &Option<u64>,
-        max_try_num: &Option<u8>,
+        send_time: Option<u64>,
+        user_id: Option<u64>,
+        max_try_num: Option<u8>,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<(
         u64,
@@ -184,12 +184,12 @@ impl SmsSender {
             .sms_record
             .add(
                 &tmp,
-                &app_id.unwrap_or_default(),
+                app_id.unwrap_or_default(),
                 tpl_id,
                 tpl_var,
-                &sendtime,
+                sendtime,
                 user_id,
-                &max_try_num,
+                max_try_num,
                 env_data,
             )
             .await?;

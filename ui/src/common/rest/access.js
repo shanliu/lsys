@@ -115,7 +115,7 @@ export async function roleAdd(params, config) {
     user_range,
     role_op_range,
     priority,
-    relation_key,
+    role_key,
     tags,
     role_ops } = params;
   user_id = parseInt(user_id)
@@ -144,7 +144,7 @@ export async function roleAdd(params, config) {
     user_range: user_range,
     role_op_range: role_op_range,
     priority: priority,
-    relation_key: relation_key + '',
+    role_key: role_key + '',
     tags: tags,
     role_user: [],
   };
@@ -164,7 +164,7 @@ export async function roleEdit(params, config) {
     user_range,
     role_op_range,
     priority,
-    relation_key,
+    role_key,
     tags,
     role_ops
   } = params;
@@ -195,7 +195,7 @@ export async function roleEdit(params, config) {
     user_range: user_range,
     role_op_range: role_op_range,
     priority: priority,
-    relation_key: relation_key,
+    role_key: role_key,
     tags: tags,
   };
   if (role_op_range == 1) {
@@ -261,7 +261,7 @@ export async function roleDeleteUser(params, config) {
 
 
 //指定关系角色数据
-export async function roleRelationData(params, config) {
+export async function roleKeyData(params, config) {
   let {
     user_id,
     relation_prefix,
@@ -345,7 +345,7 @@ export async function roleTags(param, config) {
 
 
 
-export async function roleRelationCheck(params, config) {
+export async function roleKeyCheck(params, config) {
   let {
     user_id,
     relation_find

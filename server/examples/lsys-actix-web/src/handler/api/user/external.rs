@@ -2,19 +2,16 @@ use crate::common::handler::{
     JsonQuery, JwtQuery, ResponseJson, ResponseJsonResult, UserAuthQuery,
 };
 use actix_web::post;
+use lsys_access::dao::AccessSession;
 use lsys_core::fluent_message;
-use lsys_user::dao::auth::{SessionData, UserSession};
+use lsys_web::handler::api::user::{user_external_bind, user_external_bind_url};
 use lsys_web::{
-    handler::{
-        api::user::{
-            user_external_delete, user_external_list_data, ExternalDeleteParam,
-            ExternalListDataParam,
-        },
-        oauth::user_external_login_url,
+    common::{JsonData, JsonError},
+    handler::api::user::{
+        user_external_delete, user_external_list_data, ExternalDeleteParam, ExternalListDataParam,
     },
-    JsonData,
 };
-use lsys_web_module_oauth::module::{WechatLogin, WechatLoginParam};
+use lsys_web_module_oauth::module::{WeChatConfig, WechatLogin, WechatLoginParam};
 use serde::Deserialize;
 use serde_json::json;
 
@@ -32,7 +29,7 @@ pub struct ExternalBindCheckParam {
 }
 
 #[post("external/{method}")]
-pub(crate) async fn external<'t>(
+pub(crate) async fn external(
     jwt: JwtQuery,
     path: actix_web::web::Path<String>,
     json_param: JsonQuery,
@@ -41,46 +38,43 @@ pub(crate) async fn external<'t>(
     auth_dao.set_request_token(&jwt).await;
     Ok(match path.into_inner().as_str() {
         "list_data" => {
-            user_external_list_data(json_param.param::<ExternalListDataParam>()?, &auth_dao).await
+            user_external_list_data(&json_param.param::<ExternalListDataParam>()?, &auth_dao)
+                .await
+                .map_err(|e| auth_dao.fluent_error_json_data(&e))?
         }
         "bind_check" => {
-            let req_auth = auth_dao
-                .user_session
-                .read()
-                .await
-                .get_session_data()
-                .await
-                .map_err(|e| auth_dao.fluent_json_data(e))?;
             let login_param = json_param.param::<ExternalBindCheckParam>()?;
             match login_param.login_type.as_str() {
                 "wechat" => {
-                    let wechat = &auth_dao
+                    let config = auth_dao
                         .web_dao
-                        .user
-                        .user_external_oauth::<WechatLogin, WechatLoginParam, _, _>("wechat")
+                        .web_setting
+                        .setting_dao
+                        .single
+                        .load::<WeChatConfig>(None)
                         .await
-                        .map_err(|e| auth_dao.fluent_json_data(e))?;
+                        .map_err(|e| auth_dao.fluent_error_json_data(&e.into()))?;
+                    let wechat = WechatLogin::new(
+                        auth_dao.web_dao.clone(),
+                        &config.app_id,
+                        &config.app_secret,
+                        "wechat",
+                    );
                     let (reload, login_data) = wechat
                         .state_check(&auth_dao, &login_param.login_state)
-                        .await?;
+                        .await
+                        .map_err(|e| auth_dao.fluent_error_json_data(&e))?;
                     if let Some(ldat) = login_data {
-                        let (ext_model, _, _) = &auth_dao
-                            .web_dao
-                            .user
-                            .user_external_bind(
-                                wechat,
-                                &ldat,
-                                req_auth.user_data().user_id,
-                                Some(&auth_dao.req_env),
-                            )
+                        user_external_bind(&wechat, &ldat, &auth_dao)
                             .await
-                            .map_err(|e| auth_dao.fluent_json_data(e))?;
-                        Ok(JsonData::data(json!({ "id": ext_model.id })))
+                            .map_err(|e| auth_dao.fluent_error_json_data(&e))?
                     } else {
-                        Ok(JsonData::data(json!({ "reload": reload })))
+                        JsonData::data(json!({ "reload": reload }))
                     }
                 }
-                name => handler_not_found!(name),
+                name => {
+                    handler_not_found!(name).map_err(|e| auth_dao.fluent_error_json_data(&e))?
+                }
             }
         }
         "bind_url" => {
@@ -90,12 +84,25 @@ pub(crate) async fn external<'t>(
                 .await
                 .get_session_data()
                 .await
-                .map_err(|e| auth_dao.fluent_json_data(e))?;
+                .map_err(|e| auth_dao.fluent_error_json_data(&e.into()))?;
             let param = json_param.param::<ExternalBindUrlParam>()?;
             match param.login_type.as_str() {
                 "wechat" => {
-                    user_external_login_url::<WechatLogin, WechatLoginParam, _, _>(
-                        "wechat",
+                    let config = auth_dao
+                        .web_dao
+                        .web_setting
+                        .setting_dao
+                        .single
+                        .load::<WeChatConfig>(None)
+                        .await
+                        .map_err(|e| auth_dao.fluent_error_json_data(&e.into()))?;
+                    user_external_bind_url(
+                        &WechatLogin::new(
+                            auth_dao.web_dao.clone(),
+                            &config.app_id,
+                            &config.app_secret,
+                            "wechat",
+                        ),
                         &WechatLoginParam {
                             state: param.login_state,
                             callback_url: param.callback_url,
@@ -103,21 +110,21 @@ pub(crate) async fn external<'t>(
                         &auth_dao,
                     )
                     .await
+                    .map_err(|e| auth_dao.fluent_error_json_data(&e))?
                 }
-                name => Ok(
-                    auth_dao
-                        .fluent_json_data(fluent_message!("external-not-support",{
-                            "name":name
-                        }))
-                        .set_sub_code("type_not_support"), // JsonData::message(format!("not support login type:{}", name))
-                                                           //     .set_sub_code(""),
-                ),
+                name => auth_dao.fluent_error_json_data(&JsonError::JsonData(
+                    JsonData::default().set_sub_code("type_not_support"),
+                    fluent_message!("external-not-support",{
+                        "name":name
+                    }),
+                )),
             }
         }
-        "delete" => {
-            user_external_delete(json_param.param::<ExternalDeleteParam>()?, &auth_dao).await
-        }
-        name => handler_not_found!(name),
-    }?
+        "delete" => user_external_delete(&json_param.param::<ExternalDeleteParam>()?, &auth_dao)
+            .await
+            .map_err(|e| auth_dao.fluent_error_json_data(&e))?,
+        name => handler_not_found!(name).map_err(|e| auth_dao.fluent_error_json_data(&e))?,
+    }
+    //
     .into())
 }

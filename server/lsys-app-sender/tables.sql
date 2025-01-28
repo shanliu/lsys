@@ -1,4 +1,3 @@
--- ----------- lsys-app-sender  ---------------
 CREATE TABLE `yaf_sender_config` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
@@ -80,7 +79,7 @@ CREATE TABLE `yaf_sender_mail_body` (
     `finish_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '全部完成时间',
     `user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '用户id',
     `reply_mail` varchar(254) NOT NULL COMMENT '回复',
-    `user_ip` varchar(40) NOT NULL DEFAULT '' COMMENT '操作者IP',
+    `user_ip` varchar(39) NOT NULL DEFAULT '' COMMENT '操作者IP',
     `request_id` varchar(32) NOT NULL COMMENT '请求ID',
     `reply_host` varchar(255) NOT NULL COMMENT '结果返回主机',
     PRIMARY KEY (`id`),
@@ -115,7 +114,7 @@ CREATE TABLE `yaf_sender_sms_body` (
     `expected_time` bigint unsigned NOT NULL COMMENT '预计发送时间',
     `finish_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '全部完成时间',
     `user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '用户id',
-    `user_ip` varchar(40) NOT NULL DEFAULT '' COMMENT '操作者IP',
+    `user_ip` varchar(39) NOT NULL DEFAULT '' COMMENT '操作者IP',
     `request_id` varchar(32) NOT NULL COMMENT '请求ID',
     `reply_host` varchar(255) NOT NULL COMMENT '结果返回主机',
     PRIMARY KEY (`id`),
@@ -140,4 +139,3 @@ CREATE TABLE `yaf_sender_sms_message` (
     KEY `sender_add_time_IDX` (`add_time`) USING BTREE,
     KEY `sender_res_data_IDX` (`setting_id`, `res_data`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '发送短信接收手机号';
--- ----------- lsys-app-sender  ---------------

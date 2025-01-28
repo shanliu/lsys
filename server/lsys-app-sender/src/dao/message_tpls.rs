@@ -4,12 +4,10 @@ use crate::dao::{SenderError, SenderResult};
 use crate::model::{SenderTplBodyModel, SenderTplBodyModelRef, SenderTplBodyStatus, SenderType};
 use lsys_core::{fluent_message, now_time, PageParam, RequestEnv};
 
-use lsys_logger::dao::ChangeLogger;
+use lsys_core::db::{Insert, ModelTableName, SqlExpr, SqlQuote, Update};
+use lsys_core::{model_option_set, sql_format};
+use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::Pool;
-use sqlx_model::{
-    model_option_set, sql_format, Insert, ModelTableName, Select, Update, WhereOption,
-};
-use sqlx_model::{SqlExpr, SqlQuote};
 use tera::{Context, Template, Tera};
 use tokio::sync::RwLock;
 
@@ -18,11 +16,11 @@ use super::logger::LogMessageTpls;
 pub struct MessageTpls {
     db: Pool<sqlx::MySql>,
     tera: RwLock<Tera>,
-    logger: Arc<ChangeLogger>,
+    logger: Arc<ChangeLoggerDao>,
 }
 
 impl MessageTpls {
-    pub fn new(db: Pool<sqlx::MySql>, logger: Arc<ChangeLogger>) -> Self {
+    pub fn new(db: Pool<sqlx::MySql>, logger: Arc<ChangeLoggerDao>) -> Self {
         Self {
             db,
             tera: RwLock::new(Tera::default()),
@@ -44,8 +42,8 @@ impl MessageTpls {
         sender_type: SenderType,
         tpl_id: &str,
         tpl_data: &str,
-        user_id: &u64,
-        add_user_id: &u64,
+        user_id: u64,
+        add_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         let sender_type = sender_type as i8;
@@ -57,17 +55,17 @@ impl MessageTpls {
 
         let tpl_data = tpl_data.to_owned();
         let status = SenderTplBodyStatus::Enable as i8;
-        let res = Select::type_new::<SenderTplBodyModel>()
-            .fetch_one_by_where::<SenderTplBodyModel, _>(
-                &WhereOption::Where(sql_format!(
-                    " tpl_id={} and status = {} and user_id = {}",
-                    tpl_id,
-                    SenderTplBodyStatus::Enable,
-                    user_id
-                )),
-                &self.db,
-            )
-            .await;
+
+        let res = sqlx::query_as::<_, SenderTplBodyModel>(&sql_format!(
+            "select * from {} where tpl_id={} and status = {} and user_id = {} ",
+            SenderTplBodyModel::table_name(),
+            tpl_id,
+            SenderTplBodyStatus::Enable,
+            user_id
+        ))
+        .fetch_one(&self.db)
+        .await;
+
         match res {
             Ok(tpl) => {
                 if tpl.user_id == user_id {
@@ -102,12 +100,12 @@ impl MessageTpls {
                 &LogMessageTpls {
                     action: "add",
                     sender_type,
-                    tpl_id,
-                    tpl_data,
+                    tpl_id: &tpl_id,
+                    tpl_data: &tpl_data,
+                    user_id,
                 },
-                &Some(id),
-                &Some(user_id),
-                &Some(add_user_id.to_owned()),
+                Some(id),
+                Some(add_user_id.to_owned()),
                 None,
                 env_data,
             )
@@ -119,7 +117,7 @@ impl MessageTpls {
         &self,
         tpl: &SenderTplBodyModel,
         tpl_data: &str,
-        user_id: &u64,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         let tkey = self.tpl_key(tpl.sender_type, &tpl.tpl_id);
@@ -144,12 +142,12 @@ impl MessageTpls {
                 &LogMessageTpls {
                     action: "edit",
                     sender_type: tpl.sender_type,
-                    tpl_id: tpl.tpl_id.to_owned(),
-                    tpl_data,
+                    tpl_id: &tpl.tpl_id,
+                    tpl_data: &tpl_data,
+                    user_id: tpl.user_id,
                 },
-                &Some(tpl.id),
-                &Some(tpl.user_id),
-                &Some(user_id),
+                Some(tpl.id),
+                Some(user_id),
                 None,
                 env_data,
             )
@@ -161,7 +159,7 @@ impl MessageTpls {
     pub async fn del(
         &self,
         tpl: &SenderTplBodyModel,
-        user_id: &u64,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         let user_id = user_id.to_owned();
@@ -185,12 +183,12 @@ impl MessageTpls {
                 &LogMessageTpls {
                     action: "del",
                     sender_type: tpl.sender_type,
-                    tpl_id: tpl.tpl_id.to_owned(),
-                    tpl_data: tpl.tpl_data.to_owned(),
+                    tpl_id: &tpl.tpl_id,
+                    tpl_data: &tpl.tpl_data,
+                    user_id: tpl.user_id,
                 },
-                &Some(tpl.id),
-                &Some(tpl.user_id),
-                &Some(user_id),
+                Some(tpl.id),
+                Some(user_id),
                 None,
                 env_data,
             )
@@ -210,18 +208,17 @@ impl MessageTpls {
     ) -> SenderResult<String> {
         let sender_type = sender_type as i8;
         let tkey = &self.tpl_key(sender_type, tpl_id);
-        if self.tera.read().await.templates.get(tkey).is_none() {
-            let tpl = Select::type_new::<SenderTplBodyModel>()
-                .fetch_one_by_where::<SenderTplBodyModel, _>(
-                    &WhereOption::Where(sql_format!(
-                        "sender_type={} and tpl_id={} and status = {}",
-                        sender_type,
-                        tpl_id,
-                        SenderTplBodyStatus::Enable
-                    )),
-                    &self.db,
-                )
-                .await?;
+        if !self.tera.read().await.templates.contains_key(tkey) {
+            let tpl = sqlx::query_as::<_, SenderTplBodyModel>(&sql_format!(
+                "select * from {} where sender_type={} and tpl_id={} and status = {}",
+                SenderTplBodyModel::table_name(),
+                sender_type,
+                tpl_id,
+                SenderTplBodyStatus::Enable
+            ))
+            .fetch_one(&self.db)
+            .await?;
+
             self.tera
                 .write()
                 .await
@@ -232,10 +229,10 @@ impl MessageTpls {
     }
     fn list_where_sql(
         &self,
-        user_id: &u64,
-        sender_type: &Option<SenderType>,
-        id: &Option<u64>,
-        tpl_id: &Option<String>,
+        user_id: u64,
+        sender_type: Option<SenderType>,
+        id: Option<u64>,
+        tpl_id: Option<&str>,
     ) -> String {
         let mut sqlwhere = vec![sql_format!(
             "user_id={} and status ={}",
@@ -255,36 +252,44 @@ impl MessageTpls {
     }
     pub async fn list_data(
         &self,
-        user_id: &u64,
-        sender_type: &Option<SenderType>,
-        id: &Option<u64>,
-        tpl_id: &Option<String>,
-        page: &Option<PageParam>,
+        user_id: u64,
+        sender_type: Option<SenderType>,
+        id: Option<u64>,
+        tpl_id: Option<&str>,
+        page: Option<&PageParam>,
     ) -> SenderResult<Vec<SenderTplBodyModel>> {
         let sqlwhere = self.list_where_sql(user_id, sender_type, id, tpl_id);
-        let page_sql = if let Some(pdat) = page {
-            format!(
-                " order by id desc limit {} offset {} ",
-                pdat.limit, pdat.offset
-            )
-        } else {
-            " order by id desc".to_string()
-        };
-        let sql = if !sqlwhere.is_empty() {
-            WhereOption::Where(sqlwhere + page_sql.as_str())
-        } else {
-            WhereOption::None
-        };
-        Ok(Select::type_new::<SenderTplBodyModel>()
-            .fetch_all_by_where::<SenderTplBodyModel, _>(&sql, &self.db)
+        // let page_sql = if let Some(pdat) = page {
+        //     format!(
+        //         " order by id desc limit {} offset {} ",
+        //         pdat.limit, pdat.offset
+        //     )
+        // } else {
+        //     " ".to_string()
+        // };
+        let sql = sql_format!(
+            "select * from {} {} order by id desc {}",
+            SenderTplBodyModel::table_name(),
+            if !sqlwhere.is_empty() {
+                SqlExpr(format!("where {}", sqlwhere))
+            } else {
+                SqlExpr("".to_string())
+            },
+            match page {
+                Some(pdat) => SqlExpr(format!("limit {} offset {}", pdat.limit, pdat.offset)),
+                None => SqlExpr("".to_string()),
+            }
+        );
+        Ok(sqlx::query_as::<_, SenderTplBodyModel>(&sql)
+            .fetch_all(&self.db)
             .await?)
     }
     pub async fn list_count(
         &self,
-        user_id: &u64,
-        sender_type: &Option<SenderType>,
-        id: &Option<u64>,
-        tpl_id: &Option<String>,
+        user_id: u64,
+        sender_type: Option<SenderType>,
+        id: Option<u64>,
+        tpl_id: Option<&str>,
     ) -> SenderResult<i64> {
         let sqlwhere = self.list_where_sql(user_id, sender_type, id, tpl_id);
         let sql = sql_format!(

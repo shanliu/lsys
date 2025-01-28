@@ -1,9 +1,9 @@
+use lsys_core::db::lsys_model;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
-use sqlx_model::sqlx_model;
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(db_type = "MySql", table_name = "notify_config")]
+#[lsys_model(db_type = "MySql", table_name = "notify_config")]
 pub struct NotifyConfigModel {
     /// 用户ID
     #[sqlx(default)]
@@ -12,6 +12,10 @@ pub struct NotifyConfigModel {
     /// 应用ID
     #[sqlx(default)]
     pub app_id: u64,
+
+    /// 应用用户ID,冗余
+    #[sqlx(default)]
+    pub app_user_id: u64,
 
     /// 请求方法名
     #[sqlx(default)]
@@ -25,11 +29,7 @@ pub struct NotifyConfigModel {
     #[sqlx(default)]
     pub change_user_id: u64,
 
-    /// 应用ID
-    #[sqlx(default)]
-    pub user_id: u64,
-
-    /// 下次推送时间
+    /// 最後更新时间
     #[sqlx(default)]
     pub change_time: u64,
 
@@ -39,7 +39,7 @@ pub struct NotifyConfigModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(db_type = "MySql", table_name = "notify_data")]
+#[lsys_model(db_type = "MySql", table_name = "notify_data")]
 pub struct NotifyDataModel {
     /// 用户ID
     #[sqlx(default)]

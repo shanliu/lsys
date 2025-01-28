@@ -13,53 +13,57 @@ use std::sync::Arc;
 
 use super::{MultipleSetting, SettingError, SettingResult, SingleSetting};
 
-use lsys_core::{cache:: LocalCacheConfig, AppCoreError, RemoteNotify};
-use lsys_logger::dao::ChangeLogger;
+use lsys_core::{cache::LocalCacheConfig, AppCoreError, RemoteNotify};
+use lsys_logger::dao::ChangeLoggerDao;
 
-
-pub struct SettingConfig{
-    pub single_cache:LocalCacheConfig,
-    pub multiple_cache:LocalCacheConfig,
+pub struct SettingConfig {
+    pub single_cache: LocalCacheConfig,
+    pub multiple_cache: LocalCacheConfig,
 }
 
-impl  SettingConfig {
-   pub fn new(use_cache:bool)->Self{
-        Self{
-            single_cache:LocalCacheConfig::new("setting-single",if use_cache{None}else{Some(0)},None),
-            multiple_cache:LocalCacheConfig::new("setting-multiple",if use_cache{None}else{Some(0)},None),
+impl SettingConfig {
+    pub fn new(use_cache: bool) -> Self {
+        Self {
+            single_cache: LocalCacheConfig::new(
+                "setting-single",
+                if use_cache { None } else { Some(0) },
+                None,
+            ),
+            multiple_cache: LocalCacheConfig::new(
+                "setting-multiple",
+                if use_cache { None } else { Some(0) },
+                None,
+            ),
         }
     }
 }
 
-
-
-pub struct Setting {
+pub struct SettingDao {
     db: Pool<MySql>,
     pub single: Arc<SingleSetting>,
     pub multiple: Arc<MultipleSetting>,
 }
 
-
-impl Setting {
+impl SettingDao {
     pub async fn new(
         // app_core: Arc<AppCore>,
         db: Pool<MySql>,
         remote_notify: Arc<RemoteNotify>,
-        config:SettingConfig,
-        logger: Arc<ChangeLogger>,
+        config: SettingConfig,
+        logger: Arc<ChangeLoggerDao>,
     ) -> Result<Self, AppCoreError> {
         Ok(Self {
             single: Arc::from(SingleSetting::new(
                 db.clone(),
                 // fluents_message.clone(),
-                remote_notify.clone(), 
+                remote_notify.clone(),
                 config.single_cache,
                 logger.clone(),
             )),
             multiple: Arc::from(MultipleSetting::new(
                 db.clone(),
                 // fluents_message,
-                remote_notify.clone(), 
+                remote_notify.clone(),
                 config.multiple_cache,
                 logger,
             )),
@@ -146,16 +150,17 @@ impl<T: SettingDecode> Deref for SettingData<T> {
 }
 
 #[derive(Serialize)]
-pub(crate) struct SettingLog {
-    pub action: &'static str,
-    pub setting_key: String,
+pub(crate) struct SettingLog<'t> {
+    pub action: &'t str,
+    pub user_id: u64,
+    pub setting_key: &'t str,
     pub setting_type: SettingType,
-    pub name: String,
-    pub setting_data: String,
+    pub name: &'t str,
+    pub setting_data: &'t str,
 }
 
-impl ChangeLogData for SettingLog {
-    fn log_type<'t>() -> &'t str {
+impl ChangeLogData for SettingLog<'_> {
+    fn log_type() -> &'static str {
         "setting"
     }
     fn message(&self) -> String {

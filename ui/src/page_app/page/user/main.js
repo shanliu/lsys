@@ -26,7 +26,11 @@ export default function UserMainPage() {
     });
     useEffect(() => {
         if (!userData) { return }
-        accessMenu(Menus).then((data) => {
+        let check_enum = Menus;
+        if (userData.user_data.account_id == 0) {
+            check_enum = check_enum.filter((e) => !e.dep_account)
+        }
+        accessMenu(check_enum).then((data) => {
             if (!data.status) {
                 data.message && toast(data.message)
             } else {

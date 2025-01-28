@@ -2,21 +2,22 @@ use lsys_logger::dao::ChangeLogData;
 use serde::Serialize;
 
 #[derive(Serialize)]
-pub(crate) struct LogUserAddress {
-    pub action: &'static str,
-    pub address_code: String,
-    pub address_info: String,
-    pub address_detail: String,
-    pub name: String,
-    pub mobile: String,
+pub(crate) struct LogAccountAddress<'t> {
+    pub action: &'t str,
+    pub address_code: &'t str,
+    pub address_info: &'t str,
+    pub address_detail: &'t str,
+    pub name: &'t str,
+    pub mobile: &'t str,
+    pub account_id: u64,
 }
 
-impl ChangeLogData for LogUserAddress {
-    fn log_type<'t>() -> &'t str {
-        "user-address"
+impl ChangeLogData for LogAccountAddress<'_> {
+    fn log_type() -> &'static str {
+        "account-address"
     }
     fn message(&self) -> String {
-        format!("{} user address", self.action)
+        format!("{} account address", self.action)
     }
     fn encode(&self) -> String {
         serde_json::to_string(&self).unwrap_or_default()
@@ -24,15 +25,16 @@ impl ChangeLogData for LogUserAddress {
 }
 
 #[derive(Serialize)]
-pub(crate) struct LogUserEmail {
-    pub action: &'static str,
-    pub email: String,
+pub(crate) struct LogAccountEmail<'t> {
+    pub action: &'t str,
+    pub email: &'t str,
     pub status: i8,
+    pub account_id: u64,
 }
 
-impl ChangeLogData for LogUserEmail {
-    fn log_type<'t>() -> &'t str {
-        "user-email"
+impl ChangeLogData for LogAccountEmail<'_> {
+    fn log_type() -> &'static str {
+        "account-email"
     }
     fn message(&self) -> String {
         format!("{} role tag ", self.action)
@@ -43,24 +45,25 @@ impl ChangeLogData for LogUserEmail {
 }
 
 #[derive(Serialize)]
-pub(crate) struct LogUserExternal {
-    pub action: &'static str,
-    pub config_name: String,
-    pub external_type: String,
-    pub external_id: String,
-    pub external_name: String,
-    pub external_gender: String,
-    pub external_link: String,
-    pub external_pic: String,
-    pub external_nikename: String,
+pub(crate) struct LogAccountExternal<'t> {
+    pub action: &'t str,
+    pub config_name: &'t str,
+    pub external_type: &'t str,
+    pub external_id: &'t str,
+    pub external_name: &'t str,
+    pub external_gender: &'t str,
+    pub external_link: &'t str,
+    pub external_pic: &'t str,
+    pub external_nikename: &'t str,
     pub status: i8,
-    pub token_data: String,
+    pub token_data: &'t str,
     pub token_timeout: u64,
+    pub account_id: u64,
 }
 
-impl ChangeLogData for LogUserExternal {
-    fn log_type<'t>() -> &'t str {
-        "user-external"
+impl ChangeLogData for LogAccountExternal<'_> {
+    fn log_type() -> &'static str {
+        "account-external"
     }
     fn message(&self) -> String {
         format!("{} {} ", self.action, self.external_id)
@@ -71,20 +74,20 @@ impl ChangeLogData for LogUserExternal {
 }
 
 #[derive(Serialize)]
-pub(crate) struct LogUserInfo {
+pub(crate) struct LogAccountInfo<'t> {
     pub gender: i32,
-    pub headimg: String,
-    pub birthday: String,
-    pub reg_ip: String,
-    pub reg_from: String,
+    pub headimg: &'t str,
+    pub birthday: &'t str,
+    pub reg_ip: &'t str,
+    pub reg_from: &'t str,
 }
 
-impl ChangeLogData for LogUserInfo {
-    fn log_type<'t>() -> &'t str {
-        "user-info"
+impl ChangeLogData for LogAccountInfo<'_> {
+    fn log_type() -> &'static str {
+        "account-info"
     }
     fn message(&self) -> String {
-        "set user info ".to_string()
+        "set account info ".to_string()
     }
     fn encode(&self) -> String {
         serde_json::to_string(&self).unwrap_or_default()
@@ -92,16 +95,17 @@ impl ChangeLogData for LogUserInfo {
 }
 
 #[derive(Serialize)]
-pub(crate) struct LogUserMobile {
-    pub action: &'static str,
-    pub area_code: String,
-    pub mobile: String,
+pub(crate) struct LogAccountMobile<'t> {
+    pub action: &'t str,
+    pub area_code: &'t str,
+    pub mobile: &'t str,
     pub status: i8,
+    pub account_id: u64,
 }
 
-impl ChangeLogData for LogUserMobile {
-    fn log_type<'t>() -> &'t str {
-        "user-mobile"
+impl ChangeLogData for LogAccountMobile<'_> {
+    fn log_type() -> &'static str {
+        "account-mobile"
     }
     fn message(&self) -> String {
         format!("{} ", self.action)
@@ -112,14 +116,14 @@ impl ChangeLogData for LogUserMobile {
 }
 
 #[derive(Serialize)]
-pub(crate) struct LogUserName {
-    pub action: &'static str,
-    pub username: String,
+pub(crate) struct LogAccountName<'t> {
+    pub action: &'t str,
+    pub username: &'t str,
 }
 
-impl ChangeLogData for LogUserName {
-    fn log_type<'t>() -> &'t str {
-        "user-name"
+impl ChangeLogData for LogAccountName<'_> {
+    fn log_type() -> &'static str {
+        "account-name"
     }
     fn message(&self) -> String {
         format!("{} name {} ", self.action, self.username)
@@ -130,18 +134,35 @@ impl ChangeLogData for LogUserName {
 }
 
 #[derive(Serialize)]
-pub(crate) struct LogUser {
-    pub action: &'static str,
-    pub nickname: String,
+pub(crate) struct LogAccount<'t> {
+    pub action: &'t str,
+    pub nickname: &'t str,
     pub status: i8,
 }
 
-impl ChangeLogData for LogUser {
-    fn log_type<'t>() -> &'t str {
+impl ChangeLogData for LogAccount<'_> {
+    fn log_type() -> &'static str {
         "user"
     }
     fn message(&self) -> String {
         format!("{} user {} ", self.action, self.nickname)
+    }
+    fn encode(&self) -> String {
+        serde_json::to_string(&self).unwrap_or_default()
+    }
+}
+
+#[derive(Serialize)]
+
+pub(crate) struct LogAccountPassWrod {
+    pub account_id: u64,
+}
+impl ChangeLogData for LogAccountPassWrod {
+    fn log_type() -> &'static str {
+        "set-password"
+    }
+    fn message(&self) -> String {
+        "set passwrod".to_string()
     }
     fn encode(&self) -> String {
         serde_json::to_string(&self).unwrap_or_default()

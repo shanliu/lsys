@@ -13,3 +13,4 @@ area-error=系统异常:{$msg}
 area-not-found=地址信息未找到
 area-store-error=存储异常:{$msg}
 area-tantivy-error=搜索异常:{$msg}
+reg-rule-wrong = 校验规则异常,正则错误:{$msg}
