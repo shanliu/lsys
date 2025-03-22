@@ -5,13 +5,35 @@ use lsys_access::dao::AccessSession;
 use lsys_app::dao::UserAppDataParam;
 use lsys_app::model::AppStatus;
 use lsys_app_notify::dao::NotifyData;
-use lsys_app_sender::{
-    dao::{NotifySmsItem, SenderError},
-    model::{SenderConfigStatus, SenderSmsConfigType},
-};
+use lsys_app_sender::{dao::NotifySmsItem, model::SenderSmsConfigType};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::HashMap;
+
+pub(crate) async fn smser_inner_access_check(
+    app_id: u64,
+    res_user_id: u64,
+    req_dao: &UserAuthQueryDao,
+) -> JsonResult<()> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    req_dao
+        .web_dao
+        .app_sender
+        .smser
+        .app_feature_check_from_app_id(app_id)
+        .await?;
+
+    req_dao
+        .web_dao
+        .web_rbac
+        .check(
+            &req_dao.req_env,
+            Some(&auth_data),
+            &CheckAppSenderSmsConfig { res_user_id },
+        )
+        .await?;
+    Ok(())
+}
 
 #[derive(Debug, Deserialize)]
 pub struct SmserConfigAddParam {
@@ -25,18 +47,10 @@ pub async fn smser_config_add(
     param: &SmserConfigAddParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
-        .web_rbac
-        .check(
-            &req_dao.access_env().await?,
-            &CheckAppSenderSmsConfig {
-                res_user_id: req_auth.user_id(),
-            },
-            None,
-        )
-        .await?;
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
+    smser_inner_access_check(param.app_id, auth_data.user_id(), req_dao).await?;
+
     let config_type = SenderSmsConfigType::try_from(param.config_type)?;
     let id = req_dao
         .web_dao
@@ -49,8 +63,8 @@ pub async fn smser_config_add(
             param.priority,
             config_type,
             &param.config_data,
-            req_auth.user_id(),
-            req_auth.user_id(),
+            auth_data.user_id(),
+            auth_data.user_id(),
             Some(&req_dao.req_env),
         )
         .await?;
@@ -65,50 +79,24 @@ pub async fn smser_config_del(
     param: &SmserConfigDeleteParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-
-    let res = req_dao
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let config = req_dao
         .web_dao
         .app_sender
         .smser
         .smser_dao
         .sms_record
         .find_config_by_id(&param.config_id)
-        .await;
-
-    match res {
-        Ok(config) => {
-            if SenderConfigStatus::Enable.eq(config.status) {
-                req_dao
-                    .web_dao
-                    .web_rbac
-                    .check(
-                        &req_dao.access_env().await?,
-                        &CheckAppSenderSmsConfig {
-                            res_user_id: config.user_id,
-                        },
-                        None,
-                    )
-                    .await?;
-                req_dao
-                    .web_dao
-                    .app_sender
-                    .smser
-                    .smser_dao
-                    .sms_record
-                    .config_del(&config, req_auth.user_id(), Some(&req_dao.req_env))
-                    .await?;
-            }
-        }
-        Err(err) => match &err {
-            SenderError::Sqlx(sqlx::Error::RowNotFound) => {
-                return Ok(JsonData::message("email not find"));
-            }
-            _ => {
-                return Err(err)?;
-            }
-        },
-    }
+        .await?;
+    smser_inner_access_check(config.app_id, config.user_id, req_dao).await?;
+    req_dao
+        .web_dao
+        .app_sender
+        .smser
+        .smser_dao
+        .sms_record
+        .config_del(&config, auth_data.user_id(), Some(&req_dao.req_env))
+        .await?;
     Ok(JsonData::default())
 }
 
@@ -123,16 +111,16 @@ pub async fn smser_config_list(
     param: &SmserConfigListParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &req_dao.access_env().await?,
+            &req_dao.req_env,
+            Some(&auth_data),
             &CheckAppSenderSmsConfig {
-                res_user_id: param.user_id.unwrap_or(req_auth.user_id()),
+                res_user_id: param.user_id.unwrap_or(auth_data.user_id()),
             },
-            None,
         )
         .await?;
     let data = req_dao
@@ -171,21 +159,21 @@ pub async fn smser_config_list(
 }
 
 pub async fn smser_notify_get_config(req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &req_dao.access_env().await?,
+            &req_dao.req_env,
+            Some(&auth_data),
             &CheckAppSenderSmsConfig {
-                res_user_id: req_auth.user_id(),
+                res_user_id: auth_data.user_id(),
             },
-            None,
         )
         .await?;
     let app_param = UserAppDataParam {
         status: Some(AppStatus::Enable),
-        parent_app_id: Some(req_auth.session().user_app_id),
+        parent_app_id: Some(auth_data.session().user_app_id),
         client_id: None,
         app_id: None,
     };
@@ -194,7 +182,7 @@ pub async fn smser_notify_get_config(req_dao: &UserAuthQueryDao) -> JsonResult<J
         .web_app
         .app_dao
         .app
-        .user_app_data(req_auth.user_id(), &app_param, None, None)
+        .user_app_data(auth_data.user_id(), &app_param, None, None)
         .await?;
     let notify = req_dao
         .web_dao
@@ -244,18 +232,8 @@ pub async fn smser_notify_set_config(
     param: &SmserNotifyConfigParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
-        .web_rbac
-        .check(
-            &req_dao.access_env().await?,
-            &CheckAppSenderSmsConfig {
-                res_user_id: req_auth.user_id(),
-            },
-            None,
-        )
-        .await?;
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    smser_inner_access_check(param.app_id, auth_data.user_id(), req_dao).await?;
     let app = req_dao
         .web_dao
         .web_app
@@ -263,6 +241,7 @@ pub async fn smser_notify_set_config(
         .app
         .find_by_id(&param.app_id)
         .await?;
+
     req_dao
         .web_dao
         .app_notify
@@ -272,7 +251,7 @@ pub async fn smser_notify_set_config(
             &app,
             &NotifySmsItem::method(),
             &param.url,
-            req_auth.user_id(),
+            auth_data.user_id(),
             Some(&req_dao.req_env),
         )
         .await?;
@@ -293,16 +272,16 @@ pub async fn smser_tpl_config_list(
     param: &SmserTplConfigListParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &req_dao.access_env().await?,
+            &req_dao.req_env,
+            Some(&auth_data),
             &CheckAppSenderSmsConfig {
-                res_user_id: req_auth.user_id(),
+                res_user_id: auth_data.user_id(),
             },
-            None,
         )
         .await?;
     let tpl_data = req_dao
@@ -313,7 +292,7 @@ pub async fn smser_tpl_config_list(
         .tpl_config
         .list_config(
             param.id,
-            Some(req_auth.user_id()),
+            Some(auth_data.user_id()),
             param.app_id,
             param.tpl.as_deref(),
             param.page.as_ref().map(|e| e.into()).as_ref(),
@@ -372,7 +351,7 @@ pub async fn smser_tpl_config_list(
                 .tpl_config
                 .count_config(
                     param.id,
-                    Some(req_auth.user_id()),
+                    Some(auth_data.user_id()),
                     param.app_id,
                     param.tpl.as_deref(),
                 )
@@ -392,46 +371,24 @@ pub async fn smser_tpl_config_del(
     param: &SmserTplConfigDeleteParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-    let res = req_dao
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let config = req_dao
         .web_dao
         .app_sender
         .mailer
         .mailer_dao
         .mail_record
         .find_config_by_id(&param.config_id)
-        .await;
+        .await?;
+    smser_inner_access_check(config.app_id, config.user_id, req_dao).await?;
+    req_dao
+        .web_dao
+        .app_sender
+        .mailer
+        .mailer_dao
+        .mail_record
+        .config_del(&config, auth_data.user_id(), Some(&req_dao.req_env))
+        .await?;
 
-    match res {
-        Ok(config) => {
-            if SenderConfigStatus::Enable.eq(config.status) {
-                req_dao
-                    .web_dao
-                    .web_rbac
-                    .check(
-                        &req_dao.access_env().await?,
-                        &CheckAppSenderSmsConfig {
-                            res_user_id: config.user_id,
-                        },
-                        None,
-                    )
-                    .await?;
-                req_dao
-                    .web_dao
-                    .app_sender
-                    .mailer
-                    .mailer_dao
-                    .mail_record
-                    .config_del(&config, req_auth.user_id(), Some(&req_dao.req_env))
-                    .await?;
-            }
-        }
-        Err(err) => match &err {
-            SenderError::Sqlx(sqlx::Error::RowNotFound) => return Ok(JsonData::default()),
-            _ => {
-                return Err(err)?;
-            }
-        },
-    }
     Ok(JsonData::default())
 }

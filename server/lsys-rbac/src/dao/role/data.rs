@@ -6,11 +6,11 @@ use crate::{
         RbacRoleStatus, RbacRoleUserModel, RbacRoleUserRange, RbacRoleUserStatus,
     },
 };
+use lsys_core::db::{ModelTableName, SqlExpr, SqlQuote};
+use lsys_core::sql_format;
 use lsys_core::{impl_dao_fetch_map_by_vec, impl_dao_fetch_one_by_one, now_time, PageParam};
 use serde::Serialize;
 use sqlx::Row;
-use lsys_core::{sql_format};
-use lsys_core::db::{ ModelTableName, SqlExpr, SqlQuote};
 use std::{collections::HashMap, vec};
 
 //角色数据的获取
@@ -57,6 +57,7 @@ impl RbacRole {
 
 pub struct RoleDataParam<'t> {
     pub user_id: u64,
+    pub app_id: Option<u64>,
     pub user_range: Option<RbacRoleUserRange>,
     pub res_range: Option<RbacRoleResRange>,
     pub role_key: Option<&'t str>,
@@ -66,18 +67,7 @@ pub struct RoleDataParam<'t> {
 
 //资源管理
 impl RbacRole {
-    #[allow(clippy::too_many_arguments)]
-    fn role_sql(
-        &self,
-        filed: &str,
-        role_param: &RoleDataParam<'_>,
-        // user_id: u64,
-        // user_range:Option<&RbacRoleUserRange>,
-        // res_range:Option<&RbacRoleResRange>,
-        // role_key:Option<&str>,
-        // role_name:Option<&str>,
-        // ids:Option<&[u64]>
-    ) -> Option<String> {
+    fn role_sql(&self, filed: &str, role_param: &RoleDataParam<'_>) -> Option<String> {
         let mut sql = sql_format!(
             "select {} from {} where user_id = {} and status={}",
             SqlExpr(filed),
@@ -85,6 +75,9 @@ impl RbacRole {
             role_param.user_id,
             RbacRoleStatus::Enable,
         );
+        if let Some(val) = role_param.app_id {
+            sql += sql_format!(" and app_id = {}", val).as_str();
+        }
         if let Some(val) = role_param.role_key {
             sql += sql_format!(" and role_key = {}", val).as_str();
         }
@@ -107,16 +100,7 @@ impl RbacRole {
         Some(sql)
     }
     /// 获取指定条件的角色数量
-    pub async fn role_count(
-        &self,
-        role_param: &RoleDataParam<'_>,
-        // user_id: u64,
-        // user_range:Option<&RbacRoleUserRange>,
-        // res_range:Option<&RbacRoleResRange>,
-        // role_key:Option<&str>,
-        // role_name:Option<&str>,
-        // ids:Option<&[u64]>
-    ) -> RbacResult<i64> {
+    pub async fn role_count(&self, role_param: &RoleDataParam<'_>) -> RbacResult<i64> {
         match self.role_sql("count(*) as total", role_param) {
             Some(sql) => {
                 let query = sqlx::query_scalar::<_, i64>(&sql);
@@ -127,16 +111,9 @@ impl RbacRole {
         }
     }
     /// 获取指定用户和ID的列表
-    #[allow(clippy::too_many_arguments)]
     pub async fn role_data(
         &self,
         role_param: &RoleDataParam<'_>,
-        // user_id: u64,
-        // user_range:Option<&RbacRoleUserRange>,
-        // res_range:Option<&RbacRoleResRange>,
-        // role_key:Option<&str>,
-        // role_name:Option<&str>,
-        // ids:Option<&[u64]>,
         page: Option<&PageParam>,
     ) -> RbacResult<Vec<RbacRoleModel>> {
         match self.role_sql("*", role_param) {

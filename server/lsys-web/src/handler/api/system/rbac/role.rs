@@ -8,30 +8,45 @@ use serde_json::json;
 use crate::common::{JsonError, PageParam};
 use lsys_core::fluent_message;
 use lsys_rbac::{
-    dao::{RoleAddUser, RoleDataParam, RolePerm},
+    dao::{
+        RbacRoleAddData, RbacRoleUserRangeData, RoleAddUser, RoleDataParam as DaoRoleDataParam,
+        RolePerm,
+    },
     model::{RbacRoleModel, RbacRoleResRange, RbacRoleUserModel, RbacRoleUserRange},
 };
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
-pub struct RbacRoleAddParam {
+pub struct RoleAddParam {
     pub role_key: String,
     pub role_name: String,
     pub user_range: i8,
     pub res_range: i8,
 }
 
-pub async fn rbac_role_add(
-    param: &RbacRoleAddParam,
+pub async fn role_add(
+    param: &RoleAddParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<RbacRoleModel> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminRbacEdit {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacEdit {})
         .await?;
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let user_range = RbacRoleUserRange::try_from(param.user_range)?;
+    let role_info = match RbacRoleUserRange::try_from(param.user_range)? {
+        RbacRoleUserRange::Custom => RbacRoleUserRangeData::Custom {
+            role_name: &param.role_name,
+        },
+        RbacRoleUserRange::Session => RbacRoleUserRangeData::Session {
+            role_key: &param.role_key,
+            role_name: if param.role_name.is_empty() {
+                None
+            } else {
+                Some(&param.role_name)
+            },
+        },
+    };
     let res_range = RbacRoleResRange::try_from(param.res_range)?;
     let id = req_dao
         .web_dao
@@ -39,11 +54,12 @@ pub async fn rbac_role_add(
         .rbac_dao
         .role
         .add_role(
-            0,
-            &param.role_key,
-            &param.role_name,
-            user_range,
-            res_range,
+            &RbacRoleAddData {
+                user_id: 0,
+                app_id: Some(0),
+                role_info,
+                res_range,
+            },
             auth_data.user_id(),
             None,
             Some(&req_dao.req_env),
@@ -53,22 +69,20 @@ pub async fn rbac_role_add(
 }
 
 #[derive(Debug, Deserialize)]
-pub struct RbacRoleEditParam {
+pub struct RoleEditParam {
     pub role_id: u64,
     pub role_key: String,
     pub role_name: String,
 }
 
-pub async fn rbac_role_edit(
-    param: &RbacRoleEditParam,
-    req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+pub async fn role_edit(param: &RoleEditParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminRbacEdit {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacEdit {})
         .await?;
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let role = req_dao
         .web_dao
         .web_rbac
@@ -76,6 +90,21 @@ pub async fn rbac_role_edit(
         .role
         .find_by_id(&param.role_id)
         .await?;
+
+    let role_data = match RbacRoleUserRange::try_from(role.user_range)? {
+        RbacRoleUserRange::Custom => RbacRoleUserRangeData::Custom {
+            role_name: &param.role_name,
+        },
+        RbacRoleUserRange::Session => RbacRoleUserRangeData::Session {
+            role_key: &param.role_key,
+            role_name: if param.role_name.is_empty() {
+                None
+            } else {
+                Some(&param.role_name)
+            },
+        },
+    };
+
     req_dao
         .web_dao
         .web_rbac
@@ -83,8 +112,7 @@ pub async fn rbac_role_edit(
         .role
         .edit_role(
             &role,
-            Some(&param.role_key),
-            Some(&param.role_name),
+            &role_data,
             auth_data.user_id(),
             None,
             Some(&req_dao.req_env),
@@ -94,20 +122,18 @@ pub async fn rbac_role_edit(
 }
 
 #[derive(Debug, Deserialize)]
-pub struct RbacRoleDelParam {
+pub struct RoleDelParam {
     pub res_id: u64,
 }
 
-pub async fn rbac_role_del(
-    param: &RbacRoleDelParam,
-    req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+pub async fn role_del(param: &RoleDelParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminRbacEdit {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacEdit {})
         .await?;
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let role = req_dao
         .web_dao
         .web_rbac
@@ -127,7 +153,7 @@ pub async fn rbac_role_del(
 
 #[derive(Debug, Deserialize)]
 
-pub struct RbacRoleDataParam {
+pub struct RoleDataParam {
     pub role_key: Option<String>,
     pub role_name: Option<String>,
     pub ids: Option<Vec<u64>>,
@@ -154,14 +180,13 @@ struct RbacRoleDataRecord {
     pub user_data: Option<Vec<RbacRoleUserModel>>,
 }
 
-pub async fn rbac_role_data(
-    param: &RbacRoleDataParam,
-    req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+pub async fn role_data(param: &RoleDataParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminRbacView {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacView {})
         .await?;
     let user_range = if let Some(e) = param.user_range {
         Some(RbacRoleUserRange::try_from(e)?)
@@ -180,8 +205,9 @@ pub async fn rbac_role_data(
         .rbac_dao
         .role
         .role_data(
-            &RoleDataParam {
+            &DaoRoleDataParam {
                 user_id: 0,
+                app_id: Some(0),
                 ids: param.ids.as_deref(),
                 user_range,
                 res_range,
@@ -248,8 +274,9 @@ pub async fn rbac_role_data(
                 .web_rbac
                 .rbac_dao
                 .role
-                .role_count(&RoleDataParam {
+                .role_count(&DaoRoleDataParam {
                     user_id: 0,
+                    app_id: Some(0),
                     ids: param.ids.as_deref(),
                     user_range,
                     res_range,
@@ -265,25 +292,27 @@ pub async fn rbac_role_data(
 }
 
 #[derive(Debug, Deserialize)]
-pub struct RbacRolePermItemParam {
+pub struct RolePermItemParam {
     pub op_id: u64,
     pub res_id: u64,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct RbacRolePermAddParam {
+pub struct RolePermAddParam {
     pub role_id: u64,
-    pub perm_data: Vec<RbacRolePermItemParam>,
+    pub perm_data: Vec<RolePermItemParam>,
 }
 
-pub async fn rbac_role_perm_add(
-    param: &RbacRolePermAddParam,
+pub async fn role_perm_add(
+    param: &RolePermAddParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminRbacEdit {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacEdit {})
         .await?;
 
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
@@ -350,22 +379,22 @@ pub async fn rbac_role_perm_add(
 }
 
 #[derive(Debug, Deserialize)]
-pub struct RbacRolePermDelParam {
+pub struct RolePermDelParam {
     pub role_id: u64,
-    pub perm_data: Vec<RbacRolePermItemParam>,
+    pub perm_data: Vec<RolePermItemParam>,
 }
 
-pub async fn rbac_role_perm_del(
-    param: &RbacRolePermDelParam,
+pub async fn role_perm_del(
+    param: &RolePermDelParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminRbacEdit {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacEdit {})
         .await?;
-
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let role = req_dao
         .web_dao
         .web_rbac
@@ -429,20 +458,22 @@ pub async fn rbac_role_perm_del(
 }
 
 #[derive(Debug, Deserialize)]
-pub struct RbacRolePermParam {
+pub struct RolePermParam {
     pub role_id: u64,
     pub page: Option<PageParam>,
     pub count_num: Option<bool>,
 }
 
-pub async fn rbac_role_perm_data(
-    param: &RbacRolePermParam,
+pub async fn role_perm_data(
+    param: &RolePermParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminRbacView {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacView {})
         .await?;
 
     let role = req_dao
@@ -477,28 +508,29 @@ pub async fn rbac_role_perm_data(
 }
 
 #[derive(Debug, Deserialize)]
-pub struct RbacRoleUserItemParam {
+pub struct RoleUserItemParam {
     pub user_id: u64,
     pub timeout: u64,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct RbacRoleUserAddParam {
+pub struct RoleUserAddParam {
     pub role_id: u64,
-    pub user_data: Vec<RbacRoleUserItemParam>,
+    pub user_data: Vec<RoleUserItemParam>,
 }
 
-pub async fn rbac_role_user_add(
-    param: &RbacRoleUserAddParam,
+pub async fn role_user_add(
+    param: &RoleUserAddParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminRbacEdit {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacEdit {})
         .await?;
 
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let role = req_dao
         .web_dao
         .web_rbac
@@ -506,6 +538,50 @@ pub async fn rbac_role_user_add(
         .role
         .find_by_id(&param.role_id)
         .await?;
+
+    let user_data = req_dao
+        .web_dao
+        .web_access
+        .access_dao
+        .user
+        .cache()
+        .find_users_by_ids(
+            &param
+                .user_data
+                .iter()
+                .map(|e| e.user_id)
+                .collect::<Vec<_>>(),
+        )
+        .await?;
+    let mut add_user_data = vec![];
+    for user_item in &param.user_data {
+        match user_data.get(&user_item.user_id) {
+            Some(user_model) => {
+                if user_model.app_id != 0 {
+                    return Err(JsonError::Message(fluent_message!(
+                        "role_user_not_system_user",
+                        {
+                            "user_name": user_model.user_name,
+                            "user_id": user_model.id,
+                            "app_id": user_model.app_id
+                        }
+                    )));
+                }
+                add_user_data.push(RoleAddUser {
+                    user_id: user_item.user_id,
+                    timeout: user_item.timeout,
+                });
+            }
+            None => {
+                return Err(JsonError::Message(fluent_message!(
+                    "role_user_not_found",
+                    {
+                        "user_id": user_item.user_id
+                    }
+                )));
+            }
+        }
+    }
     req_dao
         .web_dao
         .web_rbac
@@ -513,14 +589,7 @@ pub async fn rbac_role_user_add(
         .role
         .add_user(
             &role,
-            &param
-                .user_data
-                .iter()
-                .map(|e| RoleAddUser {
-                    user_id: e.user_id,
-                    timeout: e.timeout,
-                })
-                .collect::<Vec<_>>(),
+            &add_user_data,
             auth_data.user_id(),
             None,
             Some(&req_dao.req_env),
@@ -530,21 +599,22 @@ pub async fn rbac_role_user_add(
 }
 
 #[derive(Debug, Deserialize)]
-pub struct RbacRoleUserDelParam {
+pub struct RoleUserDelParam {
     pub role_id: u64,
     pub user_data: Vec<u64>,
 }
 
-pub async fn rbac_role_user_del(
-    param: &RbacRoleUserDelParam,
+pub async fn role_user_del(
+    param: &RoleUserDelParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminRbacEdit {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacEdit {})
         .await?;
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let role = req_dao
         .web_dao
         .web_rbac
@@ -569,21 +639,23 @@ pub async fn rbac_role_user_del(
 }
 
 #[derive(Debug, Deserialize)]
-pub struct RbacRoleUserParam {
+pub struct RoleUserParam {
     pub role_id: u64,
     pub all: bool,
     pub page: Option<PageParam>,
     pub count_num: Option<bool>,
 }
 
-pub async fn rbac_role_user_data(
-    param: &RbacRoleUserParam,
+pub async fn role_user_data(
+    param: &RoleUserParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminRbacView {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacView {})
         .await?;
 
     let role = req_dao

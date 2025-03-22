@@ -1,4 +1,4 @@
-use crate::dao::{CheckRelationData, CheckResTpl, RbacCheckAccess, RbacCheckResTpl};
+use crate::dao::{CheckResTpl, RbacCheckAccess, RbacCheckResTpl};
 
 use lsys_rbac::dao::{AccessCheckEnv, AccessCheckRes, RbacAccess, RbacResult};
 
@@ -9,12 +9,10 @@ impl RbacCheckAccess for CheckAdminBase {
         &self,
         access: &RbacAccess,
         check_env: &AccessCheckEnv<'_>,
-        relation: &CheckRelationData,
     ) -> RbacResult<()> {
         access
             .check(
                 check_env,
-                &relation.to_session_role(),
                 &[AccessCheckRes::system_empty_data(
                     "global-system",
                     vec!["main"],
@@ -27,6 +25,7 @@ impl RbacCheckResTpl for CheckAdminBase {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
             user: false,
+            data:false,
             key: "global-system",
             ops: vec!["main"],
         }]

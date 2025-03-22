@@ -312,9 +312,13 @@ impl MailRecord {
             }));
         }
 
-        Insert::<sqlx::MySql, SenderMailMessageModel, _>::new_vec(idata)
+        let tmp = Insert::<sqlx::MySql, SenderMailMessageModel, _>::new_vec(idata)
             .execute(&mut *tran)
-            .await?;
+            .await;
+        if let Err(err) = tmp {
+            tran.rollback().await?;
+            return Err(err.into());
+        }
 
         tran.commit().await?;
 

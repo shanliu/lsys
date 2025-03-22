@@ -5,14 +5,14 @@ use lsys_access::dao::AccessSession;
 use lsys_app::dao::AppDataParam;
 use serde_json::json;
 
-pub struct AppChangeParam {
+pub struct ChangeParam {
     pub app_id: u64,
     pub name: String,
     pub client_id: String,
 }
 
-pub async fn app_change(
-    param: &AppChangeParam,
+pub async fn change(
+    param: &ChangeParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
@@ -27,11 +27,10 @@ pub async fn app_change(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.access_env().await?,
+            &req_dao.req_env,Some(&auth_data),
             &CheckUserAppEdit {
                 res_user_id: app.user_id,
             },
-            None,
         )
         .await?;
 
@@ -70,13 +69,13 @@ pub async fn app_change(
     Ok(JsonData::default())
 }
 
-pub struct AppResetSecretParam {
+pub struct ResetSecretParam {
     pub app_id: u64,
     pub secret: Option<String>,
 }
 
-pub async fn app_secret_reset(
-    param: &AppResetSecretParam,
+pub async fn secret_reset(
+    param: &ResetSecretParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
@@ -86,6 +85,16 @@ pub async fn app_secret_reset(
         .app_dao
         .app
         .find_by_id(&param.app_id)
+        .await?;
+    req_dao
+        .web_dao
+        .web_rbac
+        .check(
+            &req_dao.req_env,Some(&auth_data),
+            &CheckUserAppEdit {
+                res_user_id: app.user_id,
+            },
+        )
         .await?;
 
     let secret_data = req_dao

@@ -136,6 +136,23 @@ pub trait TaskAcquisition<
     ) -> Result<TaskRecord<I, T>, String>;
 }
 
+/// * `list_notify` - 任务触发监听的REDIS KEY
+/// * `read_lock_key` - 任务读取锁定Redis KEY
+/// * `task_list_key` - 存放执行中任务的REDIS key
+/// * `task_size` - 同时发送任务数量,默认等于CPU数量2倍
+/// * `task_timeout` - 任务最大执行时间
+/// * `is_check` - 是否定时检测遗漏发送任务
+/// * `check_timeout` - 当使用任务检测时的时间间隔，大于等于任务最大执行时间
+pub struct TaskDispatchConfig<'t> {
+    pub list_notify: &'t str,
+    pub read_lock_key: &'t str,
+    pub task_list_key: &'t str,
+    pub task_size: Option<usize>,
+    pub task_timeout: usize,
+    pub is_check: bool,
+    pub check_timeout: usize,
+}
+
 // 发送任务抽象实现
 pub struct TaskDispatch<
     I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display + Clone,
@@ -168,41 +185,25 @@ impl<
         T: TaskItem<I>,
     > TaskDispatch<I, T>
 {
-    /// * `list_notify` - 任务触发监听的REDIS KEY
-    /// * `read_lock_key` - 任务读取锁定Redis KEY
-    /// * `task_list_key` - 存放执行中任务的REDIS key
-    /// * `task_size` - 同时发送任务数量,默认等于CPU数量2倍
-    /// * `task_timeout` - 任务最大执行时间
-    /// * `is_check` - 是否定时检测遗漏发送任务
-    /// * `check_timeout` - 当使用任务检测时的时间间隔，大于等于任务最大执行时间
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        list_notify: &str,
-        read_lock_key: &str,
-        task_list_key: &str,
-        task_size: Option<usize>,
-        task_timeout: usize,
-        is_check: bool,
-        check_timeout: usize,
-    ) -> Self {
-        let task_size = task_size.unwrap_or_else(num_cpus::get);
-        let task_timeout = if task_timeout == 0 {
+    pub fn new(config: &TaskDispatchConfig<'_>) -> Self {
+        let task_size = config.task_size.unwrap_or_else(num_cpus::get);
+        let task_timeout = if config.task_timeout == 0 {
             5 * 60
         } else {
-            task_timeout
+            config.task_timeout
         };
-        let check_timeout = if check_timeout < task_timeout {
+        let check_timeout = if config.check_timeout < task_timeout {
             task_timeout
         } else {
-            check_timeout
+            config.check_timeout
         };
         let read_lock_timeout = check_timeout;
         Self {
-            list_notify: list_notify.to_string(),
-            read_lock_key: read_lock_key.to_string(),
+            list_notify: config.list_notify.to_string(),
+            read_lock_key: config.read_lock_key.to_string(),
             read_lock_timeout,
-            task_list_key: task_list_key.to_string(),
-            is_check,
+            task_list_key: config.task_list_key.to_string(),
+            is_check: config.is_check,
             check_timeout,
             task_timeout,
             task_size,
@@ -234,7 +235,6 @@ impl<
         redis_data_opt.map(|data| data.unwrap_or_default())
     }
     // 任务执行
-    #[allow(clippy::too_many_arguments)]
     async fn run_task<E: TaskExecutor<I, T> + 'static>(
         task_set: &mut JoinSet<()>,
         task_ing: &mut Vec<(I, AbortHandle)>,

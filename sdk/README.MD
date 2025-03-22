@@ -34,8 +34,8 @@
 | sign		     | String	 | 是		  | 32		  | 请求参数的签名串	                        | 生成方式参见`签名生成`                         |
 | request_ip | String	 | 否		  | 40		  | 客户端IP,存在时加入签名                    | 127.0.0.1                            |
 | method		   | String	 | 否		  | 128		 | 接口名称,可以放到URL中,存在时加入签名            | product.detail                       |
-| token	     | String	 | 否		  | 无		   | OAUTH登录后获取TOKEN,存在时需加入签名              | MTQtSldES1RIUVVZT0NGUkVNUEdJQlpBTlhM |
-| lang	     | String	 | 否		  | 无		   | 接口返回语言，默认简体中文(zh_CN),不参与签名          | zh_CN |
+| token	     | String	 | 否		  | 32		   | OAUTH登录后获取TOKEN,存在时需加入签名              | MTQtSldES1RIUVVZT0NGUkVNUEdJQlpBTlhM |
+| lang	     | String	 | 否		  | 6		   | 接口返回语言，默认简体中文(zh_CN),不参与签名          | zh_CN |
 | payload	     | String	 | 否		  | 无		   | Header的Content-type非 application/json 时的有效,内容为无换行的JSON     | {"id":1} |
 
 > POST参数:
@@ -151,7 +151,7 @@ http://127.0.0.1:8080/?code=27b5591cb788309dfee63da4fc264a10&state=aa
 |---------------|---------|------|------|----------------|------------|
 | client_id  	 | String	 | 是		  | 32		 | 应用ID,跟非OAUTH的参数app_id相同| xxxxx12456 |
 | client_secret  	 | String	 | 是		  | 32		 |OAuthSecret,从后台获取,注意:不是AppSecret | 2a97bf1b4f075b0ca7467e7c6b223f89 |
-| code  	 | String	 | 是		  | 4		 | 登录后返回的code| 2a97bf1b4f075b0ca7467e7c6b223f89 |
+| code  	 | String	 | 是		  | 4		 | 登录后返回的code| 27b5591cb788309dfee63da4fc264a10 |
 
 > 返回response数据说明:
 
@@ -207,7 +207,7 @@ GET:http://www.lsys.site/oauth/token?client_id=1212f&client_secret=2a97bf1b4f075
 |---------------|---------|------|------|----------------|------------|
 | client_id  	 | String	 | 是		  | 32		 | 应用ID,跟非OAUTH的参数app_id相同| xxxxx12456 |
 | client_secret  	 | String	 |是		  | 32		 |OAuthSecret,从后台获取,注意:不是AppSecret | 2a97bf1b4f075b0ca7467e7c6b223f89 |
-| refresh_token  	 | String	 | 是		  | 4		 | 通过oauth/token获取的TOKEN| 2a97bf1b4f075b0ca7467e7c6b223f89 |
+| refresh_token  	 | String	 | 是		  | 4		 | 通过oauth/token获取的access_token| a4985f6747962b0ceb1533a0e28dd1fc |
 
 
 > 返回response数据说明:
@@ -270,6 +270,7 @@ GET:http://www.lsys.site/oauth/refresh_token?client_id=1212f&client_secret=2a97b
 | timestamp	 | String	 | 是		  | 19		  | 发送请求的时间,格式"yyyy-MM-dd HH:mm:ss"	 | 2014-07-24 03:07:50                  |
 | sign		     | String	 | 是		  | 32		  | 请求参数的签名串	                        | 生成方式参见`签名生成`                         |
 | request_ip | String	 | 否		  | 40		  | 客户端IP,存在时加入签名                    | 127.0.0.1                            |
+| token	     | String	 | 是		  | 32		   | 由 /oauth/token 接口返回access_token            | 1cbefd9bf60598a17523042eca74836d |
 | method		   | String	 | 是		  | 4		 | 获取用户信息     | 固定为：info               |
 
 > POST参数[JSON序列化]:

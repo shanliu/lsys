@@ -58,9 +58,8 @@ impl App {
         if req_feature.is_empty() {
             return Ok(());
         }
-        let mut db = self.db.begin().await?;
-
         let time = now_time()?;
+        let mut db = self.db.begin().await?;
 
         let req_status = AppRequestStatus::Pending as i8;
         let request_type = AppRequestType::ExterFeatuer as i8;

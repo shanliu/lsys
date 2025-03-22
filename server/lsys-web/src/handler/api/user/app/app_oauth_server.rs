@@ -13,14 +13,14 @@ use lsys_core::fluent_message;
 use serde::Serialize;
 use serde_json::json;
 
-pub struct AppConfirmOAuthClientParam {
+pub struct ConfirmOAuthClientParam {
     pub app_id: u64,
     pub confirm_status: i8,
     pub confirm_note: String,
 }
 
-pub async fn app_oauth_server_client_confirm(
-    param: &AppConfirmOAuthClientParam,
+pub async fn oauth_server_client_confirm(
+    param: &ConfirmOAuthClientParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
@@ -49,11 +49,11 @@ pub async fn app_oauth_server_client_confirm(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.access_env().await?,
+            &req_dao.req_env,
+            Some(&auth_data),
             &CheckUserAppEdit {
                 res_user_id: parent_app.user_id,
             },
-            None,
         )
         .await?;
 
@@ -81,15 +81,15 @@ pub async fn app_oauth_server_client_confirm(
     Ok(JsonData::default())
 }
 
-pub struct AppConfirmOAuthClientScopeParam {
+pub struct ConfirmOAuthClientScopeParam {
     pub app_id: u64,
     pub app_req_id: u64,
     pub confirm_status: i8,
     pub confirm_note: String,
 }
 
-pub async fn app_oauth_server_client_scope_confirm(
-    param: &AppConfirmOAuthClientScopeParam,
+pub async fn oauth_server_client_scope_confirm(
+    param: &ConfirmOAuthClientScopeParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
@@ -126,21 +126,15 @@ pub async fn app_oauth_server_client_scope_confirm(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.access_env().await?,
+            &req_dao.req_env,
+            Some(&auth_data),
             &CheckUserAppEdit {
                 res_user_id: parent_app.user_id,
             },
-            None,
         )
         .await?;
 
-    req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .oauth_server
-        .oauth_check(&parent_app)
-        .await?;
+    //开通过的不影响scope申请审核
 
     req_dao
         .web_dao
@@ -167,7 +161,7 @@ pub struct ScopeItem {
 }
 
 //返回指定应用或系统可用的 oauth server spoce 数据
-pub async fn app_oauth_server_scope_data(
+pub async fn oauth_server_scope_data(
     app: Option<&AppModel>,
     req_dao: &UserAuthQueryDao,
 ) -> AppResult<Vec<ScopeItem>> {
@@ -216,7 +210,7 @@ pub async fn app_oauth_server_scope_data(
     }
 }
 //解析并校验OAUTH登录请求的 spoce 数据
-pub async fn app_oauth_server_parse_scope_data(
+pub async fn oauth_server_parse_scope_data(
     app: &AppModel,
     scope_data: &[&str],
     req_dao: &UserAuthQueryDao,
@@ -278,12 +272,12 @@ pub async fn app_oauth_server_parse_scope_data(
     })))
 }
 
-pub struct AppOAuthServerRequestData {
+pub struct OAuthServerRequestData {
     pub app_id: u64,
 }
 
-pub async fn app_oauth_server_request(
-    param: &AppOAuthServerRequestData,
+pub async fn oauth_server_request(
+    param: &OAuthServerRequestData,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
@@ -304,19 +298,19 @@ pub async fn app_oauth_server_request(
     Ok(JsonData::default())
 }
 
-pub struct AppConfirmOAuthServerSettingScopeParam {
+pub struct ConfirmOAuthServerSettingScopeParam {
     pub key: String,
     pub name: String,
     pub desc: String,
 }
 
-pub struct AppConfirmOAuthServerSettingParam {
+pub struct ConfirmOAuthServerSettingParam {
     app_id: u64,
-    scope_data: Vec<AppConfirmOAuthServerSettingScopeParam>,
+    scope_data: Vec<ConfirmOAuthServerSettingScopeParam>,
 }
 
-pub async fn app_oauth_server_setting(
-    param: &AppConfirmOAuthServerSettingParam,
+pub async fn oauth_server_setting(
+    param: &ConfirmOAuthServerSettingParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;

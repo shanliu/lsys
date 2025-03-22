@@ -29,7 +29,7 @@ pub struct RbacConfig {
     pub op_cache: LocalCacheConfig,
     pub role_relation_cache: LocalCacheConfig,
     pub role_access_cache: LocalCacheConfig,
-    pub delay_audit_num: usize, //审计日志延迟插入队列最大数量,超高并发加大此值提高并发响应速度
+    pub delay_audit_num: usize, //审计日志延迟插入队列最大数量,根据服务器内存大小适当设置,超高并发可加大此值提高并发响应速度
 }
 
 impl RbacConfig {

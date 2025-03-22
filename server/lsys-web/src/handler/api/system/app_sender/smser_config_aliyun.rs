@@ -30,10 +30,12 @@ pub async fn smser_ali_config_list(
     callback_call: impl Fn(&SettingData<AliYunConfig>) -> String,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminSmsConfig {}, None)
+        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminSmsConfig {})
         .await?;
     let row = req_dao
         .web_dao
@@ -76,13 +78,14 @@ pub async fn smser_ali_config_add(
     param: &SmserAliConfigAddParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminSmsConfig {}, None)
+        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminSmsConfig {})
         .await?;
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-
+   
     let row = req_dao
         .web_dao
         .app_sender
@@ -117,13 +120,14 @@ pub async fn smser_ali_config_edit(
     param: &SmserAliConfigEditParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminSmsConfig {}, None)
+        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminSmsConfig {})
         .await?;
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-
+  
     let row = req_dao
         .web_dao
         .app_sender
@@ -153,12 +157,13 @@ pub async fn smser_ali_config_del(
     param: &SmserAliConfigDelParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminSmsConfig {}, None)
+        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminSmsConfig {})
         .await?;
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let row = req_dao
         .web_dao
         .app_sender
@@ -178,7 +183,7 @@ pub struct SmserAppAliConfigAddParam {
     pub aliyun_sign_name: String,
 }
 
-pub async fn smser_ali_app_config_add(
+pub async fn smser_tpl_config_ali_add(
     param: &SmserAppAliConfigAddParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
@@ -187,7 +192,7 @@ pub async fn smser_ali_app_config_add(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminSmsMgr {}, None)
+        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminSmsMgr {})
         .await?;
 
     let row = req_dao

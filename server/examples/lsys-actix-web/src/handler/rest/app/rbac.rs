@@ -1,13 +1,13 @@
 use crate::common::handler::{ResponseJson, ResponseJsonResult, RestQuery};
 use actix_web::post;
-use lsys_web::handler::rest::{app_rbac_check, CheckParam};
+use lsys_web::handler::rest::rbac::{access_check, CheckParam};
 
 #[post("access")]
 pub(crate) async fn access(mut rest: RestQuery) -> ResponseJsonResult<ResponseJson> {
     Ok(match rest.rfc.method.as_deref() {
         Some("check") => {
             let param = rest.param::<CheckParam>()?;
-            app_rbac_check(&param, &rest.get_app().await?, &rest).await
+            access_check(&param, &rest.get_app().await?, &rest).await
         }
         // Some("menu") => {
         //     let param = rest.param::<MenuParam>()?;

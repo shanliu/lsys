@@ -4,9 +4,10 @@ use serde_json::json;
 
 use crate::common::UserAuthQueryDao;
 use crate::common::{JsonData, JsonResult, LimitParam};
+use crate::dao::access::api::user::CheckNotifyView;
 use lsys_access::dao::AccessSession;
 #[derive(Deserialize)]
-pub struct NotifyDataListParam {
+pub struct DataListParam {
     pub app_id: Option<u64>,
     pub method: Option<String>,
     pub status: Option<i8>,
@@ -15,7 +16,7 @@ pub struct NotifyDataListParam {
 }
 
 #[derive(Serialize)]
-pub struct NotifyDataListRecord {
+pub struct DataListRecord {
     pub id: u64,
     pub app_id: u64,
     pub method: String,
@@ -27,11 +28,20 @@ pub struct NotifyDataListRecord {
     pub next_time: u64,
 }
 
-pub async fn notify_data_list(
-    param: &NotifyDataListParam,
-    req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+pub async fn data_list(param: &DataListParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    req_dao
+        .web_dao
+        .web_rbac
+        .check(
+            &req_dao.req_env,
+            Some(&auth_data),
+            &CheckNotifyView {
+                res_user_id: auth_data.user_id(),
+            },
+        )
+        .await?;
+
     let status = if let Some(e) = param.status {
         Some(match NotifyDataStatus::try_from(e) {
             Ok(ts) => ts,
@@ -48,7 +58,7 @@ pub async fn notify_data_list(
         .record
         .data_list(
             param.app_id,
-            Some(req_auth.user_id()),
+            Some(auth_data.user_id()),
             param.method.as_deref(),
             status,
             param.limit.as_ref().map(|e| e.into()).as_ref(),
@@ -58,7 +68,7 @@ pub async fn notify_data_list(
     let out = res
         .0
         .into_iter()
-        .map(|e| NotifyDataListRecord {
+        .map(|e| DataListRecord {
             id: e.0.id,
             status: e.0.status,
             app_id: e.0.app_id,
@@ -80,7 +90,7 @@ pub async fn notify_data_list(
                 .record
                 .data_count(
                     param.app_id,
-                    Some(req_auth.user_id()),
+                    Some(auth_data.user_id()),
                     param.method.as_deref(),
                     status,
                 )

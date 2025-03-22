@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     common::{JsonData, JsonError, JsonResult, RequestDao},
-    dao::{access::rest::CheckRestApp, APP_FEATURE_MAIL},
+    dao::access::rest::CheckRestApp,
 };
 use lsys_app::model::AppModel;
 
@@ -11,7 +11,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 #[derive(Debug, Deserialize)]
-pub struct MailSendParam {
+pub struct SendParam {
     pub to: Vec<String>,
     pub tpl: String,
     pub data: HashMap<String, String>,
@@ -19,27 +19,18 @@ pub struct MailSendParam {
     pub send_time: Option<String>,
     pub max_try: Option<u8>,
 }
-pub async fn mail_send(
-    param: &MailSendParam,
-    app: &AppModel,
-    req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+pub async fn send(param: &SendParam, app: &AppModel, req_dao: &RequestDao) -> JsonResult<JsonData> {
     req_dao
         .web_dao
         .web_rbac
-        .check(
-            &req_dao.access_env(),
-            &CheckRestApp { app_id: app.id },
-            None,
-        )
+        .check(&req_dao.req_env, None, &CheckRestApp { app_id: app.id })
         .await?;
+
     req_dao
         .web_dao
-        .web_app
-        .app_dao
-        .app
-        .cache()
-        .exter_feature_check(app, &[APP_FEATURE_MAIL])
+        .app_sender
+        .mailer
+        .app_feature_check(app)
         .await?;
 
     let send_time = if let Some(ref t) = param.send_time {
@@ -87,11 +78,11 @@ pub async fn mail_send(
 }
 
 #[derive(Debug, Deserialize)]
-pub struct MailCancelParam {
+pub struct CancelParam {
     pub snid_data: Vec<String>,
 }
-pub async fn mail_cancel(
-    param: &MailCancelParam,
+pub async fn cancel(
+    param: &CancelParam,
     app: &AppModel,
     req_dao: &RequestDao,
 ) -> JsonResult<JsonData> {

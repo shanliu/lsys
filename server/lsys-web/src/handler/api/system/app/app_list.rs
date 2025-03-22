@@ -3,6 +3,7 @@ use crate::common::JsonResult;
 use crate::common::PageParam;
 use crate::common::UserAuthQueryDao;
 use crate::dao::access::api::system::CheckAdminApp;
+use lsys_access::dao::AccessSession;
 use lsys_app::dao::AppAttrParam;
 use lsys_app::dao::AppRequestData;
 use lsys_app::dao::SystemAppParam;
@@ -12,9 +13,8 @@ use lsys_app::model::AppStatus;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
-
 #[derive(Deserialize)]
-pub struct AppListParam {
+pub struct ListParam {
     pub user_id: Option<u64>,
     pub app_id: Option<u64>,
     pub app_name: Option<String>,
@@ -33,7 +33,7 @@ pub struct ShowAppRecord {
     pub user_id: u64,
     pub change_time: u64,
     pub change_user_id: u64,
-    pub parent_app: Option<serde_json::Value>,
+    pub parent_app: Option<serde_json::Value>, //对应的父应用信息
     pub exter_login: bool,
     pub oauth_client: bool,                           //是否启用OAUTH登录
     pub oauth_client_data: Option<serde_json::Value>, //OAUTH登录信息
@@ -43,12 +43,14 @@ pub struct ShowAppRecord {
     pub exter_feature: Option<Vec<String>>,           //外部功能及启用状态
     pub sub_app_count: Option<serde_json::Value>,     //子APP数量
 }
-//APP列表
-pub async fn app_list(param: &AppListParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+//系统所有的APP列表
+pub async fn list_data(param: &ListParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminApp {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminApp {})
         .await?;
     let status = if let Some(e) = param.status {
         Some(match AppStatus::try_from(e) {
@@ -68,7 +70,7 @@ pub async fn app_list(param: &AppListParam, req_dao: &UserAuthQueryDao) -> JsonR
     let app_inner_feature = AppRequestType::get_inner_feature();
     let app_attr = AppAttrParam {
         check_inner_feature: Some(&app_inner_feature),
-        check_exter_feature: Some(req_dao.web_dao.web_app.exter_feature()),
+        check_exter_feature: Some(req_dao.web_dao.web_app.exter_feature_list()),
         sub_app_count: true,
         oauth_client_data: true,
         oauth_server_data: true,
@@ -177,7 +179,7 @@ pub async fn app_list(param: &AppListParam, req_dao: &UserAuthQueryDao) -> JsonR
 }
 
 #[derive(Deserialize)]
-pub struct AppRequestListParam {
+pub struct RequestListParam {
     pub app_id: Option<u64>,
     pub status: Option<i8>,
     pub page: Option<PageParam>,
@@ -199,15 +201,17 @@ pub struct ShowRequestRecord {
     pub change_data: Option<serde_json::Value>,
 }
 
-//请求列表
-pub async fn app_request_list(
-    param: &AppRequestListParam,
+//请求系统审核的列表
+pub async fn request_list(
+    param: &RequestListParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminApp {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminApp {})
         .await?;
     let status = if let Some(e) = param.status {
         Some(match AppRequestStatus::try_from(e) {

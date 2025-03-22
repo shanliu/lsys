@@ -3,7 +3,7 @@ use crate::common::handler::{
 };
 use actix_web::post;
 
-use lsys_web::handler::api::user::{
+use lsys_web::handler::api::user::app_sender::{
     mailer_config_add, mailer_config_del, mailer_config_list, mailer_message_body,
     mailer_message_cancel, mailer_message_list, mailer_message_log, mailer_message_send,
     mailer_smtp_config_list, mailer_tpl_body_add, mailer_tpl_body_del, mailer_tpl_body_edit,

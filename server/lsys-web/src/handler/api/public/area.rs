@@ -7,11 +7,11 @@ use crate::{
 };
 
 #[derive(Debug, Deserialize)]
-pub struct AreaCodeParam {
+pub struct CodeParam {
     pub code: String,
 }
 
-pub fn area_list(param: &AreaCodeParam, req_dao: &RequestDao) -> JsonResult<JsonData> {
+pub fn list_data(param: &CodeParam, req_dao: &RequestDao) -> JsonResult<JsonData> {
     let data = req_dao
         .web_dao
         .app_area
@@ -28,7 +28,7 @@ pub fn area_list(param: &AreaCodeParam, req_dao: &RequestDao) -> JsonResult<Json
     Ok(JsonData::data(json!({ "area": data })))
 }
 
-pub fn area_related(param: &AreaCodeParam, req_dao: &RequestDao) -> JsonResult<JsonData> {
+pub fn related_find(param: &CodeParam, req_dao: &RequestDao) -> JsonResult<JsonData> {
     let data = req_dao
         .web_dao
         .app_area
@@ -50,7 +50,7 @@ pub fn area_related(param: &AreaCodeParam, req_dao: &RequestDao) -> JsonResult<J
     Ok(JsonData::data(json!({ "area": data })))
 }
 
-pub fn area_find(param: &AreaCodeParam, req_dao: &RequestDao) -> JsonResult<JsonData> {
+pub fn code_find(param: &CodeParam, req_dao: &RequestDao) -> JsonResult<JsonData> {
     let data = req_dao
         .web_dao
         .app_area
@@ -68,11 +68,11 @@ pub fn area_find(param: &AreaCodeParam, req_dao: &RequestDao) -> JsonResult<Json
 }
 
 #[derive(Debug, Deserialize)]
-pub struct AreaSearchParam {
+pub struct SearchParam {
     pub key_word: String,
     pub limit: Option<usize>,
 }
-pub fn area_search(param: &AreaSearchParam, req_dao: &RequestDao) -> JsonResult<JsonData> {
+pub fn search(param: &SearchParam, req_dao: &RequestDao) -> JsonResult<JsonData> {
     let data = req_dao
         .web_dao
         .app_area
@@ -94,12 +94,12 @@ pub fn area_search(param: &AreaSearchParam, req_dao: &RequestDao) -> JsonResult<
     Ok(JsonData::data(json!({ "area": data })))
 }
 #[derive(Debug, Deserialize)]
-pub struct AreaGeoParam {
+pub struct GeoParam {
     pub lat: f64,
     pub lng: f64,
 }
 
-pub fn area_geo(param: &AreaGeoParam, req_dao: &RequestDao) -> JsonResult<JsonData> {
+pub fn geo_find(param: &GeoParam, req_dao: &RequestDao) -> JsonResult<JsonData> {
     let data = req_dao
         .web_dao
         .app_area

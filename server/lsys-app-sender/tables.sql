@@ -53,7 +53,7 @@ CREATE TABLE `yaf_sender_tpl_config` (
     `change_time` bigint unsigned NOT NULL COMMENT '最后更改时间',
     `change_user_id` bigint unsigned NOT NULL COMMENT '最后更改用户id',
     PRIMARY KEY (`id`)
-) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '发送模板配置';
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '发送模板配置,以tpl_id为KEY实现配置,config_data(当前tpl_id特殊配置)+setting_id(全局共用配置)';
 CREATE TABLE `yaf_sender_tpl_body` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `sender_type` tinyint NOT NULL COMMENT '发送类型',

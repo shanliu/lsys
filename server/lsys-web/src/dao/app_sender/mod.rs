@@ -2,6 +2,7 @@ mod logger;
 mod mailer;
 mod smser;
 
+use lsys_app::dao::AppDao;
 use lsys_app_notify::dao::NotifyDao;
 use lsys_app_sender::dao::MessageTpls;
 use lsys_core::{AppCore, AppCoreError, IntoFluentMessage};
@@ -9,6 +10,7 @@ use lsys_logger::dao::ChangeLoggerDao;
 use lsys_setting::dao::SettingDao;
 pub use mailer::*;
 pub use smser::*;
+
 use sqlx::MySql;
 use sqlx::Pool;
 use std::sync::Arc;
@@ -23,6 +25,7 @@ pub struct AppSender {
 impl AppSender {
     pub fn new(
         app_core: Arc<AppCore>,
+        app_dao: Arc<AppDao>,
         redis: deadpool_redis::Pool,
         db: Pool<MySql>,
         notify: Arc<NotifyDao>,
@@ -31,6 +34,7 @@ impl AppSender {
     ) -> Result<AppSender, AppCoreError> {
         let mailer = Arc::new(SenderMailer::new(
             app_core.clone(),
+            app_dao.clone(),
             redis.clone(),
             db.clone(),
             setting.clone(),
@@ -54,12 +58,13 @@ impl AppSender {
 
         //启动回调任务
         let smser = Arc::new(SenderSmser::new(
-            app_core.clone(),
-            redis.clone(),
+            app_core,
+            app_dao,
+            redis,
             db.clone(),
-            setting.clone(),
+            setting,
             change_logger.clone(),
-            notify.clone(),
+            notify,
             None,
             None,
             300, //任务最大执行时间
@@ -89,7 +94,7 @@ impl AppSender {
         let sms_task_wait = smser.clone();
         tokio::spawn(async move { sms_task_wait.task_wait().await });
 
-        let tpl = Arc::new(MessageTpls::new(db.clone(), change_logger.clone()));
+        let tpl = Arc::new(MessageTpls::new(db, change_logger));
 
         //行政区域地址库数据初始化
 

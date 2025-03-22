@@ -25,8 +25,8 @@ use lsys_core::{fluent_message, IntoFluentMessage, RequestEnv};
 use lsys_logger::dao::ChangeLoggerDao;
 use lsys_setting::{
     dao::{
-        MultipleSetting, SettingData, SettingDecode, SettingEncode, SettingJson, SettingKey,
-        SettingResult,
+        MultipleSetting, MultipleSettingData, SettingData, SettingDecode, SettingEncode,
+        SettingJson, SettingKey, SettingResult,
     },
     model::SettingModel,
 };
@@ -169,7 +169,14 @@ impl SenderSmtpConfig {
         self.check_config(config).await?;
         Ok(self
             .setting
-            .edit(None, id, name, config, user_id, None, env_data)
+            .edit(
+                None,
+                id,
+                &MultipleSettingData { name, data: config },
+                user_id,
+                None,
+                env_data,
+            )
             .await?)
     }
     //添加smtp配置
@@ -183,7 +190,13 @@ impl SenderSmtpConfig {
         self.check_config(config).await?;
         Ok(self
             .setting
-            .add(None, name, config, user_id, None, env_data)
+            .add(
+                None,
+                &MultipleSettingData { name, data: config },
+                user_id,
+                None,
+                env_data,
+            )
             .await?)
     }
     //检测smtp配置

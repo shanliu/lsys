@@ -4,18 +4,18 @@ use crate::common::handler::{
 use actix_web::{get, post, web::Query};
 use lsys_access::dao::AccessSession;
 use lsys_app::dao::RestAuthToken;
-use lsys_web::handler::rest::{
-    account_data_from_oauth, oauth_create_token, oauth_refresh_token, AccountOptionDataParam,
-    OauthCodeParam, OauthRefreshCodeParam,
+use lsys_web::handler::rest::oauth::{
+    account_data_from_oauth, create_token, refresh_token, AccountOptionDataParam, CodeParam,
+    RefreshCodeParam,
 };
 
 #[get("/token")]
 pub(crate) async fn token(
-    token_param: Query<OauthCodeParam>,
+    token_param: Query<CodeParam>,
     req_dao: ReqQuery,
 ) -> ResponseJsonResult<ResponseJson> {
     Ok(
-        oauth_create_token(&req_dao, token_param.into_inner()) //系统oauth
+        create_token(&req_dao, &token_param.into_inner()) //系统oauth
             .await
             .map_err(|e| req_dao.fluent_error_json_data(&e))?
             .into(),
@@ -24,7 +24,7 @@ pub(crate) async fn token(
 
 #[get("/refresh_token")]
 pub(crate) async fn refresh(
-    token_param: Query<OauthRefreshCodeParam>,
+    token_param: Query<RefreshCodeParam>,
     oauth_param: OauthAuthQuery,
 ) -> ResponseJsonResult<ResponseJson> {
     let param = token_param.into_inner();
@@ -36,7 +36,7 @@ pub(crate) async fn refresh(
             client_id: param.client_id.clone(),
             token: param.refresh_token.clone(),
         });
-    Ok(oauth_refresh_token(&param, &oauth_param)
+    Ok(refresh_token(&param, &oauth_param)
         .await
         .map_err(|e| oauth_param.fluent_error_json_data(&e))?
         .into())

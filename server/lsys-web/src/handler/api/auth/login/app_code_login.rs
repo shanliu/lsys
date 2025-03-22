@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use crate::{
     common::{CaptchaParam, JsonResult, UserAuthQueryDao},
     dao::{access::common::CheckSystemLogin, ShowUserAuthData},
@@ -21,7 +19,7 @@ pub async fn user_login_from_app_code(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.deref().access_env(), &CheckSystemLogin {}, None)
+        .check(&req_dao.req_env, None, &CheckSystemLogin {})
         .await?;
 
     let app = req_dao

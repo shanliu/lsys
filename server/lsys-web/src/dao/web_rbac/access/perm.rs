@@ -1,5 +1,4 @@
-//可用权限映射
-use lsys_rbac::dao::AccessCheckEnv;
+use lsys_access::dao::SessionBody;
 use serde::Serialize;
 use serde_json::Value;
 
@@ -8,43 +7,27 @@ use crate::dao::access::api::system::{
     CheckAdminSmsConfig,
 };
 use crate::dao::access::api::user::CheckAppSenderSmsConfig;
-use crate::dao::CheckRelationRole;
 use crate::{common::JsonResult, dao::WebRbac};
-use lsys_core::fluent_message;
+use lsys_core::{fluent_message, RequestEnv};
 use lsys_rbac::dao::{RbacError, RbacResult};
-
-pub struct RelationParam<'t> {
-    pub role_key: &'t str,
-    pub user_id: u64,
-}
 
 pub struct RbacAccessData<'t> {
     pub name: &'t str,
     pub data: Value,
-    pub relation: Option<&'t [RelationParam<'t>]>,
 }
 impl WebRbac {
     pub(crate) async fn perm_check(
         &self,
-        access_env: &AccessCheckEnv<'_>,
+        req_env: &RequestEnv,
+        session_body_opt: Option<&SessionBody>,
         check_res: &RbacAccessData<'_>,
     ) -> RbacResult<()> {
-        let relation = match check_res.relation {
-            Some(e) => e
-                .iter()
-                .map(|p| CheckRelationRole {
-                    role_key: p.role_key.to_owned(),
-                    user_id: p.user_id,
-                })
-                .collect::<Vec<CheckRelationRole>>(),
-            None => vec![],
-        };
         macro_rules! check {
             //$key 以接口为维度的关键字,外部传入
             //$data 该接口涉及的权限,参考具体结构的权限校验代码
             ($key:literal,$data:expr) => {
                 if check_res.name == $key {
-                    return self.check(access_env, &$data, Some(&relation.into())).await;
+                    return self.check(req_env, session_body_opt, &$data).await;
                 }
             };
         }
@@ -81,14 +64,15 @@ pub struct RbacMenuStatus {
 impl WebRbac {
     pub async fn perm_menu_check(
         &self,
-        access_env: &AccessCheckEnv<'_>,
+        req_env: &RequestEnv,
+        session_body_opt: Option<&SessionBody>,
         param: &RbacMenuParam<'_>,
     ) -> JsonResult<Vec<RbacMenuStatus>> {
         let mut out = Vec::with_capacity(param.check_res.len());
         for e in param.check_res.iter() {
             out.push(RbacMenuStatus {
                 status: self
-                    .perm_check(access_env, e)
+                    .perm_check(req_env, session_body_opt, e)
                     .await
                     .map(|_| true)
                     .unwrap_or(false),

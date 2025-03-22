@@ -4,7 +4,6 @@ use crate::{
 };
 use lsys_user::dao::UserAuthToken;
 use serde::Serialize;
-use std::ops::Deref;
 
 //检查权限并完成回调
 pub async fn user_login_from_external<
@@ -21,7 +20,7 @@ pub async fn user_login_from_external<
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.deref().access_env(), &CheckSystemLogin {}, None)
+        .check(&req_dao.req_env, None, &CheckSystemLogin {})
         .await?;
 
     req_dao

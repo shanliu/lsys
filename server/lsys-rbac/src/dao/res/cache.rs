@@ -1,22 +1,26 @@
-
 //RBAC中资源相关实现
-use lsys_core:: fluent_message ;
+use lsys_core::fluent_message;
 use std::str::FromStr;
 use std::vec;
 
-use crate::dao::result::RbacError;
 use crate::dao::res::RbacRes;
+use crate::dao::result::RbacError;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ResCacheKey {
     pub res_type: String, //资源类型
     pub res_data: String, //资源数据
-    pub user_id: u64,    //资源用户ID
+    pub user_id: u64,     //资源用户ID
+    pub app_id: u64,
 }
 
 impl std::fmt::Display for ResCacheKey {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f,"{}-{}-{}", self.user_id, self.res_type, self.res_data)
+        write!(
+            f,
+            "{}-{}-{}-{}",
+            self.user_id, self.app_id, self.res_type, self.res_data
+        )
     }
 }
 
@@ -35,11 +39,25 @@ impl FromStr for ResCacheKey {
                 "msg":e
             }))
         })?;
-        let res_type = token_split.next().ok_or_else(|| {
+        let app_id = token_split.next().ok_or_else(|| {
             RbacError::System(fluent_message!("parse-res-str-fail",{
                 "token":s
             }))
-        })?.to_owned();
+        })?;
+        let app_id = app_id.parse::<u64>().map_err(|e| {
+            RbacError::System(fluent_message!("parse-res-str-fail",{
+                "token":s,
+                "msg":e
+            }))
+        })?;
+        let res_type = token_split
+            .next()
+            .ok_or_else(|| {
+                RbacError::System(fluent_message!("parse-res-str-fail",{
+                    "token":s
+                }))
+            })?
+            .to_owned();
         let res_data = token_split
             .next()
             .ok_or_else(|| {
@@ -48,10 +66,14 @@ impl FromStr for ResCacheKey {
                 }))
             })?
             .to_string();
-        Ok(ResCacheKey { user_id,res_type, res_data })
+        Ok(ResCacheKey {
+            user_id,
+            app_id,
+            res_type,
+            res_data,
+        })
     }
 }
-
 
 pub struct RbacResCache<'t> {
     pub res: &'t RbacRes,

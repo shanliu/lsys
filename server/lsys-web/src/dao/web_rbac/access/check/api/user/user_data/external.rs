@@ -1,4 +1,4 @@
-use crate::dao::{CheckRelationData, CheckResTpl, RbacCheckAccess, RbacCheckResTpl};
+use crate::dao::{CheckResTpl, RbacCheckAccess, RbacCheckResTpl};
 use lsys_rbac::dao::{AccessCheckEnv, AccessCheckRes, RbacAccess, RbacResult};
 
 pub struct CheckUserExternalEdit {
@@ -6,16 +6,10 @@ pub struct CheckUserExternalEdit {
 }
 #[async_trait::async_trait]
 impl RbacCheckAccess for CheckUserExternalEdit {
-    async fn check(
-        &self,
-        access: &RbacAccess,
-        check_env: &AccessCheckEnv<'_>,
-        relation: &CheckRelationData,
-    ) -> RbacResult<()> {
+    async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
         access
             .check(
                 check_env, //资源访问用户
-                &relation.to_session_role(),
                 &[AccessCheckRes::user_empty_data(
                     self.res_user_id,
                     "global-public",
@@ -30,6 +24,7 @@ impl RbacCheckResTpl for CheckUserExternalEdit {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
             user: true,
+            data: false,
             key: "global-public",
             ops: vec!["external-edit"],
         }]

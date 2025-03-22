@@ -65,9 +65,7 @@ where
         .service(user::mobile)
         .service(user::password_reset)
         .service(user::password)
-        // .service(user::res)
-        // .service(user::role)
-        // .service(user::access)
+        .service(user::role)
         .service(user::reg)
         .service(user::oauth)
         .service(options);

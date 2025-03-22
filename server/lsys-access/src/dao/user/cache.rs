@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::model::UserModel;
+use crate::{dao::AccessError, model::UserModel};
 
 use super::{
     info::{UserInfo, UserInfoSet},
@@ -25,7 +25,6 @@ impl AccessUserCache<'_> {
         &self,
         app_id: u64,
         user_data: impl ToString,
-        privacy: bool,
     ) -> AccessResult<UserInfo> {
         let user_data = user_data.to_string();
         let key = AccessUserAppUserKey {
@@ -43,7 +42,7 @@ impl AccessUserCache<'_> {
                 Err(e) => Err(e),
             },
         }?;
-        Ok(UserInfo::from_user_model(user_model, privacy))
+        Ok(UserInfo::from(user_model))
     }
     ///获取用户信息
     pub async fn find_users_by_ids(&self, ids: &[u64]) -> AccessResult<UserInfoSet> {
@@ -57,5 +56,54 @@ impl AccessUserCache<'_> {
             return Ok(UserInfoSet::new(HashMap::new()));
         }
         Ok(UserInfoSet::new(self.find_by_ids(&ids).await?))
+    }
+    //带缓存的同步用户
+    pub async fn sync_user(
+        &self,
+        app_id: u64,
+        user_data: impl ToString,
+        user_name: Option<&str>,
+        user_account: Option<&str>,
+    ) -> AccessResult<UserInfo> {
+        let res = self.find_user_by_data(app_id, &user_data.to_string()).await;
+        match res {
+            Ok(e) => {
+                let mut is_sync = false;
+                if let Some(name_val) = user_name {
+                    if e.user_name.as_str() != name_val {
+                        is_sync = true;
+                    }
+                }
+                if let Some(account_val) = user_account {
+                    if e.user_account.as_str() != account_val {
+                        is_sync = true;
+                    }
+                }
+                if !is_sync {
+                    Ok(e)
+                } else {
+                    let id = self
+                        .dao
+                        .sync_user(app_id, user_data, user_name, user_account)
+                        .await?;
+                    self.find_by_id(&id).await.map(|e| e.into())
+                }
+            }
+            Err(err) => {
+                if let AccessError::Sqlx(ref terr) = &err {
+                    if matches!(terr, sqlx::Error::RowNotFound) {
+                        let id = self
+                            .dao
+                            .sync_user(app_id, user_data, user_name, user_account)
+                            .await?;
+                        self.find_by_id(&id).await.map(|e| e.into())
+                    } else {
+                        Err(err)
+                    }
+                } else {
+                    Err(err)
+                }
+            }
+        }
     }
 }

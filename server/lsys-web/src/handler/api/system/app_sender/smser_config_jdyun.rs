@@ -25,10 +25,12 @@ pub async fn smser_jd_config_list(
     param: &SmserJDConfigListParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminSmsConfig {}, None)
+        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminSmsConfig {})
         .await?;
     let row = req_dao
         .web_dao
@@ -69,13 +71,14 @@ pub async fn smser_jd_config_add(
     param: &SmserJDConfigAddParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminSmsConfig {}, None)
+        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminSmsConfig {})
         .await?;
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-
+   
     let row = req_dao
         .web_dao
         .app_sender
@@ -87,7 +90,7 @@ pub async fn smser_jd_config_add(
             &param.access_key,
             &param.access_secret,
             param.limit.unwrap_or_default(),
-            req_auth.user_id(),
+            auth_data.user_id(),
             Some(&req_dao.req_env),
         )
         .await?;
@@ -108,13 +111,14 @@ pub async fn smser_jd_config_edit(
     param: &SmserJDConfigEditParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminSmsConfig {}, None)
+        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminSmsConfig {})
         .await?;
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-
+ 
     let row = req_dao
         .web_dao
         .app_sender
@@ -127,7 +131,7 @@ pub async fn smser_jd_config_edit(
             &param.access_key,
             &param.access_secret,
             param.limit.unwrap_or_default(),
-            req_auth.user_id(),
+            auth_data.user_id(),
             Some(&req_dao.req_env),
         )
         .await?;
@@ -143,19 +147,20 @@ pub async fn smser_jd_config_del(
     param: &SmserJDConfigDelParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminSmsConfig {}, None)
+        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminSmsConfig {})
         .await?;
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-
+   
     let row = req_dao
         .web_dao
         .app_sender
         .smser
         .jd_sender
-        .del_config(param.id, req_auth.user_id(), Some(&req_dao.req_env))
+        .del_config(param.id, auth_data.user_id(), Some(&req_dao.req_env))
         .await?;
     Ok(JsonData::data(json!({ "num": row })))
 }
@@ -170,17 +175,18 @@ pub struct SmserAppJDConfigAddParam {
     pub template_map: String,
 }
 
-pub async fn smser_jd_app_config_add(
+pub async fn smser_tpl_config_jd_add(
     param: &SmserAppJDConfigAddParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminSmsMgr {}, None)
+        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminSmsMgr {}, )
         .await?;
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-
+ 
     let row = req_dao
         .web_dao
         .app_sender
@@ -194,8 +200,8 @@ pub async fn smser_jd_app_config_add(
             &param.sign_id,
             &param.template_id,
             &param.template_map,
-            req_auth.user_id(),
-            req_auth.user_id(),
+            auth_data.user_id(),
+            auth_data.user_id(),
             Some(&req_dao.req_env),
         )
         .await?;

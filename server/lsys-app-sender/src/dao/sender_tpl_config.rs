@@ -7,16 +7,15 @@ use crate::model::{
 
 use super::logger::LogAppConfig;
 use super::SenderResult;
-use lsys_core::{now_time, PageParam, RequestEnv};
+use lsys_core::db::SqlQuote;
+use lsys_core::db::{Insert, ModelTableName, SqlExpr, Update};
+use lsys_core::{now_time, sql_format, PageParam, RequestEnv};
 use lsys_logger::dao::ChangeLoggerDao;
 use lsys_setting::dao::SettingDao;
 use lsys_setting::model::SettingModel;
 use serde::Serialize;
 use serde_json::json;
 use sqlx::Pool;
-use lsys_core::db::SqlQuote;
-use lsys_core::{sql_format};
-use lsys_core::db::{ Insert, ModelTableName, SqlExpr, Update};
 //发送模板跟发送接口配置
 
 pub struct SenderTplConfig {
@@ -215,6 +214,9 @@ impl SenderTplConfig {
         user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
+        if SenderTplConfigStatus::Delete.eq(config.status) {
+            return Ok(0);
+        }
         let time = now_time().unwrap_or_default();
         let change = lsys_core::model_option_set!(SenderTplConfigModelRef,{
             status:SenderTplConfigStatus::Delete as i8,

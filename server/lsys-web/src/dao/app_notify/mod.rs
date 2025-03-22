@@ -1,4 +1,5 @@
-use lsys_app_notify::dao::NotifyDao;
+use lsys_app_notify::dao::{NotifyDao, NotifyData};
+use lsys_app_sender::dao::NotifySmsItem;
 use lsys_core::IntoFluentMessage;
 use std::sync::Arc;
 use tracing::error;
@@ -15,5 +16,9 @@ impl AppNotify {
             }
         });
         AppNotify { notify_dao }
+    }
+    //返回所有支持的通知方式
+    pub fn notify_method_list(&self) -> Vec<String> {
+        vec![NotifySmsItem::method()]
     }
 }

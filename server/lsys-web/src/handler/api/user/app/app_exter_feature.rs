@@ -6,15 +6,21 @@ use lsys_access::dao::AccessSession;
 use lsys_app::model::AppRequestStatus;
 use lsys_core::fluent_message;
 
-pub struct AppRequestExterFeatureParam {
+pub struct RequestExterFeatureParam {
     pub app_id: u64,
     pub featuer_data: Vec<String>,
 }
 
-pub async fn app_request_exter_feature(
-    param: &AppRequestExterFeatureParam,
+pub async fn request_exter_feature(
+    param: &RequestExterFeatureParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let featch_key = param
+        .featuer_data
+        .iter()
+        .map(|e| e.as_str())
+        .collect::<Vec<_>>();
     let app = req_dao
         .web_dao
         .web_app
@@ -26,14 +32,32 @@ pub async fn app_request_exter_feature(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.access_env().await?,
+            &req_dao.req_env,
+            Some(&auth_data),
             &CheckUserAppEdit {
                 res_user_id: app.user_id,
             },
-            None,
         )
         .await?;
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
+    if app.parent_app_id > 0 {
+        let parent_app = req_dao
+            .web_dao
+            .web_app
+            .app_dao
+            .app
+            .find_by_id(&app.parent_app_id)
+            .await?;
+        //父应用必须已开通对应外部权限
+        req_dao
+            .web_dao
+            .web_app
+            .app_dao
+            .app
+            .exter_feature_check(&parent_app, &featch_key)
+            .await?;
+    }
+
     req_dao
         .web_dao
         .web_app
@@ -41,11 +65,7 @@ pub async fn app_request_exter_feature(
         .app
         .exter_feature_request(
             &app,
-            &param
-                .featuer_data
-                .iter()
-                .map(|e| e.as_str())
-                .collect::<Vec<_>>(),
+            &featch_key,
             auth_data.user_id(),
             Some(&req_dao.req_env),
         )
@@ -53,15 +73,15 @@ pub async fn app_request_exter_feature(
     Ok(JsonData::default())
 }
 
-pub struct AppConfirmExterFeatureParam {
+pub struct ConfirmExterFeatureParam {
     pub app_id: u64,
     pub app_req_id: u64,
     pub confirm_status: i8,
     pub confirm_note: String,
 }
 
-pub async fn app_confirm_exter_feature(
-    param: &AppConfirmExterFeatureParam,
+pub async fn confirm_exter_feature(
+    param: &ConfirmExterFeatureParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
@@ -84,7 +104,7 @@ pub async fn app_confirm_exter_feature(
     if app.user_app_id == 0 {
         return Err(JsonError::Message(fluent_message!("not-user-app-confirm")));
     }
-
+    //在申请入口判断父应用是否有对应外部权限,已申请正常审核
     let parent_app = req_dao
         .web_dao
         .web_app
@@ -97,11 +117,11 @@ pub async fn app_confirm_exter_feature(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.access_env().await?,
+            &req_dao.req_env,
+            Some(&auth_data),
             &CheckUserAppEdit {
                 res_user_id: parent_app.user_id,
             },
-            None,
         )
         .await?;
 

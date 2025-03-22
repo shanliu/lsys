@@ -1,6 +1,6 @@
 use crate::common::handler::{ResponseJson, ResponseJsonResult, RestQuery};
 use actix_web::post;
-use lsys_web::handler::rest::{
+use lsys_web::handler::rest::auth::{
     do_login, do_logout, login_info, DoLoginParam, DoLogoutParam, LoginInfoParam,
 };
 

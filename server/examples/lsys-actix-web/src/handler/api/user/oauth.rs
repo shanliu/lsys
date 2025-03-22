@@ -2,9 +2,7 @@ use crate::common::handler::{
     JsonQuery, JwtQuery, ResponseJson, ResponseJsonResult, UserAuthQuery,
 };
 use actix_web::post;
-use lsys_web::handler::rest::{
-    oauth_create_code, oauth_scope_get, OauthAuthorizeDoParam, OauthScopeGetParam,
-};
+use lsys_web::handler::rest::oauth::{create_code, scope_get, AuthorizeDoParam, ScopeGetParam};
 
 #[post("oauth/{method}")]
 pub(crate) async fn oauth(
@@ -15,8 +13,8 @@ pub(crate) async fn oauth(
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
     Ok(match path.into_inner().as_str() {
-        "scope" => oauth_scope_get(&json_param.param::<OauthScopeGetParam>()?, &auth_dao).await,
-        "do" => oauth_create_code(&json_param.param::<OauthAuthorizeDoParam>()?, &auth_dao).await,
+        "scope" => scope_get(&json_param.param::<ScopeGetParam>()?, &auth_dao).await,
+        "do" => create_code(&json_param.param::<AuthorizeDoParam>()?, &auth_dao).await,
         name => handler_not_found!(name),
     }
     .map_err(|e| auth_dao.fluent_error_json_data(&e))?

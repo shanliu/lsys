@@ -7,8 +7,8 @@ edition = "2021"
 
 [dependencies]
 tokio = { version = "~1.43.0" }
-deadpool-redis = { version = "~0.18" }
-redis = { version = "~0.27.5" }
+deadpool-redis = { version = "~0.19.0" }
+redis = { version = "~0.28.2" }
 lsys-core = { path = "../lsys-core" }
 #lsys-app = { path = "../lsys-app" }
 lsys-setting = { path = "../lsys-setting" }

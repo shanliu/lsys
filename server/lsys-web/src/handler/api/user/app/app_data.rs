@@ -40,7 +40,7 @@ pub struct UserAppListParam {
     pub count_num: Option<bool>,
 }
 
-pub async fn app_list(
+pub async fn list_data(
     param: &UserAppListParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
@@ -79,7 +79,7 @@ pub async fn app_list(
     let app_inner_feature = AppRequestType::get_inner_feature();
     let app_attr = AppAttrParam {
         check_inner_feature: Some(&app_inner_feature),
-        check_exter_feature: Some(req_dao.web_dao.web_app.exter_feature()),
+        check_exter_feature: Some(req_dao.web_dao.web_app.exter_feature_list()),
         sub_app_count: true,
         oauth_client_data: true,
         oauth_server_data: true,
@@ -87,16 +87,27 @@ pub async fn app_list(
     };
 
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    req_dao
+        .web_dao
+        .web_rbac
+        .check(
+            &req_dao.req_env,
+            Some(&auth_data),
+            &CheckUserAppView {
+                res_user_id: auth_data.user_id(),
+            },
+        )
+        .await?;
 
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &req_dao.access_env().await?,
+            &req_dao.req_env,
+            Some(&auth_data),
             &CheckUserAppView {
                 res_user_id: auth_data.user_id(),
             },
-            None,
         )
         .await?;
     let appdata = req_dao
@@ -200,12 +211,12 @@ pub async fn app_list(
 }
 
 #[derive(Deserialize)]
-pub struct AppSecretViewSecretParam {
+pub struct SecretViewSecretParam {
     pub app_id: u64,
 }
 
-pub async fn app_secret_view(
-    param: &AppSecretViewSecretParam,
+pub async fn secret_view(
+    param: &SecretViewSecretParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
@@ -221,11 +232,11 @@ pub async fn app_secret_view(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.access_env().await?,
+            &req_dao.req_env,
+            Some(&auth_data),
             &CheckUserAppView {
                 res_user_id: app.user_id,
             },
-            None,
         )
         .await?;
     let secret_data = req_dao
@@ -240,7 +251,7 @@ pub async fn app_secret_view(
 }
 
 #[derive(Deserialize)]
-pub struct AppRequestListParam {
+pub struct RequestListParam {
     pub app_id: u64,
     pub status: Option<i8>,
     pub page: Option<PageParam>,
@@ -263,10 +274,12 @@ pub struct ShowRequestRecord {
 }
 
 //指定APP的请求功能列表
-pub async fn app_request_list(
-    param: &AppRequestListParam,
+pub async fn request_list(
+    param: &RequestListParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     let app = req_dao
         .web_dao
         .web_app
@@ -278,11 +291,11 @@ pub async fn app_request_list(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.access_env().await?,
+            &req_dao.req_env,
+            Some(&auth_data),
             &CheckUserAppView {
                 res_user_id: app.user_id,
             },
-            None,
         )
         .await?;
 
@@ -372,7 +385,7 @@ pub async fn app_request_list(
 }
 
 #[derive(Deserialize)]
-pub struct AppSubRequestListParam {
+pub struct SubRequestListParam {
     pub app_id: u64,
     pub status: Option<i8>,
     pub page: Option<PageParam>,
@@ -380,10 +393,12 @@ pub struct AppSubRequestListParam {
 }
 
 //指定APP的被请求功能列表
-pub async fn app_sub_request_list(
-    param: &AppSubRequestListParam,
+pub async fn sub_request_list(
+    param: &SubRequestListParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     let app = req_dao
         .web_dao
         .web_app
@@ -395,11 +410,11 @@ pub async fn app_sub_request_list(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.access_env().await?,
+            &req_dao.req_env,
+            Some(&auth_data),
             &CheckUserAppView {
                 res_user_id: app.user_id,
             },
-            None,
         )
         .await?;
     req_dao

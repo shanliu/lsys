@@ -4,12 +4,12 @@ use crate::common::{JsonData, UserAuthQueryDao};
 use crate::dao::access::api::user::CheckUserAppEdit;
 use lsys_access::dao::AccessSession;
 
-pub struct AppRequestExterLoginFeatureData {
+pub struct RequestExterLoginFeatureData {
     pub app_id: u64,
 }
 
-pub async fn app_request_inner_feature_exter_login_request(
-    param: &AppRequestExterLoginFeatureData,
+pub async fn request_inner_feature_exter_login_request(
+    param: &RequestExterLoginFeatureData,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
@@ -24,11 +24,11 @@ pub async fn app_request_inner_feature_exter_login_request(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.access_env().await?,
+            &req_dao.req_env,
+            Some(&auth_data),
             &CheckUserAppEdit {
                 res_user_id: app.user_id,
             },
-            None,
         )
         .await?;
     req_dao
@@ -41,12 +41,12 @@ pub async fn app_request_inner_feature_exter_login_request(
     Ok(JsonData::default())
 }
 
-pub struct AppRequestExterSubAppData {
+pub struct RequestExterSubAppData {
     pub app_id: u64,
 }
 
-pub async fn app_request_inner_feature_sub_app_request(
-    param: &AppRequestExterSubAppData,
+pub async fn request_inner_feature_sub_app_request(
+    param: &RequestExterSubAppData,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
@@ -61,11 +61,11 @@ pub async fn app_request_inner_feature_sub_app_request(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.access_env().await?,
+            &req_dao.req_env,
+            Some(&auth_data),
             &CheckUserAppEdit {
                 res_user_id: app.user_id,
             },
-            None,
         )
         .await?;
     req_dao

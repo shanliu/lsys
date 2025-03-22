@@ -101,6 +101,12 @@ impl AccountPassword {
         let db = &self.db;
         let time = now_time()?;
         let mut ta;
+
+        let config = self
+            .setting
+            .load::<AccountPasswordConfig>(None)
+            .await
+            .notfound_default()?;
         if account.password_id > 0 {
             let account_pass_res = sqlx::query_as::<_, AccountPasswordModel>(&sql_format!(
                 "select * from {} where account_id={} and id={}",
@@ -140,13 +146,6 @@ impl AccountPassword {
             };
         }
         let nh_passwrod = self.account_passwrd_hash.hash_password(&new_password).await;
-
-        let config = self
-            .setting
-            .load::<AccountPasswordConfig>(None)
-            .await
-            .notfound_default()?;
-
         if config.disable_old_password {
             let old_pass_res = sqlx::query_as::<_, AccountPasswordModel>(&sql_format!(
                 "select * from {} where account_id={} and password={}",

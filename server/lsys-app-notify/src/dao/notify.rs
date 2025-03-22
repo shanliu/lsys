@@ -4,7 +4,7 @@ use std::{
 };
 
 use lsys_app::dao::App;
-use lsys_core::{AppCore, TaskDispatch};
+use lsys_core::{AppCore, TaskDispatch, TaskDispatchConfig};
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::Pool;
 use tracing::warn;
@@ -30,22 +30,25 @@ pub struct NotifyDao {
     max_try: u16,
 }
 
+pub struct NotifyConfig {
+    pub max_try: Option<u16>,
+    pub task_size: Option<usize>,
+    pub task_timeout: Option<usize>,
+    pub is_check: bool,
+}
+
 impl NotifyDao {
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         redis: deadpool_redis::Pool,
         db: Pool<sqlx::MySql>,
         app_core: Arc<AppCore>,
         app: Arc<App>,
+        config: &NotifyConfig,
         logger: Arc<ChangeLoggerDao>,
-        max_try: Option<u16>,
-        task_size: Option<usize>,
-        task_timeout: Option<usize>,
-        is_check: bool,
     ) -> Self {
         let record = Arc::new(NotifyRecord::new(db.clone(), logger));
 
-        let task_timeout = match task_timeout {
+        let task_timeout = match config.task_timeout {
             Some(t) => {
                 if t == 0 {
                     NOTIFY_MIN_DELAY_TIME as usize
@@ -58,15 +61,15 @@ impl NotifyDao {
             None => NOTIFY_MIN_DELAY_TIME as usize,
         };
 
-        let task = TaskDispatch::new(
-            &format!("{}-notify", NOTIFY_REDIS_PREFIX),
-            &format!("{}-notify-read-lock", NOTIFY_REDIS_PREFIX),
-            &format!("{}-notify-run-task", NOTIFY_REDIS_PREFIX),
-            task_size,
+        let task = TaskDispatch::new(&TaskDispatchConfig {
+            list_notify: &format!("{}-notify", NOTIFY_REDIS_PREFIX),
+            read_lock_key: &format!("{}-notify-read-lock", NOTIFY_REDIS_PREFIX),
+            task_list_key: &format!("{}-notify-run-task", NOTIFY_REDIS_PREFIX),
+            task_size: config.task_size,
             task_timeout,
-            is_check,
-            task_timeout,
-        );
+            is_check: config.is_check,
+            check_timeout: task_timeout,
+        });
         Self {
             app_core,
             db,
@@ -74,7 +77,7 @@ impl NotifyDao {
             task,
             redis,
             app,
-            max_try: max_try.unwrap_or(5),
+            max_try: config.max_try.unwrap_or(5),
         }
     }
     pub async fn add_data<T: NotifyData>(&self, data: T) -> NotifyResult<u64> {

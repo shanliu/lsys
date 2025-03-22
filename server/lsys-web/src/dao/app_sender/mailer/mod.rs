@@ -1,6 +1,8 @@
 mod app;
-pub use app::*;
+mod app_feature;
+
 use lsys_access::dao::SessionBody;
+use lsys_app::dao::AppDao;
 use lsys_app_sender::{
     dao::{MailSenderDao, SenderError, SenderResult, SenderSmtpConfig, SmtpSenderTask},
     model::{SenderMailBodyModel, SenderMailMessageModel},
@@ -20,6 +22,7 @@ use super::logger::MessageView;
 pub struct SenderMailer {
     db: Pool<MySql>,
     logger: Arc<ChangeLoggerDao>,
+    app_dao: Arc<AppDao>,
     pub mailer_dao: Arc<MailSenderDao>,
     pub smtp_sender: SenderSmtpConfig,
 }
@@ -28,6 +31,7 @@ impl SenderMailer {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         app_core: Arc<AppCore>,
+        app_dao: Arc<AppDao>,
         redis: deadpool_redis::Pool,
         db: Pool<MySql>,
         setting: Arc<SettingDao>,
@@ -52,7 +56,7 @@ impl SenderMailer {
 
         Self {
             mailer_dao,
-
+            app_dao,
             smtp_sender,
             db,
             logger,

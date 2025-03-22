@@ -9,6 +9,7 @@ pub(crate) struct LogRole<'t> {
     pub action: &'t str,
     pub role_name: &'t str,
     pub role_key: &'t str,
+    pub app_id: u64,
     pub user_range: i8,
     pub res_range: i8,
     pub user_id: u64,

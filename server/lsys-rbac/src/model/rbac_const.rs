@@ -1,6 +1,5 @@
-use serde::{Deserialize, Serialize};
 use lsys_core::db::lsys_model_status;
-
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[lsys_model_status(field_type = "i8")]
@@ -9,25 +8,22 @@ pub enum RbacRoleStatus {
     Delete = -1,
 }
 
-
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[lsys_model_status(field_type = "i8")]
 pub enum RbacRoleResRange {
     Exclude = 1, //由RbacRoleModel决定,排除某些授权
-    Any =2,     //任意资源
+    Any = 2,     //任意资源
     Include = 3, //由RbacRoleModel决定,包含某些授权
 }
-
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[lsys_model_status(field_type = "i8")]
 pub enum RbacRoleUserRange {
-    Any = 1,    //任意用户
-    Logged = 2,    //登录用户
-    Custom = 3,     //自定义用户 由RbacRoleUserModel决定
-    Session = 4, //在会话时使用临时角色
+    // Any = 1,    //任意用户
+    // Logged = 2,    //登录用户
+    Custom = 1,  //自定义用户 由RbacRoleUserModel决定
+    Session = 2, //在会话时使用临时角色,任意用户,已登录用户为两个特殊的SESSION角色
 }
-
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[lsys_model_status(field_type = "i8")]
@@ -36,14 +32,12 @@ pub enum RbacResStatus {
     Delete = -1,
 }
 
-
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[lsys_model_status(field_type = "i8")]
 pub enum RbacOpStatus {
     Enable = 1,
     Delete = -1,
 }
-
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[lsys_model_status(field_type = "i8")]
@@ -52,14 +46,12 @@ pub enum RbacOpResStatus {
     Delete = -1,
 }
 
-
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[lsys_model_status(field_type = "i8")]
 pub enum RbacPermStatus {
     Enable = 1,
     Delete = -1,
 }
-
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[lsys_model_status(field_type = "i8")]
@@ -68,15 +60,12 @@ pub enum RbacRoleUserStatus {
     Delete = -1,
 }
 
-
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[lsys_model_status(field_type = "i8")]
 pub enum RbacAuditResult {
     Succ = 1,
     Fail = 2,
 }
-
-
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[lsys_model_status(field_type = "i8")]

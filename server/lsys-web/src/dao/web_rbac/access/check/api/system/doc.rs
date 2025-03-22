@@ -1,6 +1,6 @@
 use crate::dao::{
-    access::api::system::CheckAdminBase, CheckRelationData, CheckResTpl, RbacCheckAccess,
-    RbacCheckAccessDepend, RbacCheckResTpl,
+    access::api::system::CheckAdminBase, CheckResTpl, RbacCheckAccess, RbacCheckAccessDepend,
+    RbacCheckResTpl,
 };
 use lsys_rbac::dao::{AccessCheckEnv, AccessCheckRes, RbacAccess, RbacResult};
 
@@ -11,12 +11,10 @@ impl RbacCheckAccess for CheckAdminDocs {
         &self,
         access: &RbacAccess,
         check_env: &AccessCheckEnv<'_>,
-        relation: &CheckRelationData,
     ) -> RbacResult<()> {
         access
             .check(
                 check_env,
-                &relation.to_session_role(),
                 &[AccessCheckRes::system_empty_data(
                     "global-system",
                     vec!["docs"],
@@ -32,6 +30,7 @@ impl RbacCheckResTpl for CheckAdminDocs {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
             user: false,
+            data:false,
             key: "global-system",
             ops: vec!["edit-docs"],
         }]

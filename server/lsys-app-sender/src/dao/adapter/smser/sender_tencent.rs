@@ -17,8 +17,8 @@ use lsys_lib_sms::{
 };
 use lsys_setting::{
     dao::{
-        MultipleSetting, SettingData, SettingDecode, SettingEncode, SettingError, SettingKey,
-        SettingResult,
+        MultipleSetting, MultipleSettingData, SettingData, SettingDecode, SettingEncode,
+        SettingError, SettingKey, SettingResult,
     },
     model::SettingModel,
 };
@@ -155,14 +155,16 @@ impl SenderTenYunConfig {
             .edit(
                 None,
                 id,
-                name,
-                &TenYunConfig {
-                    region: region.to_owned(),
-                    sms_app_id: sms_app_id.to_owned(),
-                    branch_limit,
-                    secret_id: secret_id.to_owned(),
-                    secret_key: secret_key.to_owned(),
-                    callback_key: callback_key.to_owned(),
+                &MultipleSettingData {
+                    name,
+                    data: &TenYunConfig {
+                        region: region.to_owned(),
+                        sms_app_id: sms_app_id.to_owned(),
+                        branch_limit,
+                        secret_id: secret_id.to_owned(),
+                        secret_key: secret_key.to_owned(),
+                        callback_key: callback_key.to_owned(),
+                    },
                 },
                 user_id,
                 None,
@@ -195,14 +197,16 @@ impl SenderTenYunConfig {
             .setting
             .add(
                 None,
-                name,
-                &TenYunConfig {
-                    region: region.to_owned(),
-                    sms_app_id: sms_app_id.to_owned(),
-                    branch_limit,
-                    secret_id: secret_id.to_owned(),
-                    secret_key: secret_key.to_owned(),
-                    callback_key: callback_key.to_owned(),
+                &MultipleSettingData {
+                    name,
+                    data: &TenYunConfig {
+                        region: region.to_owned(),
+                        sms_app_id: sms_app_id.to_owned(),
+                        branch_limit,
+                        secret_id: secret_id.to_owned(),
+                        secret_key: secret_key.to_owned(),
+                        callback_key: callback_key.to_owned(),
+                    },
                 },
                 user_id,
                 None,

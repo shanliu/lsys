@@ -1,4 +1,3 @@
-
 //RBAC中资源相关实现
 
 use lsys_core::fluent_message;
@@ -11,17 +10,16 @@ use crate::dao::result::RbacError;
 
 use super::RbacOp;
 
-
-
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OpCacheKey {
     pub op_key: String, //资源类型
-    pub user_id: u64,    //资源用户ID
+    pub user_id: u64,   //资源用户ID
+    pub app_id: u64,
 }
 
 impl std::fmt::Display for OpCacheKey {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f,"{}-{}", self.user_id, self.op_key)
+        write!(f, "{}-{}-{}", self.user_id, self.app_id, self.op_key)
     }
 }
 
@@ -40,15 +38,32 @@ impl FromStr for OpCacheKey {
                 "msg":e
             }))
         })?;
-        let op_key = token_split.next().ok_or_else(|| {
+        let app_id = token_split.next().ok_or_else(|| {
             RbacError::System(fluent_message!("parse-op-str-fail",{
                 "token":s
             }))
-        })?.to_owned();
-        Ok(Self { user_id,op_key })
+        })?;
+        let app_id = app_id.parse::<u64>().map_err(|e| {
+            RbacError::System(fluent_message!("parse-op-str-fail",{
+                "token":s,
+                "msg":e
+            }))
+        })?;
+        let op_key = token_split
+            .next()
+            .ok_or_else(|| {
+                RbacError::System(fluent_message!("parse-op-str-fail",{
+                    "token":s
+                }))
+            })?
+            .to_owned();
+        Ok(Self {
+            user_id,
+            app_id,
+            op_key,
+        })
     }
 }
-
 
 pub struct RbacOpCache<'t> {
     pub op: &'t RbacOp,
@@ -59,4 +74,3 @@ impl RbacOp {
         RbacOpCache { op: self }
     }
 }
-

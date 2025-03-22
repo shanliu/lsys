@@ -1,28 +1,21 @@
 use crate::{
-    common::{JsonData, JsonError, JsonResult, RequestAuthDao, RequestDao, RestAuthQueryDao},
+    common::{JsonData, JsonError, JsonResult, RequestDao, RestAuthQueryDao, UserAuthQueryDao},
     dao::access::rest::CheckRestApp,
 };
-use lsys_access::dao::{AccessSession, AccessSessionData, AccessSessionToken};
+use lsys_access::dao::{AccessSession, AccessSessionData};
 use lsys_app::{dao::AppOAuthCodeData, model::AppModel};
 use lsys_core::fluent_message;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 #[derive(Debug, Deserialize)]
-pub struct OauthScopeGetParam {
+pub struct ScopeGetParam {
     pub client_id: String,
     pub scope: String,
 }
 //当前登陆scope对应的功能
-pub async fn oauth_scope_get<
-    T: AccessSessionToken,
-    D: AccessSessionData,
-    S: AccessSession<T, D>,
->(
-    param: &OauthScopeGetParam,
-    req_dao: &RequestAuthDao<T, D, S>,
-) -> JsonResult<JsonData> {
-    req_dao.user_session.read().await.get_session_data().await?;
+pub async fn scope_get(param: &ScopeGetParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let app = req_dao
         .web_dao
         .web_app
@@ -35,9 +28,9 @@ pub async fn oauth_scope_get<
         .web_dao
         .web_rbac
         .check(
-            &req_dao.access_env().await?,
+            &req_dao.req_env,
+            Some(&auth_data),
             &CheckRestApp { app_id: app.id },
-            None,
         )
         .await?;
     req_dao
@@ -57,19 +50,15 @@ pub async fn oauth_scope_get<
 }
 
 #[derive(Debug, Deserialize)]
-pub struct OauthAuthorizeDoParam {
+pub struct AuthorizeDoParam {
     pub scope: String,
     pub client_id: String,
     pub redirect_uri: String,
 }
 //登陆code创建
-pub async fn oauth_create_code<
-    T: AccessSessionToken,
-    D: AccessSessionData,
-    S: AccessSession<T, D>,
->(
-    param: &OauthAuthorizeDoParam,
-    req_dao: &RequestAuthDao<T, D, S>,
+pub async fn create_code(
+    param: &AuthorizeDoParam,
+    req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
     //   用户授权 scope跟资源静态编码关系 检查授权通过scope得到res检查全局授权 接口检查授权跟检查资源是否在token的scope中
     //   1. 请求用户 /oauth/authorize?client_id=app_id&redirect_uri=CALLBACK_URL&scope=read
@@ -77,7 +66,7 @@ pub async fn oauth_create_code<
     //   3. 完成授权. 生成code ,存放redis, scope,授权时间 +client_id+授权user_id ,设置5分钟超时,回到用户站点 /callback?code=AUTHORIZATION_CODE
     //   4. 请求令牌 /oauth/token?client_id=CLIENT_ID&client_secret=CLIENT_SECRET&code=AUTHORIZATION_CODE
     //   5. 读取redis 判断client_id,生成token记录并放入本地缓存
-    let user = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let app = req_dao
         .web_dao
         .web_app
@@ -89,9 +78,9 @@ pub async fn oauth_create_code<
         .web_dao
         .web_rbac
         .check(
-            &req_dao.access_env().await?,
+            &req_dao.req_env,
+            Some(&auth_data),
             &CheckRestApp { app_id: app.id },
-            None,
         )
         .await?;
     if !req_dao
@@ -118,8 +107,8 @@ pub async fn oauth_create_code<
         .web_app
         .app_oauth_server_parse_scope_data(&app, &scope_data)
         .await?;
-    let user_data = user.session_body().user();
-    let session_data = user.session_body().session();
+    let user_data = auth_data.session_body().user();
+    let session_data = auth_data.session_body().session();
     let code = req_dao
         .web_dao
         .web_app
@@ -143,7 +132,7 @@ pub async fn oauth_create_code<
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct OauthSessionRecord {
+pub struct SessionRecord {
     access_token: String,
     refresh_token: Option<String>,
     openid: String,
@@ -167,11 +156,7 @@ async fn check_app_secret(
     req_dao
         .web_dao
         .web_rbac
-        .check(
-            &req_dao.access_env(),
-            &CheckRestApp { app_id: app.id },
-            None,
-        )
+        .check(&req_dao.req_env, None, &CheckRestApp { app_id: app.id })
         .await?;
     let oapp = req_dao
         .web_dao
@@ -192,17 +177,14 @@ async fn check_app_secret(
 }
 
 #[derive(Debug, Deserialize)]
-pub struct OauthCodeParam {
+pub struct CodeParam {
     pub client_secret: String,
     pub client_id: String,
     pub code: String,
 }
 
 //创建登陆token
-pub async fn oauth_create_token(
-    req_dao: &RequestDao,
-    code: OauthCodeParam,
-) -> JsonResult<JsonData> {
+pub async fn create_token(req_dao: &RequestDao, code: &CodeParam) -> JsonResult<JsonData> {
     let app = check_app_secret(req_dao, &code.client_id, &code.client_secret).await?;
     let auth_data = req_dao
         .web_dao
@@ -212,7 +194,7 @@ pub async fn oauth_create_token(
         .create_session(&app, &code.code)
         .await?;
 
-    let session = OauthSessionRecord {
+    let session = SessionRecord {
         access_token: auth_data.session_body().token_data().to_owned(),
         refresh_token: None,
         openid: auth_data.session_body().user_id().to_string(),
@@ -229,15 +211,15 @@ pub async fn oauth_create_token(
 }
 
 #[derive(Debug, Deserialize)]
-pub struct OauthRefreshCodeParam {
+pub struct RefreshCodeParam {
     pub client_secret: String,
     pub client_id: String,
     pub refresh_token: String,
 }
 
 //刷新登陆token
-pub async fn oauth_refresh_token(
-    param: &OauthRefreshCodeParam,
+pub async fn refresh_token(
+    param: &RefreshCodeParam,
     req_dao: &RestAuthQueryDao,
 ) -> JsonResult<JsonData> {
     check_app_secret(req_dao, &param.client_id, &param.client_secret).await?;
@@ -245,7 +227,7 @@ pub async fn oauth_refresh_token(
     let old_token = auth_data.get_session_data().await?;
     auth_data.refresh_session(true).await?;
     let new_token = auth_data.get_session_data().await?;
-    let session = OauthSessionRecord {
+    let session = SessionRecord {
         access_token: new_token.session_body().token_data().to_owned(),
         refresh_token: Some(old_token.session_body().token_data().to_owned()),
         openid: new_token.session_body().user_id().to_string(),

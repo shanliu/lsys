@@ -16,8 +16,8 @@ use lsys_lib_sms::{
 };
 use lsys_setting::{
     dao::{
-        MultipleSetting, SettingData, SettingDecode, SettingEncode, SettingError, SettingKey,
-        SettingResult,
+        MultipleSetting, MultipleSettingData, SettingData, SettingDecode, SettingEncode,
+        SettingError, SettingKey, SettingResult,
     },
     model::SettingModel,
 };
@@ -144,11 +144,13 @@ impl SenderNetEaseConfig {
             .edit(
                 None,
                 id,
-                name,
-                &NetEaseConfig {
-                    access_key: access_key.to_owned(),
-                    access_secret: access_secret.to_owned(),
-                    branch_limit,
+                &MultipleSettingData {
+                    name,
+                    data: &NetEaseConfig {
+                        access_key: access_key.to_owned(),
+                        access_secret: access_secret.to_owned(),
+                        branch_limit,
+                    },
                 },
                 user_id,
                 None,
@@ -177,11 +179,13 @@ impl SenderNetEaseConfig {
             .setting
             .add(
                 None,
-                name,
-                &NetEaseConfig {
-                    access_key: access_key.to_owned(),
-                    access_secret: access_secret.to_owned(),
-                    branch_limit,
+                &MultipleSettingData {
+                    name,
+                    data: &NetEaseConfig {
+                        access_key: access_key.to_owned(),
+                        access_secret: access_secret.to_owned(),
+                        branch_limit,
+                    },
                 },
                 user_id,
                 None,

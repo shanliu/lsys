@@ -22,7 +22,7 @@ async-trait = "0.1.57"
 config = "~0.15"
 
 
-redis = { version = "~0.27.5" }
+redis = { version = "~0.28.2" }
 
 
 urlencoding = { version = "2.1.0" }

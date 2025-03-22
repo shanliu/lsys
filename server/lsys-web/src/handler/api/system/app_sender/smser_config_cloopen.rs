@@ -30,10 +30,12 @@ pub async fn smser_cloopen_config_list(
     callback_call: impl Fn(&SettingData<CloOpenConfig>) -> String,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminSmsConfig {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsConfig {})
         .await?;
     let row = req_dao
         .web_dao
@@ -78,12 +80,13 @@ pub async fn smser_cloopen_config_add(
     param: &SmserCloOpenConfigAddParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminSmsConfig {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsConfig {})
         .await?;
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
     let row = req_dao
         .web_dao
         .app_sender
@@ -96,7 +99,7 @@ pub async fn smser_cloopen_config_add(
             &param.sms_app_id,
             param.limit.unwrap_or_default(),
             &param.callback_key,
-            req_auth.user_id(),
+            auth_data.user_id(),
             Some(&req_dao.req_env),
         )
         .await?;
@@ -118,12 +121,13 @@ pub async fn smser_cloopen_config_edit(
     param: &SmserCloOpenConfigEditParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminSmsConfig {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsConfig {})
         .await?;
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
 
     let row = req_dao
         .web_dao
@@ -138,7 +142,7 @@ pub async fn smser_cloopen_config_edit(
             &param.sms_app_id,
             param.limit.unwrap_or_default(),
             &param.callback_key,
-            req_auth.user_id(),
+            auth_data.user_id(),
             Some(&req_dao.req_env),
         )
         .await?;
@@ -154,18 +158,19 @@ pub async fn smser_cloopen_config_del(
     param: &SmserCloOpenConfigDelParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminSmsConfig {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsConfig {})
         .await?;
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
     let row = req_dao
         .web_dao
         .app_sender
         .smser
         .cloopen_sender
-        .del_config(param.id, req_auth.user_id(), Some(&req_dao.req_env))
+        .del_config(param.id, auth_data.user_id(), Some(&req_dao.req_env))
         .await?;
     Ok(JsonData::data(json!({ "num": row })))
 }
@@ -179,16 +184,17 @@ pub struct SmserAppCloopenConfigAddParam {
     pub template_map: String,
 }
 
-pub async fn smser_cloopen_app_config_add(
+pub async fn smser_tpl_config_cloopen_add(
     param: &SmserAppCloopenConfigAddParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminSmsMgr {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsMgr {})
         .await?;
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
 
     let row = req_dao
         .web_dao
@@ -202,8 +208,8 @@ pub async fn smser_cloopen_app_config_add(
             &param.tpl_id,
             &param.template_id,
             &param.template_map,
-            req_auth.user_id(),
-            req_auth.user_id(),
+            auth_data.user_id(),
+            auth_data.user_id(),
             Some(&req_dao.req_env),
         )
         .await?;

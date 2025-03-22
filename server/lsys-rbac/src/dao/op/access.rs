@@ -12,6 +12,7 @@ use super::{RbacOp, RbacOpCache};
 pub struct OpInfo<'t> {
     pub op_key: &'t str, //资源数据
     pub user_id: u64,    //资源用户ID
+    pub app_id: u64,
 }
 
 //授权检查跟资源操作相关实现
@@ -29,9 +30,10 @@ impl RbacOp {
         let mut where_sql = Vec::with_capacity(keys.len());
         for rkey in keys {
             where_sql.push(sql_format!(
-                "(op_key ={}  and user_id={})",
+                "(op_key ={}  and user_id={} and app_id={})",
                 rkey.op_key,
                 rkey.user_id,
+                rkey.app_id,
             ));
         }
         let sql = sql_format!(
@@ -50,7 +52,9 @@ impl RbacOp {
                 (
                     *e,
                     res.iter()
-                        .find(|f| f.op_key == e.op_key && f.user_id == e.user_id)
+                        .find(|f| {
+                            f.op_key == e.op_key && f.user_id == e.user_id && f.app_id == e.app_id
+                        })
                         .map(|f| f.to_owned()),
                 )
             })
@@ -60,10 +64,11 @@ impl RbacOp {
     pub async fn find_one_by_info<'a>(&self, rkey: &'a OpInfo<'a>) -> RbacResult<RbacOpModel> {
         let sql = sql_format!(
             "select * from {} where
-            op_key ={}  and user_id={} and status ={}",
+            op_key ={}  and user_id={} and app_id={} and status ={}",
             RbacOpModel::table_name(),
             rkey.op_key,
             rkey.user_id,
+            rkey.app_id,
             RbacOpStatus::Enable as i8
         );
         Ok(sqlx::query_as::<_, RbacOpModel>(sql.as_str())
@@ -86,6 +91,7 @@ impl RbacOpCache<'_> {
                 .get(&OpCacheKey {
                     op_key: tmp.op_key.to_owned(),
                     user_id: tmp.user_id,
+                    app_id: tmp.app_id,
                 })
                 .await
             {

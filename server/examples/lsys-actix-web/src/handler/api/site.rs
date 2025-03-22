@@ -4,10 +4,10 @@ use crate::common::handler::{
 use actix_web::get;
 use actix_web::post;
 
-use lsys_web::handler::api::public::site_config_info;
-use lsys_web::handler::api::system::site_config_get;
-use lsys_web::handler::api::system::site_config_set;
-use lsys_web::handler::api::system::SiteConfigParam;
+use lsys_web::handler::api::public::site::config_info;
+use lsys_web::handler::api::system::setting::site_config_get;
+use lsys_web::handler::api::system::setting::site_config_set;
+use lsys_web::handler::api::system::setting::SiteConfigParam;
 
 use lsys_web_module_oauth::handler::{wechat_get_config, wechat_set_config, WechatSetConfigParam};
 
@@ -49,7 +49,7 @@ pub async fn system_config(
 
 #[get("/info")]
 pub async fn system_info(auth_dao: UserAuthQuery) -> ResponseJsonResult<ResponseJson> {
-    Ok(site_config_info(&auth_dao)
+    Ok(config_info(&auth_dao)
         .await
         .map_err(|e| auth_dao.fluent_error_json_data(&e))?
         .into())

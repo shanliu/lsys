@@ -12,40 +12,40 @@ use actix_web::web::Data;
 use actix_web::CustomizeResponder;
 use actix_web::Responder;
 use actix_web::Result;
-use lsys_web::handler::api::public::{
-    docs_file, docs_md_read, docs_menu, DocsMdReadParam, DocsRawReadParam,
+use lsys_web::handler::api::public::docs::{
+    file_path, md_read, menu_data, MdReadParam, RawReadParam,
 };
-use lsys_web::handler::api::system::docs_git_add;
-use lsys_web::handler::api::system::docs_git_del;
-use lsys_web::handler::api::system::docs_git_detail;
-use lsys_web::handler::api::system::docs_git_edit;
-use lsys_web::handler::api::system::docs_git_list;
-use lsys_web::handler::api::system::docs_menu_add;
-use lsys_web::handler::api::system::docs_menu_del;
-use lsys_web::handler::api::system::docs_menu_list;
-use lsys_web::handler::api::system::docs_tag_add;
-use lsys_web::handler::api::system::docs_tag_clone_del;
-use lsys_web::handler::api::system::docs_tag_del;
-use lsys_web::handler::api::system::docs_tag_dir;
-use lsys_web::handler::api::system::docs_tag_file_info;
-use lsys_web::handler::api::system::docs_tag_list;
-use lsys_web::handler::api::system::docs_tag_logs;
-use lsys_web::handler::api::system::docs_tag_status;
-use lsys_web::handler::api::system::DocsGitAddParam;
-use lsys_web::handler::api::system::DocsGitDelParam;
-use lsys_web::handler::api::system::DocsGitDetailParam;
-use lsys_web::handler::api::system::DocsGitEditParam;
-use lsys_web::handler::api::system::DocsMenuAddParam;
-use lsys_web::handler::api::system::DocsMenuDelParam;
-use lsys_web::handler::api::system::DocsMenuListParam;
-use lsys_web::handler::api::system::DocsTagAddParam;
-use lsys_web::handler::api::system::DocsTagCLoneDelParam;
-use lsys_web::handler::api::system::DocsTagDelParam;
-use lsys_web::handler::api::system::DocsTagDirParam;
-use lsys_web::handler::api::system::DocsTagFileDataParam;
-use lsys_web::handler::api::system::DocsTagListParam;
-use lsys_web::handler::api::system::DocsTagLogsParam;
-use lsys_web::handler::api::system::DocsTagStatusParam;
+use lsys_web::handler::api::system::docs::git_add;
+use lsys_web::handler::api::system::docs::git_del;
+use lsys_web::handler::api::system::docs::git_detail;
+use lsys_web::handler::api::system::docs::git_edit;
+use lsys_web::handler::api::system::docs::git_list;
+use lsys_web::handler::api::system::docs::menu_add;
+use lsys_web::handler::api::system::docs::menu_del;
+use lsys_web::handler::api::system::docs::menu_list;
+use lsys_web::handler::api::system::docs::tag_add;
+use lsys_web::handler::api::system::docs::tag_clone_del;
+use lsys_web::handler::api::system::docs::tag_del;
+use lsys_web::handler::api::system::docs::tag_dir;
+use lsys_web::handler::api::system::docs::tag_file_info;
+use lsys_web::handler::api::system::docs::tag_list;
+use lsys_web::handler::api::system::docs::tag_logs;
+use lsys_web::handler::api::system::docs::tag_status;
+use lsys_web::handler::api::system::docs::GitAddParam;
+use lsys_web::handler::api::system::docs::GitDelParam;
+use lsys_web::handler::api::system::docs::GitDetailParam;
+use lsys_web::handler::api::system::docs::GitEditParam;
+use lsys_web::handler::api::system::docs::MenuAddParam;
+use lsys_web::handler::api::system::docs::MenuDelParam;
+use lsys_web::handler::api::system::docs::MenuListParam;
+use lsys_web::handler::api::system::docs::TagAddParam;
+use lsys_web::handler::api::system::docs::TagCLoneDelParam;
+use lsys_web::handler::api::system::docs::TagDelParam;
+use lsys_web::handler::api::system::docs::TagDirParam;
+use lsys_web::handler::api::system::docs::TagFileDataParam;
+use lsys_web::handler::api::system::docs::TagListParam;
+use lsys_web::handler::api::system::docs::TagLogsParam;
+use lsys_web::handler::api::system::docs::TagStatusParam;
 use tracing::debug;
 #[get("/raw/{id}/{path}")]
 async fn docs_raw(
@@ -53,8 +53,8 @@ async fn docs_raw(
     info: web::Path<(u32, String)>,
 ) -> Result<CustomizeResponder<NamedFile>> {
     let info = info.into_inner();
-    let path = docs_file(
-        &DocsRawReadParam {
+    let path = file_path(
+        &RawReadParam {
             menu_id: info.0,
             url: info.1.to_owned(),
         },
@@ -81,30 +81,22 @@ pub async fn docs_setting(
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
     let res = match path.into_inner().as_str() {
-        "git_add" => docs_git_add(&json_param.param::<DocsGitAddParam>()?, &auth_dao).await,
-        "git_edit" => docs_git_edit(&json_param.param::<DocsGitEditParam>()?, &auth_dao).await,
-        "git_del" => docs_git_del(&json_param.param::<DocsGitDelParam>()?, &auth_dao).await,
-        "git_list" => docs_git_list(&auth_dao).await,
-        "git_detail" => {
-            docs_git_detail(&json_param.param::<DocsGitDetailParam>()?, &auth_dao).await
-        }
-        "tag_add" => docs_tag_add(&json_param.param::<DocsTagAddParam>()?, &auth_dao).await,
-        "tag_del" => docs_tag_del(&json_param.param::<DocsTagDelParam>()?, &auth_dao).await,
-        "tag_list" => docs_tag_list(&json_param.param::<DocsTagListParam>()?, &auth_dao).await,
-        "tag_clone_del" => {
-            docs_tag_clone_del(&json_param.param::<DocsTagCLoneDelParam>()?, &auth_dao).await
-        }
-        "tag_status" => {
-            docs_tag_status(&json_param.param::<DocsTagStatusParam>()?, &auth_dao).await
-        }
-        "tag_dir" => docs_tag_dir(&json_param.param::<DocsTagDirParam>()?, &auth_dao).await,
-        "tag_logs" => docs_tag_logs(&json_param.param::<DocsTagLogsParam>()?, &auth_dao).await,
-        "tag_file_data" => {
-            docs_tag_file_info(&json_param.param::<DocsTagFileDataParam>()?, &auth_dao).await
-        }
-        "menu_add" => docs_menu_add(&json_param.param::<DocsMenuAddParam>()?, &auth_dao).await,
-        "menu_list" => docs_menu_list(&json_param.param::<DocsMenuListParam>()?, &auth_dao).await,
-        "menu_del" => docs_menu_del(&json_param.param::<DocsMenuDelParam>()?, &auth_dao).await,
+        "git_add" => git_add(&json_param.param::<GitAddParam>()?, &auth_dao).await,
+        "git_edit" => git_edit(&json_param.param::<GitEditParam>()?, &auth_dao).await,
+        "git_del" => git_del(&json_param.param::<GitDelParam>()?, &auth_dao).await,
+        "git_list" => git_list(&auth_dao).await,
+        "git_detail" => git_detail(&json_param.param::<GitDetailParam>()?, &auth_dao).await,
+        "tag_add" => tag_add(&json_param.param::<TagAddParam>()?, &auth_dao).await,
+        "tag_del" => tag_del(&json_param.param::<TagDelParam>()?, &auth_dao).await,
+        "tag_list" => tag_list(&json_param.param::<TagListParam>()?, &auth_dao).await,
+        "tag_clone_del" => tag_clone_del(&json_param.param::<TagCLoneDelParam>()?, &auth_dao).await,
+        "tag_status" => tag_status(&json_param.param::<TagStatusParam>()?, &auth_dao).await,
+        "tag_dir" => tag_dir(&json_param.param::<TagDirParam>()?, &auth_dao).await,
+        "tag_logs" => tag_logs(&json_param.param::<TagLogsParam>()?, &auth_dao).await,
+        "tag_file_data" => tag_file_info(&json_param.param::<TagFileDataParam>()?, &auth_dao).await,
+        "menu_add" => menu_add(&json_param.param::<MenuAddParam>()?, &auth_dao).await,
+        "menu_list" => menu_list(&json_param.param::<MenuListParam>()?, &auth_dao).await,
+        "menu_del" => menu_del(&json_param.param::<MenuDelParam>()?, &auth_dao).await,
         name => handler_not_found!(name),
     };
     Ok(res.map_err(|e| auth_dao.fluent_error_json_data(&e))?.into())
@@ -117,8 +109,8 @@ pub async fn docs_read(
     json_param: JsonQuery,
 ) -> ResponseJsonResult<ResponseJson> {
     let res = match path.into_inner().as_str() {
-        "menu" => docs_menu(&req_dao).await,
-        "md" => docs_md_read(&json_param.param::<DocsMdReadParam>()?, &req_dao).await,
+        "menu" => menu_data(&req_dao).await,
+        "md" => md_read(&json_param.param::<MdReadParam>()?, &req_dao).await,
         name => handler_not_found!(name),
     };
     Ok(res.map_err(|e| req_dao.fluent_error_json_data(&e))?.into())

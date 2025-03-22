@@ -35,10 +35,12 @@ pub async fn mailer_smtp_config_list(
     param: &MailerSmtpConfigListParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminMailConfig {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailConfig {})
         .await?;
     let row = req_dao
         .web_dao
@@ -90,12 +92,13 @@ pub async fn mailer_smtp_config_add(
     param: &MailerSmtpConfigAddParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminMailConfig {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailConfig {})
         .await?;
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
 
     let row = req_dao
         .web_dao
@@ -121,7 +124,7 @@ pub async fn mailer_smtp_config_add(
                     .map(|e| if e == 0 { 1 } else { e })
                     .unwrap_or(1),
             },
-            req_auth.user_id(),
+            auth_data.user_id(),
             Some(&req_dao.req_env),
         )
         .await?;
@@ -144,10 +147,12 @@ pub async fn mailer_smtp_config_check(
     param: &MailerSmtpConfigCheckParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminMailConfig {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailConfig {})
         .await?;
 
     req_dao
@@ -194,12 +199,13 @@ pub async fn mailer_smtp_config_edit(
     param: &MailerSmtpConfigEditParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminMailConfig {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailConfig {})
         .await?;
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
 
     let row = req_dao
         .web_dao
@@ -223,7 +229,7 @@ pub async fn mailer_smtp_config_edit(
                 tls_domain: param.tls_domain.to_owned(),
                 branch_limit: param.branch_limit,
             },
-            req_auth.user_id(),
+            auth_data.user_id(),
             Some(&req_dao.req_env),
         )
         .await?;
@@ -239,19 +245,20 @@ pub async fn mailer_smtp_config_del(
     param: &MailerSmtpConfigDelParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminMailConfig {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailConfig {})
         .await?;
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
 
     let row = req_dao
         .web_dao
         .app_sender
         .mailer
         .smtp_sender
-        .del_config(param.id, req_auth.user_id(), Some(&req_dao.req_env))
+        .del_config(param.id, auth_data.user_id(), Some(&req_dao.req_env))
         .await?;
     Ok(JsonData::data(json!({ "num": row })))
 }
@@ -267,16 +274,17 @@ pub struct MailerAppSmtpConfigAddParam {
     pub body_tpl_id: String,
 }
 
-pub async fn mailer_app_smtp_config_add(
+pub async fn mailer_tpl_config_smtp_add(
     param: &MailerAppSmtpConfigAddParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminMailMgr {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailMgr {})
         .await?;
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
 
     let row = req_dao
         .web_dao
@@ -292,8 +300,8 @@ pub async fn mailer_app_smtp_config_add(
             &param.reply_email,
             &param.subject_tpl_id,
             &param.body_tpl_id,
-            req_auth.user_id(),
-            req_auth.user_id(),
+            auth_data.user_id(),
+            auth_data.user_id(),
             Some(&req_dao.req_env),
         )
         .await?;

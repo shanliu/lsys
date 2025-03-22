@@ -23,16 +23,13 @@ pub async fn site_config_set(
     param: &SiteConfigParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+  
     req_dao
         .web_dao
         .web_rbac
-        .check(
-            &req_dao.access_env().await?,
-            &CheckAdminSiteSetting {},
-            None,
-        )
+        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminSiteSetting {})
         .await?;
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?; //验证权限
     req_dao
         .web_dao
         .web_setting
@@ -50,14 +47,12 @@ pub async fn site_config_set(
 }
 
 pub async fn site_config_get(req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+  
     req_dao
         .web_dao
         .web_rbac
-        .check(
-            &req_dao.access_env().await?,
-            &CheckAdminSiteSetting {},
-            None,
-        )
+        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminSiteSetting {})
         .await?;
     let site_config = req_dao
         .web_dao

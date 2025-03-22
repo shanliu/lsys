@@ -8,19 +8,18 @@ use crate::common::UserAuthQueryDao;
 use crate::{common::JsonData, dao::access::api::system::CheckAdminDocs};
 
 #[derive(Debug, Deserialize)]
-pub struct DocsMenuAddParam {
+pub struct MenuAddParam {
     pub tag_id: u64,
     pub menu_path: String,
 }
 
-pub async fn docs_menu_add(
-    param: &DocsMenuAddParam,
-    req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+pub async fn menu_add(param: &MenuAddParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminDocs {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminDocs {})
         .await?;
     let auth_data = req_dao.user_session.read().await.get_session_data().await?; //验证权限
 
@@ -49,20 +48,18 @@ pub async fn docs_menu_add(
 }
 
 #[derive(Debug, Deserialize)]
-pub struct DocsMenuDelParam {
+pub struct MenuDelParam {
     pub menu_id: u64,
 }
 
-pub async fn docs_menu_del(
-    param: &DocsMenuDelParam,
-    req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+pub async fn menu_del(param: &MenuDelParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminDocs {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminDocs {})
         .await?;
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?; //验证权限
 
     let menu = req_dao
         .web_dao
@@ -82,18 +79,17 @@ pub async fn docs_menu_del(
 }
 
 #[derive(Debug, Deserialize)]
-pub struct DocsMenuListParam {
+pub struct MenuListParam {
     pub tag_id: u64,
 }
 
-pub async fn docs_menu_list(
-    param: &DocsMenuListParam,
-    req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+pub async fn menu_list(param: &MenuListParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminDocs {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminDocs {})
         .await?;
 
     let tag = req_dao

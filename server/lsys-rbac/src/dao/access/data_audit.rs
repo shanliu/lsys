@@ -1,6 +1,6 @@
+use lsys_core::db::{ModelTableName, SqlExpr};
+use lsys_core::sql_format;
 use lsys_core::LimitParam;
-use lsys_core::{sql_format};
-use lsys_core::db::{ ModelTableName, SqlExpr};
 
 use crate::{
     dao::result::RbacResult,
@@ -14,6 +14,7 @@ use lsys_core::db::SqlQuote;
 
 pub struct AuditDataParam<'t> {
     pub user_id: Option<u64>,
+    pub app_id: Option<u64>,
     pub user_ip: Option<&'t str>,
     pub device_id: Option<&'t str>,
     pub request_id: Option<&'t str>,
@@ -25,6 +26,9 @@ impl RbacAccess {
         let mut where_sql = vec![];
         if let Some(val) = audit_param.user_id {
             where_sql.push(sql_format!("  user_id = {}", val));
+        }
+        if let Some(val) = audit_param.app_id {
+            where_sql.push(sql_format!("  app_id = {}", val));
         }
         if let Some(val) = audit_param.user_ip {
             where_sql.push(sql_format!("  user_ip = {}", val));

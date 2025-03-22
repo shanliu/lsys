@@ -1,7 +1,7 @@
 use crate::module::WeChatConfig;
 use lsys_web::{
     common::{JsonData, JsonResult, UserAuthQueryDao},
-    handler::api::system::{setting_get, setting_set},
+    handler::api::system::setting::{setting_get, setting_set},
 };
 use serde::Deserialize;
 

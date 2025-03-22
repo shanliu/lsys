@@ -31,11 +31,7 @@ pub async fn do_login(
     req_dao
         .web_dao
         .web_rbac
-        .check(
-            &req_dao.access_env(),
-            &CheckRestApp { app_id: app.id },
-            None,
-        )
+        .check(&req_dao.req_env, None, &CheckRestApp { app_id: app.id })
         .await?;
     req_dao
         .web_dao
@@ -79,7 +75,7 @@ pub async fn do_login(
         )
         .await?;
     Ok(JsonData::data(json!({
-        "login_code": seession_body.token_data(),
+        "token_data": seession_body.token_data(),
         "user_id": seession_body.user_id(),
         "user_name": seession_body.user().user_name,
     })))
@@ -87,7 +83,7 @@ pub async fn do_login(
 
 #[derive(Debug, Deserialize)]
 pub struct DoLogoutParam {
-    login_code: String,
+    token_data: String,
 }
 pub async fn do_logout(
     param: &DoLogoutParam,
@@ -106,7 +102,7 @@ pub async fn do_logout(
         .web_user
         .user_dao
         .auth_code_dao
-        .code_logout(app.id, &param.login_code)
+        .code_logout(app.id, &param.token_data)
         .await?;
 
     Ok(JsonData::default())
@@ -114,7 +110,7 @@ pub async fn do_logout(
 
 #[derive(Debug, Deserialize)]
 pub struct LoginInfoParam {
-    pub login_code: String,
+    pub token_data: String,
 }
 pub async fn login_info(
     param: &LoginInfoParam,
@@ -124,11 +120,7 @@ pub async fn login_info(
     req_dao
         .web_dao
         .web_rbac
-        .check(
-            &req_dao.access_env(),
-            &CheckRestApp { app_id: app.id },
-            None,
-        )
+        .check(&req_dao.req_env, None, &CheckRestApp { app_id: app.id })
         .await?;
     req_dao
         .web_dao
@@ -143,7 +135,7 @@ pub async fn login_info(
         .web_user
         .user_dao
         .auth_code_dao
-        .login_data(app.id, &param.login_code)
+        .login_data(app.id, &param.token_data)
         .await?;
 
     Ok(JsonData::data(json!({

@@ -6,20 +6,18 @@ use lsys_core::fluent_message;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
-pub struct AppConfirmParam {
+pub struct ConfirmParam {
     pub app_req_id: u64,
     pub confirm_status: i8,
     pub confirm_note: String,
 }
 //APP 申请审核
-pub async fn app_confirm(
-    param: &AppConfirmParam,
-    req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+pub async fn confirm(param: &ConfirmParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminApp {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminApp {})
         .await?;
     let req_app = req_dao
         .web_dao
@@ -41,7 +39,7 @@ pub async fn app_confirm(
             "not-system-app-confirm"
         )));
     }
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     let confirm_status = AppRequestStatus::try_from(param.confirm_status)?;
     req_dao
         .web_dao

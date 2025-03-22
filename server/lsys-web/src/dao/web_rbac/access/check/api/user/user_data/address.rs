@@ -1,4 +1,4 @@
-use crate::dao::{CheckRelationData, CheckResTpl, RbacCheckAccess, RbacCheckResTpl};
+use crate::dao::{CheckResTpl, RbacCheckAccess, RbacCheckResTpl};
 use lsys_rbac::dao::{AccessCheckEnv, AccessCheckRes, RbacAccess, RbacResult};
 
 pub struct CheckUserAddressBase {}
@@ -8,12 +8,10 @@ impl RbacCheckAccess for CheckUserAddressBase {
         &self,
         access: &RbacAccess,
         check_env: &AccessCheckEnv<'_>,
-        relation: &CheckRelationData,
     ) -> RbacResult<()> {
         access
             .check(
                 check_env, //资源访问用户
-                &relation.to_session_role(),
                 &[AccessCheckRes::system_empty_data(
                     "global-public",
                     vec!["address-base"],
@@ -27,6 +25,7 @@ impl RbacCheckResTpl for CheckUserAddressBase {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
             user: false,
+            data:false,
             key: "global-public",
             ops: vec!["address-base"],
         }]
@@ -42,12 +41,10 @@ impl RbacCheckAccess for CheckUserAddressEdit {
         &self,
         access: &RbacAccess,
         check_env: &AccessCheckEnv<'_>,
-        relation: &CheckRelationData,
     ) -> RbacResult<()> {
         access
             .check(
                 check_env, //资源访问用户
-                &relation.to_session_role(),
                 &[AccessCheckRes::user_empty_data(
                     self.res_user_id,
                     "global-public",
@@ -61,7 +58,7 @@ impl RbacCheckAccess for CheckUserAddressEdit {
 impl RbacCheckResTpl for CheckUserAddressEdit {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
-            user: true,
+            user: true,data:false,
             key: "global-public",
             ops: vec!["address-edit"],
         }]

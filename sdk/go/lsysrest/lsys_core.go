@@ -23,6 +23,10 @@ type RestApi struct {
 	config *RestApiConfig
 }
 
+func (me *RestApi) Config() *RestApiConfig {
+	return me.config
+}
+
 // NewRestApi 新建调用接口实例
 func NewRestApi(config *RestApiConfig) *RestApi {
 	client := rest_client.NewRestClientManager()

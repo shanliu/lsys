@@ -471,9 +471,9 @@ impl App {
                 return Err(err.into());
             }
         }
-
+ let time = now_time()?;
         let mut db = self.db.begin().await?;
-        let time = now_time()?;
+       
         let status = AppStatus::Enable as i8;
 
         let change = model_option_set!(AppModelRef,{
@@ -552,9 +552,9 @@ impl App {
         if ![AppStatus::Enable as i8, AppStatus::Init as i8].contains(&app.status) {
             return Err(AppError::System(fluent_message!("app-req-status-invalid")));
         }
-
+  let time = now_time()?;
         let mut db = self.db.begin().await?;
-        let time = now_time()?;
+      
         let status = AppStatus::Disable as i8;
 
         let change = model_option_set!(AppModelRef,{
@@ -626,9 +626,9 @@ impl App {
     ) -> AppResult<()> {
         if AppStatus::Delete.eq(app.status) {
             return Ok(());
-        }
+        }  let time = now_time()?;
         let mut db = self.db.begin().await?;
-        let time = now_time()?;
+      
         let status = AppStatus::Delete as i8;
 
         let change = model_option_set!(AppModelRef,{

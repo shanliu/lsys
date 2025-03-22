@@ -29,17 +29,22 @@ impl SingleSetting {
             logger, //  fluent,
         }
     }
+}
+pub struct SingleSettingData<'t, T: SettingEncode> {
+    pub name: &'t str,
+    pub data: &'t T,
+}
+impl SingleSetting {
     pub async fn save<T: SettingEncode>(
         &self,
         user_id: Option<u64>,
-        name: &str,
-        data: &T,
+        param: &SingleSettingData<'_, T>,
         change_user_id: u64,
         transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
     ) -> SettingResult<u64> {
-        let name = name.to_owned();
-        let edata = data.encode();
+        let name = param.name.to_owned();
+        let edata = param.data.encode();
         let key = T::key().to_string();
         let time = now_time().unwrap_or_default();
         let uid = user_id.unwrap_or_default();

@@ -5,21 +5,22 @@ use crate::{
 use lsys_access::dao::AccessSession;
 use lsys_app::model::AppRequestStatus;
 
-pub struct AppConfirmExterFeatureParam {
+pub struct ConfirmExterFeatureParam {
     pub app_id: u64,
     pub app_req_id: u64,
     pub confirm_status: i8,
     pub confirm_note: String,
 }
 // APP功能审核,如邮件,短信等
-pub async fn app_confirm_exter_feature(
-    param: &AppConfirmExterFeatureParam,
+pub async fn confirm_exter_feature(
+    param: &ConfirmExterFeatureParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminApp {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminApp {})
         .await?;
     let req_app = req_dao
         .web_dao
@@ -36,7 +37,6 @@ pub async fn app_confirm_exter_feature(
         .app
         .find_by_id(&param.app_id)
         .await?;
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
         .web_app

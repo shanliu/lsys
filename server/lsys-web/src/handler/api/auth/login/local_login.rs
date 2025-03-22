@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, ops::Deref};
+use std::borrow::Borrow;
 
 use crate::{
     common::{CaptchaParam, JsonData, JsonResult, RequestDao, UserAuthQueryDao},
@@ -25,7 +25,7 @@ pub async fn user_login_from_name(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.deref().access_env(), &CheckSystemLogin {}, None)
+        .check(&req_dao.req_env, None, &CheckSystemLogin {})
         .await?;
     req_dao
         .web_dao
@@ -57,7 +57,7 @@ pub async fn user_login_from_email(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.deref().access_env(), &CheckSystemLogin {}, None)
+        .check(&req_dao.req_env, None, &CheckSystemLogin {})
         .await?;
     req_dao
         .web_dao
@@ -90,7 +90,7 @@ pub async fn user_login_from_email_code(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.deref().access_env(), &CheckSystemLogin {}, None)
+        .check(&req_dao.req_env, None, &CheckSystemLogin {})
         .await?;
     req_dao
         .web_dao
@@ -125,7 +125,7 @@ pub async fn user_login_from_mobile(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.deref().access_env(), &CheckSystemLogin {}, None)
+        .check(&req_dao.req_env, None, &CheckSystemLogin {})
         .await?;
     req_dao
         .web_dao
@@ -160,7 +160,7 @@ pub async fn user_login_from_mobile_code(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.deref().access_env(), &CheckSystemLogin {}, None)
+        .check(&req_dao.req_env, None, &CheckSystemLogin {})
         .await?;
     req_dao
         .web_dao

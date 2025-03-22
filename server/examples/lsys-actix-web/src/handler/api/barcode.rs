@@ -3,11 +3,10 @@ use crate::common::handler::{
 };
 
 use actix_web::{post, HttpRequest};
-use lsys_web::handler::api::user::{
-    barcode_create_config_add, barcode_create_config_delete, barcode_create_config_edit,
-    barcode_create_config_list, barcode_parse_record_delete, barcode_parse_record_list,
-    BarCodeCreateConfigAddParam, BarCodeCreateConfigDeleteParam, BarCodeCreateConfigEditParam,
-    BarCodeCreateConfigListParam, BarCodeParseRecordDeleteParam, BarCodeParseRecordListParam,
+use lsys_web::handler::api::user::app_barcode::{
+    create_config_add, create_config_delete, create_config_edit, create_config_list,
+    parse_record_delete, parse_record_list, CreateConfigAddParam, CreateConfigDeleteParam,
+    CreateConfigEditParam, CreateConfigListParam, ParseRecordDeleteParam, ParseRecordListParam,
 };
 #[post("/{type}")]
 pub async fn barcode(
@@ -20,22 +19,14 @@ pub async fn barcode(
     auth_dao.set_request_token(&jwt).await;
     Ok(match path.into_inner().as_str() {
         "create_config_add" => {
-            barcode_create_config_add(
-                &json_param.param::<BarCodeCreateConfigAddParam>()?,
-                &auth_dao,
-            )
-            .await
+            create_config_add(&json_param.param::<CreateConfigAddParam>()?, &auth_dao).await
         }
         "create_config_edit" => {
-            barcode_create_config_edit(
-                &json_param.param::<BarCodeCreateConfigEditParam>()?,
-                &auth_dao,
-            )
-            .await
+            create_config_edit(&json_param.param::<CreateConfigEditParam>()?, &auth_dao).await
         }
         "create_config_list" => {
-            barcode_create_config_list(
-                &json_param.param::<BarCodeCreateConfigListParam>()?,
+            create_config_list(
+                &json_param.param::<CreateConfigListParam>()?,
                 &auth_dao,
                 |item| {
                     req.url_for("barcode_show", [item.id.to_string(), "".to_string()])
@@ -46,25 +37,13 @@ pub async fn barcode(
             .await
         }
         "create_config_delete" => {
-            barcode_create_config_delete(
-                &json_param.param::<BarCodeCreateConfigDeleteParam>()?,
-                &auth_dao,
-            )
-            .await
+            create_config_delete(&json_param.param::<CreateConfigDeleteParam>()?, &auth_dao).await
         }
         "parse_record_delete" => {
-            barcode_parse_record_delete(
-                &json_param.param::<BarCodeParseRecordDeleteParam>()?,
-                &auth_dao,
-            )
-            .await
+            parse_record_delete(&json_param.param::<ParseRecordDeleteParam>()?, &auth_dao).await
         }
         "parse_record_list" => {
-            barcode_parse_record_list(
-                &json_param.param::<BarCodeParseRecordListParam>()?,
-                &auth_dao,
-            )
-            .await
+            parse_record_list(&json_param.param::<ParseRecordListParam>()?, &auth_dao).await
         }
         name => handler_not_found!(name),
     }

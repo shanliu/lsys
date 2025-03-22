@@ -4,14 +4,11 @@ use crate::dao::access::api::user::CheckUserAppEdit;
 
 use lsys_access::dao::AccessSession;
 
-pub struct AppDeleteParam {
+pub struct DeleteParam {
     pub app_id: u64,
 }
 
-pub async fn app_delete(
-    param: &AppDeleteParam,
-    req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+pub async fn delete(param: &DeleteParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let app = req_dao
         .web_dao
@@ -24,11 +21,11 @@ pub async fn app_delete(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.access_env().await?,
+            &req_dao.req_env,
+            Some(&auth_data),
             &CheckUserAppEdit {
                 res_user_id: app.user_id,
             },
-            None,
         )
         .await?;
     req_dao

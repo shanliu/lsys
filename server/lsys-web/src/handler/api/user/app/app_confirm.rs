@@ -5,16 +5,18 @@ use lsys_access::dao::AccessSession;
 use lsys_app::model::AppRequestStatus;
 use lsys_core::fluent_message;
 
-pub struct AppConfirmParam {
+pub struct ConfirmParam {
     pub app_req_id: u64,
     pub confirm_status: i8,
     pub confirm_note: String,
 }
 
-pub async fn app_confirm(
-    param: &AppConfirmParam,
+pub async fn confirm(
+    param: &ConfirmParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     let req_app = req_dao
         .web_dao
         .web_app
@@ -40,19 +42,19 @@ pub async fn app_confirm(
         .app
         .find_by_id(&req_app.parent_app_id)
         .await?;
-
+    //当前登录用户对父应用的可编辑
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &req_dao.access_env().await?,
+            &req_dao.req_env,
+            Some(&auth_data),
             &CheckUserAppEdit {
                 res_user_id: parent_app.user_id,
             },
-            None,
         )
         .await?;
-
+    //父应用的子应用权限启用
     req_dao
         .web_dao
         .web_app
@@ -60,8 +62,6 @@ pub async fn app_confirm(
         .app
         .inner_feature_sub_app_check(&parent_app)
         .await?;
-
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     let confirm_status = AppRequestStatus::try_from(param.confirm_status)?;
     req_dao

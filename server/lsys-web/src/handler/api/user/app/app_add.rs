@@ -1,27 +1,28 @@
 use crate::common::JsonResult;
 use crate::common::{JsonData, UserAuthQueryDao};
-use crate::dao::access::api::user::CheckUserAppView;
+use crate::dao::access::api::user::CheckUserAppEdit;
 use lsys_access::dao::AccessSession;
 use lsys_app::dao::AppDataParam;
 use serde_json::json;
 
-pub struct AppAddParam {
+pub struct AddParam {
     pub name: String,
     pub client_id: String,
     pub parent_app_id: Option<u64>,
 }
 
-pub async fn app_add(param: &AppAddParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn add(param: &AddParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &req_dao.access_env().await?,
-            &CheckUserAppView {
+            &req_dao.req_env,
+            Some(&auth_data),
+            &CheckUserAppEdit {
                 res_user_id: auth_data.user_id(),
             },
-            None,
         )
         .await?;
 

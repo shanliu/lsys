@@ -46,6 +46,46 @@ impl RbacRole {
             })));
         }
 
+        for perm in perm_vec {
+            if perm.op.user_id != perm.res.user_id || perm.op.app_id != perm.res.app_id {
+                return Err(RbacError::System(fluent_message!("rbac-role-bad-op-user",{
+                    "res":&perm.res.res_name,
+                    "op":&perm.op.op_name,
+                    "op_user_id":perm.op.user_id,
+                })));
+            }
+        }
+
+        if role.user_id > 0 {
+            //系统内置用户
+            if role.app_id > 0 {
+                //非系统用户,只能限定APP相同
+                for perm in perm_vec {
+                    if perm.res.user_id != role.user_id || perm.res.app_id != role.app_id {
+                        return Err(RbacError::System(
+                            fluent_message!("rbac-role-bad-perm-user",{
+                                "res":&perm.res.res_name,
+                                "op":&perm.op.op_name,
+                                "user_id":role.user_id,
+                            }),
+                        ));
+                    }
+                }
+            } else {
+                for perm in perm_vec {
+                    if perm.res.user_id != role.user_id {
+                        return Err(RbacError::System(
+                            fluent_message!("rbac-role-bad-perm-user",{
+                                "res":&perm.res.res_name,
+                                "op":&perm.op.op_name,
+                                "user_id":role.user_id,
+                            }),
+                        ));
+                    }
+                }
+            }
+        }
+
         let op_res = sqlx::query_as::<_, (u64, String)>(&sql_format!(
             "select op_id,res_type from {} where status={} and ({})",
             RbacOpResModel::table_name(),
@@ -55,9 +95,10 @@ impl RbacRole {
                 perm_vec
                     .iter()
                     .map(|e| sql_format!(
-                        "res_type={} and user_id={} and op_id={}",
+                        "res_type={} and user_id={} and app_id={} and op_id={}",
                         e.res.res_type,
                         e.res.user_id,
+                        e.res.app_id,
                         e.op.id
                     ))
                     .collect::<Vec<_>>()
@@ -76,30 +117,6 @@ impl RbacRole {
                     "res":&perm.res.res_name,
                     "op":&perm.op.op_name,
                 })));
-            }
-        }
-
-        if role.user_id > 0 {
-            for perm in perm_vec {
-                if perm.op.user_id != role.user_id || perm.res.user_id != role.user_id {
-                    return Err(RbacError::System(
-                        fluent_message!("rbac-role-bad-perm-user",{
-                            "res":&perm.res.res_name,
-                            "op":&perm.op.op_name,
-                            "user_id":role.user_id,
-                        }),
-                    ));
-                }
-            }
-        } else {
-            for perm in perm_vec {
-                if perm.op.user_id != perm.res.user_id {
-                    return Err(RbacError::System(fluent_message!("rbac-role-bad-op-user",{
-                        "res":&perm.res.res_name,
-                        "op":&perm.op.op_name,
-                        "op_user_id":perm.op.user_id,
-                    })));
-                }
             }
         }
 
@@ -281,11 +298,33 @@ impl RbacRole {
         transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
     ) -> RbacResult<()> {
-        let mut perm_id = 0;
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
+        match self
+            ._role_remove_perm(res, op_data, delete_user_id, &mut db, env_data)
+            .await
+        {
+            Ok(_) => {
+                db.commit().await?;
+                Ok(())
+            }
+            Err(err) => {
+                db.rollback().await?;
+                Err(err)
+            }
+        }
+    }
+    async fn _role_remove_perm(
+        &self,
+        res: &RbacResModel,
+        op_data: &[u64],
+        delete_user_id: u64,
+        db: &mut Transaction<'_, sqlx::MySql>,
+        env_data: Option<&RequestEnv>,
+    ) -> RbacResult<()> {
+        let mut perm_id = 0;
         loop {
             let role_data=sqlx::query(&sql_format!(
                 "select role.*,perm.op_id,perm.id as perm_id from {} as role join {} as perm on role.id=perm.role_id where perm.res_id={} and perm.op_id in ({}) and perm.id>{} order by perm.id asc limit 100 ",
@@ -314,12 +353,11 @@ impl RbacRole {
                 res,
                 &role_data,
                 delete_user_id,
-                Some(&mut db),
+                Some(db),
                 env_data,
             )
             .await?;
         }
-        db.commit().await?;
         Ok(())
     }
     //从所有的角色关系中移除指定的资源
@@ -358,14 +396,19 @@ impl RbacRole {
             if role_data.is_empty() {
                 break;
             }
-            self.role_remove_perm_from_role_data(
-                res,
-                &role_data,
-                delete_user_id,
-                Some(&mut db),
-                env_data,
-            )
-            .await?;
+            if let Err(err) = self
+                .role_remove_perm_from_role_data(
+                    res,
+                    &role_data,
+                    delete_user_id,
+                    Some(&mut db),
+                    env_data,
+                )
+                .await
+            {
+                db.rollback().await?;
+                return Err(err);
+            };
         }
         db.commit().await?;
         Ok(())

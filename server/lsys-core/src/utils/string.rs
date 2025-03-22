@@ -1,4 +1,4 @@
-use rand::seq::SliceRandom;
+use rand::seq::IndexedRandom;
 
 pub enum RandType {
     Number,
@@ -20,7 +20,7 @@ pub fn rand_str(rand_type: RandType, len: usize) -> String {
         RandType::UpperHex => "ABCDEF0123456789",
         RandType::LowerHex => "abcdef0123456789",
     };
-    let mut rng = &mut rand::thread_rng();
+    let mut rng = &mut rand::rng();
     String::from_utf8(
         base_str
             .as_bytes()

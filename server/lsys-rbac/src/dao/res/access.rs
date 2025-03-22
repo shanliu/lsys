@@ -15,6 +15,7 @@ pub struct ResInfo<'t> {
     pub res_type: &'t str, //资源类型
     pub res_data: &'t str, //资源数据
     pub user_id: u64,      //资源用户ID
+    pub app_id: u64,       //用户ID下的APPid
 }
 
 //资源管理
@@ -30,15 +31,15 @@ impl RbacRes {
         let mut where_sql = Vec::with_capacity(keys.len());
         for rkey in keys {
             where_sql.push(sql_format!(
-                "(res_type ={} and res_data={} and user_id={})",
+                "(res_type ={} and res_data={} and user_id={} and app_id={})",
                 rkey.res_type,
                 rkey.res_data,
                 rkey.user_id,
+                rkey.app_id,
             ));
         }
         let sql = sql_format!(
-            "select * from {} where
-            ({}) and status ={}",
+            "select * from {} where ({}) and status ={}",
             RbacResModel::table_name(),
             SqlExpr(where_sql.join(" or ")),
             RbacResStatus::Enable as i8
@@ -56,6 +57,7 @@ impl RbacRes {
                             f.res_type.as_str() == e.res_type
                                 && f.res_data.as_str() == e.res_data
                                 && f.user_id == e.user_id
+                                && f.app_id == e.app_id
                         })
                         .map(|f| f.to_owned()),
                 )
@@ -67,11 +69,12 @@ impl RbacRes {
     pub async fn find_one_by_info<'a>(&self, rkey: &'a ResInfo<'a>) -> RbacResult<RbacResModel> {
         let sql = sql_format!(
             "select * from {} where
-            res_type ={} and res_data={} and user_id={} and status ={}",
+            res_type ={} and res_data={} and user_id={} and app_id={} and status ={}",
             RbacResModel::table_name(),
             rkey.res_type,
             rkey.res_data,
             rkey.user_id,
+            rkey.app_id,
             RbacResStatus::Enable as i8
         );
         Ok(sqlx::query_as::<_, RbacResModel>(sql.as_str())
@@ -95,6 +98,7 @@ impl RbacResCache<'_> {
                     res_type: tmp.res_type.to_owned(),
                     res_data: tmp.res_data.to_owned(),
                     user_id: tmp.user_id,
+                    app_id: tmp.app_id,
                 })
                 .await
             {

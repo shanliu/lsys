@@ -1,22 +1,21 @@
-use crate::dao::{
-    CheckRelationData, CheckResTpl, RbacCheckAccess, RbacCheckAccessDepend, RbacCheckResTpl,
-};
+use crate::dao::{CheckResTpl, RbacCheckAccess, RbacCheckAccessDepend, RbacCheckResTpl};
 use lsys_rbac::dao::{AccessCheckEnv, AccessCheckRes, RbacAccess, RbacResult};
 
-pub struct CheckBarCodeView {}
+pub struct CheckBarCodeView {
+    pub res_user_id: u64,
+}
 #[async_trait::async_trait]
 impl RbacCheckAccess for CheckBarCodeView {
     async fn check(
         &self,
         access: &RbacAccess,
         check_env: &AccessCheckEnv<'_>,
-        relation: &CheckRelationData,
     ) -> RbacResult<()> {
         access
             .check(
                 check_env,
-                &relation.to_session_role(),
-                &[AccessCheckRes::system_empty_data(
+                &[AccessCheckRes::user_empty_data(
+                    self.res_user_id,
                     "global-barcode",
                     vec!["view"],
                 )],
@@ -28,6 +27,7 @@ impl RbacCheckResTpl for CheckBarCodeView {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
             user: false,
+            data:false,
             key: "global-barcode",
             ops: vec!["view"],
         }]
@@ -35,7 +35,7 @@ impl RbacCheckResTpl for CheckBarCodeView {
 }
 
 pub struct CheckBarCodeEdit {
-    pub app_id: u64,
+    pub res_user_id: u64,
 }
 #[async_trait::async_trait]
 impl RbacCheckAccess for CheckBarCodeEdit {
@@ -43,13 +43,12 @@ impl RbacCheckAccess for CheckBarCodeEdit {
         &self,
         access: &RbacAccess,
         check_env: &AccessCheckEnv<'_>,
-        relation: &CheckRelationData,
     ) -> RbacResult<()> {
         access
             .check(
                 check_env,
-                &relation.to_session_role(),
-                &[AccessCheckRes::system_empty_data(
+                &[AccessCheckRes::user_empty_data(
+                    self.res_user_id,
                     "global-barcode",
                     vec!["edit"],
                 )],
@@ -57,13 +56,16 @@ impl RbacCheckAccess for CheckBarCodeEdit {
             .await
     }
     fn depends(&self) -> Vec<Box<RbacCheckAccessDepend>> {
-        vec![Box::new(CheckBarCodeView {})]
+        vec![Box::new(CheckBarCodeView {
+            res_user_id: self.res_user_id,
+        })]
     }
 }
 impl RbacCheckResTpl for CheckBarCodeEdit {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
             user: false,
+            data:false,
             key: "global-barcode",
             ops: vec!["edit"],
         }]

@@ -1,9 +1,9 @@
 use std::{ops::Deref, sync::Arc};
 
-use lsys_access::dao::{AccessResult, AccessSession, AccessSessionData, AccessSessionToken};
+use lsys_access::dao::{AccessSession, AccessSessionData, AccessSessionToken};
 use lsys_app::dao::{RestAuthData, RestAuthSession, RestAuthToken};
 use lsys_core::{FluentBundle, IntoFluentMessage, RequestEnv};
-use lsys_rbac::dao::AccessCheckEnv;
+
 use lsys_user::dao::{UserAuthData, UserAuthSession, UserAuthToken};
 
 use crate::{
@@ -39,13 +39,6 @@ impl RequestDao {
             JsonError::JsonData(_, fluent_message) => self.fluent.format_message(fluent_message),
         }
     }
-    pub fn access_env(&self) -> AccessCheckEnv {
-        AccessCheckEnv {
-            user_id: 0,
-            req_env: Some(&self.req_env),
-            login_token: None,
-        }
-    }
 }
 
 pub struct RequestAuthDao<T: AccessSessionToken, D: AccessSessionData, S: AccessSession<T, D>> {
@@ -56,18 +49,6 @@ pub struct RequestAuthDao<T: AccessSessionToken, D: AccessSessionData, S: Access
     // fluent: Arc<FluentBundle>,
     marker_t: std::marker::PhantomData<T>,
     marker_d: std::marker::PhantomData<D>,
-}
-
-impl<T: AccessSessionToken, D: AccessSessionData, S: AccessSession<T, D>> RequestAuthDao<T, D, S> {
-    pub async fn access_env(&self) -> AccessResult<lsys_rbac::dao::AccessCheckEnv> {
-        let session = self.user_session.read().await.get_session_data().await?;
-        let session_body = session.session_body();
-        Ok(self
-            .req_dao
-            .access_env()
-            .using_user_id(session_body.user_id())
-            .using_login_token(session_body.token_data()))
-    }
 }
 
 impl<T: AccessSessionToken, D: AccessSessionData, S: AccessSession<T, D>> Deref

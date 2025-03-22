@@ -2,6 +2,7 @@ use std::{collections::HashSet, sync::Arc};
 
 use lsys_core::{
     fluent_message, now_time, AppCore, FluentMessage, IntoFluentMessage, RequestEnv, TaskData,
+    TaskDispatchConfig,
 };
 
 use lsys_app_notify::dao::NotifyDao;
@@ -88,25 +89,25 @@ impl SmsSenderDao {
             message_reader.clone(),
         ));
 
-        let task_sender = TaskDispatch::new(
-            &format!("{}-sender-notify", SMSER_REDIS_PREFIX),
-            &format!("{}-sender-read-lock", SMSER_REDIS_PREFIX),
-            &format!("{}-sender-run-task", SMSER_REDIS_PREFIX),
-            sender_task_size,
+        let task_sender = TaskDispatch::new(&TaskDispatchConfig {
+            list_notify: &format!("{}-sender-notify", SMSER_REDIS_PREFIX),
+            read_lock_key: &format!("{}-sender-read-lock", SMSER_REDIS_PREFIX),
+            task_list_key: &format!("{}-sender-run-task", SMSER_REDIS_PREFIX),
+            task_size: sender_task_size,
             task_timeout,
             is_check,
-            task_timeout,
-        );
+            check_timeout: task_timeout,
+        });
 
-        let task_status = TaskDispatch::new(
-            &format!("{}-status-notify", SMSER_REDIS_PREFIX),
-            &format!("{}-status-read-lock", SMSER_REDIS_PREFIX),
-            &format!("{}-status-run-task", SMSER_REDIS_PREFIX),
-            notify_task_size,
+        let task_status = TaskDispatch::new(&TaskDispatchConfig {
+            list_notify: &format!("{}-status-notify", SMSER_REDIS_PREFIX),
+            read_lock_key: &format!("{}-status-read-lock", SMSER_REDIS_PREFIX),
+            task_list_key: &format!("{}-status-run-task", SMSER_REDIS_PREFIX),
+            task_size: notify_task_size,
             task_timeout,
             is_check,
-            task_timeout,
-        );
+            check_timeout: task_timeout,
+        });
         let task_status_key = format!("{}-status-data", SMSER_REDIS_PREFIX);
         let sms_notify = Arc::new(SmsSendNotify::new(db.clone(), notify.clone()));
 

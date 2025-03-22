@@ -14,7 +14,11 @@ macro_rules! bind_user_info {
                     val
                 }else{
                     $(
-                        val[$out_field]=json!(user_data.get(&e.$field,$privacy));
+                        if $privacy {
+                            val[$out_field]=json!(user_data.get(&e.$field).map(|e|e.to_public()));
+                        }else{
+                            val[$out_field]=json!(user_data.get(&e.$field));
+                        }
                     )*
                     val
                 }
@@ -25,7 +29,7 @@ macro_rules! bind_user_info {
         bind_user_info!($user_dao,$data_vec,[$field:"user_data"],$privacy)
     };
     ($user_dao:expr,$data_vec:expr,$field:ident) => {
-        bind_user_info!($user_dao,$data_vec,[$field:"user_data"],false)
+        bind_user_info!($user_dao,$data_vec,[$field:"user_data"],true)
     };
 }
 #[macro_export]
@@ -37,6 +41,6 @@ macro_rules! bind_user_info_from_req {
         bind_user_info_from_req!($req_dao,$data_vec,[$field:"user_data"],$privacy)
     };
     ($req_dao:expr,$data_vec:expr,$field:ident) => {
-        bind_user_info_from_req!($req_dao,$data_vec,[$field:"user_data"],false)
+        bind_user_info_from_req!($req_dao,$data_vec,[$field:"user_data"],true)
     };
 }

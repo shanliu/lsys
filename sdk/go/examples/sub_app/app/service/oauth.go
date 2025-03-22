@@ -12,36 +12,36 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func GetLoginUrl(c *gin.Context, callUrl string) (error, string) {
+func GetLoginUrl(c *gin.Context, callUrl string) (string, error) {
 	b := make([]byte, 6)
 	_, err := rand.Read(b)
 	if err != nil {
-		return err, ""
+		return "", err
 	}
 	state := hex.EncodeToString(b)
 	url := GetRestApi().OAuthAuthorizationUrl(context.Background(), callUrl, "user_info,user_mobile", state)
 	session := sessions.Default(c)
 	session.Set("oauth-state", state)
 	session.Save()
-	return nil, url
+	return url, nil
 }
 
-func GetToken(c *gin.Context, state string, code string) (error, *lsysrest.TokenData) {
+func GetToken(c *gin.Context, state string, code string) (*lsysrest.TokenData, error) {
 	session := sessions.Default(c)
 	tmp, ok := session.Get("oauth-state").(string)
 	if ok && tmp != state {
-		return errors.New("state wrong"), nil
+		return nil, errors.New("state wrong")
 	}
 	return GetRestApi().OAuthAccessToken(context.Background(), code)
 }
 
-func GetUserData(token string) (error, *rest_client.JsonData) {
+func GetUserData(token string) (*rest_client.JsonData, error) {
 	tokenApi := GetRestApi().TokenRestApi(token)
 	return tokenApi.OAuthUserInfo(context.Background(), true, true, false, false, false, false)
 
 }
 
-func RefreshToken(token string) (error, *lsysrest.TokenData) {
+func RefreshToken(token string) (*lsysrest.TokenData, error) {
 	tokenApi := GetRestApi().TokenRestApi(token)
 	return tokenApi.OAuthRefreshToken(context.Background())
 }

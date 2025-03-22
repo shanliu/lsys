@@ -7,13 +7,13 @@ use lsys_app::dao::AppOAuthClientParam;
 use serde::Deserialize;
 use serde_json::json;
 
-pub struct AppOAuthClientRequestParam {
+pub struct OAuthClientRequestParam {
     pub scope_data: Vec<String>,
     pub app_id: u64,
 }
 
-pub async fn app_oauth_client_request(
-    param: &AppOAuthClientRequestParam,
+pub async fn oauth_client_request(
+    param: &OAuthClientRequestParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
@@ -28,13 +28,32 @@ pub async fn app_oauth_client_request(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.access_env().await?,
+            &req_dao.req_env,
+            Some(&auth_data),
             &CheckUserAppEdit {
                 res_user_id: app.user_id,
             },
-            None,
         )
         .await?;
+
+    if app.parent_app_id > 0 {
+        let parent_app = req_dao
+            .web_dao
+            .web_app
+            .app_dao
+            .app
+            .find_by_id(&app.parent_app_id)
+            .await?;
+        //父应用必须已开通OAUTH SERVER功能
+        req_dao
+            .web_dao
+            .web_app
+            .app_dao
+            .oauth_server
+            .oauth_check(&parent_app)
+            .await?;
+    }
+
     req_dao
         .web_dao
         .web_app
@@ -54,8 +73,8 @@ pub async fn app_oauth_client_request(
     Ok(JsonData::default())
 }
 
-pub async fn app_oauth_client_scope_request(
-    param: &AppOAuthClientRequestParam,
+pub async fn oauth_client_scope_request(
+    param: &OAuthClientRequestParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
@@ -66,15 +85,16 @@ pub async fn app_oauth_client_scope_request(
         .app
         .find_by_id(&param.app_id)
         .await?;
+    //开通过 oauth_server 不影响scope申请
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &req_dao.access_env().await?,
+            &req_dao.req_env,
+            Some(&auth_data),
             &CheckUserAppEdit {
                 res_user_id: app.user_id,
             },
-            None,
         )
         .await?;
     req_dao
@@ -96,14 +116,14 @@ pub async fn app_oauth_client_scope_request(
     Ok(JsonData::default())
 }
 
-pub struct AppConfirmOAuthClientSettingParam {
+pub struct ConfirmOAuthClientSettingParam {
     pub app_id: u64,
     pub callback_domain: String,
     pub oauth_secret: String,
 }
 
-pub async fn app_oauth_client_setting(
-    param: &AppConfirmOAuthClientSettingParam,
+pub async fn oauth_client_setting(
+    param: &ConfirmOAuthClientSettingParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
@@ -118,11 +138,11 @@ pub async fn app_oauth_client_setting(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.access_env().await?,
+            &req_dao.req_env,
+            Some(&auth_data),
             &CheckUserAppEdit {
                 res_user_id: app.user_id,
             },
-            None,
         )
         .await?;
 
@@ -153,12 +173,12 @@ pub async fn app_oauth_client_setting(
 }
 
 #[derive(Deserialize)]
-pub struct AppOAuthClientViewSecretParam {
+pub struct OAuthClientViewSecretParam {
     pub app_id: u64,
 }
 
-pub async fn app_oauth_client_secret_view(
-    param: &AppOAuthClientViewSecretParam,
+pub async fn oauth_client_secret_view(
+    param: &OAuthClientViewSecretParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
@@ -173,11 +193,11 @@ pub async fn app_oauth_client_secret_view(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.access_env().await?,
+            &req_dao.req_env,
+            Some(&auth_data),
             &CheckUserAppView {
                 res_user_id: app.user_id,
             },
-            None,
         )
         .await?;
     req_dao
@@ -194,6 +214,5 @@ pub async fn app_oauth_client_secret_view(
         .oauth_client
         .oauth_view_secret(&app, auth_data.user_id(), Some(&req_dao.req_env))
         .await?;
-
     Ok(JsonData::data(json!({"data":secret_data})))
 }

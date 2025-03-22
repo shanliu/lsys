@@ -4,7 +4,7 @@ use lsys_docs::dao::GitDocResult;
 use serde::Deserialize;
 use serde_json::json;
 use serde_json::Value;
-pub async fn docs_menu(req_dao: &RequestDao) -> JsonResult<JsonData> {
+pub async fn menu_data(req_dao: &RequestDao) -> JsonResult<JsonData> {
     let data = req_dao
         .web_dao
         .web_doc
@@ -39,11 +39,11 @@ pub async fn docs_menu(req_dao: &RequestDao) -> JsonResult<JsonData> {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct DocsMdReadParam {
+pub struct MdReadParam {
     pub url: String,
     pub menu_id: u32,
 }
-pub async fn docs_md_read(param: &DocsMdReadParam, req_dao: &RequestDao) -> JsonResult<JsonData> {
+pub async fn md_read(param: &MdReadParam, req_dao: &RequestDao) -> JsonResult<JsonData> {
     let (data, dat) = req_dao
         .web_dao
         .web_doc
@@ -57,12 +57,12 @@ pub async fn docs_md_read(param: &DocsMdReadParam, req_dao: &RequestDao) -> Json
 }
 
 #[derive(Debug, Deserialize)]
-pub struct DocsRawReadParam {
+pub struct RawReadParam {
     pub menu_id: u32,
     pub url: String,
 }
 
-pub async fn docs_file(param: &DocsRawReadParam, req_dao: &RequestDao) -> GitDocResult<DocPath> {
+pub async fn file_path(param: &RawReadParam, req_dao: &RequestDao) -> GitDocResult<DocPath> {
     req_dao
         .web_dao
         .web_doc

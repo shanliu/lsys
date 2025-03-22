@@ -1,6 +1,4 @@
-use crate::dao::{
-    CheckRelationData, CheckResTpl, RbacCheckAccess, RbacCheckAccessDepend, RbacCheckResTpl,
-};
+use crate::dao::{CheckResTpl, RbacCheckAccess, RbacCheckAccessDepend, RbacCheckResTpl};
 use lsys_rbac::dao::{AccessCheckEnv, AccessCheckRes, RbacAccess, RbacResult};
 
 pub struct CheckAdminSenderTplEdit {
@@ -8,16 +6,10 @@ pub struct CheckAdminSenderTplEdit {
 }
 #[async_trait::async_trait]
 impl RbacCheckAccess for CheckAdminSenderTplEdit {
-    async fn check(
-        &self,
-        access: &RbacAccess,
-        check_env: &AccessCheckEnv<'_>,
-        relation: &CheckRelationData,
-    ) -> RbacResult<()> {
+    async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
         access
             .check(
                 check_env,
-                &relation.to_session_role(),
                 &[AccessCheckRes::system_empty_data(
                     "global-system",
                     vec!["tpl-edit"],
@@ -35,12 +27,13 @@ impl RbacCheckResTpl for CheckAdminSenderTplEdit {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![
             CheckResTpl {
-                user: false,
+                user: false, data: false,
                 key: "global-system",
                 ops: vec!["tpl-edit"],
             },
             CheckResTpl {
-                user: true,
+                user: true, 
+                data:false, 
                 key: "app-sender",
                 ops: vec!["tpl-edit"],
             },
@@ -53,17 +46,11 @@ pub struct CheckAdminSenderTplView {
 }
 #[async_trait::async_trait]
 impl RbacCheckAccess for CheckAdminSenderTplView {
-    async fn check(
-        &self,
-        access: &RbacAccess,
-        check_env: &AccessCheckEnv<'_>,
-        relation: &CheckRelationData,
-    ) -> RbacResult<()> {
+    async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
         if self.res_user_id == 0 {
             access
                 .check(
                     check_env,
-                    &relation.to_session_role(),
                     &[AccessCheckRes::system_empty_data(
                         "global-system",
                         vec!["tpl-view"],
@@ -74,7 +61,6 @@ impl RbacCheckAccess for CheckAdminSenderTplView {
             access
                 .list_check(
                     check_env,
-                    &relation.to_session_role(),
                     &[
                         &[AccessCheckRes::system_empty_data(
                             "global-system",
@@ -95,12 +81,13 @@ impl RbacCheckResTpl for CheckAdminSenderTplView {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![
             CheckResTpl {
-                user: false,
+                user: false, data: false,
                 key: "global-system",
                 ops: vec!["tpl-view"],
             },
             CheckResTpl {
-                user: true,
+                user: true, 
+                data:false, 
                 key: "app-sender",
                 ops: vec!["tpl-view"],
             },

@@ -18,7 +18,7 @@ func OauthCallback(c *gin.Context) {
 		service.ErrorPage(c, "回调缺少参数")
 		return
 	}
-	err, data := service.GetToken(c, state, code)
+	data, err := service.GetToken(c, state, code)
 	if err != nil {
 		service.ErrorPage(c, err.Error())
 		return
@@ -49,7 +49,7 @@ func OauthUserInfo(c *gin.Context) {
 	}
 	reload, find1 := c.GetQuery("reload")
 	if find1 && reload == "1" {
-		err, tmp := service.RefreshToken(data.AccessToken)
+		tmp, err := service.RefreshToken(data.AccessToken)
 		if err != nil {
 			service.ErrorPage(c, err.Error())
 			return
@@ -63,7 +63,7 @@ func OauthUserInfo(c *gin.Context) {
 		session.Save()
 		data = tmp
 	}
-	err, user := service.GetUserData(data.AccessToken)
+	user, err := service.GetUserData(data.AccessToken)
 	if err != nil {
 		service.ErrorPage(c, err.Error())
 		return

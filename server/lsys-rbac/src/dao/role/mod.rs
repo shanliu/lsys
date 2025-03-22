@@ -8,6 +8,7 @@ mod user;
 use logger::LogRole;
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
+    db::WhereOption,
     fluent_message, now_time, RemoteNotify, RequestEnv,
 };
 use sqlx::Acquire;
@@ -57,36 +58,83 @@ impl RbacRole {
     }
 }
 
+pub enum RbacRoleUserRangeData<'t> {
+    Session {
+        role_key: &'t str,
+        role_name: Option<&'t str>,
+    },
+    Custom {
+        role_name: &'t str,
+    },
+}
+
+pub struct RbacRoleAddData<'t> {
+    pub user_id: u64,
+    pub app_id: Option<u64>,
+    pub role_info: RbacRoleUserRangeData<'t>,
+    pub res_range: RbacRoleResRange,
+}
+
 impl RbacRole {
     //添加角色
-    #[allow(clippy::too_many_arguments)]
     pub async fn add_role(
         &self,
-        user_id: u64,
-        role_key: &str,
-        role_name: &str,
-        user_range: RbacRoleUserRange,
-        res_range: RbacRoleResRange,
+        param: &RbacRoleAddData<'_>,
         add_user_id: u64,
         transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
     ) -> RbacResult<RbacRoleModel> {
-        let role_key = check_length!(role_key, "key", 32);
-        let role_name = check_length!(role_name, "name", 32);
-        let user_range = user_range as i8;
-        let res_range = res_range as i8;
-        let mut sql=vec![sql_format!(
-            "select * from {} where user_id={user_id} and role_name={role_name} and status={} limit 1",
-            RbacRoleModel::table_name(),
-            RbacRoleStatus::Enable
-        )];
-        if !role_key.is_empty() {
-            sql.push(sql_format!(
-                "select * from {} where user_id={user_id} and role_key={role_key} and status={} limit 1",
-                RbacRoleModel::table_name(),
-                RbacRoleStatus::Enable
-            ));
-        }
+        let (user_range, role_key, role_name, sql) = match param.role_info {
+            RbacRoleUserRangeData::Session {
+                role_key,
+                role_name,
+            } => {
+                let role_name = match role_name {
+                    Some(role_name) => check_length!(role_name, "name", 32),
+                    None => "".to_string(),
+                };
+                let role_key = check_length!(role_key, "key", 32);
+
+                let mut sql = vec![
+                    sql_format!(
+                        "select * from {} where user_id={} and role_key={role_key} and app_id={} and status={} limit 1",
+                        RbacRoleModel::table_name(),
+                        param.user_id,
+                        param.app_id.unwrap_or_default(),
+                        RbacRoleStatus::Enable,
+                     )
+                 ];
+                if !role_name.is_empty() {
+                    sql.push(sql_format!(
+                        "select * from {} where user_id={} and role_name={role_name} and app_id={} and status={} limit 1",
+                        RbacRoleModel::table_name(),
+                        param.user_id,
+                        param.app_id.unwrap_or_default(),
+                        RbacRoleStatus::Enable
+                    ));
+                }
+                (RbacRoleUserRange::Session as i8, role_key, role_name, sql)
+            }
+            RbacRoleUserRangeData::Custom { role_name } => {
+                let role_name = check_length!(role_name, "name", 32);
+                let sql=vec![
+                    sql_format!(
+                         "select * from {} where user_id={} and role_name={role_name} and app_id={} and status={} limit 1",
+                         RbacRoleModel::table_name(),
+                         param.user_id,
+                         param.app_id.unwrap_or_default(),
+                         RbacRoleStatus::Enable
+                     )
+                 ];
+                (
+                    RbacRoleUserRange::Custom as i8,
+                    "".to_string(),
+                    role_name,
+                    sql,
+                )
+            }
+        };
+        let res_range = param.res_range as i8;
         let res = sqlx::query_as::<_, RbacRoleModel>(&sql.join(" union all  "))
             .fetch_one(&self.db)
             .await;
@@ -96,13 +144,20 @@ impl RbacRole {
                 "key":rm.role_key
             }))),
             Err(sqlx::Error::RowNotFound) => {
+                let app_id = param.app_id.unwrap_or_default();
                 let time = now_time().unwrap_or_default();
                 let idata = model_option_set!(RbacRoleModelRef,{
                     role_key:role_key,
                     user_range:user_range,
                     res_range:res_range,
                     role_name:role_name,
-                    user_id:user_id,
+                    user_id:param.user_id,
+                    app_id:app_id,
+                    change_time:time,
+                    change_user_id:add_user_id,
+                    status:(RbacRoleStatus::Enable as i8),
+                });
+                let other_change = model_option_set!(RbacRoleModelRef,{
                     change_time:time,
                     change_user_id:add_user_id,
                     status:(RbacRoleStatus::Enable as i8),
@@ -113,7 +168,15 @@ impl RbacRole {
                         let res = Insert::<sqlx::MySql, RbacRoleModel, _>::new(idata)
                             .execute(db.as_executor())
                             .await?;
-                        res.last_insert_id()
+                        let add_id = res.last_insert_id();
+                        Update::<sqlx::MySql, RbacRoleModel, _>::new(other_change)
+                            .execute_by_where(&WhereOption::Where(sql_format!(
+                                "user_id={} and role_key={role_key} and app_id={app_id} and status={} and id!={add_id}",
+                                param.user_id,
+                                RbacRoleStatus::Enable  as i8,
+                            )),db.as_executor())
+                            .await?;
+                        add_id
                     },
                     transaction,
                     &self.db
@@ -125,6 +188,7 @@ impl RbacRole {
                         &LogRole {
                             action: "add",
                             user_id: role.user_id,
+                            app_id,
                             role_name: &role_name,
                             role_key: &role_key,
                             user_range,
@@ -141,13 +205,12 @@ impl RbacRole {
             Err(e) => Err(e)?,
         }
     }
+
     /// 编辑角色
-    #[allow(clippy::too_many_arguments)]
     pub async fn edit_role(
         &self,
         role: &RbacRoleModel,
-        role_key: Option<&str>,
-        role_name: Option<&str>,
+        role_info: &RbacRoleUserRangeData<'_>,
         change_user_id: u64,
         transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
@@ -157,15 +220,22 @@ impl RbacRole {
             change_user_id:change_user_id,
             change_time:time,
         });
-        let opt_name = if let Some(tval) = role_name {
-            Some(check_length!(tval, "name", 32))
-        } else {
-            None
-        };
-        let opt_key = if let Some(tval) = role_key {
-            Some(check_length!(tval, "key", 32))
-        } else {
-            None
+        let (opt_name, opt_key) = match role_info {
+            RbacRoleUserRangeData::Session {
+                role_key,
+                role_name,
+            } => {
+                let role_name = match role_name {
+                    Some(role_name) => Some(check_length!(role_name, "name", 32)),
+                    None => None,
+                };
+                let role_key = check_length!(role_key, "key", 32);
+                (role_name, Some(role_key))
+            }
+            RbacRoleUserRangeData::Custom { role_name } => {
+                let role_name = check_length!(role_name, "name", 32);
+                (Some(role_name), None)
+            }
         };
         change.role_name = opt_name.as_ref();
         change.role_key = opt_key.as_ref();
@@ -189,6 +259,7 @@ impl RbacRole {
                     role_name: opt_name.as_deref().unwrap_or(role.role_name.as_str()),
                     role_key: opt_key.as_deref().unwrap_or(role.role_key.as_str()),
                     user_range: role.user_range,
+                    app_id: role.app_id,
                     res_range: role.res_range,
                     user_id: role.user_id,
                 },
@@ -270,6 +341,7 @@ impl RbacRole {
                     user_id: role.user_id,
                     role_name: role.role_name.as_str(),
                     role_key: role.role_key.as_str(),
+                    app_id: role.app_id,
                     user_range: role.user_range,
                     res_range: role.res_range,
                 },

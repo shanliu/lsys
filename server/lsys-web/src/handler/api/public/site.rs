@@ -4,7 +4,7 @@ use crate::common::RequestDao;
 use crate::dao::SiteConfig;
 use lsys_setting::dao::NotFoundResult;
 use serde_json::json;
-pub async fn site_config_info(req_dao: &RequestDao) -> JsonResult<JsonData> {
+pub async fn config_info(req_dao: &RequestDao) -> JsonResult<JsonData> {
     let site_config = req_dao
         .web_dao
         .web_setting

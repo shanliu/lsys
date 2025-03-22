@@ -4,11 +4,11 @@ use crate::common::handler::{
 use actix_web::post;
 use lsys_access::dao::AccessSession;
 use lsys_core::fluent_message;
-use lsys_web::handler::api::user::{user_external_bind, user_external_bind_url};
+use lsys_web::handler::api::user::account::{external_bind, external_bind_url};
 use lsys_web::{
     common::{JsonData, JsonError},
-    handler::api::user::{
-        user_external_delete, user_external_list_data, ExternalDeleteParam, ExternalListDataParam,
+    handler::api::user::account::{
+        external_delete, external_list_data, ExternalDeleteParam, ExternalListDataParam,
     },
 };
 use lsys_web_module_oauth::module::{WeChatConfig, WechatLogin, WechatLoginParam};
@@ -37,11 +37,9 @@ pub(crate) async fn external(
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
     Ok(match path.into_inner().as_str() {
-        "list_data" => {
-            user_external_list_data(&json_param.param::<ExternalListDataParam>()?, &auth_dao)
-                .await
-                .map_err(|e| auth_dao.fluent_error_json_data(&e))?
-        }
+        "list_data" => external_list_data(&json_param.param::<ExternalListDataParam>()?, &auth_dao)
+            .await
+            .map_err(|e| auth_dao.fluent_error_json_data(&e))?,
         "bind_check" => {
             let login_param = json_param.param::<ExternalBindCheckParam>()?;
             match login_param.login_type.as_str() {
@@ -65,7 +63,7 @@ pub(crate) async fn external(
                         .await
                         .map_err(|e| auth_dao.fluent_error_json_data(&e))?;
                     if let Some(ldat) = login_data {
-                        user_external_bind(&wechat, &ldat, &auth_dao)
+                        external_bind(&wechat, &ldat, &auth_dao)
                             .await
                             .map_err(|e| auth_dao.fluent_error_json_data(&e))?
                     } else {
@@ -96,7 +94,7 @@ pub(crate) async fn external(
                         .load::<WeChatConfig>(None)
                         .await
                         .map_err(|e| auth_dao.fluent_error_json_data(&e.into()))?;
-                    user_external_bind_url(
+                    external_bind_url(
                         &WechatLogin::new(
                             auth_dao.web_dao.clone(),
                             &config.app_id,
@@ -120,7 +118,7 @@ pub(crate) async fn external(
                 )),
             }
         }
-        "delete" => user_external_delete(&json_param.param::<ExternalDeleteParam>()?, &auth_dao)
+        "delete" => external_delete(&json_param.param::<ExternalDeleteParam>()?, &auth_dao)
             .await
             .map_err(|e| auth_dao.fluent_error_json_data(&e))?,
         name => handler_not_found!(name).map_err(|e| auth_dao.fluent_error_json_data(&e))?,

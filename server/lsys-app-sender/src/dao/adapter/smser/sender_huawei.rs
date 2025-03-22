@@ -12,8 +12,8 @@ use async_trait::async_trait;
 use lsys_core::{fluent_message, IntoFluentMessage, RequestEnv};
 use lsys_setting::{
     dao::{
-        MultipleSetting, SettingData, SettingDecode, SettingEncode, SettingError, SettingKey,
-        SettingResult,
+        MultipleSetting, MultipleSettingData, SettingData, SettingDecode, SettingEncode,
+        SettingError, SettingKey, SettingResult,
     },
     model::SettingModel,
 };
@@ -155,13 +155,15 @@ impl SenderHwYunConfig {
             .edit(
                 None,
                 id,
-                name,
-                &HwYunConfig {
-                    url: url.to_owned(),
-                    app_key: app_key.to_owned(),
-                    app_secret: app_secret.to_owned(),
-                    branch_limit,
-                    callback_key: callback_key.to_owned(),
+                &MultipleSettingData {
+                    name,
+                    data: &HwYunConfig {
+                        url: url.to_owned(),
+                        app_key: app_key.to_owned(),
+                        app_secret: app_secret.to_owned(),
+                        branch_limit,
+                        callback_key: callback_key.to_owned(),
+                    },
                 },
                 user_id,
                 None,
@@ -198,13 +200,15 @@ impl SenderHwYunConfig {
             .setting
             .add(
                 None,
-                name,
-                &HwYunConfig {
-                    url: url.to_owned(),
-                    app_key: app_key.to_owned(),
-                    app_secret: app_secret.to_owned(),
-                    branch_limit,
-                    callback_key: callback_key.to_owned(),
+                &MultipleSettingData {
+                    name,
+                    data: &HwYunConfig {
+                        url: url.to_owned(),
+                        app_key: app_key.to_owned(),
+                        app_secret: app_secret.to_owned(),
+                        branch_limit,
+                        callback_key: callback_key.to_owned(),
+                    },
                 },
                 user_id,
                 None,

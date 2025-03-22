@@ -4,7 +4,9 @@ use lsys_core::RequestEnv;
 use lsys_user::dao::AccountPasswordConfig;
 use serde::Deserialize;
 
-use lsys_setting::dao::{SettingDecode, SettingEncode, SettingJson, SettingKey, SettingResult};
+use lsys_setting::dao::{
+    SettingDecode, SettingEncode, SettingJson, SettingKey, SettingResult, SingleSettingData,
+};
 use serde::Serialize;
 
 use crate::common::JsonResult;
@@ -51,10 +53,12 @@ impl WebSetting {
             .single
             .save::<AccountPasswordConfig>(
                 None,
-                AccountPasswordConfig::key(),
-                &AccountPasswordConfig {
-                    timeout: param.password_timeout,
-                    disable_old_password: param.disable_old_password,
+                &SingleSettingData {
+                    name: AccountPasswordConfig::key(),
+                    data: &AccountPasswordConfig {
+                        timeout: param.password_timeout,
+                        disable_old_password: param.disable_old_password,
+                    },
                 },
                 session_body.user_id(),
                 Some(&mut transaction),
@@ -70,9 +74,11 @@ impl WebSetting {
             .single
             .save::<SiteConfig>(
                 None,
-                SiteConfig::key(),
-                &SiteConfig {
-                    site_tips: param.site_tips.to_string(),
+                &SingleSettingData {
+                    name: SiteConfig::key(),
+                    data: &SiteConfig {
+                        site_tips: param.site_tips.to_string(),
+                    },
                 },
                 session_body.user_id(),
                 Some(&mut transaction),

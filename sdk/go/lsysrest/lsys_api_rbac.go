@@ -25,7 +25,7 @@ func (receiver *RestApi) RbacCheck(ctx context.Context, userId int, relation Che
 	data1 := (<-receiver.rest.Do(ctx, AccessCheck, map[string]interface{}{
 		"user_id": userId,
 		"access": map[string]interface{}{
-			"relation_key": relation.ToCheckRelation(ctx),
+			"role_key": relation.ToCheckRelation(ctx),
 			"check_res":    checkRes.ToRbacRes(ctx),
 		},
 	})).JsonResult()

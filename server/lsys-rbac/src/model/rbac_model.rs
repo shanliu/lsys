@@ -1,6 +1,6 @@
+use lsys_core::db::lsys_model;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
-use lsys_core::db::lsys_model;
 //角色
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
 #[lsys_model(db_type = "MySql", table_name = "rbac_role")]
@@ -11,6 +11,10 @@ pub struct RbacRoleModel {
     /// 用户ID 0 为系统角色
     #[sqlx(default)]
     pub user_id: u64,
+
+    ///应用ID,当user_id时,对应关联的应用ID
+    #[sqlx(default)]
+    pub app_id: u64,
 
     /// 角色标识
     #[sqlx(default)]
@@ -24,9 +28,9 @@ pub struct RbacRoleModel {
     #[sqlx(default)]
     pub res_range: i8,
 
-     /// 资源名称
-     #[sqlx(default)]
-     pub role_name: String,
+    /// 资源名称
+    #[sqlx(default)]
+    pub role_name: String,
 
     /// 状态 1 启用 -1 删除
     #[sqlx(default)]
@@ -56,13 +60,17 @@ pub struct RbacResModel {
     #[sqlx(default)]
     pub res_data: String,
 
-     /// 用户ID 0 为系统资源
-     #[sqlx(default)]
-     pub user_id: u64,
+    /// 用户ID 0 为系统资源
+    #[sqlx(default)]
+    pub user_id: u64,
 
-     /// 资源名称
-     #[sqlx(default)]
-     pub res_name: String,
+    ///应用ID,当user_id时,对应关联的应用ID
+    #[sqlx(default)]
+    pub app_id: u64,
+
+    /// 资源名称
+    #[sqlx(default)]
+    pub res_name: String,
 
     /// 状态 1 启用 -1 删除
     #[sqlx(default)]
@@ -77,7 +85,6 @@ pub struct RbacResModel {
     pub change_time: u64,
 }
 
-
 //操作
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
 #[lsys_model(db_type = "MySql", table_name = "rbac_op")]
@@ -85,9 +92,13 @@ pub struct RbacOpModel {
     #[sqlx(default)]
     pub id: u64,
 
-     /// 用户ID 0 为系统资源
-     #[sqlx(default)]
-     pub user_id: u64,
+    /// 用户ID 0 为系统资源
+    #[sqlx(default)]
+    pub user_id: u64,
+
+    ///应用ID,当user_id时,对应关联的应用ID
+    #[sqlx(default)]
+    pub app_id: u64,
 
     /// 资源操作KEY
     #[sqlx(default)]
@@ -110,7 +121,6 @@ pub struct RbacOpModel {
     pub change_time: u64,
 }
 
-
 ///操作跟资源关联
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
 #[lsys_model(db_type = "MySql", table_name = "rbac_op_res")]
@@ -129,7 +139,10 @@ pub struct RbacOpResModel {
     /// 用户ID
     #[sqlx(default)]
     pub user_id: u64,
-    
+
+    ///应用ID,当user_id时,对应关联的应用ID
+    #[sqlx(default)]
+    pub app_id: u64,
 
     /// 状态 1 启用 -1 删除
     #[sqlx(default)]
@@ -144,7 +157,6 @@ pub struct RbacOpResModel {
     pub change_user_id: u64,
 }
 
-
 //资源可进行操作，如对某资源进行：查看 删除 编辑等
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
 #[lsys_model(db_type = "MySql", table_name = "rbac_perm")]
@@ -152,13 +164,13 @@ pub struct RbacPermModel {
     #[sqlx(default)]
     pub id: u64,
 
-     ///角色ID
-     #[sqlx(default)]
-     pub role_id: u64,
+    ///角色ID
+    #[sqlx(default)]
+    pub role_id: u64,
 
-     ///资源id
-     #[sqlx(default)]
-     pub res_id: u64,
+    ///资源id
+    #[sqlx(default)]
+    pub res_id: u64,
 
     ///资源id
     #[sqlx(default)]
@@ -255,7 +267,6 @@ pub struct RbacAuditModel {
     pub add_time: u64,
 }
 
-
 ///授权审计详细记录
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
 #[lsys_model(db_type = "MySql", table_name = "rbac_audit_detail")]
@@ -263,7 +274,7 @@ pub struct RbacAuditDetailModel {
     #[sqlx(default)]
     pub id: u64,
 
-    /// 审计ID 
+    /// 审计ID
     #[sqlx(default)]
     pub rbac_audit_id: u64,
 
@@ -275,17 +286,17 @@ pub struct RbacAuditDetailModel {
     #[sqlx(default)]
     pub res_data: String,
 
-     /// 资源ID 
-     #[sqlx(default)]
-     pub res_user_id: u64,
+    /// 资源ID
+    #[sqlx(default)]
+    pub res_user_id: u64,
 
     /// 资源操作KEY
     #[sqlx(default)]
     pub op_key: String,
 
-     /// 资源ID 
-     #[sqlx(default)]
-     pub res_id: u64,
+    /// 资源ID
+    #[sqlx(default)]
+    pub res_id: u64,
 
     /// 操作ID
     #[sqlx(default)]
@@ -303,18 +314,17 @@ pub struct RbacAuditDetailModel {
     #[sqlx(default)]
     pub is_root: i8,
 
-  
-   /// 是否超级用户角色
-   #[sqlx(default)]
-   pub is_role_excluce: i8,
+    /// 是否超级用户角色
+    #[sqlx(default)]
+    pub is_role_excluce: i8,
 
     /// 是否超级用户角色
     #[sqlx(default)]
     pub is_role_include: i8,
 
-     /// 是否超级用户角色
-     #[sqlx(default)]
-     pub is_role_all: i8,
+    /// 是否超级用户角色
+    #[sqlx(default)]
+    pub is_role_all: i8,
 
     /// 是否超级用户角色
     #[sqlx(default)]

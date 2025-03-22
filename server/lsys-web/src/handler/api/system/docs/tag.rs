@@ -1,4 +1,4 @@
-use lsys_access::dao::{AccessSession, AccessSessionData};
+use lsys_access::dao::AccessSession;
 use lsys_docs::{dao::GitDocsGitTag, model::DocGitTagStatus};
 use serde::Deserialize;
 use serde_json::json;
@@ -9,23 +9,21 @@ use crate::common::UserAuthQueryDao;
 use crate::{common::JsonData, dao::access::api::system::CheckAdminDocs};
 
 #[derive(Debug, Deserialize)]
-pub struct DocsTagAddParam {
+pub struct TagAddParam {
     pub git_id: u32,
     pub tag: String,
     pub build_version: String,
     pub clear_rule: Option<Vec<String>>,
 }
 
-pub async fn docs_tag_add(
-    param: &DocsTagAddParam,
-    req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+pub async fn tag_add(param: &TagAddParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminDocs {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminDocs {})
         .await?;
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?; //验证权限
 
     let git_m = req_dao
         .web_dao
@@ -50,7 +48,7 @@ pub async fn docs_tag_add(
                 build_version: &param.build_version,
                 clear_rule: clear_rule.as_deref(),
             },
-            req_auth.session_body().user_id(),
+            auth_data.user_id(),
             Some(&req_dao.req_env),
         )
         .await?;
@@ -58,21 +56,19 @@ pub async fn docs_tag_add(
 }
 
 #[derive(Debug, Deserialize)]
-pub struct DocsTagDelParam {
+pub struct TagDelParam {
     pub tag_id: u64,
     pub timeout: Option<u8>,
 }
 
-pub async fn docs_tag_del(
-    param: &DocsTagDelParam,
-    req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+pub async fn tag_del(param: &TagDelParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminDocs {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminDocs {})
         .await?;
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?; //验证权限
 
     let tag = req_dao
         .web_dao
@@ -88,7 +84,7 @@ pub async fn docs_tag_del(
         .docs
         .tag_del(
             &tag,
-            req_auth.user_id(),
+            auth_data.user_id(),
             param.timeout.map(|e| e as u64).unwrap_or(60),
             Some(&req_dao.req_env),
         )
@@ -98,20 +94,21 @@ pub async fn docs_tag_del(
 }
 
 #[derive(Debug, Deserialize)]
-pub struct DocsTagStatusParam {
+pub struct TagStatusParam {
     pub status: i8,
     pub tag_id: u64,
 }
-pub async fn docs_tag_status(
-    param: &DocsTagStatusParam,
+pub async fn tag_status(
+    param: &TagStatusParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminDocs {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminDocs {})
         .await?;
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?; //验证权限
 
     let tag = req_dao
         .web_dao
@@ -126,13 +123,13 @@ pub async fn docs_tag_status(
         .web_doc
         .docs_dao
         .docs
-        .tags_status(&tag, status, req_auth.user_id(), Some(&req_dao.req_env))
+        .tags_status(&tag, status, auth_data.user_id(), Some(&req_dao.req_env))
         .await?;
     Ok(JsonData::default())
 }
 
 #[derive(Debug, Deserialize)]
-pub struct DocsTagListParam {
+pub struct TagListParam {
     pub status: Option<i8>,
     pub key_word: Option<String>,
     pub git_id: Option<u32>,
@@ -140,14 +137,13 @@ pub struct DocsTagListParam {
     pub page: Option<PageParam>,
 }
 
-pub async fn docs_tag_list(
-    param: &DocsTagListParam,
-    req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+pub async fn tag_list(param: &TagListParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminDocs {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminDocs {})
         .await?;
 
     let status = match param.status {
@@ -183,18 +179,17 @@ pub async fn docs_tag_list(
 }
 
 #[derive(Debug, Deserialize)]
-pub struct DocsTagLogsParam {
+pub struct TagLogsParam {
     pub tag_id: u32,
 }
 
-pub async fn docs_tag_logs(
-    param: &DocsTagLogsParam,
-    req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+pub async fn tag_logs(param: &TagLogsParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminDocs {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminDocs {})
         .await?;
 
     let data = req_dao
@@ -208,21 +203,22 @@ pub async fn docs_tag_logs(
 }
 
 #[derive(Debug, Deserialize)]
-pub struct DocsTagCLoneDelParam {
+pub struct TagCLoneDelParam {
     pub clone_id: u64,
     pub timeout: Option<u8>,
 }
 
-pub async fn docs_tag_clone_del(
-    param: &DocsTagCLoneDelParam,
+pub async fn tag_clone_del(
+    param: &TagCLoneDelParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminDocs {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminDocs {})
         .await?;
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?; //验证权限
 
     let clone = req_dao
         .web_dao
@@ -239,7 +235,7 @@ pub async fn docs_tag_clone_del(
         .tag_clone_del(
             &clone,
             param.timeout.map(|e| e as u64).unwrap_or(60),
-            req_auth.user_id(),
+            auth_data.user_id(),
             Some(&req_dao.req_env),
         )
         .await?;
@@ -247,18 +243,17 @@ pub async fn docs_tag_clone_del(
 }
 
 #[derive(Debug, Deserialize)]
-pub struct DocsTagDirParam {
+pub struct TagDirParam {
     pub tag_id: u64,
     pub prefix: Option<String>,
 }
-pub async fn docs_tag_dir(
-    param: &DocsTagDirParam,
-    req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+pub async fn tag_dir(param: &TagDirParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminDocs {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminDocs {})
         .await?;
 
     let tag = req_dao
@@ -290,18 +285,20 @@ pub async fn docs_tag_dir(
 }
 
 #[derive(Debug, Deserialize)]
-pub struct DocsTagFileDataParam {
+pub struct TagFileDataParam {
     pub tag_id: u64,
     pub file_path: String,
 }
-pub async fn docs_tag_file_info(
-    param: &DocsTagFileDataParam,
+pub async fn tag_file_info(
+    param: &TagFileDataParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminDocs {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminDocs {})
         .await?;
     let data = req_dao
         .web_dao

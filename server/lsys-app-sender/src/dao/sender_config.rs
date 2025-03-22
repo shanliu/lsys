@@ -99,6 +99,9 @@ impl SenderConfig {
         user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
+        if SenderConfigStatus::Delete.eq(config.status) {
+            return Ok(0);
+        }
         let time = now_time().unwrap_or_default();
         let change = lsys_core::model_option_set!(SenderConfigModelRef,{
             status:SenderConfigStatus::Delete as i8,

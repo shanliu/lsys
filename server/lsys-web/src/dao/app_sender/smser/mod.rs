@@ -1,6 +1,7 @@
 mod app;
-pub use app::*;
+mod app_feature;
 use lsys_access::dao::SessionBody;
+use lsys_app::dao::AppDao;
 use std::{collections::HashMap, sync::Arc};
 
 use lsys_app_notify::dao::NotifyDao;
@@ -34,12 +35,14 @@ pub struct SenderSmser {
     pub jd_sender: SenderJDCloudConfig,
     pub smser_dao: Arc<SmsSenderDao>,
     logger: Arc<ChangeLoggerDao>,
+    app_dao: Arc<AppDao>,
 }
 
 impl SenderSmser {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         app_core: Arc<AppCore>,
+        app_dao: Arc<AppDao>,
         redis: deadpool_redis::Pool,
         db: Pool<MySql>,
         setting: Arc<SettingDao>,
@@ -88,6 +91,7 @@ impl SenderSmser {
             netease_sender,
             jd_sender,
             logger,
+            app_dao,
         }
     }
     pub async fn task_wait(&self) {

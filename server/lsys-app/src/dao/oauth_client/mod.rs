@@ -140,9 +140,8 @@ impl AppOAuthClient {
                 return Err(err.into());
             }
         }
-        let mut db = self.db.begin().await?;
-
         let time = now_time()?;
+        let mut db = self.db.begin().await?;
 
         let req_status = AppRequestStatus::Pending as i8;
         let request_type = AppRequestType::OAuthClient as i8;
@@ -208,9 +207,8 @@ impl AppOAuthClient {
         req_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> AppResult<()> {
-        let mut db = self.db.begin().await?;
-
         let time = now_time()?;
+        let mut db = self.db.begin().await?;
 
         let req_status = AppRequestStatus::Pending as i8;
         let request_type = AppRequestType::OAuthClientScope as i8;
@@ -591,7 +589,10 @@ impl AppOAuthClient {
             }
         }
 
-        self.server_scope_check(app, &tmp_scope).await?;
+        if let Err(err) = self.server_scope_check(app, &tmp_scope).await {
+            db.rollback().await?;
+            return Err(err);
+        }
 
         let set_scope = tmp_scope.join(",");
         let change = model_option_set!(AppOAuthClientModelRef,{

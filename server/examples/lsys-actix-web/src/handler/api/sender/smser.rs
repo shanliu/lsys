@@ -2,7 +2,7 @@ use crate::common::handler::{
     JsonQuery, JwtQuery, ResponseJson, ResponseJsonResult, UserAuthQuery,
 };
 use actix_web::{post, HttpRequest};
-use lsys_web::handler::api::user::{
+use lsys_web::handler::api::user::app_sender::{
     smser_ali_app_config_add, smser_ali_config_list, smser_cloopen_app_config_add,
     smser_cloopen_config_list, smser_config_add, smser_config_del, smser_config_list,
     smser_hw_app_config_add, smser_hw_config_list, smser_jd_app_config_add, smser_jd_config_list,

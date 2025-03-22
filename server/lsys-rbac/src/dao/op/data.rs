@@ -5,8 +5,8 @@ use std::vec;
 
 use lsys_core::{impl_dao_fetch_one_by_one, PageParam};
 
-use lsys_core::{sql_format};
-use lsys_core::db::{ ModelTableName, SqlExpr, SqlQuote};
+use lsys_core::db::{ModelTableName, SqlExpr, SqlQuote};
+use lsys_core::sql_format;
 
 use super::RbacOp;
 
@@ -38,6 +38,7 @@ impl RbacOp {
 
 pub struct OpDataParam<'t> {
     pub user_id: u64,
+    pub app_id: Option<u64>,
     pub op_name: Option<&'t str>,
     pub op_key: Option<&'t str>,
     pub ids: Option<&'t [u64]>,
@@ -53,6 +54,9 @@ impl RbacOp {
             op_param.user_id,
             RbacOpStatus::Enable,
         );
+        if let Some(val) = op_param.app_id {
+            sql += sql_format!(" and app_id = {}", val).as_str();
+        }
         if let Some(val) = op_param.op_key {
             sql += sql_format!(" and op_key = {}", val).as_str();
         }

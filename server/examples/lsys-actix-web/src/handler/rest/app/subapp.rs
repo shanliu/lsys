@@ -1,6 +1,6 @@
 use crate::common::handler::{ResponseJson, ResponseJsonResult, RestQuery};
 use actix_web::post;
-use lsys_web::handler::rest::{subapp_view, SubAppViewParam};
+use lsys_web::handler::rest::app::{subapp_view, SubAppViewParam};
 
 // 请求   -> 模块
 //       -> 系统分配appid

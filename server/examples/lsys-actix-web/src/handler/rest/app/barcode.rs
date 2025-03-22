@@ -11,9 +11,7 @@ use futures_util::{StreamExt, TryStreamExt};
 use lsys_core::fluent_message;
 use lsys_web::{
     common::{JsonData, JsonError},
-    handler::rest::{
-        app_barcode_parse, app_barcode_show_base64, BarCodeParseParam, BarCodeShowParam,
-    },
+    handler::rest::barcode::{barcode_base64, parse_image, CodeParam, ParseParam},
 };
 use serde_json::json;
 use tempfile::Builder;
@@ -106,13 +104,13 @@ pub(crate) async fn barcode(
     let app = rest.get_app().await?;
     Ok(match rest.rfc.method.as_deref() {
         Some("parse") => {
-            let param = rest.param::<BarCodeParseParam>()?;
+            let param = rest.param::<ParseParam>()?;
             dbg!(&param);
             let mut out = vec![];
             while let Ok(Some(field)) = payload.try_next().await {
                 out.push(match upload_file(field, &rest).await {
                     Ok((file_path, ext)) => {
-                        match app_barcode_parse(file_path, &ext, &param, &app, &rest).await {
+                        match parse_image(file_path, &ext, &param, &app, &rest).await {
                             Ok(dat) => {
                                 json!({
                                     "status":"1",
@@ -135,7 +133,7 @@ pub(crate) async fn barcode(
         }
         Some("create") => {
             drop(payload);
-            app_barcode_show_base64(&rest.param::<BarCodeShowParam>()?, &app, &rest).await
+            barcode_base64(&rest.param::<CodeParam>()?, &app, &rest).await
         }
         var => handler_not_found!(var.unwrap_or_default()),
     }

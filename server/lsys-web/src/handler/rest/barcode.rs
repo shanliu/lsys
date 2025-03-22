@@ -1,10 +1,9 @@
 use crate::common::JsonError;
 use crate::dao::access::rest::CheckRestApp;
-use crate::dao::APP_FEATURE_BARCODE;
 use crate::{common::JsonData, common::JsonResult, common::RequestDao};
 use lsys_app::model::AppModel;
 use lsys_app_barcode::dao::BarcodeParseRecord;
-use lsys_app_barcode::dao::ParseParam;
+use lsys_app_barcode::dao::ParseParam as BarcodeParseParam;
 
 use lsys_core::fluent_message;
 use serde::Deserialize;
@@ -13,7 +12,7 @@ use serde_json::json;
 use base64::Engine;
 use std::path::Path;
 #[derive(Debug, Deserialize)]
-pub struct BarCodeParseParam {
+pub struct ParseParam {
     pub try_harder: Option<bool>,
     pub decode_multi: Option<bool>,
     pub barcode_types: Option<Vec<String>>,
@@ -28,30 +27,20 @@ pub struct BarCodeParseParam {
     pub also_inverted: Option<bool>,
 }
 
-pub async fn app_barcode_parse(
+pub async fn parse_image(
     file_path: impl AsRef<Path>,
     extension: &str,
-    param: &BarCodeParseParam,
+    param: &ParseParam,
     app: &AppModel,
     req_dao: &RequestDao,
 ) -> JsonResult<serde_json::Value> {
     req_dao
         .web_dao
         .web_rbac
-        .check(
-            &req_dao.access_env(),
-            &CheckRestApp { app_id: app.id },
-            None,
-        )
+        .check(&req_dao.req_env, None, &CheckRestApp { app_id: app.id })
         .await?;
-    req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .cache()
-        .exter_feature_check(app, &[APP_FEATURE_BARCODE])
-        .await?;
+
+    req_dao.web_dao.app_barcode.app_feature_check(app).await?;
 
     match req_dao
         .web_dao
@@ -62,7 +51,7 @@ pub async fn app_barcode_parse(
             app.id,
             file_path,
             extension,
-            &ParseParam {
+            &BarcodeParseParam {
                 try_harder: param.try_harder,
                 decode_multi: param.decode_multi,
                 barcode_types: param
@@ -100,24 +89,17 @@ pub async fn app_barcode_parse(
 }
 
 #[derive(Debug, Deserialize)]
-pub struct BarCodeShowParam {
+pub struct CodeParam {
     pub contents: String,
     pub code_id: u64,
 }
 
-pub async fn app_barcode_show_base64(
-    param: &BarCodeShowParam,
+pub async fn barcode_base64(
+    param: &CodeParam,
     app: &AppModel,
     req_dao: &RequestDao,
 ) -> JsonResult<JsonData> {
-    req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .cache()
-        .exter_feature_check(app, &[APP_FEATURE_BARCODE])
-        .await?;
+    req_dao.web_dao.app_barcode.app_feature_check(app).await?;
 
     let code = req_dao
         .web_dao

@@ -19,7 +19,7 @@ pub async fn user_external_login_url<
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env(), &CheckSystemLogin {}, None)
+        .check(&req_dao.req_env,None, &CheckSystemLogin {})
         .await?;
     let url = req_dao
         .web_dao

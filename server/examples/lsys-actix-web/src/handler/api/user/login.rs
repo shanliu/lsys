@@ -28,8 +28,8 @@ use lsys_web::handler::api::auth::NameLoginParam;
 use lsys_web::handler::api::auth::UserAuthDataOptionParam;
 use lsys_web::handler::api::auth::{login_data_from_user_auth, user_external_login_url};
 use lsys_web::handler::api::auth::{user_login_email_send_code, user_login_from_external};
-use lsys_web::handler::api::user::user_login_history;
-use lsys_web::handler::api::user::LoginHistoryParam;
+use lsys_web::handler::api::user::account::login_history as user_login_history;
+use lsys_web::handler::api::user::account::LoginHistoryParam;
 
 use lsys_web_module_oauth::module::{
     WeChatConfig, WechatCallbackParam, WechatLogin, WechatLoginParam,

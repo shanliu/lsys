@@ -162,6 +162,10 @@ impl MessageTpls {
         user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
+        if SenderTplBodyStatus::Delete.eq(tpl.status) {
+            return Ok(0);
+        }
+
         let user_id = user_id.to_owned();
         let time = now_time().unwrap_or_default();
         let status = SenderTplBodyStatus::Delete as i8;

@@ -9,6 +9,9 @@ import (
 
 const (
 	SubAppInfo     = iota
+	AppAuthLogin     = iota
+	AppAuthLogout     = iota
+	AppAuthInfo     = iota
 	AccessCheck = iota
 	SmeSend     = iota
 	SmeCancel   = iota
@@ -27,6 +30,27 @@ func (res *RestApiClient) ConfigName(_ context.Context) (string, error) {
 // ConfigBuilds 统一配置调用接口
 func (res *RestApiClient) ConfigBuilds(_ context.Context) (map[int]rest_client.RestBuild, error) {
 	return map[int]rest_client.RestBuild{
+		AppAuthLogin: &RestClientBuild{
+			Payload:    http.MethodPost,
+			HttpMethod: http.MethodPost,
+			Path:       "/rest/auth",
+			Method:     "do_login",
+			Timeout:    60 * time.Second,
+		},
+		AppAuthLogout: &RestClientBuild{
+			Payload:    http.MethodPost,
+			HttpMethod: http.MethodPost,
+			Path:       "/rest/auth",
+			Method:     "do_logout",
+			Timeout:    60 * time.Second,
+		},
+		AppAuthInfo: &RestClientBuild{
+			Payload:    http.MethodPost,
+			HttpMethod: http.MethodPost,
+			Path:       "/rest/auth",
+			Method:     "login_info",
+			Timeout:    60 * time.Second,
+		},
 		SubAppInfo: &RestClientBuild{
 			Payload:    http.MethodPost,
 			HttpMethod: http.MethodPost,

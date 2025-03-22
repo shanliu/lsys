@@ -14,8 +14,8 @@ use lsys_core::{fluent_message, IntoFluentMessage, RequestEnv};
 use lsys_lib_sms::{template_map_to_arr, JdSms, SendDetailItem, SendError};
 use lsys_setting::{
     dao::{
-        MultipleSetting, SettingData, SettingDecode, SettingEncode, SettingError, SettingKey,
-        SettingResult,
+        MultipleSetting, MultipleSettingData, SettingData, SettingDecode, SettingEncode,
+        SettingError, SettingKey, SettingResult,
     },
     model::SettingModel,
 };
@@ -145,12 +145,14 @@ impl SenderJDCloudConfig {
             .edit(
                 None,
                 id,
-                name,
-                &JDCloudConfig {
-                    region: region.to_owned(),
-                    access_key: access_key.to_owned(),
-                    access_secret: access_secret.to_owned(),
-                    branch_limit,
+                &MultipleSettingData {
+                    name,
+                    data: &JDCloudConfig {
+                        region: region.to_owned(),
+                        access_key: access_key.to_owned(),
+                        access_secret: access_secret.to_owned(),
+                        branch_limit,
+                    },
                 },
                 user_id,
                 None,
@@ -182,12 +184,14 @@ impl SenderJDCloudConfig {
             .setting
             .add(
                 None,
-                name,
-                &JDCloudConfig {
-                    region: region.to_owned(),
-                    access_key: access_key.to_owned(),
-                    access_secret: access_secret.to_owned(),
-                    branch_limit,
+                &MultipleSettingData {
+                    name,
+                    data: &JDCloudConfig {
+                        region: region.to_owned(),
+                        access_key: access_key.to_owned(),
+                        access_secret: access_secret.to_owned(),
+                        branch_limit,
+                    },
                 },
                 user_id,
                 None,

@@ -8,21 +8,19 @@ use crate::common::UserAuthQueryDao;
 use crate::{common::JsonData, dao::access::api::system::CheckAdminDocs};
 
 #[derive(Debug, Deserialize)]
-pub struct DocsGitAddParam {
+pub struct GitAddParam {
     pub name: String,
     pub url: String,
     pub max_try: u8,
 }
-pub async fn docs_git_add(
-    param: &DocsGitAddParam,
-    req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+pub async fn git_add(param: &GitAddParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminDocs {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminDocs {})
         .await?;
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?; //验证权限
     let id = req_dao
         .web_dao
         .web_doc
@@ -42,23 +40,21 @@ pub async fn docs_git_add(
 }
 
 #[derive(Debug, Deserialize)]
-pub struct DocsGitEditParam {
+pub struct GitEditParam {
     pub id: u32,
     pub name: String,
     pub url: String,
     pub max_try: u8,
 }
-pub async fn docs_git_edit(
-    param: &DocsGitEditParam,
-    req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+pub async fn git_edit(param: &GitEditParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminDocs {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminDocs {})
         .await?;
 
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?; //验证权限
     let git_m = req_dao
         .web_dao
         .web_doc
@@ -86,20 +82,18 @@ pub async fn docs_git_edit(
 }
 
 #[derive(Debug, Deserialize)]
-pub struct DocsGitDelParam {
+pub struct GitDelParam {
     pub id: u32,
     pub timeout: Option<u8>,
 }
-pub async fn docs_git_del(
-    param: &DocsGitDelParam,
-    req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+pub async fn git_del(param: &GitDelParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminDocs {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminDocs {})
         .await?;
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?; //验证权限
 
     let git_m = req_dao
         .web_dao
@@ -123,29 +117,33 @@ pub async fn docs_git_del(
     Ok(JsonData::default())
 }
 
-pub async fn docs_git_list(req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn git_list(req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminDocs {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminDocs {})
         .await?;
     let data = req_dao.web_dao.web_doc.docs_dao.docs.git_list().await?;
     Ok(JsonData::data(json!({ "data": data })))
 }
 
 #[derive(Debug, Deserialize)]
-pub struct DocsGitDetailParam {
+pub struct GitDetailParam {
     pub url: String,
 }
 
-pub async fn docs_git_detail(
-    param: &DocsGitDetailParam,
+pub async fn git_detail(
+    param: &GitDetailParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminDocs {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminDocs {})
         .await?;
     let data = req_dao
         .web_dao

@@ -2,8 +2,6 @@ use lsys_rbac::dao::AccessCheckEnv;
 use lsys_rbac::dao::RbacAccess;
 use lsys_rbac::dao::RbacResult;
 
-use super::CheckRelationData;
-
 // 静态方式定义权限验证
 // 以下实现仅用于解决本系统的资源依赖跟关系角色定义问题
 
@@ -17,10 +15,5 @@ pub trait RbacCheckAccess {
         vec![]
     }
     // 进行授权当前
-    async fn check(
-        &self,
-        access: &RbacAccess,
-        check_env: &AccessCheckEnv<'_>,
-        relation: &CheckRelationData,
-    ) -> RbacResult<()>;
+    async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()>;
 }

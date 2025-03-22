@@ -102,7 +102,7 @@ Authorization:Bearer {{name_login.response.jwt}}
     "user_range":3,
     "role_op_range":1,
     "priority":10,
-    "relation_key":"test-key",
+    "role_key":"test-key",
     "tags":["test_tag1"],
    "role_user":[
         {
@@ -134,7 +134,7 @@ Authorization:Bearer {{name_login.response.jwt}}
     "user_range":3,
     "role_op_range":1,
     "priority":10,
-    "relation_key":"xxx",
+    "role_key":"xxx",
     "tags":["xx12"],
     "role_ops":[
         {

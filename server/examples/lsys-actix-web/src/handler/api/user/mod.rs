@@ -10,7 +10,7 @@ mod login;
 mod mobile;
 mod oauth;
 mod password;
-// mod rbac;
+mod rbac;
 mod register;
 #[cfg(feature = "area")]
 pub use address::*;
@@ -24,5 +24,5 @@ pub use login::*;
 pub use mobile::*;
 pub use oauth::*;
 pub use password::*;
-// pub use rbac::*;
+pub use rbac::*;
 pub use register::*;

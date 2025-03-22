@@ -14,8 +14,8 @@ use lsys_core::{fluent_message, IntoFluentMessage, RequestEnv};
 use lsys_lib_sms::{template_map_to_arr, CloOpenSms, SendError, SendNotifyError, SendNotifyItem};
 use lsys_setting::{
     dao::{
-        MultipleSetting, SettingData, SettingDecode, SettingEncode, SettingError, SettingKey,
-        SettingResult,
+        MultipleSetting, MultipleSettingData, SettingData, SettingDecode, SettingEncode,
+        SettingError, SettingKey, SettingResult,
     },
     model::SettingModel,
 };
@@ -146,13 +146,15 @@ impl SenderCloOpenConfig {
             .edit(
                 None,
                 id,
-                name,
-                &CloOpenConfig {
-                    account_sid: account_sid.to_owned(),
-                    account_token: account_token.to_owned(),
-                    branch_limit,
-                    sms_app_id: sms_app_id.to_owned(),
-                    callback_key: callback_key.to_owned(),
+                &MultipleSettingData {
+                    name,
+                    data: &CloOpenConfig {
+                        account_sid: account_sid.to_owned(),
+                        account_token: account_token.to_owned(),
+                        branch_limit,
+                        sms_app_id: sms_app_id.to_owned(),
+                        callback_key: callback_key.to_owned(),
+                    },
                 },
                 user_id,
                 None,
@@ -177,13 +179,15 @@ impl SenderCloOpenConfig {
             .setting
             .add(
                 None,
-                name,
-                &CloOpenConfig {
-                    account_sid: account_sid.to_owned(),
-                    account_token: account_token.to_owned(),
-                    sms_app_id: sms_app_id.to_owned(),
-                    branch_limit,
-                    callback_key: callback_key.to_owned(),
+                &MultipleSettingData {
+                    name,
+                    data: &CloOpenConfig {
+                        account_sid: account_sid.to_owned(),
+                        account_token: account_token.to_owned(),
+                        sms_app_id: sms_app_id.to_owned(),
+                        branch_limit,
+                        callback_key: callback_key.to_owned(),
+                    },
                 },
                 user_id,
                 None,

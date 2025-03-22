@@ -35,7 +35,7 @@ pub use web_doc::*;
 
 use lsys_access::dao::{AccessConfig, AccessDao, AccessLocalCacheClear};
 use lsys_app::dao::{AppConfig, AppDao};
-use lsys_app_notify::dao::NotifyDao;
+use lsys_app_notify::dao::{NotifyConfig, NotifyDao};
 use lsys_core::cache::{LocalCacheClear, LocalCacheClearItem};
 use lsys_core::{AppCore, AppCoreError, FluentMgr, RemoteNotify};
 
@@ -118,10 +118,12 @@ impl WebDao {
                 access_dao.clone(),
                 db.clone(),
                 remote_notify.clone(),
-                AppConfig::new(use_cache),
+                AppConfig::new(
+                    use_cache,
+                    120,           //oauth Code有效期120秒
+                    7 * 24 * 3600, //TOKEN有效期7天
+                ),
                 change_logger.clone(),
-                120,           //oauth Code有效期120秒
-                7 * 24 * 3600, //TOKEN有效期7天
             )
             .await?,
         );
@@ -144,6 +146,7 @@ impl WebDao {
                 )
                 .await?,
             ),
+            app_dao.clone(),
         ));
 
         let app_area = Arc::new(AppArea::new(app_core.clone())?);
@@ -155,15 +158,18 @@ impl WebDao {
             db.clone(),
             app_core.clone(),
             app_dao.app.clone(),
+            &NotifyConfig {
+                max_try: None,
+                task_size: None,
+                task_timeout: None,
+                is_check: true,
+            },
             change_logger.clone(),
-            None,
-            None,
-            None,
-            true,
         ));
 
         let app_sender = Arc::new(AppSender::new(
             app_core.clone(),
+            app_dao.clone(),
             redis.clone(),
             db.clone(),
             notify.clone(),
@@ -251,6 +257,7 @@ impl WebDao {
         let app_barcode = {
             let barcode = Arc::new(AppBarCode::new(
                 app_core.clone(),
+                app_dao.clone(),
                 db.clone(),
                 remote_notify.clone(),
                 change_logger.clone(),

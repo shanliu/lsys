@@ -9,7 +9,7 @@ use lsys_web::handler::api::{
         ResetPasswordFromEmailParam, ResetPasswordFromMobileParam,
         ResetPasswordSendCodeFromEmailParam, ResetPasswordSendCodeFromMobileParam,
     },
-    user::{user_set_password, SetPasswordParam},
+    user::account::{set_password, SetPasswordParam},
 };
 
 #[post("password_reset/{method}")]
@@ -62,7 +62,7 @@ pub(crate) async fn password(
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
     Ok(match path.into_inner().as_str() {
-        "set" => user_set_password(&json_param.param::<SetPasswordParam>()?, &auth_dao).await,
+        "set" => set_password(&json_param.param::<SetPasswordParam>()?, &auth_dao).await,
         name => handler_not_found!(name),
     }
     .map_err(|e| auth_dao.fluent_error_json_data(&e))?

@@ -33,11 +33,16 @@ impl MultipleSetting {
             logger,
         }
     }
+}
+pub struct MultipleSettingData<'t, T: SettingEncode> {
+    pub name: &'t str,
+    pub data: &'t T,
+}
+impl MultipleSetting {
     pub async fn add<T: SettingEncode>(
         &self,
         user_id: Option<u64>,
-        name: &str,
-        data: &T,
+        param: &MultipleSettingData<'_, T>,
         change_user_id: u64,
         transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
@@ -45,11 +50,11 @@ impl MultipleSetting {
         let change_user_id = change_user_id.to_owned();
         let setting_type = SettingType::Multiple as i8;
         let status = SettingStatus::Enable as i8;
-        let edata = data.encode();
+        let edata = param.data.encode();
         let key = T::key().to_string();
         let time = now_time().unwrap_or_default();
         let uid = user_id.unwrap_or_default();
-        let name = name.to_owned();
+        let name = param.name.to_owned();
         let new_data = model_option_set!(SettingModelRef,{
             name:name,
             setting_type:setting_type,
@@ -89,21 +94,19 @@ impl MultipleSetting {
             .await;
         Ok(dat.last_insert_id())
     }
-    #[allow(clippy::too_many_arguments)]
     pub async fn edit<T: SettingEncode>(
         &self,
         user_id: Option<u64>,
         id: u64,
-        name: &str,
-        data: &T,
+        param: &MultipleSettingData<'_, T>,
         change_user_id: u64,
         transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
     ) -> SettingResult<u64> {
         let id = id.to_owned();
         let change_user_id = change_user_id.to_owned();
-        let name = name.to_owned();
-        let edata = data.encode();
+        let name = param.name.to_owned();
+        let edata = param.data.encode();
         let key = T::key().to_string();
         let time = now_time().unwrap_or_default();
         let change = lsys_core::model_option_set!(SettingModelRef,{

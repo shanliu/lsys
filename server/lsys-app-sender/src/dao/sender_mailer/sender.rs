@@ -1,6 +1,8 @@
 use std::{collections::HashSet, sync::Arc};
 
-use lsys_core::{fluent_message, now_time, AppCore, FluentMessage, RequestEnv, TaskData};
+use lsys_core::{
+    fluent_message, now_time, AppCore, FluentMessage, RequestEnv, TaskData, TaskDispatchConfig,
+};
 
 use lsys_logger::dao::ChangeLoggerDao;
 use lsys_setting::dao::SettingDao;
@@ -80,15 +82,15 @@ impl MailSenderDao {
             wait_timeout.unwrap_or(30),
         ));
 
-        let task = TaskDispatch::new(
-            &format!("{}-notify", MAILER_REDIS_PREFIX),
-            &format!("{}-read-lock", MAILER_REDIS_PREFIX),
-            &format!("{}-run-task", MAILER_REDIS_PREFIX),
+        let task = TaskDispatch::new(&TaskDispatchConfig {
+            list_notify: &format!("{}-notify", MAILER_REDIS_PREFIX),
+            read_lock_key: &format!("{}-read-lock", MAILER_REDIS_PREFIX),
+            task_list_key: &format!("{}-run-task", MAILER_REDIS_PREFIX),
             task_size,
             task_timeout,
             is_check,
-            task_timeout,
-        );
+            check_timeout: task_timeout,
+        });
         Self {
             tpl_config,
             redis,

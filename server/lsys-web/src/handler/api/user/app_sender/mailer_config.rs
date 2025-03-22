@@ -5,14 +5,37 @@ use crate::{
     dao::access::api::user::CheckAppSenderMailConfig,
 };
 
-use lsys_access::dao::{AccessSession, AccessSessionData};
+use lsys_access::dao::{AccessSession, SessionBody};
 use lsys_app_sender::{
     // dao::SenderError,
-    dao::SenderError,
-    model::{SenderConfigStatus, SenderMailConfigType, SenderTplConfigStatus},
+    model::SenderMailConfigType,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
+
+pub(crate) async fn mailer_inner_access_check(
+    app_id: u64,
+    res_user_id: u64,
+    session_body: Option<&SessionBody>,
+    req_dao: &UserAuthQueryDao,
+) -> JsonResult<()> {
+    req_dao
+        .web_dao
+        .app_sender
+        .mailer
+        .app_feature_check_from_app_id(app_id)
+        .await?;
+    req_dao
+        .web_dao
+        .web_rbac
+        .check(
+            &req_dao.req_env,
+            session_body,
+            &CheckAppSenderMailConfig { res_user_id },
+        )
+        .await?;
+    Ok(())
+}
 
 #[derive(Debug, Deserialize)]
 pub struct MailerConfigAddParam {
@@ -26,18 +49,9 @@ pub async fn mailer_config_add(
     param: &MailerConfigAddParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
-        .web_rbac
-        .check(
-            &req_dao.access_env().await?,
-            &CheckAppSenderMailConfig {
-                res_user_id: req_auth.session_body().user_id(),
-            },
-            None,
-        )
-        .await?;
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    mailer_inner_access_check(param.app_id, auth_data.user_id(), Some(&auth_data), req_dao).await?;
+
     let config_type = SenderMailConfigType::try_from(param.config_type)?;
     let id = req_dao
         .web_dao
@@ -50,8 +64,8 @@ pub async fn mailer_config_add(
             param.priority,
             config_type,
             &param.config_data,
-            req_auth.session_body().user_id(),
-            req_auth.user_id(),
+            auth_data.user_id(),
+            auth_data.user_id(),
             Some(&req_dao.req_env),
         )
         .await?;
@@ -66,51 +80,25 @@ pub async fn mailer_config_del(
     param: &MailerConfigDeleteParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-    let res = req_dao
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let config = req_dao
         .web_dao
         .app_sender
         .mailer
         .mailer_dao
         .mail_record
         .find_config_by_id(&param.config_id)
-        .await;
+        .await?;
+    mailer_inner_access_check(config.app_id, config.user_id, Some(&auth_data), req_dao).await?;
+    req_dao
+        .web_dao
+        .app_sender
+        .mailer
+        .mailer_dao
+        .mail_record
+        .config_del(&config, auth_data.user_id(), Some(&req_dao.req_env))
+        .await?;
 
-    match res {
-        Ok(config) => {
-            if SenderConfigStatus::Enable.eq(config.status) {
-                req_dao
-                    .web_dao
-                    .web_rbac
-                    .check(
-                        &req_dao.access_env().await?,
-                        &CheckAppSenderMailConfig {
-                            res_user_id: config.user_id,
-                        },
-                        None,
-                    )
-                    .await?;
-                req_dao
-                    .web_dao
-                    .app_sender
-                    .mailer
-                    .mailer_dao
-                    .mail_record
-                    .config_del(
-                        &config,
-                        req_auth.session_body().user_id(),
-                        Some(&req_dao.req_env),
-                    )
-                    .await?;
-            }
-        }
-        Err(err) => match &err {
-            SenderError::Sqlx(sqlx::Error::RowNotFound) => return Ok(JsonData::default()),
-            _ => {
-                return Err(err)?;
-            }
-        },
-    }
     Ok(JsonData::default())
 }
 
@@ -124,16 +112,16 @@ pub async fn mailer_config_list(
     param: &MailerConfigListParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &req_dao.access_env().await?,
+            &req_dao.req_env,
+            Some(&auth_data),
             &CheckAppSenderMailConfig {
-                res_user_id: req_auth.user_id(),
+                res_user_id: auth_data.user_id(),
             },
-            None,
         )
         .await?;
     let data = req_dao
@@ -142,7 +130,7 @@ pub async fn mailer_config_list(
         .mailer
         .mailer_dao
         .mail_record
-        .config_list(Some(req_auth.user_id()), param.id, param.app_id)
+        .config_list(Some(auth_data.user_id()), param.id, param.app_id)
         .await?;
     let data = data
         .into_iter()
@@ -184,16 +172,16 @@ pub async fn mailer_tpl_config_list(
     param: &MailerTplConfigListParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &req_dao.access_env().await?,
+            &req_dao.req_env,
+            Some(&auth_data),
             &CheckAppSenderMailConfig {
-                res_user_id: req_auth.user_id(),
+                res_user_id: auth_data.user_id(),
             },
-            None,
         )
         .await?;
     let tpl_data = req_dao
@@ -204,7 +192,7 @@ pub async fn mailer_tpl_config_list(
         .tpl_config
         .list_config(
             param.id,
-            Some(req_auth.user_id()),
+            Some(auth_data.user_id()),
             param.app_id,
             param.tpl.as_deref(),
             param.page.as_ref().map(|e| e.into()).as_ref(),
@@ -263,7 +251,7 @@ pub async fn mailer_tpl_config_list(
                 .tpl_config
                 .count_config(
                     param.id,
-                    Some(req_auth.user_id()),
+                    Some(auth_data.user_id()),
                     param.app_id,
                     param.tpl.as_deref(),
                 )
@@ -283,7 +271,7 @@ pub async fn mailer_tpl_config_del(
     param: &MailerTplConfigDelParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let config = req_dao
         .web_dao
         .app_sender
@@ -292,28 +280,14 @@ pub async fn mailer_tpl_config_del(
         .tpl_config
         .find_by_id(&param.app_config_id)
         .await?;
-    if SenderTplConfigStatus::Delete.eq(config.status) {
-        return Ok(JsonData::data(json!({ "num": 0 })));
-    }
-    req_dao
-        .web_dao
-        .web_rbac
-        .check(
-            &req_dao.access_env().await?,
-            &CheckAppSenderMailConfig {
-                res_user_id: config.user_id,
-            },
-            None,
-        )
-        .await?;
-
+    mailer_inner_access_check(config.app_id, config.user_id, Some(&auth_data), req_dao).await?;
     let row = req_dao
         .web_dao
         .app_sender
         .mailer
         .mailer_dao
         .tpl_config
-        .del_config(&config, req_auth.user_id(), Some(&req_dao.req_env))
+        .del_config(&config, auth_data.user_id(), Some(&req_dao.req_env))
         .await?;
     Ok(JsonData::data(json!({ "num": row })))
 }

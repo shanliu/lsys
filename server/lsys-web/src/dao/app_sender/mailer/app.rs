@@ -9,8 +9,6 @@ use crate::common::JsonResult;
 
 use super::SenderMailer;
 
-pub const APP_FEATURE_MAIL: &str = "mail";
-
 impl SenderMailer {
     // 应用发送邮件接口
     #[allow(clippy::too_many_arguments)]

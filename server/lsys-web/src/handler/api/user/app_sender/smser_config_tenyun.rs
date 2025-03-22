@@ -13,6 +13,18 @@ pub async fn smser_ten_config_list(
     param: &SmserTenConfigListParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    req_dao
+        .web_dao
+        .web_rbac
+        .check(
+            &req_dao.req_env,Some(&auth_data),
+            &CheckAppSenderSmsConfig {
+                res_user_id: auth_data.user_id(),
+            },
+        )
+        .await?;
+
     let row = req_dao
         .web_dao
         .app_sender
@@ -50,19 +62,8 @@ pub async fn smser_ten_app_config_add(
     param: &SmserAppTenConfigAddParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
-        .web_rbac
-        .check(
-            &req_dao.access_env().await?,
-            &CheckAppSenderSmsConfig {
-                res_user_id: req_auth.user_id(),
-            },
-            None,
-        )
-        .await?;
-
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    super::smser_inner_access_check(param.app_id, auth_data.user_id(), req_dao).await?;
     let row = req_dao
         .web_dao
         .app_sender
@@ -76,8 +77,8 @@ pub async fn smser_ten_app_config_add(
             &param.sign_name,
             &param.template_id,
             &param.template_map,
-            req_auth.user_id(),
-            req_auth.user_id(),
+            auth_data.user_id(),
+            auth_data.user_id(),
             Some(&req_dao.req_env),
         )
         .await?;

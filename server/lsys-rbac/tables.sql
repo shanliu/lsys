@@ -1,21 +1,19 @@
 CREATE TABLE `yaf_rbac_role` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
+    `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID,当user_id时,对应关联的应用ID',
     `role_key` varchar(32) NOT NULL COMMENT '角色KEY,可用于会话角色鉴权时的标识',
     `user_range` tinyint NOT NULL COMMENT '角色包含用户范围',
     `res_range` tinyint NOT NULL COMMENT '角色可操作资源范围',
-    `role_name` varchar(32) NOT NULL COMMENT '角色名',
+    `role_name` varchar(32) NOT NULL COMMENT '角色名,可为空',
     `status` tinyint NOT NULL COMMENT '状态',
     `change_user_id` bigint unsigned NOT NULL COMMENT '最后更新用户',
     `change_time` bigint unsigned NOT NULL COMMENT '最后更改时间',
     PRIMARY KEY (`id`),
-    UNIQUE KEY `rbac_role_key_IDX` (
+    KEY `rbac_role_key_IDX` (
         `user_id`,
+        `app_id`,
         `role_key`
-    ) USING BTREE,
-    KEY `rbac_role_user_id_IDX` (
-        `user_id`,
-        `status`
     ) USING BTREE,
     KEY `rbac_role_user_range_IDX` (
         `user_range`,
@@ -26,61 +24,71 @@ CREATE TABLE `yaf_rbac_role` (
         `user_id`,
         `status`,
         `role_key`
+    ) USING BTREE,
+    KEY `rbac_role_app_IDX` (
+        `app_id`
     ) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '角色';
 CREATE TABLE `yaf_rbac_res` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
+    `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID,当user_id时,对应关联的应用ID',
     `res_type` varchar(32) NOT NULL COMMENT '资源类型',
     `res_data` varchar(32) NOT NULL COMMENT '资源数据',
-    `res_name` varchar(32) NOT NULL COMMENT '资源名',
+    `res_name` varchar(32) NOT NULL COMMENT '资源名,可为空',
     `status` tinyint NOT NULL COMMENT '状态',
     `change_user_id` bigint unsigned NOT NULL COMMENT '最后更新用户',
     `change_time` bigint unsigned NOT NULL COMMENT '最后更改时间',
     PRIMARY KEY (`id`),
-    UNIQUE KEY `rbac_res_key_IDX` (
+    KEY `rbac_res_key_IDX` (
+        `user_id`,
+        `app_id`,
         `res_type`,
-        `res_data`,
-        `user_id`
+        `res_data`
     ) USING BTREE,
     KEY `rbac_res_type_IDX` (
         `res_type`,
         `user_id`,
         `status`
+    ) USING BTREE,
+    KEY `rbac_role_app_IDX` (
+        `app_id`
     ) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '资源';
 CREATE TABLE `yaf_rbac_op` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
+    `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID,当user_id时,对应关联的应用ID',
     `op_key` varchar(32) NOT NULL COMMENT '资源操作KEY',
-    `op_name` varchar(32) NOT NULL COMMENT '资源操作名',
+    `op_name` varchar(32) NOT NULL COMMENT '资源操作名,可为空',
     `status` tinyint NOT NULL COMMENT '状态',
     `change_user_id` bigint unsigned NOT NULL COMMENT '最后更新用户',
     `change_time` bigint unsigned NOT NULL COMMENT '最后更改时间',
     PRIMARY KEY (`id`),
     KEY `rbac_op_IDX` (
-        `op_key`,
-        `status`
+        `user_id`,
+        `app_id`,
+        `op_key`
+    ) USING BTREE,
+    KEY `rbac_role_app_IDX` (
+        `app_id`
     ) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '资源操作';
 CREATE TABLE `yaf_rbac_op_res` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-    `op_id` bigint unsigned NOT NULL COMMENT '资源操作ID',
     `res_type` varchar(32) NOT NULL COMMENT '资源类型',
     `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
+    `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID,当user_id时,对应关联的应用ID',
+    `op_id` bigint unsigned NOT NULL COMMENT '资源操作ID',
     `status` tinyint NOT NULL COMMENT '状态',
     `change_user_id` bigint unsigned NOT NULL COMMENT '最后更新用户',
     `change_time` bigint unsigned NOT NULL COMMENT '最后更改时间',
     PRIMARY KEY (`id`),
-    KEY `rbac_op_res_IDX` (
-        `res_type`,
-        `op_id`,
-        `status`,
-        `change_time`
-    ) USING BTREE,
      KEY `rbac_res_type_IDX` (
         `res_type`,
         `user_id`,
+        `app_id`,
+        `op_id`,
         `status`
     ) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '操作跟资源关联';

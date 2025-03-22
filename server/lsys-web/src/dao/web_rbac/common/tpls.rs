@@ -1,81 +1,3 @@
-use std::convert::From;
-
-use lsys_rbac::dao::AccessSessionRole;
-// 提供一个方便方式 收集代码中使用到的关系数据
-// !!!非必须,可外部自行组织!!!
-// 关系模板获取trait 定义,用在 access_relation_tpl 宏中
-// 资源模板
-#[derive(Debug)]
-pub struct CheckRelationTpl {
-    pub key: &'static str, //资源KEY
-    pub user: bool,        //系统资源还是用户资源
-}
-#[derive(Clone)]
-pub struct CheckRelationRole {
-    pub role_key: String,
-    pub user_id: u64,
-}
-
-impl<'t> From<&'t CheckRelationRole> for AccessSessionRole<'t> {
-    fn from(value: &'t CheckRelationRole) -> Self {
-        AccessSessionRole {
-            role_key: &value.role_key,
-            user_id: value.user_id,
-        }
-    }
-}
-
-#[derive(Clone, Default)]
-pub struct CheckRelationData {
-    role_data: Vec<CheckRelationRole>,
-}
-
-impl CheckRelationData {
-    pub fn to_session_role(&self) -> Vec<AccessSessionRole<'_>> {
-        self.role_data
-            .iter()
-            .map(|e| AccessSessionRole {
-                role_key: &e.role_key,
-                user_id: e.user_id,
-            })
-            .collect::<Vec<_>>()
-    }
-    pub fn extend(&mut self, relation: &CheckRelationData) -> &mut Self {
-        self.role_data.extend(
-            relation
-                .role_data
-                .iter()
-                .map(|e| e.to_owned())
-                .collect::<Vec<_>>(),
-        );
-        self
-    }
-}
-
-impl From<Vec<CheckRelationRole>> for CheckRelationData {
-    fn from(role_data: Vec<CheckRelationRole>) -> Self {
-        CheckRelationData { role_data }
-    }
-}
-
-pub trait RbacCheckRelationTpl {
-    fn relation_data(&self) -> CheckRelationData;
-    fn tpl_data() -> Vec<CheckRelationTpl>;
-}
-
-#[macro_export]
-macro_rules! access_relation_tpl {
-    ($($res_type:ty),+) => {{
-        use $crate::dao::RbacCheckRelationTpl;
-        use $crate::dao::CheckRelationTpl;
-        let mut data = Vec::<CheckRelationTpl>::new();
-        $(
-            data.extend(<$res_type>::tpl_data());
-        )+
-        data
-    }};
-}
-
 // 提供一个方便方式 来收集代码中使用到的资源
 // !!!非必须,可外部自行组织!!!
 // 通过trait加宏操作方式实现 一般在实现了 RbacCheck trait 的结构上实现
@@ -84,6 +6,7 @@ macro_rules! access_relation_tpl {
 #[derive(Debug)]
 pub struct CheckResTpl {
     pub key: &'static str,      //资源KEY
+    pub data: bool,             //静态资源还是动态资源
     pub user: bool,             //系统资源还是用户资源
     pub ops: Vec<&'static str>, //资源包含操作
 }
@@ -129,6 +52,7 @@ fn test_tpl() {
         fn tpl_data() -> Vec<CheckResTpl> {
             vec![CheckResTpl {
                 user: false,
+                data: false,
                 key: "dd${aaa}",
                 ops: vec!["ddd", "bbb"],
             }]
@@ -140,11 +64,13 @@ fn test_tpl() {
             vec![
                 CheckResTpl {
                     user: false,
+                    data: false,
                     key: "dd${aaa}",
                     ops: vec!["ccc", "ddd"],
                 },
                 CheckResTpl {
                     user: false,
+                    data: false,
                     key: "oooo",
                     ops: vec!["ccc", "ddd"],
                 },

@@ -1,25 +1,24 @@
 use crate::common::{JsonData, JsonResult, PageParam, UserAuthQueryDao};
 use crate::dao::access::api::system::{CheckAdminRbacEdit, CheckAdminRbacView};
 use lsys_access::dao::AccessSession;
-use lsys_rbac::dao::OpDataParam;
+use lsys_rbac::dao::{OpDataParam as DaoOpDataParam, RbacOpAddData, RbacOpData};
 use serde::Deserialize;
 use serde_json::json;
 
 #[derive(Debug, Deserialize)]
-pub struct RbacOpAddParam {
+pub struct OpAddParam {
     pub op_key: String,
     pub op_name: String,
     pub data: String,
 }
 
-pub async fn rbac_op_add(
-    param: &RbacOpAddParam,
-    req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+pub async fn op_add(param: &OpAddParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminRbacEdit {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacEdit {})
         .await?;
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let id = req_dao
@@ -28,9 +27,18 @@ pub async fn rbac_op_add(
         .rbac_dao
         .op
         .add_op(
-            0,
-            &param.op_key,
-            &param.op_name,
+            &RbacOpAddData {
+                user_id: 0,
+                app_id: Some(0),
+                op_info: RbacOpData {
+                    op_key: &param.op_key,
+                    op_name: if param.op_name.is_empty() {
+                        None
+                    } else {
+                        Some(&param.op_name)
+                    },
+                },
+            },
             auth_data.user_id(),
             None,
             Some(&req_dao.req_env),
@@ -40,21 +48,20 @@ pub async fn rbac_op_add(
 }
 
 #[derive(Debug, Deserialize)]
-pub struct RbacOpEditParam {
+pub struct OpEditParam {
     pub op_id: u64,
     pub op_key: String,
     pub op_name: String,
     pub data: String,
 }
 
-pub async fn rbac_op_edit(
-    param: &RbacOpEditParam,
-    req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+pub async fn op_edit(param: &OpEditParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminRbacEdit {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacEdit {})
         .await?;
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let op = req_dao
@@ -71,8 +78,14 @@ pub async fn rbac_op_edit(
         .op
         .edit_op(
             &op,
-            Some(&param.op_key),
-            Some(&param.op_name),
+            &RbacOpData {
+                op_key: &param.op_key,
+                op_name: if param.op_name.is_empty() {
+                    None
+                } else {
+                    Some(&param.op_name)
+                },
+            },
             auth_data.user_id(),
             None,
             Some(&req_dao.req_env),
@@ -82,18 +95,17 @@ pub async fn rbac_op_edit(
 }
 
 #[derive(Debug, Deserialize)]
-pub struct RbacOpDelParam {
+pub struct OpDelParam {
     pub op_id: u64,
 }
 
-pub async fn rbac_op_del(
-    param: &RbacOpDelParam,
-    req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+pub async fn op_del(param: &OpDelParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminRbacEdit {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacEdit {})
         .await?;
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let op = req_dao
@@ -114,7 +126,7 @@ pub async fn rbac_op_del(
 }
 
 #[derive(Debug, Deserialize)]
-pub struct RbacOpDataParam {
+pub struct OpDataParam {
     pub op_name: Option<String>,
     pub op_key: Option<String>,
     pub ids: Option<Vec<u64>>,
@@ -122,14 +134,13 @@ pub struct RbacOpDataParam {
     pub count_num: Option<bool>,
 }
 
-pub async fn rbac_op_data(
-    param: &RbacOpDataParam,
-    req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+pub async fn op_data(param: &OpDataParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminRbacView {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacView {})
         .await?;
     let res = req_dao
         .web_dao
@@ -137,8 +148,9 @@ pub async fn rbac_op_data(
         .rbac_dao
         .op
         .op_data(
-            &OpDataParam {
+            &DaoOpDataParam {
                 user_id: 0,
+                app_id: None,
                 op_name: param.op_name.as_deref(),
                 op_key: param.op_key.as_deref(),
                 ids: param.ids.as_deref(),
@@ -153,8 +165,9 @@ pub async fn rbac_op_data(
                 .web_rbac
                 .rbac_dao
                 .op
-                .op_count(&OpDataParam {
+                .op_count(&DaoOpDataParam {
                     user_id: 0,
+                    app_id: None,
                     op_name: param.op_name.as_deref(),
                     op_key: param.op_key.as_deref(),
                     ids: param.ids.as_deref(),

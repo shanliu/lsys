@@ -100,7 +100,7 @@ func (receiver *RestApi) OAuthAuthorizationUrl(_ context.Context, callbackUrl st
 
 // OAuthAccessToken Oauth 通过CODE得到TOKEN
 // code 用户授权登录后返回
-func (receiver *RestApi) OAuthAccessToken(ctx context.Context, code string) (error, *TokenData) {
+func (receiver *RestApi) OAuthAccessToken(ctx context.Context, code string) (*TokenData, error) {
 	req := <-receiver.oauth.Do(ctx, TokenCreate, map[string]string{
 		"code":          code,
 		"client_secret": receiver.config.AppOAuthSecret,
@@ -109,9 +109,9 @@ func (receiver *RestApi) OAuthAccessToken(ctx context.Context, code string) (err
 	var tokenData TokenData
 	err := req.JsonResult().GetStruct("response", &tokenData)
 	if err != nil {
-		return err, nil
+		return nil, err
 	}
-	return nil, &tokenData
+	return &tokenData, nil
 }
 
 // TokenRestApi 获取需要TOKEN的rest接口实例
@@ -127,7 +127,7 @@ func (receiver *RestApi) TokenRestApi(token string) *TokenRestApi {
 }
 
 // OAuthRefreshToken Oauth 刷新TOKEN
-func (receiver *TokenRestApi) OAuthRefreshToken(ctx context.Context) (error, *TokenData) {
+func (receiver *TokenRestApi) OAuthRefreshToken(ctx context.Context) (*TokenData, error) {
 	req := <-receiver.api.oauth.Do(ctx, TokenRefresh, map[string]string{
 		"refresh_token": receiver.token,
 		"client_secret": receiver.api.config.AppOAuthSecret,
@@ -136,16 +136,16 @@ func (receiver *TokenRestApi) OAuthRefreshToken(ctx context.Context) (error, *To
 	var tokenData TokenData
 	err := req.JsonResult().GetStruct("response", &tokenData)
 	if err != nil {
-		return err, nil
+		return nil, err
 	}
 	receiver.rest = receiver.api.client.NewApi(&RestTokenApiClient{
 		OAuthToken: tokenData.AccessToken,
 	})
-	return nil, &tokenData
+	return &tokenData, nil
 }
 
 // OAuthUserInfo 获取用户资料
-func (receiver *TokenRestApi) OAuthUserInfo(ctx context.Context, user bool, name bool, info bool, address bool, email bool, mobile bool) (error, *rest_client.JsonData) {
+func (receiver *TokenRestApi) OAuthUserInfo(ctx context.Context, user bool, name bool, info bool, address bool, email bool, mobile bool) (*rest_client.JsonData, error) {
 	req := <-receiver.rest.Do(ctx, UserInfo, map[string]interface{}{
 		"user":    user,
 		"name":    name,
@@ -156,7 +156,7 @@ func (receiver *TokenRestApi) OAuthUserInfo(ctx context.Context, user bool, name
 	})
 	res := req.JsonResult().GetData("response")
 	if res.Err() != nil {
-		return res.Err(), nil
+		return nil, res.Err()
 	}
-	return nil, res
+	return res, nil
 }

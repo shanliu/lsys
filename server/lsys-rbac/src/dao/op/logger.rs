@@ -8,6 +8,7 @@ pub(crate) struct LogOp<'t> {
     pub op_name: &'t str,
     pub op_key: &'t str,
     pub user_id: u64,
+    pub app_id: u64,
 }
 
 impl ChangeLogData for LogOp<'_> {

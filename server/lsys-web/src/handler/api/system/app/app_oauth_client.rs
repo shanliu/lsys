@@ -8,20 +8,22 @@ use lsys_app::model::AppRequestStatus;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
-pub struct AppConfirmOAuthClientParam {
+pub struct ConfirmOAuthClientParam {
     pub app_id: u64,
     pub confirm_status: i8,
     pub confirm_note: String,
 }
 //oauth 接入申请审核
-pub async fn app_oauth_client_confirm(
-    param: &AppConfirmOAuthClientParam,
+pub async fn oauth_client_confirm(
+    param: &ConfirmOAuthClientParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminApp {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminApp {})
         .await?;
     let confirm_status = AppRequestStatus::try_from(param.confirm_status)?;
     let app = req_dao
@@ -31,7 +33,6 @@ pub async fn app_oauth_client_confirm(
         .app
         .find_by_id(&param.app_id)
         .await?;
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
         .web_app
@@ -49,21 +50,22 @@ pub async fn app_oauth_client_confirm(
 }
 
 #[derive(Deserialize)]
-pub struct AppConfirmOAuthClientScopeParam {
+pub struct ConfirmOAuthClientScopeParam {
     pub app_id: u64,
     pub app_req_id: u64,
     pub confirm_status: i8,
     pub confirm_note: String,
 }
 //oauth 接入申请新权限审核
-pub async fn app_oauth_client_scope_confirm(
-    param: &AppConfirmOAuthClientScopeParam,
+pub async fn oauth_client_scope_confirm(
+    param: &ConfirmOAuthClientScopeParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminApp {}, None)
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminApp {})
         .await?;
     let req_app = req_dao
         .web_dao
@@ -80,7 +82,7 @@ pub async fn app_oauth_client_scope_confirm(
         .app
         .find_by_id(&param.app_id)
         .await?;
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_app

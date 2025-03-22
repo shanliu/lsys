@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     common::{JsonData, JsonError, JsonResult, RequestDao},
-    dao::{access::rest::CheckRestApp, APP_FEATURE_SMS},
+    dao::access::rest::CheckRestApp,
 };
 use lsys_app::model::AppModel;
 use lsys_core::{str_time, IntoFluentMessage};
@@ -10,7 +10,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 #[derive(Debug, Deserialize)]
-pub struct SmsSendParam {
+pub struct SendParam {
     pub area: Option<String>,
     pub mobile: Vec<String>,
     pub tpl: String,
@@ -18,27 +18,17 @@ pub struct SmsSendParam {
     pub send_time: Option<String>,
     pub max_try: Option<u8>,
 }
-pub async fn sms_send(
-    param: &SmsSendParam,
-    app: &AppModel,
-    req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+pub async fn send(param: &SendParam, app: &AppModel, req_dao: &RequestDao) -> JsonResult<JsonData> {
     req_dao
         .web_dao
         .web_rbac
-        .check(
-            &req_dao.access_env(),
-            &CheckRestApp { app_id: app.id },
-            None,
-        )
+        .check(&req_dao.req_env, None, &CheckRestApp { app_id: app.id })
         .await?;
     req_dao
         .web_dao
-        .web_app
-        .app_dao
-        .app
-        .cache()
-        .exter_feature_check(app, &[APP_FEATURE_SMS])
+        .app_sender
+        .smser
+        .app_feature_check(app)
         .await?;
 
     let send_time = if let Some(ref t) = param.send_time {
@@ -86,11 +76,11 @@ pub async fn sms_send(
 }
 
 #[derive(Debug, Deserialize)]
-pub struct SmsCancelParam {
+pub struct CancelParam {
     pub snid_data: Vec<String>,
 }
-pub async fn sms_cancel(
-    param: &SmsCancelParam,
+pub async fn cancel(
+    param: &CancelParam,
     app: &AppModel,
     req_dao: &RequestDao,
 ) -> JsonResult<JsonData> {

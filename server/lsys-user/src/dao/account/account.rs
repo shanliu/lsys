@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use crate::dao::AccountResult;
 use crate::model::{AccountIndexCat, AccountModel, AccountModelRef, AccountStatus};
-use lsys_access::dao::{AccessDao, AccessError, UserInfo};
+use lsys_access::dao::{AccessDao, UserInfo};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::{fluent_message, now_time, LimitParam, RemoteNotify, RequestEnv};
 use lsys_logger::dao::ChangeLoggerDao;
@@ -212,11 +212,12 @@ impl Account {
         transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
     ) -> AccountResult<()> {
+        let time = now_time()?;
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let time = now_time()?;
+
         //delete account data
         let mut change = lsys_core::model_option_set!(AccountModelRef,{
             status:AccountStatus::Delete as i8,
@@ -402,38 +403,12 @@ impl AccountCache<'_> {
         AccountResult<HashMap<u64, AccountModel>>
     );
     pub async fn get_user(&self, account: &AccountModel) -> AccountResult<UserInfo> {
-        let res = self
+        Ok(self
             .dao
             .access
             .user
             .cache()
-            .find_user_by_data(0, account.id, true)
-            .await;
-        match res {
-            Ok(e) => Ok(e),
-            Err(err) => {
-                if let AccessError::Sqlx(ref terr) = &err {
-                    match terr {
-                        sqlx::Error::RowNotFound => {
-                            self.dao
-                                .access
-                                .user
-                                .sync_user(0, account.id, Some(&account.nickname), None)
-                                .await?;
-                            Ok(self
-                                .dao
-                                .access
-                                .user
-                                .cache()
-                                .find_user_by_data(0, account.id, true)
-                                .await?)
-                        }
-                        _ => Err(err.into()),
-                    }
-                } else {
-                    Err(err.into())
-                }
-            }
-        }
+            .sync_user(0, account.id, Some(&account.nickname), None)
+            .await?)
     }
 }

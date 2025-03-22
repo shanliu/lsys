@@ -2,8 +2,8 @@
 use lsys_core::now_time;
 //RBAC中角色相关实现
 use sqlx::{FromRow, Row};
-use lsys_core::{sql_format};
-use lsys_core::db::{ ModelTableName};
+use lsys_core::sql_format;
+use lsys_core::db::ModelTableName;
 use tracing::error;
 
 use crate::{dao::result::RbacResult, 
@@ -21,10 +21,12 @@ use lsys_core::db::SqlQuote;
 #[derive(Clone, Debug)]
 pub struct AccessResInfo<'t>{
     pub user_id:u64,
+    pub app_id:u64,
     pub res_data:Vec<(&'t RbacResModel, Vec<&'t RbacOpModel>)>,
 }
 #[derive(Clone, Debug)]
 pub struct AccessRoleInfo<'t>{
+    pub app_id:u64,
     pub user_id:u64,
     pub role_key:&'t str,
 }
@@ -37,59 +39,15 @@ impl RbacRoleCache<'_>{
         role_user:Option<&[u64]>,//user id 所有变动
     ){
         //user_id res_range user_range 添加后不可修改
-        
-        if RbacRoleUserRange::Any.eq(role.user_range) ||RbacRoleUserRange::Logged.eq(role.user_range){
+        if RbacRoleUserRange::Session.eq(role.user_range){
             if RbacRoleResRange::Any.eq(role.res_range){
-                let key=self.role.cache().find_access_key_public_res_all(role.user_id, role.user_range);
+                let key=self.role.cache().find_access_key_session_res_all(role.user_id, role.app_id,&role.role_key);
                 self.role.cache_access.clear(&key).await;
             }else if RbacRoleResRange::Exclude.eq(role.res_range) ||  RbacRoleResRange::Include.eq(role.res_range){
                 match role_prem{
                     Some(prem) => {
                         for (res_id,op_id) in prem {
-                            let key= self.role.cache().find_access_key_public_by_res(role.user_id,role.user_range,role.res_range,*res_id,*op_id);
-                            self.role.cache_access.clear(&key).await;
-                        }
-                    },
-                    None => {
-                        let mut start_id=0;
-                        loop {
-                            match sqlx::query_as::<_, (u64, u64,u64)>(&sql_format!(
-                                "select id,res_id,op_id from {}  where role_id={} and id>{} order by id asc limit 100 ",
-                                RbacPermModel::table_name(),
-                                role.id,
-                                start_id
-                            ))
-                            .fetch_all(&self.role.db)
-                            .await{
-                                Ok(data) => {
-                                    if data.is_empty() {
-                                        break;
-                                    }
-                                    for (id,res_id,op_id) in data {
-                                        start_id=id;
-                                        let key= self.role.cache().find_access_key_public_by_res(role.user_id,role.user_range,role.res_range,res_id,op_id);
-                                        self.role.cache_access.clear(&key).await;
-                                    }
-                                },
-                                Err(err) => {
-                                    //err
-                                    error!("clear rbac cache fail on public:{err}");
-                                    break;
-                                },
-                            }
-                        }
-                    },
-                }
-            }
-        }else if RbacRoleUserRange::Session.eq(role.user_range){
-            if RbacRoleResRange::Any.eq(role.res_range){
-                let key=self.role.cache().find_access_key_session_res_all(role.user_id, &role.role_key);
-                self.role.cache_access.clear(&key).await;
-            }else if RbacRoleResRange::Exclude.eq(role.res_range) ||  RbacRoleResRange::Include.eq(role.res_range){
-                match role_prem{
-                    Some(prem) => {
-                        for (res_id,op_id) in prem {
-                            let key= self.role.cache().find_access_key_session_by_res(role.user_id, &role.role_key,role.res_range,*res_id,*op_id);
+                            let key= self.role.cache().find_access_key_session_by_res(role.user_id, role.app_id,&role.role_key,role.res_range,*res_id,*op_id);
                             self.role.cache_access.clear(&key).await;
                         }
                     },
@@ -110,7 +68,7 @@ impl RbacRoleCache<'_>{
                                     }
                                     for (id,res_id,op_id) in data {
                                         start_id=id;
-                                        let key= self.role.cache().find_access_key_session_by_res(role.user_id, &role.role_key,role.res_range,res_id,op_id);
+                                        let key= self.role.cache().find_access_key_session_by_res(role.user_id, role.app_id,&role.role_key,role.res_range,res_id,op_id);
                                         self.role.cache_access.clear(&key).await;
                                     }
                                 },
@@ -126,10 +84,11 @@ impl RbacRoleCache<'_>{
             }
         }else if RbacRoleUserRange::Custom.eq(role.user_range){
             if RbacRoleResRange::Any.eq(role.res_range){
+                //自定义用户 -> 任意资源
                 match role_user{
                     Some(role_user_data) => {
                         for access_user_id in role_user_data {                            
-                            let key=self.role.cache().find_access_key_user_res_all(role.user_id, *access_user_id);
+                            let key=self.role.cache().find_access_key_user_res_all(role.user_id, role.app_id,*access_user_id);
                             self.role.cache_access.clear(&key).await;
                         }
                     },
@@ -150,7 +109,7 @@ impl RbacRoleCache<'_>{
                                     }
                                     for (id,access_user_id) in data {
                                         start_id=id;
-                                        let key=self.role.cache().find_access_key_user_res_all(role.user_id, access_user_id);
+                                        let key=self.role.cache().find_access_key_user_res_all(role.user_id, role.app_id,access_user_id);
                                         self.role.cache_access.clear(&key).await;
                                     }
                                 },
@@ -171,7 +130,7 @@ impl RbacRoleCache<'_>{
                             match role_user{
                                 Some(role_user_data) => {
                                     for access_user_id in role_user_data {                            
-                                        let key=self.role.cache().find_access_key_user_by_res(role.user_id, *access_user_id,role.res_range,*res_id,*op_id);
+                                        let key=self.role.cache().find_access_key_user_by_res(role.user_id, role.app_id,*access_user_id,role.res_range,*res_id,*op_id);
                                         self.role.cache_access.clear(&key).await;
                                     }
                                 },
@@ -192,7 +151,7 @@ impl RbacRoleCache<'_>{
                                                 }
                                                 for (id,access_user_id) in data {
                                                     start_id=id;
-                                                    let key=self.role.cache().find_access_key_user_by_res(role.user_id, access_user_id,role.res_range,*res_id,*op_id);
+                                                    let key=self.role.cache().find_access_key_user_by_res(role.user_id, role.app_id,access_user_id,role.res_range,*res_id,*op_id);
                                                     self.role.cache_access.clear(&key).await;
                                                 }
                                             },
@@ -205,8 +164,6 @@ impl RbacRoleCache<'_>{
                                     }
                                 },
                             }
-
-
                         }
                     },
                     None => {
@@ -230,7 +187,7 @@ impl RbacRoleCache<'_>{
                                         match role_user{
                                             Some(role_user_data) => {
                                                 for access_user_id in role_user_data {                            
-                                                    let key=self.role.cache().find_access_key_user_by_res(role.user_id, *access_user_id,role.res_range,res_id,op_id);
+                                                    let key=self.role.cache().find_access_key_user_by_res(role.user_id, role.app_id,*access_user_id,role.res_range,res_id,op_id);
                                                     self.role.cache_access.clear(&key).await;
                                                 }
                                             },
@@ -251,7 +208,7 @@ impl RbacRoleCache<'_>{
                                                             }
                                                             for (id,access_user_id) in data {
                                                                 user_start_id=id;
-                                                                let key=self.role.cache().find_access_key_user_by_res(role.user_id, access_user_id,role.res_range,res_id,op_id);
+                                                                let key=self.role.cache().find_access_key_user_by_res(role.user_id,role.app_id, access_user_id,role.res_range,res_id,op_id);
                                                                 self.role.cache_access.clear(&key).await;
                                                             }
                                                         },
@@ -264,7 +221,6 @@ impl RbacRoleCache<'_>{
                                                 }
                                             },
                                         }
-
                                     }
                                 },
                                 Err(err) => {
@@ -279,57 +235,43 @@ impl RbacRoleCache<'_>{
             }
         }
     }
-    fn find_access_key_public_res_all(
-        &self,
-        role_user_id:u64,
-        user_range:i8,
-    ) ->String{
-        format!("ur:{}-rr:{}-uid:{}",user_range,RbacRoleResRange::Any as i8,role_user_id)
-    }
-    fn find_access_key_public_by_res(
-        &self,
-        role_user_id:u64,
-        user_range:i8,
-        res_range:i8,
-        res_id:u64,
-        op_id:u64,
-    ) ->String{
-        format!("ur:{}-rr:{}-uid:{}-rid:{}-opid:{}",user_range ,res_range ,role_user_id,res_id,op_id)
-    }
     fn find_access_key_session_res_all(
         &self,
         role_user_id:u64,
-        // session_role_user_id:u64,
+        role_user_app_id:u64,
         session_role_key:&str,
     ) ->String{
-        format!("ur:{}-rr:{}-uid:{}-rkey:{}",RbacRoleUserRange::Session as i8,RbacRoleResRange::Any as i8,role_user_id,session_role_key)
+        format!("ur:{}-rr:{}-uid:{}-appid:{}-rkey:{}",RbacRoleUserRange::Session as i8,RbacRoleResRange::Any as i8,role_user_id,role_user_app_id,session_role_key)
     }
     fn find_access_key_session_by_res(
         &self,
         role_user_id:u64,
+        role_user_app_id:u64,
         session_role_key:&str,
         res_range:i8,
         res_id:u64,
         op_id:u64,
     ) ->String{   
-        format!("ur:{}-rr:{}-uid:{}-rkey:{}-rid:{}-opid:{}",RbacRoleUserRange::Session as i8,res_range ,role_user_id,session_role_key,res_id,op_id)
+        format!("ur:{}-rr:{}-uid:{}-appid:{}-rkey:{}-rid:{}-opid:{}",RbacRoleUserRange::Session as i8,res_range ,role_user_id,role_user_app_id,session_role_key,res_id,op_id)
     }
     fn find_access_key_user_res_all(
         &self,
         role_user_id:u64,
+        role_user_app_id:u64,
         access_user_id:u64,
     ) ->String{   
-        format!("ur:{}-rr:{}-uid:{}-auid:{}",RbacRoleUserRange::Any as i8,RbacRoleResRange::Any as i8,role_user_id,access_user_id)
+        format!("ur:{}-rr:{}-uid:{}-appid:{}-auid:{}",RbacRoleUserRange::Custom  as i8,RbacRoleResRange::Any as i8,role_user_id,role_user_app_id,access_user_id)
     }
     fn find_access_key_user_by_res(
         &self,
         role_user_id:u64,
+        role_user_app_id:u64,
         access_user_id:u64,
         res_range:i8,
         res_id:u64,
         op_id:u64,
     ) ->String{
-        format!("ur:{}-rr:{}-uid:{}-auid:{}-rid:{}-opid:{}",RbacRoleUserRange::Custom as i8,res_range ,role_user_id,access_user_id,res_id,op_id)
+        format!("ur:{}-rr:{}-uid:{}-appid:{}-auid:{}-rid:{}-opid:{}",RbacRoleUserRange::Custom as i8,res_range ,role_user_id,role_user_app_id,access_user_id,res_id,op_id)
     }
     pub async fn find_access_row<'s>(
         &self,
@@ -340,45 +282,34 @@ impl RbacRoleCache<'_>{
         check_role_data:&'s [AccessRoleInfo<'s>],
     )->RbacResult<AccessRoleData>{
         let mut role_find= RbacRoleFinder::new(self.role);
-        role_find.find_access_public_res_all(0, RbacRoleUserRange::Any).await;
         //系统全局
         for role_data in check_role_data{
             if role_data.user_id>0{continue;}
-            role_find.find_access_session_res_all(0,role_data.role_key).await;
-            //系统-会话
+             //系统-会话
+            role_find.find_access_session_res_all(0,0,role_data.role_key).await;
+           
         }
         if user_id>0{
-            //系统-登录
-            role_find.find_access_public_res_all(0, RbacRoleUserRange::Logged).await;
             //系统-特定用户
-            role_find.find_access_user_res_all(0, user_id).await;
+            role_find.find_access_user_res_all(0, 0,user_id).await;
         }
         for res_data in check_res_data{
             //用户-公共
             if res_data.user_id>0{
                 //用户全局
-                role_find.find_access_public_res_all(res_data.user_id, RbacRoleUserRange::Any).await;
                 for role_data in check_role_data{
                     if role_data.user_id!=res_data.user_id{continue;}
                     //用户-会话
-                    role_find.find_access_session_res_all(res_data.user_id,role_data.role_key).await;
+                    role_find.find_access_session_res_all(res_data.user_id,role_data.app_id,role_data.role_key).await;
                 }
                 if user_id>0{
-                    //用户-登录
-                    role_find.find_access_public_res_all(res_data.user_id, RbacRoleUserRange::Logged).await;
                     //用户-特定用户
-                    role_find.find_access_user_res_all(res_data.user_id, user_id).await;
+                    role_find.find_access_user_res_all(res_data.user_id,res_data.app_id, user_id).await;
                 }
             }
             for (res_item,op_data) in res_data.res_data.iter(){
                 //跟资源相关
                 for op_item in op_data.iter(){
-                    role_find.find_access_public_by_res(
-                        0, 
-                        RbacRoleUserRange::Any,
-                        res_item.id,
-                        op_item.id
-                    ).await;
                     //系统-排除或指定
                     // //系统-特定资源
                     for role_data in check_role_data{
@@ -386,58 +317,40 @@ impl RbacRoleCache<'_>{
                         //系统-会话
                         role_find.find_access_session_by_res(
                             0, 
+                            0,
                             role_data.role_key,
                             res_item.id,
                             op_item.id,
                         ).await;
                     }
-
                     if user_id>0{
-                        //系统-登录
-                        role_find.find_access_public_by_res(
-                            0, 
-                            RbacRoleUserRange::Logged,
-                            res_item.id,
-                            op_item.id,
-                        ).await;
                         //系统-特定用户
                         role_find.find_access_user_by_res(
                             0, 
+                            0,
                             user_id,
                             res_item.id,
                             op_item.id,
                         ).await;
-                        
                     }
                     //用户 - 排除或指定
                     if res_data.user_id>0{
-                        role_find.find_access_public_by_res(
-                            res_data.user_id, 
-                            RbacRoleUserRange::Any,
-                            res_item.id,
-                            op_item.id,
-                        ).await;
                         for role_data in check_role_data{
                             if role_data.user_id!=res_data.user_id{continue;}
                             //用户-会话
                             role_find.find_access_session_by_res(
                                 res_data.user_id,
+                                role_data.app_id,
                                 role_data.role_key,
                                 res_item.id,
                                 op_item.id,
                             ).await;
                         }
                         if user_id>0{
-                            //用户-登录
-                            role_find.find_access_public_by_res(
-                                res_data.user_id, 
-                                RbacRoleUserRange::Logged,
-                                res_item.id,
-                                op_item.id,
-                            ).await;
                             //用户-特定用户
                             role_find.find_access_user_by_res(
                                 res_data.user_id, 
+                                res_data.app_id,
                                 user_id,
                                 res_item.id,
                                 op_item.id,
@@ -538,133 +451,59 @@ impl<'t> RbacRoleFinder<'t>{
     fn new(role:&'t RbacRole)->Self{
         Self{role,role_rows:vec![],sqls:vec![]}
     }
-    // -----------------
-    async fn find_access_public_res_all(
+     // -----------------
+     async fn find_access_user_res_all(
         &mut self,
         role_user_id:u64,
-        user_range:RbacRoleUserRange,
-    ) {
-        let key=self.role.cache().find_access_key_public_res_all(role_user_id, user_range as i8);
+        role_user_app_id:u64,
+        access_user_id:u64,
+    ){   
+        let key=self.role.cache().find_access_key_user_res_all(role_user_id,role_user_app_id, access_user_id);
         match self.role.cache_access.get(&key).await{
             Some(data) =>self.role_rows.extend(data),
             None =>{
-                self.sqls.push((key,self.find_access_row_public_res_all(role_user_id, user_range)))
+                self.sqls.push((key,self.find_access_row_user_res_all(role_user_id,role_user_app_id,  access_user_id)))
             },
         }
     }
-    fn find_access_row_public_res_all(
+    fn find_access_row_user_res_all(
         &self,
         role_user_id:u64,
-        user_range:RbacRoleUserRange,
+        role_user_app_id:u64,
+        access_user_id:u64,
     ) ->String{
         sql_format!(
-            "select {} as cache_key,role.*,CONVERT(0,UNSIGNED) as op_id,CONVERT(0,UNSIGNED) as res_id,
+            "select {} as cache_key,role.*,CONVERT(0,UNSIGNED) as op_id,CONVERT(0,UNSIGNED) as res_id ,
             CONVERT(0,UNSIGNED) as access_user_id, CONVERT(0,UNSIGNED) as access_timeout,CONVERT(0,UNSIGNED)  as perm_id
-            from {} as role where role.status ={} and role.user_range={} 
-            and role.user_id={role_user_id}
-            and role.res_range={} ",
-            self.role.cache().find_access_key_public_res_all(
+            from {} as role 
+            join {} as role_user on role.id=role_user.role_id
+            where role.status ={} and role.user_range={} 
+            and role.user_id={role_user_id} and role.app_id={role_user_app_id} and role.res_range={} 
+            and role_user.user_id={access_user_id} and role_user.status={}",
+            self.role.cache().find_access_key_user_res_all(
                 role_user_id,
-                user_range as i8,
+                role_user_app_id,
+                access_user_id,
             ),
             RbacRoleModel::table_name(),
+            RbacRoleUserModel::table_name(),
             RbacRoleStatus::Enable as i8,
-            user_range as i8,
+            RbacRoleUserRange::Custom as i8,
             RbacRoleResRange::Any as i8,
+            RbacRoleUserStatus::Enable as i8,
         )           
     }
-     // -----------------
-    async fn find_access_public_by_res(
-        &mut self,
-        role_user_id:u64,
-        user_range:RbacRoleUserRange,
-        res_id:u64,
-        op_id:u64,
-    ) {
-        let key=self.role.cache().find_access_key_public_by_res(
-            role_user_id,
-            user_range as i8,
-            RbacRoleResRange::Exclude as i8,
-            res_id,
-            op_id,
-        );
-        match self.role.cache_access.get(&key).await{
-            Some(data) =>self.role_rows.extend(data),
-            None =>{
-                self.sqls.push((key,self.find_access_row_public_by_res(
-                    role_user_id,
-                    user_range,
-                    RbacRoleResRange::Exclude,
-                    res_id,
-                    op_id,
-                )));
-               
-            },
-        }
-        let key=self.role.cache().find_access_key_public_by_res(
-            role_user_id,
-            user_range as i8,
-            RbacRoleResRange::Include as i8,
-            res_id,
-            op_id,
-        );
-        match self.role.cache_access.get(&key).await{
-            Some(data) =>self.role_rows.extend(data),
-            None =>{
-                self.sqls.push((key,self.find_access_row_public_by_res(
-                    role_user_id,
-                    user_range,
-                    RbacRoleResRange::Include,
-                    res_id,
-                    op_id,
-                )));
-            },
-        }
-    }
-    
-    fn find_access_row_public_by_res(
-        &self,
-        role_user_id:u64,
-        user_range:RbacRoleUserRange,
-        res_range:RbacRoleResRange,
-        res_id:u64,
-        op_id:u64,
-    ) ->String{
-        sql_format!(
-            "select {} as cache_key,role.*,perm.op_id,perm.res_id,
-            CONVERT(0,UNSIGNED) as access_user_id, CONVERT(0,UNSIGNED) as access_timeout,CONVERT(0,UNSIGNED)  as perm_id
-            from {} as role join {} as perm on role.id=perm.role_id
-            where role.status ={} and role.user_range={} and role.user_id={role_user_id}
-                and role.res_range={} and perm.op_id={op_id} and perm.res_id={res_id} 
-                and prem.status={}",
-            self.role.cache().find_access_key_public_by_res(
-                role_user_id,
-                user_range as i8,
-                res_range as i8,
-                res_id,
-                op_id,
-            ),
-            RbacRoleModel::table_name(),
-            RbacPermModel::table_name(),
-            RbacRoleStatus::Enable as i8,
-            user_range as i8,
-            res_range as i8,
-            RbacPermStatus::Enable as i8,
-        )           
-    }
-
-     // -----------------
     async fn find_access_session_res_all(
         &mut self,
         role_user_id:u64,
-        // session_role_user_id:u64,
+        role_user_app_id:u64,
         session_role_key:&str,
     ){
-        let key=self.role.cache().find_access_key_session_res_all(role_user_id,session_role_key);
+        let key=self.role.cache().find_access_key_session_res_all(role_user_id,role_user_app_id,session_role_key);
         match self.role.cache_access.get(&key).await{
             Some(data) =>self.role_rows.extend(data),
             None =>{
-                self.sqls.push((key,self.find_access_row_session_res_all(role_user_id,session_role_key)))
+                self.sqls.push((key,self.find_access_row_session_res_all(role_user_id,role_user_app_id,session_role_key)))
             },
         }
     }
@@ -672,17 +511,18 @@ impl<'t> RbacRoleFinder<'t>{
     fn find_access_row_session_res_all(
         &self,
         role_user_id:u64,
-        // session_role_user_id:u64,
+        role_user_app_id:u64,
         session_role_key:&str,
     ) ->String{
         sql_format!(
             "select {} as cache_key,role.*,CONVERT(0,UNSIGNED) as op_id,CONVERT(0,UNSIGNED) as res_id,
             CONVERT(0,UNSIGNED) as access_user_id, CONVERT(0,UNSIGNED) as access_timeout,CONVERT(0,UNSIGNED)  as perm_id
             from {} as role where role.status ={} and role.user_range={} 
-            and role.user_id={role_user_id}
+            and role.user_id={role_user_id} and role.app_id={role_user_app_id}
             and role.res_range={} and role.role_key={session_role_key} ",
             self.role.cache().find_access_key_session_res_all(
                 role_user_id,
+                role_user_app_id,
                 session_role_key,
             ),
             RbacRoleModel::table_name(),
@@ -695,12 +535,14 @@ impl<'t> RbacRoleFinder<'t>{
     async fn find_access_session_by_res(
         &mut self,
         role_user_id:u64,
+        role_user_app_id:u64,
         session_role_key:&str,
         res_id:u64,
         op_id:u64,
     ){   
         let key=self.role.cache().find_access_key_session_by_res(
             role_user_id, 
+            role_user_app_id,
             session_role_key,
             RbacRoleResRange::Exclude as i8,
             res_id,
@@ -711,6 +553,7 @@ impl<'t> RbacRoleFinder<'t>{
             None =>{
                 self.sqls.push((key,self.find_access_row_session_by_res(
                     role_user_id, 
+                    role_user_app_id,
                     session_role_key,
                     RbacRoleResRange::Exclude,
                     res_id,
@@ -720,6 +563,7 @@ impl<'t> RbacRoleFinder<'t>{
         }
         let key=self.role.cache().find_access_key_session_by_res(
             role_user_id, 
+            role_user_app_id,
             session_role_key,
             RbacRoleResRange::Include as i8,
             res_id,
@@ -730,6 +574,7 @@ impl<'t> RbacRoleFinder<'t>{
             None =>{
                 self.sqls.push((key,self.find_access_row_session_by_res(
                     role_user_id, 
+                    role_user_app_id,
                     session_role_key,
                     RbacRoleResRange::Include,
                     res_id,
@@ -741,6 +586,7 @@ impl<'t> RbacRoleFinder<'t>{
     fn find_access_row_session_by_res(
         &self,
         role_user_id:u64,
+        role_user_app_id:u64,
         session_role_key:&str,
         res_range:RbacRoleResRange,
         res_id:u64,
@@ -750,11 +596,12 @@ impl<'t> RbacRoleFinder<'t>{
             "select {} as cache_key,role.*,perm.op_id,perm.res_id ,
             CONVERT(0,UNSIGNED) as access_user_id, CONVERT(0,UNSIGNED) as access_timeout,CONVERT(0,UNSIGNED)  as perm_id
             from {} as role join {} as perm on role.id=perm.role_id
-            where role.status ={} and role.user_range={} and role.user_id={role_user_id}
+            where role.status ={} and role.user_range={} and role.user_id={role_user_id} and role.app_id={role_user_app_id}
                 and role.res_range={} and perm.op_id={op_id} and perm.res_id={res_id} 
                 and prem.status={} and role.role_key={session_role_key} ",
             self.role.cache().find_access_key_session_by_res(
                 role_user_id,
+                role_user_app_id,
                 session_role_key,
                 res_range as i8,
                 res_id,
@@ -768,55 +615,18 @@ impl<'t> RbacRoleFinder<'t>{
             RbacPermStatus::Enable as i8,
         )           
     }
-     // -----------------
-    async fn find_access_user_res_all(
-        &mut self,
-        role_user_id:u64,
-        access_user_id:u64,
-    ){   
-        let key=self.role.cache().find_access_key_user_res_all(role_user_id, access_user_id);
-        match self.role.cache_access.get(&key).await{
-            Some(data) =>self.role_rows.extend(data),
-            None =>{
-                self.sqls.push((key,self.find_access_row_user_res_all(role_user_id, access_user_id)))
-            },
-        }
-    }
-    fn find_access_row_user_res_all(
-        &self,
-        role_user_id:u64,
-        access_user_id:u64,
-    ) ->String{
-        sql_format!(
-            "select {} as cache_key,role.*,CONVERT(0,UNSIGNED) as op_id,CONVERT(0,UNSIGNED) as res_id ,
-            CONVERT(0,UNSIGNED) as access_user_id, CONVERT(0,UNSIGNED) as access_timeout,CONVERT(0,UNSIGNED)  as perm_id
-            from {} as role 
-            join {} as role_user on role.id=role_user.role_id
-            where role.status ={} and role.user_range={} 
-            and role.user_id={role_user_id} and role.res_range={} 
-            and role_user.user_id={access_user_id} and role_user.status={}",
-            self.role.cache().find_access_key_user_res_all(
-                role_user_id,
-                access_user_id,
-            ),
-            RbacRoleModel::table_name(),
-            RbacRoleUserModel::table_name(),
-            RbacRoleStatus::Enable as i8,
-            RbacRoleUserRange::Any as i8,
-            RbacRoleResRange::Any as i8,
-            RbacRoleUserStatus::Enable as i8,
-        )           
-    }
       // -----------------
     async fn find_access_user_by_res(
         &mut self,
         role_user_id:u64,
+        role_user_app_id:u64,
         access_user_id:u64,
         res_id:u64,
         op_id:u64,
     ) {   
         let key=self.role.cache().find_access_key_user_by_res(
             role_user_id,
+            role_user_app_id,
             access_user_id,
             RbacRoleResRange::Exclude as i8,
             res_id,
@@ -827,6 +637,7 @@ impl<'t> RbacRoleFinder<'t>{
             None =>{
                 self.sqls.push((key,self.find_access_row_user_by_res(
                     role_user_id,
+                    role_user_app_id,
                     access_user_id,
                     RbacRoleResRange::Exclude,
                     res_id,
@@ -836,6 +647,7 @@ impl<'t> RbacRoleFinder<'t>{
         }
         let key=self.role.cache().find_access_key_user_by_res(
             role_user_id,
+            role_user_app_id,
             access_user_id,
             RbacRoleResRange::Include as i8,
             res_id,
@@ -846,6 +658,7 @@ impl<'t> RbacRoleFinder<'t>{
             None =>{
                 self.sqls.push((key,self.find_access_row_user_by_res(
                     role_user_id,
+                    role_user_app_id,
                     access_user_id,
                     RbacRoleResRange::Include,
                     res_id,
@@ -857,6 +670,7 @@ impl<'t> RbacRoleFinder<'t>{
     fn find_access_row_user_by_res(
         &self,
         role_user_id:u64,
+        role_user_app_id:u64,
         access_user_id:u64,
         res_range:RbacRoleResRange,
         res_id:u64,
@@ -870,10 +684,11 @@ impl<'t> RbacRoleFinder<'t>{
             join {} as role_user on role.id=role_user.role_id where 
             role.status ={} and perm.status ={} and role_user.status ={}  
             and role.user_range={} and role.res_range={}  
-            and perm.op_id={op_id} and perm.res_id={res_id} and role.user_id={role_user_id}
+            and perm.op_id={op_id} and perm.res_id={res_id} and role.user_id={role_user_id} and role.app_id={role_user_app_id}
             and role_user.user_id={access_user_id}",
             self.role.cache().find_access_key_user_by_res(
                 role_user_id,
+                role_user_app_id,
                 access_user_id,
                 res_range as i8,
                 res_id,

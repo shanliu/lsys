@@ -32,10 +32,12 @@ pub struct AppDao {
 pub struct AppConfig {
     pub app_cache: LocalCacheConfig,
     pub sub_app_cache: LocalCacheConfig,
+    pub oauth_client_code_time: u64,
+    pub oauth_client_login_time: u64,
 }
 
 impl AppConfig {
-    pub fn new(use_cache: bool) -> Self {
+    pub fn new(use_cache: bool, oauth_client_code_time: u64, oauth_client_login_time: u64) -> Self {
         Self {
             sub_app_cache: LocalCacheConfig::new(
                 "sub-app",
@@ -43,20 +45,19 @@ impl AppConfig {
                 None,
             ),
             app_cache: LocalCacheConfig::new("app", if use_cache { None } else { Some(0) }, None),
+            oauth_client_code_time,
+            oauth_client_login_time,
         }
     }
 }
 
 impl AppDao {
-    #[allow(clippy::too_many_arguments)]
     pub async fn new(
         access: Arc<AccessDao>,
         db: Pool<MySql>,
         remote_notify: Arc<RemoteNotify>,
         config: AppConfig,
         logger: Arc<ChangeLoggerDao>,
-        code_time: u64,
-        login_time: u64,
     ) -> Result<AppDao, AppCoreError> {
         let app = Arc::from(App::new(
             db.clone(),
@@ -74,8 +75,8 @@ impl AppDao {
             remote_notify.clone(),
             AppOAuthClientConfig {
                 cache_config: config.app_cache,
-                code_time,
-                login_time,
+                code_time: config.oauth_client_code_time,
+                login_time: config.oauth_client_login_time,
             },
         ));
         Ok(AppDao {

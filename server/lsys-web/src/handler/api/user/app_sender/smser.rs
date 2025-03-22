@@ -1,9 +1,9 @@
 use crate::common::{JsonData, JsonError, JsonResult, UserAuthQueryDao};
 use crate::common::{LimitParam, PageParam};
-use crate::dao::access::api::user::CheckAppSenderSmsMsg;
+use crate::dao::access::api::user::{CheckAppSenderSmsMsg, CheckAppSenderSmsSend};
 use lsys_access::dao::AccessSession;
 use lsys_app_sender::model::SenderSmsMessageStatus;
-use lsys_core::{fluent_message, now_time, str_time, IntoFluentMessage};
+use lsys_core::{now_time, str_time, IntoFluentMessage};
 use serde::Deserialize;
 use serde_json::json;
 use std::collections::HashMap;
@@ -37,15 +37,16 @@ pub async fn smser_message_log(
         .sms_record
         .find_body_by_id(&msg.sender_body_id)
         .await?;
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+  
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &req_dao.access_env().await?,
+            &req_dao.req_env,Some(&auth_data),
             &CheckAppSenderSmsMsg {
                 res_user_id: body.user_id,
             },
-            None,
         )
         .await?;
     let res = req_dao
@@ -99,12 +100,12 @@ pub async fn smser_message_body(
         .sms_record
         .find_body_by_id(&msg.sender_body_id)
         .await?;
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
         .app_sender
         .smser
-        .smser_message_body(&msg, &body, &req_auth, Some(&req_dao.req_env))
+        .smser_message_body(&msg, &body, &auth_data, Some(&req_dao.req_env))
         .await?;
     Ok(JsonData::data(json!({ "body": body.tpl_var})))
 }
@@ -126,16 +127,15 @@ pub async fn smser_message_list(
     param: &SmserMessageListParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &req_dao.access_env().await?,
+            &req_dao.req_env,Some(&auth_data),
             &CheckAppSenderSmsMsg {
-                res_user_id: param.user_id.unwrap_or(req_auth.user_id()),
+                res_user_id: param.user_id.unwrap_or(auth_data.user_id()),
             },
-            None,
         )
         .await?;
     let status = if let Some(e) = param.status {
@@ -267,23 +267,22 @@ pub async fn smser_message_cancel(
         .sms_record
         .find_body_by_id(&msg.sender_body_id)
         .await?;
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &req_dao.access_env().await?,
+            &req_dao.req_env,Some(&auth_data),
             &CheckAppSenderSmsMsg {
                 res_user_id: body.user_id,
             },
-            None,
         )
         .await?;
     let mut res = req_dao
         .web_dao
         .app_sender
         .smser
-        .send_cancel(&body, &[&msg], req_auth.user_id(), Some(&req_dao.req_env))
+        .send_cancel(&body, &[&msg], auth_data.user_id(), Some(&req_dao.req_env))
         .await?;
     let mut out = None;
     if !res.is_empty() {
@@ -314,7 +313,8 @@ pub async fn smser_message_send(
     param: &SmserMessageSendParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+   
     let tpl = req_dao
         .web_dao
         .app_sender
@@ -330,12 +330,18 @@ pub async fn smser_message_send(
         .app
         .find_by_id(&tpl.app_id)
         .await?;
-    if req_auth.user_id() != app.user_id {
-        return Err(JsonError::Message(fluent_message!(
-            "sms-use-other-user-app"
-        )));
-        //JsonData::message("can't use other user app")
-    }
+
+    req_dao
+        .web_dao
+        .web_rbac
+        .check(
+            &req_dao.req_env,Some(&auth_data),
+            &CheckAppSenderSmsSend {
+                res_user_id: app.user_id,
+            },
+        )
+        .await?;
+
     let send_time = if let Some(ref t) = param.send_time {
         if t.is_empty() {
             None

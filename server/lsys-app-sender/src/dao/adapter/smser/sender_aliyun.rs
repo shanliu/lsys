@@ -14,8 +14,8 @@ use lsys_core::{fluent_message, IntoFluentMessage, RequestEnv};
 use lsys_lib_sms::{AliSms, SendDetailItem, SendError, SendNotifyError};
 use lsys_setting::{
     dao::{
-        MultipleSetting, SettingData, SettingDecode, SettingEncode, SettingError, SettingKey,
-        SettingResult,
+        MultipleSetting, MultipleSettingData, SettingData, SettingDecode, SettingEncode,
+        SettingError, SettingKey, SettingResult,
     },
     model::SettingModel,
 };
@@ -147,13 +147,15 @@ impl SenderAliYunConfig {
             .edit(
                 None,
                 id,
-                name,
-                &AliYunConfig {
-                    access_id: access_id.to_owned(),
-                    access_secret: access_secret.to_owned(),
-                    region: region.to_owned(),
-                    branch_limit,
-                    callback_key: callback_key.to_string(),
+                &MultipleSettingData {
+                    name,
+                    data: &AliYunConfig {
+                        access_id: access_id.to_owned(),
+                        access_secret: access_secret.to_owned(),
+                        region: region.to_owned(),
+                        branch_limit,
+                        callback_key: callback_key.to_string(),
+                    },
                 },
                 user_id,
                 None,
@@ -185,13 +187,15 @@ impl SenderAliYunConfig {
             .setting
             .add(
                 None,
-                name,
-                &AliYunConfig {
-                    access_id: access_id.to_owned(),
-                    access_secret: access_secret.to_owned(),
-                    region: region.to_owned(),
-                    branch_limit,
-                    callback_key: callback_key.to_string(),
+                &MultipleSettingData {
+                    name,
+                    data: &AliYunConfig {
+                        access_id: access_id.to_owned(),
+                        access_secret: access_secret.to_owned(),
+                        region: region.to_owned(),
+                        branch_limit,
+                        callback_key: callback_key.to_string(),
+                    },
                 },
                 user_id,
                 None,

@@ -10,7 +10,6 @@ use crate::common::JsonResult;
 
 use super::SenderSmser;
 
-pub const APP_FEATURE_SMS: &str = "sms";
 impl SenderSmser {
     // app 短信发送接口
     #[allow(clippy::too_many_arguments)]

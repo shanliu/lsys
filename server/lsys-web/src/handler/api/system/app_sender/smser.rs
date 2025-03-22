@@ -18,10 +18,12 @@ pub async fn smser_message_log(
     param: &SmserMessageLogParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+  
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminSmsMgr {}, None)
+        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminSmsMgr {})
         .await?;
     let message_id = param.message_id.parse::<u64>()?;
     let res = req_dao
@@ -58,10 +60,12 @@ pub async fn smser_message_body(
     param: &SmserMessageBodyParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+  
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminSmsMgr {}, None)
+        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminSmsMgr {})
         .await?;
     let message_id = param.message_id.parse::<u64>()?;
     let msg = req_dao
@@ -80,12 +84,11 @@ pub async fn smser_message_body(
         .sms_record
         .find_body_by_id(&msg.sender_body_id)
         .await?;
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
+     req_dao
         .web_dao
         .app_sender
         .smser
-        .smser_message_body(&msg, &body, &req_auth, Some(&req_dao.req_env))
+        .smser_message_body(&msg, &body, &auth_data, Some(&req_dao.req_env))
         .await?;
 
     Ok(JsonData::data(json!({ "body": body.tpl_var})))
@@ -106,10 +109,12 @@ pub async fn smser_message_list(
     param: &SmserMessageListParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+  
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminSmsMgr {}, None)
+        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminSmsMgr {})
         .await?;
 
     let status = if let Some(e) = param.status {
@@ -224,10 +229,12 @@ pub async fn smser_message_cancel(
     param: &SmserMessageCancelParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+  
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.access_env().await?, &CheckAdminSmsMgr {}, None)
+        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminSmsMgr {})
         .await?;
     let message_id = param.message_id.parse::<u64>()?;
     let msg = req_dao
@@ -246,12 +253,11 @@ pub async fn smser_message_cancel(
         .sms_record
         .find_body_by_id(&msg.sender_body_id)
         .await?;
-    let req_auth = req_dao.user_session.read().await.get_session_data().await?;
     let mut res = req_dao
         .web_dao
         .app_sender
         .smser
-        .send_cancel(&body, &[&msg], req_auth.user_id(), Some(&req_dao.req_env))
+        .send_cancel(&body, &[&msg], auth_data.user_id(), Some(&req_dao.req_env))
         .await?;
     let mut out = None;
     if !res.is_empty() {
