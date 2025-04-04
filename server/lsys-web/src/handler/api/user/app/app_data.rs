@@ -1,15 +1,17 @@
 use crate::{
-    common::{JsonData, JsonResult, PageParam, UserAuthQueryDao},
+    common::{JsonData, JsonError, JsonResult, PageParam, UserAuthQueryDao},
     dao::access::api::user::CheckUserAppView,
 };
 use lsys_access::dao::AccessSession;
 use lsys_app::{
     dao::{AppAttrParam, AppRequestData, UserAppDataParam},
-    model::{AppRequestStatus, AppRequestType, AppStatus},
+    model::{AppRequestStatus, AppStatus},
 };
+use lsys_core::fluent_message;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-
+use serde_json::Map;
+use serde_json::Value;
 #[derive(Serialize)]
 pub struct ShowAppRecord {
     pub id: u64,
@@ -76,10 +78,9 @@ pub async fn list_data(
         client_id: param.client_id.as_deref(),
         app_id: param.app_id,
     };
-    let app_inner_feature = AppRequestType::get_inner_feature();
     let app_attr = AppAttrParam {
-        check_inner_feature: Some(&app_inner_feature),
-        check_exter_feature: Some(req_dao.web_dao.web_app.exter_feature_list()),
+        inner_feature: true,
+        exter_feature: true,
         sub_app_count: true,
         oauth_client_data: true,
         oauth_server_data: true,
@@ -159,12 +160,7 @@ pub async fn list_data(
                     })
                     .collect::<Vec<_>>()
             }),
-            exter_feature: e.1.exter_feature.map(|t| {
-                t.into_iter()
-                    .filter(|s| s.1)
-                    .map(|s| s.0.to_string())
-                    .collect::<Vec<_>>()
-            }),
+            exter_feature: e.1.exter_feature,
             sub_app_count: e.1.sub_app_count.map(|t| {
                 let enable = t
                     .iter()
@@ -205,7 +201,7 @@ pub async fn list_data(
     };
 
     Ok(JsonData::data(json!({
-        "data": bind_user_info_from_req!(req_dao,out,user_id),
+        "data": bind_vec_user_info_from_req!(req_dao,out,user_id),
         "total":count
     })))
 }
@@ -213,6 +209,8 @@ pub async fn list_data(
 #[derive(Deserialize)]
 pub struct SecretViewSecretParam {
     pub app_id: u64,
+    pub app_secret: bool,
+    pub oauth_secret: bool,
 }
 
 pub async fn secret_view(
@@ -227,7 +225,6 @@ pub async fn secret_view(
         .app
         .find_by_id(&param.app_id)
         .await?;
-    //@todo 父应用检查
     req_dao
         .web_dao
         .web_rbac
@@ -239,15 +236,95 @@ pub async fn secret_view(
             },
         )
         .await?;
-    let secret_data = req_dao
+    let mut out_data = Map::new();
+    if param.app_secret {
+        let app_secret_data = req_dao
+            .web_dao
+            .web_app
+            .app_dao
+            .app
+            .app_view_secret(&app, auth_data.user_id(), Some(&req_dao.req_env))
+            .await?;
+        out_data.insert("app_secret".to_string(), Value::String(app_secret_data));
+    }
+    if param.oauth_secret {
+        req_dao
+            .web_dao
+            .web_app
+            .app_dao
+            .oauth_client
+            .oauth_check(&app)
+            .await?;
+        let secret_data = req_dao
+            .web_dao
+            .web_app
+            .app_dao
+            .oauth_client
+            .oauth_view_secret(&app, auth_data.user_id(), Some(&req_dao.req_env))
+            .await?;
+        out_data.insert("oauth_secret".to_string(), Value::String(secret_data));
+    }
+    Ok(JsonData::data(Value::Object(out_data)))
+}
+
+pub async fn sub_app_secret_view(
+    param: &SecretViewSecretParam,
+    req_dao: &UserAuthQueryDao,
+) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let app = req_dao
         .web_dao
         .web_app
         .app_dao
         .app
-        .app_view_secret(&app, auth_data.user_id(), Some(&req_dao.req_env))
+        .find_by_id(&param.app_id)
         .await?;
-
-    Ok(JsonData::data(json!({"data":secret_data})))
+    if app.parent_app_id == 0 {
+        return Err(JsonError::JsonData(
+            JsonData::default().set_code(403),
+            fluent_message!("app-error", "can't see system app"),
+        ));
+    }
+    let parent_app = req_dao
+        .web_dao
+        .web_app
+        .app_dao
+        .app
+        .find_by_id(&app.parent_app_id)
+        .await?;
+    req_dao
+        .web_dao
+        .web_rbac
+        .check(
+            &req_dao.req_env,
+            Some(&auth_data),
+            &CheckUserAppView {
+                res_user_id: parent_app.user_id,
+            },
+        )
+        .await?;
+    let mut out_data = Map::new();
+    if param.app_secret {
+        let app_secret_data = req_dao
+            .web_dao
+            .web_app
+            .app_dao
+            .app
+            .app_view_secret(&app, auth_data.user_id(), Some(&req_dao.req_env))
+            .await?;
+        out_data.insert("app_secret".to_string(), Value::String(app_secret_data));
+    }
+    if param.oauth_secret {
+        let secret_data = req_dao
+            .web_dao
+            .web_app
+            .app_dao
+            .oauth_client
+            .oauth_view_secret(&app, auth_data.user_id(), Some(&req_dao.req_env))
+            .await?;
+        out_data.insert("oauth_secret".to_string(), Value::String(secret_data));
+    }
+    Ok(JsonData::data(Value::Object(out_data)))
 }
 
 #[derive(Deserialize)]
@@ -375,7 +452,7 @@ pub async fn request_list(
         None
     };
     Ok(JsonData::data(json!({
-        "data": bind_user_info_from_req!(
+        "data": bind_vec_user_info_from_req!(
             req_dao,
             out,
             request_user_id
@@ -500,7 +577,7 @@ pub async fn sub_request_list(
         None
     };
     Ok(JsonData::data(json!({
-        "data": bind_user_info_from_req!(
+        "data": bind_vec_user_info_from_req!(
             req_dao,
             out,
             request_user_id

@@ -7,8 +7,8 @@ mod res;
 mod result;
 mod role;
 
-use lsys_core::cache::LocalCacheConfig;
-use lsys_core::{AppCoreError, RemoteNotify};
+use lsys_core::RemoteNotify;
+use lsys_core::{cache::LocalCacheConfig, AppCoreError};
 use lsys_logger::dao::ChangeLoggerDao;
 use std::sync::Arc;
 

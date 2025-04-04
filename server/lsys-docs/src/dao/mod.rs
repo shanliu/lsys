@@ -1,5 +1,4 @@
 use std::env;
-// use std::error::Error;
 
 use std::path::Path;
 use std::path::PathBuf;
@@ -14,9 +13,9 @@ pub use docs::*;
 use lsys_core::RemoteNotify;
 use lsys_logger::dao::ChangeLoggerDao;
 use relative_path::RelativePath;
+use sqlx::MySql;
 pub use task::*;
 
-use sqlx::MySql;
 use sqlx::Pool;
 mod result;
 pub use result::*;

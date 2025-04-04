@@ -77,7 +77,7 @@ impl AccountName {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let res = Update::<sqlx::MySql, AccountNameModel, _>::new(name_change)
+        let res = Update::< AccountNameModel, _>::new(name_change)
             .execute_by_where(
                 &WhereOption::Where(sql_format!("account_id={}", account.id)),
                 &mut *db,
@@ -171,7 +171,7 @@ impl AccountName {
                             Some(pb) => pb.begin().await?,
                             None => self.db.begin().await?,
                         };
-                        let tmp = Insert::<sqlx::MySql, AccountNameModel, _>::new(new_data)
+                        let tmp = Insert::<AccountNameModel, _>::new(new_data)
                             .execute(&mut *db)
                             .await;
                         if let Err(ie) = tmp {
@@ -220,7 +220,7 @@ impl AccountName {
                             Some(pb) => pb.begin().await?,
                             None => self.db.begin().await?,
                         };
-                        let tmp = Update::<sqlx::MySql, AccountNameModel, _>::new(change)
+                        let tmp = Update::< AccountNameModel, _>::new(change)
                             .execute_by_pk(&account_name, &mut *db)
                             .await;
                         if let Err(ie) = tmp {

@@ -1,12 +1,12 @@
 use crate::common::JsonResult;
 use crate::common::{JsonData, UserAuthQueryDao};
-use crate::dao::access::api::user::{CheckUserAppEdit, CheckUserAppView};
+use crate::dao::access::api::user::CheckUserAppEdit;
 
 use lsys_access::dao::AccessSession;
 use lsys_app::dao::AppOAuthClientParam;
 use serde::Deserialize;
-use serde_json::json;
 
+#[derive(Deserialize)]
 pub struct OAuthClientRequestParam {
     pub scope_data: Vec<String>,
     pub app_id: u64,
@@ -116,6 +116,7 @@ pub async fn oauth_client_scope_request(
     Ok(JsonData::default())
 }
 
+#[derive(Deserialize)]
 pub struct ConfirmOAuthClientSettingParam {
     pub app_id: u64,
     pub callback_domain: String,
@@ -170,49 +171,4 @@ pub async fn oauth_client_setting(
         )
         .await?;
     Ok(JsonData::default())
-}
-
-#[derive(Deserialize)]
-pub struct OAuthClientViewSecretParam {
-    pub app_id: u64,
-}
-
-pub async fn oauth_client_secret_view(
-    param: &OAuthClientViewSecretParam,
-    req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(&param.app_id)
-        .await?;
-    req_dao
-        .web_dao
-        .web_rbac
-        .check(
-            &req_dao.req_env,
-            Some(&auth_data),
-            &CheckUserAppView {
-                res_user_id: app.user_id,
-            },
-        )
-        .await?;
-    req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .oauth_client
-        .oauth_check(&app)
-        .await?;
-    let secret_data = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .oauth_client
-        .oauth_view_secret(&app, auth_data.user_id(), Some(&req_dao.req_env))
-        .await?;
-    Ok(JsonData::data(json!({"data":secret_data})))
 }

@@ -4,8 +4,8 @@ use serde_json::json;
 use crate::{
     common::{CaptchaParam, JsonData, JsonResult, RequestDao},
     dao::{
-        access::common::CheckSystemRegister, RegFromEmailData, RegFromMobileData, RegFromNameData,
-        RegSendCodeFromEmailData, RegSendCodeFromMobileData,
+        access::api::auth::CheckSystemRegister, RegFromEmailData, RegFromMobileData,
+        RegFromNameData, RegSendCodeFromEmailData, RegSendCodeFromMobileData,
     },
 };
 
@@ -23,7 +23,7 @@ pub async fn user_reg_from_name(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env,None,&CheckSystemRegister {}, )
+        .check(&req_dao.req_env, None, &CheckSystemRegister {})
         .await?;
     let user = req_dao
         .web_dao
@@ -108,7 +108,7 @@ pub async fn user_reg_from_email(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env,None,&CheckSystemRegister {})
+        .check(&req_dao.req_env, None, &CheckSystemRegister {})
         .await?;
     let id = req_dao
         .web_dao
@@ -144,7 +144,7 @@ pub async fn user_reg_from_mobile(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env,None,&CheckSystemRegister {})
+        .check(&req_dao.req_env, None, &CheckSystemRegister {})
         .await?;
     let id = req_dao
         .web_dao

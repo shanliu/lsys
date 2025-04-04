@@ -1,31 +1,10 @@
 use lsys_app::model::AppModel;
-use lsys_rbac::dao::{AccessCheckEnv, AccessCheckRes, RbacAccess, RbacResult};
 use lsys_web::{
     common::{JsonData, JsonResult, RequestDao},
-    dao::RbacCheckAccess,
+    dao::access::rest::CheckRestApp,
 };
 use serde::Deserialize;
 use serde_json::json;
-
-//这里定义访问权限验证
-pub struct DomeAccess {
-    pub app: AppModel,
-}
-
-#[async_trait::async_trait]
-impl RbacCheckAccess for DomeAccess {
-    async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
-        access
-            .check(
-                check_env, //资源访问用户
-                &[AccessCheckRes::system_empty_data(
-                    &format!("app-{}", self.app.id), //资源KEY
-                    vec!["global-dome-auth"],        //必须验证权限
-                )],
-            )
-            .await
-    }
-}
 
 #[derive(Debug, Deserialize)]
 pub struct DemoParam {
@@ -36,18 +15,22 @@ pub async fn demo_handler(
     app: &AppModel,
     req_dao: &RequestDao,
 ) -> JsonResult<JsonData> {
-    //验证权限
+    //全局启用app验证
     req_dao
         .web_dao
         .web_rbac
-        .check(
-            &req_dao.req_env,
-            None,
-            &DomeAccess {
-                app: app.to_owned(),
-            },
-        )
+        .check(&req_dao.req_env, None, &CheckRestApp {})
+        .await?;
+    //是否启用功能验证
+    req_dao
+        .web_dao
+        .web_app
+        .app_dao
+        .app
+        .cache()
+        .exter_feature_check(app, &["my-app-feature"])
+        //request_exter_feature ->featuer_data[my-app-feature]
         .await?;
     //业务逻辑。。。
-    Ok(JsonData::data(json!({ "text":param.text })))
+    Ok(JsonData::data(json!({ "text":param.text,"app_id":app.id })))
 }

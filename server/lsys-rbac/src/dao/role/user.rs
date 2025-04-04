@@ -76,7 +76,7 @@ impl RbacRole {
                         change_user_id:add_user_id,
                         status:(RbacRoleUserStatus::Enable as i8),
                     });
-                    if let Err(err) = Update::<sqlx::MySql, RbacRoleUserModel, _>::new(item)
+                    if let Err(err) = Update::< RbacRoleUserModel, _>::new(item)
                         .execute_by_where(
                             &WhereOption::Where(sql_format!("id={}", *itemid)),
                             &mut *db,
@@ -101,7 +101,7 @@ impl RbacRole {
             }
         }
         if !add_item.is_empty() {
-            if let Err(err) = Insert::<sqlx::MySql, RbacRoleUserModel, _>::new_vec(add_item)
+            if let Err(err) = Insert::<RbacRoleUserModel, _>::new_vec(add_item)
                 .execute(&mut *db)
                 .await
             {
@@ -155,7 +155,7 @@ impl RbacRole {
         let res = db_option_executor!(
             db,
             {
-                Update::<sqlx::MySql, RbacRoleUserModel, _>::new(ddata)
+                Update::< RbacRoleUserModel, _>::new(ddata)
                     .execute_by_where(
                         &lsys_core::db::WhereOption::Where(sql_format!(
                             "role_id ={} and user_id  in ({})",

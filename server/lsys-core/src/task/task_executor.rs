@@ -5,6 +5,7 @@ use redis::{
     AsyncCommands, ErrorKind, FromRedisValue, RedisError, RedisResult, ToRedisArgs, Value,
 };
 use serde::{Deserialize, Serialize};
+
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::hash::Hash;
@@ -277,7 +278,7 @@ impl<
         let (channel_sender, mut channel_receiver) =
             tokio::sync::mpsc::channel::<T>(self.task_size);
         let task_list_key = self.task_list_key.clone();
-        let redis_client = match app_core.create_redis_client() {
+        let redis_client = match app_core.create_redis_client().await {
             Ok(redis_client) => redis_client,
             Err(err) => {
                 error!(

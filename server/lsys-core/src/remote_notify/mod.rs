@@ -1,7 +1,7 @@
 //基于 REDIS来实现通讯
 // 从而实现广播到其他主机执行任务并返回结果
 use std::collections::HashMap;
-// use std::error::Error;
+
 
 use std::sync::Arc;
 
@@ -314,7 +314,7 @@ impl RemoteNotify {
     }
     pub async fn listen(&self) {
         loop {
-            match self.app_core.create_redis_client() {
+            match self.app_core.create_redis_client().await {
                 Ok(redis_client) => {
                     let con_res = redis_client.get_async_pubsub().await;
                     match con_res {

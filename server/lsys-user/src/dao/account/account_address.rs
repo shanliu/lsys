@@ -90,7 +90,7 @@ impl AccountAddress {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let tmp = Update::<sqlx::MySql, AccountAddressModel, _>::new(address_data)
+        let tmp = Update::< AccountAddressModel, _>::new(address_data)
             .execute_by_pk(address, &mut *db)
             .await;
         match tmp {
@@ -216,7 +216,7 @@ impl AccountAddress {
             None => self.db.begin().await?,
         };
 
-        let res = Insert::<sqlx::MySql, AccountAddressModel, _>::new(address_data)
+        let res = Insert::<AccountAddressModel, _>::new(address_data)
             .execute(&mut *db)
             .await;
         match res {
@@ -301,7 +301,7 @@ impl AccountAddress {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let res = Update::<sqlx::MySql, AccountAddressModel, _>::new(change)
+        let res = Update::< AccountAddressModel, _>::new(change)
             .execute_by_pk(address, &mut *db)
             .await;
         match res {

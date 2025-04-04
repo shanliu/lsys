@@ -2,7 +2,7 @@ use std::borrow::Borrow;
 
 use crate::{
     common::{CaptchaParam, JsonData, JsonResult, RequestDao, UserAuthQueryDao},
-    dao::{access::common::CheckSystemLogin, ShowUserAuthData},
+    dao::{access::api::auth::CheckSystemLogin, ShowUserAuthData},
 };
 
 use lsys_user::dao::{

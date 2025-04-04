@@ -117,11 +117,11 @@ impl RbacRes {
                 let id = db_option_executor!(
                     db,
                     {
-                        let res = Insert::<sqlx::MySql, RbacResModel, _>::new(idata)
+                        let res = Insert::<RbacResModel, _>::new(idata)
                             .execute(db.as_executor())
                             .await?;
                         let add_id = res.last_insert_id();
-                        Update::<sqlx::MySql, RbacResModel, _>::new(other_change)
+                        Update::< RbacResModel, _>::new(other_change)
                             .execute_by_where(&WhereOption::Where(sql_format!(
                                 "user_id={} and res_type={res_type} and res_data={res_data} and app_id={app_id} and status={} and id!={add_id}",
                                 param.user_id,
@@ -195,7 +195,7 @@ impl RbacRes {
         let fout = db_option_executor!(
             db,
             {
-                let out = Update::<sqlx::MySql, RbacResModel, _>::new(change)
+                let out = Update::< RbacResModel, _>::new(change)
                     .execute_by_pk(res, db.as_executor())
                     .await?;
                 Ok(out.rows_affected())
@@ -257,7 +257,7 @@ impl RbacRes {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let tmp = Update::<sqlx::MySql, RbacResModel, _>::new(change)
+        let tmp = Update::< RbacResModel, _>::new(change)
             .execute_by_pk(res, &mut *db)
             .await;
         if let Err(e) = tmp {

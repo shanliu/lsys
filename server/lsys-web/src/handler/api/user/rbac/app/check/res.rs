@@ -1,52 +1,41 @@
-use crate::common::{JsonError, JsonResult, PageParam, UserAuthQueryDao};
-use lsys_access::dao::AccessSession;
-use lsys_access::model::UserModel;
-use lsys_core::fluent_message;
-use lsys_rbac::{
-    dao::{AccessPermRow, AccessSessionRole, AccessUserFromRes},
-    model::RbacRoleResRange,
+use crate::{
+    common::{JsonData, JsonResult, PageParam, UserAuthQueryDao},
+    handler::api::user::rbac::app::{app_check_get, parent_app_check},
 };
+use lsys_rbac::{dao::AccessSessionRole, model::RbacRoleResRange};
+use serde::Deserialize;
+use serde_json::json;
+
+//获取指定用户可访问的资源数据
+#[derive(Debug, Deserialize)]
 pub struct AppResUserFromUserParam {
     pub app_id: u64,
-    pub access_user_id: u64,
+    pub access_user_param: String,
     pub page: Option<PageParam>,
 }
 //1 得到用户列表
 pub async fn app_res_user_from_user(
     param: &AppResUserFromUserParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<(Vec<UserModel>, bool, i64)> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    if auth_data.session().user_app_id != 0 {
-        return Err(JsonError::Message(fluent_message!("bad-audit-access")));
-    }
-    let audit_user = req_dao
+) -> JsonResult<JsonData> {
+    let auth_data = parent_app_check(req_dao).await?;
+    let app = app_check_get(param.app_id, false, &auth_data, req_dao).await?;
+
+    let user_info = req_dao
         .web_dao
         .web_access
         .access_dao
         .user
-        .find_by_id(&param.access_user_id)
+        .cache()
+        .sync_user(app.id, &param.access_user_param, None, None)
         .await?;
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(&audit_user.app_id)
-        .await?;
-    if app.user_id != auth_data.user_id() {
-        return Err(JsonError::Message(fluent_message!("bad-audit-access")));
-    }
 
     let mut user_ids = req_dao
         .web_dao
         .web_rbac
         .rbac_dao
         .access
-        .find_res_user_list_from_user(
-            param.access_user_id,
-            param.page.as_ref().map(|e| e.into()).as_ref(),
-        )
+        .find_res_user_list_from_user(user_info.id, param.page.as_ref().map(|e| e.into()).as_ref())
         .await?;
     let is_system = user_ids.contains(&0);
     user_ids.retain(|x| *x != 0);
@@ -64,36 +53,50 @@ pub async fn app_res_user_from_user(
         .web_rbac
         .rbac_dao
         .access
-        .find_res_user_count_from_user(param.access_user_id)
+        .find_res_user_count_from_user(user_info.id)
         .await?;
-    Ok((user_data, is_system, count))
+    Ok(JsonData::data(json!({
+        "user_data": user_data,
+        "is_system": is_system,
+        "count": count,
+    })))
 }
-
-pub struct AppResInfoFromUserData {
+#[derive(Debug, Deserialize)]
+pub struct AppResInfoFromUserParam {
     pub app_id: u64,
-    pub access_user_id: u64,
+    pub access_user_param: String,
 }
 
 //2 根据用户查找最近授权详细
 pub async fn app_res_info_from_user(
-    param: &AppResInfoFromUserData,
+    param: &AppResInfoFromUserParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<AccessUserFromRes> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+) -> JsonResult<JsonData> {
+    let auth_data = parent_app_check(req_dao).await?;
+    let app = app_check_get(param.app_id, false, &auth_data, req_dao).await?;
+
+    let user_info = req_dao
+        .web_dao
+        .web_access
+        .access_dao
+        .user
+        .cache()
+        .sync_user(app.id, &param.access_user_param, None, None)
+        .await?;
 
     let res_data = req_dao
         .web_dao
         .web_rbac
         .rbac_dao
         .access
-        .find_res_data_from_custom_user(auth_data.user_id(), param.access_user_id)
+        .find_res_data_from_custom_user(auth_data.user_id(), user_info.id)
         .await?;
-    Ok(res_data)
+    Ok(JsonData::data(json!(res_data)))
 }
-
+#[derive(Debug, Deserialize)]
 pub struct AppResListFromUserParam {
     pub app_id: u64,
-    pub access_user_id: u64,
+    pub access_user_param: String,
     pub role_user_id: u64,
     pub res_range: i8,
     pub page: Option<PageParam>,
@@ -103,11 +106,19 @@ pub struct AppResListFromUserParam {
 pub async fn app_res_list_from_user(
     param: &AppResListFromUserParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<(Vec<AccessPermRow>, i64)> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    if auth_data.session().user_app_id != 0 {
-        return Err(JsonError::Message(fluent_message!("bad-audit-access")));
-    }
+) -> JsonResult<JsonData> {
+    let auth_data = parent_app_check(req_dao).await?;
+    let app = app_check_get(param.app_id, false, &auth_data, req_dao).await?;
+
+    let user_info = req_dao
+        .web_dao
+        .web_access
+        .access_dao
+        .user
+        .cache()
+        .sync_user(app.id, &param.access_user_param, None, None)
+        .await?;
+
     let res_range = RbacRoleResRange::try_from(param.res_range)?;
     let prem_data = req_dao
         .web_dao
@@ -115,8 +126,9 @@ pub async fn app_res_list_from_user(
         .rbac_dao
         .access
         .find_res_list_from_custom_user(
-            param.access_user_id,
+            user_info.id,
             param.role_user_id,
+            Some(app.id),
             res_range,
             param.page.as_ref().map(|e| e.into()).as_ref(),
         )
@@ -126,26 +138,38 @@ pub async fn app_res_list_from_user(
         .web_rbac
         .rbac_dao
         .access
-        .find_res_count_from_custom_user(param.access_user_id, param.role_user_id, res_range)
+        .find_res_count_from_custom_user(user_info.id, param.role_user_id, Some(app.id), res_range)
         .await?;
-    Ok((prem_data, count))
+    Ok(JsonData::data(json!({
+        "prem_data": prem_data,
+        "count": count,
+    })))
 }
 
+#[derive(Debug, Deserialize)]
 pub struct AppResListFromSessionParam {
     pub app_id: u64,
     pub role_key: String,
-    pub user_id: u64,
+    pub access_user_param: String,
     pub page: Option<PageParam>,
 }
 //3 如果是会话角色,根据会话角色查询该会话角色的授权资源
 pub async fn app_res_info_from_session(
     param: &AppResListFromSessionParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<(bool, Vec<AccessPermRow>, i64)> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    if auth_data.session().user_app_id != 0 {
-        return Err(JsonError::Message(fluent_message!("bad-audit-access")));
-    }
+) -> JsonResult<JsonData> {
+    let auth_data = parent_app_check(req_dao).await?;
+    let app = app_check_get(param.app_id, false, &auth_data, req_dao).await?;
+
+    let user_info = req_dao
+        .web_dao
+        .web_access
+        .access_dao
+        .user
+        .cache()
+        .sync_user(app.id, &param.access_user_param, None, None)
+        .await?;
+
     let rs = req_dao
         .web_dao
         .web_rbac
@@ -153,8 +177,8 @@ pub async fn app_res_info_from_session(
         .access
         .find_res_range_from_session_role(&AccessSessionRole {
             role_key: &param.role_key,
-            user_id: param.user_id,
-            app_id: param.app_id,
+            user_id: user_info.id,
+            app_id: app.id,
         })
         .await?;
     let mut all_res = false;
@@ -170,8 +194,8 @@ pub async fn app_res_info_from_session(
                 .find_res_list_from_session_role(
                     &AccessSessionRole {
                         role_key: &param.role_key,
-                        user_id: param.user_id,
-                        app_id: param.app_id,
+                        user_id: user_info.id,
+                        app_id: app.id,
                     },
                     *d,
                     param.page.as_ref().map(|e| e.into()).as_ref(),
@@ -185,8 +209,8 @@ pub async fn app_res_info_from_session(
                 .find_res_count_from_session_role(
                     &AccessSessionRole {
                         role_key: &param.role_key,
-                        user_id: param.user_id,
-                        app_id: param.app_id,
+                        user_id: user_info.id,
+                        app_id: app.id,
                     },
                     *d,
                 )
@@ -196,5 +220,9 @@ pub async fn app_res_info_from_session(
             all_res = true;
         }
     }
-    Ok((all_res, prem_data, count))
+    Ok(JsonData::data(json!({
+        "allow_all_res": all_res,
+        "prem_data": prem_data,
+        "count": count,
+    })))
 }

@@ -1,7 +1,7 @@
 mod mailer;
 mod mailer_config;
 mod mailer_config_smtp;
-mod mailer_tpl;
+mod mailer_tpl_body;
 mod smser;
 mod smser_config;
 
@@ -23,5 +23,5 @@ pub use smser_config_tenyun::*;
 
 pub use mailer::*;
 pub use mailer_config::*;
-pub use mailer_tpl::*;
+pub use mailer_tpl_body::*;
 pub use smser::*;

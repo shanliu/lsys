@@ -31,14 +31,6 @@ impl IntoFluentMessage for SenderError {
     }
 }
 
-// impl Display for SenderError {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-//         write!(f, "{:?}", self)
-//     }
-// }
-
-// impl Error for SenderError {}
-
 impl From<sqlx::Error> for SenderError {
     fn from(err: sqlx::Error) -> Self {
         SenderError::Sqlx(err)

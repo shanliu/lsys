@@ -118,3 +118,9 @@ res-user-address = 收货地址管理
 res-user-external = 关联账号管理
 res-user-password = 账号密码管理
 
+
+
+lsys-lib-area-error=数据库异常:{$msg}
+area-not-found=地址信息未找到
+area-store-error=存储异常:{$msg}
+area-tantivy-error=搜索异常:{$msg}

@@ -73,7 +73,6 @@ pub fn lsys_model(args: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
     let struct_name = &input.ident;
 
-    let mut db_type = None;
     let mut table_name = None;
     let mut rename_all = None;
     let mut table_pk = vec![];
@@ -94,14 +93,6 @@ pub fn lsys_model(args: TokenStream, item: TokenStream) -> TokenStream {
             let name = name.as_str();
             let ident = attr_ident.clone();
             match name {
-                "db_type" => {
-                    let val = match ident.lit {
-                        syn::Lit::Str(val) => val,
-                        _ => unreachable!("table name must be string"),
-                    }
-                    .value();
-                    db_type = Some(val);
-                }
                 "table_name" => {
                     let val = match ident.lit {
                         syn::Lit::Str(val) => val,
@@ -130,7 +121,6 @@ pub fn lsys_model(args: TokenStream, item: TokenStream) -> TokenStream {
     }
     //     }
     // }
-    let db_type = quote::format_ident!("{}", db_type.expect("database type not set"));
     let table_name = table_name.unwrap_or_else(|| {
         let mut name = struct_name.to_string();
         if name.clone().drain(0..5).collect::<String>() == "Model" {
@@ -211,8 +201,8 @@ pub fn lsys_model(args: TokenStream, item: TokenStream) -> TokenStream {
                 }
                 let implemented_show = quote! {
                     #input
-                    lsys_core::db_model_table_value_bind_define!(sqlx::#db_type,#struct_name,#table_name,{#(#bind_fields),*},{#(#pk_fields),*});
-                    lsys_core::db_model_table_ref_define!(sqlx::#db_type,#struct_name,#change_struct,{#(#change_fields),*});
+                    lsys_core::db_model_table_value_bind_define!(#struct_name,#table_name,{#(#bind_fields),*},{#(#pk_fields),*});
+                    lsys_core::db_model_table_ref_define!(#struct_name,#change_struct,{#(#change_fields),*});
                 };
                 implemented_show
             } else {

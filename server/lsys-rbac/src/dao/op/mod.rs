@@ -117,11 +117,11 @@ impl RbacOp {
                 let id = db_option_executor!(
                     db,
                     {
-                        let res = Insert::<sqlx::MySql, RbacOpModel, _>::new(idata)
+                        let res = Insert::<RbacOpModel, _>::new(idata)
                             .execute(db.as_executor())
                             .await?;
                         let add_id = res.last_insert_id();
-                        Update::<sqlx::MySql, RbacOpModel, _>::new(other_change)
+                        Update::< RbacOpModel, _>::new(other_change)
                             .execute_by_where(&WhereOption::Where(sql_format!(
                                 "user_id={} and op_key={op_key} and  app_id={app_id} and status={} and id!={add_id}",
                                 param.user_id,
@@ -192,7 +192,7 @@ impl RbacOp {
         let fout = db_option_executor!(
             db,
             {
-                let out = Update::<sqlx::MySql, RbacOpModel, _>::new(change)
+                let out = Update::< RbacOpModel, _>::new(change)
                     .execute_by_pk(op, db.as_executor())
                     .await?;
                 Ok(out.rows_affected())
@@ -255,7 +255,7 @@ impl RbacOp {
             status:(RbacOpStatus::Delete as i8)
         });
 
-        let tmp = Update::<sqlx::MySql, RbacOpModel, _>::new(change)
+        let tmp = Update::< RbacOpModel, _>::new(change)
             .execute_by_pk(op, &mut *db)
             .await;
         if let Err(e) = tmp {

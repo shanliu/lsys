@@ -77,7 +77,7 @@ impl SingleSetting {
                 let dat = db_option_executor!(
                     db,
                     {
-                        Insert::<sqlx::MySql, SettingModel, _>::new(new_data)
+                        Insert::<SettingModel, _>::new(new_data)
                             .execute(db.as_executor())
                             .await?
                     },
@@ -97,7 +97,7 @@ impl SingleSetting {
                 db_option_executor!(
                     db,
                     {
-                        Update::<sqlx::MySql, SettingModel, _>::new(change)
+                        Update::<SettingModel, _>::new(change)
                             .execute_by_pk(&set, db.as_executor())
                             .await?;
                     },

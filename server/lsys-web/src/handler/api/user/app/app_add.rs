@@ -3,8 +3,9 @@ use crate::common::{JsonData, UserAuthQueryDao};
 use crate::dao::access::api::user::CheckUserAppEdit;
 use lsys_access::dao::AccessSession;
 use lsys_app::dao::AppDataParam;
+use serde::Deserialize;
 use serde_json::json;
-
+#[derive(Deserialize)]
 pub struct AddParam {
     pub name: String,
     pub client_id: String,

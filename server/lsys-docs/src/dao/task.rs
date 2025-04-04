@@ -123,7 +123,7 @@ impl GitTask {
                             finish_time: finish_time,
                             status:status
                         });
-                        if let Err(err) = Update::<MySql, DocGitCloneModel, _>::new(change)
+                        if let Err(err) = Update::< DocGitCloneModel, _>::new(change)
                             .execute_by_where(
                                 &WhereOption::Where(sql_format!(
                                     "id={} and status!={}",
@@ -156,10 +156,7 @@ impl GitTask {
                             message:errmsg,
                             add_time:finish_time,
                         });
-                        if let Err(err) = Insert::<sqlx::MySql, DocLogsModel, _>::new(vdata)
-                            .execute(db)
-                            .await
-                        {
+                        if let Err(err) = Insert::<DocLogsModel, _>::new(vdata).execute(db).await {
                             warn!("add git clone log fail:{}", err);
                         }
                     }
@@ -170,7 +167,7 @@ impl GitTask {
                             finish_time: finish_time,
                             status:status
                         });
-                        if let Err(err) = Update::<MySql, DocGitCloneModel, _>::new(change)
+                        if let Err(err) = Update::< DocGitCloneModel, _>::new(change)
                             .execute_by_where(
                                 &WhereOption::Where(sql_format!(
                                     "id={}  and status!={}",
@@ -195,10 +192,7 @@ impl GitTask {
                             message:message,
                             add_time:finish_time,
                         });
-                        if let Err(err) = Insert::<sqlx::MySql, DocLogsModel, _>::new(vdata)
-                            .execute(db)
-                            .await
-                        {
+                        if let Err(err) = Insert::<DocLogsModel, _>::new(vdata).execute(db).await {
                             warn!("add git clone succ log fail:{}", err);
                         }
                     }
@@ -221,7 +215,7 @@ impl GitTask {
                             finish_time: finish_time,
                             status:status
                         });
-                        if let Err(err) = Update::<MySql, DocGitCloneModel, _>::new(change)
+                        if let Err(err) = Update::< DocGitCloneModel, _>::new(change)
                             .execute_by_where(
                                 &WhereOption::Where(sql_format!(
                                     "id={} and status={}",
@@ -246,10 +240,7 @@ impl GitTask {
                             message:errmsg,
                             add_time:finish_time,
                         });
-                        if let Err(err) = Insert::<sqlx::MySql, DocLogsModel, _>::new(vdata)
-                            .execute(db)
-                            .await
-                        {
+                        if let Err(err) = Insert::<DocLogsModel, _>::new(vdata).execute(db).await {
                             warn!("add git clone log fail:{}", err);
                         }
                     }
@@ -318,10 +309,7 @@ impl GitTask {
             status:status,
         });
 
-        let clone_id = match Insert::<sqlx::MySql, DocGitCloneModel, _>::new(vdata)
-            .execute(db)
-            .await
-        {
+        let clone_id = match Insert::<DocGitCloneModel, _>::new(vdata).execute(db).await {
             Ok(row) => row.last_insert_id(),
             Err(err) => {
                 warn!("add git clone log fail:{}", err);
@@ -333,10 +321,7 @@ impl GitTask {
                     message:message,
                     add_time:add_time,
                 });
-                if let Err(err) = Insert::<sqlx::MySql, DocLogsModel, _>::new(vdata)
-                    .execute(db)
-                    .await
-                {
+                if let Err(err) = Insert::<DocLogsModel, _>::new(vdata).execute(db).await {
                     info!("add clone log fail:{}", err);
                 }
                 return false;
@@ -727,7 +712,7 @@ impl GitTask {
             finish_time: finish_time,
             status:status
         });
-        match Update::<MySql, DocGitCloneModel, _>::new(change)
+        match Update::< DocGitCloneModel, _>::new(change)
             .execute_by_where(
                 &WhereOption::Where(sql_format!("id={}", clone_id,)),
                 &self.db,

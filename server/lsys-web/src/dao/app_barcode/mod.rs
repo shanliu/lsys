@@ -1,9 +1,7 @@
-mod app_feature;
 use crate::common::JsonError;
 use crate::common::JsonResult;
 
 use image::ImageFormat;
-use lsys_app::dao::AppDao;
 use lsys_app_barcode::dao::{BarCodeConfig, BarCodeDao};
 use lsys_app_barcode::model::BarcodeCreateModel;
 use lsys_app_barcode::model::BarcodeCreateStatus;
@@ -16,13 +14,11 @@ use std::sync::Arc;
 
 pub struct AppBarCode {
     pub barcode_dao: BarCodeDao,
-    app_dao: Arc<AppDao>,
 }
 
 impl AppBarCode {
     pub fn new(
         app_core: Arc<AppCore>,
-        app_dao: Arc<AppDao>,
         db: Pool<MySql>,
         remote_notify: Arc<RemoteNotify>,
         logger: Arc<ChangeLoggerDao>,
@@ -45,10 +41,7 @@ impl AppBarCode {
             BarCodeConfig::new(create_max, use_cache),
             logger.clone(),
         );
-        AppBarCode {
-            barcode_dao,
-            app_dao,
-        }
+        AppBarCode { barcode_dao }
     }
 }
 

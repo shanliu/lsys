@@ -4,6 +4,7 @@ use std::sync::Arc;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+
 use tokio::sync::oneshot::{self, Receiver, Sender};
 use tokio::sync::Mutex;
 use tokio::time::{sleep, Duration};
@@ -114,7 +115,7 @@ impl<T: WaitItem + Serialize + DeserializeOwned + Debug> WaitNotify<T> {
     }
     pub async fn listen(&self) {
         loop {
-            match self.app_core.create_redis_client() {
+            match self.app_core.create_redis_client().await {
                 Ok(redis_client) => {
                     let con_res = redis_client.get_multiplexed_async_connection().await;
                     match con_res {
@@ -209,6 +210,7 @@ async fn test_listen_notify() {
             "{}/../examples/lsys-actix-web/config",
             env!("CARGO_MANIFEST_DIR")
         ),
+        None,
         None,
     )
     .await

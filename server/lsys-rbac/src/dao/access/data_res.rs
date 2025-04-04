@@ -7,8 +7,8 @@ use crate::{
         RbacRoleModel, RbacRoleResRange, RbacRoleUserModel, RbacRoleUserRange, RbacRoleUserStatus,
     },
 };
-use lsys_core::db::ModelTableName;
 use lsys_core::db::SqlQuote;
+use lsys_core::db::{ModelTableName, SqlExpr};
 use lsys_core::sql_format;
 use lsys_core::PageParam;
 use serde::Serialize;
@@ -279,6 +279,7 @@ impl RbacAccess {
         &self,
         user_id: u64,                //访问用户ID,0 为游客
         role_user_id: u64,           //指定角色用户,0为系统
+        role_app_id: Option<u64>,    //应用ID
         res_range: RbacRoleResRange, //RbacRoleResRange::Include RbacRoleResRange::Exclude
         field: &str,
     ) -> String {
@@ -290,7 +291,7 @@ impl RbacAccess {
             join {} as op on perm.op_id=op.id
             join {} as role_user on role_user.role_id=role.id
             where  role.status ={} and perm.status ={} and res.status ={} and op.status ={}
-            and role.user_id={role_user_id} and role.user_range={} and role.res_range={}
+            and role.user_id={role_user_id} {} and role.user_range={} and role.res_range={}
             and role_user.user_id={user_id} and (role_user.timeout=0 or role_user.timeout >= UNIX_TIMESTAMP(NOW()))
             ",
             field,
@@ -303,6 +304,10 @@ impl RbacAccess {
             RbacPermStatus::Enable as i8,
             RbacResStatus::Enable as i8,
             RbacOpStatus::Enable as i8,
+            SqlExpr(match role_app_id{
+                Some(app_id)=>sql_format!(" and role.app_id={}",app_id),
+                None=>"".to_string()
+            }),
             RbacRoleUserRange::Custom as i8,
             res_range as i8,
         )
@@ -312,6 +317,7 @@ impl RbacAccess {
         &self,
         user_id: u64,                //访问用户ID,0 为游客
         role_user_id: u64,           //指定角色用户,0为系统
+        role_app_id: Option<u64>,    //应用ID
         res_range: RbacRoleResRange, //RbacRoleResRange::Exclude | RbacRoleResRange::Include
     ) -> RbacResult<i64> {
         match res_range {
@@ -319,7 +325,13 @@ impl RbacAccess {
                 let sql = if user_id == 0 {
                     return Ok(0);
                 } else {
-                    self.find_res_custom_sql_from_user(user_id, role_user_id, res_range, "count(*)")
+                    self.find_res_custom_sql_from_user(
+                        user_id,
+                        role_user_id,
+                        role_app_id,
+                        res_range,
+                        "count(*)",
+                    )
                 };
                 Ok(sqlx::query_scalar::<_, i64>(&sql)
                     .fetch_one(&self.db)
@@ -333,6 +345,7 @@ impl RbacAccess {
         &self,
         user_id: u64,                //访问用户ID,0 为游客
         role_user_id: u64,           //指定角色用户,0为系统
+        role_app_id: Option<u64>,    //应用ID
         res_range: RbacRoleResRange, //RbacRoleResRange::Include RbacRoleResRange::Exclude
         page: Option<&PageParam>,
     ) -> RbacResult<Vec<AccessPermRow>> {
@@ -344,6 +357,7 @@ impl RbacAccess {
                     self.find_res_custom_sql_from_user(
                         user_id,
                         role_user_id,
+                        role_app_id,
                         res_range,
                         self.res_list_sql_field(),
                     )

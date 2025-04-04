@@ -1,3 +1,4 @@
+mod cache;
 mod data;
 use super::logger::AppOAuthServerSetLog;
 use super::{App, AppError, AppResult};
@@ -6,26 +7,42 @@ use crate::model::{
     AppOAuthClientModel, AppOAuthServerScopeModel, AppOAuthServerScopeModelRef,
     AppOAuthServerScopeStatus, AppRequestStatus, AppRequestType, AppStatus,
 };
+use data::AppOAuthServerScopeData;
+use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::db::{Insert, ModelTableName, Update};
 use lsys_core::db::{SqlQuote, WhereOption};
-use lsys_core::{fluent_message, now_time, RequestEnv};
+use lsys_core::{fluent_message, now_time, RemoteNotify, RequestEnv};
 use lsys_core::{model_option_set, sql_format};
 use lsys_logger::dao::ChangeLoggerDao;
 use regex::Regex;
 use serde::Serialize;
 use serde_json::json;
-use sqlx::MySql;
-use sqlx::Pool;
+use sqlx::{MySql, Pool};
 use std::sync::Arc;
 pub struct AppOAuthServer {
     app: Arc<App>,
     db: Pool<MySql>,
     logger: Arc<ChangeLoggerDao>,
+    pub(crate) oauth_server_scope_cache: Arc<LocalCache<u64, Vec<AppOAuthServerScopeData>>>,
 }
 
 impl AppOAuthServer {
-    pub fn new(db: Pool<MySql>, app: Arc<App>, logger: Arc<ChangeLoggerDao>) -> Self {
-        Self { db, app, logger }
+    pub fn new(
+        db: Pool<MySql>,
+        app: Arc<App>,
+        logger: Arc<ChangeLoggerDao>,
+        remote_notify: Arc<RemoteNotify>,
+        cache_config: LocalCacheConfig,
+    ) -> Self {
+        Self {
+            db,
+            app,
+            logger,
+            oauth_server_scope_cache: Arc::new(LocalCache::new(
+                remote_notify.clone(),
+                cache_config,
+            )),
+        }
     }
     //OAUTH 服务申请
     pub async fn oauth_request(
@@ -173,7 +190,7 @@ impl AppOAuthServer {
                 change_user_id:set_user_id,
                 change_time:time
             });
-            let cres = Update::<sqlx::MySql, AppOAuthServerScopeModel, _>::new(change)
+            let cres = Update::<AppOAuthServerScopeModel, _>::new(change)
                 .execute_by_where(
                     &lsys_core::db::WhereOption::Where(sql_format!(
                         "app_id={} and scope_key in ({})",
@@ -201,7 +218,7 @@ impl AppOAuthServer {
                 change_user_id:set_user_id,
                 change_time:time
             });
-            let cres = Update::<sqlx::MySql, AppOAuthServerScopeModel, _>::new(change)
+            let cres = Update::<AppOAuthServerScopeModel, _>::new(change)
                 .execute_by_where(&WhereOption::Where(sql_format!("id={}", tmp.0)), &mut *db)
                 .await;
             if let Err(err) = cres {
@@ -221,7 +238,7 @@ impl AppOAuthServer {
                 change_time:time
             }));
         }
-        let cres = Insert::<sqlx::MySql, AppOAuthServerScopeModel, _>::new_vec(add_vec)
+        let cres = Insert::<AppOAuthServerScopeModel, _>::new_vec(add_vec)
             .execute(&mut *db)
             .await;
         if let Err(err) = cres {
@@ -230,6 +247,8 @@ impl AppOAuthServer {
         }
 
         db.commit().await?;
+
+        self.oauth_server_scope_cache.del(&app.id).await;
 
         self.logger
             .add(

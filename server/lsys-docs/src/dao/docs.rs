@@ -223,7 +223,7 @@ impl GitDocs {
             change_user_id:user_id,
             change_time:add_time,
         });
-        let add_id = Insert::<sqlx::MySql, DocGitModel, _>::new(vdata)
+        let add_id = Insert::<DocGitModel, _>::new(vdata)
             .execute(&self.db)
             .await?
             .last_insert_id();
@@ -309,7 +309,7 @@ impl GitDocs {
             change_user_id:user_id,
             change_time:add_time,
         });
-        Update::<sqlx::MySql, DocGitModel, _>::new(change)
+        Update::< DocGitModel, _>::new(change)
             .execute_by_pk(git_model, &self.db)
             .await?;
 
@@ -358,7 +358,7 @@ impl GitDocs {
             change_user_id:change_user_id,
             change_time:change_time
         });
-        if let Err(err) = Update::<MySql, DocGitModel, _>::new(change)
+        if let Err(err) = Update::< DocGitModel, _>::new(change)
             .execute_by_where(
                 &WhereOption::Where(sql_format!("id={}", git_model.id,)),
                 &self.db,
@@ -490,7 +490,7 @@ impl GitDocs {
             add_user_id:user_id,
             add_time:add_time,
         });
-        let add_id = Insert::<sqlx::MySql, DocGitTagModel, _>::new(vdata)
+        let add_id = Insert::<DocGitTagModel, _>::new(vdata)
             .execute(&self.db)
             .await?
             .last_insert_id();
@@ -535,7 +535,7 @@ impl GitDocs {
         }
         let status = DocGitTagStatus::Delete as i8;
         let change = lsys_core::model_option_set!(DocGitTagModelRef, { status: status });
-        if let Err(err) = Update::<MySql, DocGitTagModel, _>::new(change)
+        if let Err(err) = Update::< DocGitTagModel, _>::new(change)
             .execute_by_where(
                 &WhereOption::Where(sql_format!("id={}", git_tag.id,)),
                 &self.db,
@@ -597,7 +597,7 @@ impl GitDocs {
                 finish_time: finish_time,
                 status:status
             });
-            if let Err(err) = Update::<MySql, DocGitCloneModel, _>::new(change)
+            if let Err(err) = Update::< DocGitCloneModel, _>::new(change)
                 .execute_by_where(
                     &WhereOption::Where(sql_format!("id={}", rgit_clone.id,)),
                     &self.db,
@@ -616,7 +616,7 @@ impl GitDocs {
                 message:message,
                 add_time:add_time,
             });
-            if let Err(err) = Insert::<sqlx::MySql, DocLogsModel, _>::new(vdata)
+            if let Err(err) = Insert::<DocLogsModel, _>::new(vdata)
                 .execute(&self.db)
                 .await
             {
@@ -683,7 +683,7 @@ impl GitDocs {
         }
         let status = status as i8;
         let change = lsys_core::model_option_set!(DocGitTagModelRef, { status: status });
-        if let Err(err) = Update::<MySql, DocGitTagModel, _>::new(change)
+        if let Err(err) = Update::< DocGitTagModel, _>::new(change)
             .execute_by_pk(git_tag, &self.db)
             .await
         {
@@ -1133,7 +1133,7 @@ impl GitDocs {
             add_user_id:user_id,
             add_time:add_time,
         });
-        let add_id = Insert::<sqlx::MySql, DocMenuModel, _>::new(vdata)
+        let add_id = Insert::<DocMenuModel, _>::new(vdata)
             .execute(&self.db)
             .await?
             .last_insert_id();
@@ -1163,7 +1163,7 @@ impl GitDocs {
     ) -> GitDocResult<()> {
         let status = DocMenuStatus::Delete as i8;
         let change = lsys_core::model_option_set!(DocMenuModelRef, { status: status });
-        if let Err(err) = Update::<MySql, DocMenuModel, _>::new(change)
+        if let Err(err) = Update::< DocMenuModel, _>::new(change)
             .execute_by_where(
                 &WhereOption::Where(sql_format!("id={}", menu.id,)),
                 &self.db,

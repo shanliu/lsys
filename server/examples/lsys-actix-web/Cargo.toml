@@ -18,7 +18,7 @@ lsys-web = { path = "../../lsys-web", features = [] }
 
 actix = "~0.13.0"
 actix-web = { version = "4.3.1", features = ["rustls"] }
-actix-http = "~3.9.0"
+actix-http = "~3.10.0"
 actix-utils = "~3.0.*"
 actix-service = "~2.0.*"                                 #中间件等辅助宏
 actix-web-validator = "~6.0.0"
@@ -26,7 +26,7 @@ actix-multipart = "0.7.2"
 actix-files = "~0.6.0"
 actix-web-actors = "4.1.0"
 
-tokio = { version = "~1.43.0", features = ["fs"] }
+tokio = { version = "~1.44.0", features = ["fs"] }
 
 
 rustls = "0.20.0"
@@ -68,7 +68,6 @@ image = { version = "0.25.1", default-features = false }
 time = { version = "0.3.36" }
 
 [features]
-default = ["docs", "barcode", "area"]
+default = ["docs", "barcode"]
 docs = ["lsys-web/docs"]
-area = ["lsys-web/area"]
 barcode = ["lsys-web/barcode", "tempfile"]

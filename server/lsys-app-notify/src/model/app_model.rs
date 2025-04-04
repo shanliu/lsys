@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(db_type = "MySql", table_name = "notify_config")]
+#[lsys_model( table_name = "notify_config")]
 pub struct NotifyConfigModel {
     /// 用户ID
     #[sqlx(default)]
@@ -39,7 +39,7 @@ pub struct NotifyConfigModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(db_type = "MySql", table_name = "notify_data")]
+#[lsys_model( table_name = "notify_data")]
 pub struct NotifyDataModel {
     /// 用户ID
     #[sqlx(default)]

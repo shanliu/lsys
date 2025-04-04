@@ -2,7 +2,6 @@ mod logger;
 mod mailer;
 mod smser;
 
-use lsys_app::dao::AppDao;
 use lsys_app_notify::dao::NotifyDao;
 use lsys_app_sender::dao::MessageTpls;
 use lsys_core::{AppCore, AppCoreError, IntoFluentMessage};
@@ -11,8 +10,7 @@ use lsys_setting::dao::SettingDao;
 pub use mailer::*;
 pub use smser::*;
 
-use sqlx::MySql;
-use sqlx::Pool;
+use sqlx::{MySql, Pool};
 use std::sync::Arc;
 
 use tracing::error;
@@ -25,7 +23,6 @@ pub struct AppSender {
 impl AppSender {
     pub fn new(
         app_core: Arc<AppCore>,
-        app_dao: Arc<AppDao>,
         redis: deadpool_redis::Pool,
         db: Pool<MySql>,
         notify: Arc<NotifyDao>,
@@ -34,7 +31,6 @@ impl AppSender {
     ) -> Result<AppSender, AppCoreError> {
         let mailer = Arc::new(SenderMailer::new(
             app_core.clone(),
-            app_dao.clone(),
             redis.clone(),
             db.clone(),
             setting.clone(),
@@ -59,7 +55,6 @@ impl AppSender {
         //启动回调任务
         let smser = Arc::new(SenderSmser::new(
             app_core,
-            app_dao,
             redis,
             db.clone(),
             setting,

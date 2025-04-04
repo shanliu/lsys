@@ -3,6 +3,7 @@ mod data;
 mod info;
 use crate::model::{UserModel, UserModelRef};
 use cache::AccessUserCache;
+pub use data::*;
 pub use info::*;
 
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
@@ -61,8 +62,12 @@ impl AccessUser {
     ) -> AccessResult<u64> {
         let time = now_time()?;
         let user_data = user_data.to_string();
-        if user_data.trim().is_empty() {
-            return Err(AccessError::System(fluent_message!("access-bad-user",{
+        if user_data
+            .trim_matches(['\n', '\t', ' ', '\r'])
+            .trim()
+            .is_empty()
+        {
+            return Err(AccessError::BadAccount(fluent_message!("access-bad-user",{
                 "user_data":user_data,
             })));
         }
@@ -94,8 +99,8 @@ impl AccessUser {
             change.user_name = tmp_user_name.as_ref();
         }
         change.user_account = tmp_user_account.as_ref();
-        match Insert::<sqlx::MySql, UserModel, _>::new(vdata)
-            .execute_update(&Update::<MySql, UserModel, _>::new(change), &self.db)
+        match Insert::<UserModel, _>::new(vdata)
+            .execute_update(&Update::<UserModel, _>::new(change), &self.db)
             .await
         {
             Ok(row) => {

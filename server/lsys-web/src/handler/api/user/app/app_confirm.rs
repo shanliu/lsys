@@ -4,17 +4,15 @@ use crate::dao::access::api::user::CheckUserAppEdit;
 use lsys_access::dao::AccessSession;
 use lsys_app::model::AppRequestStatus;
 use lsys_core::fluent_message;
-
+use serde::Deserialize;
+#[derive(Deserialize)]
 pub struct ConfirmParam {
     pub app_req_id: u64,
     pub confirm_status: i8,
     pub confirm_note: String,
 }
 
-pub async fn confirm(
-    param: &ConfirmParam,
-    req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+pub async fn confirm(param: &ConfirmParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     let req_app = req_dao

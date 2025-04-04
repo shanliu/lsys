@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use crate::model::UserModel;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct UserInfo {
     pub id: u64,
     pub app_id: u64,
@@ -12,7 +12,7 @@ pub struct UserInfo {
     pub user_account: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct UserPublicInfo {
     pub id: u64,
     pub app_id: u64,

@@ -207,11 +207,6 @@ impl WebUserAuth {
                     JsonData::default().set_sub_code("mobile_is_reg"),
                     fluent_message!("reg-mobile-registered"),
                 ));
-                // return Ok(
-                //     req_dao
-                //         .fluent_error_json_data(fluent_message!("reg-mobile-registered"))
-                //         .set_sub_code("mobile_is_reg"), // JsonData::message("this mobile is registered")
-                // );
             }
         }
         let data = self

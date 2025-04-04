@@ -2,7 +2,7 @@ mod insert;
 mod update;
 
 use sqlx::query::{Query, QueryAs};
-use sqlx::{Database, FromRow};
+use sqlx::FromRow;
 use std::fmt::Display;
 
 pub use insert::*;
@@ -57,24 +57,21 @@ pub trait ModelTableName {
     fn table_name() -> TableName;
 }
 /// model实现得到表字段和字段值绑定 trait
-pub trait ModelTableField<DB>
-where
-    DB: Database,
-{
+pub trait ModelTableField {
     fn table_pk() -> TableFields;
     fn table_column() -> TableFields;
     fn query_sqlx_bind<'t>(
         &'t self,
         table_field_val: &FieldItem,
-        res: Query<'t, DB, <DB as Database>::Arguments<'t>>,
-    ) -> Query<'t, DB, <DB as Database>::Arguments<'t>>;
+        res: Query<'t, sqlx::MySql, sqlx::mysql::MySqlArguments>,
+    ) -> Query<'t, sqlx::MySql, sqlx::mysql::MySqlArguments>;
     fn query_as_sqlx_bind<'t, M>(
         &'t self,
         table_field_val: &FieldItem,
-        res: QueryAs<'t, DB, M, <DB as Database>::Arguments<'t>>,
-    ) -> QueryAs<'t, DB, M, <DB as Database>::Arguments<'t>>
+        res: QueryAs<'t, sqlx::MySql, M, sqlx::mysql::MySqlArguments>,
+    ) -> QueryAs<'t, sqlx::MySql, M, sqlx::mysql::MySqlArguments>
     where
-        for<'r> M: FromRow<'r, DB::Row> + Send + Unpin;
+        for<'r> M: FromRow<'r, sqlx::mysql::MySqlRow> + Send + Unpin;
 }
 
 /// 表字段

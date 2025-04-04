@@ -182,7 +182,7 @@ impl SenderTplConfig {
             status:SenderTplConfigStatus::Enable as i8,
         });
 
-        let id = Insert::<sqlx::MySql, SenderTplConfigModel, _>::new(add)
+        let id = Insert::<SenderTplConfigModel, _>::new(add)
             .execute(&self.db)
             .await
             .map(|e| e.last_insert_id())?;
@@ -223,7 +223,7 @@ impl SenderTplConfig {
             change_time:time,
             change_user_id:user_id
         });
-        let res = Update::<sqlx::MySql, SenderTplConfigModel, _>::new(change)
+        let res = Update::< SenderTplConfigModel, _>::new(change)
             .execute_by_pk(config, &self.db)
             .await;
 

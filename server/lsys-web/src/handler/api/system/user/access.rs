@@ -1,0 +1,129 @@
+use serde::Deserialize;
+use serde_json::json;
+
+use crate::common::{JsonData, JsonResult};
+use crate::{
+    common::{LimitParam, UserAuthQueryDao},
+    dao::access::api::system::CheckAdminUserManage,
+};
+use lsys_access::dao::{AccessError, AccessSession, SessionDataParam};
+
+#[derive(Debug, Deserialize)]
+pub struct LoginHistoryParam {
+    pub app_id: u64,
+    pub oauth_app_id: Option<u64>,
+    pub user_id: Option<u64>,
+    pub is_enable: Option<bool>,
+    pub count_num: Option<bool>,
+    pub limit: Option<LimitParam>,
+}
+pub async fn login_history(
+    param: &LoginHistoryParam,
+    req_dao: &UserAuthQueryDao,
+) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
+    req_dao
+        .web_dao
+        .web_rbac
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminUserManage {})
+        .await?;
+    let session_param = SessionDataParam {
+        app_id: Some(param.app_id),
+        oauth_app_id: param.oauth_app_id,
+        user_id: param.user_id,
+        is_enable: param.is_enable,
+    };
+    let (res, next) = req_dao
+        .web_dao
+        .web_access
+        .access_dao
+        .user
+        .session_data(
+            &session_param,
+            param.limit.as_ref().map(|e| e.into()).as_ref(),
+        )
+        .await?;
+
+    let count = if param.count_num.unwrap_or(false) {
+        Some(
+            req_dao
+                .web_dao
+                .web_access
+                .access_dao
+                .user
+                .session_count(&session_param)
+                .await?,
+        )
+    } else {
+        None
+    };
+    Ok(JsonData::data(json!({
+        "data": res ,
+        "next": next,
+        "total":count,
+    })))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UserLogoutParam {
+    pub app_id: u64,
+    pub oauth_app_id: u64,
+    pub token_data: String,
+}
+pub async fn user_logout(
+    param: &UserLogoutParam,
+    req_dao: &UserAuthQueryDao,
+) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    req_dao
+        .web_dao
+        .web_rbac
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminUserManage {})
+        .await?;
+    let session_res = req_dao
+        .web_dao
+        .web_access
+        .access_dao
+        .auth
+        .login_data(param.app_id, param.oauth_app_id, &param.token_data)
+        .await;
+    match session_res {
+        Ok(sess) => {
+            req_dao
+                .web_dao
+                .web_access
+                .access_dao
+                .auth
+                .do_logout(&sess)
+                .await?;
+        }
+        Err(AccessError::NotLogin) => {}
+        Err(err) => return Err(err.into()),
+    }
+    Ok(JsonData::default())
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AppLogoutParam {
+    pub app_id: u64,
+}
+pub async fn app_logout(
+    param: &AppLogoutParam,
+    req_dao: &UserAuthQueryDao,
+) -> JsonResult<JsonData> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    req_dao
+        .web_dao
+        .web_rbac
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminUserManage {})
+        .await?;
+    req_dao
+        .web_dao
+        .web_access
+        .access_dao
+        .auth
+        .clear_app_login(&param.app_id)
+        .await?;
+    Ok(JsonData::default())
+}

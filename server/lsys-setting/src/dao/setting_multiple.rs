@@ -68,7 +68,7 @@ impl MultipleSetting {
         let dat = db_option_executor!(
             db,
             {
-                Insert::<sqlx::MySql, SettingModel, _>::new(new_data)
+                Insert::<SettingModel, _>::new(new_data)
                     .execute(db.as_executor())
                     .await?
             },
@@ -120,7 +120,7 @@ impl MultipleSetting {
         let cu = db_option_executor!(
             db,
             {
-                Update::<sqlx::MySql, SettingModel, _>::new(change)
+                Update::<SettingModel, _>::new(change)
                     .execute_by_where(
                         &WhereOption::Where(sql_format!(
                             "id={} and setting_type={} and setting_key={} and user_id={}",
@@ -194,7 +194,7 @@ impl MultipleSetting {
                 let cu = db_option_executor!(
                     db,
                     {
-                        Update::<sqlx::MySql, SettingModel, _>::new(change)
+                        Update::<SettingModel, _>::new(change)
                             .execute_by_pk(&item, db.as_executor())
                             .await?
                     },

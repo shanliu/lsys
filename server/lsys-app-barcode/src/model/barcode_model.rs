@@ -3,7 +3,7 @@ use sqlx::FromRow;
 use lsys_core::db::lsys_model;
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(db_type = "MySql", table_name = "barcode_create")]
+#[lsys_model( table_name = "barcode_create")]
 pub struct BarcodeCreateModel {
     /// id
     #[sqlx(default)]
@@ -54,7 +54,7 @@ pub struct BarcodeCreateModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(db_type = "MySql", table_name = "barcode_parse")]
+#[lsys_model( table_name = "barcode_parse")]
 pub struct BarcodeParseModel {
     /// id
     #[sqlx(default)]

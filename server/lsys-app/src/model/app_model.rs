@@ -1,9 +1,9 @@
+use lsys_core::db::lsys_model;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
-use lsys_core::db::lsys_model;
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(db_type = "MySql", table_name = "app")]
+#[lsys_model( table_name = "app")]
 pub struct AppModel {
     /// 用户ID
     #[sqlx(default)]
@@ -47,7 +47,7 @@ pub struct AppModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(db_type = "MySql", table_name = "app_feature")]
+#[lsys_model( table_name = "app_feature")]
 pub struct AppFeatureModel {
     #[sqlx(default)]
     pub id: u64,
@@ -64,7 +64,7 @@ pub struct AppFeatureModel {
     #[sqlx(default)]
     pub status: i8,
 
-   /// 最后更新用户,审核,禁用时用户
+    /// 最后更新用户,审核,禁用时用户
     #[sqlx(default)]
     pub change_user_id: u64,
 
@@ -74,7 +74,7 @@ pub struct AppFeatureModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(db_type = "MySql", table_name = "app_oauth")]
+#[lsys_model( table_name = "app_oauth_client")]
 pub struct AppOAuthClientModel {
     #[sqlx(default)]
     pub id: u64,
@@ -86,7 +86,7 @@ pub struct AppOAuthClientModel {
     /// client_secret
     #[sqlx(default)]
     pub oauth_secret: String,
-    
+
     /// callback_domain
     #[sqlx(default)]
     pub callback_domain: String,
@@ -95,22 +95,17 @@ pub struct AppOAuthClientModel {
     #[sqlx(default)]
     pub scope_data: String,
 
-    /// 状态
+    /// 最后更新用户,审核,禁用时用户
     #[sqlx(default)]
-    pub status: i8,
+    pub change_user_id: u64,
 
-   /// 最后更新用户,审核,禁用时用户
-     #[sqlx(default)]
-     pub change_user_id: u64,
- 
-      /// 最后更新用户,审核,禁用时时间
-     #[sqlx(default)]
-     pub change_time: u64,
+    /// 最后更新用户,审核,禁用时时间
+    #[sqlx(default)]
+    pub change_time: u64,
 }
 
-
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(db_type = "MySql", table_name = "app_oauth")]
+#[lsys_model( table_name = "app_oauth_server_scope")]
 pub struct AppOAuthServerScopeModel {
     #[sqlx(default)]
     pub id: u64,
@@ -122,7 +117,7 @@ pub struct AppOAuthServerScopeModel {
     /// scope_key
     #[sqlx(default)]
     pub scope_key: String,
-    
+
     /// scope_name
     #[sqlx(default)]
     pub scope_name: String,
@@ -144,11 +139,8 @@ pub struct AppOAuthServerScopeModel {
     pub change_time: u64,
 }
 
-
-
-
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(db_type = "MySql", table_name = "app_request")]
+#[lsys_model( table_name = "app_request")]
 pub struct AppRequestModel {
     #[sqlx(default)]
     pub id: u64,
@@ -156,7 +148,7 @@ pub struct AppRequestModel {
     /// 冗余APP表parent_app_id 方便用于过滤数据
     #[sqlx(default)]
     pub parent_app_id: u64,
-    
+
     /// app id
     #[sqlx(default)]
     pub app_id: u64,
@@ -192,7 +184,7 @@ pub struct AppRequestModel {
 
 ///应用申请OAUTH登录相关数据
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(db_type = "MySql", table_name = "app_request_feature")]
+#[lsys_model( table_name = "app_request_feature")]
 pub struct AppRequestFeatureModel {
     #[sqlx(default)]
     pub id: u64,
@@ -204,13 +196,11 @@ pub struct AppRequestFeatureModel {
     /// feature_data 数据
     #[sqlx(default)]
     pub feature_data: String,
-
 }
-
 
 ///应用申请OAUTH登录相关数据
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(db_type = "MySql", table_name = "app_request_change")]
+#[lsys_model( table_name = "app_request_oauth_client")]
 pub struct AppRequestOAuthClientModel {
     #[sqlx(default)]
     pub id: u64,
@@ -222,13 +212,11 @@ pub struct AppRequestOAuthClientModel {
     /// scope_data 数据
     #[sqlx(default)]
     pub scope_data: String,
-
 }
-
 
 /// 请求更改APP信息
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(db_type = "MySql", table_name = "app_request_set_info")]
+#[lsys_model( table_name = "app_request_set_info")]
 pub struct AppRequestSetInfoModel {
     #[sqlx(default)]
     pub id: u64,

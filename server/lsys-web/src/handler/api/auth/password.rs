@@ -19,7 +19,6 @@ pub async fn user_reset_password_send_code_from_mobile(
     param: &ResetPasswordSendCodeFromMobileParam,
     req_dao: &RequestDao,
 ) -> JsonResult<JsonData> {
-    //@TODO  添加权限???
     let ttl = req_dao
         .web_dao
         .web_user

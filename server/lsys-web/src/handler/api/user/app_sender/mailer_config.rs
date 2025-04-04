@@ -13,18 +13,30 @@ use lsys_app_sender::{
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-pub(crate) async fn mailer_inner_access_check(
+pub(super) async fn mailer_inner_access_check(
     app_id: u64,
     res_user_id: u64,
     session_body: Option<&SessionBody>,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<()> {
+    let app = req_dao
+        .web_dao
+        .web_app
+        .app_dao
+        .app
+        .cache()
+        .find_by_id(&app_id)
+        .await?;
+
     req_dao
         .web_dao
-        .app_sender
-        .mailer
-        .app_feature_check_from_app_id(app_id)
+        .web_app
+        .app_dao
+        .app
+        .cache()
+        .exter_feature_check(&app, &[crate::handler::APP_FEATURE_MAIL])
         .await?;
+
     req_dao
         .web_dao
         .web_rbac

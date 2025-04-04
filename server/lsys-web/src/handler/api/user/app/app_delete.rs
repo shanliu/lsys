@@ -3,7 +3,9 @@ use crate::common::{JsonData, UserAuthQueryDao};
 use crate::dao::access::api::user::CheckUserAppEdit;
 
 use lsys_access::dao::AccessSession;
+use serde::Deserialize;
 
+#[derive(Deserialize)]
 pub struct DeleteParam {
     pub app_id: u64,
 }

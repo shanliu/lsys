@@ -76,7 +76,7 @@ impl RbacRes {
                         change_user_id:add_user_id,
                         status:(RbacOpResStatus::Enable as i8),
                     });
-                    if let Err(err) = Update::<sqlx::MySql, RbacOpResModel, _>::new(item)
+                    if let Err(err) = Update::< RbacOpResModel, _>::new(item)
                         .execute_by_where(
                             &WhereOption::Where(sql_format!("id={}", *itemid)),
                             &mut *db,
@@ -102,7 +102,7 @@ impl RbacRes {
             }
         }
         if !add_item.is_empty() {
-            if let Err(err) = Insert::<sqlx::MySql, RbacOpResModel, _>::new_vec(add_item)
+            if let Err(err) = Insert::<RbacOpResModel, _>::new_vec(add_item)
                 .execute(&mut *db)
                 .await
             {
@@ -187,7 +187,7 @@ impl RbacRes {
             change_time:time,
             status:(RbacOpResStatus::Delete as i8),
         });
-        let tmp = Update::<sqlx::MySql, RbacOpResModel, _>::new(ddata)
+        let tmp = Update::< RbacOpResModel, _>::new(ddata)
             .execute_by_where(
                 &lsys_core::db::WhereOption::Where(sql_format!(
                     "res_type={} and user_id={} and app_id={} and op_id in ({})",
@@ -293,7 +293,7 @@ impl RbacRes {
                     change_time:time,
                     status:(RbacOpResStatus::Delete as i8),
                 });
-                let tmp = Update::<sqlx::MySql, RbacOpResModel, _>::new(ddata)
+                let tmp = Update::< RbacOpResModel, _>::new(ddata)
                     .execute_by_where(
                         &lsys_core::db::WhereOption::Where(sql_format!(
                             "res_type={} and user_id={} and app_id={} and op_id in ({})",

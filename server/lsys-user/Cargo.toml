@@ -6,9 +6,9 @@ edition = "2021"
 
 
 [dependencies]
-tokio = { version = "~1.43.0" }
-deadpool-redis = { version = "~0.19.0" }
-redis = { version = "~0.28.2" }
+tokio = { version = "~1.44.0" }
+deadpool-redis = { version = "~0.20.0" }
+redis = { version = "~0.29.0" }
 lsys-core = { path = "../lsys-core" }
 #lsys-app = { path = "../lsys-app" }
 lsys-setting = { path = "../lsys-setting" }
@@ -46,4 +46,4 @@ config = "~0.15"
 
 
 [dev-dependencies]
-tokio = { version = "~1.43.0", features = ["test-util"] }
+tokio = { version = "~1.44.0", features = ["test-util"] }

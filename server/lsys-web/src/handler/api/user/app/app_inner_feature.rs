@@ -3,7 +3,9 @@ use crate::common::JsonResult;
 use crate::common::{JsonData, UserAuthQueryDao};
 use crate::dao::access::api::user::CheckUserAppEdit;
 use lsys_access::dao::AccessSession;
+use serde::Deserialize;
 
+#[derive(Deserialize)]
 pub struct RequestExterLoginFeatureData {
     pub app_id: u64,
 }
@@ -41,6 +43,7 @@ pub async fn request_inner_feature_exter_login_request(
     Ok(JsonData::default())
 }
 
+#[derive(Deserialize)]
 pub struct RequestExterSubAppData {
     pub app_id: u64,
 }

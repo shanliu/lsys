@@ -77,7 +77,6 @@ crate_error_fluent_string!(lsys_docs::GitError, "git-error");
 #[cfg(feature = "docs")]
 self_error_fluent_string!(GitDocError);
 
-#[cfg(feature = "area")]
 impl FluentFormat for lsys_lib_area::AreaError {
     fn fluent_format(&self, fluent: &FluentBundle) -> String {
         match self {
@@ -85,7 +84,7 @@ impl FluentFormat for lsys_lib_area::AreaError {
                 fluent.format_message(&fluent_message!("lsys-lib-area-error", err))
             }
             lsys_lib_area::AreaError::System(err) => {
-                fluent.format_message(&fluent_message!("area-error", err))
+                fluent.format_message(&fluent_message!("lsys-lib-area-error", err))
             }
             lsys_lib_area::AreaError::NotFind(_) => {
                 fluent.format_message(&fluent_message!("area-not-found"))

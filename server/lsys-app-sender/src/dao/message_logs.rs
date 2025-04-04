@@ -50,7 +50,7 @@ impl MessageLogs {
                 create_time:send_time,
             }));
         }
-        let tmp = Insert::<sqlx::MySql, SenderLogModel, _>::new_vec(idata)
+        let tmp = Insert::<SenderLogModel, _>::new_vec(idata)
             .execute(&self.db)
             .await;
         if let Err(ie) = tmp {

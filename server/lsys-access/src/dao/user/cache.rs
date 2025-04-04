@@ -1,5 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
+use lsys_core::fluent_message;
+
 use crate::{dao::AccessError, model::UserModel};
 
 use super::{
@@ -27,6 +29,15 @@ impl AccessUserCache<'_> {
         user_data: impl ToString,
     ) -> AccessResult<UserInfo> {
         let user_data = user_data.to_string();
+        if user_data
+            .trim_matches(['\n', '\t', ' ', '\r'])
+            .trim()
+            .is_empty()
+        {
+            return Err(AccessError::BadAccount(fluent_message!("access-bad-user",{
+                "user_data":user_data,
+            })));
+        }
         let key = AccessUserAppUserKey {
             app_id,
             user_data: user_data.clone(),
@@ -44,7 +55,7 @@ impl AccessUserCache<'_> {
         }?;
         Ok(UserInfo::from(user_model))
     }
-    ///获取用户信息
+    ///批量获取用户信息
     pub async fn find_users_by_ids(&self, ids: &[u64]) -> AccessResult<UserInfoSet> {
         let ids = ids
             .iter()
@@ -56,6 +67,10 @@ impl AccessUserCache<'_> {
             return Ok(UserInfoSet::new(HashMap::new()));
         }
         Ok(UserInfoSet::new(self.find_by_ids(&ids).await?))
+    }
+    ///获取一个用户信息
+    pub async fn find_user_by_id(&self, id: &u64) -> AccessResult<UserInfo> {
+        Ok(UserInfo::from(self.find_by_id(id).await?))
     }
     //带缓存的同步用户
     pub async fn sync_user(

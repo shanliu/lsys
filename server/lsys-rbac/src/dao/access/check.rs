@@ -675,7 +675,6 @@ impl RbacAccess {
             detail: detail_data
                 .iter()
                 .map(|e| {
-                    //todo
                     AuditItemDetail {
                         res_type: e.check_res_item.res_type.to_owned(),
                         res_data: e.check_res_item.res_data.to_owned(),
@@ -734,7 +733,7 @@ impl RbacAccess {
                     request_id:msg.request_id,
                     add_time:msg.add_time,
                 });
-                let rbac_audit_id = match Insert::<sqlx::MySql, RbacAuditModel, _>::new(vdata)
+                let rbac_audit_id = match Insert::<RbacAuditModel, _>::new(vdata)
                     .execute(&mut *db_tran)
                     .await
                 {
@@ -767,7 +766,7 @@ impl RbacAccess {
                         }));
                     }
                     if let Err(err) =
-                        Insert::<sqlx::MySql, RbacAuditDetailModel, _>::new_vec(dvdata)
+                        Insert::<RbacAuditDetailModel, _>::new_vec(dvdata)
                             .execute(&mut *db_tran)
                             .await
                     {

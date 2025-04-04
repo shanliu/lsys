@@ -12,9 +12,9 @@ lsys-logger = { path = "../lsys-logger" }
 sqlx = { version = "~0.8.3", features = ["mysql", "runtime-tokio-native-tls"] }
 
 
-tokio = { version = "~1.43.0", features = ["macros"] }
-deadpool-redis = { version = "~0.19.0" }
-redis = { version = "~0.28.2" }
+tokio = { version = "~1.44.0", features = ["macros"] }
+deadpool-redis = { version = "~0.20.0" }
+redis = { version = "~0.29.0" }
 
 serde = { version = "1.0.*" }
 serde_json = "1.0.*"

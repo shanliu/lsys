@@ -1,18 +1,11 @@
 //页面及其他
-mod barcode;
-mod captcha;
-pub(crate) mod index;
-use std::sync::Arc;
-
+mod index;
+pub mod system;
 use actix_service::ServiceFactory;
-use actix_web::{
-    dev::ServiceRequest,
-    web::{self, scope},
-    App, Error,
-};
+use actix_web::{dev::ServiceRequest, web, App, Error};
 use lsys_web::dao::WebDao;
+use std::sync::Arc;
 use tracing::{info, warn};
-
 pub(crate) fn router_ui<T>(app: App<T>, app_dao: &Arc<WebDao>) -> App<T>
 where
     T: ServiceFactory<ServiceRequest, Config = (), Error = Error, InitError = ()>,
@@ -57,10 +50,7 @@ where
         .find(None)
         .get_string("static_file_dir")
         .unwrap_or_else(|_| String::from("./static"));
-    let mut app = app
-        .service(scope("/captcha").service(captcha::captcha))
-        .service(scope("/barcode").service(barcode::show_code))
-        .service(actix_files::Files::new("/static", static_serve_from).show_files_listing());
-    app = app.service(index::dome);
-    app
+
+    app.service(actix_files::Files::new("/static", static_serve_from).show_files_listing())
+        .service(index::dome)
 }

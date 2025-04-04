@@ -1,27 +1,30 @@
 use crate::common::JsonData;
-use crate::common::JsonError;
+
 use crate::common::JsonResult;
 use crate::common::LimitParam;
 use crate::common::UserAuthQueryDao;
-use crate::dao::access::api::user::CheckUserAppView;
 
-use lsys_access::dao::AccessSession;
-use lsys_core::fluent_message;
 use lsys_rbac::dao::AuditDataParam;
+use serde::Deserialize;
 use serde_json::{json, Value};
 
-pub struct AppAuditResData {
+use super::app_check_get;
+use super::parent_app_check;
+
+#[derive(Debug, Deserialize)]
+pub struct AppAuditResParam {
     pub res_id: u64,
     pub op_id: Option<u64>,
 }
 
+#[derive(Debug, Deserialize)]
 pub struct AppAuditParam {
     pub user_data: Option<String>,
     pub app_id: u64,
     pub user_ip: Option<String>,
     pub device_id: Option<String>,
     pub request_id: Option<String>,
-    pub res_data: Option<AppAuditResData>,
+    pub res_data: Option<AppAuditResParam>,
     pub limit: Option<LimitParam>,
     pub count_num: Option<bool>,
 }
@@ -31,39 +34,8 @@ pub async fn app_audit_data(
     param: &AppAuditParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    if auth_data.session().user_app_id != 0 {
-        return Err(JsonError::Message(fluent_message!("bad-audit-access")));
-    }
-
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(&param.app_id)
-        .await?;
-
-    req_dao
-        .web_dao
-        .web_rbac
-        .check(
-            &req_dao.req_env,
-            Some(&auth_data),
-            &CheckUserAppView {
-                res_user_id: app.user_id,
-            },
-        )
-        .await?;
-
-    req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .inner_feature_sub_app_check(&app)
-        .await?;
-
+    let auth_data = parent_app_check(req_dao).await?;
+    let app = app_check_get(param.app_id, false, &auth_data, req_dao).await?;
     let user_id = if let Some(user_data) = &param.user_data {
         //必须是子用户
         let audit_user = req_dao
@@ -72,7 +44,7 @@ pub async fn app_audit_data(
             .access_dao
             .user
             .cache()
-            .sync_user(param.app_id, user_data, None, None)
+            .sync_user(app.id, user_data, None, None)
             .await?;
         Some(audit_user.id)
     } else {
@@ -86,7 +58,7 @@ pub async fn app_audit_data(
         .audit_data(
             &AuditDataParam {
                 user_id,
-                app_id: Some(param.app_id),
+                app_id: Some(app.id),
                 user_ip: param.user_ip.as_deref(),
                 device_id: param.device_id.as_deref(),
                 request_id: param.request_id.as_deref(),
@@ -104,7 +76,7 @@ pub async fn app_audit_data(
                 .access
                 .audit_count(&AuditDataParam {
                     user_id,
-                    app_id: Some(param.app_id),
+                    app_id: Some(app.id),
                     user_ip: param.user_ip.as_deref(),
                     device_id: param.device_id.as_deref(),
                     request_id: param.request_id.as_deref(),

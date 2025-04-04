@@ -103,7 +103,7 @@ impl ChangeLoggerDao {
         let res = db_option_executor!(
             db,
             {
-                Insert::<sqlx::MySql, ChangeLogModel, _>::new(new_data)
+                Insert::<ChangeLogModel, _>::new(new_data)
                     .execute(db.as_executor())
                     .await
             },

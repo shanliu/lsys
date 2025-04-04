@@ -43,7 +43,6 @@ pub struct AccessAuth {
     pub(crate) session_cache: Arc<LocalCache<AccessAuthSessionCacheKey, SessionModel>>,
     pub(crate) session_data_cache:
         Arc<LocalCache<AccessAuthSessionCacheKey, Vec<(String, String)>>>,
-    // pub(crate) user_cache: Arc<LocalCache<u64, UserModel>>,
 }
 
 impl AccessAuth {
@@ -104,7 +103,7 @@ impl AccessAuth {
             status:status,
             logout_time:time,
         });
-        Update::<sqlx::MySql, SessionModel, _>::new(change)
+        Update::<SessionModel, _>::new(change)
             .execute_by_where(
                 &WhereOption::Where(sql_format!("user_app_id={} ", user_app_id)),
                 &self.db,
@@ -231,7 +230,7 @@ impl AccessAuth {
             logout_time:0,
         });
 
-        let sid = match Insert::<sqlx::MySql, SessionModel, _>::new(vdata)
+        let sid = match Insert::<SessionModel, _>::new(vdata)
             .execute(&mut *db)
             .await
         {
@@ -261,7 +260,7 @@ impl AccessAuth {
                 }));
             }
 
-            if let Err(err) = Insert::<sqlx::MySql, SessionDataModel, _>::new_vec(session_data)
+            if let Err(err) = Insert::<SessionDataModel, _>::new_vec(session_data)
                 .execute(&mut *db)
                 .await
             {
@@ -293,7 +292,7 @@ impl AccessAuth {
         let change = lsys_core::model_option_set!(SessionModelRef,{
             expire_time:expire_time,
         });
-        Update::<sqlx::MySql, SessionModel, _>::new(change)
+        Update::<SessionModel, _>::new(change)
             .execute_by_where(
                 &WhereOption::Where(sql_format!("id={} ", session.id)),
                 &self.db,
@@ -348,7 +347,7 @@ impl AccessAuth {
         });
         let mut db = self.db.begin().await?;
 
-        if let Err(err) = Update::<sqlx::MySql, SessionModel, _>::new(change)
+        if let Err(err) = Update::<SessionModel, _>::new(change)
             .execute_by_where(
                 &WhereOption::Where(sql_format!("id={} ", session_body.session().id)),
                 &mut *db,
@@ -375,7 +374,7 @@ impl AccessAuth {
             add_time:time,
             logout_time:0,
         });
-        let sid = match Insert::<sqlx::MySql, SessionModel, _>::new(vdata)
+        let sid = match Insert::<SessionModel, _>::new(vdata)
             .execute(&mut *db)
             .await
         {
@@ -390,7 +389,7 @@ impl AccessAuth {
             session_id:sid
         });
         let mut db = self.db.begin().await?;
-        if let Err(err) = Update::<sqlx::MySql, SessionDataModel, _>::new(change)
+        if let Err(err) = Update::<SessionDataModel, _>::new(change)
             .execute_by_where(
                 &WhereOption::Where(sql_format!("session_id={} ", session_body.session().id)),
                 &mut *db,
@@ -425,7 +424,7 @@ impl AccessAuth {
             status:status,
             logout_time:time,
         });
-        Update::<sqlx::MySql, SessionModel, _>::new(change)
+        Update::<SessionModel, _>::new(change)
             .execute_by_where(
                 &WhereOption::Where(sql_format!("id={} ", session_body.session().id)),
                 &self.db,
@@ -545,8 +544,8 @@ impl AccessAuth {
                 data_val:data_val,
                 change_time:time,
             });
-            if let Err(err) = Insert::<sqlx::MySql, SessionDataModel, _>::new(vdata)
-                .execute_update(&Update::<MySql, SessionDataModel, _>::new(change), &mut *db)
+            if let Err(err) = Insert::<SessionDataModel, _>::new(vdata)
+                .execute_update(&Update::<SessionDataModel, _>::new(change), &mut *db)
                 .await
             {
                 db.rollback().await?;
@@ -571,14 +570,6 @@ pub struct AccessAuthCache<'t> {
     pub dao: &'t AccessAuth,
 }
 impl AccessAuthCache<'_> {
-    //通过ID获取用户
-    // lsys_core::impl_cache_fetch_one!(
-    //     find_user_by_id,
-    //     dao,
-    //     user_cache,
-    //     u64,
-    //     AccessResult<UserModel>
-    // );
     //获取登陆附带数据
     pub async fn session_get_data(
         &self,

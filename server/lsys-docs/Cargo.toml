@@ -17,8 +17,8 @@ sqlx = { version = "~0.8.3", features = ["mysql", "runtime-tokio-native-tls"] }
 
 futures-util = "0.3.31"
 
-deadpool-redis = { version = "~0.19.0" }
-redis = { version = "~0.28.2", features = [
+deadpool-redis = { version = "~0.20.0" }
+redis = { version = "~0.29.0", features = [
     "tokio-comp",
     "connection-manager",
     "aio",
@@ -27,7 +27,7 @@ redis = { version = "~0.28.2", features = [
 #日志
 tracing = { version = "0.1.40" } # log-always 保持log的输出 当使用tracing时会出现两次
 
-tokio = { version = "~1.43.0" }
+tokio = { version = "~1.44.0" }
 
 
 num_cpus = "1.15.0"

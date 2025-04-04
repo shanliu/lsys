@@ -95,6 +95,7 @@ pub async fn check_res_info_from_user(
 pub struct ResListFromUserParam {
     pub access_user_id: u64,
     pub role_user_id: u64,
+    pub role_app_id: Option<u64>,
     pub user_range: i8,
     pub res_range: i8,
     pub page: Option<PageParam>,
@@ -121,6 +122,7 @@ pub async fn check_res_list_from_user(
         .find_res_list_from_custom_user(
             param.access_user_id,
             param.role_user_id,
+            param.role_app_id,
             res_range,
             param.page.as_ref().map(|e| e.into()).as_ref(),
         )
@@ -130,7 +132,12 @@ pub async fn check_res_list_from_user(
         .web_rbac
         .rbac_dao
         .access
-        .find_res_count_from_custom_user(param.access_user_id, param.role_user_id, res_range)
+        .find_res_count_from_custom_user(
+            param.access_user_id,
+            param.role_user_id,
+            param.role_app_id,
+            res_range,
+        )
         .await?;
 
     Ok(JsonData::data(json!({

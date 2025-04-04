@@ -37,10 +37,16 @@ pub async fn parse_image(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, None, &CheckRestApp { app_id: app.id })
+        .check(&req_dao.req_env, None, &CheckRestApp {})
         .await?;
-
-    req_dao.web_dao.app_barcode.app_feature_check(app).await?;
+    req_dao
+        .web_dao
+        .web_app
+        .app_dao
+        .app
+        .cache()
+        .exter_feature_check(app, &[crate::handler::APP_FEATURE_BARCODE])
+        .await?;
 
     match req_dao
         .web_dao
@@ -99,7 +105,14 @@ pub async fn barcode_base64(
     app: &AppModel,
     req_dao: &RequestDao,
 ) -> JsonResult<JsonData> {
-    req_dao.web_dao.app_barcode.app_feature_check(app).await?;
+    req_dao
+        .web_dao
+        .web_app
+        .app_dao
+        .app
+        .cache()
+        .exter_feature_check(app, &[crate::handler::APP_FEATURE_BARCODE])
+        .await?;
 
     let code = req_dao
         .web_dao

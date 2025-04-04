@@ -54,7 +54,7 @@ impl App {
             request_user_id:req_user_id,
             request_time:time,
         });
-        let req_id = Insert::<sqlx::MySql, AppRequestModel, _>::new(idata)
+        let req_id = Insert::<AppRequestModel, _>::new(idata)
             .execute(&self.db)
             .await?
             .last_insert_id();
@@ -117,7 +117,7 @@ impl App {
                 confirm_time:time,
                 confirm_note:confirm_note,
             });
-            Update::<sqlx::MySql, AppRequestModel, _>::new(change)
+            Update::< AppRequestModel, _>::new(change)
                 .execute_by_pk(req, &self.db)
                 .await?;
             return Ok(());
@@ -143,7 +143,7 @@ impl App {
                         change_user_id:confirm_user_id,
                         change_time:time
                     });
-                    let cres = Update::<sqlx::MySql, AppFeatureModel, _>::new(change)
+                    let cres = Update::< AppFeatureModel, _>::new(change)
                         .execute_by_where(&WhereOption::Where(sql_format!("id={}", fid)), &mut *db)
                         .await;
                     if let Err(err) = cres {
@@ -160,7 +160,7 @@ impl App {
                     change_user_id:confirm_user_id,
                     change_time:time
                 });
-                let cres = Insert::<sqlx::MySql, AppFeatureModel, _>::new(iarr)
+                let cres = Insert::<AppFeatureModel, _>::new(iarr)
                     .execute(&mut *db)
                     .await;
                 if let Err(err) = cres {
@@ -181,7 +181,7 @@ impl App {
             confirm_time:time,
             confirm_note:confirm_note,
         });
-        let cres = Update::<sqlx::MySql, AppRequestModel, _>::new(change)
+        let cres = Update::< AppRequestModel, _>::new(change)
             .execute_by_pk(req, &mut *db)
             .await;
         if let Err(err) = cres {
@@ -264,7 +264,7 @@ impl App {
 }
 
 impl App {
-    //子APP信息查询权限检测,系统应用无此功能
+    //子APP信息查询权限检测,非系统应用无此功能
     pub async fn inner_feature_sub_app_check(&self, app: &AppModel) -> AppResult<()> {
         app.app_status_check()?;
         app.is_system_app_check()?; //必须是系统APP

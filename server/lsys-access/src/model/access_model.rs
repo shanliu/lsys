@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(db_type = "MySql", table_name = "user")]
+#[lsys_model( table_name = "user")]
 pub struct UserModel {
     #[sqlx(default)]
     pub id: u64,
@@ -30,7 +30,7 @@ pub struct UserModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(db_type = "MySql", table_name = "session")]
+#[lsys_model( table_name = "session")]
 pub struct SessionModel {
     #[sqlx(default)]
     pub(crate) id: u64,
@@ -89,7 +89,7 @@ pub struct SessionModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(db_type = "MySql", table_name = "session_data")]
+#[lsys_model( table_name = "session_data")]
 pub struct SessionDataModel {
     #[sqlx(default)]
     pub(crate) id: u64,

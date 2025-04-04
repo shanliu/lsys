@@ -18,11 +18,22 @@ pub async fn barcode_show(
         .cache()
         .find_by_create_config_id(&param.code_id)
         .await?;
+    let app = req_dao
+        .web_dao
+        .web_app
+        .app_dao
+        .app
+        .cache()
+        .find_by_id(&code.app_id)
+        .await?;
 
     req_dao
         .web_dao
-        .app_barcode
-        .app_feature_check_from_app_id(code.app_id)
+        .web_app
+        .app_dao
+        .app
+        .cache()
+        .exter_feature_check(&app, &[crate::handler::APP_FEATURE_BARCODE])
         .await?;
 
     req_dao

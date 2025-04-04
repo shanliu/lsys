@@ -55,9 +55,9 @@ impl FluentMgr {
     }
 
     pub async fn new<P: AsRef<Path>>(
-        path: P,
-        app_fluent: &str,
-        crate_fluent: Option<&[&str]>,
+        path: P,                       //语言文件路径
+        app_fluent: &str,              //公共语言文件
+        crate_fluent: Option<&[&str]>, //指定crate数据,传NONE遍历文件夹产生
     ) -> Result<Self, FluentBundleError> {
         let mut fluents: HashMap<String, Arc<FluentBundle>> = HashMap::new();
         let path = path.as_ref();

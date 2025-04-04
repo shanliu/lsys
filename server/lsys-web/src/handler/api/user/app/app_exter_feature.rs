@@ -5,7 +5,9 @@ use crate::dao::access::api::user::CheckUserAppEdit;
 use lsys_access::dao::AccessSession;
 use lsys_app::model::AppRequestStatus;
 use lsys_core::fluent_message;
+use serde::Deserialize;
 
+#[derive(Deserialize)]
 pub struct RequestExterFeatureParam {
     pub app_id: u64,
     pub featuer_data: Vec<String>,
@@ -16,11 +18,6 @@ pub async fn request_exter_feature(
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let featch_key = param
-        .featuer_data
-        .iter()
-        .map(|e| e.as_str())
-        .collect::<Vec<_>>();
     let app = req_dao
         .web_dao
         .web_app
@@ -28,6 +25,25 @@ pub async fn request_exter_feature(
         .app
         .find_by_id(&param.app_id)
         .await?;
+    //添加外部功能时检测是否开通必要的的依赖关系
+    let mut featch_key = Vec::with_capacity(param.featuer_data.len());
+    for fk in param.featuer_data.iter() {
+        match fk.as_str() {
+            crate::handler::APP_FEATURE_RBAC => {
+                req_dao
+                    .web_dao
+                    .web_app
+                    .app_dao
+                    .app
+                    .inner_feature_sub_app_check(&app)
+                    .await?;
+                featch_key.push(fk.as_str());
+            }
+            tmp => {
+                featch_key.push(tmp);
+            }
+        }
+    }
     req_dao
         .web_dao
         .web_rbac
@@ -73,6 +89,7 @@ pub async fn request_exter_feature(
     Ok(JsonData::default())
 }
 
+#[derive(Deserialize)]
 pub struct ConfirmExterFeatureParam {
     pub app_id: u64,
     pub app_req_id: u64,

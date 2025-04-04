@@ -31,10 +31,22 @@ pub async fn create_config_add(
 ) -> JsonResult<JsonData> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
+    let app = req_dao
+        .web_dao
+        .web_app
+        .app_dao
+        .app
+        .cache()
+        .find_by_id(&param.app_id)
+        .await?;
+
     req_dao
         .web_dao
-        .app_barcode
-        .app_feature_check_from_app_id(param.app_id)
+        .web_app
+        .app_dao
+        .app
+        .cache()
+        .exter_feature_check(&app, &[crate::handler::APP_FEATURE_BARCODE])
         .await?;
 
     req_dao
@@ -101,10 +113,21 @@ pub async fn create_config_edit(
         .find_by_create_config_id(&param.id)
         .await?;
 
+    let app = req_dao
+        .web_dao
+        .web_app
+        .app_dao
+        .app
+        .cache()
+        .find_by_id(&data.app_id)
+        .await?;
     req_dao
         .web_dao
-        .app_barcode
-        .app_feature_check_from_app_id(data.app_id)
+        .web_app
+        .app_dao
+        .app
+        .cache()
+        .exter_feature_check(&app, &[crate::handler::APP_FEATURE_BARCODE])
         .await?;
 
     req_dao

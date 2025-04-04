@@ -36,11 +36,6 @@ impl IntoFluentMessage for ValidCodeError {
     }
 }
 
-// impl Display for ValidCodeError {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-//         write!(f, "{:?}", self)
-//     }
-// }
 impl From<FromUtf8Error> for ValidCodeError {
     fn from(err: FromUtf8Error) -> Self {
         ValidCodeError::Utf8Err(err)

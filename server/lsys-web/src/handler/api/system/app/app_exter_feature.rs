@@ -4,7 +4,9 @@ use crate::{
 };
 use lsys_access::dao::AccessSession;
 use lsys_app::model::AppRequestStatus;
+use serde::Deserialize;
 
+#[derive(Deserialize)]
 pub struct ConfirmExterFeatureParam {
     pub app_id: u64,
     pub app_req_id: u64,

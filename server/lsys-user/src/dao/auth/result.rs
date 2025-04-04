@@ -7,8 +7,8 @@ use lsys_core::{fluent_message, FluentMessage, IntoFluentMessage, ValidCodeError
 
 use redis::RedisError;
 
-// use std::error::Error;
-// use std::fmt::{Display, Formatter};
+
+
 
 use std::string::FromUtf8Error;
 
@@ -48,13 +48,6 @@ impl IntoFluentMessage for UserAuthError {
         }
     }
 }
-
-// impl Display for UserAuthError {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-//         write!(f, "{:?}", self)
-//     }
-// }
-// impl Error for UserAuthError {}
 
 pub type UserAuthResult<T> = Result<T, UserAuthError>;
 

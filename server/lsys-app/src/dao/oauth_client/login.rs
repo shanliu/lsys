@@ -60,7 +60,7 @@ impl AppOAuthClient {
             }
         }
         if !bad_sopce.is_empty() {
-            return Err(crate::dao::AppError::System(
+            return Err(AppError::System(
                 fluent_message!("app-oauth-login-bad-scope",{
                     "scope_data":bad_sopce.join(",")
                 }),

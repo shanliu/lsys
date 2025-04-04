@@ -13,7 +13,7 @@ pub struct ScopeGetParam {
     pub client_id: String,
     pub scope: String,
 }
-//当前登陆scope对应的功能
+//登录页面显示的scope,当前登陆scope对应的功能
 pub async fn scope_get(param: &ScopeGetParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let app = req_dao
@@ -27,11 +27,7 @@ pub async fn scope_get(param: &ScopeGetParam, req_dao: &UserAuthQueryDao) -> Jso
     req_dao
         .web_dao
         .web_rbac
-        .check(
-            &req_dao.req_env,
-            Some(&auth_data),
-            &CheckRestApp { app_id: app.id },
-        )
+        .check(&req_dao.req_env, Some(&auth_data), &CheckRestApp {})
         .await?;
     req_dao
         .web_dao
@@ -55,7 +51,7 @@ pub struct AuthorizeDoParam {
     pub client_id: String,
     pub redirect_uri: String,
 }
-//登陆code创建
+//登陆code后创建,从访问页面来
 pub async fn create_code(
     param: &AuthorizeDoParam,
     req_dao: &UserAuthQueryDao,
@@ -77,11 +73,7 @@ pub async fn create_code(
     req_dao
         .web_dao
         .web_rbac
-        .check(
-            &req_dao.req_env,
-            Some(&auth_data),
-            &CheckRestApp { app_id: app.id },
-        )
+        .check(&req_dao.req_env, Some(&auth_data), &CheckRestApp {})
         .await?;
     if !req_dao
         .web_dao
@@ -95,11 +87,6 @@ pub async fn create_code(
             JsonData::default().set_sub_code("domain_no_match"),
             fluent_message!("app-redirect-uri-not-match"),
         ));
-        // return Err(
-        //     req_dao
-        //         .fluent_error_json_data(fluent_message!("app-redirect-uri-not-match"))
-        //         .set_sub_code("domain_no_match"), // JsonData::message("redirect_uri not match")
-        // );
     }
     let scope_data = param.scope.split(',').collect::<Vec<&str>>();
     req_dao
@@ -156,7 +143,7 @@ async fn check_app_secret(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, None, &CheckRestApp { app_id: app.id })
+        .check(&req_dao.req_env, None, &CheckRestApp {})
         .await?;
     let oapp = req_dao
         .web_dao
@@ -171,7 +158,6 @@ async fn check_app_secret(
             JsonData::default(),
             fluent_message!("client-secret-not-match"),
         ));
-        // return Err(req_dao.fluent_error_json_data(fluent_message!("client-secret-not-match")));
     }
     Ok(app)
 }

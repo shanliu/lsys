@@ -11,7 +11,6 @@ pub struct AppArea {
 
 impl AppArea {
     pub fn new(app_core: Arc<AppCore>) -> Result<Self, AppCoreError> {
-        #[cfg(feature = "area")]
         let area = match app_core.config_path(app_core.config.find(None), "area_code_db") {
             Ok(code_path) => {
                 match lsys_lib_area::CsvAreaCodeData::from_inner_path(code_path.clone(), true) {
@@ -75,8 +74,6 @@ impl AppArea {
                 None
             }
         };
-        #[cfg(not(feature = "area"))]
-        let area = None;
         Ok(Self { area })
     }
 }

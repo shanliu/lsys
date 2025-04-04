@@ -8,7 +8,6 @@ use lsys_app::dao::AppAttrParam;
 use lsys_app::dao::AppRequestData;
 use lsys_app::dao::SystemAppParam;
 use lsys_app::model::AppRequestStatus;
-use lsys_app::model::AppRequestType;
 use lsys_app::model::AppStatus;
 use serde::Deserialize;
 use serde::Serialize;
@@ -67,10 +66,9 @@ pub async fn list_data(param: &ListParam, req_dao: &UserAuthQueryDao) -> JsonRes
         app_id: param.app_id,
         app_name: param.app_name.as_deref(),
     };
-    let app_inner_feature = AppRequestType::get_inner_feature();
     let app_attr = AppAttrParam {
-        check_inner_feature: Some(&app_inner_feature),
-        check_exter_feature: Some(req_dao.web_dao.web_app.exter_feature_list()),
+        inner_feature: true,
+        exter_feature: true,
         sub_app_count: true,
         oauth_client_data: true,
         oauth_server_data: true,
@@ -124,12 +122,7 @@ pub async fn list_data(param: &ListParam, req_dao: &UserAuthQueryDao) -> JsonRes
                     })
                     .collect::<Vec<_>>()
             }),
-            exter_feature: e.1.exter_feature.map(|t| {
-                t.into_iter()
-                    .filter(|s| s.1)
-                    .map(|s| s.0.to_string())
-                    .collect::<Vec<_>>()
-            }),
+            exter_feature: e.1.exter_feature,
             sub_app_count: e.1.sub_app_count.map(|t| {
                 let enable = t
                     .iter()
@@ -169,7 +162,7 @@ pub async fn list_data(param: &ListParam, req_dao: &UserAuthQueryDao) -> JsonRes
         None
     };
     Ok(JsonData::data(json!({
-        "data": bind_user_info_from_req!(
+        "data": bind_vec_user_info_from_req!(
             req_dao,
             out,
             user_id
@@ -289,7 +282,7 @@ pub async fn request_list(
         None
     };
     Ok(JsonData::data(json!({
-        "data": bind_user_info_from_req!(
+        "data": bind_vec_user_info_from_req!(
             req_dao,
             out,
             request_user_id

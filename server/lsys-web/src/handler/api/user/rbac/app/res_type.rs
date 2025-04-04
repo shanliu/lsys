@@ -1,7 +1,4 @@
-use crate::{
-    common::{JsonData, JsonResult, PageParam, UserAuthQueryDao},
-    dao::access::api::system::{CheckAdminRbacEdit, CheckAdminRbacView},
-};
+use crate::common::{JsonData, JsonResult, PageParam, UserAuthQueryDao};
 use lsys_access::dao::AccessSession;
 use lsys_rbac::{
     dao::{ResTypeListParam, ResTypeParam},
@@ -10,33 +7,39 @@ use lsys_rbac::{
 use serde::Deserialize;
 use serde_json::json;
 
+use super::{app_check_get, inner_user_data_to_user_id};
+
 #[derive(Debug, Deserialize)]
 pub struct AppResTypeListParam {
-    pub res_type: String,
+    pub app_id: u64,
+    pub user_param: Option<String>,
+    pub res_type: Option<String>,
     pub page: Option<PageParam>,
     pub count_num: Option<bool>,
 }
-//@TODO 系统用户控制APP的资源
-pub async fn rbac_res_type_data(
+
+pub async fn app_res_type_data(
     param: &AppResTypeListParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-
-    req_dao
-        .web_dao
-        .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacView {})
-        .await?;
+    let app = app_check_get(param.app_id, false, &auth_data, req_dao).await?;
+    let user_id = inner_user_data_to_user_id(&app, param.user_param.as_deref(), req_dao).await?;
 
     let res_param = ResTypeListParam {
-        user_id: Some(auth_data.user_id()),
-        app_id: Some(0),
-        res_type: if param.res_type.is_empty() {
-            None
-        } else {
-            Some(&param.res_type)
-        },
+        user_id: Some(user_id),
+        app_id: Some(app.id),
+        res_type: param
+            .res_type
+            .as_ref()
+            .and_then(|e| {
+                if e.trim_matches(['\n', ' ', '\t']).is_empty() {
+                    None
+                } else {
+                    Some(e)
+                }
+            })
+            .map(|e| e.as_str()),
     };
 
     let rows = req_dao
@@ -64,21 +67,20 @@ pub async fn rbac_res_type_data(
 
 #[derive(Debug, Deserialize)]
 pub struct AppResTypeAddOpParam {
+    pub app_id: u64,
+    pub user_param: Option<String>,
     pub res_type: String,
     pub op_ids: Vec<u64>,
 }
 
-pub async fn app_res_op_add(
+pub async fn app_res_type_op_add(
     param: &AppResTypeAddOpParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
-    req_dao
-        .web_dao
-        .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacEdit {})
-        .await?;
+    let app = app_check_get(param.app_id, true, &auth_data, req_dao).await?;
+    let user_id = inner_user_data_to_user_id(&app, param.user_param.as_deref(), req_dao).await?;
 
     let op_data = req_dao
         .web_dao
@@ -88,6 +90,7 @@ pub async fn app_res_op_add(
         .find_by_ids(&param.op_ids)
         .await?
         .into_iter()
+        .filter(|e| e.1.app_id == app.id)
         .map(|e| e.1)
         .collect::<Vec<RbacOpModel>>();
     req_dao
@@ -98,8 +101,8 @@ pub async fn app_res_op_add(
         .res_type_add_op(
             &ResTypeParam {
                 res_type: &param.res_type,
-                user_id: auth_data.user_id(),
-                app_id: 0,
+                user_id,
+                app_id: app.id,
             },
             &op_data,
             auth_data.user_id(),
@@ -112,6 +115,8 @@ pub async fn app_res_op_add(
 
 #[derive(Debug, Deserialize)]
 pub struct AppResDelOpParam {
+    pub app_id: u64,
+    pub user_param: Option<String>,
     pub res_type: String,
     pub op_ids: Vec<u64>,
 }
@@ -121,12 +126,8 @@ pub async fn app_res_type_op_del(
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-
-    req_dao
-        .web_dao
-        .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacEdit {})
-        .await?;
+    let app = app_check_get(param.app_id, true, &auth_data, req_dao).await?;
+    let user_id = inner_user_data_to_user_id(&app, param.user_param.as_deref(), req_dao).await?;
 
     req_dao
         .web_dao
@@ -136,8 +137,8 @@ pub async fn app_res_type_op_del(
         .res_type_del_op(
             &ResTypeParam {
                 res_type: &param.res_type,
-                user_id: auth_data.user_id(),
-                app_id: 0,
+                user_id,
+                app_id: app.id,
             },
             &param.op_ids,
             auth_data.user_id(),
@@ -150,6 +151,8 @@ pub async fn app_res_type_op_del(
 
 #[derive(Debug, Deserialize)]
 pub struct AppResTypeOpListParam {
+    pub app_id: u64,
+    pub user_param: Option<String>,
     pub res_type: String,
     pub page: Option<PageParam>,
     pub count_num: Option<bool>,
@@ -160,17 +163,13 @@ pub async fn app_res_type_op_data(
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-
-    req_dao
-        .web_dao
-        .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacView {})
-        .await?;
+    let app = app_check_get(param.app_id, true, &auth_data, req_dao).await?;
+    let user_id = inner_user_data_to_user_id(&app, param.user_param.as_deref(), req_dao).await?;
 
     let res_param = ResTypeParam {
         res_type: &param.res_type,
-        user_id: auth_data.user_id(),
-        app_id: 0,
+        user_id,
+        app_id: app.id,
     };
 
     let rows = req_dao

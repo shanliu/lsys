@@ -281,10 +281,9 @@ impl RestQuery {
             rfc,
         }
     }
-    pub fn param<T: DeserializeOwned>(&mut self) -> Result<T, JsonData> {
-        let body_data = self.rfc.payload.take();
-        match body_data {
-            Some(body) => serde_json::from_value::<T>(body)
+    pub fn param<T: DeserializeOwned>(&self) -> Result<T, JsonData> {
+        match self.rfc.payload {
+            Some(ref body) => serde_json::from_value::<T>(body.to_owned())
                 .map_err(|e| JsonData::error(e).set_sub_code("rest_param_wrong")),
             None => {
                 Err(JsonData::message_error("param is empty or take")
@@ -292,16 +291,16 @@ impl RestQuery {
             }
         }
     }
-    // pub fn clone_param<T: DeserializeOwned>(&self) -> Result<T, JsonData> {
-    //     match &self.rfc.body {
-    //         Some(body) => serde_json::from_value::<T>(body.to_owned())
-    //             .map_err(|e| JsonData::error(e).set_sub_code("rest_param_wrong")),
-    //         None => {
-    //             Err(JsonData::message_error("param is empty or take")
-    //                 .set_sub_code("rest_param_empty"))
-    //         }
-    //     }
-    // }
+    pub async fn get_app(&self) -> Result<lsys_app::model::AppModel, JsonData> {
+        self.web_dao
+            .web_app
+            .app_dao
+            .app
+            .cache()
+            .find_by_client_id(&self.rfc.app_id)
+            .await
+            .map_err(|e| self.fluent_error_json_data(&e.into()))
+    }
 }
 
 impl FromRequest for RestQuery {

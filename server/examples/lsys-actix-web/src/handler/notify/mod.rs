@@ -6,5 +6,5 @@ pub(crate) fn router<T>(app: App<T>) -> App<T>
 where
     T: ServiceFactory<ServiceRequest, Config = (), Error = Error, InitError = ()>,
 {
-    app.service(scope("/notify").service(sms::notify))
+    app.service(scope("/notify/sms").service(sms::notify))
 }

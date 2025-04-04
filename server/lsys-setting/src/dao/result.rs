@@ -1,5 +1,5 @@
-// use std::error::Error;
-// use std::fmt::{Display, Formatter};
+
+
 
 use lsys_core::{fluent_message, FluentMessage, IntoFluentMessage};
 #[derive(Debug)]
@@ -17,14 +17,6 @@ impl IntoFluentMessage for SettingError {
         }
     }
 }
-
-// impl Display for SettingError {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-//         write!(f, "{:?}", self)
-//     }
-// }
-
-// impl Error for SettingError {}
 
 impl From<sqlx::Error> for SettingError {
     fn from(err: sqlx::Error) -> Self {

@@ -16,7 +16,7 @@ use lsys_core::db::{Insert, ModelTableName, SqlExpr, Update};
 use lsys_core::sql_format;
 use lsys_logger::dao::ChangeLoggerDao;
 use serde_json::Value;
-use sqlx::{MySql, Pool};
+use sqlx::Pool;
 
 use lsys_core::db::SqlQuote;
 
@@ -279,7 +279,7 @@ impl MailRecord {
             max_try_num = 10
         }
 
-        let body_id = Insert::<sqlx::MySql, SenderMailBodyModel, _>::new(
+        let body_id = Insert::<SenderMailBodyModel, _>::new(
             lsys_core::model_option_set!(SenderMailBodyModelRef,{
                 request_id:reqid,
                 app_id:*app_id,
@@ -312,7 +312,7 @@ impl MailRecord {
             }));
         }
 
-        let tmp = Insert::<sqlx::MySql, SenderMailMessageModel, _>::new_vec(idata)
+        let tmp = Insert::<SenderMailMessageModel, _>::new_vec(idata)
             .execute(&mut *tran)
             .await;
         if let Err(err) = tmp {
@@ -357,7 +357,7 @@ impl MailRecord {
             let change = lsys_core::model_option_set!(SenderMailMessageModelRef, {
                 status: SenderMailMessageStatus::IsCancel as i8
             });
-            Update::<MySql, SenderMailMessageModel, _>::new(change)
+            Update::<SenderMailMessageModel, _>::new(change)
                 .execute_by_pk(message, &self.db)
                 .await?;
 

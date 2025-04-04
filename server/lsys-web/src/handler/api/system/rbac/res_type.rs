@@ -89,7 +89,7 @@ pub struct ResTypeAddOpParam {
     pub op_ids: Vec<u64>,
 }
 
-pub async fn res_op_add(
+pub async fn res_type_op_add(
     param: &ResTypeAddOpParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {

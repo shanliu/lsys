@@ -8,7 +8,7 @@ use lsys_app_sender::dao::{AliYunNotify, CloOpenNotify, HwYunNotify, NetEaseNoti
 use lsys_core::IntoFluentMessage;
 use lsys_web::dao::WebDao;
 
-#[post("/sms/{config_id}/{callback_key}", name = "sms_notify")]
+#[post("/{config_id}/{callback_key}", name = "sms_notify")]
 pub(crate) async fn notify(
     path: actix_web::web::Path<(u64, Option<String>)>,
     web_dao: Data<WebDao>,

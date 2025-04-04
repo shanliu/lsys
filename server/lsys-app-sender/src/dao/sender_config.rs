@@ -68,7 +68,7 @@ impl SenderConfig {
             status:SenderConfigStatus::Enable as i8,
             config_data:config_data,
         });
-        let id = Insert::<sqlx::MySql, SenderConfigModel, _>::new(add)
+        let id = Insert::<SenderConfigModel, _>::new(add)
             .execute(&self.db)
             .await
             .map(|e| e.last_insert_id())?;
@@ -108,7 +108,7 @@ impl SenderConfig {
             change_time:time,
             change_user_id:user_id
         });
-        let res = Update::<sqlx::MySql, SenderConfigModel, _>::new(change)
+        let res = Update::< SenderConfigModel, _>::new(change)
             .execute_by_pk(config, &self.db)
             .await;
         match res {

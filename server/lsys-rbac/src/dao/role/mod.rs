@@ -165,11 +165,11 @@ impl RbacRole {
                 let id = db_option_executor!(
                     db,
                     {
-                        let res = Insert::<sqlx::MySql, RbacRoleModel, _>::new(idata)
+                        let res = Insert::<RbacRoleModel, _>::new(idata)
                             .execute(db.as_executor())
                             .await?;
                         let add_id = res.last_insert_id();
-                        Update::<sqlx::MySql, RbacRoleModel, _>::new(other_change)
+                        Update::< RbacRoleModel, _>::new(other_change)
                             .execute_by_where(&WhereOption::Where(sql_format!(
                                 "user_id={} and role_key={role_key} and app_id={app_id} and status={} and id!={add_id}",
                                 param.user_id,
@@ -243,7 +243,7 @@ impl RbacRole {
         let fout = db_option_executor!(
             db,
             {
-                let out = Update::<sqlx::MySql, RbacRoleModel, _>::new(change)
+                let out = Update::< RbacRoleModel, _>::new(change)
                     .execute_by_pk(role, db.as_executor())
                     .await?;
                 out.rows_affected()
@@ -290,7 +290,7 @@ impl RbacRole {
             change_time:time,
             status:(RbacRoleStatus::Delete as i8)
         });
-        let tmp = Update::<sqlx::MySql, RbacRoleModel, _>::new(change)
+        let tmp = Update::< RbacRoleModel, _>::new(change)
             .execute_by_pk(role, &mut *db)
             .await;
         if let Err(e) = tmp {
@@ -303,7 +303,7 @@ impl RbacRole {
             change_time:time,
             status:(RbacPermStatus::Delete as i8)
         });
-        let tmp = Update::<sqlx::MySql, RbacPermModel, _>::new(change)
+        let tmp = Update::< RbacPermModel, _>::new(change)
             .execute_by_where(
                 &lsys_core::db::WhereOption::Where(sql_format!("role_id={}", role.id)),
                 &mut *db,
@@ -319,7 +319,7 @@ impl RbacRole {
             change_time:time,
             status:(RbacRoleUserStatus::Delete as i8)
         });
-        let tmp = Update::<sqlx::MySql, RbacRoleUserModel, _>::new(change)
+        let tmp = Update::< RbacRoleUserModel, _>::new(change)
             .execute_by_where(
                 &lsys_core::db::WhereOption::Where(sql_format!("role_id={}", role.id)),
                 &mut *db,

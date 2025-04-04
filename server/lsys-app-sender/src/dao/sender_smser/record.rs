@@ -16,7 +16,7 @@ use lsys_core::db::{Insert, ModelTableName, SqlExpr, Update};
 use lsys_core::sql_format;
 use lsys_logger::dao::ChangeLoggerDao;
 use serde_json::Value;
-use sqlx::{MySql, Pool};
+use sqlx::Pool;
 
 use lsys_core::db::SqlQuote;
 
@@ -281,7 +281,7 @@ impl SmsRecord {
         if max_try_num > 10 {
             max_try_num = 10
         }
-        let res = Insert::<sqlx::MySql, SenderSmsBodyModel, _>::new(
+        let res = Insert::<SenderSmsBodyModel, _>::new(
             lsys_core::model_option_set!(SenderSmsBodyModelRef,{
                 app_id:app_id,
                 tpl_id:tpl_id,
@@ -319,7 +319,7 @@ impl SmsRecord {
                 res_data:res_data,
             }));
         }
-        Insert::<sqlx::MySql, SenderSmsMessageModel, _>::new_vec(idata)
+        Insert::<SenderSmsMessageModel, _>::new_vec(idata)
             .execute(&mut *tran)
             .await?;
 
@@ -364,7 +364,7 @@ impl SmsRecord {
             let change = lsys_core::model_option_set!(SenderSmsMessageModelRef, {
                 status: SenderSmsMessageStatus::IsCancel as i8
             });
-            Update::<MySql, SenderSmsMessageModel, _>::new(change)
+            Update::<SenderSmsMessageModel, _>::new(change)
                 .execute_by_pk(message, &self.db)
                 .await?;
 

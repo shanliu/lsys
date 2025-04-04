@@ -53,7 +53,12 @@ impl AuthCode {
         Ok(self.access.auth.do_logout(&session).await?)
     }
     pub async fn login_data(&self, app_id: u64, login_code: &str) -> AccountResult<SessionBody> {
-        Ok(self.access.auth.login_data(app_id, 0, login_code).await?)
+        Ok(self
+            .access
+            .auth
+            .cache()
+            .login_data(app_id, 0, login_code)
+            .await?)
     }
     pub fn to_token(session: &SessionBody) -> UserAuthToken {
         UserAuthToken::new(

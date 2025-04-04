@@ -303,7 +303,7 @@ impl FluentJsonData for LoggerError {
         }
     }
 }
-#[cfg(feature = "area")]
+
 impl FluentJsonData for lsys_lib_area::AreaError {
     fn to_json_data(&self, _: &FluentBundle) -> JsonData {
         match self {

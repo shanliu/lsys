@@ -49,7 +49,7 @@ pub async fn mobile_send_code(
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-  
+
     req_dao
         .web_dao
         .web_rbac
@@ -127,7 +127,8 @@ pub async fn mobile_delete(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,Some(&auth_data),
+            &req_dao.req_env,
+            Some(&auth_data),
             &CheckUserMobileEdit {
                 res_user_id: req_dao
                     .web_dao

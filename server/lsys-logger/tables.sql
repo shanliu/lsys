@@ -5,7 +5,7 @@ CREATE TABLE `yaf_change_logs` (
     `message` varchar(255) DEFAULT '' NULL COMMENT '消息',
     `source_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '相关操作记录ID',
     `add_user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '操作用户ID',
-    `user_ip` varchar(39) NOT NULL DEFAULT '' COMMENT '操作者IP',
+    `add_user_ip` varchar(39) NOT NULL DEFAULT '' COMMENT '操作者IP',
     `request_id` varchar(32) NOT NULL DEFAULT '' COMMENT '请求id',
     `request_user_agent` varchar(254) NOT NULL DEFAULT '' COMMENT '请求UA',
     `device_id` varchar(64) NOT NULL DEFAULT '' COMMENT '设备标识',

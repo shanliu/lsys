@@ -11,7 +11,7 @@ lsys-setting = { path = "../lsys-setting" }
 lsys-logger = { path = "../lsys-logger" }
 
 
-tokio = { version = "~1.43.0" }
+tokio = { version = "~1.44.0" }
 
 sqlx = { version = "~0.8.3", features = ["mysql", "runtime-tokio-native-tls"] }
 async-trait = "~0.1.*"

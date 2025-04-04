@@ -31,7 +31,7 @@ pub async fn do_login(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, None, &CheckRestApp { app_id: app.id })
+        .check(&req_dao.req_env, None, &CheckRestApp {})
         .await?;
     req_dao
         .web_dao
@@ -120,7 +120,7 @@ pub async fn login_info(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, None, &CheckRestApp { app_id: app.id })
+        .check(&req_dao.req_env, None, &CheckRestApp {})
         .await?;
     req_dao
         .web_dao

@@ -1,13 +1,18 @@
-use crate::common::{JsonResult, PageParam, UserAuthQueryDao};
-
-use lsys_rbac::dao::{
-    AccessPublicResUserData, AccessResRoleRow, AccessResUserData, AccessResUserRow,
-    CustomUserListResData, SessionUserListResData,
+use crate::{
+    common::{JsonData, JsonResult, PageParam, UserAuthQueryDao},
+    handler::api::user::rbac::app::{app_check_get, parent_app_check},
 };
 
+use lsys_rbac::dao::{CustomUserListResData, SessionUserListResData};
+use serde::Deserialize;
+use serde_json::json;
+
+//根据资源得到用户授权详细
+
+#[derive(Debug, Deserialize)]
 pub struct AppUserFromResParam {
+    pub user_param: String, //资源用户ID
     pub app_id: u64,
-    pub user_id: u64,     //资源用户ID
     pub res_type: String, //资源类型
     pub res_data: String, //资源数据
     pub op_key: String,   //授权操作结构列表
@@ -17,15 +22,27 @@ pub struct AppUserFromResParam {
 pub async fn app_res_user_from_res(
     param: &AppUserFromResParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<(AccessResUserData, AccessPublicResUserData)> {
+) -> JsonResult<JsonData> {
+    let auth_data = parent_app_check(req_dao).await?;
+    let app = app_check_get(param.app_id, false, &auth_data, req_dao).await?;
+
+    let user_info = req_dao
+        .web_dao
+        .web_access
+        .access_dao
+        .user
+        .cache()
+        .sync_user(app.id, &param.user_param, None, None)
+        .await?;
+
     let user_set_data = req_dao
         .web_dao
         .web_rbac
         .rbac_dao
         .access
         .find_user_data_from_res(
-            param.user_id,
-            param.app_id,
+            user_info.id,
+            app.id,
             &param.res_type,
             &param.res_data,
             &param.op_key,
@@ -36,13 +53,18 @@ pub async fn app_res_user_from_res(
         .web_rbac
         .rbac_dao
         .access
-        .find_user_data_from_public(param.user_id, param.app_id)
+        .find_user_data_from_public(user_info.id, param.app_id)
         .await?;
-    Ok((user_set_data, pub_set_data))
+    Ok(JsonData::data(json!({
+        "user_data": user_set_data,
+        "pub_data": pub_set_data,
+    })))
 }
+
+#[derive(Debug, Deserialize)]
 pub struct AppResRoleFromResParam {
+    pub user_param: String, //资源用户ID
     pub app_id: u64,
-    pub user_id: u64,     //资源用户ID
     pub res_type: String, //资源类型
     pub res_data: String, //资源数据
     pub op_key: String,   //授权操作结构列表
@@ -59,7 +81,19 @@ pub struct AppResRoleFromResParam {
 pub async fn app_res_session_role_data_from_res(
     param: &AppResRoleFromResParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<(Vec<AccessResRoleRow>, i64)> {
+) -> JsonResult<JsonData> {
+    let auth_data = parent_app_check(req_dao).await?;
+    let app = app_check_get(param.app_id, false, &auth_data, req_dao).await?;
+
+    let user_info = req_dao
+        .web_dao
+        .web_access
+        .access_dao
+        .user
+        .cache()
+        .sync_user(app.id, &param.user_param, None, None)
+        .await?;
+
     let res_data = req_dao
         .web_dao
         .web_rbac
@@ -67,7 +101,7 @@ pub async fn app_res_session_role_data_from_res(
         .access
         .find_session_role_list_from_res(
             &SessionUserListResData {
-                user_id: param.user_id,
+                user_id: user_info.id,
                 app_id: param.app_id,
                 res_type: &param.res_type,
                 res_data: &param.res_data,
@@ -87,7 +121,7 @@ pub async fn app_res_session_role_data_from_res(
         .rbac_dao
         .access
         .find_session_role_count_from_res(&SessionUserListResData {
-            user_id: param.user_id,
+            user_id: user_info.id,
             app_id: param.app_id,
             res_type: &param.res_type,
             res_data: &param.res_data,
@@ -99,27 +133,43 @@ pub async fn app_res_session_role_data_from_res(
             is_self: param.is_self,
         })
         .await?;
-    Ok((res_data, res_count))
+    Ok(JsonData::data(json!({
+        "data": res_data,
+        "count": res_count,
+    })))
 }
 
+#[derive(Debug, Deserialize)]
 pub struct AppResUserDataFromResParam {
-    user_id: u64,     //资源用户ID
-    app_id: u64,      //用户ID下的app
-    res_type: String, //资源类型
-    res_data: String, //资源数据
-    op_key: String,   //授权操作结构列表
-    res_range_exclude: bool,
-    res_range_any: bool,
-    res_range_include: bool,
-    is_system: bool,
-    is_self: bool,
+    pub user_param: String, //资源用户ID7
+    pub app_id: u64,        //用户ID下的app
+    pub res_type: String,   //资源类型
+    pub res_data: String,   //资源数据
+    pub op_key: String,     //授权操作结构列表
+    pub res_range_exclude: bool,
+    pub res_range_any: bool,
+    pub res_range_include: bool,
+    pub is_system: bool,
+    pub is_self: bool,
     pub page: Option<PageParam>,
 }
 //获取特定用户授权列表
 pub async fn app_res_user_data_from_res(
     param: &AppResUserDataFromResParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<(Vec<AccessResUserRow>, i64)> {
+) -> JsonResult<JsonData> {
+    let auth_data = parent_app_check(req_dao).await?;
+    let app = app_check_get(param.app_id, false, &auth_data, req_dao).await?;
+
+    let user_info = req_dao
+        .web_dao
+        .web_access
+        .access_dao
+        .user
+        .cache()
+        .sync_user(app.id, &param.user_param, None, None)
+        .await?;
+
     let res_data = req_dao
         .web_dao
         .web_rbac
@@ -127,7 +177,7 @@ pub async fn app_res_user_data_from_res(
         .access
         .find_custom_user_list_from_res(
             &CustomUserListResData {
-                user_id: param.user_id,
+                user_id: user_info.id,
                 app_id: param.app_id,
                 res_type: &param.res_type,
                 res_data: &param.res_data,
@@ -147,7 +197,7 @@ pub async fn app_res_user_data_from_res(
         .rbac_dao
         .access
         .find_custom_user_count_from_res(&CustomUserListResData {
-            user_id: param.user_id,
+            user_id: user_info.id,
             app_id: param.app_id,
             res_type: &param.res_type,
             res_data: &param.res_data,
@@ -159,5 +209,8 @@ pub async fn app_res_user_data_from_res(
             is_self: param.is_self,
         })
         .await?;
-    Ok((res_data, res_count))
+    Ok(JsonData::data(json!({
+        "data": res_data,
+        "count": res_count,
+    })))
 }

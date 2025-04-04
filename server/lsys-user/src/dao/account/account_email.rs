@@ -120,7 +120,7 @@ impl AccountEmail {
             None => self.db.begin().await?,
         };
 
-        let res = Insert::<sqlx::MySql, AccountEmailModel, _>::new(idata)
+        let res = Insert::<AccountEmailModel, _>::new(idata)
             .execute(&mut *db)
             .await;
         match res {
@@ -263,7 +263,7 @@ impl AccountEmail {
 
         let mut db = self.db.begin().await?;
 
-        let tmp = Update::<sqlx::MySql, AccountEmailModel, _>::new(change)
+        let tmp = Update::< AccountEmailModel, _>::new(change)
             .execute_by_pk(email, &mut *db)
             .await;
         let res = match tmp {
@@ -329,7 +329,7 @@ impl AccountEmail {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let res = Update::<sqlx::MySql, AccountEmailModel, _>::new(change)
+        let res = Update::< AccountEmailModel, _>::new(change)
             .execute_by_pk(email, &mut *db)
             .await;
         match res {

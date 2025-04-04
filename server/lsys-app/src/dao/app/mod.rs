@@ -162,7 +162,7 @@ impl App {
             change_user_id:add_user_id,
             change_time:time,
         });
-        let res = Insert::<sqlx::MySql, AppModel, _>::new(idata)
+        let res = Insert::<AppModel, _>::new(idata)
             .execute(&mut *db)
             .await;
         let app_id = match res {
@@ -182,7 +182,7 @@ impl App {
             request_user_id:user_id,
             request_time:time,
         });
-        let req_res = Insert::<sqlx::MySql, AppRequestModel, _>::new(idata)
+        let req_res = Insert::<AppRequestModel, _>::new(idata)
             .execute(&mut *db)
             .await;
         let req_id = match req_res {
@@ -197,7 +197,7 @@ impl App {
             name:name,
             client_id:client_id,
         });
-        let req_res = Insert::<sqlx::MySql, AppRequestSetInfoModel, _>::new(idata)
+        let req_res = Insert::<AppRequestSetInfoModel, _>::new(idata)
             .execute(&mut *db)
             .await;
         if let Err(err) = req_res {
@@ -304,7 +304,7 @@ impl App {
                 name:name,
                 client_id:client_id
             });
-            let req_res = Update::<sqlx::MySql, AppModel, _>::new(change)
+            let req_res = Update::< AppModel, _>::new(change)
                 .execute_by_pk(app, &mut *db)
                 .await;
             if let Err(e) = req_res {
@@ -318,7 +318,7 @@ impl App {
         let change = model_option_set!(AppRequestModelRef,{
             status:req_status,
         });
-        let req_res = Update::<sqlx::MySql, AppRequestModel, _>::new(change)
+        let req_res = Update::< AppRequestModel, _>::new(change)
             .execute_by_where(
                 &lsys_core::db::WhereOption::Where(sql_format!(
                     "app_id={} and request_type in ({})",
@@ -350,7 +350,7 @@ impl App {
             request_user_id:change_user_id,
             request_time:time,
         });
-        let req_res = Insert::<sqlx::MySql, AppRequestModel, _>::new(idata)
+        let req_res = Insert::<AppRequestModel, _>::new(idata)
             .execute(&mut *db)
             .await;
         let req_id = match req_res {
@@ -365,7 +365,7 @@ impl App {
             name:name,
             client_id:client_id,
         });
-        let req_res = Insert::<sqlx::MySql, AppRequestSetInfoModel, _>::new(idata)
+        let req_res = Insert::<AppRequestSetInfoModel, _>::new(idata)
             .execute(&mut *db)
             .await;
         if let Err(err) = req_res {
@@ -483,7 +483,7 @@ impl App {
             change_user_id:confirm_user_id,
             change_time:time
         });
-        let req_res = Update::<sqlx::MySql, AppModel, _>::new(change)
+        let req_res = Update::< AppModel, _>::new(change)
             .execute_by_pk(app, &mut *db)
             .await;
         if let Err(e) = req_res {
@@ -500,7 +500,7 @@ impl App {
             confirm_time:time,
             confirm_note:confirm_note,
         });
-        let req_res = Update::<sqlx::MySql, AppRequestModel, _>::new(change)
+        let req_res = Update::< AppRequestModel, _>::new(change)
             .execute_by_pk(req, &mut *db)
             .await;
         if let Err(e) = req_res {
@@ -562,7 +562,7 @@ impl App {
             change_user_id:disable_user_id,
             change_time:time
         });
-        let req_res = Update::<sqlx::MySql, AppModel, _>::new(change)
+        let req_res = Update::< AppModel, _>::new(change)
             .execute_by_pk(app, &mut *db)
             .await;
         if let Err(e) = req_res {
@@ -577,7 +577,7 @@ impl App {
             confirm_user_id:disable_user_id,
             confirm_time:time,
         });
-        let req_res = Update::<sqlx::MySql, AppRequestModel, _>::new(change)
+        let req_res = Update::< AppRequestModel, _>::new(change)
             .execute_by_where(
                 &lsys_core::db::WhereOption::Where(sql_format!(
                     "app_id={} and status={}",
@@ -636,7 +636,7 @@ impl App {
             change_user_id:delete_user_id,
             change_time:time
         });
-        let req_res = Update::<sqlx::MySql, AppModel, _>::new(change)
+        let req_res = Update::< AppModel, _>::new(change)
             .execute_by_pk(app, &mut *db)
             .await;
         if let Err(e) = req_res {
@@ -651,7 +651,7 @@ impl App {
             confirm_user_id:delete_user_id,
             confirm_time:time,
         });
-        let req_res = Update::<sqlx::MySql, AppRequestModel, _>::new(change)
+        let req_res = Update::< AppRequestModel, _>::new(change)
             .execute_by_where(
                 &lsys_core::db::WhereOption::Where(sql_format!(
                     "app_id={} and status={}",
@@ -747,7 +747,7 @@ impl App {
             change_user_id:change_user_id,
             change_time:time,
         });
-        Update::<sqlx::MySql, AppModel, _>::new(change)
+        Update::< AppModel, _>::new(change)
             .execute_by_pk(app, &self.db)
             .await?;
         self.id_cache.clear(&app.id).await;

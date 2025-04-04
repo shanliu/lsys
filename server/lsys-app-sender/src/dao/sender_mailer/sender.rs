@@ -6,7 +6,7 @@ use lsys_core::{
 
 use lsys_logger::dao::ChangeLoggerDao;
 use lsys_setting::dao::SettingDao;
-use sqlx::{MySql, Pool};
+use sqlx::Pool;
 use tracing::warn;
 
 use super::{MailRecord, MailTaskAcquisition, MailTaskData, MailTaskItem, MailerTask};
@@ -41,7 +41,7 @@ impl MailSenderDao {
     pub fn new(
         app_core: Arc<AppCore>,
         redis: deadpool_redis::Pool,
-        db: Pool<MySql>,
+        db: Pool<sqlx::MySql>,
         setting: Arc<SettingDao>,
         logger: Arc<ChangeLoggerDao>,
         task_size: Option<usize>,

@@ -71,7 +71,7 @@ impl App {
             request_user_id:req_user_id,
             request_time:time,
         });
-        let req_res = Insert::<sqlx::MySql, AppRequestModel, _>::new(idata)
+        let req_res = Insert::<AppRequestModel, _>::new(idata)
             .execute(&mut *db)
             .await;
         let req_id = match req_res {
@@ -90,7 +90,7 @@ impl App {
             app_request_id:req_id,
             feature_data:feature_data,
         });
-        let req_res = Insert::<sqlx::MySql, AppRequestFeatureModel, _>::new(idata)
+        let req_res = Insert::<AppRequestFeatureModel, _>::new(idata)
             .execute(&mut *db)
             .await;
         if let Err(err) = req_res {
@@ -177,7 +177,7 @@ impl App {
                 confirm_time:time,
                 confirm_note:confirm_note,
             });
-            Update::<sqlx::MySql, AppRequestModel, _>::new(change)
+            Update::< AppRequestModel, _>::new(change)
                 .execute_by_pk(req, &self.db)
                 .await?;
             return Ok(());
@@ -213,7 +213,7 @@ impl App {
                 change_user_id:confirm_user_id,
                 change_time:time
             });
-            let cres = Update::<sqlx::MySql, AppFeatureModel, _>::new(change)
+            let cres = Update::< AppFeatureModel, _>::new(change)
                 .execute_by_where(
                     &lsys_core::db::WhereOption::Where(sql_format!("id in ({})", set_status_id)),
                     &mut *db,
@@ -235,7 +235,7 @@ impl App {
                 change_time:time
             }));
         }
-        let cres = Insert::<sqlx::MySql, AppFeatureModel, _>::new_vec(iarr)
+        let cres = Insert::<AppFeatureModel, _>::new_vec(iarr)
             .execute(&mut *db)
             .await;
         if let Err(err) = cres {
@@ -251,7 +251,7 @@ impl App {
             confirm_time:time,
             confirm_note:confirm_note,
         });
-        let cres = Update::<sqlx::MySql, AppRequestModel, _>::new(change)
+        let cres = Update::< AppRequestModel, _>::new(change)
             .execute_by_pk(req, &mut *db)
             .await;
         if let Err(err) = cres {

@@ -1,31 +1,35 @@
-use super::inner_app_rbac_check;
+use std::collections::HashMap;
+
+use super::{inner_app_rbac_check, inner_user_data_to_user_id};
 use crate::common::{JsonData, JsonResult, RequestDao};
 use lsys_app::model::AppModel;
 use lsys_rbac::dao::{AccessCheckEnv, AccessCheckRes, AccessSessionRole};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
 #[derive(Debug, Deserialize)]
 pub struct ResCheckParam {
-    pub res_type: String, //资源KEY
-    pub res_data: String, //资源KEY
-    pub user_id: u64,     //资源用户ID,0为APP用户
+    pub res_type: String,           //资源KEY
+    pub res_data: String,           //资源KEY
+    pub user_param: Option<String>, //资源用户标识,空为APP用户
+
     pub ops: Vec<String>, //授权列表
 }
 
 #[derive(Debug, Deserialize)]
 pub struct RoleCheckParam {
     pub role_key: String,
-    pub user_id: u64, //角色用户ID,0为APP用户
+    pub user_param: Option<String>, //资源用户标识,空为APP用户
 }
 
 #[derive(Debug, Deserialize)]
 pub struct AccessCheckParam {
-    pub role_key: Vec<RoleCheckParam>,
+    pub role_key: Vec<RoleCheckParam>, //会话角色,如登录用户角色等
     pub check_res: Vec<Vec<ResCheckParam>>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct CheckParam {
-    pub user_data: Option<String>,
+    pub user_param: Option<String>, //资源用户标识,空为APP用户
     pub token_data: Option<String>,
     pub request_ip: Option<String>,
     pub access: AccessCheckParam,
@@ -37,7 +41,50 @@ pub async fn access_check(
     req_dao: &RequestDao,
 ) -> JsonResult<JsonData> {
     inner_app_rbac_check(app, req_dao).await?;
-    let user_data = match param.user_data.as_ref() {
+    inner_access_check(param, app, req_dao).await?;
+    Ok(JsonData::default())
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RbacMenuItemParam {
+    pub name: String,
+    pub check_res: CheckParam,
+}
+#[derive(Debug, Deserialize)]
+pub struct RbacMenuListParam {
+    pub menu_res: Vec<RbacMenuItemParam>,
+}
+#[derive(Debug, Serialize)]
+pub struct RbacMenuStatus {
+    pub status: bool, //是否授权成功
+    pub name: String, //key,参见perm_check 定义
+}
+
+pub async fn access_list_check(
+    param: &RbacMenuListParam,
+    app: &AppModel,
+    req_dao: &RequestDao,
+) -> JsonResult<JsonData> {
+    inner_app_rbac_check(app, req_dao).await?;
+    let mut out = Vec::with_capacity(param.menu_res.len());
+    for e in param.menu_res.iter() {
+        out.push(RbacMenuStatus {
+            status: inner_access_check(&e.check_res, app, req_dao)
+                .await
+                .map(|_| true)
+                .unwrap_or(false),
+            name: e.name.to_owned(),
+        })
+    }
+    Ok(JsonData::data(json!({"result":out})))
+}
+
+async fn inner_access_check(
+    param: &CheckParam,
+    app: &AppModel,
+    req_dao: &RequestDao,
+) -> JsonResult<()> {
+    let user_data = match param.user_param.as_ref() {
         Some(user_data) => Some(
             req_dao
                 .web_dao
@@ -50,17 +97,31 @@ pub async fn access_check(
         ),
         None => None,
     };
+
+    let mut user_list = HashMap::new();
+    for e in param.access.role_key.iter() {
+        if !user_list.contains_key(&e.user_param) {
+            let user_id = inner_user_data_to_user_id(app, e.user_param.as_deref(), req_dao).await?;
+            user_list.insert(e.user_param.clone(), user_id);
+        }
+    }
+    for te in param.access.check_res.iter() {
+        for e in te.iter() {
+            if !user_list.contains_key(&e.user_param) {
+                let user_id =
+                    inner_user_data_to_user_id(app, e.user_param.as_deref(), req_dao).await?;
+                user_list.insert(e.user_param.clone(), user_id);
+            }
+        }
+    }
+
     let session_role = param
         .access
         .role_key
         .iter()
         .map(|e| AccessSessionRole {
             role_key: &e.role_key,
-            user_id: if e.user_id == 0 {
-                app.user_id
-            } else {
-                e.user_id
-            },
+            user_id: user_list.get(&e.user_param).copied().unwrap_or(app.user_id),
             app_id: app.id,
         })
         .collect::<Vec<_>>();
@@ -80,11 +141,10 @@ pub async fn access_check(
             check_res_group
                 .iter()
                 .map(|check_res| AccessCheckRes {
-                    user_id: if check_res.user_id == 0 {
-                        app.user_id
-                    } else {
-                        check_res.user_id
-                    },
+                    user_id: user_list
+                        .get(&check_res.user_param)
+                        .copied()
+                        .unwrap_or(app.user_id),
                     res_type: &check_res.res_type,
                     res_data: &check_res.res_data,
                     app_id: app.id,
@@ -106,52 +166,5 @@ pub async fn access_check(
                 .collect::<Vec<_>>(),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(())
 }
-
-// #[derive(Debug, Deserialize)]
-// pub struct CheckMenuParam {
-//     pub user_id: u64,
-//     pub check_res: Vec<CheckAccessParam>,
-// }
-
-// pub async fn menu_check(
-//     req_dao: &RequestDao,
-//     app: &AppModel,
-//     param: &CheckMenuParam,
-// ) -> JsonResult<JsonData> {
-//     req_dao.web_dao.app_sender.mailer.feature_check(app).await?;
-//     rbac_menu_check(
-//         &req_dao.access_env(),
-//         RbacMenuParam {
-//             check_res: param.check_res,
-//         },
-//         &req_dao.web_dao.rbac,
-//     )
-//     .await
-// }
-
-// #[derive(Debug, Deserialize)]
-// pub struct AccessParam {
-//     pub user_id: u64,
-//     pub access: RbacAccessParam,
-// }
-
-// pub async fn access_check(
-//     app_dao: &WebDao,
-//     app: &AppModel,
-//     param: &AccessParam,
-// ) -> JsonResult<JsonData> {
-//     app_dao
-//         .user
-//         .rbac_dao
-//         .rbac
-//         .check(
-//             &CheckSubAppRbacCheck {
-//                 app: app.to_owned(),
-//             },
-//             None,
-//         )
-//         .await?;
-//     rbac_access_check(param.user_id, param.access, &app_dao.user.rbac_dao).await
-// }

@@ -1,6 +1,7 @@
 CREATE TABLE `yaf_notify_config` (
     `id` int unsigned NOT NULL AUTO_INCREMENT,
     `app_id` bigint unsigned NOT NULL DEFAULT '0' COMMENT '应用ID',
+    `app_user_id` bigint unsigned NOT NULL DEFAULT '0' COMMENT '冗余应用用户ID',
     `method` varchar(64) DEFAULT NULL COMMENT '回调类型',
     `call_url` varchar(512) NOT NULL COMMENT '请求URL',
     `user_id` bigint unsigned NOT NULL COMMENT '用户id',

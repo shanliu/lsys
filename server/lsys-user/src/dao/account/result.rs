@@ -1,6 +1,3 @@
-// use std::error::Error;
-// use std::fmt::{Display, Formatter};
-
 use std::time::SystemTimeError;
 
 use deadpool_redis::PoolError;
@@ -51,13 +48,6 @@ impl IntoFluentMessage for AccountError {
         }
     }
 }
-
-// impl Display for AccountError {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-//         write!(f, "{:?}", self)
-//     }
-// }
-// impl Error for AccountError {}
 
 impl AccountError {
     pub fn is_not_found(&self) -> bool {

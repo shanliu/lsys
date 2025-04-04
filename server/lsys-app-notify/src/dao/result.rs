@@ -11,11 +11,7 @@ pub enum NotifyError {
     RedisPool(PoolError),
     System(FluentMessage),
 }
-// impl Display for NotifyError {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-//         write!(f, "{:?}", self)
-//     }
-// }
+
 impl IntoFluentMessage for NotifyError {
     fn to_fluent_message(&self) -> FluentMessage {
         match self {
@@ -26,8 +22,6 @@ impl IntoFluentMessage for NotifyError {
         }
     }
 }
-
-// impl Error for NotifyError {}
 
 impl From<sqlx::Error> for NotifyError {
     fn from(err: sqlx::Error) -> Self {

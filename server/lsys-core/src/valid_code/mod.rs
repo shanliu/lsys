@@ -62,15 +62,6 @@ impl ValidCodeDataRandom {
     }
     fn create_code(&self) -> ValidCodeResult<String> {
         Ok(rand_str(RandType::Number, 6))
-        // const BASE_STR: &str = "0123456789";
-        // let mut rng = &mut rand::thread_rng();
-        // Ok(String::from_utf8(
-        //     BASE_STR
-        //         .as_bytes()
-        //         .choose_multiple(&mut rng, 6)
-        //         .cloned()
-        //         .collect(),
-        // )?)
     }
 }
 #[async_trait]

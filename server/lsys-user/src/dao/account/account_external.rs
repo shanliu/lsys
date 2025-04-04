@@ -126,7 +126,7 @@ impl AccountExternal {
                 db_option_executor!(
                     db,
                     {
-                        Update::<sqlx::MySql, AccountExternalModel, _>::new(change)
+                        Update::< AccountExternalModel, _>::new(change)
                             .execute_by_pk(&account_ext, db.as_executor())
                             .await?;
                     },
@@ -155,7 +155,7 @@ impl AccountExternal {
                     Some(pb) => pb.begin().await?,
                     None => db.begin().await?,
                 };
-                let res = Insert::<sqlx::MySql, AccountExternalModel, _>::new(new_data)
+                let res = Insert::<AccountExternalModel, _>::new(new_data)
                     .execute(&mut *db)
                     .await;
                 match res {
@@ -263,7 +263,7 @@ impl AccountExternal {
         change.external_pic = external_pic_ow.as_ref();
         let external_nikename_ow = external_link.map(|e| e.to_string());
         change.external_nikename = external_nikename_ow.as_ref();
-        Update::<sqlx::MySql, AccountExternalModel, _>::new(change)
+        Update::< AccountExternalModel, _>::new(change)
             .execute_by_pk(account_ext, &self.db)
             .await?;
         self.cache.clear(&account_ext.id).await;
@@ -315,7 +315,7 @@ impl AccountExternal {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let res = Update::<sqlx::MySql, AccountExternalModel, _>::new(change)
+        let res = Update::< AccountExternalModel, _>::new(change)
             .execute_by_pk(account_ext, &mut *db)
             .await;
         let out = match res {

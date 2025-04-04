@@ -1,6 +1,6 @@
 use crate::{
     common::{JsonData, JsonResult, OauthCallbackParam, OauthLogin, OauthLoginParam, RequestDao},
-    dao::access::common::CheckSystemLogin,
+    dao::access::api::auth::CheckSystemLogin,
 };
 
 use serde::Serialize;
@@ -19,7 +19,7 @@ pub async fn user_external_login_url<
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env,None, &CheckSystemLogin {})
+        .check(&req_dao.req_env, None, &CheckSystemLogin {})
         .await?;
     let url = req_dao
         .web_dao

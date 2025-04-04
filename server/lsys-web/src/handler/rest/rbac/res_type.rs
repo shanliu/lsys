@@ -1,0 +1,191 @@
+use crate::common::{JsonData, JsonResult, PageParam, RequestDao};
+use lsys_app::model::AppModel;
+use lsys_rbac::dao::{ResTypeListParam as RbacResTypeListParam, ResTypeParam};
+use serde::Deserialize;
+use serde_json::json;
+
+use super::{inner_app_rbac_check, inner_app_self_check, inner_user_data_to_user_id};
+
+#[derive(Debug, Deserialize)]
+pub struct ResTypeListParam {
+    pub user_param: Option<String>,
+    pub res_type: Option<String>,
+    pub page: Option<PageParam>,
+    pub count_num: Option<bool>,
+}
+
+pub async fn res_type_data(
+    param: &ResTypeListParam,
+    app: &AppModel,
+    req_dao: &RequestDao,
+) -> JsonResult<JsonData> {
+    inner_app_rbac_check(app, req_dao).await?;
+    let user_id = inner_user_data_to_user_id(app, param.user_param.as_deref(), req_dao).await?;
+    let res_type_param = param.res_type.as_ref().and_then(|e| {
+        if e.trim_matches(['\n', ' ', '\t']).is_empty() {
+            None
+        } else {
+            Some(e)
+        }
+    });
+    let res_param = RbacResTypeListParam {
+        user_id: Some(user_id),
+        app_id: Some(app.id),
+        res_type: res_type_param.map(|x| x.as_str()),
+    };
+
+    let rows = req_dao
+        .web_dao
+        .web_rbac
+        .rbac_dao
+        .res
+        .res_type_data(&res_param, param.page.as_ref().map(|e| e.into()).as_ref())
+        .await?;
+    let count = if param.count_num.unwrap_or(false) {
+        Some(
+            req_dao
+                .web_dao
+                .web_rbac
+                .rbac_dao
+                .res
+                .res_type_count(&res_param)
+                .await?,
+        )
+    } else {
+        None
+    };
+    Ok(JsonData::data(json!({ "data": rows,"total":count})))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ResTypeAddOpParam {
+    pub user_param: Option<String>,
+    pub res_type: String,
+    pub op_ids: Vec<u64>,
+}
+
+pub async fn res_type_op_add(
+    param: &ResTypeAddOpParam,
+    app: &AppModel,
+    req_dao: &RequestDao,
+) -> JsonResult<JsonData> {
+    inner_app_rbac_check(app, req_dao).await?;
+    let user_id = inner_user_data_to_user_id(app, param.user_param.as_deref(), req_dao).await?;
+
+    let mut op_data = vec![];
+    for tmp in req_dao
+        .web_dao
+        .web_rbac
+        .rbac_dao
+        .op
+        .find_by_ids(&param.op_ids)
+        .await?
+        .into_iter()
+    {
+        inner_app_self_check(app, tmp.1.app_id)?;
+        op_data.push(tmp.1);
+    }
+
+    req_dao
+        .web_dao
+        .web_rbac
+        .rbac_dao
+        .res
+        .res_type_add_op(
+            &ResTypeParam {
+                res_type: &param.res_type,
+                user_id,
+                app_id: app.id,
+            },
+            &op_data,
+            app.user_id,
+            None,
+            Some(&req_dao.req_env),
+        )
+        .await?;
+    Ok(JsonData::default())
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ResDelOpParam {
+    pub user_param: Option<String>,
+    pub res_type: String,
+    pub op_ids: Vec<u64>,
+}
+
+pub async fn res_type_op_del(
+    param: &ResDelOpParam,
+    app: &AppModel,
+    req_dao: &RequestDao,
+) -> JsonResult<JsonData> {
+    inner_app_rbac_check(app, req_dao).await?;
+    let user_id = inner_user_data_to_user_id(app, param.user_param.as_deref(), req_dao).await?;
+
+    req_dao
+        .web_dao
+        .web_rbac
+        .rbac_dao
+        .res
+        .res_type_del_op(
+            &ResTypeParam {
+                res_type: &param.res_type,
+                user_id,
+                app_id: app.id,
+            },
+            &param.op_ids,
+            app.user_id,
+            None,
+            Some(&req_dao.req_env),
+        )
+        .await?;
+    Ok(JsonData::default())
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ResTypeOpListParam {
+    pub user_param: Option<String>,
+    pub res_type: String,
+    pub page: Option<PageParam>,
+    pub count_num: Option<bool>,
+}
+
+pub async fn res_type_op_data(
+    param: &ResTypeOpListParam,
+    app: &AppModel,
+    req_dao: &RequestDao,
+) -> JsonResult<JsonData> {
+    inner_app_rbac_check(app, req_dao).await?;
+    let user_id = inner_user_data_to_user_id(app, param.user_param.as_deref(), req_dao).await?;
+
+    let res_param = ResTypeParam {
+        res_type: &param.res_type,
+        user_id,
+        app_id: app.id,
+    };
+
+    let rows = req_dao
+        .web_dao
+        .web_rbac
+        .rbac_dao
+        .res
+        .res_type_op_data(
+            &res_param,
+            None,
+            param.page.as_ref().map(|e| e.into()).as_ref(),
+        )
+        .await?;
+    let count = if param.count_num.unwrap_or(false) {
+        Some(
+            req_dao
+                .web_dao
+                .web_rbac
+                .rbac_dao
+                .res
+                .res_type_op_count(&res_param)
+                .await?,
+        )
+    } else {
+        None
+    };
+    Ok(JsonData::data(json!({ "data": rows,"total":count})))
+}

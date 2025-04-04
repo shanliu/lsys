@@ -131,7 +131,7 @@ impl AccountPassword {
                     };
                     let change = lsys_core::model_option_set!(AccountPasswordModelRef, { disable_time: time });
                     //ta.execute(query)
-                    Update::<sqlx::MySql, AccountPasswordModel, _>::new(change)
+                    Update::< AccountPasswordModel, _>::new(change)
                         .execute_by_pk(&account_pass, &mut *ta)
                         .await?;
                 }
@@ -171,7 +171,7 @@ impl AccountPassword {
             disable_time: 0,
             add_time: time,
         });
-        let res = Insert::<sqlx::MySql, AccountPasswordModel, _>::new(new_data)
+        let res = Insert::<AccountPasswordModel, _>::new(new_data)
             .execute(&mut *ta)
             .await;
         match res {
@@ -185,7 +185,7 @@ impl AccountPassword {
                     password_id:pid,
                     change_time:time,
                 });
-                let u_res = Update::<sqlx::MySql, AccountModel, _>::new(change)
+                let u_res = Update::< AccountModel, _>::new(change)
                     .execute_by_pk(account, &mut *ta)
                     .await;
                 match u_res {

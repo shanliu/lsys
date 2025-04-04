@@ -21,7 +21,7 @@ use std::{
 
 use lsys_core::db::Update;
 use lsys_core::sql_format;
-use sqlx::{MySql, Pool};
+use sqlx::Pool;
 use tracing::warn;
 
 //短信任务记录
@@ -121,7 +121,7 @@ impl MailTaskAcquisition {
             status:SenderMailBodyStatus::Finish as i8,
             finish_time:finish_time
         });
-        if let Err(err) = Update::<MySql, SenderMailBodyModel, _>::new(change)
+        if let Err(err) = Update::<SenderMailBodyModel, _>::new(change)
             .execute_by_where(&WhereOption::Where(sql_format!("id={}", item_id)), &self.db)
             .await
         {

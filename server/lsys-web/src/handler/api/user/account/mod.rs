@@ -1,10 +1,10 @@
 mod del;
+mod info;
 mod login_history;
 mod password;
 mod profile;
-mod search;
 pub use del::*;
+pub use info::*;
 pub use login_history::*;
 pub use password::*;
 pub use profile::*;
-pub use search::*;

@@ -1,25 +1,21 @@
 use super::{FieldItem, ModelTableField, ModelTableName};
 // use sqlx::database::HasArguments;
 use sqlx::query::Query;
+use sqlx::Error;
 use sqlx::{Arguments, Executor, IntoArguments};
-use sqlx::{Database, Error};
 
-pub trait UpdateData<'t, DB>
-where
-    DB: Database,
-{
+pub trait UpdateData<'t> {
     fn diff_columns(&self) -> Vec<FieldItem>;
     fn sqlx_bind<'q>(
         &'q self,
-        res: Query<'q, DB, DB::Arguments<'q>>,
-    ) -> Query<'q, DB, DB::Arguments<'q>>;
+        res: Query<'q, sqlx::MySql, sqlx::mysql::MySqlArguments>,
+    ) -> Query<'q, sqlx::MySql, sqlx::mysql::MySqlArguments>;
     fn sqlx_string(&self, field: &FieldItem) -> Option<String>;
 }
 //得到需要更改的设置数据集
-pub trait ModelUpdateData<'t, DB, CT>: ModelTableField<DB> + ModelTableName
+pub trait ModelUpdateData<'t, CT>: ModelTableField + ModelTableName
 where
-    CT: UpdateData<'t, DB>,
-    DB: Database,
+    CT: UpdateData<'t>,
 {
     fn diff(&'t self, source: &Option<&Self>) -> CT;
 }
@@ -31,32 +27,29 @@ pub enum WhereOption {
 }
 
 /// 更新操作
-pub struct Update<'t, DB, T, CT>
+pub struct Update<'t, T, CT>
 where
-    T: ModelUpdateData<'t, DB, CT>,
-    CT: UpdateData<'t, DB>,
-    DB: Database,
+    T: ModelUpdateData<'t, CT>,
+    CT: UpdateData<'t>,
 {
     pub change: CT,
     _marker: (
         std::marker::PhantomData<&'t CT>,
         std::marker::PhantomData<&'t T>,
-        std::marker::PhantomData<DB>,
     ),
 }
-impl<'t, DB, T, CT> Update<'t, DB, T, CT>
+impl<'t, T, CT> Update<'t, T, CT>
 where
-    T: ModelUpdateData<'t, DB, CT>,
-    CT: UpdateData<'t, DB>,
-    DB: Database,
+    T: ModelUpdateData<'t, CT>,
+    CT: UpdateData<'t>,
 {
-    pub fn new(val: CT) -> Update<'t, DB, T, CT> {
+    pub fn new(val: CT) -> Update<'t, T, CT> {
         Update {
             change: val,
             _marker: Default::default(),
         }
     }
-    pub fn model<'q: 't>(val: &'q T, source: &Option<&T>) -> Update<'t, DB, T, CT> {
+    pub fn model<'q: 't>(val: &'q T, source: &Option<&T>) -> Update<'t, T, CT> {
         Update {
             change: val.diff(source),
             _marker: Default::default(),
@@ -85,21 +78,22 @@ where
     }
     pub fn bind_values<'q>(
         &'q self,
-        res: Query<'q, DB, DB::Arguments<'q>>,
-    ) -> Query<'q, DB, DB::Arguments<'q>> {
+        res: Query<'q, sqlx::MySql, sqlx::mysql::MySqlArguments>,
+    ) -> Query<'q, sqlx::MySql, sqlx::mysql::MySqlArguments> {
         self.change.sqlx_bind(res)
     }
     pub async fn execute_by_where<'c, E>(
         &self,
         where_sql: &WhereOption,
         executor: E,
-    ) -> Result<<DB as Database>::QueryResult, Error>
+    ) -> Result<sqlx::mysql::MySqlQueryResult, Error>
     where
-        for<'n> DB::Arguments<'n>: Arguments<'n> + IntoArguments<'n, DB>,
-        E: Executor<'c, Database = DB>,
+        for<'n> <sqlx::MySql as sqlx::Database>::Arguments<'n>:
+            Arguments<'n> + IntoArguments<'n, sqlx::MySql>,
+        E: Executor<'c, Database = sqlx::MySql>,
     {
         if self.empty_change() {
-            return Ok(<DB as Database>::QueryResult::default());
+            return Ok(sqlx::mysql::MySqlQueryResult::default());
         }
         let table = T::table_name();
         let values = self.sql_sets();
@@ -118,18 +112,18 @@ where
         res = self.bind_values(res);
         executor.execute(res).await
     }
-    // execute_by_sql!(Update<DB,T,CT>);
     pub async fn execute_by_pk<'c, E>(
         &self,
         source: &T,
         executor: E,
-    ) -> Result<<DB as Database>::QueryResult, Error>
+    ) -> Result<sqlx::mysql::MySqlQueryResult, Error>
     where
-        for<'n> DB::Arguments<'n>: Arguments<'n> + IntoArguments<'n, DB>,
-        E: Executor<'c, Database = DB>,
+        for<'n> <sqlx::MySql as sqlx::Database>::Arguments<'n>:
+            Arguments<'n> + IntoArguments<'n, sqlx::MySql>,
+        E: Executor<'c, Database = sqlx::MySql>,
     {
         if self.empty_change() {
-            return Ok(<DB as Database>::QueryResult::default());
+            return Ok(sqlx::mysql::MySqlQueryResult::default());
         }
         let table = T::table_name();
         let pkf = T::table_pk();

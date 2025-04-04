@@ -32,6 +32,7 @@ pub struct AppDao {
 pub struct AppConfig {
     pub app_cache: LocalCacheConfig,
     pub sub_app_cache: LocalCacheConfig,
+    pub sub_app_oauth_server_cache: LocalCacheConfig,
     pub oauth_client_code_time: u64,
     pub oauth_client_login_time: u64,
 }
@@ -41,6 +42,11 @@ impl AppConfig {
         Self {
             sub_app_cache: LocalCacheConfig::new(
                 "sub-app",
+                if use_cache { None } else { Some(0) },
+                None,
+            ),
+            sub_app_oauth_server_cache: LocalCacheConfig::new(
+                "app-server-scope",
                 if use_cache { None } else { Some(0) },
                 None,
             ),
@@ -65,7 +71,13 @@ impl AppDao {
             config.app_cache,
             logger.clone(),
         ));
-        let oauth_server = Arc::from(AppOAuthServer::new(db.clone(), app.clone(), logger.clone()));
+        let oauth_server = Arc::from(AppOAuthServer::new(
+            db.clone(),
+            app.clone(),
+            logger.clone(),
+            remote_notify.clone(),
+            config.sub_app_oauth_server_cache,
+        ));
         let oauth_client = Arc::from(AppOAuthClient::new(
             db.clone(),
             app.clone(),

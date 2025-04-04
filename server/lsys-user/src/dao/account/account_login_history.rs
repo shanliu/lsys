@@ -153,7 +153,7 @@ impl AccountLoginHistory {
             login_city:login_city,
             add_time: time,
         });
-        let login_res = Insert::<sqlx::MySql, AccountLoginModel, _>::new(new_data)
+        let login_res = Insert::<AccountLoginModel, _>::new(new_data)
             .execute(&self.db)
             .await?;
         Ok(login_res.last_insert_id())
@@ -173,7 +173,7 @@ impl AccountLoginHistory {
             login_msg:login_msg,
 
         });
-        let ures = Update::<sqlx::MySql, AccountLoginModel, _>::new(change)
+        let ures = Update::< AccountLoginModel, _>::new(change)
             .execute_by_where(
                 &WhereOption::Where(sql_format!("id={}", login_id)),
                 &self.db,

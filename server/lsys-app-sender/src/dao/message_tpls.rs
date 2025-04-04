@@ -90,7 +90,7 @@ impl MessageTpls {
             change_user_id:add_user_id,
             status:status,
         });
-        let id = Insert::<sqlx::MySql, SenderTplBodyModel, _>::new(idata)
+        let id = Insert::<SenderTplBodyModel, _>::new(idata)
             .execute(&self.db)
             .await?
             .last_insert_id();
@@ -131,7 +131,7 @@ impl MessageTpls {
             change_user_id:user_id,
             change_time:time,
         });
-        let row = Update::<sqlx::MySql, SenderTplBodyModel, _>::new(change)
+        let row = Update::< SenderTplBodyModel, _>::new(change)
             .execute_by_pk(tpl, &self.db)
             .await?
             .rows_affected();
@@ -174,7 +174,7 @@ impl MessageTpls {
             user_id:user_id,
             change_time:time,
         });
-        let row = Update::<sqlx::MySql, SenderTplBodyModel, _>::new(change)
+        let row = Update::< SenderTplBodyModel, _>::new(change)
             .execute_by_pk(tpl, &self.db)
             .await?
             .rows_affected();

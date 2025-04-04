@@ -5,3 +5,9 @@ valid-code-submit-empty = 验证码不为空
 valid-code-not-match = 提交的验证码[{$code}]不匹配
 
 wait-notify-timeout=等待发送超时
+
+
+
+time-format-error=日期解析异常:{$msg}
+
+time-zone-error=日期时区异常

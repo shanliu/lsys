@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 //角色
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(db_type = "MySql", table_name = "rbac_role")]
+#[lsys_model(table_name = "rbac_role")]
 pub struct RbacRoleModel {
     #[sqlx(default)]
     pub id: u64,
@@ -47,7 +47,7 @@ pub struct RbacRoleModel {
 
 //资源
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(db_type = "MySql", table_name = "rbac_res")]
+#[lsys_model(table_name = "rbac_res")]
 pub struct RbacResModel {
     #[sqlx(default)]
     pub id: u64,
@@ -87,7 +87,7 @@ pub struct RbacResModel {
 
 //操作
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(db_type = "MySql", table_name = "rbac_op")]
+#[lsys_model(table_name = "rbac_op")]
 pub struct RbacOpModel {
     #[sqlx(default)]
     pub id: u64,
@@ -123,7 +123,7 @@ pub struct RbacOpModel {
 
 ///操作跟资源关联
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(db_type = "MySql", table_name = "rbac_op_res")]
+#[lsys_model(table_name = "rbac_op_res")]
 pub struct RbacOpResModel {
     #[sqlx(default)]
     pub id: u64,
@@ -159,7 +159,7 @@ pub struct RbacOpResModel {
 
 //资源可进行操作，如对某资源进行：查看 删除 编辑等
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(db_type = "MySql", table_name = "rbac_perm")]
+#[lsys_model(table_name = "rbac_perm")]
 pub struct RbacPermModel {
     #[sqlx(default)]
     pub id: u64,
@@ -193,7 +193,7 @@ pub struct RbacPermModel {
 
 /// 角色关联用户  
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(db_type = "MySql", table_name = "rbac_role_user")]
+#[lsys_model(table_name = "rbac_role_user")]
 pub struct RbacRoleUserModel {
     #[sqlx(default)]
     pub id: u64,
@@ -225,7 +225,7 @@ pub struct RbacRoleUserModel {
 
 ///授权审计记录
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(db_type = "MySql", table_name = "rbac_audit")]
+#[lsys_model(table_name = "rbac_audit")]
 pub struct RbacAuditModel {
     #[sqlx(default)]
     pub id: u64,
@@ -269,7 +269,7 @@ pub struct RbacAuditModel {
 
 ///授权审计详细记录
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(db_type = "MySql", table_name = "rbac_audit_detail")]
+#[lsys_model(table_name = "rbac_audit_detail")]
 pub struct RbacAuditDetailModel {
     #[sqlx(default)]
     pub id: u64,

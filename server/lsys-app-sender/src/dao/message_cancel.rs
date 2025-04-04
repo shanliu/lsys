@@ -53,10 +53,10 @@ impl MessageCancel {
         db_option_executor!(
             db,
             {
-                Insert::<sqlx::MySql, SenderMessageCancelModel, _>::new_vec(idata)
+                Insert::<SenderMessageCancelModel, _>::new_vec(idata)
                     .execute(db.as_executor())
                     .await?;
-                Insert::<sqlx::MySql, SenderMessageCancelModel, _>::new_vec(idata1)
+                Insert::<SenderMessageCancelModel, _>::new_vec(idata1)
                     .execute(db.as_executor())
                     .await?;
             },

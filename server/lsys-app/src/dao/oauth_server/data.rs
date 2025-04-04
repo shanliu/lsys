@@ -34,6 +34,7 @@ impl AppOAuthServer {
     }
 }
 
+#[derive(Clone)]
 pub struct AppOAuthServerScopeData {
     pub scope_key: String,
     pub scope_name: String,

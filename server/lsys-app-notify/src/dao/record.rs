@@ -103,14 +103,14 @@ impl NotifyRecord {
                     change_time:create_time,
                     change_user_id:change_user_id,
                 });
-                Update::<sqlx::MySql, NotifyConfigModel, _>::new(change)
+                Update::< NotifyConfigModel, _>::new(change)
                     .execute_by_pk(&row, &self.db)
                     .await?;
                 row.id
             }
             Err(NotifyError::Sqlx(sqlx::Error::RowNotFound)) => {
                 let method = method.to_owned();
-                let res = Insert::<sqlx::MySql, NotifyConfigModel, _>::new(
+                let res = Insert::<NotifyConfigModel, _>::new(
                     model_option_set!(NotifyConfigModelRef ,{
                         app_id: app.id,
                         method: method,
@@ -155,7 +155,7 @@ impl NotifyRecord {
         let create_time = now_time().unwrap_or_default();
         let status = NotifyDataStatus::Init as i8;
         let res =
-            Insert::<sqlx::MySql, NotifyDataModel, _>::new(model_option_set!(NotifyDataModelRef ,{
+            Insert::<NotifyDataModel, _>::new(model_option_set!(NotifyDataModelRef ,{
                 app_id:app_id,
                 method: method,
                 payload: payload,

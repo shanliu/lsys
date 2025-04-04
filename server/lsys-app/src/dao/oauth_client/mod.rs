@@ -2,9 +2,8 @@ mod cache;
 mod data;
 mod login;
 use super::logger::{AppOAuthClientSetLog, AppRequestLog, AppViewSecretLog};
-use super::AppResult;
+use super::{App, AppResult};
 use super::{AppError, AppOAuthServer};
-use crate::dao::App;
 use crate::model::AppFeatureStatus;
 use crate::model::AppModel;
 use crate::model::AppRequestModel;
@@ -79,7 +78,8 @@ impl AppOAuthClient {
         Ok(())
     }
     //获取指定APP的已授权的SCOPE DATA 数据
-    pub async fn get_oauth_client_scope_data(&self, app: &AppModel) -> AppResult<String> {
+    //不要在外部使用,外部用 cache find_by_app 得到AppOAuthClientModel后获取 scope_data
+    async fn get_oauth_client_scope_data(&self, app: &AppModel) -> AppResult<String> {
         let scope_res = sqlx::query_scalar::<_, String>(&sql_format!(
             "select scope_data from {} where app_id={}",
             AppOAuthClientModel::table_name(),
@@ -153,7 +153,7 @@ impl AppOAuthClient {
             request_user_id:req_user_id,
             request_time:time,
         });
-        let req_res = Insert::<sqlx::MySql, AppRequestModel, _>::new(idata)
+        let req_res = Insert::<AppRequestModel, _>::new(idata)
             .execute(&mut *db)
             .await;
         let req_id = match req_res {
@@ -172,7 +172,7 @@ impl AppOAuthClient {
             app_request_id:req_id,
             scope_data:scope_data,
         });
-        let req_res = Insert::<sqlx::MySql, AppRequestOAuthClientModel, _>::new(idata)
+        let req_res = Insert::<AppRequestOAuthClientModel, _>::new(idata)
             .execute(&mut *db)
             .await;
         if let Err(err) = req_res {
@@ -220,7 +220,7 @@ impl AppOAuthClient {
             request_user_id:req_user_id,
             request_time:time,
         });
-        let req_res = Insert::<sqlx::MySql, AppRequestModel, _>::new(idata)
+        let req_res = Insert::<AppRequestModel, _>::new(idata)
             .execute(&mut *db)
             .await;
         let req_id = match req_res {
@@ -239,7 +239,7 @@ impl AppOAuthClient {
             app_request_id:req_id,
             scope_data:scope_data,
         });
-        let req_res = Insert::<sqlx::MySql, AppRequestOAuthClientModel, _>::new(idata)
+        let req_res = Insert::<AppRequestOAuthClientModel, _>::new(idata)
             .execute(&mut *db)
             .await;
         if let Err(err) = req_res {
@@ -354,7 +354,7 @@ impl AppOAuthClient {
                 confirm_time:time,
                 confirm_note:confirm_note,
             });
-            Update::<sqlx::MySql, AppRequestModel, _>::new(change)
+            Update::< AppRequestModel, _>::new(change)
                 .execute_by_pk(&req, &self.db)
                 .await?;
             return Ok(());
@@ -411,7 +411,7 @@ impl AppOAuthClient {
                     change_user_id:confirm_user_id,
                     change_time:time
                 });
-                let cres = Update::<sqlx::MySql, AppFeatureModel, _>::new(change)
+                let cres = Update::< AppFeatureModel, _>::new(change)
                     .execute_by_where(&WhereOption::Where(sql_format!("id={}", oid)), &mut *db)
                     .await;
                 if let Err(err) = cres {
@@ -429,7 +429,7 @@ impl AppOAuthClient {
                     change_user_id:confirm_user_id,
                     change_time:time
                 });
-                let cres = Insert::<sqlx::MySql, AppFeatureModel, _>::new(idata)
+                let cres = Insert::<AppFeatureModel, _>::new(idata)
                     .execute(&mut *db)
                     .await;
                 if let Err(err) = cres {
@@ -456,7 +456,7 @@ impl AppOAuthClient {
                     change_user_id:confirm_user_id,
                     change_time:time
                 });
-                let cres = Update::<sqlx::MySql, AppOAuthClientModel, _>::new(change)
+                let cres = Update::< AppOAuthClientModel, _>::new(change)
                     .execute_by_where(&WhereOption::Where(sql_format!("id={}", oid)), &mut *db)
                     .await;
                 if let Err(err) = cres {
@@ -473,7 +473,7 @@ impl AppOAuthClient {
                     change_user_id:confirm_user_id,
                     change_time:time
                 });
-                let cres = Insert::<sqlx::MySql, AppRequestModel, _>::new(idata)
+                let cres = Insert::<AppRequestModel, _>::new(idata)
                     .execute(&mut *db)
                     .await;
                 if let Err(err) = cres {
@@ -494,7 +494,7 @@ impl AppOAuthClient {
             confirm_time:time,
             confirm_note:confirm_note,
         });
-        let cres = Update::<sqlx::MySql, AppRequestModel, _>::new(change)
+        let cres = Update::< AppRequestModel, _>::new(change)
             .execute_by_pk(&req, &mut *db)
             .await;
         if let Err(err) = cres {
@@ -574,7 +574,7 @@ impl AppOAuthClient {
                 confirm_time:time,
                 confirm_note:confirm_note,
             });
-            Update::<sqlx::MySql, AppRequestModel, _>::new(change)
+            Update::< AppRequestModel, _>::new(change)
                 .execute_by_pk(req, &self.db)
                 .await?;
             return Ok(());
@@ -600,7 +600,7 @@ impl AppOAuthClient {
             change_user_id:confirm_user_id,
             change_time:time
         });
-        let cres = Update::<sqlx::MySql, AppOAuthClientModel, _>::new(change)
+        let cres = Update::< AppOAuthClientModel, _>::new(change)
             .execute_by_where(
                 &lsys_core::db::WhereOption::Where(sql_format!("app_id={}", app.id)),
                 &mut *db,
@@ -618,7 +618,7 @@ impl AppOAuthClient {
             confirm_time:time,
             confirm_note:confirm_note,
         });
-        let cres = Update::<sqlx::MySql, AppRequestModel, _>::new(change)
+        let cres = Update::< AppRequestModel, _>::new(change)
             .execute_by_pk(req, &mut *db)
             .await;
         if let Err(err) = cres {
@@ -688,7 +688,7 @@ impl AppOAuthClient {
                 } else {
                     oauth_secret = Some(old_oauth_secret)
                 }
-                Update::<sqlx::MySql, AppOAuthClientModel, _>::new(change)
+                Update::< AppOAuthClientModel, _>::new(change)
                     .execute_by_where(&WhereOption::Where(sql_format!("id={}", oid)), &self.db)
                     .await?;
             }
@@ -706,7 +706,7 @@ impl AppOAuthClient {
                 if oauth_secret.is_some() {
                     idata.oauth_secret = oauth_secret.as_ref();
                 }
-                Insert::<sqlx::MySql, AppRequestModel, _>::new(idata)
+                Insert::<AppRequestModel, _>::new(idata)
                     .execute(&self.db)
                     .await?;
             }
@@ -775,22 +775,30 @@ impl AppOAuthClient {
         view_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> AppResult<String> {
-        let client_data = self.cache().find_by_app(app).await?;
-        self.logger
-            .add(
-                &AppViewSecretLog {
-                    action: "secret_view",
-                    app_id: app.id,
-                    user_id: app.user_id,
-                    app_name: &app.name,
-                    secret_data: &client_data.oauth_secret,
-                },
-                Some(app.id),
-                Some(view_user_id),
-                None,
-                env_data,
-            )
-            .await;
-        Ok(client_data.oauth_secret)
+        let oauth_secret = match self.cache().find_by_app(app).await {
+            Ok(client_data) => {
+                self.logger
+                    .add(
+                        &AppViewSecretLog {
+                            action: "secret_view",
+                            app_id: app.id,
+                            user_id: app.user_id,
+                            app_name: &app.name,
+                            secret_data: &client_data.oauth_secret,
+                        },
+                        Some(app.id),
+                        Some(view_user_id),
+                        None,
+                        env_data,
+                    )
+                    .await;
+                client_data.oauth_secret
+            }
+            Err(AppError::Sqlx(sqlx::Error::RowNotFound)) => "".to_string(),
+            Err(err) => {
+                return Err(err);
+            }
+        };
+        Ok(oauth_secret)
     }
 }

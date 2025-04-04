@@ -87,19 +87,3 @@ macro_rules! fluent_message {
         }
     };
 }
-
-// impl From<String> for FluentMessage {
-//     fn from(value: String) -> Self {
-//         fluent_message!("app-error", value)
-//     }
-// }
-// impl From<&String> for FluentMessage {
-//     fn from(value: &String) -> Self {
-//         fluent_message!("app-error", value)
-//     }
-// }
-// impl From<&str> for FluentMessage {
-//     fn from(value: &str) -> Self {
-//         fluent_message!("app-error", value)
-//     }
-// }

@@ -3,7 +3,7 @@ use crate::{
         JsonData, JsonResult, OauthCallbackParam, OauthLogin, OauthLoginParam, RequestDao,
         UserAuthQueryDao,
     },
-    dao::access::{api::user::CheckUserExternalEdit, common::CheckSystemLogin},
+    dao::access::{api::auth::CheckSystemLogin, api::user::CheckUserExternalEdit},
 };
 
 use lsys_access::dao::AccessSession;
@@ -119,7 +119,7 @@ pub async fn external_bind<
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-  
+
     req_dao
         .web_dao
         .web_rbac

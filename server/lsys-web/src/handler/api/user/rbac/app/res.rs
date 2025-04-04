@@ -1,16 +1,16 @@
 use crate::common::{JsonData, JsonResult, PageParam, UserAuthQueryDao};
 use lsys_access::dao::AccessSession;
-use lsys_rbac::{
-    dao::{RbacResAddData, RbacResData, ResDataParam},
-    model::RbacResModel,
-};
+use lsys_rbac::dao::{RbacResAddData, RbacResData, ResDataParam};
 use serde::Deserialize;
 use serde_json::json;
+
+use super::{app_check_get, inner_user_data_to_user_id};
 
 //用户后台对APP的RBAC资源管理
 #[derive(Debug, Deserialize)]
 pub struct AppResAddParam {
     pub app_id: u64,
+    pub user_param: Option<String>,
     pub res_name: String,
     pub res_type: String,
     pub res_data: String,
@@ -21,7 +21,8 @@ pub async fn app_res_add(
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-
+    let app = app_check_get(param.app_id, true, &auth_data, req_dao).await?;
+    let user_id = inner_user_data_to_user_id(&app, param.user_param.as_deref(), req_dao).await?;
     let id = req_dao
         .web_dao
         .web_rbac
@@ -29,8 +30,8 @@ pub async fn app_res_add(
         .res
         .add_res(
             &RbacResAddData {
-                user_id: auth_data.user_id(),
-                app_id: Some(0),
+                user_id,
+                app_id: Some(app.id),
                 res_info: RbacResData {
                     res_name: if param.res_name.is_empty() {
                         None
@@ -49,31 +50,35 @@ pub async fn app_res_add(
     Ok(JsonData::data(json!({ "id": id })))
 }
 
+#[derive(Debug, Deserialize)]
 pub struct AppResEditParam {
-    pub app_id: u64,
     pub res_id: u64,
     pub res_name: String,
     pub res_type: String,
     pub res_data: String,
 }
 
-pub async fn app_res_edit(param: &AppResEditParam, req_dao: &UserAuthQueryDao) -> JsonResult<()> {
+pub async fn app_res_edit(
+    param: &AppResEditParam,
+    req_dao: &UserAuthQueryDao,
+) -> JsonResult<JsonData> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
-    let op = req_dao
+    let res = req_dao
         .web_dao
         .web_rbac
         .rbac_dao
         .res
         .find_by_id(&param.res_id)
         .await?;
+    app_check_get(res.app_id, true, &auth_data, req_dao).await?;
     req_dao
         .web_dao
         .web_rbac
         .rbac_dao
         .res
         .edit_res(
-            &op,
+            &res,
             &RbacResData {
                 res_name: if param.res_name.is_empty() {
                     None
@@ -88,15 +93,18 @@ pub async fn app_res_edit(param: &AppResEditParam, req_dao: &UserAuthQueryDao) -
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(())
+    Ok(JsonData::default())
 }
 
+#[derive(Debug, Deserialize)]
 pub struct AppResDelParam {
-    pub app_id: u64,
     pub res_id: u64,
 }
 
-pub async fn app_res_del(param: &AppResDelParam, req_dao: &UserAuthQueryDao) -> JsonResult<()> {
+pub async fn app_res_del(
+    param: &AppResDelParam,
+    req_dao: &UserAuthQueryDao,
+) -> JsonResult<JsonData> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     let res = req_dao
@@ -106,6 +114,7 @@ pub async fn app_res_del(param: &AppResDelParam, req_dao: &UserAuthQueryDao) -> 
         .res
         .find_by_id(&param.res_id)
         .await?;
+    app_check_get(res.app_id, true, &auth_data, req_dao).await?;
     req_dao
         .web_dao
         .web_rbac
@@ -113,11 +122,12 @@ pub async fn app_res_del(param: &AppResDelParam, req_dao: &UserAuthQueryDao) -> 
         .res
         .del_res(&res, auth_data.user_id(), None, Some(&req_dao.req_env))
         .await?;
-    Ok(())
+    Ok(JsonData::default())
 }
-
+#[derive(Debug, Deserialize)]
 pub struct AppResParam {
     pub app_id: u64,
+    pub user_param: Option<String>,
     pub res_type: Option<String>,
     pub res_data: Option<String>,
     pub res_name: Option<String>,
@@ -126,11 +136,10 @@ pub struct AppResParam {
     pub count_num: Option<bool>,
 }
 
-pub async fn app_res_data(
-    param: &AppResParam,
-    req_dao: &UserAuthQueryDao,
-) -> JsonResult<(Vec<RbacResModel>, Option<i64>)> {
+pub async fn app_res_data(param: &AppResParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let app = app_check_get(param.app_id, false, &auth_data, req_dao).await?;
+    let user_id = inner_user_data_to_user_id(&app, param.user_param.as_deref(), req_dao).await?;
     let res = req_dao
         .web_dao
         .web_rbac
@@ -138,8 +147,8 @@ pub async fn app_res_data(
         .res
         .res_data(
             &ResDataParam {
-                user_id: Some(auth_data.user_id()),
-                app_id: Some(0),
+                user_id: Some(user_id),
+                app_id: Some(app.id),
                 res_data: param.res_data.as_deref(),
                 res_type: param.res_type.as_deref(),
                 res_name: param.res_name.as_deref(),
@@ -156,8 +165,8 @@ pub async fn app_res_data(
                 .rbac_dao
                 .res
                 .res_count(&ResDataParam {
-                    user_id: Some(auth_data.user_id()),
-                    app_id: Some(0),
+                    user_id: Some(user_id),
+                    app_id: Some(app.id),
                     res_data: param.res_data.as_deref(),
                     res_type: param.res_type.as_deref(),
                     res_name: param.res_name.as_deref(),
@@ -168,5 +177,5 @@ pub async fn app_res_data(
     } else {
         None
     };
-    Ok((res, count))
+    Ok(JsonData::data(json!({ "data": res, "count": count })))
 }

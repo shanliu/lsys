@@ -217,7 +217,7 @@ impl BarCodeDao {
                     }));
                 }
                 let data_len = datas.len();
-                match Insert::<sqlx::MySql, BarcodeParseModel, _>::new_vec(datas)
+                match Insert::<BarcodeParseModel, _>::new_vec(datas)
                     .execute(&self.db)
                     .await
                 {
@@ -255,7 +255,7 @@ impl BarCodeDao {
                     create_time:create_time,
                     status:status,
                 });
-                match Insert::<sqlx::MySql, BarcodeParseModel, _>::new(data)
+                match Insert::<BarcodeParseModel, _>::new(data)
                     .execute(&self.db)
                     .await
                 {
@@ -368,7 +368,7 @@ impl BarCodeDao {
             status:status,
             image_background:image_background,
         });
-        let res = Insert::<sqlx::MySql, BarcodeCreateModel, _>::new(data)
+        let res = Insert::<BarcodeCreateModel, _>::new(data)
             .execute(&self.db)
             .await?;
 
@@ -471,7 +471,7 @@ impl BarCodeDao {
             status:status,
             image_background:image_background,
         });
-        let row = Update::<sqlx::MySql, BarcodeCreateModel, _>::new(change)
+        let row = Update::< BarcodeCreateModel, _>::new(change)
             .execute_by_pk(create_config, &self.db)
             .await
             .map(|e| e.rows_affected())?;
@@ -510,7 +510,7 @@ impl BarCodeDao {
             status:BarcodeCreateStatus::Delete as i8,
             change_time: time,
         });
-        Update::<sqlx::MySql, BarcodeCreateModel, _>::new(change)
+        Update::< BarcodeCreateModel, _>::new(change)
             .execute_by_pk(create_config, &self.db)
             .await?;
 
@@ -695,7 +695,7 @@ impl BarCodeDao {
             status:BarcodeParseStatus::Delete as i8,
             change_time: time,
         });
-        Update::<sqlx::MySql, BarcodeParseModel, _>::new(change)
+        Update::< BarcodeParseModel, _>::new(change)
             .execute_by_pk(parse_record, &self.db)
             .await?;
         self.logger

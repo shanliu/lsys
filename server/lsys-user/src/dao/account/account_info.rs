@@ -91,12 +91,12 @@ impl AccountInfo {
                     }
                 }
 
-                Insert::<sqlx::MySql, AccountInfoModel, _>::new(set_info)
+                Insert::<AccountInfoModel, _>::new(set_info)
                     .execute(&mut *db)
                     .await
             }
             Ok(account_info) => {
-                Update::<sqlx::MySql, AccountInfoModel, _>::new(set_info)
+                Update::< AccountInfoModel, _>::new(set_info)
                     .execute_by_pk(&account_info, &mut *db)
                     .await
             }

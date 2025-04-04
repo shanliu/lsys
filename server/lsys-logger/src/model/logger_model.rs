@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize, Default)]
-#[lsys_model(db_type = "MySql", table_name = "change_logs")]
+#[lsys_model(table_name = "change_logs")]
 pub struct ChangeLogModel {
     /// 消息ID
     #[sqlx(default)]

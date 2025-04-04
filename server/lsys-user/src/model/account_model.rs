@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(db_type = "MySql", table_name = "account")]
+#[lsys_model(table_name = "account")]
 pub struct AccountModel {
     /// 用户ID
     #[sqlx(default)]
@@ -55,7 +55,7 @@ pub struct AccountModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(db_type = "MySql", table_name = "account_address")]
+#[lsys_model(table_name = "account_address")]
 pub struct AccountAddressModel {
     #[sqlx(default)]
     pub id: u64,
@@ -98,7 +98,7 @@ pub struct AccountAddressModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(db_type = "MySql", table_name = "account_email")]
+#[lsys_model(table_name = "account_email")]
 pub struct AccountEmailModel {
     #[sqlx(default)]
     pub id: u64,
@@ -125,7 +125,7 @@ pub struct AccountEmailModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(db_type = "MySql", table_name = "account_external")]
+#[lsys_model(table_name = "account_external")]
 pub struct AccountExternalModel {
     #[sqlx(default)]
     pub id: u64,
@@ -184,7 +184,7 @@ pub struct AccountExternalModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(db_type = "MySql", table_name = "account_info")]
+#[lsys_model(table_name = "account_info")]
 pub struct AccountInfoModel {
     #[sqlx(default)]
     pub id: u64,
@@ -219,7 +219,7 @@ pub struct AccountInfoModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(db_type = "MySql", table_name = "account_login")]
+#[lsys_model(table_name = "account_login")]
 pub struct AccountLoginModel {
     #[sqlx(default)]
     pub id: u64,
@@ -258,7 +258,7 @@ pub struct AccountLoginModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(db_type = "MySql", table_name = "account_mobile")]
+#[lsys_model(table_name = "account_mobile")]
 pub struct AccountMobileModel {
     #[sqlx(default)]
     pub id: u64,
@@ -289,7 +289,7 @@ pub struct AccountMobileModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(db_type = "MySql", table_name = "account_name")]
+#[lsys_model(table_name = "account_name")]
 pub struct AccountNameModel {
     #[sqlx(default)]
     pub id: u64,
@@ -312,7 +312,7 @@ pub struct AccountNameModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(db_type = "MySql", table_name = "account_password")]
+#[lsys_model(table_name = "account_password")]
 pub struct AccountPasswordModel {
     #[sqlx(default)]
     pub id: u64,
@@ -335,7 +335,7 @@ pub struct AccountPasswordModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(db_type = "MySql", table_name = "account_index")]
+#[lsys_model(table_name = "account_index")]
 pub struct AccountIndexModel {
     #[sqlx(default)]
     pub id: u64,

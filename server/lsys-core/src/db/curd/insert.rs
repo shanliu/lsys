@@ -2,50 +2,43 @@ use super::{
     FieldItem, ModelTableField, ModelTableName, ModelUpdateData, TableFields, Update, UpdateData,
 };
 use sqlx::query::Query;
+use sqlx::Error;
 use sqlx::{Arguments, Executor, IntoArguments};
-use sqlx::{Database, Error};
 use std::vec;
 
 /// 插入操作
-pub trait InsertData<'t, DB>
-where
-    DB: Database,
-{
+pub trait InsertData<'t> {
     fn columns(&self) -> Vec<FieldItem>;
     fn sqlx_bind<'q>(
         &'q self,
         field: &FieldItem,
-        res: Query<'q, DB, DB::Arguments<'q>>,
-    ) -> Query<'q, DB, DB::Arguments<'q>>;
+        res: Query<'q, sqlx::MySql, sqlx::mysql::MySqlArguments>,
+    ) -> Query<'q, sqlx::MySql, sqlx::mysql::MySqlArguments>;
     fn sqlx_string(&self, field: &FieldItem) -> Option<String>;
 }
-pub trait ModelInsertData<'t, DB, DT>: ModelTableField<DB> + ModelTableName
+pub trait ModelInsertData<'t, DT>: ModelTableField + ModelTableName
 where
-    DT: InsertData<'t, DB>,
-    DB: Database,
+    DT: InsertData<'t>,
 {
     fn insert_data(&'t self) -> DT;
 }
 
-pub struct Insert<'q, DB, T, DT>
+pub struct Insert<'q, T, DT>
 where
     T: ModelTableName,
-    DB: Database,
-    DT: InsertData<'q, DB>,
+    DT: InsertData<'q>,
 {
     pub val: Vec<DT>,
     pub fields: TableFields,
     _marker: (
         std::marker::PhantomData<T>,
         std::marker::PhantomData<&'q DT>,
-        std::marker::PhantomData<DB>,
     ),
 }
-impl<'q, DB, T, DT> Insert<'q, DB, T, DT>
+impl<'q, T, DT> Insert<'q, T, DT>
 where
     T: ModelTableName,
-    DT: InsertData<'q, DB>,
-    DB: Database,
+    DT: InsertData<'q>,
 {
     pub fn new(val: DT) -> Self {
         let column = val.columns();
@@ -68,7 +61,7 @@ where
     }
     pub fn model<'t: 'q, MI>(val: &'t MI) -> Self
     where
-        MI: ModelInsertData<'q, DB, DT>,
+        MI: ModelInsertData<'q, DT>,
     {
         let ival = val.insert_data();
         let column = ival.columns();
@@ -80,7 +73,7 @@ where
     }
     pub fn model_vec<'t: 'q, MI>(val: &'t Vec<MI>) -> Self
     where
-        MI: ModelInsertData<'q, DB, DT>,
+        MI: ModelInsertData<'q, DT>,
     {
         let mut vals = vec![];
         let mut fields = TableFields::new(vec![]);
@@ -126,8 +119,8 @@ where
     }
     pub fn bind_values<'t>(
         &'t self,
-        mut res: Query<'t, DB, DB::Arguments<'t>>,
-    ) -> Query<'t, DB, DB::Arguments<'t>> {
+        mut res: Query<'t, sqlx::MySql, sqlx::mysql::MySqlArguments>,
+    ) -> Query<'t, sqlx::MySql, sqlx::mysql::MySqlArguments> {
         for val in self.val.iter() {
             for field in &self.fields.0 {
                 res = val.sqlx_bind(field, res);
@@ -135,10 +128,11 @@ where
         }
         res
     }
-    pub async fn execute<'c, E>(self, executor: E) -> Result<<DB as Database>::QueryResult, Error>
+    pub async fn execute<'c, E>(self, executor: E) -> Result<sqlx::mysql::MySqlQueryResult, Error>
     where
-        for<'n> <DB as sqlx::Database>::Arguments<'n>: Arguments<'n> + IntoArguments<'n, DB>,
-        E: Executor<'c, Database = DB>,
+        for<'n> <sqlx::MySql as sqlx::Database>::Arguments<'n>:
+            Arguments<'n> + IntoArguments<'n, sqlx::MySql>,
+        E: Executor<'c, Database = sqlx::MySql>,
     {
         let table = T::table_name();
         let vals = self.sql_param();
@@ -154,14 +148,15 @@ where
     }
     pub async fn execute_update<'c, 't, CT, IT, E>(
         self,
-        update: &Update<'t, DB, IT, CT>,
+        update: &Update<'t, IT, CT>,
         executor: E,
-    ) -> Result<<DB as Database>::QueryResult, Error>
+    ) -> Result<sqlx::mysql::MySqlQueryResult, Error>
     where
-        IT: ModelUpdateData<'t, DB, CT>,
-        CT: UpdateData<'t, DB>,
-        for<'n> DB::Arguments<'n>: Arguments<'n> + IntoArguments<'n, DB>,
-        E: Executor<'c, Database = DB>,
+        IT: ModelUpdateData<'t, CT>,
+        CT: UpdateData<'t>,
+        for<'n> <sqlx::MySql as sqlx::Database>::Arguments<'n>:
+            Arguments<'n> + IntoArguments<'n, sqlx::MySql>,
+        E: Executor<'c, Database = sqlx::MySql>,
     {
         let table = T::table_name();
         let vals = self.sql_param();

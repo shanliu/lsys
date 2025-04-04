@@ -134,7 +134,7 @@ impl AccountMobile {
             None => self.db.begin().await?,
         };
 
-        let res = Insert::<sqlx::MySql, AccountMobileModel, _>::new(idata)
+        let res = Insert::<AccountMobileModel, _>::new(idata)
             .execute(&mut *db)
             .await;
         let aid = match res {
@@ -282,7 +282,7 @@ impl AccountMobile {
         });
         let mut db = self.db.begin().await?;
 
-        let tmp = Update::<sqlx::MySql, AccountMobileModel, _>::new(change)
+        let tmp = Update::< AccountMobileModel, _>::new(change)
             .execute_by_pk(account_mobile, &mut *db)
             .await;
         let res = match tmp {
@@ -347,7 +347,7 @@ impl AccountMobile {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let res = Update::<sqlx::MySql, AccountMobileModel, _>::new(change)
+        let res = Update::< AccountMobileModel, _>::new(change)
             .execute_by_pk(account_mobile, &mut *db)
             .await;
         let out = match res {

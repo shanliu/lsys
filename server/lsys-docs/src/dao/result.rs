@@ -1,4 +1,4 @@
-// use std::error::Error;
+
 // use std::fmt::Display;
 // use std::fmt::Formatter;
 
@@ -25,13 +25,6 @@ impl IntoFluentMessage for GitDocError {
     }
 }
 
-// impl Display for GitDocError {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-//         write!(f, "{:?}", self)
-//     }
-// }
-
-// impl Error for GitDocError {}
 impl From<git2::Error> for GitDocError {
     fn from(err: git2::Error) -> Self {
         GitDocError::Git(err)

@@ -54,7 +54,7 @@ pub async fn mailer_smtp_config_list(
 //系统应用邮件配置
 
 #[derive(Debug, Deserialize)]
-pub struct MailerAppSmtpConfigAddParam {
+pub struct MailerSmtpConfigAddParam {
     pub app_id: u64,
     pub smtp_config_id: u64,
     pub name: String,
@@ -65,8 +65,8 @@ pub struct MailerAppSmtpConfigAddParam {
     pub body_tpl_id: String,
 }
 
-pub async fn mailer_app_smtp_config_add(
-    param: &MailerAppSmtpConfigAddParam,
+pub async fn mailer_smtp_config_add(
+    param: &MailerSmtpConfigAddParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;

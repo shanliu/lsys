@@ -5,23 +5,23 @@ use crate::{
     model::{SenderMessageCancelModel, SenderType},
 };
 
+use lsys_core::db::{ModelTableField, ModelTableName, SqlExpr};
+use lsys_core::sql_format;
 use lsys_core::{now_time, AppCore};
 use parking_lot::Mutex;
 use sqlx::{FromRow, MySql, Pool};
-use lsys_core::{sql_format};
-use lsys_core::db::{ ModelTableField, ModelTableName, SqlExpr};
 
-use lsys_core::{TaskData, TaskItem};
 use lsys_core::db::SqlQuote;
+use lsys_core::{TaskData, TaskItem};
 
 //统一任务消息读取实现
 
 pub struct MessageReader<BM, MM>
 where
     for<'t> BM:
-        FromRow<'t, sqlx::mysql::MySqlRow> + Send + Unpin + ModelTableName + ModelTableField<MySql>,
+        FromRow<'t, sqlx::mysql::MySqlRow> + Send + Unpin + ModelTableName + ModelTableField,
     for<'t> MM:
-        FromRow<'t, sqlx::mysql::MySqlRow> + Send + Unpin + ModelTableName + ModelTableField<MySql>,
+        FromRow<'t, sqlx::mysql::MySqlRow> + Send + Unpin + ModelTableName + ModelTableField,
 {
     db: Pool<MySql>,
     id_generator: Arc<Mutex<snowflake::SnowflakeIdGenerator>>,
@@ -33,9 +33,9 @@ where
 impl<BM, MM> MessageReader<BM, MM>
 where
     for<'r> BM:
-        FromRow<'r, sqlx::mysql::MySqlRow> + Send + Unpin + ModelTableName + ModelTableField<MySql>,
+        FromRow<'r, sqlx::mysql::MySqlRow> + Send + Unpin + ModelTableName + ModelTableField,
     for<'t> MM:
-        FromRow<'t, sqlx::mysql::MySqlRow> + Send + Unpin + ModelTableName + ModelTableField<MySql>,
+        FromRow<'t, sqlx::mysql::MySqlRow> + Send + Unpin + ModelTableName + ModelTableField,
 {
     pub fn new(db: Pool<sqlx::MySql>, app_core: Arc<AppCore>, send_type: SenderType) -> Self {
         let id_generator = Arc::new(Mutex::new(app_core.create_snowflake_id_generator()));

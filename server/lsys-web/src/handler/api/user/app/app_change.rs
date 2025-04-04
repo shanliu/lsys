@@ -3,18 +3,16 @@ use crate::common::{JsonData, UserAuthQueryDao};
 use crate::dao::access::api::user::CheckUserAppEdit;
 use lsys_access::dao::AccessSession;
 use lsys_app::dao::AppDataParam;
+use serde::Deserialize;
 use serde_json::json;
-
+#[derive(Deserialize)]
 pub struct ChangeParam {
     pub app_id: u64,
     pub name: String,
     pub client_id: String,
 }
 
-pub async fn change(
-    param: &ChangeParam,
-    req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+pub async fn change(param: &ChangeParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let app = req_dao
         .web_dao
@@ -27,7 +25,8 @@ pub async fn change(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,Some(&auth_data),
+            &req_dao.req_env,
+            Some(&auth_data),
             &CheckUserAppEdit {
                 res_user_id: app.user_id,
             },
@@ -68,7 +67,7 @@ pub async fn change(
         .await?;
     Ok(JsonData::default())
 }
-
+#[derive(Deserialize)]
 pub struct ResetSecretParam {
     pub app_id: u64,
     pub secret: Option<String>,
@@ -90,7 +89,8 @@ pub async fn secret_reset(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,Some(&auth_data),
+            &req_dao.req_env,
+            Some(&auth_data),
             &CheckUserAppEdit {
                 res_user_id: app.user_id,
             },

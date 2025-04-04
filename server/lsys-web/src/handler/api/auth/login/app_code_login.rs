@@ -1,6 +1,6 @@
 use crate::{
     common::{CaptchaParam, JsonResult, UserAuthQueryDao},
-    dao::{access::common::CheckSystemLogin, ShowUserAuthData},
+    dao::{access::api::auth::CheckSystemLogin, ShowUserAuthData},
 };
 
 use lsys_user::dao::UserAuthToken;

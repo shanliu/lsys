@@ -29,6 +29,7 @@ impl WebApp {
                 Ok(self
                     .app_dao
                     .oauth_server
+                    .cache()
                     .get_scope(app)
                     .await?
                     .into_iter()
@@ -96,14 +97,49 @@ impl WebApp {
         let oauth_spoce_str = self
             .app_dao
             .oauth_client
-            .get_oauth_client_scope_data(app)
-            .await?;
+            .cache()
+            .find_by_app(app)
+            .await?
+            .scope_data;
         let mut oauth_spoce = oauth_spoce_str.split(",");
         for tmp in out.iter() {
             if !oauth_spoce.any(|e| e == tmp.key.as_str()) {
                 return Err(AppError::System(fluent_message!("app-bad-scope",{
                     "scope":&tmp.key
                 })));
+            }
+        }
+        Ok(out)
+    }
+    //获取指定APP的 spoce 数据
+    pub async fn app_oauth_client_get_scope_data(
+        &self,
+        app: &AppModel,
+    ) -> AppResult<Vec<ScopeItem>> {
+        let papp = if app.parent_app_id > 0 {
+            Some(
+                self.app_dao
+                    .app
+                    .cache()
+                    .find_by_id(&app.parent_app_id)
+                    .await?,
+            )
+        } else {
+            None
+        };
+        let oauth_spoce_str = self
+            .app_dao
+            .oauth_client
+            .cache()
+            .find_by_app(app)
+            .await?
+            .scope_data;
+        let oauth_spoce = oauth_spoce_str.split(",");
+        let server_spoce = self.app_oauth_server_scope_data(papp.as_ref()).await?;
+        let mut out = vec![];
+        for tmp in oauth_spoce {
+            if let Some(t) = server_spoce.iter().find(|e| e.key.as_str() == tmp) {
+                out.push(t.to_owned());
             }
         }
         Ok(out)

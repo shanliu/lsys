@@ -68,7 +68,7 @@ impl Account {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let tmp = Insert::<sqlx::MySql, AccountModel, _>::new(new_data)
+        let tmp = Insert::<AccountModel, _>::new(new_data)
             .execute(&mut *db)
             .await;
         let res = match tmp {
@@ -165,7 +165,7 @@ impl Account {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let tmp = Update::<sqlx::MySql, AccountModel, _>::new(change)
+        let tmp = Update::< AccountModel, _>::new(change)
             .execute_by_pk(account, &mut *db)
             .await;
         if let Err(ie) = tmp {
@@ -225,7 +225,7 @@ impl Account {
         });
         let del_name_ow = del_name.map(|e| e.to_string());
         change.nickname = del_name_ow.as_ref();
-        let tmp = Update::<sqlx::MySql, AccountModel, _>::new(change)
+        let tmp = Update::< AccountModel, _>::new(change)
             .execute_by_pk(account, &mut *db)
             .await;
         if let Err(e) = tmp {
@@ -281,7 +281,7 @@ impl Account {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let res = Update::<sqlx::MySql, AccountModel, _>::new(change)
+        let res = Update::< AccountModel, _>::new(change)
             .execute_by_pk(account, &mut *db)
             .await;
         let out = match res {

@@ -24,7 +24,7 @@ pub async fn mailer_tpl_body_list(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminMailMgr {})
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailMgr {})
         .await?;
 
     let data = req_dao
@@ -73,9 +73,9 @@ pub async fn mailer_tpl_body_add(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminMailMgr {}, )
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailMgr {})
         .await?;
-     let id = req_dao
+    let id = req_dao
         .web_dao
         .app_sender
         .tpl
@@ -105,7 +105,7 @@ pub async fn mailer_tpl_body_edit(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminMailMgr {})
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailMgr {})
         .await?;
     let tpl = req_dao.web_dao.app_sender.tpl.find_by_id(&param.id).await?;
     req_dao
@@ -135,7 +135,7 @@ pub async fn mailer_tpl_body_del(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminMailMgr {})
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailMgr {})
         .await?;
     let data = req_dao.web_dao.app_sender.tpl.find_by_id(&param.id).await?;
     req_dao

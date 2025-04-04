@@ -4,10 +4,8 @@ use deadpool_redis::CreatePoolError;
 use redis::RedisError;
 
 use std::env::VarError;
-// use std::error::Error;
-// use std::fmt::{Display, Formatter};
 
-use crate::{fluent_message, AppCore, FluentBundleError, FluentMessage, RemoteNotifyError};
+use crate::{fluent_message, FluentBundleError, FluentMessage, RemoteNotifyError};
 use crate::{ConfigError, IntoFluentMessage};
 #[derive(Debug)]
 pub enum AppCoreError {
@@ -46,12 +44,6 @@ impl IntoFluentMessage for AppCoreError {
     }
 }
 
-// impl Display for AppCoreError {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-//         write!(f, "{:?}", self)
-//     }
-// }
-// impl Error for AppCoreError {}
 impl From<sqlx::Error> for AppCoreError {
     fn from(err: sqlx::Error) -> Self {
         AppCoreError::Sqlx(err)
@@ -93,11 +85,6 @@ impl From<dotenv::Error> for AppCoreError {
         AppCoreError::Dotenv(err)
     }
 }
-// impl From<core::convert::Infallible> for AppCoreError {
-//     fn from(err: core::convert::Infallible) -> Self {
-//         AppCoreError::AppDir(err.to_string())
-//     }
-// }
 impl From<ConfigError> for AppCoreError {
     fn from(err: ConfigError) -> Self {
         AppCoreError::Config(err)
@@ -113,5 +100,3 @@ impl From<FluentBundleError> for AppCoreError {
         AppCoreError::Fluent(err)
     }
 }
-
-pub type AppCoreResult = Result<AppCore, AppCoreError>;

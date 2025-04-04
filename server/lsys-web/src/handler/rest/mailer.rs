@@ -23,14 +23,16 @@ pub async fn send(param: &SendParam, app: &AppModel, req_dao: &RequestDao) -> Js
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, None, &CheckRestApp { app_id: app.id })
+        .check(&req_dao.req_env, None, &CheckRestApp {})
         .await?;
 
     req_dao
         .web_dao
-        .app_sender
-        .mailer
-        .app_feature_check(app)
+        .web_app
+        .app_dao
+        .app
+        .cache()
+        .exter_feature_check(app, &[crate::handler::APP_FEATURE_MAIL])
         .await?;
 
     let send_time = if let Some(ref t) = param.send_time {
