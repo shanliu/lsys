@@ -1,4 +1,3 @@
-app-error = Send error, details:{$msg}
 utf-parse-error = String is not a valid UTF character, error details:{$msg}
 valid-code-tag-len = Checksum KEY[{$tag}] max length:{$max}
 valid-code-submit-empty = The code is not empty.

@@ -146,9 +146,11 @@ impl SenderHwYunConfig {
             ));
         }
         if !url.starts_with("http://") && !url.starts_with("https://") {
-            return Err(SenderError::System(fluent_message!("sms-config-url-error",
-                {"url":url}
-            ))); //"your submit url [{}] is wrong",
+            return Err(SenderError::System(
+                fluent_message!("sms-hw-config-url-error",
+                    {"url":url}
+                ),
+            )); //"your submit url [{}] is wrong",
         }
         Ok(self
             .setting
@@ -192,9 +194,11 @@ impl SenderHwYunConfig {
             ));
         }
         if !url.starts_with("http://") && !url.starts_with("https://") {
-            return Err(SenderError::System(fluent_message!("sms-config-url-error",
-                {"url":url}
-            )));
+            return Err(SenderError::System(
+                fluent_message!("sms-hw-config-url-error",
+                    {"url":url}
+                ),
+            ));
         }
         Ok(self
             .setting

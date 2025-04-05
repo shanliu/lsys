@@ -87,7 +87,7 @@ pub async fn parse_image(
             })),
             BarcodeParseRecord::Fail(t) => Err(JsonError::Message(fluent_message!(
                 "barcode-parse-error",
-                t.record
+                {"record":t.record}
             ))),
         },
         Err(err) => Err(err.into()),

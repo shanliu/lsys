@@ -24,7 +24,9 @@ impl SessionBody {
     pub fn account_id(&self) -> AccessResult<u64> {
         if self.user.app_id != 0 {
             return Err(AccessError::BadAccount(fluent_message!(
-                "access-not-account"
+                "access-not-account",{
+                    "appid": self.user.app_id
+                }
             )));
         }
         match self.user.user_data.parse::<u64>() {

@@ -62,7 +62,7 @@ pub async fn role_user_add(
             Some(user_model) => {
                 if user_model.app_id != 0 {
                     return Err(JsonError::Message(fluent_message!(
-                        "role_user_not_system_user",
+                        "role-user-not-system-user",
                         {
                             "user_name": user_model.user_name,
                             "user_id": user_model.id,
@@ -77,7 +77,7 @@ pub async fn role_user_add(
             }
             None => {
                 return Err(JsonError::Message(fluent_message!(
-                    "role_user_not_found",
+                    "role-user-not-found",
                     {
                         "user_id": user_item.user_id
                     }

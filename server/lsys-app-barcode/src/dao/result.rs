@@ -22,7 +22,7 @@ impl IntoFluentMessage for BarCodeError {
             BarCodeError::DB(e) => fluent_message!("sqlx-error", e),
             BarCodeError::RXing(e) => fluent_message!("rxing-error", e),
             BarCodeError::Io(e) => fluent_message!("io-error", e),
-            BarCodeError::Image(e) => fluent_message!("image-error", e),
+            BarCodeError::Image(e) => fluent_message!("barcode-image-error", e),
         }
     }
 }

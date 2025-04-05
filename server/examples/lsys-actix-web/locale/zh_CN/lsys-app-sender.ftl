@@ -1,13 +1,10 @@
+
+
 tpl-exits  = 模板ID {$tpl_id} 已被使用 [{$id}]
-check-email-error = 邮箱正则异常:{$msg}
 check-email-not-match  =  = 邮箱[{$mail}]格式错误
 smtp-check-error   = Smpt服务器异常:{$msg}
-sms-config-url-error  = 网关地址错误,仅支持http或https.
-sms-config-branch-error  = 批量发送数量不能超过:{$max}
-
 mail-send-fail = 邮件发送失败:{$msg}
 mail-send-wait-fail = 邮件发送中,获取发送结果失败:{$msg}
-mail-cancel-status-error = 邮件非待发送状态:{$status}
 mail-config-add-error  = 邮件配置:字段{$name}校验失败:{$msg}
 mail-config-add-max-num-error = 请提交每次最大邮件限制发送数
 mail-send-check-miss-error =  接收邮箱为空
@@ -19,6 +16,7 @@ mail-send-check-limit  = 接收邮箱[{$to_mail}]超过最大发送量:{$max_sen
 mail-task-empty = 未配置邮件发送任务
 mail-send-cancel-status-bad=当前状态不可被取消
 mail-send-cancel-is-ing  = 邮件发送中,无法取消
+mail-cancel-status-error = 邮件非待发送状态:{$status}
 sms-send-cancel-status-bad=当前状态不可被取消
 sms-send-cancel-is-ing  = 短信发送中,无法取消
 sms-cancel-status-error  = 短信非待发送状态:{$status}
@@ -33,3 +31,5 @@ sms-send-check-close  =  短信发送功能已被关闭[{$config_id}]
 sms-send-check-limit  = 接收号码[{$mobile}]超过最大发送量:{$max_send}[{$config_id}]
 sms-task-empty = 未配置短信发送任务
 sms-status-task-empty = 未配置短信状态检测任务
+sms-hw-config-url-error=华为接口短信发送地址配置异常
+sms-config-branch-error  = 批量发送数量不能超过:{$max}

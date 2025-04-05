@@ -151,7 +151,7 @@ pub(crate) async fn user_data(
             &EncodingKey::from_secret(app_jwt_key.as_bytes()),
         )
         .map_err(|e| {
-            auth_dao.fluent_error_json_data(&JsonError::Message(fluent_message!("app-error", e)))
+            auth_dao.fluent_error_json_data(&JsonError::Message(fluent_message!("system-error", e)))
         })?;
         Some(token)
     } else {

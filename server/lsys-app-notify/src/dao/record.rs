@@ -80,7 +80,9 @@ impl NotifyRecord {
         env_data: Option<&RequestEnv>,
     ) -> NotifyResult<u64> {
         if !call_url.starts_with("http://") && !call_url.starts_with("https://") {
-            return Err(NotifyError::System(fluent_message!("notify-not-support")));
+            return Err(NotifyError::System(fluent_message!(
+                "notify-call-not-support"
+            )));
         }
         let client = reqwest::Client::builder();
         let client = client
@@ -91,7 +93,12 @@ impl NotifyRecord {
             .request(Method::POST, call_url)
             .send()
             .await
-            .map_err(|e| NotifyError::System(fluent_message!("notify-reqwest-check-error", e)))?;
+            .map_err(|e| {
+                NotifyError::System(fluent_message!("notify-reqwest-check-error", {
+                    "msg":e,
+                    "url":call_url,
+                }))
+            })?;
 
         let call_url = call_url.to_owned();
         let change_user_id = change_user_id.to_owned();
@@ -103,29 +110,28 @@ impl NotifyRecord {
                     change_time:create_time,
                     change_user_id:change_user_id,
                 });
-                Update::< NotifyConfigModel, _>::new(change)
+                Update::<NotifyConfigModel, _>::new(change)
                     .execute_by_pk(&row, &self.db)
                     .await?;
                 row.id
             }
             Err(NotifyError::Sqlx(sqlx::Error::RowNotFound)) => {
                 let method = method.to_owned();
-                let res = Insert::<NotifyConfigModel, _>::new(
-                    model_option_set!(NotifyConfigModelRef ,{
+                let res =
+                    Insert::<NotifyConfigModel, _>::new(model_option_set!(NotifyConfigModelRef ,{
                         app_id: app.id,
                         method: method,
                         call_url:call_url,
                         app_user_id:app.user_id,
                         change_user_id: change_user_id,
                         create_time: create_time,
-                    }),
-                )
-                .execute(&self.db)
-                .await
-                .map_err(|e| {
-                    warn!("add notify error fail:{}", e);
-                    e
-                })?;
+                    }))
+                    .execute(&self.db)
+                    .await
+                    .map_err(|e| {
+                        warn!("add notify error fail:{}", e);
+                        e
+                    })?;
                 res.last_insert_id()
             }
             Err(err) => {
@@ -154,21 +160,20 @@ impl NotifyRecord {
         let payload = data.to_owned();
         let create_time = now_time().unwrap_or_default();
         let status = NotifyDataStatus::Init as i8;
-        let res =
-            Insert::<NotifyDataModel, _>::new(model_option_set!(NotifyDataModelRef ,{
-                app_id:app_id,
-                method: method,
-                payload: payload,
-                status: status,
-                try_num: 0,
-                create_time: create_time,
-            }))
-            .execute(&self.db)
-            .await
-            .map_err(|e| {
-                warn!("add notify error fail:{}", e);
-                e
-            })?;
+        let res = Insert::<NotifyDataModel, _>::new(model_option_set!(NotifyDataModelRef ,{
+            app_id:app_id,
+            method: method,
+            payload: payload,
+            status: status,
+            try_num: 0,
+            create_time: create_time,
+        }))
+        .execute(&self.db)
+        .await
+        .map_err(|e| {
+            warn!("add notify error fail:{}", e);
+            e
+        })?;
         Ok(res.last_insert_id())
     }
 

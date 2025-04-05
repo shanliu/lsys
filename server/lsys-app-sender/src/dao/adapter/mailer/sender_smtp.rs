@@ -108,7 +108,7 @@ pub struct SmtpTplConfig {
 
 pub fn check_email(email: &str) -> SenderResult<()> {
     let re = Regex::new(r"^[A-Za-z0-9\u4e00-\u9fa5\.\-]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$")
-        .map_err(|e| SenderError::System(lsys_core::fluent_message!("reg-rule-wrong", e)))?;
+        .map_err(|e| SenderError::System(lsys_core::fluent_message!("rule-error", e)))?;
     if !re.is_match(email) {
         return Err(SenderError::System(
             lsys_core::fluent_message!("check-email-not-match",

@@ -111,10 +111,10 @@ impl FluentFormat for lsys_app_barcode::dao::BarCodeError {
                 fluent.format_message(&fluent_message!("lsys-rxing-error", err))
             }
             lsys_app_barcode::dao::BarCodeError::Io(err) => {
-                fluent.format_message(&fluent_message!("lsys-io-error", err))
+                fluent.format_message(&fluent_message!("io-error", err))
             }
             lsys_app_barcode::dao::BarCodeError::Image(err) => {
-                fluent.format_message(&fluent_message!("lsys-image-error", err))
+                fluent.format_message(&fluent_message!("barcode-image-error", err))
             }
         }
     }

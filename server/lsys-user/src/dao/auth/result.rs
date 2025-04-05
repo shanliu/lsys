@@ -7,9 +7,6 @@ use lsys_core::{fluent_message, FluentMessage, IntoFluentMessage, ValidCodeError
 
 use redis::RedisError;
 
-
-
-
 use std::string::FromUtf8Error;
 
 use std::time::SystemTimeError;

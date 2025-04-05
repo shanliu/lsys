@@ -19,6 +19,11 @@ doc-git-menu-file-error = 在{$tag}中读取目录{$file_path}异常:{$msg}
 doc-git-menu-file-empty = 在{$tag}中读取目录{$file_path}内容为空
 doc-git-menu-file-parse-error = 在{$tag}中读取目录{$file_path}内容无法解析为JSON:{$msg}
 doc-git-menu-path-isfind =  在{$tag}中已存在目录:{$menu_path}  
+doc-git-rule-encode-error=清理规则地址异常：{$msg}
+doc-git-error=git异常:{$msg}
 doc-menu-file-path-access = 无法访问读取路径:{$path}
 doc-notify-channel-close = 发送同步任务时发生异常:{$msg}
 doc-notify-call-fail = 通知节点继续删除时异常:{$msg}
+
+
+

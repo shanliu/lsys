@@ -162,9 +162,7 @@ impl App {
             change_user_id:add_user_id,
             change_time:time,
         });
-        let res = Insert::<AppModel, _>::new(idata)
-            .execute(&mut *db)
-            .await;
+        let res = Insert::<AppModel, _>::new(idata).execute(&mut *db).await;
         let app_id = match res {
             Err(e) => {
                 db.rollback().await?;
@@ -304,7 +302,7 @@ impl App {
                 name:name,
                 client_id:client_id
             });
-            let req_res = Update::< AppModel, _>::new(change)
+            let req_res = Update::<AppModel, _>::new(change)
                 .execute_by_pk(app, &mut *db)
                 .await;
             if let Err(e) = req_res {
@@ -318,7 +316,7 @@ impl App {
         let change = model_option_set!(AppRequestModelRef,{
             status:req_status,
         });
-        let req_res = Update::< AppRequestModel, _>::new(change)
+        let req_res = Update::<AppRequestModel, _>::new(change)
             .execute_by_where(
                 &lsys_core::db::WhereOption::Where(sql_format!(
                     "app_id={} and request_type in ({})",
@@ -471,9 +469,9 @@ impl App {
                 return Err(err.into());
             }
         }
- let time = now_time()?;
+        let time = now_time()?;
         let mut db = self.db.begin().await?;
-       
+
         let status = AppStatus::Enable as i8;
 
         let change = model_option_set!(AppModelRef,{
@@ -483,7 +481,7 @@ impl App {
             change_user_id:confirm_user_id,
             change_time:time
         });
-        let req_res = Update::< AppModel, _>::new(change)
+        let req_res = Update::<AppModel, _>::new(change)
             .execute_by_pk(app, &mut *db)
             .await;
         if let Err(e) = req_res {
@@ -500,7 +498,7 @@ impl App {
             confirm_time:time,
             confirm_note:confirm_note,
         });
-        let req_res = Update::< AppRequestModel, _>::new(change)
+        let req_res = Update::<AppRequestModel, _>::new(change)
             .execute_by_pk(req, &mut *db)
             .await;
         if let Err(e) = req_res {
@@ -552,9 +550,9 @@ impl App {
         if ![AppStatus::Enable as i8, AppStatus::Init as i8].contains(&app.status) {
             return Err(AppError::System(fluent_message!("app-req-status-invalid")));
         }
-  let time = now_time()?;
+        let time = now_time()?;
         let mut db = self.db.begin().await?;
-      
+
         let status = AppStatus::Disable as i8;
 
         let change = model_option_set!(AppModelRef,{
@@ -562,7 +560,7 @@ impl App {
             change_user_id:disable_user_id,
             change_time:time
         });
-        let req_res = Update::< AppModel, _>::new(change)
+        let req_res = Update::<AppModel, _>::new(change)
             .execute_by_pk(app, &mut *db)
             .await;
         if let Err(e) = req_res {
@@ -577,7 +575,7 @@ impl App {
             confirm_user_id:disable_user_id,
             confirm_time:time,
         });
-        let req_res = Update::< AppRequestModel, _>::new(change)
+        let req_res = Update::<AppRequestModel, _>::new(change)
             .execute_by_where(
                 &lsys_core::db::WhereOption::Where(sql_format!(
                     "app_id={} and status={}",
@@ -626,9 +624,10 @@ impl App {
     ) -> AppResult<()> {
         if AppStatus::Delete.eq(app.status) {
             return Ok(());
-        }  let time = now_time()?;
+        }
+        let time = now_time()?;
         let mut db = self.db.begin().await?;
-      
+
         let status = AppStatus::Delete as i8;
 
         let change = model_option_set!(AppModelRef,{
@@ -636,7 +635,7 @@ impl App {
             change_user_id:delete_user_id,
             change_time:time
         });
-        let req_res = Update::< AppModel, _>::new(change)
+        let req_res = Update::<AppModel, _>::new(change)
             .execute_by_pk(app, &mut *db)
             .await;
         if let Err(e) = req_res {
@@ -651,7 +650,7 @@ impl App {
             confirm_user_id:delete_user_id,
             confirm_time:time,
         });
-        let req_res = Update::< AppRequestModel, _>::new(change)
+        let req_res = Update::<AppRequestModel, _>::new(change)
             .execute_by_where(
                 &lsys_core::db::WhereOption::Where(sql_format!(
                     "app_id={} and status={}",
@@ -710,7 +709,7 @@ impl App {
             })));
         }
         let re = Regex::new(r"^[a-z0-9]+$")
-            .map_err(|e| AppError::System(fluent_message!("reg-rule-wrong", e)))?;
+            .map_err(|e| AppError::System(fluent_message!("rule-error", e)))?;
         if !re.is_match(&client_id) {
             return Err(AppError::System(fluent_message!("auth-alpha-check-error")));
         }
@@ -731,7 +730,7 @@ impl App {
                     return Err(AppError::System(fluent_message!("app-secret-wrong")));
                 }
                 let re = Regex::new(r"^[a-f0-9]+$")
-                    .map_err(|e| AppError::System(fluent_message!("reg-rule-wrong", e)))?;
+                    .map_err(|e| AppError::System(fluent_message!("rule-error", e)))?;
                 if !re.is_match(&secret) {
                     return Err(AppError::System(fluent_message!("app-secret-wrong")));
                 }
@@ -747,7 +746,7 @@ impl App {
             change_user_id:change_user_id,
             change_time:time,
         });
-        Update::< AppModel, _>::new(change)
+        Update::<AppModel, _>::new(change)
             .execute_by_pk(app, &self.db)
             .await?;
         self.id_cache.clear(&app.id).await;

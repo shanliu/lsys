@@ -354,7 +354,7 @@ impl AppOAuthClient {
                 confirm_time:time,
                 confirm_note:confirm_note,
             });
-            Update::< AppRequestModel, _>::new(change)
+            Update::<AppRequestModel, _>::new(change)
                 .execute_by_pk(&req, &self.db)
                 .await?;
             return Ok(());
@@ -411,7 +411,7 @@ impl AppOAuthClient {
                     change_user_id:confirm_user_id,
                     change_time:time
                 });
-                let cres = Update::< AppFeatureModel, _>::new(change)
+                let cres = Update::<AppFeatureModel, _>::new(change)
                     .execute_by_where(&WhereOption::Where(sql_format!("id={}", oid)), &mut *db)
                     .await;
                 if let Err(err) = cres {
@@ -456,7 +456,7 @@ impl AppOAuthClient {
                     change_user_id:confirm_user_id,
                     change_time:time
                 });
-                let cres = Update::< AppOAuthClientModel, _>::new(change)
+                let cres = Update::<AppOAuthClientModel, _>::new(change)
                     .execute_by_where(&WhereOption::Where(sql_format!("id={}", oid)), &mut *db)
                     .await;
                 if let Err(err) = cres {
@@ -494,7 +494,7 @@ impl AppOAuthClient {
             confirm_time:time,
             confirm_note:confirm_note,
         });
-        let cres = Update::< AppRequestModel, _>::new(change)
+        let cres = Update::<AppRequestModel, _>::new(change)
             .execute_by_pk(&req, &mut *db)
             .await;
         if let Err(err) = cres {
@@ -574,7 +574,7 @@ impl AppOAuthClient {
                 confirm_time:time,
                 confirm_note:confirm_note,
             });
-            Update::< AppRequestModel, _>::new(change)
+            Update::<AppRequestModel, _>::new(change)
                 .execute_by_pk(req, &self.db)
                 .await?;
             return Ok(());
@@ -600,7 +600,7 @@ impl AppOAuthClient {
             change_user_id:confirm_user_id,
             change_time:time
         });
-        let cres = Update::< AppOAuthClientModel, _>::new(change)
+        let cres = Update::<AppOAuthClientModel, _>::new(change)
             .execute_by_where(
                 &lsys_core::db::WhereOption::Where(sql_format!("app_id={}", app.id)),
                 &mut *db,
@@ -618,7 +618,7 @@ impl AppOAuthClient {
             confirm_time:time,
             confirm_note:confirm_note,
         });
-        let cres = Update::< AppRequestModel, _>::new(change)
+        let cres = Update::<AppRequestModel, _>::new(change)
             .execute_by_pk(req, &mut *db)
             .await;
         if let Err(err) = cres {
@@ -688,7 +688,7 @@ impl AppOAuthClient {
                 } else {
                     oauth_secret = Some(old_oauth_secret)
                 }
-                Update::< AppOAuthClientModel, _>::new(change)
+                Update::<AppOAuthClientModel, _>::new(change)
                     .execute_by_where(&WhereOption::Where(sql_format!("id={}", oid)), &self.db)
                     .await?;
             }
@@ -739,11 +739,11 @@ impl AppOAuthClient {
         let domain_opt = req.callback_domain.map(|e| e.trim().to_string());
         if let Some(ref domain) = domain_opt {
             let ipre = Regex::new(r"^[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}(:[\d]{1,5})?$")
-                .map_err(|e| AppError::System(fluent_message!("reg-rule-wrong", e)))?;
+                .map_err(|e| AppError::System(fluent_message!("rule-error", e)))?;
             let dre = Regex::new(
                 r"^[0-9a-zA-Z]{0,1}[0-9a-zA-Z-]*(\.[0-9a-zA-Z-]*)*(\.[0-9a-zA-Z]*)+(:[\d]{1,5})?$",
             )
-            .map_err(|e| AppError::System(fluent_message!("reg-rule-wrong", e)))?;
+            .map_err(|e| AppError::System(fluent_message!("rule-error", e)))?;
             if !ipre.is_match(domain) && !dre.is_match(domain) {
                 return Err(AppError::System(fluent_message!("auth-alpha-domain-error")));
             }
@@ -761,7 +761,7 @@ impl AppOAuthClient {
                 return Err(AppError::System(fluent_message!("app-secret-wrong")));
             }
             let re = Regex::new(r"^[a-f0-9]+$")
-                .map_err(|e| AppError::System(fluent_message!("reg-rule-wrong", e)))?;
+                .map_err(|e| AppError::System(fluent_message!("rule-error", e)))?;
             if !re.is_match(secret) {
                 return Err(AppError::System(fluent_message!("app-secret-wrong")));
             }

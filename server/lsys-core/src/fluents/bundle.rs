@@ -171,17 +171,9 @@ pub struct FluentBundle {
 }
 
 impl FluentBundle {
-    fn find_fluent_bundle(
-        &self,
-        crate_name: &str,
-    ) -> Option<&fluent::bundle::FluentBundle<FluentResource, IntlLangMemoizer>> {
-        self.fluent_bundles
-            .get(crate_name)
-            .or(self.default_bundle.as_ref())
-    }
     pub fn format_message(&self, message: &FluentMessage) -> String {
-        self.find_fluent_bundle(&message.crate_name)
-            .and_then(|fluent| {
+        let message_find =
+            |fluent: &fluent::bundle::FluentBundle<FluentResource, IntlLangMemoizer>| {
                 fluent.get_message(&message.id).and_then(|msg| {
                     msg.value().map(|pattern| {
                         let mut args: fluent::FluentArgs = fluent::FluentArgs::new();
@@ -198,7 +190,11 @@ impl FluentBundle {
                             .to_string()
                     })
                 })
-            })
+            };
+        self.fluent_bundles
+            .get(&message.crate_name)
+            .and_then(message_find)
+            .or(self.default_bundle.as_ref().and_then(message_find))
             .unwrap_or_else(|| {
                 if message.data.is_empty() {
                     message.id.to_string()

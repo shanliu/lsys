@@ -112,7 +112,7 @@ impl AppOAuthServer {
         .await?;
 
         let re = Regex::new(r"^[a-z0-9_]+$")
-            .map_err(|e| AppError::System(fluent_message!("reg-rule-wrong", e)))?;
+            .map_err(|e| AppError::System(fluent_message!("rule-error", e)))?;
 
         let time = now_time()?;
         let mut add_data = vec![];

@@ -28,23 +28,23 @@ impl FromStr for OpCacheKey {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut token_split = s.split('-');
         let user_id = token_split.next().ok_or_else(|| {
-            RbacError::System(fluent_message!("parse-op-str-fail",{
+            RbacError::System(fluent_message!("rbac-parse-op-str-fail",{
                 "token":s
             }))
         })?;
         let user_id = user_id.parse::<u64>().map_err(|e| {
-            RbacError::System(fluent_message!("parse-op-str-fail",{
+            RbacError::System(fluent_message!("rbac-parse-op-str-fail",{
                 "token":s,
                 "msg":e
             }))
         })?;
         let app_id = token_split.next().ok_or_else(|| {
-            RbacError::System(fluent_message!("parse-op-str-fail",{
+            RbacError::System(fluent_message!("rbac-parse-op-str-fail",{
                 "token":s
             }))
         })?;
         let app_id = app_id.parse::<u64>().map_err(|e| {
-            RbacError::System(fluent_message!("parse-op-str-fail",{
+            RbacError::System(fluent_message!("rbac-parse-op-str-fail",{
                 "token":s,
                 "msg":e
             }))
@@ -52,7 +52,7 @@ impl FromStr for OpCacheKey {
         let op_key = token_split
             .next()
             .ok_or_else(|| {
-                RbacError::System(fluent_message!("parse-op-str-fail",{
+                RbacError::System(fluent_message!("rbac-parse-op-str-fail",{
                     "token":s
                 }))
             })?

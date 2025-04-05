@@ -80,7 +80,7 @@ impl AppBarCode {
         image_buffer
             .write_to(&mut cursor, image_format)
             .map_err(|e| {
-                JsonError::Message(fluent_message!("barcode-bad-image-error",{
+                JsonError::Message(fluent_message!("barcode-image-error",{
                     "err":e
                 }))
             })?;

@@ -177,7 +177,7 @@ impl ValidCode {
         let (code, llt) = self.get_code(tag).await?;
         if code.is_empty() || llt <= 1 {
             return Err(ValidCodeError::DelayTimeout(ValidCodeCheckError {
-                message: fluent_message!("valid-code-timeout"), //"code is timeout".to_string()
+                message: fluent_message!("valid-code-bad"),
                 prefix: self.prefix.to_owned(),
             }));
         }

@@ -31,7 +31,7 @@ impl IntoFluentMessage for AppCoreError {
             AppCoreError::Env(err) => fluent_message!("env-error", err),
             AppCoreError::Tera(err) => fluent_message!("tera-error", err),
             AppCoreError::Io(err) => fluent_message!("file-error", err),
-            AppCoreError::System(err) => fluent_message!("app-error", err),
+            AppCoreError::System(err) => fluent_message!("system-error", err),
             AppCoreError::Log(err) => fluent_message!("log-error", err),
             AppCoreError::Redis(err) => fluent_message!("redis-error", err),
             AppCoreError::RedisPool(err) => fluent_message!("redis-error", err),

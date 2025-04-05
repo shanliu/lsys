@@ -1,6 +1,3 @@
-
-
-
 use lsys_core::{fluent_message, FluentMessage, IntoFluentMessage};
 #[derive(Debug)]
 pub enum SettingError {
@@ -13,7 +10,7 @@ impl IntoFluentMessage for SettingError {
     fn to_fluent_message(&self) -> FluentMessage {
         match self {
             Self::Sqlx(err) => fluent_message!("sqlx-error", err),
-            Self::SerdeJson(err) => fluent_message!("serde-error", err),
+            Self::SerdeJson(err) => fluent_message!("serde-json-error", err),
         }
     }
 }

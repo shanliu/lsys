@@ -48,7 +48,7 @@ fn inner_app_self_check(app: &AppModel, res_app_id: u64) -> JsonResult<()> {
     if app.id != res_app_id {
         return Err(JsonError::JsonData(
             JsonData::default().set_code(403),
-            fluent_message!("bad_app_id"),
+            fluent_message!("bad-app-id"),
         ));
     }
     Ok(())

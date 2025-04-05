@@ -174,7 +174,7 @@ impl AppCoreCreate for BaseAppCoreCreate {
     }
     async fn create_fluent(&self, app_core: &AppCore) -> Result<FluentMgr, AppCoreError> {
         let path = { app_core.config_path(app_core.config.find(None), "fluent_dir")? };
-        let fluent = FluentMgr::new(path, "app", None).await?;
+        let fluent = FluentMgr::new(path, "lsys", None).await?;
         Ok(fluent)
     }
 }

@@ -282,7 +282,7 @@ pub async fn sub_app_secret_view(
     if app.parent_app_id == 0 {
         return Err(JsonError::JsonData(
             JsonData::default().set_code(403),
-            fluent_message!("app-error", "can't see system app"),
+            fluent_message!("system-error", "can't see system app"),
         ));
     }
     let parent_app = req_dao

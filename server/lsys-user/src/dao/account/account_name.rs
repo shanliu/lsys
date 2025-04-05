@@ -77,7 +77,7 @@ impl AccountName {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let res = Update::< AccountNameModel, _>::new(name_change)
+        let res = Update::<AccountNameModel, _>::new(name_change)
             .execute_by_where(
                 &WhereOption::Where(sql_format!("account_id={}", account.id)),
                 &mut *db,
@@ -127,7 +127,7 @@ impl AccountName {
         let username = username.trim().to_string();
         if username.len() < 3 || username.len() > 32 || username.starts_with("delete_") {
             return Err(AccountError::System(
-                fluent_message!("user-AccountName-error",
+                fluent_message!("user-account-name-error",
                     {
                         "len":username.len(),
                         "min":3,
@@ -220,7 +220,7 @@ impl AccountName {
                             Some(pb) => pb.begin().await?,
                             None => self.db.begin().await?,
                         };
-                        let tmp = Update::< AccountNameModel, _>::new(change)
+                        let tmp = Update::<AccountNameModel, _>::new(change)
                             .execute_by_pk(&account_name, &mut *db)
                             .await;
                         if let Err(ie) = tmp {

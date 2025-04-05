@@ -62,7 +62,7 @@ pub async fn app_role_perm_add(
             op
         } else {
             return Err(JsonError::Message(fluent_message!(
-                "role_prem_bad_op",{
+                "role-prem-bad-op",{
                     "op_id":pr.op_id
                 }
             )));
@@ -75,7 +75,7 @@ pub async fn app_role_perm_add(
             res
         } else {
             return Err(JsonError::Message(fluent_message!(
-                "role_prem_bad_res",{
+                "role-prem-bad-res",{
                     "res_id":pr.res_id
                 }
             )));
@@ -138,7 +138,7 @@ pub async fn app_role_perm_del(
             op
         } else {
             return Err(JsonError::Message(fluent_message!(
-                "role_prem_bad_op",{
+                "role-prem-bad-op",{
                     "op_id":pr.op_id
                 }
             )));
@@ -147,7 +147,7 @@ pub async fn app_role_perm_del(
             op
         } else {
             return Err(JsonError::Message(fluent_message!(
-                "role_prem_bad_res",{
+                "role-prem-bad-res",{
                     "res_id":pr.res_id
                 }
             )));
