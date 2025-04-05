@@ -1,13 +1,16 @@
-jwt-encode-error = JWT generation error:{$msg}
-
-wechat-parse-state-error= state error:{$msg}
-
-time-format-error=Date parsing exception: {$msg}
-
-time-zone-error=Date time zone exception.
-
-lsys-lib-area-error=Database exception:{$msg}
-area-not-found=Address information not found.
-areaa-store-error=Store exception:{$msg}
-area-tantivy-error=Search exception:{$msg}
-rule-error = 校验规则异常,正则错误:{$msg}
+system-error = System error: {$msg}
+system-unauthor = Unauthorized system access: {$msg}
+rule-error = Rule validation failed: {$msg}
+sqlx-error = Database error: {$msg}
+redis-error = Cache error: {$msg}
+tera-error = Template engine error: {$msg}
+log-error = Logging error: {$msg}
+env-error = Environment variable error: {$msg}
+file-error = File system error: {$msg}
+config-error = Configuration error: {$msg}
+utf-parse-error = Invalid UTF-8 string: {$msg}
+time-format-error = Date/time parsing error: {$msg}
+time-zone-error = Invalid time zone
+serde-json-error = JSON parsing error: {$msg}
+time-error = System clock error: {$msg}
+io-error = I/O error: {$msg}

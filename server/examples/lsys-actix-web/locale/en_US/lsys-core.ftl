@@ -1,5 +1,10 @@
-utf-parse-error = String is not a valid UTF character, error details:{$msg}
-valid-code-tag-len = Checksum KEY[{$tag}] max length:{$max}
-valid-code-submit-empty = The code is not empty.
-valid-code-not-match = The submitted code [{$code}] does not match.
-wait-notify-timeout=Wait to send timeout
+fluent-file-error = Localization file error: {$msg}
+fluent-error = Localization system error: {$msg}
+wait-recv-fail = Error waiting to receive data: {$msg}
+wait-notify-timeout = Timeout while waiting to send notification
+notify-error = Remote notification failure: {$msg}
+notify-time-out = Remote notification timed out: {$msg}
+valid-code-tag-len = Verification code [{$tag}] exceeds maximum length: {$max}
+valid-code-bad = Verification code expired or invalid. Please request a new one.
+valid-code-not-match = Submitted verification code [{$code}] does not match
+valid-code-submit-empty = Verification code cannot be empty

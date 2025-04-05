@@ -1,50 +1,41 @@
-mail-send-check = Mailbox address error:{$msg}
-mail-send-error = Failed to send mail:{$msg}
-mail-send-reply-check = Wrong e-mail reply address:{$msg}
-sms-send-check = Cell phone number error:{$msg}
- 
-user-external-oauth-error = Failed to load external login configuration:{$msg}
-user-external-login-url = Failed to load external login url:{$msg}
- 
-user-external-call = Failed to request external account information:{$msg}
-
-user-external-other-bind = Account {$name} is bound to another user:{$name}
-rbac-edit-role-bad-user = This role cannot add other users resources
-rbac-unkown-res = Resource {$res} does not exist
-rbac-bad-res-op = Resource operation id [{$op_id}] is not available
-mail-use-other-user-app = Illegal app send mailbox operation
-sms-use-other-user-app = Illegal to send sms from app
-address-miss-city = Please select an address at the county level.
- 
-address-bad-area = The submitted area code does not exist.
-mail-bind-other-user = Mailbox is bound to another account [{$other_user_id}].
- 
-rbac-check-fail = permission check failed
-db-not-found = Result does not exist
-db-error = database error:{$msg}
-
-user-old-passwrod-bad= The original password was submitted incorrectly.
-user-old-passwrod-empty= Please submit the original password.
-
-mail-is-confirm=The mailbox has been confirmed.
-
-email-bad-status=Mailbox {$email} does not exist.
-mobile-bad-status=Mobile phone {$mobile} does not exist.
-
-external-not-support=The login type {$name} is not supported.
-
-username-is-exists=Account already exists: {$id}
-
-password-not-set=The login password is not set.
-
-client-secret-not-match=Secret does not match.
-
-
-app-redirect-uri-not-match= Jump domain [redirect_uri] not supported
-app-domain-not-config=Please configure the domain name in the backend.
-app-external-not-support=External account login to internal system is not supported
-reg-mobile-registered=This cell phone number has already been registered.
-
-mobile-bind-other-user=Mobile is bound to another account:{$id}
-mobile-is-bind=The mailbox is bound to another account.
-
+mail-send-check = Invalid email address: {$msg}
+user-external-login-url = Failed to load external account login URL: {$msg}
+user-external-call = Error requesting external account data: {$msg}
+user-external-other-bind = Account [{$name}] is already linked to another user
+rbac-unkown-res = Resource [{$res}] does not exist
+address-miss-city = Address must include county/district-level details
+address-bad-area = Invalid area code submitted
+mail-bind-other-user = Email is already linked to another account [{$other_user_id}]
+db-not-found = No matching records found
+db-error = Database error: {$msg}
+user-old-passwrod-bad = Incorrect current password
+user-old-passwrod-empty = Current password is required
+mail-is-confirm = Email has already been verified
+username-is-exists = Account already exists: [{$id}]
+password-not-set = Login password is not set
+client-secret-not-match = Client secret does not match
+app-redirect-uri-not-match = Redirect URI [{$redirect_uri}] is not supported
+reg-mobile-registered = This phone number is already registered
+mobile-bind-other-user = Phone number is linked to another account: [{$id}]
+mobile-is-bind = Phone number is already linked
+lsys-lib-area-error = Address library error: {$msg}
+area-not-found = Address information not found
+area-store-error = Failed to save address data: {$msg}
+area-tantivy-error = Address search error: {$msg}
+barcode-image-error = Invalid barcode image: {$msg}
+lsys-rxing-error = Barcode parsing library error: {$msg}
+area-not-enable = Address library is disabled
+barcode-bad-format-error = Invalid barcode format: {$msg}
+bad-session-data = Unsupported login session data type
+auth-need-captcha = Verification code required for login
+app-oauth-login-bad-scope = Application lacks authorization for scope: [{$scope_data}]
+not-system-app-confirm = Non-system application
+role-prem-bad-op = Invalid operation ID [{$op_id}] data format
+role-prem-bad-res = Invalid resource ID [{$res_id}] data format
+role-user-not-system-user = User [{$user_name}] (ID: {$user_id}) is not a system user (belongs to app: {$app_id})
+role-user-not-found = User ID does not exist
+not-user-app-confirm = Non-user application
+barcode-add-status-error = Invalid barcode parsing record status: {$msg}
+bad-audit-access = Unauthorized audit data access
+barcode-parse-error = Parsing failed. Record: [{$record}]
+bad-app-id = Invalid operation: Cannot modify external app
