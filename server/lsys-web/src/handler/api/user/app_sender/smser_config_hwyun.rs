@@ -1,5 +1,5 @@
 use crate::common::{JsonData, JsonResult, UserAuthQueryDao};
-use crate::dao::access::api::user::CheckAppSenderSmsConfig;
+use crate::dao::access::api::user::CheckUserAppSenderSmsConfig;
 use lsys_access::dao::AccessSession;
 
 use serde::Deserialize;
@@ -21,7 +21,7 @@ pub async fn smser_hw_config_list(
         .web_rbac
         .check(
             &req_dao.req_env,Some(&auth_data),
-            &CheckAppSenderSmsConfig {
+            &CheckUserAppSenderSmsConfig {
                 res_user_id: auth_data.user_id(),
             },
         )

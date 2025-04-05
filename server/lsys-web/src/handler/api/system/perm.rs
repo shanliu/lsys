@@ -10,7 +10,7 @@ use crate::dao::access::api::system::{
     CheckAdminBase, CheckAdminChangeLogsView, CheckAdminDocs, CheckAdminMailConfig,
     CheckAdminSmsConfig,
 };
-use crate::dao::access::api::user::CheckAppSenderSmsConfig;
+use crate::dao::access::api::user::CheckUserAppSenderSmsConfig;
 use lsys_access::dao::AccessSession;
 use lsys_core::fluent_message;
 #[derive(Debug, Deserialize)]
@@ -40,7 +40,7 @@ pub async fn perm_check(
     check!("admin-sms-config", CheckAdminSmsConfig {});
     check!(
         "admin-sender-config",
-        CheckAppSenderSmsConfig { res_user_id: 0 }
+        CheckUserAppSenderSmsConfig { res_user_id: 0 }
     );
     check!("admin-mail-config", CheckAdminMailConfig {});
 

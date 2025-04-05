@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     common::{JsonData, JsonResult, PageParam, UserAuthQueryDao},
-    dao::access::api::user::CheckAppSenderMailConfig,
+    dao::access::api::user::CheckUserAppSenderMailConfig,
 };
 
 use lsys_access::dao::{AccessSession, SessionBody};
@@ -43,7 +43,7 @@ pub(super) async fn mailer_inner_access_check(
         .check(
             &req_dao.req_env,
             session_body,
-            &CheckAppSenderMailConfig { res_user_id },
+            &CheckUserAppSenderMailConfig { res_user_id },
         )
         .await?;
     Ok(())
@@ -131,7 +131,7 @@ pub async fn mailer_config_list(
         .check(
             &req_dao.req_env,
             Some(&auth_data),
-            &CheckAppSenderMailConfig {
+            &CheckUserAppSenderMailConfig {
                 res_user_id: auth_data.user_id(),
             },
         )
@@ -191,7 +191,7 @@ pub async fn mailer_tpl_config_list(
         .check(
             &req_dao.req_env,
             Some(&auth_data),
-            &CheckAppSenderMailConfig {
+            &CheckUserAppSenderMailConfig {
                 res_user_id: auth_data.user_id(),
             },
         )

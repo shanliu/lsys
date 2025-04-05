@@ -9,8 +9,8 @@ use crate::common::JsonData;
 use crate::common::JsonResult;
 use crate::common::PageParam;
 use crate::common::UserAuthQueryDao;
-use crate::dao::access::api::user::CheckBarCodeEdit;
-use crate::dao::access::api::user::CheckBarCodeView;
+use crate::dao::access::api::user::CheckUserBarCodeEdit;
+use crate::dao::access::api::user::CheckUserBarCodeView;
 
 #[derive(Debug, Deserialize)]
 pub struct ParseRecordListParam {
@@ -31,7 +31,7 @@ pub async fn parse_record_list(
         .check(
             &req_dao.req_env,
             Some(&auth_data),
-            &CheckBarCodeView {
+            &CheckUserBarCodeView {
                 res_user_id: auth_data.user_id(),
             },
         )
@@ -118,7 +118,7 @@ pub async fn parse_record_delete(
         .check(
             &req_dao.req_env,
             Some(&auth_data),
-            &CheckBarCodeEdit {
+            &CheckUserBarCodeEdit {
                 res_user_id: data.user_id,
             },
         )

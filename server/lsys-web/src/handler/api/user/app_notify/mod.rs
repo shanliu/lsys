@@ -4,7 +4,7 @@ use serde_json::json;
 
 use crate::common::UserAuthQueryDao;
 use crate::common::{JsonData, JsonResult, LimitParam};
-use crate::dao::access::api::user::CheckNotifyView;
+use crate::dao::access::api::user::CheckUserNotifyView;
 use lsys_access::dao::AccessSession;
 #[derive(Deserialize)]
 pub struct DataListParam {
@@ -36,7 +36,7 @@ pub async fn data_list(param: &DataListParam, req_dao: &UserAuthQueryDao) -> Jso
         .check(
             &req_dao.req_env,
             Some(&auth_data),
-            &CheckNotifyView {
+            &CheckUserNotifyView {
                 res_user_id: auth_data.user_id(),
             },
         )

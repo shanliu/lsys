@@ -1,6 +1,6 @@
 use crate::{
     common::{JsonData, JsonResult, UserAuthQueryDao},
-    dao::access::api::user::CheckAppSenderMailConfig,
+    dao::access::api::user::CheckUserAppSenderMailConfig,
 };
 
 use lsys_access::dao::AccessSession;
@@ -24,7 +24,7 @@ pub async fn mailer_smtp_config_list(
         .check(
             &req_dao.req_env,
             Some(&auth_data),
-            &CheckAppSenderMailConfig {
+            &CheckUserAppSenderMailConfig {
                 res_user_id: auth_data.user_id(),
             },
         )

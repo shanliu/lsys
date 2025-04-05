@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     common::{JsonData, JsonError, JsonResult, PageParam, UserAuthQueryDao},
-    dao::access::api::user::{CheckAppSenderMailMsg, CheckAppSenderMailSend},
+    dao::access::api::user::{CheckUserAppSenderMailMsg, CheckUserAppSenderMailSend},
 };
 
 use crate::common::LimitParam;
@@ -49,7 +49,7 @@ pub async fn mailer_message_log(
         .check(
             &req_dao.req_env,
             Some(&auth_data),
-            &CheckAppSenderMailMsg {
+            &CheckUserAppSenderMailMsg {
                 res_user_id: body.user_id,
             },
         )
@@ -113,7 +113,7 @@ pub async fn mailer_message_body(
         .check(
             &req_dao.req_env,
             Some(&auth_data),
-            &CheckAppSenderMailMsg {
+            &CheckUserAppSenderMailMsg {
                 res_user_id: body.user_id,
             },
         )
@@ -151,7 +151,7 @@ pub async fn mailer_message_list(
         .check(
             &req_dao.req_env,
             Some(&auth_data),
-            &CheckAppSenderMailMsg {
+            &CheckUserAppSenderMailMsg {
                 res_user_id: auth_data.user_id(),
             },
         )
@@ -272,7 +272,7 @@ pub async fn mailer_message_cancel(
         .check(
             &req_dao.req_env,
             Some(&auth_data),
-            &CheckAppSenderMailMsg {
+            &CheckUserAppSenderMailMsg {
                 res_user_id: body.user_id,
             },
         )
@@ -311,7 +311,6 @@ pub async fn mailer_message_send(
     param: &MailerMessageSendParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonData> {
-   
     let tpl = req_dao
         .web_dao
         .app_sender
@@ -328,14 +327,14 @@ pub async fn mailer_message_send(
         .find_by_id(&tpl.app_id)
         .await?;
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-  
+
     req_dao
         .web_dao
         .web_rbac
         .check(
             &req_dao.req_env,
             Some(&auth_data),
-            &CheckAppSenderMailSend {
+            &CheckUserAppSenderMailSend {
                 res_user_id: app.user_id,
             },
         )

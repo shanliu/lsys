@@ -18,7 +18,7 @@ pub trait RbacCheckResTpl {
 
 #[macro_export]
 macro_rules! access_res_tpl {
-    ($($res_type:ty),+) => {{
+    ($($res_type:ty),+$(,)*) => {{
         use $crate::dao::RbacCheckResTpl;
         let mut data = Vec::<$crate::dao::CheckResTpl>::new();
         $(

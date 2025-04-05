@@ -1,11 +1,11 @@
 use crate::dao::{CheckResTpl, RbacCheckAccess, RbacCheckResTpl};
 use lsys_rbac::dao::{AccessCheckEnv, AccessCheckRes, RbacAccess, RbacResult};
 
-pub struct CheckNotifyView {
+pub struct CheckUserNotifyView {
     pub res_user_id: u64,
 }
 #[async_trait::async_trait]
-impl RbacCheckAccess for CheckNotifyView {
+impl RbacCheckAccess for CheckUserNotifyView {
     async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
         // let mut check_copy = check_env.to_owned();
         // check_copy
@@ -26,7 +26,7 @@ impl RbacCheckAccess for CheckNotifyView {
             .await
     }
 }
-impl RbacCheckResTpl for CheckNotifyView {
+impl RbacCheckResTpl for CheckUserNotifyView {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
             user: false,

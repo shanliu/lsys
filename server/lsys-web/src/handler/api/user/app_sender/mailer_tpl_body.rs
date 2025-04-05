@@ -5,7 +5,7 @@ use serde_json::json;
 
 use crate::{
     common::{JsonData, JsonResult, PageParam, UserAuthQueryDao},
-    dao::access::api::user::CheckAppSenderMailConfig,
+    dao::access::api::user::CheckUserAppSenderMailConfig,
 };
 
 #[derive(Debug, Deserialize)]
@@ -27,7 +27,7 @@ pub async fn mailer_tpl_body_list(
         .check(
             &req_dao.req_env,
             Some(&auth_data),
-            &CheckAppSenderMailConfig {
+            &CheckUserAppSenderMailConfig {
                 res_user_id: auth_data.user_id(),
             },
         )
@@ -86,7 +86,7 @@ pub async fn mailer_tpl_body_add(
         .check(
             &req_dao.req_env,
             Some(&auth_data),
-            &CheckAppSenderMailConfig {
+            &CheckUserAppSenderMailConfig {
                 res_user_id: auth_data.user_id(),
             },
         )
@@ -128,7 +128,7 @@ pub async fn mailer_tpl_body_edit(
         .check(
             &req_dao.req_env,
             Some(&auth_data),
-            &CheckAppSenderMailConfig {
+            &CheckUserAppSenderMailConfig {
                 res_user_id: tpl.user_id,
             },
         )
@@ -166,7 +166,7 @@ pub async fn mailer_tpl_body_del(
         .check(
             &req_dao.req_env,
             Some(&auth_data),
-            &CheckAppSenderMailConfig {
+            &CheckUserAppSenderMailConfig {
                 res_user_id: data.user_id,
             },
         )

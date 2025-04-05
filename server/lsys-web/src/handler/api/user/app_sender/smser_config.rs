@@ -1,6 +1,6 @@
 use crate::common::PageParam;
 use crate::common::{JsonData, JsonResult, UserAuthQueryDao};
-use crate::dao::access::api::user::CheckAppSenderSmsConfig;
+use crate::dao::access::api::user::CheckUserAppSenderSmsConfig;
 use lsys_access::dao::AccessSession;
 use lsys_app::dao::UserAppDataParam;
 use lsys_app::model::AppStatus;
@@ -40,7 +40,7 @@ pub(super) async fn smser_inner_access_check(
         .check(
             &req_dao.req_env,
             Some(&auth_data),
-            &CheckAppSenderSmsConfig { res_user_id },
+            &CheckUserAppSenderSmsConfig { res_user_id },
         )
         .await?;
     Ok(())
@@ -129,7 +129,7 @@ pub async fn smser_config_list(
         .check(
             &req_dao.req_env,
             Some(&auth_data),
-            &CheckAppSenderSmsConfig {
+            &CheckUserAppSenderSmsConfig {
                 res_user_id: param.user_id.unwrap_or(auth_data.user_id()),
             },
         )
@@ -177,7 +177,7 @@ pub async fn smser_notify_get_config(req_dao: &UserAuthQueryDao) -> JsonResult<J
         .check(
             &req_dao.req_env,
             Some(&auth_data),
-            &CheckAppSenderSmsConfig {
+            &CheckUserAppSenderSmsConfig {
                 res_user_id: auth_data.user_id(),
             },
         )
@@ -290,7 +290,7 @@ pub async fn smser_tpl_config_list(
         .check(
             &req_dao.req_env,
             Some(&auth_data),
-            &CheckAppSenderSmsConfig {
+            &CheckUserAppSenderSmsConfig {
                 res_user_id: auth_data.user_id(),
             },
         )

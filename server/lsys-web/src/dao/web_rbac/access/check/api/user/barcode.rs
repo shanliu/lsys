@@ -1,16 +1,12 @@
 use crate::dao::{CheckResTpl, RbacCheckAccess, RbacCheckAccessDepend, RbacCheckResTpl};
 use lsys_rbac::dao::{AccessCheckEnv, AccessCheckRes, RbacAccess, RbacResult};
 
-pub struct CheckBarCodeView {
+pub struct CheckUserBarCodeView {
     pub res_user_id: u64,
 }
 #[async_trait::async_trait]
-impl RbacCheckAccess for CheckBarCodeView {
-    async fn check(
-        &self,
-        access: &RbacAccess,
-        check_env: &AccessCheckEnv<'_>,
-    ) -> RbacResult<()> {
+impl RbacCheckAccess for CheckUserBarCodeView {
+    async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
         access
             .check(
                 check_env,
@@ -23,27 +19,23 @@ impl RbacCheckAccess for CheckBarCodeView {
             .await
     }
 }
-impl RbacCheckResTpl for CheckBarCodeView {
+impl RbacCheckResTpl for CheckUserBarCodeView {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
             user: false,
-            data:false,
+            data: false,
             key: "global-barcode",
             ops: vec!["view"],
         }]
     }
 }
 
-pub struct CheckBarCodeEdit {
+pub struct CheckUserBarCodeEdit {
     pub res_user_id: u64,
 }
 #[async_trait::async_trait]
-impl RbacCheckAccess for CheckBarCodeEdit {
-    async fn check(
-        &self,
-        access: &RbacAccess,
-        check_env: &AccessCheckEnv<'_>,
-    ) -> RbacResult<()> {
+impl RbacCheckAccess for CheckUserBarCodeEdit {
+    async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
         access
             .check(
                 check_env,
@@ -56,16 +48,16 @@ impl RbacCheckAccess for CheckBarCodeEdit {
             .await
     }
     fn depends(&self) -> Vec<Box<RbacCheckAccessDepend>> {
-        vec![Box::new(CheckBarCodeView {
+        vec![Box::new(CheckUserBarCodeView {
             res_user_id: self.res_user_id,
         })]
     }
 }
-impl RbacCheckResTpl for CheckBarCodeEdit {
+impl RbacCheckResTpl for CheckUserBarCodeEdit {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
             user: false,
-            data:false,
+            data: false,
             key: "global-barcode",
             ops: vec!["edit"],
         }]

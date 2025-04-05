@@ -4,11 +4,7 @@ use lsys_rbac::dao::{AccessCheckEnv, AccessCheckRes, RbacAccess, RbacResult};
 pub struct CheckUserAddressBase {}
 #[async_trait::async_trait]
 impl RbacCheckAccess for CheckUserAddressBase {
-    async fn check(
-        &self,
-        access: &RbacAccess,
-        check_env: &AccessCheckEnv<'_>,
-    ) -> RbacResult<()> {
+    async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
         access
             .check(
                 check_env, //资源访问用户
@@ -25,7 +21,7 @@ impl RbacCheckResTpl for CheckUserAddressBase {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
             user: false,
-            data:false,
+            data: false,
             key: "global-public",
             ops: vec!["address-base"],
         }]
@@ -37,11 +33,7 @@ pub struct CheckUserAddressEdit {
 }
 #[async_trait::async_trait]
 impl RbacCheckAccess for CheckUserAddressEdit {
-    async fn check(
-        &self,
-        access: &RbacAccess,
-        check_env: &AccessCheckEnv<'_>,
-    ) -> RbacResult<()> {
+    async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
         access
             .check(
                 check_env, //资源访问用户
@@ -58,7 +50,8 @@ impl RbacCheckAccess for CheckUserAddressEdit {
 impl RbacCheckResTpl for CheckUserAddressEdit {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
-            user: true,data:false,
+            user: true,
+            data: false,
             key: "global-public",
             ops: vec!["address-edit"],
         }]

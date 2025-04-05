@@ -3,11 +3,11 @@ use lsys_rbac::dao::AccessCheckEnv;
 use lsys_rbac::dao::AccessCheckRes;
 use lsys_rbac::dao::RbacAccess;
 use lsys_rbac::dao::RbacResult;
-pub struct CheckAppSenderSmsConfig {
+pub struct CheckUserAppSenderSmsConfig {
     pub res_user_id: u64,
 }
 #[async_trait::async_trait]
-impl RbacCheckAccess for CheckAppSenderSmsConfig {
+impl RbacCheckAccess for CheckUserAppSenderSmsConfig {
     async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
         access
             .list_check(
@@ -27,11 +27,12 @@ impl RbacCheckAccess for CheckAppSenderSmsConfig {
             .await
     }
 }
-impl RbacCheckResTpl for CheckAppSenderSmsConfig {
+impl RbacCheckResTpl for CheckUserAppSenderSmsConfig {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![
             CheckResTpl {
-                user: false, data: false,
+                user: false,
+                data: false,
                 key: "global-system",
                 ops: vec!["app-sms-config"],
             },
@@ -45,11 +46,11 @@ impl RbacCheckResTpl for CheckAppSenderSmsConfig {
     }
 }
 
-pub struct CheckAppSenderSmsMsg {
+pub struct CheckUserAppSenderSmsMsg {
     pub res_user_id: u64,
 }
 #[async_trait::async_trait]
-impl RbacCheckAccess for CheckAppSenderSmsMsg {
+impl RbacCheckAccess for CheckUserAppSenderSmsMsg {
     async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
         access
             .list_check(
@@ -69,11 +70,12 @@ impl RbacCheckAccess for CheckAppSenderSmsMsg {
             .await
     }
 }
-impl RbacCheckResTpl for CheckAppSenderSmsMsg {
+impl RbacCheckResTpl for CheckUserAppSenderSmsMsg {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![
             CheckResTpl {
-                user: false, data: false,
+                user: false,
+                data: false,
                 key: "global-system",
                 ops: vec!["app-sms-manage"],
             },
@@ -87,11 +89,11 @@ impl RbacCheckResTpl for CheckAppSenderSmsMsg {
     }
 }
 
-pub struct CheckAppSenderSmsSend {
+pub struct CheckUserAppSenderSmsSend {
     pub res_user_id: u64,
 }
 #[async_trait::async_trait]
-impl RbacCheckAccess for CheckAppSenderSmsSend {
+impl RbacCheckAccess for CheckUserAppSenderSmsSend {
     async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
         access
             .list_check(
@@ -111,11 +113,12 @@ impl RbacCheckAccess for CheckAppSenderSmsSend {
             .await
     }
 }
-impl RbacCheckResTpl for CheckAppSenderSmsSend {
+impl RbacCheckResTpl for CheckUserAppSenderSmsSend {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![
             CheckResTpl {
-                user: false, data: false,
+                user: false,
+                data: false,
                 key: "global-system",
                 ops: vec!["app-sms-send"],
             },

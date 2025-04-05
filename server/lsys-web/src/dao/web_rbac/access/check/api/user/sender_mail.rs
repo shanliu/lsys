@@ -4,11 +4,11 @@ use lsys_rbac::dao::{RbacAccess, RbacResult};
 use lsys_rbac::dao::AccessCheckEnv;
 use lsys_rbac::dao::AccessCheckRes;
 
-pub struct CheckAppSenderMailConfig {
+pub struct CheckUserAppSenderMailConfig {
     pub res_user_id: u64,
 }
 #[async_trait::async_trait]
-impl RbacCheckAccess for CheckAppSenderMailConfig {
+impl RbacCheckAccess for CheckUserAppSenderMailConfig {
     async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
         access
             .list_check(
@@ -28,7 +28,7 @@ impl RbacCheckAccess for CheckAppSenderMailConfig {
             .await
     }
 }
-impl RbacCheckResTpl for CheckAppSenderMailConfig {
+impl RbacCheckResTpl for CheckUserAppSenderMailConfig {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![
             CheckResTpl {
@@ -47,11 +47,11 @@ impl RbacCheckResTpl for CheckAppSenderMailConfig {
     }
 }
 
-pub struct CheckAppSenderMailMsg {
+pub struct CheckUserAppSenderMailMsg {
     pub res_user_id: u64,
 }
 #[async_trait::async_trait]
-impl RbacCheckAccess for CheckAppSenderMailMsg {
+impl RbacCheckAccess for CheckUserAppSenderMailMsg {
     async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
         access
             .list_check(
@@ -71,7 +71,7 @@ impl RbacCheckAccess for CheckAppSenderMailMsg {
             .await
     }
 }
-impl RbacCheckResTpl for CheckAppSenderMailMsg {
+impl RbacCheckResTpl for CheckUserAppSenderMailMsg {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![
             CheckResTpl {
@@ -90,11 +90,11 @@ impl RbacCheckResTpl for CheckAppSenderMailMsg {
     }
 }
 
-pub struct CheckAppSenderMailSend {
+pub struct CheckUserAppSenderMailSend {
     pub res_user_id: u64,
 }
 #[async_trait::async_trait]
-impl RbacCheckAccess for CheckAppSenderMailSend {
+impl RbacCheckAccess for CheckUserAppSenderMailSend {
     async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
         access
             .list_check(
@@ -114,7 +114,7 @@ impl RbacCheckAccess for CheckAppSenderMailSend {
             .await
     }
 }
-impl RbacCheckResTpl for CheckAppSenderMailSend {
+impl RbacCheckResTpl for CheckUserAppSenderMailSend {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![
             CheckResTpl {

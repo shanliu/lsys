@@ -22,7 +22,7 @@ pub async fn res_tpl_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
         .map(|e| {
             json!({
                 "res_type":e.key,
-                "op_data":e.key,
+                "op_data":e.ops,
             })
         })
         .collect::<Vec<_>>();
