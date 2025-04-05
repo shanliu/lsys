@@ -13,7 +13,7 @@ impl RbacCheckAccess for CheckAdminRbacView {
                 check_env, //资源访问用户
                 &[AccessCheckRes::system_empty_data(
                     "global-system",
-                    vec!["edit-rbac-view"],
+                    vec!["view-rbac-"],
                 )],
             )
             .await
@@ -27,9 +27,9 @@ impl RbacCheckResTpl for CheckAdminRbacView {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
             user: false,
-            data:false,
+            data: false,
             key: "global-system",
-            ops: vec!["edit-rbac-view"],
+            ops: vec!["view-rbac"],
         }]
     }
 }
@@ -57,7 +57,7 @@ impl RbacCheckResTpl for CheckAdminRbacEdit {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
             user: false,
-            data:false,
+            data: false,
             key: "global-system",
             ops: vec!["edit-rbac"],
         }]

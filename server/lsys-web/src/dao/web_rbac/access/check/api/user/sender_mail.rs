@@ -13,37 +13,23 @@ impl RbacCheckAccess for CheckUserAppSenderMailConfig {
         access
             .list_check(
                 check_env,
-                &[
-                    &[AccessCheckRes::system_empty_data(
-                        "global-system",
-                        vec!["app-mail-config"],
-                    )],
-                    &[AccessCheckRes::user_empty_data(
-                        self.res_user_id,
-                        "app-sender",
-                        vec!["app-mail-config"],
-                    )],
-                ],
+                &[&[AccessCheckRes::user_empty_data(
+                    self.res_user_id,
+                    "global-user",
+                    vec!["app-mail-config"],
+                )]],
             )
             .await
     }
 }
 impl RbacCheckResTpl for CheckUserAppSenderMailConfig {
     fn tpl_data() -> Vec<CheckResTpl> {
-        vec![
-            CheckResTpl {
-                user: false,
-                data: false,
-                key: "global-system",
-                ops: vec!["app-mail-config"],
-            },
-            CheckResTpl {
-                user: true,
-                data: false,
-                key: "app-sender",
-                ops: vec!["app-mail-config"],
-            },
-        ]
+        vec![CheckResTpl {
+            user: true,
+            data: false,
+            key: "global-user",
+            ops: vec!["app-mail-config"],
+        }]
     }
 }
 
@@ -56,37 +42,23 @@ impl RbacCheckAccess for CheckUserAppSenderMailMsg {
         access
             .list_check(
                 check_env,
-                &[
-                    &[AccessCheckRes::user_empty_data(
-                        self.res_user_id,
-                        "app-sender",
-                        vec!["app-mail-veiw"],
-                    )],
-                    &[AccessCheckRes::system_empty_data(
-                        "global-system",
-                        vec!["app-mail-manage"],
-                    )],
-                ],
+                &[&[AccessCheckRes::user_empty_data(
+                    self.res_user_id,
+                    "global-user",
+                    vec!["app-mail-veiw"],
+                )]],
             )
             .await
     }
 }
 impl RbacCheckResTpl for CheckUserAppSenderMailMsg {
     fn tpl_data() -> Vec<CheckResTpl> {
-        vec![
-            CheckResTpl {
-                user: false,
-                data: false,
-                key: "global-system",
-                ops: vec!["app-mail-manage"],
-            },
-            CheckResTpl {
-                user: true,
-                data: false,
-                key: "app-sender",
-                ops: vec!["app-mail-manage"],
-            },
-        ]
+        vec![CheckResTpl {
+            user: true,
+            data: false,
+            key: "global-user",
+            ops: vec!["app-mail-manage"],
+        }]
     }
 }
 
@@ -99,36 +71,22 @@ impl RbacCheckAccess for CheckUserAppSenderMailSend {
         access
             .list_check(
                 check_env,
-                &[
-                    &[AccessCheckRes::user_empty_data(
-                        self.res_user_id,
-                        "app-sender",
-                        vec!["app-mail-send"],
-                    )],
-                    &[AccessCheckRes::system_empty_data(
-                        "global-system",
-                        vec!["app-mail-send"],
-                    )],
-                ],
+                &[&[AccessCheckRes::user_empty_data(
+                    self.res_user_id,
+                    "global-user",
+                    vec!["app-mail-send"],
+                )]],
             )
             .await
     }
 }
 impl RbacCheckResTpl for CheckUserAppSenderMailSend {
     fn tpl_data() -> Vec<CheckResTpl> {
-        vec![
-            CheckResTpl {
-                user: false,
-                data: false,
-                key: "global-system",
-                ops: vec!["app-mail-send"],
-            },
-            CheckResTpl {
-                user: true,
-                data: false,
-                key: "app-sender",
-                ops: vec!["app-mail-send"],
-            },
-        ]
+        vec![CheckResTpl {
+            user: true,
+            data: false,
+            key: "global-user",
+            ops: vec!["app-mail-send"],
+        }]
     }
 }

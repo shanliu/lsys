@@ -39,3 +39,51 @@ barcode-add-status-error = Invalid barcode parsing record status: {$msg}
 bad-audit-access = Unauthorized audit data access
 barcode-parse-error = Parsing failed. Record: [{$record}]
 bad-app-id = Invalid operation: Cannot modify external app
+
+
+
+
+res-admin-global-system = System Admin Permissions‌
+res-op-admin-main = Access Admin Dashboard
+res-op-admin-view-app = View Applications
+res-op-admin-edit-app = Edit Applications
+res-op-admin-view-docs = View Documentation Settings
+res-op-admin-edit-docs = Edit Documentation Settings
+res-op-admin-view-rbac = View RBAC Settings
+res-op-admin-edit-rbac = Edit RBAC Settings
+res-op-admin-app-sms-config = SMS App Configuration
+res-op-admin-app-sms-mgr = SMS App Management
+res-op-admin-app-mail-config = Email App Configuration
+res-op-admin-app-mail-mgr = Email App Management
+res-op-admin-site-setting = Site Configuration
+res-op-admin-manage-user = User Management
+res-op-admin-see-change-log = View Change Log
+res-admin-global-public = Public System Permissions
+res-op-admin-register = User Registration
+res-op-admin-login = User Login
+
+res-admin-global-app = System Application Permissions
+res-op-rest = API Access
+
+res-user-global-user = User Global Permissions
+res-op-user-address-base = View Shipping Addresses
+res-op-user-address-edit = Edit Shipping Addresses
+res-op-user-email-base = View Email Addresses
+res-op-user-email-edit = Edit Email Addresses
+res-op-user-info-edit = Edit User Profile
+res-op-user-mobile-edit = Edit Phone Number
+res-op-user-view-app = View User Apps
+res-op-user-edit-app = Edit User Apps
+res-op-user-view-barcode = View Barcodes
+res-op-user-edit-barcode = Edit Barcodes
+res-op-user-view-notify = View Callback Notifications
+res-op-user-rbac-check = RBAC Check
+res-op-user-rbac-edit = RBAC Edit
+res-op-user-app-mail-config = Configure Email Apps
+res-op-user-app-mail-veiw = View Email Apps
+res-op-user-app-mail-manage = Manage Email Apps
+res-op-user-app-mail-send = Send Email via Apps
+res-op-user-app-sms-config = Configure SMS Apps
+res-op-user-app-sms-view = View SMS Apps
+res-op-user-app-sms-manage = Manage SMS Apps
+res-op-user-app-sms-send = Send SMS via Apps

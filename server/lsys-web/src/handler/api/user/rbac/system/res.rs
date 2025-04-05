@@ -3,6 +3,7 @@ use crate::{
     dao::user::RbacUserSyncOpParam,
 };
 use lsys_access::dao::AccessSession;
+use lsys_core::FluentMessage;
 use lsys_rbac::dao::ResTypeParam;
 use serde::Deserialize;
 use serde_json::json;
@@ -37,10 +38,20 @@ pub async fn system_res_global_data(req_dao: &UserAuthQueryDao) -> JsonResult<Js
             .await?;
         out_data.push(json!({
             "res_type": tmp.key,
+            "res_name": req_dao.fluent.format_message(&FluentMessage {
+                id: format!("res-user-{}", tmp.key),
+                crate_name: env!("CARGO_PKG_NAME").to_string(),
+                data: vec![],
+            }),
             "op_data": tpl_data.iter().map(|(e,op_id)| {
                 json!({
                     "op_key": e.op_key,
                     "op_id": op_id,
+                    "op_name":req_dao.fluent.format_message(&FluentMessage {
+                        id: format!("res-op-user-{}", e.op_key),
+                        crate_name: env!("CARGO_PKG_NAME").to_string(),
+                        data: vec![],
+                    })
                 })
             }).collect::<Vec<_>>(),
         }));

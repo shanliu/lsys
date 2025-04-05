@@ -40,3 +40,53 @@ barcode-add-status-error=解析记录状态异常:{$msg}
 bad-audit-access =非法访问审计数据
 barcode-parse-error=解析失败,记录为:{$record}
 bad-app-id=非法操作非自身app  
+
+
+
+#rbac 权限
+
+res-admin-global-system = 系统后台权限
+res-op-admin-main=查看系统后台
+res-op-admin-view-app=查看应用
+res-op-admin-edit-app=编辑应用
+res-op-admin-view-docs=查看文档配置
+res-op-admin-edit-docs=编辑文档配置
+res-op-admin-view-rbac=查看权限配置
+res-op-admin-edit-rbac=编辑权限配置
+res-op-admin-app-sms-config=短信应用配置
+res-op-admin-app-sms-mgr=短信应用管理
+res-op-admin-app-mail-config=邮件应用配置
+res-op-admin-app-mail-mgr=邮件应用管理
+res-op-admin-site-setting=站点配置
+res-op-admin-manage-user=用户管理
+res-op-admin-see-change-log=查看变更日志
+
+res-admin-global-public=系统公共权限
+res-op-admin-register=用户注册
+res-op-admin-login=用户登录
+
+res-admin-global-app=系统应用权限
+res-op-rest=应用接口访问
+
+res-user-global-user = 用户全局权限
+res-op-user-address-base=用户收货地址查看
+res-op-user-address-edit=用户收货地址编辑
+res-op-user-email-base=用户邮箱查看
+res-op-user-email-edit=用户邮箱编辑
+res-op-user-info-edit=用户信息编辑
+res-op-user-mobile-edit=用户手机号编辑
+res-op-user-view-app=用户查看应用
+res-op-user-edit-app=用户编辑应用
+res-op-user-view-barcode=用户查看条形码
+res-op-user-edit-barcode=用户编辑条形码
+res-op-user-view-notify=用户查看回调通知
+res-op-user-rbac-check=用户权限检测
+res-op-user-rbac-edit=用户权限编辑
+res-op-user-app-mail-config=用户邮件应用配置
+res-op-user-app-mail-veiw=用户邮件应用查看
+res-op-user-app-mail-manage=用户邮件应用管理
+res-op-user-app-mail-send=用户邮件应用发送
+res-op-user-app-sms-config=用户短信应用配置
+res-op-user-app-sms-view=用户短信应用查看
+res-op-user-app-sms-manage=用户短信应用管理
+res-op-user-app-sms-send=用户短信应用发送

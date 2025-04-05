@@ -16,7 +16,7 @@ use tracing::warn;
 pub struct RequestDao {
     pub web_dao: Arc<WebDao>,
     pub req_env: RequestEnv,
-    fluent: Arc<FluentBundle>,
+    pub fluent: Arc<FluentBundle>,
 }
 
 impl RequestDao {

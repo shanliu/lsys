@@ -12,7 +12,7 @@ impl RbacCheckAccess for CheckUserExternalEdit {
                 check_env, //资源访问用户
                 &[AccessCheckRes::user_empty_data(
                     self.res_user_id,
-                    "global-public",
+                    "global-user",
                     vec!["external-edit"],
                 )],
             )
@@ -25,7 +25,7 @@ impl RbacCheckResTpl for CheckUserExternalEdit {
         vec![CheckResTpl {
             user: true,
             data: false,
-            key: "global-public",
+            key: "global-user",
             ops: vec!["external-edit"],
         }]
     }

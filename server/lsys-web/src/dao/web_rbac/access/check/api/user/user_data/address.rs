@@ -9,7 +9,7 @@ impl RbacCheckAccess for CheckUserAddressBase {
             .check(
                 check_env, //资源访问用户
                 &[AccessCheckRes::system_empty_data(
-                    "global-public",
+                    "global-user",
                     vec!["address-base"],
                 )],
             )
@@ -22,7 +22,7 @@ impl RbacCheckResTpl for CheckUserAddressBase {
         vec![CheckResTpl {
             user: false,
             data: false,
-            key: "global-public",
+            key: "global-user",
             ops: vec!["address-base"],
         }]
     }
@@ -39,7 +39,7 @@ impl RbacCheckAccess for CheckUserAddressEdit {
                 check_env, //资源访问用户
                 &[AccessCheckRes::user_empty_data(
                     self.res_user_id,
-                    "global-public",
+                    "global-user",
                     vec!["address-edit"],
                 )],
             )
@@ -52,7 +52,7 @@ impl RbacCheckResTpl for CheckUserAddressEdit {
         vec![CheckResTpl {
             user: true,
             data: false,
-            key: "global-public",
+            key: "global-user",
             ops: vec!["address-edit"],
         }]
     }

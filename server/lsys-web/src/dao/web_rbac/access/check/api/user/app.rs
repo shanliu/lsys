@@ -6,17 +6,13 @@ pub struct CheckUserAppView {
 }
 #[async_trait::async_trait]
 impl RbacCheckAccess for CheckUserAppView {
-    async fn check(
-        &self,
-        access: &RbacAccess,
-        check_env: &AccessCheckEnv<'_>,
-    ) -> RbacResult<()> {
+    async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
         access
             .check(
                 check_env, //资源访问用户
                 &[AccessCheckRes::user_empty_data(
                     self.res_user_id,
-                    "user-app",
+                    "global-user",
                     vec!["view-app"],
                 )],
             )
@@ -28,7 +24,7 @@ impl RbacCheckResTpl for CheckUserAppView {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
             user: false,
-            data:false,
+            data: false,
             key: "global-user",
             ops: vec!["view-app"],
         }]
@@ -40,17 +36,13 @@ pub struct CheckUserAppEdit {
 }
 #[async_trait::async_trait]
 impl RbacCheckAccess for CheckUserAppEdit {
-    async fn check(
-        &self,
-        access: &RbacAccess,
-        check_env: &AccessCheckEnv<'_>,
-    ) -> RbacResult<()> {
+    async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
         access
             .check(
                 check_env, //资源访问用户
                 &[AccessCheckRes::user_empty_data(
                     self.res_user_id,
-                    "user-app",
+                    "global-user",
                     vec!["edit-app"],
                 )],
             )
@@ -67,7 +59,7 @@ impl RbacCheckResTpl for CheckUserAppEdit {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
             user: false,
-            data:false,
+            data: false,
             key: "global-user",
             ops: vec!["edit-app"],
         }]

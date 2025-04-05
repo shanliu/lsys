@@ -7,20 +7,13 @@ pub struct CheckUserNotifyView {
 #[async_trait::async_trait]
 impl RbacCheckAccess for CheckUserNotifyView {
     async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
-        // let mut check_copy = check_env.to_owned();
-        // check_copy
-        //     .session_role
-        //     .push(crate::dao::access::AccessSessionRole {
-        //         role_key: "global-notify",
-        //         user_id: self.res_user_id,
-        //     });
         access
             .check(
                 check_env,
                 &[AccessCheckRes::user_empty_data(
                     self.res_user_id,
-                    "global-notify",
-                    vec!["view"],
+                    "global-user",
+                    vec!["view-notify"],
                 )],
             )
             .await
@@ -31,8 +24,8 @@ impl RbacCheckResTpl for CheckUserNotifyView {
         vec![CheckResTpl {
             user: false,
             data: false,
-            key: "global-notify",
-            ops: vec!["view"],
+            key: "global-user",
+            ops: vec!["view-notify"],
         }]
     }
 }

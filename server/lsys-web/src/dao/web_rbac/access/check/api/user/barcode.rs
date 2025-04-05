@@ -12,8 +12,8 @@ impl RbacCheckAccess for CheckUserBarCodeView {
                 check_env,
                 &[AccessCheckRes::user_empty_data(
                     self.res_user_id,
-                    "global-barcode",
-                    vec!["view"],
+                    "global-user",
+                    vec!["view-barcode"],
                 )],
             )
             .await
@@ -24,8 +24,8 @@ impl RbacCheckResTpl for CheckUserBarCodeView {
         vec![CheckResTpl {
             user: false,
             data: false,
-            key: "global-barcode",
-            ops: vec!["view"],
+            key: "global-user",
+            ops: vec!["view-barcode"],
         }]
     }
 }
@@ -41,8 +41,8 @@ impl RbacCheckAccess for CheckUserBarCodeEdit {
                 check_env,
                 &[AccessCheckRes::user_empty_data(
                     self.res_user_id,
-                    "global-barcode",
-                    vec!["edit"],
+                    "global-user",
+                    vec!["edit-barcode"],
                 )],
             )
             .await
@@ -58,8 +58,8 @@ impl RbacCheckResTpl for CheckUserBarCodeEdit {
         vec![CheckResTpl {
             user: false,
             data: false,
-            key: "global-barcode",
-            ops: vec!["edit"],
+            key: "global-user",
+            ops: vec!["edit-barcode"],
         }]
     }
 }

@@ -26,7 +26,7 @@ impl RbacCheckResTpl for CheckAdminSmsConfig {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
             user: false,
-            data:false,
+            data: false,
             key: "global-system",
             ops: vec!["app-sms-config"],
         }]
@@ -42,7 +42,7 @@ impl RbacCheckAccess for CheckAdminSmsMgr {
                 check_env,
                 &[AccessCheckRes::system_empty_data(
                     "global-system",
-                    vec!["app-sms-cancel"],
+                    vec!["app-sms-mgr"],
                 )],
             )
             .await
@@ -55,9 +55,9 @@ impl RbacCheckResTpl for CheckAdminSmsMgr {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
             user: false,
-            data:false,
+            data: false,
             key: "global-system",
-            ops: vec!["app-sms-cancel"],
+            ops: vec!["app-sms-mgr"],
         }]
     }
 }
@@ -84,7 +84,7 @@ impl RbacCheckResTpl for CheckAdminMailConfig {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
             user: false,
-            data:false,
+            data: false,
             key: "global-system",
             ops: vec!["app-mail-config"],
         }]
@@ -100,7 +100,7 @@ impl RbacCheckAccess for CheckAdminMailMgr {
                 check_env,
                 &[AccessCheckRes::system_empty_data(
                     "global-system",
-                    vec!["app-mail-cancel"],
+                    vec!["app-mail-mgr"],
                 )],
             )
             .await
@@ -113,9 +113,9 @@ impl RbacCheckResTpl for CheckAdminMailMgr {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
             user: false,
-            data:false,
+            data: false,
             key: "global-system",
-            ops: vec!["app-mail-cancel"],
+            ops: vec!["app-mail-mgr"],
         }]
     }
 }

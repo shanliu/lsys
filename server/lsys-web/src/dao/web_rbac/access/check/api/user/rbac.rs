@@ -12,8 +12,8 @@ impl RbacCheckAccess for CheckUserRbacView {
             .check(
                 check_env,
                 &[AccessCheckRes::system_empty_data(
-                    "global-rbac-res",
-                    vec!["edit"],
+                    "global-user",
+                    vec!["rbac-check"],
                 )],
             )
             .await
@@ -24,8 +24,8 @@ impl RbacCheckResTpl for CheckUserRbacView {
         vec![CheckResTpl {
             user: false,
             data: false,
-            key: "global-rbac-res",
-            ops: vec!["edit"],
+            key: "global-user",
+            ops: vec!["rbac-check"],
         }]
     }
 }
@@ -39,8 +39,8 @@ impl RbacCheckAccess for CheckUserRbacEdit {
             .check(
                 check_env,
                 &[AccessCheckRes::system_empty_data(
-                    "global-rbac-res",
-                    vec!["edit"],
+                    "global-user",
+                    vec!["rbac-edit"],
                 )],
             )
             .await
@@ -56,8 +56,8 @@ impl RbacCheckResTpl for CheckUserRbacEdit {
         vec![CheckResTpl {
             user: false,
             data: false,
-            key: "global-rbac-res",
-            ops: vec!["edit"],
+            key: "global-user",
+            ops: vec!["rbac-edit"],
         }]
     }
 }

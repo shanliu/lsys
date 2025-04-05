@@ -4,11 +4,7 @@ use lsys_rbac::dao::{AccessCheckEnv, AccessCheckRes, RbacAccess, RbacResult};
 pub struct CheckUserMobileBase {}
 #[async_trait::async_trait]
 impl RbacCheckAccess for CheckUserMobileBase {
-    async fn check(
-        &self,
-        access: &RbacAccess,
-        check_env: &AccessCheckEnv<'_>,
-    ) -> RbacResult<()> {
+    async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
         access
             .check(
                 check_env, //资源访问用户
@@ -25,8 +21,8 @@ impl RbacCheckResTpl for CheckUserMobileBase {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
             user: false,
-            data:false,
-            key: "global-public",
+            data: false,
+            key: "global-user",
             ops: vec!["mobile-base"],
         }]
     }
@@ -37,17 +33,13 @@ pub struct CheckUserMobileEdit {
 }
 #[async_trait::async_trait]
 impl RbacCheckAccess for CheckUserMobileEdit {
-    async fn check(
-        &self,
-        access: &RbacAccess,
-        check_env: &AccessCheckEnv<'_>,
-    ) -> RbacResult<()> {
+    async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
         access
             .check(
                 check_env, //资源访问用户
                 &[AccessCheckRes::user_empty_data(
                     self.res_user_id,
-                    "global-public",
+                    "global-user",
                     vec!["mobile-edit"],
                 )],
             )
@@ -58,8 +50,9 @@ impl RbacCheckAccess for CheckUserMobileEdit {
 impl RbacCheckResTpl for CheckUserMobileEdit {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
-            user: true,data:false,
-            key: "global-public",
+            user: true,
+            data: false,
+            key: "global-user",
             ops: vec!["mobile-edit"],
         }]
     }
