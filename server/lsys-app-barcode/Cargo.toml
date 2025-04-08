@@ -13,7 +13,7 @@ lsys-logger = { path = "../lsys-logger" }   #path 替换为 :,git = "https://git
 
 tokio = { version = "~1.36" }
 
-sqlx = { version = "~0.6.3", features = [
+sqlx = { version = "~0.8.3", features = [
     "mysql",
     "runtime-tokio-native-tls",
     "offline",
