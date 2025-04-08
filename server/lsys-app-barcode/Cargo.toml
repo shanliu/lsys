@@ -11,7 +11,7 @@ lsys-setting = { path = "../lsys-setting" } #path 替换为 :,git = "https://git
 lsys-logger = { path = "../lsys-logger" }   #path 替换为 :,git = "https://github.com/shanliu/lsys"
 
 
-tokio = { version = "~1.36" }
+tokio = { version = "~1.44" }
 
 sqlx = { version = "~0.6.3", features = [
     "mysql",

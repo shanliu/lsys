@@ -27,7 +27,7 @@ reqwest = { version = "~0.11.22" }
 
 
 [dev-dependencies]
-tokio = { version = "~1.36", features = ["test-util","full"] }
+tokio = { version = "~1.44", features = ["test-util","full"] }
 
 [features]
 default = ["aliyun", "huawei", "tencent", "jdcloud", "netease", "cloopen"]
