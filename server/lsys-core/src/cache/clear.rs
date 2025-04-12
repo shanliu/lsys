@@ -1,3 +1,6 @@
+//基于REDIS
+// 多节点缓存同步清理
+//当一个节点发送清理命令,所有节点完成缓存删除
 use async_trait::async_trait;
 
 use serde::{Deserialize, Serialize};

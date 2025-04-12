@@ -1,10 +1,10 @@
+use crate::common::JsonData;
 use crate::common::JsonError;
 use crate::dao::access::rest::CheckRestApp;
-use crate::{common::JsonData, common::JsonResult, common::RequestDao};
+use crate::{common::JsonResponse, common::JsonResult, common::RequestDao};
 use lsys_app::model::AppModel;
 use lsys_app_barcode::dao::BarcodeParseRecord;
 use lsys_app_barcode::dao::ParseParam as BarcodeParseParam;
-
 use lsys_core::fluent_message;
 use serde::Deserialize;
 use serde_json::json;
@@ -104,7 +104,7 @@ pub async fn barcode_base64(
     param: &CodeParam,
     app: &AppModel,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     req_dao
         .web_dao
         .web_app
@@ -128,8 +128,8 @@ pub async fn barcode_base64(
         .barcode_show(&param.contents, &code, true)
         .await?;
     let base64 = base64::engine::general_purpose::STANDARD.encode(data.1);
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data": base64,
         "type":data.0.to_mime_type()
-    })))
+    }))))
 }

@@ -13,5 +13,5 @@ pub async fn op(rest: RestQuery) -> ResponseJsonResult<ResponseJson> {
         "list" => op_data(&rest.param::<OpDataParam>()?, &rest.get_app().await?, &rest).await,
         name => handler_not_found!(name),
     };
-    Ok(data.map_err(|e| rest.fluent_error_json_data(&e))?.into())
+    Ok(data.map_err(|e| rest.fluent_error_json_response(&e))?.into())
 }

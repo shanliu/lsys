@@ -1,6 +1,6 @@
 use lsys_app::model::AppModel;
 use lsys_web::{
-    common::{JsonData, JsonResult, RequestDao},
+    common::{JsonData, JsonResponse, JsonResult, RequestDao},
     dao::access::rest::CheckRestApp,
 };
 use serde::Deserialize;
@@ -14,7 +14,7 @@ pub async fn demo_handler(
     param: &DemoParam,
     app: &AppModel,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     //全局启用app验证
     req_dao
         .web_dao
@@ -32,5 +32,7 @@ pub async fn demo_handler(
         //request_exter_feature ->featuer_data[my-app-feature]
         .await?;
     //业务逻辑。。。
-    Ok(JsonData::data(json!({ "text":param.text,"app_id":app.id })))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "text":param.text,"app_id":app.id }),
+    )))
 }

@@ -1,5 +1,6 @@
+use crate::common::JsonData;
 use crate::{
-    common::{JsonData, JsonError, JsonResult, RequestDao, RestAuthQueryDao, UserAuthQueryDao},
+    common::{JsonError, JsonResponse, JsonResult, RequestDao, RestAuthQueryDao, UserAuthQueryDao},
     dao::access::rest::CheckRestApp,
 };
 use lsys_access::dao::{AccessSession, AccessSessionData};
@@ -14,7 +15,10 @@ pub struct ScopeGetParam {
     pub scope: String,
 }
 //登录页面显示的scope,当前登陆scope对应的功能
-pub async fn scope_get(param: &ScopeGetParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn scope_get(
+    param: &ScopeGetParam,
+    req_dao: &UserAuthQueryDao,
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let app = req_dao
         .web_dao
@@ -42,7 +46,9 @@ pub async fn scope_get(param: &ScopeGetParam, req_dao: &UserAuthQueryDao) -> Jso
         .web_app
         .app_oauth_server_parse_scope_data(&app, &scope_data)
         .await?;
-    Ok(JsonData::data(json!({ "scope": scope })))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "scope": scope }),
+    )))
 }
 
 #[derive(Debug, Deserialize)]
@@ -55,7 +61,7 @@ pub struct AuthorizeDoParam {
 pub async fn create_code(
     param: &AuthorizeDoParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     //   用户授权 scope跟资源静态编码关系 检查授权通过scope得到res检查全局授权 接口检查授权跟检查资源是否在token的scope中
     //   1. 请求用户 /oauth/authorize?client_id=app_id&redirect_uri=CALLBACK_URL&scope=read
     //   2. 根据scope查授权[关系key]，通过，显示登录,完成登录,跳到授权页面 以 scope 查询资源列表[还没有]
@@ -83,7 +89,7 @@ pub async fn create_code(
         .check_callback_domain(&app, &param.redirect_uri)
         .await?
     {
-        return Err(JsonError::JsonData(
+        return Err(JsonError::JsonResponse(
             JsonData::default().set_sub_code("domain_no_match"),
             fluent_message!("app-redirect-uri-not-match"),
         ));
@@ -115,7 +121,7 @@ pub async fn create_code(
             },
         )
         .await?;
-    Ok(JsonData::data(json!({ "code": code })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "code": code }))))
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -154,7 +160,7 @@ async fn check_app_secret(
         .find_by_app(&app)
         .await?;
     if *client_secret != oapp.oauth_secret {
-        return Err(JsonError::JsonData(
+        return Err(JsonError::JsonResponse(
             JsonData::default(),
             fluent_message!("client-secret-not-match"),
         ));
@@ -170,7 +176,7 @@ pub struct CodeParam {
 }
 
 //创建登陆token
-pub async fn create_token(req_dao: &RequestDao, code: &CodeParam) -> JsonResult<JsonData> {
+pub async fn create_token(req_dao: &RequestDao, code: &CodeParam) -> JsonResult<JsonResponse> {
     let app = check_app_secret(req_dao, &code.client_id, &code.client_secret).await?;
     let auth_data = req_dao
         .web_dao
@@ -193,7 +199,7 @@ pub async fn create_token(req_dao: &RequestDao, code: &CodeParam) -> JsonResult<
             .await?,
         expires_in: auth_data.session_body().session().expire_time,
     };
-    Ok(JsonData::data(json!(session)))
+    Ok(JsonResponse::data(JsonData::body(json!(session))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -207,7 +213,7 @@ pub struct RefreshCodeParam {
 pub async fn refresh_token(
     param: &RefreshCodeParam,
     req_dao: &RestAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     check_app_secret(req_dao, &param.client_id, &param.client_secret).await?;
     let mut auth_data = req_dao.user_session.write().await;
     let old_token = auth_data.get_session_data().await?;
@@ -226,5 +232,5 @@ pub async fn refresh_token(
             .await?,
         expires_in: new_token.session_body().session().expire_time,
     };
-    Ok(JsonData::data(json!(session)))
+    Ok(JsonResponse::data(JsonData::body(json!(session))))
 }

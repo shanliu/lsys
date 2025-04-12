@@ -2,9 +2,9 @@
 use lsys_access::dao::SessionBody;
 use lsys_core::{fluent_message, RequestEnv};
 
-use crate::common::{CaptchaParam, JsonData, JsonError, JsonResult};
-
 use super::WebUserAuth;
+use crate::common::JsonData;
+use crate::common::{CaptchaParam, JsonError, JsonResult};
 
 impl WebUserAuth {
     //统一重置密码
@@ -70,13 +70,13 @@ impl WebUserAuth {
                     .check_password(&account, old_passwrod)
                     .await?;
                 if !check {
-                    return Err(JsonError::JsonData(
+                    return Err(JsonError::JsonResponse(
                         JsonData::default().set_sub_code("bad_passwrod"),
                         fluent_message!("user-old-passwrod-bad"),
                     ));
                 }
             } else {
-                return Err(JsonError::JsonData(
+                return Err(JsonError::JsonResponse(
                     JsonData::default().set_sub_code("need_old_passwrod"),
                     fluent_message!("user-old-passwrod-empty"),
                 ));
@@ -141,7 +141,7 @@ impl WebUserAuth {
             .send_valid_code(param.area_code, param.mobile, &data.0, &data.1, env_data)
             .await?;
         self.captcha
-            .clear_code(&valid_code, &param.captcha.key)
+            .destroy_code(&valid_code, &param.captcha.key)
             .await;
         Ok(data.1)
     }
@@ -188,7 +188,7 @@ impl WebUserAuth {
             .send_valid_code(param.email, &data.0, &data.1, env_data)
             .await?;
         self.captcha
-            .clear_code(&valid_code, &param.captcha.key)
+            .destroy_code(&valid_code, &param.captcha.key)
             .await;
         Ok(data.1)
     }

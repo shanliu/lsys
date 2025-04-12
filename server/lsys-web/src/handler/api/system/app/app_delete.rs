@@ -1,4 +1,4 @@
-use crate::common::JsonData;
+use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::UserAuthQueryDao;
 use crate::dao::access::api::system::CheckAdminApp;
@@ -13,7 +13,7 @@ pub struct DeleteParam {
 pub async fn delete(
     param: &DeleteParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
@@ -35,5 +35,5 @@ pub async fn delete(
         .app
         .app_delete(&app, auth_data.user_id(), Some(&req_dao.req_env))
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }

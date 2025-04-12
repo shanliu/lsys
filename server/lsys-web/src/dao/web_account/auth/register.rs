@@ -203,7 +203,7 @@ impl WebUserAuth {
             .await;
         if let Ok(mobile) = mobile_res {
             if AccountMobileStatus::Valid.eq(mobile.status) {
-                return Err(JsonError::JsonData(
+                return Err(JsonError::JsonResponse(
                     JsonData::default().set_sub_code("mobile_is_reg"),
                     fluent_message!("reg-mobile-registered"),
                 ));
@@ -228,7 +228,7 @@ impl WebUserAuth {
             .send_valid_code(param.area_code, param.mobile, &data.0, &data.1, env_data)
             .await?;
         self.captcha
-            .clear_code(&valid_code, &param.captcha.key)
+            .destroy_code(&valid_code, &param.captcha.key)
             .await;
         Ok(data.1)
     }
@@ -253,7 +253,7 @@ impl WebUserAuth {
             .await;
         if let Ok(email) = email_res {
             if AccountEmailStatus::Valid.eq(email.status) {
-                return Err(JsonError::JsonData(
+                return Err(JsonError::JsonResponse(
                     JsonData::default().set_sub_code("mobile_is_reg"),
                     fluent_message!("reg-mobile-registered"),
                 ));
@@ -274,7 +274,7 @@ impl WebUserAuth {
             .mailer
             .send_valid_code(param.email, &data.0, &data.1, env_data)
             .await?;
-        self.captcha.clear_code(&valid_code, param.email).await;
+        self.captcha.destroy_code(&valid_code, param.email).await;
 
         Ok(data.1)
     }

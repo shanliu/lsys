@@ -1,10 +1,10 @@
-use crate::common::{JsonData, JsonResult, PageParam, RequestDao};
+use super::{inner_app_rbac_check, inner_app_self_check, inner_user_data_to_user_id};
+use crate::common::JsonData;
+use crate::common::{JsonResponse, JsonResult, PageParam, RequestDao};
 use lsys_app::model::AppModel;
 use lsys_rbac::dao::{RbacResAddData, RbacResData, ResDataParam};
 use serde::Deserialize;
 use serde_json::json;
-
-use super::{inner_app_rbac_check, inner_app_self_check, inner_user_data_to_user_id};
 
 #[derive(Debug, Deserialize)]
 pub struct ResAddParam {
@@ -18,7 +18,7 @@ pub async fn res_add(
     param: &ResAddParam,
     app: &AppModel,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     inner_app_rbac_check(app, req_dao).await?;
     let target_user_id =
         inner_user_data_to_user_id(app, param.user_param.as_deref(), req_dao).await?;
@@ -48,7 +48,7 @@ pub async fn res_add(
         )
         .await?;
 
-    Ok(JsonData::data(json!({ "id": id })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "id": id }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -63,7 +63,7 @@ pub async fn res_edit(
     param: &ResEditParam,
     app: &AppModel,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     inner_app_rbac_check(app, req_dao).await?;
 
     let res = req_dao
@@ -95,7 +95,7 @@ pub async fn res_edit(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -107,7 +107,7 @@ pub async fn res_del(
     param: &ResDelParam,
     app: &AppModel,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     inner_app_rbac_check(app, req_dao).await?;
 
     let res = req_dao
@@ -125,7 +125,7 @@ pub async fn res_del(
         .res
         .del_res(&res, app.user_id, None, Some(&req_dao.req_env))
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -143,7 +143,7 @@ pub async fn res_data(
     param: &ResParam,
     app: &AppModel,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     inner_app_rbac_check(app, req_dao).await?;
     let target_user_id =
         inner_user_data_to_user_id(app, param.user_param.as_deref(), req_dao).await?;
@@ -185,5 +185,7 @@ pub async fn res_data(
     } else {
         None
     };
-    Ok(JsonData::data(json!({ "data": res,"total":count})))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "data": res,"total":count}),
+    )))
 }

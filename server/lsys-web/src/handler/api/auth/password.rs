@@ -2,7 +2,7 @@ use serde::Deserialize;
 use serde_json::json;
 
 use crate::{
-    common::{CaptchaParam, JsonData, JsonResult, RequestDao},
+    common::{CaptchaParam, JsonData, JsonResponse, JsonResult, RequestDao},
     dao::{
         ResetPasswordFromEmailData, ResetPasswordFromMobileData,
         ResetPasswordSendCodeFromEmailData, ResetPasswordSendCodeFromMobileData,
@@ -18,7 +18,7 @@ pub struct ResetPasswordSendCodeFromMobileParam {
 pub async fn user_reset_password_send_code_from_mobile(
     param: &ResetPasswordSendCodeFromMobileParam,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let ttl = req_dao
         .web_dao
         .web_user
@@ -32,7 +32,7 @@ pub async fn user_reset_password_send_code_from_mobile(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "ttl": ttl })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "ttl": ttl }))))
 }
 #[derive(Debug, Deserialize)]
 pub struct ResetPasswordSendCodeFromEmailParam {
@@ -42,7 +42,7 @@ pub struct ResetPasswordSendCodeFromEmailParam {
 pub async fn user_reset_password_send_code_from_email(
     param: &ResetPasswordSendCodeFromEmailParam,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let ttl = req_dao
         .web_dao
         .web_user
@@ -55,7 +55,7 @@ pub async fn user_reset_password_send_code_from_email(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "ttl": ttl })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "ttl": ttl }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -67,7 +67,7 @@ pub struct ResetPasswordFromEmailParam {
 pub async fn user_reset_password_from_email(
     param: &ResetPasswordFromEmailParam,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let id = req_dao
         .web_dao
         .web_user
@@ -82,7 +82,7 @@ pub async fn user_reset_password_from_email(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "id": id })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "id": id }))))
 }
 #[derive(Debug, Deserialize)]
 pub struct ResetPasswordFromMobileParam {
@@ -94,7 +94,7 @@ pub struct ResetPasswordFromMobileParam {
 pub async fn user_reset_password_from_mobile(
     param: &ResetPasswordFromMobileParam,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let id = req_dao
         .web_dao
         .web_user
@@ -110,5 +110,5 @@ pub async fn user_reset_password_from_mobile(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "id": id })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "id": id }))))
 }

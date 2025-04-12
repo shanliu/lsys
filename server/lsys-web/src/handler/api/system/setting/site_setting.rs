@@ -1,6 +1,6 @@
 use lsys_user::dao::AccountPasswordConfig;
-
 use crate::common::JsonData;
+use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::dao::access::api::system::CheckAdminSiteSetting;
 use crate::dao::SiteConfig;
@@ -22,7 +22,7 @@ pub struct SiteConfigParam {
 pub async fn site_config_set(
     param: &SiteConfigParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
   
     req_dao
@@ -43,10 +43,10 @@ pub async fn site_config_set(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
-pub async fn site_config_get(req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn site_config_get(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
   
     req_dao
@@ -70,11 +70,11 @@ pub async fn site_config_get(req_dao: &UserAuthQueryDao) -> JsonResult<JsonData>
         .load::<AccountPasswordConfig>(None)
         .await
         .notfound_default()?;
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
        "config":{
         "site_tips":site_config.site_tips,
         "dis_old_password":password.disable_old_password,
         "timeout":password.timeout,
        }
-    })))
+    }))))
 }

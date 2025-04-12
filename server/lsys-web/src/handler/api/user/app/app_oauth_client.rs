@@ -1,5 +1,5 @@
 use crate::common::JsonResult;
-use crate::common::{JsonData, UserAuthQueryDao};
+use crate::common::{JsonResponse, UserAuthQueryDao};
 use crate::dao::access::api::user::CheckUserAppEdit;
 
 use lsys_access::dao::AccessSession;
@@ -15,7 +15,7 @@ pub struct OAuthClientRequestParam {
 pub async fn oauth_client_request(
     param: &OAuthClientRequestParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let app = req_dao
         .web_dao
@@ -70,13 +70,13 @@ pub async fn oauth_client_request(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 pub async fn oauth_client_scope_request(
     param: &OAuthClientRequestParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let app = req_dao
         .web_dao
@@ -113,7 +113,7 @@ pub async fn oauth_client_scope_request(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Deserialize)]
@@ -126,7 +126,7 @@ pub struct ConfirmOAuthClientSettingParam {
 pub async fn oauth_client_setting(
     param: &ConfirmOAuthClientSettingParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let app = req_dao
         .web_dao
@@ -170,5 +170,5 @@ pub async fn oauth_client_setting(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }

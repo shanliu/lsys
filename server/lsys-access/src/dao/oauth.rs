@@ -68,7 +68,12 @@ impl AccessOAuth {
         Ok(code)
     }
     /// 清理创建的 code
-    pub async fn clear_code(&self, app_id: u64, oauth_app_id: u64, code: &str) -> AccessResult<()> {
+    pub async fn destroy_code(
+        &self,
+        app_id: u64,
+        oauth_app_id: u64,
+        code: &str,
+    ) -> AccessResult<()> {
         let mut redis = self.redis.get().await?;
         let save_key = create_save_key("code", app_id, oauth_app_id, code);
         let find: bool = redis.exists(save_key.as_str()).await?;

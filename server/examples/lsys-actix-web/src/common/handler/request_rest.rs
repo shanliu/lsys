@@ -15,7 +15,7 @@ use futures_util::{ready, FutureExt};
 use lsys_app::dao::RestAuthToken;
 use lsys_core::RequestEnv;
 
-use lsys_web::common::{JsonData, RequestDao, RequestSessionToken};
+use lsys_web::common::{JsonData, JsonResponse, RequestDao, RequestSessionToken};
 use lsys_web::dao::WebDao;
 
 use serde::{de::DeserializeOwned, Deserialize};
@@ -59,7 +59,7 @@ async fn check_sign(
     data: &RestRfc,
     key_fn: &RestKeyGetOption,
     app_data: Data<WebDao>,
-) -> Result<(), JsonData> {
+) -> Result<(), JsonResponse> {
     match key_fn {
         Some(kfn) => {
             let key_res = kfn.as_ref()(data.app_id.clone(), app_data.clone())
@@ -95,11 +95,17 @@ async fn check_sign(
                     let hash = format!("{:x}", digest);
 
                     if hash != data.sign {
-                        return Err(JsonData::message("sign is wrong").set_sub_code("rest_sign"));
+                        return Err(JsonResponse::data(
+                            JsonData::error().set_sub_code("rest_sign"),
+                        )
+                        .set_message("sign is wrong"));
                     }
                     Ok(())
                 }
-                Err(err) => Err(JsonData::message_error(err).set_sub_code("rest_sign_key")),
+                Err(err) => Err(JsonResponse::data(
+                    JsonData::error().set_sub_code("rest_sign_key"),
+                )
+                .set_message(err)),
             }
         }
         None => Ok(()),
@@ -108,11 +114,11 @@ async fn check_sign(
 
 #[derive(Clone)]
 enum RestWebDao {
-    Err(JsonData),
+    Err(JsonResponse),
     AppDat(Data<WebDao>, RestKeyGetOption),
 }
 
-type RestExtractBody = Option<Pin<Box<dyn Future<Output = Result<Value, JsonData>>>>>;
+type RestExtractBody = Option<Pin<Box<dyn Future<Output = Result<Value, JsonResponse>>>>>;
 type RestExtractFuture = Option<Pin<Box<dyn Future<Output = Result<RestQuery, ResponseJson>>>>>;
 
 pub struct RestExtractFut {
@@ -167,7 +173,9 @@ impl Future for RestExtractFut {
                                     }
                                 }
                             }
-                            None => Poll::Ready(Err(JsonData::message_error("rfc is take").into())), //理论上不会进这里
+                            None => Poll::Ready(Err(JsonResponse::data(JsonData::error())
+                                .set_message("rfc is take")
+                                .into())), //理论上不会进这里
                         }
                     }
                     None => {
@@ -196,7 +204,9 @@ impl Future for RestExtractFut {
                                     }
                                 }
                             }
-                            None => Poll::Ready(Err(JsonData::message_error("rfc is take").into())), //理论上不会进这里
+                            None => Poll::Ready(Err(JsonResponse::data(JsonData::error())
+                                .set_message("rfc is take")
+                                .into())), //理论上不会进这里
                         }
                     }
                 }
@@ -281,17 +291,19 @@ impl RestQuery {
             rfc,
         }
     }
-    pub fn param<T: DeserializeOwned>(&self) -> Result<T, JsonData> {
+    pub fn param<T: DeserializeOwned>(&self) -> Result<T, JsonResponse> {
         match self.rfc.payload {
-            Some(ref body) => serde_json::from_value::<T>(body.to_owned())
-                .map_err(|e| JsonData::error(e).set_sub_code("rest_param_wrong")),
-            None => {
-                Err(JsonData::message_error("param is empty or take")
-                    .set_sub_code("rest_param_empty"))
-            }
+            Some(ref body) => serde_json::from_value::<T>(body.to_owned()).map_err(|e| {
+                JsonResponse::data(JsonData::error().set_sub_code("rest_param_wrong"))
+                    .set_message(e)
+            }),
+            None => Err(
+                JsonResponse::data(JsonData::error().set_sub_code("rest_param_empty"))
+                    .set_message("param is empty or take"),
+            ),
         }
     }
-    pub async fn get_app(&self) -> Result<lsys_app::model::AppModel, JsonData> {
+    pub async fn get_app(&self) -> Result<lsys_app::model::AppModel, JsonResponse> {
         self.web_dao
             .web_app
             .app_dao
@@ -299,7 +311,7 @@ impl RestQuery {
             .cache()
             .find_by_client_id(&self.rfc.app_id)
             .await
-            .map_err(|e| self.fluent_error_json_data(&e.into()))
+            .map_err(|e| self.fluent_error_json_response(&e.into()))
     }
 }
 
@@ -349,7 +361,10 @@ impl FromRequest for RestQuery {
                                     }
                                     Err(err) => (
                                         RestWebDao::Err(
-                                            JsonData::error(err).set_sub_code("rest_payload"),
+                                            JsonResponse::data(
+                                                JsonData::error().set_sub_code("rest_payload"),
+                                            )
+                                            .set_message(err),
                                         ),
                                         None,
                                     ),
@@ -365,13 +380,17 @@ impl FromRequest for RestQuery {
                     }
                 }
                 Err(err) => (
-                    RestWebDao::Err(JsonData::error(err).set_sub_code("rest_parse")),
+                    RestWebDao::Err(
+                        JsonResponse::data(JsonData::error().set_sub_code("rest_parse"))
+                            .set_message(err),
+                    ),
                     None,
                 ),
             },
             None => (
                 RestWebDao::Err(
-                    JsonData::message_error("web dao not reg").set_sub_code("rest_config"),
+                    JsonResponse::data(JsonData::error().set_sub_code("rest_config"))
+                        .set_message("web dao not reg"),
                 ),
                 None,
             ),
@@ -391,7 +410,10 @@ impl FromRequest for RestQuery {
                             "Failed to deserialize Json from payload. Request path: {}",
                             path
                         );
-                        Err(JsonData::error(e).set_sub_code("rest_payload"))
+                        Err(
+                            JsonResponse::data(JsonData::error().set_sub_code("rest_payload"))
+                                .set_message(e),
+                        )
                     }
                 })
                 .boxed_local();

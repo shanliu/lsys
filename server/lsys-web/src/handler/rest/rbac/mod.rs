@@ -5,6 +5,11 @@ mod res_type;
 mod role;
 mod role_perm;
 mod role_user;
+use crate::common::JsonData;
+use crate::{
+    common::{JsonError, JsonResult, RequestDao},
+    dao::access::rest::CheckRestApp,
+};
 pub use check::*;
 use lsys_app::model::AppModel;
 use lsys_core::fluent_message;
@@ -14,11 +19,6 @@ pub use res_type::*;
 pub use role::*;
 pub use role_perm::*;
 pub use role_user::*;
-
-use crate::{
-    common::{JsonData, JsonError, JsonResult, RequestDao},
-    dao::access::rest::CheckRestApp,
-};
 
 //当用户ID为APP应用的用户ID时,作为外部应用系统RBAC权限
 //当用户ID为APP应用的子用户ID时,作为外部应用用户RBAC权限
@@ -46,7 +46,7 @@ async fn inner_app_rbac_check(app: &AppModel, req_dao: &RequestDao) -> JsonResul
 //校验APP是否相同
 fn inner_app_self_check(app: &AppModel, res_app_id: u64) -> JsonResult<()> {
     if app.id != res_app_id {
-        return Err(JsonError::JsonData(
+        return Err(JsonError::JsonResponse(
             JsonData::default().set_code(403),
             fluent_message!("bad-app-id"),
         ));

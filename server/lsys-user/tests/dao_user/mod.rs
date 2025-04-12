@@ -10,7 +10,7 @@ use std::sync::Arc;
 mod account_dao;
 #[allow(dead_code)]
 async fn user_dao() -> AccountDao {
-    let app_core = AppCore::init("", "config", None, None).await.unwrap();
+    let app_core = AppCore::new("", "config", None, None).await.unwrap();
     let db: Pool<MySql> = app_core.create_db().await.unwrap();
     let redis = app_core.create_redis().await.unwrap();
     let app_core = Arc::new(app_core);

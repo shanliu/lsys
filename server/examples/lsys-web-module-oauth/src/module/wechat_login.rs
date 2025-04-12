@@ -4,11 +4,8 @@ use async_trait::async_trait;
 
 use lsys_core::{fluent_message, rand_str, RandType};
 use lsys_web::{
-    common::{
-        JsonData, JsonError, JsonResult, OauthCallbackParam, OauthLogin, OauthLoginData,
-        OauthLoginParam, RequestDao,
-    },
-    dao::WebDao,
+    common::{JsonError, JsonResponse, JsonResult, RequestDao},
+    dao::{OauthCallbackParam, OauthLogin, OauthLoginData, OauthLoginParam, WebDao},
 };
 use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
@@ -76,7 +73,7 @@ impl WechatLogin {
         &self,
         req_dao: &RequestDao,
         user_auth: &WechatCallbackParam,
-    ) -> JsonResult<JsonData> {
+    ) -> JsonResult<JsonResponse> {
         let (statek, _) = self
             .parse_state(&user_auth.state)
             .map_err(|e| JsonError::Message(fluent_message!("wechat-parse-state-error", e)))?;
@@ -86,7 +83,7 @@ impl WechatLogin {
         let _: () = redis
             .set_ex(&login_key, login_data, self.timeout as u64)
             .await?;
-        Ok(JsonData::default())
+        Ok(JsonResponse::default())
     }
     // pc定时从服务器获取登陆数据
     pub async fn state_check(

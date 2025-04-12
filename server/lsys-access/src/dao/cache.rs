@@ -8,19 +8,20 @@ use lsys_core::{
 
 use crate::model::{SessionModel, UserModel};
 
-use super::{AccessAuthSessionCacheKey, AccessDao};
+use super::{AccessAuthSessionCacheKey, AccessDao, AccessUserAppUserKey};
 
 pub enum AccessLocalCacheClear {
-    #[allow(clippy::type_complexity)]
     AuthSession(Arc<LocalCache<AccessAuthSessionCacheKey, SessionModel>>),
     AuthSessionData(Arc<LocalCache<AccessAuthSessionCacheKey, Vec<(String, String)>>>),
     AuthUser(Arc<LocalCache<u64, UserModel>>),
+    AuthAppUserData(Arc<LocalCache<AccessUserAppUserKey, u64>>),
 }
 
 impl AccessLocalCacheClear {
     pub fn new_clears(access: &AccessDao) -> Vec<Self> {
         vec![
             Self::AuthUser(access.user.user_cache.clone()),
+            Self::AuthAppUserData(access.user.app_user_data.clone()),
             Self::AuthSession(access.auth.session_cache.clone()),
             Self::AuthSessionData(access.auth.session_data_cache.clone()),
         ]
@@ -32,6 +33,7 @@ impl LocalCacheClearItem for AccessLocalCacheClear {
     fn cache_name(&self) -> &str {
         match self {
             Self::AuthUser(cache) => cache.config().cache_name,
+            Self::AuthAppUserData(cache) => cache.config().cache_name,
             Self::AuthSession(cache) => cache.config().cache_name,
             Self::AuthSessionData(cache) => cache.config().cache_name,
         }
@@ -41,6 +43,14 @@ impl LocalCacheClearItem for AccessLocalCacheClear {
             Self::AuthUser(cache) => {
                 cache
                     .del(&msg.parse::<u64>().map_err(|e| e.to_string())?)
+                    .await
+            }
+            Self::AuthAppUserData(cache) => {
+                cache
+                    .del(
+                        &AccessUserAppUserKey::from_str(msg)
+                            .map_err(|e| e.to_fluent_message().default_format())?,
+                    )
                     .await
             }
             Self::AuthSession(cache) => {

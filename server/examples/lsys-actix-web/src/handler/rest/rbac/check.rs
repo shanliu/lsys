@@ -18,5 +18,5 @@ pub async fn check(rest: RestQuery) -> ResponseJsonResult<ResponseJson> {
         }
         name => handler_not_found!(name),
     };
-    Ok(data.map_err(|e| rest.fluent_error_json_data(&e))?.into())
+    Ok(data.map_err(|e| rest.fluent_error_json_response(&e))?.into())
 }

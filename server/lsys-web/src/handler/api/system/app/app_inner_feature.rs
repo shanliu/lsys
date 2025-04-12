@@ -1,5 +1,5 @@
 use crate::{
-    common::{JsonData, JsonResult, UserAuthQueryDao},
+    common::{JsonResponse, JsonResult, UserAuthQueryDao},
     dao::access::api::system::CheckAdminApp,
 };
 
@@ -17,7 +17,7 @@ pub struct ConfirmExterLoginFeatureParam {
 pub async fn confirm_inner_feature_exter_login_confirm(
     param: &ConfirmExterLoginFeatureParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -46,7 +46,7 @@ pub async fn confirm_inner_feature_exter_login_confirm(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 pub struct ConfirmExterSubAppParam {
@@ -58,7 +58,7 @@ pub struct ConfirmExterSubAppParam {
 pub async fn confirm_inner_feature_sub_app_confirm(
     param: &ConfirmExterSubAppParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -88,5 +88,5 @@ pub async fn confirm_inner_feature_sub_app_confirm(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }

@@ -1,10 +1,10 @@
 use super::inner_app_rbac_check;
 use super::inner_app_self_check;
 use crate::common::JsonData;
+use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::RequestDao;
 use crate::common::{JsonError, PageParam};
-
 use lsys_app::model::AppModel;
 use lsys_core::fluent_message;
 use lsys_rbac::dao::RolePerm;
@@ -25,7 +25,7 @@ pub async fn role_perm_add(
     param: &RolePermAddParam,
     app: &AppModel,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     inner_app_rbac_check(app, req_dao).await?;
 
     let role = req_dao
@@ -84,7 +84,7 @@ pub async fn role_perm_add(
         .role
         .add_perm(&role, &param_data, app.id, None, Some(&req_dao.req_env))
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -97,7 +97,7 @@ pub async fn role_perm_del(
     param: &RolePermDelParam,
     app: &AppModel,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     inner_app_rbac_check(app, req_dao).await?;
 
     let role = req_dao
@@ -160,7 +160,7 @@ pub async fn role_perm_del(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -174,7 +174,7 @@ pub async fn role_perm_data(
     param: &RolePermParam,
     app: &AppModel,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     inner_app_rbac_check(app, req_dao).await?;
 
     let role = req_dao
@@ -205,8 +205,8 @@ pub async fn role_perm_data(
     } else {
         None
     };
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data": res,
         "count": count
-    })))
+    }))))
 }

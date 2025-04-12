@@ -1,5 +1,5 @@
 use crate::{
-    common::{JsonData, JsonResult, UserAuthQueryDao},
+    common::{JsonResponse, JsonResult, UserAuthQueryDao},
     dao::access::api::system::CheckAdminApp,
 };
 use lsys_access::dao::AccessSession;
@@ -17,7 +17,7 @@ pub struct ConfirmExterFeatureParam {
 pub async fn confirm_exter_feature(
     param: &ConfirmExterFeatureParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
@@ -53,5 +53,5 @@ pub async fn confirm_exter_feature(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }

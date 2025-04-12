@@ -7,7 +7,7 @@ use crate::model::{
     AppOAuthClientModel, AppOAuthServerScopeModel, AppOAuthServerScopeModelRef,
     AppOAuthServerScopeStatus, AppRequestStatus, AppRequestType, AppStatus,
 };
-use data::AppOAuthServerScopeData;
+pub use data::AppOAuthServerScopeData;
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::db::{Insert, ModelTableName, Update};
 use lsys_core::db::{SqlQuote, WhereOption};

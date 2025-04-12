@@ -63,5 +63,5 @@ pub async fn setting(
         "menu_del" => menu_del(&json_param.param::<MenuDelParam>()?, &auth_dao).await,
         name => handler_not_found!(name),
     };
-    Ok(res.map_err(|e| auth_dao.fluent_error_json_data(&e))?.into())
+    Ok(res.map_err(|e| auth_dao.fluent_error_json_response(&e))?.into())
 }

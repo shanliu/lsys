@@ -1,4 +1,4 @@
-use crate::common::{JsonData, UserAuthQueryDao};
+use crate::common::{JsonResponse, UserAuthQueryDao};
 use crate::common::{JsonError, JsonResult};
 use crate::dao::access::api::user::CheckUserAppEdit;
 
@@ -16,7 +16,7 @@ pub struct RequestExterFeatureParam {
 pub async fn request_exter_feature(
     param: &RequestExterFeatureParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let app = req_dao
         .web_dao
@@ -86,7 +86,7 @@ pub async fn request_exter_feature(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Deserialize)]
@@ -100,7 +100,7 @@ pub struct ConfirmExterFeatureParam {
 pub async fn confirm_exter_feature(
     param: &ConfirmExterFeatureParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let req_app = req_dao
         .web_dao
@@ -156,5 +156,5 @@ pub async fn confirm_exter_feature(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }

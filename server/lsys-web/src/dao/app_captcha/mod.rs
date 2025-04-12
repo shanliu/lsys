@@ -1,8 +1,8 @@
+mod captcha_data;
 mod captcha_key;
+pub use captcha_data::*;
 pub use captcha_key::*;
 use lsys_core::ValidCode;
-
-use crate::common::ValidCodeDataCaptcha;
 
 pub struct AppCaptcha {
     redis: deadpool_redis::Pool,
@@ -19,12 +19,12 @@ impl AppCaptcha {
             true,
         )
     }
-    pub fn valid_code_builder(&self) -> ValidCodeDataCaptcha {
-        ValidCodeDataCaptcha::default()
+    pub fn valid_code_builder(&self) -> CaptchaValidCodeData {
+        CaptchaValidCodeData::new(60)
     }
-    pub async fn clear_code(&self, valid_code: &ValidCode, tag: &str) {
+    pub async fn destroy_code(&self, valid_code: &ValidCode, tag: &str) {
         let _ = valid_code
-            .clear_code(tag, &mut self.valid_code_builder())
+            .destroy_code(tag, &mut self.valid_code_builder())
             .await;
     }
 }

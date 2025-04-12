@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use serde_json::Value;
-
 use crate::common::JsonData;
 use crate::common::JsonError;
+use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::UserAuthQueryDao;
 use crate::dao::access::api::system::{
@@ -22,7 +22,7 @@ pub struct RbacAccessData {
 pub async fn perm_check(
     check_res: &RbacAccessData,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     macro_rules! check {
         //$key 以接口为维度的关键字,外部传入
@@ -68,7 +68,7 @@ pub struct RbacMenuStatus {
 pub async fn perm_menu_check(
     param: &RbacAccessMenuParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let mut out = Vec::with_capacity(param.check_res.len());
     for e in param.check_res.iter() {
         out.push(RbacMenuStatus {
@@ -76,5 +76,5 @@ pub async fn perm_menu_check(
             name: e.name.to_owned(),
         })
     }
-    Ok(JsonData::data(json!({"result":out})))
+    Ok(JsonResponse::data(JsonData::body(json!({"result":out}))))
 }

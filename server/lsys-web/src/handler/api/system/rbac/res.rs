@@ -1,5 +1,5 @@
 use crate::{
-    common::{JsonData, JsonResult, PageParam, UserAuthQueryDao},
+    common::{JsonData, JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
     dao::access::api::system::{CheckAdminRbacEdit, CheckAdminRbacView},
 };
 use lsys_access::dao::AccessSession;
@@ -14,7 +14,7 @@ pub struct ResAddParam {
     pub res_data: String,
 }
 //资源添加
-pub async fn res_add(param: &ResAddParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn res_add(param: &ResAddParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -47,7 +47,7 @@ pub async fn res_add(param: &ResAddParam, req_dao: &UserAuthQueryDao) -> JsonRes
         )
         .await?;
 
-    Ok(JsonData::data(json!({ "id": id })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "id": id }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -61,7 +61,7 @@ pub struct ResEditParam {
 pub async fn res_edit(
     param: &ResEditParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -97,7 +97,7 @@ pub async fn res_edit(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -105,7 +105,7 @@ pub struct ResDelParam {
     pub res_id: u64,
 }
 //资源删除
-pub async fn res_del(param: &ResDelParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn res_del(param: &ResDelParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -128,7 +128,7 @@ pub async fn res_del(param: &ResDelParam, req_dao: &UserAuthQueryDao) -> JsonRes
         .res
         .del_res(&res, auth_data.user_id(), None, Some(&req_dao.req_env))
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -142,7 +142,7 @@ pub struct ResParam {
     pub count_num: Option<bool>,
 }
 //资源列表
-pub async fn res_data(param: &ResParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn res_data(param: &ResParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -187,5 +187,7 @@ pub async fn res_data(param: &ResParam, req_dao: &UserAuthQueryDao) -> JsonResul
     } else {
         None
     };
-    Ok(JsonData::data(json!({ "data": res,"total":count})))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "data": res,"total":count}),
+    )))
 }

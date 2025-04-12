@@ -2,11 +2,14 @@
 mod index;
 pub mod system;
 use actix_service::ServiceFactory;
+use actix_web::web::to;
 use actix_web::{dev::ServiceRequest, web, App, Error};
+use lsys_core::IntoFluentMessage;
 use lsys_web::dao::WebDao;
+use std::path::PathBuf;
 use std::sync::Arc;
-use tracing::{info, warn};
-pub(crate) fn router_ui<T>(app: App<T>, app_dao: &Arc<WebDao>) -> App<T>
+use tracing::{debug, info, warn};
+fn router_ui<T>(app: App<T>, app_dao: &Arc<WebDao>) -> App<T>
 where
     T: ServiceFactory<ServiceRequest, Config = (), Error = Error, InitError = ()>,
 {
@@ -15,7 +18,7 @@ where
         .config
         .find(None)
         .get_string("ui_path")
-        .unwrap_or_else(|_| "/ui".to_string());
+        .unwrap_or_else(|_| "./ui".to_string());
     if let Ok(ui_config) = app_dao
         .app_core
         .config_path(app_dao.app_core.config.find(None), "ui_dir")
@@ -40,17 +43,33 @@ where
     app
 }
 
+fn router_page<T>(app: App<T>, app_dao: &Arc<WebDao>) -> App<T>
+where
+    T: ServiceFactory<ServiceRequest, Config = (), Error = Error, InitError = ()>,
+{
+    let static_serve_from = match app_dao
+        .app_core
+        .config_path(app_dao.app_core.config.find(None), "static_file_dir")
+    {
+        Ok(t) => t,
+        Err(err) => {
+            debug!(
+                "static file dir wrong:{}",
+                err.to_fluent_message().default_format()
+            );
+            PathBuf::from("./static")
+        }
+    };
+    debug!("static dir is:{:?}", static_serve_from);
+    app.service(actix_files::Files::new("/static", static_serve_from).show_files_listing())
+        .service(index::dome)
+}
+
 pub(crate) fn router<T>(app: App<T>, app_dao: &Arc<WebDao>) -> App<T>
 where
     T: ServiceFactory<ServiceRequest, Config = (), Error = Error, InitError = ()>,
 {
-    let static_serve_from = app_dao
-        .app_core
-        .config
-        .find(None)
-        .get_string("static_file_dir")
-        .unwrap_or_else(|_| String::from("./static"));
-
-    app.service(actix_files::Files::new("/static", static_serve_from).show_files_listing())
-        .service(index::dome)
+    let app = router_page(app, app_dao);
+    let app = router_ui(app, app_dao);
+    app.default_service(to(system::render_404))
 }

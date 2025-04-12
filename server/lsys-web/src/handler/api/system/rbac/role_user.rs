@@ -1,5 +1,5 @@
 use crate::{
-    common::{JsonData, JsonResult, LimitParam, UserAuthQueryDao},
+    common::{JsonData, JsonResponse, JsonResult, LimitParam, UserAuthQueryDao},
     dao::access::api::system::{CheckAdminRbacEdit, CheckAdminRbacView},
 };
 use lsys_access::dao::{AccessSession, UserDataParam, UserInfo};
@@ -25,7 +25,7 @@ pub struct RoleUserAddParam {
 pub async fn role_user_add(
     param: &RoleUserAddParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -98,7 +98,7 @@ pub async fn role_user_add(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -110,7 +110,7 @@ pub struct RoleUserDelParam {
 pub async fn role_user_del(
     param: &RoleUserDelParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -138,7 +138,7 @@ pub async fn role_user_del(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -152,7 +152,7 @@ pub struct RoleUserDataParam {
 pub async fn role_user_data(
     param: &RoleUserDataParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -192,14 +192,14 @@ pub async fn role_user_data(
     } else {
         None
     };
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
             "data":bind_vec_user_info_from_req!(
                 req_dao,
                 res,
                 user_id
             ),
             "total":count
-    })))
+    }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -212,7 +212,7 @@ pub struct RoleUserAvailableParam {
 pub async fn role_user_available(
     param: &RoleUserAvailableParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
@@ -246,9 +246,9 @@ pub async fn role_user_available(
         None
     };
     let out_res = res.into_iter().map(UserInfo::from).collect::<Vec<_>>();
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data":out_res,
         "next":next,
         "total":count
-    })))
+    }))))
 }

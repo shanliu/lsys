@@ -1,7 +1,7 @@
-use crate::common::{JsonData, JsonResult, UserAuthQueryDao};
+use crate::common::{JsonResponse, JsonResult, UserAuthQueryDao};
 use crate::dao::access::api::user::CheckUserAppSenderSmsConfig;
 use lsys_access::dao::AccessSession;
-
+use crate::common::JsonData;
 use serde::Deserialize;
 use serde_json::json;
 use serde_json::Value;
@@ -14,7 +14,7 @@ pub struct SmserHwConfigListParam {
 pub async fn smser_hw_config_list(
     param: &SmserHwConfigListParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
@@ -46,7 +46,7 @@ pub async fn smser_hw_config_list(
         })
         .collect::<Vec<Value>>();
 
-    Ok(JsonData::data(json!({ "data": row })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "data": row }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -64,7 +64,7 @@ pub struct SmserAppHwConfigAddParam {
 pub async fn smser_hw_app_config_add(
     param: &SmserAppHwConfigAddParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     super::smser_inner_access_check(param.app_id, auth_data.user_id(), req_dao).await?;
     let row = req_dao
@@ -86,5 +86,5 @@ pub async fn smser_hw_app_config_add(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "id": row })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "id": row }))))
 }

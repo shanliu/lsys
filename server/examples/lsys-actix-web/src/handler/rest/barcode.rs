@@ -10,7 +10,7 @@ use actix_web::post;
 use futures_util::{StreamExt, TryStreamExt};
 use lsys_core::fluent_message;
 use lsys_web::{
-    common::{JsonData, JsonError},
+    common::{JsonData, JsonError, JsonResponse},
     handler::rest::barcode::{barcode_base64, parse_image, CodeParam, ParseParam},
 };
 use serde_json::json;
@@ -50,7 +50,7 @@ pub(crate) async fn barcode(
                     }),
                 });
             }
-            Ok(JsonData::data(json!({ "record": out })))
+            Ok(JsonResponse::data(JsonData::body(json!({ "record": out }))))
         }
         "create" => {
             drop(payload);
@@ -58,7 +58,7 @@ pub(crate) async fn barcode(
         }
         var => handler_not_found!(var),
     }
-    .map_err(|e| rest.fluent_error_json_data(&e))?
+    .map_err(|e| rest.fluent_error_json_response(&e))?
     .into())
 }
 

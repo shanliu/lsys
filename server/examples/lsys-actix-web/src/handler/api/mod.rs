@@ -5,14 +5,13 @@ mod user;
 //API 接口:每个方法路径为子路径,外层路径由scope定
 use actix_service::ServiceFactory;
 use actix_web::{dev::ServiceRequest, web::scope, App, Error};
-pub(crate) fn router<T>(app: App<T>) -> App<T>
+pub(crate) fn router<T>(mut app: App<T>) -> App<T>
 where
     T: ServiceFactory<ServiceRequest, Config = (), Error = Error, InitError = ()>,
 {
-    let mut user_scope = scope("/api/user");
-    let mut system_scope = scope("/api/sys");
-    //start
-    let app = app
+    let mut api_scope = scope("/api");
+
+    api_scope = api_scope
         .service(
             scope("/auth")
                 .service(public::login)
@@ -21,8 +20,8 @@ where
                 .service(public::external_login_url)
                 .service(public::external_state_callback)
                 .service(public::external_state_check)
-                .service(public::password_reset)
-                .service(public::reg)
+                .service(public::password)
+                .service(public::register)
                 .service(public::options),
         )
         .service(
@@ -46,29 +45,34 @@ where
                 .service(public::options),
         );
 
+    let mut system_scope = scope("/system");
     #[cfg(feature = "docs")]
-    let app = {
-        system_scope = system_scope.service(
-            scope("/docs")
-                .service(system::docs::setting)
-                .service(public::options),
-        );
-        app.service(
-            scope("/docs")
-                .service(public::docs_raw)
-                .service(public::docs_read)
-                .service(public::options),
-        )
-    };
-    #[cfg(feature = "barcode")]
-    let app = {
-        app.service(
-            scope("/barcode")
-                .service(public::app::show_code)
-                .service(public::options),
-        )
-    };
+    {
+        app = {
+            system_scope = system_scope.service(
+                scope("/docs")
+                    .service(system::docs::setting)
+                    .service(public::options),
+            );
+            app.service(
+                scope("/docs")
+                    .service(public::docs_raw)
+                    .service(public::docs_read)
+                    .service(public::options),
+            )
+        };
+    }
 
+    #[cfg(feature = "barcode")]
+    {
+        app = {
+            app.service(
+                scope("/barcode")
+                    .service(public::app::show_code)
+                    .service(public::options),
+            )
+        };
+    }
     system_scope = system_scope
         .service(
             scope("/user")
@@ -77,7 +81,8 @@ where
         )
         .service(
             scope("/site")
-                .service(system::config)
+                .service(system::site_config)
+                .service(system::oauth_config)
                 .service(public::options),
         )
         .service(scope("/app").service(system::app).service(public::options))
@@ -95,7 +100,8 @@ where
                 .service(system::rbac::role)
                 .service(public::options),
         );
-
+    api_scope = api_scope.service(system_scope);
+    let mut user_scope = scope("/user");
     user_scope = user_scope
         .service(
             scope("/profile")
@@ -118,7 +124,7 @@ where
                 .service(public::options),
         )
         .service({
-            let uapp = scope("/app")
+            let mut uapp = scope("/app")
                 .service(
                     scope("/rbac")
                         .service(user::app::rbac::check)
@@ -143,16 +149,16 @@ where
                         .service(user::app::base)
                         .service(public::options),
                 );
-
             #[cfg(feature = "barcode")]
-            let uapp = uapp.service(
-                scope("/barcode")
-                    .service(user::app::barcode)
-                    .service(public::options),
-            );
-
+            {
+                uapp = uapp.service(
+                    scope("/barcode")
+                        .service(user::app::barcode)
+                        .service(public::options),
+                );
+            }
             uapp.service(public::options)
         });
-
-    app.service(user_scope).service(system_scope)
+    api_scope = api_scope.service(user_scope);
+    app.service(api_scope)
 }

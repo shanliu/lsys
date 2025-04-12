@@ -1,4 +1,5 @@
-use crate::common::{JsonData, JsonError, JsonResult, UserAuthQueryDao};
+use crate::common::JsonData;
+use crate::common::{JsonError, JsonResponse, JsonResult, UserAuthQueryDao};
 use crate::common::{LimitParam, PageParam};
 use crate::dao::access::api::user::{CheckUserAppSenderSmsMsg, CheckUserAppSenderSmsSend};
 use lsys_access::dao::AccessSession;
@@ -19,7 +20,7 @@ pub struct SmserMessageLogParam {
 pub async fn smser_message_log(
     param: &SmserMessageLogParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let message_id = param.message_id.parse::<u64>()?;
     let msg = req_dao
         .web_dao
@@ -72,7 +73,9 @@ pub async fn smser_message_log(
     } else {
         None
     };
-    Ok(JsonData::data(json!({ "data": res,"total":count})))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "data": res,"total":count}),
+    )))
 }
 
 #[derive(Debug, Deserialize)]
@@ -83,7 +86,7 @@ pub struct SmserMessageBodyParam {
 pub async fn smser_message_body(
     param: &SmserMessageBodyParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let message_id = param.message_id.parse::<u64>()?;
     let msg = req_dao
         .web_dao
@@ -108,7 +111,9 @@ pub async fn smser_message_body(
         .smser
         .smser_message_body(&msg, &body, &auth_data, Some(&req_dao.req_env))
         .await?;
-    Ok(JsonData::data(json!({ "body": body.tpl_var})))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "body": body.tpl_var}),
+    )))
 }
 
 #[derive(Debug, Deserialize)]
@@ -127,7 +132,7 @@ pub struct SmserMessageListParam {
 pub async fn smser_message_list(
     param: &SmserMessageListParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
@@ -239,8 +244,8 @@ pub async fn smser_message_list(
             })
         })
         .collect::<Vec<_>>();
-    Ok(JsonData::data(
-        json!({ "data": res,"total":count,"next":next}),
+    Ok(JsonResponse::data(
+        JsonData::body(json!({ "data": res,"total":count,"next":next}))
     ))
 }
 #[derive(Debug, Deserialize)]
@@ -251,7 +256,7 @@ pub struct SmserMessageCancelParam {
 pub async fn smser_message_cancel(
     param: &SmserMessageCancelParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let message_id = param.message_id.parse::<u64>()?;
     let msg = req_dao
         .web_dao
@@ -295,9 +300,9 @@ pub async fn smser_message_cancel(
             out = Some(message_id.to_string())
         }
     }
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data":out
-    })))
+    }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -315,7 +320,7 @@ pub struct SmserMessageSendParam {
 pub async fn smser_message_send(
     param: &SmserMessageSendParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     let tpl = req_dao
@@ -375,5 +380,5 @@ pub async fn smser_message_send(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }

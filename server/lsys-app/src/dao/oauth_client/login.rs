@@ -123,7 +123,7 @@ impl AppOAuthClient {
                     let _ = self
                         .access
                         .oauth
-                        .clear_code(app.parent_app_id, app.id, &code)
+                        .destroy_code(app.parent_app_id, app.id, &code)
                         .await;
                 }
                 self.access.auth.do_logout(&session).await?

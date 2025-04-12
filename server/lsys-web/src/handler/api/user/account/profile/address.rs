@@ -1,5 +1,6 @@
+use crate::common::JsonData;
 use crate::{
-    common::{JsonData, JsonResult, UserAuthQueryDao},
+    common::{JsonResponse, JsonResult, UserAuthQueryDao},
     dao::{
         access::api::user::{CheckUserAddressBase, CheckUserAddressEdit},
         AddressData,
@@ -21,7 +22,7 @@ pub struct AddressAddParam {
 pub async fn address_add(
     param: &AddressAddParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
@@ -44,7 +45,7 @@ pub async fn address_add(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "id": id })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "id": id }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -59,7 +60,7 @@ pub struct AddressEditParam {
 pub async fn address_edit(
     param: &AddressEditParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     let address = req_dao
@@ -106,7 +107,7 @@ pub async fn address_edit(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -116,7 +117,7 @@ pub struct AddressDeleteParam {
 pub async fn address_delete(
     param: &AddressDeleteParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let address = req_dao
         .web_dao
@@ -152,10 +153,10 @@ pub async fn address_delete(
         .account_address
         .del_address(&address, None, auth_data.user_id(), Some(&req_dao.req_env))
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
-pub async fn address_list_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn address_list_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     let data = req_dao
@@ -192,8 +193,8 @@ pub async fn address_list_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonDat
             })
         })
         .collect::<Vec<_>>();
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data": data_list,
         "total":data.len(),
-    })))
+    }))))
 }

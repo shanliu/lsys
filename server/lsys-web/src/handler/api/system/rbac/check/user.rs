@@ -1,11 +1,13 @@
 use crate::{
-    common::{JsonData, JsonResult, PageParam, UserAuthQueryDao},
+    common::{JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
     dao::access::api::system::CheckAdminRbacView,
 };
 use lsys_access::dao::AccessSession;
 use lsys_rbac::dao::{CustomUserListResData, SessionUserListResData};
 use serde::Deserialize;
 use serde_json::json;
+use crate::common::JsonData;
+
 #[derive(Debug, Deserialize)]
 pub struct UserFromResParam {
     user_id: u64,     //资源用户ID
@@ -19,7 +21,7 @@ pub struct UserFromResParam {
 pub async fn check_res_user_from_res(
     param: &UserFromResParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -47,10 +49,10 @@ pub async fn check_res_user_from_res(
         .access
         .find_user_data_from_public(param.user_id, param.app_id)
         .await?;
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "user_data": user_set_data,
         "pub_data": pub_set_data,
-    })))
+    }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -72,7 +74,7 @@ pub struct ResRoleFromResParam {
 pub async fn check_res_role_data_from_res(
     param: &ResRoleFromResParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -121,10 +123,10 @@ pub async fn check_res_role_data_from_res(
         })
         .await?;
 
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data": res_data,
         "total": res_count,
-    })))
+    }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -146,7 +148,7 @@ pub struct ResUserDataFromResParam {
 pub async fn check_res_user_data_from_res(
     param: &ResUserDataFromResParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -193,8 +195,8 @@ pub async fn check_res_user_data_from_res(
             is_self: param.is_self,
         })
         .await?;
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data": res_data,
         "total": res_count,
-    })))
+    }))))
 }

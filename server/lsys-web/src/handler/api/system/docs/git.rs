@@ -3,9 +3,10 @@ use lsys_docs::dao::GitDocsData;
 use serde::Deserialize;
 use serde_json::json;
 
+use crate::common::JsonData;
 use crate::common::JsonResult;
 use crate::common::UserAuthQueryDao;
-use crate::{common::JsonData, dao::access::api::system::CheckAdminDocs};
+use crate::{common::JsonResponse, dao::access::api::system::CheckAdminDocs};
 
 #[derive(Debug, Deserialize)]
 pub struct GitAddParam {
@@ -13,7 +14,7 @@ pub struct GitAddParam {
     pub url: String,
     pub max_try: u8,
 }
-pub async fn git_add(param: &GitAddParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn git_add(param: &GitAddParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -36,7 +37,7 @@ pub async fn git_add(param: &GitAddParam, req_dao: &UserAuthQueryDao) -> JsonRes
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "id": id })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "id": id }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -46,7 +47,10 @@ pub struct GitEditParam {
     pub url: String,
     pub max_try: u8,
 }
-pub async fn git_edit(param: &GitEditParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn git_edit(
+    param: &GitEditParam,
+    req_dao: &UserAuthQueryDao,
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -78,7 +82,7 @@ pub async fn git_edit(param: &GitEditParam, req_dao: &UserAuthQueryDao) -> JsonR
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -86,7 +90,7 @@ pub struct GitDelParam {
     pub id: u32,
     pub timeout: Option<u8>,
 }
-pub async fn git_del(param: &GitDelParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn git_del(param: &GitDelParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -114,10 +118,10 @@ pub async fn git_del(param: &GitDelParam, req_dao: &UserAuthQueryDao) -> JsonRes
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
-pub async fn git_list(req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn git_list(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -126,7 +130,7 @@ pub async fn git_list(req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
         .check(&req_dao.req_env, Some(&auth_data), &CheckAdminDocs {})
         .await?;
     let data = req_dao.web_dao.web_doc.docs_dao.docs.git_list().await?;
-    Ok(JsonData::data(json!({ "data": data })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "data": data }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -137,7 +141,7 @@ pub struct GitDetailParam {
 pub async fn git_detail(
     param: &GitDetailParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -152,7 +156,7 @@ pub async fn git_detail(
         .docs
         .git_detail(&param.url)
         .await?;
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data":data,
-    })))
+    }))))
 }

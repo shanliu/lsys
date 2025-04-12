@@ -1,13 +1,13 @@
-use std::collections::HashMap;
-
+use crate::common::JsonData;
 use crate::{
-    common::{JsonData, JsonError, JsonResult, RequestDao},
+    common::{JsonError, JsonResponse, JsonResult, RequestDao},
     dao::access::rest::CheckRestApp,
 };
 use lsys_app::model::AppModel;
 use lsys_core::{str_time, IntoFluentMessage};
 use serde::Deserialize;
 use serde_json::{json, Value};
+use std::collections::HashMap;
 
 #[derive(Debug, Deserialize)]
 pub struct SendParam {
@@ -18,7 +18,11 @@ pub struct SendParam {
     pub send_time: Option<String>,
     pub max_try: Option<u8>,
 }
-pub async fn send(param: &SendParam, app: &AppModel, req_dao: &RequestDao) -> JsonResult<JsonData> {
+pub async fn send(
+    param: &SendParam,
+    app: &AppModel,
+    req_dao: &RequestDao,
+) -> JsonResult<JsonResponse> {
     req_dao
         .web_dao
         .web_rbac
@@ -72,9 +76,9 @@ pub async fn send(param: &SendParam, app: &AppModel, req_dao: &RequestDao) -> Js
             })
         })
         .collect::<Vec<Value>>();
-    Ok(JsonData::data(json!(
+    Ok(JsonResponse::data(JsonData::body(json!(
        { "detail":detail}
-    )))
+    ))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -85,7 +89,7 @@ pub async fn cancel(
     param: &CancelParam,
     app: &AppModel,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let mut ids = Vec::with_capacity(param.snid_data.len());
     for e in param.snid_data.iter() {
         ids.push(e.parse::<u64>()?);
@@ -106,7 +110,7 @@ pub async fn cancel(
             })
         })
         .collect::<Vec<Value>>();
-    Ok(JsonData::data(json!(
+    Ok(JsonResponse::data(JsonData::body(json!(
        { "detail":detail}
-    )))
+    ))))
 }

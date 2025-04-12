@@ -90,11 +90,42 @@ pub struct EmailCodeLogin {
 }
 
 impl EmailCodeLogin {
-    impl_auth_valid_code_method!("email-login",{
+    /// 验证码生成
+    pub fn valid_code(redis: deadpool_redis::Pool) -> lsys_core::ValidCode {
+        lsys_core::ValidCode::new(redis, "email-login", true)
+    }
+    /// 获取验证码
+    pub async fn valid_code_set<T: lsys_core::ValidCodeData>(
+        redis: deadpool_redis::Pool,
+        valid_code_data: &mut T,
         email: &str,
-    },{
-        email.to_owned()
-    },5*60);
+    ) -> lsys_core::ValidCodeResult<(String, usize)> {
+        let valid_code = Self::valid_code(redis);
+        let code = valid_code.set_code(email, valid_code_data).await?;
+        Ok(code)
+    }
+    /// 验证码构造器
+    pub fn valid_code_builder() -> lsys_core::ValidCodeDataRandom {
+        lsys_core::ValidCodeDataRandom::new(300, 30)
+    }
+    /// 检测验证码
+    pub async fn valid_code_check(
+        redis: deadpool_redis::Pool,
+        code: &str,
+        email: &str,
+    ) -> AccountResult<()> {
+        Self::valid_code(redis)
+            .check_code(&lsys_core::CheckCodeData::new(email, code))
+            .await?;
+        Ok(())
+    }
+    pub async fn valid_code_clear(redis: deadpool_redis::Pool, email: &str) -> AccountResult<()> {
+        let mut builder = Self::valid_code_builder();
+        Self::valid_code(redis)
+            .destroy_code(email, &mut builder)
+            .await?;
+        Ok(())
+    }
 }
 impl EmailCodeLogin {
     pub fn new(

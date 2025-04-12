@@ -58,14 +58,14 @@ impl WebUserAccount {
             Ok(mobile) => {
                 if AccountMobileStatus::Valid.eq(mobile.status) {
                     if mobile.account_id != session_body.user_id() {
-                        return Err(JsonError::JsonData(
+                        return Err(JsonError::JsonResponse(
                             JsonData::default(),
                             fluent_message!("mobile-bind-other-user",{
                                 "id": mobile.account_id
                             }),
                         ));
                     } else {
-                        return Err(JsonError::JsonData(
+                        return Err(JsonError::JsonResponse(
                             JsonData::default(),
                             fluent_message!("mobile-is-bind"),
                         ));

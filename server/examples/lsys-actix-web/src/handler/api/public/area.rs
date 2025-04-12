@@ -23,7 +23,7 @@ pub async fn area_data(
             "geo" => geo_find(&json_param.param::<GeoParam>()?, &req_dao),
             name => handler_not_found!(name),
         }
-        .map_err(|e| req_dao.fluent_error_json_data(&e))
+        .map_err(|e| req_dao.fluent_error_json_response(&e))
     })
     .await?;
     Ok(res?.into())

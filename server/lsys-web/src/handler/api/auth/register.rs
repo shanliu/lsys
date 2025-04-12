@@ -2,7 +2,7 @@ use serde::Deserialize;
 use serde_json::json;
 
 use crate::{
-    common::{CaptchaParam, JsonData, JsonResult, RequestDao},
+    common::{CaptchaParam, JsonData, JsonResponse, JsonResult, RequestDao},
     dao::{
         access::api::auth::CheckSystemRegister, RegFromEmailData, RegFromMobileData,
         RegFromNameData, RegSendCodeFromEmailData, RegSendCodeFromMobileData,
@@ -19,7 +19,7 @@ pub struct RegFromNameParam {
 pub async fn user_reg_from_name(
     param: &RegFromNameParam,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     req_dao
         .web_dao
         .web_rbac
@@ -39,9 +39,9 @@ pub async fn user_reg_from_name(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "id":user,
-    })))
+    }))))
 }
 #[derive(Debug, Deserialize)]
 pub struct RegSendCodeFromMobileParam {
@@ -53,7 +53,7 @@ pub struct RegSendCodeFromMobileParam {
 pub async fn user_reg_send_code_from_mobile(
     param: &RegSendCodeFromMobileParam,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let ttl = req_dao
         .web_dao
         .web_user
@@ -67,7 +67,7 @@ pub async fn user_reg_send_code_from_mobile(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "ttl": ttl})))
+    Ok(JsonResponse::data(JsonData::body(json!({ "ttl": ttl}))))
 }
 #[derive(Debug, Deserialize)]
 pub struct RegSendCodeFromEmailParam {
@@ -77,7 +77,7 @@ pub struct RegSendCodeFromEmailParam {
 pub async fn user_reg_send_code_from_email(
     param: &RegSendCodeFromEmailParam,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let ttl = req_dao
         .web_dao
         .web_user
@@ -90,7 +90,7 @@ pub async fn user_reg_send_code_from_email(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "ttl": ttl})))
+    Ok(JsonResponse::data(JsonData::body(json!({ "ttl": ttl}))))
 }
 
 #[derive(Deserialize)]
@@ -104,7 +104,7 @@ pub struct RegFromEmailParam {
 pub async fn user_reg_from_email(
     param: &RegFromEmailParam,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     req_dao
         .web_dao
         .web_rbac
@@ -125,7 +125,7 @@ pub async fn user_reg_from_email(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "id": id})))
+    Ok(JsonResponse::data(JsonData::body(json!({ "id": id}))))
 }
 
 #[derive(Deserialize)]
@@ -140,7 +140,7 @@ pub struct RegFromMobileParam {
 pub async fn user_reg_from_mobile(
     param: &RegFromMobileParam,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     req_dao
         .web_dao
         .web_rbac
@@ -162,5 +162,5 @@ pub async fn user_reg_from_mobile(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "id": id})))
+    Ok(JsonResponse::data(JsonData::body(json!({ "id": id}))))
 }

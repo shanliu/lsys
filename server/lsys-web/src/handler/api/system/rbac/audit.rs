@@ -1,4 +1,5 @@
 use crate::common::JsonData;
+use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::LimitParam;
 use crate::common::UserAuthQueryDao;
@@ -28,7 +29,10 @@ pub struct AuditParam {
     pub count_num: Option<bool>,
 }
 
-pub async fn audit_data(param: &AuditParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn audit_data(
+    param: &AuditParam,
+    req_dao: &UserAuthQueryDao,
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -83,9 +87,9 @@ pub async fn audit_data(param: &AuditParam, req_dao: &UserAuthQueryDao) -> JsonR
             })
         })
         .collect::<Vec<Value>>();
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data": out_data,
         "next": res.1,
         "total": count,
-    })))
+    }))))
 }

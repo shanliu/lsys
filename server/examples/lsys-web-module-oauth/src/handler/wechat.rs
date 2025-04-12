@@ -1,6 +1,6 @@
 use crate::module::WeChatConfig;
 use lsys_web::{
-    common::{JsonData, JsonResult, UserAuthQueryDao},
+    common::{JsonResponse, JsonResult, UserAuthQueryDao},
     handler::api::system::setting::{setting_get, setting_set},
 };
 use serde::Deserialize;
@@ -21,10 +21,10 @@ impl From<WechatSetConfigParam> for WeChatConfig {
 pub async fn wechat_set_config(
     param: WechatSetConfigParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     setting_set::<WechatSetConfigParam, WeChatConfig>(param, req_dao).await
 }
 
-pub async fn wechat_get_config(req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn wechat_get_config(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     setting_get::<WeChatConfig>(req_dao).await
 }

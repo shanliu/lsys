@@ -1,10 +1,10 @@
-use crate::common::{JsonData, JsonResult, PageParam, UserAuthQueryDao};
+use super::{app_check_get, inner_user_data_to_user_id};
+use crate::common::JsonData;
+use crate::common::{JsonResponse, JsonResult, PageParam, UserAuthQueryDao};
 use lsys_access::dao::AccessSession;
 use lsys_rbac::dao::{OpDataParam, RbacOpAddData, RbacOpData};
 use serde::Deserialize;
 use serde_json::json;
-
-use super::{app_check_get, inner_user_data_to_user_id};
 
 //用户后台对APP的RBAC操作管理
 #[derive(Debug, Deserialize)]
@@ -15,7 +15,10 @@ pub struct AppOpAddParam {
     pub op_name: String,
     pub data: String,
 }
-pub async fn app_op_add(param: &AppOpAddParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn app_op_add(
+    param: &AppOpAddParam,
+    req_dao: &UserAuthQueryDao,
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let app = app_check_get(param.app_id, true, &auth_data, req_dao).await?;
     let user_id = inner_user_data_to_user_id(&app, param.user_param.as_deref(), req_dao).await?;
@@ -43,7 +46,7 @@ pub async fn app_op_add(param: &AppOpAddParam, req_dao: &UserAuthQueryDao) -> Js
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({"id": id})))
+    Ok(JsonResponse::data(JsonData::body(json!({"id": id}))))
 }
 #[derive(Debug, Deserialize)]
 pub struct AppOpEditParam {
@@ -56,7 +59,7 @@ pub struct AppOpEditParam {
 pub async fn app_op_edit(
     param: &AppOpEditParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let op = req_dao
         .web_dao
@@ -86,7 +89,7 @@ pub async fn app_op_edit(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -94,7 +97,10 @@ pub struct AppOpDelParam {
     pub op_id: u64,
 }
 
-pub async fn app_op_del(param: &AppOpDelParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn app_op_del(
+    param: &AppOpDelParam,
+    req_dao: &UserAuthQueryDao,
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let op = req_dao
         .web_dao
@@ -112,7 +118,7 @@ pub async fn app_op_del(param: &AppOpDelParam, req_dao: &UserAuthQueryDao) -> Js
         .op
         .del_op(&op, auth_data.user_id(), None, Some(&req_dao.req_env))
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 #[derive(Debug, Deserialize)]
 pub struct AppOpDataParam {
@@ -128,7 +134,7 @@ pub struct AppOpDataParam {
 pub async fn app_op_data(
     param: &AppOpDataParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let app = app_check_get(param.app_id, true, &auth_data, req_dao).await?;
     let user_id = inner_user_data_to_user_id(&app, param.user_param.as_deref(), req_dao).await?;
@@ -168,5 +174,7 @@ pub async fn app_op_data(
     } else {
         None
     };
-    Ok(JsonData::data(json!({"data": res, "count": count})))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({"data": res, "count": count}),
+    )))
 }

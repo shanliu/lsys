@@ -1,11 +1,10 @@
+use crate::common::JsonData;
+use crate::common::RequestDao;
+use crate::common::{JsonResponse, JsonResult};
+use crate::dao::access::rest::CheckRestApp;
 use lsys_app::model::AppModel;
 use serde::Deserialize;
 use serde_json::json;
-
-use crate::common::RequestDao;
-
-use crate::common::{JsonData, JsonResult};
-use crate::dao::access::rest::CheckRestApp;
 
 #[derive(Debug, Deserialize)]
 pub struct SubAppViewParam {
@@ -18,7 +17,7 @@ pub async fn subapp_view(
     param: &SubAppViewParam,
     app: &AppModel,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     req_dao
         .web_dao
         .web_rbac
@@ -67,12 +66,12 @@ pub async fn subapp_view(
     } else {
         json!(null)
     };
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "name": out_app.name,
         "client_id":out_app.client_id,
         "sub_secret": client_secret,
         "user_data":user_info,
-    })))
+    }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -84,7 +83,7 @@ pub async fn subapp_oauth_secret(
     param: &SubAppOAuthSecretParam,
     app: &AppModel,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     req_dao
         .web_dao
         .web_rbac
@@ -125,11 +124,11 @@ pub async fn subapp_oauth_secret(
         .oauth_view_secret(&out_app, app.user_id, Some(&req_dao.req_env))
         .await?;
 
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "name": out_app.name,
         "client_id":out_app.client_id,
         "secret":secret
-    })))
+    }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -141,7 +140,7 @@ pub async fn subapp_oauth_scope(
     param: &SubAppOAuthScopeParam,
     app: &AppModel,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     req_dao
         .web_dao
         .web_rbac
@@ -180,9 +179,9 @@ pub async fn subapp_oauth_scope(
         .app_oauth_client_get_scope_data(&out_app)
         .await?;
 
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "name": out_app.name,
         "client_id":out_app.client_id,
         "scope_data":oauth_data,
-    })))
+    }))))
 }

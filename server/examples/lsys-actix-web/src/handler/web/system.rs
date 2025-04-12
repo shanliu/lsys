@@ -1,22 +1,35 @@
 use actix_files::NamedFile;
 use actix_web::middleware::ErrorHandlerResponse;
 use actix_web::web::Data;
-use actix_web::Responder;
+use actix_web::Either;
 use actix_web::{http::StatusCode, Result};
+use actix_web::{HttpResponse, Responder};
 use lsys_web::dao::WebDao;
 
 pub(crate) async fn render_404(app: Data<WebDao>) -> impl Responder {
-    let static_serve_from = app
+    let page_404 = match app
         .app_core
-        .config
-        .find(None)
-        .get_string("static_file_dir")
-        .unwrap_or_else(|_| String::from("./static"))
-        + "/404.html";
-    NamedFile::open_async(static_serve_from)
-        .await
-        .customize()
-        .with_status(StatusCode::NOT_FOUND)
+        .config_path(app.app_core.config.find(None), "static_file_dir")
+    {
+        Ok(t) => {
+            let out = t.join("404.html");
+            if out.is_file() {
+                Some(
+                    NamedFile::open_async(out)
+                        .await
+                        .customize()
+                        .with_status(StatusCode::NOT_FOUND),
+                )
+            } else {
+                None
+            }
+        }
+        Err(_) => None,
+    };
+    match page_404 {
+        Some(page) => Either::Left(page),
+        None => Either::Right(HttpResponse::NotFound().body("404 - File not found")),
+    }
 }
 pub(crate) fn render_500<B>(
     mut res: actix_web::dev::ServiceResponse<B>,

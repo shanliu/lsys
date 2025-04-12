@@ -5,7 +5,7 @@ use actix_web::{dev::Payload, web::Data, FromRequest, HttpRequest};
 
 use lsys_core::RequestEnv;
 use lsys_web::{
-    common::{JsonData, RequestDao},
+    common::{JsonData, JsonResponse, RequestDao},
     dao::WebDao,
 };
 
@@ -81,7 +81,9 @@ impl FromRequest for ReqQuery {
                     // req: req.to_owned(),
                 })
             }
-            None => err(JsonData::message_error("not find webdao").into()),
+            None => err(JsonResponse::data(JsonData::error())
+                .set_message("not find webdao")
+                .into()),
         }
     }
 }

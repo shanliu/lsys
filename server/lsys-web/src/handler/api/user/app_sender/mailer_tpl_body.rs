@@ -1,12 +1,12 @@
+use crate::common::JsonData;
+use crate::{
+    common::{JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
+    dao::access::api::user::CheckUserAppSenderMailConfig,
+};
 use lsys_access::dao::AccessSession;
 use lsys_app_sender::model::SenderType;
 use serde::Deserialize;
 use serde_json::json;
-
-use crate::{
-    common::{JsonData, JsonResult, PageParam, UserAuthQueryDao},
-    dao::access::api::user::CheckUserAppSenderMailConfig,
-};
 
 #[derive(Debug, Deserialize)]
 pub struct MailerTplListParam {
@@ -19,7 +19,7 @@ pub struct MailerTplListParam {
 pub async fn mailer_tpl_body_list(
     param: &MailerTplListParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
@@ -66,7 +66,9 @@ pub async fn mailer_tpl_body_list(
     } else {
         None
     };
-    Ok(JsonData::data(json!({ "data": data,"total":count })))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "data": data,"total":count }),
+    )))
 }
 
 #[derive(Debug, Deserialize)]
@@ -78,7 +80,7 @@ pub struct MailerTplAddParam {
 pub async fn mailer_tpl_body_add(
     param: &MailerTplAddParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
@@ -106,7 +108,7 @@ pub async fn mailer_tpl_body_add(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "id": id })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "id": id }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -117,7 +119,7 @@ pub struct MailerTplEditParam {
 pub async fn mailer_tpl_body_edit(
     param: &MailerTplEditParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     let tpl = req_dao.web_dao.app_sender.tpl.find_by_id(&param.id).await?;
@@ -145,7 +147,7 @@ pub async fn mailer_tpl_body_edit(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -155,7 +157,7 @@ pub struct MailerTplDelParam {
 pub async fn mailer_tpl_body_del(
     param: &MailerTplDelParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     let data = req_dao.web_dao.app_sender.tpl.find_by_id(&param.id).await?;
@@ -178,5 +180,5 @@ pub async fn mailer_tpl_body_del(
         .tpl
         .del(&data, auth_data.user_id(), Some(&req_dao.req_env))
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }

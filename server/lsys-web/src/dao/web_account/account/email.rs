@@ -58,7 +58,7 @@ impl WebUserAccount {
             Ok(email) => {
                 if AccountEmailStatus::Valid.eq(email.status) {
                     if email.account_id != session_body.user_id() {
-                        return Err(JsonError::JsonData(
+                        return Err(JsonError::JsonResponse(
                             JsonData::default().set_code(500),
                             fluent_message!("mail-bind-other-user",{
                                 "other.account_id":email.account_id,
@@ -66,7 +66,7 @@ impl WebUserAccount {
                             }),
                         ));
                     } else {
-                        return Err(JsonError::JsonData(
+                        return Err(JsonError::JsonResponse(
                             JsonData::default()
                                 .set_code(500)
                                 .set_sub_code("mail-is-confirm"),

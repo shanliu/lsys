@@ -1,10 +1,11 @@
-use crate::common::{JsonData, JsonResult, RequestDao};
+use crate::common::{JsonResponse, JsonResult, RequestDao};
 use lsys_docs::dao::DocPath;
+use crate::common::JsonData;
 use lsys_docs::dao::GitDocResult;
 use serde::Deserialize;
 use serde_json::json;
 use serde_json::Value;
-pub async fn menu_data(req_dao: &RequestDao) -> JsonResult<JsonData> {
+pub async fn menu_data(req_dao: &RequestDao) -> JsonResult<JsonResponse> {
     let data = req_dao
         .web_dao
         .web_doc
@@ -33,9 +34,9 @@ pub async fn menu_data(req_dao: &RequestDao) -> JsonResult<JsonData> {
             })
         })
         .collect::<Vec<_>>();
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data":data,
-    })))
+    }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -43,17 +44,17 @@ pub struct MdReadParam {
     pub url: String,
     pub menu_id: u32,
 }
-pub async fn md_read(param: &MdReadParam, req_dao: &RequestDao) -> JsonResult<JsonData> {
+pub async fn md_read(param: &MdReadParam, req_dao: &RequestDao) -> JsonResult<JsonResponse> {
     let (data, dat) = req_dao
         .web_dao
         .web_doc
         .docs_md_read(param.menu_id, &param.url)
         .await?;
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "id":data.clone_id,
         "version": data.version,
         "data":dat,
-    })))
+    }))))
 }
 
 #[derive(Debug, Deserialize)]

@@ -1,3 +1,5 @@
+// 定义外部请求封装
+
 use std::{ops::Deref, sync::Arc};
 
 use lsys_access::dao::{AccessSession, AccessSessionData, AccessSessionToken};
@@ -7,7 +9,7 @@ use lsys_core::{FluentBundle, IntoFluentMessage, RequestEnv};
 use lsys_user::dao::{UserAuthData, UserAuthSession, UserAuthToken};
 
 use crate::{
-    common::{JsonData, JsonError},
+    common::{JsonError, JsonResponse},
     dao::WebDao,
 };
 use tokio::sync::RwLock;
@@ -27,8 +29,8 @@ impl RequestDao {
             req_env,
         }
     }
-    pub fn fluent_error_json_data(&self, data: &JsonError) -> JsonData {
-        data.to_json_data(&self.fluent)
+    pub fn fluent_error_json_response(&self, data: &JsonError) -> JsonResponse {
+        data.to_json_response(&self.fluent)
     }
     pub fn fluent_error_string(&self, data: &JsonError) -> String {
         match data {
@@ -36,17 +38,16 @@ impl RequestDao {
                 fluent_error_json_data.fluent_format(&self.fluent)
             }
             JsonError::Message(fluent_message) => self.fluent.format_message(fluent_message),
-            JsonError::JsonData(_, fluent_message) => self.fluent.format_message(fluent_message),
+            JsonError::JsonResponse(_, fluent_message) => {
+                self.fluent.format_message(fluent_message)
+            }
         }
     }
 }
 
 pub struct RequestAuthDao<T: AccessSessionToken, D: AccessSessionData, S: AccessSession<T, D>> {
     req_dao: RequestDao,
-    // pub web_dao: Arc<WebDao>,
-    // pub req_env: RequestEnv,
     pub user_session: RwLock<S>,
-    // fluent: Arc<FluentBundle>,
     marker_t: std::marker::PhantomData<T>,
     marker_d: std::marker::PhantomData<D>,
 }

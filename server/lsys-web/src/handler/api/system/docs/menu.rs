@@ -1,11 +1,11 @@
+use crate::common::JsonData;
+use crate::common::JsonResult;
+use crate::common::UserAuthQueryDao;
+use crate::{common::JsonResponse, dao::access::api::system::CheckAdminDocs};
 use lsys_access::dao::AccessSession;
 use lsys_docs::dao::GitDocsMenuData;
 use serde::Deserialize;
 use serde_json::json;
-
-use crate::common::JsonResult;
-use crate::common::UserAuthQueryDao;
-use crate::{common::JsonData, dao::access::api::system::CheckAdminDocs};
 
 #[derive(Debug, Deserialize)]
 pub struct MenuAddParam {
@@ -13,7 +13,10 @@ pub struct MenuAddParam {
     pub menu_path: String,
 }
 
-pub async fn menu_add(param: &MenuAddParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn menu_add(
+    param: &MenuAddParam,
+    req_dao: &UserAuthQueryDao,
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -44,7 +47,7 @@ pub async fn menu_add(param: &MenuAddParam, req_dao: &UserAuthQueryDao) -> JsonR
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -52,7 +55,10 @@ pub struct MenuDelParam {
     pub menu_id: u64,
 }
 
-pub async fn menu_del(param: &MenuDelParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn menu_del(
+    param: &MenuDelParam,
+    req_dao: &UserAuthQueryDao,
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -75,7 +81,7 @@ pub async fn menu_del(param: &MenuDelParam, req_dao: &UserAuthQueryDao) -> JsonR
         .docs
         .menu_del(&menu, auth_data.user_id(), Some(&req_dao.req_env))
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -83,7 +89,10 @@ pub struct MenuListParam {
     pub tag_id: u64,
 }
 
-pub async fn menu_list(param: &MenuListParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn menu_list(
+    param: &MenuListParam,
+    req_dao: &UserAuthQueryDao,
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -106,5 +115,5 @@ pub async fn menu_list(param: &MenuListParam, req_dao: &UserAuthQueryDao) -> Jso
         .docs
         .menu_list(&tag)
         .await?;
-    Ok(JsonData::data(json!({ "data": data })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "data": data }))))
 }

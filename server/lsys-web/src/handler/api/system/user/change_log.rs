@@ -1,9 +1,10 @@
 use crate::{
-    common::{JsonData, JsonResult, LimitParam, UserAuthQueryDao},
+    common::{JsonResponse, JsonResult, LimitParam, UserAuthQueryDao},
     dao::access::api::system::CheckAdminChangeLogsView,
 };
 use lsys_access::dao::AccessSession;
 use serde::Deserialize;
+use crate::common::JsonData;
 use serde_json::json;
 #[derive(Debug, Deserialize)]
 pub struct ChangeLogsListParam {
@@ -16,7 +17,7 @@ pub struct ChangeLogsListParam {
 pub async fn change_logs_list(
     param: &ChangeLogsListParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -52,9 +53,9 @@ pub async fn change_logs_list(
         None
     };
 
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data": res,
         "next": next,
         "total":count,
-    })))
+    }))))
 }

@@ -1,14 +1,11 @@
 //统一ouath登陆及已登陆账号的oauth绑定
+use super::{AccountRegData, WebUserAuth};
+use crate::common::{JsonError, JsonResult};
+use crate::dao::{OauthCallbackParam, OauthLogin, OauthLoginData, OauthLoginParam};
 use lsys_core::model_option_set;
 use lsys_core::{fluent_message, RequestEnv};
 use lsys_user::model::{AccountExternalModel, AccountExternalStatus, AccountInfoModelRef};
 use serde::Serialize;
-
-use crate::common::{
-    JsonError, JsonResult, OauthCallbackParam, OauthLogin, OauthLoginData, OauthLoginParam,
-};
-
-use super::{AccountRegData, WebUserAuth};
 
 impl WebUserAuth {
     //得到外部登录URL

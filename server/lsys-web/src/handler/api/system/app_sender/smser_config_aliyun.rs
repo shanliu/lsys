@@ -1,4 +1,4 @@
-use crate::common::{JsonData, JsonResult, UserAuthQueryDao};
+use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
 use crate::dao::access::api::system::{CheckAdminSmsConfig, CheckAdminSmsMgr};
 use lsys_access::dao::AccessSession;
 use lsys_app_sender::dao::AliYunConfig;
@@ -29,13 +29,13 @@ pub async fn smser_ali_config_list(
     param: &SmserAliConfigListParam,
     callback_call: impl Fn(&SettingData<AliYunConfig>) -> String,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminSmsConfig {})
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsConfig {})
         .await?;
     let row = req_dao
         .web_dao
@@ -61,7 +61,7 @@ pub async fn smser_ali_config_list(
             callback_key: e.callback_key.to_owned(),
         })
         .collect::<Vec<_>>();
-    Ok(JsonData::data(json!({ "data": tmp })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "data": tmp }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -77,15 +77,15 @@ pub struct SmserAliConfigAddParam {
 pub async fn smser_ali_config_add(
     param: &SmserAliConfigAddParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminSmsConfig {})
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsConfig {})
         .await?;
-   
+
     let row = req_dao
         .web_dao
         .app_sender
@@ -102,7 +102,7 @@ pub async fn smser_ali_config_add(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "id": row })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "id": row }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -119,15 +119,15 @@ pub struct SmserAliConfigEditParam {
 pub async fn smser_ali_config_edit(
     param: &SmserAliConfigEditParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminSmsConfig {})
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsConfig {})
         .await?;
-  
+
     let row = req_dao
         .web_dao
         .app_sender
@@ -145,7 +145,7 @@ pub async fn smser_ali_config_edit(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "num": row })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "num": row }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -156,13 +156,13 @@ pub struct SmserAliConfigDelParam {
 pub async fn smser_ali_config_del(
     param: &SmserAliConfigDelParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminSmsConfig {})
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsConfig {})
         .await?;
     let row = req_dao
         .web_dao
@@ -171,7 +171,7 @@ pub async fn smser_ali_config_del(
         .aliyun_sender
         .del_config(param.id, auth_data.user_id(), Some(&req_dao.req_env))
         .await?;
-    Ok(JsonData::data(json!({ "num": row })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "num": row }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -186,13 +186,13 @@ pub struct SmserAppAliConfigAddParam {
 pub async fn smser_tpl_config_ali_add(
     param: &SmserAppAliConfigAddParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminSmsMgr {})
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsMgr {})
         .await?;
 
     let row = req_dao
@@ -212,5 +212,5 @@ pub async fn smser_tpl_config_ali_add(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "id": row })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "id": row }))))
 }

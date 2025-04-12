@@ -1,11 +1,13 @@
+use crate::common::JsonData;
 use crate::{
-    common::{CaptchaParam, JsonData, JsonResult, RequestDao, UserAuthQueryDao},
+    common::{CaptchaParam, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao},
     dao::access::api::user::{CheckUserEmailBase, CheckUserEmailEdit},
 };
 use lsys_access::dao::{AccessSession, AccessSessionData};
 use lsys_user::model::AccountEmailStatus;
 use serde::Deserialize;
 use serde_json::json;
+
 #[derive(Debug, Deserialize)]
 pub struct EmailAddParam {
     pub email: String,
@@ -13,7 +15,7 @@ pub struct EmailAddParam {
 pub async fn email_add(
     param: &EmailAddParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
@@ -31,9 +33,9 @@ pub async fn email_add(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "id":id
-    })))
+    }))))
 }
 #[derive(Debug, Deserialize)]
 pub struct EmailSendCodeParam {
@@ -43,9 +45,9 @@ pub struct EmailSendCodeParam {
 pub async fn email_send_code(
     param: &EmailSendCodeParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-   
+
     req_dao
         .web_dao
         .web_rbac
@@ -63,7 +65,7 @@ pub async fn email_send_code(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 #[derive(Debug, Deserialize)]
 pub struct EmailConfirmParam {
@@ -73,7 +75,7 @@ pub struct EmailConfirmParam {
 pub async fn email_confirm(
     param: &EmailConfirmParam,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let email = req_dao
         .web_dao
         .web_user
@@ -97,7 +99,7 @@ pub async fn email_confirm(
         .confirm_email_from_code(&email, &param.code, 0, Some(&req_dao.req_env))
         .await?;
 
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 #[derive(Debug, Deserialize)]
 pub struct EmailDeleteParam {
@@ -106,7 +108,7 @@ pub struct EmailDeleteParam {
 pub async fn email_delete(
     param: &EmailDeleteParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let email = req_dao
         .web_dao
@@ -141,7 +143,7 @@ pub async fn email_delete(
         .account_email
         .del_email(&email, auth_data.user_id(), None, Some(&req_dao.req_env))
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 #[derive(Debug, Deserialize)]
 pub struct EmailListDataParam {
@@ -150,7 +152,7 @@ pub struct EmailListDataParam {
 pub async fn email_list_data(
     param: &EmailListDataParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let status = if let Some(ref e) = param.status {
         let mut out = Vec::with_capacity(e.len());
@@ -170,8 +172,8 @@ pub async fn email_list_data(
         .account
         .user_email(auth_data.user_id(), status.as_deref())
         .await?;
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data": data ,
         "total":data.len(),
-    })))
+    }))))
 }

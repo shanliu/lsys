@@ -1,10 +1,10 @@
+use crate::common::JsonData;
 use crate::common::{LimitParam, UserAuthQueryDao};
 use lsys_access::dao::AccessSession;
-
 use serde::Deserialize;
 use serde_json::json;
 
-use crate::common::{JsonData, JsonResult};
+use crate::common::{JsonResponse, JsonResult};
 
 #[derive(Debug, Deserialize)]
 pub struct LoginHistoryParam {
@@ -18,7 +18,7 @@ pub struct LoginHistoryParam {
 pub async fn login_history(
     param: &LoginHistoryParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let (data, next) = req_dao
         .web_dao
@@ -49,9 +49,9 @@ pub async fn login_history(
             param.login_ip.as_deref(),
         )
         .await?;
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data": data ,
         "next": next,
         "total":total,
-    })))
+    }))))
 }

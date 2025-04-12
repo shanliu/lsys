@@ -1,9 +1,9 @@
 use crate::{
-    common::{
-        JsonData, JsonResult, OauthCallbackParam, OauthLogin, OauthLoginParam, RequestDao,
-        UserAuthQueryDao,
+    common::{JsonData, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao},
+    dao::{
+        access::api::{auth::CheckSystemLogin, user::CheckUserExternalEdit},
+        OauthCallbackParam, OauthLogin, OauthLoginParam,
     },
-    dao::access::{api::auth::CheckSystemLogin, api::user::CheckUserExternalEdit},
 };
 
 use lsys_access::dao::AccessSession;
@@ -17,7 +17,7 @@ pub struct ExternalDeleteParam {
 pub async fn external_delete(
     param: &ExternalDeleteParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let ext = req_dao
         .web_dao
@@ -53,7 +53,7 @@ pub async fn external_delete(
         .account_external
         .del_external(&ext, auth_data.user_id(), None, Some(&req_dao.req_env))
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -64,7 +64,7 @@ pub struct ExternalListDataParam {
 pub async fn external_list_data(
     param: &ExternalListDataParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let otype = param
         .oauth_type
@@ -76,10 +76,10 @@ pub async fn external_list_data(
         .account
         .user_external(auth_data.user_id(), otype.as_ref().map(|e| e.as_ref()))
         .await?;
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data": data ,
         "total":data.len(),
-    })))
+    }))))
 }
 
 //检查权限并获取登录URL
@@ -92,7 +92,7 @@ pub async fn external_bind_url<
     oauth: &T,
     param: &L,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     req_dao
         .web_dao
         .web_rbac
@@ -104,7 +104,7 @@ pub async fn external_bind_url<
         .auth
         .oauth_user_login_url::<T, L, P, D>(oauth, param)
         .await?;
-    Ok(JsonData::data(json!({ "url": url })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "url": url }))))
 }
 
 /// 已登陆后绑定外部账号
@@ -117,7 +117,7 @@ pub async fn external_bind<
     oauth: &T,
     param: &P,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -137,5 +137,7 @@ pub async fn external_bind<
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "id": ext_model.id })))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "id": ext_model.id }),
+    )))
 }

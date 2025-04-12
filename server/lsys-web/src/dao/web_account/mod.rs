@@ -1,10 +1,12 @@
 mod account;
 mod auth;
+mod oauth;
 
 pub use account::*;
 pub use auth::*;
 use lsys_logger::dao::ChangeLoggerDao;
 use lsys_user::dao::UserDao;
+pub use oauth::*;
 
 use sqlx::{MySql, Pool};
 use std::sync::Arc;

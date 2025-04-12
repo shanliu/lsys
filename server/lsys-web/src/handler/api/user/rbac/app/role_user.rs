@@ -1,5 +1,6 @@
 use super::app_check_get;
 use crate::common::JsonData;
+use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::LimitParam;
 use crate::common::PageParam;
@@ -7,7 +8,6 @@ use crate::common::UserAuthQueryDao;
 use lsys_access::dao::AccessSession;
 use lsys_access::dao::UserDataParam;
 use lsys_access::dao::UserInfo;
-
 use lsys_rbac::dao::RoleAddUser;
 use serde::Deserialize;
 use serde_json::json;
@@ -25,7 +25,7 @@ pub struct AppRoleUserAddParam {
 pub async fn app_role_user_add(
     param: &AppRoleUserAddParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let role = req_dao
         .web_dao
@@ -73,7 +73,7 @@ pub async fn app_role_user_add(
         .role
         .add_user(&role, &add_user, app.id, None, Some(&req_dao.req_env))
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -85,7 +85,7 @@ pub struct AppRoleUserDelParam {
 pub async fn app_role_user_del(
     param: &AppRoleUserDelParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let role = req_dao
         .web_dao
@@ -108,7 +108,7 @@ pub async fn app_role_user_del(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -122,7 +122,7 @@ pub struct AppRoleUserDataParam {
 pub async fn app_role_user_data(
     param: &AppRoleUserDataParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let role = req_dao
         .web_dao
@@ -156,10 +156,10 @@ pub async fn app_role_user_data(
     } else {
         None
     };
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data": res,
         "count": count
-    })))
+    }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -173,7 +173,7 @@ pub struct AppRoleUserAvailableParam {
 pub async fn app_role_user_available(
     param: &AppRoleUserAvailableParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let app = app_check_get(param.app_id, true, &auth_data, req_dao).await?;
     let user_param = UserDataParam {
@@ -203,9 +203,9 @@ pub async fn app_role_user_available(
         None
     };
     let out_res = res.into_iter().map(UserInfo::from).collect::<Vec<_>>();
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data":out_res,
         "next":next,
         "total":count
-    })))
+    }))))
 }

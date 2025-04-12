@@ -1,14 +1,15 @@
 use crate::{
-    common::{JsonData, JsonResult, PageParam, UserAuthQueryDao},
+    common::{JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
     dao::user::RbacUserSyncOpParam,
 };
+use crate::common::JsonData;
 use lsys_access::dao::AccessSession;
 use lsys_core::FluentMessage;
 use lsys_rbac::dao::ResTypeParam;
 use serde::Deserialize;
 use serde_json::json;
 
-pub async fn system_res_global_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn system_res_global_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let tpl_data = req_dao.web_dao.web_rbac.res_tpl_data(true, false);
     let mut out_data = vec![];
@@ -56,7 +57,7 @@ pub async fn system_res_global_data(req_dao: &UserAuthQueryDao) -> JsonResult<Js
             }).collect::<Vec<_>>(),
         }));
     }
-    Ok(JsonData::data(json!({ "tpl_data": out_data })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "tpl_data": out_data }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -69,7 +70,7 @@ pub struct SystemResParam {
 pub async fn system_res_data(
     param: &SystemResParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let res_data = vec!["111"]; //@todo 资源标识列表
     let res_data = req_dao
@@ -98,5 +99,5 @@ pub async fn system_res_data(
             }).collect::<Vec<_>>(),
         }));
     }
-    Ok(JsonData::data(json!({ "tpl_data": out_data })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "tpl_data": out_data }))))
 }

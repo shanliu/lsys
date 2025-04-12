@@ -1,4 +1,4 @@
-use crate::common::{JsonData, JsonResult, PageParam, UserAuthQueryDao};
+use crate::common::{JsonResponse, JsonResult, PageParam, UserAuthQueryDao};
 use lsys_access::dao::AccessSession;
 use lsys_rbac::{
     dao::{ResTypeListParam, ResTypeParam},
@@ -6,7 +6,7 @@ use lsys_rbac::{
 };
 use serde::Deserialize;
 use serde_json::json;
-
+use crate::common::JsonData;
 use super::{app_check_get, inner_user_data_to_user_id};
 
 #[derive(Debug, Deserialize)]
@@ -21,7 +21,7 @@ pub struct AppResTypeListParam {
 pub async fn app_res_type_data(
     param: &AppResTypeListParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let app = app_check_get(param.app_id, false, &auth_data, req_dao).await?;
     let user_id = inner_user_data_to_user_id(&app, param.user_param.as_deref(), req_dao).await?;
@@ -62,7 +62,7 @@ pub async fn app_res_type_data(
     } else {
         None
     };
-    Ok(JsonData::data(json!({ "data": rows,"total":count})))
+    Ok(JsonResponse::data(JsonData::body(json!({ "data": rows,"total":count}))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -76,7 +76,7 @@ pub struct AppResTypeAddOpParam {
 pub async fn app_res_type_op_add(
     param: &AppResTypeAddOpParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     let app = app_check_get(param.app_id, true, &auth_data, req_dao).await?;
@@ -110,7 +110,7 @@ pub async fn app_res_type_op_add(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -124,7 +124,7 @@ pub struct AppResDelOpParam {
 pub async fn app_res_type_op_del(
     param: &AppResDelOpParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let app = app_check_get(param.app_id, true, &auth_data, req_dao).await?;
     let user_id = inner_user_data_to_user_id(&app, param.user_param.as_deref(), req_dao).await?;
@@ -146,7 +146,7 @@ pub async fn app_res_type_op_del(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -161,7 +161,7 @@ pub struct AppResTypeOpListParam {
 pub async fn app_res_type_op_data(
     param: &AppResTypeOpListParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let app = app_check_get(param.app_id, true, &auth_data, req_dao).await?;
     let user_id = inner_user_data_to_user_id(&app, param.user_param.as_deref(), req_dao).await?;
@@ -196,5 +196,5 @@ pub async fn app_res_type_op_data(
     } else {
         None
     };
-    Ok(JsonData::data(json!({ "data": rows,"total":count})))
+    Ok(JsonResponse::data(JsonData::body(json!({ "data": rows,"total":count}))))
 }

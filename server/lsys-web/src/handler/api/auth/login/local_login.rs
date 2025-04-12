@@ -1,7 +1,7 @@
 use std::borrow::Borrow;
 
 use crate::{
-    common::{CaptchaParam, JsonData, JsonResult, RequestDao, UserAuthQueryDao},
+    common::{CaptchaParam, JsonData, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao},
     dao::{access::api::auth::CheckSystemLogin, ShowUserAuthData},
 };
 
@@ -191,7 +191,7 @@ pub struct MobileSendCodeLoginParam {
 pub async fn user_login_mobile_send_code(
     param: &MobileSendCodeLoginParam,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let valid_code = req_dao
         .web_dao
         .app_captcha
@@ -219,12 +219,12 @@ pub async fn user_login_mobile_send_code(
         )
         .await?;
     let _ = valid_code
-        .clear_code(
+        .destroy_code(
             &param.captcha.key,
             &mut req_dao.web_dao.app_captcha.valid_code_builder(),
         )
         .await;
-    Ok(JsonData::data(json!({ "ttl": data.1 })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "ttl": data.1 }))))
 }
 
 #[derive(Deserialize)]
@@ -236,7 +236,7 @@ pub struct EmailSendCodeLoginParam {
 pub async fn user_login_email_send_code(
     param: &EmailSendCodeLoginParam,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let valid_code = req_dao
         .web_dao
         .app_captcha
@@ -257,10 +257,10 @@ pub async fn user_login_email_send_code(
         .send_valid_code(&param.email, &data.0, &data.1, Some(&req_dao.req_env))
         .await?;
     let _ = valid_code
-        .clear_code(
+        .destroy_code(
             &param.captcha.key,
             &mut req_dao.web_dao.app_captcha.valid_code_builder(),
         )
         .await;
-    Ok(JsonData::data(json!({ "ttl": data.1 })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "ttl": data.1 }))))
 }

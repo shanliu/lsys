@@ -1,8 +1,8 @@
 use crate::{
-    common::{JsonData, JsonResult, UserAuthQueryDao},
+    common::{JsonResponse, JsonResult, UserAuthQueryDao},
     dao::access::api::user::CheckUserAppSenderMailConfig,
 };
-
+use crate::common::JsonData;
 use lsys_access::dao::AccessSession;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -16,7 +16,7 @@ pub struct MailerSmtpConfigListParam {
 pub async fn mailer_smtp_config_list(
     param: &MailerSmtpConfigListParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
@@ -48,7 +48,7 @@ pub async fn mailer_smtp_config_list(
             })
         })
         .collect::<Vec<Value>>();
-    Ok(JsonData::data(json!({ "data": row })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "data": row }))))
 }
 
 //系统应用邮件配置
@@ -68,7 +68,7 @@ pub struct MailerSmtpConfigAddParam {
 pub async fn mailer_smtp_config_add(
     param: &MailerSmtpConfigAddParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     mailer_inner_access_check(param.app_id, auth_data.user_id(), Some(&auth_data), req_dao).await?;
 
@@ -91,5 +91,5 @@ pub async fn mailer_smtp_config_add(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "id": row })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "id": row }))))
 }

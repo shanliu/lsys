@@ -17,7 +17,7 @@ pub(crate) async fn token(
     Ok(
         create_token(&req_dao, &token_param.into_inner()) //系统oauth
             .await
-            .map_err(|e| req_dao.fluent_error_json_data(&e))?
+            .map_err(|e| req_dao.fluent_error_json_response(&e))?
             .into(),
     )
 }
@@ -38,7 +38,7 @@ pub(crate) async fn refresh(
         });
     Ok(refresh_token(&param, &oauth_param)
         .await
-        .map_err(|e| oauth_param.fluent_error_json_data(&e))?
+        .map_err(|e| oauth_param.fluent_error_json_response(&e))?
         .into())
 }
 
@@ -54,6 +54,6 @@ pub(crate) async fn user_data(
         }
         var => handler_not_found!(var.unwrap_or_default()),
     }
-    .map_err(|e| oauth_param.fluent_error_json_data(&e))?
+    .map_err(|e| oauth_param.fluent_error_json_response(&e))?
     .into())
 }

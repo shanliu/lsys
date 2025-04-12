@@ -15,7 +15,7 @@ pub(crate) async fn account_email_confirm(
     Ok(
         user_email_confirm(&json_param.param::<EmailConfirmParam>()?, &auth_dao)
             .await
-            .map_err(|e| auth_dao.fluent_error_json_data(&e))?
+            .map_err(|e| auth_dao.fluent_error_json_response(&e))?
             .into(),
     )
 }
@@ -35,6 +35,6 @@ pub(crate) async fn email(
         "list_data" => email_list_data(&json_param.param::<EmailListDataParam>()?, &auth_dao).await,
         name => handler_not_found!(name),
     }
-    .map_err(|e| auth_dao.fluent_error_json_data(&e))?
+    .map_err(|e| auth_dao.fluent_error_json_response(&e))?
     .into())
 }

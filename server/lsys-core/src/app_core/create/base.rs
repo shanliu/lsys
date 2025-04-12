@@ -6,6 +6,7 @@ use log::LevelFilter;
 use sqlx::pool::PoolOptions;
 use sqlx::{ConnectOptions, Pool};
 use tokio::sync::Mutex;
+use tracing::debug;
 
 use std::str::FromStr;
 
@@ -13,7 +14,7 @@ use crate::app_core::result::AppCoreError;
 use async_trait::async_trait;
 use tera::Tera;
 
-use crate::{AppCore, ConfigError, FluentMgr};
+use crate::{AppCore, FluentMgr};
 
 use super::AppCoreCreate;
 
@@ -140,26 +141,15 @@ impl AppCoreCreate for BaseAppCoreCreate {
         Ok(pool)
     }
     async fn create_tera(&self, app_core: &AppCore) -> Result<Tera, AppCoreError> {
-        let mut tpl_dir = app_core
-            .config
-            .find(None)
-            .get_string("tpl_dir")
-            .map_err(|e| AppCoreError::Config(ConfigError::Config(e)))?;
-        if !tpl_dir.ends_with('/') {
-            tpl_dir += "/";
-        }
+        let tpl_dir = app_core.config_path(app_core.config.find(None), "tpl_dir")?;
         let tpl_exts = app_core
             .config
             .find(None)
             .get_string("tpl_exts")
             .map(|e| e.split(",").map(|e| e.to_owned()).collect::<Vec<String>>());
-
-        if !tpl_dir.ends_with('/') {
-            tpl_dir += "/";
-        }
         let tpl_pat = &format!(
             "{}**/*.{{{}}}",
-            tpl_dir,
+            tpl_dir.to_string_lossy(),
             tpl_exts
                 .unwrap_or(vec![
                     "txt".to_string(),
@@ -169,6 +159,7 @@ impl AppCoreCreate for BaseAppCoreCreate {
                 ])
                 .join(",")
         );
+        debug!("tpl dir is:{}", tpl_pat);
         let tera = Tera::new(tpl_pat)?;
         Ok(tera)
     }

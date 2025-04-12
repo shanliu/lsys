@@ -1,4 +1,5 @@
 mod app;
+mod cache;
 mod logger;
 mod oauth_client;
 mod oauth_server;
@@ -12,15 +13,15 @@ use lsys_core::{
 
 use crate::model::AppModel;
 
-use lsys_logger::dao::ChangeLoggerDao;
-use sqlx::{MySql, Pool};
-use std::sync::Arc;
-
 pub use app::*;
+pub use cache::AppLocalCacheClear;
+use lsys_logger::dao::ChangeLoggerDao;
 pub use oauth_client::*;
 pub use oauth_server::*;
 pub use result::*;
 pub use session::*;
+use sqlx::{MySql, Pool};
+use std::sync::Arc;
 
 pub struct AppDao {
     //内部依赖

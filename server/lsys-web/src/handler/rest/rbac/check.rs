@@ -1,11 +1,11 @@
-use std::collections::HashMap;
-
 use super::{inner_app_rbac_check, inner_user_data_to_user_id};
-use crate::common::{JsonData, JsonResult, RequestDao};
+use crate::common::JsonData;
+use crate::common::{JsonResponse, JsonResult, RequestDao};
 use lsys_app::model::AppModel;
 use lsys_rbac::dao::{AccessCheckEnv, AccessCheckRes, AccessSessionRole};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::collections::HashMap;
 #[derive(Debug, Deserialize)]
 pub struct ResCheckParam {
     pub res_type: String,           //资源KEY
@@ -39,10 +39,10 @@ pub async fn access_check(
     param: &CheckParam,
     app: &AppModel,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     inner_app_rbac_check(app, req_dao).await?;
     inner_access_check(param, app, req_dao).await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -64,7 +64,7 @@ pub async fn access_list_check(
     param: &RbacMenuListParam,
     app: &AppModel,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     inner_app_rbac_check(app, req_dao).await?;
     let mut out = Vec::with_capacity(param.menu_res.len());
     for e in param.menu_res.iter() {
@@ -76,7 +76,7 @@ pub async fn access_list_check(
             name: e.name.to_owned(),
         })
     }
-    Ok(JsonData::data(json!({"result":out})))
+    Ok(JsonResponse::data(JsonData::body(json!({"result":out}))))
 }
 
 async fn inner_access_check(

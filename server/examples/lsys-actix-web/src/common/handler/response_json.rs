@@ -8,7 +8,7 @@ use actix_web::{
 };
 use lsys_core::now_time;
 use lsys_user::dao::UserAuthToken;
-use lsys_web::common::JsonData;
+use lsys_web::common::{JsonData, JsonResponse};
 use serde_json::to_string_pretty;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::{error::Error, ops::Deref};
@@ -18,20 +18,20 @@ use super::AUTH_COOKIE_NAME;
 
 #[derive(Debug, Clone)]
 pub struct ResponseJson {
-    inner: JsonData,
+    inner: JsonResponse,
 }
 
 pub type ResponseJsonResult<T> = Result<T, ResponseJson>;
 
 impl Deref for ResponseJson {
-    type Target = JsonData;
+    type Target = JsonResponse;
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
 }
 
-impl From<JsonData> for ResponseJson {
-    fn from(err: JsonData) -> Self {
+impl From<JsonResponse> for ResponseJson {
+    fn from(err: JsonResponse) -> Self {
         ResponseJson { inner: err }
     }
 }
@@ -98,7 +98,9 @@ macro_rules! result_impl_system_error {
     ($err_type:ty) => {
         impl From<$err_type> for ResponseJson {
             fn from(err: $err_type) -> Self {
-                JsonData::message_error(err.to_string()).into()
+                JsonResponse::data(JsonData::error())
+                    .set_message(err)
+                    .into()
             }
         }
     };

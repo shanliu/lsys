@@ -38,7 +38,7 @@ CREATE TABLE `yaf_account_email` (
 CREATE TABLE `yaf_account_external` (
     `id` int unsigned NOT NULL AUTO_INCREMENT,
     `account_id` bigint unsigned NOT NULL COMMENT '用户ID',
-    `external_type` varchar(64) NOT NULL COMMENT '类型 wechat 微信 ',
+    `external_type` varchar(64) NOT NULL COMMENT '类型',
     `external_id` varchar(125) NOT NULL COMMENT '其他网站用户表示',
     `external_name` varchar(255) NOT NULL DEFAULT '' COMMENT '其他网站用户名',
     `external_gender` varchar(4) NOT NULL DEFAULT '' COMMENT '性别',

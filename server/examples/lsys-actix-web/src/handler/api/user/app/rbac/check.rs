@@ -56,6 +56,6 @@ pub async fn check(
         name => handler_not_found!(name),
     };
     Ok(data
-        .map_err(|e| auth_dao.fluent_error_json_data(&e))?
+        .map_err(|e| auth_dao.fluent_error_json_response(&e))?
         .into())
 }

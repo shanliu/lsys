@@ -471,7 +471,7 @@ impl BarCodeDao {
             status:status,
             image_background:image_background,
         });
-        let row = Update::< BarcodeCreateModel, _>::new(change)
+        let row = Update::<BarcodeCreateModel, _>::new(change)
             .execute_by_pk(create_config, &self.db)
             .await
             .map(|e| e.rows_affected())?;
@@ -510,7 +510,7 @@ impl BarCodeDao {
             status:BarcodeCreateStatus::Delete as i8,
             change_time: time,
         });
-        Update::< BarcodeCreateModel, _>::new(change)
+        Update::<BarcodeCreateModel, _>::new(change)
             .execute_by_pk(create_config, &self.db)
             .await?;
 
@@ -695,7 +695,7 @@ impl BarCodeDao {
             status:BarcodeParseStatus::Delete as i8,
             change_time: time,
         });
-        Update::< BarcodeParseModel, _>::new(change)
+        Update::<BarcodeParseModel, _>::new(change)
             .execute_by_pk(parse_record, &self.db)
             .await?;
         self.logger

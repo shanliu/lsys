@@ -1,4 +1,4 @@
-use crate::common::{JsonData, JsonError, JsonResult, UserAuthQueryDao};
+use crate::common::{JsonResponse, JsonError, JsonResult, UserAuthQueryDao};
 use crate::dao::access::api::system::CheckAdminApp;
 use lsys_access::dao::AccessSession;
 use lsys_app::model::AppRequestStatus;
@@ -12,7 +12,7 @@ pub struct ConfirmParam {
     pub confirm_note: String,
 }
 //APP 申请审核
-pub async fn confirm(param: &ConfirmParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn confirm(param: &ConfirmParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
@@ -55,5 +55,5 @@ pub async fn confirm(param: &ConfirmParam, req_dao: &UserAuthQueryDao) -> JsonRe
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }

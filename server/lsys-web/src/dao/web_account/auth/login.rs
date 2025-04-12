@@ -1,8 +1,7 @@
 //统一登陆过程
 use super::WebUserAuth;
-use crate::common::{
-    CaptchaParam, JsonError, JsonResult, OauthCallbackParam, OauthLogin, OauthLoginParam,
-};
+use crate::common::{CaptchaParam, JsonError, JsonResult};
+use crate::dao::{OauthCallbackParam, OauthLogin, OauthLoginParam};
 use lsys_access::dao::AccessSession;
 use lsys_core::{fluent_message, now_time, IntoFluentMessage, RequestEnv};
 use lsys_user::dao::login::ExternalLogin;
@@ -124,7 +123,7 @@ impl WebUserAuth {
                 if let Err(captcha_err) = self
                     .captcha
                     .valid_code(&crate::dao::CaptchaKey::Login)
-                    .clear_code(&captcha_code.key, &mut self.captcha.valid_code_builder())
+                    .destroy_code(&captcha_code.key, &mut self.captcha.valid_code_builder())
                     .await
                 {
                     tracing::warn!(
@@ -182,7 +181,7 @@ impl WebUserAuth {
                 if let Err(captcha_err) = self
                     .captcha
                     .valid_code(&crate::dao::CaptchaKey::Login)
-                    .clear_code(&captcha_code.key, &mut self.captcha.valid_code_builder())
+                    .destroy_code(&captcha_code.key, &mut self.captcha.valid_code_builder())
                     .await
                 {
                     tracing::warn!(

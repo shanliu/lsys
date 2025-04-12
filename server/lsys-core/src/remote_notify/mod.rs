@@ -1,5 +1,5 @@
 //基于 REDIS来实现通讯
-// 从而实现广播到其他主机执行任务并返回结果
+// 从而实现广播到其他多个主机,多个主机分别执行任务(并返回结果,可选)
 use std::collections::HashMap;
 
 
@@ -95,7 +95,10 @@ pub enum LocalExecType {
     IgnoreLocal, //目标包含本机的忽略本机执行
 }
 pub struct ReplyWait {
+    //最多等待返回节点数
+    //当处理节点返回,超过此值时, call 函数返回结果
     pub max_node: usize,
+    //等待超时,call 函数返回结果
     pub timeout: u64,
 }
 

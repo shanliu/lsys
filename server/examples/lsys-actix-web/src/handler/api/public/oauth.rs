@@ -17,6 +17,6 @@ pub(crate) async fn oauth(
         "do" => create_code(&json_param.param::<AuthorizeDoParam>()?, &auth_dao).await,
         name => handler_not_found!(name),
     }
-    .map_err(|e| auth_dao.fluent_error_json_data(&e))?
+    .map_err(|e| auth_dao.fluent_error_json_response(&e))?
     .into())
 }

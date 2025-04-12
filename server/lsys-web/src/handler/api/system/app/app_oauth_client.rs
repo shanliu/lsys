@@ -1,5 +1,5 @@
 use crate::{
-    common::{JsonData, JsonResult, UserAuthQueryDao},
+    common::{JsonResponse, JsonResult, UserAuthQueryDao},
     dao::access::api::system::CheckAdminApp,
 };
 
@@ -17,7 +17,7 @@ pub struct ConfirmOAuthClientParam {
 pub async fn oauth_client_confirm(
     param: &ConfirmOAuthClientParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -46,7 +46,7 @@ pub async fn oauth_client_confirm(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Deserialize)]
@@ -60,7 +60,7 @@ pub struct ConfirmOAuthClientScopeParam {
 pub async fn oauth_client_scope_confirm(
     param: &ConfirmOAuthClientScopeParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
@@ -97,5 +97,5 @@ pub async fn oauth_client_scope_confirm(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }

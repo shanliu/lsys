@@ -1,8 +1,7 @@
 use crate::{
-    common::{JsonData, JsonResult, LimitParam, PageParam, UserAuthQueryDao},
+    common::{JsonData, JsonResponse, JsonResult, LimitParam, PageParam, UserAuthQueryDao},
     dao::access::api::system::CheckAdminMailMgr,
 };
-
 use lsys_access::dao::AccessSession;
 use lsys_app_sender::model::SenderMailMessageStatus;
 use lsys_core::now_time;
@@ -19,13 +18,13 @@ pub struct MailerMessageLogParam {
 pub async fn mailer_message_log(
     param: &MailerMessageLogParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminMailMgr {})
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailMgr {})
         .await?;
     let message_id = param.message_id.parse::<u64>()?;
 
@@ -51,7 +50,9 @@ pub async fn mailer_message_log(
     } else {
         None
     };
-    Ok(JsonData::data(json!({ "data": res,"total":count})))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "data": res,"total":count}),
+    )))
 }
 
 #[derive(Debug, Deserialize)]
@@ -62,13 +63,13 @@ pub struct MailerMessageBodyParam {
 pub async fn mailer_message_body(
     param: &MailerMessageBodyParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminMailMgr {}, )
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailMgr {})
         .await?;
     let message_id = param.message_id.parse::<u64>()?;
     let msg = req_dao
@@ -87,14 +88,16 @@ pub async fn mailer_message_body(
         .mail_record
         .find_body_by_id(&msg.sender_body_id)
         .await?;
- 
+
     req_dao
         .web_dao
         .app_sender
         .mailer
         .mailer_message_body(&msg, &body, &auth_data, Some(&req_dao.req_env))
         .await?;
-    Ok(JsonData::data(json!({ "body": body.tpl_var})))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "body": body.tpl_var}),
+    )))
 }
 
 #[derive(Debug, Deserialize)]
@@ -111,13 +114,13 @@ pub struct MailerMessageListParam {
 pub async fn mailer_message_list(
     param: &MailerMessageListParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminMailMgr {})
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailMgr {})
         .await?;
     let status = if let Some(e) = param.status {
         Some(SenderMailMessageStatus::try_from(e)?)
@@ -197,9 +200,9 @@ pub async fn mailer_message_list(
             })
         })
         .collect::<Vec<_>>();
-    Ok(JsonData::data(
+    Ok(JsonResponse::data(JsonData::body(
         json!({ "data": res,"total":count,"next":next}),
-    ))
+    )))
 }
 
 #[derive(Debug, Deserialize)]
@@ -210,13 +213,13 @@ pub struct MailerMessageCancelParam {
 pub async fn mailer_message_cancel(
     param: &MailerMessageCancelParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminMailMgr {})
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailMgr {})
         .await?;
     let message_id = param.message_id.parse::<u64>()?;
     let msg = req_dao
@@ -235,7 +238,7 @@ pub async fn mailer_message_cancel(
         .mail_record
         .find_body_by_id(&msg.sender_body_id)
         .await?;
-   
+
     let mut res = req_dao
         .web_dao
         .app_sender
@@ -250,7 +253,7 @@ pub async fn mailer_message_cancel(
             out = Some(message_id.to_string())
         }
     }
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data":out
-    })))
+    }))))
 }

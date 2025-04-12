@@ -1,5 +1,6 @@
+use crate::common::JsonData;
 use crate::{
-    common::{JsonData, JsonResult, RestAuthQueryDao},
+    common::{JsonResponse, JsonResult, RestAuthQueryDao},
     dao::AccountOptionData,
 };
 use lsys_access::dao::AccessSession;
@@ -21,7 +22,7 @@ pub struct AccountOptionDataParam {
 pub async fn account_data_from_oauth(
     param: &AccountOptionDataParam,
     req_dao: &RestAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     let account_id = auth_data.account_id()?;
@@ -74,7 +75,7 @@ pub async fn account_data_from_oauth(
         .account
         .user_detail(account_id, &data_option)
         .await?;
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "user_data":json!({
             "user":user_data.0,
             "name":user_data.1,
@@ -82,6 +83,6 @@ pub async fn account_data_from_oauth(
             "address":user_data.3,
             "email":user_data.4,
             "mobile":user_data.6,
-        }),
-    })))
+        })
+    }))))
 }

@@ -1,6 +1,6 @@
-use serde::Deserialize;
-
 // 定义一些公共参数
+
+use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 pub struct PageParam {

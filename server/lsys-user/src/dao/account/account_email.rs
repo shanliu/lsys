@@ -28,7 +28,6 @@ pub struct AccountEmail {
     pub(crate) account_cache: Arc<LocalCache<u64, Vec<u64>>>,
     logger: Arc<ChangeLoggerDao>,
 }
-
 impl AccountEmail {
     pub fn new(
         db: Pool<MySql>,
@@ -186,12 +185,56 @@ impl AccountEmail {
             }
         }
     }
-    impl_account_valid_code_method!("email",{
-        account_id:&u64,
+}
+
+impl AccountEmail {
+    /// 验证码生成
+    pub fn valid_code(&self) -> lsys_core::ValidCode {
+        lsys_core::ValidCode::new(self.redis.clone(), "email", true)
+    }
+    /// 获取验证码
+    pub async fn valid_code_set<T: lsys_core::ValidCodeData>(
+        &self,
+        valid_code_data: &mut T,
+        account_id: &u64,
         email: &str,
-    },{
-        &format!("{}-{}", account_id, email)
-    },30*60);
+    ) -> lsys_core::ValidCodeResult<(String, usize)> {
+        let out = self
+            .valid_code()
+            .set_code(&format!("{}-{}", account_id, email), valid_code_data)
+            .await?;
+        Ok(out)
+    }
+    /// 验证码构造器
+    pub fn valid_code_builder(&self) -> lsys_core::ValidCodeDataRandom {
+        lsys_core::ValidCodeDataRandom::new(300, 60)
+    }
+    /// 检测验证码
+    pub async fn valid_code_check(
+        &self,
+        code: &str,
+        account_id: &u64,
+        email: &str,
+    ) -> AccountResult<()> {
+        use lsys_core::CheckCodeData;
+
+        self.valid_code()
+            .check_code(&CheckCodeData::new(
+                &format!("{}-{}", account_id, email),
+                code,
+            ))
+            .await?;
+        Ok(())
+    }
+    pub async fn valid_code_clear(&self, account_id: &u64, email: &str) -> AccountResult<()> {
+        let mut builder = self.valid_code_builder();
+        self.valid_code()
+            .destroy_code(&format!("{}-{}", account_id, email), &mut builder)
+            .await?;
+        Ok(())
+    }
+}
+impl AccountEmail {
     /// 验证验证码并确认用户邮箱
     pub async fn confirm_email_from_code(
         &self,
@@ -263,7 +306,7 @@ impl AccountEmail {
 
         let mut db = self.db.begin().await?;
 
-        let tmp = Update::< AccountEmailModel, _>::new(change)
+        let tmp = Update::<AccountEmailModel, _>::new(change)
             .execute_by_pk(email, &mut *db)
             .await;
         let res = match tmp {
@@ -329,7 +372,7 @@ impl AccountEmail {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let res = Update::< AccountEmailModel, _>::new(change)
+        let res = Update::<AccountEmailModel, _>::new(change)
             .execute_by_pk(email, &mut *db)
             .await;
         match res {

@@ -1,12 +1,12 @@
+use crate::common::JsonData;
+use crate::common::JsonResult;
+use crate::common::PageParam;
+use crate::common::UserAuthQueryDao;
+use crate::{common::JsonResponse, dao::access::api::system::CheckAdminDocs};
 use lsys_access::dao::AccessSession;
 use lsys_docs::{dao::GitDocsGitTag, model::DocGitTagStatus};
 use serde::Deserialize;
 use serde_json::json;
-
-use crate::common::JsonResult;
-use crate::common::PageParam;
-use crate::common::UserAuthQueryDao;
-use crate::{common::JsonData, dao::access::api::system::CheckAdminDocs};
 
 #[derive(Debug, Deserialize)]
 pub struct TagAddParam {
@@ -16,7 +16,7 @@ pub struct TagAddParam {
     pub clear_rule: Option<Vec<String>>,
 }
 
-pub async fn tag_add(param: &TagAddParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn tag_add(param: &TagAddParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -52,7 +52,7 @@ pub async fn tag_add(param: &TagAddParam, req_dao: &UserAuthQueryDao) -> JsonRes
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "id": id })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "id": id }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -61,7 +61,7 @@ pub struct TagDelParam {
     pub timeout: Option<u8>,
 }
 
-pub async fn tag_del(param: &TagDelParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn tag_del(param: &TagDelParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -90,7 +90,7 @@ pub async fn tag_del(param: &TagDelParam, req_dao: &UserAuthQueryDao) -> JsonRes
         )
         .await?;
     let _ = req_dao.web_dao.web_doc.docs_dao.task.notify();
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -101,7 +101,7 @@ pub struct TagStatusParam {
 pub async fn tag_status(
     param: &TagStatusParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -125,7 +125,7 @@ pub async fn tag_status(
         .docs
         .tags_status(&tag, status, auth_data.user_id(), Some(&req_dao.req_env))
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -137,7 +137,10 @@ pub struct TagListParam {
     pub page: Option<PageParam>,
 }
 
-pub async fn tag_list(param: &TagListParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn tag_list(
+    param: &TagListParam,
+    req_dao: &UserAuthQueryDao,
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -175,7 +178,9 @@ pub async fn tag_list(param: &TagListParam, req_dao: &UserAuthQueryDao) -> JsonR
     } else {
         None
     };
-    Ok(JsonData::data(json!({ "data": data,"total":count })))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "data": data,"total":count }),
+    )))
 }
 
 #[derive(Debug, Deserialize)]
@@ -183,7 +188,10 @@ pub struct TagLogsParam {
     pub tag_id: u32,
 }
 
-pub async fn tag_logs(param: &TagLogsParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn tag_logs(
+    param: &TagLogsParam,
+    req_dao: &UserAuthQueryDao,
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -199,7 +207,7 @@ pub async fn tag_logs(param: &TagLogsParam, req_dao: &UserAuthQueryDao) -> JsonR
         .docs
         .tags_logs(&param.tag_id)
         .await?;
-    Ok(JsonData::data(json!({ "data": data })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "data": data }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -211,7 +219,7 @@ pub struct TagCLoneDelParam {
 pub async fn tag_clone_del(
     param: &TagCLoneDelParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -239,7 +247,7 @@ pub async fn tag_clone_del(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -247,7 +255,7 @@ pub struct TagDirParam {
     pub tag_id: u64,
     pub prefix: Option<String>,
 }
-pub async fn tag_dir(param: &TagDirParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn tag_dir(param: &TagDirParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -279,9 +287,9 @@ pub async fn tag_dir(param: &TagDirParam, req_dao: &UserAuthQueryDao) -> JsonRes
             })
         })
         .collect::<Vec<_>>();
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data":data,
-    })))
+    }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -292,7 +300,7 @@ pub struct TagFileDataParam {
 pub async fn tag_file_info(
     param: &TagFileDataParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -305,9 +313,9 @@ pub async fn tag_file_info(
         .web_doc
         .docs_tag_file_info(param.tag_id, &param.file_path)
         .await?;
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "id":data.id,
         "version": data.version,
         "data":data.data,
-    })))
+    }))))
 }

@@ -1,5 +1,6 @@
 use crate::common::JsonData;
 use crate::common::JsonError;
+use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::PageParam;
 use crate::common::UserAuthQueryDao;
@@ -28,7 +29,7 @@ pub struct CreateConfigAddParam {
 pub async fn create_config_add(
     param: &CreateConfigAddParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     let app = req_dao
@@ -82,9 +83,9 @@ pub async fn create_config_add(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "id":id,
-    })))
+    }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -103,7 +104,7 @@ pub struct CreateConfigEditParam {
 pub async fn create_config_edit(
     param: &CreateConfigEditParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     let data = req_dao
@@ -163,7 +164,7 @@ pub async fn create_config_edit(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -174,7 +175,7 @@ pub struct CreateConfigDeleteParam {
 pub async fn create_config_delete(
     param: &CreateConfigDeleteParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let data = req_dao
         .web_dao
@@ -200,7 +201,7 @@ pub async fn create_config_delete(
         .barcode_dao
         .delete_create_config(&auth_data.user_id(), &data, Some(&req_dao.req_env))
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -215,7 +216,7 @@ pub async fn create_config_list(
     param: &CreateConfigListParam,
     req_dao: &UserAuthQueryDao,
     url_callback: impl Fn(&BarcodeCreateModel) -> String,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -279,5 +280,7 @@ pub async fn create_config_list(
     } else {
         None
     };
-    Ok(JsonData::data(json!({ "data": data,"total":count })))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "data": data,"total":count }),
+    )))
 }

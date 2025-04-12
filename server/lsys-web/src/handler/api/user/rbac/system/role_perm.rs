@@ -1,4 +1,4 @@
-use crate::common::{JsonData, UserAuthQueryDao};
+use crate::common::{JsonResponse, UserAuthQueryDao};
 use crate::common::{JsonError, JsonResult, PageParam};
 use crate::dao::access::api::user::{CheckUserRbacEdit, CheckUserRbacView};
 use lsys_access::dao::AccessSession;
@@ -6,7 +6,7 @@ use lsys_core::fluent_message;
 use lsys_rbac::dao::RolePerm;
 use serde::Deserialize;
 use serde_json::json;
-
+use crate::common::JsonData;
 #[derive(Debug, Deserialize)]
 pub struct SystemRolePermItemData {
     pub op_id: u64,
@@ -22,7 +22,7 @@ pub struct SystemRolePermAddParam {
 pub async fn system_role_perm_add(
     param: &SystemRolePermAddParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     let role = req_dao
@@ -97,7 +97,7 @@ pub async fn system_role_perm_add(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -109,7 +109,7 @@ pub struct SystemRolePermDelParam {
 pub async fn system_role_perm_del(
     param: &SystemRolePermDelParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     let role = req_dao
@@ -184,7 +184,7 @@ pub async fn system_role_perm_del(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -197,7 +197,7 @@ pub struct SystemRolePermDataParam {
 pub async fn system_role_perm_data(
     param: &SystemRolePermDataParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     let role = req_dao
@@ -240,5 +240,5 @@ pub async fn system_role_perm_data(
     } else {
         None
     };
-    Ok(JsonData::data(json!({ "data": res,"total":count})))
+    Ok(JsonResponse::data(JsonData::body(json!({ "data": res,"total":count}))))
 }

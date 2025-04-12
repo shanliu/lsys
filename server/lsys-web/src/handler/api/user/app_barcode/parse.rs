@@ -1,16 +1,16 @@
 use lsys_access::dao::AccessSession;
 use lsys_app_barcode::dao::BarcodeParseRecord;
 
-use serde::Deserialize;
-use serde_json::json;
-use serde_json::Value;
-
 use crate::common::JsonData;
+use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::PageParam;
 use crate::common::UserAuthQueryDao;
 use crate::dao::access::api::user::CheckUserBarCodeEdit;
 use crate::dao::access::api::user::CheckUserBarCodeView;
+use serde::Deserialize;
+use serde_json::json;
+use serde_json::Value;
 
 #[derive(Debug, Deserialize)]
 pub struct ParseRecordListParam {
@@ -23,7 +23,7 @@ pub struct ParseRecordListParam {
 pub async fn parse_record_list(
     param: &ParseRecordListParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
@@ -93,7 +93,9 @@ pub async fn parse_record_list(
             }
         })
         .collect::<Vec<Value>>();
-    Ok(JsonData::data(json!({ "data": data,"total":count })))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "data": data,"total":count }),
+    )))
 }
 
 #[derive(Debug, Deserialize)]
@@ -104,7 +106,7 @@ pub struct ParseRecordDeleteParam {
 pub async fn parse_record_delete(
     param: &ParseRecordDeleteParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let data = req_dao
         .web_dao
@@ -130,5 +132,5 @@ pub async fn parse_record_delete(
         .barcode_dao
         .delete_parse_record(auth_data.user_id(), &data, Some(&req_dao.req_env))
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }

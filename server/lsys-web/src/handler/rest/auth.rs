@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
 use crate::{
-    common::{JsonData, JsonResult, RequestDao},
+    common::{JsonResponse, JsonResult, RequestDao},
     dao::access::rest::CheckRestApp,
 };
 use lsys_access::dao::AccessLoginData;
 use lsys_app::model::AppModel;
-
+use crate::common::JsonData;
 use lsys_core::now_time;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -27,7 +27,7 @@ pub async fn do_login(
     param: &DoLoginParam,
     app: &AppModel,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     req_dao
         .web_dao
         .web_rbac
@@ -74,11 +74,11 @@ pub async fn do_login(
             },
         )
         .await?;
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "token_data": seession_body.token_data(),
         "user_id": seession_body.user_id(),
         "user_name": seession_body.user().user_name,
-    })))
+    }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -89,7 +89,7 @@ pub async fn do_logout(
     param: &DoLogoutParam,
     app: &AppModel,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     req_dao
         .web_dao
         .web_app
@@ -105,7 +105,7 @@ pub async fn do_logout(
         .code_logout(app.id, &param.token_data)
         .await?;
 
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -116,7 +116,7 @@ pub async fn login_info(
     param: &LoginInfoParam,
     app: &AppModel,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     req_dao
         .web_dao
         .web_rbac
@@ -138,8 +138,8 @@ pub async fn login_info(
         .login_data(app.id, &param.token_data)
         .await?;
 
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "session":session.session(),
         "user":session.user()
-    })))
+    }))))
 }

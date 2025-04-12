@@ -1,4 +1,4 @@
-use crate::common::{JsonData, JsonResult, UserAuthQueryDao};
+use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
 use crate::dao::access::api::system::CheckAdminSmsConfig;
 use crate::dao::access::api::system::CheckAdminSmsMgr;
 use lsys_access::dao::AccessSession;
@@ -30,7 +30,7 @@ pub async fn smser_hw_config_list(
     param: &SmserHwConfigListParam,
     callback_call: impl Fn(&SettingData<HwYunConfig>) -> String,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -65,7 +65,7 @@ pub async fn smser_hw_config_list(
             .collect::<Vec<_>>();
         json!({ "data": tmp })
     };
-    Ok(JsonData::data(row))
+    Ok(JsonResponse::data(JsonData::body(row)))
 }
 
 #[derive(Debug, Deserialize)]
@@ -81,7 +81,7 @@ pub struct SmserHwConfigAddParam {
 pub async fn smser_hw_config_add(
     param: &SmserHwConfigAddParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -89,7 +89,7 @@ pub async fn smser_hw_config_add(
         .web_rbac
         .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsConfig {})
         .await?;
-  
+
     let row = req_dao
         .web_dao
         .app_sender
@@ -106,7 +106,7 @@ pub async fn smser_hw_config_add(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "id": row })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "id": row }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -123,7 +123,7 @@ pub struct SmserHwConfigEditParam {
 pub async fn smser_hw_config_edit(
     param: &SmserHwConfigEditParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -131,7 +131,7 @@ pub async fn smser_hw_config_edit(
         .web_rbac
         .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsConfig {})
         .await?;
-   
+
     let row = req_dao
         .web_dao
         .app_sender
@@ -149,7 +149,7 @@ pub async fn smser_hw_config_edit(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "num": row })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "num": row }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -160,7 +160,7 @@ pub struct SmserHwConfigDelParam {
 pub async fn smser_hw_config_del(
     param: &SmserHwConfigDelParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -168,7 +168,7 @@ pub async fn smser_hw_config_del(
         .web_rbac
         .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsConfig {})
         .await?;
-   
+
     let row = req_dao
         .web_dao
         .app_sender
@@ -176,7 +176,7 @@ pub async fn smser_hw_config_del(
         .hwyun_sender
         .del_config(param.id, auth_data.user_id(), Some(&req_dao.req_env))
         .await?;
-    Ok(JsonData::data(json!({ "num": row })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "num": row }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -193,7 +193,7 @@ pub struct SmserAppHwConfigAddParam {
 pub async fn smser_tpl_config_hw_add(
     param: &SmserAppHwConfigAddParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -201,7 +201,7 @@ pub async fn smser_tpl_config_hw_add(
         .web_rbac
         .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsMgr {})
         .await?;
-    
+
     let row = req_dao
         .web_dao
         .app_sender
@@ -221,5 +221,5 @@ pub async fn smser_tpl_config_hw_add(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "id": row })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "id": row }))))
 }

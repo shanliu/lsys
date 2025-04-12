@@ -1,8 +1,8 @@
+use crate::common::JsonData;
 use crate::{
-    common::{JsonData, JsonResult, PageParam, UserAuthQueryDao},
+    common::{JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
     handler::api::user::rbac::app::{app_check_get, parent_app_check},
 };
-
 use lsys_rbac::dao::{CustomUserListResData, SessionUserListResData};
 use serde::Deserialize;
 use serde_json::json;
@@ -22,7 +22,7 @@ pub struct AppUserFromResParam {
 pub async fn app_res_user_from_res(
     param: &AppUserFromResParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = parent_app_check(req_dao).await?;
     let app = app_check_get(param.app_id, false, &auth_data, req_dao).await?;
 
@@ -55,10 +55,10 @@ pub async fn app_res_user_from_res(
         .access
         .find_user_data_from_public(user_info.id, param.app_id)
         .await?;
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "user_data": user_set_data,
         "pub_data": pub_set_data,
-    })))
+    }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -81,7 +81,7 @@ pub struct AppResRoleFromResParam {
 pub async fn app_res_session_role_data_from_res(
     param: &AppResRoleFromResParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = parent_app_check(req_dao).await?;
     let app = app_check_get(param.app_id, false, &auth_data, req_dao).await?;
 
@@ -133,10 +133,10 @@ pub async fn app_res_session_role_data_from_res(
             is_self: param.is_self,
         })
         .await?;
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data": res_data,
         "count": res_count,
-    })))
+    }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -157,7 +157,7 @@ pub struct AppResUserDataFromResParam {
 pub async fn app_res_user_data_from_res(
     param: &AppResUserDataFromResParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = parent_app_check(req_dao).await?;
     let app = app_check_get(param.app_id, false, &auth_data, req_dao).await?;
 
@@ -209,8 +209,8 @@ pub async fn app_res_user_data_from_res(
             is_self: param.is_self,
         })
         .await?;
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data": res_data,
         "count": res_count,
-    })))
+    }))))
 }

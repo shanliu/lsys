@@ -8,7 +8,7 @@ use lsys_core::{now_time, RequestEnv};
 use lsys_user::dao::{UserAuthSession, UserAuthToken};
 use lsys_web::{
     common::{
-        JsonData, RequestAuthDao as Request, RequestSessionToken, RestAuthQueryDao,
+        JsonData, JsonResponse, RequestAuthDao as Request, RequestSessionToken, RestAuthQueryDao,
         UserAuthQueryDao,
     },
     dao::WebDao,
@@ -90,7 +90,9 @@ impl FromRequest for UserAuthQuery {
                     req: req.to_owned(),
                 })
             }
-            None => err(JsonData::message_error("not find webdao").into()),
+            None => err(JsonResponse::data(JsonData::error())
+                .set_message("not find webdao")
+                .into()),
         }
     }
 }
@@ -203,7 +205,9 @@ impl FromRequest for OauthAuthQuery {
                     //  req: req.to_owned(),
                 })
             }
-            None => err(JsonData::message_error("not find webdao").into()),
+            None => err(JsonResponse::data(JsonData::error())
+                .set_message("not find webdao")
+                .into()),
         }
     }
 }

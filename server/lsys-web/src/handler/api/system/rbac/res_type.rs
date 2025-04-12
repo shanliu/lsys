@@ -1,5 +1,5 @@
 use crate::{
-    common::{JsonData, JsonResult, PageParam, UserAuthQueryDao},
+    common::{JsonData, JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
     dao::access::api::system::{CheckAdminRbacEdit, CheckAdminRbacView},
 };
 use lsys_access::dao::AccessSession;
@@ -13,7 +13,7 @@ use serde_json::json;
 
 //静态资源类型数据
 
-pub async fn res_tpl_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn res_tpl_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     req_dao.user_session.read().await.get_session_data().await?;
     let tpl_data = req_dao
         .web_dao
@@ -44,7 +44,9 @@ pub async fn res_tpl_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
             })
         })
         .collect::<Vec<_>>();
-    Ok(JsonData::data(json!({ "tpl_data": tpl_data })))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "tpl_data": tpl_data }),
+    )))
 }
 
 //从现有资源统计资源类型
@@ -58,7 +60,7 @@ pub struct ResTypeListParam {
 pub async fn res_type_data(
     param: &ResTypeListParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -97,7 +99,9 @@ pub async fn res_type_data(
     } else {
         None
     };
-    Ok(JsonData::data(json!({ "data": rows,"total":count})))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "data": rows,"total":count}),
+    )))
 }
 
 //往资源类型加操作
@@ -110,7 +114,7 @@ pub struct ResTypeAddOpParam {
 pub async fn res_type_op_add(
     param: &ResTypeAddOpParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -146,7 +150,7 @@ pub async fn res_type_op_add(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -159,7 +163,7 @@ pub struct ResDelOpParam {
 pub async fn res_type_op_del(
     param: &ResDelOpParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -185,7 +189,7 @@ pub async fn res_type_op_del(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -199,7 +203,7 @@ pub struct ResTypeOpListParam {
 pub async fn res_type_op_data(
     param: &ResTypeOpListParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -238,5 +242,7 @@ pub async fn res_type_op_data(
     } else {
         None
     };
-    Ok(JsonData::data(json!({ "data": rows,"total":count})))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "data": rows,"total":count}),
+    )))
 }

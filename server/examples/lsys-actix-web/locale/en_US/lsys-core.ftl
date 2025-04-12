@@ -7,4 +7,5 @@ notify-time-out = Remote notification timed out: {$msg}
 valid-code-tag-len = Verification code [{$tag}] exceeds maximum length: {$max}
 valid-code-bad = Verification code expired or invalid. Please request a new one.
 valid-code-not-match = Submitted verification code [{$code}] does not match
+valid-code-not-found = Submitted verification code [{$code}] timed out
 valid-code-submit-empty = Verification code cannot be empty

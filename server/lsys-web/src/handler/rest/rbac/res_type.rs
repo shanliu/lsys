@@ -1,11 +1,10 @@
-use crate::common::{JsonData, JsonResult, PageParam, RequestDao};
+use super::{inner_app_rbac_check, inner_app_self_check, inner_user_data_to_user_id};
+use crate::common::JsonData;
+use crate::common::{JsonResponse, JsonResult, PageParam, RequestDao};
 use lsys_app::model::AppModel;
 use lsys_rbac::dao::{ResTypeListParam as RbacResTypeListParam, ResTypeParam};
 use serde::Deserialize;
 use serde_json::json;
-
-use super::{inner_app_rbac_check, inner_app_self_check, inner_user_data_to_user_id};
-
 #[derive(Debug, Deserialize)]
 pub struct ResTypeListParam {
     pub user_param: Option<String>,
@@ -18,7 +17,7 @@ pub async fn res_type_data(
     param: &ResTypeListParam,
     app: &AppModel,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     inner_app_rbac_check(app, req_dao).await?;
     let user_id = inner_user_data_to_user_id(app, param.user_param.as_deref(), req_dao).await?;
     let res_type_param = param.res_type.as_ref().and_then(|e| {
@@ -54,7 +53,9 @@ pub async fn res_type_data(
     } else {
         None
     };
-    Ok(JsonData::data(json!({ "data": rows,"total":count})))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "data": rows,"total":count}),
+    )))
 }
 
 #[derive(Debug, Deserialize)]
@@ -68,7 +69,7 @@ pub async fn res_type_op_add(
     param: &ResTypeAddOpParam,
     app: &AppModel,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     inner_app_rbac_check(app, req_dao).await?;
     let user_id = inner_user_data_to_user_id(app, param.user_param.as_deref(), req_dao).await?;
 
@@ -103,7 +104,7 @@ pub async fn res_type_op_add(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -117,7 +118,7 @@ pub async fn res_type_op_del(
     param: &ResDelOpParam,
     app: &AppModel,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     inner_app_rbac_check(app, req_dao).await?;
     let user_id = inner_user_data_to_user_id(app, param.user_param.as_deref(), req_dao).await?;
 
@@ -138,7 +139,7 @@ pub async fn res_type_op_del(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -153,7 +154,7 @@ pub async fn res_type_op_data(
     param: &ResTypeOpListParam,
     app: &AppModel,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     inner_app_rbac_check(app, req_dao).await?;
     let user_id = inner_user_data_to_user_id(app, param.user_param.as_deref(), req_dao).await?;
 
@@ -187,5 +188,7 @@ pub async fn res_type_op_data(
     } else {
         None
     };
-    Ok(JsonData::data(json!({ "data": rows,"total":count})))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "data": rows,"total":count}),
+    )))
 }

@@ -1,3 +1,5 @@
+// 基于REDIS队列实现:分布式任务执行
+// 任意一个主机派发出一个任务到队列,并监听结果,由监听队列的节点执行后,将结果返回到派发任务主机
 use std::fmt::Debug;
 use std::sync::Arc;
 
@@ -204,7 +206,7 @@ impl<T: WaitItem + Serialize + DeserializeOwned + Debug> WaitNotify<T> {
 
 #[tokio::test]
 async fn test_listen_notify() {
-    let app_core = AppCore::init(
+    let app_core = AppCore::new(
         &format!("{}/../examples/lsys-actix-web", env!("CARGO_MANIFEST_DIR")),
         &format!(
             "{}/../examples/lsys-actix-web/config",

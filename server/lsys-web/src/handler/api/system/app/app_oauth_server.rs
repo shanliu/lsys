@@ -1,5 +1,5 @@
 use crate::{
-    common::{JsonData, JsonResult, UserAuthQueryDao},
+    common::{JsonResponse, JsonResult, UserAuthQueryDao},
     dao::access::api::system::CheckAdminApp,
 };
 
@@ -17,7 +17,7 @@ pub struct ConfirmOAuthServerParam {
 pub async fn oauth_server_confirm(
     param: &ConfirmOAuthServerParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -46,5 +46,5 @@ pub async fn oauth_server_confirm(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }

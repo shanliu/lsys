@@ -76,21 +76,11 @@ impl AuthCode {
     // pub async fn valid_code_set(&self, login_code: &str) -> AccountResult<(String, usize)> {
     //     let mut valid_code_data =
     //         lsys_core::ValidCodeDataRandom::new(lsys_core::ValidCodeTime::time(60));
-    //     let res = self
-    //         .valid_code()
-    //         .delay_code(login_code, &mut valid_code_data)
-    //         .await;
-    //     match res {
-    //         Ok(out) => Ok(out),
-    //         Err(lsys_core::ValidCodeError::DelayTimeout(_)) => {
     //             let out = self
     //                 .valid_code()
     //                 .set_code(login_code, &mut valid_code_data)
     //                 .await?;
     //             Ok(out)
-    //         }
-    //         Err(err) => Err(err.into()),
-    //     }
     // }
     // // /// 检测验证码
     // pub async fn valid_code_check(&self, login_code: &str, valid_code: &str) -> AccountResult<()> {
@@ -100,7 +90,7 @@ impl AuthCode {
     // pub async fn valid_code_clear(&self, login_code: &str) -> AccountResult<()> {
     //     let mut builder = lsys_core::ValidCodeDataRandom::new(lsys_core::ValidCodeTime::time(60));
     //     self.valid_code()
-    //         .clear_code(login_code, &mut builder)
+    //         .destroy_code(login_code, &mut builder)
     //         .await?;
     //     Ok(())
     // }

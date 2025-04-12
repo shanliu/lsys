@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use crate::common::PageParam;
+use crate::common::{JsonData, PageParam};
 use crate::{
-    common::{JsonData, JsonResult, UserAuthQueryDao},
+    common::{JsonResponse, JsonResult, UserAuthQueryDao},
     dao::access::api::system::CheckAdminMailMgr,
 };
 use lsys_access::dao::AccessSession;
@@ -23,7 +23,7 @@ pub struct MailerConfigAddParam {
 pub async fn mailer_config_add(
     param: &MailerConfigAddParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -48,7 +48,7 @@ pub async fn mailer_config_add(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "id": id })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "id": id }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -58,7 +58,7 @@ pub struct MailerConfigDeleteParam {
 pub async fn mailer_config_del(
     param: &MailerConfigDeleteParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -66,7 +66,7 @@ pub async fn mailer_config_del(
         .web_rbac
         .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailMgr {})
         .await?;
-   let res = req_dao
+    let res = req_dao
         .web_dao
         .app_sender
         .mailer
@@ -88,13 +88,13 @@ pub async fn mailer_config_del(
             }
         }
         Err(err) => match &err {
-            SenderError::Sqlx(sqlx::Error::RowNotFound) => return Ok(JsonData::default()),
+            SenderError::Sqlx(sqlx::Error::RowNotFound) => return Ok(JsonResponse::default()),
             _ => {
                 return Err(err.into());
             }
         },
     }
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -105,7 +105,7 @@ pub struct MailerConfigListParam {
 pub async fn mailer_config_list(
     param: &MailerConfigListParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -145,7 +145,7 @@ pub async fn mailer_config_list(
         })
         .collect::<Vec<Value>>();
 
-    Ok(JsonData::data(json!({ "data": data })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "data": data }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -160,7 +160,7 @@ pub struct MailerTplConfigListParam {
 pub async fn mailer_tpl_config_list(
     param: &MailerTplConfigListParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -240,7 +240,9 @@ pub async fn mailer_tpl_config_list(
     } else {
         None
     };
-    Ok(JsonData::data(json!({ "data": row ,"total":total})))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "data": row ,"total":total}),
+    )))
 }
 
 #[derive(Debug, Deserialize)]
@@ -251,7 +253,7 @@ pub struct MailerTplConfigDelParam {
 pub async fn mailer_tpl_config_del(
     param: &MailerTplConfigDelParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -268,7 +270,7 @@ pub async fn mailer_tpl_config_del(
         .find_by_id(&param.app_config_id)
         .await?;
     if SenderTplConfigStatus::Delete.eq(config.status) {
-        return Ok(JsonData::data(json!({ "num": 0 })));
+        return Ok(JsonResponse::data(JsonData::body(json!({ "num": 0 }))));
     }
     let row = req_dao
         .web_dao
@@ -278,5 +280,5 @@ pub async fn mailer_tpl_config_del(
         .tpl_config
         .del_config(&config, auth_data.user_id(), Some(&req_dao.req_env))
         .await?;
-    Ok(JsonData::data(json!({ "num": row })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "num": row }))))
 }

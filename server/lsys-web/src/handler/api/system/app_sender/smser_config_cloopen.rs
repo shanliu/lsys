@@ -1,4 +1,4 @@
-use crate::common::{JsonData, JsonResult, UserAuthQueryDao};
+use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
 use crate::dao::access::api::system::{CheckAdminSmsConfig, CheckAdminSmsMgr};
 use lsys_access::dao::AccessSession;
 use lsys_app_sender::dao::CloOpenConfig;
@@ -29,7 +29,7 @@ pub async fn smser_cloopen_config_list(
     param: &SmserCloOpenConfigListParam,
     callback_call: impl Fn(&SettingData<CloOpenConfig>) -> String,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -63,7 +63,7 @@ pub async fn smser_cloopen_config_list(
             .collect::<Vec<_>>();
         json!({ "data": tmp })
     };
-    Ok(JsonData::data(out))
+    Ok(JsonResponse::data(JsonData::body(out)))
 }
 
 #[derive(Debug, Deserialize)]
@@ -79,7 +79,7 @@ pub struct SmserCloOpenConfigAddParam {
 pub async fn smser_cloopen_config_add(
     param: &SmserCloOpenConfigAddParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -103,7 +103,7 @@ pub async fn smser_cloopen_config_add(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "id": row })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "id": row }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -120,7 +120,7 @@ pub struct SmserCloOpenConfigEditParam {
 pub async fn smser_cloopen_config_edit(
     param: &SmserCloOpenConfigEditParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -146,7 +146,7 @@ pub async fn smser_cloopen_config_edit(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "num": row })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "num": row }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -157,7 +157,7 @@ pub struct SmserCloOpenConfigDelParam {
 pub async fn smser_cloopen_config_del(
     param: &SmserCloOpenConfigDelParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -172,7 +172,7 @@ pub async fn smser_cloopen_config_del(
         .cloopen_sender
         .del_config(param.id, auth_data.user_id(), Some(&req_dao.req_env))
         .await?;
-    Ok(JsonData::data(json!({ "num": row })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "num": row }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -187,7 +187,7 @@ pub struct SmserAppCloopenConfigAddParam {
 pub async fn smser_tpl_config_cloopen_add(
     param: &SmserAppCloopenConfigAddParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -213,5 +213,5 @@ pub async fn smser_tpl_config_cloopen_add(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "id": row })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "id": row }))))
 }

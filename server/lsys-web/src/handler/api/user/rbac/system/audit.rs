@@ -1,8 +1,8 @@
 use crate::common::JsonData;
+use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::LimitParam;
 use crate::common::UserAuthQueryDao;
-
 use lsys_access::dao::AccessSession;
 use lsys_rbac::dao::AuditDataParam;
 use serde::Deserialize;
@@ -26,7 +26,7 @@ pub struct SystemAuditParam {
 pub async fn system_audit_data(
     param: &SystemAuditParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let res = req_dao
         .web_dao
@@ -75,9 +75,9 @@ pub async fn system_audit_data(
             })
         })
         .collect::<Vec<Value>>();
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data": out_data,
         "next": res.1,
         "total": count,
-    })))
+    }))))
 }

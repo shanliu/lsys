@@ -1,5 +1,6 @@
+use crate::common::JsonData;
 use crate::{
-    common::{JsonData, JsonError, JsonResult, PageParam, UserAuthQueryDao},
+    common::{JsonError, JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
     dao::access::api::user::CheckUserAppView,
 };
 use lsys_access::dao::AccessSession;
@@ -45,7 +46,7 @@ pub struct UserAppListParam {
 pub async fn list_data(
     param: &UserAppListParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let status = if let Some(e) = param.status {
         Some(match AppStatus::try_from(e) {
             Ok(ts) => ts,
@@ -200,10 +201,10 @@ pub async fn list_data(
         None
     };
 
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data": bind_vec_user_info_from_req!(req_dao,out,user_id),
         "total":count
-    })))
+    }))))
 }
 
 #[derive(Deserialize)]
@@ -216,7 +217,7 @@ pub struct SecretViewSecretParam {
 pub async fn secret_view(
     param: &SecretViewSecretParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let app = req_dao
         .web_dao
@@ -264,13 +265,13 @@ pub async fn secret_view(
             .await?;
         out_data.insert("oauth_secret".to_string(), Value::String(secret_data));
     }
-    Ok(JsonData::data(Value::Object(out_data)))
+    Ok(JsonResponse::data(JsonData::body(Value::Object(out_data))))
 }
 
 pub async fn sub_app_secret_view(
     param: &SecretViewSecretParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let app = req_dao
         .web_dao
@@ -280,7 +281,7 @@ pub async fn sub_app_secret_view(
         .find_by_id(&param.app_id)
         .await?;
     if app.parent_app_id == 0 {
-        return Err(JsonError::JsonData(
+        return Err(JsonError::JsonResponse(
             JsonData::default().set_code(403),
             fluent_message!("system-error", "can't see system app"),
         ));
@@ -324,7 +325,7 @@ pub async fn sub_app_secret_view(
             .await?;
         out_data.insert("oauth_secret".to_string(), Value::String(secret_data));
     }
-    Ok(JsonData::data(Value::Object(out_data)))
+    Ok(JsonResponse::data(JsonData::body(Value::Object(out_data))))
 }
 
 #[derive(Deserialize)]
@@ -354,7 +355,7 @@ pub struct ShowRequestRecord {
 pub async fn request_list(
     param: &RequestListParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     let app = req_dao
@@ -451,14 +452,14 @@ pub async fn request_list(
     } else {
         None
     };
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data": bind_vec_user_info_from_req!(
             req_dao,
             out,
             request_user_id
         ),
         "total":count
-    })))
+    }))))
 }
 
 #[derive(Deserialize)]
@@ -473,7 +474,7 @@ pub struct SubRequestListParam {
 pub async fn sub_request_list(
     param: &SubRequestListParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     let app = req_dao
@@ -576,12 +577,12 @@ pub async fn sub_request_list(
     } else {
         None
     };
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data": bind_vec_user_info_from_req!(
             req_dao,
             out,
             request_user_id
         ),
         "total":count
-    })))
+    }))))
 }

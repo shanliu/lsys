@@ -1,6 +1,6 @@
 use crate::{
-    common::{JsonData, JsonResult, OauthCallbackParam, OauthLogin, OauthLoginParam, RequestDao},
-    dao::access::api::auth::CheckSystemLogin,
+    common::{JsonData, JsonResponse, JsonResult, RequestDao},
+    dao::{access::api::auth::CheckSystemLogin, OauthCallbackParam, OauthLogin, OauthLoginParam},
 };
 
 use serde::Serialize;
@@ -15,7 +15,7 @@ pub async fn user_external_login_url<
     oauth: &T,
     param: &L,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     req_dao
         .web_dao
         .web_rbac
@@ -27,5 +27,5 @@ pub async fn user_external_login_url<
         .auth
         .oauth_user_login_url::<T, L, P, D>(oauth, param)
         .await?;
-    Ok(JsonData::data(json!({ "url": url })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "url": url }))))
 }

@@ -1,9 +1,9 @@
 use serde::Deserialize;
 use serde_json::json;
-
+use crate::common::JsonData;
 use crate::{
     common::RequestDao,
-    common::{JsonData, JsonResult},
+    common::{JsonResponse, JsonResult},
 };
 
 #[derive(Debug, Deserialize)]
@@ -11,7 +11,7 @@ pub struct CodeParam {
     pub code: String,
 }
 
-pub fn list_data(param: &CodeParam, req_dao: &RequestDao) -> JsonResult<JsonData> {
+pub fn list_data(param: &CodeParam, req_dao: &RequestDao) -> JsonResult<JsonResponse> {
     let data = req_dao
         .web_dao
         .app_area
@@ -25,10 +25,10 @@ pub fn list_data(param: &CodeParam, req_dao: &RequestDao) -> JsonResult<JsonData
             })
         })
         .collect::<Vec<_>>();
-    Ok(JsonData::data(json!({ "area": data })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "area": data }))))
 }
 
-pub fn related_find(param: &CodeParam, req_dao: &RequestDao) -> JsonResult<JsonData> {
+pub fn related_find(param: &CodeParam, req_dao: &RequestDao) -> JsonResult<JsonResponse> {
     let data = req_dao
         .web_dao
         .app_area
@@ -47,10 +47,10 @@ pub fn related_find(param: &CodeParam, req_dao: &RequestDao) -> JsonResult<JsonD
                 .collect::<Vec<_>>()
         })
         .collect::<Vec<_>>();
-    Ok(JsonData::data(json!({ "area": data })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "area": data }))))
 }
 
-pub fn code_find(param: &CodeParam, req_dao: &RequestDao) -> JsonResult<JsonData> {
+pub fn code_find(param: &CodeParam, req_dao: &RequestDao) -> JsonResult<JsonResponse> {
     let data = req_dao
         .web_dao
         .app_area
@@ -64,7 +64,7 @@ pub fn code_find(param: &CodeParam, req_dao: &RequestDao) -> JsonResult<JsonData
             })
         })
         .collect::<Vec<_>>();
-    Ok(JsonData::data(json!({ "area": data })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "area": data }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -72,7 +72,7 @@ pub struct SearchParam {
     pub key_word: String,
     pub limit: Option<usize>,
 }
-pub fn search(param: &SearchParam, req_dao: &RequestDao) -> JsonResult<JsonData> {
+pub fn search(param: &SearchParam, req_dao: &RequestDao) -> JsonResult<JsonResponse> {
     let data = req_dao
         .web_dao
         .app_area
@@ -91,7 +91,7 @@ pub fn search(param: &SearchParam, req_dao: &RequestDao) -> JsonResult<JsonData>
                 .collect::<Vec<_>>()
         })
         .collect::<Vec<_>>();
-    Ok(JsonData::data(json!({ "area": data })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "area": data }))))
 }
 #[derive(Debug, Deserialize)]
 pub struct GeoParam {
@@ -99,7 +99,7 @@ pub struct GeoParam {
     pub lng: f64,
 }
 
-pub fn geo_find(param: &GeoParam, req_dao: &RequestDao) -> JsonResult<JsonData> {
+pub fn geo_find(param: &GeoParam, req_dao: &RequestDao) -> JsonResult<JsonResponse> {
     let data = req_dao
         .web_dao
         .app_area
@@ -113,5 +113,5 @@ pub fn geo_find(param: &GeoParam, req_dao: &RequestDao) -> JsonResult<JsonData> 
             })
         })
         .collect::<Vec<_>>();
-    Ok(JsonData::data(json!({ "area": data })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "area": data }))))
 }

@@ -29,16 +29,16 @@ impl WebUserAccount {
             .await?;
 
         if param.code.trim().len() < 6 {
-            return Err(JsonError::JsonData(
+            return Err(JsonError::JsonResponse(
                 JsonData::default().set_code(500).set_sub_code("bad_code"),
-                fluent_message!("address-miss-city"), // JsonData::message("your submit area miss city").set_code("bad_code")
+                fluent_message!("address-miss-city"), // JsonResponse::message("your submit area miss city").set_code("bad_code")
             ));
         }
         let area = self.area.code_related(param.code)?;
         if area.is_empty() {
-            return Err(JsonError::JsonData(
+            return Err(JsonError::JsonResponse(
                 JsonData::default().set_code(500).set_sub_code("bad_code"),
-                fluent_message!("address-bad-area"), // JsonData::message("your submit area miss city").set_code("bad_code")
+                fluent_message!("address-bad-area"), // JsonResponse::message("your submit area miss city").set_code("bad_code")
             ));
         }
         let country_code = "CHN".to_string();
@@ -74,14 +74,14 @@ impl WebUserAccount {
     ) -> JsonResult<()> {
         let country_code = "CHN".to_string();
         if param.code.trim().len() < 6 {
-            return Err(JsonError::JsonData(
+            return Err(JsonError::JsonResponse(
                 JsonData::default().set_code(500).set_sub_code("bad_code"),
                 fluent_message!("address-miss-city"),
             ));
         }
         let area = self.area.code_find(param.code)?;
         if area.is_empty() {
-            return Err(JsonError::JsonData(
+            return Err(JsonError::JsonResponse(
                 JsonData::default().set_code(500).set_sub_code("bad_code"),
                 fluent_message!("address-bad-area"),
             ));

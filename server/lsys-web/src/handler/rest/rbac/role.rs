@@ -2,6 +2,7 @@ use super::inner_app_rbac_check;
 use super::inner_app_self_check;
 use super::inner_user_data_to_user_id;
 use crate::common::JsonData;
+use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::PageParam;
 use crate::common::RequestDao;
@@ -30,7 +31,7 @@ pub async fn role_add(
     param: &RoleAddParam,
     app: &AppModel,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     inner_app_rbac_check(app, req_dao).await?;
     let target_user_id =
         inner_user_data_to_user_id(app, param.user_param.as_deref(), req_dao).await?;
@@ -66,7 +67,7 @@ pub async fn role_add(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "id": id.id })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "id": id.id }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -80,7 +81,7 @@ pub async fn role_edit(
     param: &RoleEditParam,
     app: &AppModel,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     inner_app_rbac_check(app, req_dao).await?;
 
     let role = req_dao
@@ -111,7 +112,7 @@ pub async fn role_edit(
         .role
         .edit_role(&role, &role_data, app.user_id, None, Some(&req_dao.req_env))
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -123,7 +124,7 @@ pub async fn role_del(
     param: &RoleDelParam,
     app: &AppModel,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     inner_app_rbac_check(app, req_dao).await?;
 
     let role = req_dao
@@ -141,7 +142,7 @@ pub async fn role_del(
         .role
         .del_role(&role, app.user_id, None, Some(&req_dao.req_env))
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 #[derive(Debug, Deserialize)]
 pub struct RoleDataParam {
@@ -181,7 +182,7 @@ pub async fn role_data(
     param: &RoleDataParam,
     app: &AppModel,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     inner_app_rbac_check(app, req_dao).await?;
 
     let target_user_id =
@@ -306,8 +307,8 @@ pub async fn role_data(
         None
     };
 
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data": bind_vec_user_info_from_req!(req_dao, role_data, user_id),
         "count": count
-    })))
+    }))))
 }

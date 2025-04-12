@@ -1,10 +1,11 @@
 use crate::{
-    common::{JsonData, JsonResult, UserAuthQueryDao},
+    common::{JsonResponse, JsonResult, UserAuthQueryDao},
     dao::{access::api::user::CheckUserInfoEdit, InfoSetUserInfoData},
 };
 use lsys_access::dao::AccessSession;
 use serde::Deserialize;
 use serde_json::json;
+use crate::common::JsonData;
 #[derive(Debug, Deserialize)]
 pub struct InfoSetUserNameParam {
     pub name: String,
@@ -12,7 +13,7 @@ pub struct InfoSetUserNameParam {
 pub async fn info_set_username(
     param: &InfoSetUserNameParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
   
     req_dao
@@ -28,7 +29,7 @@ pub async fn info_set_username(
         .user_info_set_username(&param.name, &req_dao.user_session, Some(&req_dao.req_env))
         .await?;
 
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -38,7 +39,7 @@ pub struct InfoCheckUserNameParam {
 pub async fn info_check_username(
     param: &InfoCheckUserNameParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
   
     req_dao
@@ -52,9 +53,9 @@ pub async fn info_check_username(
         .account
         .user_info_check_username(&param.name)
         .await?;
-    Ok(JsonData::default().set_data(json!({
+    Ok(JsonResponse::default().set_data(JsonData::body(json!({
         "pass":"1"
-    })))
+    }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -67,7 +68,7 @@ pub struct InfoSetUserInfoParam {
 pub async fn info_set_data(
     param: &InfoSetUserInfoParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
   
     req_dao
@@ -92,10 +93,10 @@ pub async fn info_set_data(
         )
         .await?;
 
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
-pub async fn password_last_modify(req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn password_last_modify(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     let (passwrod, passwrod_timeout) = req_dao
@@ -105,8 +106,8 @@ pub async fn password_last_modify(req_dao: &UserAuthQueryDao) -> JsonResult<Json
         .password_last_modify(&auth_data)
         .await?;
 
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "last_time":passwrod.add_time,
         "password_timeout":passwrod_timeout,
-    })))
+    }))))
 }

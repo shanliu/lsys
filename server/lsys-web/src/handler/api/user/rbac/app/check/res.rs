@@ -1,11 +1,11 @@
+use crate::common::JsonData;
 use crate::{
-    common::{JsonData, JsonResult, PageParam, UserAuthQueryDao},
+    common::{JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
     handler::api::user::rbac::app::{app_check_get, parent_app_check},
 };
 use lsys_rbac::{dao::AccessSessionRole, model::RbacRoleResRange};
 use serde::Deserialize;
 use serde_json::json;
-
 //获取指定用户可访问的资源数据
 #[derive(Debug, Deserialize)]
 pub struct AppResUserFromUserParam {
@@ -17,7 +17,7 @@ pub struct AppResUserFromUserParam {
 pub async fn app_res_user_from_user(
     param: &AppResUserFromUserParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = parent_app_check(req_dao).await?;
     let app = app_check_get(param.app_id, false, &auth_data, req_dao).await?;
 
@@ -55,11 +55,11 @@ pub async fn app_res_user_from_user(
         .access
         .find_res_user_count_from_user(user_info.id)
         .await?;
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "user_data": user_data,
         "is_system": is_system,
         "count": count,
-    })))
+    }))))
 }
 #[derive(Debug, Deserialize)]
 pub struct AppResInfoFromUserParam {
@@ -71,7 +71,7 @@ pub struct AppResInfoFromUserParam {
 pub async fn app_res_info_from_user(
     param: &AppResInfoFromUserParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = parent_app_check(req_dao).await?;
     let app = app_check_get(param.app_id, false, &auth_data, req_dao).await?;
 
@@ -91,7 +91,7 @@ pub async fn app_res_info_from_user(
         .access
         .find_res_data_from_custom_user(auth_data.user_id(), user_info.id)
         .await?;
-    Ok(JsonData::data(json!(res_data)))
+    Ok(JsonResponse::data(JsonData::body(json!(res_data))))
 }
 #[derive(Debug, Deserialize)]
 pub struct AppResListFromUserParam {
@@ -106,7 +106,7 @@ pub struct AppResListFromUserParam {
 pub async fn app_res_list_from_user(
     param: &AppResListFromUserParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = parent_app_check(req_dao).await?;
     let app = app_check_get(param.app_id, false, &auth_data, req_dao).await?;
 
@@ -140,10 +140,10 @@ pub async fn app_res_list_from_user(
         .access
         .find_res_count_from_custom_user(user_info.id, param.role_user_id, Some(app.id), res_range)
         .await?;
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "prem_data": prem_data,
         "count": count,
-    })))
+    }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -157,7 +157,7 @@ pub struct AppResListFromSessionParam {
 pub async fn app_res_info_from_session(
     param: &AppResListFromSessionParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = parent_app_check(req_dao).await?;
     let app = app_check_get(param.app_id, false, &auth_data, req_dao).await?;
 
@@ -220,9 +220,9 @@ pub async fn app_res_info_from_session(
             all_res = true;
         }
     }
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "allow_all_res": all_res,
         "prem_data": prem_data,
         "count": count,
-    })))
+    }))))
 }

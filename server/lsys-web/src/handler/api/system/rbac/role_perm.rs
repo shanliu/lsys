@@ -1,5 +1,5 @@
 use crate::{
-    common::{JsonData, JsonResult, UserAuthQueryDao},
+    common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao},
     dao::access::api::system::{CheckAdminRbacEdit, CheckAdminRbacView},
 };
 use lsys_access::dao::AccessSession;
@@ -25,7 +25,7 @@ pub struct RolePermAddParam {
 pub async fn role_perm_add(
     param: &RolePermAddParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -94,7 +94,7 @@ pub async fn role_perm_add(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -106,7 +106,7 @@ pub struct RolePermDelParam {
 pub async fn role_perm_del(
     param: &RolePermDelParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -173,7 +173,7 @@ pub async fn role_perm_del(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -186,7 +186,7 @@ pub struct RolePermParam {
 pub async fn role_perm_data(
     param: &RolePermParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -223,5 +223,7 @@ pub async fn role_perm_data(
         None
     };
 
-    Ok(JsonData::data(json!({ "data": res,"total":count})))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "data": res,"total":count}),
+    )))
 }

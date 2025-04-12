@@ -1,4 +1,4 @@
-use crate::common::{JsonData, JsonResult, UserAuthQueryDao};
+use crate::common::{JsonResponse, JsonResult, UserAuthQueryDao};
 use crate::dao::access::api::user::CheckUserAppSenderSmsConfig;
 use lsys_access::dao::AccessSession;
 use serde::{Deserialize, Serialize};
@@ -8,7 +8,7 @@ use serde_json::Value;
 pub struct SmserCloOpenConfigListParam {
     pub ids: Option<Vec<u64>>,
 }
-
+use crate::common::JsonData;
 #[derive(Serialize)]
 pub struct ShowCloOpenConfig {
     pub id: u64,
@@ -27,13 +27,14 @@ pub struct ShowCloOpenConfig {
 pub async fn smser_cloopen_config_list(
     param: &SmserCloOpenConfigListParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,Some(&auth_data),
+            &req_dao.req_env,
+            Some(&auth_data),
             &CheckUserAppSenderSmsConfig {
                 res_user_id: auth_data.user_id(),
             },
@@ -59,7 +60,7 @@ pub async fn smser_cloopen_config_list(
         })
         .collect::<Vec<Value>>();
 
-    Ok(JsonData::data(json!({ "data": row })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "data": row }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -75,7 +76,7 @@ pub struct SmserAppCloopenConfigAddParam {
 pub async fn smser_cloopen_app_config_add(
     param: &SmserAppCloopenConfigAddParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     super::smser_inner_access_check(param.app_id, auth_data.user_id(), req_dao).await?;
     let row = req_dao
@@ -95,5 +96,5 @@ pub async fn smser_cloopen_app_config_add(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "id": row })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "id": row }))))
 }

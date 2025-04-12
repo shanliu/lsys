@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::common::JsonData;
+use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::UserAuthQueryDao;
 use crate::dao::access::api::system::CheckAdminMailConfig;
@@ -34,7 +35,7 @@ pub struct MailerSmtpConfigListParam {
 pub async fn mailer_smtp_config_list(
     param: &MailerSmtpConfigListParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -72,7 +73,7 @@ pub async fn mailer_smtp_config_list(
         })
         .collect::<Vec<_>>();
 
-    Ok(JsonData::data(json!({ "data": data })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "data": data }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -91,7 +92,7 @@ pub struct MailerSmtpConfigAddParam {
 pub async fn mailer_smtp_config_add(
     param: &MailerSmtpConfigAddParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -128,7 +129,7 @@ pub async fn mailer_smtp_config_add(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "id": row })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "id": row }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -146,7 +147,7 @@ pub struct MailerSmtpConfigCheckParam {
 pub async fn mailer_smtp_config_check(
     param: &MailerSmtpConfigCheckParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -178,7 +179,9 @@ pub async fn mailer_smtp_config_check(
                 .unwrap_or(1),
         })
         .await?;
-    Ok(JsonData::data(json!({ "status": "ok" })))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "status": "ok" }),
+    )))
 }
 
 #[derive(Debug, Deserialize)]
@@ -198,7 +201,7 @@ pub struct MailerSmtpConfigEditParam {
 pub async fn mailer_smtp_config_edit(
     param: &MailerSmtpConfigEditParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -233,7 +236,7 @@ pub async fn mailer_smtp_config_edit(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "num": row })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "num": row }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -244,7 +247,7 @@ pub struct MailerSmtpConfigDelParam {
 pub async fn mailer_smtp_config_del(
     param: &MailerSmtpConfigDelParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -260,7 +263,7 @@ pub async fn mailer_smtp_config_del(
         .smtp_sender
         .del_config(param.id, auth_data.user_id(), Some(&req_dao.req_env))
         .await?;
-    Ok(JsonData::data(json!({ "num": row })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "num": row }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -277,7 +280,7 @@ pub struct MailerAppSmtpConfigAddParam {
 pub async fn mailer_tpl_config_smtp_add(
     param: &MailerAppSmtpConfigAddParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -305,5 +308,5 @@ pub async fn mailer_tpl_config_smtp_add(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "id": row })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "id": row }))))
 }

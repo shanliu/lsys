@@ -1,4 +1,5 @@
 use crate::common::JsonData;
+use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::PageParam;
 use crate::common::UserAuthQueryDao;
@@ -43,7 +44,7 @@ pub struct ShowAppRecord {
     pub sub_app_count: Option<serde_json::Value>,     //子APP数量
 }
 //系统所有的APP列表
-pub async fn list_data(param: &ListParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn list_data(param: &ListParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -161,14 +162,14 @@ pub async fn list_data(param: &ListParam, req_dao: &UserAuthQueryDao) -> JsonRes
     } else {
         None
     };
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data": bind_vec_user_info_from_req!(
             req_dao,
             out,
             user_id
         ),
         "total":count
-    })))
+    }))))
 }
 
 #[derive(Deserialize)]
@@ -198,7 +199,7 @@ pub struct ShowRequestRecord {
 pub async fn request_list(
     param: &RequestListParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -281,12 +282,12 @@ pub async fn request_list(
     } else {
         None
     };
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(  JsonData::body(json!({
         "data": bind_vec_user_info_from_req!(
             req_dao,
             out,
             request_user_id
         ),
         "total":count
-    })))
+    }))))
 }

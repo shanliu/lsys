@@ -1,11 +1,11 @@
+use crate::common::JsonData;
+use crate::common::UserAuthQueryDao;
+use crate::common::{JsonResponse, JsonResult, LimitParam};
+use crate::dao::access::api::user::CheckUserNotifyView;
+use lsys_access::dao::AccessSession;
 use lsys_app_notify::model::NotifyDataStatus;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-
-use crate::common::UserAuthQueryDao;
-use crate::common::{JsonData, JsonResult, LimitParam};
-use crate::dao::access::api::user::CheckUserNotifyView;
-use lsys_access::dao::AccessSession;
 #[derive(Deserialize)]
 pub struct DataListParam {
     pub app_id: Option<u64>,
@@ -28,7 +28,10 @@ pub struct DataListRecord {
     pub next_time: u64,
 }
 
-pub async fn data_list(param: &DataListParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn data_list(
+    param: &DataListParam,
+    req_dao: &UserAuthQueryDao,
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
@@ -99,7 +102,7 @@ pub async fn data_list(param: &DataListParam, req_dao: &UserAuthQueryDao) -> Jso
     } else {
         None
     };
-    Ok(JsonData::data(
+    Ok(JsonResponse::data(JsonData::body(
         json!({ "data":out,"next":next, "total":count,}),
-    ))
+    )))
 }

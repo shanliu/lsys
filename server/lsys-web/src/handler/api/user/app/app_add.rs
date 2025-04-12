@@ -1,8 +1,10 @@
 use crate::common::JsonResult;
-use crate::common::{JsonData, UserAuthQueryDao};
+use crate::common::{JsonResponse, UserAuthQueryDao};
 use crate::dao::access::api::user::CheckUserAppEdit;
 use lsys_access::dao::AccessSession;
 use lsys_app::dao::AppDataParam;
+
+use crate::common::JsonData;
 use serde::Deserialize;
 use serde_json::json;
 #[derive(Deserialize)]
@@ -12,7 +14,7 @@ pub struct AddParam {
     pub parent_app_id: Option<u64>,
 }
 
-pub async fn add(param: &AddParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn add(param: &AddParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -77,5 +79,5 @@ pub async fn add(param: &AddParam, req_dao: &UserAuthQueryDao) -> JsonResult<Jso
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({"id":app_id})))
+    Ok(JsonResponse::data(JsonData::body(json!({"id":app_id}))))
 }

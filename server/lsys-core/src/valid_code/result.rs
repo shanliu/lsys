@@ -8,7 +8,6 @@ use redis::RedisError;
 
 use crate::{fluent_message, FluentMessage, IntoFluentMessage};
 #[derive(Debug)]
-//不匹配错误
 pub struct ValidCodeCheckError {
     pub message: FluentMessage,
     pub prefix: String,
@@ -19,7 +18,6 @@ pub enum ValidCodeError {
     Redis(RedisError),
     RedisPool(PoolError),
     Tag(FluentMessage),
-    DelayTimeout(ValidCodeCheckError),
     NotMatch(ValidCodeCheckError),
 }
 
@@ -30,7 +28,6 @@ impl IntoFluentMessage for ValidCodeError {
             ValidCodeError::Redis(err) => fluent_message!("redis-error", err),
             ValidCodeError::RedisPool(err) => fluent_message!("redis-error", err),
             ValidCodeError::Tag(err) => err.to_owned(),
-            ValidCodeError::DelayTimeout(err) => err.message.clone(),
             ValidCodeError::NotMatch(err) => err.message.clone(),
         }
     }
@@ -51,3 +48,5 @@ impl From<PoolError> for ValidCodeError {
         ValidCodeError::RedisPool(err)
     }
 }
+
+pub type ValidCodeResult<T> = Result<T, ValidCodeError>;

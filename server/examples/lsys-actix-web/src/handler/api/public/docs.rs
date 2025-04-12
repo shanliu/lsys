@@ -51,5 +51,5 @@ pub async fn docs_read(
         "md" => md_read(&json_param.param::<MdReadParam>()?, &req_dao).await,
         name => handler_not_found!(name),
     };
-    Ok(res.map_err(|e| req_dao.fluent_error_json_data(&e))?.into())
+    Ok(res.map_err(|e| req_dao.fluent_error_json_response(&e))?.into())
 }

@@ -20,7 +20,7 @@ pub struct AppCore {
 }
 
 impl AppCore {
-    pub async fn init(
+    pub async fn new(
         app_dir: &str,
         config_dir: &str,
         config_files: Option<&[&str]>,
@@ -47,6 +47,7 @@ impl AppCore {
                 app_dir,
             )));
         }
+        dbg!(&app_path);
         Ok(AppCore {
             app_path,
             create: match create {
@@ -56,6 +57,7 @@ impl AppCore {
             config: Config::new(config_path, "app", config_files).await?,
         })
     }
+    //根据配置获取文件路径
     pub fn config_path(
         &self,
         config: &config::Config,
@@ -67,8 +69,10 @@ impl AppCore {
         }
         Ok(self.app_path.join(path))
     }
-    pub async fn init_tracing(&self) -> Result<(), AppCoreError> {
+    //初始化系统
+    pub async fn init(&self) -> Result<(), AppCoreError> {
         self.create.init_tracing(self).await
+        //这里可以做一些必要检查
     }
     pub async fn create_db(&self) -> Result<Pool<sqlx::MySql>, AppCoreError> {
         let table_prefix = self

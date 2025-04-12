@@ -6,8 +6,8 @@ use lsys_web::handler::api::auth::{
     RegSendCodeFromEmailParam, RegSendCodeFromMobileParam,
 };
 
-#[post("/{type}")]
-pub(crate) async fn reg(
+#[post("register/{type}")]
+pub(crate) async fn register(
     path: actix_web::web::Path<String>,
     json_param: JsonQuery,
     auth_dao: UserAuthQuery,
@@ -32,5 +32,7 @@ pub(crate) async fn reg(
         }
         name => handler_not_found!(name),
     };
-    Ok(res.map_err(|e| auth_dao.fluent_error_json_data(&e))?.into())
+    Ok(res
+        .map_err(|e| auth_dao.fluent_error_json_response(&e))?
+        .into())
 }

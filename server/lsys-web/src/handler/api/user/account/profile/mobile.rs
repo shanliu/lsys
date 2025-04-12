@@ -1,9 +1,9 @@
+use crate::common::JsonData;
 use crate::{
-    common::{CaptchaParam, JsonData, JsonResult, RequestDao, UserAuthQueryDao},
+    common::{CaptchaParam, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao},
     dao::access::api::user::{CheckUserMobileBase, CheckUserMobileEdit},
 };
 use lsys_access::dao::{AccessSession, AccessSessionData};
-
 use lsys_user::model::AccountMobileStatus;
 use serde::Deserialize;
 use serde_json::json;
@@ -15,7 +15,7 @@ pub struct MobileAddParam {
 pub async fn mobile_add(
     param: &MobileAddParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -35,7 +35,9 @@ pub async fn mobile_add(
         )
         .await?;
 
-    Ok(JsonData::data(json!({ "id": mobile_id })))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "id": mobile_id }),
+    )))
 }
 
 #[derive(Debug, Deserialize)]
@@ -47,7 +49,7 @@ pub struct MobileSendCodeParam {
 pub async fn mobile_send_code(
     param: &MobileSendCodeParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -67,7 +69,7 @@ pub async fn mobile_send_code(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -78,7 +80,7 @@ pub struct MobileConfirmParam {
 pub async fn mobile_confirm(
     param: &MobileConfirmParam,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     req_dao
         .web_dao
         .web_rbac
@@ -101,7 +103,7 @@ pub async fn mobile_confirm(
         .confirm_mobile_from_code(&mobile, &param.code, 0, Some(&req_dao.req_env))
         .await?;
 
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -111,7 +113,7 @@ pub struct MobileDeleteParam {
 pub async fn mobile_delete(
     param: &MobileDeleteParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     let mobile = req_dao
@@ -149,7 +151,7 @@ pub async fn mobile_delete(
         .del_mobile(&mobile, auth_data.user_id(), None, Some(&req_dao.req_env))
         .await?;
 
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -159,7 +161,7 @@ pub struct MobileListDataParam {
 pub async fn mobile_list_data(
     param: &MobileListDataParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     let status = if let Some(ref e) = param.status {
@@ -180,8 +182,8 @@ pub async fn mobile_list_data(
         .account
         .user_mobile(auth_data.user_id(), status.as_deref())
         .await?;
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data": data ,
         "total":data.len(),
-    })))
+    }))))
 }

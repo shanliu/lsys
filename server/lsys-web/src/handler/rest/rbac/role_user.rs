@@ -1,10 +1,11 @@
 use super::inner_app_rbac_check;
 use super::inner_app_self_check;
-use crate::common::JsonData;
+use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::PageParam;
 use crate::common::RequestDao;
 
+use crate::common::JsonData;
 use lsys_app::model::AppModel;
 
 use lsys_rbac::dao::RoleAddUser;
@@ -25,7 +26,7 @@ pub async fn role_user_add(
     param: &RoleUserAddParam,
     app: &AppModel,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     inner_app_rbac_check(app, req_dao).await?;
     let mut add_user = Vec::with_capacity(param.user_data.len());
     for e in param.user_data.iter() {
@@ -74,7 +75,7 @@ pub async fn role_user_add(
         .role
         .add_user(&role, &add_user, app.user_id, None, Some(&req_dao.req_env))
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 #[derive(Debug, Deserialize)]
 pub struct RoleUserDelParam {
@@ -86,7 +87,7 @@ pub async fn role_user_del(
     param: &RoleUserDelParam,
     app: &AppModel,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     inner_app_rbac_check(app, req_dao).await?;
 
     let role = req_dao
@@ -110,7 +111,7 @@ pub async fn role_user_del(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -125,7 +126,7 @@ pub async fn role_user_data(
     param: &RoleUserDataParam,
     app: &AppModel,
     req_dao: &RequestDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     inner_app_rbac_check(app, req_dao).await?;
     let role = req_dao
         .web_dao
@@ -159,8 +160,8 @@ pub async fn role_user_data(
     } else {
         None
     };
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data": res,
         "count": count
-    })))
+    }))))
 }

@@ -7,8 +7,6 @@ use lsys_logger::dao::ChangeLoggerDao;
 use lsys_setting::dao::SingleSetting;
 use sqlx::{MySql, Pool};
 use std::sync::Arc;
-#[macro_use]
-mod macros;
 
 #[allow(clippy::module_inception)]
 mod account;

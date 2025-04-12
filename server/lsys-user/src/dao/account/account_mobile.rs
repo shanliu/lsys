@@ -200,12 +200,55 @@ impl AccountMobile {
             .await;
         Ok(aid)
     }
-    impl_account_valid_code_method!("mobile",{
+}
+
+impl AccountMobile {
+    /// 验证码生成
+    pub fn valid_code(&self) -> lsys_core::ValidCode {
+        lsys_core::ValidCode::new(self.redis.clone(), "mobile", true)
+    }
+    /// 获取验证码
+    pub async fn valid_code_set<T: lsys_core::ValidCodeData>(
+        &self,
+        valid_code_data: &mut T,
         area_code: &str,
         mobile: &str,
-    },{
-        area_code.to_owned() + mobile
-    },120);
+    ) -> lsys_core::ValidCodeResult<(String, usize)> {
+        let out = self
+            .valid_code()
+            .set_code(&format!("{}-{}", area_code, mobile), valid_code_data)
+            .await?;
+        Ok(out)
+    }
+    /// 验证码构造器
+    pub fn valid_code_builder(&self) -> lsys_core::ValidCodeDataRandom {
+        lsys_core::ValidCodeDataRandom::new(120, 30)
+    }
+    /// 检测验证码
+    pub async fn valid_code_check(
+        &self,
+        code: &str,
+        area_code: &str,
+        mobile: &str,
+    ) -> AccountResult<()> {
+        use lsys_core::CheckCodeData;
+        self.valid_code()
+            .check_code(&CheckCodeData::new(
+                &format!("{}-{}", area_code, mobile),
+                code,
+            ))
+            .await?;
+        Ok(())
+    }
+    pub async fn valid_code_clear(&self, area_code: &str, mobile: &str) -> AccountResult<()> {
+        let mut builder = self.valid_code_builder();
+        self.valid_code()
+            .destroy_code(&format!("{}-{}", area_code, mobile), &mut builder)
+            .await?;
+        Ok(())
+    }
+}
+impl AccountMobile {
     /// 验证code并确认手机号
     pub async fn confirm_mobile_from_code(
         &self,
@@ -282,7 +325,7 @@ impl AccountMobile {
         });
         let mut db = self.db.begin().await?;
 
-        let tmp = Update::< AccountMobileModel, _>::new(change)
+        let tmp = Update::<AccountMobileModel, _>::new(change)
             .execute_by_pk(account_mobile, &mut *db)
             .await;
         let res = match tmp {
@@ -347,7 +390,7 @@ impl AccountMobile {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let res = Update::< AccountMobileModel, _>::new(change)
+        let res = Update::<AccountMobileModel, _>::new(change)
             .execute_by_pk(account_mobile, &mut *db)
             .await;
         let out = match res {

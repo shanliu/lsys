@@ -1,4 +1,4 @@
-use crate::common::{JsonData, JsonResult, PageParam, UserAuthQueryDao};
+use crate::common::{JsonData, JsonResponse, JsonResult, PageParam, UserAuthQueryDao};
 use crate::dao::access::api::system::{CheckAdminRbacEdit, CheckAdminRbacView};
 use lsys_access::dao::AccessSession;
 use lsys_rbac::dao::{OpDataParam as DaoOpDataParam, RbacOpAddData, RbacOpData};
@@ -12,7 +12,7 @@ pub struct OpAddParam {
     pub data: String,
 }
 
-pub async fn op_add(param: &OpAddParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn op_add(param: &OpAddParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -44,7 +44,7 @@ pub async fn op_add(param: &OpAddParam, req_dao: &UserAuthQueryDao) -> JsonResul
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "id": id })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "id": id }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -55,7 +55,7 @@ pub struct OpEditParam {
     pub data: String,
 }
 
-pub async fn op_edit(param: &OpEditParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn op_edit(param: &OpEditParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -91,7 +91,7 @@ pub async fn op_edit(param: &OpEditParam, req_dao: &UserAuthQueryDao) -> JsonRes
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -99,7 +99,7 @@ pub struct OpDelParam {
     pub op_id: u64,
 }
 
-pub async fn op_del(param: &OpDelParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn op_del(param: &OpDelParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -122,7 +122,7 @@ pub async fn op_del(param: &OpDelParam, req_dao: &UserAuthQueryDao) -> JsonResul
         .op
         .del_op(&op, auth_data.user_id(), None, Some(&req_dao.req_env))
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -134,7 +134,7 @@ pub struct OpDataParam {
     pub count_num: Option<bool>,
 }
 
-pub async fn op_data(param: &OpDataParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn op_data(param: &OpDataParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -178,5 +178,7 @@ pub async fn op_data(param: &OpDataParam, req_dao: &UserAuthQueryDao) -> JsonRes
         None
     };
 
-    Ok(JsonData::data(json!({ "data": res,"total":count})))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "data": res,"total":count}),
+    )))
 }

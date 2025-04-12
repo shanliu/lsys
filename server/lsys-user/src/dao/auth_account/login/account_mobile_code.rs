@@ -16,12 +16,53 @@ use std::sync::Arc;
 use tracing::warn;
 
 impl MobileCodeLogin {
-    impl_auth_valid_code_method!("mobile-login",{
+    /// 验证码生成
+    pub fn valid_code(redis: deadpool_redis::Pool) -> lsys_core::ValidCode {
+        lsys_core::ValidCode::new(redis, "mobile-login", true)
+    }
+    /// 获取验证码
+    pub async fn valid_code_set<T: lsys_core::ValidCodeData>(
+        redis: deadpool_redis::Pool,
+        valid_code_data: &mut T,
         area_code: &str,
         mobile: &str,
-    },{
-       format!("{}{}",area_code,mobile)
-    },60);
+    ) -> lsys_core::ValidCodeResult<(String, usize)> {
+        let valid_code = Self::valid_code(redis);
+        let code = valid_code
+            .set_code(&format!("{}-{}", area_code, mobile), valid_code_data)
+            .await?;
+        Ok(code)
+    }
+    /// 验证码构造器
+    pub fn valid_code_builder() -> lsys_core::ValidCodeDataRandom {
+        lsys_core::ValidCodeDataRandom::new(60, 30)
+    }
+    /// 检测验证码
+    pub async fn valid_code_check(
+        redis: deadpool_redis::Pool,
+        code: &str,
+        area_code: &str,
+        mobile: &str,
+    ) -> AccountResult<()> {
+        Self::valid_code(redis)
+            .check_code(&lsys_core::CheckCodeData::new(
+                &format!("{}-{}", area_code, mobile),
+                code,
+            ))
+            .await?;
+        Ok(())
+    }
+    pub async fn valid_code_clear(
+        redis: deadpool_redis::Pool,
+        area_code: &str,
+        mobile: &str,
+    ) -> AccountResult<()> {
+        let mut builder = Self::valid_code_builder();
+        Self::valid_code(redis)
+            .destroy_code(&format!("{}-{}", area_code, mobile), &mut builder)
+            .await?;
+        Ok(())
+    }
 }
 
 pub struct MobileCodeLoginData {

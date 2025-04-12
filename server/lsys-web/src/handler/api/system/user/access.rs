@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use serde_json::json;
-
-use crate::common::{JsonData, JsonResult};
+use crate::common::JsonData;
+use crate::common::{JsonResponse, JsonResult};
 use crate::{
     common::{LimitParam, UserAuthQueryDao},
     dao::access::api::system::CheckAdminUserManage,
@@ -20,7 +20,7 @@ pub struct LoginHistoryParam {
 pub async fn login_history(
     param: &LoginHistoryParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -58,11 +58,11 @@ pub async fn login_history(
     } else {
         None
     };
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data": res ,
         "next": next,
         "total":count,
-    })))
+    }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -74,7 +74,7 @@ pub struct UserLogoutParam {
 pub async fn user_logout(
     param: &UserLogoutParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
@@ -101,7 +101,7 @@ pub async fn user_logout(
         Err(AccessError::NotLogin) => {}
         Err(err) => return Err(err.into()),
     }
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -111,7 +111,7 @@ pub struct AppLogoutParam {
 pub async fn app_logout(
     param: &AppLogoutParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
@@ -125,5 +125,5 @@ pub async fn app_logout(
         .auth
         .clear_app_login(&param.app_id)
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }

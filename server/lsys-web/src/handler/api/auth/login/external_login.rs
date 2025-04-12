@@ -1,6 +1,9 @@
 use crate::{
-    common::{JsonResult, OauthCallbackParam, OauthLogin, OauthLoginParam, UserAuthQueryDao},
-    dao::{access::api::auth::CheckSystemLogin, ShowUserAuthData},
+    common::{JsonResult, UserAuthQueryDao},
+    dao::{
+        access::api::auth::CheckSystemLogin, OauthCallbackParam, OauthLogin, OauthLoginParam,
+        ShowUserAuthData,
+    },
 };
 use lsys_user::dao::UserAuthToken;
 use serde::Serialize;

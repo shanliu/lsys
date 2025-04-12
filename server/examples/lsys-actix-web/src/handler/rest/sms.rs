@@ -15,6 +15,6 @@ pub(crate) async fn sms(rest: RestQuery) -> ResponseJsonResult<ResponseJson> {
         }
         var => handler_not_found!(var),
     }
-    .map_err(|e| rest.fluent_error_json_data(&e))?
+    .map_err(|e| rest.fluent_error_json_response(&e))?
     .into())
 }

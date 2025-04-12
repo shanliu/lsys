@@ -22,6 +22,6 @@ pub(crate) async fn address(
         "delete" => address_delete(&json_param.param::<AddressDeleteParam>()?, &auth_dao).await,
         name => handler_not_found!(name),
     }
-    .map_err(|e| auth_dao.fluent_error_json_data(&e))?
+    .map_err(|e| auth_dao.fluent_error_json_response(&e))?
     .into())
 }

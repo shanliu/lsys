@@ -83,7 +83,7 @@ macro_rules! get_area {
         match $area.as_ref() {
             Some(area) => area,
             None => {
-                return Err(JsonError::JsonData(
+                return Err(JsonError::JsonResponse(
                     JsonData::default(),
                     fluent_message!("area-not-enable"),
                 ));

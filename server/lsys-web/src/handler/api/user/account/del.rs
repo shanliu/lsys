@@ -1,4 +1,4 @@
-use crate::common::JsonData;
+use crate::common::JsonResponse;
 use crate::common::{JsonResult, UserAuthQueryDao};
 use lsys_access::dao::AccessSession;
 use lsys_access::dao::AccessSessionData;
@@ -8,7 +8,7 @@ pub struct DeleteParam {
     pub password: String,
 }
 //删除用户
-pub async fn delete(param: &DeleteParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonData> {
+pub async fn delete(param: &DeleteParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let account = req_dao
         .web_dao
@@ -31,5 +31,5 @@ pub async fn delete(param: &DeleteParam, req_dao: &UserAuthQueryDao) -> JsonResu
         .account
         .user_delete_from_session(&req_dao.user_session, Some(&req_dao.req_env))
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }

@@ -1,4 +1,5 @@
-use crate::common::{JsonData, JsonError, JsonResult};
+use crate::common::JsonData;
+use crate::common::{JsonError, JsonResult};
 
 use super::WebUserAccount;
 use lsys_access::dao::AccessSession;
@@ -53,7 +54,7 @@ impl WebUserAccount {
         match user_res {
             Err(AccountError::Sqlx(sqlx::Error::RowNotFound)) => Ok(()),
             Err(err) => Err(err.into()),
-            Ok(user) => Err(JsonError::JsonData(
+            Ok(user) => Err(JsonError::JsonResponse(
                 JsonData::default().set_sub_code("username_exists"),
                 fluent_message!("username-is-exists",{
                     "id":user.id

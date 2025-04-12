@@ -1,5 +1,5 @@
 use crate::{
-    common::{JsonData, JsonResult, LimitParam, UserAuthQueryDao},
+    common::{JsonResponse, JsonResult, LimitParam, UserAuthQueryDao},
     dao::{access::api::system::CheckAdminUserManage, AccountOptionData},
 };
 use lsys_access::dao::AccessSession;
@@ -10,6 +10,8 @@ use lsys_user::model::{
 };
 use serde::Deserialize;
 use serde_json::json;
+use crate::common::JsonData;
+
 
 #[derive(Debug, Deserialize)]
 pub struct AccountSearchParam {
@@ -27,7 +29,7 @@ pub struct AccountSearchParam {
 pub async fn account_search(
     param: &AccountSearchParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -150,10 +152,10 @@ pub async fn account_search(
             "cat":cat
         }))
     }
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data": out,
         "next": next
-    })))
+    }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -171,7 +173,7 @@ pub struct AccountIdSearchParam {
 pub async fn account_id_search(
     param: &AccountIdSearchParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -219,9 +221,9 @@ pub async fn account_id_search(
     };
 
     if param.account_id == 0 {
-        return Ok(JsonData::data(json!({
+        return Ok(JsonResponse::data(JsonData::body(json!({
             "data": null,
-        })));
+        }))));
     }
 
     let user_data = req_dao
@@ -233,13 +235,13 @@ pub async fn account_id_search(
     let udat = match user_data.get(&param.account_id) {
         Some(t) => t,
         None => {
-            return Ok(JsonData::data(json!({
+            return Ok(JsonResponse::data(JsonData::body(json!({
                 "data": null,
-            })))
+            }))))
         }
     };
 
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data":  json!({
             "user":udat.0,
             "name":udat.1,
@@ -249,5 +251,5 @@ pub async fn account_id_search(
             "external":udat.5,
             "mobile":udat.6,
         }),
-    })))
+    }))))
 }

@@ -1,10 +1,10 @@
 use super::app_check_get;
 use crate::common::JsonData;
+use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::UserAuthQueryDao;
 use crate::common::{JsonError, PageParam};
 use lsys_access::dao::AccessSession;
-
 use lsys_core::fluent_message;
 use lsys_rbac::dao::RolePerm;
 use serde::Deserialize;
@@ -25,7 +25,7 @@ pub struct AppRolePermAddParam {
 pub async fn app_role_perm_add(
     param: &AppRolePermAddParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let role = req_dao
         .web_dao
@@ -89,7 +89,7 @@ pub async fn app_role_perm_add(
         .role
         .add_perm(&role, &param_data, app.id, None, Some(&req_dao.req_env))
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 #[derive(Debug, Deserialize)]
 pub struct AppRolePermDelParam {
@@ -100,7 +100,7 @@ pub struct AppRolePermDelParam {
 pub async fn app_role_perm_del(
     param: &AppRolePermDelParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     let role = req_dao
@@ -167,7 +167,7 @@ pub async fn app_role_perm_del(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 #[derive(Debug, Deserialize)]
 pub struct AppRolePermDataParam {
@@ -179,7 +179,7 @@ pub struct AppRolePermDataParam {
 pub async fn app_role_perm_data(
     param: &AppRolePermDataParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     let role = req_dao
@@ -210,8 +210,8 @@ pub async fn app_role_perm_data(
     } else {
         None
     };
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data": res,
         "count": count
-    })))
+    }))))
 }

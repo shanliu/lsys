@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::common::{JsonData, JsonResult, UserAuthQueryDao};
+use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
 use crate::dao::access::api::system::CheckAdminSmsMgr;
 use lsys_access::dao::AccessSession;
 
@@ -22,15 +22,15 @@ pub struct SmserConfigAddParam {
 pub async fn smser_config_add(
     param: &SmserConfigAddParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-  
+
     req_dao
         .web_dao
         .web_rbac
         .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsMgr {})
         .await?;
-   
+
     let config_type = SenderSmsConfigType::try_from(param.config_type)?;
     let id = req_dao
         .web_dao
@@ -48,7 +48,7 @@ pub async fn smser_config_add(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "id": id })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "id": id }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -58,15 +58,15 @@ pub struct SmserConfigDeleteParam {
 pub async fn smser_config_del(
     param: &SmserConfigDeleteParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-   
+
     req_dao
         .web_dao
         .web_rbac
         .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsMgr {})
         .await?;
-     let res = req_dao
+    let res = req_dao
         .web_dao
         .app_sender
         .smser
@@ -90,14 +90,14 @@ pub async fn smser_config_del(
         }
         Err(err) => match &err {
             SenderError::Sqlx(sqlx::Error::RowNotFound) => {
-                return Ok(JsonData::message("email not find"));
+                return Ok(JsonResponse::message("email not find"));
             }
             _ => {
                 return Err(err.into());
             }
         },
     }
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -108,9 +108,9 @@ pub struct SmserConfigListParam {
 pub async fn smser_config_list(
     param: &SmserConfigListParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-   
+
     req_dao
         .web_dao
         .web_rbac
@@ -149,7 +149,7 @@ pub async fn smser_config_list(
         })
         .collect::<Vec<Value>>();
 
-    Ok(JsonData::data(json!({ "data": data })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "data": data }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -164,9 +164,9 @@ pub struct SmserTplConfigListParam {
 pub async fn smser_tpl_config_list(
     param: &SmserTplConfigListParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-   
+
     req_dao
         .web_dao
         .web_rbac
@@ -243,7 +243,9 @@ pub async fn smser_tpl_config_list(
     } else {
         None
     };
-    Ok(JsonData::data(json!({ "data": row ,"total":total})))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "data": row ,"total":total}),
+    )))
 }
 
 #[derive(Debug, Deserialize)]
@@ -254,7 +256,7 @@ pub struct SmserTplConfigDelParam {
 pub async fn smser_tpl_config_del(
     param: &SmserTplConfigDelParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
@@ -270,7 +272,7 @@ pub async fn smser_tpl_config_del(
         .find_by_id(&param.app_config_id)
         .await?;
     if SenderTplConfigStatus::Delete.eq(config.status) {
-        return Ok(JsonData::data(json!({ "num": 0 })));
+        return Ok(JsonResponse::data(JsonData::body(json!({ "num": 0 }))));
     }
     let row = req_dao
         .web_dao
@@ -280,5 +282,5 @@ pub async fn smser_tpl_config_del(
         .tpl_config
         .del_config(&config, auth_data.user_id(), Some(&req_dao.req_env))
         .await?;
-    Ok(JsonData::data(json!({ "num": row })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "num": row }))))
 }

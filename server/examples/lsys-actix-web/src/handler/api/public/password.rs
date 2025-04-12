@@ -7,8 +7,8 @@ use lsys_web::handler::api::auth::{
     ResetPasswordSendCodeFromMobileParam,
 };
 
-#[post("/{method}")]
-pub(crate) async fn password_reset(
+#[post("password/{method}")]
+pub(crate) async fn password(
     path: actix_web::web::Path<String>,
     json_param: JsonQuery,
     auth_dao: UserAuthQuery,
@@ -44,6 +44,6 @@ pub(crate) async fn password_reset(
         }
         name => handler_not_found!(name),
     }
-    .map_err(|e| auth_dao.fluent_error_json_data(&e))?
+    .map_err(|e| auth_dao.fluent_error_json_response(&e))?
     .into())
 }

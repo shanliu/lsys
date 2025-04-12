@@ -1,11 +1,11 @@
-use serde::Deserialize;
-use serde_json::json;
-
+use crate::common::JsonData;
 use crate::{
-    common::{JsonData, JsonResult, UserAuthQueryDao},
+    common::{JsonResponse, JsonResult, UserAuthQueryDao},
     dao::SetPasswordData,
 };
 use lsys_access::dao::AccessSession;
+use serde::Deserialize;
+use serde_json::json;
 #[derive(Debug, Deserialize)]
 pub struct SetPasswordParam {
     pub old_password: Option<String>,
@@ -14,7 +14,7 @@ pub struct SetPasswordParam {
 pub async fn set_password(
     param: &SetPasswordParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let pid = req_dao
         .web_dao
@@ -29,5 +29,5 @@ pub async fn set_password(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "id": pid })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "id": pid }))))
 }

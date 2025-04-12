@@ -10,7 +10,7 @@ categories = ["web-programming", "geospatial"]
 repository = "https://github.com/shanliu/lsys/tree/main/server/lsys-lib-area"
 
 [dependencies]
-geo = "~0.29.1"
+geo = "~0.30.0"
 rayon = "~1.10.*"
 flate2 = "~1.1.*"
 rusqlite = { version = "~0.32.1", optional = true }

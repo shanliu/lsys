@@ -4,14 +4,17 @@ use crate::common::handler::{
 use actix_web::post;
 use lsys_access::dao::AccessSession;
 use lsys_core::fluent_message;
+use lsys_web::common::JsonData;
 use lsys_web::handler::api::user::account::{external_bind, external_bind_url};
 use lsys_web::{
-    common::{JsonData, JsonError},
+    common::{JsonError, JsonResponse},
     handler::api::user::account::{
         external_delete, external_list_data, ExternalDeleteParam, ExternalListDataParam,
     },
 };
-use lsys_web_module_oauth::module::{WeChatConfig, WechatLogin, WechatLoginParam};
+use lsys_web_module_oauth::module::{
+    WeChatConfig, WechatLogin, WechatLoginParam, OAUTH_TYPE_WECHAT,
+};
 use serde::Deserialize;
 use serde_json::json;
 
@@ -28,7 +31,7 @@ pub struct ExternalBindCheckParam {
     pub login_state: String,
 }
 
-#[post("/external/{method}")]
+#[post("/exter/{method}")]
 pub(crate) async fn external(
     jwt: JwtQuery,
     path: actix_web::web::Path<String>,
@@ -39,11 +42,11 @@ pub(crate) async fn external(
     Ok(match path.into_inner().as_str() {
         "list_data" => external_list_data(&json_param.param::<ExternalListDataParam>()?, &auth_dao)
             .await
-            .map_err(|e| auth_dao.fluent_error_json_data(&e))?,
+            .map_err(|e| auth_dao.fluent_error_json_response(&e))?,
         "bind_check" => {
             let login_param = json_param.param::<ExternalBindCheckParam>()?;
             match login_param.login_type.as_str() {
-                "wechat" => {
+                OAUTH_TYPE_WECHAT => {
                     let config = auth_dao
                         .web_dao
                         .web_setting
@@ -51,27 +54,27 @@ pub(crate) async fn external(
                         .single
                         .load::<WeChatConfig>(None)
                         .await
-                        .map_err(|e| auth_dao.fluent_error_json_data(&e.into()))?;
+                        .map_err(|e| auth_dao.fluent_error_json_response(&e.into()))?;
                     let wechat = WechatLogin::new(
                         auth_dao.web_dao.clone(),
                         &config.app_id,
                         &config.app_secret,
-                        "wechat",
+                        OAUTH_TYPE_WECHAT,
                     );
                     let (reload, login_data) = wechat
                         .state_check(&auth_dao, &login_param.login_state)
                         .await
-                        .map_err(|e| auth_dao.fluent_error_json_data(&e))?;
+                        .map_err(|e| auth_dao.fluent_error_json_response(&e))?;
                     if let Some(ldat) = login_data {
                         external_bind(&wechat, &ldat, &auth_dao)
                             .await
-                            .map_err(|e| auth_dao.fluent_error_json_data(&e))?
+                            .map_err(|e| auth_dao.fluent_error_json_response(&e))?
                     } else {
-                        JsonData::data(json!({ "reload": reload }))
+                        JsonResponse::data(JsonData::body(json!({ "reload": reload })))
                     }
                 }
                 name => {
-                    handler_not_found!(name).map_err(|e| auth_dao.fluent_error_json_data(&e))?
+                    handler_not_found!(name).map_err(|e| auth_dao.fluent_error_json_response(&e))?
                 }
             }
         }
@@ -82,10 +85,10 @@ pub(crate) async fn external(
                 .await
                 .get_session_data()
                 .await
-                .map_err(|e| auth_dao.fluent_error_json_data(&e.into()))?;
+                .map_err(|e| auth_dao.fluent_error_json_response(&e.into()))?;
             let param = json_param.param::<ExternalBindUrlParam>()?;
             match param.login_type.as_str() {
-                "wechat" => {
+                OAUTH_TYPE_WECHAT => {
                     let config = auth_dao
                         .web_dao
                         .web_setting
@@ -93,13 +96,13 @@ pub(crate) async fn external(
                         .single
                         .load::<WeChatConfig>(None)
                         .await
-                        .map_err(|e| auth_dao.fluent_error_json_data(&e.into()))?;
+                        .map_err(|e| auth_dao.fluent_error_json_response(&e.into()))?;
                     external_bind_url(
                         &WechatLogin::new(
                             auth_dao.web_dao.clone(),
                             &config.app_id,
                             &config.app_secret,
-                            "wechat",
+                            OAUTH_TYPE_WECHAT,
                         ),
                         &WechatLoginParam {
                             state: param.login_state,
@@ -108,10 +111,12 @@ pub(crate) async fn external(
                         &auth_dao,
                     )
                     .await
-                    .map_err(|e| auth_dao.fluent_error_json_data(&e))?
+                    .map_err(|e| auth_dao.fluent_error_json_response(&e))?
                 }
-                name => auth_dao.fluent_error_json_data(&JsonError::JsonData(
-                    JsonData::default().set_sub_code("type_not_support"),
+                name => auth_dao.fluent_error_json_response(&JsonError::JsonResponse(
+                    JsonData::default()
+                        .set_sub_code("type_not_support")
+                        .set_code(400),
                     fluent_message!("external-not-support",{
                         "name":name
                     }),
@@ -120,8 +125,8 @@ pub(crate) async fn external(
         }
         "delete" => external_delete(&json_param.param::<ExternalDeleteParam>()?, &auth_dao)
             .await
-            .map_err(|e| auth_dao.fluent_error_json_data(&e))?,
-        name => handler_not_found!(name).map_err(|e| auth_dao.fluent_error_json_data(&e))?,
+            .map_err(|e| auth_dao.fluent_error_json_response(&e))?,
+        name => handler_not_found!(name).map_err(|e| auth_dao.fluent_error_json_response(&e))?,
     }
     //
     .into())

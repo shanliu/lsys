@@ -43,12 +43,55 @@ impl AccountPassword {
             logger,
         }
     }
-    impl_account_valid_code_method!("passwrod",{
+}
+impl AccountPassword {
+    /// 验证码生成
+    pub fn valid_code(&self) -> lsys_core::ValidCode {
+        lsys_core::ValidCode::new(self.redis.clone(), "passwrod", true)
+    }
+    /// 获取验证码
+    pub async fn valid_code_set<T: lsys_core::ValidCodeData>(
+        &self,
+        valid_code_data: &mut T,
         account_id: &u64,
         from_type: &str,
-    },{
-        format!("{}-{}",account_id,from_type)
-    },5*60);
+    ) -> lsys_core::ValidCodeResult<(String, usize)> {
+        let out = self
+            .valid_code()
+            .set_code(&format!("{}-{}", account_id, from_type), valid_code_data)
+            .await?;
+        Ok(out)
+    }
+    /// 验证码构造器
+    pub fn valid_code_builder(&self) -> lsys_core::ValidCodeDataRandom {
+        lsys_core::ValidCodeDataRandom::new(300, 30)
+    }
+    /// 检测验证码
+    pub async fn valid_code_check(
+        &self,
+        code: &str,
+        account_id: &u64,
+        from_type: &str,
+    ) -> AccountResult<()> {
+        use lsys_core::CheckCodeData;
+
+        self.valid_code()
+            .check_code(&CheckCodeData::new(
+                &format!("{}-{}", account_id, from_type),
+                code,
+            ))
+            .await?;
+        Ok(())
+    }
+    pub async fn valid_code_clear(&self, account_id: &u64, from_type: &str) -> AccountResult<()> {
+        let mut builder = self.valid_code_builder();
+        self.valid_code()
+            .destroy_code(&format!("{}-{}", account_id, from_type), &mut builder)
+            .await?;
+        Ok(())
+    }
+}
+impl AccountPassword {
     /// 校验验证码并设置新密码
     #[allow(clippy::too_many_arguments)]
     pub async fn set_passwrod_from_code(
@@ -131,7 +174,7 @@ impl AccountPassword {
                     };
                     let change = lsys_core::model_option_set!(AccountPasswordModelRef, { disable_time: time });
                     //ta.execute(query)
-                    Update::< AccountPasswordModel, _>::new(change)
+                    Update::<AccountPasswordModel, _>::new(change)
                         .execute_by_pk(&account_pass, &mut *ta)
                         .await?;
                 }
@@ -185,7 +228,7 @@ impl AccountPassword {
                     password_id:pid,
                     change_time:time,
                 });
-                let u_res = Update::< AccountModel, _>::new(change)
+                let u_res = Update::<AccountModel, _>::new(change)
                     .execute_by_pk(account, &mut *ta)
                     .await;
                 match u_res {
@@ -259,7 +302,7 @@ impl AccountPassword {
             }
             let sql = sql_format!(
                 "select p.add_time from {} as p join {} as u
-                on p.id=u.password_id 
+                on p.id=u.password_id
                 where u.id={}",
                 AccountPasswordModel::table_name(),
                 AccountModel::table_name(),

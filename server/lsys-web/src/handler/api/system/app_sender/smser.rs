@@ -1,4 +1,4 @@
-use crate::common::{JsonData, JsonResult, LimitParam, PageParam, UserAuthQueryDao};
+use crate::common::{JsonData, JsonResponse, JsonResult, LimitParam, PageParam, UserAuthQueryDao};
 use crate::dao::access::api::system::CheckAdminSmsMgr;
 use lsys_access::dao::AccessSession;
 use lsys_app_sender::model::SenderSmsMessageStatus;
@@ -17,13 +17,13 @@ pub struct SmserMessageLogParam {
 pub async fn smser_message_log(
     param: &SmserMessageLogParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-  
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminSmsMgr {})
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsMgr {})
         .await?;
     let message_id = param.message_id.parse::<u64>()?;
     let res = req_dao
@@ -48,7 +48,9 @@ pub async fn smser_message_log(
     } else {
         None
     };
-    Ok(JsonData::data(json!({ "data": res,"total":count})))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "data": res,"total":count}),
+    )))
 }
 
 #[derive(Debug, Deserialize)]
@@ -59,13 +61,13 @@ pub struct SmserMessageBodyParam {
 pub async fn smser_message_body(
     param: &SmserMessageBodyParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-  
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminSmsMgr {})
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsMgr {})
         .await?;
     let message_id = param.message_id.parse::<u64>()?;
     let msg = req_dao
@@ -84,14 +86,16 @@ pub async fn smser_message_body(
         .sms_record
         .find_body_by_id(&msg.sender_body_id)
         .await?;
-     req_dao
+    req_dao
         .web_dao
         .app_sender
         .smser
         .smser_message_body(&msg, &body, &auth_data, Some(&req_dao.req_env))
         .await?;
 
-    Ok(JsonData::data(json!({ "body": body.tpl_var})))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "body": body.tpl_var}),
+    )))
 }
 
 #[derive(Debug, Deserialize)]
@@ -108,13 +112,13 @@ pub struct SmserMessageListParam {
 pub async fn smser_message_list(
     param: &SmserMessageListParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-  
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminSmsMgr {})
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsMgr {})
         .await?;
 
     let status = if let Some(e) = param.status {
@@ -216,8 +220,8 @@ pub async fn smser_message_list(
             })
         })
         .collect::<Vec<_>>();
-    Ok(JsonData::data(
-        json!({ "data": res,"total":count,"next":next}),
+    Ok(JsonResponse::data(
+        JsonData::body( json!({ "data": res,"total":count,"next":next}))
     ))
 }
 #[derive(Debug, Deserialize)]
@@ -228,13 +232,13 @@ pub struct SmserMessageCancelParam {
 pub async fn smser_message_cancel(
     param: &SmserMessageCancelParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-  
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminSmsMgr {})
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsMgr {})
         .await?;
     let message_id = param.message_id.parse::<u64>()?;
     let msg = req_dao
@@ -267,7 +271,7 @@ pub async fn smser_message_cancel(
             out = Some(message_id.to_string())
         }
     }
-    Ok(JsonData::data(json!({
+    Ok(JsonResponse::data(  JsonData::body(json!({
         "data":out
-    })))
+    }))))
 }

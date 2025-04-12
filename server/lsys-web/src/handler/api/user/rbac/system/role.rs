@@ -1,4 +1,5 @@
-use crate::common::{JsonData, UserAuthQueryDao};
+use crate::common::JsonData;
+use crate::common::{JsonResponse, UserAuthQueryDao};
 use crate::common::{JsonResult, PageParam};
 use crate::dao::access::api::user::{CheckUserRbacEdit, CheckUserRbacView};
 use lsys_access::dao::AccessSession;
@@ -21,7 +22,7 @@ pub struct SystemRoleAddParam {
 pub async fn system_role_add(
     param: &SystemRoleAddParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao
@@ -67,7 +68,7 @@ pub async fn system_role_add(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::data(json!({ "id": id.id })))
+    Ok(JsonResponse::data(JsonData::body(json!({ "id": id.id }))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -80,7 +81,7 @@ pub struct SystemRoleEditParam {
 pub async fn system_role_edit(
     param: &SystemRoleEditParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let role = req_dao
         .web_dao
@@ -129,7 +130,7 @@ pub async fn system_role_edit(
             Some(&req_dao.req_env),
         )
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -140,7 +141,7 @@ pub struct SystemRoleDelParam {
 pub async fn system_role_del(
     param: &SystemRoleDelParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     let role = req_dao
@@ -170,7 +171,7 @@ pub async fn system_role_del(
         .role
         .del_role(&role, auth_data.user_id(), None, Some(&req_dao.req_env))
         .await?;
-    Ok(JsonData::default())
+    Ok(JsonResponse::default())
 }
 
 #[derive(Debug, Deserialize)]
@@ -204,7 +205,7 @@ pub struct SystemRoleDataRecord {
 pub async fn system_role_data(
     param: &SystemRoleDataParam,
     req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonData> {
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
@@ -318,5 +319,7 @@ pub async fn system_role_data(
     } else {
         None
     };
-    Ok(JsonData::data(json!({ "data": role_data,"total":count})))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "data": role_data,"total":count}),
+    )))
 }
