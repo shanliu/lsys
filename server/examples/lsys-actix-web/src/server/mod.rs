@@ -1,0 +1,88 @@
+mod result;
+mod rustls;
+use actix_web::dev::Server;
+use actix_web::web::{Data, JsonConfig};
+use actix_web::{error, http, middleware as middlewares, App, HttpResponse, HttpServer};
+
+use futures_util::TryFutureExt;
+
+use jsonwebtoken::{DecodingKey, Validation};
+use lsys_core::{AppCore, AppCoreError};
+use lsys_web::common::FluentFormat;
+use lsys_web::dao::WebDao;
+
+use std::sync::Arc;
+
+use crate::common::handler::{JwtQueryConfig, RestQueryConfig};
+use crate::common::middleware::{RedirectSsl, RequestID};
+use crate::handler::render_500;
+use crate::handler::router;
+use result::AppError;
+use rustls::load_rustls_config;
+
+pub async fn create_server(app_dir: &str) -> Result<Server, AppError> {
+    let app_core = AppCore::new(app_dir, "config", None, None).await?;
+    app_core.init().await?;
+    let app_core = Arc::new(app_core);
+    let app_dao = Data::new(WebDao::new(app_core.clone()).await?);
+    let bind_addr = app_dao.bind_addr();
+    let bind_ssl_data = app_dao.bind_ssl_data();
+    let app_jwt_key = app_dao
+        .app_core
+        .config
+        .find(None)
+        .get_string("app_jwt_key")
+        .map_err(|err| AppCoreError::Config(lsys_core::ConfigError::Config(err)))?;
+    let app_json_limit = app_dao
+        .app_core
+        .config
+        .find(None)
+        .get_int("app_json_limit")
+        .unwrap_or(4096);
+    let is_use_ssl = bind_ssl_data.is_some();
+    let mut server = HttpServer::new(move || {
+        let jwt_config = JwtQueryConfig::new(
+            DecodingKey::from_secret(app_jwt_key.as_bytes()),
+            Validation::default(),
+        );
+        let json_config = JsonConfig::default()
+            .limit(app_json_limit as usize)
+            .error_handler(|err, _req| {
+                error::InternalError::from_response(err, HttpResponse::Conflict().finish()).into()
+            });
+        let rest_config =
+            RestQueryConfig::default().app_key_fn(Box::new(move |app_key, app_data| {
+                let apps = app_data.web_app.app_dao.app.clone();
+                Box::pin(async move {
+                    apps.cache()
+                        .find_secret_by_client_id(&app_key)
+                        .map_err(|e| e.fluent_format(&app_data.fluent.locale(None)))
+                        .await
+                })
+            }));
+        let app = App::new()
+            .wrap(RedirectSsl::new(is_use_ssl))
+            .wrap(middlewares::Logger::default())
+            .wrap(middlewares::Compress::default())
+            .wrap(
+                middlewares::ErrorHandlers::new()
+                    .handler(http::StatusCode::INTERNAL_SERVER_ERROR, render_500),
+            )
+            .wrap(middlewares::DefaultHeaders::new().add(("Access-Control-Allow-Origin", "*")))
+            .wrap(RequestID::new(None))
+            .app_data(app_dao.clone())
+            .app_data(json_config)
+            .app_data(jwt_config)
+            .app_data(rest_config);
+        router(app, &app_dao)
+    });
+    server = server.bind(bind_addr).map_err(AppCoreError::Io)?;
+    if let Some((ssl_addr, cert_file, key_file)) = bind_ssl_data {
+        let ssl_data = load_rustls_config(app_dir, &cert_file, &key_file)?;
+        server = server
+            .bind_rustls_0_23(ssl_addr, ssl_data)
+            .map_err(AppCoreError::Io)?;
+    }
+    let s = server.run();
+    Ok(s)
+}
