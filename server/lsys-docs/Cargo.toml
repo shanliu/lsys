@@ -34,7 +34,7 @@ redis = { version = "~0.23", features = [
 #日志
 tracing = { version = "0.1.*" } # log-always 保持log的输出 当使用tracing时会出现两次
 
-tokio = { version = "~1.36" }
+tokio = { version = "~1.44" }
 
 
 num_cpus = "1.15.0"

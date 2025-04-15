@@ -30,7 +30,7 @@ urlencoding = { version = "2.1.0" }
 reqwest = { version = "~0.11.*", features = ["json", "stream"] }
 
 
-sqlx = { version = "~0.6.3", features = [
+sqlx = { version = "~0.8.4", features = [
     "mysql",
     "runtime-tokio-native-tls",
     "offline",

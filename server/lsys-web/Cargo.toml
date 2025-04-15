@@ -11,7 +11,7 @@ serde = { version = "1.0.*" }
 serde_json = "1.0.*"
 dotenv = "0.15.*"
 
-tokio = { version = "~1.36", features = ["fs"] }
+tokio = { version = "~1.44", features = ["fs"] }
 deadpool-redis = { version = "~0.13" }
 redis = { version = "~0.23" }
 

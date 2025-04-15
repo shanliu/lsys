@@ -9,7 +9,7 @@ edition = "2021"
 futures-util = "~0.3.*"
 dotenv = "~0.15.*"
 
-tokio = { version = "~1.36", features = ["fs", "macros"] }
+tokio = { version = "~1.44", features = ["fs", "macros"] }
 deadpool-redis = { version = "~0.13" }
 redis = { version = "~0.23", features = [
     "aio",
@@ -22,7 +22,7 @@ serde = { version = "1.0.*" }
 serde_json = "1.0.*"
 
 #db
-sqlx = { version = "~0.6.3", features = [
+sqlx = { version = "~0.8.4", features = [
     "runtime-tokio-native-tls",
     "offline",
 ] }

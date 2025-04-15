@@ -6,7 +6,7 @@ edition = "2021"
 
 
 [dependencies]
-tokio = { version = "~1.36" }
+tokio = { version = "~1.44" }
 deadpool-redis = { version = "~0.13" }
 redis = { version = "~0.23" }
 
@@ -51,4 +51,4 @@ config = "~0.14"
 
 
 [dev-dependencies]
-tokio = { version = "~1.36", features = ["test-util"] }
+tokio = { version = "~1.44", features = ["test-util"] }
