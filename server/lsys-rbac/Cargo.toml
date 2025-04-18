@@ -19,7 +19,7 @@ sqlx-model = { version = "0.2.3", default-features = false, features = [
 ] }
 
 
-tokio = { version = "~1.36", features = ["macros"] }
+tokio = { version = "~1.44", features = ["macros"] }
 deadpool-redis = { version = "~0.13" }
 redis = { version = "~0.23" }
 
