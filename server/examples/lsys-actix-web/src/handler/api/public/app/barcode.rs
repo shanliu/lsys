@@ -1,7 +1,9 @@
-use actix_web::{get, HttpResponse};
-use lsys_web::handler::api::public::app::{barcode_show, BarCodeShowCodeParam};
-
 use crate::common::handler::ReqQuery;
+use actix_web::{get, HttpResponse};
+use lsys_web::{
+    common::JsonError,
+    handler::api::public::app::{barcode_show, BarCodeShowCodeParam},
+};
 
 #[get("/{code_id}/{contents:.*}", name = "barcode_show")]
 pub(crate) async fn show_code(
@@ -12,6 +14,14 @@ pub(crate) async fn show_code(
         Ok(img) => HttpResponse::Ok()
             .content_type(img.0.to_mime_type())
             .body(img.1),
-        Err(err) => HttpResponse::InternalServerError().body(req_dao.fluent_error_string(&err)),
+        Err(ref err) => match err {
+            JsonError::Error(json_err) => {
+                if json_err.to_json_data(&req_dao.fluent).code.as_str() == "404" {
+                    return HttpResponse::NotFound().body(req_dao.fluent_error_string(err));
+                }
+                HttpResponse::InternalServerError().body(req_dao.fluent_error_string(err))
+            }
+            err => HttpResponse::InternalServerError().body(req_dao.fluent_error_string(err)),
+        },
     }
 }

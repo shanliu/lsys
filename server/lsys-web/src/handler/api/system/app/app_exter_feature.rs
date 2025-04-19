@@ -8,7 +8,6 @@ use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct ConfirmExterFeatureParam {
-    pub app_id: u64,
     pub app_req_id: u64,
     pub confirm_status: i8,
     pub confirm_note: String,
@@ -37,7 +36,7 @@ pub async fn confirm_exter_feature(
         .web_app
         .app_dao
         .app
-        .find_by_id(&param.app_id)
+        .find_by_id(&req_app.app_id)
         .await?;
     req_dao
         .web_dao

@@ -52,14 +52,16 @@ pub(crate) async fn smser(
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
     Ok(match path.into_inner().as_str() {
-        "logs" => smser_message_log(&json_param.param::<SmserMessageLogParam>()?, &auth_dao).await,
+        "message_logs" => {
+            smser_message_log(&json_param.param::<SmserMessageLogParam>()?, &auth_dao).await
+        }
         "message_view" => {
             smser_message_body(&json_param.param::<SmserMessageBodyParam>()?, &auth_dao).await
         }
         "message_list" => {
             smser_message_list(&json_param.param::<SmserMessageListParam>()?, &auth_dao).await
         }
-        "cancel" => {
+        "message_cancel" => {
             smser_message_cancel(&json_param.param::<SmserMessageCancelParam>()?, &auth_dao).await
         }
 
@@ -239,7 +241,7 @@ pub(crate) async fn smser(
                 .await
         }
         //tencent
-        "ten_config_list" => {
+        "tencent_config_list" => {
             smser_ten_config_list(
                 &json_param.param::<SmserTenConfigListParam>()?,
                 |key| {
@@ -254,16 +256,16 @@ pub(crate) async fn smser(
             )
             .await
         }
-        "ten_config_add" => {
+        "tencent_config_add" => {
             smser_ten_config_add(&json_param.param::<SmserTenConfigAddParam>()?, &auth_dao).await
         }
-        "ten_config_edit" => {
+        "tencent_config_edit" => {
             smser_ten_config_edit(&json_param.param::<SmserTenConfigEditParam>()?, &auth_dao).await
         }
-        "ten_config_del" => {
+        "tencent_config_del" => {
             smser_ten_config_del(&json_param.param::<SmserTenConfigDelParam>()?, &auth_dao).await
         }
-        "ten_tpl_config_add" => {
+        "tencent_tpl_config_add" => {
             smser_tpl_config_ten_add(&json_param.param::<SmserAppTenConfigAddParam>()?, &auth_dao)
                 .await
         }

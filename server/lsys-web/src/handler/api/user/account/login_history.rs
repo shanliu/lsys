@@ -12,7 +12,7 @@ pub struct LoginHistoryParam {
     pub login_account: Option<String>,
     pub login_ip: Option<String>,
     pub is_login: Option<i8>,
-    pub page: Option<LimitParam>,
+    pub limit: Option<LimitParam>,
 }
 
 pub async fn login_history(
@@ -32,7 +32,7 @@ pub async fn login_history(
             param.is_login,
             param.login_type.as_deref(),
             param.login_ip.as_deref(),
-            param.page.as_ref().map(|e| e.into()).as_ref(),
+            param.limit.as_ref().map(|e| e.into()).as_ref(),
         )
         .await?;
     let total = req_dao

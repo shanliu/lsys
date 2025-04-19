@@ -37,22 +37,6 @@ impl RbacRole {
         "id in ({id}) and status = {status}",
         status = RbacRoleStatus::Enable
     );
-    //根据关系名获取角色
-    pub async fn find_by_role_key(
-        &self,
-        user_id: u64,
-        role_key: &str,
-    ) -> RbacResult<RbacRoleModel> {
-        Ok(sqlx::query_as(&sql_format!(
-            "select * from {} where user_id={} and role_key={} and status={}",
-            RbacRoleModel::table_name(),
-            user_id,
-            role_key,
-            RbacRoleStatus::Enable
-        ))
-        .fetch_one(&self.db)
-        .await?)
-    }
 }
 
 pub struct RoleDataParam<'t> {

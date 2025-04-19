@@ -7,5 +7,5 @@ notify-time-out = 远程通知超时:{$msg}
 valid-code-tag-len = 校验码[{$tag}]最大长度为:{$max}
 valid-code-bad = 校验码超时或不存在，请重新获取
 valid-code-not-match = 提交的验证码[{$code}]不匹配
-valid-code-not-found = 提交的验证码[{$code}]超时
+valid-code-not-found = 验证码[{$code}]不存在或已经超时
 valid-code-submit-empty = 验证码不为空

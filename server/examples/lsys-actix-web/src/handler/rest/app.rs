@@ -5,7 +5,7 @@ use lsys_web::handler::rest::app::{
     SubAppOAuthSecretParam, SubAppViewParam,
 };
 
-#[post("/subapp")]
+#[post("")]
 pub(crate) async fn app(rest: RestQuery) -> ResponseJsonResult<ResponseJson> {
     Ok(match rest.rfc.method.as_deref().unwrap_or_default() {
         "info" => {

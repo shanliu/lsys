@@ -147,12 +147,13 @@ impl RbacRes {
         let mut res_start_id = 0;
         loop {
             let sql = sql_format!(
-                "select * from {} where res_type={} and user_id={} and app_id={} and status ={} and id>{res_start_id} order by id asc",
+                "select * from {} where res_type={} and user_id={} and app_id={} and status ={} and id>{} order by id asc",
                 RbacResModel::table_name(),
                 res_type_data.res_type,
                 res_type_data.user_id,
                 res_type_data.app_id,
-                RbacResStatus::Enable as i8
+                RbacResStatus::Enable as i8,
+                res_start_id
             );
             let res_tmp = sqlx::query_as::<_, RbacResModel>(sql.as_str())
                 .fetch_all(&self.db)

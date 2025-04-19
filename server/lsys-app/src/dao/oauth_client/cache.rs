@@ -1,9 +1,10 @@
-
-
-use crate::{dao:: AppResult, model::{AppModel, AppOAuthClientModel}};
 use super::AppOAuthClient;
+use crate::{
+    dao::{AppError, AppResult},
+    model::{AppModel, AppOAuthClientModel, AppSecretType},
+};
 impl AppOAuthClient {
-    pub fn cache(&'_ self) ->AppOAuthClientCache<'_> {
+    pub fn cache(&'_ self) -> AppOAuthClientCache<'_> {
         AppOAuthClientCache { dao: self }
     }
 }
@@ -14,13 +15,21 @@ pub struct AppOAuthClientCache<'t> {
 impl AppOAuthClientCache<'_> {
     pub async fn find_by_app(&self, app: &AppModel) -> AppResult<AppOAuthClientModel> {
         self.dao.oauth_check(app).await?;
-        match self.dao.oauth_client_cache.get(&app.id).await{
+        match self.dao.oauth_client_cache.get(&app.id).await {
             Some(dat) => Ok(dat),
             None => {
-                let oa=self.dao.inner_find_by_app(app).await?;
+                let oa = self.dao.inner_find_by_app(app).await?;
                 self.dao.oauth_client_cache.set(app.id, oa.clone(), 0).await;
                 Ok(oa)
-            },
+            }
         }
+    }
+    pub async fn find_secret_by_app_id(&self, app_id: u64) -> Result<Vec<String>, AppError> {
+        self.dao
+            .app_secret
+            .cache()
+            .multiple_find_secret_by_app_id(app_id, AppSecretType::OAuth)
+            .await
+            .map(|e| e.into_iter().map(|e0| e0.secret_data).collect::<Vec<_>>())
     }
 }

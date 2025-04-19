@@ -9,7 +9,7 @@ use serde::Deserialize;
 #[derive(Debug, Deserialize)]
 pub struct AppCodeLoginParam {
     client_id: String,
-    login_code: String,
+    token_data: String,
     captcha: Option<CaptchaParam>,
 }
 pub async fn user_login_from_app_code(
@@ -46,7 +46,7 @@ pub async fn user_login_from_app_code(
         .auth
         .app_code_login(
             app.id,
-            &param.login_code,
+            &param.token_data,
             param.captcha.as_ref(),
             &req_dao.user_session,
             Some(&req_dao.req_env),

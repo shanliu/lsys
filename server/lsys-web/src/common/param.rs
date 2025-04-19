@@ -24,7 +24,7 @@ pub struct LimitParam {
     pos: Option<String>,
     eq_pos: Option<bool>,
     limit: u64,
-    next: bool,         //true > pos 的limit 条记录 false <pos 的 limit 条记录
+    is_next: bool,      //获取上一页还是下一页
     more: Option<bool>, //是否检测有下一页数据 null或false 不检测
 }
 impl Default for LimitParam {
@@ -33,7 +33,7 @@ impl Default for LimitParam {
             pos: None,
             eq_pos: None,
             limit: 10,
-            next: false,
+            is_next: false,
             more: Some(false),
         }
     }
@@ -50,7 +50,7 @@ impl From<&LimitParam> for lsys_core::LimitParam {
             pos,
             p.eq_pos.unwrap_or(false),
             limit,
-            p.next,
+            p.is_next,
             p.more.unwrap_or(false),
         )
     }

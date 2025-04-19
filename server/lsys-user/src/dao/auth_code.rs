@@ -30,7 +30,7 @@ impl AuthCode {
             .find(None)
             .get_string("app_jwt_key")
             .unwrap_or_default();
-        let login_code = format!(
+        let token_data = format!(
             "{:x}",
             md5::compute(format!("{}-{}-{}", app_id, token_code, app_jwt_key))
         );
@@ -42,22 +42,22 @@ impl AuthCode {
                 oauth_app_id: 0,
                 user_data,
                 user_name,
-                token_data: Some(&login_code),
+                token_data: Some(&token_data),
                 login_type: CODE_LOGIN_TYPE,
                 login_data: Some(login_data),
             })
             .await?)
     }
-    pub async fn code_logout(&self, app_id: u64, login_code: &str) -> AccountResult<()> {
-        let session = self.access.auth.login_data(app_id, 0, login_code).await?;
+    pub async fn code_logout(&self, app_id: u64, token_data: &str) -> AccountResult<()> {
+        let session = self.access.auth.login_data(app_id, 0, token_data).await?;
         Ok(self.access.auth.do_logout(&session).await?)
     }
-    pub async fn login_data(&self, app_id: u64, login_code: &str) -> AccountResult<SessionBody> {
+    pub async fn login_data(&self, app_id: u64, token_data: &str) -> AccountResult<SessionBody> {
         Ok(self
             .access
             .auth
             .cache()
-            .login_data(app_id, 0, login_code)
+            .login_data(app_id, 0, token_data)
             .await?)
     }
     pub fn to_token(session: &SessionBody) -> UserAuthToken {
@@ -68,30 +68,4 @@ impl AuthCode {
             session.session().expire_time,
         )
     }
-    //图片验证码 待定....
-    // fn valid_code(&self) -> lsys_core::ValidCode {
-    //     lsys_core::ValidCode::new(self.redis.clone(), VAILD_CODE.to_string(), true)
-    // }
-    // /// 获取验证码
-    // pub async fn valid_code_set(&self, login_code: &str) -> AccountResult<(String, usize)> {
-    //     let mut valid_code_data =
-    //         lsys_core::ValidCodeDataRandom::new(lsys_core::ValidCodeTime::time(60));
-    //             let out = self
-    //                 .valid_code()
-    //                 .set_code(login_code, &mut valid_code_data)
-    //                 .await?;
-    //             Ok(out)
-    // }
-    // // /// 检测验证码
-    // pub async fn valid_code_check(&self, login_code: &str, valid_code: &str) -> AccountResult<()> {
-    //     self.valid_code().check_code(login_code, valid_code).await?;
-    //     Ok(())
-    // }
-    // pub async fn valid_code_clear(&self, login_code: &str) -> AccountResult<()> {
-    //     let mut builder = lsys_core::ValidCodeDataRandom::new(lsys_core::ValidCodeTime::time(60));
-    //     self.valid_code()
-    //         .destroy_code(login_code, &mut builder)
-    //         .await?;
-    //     Ok(())
-    // }
 }

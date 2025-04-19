@@ -1,12 +1,12 @@
-use crate::common::{JsonResponse, UserAuthQueryDao};
+use crate::common::JsonData;
 use crate::common::{JsonError, JsonResult, PageParam};
+use crate::common::{JsonResponse, UserAuthQueryDao};
 use crate::dao::access::api::user::{CheckUserRbacEdit, CheckUserRbacView};
 use lsys_access::dao::AccessSession;
 use lsys_core::fluent_message;
 use lsys_rbac::dao::RolePerm;
 use serde::Deserialize;
 use serde_json::json;
-use crate::common::JsonData;
 #[derive(Debug, Deserialize)]
 pub struct SystemRolePermItemData {
     pub op_id: u64,
@@ -240,5 +240,7 @@ pub async fn system_role_perm_data(
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(json!({ "data": res,"total":count}))))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "data": res,"total":count}),
+    )))
 }

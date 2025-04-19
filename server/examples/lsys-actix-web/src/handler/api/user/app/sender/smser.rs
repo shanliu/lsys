@@ -40,10 +40,6 @@ pub(crate) async fn smser(
         "tpl_config_list" => {
             smser_tpl_config_list(&json_param.param::<SmserTplConfigListParam>()?, &auth_dao).await
         }
-        "notify_set_config" => {
-            smser_notify_set_config(&json_param.param::<SmserNotifyConfigParam>()?, &auth_dao).await
-        }
-        "notify_get_config" => smser_notify_get_config(&auth_dao).await,
         "tpl_config_del" => {
             smser_tpl_config_del(&json_param.param::<SmserTplConfigDeleteParam>()?, &auth_dao).await
         }
@@ -53,15 +49,19 @@ pub(crate) async fn smser(
         "message_list" => {
             smser_message_list(&json_param.param::<SmserMessageListParam>()?, &auth_dao).await
         }
-        "message_body" => {
+        "message_view" => {
             smser_message_body(&json_param.param::<SmserMessageBodyParam>()?, &auth_dao).await
         }
         "message_cancel" => {
             smser_message_cancel(&json_param.param::<SmserMessageCancelParam>()?, &auth_dao).await
         }
-        "message_log" => {
+        "message_logs" => {
             smser_message_log(&json_param.param::<SmserMessageLogParam>()?, &auth_dao).await
         }
+        "notify_set_config" => {
+            smser_notify_set_config(&json_param.param::<SmserNotifyConfigParam>()?, &auth_dao).await
+        }
+        "notify_get_config" => smser_notify_get_config(&auth_dao).await,
         //ALI短信接口相关接口
         "ali_config_list" => {
             smser_ali_config_list(&json_param.param::<SmserAliConfigListParam>()?, &auth_dao).await

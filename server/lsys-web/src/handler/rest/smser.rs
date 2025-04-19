@@ -13,7 +13,7 @@ use std::collections::HashMap;
 pub struct SendParam {
     pub area: Option<String>,
     pub mobile: Vec<String>,
-    pub tpl: String,
+    pub tpl_id: String,
     pub data: HashMap<String, String>,
     pub send_time: Option<String>,
     pub max_try: Option<u8>,
@@ -54,7 +54,7 @@ pub async fn send(
         .smser
         .app_send(
             app,
-            &param.tpl,
+            &param.tpl_id,
             param.area.as_deref().unwrap_or("86"),
             &mobile,
             &param

@@ -437,8 +437,9 @@ impl RbacRole {
             let tmp = Update::< RbacPermModel, _>::new(change)
                 .execute_by_where(
                     &WhereOption::Where(sql_format!(
-                        "role_id={} and op_id={op_id} and res_id={}",
+                        "role_id={} and op_id={} and res_id={}",
                         role.id,
+                        op_id,
                         res.id
                     )),
                     &mut *db,

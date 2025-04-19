@@ -9,7 +9,6 @@ use serde_json::json;
 pub struct OpAddParam {
     pub op_key: String,
     pub op_name: String,
-    pub data: String,
 }
 
 pub async fn op_add(param: &OpAddParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
@@ -52,7 +51,6 @@ pub struct OpEditParam {
     pub op_id: u64,
     pub op_key: String,
     pub op_name: String,
-    pub data: String,
 }
 
 pub async fn op_edit(param: &OpEditParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {

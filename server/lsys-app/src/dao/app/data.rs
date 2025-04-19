@@ -1,14 +1,16 @@
 use std::collections::HashMap;
 
+use crate::dao::logger::AppViewSecretLog;
+use crate::dao::AppSecretRecrod;
 use crate::model::{
     AppFeatureModel, AppFeatureStatus, AppModel, AppOAuthClientModel, AppOAuthServerScopeModel,
-    AppOAuthServerScopeStatus, AppRequestType, AppStatus,
+    AppOAuthServerScopeStatus, AppRequestType, AppSecretType, AppStatus,
 };
 
 use lsys_core::db::ModelTableName;
 use lsys_core::db::{SqlExpr, SqlQuote};
-use lsys_core::sql_format;
 use lsys_core::{impl_dao_fetch_map_by_vec, PageParam};
+use lsys_core::{sql_format, RequestEnv};
 use regex::Regex;
 
 use super::super::{AppError, AppResult};
@@ -116,7 +118,7 @@ impl App {
             .collect::<Vec<_>>();
         let sub_count_data = if !sub_ids.is_empty() && app_attr.sub_app_count {
             sqlx::query_as::<_, (u64, i8, i64)>(&sql_format!(
-                "select parent_app_id,status,count(*) as total from {} where 
+                "select parent_app_id,status,count(*) as total from {} where
                 parent_app_id in ({}) and status in ({})
                 group by parent_app_id,status",
                 AppModel::table_name(),
@@ -186,7 +188,7 @@ impl App {
         let oauth_server_scope_data = if app_attr.oauth_server_data {
             sqlx::query_as::<_, AppOAuthServerScopeModel>(&sql_format!(
                 "select * from {} where app_id in ({}) and status={}",
-                AppOAuthClientModel::table_name(),
+                AppOAuthServerScopeModel::table_name(),
                 out_data.iter().map(|e| e.id).collect::<Vec<_>>(),
                 AppOAuthServerScopeStatus::Enable as i8
             ))
@@ -544,5 +546,48 @@ impl App {
         let query = sqlx::query_scalar::<_, i64>(&sql);
         let res = query.fetch_one(&self.db).await?;
         Ok(res)
+    }
+}
+
+impl App {
+    //添加查看secret日志
+    pub async fn app_view_secret(
+        &self,
+        app: &AppModel,
+        view_user_id: u64,
+        env_data: Option<&RequestEnv>,
+    ) -> AppResult<(Vec<AppSecretRecrod>, AppSecretRecrod)> {
+        let app_secret = self
+            .app_secret
+            .multiple_find_secret_by_app_id(app.id, AppSecretType::App)
+            .await?;
+        let notify_secret = self
+            .app_secret
+            .single_find_secret_app_id(app.id, AppSecretType::Notify)
+            .await?;
+        self.logger
+            .add(
+                &AppViewSecretLog {
+                    action: "view_secret",
+                    app_id: app.id,
+                    user_id: app.user_id,
+                    app_name: &app.name,
+                    secret_data: &format!(
+                        "{}-{}",
+                        &app_secret
+                            .iter()
+                            .map(|e| e.secret_data.as_str())
+                            .collect::<Vec<_>>()
+                            .join(","),
+                        notify_secret.secret_data
+                    ),
+                },
+                Some(app.id),
+                Some(view_user_id),
+                None,
+                env_data,
+            )
+            .await;
+        Ok((app_secret, notify_secret))
     }
 }

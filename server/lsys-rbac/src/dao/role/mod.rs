@@ -97,18 +97,20 @@ impl RbacRole {
 
                 let mut sql = vec![
                     sql_format!(
-                        "select * from {} where user_id={} and role_key={role_key} and app_id={} and status={} limit 1",
+                        "select * from {} where user_id={} and role_key={} and app_id={} and status={} limit 1",
                         RbacRoleModel::table_name(),
                         param.user_id,
+                        role_key,
                         param.app_id.unwrap_or_default(),
                         RbacRoleStatus::Enable,
                      )
                  ];
                 if !role_name.is_empty() {
                     sql.push(sql_format!(
-                        "select * from {} where user_id={} and role_name={role_name} and app_id={} and status={} limit 1",
+                        "select * from {} where user_id={} and role_name={} and app_id={} and status={} limit 1",
                         RbacRoleModel::table_name(),
                         param.user_id,
+                        role_name,
                         param.app_id.unwrap_or_default(),
                         RbacRoleStatus::Enable
                     ));
@@ -119,9 +121,10 @@ impl RbacRole {
                 let role_name = check_length!(role_name, "name", 32);
                 let sql=vec![
                     sql_format!(
-                         "select * from {} where user_id={} and role_name={role_name} and app_id={} and status={} limit 1",
+                         "select * from {} where user_id={} and role_name={} and app_id={} and status={} limit 1",
                          RbacRoleModel::table_name(),
                          param.user_id,
+                         role_name,
                          param.app_id.unwrap_or_default(),
                          RbacRoleStatus::Enable
                      )
@@ -171,9 +174,12 @@ impl RbacRole {
                         let add_id = res.last_insert_id();
                         Update::< RbacRoleModel, _>::new(other_change)
                             .execute_by_where(&WhereOption::Where(sql_format!(
-                                "user_id={} and role_key={role_key} and app_id={app_id} and status={} and id!={add_id}",
+                                "user_id={} and role_key={} and app_id={} and status={} and id!={}",
                                 param.user_id,
+                                role_key,
+                                app_id,
                                 RbacRoleStatus::Enable  as i8,
+                                add_id,
                             )),db.as_executor())
                             .await?;
                         add_id

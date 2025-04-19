@@ -1,5 +1,5 @@
-use crate::common::{JsonResponse, UserAuthQueryDao};
 use crate::common::{JsonError, JsonResult};
+use crate::common::{JsonResponse, UserAuthQueryDao};
 use crate::dao::access::api::user::CheckUserAppEdit;
 
 use lsys_access::dao::AccessSession;
@@ -91,7 +91,6 @@ pub async fn request_exter_feature(
 
 #[derive(Deserialize)]
 pub struct ConfirmExterFeatureParam {
-    pub app_id: u64,
     pub app_req_id: u64,
     pub confirm_status: i8,
     pub confirm_note: String,
@@ -115,7 +114,7 @@ pub async fn confirm_exter_feature(
         .web_app
         .app_dao
         .app
-        .find_by_id(&param.app_id)
+        .find_by_id(&req_app.app_id)
         .await?;
 
     if app.user_app_id == 0 {

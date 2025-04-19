@@ -71,3 +71,18 @@ pub enum AppRequestStatus {
     Invalid = 4,  //作废
     Delete = -1,  //删除
 }
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[lsys_model_status(field_type = "i8")]
+pub enum AppSecretType {
+    App = 1,    //应用
+    OAuth = 2,  //oauth
+    Notify = 3, //回调
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[lsys_model_status(field_type = "i8")]
+pub enum AppSecretStatus {
+    Enable = 1,  //正常
+    Delete = -1, //删除
+}

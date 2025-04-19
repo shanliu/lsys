@@ -1,7 +1,6 @@
 #[macro_use]
 mod macros;
 mod api;
-mod notify;
 mod rest;
 mod web;
 use actix_service::ServiceFactory;
@@ -16,6 +15,5 @@ where
 {
     let app = api::router(app);
     let app = rest::router(app);
-    let app = notify::router(app);
     web::router(app, app_dao)
 }

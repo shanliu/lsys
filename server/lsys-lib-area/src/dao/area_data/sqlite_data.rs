@@ -11,7 +11,7 @@ use super::utils::{en_name_keyword, read_file_md5};
 
 impl From<rusqlite::Error> for AreaError {
     fn from(err: rusqlite::Error) -> Self {
-        AreaError::DB(err.to_string())
+        AreaError::DB(format!("sqlite error:{:?}", err))
     }
 }
 

@@ -51,7 +51,7 @@ pub struct RestRfc {
 }
 
 type RestKeyGet =
-    Box<dyn Fn(String, Data<WebDao>) -> Pin<Box<dyn Future<Output = Result<String, String>>>>>;
+    Box<dyn Fn(String, Data<WebDao>) -> Pin<Box<dyn Future<Output = Result<Vec<String>, String>>>>>;
 
 type RestKeyGetOption = Option<Rc<RestKeyGet>>;
 
@@ -89,18 +89,20 @@ async fn check_sign(
                     if let Some(ref body) = data.payload {
                         url_data += body.to_string().as_str();
                     }
-                    url_data += app_key.as_str();
-                    // dbg!(&url_data);
-                    let digest = md5::compute(url_data.as_bytes());
-                    let hash = format!("{:x}", digest);
 
-                    if hash != data.sign {
-                        return Err(JsonResponse::data(
-                            JsonData::error().set_sub_code("rest_sign"),
-                        )
-                        .set_message("sign is wrong"));
+                    for key_tmp in app_key {
+                        let hash_data = url_data.clone() + key_tmp.as_str();
+                        // dbg!(&url_data);
+                        let digest = md5::compute(hash_data.as_bytes());
+                        let hash = format!("{:x}", digest);
+                        if hash == data.sign {
+                            return Ok(());
+                        }
                     }
-                    Ok(())
+                    Err(
+                        JsonResponse::data(JsonData::error().set_sub_code("rest_sign"))
+                            .set_message("sign is wrong"),
+                    )
                 }
                 Err(err) => Err(JsonResponse::data(
                     JsonData::error().set_sub_code("rest_sign_key"),

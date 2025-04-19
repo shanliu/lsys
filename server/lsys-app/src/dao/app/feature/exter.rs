@@ -177,7 +177,7 @@ impl App {
                 confirm_time:time,
                 confirm_note:confirm_note,
             });
-            Update::< AppRequestModel, _>::new(change)
+            Update::<AppRequestModel, _>::new(change)
                 .execute_by_pk(req, &self.db)
                 .await?;
             return Ok(());
@@ -213,7 +213,7 @@ impl App {
                 change_user_id:confirm_user_id,
                 change_time:time
             });
-            let cres = Update::< AppFeatureModel, _>::new(change)
+            let cres = Update::<AppFeatureModel, _>::new(change)
                 .execute_by_where(
                     &lsys_core::db::WhereOption::Where(sql_format!("id in ({})", set_status_id)),
                     &mut *db,
@@ -251,7 +251,7 @@ impl App {
             confirm_time:time,
             confirm_note:confirm_note,
         });
-        let cres = Update::< AppRequestModel, _>::new(change)
+        let cres = Update::<AppRequestModel, _>::new(change)
             .execute_by_pk(req, &mut *db)
             .await;
         if let Err(err) = cres {
@@ -281,25 +281,6 @@ impl App {
             )
             .await;
         Ok(())
-    }
-    //列出支持外部功能
-    pub async fn exter_feature_list(&self, app: &AppModel) -> AppResult<Vec<String>> {
-        let key = AppRequestType::ExterFeatuer.feature_key();
-        let len = key.len() + 1;
-        let req_res = sqlx::query_scalar::<_, String>(&sql_format!(
-            "select feature_key from {} where app_id={} and status ={} and feature_key like {}",
-            AppFeatureModel::table_name(),
-            app.id,
-            AppFeatureStatus::Enable as i8,
-            format!("{}%", key)
-        ))
-        .fetch_all(&self.db)
-        .await?;
-        let mut out = vec![];
-        for tmp in req_res {
-            out.push(tmp[len..].to_string());
-        }
-        Ok(out)
     }
     //外部功能是否可用检测
     //仅用在后台,不带缓存:外部用cache下的

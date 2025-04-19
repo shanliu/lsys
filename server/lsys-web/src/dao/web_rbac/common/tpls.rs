@@ -53,7 +53,7 @@ fn test_tpl() {
             vec![CheckResTpl {
                 user: false,
                 data: false,
-                key: "dd${aaa}",
+                key: "dd",
                 ops: vec!["ddd", "bbb"],
             }]
         }
@@ -65,7 +65,7 @@ fn test_tpl() {
                 CheckResTpl {
                     user: false,
                     data: false,
-                    key: "dd${aaa}",
+                    key: "dd",
                     ops: vec!["ccc", "ddd"],
                 },
                 CheckResTpl {
@@ -79,7 +79,7 @@ fn test_tpl() {
     }
     //data
     let res = access_res_tpl!(R2, R1);
-    assert_eq!(res.first().unwrap().key, "dd${aaa}");
+    assert_eq!(res.first().unwrap().key, "dd");
     assert_eq!(res.first().unwrap().ops.len(), 3);
     assert_eq!(res.len(), 2);
 }

@@ -19,6 +19,7 @@ reg-mobile-registered = This phone number is already registered
 mobile-bind-other-user = Phone number is linked to another account: [{$id}]
 mobile-is-bind = Phone number is already linked
 lsys-lib-area-error = Address library error: {$msg}
+lsys-lib-area-db=Address data error: {$msg}
 area-not-found = Address information not found
 area-store-error = Failed to save address data: {$msg}
 area-tantivy-error = Address search error: {$msg}

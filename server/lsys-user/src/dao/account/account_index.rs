@@ -47,10 +47,7 @@ impl AccountIndex {
             None => self.db.begin().await?,
         };
         let tmp = Insert::<AccountIndexModel, _>::new(vdata)
-            .execute_update(
-                &Update::< AccountIndexModel, _>::new(change),
-                &mut *db,
-            )
+            .execute_update(&Update::<AccountIndexModel, _>::new(change), &mut *db)
             .await;
         let addid = match tmp {
             Err(ie) => {
@@ -65,7 +62,7 @@ impl AccountIndex {
                 status:del_status,
                 change_time:time
             });
-            let tmp = Update::< AccountIndexModel, _>::new(change)
+            let tmp = Update::<AccountIndexModel, _>::new(change)
                 .execute_by_where(
                     &lsys_core::db::WhereOption::Where(sql_format!(
                         "account_id={} and index_cat={} and id!={}",
@@ -118,7 +115,7 @@ impl AccountIndex {
             {
                 Insert::<AccountIndexModel, _>::new_vec(vdata)
                     .execute_update(
-                        &Update::< AccountIndexModel, _>::new(update),
+                        &Update::<AccountIndexModel, _>::new(update),
                         db.as_executor(),
                     )
                     .await?
@@ -147,7 +144,7 @@ impl AccountIndex {
         let res = db_option_executor!(
             db,
             {
-                Update::< AccountIndexModel, _>::new(change)
+                Update::<AccountIndexModel, _>::new(change)
                     .execute_by_where(
                         &lsys_core::db::WhereOption::Where(sql_format!(
                             "index_data  in ({}) and index_cat={} and account_id={}",
@@ -179,7 +176,7 @@ impl AccountIndex {
         let res = db_option_executor!(
             db,
             {
-                Update::< AccountIndexModel, _>::new(change)
+                Update::<AccountIndexModel, _>::new(change)
                     .execute_by_where(
                         &lsys_core::db::WhereOption::Where(sql_format!(
                             "index_cat={} and account_id={}",
@@ -208,7 +205,7 @@ impl AccountIndex {
         let res = db_option_executor!(
             db,
             {
-                Update::< AccountIndexModel, _>::new(change)
+                Update::<AccountIndexModel, _>::new(change)
                     .execute_by_where(
                         &lsys_core::db::WhereOption::Where(sql_format!(
                             "account_id={}",

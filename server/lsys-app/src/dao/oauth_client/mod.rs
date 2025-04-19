@@ -1,10 +1,9 @@
 mod cache;
 mod data;
 mod login;
-use super::logger::{AppOAuthClientSetLog, AppRequestLog, AppViewSecretLog};
-use super::{App, AppResult};
+use super::logger::{AppOAuthClientSecretSetLog, AppOAuthClientSetDomainLog, AppRequestLog};
+use super::{App, AppResult, AppSecret};
 use super::{AppError, AppOAuthServer};
-use crate::model::AppFeatureStatus;
 use crate::model::AppModel;
 use crate::model::AppRequestModel;
 use crate::model::AppRequestType;
@@ -13,6 +12,7 @@ use crate::model::{
     AppRequestModelRef, AppRequestOAuthClientModel, AppRequestOAuthClientModelRef,
     AppRequestStatus,
 };
+use crate::model::{AppFeatureStatus, AppSecretType};
 pub use login::*;
 use lsys_access::dao::AccessDao;
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
@@ -35,6 +35,7 @@ pub struct AppOAuthClient {
     logger: Arc<ChangeLoggerDao>,
     code_time: u64,
     login_time: u64,
+    app_secret: Arc<AppSecret>,
     pub(crate) oauth_client_cache: Arc<LocalCache<u64, AppOAuthClientModel>>,
 }
 
@@ -45,6 +46,7 @@ pub struct AppOAuthClientConfig {
 }
 
 impl AppOAuthClient {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         db: Pool<MySql>,
         app: Arc<App>,
@@ -52,6 +54,7 @@ impl AppOAuthClient {
         access: Arc<AccessDao>,
         logger: Arc<ChangeLoggerDao>,
         remote_notify: Arc<RemoteNotify>,
+        app_secret: Arc<AppSecret>,
         config: AppOAuthClientConfig,
     ) -> Self {
         Self {
@@ -62,6 +65,7 @@ impl AppOAuthClient {
             code_time: config.code_time,
             login_time: config.login_time,
             logger,
+            app_secret,
             oauth_client_cache: Arc::new(LocalCache::new(
                 remote_notify.clone(),
                 config.cache_config,
@@ -320,7 +324,7 @@ impl AppOAuthClient {
             return Err(AppError::System(fluent_message!("app-req-status-invalid")));
         }
         let req_res = sqlx::query_as::<_, AppRequestModel>(&sql_format!(
-            "select * from {} where app_id={} and feature_key={} 
+            "select * from {} where app_id={} and feature_key={}
             ",
             AppRequestModel::table_name(),
             app.id,
@@ -392,7 +396,7 @@ impl AppOAuthClient {
         .await;
 
         let fe_res = sqlx::query_scalar::<_, u64>(&sql_format!(
-            "select id,status from {} where app_id={} and feature_key={} 
+            "select id,status from {} where app_id={} and feature_key={}
             ",
             AppFeatureModel::table_name(),
             app.id,
@@ -465,11 +469,9 @@ impl AppOAuthClient {
                 }
             }
             Err(sqlx::Error::RowNotFound) => {
-                let oauth_secret = rand_str(lsys_core::RandType::LowerHex, 32);
                 let idata = model_option_set!(AppOAuthClientModelRef,{
                     app_id:app.id,
                     scope_data:scope_data,
-                    oauth_secret:oauth_secret,
                     change_user_id:confirm_user_id,
                     change_time:time
                 });
@@ -480,6 +482,23 @@ impl AppOAuthClient {
                     db.rollback().await?;
                     return Err(err.into());
                 }
+
+                let secret_data = rand_str(lsys_core::RandType::LowerHex, 64);
+                if let Err(e) = self
+                    .app_secret
+                    .multiple_add(
+                        app.id,
+                        AppSecretType::OAuth,
+                        &secret_data,
+                        0,
+                        confirm_user_id,
+                        &mut *db,
+                    )
+                    .await
+                {
+                    db.rollback().await?;
+                    return Err(e.into());
+                };
             }
             Err(err) => {
                 db.rollback().await?;
@@ -581,7 +600,7 @@ impl AppOAuthClient {
         }
         let in_scope_data = self.get_oauth_client_scope_data(app).await?;
         let time = now_time()?;
-        let mut db: sqlx::Transaction<'_, MySql> = self.db.begin().await?;
+        let mut db = self.db.begin().await?;
         let mut tmp_scope = scope_data.split(",").collect::<Vec<&str>>();
         for ts in in_scope_data.split(",").collect::<Vec<&str>>() {
             if !tmp_scope.contains(&ts) {
@@ -652,20 +671,21 @@ impl AppOAuthClient {
 }
 pub struct AppOAuthClientParam<'t> {
     pub oauth_secret: Option<&'t str>,
+    pub reset_secret: bool,
     pub callback_domain: Option<&'t str>,
 }
 impl AppOAuthClient {
     //OAUTH登录参数设置
-    pub async fn oauth_setting<'t>(
+    pub async fn oauth_set_domain(
         &self,
         app: &AppModel,
-        req: &'t AppOAuthClientParam<'t>,
+        callback_domain: &str,
         set_user_id: u64,
         env_data: Option<&RequestEnv>,
-    ) -> AppResult<String> {
+    ) -> AppResult<()> {
         self.oauth_check(app).await?;
-        let oa_res = sqlx::query_as::<_, (u64, String)>(&sql_format!(
-            "select id,oauth_secret from {} where app_id={}
+        let oa_res = sqlx::query_scalar::<_, u64>(&sql_format!(
+            "select id from {} where app_id={}
             ",
             AppOAuthClientModel::table_name(),
             app.id,
@@ -673,39 +693,38 @@ impl AppOAuthClient {
         .fetch_one(&self.db)
         .await;
         let time = now_time()?;
-        let (mut oauth_secret, callback_domain) = Self::check_app_param(req)?;
+
+        let ipre = Regex::new(r"^[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}(:[\d]{1,5})?$")
+            .map_err(|e| AppError::System(fluent_message!("rule-error", e)))?;
+        let dre = Regex::new(
+            r"^[0-9a-zA-Z]{0,1}[0-9a-zA-Z-]*(\.[0-9a-zA-Z-]*)*(\.[0-9a-zA-Z]*)+(:[\d]{1,5})?$",
+        )
+        .map_err(|e| AppError::System(fluent_message!("rule-error", e)))?;
+        if !ipre.is_match(callback_domain) && !dre.is_match(callback_domain) {
+            return Err(AppError::System(fluent_message!("auth-alpha-domain-error")));
+        }
+        let callback_domain = callback_domain.to_owned();
         match oa_res {
-            Ok((oid, old_oauth_secret)) => {
-                let mut change = model_option_set!(AppOAuthClientModelRef,{
+            Ok(oid) => {
+                let change = model_option_set!(AppOAuthClientModelRef,{
                     change_user_id:set_user_id,
-                    change_time:time
+                    change_time:time,
+                    callback_domain:callback_domain
                 });
-                if callback_domain.is_some() {
-                    change.callback_domain = callback_domain.as_ref();
-                }
-                if oauth_secret.is_some() {
-                    change.oauth_secret = oauth_secret.as_ref();
-                } else {
-                    oauth_secret = Some(old_oauth_secret)
-                }
+
                 Update::<AppOAuthClientModel, _>::new(change)
                     .execute_by_where(&WhereOption::Where(sql_format!("id={}", oid)), &self.db)
                     .await?;
             }
             Err(sqlx::Error::RowNotFound) => {
                 let scope_data = "".to_string();
-                let mut idata = model_option_set!(AppOAuthClientModelRef,{
+                let idata = model_option_set!(AppOAuthClientModelRef,{
                     app_id:app.id,
                     scope_data:scope_data,
                     change_user_id:set_user_id,
-                    change_time:time
+                    change_time:time,
+                    callback_domain:callback_domain
                 });
-                if callback_domain.is_some() {
-                    idata.callback_domain = callback_domain.as_ref();
-                }
-                if oauth_secret.is_some() {
-                    idata.oauth_secret = oauth_secret.as_ref();
-                }
                 Insert::<AppRequestModel, _>::new(idata)
                     .execute(&self.db)
                     .await?;
@@ -714,16 +733,14 @@ impl AppOAuthClient {
                 return Err(err.into());
             }
         };
-
         self.oauth_client_cache.del(&app.id).await;
         self.logger
             .add(
-                &AppOAuthClientSetLog {
+                &AppOAuthClientSetDomainLog {
                     parent_app_id: app.parent_app_id,
                     app_id: app.id,
                     user_id: app.user_id,
-                    oauth_secret: oauth_secret.as_deref(),
-                    callback_domain: callback_domain.as_deref(),
+                    callback_domain: &callback_domain,
                 },
                 Some(app.id),
                 Some(set_user_id),
@@ -731,74 +748,134 @@ impl AppOAuthClient {
                 env_data,
             )
             .await;
-        Ok(oauth_secret.unwrap_or_default())
+        Ok(())
     }
-    fn check_app_param(
-        req: &AppOAuthClientParam<'_>,
-    ) -> AppResult<(Option<String>, Option<String>)> {
-        let domain_opt = req.callback_domain.map(|e| e.trim().to_string());
-        if let Some(ref domain) = domain_opt {
-            let ipre = Regex::new(r"^[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}(:[\d]{1,5})?$")
-                .map_err(|e| AppError::System(fluent_message!("rule-error", e)))?;
-            let dre = Regex::new(
-                r"^[0-9a-zA-Z]{0,1}[0-9a-zA-Z-]*(\.[0-9a-zA-Z-]*)*(\.[0-9a-zA-Z]*)+(:[\d]{1,5})?$",
-            )
-            .map_err(|e| AppError::System(fluent_message!("rule-error", e)))?;
-            if !ipre.is_match(domain) && !dre.is_match(domain) {
-                return Err(AppError::System(fluent_message!("auth-alpha-domain-error")));
+    fn secret_check(&self, secret: Option<&str>) -> AppResult<String> {
+        let client_secret = match secret {
+            Some(sstr) => {
+                let secret = sstr.trim().to_string();
+                if secret.len() != 32 {
+                    return Err(AppError::System(fluent_message!("app-secret-wrong")));
+                }
+                let re = Regex::new(r"^[a-f0-9]+$")
+                    .map_err(|e| AppError::System(fluent_message!("rule-error", e)))?;
+                if !re.is_match(&secret) {
+                    return Err(AppError::System(fluent_message!("app-secret-wrong")));
+                }
+                secret
             }
-        }
-
-        let secret_opt = req.oauth_secret.map(|e| {
-            if e.trim().is_empty() {
-                rand_str(lsys_core::RandType::LowerHex, 32)
-            } else {
-                e.trim().to_string()
-            }
-        });
-        if let Some(ref secret) = secret_opt {
-            if secret.len() != 32 {
-                return Err(AppError::System(fluent_message!("app-secret-wrong")));
-            }
-            let re = Regex::new(r"^[a-f0-9]+$")
-                .map_err(|e| AppError::System(fluent_message!("rule-error", e)))?;
-            if !re.is_match(secret) {
-                return Err(AppError::System(fluent_message!("app-secret-wrong")));
-            }
-        }
-        Ok((secret_opt, domain_opt))
+            None => rand_str(lsys_core::RandType::LowerHex, 32),
+        };
+        Ok(client_secret)
     }
-    //添加查看secret日志
-    pub async fn oauth_view_secret(
+    //添加secret
+    pub async fn secret_add(
         &self,
         app: &AppModel,
-        view_user_id: u64,
+        secret: Option<&str>,
+        time_out: u64,
+        change_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> AppResult<String> {
-        let oauth_secret = match self.cache().find_by_app(app).await {
-            Ok(client_data) => {
-                self.logger
-                    .add(
-                        &AppViewSecretLog {
-                            action: "secret_view",
-                            app_id: app.id,
-                            user_id: app.user_id,
-                            app_name: &app.name,
-                            secret_data: &client_data.oauth_secret,
-                        },
-                        Some(app.id),
-                        Some(view_user_id),
-                        None,
-                        env_data,
-                    )
-                    .await;
-                client_data.oauth_secret
-            }
-            Err(AppError::Sqlx(sqlx::Error::RowNotFound)) => "".to_string(),
-            Err(err) => {
-                return Err(err);
-            }
-        };
-        Ok(oauth_secret)
+        let client_secret = self.secret_check(secret)?;
+        self.app_secret
+            .multiple_add(
+                app.id,
+                AppSecretType::OAuth,
+                &client_secret,
+                time_out,
+                change_user_id,
+                &self.db,
+            )
+            .await?;
+        self.logger
+            .add(
+                &AppOAuthClientSecretSetLog {
+                    action: "add",
+                    parent_app_id: app.parent_app_id,
+                    app_id: app.id,
+                    user_id: app.user_id,
+                    oauth_secret: &client_secret,
+                },
+                Some(app.id),
+                Some(change_user_id),
+                None,
+                env_data,
+            )
+            .await;
+        Ok(client_secret)
+    }
+    //重设secret
+    pub async fn secret_change(
+        &self,
+        app: &AppModel,
+        old_secret: &str,
+        secret: Option<&str>,
+        time_out: u64,
+        change_user_id: u64,
+        env_data: Option<&RequestEnv>,
+    ) -> AppResult<String> {
+        let client_secret = self.secret_check(secret)?;
+        self.app_secret
+            .multiple_change(
+                app.id,
+                AppSecretType::OAuth,
+                &client_secret,
+                old_secret,
+                time_out,
+                change_user_id,
+                &self.db,
+            )
+            .await?;
+        self.logger
+            .add(
+                &AppOAuthClientSecretSetLog {
+                    action: "change",
+                    parent_app_id: app.parent_app_id,
+                    app_id: app.id,
+                    user_id: app.user_id,
+                    oauth_secret: &client_secret,
+                },
+                Some(app.id),
+                Some(change_user_id),
+                None,
+                env_data,
+            )
+            .await;
+        Ok(client_secret)
+    }
+    //删除secret
+    pub async fn secret_del(
+        &self,
+        app: &AppModel,
+        old_secret: &str,
+        change_user_id: u64,
+        env_data: Option<&RequestEnv>,
+    ) -> AppResult<()> {
+        self.app_secret
+            .multiple_del(
+                app.id,
+                AppSecretType::OAuth,
+                old_secret,
+                change_user_id,
+                &self.db,
+            )
+            .await?;
+        self.logger
+            .add(
+                &AppOAuthClientSecretSetLog {
+                    action: "delete",
+                    parent_app_id: app.parent_app_id,
+                    app_id: app.id,
+                    user_id: app.user_id,
+                    oauth_secret: old_secret,
+                },
+                Some(app.id),
+                Some(change_user_id),
+                None,
+                env_data,
+            )
+            .await;
+        Ok(())
     }
 }

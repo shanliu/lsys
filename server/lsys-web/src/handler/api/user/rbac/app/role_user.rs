@@ -79,7 +79,7 @@ pub async fn app_role_user_add(
 #[derive(Debug, Deserialize)]
 pub struct AppRoleUserDelParam {
     pub role_id: u64,
-    pub user_data: Vec<u64>,
+    pub user_data: Vec<String>,
 }
 
 pub async fn app_role_user_del(
@@ -94,19 +94,27 @@ pub async fn app_role_user_del(
         .role
         .find_by_id(&param.role_id)
         .await?;
+
+    let mut user_id_data = vec![];
+    for tmp in &param.user_data {
+        let user_info = req_dao
+            .web_dao
+            .web_access
+            .access_dao
+            .user
+            .cache()
+            .sync_user(role.app_id, tmp, None, None)
+            .await?;
+        user_id_data.push(user_info.id);
+    }
+
     let app = app_check_get(role.app_id, true, &auth_data, req_dao).await?;
     req_dao
         .web_dao
         .web_rbac
         .rbac_dao
         .role
-        .del_user(
-            &role,
-            &param.user_data,
-            app.id,
-            None,
-            Some(&req_dao.req_env),
-        )
+        .del_user(&role, &user_id_data, app.id, None, Some(&req_dao.req_env))
         .await?;
     Ok(JsonResponse::default())
 }
@@ -165,7 +173,7 @@ pub async fn app_role_user_data(
 #[derive(Debug, Deserialize)]
 pub struct AppRoleUserAvailableParam {
     pub app_id: u64,
-    pub user_data: String,
+    pub user_any: Option<String>,
     pub limit: Option<LimitParam>,
     pub count_num: Option<bool>,
 }
@@ -180,7 +188,7 @@ pub async fn app_role_user_available(
         app_id: Some(app.id),
         user_data: None,
         user_account: None,
-        user_any: Some(param.user_data.as_str()),
+        user_any: param.user_any.as_deref(),
     };
     let (res, next) = req_dao
         .web_dao

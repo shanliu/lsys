@@ -792,14 +792,16 @@ impl RbacAccess {
             return None;
         }
         let (tx, mut rx) = mpsc::channel::<AuditItem>(limit);
+        info!("rbac audit listen start");
         tokio::task::spawn(async move {
-            info!("rbac audit listen start");
+            info!("rbac audit add start");
             while let Some(msg) = rx.recv().await {
                 info!("rbac audit listen add:{}", msg.request_id);
                 Self::audit_add(&db, msg).await;
             }
-            info!("rbac audit listen end");
+            info!("rbac audit add end");
         });
+        info!("rbac audit listen end");
         Some(tx)
     }
 }

@@ -81,11 +81,12 @@ impl RbacOp {
         };
 
         let res = sqlx::query_as::<_, RbacOpModel>(&sql_format!(
-            "select * from {} where user_id={} and op_key={op_key} and  app_id={} and status={}",
+            "select * from {} where user_id={} and op_key={} and app_id={} and status={}",
             RbacResModel::table_name(),
             param.user_id,
-            RbacResStatus::Enable,
+            op_key,
             param.app_id.unwrap_or_default(),
+            RbacResStatus::Enable,
         ))
         .fetch_one(&self.db)
         .await;
@@ -123,9 +124,12 @@ impl RbacOp {
                         let add_id = res.last_insert_id();
                         Update::< RbacOpModel, _>::new(other_change)
                             .execute_by_where(&WhereOption::Where(sql_format!(
-                                "user_id={} and op_key={op_key} and  app_id={app_id} and status={} and id!={add_id}",
+                                "user_id={} and op_key={} and  app_id={} and status={} and id!={}",
                                 param.user_id,
+                                op_key,
+                                app_id,
                                 RbacOpStatus::Enable as i8,
+                                add_id
                             )), db.as_executor())
                             .await?;
                         add_id

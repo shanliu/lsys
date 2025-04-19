@@ -45,7 +45,7 @@ impl RbacAccess {
                 RbacAuditDetailModel::table_name(),
                 val.0,
                 match val.1 {
-                    Some(op_id) => SqlExpr(sql_format!(" and op_id={op_id}")),
+                    Some(op_id) => SqlExpr(sql_format!(" and op_id={}",op_id)),
                     None => SqlExpr("".to_string()),
                 }
             ));

@@ -73,6 +73,7 @@ impl AccessUser {
         }
         Some(sql_vec)
     }
+    //用户数据
     pub async fn user_data(
         &self,
         param: &UserDataParam<'_>,
@@ -198,6 +199,7 @@ impl AccessUser {
         };
         Some(sql_vec)
     }
+    // 用户登录数据
     pub async fn session_data(
         &self,
         param: &SessionDataParam,

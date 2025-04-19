@@ -29,7 +29,7 @@ pub(crate) async fn mailer(
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
     Ok(match path.into_inner().as_str() {
-        "logs" => {
+        "message_logs" => {
             mailer_message_log(&json_param.param::<MailerMessageLogParam>()?, &auth_dao).await
         }
         "message_view" => {
@@ -38,7 +38,7 @@ pub(crate) async fn mailer(
         "message_list" => {
             mailer_message_list(&json_param.param::<MailerMessageListParam>()?, &auth_dao).await
         }
-        "cancel" => {
+        "message_cancel" => {
             mailer_message_cancel(&json_param.param::<MailerMessageCancelParam>()?, &auth_dao).await
         }
 

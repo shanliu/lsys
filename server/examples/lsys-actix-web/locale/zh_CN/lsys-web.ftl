@@ -20,6 +20,7 @@ reg-mobile-registered=该手机号已注册过账号
 mobile-bind-other-user=邮箱已绑定其他账号:{$id}
 mobile-is-bind=邮箱重复绑定
 lsys-lib-area-error=地址库异常:{$msg}
+lsys-lib-area-db=地址数据异常:{$msg}
 area-not-found=地址信息未找到
 area-store-error=地址存储异常:{$msg}
 area-tantivy-error=地址搜索异常:{$msg}

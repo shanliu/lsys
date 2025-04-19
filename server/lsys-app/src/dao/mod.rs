@@ -1,4 +1,5 @@
 mod app;
+mod app_secret;
 mod cache;
 mod logger;
 mod oauth_client;
@@ -14,6 +15,7 @@ use lsys_core::{
 use crate::model::AppModel;
 
 pub use app::*;
+pub use app_secret::*;
 pub use cache::AppLocalCacheClear;
 use lsys_logger::dao::ChangeLoggerDao;
 pub use oauth_client::*;
@@ -26,12 +28,14 @@ use std::sync::Arc;
 pub struct AppDao {
     //内部依赖
     pub app: Arc<App>,
+    pub(crate) app_secret: Arc<AppSecret>,
     pub oauth_client: Arc<AppOAuthClient>,
     pub oauth_server: Arc<AppOAuthServer>,
 }
 
 pub struct AppConfig {
     pub app_cache: LocalCacheConfig,
+    pub app_secret_cache: LocalCacheConfig,
     pub sub_app_cache: LocalCacheConfig,
     pub sub_app_oauth_server_cache: LocalCacheConfig,
     pub oauth_client_code_time: u64,
@@ -52,6 +56,11 @@ impl AppConfig {
                 None,
             ),
             app_cache: LocalCacheConfig::new("app", if use_cache { None } else { Some(0) }, None),
+            app_secret_cache: LocalCacheConfig::new(
+                "app-secret",
+                if use_cache { None } else { Some(0) },
+                None,
+            ),
             oauth_client_code_time,
             oauth_client_login_time,
         }
@@ -66,11 +75,17 @@ impl AppDao {
         config: AppConfig,
         logger: Arc<ChangeLoggerDao>,
     ) -> Result<AppDao, AppCoreError> {
+        let app_secret = Arc::from(AppSecret::new(
+            db.clone(),
+            remote_notify.clone(),
+            config.app_secret_cache,
+        ));
         let app = Arc::from(App::new(
             db.clone(),
             remote_notify.clone(),
             config.app_cache,
             logger.clone(),
+            app_secret.clone(),
         ));
         let oauth_server = Arc::from(AppOAuthServer::new(
             db.clone(),
@@ -86,6 +101,7 @@ impl AppDao {
             access.clone(),
             logger.clone(),
             remote_notify.clone(),
+            app_secret.clone(),
             AppOAuthClientConfig {
                 cache_config: config.app_cache,
                 code_time: config.oauth_client_code_time,
@@ -96,6 +112,7 @@ impl AppDao {
             app,
             oauth_client,
             oauth_server,
+            app_secret,
         })
     }
     pub async fn session_app(&self, session: &SessionBody) -> AccessResult<Option<AppModel>> {

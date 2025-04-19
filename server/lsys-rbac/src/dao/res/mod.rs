@@ -82,11 +82,13 @@ impl RbacRes {
         };
 
         let res = sqlx::query_as::<_,RbacResModel>(&sql_format!(
-            "select * from {} where user_id={} and res_type={res_type} and res_data={res_data} and app_id={} and status={}",
+            "select * from {} where user_id={} and res_type={} and res_data={} and app_id={} and status={}",
             RbacResModel::table_name(),
             param.user_id,
+            res_type,
+            res_data,
             param.app_id.unwrap_or_default(),
-            RbacResStatus::Enable
+            RbacResStatus::Enable as i8
         )).fetch_one(&self.db).await;
         match res {
             Ok(rm) => Err(RbacError::System(
@@ -123,9 +125,13 @@ impl RbacRes {
                         let add_id = res.last_insert_id();
                         Update::< RbacResModel, _>::new(other_change)
                             .execute_by_where(&WhereOption::Where(sql_format!(
-                                "user_id={} and res_type={res_type} and res_data={res_data} and app_id={app_id} and status={} and id!={add_id}",
+                                "user_id={} and res_type={} and res_data={} and app_id={} and status={} and id!={}",
                                 param.user_id,
+                                res_type,
+                                res_data,
+                                app_id,
                                 RbacResStatus::Enable as i8,
+                                add_id
                             )), db.as_executor())
                             .await?;
                         add_id

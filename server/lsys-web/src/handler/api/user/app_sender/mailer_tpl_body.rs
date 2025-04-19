@@ -10,7 +10,6 @@ use serde_json::json;
 
 #[derive(Debug, Deserialize)]
 pub struct MailerTplListParam {
-    pub sender_type: Option<i8>,
     pub id: Option<u64>,
     pub tpl_id: Option<String>,
     pub count_num: Option<bool>,
@@ -33,17 +32,13 @@ pub async fn mailer_tpl_body_list(
         )
         .await?;
 
-    let sender_type = match param.sender_type {
-        Some(e) => Some(SenderType::try_from(e)?),
-        None => None,
-    };
     let data = req_dao
         .web_dao
         .app_sender
         .tpl
         .list_data(
             auth_data.user_id(),
-            sender_type,
+            Some(SenderType::Mailer),
             param.id,
             param.tpl_id.as_deref(),
             param.page.as_ref().map(|e| e.into()).as_ref(),
@@ -57,7 +52,7 @@ pub async fn mailer_tpl_body_list(
                 .tpl
                 .list_count(
                     auth_data.user_id(),
-                    sender_type,
+                    Some(SenderType::Mailer),
                     param.id,
                     param.tpl_id.as_deref(),
                 )
@@ -75,7 +70,6 @@ pub async fn mailer_tpl_body_list(
 pub struct MailerTplAddParam {
     pub tpl_id: String,
     pub tpl_data: String,
-    pub sender_type: i8,
 }
 pub async fn mailer_tpl_body_add(
     param: &MailerTplAddParam,
@@ -94,13 +88,12 @@ pub async fn mailer_tpl_body_add(
         )
         .await?;
 
-    let sender_type = SenderType::try_from(param.sender_type)?;
     let id = req_dao
         .web_dao
         .app_sender
         .tpl
         .add(
-            sender_type,
+            SenderType::Mailer,
             param.tpl_id.as_str(),
             &param.tpl_data,
             auth_data.user_id(),

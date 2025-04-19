@@ -13,7 +13,6 @@ pub struct AppOpAddParam {
     pub user_param: Option<String>,
     pub op_key: String,
     pub op_name: String,
-    pub data: String,
 }
 pub async fn app_op_add(
     param: &AppOpAddParam,
@@ -53,7 +52,6 @@ pub struct AppOpEditParam {
     pub op_id: u64,
     pub op_key: String,
     pub op_name: String,
-    pub data: String,
 }
 
 pub async fn app_op_edit(

@@ -1,5 +1,6 @@
 mod app_confirm;
 mod app_delete;
+mod app_disable;
 mod app_exter_feature;
 mod app_inner_feature;
 mod app_list;
@@ -7,6 +8,7 @@ mod app_oauth_client;
 mod app_oauth_server;
 pub use app_confirm::*;
 pub use app_delete::*;
+pub use app_disable::*;
 pub use app_exter_feature::*;
 pub use app_inner_feature::*;
 pub use app_list::*;

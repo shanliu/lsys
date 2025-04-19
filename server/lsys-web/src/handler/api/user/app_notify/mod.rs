@@ -6,6 +6,19 @@ use lsys_access::dao::AccessSession;
 use lsys_app_notify::model::NotifyDataStatus;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+
+pub async fn data_where(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
+    let method = req_dao.web_dao.app_notify.notify_method_list();
+    Ok(JsonResponse::data(JsonData::body(json!({
+        "method":method,
+        "status":vec![
+            status_json!(req_dao, NotifyDataStatus::Init),
+            status_json!(req_dao, NotifyDataStatus::Succ),
+            status_json!(req_dao, NotifyDataStatus::Fail),
+        ]
+    }))))
+}
+
 #[derive(Deserialize)]
 pub struct DataListParam {
     pub app_id: Option<u64>,

@@ -3,7 +3,6 @@ CREATE TABLE `yaf_app` (
     `parent_app_id` bigint unsigned NOT NULL COMMENT '父级APP应用ID,0为系统内置用户应用',
     `name` varchar(32) NOT NULL COMMENT '应用名称',
     `client_id` varchar(32) NOT NULL COMMENT '应用key,因为REST接口使用一个参数确定应用,必须全局唯一',
-    `client_secret` varchar(32) NOT NULL COMMENT '应用秘钥',
     `status` tinyint NOT NULL COMMENT '状态 待审核 正常 已禁用',
     `user_id` bigint unsigned NOT NULL COMMENT '添加用户ID',
     `user_app_id` bigint unsigned NOT NULL COMMENT '冗余user表的app_id,>0时为外部账号',
@@ -12,6 +11,7 @@ CREATE TABLE `yaf_app` (
     PRIMARY KEY (`id`),
     UNIQUE KEY `app_client_id` (`client_id`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '应用数据';
+
 
 CREATE TABLE `yaf_app_feature` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
@@ -27,7 +27,6 @@ CREATE TABLE `yaf_app_feature` (
 CREATE TABLE `yaf_app_oauth_client` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
     `app_id` bigint unsigned NOT NULL COMMENT 'app的id',
-    `oauth_secret` varchar(32) NOT NULL COMMENT 'oauth秘钥',
     `callback_domain` varchar(255) NOT NULL DEFAULT '' COMMENT '回调域名',
     `scope_data` varchar(255) NOT NULL DEFAULT '' COMMENT '申请的SCOPE列表',
     `change_user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '更改用户',
@@ -50,6 +49,20 @@ CREATE TABLE `yaf_app_oauth_server_scope` (
     UNIQUE KEY `app_key` (`app_id`,`scope_key`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '外部账号OAUTH登录服务SCOPE数据';
 
+
+CREATE TABLE `yaf_app_secret` (
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
+    `app_id` bigint unsigned NOT NULL COMMENT 'app的id',
+    `secret_type` tinyint NOT NULL COMMENT '密钥类型',
+    `secret_data` varchar(32) NOT NULL COMMENT '应用秘钥',
+    `time_out` bigint unsigned NOT NULL COMMENT '过期时间',
+    `status` tinyint NOT NULL COMMENT '状态 正常 已删除',
+    `add_user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '添加用户',
+    `change_user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '更改用户',
+    `change_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '更改时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `app_secret` (`app_id`,`secret_type`,`secret_data`) USING BTREE
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '应用密钥数据';
 
 CREATE TABLE `yaf_app_request` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
@@ -93,5 +106,3 @@ CREATE TABLE `yaf_app_request_set_info` (
     UNIQUE  KEY `req_id` (`app_request_id`) USING BTREE,
     KEY `client_id` (`client_id`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '应用申请更改相关数据';
-
-

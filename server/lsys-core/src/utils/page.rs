@@ -31,10 +31,10 @@ impl LimitParam {
         pos: Option<u64>, //起始点位置
         eq_pos: bool,     //起始位置是否等于
         limit: u64,       //输出数量
-        next: bool,       //是否往一下获取
+        is_next: bool,    //获取上一页还是下一页
         more: bool,       //是否获取多一个记录
     ) -> Self {
-        if next {
+        if is_next {
             Self::Next {
                 pos,
                 limit,

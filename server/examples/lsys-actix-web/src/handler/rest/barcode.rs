@@ -17,7 +17,7 @@ use serde_json::json;
 use tempfile::Builder;
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt, SeekFrom};
 
-#[post("/barcode")]
+#[post("")]
 pub(crate) async fn barcode(
     mut payload: Multipart,
     rest: RestQuery,

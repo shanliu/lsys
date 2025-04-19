@@ -46,13 +46,14 @@ impl RbacAccess {
                     join {} as role_user on role_user.role_id=role.id
                     where  role.status ={} 
                     and role.user_id>0 and role.user_range={} and role.res_range={}
-                    and role_user.user_id={user_id} and (role_user.timeout=0 or role_user.timeout >= UNIX_TIMESTAMP(NOW()))
+                    and role_user.user_id={} and (role_user.timeout=0 or role_user.timeout >= UNIX_TIMESTAMP(NOW()))
                     ",
                     RbacRoleModel::table_name(),
                     RbacRoleUserModel::table_name(),
                     RbacRoleStatus::Enable as i8,
                     RbacRoleUserRange::Custom as i8,
                     res_range as i8,
+                    user_id
                 )
             }
             RbacRoleResRange::Exclude | RbacRoleResRange::Include => {
@@ -65,7 +66,7 @@ impl RbacAccess {
                     join {} as role_user on role_user.role_id=role.id
                     where  role.status ={} and perm.status ={} and res.status ={} and op.status ={}
                     and role.user_id>0 and role.user_range={} and role.res_range={}
-                    and role_user.user_id={user_id} and (role_user.timeout=0 or role_user.timeout >= UNIX_TIMESTAMP(NOW()))
+                    and role_user.user_id={} and (role_user.timeout=0 or role_user.timeout >= UNIX_TIMESTAMP(NOW()))
                     ",
                     RbacRoleModel::table_name(),
                     RbacPermModel::table_name(),
@@ -78,6 +79,7 @@ impl RbacAccess {
                     RbacOpStatus::Enable as i8,
                     RbacRoleUserRange::Custom as i8,
                     res_range as i8,
+                    user_id
                 )
             }
         }
@@ -291,8 +293,8 @@ impl RbacAccess {
             join {} as op on perm.op_id=op.id
             join {} as role_user on role_user.role_id=role.id
             where  role.status ={} and perm.status ={} and res.status ={} and op.status ={}
-            and role.user_id={role_user_id} {} and role.user_range={} and role.res_range={}
-            and role_user.user_id={user_id} and (role_user.timeout=0 or role_user.timeout >= UNIX_TIMESTAMP(NOW()))
+            and role.user_id={} {} and role.user_range={} and role.res_range={}
+            and role_user.user_id={} and (role_user.timeout=0 or role_user.timeout >= UNIX_TIMESTAMP(NOW()))
             ",
             field,
             RbacRoleModel::table_name(),
@@ -308,8 +310,10 @@ impl RbacAccess {
                 Some(app_id)=>sql_format!(" and role.app_id={}",app_id),
                 None=>"".to_string()
             }),
+            role_user_id,
             RbacRoleUserRange::Custom as i8,
             res_range as i8,
+            user_id
         )
     }
     //被用户或系统授权的授权数量

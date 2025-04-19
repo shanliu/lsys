@@ -478,8 +478,8 @@ impl<'t> RbacRoleFinder<'t>{
             from {} as role 
             join {} as role_user on role.id=role_user.role_id
             where role.status ={} and role.user_range={} 
-            and role.user_id={role_user_id} and role.app_id={role_user_app_id} and role.res_range={} 
-            and role_user.user_id={access_user_id} and role_user.status={}",
+            and role.user_id={} and role.app_id={} and role.res_range={} 
+            and role_user.user_id={} and role_user.status={}",
             self.role.cache().find_access_key_user_res_all(
                 role_user_id,
                 role_user_app_id,
@@ -489,7 +489,10 @@ impl<'t> RbacRoleFinder<'t>{
             RbacRoleUserModel::table_name(),
             RbacRoleStatus::Enable as i8,
             RbacRoleUserRange::Custom as i8,
+            role_user_id,
+            role_user_app_id,
             RbacRoleResRange::Any as i8,
+            access_user_id,
             RbacRoleUserStatus::Enable as i8,
         )           
     }
@@ -518,8 +521,8 @@ impl<'t> RbacRoleFinder<'t>{
             "select {} as cache_key,role.*,CONVERT(0,UNSIGNED) as op_id,CONVERT(0,UNSIGNED) as res_id,
             CONVERT(0,UNSIGNED) as access_user_id, CONVERT(0,UNSIGNED) as access_timeout,CONVERT(0,UNSIGNED)  as perm_id
             from {} as role where role.status ={} and role.user_range={} 
-            and role.user_id={role_user_id} and role.app_id={role_user_app_id}
-            and role.res_range={} and role.role_key={session_role_key} ",
+            and role.user_id={} and role.app_id={}
+            and role.res_range={} and role.role_key={} ",
             self.role.cache().find_access_key_session_res_all(
                 role_user_id,
                 role_user_app_id,
@@ -528,7 +531,10 @@ impl<'t> RbacRoleFinder<'t>{
             RbacRoleModel::table_name(),
             RbacRoleStatus::Enable as i8,
             RbacRoleUserRange::Session as i8,
+            role_user_id,
+            role_user_app_id,
             RbacRoleResRange::Any as i8,
+            session_role_key
         )           
     }
      // -----------------
@@ -596,9 +602,9 @@ impl<'t> RbacRoleFinder<'t>{
             "select {} as cache_key,role.*,perm.op_id,perm.res_id ,
             CONVERT(0,UNSIGNED) as access_user_id, CONVERT(0,UNSIGNED) as access_timeout,CONVERT(0,UNSIGNED)  as perm_id
             from {} as role join {} as perm on role.id=perm.role_id
-            where role.status ={} and role.user_range={} and role.user_id={role_user_id} and role.app_id={role_user_app_id}
-                and role.res_range={} and perm.op_id={op_id} and perm.res_id={res_id} 
-                and prem.status={} and role.role_key={session_role_key} ",
+            where role.status ={} and role.user_range={} and role.user_id={} and role.app_id={}
+                and role.res_range={} and perm.op_id={} and perm.res_id={} 
+                and prem.status={} and role.role_key={} ",
             self.role.cache().find_access_key_session_by_res(
                 role_user_id,
                 role_user_app_id,
@@ -611,8 +617,13 @@ impl<'t> RbacRoleFinder<'t>{
             RbacPermModel::table_name(),
             RbacRoleStatus::Enable as i8,
             RbacRoleUserRange::Session as i8,
+            role_user_id,
+            role_user_app_id,
             res_range as i8,
+            op_id,
+            res_id,
             RbacPermStatus::Enable as i8,
+            session_role_key
         )           
     }
       // -----------------
@@ -684,8 +695,8 @@ impl<'t> RbacRoleFinder<'t>{
             join {} as role_user on role.id=role_user.role_id where 
             role.status ={} and perm.status ={} and role_user.status ={}  
             and role.user_range={} and role.res_range={}  
-            and perm.op_id={op_id} and perm.res_id={res_id} and role.user_id={role_user_id} and role.app_id={role_user_app_id}
-            and role_user.user_id={access_user_id}",
+            and perm.op_id={} and perm.res_id={} and role.user_id={} and role.app_id={}
+            and role_user.user_id={}",
             self.role.cache().find_access_key_user_by_res(
                 role_user_id,
                 role_user_app_id,
@@ -702,6 +713,11 @@ impl<'t> RbacRoleFinder<'t>{
             RbacRoleUserStatus::Enable as i8,
             RbacRoleUserRange::Custom as i8,
             res_range as i8,
+            op_id,
+            res_id,
+            role_user_id,
+            role_user_app_id,
+            access_user_id
         )           
     }
       // -----------------

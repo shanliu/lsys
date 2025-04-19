@@ -1,3 +1,4 @@
+mod notify;
 mod public;
 mod system;
 mod user;
@@ -9,6 +10,13 @@ pub(crate) fn router<T>(mut app: App<T>) -> App<T>
 where
     T: ServiceFactory<ServiceRequest, Config = (), Error = Error, InitError = ()>,
 {
+    app = app
+    .service(scope("/notify").service(notify::sms::notify))
+    .service(
+        scope("/captcha")
+            .service(public::captcha)
+            .service(public::options),
+    );
     let mut api_scope = scope("/api");
 
     api_scope = api_scope
@@ -27,11 +35,6 @@ where
         .service(
             scope("/oauth")
                 .service(public::oauth)
-                .service(public::options),
-        )
-        .service(
-            scope("/captcha")
-                .service(public::captcha)
                 .service(public::options),
         )
         .service(
@@ -99,16 +102,17 @@ where
                 .service(system::rbac::res)
                 .service(system::rbac::role)
                 .service(public::options),
-        );
+        )
+        .service(public::options);
     api_scope = api_scope.service(system_scope);
     let mut user_scope = scope("/user");
     user_scope = user_scope
         .service(
             scope("/profile")
+                .service(user::profile::address)
                 .service(user::profile::email)
                 .service(user::profile::mobile)
                 .service(user::profile::external)
-                .service(user::profile::address)
                 .service(public::options),
         )
         .service(
@@ -123,42 +127,38 @@ where
                 .service(user::rbac::role)
                 .service(public::options),
         )
-        .service({
-            let mut uapp = scope("/app")
-                .service(
-                    scope("/rbac")
-                        .service(user::app::rbac::check)
-                        .service(user::app::rbac::op)
-                        .service(user::app::rbac::res)
-                        .service(user::app::rbac::role)
-                        .service(public::options),
-                )
-                .service(
-                    scope("/sender")
-                        .service(user::app::sender::mailer)
-                        .service(user::app::sender::smser)
-                        .service(public::options),
-                )
-                .service(
-                    scope("/notify")
-                        .service(user::app::notify)
-                        .service(public::options),
-                )
-                .service(
-                    scope("/base")
-                        .service(user::app::base)
-                        .service(public::options),
-                );
-            #[cfg(feature = "barcode")]
-            {
-                uapp = uapp.service(
-                    scope("/barcode")
-                        .service(user::app::barcode)
-                        .service(public::options),
-                );
-            }
-            uapp.service(public::options)
-        });
-    api_scope = api_scope.service(user_scope);
+        .service(
+            scope("/app_rbac")
+                .service(user::app::rbac::check)
+                .service(user::app::rbac::op)
+                .service(user::app::rbac::res)
+                .service(user::app::rbac::role)
+                .service(public::options),
+        )
+        .service(
+            scope("/app_sender")
+                .service(user::app::sender::mailer)
+                .service(user::app::sender::smser)
+                .service(public::options),
+        )
+        .service(
+            scope("/app_notify")
+                .service(user::app::notify)
+                .service(public::options),
+        )
+        .service(
+            scope("/app")
+                .service(user::app::base)
+                .service(public::options),
+        );
+    #[cfg(feature = "barcode")]
+    {
+        api_scope = api_scope.service(
+            scope("/app_barcode")
+                .service(user::app::barcode)
+                .service(public::options),
+        );
+    }
+    api_scope = api_scope.service(user_scope).service(public::options);
     app.service(api_scope)
 }

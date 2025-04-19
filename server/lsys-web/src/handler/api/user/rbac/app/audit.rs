@@ -19,7 +19,7 @@ pub struct AppAuditResParam {
 
 #[derive(Debug, Deserialize)]
 pub struct AppAuditParam {
-    pub user_data: Option<String>,
+    pub user_param: Option<String>,
     pub app_id: u64,
     pub user_ip: Option<String>,
     pub device_id: Option<String>,
@@ -36,7 +36,7 @@ pub async fn app_audit_data(
 ) -> JsonResult<JsonResponse> {
     let auth_data = parent_app_check(req_dao).await?;
     let app = app_check_get(param.app_id, false, &auth_data, req_dao).await?;
-    let user_id = if let Some(user_data) = &param.user_data {
+    let user_id = if let Some(user_data) = &param.user_param {
         //必须是子用户
         let audit_user = req_dao
             .web_dao

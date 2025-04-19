@@ -1,8 +1,12 @@
+use crate::dao::logger::AppViewSecretLog;
+use crate::dao::AppSecretRecrod;
+use crate::model::AppSecretType;
 use crate::model::{AppModel, AppOAuthClientModel, AppRequestType};
 
 use lsys_core::db::ModelTableName;
 use lsys_core::db::SqlQuote;
 use lsys_core::sql_format;
+use lsys_core::RequestEnv;
 
 use super::super::{AppError, AppResult};
 use super::AppOAuthClient;
@@ -47,5 +51,40 @@ impl AppOAuthClient {
             sqlx::Error::RowNotFound => AppError::AppOAuthClientBadConfig(app.client_id.to_owned()),
             _ => AppError::Sqlx(e),
         })
+    }
+}
+
+impl AppOAuthClient {
+    //添加查看secret日志
+    pub async fn oauth_view_secret(
+        &self,
+        app: &AppModel,
+        view_user_id: u64,
+        env_data: Option<&RequestEnv>,
+    ) -> AppResult<Vec<AppSecretRecrod>> {
+        let secret_data = self
+            .app_secret
+            .multiple_find_secret_by_app_id(app.id, AppSecretType::OAuth)
+            .await?;
+        self.logger
+            .add(
+                &AppViewSecretLog {
+                    action: "secret_view",
+                    app_id: app.id,
+                    user_id: app.user_id,
+                    app_name: &app.name,
+                    secret_data: &secret_data
+                        .iter()
+                        .map(|e| e.secret_data.as_str())
+                        .collect::<Vec<_>>()
+                        .join(","),
+                },
+                Some(app.id),
+                Some(view_user_id),
+                None,
+                env_data,
+            )
+            .await;
+        Ok(secret_data)
     }
 }

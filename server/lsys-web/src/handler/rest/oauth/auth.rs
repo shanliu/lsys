@@ -151,15 +151,15 @@ async fn check_app_secret(
         .web_rbac
         .check(&req_dao.req_env, None, &CheckRestApp {})
         .await?;
-    let oapp = req_dao
+    let oauth_secret = req_dao
         .web_dao
         .web_app
         .app_dao
         .oauth_client
         .cache()
-        .find_by_app(&app)
+        .find_secret_by_app_id(app.id)
         .await?;
-    if *client_secret != oapp.oauth_secret {
+    if !oauth_secret.contains(client_secret) {
         return Err(JsonError::JsonResponse(
             JsonData::default(),
             fluent_message!("client-secret-not-match"),

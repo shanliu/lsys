@@ -10,7 +10,6 @@ use serde_json::json;
 pub struct SubAppViewParam {
     pub client_id: String,
     pub user_data: bool,
-    pub oauth_data: bool,
 }
 
 pub async fn subapp_view(
@@ -41,12 +40,13 @@ pub async fn subapp_view(
         .find_sub_app_by_client_id(app, &param.client_id)
         .await?;
 
-    let client_secret = req_dao
+    let client_data = req_dao
         .web_dao
         .web_app
         .app_dao
         .app
-        .app_view_secret(&out_app, app.user_id, Some(&req_dao.req_env))
+        .cache()
+        .find_app_secret_by_client_id(&out_app.client_id)
         .await?;
 
     let user_info = if param.user_data {
@@ -69,7 +69,7 @@ pub async fn subapp_view(
     Ok(JsonResponse::data(JsonData::body(json!({
         "name": out_app.name,
         "client_id":out_app.client_id,
-        "sub_secret": client_secret,
+        "sub_secret": client_data,
         "user_data":user_info,
     }))))
 }
@@ -122,7 +122,15 @@ pub async fn subapp_oauth_secret(
         .app_dao
         .oauth_client
         .oauth_view_secret(&out_app, app.user_id, Some(&req_dao.req_env))
-        .await?;
+        .await?
+        .into_iter()
+        .map(|e| {
+            json!({
+                "secret":e.secret_data,
+                "timeout":e.time_out,
+            })
+        })
+        .collect::<Vec<_>>();
 
     Ok(JsonResponse::data(JsonData::body(json!({
         "name": out_app.name,

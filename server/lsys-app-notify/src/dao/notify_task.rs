@@ -175,8 +175,13 @@ impl TaskExecutor<u64, NotifyTaskItem> for NotifyTask {
             .await
         {
             Ok(config) => {
-                match self.apps.find_by_id(&config.app_id).await {
-                    Ok(app) => {
+                match self
+                    .apps
+                    .cache()
+                    .find_notify_secret_by_app_id(config.app_id)
+                    .await
+                {
+                    Ok(client_secret) => {
                         let mut headers = HeaderMap::new();
                         if let Ok(value) = HeaderValue::from_str("application/json;charset=utf-8") {
                             headers.insert("Content-Type", value);
@@ -200,7 +205,7 @@ impl TaskExecutor<u64, NotifyTaskItem> for NotifyTask {
                         if !payload.is_empty() {
                             url_params += payload;
                         }
-                        url_params += app.client_secret.as_str();
+                        url_params += client_secret.as_str();
                         let digest = md5::compute(url_params.as_bytes());
                         let hash = format!("{:x}", digest);
 

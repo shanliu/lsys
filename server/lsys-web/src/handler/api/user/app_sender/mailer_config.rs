@@ -278,7 +278,7 @@ pub async fn mailer_tpl_config_list(
 }
 #[derive(Debug, Deserialize)]
 pub struct MailerTplConfigDelParam {
-    pub app_config_id: u64,
+    pub config_id: u64,
 }
 
 pub async fn mailer_tpl_config_del(
@@ -292,7 +292,7 @@ pub async fn mailer_tpl_config_del(
         .mailer
         .mailer_dao
         .tpl_config
-        .find_by_id(&param.app_config_id)
+        .find_by_id(&param.config_id)
         .await?;
     mailer_inner_access_check(config.app_id, config.user_id, Some(&auth_data), req_dao).await?;
     let row = req_dao

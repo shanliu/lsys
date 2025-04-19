@@ -116,15 +116,18 @@ impl AccessAuth {
                     id,
                     oauth_app_id,
                     token_data
-                from {table} 
-                where logout_time ={logout_time} 
-                and status={status}
-                and user_app_id={user_app_id}
-                and id>{start_id}
+                from {} 
+                where logout_time ={} 
+                and status={}
+                and user_app_id={}
+                and id>{}
                 order by id asc
                 limit 100",
-                table = SessionModel::table_name(),
-                logout_time = time,
+                SessionModel::table_name(),
+                time,
+                status,
+                user_app_id,
+                start_id
             );
             let res = sqlx::query_as::<_, (u64, u64, String)>(sql.as_str())
                 .fetch_all(&self.db)
@@ -498,7 +501,7 @@ impl AccessAuth {
         }
         let data = sqlx::query_as::<_, SessionDataModel>(&sql_format!(
             "select * from {} where session_id={} and data_key in ({})",
-            SessionModel::table_name(),
+            SessionDataModel::table_name(),
             session_body.session().id,
             data_key
         ))

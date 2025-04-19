@@ -59,13 +59,13 @@ pub(crate) async fn mailer(
         "message_list" => {
             mailer_message_list(&json_param.param::<MailerMessageListParam>()?, &auth_dao).await
         }
-        "message_body" => {
+        "message_view" => {
             mailer_message_body(&json_param.param::<MailerMessageBodyParam>()?, &auth_dao).await
         }
         "message_cancel" => {
             mailer_message_cancel(&json_param.param::<MailerMessageCancelParam>()?, &auth_dao).await
         }
-        "message_log" => {
+        "message_logs" => {
             mailer_message_log(&json_param.param::<MailerMessageLogParam>()?, &auth_dao).await
         }
         //SMTP 方式发送邮件相关接口

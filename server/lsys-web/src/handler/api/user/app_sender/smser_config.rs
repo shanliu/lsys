@@ -113,7 +113,6 @@ pub async fn smser_config_del(
 
 #[derive(Debug, Deserialize)]
 pub struct SmserConfigListParam {
-    pub user_id: Option<u64>,
     pub id: Option<u64>,
     pub app_id: Option<u64>,
 }
@@ -130,7 +129,7 @@ pub async fn smser_config_list(
             &req_dao.req_env,
             Some(&auth_data),
             &CheckUserAppSenderSmsConfig {
-                res_user_id: param.user_id.unwrap_or(auth_data.user_id()),
+                res_user_id: auth_data.user_id(),
             },
         )
         .await?;
@@ -140,7 +139,7 @@ pub async fn smser_config_list(
         .smser
         .smser_dao
         .sms_record
-        .config_list(param.user_id, param.id, param.app_id)
+        .config_list(Some(auth_data.user_id()), param.id, param.app_id)
         .await?;
     let data = data
         .into_iter()
@@ -234,7 +233,6 @@ pub async fn smser_notify_get_config(req_dao: &UserAuthQueryDao) -> JsonResult<J
 
 #[derive(Debug, Deserialize)]
 pub struct SmserNotifyConfigParam {
-    pub user_id: Option<u64>,
     pub app_id: u64,
     pub url: String,
 }
@@ -371,7 +369,9 @@ pub async fn smser_tpl_config_list(
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(json!({ "data": row ,"total":total}))))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "data": row ,"total":total}),
+    )))
 }
 
 #[derive(Debug, Deserialize)]

@@ -55,7 +55,7 @@ pub async fn create_server(app_dir: &str) -> Result<Server, AppError> {
                 let apps = app_data.web_app.app_dao.app.clone();
                 Box::pin(async move {
                     apps.cache()
-                        .find_secret_by_client_id(&app_key)
+                        .find_app_secret_by_client_id(&app_key)
                         .map_err(|e| e.fluent_format(&app_data.fluent.locale(None)))
                         .await
                 })

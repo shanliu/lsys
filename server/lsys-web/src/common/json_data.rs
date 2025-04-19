@@ -2,9 +2,9 @@ use serde_json::{json, Value};
 
 #[derive(Debug, Clone)]
 pub struct JsonData {
-    pub(super) code: String,
-    pub(super) sub_code: String,
-    pub(super) body: Option<Value>,
+    pub code: String,
+    pub sub_code: String,
+    pub body: Option<Value>,
 }
 impl Default for JsonData {
     fn default() -> Self {

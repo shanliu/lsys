@@ -19,7 +19,7 @@ impl MessageLogs {
     pub fn new(db: Pool<sqlx::MySql>, send_type: SenderType) -> Self {
         Self { db, send_type }
     }
-    pub async fn add_exec_log(
+    pub(crate) async fn add_exec_log(
         &self,
         app_id: &u64,
         log_data: &[(u64, SenderLogStatus, &str)],

@@ -25,15 +25,16 @@ where
         )
         .service(scope("/app").service(app::app))
         .service(scope("/auth").service(auth::auth))
-        .service(
-            scope("/oauth")
-                .service(oauth::token)
-                .service(oauth::refresh)
-                .service(oauth::user_data),
-        )
         .service(scope("/mail").service(mail::mail))
         .service(scope("/sms").service(sms::sms));
+
     #[cfg(feature = "barcode")]
     let rest_scope = rest_scope.service(scope("/barcode").service(barcode::barcode));
-    app.service(rest_scope)
+    app.service(
+        scope("/oauth")
+            .service(oauth::token)
+            .service(oauth::refresh)
+            .service(oauth::user_data),
+    )
+    .service(rest_scope)
 }

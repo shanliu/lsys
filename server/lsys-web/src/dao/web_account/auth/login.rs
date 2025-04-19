@@ -145,10 +145,11 @@ impl WebUserAuth {
         Ok((token, self.create_show_account_auth_data(&auth_data).await?))
     }
     //通过APP code登录
+    // 由  self.user_dao.auth_code_dao.code_login 产生 login_code
     pub async fn app_code_login(
         &self,
         app_id: u64,
-        login_code: &str,
+        token_data: &str,
         code: Option<&CaptchaParam>,
         user_session: &RwLock<UserAuthSession>,
         env_data: Option<&RequestEnv>,
@@ -165,7 +166,7 @@ impl WebUserAuth {
         let session_body = self
             .user_dao
             .auth_code_dao
-            .login_data(app_id, login_code)
+            .login_data(app_id, token_data)
             .await?;
         if session_body.session().device_name.is_empty()
             || session_body.session().device_name != ua
@@ -187,7 +188,7 @@ impl WebUserAuth {
                     tracing::warn!(
                         "clear login captcha fail:{} in code:{}",
                         captcha_err.to_fluent_message().default_format(),
-                        login_code
+                        token_data
                     );
                 }
                 tres?;

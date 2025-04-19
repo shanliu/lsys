@@ -141,7 +141,6 @@ pub struct MailerSmtpConfigCheckParam {
     pub user: String,
     pub password: String,
     pub tls_domain: String,
-    pub branch_limit: Option<u16>,
 }
 
 pub async fn mailer_smtp_config_check(
@@ -173,10 +172,7 @@ pub async fn mailer_smtp_config_check(
             user: param.user.to_owned(),
             password: param.password.to_owned(),
             tls_domain: param.tls_domain.to_owned(),
-            branch_limit: param
-                .branch_limit
-                .map(|e| if e == 0 { 1 } else { e })
-                .unwrap_or(1),
+            branch_limit: 0,
         })
         .await?;
     Ok(JsonResponse::data(JsonData::body(

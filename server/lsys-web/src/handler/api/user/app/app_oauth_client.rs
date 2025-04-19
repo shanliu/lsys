@@ -1,10 +1,10 @@
-use crate::common::JsonResult;
+use crate::common::{JsonData, JsonResult};
 use crate::common::{JsonResponse, UserAuthQueryDao};
 use crate::dao::access::api::user::CheckUserAppEdit;
 
 use lsys_access::dao::AccessSession;
-use lsys_app::dao::AppOAuthClientParam;
 use serde::Deserialize;
+use serde_json::json;
 
 #[derive(Deserialize)]
 pub struct OAuthClientRequestParam {
@@ -117,14 +117,13 @@ pub async fn oauth_client_scope_request(
 }
 
 #[derive(Deserialize)]
-pub struct ConfirmOAuthClientSettingParam {
+pub struct ConfirmOAuthClientSetDomainParam {
     pub app_id: u64,
     pub callback_domain: String,
-    pub oauth_secret: String,
 }
 
-pub async fn oauth_client_setting(
-    param: &ConfirmOAuthClientSettingParam,
+pub async fn oauth_client_set_domain(
+    param: &ConfirmOAuthClientSetDomainParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
@@ -160,15 +159,160 @@ pub async fn oauth_client_setting(
         .web_app
         .app_dao
         .oauth_client
-        .oauth_setting(
+        .oauth_set_domain(
             &app,
-            &AppOAuthClientParam {
-                oauth_secret: Some(&param.oauth_secret),
-                callback_domain: Some(&param.callback_domain),
-            },
+            &param.callback_domain,
             auth_data.user_id(),
             Some(&req_dao.req_env),
         )
         .await?;
+    Ok(JsonResponse::default())
+}
+
+#[derive(Deserialize)]
+pub struct AddOAuthSecretParam {
+    pub app_id: u64,
+    pub secret: Option<String>,
+    pub secret_timeout: u64,
+}
+
+pub async fn oauth_secret_add(
+    param: &AddOAuthSecretParam,
+    req_dao: &UserAuthQueryDao,
+) -> JsonResult<JsonResponse> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let app = req_dao
+        .web_dao
+        .web_app
+        .app_dao
+        .app
+        .find_by_id(&param.app_id)
+        .await?;
+    req_dao
+        .web_dao
+        .web_rbac
+        .check(
+            &req_dao.req_env,
+            Some(&auth_data),
+            &CheckUserAppEdit {
+                res_user_id: app.user_id,
+            },
+        )
+        .await?;
+
+    let secret_data = req_dao
+        .web_dao
+        .web_app
+        .app_dao
+        .oauth_client
+        .secret_add(
+            &app,
+            param.secret.as_deref(),
+            param.secret_timeout,
+            auth_data.user_id(),
+            Some(&req_dao.req_env),
+        )
+        .await?;
+
+    Ok(JsonResponse::data(JsonData::body(
+        json!({"data":secret_data}),
+    )))
+}
+
+#[derive(Deserialize)]
+pub struct ChangeOAuthSecretParam {
+    pub app_id: u64,
+    pub old_secret: String,
+    pub secret: Option<String>,
+    pub secret_timeout: u64,
+}
+
+pub async fn oauth_secret_change(
+    param: &ChangeOAuthSecretParam,
+    req_dao: &UserAuthQueryDao,
+) -> JsonResult<JsonResponse> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let app = req_dao
+        .web_dao
+        .web_app
+        .app_dao
+        .app
+        .find_by_id(&param.app_id)
+        .await?;
+    req_dao
+        .web_dao
+        .web_rbac
+        .check(
+            &req_dao.req_env,
+            Some(&auth_data),
+            &CheckUserAppEdit {
+                res_user_id: app.user_id,
+            },
+        )
+        .await?;
+
+    let secret_data = req_dao
+        .web_dao
+        .web_app
+        .app_dao
+        .oauth_client
+        .secret_change(
+            &app,
+            &param.old_secret,
+            param.secret.as_deref(),
+            param.secret_timeout,
+            auth_data.user_id(),
+            Some(&req_dao.req_env),
+        )
+        .await?;
+
+    Ok(JsonResponse::data(JsonData::body(
+        json!({"data":secret_data}),
+    )))
+}
+
+#[derive(Deserialize)]
+pub struct DelOAuthSecretParam {
+    pub app_id: u64,
+    pub old_secret: String,
+}
+
+pub async fn oauth_secret_del(
+    param: &DelOAuthSecretParam,
+    req_dao: &UserAuthQueryDao,
+) -> JsonResult<JsonResponse> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let app = req_dao
+        .web_dao
+        .web_app
+        .app_dao
+        .app
+        .find_by_id(&param.app_id)
+        .await?;
+    req_dao
+        .web_dao
+        .web_rbac
+        .check(
+            &req_dao.req_env,
+            Some(&auth_data),
+            &CheckUserAppEdit {
+                res_user_id: app.user_id,
+            },
+        )
+        .await?;
+
+    req_dao
+        .web_dao
+        .web_app
+        .app_dao
+        .oauth_client
+        .secret_del(
+            &app,
+            &param.old_secret,
+            auth_data.user_id(),
+            Some(&req_dao.req_env),
+        )
+        .await?;
+
     Ok(JsonResponse::default())
 }

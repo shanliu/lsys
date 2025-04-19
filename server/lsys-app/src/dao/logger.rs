@@ -10,7 +10,7 @@ pub(crate) struct AppLog<'t> {
     pub parent_app_id: u64,
     pub user_app_id: u64,
     pub client_id: &'t str,
-    pub client_secret: &'t str,
+    pub client_secret: Option<&'t str>,
 }
 
 impl ChangeLogData for AppLog<'_> {
@@ -49,17 +49,37 @@ impl ChangeLogData for AppRequestLog<'_> {
 }
 
 #[derive(Serialize)]
-pub(crate) struct AppOAuthClientSetLog<'t> {
+pub(crate) struct AppOAuthClientSetDomainLog<'t> {
     pub parent_app_id: u64,
     pub app_id: u64,
     pub user_id: u64,
-    pub oauth_secret: Option<&'t str>,
-    pub callback_domain: Option<&'t str>,
+    pub callback_domain: &'t str,
 }
 
-impl ChangeLogData for AppOAuthClientSetLog<'_> {
+impl ChangeLogData for AppOAuthClientSetDomainLog<'_> {
     fn log_type() -> &'static str {
         "app-oauth-client-set"
+    }
+    fn message(&self) -> String {
+        format!("parent app {}", self.parent_app_id,)
+    }
+    fn encode(&self) -> String {
+        serde_json::to_string(&self).unwrap_or_default()
+    }
+}
+
+#[derive(Serialize)]
+pub(crate) struct AppOAuthClientSecretSetLog<'t> {
+    pub action: &'t str,
+    pub parent_app_id: u64,
+    pub app_id: u64,
+    pub user_id: u64,
+    pub oauth_secret: &'t str,
+}
+
+impl ChangeLogData for AppOAuthClientSecretSetLog<'_> {
+    fn log_type() -> &'static str {
+        "app-oauth-client-secret-set"
     }
     fn message(&self) -> String {
         format!("parent app {}", self.parent_app_id,)

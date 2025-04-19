@@ -2,7 +2,7 @@ use crate::common::handler::{ResponseJson, ResponseJsonResult, RestQuery};
 use actix_web::post;
 use lsys_web::handler::rest::smser::{cancel, send, CancelParam, SendParam};
 
-#[post("/sms")]
+#[post("")]
 pub(crate) async fn sms(rest: RestQuery) -> ResponseJsonResult<ResponseJson> {
     Ok(match rest.rfc.method.as_deref().unwrap_or_default() {
         "send" => {

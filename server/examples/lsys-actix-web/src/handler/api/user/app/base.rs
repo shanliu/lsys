@@ -3,17 +3,20 @@ use crate::common::handler::{
 };
 use actix_web::post;
 use lsys_web::handler::api::user::app::{
-    add, change, confirm, confirm_exter_feature, delete, list_data, oauth_client_request,
-    oauth_client_scope_request, oauth_client_setting, oauth_server_client_confirm,
-    oauth_server_client_scope_confirm, oauth_server_request, oauth_server_setting,
-    request_exter_feature, request_inner_feature_exter_login_request,
-    request_inner_feature_sub_app_request, request_list, secret_reset, secret_view,
-    sub_app_secret_view, sub_request_list, AddParam, ChangeParam, ConfirmExterFeatureParam,
-    ConfirmOAuthClientParam, ConfirmOAuthClientScopeParam, ConfirmOAuthClientSettingParam,
-    ConfirmOAuthServerSettingParam, ConfirmParam, DeleteParam, OAuthClientRequestParam,
+    add, app_secret_add, app_secret_change, app_secret_del, change, confirm, confirm_exter_feature,
+    delete, list_data, notify_secret_change, oauth_client_request, oauth_client_scope_request,
+    oauth_client_set_domain, oauth_secret_add, oauth_secret_change, oauth_secret_del,
+    oauth_server_client_confirm, oauth_server_client_scope_confirm, oauth_server_request,
+    oauth_server_setting, parent_list_data, request_exter_feature,
+    request_inner_feature_exter_login_request, request_inner_feature_sub_app_request, request_list,
+    secret_view, sub_app_secret_view, sub_request_list, AddAppSecretParam, AddOAuthSecretParam,
+    AddParam, ChangeAppSecretParam, ChangeNotifySecretParam, ChangeOAuthSecretParam, ChangeParam,
+    ConfirmExterFeatureParam, ConfirmOAuthClientParam, ConfirmOAuthClientScopeParam,
+    ConfirmOAuthClientSetDomainParam, ConfirmOAuthServerSettingParam, ConfirmParam,
+    DelAppSecretParam, DelOAuthSecretParam, DeleteParam, OAuthClientRequestParam,
     OAuthServerRequestData, RequestExterFeatureParam, RequestExterLoginFeatureData,
-    RequestExterSubAppData, RequestListParam, ResetSecretParam, SecretViewSecretParam,
-    SubRequestListParam, UserAppListParam,
+    RequestExterSubAppData, RequestListParam, SecretViewSecretParam, SubRequestListParam,
+    UserAppListParam, UserParentAppListParam,
 };
 #[post("/{method}")]
 pub(crate) async fn base(
@@ -24,16 +27,30 @@ pub(crate) async fn base(
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
     Ok(match path.into_inner().as_str() {
+        "parent_app" => {
+            parent_list_data(&json_param.param::<UserParentAppListParam>()?, &auth_dao).await
+        }
         "add" => add(&json_param.param::<AddParam>()?, &auth_dao).await,
+        "confirm" => confirm(&json_param.param::<ConfirmParam>()?, &auth_dao).await,
         "change" => change(&json_param.param::<ChangeParam>()?, &auth_dao).await,
-        "secret_reset" => secret_reset(&json_param.param::<ResetSecretParam>()?, &auth_dao).await,
+        "app_secret_add" => {
+            app_secret_add(&json_param.param::<AddAppSecretParam>()?, &auth_dao).await
+        }
+        "app_secret_change" => {
+            app_secret_change(&json_param.param::<ChangeAppSecretParam>()?, &auth_dao).await
+        }
+        "app_secret_del" => {
+            app_secret_del(&json_param.param::<DelAppSecretParam>()?, &auth_dao).await
+        }
+        "notify_secret_change" => {
+            notify_secret_change(&json_param.param::<ChangeNotifySecretParam>()?, &auth_dao).await
+        }
         "secret_view" => {
             secret_view(&json_param.param::<SecretViewSecretParam>()?, &auth_dao).await
         }
         "sub_app_secret_view" => {
             sub_app_secret_view(&json_param.param::<SecretViewSecretParam>()?, &auth_dao).await
         }
-        "confirm" => confirm(&json_param.param::<ConfirmParam>()?, &auth_dao).await,
         "list" => list_data(&json_param.param::<UserAppListParam>()?, &auth_dao).await,
         "request_list" => request_list(&json_param.param::<RequestListParam>()?, &auth_dao).await,
         "sub_request_list" => {
@@ -67,12 +84,21 @@ pub(crate) async fn base(
             oauth_client_scope_request(&json_param.param::<OAuthClientRequestParam>()?, &auth_dao)
                 .await
         }
-        "oauth_client_setting" => {
-            oauth_client_setting(
-                &json_param.param::<ConfirmOAuthClientSettingParam>()?,
+        "oauth_client_set_domain" => {
+            oauth_client_set_domain(
+                &json_param.param::<ConfirmOAuthClientSetDomainParam>()?,
                 &auth_dao,
             )
             .await
+        }
+        "oauth_client_secret_add" => {
+            oauth_secret_add(&json_param.param::<AddOAuthSecretParam>()?, &auth_dao).await
+        }
+        "oauth_client_secret_change" => {
+            oauth_secret_change(&json_param.param::<ChangeOAuthSecretParam>()?, &auth_dao).await
+        }
+        "oauth_client_secret_del" => {
+            oauth_secret_del(&json_param.param::<DelOAuthSecretParam>()?, &auth_dao).await
         }
         "oauth_server_client_confirm" => {
             oauth_server_client_confirm(&json_param.param::<ConfirmOAuthClientParam>()?, &auth_dao)

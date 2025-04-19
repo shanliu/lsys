@@ -118,7 +118,6 @@ pub async fn smser_message_body(
 
 #[derive(Debug, Deserialize)]
 pub struct SmserMessageListParam {
-    pub user_id: Option<u64>,
     pub app_id: Option<u64>,
     pub tpl_id: Option<String>,
     pub body_id: Option<u64>,
@@ -141,7 +140,7 @@ pub async fn smser_message_list(
             &req_dao.req_env,
             Some(&auth_data),
             &CheckUserAppSenderSmsMsg {
-                res_user_id: param.user_id.unwrap_or(auth_data.user_id()),
+                res_user_id: auth_data.user_id(),
             },
         )
         .await?;
@@ -158,7 +157,7 @@ pub async fn smser_message_list(
         .smser_dao
         .sms_record
         .message_list(
-            param.user_id,
+            Some(auth_data.user_id()),
             param.app_id,
             param.tpl_id.as_deref(),
             param.body_id,
@@ -177,7 +176,7 @@ pub async fn smser_message_list(
                 .smser_dao
                 .sms_record
                 .message_count(
-                    param.user_id,
+                    Some(auth_data.user_id()),
                     param.app_id,
                     param.tpl_id.as_deref(),
                     param.body_id,
@@ -244,9 +243,9 @@ pub async fn smser_message_list(
             })
         })
         .collect::<Vec<_>>();
-    Ok(JsonResponse::data(
-        JsonData::body(json!({ "data": res,"total":count,"next":next}))
-    ))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "data": res,"total":count,"next":next}),
+    )))
 }
 #[derive(Debug, Deserialize)]
 pub struct SmserMessageCancelParam {

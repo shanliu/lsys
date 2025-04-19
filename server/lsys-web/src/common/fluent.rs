@@ -83,7 +83,7 @@ impl FluentFormat for lsys_lib_area::AreaError {
     fn fluent_format(&self, fluent: &FluentBundle) -> String {
         match self {
             lsys_lib_area::AreaError::DB(err) => {
-                fluent.format_message(&fluent_message!("lsys-lib-area-error", err))
+                fluent.format_message(&fluent_message!("lsys-lib-area-db", err))
             }
             lsys_lib_area::AreaError::System(err) => {
                 fluent.format_message(&fluent_message!("lsys-lib-area-error", err))
@@ -106,15 +106,11 @@ impl FluentFormat for lsys_app_barcode::dao::BarCodeError {
     fn fluent_format(&self, fluent: &FluentBundle) -> String {
         match self {
             lsys_app_barcode::dao::BarCodeError::System(err) => fluent.format_message(err),
-            lsys_app_barcode::dao::BarCodeError::DB(err) => {
-                fluent.format_message(&fluent_message!("lsys-lib-area-error", err))
-            }
+            lsys_app_barcode::dao::BarCodeError::DB(err) => err.fluent_format(fluent),
             lsys_app_barcode::dao::BarCodeError::RXing(err) => {
                 fluent.format_message(&fluent_message!("lsys-rxing-error", err))
             }
-            lsys_app_barcode::dao::BarCodeError::Io(err) => {
-                fluent.format_message(&fluent_message!("io-error", err))
-            }
+            lsys_app_barcode::dao::BarCodeError::Io(err) => err.fluent_format(fluent),
             lsys_app_barcode::dao::BarCodeError::Image(err) => {
                 fluent.format_message(&fluent_message!("barcode-image-error", err))
             }

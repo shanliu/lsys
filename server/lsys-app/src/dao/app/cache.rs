@@ -1,4 +1,4 @@
-use crate::model::AppStatus;
+use crate::model::{AppSecretType, AppStatus};
 use crate::{
     dao::{app::App, AppError, AppResult},
     model::AppModel,
@@ -44,8 +44,20 @@ impl AppCache<'_> {
             },
         }
     }
+    pub async fn find_notify_secret_by_app_id(&self, app_id: u64) -> AppResult<String> {
+        let secret_data = self
+            .dao
+            .app_secret
+            .cache()
+            .single_find_secret_app_id(app_id, AppSecretType::Notify)
+            .await?;
+        Ok(secret_data.secret_data)
+    }
     //内部APP secret 获取
-    pub async fn find_secret_by_client_id(&self, client_id: &str) -> Result<String, AppError> {
+    pub async fn find_app_secret_by_client_id(
+        &self,
+        client_id: &str,
+    ) -> Result<Vec<String>, AppError> {
         let apps = self.find_by_client_id(client_id).await;
         match apps {
             Ok(app) => {
@@ -56,7 +68,16 @@ impl AppCache<'_> {
                         })), //,"your app id [{$client_id}] not confrim "
                     );
                 }
-                Ok(app.client_secret)
+                let sercet_data = self
+                    .dao
+                    .app_secret
+                    .cache()
+                    .multiple_find_secret_by_app_id(app.id, AppSecretType::App)
+                    .await?;
+                Ok(sercet_data
+                    .into_iter()
+                    .map(|e| e.secret_data)
+                    .collect::<Vec<_>>())
             }
             Err(err) => Err(err),
         }

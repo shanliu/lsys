@@ -14,14 +14,14 @@ use std::sync::Arc;
 use crate::model::AppRequestSetInfoModelRef;
 use crate::model::{
     AppModel, AppModelRef, AppRequestModel, AppRequestModelRef, AppRequestSetInfoModel,
-    AppRequestStatus, AppRequestType, AppStatus,
+    AppRequestStatus, AppRequestType, AppSecretType, AppStatus,
 };
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
     RemoteNotify,
 };
 
-use super::logger::AppViewSecretLog;
+use super::AppSecret;
 use super::{logger::AppLog, AppError, AppResult};
 use lsys_core::db::SqlQuote;
 use lsys_logger::dao::ChangeLoggerDao;
@@ -33,6 +33,7 @@ pub struct App {
     pub(crate) client_id_cache: Arc<LocalCache<String, Option<u64>>>, //client_id,appid
     pub(crate) feature_cache: Arc<LocalCache<u64, Vec<(String, bool)>>>, //appid,vec<(feature_key,exists)>
     logger: Arc<ChangeLoggerDao>,
+    pub(crate) app_secret: Arc<AppSecret>,
 }
 
 impl App {
@@ -41,6 +42,7 @@ impl App {
         remote_notify: Arc<RemoteNotify>,
         config: LocalCacheConfig,
         logger: Arc<ChangeLoggerDao>,
+        app_secret: Arc<AppSecret>,
     ) -> Self {
         Self {
             db,
@@ -48,6 +50,7 @@ impl App {
             client_id_cache: Arc::new(LocalCache::new(remote_notify.clone(), config)),
             feature_cache: Arc::new(LocalCache::new(remote_notify.clone(), config)),
             logger,
+            app_secret,
         }
     }
 }
@@ -119,7 +122,7 @@ impl App {
             }
         }
         let req_res = sqlx::query_scalar::<_, u64>(&sql_format!(
-            "select req.app_id from {}  as info 
+            "select req.app_id from {}  as info
                 join {} as req on info.app_request_id=req.id
                 where info.client_id={} and req.status={} and req.request_type={}
             ",
@@ -150,12 +153,10 @@ impl App {
         let status = AppStatus::Init as i8;
         let parent_app_id = parent_app.as_ref().map(|e| e.id).unwrap_or_default();
 
-        let client_secret = rand_str(lsys_core::RandType::LowerHex, 64);
         let idata = model_option_set!(AppModelRef,{
             name:name,
             parent_app_id:parent_app_id,
             client_id:client_id,
-            client_secret:client_secret,
             status:status,
             user_id:user_id,
             user_app_id:user_app_id,
@@ -163,6 +164,7 @@ impl App {
             change_time:time,
         });
         let res = Insert::<AppModel, _>::new(idata).execute(&mut *db).await;
+
         let app_id = match res {
             Err(e) => {
                 db.rollback().await?;
@@ -170,6 +172,41 @@ impl App {
             }
             Ok(mr) => mr.last_insert_id(),
         };
+
+        let secret_data = rand_str(lsys_core::RandType::LowerHex, 64);
+        if let Err(e) = self
+            .app_secret
+            .single_set(
+                app_id,
+                AppSecretType::Notify,
+                &secret_data,
+                0,
+                user_id,
+                Some(&mut db),
+            )
+            .await
+        {
+            db.rollback().await?;
+            return Err(e.into());
+        };
+
+        let secret_data = rand_str(lsys_core::RandType::LowerHex, 64);
+        if let Err(e) = self
+            .app_secret
+            .multiple_add(
+                app_id,
+                AppSecretType::App,
+                &secret_data,
+                0,
+                user_id,
+                &mut *db,
+            )
+            .await
+        {
+            db.rollback().await?;
+            return Err(e.into());
+        };
+
         let req_status = AppRequestStatus::Pending as i8;
         let request_type = AppRequestType::AppReq as i8;
         let idata = model_option_set!(AppRequestModelRef,{
@@ -214,7 +251,7 @@ impl App {
                     status,
                     user_id,
                     client_id: &client_id,
-                    client_secret: &client_secret,
+                    client_secret: Some(&secret_data),
                     parent_app_id,
                     user_app_id,
                 },
@@ -268,7 +305,7 @@ impl App {
                 }
             }
             let req_res = sqlx::query_scalar::<_, u64>(&sql_format!(
-                "select req.app_id from {}  as info 
+                "select req.app_id from {}  as info
                     join {} as req on info.app_request_id=req.id
                     where info.client_id={} and req.status={} and req.request_type={}
                 ",
@@ -386,7 +423,7 @@ impl App {
                     user_id: app.user_id,
                     status: app.status,
                     client_id: &client_id,
-                    client_secret: &app.client_secret,
+                    client_secret: None,
                     parent_app_id: app.parent_app_id,
                     user_app_id: app.user_app_id,
                 },
@@ -522,7 +559,7 @@ impl App {
                     status: app.status,
                     user_id: app.user_id,
                     client_id: &app.client_id,
-                    client_secret: &app.client_secret,
+                    client_secret: None,
                     parent_app_id: app.parent_app_id,
                     user_app_id: app.user_app_id,
                 },
@@ -603,7 +640,7 @@ impl App {
                     status: app.status,
                     user_id: app.user_id,
                     client_id: &app.client_id,
-                    client_secret: &app.client_secret,
+                    client_secret: None,
                     parent_app_id: app.parent_app_id,
                     user_app_id: app.user_app_id,
                 },
@@ -630,12 +667,12 @@ impl App {
 
         let status = AppStatus::Delete as i8;
 
-        let change = model_option_set!(AppModelRef,{
+        let change_app = model_option_set!(AppModelRef,{
             status:status,
             change_user_id:delete_user_id,
             change_time:time
         });
-        let req_res = Update::<AppModel, _>::new(change)
+        let req_res = Update::<AppModel, _>::new(change_app)
             .execute_by_pk(app, &mut *db)
             .await;
         if let Err(e) = req_res {
@@ -645,12 +682,12 @@ impl App {
 
         //废弃以前申请
         let confirm_status = AppRequestStatus::Invalid as i8;
-        let change = model_option_set!(AppRequestModelRef,{
+        let change_req = model_option_set!(AppRequestModelRef,{
             status:confirm_status,
             confirm_user_id:delete_user_id,
             confirm_time:time,
         });
-        let req_res = Update::<AppRequestModel, _>::new(change)
+        let req_res = Update::<AppRequestModel, _>::new(change_req)
             .execute_by_where(
                 &lsys_core::db::WhereOption::Where(sql_format!(
                     "app_id={} and status={}",
@@ -665,6 +702,15 @@ impl App {
             return Err(e.into());
         }
 
+        if let Err(e) = self
+            .app_secret
+            .delete_from_app_id(app.id, delete_user_id, &mut *db)
+            .await
+        {
+            db.rollback().await?;
+            return Err(e.into());
+        };
+
         db.commit().await?;
 
         self.client_id_cache.clear(&app.client_id).await;
@@ -678,7 +724,7 @@ impl App {
                     user_id: app.user_id,
                     status: app.status,
                     client_id: &app.client_id,
-                    client_secret: &app.client_secret,
+                    client_secret: None,
                     parent_app_id: app.parent_app_id,
                     user_app_id: app.user_app_id,
                 },
@@ -715,14 +761,9 @@ impl App {
         }
         Ok((name, client_id))
     }
-    //重设secret
-    pub async fn app_reset_secret(
-        &self,
-        app: &AppModel,
-        secret: Option<&str>,
-        change_user_id: u64,
-        env_data: Option<&RequestEnv>,
-    ) -> AppResult<String> {
+}
+impl App {
+    fn secret_check(&self, secret: Option<&str>) -> AppResult<String> {
         let client_secret = match secret {
             Some(sstr) => {
                 let secret = sstr.trim().to_string();
@@ -738,28 +779,38 @@ impl App {
             }
             None => rand_str(lsys_core::RandType::LowerHex, 32),
         };
-        let time = now_time().unwrap_or_default();
-
-        let change_user_id = change_user_id.to_owned();
-        let change = lsys_core::model_option_set!(AppModelRef,{
-            client_secret:client_secret,
-            change_user_id:change_user_id,
-            change_time:time,
-        });
-        Update::<AppModel, _>::new(change)
-            .execute_by_pk(app, &self.db)
+        Ok(client_secret)
+    }
+    pub async fn notify_secret_change(
+        &self,
+        app: &AppModel,
+        secret: Option<&str>,
+        time_out: u64,
+        change_user_id: u64,
+        env_data: Option<&RequestEnv>,
+    ) -> AppResult<String> {
+        let client_secret = self.secret_check(secret)?;
+        let mut db = self.db.begin().await?;
+        self.app_secret
+            .single_set(
+                app.id,
+                AppSecretType::App,
+                &client_secret,
+                time_out,
+                change_user_id,
+                Some(&mut db),
+            )
             .await?;
-        self.id_cache.clear(&app.id).await;
-        self.client_id_cache.clear(&app.client_id).await;
+        db.commit().await?;
         self.logger
             .add(
                 &AppLog {
-                    action: "reset_secret",
+                    action: "notify_secret_change",
                     name: &app.name,
                     user_id: app.user_id,
                     status: app.status,
                     client_id: &app.client_id,
-                    client_secret: &app.client_secret,
+                    client_secret: Some(&client_secret),
                     parent_app_id: app.parent_app_id,
                     user_app_id: app.user_app_id,
                 },
@@ -771,28 +822,123 @@ impl App {
             .await;
         Ok(client_secret)
     }
-    //添加查看secret日志
-    pub async fn app_view_secret(
+    //添加secret
+    pub async fn app_secret_add(
         &self,
         app: &AppModel,
-        view_user_id: u64,
+        secret: Option<&str>,
+        time_out: u64,
+        change_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> AppResult<String> {
+        let client_secret = self.secret_check(secret)?;
+        self.app_secret
+            .multiple_add(
+                app.id,
+                AppSecretType::App,
+                &client_secret,
+                time_out,
+                change_user_id,
+                &self.db,
+            )
+            .await?;
         self.logger
             .add(
-                &AppViewSecretLog {
-                    action: "view_app_secret",
-                    app_id: app.id,
+                &AppLog {
+                    action: "app_secret_add",
+                    name: &app.name,
                     user_id: app.user_id,
-                    app_name: &app.name,
-                    secret_data: &app.client_secret,
+                    status: app.status,
+                    client_id: &app.client_id,
+                    client_secret: Some(&client_secret),
+                    parent_app_id: app.parent_app_id,
+                    user_app_id: app.user_app_id,
                 },
                 Some(app.id),
-                Some(view_user_id),
+                Some(change_user_id),
                 None,
                 env_data,
             )
             .await;
-        Ok(app.client_secret.to_owned())
+        Ok(client_secret)
+    }
+    //重设secret
+    pub async fn app_secret_change(
+        &self,
+        app: &AppModel,
+        old_secret: &str,
+        secret: Option<&str>,
+        time_out: u64,
+        change_user_id: u64,
+        env_data: Option<&RequestEnv>,
+    ) -> AppResult<String> {
+        let client_secret = self.secret_check(secret)?;
+        self.app_secret
+            .multiple_change(
+                app.id,
+                AppSecretType::App,
+                &client_secret,
+                old_secret,
+                time_out,
+                change_user_id,
+                &self.db,
+            )
+            .await?;
+        self.logger
+            .add(
+                &AppLog {
+                    action: "app_secret_change",
+                    name: &app.name,
+                    user_id: app.user_id,
+                    status: app.status,
+                    client_id: &app.client_id,
+                    client_secret: Some(&client_secret),
+                    parent_app_id: app.parent_app_id,
+                    user_app_id: app.user_app_id,
+                },
+                Some(app.id),
+                Some(change_user_id),
+                None,
+                env_data,
+            )
+            .await;
+        Ok(client_secret)
+    }
+    //删除secret
+    pub async fn app_secret_del(
+        &self,
+        app: &AppModel,
+        old_secret: &str,
+        change_user_id: u64,
+        env_data: Option<&RequestEnv>,
+    ) -> AppResult<()> {
+        self.app_secret
+            .multiple_del(
+                app.id,
+                AppSecretType::App,
+                old_secret,
+                change_user_id,
+                &self.db,
+            )
+            .await?;
+        self.logger
+            .add(
+                &AppLog {
+                    action: "app_secret_del",
+                    name: &app.name,
+                    user_id: app.user_id,
+                    status: app.status,
+                    client_id: &app.client_id,
+                    client_secret: Some(old_secret),
+                    parent_app_id: app.parent_app_id,
+                    user_app_id: app.user_app_id,
+                },
+                Some(app.id),
+                Some(change_user_id),
+                None,
+                env_data,
+            )
+            .await;
+        Ok(())
     }
 }

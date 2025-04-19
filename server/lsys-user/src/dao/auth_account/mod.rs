@@ -69,7 +69,7 @@ impl AuthAccount {
                 None,
                 None,
                 None,
-                Some(&LimitParam::new(None, true, 5, true, false)),
+                Some(&LimitParam::new(None, true, 5, false, false)),
             )
             .await;
         match user_res {

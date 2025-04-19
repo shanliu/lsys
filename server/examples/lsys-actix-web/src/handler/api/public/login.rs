@@ -2,7 +2,7 @@ use crate::common::handler::{
     JsonQuery, JwtClaims, JwtQuery, ReqQuery, ResponseJson, ResponseJsonResult, UserAuthQuery,
 };
 
-use actix_web::{get, post};
+use actix_web::{ post};
 
 use jsonwebtoken::{encode, EncodingKey, Header};
 use lsys_core::fluent_message;
@@ -178,7 +178,7 @@ pub(crate) async fn user_data(
     .into())
 }
 
-#[get("/logout")]
+#[post("/logout")]
 pub async fn logout(jwt: JwtQuery, auth_dao: UserAuthQuery) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
     auth_dao
@@ -207,7 +207,6 @@ pub async fn external_login_url(
 ) -> ResponseJsonResult<ResponseJson> {
     let res = match path.into_inner().as_str() {
         OAUTH_TYPE_WECHAT => {
-            //定义成常量字符... 并输出列表 @todo
             let config = req_dao
                 .web_dao
                 .web_setting
