@@ -27,3 +27,33 @@ doc-notify-call-fail = 通知节点继续删除时异常:{$msg}
 
 
 
+
+
+# 状态
+
+status-DocGitStatus-Enable=  启用
+status-DocGitStatus-Delete= 删除
+
+
+
+
+status-DocGitTagStatus-Publish= 已发布
+status-DocGitTagStatus-Build=   已添加
+status-DocGitTagStatus-Delete= 删除
+
+
+
+
+
+status-DocGitCloneStatus-Init=    待克隆
+status-DocGitCloneStatus-Cloned=  已克隆
+status-DocGitCloneStatus-Fail=    克隆失败
+status-DocGitCloneStatus-Delete= 删除
+
+
+
+
+
+status-DocMenuStatus-Enable=  启用
+status-DocMenuStatus-Delete= 删除
+

@@ -45,7 +45,7 @@ impl RbacAccess {
                 RbacAuditDetailModel::table_name(),
                 val.0,
                 match val.1 {
-                    Some(op_id) => SqlExpr(sql_format!(" and op_id={}",op_id)),
+                    Some(op_id) => SqlExpr(sql_format!(" and op_id={}", op_id)),
                     None => SqlExpr("".to_string()),
                 }
             ));
@@ -61,7 +61,7 @@ impl RbacAccess {
                     RbacAuditModel::table_name(),
                 );
                 if !where_sql.is_empty() {
-                    sql += sql_format!(" where {}", where_sql.join(" and ")).as_str();
+                    sql += format!(" where {}", where_sql.join(" and ")).as_str();
                 }
                 let query = sqlx::query_scalar::<_, i64>(&sql);
                 let res = query.fetch_one(&self.db).await?;

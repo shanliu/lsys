@@ -5,8 +5,10 @@ mod app_data;
 mod app_delete;
 mod app_exter_feature;
 mod app_inner_feature;
+mod app_notify;
 mod app_oauth_client;
 mod app_oauth_server;
+mod sub_app;
 
 pub use app_add::*;
 pub use app_change::*;
@@ -15,5 +17,7 @@ pub use app_data::*;
 pub use app_delete::*;
 pub use app_exter_feature::*;
 pub use app_inner_feature::*;
+pub use app_notify::*;
 pub use app_oauth_client::*;
 pub use app_oauth_server::*;
+pub use sub_app::*;

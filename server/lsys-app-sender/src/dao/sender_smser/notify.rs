@@ -7,8 +7,7 @@ use crate::{
         SenderType,
     },
 };
-
-use lsys_app_notify::dao::{NotifyDao, NotifyData};
+use lsys_app::dao::AppNotify;
 use lsys_core::db::SqlQuote;
 use lsys_core::db::{ModelTableName, SqlExpr};
 use lsys_core::sql_format;
@@ -22,32 +21,11 @@ use serde_json::json;
 use sqlx::Pool;
 use tracing::{info, warn};
 
-pub struct NotifySmsItem {
-    app_id: u64,
-    sms: SenderSmsMessageModel,
-}
-impl NotifyData for NotifySmsItem {
-    fn to_string(&self) -> String {
-        json!({
-            "id":self.sms.id,
-            "mobile":self.sms.mobile,
-            "area":self.sms.area,
-            "status":self.sms.status,
-            "receive_time":self.sms.receive_time,
-        })
-        .to_string()
-    }
-    fn method() -> String {
-        "sms_call".to_owned()
-    }
-    fn app_id(&self) -> u64 {
-        self.app_id
-    }
-}
+pub const SMS_NOTIFY_TYPE: &str = "sms_notify";
 
 pub(crate) async fn add_notify_callback(
     db: &Pool<sqlx::MySql>,
-    notify: &Arc<NotifyDao>,
+    notify: &Arc<AppNotify>,
     app_id: u64,
     sms_id: u64,
 ) {
@@ -70,7 +48,21 @@ pub(crate) async fn add_notify_callback(
             return;
         }
     };
-    if let Err(err) = notify.add_data(NotifySmsItem { app_id, sms }).await {
+    if let Err(err) = notify
+        .add(
+            SMS_NOTIFY_TYPE,
+            app_id,
+            &json!({
+                "id":sms.id,
+                "mobile":sms.mobile,
+                "area":sms.area,
+                "status":sms.status,
+                "receive_time":sms.receive_time,
+            })
+            .to_string(),
+        )
+        .await
+    {
         warn!(
             "add notify data fail:{}",
             err.to_fluent_message().default_format()
@@ -116,11 +108,11 @@ pub trait SmsSendNotifyParse {
 pub struct SmsSendNotify {
     db: Pool<sqlx::MySql>,
     message_logs: Arc<MessageLogs>,
-    notify: Arc<NotifyDao>,
+    notify: Arc<AppNotify>,
 }
 
 impl SmsSendNotify {
-    pub fn new(db: Pool<sqlx::MySql>, notify: Arc<NotifyDao>) -> Self {
+    pub fn new(db: Pool<sqlx::MySql>, notify: Arc<AppNotify>) -> Self {
         let message_logs = Arc::new(MessageLogs::new(db.clone(), SenderType::Smser));
         Self {
             db,

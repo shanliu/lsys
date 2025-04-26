@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
 
-use lsys_app_notify::dao::NotifyDao;
+use lsys_app::dao::AppNotify;
 use lsys_core::fluent_message;
 use lsys_core::now_time;
 use lsys_core::IntoFluentMessage;
@@ -104,7 +104,7 @@ impl SmsStatusTaskAcquisition {
 #[async_trait]
 impl TaskAcquisition<u64, SmsStatusTaskItem> for SmsStatusTaskAcquisition {
     //复用父结构体方法实现
-    async fn read_send_task(
+    async fn read_exec_task(
         &self,
         tasking_record: &HashMap<u64, TaskData>,
         limit: usize,
@@ -163,7 +163,7 @@ pub struct SmsStatusTask {
     db: Pool<sqlx::MySql>,
     setting: Arc<MultipleSetting>,
     message_logs: Arc<MessageLogs>,
-    notify: Arc<NotifyDao>,
+    notify: Arc<AppNotify>,
 }
 
 impl SmsStatusTask {
@@ -171,7 +171,7 @@ impl SmsStatusTask {
         inner: Vec<Box<dyn SmsStatusTaskExecutor>>,
         recrod: Arc<SmsRecord>,
         db: Pool<sqlx::MySql>,
-        notify: Arc<NotifyDao>,
+        notify: Arc<AppNotify>,
         setting: Arc<MultipleSetting>,
         message_logs: Arc<MessageLogs>,
     ) -> Result<Self, SenderError> {

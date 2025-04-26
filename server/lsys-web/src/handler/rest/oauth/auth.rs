@@ -159,7 +159,7 @@ async fn check_app_secret(
         .cache()
         .find_secret_by_app_id(app.id)
         .await?;
-    if !oauth_secret.contains(client_secret) {
+    if !oauth_secret.iter().any(|e| e.secret_data == *client_secret) {
         return Err(JsonError::JsonResponse(
             JsonData::default(),
             fluent_message!("client-secret-not-match"),

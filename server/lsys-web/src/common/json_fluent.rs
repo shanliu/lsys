@@ -1,7 +1,6 @@
 use lsys_access::dao::AccessError;
-use lsys_app_notify::dao::NotifyError;
 use lsys_app_sender::dao::SenderError;
-use lsys_core::{ConfigError, FluentBundle, ValidCodeError};
+use lsys_core::{AppCoreError, ConfigError, FluentBundle, ValidCodeError};
 
 use lsys_logger::dao::LoggerError;
 use lsys_rbac::dao::RbacError;
@@ -152,6 +151,7 @@ impl JsonFluent for AppError {
             AppError::Sqlx(err) => err.to_json_data(fluent),
             AppError::Redis(err) => err.to_json_data(fluent),
             AppError::RedisPool(err) => err.to_json_data(fluent),
+            AppError::AppCore(err) => err.to_json_data(fluent),
             AppError::SerdeJson(err) => err.to_json_data(fluent),
             AppError::Access(err) => err.to_json_data(fluent),
             AppError::AppNotFound(_) => json_data.set_sub_code("app-not-found"),
@@ -173,21 +173,35 @@ impl JsonFluent for ConfigError {
     }
 }
 
-impl JsonFluent for NotifyError {
-    fn to_json_data(&self, fluent: &FluentBundle) -> JsonData {
-        match self {
-            NotifyError::Sqlx(err) => err.to_json_data(fluent),
-            NotifyError::Redis(err) => err.to_json_data(fluent),
-            NotifyError::RedisPool(err) => err.to_json_data(fluent),
-            NotifyError::System(_) => JsonData::default().set_code(500).set_sub_code("notify"),
-        }
-    }
-}
-
 impl JsonFluent for LoggerError {
     fn to_json_data(&self, fluent: &FluentBundle) -> JsonData {
         match self {
             LoggerError::Sqlx(err) => err.to_json_data(fluent),
+        }
+    }
+}
+
+impl JsonFluent for AppCoreError {
+    fn to_json_data(&self, fluent: &FluentBundle) -> JsonData {
+        match self {
+            AppCoreError::Sqlx(error) => error.to_json_data(fluent),
+            AppCoreError::Env(_) => JsonData::default().set_code(500).set_sub_code("var"),
+            AppCoreError::Tera(error) => error.to_json_data(fluent),
+            AppCoreError::Io(error) => error.to_json_data(fluent),
+            AppCoreError::System(_) => JsonData::default().set_code(500).set_sub_code("system"),
+            AppCoreError::Log(_) => JsonData::default().set_code(500).set_sub_code("system"),
+            AppCoreError::Redis(error) => error.to_json_data(fluent),
+            AppCoreError::RedisCreatePool(_) => {
+                JsonData::default().set_code(500).set_sub_code("redis")
+            }
+            AppCoreError::RedisPool(error) => error.to_json_data(fluent),
+            AppCoreError::Dotenv(_) => JsonData::default().set_code(500).set_sub_code("env"),
+            AppCoreError::AppDir(_) => JsonData::default().set_code(500).set_sub_code("system"),
+            AppCoreError::Config(error) => error.to_json_data(fluent),
+            AppCoreError::Fluent(_) => JsonData::default().set_code(500).set_sub_code("fluent"),
+            AppCoreError::RemoteNotify(_) => {
+                JsonData::default().set_code(500).set_sub_code("notify")
+            }
         }
     }
 }

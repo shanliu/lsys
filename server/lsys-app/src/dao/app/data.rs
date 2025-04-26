@@ -359,7 +359,7 @@ impl App {
         let out_data = sqlx::query_as::<_, AppModel>(&sql_format!(
             "select * from {} where {} {}",
             AppModel::table_name(),
-            where_sql.join(","),
+            SqlExpr(where_sql.join(",")),
             if page.is_some() {
                 SqlExpr(page_sql)
             } else {
@@ -379,7 +379,7 @@ impl App {
         let sql = sql_format!(
             "select  count(*) as total from {} where {}",
             AppModel::table_name(),
-            where_sql.join(",")
+            SqlExpr(where_sql.join(","))
         );
         let query = sqlx::query_scalar::<_, i64>(&sql);
         let res = query.fetch_one(&self.db).await?;
@@ -435,7 +435,7 @@ impl App {
         let out_data = sqlx::query_as::<_, AppModel>(&sql_format!(
             "select * from {} where {} {}",
             AppModel::table_name(),
-            where_sql.join(","),
+            SqlExpr(where_sql.join(",")),
             if page.is_some() {
                 SqlExpr(page_sql)
             } else {
@@ -459,7 +459,7 @@ impl App {
         let sql = sql_format!(
             "select count(*) as total from {} where {}",
             AppModel::table_name(),
-            where_sql.join(",")
+            SqlExpr(where_sql.join(","))
         );
         let query = sqlx::query_scalar::<_, i64>(&sql);
         let res = query.fetch_one(&self.db).await?;
@@ -518,7 +518,7 @@ impl App {
         let out_data = sqlx::query_as::<_, AppModel>(&sql_format!(
             "select * from {} where {} {}",
             AppModel::table_name(),
-            where_sql.join(","),
+            SqlExpr(where_sql.join(",")),
             if page.is_some() {
                 SqlExpr(page_sql)
             } else {
@@ -541,7 +541,7 @@ impl App {
         let sql = sql_format!(
             "select count (*) as total from {} where {}",
             AppModel::table_name(),
-            where_sql.join(",")
+            SqlExpr(where_sql.join(","))
         );
         let query = sqlx::query_scalar::<_, i64>(&sql);
         let res = query.fetch_one(&self.db).await?;

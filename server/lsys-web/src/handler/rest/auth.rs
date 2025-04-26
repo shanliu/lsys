@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
+use crate::common::JsonData;
 use crate::{
     common::{JsonResponse, JsonResult, RequestDao},
     dao::access::rest::CheckRestApp,
 };
 use lsys_access::dao::AccessLoginData;
 use lsys_app::model::AppModel;
-use crate::common::JsonData;
 use lsys_core::now_time;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -37,7 +37,7 @@ pub async fn do_login(
         .web_dao
         .web_app
         .app_dao
-        .app
+        .exter_login
         .inner_feature_exter_login_check(app)
         .await?;
 
@@ -94,7 +94,7 @@ pub async fn do_logout(
         .web_dao
         .web_app
         .app_dao
-        .app
+        .exter_login
         .inner_feature_exter_login_check(app)
         .await?;
     req_dao
@@ -126,7 +126,7 @@ pub async fn login_info(
         .web_dao
         .web_app
         .app_dao
-        .app
+        .exter_login
         .inner_feature_exter_login_check(app)
         .await?;
 

@@ -1,12 +1,12 @@
 mod cache;
 mod secret;
 use crate::model::AppSecretModel;
-use std::convert::From;
-
 pub use cache::*;
 pub use secret::*;
+use serde::{Deserialize, Serialize};
+use std::convert::From;
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct AppSecretRecrod {
     pub secret_data: String,
     pub time_out: u64,

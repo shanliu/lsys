@@ -44,16 +44,7 @@ impl AppCache<'_> {
             },
         }
     }
-    pub async fn find_notify_secret_by_app_id(&self, app_id: u64) -> AppResult<String> {
-        let secret_data = self
-            .dao
-            .app_secret
-            .cache()
-            .single_find_secret_app_id(app_id, AppSecretType::Notify)
-            .await?;
-        Ok(secret_data.secret_data)
-    }
-    //内部APP secret 获取
+    //获取指定APP 所有有效的secret
     pub async fn find_app_secret_by_client_id(
         &self,
         client_id: &str,

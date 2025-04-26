@@ -117,7 +117,7 @@ impl App {
                 confirm_time:time,
                 confirm_note:confirm_note,
             });
-            Update::< AppRequestModel, _>::new(change)
+            Update::<AppRequestModel, _>::new(change)
                 .execute_by_pk(req, &self.db)
                 .await?;
             return Ok(());
@@ -143,7 +143,7 @@ impl App {
                         change_user_id:confirm_user_id,
                         change_time:time
                     });
-                    let cres = Update::< AppFeatureModel, _>::new(change)
+                    let cres = Update::<AppFeatureModel, _>::new(change)
                         .execute_by_where(&WhereOption::Where(sql_format!("id={}", fid)), &mut *db)
                         .await;
                     if let Err(err) = cres {
@@ -181,7 +181,7 @@ impl App {
             confirm_time:time,
             confirm_note:confirm_note,
         });
-        let cres = Update::< AppRequestModel, _>::new(change)
+        let cres = Update::<AppRequestModel, _>::new(change)
             .execute_by_pk(req, &mut *db)
             .await;
         if let Err(err) = cres {
@@ -209,107 +209,5 @@ impl App {
             )
             .await;
         Ok(())
-    }
-}
-
-impl App {
-    //外部登录权限申请
-    pub async fn inner_feature_exter_login_request(
-        &self,
-        app: &AppModel,
-        req_user_id: u64,
-        env_data: Option<&RequestEnv>,
-    ) -> AppResult<()> {
-        app.app_status_check()?;
-        app.is_system_app_check()?; //必须是系统APP
-        self.inner_feature_request(app, AppRequestType::ExterLogin, req_user_id, env_data)
-            .await
-    }
-    //外部登录权限确认
-    pub async fn inner_feature_exter_login_confirm(
-        &self,
-        app: &AppModel,
-        req_status: AppRequestStatus,
-        confirm_note: &str,
-        confirm_user_id: u64,
-        env_data: Option<&RequestEnv>,
-    ) -> AppResult<()> {
-        app.app_status_check()?;
-        let req = sqlx::query_as::<_, AppRequestModel>(&sql_format!(
-            "select id,status from {} where app_id={} and feature_key = {}",
-            AppRequestModel::table_name(),
-            app.id,
-            AppRequestType::ExterLogin.feature_key()
-        ))
-        .fetch_one(&self.db)
-        .await?;
-        self.inner_feature_confirm(
-            app,
-            &req,
-            req_status,
-            confirm_note,
-            confirm_user_id,
-            env_data,
-        )
-        .await
-    }
-    //外部登录权限检测
-    pub async fn inner_feature_exter_login_check(&self, app: &AppModel) -> AppResult<()> {
-        app.app_status_check()?;
-        app.is_system_app_check()?; //必须是系统APP
-        self.cache()
-            .feature_check(app, &[AppRequestType::ExterLogin.feature_key()])
-            .await
-    }
-}
-
-impl App {
-    //子APP信息查询权限检测,非系统应用无此功能
-    pub async fn inner_feature_sub_app_check(&self, app: &AppModel) -> AppResult<()> {
-        app.app_status_check()?;
-        app.is_system_app_check()?; //必须是系统APP
-        self.cache()
-            .feature_check(app, &[AppRequestType::SubApp.feature_key()])
-            .await
-    }
-    //子APP信息查询权限申请
-    pub async fn inner_feature_sub_app_request(
-        &self,
-        app: &AppModel,
-        req_user_id: u64,
-        env_data: Option<&RequestEnv>,
-    ) -> AppResult<()> {
-        app.app_status_check()?;
-        app.is_system_app_check()?; //必须是系统APP
-        self.inner_feature_request(app, AppRequestType::SubApp, req_user_id, env_data)
-            .await
-    }
-    //子APP信息查询权限确认
-    pub async fn inner_feature_sub_app_confirm(
-        &self,
-        app: &AppModel,
-        req_status: AppRequestStatus,
-        confirm_note: &str,
-        confirm_user_id: u64,
-        env_data: Option<&RequestEnv>,
-    ) -> AppResult<()> {
-        app.app_status_check()?;
-        let req = sqlx::query_as::<_, AppRequestModel>(&sql_format!(
-            "select id,status from {} where app_id={} and feature_key = {}",
-            AppRequestModel::table_name(),
-            app.id,
-            AppRequestType::SubApp.feature_key()
-        ))
-        .fetch_one(&self.db)
-        .await?;
-        self.inner_feature_confirm(
-            app,
-            &req,
-            req_status,
-            confirm_note,
-            confirm_user_id,
-            env_data,
-        )
-        .await
     }
 }

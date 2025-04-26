@@ -150,12 +150,12 @@ pub async fn oauth_server_client_scope_confirm(
 }
 
 #[derive(Deserialize)]
-pub struct OAuthServerRequestData {
+pub struct OAuthServerRequestParam {
     pub app_id: u64,
 }
 
 pub async fn oauth_server_request(
-    param: &OAuthServerRequestData,
+    param: &OAuthServerRequestParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;

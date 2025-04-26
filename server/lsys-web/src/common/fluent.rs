@@ -1,8 +1,8 @@
 // 多语言格式化
 
 use lsys_access::dao::AccessError;
-use lsys_app_notify::dao::NotifyError;
 use lsys_app_sender::dao::SenderError;
+use lsys_core::AppCoreError;
 use lsys_core::{fluent_message, ConfigError, FluentBundle, IntoFluentMessage, ValidCodeError};
 
 use lsys_logger::dao::LoggerError;
@@ -38,6 +38,7 @@ macro_rules! self_error_fluent_string {
         }
     };
 }
+self_error_fluent_string!(AppCoreError);
 self_error_fluent_string!(AccountError);
 self_error_fluent_string!(ValidCodeError);
 self_error_fluent_string!(AccessError);
@@ -47,7 +48,6 @@ self_error_fluent_string!(SettingError);
 self_error_fluent_string!(SenderError);
 self_error_fluent_string!(AppError);
 self_error_fluent_string!(ConfigError);
-self_error_fluent_string!(NotifyError);
 self_error_fluent_string!(LoggerError);
 
 //crate error

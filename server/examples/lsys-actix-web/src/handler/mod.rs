@@ -1,6 +1,7 @@
 #[macro_use]
 mod macros;
 mod api;
+mod demo;
 mod rest;
 mod web;
 use actix_service::ServiceFactory;
@@ -13,6 +14,7 @@ pub(crate) fn router<T>(app: App<T>, app_dao: &Arc<WebDao>) -> App<T>
 where
     T: ServiceFactory<ServiceRequest, Config = (), Error = Error, InitError = ()>,
 {
+    let app = demo::router(app);
     let app = api::router(app);
     let app = rest::router(app);
     web::router(app, app_dao)

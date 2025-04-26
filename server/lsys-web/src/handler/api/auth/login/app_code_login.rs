@@ -36,7 +36,7 @@ pub async fn user_login_from_app_code(
         .web_dao
         .web_app
         .app_dao
-        .app
+        .exter_login
         .inner_feature_exter_login_check(&app)
         .await?;
 

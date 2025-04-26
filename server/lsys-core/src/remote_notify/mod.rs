@@ -1,5 +1,8 @@
 //基于 REDIS来实现通讯
 // 从而实现广播到其他多个主机,多个主机分别执行任务(并返回结果,可选)
+//目前应用
+// 多节点缓存清理:一个节点发出通知,多个节点同时清理对应缓存
+// 文档模块,多节点同步CLONE GIT :一个节点发出通知,多个节点同时执行git clone
 use std::collections::HashMap;
 
 
@@ -325,6 +328,7 @@ impl RemoteNotify {
                             let res = pubsub.subscribe(self.channel_name).await;
                             if let Err(err) = res {
                                 error!("listen sub fail :{}", err);
+                                tokio::time::sleep(Duration::from_secs(1)).await;
                                 continue;
                             } else {
                                 info!("listen remote channel succ:{}", self.channel_name);
@@ -350,10 +354,12 @@ impl RemoteNotify {
                                         }
                                         Err(err) => {
                                             error!("read payload fail :{}", err);
+                                            break;
                                         }
                                     },
                                     None => {
-                                        continue;
+                                        debug!("listen_redis_sub none");
+                                        break;
                                     }
                                 }
                             }

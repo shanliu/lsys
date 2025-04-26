@@ -1,5 +1,5 @@
 use lsys_access::dao::AccessError;
-use lsys_core::{fluent_message, FluentMessage, IntoFluentMessage};
+use lsys_core::{fluent_message, AppCoreError, FluentMessage, IntoFluentMessage};
 use std::{
     // error::Error,
     // fmt::{Display, Formatter},
@@ -14,7 +14,7 @@ use redis::RedisError;
 pub enum AppError {
     AppNotFound(String),
     AppBadStatus,
-    AppBadFeature(String,Vec<String>),
+    AppBadFeature(String, Vec<String>),
     AppOAuthClientBadConfig(String),
     Sqlx(sqlx::Error),
     System(FluentMessage),
@@ -23,6 +23,7 @@ pub enum AppError {
     ScopeBad(Vec<String>),
     Access(AccessError),
     SerdeJson(serde_json::Error),
+    AppCore(AppCoreError),
 }
 impl IntoFluentMessage for AppError {
     fn to_fluent_message(&self) -> FluentMessage {
@@ -39,6 +40,7 @@ impl IntoFluentMessage for AppError {
                 fluent_message!("redis-error", e)
             }
             AppError::Access(e) => e.to_fluent_message(),
+            AppError::AppCore(e) => e.to_fluent_message(),
             AppError::SerdeJson(e) => {
                 fluent_message!("serde-json-error", e)
             }
@@ -50,7 +52,7 @@ impl IntoFluentMessage for AppError {
             AppError::AppBadStatus => {
                 fluent_message!("app-bad-status")
             }
-            AppError::AppBadFeature(name,feature)=> {
+            AppError::AppBadFeature(name, feature) => {
                 fluent_message!("app-feature-not-support",{
                     "name":name,
                     "feature":feature.join(","),
@@ -93,6 +95,11 @@ impl From<serde_json::Error> for AppError {
 impl From<AccessError> for AppError {
     fn from(err: AccessError) -> Self {
         AppError::Access(err)
+    }
+}
+impl From<AppCoreError> for AppError {
+    fn from(err: AppCoreError) -> Self {
+        AppError::AppCore(err)
     }
 }
 

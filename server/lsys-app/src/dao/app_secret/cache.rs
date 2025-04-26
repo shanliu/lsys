@@ -36,7 +36,13 @@ impl AppSecretCache<'_> {
                     let ntime = now_time().unwrap_or_default();
                     let tmp_data = data
                         .into_iter()
-                        .flat_map(|e| if e.time_out > ntime { Some(e) } else { None })
+                        .flat_map(|e| {
+                            if e.time_out == 0 || e.time_out > ntime {
+                                Some(e)
+                            } else {
+                                None
+                            }
+                        })
                         .collect::<Vec<_>>();
                     if tmp_data.is_empty() {
                         return None;
@@ -76,8 +82,13 @@ impl AppSecretCache<'_> {
             .get(&cache_key)
             .await
             .and_then(|mut e| {
-                e.pop()
-                    .and_then(|s| if s.time_out > ntime { Some(s) } else { None })
+                e.pop().and_then(|s| {
+                    if s.time_out == 0 || s.time_out > ntime {
+                        Some(s)
+                    } else {
+                        None
+                    }
+                })
             });
         Ok(match tmp {
             Some(data) => data,

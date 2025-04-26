@@ -30,6 +30,7 @@ where
 
     #[cfg(feature = "barcode")]
     let rest_scope = rest_scope.service(scope("/barcode").service(barcode::barcode));
+
     app.service(
         scope("/oauth")
             .service(oauth::token)

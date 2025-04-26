@@ -1,5 +1,5 @@
 // use config::Config;
-use deadpool_redis::CreatePoolError;
+use deadpool_redis::{CreatePoolError, PoolError};
 
 use redis::RedisError;
 
@@ -16,7 +16,8 @@ pub enum AppCoreError {
     System(String),
     Log(String),
     Redis(RedisError),
-    RedisPool(CreatePoolError),
+    RedisCreatePool(CreatePoolError),
+    RedisPool(PoolError),
     Dotenv(dotenv::Error),
     AppDir(String),
     Config(ConfigError),
@@ -35,6 +36,7 @@ impl IntoFluentMessage for AppCoreError {
             AppCoreError::Log(err) => fluent_message!("log-error", err),
             AppCoreError::Redis(err) => fluent_message!("redis-error", err),
             AppCoreError::RedisPool(err) => fluent_message!("redis-error", err),
+            AppCoreError::RedisCreatePool(err) => fluent_message!("redis-error", err),
             AppCoreError::Dotenv(err) => fluent_message!("env-error", err),
             AppCoreError::AppDir(err) => fluent_message!("file-error", err),
             AppCoreError::Config(err) => err.to_fluent_message(),
@@ -49,9 +51,14 @@ impl From<sqlx::Error> for AppCoreError {
         AppCoreError::Sqlx(err)
     }
 }
+impl From<PoolError> for AppCoreError {
+    fn from(err: PoolError) -> Self {
+        AppCoreError::RedisPool(err)
+    }
+}
 impl From<CreatePoolError> for AppCoreError {
     fn from(err: CreatePoolError) -> Self {
-        AppCoreError::RedisPool(err)
+        AppCoreError::RedisCreatePool(err)
     }
 }
 impl From<RemoteNotifyError> for AppCoreError {

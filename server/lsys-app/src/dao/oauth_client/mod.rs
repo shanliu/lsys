@@ -483,7 +483,7 @@ impl AppOAuthClient {
                     return Err(err.into());
                 }
 
-                let secret_data = rand_str(lsys_core::RandType::LowerHex, 64);
+                let secret_data = rand_str(lsys_core::RandType::LowerHex, 32);
                 if let Err(e) = self
                     .app_secret
                     .multiple_add(
@@ -497,7 +497,7 @@ impl AppOAuthClient {
                     .await
                 {
                     db.rollback().await?;
-                    return Err(e.into());
+                    return Err(e);
                 };
             }
             Err(err) => {

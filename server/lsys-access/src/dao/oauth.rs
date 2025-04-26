@@ -28,7 +28,7 @@ impl AccessOAuth {
     }
 }
 fn range_client_key() -> String {
-    rand_str(lsys_core::RandType::LowerHex, 64)
+    rand_str(lsys_core::RandType::LowerHex, 32)
 }
 pub const OAUTH_LOGIN_TYPE: &str = "oauth";
 

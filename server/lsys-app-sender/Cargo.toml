@@ -6,11 +6,11 @@ edition = "2021"
 
 
 [dependencies]
+lsys-app = { path = "../lsys-app" }
 lsys-core = { path = "../lsys-core" }
 lsys-setting = { path = "../lsys-setting" }
 lsys-logger = { path = "../lsys-logger" }
 lsys-lib-sms = { path = "../lsys-lib-sms" }
-lsys-app-notify = { path = "../lsys-app-notify" }
 
 
 chrono = { version = "~0.4.31" }

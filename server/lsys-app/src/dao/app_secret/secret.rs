@@ -5,6 +5,7 @@ use lsys_core::db::ModelTableName;
 use lsys_core::db::SqlQuote;
 use lsys_core::db::Update;
 use lsys_core::db::WhereOption;
+use lsys_core::fluent_message;
 use lsys_core::now_time;
 use lsys_core::rand_str;
 use lsys_core::sql_format;
@@ -73,7 +74,7 @@ impl AppSecret {
         time_out: u64,
         user_id: u64,
         transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
-    ) -> Result<(), sqlx::Error> {
+    ) -> Result<(), AppError> {
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
@@ -81,7 +82,11 @@ impl AppSecret {
 
         let ntime = now_time().unwrap_or_default();
         let time_out = if time_out > 0 { ntime + time_out } else { 0 };
-
+        if time_out > 0 && time_out < ntime {
+            return Err(AppError::System(
+                fluent_message!("bad-timeout-param",{"time":time_out}),
+            ));
+        }
         let secret_status = AppSecretStatus::Enable as i8;
         let secret_type = secret_type as i8;
         let secret_data = secret_data.to_owned();
@@ -109,7 +114,7 @@ impl AppSecret {
             Ok(r) => r.last_insert_id(),
             Err(e) => {
                 db.rollback().await?;
-                return Err(e);
+                return Err(e.into());
             }
         };
         if add_id > 0 {
@@ -132,7 +137,7 @@ impl AppSecret {
                 .await;
             if let Err(e) = ures {
                 db.rollback().await?;
-                return Err(e);
+                return Err(e.into());
             }
         }
         db.commit().await?;
@@ -152,9 +157,14 @@ impl AppSecret {
         time_out: u64,
         user_id: u64,
         db: E,
-    ) -> Result<(), sqlx::Error> {
+    ) -> Result<(), AppError> {
         let ntime = now_time().unwrap_or_default();
         let time_out = if time_out > 0 { ntime + time_out } else { 0 };
+        if time_out > 0 && time_out < ntime {
+            return Err(AppError::System(
+                fluent_message!("bad-timeout-param",{"time":time_out}),
+            ));
+        }
         let secret_status = AppSecretStatus::Enable as i8;
         let secret_type = secret_type as i8;
         let secret_data = secret_data.to_owned();
@@ -193,7 +203,7 @@ impl AppSecret {
         secret_data: &str,
         change_user_id: u64,
         db: E,
-    ) -> Result<(), sqlx::Error> {
+    ) -> Result<(), AppError> {
         let secret_data = secret_data.to_owned();
         let ntime = now_time().unwrap_or_default();
         let status_del = AppSecretStatus::Delete as i8;
@@ -232,10 +242,14 @@ impl AppSecret {
         time_out: u64,
         change_user_id: u64,
         db: E,
-    ) -> Result<(), sqlx::Error> {
+    ) -> Result<(), AppError> {
         let ntime = now_time().unwrap_or_default();
         let time_out = if time_out > 0 { ntime + time_out } else { 0 };
-
+        if time_out > 0 && time_out < ntime {
+            return Err(AppError::System(
+                fluent_message!("bad-timeout-param",{"time":time_out}),
+            ));
+        }
         let secret_data = secret_data.to_owned();
         let secret_udata = lsys_core::model_option_set!(AppSecretModelRef,{
             secret_data:secret_data,
@@ -303,7 +317,7 @@ impl AppSecret {
         app_id: u64,
         change_user_id: u64,
         db: E,
-    ) -> Result<(), sqlx::Error> {
+    ) -> Result<(), AppError> {
         let clear_data = sqlx::query_scalar::<_, i8>(&sql_format!(
             "select secret_type from {} where app_id={} and status={} ",
             AppSecretModel::table_name(),
@@ -343,7 +357,7 @@ impl AppSecret {
     ) -> AppResult<Vec<AppSecretRecrod>> {
         let ntime = now_time().unwrap_or_default();
         let out=sqlx::query_as::<_, AppSecretModel>(&sql_format!(
-            "select secret_data,timeout from {} where app_id={} and secret_type={} and status={} and (
+            "select secret_data,time_out from {} where app_id={} and secret_type={} and status={} and (
                 time_out=0 or time_out>{}
             )",
             AppSecretModel::table_name(),
@@ -356,12 +370,12 @@ impl AppSecret {
         .await
         .map(|e| {
          e.into_iter()
-                .flat_map(|e0| if e0.time_out>ntime{Some(AppSecretRecrod::from(e0))}else{None})
+                .flat_map(|e0| if e0.time_out==0||e0.time_out>ntime{Some(AppSecretRecrod::from(e0))}else{None})
                 .collect::<Vec<AppSecretRecrod>>()
 
         })?;
         if out.is_empty() {
-            let secret_data = rand_str(lsys_core::RandType::LowerHex, 64);
+            let secret_data = rand_str(lsys_core::RandType::LowerHex, 32);
             self.multiple_add(app_id, secret_type, &secret_data, 0, 0, &self.db)
                 .await?;
             return Ok(vec![AppSecretRecrod {
@@ -378,7 +392,7 @@ impl AppSecret {
     ) -> AppResult<AppSecretRecrod> {
         let ntime = now_time().unwrap_or_default();
         let out=sqlx::query_as::<_, AppSecretModel>(&sql_format!(
-            "select secret_data,timeout from {} where app_id={} and secret_type={} and status={} and (
+            "select secret_data,time_out from {} where app_id={} and secret_type={} and status={} and (
                 time_out=0 or time_out>{}
             ) order by id desc limit 1",
             AppSecretModel::table_name(),
@@ -393,7 +407,7 @@ impl AppSecret {
             Ok(dat) => Ok(AppSecretRecrod::from(dat)),
             Err(err) => {
                 if matches!(err, sqlx::Error::RowNotFound) {
-                    let secret_data = rand_str(lsys_core::RandType::LowerHex, 64);
+                    let secret_data = rand_str(lsys_core::RandType::LowerHex, 32);
                     self.single_set(app_id, secret_type, &secret_data, 0, 0, None)
                         .await?;
                     return Ok(AppSecretRecrod {

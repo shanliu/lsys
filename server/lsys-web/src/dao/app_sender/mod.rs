@@ -2,7 +2,7 @@ mod logger;
 mod mailer;
 mod smser;
 
-use lsys_app_notify::dao::NotifyDao;
+use lsys_app::dao::AppNotify;
 use lsys_app_sender::dao::MessageTpls;
 use lsys_core::{AppCore, AppCoreError, IntoFluentMessage};
 use lsys_logger::dao::ChangeLoggerDao;
@@ -25,7 +25,7 @@ impl AppSender {
         app_core: Arc<AppCore>,
         redis: deadpool_redis::Pool,
         db: Pool<MySql>,
-        notify: Arc<NotifyDao>,
+        notify: Arc<AppNotify>,
         setting: Arc<SettingDao>,
         change_logger: Arc<ChangeLoggerDao>,
     ) -> Result<AppSender, AppCoreError> {

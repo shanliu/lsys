@@ -1,11 +1,11 @@
 use std::{collections::HashSet, sync::Arc};
 
+use lsys_app::dao::AppNotify;
 use lsys_core::{
     fluent_message, now_time, AppCore, FluentMessage, IntoFluentMessage, RequestEnv, TaskData,
     TaskDispatchConfig,
 };
 
-use lsys_app_notify::dao::NotifyDao;
 use lsys_logger::dao::ChangeLoggerDao;
 use lsys_setting::dao::SettingDao;
 use sqlx::Pool;
@@ -43,7 +43,7 @@ pub struct SmsSenderDao {
     send_wait: Arc<SenderWaitNotify>,
     task_status_key: String,
     setting: Arc<SettingDao>,
-    notify: Arc<NotifyDao>,
+    notify: Arc<AppNotify>,
 }
 
 impl SmsSenderDao {
@@ -55,7 +55,7 @@ impl SmsSenderDao {
         db: Pool<sqlx::MySql>,
         setting: Arc<SettingDao>,
         logger: Arc<ChangeLoggerDao>,
-        notify: Arc<NotifyDao>,
+        notify: Arc<AppNotify>,
         sender_task_size: Option<usize>,
         notify_task_size: Option<usize>,
         task_timeout: usize,

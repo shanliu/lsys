@@ -497,7 +497,7 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
 #[async_trait]
 impl TaskAcquisition<u64, SmsTaskItem> for SmsTaskAcquisition {
     //复用父结构体方法实现
-    async fn read_send_task(
+    async fn read_exec_task(
         &self,
         tasking_record: &HashMap<u64, TaskData>,
         limit: usize,

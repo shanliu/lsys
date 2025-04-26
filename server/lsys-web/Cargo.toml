@@ -65,7 +65,6 @@ lsys-app-sender = { path = "../lsys-app-sender", features = [
 ] }
 lsys-setting = { path = "../lsys-setting" }
 lsys-logger = { path = "../lsys-logger" }
-lsys-app-notify = { path = "../lsys-app-notify" }
 
 lsys-lib-area = { default-features = false, features = [
     "data-csv",

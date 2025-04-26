@@ -27,5 +27,3 @@ config = "~0.15"
 
 
 async-trait = "~0.1.*"
-
-async-recursion = "~1.1.1"

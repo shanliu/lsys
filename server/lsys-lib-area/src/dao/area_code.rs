@@ -13,6 +13,7 @@ use tantivy::tokenizer::PreTokenizedString;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::utils::key_word_clear;
+use super::AreaError;
 use tantivy::schema::*;
 use tantivy::{collector::TopDocs, IndexWriter};
 use tantivy::{doc, Index};
@@ -146,14 +147,14 @@ impl<AP: AreaCodeProvider> AreaCode<AP> {
                     name: code_name.to_owned(),
                 },
             )?;
-            code_data_tree.add(Self::code_parse(&tmp_area.code))?;
+            code_data_tree.add(Self::code_parse(&tmp_area.code)?)?;
             key_words.insert(tmp_area.code.as_str(), &tmp_area.key_word);
         }
         code_data.save(version)?;
         code_data_tree.save(version)?;
         for (code, last_key_word) in key_words.iter() {
             let mut area_doc = doc!();
-            let mut codes = Self::code_parse(code);
+            let mut codes = Self::code_parse(code)?;
             let mut kws = Vec::with_capacity(codes.len());
             codes.pop();
             for item in codes.into_iter() {
@@ -178,10 +179,13 @@ impl<AP: AreaCodeProvider> AreaCode<AP> {
         Ok(())
     }
 
-    pub(crate) fn code_parse(code: &str) -> Vec<&str> {
+    pub(crate) fn code_parse(code: &str) -> AreaResult<Vec<&str>> {
+        if code.chars().any(|e| !e.is_ascii_digit()) {
+            return Err(AreaError::System(format!("code[{}] is not a number", code)));
+        }
         let code = code.trim();
         if code.is_empty() {
-            return vec![];
+            return Ok(vec![]);
         }
         let len = code.len();
         let mut search_code = vec![];
@@ -200,11 +204,11 @@ impl<AP: AreaCodeProvider> AreaCode<AP> {
                 break;
             }
         }
-        search_code
+        Ok(search_code)
     }
     /// 列出指定行政区域编码下的可用区域
     pub fn childs(&self, code: &str) -> AreaResult<Vec<AreaCodeItem>> {
-        let code_data = Self::code_parse(code);
+        let code_data = Self::code_parse(code)?;
         Ok(self
             .code_data_tree
             .childs(&code_data)
@@ -232,7 +236,7 @@ impl<AP: AreaCodeProvider> AreaCode<AP> {
     }
     /// 通过行政区域编码解析出区域
     pub fn find(&self, code: &str) -> AreaResult<Vec<AreaCodeItem>> {
-        let code_data = Self::code_parse(code);
+        let code_data = Self::code_parse(code)?;
         if code_data.is_empty() {
             return Ok(vec![]);
         }
@@ -261,7 +265,7 @@ impl<AP: AreaCodeProvider> AreaCode<AP> {
     }
     /// 获取行政区域编码同级区域的相关数据
     pub fn related(&self, code: &str) -> AreaResult<Vec<Vec<AreaCodeRelatedItem>>> {
-        let code_data = Self::code_parse(code);
+        let code_data = Self::code_parse(code)?;
         let mut out_list = Vec::with_capacity(5);
         let mut now_list = Some(self.childs("")?);
         for ddd in code_data {

@@ -311,18 +311,7 @@ pub async fn secret_view(
             .app
             .app_view_secret(&app, auth_data.user_id(), Some(&req_dao.req_env))
             .await?;
-        out_data.insert(
-            "app_secret".to_string(),
-            json!(app_secret_data
-                .into_iter()
-                .map(|e| {
-                    json!({
-                        "secret":e.secret_data,
-                        "timeout":e.time_out
-                    })
-                })
-                .collect::<Vec<_>>()),
-        );
+        out_data.insert("app_secret".to_string(), json!(app_secret_data));
         out_data.insert(
             "app_secret".to_string(),
             json!({
@@ -346,18 +335,7 @@ pub async fn secret_view(
             .oauth_client
             .oauth_view_secret(&app, auth_data.user_id(), Some(&req_dao.req_env))
             .await?;
-        out_data.insert(
-            "oauth_secret".to_string(),
-            json!(secret_data
-                .into_iter()
-                .map(|e| {
-                    json!({
-                        "secret":e.secret_data,
-                        "timeout":e.time_out
-                    })
-                })
-                .collect::<Vec<_>>()),
-        );
+        out_data.insert("oauth_secret".to_string(), json!(secret_data));
     }
     Ok(JsonResponse::data(JsonData::body(Value::Object(out_data))))
 }
@@ -407,18 +385,7 @@ pub async fn sub_app_secret_view(
             .app
             .app_view_secret(&app, auth_data.user_id(), Some(&req_dao.req_env))
             .await?;
-        out_data.insert(
-            "app_secret".to_string(),
-            json!(app_secret_data
-                .into_iter()
-                .map(|e| {
-                    json!({
-                        "secret":e.secret_data,
-                        "timeout":e.time_out
-                    })
-                })
-                .collect::<Vec<_>>()),
-        );
+        out_data.insert("app_secret".to_string(), json!(app_secret_data));
         out_data.insert(
             "notify_secret".to_string(),
             json!({
@@ -435,18 +402,7 @@ pub async fn sub_app_secret_view(
             .oauth_client
             .oauth_view_secret(&app, auth_data.user_id(), Some(&req_dao.req_env))
             .await?;
-        out_data.insert(
-            "oauth_secret".to_string(),
-            json!(secret_data
-                .into_iter()
-                .map(|e| {
-                    json!({
-                        "secret":e.secret_data,
-                        "timeout":e.time_out
-                    })
-                })
-                .collect::<Vec<_>>()),
-        );
+        out_data.insert("oauth_secret".to_string(), json!(secret_data));
     }
     Ok(JsonResponse::data(JsonData::body(Value::Object(out_data))))
 }

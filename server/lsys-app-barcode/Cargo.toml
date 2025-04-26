@@ -7,7 +7,6 @@ edition = "2021"
 
 [dependencies]
 lsys-core = { path = "../lsys-core" }
-lsys-setting = { path = "../lsys-setting" }
 lsys-logger = { path = "../lsys-logger" }
 
 

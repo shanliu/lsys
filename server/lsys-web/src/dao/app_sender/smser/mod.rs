@@ -1,8 +1,6 @@
 mod app;
 use lsys_access::dao::SessionBody;
-use std::{collections::HashMap, sync::Arc};
-
-use lsys_app_notify::dao::NotifyDao;
+use lsys_app::dao::AppNotify;
 use lsys_app_sender::{
     dao::{
         AliYunSendStatus, AliYunSenderTask, CloOpenSenderTask, HwYunSenderTask, JDCloudSenderTask,
@@ -19,6 +17,7 @@ use lsys_setting::dao::SettingDao;
 use lsys_user::dao::check_mobile;
 use serde_json::json;
 use sqlx::{MySql, Pool};
+use std::{collections::HashMap, sync::Arc};
 
 use crate::common::{JsonError, JsonResult};
 
@@ -43,7 +42,7 @@ impl SenderSmser {
         db: Pool<MySql>,
         setting: Arc<SettingDao>,
         logger: Arc<ChangeLoggerDao>,
-        notify: Arc<NotifyDao>,
+        notify: Arc<AppNotify>,
         sender_task_size: Option<usize>,
         notify_task_size: Option<usize>,
         task_timeout: usize,

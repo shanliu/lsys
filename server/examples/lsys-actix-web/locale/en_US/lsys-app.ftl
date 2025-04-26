@@ -28,3 +28,8 @@ app-session-refresh-error = Failed to refresh authorization for application [{$c
 app-session-clear-error = Failed to clear application login session: {$msg}
 papp-not-match-parent = Selected parent application "{$name}" does not match account permissions
 papp-bad-parent = Please select a parent application
+
+
+notify-call-not-support = Callback URL only supports HTTP or HTTPS protocols
+notify-reqwest-build-error = Error building callback notification request: {$msg}
+notify-reqwest-check-error = Error occurred during callback notification to [{$url}]: {$msg}

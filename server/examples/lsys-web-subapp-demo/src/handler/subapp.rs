@@ -10,7 +10,8 @@ use serde_json::json;
 pub struct DemoParam {
     pub text: String,
 }
-pub async fn demo_handler(
+
+pub async fn demo_api1(
     param: &DemoParam,
     app: &AppModel,
     req_dao: &RequestDao,

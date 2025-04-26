@@ -37,7 +37,7 @@ pub async fn confirm_inner_feature_exter_login_confirm(
         .web_dao
         .web_app
         .app_dao
-        .app
+        .exter_login
         .inner_feature_exter_login_confirm(
             &app,
             confirm_status,

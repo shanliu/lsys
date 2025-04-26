@@ -11,7 +11,6 @@ members = [
     "lsys-setting",
     "lsys-logger",
     "lsys-app",
-    "lsys-app-notify",
     "lsys-app-sender",
     "lsys-app-barcode",
     "lsys-docs",
@@ -19,5 +18,9 @@ members = [
     "examples/*",
 ]
 
-[profile.release]
-codegen-units = 1
+
+[profile.dev]
+opt-level = 0
+incremental = true
+lto = false
+codegen-units = 6

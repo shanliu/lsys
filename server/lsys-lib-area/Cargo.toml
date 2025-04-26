@@ -25,10 +25,10 @@ memmap2 = { version = "~0.9", optional = true }
 sha2 = "~0.10.8"
 
 [build-dependencies]
-cc = "~1.2.*"
+cc = { version = "~1.2.*", optional = true }
 #glob = "~0.3.*"
 flate2 = "~1.1.*"
-cbindgen = "~0.28.0"
+cbindgen = { version = "~0.28.0", optional = true }
 
 [lib]
 name = "lsys_lib_area"
@@ -50,7 +50,7 @@ data-csv = ["csv"]
 #启用SQLITE数据源
 data-sqlite = ["rusqlite"]
 #启用SQLITE数据源[内置C源码方式]
-data-sqlite-source = ["data-sqlite"]
+data-sqlite-source = ["data-sqlite", "cc", "cbindgen"]
 #启用mysql数据源支持
 data-mysql = ["mysql"]
 #索引数据使用硬盘存储

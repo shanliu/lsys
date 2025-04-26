@@ -32,3 +32,76 @@ auth-not-support-reload=重新加载当前用户信息失败
 check-user-lock = 用户{$user}已被锁定,将在{$time}秒后恢复
 account-bad-session=登陆账号解析异常:{$msg}
 auth-bad-session=重新加载登陆账号异常:{$msg}
+
+
+
+
+
+
+
+
+
+# 状态
+
+
+
+status-AccountStatus-Enable=启用
+status-AccountStatus-Init=初始
+status-AccountStatus-Delete=删除
+
+
+
+
+
+status-AccountEmailStatus-Init=待验证
+status-AccountEmailStatus-Valid=已验证
+status-AccountEmailStatus-Delete=删除
+
+
+
+
+
+status-AccountMobileStatus-Init=待验证
+status-AccountMobileStatus-Valid=已验证
+status-AccountMobileStatus-Delete=删除
+
+
+
+
+
+status-AccountNameStatus-Enable=启用
+status-AccountNameStatus-Delete=删除
+
+
+
+
+
+status-AccountExternalStatus-Enable=启用
+status-AccountExternalStatus-Delete=删除
+
+
+
+
+
+status-AccountAddressStatus-Enable=启用
+status-AccountAddressStatus-Delete=删除
+
+
+
+
+
+status-AccountIndexStatus-Enable=启用
+status-AccountIndexStatus-Delete=删除
+
+
+
+
+
+status-AccountIndexCat-Address= 地址
+status-AccountIndexCat-Email=  邮箱
+status-AccountIndexCat-Mobile=  手机号
+status-AccountIndexCat-ExternalType= 外部账号
+status-AccountIndexCat-AccountName=   账号
+status-AccountIndexCat-NikeName=     昵称
+status-AccountIndexCat-AccountStatus=   用户状态
+status-AccountIndexCat-RegFrom=      注册来源

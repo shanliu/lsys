@@ -122,15 +122,7 @@ pub async fn subapp_oauth_secret(
         .app_dao
         .oauth_client
         .oauth_view_secret(&out_app, app.user_id, Some(&req_dao.req_env))
-        .await?
-        .into_iter()
-        .map(|e| {
-            json!({
-                "secret":e.secret_data,
-                "timeout":e.time_out,
-            })
-        })
-        .collect::<Vec<_>>();
+        .await?;
 
     Ok(JsonResponse::data(JsonData::body(json!({
         "name": out_app.name,

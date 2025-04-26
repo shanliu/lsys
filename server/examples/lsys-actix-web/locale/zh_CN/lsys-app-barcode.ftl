@@ -10,3 +10,19 @@ barcode-bad-status=条形码状态异常
 barcode-type=条形码类型不支持：{$val}
 rxing-error= 条码解析库异常:{$msg}
 barcode-image-error=条形码图片解析异常:{$msg}   
+
+
+
+
+# 状态
+
+status-BarcodeCreateStatus-EnablePrivate=私有
+status-BarcodeCreateStatus-EnablePublic=公开
+status-BarcodeCreateStatus-Delete=删除
+
+
+# 状态
+status-BarcodeParseStatus-Succ=成功
+status-BarcodeParseStatus-Fail=失败
+status-BarcodeParseStatus-Delete=删除
+

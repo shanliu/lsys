@@ -33,3 +33,112 @@ sms-task-empty = 未配置短信发送任务
 sms-status-task-empty = 未配置短信状态检测任务
 sms-hw-config-url-error=华为接口短信发送地址配置异常
 sms-config-branch-error  = 批量发送数量不能超过:{$max}
+
+
+
+
+# 状态
+status-SenderType-Smser=  短信
+status-SenderType-Mailer= 邮件
+
+
+
+
+# 状态
+status-SenderLogType-Init=   新增完成
+status-SenderLogType-Send=   发送日志
+status-SenderLogType-Cancel= 取消发送
+
+
+
+
+
+status-SenderLogStatus-Succ= 成功
+status-SenderLogStatus-Fail= 失败
+
+status-SenderLogStatus-MessageCancel= 取消
+status-SenderLogStatus-NotifySucc=    回调成功
+status-SenderLogStatus-NotifyFail=    回调失败
+
+
+
+
+status-SenderConfigStatus-Enable= 正常
+status-SenderConfigStatus-Delete=删除
+
+
+
+
+
+status-SenderTplBodyStatus-Enable= 正常
+status-SenderTplBodyStatus-Delete=删除
+
+
+
+
+
+status-SenderTplConfigStatus-Enable= 正常
+status-SenderTplConfigStatus-Delete=删除
+
+
+
+status-SenderSmsConfigType-Close=      关闭功能
+status-SenderSmsConfigType-Limit=     频率限制
+status-SenderSmsConfigType-MaxOfSend= 每次最大发送数量
+status-SenderSmsConfigType-PassTpl=   指定模板不检测限制
+status-SenderSmsConfigType-Block = 10,    指定号码屏蔽
+
+
+
+
+
+
+status-SenderSmsBodyStatus-Init=   待发送
+status-SenderSmsBodyStatus-Finish= 已发送
+
+
+
+
+
+status-SenderSmsMessageStatus-Init=       待发送
+status-SenderSmsMessageStatus-IsSend=     已发送
+status-SenderSmsMessageStatus-IsReceived= 已接收
+status-SenderSmsMessageStatus-SendFail=   发送失败
+status-SenderSmsMessageStatus-IsCancel=   已取消
+
+
+
+
+status-SenderSmsAliyunStatus-Enable=启用
+status-SenderSmsAliyunStatus-Delete=删除
+
+
+
+
+status-SenderMailConfigType-Close=        关闭功能
+status-SenderMailConfigType-Limit=        频率限制
+status-SenderMailConfigType-MaxOfSend=    每次最大发送数量
+status-SenderMailConfigType-PassTpl=      指定模板不检测限制
+status-SenderMailConfigType-Block =       指定邮箱屏蔽
+status-SenderMailConfigType-BlockDomain = 指定邮箱屏蔽
+
+
+
+
+status-SenderMailBodyStatus-Init=   待发送
+status-SenderMailBodyStatus-Finish= 已发送
+
+
+
+
+status-SenderMailMessageStatus-Init=       待发送
+status-SenderMailMessageStatus-IsSend=     已发送
+status-SenderMailMessageStatus-IsReceived= 已接收
+status-SenderMailMessageStatus-SendFail=   发送失败
+status-SenderMailMessageStatus-IsCancel=   已取消
+
+
+
+
+status-SenderMailSmtpStatus-Enable=启用
+status-SenderMailSmtpStatus-Delete=删除

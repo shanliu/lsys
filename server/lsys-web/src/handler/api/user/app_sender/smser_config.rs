@@ -4,8 +4,8 @@ use crate::dao::access::api::user::CheckUserAppSenderSmsConfig;
 use lsys_access::dao::AccessSession;
 use lsys_app::dao::UserAppDataParam;
 use lsys_app::model::AppStatus;
-use lsys_app_notify::dao::NotifyData;
-use lsys_app_sender::{dao::NotifySmsItem, model::SenderSmsConfigType};
+use lsys_app_sender::dao::SMS_NOTIFY_TYPE;
+use lsys_app_sender::model::SenderSmsConfigType;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -196,12 +196,13 @@ pub async fn smser_notify_get_config(req_dao: &UserAuthQueryDao) -> JsonResult<J
         .await?;
     let notify = req_dao
         .web_dao
+        .web_app
+        .app_dao
         .app_notify
-        .notify_dao
         .record
         .find_config_by_apps(
             &apps.iter().map(|e| e.0.id).collect::<Vec<_>>(),
-            &NotifySmsItem::method(),
+            SMS_NOTIFY_TYPE,
         )
         .await?;
     let data = apps
@@ -253,12 +254,13 @@ pub async fn smser_notify_set_config(
 
     req_dao
         .web_dao
+        .web_app
+        .app_dao
         .app_notify
-        .notify_dao
         .record
         .set_app_config(
             &app,
-            &NotifySmsItem::method(),
+            SMS_NOTIFY_TYPE,
             &param.url,
             auth_data.user_id(),
             Some(&req_dao.req_env),

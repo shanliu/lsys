@@ -86,3 +86,11 @@ pub enum AppSecretStatus {
     Enable = 1,  //正常
     Delete = -1, //删除
 }
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[lsys_model_status(field_type = "i8")]
+pub enum AppNotifyDataStatus {
+    Init = 1,
+    Succ = 2,
+    Fail = 3,
+}

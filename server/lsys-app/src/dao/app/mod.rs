@@ -2,12 +2,14 @@ mod cache;
 mod data;
 mod feature;
 mod request;
-use lsys_core::{fluent_message, now_time, rand_str, RequestEnv};
+mod sub_app;
+use lsys_core::{fluent_message, now_time, rand_str, RequestEnv, TimeOutTaskNotify};
 
 pub use data::*;
 use lsys_core::db::{Insert, ModelTableName, Update};
 use lsys_core::{model_option_set, sql_format};
 pub use request::*;
+pub use sub_app::*;
 
 use std::sync::Arc;
 
@@ -33,7 +35,9 @@ pub struct App {
     pub(crate) client_id_cache: Arc<LocalCache<String, Option<u64>>>, //client_id,appid
     pub(crate) feature_cache: Arc<LocalCache<u64, Vec<(String, bool)>>>, //appid,vec<(feature_key,exists)>
     logger: Arc<ChangeLoggerDao>,
-    pub(crate) app_secret: Arc<AppSecret>,
+    sub_app_change_notify: Arc<SubAppChangeNotify>,
+    sub_app_timeout_notify: Arc<TimeOutTaskNotify>,
+    app_secret: Arc<AppSecret>,
 }
 
 impl App {
@@ -43,6 +47,8 @@ impl App {
         config: LocalCacheConfig,
         logger: Arc<ChangeLoggerDao>,
         app_secret: Arc<AppSecret>,
+        sub_app_change_notify: Arc<SubAppChangeNotify>,
+        sub_app_timeout_notify: Arc<TimeOutTaskNotify>,
     ) -> Self {
         Self {
             db,
@@ -51,6 +57,8 @@ impl App {
             feature_cache: Arc::new(LocalCache::new(remote_notify.clone(), config)),
             logger,
             app_secret,
+            sub_app_change_notify,
+            sub_app_timeout_notify,
         }
     }
 }
@@ -173,7 +181,7 @@ impl App {
             Ok(mr) => mr.last_insert_id(),
         };
 
-        let secret_data = rand_str(lsys_core::RandType::LowerHex, 64);
+        let secret_data = rand_str(lsys_core::RandType::LowerHex, 32);
         if let Err(e) = self
             .app_secret
             .single_set(
@@ -187,10 +195,10 @@ impl App {
             .await
         {
             db.rollback().await?;
-            return Err(e.into());
+            return Err(e);
         };
 
-        let secret_data = rand_str(lsys_core::RandType::LowerHex, 64);
+        let secret_data = rand_str(lsys_core::RandType::LowerHex, 32);
         if let Err(e) = self
             .app_secret
             .multiple_add(
@@ -204,7 +212,7 @@ impl App {
             .await
         {
             db.rollback().await?;
-            return Err(e.into());
+            return Err(e);
         };
 
         let req_status = AppRequestStatus::Pending as i8;
@@ -708,7 +716,7 @@ impl App {
             .await
         {
             db.rollback().await?;
-            return Err(e.into());
+            return Err(e);
         };
 
         db.commit().await?;
@@ -860,6 +868,12 @@ impl App {
                 env_data,
             )
             .await;
+        self.sub_app_change_notify
+            .add_app_secret_change_notify(app)
+            .await;
+        if time_out > 0 {
+            self.sub_app_timeout_notify.notify_timeout(time_out).await?;
+        }
         Ok(client_secret)
     }
     //重设secret
@@ -902,6 +916,12 @@ impl App {
                 env_data,
             )
             .await;
+        self.sub_app_change_notify
+            .add_app_secret_change_notify(app)
+            .await;
+        if time_out > 0 {
+            self.sub_app_timeout_notify.notify_timeout(time_out).await?;
+        }
         Ok(client_secret)
     }
     //删除secret
@@ -938,6 +958,9 @@ impl App {
                 None,
                 env_data,
             )
+            .await;
+        self.sub_app_change_notify
+            .add_app_secret_change_notify(app)
             .await;
         Ok(())
     }

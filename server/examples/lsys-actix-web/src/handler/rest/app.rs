@@ -12,7 +12,7 @@ pub(crate) async fn app(rest: RestQuery) -> ResponseJsonResult<ResponseJson> {
             let param = rest.param::<SubAppViewParam>()?;
             subapp_view(&param, &rest.get_app().await?, &rest).await
         }
-        "oauth" => {
+        "oauth_secret" => {
             let param = rest.param::<SubAppOAuthSecretParam>()?;
             subapp_oauth_secret(&param, &rest.get_app().await?, &rest).await
         }

@@ -32,7 +32,7 @@ impl App {
                 bad.push(ot);
             }
         }
-        if bad.is_empty() {
+        if !bad.is_empty() {
             return Err(AppError::AppBadFeature(app.name.clone(), bad));
         }
         Ok(())

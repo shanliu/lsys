@@ -8,15 +8,15 @@ use lsys_web::handler::api::user::app::{
     oauth_client_set_domain, oauth_secret_add, oauth_secret_change, oauth_secret_del,
     oauth_server_client_confirm, oauth_server_client_scope_confirm, oauth_server_request,
     oauth_server_setting, parent_list_data, request_exter_feature,
-    request_inner_feature_exter_login_request, request_inner_feature_sub_app_request, request_list,
-    secret_view, sub_app_secret_view, sub_request_list, AddAppSecretParam, AddOAuthSecretParam,
-    AddParam, ChangeAppSecretParam, ChangeNotifySecretParam, ChangeOAuthSecretParam, ChangeParam,
-    ConfirmExterFeatureParam, ConfirmOAuthClientParam, ConfirmOAuthClientScopeParam,
-    ConfirmOAuthClientSetDomainParam, ConfirmOAuthServerSettingParam, ConfirmParam,
-    DelAppSecretParam, DelOAuthSecretParam, DeleteParam, OAuthClientRequestParam,
-    OAuthServerRequestData, RequestExterFeatureParam, RequestExterLoginFeatureData,
-    RequestExterSubAppData, RequestListParam, SecretViewSecretParam, SubRequestListParam,
-    UserAppListParam, UserParentAppListParam,
+    request_inner_feature_exter_login_request, request_list, secret_view,
+    sub_app_notify_get_config, sub_app_notify_set_config, sub_app_request, sub_app_secret_view,
+    sub_request_list, AddAppSecretParam, AddOAuthSecretParam, AddParam, ChangeAppSecretParam,
+    ChangeNotifySecretParam, ChangeOAuthSecretParam, ChangeParam, ConfirmExterFeatureParam,
+    ConfirmOAuthClientParam, ConfirmOAuthClientScopeParam, ConfirmOAuthClientSetDomainParam,
+    ConfirmOAuthServerSettingParam, ConfirmParam, DelAppSecretParam, DelOAuthSecretParam,
+    DeleteParam, OAuthClientRequestParam, OAuthServerRequestParam, RequestExterFeatureParam,
+    RequestExterLoginFeatureData, RequestExterSubAppParam, RequestListParam, SecretViewSecretParam,
+    SubAppNotifyConfigParam, SubRequestListParam, UserAppListParam, UserParentAppListParam,
 };
 #[post("/{method}")]
 pub(crate) async fn base(
@@ -70,13 +70,15 @@ pub(crate) async fn base(
             )
             .await
         }
-        "request_inner_feature_sub_app_request" => {
-            request_inner_feature_sub_app_request(
-                &json_param.param::<RequestExterSubAppData>()?,
-                &auth_dao,
-            )
-            .await
+        "sub_app_request" => {
+            sub_app_request(&json_param.param::<RequestExterSubAppParam>()?, &auth_dao).await
         }
+        "sub_app_notify_get_config" => sub_app_notify_get_config(&auth_dao).await,
+        "sub_app_notify_set_config" => {
+            sub_app_notify_set_config(&json_param.param::<SubAppNotifyConfigParam>()?, &auth_dao)
+                .await
+        }
+
         "oauth_client_request" => {
             oauth_client_request(&json_param.param::<OAuthClientRequestParam>()?, &auth_dao).await
         }
@@ -112,7 +114,7 @@ pub(crate) async fn base(
             .await
         }
         "oauth_server_request" => {
-            oauth_server_request(&json_param.param::<OAuthServerRequestData>()?, &auth_dao).await
+            oauth_server_request(&json_param.param::<OAuthServerRequestParam>()?, &auth_dao).await
         }
         "oauth_server_setting" => {
             oauth_server_setting(

@@ -1,5 +1,7 @@
+// 基于REDIS,实现多节点并行执行不同任务
+// 使用示例
+// 短信,邮件的从数据库中获取待发送记录,由多个主机同时进行非重复的批量发送
 use async_trait::async_trait;
-
 use redis::aio::MultiplexedConnection;
 use redis::{
     AsyncCommands, ErrorKind, FromRedisValue, RedisError, RedisResult, ToRedisArgs, Value,
@@ -21,15 +23,14 @@ use tracing::{debug, error, info, warn};
 
 use crate::{now_time, AppCore, IntoFluentMessage};
 
-//最外层的发送任务派发封装
-//不包含具体的发送逻辑
+//最外层的任务派发封装
 
 //任务相关数据
 #[derive(Serialize, Deserialize, Clone)]
 pub struct TaskData {
-    //执行发送任务的HOST
+    //执行任务的HOST
     pub host: String,
-    //执行发送任务时间
+    //开始执行任务时间
     pub time: u64,
 }
 impl FromRedisValue for TaskData {
@@ -85,8 +86,8 @@ pub trait TaskItem<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + D
     }
 }
 
-// 发送执行
-// 具体的发送接口实现该特征
+// 任务执行
+// 具体的任务接口实现该特征
 #[async_trait]
 pub trait TaskExecutor<
     I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display,
@@ -101,9 +102,9 @@ pub struct TaskRecord<
     I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display,
     T: TaskItem<I>,
 > {
-    // 任务数据,传入 TaskExecutor 中完成具体发送任务
+    // 任务数据,传入 TaskExecutor 中完成具体任务
     pub result: Vec<T>,
-    // 是否有下一页任务,返回TRUE将继续下一次获取发送任务
+    // 是否有下一页任务,返回TRUE将继续下一次获取任务
     pub next: bool,
     marker_i: PhantomData<I>,
 }
@@ -120,29 +121,30 @@ impl<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display, T: Tas
     }
 }
 
-// 发送任务获取约束
+// 执行任务获取接口
 #[async_trait]
 pub trait TaskAcquisition<
     I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display,
     T: TaskItem<I>,
 >
 {
-    // @var tasking_record 为当前正在发送中的任务ID,时间,及所在HOST
-    // @var limit 返回的最大发送任务量
-    // @return 需发送的任务结果集
-    async fn read_send_task(
+    // @var tasking_record 为当前正在执行中的任务ID,时间,及所在HOST
+    // @var limit 返回的最大执行任务量
+    // @return 需要待执行任务列表
+    async fn read_exec_task(
         &self,
         tasking_record: &HashMap<I, TaskData>,
         limit: usize,
     ) -> Result<TaskRecord<I, T>, String>;
 }
 
+/// 任务派发配置
 /// * `list_notify` - 任务触发监听的REDIS KEY
 /// * `read_lock_key` - 任务读取锁定Redis KEY
 /// * `task_list_key` - 存放执行中任务的REDIS key
-/// * `task_size` - 同时发送任务数量,默认等于CPU数量2倍
+/// * `task_size` - 同时任务任务数量,默认等于CPU数量2倍
 /// * `task_timeout` - 任务最大执行时间
-/// * `is_check` - 是否定时检测遗漏发送任务
+/// * `is_check` - 是否定时检测遗漏执行任务
 /// * `check_timeout` - 当使用任务检测时的时间间隔，大于等于任务最大执行时间
 pub struct TaskDispatchConfig<'t> {
     pub list_notify: &'t str,
@@ -154,7 +156,7 @@ pub struct TaskDispatchConfig<'t> {
     pub check_timeout: usize,
 }
 
-// 发送任务抽象实现
+// 任务派发执行抽象实现
 pub struct TaskDispatch<
     I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display + Clone,
     T: TaskItem<I>,
@@ -167,9 +169,9 @@ pub struct TaskDispatch<
     read_lock_timeout: usize,
     //存放执行中任务的REDIS key
     task_list_key: String,
-    //是否定时检测遗漏发送任务
+    //是否定时检测遗漏执行任务
     pub is_check: bool,
-    //定时检测遗漏发送任务时间
+    //定时检测遗漏执行任务时间
     pub check_timeout: usize,
     //任务最大执行时间,超过此时间在被再次执行
     pub task_timeout: usize,
@@ -220,13 +222,13 @@ impl<
         T: TaskItem<I> + 'static, // 实在不想细细折腾，直接 'static ，毕竟T也没打算带用带引用
     > TaskDispatch<I, T>
 {
-    /// 通知发送模块进行发送操作
-    /// * `redis` - 存放发送任务的RDIS
+    /// 通知执行模块进行任务执行操作
+    /// * `redis` - 存放任务的RDIS
     pub async fn notify(&self, redis: &mut MultiplexedConnection) -> Result<(), RedisError> {
         redis.lpush(&self.list_notify, 1).await
     }
-    /// 获得发送中任务信息
-    /// * `redis` - 存放发送任务的RDIS
+    /// 获得执行中任务信息
+    /// * `redis` - 存放执行任务的RDIS
     pub async fn task_data(
         &self,
         redis: &mut MultiplexedConnection,
@@ -249,7 +251,7 @@ impl<
         *run_size -= 1;
         let pk = v.to_task_pk();
         debug!("add async task start [{}]:{}", task_list_key, pk);
-        //并行发送任务
+        //并行执行任务
         let abort = task_set.spawn(async move {
             let pk = v.to_task_pk();
             debug!("async task start [{}]:{}", task_list_key, pk);
@@ -261,10 +263,10 @@ impl<
         debug!("add async task end :{}", pk);
         task_ing.push((pk, abort));
     }
-    /// 获得发送中任务信息
+    /// 获得执行中任务信息
     /// * `app_core` - 公共APP句柄,用于创建REDIS
     /// * `task_reader` - 任务读取实现
-    /// * `task_executor` - 任务发送实现
+    /// * `task_executor` - 任务执行实现
     pub async fn dispatch<R: TaskAcquisition<I, T>, E: TaskExecutor<I, T> + 'static>(
         &self,
         app_core: Arc<AppCore>,
@@ -291,10 +293,10 @@ impl<
         let task_redis_client = redis_client.clone();
         let max_size = self.task_size;
         debug!(
-            "Concurrent send max[{}]:{} task",
+            "Concurrent exec max[{}]:{} task",
             task_list_key, self.task_size
         );
-        //从channel 中拿数据并发送
+        //从channel 中拿数据并执行
         tokio::spawn(async move {
             //连接REDIS
             let conn = loop {
@@ -313,7 +315,7 @@ impl<
             let mut task_ing = vec![]; //任务数据跟任务处理关联数组
 
             'task_main: loop {
-                debug!("start send task:{}", task_list_key);
+                debug!("start exec task:{}", task_list_key);
 
                 //从channel 获取任务,不阻塞
                 task_empty = match channel_receiver.try_recv() {
@@ -341,7 +343,7 @@ impl<
                         }
                     }
                 };
-                //未获取到任务,且还有闲置发送
+                //未获取到任务,且还有闲置 执行任务的task
                 if task_empty && run_size > 0 {
                     //查找已完成任务列表
                     let mut finsih_pk = Vec::with_capacity(max_size);
@@ -610,7 +612,7 @@ impl<
                         filter_data.len()
                     );
                     let task_data = match task_reader
-                        .read_send_task(&filter_data, self.read_size)
+                        .read_exec_task(&filter_data, self.read_size)
                         .await
                     {
                         Ok(data) => data,
@@ -647,7 +649,7 @@ impl<
                         let i = r.to_task_pk();
                         let v = r.to_task_data();
                         match redis.hset(&self.task_list_key, &i, v.clone()).await {
-                            //必须添加成功到发送中才进行发送
+                            //必须添加成功到任务列表中才进行执行
                             Ok(()) => add_task.push(r),
                             Err(err) => {
                                 warn!("set run task:{} error[{}]:{}", self.task_list_key, i, err);
@@ -661,7 +663,7 @@ impl<
                             warn!("notify next task:{} fail:{}", self.task_list_key, err);
                         }
                     }
-                    //把数据添加到发送channel
+                    //把数据添加到任务的channel
                     for tmp in add_task {
                         let pk = tmp.to_task_pk();
                         if let Err(err) = channel_sender.send(tmp).await {
@@ -679,10 +681,10 @@ impl<
                                 }
                             };
                         } else {
-                            debug!("send task:{} add:{}", self.task_list_key, pk);
+                            debug!("exec task:{} add:{}", self.task_list_key, pk);
                         }
                     }
-                    debug!("listen next send task :{}", self.task_list_key);
+                    debug!("listen next exec task :{}", self.task_list_key);
                 }
                 Err(err) => {
                     warn!(
