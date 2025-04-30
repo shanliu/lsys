@@ -1,8 +1,8 @@
+use crate::common::JsonData;
 use crate::{
     common::{JsonResponse, JsonResult, UserAuthQueryDao},
     dao::access::api::user::CheckUserAppSenderMailConfig,
 };
-use crate::common::JsonData;
 use lsys_access::dao::AccessSession;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -10,6 +10,7 @@ use serde_json::{json, Value};
 use super::mailer_inner_access_check;
 #[derive(Debug, Deserialize)]
 pub struct MailerSmtpConfigListParam {
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_u64")]
     pub ids: Option<Vec<u64>>,
 }
 
@@ -55,7 +56,9 @@ pub async fn mailer_smtp_config_list(
 
 #[derive(Debug, Deserialize)]
 pub struct MailerSmtpConfigAddParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub smtp_config_id: u64,
     pub name: String,
     pub tpl_id: String,

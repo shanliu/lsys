@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 #[derive(Debug, Deserialize)]
 pub struct ExternalDeleteParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub ext_id: u64,
 }
 pub async fn external_delete(

@@ -4,6 +4,7 @@ use lsys_core::{FluentBundle, FluentMessage};
 
 use super::{FluentFormat, JsonData, JsonResponse};
 
+//直接用 'static 不能加‘t,声明周期往上层扩散非常难处理
 pub trait JsonFluent: FluentFormat + 'static {
     fn to_json_data(&self, fluent: &FluentBundle) -> JsonData;
 }

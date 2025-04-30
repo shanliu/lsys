@@ -1,28 +1,15 @@
 use crate::common::{JsonResponse, JsonResult, UserAuthQueryDao};
 use crate::dao::access::api::user::CheckUserAppSenderSmsConfig;
 use lsys_access::dao::AccessSession;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::json;
 use serde_json::Value;
 #[derive(Debug, Deserialize)]
 pub struct SmserCloOpenConfigListParam {
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_u64")]
     pub ids: Option<Vec<u64>>,
 }
 use crate::common::JsonData;
-#[derive(Serialize)]
-pub struct ShowCloOpenConfig {
-    pub id: u64,
-    pub name: String,
-    pub account_sid: String,
-    pub hide_account_sid: String,
-    pub account_token: String,
-    pub change_user_id: u64,
-    pub change_time: u64,
-    pub callback_url: String,
-    pub callback_key: String,
-    pub sms_app_id: String,
-    pub limit: u16,
-}
 
 pub async fn smser_cloopen_config_list(
     param: &SmserCloOpenConfigListParam,
@@ -65,7 +52,9 @@ pub async fn smser_cloopen_config_list(
 
 #[derive(Debug, Deserialize)]
 pub struct SmserAppCloopenConfigAddParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub config_id: u64,
     pub name: String,
     pub tpl_id: String,

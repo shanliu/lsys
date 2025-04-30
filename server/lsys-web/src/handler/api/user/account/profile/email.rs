@@ -69,6 +69,7 @@ pub async fn email_send_code(
 }
 #[derive(Debug, Deserialize)]
 pub struct EmailConfirmParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub email_id: u64,
     pub code: String,
 }
@@ -103,6 +104,7 @@ pub async fn email_confirm(
 }
 #[derive(Debug, Deserialize)]
 pub struct EmailDeleteParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub email_id: u64,
 }
 pub async fn email_delete(
@@ -147,6 +149,7 @@ pub async fn email_delete(
 }
 #[derive(Debug, Deserialize)]
 pub struct EmailListDataParam {
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_i8")]
     pub status: Option<Vec<i8>>,
 }
 pub async fn email_list_data(

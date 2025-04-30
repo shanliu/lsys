@@ -2,7 +2,7 @@
 
 use deadpool_redis::PoolError;
 
-use lsys_core::{fluent_message, FluentMessage, IntoFluentMessage};
+use lsys_core::{fluent_message, FluentMessage, IntoFluentMessage, ValidError};
 
 use redis::RedisError;
 
@@ -18,6 +18,7 @@ pub enum AccessError {
     System(FluentMessage),
     SerdeJson(serde_json::Error),
     BadAccount(FluentMessage),
+    Vaild(ValidError),
 }
 
 // impl AccessError {
@@ -37,15 +38,20 @@ impl IntoFluentMessage for AccessError {
             AccessError::System(err) => err.to_owned(),
             AccessError::BadAccount(err) => err.to_owned(),
             AccessError::SerdeJson(err) => fluent_message!("serde-json-error", err),
+            AccessError::Vaild(e) => e.to_fluent_message(),
         }
     }
 }
 
 pub type AccessResult<T> = Result<T, AccessError>;
-
 impl From<sqlx::Error> for AccessError {
     fn from(err: sqlx::Error) -> Self {
         AccessError::Sqlx(err)
+    }
+}
+impl From<ValidError> for AccessError {
+    fn from(err: ValidError) -> Self {
+        AccessError::Vaild(err)
     }
 }
 impl From<SystemTimeError> for AccessError {

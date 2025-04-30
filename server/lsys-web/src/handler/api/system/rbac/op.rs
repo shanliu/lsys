@@ -48,6 +48,7 @@ pub async fn op_add(param: &OpAddParam, req_dao: &UserAuthQueryDao) -> JsonResul
 
 #[derive(Debug, Deserialize)]
 pub struct OpEditParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub op_id: u64,
     pub op_key: String,
     pub op_name: String,
@@ -94,6 +95,7 @@ pub async fn op_edit(param: &OpEditParam, req_dao: &UserAuthQueryDao) -> JsonRes
 
 #[derive(Debug, Deserialize)]
 pub struct OpDelParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub op_id: u64,
 }
 
@@ -127,8 +129,10 @@ pub async fn op_del(param: &OpDelParam, req_dao: &UserAuthQueryDao) -> JsonResul
 pub struct OpDataParam {
     pub op_name: Option<String>,
     pub op_key: Option<String>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_u64")]
     pub ids: Option<Vec<u64>>,
     pub page: Option<PageParam>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
 }
 

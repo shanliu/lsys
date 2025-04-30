@@ -2,8 +2,7 @@ use std::collections::HashMap;
 
 use lsys_app::model::AppModel;
 use lsys_app_sender::dao::SenderError;
-use lsys_core::RequestEnv;
-use lsys_user::dao::check_mobile;
+use lsys_core::{RequestEnv, ValidMobile, ValidParam, ValidParamCheck};
 use serde_json::json;
 
 use crate::common::JsonResult;
@@ -24,15 +23,21 @@ impl SenderSmser {
         max_try_num: Option<u8>,
         env_data: Option<&RequestEnv>,
     ) -> JsonResult<Vec<(u64, &'t str)>> {
-        let mb = mobile.iter().map(|e| (area, *e)).collect::<Vec<_>>();
-        for tmp in mb.iter() {
-            check_mobile(tmp.0, tmp.1)?;
+        let mut valid_param = ValidParam::default();
+        for tmp in mobile.iter() {
+            valid_param = valid_param.add(
+                "to_mobile",
+                &format!("{}{}", area, tmp),
+                &ValidParamCheck::default().add_rule(ValidMobile::default()),
+            )
         }
+        valid_param.check()?;
+
         let out = self
             .smser_dao
             .send(
                 Some(app.id),
-                &mb,
+                &mobile.iter().map(|e| (area, *e)).collect::<Vec<_>>(),
                 tpl_type,
                 &json!(body).to_string(),
                 send_time,

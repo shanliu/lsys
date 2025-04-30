@@ -7,6 +7,7 @@ use serde_json::json;
 use serde_json::Value;
 #[derive(Debug, Deserialize)]
 pub struct SmserTenConfigListParam {
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_u64")]
     pub ids: Option<Vec<u64>>,
 }
 
@@ -51,7 +52,9 @@ pub async fn smser_ten_config_list(
 
 #[derive(Debug, Deserialize)]
 pub struct SmserAppTenConfigAddParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub config_id: u64,
     pub name: String,
     pub tpl_id: String,

@@ -1,9 +1,9 @@
-use lsys_core::{fluent_message, FluentMessage, IntoFluentMessage};
+use lsys_core::{fluent_message, FluentMessage, IntoFluentMessage, ValidError};
 #[derive(Debug)]
 pub enum SettingError {
     Sqlx(sqlx::Error),
     SerdeJson(serde_json::Error),
-    // System(FluentMessage),
+    Vaild(ValidError),
 }
 
 impl IntoFluentMessage for SettingError {
@@ -11,6 +11,7 @@ impl IntoFluentMessage for SettingError {
         match self {
             Self::Sqlx(err) => fluent_message!("sqlx-error", err),
             Self::SerdeJson(err) => fluent_message!("serde-json-error", err),
+            Self::Vaild(e) => e.to_fluent_message(),
         }
     }
 }
@@ -20,7 +21,11 @@ impl From<sqlx::Error> for SettingError {
         SettingError::Sqlx(err)
     }
 }
-
+impl From<ValidError> for SettingError {
+    fn from(err: ValidError) -> Self {
+        SettingError::Vaild(err)
+    }
+}
 pub type SettingResult<T> = Result<T, SettingError>;
 
 pub trait NotFoundResult {

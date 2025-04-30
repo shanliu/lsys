@@ -10,6 +10,7 @@ pub struct ResTypeListParam {
     pub user_param: Option<String>,
     pub res_type: Option<String>,
     pub page: Option<PageParam>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
 }
 
@@ -62,6 +63,7 @@ pub async fn res_type_data(
 pub struct ResTypeAddOpParam {
     pub user_param: Option<String>,
     pub res_type: String,
+    #[serde(deserialize_with = "crate::common::deserialize_vec_u64")]
     pub op_ids: Vec<u64>,
 }
 
@@ -111,6 +113,7 @@ pub async fn res_type_op_add(
 pub struct ResDelOpParam {
     pub user_param: Option<String>,
     pub res_type: String,
+    #[serde(deserialize_with = "crate::common::deserialize_vec_u64")]
     pub op_ids: Vec<u64>,
 }
 
@@ -147,6 +150,7 @@ pub struct ResTypeOpListParam {
     pub user_param: Option<String>,
     pub res_type: String,
     pub page: Option<PageParam>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
 }
 

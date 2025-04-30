@@ -1,6 +1,7 @@
 #[derive(Debug, Clone)]
 pub enum FluentData {
     Message(FluentMessage),
+    MessageVec(Vec<FluentMessage>),
     String(String),
 }
 impl From<FluentMessage> for FluentData {
@@ -8,7 +9,7 @@ impl From<FluentMessage> for FluentData {
         FluentData::Message(value)
     }
 }
-impl<T: ToString> From<T> for FluentData {
+impl<T: std::fmt::Display> From<T> for FluentData {
     fn from(value: T) -> Self {
         FluentData::String(value.to_string())
     }
@@ -35,6 +36,11 @@ impl FluentMessage {
                         e.0,
                         match &e.1 {
                             FluentData::Message(e1) => e1.default_format(),
+                            FluentData::MessageVec(e1) => e1
+                                .iter()
+                                .map(|e2| e2.default_format())
+                                .collect::<Vec<_>>()
+                                .join(","),
                             FluentData::String(e1) => e1.to_owned(),
                         }
                     )

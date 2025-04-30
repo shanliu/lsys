@@ -11,6 +11,7 @@ pub struct LoginHistoryParam {
     pub login_type: Option<String>,
     pub login_account: Option<String>,
     pub login_ip: Option<String>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
     pub is_login: Option<i8>,
     pub limit: Option<LimitParam>,
 }

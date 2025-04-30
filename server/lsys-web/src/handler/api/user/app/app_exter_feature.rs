@@ -9,6 +9,7 @@ use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct RequestExterFeatureParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
     pub featuer_data: Vec<String>,
 }
@@ -91,7 +92,9 @@ pub async fn request_exter_feature(
 
 #[derive(Deserialize)]
 pub struct ConfirmExterFeatureParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_req_id: u64,
+    #[serde(deserialize_with = "crate::common::deserialize_i8")]
     pub confirm_status: i8,
     pub confirm_note: String,
 }

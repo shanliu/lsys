@@ -4,6 +4,7 @@
 use lsys_core::fluent_message;
 use lsys_core::FluentMessage;
 use lsys_core::IntoFluentMessage;
+use lsys_core::ValidError;
 
 #[derive(Debug)]
 pub enum GitDocError {
@@ -11,6 +12,7 @@ pub enum GitDocError {
     Git(git2::Error),
     System(FluentMessage),
     Remote(FluentMessage),
+    Vaild(ValidError),
 }
 
 impl IntoFluentMessage for GitDocError {
@@ -20,10 +22,15 @@ impl IntoFluentMessage for GitDocError {
             GitDocError::Git(e) => fluent_message!("doc-git-error", e),
             GitDocError::System(e) => e.to_owned(),
             GitDocError::Remote(e) => e.to_owned(),
+            GitDocError::Vaild(e) => e.to_fluent_message(),
         }
     }
 }
-
+impl From<ValidError> for GitDocError {
+    fn from(err: ValidError) -> Self {
+        GitDocError::Vaild(err)
+    }
+}
 impl From<git2::Error> for GitDocError {
     fn from(err: git2::Error) -> Self {
         GitDocError::Git(err)

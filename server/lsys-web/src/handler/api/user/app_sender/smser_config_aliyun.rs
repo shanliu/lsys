@@ -2,27 +2,13 @@ use crate::common::JsonData;
 use crate::common::{JsonResponse, JsonResult, UserAuthQueryDao};
 use crate::dao::access::api::user::CheckUserAppSenderSmsConfig;
 use lsys_access::dao::AccessSession;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::json;
 use serde_json::Value;
 #[derive(Debug, Deserialize)]
 pub struct SmserAliConfigListParam {
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_u64")]
     pub ids: Option<Vec<u64>>,
-}
-
-#[derive(Serialize)]
-pub struct ShowAliYunConfig {
-    pub id: u64,
-    pub name: String,
-    pub region: String,
-    pub access_id: String,
-    pub hide_access_id: String,
-    pub access_secret: String,
-    pub change_user_id: u64,
-    pub change_time: u64,
-    pub limit: u16,
-    pub callback_url: String,
-    pub callback_key: String,
 }
 
 pub async fn smser_ali_config_list(
@@ -68,7 +54,9 @@ pub async fn smser_ali_config_list(
 
 #[derive(Debug, Deserialize)]
 pub struct SmserAppAliConfigAddParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub ali_config_id: u64,
     pub name: String,
     pub tpl_id: String,

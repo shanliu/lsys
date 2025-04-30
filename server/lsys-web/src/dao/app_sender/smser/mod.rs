@@ -1,4 +1,5 @@
 mod app;
+
 use lsys_access::dao::SessionBody;
 use lsys_app::dao::AppNotify;
 use lsys_app_sender::{
@@ -11,10 +12,9 @@ use lsys_app_sender::{
     },
     model::{SenderSmsBodyModel, SenderSmsMessageModel},
 };
-use lsys_core::{fluent_message, AppCore, RequestEnv};
+use lsys_core::{fluent_message, AppCore, RequestEnv, ValidMobile, ValidParam, ValidParamCheck};
 use lsys_logger::dao::ChangeLoggerDao;
 use lsys_setting::dao::SettingDao;
-use lsys_user::dao::check_mobile;
 use serde_json::json;
 use sqlx::{MySql, Pool};
 use std::{collections::HashMap, sync::Arc};
@@ -138,7 +138,13 @@ impl SenderSmser {
         max_try_num: Option<u8>,
         env_data: Option<&RequestEnv>,
     ) -> JsonResult<u64> {
-        check_mobile(area, mobile)?;
+        ValidParam::default()
+            .add(
+                "to_mobile",
+                &format!("{}{}", area, mobile),
+                &ValidParamCheck::default().add_rule(ValidMobile::default()),
+            )
+            .check()?;
         let mut out = self
             .smser_dao
             .send(

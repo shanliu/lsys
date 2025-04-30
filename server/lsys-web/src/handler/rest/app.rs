@@ -9,6 +9,7 @@ use serde_json::json;
 #[derive(Debug, Deserialize)]
 pub struct SubAppViewParam {
     pub client_id: String,
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub user_data: bool,
 }
 

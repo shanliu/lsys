@@ -3,7 +3,10 @@ mod data;
 mod feature;
 mod request;
 mod sub_app;
-use lsys_core::{fluent_message, now_time, rand_str, RequestEnv, TimeOutTaskNotify};
+use lsys_core::{
+    clear_string, fluent_message, now_time, rand_str, RequestEnv, TimeOutTaskNotify, ValidParam,
+    ValidParamCheck, ValidPattern, ValidPatternRule, ValidStrlen, CLEAR_BASE, CLEAR_EMPTY,
+};
 
 pub use data::*;
 use lsys_core::db::{Insert, ModelTableName, Update};
@@ -27,7 +30,7 @@ use super::AppSecret;
 use super::{logger::AppLog, AppError, AppResult};
 use lsys_core::db::SqlQuote;
 use lsys_logger::dao::ChangeLoggerDao;
-use regex::Regex;
+// use regex::Regex;
 use sqlx::{MySql, Pool};
 pub struct App {
     db: Pool<MySql>,
@@ -746,27 +749,42 @@ impl App {
     }
 
     fn check_app_param(param: &AppDataParam<'_>) -> AppResult<(String, String)> {
-        let name = param.name.trim().to_string();
-        if name.len() < 3 || name.len() > 32 {
-            return Err(AppError::System(fluent_message!("app-name-wrong",{
-                "len": name.len(),
-                "min":2,
-                "max":31
-            })));
-        }
-        let client_id = param.client_id.trim().to_string();
-        if client_id.len() < 3 || client_id.len() > 32 {
-            return Err(AppError::System(fluent_message!("app-client-id-wrong",{
-                "len": client_id.len(),
-                "min":2,
-                "max":31
-            })));
-        }
-        let re = Regex::new(r"^[a-z0-9]+$")
-            .map_err(|e| AppError::System(fluent_message!("rule-error", e)))?;
-        if !re.is_match(&client_id) {
-            return Err(AppError::System(fluent_message!("auth-alpha-check-error")));
-        }
+        let name = clear_string(param.name, CLEAR_BASE);
+        let client_id = clear_string(param.client_id, CLEAR_EMPTY);
+        ValidParam::default()
+            .add(
+                "name",
+                &name,
+                &ValidParamCheck::default().add_rule(ValidStrlen::range(3, 24)),
+            )
+            .add(
+                "client_id",
+                &client_id,
+                &ValidParamCheck::default()
+                    .add_rule(ValidStrlen::range(3, 32))
+                    .add_rule(ValidPattern::new(ValidPatternRule::Ident)),
+            )
+            .check()?;
+        // if name.len() < 3 || name.len() > 32 {
+        //     return Err(AppError::System(fluent_message!("app-name-wrong",{
+        //         "len": name.len(),
+        //         "min":2,
+        //         "max":31
+        //     })));
+        // }
+        // let client_id = param.client_id.trim().to_string();
+        // if client_id.len() < 3 || client_id.len() > 32 {
+        //     return Err(AppError::System(fluent_message!("app-client-id-wrong",{
+        //         "len": client_id.len(),
+        //         "min":2,
+        //         "max":31
+        //     })));
+        // }
+        // let re = Regex::new(r"^[a-z0-9]+$")
+        //     .map_err(|e| AppError::System(fluent_message!("rule-error", e)))?;
+        // if !re.is_match(&client_id) {
+        //     return Err(AppError::System(fluent_message!("auth-alpha-check-error")));
+        // }
         Ok((name, client_id))
     }
 }
@@ -774,15 +792,24 @@ impl App {
     fn secret_check(&self, secret: Option<&str>) -> AppResult<String> {
         let client_secret = match secret {
             Some(sstr) => {
-                let secret = sstr.trim().to_string();
-                if secret.len() != 32 {
-                    return Err(AppError::System(fluent_message!("app-secret-wrong")));
-                }
-                let re = Regex::new(r"^[a-f0-9]+$")
-                    .map_err(|e| AppError::System(fluent_message!("rule-error", e)))?;
-                if !re.is_match(&secret) {
-                    return Err(AppError::System(fluent_message!("app-secret-wrong")));
-                }
+                let secret = clear_string(sstr, CLEAR_EMPTY);
+                ValidParam::default()
+                    .add(
+                        "secret",
+                        &secret,
+                        &ValidParamCheck::default()
+                            .add_rule(ValidStrlen::eq(32))
+                            .add_rule(ValidPattern::new(ValidPatternRule::Hex)),
+                    )
+                    .check()?;
+                // if secret.len() != 32 {
+                //     return Err(AppError::System(fluent_message!("app-secret-wrong")));
+                // }
+                // let re = Regex::new(r"^[a-f0-9]+$")
+                //     .map_err(|e| AppError::System(fluent_message!("rule-error", e)))?;
+                // if !re.is_match(&secret) {
+                //     return Err(AppError::System(fluent_message!("app-secret-wrong")));
+                // }
                 secret
             }
             None => rand_str(lsys_core::RandType::LowerHex, 32),

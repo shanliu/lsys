@@ -180,6 +180,11 @@ impl FluentBundle {
                         for (k, v) in &message.data {
                             let tmp = match v {
                                 crate::FluentData::Message(fmsg) => self.format_message(fmsg),
+                                crate::FluentData::MessageVec(fmsg) => fmsg
+                                    .iter()
+                                    .map(|msg| self.format_message(msg))
+                                    .collect::<Vec<_>>()
+                                    .join(";"),
                                 crate::FluentData::String(msg) => msg.to_owned(),
                             };
                             args.set(k, tmp);

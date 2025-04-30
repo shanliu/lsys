@@ -18,11 +18,14 @@ use serde::Serialize;
 use serde_json::json;
 #[derive(Debug, Deserialize)]
 pub struct AppRoleAddParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
     pub user_param: Option<String>,
     pub role_key: String,
     pub role_name: String,
+    #[serde(deserialize_with = "crate::common::deserialize_i8")]
     pub user_range: i8,
+    #[serde(deserialize_with = "crate::common::deserialize_i8")]
     pub res_range: i8,
 }
 
@@ -69,6 +72,7 @@ pub async fn app_role_add(
 }
 #[derive(Debug, Deserialize)]
 pub struct AppRoleEditParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub role_id: u64,
     pub role_key: String,
     pub role_name: String,
@@ -119,6 +123,7 @@ pub async fn app_role_edit(
 }
 #[derive(Debug, Deserialize)]
 pub struct AppRoleDelParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub res_id: u64,
 }
 
@@ -146,16 +151,22 @@ pub async fn app_role_del(
 }
 #[derive(Debug, Deserialize)]
 pub struct AppRoleDataParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
     pub user_param: Option<String>,
     pub role_key: Option<String>,
     pub role_name: Option<String>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_u64")]
     pub ids: Option<Vec<u64>>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
     pub user_range: Option<i8>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub user_count: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub user_data: Option<u64>,
     pub res_range: Option<i8>,
     pub page: Option<PageParam>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
 }
 

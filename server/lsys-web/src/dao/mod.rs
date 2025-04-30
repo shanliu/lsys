@@ -214,7 +214,7 @@ impl WebDao {
         let web_setting = Arc::new(WebSetting::new(setting_dao.clone(), db.clone()));
 
         // 本地lua缓存清理 local cache
-        let mut cache_item: Vec<Box<dyn LocalCacheClearItem + Sync + Send + 'static>> = vec![];
+        let mut cache_item: Vec<Box<dyn LocalCacheClearItem>> = vec![];
 
         for item in AccountLocalCacheClear::new_clears(&account_dao) {
             cache_item.push(Box::new(item))

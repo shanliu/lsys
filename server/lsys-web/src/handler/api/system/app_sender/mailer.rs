@@ -11,6 +11,7 @@ use serde_json::json;
 #[derive(Debug, Deserialize)]
 pub struct MailerMessageLogParam {
     pub message_id: String,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
     pub page: Option<PageParam>,
 }
@@ -103,10 +104,13 @@ pub async fn mailer_message_body(
 #[derive(Debug, Deserialize)]
 pub struct MailerMessageListParam {
     pub tpl_id: Option<String>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
     pub status: Option<i8>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub body_id: Option<u64>,
     pub snid: Option<String>,
     pub to_mail: Option<String>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
     pub limit: Option<LimitParam>,
 }

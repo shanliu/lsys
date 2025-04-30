@@ -9,6 +9,7 @@ use serde_json::json;
 #[derive(Deserialize)]
 pub struct OAuthClientRequestParam {
     pub scope_data: Vec<String>,
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
 }
 
@@ -118,6 +119,7 @@ pub async fn oauth_client_scope_request(
 
 #[derive(Deserialize)]
 pub struct ConfirmOAuthClientSetDomainParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
     pub callback_domain: String,
 }
@@ -171,8 +173,10 @@ pub async fn oauth_client_set_domain(
 
 #[derive(Deserialize)]
 pub struct AddOAuthSecretParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
     pub secret: Option<String>,
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub secret_timeout: u64,
 }
 
@@ -221,9 +225,11 @@ pub async fn oauth_secret_add(
 
 #[derive(Deserialize)]
 pub struct ChangeOAuthSecretParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
     pub old_secret: String,
     pub secret: Option<String>,
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub secret_timeout: u64,
 }
 
@@ -273,6 +279,7 @@ pub async fn oauth_secret_change(
 
 #[derive(Deserialize)]
 pub struct DelOAuthSecretParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
     pub old_secret: String,
 }

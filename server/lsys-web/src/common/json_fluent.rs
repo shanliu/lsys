@@ -1,6 +1,6 @@
 use lsys_access::dao::AccessError;
 use lsys_app_sender::dao::SenderError;
-use lsys_core::{AppCoreError, ConfigError, FluentBundle, ValidCodeError};
+use lsys_core::{AppCoreError, ConfigError, FluentBundle, ValidCodeError, ValidError};
 
 use lsys_logger::dao::LoggerError;
 use lsys_rbac::dao::RbacError;
@@ -35,6 +35,7 @@ impl JsonFluent for AccountError {
             AccountError::PasswordNotSet(_) => json_data.set_sub_code("password_empty"),
             AccountError::AuthStatusError(_) => json_data.set_sub_code("status_wrong"),
             AccountError::UserNotFind(_) => json_data.set_sub_code("not_find"),
+            AccountError::Vaild(err) => err.to_json_data(fluent),
         }
     }
 }
@@ -54,6 +55,11 @@ impl JsonFluent for ValidCodeError {
     }
 }
 
+impl JsonFluent for ValidError {
+    fn to_json_data(&self, _: &FluentBundle) -> JsonData {
+        JsonData::default().set_code(400).set_sub_code("bad_param")
+    }
+}
 impl JsonFluent for UserAuthError {
     fn to_json_data(&self, fluent: &FluentBundle) -> JsonData {
         let json_data = JsonData::default().set_code(500);
@@ -69,6 +75,7 @@ impl JsonFluent for UserAuthError {
             UserAuthError::RedisPool(err) => err.to_json_data(fluent),
             UserAuthError::Utf8Err(err) => err.to_json_data(fluent),
             UserAuthError::AccessError(err) => err.to_json_data(fluent),
+            UserAuthError::Vaild(err) => err.to_json_data(fluent),
         }
     }
 }
@@ -85,6 +92,7 @@ impl JsonFluent for AccessError {
             AccessError::System(_) => json_data,
             AccessError::SerdeJson(err) => err.to_json_data(fluent),
             AccessError::BadAccount(_) => json_data.set_code(400).set_sub_code("bad_account"),
+            AccessError::Vaild(err) => err.to_json_data(fluent),
         }
     }
 }
@@ -113,6 +121,7 @@ impl JsonFluent for RbacError {
                     }))
             }
             RbacError::System(_) => json_data,
+            RbacError::Vaild(err) => err.to_json_data(fluent),
         }
     }
 }
@@ -122,6 +131,7 @@ impl JsonFluent for SettingError {
         match self {
             SettingError::Sqlx(err) => err.to_json_data(fluent),
             SettingError::SerdeJson(err) => err.to_json_data(fluent),
+            SettingError::Vaild(err) => err.to_json_data(fluent),
         }
         .set_code(500)
         .set_sub_code("setting")
@@ -138,6 +148,7 @@ impl JsonFluent for SenderError {
             SenderError::Tera(err) => err.to_json_data(fluent),
             SenderError::Setting(err) => err.to_json_data(fluent),
             SenderError::System(_) => json_data,
+            SenderError::Vaild(err) => err.to_json_data(fluent),
         }
     }
 }
@@ -158,6 +169,7 @@ impl JsonFluent for AppError {
             AppError::AppBadStatus => json_data.set_sub_code("app-bad-status"),
             AppError::AppBadFeature(_, _) => json_data.set_sub_code("app-bad-feature"),
             AppError::AppOAuthClientBadConfig(_) => json_data,
+            AppError::Vaild(err) => err.to_json_data(fluent),
         }
     }
 }
@@ -239,6 +251,7 @@ impl JsonFluent for lsys_app_barcode::dao::BarCodeError {
             lsys_app_barcode::dao::BarCodeError::Image(_) => {
                 JsonData::default().set_code(500).set_sub_code("image")
             }
+            lsys_app_barcode::dao::BarCodeError::Vaild(err) => err.to_json_data(fluent),
         }
     }
 }
@@ -287,6 +300,7 @@ impl JsonFluent for GitDocError {
             GitDocError::Git(err) => err.to_json_data(fluent),
             GitDocError::System(_) => json_data,
             GitDocError::Remote(_) => json_data,
+            GitDocError::Vaild(err) => err.to_json_data(fluent),
         }
     }
 }

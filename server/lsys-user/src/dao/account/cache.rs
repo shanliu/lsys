@@ -10,7 +10,6 @@ use crate::model::{
 
 use super::AccountDao;
 
-
 pub enum AccountLocalCacheClear {
     Account(Arc<LocalCache<u64, AccountModel>>),
     Address(Arc<LocalCache<u64, Vec<AccountAddressModel>>>),
@@ -42,7 +41,7 @@ impl AccountLocalCacheClear {
 }
 
 #[async_trait]
-impl LocalCacheClearItem for AccountLocalCacheClear {
+impl LocalCacheClearItem<'_> for AccountLocalCacheClear {
     fn cache_name(&self) -> &str {
         match self {
             Self::Account(cache) => cache.config().cache_name,
@@ -68,7 +67,7 @@ impl LocalCacheClearItem for AccountLocalCacheClear {
             Self::Mobile(cache) => cache.del(key).await,
             Self::Name(cache) => cache.del(key).await,
             Self::UserMobile(cache) => cache.del(key).await,
-            Self::UserExternal(cache) =>cache.del(key).await,
+            Self::UserExternal(cache) => cache.del(key).await,
             Self::UserEmail(cache) => cache.del(key).await,
         };
         Ok(())

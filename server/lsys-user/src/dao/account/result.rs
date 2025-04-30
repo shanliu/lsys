@@ -2,7 +2,7 @@ use std::time::SystemTimeError;
 
 use deadpool_redis::PoolError;
 use lsys_access::dao::AccessError;
-use lsys_core::{fluent_message, FluentMessage, IntoFluentMessage, ValidCodeError};
+use lsys_core::{fluent_message, FluentMessage, IntoFluentMessage, ValidCodeError, ValidError};
 
 use lsys_setting::dao::SettingError;
 use redis::RedisError;
@@ -25,6 +25,7 @@ pub enum AccountError {
     PasswordNotMatch((u64, FluentMessage)),
     PasswordNotSet((u64, FluentMessage)),
     UserNotFind(FluentMessage),
+    Vaild(ValidError),
 }
 
 impl IntoFluentMessage for AccountError {
@@ -45,6 +46,7 @@ impl IntoFluentMessage for AccountError {
             Self::UserAuthError(err) => err.to_fluent_message(),
             Self::UserNotFind(err) => err.to_owned(),
             Self::SerdeJson(err) => fluent_message!("serde-json-error", err),
+            Self::Vaild(e) => e.to_fluent_message(),
         }
     }
 }
@@ -54,7 +56,11 @@ impl AccountError {
         matches!(self, AccountError::Sqlx(sqlx::Error::RowNotFound))
     }
 }
-
+impl From<ValidError> for AccountError {
+    fn from(err: ValidError) -> Self {
+        AccountError::Vaild(err)
+    }
+}
 pub type AccountResult<T> = Result<T, AccountError>;
 impl From<serde_json::Error> for AccountError {
     fn from(err: serde_json::Error) -> Self {

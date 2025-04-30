@@ -7,9 +7,11 @@ use lsys_access::dao::AccessSession;
 use lsys_app::model::AppRequestStatus;
 use serde::Deserialize;
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct ConfirmExterLoginFeatureParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
+    #[serde(deserialize_with = "crate::common::deserialize_i8")]
     pub confirm_status: i8,
     pub confirm_note: String,
 }
@@ -49,14 +51,17 @@ pub async fn confirm_inner_feature_exter_login_confirm(
     Ok(JsonResponse::default())
 }
 
-pub struct ConfirmExterSubAppParam {
+#[derive(Debug, Deserialize)]
+pub struct ConfirmInnerFeatureSubAppParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
+    #[serde(deserialize_with = "crate::common::deserialize_i8")]
     pub confirm_status: i8,
     pub confirm_note: String,
 }
 
 pub async fn confirm_inner_feature_sub_app_confirm(
-    param: &ConfirmExterSubAppParam,
+    param: &ConfirmInnerFeatureSubAppParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;

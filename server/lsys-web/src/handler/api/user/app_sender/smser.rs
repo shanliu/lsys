@@ -13,6 +13,7 @@ use tracing::warn;
 #[derive(Debug, Deserialize)]
 pub struct SmserMessageLogParam {
     pub message_id: String,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
     pub page: Option<PageParam>,
 }
@@ -118,12 +119,16 @@ pub async fn smser_message_body(
 
 #[derive(Debug, Deserialize)]
 pub struct SmserMessageListParam {
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub app_id: Option<u64>,
     pub tpl_id: Option<String>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub body_id: Option<u64>,
     pub snid: Option<String>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
     pub status: Option<i8>,
     pub mobile: Option<String>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
     pub limit: Option<LimitParam>,
 }
@@ -306,9 +311,11 @@ pub async fn smser_message_cancel(
 
 #[derive(Debug, Deserialize)]
 pub struct SmserMessageSendParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub tpl_id: u64,
     pub area: Option<String>,
     pub mobile: Vec<String>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u8")]
     pub max_try: Option<u8>,
     //body 对外统一格式{key:val}
     // 这里判断不同发送端进行统一转换匹配

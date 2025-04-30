@@ -6,12 +6,13 @@ use lsys_access::dao::AccessSession;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
-pub struct RequestExterLoginFeatureData {
+pub struct RequestExterLoginFeatureParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
 }
 
 pub async fn request_inner_feature_exter_login_request(
-    param: &RequestExterLoginFeatureData,
+    param: &RequestExterLoginFeatureParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;

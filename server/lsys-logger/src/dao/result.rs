@@ -1,8 +1,3 @@
-// use std::{
-//     // error::Error,
-//     fmt::{Display, Formatter},
-// };
-
 use lsys_core::{fluent_message, FluentMessage, IntoFluentMessage};
 #[derive(Debug)]
 pub enum LoggerError {

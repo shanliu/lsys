@@ -3,7 +3,7 @@
 use deadpool_redis::PoolError;
 use lsys_access::dao::AccessError;
 
-use lsys_core::{fluent_message, FluentMessage, IntoFluentMessage, ValidCodeError};
+use lsys_core::{fluent_message, FluentMessage, IntoFluentMessage, ValidCodeError, ValidError};
 
 use redis::RedisError;
 
@@ -26,6 +26,7 @@ pub enum UserAuthError {
     CheckUserLock((u64, FluentMessage)),
     CheckCaptchaNeed(FluentMessage),
     Utf8Err(FromUtf8Error),
+    Vaild(ValidError),
 }
 
 impl IntoFluentMessage for UserAuthError {
@@ -42,6 +43,7 @@ impl IntoFluentMessage for UserAuthError {
             UserAuthError::CheckUserLock(err) => err.1.to_owned(),
             UserAuthError::CheckCaptchaNeed(err) => err.to_owned(),
             UserAuthError::Utf8Err(err) => fluent_message!("utf-parse-error", err),
+            Self::Vaild(e) => e.to_fluent_message(),
         }
     }
 }
@@ -51,6 +53,11 @@ pub type UserAuthResult<T> = Result<T, UserAuthError>;
 impl From<sqlx::Error> for UserAuthError {
     fn from(err: sqlx::Error) -> Self {
         UserAuthError::Sqlx(err)
+    }
+}
+impl From<ValidError> for UserAuthError {
+    fn from(err: ValidError) -> Self {
+        UserAuthError::Vaild(err)
     }
 }
 impl From<SystemTimeError> for UserAuthError {

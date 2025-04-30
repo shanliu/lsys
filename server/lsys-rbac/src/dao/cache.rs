@@ -1,21 +1,20 @@
 //验证结果缓存
-use std::{str::FromStr, sync::Arc};
 use async_trait::async_trait;
 use lsys_core::{
     cache::{LocalCache, LocalCacheClearItem},
     IntoFluentMessage,
 };
+use std::{str::FromStr, sync::Arc};
 
 use crate::model::{RbacOpModel, RbacResModel};
 
-use super::{res::ResCacheKey,op::OpCacheKey, role::AccessRoleRow, RbacDao};
-
+use super::{op::OpCacheKey, res::ResCacheKey, role::AccessRoleRow, RbacDao};
 
 //RBAC 授权缓存
 pub enum RbacLocalCacheClear {
     OpCacheKey(Arc<LocalCache<OpCacheKey, Option<RbacOpModel>>>),
     ResCacheKey(Arc<LocalCache<ResCacheKey, Option<RbacResModel>>>),
-    RbacRoleCache(Arc<LocalCache<String, Vec<AccessRoleRow>>>)
+    RbacRoleCache(Arc<LocalCache<String, Vec<AccessRoleRow>>>),
 }
 
 impl RbacLocalCacheClear {
@@ -29,7 +28,7 @@ impl RbacLocalCacheClear {
 }
 
 #[async_trait]
-impl LocalCacheClearItem for RbacLocalCacheClear {
+impl LocalCacheClearItem<'_> for RbacLocalCacheClear {
     fn cache_name(&self) -> &str {
         match self {
             RbacLocalCacheClear::OpCacheKey(cache) => cache.config().cache_name,
@@ -55,11 +54,7 @@ impl LocalCacheClearItem for RbacLocalCacheClear {
                     )
                     .await
             }
-            RbacLocalCacheClear::RbacRoleCache(cache) => {
-                cache
-                    .del(&msg.to_owned())
-                    .await
-            }
+            RbacLocalCacheClear::RbacRoleCache(cache) => cache.del(&msg.to_owned()).await,
         };
         Ok(())
     }

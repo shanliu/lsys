@@ -1,5 +1,3 @@
-use serde::Deserialize;
-use serde_json::json;
 use crate::common::JsonData;
 use crate::common::{JsonResponse, JsonResult};
 use crate::{
@@ -7,13 +5,20 @@ use crate::{
     dao::access::api::system::CheckAdminUserManage,
 };
 use lsys_access::dao::{AccessError, AccessSession, SessionDataParam};
+use serde::Deserialize;
+use serde_json::json;
 
 #[derive(Debug, Deserialize)]
 pub struct LoginHistoryParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub oauth_app_id: Option<u64>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub user_id: Option<u64>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub is_enable: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
     pub limit: Option<LimitParam>,
 }
@@ -67,7 +72,9 @@ pub async fn login_history(
 
 #[derive(Debug, Deserialize)]
 pub struct UserLogoutParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub oauth_app_id: u64,
     pub token_data: String,
 }
@@ -106,6 +113,7 @@ pub async fn user_logout(
 
 #[derive(Debug, Deserialize)]
 pub struct AppLogoutParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
 }
 pub async fn app_logout(

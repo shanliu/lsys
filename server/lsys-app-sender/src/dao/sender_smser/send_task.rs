@@ -1,11 +1,3 @@
-use std::{
-    collections::HashMap,
-    sync::{atomic::AtomicU32, Arc},
-};
-
-use async_trait::async_trait;
-use lsys_core::{db::WhereOption, fluent_message, now_time, IntoFluentMessage};
-
 use crate::{
     dao::{
         group_exec, MessageLogs, MessageReader, SenderError, SenderExecError, SenderResult,
@@ -14,18 +6,22 @@ use crate::{
     },
     model::{
         SenderLogStatus, SenderMessageCancelModel, SenderSmsBodyModel, SenderSmsBodyModelRef,
-        SenderSmsBodyStatus, SenderSmsMessageModel, SenderSmsMessageStatus, SenderTplConfigModel,
+        SenderSmsBodyStatus, SenderSmsMessageModel, SenderSmsMessageStatus,
     },
 };
+use async_trait::async_trait;
+use lsys_core::db::SqlQuote;
 use lsys_core::db::{ModelTableName, SqlExpr, Update};
 use lsys_core::sql_format;
+use lsys_core::{db::WhereOption, fluent_message, now_time, IntoFluentMessage};
 use lsys_core::{TaskAcquisition, TaskData, TaskExecutor, TaskItem, TaskRecord};
 use lsys_setting::model::SettingModel;
 use sqlx::Pool;
+use std::{
+    collections::HashMap,
+    sync::{atomic::AtomicU32, Arc},
+};
 use tracing::warn;
-
-use super::SmsRecord;
-use lsys_core::db::SqlQuote;
 
 pub struct SmsTaskItem {
     pub sms: SenderSmsBodyModel,
@@ -58,18 +54,6 @@ impl SmsTaskData {
     pub fn new(data: Vec<SenderSmsMessageModel>) -> Self {
         Self { data }
     }
-}
-
-#[async_trait]
-pub trait SmsTaskExecutor: Sync + Send + 'static {
-    async fn exec(
-        &self,
-        val: &SmsTaskItem,
-        tpl_config: &SenderTplConfigModel,
-        setting: &SettingModel,
-        record: &SmsRecord,
-    ) -> Result<(), SenderExecError>;
-    fn setting_key(&self) -> String;
 }
 
 pub struct SmsTaskAcquisition {

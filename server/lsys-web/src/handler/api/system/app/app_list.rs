@@ -15,12 +15,16 @@ use serde::Serialize;
 use serde_json::json;
 #[derive(Deserialize)]
 pub struct ListParam {
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub user_id: Option<u64>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub app_id: Option<u64>,
     pub app_name: Option<String>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
     pub status: Option<i8>,
     pub client_id: Option<String>,
     pub page: Option<PageParam>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
 }
 
@@ -174,9 +178,12 @@ pub async fn list_data(param: &ListParam, req_dao: &UserAuthQueryDao) -> JsonRes
 
 #[derive(Deserialize)]
 pub struct RequestListParam {
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub app_id: Option<u64>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
     pub status: Option<i8>,
     pub page: Option<PageParam>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
 }
 
@@ -282,7 +289,7 @@ pub async fn request_list(
     } else {
         None
     };
-    Ok(JsonResponse::data(  JsonData::body(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data": bind_vec_user_info_from_req!(
             req_dao,
             out,

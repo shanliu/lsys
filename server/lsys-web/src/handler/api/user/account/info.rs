@@ -1,3 +1,4 @@
+use crate::common::JsonData;
 use crate::{
     common::{JsonResponse, JsonResult, UserAuthQueryDao},
     dao::{access::api::user::CheckUserInfoEdit, InfoSetUserInfoData},
@@ -5,7 +6,6 @@ use crate::{
 use lsys_access::dao::AccessSession;
 use serde::Deserialize;
 use serde_json::json;
-use crate::common::JsonData;
 #[derive(Debug, Deserialize)]
 pub struct InfoSetUserNameParam {
     pub name: String,
@@ -15,7 +15,7 @@ pub async fn info_set_username(
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-  
+
     req_dao
         .web_dao
         .web_rbac
@@ -41,7 +41,7 @@ pub async fn info_check_username(
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-  
+
     req_dao
         .web_dao
         .web_rbac
@@ -61,6 +61,7 @@ pub async fn info_check_username(
 #[derive(Debug, Deserialize)]
 pub struct InfoSetUserInfoParam {
     pub nikename: Option<String>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_i32")]
     pub gender: Option<i32>,
     pub headimg: Option<String>,
     pub birthday: Option<String>,
@@ -70,7 +71,7 @@ pub async fn info_set_data(
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-  
+
     req_dao
         .web_dao
         .web_rbac

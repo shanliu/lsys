@@ -1,3 +1,4 @@
+use crate::common::JsonData;
 use crate::{
     common::{JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
     dao::access::api::system::CheckAdminRbacView,
@@ -6,12 +7,13 @@ use lsys_access::dao::AccessSession;
 use lsys_rbac::dao::{CustomUserListResData, SessionUserListResData};
 use serde::Deserialize;
 use serde_json::json;
-use crate::common::JsonData;
 
 #[derive(Debug, Deserialize)]
 pub struct UserFromResParam {
-    user_id: u64,     //资源用户ID
-    app_id: u64,      //用户ID下的app
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
+    user_id: u64, //资源用户ID
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
+    app_id: u64, //用户ID下的app
     res_type: String, //资源类型
     res_data: String, //资源数据
     op_key: String,   //授权操作结构列表
@@ -57,15 +59,22 @@ pub async fn check_res_user_from_res(
 
 #[derive(Debug, Deserialize)]
 pub struct ResRoleFromResParam {
-    pub user_id: u64,     //资源用户ID
-    pub app_id: u64,      //用户ID下的app
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
+    pub user_id: u64, //资源用户ID
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
+    pub app_id: u64, //用户ID下的app
     pub res_type: String, //资源类型
     pub res_data: String, //资源数据
     pub op_key: String,   //授权操作结构列表
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub res_range_exclude: bool,
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub res_range_any: bool,
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub res_range_include: bool,
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub is_system: bool,
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub is_self: bool,
     pub page: Option<PageParam>,
 }
@@ -131,15 +140,22 @@ pub async fn check_res_role_data_from_res(
 
 #[derive(Debug, Deserialize)]
 pub struct ResUserDataFromResParam {
-    user_id: u64,     //资源用户ID
-    app_id: u64,      //用户ID下的app
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
+    user_id: u64, //资源用户ID
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
+    app_id: u64, //用户ID下的app
     res_type: String, //资源类型
     res_data: String, //资源数据
     op_key: String,   //授权操作结构列表
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     res_range_exclude: bool,
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     res_range_any: bool,
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     res_range_include: bool,
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     is_system: bool,
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     is_self: bool,
     pub page: Option<PageParam>,
 }

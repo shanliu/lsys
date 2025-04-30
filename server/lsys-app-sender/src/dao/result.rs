@@ -4,7 +4,7 @@ use std::{
 };
 
 use deadpool_redis::PoolError;
-use lsys_core::{fluent_message, FluentMessage, IntoFluentMessage};
+use lsys_core::{fluent_message, FluentMessage, IntoFluentMessage, ValidError};
 use lsys_setting::dao::SettingError;
 
 //公共结构定义
@@ -16,6 +16,7 @@ pub enum SenderError {
     Tera(tera::Error),
     System(FluentMessage),
     Setting(SettingError),
+    Vaild(ValidError),
 }
 
 impl IntoFluentMessage for SenderError {
@@ -27,6 +28,7 @@ impl IntoFluentMessage for SenderError {
             SenderError::Tera(err) => fluent_message!("tera-error", err),
             SenderError::System(err) => err.to_owned(),
             SenderError::Setting(err) => err.to_fluent_message(),
+            SenderError::Vaild(err) => err.to_fluent_message(),
         }
     }
 }
@@ -54,6 +56,12 @@ impl From<SettingError> for SenderError {
 impl From<tera::Error> for SenderError {
     fn from(err: tera::Error) -> Self {
         SenderError::Tera(err)
+    }
+}
+
+impl From<ValidError> for SenderError {
+    fn from(err: ValidError) -> Self {
+        SenderError::Vaild(err)
     }
 }
 

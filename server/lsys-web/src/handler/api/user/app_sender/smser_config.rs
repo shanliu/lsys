@@ -48,8 +48,11 @@ pub(super) async fn smser_inner_access_check(
 
 #[derive(Debug, Deserialize)]
 pub struct SmserConfigAddParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
+    #[serde(deserialize_with = "crate::common::deserialize_i8")]
     pub priority: i8,
+    #[serde(deserialize_with = "crate::common::deserialize_i8")]
     pub config_type: i8,
     pub config_data: Value,
 }
@@ -84,6 +87,7 @@ pub async fn smser_config_add(
 
 #[derive(Debug, Deserialize)]
 pub struct SmserConfigDeleteParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub config_id: u64,
 }
 pub async fn smser_config_del(
@@ -113,7 +117,9 @@ pub async fn smser_config_del(
 
 #[derive(Debug, Deserialize)]
 pub struct SmserConfigListParam {
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub id: Option<u64>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub app_id: Option<u64>,
 }
 
@@ -234,6 +240,7 @@ pub async fn smser_notify_get_config(req_dao: &UserAuthQueryDao) -> JsonResult<J
 
 #[derive(Debug, Deserialize)]
 pub struct SmserNotifyConfigParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
     pub url: String,
 }
@@ -271,11 +278,15 @@ pub async fn smser_notify_set_config(
 
 #[derive(Debug, Deserialize)]
 pub struct SmserTplConfigListParam {
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub id: Option<u64>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub app_id: Option<u64>,
     pub tpl: Option<String>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub app_info: Option<bool>,
     pub page: Option<PageParam>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
 }
 
@@ -378,6 +389,7 @@ pub async fn smser_tpl_config_list(
 
 #[derive(Debug, Deserialize)]
 pub struct SmserTplConfigDeleteParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub config_id: u64,
 }
 pub async fn smser_tpl_config_del(

@@ -51,8 +51,11 @@ pub(super) async fn mailer_inner_access_check(
 
 #[derive(Debug, Deserialize)]
 pub struct MailerConfigAddParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
+    #[serde(deserialize_with = "crate::common::deserialize_i8")]
     pub priority: i8,
+    #[serde(deserialize_with = "crate::common::deserialize_i8")]
     pub config_type: i8,
     pub config_data: Value,
 }
@@ -86,6 +89,7 @@ pub async fn mailer_config_add(
 
 #[derive(Debug, Deserialize)]
 pub struct MailerConfigDeleteParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub config_id: u64,
 }
 pub async fn mailer_config_del(
@@ -116,7 +120,9 @@ pub async fn mailer_config_del(
 
 #[derive(Debug, Deserialize)]
 pub struct MailerConfigListParam {
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub id: Option<u64>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub app_id: Option<u64>,
 }
 
@@ -172,11 +178,15 @@ pub async fn mailer_config_list(
 
 #[derive(Debug, Deserialize)]
 pub struct MailerTplConfigListParam {
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub id: Option<u64>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub app_id: Option<u64>,
     pub tpl: Option<String>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub app_info: Option<bool>,
     pub page: Option<PageParam>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
 }
 
@@ -278,6 +288,7 @@ pub async fn mailer_tpl_config_list(
 }
 #[derive(Debug, Deserialize)]
 pub struct MailerTplConfigDelParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub config_id: u64,
 }
 

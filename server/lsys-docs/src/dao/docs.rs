@@ -14,8 +14,11 @@ use crate::{
         DocLogsModelRef, DocMenuModel, DocMenuModelRef, DocMenuStatus,
     },
 };
-use lsys_core::db::{Insert, ModelTableName, Update, WhereOption};
 use lsys_core::db::{SqlExpr, SqlQuote};
+use lsys_core::{
+    db::{Insert, ModelTableName, Update, WhereOption},
+    ValidContains, ValidGit, ValidGitType, ValidParam, ValidParamCheck,
+};
 use lsys_core::{fluent_message, now_time, IntoFluentMessage, PageParam, RequestEnv};
 use lsys_core::{model_option_set, sql_format};
 use serde::{Deserialize, Serialize};
@@ -309,7 +312,7 @@ impl GitDocs {
             change_user_id:user_id,
             change_time:add_time,
         });
-        Update::< DocGitModel, _>::new(change)
+        Update::<DocGitModel, _>::new(change)
             .execute_by_pk(git_model, &self.db)
             .await?;
 
@@ -358,7 +361,7 @@ impl GitDocs {
             change_user_id:change_user_id,
             change_time:change_time
         });
-        if let Err(err) = Update::< DocGitModel, _>::new(change)
+        if let Err(err) = Update::<DocGitModel, _>::new(change)
             .execute_by_where(
                 &WhereOption::Where(sql_format!("id={}", git_model.id,)),
                 &self.db,
@@ -410,12 +413,37 @@ impl GitDocs {
         user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> GitDocResult<u64> {
-        if DocGitStatus::Delete.eq(doc_git.status) {
-            return Err(crate::dao::GitDocError::System(
-                fluent_message!("doc-git-not-find"),
-                // "doc git not find ".to_string(),
-            ));
-        }
+        ValidParam::default()
+            .add(
+                "status",
+                &doc_git.status,
+                &ValidParamCheck::default().add_rule(ValidContains(&[DocGitStatus::Enable as i8])),
+            )
+            .add(
+                "git_version",
+                &param.build_version,
+                &ValidParamCheck::default().add_rule(ValidGit::new(ValidGitType::VersionHash)),
+            )
+            .check()?;
+
+        // if DocGitStatus::Delete.eq(doc_git.status) {
+        //     return Err(crate::dao::GitDocError::System(
+        //         fluent_message!("doc-git-not-find"),
+        //         // "doc git not find ".to_string(),
+        //     ));
+        // }
+
+        // if let Ok(re) = Regex::new(r"^[0-9a-f]{40}$") {
+        //     if !re.is_match(param.build_version) {
+        //         return Err(crate::dao::GitDocError::System(
+        //             fluent_message!("doc-git-submit-version-error",
+        //                 {
+        //                     "version":&param.build_version,
+        //                 }
+        //             ),
+        //         ));
+        //     }
+        // }
 
         if let Some(rule) = &param.clear_rule {
             for tmp in rule.iter() {
@@ -429,18 +457,6 @@ impl GitDocs {
                         ),
                     ));
                 }
-            }
-        }
-
-        if let Ok(re) = Regex::new(r"^[0-9a-f]{40}$") {
-            if !re.is_match(param.build_version) {
-                return Err(crate::dao::GitDocError::System(
-                    fluent_message!("doc-git-submit-version-error",
-                        {
-                            "version":&param.build_version,
-                        }
-                    ),
-                ));
             }
         }
 
@@ -535,7 +551,7 @@ impl GitDocs {
         }
         let status = DocGitTagStatus::Delete as i8;
         let change = lsys_core::model_option_set!(DocGitTagModelRef, { status: status });
-        if let Err(err) = Update::< DocGitTagModel, _>::new(change)
+        if let Err(err) = Update::<DocGitTagModel, _>::new(change)
             .execute_by_where(
                 &WhereOption::Where(sql_format!("id={}", git_tag.id,)),
                 &self.db,
@@ -597,7 +613,7 @@ impl GitDocs {
                 finish_time: finish_time,
                 status:status
             });
-            if let Err(err) = Update::< DocGitCloneModel, _>::new(change)
+            if let Err(err) = Update::<DocGitCloneModel, _>::new(change)
                 .execute_by_where(
                     &WhereOption::Where(sql_format!("id={}", rgit_clone.id,)),
                     &self.db,
@@ -683,7 +699,7 @@ impl GitDocs {
         }
         let status = status as i8;
         let change = lsys_core::model_option_set!(DocGitTagModelRef, { status: status });
-        if let Err(err) = Update::< DocGitTagModel, _>::new(change)
+        if let Err(err) = Update::<DocGitTagModel, _>::new(change)
             .execute_by_pk(git_tag, &self.db)
             .await
         {
@@ -1163,7 +1179,7 @@ impl GitDocs {
     ) -> GitDocResult<()> {
         let status = DocMenuStatus::Delete as i8;
         let change = lsys_core::model_option_set!(DocMenuModelRef, { status: status });
-        if let Err(err) = Update::< DocMenuModel, _>::new(change)
+        if let Err(err) = Update::<DocMenuModel, _>::new(change)
             .execute_by_where(
                 &WhereOption::Where(sql_format!("id={}", menu.id,)),
                 &self.db,

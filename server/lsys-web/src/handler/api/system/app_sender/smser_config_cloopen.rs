@@ -7,11 +7,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 #[derive(Debug, Deserialize)]
 pub struct SmserCloOpenConfigListParam {
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_u64")]
     pub ids: Option<Vec<u64>>,
 }
 
 #[derive(Serialize)]
-pub struct ShowCloOpenConfig {
+pub struct ShowCloOpenConfigRecord {
     pub id: u64,
     pub name: String,
     pub account_sid: String,
@@ -47,7 +48,7 @@ pub async fn smser_cloopen_config_list(
     let out = {
         let tmp = row
             .into_iter()
-            .map(|e| ShowCloOpenConfig {
+            .map(|e| ShowCloOpenConfigRecord {
                 id: e.model().id,
                 name: e.model().name.to_owned(),
                 account_sid: e.account_sid.to_owned(),
@@ -71,6 +72,7 @@ pub struct SmserCloOpenConfigAddParam {
     pub name: String,
     pub account_sid: String,
     pub account_token: String,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u16")]
     pub limit: Option<u16>,
     pub sms_app_id: String,
     pub callback_key: String,
@@ -108,11 +110,13 @@ pub async fn smser_cloopen_config_add(
 
 #[derive(Debug, Deserialize)]
 pub struct SmserCloOpenConfigEditParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub id: u64,
     pub name: String,
     pub account_sid: String,
     pub account_token: String,
     pub sms_app_id: String,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u16")]
     pub limit: Option<u16>,
     pub callback_key: String,
 }
@@ -151,6 +155,7 @@ pub async fn smser_cloopen_config_edit(
 
 #[derive(Debug, Deserialize)]
 pub struct SmserCloOpenConfigDelParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub id: u64,
 }
 
@@ -177,6 +182,7 @@ pub async fn smser_cloopen_config_del(
 
 #[derive(Debug, Deserialize)]
 pub struct SmserAppCloopenConfigAddParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub config_id: u64,
     pub name: String,
     pub tpl_id: String,

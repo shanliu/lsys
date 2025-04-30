@@ -26,23 +26,23 @@ impl LocalCacheMessage {
 }
 
 #[async_trait]
-pub trait LocalCacheClearItem {
+pub trait LocalCacheClearItem<'t>: Sync + Send + 't {
     fn cache_name(&self) -> &str;
     async fn clear_from_message(&self, msg: &str) -> Result<(), String>;
 }
 
 /// 订阅远程通知清理本地缓存
-pub struct LocalCacheClear {
-    cache_list: Vec<Box<dyn LocalCacheClearItem + Sync + Send + 'static>>,
+pub struct LocalCacheClear<'t> {
+    cache_list: Vec<Box<dyn LocalCacheClearItem<'t>>>,
 }
-impl LocalCacheClear {
-    pub fn new(cache_list: Vec<Box<dyn LocalCacheClearItem + Sync + Send + 'static>>) -> Self {
+impl<'t> LocalCacheClear<'t> {
+    pub fn new(cache_list: Vec<Box<dyn LocalCacheClearItem<'t>>>) -> Self {
         LocalCacheClear { cache_list }
     }
 }
 
 #[async_trait]
-impl RemoteTask for LocalCacheClear {
+impl RemoteTask for LocalCacheClear<'_> {
     fn msg_type(&self) -> u8 {
         REMOTE_NOTIFY_TYPE_CACHE
     }

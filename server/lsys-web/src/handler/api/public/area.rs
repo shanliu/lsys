@@ -1,10 +1,10 @@
-use serde::Deserialize;
-use serde_json::json;
 use crate::common::JsonData;
 use crate::{
     common::RequestDao,
     common::{JsonResponse, JsonResult},
 };
+use serde::Deserialize;
+use serde_json::json;
 
 #[derive(Debug, Deserialize)]
 pub struct CodeParam {
@@ -70,13 +70,18 @@ pub fn code_find(param: &CodeParam, req_dao: &RequestDao) -> JsonResult<JsonResp
 #[derive(Debug, Deserialize)]
 pub struct SearchParam {
     pub key_word: String,
-    pub limit: Option<usize>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
+    pub limit: Option<u64>,
 }
 pub fn search(param: &SearchParam, req_dao: &RequestDao) -> JsonResult<JsonResponse> {
+    let limit = param
+        .limit
+        .map(|e| if e > 100 { 100 } else { e })
+        .unwrap_or(10) as usize;
     let data = req_dao
         .web_dao
         .app_area
-        .code_search(&param.key_word, param.limit.unwrap_or(10))?
+        .code_search(&param.key_word, limit)?
         .into_iter()
         .map(|e| {
             e.item
@@ -95,7 +100,9 @@ pub fn search(param: &SearchParam, req_dao: &RequestDao) -> JsonResult<JsonRespo
 }
 #[derive(Debug, Deserialize)]
 pub struct GeoParam {
+    #[serde(deserialize_with = "crate::common::deserialize_f64")]
     pub lat: f64,
+    #[serde(deserialize_with = "crate::common::deserialize_f64")]
     pub lng: f64,
 }
 

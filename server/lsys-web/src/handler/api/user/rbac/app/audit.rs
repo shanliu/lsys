@@ -13,19 +13,23 @@ use super::parent_app_check;
 
 #[derive(Debug, Deserialize)]
 pub struct AppAuditResParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub res_id: u64,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub op_id: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct AppAuditParam {
     pub user_param: Option<String>,
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
     pub user_ip: Option<String>,
     pub device_id: Option<String>,
     pub request_id: Option<String>,
     pub res_data: Option<AppAuditResParam>,
     pub limit: Option<LimitParam>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
 }
 

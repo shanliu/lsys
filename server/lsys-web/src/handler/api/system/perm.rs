@@ -1,6 +1,3 @@
-use serde::{Deserialize, Serialize};
-use serde_json::json;
-use serde_json::Value;
 use crate::common::JsonData;
 use crate::common::JsonError;
 use crate::common::JsonResponse;
@@ -13,14 +10,17 @@ use crate::dao::access::api::system::{
 use crate::dao::access::api::user::CheckUserAppSenderSmsConfig;
 use lsys_access::dao::AccessSession;
 use lsys_core::fluent_message;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
+use serde_json::Value;
 #[derive(Debug, Deserialize)]
-pub struct RbacAccessData {
+pub struct RbacAccessParam {
     pub name: String,
     pub data: Value,
 }
 
 pub async fn perm_check(
-    check_res: &RbacAccessData,
+    check_res: &RbacAccessParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
@@ -56,7 +56,7 @@ pub async fn perm_check(
 
 #[derive(Debug, Deserialize)]
 pub struct RbacAccessMenuParam {
-    pub check_res: Vec<RbacAccessData>,
+    pub check_res: Vec<RbacAccessParam>,
 }
 
 #[derive(Debug, Serialize)]

@@ -2,7 +2,7 @@ use crate::common::handler::{
     JsonQuery, JwtClaims, JwtQuery, ReqQuery, ResponseJson, ResponseJsonResult, UserAuthQuery,
 };
 
-use actix_web::{ post};
+use actix_web::post;
 
 use jsonwebtoken::{encode, EncodingKey, Header};
 use lsys_core::fluent_message;
@@ -354,7 +354,6 @@ pub async fn external_state_callback(
 //     let login_param = json_param.param::<ExternalCallbackParam>()?;
 //     let res = match login_param.login_type.as_str() {
 //         "qq" => {
-//             println!("{}", login_param.code);
 //             //调用外部API检查 code??
 //             let config = auth_dao
 //                 .web_dao

@@ -1,9 +1,9 @@
-use std::collections::HashMap;
 use crate::common::JsonData;
 use crate::{
-    common::{JsonResponse, JsonError, JsonResult, PageParam, UserAuthQueryDao},
+    common::{JsonError, JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
     dao::access::api::user::{CheckUserAppSenderMailMsg, CheckUserAppSenderMailSend},
 };
+use std::collections::HashMap;
 
 use crate::common::LimitParam;
 use lsys_access::dao::AccessSession;
@@ -16,6 +16,7 @@ use serde_json::json;
 #[derive(Debug, Deserialize)]
 pub struct MailerMessageLogParam {
     pub message_id: String,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
     pub page: Option<PageParam>,
 }
@@ -76,7 +77,9 @@ pub async fn mailer_message_log(
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(json!({ "data": res,"total":count}))))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "data": res,"total":count}),
+    )))
 }
 
 #[derive(Debug, Deserialize)]
@@ -125,17 +128,23 @@ pub async fn mailer_message_body(
         .mailer
         .mailer_message_body(&msg, &body, &auth_data, Some(&req_dao.req_env))
         .await?;
-    Ok(JsonResponse::data(JsonData::body(json!({ "body": body.tpl_var}))))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "body": body.tpl_var}),
+    )))
 }
 
 #[derive(Debug, Deserialize)]
 pub struct MailerMessageListParam {
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub app_id: Option<u64>,
     pub tpl_id: Option<String>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
     pub status: Option<i8>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub body_id: Option<u64>,
     pub snid: Option<String>,
     pub to_mail: Option<String>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
     pub limit: Option<LimitParam>,
 }
@@ -234,9 +243,9 @@ pub async fn mailer_message_list(
             })
         })
         .collect::<Vec<_>>();
-    Ok(JsonResponse::data(
-        JsonData::body(  json!({ "data": res,"total":count,"next":next}))
-    ))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "data": res,"total":count,"next":next}),
+    )))
 }
 
 #[derive(Debug, Deserialize)]
@@ -298,11 +307,13 @@ pub async fn mailer_message_cancel(
 
 #[derive(Debug, Deserialize)]
 pub struct MailerMessageSendParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub tpl_id: u64,
     pub data: HashMap<String, String>,
     pub to: Vec<String>,
     pub reply: Option<String>,
     pub send_time: Option<String>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u8")]
     pub max_try: Option<u8>,
 }
 

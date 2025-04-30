@@ -1,4 +1,4 @@
-use crate::common::{JsonResponse, JsonError, JsonResult, UserAuthQueryDao};
+use crate::common::{JsonError, JsonResponse, JsonResult, UserAuthQueryDao};
 use crate::dao::access::api::system::CheckAdminApp;
 use lsys_access::dao::AccessSession;
 use lsys_app::model::AppRequestStatus;
@@ -7,7 +7,9 @@ use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct ConfirmParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_req_id: u64,
+    #[serde(deserialize_with = "crate::common::deserialize_i8")]
     pub confirm_status: i8,
     pub confirm_note: String,
 }

@@ -51,6 +51,7 @@ pub async fn op_add(
 
 #[derive(Debug, Deserialize)]
 pub struct OpEditParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub op_id: u64,
     pub op_key: String,
     pub op_name: String,
@@ -95,6 +96,7 @@ pub async fn op_edit(
 
 #[derive(Debug, Deserialize)]
 pub struct OpDelParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub op_id: u64,
 }
 
@@ -127,8 +129,10 @@ pub struct OpDataParam {
     pub user_param: Option<String>,
     pub op_name: Option<String>,
     pub op_key: Option<String>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_u64")]
     pub ids: Option<Vec<u64>>,
     pub page: Option<PageParam>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
 }
 

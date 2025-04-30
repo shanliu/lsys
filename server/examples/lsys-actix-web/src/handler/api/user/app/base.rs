@@ -15,8 +15,9 @@ use lsys_web::handler::api::user::app::{
     ConfirmOAuthClientParam, ConfirmOAuthClientScopeParam, ConfirmOAuthClientSetDomainParam,
     ConfirmOAuthServerSettingParam, ConfirmParam, DelAppSecretParam, DelOAuthSecretParam,
     DeleteParam, OAuthClientRequestParam, OAuthServerRequestParam, RequestExterFeatureParam,
-    RequestExterLoginFeatureData, RequestExterSubAppParam, RequestListParam, SecretViewSecretParam,
-    SubAppNotifyConfigParam, SubRequestListParam, UserAppListParam, UserParentAppListParam,
+    RequestExterLoginFeatureParam, RequestExterSubAppParam, RequestListParam,
+    SecretViewSecretParam, SubAppNotifyConfigParam, SubRequestListParam, UserAppListParam,
+    UserParentAppListParam,
 };
 #[post("/{method}")]
 pub(crate) async fn base(
@@ -65,7 +66,7 @@ pub(crate) async fn base(
         }
         "request_inner_feature_exter_login_request" => {
             request_inner_feature_exter_login_request(
-                &json_param.param::<RequestExterLoginFeatureData>()?,
+                &json_param.param::<RequestExterLoginFeatureParam>()?,
                 &auth_dao,
             )
             .await

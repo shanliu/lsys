@@ -50,6 +50,7 @@ pub async fn address_add(
 
 #[derive(Debug, Deserialize)]
 pub struct AddressEditParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub address_id: u64,
     pub code: String,
     pub info: String,
@@ -112,6 +113,7 @@ pub async fn address_edit(
 
 #[derive(Debug, Deserialize)]
 pub struct AddressDeleteParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub address_id: u64,
 }
 pub async fn address_delete(

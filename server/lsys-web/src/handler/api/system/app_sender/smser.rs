@@ -10,6 +10,7 @@ use tracing::warn;
 #[derive(Debug, Deserialize)]
 pub struct SmserMessageLogParam {
     pub message_id: String,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
     pub page: Option<PageParam>,
 }
@@ -101,10 +102,13 @@ pub async fn smser_message_body(
 #[derive(Debug, Deserialize)]
 pub struct SmserMessageListParam {
     pub tpl_id: Option<String>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub body_id: Option<u64>,
     pub snid: Option<String>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
     pub status: Option<i8>,
     pub mobile: Option<String>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
     pub limit: Option<LimitParam>,
 }
@@ -220,9 +224,9 @@ pub async fn smser_message_list(
             })
         })
         .collect::<Vec<_>>();
-    Ok(JsonResponse::data(
-        JsonData::body( json!({ "data": res,"total":count,"next":next}))
-    ))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "data": res,"total":count,"next":next}),
+    )))
 }
 #[derive(Debug, Deserialize)]
 pub struct SmserMessageCancelParam {
@@ -271,7 +275,7 @@ pub async fn smser_message_cancel(
             out = Some(message_id.to_string())
         }
     }
-    Ok(JsonResponse::data(  JsonData::body(json!({
+    Ok(JsonResponse::data(JsonData::body(json!({
         "data":out
     }))))
 }

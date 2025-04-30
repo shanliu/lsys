@@ -14,10 +14,12 @@ use serde_json::json;
 #[derive(Debug, Deserialize)]
 pub struct RoleUserItemParam {
     pub user_param: Option<String>,
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub timeout: u64,
 }
 #[derive(Debug, Deserialize)]
 pub struct RoleUserAddParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub role_id: u64,
     pub user_data: Vec<RoleUserItemParam>,
 }
@@ -79,7 +81,9 @@ pub async fn role_user_add(
 }
 #[derive(Debug, Deserialize)]
 pub struct RoleUserDelParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub role_id: u64,
+    #[serde(deserialize_with = "crate::common::deserialize_vec_u64")]
     pub user_data: Vec<u64>,
 }
 
@@ -116,9 +120,12 @@ pub async fn role_user_del(
 
 #[derive(Debug, Deserialize)]
 pub struct RoleUserDataParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub role_id: u64,
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub all: bool,
     pub page: Option<PageParam>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
 }
 

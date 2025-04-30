@@ -19,12 +19,15 @@ use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::db::SqlQuote;
 use lsys_core::db::{Insert, Update};
 use lsys_core::db::{ModelTableName, WhereOption};
-use lsys_core::now_time;
-use lsys_core::{fluent_message, RemoteNotify};
+use lsys_core::{
+    clear_string, fluent_message, RemoteNotify, ValidDomain, ValidParamCheck, ValidPattern,
+    ValidStrlen, CLEAR_EMPTY,
+};
 use lsys_core::{model_option_set, sql_format};
+use lsys_core::{now_time, ValidParam};
 use lsys_core::{rand_str, RequestEnv};
 use lsys_logger::dao::ChangeLoggerDao;
-use regex::Regex;
+// use regex::Regex;
 use sqlx::{MySql, Pool};
 use std::sync::Arc;
 pub struct AppOAuthClient {
@@ -694,15 +697,14 @@ impl AppOAuthClient {
         .await;
         let time = now_time()?;
 
-        let ipre = Regex::new(r"^[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}(:[\d]{1,5})?$")
-            .map_err(|e| AppError::System(fluent_message!("rule-error", e)))?;
-        let dre = Regex::new(
-            r"^[0-9a-zA-Z]{0,1}[0-9a-zA-Z-]*(\.[0-9a-zA-Z-]*)*(\.[0-9a-zA-Z]*)+(:[\d]{1,5})?$",
-        )
-        .map_err(|e| AppError::System(fluent_message!("rule-error", e)))?;
-        if !ipre.is_match(callback_domain) && !dre.is_match(callback_domain) {
-            return Err(AppError::System(fluent_message!("auth-alpha-domain-error")));
-        }
+        ValidParam::default()
+            .add(
+                "callback_domain",
+                &callback_domain,
+                &ValidParamCheck::default().add_rule(ValidDomain::default()),
+            )
+            .check()?;
+
         let callback_domain = callback_domain.to_owned();
         match oa_res {
             Ok(oid) => {
@@ -753,15 +755,26 @@ impl AppOAuthClient {
     fn secret_check(&self, secret: Option<&str>) -> AppResult<String> {
         let client_secret = match secret {
             Some(sstr) => {
-                let secret = sstr.trim().to_string();
-                if secret.len() != 32 {
-                    return Err(AppError::System(fluent_message!("app-secret-wrong")));
-                }
-                let re = Regex::new(r"^[a-f0-9]+$")
-                    .map_err(|e| AppError::System(fluent_message!("rule-error", e)))?;
-                if !re.is_match(&secret) {
-                    return Err(AppError::System(fluent_message!("app-secret-wrong")));
-                }
+                let secret = clear_string(sstr, CLEAR_EMPTY);
+                ValidParam::default()
+                    .add(
+                        "secret",
+                        &secret,
+                        &ValidParamCheck::default()
+                            .add_rule(ValidStrlen::eq(32))
+                            .add_rule(ValidPattern::new(lsys_core::ValidPatternRule::Hex)),
+                    )
+                    .check()?;
+
+                // let secret = sstr.trim().to_string();
+                // if secret.len() != 32 {
+                //     return Err(AppError::System(fluent_message!("app-secret-wrong")));
+                // }
+                // let re = Regex::new(r"^[a-f0-9]+$")
+                //     .map_err(|e| AppError::System(fluent_message!("rule-error", e)))?;
+                // if !re.is_match(&secret) {
+                //     return Err(AppError::System(fluent_message!("app-secret-wrong")));
+                // }
                 secret
             }
             None => rand_str(lsys_core::RandType::LowerHex, 32),

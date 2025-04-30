@@ -10,15 +10,24 @@ use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct UserAuthDataOptionParam {
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub reload_auth: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub auth: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub user: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub name: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub info: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub address: Option<bool>,
     pub external: Option<Vec<String>>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_i8")]
     pub email: Option<Vec<i8>>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_i8")]
     pub mobile: Option<Vec<i8>>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub password_timeout: Option<bool>,
 }
 

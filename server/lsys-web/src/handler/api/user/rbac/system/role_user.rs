@@ -9,14 +9,17 @@ use serde::Deserialize;
 use serde_json::json;
 
 #[derive(Debug, Deserialize)]
-pub struct RbacRoleUserItemData {
+pub struct RbacRoleUserItemParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub user_id: u64,
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub timeout: u64,
 }
 #[derive(Debug, Deserialize)]
 pub struct SystemRoleUserAddParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub role_id: u64,
-    pub user_data: Vec<RbacRoleUserItemData>,
+    pub user_data: Vec<RbacRoleUserItemParam>,
 }
 
 pub async fn system_role_user_add(
@@ -70,7 +73,9 @@ pub async fn system_role_user_add(
 
 #[derive(Debug, Deserialize)]
 pub struct SystemRoleUserDelParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub role_id: u64,
+    #[serde(deserialize_with = "crate::common::deserialize_vec_u64")]
     pub user_data: Vec<u64>,
 }
 
@@ -118,9 +123,12 @@ pub async fn system_role_user_del(
 
 #[derive(Debug, Deserialize)]
 pub struct SystemRoleUserDataParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub role_id: u64,
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub all: bool,
     pub page: Option<PageParam>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
 }
 
@@ -188,6 +196,7 @@ pub async fn system_role_user_data(
 pub struct SystemRoleUserAvailableParam {
     pub user_data: String,
     pub limit: Option<LimitParam>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
 }
 

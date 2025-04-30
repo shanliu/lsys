@@ -48,8 +48,31 @@ impl JsonResponse {
             }),
         )]);
         if let Some(ref body) = self.data.body {
-            out_data.insert("response".to_string(), body.to_owned());
+            out_data.insert("response".to_string(), Self::convert_value(body.to_owned()));
         }
         Value::Object(out_data)
+    }
+    fn convert_value(value: Value) -> Value {
+        match value {
+            // 数字转为字符串
+            Value::Number(n) => Value::String(n.to_string()),
+            // 布尔值转为 "1" 或 "0"
+            Value::Bool(b) => Value::String(if b { "1".to_string() } else { "0".to_string() }),
+            // 处理嵌套对象
+            Value::Object(map) => {
+                let mut new_map = serde_json::Map::new();
+                for (k, v) in map {
+                    new_map.insert(k, Self::convert_value(v));
+                }
+                Value::Object(new_map)
+            }
+            // 处理嵌套数组
+            Value::Array(vec) => {
+                let new_vec: Vec<Value> = vec.into_iter().map(Self::convert_value).collect();
+                Value::Array(new_vec)
+            }
+            // 其他类型（如字符串、null）保持原样
+            _ => value,
+        }
     }
 }

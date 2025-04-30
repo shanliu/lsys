@@ -8,15 +8,18 @@ use lsys_rbac::dao::RolePerm;
 use serde::Deserialize;
 use serde_json::json;
 #[derive(Debug, Deserialize)]
-pub struct SystemRolePermItemData {
+pub struct SystemRolePermItemParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub op_id: u64,
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub res_id: u64,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct SystemRolePermAddParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub role_id: u64,
-    pub perm_data: Vec<SystemRolePermItemData>,
+    pub perm_data: Vec<SystemRolePermItemParam>,
 }
 
 pub async fn system_role_perm_add(
@@ -102,8 +105,9 @@ pub async fn system_role_perm_add(
 
 #[derive(Debug, Deserialize)]
 pub struct SystemRolePermDelParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub role_id: u64,
-    pub perm_data: Vec<SystemRolePermItemData>,
+    pub perm_data: Vec<SystemRolePermItemParam>,
 }
 
 pub async fn system_role_perm_del(
@@ -189,8 +193,10 @@ pub async fn system_role_perm_del(
 
 #[derive(Debug, Deserialize)]
 pub struct SystemRolePermDataParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub role_id: u64,
     pub page: Option<PageParam>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
 }
 

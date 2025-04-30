@@ -37,11 +37,15 @@ pub struct ShowAppRecord {
 
 #[derive(Deserialize)]
 pub struct UserAppListParam {
-    pub app_id: Option<u64>,        //过滤指定APP
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
+    pub app_id: Option<u64>, //过滤指定APP
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub parent_app_id: Option<u64>, //获取指定父APP的子APP
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
     pub status: Option<i8>,
     pub client_id: Option<String>,
     pub page: Option<PageParam>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
 }
 
@@ -210,6 +214,7 @@ pub struct ShowParentAppRecord {
 pub struct UserParentAppListParam {
     pub key_word: Option<String>,
     pub page: Option<PageParam>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
 }
 
@@ -274,8 +279,11 @@ pub async fn parent_list_data(
 
 #[derive(Deserialize)]
 pub struct SecretViewSecretParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub app_secret: bool,
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub oauth_secret: bool,
 }
 
@@ -409,9 +417,12 @@ pub async fn sub_app_secret_view(
 
 #[derive(Deserialize)]
 pub struct RequestListParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
     pub status: Option<i8>,
     pub page: Option<PageParam>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
 }
 
@@ -543,9 +554,12 @@ pub async fn request_list(
 
 #[derive(Deserialize)]
 pub struct SubRequestListParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
     pub status: Option<i8>,
     pub page: Option<PageParam>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
 }
 

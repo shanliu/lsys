@@ -5,11 +5,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 #[derive(Debug, Deserialize)]
 pub struct SmserJDConfigListParam {
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_u64")]
     pub ids: Option<Vec<u64>>,
 }
 
 #[derive(Serialize)]
-pub struct ShowJDYunConfig {
+pub struct ShowJDYunConfigRecord {
     pub id: u64,
     pub name: String,
     pub region: String,
@@ -42,7 +43,7 @@ pub async fn smser_jd_config_list(
 
     let tmp = row
         .into_iter()
-        .map(|e| ShowJDYunConfig {
+        .map(|e| ShowJDYunConfigRecord {
             id: e.model().id,
             region: e.region.to_owned(),
             name: e.model().name.to_owned(),
@@ -64,6 +65,7 @@ pub struct SmserJDConfigAddParam {
     pub region: String,
     pub access_key: String,
     pub access_secret: String,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u16")]
     pub limit: Option<u16>,
 }
 
@@ -99,11 +101,13 @@ pub async fn smser_jd_config_add(
 
 #[derive(Debug, Deserialize)]
 pub struct SmserJDConfigEditParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub id: u64,
     pub name: String,
     pub region: String,
     pub access_key: String,
     pub access_secret: String,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u16")]
     pub limit: Option<u16>,
 }
 
@@ -140,6 +144,7 @@ pub async fn smser_jd_config_edit(
 
 #[derive(Debug, Deserialize)]
 pub struct SmserJDConfigDelParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub id: u64,
 }
 
@@ -167,6 +172,7 @@ pub async fn smser_jd_config_del(
 
 #[derive(Debug, Deserialize)]
 pub struct SmserAppJDConfigAddParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub config_id: u64,
     pub name: String,
     pub tpl_id: String,

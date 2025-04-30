@@ -17,6 +17,7 @@ pub struct SendParam {
     pub data: HashMap<String, String>,
     pub reply: Option<String>,
     pub send_time: Option<String>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u8")]
     pub max_try: Option<u8>,
 }
 pub async fn send(

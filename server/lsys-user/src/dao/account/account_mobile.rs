@@ -5,7 +5,7 @@ use crate::dao::AccountResult;
 
 use crate::model::{AccountMobileModel, AccountMobileModelRef, AccountMobileStatus, AccountModel};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{fluent_message, now_time, RemoteNotify};
+use lsys_core::{fluent_message, now_time, RemoteNotify, ValidMobile, ValidParam, ValidParamCheck};
 use lsys_core::{IntoFluentMessage, RequestEnv};
 
 use lsys_core::db::{Insert, ModelTableName, SqlQuote, Update};
@@ -16,8 +16,8 @@ use sqlx::{Acquire, MySql, Pool, Transaction};
 use tracing::log::warn;
 
 use super::logger::LogAccountMobile;
+use super::AccountError;
 use super::AccountIndex;
-use super::{check_mobile, AccountError};
 
 pub struct AccountMobile {
     db: Pool<MySql>,
@@ -84,7 +84,14 @@ impl AccountMobile {
         if status == AccountMobileStatus::Delete {
             status = AccountMobileStatus::Init;
         }
-        check_mobile(area_code, mobile)?;
+
+        ValidParam::default()
+            .add(
+                "mobile",
+                &format!("{}{}", area_code, mobile),
+                &ValidParamCheck::default().add_rule(ValidMobile::default()),
+            )
+            .check()?;
 
         let mobile_res = sqlx::query_as::<_, AccountMobileModel>(&sql_format!(
             "select * from {} where area_code={} and mobile={} and status in ({})",

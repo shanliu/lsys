@@ -9,6 +9,7 @@ use serde_json::json;
 //获取指定用户可访问的资源数据
 #[derive(Debug, Deserialize)]
 pub struct AppResUserFromUserParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
     pub access_user_param: String,
     pub page: Option<PageParam>,
@@ -63,6 +64,7 @@ pub async fn app_res_user_from_user(
 }
 #[derive(Debug, Deserialize)]
 pub struct AppResInfoFromUserParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
     pub access_user_param: String,
 }
@@ -95,9 +97,12 @@ pub async fn app_res_info_from_user(
 }
 #[derive(Debug, Deserialize)]
 pub struct AppResListFromUserParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
     pub access_user_param: String,
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub role_user_id: u64,
+    #[serde(deserialize_with = "crate::common::deserialize_i8")]
     pub res_range: i8,
     pub page: Option<PageParam>,
 }
@@ -148,6 +153,7 @@ pub async fn app_res_list_from_user(
 
 #[derive(Debug, Deserialize)]
 pub struct AppResListFromSessionParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
     pub role_key: String,
     pub access_user_param: String,

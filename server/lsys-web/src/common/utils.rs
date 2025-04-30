@@ -1,14 +1,12 @@
 use regex::Regex;
 
-use super::{AccountError, AccountResult};
+use super::{JsonError, JsonResult};
 
-pub fn check_email(email: &str) -> AccountResult<()> {
+pub fn check_email(email: &str) -> JsonResult<()> {
     let re = Regex::new(r"^[A-Za-z0-9\u4e00-\u9fa5\.\-]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$")
-        .map_err(|e| {
-            AccountError::Param(lsys_core::fluent_message!("rule-error",e))
-        })?;
+        .map_err(|e| JsonError::Message(lsys_core::fluent_message!("rule-error", e)))?;
     if !re.is_match(email) {
-        return Err(AccountError::Param(
+        return Err(JsonError::Message(
             lsys_core::fluent_message!("auth-email-not-match",{
                     "mail":email,
                 }
@@ -18,13 +16,12 @@ pub fn check_email(email: &str) -> AccountResult<()> {
     Ok(())
 }
 
-pub fn check_mobile(area: &str, mobile: &str) -> AccountResult<()> {
+pub fn check_mobile(area: &str, mobile: &str) -> JsonResult<()> {
     if !area.is_empty() {
-        let area_re = Regex::new(r"^[\+\d]{0,1}[\d]{0,3}$").map_err(|e| {
-            AccountError::Param(lsys_core::fluent_message!("rule-error",e))
-        })?;
+        let area_re = Regex::new(r"^[\+\d]{0,1}[\d]{0,3}$")
+            .map_err(|e| JsonError::Message(lsys_core::fluent_message!("rule-error", e)))?;
         if !area_re.is_match(area) {
-            return Err(AccountError::Param(
+            return Err(JsonError::Message(
                 lsys_core::fluent_message!("auth-mobile-area-error",
                     {
                         "area":area,
@@ -33,11 +30,10 @@ pub fn check_mobile(area: &str, mobile: &str) -> AccountResult<()> {
             )); //"submit area code is invalid"
         }
     }
-    let mobile_re = Regex::new(r"^[\d]{0,1}[\-\d]{4,12}$").map_err(|e| {
-        AccountError::Param(lsys_core::fluent_message!("rule-error",e))
-    })?;
+    let mobile_re = Regex::new(r"^[\d]{0,1}[\-\d]{4,12}$")
+        .map_err(|e| JsonError::Message(lsys_core::fluent_message!("rule-error", e)))?;
     if !mobile_re.is_match(mobile) {
-        return Err(AccountError::Param(
+        return Err(JsonError::Message(
             lsys_core::fluent_message!("auth-mobile-error",
                 {
                     "mobile":mobile,

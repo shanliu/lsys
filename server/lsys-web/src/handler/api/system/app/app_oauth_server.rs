@@ -9,7 +9,9 @@ use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct ConfirmOAuthServerParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
+    #[serde(deserialize_with = "crate::common::deserialize_i8")]
     pub confirm_status: i8,
     pub confirm_note: String,
 }

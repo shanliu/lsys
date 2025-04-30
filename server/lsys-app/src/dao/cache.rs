@@ -33,7 +33,7 @@ impl AppLocalCacheClear {
 }
 
 #[async_trait]
-impl LocalCacheClearItem for AppLocalCacheClear {
+impl LocalCacheClearItem<'_> for AppLocalCacheClear {
     fn cache_name(&self) -> &str {
         match self {
             Self::AppId(cache) => cache.config().cache_name,

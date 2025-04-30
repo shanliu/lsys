@@ -15,12 +15,17 @@ use serde_json::json;
 
 #[derive(Debug, Deserialize)]
 pub struct CreateConfigAddParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
     pub barcode_type: String,
+    #[serde(deserialize_with = "crate::common::deserialize_i8")]
     pub status: i8,
     pub image_format: String,
+    #[serde(deserialize_with = "crate::common::deserialize_i32")]
     pub image_width: i32,
+    #[serde(deserialize_with = "crate::common::deserialize_i32")]
     pub image_height: i32,
+    #[serde(deserialize_with = "crate::common::deserialize_i32")]
     pub margin: i32,
     pub image_color: String,
     pub image_background: String,
@@ -90,12 +95,17 @@ pub async fn create_config_add(
 
 #[derive(Debug, Deserialize)]
 pub struct CreateConfigEditParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub id: u64,
     pub barcode_type: String,
+    #[serde(deserialize_with = "crate::common::deserialize_i8")]
     pub status: i8,
     pub image_format: String,
+    #[serde(deserialize_with = "crate::common::deserialize_i32")]
     pub image_width: i32,
+    #[serde(deserialize_with = "crate::common::deserialize_i32")]
     pub image_height: i32,
+    #[serde(deserialize_with = "crate::common::deserialize_i32")]
     pub margin: i32,
     pub image_color: String,
     pub image_background: String,
@@ -169,6 +179,7 @@ pub async fn create_config_edit(
 
 #[derive(Debug, Deserialize)]
 pub struct CreateConfigDeleteParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub id: u64,
 }
 
@@ -206,9 +217,12 @@ pub async fn create_config_delete(
 
 #[derive(Debug, Deserialize)]
 pub struct CreateConfigListParam {
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub id: Option<u64>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub app_id: Option<u64>,
     pub barcode_type: Option<String>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
     pub page: Option<PageParam>,
 }

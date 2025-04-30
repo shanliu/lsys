@@ -11,6 +11,7 @@ use serde_json::json;
 pub struct AddParam {
     pub name: String,
     pub client_id: String,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub parent_app_id: Option<u64>,
 }
 

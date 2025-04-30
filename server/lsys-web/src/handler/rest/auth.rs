@@ -16,6 +16,7 @@ pub struct DoLoginParam {
     pub token_code: String,
     pub user_data: String,
     pub user_name: String,
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub expire_time: u64,
     pub device_name: Option<String>,
     pub user_account: Option<String>,

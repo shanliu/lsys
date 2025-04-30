@@ -8,6 +8,7 @@ use serde::Deserialize;
 use serde_json::json;
 #[derive(Debug, Deserialize)]
 pub struct ResUserFromUserParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub access_user_id: u64,
     pub page: Option<PageParam>,
 }
@@ -62,7 +63,9 @@ pub async fn check_res_user_from_user(
 
 #[derive(Debug, Deserialize)]
 pub struct ResInfoFromUserParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub access_user_id: u64,
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub role_user_id: u64, //0 系统
 }
 
@@ -93,10 +96,15 @@ pub async fn check_res_info_from_user(
 
 #[derive(Debug, Deserialize)]
 pub struct ResListFromUserParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub access_user_id: u64,
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub role_user_id: u64,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub role_app_id: Option<u64>,
+    #[serde(deserialize_with = "crate::common::deserialize_i8")]
     pub user_range: i8,
+    #[serde(deserialize_with = "crate::common::deserialize_i8")]
     pub res_range: i8,
     pub page: Option<PageParam>,
 }
@@ -149,7 +157,9 @@ pub async fn check_res_list_from_user(
 #[derive(Debug, Deserialize)]
 pub struct ResListFromSessionParam {
     pub role_key: String,
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub user_id: u64,
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
     pub page: Option<PageParam>,
 }

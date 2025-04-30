@@ -1,14 +1,15 @@
+use super::{app_check_get, inner_user_data_to_user_id};
+use crate::common::JsonData;
 use crate::common::{JsonResponse, JsonResult, PageParam, UserAuthQueryDao};
 use lsys_access::dao::AccessSession;
 use lsys_rbac::dao::{RbacResAddData, RbacResData, ResDataParam};
 use serde::Deserialize;
 use serde_json::json;
-use crate::common::JsonData;
-use super::{app_check_get, inner_user_data_to_user_id};
 
 //用户后台对APP的RBAC资源管理
 #[derive(Debug, Deserialize)]
 pub struct AppResAddParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
     pub user_param: Option<String>,
     pub res_name: String,
@@ -52,6 +53,7 @@ pub async fn app_res_add(
 
 #[derive(Debug, Deserialize)]
 pub struct AppResEditParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub res_id: u64,
     pub res_name: String,
     pub res_type: String,
@@ -98,6 +100,7 @@ pub async fn app_res_edit(
 
 #[derive(Debug, Deserialize)]
 pub struct AppResDelParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub res_id: u64,
 }
 
@@ -126,6 +129,7 @@ pub async fn app_res_del(
 }
 #[derive(Debug, Deserialize)]
 pub struct AppResParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
     pub user_param: Option<String>,
     pub res_type: Option<String>,
@@ -133,10 +137,14 @@ pub struct AppResParam {
     pub res_name: Option<String>,
     pub ids: Option<Vec<u64>>,
     pub page: Option<PageParam>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
 }
 
-pub async fn app_res_data(param: &AppResParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
+pub async fn app_res_data(
+    param: &AppResParam,
+    req_dao: &UserAuthQueryDao,
+) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let app = app_check_get(param.app_id, false, &auth_data, req_dao).await?;
     let user_id = inner_user_data_to_user_id(&app, param.user_param.as_deref(), req_dao).await?;
@@ -177,5 +185,7 @@ pub async fn app_res_data(param: &AppResParam, req_dao: &UserAuthQueryDao) -> Js
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(json!({ "data": res, "count": count }))))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "data": res, "count": count }),
+    )))
 }

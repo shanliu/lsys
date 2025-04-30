@@ -10,6 +10,7 @@ use serde_json::json;
 
 #[derive(Deserialize)]
 pub struct RequestExterSubAppParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
 }
 
@@ -112,6 +113,7 @@ pub async fn sub_app_notify_get_config(req_dao: &UserAuthQueryDao) -> JsonResult
 
 #[derive(Debug, Deserialize)]
 pub struct SubAppNotifyConfigParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
     pub url: String,
 }

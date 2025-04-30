@@ -7,7 +7,7 @@ use lsys_setting::dao::SettingData;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 #[derive(Serialize)]
-pub struct ShowHwConfig {
+pub struct ShowHwConfigRecord {
     pub id: u64,
     pub name: String,
     pub url: String,
@@ -23,6 +23,7 @@ pub struct ShowHwConfig {
 
 #[derive(Debug, Deserialize)]
 pub struct SmserHwConfigListParam {
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_u64")]
     pub ids: Option<Vec<u64>>,
 }
 
@@ -48,7 +49,7 @@ pub async fn smser_hw_config_list(
     let row = {
         let tmp = data
             .into_iter()
-            .map(|e| ShowHwConfig {
+            .map(|e| ShowHwConfigRecord {
                 id: e.model().id,
                 url: e.url.clone(),
                 name: e.model().name.to_owned(),
@@ -74,6 +75,7 @@ pub struct SmserHwConfigAddParam {
     pub url: String,
     pub app_key: String,
     pub app_secret: String,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u16")]
     pub limit: Option<u16>,
     pub callback_key: String,
 }
@@ -111,11 +113,13 @@ pub async fn smser_hw_config_add(
 
 #[derive(Debug, Deserialize)]
 pub struct SmserHwConfigEditParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub id: u64,
     pub name: String,
     pub url: String,
     pub app_key: String,
     pub app_secret: String,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u16")]
     pub limit: Option<u16>,
     pub callback_key: String,
 }
@@ -154,6 +158,7 @@ pub async fn smser_hw_config_edit(
 
 #[derive(Debug, Deserialize)]
 pub struct SmserHwConfigDelParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub id: u64,
 }
 
@@ -181,6 +186,7 @@ pub async fn smser_hw_config_del(
 
 #[derive(Debug, Deserialize)]
 pub struct SmserAppHwConfigAddParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub hw_config_id: u64,
     pub name: String,
     pub tpl_id: String,

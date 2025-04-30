@@ -8,6 +8,7 @@ use serde::Deserialize;
 use serde_json::json;
 #[derive(Deserialize)]
 pub struct ChangeParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
     pub name: String,
     pub client_id: String,
@@ -71,8 +72,10 @@ pub async fn change(param: &ChangeParam, req_dao: &UserAuthQueryDao) -> JsonResu
 
 #[derive(Deserialize)]
 pub struct AddAppSecretParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
     pub secret: Option<String>,
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub secret_timeout: u64,
 }
 
@@ -121,9 +124,11 @@ pub async fn app_secret_add(
 
 #[derive(Deserialize)]
 pub struct ChangeAppSecretParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
     pub old_secret: String,
     pub secret: Option<String>,
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub secret_timeout: u64,
 }
 
@@ -173,6 +178,7 @@ pub async fn app_secret_change(
 
 #[derive(Deserialize)]
 pub struct DelAppSecretParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
     pub old_secret: String,
 }
@@ -219,8 +225,10 @@ pub async fn app_secret_del(
 
 #[derive(Deserialize)]
 pub struct ChangeNotifySecretParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
     pub secret: Option<String>,
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub secret_timeout: u64,
 }
 

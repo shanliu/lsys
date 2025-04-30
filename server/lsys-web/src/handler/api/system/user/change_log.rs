@@ -1,15 +1,17 @@
+use crate::common::JsonData;
 use crate::{
     common::{JsonResponse, JsonResult, LimitParam, UserAuthQueryDao},
     dao::access::api::system::CheckAdminChangeLogsView,
 };
 use lsys_access::dao::AccessSession;
 use serde::Deserialize;
-use crate::common::JsonData;
 use serde_json::json;
 #[derive(Debug, Deserialize)]
 pub struct ChangeLogsListParam {
     pub log_type: Option<String>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub add_user_id: Option<u64>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
     pub limit: Option<LimitParam>,
 }

@@ -5,7 +5,7 @@ use crate::{dao::AccessResult, model::UserModel};
 
 use super::AccessUser;
 use lsys_core::db::{ModelTableName, SqlExpr, SqlQuote};
-use lsys_core::{now_time, sql_format, LimitParam};
+use lsys_core::{clear_string, now_time, sql_format, LimitParam, CLEAR_BASE};
 use serde::Serialize;
 impl AccessUser {
     //通过ID获取用户
@@ -59,6 +59,7 @@ impl AccessUser {
             sql_vec.push(sql_format!("app_id = {}", tmp));
         };
         if let Some(tmp) = param.user_any {
+            let tmp = clear_string(tmp, CLEAR_BASE);
             sql_vec.push(sql_format!(
                 " ( user_data = {} or user_account = {} ) ",
                 tmp,

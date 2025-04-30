@@ -5,7 +5,10 @@ use crate::dao::AccountResult;
 
 use crate::model::{AccountEmailModel, AccountEmailModelRef, AccountEmailStatus, AccountModel};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{fluent_message, now_time, IntoFluentMessage, RemoteNotify, RequestEnv};
+use lsys_core::{
+    fluent_message, now_time, IntoFluentMessage, RemoteNotify, RequestEnv, ValidEmail, ValidParam,
+    ValidParamCheck,
+};
 
 use lsys_core::db::SqlQuote;
 use lsys_core::db::{Insert, ModelTableName, Update};
@@ -16,8 +19,8 @@ use sqlx::{Acquire, MySql, Pool, Transaction};
 use tracing::warn;
 
 use super::logger::LogAccountEmail;
+use super::AccountError;
 use super::AccountIndex;
-use super::{check_email, AccountError};
 
 pub struct AccountEmail {
     db: Pool<MySql>,
@@ -72,7 +75,13 @@ impl AccountEmail {
         transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
     ) -> AccountResult<u64> {
-        check_email(email)?;
+        ValidParam::default()
+            .add(
+                "email",
+                &email,
+                &ValidParamCheck::default().add_rule(ValidEmail::default()),
+            )
+            .check()?;
 
         let email_res = sqlx::query_as::<_, AccountEmailModel>(&sql_format!(
             "select * from {} where email={} and status in ({})",

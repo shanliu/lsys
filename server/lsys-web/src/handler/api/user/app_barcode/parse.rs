@@ -14,8 +14,10 @@ use serde_json::Value;
 
 #[derive(Debug, Deserialize)]
 pub struct ParseRecordListParam {
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub app_id: Option<u64>,
     pub barcode_type: Option<String>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
     pub page: Option<PageParam>,
 }
@@ -100,6 +102,7 @@ pub async fn parse_record_list(
 
 #[derive(Debug, Deserialize)]
 pub struct ParseRecordDeleteParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub id: u64,
 }
 

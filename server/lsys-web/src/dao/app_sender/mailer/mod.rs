@@ -5,10 +5,9 @@ use lsys_app_sender::{
     dao::{MailSenderDao, SenderError, SenderResult, SenderSmtpConfig, SmtpSenderTask},
     model::{SenderMailBodyModel, SenderMailMessageModel},
 };
-use lsys_core::{fluent_message, AppCore, RequestEnv};
+use lsys_core::{fluent_message, AppCore, RequestEnv, ValidEmail, ValidParam, ValidParamCheck};
 use lsys_logger::dao::ChangeLoggerDao;
 use lsys_setting::dao::SettingDao;
-use lsys_user::dao::check_email;
 use sqlx::{MySql, Pool};
 use std::sync::Arc;
 use tera::Context;
@@ -86,7 +85,13 @@ impl SenderMailer {
         max_try_num: Option<u8>,
         env_data: Option<&RequestEnv>,
     ) -> JsonResult<u64> {
-        check_email(to)?;
+        ValidParam::default()
+            .add(
+                "to_email",
+                &to,
+                &ValidParamCheck::default().add_rule(ValidEmail::default()),
+            )
+            .check()?;
         let mut out = self
             .mailer_dao
             .send(

@@ -10,6 +10,7 @@ use serde_json::json;
 
 #[derive(Debug, Deserialize)]
 pub struct MailerTplListParam {
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub id: Option<u64>,
     pub tpl_id: Option<String>,
     pub count_num: Option<bool>,
@@ -106,6 +107,7 @@ pub async fn mailer_tpl_body_add(
 
 #[derive(Debug, Deserialize)]
 pub struct MailerTplEditParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub id: u64,
     pub tpl_data: String,
 }
@@ -145,6 +147,7 @@ pub async fn mailer_tpl_body_edit(
 
 #[derive(Debug, Deserialize)]
 pub struct MailerTplDelParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub id: u64,
 }
 pub async fn mailer_tpl_body_del(

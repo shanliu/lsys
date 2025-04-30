@@ -9,9 +9,8 @@ use crate::model::{
 
 use lsys_core::db::ModelTableName;
 use lsys_core::db::{SqlExpr, SqlQuote};
-use lsys_core::{impl_dao_fetch_map_by_vec, PageParam};
+use lsys_core::{clear_string, impl_dao_fetch_map_by_vec, PageParam, CLEAR_SEARCH_KEYWORD};
 use lsys_core::{sql_format, RequestEnv};
-use regex::Regex;
 
 use super::super::{AppError, AppResult};
 use super::App;
@@ -484,11 +483,10 @@ impl App {
             AppRequestType::SubApp.feature_key()
         )];
         if let Some(tmp) = app_where.key_word {
-            let key_word = if let Ok(re) = Regex::new(r"[\s%_&\*\.\^\!@#\$'\t\n\r]+") {
-                re.replace_all(tmp, " ").trim().to_string()
-            } else {
-                tmp.trim().to_owned()
-            };
+            let key_word = clear_string(tmp, CLEAR_SEARCH_KEYWORD);
+            if key_word.is_empty() {
+                return None;
+            }
             sql_vec.push(sql_format!(
                 "( client_id = {} or name={} )",
                 key_word,

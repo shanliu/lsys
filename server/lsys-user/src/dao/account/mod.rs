@@ -23,7 +23,6 @@ mod cache;
 mod logger;
 mod password;
 mod result;
-mod utils;
 
 use account::*;
 use account_address::*;
@@ -38,7 +37,6 @@ use account_password::*;
 pub use cache::*;
 pub use password::*;
 pub use result::*;
-pub use utils::*;
 
 use crate::model::AccountModel;
 

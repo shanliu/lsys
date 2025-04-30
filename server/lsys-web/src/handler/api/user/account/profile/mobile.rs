@@ -74,6 +74,7 @@ pub async fn mobile_send_code(
 
 #[derive(Debug, Deserialize)]
 pub struct MobileConfirmParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub mobile_id: u64,
     pub code: String,
 }
@@ -108,6 +109,7 @@ pub async fn mobile_confirm(
 
 #[derive(Debug, Deserialize)]
 pub struct MobileDeleteParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub mobile_id: u64,
 }
 pub async fn mobile_delete(
@@ -156,6 +158,7 @@ pub async fn mobile_delete(
 
 #[derive(Debug, Deserialize)]
 pub struct MobileListDataParam {
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_i8")]
     pub status: Option<Vec<i8>>,
 }
 pub async fn mobile_list_data(

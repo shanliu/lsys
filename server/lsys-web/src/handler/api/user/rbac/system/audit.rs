@@ -9,7 +9,9 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 #[derive(Debug, Deserialize)]
 pub struct SystemAuditResParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub res_id: u64,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub op_id: Option<u64>,
 }
 #[derive(Debug, Deserialize)]
@@ -19,6 +21,7 @@ pub struct SystemAuditParam {
     pub request_id: Option<String>,
     pub res_data: Option<SystemAuditResParam>,
     pub limit: Option<LimitParam>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
 }
 

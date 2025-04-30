@@ -72,7 +72,7 @@ impl ToRedisArgs for TaskData {
 
 // 任务TRAIT
 pub trait TaskItem<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display>:
-    Send
+    Send + 'static
 {
     fn to_task_pk(&self) -> I;
     fn to_task_data(&self) -> TaskData {
@@ -92,7 +92,7 @@ pub trait TaskItem<I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + D
 pub trait TaskExecutor<
     I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display,
     T: TaskItem<I>,
->: Send + Sync + Clone
+>: Send + Sync + Clone + 'static
 {
     async fn exec(&self, val: T) -> Result<(), String>;
 }
@@ -219,7 +219,7 @@ impl<
 
 impl<
         I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display + Clone,
-        T: TaskItem<I> + 'static, // 实在不想细细折腾，直接 'static ，毕竟T也没打算带用带引用
+        T: TaskItem<I>, // 实在不想细细折腾，直接 'static ，毕竟T也没打算带用带引用
     > TaskDispatch<I, T>
 {
     /// 通知执行模块进行任务执行操作
@@ -238,7 +238,7 @@ impl<
         redis_data_opt.map(|data| data.unwrap_or_default())
     }
     // 任务执行
-    async fn run_task<E: TaskExecutor<I, T> + 'static>(
+    async fn run_task<E: TaskExecutor<I, T>>(
         task_set: &mut JoinSet<()>,
         task_ing: &mut Vec<(I, AbortHandle)>,
         v: T,
@@ -267,7 +267,7 @@ impl<
     /// * `app_core` - 公共APP句柄,用于创建REDIS
     /// * `task_reader` - 任务读取实现
     /// * `task_executor` - 任务执行实现
-    pub async fn dispatch<R: TaskAcquisition<I, T>, E: TaskExecutor<I, T> + 'static>(
+    pub async fn dispatch<R: TaskAcquisition<I, T>, E: TaskExecutor<I, T>>(
         &self,
         app_core: Arc<AppCore>,
         task_reader: &R,

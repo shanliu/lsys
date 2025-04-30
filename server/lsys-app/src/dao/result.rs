@@ -1,5 +1,5 @@
 use lsys_access::dao::AccessError;
-use lsys_core::{fluent_message, AppCoreError, FluentMessage, IntoFluentMessage};
+use lsys_core::{fluent_message, AppCoreError, FluentMessage, IntoFluentMessage, ValidError};
 use std::{
     // error::Error,
     // fmt::{Display, Formatter},
@@ -24,6 +24,7 @@ pub enum AppError {
     Access(AccessError),
     SerdeJson(serde_json::Error),
     AppCore(AppCoreError),
+    Vaild(ValidError),
 }
 impl IntoFluentMessage for AppError {
     fn to_fluent_message(&self) -> FluentMessage {
@@ -63,10 +64,15 @@ impl IntoFluentMessage for AppError {
                     "name":name
                 })
             }
+            AppError::Vaild(e) => e.to_fluent_message(),
         }
     }
 }
-
+impl From<ValidError> for AppError {
+    fn from(err: ValidError) -> Self {
+        AppError::Vaild(err)
+    }
+}
 impl From<sqlx::Error> for AppError {
     fn from(err: sqlx::Error) -> Self {
         AppError::Sqlx(err)

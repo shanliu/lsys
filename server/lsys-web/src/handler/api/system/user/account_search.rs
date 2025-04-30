@@ -1,3 +1,4 @@
+use crate::common::JsonData;
 use crate::{
     common::{JsonResponse, JsonResult, LimitParam, UserAuthQueryDao},
     dao::{access::api::system::CheckAdminUserManage, AccountOptionData},
@@ -10,20 +11,25 @@ use lsys_user::model::{
 };
 use serde::Deserialize;
 use serde_json::json;
-use crate::common::JsonData;
-
 
 #[derive(Debug, Deserialize)]
 pub struct AccountSearchParam {
     pub key_word: Option<String>,
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub enable: bool,
     pub limit: Option<LimitParam>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub base: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub name: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub info: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub address: Option<bool>,
     pub external: Option<Vec<String>>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_i8")]
     pub email: Option<Vec<i8>>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_i8")]
     pub mobile: Option<Vec<i8>>,
 }
 pub async fn account_search(
@@ -160,13 +166,20 @@ pub async fn account_search(
 
 #[derive(Debug, Deserialize)]
 pub struct AccountIdSearchParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub account_id: u64,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub base: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub name: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub info: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub address: Option<bool>,
     pub external: Option<Vec<String>>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_i8")]
     pub email: Option<Vec<i8>>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_i8")]
     pub mobile: Option<Vec<i8>>,
 }
 

@@ -1,7 +1,6 @@
 use lsys_app::model::AppModel;
 use lsys_app_sender::dao::SenderError;
-use lsys_core::RequestEnv;
-use lsys_user::dao::check_email;
+use lsys_core::{RequestEnv, ValidEmail, ValidParam, ValidParamCheck};
 use serde_json::json;
 use std::collections::HashMap;
 
@@ -23,14 +22,24 @@ impl SenderMailer {
         max_try_num: Option<u8>,
         env_data: Option<&RequestEnv>,
     ) -> JsonResult<Vec<(u64, &'t str)>> {
+        let mut valid_param = ValidParam::default();
         for tmp in to.iter() {
-            check_email(tmp)?;
+            valid_param = valid_param.add(
+                "to_email",
+                tmp,
+                &ValidParamCheck::default().add_rule(ValidEmail::default()),
+            );
         }
         if let Some(cr) = reply {
             if !cr.is_empty() {
-                check_email(cr)?;
+                valid_param = valid_param.add(
+                    "reply_email",
+                    &cr,
+                    &ValidParamCheck::default().add_rule(ValidEmail::default()),
+                );
             }
         }
+        valid_param.check()?;
         let tos = to.to_vec();
         let res = self
             .mailer_dao

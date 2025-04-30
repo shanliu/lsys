@@ -23,7 +23,7 @@ impl SettingLocalCacheClear {
 }
 
 #[async_trait]
-impl LocalCacheClearItem for SettingLocalCacheClear {
+impl LocalCacheClearItem<'_> for SettingLocalCacheClear {
     fn cache_name(&self) -> &str {
         match self {
             SettingLocalCacheClear::MultipleSetting(cache) => cache.config().cache_name,

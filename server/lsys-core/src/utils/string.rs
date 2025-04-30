@@ -37,6 +37,8 @@ pub const CLEAR_XSS: u32 = 1 << 2; // Sanitize XSS（防止XSS注入）
 pub const CLEAR_SP_CHAR: u32 = 1 << 3; // Remove Special Chars（删除特殊符号）
 pub const CLEAR_BASE: u32 = CLEAR_TS_SPACE | CLEAR_NL | CLEAR_XSS | CLEAR_SP_CHAR; //基本输入过滤
 pub const CLEAR_IDENT: u32 = 1 << 4 | CLEAR_TS_SPACE | CLEAR_NL; //标识符字符过滤
+pub const CLEAR_SEARCH_KEYWORD: u32 = 1 << 5 | CLEAR_TS_SPACE | CLEAR_NL | CLEAR_SP_CHAR; //搜索关键字过滤
+pub const CLEAR_EMPTY: u32 = CLEAR_TS_SPACE | CLEAR_NL; //搜索空字符
 pub fn clear_string(input: impl ToString, flags: u32) -> String {
     let mut s = input.to_string();
     // CLEAR_XSS: 替换敏感字符为安全字符
@@ -48,7 +50,7 @@ pub fn clear_string(input: impl ToString, flags: u32) -> String {
     }
     // CLEAR_NL: 删除换行符和\r
     if (flags & CLEAR_NL) != 0 {
-        s = s.replace(['\n', '\r'], " ");
+        s = s.replace(['\n', '\r', '\t'], " ");
     }
     // CLEAR_SP_CHAR: 删除特殊符号
     if (flags & CLEAR_SP_CHAR) != 0 {
@@ -63,9 +65,17 @@ pub fn clear_string(input: impl ToString, flags: u32) -> String {
             .collect()
     }
     // CLEAR_TS_SPACE: 去前后空格/制表符，合并中间空格
+    if (flags & CLEAR_SEARCH_KEYWORD) != 0 {
+        let sp_chars = [
+            '*', '$', '#', '(', ')', '[', ']', '?', '>', '<', ',', '.', '!', '@', '%', '^', '&',
+            '-', '+', '=', '{', '}', '|', ':', ';',
+        ];
+        s = s.chars().filter(|c| !sp_chars.contains(c)).collect();
+    }
+    // CLEAR_TS_SPACE: 去前后空格/制表符，合并中间空格
     if (flags & CLEAR_TS_SPACE) != 0 {
-        s = s.trim().to_string();
         s = s.split_whitespace().collect::<Vec<_>>().join(" ");
+        s = s.trim().to_string();
     }
     s
 }

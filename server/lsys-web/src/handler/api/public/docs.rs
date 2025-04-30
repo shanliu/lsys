@@ -1,6 +1,6 @@
+use crate::common::JsonData;
 use crate::common::{JsonResponse, JsonResult, RequestDao};
 use lsys_docs::dao::DocPath;
-use crate::common::JsonData;
 use lsys_docs::dao::GitDocResult;
 use serde::Deserialize;
 use serde_json::json;
@@ -42,6 +42,7 @@ pub async fn menu_data(req_dao: &RequestDao) -> JsonResult<JsonResponse> {
 #[derive(Debug, Deserialize)]
 pub struct MdReadParam {
     pub url: String,
+    #[serde(deserialize_with = "crate::common::deserialize_u32")]
     pub menu_id: u32,
 }
 pub async fn md_read(param: &MdReadParam, req_dao: &RequestDao) -> JsonResult<JsonResponse> {
@@ -59,6 +60,7 @@ pub async fn md_read(param: &MdReadParam, req_dao: &RequestDao) -> JsonResult<Js
 
 #[derive(Debug, Deserialize)]
 pub struct RawReadParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u32")]
     pub menu_id: u32,
     pub url: String,
 }

@@ -7,13 +7,11 @@ use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct DeleteParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
 }
 //APP 删除
-pub async fn delete(
-    param: &DeleteParam,
-    req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonResponse> {
+pub async fn delete(param: &DeleteParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
         .web_dao
@@ -27,7 +25,7 @@ pub async fn delete(
         .app
         .find_by_id(&param.app_id)
         .await?;
-   
+
     req_dao
         .web_dao
         .web_app

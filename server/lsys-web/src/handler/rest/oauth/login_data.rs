@@ -10,12 +10,19 @@ use serde_json::json;
 
 #[derive(Deserialize)]
 pub struct AccountOptionDataParam {
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub auth: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub user: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub name: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub info: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub address: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub email: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub mobile: Option<bool>,
 }
 

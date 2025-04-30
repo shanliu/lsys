@@ -11,10 +11,13 @@ pub use data::AppOAuthServerScopeData;
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::db::{Insert, ModelTableName, Update};
 use lsys_core::db::{SqlQuote, WhereOption};
-use lsys_core::{fluent_message, now_time, RemoteNotify, RequestEnv};
+use lsys_core::{
+    fluent_message, now_time, RemoteNotify, RequestEnv, ValidParam, ValidParamCheck, ValidPattern,
+    ValidPatternRule, ValidStrlen,
+};
 use lsys_core::{model_option_set, sql_format};
 use lsys_logger::dao::ChangeLoggerDao;
-use regex::Regex;
+// use regex::Regex;
 use serde::Serialize;
 use serde_json::json;
 use sqlx::{MySql, Pool};
@@ -102,6 +105,37 @@ impl AppOAuthServer {
         set_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> AppResult<()> {
+        // let re = Regex::new(r"^[a-z0-9_]+$")
+        //     .map_err(|e| AppError::System(fluent_message!("rule-error", e)))?;
+
+        for tmp in req {
+            ValidParam::default()
+                .add(
+                    "key",
+                    &tmp.key,
+                    &ValidParamCheck::default()
+                        .add_rule(ValidStrlen::range(2, 32))
+                        .add_rule(ValidPattern::new(ValidPatternRule::Ident)),
+                )
+                .add(
+                    "name",
+                    &tmp.name,
+                    &ValidParamCheck::default().add_rule(ValidStrlen::range(2, 64)),
+                )
+                .check()?;
+
+            // if !re.is_match(tmp.key) || tmp.key.len() < 2 {
+            //     return Err(AppError::System(fluent_message!(
+            //         "app-oauth-server-skey-wrong"
+            //     )));
+            // }
+            // if tmp.name.trim().is_empty() {
+            //     return Err(AppError::System(fluent_message!(
+            //         "app-oauth-server-name-wrong"
+            //     )));
+            // }
+        }
+
         self.oauth_check(app).await?;
         let find_res = sqlx::query_as::<_, (u64, String)>(&sql_format!(
             "select id,scope_key from {} where app_id={}",
@@ -110,25 +144,10 @@ impl AppOAuthServer {
         ))
         .fetch_all(&self.db)
         .await?;
-
-        let re = Regex::new(r"^[a-z0-9_]+$")
-            .map_err(|e| AppError::System(fluent_message!("rule-error", e)))?;
-
         let time = now_time()?;
         let mut add_data = vec![];
         let mut change_data = vec![];
-
         for tmp in req {
-            if !re.is_match(tmp.key) || tmp.key.len() < 2 {
-                return Err(AppError::System(fluent_message!(
-                    "app-oauth-server-skey-wrong"
-                )));
-            }
-            if tmp.name.trim().is_empty() {
-                return Err(AppError::System(fluent_message!(
-                    "app-oauth-server-name-wrong"
-                )));
-            }
             match find_res.iter().find(|e| e.1.as_str() == tmp.key) {
                 Some(stmp) => {
                     change_data.push((

@@ -9,6 +9,7 @@ use serde_json::json;
 
 #[derive(Debug, Deserialize)]
 pub struct MenuAddParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub tag_id: u64,
     pub menu_path: String,
 }
@@ -52,6 +53,7 @@ pub async fn menu_add(
 
 #[derive(Debug, Deserialize)]
 pub struct MenuDelParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub menu_id: u64,
 }
 
@@ -86,6 +88,7 @@ pub async fn menu_del(
 
 #[derive(Debug, Deserialize)]
 pub struct MenuListParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub tag_id: u64,
 }
 

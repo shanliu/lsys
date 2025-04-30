@@ -1,8 +1,8 @@
+use crate::common::JsonData;
 use crate::{
     common::{JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
     dao::user::RbacUserSyncOpParam,
 };
-use crate::common::JsonData;
 use lsys_access::dao::AccessSession;
 use lsys_core::FluentMessage;
 use lsys_rbac::dao::ResTypeParam;
@@ -57,13 +57,16 @@ pub async fn system_res_global_data(req_dao: &UserAuthQueryDao) -> JsonResult<Js
             }).collect::<Vec<_>>(),
         }));
     }
-    Ok(JsonResponse::data(JsonData::body(json!({ "tpl_data": out_data }))))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "tpl_data": out_data }),
+    )))
 }
 
 #[derive(Debug, Deserialize)]
 pub struct SystemResParam {
     pub res_type: String,
     pub page: Option<PageParam>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
 }
 
@@ -99,5 +102,7 @@ pub async fn system_res_data(
             }).collect::<Vec<_>>(),
         }));
     }
-    Ok(JsonResponse::data(JsonData::body(json!({ "tpl_data": out_data }))))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "tpl_data": out_data }),
+    )))
 }

@@ -52,6 +52,7 @@ pub async fn res_add(param: &ResAddParam, req_dao: &UserAuthQueryDao) -> JsonRes
 
 #[derive(Debug, Deserialize)]
 pub struct ResEditParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub res_id: u64,
     pub res_name: String,
     pub res_type: String,
@@ -102,6 +103,7 @@ pub async fn res_edit(
 
 #[derive(Debug, Deserialize)]
 pub struct ResDelParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub res_id: u64,
 }
 //资源删除
@@ -133,12 +135,15 @@ pub async fn res_del(param: &ResDelParam, req_dao: &UserAuthQueryDao) -> JsonRes
 
 #[derive(Debug, Deserialize)]
 pub struct ResParam {
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub user_id: Option<u64>,
     pub res_type: Option<String>,
     pub res_data: Option<String>,
     pub res_name: Option<String>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_u64")]
     pub ids: Option<Vec<u64>>,
     pub page: Option<PageParam>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
 }
 //资源列表

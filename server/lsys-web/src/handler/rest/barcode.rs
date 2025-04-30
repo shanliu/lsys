@@ -13,17 +13,26 @@ use base64::Engine;
 use std::path::Path;
 #[derive(Debug, Deserialize)]
 pub struct ParseParam {
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub try_harder: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub decode_multi: Option<bool>,
     pub barcode_types: Option<Vec<String>>,
     pub other: Option<String>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub pure_barcode: Option<bool>,
     pub character_set: Option<String>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_u32")]
     pub allowed_lengths: Option<Vec<u32>>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub assume_code_39_check_digit: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub assume_gs1: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub return_codabar_start_end: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_u32")]
     pub allowed_ean_extensions: Option<Vec<u32>>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub also_inverted: Option<bool>,
 }
 
@@ -97,6 +106,7 @@ pub async fn parse_image(
 #[derive(Debug, Deserialize)]
 pub struct CodeParam {
     pub contents: String,
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub code_id: u64,
 }
 

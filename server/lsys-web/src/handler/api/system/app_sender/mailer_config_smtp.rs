@@ -11,7 +11,7 @@ use crate::dao::access::api::system::CheckAdminMailConfig;
 use crate::dao::access::api::system::CheckAdminMailMgr;
 
 #[derive(Serialize, Default)]
-pub struct ShowSmtpConfig {
+pub struct ShowSmtpConfigRecord {
     pub id: u64,
     pub name: String,
     pub host: String,
@@ -29,6 +29,7 @@ pub struct ShowSmtpConfig {
 
 #[derive(Debug, Deserialize)]
 pub struct MailerSmtpConfigListParam {
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_u64")]
     pub ids: Option<Vec<u64>>,
 }
 
@@ -52,7 +53,7 @@ pub async fn mailer_smtp_config_list(
         .await?;
     let data = row
         .into_iter()
-        .map(|e| ShowSmtpConfig {
+        .map(|e| ShowSmtpConfigRecord {
             id: e.model().id,
             name: e.model().name.to_owned(),
             change_user_id: e.model().change_user_id,
@@ -80,12 +81,15 @@ pub async fn mailer_smtp_config_list(
 pub struct MailerSmtpConfigAddParam {
     pub name: String,
     pub host: String,
+    #[serde(deserialize_with = "crate::common::deserialize_u16")]
     pub port: u16,
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub timeout: u64,
     pub email: String,
     pub user: String,
     pub password: String,
     pub tls_domain: String,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u16")]
     pub branch_limit: Option<u16>,
 }
 
@@ -135,7 +139,9 @@ pub async fn mailer_smtp_config_add(
 #[derive(Debug, Deserialize)]
 pub struct MailerSmtpConfigCheckParam {
     pub host: String,
+    #[serde(deserialize_with = "crate::common::deserialize_u16")]
     pub port: u16,
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub timeout: u64,
     pub email: String,
     pub user: String,
@@ -182,15 +188,19 @@ pub async fn mailer_smtp_config_check(
 
 #[derive(Debug, Deserialize)]
 pub struct MailerSmtpConfigEditParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub id: u64,
     pub name: String,
     pub host: String,
+    #[serde(deserialize_with = "crate::common::deserialize_u16")]
     pub port: u16,
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub timeout: u64,
     pub email: String,
     pub user: String,
     pub password: String,
     pub tls_domain: String,
+    #[serde(deserialize_with = "crate::common::deserialize_u16")]
     pub branch_limit: u16,
 }
 
@@ -237,6 +247,7 @@ pub async fn mailer_smtp_config_edit(
 
 #[derive(Debug, Deserialize)]
 pub struct MailerSmtpConfigDelParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub id: u64,
 }
 
@@ -264,6 +275,7 @@ pub async fn mailer_smtp_config_del(
 
 #[derive(Debug, Deserialize)]
 pub struct MailerAppSmtpConfigAddParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub smtp_config_id: u64,
     pub name: String,
     pub tpl_id: String,

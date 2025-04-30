@@ -8,11 +8,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 #[derive(Debug, Deserialize)]
 pub struct SmserNetEaseConfigListParam {
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_u64")]
     pub ids: Option<Vec<u64>>,
 }
 
 #[derive(Serialize)]
-pub struct ShowNeteaseConfig {
+pub struct ShowNeteaseConfigRecord {
     pub id: u64,
     pub name: String,
     pub access_key: String,
@@ -47,7 +48,7 @@ pub async fn smser_netease_config_list(
     let out = {
         let tmp = row
             .into_iter()
-            .map(|e| ShowNeteaseConfig {
+            .map(|e| ShowNeteaseConfigRecord {
                 id: e.model().id,
                 name: e.model().name.to_owned(),
                 access_key: e.access_key.to_owned(),
@@ -69,6 +70,7 @@ pub struct SmserNetEaseConfigAddParam {
     pub name: String,
     pub access_key: String,
     pub access_secret: String,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u16")]
     pub limit: Option<u16>,
 }
 
@@ -103,10 +105,12 @@ pub async fn smser_netease_config_add(
 
 #[derive(Debug, Deserialize)]
 pub struct SmserNetEaseConfigEditParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub id: u64,
     pub name: String,
     pub access_key: String,
     pub access_secret: String,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u16")]
     pub limit: Option<u16>,
 }
 
@@ -142,6 +146,7 @@ pub async fn smser_netease_config_edit(
 
 #[derive(Debug, Deserialize)]
 pub struct SmserNetEaseConfigDelParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub id: u64,
 }
 
@@ -169,6 +174,7 @@ pub async fn smser_netease_config_del(
 
 #[derive(Debug, Deserialize)]
 pub struct SmserAppNetEaseConfigAddParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub config_id: u64,
     pub name: String,
     pub tpl_id: String,

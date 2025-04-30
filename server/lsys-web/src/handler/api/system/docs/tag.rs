@@ -10,6 +10,7 @@ use serde_json::json;
 
 #[derive(Debug, Deserialize)]
 pub struct TagAddParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u32")]
     pub git_id: u32,
     pub tag: String,
     pub build_version: String,
@@ -57,7 +58,9 @@ pub async fn tag_add(param: &TagAddParam, req_dao: &UserAuthQueryDao) -> JsonRes
 
 #[derive(Debug, Deserialize)]
 pub struct TagDelParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub tag_id: u64,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u8")]
     pub timeout: Option<u8>,
 }
 
@@ -95,7 +98,9 @@ pub async fn tag_del(param: &TagDelParam, req_dao: &UserAuthQueryDao) -> JsonRes
 
 #[derive(Debug, Deserialize)]
 pub struct TagStatusParam {
+    #[serde(deserialize_with = "crate::common::deserialize_i8")]
     pub status: i8,
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub tag_id: u64,
 }
 pub async fn tag_status(
@@ -130,9 +135,12 @@ pub async fn tag_status(
 
 #[derive(Debug, Deserialize)]
 pub struct TagListParam {
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
     pub status: Option<i8>,
     pub key_word: Option<String>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u32")]
     pub git_id: Option<u32>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
     pub page: Option<PageParam>,
 }
@@ -185,6 +193,7 @@ pub async fn tag_list(
 
 #[derive(Debug, Deserialize)]
 pub struct TagLogsParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u32")]
     pub tag_id: u32,
 }
 
@@ -212,7 +221,9 @@ pub async fn tag_logs(
 
 #[derive(Debug, Deserialize)]
 pub struct TagCLoneDelParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub clone_id: u64,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u8")]
     pub timeout: Option<u8>,
 }
 
@@ -252,6 +263,7 @@ pub async fn tag_clone_del(
 
 #[derive(Debug, Deserialize)]
 pub struct TagDirParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub tag_id: u64,
     pub prefix: Option<String>,
 }
@@ -294,6 +306,7 @@ pub async fn tag_dir(param: &TagDirParam, req_dao: &UserAuthQueryDao) -> JsonRes
 
 #[derive(Debug, Deserialize)]
 pub struct TagFileDataParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub tag_id: u64,
     pub file_path: String,
 }

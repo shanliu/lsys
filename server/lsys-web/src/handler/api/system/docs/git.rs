@@ -12,6 +12,7 @@ use crate::{common::JsonResponse, dao::access::api::system::CheckAdminDocs};
 pub struct GitAddParam {
     pub name: String,
     pub url: String,
+    #[serde(deserialize_with = "crate::common::deserialize_u8")]
     pub max_try: u8,
 }
 pub async fn git_add(param: &GitAddParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
@@ -42,9 +43,11 @@ pub async fn git_add(param: &GitAddParam, req_dao: &UserAuthQueryDao) -> JsonRes
 
 #[derive(Debug, Deserialize)]
 pub struct GitEditParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u32")]
     pub id: u32,
     pub name: String,
     pub url: String,
+    #[serde(deserialize_with = "crate::common::deserialize_u8")]
     pub max_try: u8,
 }
 pub async fn git_edit(
@@ -87,7 +90,9 @@ pub async fn git_edit(
 
 #[derive(Debug, Deserialize)]
 pub struct GitDelParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u32")]
     pub id: u32,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u8")]
     pub timeout: Option<u8>,
 }
 pub async fn git_del(param: &GitDelParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {

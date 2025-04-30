@@ -4,6 +4,7 @@ use serde::Deserialize;
 #[derive(Debug, Deserialize)]
 pub struct BarCodeShowCodeParam {
     pub contents: String,
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub code_id: u64,
 }
 

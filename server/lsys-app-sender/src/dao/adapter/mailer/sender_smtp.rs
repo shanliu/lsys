@@ -21,7 +21,9 @@ use lettre::{
     },
     AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
 };
-use lsys_core::{fluent_message, IntoFluentMessage, RequestEnv};
+use lsys_core::{
+    fluent_message, IntoFluentMessage, RequestEnv, ValidEmail, ValidParam, ValidParamCheck,
+};
 use lsys_logger::dao::ChangeLoggerDao;
 use lsys_setting::{
     dao::{
@@ -30,7 +32,6 @@ use lsys_setting::{
     },
     model::SettingModel,
 };
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tera::Context;
@@ -104,22 +105,6 @@ pub struct SmtpTplConfig {
     pub reply_email: String,
     pub subject_tpl_id: String,
     pub body_tpl_id: String,
-}
-
-pub fn check_email(email: &str) -> SenderResult<()> {
-    let re = Regex::new(r"^[A-Za-z0-9\u4e00-\u9fa5\.\-]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$")
-        .map_err(|e| SenderError::System(lsys_core::fluent_message!("rule-error", e)))?;
-    if !re.is_match(email) {
-        return Err(SenderError::System(
-            lsys_core::fluent_message!("check-email-not-match",
-                {
-                    "mail":email,
-                }
-
-            ),
-        )); //  "submit email is invalid"
-    }
-    Ok(())
 }
 
 //邮件发送smtp配置
@@ -228,10 +213,23 @@ impl SenderSmtpConfig {
         self.setting
             .load::<SmtpConfig>(None, smtp_config_id)
             .await?;
-        check_email(from_email)?;
+
+        let mut valid_param = ValidParam::default().add(
+            "from_mail",
+            &from_email,
+            &ValidParamCheck::default().add_rule(ValidEmail::default()),
+        );
+
         if !reply_email.is_empty() {
-            check_email(reply_email)?;
+            valid_param = valid_param.add(
+                "reply_email",
+                &reply_email,
+                &ValidParamCheck::default().add_rule(ValidEmail::default()),
+            );
         }
+
+        valid_param.check()?;
+
         let from_email = from_email.to_owned();
         let reply_email = reply_email.to_owned();
         let subject_tpl_id = subject_tpl_id.to_owned();

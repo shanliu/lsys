@@ -1,4 +1,3 @@
-use lsys_user::dao::AccountPasswordConfig;
 use crate::common::JsonData;
 use crate::common::JsonResponse;
 use crate::common::JsonResult;
@@ -7,6 +6,7 @@ use crate::dao::SiteConfig;
 use crate::dao::SiteConfigData;
 use lsys_access::dao::AccessSession;
 use lsys_setting::dao::NotFoundResult;
+use lsys_user::dao::AccountPasswordConfig;
 use serde::Deserialize;
 use serde_json::json;
 
@@ -15,7 +15,9 @@ use crate::common::UserAuthQueryDao;
 #[derive(Debug, Deserialize)]
 pub struct SiteConfigParam {
     pub site_tips: String,
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub password_timeout: u64,
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub disable_old_password: bool,
 }
 
@@ -24,11 +26,15 @@ pub async fn site_config_set(
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-  
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminSiteSetting {})
+        .check(
+            &req_dao.req_env,
+            Some(&auth_data),
+            &CheckAdminSiteSetting {},
+        )
         .await?;
     req_dao
         .web_dao
@@ -48,11 +54,15 @@ pub async fn site_config_set(
 
 pub async fn site_config_get(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-  
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env,Some(&auth_data),&CheckAdminSiteSetting {})
+        .check(
+            &req_dao.req_env,
+            Some(&auth_data),
+            &CheckAdminSiteSetting {},
+        )
         .await?;
     let site_config = req_dao
         .web_dao

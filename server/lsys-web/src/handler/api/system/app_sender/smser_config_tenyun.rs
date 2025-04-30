@@ -8,11 +8,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 #[derive(Debug, Deserialize)]
 pub struct SmserTenConfigListParam {
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_u64")]
     pub ids: Option<Vec<u64>>,
 }
 
 #[derive(Serialize)]
-pub struct ShowTenYunConfig {
+pub struct ShowTenYunConfigRecord {
     pub id: u64,
     pub name: String,
     pub region: String,
@@ -49,7 +50,7 @@ pub async fn smser_ten_config_list(
     let out = {
         let tmp = row
             .into_iter()
-            .map(|e| ShowTenYunConfig {
+            .map(|e| ShowTenYunConfigRecord {
                 id: e.model().id,
                 region: e.region.to_owned(),
                 name: e.model().name.to_owned(),
@@ -76,6 +77,7 @@ pub struct SmserTenConfigAddParam {
     pub secret_id: String,
     pub secret_key: String,
     pub sms_app_id: String,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u16")]
     pub limit: Option<u16>,
     pub callback_key: String,
 }
@@ -114,12 +116,14 @@ pub async fn smser_ten_config_add(
 
 #[derive(Debug, Deserialize)]
 pub struct SmserTenConfigEditParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub id: u64,
     pub name: String,
     pub region: String,
     pub secret_id: String,
     pub secret_key: String,
     pub sms_app_id: String,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u16")]
     pub limit: Option<u16>,
     pub callback_key: String,
 }
@@ -159,6 +163,7 @@ pub async fn smser_ten_config_edit(
 
 #[derive(Debug, Deserialize)]
 pub struct SmserTenConfigDelParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub id: u64,
 }
 
@@ -186,6 +191,7 @@ pub async fn smser_ten_config_del(
 
 #[derive(Debug, Deserialize)]
 pub struct SmserAppTenConfigAddParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub config_id: u64,
     pub name: String,
     pub tpl_id: String,

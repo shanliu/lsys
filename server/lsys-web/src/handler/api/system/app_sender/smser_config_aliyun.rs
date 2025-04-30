@@ -7,11 +7,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 #[derive(Debug, Deserialize)]
 pub struct SmserAliConfigListParam {
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_u64")]
     pub ids: Option<Vec<u64>>,
 }
 
 #[derive(Serialize)]
-pub struct ShowAliYunConfig {
+pub struct ShowAliYunConfigRecord {
     pub id: u64,
     pub name: String,
     pub region: String,
@@ -47,7 +48,7 @@ pub async fn smser_ali_config_list(
 
     let tmp = row
         .into_iter()
-        .map(|e| ShowAliYunConfig {
+        .map(|e| ShowAliYunConfigRecord {
             id: e.model().id,
             name: e.model().name.to_owned(),
             access_id: e.access_id.to_owned(),
@@ -71,6 +72,7 @@ pub struct SmserAliConfigAddParam {
     pub access_secret: String,
     pub region: String,
     pub callback_key: String,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u16")]
     pub limit: Option<u16>,
 }
 
@@ -107,12 +109,14 @@ pub async fn smser_ali_config_add(
 
 #[derive(Debug, Deserialize)]
 pub struct SmserAliConfigEditParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub id: u64,
     pub name: String,
     pub access_id: String,
     pub access_secret: String,
     pub region: String,
     pub callback_key: String,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u16")]
     pub limit: Option<u16>,
 }
 
@@ -150,6 +154,7 @@ pub async fn smser_ali_config_edit(
 
 #[derive(Debug, Deserialize)]
 pub struct SmserAliConfigDelParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub id: u64,
 }
 
@@ -176,6 +181,7 @@ pub async fn smser_ali_config_del(
 
 #[derive(Debug, Deserialize)]
 pub struct SmserAppAliConfigAddParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub ali_config_id: u64,
     pub name: String,
     pub tpl_id: String,

@@ -25,10 +25,13 @@ pub async fn notify_data_where(req_dao: &UserAuthQueryDao) -> JsonResult<JsonRes
 
 #[derive(Deserialize)]
 pub struct NotifyDataListParam {
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub app_id: Option<u64>,
     pub method: Option<String>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
     pub status: Option<i8>,
     pub limit: Option<LimitParam>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
 }
 

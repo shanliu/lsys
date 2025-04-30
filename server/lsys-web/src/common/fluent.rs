@@ -5,12 +5,12 @@ use lsys_app_sender::dao::SenderError;
 use lsys_core::AppCoreError;
 use lsys_core::{fluent_message, ConfigError, FluentBundle, IntoFluentMessage, ValidCodeError};
 
+use lsys_core::ValidError;
 use lsys_logger::dao::LoggerError;
 use lsys_rbac::dao::RbacError;
 use lsys_setting::dao::SettingError;
 use lsys_user::dao::AccountError;
 use lsys_user::dao::UserAuthError;
-
 use std::num::ParseIntError;
 
 use lsys_app::dao::AppError;
@@ -38,6 +38,7 @@ macro_rules! self_error_fluent_string {
         }
     };
 }
+self_error_fluent_string!(ValidError);
 self_error_fluent_string!(AppCoreError);
 self_error_fluent_string!(AccountError);
 self_error_fluent_string!(ValidCodeError);
@@ -114,6 +115,7 @@ impl FluentFormat for lsys_app_barcode::dao::BarCodeError {
             lsys_app_barcode::dao::BarCodeError::Image(err) => {
                 fluent.format_message(&fluent_message!("barcode-image-error", err))
             }
+            lsys_app_barcode::dao::BarCodeError::Vaild(err) => err.fluent_format(fluent),
         }
     }
 }

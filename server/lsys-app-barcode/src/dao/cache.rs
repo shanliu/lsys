@@ -24,7 +24,7 @@ impl BarCodeLocalCacheClear {
 }
 
 #[async_trait]
-impl LocalCacheClearItem for BarCodeLocalCacheClear {
+impl LocalCacheClearItem<'_> for BarCodeLocalCacheClear {
     fn cache_name(&self) -> &str {
         match self {
             Self::CreateModel(cache) => cache.config().cache_name,

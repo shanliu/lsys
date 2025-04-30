@@ -40,8 +40,6 @@ hostname = "~0.4.*"
 ip2location = "~0.5"
 
 
-regex = "~1.11.1"
-
 config = "~0.15"
 
 

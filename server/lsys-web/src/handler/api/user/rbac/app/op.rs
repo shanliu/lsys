@@ -9,6 +9,7 @@ use serde_json::json;
 //用户后台对APP的RBAC操作管理
 #[derive(Debug, Deserialize)]
 pub struct AppOpAddParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
     pub user_param: Option<String>,
     pub op_key: String,
@@ -49,6 +50,7 @@ pub async fn app_op_add(
 }
 #[derive(Debug, Deserialize)]
 pub struct AppOpEditParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub op_id: u64,
     pub op_key: String,
     pub op_name: String,
@@ -92,6 +94,7 @@ pub async fn app_op_edit(
 
 #[derive(Debug, Deserialize)]
 pub struct AppOpDelParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub op_id: u64,
 }
 
@@ -120,12 +123,18 @@ pub async fn app_op_del(
 }
 #[derive(Debug, Deserialize)]
 pub struct AppOpDataParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
     pub user_param: Option<String>,
     pub op_name: Option<String>,
     pub op_key: Option<String>,
+    #[serde(
+        default,
+        deserialize_with = "crate::common::deserialize_option_vec_u64"
+    )]
     pub ids: Option<Vec<u64>>,
     pub page: Option<PageParam>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
 }
 

@@ -12,12 +12,15 @@ use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 pub struct RolePermItemParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub op_id: u64,
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub res_id: u64,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct RolePermAddParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub role_id: u64,
     pub perm_data: Vec<RolePermItemParam>,
 }
@@ -99,6 +102,7 @@ pub async fn role_perm_add(
 
 #[derive(Debug, Deserialize)]
 pub struct RolePermDelParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub role_id: u64,
     pub perm_data: Vec<RolePermItemParam>,
 }
@@ -178,8 +182,10 @@ pub async fn role_perm_del(
 
 #[derive(Debug, Deserialize)]
 pub struct RolePermParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub role_id: u64,
     pub page: Option<PageParam>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
 }
 

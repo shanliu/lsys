@@ -29,7 +29,7 @@ impl AccessLocalCacheClear {
 }
 
 #[async_trait]
-impl LocalCacheClearItem for AccessLocalCacheClear {
+impl LocalCacheClearItem<'_> for AccessLocalCacheClear {
     fn cache_name(&self) -> &str {
         match self {
             Self::AuthUser(cache) => cache.config().cache_name,

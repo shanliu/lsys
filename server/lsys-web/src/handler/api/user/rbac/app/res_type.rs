@@ -1,3 +1,5 @@
+use super::{app_check_get, inner_user_data_to_user_id};
+use crate::common::JsonData;
 use crate::common::{JsonResponse, JsonResult, PageParam, UserAuthQueryDao};
 use lsys_access::dao::AccessSession;
 use lsys_rbac::{
@@ -6,15 +8,15 @@ use lsys_rbac::{
 };
 use serde::Deserialize;
 use serde_json::json;
-use crate::common::JsonData;
-use super::{app_check_get, inner_user_data_to_user_id};
 
 #[derive(Debug, Deserialize)]
 pub struct AppResTypeListParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
     pub user_param: Option<String>,
     pub res_type: Option<String>,
     pub page: Option<PageParam>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
 }
 
@@ -62,14 +64,18 @@ pub async fn app_res_type_data(
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(json!({ "data": rows,"total":count}))))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "data": rows,"total":count}),
+    )))
 }
 
 #[derive(Debug, Deserialize)]
 pub struct AppResTypeAddOpParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
     pub user_param: Option<String>,
     pub res_type: String,
+    #[serde(deserialize_with = "crate::common::deserialize_vec_u64")]
     pub op_ids: Vec<u64>,
 }
 
@@ -115,9 +121,11 @@ pub async fn app_res_type_op_add(
 
 #[derive(Debug, Deserialize)]
 pub struct AppResDelOpParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
     pub user_param: Option<String>,
     pub res_type: String,
+    #[serde(deserialize_with = "crate::common::deserialize_vec_u64")]
     pub op_ids: Vec<u64>,
 }
 
@@ -151,10 +159,12 @@ pub async fn app_res_type_op_del(
 
 #[derive(Debug, Deserialize)]
 pub struct AppResTypeOpListParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
     pub user_param: Option<String>,
     pub res_type: String,
     pub page: Option<PageParam>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
 }
 
@@ -196,5 +206,7 @@ pub async fn app_res_type_op_data(
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(json!({ "data": rows,"total":count}))))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "data": rows,"total":count}),
+    )))
 }

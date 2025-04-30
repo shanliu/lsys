@@ -65,6 +65,7 @@ async fn reload_match_wrap<D: AccountLoginMeta>(
                     AccountError::SerdeJson(e) => {
                         UserAuthError::System(fluent_message!("serde-json-error", e))
                     }
+                    AccountError::Vaild(e) => UserAuthError::Vaild(e),
                 })
                 .map(|e| (e, D::login_timeout())),
         )

@@ -23,7 +23,6 @@ tracing = { version = "0.1.*" } # log-always 保持log的输出 当使用tracing
 
 async-trait = "0.1.57"
 
-regex = "~1.11.1"
 
 
 md5 = "0.7.0"

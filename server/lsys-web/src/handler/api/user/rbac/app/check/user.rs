@@ -12,6 +12,7 @@ use serde_json::json;
 #[derive(Debug, Deserialize)]
 pub struct AppUserFromResParam {
     pub user_param: String, //资源用户ID
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
     pub res_type: String, //资源类型
     pub res_data: String, //资源数据
@@ -64,15 +65,22 @@ pub async fn app_res_user_from_res(
 #[derive(Debug, Deserialize)]
 pub struct AppResRoleFromResParam {
     pub user_param: String, //资源用户ID
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
     pub res_type: String, //资源类型
     pub res_data: String, //资源数据
     pub op_key: String,   //授权操作结构列表
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub res_range_exclude: bool,
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub res_range_any: bool,
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub res_range_include: bool,
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub is_system: bool,
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub is_self: bool,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_i8")]
     pub user_range: Option<Vec<i8>>,
     pub page: Option<PageParam>,
 }
@@ -142,14 +150,20 @@ pub async fn app_res_session_role_data_from_res(
 #[derive(Debug, Deserialize)]
 pub struct AppResUserDataFromResParam {
     pub user_param: String, //资源用户ID7
-    pub app_id: u64,        //用户ID下的app
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
+    pub app_id: u64, //用户ID下的app
     pub res_type: String,   //资源类型
     pub res_data: String,   //资源数据
     pub op_key: String,     //授权操作结构列表
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub res_range_exclude: bool,
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub res_range_any: bool,
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub res_range_include: bool,
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub is_system: bool,
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub is_self: bool,
     pub page: Option<PageParam>,
 }

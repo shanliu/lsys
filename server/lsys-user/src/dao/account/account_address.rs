@@ -1,6 +1,6 @@
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
-    fluent_message, now_time, RemoteNotify, RequestEnv,
+    fluent_message, now_time, RemoteNotify, RequestEnv, ValidMobile, ValidParam, ValidParamCheck,
 };
 
 use lsys_core::db::{Insert, ModelTableName, SqlQuote, Update};
@@ -13,7 +13,7 @@ use crate::model::{
     AccountAddressModel, AccountAddressModelRef, AccountAddressStatus, AccountModel,
 };
 
-use super::{check_mobile, logger::LogAccountAddress, AccountError, AccountIndex, AccountResult};
+use super::{logger::LogAccountAddress, AccountError, AccountIndex, AccountResult};
 
 pub struct AccountAddress {
     db: Pool<MySql>,
@@ -79,7 +79,14 @@ impl AccountAddress {
         check_data!(address_detail, "detail");
         check_data!(name, "name");
         check_data!(mobile, "mobile");
-        check_mobile("", &mobile)?;
+
+        ValidParam::default()
+            .add(
+                "mobile",
+                &mobile,
+                &ValidParamCheck::default().add_rule(ValidMobile::default()),
+            )
+            .check()?;
 
         let time = now_time()?;
         address_data.change_time = Some(&time);
@@ -90,7 +97,7 @@ impl AccountAddress {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let tmp = Update::< AccountAddressModel, _>::new(address_data)
+        let tmp = Update::<AccountAddressModel, _>::new(address_data)
             .execute_by_pk(address, &mut *db)
             .await;
         match tmp {
@@ -181,7 +188,14 @@ impl AccountAddress {
         check_data!(address_detail, "detail");
         check_data!(name, "name");
         check_data!(mobile, "mobile");
-        check_mobile("", &mobile)?;
+
+        ValidParam::default()
+            .add(
+                "mobile",
+                &mobile,
+                &ValidParamCheck::default().add_rule(ValidMobile::default()),
+            )
+            .check()?;
 
         let address_res = sqlx::query_as::<_, AccountAddressModel>(&sql_format!(
             "select * from {} where  account_id={} and address_code={} and address_info={} and address_detail={} and name={} and mobile={} and status={}",
@@ -301,7 +315,7 @@ impl AccountAddress {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let res = Update::< AccountAddressModel, _>::new(change)
+        let res = Update::<AccountAddressModel, _>::new(change)
             .execute_by_pk(address, &mut *db)
             .await;
         match res {
