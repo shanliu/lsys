@@ -3,8 +3,8 @@
 #app_host="127.0.0.1"
 #app_port=8080
 #app_ssl_port=443
-#app_ssl_cert = "config/lsys.site_bundle.crt"
-#app_ssl_key = "config/lsys.site.key"
+#app_ssl_cert = "config/lsys.cc_bundle.crt"
+#app_ssl_key = "config/lsys.cc.key"
 #日志配置
 log_level = "sqlx_core=info,lsys_app_sender=debug,axtix_web=debug,actix=info,mio=error,lsys_access=trace,lsys_web=trace,lsys_core=trace,lsys_user=trace,lsys_rbac=trace,lsys_docs=trace,lsys_actix_web=trace,sqlx=trace,redis=debug,lsys_app_barcode=trace"
 log_dir = "logs"

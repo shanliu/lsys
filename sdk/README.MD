@@ -124,7 +124,7 @@ GET:app_id=1212f&payload=%7B%22client_id%22%3A%221212f%22%7D&request_ip=fe80%3A%
 
 >  生成授权地址
 ```
-http://www.lsys.site/oauth.html?client_id=1212f&redirect_uri=http%3A%2F%2F127.0.0.1%3A8080%2F&response_type=code&scope=user_info&state=aa
+http://www.lsys.cc/oauth.html?client_id=1212f&redirect_uri=http%3A%2F%2F127.0.0.1%3A8080%2F&response_type=code&scope=user_info&state=aa
 ```
 
 > 授权完成后返回
@@ -167,7 +167,7 @@ http://127.0.0.1:8080/?code=27b5591cb788309dfee63da4fc264a10&state=aa
 
 >  请求示例
 ```
-GET:http://www.lsys.site/oauth/token?client_id=1212f&client_secret=2a97bf1b4f075b0ca7467e7c6b223f89&code=27b5591cb788309dfee63da4fc264a10
+GET:http://www.lsys.cc/oauth/token?client_id=1212f&client_secret=2a97bf1b4f075b0ca7467e7c6b223f89&code=27b5591cb788309dfee63da4fc264a10
 ```
 
 >  返回示例
@@ -224,7 +224,7 @@ GET:http://www.lsys.site/oauth/token?client_id=1212f&client_secret=2a97bf1b4f075
 
 >  请求示例
 ```
-GET:http://www.lsys.site/oauth/refresh_token?client_id=1212f&client_secret=2a97bf1b4f075b0ca7467e7c6b223f89&refresh_token=1cbefd9bf60598a17523042eca74836d
+GET:http://www.lsys.cc/oauth/refresh_token?client_id=1212f&client_secret=2a97bf1b4f075b0ca7467e7c6b223f89&refresh_token=1cbefd9bf60598a17523042eca74836d
 ```
 
 >  返回示例
@@ -300,7 +300,7 @@ GET:http://www.lsys.site/oauth/refresh_token?client_id=1212f&client_secret=2a97b
 
 >  请求示例
 ```
-GET:http://www.lsys.site/oauth/user?app_id=1212f&method=info&request_ip=fe80%3A%3Ae1bd%3Ac78d%3A610f%3A3d03&sign=8cdd52847cf6d5ce808c37cfc3d816c3&timestamp=2023-04-24+16%3A46%3A45&token=a4985f6747962b0ceb1533a0e28dd1fc&version=2.0
+GET:http://www.lsys.cc/oauth/user?app_id=1212f&method=info&request_ip=fe80%3A%3Ae1bd%3Ac78d%3A610f%3A3d03&sign=8cdd52847cf6d5ce808c37cfc3d816c3&timestamp=2023-04-24+16%3A46%3A45&token=a4985f6747962b0ceb1533a0e28dd1fc&version=2.0
 POST:{"address":false,"email":false,"info":false,"mobile":false,"name":true,"user":true}
 ```
 
