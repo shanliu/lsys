@@ -20,7 +20,7 @@ Authorization:Bearer {{name_login.response.jwt}}
 {
     "login_type": "wechat",
     "login_state":"343444eee",
-    "callback_url":"http://www.lsys.site/app.html#/user/info/oauth"
+    "callback_url":"http://www.lsys.cc/app.html#/user/info/oauth"
 }
 
 
