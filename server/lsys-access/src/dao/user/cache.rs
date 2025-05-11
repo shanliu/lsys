@@ -1,7 +1,5 @@
 use std::collections::{HashMap, HashSet};
 
-use lsys_core::{clear_string, fluent_message, CLEAR_IDENT};
-
 use crate::{dao::AccessError, model::UserModel};
 
 use super::{
@@ -28,12 +26,7 @@ impl AccessUserCache<'_> {
         app_id: u64,
         user_data: impl ToString,
     ) -> AccessResult<UserInfo> {
-        let user_data = clear_string(user_data, CLEAR_IDENT);
-        if user_data.is_empty() {
-            return Err(AccessError::BadAccount(fluent_message!("access-bad-user",{
-                "user_data":user_data,
-            })));
-        }
+        let user_data = user_data.to_string(); //cache层不校验
         let key = AccessUserAppUserKey {
             app_id,
             user_data: user_data.clone(),

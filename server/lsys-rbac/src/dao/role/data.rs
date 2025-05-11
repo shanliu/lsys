@@ -6,9 +6,12 @@ use crate::{
         RbacRoleStatus, RbacRoleUserModel, RbacRoleUserRange, RbacRoleUserStatus,
     },
 };
-use lsys_core::db::{ModelTableName, SqlExpr, SqlQuote};
-use lsys_core::sql_format;
+use lsys_core::{
+    db::{ModelTableName, SqlExpr, SqlQuote},
+    string_clear,
+};
 use lsys_core::{impl_dao_fetch_map_by_vec, impl_dao_fetch_one_by_one, now_time, PageParam};
+use lsys_core::{sql_format, StringClear};
 use serde::Serialize;
 use sqlx::Row;
 use std::{collections::HashMap, vec};
@@ -72,6 +75,10 @@ impl RbacRole {
             sql += sql_format!(" and res_range = {}", val as i8).as_str();
         }
         if let Some(val) = role_param.role_name {
+            let val = string_clear(val, StringClear::LikeKeyWord, None);
+            if val.is_empty() {
+                return None;
+            }
             sql += sql_format!(" and role_name like {}", format!("%{}%", val)).as_str();
         }
         if let Some(rid) = role_param.ids {

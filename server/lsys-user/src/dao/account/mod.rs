@@ -25,7 +25,7 @@ mod password;
 mod result;
 
 use account::*;
-use account_address::*;
+pub use account_address::*;
 use account_email::*;
 use account_external::*;
 use account_index::*;

@@ -6,7 +6,7 @@ edition = "2021"
 
 
 [dependencies]
-tokio = { version = "~1.44.0" }
+tokio = { version = "~1.45.0" }
 deadpool-redis = { version = "~0.20.0" }
 redis = { version = "~0.29.0" }
 lsys-core = { path = "../lsys-core" }
@@ -44,4 +44,4 @@ config = "~0.15"
 
 
 [dev-dependencies]
-tokio = { version = "~1.44.0", features = ["test-util"] }
+tokio = { version = "~1.45.0", features = ["test-util"] }

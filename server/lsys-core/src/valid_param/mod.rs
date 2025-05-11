@@ -15,56 +15,78 @@ impl<'a, D> ValidParamCheck<'a, D> {
         self
     }
 }
+#[derive(Clone, Debug)]
+pub struct ValidRuleKey {
+    pub name: String,
+    pub crate_name: &'static str,
+}
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct ValidParam {
-    val: Vec<(String, ValidRuleError)>,
+    val: Vec<(ValidRuleKey, ValidRuleError)>,
 }
 
 impl ValidParam {
-    pub fn add<D>(mut self, name: &str, data: &D, check: &ValidParamCheck<'_, D>) -> Self {
+    pub fn add<D>(
+        &mut self,
+        key: ValidRuleKey,
+        data: &D,
+        check: &ValidParamCheck<'_, D>,
+    ) -> &mut Self {
         for tmp in check.val.iter() {
             if let Err(err) = tmp.check(data) {
-                self.val.push((name.to_string(), err));
+                self.val.push((key.clone(), err));
             }
         }
         self
     }
-    pub fn clear(mut self) -> Self {
+    pub fn clear(&mut self) -> &mut Self {
         self.val = vec![];
         self
     }
-    pub fn check(self) -> Result<(), ValidError> {
-        if self.val.is_empty() {
+    pub fn check(&mut self) -> Result<(), ValidError> {
+        let val = std::mem::take(&mut self.val);
+        if val.is_empty() {
             return Ok(());
         }
-        Err(ValidError::new(self.val))
+        Err(ValidError::new(val))
     }
+}
+
+#[macro_export]
+macro_rules! valid_key {
+    ($name:literal) => {
+        $crate::ValidRuleKey {
+            name: $name.to_string(),
+            crate_name: env!("CARGO_PKG_NAME"),
+        }
+    };
 }
 
 #[test]
 fn test_valid_param() {
     check_dome("kk", 0, vec!["aaa"]).unwrap();
     fn check_dome(email: &str, b: i32, mobile_list: Vec<&str>) -> Result<(), ValidError> {
-        let mut valid = ValidParam::default()
+        let mut valid = ValidParam::default();
+        valid
             .add(
-                "email",
+                valid_key!("email"),
                 &email,
                 &ValidParamCheck::default().add_rule(ValidEmail::default()),
             )
             .add(
-                "mobile",
+                valid_key!("mobile"),
                 &mobile_list,
                 &ValidParamCheck::default().add_rule(ValidNotEmpty::default()),
             )
             .add(
-                "status",
+                valid_key!("status"),
                 &b,
                 &ValidParamCheck::default().add_rule(ValidContains(&[1, 2, 3])),
             );
         for mobile in mobile_list {
-            valid = valid.add(
-                "mobile",
+            valid.add(
+                valid_key!("mobile"),
                 &mobile,
                 &ValidParamCheck::default().add_rule(ValidMobile::default()),
             );

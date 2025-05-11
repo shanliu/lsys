@@ -5,7 +5,10 @@ use crate::{dao::AccessResult, model::UserModel};
 
 use super::AccessUser;
 use lsys_core::db::{ModelTableName, SqlExpr, SqlQuote};
-use lsys_core::{clear_string, now_time, sql_format, LimitParam, CLEAR_BASE};
+use lsys_core::{
+    now_time, sql_format, string_clear, valid_key, LimitParam, StringClear, ValidParam,
+    ValidParamCheck, ValidPattern, ValidStrlen, STRING_CLEAR_FORMAT,
+};
 use serde::Serialize;
 impl AccessUser {
     //通过ID获取用户
@@ -30,17 +33,31 @@ impl AccessUser {
     );
 }
 impl AccessUser {
+    async fn find_by_data_param_valid(&self, user_data: &str) -> AccessResult<()> {
+        let user_data = user_data.to_string();
+        ValidParam::default()
+            .add(
+                valid_key!("user_data"),
+                &user_data,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Ident)
+                    .add_rule(ValidStrlen::range(1, 32)),
+            )
+            .check()?;
+        Ok(())
+    }
     //通过登录数据查询用户
-    pub async fn find_by_data(&self, app_id: u64, data: &str) -> AccessResult<UserModel> {
-        let data = sqlx::query_as::<_, UserModel>(&sql_format!(
+    pub async fn find_by_data(&self, app_id: u64, user_data: &str) -> AccessResult<UserModel> {
+        self.find_by_data_param_valid(user_data).await?;
+        let row = sqlx::query_as::<_, UserModel>(&sql_format!(
             "select * from {} where app_id={} and user_data={}",
             UserModel::table_name(),
             app_id,
-            data
+            user_data
         ))
         .fetch_one(&self.db)
         .await?;
-        Ok(data)
+        Ok(row)
     }
 }
 
@@ -59,7 +76,10 @@ impl AccessUser {
             sql_vec.push(sql_format!("app_id = {}", tmp));
         };
         if let Some(tmp) = param.user_any {
-            let tmp = clear_string(tmp, CLEAR_BASE);
+            let tmp = string_clear(tmp, StringClear::Option(STRING_CLEAR_FORMAT), Some(129));
+            if tmp.is_empty() {
+                return None;
+            }
             sql_vec.push(sql_format!(
                 " ( user_data = {} or user_account = {} ) ",
                 tmp,
@@ -67,9 +87,17 @@ impl AccessUser {
             ));
         }
         if let Some(tmp) = param.user_data {
+            let tmp = string_clear(tmp, StringClear::Ident, Some(33));
+            if tmp.is_empty() {
+                return None;
+            }
             sql_vec.push(sql_format!("user_data = {}", tmp));
         }
         if let Some(ref tmp) = param.user_account {
+            let tmp = string_clear(tmp, StringClear::Option(STRING_CLEAR_FORMAT), Some(129));
+            if tmp.is_empty() {
+                return None;
+            }
             sql_vec.push(sql_format!("user_account = {}", tmp));
         }
         Some(sql_vec)

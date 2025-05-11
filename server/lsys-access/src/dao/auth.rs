@@ -4,7 +4,10 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{fluent_message, now_time, rand_str, RandType, RemoteNotify};
+use lsys_core::{
+    now_time, rand_str, valid_key, RandType, RemoteNotify, ValidIp, ValidParam, ValidParamCheck,
+    ValidPattern, ValidStrlen,
+};
 
 use crate::dao::AccessUser;
 use lsys_core::db::Insert;
@@ -97,6 +100,9 @@ pub struct AccessLoginData<'t> {
 impl AccessAuth {
     //強制指定應用全部下線
     pub async fn clear_app_login(&self, user_app_id: &u64) -> AccessResult<()> {
+        if *user_app_id == 0 {
+            return Ok(());
+        }
         let time = now_time()?;
         let status = SessionStatus::Delete.to();
         let change = lsys_core::model_option_set!(SessionModelRef,{
@@ -158,29 +164,96 @@ pub struct AccessAuthLoginData<'t, TS: ToString> {
 
 impl AccessAuth {
     //登录
+    async fn do_login_param_valid<TS: ToString>(
+        &self,
+        login_param: &AccessAuthLoginData<'_, TS>,
+    ) -> AccessResult<String> {
+        let user_data = login_param.user_data.to_string();
+        let mut valid_param = ValidParam::default();
+        valid_param.add(
+            valid_key!("user-data"),
+            &user_data,
+            &ValidParamCheck::default()
+                .add_rule(ValidStrlen::range(2, 32))
+                .add_rule(ValidPattern::Ident),
+        );
+        if let Some(ref token_data) = login_param.token_data {
+            valid_param.add(
+                valid_key!("token-data"),
+                token_data,
+                &ValidParamCheck::default()
+                    .add_rule(ValidStrlen::range(16, 64))
+                    .add_rule(ValidPattern::Ident),
+            );
+        }
+        if let Some(login_data) = &login_param.login_data {
+            if let Some(ref user_account) = login_data.user_account {
+                valid_param.add(
+                    valid_key!("user-account"),
+                    user_account,
+                    &ValidParamCheck::default()
+                        .add_rule(ValidPattern::NotFormat)
+                        .add_rule(ValidStrlen::max(128)),
+                );
+            }
+            if let Some(ref login_ip) = login_data.login_ip {
+                valid_param.add(
+                    valid_key!("login-ip"),
+                    login_ip,
+                    &ValidParamCheck::default().add_rule(ValidIp::default()),
+                );
+            }
+            for (key, _) in &login_data.session_data {
+                valid_param.add(
+                    valid_key!("session-key"),
+                    key,
+                    &ValidParamCheck::default()
+                        .add_rule(ValidPattern::Ident)
+                        .add_rule(ValidStrlen::range(1, 12)),
+                );
+            }
+        }
+        if let Some(token_data) = login_param.token_data {
+            valid_param.add(
+                valid_key!("token-data"),
+                &token_data,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::max(64)),
+            );
+        }
+        if let Some(user_account) = login_param.login_data {
+            if let Some(user_account) = user_account.user_account {
+                valid_param.add(
+                    valid_key!("user-account"),
+                    &user_account,
+                    &ValidParamCheck::default()
+                        .add_rule(ValidPattern::NotFormat)
+                        .add_rule(ValidStrlen::max(128)),
+                );
+            }
+        }
+        valid_param.check()?;
+        Ok(user_data)
+    }
+    //登录
     pub async fn do_login<TS: ToString>(
         &self,
         login_param: &AccessAuthLoginData<'_, TS>,
     ) -> AccessResult<SessionBody> {
-        let time = now_time()?;
-        let user_data = login_param.user_data.to_string();
+        let user_data = self.do_login_param_valid(login_param).await?;
         let token_data = login_param
             .token_data
             .map(|e| e.to_owned())
             .unwrap_or_else(|| rand_str(RandType::Upper, 32));
-        if token_data.len() < 16 {
-            return Err(AccessError::System(
-                fluent_message!("access-bad-token-data",{
-                    "data":token_data
-                }),
-            ));
-        }
 
         let user_account = login_param
             .login_data
             .as_ref()
             .map(|e| e.user_account.to_owned().unwrap_or_default())
             .unwrap_or_default();
+
+        let time = now_time()?;
 
         let user_id = self
             .user

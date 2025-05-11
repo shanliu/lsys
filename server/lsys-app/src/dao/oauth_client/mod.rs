@@ -20,8 +20,8 @@ use lsys_core::db::SqlQuote;
 use lsys_core::db::{Insert, Update};
 use lsys_core::db::{ModelTableName, WhereOption};
 use lsys_core::{
-    clear_string, fluent_message, RemoteNotify, ValidDomain, ValidParamCheck, ValidPattern,
-    ValidStrlen, CLEAR_EMPTY,
+    fluent_message, string_clear, valid_key, RemoteNotify, StringClear, ValidDomain,
+    ValidParamCheck, ValidPattern, ValidStrlen, STRING_CLEAR_FORMAT,
 };
 use lsys_core::{model_option_set, sql_format};
 use lsys_core::{now_time, ValidParam};
@@ -678,6 +678,16 @@ pub struct AppOAuthClientParam<'t> {
     pub callback_domain: Option<&'t str>,
 }
 impl AppOAuthClient {
+    async fn oauth_set_domain_param_valid(&self, callback_domain: &str) -> AppResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("callback-domain"),
+                &callback_domain,
+                &ValidParamCheck::default().add_rule(ValidDomain::default()),
+            )
+            .check()?;
+        Ok(())
+    }
     //OAUTH登录参数设置
     pub async fn oauth_set_domain(
         &self,
@@ -686,6 +696,7 @@ impl AppOAuthClient {
         set_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> AppResult<()> {
+        self.oauth_set_domain_param_valid(callback_domain).await?;
         self.oauth_check(app).await?;
         let oa_res = sqlx::query_scalar::<_, u64>(&sql_format!(
             "select id from {} where app_id={}
@@ -696,14 +707,6 @@ impl AppOAuthClient {
         .fetch_one(&self.db)
         .await;
         let time = now_time()?;
-
-        ValidParam::default()
-            .add(
-                "callback_domain",
-                &callback_domain,
-                &ValidParamCheck::default().add_rule(ValidDomain::default()),
-            )
-            .check()?;
 
         let callback_domain = callback_domain.to_owned();
         match oa_res {
@@ -752,29 +755,20 @@ impl AppOAuthClient {
             .await;
         Ok(())
     }
-    fn secret_check(&self, secret: Option<&str>) -> AppResult<String> {
+    async fn secret_check_param_valid(&self, secret: Option<&str>) -> AppResult<String> {
         let client_secret = match secret {
             Some(sstr) => {
-                let secret = clear_string(sstr, CLEAR_EMPTY);
+                let secret = string_clear(sstr, StringClear::Option(STRING_CLEAR_FORMAT), None);
                 ValidParam::default()
                     .add(
-                        "secret",
+                        valid_key!("secret"),
                         &secret,
                         &ValidParamCheck::default()
                             .add_rule(ValidStrlen::eq(32))
-                            .add_rule(ValidPattern::new(lsys_core::ValidPatternRule::Hex)),
+                            .add_rule(ValidPattern::Hex),
                     )
                     .check()?;
 
-                // let secret = sstr.trim().to_string();
-                // if secret.len() != 32 {
-                //     return Err(AppError::System(fluent_message!("app-secret-wrong")));
-                // }
-                // let re = Regex::new(r"^[a-f0-9]+$")
-                //     .map_err(|e| AppError::System(fluent_message!("rule-error", e)))?;
-                // if !re.is_match(&secret) {
-                //     return Err(AppError::System(fluent_message!("app-secret-wrong")));
-                // }
                 secret
             }
             None => rand_str(lsys_core::RandType::LowerHex, 32),
@@ -790,7 +784,7 @@ impl AppOAuthClient {
         change_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> AppResult<String> {
-        let client_secret = self.secret_check(secret)?;
+        let client_secret = self.secret_check_param_valid(secret).await?;
         self.app_secret
             .multiple_add(
                 app.id,
@@ -828,7 +822,7 @@ impl AppOAuthClient {
         change_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> AppResult<String> {
-        let client_secret = self.secret_check(secret)?;
+        let client_secret = self.secret_check_param_valid(secret).await?;
         self.app_secret
             .multiple_change(
                 app.id,

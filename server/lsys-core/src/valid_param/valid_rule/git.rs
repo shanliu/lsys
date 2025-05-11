@@ -2,27 +2,23 @@ use super::ValidRule;
 use crate::{fluent_message, ValidRuleError};
 use std::fmt::Display;
 
-pub enum ValidGitType {
+struct ValidGithantom<T: Display>(std::marker::PhantomData<T>);
+pub enum ValidGit<T: Display> {
     VersionHash,
+    #[doc(hidden)]
+    #[allow(private_interfaces)]
+    Phantom(ValidGithantom<T>),
 }
-pub struct ValidGit<T: Display> {
-    level: ValidGitType,
-    _marker: std::marker::PhantomData<T>,
-}
-impl<T: Display> ValidGit<T> {
-    pub fn new(level: ValidGitType) -> Self {
-        Self {
-            level,
-            _marker: Default::default(),
-        }
-    }
-}
+
 impl<T: Display> ValidRule for ValidGit<T> {
     type T = T;
     fn check(&self, data: &T) -> Result<(), ValidRuleError> {
         let dt_str = data.to_string();
-        match self.level {
-            ValidGitType::VersionHash => {
+        match self {
+            Self::Phantom(_) => {
+                unreachable!("marker type unreachable");
+            }
+            ValidGit::VersionHash => {
                 if dt_str.len() != 40 {
                     return Err(ValidRuleError::new(fluent_message!(
                         "valid-not-git-version"

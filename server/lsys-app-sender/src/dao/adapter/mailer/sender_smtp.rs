@@ -22,7 +22,8 @@ use lettre::{
     AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
 };
 use lsys_core::{
-    fluent_message, IntoFluentMessage, RequestEnv, ValidEmail, ValidParam, ValidParamCheck,
+    fluent_message, valid_key, IntoFluentMessage, RequestEnv, ValidEmail, ValidParam,
+    ValidParamCheck, ValidPattern, ValidStrlen,
 };
 use lsys_logger::dao::ChangeLoggerDao;
 use lsys_setting::{
@@ -194,6 +195,60 @@ impl SenderSmtpConfig {
             .map_err(|e| SenderError::System(fluent_message!("smtp-check-error", e)))?;
         Ok(())
     }
+    async fn add_app_config_param_valid(
+        &self,
+        name: &str,
+        tpl_id: &str,
+        from_email: &str,
+        reply_email: &str,
+        subject_tpl_id: &str,
+        body_tpl_id: &str,
+    ) -> SenderResult<()> {
+        let mut valid_param = ValidParam::default();
+        valid_param
+            .add(
+                valid_key!("from-mail"),
+                &from_email,
+                &ValidParamCheck::default().add_rule(ValidEmail::default()),
+            )
+            .add(
+                valid_key!("name"),
+                &name,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 32)),
+            )
+            .add(
+                valid_key!("tpl_id"),
+                &tpl_id,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Ident)
+                    .add_rule(ValidStrlen::range(1, 32)),
+            )
+            .add(
+                valid_key!("subject_tpl_id"),
+                &subject_tpl_id,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Ident)
+                    .add_rule(ValidStrlen::range(1, 32)),
+            )
+            .add(
+                valid_key!("body_tpl_id"),
+                &body_tpl_id,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Ident)
+                    .add_rule(ValidStrlen::range(1, 32)),
+            );
+        if !reply_email.is_empty() {
+            valid_param.add(
+                valid_key!("reply-email"),
+                &reply_email,
+                &ValidParamCheck::default().add_rule(ValidEmail::default()),
+            );
+        }
+        valid_param.check()?;
+        Ok(())
+    }
     //关联发送跟smtp的配置
     #[allow(clippy::too_many_arguments)]
     pub async fn add_app_config(
@@ -210,26 +265,18 @@ impl SenderSmtpConfig {
         add_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
+        self.add_app_config_param_valid(
+            name,
+            tpl_id,
+            from_email,
+            reply_email,
+            subject_tpl_id,
+            body_tpl_id,
+        )
+        .await?;
         self.setting
             .load::<SmtpConfig>(None, smtp_config_id)
             .await?;
-
-        let mut valid_param = ValidParam::default().add(
-            "from_mail",
-            &from_email,
-            &ValidParamCheck::default().add_rule(ValidEmail::default()),
-        );
-
-        if !reply_email.is_empty() {
-            valid_param = valid_param.add(
-                "reply_email",
-                &reply_email,
-                &ValidParamCheck::default().add_rule(ValidEmail::default()),
-            );
-        }
-
-        valid_param.check()?;
-
         let from_email = from_email.to_owned();
         let reply_email = reply_email.to_owned();
         let subject_tpl_id = subject_tpl_id.to_owned();

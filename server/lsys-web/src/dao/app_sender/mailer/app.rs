@@ -1,6 +1,6 @@
 use lsys_app::model::AppModel;
 use lsys_app_sender::dao::SenderError;
-use lsys_core::{RequestEnv, ValidEmail, ValidParam, ValidParamCheck};
+use lsys_core::{valid_key, RequestEnv, ValidEmail, ValidParam, ValidParamCheck};
 use serde_json::json;
 use std::collections::HashMap;
 
@@ -9,6 +9,27 @@ use crate::common::JsonResult;
 use super::SenderMailer;
 
 impl SenderMailer {
+    async fn app_send_param_valid(&self, to: &[&str], reply: Option<&str>) -> JsonResult<()> {
+        let mut valid_param = ValidParam::default();
+        for tmp in to.iter() {
+            valid_param.add(
+                valid_key!("to-email"),
+                tmp,
+                &ValidParamCheck::default().add_rule(ValidEmail::default()),
+            );
+        }
+        if let Some(cr) = reply {
+            if !cr.is_empty() {
+                valid_param.add(
+                    valid_key!("reply-email"),
+                    &cr,
+                    &ValidParamCheck::default().add_rule(ValidEmail::default()),
+                );
+            }
+        }
+        valid_param.check()?;
+        Ok(())
+    }
     // 应用发送邮件接口
     #[allow(clippy::too_many_arguments)]
     pub async fn app_send<'t>(
@@ -22,24 +43,7 @@ impl SenderMailer {
         max_try_num: Option<u8>,
         env_data: Option<&RequestEnv>,
     ) -> JsonResult<Vec<(u64, &'t str)>> {
-        let mut valid_param = ValidParam::default();
-        for tmp in to.iter() {
-            valid_param = valid_param.add(
-                "to_email",
-                tmp,
-                &ValidParamCheck::default().add_rule(ValidEmail::default()),
-            );
-        }
-        if let Some(cr) = reply {
-            if !cr.is_empty() {
-                valid_param = valid_param.add(
-                    "reply_email",
-                    &cr,
-                    &ValidParamCheck::default().add_rule(ValidEmail::default()),
-                );
-            }
-        }
-        valid_param.check()?;
+        self.app_send_param_valid(to, reply).await?;
         let tos = to.to_vec();
         let res = self
             .mailer_dao

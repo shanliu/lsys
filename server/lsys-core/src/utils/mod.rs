@@ -9,4 +9,6 @@ mod op_env;
 pub use op_env::*;
 mod string;
 pub use string::*;
+mod string_clear;
+pub use string_clear::*;
 mod macros;

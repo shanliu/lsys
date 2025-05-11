@@ -5,7 +5,9 @@ use crate::dao::AccountResult;
 
 use crate::model::{AccountMobileModel, AccountMobileModelRef, AccountMobileStatus, AccountModel};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{fluent_message, now_time, RemoteNotify, ValidMobile, ValidParam, ValidParamCheck};
+use lsys_core::{
+    fluent_message, now_time, valid_key, RemoteNotify, ValidMobile, ValidParam, ValidParamCheck,
+};
 use lsys_core::{IntoFluentMessage, RequestEnv};
 
 use lsys_core::db::{Insert, ModelTableName, SqlQuote, Update};
@@ -69,6 +71,17 @@ impl AccountMobile {
 
         Ok(res)
     }
+    async fn mobile_param_valid(&self, area_code: &str, mobile: &str) -> AccountResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("mobile"),
+                &format!("{}{}", area_code, mobile),
+                &ValidParamCheck::default().add_rule(ValidMobile::default()),
+            )
+            .check()?;
+
+        Ok(())
+    }
     /// 添加手机号
     #[allow(clippy::too_many_arguments)]
     pub async fn add_mobile(
@@ -81,18 +94,10 @@ impl AccountMobile {
         transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
     ) -> AccountResult<u64> {
+        self.mobile_param_valid(area_code, mobile).await?;
         if status == AccountMobileStatus::Delete {
             status = AccountMobileStatus::Init;
         }
-
-        ValidParam::default()
-            .add(
-                "mobile",
-                &format!("{}{}", area_code, mobile),
-                &ValidParamCheck::default().add_rule(ValidMobile::default()),
-            )
-            .check()?;
-
         let mobile_res = sqlx::query_as::<_, AccountMobileModel>(&sql_format!(
             "select * from {} where area_code={} and mobile={} and status in ({})",
             AccountMobileModel::table_name(),

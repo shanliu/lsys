@@ -6,8 +6,11 @@ use crate::{
         AppRequestType,
     },
 };
-use lsys_core::db::SqlQuote;
-use lsys_core::db::{Insert, ModelTableName, Update};
+use lsys_core::{db::SqlQuote, string_clear, StringClear, STRING_CLEAR_FORMAT};
+use lsys_core::{
+    db::{Insert, ModelTableName, Update},
+    STRING_CLEAR_XSS,
+};
 use lsys_core::{fluent_message, now_time, RequestEnv};
 use lsys_core::{model_option_set, sql_format};
 
@@ -27,6 +30,7 @@ impl App {
         req_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> AppResult<()> {
+        self.exter_feature_param_valid(featuer_data).await?;
         let featuer_data = featuer_data
             .iter()
             .map(|e| self.exter_feature_key(e))
@@ -128,6 +132,11 @@ impl App {
         confirm_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> AppResult<()> {
+        let confirm_note = string_clear(
+            confirm_note,
+            StringClear::Option(STRING_CLEAR_FORMAT | STRING_CLEAR_XSS),
+            Some(255),
+        );
         app.app_status_check()?;
         if !AppRequestStatus::Pending.eq(req.status) {
             return Ok(());
@@ -170,7 +179,6 @@ impl App {
         if req_status == AppRequestStatus::Rejected {
             //驳回
             let status = req_status as i8;
-            let confirm_note = confirm_note.to_owned();
             let change = model_option_set!(AppRequestModelRef,{
                 status:status,
                 confirm_user_id:confirm_user_id,
@@ -244,7 +252,7 @@ impl App {
         }
 
         let status = AppRequestStatus::Approved as i8;
-        let confirm_note = confirm_note.to_owned();
+
         let change = model_option_set!(AppRequestModelRef,{
             status:status,
             confirm_user_id:confirm_user_id,

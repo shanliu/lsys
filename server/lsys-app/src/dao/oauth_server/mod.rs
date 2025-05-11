@@ -12,8 +12,8 @@ use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::db::{Insert, ModelTableName, Update};
 use lsys_core::db::{SqlQuote, WhereOption};
 use lsys_core::{
-    fluent_message, now_time, RemoteNotify, RequestEnv, ValidParam, ValidParamCheck, ValidPattern,
-    ValidPatternRule, ValidStrlen,
+    fluent_message, now_time, valid_key, RemoteNotify, RequestEnv, ValidParam, ValidParamCheck,
+    ValidPattern, ValidStrlen,
 };
 use lsys_core::{model_option_set, sql_format};
 use lsys_logger::dao::ChangeLoggerDao;
@@ -97,6 +97,30 @@ pub struct AppOAuthServerScopeParam<'t> {
     pub desc: &'t str,
 }
 impl AppOAuthServer {
+    pub async fn oauth_setting_param_valid<'t>(
+        &self,
+        req: &'t [AppOAuthServerScopeParam<'t>],
+    ) -> AppResult<()> {
+        for tmp in req {
+            ValidParam::default()
+                .add(
+                    valid_key!("key"),
+                    &tmp.key,
+                    &ValidParamCheck::default()
+                        .add_rule(ValidStrlen::range(2, 32))
+                        .add_rule(ValidPattern::Ident),
+                )
+                .add(
+                    valid_key!("name"),
+                    &tmp.name,
+                    &ValidParamCheck::default()
+                        .add_rule(ValidPattern::NotFormat)
+                        .add_rule(ValidStrlen::range(2, 64)),
+                )
+                .check()?;
+        }
+        Ok(())
+    }
     //OAUTH 服务设置 SOPCE 数据
     pub async fn oauth_setting<'t>(
         &self,
@@ -105,37 +129,7 @@ impl AppOAuthServer {
         set_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> AppResult<()> {
-        // let re = Regex::new(r"^[a-z0-9_]+$")
-        //     .map_err(|e| AppError::System(fluent_message!("rule-error", e)))?;
-
-        for tmp in req {
-            ValidParam::default()
-                .add(
-                    "key",
-                    &tmp.key,
-                    &ValidParamCheck::default()
-                        .add_rule(ValidStrlen::range(2, 32))
-                        .add_rule(ValidPattern::new(ValidPatternRule::Ident)),
-                )
-                .add(
-                    "name",
-                    &tmp.name,
-                    &ValidParamCheck::default().add_rule(ValidStrlen::range(2, 64)),
-                )
-                .check()?;
-
-            // if !re.is_match(tmp.key) || tmp.key.len() < 2 {
-            //     return Err(AppError::System(fluent_message!(
-            //         "app-oauth-server-skey-wrong"
-            //     )));
-            // }
-            // if tmp.name.trim().is_empty() {
-            //     return Err(AppError::System(fluent_message!(
-            //         "app-oauth-server-name-wrong"
-            //     )));
-            // }
-        }
-
+        self.oauth_setting_param_valid(req).await?;
         self.oauth_check(app).await?;
         let find_res = sqlx::query_as::<_, (u64, String)>(&sql_format!(
             "select id,scope_key from {} where app_id={}",

@@ -14,10 +14,13 @@ use crate::{
         DocLogsModelRef, DocMenuModel, DocMenuModelRef, DocMenuStatus,
     },
 };
-use lsys_core::db::{SqlExpr, SqlQuote};
 use lsys_core::{
     db::{Insert, ModelTableName, Update, WhereOption},
-    ValidContains, ValidGit, ValidGitType, ValidParam, ValidParamCheck,
+    string_clear, valid_key, ValidContains, ValidGit, ValidParam, ValidParamCheck,
+};
+use lsys_core::{
+    db::{SqlExpr, SqlQuote},
+    StringClear,
 };
 use lsys_core::{fluent_message, now_time, IntoFluentMessage, PageParam, RequestEnv};
 use lsys_core::{model_option_set, sql_format};
@@ -406,6 +409,25 @@ pub struct GitDocsGitTag<'t> {
 }
 
 impl GitDocs {
+    async fn tag_add_param_valid(
+        &self,
+        doc_git: &DocGitModel,
+        param: &GitDocsGitTag<'_>,
+    ) -> GitDocResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("status"),
+                &doc_git.status,
+                &ValidParamCheck::default().add_rule(ValidContains(&[DocGitStatus::Enable as i8])),
+            )
+            .add(
+                valid_key!("git-version"),
+                &param.build_version,
+                &ValidParamCheck::default().add_rule(ValidGit::VersionHash),
+            )
+            .check()?;
+        Ok(())
+    }
     pub async fn tag_add(
         &self,
         doc_git: &DocGitModel,
@@ -413,37 +435,7 @@ impl GitDocs {
         user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> GitDocResult<u64> {
-        ValidParam::default()
-            .add(
-                "status",
-                &doc_git.status,
-                &ValidParamCheck::default().add_rule(ValidContains(&[DocGitStatus::Enable as i8])),
-            )
-            .add(
-                "git_version",
-                &param.build_version,
-                &ValidParamCheck::default().add_rule(ValidGit::new(ValidGitType::VersionHash)),
-            )
-            .check()?;
-
-        // if DocGitStatus::Delete.eq(doc_git.status) {
-        //     return Err(crate::dao::GitDocError::System(
-        //         fluent_message!("doc-git-not-find"),
-        //         // "doc git not find ".to_string(),
-        //     ));
-        // }
-
-        // if let Ok(re) = Regex::new(r"^[0-9a-f]{40}$") {
-        //     if !re.is_match(param.build_version) {
-        //         return Err(crate::dao::GitDocError::System(
-        //             fluent_message!("doc-git-submit-version-error",
-        //                 {
-        //                     "version":&param.build_version,
-        //                 }
-        //             ),
-        //         ));
-        //     }
-        // }
+        self.tag_add_param_valid(doc_git, param).await?;
 
         if let Some(rule) = &param.clear_rule {
             for tmp in rule.iter() {
@@ -743,6 +735,10 @@ impl GitDocs {
             where_sql += &sql_format!(" and doc_git_id = {}", git_id);
         }
         if let Some(kw) = key_word {
+            let kw = string_clear(kw, StringClear::LikeKeyWord, None);
+            if kw.is_empty() {
+                return Ok(vec![]);
+            }
             where_sql += &sql_format!(
                 " and (tag like {} or  build_version like {})",
                 format!("%{}%", kw),
@@ -853,6 +849,7 @@ impl GitDocs {
             where_sql += &sql_format!(" and doc_git_id = {}", git_id);
         }
         if let Some(kw) = key_word {
+            let kw = string_clear(kw, StringClear::LikeKeyWord, None);
             where_sql += &sql_format!(
                 " and (tag like {} or  build_version like {})",
                 format!("%{}%", kw),

@@ -5,8 +5,14 @@ use crate::{
         AppRequestModelRef, AppRequestStatus, AppRequestType,
     },
 };
-use lsys_core::db::{Insert, ModelTableName, Update};
-use lsys_core::db::{SqlQuote, WhereOption};
+use lsys_core::{
+    db::{Insert, ModelTableName, Update},
+    string_clear, StringClear, STRING_CLEAR_XSS,
+};
+use lsys_core::{
+    db::{SqlQuote, WhereOption},
+    STRING_CLEAR_FORMAT,
+};
 use lsys_core::{fluent_message, now_time, RequestEnv};
 use lsys_core::{model_option_set, sql_format};
 
@@ -88,6 +94,11 @@ impl App {
         confirm_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> AppResult<()> {
+        let confirm_note = string_clear(
+            confirm_note,
+            StringClear::Option(STRING_CLEAR_FORMAT | STRING_CLEAR_XSS),
+            Some(255),
+        );
         app.app_status_check()?;
         if !AppRequestStatus::Pending.eq(req.status) {
             return Ok(());

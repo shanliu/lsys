@@ -5,8 +5,8 @@ use crate::model::{
     RbacOpModel, RbacOpResModel, RbacOpResStatus, RbacOpStatus, RbacResModel, RbacResStatus,
 };
 use lsys_core::db::{ModelTableName, SqlExpr, SqlQuote};
-use lsys_core::sql_format;
-use lsys_core::{impl_dao_fetch_one_by_one, PageParam};
+use lsys_core::{impl_dao_fetch_one_by_one, PageParam, StringClear};
+use lsys_core::{sql_format, string_clear};
 use serde::Serialize;
 use sqlx::Row;
 use std::collections::HashMap;
@@ -72,6 +72,7 @@ impl RbacRes {
             sql += sql_format!(" and res_data = {}", val).as_str();
         }
         if let Some(val) = res_param.res_name {
+            let val = string_clear(val, StringClear::LikeKeyWord, None);
             if val.is_empty() {
                 return None;
             }

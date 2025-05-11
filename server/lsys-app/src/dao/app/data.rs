@@ -9,7 +9,10 @@ use crate::model::{
 
 use lsys_core::db::ModelTableName;
 use lsys_core::db::{SqlExpr, SqlQuote};
-use lsys_core::{clear_string, impl_dao_fetch_map_by_vec, PageParam, CLEAR_SEARCH_KEYWORD};
+use lsys_core::{
+    impl_dao_fetch_map_by_vec, string_clear, valid_key, PageParam, StringClear, ValidParam,
+    ValidParamCheck, ValidPattern, ValidStrlen, STRING_CLEAR_FORMAT,
+};
 use lsys_core::{sql_format, RequestEnv};
 
 use super::super::{AppError, AppResult};
@@ -45,8 +48,21 @@ impl App {
             AppStatus::Disable as i8
         ]
     );
+    async fn find_by_client_id_param_valid(&self, client_id: &str) -> AppResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("client_id"),
+                &client_id,
+                &ValidParamCheck::default()
+                    .add_rule(ValidStrlen::range(3, 32))
+                    .add_rule(ValidPattern::Ident),
+            )
+            .check()?;
+        Ok(())
+    }
     /// 根据APP client_id 找到对应记录
     pub async fn find_by_client_id(&self, client_id: &str) -> AppResult<AppModel> {
+        self.find_by_client_id_param_valid(client_id).await?;
         sqlx::query_as::<_, AppModel>(&sql_format!(
             "select * from {} where client_id={}",
             AppModel::table_name(),
@@ -323,12 +339,20 @@ impl App {
             sql_vec.push(sql_format!("user_id = {}", tmp));
         };
         if let Some(tmp) = app_where.app_name {
+            let tmp = string_clear(tmp, StringClear::LikeKeyWord, Some(255));
+            if tmp.is_empty() {
+                return None;
+            }
             sql_vec.push(sql_format!("name like {}", format!("%{}%", tmp)));
         }
         if let Some(ref tmp) = app_where.status {
             sql_vec.push(sql_format!("status = {}", *tmp as i8));
         }
         if let Some(ref tmp) = app_where.client_id {
+            let tmp = string_clear(tmp, StringClear::Option(STRING_CLEAR_FORMAT), Some(64));
+            if tmp.is_empty() {
+                return None;
+            }
             sql_vec.push(sql_format!("client_id = {}", tmp));
         };
         if let Some(ref tmp) = app_where.app_id {
@@ -483,12 +507,12 @@ impl App {
             AppRequestType::SubApp.feature_key()
         )];
         if let Some(tmp) = app_where.key_word {
-            let key_word = clear_string(tmp, CLEAR_SEARCH_KEYWORD);
+            let key_word = string_clear(tmp, StringClear::LikeKeyWord, Some(255));
             if key_word.is_empty() {
                 return None;
             }
             sql_vec.push(sql_format!(
-                "( client_id = {} or name={} )",
+                "( client_id = {} or name like {} )",
                 key_word,
                 format!("%{}%", key_word)
             ));

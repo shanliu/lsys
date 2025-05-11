@@ -2,7 +2,7 @@ use crate::model::{
     AccountIndexCat, AccountIndexModel, AccountIndexModelRef, AccountIndexStatus, AccountStatus,
 };
 use config::Map;
-use lsys_core::{now_time, LimitParam};
+use lsys_core::{now_time, string_clear, LimitParam, StringClear};
 
 use super::AccountResult;
 use lsys_core::db::{Insert, ModelTableName, SqlExpr, SqlQuote, Update};
@@ -246,7 +246,7 @@ impl AccountIndex {
                 .map(|e| (*e as i8).to_string())
                 .collect::<Vec<_>>()
         };
-        let key_word = key_word.trim();
+        let key_word = string_clear(key_word, StringClear::LikeKeyWord, None);
         let mut sql = if key_word.is_empty() || param.is_empty() {
             sql_format!(
                 "select distinct k.account_id,'' as cat_more

@@ -1,9 +1,8 @@
 use crate::common::{JsonData, JsonError, JsonResult};
-
 use lsys_access::dao::SessionBody;
-use lsys_core::model_option_set;
 use lsys_core::{fluent_message, RequestEnv};
-use lsys_user::model::{AccountAddressModel, AccountAddressModelRef};
+use lsys_user::dao::AccountAddressParam;
+use lsys_user::model::AccountAddressModel;
 
 use super::WebUserAccount;
 
@@ -41,26 +40,25 @@ impl WebUserAccount {
                 fluent_message!("address-bad-area"), // JsonResponse::message("your submit area miss city").set_code("bad_code")
             ));
         }
-        let country_code = "CHN".to_string();
-        let address_code = param.code.to_string();
-        let address_info = param.info.to_string();
-        let address_detail = param.detail.to_string();
-        let name = param.name.to_string();
-        let mobile = param.mobile.to_string();
-        let adm = model_option_set!(AccountAddressModelRef, {
-            country_code:country_code,
-            address_code: address_code,
-            address_info: address_info,
-            address_detail: address_detail,
-            name: name,
-            mobile: mobile,
-            account_id:account.id,
-        });
+
         let id = self
             .user_dao
             .account_dao
             .account_address
-            .add_address(&account, adm, session_body.user_id(), None, env_data)
+            .add_address(
+                &account,
+                &AccountAddressParam {
+                    country_code: "CHN",
+                    address_code: param.code,
+                    address_info: param.info,
+                    address_detail: param.detail,
+                    name: param.name,
+                    mobile: param.mobile,
+                },
+                session_body.user_id(),
+                None,
+                env_data,
+            )
             .await?;
         Ok(id)
     }
@@ -72,7 +70,6 @@ impl WebUserAccount {
         session_body: &SessionBody,
         env_data: Option<&RequestEnv>,
     ) -> JsonResult<()> {
-        let country_code = "CHN".to_string();
         if param.code.trim().len() < 6 {
             return Err(JsonError::JsonResponse(
                 JsonData::default().set_code(500).set_sub_code("bad_code"),
@@ -86,23 +83,24 @@ impl WebUserAccount {
                 fluent_message!("address-bad-area"),
             ));
         }
-        let address_code = param.code.to_string();
-        let address_info = param.info.to_string();
-        let address_detail = param.detail.to_string();
-        let name = param.name.to_string();
-        let mobile = param.mobile.to_string();
-        let adm = model_option_set!(AccountAddressModelRef, {
-            country_code:country_code,
-            address_code: address_code,
-            address_info: address_info,
-            address_detail: address_detail,
-            name: name,
-            mobile: mobile,
-        });
+
         self.user_dao
             .account_dao
             .account_address
-            .edit_address(address, adm, session_body.user_id(), None, env_data)
+            .edit_address(
+                address,
+                &AccountAddressParam {
+                    country_code: "CHN",
+                    address_code: param.code,
+                    address_info: param.info,
+                    address_detail: param.detail,
+                    name: param.name,
+                    mobile: param.mobile,
+                },
+                session_body.user_id(),
+                None,
+                env_data,
+            )
             .await?;
         Ok(())
     }

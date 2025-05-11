@@ -4,8 +4,9 @@ mod feature;
 mod request;
 mod sub_app;
 use lsys_core::{
-    clear_string, fluent_message, now_time, rand_str, RequestEnv, TimeOutTaskNotify, ValidParam,
-    ValidParamCheck, ValidPattern, ValidPatternRule, ValidStrlen, CLEAR_BASE, CLEAR_EMPTY,
+    fluent_message, now_time, rand_str, string_clear, valid_key, RequestEnv, StringClear,
+    TimeOutTaskNotify, ValidError, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
+    STRING_CLEAR_FORMAT, STRING_CLEAR_XSS,
 };
 
 pub use data::*;
@@ -70,6 +71,29 @@ pub struct AppDataParam<'t> {
     pub client_id: &'t str,
 }
 impl App {
+    async fn check_app_param_valid(&self, param: &AppDataParam<'_>) -> AppResult<(String, String)> {
+        let name = string_clear(param.name, StringClear::Option(STRING_CLEAR_FORMAT), None);
+        let client_id = string_clear(
+            param.client_id,
+            StringClear::Option(STRING_CLEAR_FORMAT),
+            None,
+        );
+        ValidParam::default()
+            .add(
+                valid_key!("name"),
+                &name,
+                &ValidParamCheck::default().add_rule(ValidStrlen::range(3, 24)),
+            )
+            .add(
+                valid_key!("client-id"),
+                &client_id,
+                &ValidParamCheck::default()
+                    .add_rule(ValidStrlen::range(3, 32))
+                    .add_rule(ValidPattern::Ident),
+            )
+            .check()?;
+        Ok((name, client_id))
+    }
     //创建APP
     pub async fn app_new_request(
         &self,
@@ -85,25 +109,37 @@ impl App {
             match parent_app {
                 Some(papp) => {
                     if papp.id != user_app_id {
-                        return Err(AppError::System(fluent_message!("papp-not-match-parent",{
-                            "name":&papp.name
-                        })));
+                        return Err(ValidError::message(
+                            valid_key!("parent_app"),
+                            fluent_message!("papp-not-match-parent",{
+                                "name":&papp.name
+                            }),
+                        )
+                        .into());
                     }
                 }
                 None => {
-                    return Err(AppError::System(fluent_message!("papp-bad-parent")));
+                    return Err(ValidError::message(
+                        valid_key!("parent_app"),
+                        fluent_message!("papp-bad-parent"),
+                    )
+                    .into());
                 }
             }
         }
         if let Some(papp) = parent_app {
             if papp.parent_app_id > 0 {
-                return Err(AppError::System(fluent_message!("papp-id-bad",{
-                    "name":&papp.name
-                })));
+                return Err(ValidError::message(
+                    valid_key!("parent_app"),
+                    fluent_message!("papp-id-bad",{
+                        "name":&papp.name
+                    }),
+                )
+                .into());
             }
         }
 
-        let (name, client_id) = Self::check_app_param(param)?;
+        let (name, client_id) = self.check_app_param_valid(param).await?;
         let app_res = sqlx::query_as::<_, AppModel>(&sql_format!(
             "select * from {} where client_id={} and status in ({})",
             AppModel::table_name(),
@@ -121,10 +157,14 @@ impl App {
                 if app.user_id == user_id && app.name == name {
                     return Ok(app.id);
                 } else {
-                    return Err(AppError::System(fluent_message!("app-client-id-exits",{
-                        "client_id":app.client_id,
-                        "other_name":app.name
-                    })));
+                    return Err(ValidError::message(
+                        valid_key!("client-id"),
+                        fluent_message!("app-client-id-exits",{
+                            "client_id":app.client_id,
+                            "other_name":app.name
+                        }),
+                    )
+                    .into());
                 }
             }
             Err(sqlx::Error::RowNotFound) => {}
@@ -147,10 +187,15 @@ impl App {
         .await;
         match req_res {
             Ok(app_id) => {
-                return Err(AppError::System(fluent_message!("app-client-id-req",{
-                    "client_id":client_id,
-                    "app_id":app_id
-                })));
+                //其他应用请求改为 client_id 值
+                return Err(ValidError::message(
+                    valid_key!("client-id"),
+                    fluent_message!("app-client-id-req",{
+                        "client_id":client_id,
+                        "app_id":app_id,
+                    }),
+                )
+                .into());
             }
             Err(sqlx::Error::RowNotFound) => {}
             Err(err) => {
@@ -285,7 +330,7 @@ impl App {
         if AppStatus::Delete.eq(app.status) {
             return Err(AppError::AppNotFound(app.client_id.to_owned()));
         }
-        let (name, client_id) = Self::check_app_param(param)?;
+        let (name, client_id) = self.check_app_param_valid(param).await?;
         if app.name == name && app.client_id == client_id {
             return Ok(());
         }
@@ -456,6 +501,11 @@ impl App {
         confirm_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> AppResult<()> {
+        let confirm_note = string_clear(
+            confirm_note,
+            StringClear::Option(STRING_CLEAR_FORMAT | STRING_CLEAR_XSS),
+            Some(255),
+        );
         if AppStatus::Delete.eq(app.status) {
             return Err(AppError::AppNotFound(app.client_id.to_owned()));
         }
@@ -747,69 +797,21 @@ impl App {
             .await;
         Ok(())
     }
-
-    fn check_app_param(param: &AppDataParam<'_>) -> AppResult<(String, String)> {
-        let name = clear_string(param.name, CLEAR_BASE);
-        let client_id = clear_string(param.client_id, CLEAR_EMPTY);
-        ValidParam::default()
-            .add(
-                "name",
-                &name,
-                &ValidParamCheck::default().add_rule(ValidStrlen::range(3, 24)),
-            )
-            .add(
-                "client_id",
-                &client_id,
-                &ValidParamCheck::default()
-                    .add_rule(ValidStrlen::range(3, 32))
-                    .add_rule(ValidPattern::new(ValidPatternRule::Ident)),
-            )
-            .check()?;
-        // if name.len() < 3 || name.len() > 32 {
-        //     return Err(AppError::System(fluent_message!("app-name-wrong",{
-        //         "len": name.len(),
-        //         "min":2,
-        //         "max":31
-        //     })));
-        // }
-        // let client_id = param.client_id.trim().to_string();
-        // if client_id.len() < 3 || client_id.len() > 32 {
-        //     return Err(AppError::System(fluent_message!("app-client-id-wrong",{
-        //         "len": client_id.len(),
-        //         "min":2,
-        //         "max":31
-        //     })));
-        // }
-        // let re = Regex::new(r"^[a-z0-9]+$")
-        //     .map_err(|e| AppError::System(fluent_message!("rule-error", e)))?;
-        // if !re.is_match(&client_id) {
-        //     return Err(AppError::System(fluent_message!("auth-alpha-check-error")));
-        // }
-        Ok((name, client_id))
-    }
 }
 impl App {
-    fn secret_check(&self, secret: Option<&str>) -> AppResult<String> {
+    async fn secret_check_param_valid(&self, secret: Option<&str>) -> AppResult<String> {
         let client_secret = match secret {
             Some(sstr) => {
-                let secret = clear_string(sstr, CLEAR_EMPTY);
+                let secret = string_clear(sstr, StringClear::Option(STRING_CLEAR_FORMAT), None);
                 ValidParam::default()
                     .add(
-                        "secret",
+                        valid_key!("secret"),
                         &secret,
                         &ValidParamCheck::default()
                             .add_rule(ValidStrlen::eq(32))
-                            .add_rule(ValidPattern::new(ValidPatternRule::Hex)),
+                            .add_rule(ValidPattern::Hex),
                     )
                     .check()?;
-                // if secret.len() != 32 {
-                //     return Err(AppError::System(fluent_message!("app-secret-wrong")));
-                // }
-                // let re = Regex::new(r"^[a-f0-9]+$")
-                //     .map_err(|e| AppError::System(fluent_message!("rule-error", e)))?;
-                // if !re.is_match(&secret) {
-                //     return Err(AppError::System(fluent_message!("app-secret-wrong")));
-                // }
                 secret
             }
             None => rand_str(lsys_core::RandType::LowerHex, 32),
@@ -824,7 +826,7 @@ impl App {
         change_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> AppResult<String> {
-        let client_secret = self.secret_check(secret)?;
+        let client_secret = self.secret_check_param_valid(secret).await?;
         let mut db = self.db.begin().await?;
         self.app_secret
             .single_set(
@@ -866,7 +868,7 @@ impl App {
         change_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> AppResult<String> {
-        let client_secret = self.secret_check(secret)?;
+        let client_secret = self.secret_check_param_valid(secret).await?;
         self.app_secret
             .multiple_add(
                 app.id,
@@ -913,7 +915,7 @@ impl App {
         change_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> AppResult<String> {
-        let client_secret = self.secret_check(secret)?;
+        let client_secret = self.secret_check_param_valid(secret).await?;
         self.app_secret
             .multiple_change(
                 app.id,

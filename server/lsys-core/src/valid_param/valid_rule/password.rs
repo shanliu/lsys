@@ -1,37 +1,32 @@
 use super::ValidRule;
 use crate::{fluent_message, ValidRuleError};
 use std::fmt::Display;
-
-pub enum ValidPasswordLevel {
+struct ValidPasswordPhantom<T: Display>(std::marker::PhantomData<T>);
+pub enum ValidPassword<T: Display> {
     Low,
     Medium,
     Strong,
+    #[doc(hidden)]
+    #[allow(private_interfaces)]
+    Phantom(ValidPasswordPhantom<T>),
 }
-pub struct ValidPassword<T: Display> {
-    level: ValidPasswordLevel,
-    _marker: std::marker::PhantomData<T>,
-}
-impl<T: Display> ValidPassword<T> {
-    pub fn new(level: ValidPasswordLevel) -> Self {
-        Self {
-            level,
-            _marker: Default::default(),
-        }
-    }
-}
+
 impl<T: Display> ValidRule for ValidPassword<T> {
     type T = T;
     fn check(&self, data: &T) -> Result<(), ValidRuleError> {
         let dt_str = data.to_string();
-        match self.level {
-            ValidPasswordLevel::Low => {
+        match self {
+            Self::Phantom(_) => {
+                unreachable!("marker type unreachable");
+            }
+            Self::Low => {
                 if dt_str.len() < 6 || dt_str.contains([' ', '\t', '\r', '\n']) {
                     return Err(ValidRuleError::new(fluent_message!(
                         "valid-not-password-Low",{"len":6,}
                     )));
                 }
             }
-            ValidPasswordLevel::Medium => {
+            Self::Medium => {
                 if dt_str.len() < 6 || dt_str.contains([' ', '\t', '\r', '\n']) {
                     return Err(ValidRuleError::new(fluent_message!(
                         "valid-not-password-medium",{"len":6,}
@@ -70,7 +65,7 @@ impl<T: Display> ValidRule for ValidPassword<T> {
                     )));
                 }
             }
-            ValidPasswordLevel::Strong => {
+            Self::Strong => {
                 if dt_str.len() < 8 || dt_str.contains([' ', '\t', '\r', '\n']) {
                     return Err(ValidRuleError::new(fluent_message!(
                         "valid-not-password-strong",{"len":8,}

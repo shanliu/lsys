@@ -91,3 +91,11 @@ status-AppSecretType-Notify= 回调
 
 status-AppSecretStatus-Enable=  正常
 status-AppSecretStatus-Delete= 删除
+
+
+
+
+valid-rule-name-name=应用名
+valid-rule-name-client-id=应用标识
+valid-rule-name-secret=应用秘钥
+valid-rule-name-callback-domain=登录跳转域名

@@ -6,8 +6,8 @@ use crate::dao::AccountResult;
 use crate::model::{AccountEmailModel, AccountEmailModelRef, AccountEmailStatus, AccountModel};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::{
-    fluent_message, now_time, IntoFluentMessage, RemoteNotify, RequestEnv, ValidEmail, ValidParam,
-    ValidParamCheck,
+    fluent_message, now_time, valid_key, IntoFluentMessage, RemoteNotify, RequestEnv, ValidEmail,
+    ValidParam, ValidParamCheck,
 };
 
 use lsys_core::db::SqlQuote;
@@ -65,6 +65,17 @@ impl AccountEmail {
         .await?;
         Ok(useremal)
     }
+    async fn email_param_valid(&self, email: &str) -> AccountResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("email"),
+                &email,
+                &ValidParamCheck::default().add_rule(ValidEmail::default()),
+            )
+            .check()?;
+        Ok(())
+    }
+
     /// 添加用户邮箱
     pub async fn add_email(
         &self,
@@ -75,13 +86,7 @@ impl AccountEmail {
         transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
     ) -> AccountResult<u64> {
-        ValidParam::default()
-            .add(
-                "email",
-                &email,
-                &ValidParamCheck::default().add_rule(ValidEmail::default()),
-            )
-            .check()?;
+        self.email_param_valid(email).await?;
 
         let email_res = sqlx::query_as::<_, AccountEmailModel>(&sql_format!(
             "select * from {} where email={} and status in ({})",

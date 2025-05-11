@@ -1,6 +1,7 @@
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
-    fluent_message, now_time, RemoteNotify, RequestEnv, ValidMobile, ValidParam, ValidParamCheck,
+    now_time, valid_key, RemoteNotify, RequestEnv, ValidMobile, ValidNumber, ValidParam,
+    ValidParamCheck, ValidPattern, ValidStrlen,
 };
 
 use lsys_core::db::{Insert, ModelTableName, SqlQuote, Update};
@@ -13,7 +14,7 @@ use crate::model::{
     AccountAddressModel, AccountAddressModelRef, AccountAddressStatus, AccountModel,
 };
 
-use super::{logger::LogAccountAddress, AccountError, AccountIndex, AccountResult};
+use super::{logger::LogAccountAddress, AccountIndex, AccountResult};
 
 pub struct AccountAddress {
     db: Pool<MySql>,
@@ -40,58 +41,109 @@ impl AccountAddress {
             logger,
         }
     }
+}
+pub struct AccountAddressParam<'t> {
+    pub country_code: &'t str,
+
+    pub address_code: &'t str,
+
+    pub address_info: &'t str,
+
+    pub address_detail: &'t str,
+
+    pub name: &'t str,
+
+    pub mobile: &'t str,
+}
+impl AccountAddress {
+    async fn address_param_valid(
+        &self,
+        statis: Option<i8>,
+        address_data: &AccountAddressParam<'_>,
+    ) -> AccountResult<()> {
+        let mut valid_param = ValidParam::default();
+        if let Some(statis) = statis {
+            valid_param.add(
+                valid_key!("status"),
+                &statis,
+                &ValidParamCheck::default()
+                    .add_rule(ValidNumber::eq(AccountAddressStatus::Enable as i8)),
+            );
+        }
+
+        valid_param.add(
+            valid_key!("name"),
+            &address_data.name,
+            &ValidParamCheck::default()
+                .add_rule(ValidPattern::NotFormat)
+                .add_rule(ValidStrlen::range(4, 16)),
+        );
+        valid_param.add(
+            valid_key!("country_code"),
+            &address_data.country_code,
+            &ValidParamCheck::default().add_rule(ValidStrlen::range(1, 21)),
+        );
+        valid_param.add(
+            valid_key!("address_code"),
+            &address_data.address_code,
+            &ValidParamCheck::default()
+                .add_rule(ValidPattern::Numeric)
+                .add_rule(ValidStrlen::range(4, 21)),
+        );
+        valid_param.add(
+            valid_key!("mobile"),
+            &address_data.mobile,
+            &ValidParamCheck::default().add_rule(ValidMobile::default()),
+        );
+
+        valid_param.add(
+            valid_key!("address_info"),
+            &address_data.address_info,
+            &ValidParamCheck::default()
+                .add_rule(ValidPattern::NotFormat)
+                .add_rule(ValidStrlen::range(1, 64)),
+        );
+
+        valid_param.add(
+            valid_key!("address_detail"),
+            &address_data.address_detail,
+            &ValidParamCheck::default()
+                .add_rule(ValidPattern::NotFormat)
+                .add_rule(ValidStrlen::range(1, 128)),
+        );
+
+        Ok(())
+    }
 
     /// 添加用户地址
     pub async fn edit_address(
         &self,
         address: &AccountAddressModel,
-        mut address_data: AccountAddressModelRef<'_>,
+        address_param: &AccountAddressParam<'_>,
         op_user_id: u64,
         transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
     ) -> AccountResult<()> {
-        if !AccountAddressStatus::Enable.eq(address.status) {
-            return Err(AccountError::System(
-                fluent_message!("account-address-is-delete",
-                    {
-                        "id": address.id
-                    }
-                ),
-            )); //format!("address is delete:{}", address.id)
-        }
-        macro_rules! check_data {
-            ($addr_var:ident,$name:literal) => {
-                let $addr_var = if let Some($addr_var) = address_data.$addr_var {
-                    $addr_var.trim().to_owned()
-                } else {
-                    "".to_string()
-                };
-                if $addr_var.is_empty() {
-                    return Err(AccountError::System(fluent_message!("account-address-not-empty",
-                        {"name":$name}
-                    )));//concat!("address {$name} can't be nul")
-                }
-                address_data.$addr_var = Some(&$addr_var);
-            };
-        }
-        check_data!(address_info, "info");
-        check_data!(address_code, "code");
-        check_data!(address_detail, "detail");
-        check_data!(name, "name");
-        check_data!(mobile, "mobile");
-
-        ValidParam::default()
-            .add(
-                "mobile",
-                &mobile,
-                &ValidParamCheck::default().add_rule(ValidMobile::default()),
-            )
-            .check()?;
+        self.address_param_valid(Some(address.status), address_param)
+            .await?;
 
         let time = now_time()?;
-        address_data.change_time = Some(&time);
-        address_data.account_id = Some(&address.account_id); //防止被外面给改了
-        address_data.id = None; //防止被外面给改了
+        let country_code = address_param.country_code.to_owned();
+        let address_code = address_param.address_code.to_owned();
+        let address_info = address_param.address_info.to_owned();
+        let address_detail = address_param.address_detail.to_owned();
+        let name = address_param.name.to_owned();
+        let mobile = address_param.mobile.to_owned();
+        let address_data = lsys_core::model_option_set!(AccountAddressModelRef,{
+            change_time:time,
+            country_code:country_code,
+            address_code:address_code,
+            address_info:address_info,
+            address_detail:address_detail,
+            name:name,
+            mobile:mobile,
+            account_id:address.account_id
+        });
 
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
@@ -124,7 +176,7 @@ impl AccountAddress {
                     .add(
                         crate::model::AccountIndexCat::Address,
                         address.account_id,
-                        &[&address_info],
+                        &[&address.address_info],
                         Some(&mut db),
                     )
                     .await
@@ -139,11 +191,11 @@ impl AccountAddress {
                     .add(
                         &LogAccountAddress {
                             action: "edit",
-                            address_code: &address_code,
-                            address_info: &address_info,
-                            address_detail: &address_detail,
-                            name: &name,
-                            mobile: &mobile,
+                            address_code: &address.address_code,
+                            address_info: &address.address_info,
+                            address_detail: &address.address_detail,
+                            name: &address.name,
+                            mobile: &address.mobile,
                             account_id: address.account_id,
                         },
                         Some(address.id),
@@ -157,46 +209,36 @@ impl AccountAddress {
             }
         }
     }
+
     /// 添加用户地址
     pub async fn add_address(
         &self,
         account: &AccountModel,
-        mut address_data: AccountAddressModelRef<'_>,
+        address_param: &AccountAddressParam<'_>,
         op_user_id: u64,
         transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
     ) -> AccountResult<u64> {
-        macro_rules! check_data {
-            ($addr_var:ident,$name:literal) => {
-                let $addr_var = if let Some($addr_var) = address_data.$addr_var {
-                    $addr_var.trim().to_owned()
-                } else {
-                    "".to_string()
-                };
-                if $addr_var.is_empty() {
-                    return Err(AccountError::System(fluent_message!("account-address-not-empty",
-                        {"name":$name}
-                    )));
-                    // concat!("account-address-", $name, "-empty"),
-                    // concat!("address ", $name, " can't be nul")
-                }
-                address_data.$addr_var = Some(&$addr_var);
-            };
-        }
-        check_data!(address_info, "info");
-        check_data!(address_code, "code");
-        check_data!(address_detail, "detail");
-        check_data!(name, "name");
-        check_data!(mobile, "mobile");
+        self.address_param_valid(None, address_param).await?;
 
-        ValidParam::default()
-            .add(
-                "mobile",
-                &mobile,
-                &ValidParamCheck::default().add_rule(ValidMobile::default()),
-            )
-            .check()?;
-
+        let time = now_time()?;
+        let country_code = address_param.country_code.to_owned();
+        let address_code = address_param.address_code.to_owned();
+        let address_info = address_param.address_info.to_owned();
+        let address_detail = address_param.address_detail.to_owned();
+        let name = address_param.name.to_owned();
+        let mobile = address_param.mobile.to_owned();
+        let address_data = lsys_core::model_option_set!(AccountAddressModelRef,{
+            status:AccountAddressStatus::Enable as i8,
+            change_time:time,
+            country_code:country_code,
+            address_code:address_code,
+            address_info:address_info,
+            address_detail:address_detail,
+            name:name,
+            mobile:mobile,
+            account_id:account.id,
+        });
         let address_res = sqlx::query_as::<_, AccountAddressModel>(&sql_format!(
             "select * from {} where  account_id={} and address_code={} and address_info={} and address_detail={} and name={} and mobile={} and status={}",
             AccountAddressModel::table_name(),
@@ -214,16 +256,6 @@ impl AccountAddress {
         if let Ok(address) = address_res {
             return Ok(address.id);
         }
-
-        let time = now_time()?;
-        address_data.change_time = Some(&time);
-        address_data.status = Some(&(AccountAddressStatus::Enable as i8));
-
-        if address_data.account_id.is_none() {
-            address_data.account_id = Some(&account.id);
-        }
-
-        let address_account_id = *address_data.account_id.unwrap_or(&account.id);
 
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
@@ -283,7 +315,7 @@ impl AccountAddress {
                                     address_detail: &address_detail,
                                     name: &name,
                                     mobile: &mobile,
-                                    account_id: address_account_id,
+                                    account_id: account.id,
                                 },
                                 Some(aid),
                                 Some(op_user_id),

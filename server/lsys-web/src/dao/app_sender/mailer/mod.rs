@@ -5,7 +5,9 @@ use lsys_app_sender::{
     dao::{MailSenderDao, SenderError, SenderResult, SenderSmtpConfig, SmtpSenderTask},
     model::{SenderMailBodyModel, SenderMailMessageModel},
 };
-use lsys_core::{fluent_message, AppCore, RequestEnv, ValidEmail, ValidParam, ValidParamCheck};
+use lsys_core::{
+    fluent_message, valid_key, AppCore, RequestEnv, ValidEmail, ValidParam, ValidParamCheck,
+};
 use lsys_logger::dao::ChangeLoggerDao;
 use lsys_setting::dao::SettingDao;
 use sqlx::{MySql, Pool};
@@ -76,6 +78,16 @@ impl SenderMailer {
         .await
         .map(|_| ())
     }
+    async fn send_param_valid(&self, to: &str) -> JsonResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("to-email"),
+                &to,
+                &ValidParamCheck::default().add_rule(ValidEmail::default()),
+            )
+            .check()?;
+        Ok(())
+    }
     // 发送接口
     async fn send(
         &self,
@@ -85,13 +97,7 @@ impl SenderMailer {
         max_try_num: Option<u8>,
         env_data: Option<&RequestEnv>,
     ) -> JsonResult<u64> {
-        ValidParam::default()
-            .add(
-                "to_email",
-                &to,
-                &ValidParamCheck::default().add_rule(ValidEmail::default()),
-            )
-            .check()?;
+        self.send_param_valid(to).await?;
         let mut out = self
             .mailer_dao
             .send(
