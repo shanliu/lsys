@@ -106,7 +106,7 @@ use super::AppNotifyRecord;
 pub const NOTIFY_MIN_DELAY_TIME: u64 = 300;
 
 //每次延迟的时间间隔
-fn next_time_add(now_num: &i8) -> u64 {
+fn next_time_add(now_num: i8) -> u64 {
     match now_num {
         0 => NOTIFY_MIN_DELAY_TIME,
         1 => 30 * 60,
@@ -119,9 +119,9 @@ fn next_time_add(now_num: &i8) -> u64 {
 
 async fn change_notify_check_num_error_status(
     db: &Pool<sqlx::MySql>,
-    nid: &u64,
-    max_try: &u16,
-    now_num: &i8,
+    nid: u64,
+    max_try: u16,
+    now_num: i8,
     msg: &str,
 ) {
     let ntime = now_time().unwrap_or_default();
@@ -147,7 +147,7 @@ async fn change_notify_check_num_error_status(
     }
 }
 
-async fn change_notify_error_status(db: &Pool<sqlx::MySql>, nid: &u64, now_num: &i8, msg: &str) {
+async fn change_notify_error_status(db: &Pool<sqlx::MySql>, nid: u64, now_num: i8, msg: &str) {
     let ntime = now_time().unwrap_or_default();
     let addtime = next_time_add(now_num);
     let sql = sql_format!(
@@ -273,9 +273,9 @@ impl TaskExecutor<u64, AppAppNotifyTaskItem> for AppNotifyTask {
                                     let s = String::from_utf8_lossy(&buffer).to_string();
                                     change_notify_check_num_error_status(
                                         &self.db,
-                                        &val.0.id,
-                                        &self.max_try,
-                                        &val.0.try_num,
+                                        val.0.id,
+                                        self.max_try,
+                                        val.0.try_num,
                                         &s,
                                     )
                                     .await;
@@ -285,9 +285,9 @@ impl TaskExecutor<u64, AppAppNotifyTaskItem> for AppNotifyTask {
                                 let err_msg = format!("request error:{:?}", err);
                                 change_notify_check_num_error_status(
                                     &self.db,
-                                    &val.0.id,
-                                    &self.max_try,
-                                    &val.0.try_num,
+                                    val.0.id,
+                                    self.max_try,
+                                    val.0.try_num,
                                     &err_msg,
                                 )
                                 .await;
@@ -296,15 +296,14 @@ impl TaskExecutor<u64, AppAppNotifyTaskItem> for AppNotifyTask {
                         };
                     }
                     Err(AppError::Sqlx(sqlx::Error::RowNotFound)) => {
-                        change_notify_error_status(&self.db, &val.0.id, &val.0.try_num, "miss app")
+                        change_notify_error_status(&self.db, val.0.id, val.0.try_num, "miss app")
                             .await;
                     }
                     Err(err) => return Err(err.to_fluent_message().default_format()),
                 };
             }
             Err(AppError::Sqlx(sqlx::Error::RowNotFound)) => {
-                change_notify_error_status(&self.db, &val.0.id, &val.0.try_num, "miss config")
-                    .await;
+                change_notify_error_status(&self.db, val.0.id, val.0.try_num, "miss config").await;
             }
             Err(err) => return Err(err.to_fluent_message().default_format()),
         };

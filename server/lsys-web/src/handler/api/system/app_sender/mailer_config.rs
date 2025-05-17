@@ -75,7 +75,7 @@ pub async fn mailer_config_del(
         .mailer
         .mailer_dao
         .mail_record
-        .find_config_by_id(&param.config_id)
+        .find_config_by_id(param.config_id)
         .await;
     match res {
         Ok(config) => {
@@ -275,7 +275,7 @@ pub async fn mailer_tpl_config_del(
         .mailer
         .mailer_dao
         .tpl_config
-        .find_by_id(&param.app_config_id)
+        .find_by_id(param.app_config_id)
         .await?;
     if SenderTplConfigStatus::Delete.eq(config.status) {
         return Ok(JsonResponse::data(JsonData::body(json!({ "num": 0 }))));

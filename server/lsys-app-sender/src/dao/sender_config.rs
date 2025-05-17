@@ -30,7 +30,7 @@ impl SenderConfig {
             logger,
         }
     }
-    pub async fn find_by_id(&self, id: &u64) -> SenderResult<SenderConfigModel> {
+    pub async fn find_by_id(&self, id: u64) -> SenderResult<SenderConfigModel> {
         let data = sqlx::query_as::<_, SenderConfigModel>(&sql_format!(
             "select * from {} where sender_type={} and id={} ",
             SenderConfigModel::table_name(),

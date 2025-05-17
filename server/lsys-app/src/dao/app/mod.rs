@@ -82,10 +82,12 @@ impl App {
             .add(
                 valid_key!("name"),
                 &name,
-                &ValidParamCheck::default().add_rule(ValidStrlen::range(3, 24)),
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(3, 24)),
             )
             .add(
-                valid_key!("client-id"),
+                valid_key!("client_id"),
                 &client_id,
                 &ValidParamCheck::default()
                     .add_rule(ValidStrlen::range(3, 32))
@@ -158,7 +160,7 @@ impl App {
                     return Ok(app.id);
                 } else {
                     return Err(ValidError::message(
-                        valid_key!("client-id"),
+                        valid_key!("client_id"),
                         fluent_message!("app-client-id-exits",{
                             "client_id":app.client_id,
                             "other_name":app.name
@@ -189,7 +191,7 @@ impl App {
             Ok(app_id) => {
                 //其他应用请求改为 client_id 值
                 return Err(ValidError::message(
-                    valid_key!("client-id"),
+                    valid_key!("client_id"),
                     fluent_message!("app-client-id-req",{
                         "client_id":client_id,
                         "app_id":app_id,
@@ -799,25 +801,6 @@ impl App {
     }
 }
 impl App {
-    async fn secret_check_param_valid(&self, secret: Option<&str>) -> AppResult<String> {
-        let client_secret = match secret {
-            Some(sstr) => {
-                let secret = string_clear(sstr, StringClear::Option(STRING_CLEAR_FORMAT), None);
-                ValidParam::default()
-                    .add(
-                        valid_key!("secret"),
-                        &secret,
-                        &ValidParamCheck::default()
-                            .add_rule(ValidStrlen::eq(32))
-                            .add_rule(ValidPattern::Hex),
-                    )
-                    .check()?;
-                secret
-            }
-            None => rand_str(lsys_core::RandType::LowerHex, 32),
-        };
-        Ok(client_secret)
-    }
     pub async fn notify_secret_change(
         &self,
         app: &AppModel,
@@ -826,7 +809,10 @@ impl App {
         change_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> AppResult<String> {
-        let client_secret = self.secret_check_param_valid(secret).await?;
+        let client_secret = match secret {
+            Some(sstr) => sstr.to_string(),
+            None => rand_str(lsys_core::RandType::LowerHex, 32),
+        };
         let mut db = self.db.begin().await?;
         self.app_secret
             .single_set(
@@ -868,7 +854,10 @@ impl App {
         change_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> AppResult<String> {
-        let client_secret = self.secret_check_param_valid(secret).await?;
+        let client_secret = match secret {
+            Some(sstr) => sstr.to_string(),
+            None => rand_str(lsys_core::RandType::LowerHex, 32),
+        };
         self.app_secret
             .multiple_add(
                 app.id,
@@ -915,7 +904,10 @@ impl App {
         change_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> AppResult<String> {
-        let client_secret = self.secret_check_param_valid(secret).await?;
+        let client_secret = match secret {
+            Some(sstr) => sstr.to_string(),
+            None => rand_str(lsys_core::RandType::LowerHex, 32),
+        };
         self.app_secret
             .multiple_change(
                 app.id,

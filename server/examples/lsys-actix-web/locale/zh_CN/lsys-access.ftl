@@ -13,6 +13,13 @@ status-SessionStatus-Delete= 删除
 
 
 #校验名称
-valid-rule-name-user-data=用户标识
-valid-rule-name-user-name=用户名
-valid-rule-name-token-data=登录标识
+valid-rule-name-session_data_key = Session附带数据KEY
+valid-rule-name-session_data_val = Session附带数据VALUE
+valid-rule-name-token_data = 登录标识
+valid-rule-name-device_id = 设备ID
+valid-rule-name-device_name = 设备名
+valid-rule-name-login_ip = 登录IP
+valid-rule-name-oauth_code = OAuth Code
+valid-rule-name-user_data = 用户数据
+valid-rule-name-user_name = 用户名
+valid-rule-name-user_account = 用户账号

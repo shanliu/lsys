@@ -123,7 +123,7 @@ impl GitTask {
                             finish_time: finish_time,
                             status:status
                         });
-                        if let Err(err) = Update::< DocGitCloneModel, _>::new(change)
+                        if let Err(err) = Update::<DocGitCloneModel, _>::new(change)
                             .execute_by_where(
                                 &WhereOption::Where(sql_format!(
                                     "id={} and status!={}",
@@ -167,7 +167,7 @@ impl GitTask {
                             finish_time: finish_time,
                             status:status
                         });
-                        if let Err(err) = Update::< DocGitCloneModel, _>::new(change)
+                        if let Err(err) = Update::<DocGitCloneModel, _>::new(change)
                             .execute_by_where(
                                 &WhereOption::Where(sql_format!(
                                     "id={}  and status!={}",
@@ -215,7 +215,7 @@ impl GitTask {
                             finish_time: finish_time,
                             status:status
                         });
-                        if let Err(err) = Update::< DocGitCloneModel, _>::new(change)
+                        if let Err(err) = Update::<DocGitCloneModel, _>::new(change)
                             .execute_by_where(
                                 &WhereOption::Where(sql_format!(
                                     "id={} and status={}",
@@ -332,7 +332,7 @@ impl GitTask {
         //     .get_string("doc_git_dir")
         //     .unwrap_or_else(|_| env::temp_dir().to_string_lossy().to_string());
 
-        let save_dir = match git_doc_path(save_dir, &clone_id, &None).await {
+        let save_dir = match git_doc_path(save_dir, clone_id, &None).await {
             Ok(set) => set,
             Err(err) => {
                 warn!(
@@ -353,7 +353,7 @@ impl GitTask {
         task_ing.lock().await.push((tag_id, clone_id, abort));
         true
     }
-    /// 获得发送中任务信息
+    /// 各节点获得任务并执行
     /// * `app_core` - 公共APP句柄,用于创建REDIS
     /// * `task_reader` - 任务读取实现
     /// * `task_executor` - 任务发送实现
@@ -604,7 +604,7 @@ impl GitTask {
                         break;
                     }
                     for tmp in data {
-                        Self::delete_clone_dir(save_dir, &tmp).await;
+                        Self::delete_clone_dir(save_dir, tmp).await;
                         start_id = tmp;
                     }
                 }
@@ -678,7 +678,7 @@ impl GitTask {
         }
         Ok(())
     }
-    pub async fn delete_clone_dir(save_dir: &str, clone_id: &u64) {
+    pub async fn delete_clone_dir(save_dir: &str, clone_id: u64) {
         // let config_dir = config!(app_core.config)
         //     .get_string("doc_git_dir")
         //     .unwrap_or_else(|_| env::temp_dir().to_string_lossy().to_string());
@@ -705,14 +705,14 @@ impl GitTask {
             );
         };
     }
-    pub async fn delete_clone(&self, clone_id: &u64) -> GitDocResult<()> {
+    pub async fn delete_clone(&self, clone_id: u64) -> GitDocResult<()> {
         let finish_time = now_time().unwrap_or_default();
         let status = DocGitCloneStatus::Delete as i8;
         let change = lsys_core::model_option_set!(DocGitCloneModelRef, {
             finish_time: finish_time,
             status:status
         });
-        match Update::< DocGitCloneModel, _>::new(change)
+        match Update::<DocGitCloneModel, _>::new(change)
             .execute_by_where(
                 &WhereOption::Where(sql_format!("id={}", clone_id,)),
                 &self.db,
@@ -749,7 +749,7 @@ impl RemoteTask for GitRemoteTask {
     async fn run(&self, msg: MsgSendBody) -> Result<Option<Value>, String> {
         let action = serde_json::from_value::<DocAction>(msg.data).map_err(|e| e.to_string())?;
         match action {
-            DocAction::Del { clone_id } => match self.task.delete_clone(&clone_id).await {
+            DocAction::Del { clone_id } => match self.task.delete_clone(clone_id).await {
                 Ok(_) => {
                     if let Err(err) = self.task.notify() {
                         warn!(

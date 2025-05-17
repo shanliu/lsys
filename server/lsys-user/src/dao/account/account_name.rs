@@ -1,6 +1,7 @@
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
-    fluent_message, now_time, RemoteNotify, RequestEnv,
+    fluent_message, now_time, string_clear, valid_key, RemoteNotify, RequestEnv, StringClear,
+    ValidParam, ValidParamCheck, ValidPattern, ValidStrMatch, ValidStrlen, STRING_CLEAR_FORMAT,
 };
 
 use lsys_logger::dao::ChangeLoggerDao;
@@ -44,6 +45,10 @@ impl AccountName {
     }
     /// 根据用户名查找记录
     pub async fn find_by_name(&self, name: &str) -> AccountResult<AccountNameModel> {
+        let name = string_clear(name, StringClear::Option(STRING_CLEAR_FORMAT), Some(101));
+        if name.is_empty() {
+            return Err(sqlx::Error::RowNotFound.into());
+        }
         let res = sqlx::query_as::<_, AccountNameModel>(&sql_format!(
             "select * from {} where username={} and status={}",
             AccountNameModel::table_name(),
@@ -115,6 +120,20 @@ impl AccountName {
             .await;
         Ok(())
     }
+    async fn name_param_valid(&self, username: &str) -> AccountResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("username"),
+                &username,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Ident)
+                    .add_rule(ValidStrlen::range(3, 32))
+                    .add_rule(ValidStrMatch::StartNotWith("del_")),
+            )
+            .check()?;
+
+        Ok(())
+    }
     /// 更改用户名
     pub async fn change_account_name(
         &self,
@@ -124,19 +143,8 @@ impl AccountName {
         transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
     ) -> AccountResult<()> {
-        let username = username.trim().to_string();
-        if username.len() < 3 || username.len() > 32 || username.starts_with("delete_") {
-            return Err(AccountError::System(
-                fluent_message!("user-account-name-error",
-                    {
-                        "len":username.len(),
-                        "min":3,
-                        "max":32,
-                        "bad_start":"delete_"
-                    }
-                ),
-            )); //"username length need 3-32 char and username can't start [delete_]"
-        }
+        self.name_param_valid(username).await?;
+        let username = username.to_string();
         let time = now_time()?;
         let db = &self.db;
 

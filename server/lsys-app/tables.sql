@@ -54,7 +54,7 @@ CREATE TABLE `yaf_app_secret` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
     `app_id` bigint unsigned NOT NULL COMMENT 'app的id',
     `secret_type` tinyint NOT NULL COMMENT '密钥类型',
-    `secret_data` varchar(32) NOT NULL COMMENT '应用秘钥',
+    `secret_data` varchar(64) NOT NULL COMMENT '应用秘钥',
     `time_out` bigint unsigned NOT NULL COMMENT '过期时间',
     `status` tinyint NOT NULL COMMENT '状态 正常 已删除',
     `add_user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '添加用户',

@@ -28,7 +28,7 @@ pub async fn oauth_server_client_confirm(
         .web_app
         .app_dao
         .app
-        .find_by_id(&param.app_id)
+        .find_by_id(param.app_id)
         .await?;
 
     if app.user_app_id == 0 {
@@ -40,7 +40,7 @@ pub async fn oauth_server_client_confirm(
         .web_app
         .app_dao
         .app
-        .find_by_id(&app.parent_app_id)
+        .find_by_id(app.parent_app_id)
         .await?;
 
     req_dao
@@ -98,7 +98,7 @@ pub async fn oauth_server_client_scope_confirm(
         .web_app
         .app_dao
         .app
-        .request_find_by_id(&param.app_req_id)
+        .request_find_by_id(param.app_req_id)
         .await?;
 
     let confirm_status = AppRequestStatus::try_from(param.confirm_status)?;
@@ -107,7 +107,7 @@ pub async fn oauth_server_client_scope_confirm(
         .web_app
         .app_dao
         .app
-        .find_by_id(&req_app.app_id)
+        .find_by_id(req_app.app_id)
         .await?;
 
     if app.user_app_id == 0 {
@@ -119,7 +119,7 @@ pub async fn oauth_server_client_scope_confirm(
         .web_app
         .app_dao
         .app
-        .find_by_id(&app.parent_app_id)
+        .find_by_id(app.parent_app_id)
         .await?;
 
     req_dao
@@ -169,7 +169,7 @@ pub async fn oauth_server_request(
         .web_app
         .app_dao
         .app
-        .find_by_id(&param.app_id)
+        .find_by_id(param.app_id)
         .await?;
     req_dao
         .web_dao
@@ -204,7 +204,7 @@ pub async fn oauth_server_setting(
         .web_app
         .app_dao
         .app
-        .find_by_id(&param.app_id)
+        .find_by_id(param.app_id)
         .await?;
 
     req_dao

@@ -1,7 +1,10 @@
 use crate::model::{SettingModel, SettingModelRef, SettingStatus, SettingType};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::db::{Insert, ModelTableName, SqlQuote, Update};
-use lsys_core::{db_option_executor, model_option_set, sql_format};
+use lsys_core::{
+    db_option_executor, model_option_set, sql_format, string_clear, valid_key, StringClear,
+    ValidParam, ValidParamCheck, ValidPattern, ValidStrlen, STRING_CLEAR_FORMAT,
+};
 use lsys_core::{now_time, RemoteNotify, RequestEnv};
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{MySql, Pool, Transaction};
@@ -35,6 +38,32 @@ pub struct SingleSettingData<'t, T: SettingEncode> {
     pub data: &'t T,
 }
 impl SingleSetting {
+    async fn save_param_valid(&self, key: &str, name: &str, data: &str) -> SettingResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("key"),
+                &key,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Ident)
+                    .add_rule(ValidStrlen::range(1, 32)),
+            )
+            .add(
+                valid_key!("name"),
+                &name,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 32)),
+            )
+            .add(
+                valid_key!("data"),
+                &data,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 60000)),
+            )
+            .check()?;
+        Ok(())
+    }
     pub async fn save<T: SettingEncode>(
         &self,
         user_id: Option<u64>,
@@ -46,6 +75,8 @@ impl SingleSetting {
         let name = param.name.to_owned();
         let edata = param.data.encode();
         let key = T::key().to_string();
+        self.save_param_valid(&key, &name, &edata).await?;
+
         let time = now_time().unwrap_or_default();
         let uid = user_id.unwrap_or_default();
         let change_user_id = change_user_id.to_owned();
@@ -131,7 +162,7 @@ impl SingleSetting {
     }
     pub async fn find(&self, user_id: Option<u64>, key: &str) -> SettingResult<SettingModel> {
         let uid = user_id.unwrap_or_default();
-
+        let key = string_clear(key, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
         Ok(sqlx::query_as::<_, SettingModel>(&sql_format!(
             "select * from {} where setting_type={} and setting_key={} and user_id={} order by id desc",
             SettingModel::table_name(),

@@ -6,7 +6,10 @@ use crate::model::{
     AppModel, AppNotifyConfigModel, AppNotifyConfigModelRef, AppNotifyDataModel,
     AppNotifyDataModelRef, AppNotifyDataStatus,
 };
-use lsys_core::{fluent_message, now_time, LimitParam, RequestEnv};
+use lsys_core::{
+    fluent_message, now_time, string_clear, valid_key, LimitParam, RequestEnv, ValidParam,
+    ValidParamCheck, ValidPattern, ValidStrlen, ValidUrl,
+};
 
 use lsys_core::db::{Insert, ModelTableName, SqlExpr, Update};
 use lsys_core::{model_option_set, sql_format};
@@ -35,12 +38,12 @@ impl AppNotifyRecord {
         id,
         "id={id}"
     );
-
     pub async fn find_config_by_app(
         &self,
         app_id: u64,
         method: &str,
     ) -> AppResult<AppNotifyConfigModel> {
+        let method = string_clear(method, lsys_core::StringClear::Ident, Some(65));
         let data = sqlx::query_as::<_, AppNotifyConfigModel>(&sql_format!(
             "select * from {} where app_id={} and method={}",
             AppNotifyConfigModel::table_name(),
@@ -59,6 +62,7 @@ impl AppNotifyRecord {
         if app_id.is_empty() {
             return Ok(vec![]);
         }
+        let method = string_clear(method, lsys_core::StringClear::Ident, Some(65));
         let data = sqlx::query_as::<_, AppNotifyConfigModel>(&sql_format!(
             "select * from {} where app_id in ({}) and method={}",
             AppNotifyConfigModel::table_name(),
@@ -69,7 +73,25 @@ impl AppNotifyRecord {
         .await?;
         Ok(data)
     }
-
+    async fn set_app_config_param_valid(&self, method: &str, call_url: &str) -> AppResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("method"),
+                &method,
+                &ValidParamCheck::default()
+                    .add_rule(ValidStrlen::range(1, 64))
+                    .add_rule(ValidPattern::Ident),
+            )
+            .add(
+                valid_key!("call_url"),
+                &call_url,
+                &ValidParamCheck::default()
+                    .add_rule(ValidStrlen::range(1, 512))
+                    .add_rule(ValidUrl::default()),
+            )
+            .check()?;
+        Ok(())
+    }
     pub async fn set_app_config(
         &self,
         app: &AppModel,
@@ -78,9 +100,10 @@ impl AppNotifyRecord {
         change_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> AppResult<u64> {
-        if !call_url.starts_with("http://") && !call_url.starts_with("https://") {
-            return Err(AppError::System(fluent_message!("notify-call-not-support")));
-        }
+        self.set_app_config_param_valid(method, call_url).await?;
+        // if !call_url.starts_with("http://") && !call_url.starts_with("https://") {
+        //     return Err(AppError::System(fluent_message!("notify-call-not-support")));
+        // }
         let client = reqwest::Client::builder();
         let client = client
             .timeout(Duration::from_secs(5))
@@ -152,8 +175,27 @@ impl AppNotifyRecord {
             .await;
         Ok(id)
     }
-
+    async fn add_param_valid(&self, method: &str, data: &str) -> AppResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("method"),
+                &method,
+                &ValidParamCheck::default()
+                    .add_rule(ValidStrlen::range(1, 64))
+                    .add_rule(ValidPattern::Ident),
+            )
+            .add(
+                valid_key!("payload"),
+                &data,
+                &ValidParamCheck::default()
+                    .add_rule(ValidStrlen::range(0, 20000))
+                    .add_rule(ValidUrl::default()),
+            )
+            .check()?;
+        Ok(())
+    }
     pub async fn add(&self, method: &str, app_id: u64, data: &str) -> AppResult<u64> {
+        self.add_param_valid(method, data).await?;
         let method = method.to_owned();
         let payload = data.to_owned();
         let create_time = now_time().unwrap_or_default();
@@ -185,6 +227,10 @@ impl AppNotifyRecord {
     ) -> AppResult<i64> {
         let mut sqlwhere = vec![];
         if let Some(s) = method {
+            let s = string_clear(s, lsys_core::StringClear::Ident, Some(65));
+            if s.is_empty() {
+                return Ok(0);
+            }
             sqlwhere.push(sql_format!("method={}", s));
         }
         if let Some(aid) = app_id {
@@ -225,6 +271,10 @@ impl AppNotifyRecord {
     ) -> AppResult<(Vec<(AppNotifyDataModel, String)>, Option<u64>)> {
         let mut sqlwhere = vec![];
         if let Some(s) = method {
+            let s = string_clear(s, lsys_core::StringClear::Ident, Some(65));
+            if s.is_empty() {
+                return Ok((vec![], None));
+            }
             sqlwhere.push(sql_format!("d.method={}", s));
         }
         if let Some(uid) = app_user_id {

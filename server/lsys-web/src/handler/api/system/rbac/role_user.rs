@@ -61,7 +61,7 @@ pub async fn role_user_add(
         .await?;
     let mut add_user_data = vec![];
     for user_item in &param.user_data {
-        match user_data.get(&user_item.user_id) {
+        match user_data.get(user_item.user_id) {
             Some(user_model) => {
                 if user_model.app_id != 0 {
                     return Err(JsonError::Message(fluent_message!(

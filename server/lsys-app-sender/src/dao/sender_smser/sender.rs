@@ -237,7 +237,7 @@ impl SmsSenderDao {
     pub async fn cancal_from_message_snid_vec(
         &self,
         msg_snid_data: &[u64],
-        user_id: &u64,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<Vec<(u64, bool, Option<SenderError>)>> {
         let res = self
@@ -268,7 +268,7 @@ impl SmsSenderDao {
         &self,
         body: &SenderSmsBodyModel,
         msg_data: &[&SenderSmsMessageModel],
-        user_id: &u64,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<Vec<(u64, bool, Option<SenderError>)>> {
         let mut out = Vec::with_capacity(msg_data.len());
@@ -292,8 +292,8 @@ impl SmsSenderDao {
         }
         self.cancel
             .add(
-                &body.app_id,
-                &body.id,
+                body.app_id,
+                body.id,
                 &cancel_data.iter().map(|e| e.id).collect::<Vec<_>>(),
                 user_id,
                 None,

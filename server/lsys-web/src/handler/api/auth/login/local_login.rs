@@ -36,7 +36,8 @@ pub async fn user_login_from_name(
                 req_dao.web_dao.web_user.user_dao.account_dao.clone(),
                 &param.name,
                 &param.password,
-            ),
+            )
+            .await?,
             param.captcha.as_ref(),
             &req_dao.user_session,
             Some(&req_dao.req_env),
@@ -68,7 +69,8 @@ pub async fn user_login_from_email(
                 req_dao.web_dao.web_user.user_dao.account_dao.clone(),
                 &param.email,
                 &param.password,
-            ),
+            )
+            .await?,
             param.captcha.as_ref(),
             &req_dao.user_session,
             Some(&req_dao.req_env),
@@ -102,7 +104,8 @@ pub async fn user_login_from_email_code(
                 req_dao.web_dao.web_user.user_dao.account_dao.clone(),
                 &param.email,
                 &param.code,
-            ),
+            )
+            .await?,
             param.captcha.as_ref(),
             &req_dao.user_session,
             Some(&req_dao.req_env),
@@ -137,7 +140,8 @@ pub async fn user_login_from_mobile(
                 &param.area_code,
                 &param.mobile,
                 &param.password,
-            ),
+            )
+            .await?,
             param.captcha.as_ref(),
             &req_dao.user_session,
             Some(&req_dao.req_env),
@@ -173,7 +177,8 @@ pub async fn user_login_from_mobile_code(
                 &param.area_code,
                 &param.mobile,
                 &param.code,
-            ),
+            )
+            .await?,
             param.captcha.as_ref(),
             &req_dao.user_session,
             Some(&req_dao.req_env),

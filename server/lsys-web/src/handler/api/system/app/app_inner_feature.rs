@@ -33,7 +33,7 @@ pub async fn confirm_inner_feature_exter_login_confirm(
         .web_app
         .app_dao
         .app
-        .find_by_id(&param.app_id)
+        .find_by_id(param.app_id)
         .await?;
     req_dao
         .web_dao
@@ -77,7 +77,7 @@ pub async fn confirm_inner_feature_sub_app_confirm(
         .web_app
         .app_dao
         .app
-        .find_by_id(&param.app_id)
+        .find_by_id(param.app_id)
         .await?;
 
     req_dao

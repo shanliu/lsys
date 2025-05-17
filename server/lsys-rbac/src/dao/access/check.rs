@@ -1,5 +1,5 @@
 use lsys_core::db::Insert;
-use lsys_core::{fluent_message, now_time, FluentMessage, RequestEnv};
+use lsys_core::{fluent_message, now_time, valid_key, FluentMessage, RequestEnv, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{collections::HashMap, sync::OnceLock};
@@ -153,6 +153,35 @@ enum AccessRoleList {
 }
 
 impl RbacAccess {
+    async fn check_param_valid(&self,
+         env_data: &AccessCheckEnv<'_>,
+        //待检测资源需要操作的列表
+        check_res_data: &[AccessCheckRes<'_>],
+    ) -> RbacResult<()>{
+        let mut param_valid=ValidParam::default();
+        if let Some(login_token_data)=&env_data.login_token_data{
+            param_valid.add(
+                valid_key!("login_token_data"), 
+                login_token_data, 
+                &ValidParamCheck::default().add_rule(ValidPattern::Ident).add_rule(ValidStrlen::range(16, 64))
+            );
+        }   
+        for tmp in &env_data.session_role{
+            param_valid.add(valid_key!("role_key"), &tmp.role_key, &ValidParamCheck::default().add_rule(ValidPattern::Ident).add_rule(ValidStrlen::range(1, 32)));
+        }
+        for tmp in check_res_data{
+               param_valid
+                .add(valid_key!("res_type"), &tmp.res_type, &ValidParamCheck::default().add_rule(ValidPattern::Ident).add_rule(ValidStrlen::range(1, 32)))
+                .add(valid_key!("res_data"), &tmp.res_data, &ValidParamCheck::default().add_rule(ValidPattern::NotFormat).add_rule(ValidStrlen::range(0, 32)));
+
+            for rtmp in &tmp.op_key_data{
+                param_valid
+                .add(valid_key!("op_key_data"), rtmp, &ValidParamCheck::default().add_rule(ValidPattern::Ident).add_rule(ValidStrlen::range(1, 32)));
+            }
+        }
+        param_valid.check()?;
+        Ok(())
+    }
     pub async fn check(
         &self,
         //请求检测环境数据
@@ -163,6 +192,7 @@ impl RbacAccess {
         if check_res_data.is_empty() {
             return Ok(());
         }
+        self.check_param_valid(env_data,check_res_data).await?;
         //把check_res_data转为数据库记录
         //user_id+res_type+res_data => yaf_rbac_res
         //user_id+op_key_data => yaf_rbac_op
@@ -192,7 +222,7 @@ impl RbacAccess {
         let op_list = self.op.cache().find_vec_by_info(&op_info).await?;
         let mut check_data = vec![];
 
-        let access_role_list = if !self.is_root(&env_data.user_id) {
+        let access_role_list = if !self.is_root(env_data.user_id) {
             let mut tmp_check = HashMap::new();
             for item in check_res_data {
                 tmp_check

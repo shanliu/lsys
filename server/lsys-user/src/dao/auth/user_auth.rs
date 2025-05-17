@@ -160,6 +160,7 @@ impl UserAuthDao {
         }
     }
     //得到当前登陆用户
+    //@todo 多加个一个参数，用于是否决定是否实时从数据库拿记录
     pub async fn get_session_data(
         &self,
         user_token: &UserAuthToken,

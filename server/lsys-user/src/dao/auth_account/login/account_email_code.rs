@@ -7,7 +7,10 @@ use crate::dao::{AccountDao, AccountResult, UserAuthData, UserAuthResult, UserLo
 use crate::model::{AccountEmailModel, AccountModel};
 use async_trait::async_trait;
 use lsys_access::dao::SessionBody;
-use lsys_core::{fluent_message, IntoFluentMessage};
+use lsys_core::{
+    fluent_message, valid_key, IntoFluentMessage, ValidEmail, ValidParam, ValidParamCheck,
+    ValidPattern, ValidStrlen,
+};
 use serde_json::{json, Value};
 use std::sync::Arc;
 
@@ -91,15 +94,28 @@ pub struct EmailCodeLogin {
 
 impl EmailCodeLogin {
     /// 验证码生成
-    pub fn valid_code(redis: deadpool_redis::Pool) -> lsys_core::ValidCode {
+    fn valid_code(redis: deadpool_redis::Pool) -> lsys_core::ValidCode {
         lsys_core::ValidCode::new(redis, "email-login", true)
+    }
+    async fn email_param_valid(email: &str) -> AccountResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("login_email"),
+                &email,
+                &ValidParamCheck::default()
+                    .add_rule(ValidEmail::default())
+                    .add_rule(ValidStrlen::range(3, 150)),
+            )
+            .check()?;
+        Ok(())
     }
     /// 获取验证码
     pub async fn valid_code_set<T: lsys_core::ValidCodeData>(
         redis: deadpool_redis::Pool,
         valid_code_data: &mut T,
         email: &str,
-    ) -> lsys_core::ValidCodeResult<(String, usize)> {
+    ) -> AccountResult<(String, usize)> {
+        Self::email_param_valid(email).await?;
         let valid_code = Self::valid_code(redis);
         let code = valid_code.set_code(email, valid_code_data).await?;
         Ok(code)
@@ -128,18 +144,36 @@ impl EmailCodeLogin {
     }
 }
 impl EmailCodeLogin {
-    pub fn new(
+    async fn new_param_valid(email: &str, code: &str) -> AccountResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("login_email"),
+                &email,
+                &ValidParamCheck::default().add_rule(ValidEmail::default()),
+            )
+            .add(
+                valid_key!("login_code"),
+                &code,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Alphanumeric)
+                    .add_rule(ValidStrlen::range(2, 8)),
+            )
+            .check()?;
+        Ok(())
+    }
+    pub async fn new(
         redis: deadpool_redis::Pool,
         account: Arc<AccountDao>,
         email: &str,
         code: &str,
-    ) -> Self {
-        Self {
+    ) -> AccountResult<Self> {
+        Self::new_param_valid(email, code).await?;
+        Ok(Self {
             redis,
             account,
             email: email.to_string(),
             code: code.to_string(),
-        }
+        })
     }
 }
 #[async_trait]

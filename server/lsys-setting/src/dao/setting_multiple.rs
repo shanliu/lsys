@@ -1,6 +1,9 @@
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::db::{Insert, ModelTableName, SqlExpr, Update, WhereOption};
-use lsys_core::{db_option_executor, model_option_set, sql_format};
+use lsys_core::{
+    db_option_executor, model_option_set, sql_format, valid_key, ValidNumber, ValidParam,
+    ValidParamCheck, ValidPattern, ValidStrlen,
+};
 use lsys_core::{now_time, IntoFluentMessage, PageParam, RemoteNotify, RequestEnv};
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{MySql, Pool, Transaction};
@@ -39,6 +42,32 @@ pub struct MultipleSettingData<'t, T: SettingEncode> {
     pub data: &'t T,
 }
 impl MultipleSetting {
+    async fn add_param_valid(&self, key: &str, name: &str, data: &str) -> SettingResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("key"),
+                &key,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Ident)
+                    .add_rule(ValidStrlen::range(1, 32)),
+            )
+            .add(
+                valid_key!("name"),
+                &name,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 32)),
+            )
+            .add(
+                valid_key!("data"),
+                &data,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 60000)),
+            )
+            .check()?;
+        Ok(())
+    }
     pub async fn add<T: SettingEncode>(
         &self,
         user_id: Option<u64>,
@@ -55,6 +84,8 @@ impl MultipleSetting {
         let time = now_time().unwrap_or_default();
         let uid = user_id.unwrap_or_default();
         let name = param.name.to_owned();
+
+        self.add_param_valid(&key, &name, &edata).await?;
         let new_data = model_option_set!(SettingModelRef,{
             name:name,
             setting_type:setting_type,
@@ -94,6 +125,43 @@ impl MultipleSetting {
             .await;
         Ok(dat.last_insert_id())
     }
+    async fn edit_param_valid(
+        &self,
+        id: u64,
+        key: &str,
+        name: &str,
+        data: &str,
+    ) -> SettingResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("id"),
+                &id,
+                &ValidParamCheck::default().add_rule(ValidNumber::id()),
+            )
+            .add(
+                valid_key!("key"),
+                &key,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Ident)
+                    .add_rule(ValidStrlen::range(1, 32)),
+            )
+            .add(
+                valid_key!("name"),
+                &name,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 32)),
+            )
+            .add(
+                valid_key!("data"),
+                &data,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 60000)),
+            )
+            .check()?;
+        Ok(())
+    }
     pub async fn edit<T: SettingEncode>(
         &self,
         user_id: Option<u64>,
@@ -108,6 +176,9 @@ impl MultipleSetting {
         let name = param.name.to_owned();
         let edata = param.data.encode();
         let key = T::key().to_string();
+
+        self.edit_param_valid(id, &key, &name, &edata).await?;
+
         let time = now_time().unwrap_or_default();
         let change = lsys_core::model_option_set!(SettingModelRef,{
             setting_data: edata,

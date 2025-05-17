@@ -2,16 +2,19 @@ use std::sync::Arc;
 
 use crate::{
     dao::{
-        adapter::smser::sms_result_to_task, create_sender_client, SenderError, SenderExecError,
-        SenderResult, SenderTaskExecutor, SenderTaskResult, SenderTplConfig, SmsSendNotifyParse,
-        SmsTaskData, SmsTaskItem,
+        adapter::smser::sms_result_to_task, create_sender_client, SenderExecError, SenderResult,
+        SenderTaskExecutor, SenderTaskResult, SenderTplConfig, SmsSendNotifyParse, SmsTaskData,
+        SmsTaskItem,
     },
     model::{SenderSmsMessageModel, SenderTplConfigModel},
 };
 use async_trait::async_trait;
 
 use chrono::DateTime;
-use lsys_core::{fluent_message, IntoFluentMessage, RequestEnv};
+use lsys_core::{
+    valid_key, IntoFluentMessage, RequestEnv, ValidNumber, ValidParam, ValidParamCheck,
+    ValidPattern, ValidStrlen,
+};
 use lsys_lib_sms::{
     template_map_to_arr, SendDetailItem, SendError, SendNotifyError, SendNotifyItem, TenSms,
 };
@@ -127,6 +130,81 @@ impl SenderTenYunConfig {
             .del::<TenYunConfig>(None, id, user_id, None, env_data)
             .await?)
     }
+    #[allow(clippy::too_many_arguments)]
+    async fn edit_config_param_valid(
+        &self,
+        id: u64,
+        name: &str,
+        region: &str,
+        secret_id: &str,
+        secret_key: &str,
+        sms_app_id: &str,
+        branch_limit: u16,
+        callback_key: &str,
+    ) -> SenderResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("id"),
+                &id,
+                &ValidParamCheck::default().add_rule(ValidNumber::id()),
+            )
+            .add(
+                valid_key!("config_name"),
+                &name,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 64)),
+            )
+            .add(
+                valid_key!("region"),
+                &region,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 128)),
+            )
+            .add(
+                valid_key!("secret_id"),
+                &secret_id,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 128)),
+            )
+            .add(
+                valid_key!("secret_key"),
+                &secret_key,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(8, 128)),
+            )
+            .add(
+                valid_key!("sms_app_id"),
+                &sms_app_id,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(8, 128)),
+            )
+            .add(
+                valid_key!("sms_app_id"),
+                &sms_app_id,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(8, 128)),
+            )
+            .add(
+                valid_key!("callback_key"),
+                &callback_key,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Ident)
+                    .add_rule(ValidStrlen::range(6, 128)),
+            )
+            .add(
+                valid_key!("branch_limit"),
+                &branch_limit,
+                &ValidParamCheck::default().add_rule(ValidNumber::range(1, TenSms::branch_limit())),
+            )
+            .check()?;
+        Ok(())
+    }
     //编辑指定的tenyun短信配置
 
     #[allow(clippy::too_many_arguments)]
@@ -143,13 +221,18 @@ impl SenderTenYunConfig {
         user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
-        if branch_limit > TenSms::branch_limit() {
-            return Err(SenderError::System(
-                fluent_message!("sms-config-branch-error",
-                    {"max":  TenSms::branch_limit()}
-                ),
-            ));
-        }
+        self.edit_config_param_valid(
+            id,
+            name,
+            region,
+            secret_id,
+            secret_key,
+            sms_app_id,
+            branch_limit,
+            callback_key,
+        )
+        .await?;
+
         Ok(self
             .setting
             .edit(
@@ -172,6 +255,75 @@ impl SenderTenYunConfig {
             )
             .await?)
     }
+    #[allow(clippy::too_many_arguments)]
+    async fn add_config_param_valid(
+        &self,
+        name: &str,
+        region: &str,
+        secret_id: &str,
+        secret_key: &str,
+        sms_app_id: &str,
+        branch_limit: u16,
+        callback_key: &str,
+    ) -> SenderResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("config_name"),
+                &name,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 64)),
+            )
+            .add(
+                valid_key!("region"),
+                &region,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 128)),
+            )
+            .add(
+                valid_key!("secret_id"),
+                &secret_id,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 128)),
+            )
+            .add(
+                valid_key!("secret_key"),
+                &secret_key,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(8, 128)),
+            )
+            .add(
+                valid_key!("sms_app_id"),
+                &sms_app_id,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(8, 128)),
+            )
+            .add(
+                valid_key!("sms_app_id"),
+                &sms_app_id,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(8, 128)),
+            )
+            .add(
+                valid_key!("callback_key"),
+                &callback_key,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Ident)
+                    .add_rule(ValidStrlen::range(6, 128)),
+            )
+            .add(
+                valid_key!("branch_limit"),
+                &branch_limit,
+                &ValidParamCheck::default().add_rule(ValidNumber::range(1, TenSms::branch_limit())),
+            )
+            .check()?;
+        Ok(())
+    }
     //添加tenyun短信配置
     #[allow(clippy::too_many_arguments)]
     pub async fn add_config(
@@ -186,13 +338,16 @@ impl SenderTenYunConfig {
         user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
-        if branch_limit > TenSms::branch_limit() {
-            return Err(SenderError::System(
-                fluent_message!("sms-config-branch-error",
-                    {"max":  TenSms::branch_limit()}
-                ),
-            ));
-        }
+        self.add_config_param_valid(
+            name,
+            region,
+            secret_id,
+            secret_key,
+            sms_app_id,
+            branch_limit,
+            callback_key,
+        )
+        .await?;
         Ok(self
             .setting
             .add(
@@ -214,6 +369,39 @@ impl SenderTenYunConfig {
             )
             .await?)
     }
+    #[allow(clippy::too_many_arguments)]
+    async fn add_app_config_param_valid(
+        &self,
+
+        sign_name: &str,
+        template_id: &str,
+        template_map: &str,
+    ) -> SenderResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("sign_name"),
+                &sign_name,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 128)),
+            )
+            .add(
+                valid_key!("template_id"),
+                &template_id,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 128)),
+            )
+            .add(
+                valid_key!("template_map"),
+                &template_map,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 2000)),
+            )
+            .check()?;
+        Ok(())
+    }
     //关联发送跟tenyun短信的配置
     #[allow(clippy::too_many_arguments)]
     pub async fn add_app_config(
@@ -229,6 +417,8 @@ impl SenderTenYunConfig {
         add_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
+        self.add_app_config_param_valid(sign_name, template_id, template_map)
+            .await?;
         self.setting.load::<TenYunConfig>(None, setting_id).await?;
         self.tpl_config
             .add_config(

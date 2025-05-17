@@ -24,16 +24,20 @@ use crate::model::{
     BarcodeCreateModel, BarcodeCreateModelRef, BarcodeCreateStatus, BarcodeParseModel,
     BarcodeParseModelRef, BarcodeParseStatus,
 };
-use lsys_core::db::{Insert, ModelTableName, SqlExpr, Update};
-use lsys_core::{
-    cache::{LocalCache, LocalCacheConfig},
-    fluent_message, now_time, PageParam, RemoteNotify, RequestEnv,
-};
-use lsys_core::{model_option_set, sql_format};
-
 use barcode::BarCodeCore;
 use logger::LogBarCodeParseRecord;
-use lsys_core::db::SqlQuote;
+use lsys_core::{
+    cache::{LocalCache, LocalCacheConfig},
+    fluent_message, now_time, PageParam, RemoteNotify, RequestEnv, ValidColor, ValidContains,
+    ValidNumber,
+};
+use lsys_core::{db::SqlQuote, STRING_CLEAR_FORMAT};
+use lsys_core::{
+    db::{Insert, ModelTableName, SqlExpr, Update},
+    string_clear, StringClear,
+};
+use lsys_core::{model_option_set, sql_format};
+use lsys_core::{valid_key, ValidParam, ValidParamCheck, ValidStrlen};
 
 use crate::dao::logger::LogBarCodeCreateConfig;
 use sha2::Digest;
@@ -112,14 +116,21 @@ impl BarCodeDao {
         barcode_create: &BarcodeCreateModel,
         contents: &str,
     ) -> BarCodeResult<ImageBuffer<Rgb<u8>, Vec<u8>>> {
-        if self.create_max_len > 0 && contents.len() > self.create_max_len as usize {
-            return Err(BarCodeError::System(fluent_message!(
-                "barcode-create-bad-len"
-            )));
-        }
+        ValidParam::default()
+            .add(
+                valid_key!("code_contents"),
+                &contents,
+                &ValidParamCheck::default().add_rule(ValidStrlen::range(1, self.create_max_len)),
+            )
+            .check()?;
         self.barcode.render(barcode_create, contents)
     }
     async fn find_by_hash(&self, app_id: u64, file_hash: &str) -> sqlx::Result<BarcodeParseModel> {
+        let file_hash = string_clear(
+            file_hash,
+            StringClear::Option(STRING_CLEAR_FORMAT),
+            Some(65),
+        );
         sqlx::query_as::<_, BarcodeParseModel>(&sql_format!(
             "select * from {} where app_id={} and file_hash={} AND STATUS IN ({})",
             BarcodeParseModel::table_name(),
@@ -286,32 +297,59 @@ impl BarCodeDao {
             .await
             .map(parse_model_decode)?)
     }
-    //创建二维码配置
     #[allow(clippy::too_many_arguments)]
-    pub async fn add_create_config(
+    async fn config_param_valid(
         &self,
-        user_id: &u64,
-        app_id: &u64,
+        app_id: u64,
         status: &BarcodeCreateStatus,
         barcode_type: &str,
         image_format: &str,
-        image_width: &i32,
-        image_height: &i32,
-        margin: &i32,
+        image_width: i32,
+        image_height: i32,
+        margin: i32,
         image_color: &str,
         image_background: &str,
-        env_data: Option<&RequestEnv>,
-    ) -> BarCodeResult<u64> {
-        if *app_id == 0 {
-            return Err(BarCodeError::System(fluent_message!("barcode-app-id",{
-                "val":app_id
-            })));
-        }
-        if BarcodeCreateStatus::Delete == *status {
-            return Err(BarCodeError::System(fluent_message!("barcode-bad-status",{
-                "val":status.to()
-            })));
-        }
+    ) -> BarCodeResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("app_id"),
+                &app_id,
+                &ValidParamCheck::default().add_rule(ValidNumber::<u64>::id()),
+            )
+            .add(
+                valid_key!("barcode_status"),
+                &(*status as i8),
+                &ValidParamCheck::default().add_rule(ValidContains(&[
+                    BarcodeCreateStatus::EnablePrivate as i8,
+                    BarcodeCreateStatus::EnablePublic as i8,
+                ])),
+            )
+            .add(
+                valid_key!("image_color"),
+                &image_color,
+                &ValidParamCheck::default().add_rule(ValidColor::RGB),
+            )
+            .add(
+                valid_key!("image_background"),
+                &image_background,
+                &ValidParamCheck::default().add_rule(ValidColor::RGB),
+            )
+            .add(
+                valid_key!("margin"),
+                &margin,
+                &ValidParamCheck::default().add_rule(ValidNumber::range(0, 100)),
+            )
+            .add(
+                valid_key!("image_height"),
+                &image_height,
+                &ValidParamCheck::default().add_rule(ValidNumber::range(10, 10240)),
+            )
+            .add(
+                valid_key!("image_width"),
+                &image_width,
+                &ValidParamCheck::default().add_rule(ValidNumber::range(10, 10240)),
+            )
+            .check()?;
         if BarcodeFormat::from(barcode_type) == BarcodeFormat::UNSUPORTED_FORMAT {
             return Err(BarCodeError::System(fluent_message!("barcode-type",{
                 "val":barcode_type
@@ -322,27 +360,77 @@ impl BarCodeDao {
                 "val":image_format
             })));
         }
-        if *image_width <= 0 || *image_height <= 0 {
-            return Err(BarCodeError::System(fluent_message!("barcode-bad-size",{
-                "val":format!("{}:{}",image_width,image_height)
-            })));
-        }
-        let image_color = image_color.trim_start_matches('#');
-        if !is_hex_color(image_color) {
-            return Err(BarCodeError::System(
-                fluent_message!("barcode-bad-font-color",{
-                    "val":image_color
-                }),
-            ));
-        }
-        let image_background = image_background.trim_start_matches('#');
-        if !is_hex_color(image_background) {
-            return Err(BarCodeError::System(
-                fluent_message!("barcode-bad-back-color",{
-                    "val":image_background
-                }),
-            ));
-        }
+        Ok(())
+    }
+    //创建二维码配置
+    #[allow(clippy::too_many_arguments)]
+    pub async fn add_create_config(
+        &self,
+        user_id: u64,
+        app_id: u64,
+        status: &BarcodeCreateStatus,
+        barcode_type: &str,
+        image_format: &str,
+        image_width: i32,
+        image_height: i32,
+        margin: i32,
+        image_color: &str,
+        image_background: &str,
+        env_data: Option<&RequestEnv>,
+    ) -> BarCodeResult<u64> {
+        self.config_param_valid(
+            app_id,
+            status,
+            barcode_type,
+            image_format,
+            image_width,
+            image_height,
+            margin,
+            image_color,
+            image_background,
+        )
+        .await?;
+        // if *app_id == 0 {
+        //     return Err(BarCodeError::System(fluent_message!("barcode-app-id",{
+        //         "val":app_id
+        //     })));
+        // }
+        // if BarcodeCreateStatus::Delete == *status {
+        //     return Err(BarCodeError::System(fluent_message!("barcode-bad-status",{
+        //         "val":status.to()
+        //     })));
+        // }
+        // if BarcodeFormat::from(barcode_type) == BarcodeFormat::UNSUPORTED_FORMAT {
+        //     return Err(BarCodeError::System(fluent_message!("barcode-type",{
+        //         "val":barcode_type
+        //     })));
+        // }
+        // if ImageFormat::from_extension(image_format).is_none() {
+        //     return Err(BarCodeError::System(fluent_message!("barcode-image",{
+        //         "val":image_format
+        //     })));
+        // }
+        // if *image_width <= 0 || *image_height <= 0 {
+        //     return Err(BarCodeError::System(fluent_message!("barcode-bad-size",{
+        //         "val":format!("{}:{}",image_width,image_height)
+        //     })));
+        // }
+        // let image_color = image_color.trim_start_matches('#');
+        // if !is_hex_color(image_color) {
+        //     return Err(BarCodeError::System(
+        //         fluent_message!("barcode-bad-font-color",{
+        //             "val":image_color
+        //         }),
+        //     ));
+        // }
+        // let image_background = image_background.trim_start_matches('#');
+        // if !is_hex_color(image_background) {
+        //     return Err(BarCodeError::System(
+        //         fluent_message!("barcode-bad-back-color",{
+        //             "val":image_background
+        //         }),
+        //     ));
+        // }
 
         let create_time = now_time().unwrap_or_default();
         let image_format = image_format.to_owned();
@@ -354,9 +442,9 @@ impl BarCodeDao {
         let image_background = image_background.to_owned();
         let status = status.to();
         let data = model_option_set!(BarcodeCreateModelRef, {
-            app_id: *app_id,
-            user_id:*user_id,
-            change_user_id:*user_id,
+            app_id: app_id,
+            user_id:user_id,
+            change_user_id:user_id,
             create_time:create_time,
             change_time: create_time,
             barcode_type:barcode_type,
@@ -383,10 +471,10 @@ impl BarCodeDao {
                     margin,
                     image_color: &image_color,
                     image_background: &image_background,
-                    user_id: *user_id,
+                    user_id,
                 },
                 Some(res.last_insert_id()),
-                Some(*user_id),
+                Some(user_id),
                 None,
                 env_data,
             )
@@ -399,56 +487,68 @@ impl BarCodeDao {
     pub async fn edit_create_config(
         &self,
         create_config: &BarcodeCreateModel,
-        change_user_id: &u64,
+        change_user_id: u64,
         status: &BarcodeCreateStatus,
         barcode_type: &str,
         image_format: &str,
-        image_width: &i32,
-        image_height: &i32,
-        margin: &i32,
+        image_width: i32,
+        image_height: i32,
+        margin: i32,
         image_color: &str,
         image_background: &str,
         env_data: Option<&RequestEnv>,
     ) -> BarCodeResult<u64> {
-        if BarcodeCreateStatus::Delete.eq(create_config.status) {
-            return Err(BarCodeError::System(fluent_message!("barcode-not-find")));
-        }
-        if BarcodeCreateStatus::Delete == *status {
-            return Err(BarCodeError::System(fluent_message!("barcode-bad-status",{
-                "val":status.to()
-            })));
-        }
-        if BarcodeFormat::from(barcode_type) == BarcodeFormat::UNSUPORTED_FORMAT {
-            return Err(BarCodeError::System(fluent_message!("barcode-type",{
-                "val":barcode_type
-            })));
-        }
-        if ImageFormat::from_extension(image_format).is_none() {
-            return Err(BarCodeError::System(fluent_message!("barcode-image",{
-                "val":image_format
-            })));
-        }
-        if *image_width <= 0 || *image_height <= 0 {
-            return Err(BarCodeError::System(fluent_message!("barcode-bad-size",{
-                "val":format!("{}:{}",image_width,image_height)
-            })));
-        }
-        let image_color = image_color.trim_start_matches('#');
-        if !is_hex_color(image_color) {
-            return Err(BarCodeError::System(
-                fluent_message!("barcode-bad-font-color",{
-                    "val":image_color
-                }),
-            ));
-        }
-        let image_background = image_background.trim_start_matches('#');
-        if !is_hex_color(image_background) {
-            return Err(BarCodeError::System(
-                fluent_message!("barcode-bad-back-color",{
-                    "val":image_background
-                }),
-            ));
-        }
+        self.config_param_valid(
+            create_config.app_id,
+            status,
+            barcode_type,
+            image_format,
+            image_width,
+            image_height,
+            margin,
+            image_color,
+            image_background,
+        )
+        .await?;
+        // if BarcodeCreateStatus::Delete.eq(create_config.status) {
+        //     return Err(BarCodeError::System(fluent_message!("barcode-not-find")));
+        // }
+        // if BarcodeCreateStatus::Delete == *status {
+        //     return Err(BarCodeError::System(fluent_message!("barcode-bad-status",{
+        //         "val":status.to()
+        //     })));
+        // }
+        // if BarcodeFormat::from(barcode_type) == BarcodeFormat::UNSUPORTED_FORMAT {
+        //     return Err(BarCodeError::System(fluent_message!("barcode-type",{
+        //         "val":barcode_type
+        //     })));
+        // }
+        // if ImageFormat::from_extension(image_format).is_none() {
+        //     return Err(BarCodeError::System(fluent_message!("barcode-image",{
+        //         "val":image_format
+        //     })));
+        // }
+        // if *image_width <= 0 || *image_height <= 0 {
+        //     return Err(BarCodeError::System(fluent_message!("barcode-bad-size",{
+        //         "val":format!("{}:{}",image_width,image_height)
+        //     })));
+        // }
+        // let image_color = image_color.trim_start_matches('#');
+        // if !is_hex_color(image_color) {
+        //     return Err(BarCodeError::System(
+        //         fluent_message!("barcode-bad-font-color",{
+        //             "val":image_color
+        //         }),
+        //     ));
+        // }
+        // let image_background = image_background.trim_start_matches('#');
+        // if !is_hex_color(image_background) {
+        //     return Err(BarCodeError::System(
+        //         fluent_message!("barcode-bad-back-color",{
+        //             "val":image_background
+        //         }),
+        //     ));
+        // }
         let change_time = now_time().unwrap_or_default();
         let image_format = image_format.to_owned();
         let barcode_type = barcode_type.to_owned();
@@ -460,7 +560,7 @@ impl BarCodeDao {
         let image_background = image_background.to_owned();
         let status = status.to();
         let change = model_option_set!(BarcodeCreateModelRef, {
-            change_user_id:*change_user_id,
+            change_user_id:change_user_id,
             change_time:change_time,
             barcode_type:barcode_type,
             image_format:image_format,
@@ -485,12 +585,12 @@ impl BarCodeDao {
                     image_width,
                     image_height,
                     margin,
-                    user_id: *change_user_id,
+                    user_id: change_user_id,
                     image_color: &image_color,
                     image_background: &image_background,
                 },
                 Some(create_config.id),
-                Some(*change_user_id),
+                Some(change_user_id),
                 None,
                 env_data,
             )
@@ -501,7 +601,7 @@ impl BarCodeDao {
     //删除指定创建二维码配置
     pub async fn delete_create_config(
         &self,
-        user_id: &u64,
+        user_id: u64,
         create_config: &BarcodeCreateModel,
         env_data: Option<&RequestEnv>,
     ) -> BarCodeResult<()> {
@@ -525,10 +625,10 @@ impl BarCodeDao {
                     margin: create_config.margin,
                     image_color: &create_config.image_color,
                     image_background: &create_config.image_background,
-                    user_id: *user_id,
+                    user_id,
                 },
                 Some(create_config.id),
-                Some(*user_id),
+                Some(user_id),
                 None,
                 env_data,
             )
@@ -541,7 +641,7 @@ impl BarCodeDao {
         id: Option<u64>,
         app_id: Option<u64>,
         barcode_type: Option<&str>,
-    ) -> String {
+    ) -> Option<String> {
         let mut sqlwhere = vec![sql_format!(
             "user_id={} and status  in ({})",
             user_id,
@@ -556,10 +656,14 @@ impl BarCodeDao {
         if let Some(s) = id {
             sqlwhere.push(sql_format!("id={} ", s));
         }
-        if let Some(s) = barcode_type {
-            sqlwhere.push(sql_format!("barcode_type={} ", s));
+        if let Some(tmp) = barcode_type {
+            let tmp = string_clear(tmp, StringClear::Option(STRING_CLEAR_FORMAT), Some(13));
+            if tmp.is_empty() {
+                return None;
+            }
+            sqlwhere.push(sql_format!("barcode_type={} ", tmp));
         }
-        sqlwhere.join(" and ")
+        Some(sqlwhere.join(" and "))
     }
     //列出创建二维码配置
     pub async fn list_create_config(
@@ -570,7 +674,10 @@ impl BarCodeDao {
         barcode_type: Option<&str>,
         page: Option<&PageParam>,
     ) -> BarCodeResult<Vec<BarcodeCreateModel>> {
-        let sqlwhere = self.list_create_config_where_sql(user_id, id, app_id, barcode_type);
+        let sqlwhere = match self.list_create_config_where_sql(user_id, id, app_id, barcode_type) {
+            Some(tmp) => tmp,
+            None => return Ok(vec![]),
+        };
         let page_sql = if let Some(pdat) = page {
             format!(
                 " order by id desc limit {} offset {} ",
@@ -596,7 +703,10 @@ impl BarCodeDao {
         app_id: Option<u64>,
         barcode_type: Option<&str>,
     ) -> BarCodeResult<i64> {
-        let sqlwhere = self.list_create_config_where_sql(user_id, id, app_id, barcode_type);
+        let sqlwhere = match self.list_create_config_where_sql(user_id, id, app_id, barcode_type) {
+            Some(tmp) => tmp,
+            None => return Ok(0),
+        };
         let sql = sql_format!(
             "select count(*) as total from {} where {}",
             BarcodeCreateModel::table_name(),
@@ -620,7 +730,7 @@ impl BarCodeDao {
         user_id: u64,
         app_id: Option<u64>,
         barcode_type: Option<&str>,
-    ) -> String {
+    ) -> Option<String> {
         let mut sqlwhere = vec![sql_format!(
             "user_id={} and status in ({})",
             user_id,
@@ -632,10 +742,14 @@ impl BarCodeDao {
         if let Some(s) = app_id {
             sqlwhere.push(sql_format!("app_id={} ", s));
         }
-        if let Some(s) = barcode_type {
-            sqlwhere.push(sql_format!("barcode_type={} ", s));
+        if let Some(tmp) = barcode_type {
+            let tmp = string_clear(tmp, StringClear::Option(STRING_CLEAR_FORMAT), Some(13));
+            if tmp.is_empty() {
+                return None;
+            }
+            sqlwhere.push(sql_format!("barcode_type={} ", tmp));
         }
-        sqlwhere.join(" and ")
+        Some(sqlwhere.join(" and "))
     }
     //历史解析的二维码记录
     pub async fn list_parse_record(
@@ -645,7 +759,10 @@ impl BarCodeDao {
         barcode_type: Option<&str>,
         page: Option<&PageParam>,
     ) -> BarCodeResult<Vec<BarcodeParseRecord>> {
-        let sqlwhere = self.list_parse_record_where_sql(user_id, app_id, barcode_type);
+        let sqlwhere = match self.list_parse_record_where_sql(user_id, app_id, barcode_type) {
+            Some(tmp) => tmp,
+            None => return Ok(vec![]),
+        };
         let page_sql = if let Some(pdat) = page {
             format!(
                 " order by id desc limit {} offset {} ",
@@ -673,7 +790,10 @@ impl BarCodeDao {
         app_id: Option<u64>,
         barcode_type: Option<&str>,
     ) -> BarCodeResult<i64> {
-        let sqlwhere = self.list_parse_record_where_sql(user_id, app_id, barcode_type);
+        let sqlwhere = match self.list_parse_record_where_sql(user_id, app_id, barcode_type) {
+            Some(tmp) => tmp,
+            None => return Ok(0),
+        };
         let sql = sql_format!(
             "select count(*) as total from {} where {}",
             BarcodeParseModel::table_name(),
@@ -735,16 +855,11 @@ impl BarCodeCache<'_> {
         barcode_create: &BarcodeCreateModel,
         contents: &str,
     ) -> BarCodeResult<ImageBuffer<Rgb<u8>, Vec<u8>>> {
-        if self.dao.create_max_len > 0 && contents.len() > self.dao.create_max_len as usize {
-            return Err(BarCodeError::System(fluent_message!(
-                "barcode-create-bad-len"
-            )));
-        }
         let cont_data = contents.to_owned();
         match self.dao.create_render.get(&cont_data).await {
             Some(data) => Ok(data),
             None => {
-                let data = self.dao.barcode.render(barcode_create, contents)?;
+                let data = self.dao.create(barcode_create, contents).await?;
                 self.dao
                     .create_render
                     .set(contents.to_owned(), data.clone(), 0)
@@ -766,13 +881,6 @@ fn parse_model_decode(mut s: BarcodeParseModel) -> BarcodeParseRecord {
         };
     }
     BarcodeParseRecord::Fail(s)
-}
-
-fn is_hex_color(s: &str) -> bool {
-    if s.len() != 6 {
-        return false;
-    }
-    s.chars().all(|c| c.is_ascii_hexdigit())
 }
 
 async fn compute_file_hash(path: impl AsRef<Path>) -> io::Result<String> {

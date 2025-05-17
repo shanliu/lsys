@@ -7,7 +7,9 @@ use crate::dao::{AccountDao, AccountResult, UserAuthData, UserAuthResult};
 use crate::model::{AccountMobileModel, AccountModel};
 use async_trait::async_trait;
 use lsys_access::dao::SessionBody;
-use lsys_core::fluent_message;
+use lsys_core::{
+    fluent_message, valid_key, ValidMobile, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
+};
 
 use lsys_core::IntoFluentMessage;
 use serde_json::{json, Value};
@@ -17,8 +19,19 @@ use tracing::warn;
 
 impl MobileCodeLogin {
     /// 验证码生成
-    pub fn valid_code(redis: deadpool_redis::Pool) -> lsys_core::ValidCode {
+    fn valid_code(redis: deadpool_redis::Pool) -> lsys_core::ValidCode {
         lsys_core::ValidCode::new(redis, "mobile-login", true)
+    }
+    async fn mobile_param_valid(area_code: &str, mobile: &str) -> AccountResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("login_mobile"),
+                &format!("{}{}", area_code, mobile),
+                &ValidParamCheck::default().add_rule(ValidMobile::default()),
+            )
+            .check()?;
+
+        Ok(())
     }
     /// 获取验证码
     pub async fn valid_code_set<T: lsys_core::ValidCodeData>(
@@ -26,7 +39,8 @@ impl MobileCodeLogin {
         valid_code_data: &mut T,
         area_code: &str,
         mobile: &str,
-    ) -> lsys_core::ValidCodeResult<(String, usize)> {
+    ) -> AccountResult<(String, usize)> {
+        Self::mobile_param_valid(area_code, mobile).await?;
         let valid_code = Self::valid_code(redis);
         let code = valid_code
             .set_code(&format!("{}-{}", area_code, mobile), valid_code_data)
@@ -144,20 +158,45 @@ pub struct MobileCodeLogin {
     pub code: String,
 }
 impl MobileCodeLogin {
-    pub fn new(
+    async fn new_param_valid(area_code: &str, mobile: &str, code: &str) -> AccountResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("login_mobile_area_code"),
+                &area_code,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Numeric)
+                    .add_rule(ValidStrlen::range(2, 6)),
+            )
+            .add(
+                valid_key!("login_mobile"),
+                &mobile,
+                &ValidParamCheck::default().add_rule(ValidMobile::default()),
+            )
+            .add(
+                valid_key!("login_code"),
+                &code,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Alphanumeric)
+                    .add_rule(ValidStrlen::range(2, 8)),
+            )
+            .check()?;
+        Ok(())
+    }
+    pub async fn new(
         redis: deadpool_redis::Pool,
         account_dao: Arc<AccountDao>,
         area_code: &str,
         mobile: &str,
         code: &str,
-    ) -> Self {
-        Self {
+    ) -> AccountResult<Self> {
+        Self::new_param_valid(area_code, mobile, code).await?;
+        Ok(Self {
             redis,
             account_dao,
             area_code: area_code.to_string(),
             mobile: mobile.to_string(),
             code: code.to_string(),
-        }
+        })
     }
 }
 #[async_trait]

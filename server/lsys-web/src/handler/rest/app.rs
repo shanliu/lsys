@@ -57,7 +57,7 @@ pub async fn subapp_view(
             .access_dao
             .user
             .cache()
-            .find_user_by_id(&out_app.user_id)
+            .find_user_by_id(out_app.user_id)
             .await?;
         json!({
             "user_id": user_info.id,

@@ -25,7 +25,7 @@ pub async fn barcode_show(
         .app_dao
         .app
         .cache()
-        .find_by_id(&code.app_id)
+        .find_by_id(code.app_id)
         .await?;
 
     req_dao

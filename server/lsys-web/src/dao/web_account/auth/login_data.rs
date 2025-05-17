@@ -41,7 +41,7 @@ impl WebUserAuth {
             self.user_dao
                 .account_dao
                 .account_password
-                .password_timeout(&account.password_id)
+                .password_timeout(account.password_id)
                 .await
                 .unwrap_or(false)
         } else {

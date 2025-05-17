@@ -11,8 +11,8 @@ valid-code-not-found = 验证码[{$code}]不存在或已经超时
 valid-code-submit-empty = 验证码不为空
 
 
-valid-rule-item={$name} 错误:{$error}
-valid-error=数据校验失败:{$errors}
+valid-rule-item={$name}错误:{$error}
+valid-error=校验失败[{$errors}]
 valid-regex-error=校验规则异常:{$msg}
 valid-not-empty=不能为空
 valid-not-contains=数据:{$data}不在范围[{$data_list}]中
@@ -40,3 +40,20 @@ valid-not-password-medium=密码必须是(不含空格)非连续或重复数字�
 valid-not-password-low=密码必须是(不含空格)包含{$len}个字符
 valid-not-git-version=数据非有效的GIT版本HASH值
 valid-not-pattern-not-format=数据不能包含(前后空格,连续空格,换行,制表符,反斜杠)等格式符号
+valid-not-rgb=非有效的RGB颜色值
+valid-not-rgba=非有效的RGBA颜色值
+valid-not-str-match-start-with= 必须以 {$mstr}开头
+valid-not-str-match-start-not-with= 不能以 {$mstr}开头
+valid-not-str-match-end-with= 必须以 {$mstr}结尾
+valid-not-str-match-end-not-with= 不能以 {$mstr}结尾
+valid-not-str-match-contains= 必须包含 {$mstr}
+valid-not-str-match-not-contains=不能包含 {$mstr}
+
+
+#校验名称
+
+valid-rule-name-request_lang = 请求语言
+valid-rule-name-request_ip = 请求IP
+valid-rule-name-request_id = 请求标识符
+valid-rule-name-request_user_agent = 用户客户端
+valid-rule-name-device_id = 设备ID

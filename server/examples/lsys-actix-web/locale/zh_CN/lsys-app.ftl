@@ -92,10 +92,19 @@ status-AppSecretType-Notify= 回调
 status-AppSecretStatus-Enable=  正常
 status-AppSecretStatus-Delete= 删除
 
-
-
-
-valid-rule-name-name=应用名
-valid-rule-name-client-id=应用标识
-valid-rule-name-secret=应用秘钥
-valid-rule-name-callback-domain=登录跳转域名
+#校验名称
+valid-rule-name-name = 应用名
+valid-rule-name-parent_app = 父应用
+valid-rule-name-client_id = 应用标识
+valid-rule-name-featuer_data = 功能标识
+valid-rule-name-call_url = 回调地址
+valid-rule-name-method = 回调通知类型
+valid-rule-name-payload = 回调复核数据
+valid-rule-name-secret = 应用秘钥
+valid-rule-name-old_secret_data = 旧秘钥数据
+valid-rule-name-secret_data = 秘钥数据
+valid-rule-name-callback_domain = 登录跳转域名
+valid-rule-name-scope_data = 授权范围
+valid-rule-name-oauth_setting_key = OAUTH授权KEY
+valid-rule-name-oauth_setting_name = OAUTH授权名称
+valid-rule-name-oauth_setting_desc = OAUTH授权介绍

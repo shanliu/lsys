@@ -79,8 +79,8 @@ CREATE TABLE `yaf_sender_mail_body` (
     `finish_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '全部完成时间',
     `user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '用户id',
     `reply_mail` varchar(254) NOT NULL COMMENT '回复',
-    `user_ip` varchar(39) NOT NULL DEFAULT '' COMMENT '操作者IP',
-    `request_id` varchar(32) NOT NULL COMMENT '请求ID',
+    `user_ip` varchar(46) NOT NULL DEFAULT '' COMMENT '操作者IP',
+    `request_id` varchar(64) NOT NULL COMMENT '请求ID',
     `reply_host` varchar(255) NOT NULL COMMENT '结果返回主机',
     PRIMARY KEY (`id`),
     KEY `sender_record_data_IDX` (`expected_time`, `status`, `id`) USING BTREE
@@ -114,8 +114,8 @@ CREATE TABLE `yaf_sender_sms_body` (
     `expected_time` bigint unsigned NOT NULL COMMENT '预计发送时间',
     `finish_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '全部完成时间',
     `user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '用户id',
-    `user_ip` varchar(39) NOT NULL DEFAULT '' COMMENT '操作者IP',
-    `request_id` varchar(32) NOT NULL COMMENT '请求ID',
+    `user_ip` varchar(46) NOT NULL DEFAULT '' COMMENT '操作者IP',
+    `request_id` varchar(64) NOT NULL COMMENT '请求ID',
     `reply_host` varchar(255) NOT NULL COMMENT '结果返回主机',
     PRIMARY KEY (`id`),
     KEY `sender_record_data_IDX` (`expected_time`, `status`, `id`) USING BTREE

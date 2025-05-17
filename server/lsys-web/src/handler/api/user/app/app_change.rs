@@ -21,7 +21,7 @@ pub async fn change(param: &ChangeParam, req_dao: &UserAuthQueryDao) -> JsonResu
         .web_app
         .app_dao
         .app
-        .find_by_id(&param.app_id)
+        .find_by_id(param.app_id)
         .await?;
     req_dao
         .web_dao
@@ -41,7 +41,7 @@ pub async fn change(param: &ChangeParam, req_dao: &UserAuthQueryDao) -> JsonResu
             .web_app
             .app_dao
             .app
-            .find_by_id(&app.parent_app_id)
+            .find_by_id(app.parent_app_id)
             .await?;
         req_dao
             .web_dao
@@ -89,7 +89,7 @@ pub async fn app_secret_add(
         .web_app
         .app_dao
         .app
-        .find_by_id(&param.app_id)
+        .find_by_id(param.app_id)
         .await?;
     req_dao
         .web_dao
@@ -142,7 +142,7 @@ pub async fn app_secret_change(
         .web_app
         .app_dao
         .app
-        .find_by_id(&param.app_id)
+        .find_by_id(param.app_id)
         .await?;
     req_dao
         .web_dao
@@ -193,7 +193,7 @@ pub async fn app_secret_del(
         .web_app
         .app_dao
         .app
-        .find_by_id(&param.app_id)
+        .find_by_id(param.app_id)
         .await?;
     req_dao
         .web_dao
@@ -242,7 +242,7 @@ pub async fn notify_secret_change(
         .web_app
         .app_dao
         .app
-        .find_by_id(&param.app_id)
+        .find_by_id(param.app_id)
         .await?;
     req_dao
         .web_dao

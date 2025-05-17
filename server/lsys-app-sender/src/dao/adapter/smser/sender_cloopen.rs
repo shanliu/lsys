@@ -10,7 +10,10 @@ use crate::{
 };
 use async_trait::async_trait;
 
-use lsys_core::{fluent_message, IntoFluentMessage, RequestEnv};
+use lsys_core::{
+    fluent_message, valid_key, IntoFluentMessage, RequestEnv, ValidNumber, ValidParam,
+    ValidParamCheck, ValidPattern, ValidStrlen,
+};
 use lsys_lib_sms::{template_map_to_arr, CloOpenSms, SendError, SendNotifyError, SendNotifyItem};
 use lsys_setting::{
     dao::{
@@ -119,7 +122,68 @@ impl SenderCloOpenConfig {
             .del::<CloOpenConfig>(None, id, user_id, None, env_data)
             .await?)
     }
-    //编辑指定的jd_cloud短信配置
+
+    #[allow(clippy::too_many_arguments)]
+    async fn edit_config_param_valid(
+        &self,
+        id: u64,
+        name: &str,
+        account_sid: &str,
+        account_token: &str,
+        sms_app_id: &str,
+        branch_limit: u16,
+        callback_key: &str,
+    ) -> SenderResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("id"),
+                &id,
+                &ValidParamCheck::default().add_rule(ValidNumber::id()),
+            )
+            .add(
+                valid_key!("config_name"),
+                &name,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 64)),
+            )
+            .add(
+                valid_key!("account_sid"),
+                &account_sid,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 128)),
+            )
+            .add(
+                valid_key!("account_token"),
+                &account_token,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 128)),
+            )
+            .add(
+                valid_key!("sms_app_id"),
+                &sms_app_id,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 128)),
+            )
+            .add(
+                valid_key!("callback_key"),
+                &callback_key,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Ident)
+                    .add_rule(ValidStrlen::range(6, 32)),
+            )
+            .add(
+                valid_key!("branch_limit"),
+                &branch_limit,
+                &ValidParamCheck::default()
+                    .add_rule(ValidNumber::range(1, CloOpenSms::branch_limit())),
+            )
+            .check()?;
+        Ok(())
+    }
 
     #[allow(clippy::too_many_arguments)]
     pub async fn edit_config(
@@ -134,6 +198,16 @@ impl SenderCloOpenConfig {
         user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
+        self.edit_config_param_valid(
+            id,
+            name,
+            account_sid,
+            account_token,
+            sms_app_id,
+            branch_limit,
+            callback_key,
+        )
+        .await?;
         if branch_limit > CloOpenSms::branch_limit() {
             return Err(SenderError::System(
                 fluent_message!("sms-config-branch-error",
@@ -162,6 +236,61 @@ impl SenderCloOpenConfig {
             )
             .await?)
     }
+    #[allow(clippy::too_many_arguments)]
+    async fn add_config_param_valid(
+        &self,
+        name: &str,
+        account_sid: &str,
+        account_token: &str,
+        sms_app_id: &str,
+        branch_limit: u16,
+        callback_key: &str,
+    ) -> SenderResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("config_name"),
+                &name,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 64)),
+            )
+            .add(
+                valid_key!("account_sid"),
+                &account_sid,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 128)),
+            )
+            .add(
+                valid_key!("account_token"),
+                &account_token,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 128)),
+            )
+            .add(
+                valid_key!("sms_app_id"),
+                &sms_app_id,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 128)),
+            )
+            .add(
+                valid_key!("callback_key"),
+                &callback_key,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Ident)
+                    .add_rule(ValidStrlen::range(6, 32)),
+            )
+            .add(
+                valid_key!("branch_limit"),
+                &branch_limit,
+                &ValidParamCheck::default()
+                    .add_rule(ValidNumber::range(1, CloOpenSms::branch_limit())),
+            )
+            .check()?;
+        Ok(())
+    }
     //添加短信配置
     #[allow(clippy::too_many_arguments)]
     pub async fn add_config(
@@ -175,6 +304,15 @@ impl SenderCloOpenConfig {
         user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
+        self.add_config_param_valid(
+            name,
+            account_sid,
+            account_token,
+            sms_app_id,
+            branch_limit,
+            callback_key,
+        )
+        .await?;
         Ok(self
             .setting
             .add(
@@ -195,6 +333,31 @@ impl SenderCloOpenConfig {
             )
             .await?)
     }
+    async fn add_app_config_param_valid(
+        &self,
+
+        template_id: &str,
+        template_map: &str,
+    ) -> SenderResult<()> {
+        let mut valid_param = ValidParam::default();
+        valid_param
+            .add(
+                valid_key!("template_id"),
+                &template_id,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 128)),
+            )
+            .add(
+                valid_key!("template_map"),
+                &template_map,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 128)),
+            );
+        valid_param.check()?;
+        Ok(())
+    }
     //关联发送跟jd_cloud短信的配置
     #[allow(clippy::too_many_arguments)]
     pub async fn add_app_config(
@@ -209,6 +372,8 @@ impl SenderCloOpenConfig {
         add_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
+        self.add_app_config_param_valid(template_id, template_map)
+            .await?;
         self.setting.load::<CloOpenConfig>(None, setting_id).await?;
         self.tpl_config
             .add_config(

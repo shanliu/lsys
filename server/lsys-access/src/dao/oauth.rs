@@ -62,14 +62,14 @@ impl AccessOAuth {
         let mut valid_param = ValidParam::default();
         valid_param
             .add(
-                valid_key!("user-data"),
+                valid_key!("user_data"),
                 &code_data.user_data,
                 &ValidParamCheck::default()
-                    .add_rule(ValidStrlen::range(2, 32))
+                    .add_rule(ValidStrlen::range(1, 32))
                     .add_rule(ValidPattern::Ident),
             )
             .add(
-                valid_key!("user-name"),
+                valid_key!("user_name"),
                 &code_data.user_name,
                 &ValidParamCheck::default()
                     .add_rule(ValidStrlen::max(32))
@@ -77,7 +77,7 @@ impl AccessOAuth {
             );
         if let Some(ref user_account) = code_data.user_account {
             valid_param.add(
-                valid_key!("user-account"),
+                valid_key!("user_account"),
                 user_account,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)
@@ -86,7 +86,7 @@ impl AccessOAuth {
         }
         if let Some(ref device_id) = code_data.device_id {
             valid_param.add(
-                valid_key!("device-id"),
+                valid_key!("device_id"),
                 device_id,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)
@@ -95,7 +95,7 @@ impl AccessOAuth {
         }
         if let Some(ref device_name) = code_data.device_name {
             valid_param.add(
-                valid_key!("device-name"),
+                valid_key!("device_name"),
                 device_name,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)
@@ -104,18 +104,23 @@ impl AccessOAuth {
         }
         if let Some(ref login_ip) = code_data.login_ip {
             valid_param.add(
-                valid_key!("login-ip"),
+                valid_key!("login_ip"),
                 login_ip,
                 &ValidParamCheck::default().add_rule(ValidIp::default()),
             );
         }
-        for (key, _) in &code_data.session_data {
+        for (key, val) in &code_data.session_data {
             valid_param.add(
-                valid_key!("session-key"),
+                valid_key!("session_data_key"),
                 key,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::Ident)
                     .add_rule(ValidStrlen::range(1, 12)),
+            );
+            valid_param.add(
+                valid_key!("session_data_val"),
+                val,
+                &ValidParamCheck::default().add_rule(ValidStrlen::range(0, 20000)),
             );
         }
         valid_param.check()?;
@@ -141,7 +146,7 @@ impl AccessOAuth {
     async fn destroy_code_param_valid(&self, code: &str) -> AccessResult<()> {
         ValidParam::default()
             .add(
-                valid_key!("oauth-code"),
+                valid_key!("oauth_code"),
                 &code,
                 &ValidParamCheck::default()
                     .add_rule(ValidStrlen::range(16, 64))
@@ -175,7 +180,7 @@ impl AccessOAuth {
     async fn code_do_login_param_valid(&self, code: &str) -> AccessResult<()> {
         ValidParam::default()
             .add(
-                valid_key!("oauth-code"),
+                valid_key!("oauth_code"),
                 &code,
                 &ValidParamCheck::default()
                     .add_rule(ValidStrlen::range(16, 64))

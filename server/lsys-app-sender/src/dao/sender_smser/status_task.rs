@@ -197,13 +197,13 @@ impl TaskExecutor<u64, SmsStatusTaskItem> for SmsStatusTask {
     async fn exec(&self, val: SmsStatusTaskItem) -> Result<(), String> {
         let sms = self
             .recrod
-            .find_message_by_id(&val.0)
+            .find_message_by_id(val.0)
             .await
             .map_err(|e| e.to_fluent_message().default_format())?;
 
         let body = self
             .recrod
-            .find_body_by_id(&sms.sender_body_id)
+            .find_body_by_id(sms.sender_body_id)
             .await
             .map_err(|e| e.to_fluent_message().default_format())?;
 
@@ -237,7 +237,7 @@ impl TaskExecutor<u64, SmsStatusTaskItem> for SmsStatusTask {
                                             }
                                             self.message_logs
                                                 .add_exec_log(
-                                                    &body.app_id,
+                                                    body.app_id,
                                                     &[(
                                                         sms.id,
                                                         SenderLogStatus::NotifySucc,
@@ -272,7 +272,7 @@ impl TaskExecutor<u64, SmsStatusTaskItem> for SmsStatusTask {
 
                                             self.message_logs
                                                 .add_exec_log(
-                                                    &body.app_id,
+                                                    body.app_id,
                                                     &[(
                                                         sms.id,
                                                         SenderLogStatus::NotifyFail,

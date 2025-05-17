@@ -5,7 +5,10 @@ use crate::{
         RbacPermStatus, RbacResModel, RbacRoleModel, RbacRoleResRange,
     },
 };
-use lsys_core::db::{Insert, ModelTableName, SqlExpr, Update, WhereOption};
+use lsys_core::{
+    db::{Insert, ModelTableName, SqlExpr, Update, WhereOption},
+    string_clear, StringClear, STRING_CLEAR_FORMAT,
+};
 use lsys_core::{db_option_executor, model_option_set, sql_format};
 use lsys_core::{fluent_message, now_time, RequestEnv};
 use serde::Serialize;
@@ -94,13 +97,20 @@ impl RbacRole {
                 "({})",
                 perm_vec
                     .iter()
-                    .map(|e| sql_format!(
-                        "res_type={} and user_id={} and app_id={} and op_id={}",
-                        e.res.res_type,
-                        e.res.user_id,
-                        e.res.app_id,
-                        e.op.id
-                    ))
+                    .map(|e| {
+                        let res_type = string_clear(
+                            &e.res.res_type,
+                            StringClear::Option(STRING_CLEAR_FORMAT),
+                            Some(33),
+                        );
+                        sql_format!(
+                            "res_type={} and user_id={} and app_id={} and op_id={}",
+                            res_type,
+                            e.res.user_id,
+                            e.res.app_id,
+                            e.op.id
+                        )
+                    })
                     .collect::<Vec<_>>()
                     .join(") or (")
             ))
@@ -153,7 +163,7 @@ impl RbacRole {
                         change_user_id:add_user_id,
                         status:(RbacPermStatus::Enable as i8),
                     });
-                    if let Err(err) = Update::< RbacPermModel, _>::new(item)
+                    if let Err(err) = Update::<RbacPermModel, _>::new(item)
                         .execute_by_where(
                             &WhereOption::Where(sql_format!("id={}", *itemid)),
                             &mut *db,
@@ -237,7 +247,7 @@ impl RbacRole {
         let res = db_option_executor!(
             db,
             {
-                Update::< RbacPermModel, _>::new(ddata)
+                Update::<RbacPermModel, _>::new(ddata)
                     .execute_by_where(
                         &lsys_core::db::WhereOption::Where(sql_format!(
                             "role_id ={} and ({})",
@@ -434,7 +444,7 @@ impl RbacRole {
                 change_user_id:delete_user_id,
                 change_time:time,
             });
-            let tmp = Update::< RbacPermModel, _>::new(change)
+            let tmp = Update::<RbacPermModel, _>::new(change)
                 .execute_by_where(
                     &WhereOption::Where(sql_format!(
                         "role_id={} and op_id={} and res_id={}",

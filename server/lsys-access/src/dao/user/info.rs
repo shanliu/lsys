@@ -59,8 +59,8 @@ impl UserInfoSet {
     pub fn new(data: HashMap<u64, UserModel>) -> Self {
         Self { data }
     }
-    pub fn get(&self, user_id: &u64) -> Option<UserInfo> {
-        self.data.get(user_id).map(|e| UserInfo::from(e.to_owned()))
+    pub fn get(&self, user_id: u64) -> Option<UserInfo> {
+        self.data.get(&user_id).map(|e| UserInfo::from(e.to_owned()))
     }
     pub fn into_array(self) -> Vec<UserModel> {
         self.data.into_iter().map(|e| e.1).collect::<Vec<_>>()

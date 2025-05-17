@@ -57,3 +57,13 @@ status-DocGitCloneStatus-Delete= 删除
 status-DocMenuStatus-Enable=  启用
 status-DocMenuStatus-Delete= 删除
 
+
+
+#校验名称
+
+valid-rule-name-git_url = GIT文档地址
+valid-rule-name-name = 文档名称
+valid-rule-name-max_try = 最大尝试下载次数
+valid-rule-name-git_status = GIT源状态
+valid-rule-name-git_version = GIT版本编号
+valid-rule-name-menu_path = 菜单路径

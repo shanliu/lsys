@@ -75,7 +75,7 @@ impl WebApp {
                 self.app_dao
                     .app
                     .cache()
-                    .find_by_id(&app.parent_app_id)
+                    .find_by_id(app.parent_app_id)
                     .await?,
             )
         } else {
@@ -121,7 +121,7 @@ impl WebApp {
                 self.app_dao
                     .app
                     .cache()
-                    .find_by_id(&app.parent_app_id)
+                    .find_by_id(app.parent_app_id)
                     .await?,
             )
         } else {

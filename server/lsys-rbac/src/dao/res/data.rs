@@ -5,7 +5,7 @@ use crate::model::{
     RbacOpModel, RbacOpResModel, RbacOpResStatus, RbacOpStatus, RbacResModel, RbacResStatus,
 };
 use lsys_core::db::{ModelTableName, SqlExpr, SqlQuote};
-use lsys_core::{impl_dao_fetch_one_by_one, PageParam, StringClear};
+use lsys_core::{impl_dao_fetch_one_by_one, PageParam, StringClear, STRING_CLEAR_FORMAT};
 use lsys_core::{sql_format, string_clear};
 use serde::Serialize;
 use sqlx::Row;
@@ -63,19 +63,18 @@ impl RbacRes {
             sql += sql_format!(" and user_id = {}", val).as_str();
         }
         if let Some(val) = res_param.res_type {
+            let val = string_clear(val, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
             if val.is_empty() {
                 return None;
             }
             sql += sql_format!(" and res_type = {}", val).as_str();
         }
         if let Some(val) = res_param.res_data {
+            let val = string_clear(val, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
             sql += sql_format!(" and res_data = {}", val).as_str();
         }
         if let Some(val) = res_param.res_name {
             let val = string_clear(val, StringClear::LikeKeyWord, None);
-            if val.is_empty() {
-                return None;
-            }
             sql += sql_format!(" and res_name like {}", format!("%{}%", val)).as_str();
         }
         if let Some(rid) = res_param.ids {
@@ -232,10 +231,19 @@ impl RbacRes {
                 if op_dat.is_empty() {
                     return Ok(vec![]);
                 }
+                let op_dat = op_dat
+                    .iter()
+                    .map(|e| string_clear(e, StringClear::Option(STRING_CLEAR_FORMAT), Some(33)))
+                    .collect::<Vec<String>>();
                 sql_format!("and op.op_key in ({})", op_dat)
             }
             None => "".to_string(),
         };
+        let res_type = string_clear(
+            res_type_data.res_type,
+            StringClear::Option(STRING_CLEAR_FORMAT),
+            Some(33),
+        );
         let sql = sql_format!(
             "select op.* from {} as op
                 join {} as op_res on op.id=op_res.op_id
@@ -248,7 +256,7 @@ impl RbacRes {
             RbacOpStatus::Enable,
             res_type_data.user_id,
             res_type_data.app_id,
-            res_type_data.res_type,
+            res_type,
             RbacOpResStatus::Enable,
             SqlExpr(op_sql)
         );
@@ -266,6 +274,11 @@ impl RbacRes {
         Ok(res)
     }
     pub async fn res_type_op_count(&self, res_type_data: &ResTypeParam<'_>) -> RbacResult<i64> {
+        let res_type = string_clear(
+            res_type_data.res_type,
+            StringClear::Option(STRING_CLEAR_FORMAT),
+            Some(33),
+        );
         let sql = sql_format!(
             "select count(*) as total from {} as op
                 join {} as op_res on op.id=op_res.op_id
@@ -277,7 +290,7 @@ impl RbacRes {
             RbacOpStatus::Enable,
             res_type_data.user_id,
             res_type_data.app_id,
-            res_type_data.res_type,
+            res_type,
             RbacOpResStatus::Enable,
         );
         Ok(sqlx::query_scalar::<_, i64>(&sql)

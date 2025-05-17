@@ -5,11 +5,26 @@ use super::AppOAuthServer;
 use crate::model::AppOAuthServerScopeStatus;
 use lsys_core::db::ModelTableName;
 use lsys_core::db::SqlQuote;
-use lsys_core::sql_format;
+use lsys_core::{sql_format, valid_key, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
 
 impl AppOAuthServer {
+    async fn check_scope_param_valid(&self, scope_data: &[&str]) -> AppResult<()> {
+        let mut valid_param = ValidParam::default();
+        for tmp in scope_data {
+            valid_param.add(
+                valid_key!("scope_data"),
+                tmp,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Ident)
+                    .add_rule(ValidStrlen::range(1, 64)),
+            );
+        }
+        valid_param.check()?;
+        Ok(())
+    }
     //检测指定SCOPE在OAUTH服务中是否存在
     pub async fn check_scope(&self, app: &AppModel, scope_data: &[&str]) -> AppResult<()> {
+        self.check_scope_param_valid(scope_data).await?;
         app.app_status_check()?;
         let oa_res = sqlx::query_scalar::<_, String>(&sql_format!(
             "select scope_key from {} where app_id={} and status={} and scope_key in ({})",

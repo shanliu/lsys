@@ -68,7 +68,7 @@ pub async fn list_data(
             .web_app
             .app_dao
             .app
-            .find_by_id(&papp_id)
+            .find_by_id(papp_id)
             .await?;
         req_dao
             .web_dao
@@ -297,7 +297,7 @@ pub async fn secret_view(
         .web_app
         .app_dao
         .app
-        .find_by_id(&param.app_id)
+        .find_by_id(param.app_id)
         .await?;
     req_dao
         .web_dao
@@ -358,7 +358,7 @@ pub async fn sub_app_secret_view(
         .web_app
         .app_dao
         .app
-        .find_by_id(&param.app_id)
+        .find_by_id(param.app_id)
         .await?;
     if app.parent_app_id == 0 {
         return Err(JsonError::JsonResponse(
@@ -371,7 +371,7 @@ pub async fn sub_app_secret_view(
         .web_app
         .app_dao
         .app
-        .find_by_id(&app.parent_app_id)
+        .find_by_id(app.parent_app_id)
         .await?;
     req_dao
         .web_dao
@@ -453,7 +453,7 @@ pub async fn request_list(
         .web_app
         .app_dao
         .app
-        .find_by_id(&param.app_id)
+        .find_by_id(param.app_id)
         .await?;
     req_dao
         .web_dao
@@ -575,7 +575,7 @@ pub async fn sub_request_list(
         .web_app
         .app_dao
         .app
-        .find_by_id(&param.app_id)
+        .find_by_id(param.app_id)
         .await?;
     req_dao
         .web_dao

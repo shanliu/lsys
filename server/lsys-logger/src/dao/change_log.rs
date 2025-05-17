@@ -1,4 +1,4 @@
-use lsys_core::{now_time, LimitParam, RequestEnv};
+use lsys_core::{now_time, string_clear, LimitParam, RequestEnv, StringClear, STRING_CLEAR_FORMAT};
 
 use lsys_core::db::{Insert, ModelTableName, SqlExpr};
 use lsys_core::{db_option_executor, model_option_set, sql_format};
@@ -48,7 +48,7 @@ impl ChangeLoggerDao {
             })
             .unwrap_or_default()
             .chars()
-            .take(40)
+            .take(46)
             .collect();
         let request_id = env_data
             .as_ref()
@@ -60,7 +60,7 @@ impl ChangeLoggerDao {
             })
             .unwrap_or_default()
             .chars()
-            .take(32)
+            .take(64)
             .collect();
         let request_user_agent = env_data
             .as_ref()
@@ -115,15 +115,19 @@ impl ChangeLoggerDao {
             Ok(r) => debug!("add log id:{}", r.last_insert_id()),
         };
     }
-    fn list_where(&self, log_type: Option<&str>, add_user_id: Option<u64>) -> Vec<String> {
+    fn list_where(&self, log_type: Option<&str>, add_user_id: Option<u64>) -> Option<Vec<String>> {
         let mut sqlwhere = vec![];
         if let Some(tmp) = log_type {
+            let tmp = string_clear(tmp, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
+            if tmp.is_empty() {
+                return None;
+            }
             sqlwhere.push(sql_format!("log_type = {}  ", tmp));
         }
         if let Some(uid) = add_user_id {
             sqlwhere.push(sql_format!("add_user_id={} ", uid));
         }
-        sqlwhere
+        Some(sqlwhere)
     }
     pub async fn list_data(
         &self,
@@ -131,7 +135,10 @@ impl ChangeLoggerDao {
         add_user_id: Option<u64>,
         limit: Option<&LimitParam>,
     ) -> LoggerResult<(Vec<ChangeLogModel>, Option<u64>)> {
-        let sqlwhere = self.list_where(log_type, add_user_id);
+        let sqlwhere = match self.list_where(log_type, add_user_id) {
+            Some(t) => t,
+            None => return Ok((vec![], None)),
+        };
         let tmp = if let Some(page) = limit {
             if sqlwhere.is_empty() {
                 format!(
@@ -183,7 +190,10 @@ impl ChangeLoggerDao {
         log_type: Option<&str>,
         add_user_id: Option<u64>,
     ) -> LoggerResult<i64> {
-        let sqlwhere = self.list_where(log_type, add_user_id);
+        let sqlwhere = match self.list_where(log_type, add_user_id) {
+            Some(t) => t,
+            None => return Ok(0),
+        };
         let where_sql = if sqlwhere.is_empty() {
             "".to_string()
         } else {

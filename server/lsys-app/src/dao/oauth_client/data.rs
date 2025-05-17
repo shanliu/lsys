@@ -35,8 +35,8 @@ impl AppOAuthClient {
             return Err(AppError::AppOAuthClientBadConfig(app.client_id.to_owned()));
         }
         Ok(
-            !redirect_uri.starts_with(&("https://".to_string() + &oauth.callback_domain))
-                && !redirect_uri.starts_with(&("http://".to_string() + &oauth.callback_domain)),
+            redirect_uri.starts_with(&("https://".to_string() + &oauth.callback_domain))
+                || redirect_uri.starts_with(&("http://".to_string() + &oauth.callback_domain)),
         )
     }
     pub(crate) async fn inner_find_by_app(&self, app: &AppModel) -> AppResult<AppOAuthClientModel> {

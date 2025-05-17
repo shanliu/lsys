@@ -37,7 +37,7 @@ pub async fn add(param: &AddParam, req_dao: &UserAuthQueryDao) -> JsonResult<Jso
             .web_app
             .app_dao
             .app
-            .find_by_id(&user_app_id)
+            .find_by_id(user_app_id)
             .await?;
         Some(tmp_app)
     } else if let Some(parent_id) = param.parent_app_id {
@@ -46,7 +46,7 @@ pub async fn add(param: &AddParam, req_dao: &UserAuthQueryDao) -> JsonResult<Jso
             .web_app
             .app_dao
             .app
-            .find_by_id(&parent_id)
+            .find_by_id(parent_id)
             .await?;
         Some(tmp_app)
     } else {

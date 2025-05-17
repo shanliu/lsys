@@ -6,7 +6,8 @@ use crate::dao::AccountResult;
 use crate::model::{AccountMobileModel, AccountMobileModelRef, AccountMobileStatus, AccountModel};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::{
-    fluent_message, now_time, valid_key, RemoteNotify, ValidMobile, ValidParam, ValidParamCheck,
+    fluent_message, now_time, string_clear, valid_key, RemoteNotify, StringClear, ValidMobile,
+    ValidParam, ValidParamCheck, STRING_CLEAR_FORMAT,
 };
 use lsys_core::{IntoFluentMessage, RequestEnv};
 
@@ -56,6 +57,14 @@ impl AccountMobile {
         area_code: &str,
         mobile: &str,
     ) -> AccountResult<AccountMobileModel> {
+        let area_code = string_clear(area_code, StringClear::Option(STRING_CLEAR_FORMAT), Some(5));
+        if area_code.is_empty() {
+            return Err(sqlx::Error::RowNotFound.into());
+        }
+        let mobile = string_clear(mobile, StringClear::Option(STRING_CLEAR_FORMAT), Some(14));
+        if mobile.is_empty() {
+            return Err(sqlx::Error::RowNotFound.into());
+        }
         let res = sqlx::query_as::<_, AccountMobileModel>(&sql_format!(
             "select * from {} where mobile={} and area_code={}  and status in ({}) order by id desc",
             AccountMobileModel::table_name(),
@@ -74,7 +83,7 @@ impl AccountMobile {
     async fn mobile_param_valid(&self, area_code: &str, mobile: &str) -> AccountResult<()> {
         ValidParam::default()
             .add(
-                valid_key!("mobile"),
+                valid_key!("user_mobile"),
                 &format!("{}{}", area_code, mobile),
                 &ValidParamCheck::default().add_rule(ValidMobile::default()),
             )
@@ -225,7 +234,8 @@ impl AccountMobile {
         valid_code_data: &mut T,
         area_code: &str,
         mobile: &str,
-    ) -> lsys_core::ValidCodeResult<(String, usize)> {
+    ) -> AccountResult<(String, usize)> {
+        self.mobile_param_valid(area_code, mobile).await?;
         let out = self
             .valid_code()
             .set_code(&format!("{}-{}", area_code, mobile), valid_code_data)
@@ -542,9 +552,9 @@ impl AccountMobileCache<'_> {
     );
     pub async fn find_by_account_id_vec(
         &self,
-        account_id: &u64,
+        account_id: u64,
     ) -> AccountResult<Vec<AccountMobileModel>> {
-        match self.dao.account_cache.get(account_id).await {
+        match self.dao.account_cache.get(&account_id).await {
             Some(ids) => Ok(self
                 .find_by_ids(&ids)
                 .await?
@@ -552,12 +562,12 @@ impl AccountMobileCache<'_> {
                 .map(|e| e.1)
                 .collect::<Vec<_>>()),
             None => {
-                let rows = self.dao.find_by_account_id_vec(account_id).await?;
+                let rows = self.dao.find_by_account_id_vec(&account_id).await?;
                 for tmp in rows.clone() {
                     self.dao.cache.set(tmp.id, tmp, 0).await;
                 }
                 let ids = rows.iter().map(|e| e.id).collect::<Vec<_>>();
-                self.dao.account_cache.set(*account_id, ids, 0).await;
+                self.dao.account_cache.set(account_id, ids, 0).await;
                 Ok(rows)
             }
         }

@@ -12,9 +12,7 @@ use lsys_app_sender::{
     },
     model::{SenderSmsBodyModel, SenderSmsMessageModel},
 };
-use lsys_core::{
-    fluent_message, valid_key, AppCore, RequestEnv, ValidMobile, ValidParam, ValidParamCheck,
-};
+use lsys_core::{fluent_message, AppCore, RequestEnv};
 use lsys_logger::dao::ChangeLoggerDao;
 use lsys_setting::dao::SettingDao;
 use serde_json::json;
@@ -127,19 +125,10 @@ impl SenderSmser {
     ) -> JsonResult<Vec<(u64, bool, Option<SenderError>)>> {
         Ok(self
             .smser_dao
-            .cancal_from_message(body, message, &user_id, env_data)
+            .cancal_from_message(body, message, user_id, env_data)
             .await?)
     }
-    async fn send_param_valid(&self, area: &str, mobile: &str) -> JsonResult<()> {
-        ValidParam::default()
-            .add(
-                valid_key!("to-mobile"),
-                &format!("{}{}", area, mobile),
-                &ValidParamCheck::default().add_rule(ValidMobile::default()),
-            )
-            .check()?;
-        Ok(())
-    }
+
     // 短信发送接口
     async fn send(
         &self,
@@ -150,7 +139,6 @@ impl SenderSmser {
         max_try_num: Option<u8>,
         env_data: Option<&RequestEnv>,
     ) -> JsonResult<u64> {
-        self.send_param_valid(area, mobile).await?;
         let mut out = self
             .smser_dao
             .send(

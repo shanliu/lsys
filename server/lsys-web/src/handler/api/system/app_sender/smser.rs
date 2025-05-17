@@ -77,7 +77,7 @@ pub async fn smser_message_body(
         .smser
         .smser_dao
         .sms_record
-        .find_message_by_id(&message_id)
+        .find_message_by_id(message_id)
         .await?;
     let body = req_dao
         .web_dao
@@ -85,7 +85,7 @@ pub async fn smser_message_body(
         .smser
         .smser_dao
         .sms_record
-        .find_body_by_id(&msg.sender_body_id)
+        .find_body_by_id(msg.sender_body_id)
         .await?;
     req_dao
         .web_dao
@@ -251,7 +251,7 @@ pub async fn smser_message_cancel(
         .smser
         .smser_dao
         .sms_record
-        .find_message_by_id(&message_id)
+        .find_message_by_id(message_id)
         .await?;
     let body = req_dao
         .web_dao
@@ -259,7 +259,7 @@ pub async fn smser_message_cancel(
         .smser
         .smser_dao
         .sms_record
-        .find_body_by_id(&msg.sender_body_id)
+        .find_body_by_id(msg.sender_body_id)
         .await?;
     let mut res = req_dao
         .web_dao

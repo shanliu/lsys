@@ -22,14 +22,14 @@ pub async fn confirm(param: &ConfirmParam, req_dao: &UserAuthQueryDao) -> JsonRe
         .web_app
         .app_dao
         .app
-        .request_find_by_id(&param.app_req_id)
+        .request_find_by_id(param.app_req_id)
         .await?;
     let app = req_dao
         .web_dao
         .web_app
         .app_dao
         .app
-        .find_by_id(&req_app.app_id)
+        .find_by_id(req_app.app_id)
         .await?;
     if app.user_app_id == 0 {
         return Err(JsonError::Message(fluent_message!("not-user-app-confirm")));
@@ -40,7 +40,7 @@ pub async fn confirm(param: &ConfirmParam, req_dao: &UserAuthQueryDao) -> JsonRe
         .web_app
         .app_dao
         .app
-        .find_by_id(&req_app.parent_app_id)
+        .find_by_id(req_app.parent_app_id)
         .await?;
     //当前登录用户对父应用的可编辑
     req_dao

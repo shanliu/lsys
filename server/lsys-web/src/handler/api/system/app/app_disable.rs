@@ -23,7 +23,7 @@ pub async fn disable(param: &DisableParam, req_dao: &UserAuthQueryDao) -> JsonRe
         .web_app
         .app_dao
         .app
-        .find_by_id(&param.app_id)
+        .find_by_id(param.app_id)
         .await?;
 
     req_dao

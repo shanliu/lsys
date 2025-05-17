@@ -22,7 +22,7 @@ use lettre::{
     AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
 };
 use lsys_core::{
-    fluent_message, valid_key, IntoFluentMessage, RequestEnv, ValidEmail, ValidParam,
+    fluent_message, valid_key, IntoFluentMessage, RequestEnv, ValidDomain, ValidEmail, ValidParam,
     ValidParamCheck, ValidPattern, ValidStrlen,
 };
 use lsys_logger::dao::ChangeLoggerDao;
@@ -185,8 +185,19 @@ impl SenderSmtpConfig {
             )
             .await?)
     }
+    async fn check_config_param_valid(&self, config: &SmtpConfig) -> SenderResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("smtp_host"),
+                &config.host,
+                &ValidParamCheck::default().add_rule(ValidDomain::default()),
+            )
+            .check()?;
+        Ok(())
+    }
     //检测smtp配置
     pub async fn check_config(&self, config: &SmtpConfig) -> SenderResult<()> {
+        self.check_config_param_valid(config).await?;
         connect(config, 5)
             .await
             .map_err(|e| SenderError::System(fluent_message!("smtp-check-error", e)))?
@@ -207,12 +218,12 @@ impl SenderSmtpConfig {
         let mut valid_param = ValidParam::default();
         valid_param
             .add(
-                valid_key!("from-mail"),
+                valid_key!("from_mail"),
                 &from_email,
                 &ValidParamCheck::default().add_rule(ValidEmail::default()),
             )
             .add(
-                valid_key!("name"),
+                valid_key!("config_name"),
                 &name,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)
@@ -241,7 +252,7 @@ impl SenderSmtpConfig {
             );
         if !reply_email.is_empty() {
             valid_param.add(
-                valid_key!("reply-email"),
+                valid_key!("reply_email"),
                 &reply_email,
                 &ValidParamCheck::default().add_rule(ValidEmail::default()),
             );

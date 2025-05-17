@@ -6,7 +6,10 @@ use crate::dao::AccountResult;
 use crate::model::{AccountIndexCat, AccountModel, AccountModelRef, AccountStatus};
 use lsys_access::dao::{AccessDao, UserInfo};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{fluent_message, now_time, LimitParam, RemoteNotify, RequestEnv};
+use lsys_core::{
+    fluent_message, now_time, valid_key, LimitParam, RemoteNotify, RequestEnv, ValidParam,
+    ValidParamCheck, ValidPattern, ValidStrlen,
+};
 use lsys_logger::dao::ChangeLoggerDao;
 use tracing::warn;
 
@@ -45,6 +48,19 @@ impl Account {
             logger,
         }
     }
+    async fn nickname_param_valid(&self, nickname: &str) -> AccountResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("nickname"),
+                &nickname,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 32)),
+            )
+            .check()?;
+
+        Ok(())
+    }
     /// 添加用户
     pub async fn add(
         &self,
@@ -53,6 +69,7 @@ impl Account {
         transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
     ) -> AccountResult<AccountModel> {
+        self.nickname_param_valid(nickname).await?;
         let time = now_time()?;
         let u_status = AccountStatus::Init as i8;
         let nickname_ow = nickname.to_string();
@@ -165,7 +182,7 @@ impl Account {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let tmp = Update::< AccountModel, _>::new(change)
+        let tmp = Update::<AccountModel, _>::new(change)
             .execute_by_pk(account, &mut *db)
             .await;
         if let Err(ie) = tmp {
@@ -225,7 +242,7 @@ impl Account {
         });
         let del_name_ow = del_name.map(|e| e.to_string());
         change.nickname = del_name_ow.as_ref();
-        let tmp = Update::< AccountModel, _>::new(change)
+        let tmp = Update::<AccountModel, _>::new(change)
             .execute_by_pk(account, &mut *db)
             .await;
         if let Err(e) = tmp {
@@ -261,7 +278,8 @@ impl Account {
         transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
     ) -> AccountResult<u64> {
-        let nikename = nikename.trim().to_string();
+        self.nickname_param_valid(nikename).await?;
+        let nikename = nikename.to_string();
         if nikename.is_empty() || nikename.len() > 32 {
             return Err(AccountError::System(
                 fluent_message!("account-nikename-wrong",{
@@ -281,7 +299,7 @@ impl Account {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let res = Update::< AccountModel, _>::new(change)
+        let res = Update::<AccountModel, _>::new(change)
             .execute_by_pk(account, &mut *db)
             .await;
         let out = match res {

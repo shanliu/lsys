@@ -142,3 +142,47 @@ status-SenderMailMessageStatus-IsCancel=   已取消
 
 status-SenderMailSmtpStatus-Enable=启用
 status-SenderMailSmtpStatus-Delete=删除
+
+
+
+#校验名称
+
+
+valid-rule-name-tpl_data = 模板数据
+valid-rule-name-smtp_host = SMTP主机
+valid-rule-name-from_mail = 来源邮箱
+valid-rule-name-subject_tpl_id = 主题模板ID
+valid-rule-name-body_tpl_id = 内容模板ID
+valid-rule-name-reply_email = 回复邮箱
+valid-rule-name-access_secret = 应用秘钥
+valid-rule-name-branch_limit = 批量限制次数
+valid-rule-name-access_id = 应用ID
+valid-rule-name-region = 区域
+valid-rule-name-sms_setting_id = 短信端口配置ID
+valid-rule-name-tpl_id = 模板ID
+valid-rule-name-aliyun_sms_tpl = 阿里云短信模版
+valid-rule-name-aliyun_sign_name = 阿里云短信签名
+valid-rule-name-account_token = 应用秘钥
+valid-rule-name-sms_app_id = 短信应用ID
+valid-rule-name-callback_key = 回调秘钥
+valid-rule-name-account_sid = 应用ID
+valid-rule-name-id = ID
+valid-rule-name-hw_url = 华为短信网关
+valid-rule-name-hw_app_key = 华为短信应用KEY
+valid-rule-name-hw_app_secret = 华为短信应用秘钥
+valid-rule-name-hw_signature = 华为短信签名 
+valid-rule-name-hw_sender = 华为短信发送方
+valid-rule-name-access_key = 应用KEY
+valid-rule-name-app_id =  应用ID
+valid-rule-name-sign_id = 签名ID
+valid-rule-name-template_id = 模板ID
+valid-rule-name-template_map = 模板关系
+valid-rule-name-secret_id = 应用ID
+valid-rule-name-secret_key = 应用秘钥
+valid-rule-name-config_name = 配置名
+valid-rule-name-sign_name = 签名
+valid-rule-name-mail = 邮箱
+valid-rule-name-reply_mail = 回复邮箱
+valid-rule-name-tpl_var = 模板变量
+valid-rule-name-max_try_num = 重试次数
+valid-rule-name-mobile = 手机号

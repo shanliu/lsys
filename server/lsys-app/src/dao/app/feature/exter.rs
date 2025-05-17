@@ -303,7 +303,7 @@ impl App {
             .collect::<Vec<String>>();
         let check_key = &feature_key.iter().map(|e| e.as_str()).collect::<Vec<_>>();
         if app.parent_app_id > 0 {
-            let papp = self.find_by_id(&app.parent_app_id).await?;
+            let papp = self.find_by_id(app.parent_app_id).await?;
             self.feature_check(&papp, check_key).await?;
         }
         self.feature_check(app, check_key).await

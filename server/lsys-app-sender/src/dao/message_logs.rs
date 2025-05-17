@@ -21,7 +21,7 @@ impl MessageLogs {
     }
     pub(crate) async fn add_exec_log(
         &self,
-        app_id: &u64,
+        app_id: u64,
         log_data: &[(u64, SenderLogStatus, &str)],
         executor_type: &str,
     ) {

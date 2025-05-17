@@ -6,7 +6,7 @@ use crate::dao::{AccountDao, AccountError, AccountResult, UserAuthData, UserAuth
 use crate::model::{AccountEmailModel, AccountModel};
 use async_trait::async_trait;
 use lsys_access::dao::SessionBody;
-use lsys_core::fluent_message;
+use lsys_core::{fluent_message, valid_key, ValidEmail, ValidParam, ValidParamCheck, ValidStrlen};
 use serde_json::{json, Value};
 
 use std::sync::Arc;
@@ -89,12 +89,28 @@ pub struct EmailLogin {
     pub password: String,
 }
 impl EmailLogin {
-    pub fn new(account: Arc<AccountDao>, email: &str, password: &str) -> Self {
-        Self {
+    async fn new_param_valid(email: &str, password: &str) -> AccountResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("login_email"),
+                &email,
+                &ValidParamCheck::default().add_rule(ValidEmail::default()),
+            )
+            .add(
+                valid_key!("login_password"),
+                &password,
+                &ValidParamCheck::default().add_rule(ValidStrlen::range(1, 128)),
+            )
+            .check()?;
+        Ok(())
+    }
+    pub async fn new(account: Arc<AccountDao>, email: &str, password: &str) -> AccountResult<Self> {
+        Self::new_param_valid(email, password).await?;
+        Ok(Self {
             account,
-            email:email.to_string(),
-            password:password.to_string(),
-        }
+            email: email.to_string(),
+            password: password.to_string(),
+        })
     }
 }
 #[async_trait]

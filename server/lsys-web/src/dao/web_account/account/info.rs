@@ -152,7 +152,7 @@ impl WebUserAccount {
             .user_dao
             .account_dao
             .account_password
-            .password_timeout(&account.id)
+            .password_timeout(account.id)
             .await
             .unwrap_or(false);
         Ok((user, passwrod_timeout))

@@ -289,7 +289,7 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
                 .collect::<Vec<_>>();
             self.message_logs
                 .add_exec_log(
-                    &item.app_id(),
+                    item.app_id(),
                     &log_data,
                     setting.map(|t| t.setting_key.as_str()).unwrap_or(""),
                 )
@@ -410,7 +410,7 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
             }
         }
         self.message_logs
-            .add_exec_log(&item.app_id(), &log_data, &setting.setting_key)
+            .add_exec_log(item.app_id(), &log_data, &setting.setting_key)
             .await;
         self.send_record_clear(item).await;
     }
@@ -479,7 +479,7 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
             .map(|e| (e.id, SenderLogStatus::Fail, err_str.as_str()))
             .collect::<Vec<_>>();
         self.message_logs
-            .add_exec_log(&item.app_id(), &log_data, &setting.setting_key)
+            .add_exec_log(item.app_id(), &log_data, &setting.setting_key)
             .await;
         self.send_record_clear(item).await;
     }

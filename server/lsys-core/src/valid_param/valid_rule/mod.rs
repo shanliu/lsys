@@ -1,6 +1,7 @@
 // 校验码封装
 mod china_id;
 mod china_license_plate;
+mod color;
 mod contains;
 mod credit_card;
 mod datetime;
@@ -13,10 +14,12 @@ mod not_empty;
 mod nunber;
 mod password;
 mod pattern;
+mod str_match;
 mod strlen;
 mod url;
 pub use china_id::*;
 pub use china_license_plate::*;
+pub use color::*;
 pub use contains::*;
 pub use credit_card::*;
 pub use datetime::*;
@@ -29,6 +32,7 @@ pub use not_empty::*;
 pub use nunber::*;
 pub use password::*;
 pub use pattern::*;
+pub use str_match::*;
 pub use strlen::*;
 pub use url::*;
 

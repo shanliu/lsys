@@ -21,7 +21,10 @@ use crate::{
 use lsys_core::db::ModelTableName;
 use lsys_core::db::SqlQuote;
 use lsys_core::sql_format;
+use lsys_core::string_clear;
 use lsys_core::PageParam;
+use lsys_core::StringClear;
+use lsys_core::STRING_CLEAR_FORMAT;
 use serde::Serialize;
 use sqlx::Row;
 use std::vec;
@@ -338,6 +341,21 @@ impl RbacAccess {
             ));
         }
         if param.res_range_exclude {
+            let op_key = string_clear(
+                param.op_key,
+                StringClear::Option(STRING_CLEAR_FORMAT),
+                Some(33),
+            );
+            let res_type = string_clear(
+                param.res_type,
+                StringClear::Option(STRING_CLEAR_FORMAT),
+                Some(33),
+            );
+            let res_data = string_clear(
+                param.res_data,
+                StringClear::Option(STRING_CLEAR_FORMAT),
+                Some(33),
+            );
             sql.push(sql_format!(
                 "select 
                 {}
@@ -364,12 +382,27 @@ impl RbacAccess {
                 param.app_id,
                 RbacRoleResRange::Exclude as i8,
                 RbacRoleUserRange::Custom as i8,
-                param.op_key,
-                param.res_type,
-                param.res_data
+                op_key,
+                res_type,
+                res_data
             ));
         }
         if param.res_range_include {
+            let op_key = string_clear(
+                param.op_key,
+                StringClear::Option(STRING_CLEAR_FORMAT),
+                Some(33),
+            );
+            let res_type = string_clear(
+                param.res_type,
+                StringClear::Option(STRING_CLEAR_FORMAT),
+                Some(33),
+            );
+            let res_data = string_clear(
+                param.res_data,
+                StringClear::Option(STRING_CLEAR_FORMAT),
+                Some(33),
+            );
             sql.push(sql_format!(
                 "select 
                 {}
@@ -396,9 +429,9 @@ impl RbacAccess {
                 param.app_id,
                 RbacRoleResRange::Include as i8,
                 RbacRoleUserRange::Custom as i8,
-                param.op_key,
-                param.res_type,
-                param.res_data
+                op_key,
+                res_type,
+                res_data
             ));
         }
         Ok(sql)
@@ -559,6 +592,21 @@ impl RbacAccess {
             ));
         }
         if param.res_range_exclude {
+            let op_key = string_clear(
+                param.op_key,
+                StringClear::Option(STRING_CLEAR_FORMAT),
+                Some(33),
+            );
+            let res_type = string_clear(
+                param.res_type,
+                StringClear::Option(STRING_CLEAR_FORMAT),
+                Some(33),
+            );
+            let res_data = string_clear(
+                param.res_data,
+                StringClear::Option(STRING_CLEAR_FORMAT),
+                Some(33),
+            );
             sql.push(sql_format!(
                 "select 
                {}
@@ -582,12 +630,27 @@ impl RbacAccess {
                 param.app_id,
                 RbacRoleResRange::Exclude as i8,
                 RbacRoleUserRange::Session as i8,
-                param.op_key,
-                param.res_type,
-                param.res_data
+                op_key,
+                res_type,
+                res_data
             ));
         }
         if param.res_range_include {
+            let op_key = string_clear(
+                param.op_key,
+                StringClear::Option(STRING_CLEAR_FORMAT),
+                Some(33),
+            );
+            let res_type = string_clear(
+                param.res_type,
+                StringClear::Option(STRING_CLEAR_FORMAT),
+                Some(33),
+            );
+            let res_data = string_clear(
+                param.res_data,
+                StringClear::Option(STRING_CLEAR_FORMAT),
+                Some(33),
+            );
             sql.push(sql_format!(
                 "select 
                {}
@@ -611,9 +674,9 @@ impl RbacAccess {
                 param.app_id,
                 RbacRoleResRange::Include as i8,
                 RbacRoleUserRange::Session as i8,
-                param.op_key,
-                param.res_type,
-                param.res_data
+                op_key,
+                res_type,
+                res_data
             ));
         }
         Ok(sql)

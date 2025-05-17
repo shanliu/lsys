@@ -79,7 +79,7 @@ pub async fn mailer_message_body(
         .mailer
         .mailer_dao
         .mail_record
-        .find_message_by_id(&message_id)
+        .find_message_by_id(message_id)
         .await?;
     let body = req_dao
         .web_dao
@@ -87,7 +87,7 @@ pub async fn mailer_message_body(
         .mailer
         .mailer_dao
         .mail_record
-        .find_body_by_id(&msg.sender_body_id)
+        .find_body_by_id(msg.sender_body_id)
         .await?;
 
     req_dao
@@ -232,7 +232,7 @@ pub async fn mailer_message_cancel(
         .mailer
         .mailer_dao
         .mail_record
-        .find_message_by_id(&message_id)
+        .find_message_by_id(message_id)
         .await?;
     let body = req_dao
         .web_dao
@@ -240,7 +240,7 @@ pub async fn mailer_message_cancel(
         .mailer
         .mailer_dao
         .mail_record
-        .find_body_by_id(&msg.sender_body_id)
+        .find_body_by_id(msg.sender_body_id)
         .await?;
 
     let mut res = req_dao

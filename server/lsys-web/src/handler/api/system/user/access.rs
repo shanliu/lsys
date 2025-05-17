@@ -131,7 +131,7 @@ pub async fn app_logout(
         .web_access
         .access_dao
         .auth
-        .clear_app_login(&param.app_id)
+        .clear_app_login(param.app_id)
         .await?;
     Ok(JsonResponse::default())
 }

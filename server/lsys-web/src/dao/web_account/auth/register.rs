@@ -266,7 +266,7 @@ impl WebUserAuth {
             .account_email
             .valid_code_set(
                 &mut self.user_dao.account_dao.account_email.valid_code_builder(),
-                &0,
+                0,
                 param.email,
             )
             .await?;
@@ -296,7 +296,7 @@ impl WebUserAuth {
         self.user_dao
             .account_dao
             .account_email
-            .valid_code_check(param.code, &0, param.email)
+            .valid_code_check(param.code, 0, param.email)
             .await?;
         let reg_ip = env_data
             .map(|e| e.request_ip.clone().unwrap_or_default())
@@ -324,7 +324,7 @@ impl WebUserAuth {
             .user_dao
             .account_dao
             .account_email
-            .valid_code_clear(&0, param.email)
+            .valid_code_clear(0, param.email)
             .await;
         Ok(user.id)
     }

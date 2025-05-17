@@ -1,5 +1,5 @@
 //RBAC中资源相关实现
-use lsys_core::fluent_message;
+use lsys_core::{fluent_message, string_clear, StringClear, STRING_CLEAR_FORMAT};
 
 use crate::dao::result::{RbacError, RbacResult};
 use crate::model::{
@@ -48,11 +48,15 @@ impl RbacRes {
                 })));
             }
         }
-
+        let res_type = string_clear(
+            res_type_data.res_type,
+            StringClear::Option(STRING_CLEAR_FORMAT),
+            Some(33),
+        );
         let op_res = sqlx::query_as::<_, (u64, u64)>(&sql_format!(
             "select id,op_id from {} where res_type={} and user_id={} and app_id={} and op_id in ({})",
             RbacOpResModel::table_name(),
-            res_type_data.res_type,
+            res_type,
             res_type_data.user_id,
             res_type_data.app_id,
             op_vec.iter().map(|e| e.id).collect::<Vec<_>>()
@@ -76,7 +80,7 @@ impl RbacRes {
                         change_user_id:add_user_id,
                         status:(RbacOpResStatus::Enable as i8),
                     });
-                    if let Err(err) = Update::< RbacOpResModel, _>::new(item)
+                    if let Err(err) = Update::<RbacOpResModel, _>::new(item)
                         .execute_by_where(
                             &WhereOption::Where(sql_format!("id={}", *itemid)),
                             &mut *db,
@@ -146,10 +150,15 @@ impl RbacRes {
         };
         let mut res_start_id = 0;
         loop {
+            let res_type = string_clear(
+                res_type_data.res_type,
+                StringClear::Option(STRING_CLEAR_FORMAT),
+                Some(33),
+            );
             let sql = sql_format!(
                 "select * from {} where res_type={} and user_id={} and app_id={} and status ={} and id>{} order by id asc",
                 RbacResModel::table_name(),
-                res_type_data.res_type,
+                res_type,
                 res_type_data.user_id,
                 res_type_data.app_id,
                 RbacResStatus::Enable as i8,
@@ -188,11 +197,16 @@ impl RbacRes {
             change_time:time,
             status:(RbacOpResStatus::Delete as i8),
         });
-        let tmp = Update::< RbacOpResModel, _>::new(ddata)
+        let res_type = string_clear(
+            res_type_data.res_type,
+            StringClear::Option(STRING_CLEAR_FORMAT),
+            Some(33),
+        );
+        let tmp = Update::<RbacOpResModel, _>::new(ddata)
             .execute_by_where(
                 &lsys_core::db::WhereOption::Where(sql_format!(
                     "res_type={} and user_id={} and app_id={} and op_id in ({})",
-                    res_type_data.res_type,
+                    res_type,
                     res_type_data.user_id,
                     res_type_data.app_id,
                     op_id_vec
@@ -294,7 +308,12 @@ impl RbacRes {
                     change_time:time,
                     status:(RbacOpResStatus::Delete as i8),
                 });
-                let tmp = Update::< RbacOpResModel, _>::new(ddata)
+                let tmp_res_type = string_clear(
+                    tmp_res_type,
+                    StringClear::Option(STRING_CLEAR_FORMAT),
+                    Some(33),
+                );
+                let tmp = Update::<RbacOpResModel, _>::new(ddata)
                     .execute_by_where(
                         &lsys_core::db::WhereOption::Where(sql_format!(
                             "res_type={} and user_id={} and app_id={} and op_id in ({})",

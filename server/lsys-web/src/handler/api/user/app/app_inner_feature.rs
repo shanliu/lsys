@@ -21,7 +21,7 @@ pub async fn request_inner_feature_exter_login_request(
         .web_app
         .app_dao
         .app
-        .find_by_id(&param.app_id)
+        .find_by_id(param.app_id)
         .await?;
     req_dao
         .web_dao

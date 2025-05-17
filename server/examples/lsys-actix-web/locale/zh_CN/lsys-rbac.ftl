@@ -84,3 +84,18 @@ status-RbacAuditResult-Fail=授权通过
 
 status-RbacAuditIs-Yes=授权通过
 status-RbacAuditIs-No=授权失败
+
+
+
+#校验名称
+
+
+valid-rule-name-login_token_data  = 登陆标识符
+valid-rule-name-res_type = 资源类型
+valid-rule-name-res_data = 资源标识
+valid-rule-name-res_name = 资源名称
+valid-rule-name-op_key_data = 操作标识
+valid-rule-name-op_key = 操作标识
+valid-rule-name-op_name = 操作名称
+valid-rule-name-role_key = 角色标识
+valid-rule-name-role_name = 角色名称

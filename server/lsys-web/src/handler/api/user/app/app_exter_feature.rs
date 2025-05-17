@@ -24,7 +24,7 @@ pub async fn request_exter_feature(
         .web_app
         .app_dao
         .app
-        .find_by_id(&param.app_id)
+        .find_by_id(param.app_id)
         .await?;
     //添加外部功能时检测是否开通必要的的依赖关系
     let mut featch_key = Vec::with_capacity(param.featuer_data.len());
@@ -63,7 +63,7 @@ pub async fn request_exter_feature(
             .web_app
             .app_dao
             .app
-            .find_by_id(&app.parent_app_id)
+            .find_by_id(app.parent_app_id)
             .await?;
         //父应用必须已开通对应外部权限
         req_dao
@@ -109,7 +109,7 @@ pub async fn confirm_exter_feature(
         .web_app
         .app_dao
         .app
-        .request_find_by_id(&param.app_req_id)
+        .request_find_by_id(param.app_req_id)
         .await?;
     let confirm_status = AppRequestStatus::try_from(param.confirm_status)?;
     let app = req_dao
@@ -117,7 +117,7 @@ pub async fn confirm_exter_feature(
         .web_app
         .app_dao
         .app
-        .find_by_id(&req_app.app_id)
+        .find_by_id(req_app.app_id)
         .await?;
 
     if app.user_app_id == 0 {
@@ -129,7 +129,7 @@ pub async fn confirm_exter_feature(
         .web_app
         .app_dao
         .app
-        .find_by_id(&app.parent_app_id)
+        .find_by_id(app.parent_app_id)
         .await?;
 
     req_dao

@@ -64,7 +64,7 @@ impl AccountAddress {
         let mut valid_param = ValidParam::default();
         if let Some(statis) = statis {
             valid_param.add(
-                valid_key!("status"),
+                valid_key!("address_status"),
                 &statis,
                 &ValidParamCheck::default()
                     .add_rule(ValidNumber::eq(AccountAddressStatus::Enable as i8)),
@@ -72,14 +72,14 @@ impl AccountAddress {
         }
 
         valid_param.add(
-            valid_key!("name"),
+            valid_key!("address_name"),
             &address_data.name,
             &ValidParamCheck::default()
                 .add_rule(ValidPattern::NotFormat)
                 .add_rule(ValidStrlen::range(4, 16)),
         );
         valid_param.add(
-            valid_key!("country_code"),
+            valid_key!("address_country_code"),
             &address_data.country_code,
             &ValidParamCheck::default().add_rule(ValidStrlen::range(1, 21)),
         );
@@ -91,7 +91,7 @@ impl AccountAddress {
                 .add_rule(ValidStrlen::range(4, 21)),
         );
         valid_param.add(
-            valid_key!("mobile"),
+            valid_key!("address_mobile"),
             &address_data.mobile,
             &ValidParamCheck::default().add_rule(ValidMobile::default()),
         );

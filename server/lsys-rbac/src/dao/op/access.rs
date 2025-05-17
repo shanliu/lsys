@@ -3,7 +3,7 @@
 use crate::dao::result::RbacResult;
 use crate::model::{RbacOpModel, RbacOpStatus};
 use lsys_core::db::{ModelTableName, SqlExpr, SqlQuote};
-use lsys_core::sql_format;
+use lsys_core::{sql_format, string_clear, StringClear, STRING_CLEAR_FORMAT};
 use std::vec;
 
 use super::cache::OpCacheKey;
@@ -29,9 +29,14 @@ impl RbacOp {
         }
         let mut where_sql = Vec::with_capacity(keys.len());
         for rkey in keys {
+            let op_key = string_clear(
+                rkey.op_key,
+                StringClear::Option(STRING_CLEAR_FORMAT),
+                Some(33),
+            );
             where_sql.push(sql_format!(
                 "(op_key ={}  and user_id={} and app_id={})",
-                rkey.op_key,
+                op_key,
                 rkey.user_id,
                 rkey.app_id,
             ));
@@ -62,11 +67,16 @@ impl RbacOp {
     }
     /// 根据资源KEY获取资源
     pub async fn find_one_by_info<'a>(&self, rkey: &'a OpInfo<'a>) -> RbacResult<RbacOpModel> {
+        let op_key = string_clear(
+            rkey.op_key,
+            StringClear::Option(STRING_CLEAR_FORMAT),
+            Some(33),
+        );
         let sql = sql_format!(
             "select * from {} where
             op_key ={}  and user_id={} and app_id={} and status ={}",
             RbacOpModel::table_name(),
-            rkey.op_key,
+            op_key,
             rkey.user_id,
             rkey.app_id,
             RbacOpStatus::Enable as i8

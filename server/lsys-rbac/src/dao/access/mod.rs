@@ -46,7 +46,7 @@ impl RbacAccess {
         }
     }
     //指定用户ID是否为ROOT用户
-    pub fn is_root(&self, user_id: &u64) -> bool {
-        self.root_id_data.contains(user_id)
+    pub fn is_root(&self, user_id: u64) -> bool {
+        self.root_id_data.contains(&user_id)
     }
 }

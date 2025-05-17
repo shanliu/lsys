@@ -21,7 +21,7 @@ use lsys_core::db::{Insert, Update};
 use lsys_core::db::{ModelTableName, WhereOption};
 use lsys_core::{
     fluent_message, string_clear, valid_key, RemoteNotify, StringClear, ValidDomain,
-    ValidParamCheck, ValidPattern, ValidStrlen, STRING_CLEAR_FORMAT,
+    ValidParamCheck, STRING_CLEAR_FORMAT, STRING_CLEAR_XSS,
 };
 use lsys_core::{model_option_set, sql_format};
 use lsys_core::{now_time, ValidParam};
@@ -79,7 +79,7 @@ impl AppOAuthClient {
     async fn server_scope_check(&self, app: &AppModel, scope_data: &[&str]) -> AppResult<()> {
         if app.parent_app_id > 0 {
             //上级app需要开通 OAuthServer 权限
-            let papp = self.app.find_by_id(&app.parent_app_id).await?;
+            let papp = self.app.find_by_id(app.parent_app_id).await?;
             self.oauth_server.check_scope(&papp, scope_data).await?;
         }
         Ok(())
@@ -322,6 +322,11 @@ impl AppOAuthClient {
         confirm_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> AppResult<()> {
+        let confirm_note = string_clear(
+            confirm_note,
+            StringClear::Option(STRING_CLEAR_FORMAT | STRING_CLEAR_XSS),
+            Some(255),
+        );
         app.app_status_check()?;
         if ![AppRequestStatus::Approved, AppRequestStatus::Rejected].contains(&req_status) {
             return Err(AppError::System(fluent_message!("app-req-status-invalid")));
@@ -354,7 +359,7 @@ impl AppOAuthClient {
         if req_status == AppRequestStatus::Rejected {
             //驳回
             let status = req_status as i8;
-            let confirm_note = confirm_note.to_owned();
+            // let confirm_note = confirm_note.to_owned();
             let change = model_option_set!(AppRequestModelRef,{
                 status:status,
                 confirm_user_id:confirm_user_id,
@@ -681,7 +686,7 @@ impl AppOAuthClient {
     async fn oauth_set_domain_param_valid(&self, callback_domain: &str) -> AppResult<()> {
         ValidParam::default()
             .add(
-                valid_key!("callback-domain"),
+                valid_key!("callback_domain"),
                 &callback_domain,
                 &ValidParamCheck::default().add_rule(ValidDomain::default()),
             )
@@ -755,26 +760,6 @@ impl AppOAuthClient {
             .await;
         Ok(())
     }
-    async fn secret_check_param_valid(&self, secret: Option<&str>) -> AppResult<String> {
-        let client_secret = match secret {
-            Some(sstr) => {
-                let secret = string_clear(sstr, StringClear::Option(STRING_CLEAR_FORMAT), None);
-                ValidParam::default()
-                    .add(
-                        valid_key!("secret"),
-                        &secret,
-                        &ValidParamCheck::default()
-                            .add_rule(ValidStrlen::eq(32))
-                            .add_rule(ValidPattern::Hex),
-                    )
-                    .check()?;
-
-                secret
-            }
-            None => rand_str(lsys_core::RandType::LowerHex, 32),
-        };
-        Ok(client_secret)
-    }
     //添加secret
     pub async fn secret_add(
         &self,
@@ -784,7 +769,10 @@ impl AppOAuthClient {
         change_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> AppResult<String> {
-        let client_secret = self.secret_check_param_valid(secret).await?;
+        let client_secret = match secret {
+            Some(sstr) => sstr.to_string(),
+            None => rand_str(lsys_core::RandType::LowerHex, 32),
+        };
         self.app_secret
             .multiple_add(
                 app.id,
@@ -822,7 +810,10 @@ impl AppOAuthClient {
         change_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> AppResult<String> {
-        let client_secret = self.secret_check_param_valid(secret).await?;
+        let client_secret = match secret {
+            Some(sstr) => sstr.to_string(),
+            None => rand_str(lsys_core::RandType::LowerHex, 32),
+        };
         self.app_secret
             .multiple_change(
                 app.id,

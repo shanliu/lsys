@@ -25,7 +25,7 @@ pub(super) async fn mailer_inner_access_check(
         .app_dao
         .app
         .cache()
-        .find_by_id(&app_id)
+        .find_by_id(app_id)
         .await?;
 
     req_dao
@@ -103,7 +103,7 @@ pub async fn mailer_config_del(
         .mailer
         .mailer_dao
         .mail_record
-        .find_config_by_id(&param.config_id)
+        .find_config_by_id(param.config_id)
         .await?;
     mailer_inner_access_check(config.app_id, config.user_id, Some(&auth_data), req_dao).await?;
     req_dao
@@ -303,7 +303,7 @@ pub async fn mailer_tpl_config_del(
         .mailer
         .mailer_dao
         .tpl_config
-        .find_by_id(&param.config_id)
+        .find_by_id(param.config_id)
         .await?;
     mailer_inner_access_check(config.app_id, config.user_id, Some(&auth_data), req_dao).await?;
     let row = req_dao

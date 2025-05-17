@@ -20,7 +20,7 @@ use super::App;
 
 impl App {
     /// 根据APP id 找到对应记录
-    pub async fn find_by_id(&self, id: &u64) -> AppResult<AppModel> {
+    pub async fn find_by_id(&self, id: u64) -> AppResult<AppModel> {
         sqlx::query_as::<_, AppModel>(&sql_format!(
             "select * from {} where id={}",
             AppModel::table_name(),
@@ -428,6 +428,10 @@ impl App {
             sql_vec.push(sql_format!("status = {}", *tmp as i8));
         }
         if let Some(ref tmp) = app_where.client_id {
+            let tmp = string_clear(tmp, StringClear::Option(STRING_CLEAR_FORMAT), Some(64));
+            if tmp.is_empty() {
+                return None;
+            }
             sql_vec.push(sql_format!("client_id = {}", tmp));
         };
         if let Some(ref tmp) = app_where.app_id {

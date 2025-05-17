@@ -9,8 +9,8 @@ use crate::{
 };
 use lsys_core::db::SqlQuote;
 use lsys_core::db::{ModelTableName, SqlExpr};
-use lsys_core::sql_format;
-use lsys_core::PageParam;
+use lsys_core::{sql_format, string_clear};
+use lsys_core::{PageParam, StringClear, STRING_CLEAR_FORMAT};
 use serde::Serialize;
 use sqlx::Row;
 
@@ -389,13 +389,22 @@ impl RbacAccess {
         //该数据直接映射为对应角色
         role_data: &AccessSessionRole<'_>,
     ) -> RbacResult<RbacRoleResRange> {
-        let sql=sql_format!(
+        let role_key = string_clear(
+            role_data.role_key,
+            StringClear::Option(STRING_CLEAR_FORMAT),
+            Some(33),
+        );
+        if role_key.is_empty() {
+            return Err(sqlx::Error::RowNotFound.into());
+        }
+
+        let sql = sql_format!(
             "select role.res_range
             from {} as role 
             where role.status ={} and role.role_key={} and role.user_id={} and role.user_range = {} limit 1",
             RbacRoleModel::table_name(),
             RbacRoleStatus::Enable as i8,
-            role_data.role_key,
+            role_key ,
             role_data.user_id,
             RbacRoleUserRange::Session as i8,
         );
@@ -410,6 +419,11 @@ impl RbacAccess {
         res_range: RbacRoleResRange,
         field: &str,
     ) -> String {
+        let role_key = string_clear(
+            role_data.role_key,
+            StringClear::Option(STRING_CLEAR_FORMAT),
+            Some(33),
+        );
         sql_format!(
             "select {}
             from {} as role 
@@ -426,7 +440,7 @@ impl RbacAccess {
             RbacResModel::table_name(),
             RbacOpModel::table_name(),
             RbacRoleStatus::Enable as i8,
-            role_data.role_key,
+            role_key,
             res_range as i8,
             role_data.user_id,
             RbacRoleUserRange::Session as i8,

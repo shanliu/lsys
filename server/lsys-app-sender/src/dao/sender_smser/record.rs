@@ -10,7 +10,11 @@ use crate::{
         SenderSmsMessageModel, SenderSmsMessageModelRef, SenderSmsMessageStatus, SenderType,
     },
 };
-use lsys_core::{fluent_message, now_time, LimitParam, PageParam, RequestEnv};
+use lsys_core::{
+    fluent_message, now_time, string_clear, valid_key, LimitParam, PageParam, RequestEnv,
+    StringClear, ValidMobile, ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
+    STRING_CLEAR_FORMAT,
+};
 
 use lsys_core::db::{Insert, ModelTableName, SqlExpr, Update};
 use lsys_core::sql_format;
@@ -48,11 +52,11 @@ impl SmsRecord {
     }
     //读取短信任务数据
     //根据ID获取消息
-    pub async fn find_message_by_id(&self, id: &u64) -> SenderResult<SenderSmsMessageModel> {
-        self.message_reader.find_message_by_id(id).await
+    pub async fn find_message_by_id(&self, id: u64) -> SenderResult<SenderSmsMessageModel> {
+        self.message_reader.find_message_by_id(&id).await
     }
-    pub async fn find_body_by_id(&self, id: &u64) -> SenderResult<SenderSmsBodyModel> {
-        self.message_reader.find_body_by_id(id).await
+    pub async fn find_body_by_id(&self, id: u64) -> SenderResult<SenderSmsBodyModel> {
+        self.message_reader.find_body_by_id(&id).await
     }
     //消息数量
     #[allow(clippy::too_many_arguments)]
@@ -68,6 +72,10 @@ impl SmsRecord {
     ) -> SenderResult<i64> {
         let mut sqlwhere = vec![];
         if let Some(s) = mobile {
+            let s = string_clear(s, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
+            if s.is_empty() {
+                return Ok(0);
+            }
             sqlwhere.push(sql_format!("m.mobile={}", s));
         }
 
@@ -78,6 +86,10 @@ impl SmsRecord {
             sqlwhere.push(sql_format!("b.user_id={} ", uid));
         }
         if let Some(t) = tpl_id {
+            let t = string_clear(t, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
+            if t.is_empty() {
+                return Ok(0);
+            }
             sqlwhere.push(sql_format!("b.tpl_id={} ", t));
         }
         if let Some(s) = status {
@@ -120,8 +132,12 @@ impl SmsRecord {
         Option<u64>,
     )> {
         let mut sqlwhere = vec![];
-        if let Some(s) = mobile {
-            sqlwhere.push(sql_format!("m.mobile={}", s));
+        if let Some(t) = mobile {
+            let t = string_clear(t, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
+            if t.is_empty() {
+                return Ok((vec![], None));
+            }
+            sqlwhere.push(sql_format!("m.mobile={}", t));
         }
 
         if let Some(aid) = app_id {
@@ -131,6 +147,10 @@ impl SmsRecord {
             sqlwhere.push(sql_format!("b.user_id={} ", uid));
         }
         if let Some(t) = tpl_id {
+            let t = string_clear(t, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
+            if t.is_empty() {
+                return Ok((vec![], None));
+            }
             sqlwhere.push(sql_format!("b.tpl_id={} ", t));
         }
         if let Some(s) = status {
@@ -231,6 +251,50 @@ impl SmsRecord {
     ) -> SenderResult<Vec<SenderLogModel>> {
         self.message_logs.list_data(message_id, page).await
     }
+    #[allow(clippy::too_many_arguments)]
+    async fn add_param_valid(
+        &self,
+        mobiles: &[(&str, &str)],
+        app_id: u64,
+        tpl_id: &str,
+        tpl_var: &str,
+        max_try_num: u8,
+    ) -> SenderResult<()> {
+        let mut param_valid = ValidParam::default();
+        for mt in mobiles {
+            param_valid.add(
+                valid_key!("mobile"),
+                &format!("{}{}", mt.0, mt.1),
+                &ValidParamCheck::default().add_rule(ValidMobile::default()),
+            );
+        }
+
+        param_valid
+            .add(
+                valid_key!("app_id"),
+                &app_id,
+                &ValidParamCheck::default().add_rule(ValidNumber::id()),
+            )
+            .add(
+                valid_key!("tpl_id"),
+                &tpl_id,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Ident)
+                    .add_rule(ValidStrlen::range(1, 32)),
+            )
+            .add(
+                valid_key!("tpl_var"),
+                &tpl_var,
+                &ValidParamCheck::default().add_rule(ValidStrlen::range(1, 20000)),
+            )
+            .add(
+                valid_key!("max_try_num"),
+                &max_try_num,
+                &ValidParamCheck::default().add_rule(ValidNumber::range(0, 5)),
+            );
+        param_valid.check()?;
+        Ok(())
+    }
     //添加短信任务
     #[allow(clippy::too_many_arguments)]
     pub(crate) async fn add<'t>(
@@ -245,6 +309,8 @@ impl SmsRecord {
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<(u64, Vec<(u64, &'t str, &'t str)>)> //返回(body id,<msg id,area,mobile>)
     {
+        self.add_param_valid(mobiles, app_id, tpl_id, tpl_var, max_try_num)
+            .await?;
         let user_id = user_id.unwrap_or_default();
         let add_time = now_time().unwrap_or_default();
         let tpl_id = tpl_id.to_owned();
@@ -354,7 +420,7 @@ impl SmsRecord {
         &self,
         body: &SenderSmsBodyModel,
         message: &SenderSmsMessageModel,
-        user_id: &u64,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<()> {
         if SenderSmsMessageStatus::IsCancel.eq(message.status) {
@@ -374,11 +440,11 @@ impl SmsRecord {
                         action: "cancel",
                         sender_type: SenderType::Smser as i8,
                         body_id: body.id,
-                        user_id: *user_id,
+                        user_id,
                         message_id: Some(message.id),
                     },
                     Some(message.id),
-                    Some(*user_id),
+                    Some(user_id),
                     None,
                     env_data,
                 )
@@ -400,7 +466,7 @@ impl SmsRecord {
         // )))
     }
     //查找短信基本配置
-    pub async fn find_config_by_id(&self, id: &u64) -> SenderResult<SenderConfigModel> {
+    pub async fn find_config_by_id(&self, id: u64) -> SenderResult<SenderConfigModel> {
         self.config.find_by_id(id).await
     }
     //短信配置添加
@@ -605,7 +671,21 @@ impl SmsRecord {
                     }
                     let msql = mobiles
                         .iter()
-                        .map(|e| sql_format!("area={} and mobile={}", e.0, e.1))
+                        .map(|e| {
+                            sql_format!(
+                                "area={} and mobile={}",
+                                string_clear(
+                                    e.0,
+                                    StringClear::Option(STRING_CLEAR_FORMAT),
+                                    Some(33)
+                                ),
+                                string_clear(
+                                    e.1,
+                                    StringClear::Option(STRING_CLEAR_FORMAT),
+                                    Some(33)
+                                )
+                            )
+                        })
                         .collect::<Vec<String>>()
                         .join(" or ");
                     let stime = nowt - limit.range_time;

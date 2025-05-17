@@ -16,7 +16,8 @@ use crate::{
 };
 use lsys_core::{
     db::{Insert, ModelTableName, Update, WhereOption},
-    string_clear, valid_key, ValidContains, ValidGit, ValidParam, ValidParamCheck,
+    string_clear, valid_key, ValidContains, ValidGit, ValidNumber, ValidParam, ValidParamCheck,
+    ValidPattern, ValidStrlen, ValidUrl,
 };
 use lsys_core::{
     db::{SqlExpr, SqlQuote},
@@ -82,8 +83,19 @@ pub struct GitDetail {
     pub version: String,
 }
 impl GitDocs {
+    async fn git_detail_param_valid(&self, url: &str) -> GitDocResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("git_url"),
+                &url,
+                &ValidParamCheck::default().add_rule(ValidUrl::default()),
+            )
+            .check()?;
+        Ok(())
+    }
     /// 通知发送模块进行发送操作
     pub async fn git_detail(&self, url: &str) -> GitDocResult<Vec<GitDetail>> {
+        self.git_detail_param_valid(url).await?;
         if let Err(err) = Url::parse(url) {
             // format!(
             //     "url parse fail:{}",
@@ -187,6 +199,23 @@ pub struct GitDocsData<'t> {
     pub max_try: u8,
 }
 impl GitDocs {
+    async fn git_param_valid(&self, param: &GitDocsData<'_>) -> GitDocResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("name"),
+                &param.name,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 64)),
+            )
+            .add(
+                valid_key!("max_try"),
+                &param.max_try,
+                &ValidParamCheck::default().add_rule(ValidNumber::range(0, 3)),
+            )
+            .check()?;
+        Ok(())
+    }
     /// 通知发送模块进行发送操作
     pub async fn git_add(
         &self,
@@ -194,6 +223,7 @@ impl GitDocs {
         user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> GitDocResult<u32> {
+        self.git_param_valid(param).await?;
         let url = match Url::parse(param.url) {
             Ok(url) => url.to_string(),
             Err(err) => {
@@ -258,6 +288,7 @@ impl GitDocs {
         user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> GitDocResult<()> {
+        self.git_param_valid(param).await?;
         let url = match Url::parse(param.url) {
             Ok(url) => url.to_string(),
             Err(err) => {
@@ -267,15 +298,8 @@ impl GitDocs {
                 )));
             }
         };
-        let name = {
-            if param.name.trim().is_empty() {
-                return Err(crate::dao::GitDocError::System(fluent_message!(
-                    "doc-git-name-empty"
-                )));
-            }
-            param.name.trim().to_string()
-        };
-
+        let data = self.git_detail(param.url).await?;
+        let name = param.name.to_string();
         let tag_data = sqlx::query_as::<_, DocGitTagModel>(&sql_format!(
             "select * from {} where doc_git_id={} and status in ({})",
             DocGitTagModel::table_name(),
@@ -285,7 +309,6 @@ impl GitDocs {
         .fetch_all(&self.db)
         .await?;
 
-        let data = self.git_detail(param.url).await?;
         if !tag_data.is_empty() {
             for tmp in tag_data {
                 if !data
@@ -416,12 +439,12 @@ impl GitDocs {
     ) -> GitDocResult<()> {
         ValidParam::default()
             .add(
-                valid_key!("status"),
+                valid_key!("git_status"),
                 &doc_git.status,
                 &ValidParamCheck::default().add_rule(ValidContains(&[DocGitStatus::Enable as i8])),
             )
             .add(
-                valid_key!("git-version"),
+                valid_key!("git_version"),
                 &param.build_version,
                 &ValidParamCheck::default().add_rule(ValidGit::VersionHash),
             )
@@ -735,7 +758,7 @@ impl GitDocs {
             where_sql += &sql_format!(" and doc_git_id = {}", git_id);
         }
         if let Some(kw) = key_word {
-            let kw = string_clear(kw, StringClear::LikeKeyWord, None);
+            let kw = string_clear(kw, StringClear::LikeKeyWord, Some(65));
             if kw.is_empty() {
                 return Ok(vec![]);
             }
@@ -849,7 +872,7 @@ impl GitDocs {
             where_sql += &sql_format!(" and doc_git_id = {}", git_id);
         }
         if let Some(kw) = key_word {
-            let kw = string_clear(kw, StringClear::LikeKeyWord, None);
+            let kw = string_clear(kw, StringClear::LikeKeyWord, Some(65));
             where_sql += &sql_format!(
                 " and (tag like {} or  build_version like {})",
                 format!("%{}%", kw),
@@ -866,7 +889,7 @@ impl GitDocs {
             .await?)
     }
     //指定TAG的日志
-    pub async fn tags_logs(&self, git_tag_id: &u32) -> GitDocResult<Vec<DocLogsModel>> {
+    pub async fn tags_logs(&self, git_tag_id: u32) -> GitDocResult<Vec<DocLogsModel>> {
         Ok(sqlx::query_as::<_, DocLogsModel>(&sql_format!(
             "select * from {} where doc_tag_id = {}",
             DocLogsModel::table_name(),
@@ -916,9 +939,9 @@ impl GitDocs {
             ));
         }
 
-        let safe_path = git_doc_path(&self.save_dir, &clone_data.id, &None).await?;
+        let safe_path = git_doc_path(&self.save_dir, clone_data.id, &None).await?;
         let file_path =
-            git_doc_path(&self.save_dir, &clone_data.id, &Some(prefix.to_string())).await?;
+            git_doc_path(&self.save_dir, clone_data.id, &Some(prefix.to_string())).await?;
 
         if !prefix.is_empty() && !file_path.starts_with(&safe_path) {
             return Err(crate::dao::GitDocError::System(
@@ -996,9 +1019,9 @@ impl GitDocs {
             ));
         }
 
-        let safe_path = git_doc_path(&self.save_dir, &clone_data.id, &None).await?;
+        let safe_path = git_doc_path(&self.save_dir, clone_data.id, &None).await?;
         let file_path =
-            git_doc_path(&self.save_dir, &clone_data.id, &Some(menu_file.to_owned())).await?;
+            git_doc_path(&self.save_dir, clone_data.id, &Some(menu_file.to_owned())).await?;
         if !file_path.starts_with(&safe_path) {
             // format!(
             //     "access fail on file:{}",
@@ -1048,23 +1071,33 @@ pub struct DocPath {
     pub version: String,
 }
 
-pub struct GitDocsMenuData<'t> {
-    pub menu_path: &'t str,
-}
 impl GitDocs {
+    async fn menu_add_param_valid(&self, menu_path: &str) -> GitDocResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("menu_path"),
+                &menu_path,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 256)),
+            )
+            .check()?;
+        Ok(())
+    }
     pub async fn menu_add(
         &self,
         tag: &DocGitTagModel,
-        menu_param: &GitDocsMenuData<'_>,
+        menu_path: &str,
         user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> GitDocResult<u64> {
-        if menu_param.menu_path.trim().is_empty() {
-            return Err(crate::dao::GitDocError::System(
-                fluent_message!("doc-git-menu-name-empty"), // "menu path can't be empty".to_string(),
-            ));
-        }
-        let menu_file = self.menu_file_read(tag, menu_param.menu_path).await?;
+        self.menu_add_param_valid(menu_path).await?;
+        // if menu_path.trim().is_empty() {
+        //     return Err(crate::dao::GitDocError::System(
+        //         fluent_message!("doc-git-menu-name-empty"), // "menu path can't be empty".to_string(),
+        //     ));
+        // }
+        let menu_file = self.menu_file_read(tag, menu_path).await?;
         let dat_u8 = read(&menu_file.file_path).await.map_err(|e| {
             // format!("your sumbit path,can't read data:{}", e)
             GitDocError::System(fluent_message!("doc-git-menu-file-error",{
@@ -1098,7 +1131,7 @@ impl GitDocs {
             //     err
             // )
         }
-        let menu_path = menu_param.menu_path.trim().to_string();
+        let menu_path = menu_path.trim().to_string();
 
         let sql = sql_format!(
             "doc_tag_id = {} and menu_path={} and status={}",
@@ -1222,6 +1255,8 @@ impl GitDocs {
 impl GitDocs {
     /// 通知发送模块进行发送操作
     pub async fn menu_file(&self, menu_id: u32, path: &str) -> GitDocResult<DocPath> {
+        let mut path = path.replace("..", "");
+        path = path.replace("//", "/");
         let host_name = hostname::get()
             .unwrap_or_default()
             .to_string_lossy()
@@ -1253,10 +1288,10 @@ impl GitDocs {
             .unwrap_or_else(|| PathBuf::from("./"));
         rel_file_path.push(PathBuf::from(path));
 
-        let safe_path = git_doc_path(&self.save_dir, &clone_id, &None).await?;
+        let safe_path = git_doc_path(&self.save_dir, clone_id, &None).await?;
         let file_path = git_doc_path(
             &self.save_dir,
-            &clone_id,
+            clone_id,
             &Some(rel_file_path.to_string_lossy().to_string()),
         )
         .await?;
@@ -1334,9 +1369,9 @@ impl GitDocs {
         for (menu_id, tag_id, menu_path, version) in data {
             let menu_data = match clone_data.iter().find(|e| e.1 == tag_id) {
                 Some((clone_id, _)) => {
-                    let safe_path = git_doc_path(&self.save_dir, clone_id, &None).await?;
+                    let safe_path = git_doc_path(&self.save_dir, *clone_id, &None).await?;
                     let file_path =
-                        git_doc_path(&self.save_dir, clone_id, &Some(menu_path.clone())).await?;
+                        git_doc_path(&self.save_dir, *clone_id, &Some(menu_path.clone())).await?;
                     if !file_path.starts_with(&safe_path) {
                         Err(format!("access fail on file:{:?}", file_path,))
                     } else {

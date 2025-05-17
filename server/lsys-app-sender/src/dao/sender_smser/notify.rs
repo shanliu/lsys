@@ -256,7 +256,7 @@ impl SmsSendNotify {
                                 Some(b) => {
                                     //正常解析的回调写日志跟进行回调通知
                                     self.message_logs
-                                        .add_exec_log(&b.app_id, &[(m.id, status, &msg)], "")
+                                        .add_exec_log(b.app_id, &[(m.id, status, &msg)], "")
                                         .await;
                                     add_notify_callback(&self.db, &self.notify, b.app_id, m.id)
                                         .await;

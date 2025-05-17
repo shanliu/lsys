@@ -5,11 +5,15 @@ use lsys_core::db::ModelTableName;
 use lsys_core::db::SqlQuote;
 use lsys_core::db::Update;
 use lsys_core::db::WhereOption;
-use lsys_core::fluent_message;
 use lsys_core::now_time;
 use lsys_core::rand_str;
 use lsys_core::sql_format;
+use lsys_core::valid_key;
 use lsys_core::RemoteNotify;
+use lsys_core::ValidParam;
+use lsys_core::ValidParamCheck;
+use lsys_core::ValidPattern;
+use lsys_core::ValidStrlen;
 use serde::Deserialize;
 use serde::Serialize;
 use sqlx::Acquire;
@@ -75,6 +79,15 @@ impl AppSecret {
         user_id: u64,
         transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
     ) -> Result<(), AppError> {
+        ValidParam::default()
+            .add(
+                valid_key!("secret_data"),
+                &secret_data,
+                &ValidParamCheck::default()
+                    .add_rule(ValidStrlen::range(32, 64))
+                    .add_rule(ValidPattern::Hex),
+            )
+            .check()?;
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
@@ -82,11 +95,6 @@ impl AppSecret {
 
         let ntime = now_time().unwrap_or_default();
         let time_out = if time_out > 0 { ntime + time_out } else { 0 };
-        if time_out > 0 && time_out < ntime {
-            return Err(AppError::System(
-                fluent_message!("bad-timeout-param",{"time":time_out}),
-            ));
-        }
         let secret_status = AppSecretStatus::Enable as i8;
         let secret_type = secret_type as i8;
         let secret_data = secret_data.to_owned();
@@ -158,13 +166,18 @@ impl AppSecret {
         user_id: u64,
         db: E,
     ) -> Result<(), AppError> {
+        ValidParam::default()
+            .add(
+                valid_key!("secret_data"),
+                &secret_data,
+                &ValidParamCheck::default()
+                    .add_rule(ValidStrlen::range(32, 64))
+                    .add_rule(ValidPattern::Hex),
+            )
+            .check()?;
         let ntime = now_time().unwrap_or_default();
         let time_out = if time_out > 0 { ntime + time_out } else { 0 };
-        if time_out > 0 && time_out < ntime {
-            return Err(AppError::System(
-                fluent_message!("bad-timeout-param",{"time":time_out}),
-            ));
-        }
+
         let secret_status = AppSecretStatus::Enable as i8;
         let secret_type = secret_type as i8;
         let secret_data = secret_data.to_owned();
@@ -204,6 +217,15 @@ impl AppSecret {
         change_user_id: u64,
         db: E,
     ) -> Result<(), AppError> {
+        ValidParam::default()
+            .add(
+                valid_key!("secret"),
+                &secret_data,
+                &ValidParamCheck::default()
+                    .add_rule(ValidStrlen::range(32, 64))
+                    .add_rule(ValidPattern::Hex),
+            )
+            .check()?;
         let secret_data = secret_data.to_owned();
         let ntime = now_time().unwrap_or_default();
         let status_del = AppSecretStatus::Delete as i8;
@@ -243,13 +265,25 @@ impl AppSecret {
         change_user_id: u64,
         db: E,
     ) -> Result<(), AppError> {
+        ValidParam::default()
+            .add(
+                valid_key!("secret_data"),
+                &secret_data,
+                &ValidParamCheck::default()
+                    .add_rule(ValidStrlen::range(32, 64))
+                    .add_rule(ValidPattern::Hex),
+            )
+            .add(
+                valid_key!("old_secret_data"),
+                &secret_data,
+                &ValidParamCheck::default()
+                    .add_rule(ValidStrlen::range(32, 64))
+                    .add_rule(ValidPattern::Hex),
+            )
+            .check()?;
         let ntime = now_time().unwrap_or_default();
         let time_out = if time_out > 0 { ntime + time_out } else { 0 };
-        if time_out > 0 && time_out < ntime {
-            return Err(AppError::System(
-                fluent_message!("bad-timeout-param",{"time":time_out}),
-            ));
-        }
+
         let secret_data = secret_data.to_owned();
         let secret_udata = lsys_core::model_option_set!(AppSecretModelRef,{
             secret_data:secret_data,
@@ -286,6 +320,15 @@ impl AppSecret {
         change_user_id: u64,
         db: E,
     ) -> AppResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("secret_data"),
+                &secret_data,
+                &ValidParamCheck::default()
+                    .add_rule(ValidStrlen::range(32, 64))
+                    .add_rule(ValidPattern::Hex),
+            )
+            .check()?;
         let ntime = now_time().unwrap_or_default();
         let secret_status = AppSecretStatus::Delete as i8;
         let secret_udata = lsys_core::model_option_set!(AppSecretModelRef,{

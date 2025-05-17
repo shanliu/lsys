@@ -13,7 +13,7 @@ use actix_web::{dev::Payload, Error, FromRequest, HttpRequest};
 use futures_util::{ready, FutureExt};
 
 use lsys_app::dao::RestAuthToken;
-use lsys_core::RequestEnv;
+use lsys_core::{IntoFluentMessage, RequestEnv};
 
 use lsys_web::common::{JsonData, JsonResponse, RequestDao, RequestSessionToken};
 use lsys_web::dao::WebDao;
@@ -152,17 +152,28 @@ impl Future for RestExtractFut {
                                         Ok(body) => {
                                             rfc.payload = Some(body);
                                             check_sign(&rfc, &key_fn, app_dao.to_owned()).await?;
-                                            Ok(RestQuery::new(
-                                                app_dao.into_inner(),
-                                                RequestEnv::new(
-                                                    rfc.request_lang.as_deref(),
-                                                    rfc.request_ip.as_deref(),
-                                                    rfc.request_id.as_deref(),
-                                                    None,
-                                                    None,
-                                                ),
-                                                rfc,
-                                            ))
+                                            match RequestEnv::new(
+                                                rfc.request_lang.as_deref(),
+                                                rfc.request_ip.as_deref(),
+                                                rfc.request_id.as_deref(),
+                                                None,
+                                                None,
+                                            ) {
+                                                Ok(env) => Ok(RestQuery::new(
+                                                    app_dao.into_inner(),
+                                                    env,
+                                                    rfc,
+                                                )),
+                                                Err(verr) => Err(JsonResponse::data(
+                                                    JsonData::default()
+                                                        .set_sub_code("env_valid_err")
+                                                        .set_code(400),
+                                                )
+                                                .set_message(
+                                                    verr.to_fluent_message().default_format(),
+                                                )
+                                                .into()),
+                                            }
                                         }
                                         Err(err) => Err(err.into()),
                                     }
@@ -186,17 +197,24 @@ impl Future for RestExtractFut {
                             Some(rfc) => {
                                 let mut future = Box::pin(async move {
                                     check_sign(&rfc, &key_fn, app_dao.to_owned()).await?;
-                                    Ok(RestQuery::new(
-                                        app_dao.into_inner(),
-                                        RequestEnv::new(
-                                            rfc.request_lang.as_deref(),
-                                            rfc.request_ip.as_deref(),
-                                            rfc.request_id.as_deref(),
-                                            None,
-                                            None,
-                                        ),
-                                        rfc,
-                                    ))
+                                    match RequestEnv::new(
+                                        rfc.request_lang.as_deref(),
+                                        rfc.request_ip.as_deref(),
+                                        rfc.request_id.as_deref(),
+                                        None,
+                                        None,
+                                    ) {
+                                        Ok(env) => {
+                                            Ok(RestQuery::new(app_dao.into_inner(), env, rfc))
+                                        }
+                                        Err(verr) => Err(JsonResponse::data(
+                                            JsonData::default()
+                                                .set_sub_code("env_valid_err")
+                                                .set_code(400),
+                                        )
+                                        .set_message(verr.to_fluent_message().default_format())
+                                        .into()),
+                                    }
                                 });
                                 match future.as_mut().poll(cx) {
                                     Poll::Ready(item) => Poll::Ready(Ok(item?)),

@@ -163,7 +163,7 @@ impl AppDao {
             let app = self
                 .app
                 .cache()
-                .find_by_id(&session.session().user_app_id)
+                .find_by_id(session.session().user_app_id)
                 .await
                 .map_err(|e| {
                     AccessError::System(fluent_message!("app-bad-id-error",{

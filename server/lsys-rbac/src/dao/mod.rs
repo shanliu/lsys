@@ -1,5 +1,3 @@
-#[macro_use]
-mod macros;
 mod access;
 mod cache;
 mod op;

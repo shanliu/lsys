@@ -8,7 +8,7 @@ use crate::{
 };
 use lsys_core::{
     db::{ModelTableName, SqlExpr, SqlQuote},
-    string_clear,
+    string_clear, STRING_CLEAR_FORMAT,
 };
 use lsys_core::{impl_dao_fetch_map_by_vec, impl_dao_fetch_one_by_one, now_time, PageParam};
 use lsys_core::{sql_format, StringClear};
@@ -66,6 +66,10 @@ impl RbacRole {
             sql += sql_format!(" and app_id = {}", val).as_str();
         }
         if let Some(val) = role_param.role_key {
+            let val = string_clear(val, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
+            if val.is_empty() {
+                return None;
+            }
             sql += sql_format!(" and role_key = {}", val).as_str();
         }
         if let Some(val) = role_param.user_range {
@@ -76,9 +80,6 @@ impl RbacRole {
         }
         if let Some(val) = role_param.role_name {
             let val = string_clear(val, StringClear::LikeKeyWord, None);
-            if val.is_empty() {
-                return None;
-            }
             sql += sql_format!(" and role_name like {}", format!("%{}%", val)).as_str();
         }
         if let Some(rid) = role_param.ids {

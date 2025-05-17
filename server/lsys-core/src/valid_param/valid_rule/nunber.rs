@@ -8,11 +8,12 @@ pub trait ValidNumberRange: PartialOrd + Copy + Default {
     /// 返回该类型的最大值
     fn max_value() -> Self;
     fn min_value() -> Self;
+    fn zero_value() -> Self;
 }
 
 // 为常用数字类型实现 ValidNumberRange
 macro_rules! impl_number_range {
-    ($($t:ty),*) => {
+    (int $($t:ty),*) => {
         $(
             impl ValidNumberRange for $t {
                 fn max_value() -> Self {
@@ -21,11 +22,30 @@ macro_rules! impl_number_range {
                 fn min_value() -> Self {
                     <$t>::MIN
                 }
+                fn zero_value() -> Self {
+                    0
+                }
+            }
+        )*
+    };
+    (float $($t:ty),*) => {
+        $(
+            impl ValidNumberRange for $t {
+                fn max_value() -> Self {
+                    <$t>::MAX
+                }
+                fn min_value() -> Self {
+                    <$t>::MIN
+                }
+                fn zero_value() -> Self {
+                    0.0
+                }
             }
         )*
     };
 }
-impl_number_range!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, f32, f64);
+impl_number_range!(int u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize);
+impl_number_range!(float f32, f64);
 
 pub struct ValidNumber<T: ValidNumberRange> {
     min: T,
@@ -34,10 +54,10 @@ pub struct ValidNumber<T: ValidNumberRange> {
 }
 
 impl<T: ValidNumberRange> ValidNumber<T> {
-    pub fn id() -> ValidNumber<u64> {
+    pub fn id() -> ValidNumber<T> {
         ValidNumber {
-            min: 0,
-            max: u64::MAX,
+            min: T::zero_value(),
+            max: T::max_value(),
             _marker: PhantomData,
         }
     }

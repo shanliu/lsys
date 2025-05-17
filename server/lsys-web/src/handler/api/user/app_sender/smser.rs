@@ -29,7 +29,7 @@ pub async fn smser_message_log(
         .smser
         .smser_dao
         .sms_record
-        .find_message_by_id(&message_id)
+        .find_message_by_id(message_id)
         .await?;
     let body = req_dao
         .web_dao
@@ -37,7 +37,7 @@ pub async fn smser_message_log(
         .smser
         .smser_dao
         .sms_record
-        .find_body_by_id(&msg.sender_body_id)
+        .find_body_by_id(msg.sender_body_id)
         .await?;
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
@@ -95,7 +95,7 @@ pub async fn smser_message_body(
         .smser
         .smser_dao
         .sms_record
-        .find_message_by_id(&message_id)
+        .find_message_by_id(message_id)
         .await?;
     let body = req_dao
         .web_dao
@@ -103,7 +103,7 @@ pub async fn smser_message_body(
         .smser
         .smser_dao
         .sms_record
-        .find_body_by_id(&msg.sender_body_id)
+        .find_body_by_id(msg.sender_body_id)
         .await?;
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
@@ -268,7 +268,7 @@ pub async fn smser_message_cancel(
         .smser
         .smser_dao
         .sms_record
-        .find_message_by_id(&message_id)
+        .find_message_by_id(message_id)
         .await?;
     let body = req_dao
         .web_dao
@@ -276,7 +276,7 @@ pub async fn smser_message_cancel(
         .smser
         .smser_dao
         .sms_record
-        .find_body_by_id(&msg.sender_body_id)
+        .find_body_by_id(msg.sender_body_id)
         .await?;
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
@@ -335,14 +335,14 @@ pub async fn smser_message_send(
         .smser
         .smser_dao
         .tpl_config
-        .find_by_id(&param.tpl_id)
+        .find_by_id(param.tpl_id)
         .await?;
     let app = req_dao
         .web_dao
         .web_app
         .app_dao
         .app
-        .find_by_id(&tpl.app_id)
+        .find_by_id(tpl.app_id)
         .await?;
 
     req_dao

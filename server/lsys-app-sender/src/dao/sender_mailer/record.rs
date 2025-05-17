@@ -10,7 +10,11 @@ use crate::{
         SenderMailMessageModel, SenderMailMessageModelRef, SenderMailMessageStatus, SenderType,
     },
 };
-use lsys_core::{fluent_message, now_time, LimitParam, PageParam, RequestEnv};
+use lsys_core::{
+    fluent_message, now_time, string_clear, valid_key, LimitParam, PageParam, RequestEnv,
+    StringClear, ValidEmail, ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
+    STRING_CLEAR_FORMAT,
+};
 
 use lsys_core::db::{Insert, ModelTableName, SqlExpr, Update};
 use lsys_core::sql_format;
@@ -46,11 +50,11 @@ impl MailRecord {
             db,
         }
     }
-    pub async fn find_message_by_id(&self, id: &u64) -> SenderResult<SenderMailMessageModel> {
-        self.message_reader.find_message_by_id(id).await
+    pub async fn find_message_by_id(&self, id: u64) -> SenderResult<SenderMailMessageModel> {
+        self.message_reader.find_message_by_id(&id).await
     }
-    pub async fn find_body_by_id(&self, id: &u64) -> SenderResult<SenderMailBodyModel> {
-        self.message_reader.find_body_by_id(id).await
+    pub async fn find_body_by_id(&self, id: u64) -> SenderResult<SenderMailBodyModel> {
+        self.message_reader.find_body_by_id(&id).await
     }
     #[allow(clippy::too_many_arguments)]
     pub async fn message_count(
@@ -75,6 +79,10 @@ impl MailRecord {
             sqlwhere.push(sql_format!("b.user_id={} ", uid));
         }
         if let Some(t) = tpl_id {
+            let t = string_clear(t, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
+            if t.is_empty() {
+                return Ok(0);
+            }
             sqlwhere.push(sql_format!("b.tpl_id={} ", t));
         }
         if let Some(s) = status {
@@ -117,6 +125,10 @@ impl MailRecord {
     )> {
         let mut sqlwhere = vec![];
         if let Some(s) = to_mail {
+            let s = string_clear(s, StringClear::Option(STRING_CLEAR_FORMAT), Some(255));
+            if s.is_empty() {
+                return Ok((vec![], Some(0)));
+            }
             sqlwhere.push(sql_format!("m.to_mail={}", s));
         }
 
@@ -127,6 +139,10 @@ impl MailRecord {
             sqlwhere.push(sql_format!("b.user_id={} ", uid));
         }
         if let Some(t) = tpl_id {
+            let t = string_clear(t, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
+            if t.is_empty() {
+                return Ok((vec![], Some(0)));
+            }
             sqlwhere.push(sql_format!("b.tpl_id={} ", t));
         }
         if let Some(s) = status {
@@ -224,22 +240,74 @@ impl MailRecord {
     ) -> SenderResult<Vec<SenderLogModel>> {
         self.message_logs.list_data(message_id, page).await
     }
-
+    #[allow(clippy::too_many_arguments)]
+    async fn add_param_valid(
+        &self,
+        mail: &[&str],
+        app_id: u64,
+        tpl_id: &str,
+        tpl_var: &str,
+        reply_mail: Option<&str>,
+        max_try_num: u8,
+    ) -> SenderResult<()> {
+        let mut param_valid = ValidParam::default();
+        for mt in mail {
+            param_valid.add(
+                valid_key!("mail"),
+                mt,
+                &ValidParamCheck::default().add_rule(ValidEmail::default()),
+            );
+        }
+        if let Some(tmp) = reply_mail {
+            param_valid.add(
+                valid_key!("reply_mail"),
+                &tmp,
+                &ValidParamCheck::default().add_rule(ValidEmail::default()),
+            );
+        }
+        param_valid
+            .add(
+                valid_key!("app_id"),
+                &app_id,
+                &ValidParamCheck::default().add_rule(ValidNumber::id()),
+            )
+            .add(
+                valid_key!("tpl_id"),
+                &tpl_id,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Ident)
+                    .add_rule(ValidStrlen::range(1, 32)),
+            )
+            .add(
+                valid_key!("tpl_var"),
+                &tpl_var,
+                &ValidParamCheck::default().add_rule(ValidStrlen::range(1, 20000)),
+            )
+            .add(
+                valid_key!("max_try_num"),
+                &max_try_num,
+                &ValidParamCheck::default().add_rule(ValidNumber::range(0, 5)),
+            );
+        param_valid.check()?;
+        Ok(())
+    }
     //添加短信任务
     #[allow(clippy::too_many_arguments)]
     pub(crate) async fn add<'t>(
         &self,
         mail: &[&'t str],
-        app_id: &u64,
+        app_id: u64,
         tpl_id: &str,
         tpl_var: &str,
-        expected_time: &u64,
+        expected_time: u64,
         reply_mail: Option<&str>,
         user_id: Option<u64>,
-        max_try_num: &u8,
+        max_try_num: u8,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<(u64, Vec<(u64, &'t str)>)> //(body id,<msg id,mail>)
     {
+        self.add_param_valid(mail, app_id, tpl_id, tpl_var, reply_mail, max_try_num)
+            .await?;
         let user_id = user_id.unwrap_or_default();
         let add_time = now_time().unwrap_or_default();
         let reply_mail = reply_mail.unwrap_or_default().to_string();
@@ -282,7 +350,7 @@ impl MailRecord {
         let body_id = Insert::<SenderMailBodyModel, _>::new(
             lsys_core::model_option_set!(SenderMailBodyModelRef,{
                 request_id:reqid,
-                app_id:*app_id,
+                app_id:app_id,
                 tpl_id:tpl_id,
                 tpl_var:tpl_var,
                 status:SenderMailBodyStatus::Init as i8,
@@ -347,7 +415,7 @@ impl MailRecord {
         &self,
         body: &SenderMailBodyModel,
         message: &SenderMailMessageModel,
-        user_id: &u64,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<()> {
         if SenderMailMessageStatus::IsCancel.eq(message.status) {
@@ -368,10 +436,10 @@ impl MailRecord {
                         body_id: body.id,
                         message_id: Some(message.id),
                         sender_type: SenderType::Mailer as i8,
-                        user_id: *user_id,
+                        user_id,
                     },
                     Some(message.id),
-                    Some(*user_id),
+                    Some(user_id),
                     None,
                     env_data,
                 )
@@ -386,7 +454,7 @@ impl MailRecord {
             ),
         )) //"can't be cancel,status:{}",
     }
-    pub async fn find_config_by_id(&self, id: &u64) -> SenderResult<SenderConfigModel> {
+    pub async fn find_config_by_id(&self, id: u64) -> SenderResult<SenderConfigModel> {
         self.config.find_by_id(id).await
     }
     #[allow(clippy::too_many_arguments)]
@@ -577,7 +645,16 @@ impl MailRecord {
                     }
                     let msql = mails
                         .iter()
-                        .map(|e| sql_format!("to_mail={}", e))
+                        .map(|e| {
+                            sql_format!(
+                                "to_mail={}",
+                                string_clear(
+                                    e,
+                                    StringClear::Option(STRING_CLEAR_FORMAT),
+                                    Some(255)
+                                )
+                            )
+                        })
                         .collect::<Vec<String>>()
                         .join(" or ");
                     let stime = nowt - limit.range_time;

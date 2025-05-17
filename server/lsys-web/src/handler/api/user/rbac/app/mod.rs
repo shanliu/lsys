@@ -43,7 +43,7 @@ async fn app_check_get(
         .web_app
         .app_dao
         .app
-        .find_by_id(&app_id)
+        .find_by_id(app_id)
         .await?;
 
     if is_edit {

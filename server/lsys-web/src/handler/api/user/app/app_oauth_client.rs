@@ -23,7 +23,7 @@ pub async fn oauth_client_request(
         .web_app
         .app_dao
         .app
-        .find_by_id(&param.app_id)
+        .find_by_id(param.app_id)
         .await?;
     req_dao
         .web_dao
@@ -43,7 +43,7 @@ pub async fn oauth_client_request(
             .web_app
             .app_dao
             .app
-            .find_by_id(&app.parent_app_id)
+            .find_by_id(app.parent_app_id)
             .await?;
         //父应用必须已开通OAUTH SERVER功能
         req_dao
@@ -84,7 +84,7 @@ pub async fn oauth_client_scope_request(
         .web_app
         .app_dao
         .app
-        .find_by_id(&param.app_id)
+        .find_by_id(param.app_id)
         .await?;
     //开通过 oauth_server 不影响scope申请
     req_dao
@@ -134,7 +134,7 @@ pub async fn oauth_client_set_domain(
         .web_app
         .app_dao
         .app
-        .find_by_id(&param.app_id)
+        .find_by_id(param.app_id)
         .await?;
     req_dao
         .web_dao
@@ -190,7 +190,7 @@ pub async fn oauth_secret_add(
         .web_app
         .app_dao
         .app
-        .find_by_id(&param.app_id)
+        .find_by_id(param.app_id)
         .await?;
     req_dao
         .web_dao
@@ -243,7 +243,7 @@ pub async fn oauth_secret_change(
         .web_app
         .app_dao
         .app
-        .find_by_id(&param.app_id)
+        .find_by_id(param.app_id)
         .await?;
     req_dao
         .web_dao
@@ -294,7 +294,7 @@ pub async fn oauth_secret_del(
         .web_app
         .app_dao
         .app
-        .find_by_id(&param.app_id)
+        .find_by_id(param.app_id)
         .await?;
     req_dao
         .web_dao

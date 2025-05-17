@@ -9,7 +9,7 @@ use std::str;
 use tracing::error;
 use tracing::warn;
 use walkdir::WalkDir;
-
+//后台任务中使用,数据由添加时过滤
 pub fn git_download(git_url: &str, save_dir: &Path, max_num: u8, tag: &str) -> Result<Oid, String> {
     let mut try_num = 0;
     loop {

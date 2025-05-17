@@ -21,7 +21,7 @@ pub enum AppRequestData {
 
 impl App {
     /// 根据请求 id 找到对应记录
-    pub async fn request_find_by_id(&self, id: &u64) -> AppResult<AppRequestModel> {
+    pub async fn request_find_by_id(&self, id: u64) -> AppResult<AppRequestModel> {
         Ok(sqlx::query_as::<_, AppRequestModel>(&sql_format!(
             "select * from {} where id={}",
             AppRequestModel::table_name(),

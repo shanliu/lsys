@@ -9,7 +9,8 @@ use logger::LogRole;
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
     db::WhereOption,
-    fluent_message, now_time, RemoteNotify, RequestEnv,
+    fluent_message, now_time, valid_key, RemoteNotify, RequestEnv, ValidParam, ValidParamCheck,
+    ValidPattern, ValidStrlen,
 };
 use sqlx::Acquire;
 use std::{sync::Arc, vec};
@@ -76,6 +77,43 @@ pub struct RbacRoleAddData<'t> {
 }
 
 impl RbacRole {
+    async fn role_param_valid(&self, param: &RbacRoleUserRangeData<'_>) -> RbacResult<()> {
+        let mut param_valid = ValidParam::default();
+        match param {
+            RbacRoleUserRangeData::Session {
+                role_key,
+                role_name,
+            } => {
+                param_valid.add(
+                    valid_key!("role_key"),
+                    role_key,
+                    &ValidParamCheck::default()
+                        .add_rule(ValidPattern::Ident)
+                        .add_rule(ValidStrlen::range(1, 32)),
+                );
+                if let Some(name) = role_name {
+                    param_valid.add(
+                        valid_key!("role_name"),
+                        name,
+                        &ValidParamCheck::default()
+                            .add_rule(ValidPattern::NotFormat)
+                            .add_rule(ValidStrlen::range(0, 32)),
+                    );
+                }
+            }
+            RbacRoleUserRangeData::Custom { role_name } => {
+                param_valid.add(
+                    valid_key!("role_name"),
+                    role_name,
+                    &ValidParamCheck::default()
+                        .add_rule(ValidPattern::NotFormat)
+                        .add_rule(ValidStrlen::range(1, 32)),
+                );
+            }
+        };
+        param_valid.check()?;
+        Ok(())
+    }
     //添加角色
     pub async fn add_role(
         &self,
@@ -84,16 +122,14 @@ impl RbacRole {
         transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
     ) -> RbacResult<RbacRoleModel> {
+        self.role_param_valid(&param.role_info).await?;
         let (user_range, role_key, role_name, sql) = match param.role_info {
             RbacRoleUserRangeData::Session {
                 role_key,
                 role_name,
             } => {
-                let role_name = match role_name {
-                    Some(role_name) => check_length!(role_name, "name", 32),
-                    None => "".to_string(),
-                };
-                let role_key = check_length!(role_key, "key", 32);
+                let role_name = role_name.map(|e| e.to_owned()).unwrap_or_default();
+                let role_key = role_key.to_owned();
 
                 let mut sql = vec![
                     sql_format!(
@@ -118,7 +154,7 @@ impl RbacRole {
                 (RbacRoleUserRange::Session as i8, role_key, role_name, sql)
             }
             RbacRoleUserRangeData::Custom { role_name } => {
-                let role_name = check_length!(role_name, "name", 32);
+                let role_name = role_name.to_owned();
                 let sql=vec![
                     sql_format!(
                          "select * from {} where user_id={} and role_name={} and app_id={} and status={} limit 1",
@@ -172,15 +208,18 @@ impl RbacRole {
                             .execute(db.as_executor())
                             .await?;
                         let add_id = res.last_insert_id();
-                        Update::< RbacRoleModel, _>::new(other_change)
-                            .execute_by_where(&WhereOption::Where(sql_format!(
+                        Update::<RbacRoleModel, _>::new(other_change)
+                            .execute_by_where(
+                                &WhereOption::Where(sql_format!(
                                 "user_id={} and role_key={} and app_id={} and status={} and id!={}",
                                 param.user_id,
                                 role_key,
                                 app_id,
                                 RbacRoleStatus::Enable  as i8,
                                 add_id,
-                            )),db.as_executor())
+                            )),
+                                db.as_executor(),
+                            )
                             .await?;
                         add_id
                     },
@@ -221,6 +260,7 @@ impl RbacRole {
         transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
     ) -> RbacResult<u64> {
+        self.role_param_valid(role_info).await?;
         let time = now_time().unwrap_or_default();
         let mut change = lsys_core::model_option_set!(RbacRoleModelRef,{
             change_user_id:change_user_id,
@@ -231,17 +271,11 @@ impl RbacRole {
                 role_key,
                 role_name,
             } => {
-                let role_name = match role_name {
-                    Some(role_name) => Some(check_length!(role_name, "name", 32)),
-                    None => None,
-                };
-                let role_key = check_length!(role_key, "key", 32);
+                let role_name = role_name.map(|e| e.to_owned());
+                let role_key = role_key.to_string();
                 (role_name, Some(role_key))
             }
-            RbacRoleUserRangeData::Custom { role_name } => {
-                let role_name = check_length!(role_name, "name", 32);
-                (Some(role_name), None)
-            }
+            RbacRoleUserRangeData::Custom { role_name } => (Some(role_name.to_string()), None),
         };
         change.role_name = opt_name.as_ref();
         change.role_key = opt_key.as_ref();
@@ -249,7 +283,7 @@ impl RbacRole {
         let fout = db_option_executor!(
             db,
             {
-                let out = Update::< RbacRoleModel, _>::new(change)
+                let out = Update::<RbacRoleModel, _>::new(change)
                     .execute_by_pk(role, db.as_executor())
                     .await?;
                 out.rows_affected()
@@ -296,7 +330,7 @@ impl RbacRole {
             change_time:time,
             status:(RbacRoleStatus::Delete as i8)
         });
-        let tmp = Update::< RbacRoleModel, _>::new(change)
+        let tmp = Update::<RbacRoleModel, _>::new(change)
             .execute_by_pk(role, &mut *db)
             .await;
         if let Err(e) = tmp {
@@ -309,7 +343,7 @@ impl RbacRole {
             change_time:time,
             status:(RbacPermStatus::Delete as i8)
         });
-        let tmp = Update::< RbacPermModel, _>::new(change)
+        let tmp = Update::<RbacPermModel, _>::new(change)
             .execute_by_where(
                 &lsys_core::db::WhereOption::Where(sql_format!("role_id={}", role.id)),
                 &mut *db,
@@ -325,7 +359,7 @@ impl RbacRole {
             change_time:time,
             status:(RbacRoleUserStatus::Delete as i8)
         });
-        let tmp = Update::< RbacRoleUserModel, _>::new(change)
+        let tmp = Update::<RbacRoleUserModel, _>::new(change)
             .execute_by_where(
                 &lsys_core::db::WhereOption::Where(sql_format!("role_id={}", role.id)),
                 &mut *db,

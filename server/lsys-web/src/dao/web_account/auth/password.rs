@@ -132,7 +132,7 @@ impl WebUserAuth {
                     .account_dao
                     .account_password
                     .valid_code_builder(),
-                &mobile.account_id,
+                mobile.account_id,
                 &format!("mobile-{}-{}", param.area_code, param.mobile),
             )
             .await?;
@@ -179,7 +179,7 @@ impl WebUserAuth {
                     .account_dao
                     .account_password
                     .valid_code_builder(),
-                &user_email.account_id,
+                user_email.account_id,
                 &format!("mail-{}", param.email),
             )
             .await?;

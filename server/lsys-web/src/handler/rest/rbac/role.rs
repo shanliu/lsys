@@ -152,7 +152,10 @@ pub struct RoleDataParam {
     pub user_param: Option<String>,
     pub role_key: Option<String>,
     pub role_name: Option<String>,
-    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_u64")]
+    #[serde(
+        default,
+        deserialize_with = "crate::common::deserialize_option_vec_u64"
+    )]
     pub ids: Option<Vec<u64>>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
     pub user_range: Option<i8>,
@@ -287,7 +290,7 @@ pub async fn role_data(
                     .map(|f| RoleUserDataRecord {
                         timeout: f.timeout,
                         change_time: f.change_time,
-                        user_data: user_info.get(&f.user_id).to_owned(),
+                        user_data: user_info.get(f.user_id).to_owned(),
                     })
                     .collect::<Vec<_>>()
             });

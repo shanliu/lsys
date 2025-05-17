@@ -58,8 +58,8 @@ impl AccessUserCache<'_> {
         Ok(UserInfoSet::new(self.find_by_ids(&ids).await?))
     }
     ///获取一个用户信息
-    pub async fn find_user_by_id(&self, id: &u64) -> AccessResult<UserInfo> {
-        Ok(UserInfo::from(self.find_by_id(id).await?))
+    pub async fn find_user_by_id(&self, id: u64) -> AccessResult<UserInfo> {
+        Ok(UserInfo::from(self.find_by_id(&id).await?))
     }
     //带缓存的同步用户
     pub async fn sync_user(

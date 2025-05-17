@@ -7,7 +7,10 @@ use crate::model::{
     AccountExternalModel, AccountExternalModelRef, AccountExternalStatus, AccountModel,
 };
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{fluent_message, now_time, RemoteNotify, RequestEnv};
+use lsys_core::{
+    fluent_message, now_time, string_clear, valid_key, RemoteNotify, RequestEnv, StringClear,
+    ValidParam, ValidParamCheck, ValidPattern, ValidStrlen, ValidUrl, STRING_CLEAR_FORMAT,
+};
 
 use super::logger::LogAccountExternal;
 use super::AccountIndex;
@@ -49,6 +52,24 @@ impl AccountExternal {
         external_type: &str,
         external_id: &str,
     ) -> AccountResult<AccountExternalModel> {
+        let config_name = string_clear(
+            config_name,
+            StringClear::Option(STRING_CLEAR_FORMAT),
+            Some(33),
+        );
+        let external_type = string_clear(
+            external_type,
+            StringClear::Option(STRING_CLEAR_FORMAT),
+            Some(65),
+        );
+        let external_id = string_clear(
+            external_id,
+            StringClear::Option(STRING_CLEAR_FORMAT),
+            Some(126),
+        );
+        if config_name.is_empty() || external_type.is_empty() || external_id.is_empty() {
+            return Err(sqlx::Error::RowNotFound.into());
+        }
         let res = sqlx::query_as::<_, AccountExternalModel>(&sql_format!(
             "select * from {} where config_name={} and external_type={} and external_id={} and status={} order by id desc",
             AccountExternalModel::table_name(),
@@ -67,6 +88,24 @@ impl AccountExternal {
         external_type: &str,
         external_id: &str,
     ) -> AccountResult<AccountExternalModel> {
+        let config_name = string_clear(
+            config_name,
+            StringClear::Option(STRING_CLEAR_FORMAT),
+            Some(33),
+        );
+        let external_type = string_clear(
+            external_type,
+            StringClear::Option(STRING_CLEAR_FORMAT),
+            Some(65),
+        );
+        let external_id = string_clear(
+            external_id,
+            StringClear::Option(STRING_CLEAR_FORMAT),
+            Some(126),
+        );
+        if config_name.is_empty() || external_type.is_empty() || external_id.is_empty() {
+            return Err(sqlx::Error::RowNotFound.into());
+        }
         let res = sqlx::query_as::<_, AccountExternalModel>(&sql_format!(
             "select * from {} where account_id={} and config_name={} and external_type={} and external_id={} and status = {} order by id desc",
             AccountExternalModel::table_name(),
@@ -81,7 +120,45 @@ impl AccountExternal {
 
         Ok(res)
     }
-
+    async fn external_param_valid(
+        &self,
+        config_name: &str,
+        external_type: &str,
+        external_id: &str,
+        external_name: &str,
+    ) -> AccountResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("external_config_name"),
+                &config_name,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Ident)
+                    .add_rule(ValidStrlen::range(1, 32)),
+            )
+            .add(
+                valid_key!("external_type"),
+                &external_type,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Ident)
+                    .add_rule(ValidStrlen::range(1, 64)),
+            )
+            .add(
+                valid_key!("external_id"),
+                &external_id,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 125)),
+            )
+            .add(
+                valid_key!("external_name"),
+                &external_name,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 256)),
+            )
+            .check()?;
+        Ok(())
+    }
     /// 新增第三方登录信息
     #[allow(clippy::too_many_arguments)]
     pub async fn add_external(
@@ -95,6 +172,8 @@ impl AccountExternal {
         transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
     ) -> AccountResult<u64> {
+        self.external_param_valid(config_name, external_type, external_id, external_name)
+            .await?;
         let db = &self.db;
         let account_ext_res = sqlx::query_as::<_, AccountExternalModel>(&sql_format!(
             "select * from {} where config_name={} and  external_type={} and external_id={} and status = {}",
@@ -126,7 +205,7 @@ impl AccountExternal {
                 db_option_executor!(
                     db,
                     {
-                        Update::< AccountExternalModel, _>::new(change)
+                        Update::<AccountExternalModel, _>::new(change)
                             .execute_by_pk(&account_ext, db.as_executor())
                             .await?;
                     },
@@ -231,6 +310,70 @@ impl AccountExternal {
 
         Ok(aid)
     }
+    async fn token_update_param_valid(
+        &self,
+        external_name: &str,
+        token_data: &str,
+        external_nikename: Option<&str>,
+        external_gender: Option<&str>,
+        external_link: Option<&str>,
+        external_pic: Option<&str>,
+    ) -> AccountResult<()> {
+        let mut param_valid = ValidParam::default();
+        param_valid
+            .add(
+                valid_key!("external_name"),
+                &external_name,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 256)),
+            )
+            .add(
+                valid_key!("external_token_data"),
+                &token_data,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 256)),
+            );
+        if let Some(external_nikename) = external_nikename {
+            param_valid.add(
+                valid_key!("external_nikename"),
+                &external_nikename,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(0, 65)),
+            );
+        }
+        if let Some(external_gender) = external_gender {
+            param_valid.add(
+                valid_key!("external_gender"),
+                &external_gender,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 8)),
+            );
+        }
+        if let Some(external_link) = external_link {
+            param_valid.add(
+                valid_key!("external_link"),
+                &external_link,
+                &ValidParamCheck::default()
+                    .add_rule(ValidUrl::default())
+                    .add_rule(ValidStrlen::range(9, 255)),
+            );
+        }
+        if let Some(external_pic) = external_pic {
+            param_valid.add(
+                valid_key!("external_pic"),
+                &external_pic,
+                &ValidParamCheck::default()
+                    .add_rule(ValidUrl::default())
+                    .add_rule(ValidStrlen::range(9, 512)),
+            );
+        }
+        param_valid.check()?;
+        Ok(())
+    }
     /// 刷新第三方登录token
     #[allow(clippy::too_many_arguments)]
     pub async fn token_update(
@@ -246,6 +389,15 @@ impl AccountExternal {
         op_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> AccountResult<()> {
+        self.token_update_param_valid(
+            external_name,
+            token_data,
+            external_nikename,
+            external_gender,
+            external_link,
+            external_pic,
+        )
+        .await?;
         let time = now_time()?;
         let external_name_ow = external_name.to_string();
         let token_data_ow = token_data.to_string();
@@ -263,7 +415,7 @@ impl AccountExternal {
         change.external_pic = external_pic_ow.as_ref();
         let external_nikename_ow = external_link.map(|e| e.to_string());
         change.external_nikename = external_nikename_ow.as_ref();
-        Update::< AccountExternalModel, _>::new(change)
+        Update::<AccountExternalModel, _>::new(change)
             .execute_by_pk(account_ext, &self.db)
             .await?;
         self.cache.clear(&account_ext.id).await;
@@ -315,7 +467,7 @@ impl AccountExternal {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let res = Update::< AccountExternalModel, _>::new(change)
+        let res = Update::<AccountExternalModel, _>::new(change)
             .execute_by_pk(account_ext, &mut *db)
             .await;
         let out = match res {
@@ -453,9 +605,9 @@ impl AccountExternalCache<'_> {
     );
     pub async fn find_by_account_id_vec(
         &self,
-        account_id: &u64,
+        account_id: u64,
     ) -> AccountResult<Vec<AccountExternalModel>> {
-        match self.dao.account_cache.get(account_id).await {
+        match self.dao.account_cache.get(&account_id).await {
             Some(ids) => Ok(self
                 .find_by_ids(&ids)
                 .await?
@@ -463,12 +615,12 @@ impl AccountExternalCache<'_> {
                 .map(|e| e.1)
                 .collect::<Vec<_>>()),
             None => {
-                let rows = self.dao.find_by_account_id_vec(account_id).await?;
+                let rows = self.dao.find_by_account_id_vec(&account_id).await?;
                 for tmp in rows.clone() {
                     self.dao.cache.set(tmp.id, tmp, 0).await;
                 }
                 let ids = rows.iter().map(|e| e.id).collect::<Vec<_>>();
-                self.dao.account_cache.set(*account_id, ids, 0).await;
+                self.dao.account_cache.set(account_id, ids, 0).await;
                 Ok(rows)
             }
         }

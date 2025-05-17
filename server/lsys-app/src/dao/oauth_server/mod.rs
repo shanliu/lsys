@@ -104,18 +104,23 @@ impl AppOAuthServer {
         for tmp in req {
             ValidParam::default()
                 .add(
-                    valid_key!("key"),
+                    valid_key!("oauth_setting_key"),
                     &tmp.key,
                     &ValidParamCheck::default()
                         .add_rule(ValidStrlen::range(2, 32))
                         .add_rule(ValidPattern::Ident),
                 )
                 .add(
-                    valid_key!("name"),
+                    valid_key!("oauth_setting_name"),
                     &tmp.name,
                     &ValidParamCheck::default()
                         .add_rule(ValidPattern::NotFormat)
                         .add_rule(ValidStrlen::range(2, 64)),
+                )
+                .add(
+                    valid_key!("oauth_setting_desc"),
+                    &tmp.name,
+                    &ValidParamCheck::default().add_rule(ValidStrlen::range(0, 128)),
                 )
                 .check()?;
         }
@@ -170,7 +175,7 @@ impl AppOAuthServer {
 
         for del_key in del_data.iter() {
             let req = sqlx::query_scalar::<_, String>(&sql_format!(
-                "select app.name from {} as app 
+                "select app.name from {} as app
                 join  {} as oc on app.id=oc.app_id
                 where app.parent_app_id={} AND status IN ({}) and FIND_IN_SET({}, oc.scope_data)",
                 AppModel::table_name(),

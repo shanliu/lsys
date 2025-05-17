@@ -43,7 +43,7 @@ pub async fn create_config_add(
         .app_dao
         .app
         .cache()
-        .find_by_id(&param.app_id)
+        .find_by_id(param.app_id)
         .await?;
 
     req_dao
@@ -75,14 +75,14 @@ pub async fn create_config_add(
         .app_barcode
         .barcode_dao
         .add_create_config(
-            &auth_data.user_id(),
-            &param.app_id,
+            auth_data.user_id(),
+            param.app_id,
             &status,
             &param.barcode_type,
             &param.image_format,
-            &param.image_width,
-            &param.image_height,
-            &param.margin,
+            param.image_width,
+            param.image_height,
+            param.margin,
             &param.image_color,
             &param.image_background,
             Some(&req_dao.req_env),
@@ -130,7 +130,7 @@ pub async fn create_config_edit(
         .app_dao
         .app
         .cache()
-        .find_by_id(&data.app_id)
+        .find_by_id(data.app_id)
         .await?;
     req_dao
         .web_dao
@@ -162,13 +162,13 @@ pub async fn create_config_edit(
         .barcode_dao
         .edit_create_config(
             &data,
-            &auth_data.user_id(),
+            auth_data.user_id(),
             &status,
             &param.barcode_type,
             &param.image_format,
-            &param.image_width,
-            &param.image_height,
-            &param.margin,
+            param.image_width,
+            param.image_height,
+            param.margin,
             &param.image_color,
             &param.image_background,
             Some(&req_dao.req_env),
@@ -210,7 +210,7 @@ pub async fn create_config_delete(
         .web_dao
         .app_barcode
         .barcode_dao
-        .delete_create_config(&auth_data.user_id(), &data, Some(&req_dao.req_env))
+        .delete_create_config(auth_data.user_id(), &data, Some(&req_dao.req_env))
         .await?;
     Ok(JsonResponse::default())
 }

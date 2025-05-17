@@ -91,3 +91,9 @@ res-op-user-app-sms-config=用户短信应用配置
 res-op-user-app-sms-view=用户短信应用查看
 res-op-user-app-sms-manage=用户短信应用管理
 res-op-user-app-sms-send=用户短信应用发送
+
+
+
+#校验名称
+
+valid-rule-name-area_code = 地区编码

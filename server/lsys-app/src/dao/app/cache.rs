@@ -15,12 +15,23 @@ pub struct AppCache<'t> {
 
 impl AppCache<'_> {
     //通过ID查找应用
-    lsys_core::impl_cache_fetch_one!(find_by_id, dao, id_cache, u64, AppResult<AppModel>);
+    pub async fn find_by_id(&self, id: u64) -> AppResult<AppModel> {
+        match self.dao.id_cache.get(&id).await {
+            Some(data) => Ok(data),
+            None => match self.dao.find_by_id(id).await {
+                Ok(data) => {
+                    self.dao.id_cache.set(id.to_owned(), data.clone(), 0).await;
+                    Ok(data)
+                }
+                Err(e) => Err(e),
+            },
+        }
+    }
     //通过CLIENT_ID查找应用
     pub async fn find_by_client_id(&self, client_id: &str) -> AppResult<AppModel> {
         match self.dao.client_id_cache.get(&client_id.to_string()).await {
             Some(data) => match data {
-                Some(did) => self.find_by_id(&did).await,
+                Some(did) => self.find_by_id(did).await,
                 None => Err(AppError::AppNotFound(client_id.to_owned())),
             },
             None => match self.dao.find_by_client_id(client_id).await {
@@ -150,7 +161,7 @@ impl AppCache<'_> {
             .collect::<Vec<String>>();
         let check_key = &feature_key.iter().map(|e| e.as_str()).collect::<Vec<_>>();
         if app.parent_app_id > 0 {
-            let papp = self.find_by_id(&app.parent_app_id).await?;
+            let papp = self.find_by_id(app.parent_app_id).await?;
             self.feature_check(&papp, check_key).await?;
         }
         self.feature_check(app, check_key).await

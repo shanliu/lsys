@@ -2,7 +2,7 @@
 
 use crate::model::{RbacResModel, RbacResStatus};
 use lsys_core::db::{ModelTableName, SqlExpr, SqlQuote};
-use lsys_core::sql_format;
+use lsys_core::{sql_format, string_clear, StringClear, STRING_CLEAR_FORMAT};
 use std::vec;
 
 use super::{RbacRes, ResCacheKey};
@@ -30,10 +30,20 @@ impl RbacRes {
         }
         let mut where_sql = Vec::with_capacity(keys.len());
         for rkey in keys {
+            let res_type = string_clear(
+                rkey.res_type,
+                StringClear::Option(STRING_CLEAR_FORMAT),
+                Some(33),
+            );
+            let res_data = string_clear(
+                rkey.res_data,
+                StringClear::Option(STRING_CLEAR_FORMAT),
+                Some(33),
+            );
             where_sql.push(sql_format!(
                 "(res_type ={} and res_data={} and user_id={} and app_id={})",
-                rkey.res_type,
-                rkey.res_data,
+                res_type,
+                res_data,
                 rkey.user_id,
                 rkey.app_id,
             ));
@@ -67,12 +77,22 @@ impl RbacRes {
     }
     /// 根据资源KEY获取资源
     pub async fn find_one_by_info<'a>(&self, rkey: &'a ResInfo<'a>) -> RbacResult<RbacResModel> {
+        let res_type = string_clear(
+            rkey.res_type,
+            StringClear::Option(STRING_CLEAR_FORMAT),
+            Some(33),
+        );
+        let res_data = string_clear(
+            rkey.res_data,
+            StringClear::Option(STRING_CLEAR_FORMAT),
+            Some(33),
+        );
         let sql = sql_format!(
             "select * from {} where
             res_type ={} and res_data={} and user_id={} and app_id={} and status ={}",
             RbacResModel::table_name(),
-            rkey.res_type,
-            rkey.res_data,
+            res_type,
+            res_data,
             rkey.user_id,
             rkey.app_id,
             RbacResStatus::Enable as i8

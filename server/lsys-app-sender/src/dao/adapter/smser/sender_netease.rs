@@ -2,15 +2,18 @@ use std::sync::Arc;
 
 use crate::{
     dao::{
-        adapter::smser::sms_result_to_task, create_sender_client, SenderError, SenderExecError,
-        SenderResult, SenderTaskExecutor, SenderTaskResult, SenderTplConfig, SmsSendNotifyParse,
-        SmsTaskData, SmsTaskItem,
+        adapter::smser::sms_result_to_task, create_sender_client, SenderExecError, SenderResult,
+        SenderTaskExecutor, SenderTaskResult, SenderTplConfig, SmsSendNotifyParse, SmsTaskData,
+        SmsTaskItem,
     },
     model::{SenderSmsMessageModel, SenderTplConfigModel},
 };
 use async_trait::async_trait;
 
-use lsys_core::{fluent_message, IntoFluentMessage, RequestEnv};
+use lsys_core::{
+    valid_key, IntoFluentMessage, RequestEnv, ValidNumber, ValidParam, ValidParamCheck,
+    ValidPattern, ValidStrlen,
+};
 use lsys_lib_sms::{
     template_map_to_arr, NeteaseSms, SendDetailItem, SendError, SendNotifyError, SendNotifyItem,
 };
@@ -119,6 +122,52 @@ impl SenderNetEaseConfig {
             .del::<NetEaseConfig>(None, id, user_id, None, env_data)
             .await?)
     }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn edit_config_param_valid(
+        &self,
+        id: u64,
+        name: &str,
+        access_key: &str,
+        access_secret: &str,
+        branch_limit: u16,
+    ) -> SenderResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("id"),
+                &id,
+                &ValidParamCheck::default().add_rule(ValidNumber::id()),
+            )
+            .add(
+                valid_key!("config_name"),
+                &name,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 64)),
+            )
+            .add(
+                valid_key!("access_key"),
+                &access_key,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 128)),
+            )
+            .add(
+                valid_key!("access_secret"),
+                &access_secret,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(8, 128)),
+            )
+            .add(
+                valid_key!("branch_limit"),
+                &branch_limit,
+                &ValidParamCheck::default()
+                    .add_rule(ValidNumber::range(1, NeteaseSms::branch_limit())),
+            )
+            .check()?;
+        Ok(())
+    }
     //编辑指定的netease短信配置
 
     #[allow(clippy::too_many_arguments)]
@@ -132,13 +181,8 @@ impl SenderNetEaseConfig {
         user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
-        if branch_limit > NeteaseSms::branch_limit() {
-            return Err(SenderError::System(
-                fluent_message!("sms-config-branch-error",
-                    {"max":  NeteaseSms::branch_limit()}
-                ),
-            ));
-        }
+        self.edit_config_param_valid(id, name, access_key, access_secret, branch_limit)
+            .await?;
         Ok(self
             .setting
             .edit(
@@ -158,6 +202,45 @@ impl SenderNetEaseConfig {
             )
             .await?)
     }
+    #[allow(clippy::too_many_arguments)]
+    async fn add_config_param_valid(
+        &self,
+        name: &str,
+        access_key: &str,
+        access_secret: &str,
+        branch_limit: u16,
+    ) -> SenderResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("config_name"),
+                &name,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 64)),
+            )
+            .add(
+                valid_key!("access_key"),
+                &access_key,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 128)),
+            )
+            .add(
+                valid_key!("access_secret"),
+                &access_secret,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(8, 128)),
+            )
+            .add(
+                valid_key!("branch_limit"),
+                &branch_limit,
+                &ValidParamCheck::default()
+                    .add_rule(ValidNumber::range(1, NeteaseSms::branch_limit())),
+            )
+            .check()?;
+        Ok(())
+    }
     //添加netease短信配置
     pub async fn add_config(
         &self,
@@ -168,13 +251,8 @@ impl SenderNetEaseConfig {
         user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
-        if branch_limit > NeteaseSms::branch_limit() {
-            return Err(SenderError::System(
-                fluent_message!("sms-config-branch-error",
-                    {"max":  NeteaseSms::branch_limit()}
-                ),
-            ));
-        }
+        self.add_config_param_valid(name, access_key, access_secret, branch_limit)
+            .await?;
         Ok(self
             .setting
             .add(
@@ -193,6 +271,30 @@ impl SenderNetEaseConfig {
             )
             .await?)
     }
+    #[allow(clippy::too_many_arguments)]
+    async fn add_app_config_param_valid(
+        &self,
+        template_id: &str,
+        template_map: &str,
+    ) -> SenderResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("template_id"),
+                &template_id,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 128)),
+            )
+            .add(
+                valid_key!("template_map"),
+                &template_map,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 2000)),
+            )
+            .check()?;
+        Ok(())
+    }
     //关联发送跟netease短信的配置
     #[allow(clippy::too_many_arguments)]
     pub async fn add_app_config(
@@ -201,13 +303,14 @@ impl SenderNetEaseConfig {
         app_id: u64,
         setting_id: u64,
         tpl_id: &str,
-
         template_id: &str,
         template_map: &str,
         user_id: u64,
         add_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
+        self.add_app_config_param_valid(template_id, template_map)
+            .await?;
         self.setting.load::<NetEaseConfig>(None, setting_id).await?;
         self.tpl_config
             .add_config(

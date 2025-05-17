@@ -1,4 +1,5 @@
 use image::{ImageBuffer, ImageFormat, Rgb, RgbImage};
+
 use rxing::common::HybridBinarizer;
 use rxing::multi::{GenericMultipleBarcodeReader, MultipleBarcodeReader};
 use rxing::{
@@ -17,14 +18,17 @@ use super::BarCodeResult;
 #[derive(Default)]
 pub struct BarCodeCore {}
 
-fn hex_to_rgb(hex_code: &str) -> Option<Rgb<u8>> {
-    if hex_code.len() != 6 {
-        return None;
+fn hex_to_rgb(hex_code: &str) -> BarCodeResult<Option<Rgb<u8>>> {
+    if hex_code.len() != 7
+        || !hex_code.starts_with('#')
+        || !hex_code[1..].chars().all(|c| c.is_ascii_hexdigit())
+    {
+        return Ok(None);
     }
-    let r = u8::from_str_radix(&hex_code[0..2], 16).unwrap_or(0);
-    let g = u8::from_str_radix(&hex_code[2..4], 16).unwrap_or(0);
-    let b = u8::from_str_radix(&hex_code[4..6], 16).unwrap_or(0);
-    Some(Rgb([r, g, b]))
+    let r = u8::from_str_radix(&hex_code[1..3], 16).unwrap_or(0);
+    let g = u8::from_str_radix(&hex_code[3..5], 16).unwrap_or(0);
+    let b = u8::from_str_radix(&hex_code[5..7], 16).unwrap_or(0);
+    Ok(Some(Rgb([r, g, b])))
 }
 impl BarCodeCore {
     pub fn render(
@@ -55,8 +59,8 @@ impl BarCodeCore {
         let height = bit_matrix.height();
         let mut img = RgbImage::new(width as u32, height as u32);
 
-        let bg = hex_to_rgb(&create.image_background).unwrap_or(Rgb([255, 255, 255]));
-        let fg = hex_to_rgb(&create.image_color).unwrap_or(Rgb([0, 0, 0]));
+        let bg = hex_to_rgb(&create.image_background)?.unwrap_or(Rgb([255, 255, 255]));
+        let fg = hex_to_rgb(&create.image_color)?.unwrap_or(Rgb([0, 0, 0]));
         for x in 0..width {
             for y in 0..height {
                 img.put_pixel(x, y, if bit_matrix.get(x, y) { fg } else { bg });

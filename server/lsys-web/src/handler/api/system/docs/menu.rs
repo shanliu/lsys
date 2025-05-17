@@ -3,7 +3,6 @@ use crate::common::JsonResult;
 use crate::common::UserAuthQueryDao;
 use crate::{common::JsonResponse, dao::access::api::system::CheckAdminDocs};
 use lsys_access::dao::AccessSession;
-use lsys_docs::dao::GitDocsMenuData;
 use serde::Deserialize;
 use serde_json::json;
 
@@ -41,9 +40,7 @@ pub async fn menu_add(
         .docs
         .menu_add(
             &tag_m,
-            &GitDocsMenuData {
-                menu_path: &param.menu_path,
-            },
+            &param.menu_path,
             auth_data.user_id(),
             Some(&req_dao.req_env),
         )

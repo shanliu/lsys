@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use crate::dao::{SenderError, SenderResult};
 use crate::model::{SenderTplBodyModel, SenderTplBodyModelRef, SenderTplBodyStatus, SenderType};
-use lsys_core::{fluent_message, now_time, PageParam, RequestEnv};
+use lsys_core::{
+    fluent_message, now_time, valid_key, PageParam, RequestEnv, ValidParam, ValidParamCheck,
+    ValidPattern, ValidStrlen,
+};
 
 use lsys_core::db::{Insert, ModelTableName, SqlExpr, SqlQuote, Update};
 use lsys_core::{model_option_set, sql_format};
@@ -37,6 +40,24 @@ impl MessageTpls {
         id,
         "id={id}"
     );
+
+    async fn add_param_valid(&self, tpl_id: &str, tpl_data: &str) -> SenderResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("tpl_id"),
+                &tpl_id,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Ident)
+                    .add_rule(ValidStrlen::range(1, 32)),
+            )
+            .add(
+                valid_key!("tpl_data"),
+                &tpl_data,
+                &ValidParamCheck::default().add_rule(ValidStrlen::range(1, 20000)),
+            )
+            .check()?;
+        Ok(())
+    }
     pub async fn add(
         &self,
         sender_type: SenderType,
@@ -46,6 +67,7 @@ impl MessageTpls {
         add_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
+        self.add_param_valid(tpl_id, tpl_data).await?;
         let sender_type = sender_type as i8;
         Template::new(&self.tpl_key(sender_type, tpl_id), None, tpl_data)
             .map_err(SenderError::Tera)?;
@@ -112,6 +134,16 @@ impl MessageTpls {
             .await;
         Ok(id)
     }
+    async fn edit_param_valid(&self, tpl_data: &str) -> SenderResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("tpl_data"),
+                &tpl_data,
+                &ValidParamCheck::default().add_rule(ValidStrlen::range(1, 20000)),
+            )
+            .check()?;
+        Ok(())
+    }
     //可取消发送的数据
     pub async fn edit(
         &self,
@@ -120,6 +152,7 @@ impl MessageTpls {
         user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
+        self.edit_param_valid(tpl_data).await?;
         let tkey = self.tpl_key(tpl.sender_type, &tpl.tpl_id);
         Template::new(&tkey, None, tpl_data)?;
         let user_id = user_id.to_owned();
@@ -131,7 +164,7 @@ impl MessageTpls {
             change_user_id:user_id,
             change_time:time,
         });
-        let row = Update::< SenderTplBodyModel, _>::new(change)
+        let row = Update::<SenderTplBodyModel, _>::new(change)
             .execute_by_pk(tpl, &self.db)
             .await?
             .rows_affected();
@@ -174,7 +207,7 @@ impl MessageTpls {
             user_id:user_id,
             change_time:time,
         });
-        let row = Update::< SenderTplBodyModel, _>::new(change)
+        let row = Update::<SenderTplBodyModel, _>::new(change)
             .execute_by_pk(tpl, &self.db)
             .await?
             .rows_affected();

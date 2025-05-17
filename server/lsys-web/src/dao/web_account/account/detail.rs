@@ -43,7 +43,7 @@ impl WebUserAccount {
             .account_dao
             .account_mobile
             .cache()
-            .find_by_account_id_vec(&id)
+            .find_by_account_id_vec(id)
             .await?;
         if let Some(mut st) = status {
             if st.is_empty() {
@@ -64,7 +64,7 @@ impl WebUserAccount {
             .account_dao
             .account_email
             .cache()
-            .find_by_account_id_vec(&id)
+            .find_by_account_id_vec(id)
             .await?;
         if let Some(mut st) = status {
             if st.is_empty() {
@@ -84,7 +84,7 @@ impl WebUserAccount {
             .account_dao
             .account_external
             .cache()
-            .find_by_account_id_vec(&id)
+            .find_by_account_id_vec(id)
             .await?;
         if let Some(st) = oauth_type {
             if !st.is_empty() {

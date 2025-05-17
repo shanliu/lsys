@@ -1,6 +1,6 @@
 use lsys_core::db::{ModelTableName, SqlExpr};
-use lsys_core::sql_format;
-use lsys_core::LimitParam;
+use lsys_core::{sql_format, string_clear, STRING_CLEAR_FORMAT};
+use lsys_core::{LimitParam, StringClear};
 
 use crate::{
     dao::result::RbacResult,
@@ -31,12 +31,18 @@ impl RbacAccess {
             where_sql.push(sql_format!("  app_id = {}", val));
         }
         if let Some(val) = audit_param.user_ip {
+            let val = string_clear(val, StringClear::Option(STRING_CLEAR_FORMAT), Some(47));
+
             where_sql.push(sql_format!("  user_ip = {}", val));
         }
         if let Some(val) = audit_param.device_id {
+            let val = string_clear(val, StringClear::Option(STRING_CLEAR_FORMAT), Some(65));
+
             where_sql.push(sql_format!("  device_id = {}", val));
         }
         if let Some(val) = audit_param.request_id {
+            let val = string_clear(val, StringClear::Option(STRING_CLEAR_FORMAT), Some(65));
+
             where_sql.push(sql_format!("  request_id = {}", val));
         }
         if let Some(val) = audit_param.res_data {

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use lsys_app::model::AppModel;
 use lsys_app_sender::dao::SenderError;
-use lsys_core::{valid_key, RequestEnv, ValidMobile, ValidParam, ValidParamCheck};
+use lsys_core::RequestEnv;
 use serde_json::json;
 
 use crate::common::JsonResult;
@@ -10,18 +10,6 @@ use crate::common::JsonResult;
 use super::SenderSmser;
 
 impl SenderSmser {
-    async fn app_send_param_valid(&self, area: &str, mobile: &[&str]) -> JsonResult<()> {
-        let mut valid_param = ValidParam::default();
-        for tmp in mobile.iter() {
-            valid_param.add(
-                valid_key!("to-mobile"),
-                &format!("{}{}", area, tmp),
-                &ValidParamCheck::default().add_rule(ValidMobile::default()),
-            );
-        }
-        valid_param.check()?;
-        Ok(())
-    }
     // app 短信发送接口
     #[allow(clippy::too_many_arguments)]
     pub async fn app_send<'t>(
@@ -35,7 +23,6 @@ impl SenderSmser {
         max_try_num: Option<u8>,
         env_data: Option<&RequestEnv>,
     ) -> JsonResult<Vec<(u64, &'t str)>> {
-        self.app_send_param_valid(area, mobile).await?;
         let out = self
             .smser_dao
             .send(
@@ -60,7 +47,7 @@ impl SenderSmser {
     ) -> JsonResult<Vec<(u64, bool, Option<SenderError>)>> {
         Ok(self
             .smser_dao
-            .cancal_from_message_snid_vec(snid_data, &app.user_id, env_data)
+            .cancal_from_message_snid_vec(snid_data, app.user_id, env_data)
             .await?)
     }
 }

@@ -26,3 +26,14 @@ status-BarcodeParseStatus-Succ=成功
 status-BarcodeParseStatus-Fail=失败
 status-BarcodeParseStatus-Delete=删除
 
+
+
+#校验名称
+valid-rule-name-code_contents = 条码内容
+valid-rule-name-app_id = 应用ID
+valid-rule-name-barcode_status = 条码应用状态
+valid-rule-name-image_color = 条码颜色
+valid-rule-name-image_background =  条码背景色
+valid-rule-name-margin = 边距
+valid-rule-name-image_height = 条码高
+valid-rule-name-image_width = 条码宽

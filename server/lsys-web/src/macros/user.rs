@@ -16,9 +16,9 @@ macro_rules! bind_vec_user_info_from_req{
                 if let serde_json::Value::Object(ref mut map) = val {
                     $(
                        let add_val= if $privacy {
-                             json!(user_data.get(&e.$field).map(|e|e.to_public()))
+                             json!(user_data.get(e.$field).map(|e|e.to_public()))
                         }else{
-                            json!(user_data.get(&e.$field))
+                            json!(user_data.get(e.$field))
                         };
                         map.insert($out_field.to_string(),add_val);
                     )*

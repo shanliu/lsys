@@ -56,19 +56,19 @@ impl AreaCodeIndexDataDisk {
     }
 }
 
-fn index_search(index: &[u64], find: &u64) -> (Option<usize>, usize, usize) {
-    let find_index = index.binary_search(find).ok();
+fn index_search(index: &[u64], find: u64) -> (Option<usize>, usize, usize) {
+    let find_index = index.binary_search(&find).ok();
     let mut start_index = 0;
     let mut end_index = find_index.unwrap_or_default();
     if let Some(tmp_find_index) = &find_index {
         for i in (0..=*tmp_find_index).rev() {
-            if index[i] < *find {
+            if index[i] < find {
                 start_index = i;
                 break;
             }
         }
         for (i, tmp) in index.iter().enumerate().skip(*tmp_find_index) {
-            if *tmp > *find {
+            if *tmp > find {
                 end_index = i;
                 break;
             }
@@ -132,7 +132,7 @@ impl AreaCodeIndexData for AreaCodeIndexDataDisk {
                 return None;
             }
             let find_start = index.parse::<u64>().unwrap_or(0);
-            let (find_index_tmp, start_index, end_index) = index_search(&self.index, &find_start);
+            let (find_index_tmp, start_index, end_index) = index_search(&self.index, find_start);
             let find_index = find_index_tmp?;
             if find_index > 0 {
                 let mut pref_index = find_index;
@@ -353,7 +353,7 @@ fn mmap_code_tree_childs(index_data: &[u64], mmap: &Mmap, index: &str) -> Option
         return None;
     }
     let find_start = index.parse::<u64>().unwrap_or(0);
-    let (find_index_tmp, start_index, end_index) = index_search(index_data, &find_start);
+    let (find_index_tmp, start_index, end_index) = index_search(index_data, find_start);
     let find_index = find_index_tmp?;
     if find_index > 0 {
         let mut prev_index = find_index;

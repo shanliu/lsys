@@ -54,7 +54,7 @@ impl DocsDao {
 
 async fn git_doc_path(
     save_dir: &str,
-    clone_id: &u64,
+    clone_id: u64,
     sub_path: &Option<String>,
 ) -> GitDocResult<PathBuf> {
     let mut clear_path = save_dir.to_owned();

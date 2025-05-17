@@ -129,10 +129,10 @@ CREATE TABLE `yaf_rbac_audit` (
     `role_key_data` varchar(512) NOT NULL DEFAULT '' COMMENT '授权时指定角色列表',
     `check_result` tinyint NOT NULL  COMMENT '授权检查结果',
     `token_data` varchar(64) NOT NULL DEFAULT '' COMMENT '授权token',
-    `user_ip` varchar(39) NOT NULL DEFAULT '' COMMENT '登陆者IP',
-    `device_id` varchar(32) NOT NULL DEFAULT '' COMMENT '设备ID',
+    `user_ip` varchar(46) NOT NULL DEFAULT '' COMMENT '登陆者IP',
+    `device_id` varchar(64) NOT NULL DEFAULT '' COMMENT '设备ID',
     `device_name` varchar(255) NOT NULL DEFAULT '' COMMENT '设备名',
-    `request_id` varchar(32) NOT NULL DEFAULT '' COMMENT '请求id',
+    `request_id` varchar(64) NOT NULL DEFAULT '' COMMENT '请求id',
     `add_time` bigint unsigned NOT NULL COMMENT '检测时间',
     PRIMARY KEY (`id`),
     KEY `rbac_log_IDX` (

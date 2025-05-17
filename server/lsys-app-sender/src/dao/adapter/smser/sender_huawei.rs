@@ -2,14 +2,17 @@ use std::{collections::HashMap, sync::Arc};
 
 use crate::{
     dao::{
-        adapter::smser::sms_result_to_task, create_sender_client, SenderError, SenderExecError,
-        SenderResult, SenderTaskExecutor, SenderTaskResult, SenderTplConfig, SmsSendNotifyParse,
-        SmsTaskData, SmsTaskItem,
+        adapter::smser::sms_result_to_task, create_sender_client, SenderExecError, SenderResult,
+        SenderTaskExecutor, SenderTaskResult, SenderTplConfig, SmsSendNotifyParse, SmsTaskData,
+        SmsTaskItem,
     },
     model::SenderTplConfigModel,
 };
 use async_trait::async_trait;
-use lsys_core::{fluent_message, IntoFluentMessage, RequestEnv};
+use lsys_core::{
+    valid_key, IntoFluentMessage, RequestEnv, ValidNumber, ValidParam, ValidParamCheck,
+    ValidPattern, ValidStrlen, ValidUrl,
+};
 use lsys_setting::{
     dao::{
         MultipleSetting, MultipleSettingData, SettingData, SettingDecode, SettingEncode,
@@ -123,6 +126,68 @@ impl SenderHwYunConfig {
             .del::<HwYunConfig>(None, id, user_id, None, env_data)
             .await?)
     }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn edit_config_param_valid(
+        &self,
+        id: u64,
+        name: &str,
+        url: &str,
+        app_key: &str,
+        app_secret: &str,
+        branch_limit: u16,
+        callback_key: &str,
+    ) -> SenderResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("id"),
+                &id,
+                &ValidParamCheck::default().add_rule(ValidNumber::id()),
+            )
+            .add(
+                valid_key!("config_name"),
+                &name,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 64)),
+            )
+            .add(
+                valid_key!("hw_url"),
+                &url,
+                &ValidParamCheck::default()
+                    .add_rule(ValidUrl::default())
+                    .add_rule(ValidStrlen::max(255)),
+            )
+            .add(
+                valid_key!("hw_app_key"),
+                &app_key,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 128)),
+            )
+            .add(
+                valid_key!("hw_app_secret"),
+                &app_secret,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(8, 128)),
+            )
+            .add(
+                valid_key!("callback_key"),
+                &callback_key,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Ident)
+                    .add_rule(ValidStrlen::range(6, 32)),
+            )
+            .add(
+                valid_key!("branch_limit"),
+                &branch_limit,
+                &ValidParamCheck::default().add_rule(ValidNumber::range(1, HwSms::branch_limit())),
+            )
+            .check()?;
+        Ok(())
+    }
+
     //编辑指定的huawei短信配置
 
     #[allow(clippy::too_many_arguments)]
@@ -138,20 +203,16 @@ impl SenderHwYunConfig {
         user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
-        if branch_limit > HwSms::branch_limit() {
-            return Err(SenderError::System(
-                fluent_message!("sms-config-branch-error",
-                    {"max":HwSms::branch_limit()}
-                ),
-            ));
-        }
-        if !url.starts_with("http://") && !url.starts_with("https://") {
-            return Err(SenderError::System(
-                fluent_message!("sms-hw-config-url-error",
-                    {"url":url}
-                ),
-            )); //"your submit url [{}] is wrong",
-        }
+        self.edit_config_param_valid(
+            id,
+            name,
+            url,
+            app_key,
+            app_secret,
+            branch_limit,
+            callback_key,
+        )
+        .await?;
         Ok(self
             .setting
             .edit(
@@ -173,6 +234,61 @@ impl SenderHwYunConfig {
             )
             .await?)
     }
+    #[allow(clippy::too_many_arguments)]
+    async fn add_config_param_valid(
+        &self,
+        name: &str,
+        url: &str,
+        app_key: &str,
+        app_secret: &str,
+        branch_limit: u16,
+        callback_key: &str,
+    ) -> SenderResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("config_name"),
+                &name,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 64)),
+            )
+            .add(
+                valid_key!("hw_url"),
+                &url,
+                &ValidParamCheck::default()
+                    .add_rule(ValidUrl::default())
+                    .add_rule(ValidStrlen::max(255)),
+            )
+            .add(
+                valid_key!("hw_app_key"),
+                &app_key,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 128)),
+            )
+            .add(
+                valid_key!("hw_app_secret"),
+                &app_secret,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(8, 128)),
+            )
+            .add(
+                valid_key!("callback_key"),
+                &callback_key,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Ident)
+                    .add_rule(ValidStrlen::range(6, 32)),
+            )
+            .add(
+                valid_key!("branch_limit"),
+                &branch_limit,
+                &ValidParamCheck::default().add_rule(ValidNumber::range(1, HwSms::branch_limit())),
+            )
+            .check()?;
+
+        Ok(())
+    }
     //添加huawei短信配置
     #[allow(clippy::too_many_arguments)]
     pub async fn add_config(
@@ -186,20 +302,8 @@ impl SenderHwYunConfig {
         user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
-        if branch_limit > HwSms::branch_limit() {
-            return Err(SenderError::System(
-                fluent_message!("sms-config-branch-error",
-                    {"max":HwSms::branch_limit()}
-                ),
-            ));
-        }
-        if !url.starts_with("http://") && !url.starts_with("https://") {
-            return Err(SenderError::System(
-                fluent_message!("sms-hw-config-url-error",
-                    {"url":url}
-                ),
-            ));
-        }
+        self.add_config_param_valid(name, url, app_key, app_secret, branch_limit, callback_key)
+            .await?;
         Ok(self
             .setting
             .add(
@@ -220,6 +324,47 @@ impl SenderHwYunConfig {
             )
             .await?)
     }
+    #[allow(clippy::too_many_arguments)]
+    async fn add_app_config_param_valid(
+        &self,
+
+        signature: &str,
+        sender: &str,
+        template_id: &str,
+        template_map: &str,
+    ) -> SenderResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("template_id"),
+                &template_id,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 128)),
+            )
+            .add(
+                valid_key!("template_map"),
+                &template_map,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 2000)),
+            )
+            .add(
+                valid_key!("hw_signature"),
+                &signature,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 64)),
+            )
+            .add(
+                valid_key!("hw_sender"),
+                &sender,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 64)),
+            )
+            .check()?;
+        Ok(())
+    }
     //关联发送跟huawei短信的配置
     #[allow(clippy::too_many_arguments)]
     pub async fn add_app_config(
@@ -236,6 +381,8 @@ impl SenderHwYunConfig {
         add_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
+        self.add_app_config_param_valid(signature, sender, template_id, template_map)
+            .await?;
         self.setting.load::<HwYunConfig>(None, setting_id).await?;
         self.tpl_config
             .add_config(

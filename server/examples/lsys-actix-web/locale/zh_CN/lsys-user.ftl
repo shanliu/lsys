@@ -21,7 +21,6 @@ auth-mobile-error = 手机号校验失败:{$msg}
 auth-mobile-area-error = 手机区号{$area}异常
 email-bad-status=邮箱已删除:{$email}
 mobile-bad-status=手机号已删除:{$mobile}
-user-account-name-error = 登陆账号必须是[{$min}-{$max}]字符，且不能以[{$bad_start}]开头
 auth-find-error=登陆账号丢失:{$msg}
 user-auth-parse-error = 解析TOKEN异常:{$msg}
 app-auth-parse-bad=登陆信息解析应用失败:{$msg}
@@ -105,3 +104,40 @@ status-AccountIndexCat-AccountName=   账号
 status-AccountIndexCat-NikeName=     昵称
 status-AccountIndexCat-AccountStatus=   用户状态
 status-AccountIndexCat-RegFrom=      注册来源
+
+
+#校验名称
+
+valid-rule-name-address_status = 用户地址状态
+valid-rule-name-address_name = 收获人名称
+valid-rule-name-login_name = 登陆账号
+valid-rule-name-login_password = 登陆密码
+valid-rule-name-address_country_code = 收货地址国家编码
+valid-rule-name-address_code = 收货地址编码
+valid-rule-name-address_mobile = 收货手机号
+valid-rule-name-login_mobile = 登陆手机号
+valid-rule-name-user_mobile = 用户手机号
+valid-rule-name-login_mobile_area_code = 手机国家区号
+valid-rule-name-address_info = 收货地区信息
+valid-rule-name-address_detail = 收货地址详细
+valid-rule-name-login_email = 登陆邮箱
+valid-rule-name-user_email = 用户邮箱
+valid-rule-name-external_config_name = 外部账号配置
+valid-rule-name-external_type = 外部账号类型
+valid-rule-name-external_id = 外部账号ID
+valid-rule-name-external_name = 外部账号名
+valid-rule-name-external_token_data = 外部账号登陆TOKEN 
+valid-rule-name-external_nikename = 外部账号昵称
+valid-rule-name-external_gender = 外部账号性别
+valid-rule-name-external_link = 社交账号地址
+valid-rule-name-external_pic = 外部头像地址
+valid-rule-name-birthday = 生日
+valid-rule-name-gender = 性别
+valid-rule-name-headimg = 头像
+valid-rule-name-reg_from = 注册来源信息
+valid-rule-name-reg_ip = 注册来源IP
+valid-rule-name-username = 用户登陆名
+valid-rule-name-user_password = 用户密码
+valid-rule-name-nickname = 昵称
+valid-rule-name-login_code = 登陆验证码
+

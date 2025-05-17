@@ -6,8 +6,8 @@ use crate::dao::AccountResult;
 use crate::model::{AccountEmailModel, AccountEmailModelRef, AccountEmailStatus, AccountModel};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::{
-    fluent_message, now_time, valid_key, IntoFluentMessage, RemoteNotify, RequestEnv, ValidEmail,
-    ValidParam, ValidParamCheck,
+    fluent_message, now_time, string_clear, valid_key, IntoFluentMessage, RemoteNotify, RequestEnv,
+    StringClear, ValidEmail, ValidParam, ValidParamCheck, ValidStrlen, STRING_CLEAR_FORMAT,
 };
 
 use lsys_core::db::SqlQuote;
@@ -52,6 +52,10 @@ impl AccountEmail {
     }
     /// 根据用户邮箱找到对应的记录
     pub async fn find_by_last_email(&self, email: &str) -> AccountResult<AccountEmailModel> {
+        let email = string_clear(email, StringClear::Option(STRING_CLEAR_FORMAT), Some(151));
+        if email.is_empty() {
+            return Err(sqlx::Error::RowNotFound.into());
+        }
         let useremal = sqlx::query_as::<_, AccountEmailModel>(&sql_format!(
             "select * from {} where email={} and status in ({}) order by id desc",
             AccountEmailModel::table_name(),
@@ -70,7 +74,9 @@ impl AccountEmail {
             .add(
                 valid_key!("email"),
                 &email,
-                &ValidParamCheck::default().add_rule(ValidEmail::default()),
+                &ValidParamCheck::default()
+                    .add_rule(ValidEmail::default())
+                    .add_rule(ValidStrlen::range(3, 150)),
             )
             .check()?;
         Ok(())
@@ -210,9 +216,10 @@ impl AccountEmail {
     pub async fn valid_code_set<T: lsys_core::ValidCodeData>(
         &self,
         valid_code_data: &mut T,
-        account_id: &u64,
+        account_id: u64,
         email: &str,
-    ) -> lsys_core::ValidCodeResult<(String, usize)> {
+    ) -> AccountResult<(String, usize)> {
+        self.email_param_valid(email).await?;
         let out = self
             .valid_code()
             .set_code(&format!("{}-{}", account_id, email), valid_code_data)
@@ -227,7 +234,7 @@ impl AccountEmail {
     pub async fn valid_code_check(
         &self,
         code: &str,
-        account_id: &u64,
+        account_id: u64,
         email: &str,
     ) -> AccountResult<()> {
         use lsys_core::CheckCodeData;
@@ -240,7 +247,7 @@ impl AccountEmail {
             .await?;
         Ok(())
     }
-    pub async fn valid_code_clear(&self, account_id: &u64, email: &str) -> AccountResult<()> {
+    pub async fn valid_code_clear(&self, account_id: u64, email: &str) -> AccountResult<()> {
         let mut builder = self.valid_code_builder();
         self.valid_code()
             .destroy_code(&format!("{}-{}", account_id, email), &mut builder)
@@ -262,12 +269,12 @@ impl AccountEmail {
                 {"email":&email.email}
             )));
         }
-        self.valid_code_check(code, &email.account_id, &email.email)
+        self.valid_code_check(code, email.account_id, &email.email)
             .await?;
 
         let res = self.confirm_email(email, op_user_id, env_data).await;
         if res.is_ok() {
-            if let Err(err) = self.valid_code_clear(&email.account_id, &email.email).await {
+            if let Err(err) = self.valid_code_clear(email.account_id, &email.email).await {
                 warn!(
                     "email {} valid clear fail:{}",
                     &email.email,
@@ -531,9 +538,9 @@ impl AccountEmailCache<'_> {
     );
     pub async fn find_by_account_id_vec(
         &self,
-        account_id: &u64,
+        account_id: u64,
     ) -> AccountResult<Vec<AccountEmailModel>> {
-        match self.dao.account_cache.get(account_id).await {
+        match self.dao.account_cache.get(&account_id).await {
             Some(ids) => Ok(self
                 .find_by_ids(&ids)
                 .await?
@@ -541,12 +548,12 @@ impl AccountEmailCache<'_> {
                 .map(|e| e.1)
                 .collect::<Vec<_>>()),
             None => {
-                let rows = self.dao.find_by_account_id_vec(account_id).await?;
+                let rows = self.dao.find_by_account_id_vec(&account_id).await?;
                 for tmp in rows.clone() {
                     self.dao.cache.set(tmp.id, tmp, 0).await;
                 }
                 let ids = rows.iter().map(|e| e.id).collect::<Vec<_>>();
-                self.dao.account_cache.set(*account_id, ids, 0).await;
+                self.dao.account_cache.set(account_id, ids, 0).await;
                 Ok(rows)
             }
         }

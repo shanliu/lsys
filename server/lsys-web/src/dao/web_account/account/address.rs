@@ -26,7 +26,6 @@ impl WebUserAccount {
             .account_dao
             .session_account(session_body)
             .await?;
-
         if param.code.trim().len() < 6 {
             return Err(JsonError::JsonResponse(
                 JsonData::default().set_code(500).set_sub_code("bad_code"),

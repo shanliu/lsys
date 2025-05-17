@@ -214,7 +214,7 @@ pub async fn tag_logs(
         .web_doc
         .docs_dao
         .docs
-        .tags_logs(&param.tag_id)
+        .tags_logs(param.tag_id)
         .await?;
     Ok(JsonResponse::data(JsonData::body(json!({ "data": data }))))
 }

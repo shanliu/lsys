@@ -91,7 +91,7 @@ impl WebUserAccount {
             .account_email
             .valid_code_set(
                 &mut self.user_dao.account_dao.account_email.valid_code_builder(),
-                &email.account_id,
+                email.account_id,
                 &email.email,
             )
             .await?;

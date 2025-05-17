@@ -65,7 +65,7 @@ impl AccessUser {
         let user_data = string_clear(user_data, StringClear::Option(STRING_CLEAR_FORMAT), None);
         let mut valid_param = ValidParam::default();
         valid_param.add(
-            valid_key!("user-data"),
+            valid_key!("user_data"),
             &user_data,
             &ValidParamCheck::default()
                 .add_rule(ValidStrlen::range(1, 32))
@@ -77,7 +77,7 @@ impl AccessUser {
         if let Some(ref tmp_name) = tmp_user_name {
             if !tmp_name.is_empty() {
                 valid_param.add(
-                    valid_key!("user-name"),
+                    valid_key!("user_name"),
                     &tmp_name.as_str(),
                     &ValidParamCheck::default().add_rule(ValidStrlen::max(32)),
                 );
@@ -87,7 +87,7 @@ impl AccessUser {
             user_account.map(|e| string_clear(e, StringClear::Option(STRING_CLEAR_FORMAT), None));
         if let Some(ref account) = tmp_user_account {
             valid_param.add(
-                valid_key!("user-account"),
+                valid_key!("user_account"),
                 &account.as_str(),
                 &ValidParamCheck::default().add_rule(ValidStrlen::max(128)),
             );

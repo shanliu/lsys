@@ -34,7 +34,7 @@ impl AppOAuthClient {
     async fn check_access(&self, app: &AppModel) -> AppResult<()> {
         self.oauth_check(app).await?;
         if app.parent_app_id > 0 {
-            let papp = self.app.cache().find_by_id(&app.parent_app_id).await?;
+            let papp = self.app.cache().find_by_id(app.parent_app_id).await?;
             papp.app_status_check()?;
             self.app
                 .cache()

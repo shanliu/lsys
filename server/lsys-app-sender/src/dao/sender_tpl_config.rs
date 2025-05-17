@@ -9,7 +9,10 @@ use super::logger::LogAppConfig;
 use super::SenderResult;
 use lsys_core::db::SqlQuote;
 use lsys_core::db::{Insert, ModelTableName, SqlExpr, Update};
-use lsys_core::{now_time, sql_format, PageParam, RequestEnv};
+use lsys_core::{
+    now_time, sql_format, string_clear, valid_key, PageParam, RequestEnv, StringClear, ValidNumber,
+    ValidParam, ValidParamCheck, ValidPattern, ValidStrlen, STRING_CLEAR_FORMAT,
+};
 use lsys_logger::dao::ChangeLoggerDao;
 use lsys_setting::dao::SettingDao;
 use lsys_setting::model::SettingModel;
@@ -39,7 +42,7 @@ impl SenderTplConfig {
             logger,
         }
     }
-    pub async fn find_by_id(&self, id: &u64) -> SenderResult<SenderTplConfigModel> {
+    pub async fn find_by_id(&self, id: u64) -> SenderResult<SenderTplConfigModel> {
         let data = sqlx::query_as::<_, SenderTplConfigModel>(&sql_format!(
             "select * from {} where sender_type={} and id={} and status={}",
             SenderTplConfigModel::table_name(),
@@ -74,6 +77,10 @@ impl SenderTplConfig {
             sqlwhere.push(sql_format!("user_id={} ", uid));
         }
         if let Some(tpl) = tpl_id {
+            let tpl = string_clear(tpl, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
+            if tpl.is_empty() {
+                return Ok(0);
+            }
             sqlwhere.push(sql_format!("tpl_id={} ", tpl));
         }
         let sql = format!(
@@ -110,6 +117,10 @@ impl SenderTplConfig {
             sqlwhere.push(sql_format!("user_id={} ", uid));
         }
         if let Some(tpl) = tpl_id {
+            let tpl = string_clear(tpl, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
+            if tpl.is_empty() {
+                return Ok(vec![]);
+            }
             sqlwhere.push(sql_format!("tpl_id={} ", tpl));
         }
         let mut sql = format!("{}  order by id desc", sqlwhere.join(" and "));
@@ -150,8 +161,44 @@ impl SenderTplConfig {
             })
             .collect::<Vec<_>>())
     }
+    async fn add_config_param_valid(
+        &self,
+        name: &str,
+        app_id: u64,
+        setting_id: u64,
+        tpl_id: &str,
+    ) -> SenderResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("config_name"),
+                &name,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(3, 24)),
+            )
+            .add(
+                valid_key!("app_id"),
+                &app_id,
+                &ValidParamCheck::default().add_rule(ValidNumber::id()),
+            )
+            .add(
+                valid_key!("sms_setting_id"),
+                &setting_id,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Ident)
+                    .add_rule(ValidStrlen::range(1, 32)),
+            )
+            .add(
+                valid_key!("tpl_id"),
+                &tpl_id,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Ident)
+                    .add_rule(ValidStrlen::range(1, 32)),
+            )
+            .check()?;
+        Ok(())
+    }
 
-    //关联发送跟aliyun短信的配置
     #[allow(clippy::too_many_arguments)]
     pub async fn add_config<C: Serialize>(
         &self,
@@ -164,6 +211,8 @@ impl SenderTplConfig {
         add_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
+        self.add_config_param_valid(name, app_id, setting_id, tpl_id)
+            .await?;
         let name = name.to_owned();
         let tpl_id = tpl_id.to_owned();
         let config_data = json!(config_data).to_string();
@@ -223,7 +272,7 @@ impl SenderTplConfig {
             change_time:time,
             change_user_id:user_id
         });
-        let res = Update::< SenderTplConfigModel, _>::new(change)
+        let res = Update::<SenderTplConfigModel, _>::new(change)
             .execute_by_pk(config, &self.db)
             .await;
 

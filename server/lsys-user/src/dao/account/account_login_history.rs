@@ -1,5 +1,8 @@
 use lsys_core::db::{Insert, ModelTableName, SqlExpr, SqlQuote, Update, WhereOption};
-use lsys_core::{model_option_set, now_time, sql_format, LimitParam, VecStringJoin};
+use lsys_core::{
+    model_option_set, now_time, sql_format, string_clear, LimitParam, StringClear, VecStringJoin,
+    STRING_CLEAR_FORMAT,
+};
 
 use sqlx::{MySql, Pool};
 
@@ -30,17 +33,18 @@ impl AccountLoginHistory {
             where_sql.push(sql_format!("account_id={}", tmp))
         }
         if let Some(tmp) = login_account {
-            if !tmp.is_empty() {
-                where_sql.push(sql_format!("login_account={}", tmp))
-            }
+            let tmp = string_clear(tmp, StringClear::Option(STRING_CLEAR_FORMAT), Some(129));
+            where_sql.push(sql_format!("login_account={}", tmp))
         }
         if let Some(tmp) = is_login {
             where_sql.push(sql_format!("is_login={}", tmp))
         }
         if let Some(tmp) = login_ip {
+            let tmp = string_clear(tmp, StringClear::Option(STRING_CLEAR_FORMAT), Some(47));
             where_sql.push(sql_format!("login_ip={}", tmp))
         }
         if let Some(tmp) = login_type {
+            let tmp = string_clear(tmp, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
             where_sql.push(sql_format!("login_type={}", tmp))
         }
         where_sql
@@ -140,10 +144,22 @@ impl AccountLoginHistory {
         login_city: &str,
     ) -> AccountResult<u64> {
         let time = now_time()?;
-        let login_account = login_account.to_string();
-        let login_type = login_type.to_string();
-        let login_ip = login_ip.to_string();
-        let login_city = login_city.to_string();
+        let login_account = string_clear(
+            login_account,
+            StringClear::Option(STRING_CLEAR_FORMAT),
+            Some(128),
+        );
+        let login_type = string_clear(
+            login_type,
+            StringClear::Option(STRING_CLEAR_FORMAT),
+            Some(32),
+        );
+        let login_ip = string_clear(login_ip, StringClear::Option(STRING_CLEAR_FORMAT), Some(46));
+        let login_city = string_clear(
+            login_city,
+            StringClear::Option(STRING_CLEAR_FORMAT),
+            Some(100),
+        );
         let new_data = model_option_set!(AccountLoginModelRef,{
             login_type:login_type,
             login_account:login_account,
@@ -173,7 +189,7 @@ impl AccountLoginHistory {
             login_msg:login_msg,
 
         });
-        let ures = Update::< AccountLoginModel, _>::new(change)
+        let ures = Update::<AccountLoginModel, _>::new(change)
             .execute_by_where(
                 &WhereOption::Where(sql_format!("id={}", login_id)),
                 &self.db,

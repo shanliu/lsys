@@ -3,13 +3,13 @@ use std::ops::Deref;
 use actix_utils::future::{err, ok, Ready};
 use actix_web::{dev::Payload, web::Data, FromRequest, HttpRequest};
 
+use actix_http::header;
+use lsys_core::IntoFluentMessage;
 use lsys_core::RequestEnv;
 use lsys_web::{
     common::{JsonData, JsonResponse, RequestDao},
     dao::WebDao,
 };
-
-use actix_http::header::{self, HeaderValue};
 
 use super::ResponseJson;
 
@@ -39,45 +39,40 @@ impl FromRequest for ReqQuery {
                     .get(header::ACCEPT_LANGUAGE)
                     .and_then(|t| t.to_str().map(|s| s.split(',').next().unwrap_or(s)).ok())
                     .unwrap_or("zh_CN")
-                    .replace('-', "_")
-                    .to_owned();
+                    .replace('-', "_");
                 let user_agent = req
                     .headers()
                     .get("User-Agent")
-                    .unwrap_or(&HeaderValue::from_static(""))
-                    .to_str()
-                    .unwrap_or_default()
-                    .to_owned();
+                    .and_then(|e| e.to_str().ok());
                 let request_id = req
                     .headers()
                     .get("X-Request-ID")
-                    .unwrap_or(&HeaderValue::from_static(""))
-                    .to_str()
-                    .unwrap_or_default()
-                    .to_owned();
-                let ip = req
-                    .connection_info()
-                    .realip_remote_addr()
-                    .unwrap_or_default()
-                    .to_owned();
+                    .and_then(|e| e.to_str().ok());
                 let device_id = req
                     .headers()
                     .get("X-Device-ID")
-                    .unwrap_or(&HeaderValue::from_static(""))
-                    .to_str()
-                    .unwrap_or_default()
-                    .to_owned();
+                    .and_then(|e| e.to_str().ok());
+                let ip = req.connection_info();
+                let env = match RequestEnv::new(
+                    Some(&user_lang),
+                    ip.realip_remote_addr(),
+                    request_id,
+                    user_agent,
+                    device_id,
+                ) {
+                    Ok(tmp) => tmp,
+                    Err(verr) => {
+                        return err(JsonResponse::data(
+                            JsonData::default()
+                                .set_sub_code("env_valid_err")
+                                .set_code(400),
+                        )
+                        .set_message(verr.to_fluent_message().default_format())
+                        .into())
+                    }
+                };
                 ok(Self {
-                    inner: RequestDao::new(
-                        app_dao.clone().into_inner(),
-                        RequestEnv::new(
-                            Some(&user_lang),
-                            Some(&ip),
-                            Some(&request_id),
-                            Some(&user_agent),
-                            Some(&device_id),
-                        ),
-                    ),
+                    inner: RequestDao::new(app_dao.clone().into_inner(), env),
                     // req: req.to_owned(),
                 })
             }

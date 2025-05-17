@@ -5,8 +5,8 @@ use std::sync::Arc;
 
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::{
-    now_time, rand_str, valid_key, RandType, RemoteNotify, ValidIp, ValidParam, ValidParamCheck,
-    ValidPattern, ValidStrlen,
+    now_time, rand_str, string_clear, valid_key, RandType, RemoteNotify, StringClear, ValidIp,
+    ValidParam, ValidParamCheck, ValidPattern, ValidStrlen, STRING_CLEAR_FORMAT,
 };
 
 use crate::dao::AccessUser;
@@ -99,8 +99,8 @@ pub struct AccessLoginData<'t> {
 }
 impl AccessAuth {
     //強制指定應用全部下線
-    pub async fn clear_app_login(&self, user_app_id: &u64) -> AccessResult<()> {
-        if *user_app_id == 0 {
+    pub async fn clear_app_login(&self, user_app_id: u64) -> AccessResult<()> {
+        if user_app_id == 0 {
             return Ok(());
         }
         let time = now_time()?;
@@ -118,12 +118,12 @@ impl AccessAuth {
         let mut start_id = 0;
         loop {
             let sql = sql_format!(
-                "select 
+                "select
                     id,
                     oauth_app_id,
                     token_data
-                from {} 
-                where logout_time ={} 
+                from {}
+                where logout_time ={}
                 and status={}
                 and user_app_id={}
                 and id>{}
@@ -143,7 +143,7 @@ impl AccessAuth {
             }
             for (next_id, oauth_app_id, token_data) in res {
                 self.cache()
-                    .del_session(user_app_id, &oauth_app_id, &token_data)
+                    .del_session(user_app_id, oauth_app_id, &token_data)
                     .await?;
                 start_id = next_id
             }
@@ -171,15 +171,15 @@ impl AccessAuth {
         let user_data = login_param.user_data.to_string();
         let mut valid_param = ValidParam::default();
         valid_param.add(
-            valid_key!("user-data"),
+            valid_key!("user_data"),
             &user_data,
             &ValidParamCheck::default()
-                .add_rule(ValidStrlen::range(2, 32))
+                .add_rule(ValidStrlen::range(1, 32))
                 .add_rule(ValidPattern::Ident),
         );
         if let Some(ref token_data) = login_param.token_data {
             valid_param.add(
-                valid_key!("token-data"),
+                valid_key!("token_data"),
                 token_data,
                 &ValidParamCheck::default()
                     .add_rule(ValidStrlen::range(16, 64))
@@ -189,7 +189,7 @@ impl AccessAuth {
         if let Some(login_data) = &login_param.login_data {
             if let Some(ref user_account) = login_data.user_account {
                 valid_param.add(
-                    valid_key!("user-account"),
+                    valid_key!("user_account"),
                     user_account,
                     &ValidParamCheck::default()
                         .add_rule(ValidPattern::NotFormat)
@@ -198,14 +198,14 @@ impl AccessAuth {
             }
             if let Some(ref login_ip) = login_data.login_ip {
                 valid_param.add(
-                    valid_key!("login-ip"),
+                    valid_key!("login_ip"),
                     login_ip,
                     &ValidParamCheck::default().add_rule(ValidIp::default()),
                 );
             }
             for (key, _) in &login_data.session_data {
                 valid_param.add(
-                    valid_key!("session-key"),
+                    valid_key!("session_data_key"),
                     key,
                     &ValidParamCheck::default()
                         .add_rule(ValidPattern::Ident)
@@ -215,7 +215,7 @@ impl AccessAuth {
         }
         if let Some(token_data) = login_param.token_data {
             valid_param.add(
-                valid_key!("token-data"),
+                valid_key!("token_data"),
                 &token_data,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)
@@ -225,7 +225,7 @@ impl AccessAuth {
         if let Some(user_account) = login_param.login_data {
             if let Some(user_account) = user_account.user_account {
                 valid_param.add(
-                    valid_key!("user-account"),
+                    valid_key!("user_account"),
                     &user_account,
                     &ValidParamCheck::default()
                         .add_rule(ValidPattern::NotFormat)
@@ -376,8 +376,8 @@ impl AccessAuth {
             .await?;
         self.cache()
             .del_session(
-                &session.user_app_id,
-                &session.oauth_app_id,
+                session.user_app_id,
+                session.oauth_app_id,
                 &session.token_data,
             )
             .await?;
@@ -479,8 +479,8 @@ impl AccessAuth {
 
         self.cache()
             .del_session(
-                &session_body.session().user_app_id,
-                &session_body.session().oauth_app_id,
+                session_body.session().user_app_id,
+                session_body.session().oauth_app_id,
                 &session_body.session().token_data,
             )
             .await?;
@@ -508,8 +508,8 @@ impl AccessAuth {
             .await?;
         self.cache()
             .del_session(
-                &session_body.session().user_app_id,
-                &session_body.session().oauth_app_id,
+                session_body.session().user_app_id,
+                session_body.session().oauth_app_id,
                 &session_body.session().token_data,
             )
             .await?;
@@ -531,6 +531,11 @@ impl AccessAuth {
         oauth_app_id: u64,
         token_data: &str,
     ) -> AccessResult<SessionModel> {
+        let token_data = string_clear(
+            token_data,
+            StringClear::Option(STRING_CLEAR_FORMAT),
+            Some(65),
+        );
         if token_data.is_empty() {
             return Err(AccessError::NotLogin);
         }
@@ -568,6 +573,11 @@ impl AccessAuth {
         session_body: &SessionBody,
         data_key: &[&str],
     ) -> AccessResult<Vec<(String, String)>> {
+        let data_key = data_key
+            .iter()
+            .map(|e| string_clear(e, StringClear::Ident, Some(13)))
+            .filter(|e| !e.is_empty())
+            .collect::<Vec<String>>();
         session_body.valid()?;
         if data_key.is_empty() {
             return Ok(vec![]);
@@ -595,12 +605,32 @@ impl AccessAuth {
         self.session_set_vec_data(session_body, &[(data_key, data_val)])
             .await
     }
+    async fn session_set_vec_data_param_valid(&self, data: &[(&str, &str)]) -> AccessResult<()> {
+        let mut param_valid = ValidParam::default();
+        for tmp in data {
+            param_valid.add(
+                valid_key!("session_data_key"),
+                &tmp.0,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Ident)
+                    .add_rule(ValidStrlen::range(1, 12)),
+            );
+            param_valid.add(
+                valid_key!("session_data_val"),
+                &tmp.1,
+                &ValidParamCheck::default().add_rule(ValidStrlen::range(0, 20000)),
+            );
+        }
+        param_valid.check()?;
+        Ok(())
+    }
     //登陆附带数据批量设置
     pub async fn session_set_vec_data(
         &self,
         session_body: &SessionBody,
         data: &[(&str, &str)],
     ) -> AccessResult<()> {
+        self.session_set_vec_data_param_valid(data).await?;
         session_body.valid()?;
 
         let time = now_time()?;
@@ -736,13 +766,13 @@ impl AccessAuthCache<'_> {
     }
     async fn del_session(
         &self,
-        app_id: &u64,
-        oauth_app_id: &u64,
+        app_id: u64,
+        oauth_app_id: u64,
         token_data: &str,
     ) -> AccessResult<()> {
         let cache_key = AccessAuthSessionCacheKey {
-            app_id: *app_id,
-            oauth_app_id: *oauth_app_id,
+            app_id,
+            oauth_app_id,
             token_data: token_data.to_owned(),
         };
         self.dao.session_cache.clear(&cache_key).await;

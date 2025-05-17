@@ -3,7 +3,10 @@ use std::sync::Arc;
 use crate::dao::AccountResult;
 
 use crate::model::{AccountModel, AccountModelRef, AccountPasswordModel, AccountPasswordModelRef};
-use lsys_core::{fluent_message, now_time, IntoFluentMessage, RequestEnv};
+use lsys_core::{
+    fluent_message, now_time, valid_key, IntoFluentMessage, RequestEnv, ValidParam,
+    ValidParamCheck, ValidPassword,
+};
 
 use lsys_core::db::{Insert, Update};
 use lsys_core::db::{ModelTableName, SqlQuote};
@@ -53,9 +56,9 @@ impl AccountPassword {
     pub async fn valid_code_set<T: lsys_core::ValidCodeData>(
         &self,
         valid_code_data: &mut T,
-        account_id: &u64,
+        account_id: u64,
         from_type: &str,
-    ) -> lsys_core::ValidCodeResult<(String, usize)> {
+    ) -> AccountResult<(String, usize)> {
         let out = self
             .valid_code()
             .set_code(&format!("{}-{}", account_id, from_type), valid_code_data)
@@ -70,7 +73,7 @@ impl AccountPassword {
     pub async fn valid_code_check(
         &self,
         code: &str,
-        account_id: &u64,
+        account_id: u64,
         from_type: &str,
     ) -> AccountResult<()> {
         use lsys_core::CheckCodeData;
@@ -83,7 +86,7 @@ impl AccountPassword {
             .await?;
         Ok(())
     }
-    pub async fn valid_code_clear(&self, account_id: &u64, from_type: &str) -> AccountResult<()> {
+    pub async fn valid_code_clear(&self, account_id: u64, from_type: &str) -> AccountResult<()> {
         let mut builder = self.valid_code_builder();
         self.valid_code()
             .destroy_code(&format!("{}-{}", account_id, from_type), &mut builder)
@@ -92,6 +95,17 @@ impl AccountPassword {
     }
 }
 impl AccountPassword {
+    async fn passwrod_param_valid(&self, new_password: &str) -> AccountResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("user_password"),
+                &new_password,
+                &ValidParamCheck::default().add_rule(ValidPassword::Medium),
+            )
+            .check()?;
+
+        Ok(())
+    }
     /// 校验验证码并设置新密码
     #[allow(clippy::too_many_arguments)]
     pub async fn set_passwrod_from_code(
@@ -104,21 +118,23 @@ impl AccountPassword {
         transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
     ) -> AccountResult<u64> {
-        self.valid_code_check(code, &account.id, from_type).await?;
+        self.passwrod_param_valid(new_password).await?;
+        self.valid_code_check(code, account.id, from_type).await?;
         let res = self
             .set_passwrod(account, new_password, op_user_id, transaction, env_data)
             .await;
         if res.is_ok() {
-            if let Err(err) = self.valid_code_clear(&account.id, from_type).await {
+            if let Err(err) = self.valid_code_clear(account.id, from_type).await {
                 warn!(
                     "email {} valid clear fail:{}",
-                    &account.id,
+                    account.id,
                     err.to_fluent_message().default_format()
                 );
             }
         }
         res
     }
+
     /// 设置新密码
     pub async fn set_passwrod(
         &self,
@@ -128,19 +144,8 @@ impl AccountPassword {
         transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
     ) -> AccountResult<u64> {
-        let new_password = new_password.trim().to_string();
-        if new_password.len() < 6 || new_password.len() > 32 {
-            return Err(AccountError::System(
-                fluent_message!("account-passwrod-wrong",
-                    {
-                        "len":new_password.len(),
-                        "min":6,
-                        "max":32
-                    }
-                ),
-            )); //"password length need 6-32 char"
-        }
-
+        self.passwrod_param_valid(new_password).await?;
+        let new_password = new_password.to_string();
         let db = &self.db;
         let time = now_time()?;
         let mut ta;
@@ -290,7 +295,7 @@ impl AccountPassword {
             == account_password.password)
     }
     /// 检测指定ID密码是否超时
-    pub async fn password_timeout(&self, account_id: &u64) -> AccountResult<bool> {
+    pub async fn password_timeout(&self, account_id: u64) -> AccountResult<bool> {
         if let Ok(set) = self
             .setting
             .load::<AccountPasswordConfig>(None)

@@ -6,7 +6,9 @@ mod res_type;
 use logger::LogRes;
 //RBAC中资源相关实现
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{fluent_message, RemoteNotify};
+use lsys_core::{
+    fluent_message, valid_key, RemoteNotify, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
+};
 
 use crate::model::RbacResModel;
 use lsys_logger::dao::ChangeLoggerDao;
@@ -65,6 +67,35 @@ pub struct RbacResAddData<'t> {
 }
 
 impl RbacRes {
+    async fn res_param_valid(&self, param: &RbacResData<'_>) -> RbacResult<()> {
+        let mut param_valid = ValidParam::default();
+        param_valid
+            .add(
+                valid_key!("res_type"),
+                &param.res_type,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Ident)
+                    .add_rule(ValidStrlen::range(1, 32)),
+            )
+            .add(
+                valid_key!("res_data"),
+                &param.res_data,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(0, 32)),
+            );
+        if let Some(name) = param.res_name {
+            param_valid.add(
+                valid_key!("res_name"),
+                &name,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(0, 32)),
+            );
+        }
+        param_valid.check()?;
+        Ok(())
+    }
     pub async fn add_res(
         &self,
         param: &RbacResAddData<'_>,
@@ -72,14 +103,14 @@ impl RbacRes {
         transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
     ) -> RbacResult<u64> {
-        let res_type = param.res_info.res_type;
-        let res_type = check_length!(res_type, "type", 32);
-        let res_data = param.res_info.res_data;
-        let res_data = check_length!(res_data, "data", 32);
-        let res_name = match param.res_info.res_name {
-            Some(res_name) => check_length!(res_name, "name", 32),
-            None => "".to_string(),
-        };
+        self.res_param_valid(&param.res_info).await?;
+        let res_type = param.res_info.res_type.to_owned();
+        let res_data = param.res_info.res_data.to_owned();
+        let res_name = param
+            .res_info
+            .res_name
+            .map(|e| e.to_owned())
+            .unwrap_or_default();
 
         let res = sqlx::query_as::<_,RbacResModel>(&sql_format!(
             "select * from {} where user_id={} and res_type={} and res_data={} and app_id={} and status={}",
@@ -179,29 +210,23 @@ impl RbacRes {
         transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
     ) -> RbacResult<u64> {
+        self.res_param_valid(res_info).await?;
         let time = now_time().unwrap_or_default();
+        let res_type = res_info.res_type.to_owned();
+        let res_data = res_info.res_data.to_owned();
         let mut change = lsys_core::model_option_set!(RbacResModelRef,{
             change_user_id:change_user_id,
             change_time:time,
+            res_data:res_data,
+            res_type:res_type,
         });
-
-        let opt_name = if let Some(res_name) = res_info.res_name {
-            Some(check_length!(res_name, "name", 32))
-        } else {
-            Some("".to_string())
-        };
-        let res_type = res_info.res_type;
-        let opt_type = Some(check_length!(res_type, "type", 32));
-        let res_data = res_info.res_data;
-        let opt_data = Some(check_length!(res_data, "data", 32));
-        change.res_name = opt_name.as_ref();
-        change.res_data = opt_data.as_ref();
-        change.res_type = opt_type.as_ref();
+        let res_name = res_info.res_name.map(|e| e.to_owned());
+        change.res_name = res_name.as_ref();
         let db = &self.db;
         let fout = db_option_executor!(
             db,
             {
-                let out = Update::< RbacResModel, _>::new(change)
+                let out = Update::<RbacResModel, _>::new(change)
                     .execute_by_pk(res, db.as_executor())
                     .await?;
                 Ok(out.rows_affected())
@@ -211,16 +236,16 @@ impl RbacRes {
         );
         self.cache_res_data
             .clear(&ResCacheKey {
-                res_type: opt_type.to_owned().unwrap_or(res.res_type.clone()),
-                res_data: opt_data.to_owned().unwrap_or(res.res_data.clone()),
+                res_type: res_type.to_owned(),
+                res_data: res_data.to_owned(),
                 user_id: res.user_id,
                 app_id: res.app_id,
             })
             .await;
         self.cache_res_data
             .clear(&ResCacheKey {
-                res_type: res.res_type.clone(),
-                res_data: res.res_data.clone(),
+                res_type: res_type.to_owned(),
+                res_data: res_data.to_owned(),
                 user_id: res.user_id,
                 app_id: res.app_id,
             })
@@ -232,9 +257,9 @@ impl RbacRes {
                     action: "edit",
                     user_id: res.user_id,
                     app_id: res.app_id,
-                    res_data: opt_data.as_deref().unwrap_or(res.res_data.as_str()),
-                    res_name: opt_name.as_deref().unwrap_or(res.res_name.as_str()),
-                    res_type: opt_type.as_deref().unwrap_or(res.res_type.as_str()),
+                    res_data: &res_data,
+                    res_name: &res_name.unwrap_or_default(),
+                    res_type: &res_type,
                 },
                 Some(res.id),
                 Some(change_user_id),
@@ -263,7 +288,7 @@ impl RbacRes {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let tmp = Update::< RbacResModel, _>::new(change)
+        let tmp = Update::<RbacResModel, _>::new(change)
             .execute_by_pk(res, &mut *db)
             .await;
         if let Err(e) = tmp {

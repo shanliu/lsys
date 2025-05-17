@@ -1,6 +1,7 @@
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
-    now_time, RemoteNotify, RequestEnv,
+    now_time, valid_key, RemoteNotify, RequestEnv, ValidDateTime, ValidIp, ValidNumber, ValidParam,
+    ValidParamCheck, ValidPattern, ValidStrlen,
 };
 
 use lsys_core::db::{Insert, ModelTableName, Update};
@@ -37,6 +38,52 @@ impl AccountInfo {
             index,
         }
     }
+    async fn info_param_valid(&self, info: &AccountInfoModelRef<'_>) -> AccountResult<()> {
+        let mut param_valid = ValidParam::default();
+        if let Some(tmp) = info.birthday {
+            param_valid.add(
+                valid_key!("birthday"),
+                tmp,
+                &ValidParamCheck::default().add_rule(ValidDateTime::Date),
+            );
+        }
+        if let Some(tmp) = info.gender {
+            param_valid.add(
+                valid_key!("gender"),
+                tmp,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidNumber::range(1, 3)),
+            );
+        }
+        if let Some(tmp) = info.headimg {
+            param_valid.add(
+                valid_key!("headimg"),
+                tmp,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(3, 512)),
+            );
+        }
+        if let Some(tmp) = info.reg_from {
+            param_valid.add(
+                valid_key!("reg_from"),
+                tmp,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(0, 32)),
+            );
+        }
+        if let Some(tmp) = info.reg_ip {
+            param_valid.add(
+                valid_key!("reg_ip"),
+                tmp,
+                &ValidParamCheck::default().add_rule(ValidIp::default()),
+            );
+        }
+        param_valid.check()?;
+        Ok(())
+    }
     /// 设置用户信息
     pub async fn set_info(
         &self,
@@ -46,6 +93,7 @@ impl AccountInfo {
         transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
     ) -> AccountResult<()> {
+        self.info_param_valid(info).await?;
         let time = now_time()?;
         let set_info = AccountInfoModelRef {
             id: None,
@@ -96,7 +144,7 @@ impl AccountInfo {
                     .await
             }
             Ok(account_info) => {
-                Update::< AccountInfoModel, _>::new(set_info)
+                Update::<AccountInfoModel, _>::new(set_info)
                     .execute_by_pk(&account_info, &mut *db)
                     .await
             }

@@ -288,7 +288,7 @@ pub async fn app_role_data(
                     .map(|f| AppRoleUserDataRecord {
                         timeout: f.timeout,
                         change_time: f.change_time,
-                        user_data: user_info.get(&f.user_id).to_owned(),
+                        user_data: user_info.get(f.user_id).to_owned(),
                     })
                     .collect::<Vec<_>>()
             });

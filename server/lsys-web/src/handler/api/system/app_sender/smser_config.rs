@@ -75,7 +75,7 @@ pub async fn smser_config_del(
         .smser
         .smser_dao
         .sms_record
-        .find_config_by_id(&param.config_id)
+        .find_config_by_id(param.config_id)
         .await;
 
     match res {
@@ -277,7 +277,7 @@ pub async fn smser_tpl_config_del(
         .smser
         .smser_dao
         .tpl_config
-        .find_by_id(&param.app_config_id)
+        .find_by_id(param.app_config_id)
         .await?;
     if SenderTplConfigStatus::Delete.eq(config.status) {
         return Ok(JsonResponse::data(JsonData::body(json!({ "num": 0 }))));

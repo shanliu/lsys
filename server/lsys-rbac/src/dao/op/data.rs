@@ -3,7 +3,9 @@ use crate::model::{RbacOpModel, RbacOpStatus};
 use std::collections::HashMap;
 use std::vec;
 
-use lsys_core::{impl_dao_fetch_one_by_one, string_clear, PageParam, StringClear};
+use lsys_core::{
+    impl_dao_fetch_one_by_one, string_clear, PageParam, StringClear, STRING_CLEAR_FORMAT,
+};
 
 use lsys_core::db::{ModelTableName, SqlExpr, SqlQuote};
 use lsys_core::sql_format;
@@ -58,13 +60,14 @@ impl RbacOp {
             sql += sql_format!(" and app_id = {}", val).as_str();
         }
         if let Some(val) = op_param.op_key {
+            let val = string_clear(val, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
+            if val.is_empty() {
+                return None;
+            }
             sql += sql_format!(" and op_key = {}", val).as_str();
         }
         if let Some(val) = op_param.op_name {
             let val = string_clear(val, StringClear::LikeKeyWord, None);
-            if val.is_empty() {
-                return None;
-            }
             sql += sql_format!(" and op_name like {}", format!("%{}%", val)).as_str();
         }
         if let Some(rid) = op_param.ids {

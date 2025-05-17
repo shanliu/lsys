@@ -20,7 +20,6 @@ auth-mobile-error = Phone number verification failed: {$msg}
 auth-mobile-area-error = Invalid phone country code [{$area}]
 email-bad-status = Email deleted: [{$email}]
 mobile-bad-status = Phone number deleted: [{$mobile}]
-user-account-name-error = Username must be [{$min}-{$max}] characters and cannot start with [{$bad_start}]
 auth-find-error = Login account not found: {$msg}
 user-auth-parse-error = Token parsing error: {$msg}
 app-auth-parse-bad = Failed to parse application login data: {$msg}

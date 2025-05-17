@@ -6,7 +6,9 @@ use crate::model::{AccountModel, AccountNameModel};
 use async_trait::async_trait;
 
 use lsys_access::dao::SessionBody;
-use lsys_core::fluent_message;
+use lsys_core::{
+    fluent_message, valid_key, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
+};
 use serde_json::{json, Value};
 
 use std::sync::Arc;
@@ -95,12 +97,34 @@ pub struct NameLogin {
     pub password: String,
 }
 impl NameLogin {
-    pub fn new(account_dao: Arc<AccountDao>, name: &str, password: &str) -> Self {
-        Self {
+    async fn new_param_valid(name: &str, password: &str) -> AccountResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("login_name"),
+                &name,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Ident)
+                    .add_rule(ValidStrlen::range(1, 32)),
+            )
+            .add(
+                valid_key!("login_password"),
+                &password,
+                &ValidParamCheck::default().add_rule(ValidStrlen::range(1, 128)),
+            )
+            .check()?;
+        Ok(())
+    }
+    pub async fn new(
+        account_dao: Arc<AccountDao>,
+        name: &str,
+        password: &str,
+    ) -> AccountResult<Self> {
+        Self::new_param_valid(name, password).await?;
+        Ok(Self {
             account_dao,
             name: name.to_string(),
             password: password.to_string(),
-        }
+        })
     }
 }
 #[async_trait]

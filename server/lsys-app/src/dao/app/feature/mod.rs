@@ -15,7 +15,7 @@ impl App {
         let mut valid_param = ValidParam::default();
         for tmp in featuer_data {
             valid_param.add(
-                valid_key!("featuer-data"),
+                valid_key!("featuer_data"),
                 tmp,
                 &ValidParamCheck::default()
                     .add_rule(ValidStrlen::range(2, 32))

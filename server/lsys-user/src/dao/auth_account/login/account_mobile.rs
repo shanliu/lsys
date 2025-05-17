@@ -7,7 +7,9 @@ use crate::dao::{AccountDao, AccountResult, UserAuthData, UserAuthResult};
 use crate::model::{AccountMobileModel, AccountModel};
 use async_trait::async_trait;
 use lsys_access::dao::SessionBody;
-use lsys_core::fluent_message;
+use lsys_core::{
+    fluent_message, valid_key, ValidMobile, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
+};
 use serde_json::{json, Value};
 
 use std::sync::Arc;
@@ -86,18 +88,41 @@ pub struct MobileLogin {
     pub password: String,
 }
 impl MobileLogin {
-    pub fn new(
+    async fn new_param_valid(area_code: &str, mobile: &str, password: &str) -> AccountResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("login_area_code"),
+                &area_code,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Numeric)
+                    .add_rule(ValidStrlen::range(2, 6)),
+            )
+            .add(
+                valid_key!("login_mobile"),
+                &mobile,
+                &ValidParamCheck::default().add_rule(ValidMobile::default()),
+            )
+            .add(
+                valid_key!("login_password"),
+                &password,
+                &ValidParamCheck::default().add_rule(ValidStrlen::range(1, 128)),
+            )
+            .check()?;
+        Ok(())
+    }
+    pub async fn new(
         account_dao: Arc<AccountDao>,
         area_code: &str,
         mobile: &str,
         password: &str,
-    ) -> Self {
-        Self {
+    ) -> AccountResult<Self> {
+        Self::new_param_valid(area_code, mobile, password).await?;
+        Ok(Self {
             account_dao,
             area_code: area_code.to_string(),
             mobile: mobile.to_string(),
             password: password.to_string(),
-        }
+        })
     }
 }
 #[async_trait]

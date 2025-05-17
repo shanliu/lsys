@@ -127,7 +127,7 @@ impl MailSenderDao {
         let nt = now_time().unwrap_or_default();
         let sendtime = send_time.unwrap_or(nt);
         let sendtime = if sendtime < nt { nt } else { sendtime };
-        let max_try_num = max_try_num.unwrap_or(1);
+        let max_try_num = max_try_num.unwrap_or(0);
         self.mail_record
             .send_check(app_id, tpl_id, &tmp, sendtime)
             .await?;
@@ -135,13 +135,13 @@ impl MailSenderDao {
             .mail_record
             .add(
                 &tmp,
-                &app_id.unwrap_or_default(),
+                app_id.unwrap_or_default(),
                 tpl_id,
                 tpl_var,
-                &sendtime,
+                sendtime,
                 reply_mail,
                 user_id,
-                &max_try_num,
+                max_try_num,
                 env_data,
             )
             .await?;
@@ -194,7 +194,7 @@ impl MailSenderDao {
         &self,
         body: &SenderMailBodyModel,
         msg_data: &[&SenderMailMessageModel],
-        user_id: &u64,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<Vec<(u64, bool, Option<SenderError>)>> {
         //消息id,是否在任务中，错误消息
@@ -220,8 +220,8 @@ impl MailSenderDao {
         }
         self.cancel
             .add(
-                &body.app_id,
-                &body.id,
+                body.app_id,
+                body.id,
                 &cancel_data.iter().map(|e| e.id).collect::<Vec<_>>(),
                 user_id,
                 None,
@@ -267,7 +267,7 @@ impl MailSenderDao {
     pub async fn cancal_from_message_snid_vec(
         &self,
         msg_snid_data: &[u64],
-        user_id: &u64,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<Vec<(u64, bool, Option<SenderError>)>> {
         let res = self

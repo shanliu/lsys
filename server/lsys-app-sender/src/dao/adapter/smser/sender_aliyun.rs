@@ -2,15 +2,18 @@ use std::sync::Arc;
 
 use crate::{
     dao::{
-        adapter::smser::sms_result_to_task, create_sender_client, SenderError, SenderExecError,
-        SenderResult, SenderTaskExecutor, SenderTaskResult, SenderTplConfig, SmsSendNotifyParse,
-        SmsTaskData, SmsTaskItem,
+        adapter::smser::sms_result_to_task, create_sender_client, SenderExecError, SenderResult,
+        SenderTaskExecutor, SenderTaskResult, SenderTplConfig, SmsSendNotifyParse, SmsTaskData,
+        SmsTaskItem,
     },
     model::{SenderSmsMessageModel, SenderTplConfigModel},
 };
 use async_trait::async_trait;
 use chrono::DateTime;
-use lsys_core::{fluent_message, IntoFluentMessage, RequestEnv};
+use lsys_core::{
+    valid_key, IntoFluentMessage, RequestEnv, ValidNumber, ValidParam, ValidParamCheck,
+    ValidPattern, ValidStrlen,
+};
 use lsys_lib_sms::{AliSms, SendDetailItem, SendError, SendNotifyError};
 use lsys_setting::{
     dao::{
@@ -121,6 +124,67 @@ impl SenderAliYunConfig {
             .del::<AliYunConfig>(None, id, user_id, None, env_data)
             .await?)
     }
+    #[allow(clippy::too_many_arguments)]
+    async fn edit_config_param_valid(
+        &self,
+        id: u64,
+        name: &str,
+        access_id: &str,
+        access_secret: &str,
+        region: &str,
+        callback_key: &str,
+        branch_limit: u16,
+    ) -> SenderResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("id"),
+                &id,
+                &ValidParamCheck::default().add_rule(ValidNumber::id()),
+            )
+            .add(
+                valid_key!("config_name"),
+                &name,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 64)),
+            )
+            .add(
+                valid_key!("access_id"),
+                &access_id,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 128)),
+            )
+            .add(
+                valid_key!("access_secret"),
+                &access_secret,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 128)),
+            )
+            .add(
+                valid_key!("region"),
+                &region,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 128)),
+            )
+            .add(
+                valid_key!("callback_key"),
+                &callback_key,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Ident)
+                    .add_rule(ValidStrlen::range(6, 32)),
+            )
+            .add(
+                valid_key!("branch_limit"),
+                &branch_limit,
+                &ValidParamCheck::default().add_rule(ValidNumber::range(1, AliSms::branch_limit())),
+            )
+            .check()?;
+        Ok(())
+    }
+
     //编辑指定的aliyun短信配置
     #[allow(clippy::too_many_arguments)]
     pub async fn edit_config(
@@ -135,13 +199,16 @@ impl SenderAliYunConfig {
         user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
-        if branch_limit > AliSms::branch_limit() {
-            return Err(SenderError::System(
-                fluent_message!("sms-config-branch-error",
-                    {"max":AliSms::branch_limit()}
-                ),
-            )); //"limit max:{}",
-        }
+        self.edit_config_param_valid(
+            id,
+            name,
+            access_id,
+            access_secret,
+            region,
+            callback_key,
+            branch_limit,
+        )
+        .await?;
         Ok(self
             .setting
             .edit(
@@ -163,6 +230,60 @@ impl SenderAliYunConfig {
             )
             .await?)
     }
+    async fn add_config_param_valid(
+        &self,
+        name: &str,
+        access_id: &str,
+        access_secret: &str,
+        region: &str,
+        callback_key: &str,
+        branch_limit: u16,
+    ) -> SenderResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("config_name"),
+                &name,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 64)),
+            )
+            .add(
+                valid_key!("access_id"),
+                &access_id,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 128)),
+            )
+            .add(
+                valid_key!("access_secret"),
+                &access_secret,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 128)),
+            )
+            .add(
+                valid_key!("region"),
+                &region,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 128)),
+            )
+            .add(
+                valid_key!("callback_key"),
+                &callback_key,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Ident)
+                    .add_rule(ValidStrlen::range(6, 32)),
+            )
+            .add(
+                valid_key!("branch_limit"),
+                &branch_limit,
+                &ValidParamCheck::default().add_rule(ValidNumber::range(1, AliSms::branch_limit())),
+            )
+            .check()?;
+        Ok(())
+    }
+
     //添加aliyun短信配置
     #[allow(clippy::too_many_arguments)]
     pub async fn add_config(
@@ -176,13 +297,15 @@ impl SenderAliYunConfig {
         user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
-        if branch_limit > AliSms::branch_limit() {
-            return Err(SenderError::System(
-                fluent_message!("sms-config-branch-error",
-                    {"max":AliSms::branch_limit()}
-                ),
-            ));
-        }
+        self.add_config_param_valid(
+            name,
+            access_id,
+            access_secret,
+            region,
+            callback_key,
+            branch_limit,
+        )
+        .await?;
         Ok(self
             .setting
             .add(
@@ -203,6 +326,31 @@ impl SenderAliYunConfig {
             )
             .await?)
     }
+    async fn add_app_config_param_valid(
+        &self,
+
+        aliyun_sms_tpl: &str,
+        aliyun_sign_name: &str,
+    ) -> SenderResult<()> {
+        let mut valid_param = ValidParam::default();
+        valid_param
+            .add(
+                valid_key!("aliyun_sms_tpl"),
+                &aliyun_sms_tpl,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 128)),
+            )
+            .add(
+                valid_key!("aliyun_sign_name"),
+                &aliyun_sign_name,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 128)),
+            );
+        valid_param.check()?;
+        Ok(())
+    }
     //关联发送跟aliyun短信的配置
     #[allow(clippy::too_many_arguments)]
     pub async fn add_app_config(
@@ -217,6 +365,8 @@ impl SenderAliYunConfig {
         add_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
+        self.add_app_config_param_valid(aliyun_sms_tpl, aliyun_sign_name)
+            .await?;
         self.setting.load::<AliYunConfig>(None, setting_id).await?;
         let aliyun_sms_tpl = aliyun_sms_tpl.to_owned();
         let aliyun_sign_name = aliyun_sign_name.to_owned();
