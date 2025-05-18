@@ -2,7 +2,6 @@ use lsys_core::RequestEnv;
 use lsys_rbac::dao::ResTypeParam;
 
 use super::user::RbacUserSyncOpParam;
-use crate::access_res_tpl;
 use crate::common::JsonResult;
 use crate::dao::access::api::auth::{CheckSystemLogin, CheckSystemRegister};
 use crate::dao::access::api::system::{

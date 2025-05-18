@@ -97,3 +97,8 @@ res-op-user-app-sms-send=用户短信应用发送
 #校验名称
 
 valid-rule-name-area_code = 地区编码
+
+
+#字典 
+dict-SMS_NOTIFY_TYPE= 短信发送结果回调
+dict-SUB_APP_SECRET_NOTIFY_TYPE= 子应用密钥更改回调

@@ -293,12 +293,30 @@ macro_rules! model_option_set {
 /// @param $item 可选值列表
 macro_rules! db_model_enum_status_define {
     ($self_var:ident,$enum_name:ident,$type:ty,{$($item:expr),*$(,)?})=>{
+        #[allow(dead_code)]
         impl $enum_name{
-            pub fn eq(self,eq:$type)->bool{
-                return self.to()==eq;
+            pub fn eq(&self,eq:$type)->bool{
+                return (*self as $type)==eq;
             }
             pub fn to(self)->$type{
                 return self as $type
+            }
+            pub fn fluent(&self)->$crate::FluentMessage{
+                //@todo 要反向得到名
+                 $(
+                    if *self ==$item {
+                       return  $crate::FluentMessage {
+                            id: format!("status-{}",stringify!($item).replace(' ',"").replace("::","-")),
+                            crate_name: env!("CARGO_PKG_NAME").to_string(),
+                            data: vec![],
+                        }
+                    }
+                )*
+                $crate::FluentMessage {
+                    id: format!("status-{}-{}",stringify!($enum_name),(*self as $type)),
+                    crate_name: env!("CARGO_PKG_NAME").to_string(),
+                    data: vec![],
+                }
             }
         }
 		impl $crate::db::SqlQuote<$type> for $enum_name {

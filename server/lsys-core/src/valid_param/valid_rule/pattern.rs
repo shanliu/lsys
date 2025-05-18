@@ -71,15 +71,6 @@ impl<T: Display> ValidRule for ValidPattern<T> {
                         ));
                     }
                 }
-                if let Some(c) = data.chars().last() {
-                    if c == '-' || c == '_' || c == '.' {
-                        return Err(ValidRuleError::new(
-                            fluent_message!("valid-not-pattern-ident",{
-                                "data":data,
-                            }),
-                        ));
-                    }
-                }
                 if !data
                     .chars()
                     .all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.')

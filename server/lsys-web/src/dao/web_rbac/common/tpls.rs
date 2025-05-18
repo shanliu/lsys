@@ -16,7 +16,6 @@ pub trait RbacCheckResTpl {
     fn tpl_data() -> Vec<CheckResTpl>; //返回授权操作包含的资源列表
 }
 
-#[macro_export]
 macro_rules! access_res_tpl {
     ($($res_type:ty),+$(,)*) => {{
         use $crate::dao::RbacCheckResTpl;

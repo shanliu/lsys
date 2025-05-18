@@ -92,6 +92,10 @@ status-AppSecretType-Notify= 回调
 status-AppSecretStatus-Enable=  正常
 status-AppSecretStatus-Delete= 删除
 
+status-AppNotifyDataStatus-Init= 待回调
+status-AppNotifyDataStatus-Succ= 已回调
+status-AppNotifyDataStatus-Fail= 回调失败
+
 #校验名称
 valid-rule-name-name = 应用名
 valid-rule-name-parent_app = 父应用

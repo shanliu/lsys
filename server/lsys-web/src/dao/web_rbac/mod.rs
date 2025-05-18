@@ -1,4 +1,5 @@
 pub mod access;
+#[macro_use]
 mod common;
 pub mod res_tpl;
 pub mod user;

@@ -12,13 +12,13 @@ use serde_json::json;
 pub async fn notify_data_where(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     Ok(JsonResponse::data(JsonData::body(json!({
         "method":vec![
-            SMS_NOTIFY_TYPE,
-            SUB_APP_SECRET_NOTIFY_TYPE,
+            status_format!(json req_dao, SMS_NOTIFY_TYPE),
+            status_format!(json req_dao, SUB_APP_SECRET_NOTIFY_TYPE),
         ],
         "status":vec![
-            status_json!(req_dao, AppNotifyDataStatus::Init),
-            status_json!(req_dao, AppNotifyDataStatus::Succ),
-            status_json!(req_dao, AppNotifyDataStatus::Fail),
+            status_format!(json req_dao, AppNotifyDataStatus::Init),
+            status_format!(json req_dao, AppNotifyDataStatus::Succ),
+            status_format!(json req_dao, AppNotifyDataStatus::Fail),
         ]
     }))))
 }
