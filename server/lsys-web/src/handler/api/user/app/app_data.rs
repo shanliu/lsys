@@ -49,7 +49,7 @@ pub struct UserAppListParam {
     pub count_num: Option<bool>,
 }
 
-pub async fn list_data(
+pub async fn app_list(
     param: &UserAppListParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonResponse> {
@@ -218,7 +218,7 @@ pub struct UserParentAppListParam {
     pub count_num: Option<bool>,
 }
 
-pub async fn parent_list_data(
+pub async fn parent_app_list(
     param: &UserParentAppListParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonResponse> {

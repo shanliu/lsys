@@ -9,7 +9,7 @@ use serde_json::json;
 
 #[derive(Debug, Deserialize)]
 pub struct ResAddParam {
-    pub res_name: String,
+    pub res_name: Option<String>,
     pub res_type: String,
     pub res_data: String,
 }
@@ -32,11 +32,13 @@ pub async fn res_add(param: &ResAddParam, req_dao: &UserAuthQueryDao) -> JsonRes
                 user_id: 0,
                 app_id: Some(0),
                 res_info: RbacResData {
-                    res_name: if param.res_name.is_empty() {
-                        None
-                    } else {
-                        Some(&param.res_name)
-                    },
+                    res_name: param.res_name.as_deref().and_then(|e| {
+                        if !e.is_empty() {
+                            Some(e)
+                        } else {
+                            None
+                        }
+                    }),
                     res_type: &param.res_type,
                     res_data: &param.res_data,
                 },
@@ -54,7 +56,7 @@ pub async fn res_add(param: &ResAddParam, req_dao: &UserAuthQueryDao) -> JsonRes
 pub struct ResEditParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub res_id: u64,
-    pub res_name: String,
+    pub res_name: Option<String>,
     pub res_type: String,
     pub res_data: String,
 }
@@ -85,11 +87,13 @@ pub async fn res_edit(
         .edit_res(
             &op,
             &RbacResData {
-                res_name: if param.res_name.is_empty() {
-                    None
-                } else {
-                    Some(&param.res_name)
-                },
+                res_name: param.res_name.as_deref().and_then(|e| {
+                    if !e.is_empty() {
+                        Some(e)
+                    } else {
+                        None
+                    }
+                }),
                 res_type: &param.res_type,
                 res_data: &param.res_data,
             },
@@ -140,7 +144,10 @@ pub struct ResParam {
     pub res_type: Option<String>,
     pub res_data: Option<String>,
     pub res_name: Option<String>,
-    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_u64")]
+    #[serde(
+        default,
+        deserialize_with = "crate::common::deserialize_option_vec_u64"
+    )]
     pub ids: Option<Vec<u64>>,
     pub page: Option<PageParam>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]

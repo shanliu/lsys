@@ -101,9 +101,6 @@ impl AppNotifyRecord {
         env_data: Option<&RequestEnv>,
     ) -> AppResult<u64> {
         self.set_app_config_param_valid(method, call_url).await?;
-        // if !call_url.starts_with("http://") && !call_url.starts_with("https://") {
-        //     return Err(AppError::System(fluent_message!("notify-call-not-support")));
-        // }
         let client = reqwest::Client::builder();
         let client = client
             .timeout(Duration::from_secs(5))
@@ -288,18 +285,30 @@ impl AppNotifyRecord {
         }
 
         let where_sql = if let Some(page) = limit {
+            let page_where = page.where_sql(
+                "d.id",
+                if sqlwhere.is_empty() {
+                    None
+                } else {
+                    Some("and")
+                },
+            );
             format!(
                 "{} {} {} order by {} {} ",
-                if sqlwhere.is_empty() { "where " } else { "" },
+                if !sqlwhere.is_empty() || !page_where.is_empty() {
+                    "where "
+                } else {
+                    ""
+                },
                 sqlwhere.join(" and "),
-                page.where_sql("d.id", Some("and")),
+                page_where,
                 page.order_sql("d.id"),
                 page.limit_sql(),
             )
         } else {
             format!(
-                "{} {}  order by id desc",
-                if sqlwhere.is_empty() { "where " } else { "" },
+                "{} {}  order by d.id desc",
+                if !sqlwhere.is_empty() { "where " } else { "" },
                 sqlwhere.join(" and ")
             )
         };

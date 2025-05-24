@@ -13,7 +13,7 @@ use serde_json::{json, Value};
 #[derive(Debug, Deserialize)]
 pub struct SendParam {
     pub to: Vec<String>,
-    pub tpl_id: String,
+    pub tpl_key: String,
     pub data: HashMap<String, String>,
     pub reply: Option<String>,
     pub send_time: Option<String>,
@@ -57,7 +57,7 @@ pub async fn send(
         .mailer
         .app_send(
             app,
-            &param.tpl_id,
+            &param.tpl_key,
             &to,
             &param
                 .data

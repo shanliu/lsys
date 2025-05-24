@@ -1,1 +1,1 @@
-wechat-parse-state-error= state invalid:{$msg}
+wechat-parse-state-error = Invalid state parameter: {$msg}

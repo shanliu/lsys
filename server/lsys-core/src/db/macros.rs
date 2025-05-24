@@ -332,7 +332,7 @@ macro_rules! db_model_enum_status_define {
                         return Ok($item);
                     }
                 )*
-                return Err(sqlx::Error::TypeNotFound { type_name: format!("{}[{}]->{}",stringify!(i8),value,stringify!($enum_name)) })
+                return Err(sqlx::Error::TypeNotFound { type_name: format!("{}({}):[{}] ",stringify!($enum_name),stringify!($type),value) })
             }
         }
     };

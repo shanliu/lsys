@@ -1,6 +1,9 @@
-use lsys_user::model::{
-    AccountAddressModel, AccountEmailModel, AccountEmailStatus, AccountExternalModel,
-    AccountInfoModel, AccountMobileModel, AccountMobileStatus, AccountModel, AccountNameModel,
+use lsys_user::{
+    dao::AccountError,
+    model::{
+        AccountAddressModel, AccountEmailModel, AccountEmailStatus, AccountExternalModel,
+        AccountInfoModel, AccountMobileModel, AccountMobileStatus, AccountModel, AccountNameModel,
+    },
 };
 
 use crate::common::JsonResult;
@@ -148,7 +151,7 @@ impl WebUserAccount {
                     out_user_name = Some(user_data);
                 }
                 Err(err) => {
-                    if !err.is_not_found() {
+                    if !matches!(err, AccountError::Sqlx(sqlx::Error::RowNotFound)) {
                         return Err(err.into());
                     }
                 }
@@ -168,7 +171,7 @@ impl WebUserAccount {
                     out_user_info = Some(user_data);
                 }
                 Err(err) => {
-                    if !err.is_not_found() {
+                    if !matches!(err, AccountError::Sqlx(sqlx::Error::RowNotFound)) {
                         return Err(err.into());
                     }
                 }

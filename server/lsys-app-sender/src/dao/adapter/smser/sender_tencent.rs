@@ -125,6 +125,7 @@ impl SenderTenYunConfig {
         user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
+        self.tpl_config.check_setting_id_used(id).await?;
         Ok(self
             .setting
             .del::<TenYunConfig>(None, id, user_id, None, env_data)
@@ -144,7 +145,7 @@ impl SenderTenYunConfig {
     ) -> SenderResult<()> {
         ValidParam::default()
             .add(
-                valid_key!("id"),
+                valid_key!("config_id"),
                 &id,
                 &ValidParamCheck::default().add_rule(ValidNumber::id()),
             )
@@ -409,7 +410,7 @@ impl SenderTenYunConfig {
         name: &str,
         app_id: u64,
         setting_id: u64,
-        tpl_id: &str,
+        tpl_key: &str,
         sign_name: &str,
         template_id: &str,
         template_map: &str,
@@ -425,7 +426,7 @@ impl SenderTenYunConfig {
                 name,
                 app_id,
                 setting_id,
-                tpl_id,
+                tpl_key,
                 &TenYunTplConfig {
                     template_id: template_id.to_owned(),
                     sign_name: sign_name.to_owned(),

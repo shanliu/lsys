@@ -12,7 +12,7 @@ use super::{inner_app_rbac_check, inner_app_self_check, inner_user_data_to_user_
 pub struct OpAddParam {
     pub user_param: Option<String>,
     pub op_key: String,
-    pub op_name: String,
+    pub op_name: Option<String>,
 }
 pub async fn op_add(
     param: &OpAddParam,
@@ -34,11 +34,13 @@ pub async fn op_add(
                 app_id: Some(app.id),
                 op_info: RbacOpData {
                     op_key: &param.op_key,
-                    op_name: if param.op_name.is_empty() {
-                        None
-                    } else {
-                        Some(&param.op_name)
-                    },
+                    op_name: param.op_name.as_deref().and_then(|e| {
+                        if !e.is_empty() {
+                            Some(e)
+                        } else {
+                            None
+                        }
+                    }),
                 },
             },
             app.user_id,
@@ -54,7 +56,7 @@ pub struct OpEditParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub op_id: u64,
     pub op_key: String,
-    pub op_name: String,
+    pub op_name: Option<String>,
 }
 
 pub async fn op_edit(
@@ -80,11 +82,13 @@ pub async fn op_edit(
             &op,
             &RbacOpData {
                 op_key: &param.op_key,
-                op_name: if param.op_name.is_empty() {
-                    None
-                } else {
-                    Some(&param.op_name)
-                },
+                op_name: param.op_name.as_deref().and_then(|e| {
+                    if !e.is_empty() {
+                        Some(e)
+                    } else {
+                        None
+                    }
+                }),
             },
             app.user_id,
             None,
@@ -129,7 +133,10 @@ pub struct OpDataParam {
     pub user_param: Option<String>,
     pub op_name: Option<String>,
     pub op_key: Option<String>,
-    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_u64")]
+    #[serde(
+        default,
+        deserialize_with = "crate::common::deserialize_option_vec_u64"
+    )]
     pub ids: Option<Vec<u64>>,
     pub page: Option<PageParam>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]

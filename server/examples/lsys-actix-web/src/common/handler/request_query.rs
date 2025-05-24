@@ -4,8 +4,8 @@ use actix_utils::future::{err, ok, Ready};
 use actix_web::{dev::Payload, web::Data, FromRequest, HttpRequest};
 
 use actix_http::header;
-use lsys_core::IntoFluentMessage;
-use lsys_core::RequestEnv;
+use lsys_web::lsys_core::IntoFluentMessage;
+use lsys_web::lsys_core::RequestEnv;
 use lsys_web::{
     common::{JsonData, JsonResponse, RequestDao},
     dao::WebDao,

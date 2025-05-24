@@ -3,8 +3,8 @@ use crate::common::handler::{
 };
 use actix_web::post;
 use lsys_web::handler::api::system::app::{
-    confirm, confirm_exter_feature, confirm_inner_feature_exter_login_confirm,
-    confirm_inner_feature_sub_app_confirm, delete, disable, list_data, oauth_client_confirm,
+    app_list, confirm, confirm_exter_feature, confirm_inner_feature_exter_login_confirm,
+    confirm_inner_feature_sub_app_confirm, delete, disable, mapping_data, oauth_client_confirm,
     oauth_client_scope_confirm, oauth_server_confirm, request_list, ConfirmExterFeatureParam,
     ConfirmExterLoginFeatureParam, ConfirmInnerFeatureSubAppParam, ConfirmOAuthClientParam,
     ConfirmOAuthClientScopeParam, ConfirmOAuthServerParam, ConfirmParam, DeleteParam, DisableParam,
@@ -40,7 +40,8 @@ pub(crate) async fn app(
             )
             .await
         }
-        "list" => list_data(&json_param.param::<ListParam>()?, &auth_dao).await,
+        "list" => app_list(&json_param.param::<ListParam>()?, &auth_dao).await,
+        "mapping" => mapping_data(&auth_dao).await,
         "request_list" => request_list(&json_param.param::<RequestListParam>()?, &auth_dao).await,
         "oauth_client_confirm" => {
             oauth_client_confirm(&json_param.param::<ConfirmOAuthClientParam>()?, &auth_dao).await

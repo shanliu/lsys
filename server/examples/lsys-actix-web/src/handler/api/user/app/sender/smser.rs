@@ -6,8 +6,8 @@ use lsys_web::handler::api::user::app_sender::{
     smser_ali_app_config_add, smser_ali_config_list, smser_cloopen_app_config_add,
     smser_cloopen_config_list, smser_config_add, smser_config_del, smser_config_list,
     smser_hw_app_config_add, smser_hw_config_list, smser_jd_app_config_add, smser_jd_config_list,
-    smser_message_body, smser_message_cancel, smser_message_list, smser_message_log,
-    smser_message_send, smser_netease_app_config_add, smser_netease_config_list,
+    smser_mapping_data, smser_message_body, smser_message_cancel, smser_message_list,
+    smser_message_log, smser_message_send, smser_netease_app_config_add, smser_netease_config_list,
     smser_notify_get_config, smser_notify_set_config, smser_ten_app_config_add,
     smser_ten_config_list, smser_tpl_config_del, smser_tpl_config_list, SmserAliConfigListParam,
     SmserAppAliConfigAddParam, SmserAppCloopenConfigAddParam, SmserAppHwConfigAddParam,
@@ -28,6 +28,7 @@ pub(crate) async fn smser(
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
     Ok(match path.into_inner().as_str() {
+        "mapping" => smser_mapping_data(&auth_dao).await,
         "config_add" => {
             smser_config_add(&json_param.param::<SmserConfigAddParam>()?, &auth_dao).await
         }

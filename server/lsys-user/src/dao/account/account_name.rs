@@ -1,7 +1,8 @@
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
     fluent_message, now_time, string_clear, valid_key, RemoteNotify, RequestEnv, StringClear,
-    ValidParam, ValidParamCheck, ValidPattern, ValidStrMatch, ValidStrlen, STRING_CLEAR_FORMAT,
+    ValidError, ValidParam, ValidParamCheck, ValidPattern, ValidStrMatch, ValidStrlen,
+    STRING_CLEAR_FORMAT,
 };
 
 use lsys_logger::dao::ChangeLoggerDao;
@@ -259,9 +260,13 @@ impl AccountName {
                 if account_name.account_id == account.id {
                     Ok(())
                 } else {
-                    Err(AccountError::System(
-                        fluent_message!("account-name-exits",{"name":&username}), //"name {$name} already exists",
-                    ))
+                    Err(AccountError::Vaild(ValidError::message(
+                        valid_key!("account_name"),
+                        fluent_message!("account-name-exits",{
+
+                            "name":&username
+                        }),
+                    )))
                 }
             }
             Err(err) => Err(err.into()),

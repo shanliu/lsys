@@ -2,9 +2,9 @@ mod mailer;
 mod mailer_config;
 mod mailer_config_smtp;
 mod mailer_tpl_body;
+mod mapping;
 mod smser;
 mod smser_config;
-
 mod smser_config_aliyun;
 mod smser_config_cloopen;
 mod smser_config_hwyun;
@@ -25,3 +25,5 @@ pub use mailer::*;
 pub use mailer_config::*;
 pub use mailer_tpl_body::*;
 pub use smser::*;
+
+pub use mapping::*;

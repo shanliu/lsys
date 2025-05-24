@@ -723,7 +723,7 @@ impl<'t> RbacRoleFinder<'t>{
       // -----------------
     async fn find_access_row_by_sql(&self,sqls:&[&str])-> RbacResult<Vec<(String,AccessRoleRow)>>  {
         Ok(sqlx::query(&format!(
-            "select * from ({}) as t",
+            "select * from (({})) as t",
             sqls.join(") union all (")
         ))
         .try_map(

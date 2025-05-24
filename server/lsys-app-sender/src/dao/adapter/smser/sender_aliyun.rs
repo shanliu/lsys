@@ -119,6 +119,7 @@ impl SenderAliYunConfig {
         user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
+        self.tpl_config.check_setting_id_used(id).await?;
         Ok(self
             .setting
             .del::<AliYunConfig>(None, id, user_id, None, env_data)
@@ -137,7 +138,7 @@ impl SenderAliYunConfig {
     ) -> SenderResult<()> {
         ValidParam::default()
             .add(
-                valid_key!("id"),
+                valid_key!("config_id"),
                 &id,
                 &ValidParamCheck::default().add_rule(ValidNumber::id()),
             )
@@ -358,7 +359,7 @@ impl SenderAliYunConfig {
         name: &str,
         app_id: u64,
         setting_id: u64,
-        tpl_id: &str,
+        tpl_key: &str,
         aliyun_sms_tpl: &str,
         aliyun_sign_name: &str,
         user_id: u64,
@@ -375,7 +376,7 @@ impl SenderAliYunConfig {
                 name,
                 app_id,
                 setting_id,
-                tpl_id,
+                tpl_key,
                 &AliYunTplConfig {
                     aliyun_sms_tpl,
                     aliyun_sign_name,

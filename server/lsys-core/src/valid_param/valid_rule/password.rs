@@ -15,6 +15,14 @@ impl<T: Display> ValidRule for ValidPassword<T> {
     type T = T;
     fn check(&self, data: &T) -> Result<(), ValidRuleError> {
         let dt_str = data.to_string();
+        if !dt_str.chars().all(|c| {
+            c.is_ascii_alphanumeric() || // 匹配数字和字母（ASCII）
+        c.is_ascii_punctuation() // 匹配 ASCII 标点符号
+        }) {
+            return Err(ValidRuleError::new(fluent_message!(
+                "valid-not-password-bad"
+            )));
+        }
         match self {
             Self::Phantom(_) => {
                 unreachable!("marker type unreachable");
@@ -22,7 +30,7 @@ impl<T: Display> ValidRule for ValidPassword<T> {
             Self::Low => {
                 if dt_str.len() < 6 || dt_str.contains([' ', '\t', '\r', '\n']) {
                     return Err(ValidRuleError::new(fluent_message!(
-                        "valid-not-password-Low",{"len":6,}
+                        "valid-not-password-low",{"len":6,}
                     )));
                 }
             }

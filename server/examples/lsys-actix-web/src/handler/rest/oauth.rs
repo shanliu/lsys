@@ -2,12 +2,12 @@ use crate::common::handler::{
     OauthAuthQuery, ReqQuery, ResponseJson, ResponseJsonResult, RestQuery,
 };
 use actix_web::{get, post, web::Query};
-use lsys_access::dao::AccessSession;
-use lsys_app::dao::RestAuthToken;
 use lsys_web::handler::rest::oauth::{
     account_data_from_oauth, create_token, refresh_token, AccountOptionDataParam, CodeParam,
     RefreshCodeParam,
 };
+use lsys_web::lsys_access::dao::AccessSession;
+use lsys_web::lsys_app::dao::RestAuthToken;
 
 #[get("/token")]
 pub(crate) async fn token(

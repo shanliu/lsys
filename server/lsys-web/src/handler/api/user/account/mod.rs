@@ -8,3 +8,5 @@ pub use info::*;
 pub use login_history::*;
 pub use password::*;
 pub use profile::*;
+mod mapping;
+pub use mapping::*;

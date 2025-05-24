@@ -64,7 +64,7 @@ impl SmsRecord {
         &self,
         user_id: Option<u64>,
         app_id: Option<u64>,
-        tpl_id: Option<&str>,
+        tpl_key: Option<&str>,
         body_id: Option<u64>,
         msg_snid: Option<u64>,
         status: Option<SenderSmsMessageStatus>,
@@ -85,12 +85,12 @@ impl SmsRecord {
         if let Some(uid) = user_id {
             sqlwhere.push(sql_format!("b.user_id={} ", uid));
         }
-        if let Some(t) = tpl_id {
+        if let Some(t) = tpl_key {
             let t = string_clear(t, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
             if t.is_empty() {
                 return Ok(0);
             }
-            sqlwhere.push(sql_format!("b.tpl_id={} ", t));
+            sqlwhere.push(sql_format!("b.tpl_key={} ", t));
         }
         if let Some(s) = status {
             sqlwhere.push(sql_format!("m.status={} ", s));
@@ -103,8 +103,8 @@ impl SmsRecord {
         }
         let sql = sql_format!(
             "select count(*) as total from {} as m join {} as b on m.sender_body_id=b.id {}",
-            SenderSmsBodyModel::table_name(),
             SenderSmsMessageModel::table_name(),
+            SenderSmsBodyModel::table_name(),
             SqlExpr(if sqlwhere.is_empty() {
                 "".to_string()
             } else {
@@ -121,7 +121,7 @@ impl SmsRecord {
         &self,
         user_id: Option<u64>,
         app_id: Option<u64>,
-        tpl_id: Option<&str>,
+        tpl_key: Option<&str>,
         body_id: Option<u64>,
         msg_snid: Option<u64>,
         status: Option<SenderSmsMessageStatus>,
@@ -146,12 +146,12 @@ impl SmsRecord {
         if let Some(uid) = user_id {
             sqlwhere.push(sql_format!("b.user_id={} ", uid));
         }
-        if let Some(t) = tpl_id {
+        if let Some(t) = tpl_key {
             let t = string_clear(t, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
             if t.is_empty() {
                 return Ok((vec![], None));
             }
-            sqlwhere.push(sql_format!("b.tpl_id={} ", t));
+            sqlwhere.push(sql_format!("b.tpl_key={} ", t));
         }
         if let Some(s) = status {
             sqlwhere.push(sql_format!("m.status={} ", s));
@@ -187,7 +187,7 @@ impl SmsRecord {
         } else {
             format!(
                 "{} {}  order by m.id desc",
-                if sqlwhere.is_empty() { "where " } else { "" },
+                if !sqlwhere.is_empty() { "where " } else { "" },
                 sqlwhere.join(" and ")
             )
         };
@@ -256,7 +256,7 @@ impl SmsRecord {
         &self,
         mobiles: &[(&str, &str)],
         app_id: u64,
-        tpl_id: &str,
+        tpl_key: &str,
         tpl_var: &str,
         max_try_num: u8,
     ) -> SenderResult<()> {
@@ -276,8 +276,8 @@ impl SmsRecord {
                 &ValidParamCheck::default().add_rule(ValidNumber::id()),
             )
             .add(
-                valid_key!("tpl_id"),
-                &tpl_id,
+                valid_key!("tpl_key"),
+                &tpl_key,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::Ident)
                     .add_rule(ValidStrlen::range(1, 32)),
@@ -301,7 +301,7 @@ impl SmsRecord {
         &self,
         mobiles: &[(&'t str, &'t str)],
         app_id: u64,
-        tpl_id: &str,
+        tpl_key: &str,
         tpl_var: &str,
         expected_time: u64,
         user_id: Option<u64>,
@@ -309,11 +309,11 @@ impl SmsRecord {
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<(u64, Vec<(u64, &'t str, &'t str)>)> //返回(body id,<msg id,area,mobile>)
     {
-        self.add_param_valid(mobiles, app_id, tpl_id, tpl_var, max_try_num)
+        self.add_param_valid(mobiles, app_id, tpl_key, tpl_var, max_try_num)
             .await?;
         let user_id = user_id.unwrap_or_default();
         let add_time = now_time().unwrap_or_default();
-        let tpl_id = tpl_id.to_owned();
+        let tpl_key = tpl_key.to_owned();
         let tpl_var = tpl_var.to_owned();
         let mut idata = Vec::with_capacity(mobiles.len());
         let mut max_try_num = max_try_num.to_owned();
@@ -350,7 +350,7 @@ impl SmsRecord {
         let res = Insert::<SenderSmsBodyModel, _>::new(
             lsys_core::model_option_set!(SenderSmsBodyModelRef,{
                 app_id:app_id,
-                tpl_id:tpl_id,
+                tpl_key:tpl_key,
                 request_id:reqid,
                 tpl_var:tpl_var,
                 reply_host:reply_host,
@@ -626,7 +626,7 @@ impl SmsRecord {
     pub(crate) async fn send_check(
         &self,
         app_id: Option<u64>,
-        tpl_id: &str,
+        tpl_key: &str,
         mobiles: &[(&str, &str)],
         send_time: u64,
     ) -> SenderResult<()> {
@@ -651,17 +651,15 @@ impl SmsRecord {
             }
             None
         })() {
-            return Err(SenderError::System(
-                fluent_message!("sms-send-check-max-send", //"send sms limit :{}",
-                    {
-                    "max":max_send
-                    }
-                ),
-            ));
-            // return Err(SenderError::System(format!(
-            //     "send mobile limit :{}",
-            //     max_send
-            // )));
+            if mobiles.len() > max_send as usize {
+                return Err(SenderError::System(
+                    fluent_message!("sms-send-check-max-send", //"send sms limit :{}",
+                        {
+                        "max":max_send
+                        }
+                    ),
+                ));
+            }
         }
         for (c, r) in rule.iter() {
             match r {
@@ -701,8 +699,8 @@ impl SmsRecord {
                     );
                     limit_sql.push((sql, c.id, limit));
                 }
-                SenderSmsConfigData::PassTpl(itpl_id) => {
-                    if *tpl_id == *itpl_id {
+                SenderSmsConfigData::PassTpl(itpl_key) => {
+                    if *tpl_key == *itpl_key {
                         break;
                     }
                 }

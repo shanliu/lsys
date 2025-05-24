@@ -266,17 +266,68 @@ impl RbacRole {
             change_user_id:change_user_id,
             change_time:time,
         });
-        let (opt_name, opt_key) = match role_info {
+        let (opt_name, opt_key, sql) = match role_info {
             RbacRoleUserRangeData::Session {
                 role_key,
                 role_name,
             } => {
+                let mut sql = vec![
+                    sql_format!(
+                        "select * from {} where user_id={} and role_key={} and app_id={} and status={} and id!={} limit 1",
+                        RbacRoleModel::table_name(),
+                        role.user_id,
+                        role_key,
+                        role.app_id,
+                        RbacRoleStatus::Enable,
+                        role.id
+                     )
+                 ];
+                if let Some(rname) = role_name {
+                    if !rname.is_empty() {
+                        sql.push(sql_format!(
+                            "select * from {} where user_id={} and role_name={} and app_id={} and status={} and id!={}  limit 1",
+                            RbacRoleModel::table_name(),
+                            role.user_id,
+                            rname,
+                            role.app_id,
+                            RbacRoleStatus::Enable,
+                            role.id
+                        ));
+                    }
+                }
                 let role_name = role_name.map(|e| e.to_owned());
                 let role_key = role_key.to_string();
-                (role_name, Some(role_key))
+                (role_name, Some(role_key), sql)
             }
-            RbacRoleUserRangeData::Custom { role_name } => (Some(role_name.to_string()), None),
+            RbacRoleUserRangeData::Custom { role_name } => {
+                let sql=vec![
+                    sql_format!(
+                         "select * from {} where user_id={} and role_name={} and app_id={} and status={}  and id!={}  limit 1",
+                         RbacRoleModel::table_name(),
+                       role.user_id,
+                         role_name,
+                         role.app_id,
+                         RbacRoleStatus::Enable,
+                          role.id
+                     )
+                 ];
+
+                (Some(role_name.to_string()), None, sql)
+            }
         };
+        let res = sqlx::query_as::<_, RbacRoleModel>(&sql.join(" union all  "))
+            .fetch_one(&self.db)
+            .await;
+        match res {
+            Ok(rm) => {
+                return Err(RbacError::System(fluent_message!("rbac-role-exist",{
+                    "name":rm.role_name,
+                    "key":rm.role_key
+                })))
+            }
+            Err(sqlx::Error::RowNotFound) => {}
+            Err(e) => return Err(e)?,
+        }
         change.role_name = opt_name.as_ref();
         change.role_key = opt_key.as_ref();
         let db = &self.db;

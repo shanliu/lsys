@@ -2,10 +2,10 @@ use crate::common::handler::{
     JsonQuery, JwtQuery, ResponseJson, ResponseJsonResult, UserAuthQuery,
 };
 use actix_web::post;
-use lsys_access::dao::AccessSession;
-use lsys_core::fluent_message;
 use lsys_web::common::JsonData;
 use lsys_web::handler::api::user::account::{external_bind, external_bind_url};
+use lsys_web::lsys_access::dao::AccessSession;
+use lsys_web::lsys_core::fluent_message;
 use lsys_web::{
     common::{JsonError, JsonResponse},
     handler::api::user::account::{

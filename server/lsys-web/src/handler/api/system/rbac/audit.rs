@@ -24,7 +24,7 @@ pub struct AuditParam {
     #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub user_id: Option<u64>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
-    pub app_id: Option<u64>,
+    pub user_app_id: Option<u64>,
     pub user_ip: Option<String>,
     pub device_id: Option<String>,
     pub request_id: Option<String>,
@@ -53,7 +53,7 @@ pub async fn audit_data(
         .audit_data(
             &AuditDataParam {
                 user_id: param.user_id,
-                app_id: param.app_id,
+                user_app_id: param.user_app_id,
                 user_ip: param.user_ip.as_deref(),
                 device_id: param.device_id.as_deref(),
                 request_id: param.request_id.as_deref(),
@@ -71,7 +71,7 @@ pub async fn audit_data(
                 .access
                 .audit_count(&AuditDataParam {
                     user_id: param.user_id,
-                    app_id: param.app_id,
+                    user_app_id: param.user_app_id,
                     user_ip: param.user_ip.as_deref(),
                     device_id: param.device_id.as_deref(),
                     request_id: param.request_id.as_deref(),

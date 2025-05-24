@@ -44,8 +44,10 @@ impl ExternalLoginData {
         match tmp.next() {
             Some(e) => match e.parse::<u64>() {
                 Err(err) => Err(AccountError::System(fluent_message!(
-                    "account-bad-session",
-                    err
+                   "account-bad-session",{
+                    "msg":err,
+                    "data":auth_data.login_data()
+                }
                 ))),
                 Ok(id) => {
                     let data = account_dao.account_external.cache().find_by_id(&id).await?;
@@ -56,8 +58,10 @@ impl ExternalLoginData {
                 }
             },
             None => Err(AccountError::System(fluent_message!(
-                "account-bad-session",
-                "bad string"
+                "account-bad-session",{
+                    "msg":"bad string",
+                    "data":auth_data.login_data()
+                }
             ))),
         }
     }
@@ -102,8 +106,10 @@ impl UserLoginReload for ExternalLoginReload {
                     ))
                 }
                 None => Err(AccountError::System(fluent_message!(
-                    "account-bad-session",
-                    "bad string"
+                "account-bad-session",{
+                    "msg":"bad string",
+                    "data":data
+                }
                 ))),
             }
         })

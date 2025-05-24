@@ -5,13 +5,13 @@ use actix_web::post;
 use lsys_web::handler::api::system::rbac::{
     audit_data, check_res_info_from_session, check_res_info_from_user, check_res_list_from_user,
     check_res_role_data_from_res, check_res_user_data_from_res, check_res_user_from_res,
-    check_res_user_from_user, AuditParam, ResInfoFromUserParam, ResListFromSessionParam,
-    ResListFromUserParam, ResRoleFromResParam, ResUserDataFromResParam, ResUserFromUserParam,
-    UserFromResParam,
+    check_res_user_from_user, mapping_data, AuditParam, ResInfoFromUserParam,
+    ResListFromSessionParam, ResListFromUserParam, ResRoleFromResParam, ResUserDataFromResParam,
+    ResUserFromUserParam, UserFromResParam,
 };
 
-#[post("/check/{method}")]
-pub async fn check(
+#[post("/base/{method}")]
+pub async fn base(
     jwt: JwtQuery,
     path: actix_web::web::Path<String>,
     json_param: JsonQuery,
@@ -19,6 +19,7 @@ pub async fn check(
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
     let data = match path.into_inner().as_str() {
+        "mapping" => mapping_data(&auth_dao).await,
         "audit_data" => audit_data(&json_param.param::<AuditParam>()?, &auth_dao).await,
         "check_res_user_from_user" => {
             check_res_user_from_user(&json_param.param::<ResUserFromUserParam>()?, &auth_dao).await

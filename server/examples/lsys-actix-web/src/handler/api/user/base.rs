@@ -9,6 +9,7 @@ use lsys_web::handler::api::user::account::info_check_username;
 use lsys_web::handler::api::user::account::info_set_data;
 use lsys_web::handler::api::user::account::info_set_username;
 use lsys_web::handler::api::user::account::login_history;
+use lsys_web::handler::api::user::account::mapping_data;
 use lsys_web::handler::api::user::account::password_last_modify;
 use lsys_web::handler::api::user::account::DeleteParam;
 use lsys_web::handler::api::user::account::InfoCheckUserNameParam;
@@ -18,7 +19,7 @@ use lsys_web::handler::api::user::account::LoginHistoryParam;
 use lsys_web::handler::api::user::account::{set_password, SetPasswordParam};
 
 #[post("/{type}")]
-pub async fn account(
+pub async fn base(
     auth_dao: UserAuthQuery,
     path: actix_web::web::Path<String>,
     json_param: JsonQuery,
@@ -26,6 +27,7 @@ pub async fn account(
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
     Ok(match path.into_inner().as_str() {
+        "mapping" => mapping_data(&auth_dao).await,
         "login_history" => {
             login_history(&json_param.param::<LoginHistoryParam>()?, &auth_dao).await
         }

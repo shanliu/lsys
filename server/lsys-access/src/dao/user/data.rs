@@ -136,7 +136,7 @@ impl AccessUser {
         } else {
             format!(
                 "{} {}  order by id desc",
-                if where_sql.is_empty() { "where " } else { "" },
+                if !where_sql.is_empty() { "where " } else { "" },
                 where_sql.join(" and ")
             )
         };
@@ -164,7 +164,7 @@ impl AccessUser {
             UserModel::table_name(),
             SqlExpr(format!(
                 "{} {}",
-                if where_sql.is_empty() { "where " } else { "" },
+                if !where_sql.is_empty() { "where " } else { "" },
                 where_sql.join(" and ")
             ))
         ))
@@ -262,7 +262,7 @@ impl AccessUser {
         } else {
             format!(
                 "{} {}  order by id desc",
-                if where_sql.is_empty() { "where " } else { "" },
+                if !where_sql.is_empty() { "where " } else { "" },
                 where_sql.join(" and ")
             )
         };
@@ -319,7 +319,7 @@ impl AccessUser {
             SessionModel::table_name(),
             SqlExpr(format!(
                 "{} {}",
-                if where_sql.is_empty() { "where " } else { "" },
+                if !where_sql.is_empty() { "where " } else { "" },
                 where_sql.join(" and ")
             ))
         ))

@@ -6,7 +6,10 @@ use serde_json::json;
 use serde_json::Value;
 #[derive(Debug, Deserialize)]
 pub struct SmserJDConfigListParam {
-    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_u64")]
+    #[serde(
+        default,
+        deserialize_with = "crate::common::deserialize_option_vec_u64"
+    )]
     pub ids: Option<Vec<u64>>,
 }
 use crate::common::JsonData;
@@ -56,7 +59,7 @@ pub struct SmserAppJDConfigAddParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub config_id: u64,
     pub name: String,
-    pub tpl_id: String,
+    pub tpl_key: String,
     pub sign_id: String,
     pub template_id: String,
     pub template_map: String,
@@ -78,7 +81,7 @@ pub async fn smser_jd_app_config_add(
             &param.name,
             param.app_id,
             param.config_id,
-            &param.tpl_id,
+            &param.tpl_key,
             &param.sign_id,
             &param.template_id,
             &param.template_map,

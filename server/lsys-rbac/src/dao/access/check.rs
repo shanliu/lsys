@@ -111,11 +111,12 @@ pub struct AccessSessionRole<'t> {
 #[derive(Default, Clone)]
 pub struct AccessCheckEnv<'t> {
     pub user_id: u64, //0 为游客 或具体的访问用户id
-    pub req_env: Option<&'t RequestEnv>,
-    pub login_token_data: Option<&'t str>,
     //资源所属于用户跟访问用户的关系KEY数组，如公开角色,已登录角色,粉丝关系，指定应用关联等
     //该数据直接映射为对应角色
     pub session_role: Vec<AccessSessionRole<'t>>,
+    pub user_app_id: u64, //用户关联app id
+    pub user_req_env: Option<&'t RequestEnv>,
+    pub user_login_token: Option<&'t str>,
 }
 
 //授权失败结果
@@ -159,10 +160,10 @@ impl RbacAccess {
         check_res_data: &[AccessCheckRes<'_>],
     ) -> RbacResult<()>{
         let mut param_valid=ValidParam::default();
-        if let Some(login_token_data)=&env_data.login_token_data{
+        if let Some(user_login_token)=&env_data.user_login_token{
             param_valid.add(
-                valid_key!("login_token_data"), 
-                login_token_data, 
+                valid_key!("user_login_token"), 
+                user_login_token, 
                 &ValidParamCheck::default().add_rule(ValidPattern::Ident).add_rule(ValidStrlen::range(16, 64))
             );
         }   
@@ -579,6 +580,7 @@ impl RbacAccess {
 
 pub(crate) struct AuditItem {
     user_id: u64,
+    user_app_id:u64,
     role_key_data: String,
     check_result: i8,
     token_data: String,
@@ -637,7 +639,7 @@ impl RbacAccess {
         .to_string();
         let add_time = now_time().unwrap_or_default();
         let user_ip = env_data
-            .req_env
+            .user_req_env
             .as_ref()
             .map(|e| {
                 e.request_ip
@@ -650,7 +652,7 @@ impl RbacAccess {
             .take(40)
             .collect();
         let request_id = env_data
-            .req_env
+            .user_req_env
             .as_ref()
             .map(|e| {
                 e.request_id
@@ -663,7 +665,7 @@ impl RbacAccess {
             .take(32)
             .collect();
         let device_name = env_data
-            .req_env
+            .user_req_env
             .as_ref()
             .map(|e| {
                 e.request_user_agent
@@ -676,7 +678,7 @@ impl RbacAccess {
             .take(254)
             .collect();
         let device_id = env_data
-            .req_env
+            .user_req_env
             .as_ref()
             .map(|e| {
                 e.device_id
@@ -690,10 +692,11 @@ impl RbacAccess {
             .collect();
         let send_data = AuditItem {
             user_id: env_data.user_id,
+            user_app_id: env_data.user_app_id,
             role_key_data,
             check_result: if check_result { 1 } else { 0 },
             token_data: env_data
-                .login_token_data
+                .user_login_token
                 .as_ref()
                 .map(|e| e.to_string())
                 .unwrap_or_default(),
@@ -754,6 +757,7 @@ impl RbacAccess {
             Ok(mut db_tran) => {
                 let vdata = lsys_core::model_option_set!(RbacAuditModelRef,{
                     user_id:msg.user_id,
+                    user_app_id:msg.user_app_id,
                     role_key_data:msg.role_key_data,
                     check_result:msg.check_result,
                     token_data:msg.token_data,

@@ -4,15 +4,15 @@ use crate::common::handler::{
 use actix_web::post;
 
 use lsys_web::handler::api::user::app_sender::{
-    mailer_config_add, mailer_config_del, mailer_config_list, mailer_message_body,
-    mailer_message_cancel, mailer_message_list, mailer_message_log, mailer_message_send,
-    mailer_smtp_config_add, mailer_smtp_config_list, mailer_tpl_body_add, mailer_tpl_body_del,
-    mailer_tpl_body_edit, mailer_tpl_body_list, mailer_tpl_config_del, mailer_tpl_config_list,
-    MailerConfigAddParam, MailerConfigDeleteParam, MailerConfigListParam, MailerMessageBodyParam,
-    MailerMessageCancelParam, MailerMessageListParam, MailerMessageLogParam,
-    MailerMessageSendParam, MailerSmtpConfigAddParam, MailerSmtpConfigListParam, MailerTplAddParam,
-    MailerTplConfigDelParam, MailerTplConfigListParam, MailerTplDelParam, MailerTplEditParam,
-    MailerTplListParam,
+    mailer_config_add, mailer_config_del, mailer_config_list, mailer_mapping_data,
+    mailer_message_body, mailer_message_cancel, mailer_message_list, mailer_message_log,
+    mailer_message_send, mailer_smtp_config_add, mailer_smtp_config_list, mailer_tpl_body_add,
+    mailer_tpl_body_del, mailer_tpl_body_edit, mailer_tpl_body_list, mailer_tpl_config_del,
+    mailer_tpl_config_list, MailerConfigAddParam, MailerConfigDeleteParam, MailerConfigListParam,
+    MailerMessageBodyParam, MailerMessageCancelParam, MailerMessageListParam,
+    MailerMessageLogParam, MailerMessageSendParam, MailerSmtpConfigAddParam,
+    MailerSmtpConfigListParam, MailerTplAddParam, MailerTplConfigDelParam,
+    MailerTplConfigListParam, MailerTplDelParam, MailerTplEditParam, MailerTplListParam,
 };
 #[post("/mailer/{method}")]
 pub(crate) async fn mailer(
@@ -23,6 +23,7 @@ pub(crate) async fn mailer(
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
     Ok(match path.into_inner().as_str() {
+        "mapping" => mailer_mapping_data(&auth_dao).await,
         "config_add" => {
             mailer_config_add(&json_param.param::<MailerConfigAddParam>()?, &auth_dao).await
         }

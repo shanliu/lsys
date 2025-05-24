@@ -348,7 +348,7 @@ pub async fn smser_tpl_config_list(
                 "app_id":a.app_id,
                 "config_data":serde_json::from_str::<Value>(&a.config_data).ok(),
                 "name":a.name,
-                "tpl_id":a.tpl_id,
+                "tpl_key":a.tpl_key,
                 "user_id":a.user_id,
                 "change_user_id":a.change_user_id,
                 "change_time":a.change_time,

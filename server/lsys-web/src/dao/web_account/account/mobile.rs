@@ -1,7 +1,7 @@
 use crate::common::{CaptchaParam, JsonData, JsonError, JsonResult};
 use lsys_access::dao::SessionBody;
 use lsys_core::{fluent_message, RequestEnv};
-use lsys_user::model::AccountMobileStatus;
+use lsys_user::{dao::AccountError, model::AccountMobileStatus};
 
 use super::WebUserAccount;
 
@@ -73,7 +73,7 @@ impl WebUserAccount {
                 }
             }
             Err(err) => {
-                if !err.is_not_found() {
+                if !matches!(err, AccountError::Sqlx(sqlx::Error::RowNotFound)) {
                     return Err(err.into());
                 }
             }
@@ -95,7 +95,14 @@ impl WebUserAccount {
             .await?;
         self.sender
             .smser
-            .send_valid_code(area_code, mobile, &code, &ttl, env_data)
+            .send_valid_code(
+                "valid_code_account_mobile",
+                area_code,
+                mobile,
+                &code,
+                &ttl,
+                env_data,
+            )
             .await?;
         Ok(ttl)
     }

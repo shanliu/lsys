@@ -63,40 +63,38 @@ impl AccountLoginHistory {
             self.history_where(account_id, login_account, is_login, login_type, login_ip);
 
         let tmp = if let Some(page) = limit {
-            if sqlwhere.is_empty() {
-                format!(
-                    " {} order by {} {} ",
-                    page.where_sql("id", None),
-                    page.order_sql("id"),
-                    page.limit_sql(),
-                )
-            } else {
-                format!(
-                    "{} {} order by {} {} ",
-                    sqlwhere.join(" and "),
-                    page.where_sql("id", Some("and")),
-                    page.order_sql("id"),
-                    page.limit_sql(),
-                )
-            }
+            let page_where = page.where_sql(
+                "id",
+                if sqlwhere.is_empty() {
+                    None
+                } else {
+                    Some("and")
+                },
+            );
+            format!(
+                "{} {} {} order by {} {} ",
+                if !sqlwhere.is_empty() || !page_where.is_empty() {
+                    "where "
+                } else {
+                    ""
+                },
+                sqlwhere.join(" and "),
+                page_where,
+                page.order_sql("id"),
+                page.limit_sql(),
+            )
         } else {
-            format!("{}  order by id desc", sqlwhere.join(" and "))
+            format!(
+                "{} {}  order by id desc",
+                if !sqlwhere.is_empty() { "where " } else { "" },
+                sqlwhere.join(" and ")
+            )
         };
 
         let mut data = sqlx::query_as::<_, AccountLoginModel>(&sql_format!(
             "select * from {} {}",
             AccountLoginModel::table_name(),
-            if !sqlwhere.is_empty()
-                || limit
-                    .as_ref()
-                    .map(|e| e.pos())
-                    .unwrap_or_default()
-                    .is_some()
-            {
-                SqlExpr(format!(" where {}", tmp))
-            } else {
-                SqlExpr(tmp)
-            }
+            SqlExpr(tmp)
         ))
         .fetch_all(&self.db)
         .await?;

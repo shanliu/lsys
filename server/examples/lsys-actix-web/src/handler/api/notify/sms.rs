@@ -4,9 +4,11 @@ use actix_http::StatusCode;
 use actix_web::web::{Bytes, Data};
 use actix_web::{post, HttpRequest, HttpResponse};
 
-use lsys_app_sender::dao::{AliYunNotify, CloOpenNotify, HwYunNotify, NetEaseNotify, TenYunNotify};
-use lsys_core::IntoFluentMessage;
 use lsys_web::dao::WebDao;
+use lsys_web::lsys_app_sender::dao::{
+    AliYunNotify, CloOpenNotify, HwYunNotify, NetEaseNotify, TenYunNotify,
+};
+use lsys_web::lsys_core::IntoFluentMessage;
 
 #[post("sms/{config_id}/{callback_key}", name = "sms_notify")]
 pub(crate) async fn notify(

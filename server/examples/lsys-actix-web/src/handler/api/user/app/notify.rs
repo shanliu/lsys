@@ -3,7 +3,7 @@ use crate::common::handler::{
 };
 
 use actix_web::post;
-use lsys_web::handler::api::user::app::{notify_data_list, notify_data_where, NotifyDataListParam};
+use lsys_web::handler::api::user::app::{notify_data_list, NotifyDataListParam};
 #[post("/{type}")]
 pub async fn notify(
     path: actix_web::web::Path<String>,
@@ -13,7 +13,6 @@ pub async fn notify(
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
     Ok(match path.into_inner().as_str() {
-        "where" => notify_data_where(&auth_dao).await,
         "list" => notify_data_list(&json_param.param::<NotifyDataListParam>()?, &auth_dao).await,
         name => handler_not_found!(name),
     }

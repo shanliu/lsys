@@ -52,7 +52,7 @@ pub async fn res_tpl_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse
 //从现有资源统计资源类型
 #[derive(Debug, Deserialize)]
 pub struct ResTypeListParam {
-    pub res_type: String,
+    pub res_type: Option<String>,
     pub page: Option<PageParam>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
@@ -73,11 +73,10 @@ pub async fn res_type_data(
     let res_param = DaoResTypeListParam {
         user_id: Some(0),
         app_id: Some(0),
-        res_type: if param.res_type.is_empty() {
-            None
-        } else {
-            Some(&param.res_type)
-        },
+        res_type: param
+            .res_type
+            .as_deref()
+            .and_then(|e| if !e.is_empty() { Some(e) } else { None }),
     };
 
     let rows = req_dao

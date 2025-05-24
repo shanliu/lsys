@@ -61,7 +61,7 @@ impl MailRecord {
         &self,
         user_id: Option<u64>,
         app_id: Option<u64>,
-        tpl_id: Option<&str>,
+        tpl_key: Option<&str>,
         body_id: Option<u64>,
         msg_snid: Option<u64>,
         status: Option<SenderMailMessageStatus>,
@@ -78,12 +78,12 @@ impl MailRecord {
         if let Some(uid) = user_id {
             sqlwhere.push(sql_format!("b.user_id={} ", uid));
         }
-        if let Some(t) = tpl_id {
+        if let Some(t) = tpl_key {
             let t = string_clear(t, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
             if t.is_empty() {
                 return Ok(0);
             }
-            sqlwhere.push(sql_format!("b.tpl_id={} ", t));
+            sqlwhere.push(sql_format!("b.tpl_key={} ", t));
         }
         if let Some(s) = status {
             sqlwhere.push(sql_format!("m.status={} ", s));
@@ -113,7 +113,7 @@ impl MailRecord {
         &self,
         user_id: Option<u64>,
         app_id: Option<u64>,
-        tpl_id: Option<&str>,
+        tpl_key: Option<&str>,
         body_id: Option<u64>,
         msg_snid: Option<u64>,
         status: Option<SenderMailMessageStatus>,
@@ -138,12 +138,12 @@ impl MailRecord {
         if let Some(uid) = user_id {
             sqlwhere.push(sql_format!("b.user_id={} ", uid));
         }
-        if let Some(t) = tpl_id {
+        if let Some(t) = tpl_key {
             let t = string_clear(t, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
             if t.is_empty() {
                 return Ok((vec![], Some(0)));
             }
-            sqlwhere.push(sql_format!("b.tpl_id={} ", t));
+            sqlwhere.push(sql_format!("b.tpl_key={} ", t));
         }
         if let Some(s) = status {
             sqlwhere.push(sql_format!("m.status={} ", s));
@@ -178,7 +178,7 @@ impl MailRecord {
         } else {
             format!(
                 "{} {}  order by m.id desc",
-                if sqlwhere.is_empty() { "where " } else { "" },
+                if !sqlwhere.is_empty() { "where " } else { "" },
                 sqlwhere.join(" and ")
             )
         };
@@ -245,7 +245,7 @@ impl MailRecord {
         &self,
         mail: &[&str],
         app_id: u64,
-        tpl_id: &str,
+        tpl_key: &str,
         tpl_var: &str,
         reply_mail: Option<&str>,
         max_try_num: u8,
@@ -272,8 +272,8 @@ impl MailRecord {
                 &ValidParamCheck::default().add_rule(ValidNumber::id()),
             )
             .add(
-                valid_key!("tpl_id"),
-                &tpl_id,
+                valid_key!("tpl_key"),
+                &tpl_key,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::Ident)
                     .add_rule(ValidStrlen::range(1, 32)),
@@ -297,7 +297,7 @@ impl MailRecord {
         &self,
         mail: &[&'t str],
         app_id: u64,
-        tpl_id: &str,
+        tpl_key: &str,
         tpl_var: &str,
         expected_time: u64,
         reply_mail: Option<&str>,
@@ -306,12 +306,12 @@ impl MailRecord {
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<(u64, Vec<(u64, &'t str)>)> //(body id,<msg id,mail>)
     {
-        self.add_param_valid(mail, app_id, tpl_id, tpl_var, reply_mail, max_try_num)
+        self.add_param_valid(mail, app_id, tpl_key, tpl_var, reply_mail, max_try_num)
             .await?;
         let user_id = user_id.unwrap_or_default();
         let add_time = now_time().unwrap_or_default();
         let reply_mail = reply_mail.unwrap_or_default().to_string();
-        let tpl_id = tpl_id.to_owned();
+        let tpl_key = tpl_key.to_owned();
         let tpl_var = tpl_var.to_owned();
         let mut max_try_num = max_try_num.to_owned();
 
@@ -351,7 +351,7 @@ impl MailRecord {
             lsys_core::model_option_set!(SenderMailBodyModelRef,{
                 request_id:reqid,
                 app_id:app_id,
-                tpl_id:tpl_id,
+                tpl_key:tpl_key,
                 tpl_var:tpl_var,
                 status:SenderMailBodyStatus::Init as i8,
                 add_time:add_time,
@@ -605,7 +605,7 @@ impl MailRecord {
     pub(crate) async fn send_check(
         &self,
         app_id: Option<u64>,
-        tpl_id: &str,
+        tpl_key: &str,
         mails: &[&str],
         send_time: u64,
     ) -> SenderResult<()> {
@@ -629,13 +629,15 @@ impl MailRecord {
             }
             None
         })() {
-            return Err(SenderError::System(
-                fluent_message!("mail-send-check-max-send", //"send mail limit :{}",
-                    {
-                    "max":max_send
-                    }
-                ),
-            ));
+            if mails.len() > max_send as usize {
+                return Err(SenderError::System(
+                    fluent_message!("mail-send-check-max-send", //"send mail limit :{}",
+                        {
+                        "max":max_send
+                        }
+                    ),
+                ));
+            }
         }
         for (c, r) in rule.iter() {
             match r {
@@ -670,8 +672,8 @@ impl MailRecord {
                     );
                     limit_sql.push((sql, c.id, limit));
                 }
-                SenderMailConfigData::PassTpl(itpl_id) => {
-                    if *tpl_id == *itpl_id {
+                SenderMailConfigData::PassTpl(itpl_key) => {
+                    if *tpl_key == *itpl_key {
                         break;
                     }
                 }

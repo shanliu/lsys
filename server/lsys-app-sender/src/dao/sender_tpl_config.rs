@@ -6,12 +6,13 @@ use crate::model::{
 };
 
 use super::logger::LogAppConfig;
-use super::SenderResult;
+use super::{SenderError, SenderResult};
 use lsys_core::db::SqlQuote;
 use lsys_core::db::{Insert, ModelTableName, SqlExpr, Update};
 use lsys_core::{
-    now_time, sql_format, string_clear, valid_key, PageParam, RequestEnv, StringClear, ValidNumber,
-    ValidParam, ValidParamCheck, ValidPattern, ValidStrlen, STRING_CLEAR_FORMAT,
+    fluent_message, now_time, sql_format, string_clear, valid_key, PageParam, RequestEnv,
+    StringClear, ValidError, ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
+    STRING_CLEAR_FORMAT,
 };
 use lsys_logger::dao::ChangeLoggerDao;
 use lsys_setting::dao::SettingDao;
@@ -19,6 +20,7 @@ use lsys_setting::model::SettingModel;
 use serde::Serialize;
 use serde_json::json;
 use sqlx::Pool;
+
 //发送模板跟发送接口配置
 
 pub struct SenderTplConfig {
@@ -42,6 +44,30 @@ impl SenderTplConfig {
             logger,
         }
     }
+    //检查配置id是否被使用
+    pub async fn check_setting_id_used(&self, setting_id: u64) -> SenderResult<()> {
+        match sqlx::query_scalar::<_, i64>(&sql_format!(
+            "select count(*) as total from {} where setting_id={} and status={}",
+            SenderTplConfigModel::table_name(),
+            setting_id,
+            SenderTplConfigStatus::Enable,
+        ))
+        .fetch_one(&self.db)
+        .await
+        {
+            Ok(total) => {
+                if total > 0 {
+                    return Err(SenderError::System(fluent_message!("sender-setting-used",{
+                        "total":total
+                    })));
+                }
+            }
+            Err(sqlx::Error::RowNotFound) => {}
+            Err(err) => return Err(err)?,
+        };
+        Ok(())
+    }
+
     pub async fn find_by_id(&self, id: u64) -> SenderResult<SenderTplConfigModel> {
         let data = sqlx::query_as::<_, SenderTplConfigModel>(&sql_format!(
             "select * from {} where sender_type={} and id={} and status={}",
@@ -60,7 +86,7 @@ impl SenderTplConfig {
         id: Option<u64>,
         user_id: Option<u64>,
         app_id: Option<u64>,
-        tpl_id: Option<&str>,
+        tpl_key: Option<&str>,
     ) -> SenderResult<i64> {
         let mut sqlwhere = vec![sql_format!(
             "sender_type={} and status ={}",
@@ -76,12 +102,12 @@ impl SenderTplConfig {
         if let Some(uid) = user_id {
             sqlwhere.push(sql_format!("user_id={} ", uid));
         }
-        if let Some(tpl) = tpl_id {
+        if let Some(tpl) = tpl_key {
             let tpl = string_clear(tpl, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
             if tpl.is_empty() {
                 return Ok(0);
             }
-            sqlwhere.push(sql_format!("tpl_id={} ", tpl));
+            sqlwhere.push(sql_format!("tpl_key={} ", tpl));
         }
         let sql = format!(
             "select count(*) as total from {}
@@ -99,7 +125,7 @@ impl SenderTplConfig {
         id: Option<u64>,
         user_id: Option<u64>,
         app_id: Option<u64>,
-        tpl_id: Option<&str>,
+        tpl_key: Option<&str>,
         page: Option<&PageParam>,
     ) -> SenderResult<Vec<(SenderTplConfigModel, Option<SettingModel>)>> {
         let mut sqlwhere = vec![sql_format!(
@@ -116,12 +142,12 @@ impl SenderTplConfig {
         if let Some(uid) = user_id {
             sqlwhere.push(sql_format!("user_id={} ", uid));
         }
-        if let Some(tpl) = tpl_id {
+        if let Some(tpl) = tpl_key {
             let tpl = string_clear(tpl, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
             if tpl.is_empty() {
                 return Ok(vec![]);
             }
-            sqlwhere.push(sql_format!("tpl_id={} ", tpl));
+            sqlwhere.push(sql_format!("tpl_key={} ", tpl));
         }
         let mut sql = format!("{}  order by id desc", sqlwhere.join(" and "));
         if let Some(pdat) = page {
@@ -166,7 +192,7 @@ impl SenderTplConfig {
         name: &str,
         app_id: u64,
         setting_id: u64,
-        tpl_id: &str,
+        tpl_key: &str,
     ) -> SenderResult<()> {
         ValidParam::default()
             .add(
@@ -189,8 +215,8 @@ impl SenderTplConfig {
                     .add_rule(ValidStrlen::range(1, 32)),
             )
             .add(
-                valid_key!("tpl_id"),
-                &tpl_id,
+                valid_key!("tpl_key"),
+                &tpl_key,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::Ident)
                     .add_rule(ValidStrlen::range(1, 32)),
@@ -205,16 +231,42 @@ impl SenderTplConfig {
         name: &str,
         app_id: u64,
         setting_id: u64,
-        tpl_id: &str,
+        tpl_key: &str,
         config_data: C,
         user_id: u64,
         add_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
-        self.add_config_param_valid(name, app_id, setting_id, tpl_id)
+        self.add_config_param_valid(name, app_id, setting_id, tpl_key)
             .await?;
+
+        let find_res = sqlx::query_scalar::<_, u64>(&sql_format!(
+            "select * from {} where sender_type={} and app_id={} and user_id={} and status={} and name={}",
+            SenderTplConfigModel::table_name(),
+            self.send_type  as i8,
+            app_id,
+            user_id,
+            SenderTplConfigStatus::Enable as i8,
+            name,
+        ))
+        .fetch_one(&self.db)
+        .await;
+        match find_res {
+            Ok(id) => {
+                return Err(SenderError::Vaild(ValidError::message(
+                    valid_key!("tpl_name"),
+                    fluent_message!("tpl-name-exits",{
+                        "id":id,
+                        "name":name
+                    }),
+                )))
+            }
+            Err(sqlx::Error::RowNotFound) => {}
+            Err(err) => return Err(err)?,
+        }
+
         let name = name.to_owned();
-        let tpl_id = tpl_id.to_owned();
+        let tpl_key = tpl_key.to_owned();
         let config_data = json!(config_data).to_string();
         let time = now_time().unwrap_or_default();
         let send_type = self.send_type as i8;
@@ -222,7 +274,7 @@ impl SenderTplConfig {
             name:name,
             sender_type:send_type,
             app_id:app_id,
-            tpl_id:tpl_id,
+            tpl_key:tpl_key,
             config_data:config_data,
             change_time:time,
             user_id:user_id,
@@ -243,7 +295,7 @@ impl SenderTplConfig {
                     sender_type: self.send_type as u8,
                     app_id: app_id.to_owned(),
                     name: &name,
-                    tpl_id: &tpl_id,
+                    tpl_key: &tpl_key,
                     user_id,
                     setting_id,
                     config_data: &config_data,
@@ -283,7 +335,7 @@ impl SenderTplConfig {
                     sender_type: self.send_type as u8,
                     app_id: config.app_id,
                     name: config.name.as_str(),
-                    tpl_id: config.tpl_id.as_str(),
+                    tpl_key: config.tpl_key.as_str(),
                     user_id: config.change_user_id,
                     setting_id: config.setting_id,
                     config_data: config.config_data.as_str(),

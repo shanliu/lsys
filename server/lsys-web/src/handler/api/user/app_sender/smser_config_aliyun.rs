@@ -7,7 +7,10 @@ use serde_json::json;
 use serde_json::Value;
 #[derive(Debug, Deserialize)]
 pub struct SmserAliConfigListParam {
-    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_u64")]
+    #[serde(
+        default,
+        deserialize_with = "crate::common::deserialize_option_vec_u64"
+    )]
     pub ids: Option<Vec<u64>>,
 }
 
@@ -59,7 +62,7 @@ pub struct SmserAppAliConfigAddParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub ali_config_id: u64,
     pub name: String,
-    pub tpl_id: String,
+    pub tpl_key: String,
     pub aliyun_sms_tpl: String,
     pub aliyun_sign_name: String,
 }
@@ -80,7 +83,7 @@ pub async fn smser_ali_app_config_add(
             &param.name,
             param.app_id,
             param.ali_config_id,
-            &param.tpl_id,
+            &param.tpl_key,
             &param.aliyun_sms_tpl,
             &param.aliyun_sign_name,
             auth_data.user_id(),

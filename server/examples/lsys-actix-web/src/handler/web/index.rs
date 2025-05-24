@@ -7,7 +7,7 @@ use lsys_web::dao::WebDao;
 
 #[get("/dome")]
 pub(crate) async fn dome(web_dao: Data<WebDao>) -> Result<HttpResponse, WebHandError> {
-    let mut ctx = tera::Context::new();
+    let mut ctx = lsys_web::tera::Context::new();
     ctx.insert("name", &"lsys".to_owned());
     ctx.insert("text", &"Welcome!".to_owned());
     let body = web_dao.tera.render("index.html", &ctx)?;

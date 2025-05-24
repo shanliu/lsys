@@ -90,7 +90,7 @@ impl WebUserAuth {
                 .session_account(auth_data)
                 .await
                 .map(|e| e.password_id == 0)
-                .unwrap_or(false),
+                .unwrap_or(true),
             time_out,
             login_time,
         })

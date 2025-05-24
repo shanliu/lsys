@@ -10,7 +10,7 @@ use serde_json::json;
 pub struct CodeParam {
     pub code: String,
 }
-
+#[allow(clippy::result_large_err)]
 pub fn list_data(param: &CodeParam, req_dao: &RequestDao) -> JsonResult<JsonResponse> {
     let data = req_dao
         .web_dao
@@ -27,7 +27,7 @@ pub fn list_data(param: &CodeParam, req_dao: &RequestDao) -> JsonResult<JsonResp
         .collect::<Vec<_>>();
     Ok(JsonResponse::data(JsonData::body(json!({ "area": data }))))
 }
-
+#[allow(clippy::result_large_err)]
 pub fn related_find(param: &CodeParam, req_dao: &RequestDao) -> JsonResult<JsonResponse> {
     let data = req_dao
         .web_dao
@@ -49,7 +49,7 @@ pub fn related_find(param: &CodeParam, req_dao: &RequestDao) -> JsonResult<JsonR
         .collect::<Vec<_>>();
     Ok(JsonResponse::data(JsonData::body(json!({ "area": data }))))
 }
-
+#[allow(clippy::result_large_err)]
 pub fn code_find(param: &CodeParam, req_dao: &RequestDao) -> JsonResult<JsonResponse> {
     let data = req_dao
         .web_dao
@@ -73,6 +73,7 @@ pub struct SearchParam {
     #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub limit: Option<u64>,
 }
+#[allow(clippy::result_large_err)]
 pub fn search(param: &SearchParam, req_dao: &RequestDao) -> JsonResult<JsonResponse> {
     let limit = param
         .limit
@@ -105,7 +106,7 @@ pub struct GeoParam {
     #[serde(deserialize_with = "crate::common::deserialize_f64")]
     pub lng: f64,
 }
-
+#[allow(clippy::result_large_err)]
 pub fn geo_find(param: &GeoParam, req_dao: &RequestDao) -> JsonResult<JsonResponse> {
     let data = req_dao
         .web_dao

@@ -8,7 +8,7 @@ use crate::common::handler::{ResponseJson, ResponseJsonResult, RestQuery};
 use actix_multipart::{Field, Multipart};
 use actix_web::post;
 use futures_util::{StreamExt, TryStreamExt};
-use lsys_core::fluent_message;
+use lsys_web::lsys_core::fluent_message;
 use lsys_web::{
     common::{JsonData, JsonError, JsonResponse},
     handler::rest::barcode::{barcode_base64, parse_image, CodeParam, ParseParam},

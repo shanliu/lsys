@@ -4,10 +4,11 @@ mod valid_data_random;
 
 use async_trait::async_trait;
 use deadpool_redis::{redis::AsyncCommands, Connection};
+use log::debug;
 pub use result::*;
 pub use valid_data_random::*;
 
-use crate::fluent_message;
+use crate::{fluent_message, valid_key, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
 const CODE_SAVE_KEY: &str = "valid-save";
 
 pub struct ValidCode {
@@ -24,13 +25,20 @@ impl ValidCode {
             ignore_case,
         }
     }
+    async fn tag_param_valid(&self, tag: &str) -> ValidCodeResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("tag"),
+                &tag,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 255)),
+            )
+            .check()?;
+        Ok(())
+    }
     async fn get_code_data(&self, tag: &str) -> ValidCodeResult<(Option<String>, usize)> {
-        if tag.len() > 255 {
-            return Err(ValidCodeError::Tag(fluent_message!("valid-code-tag-len",{
-                "tag":tag,
-                "max":255
-            })));
-        }
+        self.tag_param_valid(tag).await?;
         let save_key = CODE_SAVE_KEY.to_owned() + self.prefix.as_str() + tag;
         let mut redis = self.redis.get().await?;
         let code: Option<String> = redis.get(save_key.as_str()).await?;
@@ -67,12 +75,7 @@ impl ValidCode {
         tag: &str,
         valid_code_builder: &mut T,
     ) -> ValidCodeResult<(String, usize)> {
-        if tag.len() > 255 {
-            return Err(ValidCodeError::Tag(fluent_message!("valid-code-tag-len",{
-                "tag":tag,
-                "max":255
-            })));
-        }
+        self.tag_param_valid(tag).await?;
         let save_key = CODE_SAVE_KEY.to_owned() + self.prefix.as_str() + tag;
         let mut redis = self.redis.get().await?;
         let code: Option<String> = redis.get(save_key.as_str()).await?;
@@ -98,6 +101,7 @@ impl ValidCode {
         tag: &str,
         valid_code_builder: &mut T,
     ) -> ValidCodeResult<()> {
+        self.tag_param_valid(tag).await?;
         let save_key = CODE_SAVE_KEY.to_owned() + self.prefix.as_str() + tag;
         let mut redis = self.redis.get().await?;
         let _: () = redis.del(save_key).await?;
@@ -137,6 +141,10 @@ impl ValidCode {
                 } else {
                     s_code != *c_code
                 } {
+                    debug!(
+                        "valid-not-match[case:{}]:{}!={}",
+                        self.ignore_case, s_code, c_code
+                    );
                     return Err(ValidCodeError::NotMatch(ValidCodeCheckError {
                         message: fluent_message!("valid-code-not-match",{//format!("your submit code [{}] not match", code)
                             "code":check_data.code

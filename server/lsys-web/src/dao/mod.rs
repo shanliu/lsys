@@ -162,14 +162,17 @@ impl WebDao {
 
         let app_area = Arc::new(AppArea::new(app_core.clone())?);
         let app_captcha = Arc::new(AppCaptcha::new(redis.clone()));
-        let app_sender = Arc::new(AppSender::new(
-            app_core.clone(),
-            redis.clone(),
-            db.clone(),
-            app_dao.app_notify.clone(),
-            setting_dao.clone(),
-            change_logger.clone(),
-        )?);
+        let app_sender = Arc::new(
+            AppSender::new(
+                app_core.clone(),
+                redis.clone(),
+                db.clone(),
+                app_dao.app_notify.clone(),
+                setting_dao.clone(),
+                change_logger.clone(),
+            )
+            .await?,
+        );
         //启动回调任务
         // let app_notify = Arc::new(AppNotify::new(notify_dao.clone()));
         #[cfg(feature = "barcode")]

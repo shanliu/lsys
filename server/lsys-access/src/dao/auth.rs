@@ -727,8 +727,9 @@ impl AccessAuthCache<'_> {
                 .session_get_vec_data(session_body, &find_keys)
                 .await?;
             let mut set_val = dvs.unwrap_or_default();
-            set_val.extend(data);
+            set_val.extend(data.clone());
             self.dao.session_data_cache.set(cache_key, set_val, 0).await;
+            out.extend(data);
         }
         Ok(out)
     }

@@ -9,7 +9,8 @@ use tracing::warn;
 
 #[derive(Debug, Deserialize)]
 pub struct SmserMessageLogParam {
-    pub message_id: String,
+    #[serde(default, deserialize_with = "crate::common::deserialize_u64")]
+    pub message_id: u64,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
     pub page: Option<PageParam>,
@@ -26,14 +27,16 @@ pub async fn smser_message_log(
         .web_rbac
         .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsMgr {})
         .await?;
-    let message_id = param.message_id.parse::<u64>()?;
     let res = req_dao
         .web_dao
         .app_sender
         .smser
         .smser_dao
         .sms_record
-        .message_log_list(message_id, param.page.as_ref().map(|e| e.into()).as_ref())
+        .message_log_list(
+            param.message_id,
+            param.page.as_ref().map(|e| e.into()).as_ref(),
+        )
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
@@ -43,7 +46,7 @@ pub async fn smser_message_log(
                 .smser
                 .smser_dao
                 .sms_record
-                .message_log_count(message_id)
+                .message_log_count(param.message_id)
                 .await?,
         )
     } else {
@@ -56,7 +59,8 @@ pub async fn smser_message_log(
 
 #[derive(Debug, Deserialize)]
 pub struct SmserMessageBodyParam {
-    pub message_id: String,
+    #[serde(default, deserialize_with = "crate::common::deserialize_u64")]
+    pub message_id: u64,
 }
 
 pub async fn smser_message_body(
@@ -70,14 +74,14 @@ pub async fn smser_message_body(
         .web_rbac
         .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsMgr {})
         .await?;
-    let message_id = param.message_id.parse::<u64>()?;
+
     let msg = req_dao
         .web_dao
         .app_sender
         .smser
         .smser_dao
         .sms_record
-        .find_message_by_id(message_id)
+        .find_message_by_id(param.message_id)
         .await?;
     let body = req_dao
         .web_dao
@@ -101,7 +105,7 @@ pub async fn smser_message_body(
 
 #[derive(Debug, Deserialize)]
 pub struct SmserMessageListParam {
-    pub tpl_id: Option<String>,
+    pub tpl_key: Option<String>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub body_id: Option<u64>,
     pub snid: Option<String>,
@@ -140,7 +144,7 @@ pub async fn smser_message_list(
         .message_list(
             Some(0),
             Some(0),
-            param.tpl_id.as_deref(),
+            param.tpl_key.as_deref(),
             param.body_id,
             param.snid.as_ref().and_then(|e| e.parse::<u64>().ok()),
             status,
@@ -159,7 +163,7 @@ pub async fn smser_message_list(
                 .message_count(
                     Some(0),
                     Some(0),
-                    param.tpl_id.as_deref(),
+                    param.tpl_key.as_deref(),
                     param.body_id,
                     param.snid.as_ref().and_then(|e| e.parse::<u64>().ok()),
                     status,
@@ -212,7 +216,7 @@ pub async fn smser_message_list(
                 "snid":e.0.snid,
                 "app_id":e.1.as_ref().map(|t|t.app_id),
                 "mobile":format!("{}-{}",e.0.area,e.0.mobile),
-                "tpl_id":e.1.as_ref().map(|t|t.tpl_id.to_owned()),
+                "tpl_key":e.1.as_ref().map(|t|t.tpl_key.to_owned()),
                 "try_num":e.0.try_num,
                 "max_try_num":e.1.as_ref().map(|t|t.max_try_num),
                 "add_time":e.1.as_ref().map(|t|t.add_time),
@@ -230,7 +234,8 @@ pub async fn smser_message_list(
 }
 #[derive(Debug, Deserialize)]
 pub struct SmserMessageCancelParam {
-    pub message_id: String,
+    #[serde(default, deserialize_with = "crate::common::deserialize_u64")]
+    pub message_id: u64,
 }
 
 pub async fn smser_message_cancel(
@@ -244,14 +249,13 @@ pub async fn smser_message_cancel(
         .web_rbac
         .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsMgr {})
         .await?;
-    let message_id = param.message_id.parse::<u64>()?;
     let msg = req_dao
         .web_dao
         .app_sender
         .smser
         .smser_dao
         .sms_record
-        .find_message_by_id(message_id)
+        .find_message_by_id(param.message_id)
         .await?;
     let body = req_dao
         .web_dao
@@ -272,7 +276,7 @@ pub async fn smser_message_cancel(
         if let Some(err) = res.remove(0).2 {
             return Err(err.into());
         } else {
-            out = Some(message_id.to_string())
+            out = Some(param.message_id.to_string())
         }
     }
     Ok(JsonResponse::data(JsonData::body(json!({

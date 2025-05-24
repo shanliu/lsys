@@ -140,22 +140,26 @@ impl ChangeLoggerDao {
             None => return Ok((vec![], None)),
         };
         let tmp = if let Some(page) = limit {
-            if sqlwhere.is_empty() {
-                format!(
-                    " {} order by {} {} ",
-                    page.where_sql("id", None),
-                    page.order_sql("id"),
-                    page.limit_sql(),
-                )
-            } else {
-                format!(
-                    "{} {} order by {} {} ",
-                    sqlwhere.join(" and "),
-                    page.where_sql("id", Some("and")),
-                    page.order_sql("id"),
-                    page.limit_sql(),
-                )
-            }
+            let page_where = page.where_sql(
+                "id",
+                if sqlwhere.is_empty() {
+                    None
+                } else {
+                    Some("and")
+                },
+            );
+            format!(
+                "{} {} {} order by {} {} ",
+                if !sqlwhere.is_empty() || !page_where.is_empty() {
+                    "where "
+                } else {
+                    ""
+                },
+                sqlwhere.join(" and "),
+                page_where,
+                page.order_sql("id"),
+                page.limit_sql(),
+            )
         } else {
             format!("{}  order by id desc", sqlwhere.join(" and "))
         };
@@ -200,7 +204,7 @@ impl ChangeLoggerDao {
             format!("where {} ", sqlwhere.join(" and "))
         };
         return Ok(sqlx::query_scalar::<_, i64>(&sql_format!(
-            "select count(*) as total from {} where {}",
+            "select count(*) as total from {} {}",
             ChangeLogModel::table_name(),
             SqlExpr(where_sql)
         ))

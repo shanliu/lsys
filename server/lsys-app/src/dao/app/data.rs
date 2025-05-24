@@ -150,12 +150,12 @@ impl App {
             vec![]
         };
 
-        let inn_feature_data = if app_attr.inner_feature {
+        let inn_feature_data = if app_attr.inner_feature && !out_data.is_empty() {
             let keys = AppRequestType::get_inner_feature()
                 .into_iter()
                 .map(|e| e.feature_key().to_string())
                 .collect::<Vec<_>>();
-            if !out_data.is_empty() && !keys.is_empty() {
+            if !keys.is_empty() {
                 sqlx::query_as::<_,(u64,String)>(&sql_format!(
                     "select app_id,feature_key from {} where app_id in ({}) and feature_key  in ({}) and status={}",
                     AppFeatureModel::table_name(),
@@ -170,7 +170,7 @@ impl App {
             vec![]
         };
 
-        let ext_feature_data = if app_attr.exter_feature {
+        let ext_feature_data = if app_attr.exter_feature && !out_data.is_empty() {
             let key = AppRequestType::ExterFeatuer.feature_key();
             let rlen = key.len() + 1;
             sqlx::query_as::<_,(u64,String)>(&sql_format!(
@@ -189,7 +189,7 @@ impl App {
         } else {
             vec![]
         };
-        let oauth_client_data = if app_attr.oauth_client_data {
+        let oauth_client_data = if app_attr.oauth_client_data && !out_data.is_empty() {
             sqlx::query_as::<_, AppOAuthClientModel>(&sql_format!(
                 "select * from {} where app_id in ({})",
                 AppOAuthClientModel::table_name(),
@@ -200,7 +200,7 @@ impl App {
         } else {
             vec![]
         };
-        let oauth_server_scope_data = if app_attr.oauth_server_data {
+        let oauth_server_scope_data = if app_attr.oauth_server_data && !out_data.is_empty() {
             sqlx::query_as::<_, AppOAuthServerScopeModel>(&sql_format!(
                 "select * from {} where app_id in ({}) and status={}",
                 AppOAuthServerScopeModel::table_name(),
@@ -382,7 +382,7 @@ impl App {
         let out_data = sqlx::query_as::<_, AppModel>(&sql_format!(
             "select * from {} where {} {}",
             AppModel::table_name(),
-            SqlExpr(where_sql.join(",")),
+            SqlExpr(where_sql.join(" and ")),
             if page.is_some() {
                 SqlExpr(page_sql)
             } else {
@@ -402,7 +402,7 @@ impl App {
         let sql = sql_format!(
             "select  count(*) as total from {} where {}",
             AppModel::table_name(),
-            SqlExpr(where_sql.join(","))
+            SqlExpr(where_sql.join(" and "))
         );
         let query = sqlx::query_scalar::<_, i64>(&sql);
         let res = query.fetch_one(&self.db).await?;
@@ -462,7 +462,7 @@ impl App {
         let out_data = sqlx::query_as::<_, AppModel>(&sql_format!(
             "select * from {} where {} {}",
             AppModel::table_name(),
-            SqlExpr(where_sql.join(",")),
+            SqlExpr(where_sql.join(" and ")),
             if page.is_some() {
                 SqlExpr(page_sql)
             } else {
@@ -486,7 +486,7 @@ impl App {
         let sql = sql_format!(
             "select count(*) as total from {} where {}",
             AppModel::table_name(),
-            SqlExpr(where_sql.join(","))
+            SqlExpr(where_sql.join(" and "))
         );
         let query = sqlx::query_scalar::<_, i64>(&sql);
         let res = query.fetch_one(&self.db).await?;
@@ -544,7 +544,7 @@ impl App {
         let out_data = sqlx::query_as::<_, AppModel>(&sql_format!(
             "select * from {} where {} {}",
             AppModel::table_name(),
-            SqlExpr(where_sql.join(",")),
+            SqlExpr(where_sql.join(" and ")),
             if page.is_some() {
                 SqlExpr(page_sql)
             } else {
@@ -567,7 +567,7 @@ impl App {
         let sql = sql_format!(
             "select count (*) as total from {} where {}",
             AppModel::table_name(),
-            SqlExpr(where_sql.join(","))
+            SqlExpr(where_sql.join(" and "))
         );
         let query = sqlx::query_scalar::<_, i64>(&sql);
         let res = query.fetch_one(&self.db).await?;

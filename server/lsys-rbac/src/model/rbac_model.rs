@@ -252,6 +252,10 @@ pub struct RbacAuditModel {
 
     /// 授权检查结果
     #[sqlx(default)]
+    pub user_app_id: u64,
+
+    /// 授权检查结果
+    #[sqlx(default)]
     pub device_id: String,
 
     /// 授权检查结果

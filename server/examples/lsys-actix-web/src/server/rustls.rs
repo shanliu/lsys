@@ -1,4 +1,4 @@
-use lsys_core::AppCoreError;
+use lsys_web::lsys_core::AppCoreError;
 
 use rustls::pki_types::pem::PemObject;
 use rustls::pki_types::CertificateDer;

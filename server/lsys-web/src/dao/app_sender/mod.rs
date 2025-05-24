@@ -21,7 +21,7 @@ pub struct AppSender {
 }
 
 impl AppSender {
-    pub fn new(
+    pub async fn new(
         app_core: Arc<AppCore>,
         redis: deadpool_redis::Pool,
         db: Pool<MySql>,
@@ -29,12 +29,18 @@ impl AppSender {
         setting: Arc<SettingDao>,
         change_logger: Arc<ChangeLoggerDao>,
     ) -> Result<AppSender, AppCoreError> {
+        let tpl = Arc::new(MessageTpls::new(
+            db.clone(),
+            change_logger.clone(),
+            app_core.create_tera().await?,
+        ));
         let mailer = Arc::new(SenderMailer::new(
             app_core.clone(),
             redis.clone(),
             db.clone(),
             setting.clone(),
             change_logger.clone(),
+            tpl.clone(),
             None,
             300, //任务最大执行时间
             true,
@@ -54,11 +60,11 @@ impl AppSender {
 
         //启动回调任务
         let smser = Arc::new(SenderSmser::new(
-            app_core,
+            app_core.clone(),
             redis,
-            db.clone(),
+            db,
             setting,
-            change_logger.clone(),
+            change_logger,
             notify,
             None,
             None,
@@ -88,10 +94,6 @@ impl AppSender {
 
         let sms_task_wait = smser.clone();
         tokio::spawn(async move { sms_task_wait.task_wait().await });
-
-        let tpl = Arc::new(MessageTpls::new(db, change_logger));
-
-        //行政区域地址库数据初始化
 
         Ok(AppSender { smser, mailer, tpl })
     }

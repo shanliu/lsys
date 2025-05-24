@@ -11,12 +11,12 @@ where
     T: ServiceFactory<ServiceRequest, Config = (), Error = Error, InitError = ()>,
 {
     app = app
-    .service(scope("/notify").service(notify::sms::notify))
-    .service(
-        scope("/captcha")
-            .service(public::captcha)
-            .service(public::options),
-    );
+        .service(scope("/notify").service(notify::sms::notify))
+        .service(
+            scope("/captcha")
+                .service(public::captcha)
+                .service(public::options),
+        );
     let mut api_scope = scope("/api");
 
     api_scope = api_scope
@@ -83,7 +83,7 @@ where
                 .service(public::options),
         )
         .service(
-            scope("/site")
+            scope("/config")
                 .service(system::site_config)
                 .service(system::oauth_config)
                 .service(public::options),
@@ -97,7 +97,7 @@ where
         )
         .service(
             scope("/rbac")
-                .service(system::rbac::check)
+                .service(system::rbac::base)
                 .service(system::rbac::op)
                 .service(system::rbac::res)
                 .service(system::rbac::role)
@@ -115,21 +115,17 @@ where
                 .service(user::profile::external)
                 .service(public::options),
         )
-        .service(
-            scope("/account")
-                .service(user::account)
-                .service(public::options),
-        )
+        .service(scope("/base").service(user::base).service(public::options))
         .service(
             scope("/rbac")
-                .service(user::rbac::audit)
+                .service(user::rbac::base)
                 .service(user::rbac::res)
                 .service(user::rbac::role)
                 .service(public::options),
         )
         .service(
             scope("/app_rbac")
-                .service(user::app::rbac::check)
+                .service(user::app::rbac::base)
                 .service(user::app::rbac::op)
                 .service(user::app::rbac::res)
                 .service(user::app::rbac::role)

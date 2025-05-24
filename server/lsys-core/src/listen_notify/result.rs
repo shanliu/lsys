@@ -21,4 +21,4 @@ impl IntoFluentMessage for WaitNotifyError {
     }
 }
 
-pub type WaitNotifyResult = Result<bool, String>;
+pub type WaitNotifyResult = Result<bool, String>; //bool 是否成功完成,String 错误消息

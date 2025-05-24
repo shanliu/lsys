@@ -14,7 +14,7 @@ use crate::app_core::result::AppCoreError;
 use async_trait::async_trait;
 use tera::Tera;
 
-use crate::{AppCore, FluentMgr};
+use crate::{tera_second_format, tera_time_format, AppCore, FluentMgr};
 
 use super::AppCoreCreate;
 
@@ -160,7 +160,9 @@ impl AppCoreCreate for BaseAppCoreCreate {
                 .join(",")
         );
         debug!("tpl dir is:{}", tpl_pat);
-        let tera = Tera::new(tpl_pat)?;
+        let mut tera = Tera::new(tpl_pat)?;
+        tera.register_filter("second_format", tera_second_format);
+        tera.register_filter("time_format", tera_time_format);
         Ok(tera)
     }
     async fn create_fluent(&self, app_core: &AppCore) -> Result<FluentMgr, AppCoreError> {

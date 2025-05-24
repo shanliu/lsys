@@ -4,6 +4,7 @@ use crate::common::{JsonError, JsonResult};
 use crate::dao::{OauthCallbackParam, OauthLogin, OauthLoginData, OauthLoginParam};
 use lsys_core::model_option_set;
 use lsys_core::{fluent_message, RequestEnv};
+use lsys_user::dao::AccountError;
 use lsys_user::model::{AccountExternalModel, AccountExternalStatus, AccountInfoModelRef};
 use serde::Serialize;
 
@@ -58,7 +59,7 @@ impl WebUserAuth {
                 }
             }
             Err(err) => {
-                if !err.is_not_found() {
+                if !matches!(err, AccountError::Sqlx(sqlx::Error::RowNotFound)) {
                     return Err(err.into());
                 } else {
                     None
@@ -171,7 +172,7 @@ impl WebUserAuth {
                 }
             }
             Err(err) => {
-                if !err.is_not_found() {
+                if !matches!(err, AccountError::Sqlx(sqlx::Error::RowNotFound)) {
                     return Err(err.into());
                 } else {
                     None

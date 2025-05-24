@@ -7,7 +7,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 #[derive(Debug, Deserialize)]
 pub struct SmserCloOpenConfigListParam {
-    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_u64")]
+    #[serde(
+        default,
+        deserialize_with = "crate::common::deserialize_option_vec_u64"
+    )]
     pub ids: Option<Vec<u64>>,
 }
 
@@ -185,7 +188,7 @@ pub struct SmserAppCloopenConfigAddParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub config_id: u64,
     pub name: String,
-    pub tpl_id: String,
+    pub tpl_key: String,
     pub template_id: String,
     pub template_map: String,
 }
@@ -211,10 +214,10 @@ pub async fn smser_tpl_config_cloopen_add(
             &param.name,
             0,
             param.config_id,
-            &param.tpl_id,
+            &param.tpl_key,
             &param.template_id,
             &param.template_map,
-            auth_data.user_id(),
+            0,
             auth_data.user_id(),
             Some(&req_dao.req_env),
         )

@@ -12,8 +12,8 @@ use actix_web::web::{Data, JsonBody};
 use actix_web::{dev::Payload, Error, FromRequest, HttpRequest};
 use futures_util::{ready, FutureExt};
 
-use lsys_app::dao::RestAuthToken;
-use lsys_core::{IntoFluentMessage, RequestEnv};
+use lsys_web::lsys_app::dao::RestAuthToken;
+use lsys_web::lsys_core::{IntoFluentMessage, RequestEnv};
 
 use lsys_web::common::{JsonData, JsonResponse, RequestDao, RequestSessionToken};
 use lsys_web::dao::WebDao;
@@ -323,7 +323,7 @@ impl RestQuery {
             ),
         }
     }
-    pub async fn get_app(&self) -> Result<lsys_app::model::AppModel, JsonResponse> {
+    pub async fn get_app(&self) -> Result<lsys_web::lsys_app::model::AppModel, JsonResponse> {
         self.web_dao
             .web_app
             .app_dao

@@ -248,7 +248,7 @@ pub async fn mailer_tpl_config_list(
                 "app_id":a.app_id,
                 "config_data":serde_json::from_str::<Value>(&a.config_data).ok(),
                 "name":a.name,
-                "tpl_id":a.tpl_id,
+                "tpl_key":a.tpl_key,
                 "user_id":a.user_id,
                 "change_user_id":a.change_user_id,
                 "change_time":a.change_time,
@@ -289,7 +289,7 @@ pub async fn mailer_tpl_config_list(
 #[derive(Debug, Deserialize)]
 pub struct MailerTplConfigDelParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
-    pub config_id: u64,
+    pub tpl_config_id: u64,
 }
 
 pub async fn mailer_tpl_config_del(
@@ -303,7 +303,7 @@ pub async fn mailer_tpl_config_del(
         .mailer
         .mailer_dao
         .tpl_config
-        .find_by_id(param.config_id)
+        .find_by_id(param.tpl_config_id)
         .await?;
     mailer_inner_access_check(config.app_id, config.user_id, Some(&auth_data), req_dao).await?;
     let row = req_dao

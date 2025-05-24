@@ -4,8 +4,8 @@ use crate::common::handler::{
 use actix_web::{post, HttpRequest};
 use lsys_web::handler::api::system::app_sender::{
     smser_ali_config_add, smser_ali_config_del, smser_ali_config_edit, smser_ali_config_list,
-    smser_message_body, smser_message_cancel, smser_message_list, smser_message_log,
-    smser_tpl_config_ali_add, SmserAliConfigAddParam, SmserAliConfigDelParam,
+    smser_mapping_data, smser_message_body, smser_message_cancel, smser_message_list,
+    smser_message_log, smser_tpl_config_ali_add, SmserAliConfigAddParam, SmserAliConfigDelParam,
     SmserAliConfigEditParam, SmserAliConfigListParam, SmserAppAliConfigAddParam,
     SmserMessageBodyParam, SmserMessageCancelParam, SmserMessageListParam, SmserMessageLogParam,
 };
@@ -52,6 +52,7 @@ pub(crate) async fn smser(
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
     Ok(match path.into_inner().as_str() {
+        "mapping" => smser_mapping_data(&auth_dao).await,
         "message_logs" => {
             smser_message_log(&json_param.param::<SmserMessageLogParam>()?, &auth_dao).await
         }

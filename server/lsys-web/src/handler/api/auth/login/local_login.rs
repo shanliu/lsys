@@ -216,6 +216,7 @@ pub async fn user_login_mobile_send_code(
         .app_sender
         .smser
         .send_valid_code(
+            "valid_code_login_mobile",
             &param.area_code,
             &param.mobile,
             &data.0,
@@ -259,7 +260,13 @@ pub async fn user_login_email_send_code(
         .web_dao
         .app_sender
         .mailer
-        .send_valid_code(&param.email, &data.0, &data.1, Some(&req_dao.req_env))
+        .send_valid_code(
+            "valid_code_login_email",
+            &param.email,
+            &data.0,
+            &data.1,
+            Some(&req_dao.req_env),
+        )
         .await?;
     let _ = valid_code
         .destroy_code(

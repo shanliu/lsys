@@ -13,6 +13,7 @@ use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::Pool;
 use tera::{Context, Template, Tera};
 use tokio::sync::RwLock;
+use tracing::{debug, trace};
 
 use super::logger::LogMessageTpls;
 //公用模板
@@ -23,11 +24,10 @@ pub struct MessageTpls {
 }
 
 impl MessageTpls {
-    pub fn new(db: Pool<sqlx::MySql>, logger: Arc<ChangeLoggerDao>) -> Self {
+    pub fn new(db: Pool<sqlx::MySql>, logger: Arc<ChangeLoggerDao>, tera: Tera) -> Self {
         Self {
             db,
-            tera: RwLock::new(Tera::default()),
-
+            tera: RwLock::new(tera),
             logger,
         }
     }
@@ -90,7 +90,7 @@ impl MessageTpls {
 
         match res {
             Ok(tpl) => {
-                if tpl.user_id == user_id {
+                if tpl.user_id == user_id && tpl_data.trim() == tpl.tpl_data.trim() {
                     return Ok(tpl.id);
                 } else {
                     return Err(SenderError::System(fluent_message!("tpl-exits",
@@ -168,6 +168,7 @@ impl MessageTpls {
             .execute_by_pk(tpl, &self.db)
             .await?
             .rows_affected();
+
         self.tera.write().await.add_raw_template(&tkey, &tpl_data)?;
 
         self.logger
@@ -234,7 +235,7 @@ impl MessageTpls {
         Ok(row)
     }
     fn tpl_key(&self, send_type: i8, tpl_id: &str) -> String {
-        format!("{}-{}", send_type, tpl_id)
+        format!("type:{}-{}", send_type, tpl_id)
     }
     //渲染指定模板内容
     pub async fn render(
@@ -260,7 +261,15 @@ impl MessageTpls {
                 .write()
                 .await
                 .add_raw_template(tkey, &tpl.tpl_data)?;
+            debug!("sender init tpl key {}", tkey);
         };
+
+        trace!(
+            "cache tpl {}:{:?}",
+            tkey,
+            self.tera.read().await.get_template(tkey)
+        );
+
         let data = self.tera.read().await.render(tkey, context)?;
         Ok(data)
     }

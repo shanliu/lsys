@@ -39,7 +39,7 @@ pub async fn system_audit_data(
         .audit_data(
             &AuditDataParam {
                 user_id: Some(auth_data.user_id()),
-                app_id: Some(0),
+                user_app_id: Some(0),
                 user_ip: param.user_ip.as_deref(),
                 device_id: param.device_id.as_deref(),
                 request_id: param.request_id.as_deref(),
@@ -57,7 +57,7 @@ pub async fn system_audit_data(
                 .access
                 .audit_count(&AuditDataParam {
                     user_id: Some(auth_data.user_id()),
-                    app_id: Some(0),
+                    user_app_id: Some(0),
                     user_ip: param.user_ip.as_deref(),
                     device_id: param.device_id.as_deref(),
                     request_id: param.request_id.as_deref(),

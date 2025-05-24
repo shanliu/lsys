@@ -126,6 +126,7 @@ CREATE TABLE `yaf_rbac_role_user` (
 CREATE TABLE `yaf_rbac_audit` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `user_id` bigint unsigned NOT NULL COMMENT '访问用户ID',
+    `user_app_id` bigint unsigned NOT NULL COMMENT '访问用户ID关联appid',
     `role_key_data` varchar(512) NOT NULL DEFAULT '' COMMENT '授权时指定角色列表',
     `check_result` tinyint NOT NULL  COMMENT '授权检查结果',
     `token_data` varchar(64) NOT NULL DEFAULT '' COMMENT '授权token',

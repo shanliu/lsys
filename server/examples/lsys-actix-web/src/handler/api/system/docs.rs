@@ -9,6 +9,7 @@ use lsys_web::handler::api::system::docs::git_del;
 use lsys_web::handler::api::system::docs::git_detail;
 use lsys_web::handler::api::system::docs::git_edit;
 use lsys_web::handler::api::system::docs::git_list;
+use lsys_web::handler::api::system::docs::mapping_data;
 use lsys_web::handler::api::system::docs::menu_add;
 use lsys_web::handler::api::system::docs::menu_del;
 use lsys_web::handler::api::system::docs::menu_list;
@@ -45,6 +46,7 @@ pub async fn setting(
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
     let res = match path.into_inner().as_str() {
+        "mapping" => mapping_data(&auth_dao).await,
         "git_add" => git_add(&json_param.param::<GitAddParam>()?, &auth_dao).await,
         "git_edit" => git_edit(&json_param.param::<GitEditParam>()?, &auth_dao).await,
         "git_del" => git_del(&json_param.param::<GitDelParam>()?, &auth_dao).await,
@@ -63,5 +65,7 @@ pub async fn setting(
         "menu_del" => menu_del(&json_param.param::<MenuDelParam>()?, &auth_dao).await,
         name => handler_not_found!(name),
     };
-    Ok(res.map_err(|e| auth_dao.fluent_error_json_response(&e))?.into())
+    Ok(res
+        .map_err(|e| auth_dao.fluent_error_json_response(&e))?
+        .into())
 }

@@ -13,6 +13,7 @@ use lsys_app::model::AppStatus;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
+
 #[derive(Deserialize)]
 pub struct ListParam {
     #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
@@ -48,7 +49,7 @@ pub struct ShowAppRecord {
     pub sub_app_count: Option<serde_json::Value>,     //子APP数量
 }
 //系统所有的APP列表
-pub async fn list_data(param: &ListParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
+pub async fn app_list(param: &ListParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     req_dao

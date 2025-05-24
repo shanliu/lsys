@@ -14,7 +14,7 @@ use serde_json::json;
 #[derive(Debug, Deserialize)]
 pub struct SystemRoleAddParam {
     pub role_key: String,
-    pub role_name: String,
+    pub role_name: Option<String>,
     #[serde(deserialize_with = "crate::common::deserialize_i8")]
     pub user_range: i8,
     #[serde(deserialize_with = "crate::common::deserialize_i8")]
@@ -41,15 +41,17 @@ pub async fn system_role_add(
 
     let role_info = match RbacRoleUserRange::try_from(param.user_range)? {
         RbacRoleUserRange::Custom => RbacRoleUserRangeData::Custom {
-            role_name: &param.role_name,
+            role_name: param.role_name.as_deref().unwrap_or_default(),
         },
         RbacRoleUserRange::Session => RbacRoleUserRangeData::Session {
             role_key: &param.role_key,
-            role_name: if param.role_name.is_empty() {
-                None
-            } else {
-                Some(&param.role_name)
-            },
+            role_name: param.role_name.as_deref().and_then(|e| {
+                if e.is_empty() {
+                    None
+                } else {
+                    Some(e)
+                }
+            }),
         },
     };
     let res_range = RbacRoleResRange::try_from(param.res_range)?;
@@ -78,7 +80,7 @@ pub struct SystemRoleEditParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub role_id: u64,
     pub role_key: String,
-    pub role_name: String,
+    pub role_name: Option<String>,
 }
 
 pub async fn system_role_edit(
@@ -108,15 +110,17 @@ pub async fn system_role_edit(
 
     let role_data = match RbacRoleUserRange::try_from(role.user_range)? {
         RbacRoleUserRange::Custom => RbacRoleUserRangeData::Custom {
-            role_name: &param.role_name,
+            role_name: param.role_name.as_deref().unwrap_or_default(),
         },
         RbacRoleUserRange::Session => RbacRoleUserRangeData::Session {
             role_key: &param.role_key,
-            role_name: if param.role_name.is_empty() {
-                None
-            } else {
-                Some(&param.role_name)
-            },
+            role_name: param.role_name.as_deref().and_then(|e| {
+                if !e.is_empty() {
+                    Some(e)
+                } else {
+                    None
+                }
+            }),
         },
     };
 
@@ -182,7 +186,10 @@ pub async fn system_role_del(
 pub struct SystemRoleDataParam {
     pub role_key: Option<String>,
     pub role_name: Option<String>,
-    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_u64")]
+    #[serde(
+        default,
+        deserialize_with = "crate::common::deserialize_option_vec_u64"
+    )]
     pub ids: Option<Vec<u64>>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
     pub user_range: Option<i8>,

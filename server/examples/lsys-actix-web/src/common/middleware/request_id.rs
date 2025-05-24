@@ -61,7 +61,13 @@ where
             req_id = head_id.to_str().unwrap_or_default().to_string();
         }
         if req_id.is_empty() {
-            req_id = nanoid::nanoid!();
+            req_id = nanoid::nanoid!(
+                16,
+                &(b'0'..=b'9')
+                    .chain(b'a'..=b'z')
+                    .map(|c| c as char)
+                    .collect::<Vec<char>>()
+            );
             if let Ok(hval) = HeaderValue::from_str(req_id.as_str()) {
                 let name = HeaderName::from_static(self.name);
                 req.headers_mut().insert(name, hval);

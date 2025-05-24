@@ -8,7 +8,7 @@ use serde_json::json;
 #[derive(Debug, Deserialize)]
 pub struct OpAddParam {
     pub op_key: String,
-    pub op_name: String,
+    pub op_name: Option<String>,
 }
 
 pub async fn op_add(param: &OpAddParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
@@ -31,11 +31,13 @@ pub async fn op_add(param: &OpAddParam, req_dao: &UserAuthQueryDao) -> JsonResul
                 app_id: Some(0),
                 op_info: RbacOpData {
                     op_key: &param.op_key,
-                    op_name: if param.op_name.is_empty() {
-                        None
-                    } else {
-                        Some(&param.op_name)
-                    },
+                    op_name: param.op_name.as_deref().and_then(|e| {
+                        if !e.is_empty() {
+                            Some(e)
+                        } else {
+                            None
+                        }
+                    }),
                 },
             },
             auth_data.user_id(),
@@ -51,7 +53,7 @@ pub struct OpEditParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub op_id: u64,
     pub op_key: String,
-    pub op_name: String,
+    pub op_name: Option<String>,
 }
 
 pub async fn op_edit(param: &OpEditParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
@@ -79,11 +81,13 @@ pub async fn op_edit(param: &OpEditParam, req_dao: &UserAuthQueryDao) -> JsonRes
             &op,
             &RbacOpData {
                 op_key: &param.op_key,
-                op_name: if param.op_name.is_empty() {
-                    None
-                } else {
-                    Some(&param.op_name)
-                },
+                op_name: param.op_name.as_deref().and_then(|e| {
+                    if !e.is_empty() {
+                        Some(e)
+                    } else {
+                        None
+                    }
+                }),
             },
             auth_data.user_id(),
             None,
@@ -129,7 +133,10 @@ pub async fn op_del(param: &OpDelParam, req_dao: &UserAuthQueryDao) -> JsonResul
 pub struct OpDataParam {
     pub op_name: Option<String>,
     pub op_key: Option<String>,
-    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_u64")]
+    #[serde(
+        default,
+        deserialize_with = "crate::common::deserialize_option_vec_u64"
+    )]
     pub ids: Option<Vec<u64>>,
     pub page: Option<PageParam>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]

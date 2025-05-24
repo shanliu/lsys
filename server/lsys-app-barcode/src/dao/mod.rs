@@ -390,47 +390,6 @@ impl BarCodeDao {
             image_background,
         )
         .await?;
-        // if *app_id == 0 {
-        //     return Err(BarCodeError::System(fluent_message!("barcode-app-id",{
-        //         "val":app_id
-        //     })));
-        // }
-        // if BarcodeCreateStatus::Delete == *status {
-        //     return Err(BarCodeError::System(fluent_message!("barcode-bad-status",{
-        //         "val":status.to()
-        //     })));
-        // }
-        // if BarcodeFormat::from(barcode_type) == BarcodeFormat::UNSUPORTED_FORMAT {
-        //     return Err(BarCodeError::System(fluent_message!("barcode-type",{
-        //         "val":barcode_type
-        //     })));
-        // }
-        // if ImageFormat::from_extension(image_format).is_none() {
-        //     return Err(BarCodeError::System(fluent_message!("barcode-image",{
-        //         "val":image_format
-        //     })));
-        // }
-        // if *image_width <= 0 || *image_height <= 0 {
-        //     return Err(BarCodeError::System(fluent_message!("barcode-bad-size",{
-        //         "val":format!("{}:{}",image_width,image_height)
-        //     })));
-        // }
-        // let image_color = image_color.trim_start_matches('#');
-        // if !is_hex_color(image_color) {
-        //     return Err(BarCodeError::System(
-        //         fluent_message!("barcode-bad-font-color",{
-        //             "val":image_color
-        //         }),
-        //     ));
-        // }
-        // let image_background = image_background.trim_start_matches('#');
-        // if !is_hex_color(image_background) {
-        //     return Err(BarCodeError::System(
-        //         fluent_message!("barcode-bad-back-color",{
-        //             "val":image_background
-        //         }),
-        //     ));
-        // }
 
         let create_time = now_time().unwrap_or_default();
         let image_format = image_format.to_owned();
@@ -510,45 +469,7 @@ impl BarCodeDao {
             image_background,
         )
         .await?;
-        // if BarcodeCreateStatus::Delete.eq(create_config.status) {
-        //     return Err(BarCodeError::System(fluent_message!("barcode-not-find")));
-        // }
-        // if BarcodeCreateStatus::Delete == *status {
-        //     return Err(BarCodeError::System(fluent_message!("barcode-bad-status",{
-        //         "val":status.to()
-        //     })));
-        // }
-        // if BarcodeFormat::from(barcode_type) == BarcodeFormat::UNSUPORTED_FORMAT {
-        //     return Err(BarCodeError::System(fluent_message!("barcode-type",{
-        //         "val":barcode_type
-        //     })));
-        // }
-        // if ImageFormat::from_extension(image_format).is_none() {
-        //     return Err(BarCodeError::System(fluent_message!("barcode-image",{
-        //         "val":image_format
-        //     })));
-        // }
-        // if *image_width <= 0 || *image_height <= 0 {
-        //     return Err(BarCodeError::System(fluent_message!("barcode-bad-size",{
-        //         "val":format!("{}:{}",image_width,image_height)
-        //     })));
-        // }
-        // let image_color = image_color.trim_start_matches('#');
-        // if !is_hex_color(image_color) {
-        //     return Err(BarCodeError::System(
-        //         fluent_message!("barcode-bad-font-color",{
-        //             "val":image_color
-        //         }),
-        //     ));
-        // }
-        // let image_background = image_background.trim_start_matches('#');
-        // if !is_hex_color(image_background) {
-        //     return Err(BarCodeError::System(
-        //         fluent_message!("barcode-bad-back-color",{
-        //             "val":image_background
-        //         }),
-        //     ));
-        // }
+
         let change_time = now_time().unwrap_or_default();
         let image_format = image_format.to_owned();
         let barcode_type = barcode_type.to_owned();

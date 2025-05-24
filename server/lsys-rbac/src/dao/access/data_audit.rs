@@ -14,7 +14,7 @@ use lsys_core::db::SqlQuote;
 
 pub struct AuditDataParam<'t> {
     pub user_id: Option<u64>,
-    pub app_id: Option<u64>,
+    pub user_app_id: Option<u64>,
     pub user_ip: Option<&'t str>,
     pub device_id: Option<&'t str>,
     pub request_id: Option<&'t str>,
@@ -27,8 +27,8 @@ impl RbacAccess {
         if let Some(val) = audit_param.user_id {
             where_sql.push(sql_format!("  user_id = {}", val));
         }
-        if let Some(val) = audit_param.app_id {
-            where_sql.push(sql_format!("  app_id = {}", val));
+        if let Some(val) = audit_param.user_app_id {
+            where_sql.push(sql_format!("  user_app_id = {}", val));
         }
         if let Some(val) = audit_param.user_ip {
             let val = string_clear(val, StringClear::Option(STRING_CLEAR_FORMAT), Some(47));
@@ -87,28 +87,36 @@ impl RbacAccess {
     )> {
         match self.audit_sql(res_param) {
             Some(sqlwhere) => {
-                let sql = sql_format!(
+                let sql = format!(
                     "select * from {} {}",
                     RbacAuditModel::table_name(),
                     if let Some(page) = limit {
-                        if sqlwhere.is_empty() {
-                            format!(
-                                " {} order by {} {} ",
-                                page.where_sql("id", None),
-                                page.order_sql("id"),
-                                page.limit_sql(),
-                            )
-                        } else {
-                            format!(
-                                "where {} {} order by {} {} ",
-                                sqlwhere.join(" and "),
-                                page.where_sql("id", Some("and")),
-                                page.order_sql("id"),
-                                page.limit_sql(),
-                            )
-                        }
+                        let page_where = page.where_sql(
+                            "id",
+                            if sqlwhere.is_empty() {
+                                None
+                            } else {
+                                Some("and")
+                            },
+                        );
+                        format!(
+                            "{} {} {} order by {} {} ",
+                            if !sqlwhere.is_empty() || !page_where.is_empty() {
+                                "where "
+                            } else {
+                                ""
+                            },
+                            sqlwhere.join(" and "),
+                            page_where,
+                            page.order_sql("id"),
+                            page.limit_sql(),
+                        )
                     } else {
-                        format!("where {} order by id desc", sqlwhere.join(" and "))
+                        format!(
+                            "{} {}  order by id desc",
+                            if !sqlwhere.is_empty() { "where " } else { "" },
+                            sqlwhere.join(" and ")
+                        )
                     }
                 );
                 let mut row = sqlx::query_as::<_, RbacAuditModel>(&sql)

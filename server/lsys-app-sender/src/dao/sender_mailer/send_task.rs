@@ -40,7 +40,7 @@ impl SenderTaskItem<u64> for MailTaskItem {
         self.mail.app_id
     }
     fn tpl_id(&self) -> String {
-        self.mail.tpl_id.to_owned()
+        self.mail.tpl_key.to_owned()
     }
 }
 
@@ -108,21 +108,24 @@ impl MailTaskAcquisition {
         );
         if let Err(err) = sqlx::query_scalar::<_, u64>(&sql).fetch_one(&self.db).await {
             match err {
-                sqlx::Error::RowNotFound => self.send_task_body_finish(item.mail.id).await,
+                sqlx::Error::RowNotFound => self.send_task_body_finish(item).await,
                 _ => {
                     warn!("finish task ,check status fail{}", err)
                 }
             }
         }
     }
-    async fn send_task_body_finish(&self, item_id: u64) {
+    async fn send_task_body_finish(&self, item: &MailTaskItem) {
         let finish_time = now_time().unwrap_or_default();
         let change = lsys_core::model_option_set!(SenderMailBodyModelRef,{
             status:SenderMailBodyStatus::Finish as i8,
             finish_time:finish_time
         });
         if let Err(err) = Update::<SenderMailBodyModel, _>::new(change)
-            .execute_by_where(&WhereOption::Where(sql_format!("id={}", item_id)), &self.db)
+            .execute_by_where(
+                &WhereOption::Where(sql_format!("id={}", item.mail.id)),
+                &self.db,
+            )
             .await
         {
             warn!("mail change finish status fail{}", err)
@@ -151,8 +154,7 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
 
         if app_res.is_empty() {
             let sql_where = sql_format!(
-                r#"sender_body_id={} {} ;
-            "#,
+                r#"sender_body_id={} {} "#,
                 record.mail.id,
                 SqlExpr(if sending_data.is_empty() {
                     "".to_string()
@@ -164,7 +166,7 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
                 sql_format!(
                     r#"UPDATE {}
                     SET status={}
-                    WHERE status = {} and  id in (select sender_message_id from {} where {});
+                    WHERE status = {} and  id in (select sender_message_id from {} where {})
                 "#,
                     SenderMailMessageModel::table_name(),
                     SenderMailMessageStatus::IsCancel as i8,
@@ -185,7 +187,7 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
         }
 
         if sending_data.is_empty() && app_res.is_empty() {
-            self.send_task_body_finish(record.mail.id).await;
+            self.send_task_body_finish(record).await;
         }
 
         Ok(MailTaskData::new(app_res))
@@ -311,7 +313,7 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
             let sql = match res_item.status {
                 SenderTaskStatus::Completed => {
                     self.wait_notify
-                        .msg_notify(&item.mail.reply_host, res_item.id, Ok(true))
+                        .msg_notify(&item.mail.reply_host, res_item.snid, Ok(true))
                         .await;
 
                     log_data.push((
@@ -336,7 +338,7 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
                 }
                 SenderTaskStatus::Progress => {
                     self.wait_notify
-                        .msg_notify(&item.mail.reply_host, res_item.id, Ok(false))
+                        .msg_notify(&item.mail.reply_host, res_item.snid, Ok(false))
                         .await;
 
                     log_data.push((
@@ -362,7 +364,7 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
                     self.wait_notify
                         .msg_notify(
                             &item.mail.reply_host,
-                            res_item.id,
+                            res_item.snid,
                             Err(res_item.message.to_owned()),
                         )
                         .await;
@@ -422,7 +424,7 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
         record: &MailTaskData,
         error: &SenderExecError,
     ) {
-        let fail_ids = record.data.iter().map(|e| e.id).collect::<Vec<_>>();
+        let fail_ids = record.data.iter().map(|e| e.snid).collect::<Vec<_>>();
 
         for tmp in fail_ids.iter() {
             self.wait_notify

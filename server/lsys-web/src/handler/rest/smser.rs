@@ -13,7 +13,7 @@ use std::collections::HashMap;
 pub struct SendParam {
     pub area: Option<String>,
     pub mobile: Vec<String>,
-    pub tpl_id: String,
+    pub tpl_key: String,
     pub data: HashMap<String, String>,
     pub send_time: Option<String>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_u8")]
@@ -55,7 +55,7 @@ pub async fn send(
         .smser
         .app_send(
             app,
-            &param.tpl_id,
+            &param.tpl_key,
             param.area.as_deref().unwrap_or("86"),
             &mobile,
             &param

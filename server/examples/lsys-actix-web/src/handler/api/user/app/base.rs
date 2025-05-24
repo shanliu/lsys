@@ -3,11 +3,11 @@ use crate::common::handler::{
 };
 use actix_web::post;
 use lsys_web::handler::api::user::app::{
-    add, app_secret_add, app_secret_change, app_secret_del, change, confirm, confirm_exter_feature,
-    delete, list_data, notify_secret_change, oauth_client_request, oauth_client_scope_request,
-    oauth_client_set_domain, oauth_secret_add, oauth_secret_change, oauth_secret_del,
-    oauth_server_client_confirm, oauth_server_client_scope_confirm, oauth_server_request,
-    oauth_server_setting, parent_list_data, request_exter_feature,
+    add, app_list, app_secret_add, app_secret_change, app_secret_del, change, confirm,
+    confirm_exter_feature, delete, mapping_data, notify_secret_change, oauth_client_request,
+    oauth_client_scope_request, oauth_client_set_domain, oauth_secret_add, oauth_secret_change,
+    oauth_secret_del, oauth_server_client_confirm, oauth_server_client_scope_confirm,
+    oauth_server_request, oauth_server_setting, parent_app_list, request_exter_feature,
     request_inner_feature_exter_login_request, request_list, secret_view,
     sub_app_notify_get_config, sub_app_notify_set_config, sub_app_request, sub_app_secret_view,
     sub_request_list, AddAppSecretParam, AddOAuthSecretParam, AddParam, ChangeAppSecretParam,
@@ -28,8 +28,9 @@ pub(crate) async fn base(
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
     Ok(match path.into_inner().as_str() {
+        "mapping" => mapping_data(&auth_dao).await,
         "parent_app" => {
-            parent_list_data(&json_param.param::<UserParentAppListParam>()?, &auth_dao).await
+            parent_app_list(&json_param.param::<UserParentAppListParam>()?, &auth_dao).await
         }
         "add" => add(&json_param.param::<AddParam>()?, &auth_dao).await,
         "confirm" => confirm(&json_param.param::<ConfirmParam>()?, &auth_dao).await,
@@ -52,7 +53,7 @@ pub(crate) async fn base(
         "sub_app_secret_view" => {
             sub_app_secret_view(&json_param.param::<SecretViewSecretParam>()?, &auth_dao).await
         }
-        "list" => list_data(&json_param.param::<UserAppListParam>()?, &auth_dao).await,
+        "list" => app_list(&json_param.param::<UserAppListParam>()?, &auth_dao).await,
         "request_list" => request_list(&json_param.param::<RequestListParam>()?, &auth_dao).await,
         "sub_request_list" => {
             sub_request_list(&json_param.param::<SubRequestListParam>()?, &auth_dao).await

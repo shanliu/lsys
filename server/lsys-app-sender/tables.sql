@@ -45,7 +45,7 @@ CREATE TABLE `yaf_sender_tpl_config` (
     `sender_type` tinyint NOT NULL COMMENT '发送类型',
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
     `name` varchar(32) NOT NULL COMMENT '名称',
-    `tpl_id` varchar(32) NOT NULL COMMENT '模板KEY',
+    `tpl_key` varchar(32) NOT NULL COMMENT '模板KEY',
     `setting_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '配置ID',
     `config_data` text NOT NULL COMMENT '配置JSON数据',
     `status` tinyint NOT NULL COMMENT '状态',
@@ -70,7 +70,7 @@ CREATE TABLE `yaf_sender_tpl_body` (
 CREATE TABLE `yaf_sender_mail_body` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID,由应用生成',
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
-    `tpl_id` varchar(32) NOT NULL COMMENT '模板ID',
+    `tpl_key` varchar(32) NOT NULL COMMENT '模板ID',
     `tpl_var` varchar(512) NOT NULL DEFAULT '' COMMENT '模板变量',
     `max_try_num` smallint unsigned NOT NULL DEFAULT 1 COMMENT '最大发送次数',
     `status` tinyint NOT NULL COMMENT '启用状态:未完成,完成发送',
@@ -106,7 +106,7 @@ CREATE TABLE `yaf_sender_mail_message` (
 CREATE TABLE `yaf_sender_sms_body` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID,由应用生成',
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
-    `tpl_id` varchar(32) NOT NULL COMMENT '模板ID',
+    `tpl_key` varchar(32) NOT NULL COMMENT '模板ID',
     `tpl_var` varchar(512) NOT NULL DEFAULT '' COMMENT '模板变量',
     `max_try_num` smallint unsigned NOT NULL DEFAULT 1 COMMENT '最大发送次数',
     `status` tinyint NOT NULL COMMENT '启用状态:未完成,完成发送',

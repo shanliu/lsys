@@ -218,7 +218,7 @@ macro_rules! deserialize_define_bool_fn {
             serde_json::Value::Number(n) => Ok(n
                 .as_u64()
                 .ok_or_else(|| serde::de::Error::custom("invalid bool"))?
-                == 0),
+                != 0),
             serde_json::Value::Bool(s) => Ok(s),
             _ => Err(serde::de::Error::custom("invalid bool")),
         }

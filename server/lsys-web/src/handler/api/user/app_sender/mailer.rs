@@ -15,7 +15,8 @@ use serde_json::json;
 
 #[derive(Debug, Deserialize)]
 pub struct MailerMessageLogParam {
-    pub message_id: String,
+    #[serde(default, deserialize_with = "crate::common::deserialize_u64")]
+    pub message_id: u64,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
     pub page: Option<PageParam>,
@@ -25,14 +26,13 @@ pub async fn mailer_message_log(
     param: &MailerMessageLogParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonResponse> {
-    let message_id = param.message_id.parse::<u64>()?;
     let msg = req_dao
         .web_dao
         .app_sender
         .mailer
         .mailer_dao
         .mail_record
-        .find_message_by_id(message_id)
+        .find_message_by_id(param.message_id)
         .await?;
     let body = req_dao
         .web_dao
@@ -61,7 +61,10 @@ pub async fn mailer_message_log(
         .mailer
         .mailer_dao
         .mail_record
-        .message_log_list(message_id, param.page.as_ref().map(|e| e.into()).as_ref())
+        .message_log_list(
+            param.message_id,
+            param.page.as_ref().map(|e| e.into()).as_ref(),
+        )
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
@@ -71,7 +74,7 @@ pub async fn mailer_message_log(
                 .mailer
                 .mailer_dao
                 .mail_record
-                .message_log_count(message_id)
+                .message_log_count(param.message_id)
                 .await?,
         )
     } else {
@@ -84,21 +87,21 @@ pub async fn mailer_message_log(
 
 #[derive(Debug, Deserialize)]
 pub struct MailerMessageBodyParam {
-    pub message_id: String,
+    #[serde(default, deserialize_with = "crate::common::deserialize_u64")]
+    pub message_id: u64,
 }
 
 pub async fn mailer_message_body(
     param: &MailerMessageBodyParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonResponse> {
-    let message_id = param.message_id.parse::<u64>()?;
     let msg = req_dao
         .web_dao
         .app_sender
         .mailer
         .mailer_dao
         .mail_record
-        .find_message_by_id(message_id)
+        .find_message_by_id(param.message_id)
         .await?;
     let body = req_dao
         .web_dao
@@ -137,7 +140,7 @@ pub async fn mailer_message_body(
 pub struct MailerMessageListParam {
     #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub app_id: Option<u64>,
-    pub tpl_id: Option<String>,
+    pub tpl_key: Option<String>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
     pub status: Option<i8>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
@@ -179,7 +182,7 @@ pub async fn mailer_message_list(
         .message_list(
             Some(auth_data.user_id()),
             param.app_id,
-            param.tpl_id.as_deref(),
+            param.tpl_key.as_deref(),
             param.body_id,
             param.snid.as_ref().and_then(|e| e.parse::<u64>().ok()),
             status,
@@ -198,7 +201,7 @@ pub async fn mailer_message_list(
                 .message_count(
                     Some(auth_data.user_id()),
                     param.app_id,
-                    param.tpl_id.as_deref(),
+                    param.tpl_key.as_deref(),
                     param.body_id,
                     param.snid.as_ref().and_then(|e| e.parse::<u64>().ok()),
                     status,
@@ -230,7 +233,7 @@ pub async fn mailer_message_list(
                 "id":e.0.id,
                 "snid":e.0.snid,
                 "app_id":e.1.as_ref().map(|t|t.app_id),
-                "tpl_id":e.1.as_ref().map(|t|t.tpl_id.to_owned()),
+                "tpl_key":e.1.as_ref().map(|t|t.tpl_key.to_owned()),
                 "max_try_num":e.1.as_ref().map(|t|t.max_try_num),
                 "add_time":e.1.as_ref().map(|t|t.add_time),
                 "expected_time":e.1.as_ref().map(|t|t.expected_time),
@@ -250,21 +253,21 @@ pub async fn mailer_message_list(
 
 #[derive(Debug, Deserialize)]
 pub struct MailerMessageCancelParam {
-    pub message_id: String,
+    #[serde(default, deserialize_with = "crate::common::deserialize_u64")]
+    pub message_id: u64,
 }
 
 pub async fn mailer_message_cancel(
     param: &MailerMessageCancelParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonResponse> {
-    let message_id = param.message_id.parse::<u64>()?;
     let msg = req_dao
         .web_dao
         .app_sender
         .mailer
         .mailer_dao
         .mail_record
-        .find_message_by_id(message_id)
+        .find_message_by_id(param.message_id)
         .await?;
     let body = req_dao
         .web_dao
@@ -297,7 +300,7 @@ pub async fn mailer_message_cancel(
         if let Some(err) = res.remove(0).2 {
             return Err(err)?;
         } else {
-            out = Some(message_id.to_string())
+            out = Some(param.message_id.to_string())
         }
     }
     Ok(JsonResponse::data(JsonData::body(json!({
@@ -308,7 +311,7 @@ pub async fn mailer_message_cancel(
 #[derive(Debug, Deserialize)]
 pub struct MailerMessageSendParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
-    pub tpl_id: u64,
+    pub tpl_config_id: u64,
     pub data: HashMap<String, String>,
     pub to: Vec<String>,
     pub reply: Option<String>,
@@ -328,7 +331,7 @@ pub async fn mailer_message_send(
         .mailer
         .mailer_dao
         .tpl_config
-        .find_by_id(param.tpl_id)
+        .find_by_id(param.tpl_config_id)
         .await?;
     let app = req_dao
         .web_dao
@@ -368,7 +371,7 @@ pub async fn mailer_message_send(
         .mailer
         .app_send(
             &app,
-            tpl.tpl_id.as_str(),
+            tpl.tpl_key.as_str(),
             &to,
             &param
                 .data

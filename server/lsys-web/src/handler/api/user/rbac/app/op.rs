@@ -13,7 +13,7 @@ pub struct AppOpAddParam {
     pub app_id: u64,
     pub user_param: Option<String>,
     pub op_key: String,
-    pub op_name: String,
+    pub op_name: Option<String>,
 }
 pub async fn app_op_add(
     param: &AppOpAddParam,
@@ -34,11 +34,13 @@ pub async fn app_op_add(
                 app_id: Some(app.id),
                 op_info: RbacOpData {
                     op_key: &param.op_key,
-                    op_name: if param.op_name.is_empty() {
-                        None
-                    } else {
-                        Some(&param.op_name)
-                    },
+                    op_name: param.op_name.as_deref().and_then(|e| {
+                        if !e.is_empty() {
+                            Some(e)
+                        } else {
+                            None
+                        }
+                    }),
                 },
             },
             auth_data.user_id(),
@@ -53,7 +55,7 @@ pub struct AppOpEditParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub op_id: u64,
     pub op_key: String,
-    pub op_name: String,
+    pub op_name: Option<String>,
 }
 
 pub async fn app_op_edit(
@@ -78,11 +80,13 @@ pub async fn app_op_edit(
             &op,
             &RbacOpData {
                 op_key: &param.op_key,
-                op_name: if param.op_name.is_empty() {
-                    None
-                } else {
-                    Some(&param.op_name)
-                },
+                op_name: param.op_name.as_deref().and_then(|e| {
+                    if !e.is_empty() {
+                        Some(e)
+                    } else {
+                        None
+                    }
+                }),
             },
             auth_data.user_id(),
             None,

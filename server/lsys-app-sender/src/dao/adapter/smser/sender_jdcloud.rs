@@ -116,6 +116,7 @@ impl SenderJDCloudConfig {
         user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
+        self.tpl_config.check_setting_id_used(id).await?;
         Ok(self
             .setting
             .del::<JDCloudConfig>(None, id, user_id, None, env_data)
@@ -134,7 +135,7 @@ impl SenderJDCloudConfig {
     ) -> SenderResult<()> {
         ValidParam::default()
             .add(
-                valid_key!("id"),
+                valid_key!("config_id"),
                 &id,
                 &ValidParamCheck::default().add_rule(ValidNumber::id()),
             )
@@ -274,13 +275,7 @@ impl SenderJDCloudConfig {
     ) -> SenderResult<u64> {
         self.add_config_param_valid(name, region, access_key, access_secret, branch_limit)
             .await?;
-        // if branch_limit > JdSms::branch_limit() {
-        //     return Err(SenderError::System(
-        //         fluent_message!("sms-config-branch-error",
-        //             {"max":  JdSms::branch_limit()}
-        //         ),
-        //     ));
-        // }
+
         Ok(self
             .setting
             .add(
@@ -341,7 +336,7 @@ impl SenderJDCloudConfig {
         name: &str,
         app_id: u64,
         setting_id: u64,
-        tpl_id: &str,
+        tpl_key: &str,
         sign_id: &str,
         template_id: &str,
         template_map: &str,
@@ -357,7 +352,7 @@ impl SenderJDCloudConfig {
                 name,
                 app_id,
                 setting_id,
-                tpl_id,
+                tpl_key,
                 &JDCloudTplConfig {
                     template_id: template_id.to_owned(),
                     sign_id: sign_id.to_owned(),

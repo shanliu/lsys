@@ -19,7 +19,7 @@ impl IntoFluentMessage for GitDocError {
     fn to_fluent_message(&self) -> FluentMessage {
         match self {
             GitDocError::Sqlx(e) => fluent_message!("sqlx-error", e),
-            GitDocError::Git(e) => fluent_message!("doc-git-error", e),
+            GitDocError::Git(e) => fluent_message!("git-error", e),
             GitDocError::System(e) => e.to_owned(),
             GitDocError::Remote(e) => e.to_owned(),
             GitDocError::Vaild(e) => e.to_fluent_message(),

@@ -12,3 +12,5 @@ pub use string::*;
 mod string_clear;
 pub use string_clear::*;
 mod macros;
+mod tera_filter;
+pub use tera_filter::*;

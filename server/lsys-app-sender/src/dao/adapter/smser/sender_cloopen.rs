@@ -2,17 +2,17 @@ use std::sync::Arc;
 
 use crate::{
     dao::{
-        adapter::smser::sms_result_to_task, create_sender_client, SenderError, SenderExecError,
-        SenderResult, SenderTaskExecutor, SenderTaskResult, SenderTplConfig, SmsSendNotifyParse,
-        SmsTaskData, SmsTaskItem,
+        adapter::smser::sms_result_to_task, create_sender_client, SenderExecError, SenderResult,
+        SenderTaskExecutor, SenderTaskResult, SenderTplConfig, SmsSendNotifyParse, SmsTaskData,
+        SmsTaskItem,
     },
     model::SenderTplConfigModel,
 };
 use async_trait::async_trait;
 
 use lsys_core::{
-    fluent_message, valid_key, IntoFluentMessage, RequestEnv, ValidNumber, ValidParam,
-    ValidParamCheck, ValidPattern, ValidStrlen,
+    valid_key, IntoFluentMessage, RequestEnv, ValidNumber, ValidParam, ValidParamCheck,
+    ValidPattern, ValidStrlen,
 };
 use lsys_lib_sms::{template_map_to_arr, CloOpenSms, SendError, SendNotifyError, SendNotifyItem};
 use lsys_setting::{
@@ -117,6 +117,7 @@ impl SenderCloOpenConfig {
         user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
+        self.tpl_config.check_setting_id_used(id).await?;
         Ok(self
             .setting
             .del::<CloOpenConfig>(None, id, user_id, None, env_data)
@@ -136,7 +137,7 @@ impl SenderCloOpenConfig {
     ) -> SenderResult<()> {
         ValidParam::default()
             .add(
-                valid_key!("id"),
+                valid_key!("config_id"),
                 &id,
                 &ValidParamCheck::default().add_rule(ValidNumber::id()),
             )
@@ -208,13 +209,6 @@ impl SenderCloOpenConfig {
             callback_key,
         )
         .await?;
-        if branch_limit > CloOpenSms::branch_limit() {
-            return Err(SenderError::System(
-                fluent_message!("sms-config-branch-error",
-                    {"max":CloOpenSms::branch_limit()}
-                ),
-            ));
-        }
         Ok(self
             .setting
             .edit(
@@ -365,7 +359,7 @@ impl SenderCloOpenConfig {
         name: &str,
         app_id: u64,
         setting_id: u64,
-        tpl_id: &str,
+        tpl_key: &str,
         template_id: &str,
         template_map: &str,
         user_id: u64,
@@ -380,7 +374,7 @@ impl SenderCloOpenConfig {
                 name,
                 app_id,
                 setting_id,
-                tpl_id,
+                tpl_key,
                 &CloOpenTplConfig {
                     template_id: template_id.to_owned(),
                     template_map: template_map.to_owned(),

@@ -269,8 +269,8 @@ impl AccountIndex {
                 AccountIndexStatus::Enable as i8,
                 AccountIndexCat::AccountStatus as i8,
                 account_status_data,
-                format!("{}%",key_word),
                 AccountIndexStatus::Enable as i8,
+                format!("{}%",key_word),
                 if !index_cat_data.is_empty() {
                     SqlExpr(sql_format!("and k.index_cat in ({})", index_cat_data))
                 } else {
@@ -280,14 +280,14 @@ impl AccountIndex {
         };
         if let Some(page) = limit {
             sql = format!(
-                "{} {} group by k.account_id order by {} {} ",
+                "{} {} group by k.account_id HAVING cat_more IS NOT NULL order by {} {} ",
                 sql,
                 page.where_sql("k.account_id", Some("and")),
                 page.order_sql("k.account_id"),
                 page.limit_sql(),
             );
         } else {
-            sql += " order by k.account_id desc";
+            sql += " group by k.account_id HAVING cat_more IS NOT NULL order by k.account_id desc";
         }
         let mut res = sqlx::query_as::<_, (u64, String)>(sql.as_str())
             .fetch_all(&self.db)

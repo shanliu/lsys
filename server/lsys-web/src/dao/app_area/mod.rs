@@ -1,5 +1,5 @@
 use crate::common::JsonError;
-use crate::common::{JsonData, JsonResult};
+use crate::common::JsonResult;
 use lsys_core::{
     fluent_message, string_clear, valid_key, StringClear, ValidParam, ValidParamCheck,
     ValidPattern, ValidStrlen,
@@ -86,15 +86,12 @@ macro_rules! get_area {
         match $area.as_ref() {
             Some(area) => area,
             None => {
-                return Err(JsonError::JsonResponse(
-                    JsonData::default(),
-                    fluent_message!("area-not-enable"),
-                ));
+                return Err(JsonError::Message(fluent_message!("area-not-enable")));
             }
         }
     };
 }
-
+#[allow(clippy::result_large_err)]
 impl AppArea {
     fn code_param(&self, code: &str) -> JsonResult<()> {
         ValidParam::default()

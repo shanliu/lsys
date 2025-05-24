@@ -13,7 +13,7 @@ use super::{MailRecord, MailTaskAcquisition, MailTaskData, MailTaskItem, MailerT
 use crate::{
     dao::{
         MessageCancel, MessageLogs, MessageReader, SenderConfig, SenderError, SenderResult,
-        SenderTaskExecutor, SenderTplConfig, SenderWaitItem, SenderWaitNotify,
+        SenderTaskExecutor, SenderTplConfig, SenderWaitNotify,
     },
     model::{SenderMailBodyModel, SenderMailMessageModel, SenderMailMessageStatus, SenderType},
 };
@@ -110,7 +110,7 @@ impl MailSenderDao {
         &self,
         app_id: Option<u64>,
         mail: &[&'t str],
-        tpl_id: &str,
+        tpl_key: &str,
         tpl_var: &str,
         send_time: Option<u64>,
         user_id: Option<u64>,
@@ -129,14 +129,14 @@ impl MailSenderDao {
         let sendtime = if sendtime < nt { nt } else { sendtime };
         let max_try_num = max_try_num.unwrap_or(0);
         self.mail_record
-            .send_check(app_id, tpl_id, &tmp, sendtime)
+            .send_check(app_id, tpl_key, &tmp, sendtime)
             .await?;
         let res = self
             .mail_record
             .add(
                 &tmp,
                 app_id.unwrap_or_default(),
-                tpl_id,
+                tpl_key,
                 tpl_var,
                 sendtime,
                 reply_mail,
@@ -148,8 +148,8 @@ impl MailSenderDao {
 
         let mut wait = None;
         if max_try_num == 0 && mail.len() == 1 {
-            if let Some((msg_id, _)) = res.1.first() {
-                wait = Some(self.send_wait.wait(SenderWaitItem(res.0, *msg_id)).await);
+            if let Some((snid, _)) = res.1.first() {
+                wait = Some(self.send_wait.message_wait(res.0, *snid).await);
             }
         };
 

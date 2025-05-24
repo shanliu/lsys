@@ -2,7 +2,9 @@ mod app;
 
 use lsys_access::dao::SessionBody;
 use lsys_app_sender::{
-    dao::{MailSenderDao, SenderError, SenderResult, SenderSmtpConfig, SmtpSenderTask},
+    dao::{
+        MailSenderDao, MessageTpls, SenderError, SenderResult, SenderSmtpConfig, SmtpSenderTask,
+    },
     model::{SenderMailBodyModel, SenderMailMessageModel},
 };
 use lsys_core::{fluent_message, AppCore, RequestEnv};
@@ -17,7 +19,7 @@ use crate::common::{JsonError, JsonResult};
 use super::logger::MessageView;
 
 pub struct SenderMailer {
-    db: Pool<MySql>,
+    tpls: Arc<MessageTpls>,
     logger: Arc<ChangeLoggerDao>,
     pub mailer_dao: Arc<MailSenderDao>,
     pub smtp_sender: SenderSmtpConfig,
@@ -31,14 +33,15 @@ impl SenderMailer {
         db: Pool<MySql>,
         setting: Arc<SettingDao>,
         logger: Arc<ChangeLoggerDao>,
+        tpls: Arc<MessageTpls>,
         task_size: Option<usize>,
         task_timeout: usize,
         is_check: bool,
     ) -> Self {
         let mailer_dao = Arc::new(MailSenderDao::new(
-            app_core,
+            app_core.clone(),
             redis,
-            db.clone(),
+            db,
             setting.clone(),
             logger.clone(),
             task_size,
@@ -48,16 +51,16 @@ impl SenderMailer {
         ));
         let smtp_sender =
             SenderSmtpConfig::new(setting.multiple.clone(), mailer_dao.tpl_config.clone());
-
         Self {
             mailer_dao,
             smtp_sender,
-            db,
             logger,
+            tpls,
         }
     }
     pub async fn send_valid_code(
         &self,
+        tpl_key: &str,
         to: &str,
         code: &str,
         ttl: &usize,
@@ -67,7 +70,7 @@ impl SenderMailer {
         context.insert("code", code);
         context.insert("ttl", ttl);
         self.send(
-            "valid_code",
+            tpl_key,
             to,
             &context.into_json().to_string(),
             Some(0),
@@ -79,7 +82,7 @@ impl SenderMailer {
     // 发送接口
     async fn send(
         &self,
-        tpl_id: &str,
+        tpl_key: &str,
         to: &str,
         body: &str,
         max_try_num: Option<u8>,
@@ -90,7 +93,7 @@ impl SenderMailer {
             .send(
                 None,
                 &[to],
-                tpl_id,
+                tpl_key,
                 body,
                 None,
                 None,
@@ -115,7 +118,7 @@ impl SenderMailer {
     }
     // 后台任务
     pub async fn task_sender(&self) -> SenderResult<()> {
-        let task = SmtpSenderTask::new(self.db.clone(), self.logger.clone());
+        let task = SmtpSenderTask::new(self.tpls.clone());
         self.mailer_dao.task_sender(vec![Box::new(task)]).await
     }
     // 后台任务

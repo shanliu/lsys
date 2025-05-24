@@ -15,7 +15,7 @@ impl SenderSmser {
     pub async fn app_send<'t>(
         &self,
         app: &AppModel,
-        tpl_type: &str,
+        tpl_key: &str,
         area: &'t str,
         mobile: &[&'t str],
         body: &HashMap<&str, &str>,
@@ -28,7 +28,7 @@ impl SenderSmser {
             .send(
                 Some(app.id),
                 &mobile.iter().map(|e| (area, *e)).collect::<Vec<_>>(),
-                tpl_type,
+                tpl_key,
                 &json!(body).to_string(),
                 send_time,
                 Some(app.user_id),

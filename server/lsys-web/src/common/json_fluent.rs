@@ -1,3 +1,5 @@
+// 定制错误的输出附带信息
+
 use lsys_access::dao::AccessError;
 use lsys_app_sender::dao::SenderError;
 use lsys_core::{AppCoreError, ConfigError, FluentBundle, ValidCodeError, ValidError};
@@ -11,6 +13,43 @@ use serde_json::json;
 use std::{collections::HashMap, num::ParseIntError};
 
 use lsys_app::dao::AppError;
+
+use super::{JsonData, JsonFluent};
+
+#[cfg(feature = "docs")]
+use lsys_docs::dao::GitDocError;
+
+//lib error
+
+impl JsonFluent for sqlx::Error {
+    fn to_json_data(&self, _: &FluentBundle) -> JsonData {
+        match self {
+            sqlx::Error::RowNotFound => JsonData::default().set_sub_code("not_found").set_code(404),
+            _ => JsonData::default().set_code(500).set_sub_code("sqlx"),
+        }
+    }
+}
+macro_rules! crate_error_fluent {
+    ($crate_error:ty,$code:literal) => {
+        impl JsonFluent for $crate_error {
+            fn to_json_data(&self, _: &FluentBundle) -> JsonData {
+                JsonData::default().set_code(500).set_sub_code($code)
+            }
+        }
+    };
+}
+crate_error_fluent!(config::ConfigError, "config");
+crate_error_fluent!(std::io::Error, "io");
+crate_error_fluent!(tera::Error, "tera");
+crate_error_fluent!(redis::RedisError, "redis");
+crate_error_fluent!(deadpool_redis::PoolError, "redis");
+crate_error_fluent!(serde_json::Error, "serde");
+crate_error_fluent!(ParseIntError, "parse");
+crate_error_fluent!(std::string::FromUtf8Error, "parse");
+#[cfg(feature = "docs")]
+crate_error_fluent!(git2::Error, "git");
+
+//内部错误
 
 impl JsonFluent for AccountError {
     fn to_json_data(&self, fluent: &FluentBundle) -> JsonData {
@@ -51,13 +90,17 @@ impl JsonFluent for ValidCodeError {
             ValidCodeError::Tag(_) => json_data.set_sub_code("valid_code_err"),
             ValidCodeError::Redis(err) => err.to_json_data(fluent),
             ValidCodeError::RedisPool(err) => err.to_json_data(fluent),
+            ValidCodeError::Valid(err) => err.to_json_data(fluent),
         }
     }
 }
 
 impl JsonFluent for ValidError {
     fn to_json_data(&self, _: &FluentBundle) -> JsonData {
-        JsonData::default().set_code(400).set_sub_code("bad_param")
+        JsonData::default()
+            .set_code(400)
+            .set_body(self.to_value())
+            .set_sub_code("bad_param")
     }
 }
 impl JsonFluent for UserAuthError {
@@ -67,7 +110,11 @@ impl JsonFluent for UserAuthError {
             UserAuthError::NotLogin(_) => json_data.set_sub_code("not_login"),
             UserAuthError::System(_) => json_data.set_sub_code("auth"),
             UserAuthError::CheckCaptchaNeed(_) => json_data.set_sub_code("need_captcha"),
-            UserAuthError::CheckUserLock(_) => json_data.set_sub_code("user_lock"),
+            UserAuthError::CheckUserLock((time, _)) => {
+                json_data.set_sub_code("user_lock").set_body(json!({
+                    "lock_time":time
+                }))
+            }
             UserAuthError::TokenParse(_) => json_data.set_sub_code("token_wrong"),
             UserAuthError::Sqlx(err) => err.to_json_data(fluent),
             UserAuthError::ValidCode(err) => err.to_json_data(fluent),
@@ -133,8 +180,6 @@ impl JsonFluent for SettingError {
             SettingError::SerdeJson(err) => err.to_json_data(fluent),
             SettingError::Vaild(err) => err.to_json_data(fluent),
         }
-        .set_code(500)
-        .set_sub_code("setting")
     }
 }
 
@@ -149,6 +194,7 @@ impl JsonFluent for SenderError {
             SenderError::Setting(err) => err.to_json_data(fluent),
             SenderError::System(_) => json_data,
             SenderError::Vaild(err) => err.to_json_data(fluent),
+            SenderError::AppCore(error) => error.to_json_data(fluent),
         }
     }
 }
@@ -256,41 +302,6 @@ impl JsonFluent for lsys_app_barcode::dao::BarCodeError {
     }
 }
 
-//lib error
-
-impl JsonFluent for sqlx::Error {
-    fn to_json_data(&self, _: &FluentBundle) -> JsonData {
-        match self {
-            sqlx::Error::RowNotFound => JsonData::default().set_sub_code("not_found").set_code(404),
-            _ => JsonData::default().set_code(500).set_sub_code("sqlx"),
-        }
-    }
-}
-macro_rules! crate_error_fluent {
-    ($crate_error:ty,$code:literal) => {
-        impl JsonFluent for $crate_error {
-            fn to_json_data(&self, _: &FluentBundle) -> JsonData {
-                JsonData::default().set_code(500).set_sub_code($code)
-            }
-        }
-    };
-}
-crate_error_fluent!(config::ConfigError, "config");
-crate_error_fluent!(std::io::Error, "io");
-crate_error_fluent!(tera::Error, "tera");
-crate_error_fluent!(redis::RedisError, "redis");
-crate_error_fluent!(deadpool_redis::PoolError, "redis");
-crate_error_fluent!(serde_json::Error, "serde");
-crate_error_fluent!(ParseIntError, "parse");
-crate_error_fluent!(std::string::FromUtf8Error, "parse");
-
-#[cfg(feature = "docs")]
-use lsys_docs::dao::GitDocError;
-
-use super::{JsonData, JsonFluent};
-
-#[cfg(feature = "docs")]
-crate_error_fluent!(lsys_docs::GitError, "git");
 #[cfg(feature = "docs")]
 impl JsonFluent for GitDocError {
     fn to_json_data(&self, fluent: &FluentBundle) -> JsonData {

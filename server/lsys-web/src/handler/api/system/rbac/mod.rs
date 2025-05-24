@@ -15,3 +15,5 @@ pub use res_type::*;
 pub use role::*;
 pub use role_perm::*;
 pub use role_user::*;
+mod mapping;
+pub use mapping::*;

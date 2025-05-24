@@ -4,7 +4,7 @@ use crate::common::handler::{
 
 use actix_web::{post, HttpRequest};
 use lsys_web::handler::api::user::app_barcode::{
-    create_config_add, create_config_delete, create_config_edit, create_config_list,
+    create_config_add, create_config_delete, create_config_edit, create_config_list, mapping_data,
     parse_record_delete, parse_record_list, CreateConfigAddParam, CreateConfigDeleteParam,
     CreateConfigEditParam, CreateConfigListParam, ParseRecordDeleteParam, ParseRecordListParam,
 };
@@ -18,6 +18,7 @@ pub async fn barcode(
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
     Ok(match path.into_inner().as_str() {
+        "mapping" => mapping_data(&auth_dao).await,
         "create_config_add" => {
             create_config_add(&json_param.param::<CreateConfigAddParam>()?, &auth_dao).await
         }

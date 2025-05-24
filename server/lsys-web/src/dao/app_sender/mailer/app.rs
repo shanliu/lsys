@@ -14,7 +14,7 @@ impl SenderMailer {
     pub async fn app_send<'t>(
         &self,
         app: &AppModel,
-        tpl_id: &str,
+        tpl_key: &str,
         to: &[&'t str],
         body: &HashMap<&str, &str>,
         send_time: Option<u64>,
@@ -28,7 +28,7 @@ impl SenderMailer {
             .send(
                 Some(app.id),
                 &tos,
-                tpl_id,
+                tpl_key,
                 &json!(body).to_string(),
                 send_time,
                 Some(app.user_id),

@@ -3,8 +3,8 @@ use crate::common::handler::{
 };
 use actix_web::post;
 use lsys_web::handler::api::system::user::{
-    account_id_search, account_search, app_logout, change_logs_list, login_history, user_logout,
-    AccountIdSearchParam, AccountSearchParam, AppLogoutParam, ChangeLogsListParam,
+    account_id_search, account_search, app_logout, change_logs_list, login_history, mapping_data,
+    user_logout, AccountIdSearchParam, AccountSearchParam, AppLogoutParam, ChangeLogsListParam,
     LoginHistoryParam, UserLogoutParam,
 };
 
@@ -17,6 +17,7 @@ pub(crate) async fn user(
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
     Ok(match path.into_inner().as_str() {
+        "mapping" => mapping_data(&auth_dao).await,
         "login_history" => {
             login_history(&json_param.param::<LoginHistoryParam>()?, &auth_dao).await
         }

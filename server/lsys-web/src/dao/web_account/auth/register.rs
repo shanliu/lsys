@@ -225,7 +225,14 @@ impl WebUserAuth {
             .await?;
         self.sender
             .smser
-            .send_valid_code(param.area_code, param.mobile, &data.0, &data.1, env_data)
+            .send_valid_code(
+                "valid_code_register_mobile",
+                param.area_code,
+                param.mobile,
+                &data.0,
+                &data.1,
+                env_data,
+            )
             .await?;
         self.captcha
             .destroy_code(&valid_code, &param.captcha.key)
@@ -272,7 +279,13 @@ impl WebUserAuth {
             .await?;
         self.sender
             .mailer
-            .send_valid_code(param.email, &data.0, &data.1, env_data)
+            .send_valid_code(
+                "valid_code_register_email",
+                param.email,
+                &data.0,
+                &data.1,
+                env_data,
+            )
             .await?;
         self.captcha.destroy_code(&valid_code, param.email).await;
 

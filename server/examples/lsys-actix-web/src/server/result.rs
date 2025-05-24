@@ -1,4 +1,4 @@
-use lsys_core::AppCoreError;
+use lsys_web::lsys_core::AppCoreError;
 
 use std::fmt::{Display, Formatter};
 

@@ -41,21 +41,21 @@ impl SingleSetting {
     async fn save_param_valid(&self, key: &str, name: &str, data: &str) -> SettingResult<()> {
         ValidParam::default()
             .add(
-                valid_key!("key"),
+                valid_key!("setting_key"),
                 &key,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::Ident)
                     .add_rule(ValidStrlen::range(1, 32)),
             )
             .add(
-                valid_key!("name"),
+                valid_key!("setting_name"),
                 &name,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)
                     .add_rule(ValidStrlen::range(1, 32)),
             )
             .add(
-                valid_key!("data"),
+                valid_key!("setting_data"),
                 &data,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)

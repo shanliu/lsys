@@ -29,7 +29,10 @@ pub struct ShowSmtpConfigRecord {
 
 #[derive(Debug, Deserialize)]
 pub struct MailerSmtpConfigListParam {
-    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_u64")]
+    #[serde(
+        default,
+        deserialize_with = "crate::common::deserialize_option_vec_u64"
+    )]
     pub ids: Option<Vec<u64>>,
 }
 
@@ -278,7 +281,7 @@ pub struct MailerAppSmtpConfigAddParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub smtp_config_id: u64,
     pub name: String,
-    pub tpl_id: String,
+    pub tpl_key: String,
     pub from_email: String,
     pub reply_email: String,
     pub subject_tpl_id: String,
@@ -305,13 +308,13 @@ pub async fn mailer_tpl_config_smtp_add(
         .add_app_config(
             &param.name,
             0,
-            &param.tpl_id,
+            &param.tpl_key,
             param.smtp_config_id,
             &param.from_email,
             &param.reply_email,
             &param.subject_tpl_id,
             &param.body_tpl_id,
-            auth_data.user_id(),
+            0,
             auth_data.user_id(),
             Some(&req_dao.req_env),
         )

@@ -9,7 +9,7 @@ use lsys_core::{
     fluent_message, valid_key, RemoteNotify, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
 };
 
-use crate::model::{RbacOpModel, RbacOpModelRef, RbacOpStatus, RbacResModel};
+use crate::model::{RbacOpModel, RbacOpModelRef, RbacOpStatus};
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{MySql, Pool};
 use std::sync::Arc;
@@ -17,7 +17,6 @@ use std::vec;
 
 use lsys_core::{now_time, RequestEnv};
 
-use crate::model::RbacResStatus;
 use lsys_core::db::{Insert, ModelTableName, SqlQuote, Update, WhereOption};
 use lsys_core::{db_option_executor, model_option_set, sql_format};
 use sqlx::{Acquire, Transaction};
@@ -101,24 +100,21 @@ impl RbacOp {
             .op_name
             .map(|e| e.to_owned())
             .unwrap_or_default();
-        let res = sqlx::query_as::<_, RbacOpModel>(&sql_format!(
+        let find_res = sqlx::query_as::<_, RbacOpModel>(&sql_format!(
             "select * from {} where user_id={} and op_key={} and app_id={} and status={}",
-            RbacResModel::table_name(),
+            RbacOpModel::table_name(),
             param.user_id,
             op_key,
             param.app_id.unwrap_or_default(),
-            RbacResStatus::Enable,
+            RbacOpStatus::Enable,
         ))
         .fetch_one(&self.db)
         .await;
-        match res {
-            Ok(rm) => Err(RbacError::System(
-                fluent_message!("rbac-op-exits",{
-                    "res_type":op_key,
-                    "res_data":op_name,
-                    "name":rm.op_name
-                }), //"res [{$key}] already exists,name is:{$name}",
-            )),
+        match find_res {
+            Ok(rm) => Err(RbacError::System(fluent_message!("rbac-op-exits",{
+                "op_type":op_key,
+                "old_name":rm.op_name
+            }))),
             Err(sqlx::Error::RowNotFound) => {
                 let app_id = param.app_id.unwrap_or_default();
                 let time = now_time().unwrap_or_default();
@@ -203,13 +199,35 @@ impl RbacOp {
         env_data: Option<&RequestEnv>,
     ) -> RbacResult<u64> {
         self.op_param_valid(op_info).await?;
+
+        let res = sqlx::query_as::<_, RbacOpModel>(&sql_format!(
+            "select * from {} where user_id={} and op_key={} and app_id={} and status={} and id!={}",
+            RbacOpModel::table_name(),
+            op.user_id,
+             op_info.op_key,
+            op.app_id,
+            RbacOpStatus::Enable,
+            op.id
+        ))
+        .fetch_one(&self.db)
+        .await;
+        match res {
+            Ok(rm) => {
+                return Err(RbacError::System(fluent_message!("rbac-op-exits",{
+                    "op_type":op_info.op_key,
+                    "old_name":rm.op_name
+                })))
+            }
+            Err(sqlx::Error::RowNotFound) => {}
+            Err(e) => return Err(e.into()),
+        }
+        let op_key = op_info.op_key.to_string();
+        let opt_name = op_info.op_name.map(|e| e.to_owned());
         let time = now_time().unwrap_or_default();
         let mut change = lsys_core::model_option_set!(RbacOpModelRef,{
             change_user_id:change_user_id,
             change_time:time,
         });
-        let opt_name = op_info.op_name.map(|e| e.to_owned());
-        let op_key = op_info.op_key.to_string();
         let opt_key = Some(op_key);
         change.op_key = opt_key.as_ref();
         change.op_name = opt_name.as_ref();

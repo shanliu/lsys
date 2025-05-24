@@ -202,7 +202,7 @@ impl GitDocs {
     async fn git_param_valid(&self, param: &GitDocsData<'_>) -> GitDocResult<()> {
         ValidParam::default()
             .add(
-                valid_key!("name"),
+                valid_key!("doc_name"),
                 &param.name,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)
@@ -234,17 +234,29 @@ impl GitDocs {
             }
         };
         self.git_detail(&url).await?;
-        let name = {
-            if param.name.trim().is_empty() {
+        let name = param.name.to_string();
+
+        let url_res = sqlx::query_scalar::<_, String>(&sql_format!(
+            "select url from {} where name={} and status = {}",
+            DocGitModel::table_name(),
+            &name,
+            DocGitStatus::Enable as i8
+        ))
+        .fetch_one(&self.db)
+        .await;
+        match url_res {
+            Ok(url) => {
                 return Err(crate::dao::GitDocError::System(fluent_message!(
-                    "doc-git-name-empty"
+                    "doc-git-name-exist",
+                    {
+                        "name":name,
+                        "url":url,
+                    }
                 )));
-                // return Err(crate::dao::GitDocError::System(
-                //     "name can't be empty".to_string(),
-                // ));
             }
-            param.name.trim().to_string()
-        };
+            Err(sqlx::Error::RowNotFound) => {}
+            Err(err) => return Err(err.into()),
+        }
 
         let status = DocGitStatus::Enable as i8;
         let add_time = now_time().unwrap_or_default();
@@ -288,6 +300,9 @@ impl GitDocs {
         user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> GitDocResult<()> {
+        if !DocGitStatus::Enable.eq(git_model.status) {
+            return Err(sqlx::Error::RowNotFound.into());
+        }
         self.git_param_valid(param).await?;
         let url = match Url::parse(param.url) {
             Ok(url) => url.to_string(),
@@ -300,6 +315,30 @@ impl GitDocs {
         };
         let data = self.git_detail(param.url).await?;
         let name = param.name.to_string();
+
+        let url_res = sqlx::query_scalar::<_, String>(&sql_format!(
+            "select url from {} where name={} and status = {} and id!={}",
+            DocGitModel::table_name(),
+            &name,
+            DocGitStatus::Enable as i8,
+            git_model.id,
+        ))
+        .fetch_one(&self.db)
+        .await;
+        match url_res {
+            Ok(url) => {
+                return Err(crate::dao::GitDocError::System(fluent_message!(
+                    "doc-git-name-exist",
+                    {
+                        "name":name,
+                        "url":url,
+                    }
+                )));
+            }
+            Err(sqlx::Error::RowNotFound) => {}
+            Err(err) => return Err(err.into()),
+        }
+
         let tag_data = sqlx::query_as::<_, DocGitTagModel>(&sql_format!(
             "select * from {} where doc_git_id={} and status in ({})",
             DocGitTagModel::table_name(),
@@ -311,10 +350,13 @@ impl GitDocs {
 
         if !tag_data.is_empty() {
             for tmp in tag_data {
-                if !data
-                    .iter()
-                    .any(|e| e.version == tmp.build_version && e.tag == tmp.tag)
-                {
+                if !data.iter().any(|e| {
+                    debug!(
+                        "git:version:{},tag:{};find:version{},:tag{}",
+                        &e.version, &e.tag, &tmp.build_version, tmp.tag
+                    );
+                    e.version == tmp.build_version && e.tag == tmp.tag
+                }) {
                     return Err(crate::dao::GitDocError::System(
                         fluent_message!("doc-git-version-not-find",
                             {
@@ -439,6 +481,13 @@ impl GitDocs {
     ) -> GitDocResult<()> {
         ValidParam::default()
             .add(
+                valid_key!("tag"),
+                &param.tag,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 64)),
+            )
+            .add(
                 valid_key!("git_status"),
                 &doc_git.status,
                 &ValidParamCheck::default().add_rule(ValidContains(&[DocGitStatus::Enable as i8])),
@@ -476,25 +525,18 @@ impl GitDocs {
         }
 
         let data = self.git_detail(&doc_git.url).await?;
-        if !data
-            .iter()
-            .any(|e| e.tag == param.tag && e.version == param.build_version)
-        {
+        if !data.iter().any(|e| {
+            debug!(
+                "git:version:{},tag:{};find:version{},:tag{}",
+                &e.version, &e.tag, &param.build_version, param.tag
+            );
+            e.tag == param.tag && e.version == param.build_version
+        }) {
             return Err(crate::dao::GitDocError::System(
                 fluent_message!("doc-git-version-not-find",
                     {
                         "version":&param.build_version,
                         "url": &doc_git.url,
-                        "tag":&param.tag,
-                    }
-                ),
-            ));
-        }
-
-        if param.tag.trim().is_empty() {
-            return Err(crate::dao::GitDocError::System(
-                fluent_message!("doc-git-tag-empty",
-                    {
                         "tag":&param.tag,
                     }
                 ),
@@ -1092,11 +1134,6 @@ impl GitDocs {
         env_data: Option<&RequestEnv>,
     ) -> GitDocResult<u64> {
         self.menu_add_param_valid(menu_path).await?;
-        // if menu_path.trim().is_empty() {
-        //     return Err(crate::dao::GitDocError::System(
-        //         fluent_message!("doc-git-menu-name-empty"), // "menu path can't be empty".to_string(),
-        //     ));
-        // }
         let menu_file = self.menu_file_read(tag, menu_path).await?;
         let dat_u8 = read(&menu_file.file_path).await.map_err(|e| {
             // format!("your sumbit path,can't read data:{}", e)

@@ -128,9 +128,10 @@ async fn inner_access_check(
     let mut req_env = req_dao.req_env.clone();
     req_env.request_ip = param.request_ip.clone();
     let check_env = AccessCheckEnv {
-        req_env: Some(&req_env),
+        user_req_env: Some(&req_env),
+        user_app_id: user_data.as_ref().map(|e| e.app_id).unwrap_or_default(),
         user_id: user_data.map(|e| e.id).unwrap_or_default(),
-        login_token_data: param.token_data.as_deref(),
+        user_login_token: param.token_data.as_deref(),
         session_role,
     };
     let access_checks = param

@@ -6,7 +6,7 @@ use std::{
 use deadpool_redis::PoolError;
 use redis::RedisError;
 
-use crate::{fluent_message, FluentMessage, IntoFluentMessage};
+use crate::{fluent_message, FluentMessage, IntoFluentMessage, ValidError};
 #[derive(Debug)]
 pub struct ValidCodeCheckError {
     pub message: FluentMessage,
@@ -19,6 +19,7 @@ pub enum ValidCodeError {
     RedisPool(PoolError),
     Tag(FluentMessage),
     NotMatch(ValidCodeCheckError),
+    Valid(ValidError),
 }
 
 impl IntoFluentMessage for ValidCodeError {
@@ -29,6 +30,7 @@ impl IntoFluentMessage for ValidCodeError {
             ValidCodeError::RedisPool(err) => fluent_message!("redis-error", err),
             ValidCodeError::Tag(err) => err.to_owned(),
             ValidCodeError::NotMatch(err) => err.message.clone(),
+            ValidCodeError::Valid(err) => err.to_fluent_message(),
         }
     }
 }
@@ -48,5 +50,9 @@ impl From<PoolError> for ValidCodeError {
         ValidCodeError::RedisPool(err)
     }
 }
-
+impl From<ValidError> for ValidCodeError {
+    fn from(err: ValidError) -> Self {
+        ValidCodeError::Valid(err)
+    }
+}
 pub type ValidCodeResult<T> = Result<T, ValidCodeError>;

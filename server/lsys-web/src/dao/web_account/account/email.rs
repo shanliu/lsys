@@ -2,7 +2,7 @@ use super::WebUserAccount;
 use crate::common::{CaptchaParam, JsonData, JsonError, JsonResult};
 use lsys_access::dao::SessionBody;
 use lsys_core::{fluent_message, RequestEnv};
-use lsys_user::model::AccountEmailStatus;
+use lsys_user::{dao::AccountError, model::AccountEmailStatus};
 
 impl WebUserAccount {
     //添加用户邮箱
@@ -77,7 +77,7 @@ impl WebUserAccount {
                 email
             }
             Err(err) => {
-                if !err.is_not_found() {
+                if !matches!(err, AccountError::Sqlx(sqlx::Error::RowNotFound)) {
                     return Err(err.into());
                 } else {
                     return Ok(());
@@ -97,7 +97,13 @@ impl WebUserAccount {
             .await?;
         self.sender
             .mailer
-            .send_valid_code(&email.email, &res.0, &res.1, env_data)
+            .send_valid_code(
+                "valid_code_account_email",
+                &email.email,
+                &res.0,
+                &res.1,
+                env_data,
+            )
             .await?;
         Ok(())
     }

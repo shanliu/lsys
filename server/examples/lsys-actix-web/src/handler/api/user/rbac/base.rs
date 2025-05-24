@@ -2,10 +2,10 @@ use crate::common::handler::{
     JsonQuery, JwtQuery, ResponseJson, ResponseJsonResult, UserAuthQuery,
 };
 use actix_web::post;
-use lsys_web::handler::api::user::rbac::{system_audit_data, SystemAuditParam};
+use lsys_web::handler::api::user::rbac::{mapping_data, system_audit_data, SystemAuditParam};
 
-#[post("/audit/{method}")]
-pub async fn audit(
+#[post("/base/{method}")]
+pub async fn base(
     jwt: JwtQuery,
     path: actix_web::web::Path<String>,
     json_param: JsonQuery,
@@ -13,7 +13,8 @@ pub async fn audit(
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
     let data = match path.into_inner().as_str() {
-        "list" => system_audit_data(&json_param.param::<SystemAuditParam>()?, &auth_dao).await,
+        "mapping" => mapping_data(&auth_dao).await,
+        "audit" => system_audit_data(&json_param.param::<SystemAuditParam>()?, &auth_dao).await,
         name => handler_not_found!(name),
     };
     Ok(data

@@ -11,8 +11,8 @@ futures-util = "~0.3.31"
 dotenv = "~0.15.*"
 
 tokio = { version = "~1.45.0", features = ["fs", "macros"] }
-deadpool-redis = { version = "~0.20.0" }
-redis = { version = "~0.29.0", features = [ # 根据 deadpool-redis 的版本适配 
+deadpool-redis = { version = "~0.21.0" }
+redis = { version = "~0.31.0", features = [ # 根据 deadpool-redis 的版本适配 
     "aio",
     "tokio-comp",
     "connection-manager",

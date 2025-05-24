@@ -5,8 +5,8 @@ use crate::common::handler::{
 use actix_web::post;
 
 use jsonwebtoken::{encode, EncodingKey, Header};
-use lsys_core::fluent_message;
-use lsys_user::dao::UserAuthToken;
+use lsys_web::lsys_core::fluent_message;
+use lsys_web::lsys_user::dao::UserAuthToken;
 
 use lsys_web::common::{JsonData, JsonError, JsonResponse, JsonResult};
 use lsys_web::dao::ShowUserAuthData;

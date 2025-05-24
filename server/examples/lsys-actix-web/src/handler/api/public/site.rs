@@ -2,7 +2,7 @@ use crate::common::{
     app::exter_type_data,
     handler::{ResponseJson, ResponseJsonResult, UserAuthQuery},
 };
-use actix_web::get;
+use actix_web::post;
 
 use lsys_web::{
     common::{JsonData, JsonResponse},
@@ -10,7 +10,7 @@ use lsys_web::{
 };
 use serde_json::json;
 
-#[get("/info")]
+#[post("/info")]
 pub async fn site_info(auth_dao: UserAuthQuery) -> ResponseJsonResult<ResponseJson> {
     let site_setting = config_data(&auth_dao)
         .await

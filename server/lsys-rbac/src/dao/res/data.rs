@@ -245,7 +245,7 @@ impl RbacRes {
             Some(33),
         );
         let sql = sql_format!(
-            "select op.* from {} as op
+            "select op_res.* from {} as op
                 join {} as op_res on op.id=op_res.op_id
                 where op.user_id={} and op.status={} and op_res.user_id={} 
                 and op_res.app_id={}  and op_res.res_type={}

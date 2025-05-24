@@ -19,7 +19,7 @@ use super::{
 use crate::{
     dao::{
         MessageCancel, MessageLogs, MessageReader, SenderConfig, SenderError, SenderResult,
-        SenderTaskExecutor, SenderTplConfig, SenderWaitItem, SenderWaitNotify,
+        SenderTaskExecutor, SenderTplConfig, SenderWaitNotify,
     },
     model::{SenderSmsBodyModel, SenderSmsMessageModel, SenderSmsMessageStatus, SenderType},
 };
@@ -158,7 +158,7 @@ impl SmsSenderDao {
         &self,
         app_id: Option<u64>,
         mobiles: &[(&'t str, &'t str)],
-        tpl_id: &str,
+        tpl_key: &str,
         tpl_var: &str,
         send_time: Option<u64>,
         user_id: Option<u64>,
@@ -179,14 +179,14 @@ impl SmsSenderDao {
         let sendtime = send_time.unwrap_or(nt);
         let sendtime = if sendtime < nt { nt } else { sendtime };
         self.sms_record
-            .send_check(app_id, tpl_id, &tmp, sendtime)
+            .send_check(app_id, tpl_key, &tmp, sendtime)
             .await?;
         let res = self
             .sms_record
             .add(
                 &tmp,
                 app_id.unwrap_or_default(),
-                tpl_id,
+                tpl_key,
                 tpl_var,
                 sendtime,
                 user_id,
@@ -197,8 +197,8 @@ impl SmsSenderDao {
 
         let mut wait = None;
         if max_try_num == 0 && mobiles.len() == 1 {
-            if let Some((msg_id, _, _)) = res.1.first() {
-                wait = Some(self.send_wait.wait(SenderWaitItem(res.0, *msg_id)).await);
+            if let Some((snid, _, _)) = res.1.first() {
+                wait = Some(self.send_wait.message_wait(res.0, *snid).await);
             }
         };
 

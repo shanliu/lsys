@@ -80,7 +80,7 @@ impl App {
         );
         ValidParam::default()
             .add(
-                valid_key!("name"),
+                valid_key!("app_name"),
                 &name,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)

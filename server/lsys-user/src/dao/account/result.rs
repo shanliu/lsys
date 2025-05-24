@@ -51,11 +51,6 @@ impl IntoFluentMessage for AccountError {
     }
 }
 
-impl AccountError {
-    pub fn is_not_found(&self) -> bool {
-        matches!(self, AccountError::Sqlx(sqlx::Error::RowNotFound))
-    }
-}
 impl From<ValidError> for AccountError {
     fn from(err: ValidError) -> Self {
         AccountError::Vaild(err)

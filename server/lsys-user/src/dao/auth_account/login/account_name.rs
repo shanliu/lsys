@@ -30,8 +30,10 @@ impl NameLoginData {
     pub async fn from(account_dao: &AccountDao, auth_data: &UserAuthData) -> AccountResult<Self> {
         match auth_data.user().user_data.parse::<u64>() {
             Err(err) => Err(AccountError::System(fluent_message!(
-                "account-bad-session",
-                err
+                "account-bad-session",{
+                    "msg":err,
+                    "data":auth_data.login_data()
+                }
             ))),
             Ok(id) => {
                 let data = account_dao

@@ -51,7 +51,7 @@ pub(crate) struct LogAppConfig<'t> {
     pub sender_type: u8,
     pub app_id: u64,
     pub name: &'t str,
-    pub tpl_id: &'t str,
+    pub tpl_key: &'t str,
     pub setting_id: u64,
     pub config_data: &'t str,
     pub user_id: u64,

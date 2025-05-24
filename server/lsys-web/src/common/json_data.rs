@@ -17,7 +17,7 @@ impl Default for JsonData {
 }
 impl JsonData {
     pub fn error() -> Self {
-        JsonData::default().set_code(500).set_sub_code("error")
+        JsonData::default().set_code(500).set_sub_code("system")
     }
     pub fn body(value: Value) -> Self {
         JsonData::default().set_body(value)

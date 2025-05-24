@@ -28,8 +28,10 @@ impl MobileLoginData {
     pub async fn from(account_dao: &AccountDao, auth_data: &UserAuthData) -> AccountResult<Self> {
         match auth_data.login_data().parse::<u64>() {
             Err(err) => Err(AccountError::System(fluent_message!(
-                "account-bad-session",
-                err
+                 "account-bad-session",{
+                    "msg":err,
+                    "data":auth_data.login_data()
+                }
             ))),
             Ok(id) => {
                 let data = account_dao.account_mobile.cache().find_by_id(&id).await?;

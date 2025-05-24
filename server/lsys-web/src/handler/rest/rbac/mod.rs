@@ -19,6 +19,8 @@ pub use res_type::*;
 pub use role::*;
 pub use role_perm::*;
 pub use role_user::*;
+mod mapping;
+pub use mapping::*;
 
 //当用户ID为APP应用的用户ID时,作为外部应用系统RBAC权限
 //当用户ID为APP应用的子用户ID时,作为外部应用用户RBAC权限
@@ -44,6 +46,7 @@ async fn inner_app_rbac_check(app: &AppModel, req_dao: &RequestDao) -> JsonResul
     Ok(())
 }
 //校验APP是否相同
+#[allow(clippy::result_large_err)]
 fn inner_app_self_check(app: &AppModel, res_app_id: u64) -> JsonResult<()> {
     if app.id != res_app_id {
         return Err(JsonError::JsonResponse(

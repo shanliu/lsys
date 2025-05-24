@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use lsys_core::db::lsys_model_status;
+use serde::{Deserialize, Serialize};
 
 //发送模块公共常量 -start
 
@@ -28,9 +28,8 @@ pub enum SenderLogType {
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[lsys_model_status(field_type = "i8")]
 pub enum SenderLogStatus {
-    Succ = 2, //成功
-    Fail = 3, //失败
-
+    Succ = 2,          //成功
+    Fail = 3,          //失败
     MessageCancel = 5, //取消
     NotifySucc = 6,    //回调成功
     NotifyFail = 7,    //回调失败

@@ -170,7 +170,7 @@ impl App {
             sql.push(sql_format!("status={}", tmp as i8));
         }
         let sql = sql_format!(
-            "select count(*) as total from {} where {}",
+            "select count(*) as total from {} {}",
             AppRequestModel::table_name(),
             if !sql.is_empty() {
                 SqlExpr(format!(" where {}", sql.join(" and ")))

@@ -117,6 +117,7 @@ impl SenderNetEaseConfig {
         user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
+        self.tpl_config.check_setting_id_used(id).await?;
         Ok(self
             .setting
             .del::<NetEaseConfig>(None, id, user_id, None, env_data)
@@ -134,7 +135,7 @@ impl SenderNetEaseConfig {
     ) -> SenderResult<()> {
         ValidParam::default()
             .add(
-                valid_key!("id"),
+                valid_key!("config_id"),
                 &id,
                 &ValidParamCheck::default().add_rule(ValidNumber::id()),
             )
@@ -302,7 +303,7 @@ impl SenderNetEaseConfig {
         name: &str,
         app_id: u64,
         setting_id: u64,
-        tpl_id: &str,
+        tpl_key: &str,
         template_id: &str,
         template_map: &str,
         user_id: u64,
@@ -317,7 +318,7 @@ impl SenderNetEaseConfig {
                 name,
                 app_id,
                 setting_id,
-                tpl_id,
+                tpl_key,
                 &NetEaseTplConfig {
                     template_id: template_id.to_owned(),
                     template_map: template_map.to_owned(),

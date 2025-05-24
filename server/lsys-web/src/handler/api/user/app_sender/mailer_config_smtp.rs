@@ -10,7 +10,10 @@ use serde_json::{json, Value};
 use super::mailer_inner_access_check;
 #[derive(Debug, Deserialize)]
 pub struct MailerSmtpConfigListParam {
-    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_u64")]
+    #[serde(
+        default,
+        deserialize_with = "crate::common::deserialize_option_vec_u64"
+    )]
     pub ids: Option<Vec<u64>>,
 }
 
@@ -61,7 +64,7 @@ pub struct MailerSmtpConfigAddParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub smtp_config_id: u64,
     pub name: String,
-    pub tpl_id: String,
+    pub tpl_key: String,
     pub from_email: String,
     pub reply_email: String,
     pub subject_tpl_id: String,
@@ -83,7 +86,7 @@ pub async fn mailer_smtp_config_add(
         .add_app_config(
             &param.name,
             param.app_id,
-            &param.tpl_id,
+            &param.tpl_key,
             param.smtp_config_id,
             &param.from_email,
             &param.reply_email,

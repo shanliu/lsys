@@ -2,8 +2,8 @@ use std::{pin::Pin, str::FromStr};
 
 use actix_web::{dev::Payload, FromRequest, HttpRequest};
 
-use lsys_user::dao::UserAuthToken;
 use lsys_web::common::{JsonData, JsonResponse, RequestSessionToken};
+use lsys_web::lsys_user::dao::UserAuthToken;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value;
 

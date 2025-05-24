@@ -280,16 +280,6 @@ impl Account {
     ) -> AccountResult<u64> {
         self.nickname_param_valid(nikename).await?;
         let nikename = nikename.to_string();
-        if nikename.is_empty() || nikename.len() > 32 {
-            return Err(AccountError::System(
-                fluent_message!("account-nikename-wrong",{
-                        "len":nikename.len(),
-                        "max":32
-                    }
-                    // "accountname length need 1-32 char"
-                ),
-            ));
-        }
         let time = now_time().unwrap_or_default();
         let change = lsys_core::model_option_set!(AccountModelRef,{
             change_time:time,

@@ -121,6 +121,7 @@ impl SenderHwYunConfig {
         user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
+        self.tpl_config.check_setting_id_used(id).await?;
         Ok(self
             .setting
             .del::<HwYunConfig>(None, id, user_id, None, env_data)
@@ -140,7 +141,7 @@ impl SenderHwYunConfig {
     ) -> SenderResult<()> {
         ValidParam::default()
             .add(
-                valid_key!("id"),
+                valid_key!("config_id"),
                 &id,
                 &ValidParamCheck::default().add_rule(ValidNumber::id()),
             )
@@ -372,7 +373,7 @@ impl SenderHwYunConfig {
         name: &str,
         app_id: u64,
         setting_id: u64,
-        tpl_id: &str,
+        tpl_key: &str,
         signature: &str,
         sender: &str,
         template_id: &str,
@@ -389,7 +390,7 @@ impl SenderHwYunConfig {
                 name,
                 app_id,
                 setting_id,
-                tpl_id,
+                tpl_key,
                 &HwYunTplConfig {
                     template_map: template_map.to_owned(),
                     signature: signature.to_owned(),

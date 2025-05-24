@@ -20,7 +20,7 @@ where
             scope("/rbac")
                 .service(rbac::role)
                 .service(rbac::res)
-                .service(rbac::check)
+                .service(rbac::base)
                 .service(rbac::op),
         )
         .service(scope("/app").service(app::app))

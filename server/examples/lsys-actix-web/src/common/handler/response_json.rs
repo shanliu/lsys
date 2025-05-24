@@ -6,9 +6,9 @@ use actix_web::{
     error::{BlockingError, PayloadError},
     HttpMessage, HttpRequest, HttpResponse, Responder, ResponseError,
 };
-use lsys_core::now_time;
-use lsys_user::dao::UserAuthToken;
 use lsys_web::common::{JsonData, JsonResponse};
+use lsys_web::lsys_core::now_time;
+use lsys_web::lsys_user::dao::UserAuthToken;
 use serde_json::to_string_pretty;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::{error::Error, ops::Deref};
@@ -44,11 +44,7 @@ impl Responder for ResponseJson {
         if let Some(token) = req.extensions().get::<UserAuthToken>() {
             if !token.token.is_empty() {
                 let now_t = now_time().unwrap_or_default();
-                let age = if token.time_out > now_t {
-                    token.time_out - now_t
-                } else {
-                    0
-                };
+                let age = token.time_out.saturating_sub(now_t);
                 let cookie = Cookie::build(AUTH_COOKIE_NAME, token.token.clone())
                     //.domain("www.rust-lang.org")
                     //.secure(true)

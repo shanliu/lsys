@@ -21,12 +21,6 @@ pub enum AccessError {
     Vaild(ValidError),
 }
 
-// impl AccessError {
-//     pub fn is_not_found(&self) -> bool {
-//         matches!(self, AccessError::Sqlx(sqlx::Error::RowNotFound))
-//     }
-// }
-
 impl IntoFluentMessage for AccessError {
     fn to_fluent_message(&self) -> FluentMessage {
         match self {

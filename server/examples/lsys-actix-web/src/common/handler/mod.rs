@@ -34,8 +34,8 @@ impl Display for WebHandError {
         write!(f, "{}", self.message)
     }
 }
-impl From<tera::Error> for WebHandError {
-    fn from(err: tera::Error) -> Self {
+impl From<lsys_web::tera::Error> for WebHandError {
+    fn from(err: lsys_web::tera::Error) -> Self {
         WebHandError::string(format!("{:?}", err))
     }
 }

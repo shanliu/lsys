@@ -21,7 +21,7 @@ impl WebRbac {
         check: &RbacCheckAccessDepend,
     ) -> RbacResult<()> {
         let mut check_env = AccessCheckEnv {
-            req_env: Some(req_env),
+            user_req_env: Some(req_env),
             session_role: vec![AccessSessionRole {
                 role_key: "system-global",
                 user_id: 0,
@@ -30,8 +30,9 @@ impl WebRbac {
             ..Default::default()
         };
         if let Some(session_body) = session_body_opt {
-            check_env.login_token_data = Some(session_body.token_data());
+            check_env.user_login_token = Some(session_body.token_data());
             check_env.user_id = session_body.user_id();
+            check_env.user_app_id = session_body.session().user_app_id;
             check_env.session_role.push(AccessSessionRole {
                 role_key: "system-login",
                 user_id: 0,

@@ -100,11 +100,7 @@ where
                 ua.time_out,
                 self.cache_config.refresh_time,
                 now_time,
-                if ua.time_out > now_time {
-                    ua.time_out - now_time
-                } else {
-                    0
-                }
+                ua.time_out.saturating_sub(now_time)
             );
             if ua.time_out > now_time {
                 if self.cache_config.refresh_time > 0

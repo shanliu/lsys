@@ -11,6 +11,6 @@ pub enum SettingStatus {
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[lsys_model_status(field_type = "i8")]
 pub enum SettingType {
-    Single = 1,   //正常
-    Multiple = 2, //已删除
+    Single = 1,
+    Multiple = 2,
 }

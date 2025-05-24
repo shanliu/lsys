@@ -3,6 +3,8 @@ mod system;
 
 pub use app::*;
 pub use system::*;
+mod mapping;
+pub use mapping::*;
 
 //资源 角色 ... 用户
 

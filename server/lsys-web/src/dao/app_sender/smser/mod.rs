@@ -169,6 +169,7 @@ impl SenderSmser {
     //发送验证码
     pub async fn send_valid_code(
         &self,
+        tpl_key: &str,
         area: &str,
         mobile: &str,
         code: &str,
@@ -179,7 +180,7 @@ impl SenderSmser {
         context.insert("code", code.to_owned());
         context.insert("time", ttl.to_string());
         self.send(
-            "valid_code",
+            tpl_key,
             area,
             mobile,
             &json!(context).to_string(),

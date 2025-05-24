@@ -126,7 +126,7 @@ impl RbacRes {
                 fluent_message!("rbac-res-exits",{
                     "res_type":res_type,
                     "res_data":res_data,
-                    "name":rm.res_name
+                    "old_name":rm.res_name
                 }), //"res [{$key}] already exists,name is:{$name}",
             )),
             Err(sqlx::Error::RowNotFound) => {
@@ -211,6 +211,29 @@ impl RbacRes {
         env_data: Option<&RequestEnv>,
     ) -> RbacResult<u64> {
         self.res_param_valid(res_info).await?;
+
+        let find_res = sqlx::query_as::<_,RbacResModel>(&sql_format!(
+            "select * from {} where user_id={} and res_type={} and res_data={} and app_id={} and status={} and id!={}",
+            RbacResModel::table_name(),
+            res.user_id,
+            res_info.res_type,
+            res_info.res_data,
+            res.app_id,
+            RbacResStatus::Enable as i8,
+            res.id
+        )).fetch_one(&self.db).await;
+        match find_res {
+            Ok(rm) => {
+                return Err(RbacError::System(fluent_message!("rbac-res-exits",{
+                    "res_type":res_info.res_type,
+                    "res_data":res_info.res_data,
+                    "old_name":rm.res_name
+                })));
+            }
+            Err(sqlx::Error::RowNotFound) => {}
+            Err(e) => return Err(e)?,
+        }
+
         let time = now_time().unwrap_or_default();
         let res_type = res_info.res_type.to_owned();
         let res_data = res_info.res_data.to_owned();

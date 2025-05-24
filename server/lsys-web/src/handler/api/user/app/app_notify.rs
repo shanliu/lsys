@@ -3,25 +3,9 @@ use crate::common::UserAuthQueryDao;
 use crate::common::{JsonResponse, JsonResult, LimitParam};
 use crate::dao::access::api::user::CheckUserNotifyView;
 use lsys_access::dao::AccessSession;
-use lsys_app::dao::SUB_APP_SECRET_NOTIFY_TYPE;
 use lsys_app::model::AppNotifyDataStatus;
-use lsys_app_sender::dao::SMS_NOTIFY_TYPE;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-
-pub async fn notify_data_where(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
-    Ok(JsonResponse::data(JsonData::body(json!({
-        "method":vec![
-            status_format!(json req_dao, SMS_NOTIFY_TYPE),
-            status_format!(json req_dao, SUB_APP_SECRET_NOTIFY_TYPE),
-        ],
-        "status":vec![
-            status_format!(json req_dao, AppNotifyDataStatus::Init),
-            status_format!(json req_dao, AppNotifyDataStatus::Succ),
-            status_format!(json req_dao, AppNotifyDataStatus::Fail),
-        ]
-    }))))
-}
 
 #[derive(Deserialize)]
 pub struct NotifyDataListParam {

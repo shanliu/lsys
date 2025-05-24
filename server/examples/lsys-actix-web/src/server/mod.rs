@@ -7,9 +7,9 @@ use actix_web::{error, http, middleware as middlewares, App, HttpResponse, HttpS
 use futures_util::TryFutureExt;
 
 use jsonwebtoken::{DecodingKey, Validation};
-use lsys_core::{AppCore, AppCoreError};
 use lsys_web::common::FluentFormat;
 use lsys_web::dao::WebDao;
+use lsys_web::lsys_core::{AppCore, AppCoreError};
 
 use std::sync::Arc;
 
@@ -32,7 +32,7 @@ pub async fn create_server(app_dir: &str) -> Result<Server, AppError> {
         .config
         .find(None)
         .get_string("app_jwt_key")
-        .map_err(|err| AppCoreError::Config(lsys_core::ConfigError::Config(err)))?;
+        .map_err(|err| AppCoreError::Config(lsys_web::lsys_core::ConfigError::Config(err)))?;
     let app_json_limit = app_dao
         .app_core
         .config

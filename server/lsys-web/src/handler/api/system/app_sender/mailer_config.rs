@@ -6,10 +6,7 @@ use crate::{
     dao::access::api::system::CheckAdminMailMgr,
 };
 use lsys_access::dao::AccessSession;
-use lsys_app_sender::{
-    dao::SenderError,
-    model::{SenderConfigStatus, SenderMailConfigType, SenderTplConfigStatus},
-};
+use lsys_app_sender::model::{SenderMailConfigType, SenderTplConfigStatus};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -69,34 +66,22 @@ pub async fn mailer_config_del(
         .web_rbac
         .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailMgr {})
         .await?;
-    let res = req_dao
+    let config = req_dao
         .web_dao
         .app_sender
         .mailer
         .mailer_dao
         .mail_record
         .find_config_by_id(param.config_id)
-        .await;
-    match res {
-        Ok(config) => {
-            if SenderConfigStatus::Enable.eq(config.status) {
-                req_dao
-                    .web_dao
-                    .app_sender
-                    .mailer
-                    .mailer_dao
-                    .mail_record
-                    .config_del(&config, auth_data.user_id(), Some(&req_dao.req_env))
-                    .await?;
-            }
-        }
-        Err(err) => match &err {
-            SenderError::Sqlx(sqlx::Error::RowNotFound) => return Ok(JsonResponse::default()),
-            _ => {
-                return Err(err.into());
-            }
-        },
-    }
+        .await?;
+    req_dao
+        .web_dao
+        .app_sender
+        .mailer
+        .mailer_dao
+        .mail_record
+        .config_del(&config, auth_data.user_id(), Some(&req_dao.req_env))
+        .await?;
     Ok(JsonResponse::default())
 }
 
@@ -218,7 +203,7 @@ pub async fn mailer_tpl_config_list(
                 "app_id":a.app_id,
                 "config_data":serde_json::from_str::<Value>(&a.config_data).ok(),
                 "name":a.name,
-                "tpl_id":a.tpl_id,
+                "tpl_key":a.tpl_key,
                 "user_id":a.user_id,
                 "change_user_id":a.change_user_id,
                 "change_time":a.change_time,
@@ -255,7 +240,7 @@ pub async fn mailer_tpl_config_list(
 #[derive(Debug, Deserialize)]
 pub struct MailerTplConfigDelParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
-    pub app_config_id: u64,
+    pub tpl_config_id: u64,
 }
 
 pub async fn mailer_tpl_config_del(
@@ -275,7 +260,7 @@ pub async fn mailer_tpl_config_del(
         .mailer
         .mailer_dao
         .tpl_config
-        .find_by_id(param.app_config_id)
+        .find_by_id(param.tpl_config_id)
         .await?;
     if SenderTplConfigStatus::Delete.eq(config.status) {
         return Ok(JsonResponse::data(JsonData::body(json!({ "num": 0 }))));

@@ -4,7 +4,7 @@ use std::{
 };
 
 use deadpool_redis::PoolError;
-use lsys_core::{fluent_message, FluentMessage, IntoFluentMessage, ValidError};
+use lsys_core::{fluent_message, AppCoreError, FluentMessage, IntoFluentMessage, ValidError};
 use lsys_setting::dao::SettingError;
 
 //公共结构定义
@@ -14,6 +14,7 @@ pub enum SenderError {
     Redis(redis::RedisError),
     RedisPool(PoolError),
     Tera(tera::Error),
+    AppCore(AppCoreError),
     System(FluentMessage),
     Setting(SettingError),
     Vaild(ValidError),
@@ -29,6 +30,7 @@ impl IntoFluentMessage for SenderError {
             SenderError::System(err) => err.to_owned(),
             SenderError::Setting(err) => err.to_fluent_message(),
             SenderError::Vaild(err) => err.to_fluent_message(),
+            SenderError::AppCore(err) => err.to_fluent_message(),
         }
     }
 }
@@ -56,6 +58,11 @@ impl From<SettingError> for SenderError {
 impl From<tera::Error> for SenderError {
     fn from(err: tera::Error) -> Self {
         SenderError::Tera(err)
+    }
+}
+impl From<AppCoreError> for SenderError {
+    fn from(err: AppCoreError) -> Self {
+        SenderError::AppCore(err)
     }
 }
 
@@ -89,7 +96,8 @@ pub enum SenderTaskStatus {
 }
 
 pub struct SenderTaskResultItem {
-    pub id: u64, // SenderTaskData item id
+    pub id: u64,   // SenderTaskData item id
+    pub snid: u64, // SenderTaskData item snid
     pub status: SenderTaskStatus,
     pub message: String,
     pub send_id: String,

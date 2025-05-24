@@ -22,10 +22,9 @@ use lettre::{
     AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
 };
 use lsys_core::{
-    fluent_message, valid_key, IntoFluentMessage, RequestEnv, ValidDomain, ValidEmail, ValidParam,
-    ValidParamCheck, ValidPattern, ValidStrlen,
+    fluent_message, valid_key, IntoFluentMessage, RequestEnv, ValidDomain, ValidEmail, ValidNumber,
+    ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
 };
-use lsys_logger::dao::ChangeLoggerDao;
 use lsys_setting::{
     dao::{
         MultipleSetting, MultipleSettingData, SettingData, SettingDecode, SettingEncode,
@@ -38,9 +37,7 @@ use serde_json::Value;
 use tera::Context;
 use tokio::sync::RwLock;
 
-use sqlx::Pool;
 use tracing::debug;
-
 // 邮件发送 smtp 适配
 
 #[derive(Deserialize, Serialize, Default)]
@@ -138,6 +135,7 @@ impl SenderSmtpConfig {
         user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
+        self.tpl_config.check_setting_id_used(id).await?;
         Ok(self
             .setting
             .del::<SmtpConfig>(None, id, user_id, None, env_data)
@@ -188,6 +186,21 @@ impl SenderSmtpConfig {
     async fn check_config_param_valid(&self, config: &SmtpConfig) -> SenderResult<()> {
         ValidParam::default()
             .add(
+                valid_key!("smtp_branch_limit"),
+                &config.branch_limit,
+                &ValidParamCheck::default().add_rule(ValidNumber::range(1, 5000)),
+            )
+            .add(
+                valid_key!("smtp_port"),
+                &config.port,
+                &ValidParamCheck::default().add_rule(ValidNumber::min(1)),
+            )
+            .add(
+                valid_key!("smtp_email"),
+                &config.email,
+                &ValidParamCheck::default().add_rule(ValidEmail::default()),
+            )
+            .add(
                 valid_key!("smtp_host"),
                 &config.host,
                 &ValidParamCheck::default().add_rule(ValidDomain::default()),
@@ -208,8 +221,6 @@ impl SenderSmtpConfig {
     }
     async fn add_app_config_param_valid(
         &self,
-        name: &str,
-        tpl_id: &str,
         from_email: &str,
         reply_email: &str,
         subject_tpl_id: &str,
@@ -221,20 +232,6 @@ impl SenderSmtpConfig {
                 valid_key!("from_mail"),
                 &from_email,
                 &ValidParamCheck::default().add_rule(ValidEmail::default()),
-            )
-            .add(
-                valid_key!("config_name"),
-                &name,
-                &ValidParamCheck::default()
-                    .add_rule(ValidPattern::NotFormat)
-                    .add_rule(ValidStrlen::range(1, 32)),
-            )
-            .add(
-                valid_key!("tpl_id"),
-                &tpl_id,
-                &ValidParamCheck::default()
-                    .add_rule(ValidPattern::Ident)
-                    .add_rule(ValidStrlen::range(1, 32)),
             )
             .add(
                 valid_key!("subject_tpl_id"),
@@ -266,7 +263,7 @@ impl SenderSmtpConfig {
         &self,
         name: &str,
         app_id: u64,
-        tpl_id: &str,
+        tpl_key: &str,
         smtp_config_id: u64,
         from_email: &str,
         reply_email: &str,
@@ -276,15 +273,8 @@ impl SenderSmtpConfig {
         add_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
-        self.add_app_config_param_valid(
-            name,
-            tpl_id,
-            from_email,
-            reply_email,
-            subject_tpl_id,
-            body_tpl_id,
-        )
-        .await?;
+        self.add_app_config_param_valid(from_email, reply_email, subject_tpl_id, body_tpl_id)
+            .await?;
         self.setting
             .load::<SmtpConfig>(None, smtp_config_id)
             .await?;
@@ -298,7 +288,7 @@ impl SenderSmtpConfig {
                 name,
                 app_id,
                 smtp_config_id,
-                tpl_id,
+                tpl_key,
                 &SmtpTplConfig {
                     from_email,
                     reply_email,
@@ -323,10 +313,10 @@ pub struct SmtpSenderTask {
 }
 
 impl SmtpSenderTask {
-    pub fn new(db: Pool<sqlx::MySql>, logger: Arc<ChangeLoggerDao>) -> Self {
+    pub fn new(tpls: Arc<MessageTpls>) -> Self {
         Self {
             mailer: Arc::new(RwLock::new(HashMap::new())),
-            tpls: Arc::new(MessageTpls::new(db, logger)),
+            tpls,
         }
     }
 }
@@ -401,6 +391,7 @@ impl SenderTaskExecutor<u64, MailTaskItem, MailTaskData> for SmtpSenderTask {
                 Err(err) => {
                     bad_res.push(SenderTaskResultItem {
                         id: tmp.id,
+                        snid: tmp.snid,
                         status: SenderTaskStatus::Failed(false),
                         message: err.to_string(),
                         send_id: "".to_owned(),
@@ -418,12 +409,16 @@ impl SenderTaskExecutor<u64, MailTaskItem, MailTaskData> for SmtpSenderTask {
                 &context,
             )
             .await
-            .map_err(|e| {
-                SenderExecError::Finish(format!(
-                    "render subject fail [{}]: {}",
+            .map_err(|e| match e {
+                SenderError::Tera(error) => SenderExecError::Finish(format!(
+                    "sender render subject error[{}]: {:?}",
+                    hand_id, error
+                )),
+                err => SenderExecError::Finish(format!(
+                    "sender render subject error[{}]: {}",
                     hand_id,
-                    e.to_fluent_message().default_format()
-                ))
+                    err.to_fluent_message().default_format()
+                )),
             })?;
         email_builder = email_builder.subject(subject);
 
@@ -431,12 +426,16 @@ impl SenderTaskExecutor<u64, MailTaskItem, MailTaskData> for SmtpSenderTask {
             .tpls
             .render(SenderType::Mailer, &mail_tpl_config.body_tpl_id, &context)
             .await
-            .map_err(|e| {
-                SenderExecError::Finish(format!(
-                    "render body fail[{}]: {}",
+            .map_err(|e| match e {
+                SenderError::Tera(error) => SenderExecError::Finish(format!(
+                    "sender render body error[{}]: {:?}",
+                    hand_id, error
+                )),
+                err => SenderExecError::Finish(format!(
+                    "sender render body error[{}]: {}",
                     hand_id,
-                    e.to_fluent_message().default_format()
-                ))
+                    err.to_fluent_message().default_format()
+                )),
             })?;
 
         let msg = email_builder
@@ -469,6 +468,7 @@ impl SenderTaskExecutor<u64, MailTaskItem, MailTaskData> for SmtpSenderTask {
                     .iter()
                     .map(|e| SenderTaskResultItem {
                         id: e.id,
+                        snid: e.snid,
                         status: SenderTaskStatus::Completed,
                         message: response.message().collect::<Vec<&str>>().join(","),
                         send_id: "".to_owned(),
@@ -479,6 +479,7 @@ impl SenderTaskExecutor<u64, MailTaskItem, MailTaskData> for SmtpSenderTask {
                     .iter()
                     .map(|e| SenderTaskResultItem {
                         id: e.id,
+                        snid: e.snid,
                         status: SenderTaskStatus::Failed(true),
                         message: format!("send email fail: {}", err),
                         send_id: "".to_owned(),
@@ -497,8 +498,15 @@ async fn connect(
     config: &SmtpConfig,
     timeout: u64,
 ) -> Result<AsyncSmtpTransport<Tokio1Executor>, String> {
+    debug!(
+        "smtp connect host:{}:{} user:{} tls_domain:{}",
+        config.host, config.port, config.user, config.tls_domain
+    );
     let mut mailer_builder = AsyncSmtpTransport::<Tokio1Executor>::relay(config.host.as_str())
         .map_err(|e| e.to_string())?;
+    if config.port > 0 {
+        mailer_builder = mailer_builder.port(config.port);
+    }
     if !config.user.is_empty() || !config.password.is_empty() {
         let creds = Credentials::new(config.user.clone(), config.password.clone());
         mailer_builder = mailer_builder.credentials(creds)

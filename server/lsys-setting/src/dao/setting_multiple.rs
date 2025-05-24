@@ -1,8 +1,8 @@
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::db::{Insert, ModelTableName, SqlExpr, Update, WhereOption};
 use lsys_core::{
-    db_option_executor, model_option_set, sql_format, valid_key, ValidNumber, ValidParam,
-    ValidParamCheck, ValidPattern, ValidStrlen,
+    db_option_executor, fluent_message, model_option_set, sql_format, valid_key, ValidError,
+    ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
 };
 use lsys_core::{now_time, IntoFluentMessage, PageParam, RemoteNotify, RequestEnv};
 use lsys_logger::dao::ChangeLoggerDao;
@@ -45,21 +45,21 @@ impl MultipleSetting {
     async fn add_param_valid(&self, key: &str, name: &str, data: &str) -> SettingResult<()> {
         ValidParam::default()
             .add(
-                valid_key!("key"),
+                valid_key!("setting_key"),
                 &key,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::Ident)
                     .add_rule(ValidStrlen::range(1, 32)),
             )
             .add(
-                valid_key!("name"),
+                valid_key!("setting_name"),
                 &name,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)
                     .add_rule(ValidStrlen::range(1, 32)),
             )
             .add(
-                valid_key!("data"),
+                valid_key!("setting_data"),
                 &data,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)
@@ -86,6 +86,32 @@ impl MultipleSetting {
         let name = param.name.to_owned();
 
         self.add_param_valid(&key, &name, &edata).await?;
+
+        let find_res = sqlx::query_scalar::<_, u64>(&sql_format!(
+            "select * from {} where setting_type={} and user_id={} and setting_key={} and status={} and name={}",
+            SettingModel::table_name(),
+            setting_type,
+            uid,
+            key,
+            status,
+            name,
+        ))
+        .fetch_one(&self.db)
+        .await;
+        match find_res {
+            Ok(id) => {
+                return Err(SettingError::Vaild(ValidError::message(
+                    valid_key!("setting_name"),
+                    fluent_message!("setting-name-exits",{
+                        "id":id,
+                        "name":name
+                    }),
+                )))
+            }
+            Err(sqlx::Error::RowNotFound) => {}
+            Err(err) => return Err(err)?,
+        }
+
         let new_data = model_option_set!(SettingModelRef,{
             name:name,
             setting_type:setting_type,
@@ -134,26 +160,26 @@ impl MultipleSetting {
     ) -> SettingResult<()> {
         ValidParam::default()
             .add(
-                valid_key!("id"),
+                valid_key!("setting_id"),
                 &id,
                 &ValidParamCheck::default().add_rule(ValidNumber::id()),
             )
             .add(
-                valid_key!("key"),
+                valid_key!("setting_key"),
                 &key,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::Ident)
                     .add_rule(ValidStrlen::range(1, 32)),
             )
             .add(
-                valid_key!("name"),
+                valid_key!("setting_name"),
                 &name,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)
                     .add_rule(ValidStrlen::range(1, 32)),
             )
             .add(
-                valid_key!("data"),
+                valid_key!("setting_data"),
                 &data,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)
@@ -176,8 +202,35 @@ impl MultipleSetting {
         let name = param.name.to_owned();
         let edata = param.data.encode();
         let key = T::key().to_string();
+        let uid = user_id.unwrap_or_default();
 
         self.edit_param_valid(id, &key, &name, &edata).await?;
+
+        let find_res = sqlx::query_scalar::<_, u64>(&sql_format!(
+            "select * from {} where setting_type={} and user_id={} and setting_key={} and status={} and name={} and id!={}",
+            SettingModel::table_name(),
+            SettingType::Multiple as i8,
+            uid,
+            key,
+            SettingStatus::Enable as i8,
+            name,
+            id,
+        ))
+        .fetch_one(&self.db)
+        .await;
+        match find_res {
+            Ok(id) => {
+                return Err(SettingError::Vaild(ValidError::message(
+                    valid_key!("setting_name"),
+                    fluent_message!("setting-name-exits",{
+                        "id":id,
+                        "name":name
+                    }),
+                )))
+            }
+            Err(sqlx::Error::RowNotFound) => {}
+            Err(err) => return Err(err)?,
+        }
 
         let time = now_time().unwrap_or_default();
         let change = lsys_core::model_option_set!(SettingModelRef,{
@@ -186,7 +239,6 @@ impl MultipleSetting {
             change_user_id: change_user_id,
             change_time: time,
         });
-        let uid = user_id.unwrap_or_default();
 
         let cu = db_option_executor!(
             db,
@@ -242,11 +294,7 @@ impl MultipleSetting {
         let key = T::key().to_string();
         let status = SettingStatus::Delete as i8;
         let time = now_time().unwrap_or_default();
-        let change = lsys_core::model_option_set!(SettingModelRef,{
-            status: status,
-            change_user_id: change_user_id,
-            change_time: time,
-        });
+
         let uid = user_id.unwrap_or_default();
 
         let data = sqlx::query_as::<_, SettingModel>(&sql_format!(
@@ -262,6 +310,14 @@ impl MultipleSetting {
 
         match data {
             Ok(item) => {
+                if SettingStatus::Delete.eq(item.status) {
+                    return Ok(0);
+                }
+                let change = lsys_core::model_option_set!(SettingModelRef,{
+                    status: status,
+                    change_user_id: change_user_id,
+                    change_time: time,
+                });
                 let cu = db_option_executor!(
                     db,
                     {
@@ -299,7 +355,7 @@ impl MultipleSetting {
     }
     pub async fn list_data<T: SettingDecode>(
         &self,
-        user_id: Option<&[u64]>,
+        user_id: Option<u64>,
         ids: Option<&[u64]>,
         page: Option<&PageParam>,
     ) -> SettingResult<Vec<SettingData<T>>> {
