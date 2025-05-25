@@ -21,7 +21,7 @@ const APP_OAUTH_SCOPE: &str = "oauth-sopce";
 #[derive(Serialize, Deserialize)]
 pub struct AppOAuthCodeData<'t> {
     pub user_data: &'t str,
-    pub user_name: &'t str,
+    pub user_nickname: &'t str,
     pub user_account: Option<&'t str>,
     pub login_ip: Option<&'t str>,
     pub device_id: Option<&'t str>,
@@ -77,7 +77,7 @@ impl AppOAuthClient {
                 app.id,
                 &AccessOAuthCodeData {
                     user_data: code_data.user_data,
-                    user_name: code_data.user_name,
+                    user_nickname: code_data.user_nickname,
                     user_account: code_data.user_account,
                     login_ip: code_data.login_ip,
                     device_id: code_data.device_id,

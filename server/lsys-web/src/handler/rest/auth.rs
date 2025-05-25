@@ -15,7 +15,7 @@ use serde_json::{json, Value};
 pub struct DoLoginParam {
     pub token_code: String,
     pub user_data: String,
-    pub user_name: String,
+    pub user_nickname: String,
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub expire_time: u64,
     pub device_name: Option<String>,
@@ -61,7 +61,7 @@ pub async fn do_login(
             app.id,
             &param.token_code,
             &param.user_data,
-            &param.user_name,
+            &param.user_nickname,
             &AccessLoginData {
                 user_account: param.user_account.as_deref(),
                 login_ip: param.login_ip.as_deref(),
@@ -78,7 +78,7 @@ pub async fn do_login(
     Ok(JsonResponse::data(JsonData::body(json!({
         "token_data": seession_body.token_data(),
         "user_id": seession_body.user_id(),
-        "user_name": seession_body.user().user_name,
+        "user_nickname": seession_body.user().user_nickname,
     }))))
 }
 

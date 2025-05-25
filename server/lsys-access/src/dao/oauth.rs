@@ -46,7 +46,7 @@ fn create_save_key(prefix: &str, app_id: u64, oauth_app_id: u64, code: &str) -> 
 #[derive(Serialize, Deserialize)]
 pub struct AccessOAuthCodeData<'t> {
     pub user_data: &'t str,
-    pub user_name: &'t str,
+    pub user_nickname: &'t str,
     pub user_account: Option<&'t str>,
     pub login_ip: Option<&'t str>,
     pub device_id: Option<&'t str>,
@@ -69,8 +69,8 @@ impl AccessOAuth {
                     .add_rule(ValidPattern::Ident),
             )
             .add(
-                valid_key!("user_name"),
-                &code_data.user_name,
+                valid_key!("user_nickname"),
+                &code_data.user_nickname,
                 &ValidParamCheck::default()
                     .add_rule(ValidStrlen::max(32))
                     .add_rule(ValidPattern::NotFormat),
@@ -228,7 +228,7 @@ impl AccessOAuth {
                         app_id,
                         oauth_app_id,
                         user_data: &code_data.user_data,
-                        user_name: code_data.user_name,
+                        user_nickname: code_data.user_nickname,
                         token_data,
                         login_type: OAUTH_LOGIN_TYPE,
                         login_data: Some(&login_data),

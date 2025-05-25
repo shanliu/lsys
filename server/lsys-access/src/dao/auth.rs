@@ -156,7 +156,7 @@ pub struct AccessAuthLoginData<'t, TS: ToString> {
     pub app_id: u64,
     pub oauth_app_id: u64,
     pub user_data: TS,
-    pub user_name: &'t str,
+    pub user_nickname: &'t str,
     pub token_data: Option<&'t str>,
     pub login_type: &'t str,
     pub login_data: Option<&'t AccessLoginData<'t>>,
@@ -260,7 +260,7 @@ impl AccessAuth {
             .sync_user(
                 login_param.app_id,
                 user_data.as_str(),
-                Some(login_param.user_name),
+                Some(login_param.user_nickname),
                 Some(user_account),
             )
             .await?;

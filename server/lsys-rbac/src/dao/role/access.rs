@@ -35,7 +35,7 @@ impl RbacRoleCache<'_>{
     pub(crate) async fn clear_access(
         &self,
         role:&RbacRoleModel,//修改前model
-        role_prem:Option<&[(u64,u64)]>,//res id,op id 所有变动
+        role_perm:Option<&[(u64,u64)]>,//res id,op id 所有变动
         role_user:Option<&[u64]>,//user id 所有变动
     ){
         //user_id res_range user_range 添加后不可修改
@@ -44,9 +44,9 @@ impl RbacRoleCache<'_>{
                 let key=self.role.cache().find_access_key_session_res_all(role.user_id, role.app_id,&role.role_key);
                 self.role.cache_access.clear(&key).await;
             }else if RbacRoleResRange::Exclude.eq(role.res_range) ||  RbacRoleResRange::Include.eq(role.res_range){
-                match role_prem{
-                    Some(prem) => {
-                        for (res_id,op_id) in prem {
+                match role_perm{
+                    Some(perm) => {
+                        for (res_id,op_id) in perm {
                             let key= self.role.cache().find_access_key_session_by_res(role.user_id, role.app_id,&role.role_key,role.res_range,*res_id,*op_id);
                             self.role.cache_access.clear(&key).await;
                         }
@@ -123,9 +123,9 @@ impl RbacRoleCache<'_>{
                     },
                 }
             }else if RbacRoleResRange::Exclude.eq(role.res_range) ||  RbacRoleResRange::Include.eq(role.res_range){
-                match role_prem{
-                    Some(prem) => {
-                        for (res_id,op_id) in prem {
+                match role_perm{
+                    Some(perm) => {
+                        for (res_id,op_id) in perm {
                           
                             match role_user{
                                 Some(role_user_data) => {
@@ -225,7 +225,7 @@ impl RbacRoleCache<'_>{
                                 },
                                 Err(err) => {
                                     //err
-                                    error!("clear rbac cache fail on user empty prem:{err}");
+                                    error!("clear rbac cache fail on user empty perm:{err}");
                                     break;
                                 },
                             }
@@ -604,7 +604,7 @@ impl<'t> RbacRoleFinder<'t>{
             from {} as role join {} as perm on role.id=perm.role_id
             where role.status ={} and role.user_range={} and role.user_id={} and role.app_id={}
                 and role.res_range={} and perm.op_id={} and perm.res_id={} 
-                and prem.status={} and role.role_key={} ",
+                and perm.status={} and role.role_key={} ",
             self.role.cache().find_access_key_session_by_res(
                 role_user_id,
                 role_user_app_id,

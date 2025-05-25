@@ -120,7 +120,7 @@ pub async fn confirm_exter_feature(
         .find_by_id(req_app.app_id)
         .await?;
 
-    if app.user_app_id == 0 {
+    if app.parent_app_id == 0 {
         return Err(JsonError::Message(fluent_message!("not-user-app-confirm")));
     }
     //在申请入口判断父应用是否有对应外部权限,已申请正常审核

@@ -8,7 +8,7 @@ pub struct UserInfo {
     pub id: u64,
     pub app_id: u64,
     pub user_data: String,
-    pub user_name: String,
+    pub user_nickname: String,
     pub user_account: String,
 }
 
@@ -17,7 +17,7 @@ pub struct UserPublicInfo {
     pub id: u64,
     pub app_id: u64,
     pub user_data: String,
-    pub user_name: String,
+    pub user_nickname: String,
     pub user_account: String,
 }
 impl UserInfo {
@@ -26,7 +26,7 @@ impl UserInfo {
             id: self.id,
             app_id: self.app_id,
             user_data: self.user_data.clone(),
-            user_name: hide_middle_two_chars_and_pad(&self.user_name),
+            user_nickname: hide_middle_two_chars_and_pad(&self.user_nickname),
             user_account: hide_middle_two_chars_and_pad(&self.user_account),
         }
     }
@@ -38,7 +38,7 @@ impl From<UserModel> for UserInfo {
             id: e.id,
             app_id: e.app_id,
             user_data: e.user_data.to_owned(),
-            user_name: e.user_name.to_owned(),
+            user_nickname: e.user_nickname.to_owned(),
             user_account: e.user_account.to_owned(),
         }
     }
@@ -60,7 +60,9 @@ impl UserInfoSet {
         Self { data }
     }
     pub fn get(&self, user_id: u64) -> Option<UserInfo> {
-        self.data.get(&user_id).map(|e| UserInfo::from(e.to_owned()))
+        self.data
+            .get(&user_id)
+            .map(|e| UserInfo::from(e.to_owned()))
     }
     pub fn into_array(self) -> Vec<UserModel> {
         self.data.into_iter().map(|e| e.1).collect::<Vec<_>>()

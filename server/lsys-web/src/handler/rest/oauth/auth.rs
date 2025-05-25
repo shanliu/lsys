@@ -111,7 +111,7 @@ pub async fn create_code(
             &app,
             &AppOAuthCodeData {
                 user_data: &user_data.user_data,
-                user_name: &user_data.user_name,
+                user_nickname: &user_data.user_nickname,
                 user_account: Some(&user_data.user_account),
                 login_ip: Some(&session_data.login_ip),
                 device_id: Some(&session_data.device_id),

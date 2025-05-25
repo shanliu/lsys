@@ -20,13 +20,11 @@ pub fn rand_str(rand_type: RandType, len: usize) -> String {
         RandType::UpperHex => "ABCDEF0123456789",
         RandType::LowerHex => "abcdef0123456789",
     };
-    let mut rng = &mut rand::rng();
-    String::from_utf8(
-        base_str
-            .as_bytes()
-            .choose_multiple(&mut rng, len)
-            .cloned()
-            .collect(),
-    )
-    .unwrap_or_default()
+    let mut rng = rand::rng();
+    (0..len)
+        .map(|_| {
+            let idx = base_str.as_bytes().choose(&mut rng).unwrap_or(&0);
+            *idx as char
+        })
+        .collect()
 }

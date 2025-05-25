@@ -39,7 +39,7 @@ pub async fn app_role_perm_add(
         .await?;
     let app = app_check_get(role.app_id, true, &auth_data, req_dao).await?;
     let op_id = param.perm_data.iter().map(|e| e.op_id).collect::<Vec<_>>();
-    let res_id = param.perm_data.iter().map(|e| e.op_id).collect::<Vec<_>>();
+    let res_id = param.perm_data.iter().map(|e| e.res_id).collect::<Vec<_>>();
     let op_data = req_dao
         .web_dao
         .web_rbac
@@ -65,7 +65,7 @@ pub async fn app_role_perm_add(
             op
         } else {
             return Err(JsonError::Message(fluent_message!(
-                "role-prem-bad-op",{
+                "role-perm-bad-op",{
                     "op_id":pr.op_id
                 }
             )));
@@ -78,7 +78,7 @@ pub async fn app_role_perm_add(
             res
         } else {
             return Err(JsonError::Message(fluent_message!(
-                "role-prem-bad-res",{
+                "role-perm-bad-res",{
                     "res_id":pr.res_id
                 }
             )));
@@ -116,7 +116,7 @@ pub async fn app_role_perm_del(
         .await?;
     let app = app_check_get(role.app_id, true, &auth_data, req_dao).await?;
     let op_id = param.perm_data.iter().map(|e| e.op_id).collect::<Vec<_>>();
-    let res_id = param.perm_data.iter().map(|e| e.op_id).collect::<Vec<_>>();
+    let res_id = param.perm_data.iter().map(|e| e.res_id).collect::<Vec<_>>();
     let op_data = req_dao
         .web_dao
         .web_rbac
@@ -142,7 +142,7 @@ pub async fn app_role_perm_del(
             op
         } else {
             return Err(JsonError::Message(fluent_message!(
-                "role-prem-bad-op",{
+                "role-perm-bad-op",{
                     "op_id":pr.op_id
                 }
             )));
@@ -151,7 +151,7 @@ pub async fn app_role_perm_del(
             op
         } else {
             return Err(JsonError::Message(fluent_message!(
-                "role-prem-bad-res",{
+                "role-perm-bad-res",{
                     "res_id":pr.res_id
                 }
             )));

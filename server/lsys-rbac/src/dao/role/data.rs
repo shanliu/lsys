@@ -152,13 +152,13 @@ impl RbacRole {
             "select 
                 res.user_id,perm.change_user_id,perm.change_time,
                 res.id as res_id,res.res_type,res.res_data,res.status as res_status,
-                op.id as op_id,op.op_key,op.op_name,op.status as op_status,
+                op.id as op_id,op.op_key,op.op_name,op.status as op_status 
             from 
             {} as perm
             join {} as res on perm.res_id=res.id
-            join {} as op on prem.op_id=op.id
+            join {} as op on perm.op_id=op.id
             where perm.status={} 
-                and role_id={}
+                and perm.role_id={}
             order by perm.id desc",
             RbacPermModel::table_name(),
             RbacResModel::table_name(),
@@ -284,7 +284,7 @@ impl RbacRole {
         }
         let sql = sql_format!(
             "select role_id,
-            count(*) as total 
+            count(*) as total
             from {} 
             where role_id in ({}) 
             and status={}

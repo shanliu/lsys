@@ -321,7 +321,7 @@ pub async fn secret_view(
             .await?;
         out_data.insert("app_secret".to_string(), json!(app_secret_data));
         out_data.insert(
-            "app_secret".to_string(),
+            "notify_secret".to_string(),
             json!({
                 "secret":notify_data.secret_data,
                 "timeout":notify_data.time_out
@@ -431,6 +431,7 @@ pub struct ShowRequestRecord {
     pub id: u64,
     pub app_id: u64,
     pub status: i8,
+    pub request_type: i8,
     pub request_user_id: u64,
     pub request_time: u64,
     pub confirm_user_id: u64,
@@ -517,6 +518,7 @@ pub async fn request_list(
                     id: e.0.id,
                     status: e.0.status,
                     app_id: e.0.app_id,
+                    request_type: e.0.request_type,
                     request_user_id: e.0.request_user_id,
                     request_time: e.0.request_time,
                     confirm_user_id: e.0.confirm_user_id,
@@ -645,6 +647,7 @@ pub async fn sub_request_list(
                     id: e.0.id,
                     status: e.0.status,
                     app_id: e.0.app_id,
+                    request_type: e.0.request_type,
                     request_user_id: e.0.request_user_id,
                     request_time: e.0.request_time,
                     confirm_user_id: e.0.confirm_user_id,

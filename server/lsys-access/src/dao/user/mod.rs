@@ -59,7 +59,7 @@ impl AccessUser {
     async fn sync_user_param_valid(
         &self,
         user_data: impl ToString,
-        user_name: Option<&str>,
+        user_nickname: Option<&str>,
         user_account: Option<&str>,
     ) -> AccessResult<(String, Option<String>, Option<String>)> {
         let user_data = string_clear(user_data, StringClear::Option(STRING_CLEAR_FORMAT), None);
@@ -72,12 +72,12 @@ impl AccessUser {
                 .add_rule(ValidPattern::Ident),
         );
 
-        let tmp_user_name =
-            user_name.map(|e| string_clear(e, StringClear::Option(STRING_CLEAR_FORMAT), None));
-        if let Some(ref tmp_name) = tmp_user_name {
+        let tmp_user_nickname =
+            user_nickname.map(|e| string_clear(e, StringClear::Option(STRING_CLEAR_FORMAT), None));
+        if let Some(ref tmp_name) = tmp_user_nickname {
             if !tmp_name.is_empty() {
                 valid_param.add(
-                    valid_key!("user_name"),
+                    valid_key!("user_nickname"),
                     &tmp_name.as_str(),
                     &ValidParamCheck::default().add_rule(ValidStrlen::max(32)),
                 );
@@ -94,17 +94,17 @@ impl AccessUser {
         }
         valid_param.check()?;
         //valid finish
-        Ok((user_data, tmp_user_name, tmp_user_account))
+        Ok((user_data, tmp_user_nickname, tmp_user_account))
     }
     pub async fn sync_user(
         &self,
         app_id: u64,
         user_data: impl ToString,
-        user_name: Option<&str>,
+        user_nickname: Option<&str>,
         user_account: Option<&str>,
     ) -> AccessResult<u64> {
-        let (user_data, tmp_user_name, tmp_user_account) = self
-            .sync_user_param_valid(user_data, user_name, user_account)
+        let (user_data, tmp_user_nickname, tmp_user_account) = self
+            .sync_user_param_valid(user_data, user_nickname, user_account)
             .await?;
         let time = now_time()?;
         let mut vdata = lsys_core::model_option_set!(UserModelRef,{
@@ -112,25 +112,25 @@ impl AccessUser {
             user_data:user_data,
             change_time:time,
         });
-        if let Some(ref tmp_name) = tmp_user_name {
+        if let Some(ref tmp_name) = tmp_user_nickname {
             if tmp_name.is_empty() {
-                vdata.user_name = Some(&user_data);
+                vdata.user_nickname = Some(&user_data);
             } else {
-                vdata.user_name = tmp_user_name.as_ref();
+                vdata.user_nickname = tmp_user_nickname.as_ref();
             }
         } else {
-            vdata.user_name = Some(&user_data);
+            vdata.user_nickname = Some(&user_data);
         }
         vdata.user_account = tmp_user_account.as_ref();
         let mut change = lsys_core::model_option_set!(UserModelRef,{
             change_time:time,
         });
-        if tmp_user_name
+        if tmp_user_nickname
             .as_ref()
             .map(|e| !e.is_empty())
             .unwrap_or(false)
         {
-            change.user_name = tmp_user_name.as_ref();
+            change.user_nickname = tmp_user_nickname.as_ref();
         }
         change.user_account = tmp_user_account.as_ref();
         match Insert::<UserModel, _>::new(vdata)

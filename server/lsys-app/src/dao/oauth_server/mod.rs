@@ -71,10 +71,10 @@ impl AppOAuthServer {
     ) -> AppResult<()> {
         app.app_status_check()?;
         let req = sqlx::query_as::<_, AppRequestModel>(&sql_format!(
-            "select id,status from {} where app_id={} and feature_key = {}",
+            "select * from {} where app_id={} and request_type = {}",
             AppRequestModel::table_name(),
             app.id,
-            AppRequestType::OAuthServer.feature_key()
+            AppRequestType::OAuthServer as i8
         ))
         .fetch_one(&self.db)
         .await?;

@@ -13,7 +13,7 @@ impl RbacCheckAccess for CheckAdminRbacView {
                 check_env, //资源访问用户
                 &[AccessCheckRes::system_empty_data(
                     "global-system",
-                    vec!["view-rbac-"],
+                    vec!["view-rbac"],
                 )],
             )
             .await

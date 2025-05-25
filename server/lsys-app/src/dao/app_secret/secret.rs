@@ -84,7 +84,7 @@ impl AppSecret {
                 valid_key!("secret_data"),
                 &secret_data,
                 &ValidParamCheck::default()
-                    .add_rule(ValidStrlen::range(32, 64))
+                    .add_rule(ValidStrlen::range(16, 64))
                     .add_rule(ValidPattern::Hex),
             )
             .check()?;
@@ -171,7 +171,7 @@ impl AppSecret {
                 valid_key!("secret_data"),
                 &secret_data,
                 &ValidParamCheck::default()
-                    .add_rule(ValidStrlen::range(32, 64))
+                    .add_rule(ValidStrlen::range(16, 64))
                     .add_rule(ValidPattern::Hex),
             )
             .check()?;
@@ -222,7 +222,7 @@ impl AppSecret {
                 valid_key!("secret"),
                 &secret_data,
                 &ValidParamCheck::default()
-                    .add_rule(ValidStrlen::range(32, 64))
+                    .add_rule(ValidStrlen::range(16, 64))
                     .add_rule(ValidPattern::Hex),
             )
             .check()?;
@@ -270,14 +270,14 @@ impl AppSecret {
                 valid_key!("secret_data"),
                 &secret_data,
                 &ValidParamCheck::default()
-                    .add_rule(ValidStrlen::range(32, 64))
+                    .add_rule(ValidStrlen::range(16, 64))
                     .add_rule(ValidPattern::Hex),
             )
             .add(
                 valid_key!("old_secret_data"),
                 &secret_data,
                 &ValidParamCheck::default()
-                    .add_rule(ValidStrlen::range(32, 64))
+                    .add_rule(ValidStrlen::range(16, 64))
                     .add_rule(ValidPattern::Hex),
             )
             .check()?;
@@ -325,7 +325,7 @@ impl AppSecret {
                 valid_key!("secret_data"),
                 &secret_data,
                 &ValidParamCheck::default()
-                    .add_rule(ValidStrlen::range(32, 64))
+                    .add_rule(ValidStrlen::range(16, 64))
                     .add_rule(ValidPattern::Hex),
             )
             .check()?;

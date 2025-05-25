@@ -167,17 +167,7 @@ impl ChangeLoggerDao {
         let mut data = sqlx::query_as::<_, ChangeLogModel>(&sql_format!(
             "select * from {} {}",
             ChangeLogModel::table_name(),
-            if !sqlwhere.is_empty()
-                || limit
-                    .as_ref()
-                    .map(|e| e.pos())
-                    .unwrap_or_default()
-                    .is_some()
-            {
-                SqlExpr(format!(" where {}", tmp))
-            } else {
-                SqlExpr(tmp)
-            }
+            SqlExpr(tmp)
         ))
         .fetch_all(&self.db)
         .await?;

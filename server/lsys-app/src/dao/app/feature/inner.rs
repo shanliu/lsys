@@ -47,10 +47,30 @@ impl App {
             }
         };
 
-        let time = now_time()?;
-
         let req_status = AppRequestStatus::Pending as i8;
         let request_type = inner_request_type as i8;
+
+        let req_res = sqlx::query_scalar::<_, u64>(&sql_format!(
+            "select id from {} where  parent_app_id={} and app_id={} and request_type={} and status={} ",
+            AppRequestModel::table_name(),
+            app.parent_app_id,
+            app.id,
+            request_type,
+            req_status
+        ))
+        .fetch_one(&self.db)
+        .await;
+        match req_res {
+            Ok(_) => {
+                return Ok(());
+            }
+            Err(sqlx::Error::RowNotFound) => {}
+            Err(err) => {
+                return Err(err.into());
+            }
+        };
+
+        let time = now_time()?;
 
         let idata = model_option_set!(AppRequestModelRef,{
             parent_app_id:app.parent_app_id,
@@ -105,12 +125,12 @@ impl App {
         }
 
         if req.app_id != app.id {
-            return Err(AppError::System(fluent_message!("app-req-bad")));
+            return Err(AppError::System(fluent_message!("app-req-bad-app")));
         }
         let req_type = match AppRequestType::try_from(req.request_type) {
             Ok(t) => t,
-            Err(_) => {
-                return Err(AppError::System(fluent_message!("app-req-bad")));
+            Err(e) => {
+                return Err(AppError::System(fluent_message!("app-req-bad", e)));
             }
         };
         if ![AppRequestStatus::Approved, AppRequestStatus::Rejected].contains(&req_status) {

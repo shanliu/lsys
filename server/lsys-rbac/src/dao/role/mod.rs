@@ -174,9 +174,12 @@ impl RbacRole {
             }
         };
         let res_range = param.res_range as i8;
-        let res = sqlx::query_as::<_, RbacRoleModel>(&sql.join(" union all  "))
-            .fetch_one(&self.db)
-            .await;
+        let res = sqlx::query_as::<_, RbacRoleModel>(&format!(
+            "select * from (({})) as t",
+            sql.join(") union all  (")
+        ))
+        .fetch_one(&self.db)
+        .await;
         match res {
             Ok(rm) => Err(RbacError::System(fluent_message!("rbac-role-exist",{
                 "name":rm.role_name,
@@ -315,9 +318,12 @@ impl RbacRole {
                 (Some(role_name.to_string()), None, sql)
             }
         };
-        let res = sqlx::query_as::<_, RbacRoleModel>(&sql.join(" union all  "))
-            .fetch_one(&self.db)
-            .await;
+        let res = sqlx::query_as::<_, RbacRoleModel>(&format!(
+            "select * from (({})) as t",
+            sql.join(") union all  (")
+        ))
+        .fetch_one(&self.db)
+        .await;
         match res {
             Ok(rm) => {
                 return Err(RbacError::System(fluent_message!("rbac-role-exist",{

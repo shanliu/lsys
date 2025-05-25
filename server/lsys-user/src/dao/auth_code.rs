@@ -21,7 +21,7 @@ impl AuthCode {
         app_id: u64,
         token_code: &str,
         user_data: &str,
-        user_name: &str,
+        user_nickname: &str,
         login_data: &AccessLoginData<'_>,
     ) -> AccountResult<SessionBody> {
         let app_jwt_key = self
@@ -41,7 +41,7 @@ impl AuthCode {
                 app_id,
                 oauth_app_id: 0,
                 user_data,
-                user_name,
+                user_nickname,
                 token_data: Some(&token_data),
                 login_type: CODE_LOGIN_TYPE,
                 login_data: Some(login_data),

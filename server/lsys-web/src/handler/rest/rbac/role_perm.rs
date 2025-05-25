@@ -40,7 +40,7 @@ pub async fn role_perm_add(
         .await?;
     inner_app_self_check(app, role.app_id)?;
     let op_id = param.perm_data.iter().map(|e| e.op_id).collect::<Vec<_>>();
-    let res_id = param.perm_data.iter().map(|e| e.op_id).collect::<Vec<_>>();
+    let res_id = param.perm_data.iter().map(|e| e.res_id).collect::<Vec<_>>();
     let op_data = req_dao
         .web_dao
         .web_rbac
@@ -63,7 +63,7 @@ pub async fn role_perm_add(
             op
         } else {
             return Err(JsonError::Message(fluent_message!(
-                "role-prem-bad-op",{
+                "role-perm-bad-op",{
                     "op_id":pr.op_id
                 }
             )));
@@ -73,7 +73,7 @@ pub async fn role_perm_add(
             res
         } else {
             return Err(JsonError::Message(fluent_message!(
-                "role-prem-bad-res",{
+                "role-perm-bad-res",{
                     "res_id":pr.res_id
                 }
             )));
@@ -113,7 +113,7 @@ pub async fn role_perm_del(
         .await?;
     inner_app_self_check(app, role.app_id)?;
     let op_id = param.perm_data.iter().map(|e| e.op_id).collect::<Vec<_>>();
-    let res_id = param.perm_data.iter().map(|e| e.op_id).collect::<Vec<_>>();
+    let res_id = param.perm_data.iter().map(|e| e.res_id).collect::<Vec<_>>();
     let op_data = req_dao
         .web_dao
         .web_rbac
@@ -135,7 +135,7 @@ pub async fn role_perm_del(
             op
         } else {
             return Err(JsonError::Message(fluent_message!(
-                "role-prem-bad-op",{
+                "role-perm-bad-op",{
                     "op_id":pr.op_id
                 }
             )));
@@ -144,7 +144,7 @@ pub async fn role_perm_del(
             op
         } else {
             return Err(JsonError::Message(fluent_message!(
-                "role-prem-bad-res",{
+                "role-perm-bad-res",{
                     "res_id":pr.res_id
                 }
             )));

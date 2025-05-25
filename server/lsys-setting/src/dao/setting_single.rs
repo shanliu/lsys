@@ -81,7 +81,7 @@ impl SingleSetting {
         let uid = user_id.unwrap_or_default();
         let change_user_id = change_user_id.to_owned();
 
-        let user_name_res = sqlx::query_as::<_, SettingModel>(&sql_format!(
+        let tmp_res = sqlx::query_as::<_, SettingModel>(&sql_format!(
             "select * from {} where setting_type={} and setting_key={} and user_id={} order by id desc",
             SettingModel::table_name(),
             SettingType::Single,
@@ -91,7 +91,7 @@ impl SingleSetting {
         .fetch_one(&self.db)
         .await;
 
-        let did = match user_name_res {
+        let did = match tmp_res {
             Err(sqlx::Error::RowNotFound) => {
                 let setting_type = SettingType::Single as i8;
                 let status = SettingStatus::Enable as i8;

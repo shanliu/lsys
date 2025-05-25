@@ -256,7 +256,7 @@ impl AuthAccount {
                 app_id: 0,
                 oauth_app_id: 0,
                 user_data: account.id,
-                user_name: &account.nickname,
+                user_nickname: &account.nickname,
                 token_data: None,
                 login_type: &<TO as AccountLoginParam>::Meta::login_type(),
                 login_data: Some(&login_data),

@@ -62,11 +62,48 @@ impl App {
         if req_feature.is_empty() {
             return Ok(());
         }
-        let time = now_time()?;
-        let mut db = self.db.begin().await?;
 
         let req_status = AppRequestStatus::Pending as i8;
         let request_type = AppRequestType::ExterFeatuer as i8;
+        let need_feature_data = req_feature.iter().map(|e| e.trim()).collect::<Vec<&str>>();
+
+        let req_res = sqlx::query_scalar::<_, String>(&sql_format!(
+            "select reqf.feature_data from {} as req join {} reqf on req.id=reqf.app_request_id
+             where req.parent_app_id={} and req.app_id={} and req.request_type={} and req.status={} ",
+            AppRequestModel::table_name(),
+            AppRequestFeatureModel::table_name(),
+            app.parent_app_id,
+            app.id,
+            request_type,
+            req_status
+        ))
+        .fetch_one(&self.db)
+        .await;
+        match req_res {
+            Ok(req_feature_data) => {
+                let mut bad_req = vec![];
+                for tmp in req_feature_data.split(',') {
+                    if need_feature_data.contains(&tmp) {
+                        bad_req.push(tmp);
+                    }
+                }
+                if !bad_req.is_empty() {
+                    return Err(AppError::System(
+                        fluent_message!("app-req-exist-exter-feature",{
+                           "bad_item":bad_req.join(",")
+                        }),
+                    ));
+                }
+            }
+            Err(sqlx::Error::RowNotFound) => {}
+            Err(err) => {
+                return Err(err.into());
+            }
+        };
+
+        let time = now_time()?;
+        let mut db = self.db.begin().await?;
+
         let idata = model_option_set!(AppRequestModelRef,{
             parent_app_id:app.parent_app_id,
             app_id:app.id,
@@ -85,14 +122,10 @@ impl App {
             }
             Ok(mr) => mr.last_insert_id(),
         };
-        let feature_data = req_feature
-            .iter()
-            .map(|e| e.trim())
-            .collect::<Vec<&str>>()
-            .join(",");
+        let need_feature_data_str = need_feature_data.join(",");
         let idata = model_option_set!(AppRequestFeatureModelRef,{
             app_request_id:req_id,
-            feature_data:feature_data,
+            feature_data:need_feature_data_str,
         });
         let req_res = Insert::<AppRequestFeatureModel, _>::new(idata)
             .execute(&mut *db)
@@ -111,7 +144,7 @@ impl App {
                     user_id: app.user_id,
                     request_type,
                     status: req_status,
-                    req_data: Some(&feature_data),
+                    req_data: Some(&need_feature_data_str),
                     action: "exter_feature_request",
                 },
                 Some(req_id),

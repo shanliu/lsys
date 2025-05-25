@@ -735,7 +735,7 @@ impl AppOAuthClient {
                     change_time:time,
                     callback_domain:callback_domain
                 });
-                Insert::<AppRequestModel, _>::new(idata)
+                Insert::<AppOAuthClientModel, _>::new(idata)
                     .execute(&self.db)
                     .await?;
             }

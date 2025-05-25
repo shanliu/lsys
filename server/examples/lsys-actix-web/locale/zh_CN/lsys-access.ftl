@@ -21,5 +21,5 @@ valid-rule-name-device_name = 设备名
 valid-rule-name-login_ip = 登录IP
 valid-rule-name-oauth_code = OAuth Code
 valid-rule-name-user_data = 用户数据
-valid-rule-name-user_name = 用户名
+valid-rule-name-user_nickname = 用户名称
 valid-rule-name-user_account = 用户账号

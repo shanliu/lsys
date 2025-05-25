@@ -318,7 +318,7 @@ impl AppNotifyRecord {
             {}",
             AppNotifyDataModel::table_name(),
             AppNotifyConfigModel::table_name(),
-            where_sql
+            SqlExpr(where_sql)
         );
 
         let mut m_data = sqlx::query(sql.as_str())

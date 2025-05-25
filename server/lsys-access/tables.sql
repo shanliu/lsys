@@ -3,7 +3,7 @@ CREATE TABLE `yaf_user` (
     `app_id` bigint unsigned NOT NULL COMMENT '应用ID,内置账号登录为0,为yaf_app的ID,>0时为外部账号',
     `user_data` varchar(32) NOT NULL COMMENT '用户唯一标识',
     `user_account` varchar(128) NOT NULL DEFAULT '' COMMENT '尝试登录账号',
-    `user_name` varchar(32) NOT NULL  COMMENT '用户名称',
+    `user_nickname` varchar(32) NOT NULL  COMMENT '用户名称',
     `change_time` bigint unsigned NOT NULL COMMENT '最后更新时间',
     PRIMARY KEY (`id`),
     UNIQUE KEY `user_index` (`app_id`, `user_data`) USING BTREE

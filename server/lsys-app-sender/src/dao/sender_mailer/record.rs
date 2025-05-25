@@ -721,11 +721,13 @@ impl MailRecord {
                 .iter()
                 .map(|e| e.0.as_str())
                 .collect::<Vec<&str>>()
-                .join(" union all ");
-            let data =
-                sqlx::query_as::<_, (i64, i64, String)>(&format!("select * from ({}) as t", &sqls))
-                    .fetch_all(&self.db)
-                    .await?;
+                .join(") union all (");
+            let data = sqlx::query_as::<_, (i64, i64, String)>(&format!(
+                "select * from (({})) as t",
+                &sqls
+            ))
+            .fetch_all(&self.db)
+            .await?;
             for (_, id, limit) in limit_sql {
                 if let Some(t) = data.iter().find(|e| e.1 as u64 == id) {
                     if t.0 >= limit.max_send.into() {

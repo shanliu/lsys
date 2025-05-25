@@ -66,15 +66,15 @@ impl AccessUserCache<'_> {
         &self,
         app_id: u64,
         user_data: impl ToString,
-        user_name: Option<&str>,
+        user_nickname: Option<&str>,
         user_account: Option<&str>,
     ) -> AccessResult<UserInfo> {
         let res = self.find_user_by_data(app_id, &user_data.to_string()).await;
         match res {
             Ok(e) => {
                 let mut is_sync = false;
-                if let Some(name_val) = user_name {
-                    if e.user_name.as_str() != name_val {
+                if let Some(name_val) = user_nickname {
+                    if e.user_nickname.as_str() != name_val {
                         is_sync = true;
                     }
                 }
@@ -88,7 +88,7 @@ impl AccessUserCache<'_> {
                 } else {
                     let id = self
                         .dao
-                        .sync_user(app_id, user_data, user_name, user_account)
+                        .sync_user(app_id, user_data, user_nickname, user_account)
                         .await?;
                     self.find_by_id(&id).await.map(|e| e.into())
                 }
@@ -98,7 +98,7 @@ impl AccessUserCache<'_> {
                     if matches!(terr, sqlx::Error::RowNotFound) {
                         let id = self
                             .dao
-                            .sync_user(app_id, user_data, user_name, user_account)
+                            .sync_user(app_id, user_data, user_nickname, user_account)
                             .await?;
                         self.find_by_id(&id).await.map(|e| e.into())
                     } else {

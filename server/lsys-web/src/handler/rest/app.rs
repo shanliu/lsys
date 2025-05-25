@@ -61,7 +61,7 @@ pub async fn subapp_view(
             .await?;
         json!({
             "user_id": user_info.id,
-            "user_name": user_info.user_name,
+            "user_nickname": user_info.user_nickname,
             "user_data": user_info.user_data,
         })
     } else {

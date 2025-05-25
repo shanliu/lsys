@@ -15,5 +15,5 @@ valid-rule-name-device_name = Device name
 valid-rule-name-login_ip = Login IP
 valid-rule-name-oauth_code = OAuth Code
 valid-rule-name-user_data = User data
-valid-rule-name-user_name = User name
+valid-rule-name-user_nikename = User name
 valid-rule-name-user_account = User account

@@ -67,7 +67,7 @@ pub async fn role_user_add(
                     return Err(JsonError::Message(fluent_message!(
                         "role-user-not-system-user",
                         {
-                            "user_name": user_model.user_name,
+                            "user_name": user_model.user_nickname,
                             "user_id": user_model.id,
                             "app_id": user_model.app_id
                         }
@@ -212,7 +212,7 @@ pub async fn role_user_data(
 
 #[derive(Debug, Deserialize)]
 pub struct RoleUserAvailableParam {
-    pub user_data: String,
+    pub user_data: Option<String>,
     pub limit: Option<LimitParam>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
@@ -232,7 +232,7 @@ pub async fn role_user_available(
         app_id: Some(0),
         user_data: None,
         user_account: None,
-        user_any: Some(param.user_data.as_str()),
+        user_any: param.user_data.as_deref(),
     };
     let (res, next) = req_dao
         .web_dao

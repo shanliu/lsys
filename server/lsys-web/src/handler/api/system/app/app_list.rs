@@ -193,6 +193,7 @@ pub struct ShowRequestRecord {
     pub id: u64,
     pub app_id: u64,
     pub status: i8,
+    pub request_type: i8,
     pub request_user_id: u64,
     pub request_time: u64,
     pub confirm_user_id: u64,
@@ -265,6 +266,7 @@ pub async fn request_list(
                     id: e.0.id,
                     status: e.0.status,
                     app_id: e.0.app_id,
+                    request_type: e.0.request_type,
                     request_user_id: e.0.request_user_id,
                     request_time: e.0.request_time,
                     confirm_user_id: e.0.confirm_user_id,
@@ -294,7 +296,8 @@ pub async fn request_list(
         "data": bind_vec_user_info_from_req!(
             req_dao,
             out,
-            request_user_id
+            request_user_id,
+            false
         ),
         "total":count
     }))))

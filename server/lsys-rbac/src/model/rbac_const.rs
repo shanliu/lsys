@@ -11,9 +11,9 @@ pub enum RbacRoleStatus {
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[lsys_model_status(field_type = "i8")]
 pub enum RbacRoleResRange {
-    Exclude = 1, //由RbacRoleModel决定,排除某些授权
+    Include = 1, //由RbacRoleModel决定,包含某些授权
     Any = 2,     //任意资源
-    Include = 3, //由RbacRoleModel决定,包含某些授权
+    Exclude = 3, //由RbacRoleModel决定,排除某些授权
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]

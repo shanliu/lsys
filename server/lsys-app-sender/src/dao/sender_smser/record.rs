@@ -739,9 +739,9 @@ impl SmsRecord {
                 .iter()
                 .map(|e| e.0.as_str())
                 .collect::<Vec<&str>>()
-                .join(" union all ");
+                .join(") union all (");
             let data = sqlx::query_as::<_, (i64, i64, String, String)>(&format!(
-                "select * from ({}) as t",
+                "select * from (({})) as t",
                 &sqls
             ))
             .fetch_all(&self.db)

@@ -31,7 +31,7 @@ pub async fn confirm(param: &ConfirmParam, req_dao: &UserAuthQueryDao) -> JsonRe
         .app
         .find_by_id(req_app.app_id)
         .await?;
-    if app.user_app_id == 0 {
+    if app.parent_app_id == 0 {
         return Err(JsonError::Message(fluent_message!("not-user-app-confirm")));
     }
 

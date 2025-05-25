@@ -82,7 +82,7 @@ impl WebUserAuth {
             login_type: auth_data.session().login_type.to_owned(),
             login_data: show_login_data,
             user_id: auth_data.user_id(),
-            user_nickname: auth_data.user().user_name.clone(),
+            user_nickname: auth_data.user().user_nickname.clone(),
             account_id: auth_data.account_id().unwrap_or_default(),
             empty_password: self
                 .user_dao

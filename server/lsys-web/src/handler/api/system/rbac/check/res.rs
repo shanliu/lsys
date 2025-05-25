@@ -122,7 +122,7 @@ pub async fn check_res_list_from_user(
         .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacView {})
         .await?;
     let res_range = RbacRoleResRange::try_from(param.res_range)?;
-    let prem_data = req_dao
+    let perm_data = req_dao
         .web_dao
         .web_rbac
         .rbac_dao
@@ -149,7 +149,7 @@ pub async fn check_res_list_from_user(
         .await?;
 
     Ok(JsonResponse::data(JsonData::body(json!({
-        "data": prem_data,
+        "data": perm_data,
         "total": count,
     }))))
 }
@@ -188,11 +188,11 @@ pub async fn check_res_info_from_session(
         })
         .await?;
     let mut all_res = false;
-    let mut prem_data = vec![];
+    let mut perm_data = vec![];
     let mut count = 0;
     match rs {
         ref d @ (RbacRoleResRange::Include | RbacRoleResRange::Exclude) => {
-            prem_data = req_dao
+            perm_data = req_dao
                 .web_dao
                 .web_rbac
                 .rbac_dao
@@ -228,7 +228,7 @@ pub async fn check_res_info_from_session(
     }
 
     Ok(JsonResponse::data(JsonData::body(json!({
-        "data": prem_data,
+        "data": perm_data,
         "all_res": all_res,
         "total": count,
     }))))

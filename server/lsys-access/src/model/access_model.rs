@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model( table_name = "user")]
+#[lsys_model(table_name = "user")]
 pub struct UserModel {
     #[sqlx(default)]
     pub id: u64,
@@ -20,9 +20,9 @@ pub struct UserModel {
     #[sqlx(default)]
     pub user_account: String,
 
-    ///user_name
+    ///tmp_user_nickname
     #[sqlx(default)]
-    pub user_name: String,
+    pub user_nickname: String,
 
     /// 最后更新时间
     #[sqlx(default)]
@@ -30,7 +30,7 @@ pub struct UserModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model( table_name = "session")]
+#[lsys_model(table_name = "session")]
 pub struct SessionModel {
     #[sqlx(default)]
     pub(crate) id: u64,
@@ -89,7 +89,7 @@ pub struct SessionModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model( table_name = "session_data")]
+#[lsys_model(table_name = "session_data")]
 pub struct SessionDataModel {
     #[sqlx(default)]
     pub(crate) id: u64,

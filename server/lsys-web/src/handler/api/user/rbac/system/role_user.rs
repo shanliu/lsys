@@ -194,7 +194,7 @@ pub async fn system_role_user_data(
 
 #[derive(Debug, Deserialize)]
 pub struct SystemRoleUserAvailableParam {
-    pub user_data: String,
+    pub user_data: Option<String>,
     pub limit: Option<LimitParam>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
@@ -214,7 +214,7 @@ pub async fn system_role_user_available(
         app_id: Some(0),
         user_data: None,
         user_account: None,
-        user_any: Some(param.user_data.as_str()),
+        user_any: param.user_data.as_deref(),
     };
     let (res, next) = req_dao
         .web_dao

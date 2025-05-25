@@ -221,9 +221,12 @@ impl RbacAccess {
             return Ok(user_range_custom);
         }
         let sql = self.find_res_data_from_custom_user_sql(access_user_id, role_user_id);
-        let data = sqlx::query_scalar::<_, i8>(&format!("({})", sql.join(" ) union all (")))
-            .fetch_all(&self.db)
-            .await?;
+        let data = sqlx::query_scalar::<_, i8>(&format!(
+            "select * from (({})) as t",
+            sql.join(" ) union all (")
+        ))
+        .fetch_all(&self.db)
+        .await?;
         for db_res_range in data {
             if RbacRoleResRange::Any.eq(db_res_range) {
                 user_range_custom.exist_any_res = true;

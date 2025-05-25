@@ -52,9 +52,12 @@ impl RbacAccess {
         app_id: u64,
     ) -> RbacResult<AccessPublicResUserData> {
         let sql = self.user_data_pub_sql(user_id, app_id).await;
-        let data = sqlx::query_as::<_, (u64, i8, i8)>(&format!("({})", sql.join(" ) union all (")))
-            .fetch_all(&self.db)
-            .await?;
+        let data = sqlx::query_as::<_, (u64, i8, i8)>(&format!(
+            "select * from (({})) as t",
+            sql.join(" ) union all (")
+        ))
+        .fetch_all(&self.db)
+        .await?;
         let mut pub_access = AccessPublicResUserData {
             exist_system_session_all: false,
             exist_system_user_all: false,
@@ -219,7 +222,7 @@ impl RbacAccess {
                             RbacRoleUserStatus::Enable as i8,
                         )];
                     let data = sqlx::query_as::<_, (u64, i8, i8)>(&format!(
-                        "({})",
+                        "select * from (({})) as t",
                         sql.join(" ) union all (")
                     ))
                     .fetch_all(&self.db)

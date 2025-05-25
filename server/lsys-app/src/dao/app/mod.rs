@@ -512,7 +512,7 @@ impl App {
             return Err(AppError::AppNotFound(app.client_id.to_owned()));
         }
         if req.app_id != app.id {
-            return Err(AppError::System(fluent_message!("app-req-bad")));
+            return Err(AppError::System(fluent_message!("app-req-bad-app")));
         }
         if !AppRequestStatus::Pending.eq(req.status) {
             return Err(AppError::System(fluent_message!("app-req-is-confirm")));
@@ -725,6 +725,33 @@ impl App {
         if AppStatus::Delete.eq(app.status) {
             return Ok(());
         }
+
+        let sub_app_count = sqlx::query_scalar::<_, i64>(&sql_format!(
+            "select count(*) as total from {} where  parent_app_id ={} and status in ({})",
+            AppModel::table_name(),
+            app.id,
+            &[
+                AppStatus::Enable as i8,
+                AppStatus::Init as i8,
+                AppStatus::Disable as i8
+            ],
+        ))
+        .fetch_one(&self.db)
+        .await;
+        match sub_app_count {
+            Ok(total) => {
+                if total > 0 {
+                    return Err(AppError::System(fluent_message!("app-exits-sub-app",{
+                        "total":total,
+                    })));
+                }
+            }
+            Err(sqlx::Error::RowNotFound) => {}
+            Err(err) => {
+                return Err(err.into());
+            }
+        }
+
         let time = now_time()?;
         let mut db = self.db.begin().await?;
 
