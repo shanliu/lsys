@@ -46,7 +46,8 @@ INSERT INTO yaf_user (
         app_id,
         user_data,
         user_account,
-        user_name,
+        user_nickname,
         change_time
     )
 VALUES(1, 0, '1', 'aaaaa', 'root', UNIX_TIMESTAMP());
+
