@@ -1,4 +1,4 @@
-use crate::dao::AppNotify;
+use crate::dao::AppNotifySender;
 use crate::dao::AppSecret;
 use crate::model::AppModel;
 use crate::model::AppNotifyDataModel;
@@ -21,20 +21,23 @@ use std::pin::Pin;
 use std::sync::Arc;
 use tracing::info;
 use tracing::warn;
-pub const SUB_APP_SECRET_NOTIFY_TYPE: &str = "sub_app_notify";
-#[derive(Clone)]
+
 pub struct SubAppChangeNotify {
     db: Pool<MySql>,
-    app_notify: Arc<AppNotify>,
+    app_notify_sender: AppNotifySender,
     app_secret: Arc<AppSecret>,
 }
 
 impl SubAppChangeNotify {
-    pub fn new(db: Pool<MySql>, app_secret: Arc<AppSecret>, app_notify: Arc<AppNotify>) -> Self {
+    pub fn new(
+        db: Pool<MySql>,
+        app_secret: Arc<AppSecret>,
+        app_notify_sender: AppNotifySender,
+    ) -> Self {
         Self {
             db,
             app_secret,
-            app_notify,
+            app_notify_sender,
         }
     }
     pub(crate) async fn add_app_secret_change_notify(&self, app: &AppModel) {
@@ -49,10 +52,11 @@ impl SubAppChangeNotify {
         {
             Ok(secret) => {
                 if let Err(err) = self
-                    .app_notify
-                    .add(
-                        SUB_APP_SECRET_NOTIFY_TYPE,
+                    .app_notify_sender
+                    .send(
                         app.parent_app_id,
+                        // SUB_APP_SECRET_NOTIFY_TYPE,
+                        &app.id.to_string(),
                         &json!({
                             "client_id":app.client_id,
                             "sercet_data":secret,
@@ -81,9 +85,11 @@ impl SubAppChangeNotify {
 impl TimeOutTaskExec for SubAppChangeNotify {
     async fn exec(
         &self,
+        max_lock_time: usize,
         mut expire_call: impl FnMut() -> Pin<Box<dyn Future<Output = ()> + Send>> + Send,
     ) -> Result<(), String> {
         let ntime = now_time().unwrap_or_default();
+        let mut runtime = ntime;
         let mut start_id = 0;
         loop {
             let add_res = sqlx::query_as::<_, AppModel>(&sql_format!(
@@ -144,14 +150,25 @@ impl TimeOutTaskExec for SubAppChangeNotify {
                     .await
                     .map_err(|e| e.to_string())?;
             }
-            expire_call().await;
+            let last_now_time = now_time().unwrap_or_default();
+            if (last_now_time - runtime) > (max_lock_time as u64) {
+                return Err(format!(
+                    "app change notify timeout[last run time:{},start time:{}]",
+                    last_now_time, runtime
+                ));
+            }
+            if (last_now_time - runtime) * 2 > (max_lock_time as u64) {
+                //时间小于一半延长一次有效期
+                expire_call().await;
+            }
+            runtime = last_now_time;
         }
         Ok(())
     }
 }
 #[async_trait::async_trait]
 impl TimeOutTaskNextTime for SubAppChangeNotify {
-    async fn next_time(&self, max_lock_time: u16) -> Result<Option<u64>, String> {
+    async fn next_time(&self, max_lock_time: usize) -> Result<Option<u64>, String> {
         let ntime = now_time().unwrap_or_default();
         let timeout_res = sqlx::query_scalar::<_, u64>(&sql_format!(
             "select time_out from  {}  where 

@@ -1,5 +1,6 @@
 
 access-not-code = 登陆CODE不存在或已超时
+access-token-data-exits = Token Data 重复,请检查登陆数据:Code[{$id}]
 access-bad-code = 解析登陆CODE异常:{$msg}
 access-not-login = 用户未登录
 access-not-account = 非系统内部账号,属于应用:{$appid}

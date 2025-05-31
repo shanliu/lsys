@@ -1,3 +1,4 @@
+use crate::dao::AppSecretRecrod;
 use crate::model::{AppSecretType, AppStatus};
 use crate::{
     dao::{app::App, AppError, AppResult},
@@ -59,7 +60,7 @@ impl AppCache<'_> {
     pub async fn find_app_secret_by_client_id(
         &self,
         client_id: &str,
-    ) -> Result<Vec<String>, AppError> {
+    ) -> Result<Vec<AppSecretRecrod>, AppError> {
         let apps = self.find_by_client_id(client_id).await;
         match apps {
             Ok(app) => {
@@ -76,10 +77,7 @@ impl AppCache<'_> {
                     .cache()
                     .multiple_find_secret_by_app_id(app.id, AppSecretType::App)
                     .await?;
-                Ok(sercet_data
-                    .into_iter()
-                    .map(|e| e.secret_data)
-                    .collect::<Vec<_>>())
+                Ok(sercet_data)
             }
             Err(err) => Err(err),
         }

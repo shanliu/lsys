@@ -4,9 +4,9 @@ mod feature;
 mod request;
 mod sub_app;
 use lsys_core::{
-    fluent_message, now_time, rand_str, string_clear, valid_key, RequestEnv, StringClear,
-    TimeOutTaskNotify, ValidError, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
-    STRING_CLEAR_FORMAT, STRING_CLEAR_XSS,
+    fluent_message, now_time, rand_str, string_clear, valid_key, AppCore, RequestEnv, StringClear,
+    TimeOutTask, TimeOutTaskNotify, ValidError, ValidParam, ValidParamCheck, ValidPattern,
+    ValidStrlen, STRING_CLEAR_FORMAT, STRING_CLEAR_XSS,
 };
 
 pub use data::*;
@@ -34,6 +34,7 @@ use lsys_logger::dao::ChangeLoggerDao;
 // use regex::Regex;
 use sqlx::{MySql, Pool};
 pub struct App {
+    app_core: Arc<AppCore>,
     db: Pool<MySql>,
     pub(crate) id_cache: Arc<LocalCache<u64, AppModel>>, //appid,AppModel
     pub(crate) client_id_cache: Arc<LocalCache<String, Option<u64>>>, //client_id,appid
@@ -45,7 +46,9 @@ pub struct App {
 }
 
 impl App {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
+        app_core: Arc<AppCore>,
         db: Pool<MySql>,
         remote_notify: Arc<RemoteNotify>,
         config: LocalCacheConfig,
@@ -55,6 +58,7 @@ impl App {
         sub_app_timeout_notify: Arc<TimeOutTaskNotify>,
     ) -> Self {
         Self {
+            app_core,
             db,
             id_cache: Arc::new(LocalCache::new(remote_notify.clone(), config)),
             client_id_cache: Arc::new(LocalCache::new(remote_notify.clone(), config)),
@@ -71,6 +75,17 @@ pub struct AppDataParam<'t> {
     pub client_id: &'t str,
 }
 impl App {
+    pub async fn listen_sub_app_change_notify(&self, channel_buffer: Option<usize>) {
+        TimeOutTask::<SubAppChangeNotify>::new(
+            self.app_core.clone(),
+            self.sub_app_timeout_notify.clone(),
+            self.sub_app_change_notify.clone(),
+            self.sub_app_change_notify.clone(),
+        )
+        .listen(channel_buffer)
+        .await;
+    }
+
     async fn check_app_param_valid(&self, param: &AppDataParam<'_>) -> AppResult<(String, String)> {
         let name = string_clear(param.name, StringClear::Option(STRING_CLEAR_FORMAT), None);
         let client_id = string_clear(
@@ -177,7 +192,7 @@ impl App {
         let req_res = sqlx::query_scalar::<_, u64>(&sql_format!(
             "select req.app_id from {}  as info
                 join {} as req on info.app_request_id=req.id
-                where info.client_id={} and req.status={} and req.request_type={}
+                where info.client_id={} and req.status={} and req.request_type={} limit 1
             ",
             AppRequestSetInfoModel::table_name(),
             AppRequestModel::table_name(),
@@ -365,7 +380,7 @@ impl App {
             let req_res = sqlx::query_scalar::<_, u64>(&sql_format!(
                 "select req.app_id from {}  as info
                     join {} as req on info.app_request_id=req.id
-                    where info.client_id={} and req.status={} and req.request_type={}
+                    where info.client_id={} and req.status={} and req.request_type={} limit 1
                 ",
                 AppRequestSetInfoModel::table_name(),
                 AppRequestModel::table_name(),
@@ -538,7 +553,7 @@ impl App {
         {
             Ok(info) => info,
             Err(sqlx::Error::RowNotFound) => {
-                return Err(AppError::System(fluent_message!("app-req-is-invalid")));
+                return Err(AppError::System(fluent_message!("app-req-is-miss-info")));
             }
             Err(err) => {
                 return Err(err.into());
@@ -844,7 +859,7 @@ impl App {
         self.app_secret
             .single_set(
                 app.id,
-                AppSecretType::App,
+                AppSecretType::Notify,
                 &client_secret,
                 time_out,
                 change_user_id,

@@ -7,8 +7,8 @@ use lsys_app_sender::{
         AliYunSendStatus, AliYunSenderTask, CloOpenSenderTask, HwYunSenderTask, JDCloudSenderTask,
         JDSendStatus, NetEaseSendStatus, NetEaseSenderTask, SenderAliYunConfig,
         SenderCloOpenConfig, SenderError, SenderHwYunConfig, SenderJDCloudConfig,
-        SenderNetEaseConfig, SenderResult, SenderTenYunConfig, SmsSenderDao, TenYunSendStatus,
-        TenyunSenderTask,
+        SenderNetEaseConfig, SenderResult, SenderTenYunConfig, SmsSenderConfig, SmsSenderDao,
+        TenYunSendStatus, TenyunSenderTask,
     },
     model::{SenderSmsBodyModel, SenderSmsMessageModel},
 };
@@ -43,10 +43,7 @@ impl SenderSmser {
         setting: Arc<SettingDao>,
         logger: Arc<ChangeLoggerDao>,
         notify: Arc<AppNotify>,
-        sender_task_size: Option<usize>,
-        notify_task_size: Option<usize>,
-        task_timeout: usize,
-        is_check: bool,
+        sms_config: SmsSenderConfig,
     ) -> Self {
         let smser_dao = Arc::new(SmsSenderDao::new(
             app_core,
@@ -55,12 +52,7 @@ impl SenderSmser {
             setting.clone(),
             logger.clone(),
             notify.clone(),
-            sender_task_size,
-            notify_task_size,
-            task_timeout,
-            is_check,
-            None,
-            None,
+            sms_config,
         ));
 
         let aliyun_sender =
@@ -90,6 +82,9 @@ impl SenderSmser {
     }
     pub async fn task_wait(&self) {
         self.smser_dao.task_wait().await
+    }
+    pub async fn task_sendtime_notify(&self) {
+        self.smser_dao.task_sendtime_notify(None).await
     }
     // 短信后台任务
     pub async fn task_sender(&self) -> SenderResult<()> {
@@ -128,7 +123,6 @@ impl SenderSmser {
             .cancal_from_message(body, message, user_id, env_data)
             .await?)
     }
-
     // 短信发送接口
     async fn send(
         &self,

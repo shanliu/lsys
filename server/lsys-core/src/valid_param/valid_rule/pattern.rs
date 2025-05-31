@@ -21,6 +21,7 @@ impl<T: Display> ValidRule for ValidPattern<T> {
     fn check(&self, data: &T) -> Result<(), ValidRuleError> {
         let data = data.to_string();
         match self {
+            //不包含格式
             Self::NotFormat => {
                 if data
                     .chars()
@@ -33,6 +34,7 @@ impl<T: Display> ValidRule for ValidPattern<T> {
                     )));
                 }
             }
+            //数字
             Self::Numeric => {
                 if !data.chars().all(|c| c.is_ascii_digit()) {
                     return Err(ValidRuleError::new(
@@ -42,6 +44,7 @@ impl<T: Display> ValidRule for ValidPattern<T> {
                     ));
                 }
             }
+            //字母
             Self::Alphabetic => {
                 if !data.chars().all(|c| c.is_alphabetic()) {
                     return Err(ValidRuleError::new(
@@ -51,6 +54,7 @@ impl<T: Display> ValidRule for ValidPattern<T> {
                     ));
                 }
             }
+            //字母 数字
             Self::Alphanumeric => {
                 if !data.chars().all(|c| c.is_alphanumeric()) {
                     return Err(ValidRuleError::new(
@@ -60,8 +64,8 @@ impl<T: Display> ValidRule for ValidPattern<T> {
                     ));
                 }
             }
+            //字母 数字 及 - _ 组成，开头不能是 - _ .
             Self::Ident => {
-                //数字，字母 - _ . 组成，开头或结尾不能是 - _ .
                 if let Some(c) = data.chars().next() {
                     if c == '-' || c == '_' || c == '.' {
                         return Err(ValidRuleError::new(
@@ -82,6 +86,7 @@ impl<T: Display> ValidRule for ValidPattern<T> {
                     ));
                 }
             }
+            //十六进制
             Self::Hex => {
                 if !data.chars().all(|c| c.is_ascii_hexdigit()) {
                     return Err(ValidRuleError::new(

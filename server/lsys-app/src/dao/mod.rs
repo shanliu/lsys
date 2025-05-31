@@ -13,10 +13,11 @@ use exter_login::AppExterLogin;
 use lsys_access::dao::{AccessDao, AccessError, AccessResult, AccessSession, SessionBody};
 use lsys_core::{
     cache::LocalCacheConfig, fluent_message, AppCore, AppCoreError, IntoFluentMessage,
-    RemoteNotify, TimeOutTask, TimeOutTaskConfig, TimeOutTaskNotify,
+    RemoteNotify, TimeOutTaskConfig, TimeOutTaskNotify,
 };
+use tracing::error;
 
-use crate::model::AppModel;
+use crate::model::{AppModel, AppNotifyTryTimeMode, AppNotifyType};
 
 pub use app::*;
 pub use app_notify::*;
@@ -29,16 +30,36 @@ pub use result::*;
 pub use session::*;
 use sqlx::{MySql, Pool};
 use std::sync::Arc;
-
+pub const SUB_APP_SECRET_NOTIFY_TYPE: &str = "sub_app_notify";
 pub struct AppDao {
     //内部依赖
+    app_core: Arc<AppCore>,
     pub app: Arc<App>,
     pub(crate) app_secret: Arc<AppSecret>,
     pub oauth_client: Arc<AppOAuthClient>,
     pub oauth_server: Arc<AppOAuthServer>,
     pub app_notify: Arc<AppNotify>,
     pub exter_login: Arc<AppExterLogin>,
-    pub sub_app_timeout_task: Option<TimeOutTask<SubAppChangeNotify>>,
+}
+
+pub struct SubAppNotifyConfig {
+    pub timeout_task_config: TimeOutTaskConfig,
+    pub notify_type: AppNotifyType,
+    pub notify_try_max: u8,
+    pub notify_try_mode: AppNotifyTryTimeMode,
+    pub notify_try_delay: u16,
+}
+
+impl Default for SubAppNotifyConfig {
+    fn default() -> Self {
+        Self {
+            timeout_task_config: TimeOutTaskConfig::new("sub_app_notify", 300),
+            notify_type: AppNotifyType::Http, //HTTP 模式进行回调
+            notify_try_max: 2,
+            notify_try_mode: AppNotifyTryTimeMode::Fixed,
+            notify_try_delay: 60,
+        }
+    }
 }
 
 pub struct AppConfig {
@@ -48,7 +69,7 @@ pub struct AppConfig {
     pub sub_app_oauth_server_cache: LocalCacheConfig,
     pub oauth_client_code_time: u64,
     pub oauth_client_login_time: u64,
-    pub sub_app_notify_config: TimeOutTaskConfig,
+    pub sub_app_notify_config: SubAppNotifyConfig,
 }
 
 impl AppConfig {
@@ -64,7 +85,7 @@ impl AppConfig {
                 if use_cache { None } else { Some(0) },
                 None,
             ),
-            sub_app_notify_config: TimeOutTaskConfig::new("sub_app_notify", 300),
+            sub_app_notify_config: SubAppNotifyConfig::default(),
             app_cache: LocalCacheConfig::new("app", if use_cache { None } else { Some(0) }, None),
             app_secret_cache: LocalCacheConfig::new(
                 "app-secret",
@@ -84,8 +105,8 @@ impl AppDao {
         db: Pool<MySql>,
         redis: deadpool_redis::Pool,
         remote_notify: Arc<RemoteNotify>,
-        config: AppConfig,
         logger: Arc<ChangeLoggerDao>,
+        config: AppConfig,
     ) -> Result<AppDao, AppCoreError> {
         let app_secret = Arc::from(AppSecret::new(
             db.clone(),
@@ -95,33 +116,39 @@ impl AppDao {
         let app_notify = Arc::new(AppNotify::new(
             redis.clone(),
             db.clone(),
-            app_core.clone(),
-            app_secret.clone(),
             &NotifyConfig {
-                max_try: None,
                 task_size: None,
                 task_timeout: None,
-                is_check: true,
             },
             logger.clone(),
+            app_secret.clone(),
         ));
-        let sub_app_timeout_notify =
-            Arc::new(TimeOutTaskNotify::new(redis, config.sub_app_notify_config));
-        let sub_app_change_notify =
-            SubAppChangeNotify::new(db.clone(), app_secret.clone(), app_notify.clone());
-        let sub_app_timeout_task = TimeOutTask::<SubAppChangeNotify>::new(
-            app_core,
-            sub_app_timeout_notify.clone(),
-            sub_app_change_notify.clone(),
-            sub_app_change_notify.clone(),
+        let sub_app_timeout_notify = Arc::new(TimeOutTaskNotify::new(
+            redis,
+            config.sub_app_notify_config.timeout_task_config,
+        ));
+        let sub_app_notify_sender = app_notify.sender_create(
+            SUB_APP_SECRET_NOTIFY_TYPE,
+            config.sub_app_notify_config.notify_type,
+            config.sub_app_notify_config.notify_try_max,
+            config.sub_app_notify_config.notify_try_mode,
+            config.sub_app_notify_config.notify_try_delay,
+            true,
         );
+        let sub_app_change_notify = Arc::new(SubAppChangeNotify::new(
+            db.clone(),
+            app_secret.clone(),
+            sub_app_notify_sender,
+        ));
+
         let app = Arc::from(App::new(
+            app_core.clone(),
             db.clone(),
             remote_notify.clone(),
             config.app_cache,
             logger.clone(),
             app_secret.clone(),
-            Arc::new(sub_app_change_notify),
+            sub_app_change_notify,
             sub_app_timeout_notify,
         ));
         let oauth_server = Arc::from(AppOAuthServer::new(
@@ -149,15 +176,28 @@ impl AppDao {
         let exter_login = Arc::new(AppExterLogin::new(db.clone(), app.clone()));
 
         Ok(AppDao {
+            app_core,
             app,
             oauth_client,
             oauth_server,
             app_secret,
             app_notify,
             exter_login,
-            sub_app_timeout_task: Some(sub_app_timeout_task),
         })
     }
+    pub async fn listen_sub_app_change_notify(&self, channel_buffer: Option<usize>) {
+        self.app.listen_sub_app_change_notify(channel_buffer).await;
+    }
+    pub async fn listen_task_notify(&self) {
+        if let Err(err) = self
+            .app_notify
+            .task(self.app_core.clone(), self.app.clone())
+            .await
+        {
+            error!("notify error:{}", err.to_fluent_message().default_format())
+        }
+    }
+
     pub async fn session_app(&self, session: &SessionBody) -> AccessResult<Option<AppModel>> {
         if session.session().user_app_id > 0 {
             let app = self

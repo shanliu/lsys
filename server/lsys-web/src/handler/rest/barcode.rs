@@ -5,6 +5,7 @@ use crate::{common::JsonResponse, common::JsonResult, common::RequestDao};
 use lsys_app::model::AppModel;
 use lsys_app_barcode::dao::BarcodeParseRecord;
 use lsys_app_barcode::dao::ParseParam as BarcodeParseParam;
+use lsys_app_barcode::model::BarcodeCreateStatus;
 use lsys_core::fluent_message;
 use serde::Deserialize;
 use serde_json::json;
@@ -22,7 +23,10 @@ pub struct ParseParam {
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub pure_barcode: Option<bool>,
     pub character_set: Option<String>,
-    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_u32")]
+    #[serde(
+        default,
+        deserialize_with = "crate::common::deserialize_option_vec_u32"
+    )]
     pub allowed_lengths: Option<Vec<u32>>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub assume_code_39_check_digit: Option<bool>,
@@ -30,7 +34,10 @@ pub struct ParseParam {
     pub assume_gs1: Option<bool>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub return_codabar_start_end: Option<bool>,
-    #[serde(default, deserialize_with = "crate::common::deserialize_option_vec_u32")]
+    #[serde(
+        default,
+        deserialize_with = "crate::common::deserialize_option_vec_u32"
+    )]
     pub allowed_ean_extensions: Option<Vec<u32>>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub also_inverted: Option<bool>,
@@ -131,7 +138,9 @@ pub async fn barcode_base64(
         .cache()
         .find_by_create_config_id(&param.code_id)
         .await?;
-
+    if BarcodeCreateStatus::Delete.eq(code.status) {
+        return Err(sqlx::Error::RowNotFound.into());
+    }
     let data = req_dao
         .web_dao
         .app_barcode

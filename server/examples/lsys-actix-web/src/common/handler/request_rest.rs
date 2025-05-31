@@ -20,13 +20,13 @@ use lsys_web::dao::WebDao;
 
 use serde::{de::DeserializeOwned, Deserialize};
 use serde_json::Value;
-use tracing::info;
+use tracing::{debug, info};
 
 use super::ResponseJson;
 
 #[derive(Deserialize)]
 pub struct RestGet {
-    pub app_id: String,
+    pub client_id: String,
     pub version: String,
     pub timestamp: String,
     pub sign: String,
@@ -38,7 +38,7 @@ pub struct RestGet {
 }
 
 pub struct RestRfc {
-    pub app_id: String,
+    pub client_id: String,
     pub version: String,
     pub timestamp: String,
     pub sign: String,
@@ -62,13 +62,13 @@ async fn check_sign(
 ) -> Result<(), JsonResponse> {
     match key_fn {
         Some(kfn) => {
-            let key_res = kfn.as_ref()(data.app_id.clone(), app_data.clone())
+            let key_res = kfn.as_ref()(data.client_id.clone(), app_data.clone())
                 .as_mut()
                 .await;
             match key_res {
                 Ok(app_key) => {
                     let mut map_data = BTreeMap::from([
-                        ("app_id", &data.app_id),
+                        ("client_id", &data.client_id),
                         ("version", &data.version),
                         ("timestamp", &data.timestamp),
                     ]);
@@ -97,6 +97,8 @@ async fn check_sign(
                         let hash = format!("{:x}", digest);
                         if hash == data.sign {
                             return Ok(());
+                        } else {
+                            debug!("target:{},request:{}", hash, data.sign);
                         }
                     }
                     Err(
@@ -289,7 +291,7 @@ impl RequestSessionToken<RestAuthToken> for RestQuery {
                     RestAuthToken::default()
                 } else {
                     RestAuthToken {
-                        client_id: self.rfc.app_id.clone(),
+                        client_id: self.rfc.client_id.clone(),
                         token: e.to_owned(),
                     }
                 }
@@ -329,7 +331,7 @@ impl RestQuery {
             .app_dao
             .app
             .cache()
-            .find_by_client_id(&self.rfc.app_id)
+            .find_by_client_id(&self.rfc.client_id)
             .await
             .map_err(|e| self.fluent_error_json_response(&e.into()))
     }
@@ -362,7 +364,7 @@ impl FromRequest for RestQuery {
                     let mut rfc = RestRfc {
                         request_id,
                         request_lang: get_param.lang,
-                        app_id: get_param.app_id,
+                        client_id: get_param.client_id,
                         version: get_param.version,
                         timestamp: get_param.timestamp,
                         sign: get_param.sign,

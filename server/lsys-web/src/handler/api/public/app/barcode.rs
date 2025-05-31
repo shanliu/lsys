@@ -1,5 +1,7 @@
-use crate::common::{JsonResult, RequestDao};
+use crate::common::{JsonError, JsonResult, RequestDao};
 use image::ImageFormat;
+use lsys_app_barcode::model::BarcodeCreateStatus;
+use lsys_core::fluent_message;
 use serde::Deserialize;
 #[derive(Debug, Deserialize)]
 pub struct BarCodeShowCodeParam {
@@ -36,7 +38,11 @@ pub async fn barcode_show(
         .cache()
         .exter_feature_check(&app, &[crate::handler::APP_FEATURE_BARCODE])
         .await?;
-
+    if !BarcodeCreateStatus::EnablePublic.eq(code.status) {
+        return Err(JsonError::Message(fluent_message!(
+            "barcode-bad-auth-error"
+        )));
+    }
     req_dao
         .web_dao
         .app_barcode

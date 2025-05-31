@@ -69,7 +69,7 @@ impl App {
 
         let req_res = sqlx::query_scalar::<_, String>(&sql_format!(
             "select reqf.feature_data from {} as req join {} reqf on req.id=reqf.app_request_id
-             where req.parent_app_id={} and req.app_id={} and req.request_type={} and req.status={} ",
+             where req.parent_app_id={} and req.app_id={} and req.request_type={} and req.status={} limit 1",
             AppRequestModel::table_name(),
             AppRequestFeatureModel::table_name(),
             app.parent_app_id,
@@ -182,7 +182,7 @@ impl App {
         }
 
         let feature_res = sqlx::query_scalar::<_, String>(&sql_format!(
-            "select feature_data from {} where app_request_id={}",
+            "select feature_data from {} where app_request_id={} limit 1",
             AppRequestFeatureModel::table_name(),
             req.id,
         ))

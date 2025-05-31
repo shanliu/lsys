@@ -31,7 +31,7 @@ pub use web_rbac::*;
 pub use web_setting::*;
 
 use lsys_access::dao::{AccessConfig, AccessDao, AccessLocalCacheClear};
-use lsys_app::dao::{AppConfig, AppDao, AppLocalCacheClear};
+use lsys_app::dao::{AppConfig, AppLocalCacheClear};
 // use lsys_app_notify::dao::{NotifyConfig, NotifyDao};
 use lsys_core::cache::{LocalCacheClear, LocalCacheClearItem};
 use lsys_core::{AppCore, AppCoreError, FluentMgr, RemoteNotify};
@@ -105,27 +105,7 @@ impl WebDao {
             remote_notify.clone(),
             AccessConfig::new(use_cache),
         ));
-        let mut app_dao = AppDao::new(
-            app_core.clone(),
-            access_dao.clone(),
-            db.clone(),
-            redis.clone(),
-            remote_notify.clone(),
-            AppConfig::new(
-                use_cache,
-                120,           //oauth Code有效期120秒
-                7 * 24 * 3600, //TOKEN有效期7天
-            ),
-            change_logger.clone(),
-        )
-        .await?;
-        if let Some(sub_app_timeout_task) = app_dao.sub_app_timeout_task.take() {
-            tokio::spawn(async move {
-                //listen redis notify
-                sub_app_timeout_task.listen(None).await;
-            });
-        };
-        let app_dao = Arc::new(app_dao);
+
         let account_dao = Arc::new(AccountDao::new(
             db.clone(),
             redis.clone(),
@@ -160,6 +140,23 @@ impl WebDao {
             auth_code_dao,
         ));
 
+        let web_app = Arc::new(
+            WebApp::new(
+                db.clone(),
+                redis.clone(),
+                app_core.clone(),
+                access_dao.clone(),
+                remote_notify.clone(),
+                change_logger.clone(),
+                AppConfig::new(
+                    use_cache,
+                    120,           //oauth Code有效期120秒
+                    7 * 24 * 3600, //TOKEN有效期7天
+                ),
+            )
+            .await?,
+        );
+
         let app_area = Arc::new(AppArea::new(app_core.clone())?);
         let app_captcha = Arc::new(AppCaptcha::new(redis.clone()));
         let app_sender = Arc::new(
@@ -167,14 +164,13 @@ impl WebDao {
                 app_core.clone(),
                 redis.clone(),
                 db.clone(),
-                app_dao.app_notify.clone(),
+                web_app.app_dao.app_notify.clone(),
                 setting_dao.clone(),
                 change_logger.clone(),
             )
             .await?,
         );
         //启动回调任务
-        // let app_notify = Arc::new(AppNotify::new(notify_dao.clone()));
         #[cfg(feature = "barcode")]
         let app_barcode = Arc::new(AppBarCode::new(
             app_core.clone(),
@@ -210,8 +206,6 @@ impl WebDao {
             change_logger.clone(),
         ));
 
-        let web_app = Arc::new(WebApp::new(app_dao.clone()).await);
-
         let web_access = Arc::new(WebAccess::new(access_dao.clone()));
 
         let web_setting = Arc::new(WebSetting::new(setting_dao.clone(), db.clone()));
@@ -225,7 +219,7 @@ impl WebDao {
         for item in AccessLocalCacheClear::new_clears(&access_dao) {
             cache_item.push(Box::new(item))
         }
-        for item in AppLocalCacheClear::new_clears(&app_dao) {
+        for item in AppLocalCacheClear::new_clears(&web_app.app_dao) {
             cache_item.push(Box::new(item))
         }
         for item in SettingLocalCacheClear::new_clears(&setting_dao) {

@@ -419,10 +419,10 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
         record: &SmsTaskData,
         error: &SenderExecError,
     ) {
-        let fail_ids = record.data.iter().map(|e| e.snid).collect::<Vec<_>>();
-        for tmp in fail_ids.iter() {
+        let fail_ids = record.data.iter().map(|e| e.id).collect::<Vec<_>>();
+        for tmp in record.data.iter() {
             self.wait_notify
-                .msg_notify(&item.sms.reply_host, *tmp, Err(error.to_string()))
+                .msg_notify(&item.sms.reply_host, tmp.snid, Err(error.to_string()))
                 .await;
         }
         let sql = match error {
@@ -501,7 +501,6 @@ impl TaskAcquisition<u64, SmsTaskItem> for SmsTaskAcquisition {
     }
 }
 
-#[derive(Clone)]
 pub struct SmsTask {
     inner: Arc<Vec<SenderTaskExecutorBox<u64, SmsTaskItem, SmsTaskData>>>,
     acquisition: Arc<SmsTaskAcquisition>,

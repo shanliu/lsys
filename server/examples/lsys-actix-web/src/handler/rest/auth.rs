@@ -4,7 +4,7 @@ use lsys_web::handler::rest::auth::{
     do_login, do_logout, login_info, DoLoginParam, DoLogoutParam, LoginInfoParam,
 };
 
-#[post("/auth")]
+#[post("")]
 pub(crate) async fn auth(rest: RestQuery) -> ResponseJsonResult<ResponseJson> {
     Ok(match rest.rfc.method.as_deref().unwrap_or_default() {
         "do_login" => {

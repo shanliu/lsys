@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 
-use crate::common::JsonData;
+use crate::common::{JsonData, JsonError, JsonFluent};
 use crate::{
     common::{JsonResponse, JsonResult, RequestDao},
     dao::access::rest::CheckRestApp,
 };
-use lsys_access::dao::AccessLoginData;
+use lsys_access::dao::{AccessError, AccessLoginData};
 use lsys_app::model::AppModel;
-use lsys_core::now_time;
+use lsys_core::{fluent_message, now_time};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -52,7 +52,7 @@ pub async fn do_login(
         })
         .unwrap_or_default();
 
-    let seession_body = req_dao
+    let seession_body = match req_dao
         .web_dao
         .web_user
         .user_dao
@@ -74,7 +74,19 @@ pub async fn do_login(
                     .collect::<Vec<_>>(),
             },
         )
-        .await?;
+        .await
+    {
+        Ok(t) => t,
+        Err(err) => match err {
+            lsys_user::dao::AccountError::AccessError(err @ AccessError::LoginTokenDataExit(_)) => {
+                return Err(JsonError::JsonResponse(
+                    err.to_json_data(&req_dao.fluent),
+                    fluent_message!("access-token-data-token-code-exits"),
+                ))
+            }
+            err => Err(err)?,
+        },
+    };
     Ok(JsonResponse::data(JsonData::body(json!({
         "token_data": seession_body.token_data(),
         "user_id": seession_body.user_id(),

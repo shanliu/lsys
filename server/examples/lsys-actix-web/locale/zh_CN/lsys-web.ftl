@@ -41,7 +41,7 @@ barcode-add-status-error = 解析记录状态异常:{$msg}
 bad-audit-access = 非法访问审计数据
 barcode-parse-error = 解析失败,记录为:{$record}
 bad-app-id = 非法操作非自身app  
-
+access-token-data-token-code-exits =登陆时发现 token_code 已使用，请更换
 
 
 #rbac 权限

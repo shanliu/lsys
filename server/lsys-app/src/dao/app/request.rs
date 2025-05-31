@@ -88,7 +88,10 @@ impl App {
 
         let client_id_tmp = data
             .iter()
-            .filter(|t| AppRequestType::OAuthClient.eq(t.request_type))
+            .filter(|t| {
+                AppRequestType::OAuthClientScope.eq(t.request_type)
+                    || AppRequestType::OAuthClient.eq(t.request_type)
+            })
             .map(|t| t.id)
             .collect::<Vec<u64>>();
         let client_id_data = if !client_id_tmp.is_empty() {
@@ -105,10 +108,13 @@ impl App {
 
         let change_id_tmp = data
             .iter()
-            .filter(|t| AppRequestType::AppChange.eq(t.request_type))
+            .filter(|t| {
+                AppRequestType::AppChange.eq(t.request_type)
+                    || AppRequestType::AppReq.eq(t.request_type)
+            })
             .map(|t| t.id)
             .collect::<Vec<u64>>();
-        let change_id_data = if !client_id_tmp.is_empty() {
+        let change_id_data = if !change_id_tmp.is_empty() {
             sqlx::query_as::<_, AppRequestSetInfoModel>(&sql_format!(
                 "select * from {} where app_request_id in ({})",
                 AppRequestSetInfoModel::table_name(),
@@ -137,7 +143,7 @@ impl App {
                         .find(|t| t.app_request_id == e.id)
                         .map(|s| AppRequestData::Feature(s.to_owned()))
                         .unwrap_or(AppRequestData::None)
-                } else if AppRequestType::AppChange.eq(e.request_type)
+                } else if AppRequestType::AppReq.eq(e.request_type)
                     || AppRequestType::AppChange.eq(e.request_type)
                 {
                     change_id_data

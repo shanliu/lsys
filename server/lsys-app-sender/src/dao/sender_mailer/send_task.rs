@@ -424,11 +424,11 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
         record: &MailTaskData,
         error: &SenderExecError,
     ) {
-        let fail_ids = record.data.iter().map(|e| e.snid).collect::<Vec<_>>();
+        let fail_ids = record.data.iter().map(|e| e.id).collect::<Vec<_>>();
 
-        for tmp in fail_ids.iter() {
+        for tmp in record.data.iter() {
             self.wait_notify
-                .msg_notify(&item.mail.reply_host, *tmp, Err(error.to_string()))
+                .msg_notify(&item.mail.reply_host, tmp.snid, Err(error.to_string()))
                 .await;
         }
 
@@ -508,7 +508,6 @@ impl TaskAcquisition<u64, MailTaskItem> for MailTaskAcquisition {
     }
 }
 
-#[derive(Clone)]
 pub struct MailerTask {
     inner: Arc<Vec<SenderTaskExecutorBox<u64, MailTaskItem, MailTaskData>>>,
     acquisition: Arc<MailTaskAcquisition>,

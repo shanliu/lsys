@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
 
-use lsys_app::dao::AppNotify;
+use lsys_app::dao::AppNotifySender;
 use lsys_core::fluent_message;
 use lsys_core::now_time;
 use lsys_core::IntoFluentMessage;
@@ -68,7 +68,7 @@ impl SmsStatusQuery {
     }
 }
 
-pub struct SmsStatusTaskItem(u64);
+pub struct SmsStatusTaskItem(pub u64);
 impl TaskItem<u64> for SmsStatusTaskItem {
     fn to_task_pk(&self) -> u64 {
         self.0
@@ -156,14 +156,13 @@ impl TaskAcquisition<u64, SmsStatusTaskItem> for SmsStatusTaskAcquisition {
     }
 }
 
-#[derive(Clone)]
 pub struct SmsStatusTask {
     inner: Arc<Vec<Box<dyn SmsStatusTaskExecutor>>>,
     recrod: Arc<SmsRecord>,
     db: Pool<sqlx::MySql>,
     setting: Arc<MultipleSetting>,
     message_logs: Arc<MessageLogs>,
-    notify: Arc<AppNotify>,
+    notify_sender: Arc<AppNotifySender>,
 }
 
 impl SmsStatusTask {
@@ -171,7 +170,7 @@ impl SmsStatusTask {
         inner: Vec<Box<dyn SmsStatusTaskExecutor>>,
         recrod: Arc<SmsRecord>,
         db: Pool<sqlx::MySql>,
-        notify: Arc<AppNotify>,
+        notify_sender: Arc<AppNotifySender>,
         setting: Arc<MultipleSetting>,
         message_logs: Arc<MessageLogs>,
     ) -> Result<Self, SenderError> {
@@ -187,7 +186,7 @@ impl SmsStatusTask {
             db,
             setting,
             message_logs,
-            notify,
+            notify_sender,
         })
     }
 }
@@ -285,7 +284,7 @@ impl TaskExecutor<u64, SmsStatusTaskItem> for SmsStatusTask {
                                     }
                                     add_notify_callback(
                                         &self.db,
-                                        &self.notify,
+                                        &self.notify_sender,
                                         body.app_id,
                                         sms.id,
                                     )

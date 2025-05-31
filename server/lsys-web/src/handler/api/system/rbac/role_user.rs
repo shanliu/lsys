@@ -204,7 +204,7 @@ pub async fn role_user_data(
             "data":bind_vec_user_info_from_req!(
                 req_dao,
                 res,
-                user_id
+                user_id,false
             ),
             "total":count
     }))))

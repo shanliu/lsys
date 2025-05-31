@@ -199,47 +199,50 @@ impl<T: WaitItem + Serialize + DeserializeOwned + Debug> WaitNotify<T> {
         let mut lock_data = self.sender_data.lock().await;
         let tmp = std::mem::take(&mut *lock_data);
         debug!(
-            "notify  wait {} all list count {}",
+            "notify  wait {}: all list count {}",
             self.channel_name,
             tmp.len()
         );
         // println!("{:?}", tmp.iter().map(|e| &e.0).collect::<Vec<&T>>());
         let (tmp1, tmp2) = tmp.into_iter().partition(|(a, _)| {
-            debug!("list data:{:?},notify data:{:?}", &a, &msg.data);
+            debug!(
+                "notify  wait {}: list data:{:?},notify data:{:?}",
+                self.channel_name, &a, &msg.data
+            );
             a.eq(&msg.data)
         });
         *lock_data = tmp2;
         drop(lock_data);
         debug!(
-            "notify  wait {} find list count {}",
+            "notify  wait {}: find list count {}",
             self.channel_name,
             tmp1.len()
         );
         let succ_find = !tmp1.is_empty();
         for (tmp_data, tmp_res) in tmp1 {
             debug!(
-                "notify wait {} find:{:?} ={:?}",
+                "notify wait {}: item [{:?} ={:?}]",
                 self.channel_name, tmp_data, msg.data
             );
             if tmp_res.is_closed() {
                 info!(
-                    "notify wait {} channel is close[run] {:?}",
+                    "notify wait {}: channel is close[run] {:?}",
                     self.channel_name, tmp_data
                 );
             } else if let Err(err) = tmp_res.send(msg.res.to_owned()) {
                 warn!(
-                    "notify wait {} channel send fail,data: {:?} error:{:?}",
+                    "notify wait {}: channel send fail,data: {:?} error:{:?}",
                     self.channel_name, tmp_data, err
                 );
             }
         }
-        if succ_find {
-            return Ok(());
+        if !succ_find {
+            info!(
+                "notify wait {}: data [{:?}] not match any wait",
+                self.channel_name, msg.data
+            );
         }
-        Err(format!(
-            "notify wait {} unkown notify {:?}",
-            self.channel_name, msg.data
-        ))
+        Ok(())
     }
     async fn listen_clear(&self) {
         let mut lock_data = self.sender_data.lock().await;

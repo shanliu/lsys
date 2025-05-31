@@ -170,13 +170,22 @@ impl AccessAuth {
     ) -> AccessResult<String> {
         let user_data = login_param.user_data.to_string();
         let mut valid_param = ValidParam::default();
-        valid_param.add(
-            valid_key!("user_data"),
-            &user_data,
-            &ValidParamCheck::default()
-                .add_rule(ValidStrlen::range(1, 32))
-                .add_rule(ValidPattern::Ident),
-        );
+        valid_param
+            .add(
+                valid_key!("user_data"),
+                &user_data,
+                &ValidParamCheck::default()
+                    .add_rule(ValidStrlen::range(1, 32))
+                    .add_rule(ValidPattern::Ident),
+            )
+            .add(
+                valid_key!("user_nickname"),
+                &login_param.user_nickname,
+                &ValidParamCheck::default()
+                    .add_rule(ValidStrlen::range(0, 32))
+                    .add_rule(ValidPattern::NotFormat),
+            );
+
         if let Some(ref token_data) = login_param.token_data {
             valid_param.add(
                 valid_key!("token_data"),
@@ -253,7 +262,7 @@ impl AccessAuth {
             .map(|e| e.user_account.to_owned().unwrap_or_default())
             .unwrap_or_default();
 
-        let time = now_time()?;
+        let time = now_time().unwrap_or_default();
 
         let user_id = self
             .user
@@ -287,67 +296,123 @@ impl AccessAuth {
             .map(|e| e.device_name.unwrap_or_default().to_string())
             .unwrap_or_default();
         let login_type = login_param.login_type.to_owned();
-        let mut db = self.db.begin().await?;
-
-        let status = SessionStatus::Enable as i8;
-
-        let vdata = lsys_core::model_option_set!(SessionModelRef,{
-            user_id:user_id,
-            user_app_id:login_param.app_id,
-            oauth_app_id:login_param.oauth_app_id,
-            token_data:token_data,
-            login_type:login_type,
-            login_ip:login_ip,
-            device_id:device_id,
-            device_name:device_name,
-            status:status,
-            add_time:time,
-            expire_time:expire_time,
-            logout_time:0,
-        });
-
-        let sid = match Insert::<SessionModel, _>::new(vdata)
-            .execute(&mut *db)
-            .await
-        {
-            Ok(id) => id.last_insert_id(),
-            Err(err) => {
-                db.rollback().await?;
-                return Err(err.into());
-            }
-        };
         let session_data = login_param
             .login_data
             .as_ref()
             .map(|e| e.session_data.to_owned())
             .unwrap_or_default();
-        if !session_data.is_empty() {
-            let tmps = session_data
-                .iter()
-                .map(|e| (e.0.to_owned(), e.1.to_string()))
-                .collect::<Vec<_>>();
-            let mut session_data = Vec::with_capacity(tmps.len());
-            for t in tmps.iter() {
-                session_data.push(model_option_set!(SessionDataModelRef,{
-                    session_id:sid,
-                    data_key:t.0,
-                    data_val:t.1,
-                    change_time:time,
-                }));
+        let session_data_tmp = session_data
+            .iter()
+            .map(|e| (e.0.to_owned(), e.1.to_string()))
+            .collect::<Vec<_>>();
+
+        match sqlx::query_as::<_, (u64, i8, String, String)>(&sql_format!(
+            "select id,status,device_id,login_ip from {} where user_app_id={} and token_data = {}",
+            SessionModel::table_name(),
+            login_param.app_id,
+            &token_data,
+        ))
+        .fetch_one(&self.db)
+        .await
+        {
+            Ok((sid, db_status, db_device_id, db_login_ip)) => {
+                if !SessionStatus::Enable.eq(db_status)
+                    || device_id != db_device_id
+                    || login_ip != db_login_ip
+                {
+                    return Err(AccessError::LoginTokenDataExit(sid));
+                }
+                let mut db = self.db.begin().await?;
+                let change = lsys_core::model_option_set!(SessionModelRef,{
+                    device_name:device_name,
+                    expire_time:expire_time,
+                });
+                if let Err(err) = Update::<SessionModel, _>::new(change)
+                    .execute_by_where(&WhereOption::Where(sql_format!("id={} ", sid)), &self.db)
+                    .await
+                {
+                    db.rollback().await?;
+                    return Err(err.into());
+                }
+                if !session_data_tmp.is_empty() {
+                    for t in session_data_tmp.iter() {
+                        let session_data = model_option_set!(SessionDataModelRef,{
+                            session_id:sid,
+                            data_key:t.0,
+                            data_val:t.1,
+                            change_time:time,
+                        });
+                        let change = lsys_core::model_option_set!(SessionDataModelRef,{
+                            data_val:t.1,
+                            change_time:time,
+                        });
+                        if let Err(err) = Insert::<SessionDataModel, _>::new(session_data)
+                            .execute_update(&Update::<SessionDataModel, _>::new(change), &mut *db)
+                            .await
+                        {
+                            db.rollback().await?;
+                            return Err(err.into());
+                        }
+                    }
+                };
+                db.commit().await?;
+
+                self.cache()
+                    .del_session(login_param.app_id, login_param.oauth_app_id, &token_data)
+                    .await?;
             }
+            Err(sqlx::Error::RowNotFound) => {
+                let mut db = self.db.begin().await?;
 
-            if let Err(err) = Insert::<SessionDataModel, _>::new_vec(session_data)
-                .execute(&mut *db)
-                .await
-            {
-                db.rollback().await?;
-                return Err(err.into());
+                let vdata = lsys_core::model_option_set!(SessionModelRef,{
+                    user_id:user_id,
+                    user_app_id:login_param.app_id,
+                    oauth_app_id:login_param.oauth_app_id,
+                    token_data:token_data,
+                    login_type:login_type,
+                    login_ip:login_ip,
+                    device_id:device_id,
+                    device_name:device_name,
+                    status:SessionStatus::Enable as i8,
+                    add_time:time,
+                    expire_time:expire_time,
+                    logout_time:0,
+                });
+
+                let sid = match Insert::<SessionModel, _>::new(vdata)
+                    .execute(&mut *db)
+                    .await
+                {
+                    Ok(id) => id.last_insert_id(),
+                    Err(err) => {
+                        db.rollback().await?;
+                        return Err(err.into());
+                    }
+                };
+
+                if !session_data.is_empty() {
+                    let mut session_data = Vec::with_capacity(session_data_tmp.len());
+                    for t in session_data_tmp.iter() {
+                        session_data.push(model_option_set!(SessionDataModelRef,{
+                            session_id:sid,
+                            data_key:t.0,
+                            data_val:t.1,
+                            change_time:time,
+                        }));
+                    }
+                    if let Err(err) = Insert::<SessionDataModel, _>::new_vec(session_data)
+                        .execute(&mut *db)
+                        .await
+                    {
+                        db.rollback().await?;
+                        return Err(err.into());
+                    }
+                }
+                db.commit().await?;
             }
-        }
+            Err(err) => Err(err)?,
+        };
 
-        db.commit().await?;
-
-        // self.user_cache.del(&user_id).await;
         self.cache()
             .login_data(login_param.app_id, login_param.oauth_app_id, &token_data)
             .await

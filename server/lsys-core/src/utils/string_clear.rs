@@ -36,7 +36,7 @@ pub fn string_clear(input: impl ToString, clear_flag: StringClear, take: Option<
         StringClear::Ident => {
             s = s
                 .chars()
-                .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '.')
+                .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '.' || *c == '_')
                 .collect()
         }
     }

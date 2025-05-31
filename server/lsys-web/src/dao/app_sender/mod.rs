@@ -3,7 +3,7 @@ mod mailer;
 mod smser;
 
 use lsys_app::dao::AppNotify;
-use lsys_app_sender::dao::MessageTpls;
+use lsys_app_sender::dao::{MailSenderConfig, MessageTpls, SmsSenderConfig};
 use lsys_core::{AppCore, AppCoreError, IntoFluentMessage};
 use lsys_logger::dao::ChangeLoggerDao;
 use lsys_setting::dao::SettingDao;
@@ -41,22 +41,33 @@ impl AppSender {
             setting.clone(),
             change_logger.clone(),
             tpl.clone(),
-            None,
-            300, //任务最大执行时间
-            true,
+            MailSenderConfig::default(),
         ));
         // 邮件发送任务
-        let mail_task = mailer.clone();
-        tokio::spawn(async move {
-            if let Err(err) = mail_task.task_sender().await {
-                error!(
-                    "mailer task error:{}",
-                    err.to_fluent_message().default_format()
-                )
+
+        tokio::spawn({
+            let mail_task = mailer.clone();
+            async move {
+                if let Err(err) = mail_task.task_sender().await {
+                    error!(
+                        "mailer task error:{}",
+                        err.to_fluent_message().default_format()
+                    )
+                }
             }
         });
-        let mail_wait = mailer.clone();
-        tokio::spawn(async move { mail_wait.task_wait().await });
+
+        tokio::spawn({
+            let mail_task_sendtime = mailer.clone();
+            async move {
+                mail_task_sendtime.task_sendtime_notify().await;
+            }
+        });
+
+        tokio::spawn({
+            let mail_wait = mailer.clone();
+            async move { mail_wait.task_wait().await }
+        });
 
         //启动回调任务
         let smser = Arc::new(SenderSmser::new(
@@ -66,10 +77,7 @@ impl AppSender {
             setting,
             change_logger,
             notify,
-            None,
-            None,
-            300, //任务最大执行时间
-            true,
+            SmsSenderConfig::default(),
         ));
         //启动短信发送任务
         let sms_task_sender = smser.clone();
@@ -89,6 +97,12 @@ impl AppSender {
                     "smser notify error:{}",
                     err.to_fluent_message().default_format()
                 )
+            }
+        });
+        tokio::spawn({
+            let sms_task_sendtime = smser.clone();
+            async move {
+                sms_task_sendtime.task_sendtime_notify().await;
             }
         });
 

@@ -241,7 +241,7 @@ impl SenderTplConfig {
             .await?;
 
         let find_res = sqlx::query_scalar::<_, u64>(&sql_format!(
-            "select * from {} where sender_type={} and app_id={} and user_id={} and status={} and name={}",
+            "select id from {} where sender_type={} and app_id={} and user_id={} and status={} and name={}",
             SenderTplConfigModel::table_name(),
             self.send_type  as i8,
             app_id,

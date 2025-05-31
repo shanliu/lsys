@@ -30,7 +30,8 @@ pub(crate) async fn barcode(
             let mut out = vec![];
             while let Ok(Some(field)) = payload.try_next().await {
                 out.push(match upload_file(field, &rest).await {
-                    Ok((file_path, ext)) => {
+                    Ok((_tmp_dir, file_path, ext)) => {
+                        dbg!(&file_path, &ext);
                         match parse_image(file_path, &ext, &param, &app, &rest).await {
                             Ok(dat) => {
                                 json!({
@@ -62,7 +63,11 @@ pub(crate) async fn barcode(
     .into())
 }
 
-async fn upload_file(mut field: Field, rest: &RestQuery) -> Result<(PathBuf, String), String> {
+async fn upload_file(
+    mut field: Field,
+    rest: &RestQuery,
+) -> Result<(tempfile::TempDir, PathBuf, String), String> {
+    //
     let tmp_dir = Builder::new().prefix("barcode").tempdir().map_err(|e| {
         rest.fluent_error_string(&JsonError::Message(fluent_message!(
             "barcode-file-dir-error",
@@ -139,5 +144,5 @@ async fn upload_file(mut field: Field, rest: &RestQuery) -> Result<(PathBuf, Str
             .extensions_str()[0];
     }
     drop(tmp_file);
-    Ok((file_path, ext.to_string()))
+    Ok((tmp_dir, file_path, ext.to_string()))
 }

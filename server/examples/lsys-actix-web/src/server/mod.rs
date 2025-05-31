@@ -58,6 +58,11 @@ pub async fn create_server(app_dir: &str) -> Result<Server, AppError> {
                         .find_app_secret_by_client_id(&app_key)
                         .map_err(|e| e.fluent_format(&app_data.fluent.locale(None)))
                         .await
+                        .map(|e| {
+                            e.into_iter()
+                                .map(|e| e.secret_data)
+                                .collect::<Vec<String>>()
+                        })
                 })
             }));
         let app = App::new()

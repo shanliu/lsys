@@ -3,7 +3,8 @@ mod app;
 use lsys_access::dao::SessionBody;
 use lsys_app_sender::{
     dao::{
-        MailSenderDao, MessageTpls, SenderError, SenderResult, SenderSmtpConfig, SmtpSenderTask,
+        MailSenderConfig, MailSenderDao, MessageTpls, SenderError, SenderResult, SenderSmtpConfig,
+        SmtpSenderTask,
     },
     model::{SenderMailBodyModel, SenderMailMessageModel},
 };
@@ -34,9 +35,7 @@ impl SenderMailer {
         setting: Arc<SettingDao>,
         logger: Arc<ChangeLoggerDao>,
         tpls: Arc<MessageTpls>,
-        task_size: Option<usize>,
-        task_timeout: usize,
-        is_check: bool,
+        mail_config: MailSenderConfig,
     ) -> Self {
         let mailer_dao = Arc::new(MailSenderDao::new(
             app_core.clone(),
@@ -44,10 +43,7 @@ impl SenderMailer {
             db,
             setting.clone(),
             logger.clone(),
-            task_size,
-            task_timeout,
-            is_check,
-            None,
+            mail_config,
         ));
         let smtp_sender =
             SenderSmtpConfig::new(setting.multiple.clone(), mailer_dao.tpl_config.clone());
@@ -124,6 +120,10 @@ impl SenderMailer {
     // 后台任务
     pub async fn task_wait(&self) {
         self.mailer_dao.task_wait().await
+    }
+    // 后台任务
+    pub async fn task_sendtime_notify(&self) {
+        self.mailer_dao.task_sendtime_notify(None).await;
     }
     // 取消发送接口
     pub async fn send_cancel(

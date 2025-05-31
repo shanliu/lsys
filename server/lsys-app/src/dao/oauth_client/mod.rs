@@ -332,11 +332,11 @@ impl AppOAuthClient {
             return Err(AppError::System(fluent_message!("app-req-status-invalid")));
         }
         let req_res = sqlx::query_as::<_, AppRequestModel>(&sql_format!(
-            "select * from {} where app_id={} and feature_key={}
+            "select * from {} where app_id={} and request_type={}
             ",
             AppRequestModel::table_name(),
             app.id,
-            AppRequestType::OAuthClient.feature_key(),
+            AppRequestType::OAuthClient as i8,
         ))
         .fetch_one(&self.db)
         .await;
@@ -404,7 +404,7 @@ impl AppOAuthClient {
         .await;
 
         let fe_res = sqlx::query_scalar::<_, u64>(&sql_format!(
-            "select id,status from {} where app_id={} and feature_key={}
+            "select id from {} where app_id={} and feature_key={}
             ",
             AppFeatureModel::table_name(),
             app.id,
@@ -483,7 +483,7 @@ impl AppOAuthClient {
                     change_user_id:confirm_user_id,
                     change_time:time
                 });
-                let cres = Insert::<AppRequestModel, _>::new(idata)
+                let cres = Insert::<AppOAuthClientModel, _>::new(idata)
                     .execute(&mut *db)
                     .await;
                 if let Err(err) = cres {

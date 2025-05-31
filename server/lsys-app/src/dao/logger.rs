@@ -129,3 +129,40 @@ impl ChangeLogData for AppViewSecretLog<'_> {
         serde_json::to_string(&self).unwrap_or_default()
     }
 }
+
+#[derive(Serialize)]
+pub(crate) struct AppNotifyConfigLog<'t> {
+    pub notify_method: &'t str,
+    pub url: &'t str,
+    pub user_id: u64,
+}
+
+impl ChangeLogData for AppNotifyConfigLog<'_> {
+    fn log_type() -> &'static str {
+        "app-notify-set"
+    }
+    fn message(&self) -> String {
+        format!("set {} notify url", self.notify_method,)
+    }
+    fn encode(&self) -> String {
+        serde_json::to_string(&self).unwrap_or_default()
+    }
+}
+
+#[derive(Serialize)]
+pub(crate) struct AppNotifyDataDelLog<'t> {
+    pub source: &'t str,
+    pub info: &'t str,
+}
+
+impl ChangeLogData for AppNotifyDataDelLog<'_> {
+    fn log_type() -> &'static str {
+        "app-notify-del"
+    }
+    fn message(&self) -> String {
+        format!("notify del,source:{}", self.source,)
+    }
+    fn encode(&self) -> String {
+        serde_json::to_string(&self).unwrap_or_default()
+    }
+}

@@ -131,6 +131,9 @@ impl JsonFluent for AccessError {
     fn to_json_data(&self, fluent: &FluentBundle) -> JsonData {
         let json_data = JsonData::default().set_sub_code("access").set_code(500);
         match self {
+            AccessError::LoginTokenDataExit(_) => {
+                json_data.set_code(400).set_sub_code("token_data")
+            }
             AccessError::Sqlx(err) => err.to_json_data(fluent),
             AccessError::Redis(err) => err.to_json_data(fluent),
             AccessError::RedisPool(err) => err.to_json_data(fluent),

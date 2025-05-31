@@ -283,7 +283,7 @@ pub struct AppNotifyConfigModel {
 
     /// 请求方法名
     #[sqlx(default)]
-    pub method: String,
+    pub notify_method: String,
 
     /// 请求方法名
     #[sqlx(default)]
@@ -313,13 +313,21 @@ pub struct AppNotifyDataModel {
     #[sqlx(default)]
     pub app_id: u64,
 
+    //请求类型
+    #[sqlx(default)]
+    pub notify_type: u8,
+
     /// 请求方法名
     #[sqlx(default)]
-    pub method: String,
+    pub notify_method: String,
+
+    /// 应用内部表示
+    #[sqlx(default)]
+    pub notify_key: String,
 
     /// 请求JSON数据
     #[sqlx(default)]
-    pub payload: String,
+    pub notify_payload: String,
 
     /// 请求状态
     #[sqlx(default)]
@@ -331,7 +339,19 @@ pub struct AppNotifyDataModel {
 
     /// 请求次数
     #[sqlx(default)]
-    pub try_num: i8,
+    pub try_max: u8,
+
+    /// 请求次数
+    #[sqlx(default)]
+    pub try_num: u8,
+
+    /// 回调时间计算方式
+    #[sqlx(default)]
+    pub try_mode: i8,
+
+    /// 回调时间基数
+    #[sqlx(default)]
+    pub try_delay: u16,
 
     /// 最后推送时间
     #[sqlx(default)]
@@ -340,6 +360,10 @@ pub struct AppNotifyDataModel {
     /// 下次推送时间
     #[sqlx(default)]
     pub next_time: u64,
+
+    /// 下次推送时间
+    #[sqlx(default)]
+    pub delete_time: u64,
 
     /// 创建时间
     #[sqlx(default)]

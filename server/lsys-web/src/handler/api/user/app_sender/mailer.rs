@@ -311,7 +311,8 @@ pub async fn mailer_message_cancel(
 #[derive(Debug, Deserialize)]
 pub struct MailerMessageSendParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
-    pub tpl_config_id: u64,
+    pub app_id: u64,
+    pub tpl_key: String,
     pub data: HashMap<String, String>,
     pub to: Vec<String>,
     pub reply: Option<String>,
@@ -325,20 +326,12 @@ pub async fn mailer_message_send(
     param: &MailerMessageSendParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonResponse> {
-    let tpl = req_dao
-        .web_dao
-        .app_sender
-        .mailer
-        .mailer_dao
-        .tpl_config
-        .find_by_id(param.tpl_config_id)
-        .await?;
     let app = req_dao
         .web_dao
         .web_app
         .app_dao
         .app
-        .find_by_id(tpl.app_id)
+        .find_by_id(param.app_id)
         .await?;
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
@@ -371,7 +364,7 @@ pub async fn mailer_message_send(
         .mailer
         .app_send(
             &app,
-            tpl.tpl_key.as_str(),
+            param.tpl_key.as_str(),
             &to,
             &param
                 .data

@@ -7,7 +7,7 @@ use crate::{
         SenderType,
     },
 };
-use lsys_app::dao::AppNotify;
+use lsys_app::dao::AppNotifySender;
 use lsys_core::db::SqlQuote;
 use lsys_core::db::{ModelTableName, SqlExpr};
 use lsys_core::sql_format;
@@ -21,11 +21,9 @@ use serde_json::json;
 use sqlx::Pool;
 use tracing::{info, warn};
 
-pub const SMS_NOTIFY_TYPE: &str = "sms_notify";
-
 pub(crate) async fn add_notify_callback(
     db: &Pool<sqlx::MySql>,
-    notify: &Arc<AppNotify>,
+    notify_sender: &AppNotifySender,
     app_id: u64,
     sms_id: u64,
 ) {
@@ -48,10 +46,11 @@ pub(crate) async fn add_notify_callback(
             return;
         }
     };
-    if let Err(err) = notify
-        .add(
-            SMS_NOTIFY_TYPE,
+    if let Err(err) = notify_sender
+        .send(
             app_id,
+            // SMS_NOTIFY_TYPE,
+            &sms.id.to_string(),
             &json!({
                 "id":sms.id,
                 "mobile":sms.mobile,
@@ -60,6 +59,10 @@ pub(crate) async fn add_notify_callback(
                 "receive_time":sms.receive_time,
             })
             .to_string(),
+            // 3,
+            // AppNotifyTryTimeMode::Exponential,
+            // 60,
+            // false,
         )
         .await
     {
@@ -108,16 +111,16 @@ pub trait SmsSendNotifyParse {
 pub struct SmsSendNotify {
     db: Pool<sqlx::MySql>,
     message_logs: Arc<MessageLogs>,
-    notify: Arc<AppNotify>,
+    notify_sender: Arc<AppNotifySender>,
 }
 
 impl SmsSendNotify {
-    pub fn new(db: Pool<sqlx::MySql>, notify: Arc<AppNotify>) -> Self {
+    pub fn new(db: Pool<sqlx::MySql>, notify_sender: Arc<AppNotifySender>) -> Self {
         let message_logs = Arc::new(MessageLogs::new(db.clone(), SenderType::Smser));
         Self {
             db,
             message_logs,
-            notify,
+            notify_sender,
         }
     }
     //输出符合指定设配器的结果
@@ -258,8 +261,13 @@ impl SmsSendNotify {
                                     self.message_logs
                                         .add_exec_log(b.app_id, &[(m.id, status, &msg)], "")
                                         .await;
-                                    add_notify_callback(&self.db, &self.notify, b.app_id, m.id)
-                                        .await;
+                                    add_notify_callback(
+                                        &self.db,
+                                        &self.notify_sender,
+                                        b.app_id,
+                                        m.id,
+                                    )
+                                    .await;
                                 }
                                 None => {
                                     warn!("body is miss. {:?} [{}]", m.id, msg);

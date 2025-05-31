@@ -15,6 +15,7 @@ pub enum AccessError {
     RedisPool(PoolError),
     NotLogin,
     IsLogout,
+    LoginTokenDataExit(u64),
     System(FluentMessage),
     SerdeJson(serde_json::Error),
     BadAccount(FluentMessage),
@@ -24,6 +25,9 @@ pub enum AccessError {
 impl IntoFluentMessage for AccessError {
     fn to_fluent_message(&self) -> FluentMessage {
         match self {
+            AccessError::LoginTokenDataExit(id) => {
+                fluent_message!("access-token-data-exits",{"id":id,})
+            }
             AccessError::NotLogin => fluent_message!("access-not-login"),
             AccessError::IsLogout => fluent_message!("access-not-login"),
             AccessError::Sqlx(err) => fluent_message!("sqlx-error", err),

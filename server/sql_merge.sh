@@ -10,7 +10,7 @@ for d in */; do
             if [ "$(uname)" = "Darwin" ]; then
                 echo  "-- ---------- $f ------------" >> "$outputFile"
                 cat "$f" >> "$outputFile"
-                echo  "-- ---------- $f ------------" >> "$outputFile"
+                echo  "\n-- ---------- $f ------------" >> "$outputFile"
             else
                 echo -e "-- ---------- $f ------------" >> "$outputFile"
                 cat "$f" >> "$outputFile"

@@ -4,6 +4,7 @@ papp-id-bad = 应用{$name}不可添加子应用
 app-find-bad-status = 应用ID[{$client_id}]状态异常
 app-req-is-confirm = 该应用请求已处理
 app-req-is-invalid = 该应用请求无效
+app-req-is-miss-info = 请求审核数据缺失
 app-req-status-invalid = 应用确认状态无效
 app-req-bad = 应用未请求或请求授权异常
 app-req-bad-app = 应用未请求授权 
@@ -24,6 +25,7 @@ app-session-refresh-error = 重置应用{$client_id}的授权信息失败:{$msg}
 app-session-clear-error = 清除应用的登录信息失败:{$msg}
 papp-not-match-parent = 当前选择的父应用{$name}于账号应用不匹配
 papp-bad-parent = 请选择父应用
+del-notify-data-bad-status = 当前回调不可删除
 
 notify-reqwest-build-error = 构建回调通知请求异常:{$msg}
 notify-reqwest-check-error = 回调通知[{$url}]时异常:{$msg}

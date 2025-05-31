@@ -93,4 +93,18 @@ pub enum AppNotifyDataStatus {
     Init = 1,
     Succ = 2,
     Fail = 3,
+    Delete = -1,
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[lsys_model_status(field_type = "i8")]
+pub enum AppNotifyTryTimeMode {
+    Fixed = 1,
+    Exponential = 2,
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[lsys_model_status(field_type = "u8")]
+pub enum AppNotifyType {
+    Http = 1,
 }

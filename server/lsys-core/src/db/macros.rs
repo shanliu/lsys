@@ -302,7 +302,6 @@ macro_rules! db_model_enum_status_define {
                 return self as $type
             }
             pub fn fluent(&self)->$crate::FluentMessage{
-                //@todo 要反向得到名
                  $(
                     if *self ==$item {
                        return  $crate::FluentMessage {

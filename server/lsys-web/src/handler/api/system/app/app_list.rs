@@ -115,7 +115,7 @@ pub async fn app_list(param: &ListParam, req_dao: &UserAuthQueryDao) -> JsonResu
             oauth_client_data: e.1.oauth_client_data.map(|t| {
                 json!({
                     "callback_domain":t.callback_domain,
-                    "scope_dat":t.scope_data,
+                    "scope_data":t.scope_data,
                 })
             }),
             oauth_server_scope_data: e.1.oauth_server_scope_data.map(|t| {
@@ -171,7 +171,7 @@ pub async fn app_list(param: &ListParam, req_dao: &UserAuthQueryDao) -> JsonResu
         "data": bind_vec_user_info_from_req!(
             req_dao,
             out,
-            user_id
+            user_id,false
         ),
         "total":count
     }))))

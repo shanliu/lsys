@@ -4,7 +4,6 @@ use crate::common::JsonResult;
 use image::ImageFormat;
 use lsys_app_barcode::dao::{BarCodeConfig, BarCodeDao};
 use lsys_app_barcode::model::BarcodeCreateModel;
-use lsys_app_barcode::model::BarcodeCreateStatus;
 use lsys_core::{fluent_message, AppCore, RemoteNotify};
 use lsys_logger::dao::ChangeLoggerDao;
 
@@ -52,11 +51,6 @@ impl AppBarCode {
         barcode_create: &BarcodeCreateModel,
         use_cache: bool,
     ) -> JsonResult<(ImageFormat, Vec<u8>)> {
-        if !BarcodeCreateStatus::EnablePublic.eq(barcode_create.status) {
-            return Err(JsonError::Message(fluent_message!(
-                "barcode-bad-auth-error"
-            )));
-        }
         let image_buffer = if use_cache {
             self.barcode_dao
                 .cache()

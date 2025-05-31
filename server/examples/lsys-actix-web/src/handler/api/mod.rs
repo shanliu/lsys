@@ -149,7 +149,7 @@ where
         );
     #[cfg(feature = "barcode")]
     {
-        api_scope = api_scope.service(
+        user_scope = user_scope.service(
             scope("/app_barcode")
                 .service(user::app::barcode)
                 .service(public::options),

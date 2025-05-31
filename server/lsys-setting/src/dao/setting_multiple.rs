@@ -88,7 +88,7 @@ impl MultipleSetting {
         self.add_param_valid(&key, &name, &edata).await?;
 
         let find_res = sqlx::query_scalar::<_, u64>(&sql_format!(
-            "select * from {} where setting_type={} and user_id={} and setting_key={} and status={} and name={}",
+            "select id from {} where setting_type={} and user_id={} and setting_key={} and status={} and name={}",
             SettingModel::table_name(),
             setting_type,
             uid,
@@ -207,7 +207,7 @@ impl MultipleSetting {
         self.edit_param_valid(id, &key, &name, &edata).await?;
 
         let find_res = sqlx::query_scalar::<_, u64>(&sql_format!(
-            "select * from {} where setting_type={} and user_id={} and setting_key={} and status={} and name={} and id!={}",
+            "select id from {} where setting_type={} and user_id={} and setting_key={} and status={} and name={} and id!={}",
             SettingModel::table_name(),
             SettingType::Multiple as i8,
             uid,

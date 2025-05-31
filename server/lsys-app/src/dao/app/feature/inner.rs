@@ -28,7 +28,7 @@ impl App {
     ) -> AppResult<()> {
         app.app_status_check()?;
         let req_res = sqlx::query_scalar::<_, i8>(&sql_format!(
-            "select id,status from {} where app_id={} and feature_key = {}",
+            "select status from {} where app_id={} and feature_key = {} limit 1",
             AppFeatureModel::table_name(),
             app.id,
             inner_request_type.feature_key(),
@@ -51,7 +51,7 @@ impl App {
         let request_type = inner_request_type as i8;
 
         let req_res = sqlx::query_scalar::<_, u64>(&sql_format!(
-            "select id from {} where  parent_app_id={} and app_id={} and request_type={} and status={} ",
+            "select id from {} where  parent_app_id={} and app_id={} and request_type={} and status={} limit 1",
             AppRequestModel::table_name(),
             app.parent_app_id,
             app.id,

@@ -576,7 +576,7 @@ impl App {
 }
 
 impl App {
-    //添加查看secret日志
+    //查看secret
     pub async fn app_view_secret(
         &self,
         app: &AppModel,
