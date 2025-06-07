@@ -290,3 +290,5 @@ impl FluentFormat for lsys_app_barcode::dao::BarCodeError {
         }
     }
 }
+#[cfg(feature = "barcode")]
+crate_error_fluent_string!(base64::DecodeError, "base64-error");

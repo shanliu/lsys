@@ -27,7 +27,7 @@ pub struct LimitParam {
     #[serde(deserialize_with = "super::deserialize_u64")]
     limit: u64, //显示数量
     #[serde(deserialize_with = "super::deserialize_bool")]
-    is_next: bool, //获取上一页还是下一页
+    forward: bool, //获取上一页还是下一页
     #[serde(default, deserialize_with = "super::deserialize_option_bool")]
     more: Option<bool>, //是否检测有下一页数据 null或false 不检测
 }
@@ -37,7 +37,7 @@ impl Default for LimitParam {
             pos: None,
             eq_pos: None,
             limit: 10,
-            is_next: false,
+            forward: false,
             more: Some(false),
         }
     }
@@ -54,7 +54,7 @@ impl From<&LimitParam> for lsys_core::LimitParam {
             pos,
             p.eq_pos.unwrap_or(false),
             limit,
-            p.is_next,
+            p.forward,
             p.more.unwrap_or(false),
         )
     }

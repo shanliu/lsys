@@ -38,7 +38,6 @@ pub struct ShowAppRecord {
     pub user_id: u64,
     pub change_time: u64,
     pub change_user_id: u64,
-    pub parent_app: Option<serde_json::Value>, //对应的父应用信息
     pub exter_login: bool,
     pub oauth_client: bool,                           //是否启用OAUTH登录
     pub oauth_client_data: Option<serde_json::Value>, //OAUTH登录信息
@@ -101,13 +100,6 @@ pub async fn app_list(param: &ListParam, req_dao: &UserAuthQueryDao) -> JsonResu
             user_id: e.0.user_id,
             change_time: e.0.change_time,
             change_user_id: e.0.change_user_id,
-            parent_app: e.1.parent_app.map(|t| {
-                json!({
-                    "id":t.id,
-                    "name":t.name,
-                    "user_id":t.user_id,
-                })
-            }),
             exter_login: e.1.exter_login.unwrap_or(false),
             oauth_client: e.1.oauth_client.unwrap_or(false),
             sup_app: e.1.sup_app.unwrap_or(false),

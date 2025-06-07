@@ -5,7 +5,7 @@ use lsys_web::{
     handler::api::public::app::{barcode_show, BarCodeShowCodeParam},
 };
 
-#[get("/{code_id}/{contents:.*}", name = "barcode_show")]
+#[get("/{content_type}/{code_id}/{content_data:.*}", name = "barcode_show")]
 pub(crate) async fn show_code(
     param: actix_web::web::Path<BarCodeShowCodeParam>,
     req_dao: ReqQuery,

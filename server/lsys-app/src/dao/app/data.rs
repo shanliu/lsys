@@ -523,7 +523,7 @@ impl App {
         };
         Some(sql_vec)
     }
-    //指定用户APP的数据
+    //用户可用父APP列表
     pub async fn user_parent_app_data(
         &self,
         app_where: &UserParentAppDataParam<'_>,
@@ -555,7 +555,7 @@ impl App {
         .await?;
         Ok(out_data)
     }
-    //指定用户APP的数量
+    //用户可用父APP列表
     pub async fn user_parent_app_count(
         &self,
         app_where: &UserParentAppDataParam<'_>,

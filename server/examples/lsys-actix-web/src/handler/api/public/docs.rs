@@ -13,7 +13,7 @@ use lsys_web::handler::api::public::docs::{
 };
 use tracing::debug;
 
-#[get("/raw/{id}/{path}")]
+#[get("/raw/{id}/{path:.*}")]
 pub async fn docs_raw(
     req_dao: ReqQuery,
     info: web::Path<(u32, String)>,

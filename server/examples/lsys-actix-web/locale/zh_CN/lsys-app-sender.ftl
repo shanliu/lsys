@@ -1,6 +1,6 @@
 
 
-tpl-exits  = 模板ID {$tpl_id} 已被使用 [{$id}]
+tpl-exits  = 模板ID {$tpl_id} 已被使用 ({$id})
 smtp-check-error   = Smpt服务器异常:{$msg}
 mail-send-fail = 邮件发送失败:{$msg}
 mail-send-wait-fail = 邮件发送中,获取发送结果失败:{$msg}
@@ -8,10 +8,10 @@ mail-config-add-error  = 邮件配置:字段{$name}校验失败:{$msg}
 mail-config-add-max-num-error = 请提交每次最大邮件限制发送数
 mail-send-check-miss-error = 接收邮箱为空
 mail-send-check-max-send  = 超过每次最大邮件发送量:{$max}
-mail-send-check-block  = 接收邮箱:{$to} 已被屏蔽[{$config_id}]
-mail-send-check-block-domain  = 接收邮箱域名:{$domain} 已被屏蔽[{$config_id}]
-mail-send-check-close  = 邮件发送功能已被关闭[{$config_id}]
-mail-send-check-limit  = 接收邮箱[{$to_mail}]超过最大发送量:{$max_send}[{$config_id}]
+mail-send-check-block  = 接收邮箱:{$to} 已被屏蔽({$config_id})
+mail-send-check-block-domain  = 接收邮箱域名:{$domain} 已被屏蔽({$config_id})
+mail-send-check-close  = 邮件发送功能已被关闭({$config_id})
+mail-send-check-limit  = 接收邮箱({$to_mail})超过最大发送量:{$max_send}({$config_id})
 mail-task-empty = 未配置邮件发送任务
 mail-send-cancel-status-bad = 当前状态不可被取消
 mail-send-cancel-is-ing  = 邮件发送中,无法取消
@@ -25,9 +25,9 @@ sms-send-fail = 短信发送失败:{$msg}
 sms-send-wait-fail = 短信发送中,获取发送结果失败:{$msg}
 sms-send-check-miss-error = 接收短信为空
 sms-send-check-max-send  = 超过每次最大短信发送量:{$max}
-sms-send-check-block  = 接收号码:{$mobile} 已被屏蔽[{$config_id}]
-sms-send-check-close  = 短信发送功能已被关闭[{$config_id}]
-sms-send-check-limit  = 接收号码[{$mobile}]超过最大发送量:{$max_send}[{$config_id}]
+sms-send-check-block  = 接收号码:{$mobile} 已被屏蔽({$config_id})
+sms-send-check-close  = 短信发送功能已被关闭({$config_id})
+sms-send-check-limit  = 接收号码({$mobile})超过最大发送量:{$max_send}({$config_id})
 sms-task-empty = 未配置短信发送任务
 sms-status-task-empty = 未配置短信状态检测任务
 tpl-name-exits = 同应用下已存在名称为{$name}的应用,ID为:{$id}

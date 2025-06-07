@@ -171,9 +171,25 @@ impl TimeOutTaskNextTime for SubAppChangeNotify {
     async fn next_time(&self, max_lock_time: usize) -> Result<Option<u64>, String> {
         let ntime = now_time().unwrap_or_default();
         let timeout_res = sqlx::query_scalar::<_, u64>(&sql_format!(
-            "select time_out from  {}  where 
-                status={} and time_out >0 and time_out <={} order by time_out asc limit 1",
+            r#"
+                select
+                    se.time_out
+                from
+                        {} as se
+                left join
+                        {} as da
+                on
+                        se.app_id= da.app_id
+                where
+                        se.status   ={}
+                and  se.time_out >0 and se.time_out <={}
+                and (se.time_out <da.create_time or da.create_time is null)
+                order by
+                        se.time_out asc
+                limit 1
+            "#,
             AppSecretModel::table_name(),
+            AppNotifyDataModel::table_name(),
             AppSecretStatus::Enable as i8,
             (ntime + max_lock_time as u64)
         ))

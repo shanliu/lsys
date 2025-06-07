@@ -27,17 +27,22 @@ pub async fn site_config(
         .into())
 }
 
-#[post("oauth_config/{oauth}/{type}")]
+#[derive(Debug, serde::Deserialize)]
+pub struct OAuthConfigParam {
+    pub oauth_type: String,
+    pub op_type: String,
+}
+
+#[post("oauth_config/{oauth_type}/{op_type}")]
 pub async fn oauth_config(
-    path: actix_web::web::Path<(String, String)>,
+    param: actix_web::web::Path<OAuthConfigParam>,
     jwt: JwtQuery,
     auth_dao: UserAuthQuery,
     json_param: JsonQuery,
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao.set_request_token(&jwt).await;
-    let (oauth_type, op_type) = path.into_inner();
-    let res = match oauth_type.as_str() {
-        OAUTH_TYPE_WECHAT => match op_type.as_str() {
+    let res = match param.oauth_type.as_str() {
+        OAUTH_TYPE_WECHAT => match param.op_type.as_str() {
             "get" => wechat_get_config(&auth_dao).await,
             "set" => {
                 wechat_set_config(json_param.param::<WechatSetConfigParam>()?, &auth_dao).await

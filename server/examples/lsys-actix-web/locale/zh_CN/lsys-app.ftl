@@ -1,7 +1,7 @@
-app-client-id-exits = 应用ID[{$client_id}]已被其他应用 {$other_name} 使用
-app-client-id-req = 应用ID[{$client_id}]已被占用
+app-client-id-exits = 应用ID({$client_id})已被其他应用 {$other_name} 使用
+app-client-id-req = 应用ID({$client_id})已被占用
 papp-id-bad = 应用{$name}不可添加子应用
-app-find-bad-status = 应用ID[{$client_id}]状态异常
+app-find-bad-status = 应用ID({$client_id})状态异常
 app-req-is-confirm = 该应用请求已处理
 app-req-is-invalid = 该应用请求无效
 app-req-is-miss-info = 请求审核数据缺失
@@ -28,7 +28,7 @@ papp-bad-parent = 请选择父应用
 del-notify-data-bad-status = 当前回调不可删除
 
 notify-reqwest-build-error = 构建回调通知请求异常:{$msg}
-notify-reqwest-check-error = 回调通知[{$url}]时异常:{$msg}
+notify-reqwest-check-error = 回调通知({$url})时异常:{$msg}
 
 # 状态
 status-NotifyDataStatus-Init = 未回调

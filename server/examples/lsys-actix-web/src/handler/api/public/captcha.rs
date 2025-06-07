@@ -6,17 +6,25 @@ use lsys_web::dao::CaptchaKey;
 
 use crate::common::handler::ReqQuery;
 
-#[get("/{type}/{tag}")]
+#[derive(Debug, serde::Deserialize)]
+pub struct CaptchaParam {
+    pub captcha_type: String,
+    pub captcha_tag: String,
+}
+
+#[get("/{captcha_type}/{captcha_tag}")]
 pub(crate) async fn captcha(
-    path: actix_web::web::Path<(String, String)>,
+    param: actix_web::web::Path<CaptchaParam>,
     req_dao: ReqQuery,
 ) -> HttpResponse {
-    let path = path.into_inner();
-    match CaptchaKey::from_str(path.0.as_str()) {
+    match CaptchaKey::from_str(param.captcha_type.as_str()) {
         Ok(captcha_key) => {
             let valid_code = req_dao.web_dao.app_captcha.valid_code(&captcha_key);
             let mut valid_code_data = req_dao.web_dao.app_captcha.valid_code_builder();
-            match valid_code.set_code(&path.1, &mut valid_code_data).await {
+            match valid_code
+                .set_code(&param.captcha_tag, &mut valid_code_data)
+                .await
+            {
                 Ok(_) => HttpResponse::Ok()
                     .content_type(valid_code_data.image_header)
                     .append_header(CacheControl(vec![

@@ -116,13 +116,16 @@ impl BarCodeDao {
         barcode_create: &BarcodeCreateModel,
         contents: &str,
     ) -> BarCodeResult<ImageBuffer<Rgb<u8>, Vec<u8>>> {
-        ValidParam::default()
-            .add(
-                valid_key!("code_contents"),
-                &contents,
-                &ValidParamCheck::default().add_rule(ValidStrlen::range(1, self.create_max_len)),
-            )
-            .check()?;
+        if self.create_max_len > 0 {
+            ValidParam::default()
+                .add(
+                    valid_key!("code_contents"),
+                    &contents,
+                    &ValidParamCheck::default()
+                        .add_rule(ValidStrlen::range(1, self.create_max_len)),
+                )
+                .check()?;
+        }
         self.barcode.render(barcode_create, contents)
     }
     async fn find_by_hash(&self, app_id: u64, file_hash: &str) -> sqlx::Result<BarcodeParseModel> {
@@ -777,14 +780,16 @@ impl BarCodeCache<'_> {
         contents: &str,
     ) -> BarCodeResult<ImageBuffer<Rgb<u8>, Vec<u8>>> {
         let cont_data = contents.to_owned();
-        match self.dao.create_render.get(&cont_data).await {
+        let key = if cont_data.len() <= 32 {
+            format!("#{}", cont_data)
+        } else {
+            format!("${:x}", md5::compute(&cont_data))
+        };
+        match self.dao.create_render.get(&key).await {
             Some(data) => Ok(data),
             None => {
                 let data = self.dao.create(barcode_create, contents).await?;
-                self.dao
-                    .create_render
-                    .set(contents.to_owned(), data.clone(), 0)
-                    .await;
+                self.dao.create_render.set(key, data.clone(), 0).await;
                 Ok(data)
             }
         }

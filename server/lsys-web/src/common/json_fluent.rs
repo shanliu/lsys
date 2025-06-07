@@ -304,6 +304,8 @@ impl JsonFluent for lsys_app_barcode::dao::BarCodeError {
         }
     }
 }
+#[cfg(feature = "barcode")]
+crate_error_fluent!(base64::DecodeError, "base64");
 
 #[cfg(feature = "docs")]
 impl JsonFluent for GitDocError {

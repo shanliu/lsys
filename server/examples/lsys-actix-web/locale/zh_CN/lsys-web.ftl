@@ -6,7 +6,7 @@ user-external-other-bind = 账号{$name}已绑定其他用户:{$name}
 rbac-unkown-res = 资源{$res}不存在
 address-miss-city = 地址请选择到县区一级
 address-bad-area = 提交的区域编码不存在
-mail-bind-other-user = 邮箱已绑定其他账号[{$other_user_id}]
+mail-bind-other-user = 邮箱已绑定其他账号({$other_user_id})
 db-not-found = 不存在相关记录
 db-error = 数据库错误:{$msg}
 user-old-passwrod-bad = 提交的原密码错误
@@ -15,7 +15,7 @@ mail-is-confirm = 邮箱已经确认过了
 username-is-exists = 账号已经存在:{$id}
 password-not-set = 登陆密码未设置
 client-secret-not-match = Secret 不匹配
-app-redirect-uri-not-match = 跳转域名[redirect_uri]不支持
+app-redirect-uri-not-match = 跳转域名(redirect_uri)不支持
 reg-mobile-registered = 该手机号已注册过账号
 mobile-bind-other-user = 邮箱已绑定其他账号:{$id}
 mobile-is-bind = 邮箱重复绑定
@@ -34,7 +34,7 @@ app-oauth-login-bad-scope = 应用不存在授权:{$scope_data}
 not-system-app-confirm = 非系统应用
 role-perm-bad-op = 资源操作id:{$op_id}数据丢失或不可用
 role-perm-bad-res = 资源id:{$res_id}数据丢失或不可用
-role-user-not-system-user = 用户{$user_name}[{$user_id}]非系统用户，属于应用:{$app_id}
+role-user-not-system-user = 用户{$user_name}({$user_id})非系统用户，属于应用:{$app_id}
 role-user-not-found = 无法添加用户ID{$user_id}到角色,用户id不存在
 not-user-app-confirm = 非子应用
 barcode-add-status-error = 解析记录状态异常:{$msg}
@@ -42,7 +42,8 @@ bad-audit-access = 非法访问审计数据
 barcode-parse-error = 解析失败,记录为:{$record}
 bad-app-id = 非法操作非自身app  
 access-token-data-token-code-exits =登陆时发现 token_code 已使用，请更换
-
+show-barcode-bad-type =不支持数据类型,只支持text或base64
+barcode-bad-auth-error = 非公开二维码配置
 
 #rbac 权限
 res-admin-global-system = 系统后台权限

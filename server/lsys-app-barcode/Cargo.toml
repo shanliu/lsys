@@ -25,3 +25,4 @@ rxing = { version = "0.7.1", default-features = false, features = [
 ] }
 sha2 = "~0.10.8"
 tracing = { version = "~0.1.*" } # log-always 保持log的输出 当使用tracing时会出现两次
+md5 = "~0.7.0"
