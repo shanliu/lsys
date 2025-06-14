@@ -340,7 +340,12 @@ pub async fn smser_message_send(
         .app
         .find_by_id(param.app_id)
         .await?;
-
+    app.app_status_check()?;
+    req_dao
+        .web_dao
+        .web_app
+        .self_app_check(&app, &auth_data)
+        .await?;
     req_dao
         .web_dao
         .web_rbac

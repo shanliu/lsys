@@ -218,6 +218,7 @@ pub async fn app_res_type_op_data(
         .res_type_op_data(
             &res_param,
             None,
+            true,
             param.page.as_ref().map(|e| e.into()).as_ref(),
         )
         .await?;

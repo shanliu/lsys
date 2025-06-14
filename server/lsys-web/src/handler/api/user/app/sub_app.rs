@@ -27,6 +27,12 @@ pub async fn sub_app_request(
         .app
         .find_by_id(param.app_id)
         .await?;
+    app.app_status_check()?;
+    req_dao
+        .web_dao
+        .web_app
+        .self_app_check(&app, &auth_data)
+        .await?;
     req_dao
         .web_dao
         .web_rbac
@@ -130,6 +136,12 @@ pub async fn sub_app_notify_set_config(
         .app_dao
         .app
         .find_by_id(param.app_id)
+        .await?;
+    app.app_status_check()?;
+    req_dao
+        .web_dao
+        .web_app
+        .self_app_check(&app, &auth_data)
         .await?;
     req_dao
         .web_dao

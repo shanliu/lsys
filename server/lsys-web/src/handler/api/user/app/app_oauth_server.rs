@@ -30,11 +30,16 @@ pub async fn oauth_server_client_confirm(
         .app
         .find_by_id(param.app_id)
         .await?;
-
+    app.app_status_check()?;
     if app.parent_app_id == 0 {
         return Err(JsonError::Message(fluent_message!("not-user-app-confirm")));
     }
 
+    req_dao
+        .web_dao
+        .web_app
+        .self_app_check(&app, &auth_data)
+        .await?;
     let parent_app = req_dao
         .web_dao
         .web_app
@@ -170,6 +175,12 @@ pub async fn oauth_server_request(
         .app_dao
         .app
         .find_by_id(param.app_id)
+        .await?;
+    app.app_status_check()?;
+    req_dao
+        .web_dao
+        .web_app
+        .self_app_check(&app, &auth_data)
         .await?;
     req_dao
         .web_dao

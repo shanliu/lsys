@@ -107,6 +107,7 @@ impl WebRbac {
             .res_type_op_data(
                 res_type_data,
                 Some(&op_key.iter().map(|e| e.op_key).collect::<Vec<_>>()),
+                false,
                 None,
             )
             .await?;
@@ -118,7 +119,7 @@ impl WebRbac {
 
         let add_op_data = op_vec_data
             .into_iter()
-            .filter(|(_, op_model)| !op_res_data.iter().any(|e| e.op_id == op_model.id))
+            .filter(|(_, op_model)| !op_res_data.iter().any(|e| e.op_res.op_id == op_model.id))
             .map(|t| t.1)
             .collect::<Vec<_>>();
         self.rbac_dao

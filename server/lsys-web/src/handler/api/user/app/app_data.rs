@@ -301,6 +301,11 @@ pub async fn secret_view(
         .await?;
     req_dao
         .web_dao
+        .web_app
+        .self_app_check(&app, &auth_data)
+        .await?;
+    req_dao
+        .web_dao
         .web_rbac
         .check(
             &req_dao.req_env,
@@ -458,6 +463,11 @@ pub async fn request_list(
         .await?;
     req_dao
         .web_dao
+        .web_app
+        .self_app_check(&app, &auth_data)
+        .await?;
+    req_dao
+        .web_dao
         .web_rbac
         .check(
             &req_dao.req_env,
@@ -578,6 +588,11 @@ pub async fn sub_request_list(
         .app_dao
         .app
         .find_by_id(param.app_id)
+        .await?;
+    req_dao
+        .web_dao
+        .web_app
+        .self_app_check(&app, &auth_data)
         .await?;
     req_dao
         .web_dao

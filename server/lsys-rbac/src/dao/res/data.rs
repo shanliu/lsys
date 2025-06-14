@@ -219,13 +219,21 @@ impl RbacRes {
             .fetch_one(&self.db)
             .await?)
     }
+}
+#[derive(Serialize)]
+pub struct RbacOpResRecord {
+    pub op_res: RbacOpResModel,
+    pub op_data: Option<RbacOpModel>,
+}
+impl RbacRes {
     //获取某资源可用操作
     pub async fn res_type_op_data(
         &self,
         res_type_data: &ResTypeParam<'_>,
         op_key: Option<&[&str]>,
+        fetch_op_data: bool,
         page: Option<&PageParam>,
-    ) -> RbacResult<Vec<RbacOpResModel>> {
+    ) -> RbacResult<Vec<RbacOpResRecord>> {
         let op_sql = match op_key {
             Some(op_dat) => {
                 if op_dat.is_empty() {
@@ -268,9 +276,37 @@ impl RbacRes {
         } else {
             format!("{} order by op_res.change_time desc ", sql)
         };
-        let res = sqlx::query_as::<_, RbacOpResModel>(&sql)
+        let mut res = sqlx::query_as::<_, RbacOpResModel>(&sql)
             .fetch_all(&self.db)
-            .await?;
+            .await?
+            .into_iter()
+            .map(|op_res| RbacOpResRecord {
+                op_res,
+                op_data: None,
+            })
+            .collect::<Vec<_>>();
+
+        if fetch_op_data && !res.is_empty() {
+            let op_ids = res.iter().map(|e| e.op_res.op_id).collect::<Vec<_>>();
+            let sql = sql_format!(
+                "select * from {}  where id in ({})",
+                RbacOpModel::table_name(),
+                op_ids
+            );
+            let tmp_res = sqlx::query_as::<_, RbacOpModel>(&sql)
+                .fetch_all(&self.db)
+                .await?;
+            res = res
+                .into_iter()
+                .map(|mut e| {
+                    e.op_data = tmp_res
+                        .iter()
+                        .find(|c| c.id == e.op_res.op_id)
+                        .map(|t| t.to_owned());
+                    e
+                })
+                .collect::<Vec<_>>();
+        }
         Ok(res)
     }
     pub async fn res_type_op_count(&self, res_type_data: &ResTypeParam<'_>) -> RbacResult<i64> {

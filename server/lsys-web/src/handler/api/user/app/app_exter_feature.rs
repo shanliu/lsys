@@ -26,6 +26,12 @@ pub async fn request_exter_feature(
         .app
         .find_by_id(param.app_id)
         .await?;
+    app.app_status_check()?;
+    req_dao
+        .web_dao
+        .web_app
+        .self_app_check(&app, &auth_data)
+        .await?;
     //添加外部功能时检测是否开通必要的的依赖关系
     let mut featch_key = Vec::with_capacity(param.featuer_data.len());
     for fk in param.featuer_data.iter() {

@@ -16,7 +16,7 @@ use serde_json::{json, Value};
 pub(super) async fn mailer_inner_access_check(
     app_id: u64,
     res_user_id: u64,
-    session_body: Option<&SessionBody>,
+    session_body: &SessionBody,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<()> {
     let app = req_dao
@@ -26,6 +26,12 @@ pub(super) async fn mailer_inner_access_check(
         .app
         .cache()
         .find_by_id(app_id)
+        .await?;
+    app.app_status_check()?;
+    req_dao
+        .web_dao
+        .web_app
+        .self_app_check(&app, session_body)
         .await?;
 
     req_dao
@@ -42,7 +48,7 @@ pub(super) async fn mailer_inner_access_check(
         .web_rbac
         .check(
             &req_dao.req_env,
-            session_body,
+            Some(session_body),
             &CheckUserAppSenderMailConfig { res_user_id },
         )
         .await?;
@@ -65,7 +71,7 @@ pub async fn mailer_config_add(
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    mailer_inner_access_check(param.app_id, auth_data.user_id(), Some(&auth_data), req_dao).await?;
+    mailer_inner_access_check(param.app_id, auth_data.user_id(), &auth_data, req_dao).await?;
 
     let config_type = SenderMailConfigType::try_from(param.config_type)?;
     let id = req_dao
@@ -105,7 +111,7 @@ pub async fn mailer_config_del(
         .mail_record
         .find_config_by_id(param.config_id)
         .await?;
-    mailer_inner_access_check(config.app_id, config.user_id, Some(&auth_data), req_dao).await?;
+    mailer_inner_access_check(config.app_id, config.user_id, &auth_data, req_dao).await?;
     req_dao
         .web_dao
         .app_sender
@@ -305,7 +311,7 @@ pub async fn mailer_tpl_config_del(
         .tpl_config
         .find_by_id(param.tpl_config_id)
         .await?;
-    mailer_inner_access_check(config.app_id, config.user_id, Some(&auth_data), req_dao).await?;
+    mailer_inner_access_check(config.app_id, config.user_id, &auth_data, req_dao).await?;
     let row = req_dao
         .web_dao
         .app_sender

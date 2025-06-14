@@ -204,6 +204,7 @@ pub async fn res_type_op_data(
         .res_type_op_data(
             &res_param,
             None,
+            true,
             param.page.as_ref().map(|e| e.into()).as_ref(),
         )
         .await?;
@@ -220,7 +221,30 @@ pub async fn res_type_op_data(
     } else {
         None
     };
+
+    let user_id = rows.iter().map(|e| e.op_res.user_id).collect::<Vec<_>>();
+    let user_data = req_dao
+        .web_dao
+        .web_access
+        .access_dao
+        .user
+        .cache()
+        .find_users_by_ids(&user_id)
+        .await?;
+    let rows = rows
+        .iter()
+        .map(|e| {
+            let mut val = json!(e);
+            if let serde_json::Value::Object(ref mut map) = val {
+                map.insert(
+                    "user_data".to_string(),
+                    json!(user_data.get(e.op_res.user_id)),
+                );
+            }
+            val
+        })
+        .collect::<Vec<_>>();
     Ok(JsonResponse::data(JsonData::body(
-        json!({ "data": bind_vec_user_info_from_req!(req_dao, rows, user_id),"total":count}),
+        json!({ "data": rows,"total":count}),
     )))
 }

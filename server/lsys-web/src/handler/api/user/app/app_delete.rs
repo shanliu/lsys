@@ -22,6 +22,11 @@ pub async fn delete(param: &DeleteParam, req_dao: &UserAuthQueryDao) -> JsonResu
         .await?;
     req_dao
         .web_dao
+        .web_app
+        .self_app_check(&app, &auth_data)
+        .await?;
+    req_dao
+        .web_dao
         .web_rbac
         .check(
             &req_dao.req_env,

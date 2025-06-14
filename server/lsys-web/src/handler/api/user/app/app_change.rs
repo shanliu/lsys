@@ -25,6 +25,11 @@ pub async fn change(param: &ChangeParam, req_dao: &UserAuthQueryDao) -> JsonResu
         .await?;
     req_dao
         .web_dao
+        .web_app
+        .self_app_check(&app, &auth_data)
+        .await?;
+    req_dao
+        .web_dao
         .web_rbac
         .check(
             &req_dao.req_env,
@@ -91,6 +96,12 @@ pub async fn app_secret_add(
         .app
         .find_by_id(param.app_id)
         .await?;
+    app.app_status_check()?;
+    req_dao
+        .web_dao
+        .web_app
+        .self_app_check(&app, &auth_data)
+        .await?;
     req_dao
         .web_dao
         .web_rbac
@@ -143,6 +154,12 @@ pub async fn app_secret_change(
         .app_dao
         .app
         .find_by_id(param.app_id)
+        .await?;
+    app.app_status_check()?;
+    req_dao
+        .web_dao
+        .web_app
+        .self_app_check(&app, &auth_data)
         .await?;
     req_dao
         .web_dao
@@ -197,6 +214,11 @@ pub async fn app_secret_del(
         .await?;
     req_dao
         .web_dao
+        .web_app
+        .self_app_check(&app, &auth_data)
+        .await?;
+    req_dao
+        .web_dao
         .web_rbac
         .check(
             &req_dao.req_env,
@@ -243,6 +265,12 @@ pub async fn notify_secret_change(
         .app_dao
         .app
         .find_by_id(param.app_id)
+        .await?;
+    app.app_status_check()?;
+    req_dao
+        .web_dao
+        .web_app
+        .self_app_check(&app, &auth_data)
         .await?;
     req_dao
         .web_dao

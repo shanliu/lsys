@@ -326,6 +326,7 @@ pub async fn mailer_message_send(
     param: &MailerMessageSendParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonResponse> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let app = req_dao
         .web_dao
         .web_app
@@ -333,8 +334,12 @@ pub async fn mailer_message_send(
         .app
         .find_by_id(param.app_id)
         .await?;
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-
+    app.app_status_check()?;
+    req_dao
+        .web_dao
+        .web_app
+        .self_app_check(&app, &auth_data)
+        .await?;
     req_dao
         .web_dao
         .web_rbac

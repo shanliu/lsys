@@ -28,6 +28,12 @@ pub(super) async fn smser_inner_access_check(
     req_dao
         .web_dao
         .web_app
+        .self_app_check(&app, &auth_data)
+        .await?;
+    app.app_status_check()?;
+    req_dao
+        .web_dao
+        .web_app
         .app_dao
         .app
         .cache()

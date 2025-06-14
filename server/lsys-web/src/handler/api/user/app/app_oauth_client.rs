@@ -65,6 +65,12 @@ pub async fn oauth_client_request(
         .app
         .find_by_id(param.app_id)
         .await?;
+    app.app_status_check()?;
+    req_dao
+        .web_dao
+        .web_app
+        .self_app_check(&app, &auth_data)
+        .await?;
     req_dao
         .web_dao
         .web_rbac
@@ -176,6 +182,12 @@ pub async fn oauth_client_set_domain(
         .app
         .find_by_id(param.app_id)
         .await?;
+    app.app_status_check()?;
+    req_dao
+        .web_dao
+        .web_app
+        .self_app_check(&app, &auth_data)
+        .await?;
     req_dao
         .web_dao
         .web_rbac
@@ -232,6 +244,12 @@ pub async fn oauth_secret_add(
         .app
         .find_by_id(param.app_id)
         .await?;
+    app.app_status_check()?;
+    req_dao
+        .web_dao
+        .web_app
+        .self_app_check(&app, &auth_data)
+        .await?;
     req_dao
         .web_dao
         .web_rbac
@@ -285,6 +303,12 @@ pub async fn oauth_secret_change(
         .app
         .find_by_id(param.app_id)
         .await?;
+    app.app_status_check()?;
+    req_dao
+        .web_dao
+        .web_app
+        .self_app_check(&app, &auth_data)
+        .await?;
     req_dao
         .web_dao
         .web_rbac
@@ -335,6 +359,11 @@ pub async fn oauth_secret_del(
         .app_dao
         .app
         .find_by_id(param.app_id)
+        .await?;
+    req_dao
+        .web_dao
+        .web_app
+        .self_app_check(&app, &auth_data)
         .await?;
     req_dao
         .web_dao

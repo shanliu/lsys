@@ -22,6 +22,7 @@ pub async fn app_op_add(
 ) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let app = app_check_get(param.app_id, true, &auth_data, req_dao).await?;
+
     let user_id = inner_user_data_to_user_id(
         &app,
         param.use_app_user,

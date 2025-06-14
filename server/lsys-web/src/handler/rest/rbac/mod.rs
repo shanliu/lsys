@@ -28,6 +28,7 @@ pub use mapping::*;
 
 //校验APP是否开通RBAC功能
 async fn inner_app_rbac_check(app: &AppModel, req_dao: &RequestDao) -> JsonResult<()> {
+    app.app_status_check()?;
     req_dao
         .web_dao
         .web_rbac

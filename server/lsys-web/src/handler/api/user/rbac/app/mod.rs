@@ -45,7 +45,12 @@ async fn app_check_get(
         .app
         .find_by_id(app_id)
         .await?;
-
+    app.app_status_check()?;
+    req_dao
+        .web_dao
+        .web_app
+        .self_app_check(&app, auth_data)
+        .await?;
     if is_edit {
         req_dao
             .web_dao

@@ -76,7 +76,7 @@ pub async fn mailer_smtp_config_add(
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    mailer_inner_access_check(param.app_id, auth_data.user_id(), Some(&auth_data), req_dao).await?;
+    mailer_inner_access_check(param.app_id, auth_data.user_id(), &auth_data, req_dao).await?;
 
     let row = req_dao
         .web_dao

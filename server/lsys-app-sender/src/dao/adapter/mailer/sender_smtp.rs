@@ -150,6 +150,7 @@ impl SenderSmtpConfig {
         user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
+        self.check_config_param_valid(config, true).await?;
         self.check_config(config).await?;
         Ok(self
             .setting
@@ -171,7 +172,8 @@ impl SenderSmtpConfig {
         user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
-        self.check_config(config).await?;
+        self.check_config_param_valid(config, true).await?;
+        self.check_connect(config).await?;
         Ok(self
             .setting
             .add(
@@ -183,13 +185,13 @@ impl SenderSmtpConfig {
             )
             .await?)
     }
-    async fn check_config_param_valid(&self, config: &SmtpConfig) -> SenderResult<()> {
-        ValidParam::default()
-            .add(
-                valid_key!("smtp_branch_limit"),
-                &config.branch_limit,
-                &ValidParamCheck::default().add_rule(ValidNumber::range(1, 5000)),
-            )
+    async fn check_config_param_valid(
+        &self,
+        config: &SmtpConfig,
+        check_limit: bool,
+    ) -> SenderResult<()> {
+        let mut param = ValidParam::default();
+        param
             .add(
                 valid_key!("smtp_port"),
                 &config.port,
@@ -204,19 +206,30 @@ impl SenderSmtpConfig {
                 valid_key!("smtp_host"),
                 &config.host,
                 &ValidParamCheck::default().add_rule(ValidDomain::default()),
-            )
-            .check()?;
+            );
+        if check_limit {
+            param.add(
+                valid_key!("smtp_branch_limit"),
+                &config.branch_limit,
+                &ValidParamCheck::default().add_rule(ValidNumber::range(1, 5000)),
+            );
+        }
+        param.check()?;
         Ok(())
     }
-    //检测smtp配置
-    pub async fn check_config(&self, config: &SmtpConfig) -> SenderResult<()> {
-        self.check_config_param_valid(config).await?;
+    async fn check_connect(&self, config: &SmtpConfig) -> SenderResult<()> {
         connect(config, 5)
             .await
             .map_err(|e| SenderError::System(fluent_message!("smtp-check-error", e)))?
             .test_connection()
             .await
             .map_err(|e| SenderError::System(fluent_message!("smtp-check-error", e)))?;
+        Ok(())
+    }
+    //检测smtp配置
+    pub async fn check_config(&self, config: &SmtpConfig) -> SenderResult<()> {
+        self.check_config_param_valid(config, false).await?;
+        self.check_connect(config).await?;
         Ok(())
     }
     async fn add_app_config_param_valid(
@@ -367,7 +380,6 @@ impl SenderTaskExecutor<u64, MailTaskItem, MailTaskData> for SmtpSenderTask {
         let context = Context::from_value(var_tpl)
             .map_err(|e| SenderExecError::Finish(format!("prare tpl fail[{}]:{}", hand_id, e)))?;
 
-        
         let mut email_builder = Message::builder();
 
         if let Ok(from) = mail_tpl_config.from_email.parse::<Mailbox>() {
