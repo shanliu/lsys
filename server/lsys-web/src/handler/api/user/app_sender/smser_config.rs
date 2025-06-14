@@ -315,8 +315,8 @@ pub async fn smser_tpl_config_list(
     let tpl_data = req_dao
         .web_dao
         .app_sender
-        .mailer
-        .mailer_dao
+        .smser
+        .smser_dao
         .tpl_config
         .list_config(
             param.id,
@@ -374,8 +374,8 @@ pub async fn smser_tpl_config_list(
             req_dao
                 .web_dao
                 .app_sender
-                .mailer
-                .mailer_dao
+                .smser
+                .smser_dao
                 .tpl_config
                 .count_config(
                     param.id,
@@ -406,19 +406,19 @@ pub async fn smser_tpl_config_del(
     let config = req_dao
         .web_dao
         .app_sender
-        .mailer
-        .mailer_dao
-        .mail_record
-        .find_config_by_id(param.config_id)
+        .smser
+        .smser_dao
+        .tpl_config
+        .find_by_id(param.config_id)
         .await?;
     smser_inner_access_check(config.app_id, config.user_id, req_dao).await?;
     req_dao
         .web_dao
         .app_sender
-        .mailer
-        .mailer_dao
-        .mail_record
-        .config_del(&config, auth_data.user_id(), Some(&req_dao.req_env))
+        .smser
+        .smser_dao
+        .tpl_config
+        .del_config(&config, auth_data.user_id(), Some(&req_dao.req_env))
         .await?;
 
     Ok(JsonResponse::default())

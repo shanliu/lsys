@@ -35,7 +35,7 @@ pub async fn smser_cloopen_config_list(
         .web_dao
         .app_sender
         .smser
-        .tenyun_sender
+        .cloopen_sender
         .list_config(param.ids.as_deref())
         .await?;
 
@@ -45,7 +45,7 @@ pub async fn smser_cloopen_config_list(
             json!({
                "id": e.model().id,
                "name": e.model().name,
-               "app_id":e.hide_secret_key()
+               "app_id":e.hide_access_key()
             })
         })
         .collect::<Vec<Value>>();

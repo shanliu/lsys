@@ -107,6 +107,7 @@ impl WebUserAccount {
                 .cache()
                 .find_by_account_ids_vec(ids)
                 .await?;
+
             out_user_email = Some(list_data_map_status_filter!(
                 tmp,
                 status,

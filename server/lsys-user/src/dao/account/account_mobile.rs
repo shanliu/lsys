@@ -598,6 +598,7 @@ impl AccountMobileCache<'_> {
             match self.dao.find_by_account_ids_vec(&get).await {
                 Ok(datas) => {
                     for (pk, rows) in datas.into_iter() {
+                        hash.entry(pk).or_default().extend(rows.clone());
                         for tmp in rows.clone() {
                             self.dao.cache.set(tmp.id, tmp, 0).await;
                         }
