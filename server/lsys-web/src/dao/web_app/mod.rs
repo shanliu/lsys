@@ -60,7 +60,7 @@ impl WebApp {
         app: &AppModel,
         session_body: &SessionBody,
     ) -> JsonResult<()> {
-        if app.user_id == session_body.user_id() {
+        if app.user_id != session_body.user_id() {
             return Err(JsonError::JsonResponse(
                 JsonData::default()
                     .set_code(403)
