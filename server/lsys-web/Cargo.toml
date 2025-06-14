@@ -22,7 +22,7 @@ form_urlencoded = "~1.2.0"
 
 pin-project-lite = "0.2.9"
 #db
-sqlx = { version = "~0.8.3", features = ["mysql", "runtime-tokio-native-tls"] }
+sqlx = { version = "~0.8.6", features = ["mysql", "runtime-tokio-native-tls"] }
 
 
 #客户端
@@ -37,7 +37,7 @@ tera = "1.17.0"
 
 parking_lot = "0.12.1"
 
-fluent = "0.16.0"
+fluent = "0.17.0"
 
 mime = "0.3.16"
 
@@ -76,8 +76,6 @@ lsys-docs = { path = "../lsys-docs", optional = true }
 lsys-app-barcode = { path = "../lsys-app-barcode", optional = true }
 image = { version = "0.25.1", default-features = false, optional = true }
 base64 = { version = "~0.22.0", optional = true }
-
-
 regex = "~1.11.1"
 
 

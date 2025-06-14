@@ -86,38 +86,4 @@ impl AccessSession<RestAuthToken, RestAuthData> for RestAuthSession {
             })?;
         Ok(data)
     }
-    async fn refresh_session(&mut self, reset_token: bool) -> AccessResult<RestAuthToken> {
-        let app = self.app.rest_session_app(self).await?;
-        let data = self
-            .app
-            .oauth_client
-            .refresh_session(&app, &self.user_token.token, reset_token)
-            .await
-            .map_err(|e| {
-                AccessError::System(fluent_message!("app-session-refresh-error",{
-                    "client_id":&self.user_token.client_id,
-                    "msg":e.to_fluent_message()
-                }))
-            })?;
-        if reset_token {
-            let token = RestAuthToken::from(&data);
-            self.set_session_token(token.clone());
-            return Ok(token);
-        }
-        Ok(self.user_token.clone())
-    }
-    async fn clear_session(&mut self) -> AccessResult<()> {
-        let app = self.app.rest_session_app(self).await?;
-        self.app
-            .oauth_client
-            .clear_session(&app, &self.user_token.token)
-            .await
-            .map_err(|e| {
-                AccessError::System(fluent_message!(
-                    "app-session-clear-error",
-                    e.to_fluent_message()
-                ))
-            })?;
-        Ok(())
-    }
 }

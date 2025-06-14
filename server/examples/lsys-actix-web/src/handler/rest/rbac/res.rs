@@ -6,7 +6,7 @@ use lsys_web::handler::rest::rbac::{
     ResTypeAddOpParam, ResTypeListParam, ResTypeOpListParam,
 };
 
-#[post("/res/{method}")]
+#[post("/res")]
 pub async fn res(rest: RestQuery) -> ResponseJsonResult<ResponseJson> {
     let data = match rest.rfc.method.as_deref().unwrap_or_default() {
         "add" => res_add(&rest.param::<ResAddParam>()?, &rest.get_app().await?, &rest).await,
@@ -54,5 +54,7 @@ pub async fn res(rest: RestQuery) -> ResponseJsonResult<ResponseJson> {
         }
         name => handler_not_found!(name),
     };
-    Ok(data.map_err(|e| rest.fluent_error_json_response(&e))?.into())
+    Ok(data
+        .map_err(|e| rest.fluent_error_json_response(&e))?
+        .into())
 }

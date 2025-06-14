@@ -344,10 +344,8 @@ impl AppNotifyRecord {
         env_data: Option<&RequestEnv>,
     ) -> AppResult<()> {
         let data = self.find_data_by_id(&notify_id).await?;
-        if !AppNotifyDataStatus::Init.eq(data.status) {
-            return Err(AppError::System(fluent_message!(
-                "del-notify-data-bad-status"
-            )));
+        if AppNotifyDataStatus::Delete.eq(data.status) {
+            return Ok(());
         }
         let create_time = now_time().unwrap_or_default();
         let del_status = AppNotifyDataStatus::Delete as i8;

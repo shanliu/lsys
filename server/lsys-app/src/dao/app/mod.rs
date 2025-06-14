@@ -3,6 +3,7 @@ mod data;
 mod feature;
 mod request;
 mod sub_app;
+use lsys_access::dao::AccessDao;
 use lsys_core::{
     fluent_message, now_time, rand_str, string_clear, valid_key, AppCore, RequestEnv, StringClear,
     TimeOutTask, TimeOutTaskNotify, ValidError, ValidParam, ValidParamCheck, ValidPattern,
@@ -10,7 +11,7 @@ use lsys_core::{
 };
 
 pub use data::*;
-use lsys_core::db::{Insert, ModelTableName, Update};
+use lsys_core::db::{Insert, ModelTableName, Update, WhereOption};
 use lsys_core::{model_option_set, sql_format};
 pub use request::*;
 pub use sub_app::*;
@@ -43,6 +44,7 @@ pub struct App {
     sub_app_change_notify: Arc<SubAppChangeNotify>,
     sub_app_timeout_notify: Arc<TimeOutTaskNotify>,
     app_secret: Arc<AppSecret>,
+    access: Arc<AccessDao>,
 }
 
 impl App {
@@ -56,6 +58,7 @@ impl App {
         app_secret: Arc<AppSecret>,
         sub_app_change_notify: Arc<SubAppChangeNotify>,
         sub_app_timeout_notify: Arc<TimeOutTaskNotify>,
+        access: Arc<AccessDao>,
     ) -> Self {
         Self {
             app_core,
@@ -67,6 +70,7 @@ impl App {
             app_secret,
             sub_app_change_notify,
             sub_app_timeout_notify,
+            access,
         }
     }
 }
@@ -657,6 +661,7 @@ impl App {
         env_data: Option<&RequestEnv>,
     ) -> AppResult<()> {
         if AppStatus::Disable.eq(app.status) {
+            self.app_close_clear(app.id).await;
             return Ok(());
         }
         if AppStatus::Delete.eq(app.status) {
@@ -665,6 +670,7 @@ impl App {
         if ![AppStatus::Enable as i8, AppStatus::Init as i8].contains(&app.status) {
             return Err(AppError::System(fluent_message!("app-req-status-invalid")));
         }
+
         let time = now_time()?;
         let mut db = self.db.begin().await?;
 
@@ -676,7 +682,10 @@ impl App {
             change_time:time
         });
         let req_res = Update::<AppModel, _>::new(change)
-            .execute_by_pk(app, &mut *db)
+            .execute_by_where(
+                &WhereOption::Where(sql_format!("id={} or parent_app_id={}", app.id, app.id)),
+                &mut *db,
+            )
             .await;
         if let Err(e) = req_res {
             db.rollback().await?;
@@ -693,7 +702,9 @@ impl App {
         let req_res = Update::<AppRequestModel, _>::new(change)
             .execute_by_where(
                 &lsys_core::db::WhereOption::Where(sql_format!(
-                    "app_id={} and status={}",
+                    "(app_id={} or app_id in (select id from {} where parent_app_id={})) and status={}",
+                    app.id,
+                    AppModel::table_name(),
                     app.id,
                     AppRequestStatus::Pending as i8
                 )),
@@ -709,6 +720,29 @@ impl App {
 
         self.client_id_cache.clear(&app.client_id).await;
         self.id_cache.clear(&app.id).await;
+        self.app_close_clear(app.id).await;
+
+        let mut clear_start_id = 0;
+        loop {
+            let sub_app = sqlx::query_as::<_, (u64,String)>(&sql_format!(
+                "select * from {} where  parent_app_id ={} and status = {} and id>{}  order by id asc limit 100",
+                AppModel::table_name(),
+                app.id,
+                 AppStatus::Disable as i8,
+                clear_start_id
+            ))
+            .fetch_all(&self.db)
+            .await?;
+            if sub_app.is_empty() {
+                break;
+            }
+            for sapp in sub_app {
+                clear_start_id = sapp.0;
+                self.client_id_cache.clear(&sapp.1).await;
+                self.id_cache.clear(&sapp.0).await;
+                self.app_close_clear(sapp.0).await;
+            }
+        }
 
         self.logger
             .add(
@@ -728,7 +762,11 @@ impl App {
                 env_data,
             )
             .await;
+
         Ok(())
+    }
+    async fn app_close_clear(&self, app_id: u64) {
+        let _ = self.access.auth.clear_app_login(app_id).await;
     }
     //禁用APP
     pub async fn app_delete(
@@ -738,6 +776,7 @@ impl App {
         env_data: Option<&RequestEnv>,
     ) -> AppResult<()> {
         if AppStatus::Delete.eq(app.status) {
+            self.app_close_clear(app.id).await;
             return Ok(());
         }
 
@@ -839,6 +878,7 @@ impl App {
                 env_data,
             )
             .await;
+        self.app_close_clear(app.id).await;
         Ok(())
     }
 }

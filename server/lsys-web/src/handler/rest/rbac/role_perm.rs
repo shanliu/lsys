@@ -212,7 +212,7 @@ pub async fn role_perm_data(
         None
     };
     Ok(JsonResponse::data(JsonData::body(json!({
-        "data": res,
+        "data":  bind_vec_user_info_from_req!(req_dao, res, user_id),
         "count": count
     }))))
 }

@@ -16,7 +16,10 @@ pub async fn site_config(
     auth_dao: UserAuthQuery,
     json_param: JsonQuery,
 ) -> ResponseJsonResult<ResponseJson> {
-    auth_dao.set_request_token(&jwt).await;
+    auth_dao
+        .set_request_token(&jwt)
+        .await
+        .map_err(|e| auth_dao.fluent_error_json_response(&e))?;
     let res = match path.into_inner().as_str() {
         "get" => site_config_get(&auth_dao).await,
         "set" => site_config_set(&json_param.param::<SiteConfigParam>()?, &auth_dao).await,
@@ -40,7 +43,10 @@ pub async fn oauth_config(
     auth_dao: UserAuthQuery,
     json_param: JsonQuery,
 ) -> ResponseJsonResult<ResponseJson> {
-    auth_dao.set_request_token(&jwt).await;
+    auth_dao
+        .set_request_token(&jwt)
+        .await
+        .map_err(|e| auth_dao.fluent_error_json_response(&e))?;
     let res = match param.oauth_type.as_str() {
         OAUTH_TYPE_WECHAT => match param.op_type.as_str() {
             "get" => wechat_get_config(&auth_dao).await,

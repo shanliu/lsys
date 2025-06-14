@@ -17,48 +17,28 @@ rbac-op-exits = 操作 {$op_type} 已经存在,名称为:{{$old_name}}
 
 
 # 状态
-
 status-RbacRoleStatus-Enable = 启用
 status-RbacRoleStatus-Delete = 删除
 
+status-RbacRoleResRange-Exclude = 禁止指定授权
+status-RbacRoleResRange-Any = 访问任意资源
+status-RbacRoleResRange-Include = 包含指定授权
 
 
 
-
-status-RbacRoleResRange-Exclude = 由RbacRoleModel决定,排除某些授权
-status-RbacRoleResRange-Any = 任意资源
-status-RbacRoleResRange-Include = 由RbacRoleModel决定,包含某些授权
-
-
-
-
-status-RbacRoleUserRange-Custom = 自定义用户
+status-RbacRoleUserRange-Custom = 指定用户
 status-RbacRoleUserRange-Session = 会话角色
-
-
-
-
 
 status-RbacResStatus-Enable = 启用
 status-RbacResStatus-Delete = 删除
-
-
-
 
 
 status-RbacOpStatus-Enable = 启用
 status-RbacOpStatus-Delete = 删除
 
 
-
-
-
 status-RbacOpResStatus-Enable = 启用
 status-RbacOpResStatus-Delete = 删除
-
-
-
-
 
 status-RbacPermStatus-Enable = 启用
 status-RbacPermStatus-Delete = 删除
@@ -70,21 +50,11 @@ status-RbacPermStatus-Delete = 删除
 status-RbacRoleUserStatus-Enable = 启用
 status-RbacRoleUserStatus-Delete = 删除
 
-
-
-
-
 status-RbacAuditResult-Succ = 授权失败
 status-RbacAuditResult-Fail = 授权通过
 
-
-
-
-
 status-RbacAuditIs-Yes = 授权通过
 status-RbacAuditIs-No = 授权失败
-
-
 
 #校验名称
 

@@ -132,7 +132,10 @@ pub(crate) async fn user_data(
     auth_dao: UserAuthQuery,
     json_param: JsonQuery,
 ) -> ResponseJsonResult<ResponseJson> {
-    auth_dao.set_request_token(&jwt).await;
+    auth_dao
+        .set_request_token(&jwt)
+        .await
+        .map_err(|e| auth_dao.fluent_error_json_response(&e))?;
 
     let (token_data, out_auth_data, user_data, passwrod_timeout) =
         login_data_from_user_auth(&json_param.param::<UserAuthDataOptionParam>()?, &auth_dao)
@@ -165,7 +168,7 @@ pub(crate) async fn user_data(
         "auth_data": out_auth_data ,
         "jwt":jwt,
         "user_data":json!({
-            "user":user_data.0,
+            "account":user_data.0,
             "name":user_data.1,
             "info":user_data.2,
             "address":user_data.3,
@@ -180,7 +183,10 @@ pub(crate) async fn user_data(
 
 #[post("/logout")]
 pub async fn logout(jwt: JwtQuery, auth_dao: UserAuthQuery) -> ResponseJsonResult<ResponseJson> {
-    auth_dao.set_request_token(&jwt).await;
+    auth_dao
+        .set_request_token(&jwt)
+        .await
+        .map_err(|e| auth_dao.fluent_error_json_response(&e))?;
     auth_dao
         .web_dao
         .web_user

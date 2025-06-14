@@ -7,7 +7,7 @@ use lsys_web::handler::rest::rbac::{
     RoleUserDataParam, RoleUserDelParam,
 };
 
-#[post("/role/{method}")]
+#[post("/role")]
 pub async fn role(rest: RestQuery) -> ResponseJsonResult<ResponseJson> {
     let data = match rest.rfc.method.as_deref().unwrap_or_default() {
         "add" => {
@@ -92,5 +92,7 @@ pub async fn role(rest: RestQuery) -> ResponseJsonResult<ResponseJson> {
         }
         name => handler_not_found!(name),
     };
-    Ok(data.map_err(|e| rest.fluent_error_json_response(&e))?.into())
+    Ok(data
+        .map_err(|e| rest.fluent_error_json_response(&e))?
+        .into())
 }

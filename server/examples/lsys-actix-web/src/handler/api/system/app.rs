@@ -3,12 +3,14 @@ use crate::common::handler::{
 };
 use actix_web::post;
 use lsys_web::handler::api::system::app::{
-    app_list, confirm, confirm_exter_feature, confirm_inner_feature_exter_login_confirm,
-    confirm_inner_feature_sub_app_confirm, delete, disable, mapping_data, oauth_client_confirm,
-    oauth_client_scope_confirm, oauth_server_confirm, request_list, ConfirmExterFeatureParam,
-    ConfirmExterLoginFeatureParam, ConfirmInnerFeatureSubAppParam, ConfirmOAuthClientParam,
-    ConfirmOAuthClientScopeParam, ConfirmOAuthServerParam, ConfirmParam, DeleteParam, DisableParam,
-    ListParam, RequestListParam,
+    app_list, app_logout, confirm, confirm_exter_feature,
+    confirm_inner_feature_exter_login_confirm, confirm_inner_feature_sub_app_confirm, delete,
+    disable, mapping_data, oauth_client_clear_access_token, oauth_client_clear_refresh_token,
+    oauth_client_confirm, oauth_client_scope_confirm, oauth_server_confirm, request_list,
+    AppLogoutParam, ClearOAuthClientAccessTokenParam, ClearOAuthClientRefreshTokenParam,
+    ConfirmExterFeatureParam, ConfirmExterLoginFeatureParam, ConfirmInnerFeatureSubAppParam,
+    ConfirmOAuthClientParam, ConfirmOAuthClientScopeParam, ConfirmOAuthServerParam, ConfirmParam,
+    DeleteParam, DisableParam, ListParam, RequestListParam,
 };
 
 #[post("/{method}")]
@@ -18,10 +20,28 @@ pub(crate) async fn app(
     json_param: JsonQuery,
     auth_dao: UserAuthQuery,
 ) -> ResponseJsonResult<ResponseJson> {
-    auth_dao.set_request_token(&jwt).await;
+    auth_dao
+        .set_request_token(&jwt)
+        .await
+        .map_err(|e| auth_dao.fluent_error_json_response(&e))?;
     Ok(match path.into_inner().as_str() {
         "confirm" => confirm(&json_param.param::<ConfirmParam>()?, &auth_dao).await,
         "delete" => delete(&json_param.param::<DeleteParam>()?, &auth_dao).await,
+        "auth_logout" => app_logout(&json_param.param::<AppLogoutParam>()?, &auth_dao).await,
+        "oauth_clear_access_token" => {
+            oauth_client_clear_access_token(
+                &json_param.param::<ClearOAuthClientAccessTokenParam>()?,
+                &auth_dao,
+            )
+            .await
+        }
+        "oauth_clear_refresh_token" => {
+            oauth_client_clear_refresh_token(
+                &json_param.param::<ClearOAuthClientRefreshTokenParam>()?,
+                &auth_dao,
+            )
+            .await
+        }
         "disable" => disable(&json_param.param::<DisableParam>()?, &auth_dao).await,
         "confirm_exter_feature" => {
             confirm_exter_feature(&json_param.param::<ConfirmExterFeatureParam>()?, &auth_dao).await

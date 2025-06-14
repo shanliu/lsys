@@ -14,7 +14,7 @@ lsys-core = { path = "../lsys-core" }
 lsys-setting = { path = "../lsys-setting" }
 lsys-logger = { path = "../lsys-logger" }
 lsys-access = { path = "../lsys-access" }
-sqlx = { version = "~0.8.3", features = ["mysql", "runtime-tokio-native-tls"] }
+sqlx = { version = "~0.8.6", features = ["mysql", "runtime-tokio-native-tls"] }
 
 
 async-trait = "~0.1.*"

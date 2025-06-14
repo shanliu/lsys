@@ -246,7 +246,14 @@ impl WebUserAuth {
 
     /// logout
     pub async fn user_logout(&self, user_session: &RwLock<UserAuthSession>) -> JsonResult<()> {
-        user_session.write().await.clear_session().await?;
+        self.user_dao
+            .auth_dao
+            .logout(user_session.read().await.get_session_token())
+            .await?;
+        user_session
+            .write()
+            .await
+            .set_session_token(UserAuthToken::default());
         Ok(())
     }
 }

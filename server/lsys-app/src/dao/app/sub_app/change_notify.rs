@@ -113,7 +113,7 @@ impl TimeOutTaskExec for SubAppChangeNotify {
                         order by
                                 se.app_id asc
                         limit 100 
-                ) as t on p.id=t.app_id order by id asc
+                ) as t on p.id=t.app_id order by id asc limit 100
                 ",
                 AppModel::table_name(),
                 AppSecretModel::table_name(),

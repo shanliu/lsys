@@ -1,9 +1,11 @@
+mod access;
 mod cache;
 mod data;
 mod login;
 use super::logger::{AppOAuthClientSecretSetLog, AppOAuthClientSetDomainLog, AppRequestLog};
 use super::{App, AppResult, AppSecret};
 use super::{AppError, AppOAuthServer};
+use crate::dao::oauth_client::access::AppOAuthClientAccess;
 use crate::model::AppModel;
 use crate::model::AppRequestModel;
 use crate::model::AppRequestType;
@@ -35,9 +37,11 @@ pub struct AppOAuthClient {
     app: Arc<App>,
     oauth_server: Arc<AppOAuthServer>,
     access: Arc<AccessDao>,
+    oauth_access: AppOAuthClientAccess,
     logger: Arc<ChangeLoggerDao>,
     code_time: u64,
     login_time: u64,
+    refresh_time: u64,
     app_secret: Arc<AppSecret>,
     pub(crate) oauth_client_cache: Arc<LocalCache<u64, AppOAuthClientModel>>,
 }
@@ -46,12 +50,14 @@ pub struct AppOAuthClientConfig {
     pub cache_config: LocalCacheConfig,
     pub code_time: u64,
     pub login_time: u64,
+    pub refresh_time: u64,
 }
 
 impl AppOAuthClient {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         db: Pool<MySql>,
+        redis: deadpool_redis::Pool,
         app: Arc<App>,
         oauth_server: Arc<AppOAuthServer>,
         access: Arc<AccessDao>,
@@ -60,6 +66,7 @@ impl AppOAuthClient {
         app_secret: Arc<AppSecret>,
         config: AppOAuthClientConfig,
     ) -> Self {
+        let oauth_access = AppOAuthClientAccess::new(access.auth.clone(), redis);
         Self {
             db,
             app,
@@ -67,8 +74,14 @@ impl AppOAuthClient {
             access,
             code_time: config.code_time,
             login_time: config.login_time,
+            refresh_time: if config.refresh_time < config.login_time {
+                config.login_time
+            } else {
+                config.refresh_time
+            },
             logger,
             app_secret,
+            oauth_access,
             oauth_client_cache: Arc::new(LocalCache::new(
                 remote_notify.clone(),
                 config.cache_config,
@@ -575,7 +588,7 @@ impl AppOAuthClient {
         let scope_res = sqlx::query_scalar::<_, String>(&sql_format!(
             "select scope_data from {} where app_request_id={}",
             AppRequestOAuthClientModel::table_name(),
-            app.id,
+            req.id,
         ))
         .fetch_one(&self.db)
         .await;

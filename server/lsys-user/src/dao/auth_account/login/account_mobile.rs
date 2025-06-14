@@ -80,7 +80,7 @@ impl UserLoginReload for MobileLoginReload {
 pub struct MobileLoginMeta {}
 impl AccountLoginMeta for MobileLoginMeta {
     fn login_type() -> String {
-        "mobile-code".to_string()
+        "mobile".to_string()
     }
 }
 pub struct MobileLogin {

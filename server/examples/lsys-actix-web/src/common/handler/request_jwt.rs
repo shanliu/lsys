@@ -2,17 +2,19 @@ use std::{pin::Pin, str::FromStr};
 
 use actix_web::{dev::Payload, FromRequest, HttpRequest};
 
-use lsys_web::common::{JsonData, JsonResponse, RequestSessionToken};
+use lsys_web::common::{
+    JsonData, JsonResponse, JsonResult, RequestSessionToken, RequestSessionTokenPaser,
+};
 use lsys_web::lsys_user::dao::UserAuthToken;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value;
 
+use async_trait::async_trait;
+use jsonwebtoken::{decode, DecodingKey, TokenData, Validation};
 use std::{
     future::Future,
     task::{Context, Poll},
 };
-
-use jsonwebtoken::{decode, DecodingKey, TokenData, Validation};
 
 use super::ResponseJson;
 
@@ -128,22 +130,35 @@ impl Future for JwtExtractFut {
     }
 }
 
+pub struct JwtQueryTokenPaser {}
+
+#[async_trait]
+impl RequestSessionTokenPaser<UserAuthToken> for JwtQueryTokenPaser {
+    type TD = String;
+    async fn parse_user_token(&self, jwt_str: String) -> JsonResult<UserAuthToken> {
+        Ok(UserAuthToken::from_str(&jwt_str)?)
+    }
+}
 //jwt 登陆信息实现，服务器端处理跟cookie相同
 pub struct JwtQuery {
     pub token_data: TokenData<JwtClaims>,
-    // pub token_str: String,
 }
 
+#[async_trait]
 impl RequestSessionToken<UserAuthToken> for JwtQuery {
-    fn get_user_token<'t>(&self) -> UserAuthToken {
-        UserAuthToken::from_str(self.token_data.claims.token.as_str()).unwrap_or_default()
+    type L = JwtQueryTokenPaser;
+    fn get_paser(&self) -> Self::L {
+        JwtQueryTokenPaser {}
     }
-    fn is_refresh(&self, _token: &UserAuthToken) -> bool {
-        false
+    fn get_token_data(&self) -> Option<String> {
+        let jstr = self.token_data.claims.token.to_owned();
+        if jstr.is_empty() {
+            None
+        } else {
+            Some(jstr)
+        }
     }
-    fn refresh_user_token(&self, _token: &UserAuthToken) {
-        unimplemented!("not support refresh");
-    }
+    fn finish_user_token(&self, _: &UserAuthToken) {}
 }
 
 impl JwtQuery {

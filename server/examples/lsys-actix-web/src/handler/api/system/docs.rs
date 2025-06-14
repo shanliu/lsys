@@ -44,7 +44,10 @@ pub async fn setting(
     json_param: JsonQuery,
     jwt: JwtQuery,
 ) -> ResponseJsonResult<ResponseJson> {
-    auth_dao.set_request_token(&jwt).await;
+    auth_dao
+        .set_request_token(&jwt)
+        .await
+        .map_err(|e| auth_dao.fluent_error_json_response(&e))?;
     let res = match path.into_inner().as_str() {
         "mapping" => mapping_data(&auth_dao).await,
         "git_add" => git_add(&json_param.param::<GitAddParam>()?, &auth_dao).await,

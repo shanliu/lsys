@@ -3,6 +3,7 @@ use lsys_access::dao::AccessSession;
 use lsys_access::dao::AccessSessionData;
 use lsys_access::dao::SessionBody;
 use lsys_core::RequestEnv;
+use lsys_user::dao::UserAuthToken;
 use lsys_user::{
     dao::UserAuthSession,
     model::{AccountInfoModelRef, AccountModel, AccountStatus},
@@ -27,7 +28,14 @@ impl WebUserAccount {
             .await?;
         self.user_delete(&account, auth_data.session_body(), env_data)
             .await?;
-        let _ = user_session.write().await.clear_session().await;
+        self.user_dao
+            .auth_dao
+            .logout(user_session.read().await.get_session_token())
+            .await?;
+        user_session
+            .write()
+            .await
+            .set_session_token(UserAuthToken::default());
         Ok(())
     }
     //删除用户

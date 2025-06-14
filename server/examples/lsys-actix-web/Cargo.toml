@@ -55,6 +55,8 @@ image = { version = "0.25.1", default-features = false }
 
 time = { version = "0.3.36" }
 
+async-trait = "0.1.57"
+
 [features]
 default = ["docs", "barcode"]
 docs = ["lsys-web/docs"]

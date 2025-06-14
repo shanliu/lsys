@@ -102,3 +102,71 @@ pub async fn oauth_client_scope_confirm(
         .await?;
     Ok(JsonResponse::default())
 }
+
+#[derive(Debug, Deserialize)]
+pub struct ClearOAuthClientAccessTokenParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
+    pub app_id: u64,
+    pub access_token: String,
+}
+pub async fn oauth_client_clear_access_token(
+    param: &ClearOAuthClientAccessTokenParam,
+    req_dao: &UserAuthQueryDao,
+) -> JsonResult<JsonResponse> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
+    req_dao
+        .web_dao
+        .web_rbac
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminApp {})
+        .await?;
+    let app = req_dao
+        .web_dao
+        .web_app
+        .app_dao
+        .app
+        .find_by_id(param.app_id)
+        .await?;
+    req_dao
+        .web_dao
+        .web_app
+        .app_dao
+        .oauth_client
+        .clear_access_token(&app, &param.access_token)
+        .await?;
+    Ok(JsonResponse::default())
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ClearOAuthClientRefreshTokenParam {
+    #[serde(deserialize_with = "crate::common::deserialize_u64")]
+    pub app_id: u64,
+    pub refresh_token: String,
+}
+pub async fn oauth_client_clear_refresh_token(
+    param: &ClearOAuthClientRefreshTokenParam,
+    req_dao: &UserAuthQueryDao,
+) -> JsonResult<JsonResponse> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
+    req_dao
+        .web_dao
+        .web_rbac
+        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminApp {})
+        .await?;
+    let app = req_dao
+        .web_dao
+        .web_app
+        .app_dao
+        .app
+        .find_by_id(param.app_id)
+        .await?;
+    req_dao
+        .web_dao
+        .web_app
+        .app_dao
+        .oauth_client
+        .clear_refresh_token(&app, &param.refresh_token)
+        .await?;
+    Ok(JsonResponse::default())
+}

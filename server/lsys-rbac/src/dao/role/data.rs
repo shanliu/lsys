@@ -143,8 +143,8 @@ impl RbacRole {
         role: &RbacRoleModel,
         page: Option<&PageParam>,
     ) -> RbacResult<Vec<RolePermData>> {
-        if !RbacRoleResRange::Exclude.eq(role.user_range)
-            && !RbacRoleResRange::Include.eq(role.user_range)
+        if !RbacRoleResRange::Exclude.eq(role.res_range)
+            && !RbacRoleResRange::Include.eq(role.res_range)
         {
             return Ok(vec![]);
         }
@@ -204,8 +204,8 @@ impl RbacRole {
             .await?)
     }
     pub async fn role_perm_count(&self, role: &RbacRoleModel) -> RbacResult<i64> {
-        if !RbacRoleResRange::Exclude.eq(role.user_range)
-            && !RbacRoleResRange::Include.eq(role.user_range)
+        if !RbacRoleResRange::Exclude.eq(role.res_range)
+            && !RbacRoleResRange::Include.eq(role.res_range)
         {
             return Ok(0);
         }

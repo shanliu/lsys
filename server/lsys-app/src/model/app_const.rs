@@ -108,3 +108,10 @@ pub enum AppNotifyTryTimeMode {
 pub enum AppNotifyType {
     Http = 1,
 }
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[lsys_model_status(field_type = "u8")]
+pub enum AppOAuthClientRefreshTokenStatus {
+    Init = 1,
+    Delete = -1,
+}

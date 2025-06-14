@@ -587,13 +587,12 @@ impl GitTask {
                 clear_time -= 3600;
             }
             let sql = sql_format!(
-                " select id from {} where  id >{} and status={} and finish_time>={} order by id asc limit {} 
+                " select id from {} where  id >{} and status={} and finish_time>={} order by id asc limit 100 
                 ",
                 DocGitCloneModel::table_name(),
                 start_id,
                 DocGitCloneStatus::Delete,
-                clear_time,
-                100,
+                clear_time
             );
             let git_res = sqlx::query_scalar::<_, u64>(sql.as_str())
                 .fetch_all(db)

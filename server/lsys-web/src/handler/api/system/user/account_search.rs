@@ -165,7 +165,7 @@ pub async fn account_search(
 }
 
 #[derive(Debug, Deserialize)]
-pub struct AccountIdSearchParam {
+pub struct AccountDetailParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub account_id: u64,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
@@ -183,8 +183,8 @@ pub struct AccountIdSearchParam {
     pub mobile: Option<Vec<i8>>,
 }
 
-pub async fn account_id_search(
-    param: &AccountIdSearchParam,
+pub async fn account_detail(
+    param: &AccountDetailParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;

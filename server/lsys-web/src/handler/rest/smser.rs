@@ -84,22 +84,19 @@ pub async fn send(
 
 #[derive(Debug, Deserialize)]
 pub struct CancelParam {
-    pub snid_data: Vec<String>,
+    #[serde(deserialize_with = "crate::common::deserialize_vec_u64")]
+    pub snid_data: Vec<u64>,
 }
 pub async fn cancel(
     param: &CancelParam,
     app: &AppModel,
     req_dao: &RequestDao,
 ) -> JsonResult<JsonResponse> {
-    let mut ids = Vec::with_capacity(param.snid_data.len());
-    for e in param.snid_data.iter() {
-        ids.push(e.parse::<u64>()?);
-    }
     let data = req_dao
         .web_dao
         .app_sender
         .smser
-        .app_send_cancel(app, &ids, Some(&req_dao.req_env))
+        .app_send_cancel(app, &param.snid_data, Some(&req_dao.req_env))
         .await?;
     let detail = data
         .into_iter()
@@ -107,7 +104,7 @@ pub async fn cancel(
             json!({
                 "snid":e.0.to_string(),
                 "status":!e.1&&e.2.is_none(),
-                "msg":e.2.map(|e|e.to_fluent_message().default_format())
+                "msg":e.2.map(|e|req_dao.fluent.format_message(&e.to_fluent_message()))
             })
         })
         .collect::<Vec<Value>>();

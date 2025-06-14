@@ -69,11 +69,17 @@ pub struct AppConfig {
     pub sub_app_oauth_server_cache: LocalCacheConfig,
     pub oauth_client_code_time: u64,
     pub oauth_client_login_time: u64,
+    pub oauth_client_refresh_time: u64,
     pub sub_app_notify_config: SubAppNotifyConfig,
 }
 
 impl AppConfig {
-    pub fn new(use_cache: bool, oauth_client_code_time: u64, oauth_client_login_time: u64) -> Self {
+    pub fn new(
+        use_cache: bool,
+        oauth_client_code_time: u64,
+        oauth_client_login_time: u64,
+        oauth_client_refresh_time: u64,
+    ) -> Self {
         Self {
             sub_app_cache: LocalCacheConfig::new(
                 "sub-app",
@@ -94,6 +100,7 @@ impl AppConfig {
             ),
             oauth_client_code_time,
             oauth_client_login_time,
+            oauth_client_refresh_time,
         }
     }
 }
@@ -124,7 +131,7 @@ impl AppDao {
             app_secret.clone(),
         ));
         let sub_app_timeout_notify = Arc::new(TimeOutTaskNotify::new(
-            redis,
+            redis.clone(),
             config.sub_app_notify_config.timeout_task_config,
         ));
         let sub_app_notify_sender = app_notify.sender_create(
@@ -150,6 +157,7 @@ impl AppDao {
             app_secret.clone(),
             sub_app_change_notify,
             sub_app_timeout_notify,
+            access.clone(),
         ));
         let oauth_server = Arc::from(AppOAuthServer::new(
             db.clone(),
@@ -160,6 +168,7 @@ impl AppDao {
         ));
         let oauth_client = Arc::from(AppOAuthClient::new(
             db.clone(),
+            redis,
             app.clone(),
             oauth_server.clone(),
             access.clone(),
@@ -170,6 +179,7 @@ impl AppDao {
                 cache_config: config.app_cache,
                 code_time: config.oauth_client_code_time,
                 login_time: config.oauth_client_login_time,
+                refresh_time: config.oauth_client_refresh_time,
             },
         ));
 

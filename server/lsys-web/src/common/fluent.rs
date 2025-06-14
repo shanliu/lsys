@@ -164,8 +164,6 @@ impl FluentFormat for AccessError {
     fn fluent_format(&self, fluent: &FluentBundle) -> String {
         match self {
             AccessError::Sqlx(error) => error.fluent_format(fluent),
-            AccessError::Redis(redis_error) => redis_error.fluent_format(fluent),
-            AccessError::RedisPool(pool_error) => pool_error.fluent_format(fluent),
             AccessError::System(fluent_message) => fluent.format_message(fluent_message),
             AccessError::SerdeJson(error) => error.fluent_format(fluent),
             AccessError::BadAccount(fluent_message) => fluent.format_message(fluent_message),

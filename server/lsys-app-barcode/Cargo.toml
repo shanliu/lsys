@@ -12,7 +12,7 @@ lsys-logger = { path = "../lsys-logger" }
 
 tokio = { version = "~1.45.0" }
 
-sqlx = { version = "~0.8.3", features = ["mysql", "runtime-tokio-native-tls"] }
+sqlx = { version = "~0.8.6", features = ["mysql", "runtime-tokio-native-tls"] }
 async-trait = "~0.1.*"
 
 serde = { version = "1.0.*" }

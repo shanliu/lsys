@@ -138,11 +138,6 @@ where
                 .service(public::options),
         )
         .service(
-            scope("/app_notify")
-                .service(user::app::notify)
-                .service(public::options),
-        )
-        .service(
             scope("/app")
                 .service(user::app::base)
                 .service(public::options),

@@ -4,7 +4,7 @@ use lsys_web::handler::rest::rbac::{
     access_check, access_list_check, mapping_data, CheckParam, RbacMenuListParam,
 };
 
-#[post("/base/{method}")]
+#[post("/base")]
 pub async fn base(rest: RestQuery) -> ResponseJsonResult<ResponseJson> {
     let data = match rest.rfc.method.as_deref().unwrap_or_default() {
         "mapping" => mapping_data(&rest).await,

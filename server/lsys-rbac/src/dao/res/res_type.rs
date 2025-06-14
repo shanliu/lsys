@@ -156,7 +156,7 @@ impl RbacRes {
                 Some(33),
             );
             let sql = sql_format!(
-                "select * from {} where res_type={} and user_id={} and app_id={} and status ={} and id>{} order by id asc",
+                "select * from {} where res_type={} and user_id={} and app_id={} and status ={} and id>{} order by id asc limit 100",
                 RbacResModel::table_name(),
                 res_type,
                 res_type_data.user_id,
@@ -233,21 +233,23 @@ impl RbacRes {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-
+        let mut start_id = 0;
         loop {
             let res_data = match sqlx::query(&sql_format!(
-                "select res.*,op_res.op_id from {} as res 
+                "select op_res.op_id as op_id,res.*,op_res.id as op_res_id from {} as res 
                     join {} as op_res on res.res_type=op_res.res_type and res.user_id=op_res.user_id
-                    where op_res.op_id={} and res.status={} and op_res.status={}",
+                    where op_res.op_id={} and res.status={} and op_res.status={} and op_res.id>{} order by op_res.id asc limit 100",
                 RbacResModel::table_name(),
                 RbacOpResModel::table_name(),
                 op.id,
                 RbacResStatus::Enable,
                 RbacOpResStatus::Enable,
+                start_id,
             ))
             .try_map(
                 |row: sqlx::mysql::MySqlRow| match RbacResModel::from_row(&row) {
                     Ok(res) => {
+                        start_id = row.try_get::<u64, &str>("op_res_id").unwrap_or_default();
                         let op_id = row.try_get::<u64, &str>("op_id").unwrap_or_default();
                         res_id = res.id;
                         Ok((op_id, res))

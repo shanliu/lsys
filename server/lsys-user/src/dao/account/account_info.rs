@@ -53,7 +53,7 @@ impl AccountInfo {
                 tmp,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)
-                    .add_rule(ValidNumber::range(1, 3)),
+                    .add_rule(ValidNumber::range(0, 3)),
             );
         }
         if let Some(tmp) = info.headimg {
@@ -62,7 +62,7 @@ impl AccountInfo {
                 tmp,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)
-                    .add_rule(ValidStrlen::range(3, 512)),
+                    .add_rule(ValidStrlen::range(0, 512)),
             );
         }
         if let Some(tmp) = info.reg_from {

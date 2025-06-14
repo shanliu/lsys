@@ -14,7 +14,10 @@ pub(crate) async fn address(
     json_param: JsonQuery,
     auth_dao: UserAuthQuery,
 ) -> ResponseJsonResult<ResponseJson> {
-    auth_dao.set_request_token(&jwt).await;
+    auth_dao
+        .set_request_token(&jwt)
+        .await
+        .map_err(|e| auth_dao.fluent_error_json_response(&e))?;
     Ok(match path.into_inner().as_str() {
         "add" => address_add(&json_param.param::<AddressAddParam>()?, &auth_dao).await,
         "edit" => address_edit(&json_param.param::<AddressEditParam>()?, &auth_dao).await,

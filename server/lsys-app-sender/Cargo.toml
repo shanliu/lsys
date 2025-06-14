@@ -25,16 +25,15 @@ redis = { version = "~0.31.0", features = [
     "aio",
 ] }
 
-sqlx = { version = "~0.8.3", features = ["mysql", "runtime-tokio-native-tls"] }
+sqlx = { version = "~0.8.6", features = ["mysql", "runtime-tokio-native-tls"] }
 
-# mail send
-lettre = { version = "~0.11", features = [
+lettre = { version = "0.10.4", features = [ #0.11 not wroking on msvc 14.44
     "smtp-transport",
     "native-tls",
     "tokio1",
     "tokio1-native-tls",
     "builder",
-] }
+] } # mail send
 
 
 hostname = "~0.4.0"

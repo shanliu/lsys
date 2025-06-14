@@ -135,8 +135,6 @@ impl JsonFluent for AccessError {
                 json_data.set_code(400).set_sub_code("token_data")
             }
             AccessError::Sqlx(err) => err.to_json_data(fluent),
-            AccessError::Redis(err) => err.to_json_data(fluent),
-            AccessError::RedisPool(err) => err.to_json_data(fluent),
             AccessError::NotLogin => json_data.set_code(403).set_sub_code("not_login"),
             AccessError::IsLogout => json_data.set_code(403).set_sub_code("not_login"),
             AccessError::System(_) => json_data,

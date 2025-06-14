@@ -136,7 +136,7 @@ impl AuthAccount {
     async fn env_to_city(&self, login_env: &AccountLoginEnv) -> Option<String> {
         let login_ip = login_env.login_ip?;
         if let Some(ref lock_db) = self.login_config.ip_db {
-            let mut db = lock_db.lock().await;
+            let db = lock_db.lock().await;
             if let Some(ref ip) = login_env.login_ip {
                 let bip = *ip;
                 if let Ok(rec) = db.ip_lookup(bip) {

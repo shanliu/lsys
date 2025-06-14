@@ -10,7 +10,8 @@ use super::{inner_app_rbac_check, inner_app_self_check, inner_user_data_to_user_
 
 #[derive(Debug, Deserialize)]
 pub struct OpAddParam {
-    pub user_param: Option<String>,
+    pub use_app_user: bool,
+    pub user_param: Option<String>, //use_app_user为假时必填,用户标识
     pub op_key: String,
     pub op_name: Option<String>,
 }
@@ -20,8 +21,13 @@ pub async fn op_add(
     req_dao: &RequestDao,
 ) -> JsonResult<JsonResponse> {
     inner_app_rbac_check(app, req_dao).await?;
-    let target_user_id =
-        inner_user_data_to_user_id(app, param.user_param.as_deref(), req_dao).await?;
+    let target_user_id = inner_user_data_to_user_id(
+        app,
+        param.use_app_user,
+        param.user_param.as_deref(),
+        req_dao,
+    )
+    .await?;
 
     let id = req_dao
         .web_dao
@@ -130,7 +136,8 @@ pub async fn op_del(
 #[derive(Debug, Deserialize)]
 
 pub struct OpDataParam {
-    pub user_param: Option<String>,
+    pub use_app_user: bool,
+    pub user_param: Option<String>, //use_app_user为假时必填,用户标识
     pub op_name: Option<String>,
     pub op_key: Option<String>,
     #[serde(
@@ -149,8 +156,13 @@ pub async fn op_data(
     req_dao: &RequestDao,
 ) -> JsonResult<JsonResponse> {
     inner_app_rbac_check(app, req_dao).await?;
-    let target_user_id =
-        inner_user_data_to_user_id(app, param.user_param.as_deref(), req_dao).await?;
+    let target_user_id = inner_user_data_to_user_id(
+        app,
+        param.use_app_user,
+        param.user_param.as_deref(),
+        req_dao,
+    )
+    .await?;
 
     let res = req_dao
         .web_dao
@@ -176,7 +188,7 @@ pub async fn op_data(
                 .rbac_dao
                 .op
                 .op_count(&DaoOpDataParam {
-                    user_id: app.user_id,
+                    user_id: target_user_id,
                     app_id: Some(app.id),
                     op_name: param.op_name.as_deref(),
                     op_key: param.op_key.as_deref(),
@@ -188,7 +200,7 @@ pub async fn op_data(
         None
     };
     Ok(JsonResponse::data(JsonData::body(json!({
-        "data": res,
+       "data": bind_vec_user_info_from_req!(req_dao, res, user_id),
         "count": count,
     }))))
 }

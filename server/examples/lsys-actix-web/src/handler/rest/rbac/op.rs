@@ -4,7 +4,7 @@ use lsys_web::handler::rest::rbac::{
     op_add, op_data, op_del, op_edit, OpAddParam, OpDataParam, OpDelParam, OpEditParam,
 };
 
-#[post("/op/{method}")]
+#[post("/op")]
 pub async fn op(rest: RestQuery) -> ResponseJsonResult<ResponseJson> {
     let data = match rest.rfc.method.as_deref().unwrap_or_default() {
         "add" => op_add(&rest.param::<OpAddParam>()?, &rest.get_app().await?, &rest).await,

@@ -11,7 +11,10 @@ pub(crate) async fn oauth(
     json_param: JsonQuery,
     auth_dao: UserAuthQuery,
 ) -> ResponseJsonResult<ResponseJson> {
-    auth_dao.set_request_token(&jwt).await;
+    auth_dao
+        .set_request_token(&jwt)
+        .await
+        .map_err(|e| auth_dao.fluent_error_json_response(&e))?;
     Ok(match path.into_inner().as_str() {
         "scope" => scope_get(&json_param.param::<ScopeGetParam>()?, &auth_dao).await,
         "do" => create_code(&json_param.param::<AuthorizeDoParam>()?, &auth_dao).await,

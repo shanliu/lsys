@@ -83,30 +83,22 @@ async fn app_check_get(
 
 async fn inner_user_data_to_user_id(
     app: &AppModel,
+    use_app_user: bool,
     user_data: Option<&str>,
     req_dao: &RequestDao,
 ) -> JsonResult<u64> {
-    let target_user_id = match user_data.and_then(|e| {
-        if e.trim_matches(['\n', ' ', '\t']).is_empty() {
-            None
-        } else {
-            Some(e)
-        }
-    }) {
-        Some(user_data) => {
-            req_dao
-                .web_dao
-                .web_access
-                .access_dao
-                .user
-                .cache()
-                .sync_user(app.id, user_data, None, None)
-                .await?
-                .id
-        }
-        None => app.user_id,
-    };
-    Ok(target_user_id)
+    if use_app_user {
+        return Ok(app.user_id);
+    }
+    Ok(req_dao
+        .web_dao
+        .web_access
+        .access_dao
+        .user
+        .cache()
+        .sync_user(app.id, user_data.unwrap_or_default(), None, None)
+        .await?
+        .id)
 }
 
 //@todo 子应用调试工具根据页面在定,待完善.......

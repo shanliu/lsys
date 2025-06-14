@@ -20,7 +20,8 @@ use serde_json::json;
 pub struct AppRoleAddParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
-    pub user_param: Option<String>,
+    pub use_app_user: bool,
+    pub user_param: Option<String>, //use_app_user为假时必填,用户标识
     pub role_key: String,
     pub role_name: Option<String>,
     #[serde(deserialize_with = "crate::common::deserialize_i8")]
@@ -35,7 +36,13 @@ pub async fn app_role_add(
 ) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let app = app_check_get(param.app_id, true, &auth_data, req_dao).await?;
-    let user_id = inner_user_data_to_user_id(&app, param.user_param.as_deref(), req_dao).await?;
+    let user_id = inner_user_data_to_user_id(
+        &app,
+        param.use_app_user,
+        param.user_param.as_deref(),
+        req_dao,
+    )
+    .await?;
 
     let role_info = match RbacRoleUserRange::try_from(param.user_range)? {
         RbacRoleUserRange::Custom => RbacRoleUserRangeData::Custom {
@@ -157,7 +164,8 @@ pub async fn app_role_del(
 pub struct AppRoleDataParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
-    pub user_param: Option<String>,
+    pub use_app_user: bool,
+    pub user_param: Option<String>, //use_app_user为假时必填,用户标识
     pub role_key: Option<String>,
     pub role_name: Option<String>,
     #[serde(
@@ -203,7 +211,13 @@ pub async fn app_role_data(
 ) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let app = app_check_get(param.app_id, false, &auth_data, req_dao).await?;
-    let user_id = inner_user_data_to_user_id(&app, param.user_param.as_deref(), req_dao).await?;
+    let user_id = inner_user_data_to_user_id(
+        &app,
+        param.use_app_user,
+        param.user_param.as_deref(),
+        req_dao,
+    )
+    .await?;
 
     let user_range = if let Some(e) = param.user_range {
         Some(RbacRoleUserRange::try_from(e)?)

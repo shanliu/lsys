@@ -7,6 +7,46 @@ use serde::Deserialize;
 use serde_json::json;
 
 #[derive(Deserialize)]
+pub struct OAuthClientScopeDataParam {
+    pub app_id: Option<u64>,
+}
+
+pub async fn oauth_client_scope_data(
+    param: &OAuthClientScopeDataParam,
+    req_dao: &UserAuthQueryDao,
+) -> JsonResult<JsonResponse> {
+    let papp = if param.app_id.unwrap_or_default() > 0 {
+        let parent_app = req_dao
+            .web_dao
+            .web_app
+            .app_dao
+            .app
+            .cache()
+            .find_by_id(param.app_id.unwrap_or_default())
+            .await?;
+        //父应用必须已开通OAUTH SERVER功能
+        req_dao
+            .web_dao
+            .web_app
+            .app_dao
+            .oauth_server
+            .oauth_check(&parent_app)
+            .await?;
+        Some(parent_app)
+    } else {
+        None
+    };
+    let server_spoce = req_dao
+        .web_dao
+        .web_app
+        .app_oauth_server_scope_data(papp.as_ref())
+        .await?;
+    Ok(JsonResponse::data(JsonData::body(json!({
+        "scope":server_spoce
+    }))))
+}
+
+#[derive(Deserialize)]
 pub struct OAuthClientRequestParam {
     pub scope_data: Vec<String>,
     #[serde(deserialize_with = "crate::common::deserialize_u64")]

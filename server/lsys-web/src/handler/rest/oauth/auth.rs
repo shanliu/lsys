@@ -1,6 +1,6 @@
 use crate::common::JsonData;
 use crate::{
-    common::{JsonError, JsonResponse, JsonResult, RequestDao, RestAuthQueryDao, UserAuthQueryDao},
+    common::{JsonError, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao},
     dao::access::rest::CheckRestApp,
 };
 use lsys_access::dao::{AccessSession, AccessSessionData};
@@ -127,7 +127,7 @@ pub async fn create_code(
 #[derive(Debug, Deserialize, Serialize)]
 pub struct SessionRecord {
     access_token: String,
-    refresh_token: Option<String>,
+    refresh_token: String,
     openid: String,
     scope: Vec<String>,
     expires_in: u64,
@@ -178,17 +178,16 @@ pub struct CodeParam {
 //创建登陆token
 pub async fn create_token(req_dao: &RequestDao, code: &CodeParam) -> JsonResult<JsonResponse> {
     let app = check_app_secret(req_dao, &code.client_id, &code.client_secret).await?;
-    let auth_data = req_dao
+    let (auth_data, refresh_token) = req_dao
         .web_dao
         .web_app
         .app_dao
         .oauth_client
         .create_session(&app, &code.code)
         .await?;
-
     let session = SessionRecord {
         access_token: auth_data.session_body().token_data().to_owned(),
-        refresh_token: None,
+        refresh_token,
         openid: auth_data.session_body().user_id().to_string(),
         scope: req_dao
             .web_dao
@@ -212,23 +211,26 @@ pub struct RefreshCodeParam {
 //刷新登陆token
 pub async fn refresh_token(
     param: &RefreshCodeParam,
-    req_dao: &RestAuthQueryDao,
+    req_dao: &RequestDao,
 ) -> JsonResult<JsonResponse> {
-    check_app_secret(req_dao, &param.client_id, &param.client_secret).await?;
-    let mut auth_data = req_dao.user_session.write().await;
-    let old_token = auth_data.get_session_data().await?;
-    auth_data.refresh_session(true).await?;
-    let new_token = auth_data.get_session_data().await?;
+    let app = check_app_secret(req_dao, &param.client_id, &param.client_secret).await?;
+    let new_token = req_dao
+        .web_dao
+        .web_app
+        .app_dao
+        .oauth_client
+        .refresh_session(&app, &param.refresh_token)
+        .await?;
     let session = SessionRecord {
         access_token: new_token.session_body().token_data().to_owned(),
-        refresh_token: Some(old_token.session_body().token_data().to_owned()),
+        refresh_token: param.refresh_token.to_owned(),
         openid: new_token.session_body().user_id().to_string(),
         scope: req_dao
             .web_dao
             .web_app
             .app_dao
             .oauth_client
-            .get_session_scope_data(&old_token)
+            .get_session_scope_data(&new_token)
             .await?,
         expires_in: new_token.session_body().session().expire_time,
     };

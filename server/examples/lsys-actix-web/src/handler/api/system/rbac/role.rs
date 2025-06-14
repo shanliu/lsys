@@ -16,7 +16,10 @@ pub async fn role(
     json_param: JsonQuery,
     auth_dao: UserAuthQuery,
 ) -> ResponseJsonResult<ResponseJson> {
-    auth_dao.set_request_token(&jwt).await;
+    auth_dao
+        .set_request_token(&jwt)
+        .await
+        .map_err(|e| auth_dao.fluent_error_json_response(&e))?;
     let data = match path.into_inner().as_str() {
         "add" => role_add(&json_param.param::<RoleAddParam>()?, &auth_dao).await,
         "edit" => role_edit(&json_param.param::<RoleEditParam>()?, &auth_dao).await,

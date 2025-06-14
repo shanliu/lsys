@@ -101,12 +101,10 @@ impl WebApp {
             .find_by_app(app)
             .await?
             .scope_data;
-        let mut oauth_spoce = oauth_spoce_str.split(",");
+        let oauth_spoce = oauth_spoce_str.split(",").collect::<Vec<&str>>();
         for tmp in out.iter() {
-            if !oauth_spoce.any(|e| e == tmp.key.as_str()) {
-                return Err(AppError::System(fluent_message!("app-bad-scope",{
-                    "scope":&tmp.key
-                })));
+            if !oauth_spoce.contains(&tmp.key.as_str()) {
+                return Err(AppError::ScopeBad(vec![tmp.key.to_owned()]));
             }
         }
         Ok(out)

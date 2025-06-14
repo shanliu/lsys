@@ -1,5 +1,9 @@
 use std::collections::BTreeMap;
 
+use actix_web::web::{Data, JsonBody};
+use actix_web::{dev::Payload, Error, FromRequest, HttpRequest};
+use async_trait::async_trait;
+use futures_util::{ready, FutureExt};
 use std::ops::Deref;
 use std::sync::Arc;
 use std::{
@@ -8,14 +12,12 @@ use std::{
 };
 use std::{pin::Pin, rc::Rc};
 
-use actix_web::web::{Data, JsonBody};
-use actix_web::{dev::Payload, Error, FromRequest, HttpRequest};
-use futures_util::{ready, FutureExt};
-
 use lsys_web::lsys_app::dao::RestAuthToken;
 use lsys_web::lsys_core::{IntoFluentMessage, RequestEnv};
 
-use lsys_web::common::{JsonData, JsonResponse, RequestDao, RequestSessionToken};
+use lsys_web::common::{
+    JsonData, JsonResponse, JsonResult, RequestDao, RequestSessionToken, RequestSessionTokenPaser,
+};
 use lsys_web::dao::WebDao;
 
 use serde::{de::DeserializeOwned, Deserialize};
@@ -281,29 +283,32 @@ impl Deref for RestQuery {
     }
 }
 
+pub struct RestQueryTokenPaser {}
+
+#[async_trait]
+impl RequestSessionTokenPaser<RestAuthToken> for RestQueryTokenPaser {
+    type TD = (String, String);
+    async fn parse_user_token(&self, (client_id, token): Self::TD) -> JsonResult<RestAuthToken> {
+        Ok(RestAuthToken { client_id, token })
+    }
+}
+
+#[async_trait]
 impl RequestSessionToken<RestAuthToken> for RestQuery {
-    fn get_user_token(&self) -> RestAuthToken {
-        self.rfc
-            .token
-            .as_ref()
-            .map(|e| {
-                if e.is_empty() {
-                    RestAuthToken::default()
-                } else {
-                    RestAuthToken {
-                        client_id: self.rfc.client_id.clone(),
-                        token: e.to_owned(),
-                    }
-                }
-            })
-            .unwrap_or_default()
+    type L = RestQueryTokenPaser;
+    fn get_paser(&self) -> Self::L {
+        RestQueryTokenPaser {}
     }
-    fn is_refresh(&self, _token: &RestAuthToken) -> bool {
-        false
+    fn get_token_data(&self) -> Option<(String, String)> {
+        self.rfc.token.as_ref().and_then(|e| {
+            if e.is_empty() {
+                None
+            } else {
+                Some((self.rfc.client_id.clone(), e.to_owned()))
+            }
+        })
     }
-    fn refresh_user_token(&self, _token: &RestAuthToken) {
-        unimplemented!("not support refresh");
-    }
+    fn finish_user_token(&self, _: &RestAuthToken) {}
 }
 
 impl RestQuery {

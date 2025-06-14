@@ -110,33 +110,6 @@ pub struct AppFeatureModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(table_name = "app_oauth_client")]
-pub struct AppOAuthClientModel {
-    #[sqlx(default)]
-    pub id: u64,
-
-    /// app id
-    #[sqlx(default)]
-    pub app_id: u64,
-
-    /// callback_domain
-    #[sqlx(default)]
-    pub callback_domain: String,
-
-    /// scope_data
-    #[sqlx(default)]
-    pub scope_data: String,
-
-    /// 最后更新用户,审核,禁用时用户
-    #[sqlx(default)]
-    pub change_user_id: u64,
-
-    /// 最后更新用户,审核,禁用时时间
-    #[sqlx(default)]
-    pub change_time: u64,
-}
-
-#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
 #[lsys_model(table_name = "app_oauth_server_scope")]
 pub struct AppOAuthServerScopeModel {
     #[sqlx(default)]
@@ -368,4 +341,90 @@ pub struct AppNotifyDataModel {
     /// 创建时间
     #[sqlx(default)]
     pub create_time: u64,
+}
+
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[lsys_model(table_name = "app_oauth_client")]
+pub struct AppOAuthClientModel {
+    #[sqlx(default)]
+    pub id: u64,
+
+    /// app id
+    #[sqlx(default)]
+    pub app_id: u64,
+
+    /// callback_domain
+    #[sqlx(default)]
+    pub callback_domain: String,
+
+    /// scope_data
+    #[sqlx(default)]
+    pub scope_data: String,
+
+    /// 最后更新用户,审核,禁用时用户
+    #[sqlx(default)]
+    pub change_user_id: u64,
+
+    /// 最后更新用户,审核,禁用时时间
+    #[sqlx(default)]
+    pub change_time: u64,
+}
+
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[lsys_model(table_name = "app_oauth_client_refresh_token")]
+pub struct AppOAuthClientRefreshTokenModel {
+    /// 用户ID
+    #[sqlx(default)]
+    pub id: u64,
+
+    /// 应用ID
+    #[sqlx(default)]
+    pub app_id: u64,
+
+    #[sqlx(default)]
+    pub refresh_token_data: String,
+
+    #[sqlx(default)]
+    pub code_data: String,
+
+    #[sqlx(default)]
+    pub source_code: String,
+
+    /// 状态
+    #[sqlx(default)]
+    pub status: i8,
+
+    /// 最后推送时间
+    #[sqlx(default)]
+    pub time_out: u64,
+
+    /// 时间
+    #[sqlx(default)]
+    pub delete_time: u64,
+
+    /// 创建时间
+    #[sqlx(default)]
+    pub add_time: u64,
+}
+
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[lsys_model(table_name = "app_oauth_client_access")]
+pub struct AppOAuthClientAccessModel {
+    /// 用户ID
+    #[sqlx(default)]
+    pub id: u64,
+
+    /// 应用ID
+    #[sqlx(default)]
+    pub app_id: u64,
+
+    #[sqlx(default)]
+    pub access_token_data: String,
+
+    #[sqlx(default)]
+    pub refresh_token_data: String,
+
+    /// 创建时间
+    #[sqlx(default)]
+    pub add_time: u64,
 }

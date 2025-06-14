@@ -44,6 +44,7 @@ bad-app-id = 非法操作非自身app
 access-token-data-token-code-exits =登陆时发现 token_code 已使用，请更换
 show-barcode-bad-type =不支持数据类型,只支持text或base64
 barcode-bad-auth-error = 非公开二维码配置
+app-notify-only-parent = 回调通知只支持系统应用
 
 #rbac 权限
 res-admin-global-system = 系统后台权限

@@ -11,8 +11,6 @@ use serde::Deserialize;
 #[derive(Deserialize)]
 pub struct UserAuthDataOptionParam {
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
-    pub reload_auth: Option<bool>,
-    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub auth: Option<bool>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub user: Option<bool>,
@@ -84,7 +82,6 @@ pub async fn login_data_from_user_auth(
         .login_data_from_user_auth(
             &req_dao.user_session,
             &UserAuthDataOptionData {
-                reload_auth: param.reload_auth,
                 auth: param.auth,
                 password_timeout: param.password_timeout,
             },

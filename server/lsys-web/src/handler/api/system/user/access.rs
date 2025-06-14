@@ -110,28 +110,3 @@ pub async fn user_logout(
     }
     Ok(JsonResponse::default())
 }
-
-#[derive(Debug, Deserialize)]
-pub struct AppLogoutParam {
-    #[serde(deserialize_with = "crate::common::deserialize_u64")]
-    pub app_id: u64,
-}
-pub async fn app_logout(
-    param: &AppLogoutParam,
-    req_dao: &UserAuthQueryDao,
-) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
-        .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminUserManage {})
-        .await?;
-    req_dao
-        .web_dao
-        .web_access
-        .access_dao
-        .auth
-        .clear_app_login(param.app_id)
-        .await?;
-    Ok(JsonResponse::default())
-}

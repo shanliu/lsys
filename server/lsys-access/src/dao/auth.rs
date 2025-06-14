@@ -254,7 +254,7 @@ impl AccessAuth {
         let token_data = login_param
             .token_data
             .map(|e| e.to_owned())
-            .unwrap_or_else(|| rand_str(RandType::Upper, 32));
+            .unwrap_or_else(|| rand_str(RandType::Lower, 32));
 
         let user_account = login_param
             .login_data
@@ -417,7 +417,6 @@ impl AccessAuth {
             .login_data(login_param.app_id, login_param.oauth_app_id, &token_data)
             .await
     }
-
     //延长登录时间
     pub async fn extend_login(
         &self,
@@ -448,114 +447,6 @@ impl AccessAuth {
             .await?;
         session.expire_time = expire_time;
         self.load_session_body(session).await
-    }
-    //重新登陆
-    pub async fn refresh_login(
-        &self,
-        session_body: &SessionBody,
-        expire_time: Option<u64>,
-        token_data: Option<&str>,
-    ) -> AccessResult<SessionBody> {
-        let expire_time = expire_time.unwrap_or(0);
-        let token_data = token_data
-            .map(|e| e.to_owned())
-            .unwrap_or_else(|| rand_str(RandType::Upper, 32));
-        let time = now_time()?;
-        if SessionStatus::Refresh.eq(session_body.session().status)
-            && session_body.session().expire_time > time
-        {
-            match sqlx::query_as::<_,SessionModel>(&sql_format!(
-                    "select * from {} where user_app_id={} and source_token_data={} and status={} and oauth_app_id={} ",
-                    SessionModel::table_name(),
-                    session_body.session().user_app_id,
-                    session_body.session().token_data,
-                    SessionStatus::Enable as i8,
-                    session_body.session().oauth_app_id,
-                )).fetch_one(&self.db).await
-            {
-                Ok(e) => return self.load_session_body(e).await,
-                Err(e) => match e {
-                    sqlx::Error::RowNotFound => {}
-                    _ => return Err(AccessError::Sqlx(e)),
-                },
-            };
-        }
-        session_body.valid()?;
-        let status = SessionStatus::Refresh.to();
-        let change = lsys_core::model_option_set!(SessionModelRef,{
-            status:status,
-            logout_time:time,
-        });
-        let mut db = self.db.begin().await?;
-
-        if let Err(err) = Update::<SessionModel, _>::new(change)
-            .execute_by_where(
-                &WhereOption::Where(sql_format!("id={} ", session_body.session().id)),
-                &mut *db,
-            )
-            .await
-        {
-            db.rollback().await?;
-            return Err(err.into());
-        };
-        let add_status = SessionStatus::Enable.to();
-
-        let vdata = lsys_core::model_option_set!(SessionModelRef,{
-            user_id: session_body.session().user_id,
-            user_app_id: session_body.session().user_app_id,
-            oauth_app_id: session_body.session().user_app_id,
-            token_data:token_data,
-            source_token_data: session_body.session().token_data,
-            login_type: session_body.session().login_type,
-            login_ip: session_body.session().login_ip,
-            device_id: session_body.session().device_id,
-            device_name: session_body.session().device_name,
-            status:add_status,
-            expire_time:expire_time,
-            add_time:time,
-            logout_time:0,
-        });
-        let sid = match Insert::<SessionModel, _>::new(vdata)
-            .execute(&mut *db)
-            .await
-        {
-            Ok(id) => id.last_insert_id(),
-            Err(err) => {
-                db.rollback().await?;
-                return Err(err.into());
-            }
-        };
-
-        let change = lsys_core::model_option_set!(SessionDataModelRef,{
-            session_id:sid
-        });
-        let mut db = self.db.begin().await?;
-        if let Err(err) = Update::<SessionDataModel, _>::new(change)
-            .execute_by_where(
-                &WhereOption::Where(sql_format!("session_id={} ", session_body.session().id)),
-                &mut *db,
-            )
-            .await
-        {
-            db.rollback().await?;
-            return Err(err.into());
-        };
-        db.rollback().await?;
-
-        self.cache()
-            .del_session(
-                session_body.session().user_app_id,
-                session_body.session().oauth_app_id,
-                &session_body.session().token_data,
-            )
-            .await?;
-        self.cache()
-            .login_data(
-                session_body.session().user_app_id,
-                session_body.session().oauth_app_id,
-                &token_data,
-            )
-            .await
     }
     //退出登录
     pub async fn do_logout(&self, session_body: &SessionBody) -> AccessResult<()> {

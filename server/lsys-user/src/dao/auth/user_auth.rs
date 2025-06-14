@@ -160,7 +160,7 @@ impl UserAuthDao {
         }
     }
     //得到当前登陆用户
-    //@todo 多加个一个参数，用于是否决定是否实时从数据库拿记录
+    //@todo 多加个一个参数，用于是否决定是否实时从数据库拿记录,目标是实现jwt验证通过时，可以不加载数据库记录
     pub async fn get_session_data(
         &self,
         user_token: &UserAuthToken,
@@ -181,13 +181,8 @@ impl UserAuthDao {
     }
     //重新加载当前用户
     //user_token 当前登陆的 UserAuthToken
-    //reset_token 是否重新生成 UserAuthToken
-    //返回UserAuthToken 但reset_token为true时为新生成的 UserAuthToken
-    pub async fn reload(
-        &self,
-        user_token: &UserAuthToken,
-        reset_token: bool,
-    ) -> UserAuthResult<UserAuthToken> {
+    //返回UserAuthToken
+    pub async fn reload(&self, user_token: &UserAuthToken) -> UserAuthResult<UserAuthToken> {
         let user_data = self.get_session_data(user_token).await?;
         let mut new_user_data = None;
         for tmp in self.reload_type.iter() {
@@ -201,14 +196,7 @@ impl UserAuthDao {
         }
         match new_user_data {
             Some((data, timeout)) => {
-                let session = if reset_token {
-                    self.access
-                        .auth
-                        .refresh_login(&user_data, Some(timeout), None)
-                        .await?
-                } else {
-                    self.access.auth.extend_login(&user_data, timeout).await?
-                };
+                let session = self.access.auth.extend_login(&user_data, timeout).await?;
                 if !data.is_empty() {
                     self.access
                         .auth

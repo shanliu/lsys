@@ -8,7 +8,8 @@ use serde_json::json;
 
 #[derive(Debug, Deserialize)]
 pub struct ResAddParam {
-    pub user_param: Option<String>,
+    pub use_app_user: bool,
+    pub user_param: Option<String>, //use_app_user为假时必填,用户标识
     pub res_name: Option<String>,
     pub res_type: String,
     pub res_data: String,
@@ -20,8 +21,13 @@ pub async fn res_add(
     req_dao: &RequestDao,
 ) -> JsonResult<JsonResponse> {
     inner_app_rbac_check(app, req_dao).await?;
-    let target_user_id =
-        inner_user_data_to_user_id(app, param.user_param.as_deref(), req_dao).await?;
+    let target_user_id = inner_user_data_to_user_id(
+        app,
+        param.use_app_user,
+        param.user_param.as_deref(),
+        req_dao,
+    )
+    .await?;
 
     let id = req_dao
         .web_dao
@@ -136,7 +142,8 @@ pub async fn res_del(
 
 #[derive(Debug, Deserialize)]
 pub struct ResParam {
-    pub user_param: Option<String>,
+    pub use_app_user: bool,
+    pub user_param: Option<String>, //use_app_user为假时必填,用户标识
     pub res_type: Option<String>,
     pub res_data: Option<String>,
     pub res_name: Option<String>,
@@ -156,8 +163,13 @@ pub async fn res_data(
     req_dao: &RequestDao,
 ) -> JsonResult<JsonResponse> {
     inner_app_rbac_check(app, req_dao).await?;
-    let target_user_id =
-        inner_user_data_to_user_id(app, param.user_param.as_deref(), req_dao).await?;
+    let target_user_id = inner_user_data_to_user_id(
+        app,
+        param.use_app_user,
+        param.user_param.as_deref(),
+        req_dao,
+    )
+    .await?;
 
     let res = req_dao
         .web_dao
@@ -196,7 +208,8 @@ pub async fn res_data(
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(
-        json!({ "data": res,"total":count}),
-    )))
+    Ok(JsonResponse::data(JsonData::body(json!({
+        "data": bind_vec_user_info_from_req!(req_dao, res, user_id),
+        "total":count
+    }))))
 }

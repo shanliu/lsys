@@ -11,7 +11,6 @@ use lsys_user::dao::{UserAuthData, UserAuthSession};
 use tokio::sync::RwLock;
 
 pub struct UserAuthDataOptionData {
-    pub reload_auth: Option<bool>,
     pub auth: Option<bool>,
     pub password_timeout: Option<bool>,
 }
@@ -22,11 +21,7 @@ impl WebUserAuth {
         param: &UserAuthDataOptionData,
     ) -> JsonResult<(UserAuthData, Option<ShowUserAuthData>, bool)> {
         let auth_data = user_session.read().await.get_session_data().await?;
-        let out_auth_data = if param.reload_auth.unwrap_or(false) {
-            let mut session = user_session.write().await;
-            let _ = session.refresh_session(true).await;
-            Some(self.create_show_account_auth_data(&auth_data).await?)
-        } else if param.auth.unwrap_or(false) {
+        let out_auth_data = if param.auth.unwrap_or(false) {
             Some(self.create_show_account_auth_data(&auth_data).await?)
         } else {
             None

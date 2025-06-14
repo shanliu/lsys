@@ -20,7 +20,8 @@ use serde_json::json;
 
 #[derive(Debug, Deserialize)]
 pub struct RoleAddParam {
-    pub user_param: Option<String>,
+    pub use_app_user: bool,
+    pub user_param: Option<String>, //use_app_user为假时必填,用户标识
     pub role_key: String,
     pub role_name: Option<String>,
     #[serde(deserialize_with = "crate::common::deserialize_i8")]
@@ -35,8 +36,13 @@ pub async fn role_add(
     req_dao: &RequestDao,
 ) -> JsonResult<JsonResponse> {
     inner_app_rbac_check(app, req_dao).await?;
-    let target_user_id =
-        inner_user_data_to_user_id(app, param.user_param.as_deref(), req_dao).await?;
+    let target_user_id = inner_user_data_to_user_id(
+        app,
+        param.use_app_user,
+        param.user_param.as_deref(),
+        req_dao,
+    )
+    .await?;
 
     let role_info = match RbacRoleUserRange::try_from(param.user_range)? {
         RbacRoleUserRange::Custom => RbacRoleUserRangeData::Custom {
@@ -153,7 +159,8 @@ pub async fn role_del(
 }
 #[derive(Debug, Deserialize)]
 pub struct RoleDataParam {
-    pub user_param: Option<String>,
+    pub use_app_user: bool,
+    pub user_param: Option<String>, //use_app_user为假时必填,用户标识
     pub role_key: Option<String>,
     pub role_name: Option<String>,
     #[serde(
@@ -201,8 +208,13 @@ pub async fn role_data(
 ) -> JsonResult<JsonResponse> {
     inner_app_rbac_check(app, req_dao).await?;
 
-    let target_user_id =
-        inner_user_data_to_user_id(app, param.user_param.as_deref(), req_dao).await?;
+    let target_user_id = inner_user_data_to_user_id(
+        app,
+        param.use_app_user,
+        param.user_param.as_deref(),
+        req_dao,
+    )
+    .await?;
 
     let user_range = if let Some(e) = param.user_range {
         Some(RbacRoleUserRange::try_from(e)?)

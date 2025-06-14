@@ -20,7 +20,6 @@ async fn user_dao() -> AccountDao {
         Arc::new(RemoteNotify::new("lsys-remote-notify", app_core.clone(), redis.clone()).unwrap());
     let access = Arc::new(AccessDao::new(
         db.clone(),
-        redis.clone(),
         remote_notify.clone(),
         AccessConfig::new(false),
     ));

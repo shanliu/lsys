@@ -4,7 +4,8 @@ use crate::common::handler::{
 use actix_web::post;
 use lsys_web::handler::api::user::app::{
     add, app_list, app_secret_add, app_secret_change, app_secret_del, change, confirm,
-    confirm_exter_feature, delete, mapping_data, notify_secret_change, oauth_client_request,
+    confirm_exter_feature, delete, mapping_data, notify_data_del, notify_data_list,
+    notify_secret_change, oauth_client_request, oauth_client_scope_data,
     oauth_client_scope_request, oauth_client_set_domain, oauth_secret_add, oauth_secret_change,
     oauth_secret_del, oauth_server_client_confirm, oauth_server_client_scope_confirm,
     oauth_server_request, oauth_server_setting, parent_app_list, request_exter_feature,
@@ -14,7 +15,8 @@ use lsys_web::handler::api::user::app::{
     ChangeNotifySecretParam, ChangeOAuthSecretParam, ChangeParam, ConfirmExterFeatureParam,
     ConfirmOAuthClientParam, ConfirmOAuthClientScopeParam, ConfirmOAuthClientSetDomainParam,
     ConfirmOAuthServerSettingParam, ConfirmParam, DelAppSecretParam, DelOAuthSecretParam,
-    DeleteParam, OAuthClientRequestParam, OAuthServerRequestParam, RequestExterFeatureParam,
+    DeleteParam, NotifyDataDelParam, NotifyDataListParam, OAuthClientRequestParam,
+    OAuthClientScopeDataParam, OAuthServerRequestParam, RequestExterFeatureParam,
     RequestExterLoginFeatureParam, RequestExterSubAppParam, RequestListParam,
     SecretViewSecretParam, SubAppNotifyConfigParam, SubRequestListParam, UserAppListParam,
     UserParentAppListParam,
@@ -26,7 +28,10 @@ pub(crate) async fn base(
     json_param: JsonQuery,
     auth_dao: UserAuthQuery,
 ) -> ResponseJsonResult<ResponseJson> {
-    auth_dao.set_request_token(&jwt).await;
+    auth_dao
+        .set_request_token(&jwt)
+        .await
+        .map_err(|e| auth_dao.fluent_error_json_response(&e))?;
     Ok(match path.into_inner().as_str() {
         "mapping" => mapping_data(&auth_dao).await,
         "parent_app" => {
@@ -80,7 +85,10 @@ pub(crate) async fn base(
             sub_app_notify_set_config(&json_param.param::<SubAppNotifyConfigParam>()?, &auth_dao)
                 .await
         }
-
+        "oauth_client_scope_data" => {
+            oauth_client_scope_data(&json_param.param::<OAuthClientScopeDataParam>()?, &auth_dao)
+                .await
+        }
         "oauth_client_request" => {
             oauth_client_request(&json_param.param::<OAuthClientRequestParam>()?, &auth_dao).await
         }
@@ -124,6 +132,12 @@ pub(crate) async fn base(
                 &auth_dao,
             )
             .await
+        }
+        "notify_list" => {
+            notify_data_list(&json_param.param::<NotifyDataListParam>()?, &auth_dao).await
+        }
+        "notify_del" => {
+            notify_data_del(&json_param.param::<NotifyDataDelParam>()?, &auth_dao).await
         }
         name => handler_not_found!(name),
     }

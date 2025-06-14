@@ -35,6 +35,29 @@ CREATE TABLE `yaf_app_oauth_client` (
     UNIQUE KEY `app_id` (`app_id`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = 'OAUTH登录数据';
 
+CREATE TABLE `yaf_app_oauth_client_refresh_token` (
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
+    `app_id` bigint unsigned NOT NULL COMMENT 'app的id',
+    `refresh_token_data` varchar(64) NOT NULL COMMENT '生成记录的CODE',
+    `time_out` bigint unsigned NOT NULL COMMENT '过期时间',
+    `code_data` text NOT NULL COMMENT '登录数据',
+    `source_code` varchar(64) NOT NULL  COMMENT '生成记录的CODE',
+    `status` tinyint NOT NULL COMMENT '状态',
+    `delete_time` bigint unsigned NOT NULL DEFAULT 0  COMMENT '删除时间',
+    `add_time` bigint unsigned NOT NULL COMMENT '添加时间',
+    PRIMARY KEY (`id`),
+    KEY `app_refresh_token_data` (`app_id`,`refresh_token_data`,`time_out`) USING BTREE
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = 'OAUTH登录刷新token';
+
+CREATE TABLE `yaf_app_oauth_client_access` (
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
+    `app_id` bigint unsigned NOT NULL COMMENT 'app的id',
+    `access_token_data` varchar(64) NOT NULL COMMENT 'token data',
+    `refresh_token_data` varchar(64) NOT NULL COMMENT '生成记录的CODE',
+    `add_time` bigint unsigned NOT NULL  COMMENT '添加时间',
+    PRIMARY KEY (`id`),
+    KEY `token_index` (`app_id`,`refresh_token_data`) USING BTREE
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = 'OAUTH登录token';
 
 CREATE TABLE `yaf_app_oauth_server_scope` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',

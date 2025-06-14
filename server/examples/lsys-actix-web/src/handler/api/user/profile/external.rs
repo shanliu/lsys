@@ -38,7 +38,10 @@ pub(crate) async fn external(
     json_param: JsonQuery,
     auth_dao: UserAuthQuery,
 ) -> ResponseJsonResult<ResponseJson> {
-    auth_dao.set_request_token(&jwt).await;
+    auth_dao
+        .set_request_token(&jwt)
+        .await
+        .map_err(|e| auth_dao.fluent_error_json_response(&e))?;
     Ok(match path.into_inner().as_str() {
         "list_data" => external_list_data(&json_param.param::<ExternalListDataParam>()?, &auth_dao)
             .await

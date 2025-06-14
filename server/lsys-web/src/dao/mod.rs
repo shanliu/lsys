@@ -101,7 +101,6 @@ impl WebDao {
         );
         let access_dao = Arc::new(AccessDao::new(
             db.clone(),
-            redis.clone(),
             remote_notify.clone(),
             AccessConfig::new(use_cache),
         ));
@@ -150,8 +149,9 @@ impl WebDao {
                 change_logger.clone(),
                 AppConfig::new(
                     use_cache,
-                    120,           //oauth Code有效期120秒
-                    7 * 24 * 3600, //TOKEN有效期7天
+                    120,             //oauth Code有效期120秒
+                    7 * 24 * 3600,   //TOKEN有效期7天
+                    180 * 24 * 3600, //TOKEN有效期180天
                 ),
             )
             .await?,

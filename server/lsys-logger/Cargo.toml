@@ -12,7 +12,7 @@ serde_json = "1.0.*"
 
 tokio = { version = "~1.45.0" }
 
-sqlx = { version = "~0.8.3", features = ["mysql", "runtime-tokio-native-tls"] }
+sqlx = { version = "~0.8.6", features = ["mysql", "runtime-tokio-native-tls"] }
 
 #日志
 tracing = { version = "0.1.*" } # log-always 保持log的输出 当使用tracing时会出现两次

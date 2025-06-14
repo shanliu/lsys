@@ -29,28 +29,6 @@ impl AccessSession<UserAuthToken, UserAuthData> for UserAuthSession {
                 err => AccessError::System(err.to_fluent_message()),
             })?)
     }
-    async fn refresh_session(&mut self, reset_token: bool) -> AccessResult<UserAuthToken> {
-        let token = self
-            .auth
-            .reload(&self.user_token, reset_token)
-            .await
-            .map_err(|e| match e {
-                UserAuthError::AccessError(err) => err,
-                err => AccessError::System(err.to_fluent_message()),
-            })?;
-        self.user_token = token.clone();
-        Ok(token)
-    }
-    async fn clear_session(&mut self) -> AccessResult<()> {
-        self.auth
-            .logout(&self.user_token)
-            .await
-            .map_err(|e| match e {
-                UserAuthError::AccessError(err) => err,
-                err => AccessError::System(err.to_fluent_message()),
-            })?;
-        Ok(())
-    }
 }
 
 impl UserAuthSession {

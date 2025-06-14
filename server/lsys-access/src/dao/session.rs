@@ -77,8 +77,4 @@ pub trait AccessSession<T: AccessSessionToken, D: AccessSessionData> {
     fn set_session_token(&mut self, token: T);
     //获取登陆信息
     async fn get_session_data(&self) -> AccessResult<D>;
-    //刷新登陆信息
-    async fn refresh_session(&mut self, reset_token: bool) -> AccessResult<T>;
-    //清除登陆信息
-    async fn clear_session(&mut self) -> AccessResult<()>;
 }

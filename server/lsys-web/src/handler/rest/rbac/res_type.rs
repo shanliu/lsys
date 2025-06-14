@@ -7,7 +7,8 @@ use serde::Deserialize;
 use serde_json::json;
 #[derive(Debug, Deserialize)]
 pub struct ResTypeListParam {
-    pub user_param: Option<String>,
+    pub use_app_user: bool,
+    pub user_param: Option<String>, //use_app_user为假时必填,用户标识
     pub res_type: Option<String>,
     pub page: Option<PageParam>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
@@ -20,7 +21,13 @@ pub async fn res_type_data(
     req_dao: &RequestDao,
 ) -> JsonResult<JsonResponse> {
     inner_app_rbac_check(app, req_dao).await?;
-    let user_id = inner_user_data_to_user_id(app, param.user_param.as_deref(), req_dao).await?;
+    let user_id = inner_user_data_to_user_id(
+        app,
+        param.use_app_user,
+        param.user_param.as_deref(),
+        req_dao,
+    )
+    .await?;
     let res_type_param = param.res_type.as_ref().and_then(|e| {
         if e.trim_matches(['\n', ' ', '\t']).is_empty() {
             None
@@ -55,13 +62,14 @@ pub async fn res_type_data(
         None
     };
     Ok(JsonResponse::data(JsonData::body(
-        json!({ "data": rows,"total":count}),
+        json!({ "data": bind_vec_user_info_from_req!(req_dao, rows, user_id),"total":count}),
     )))
 }
 
 #[derive(Debug, Deserialize)]
 pub struct ResTypeAddOpParam {
-    pub user_param: Option<String>,
+    pub use_app_user: bool,
+    pub user_param: Option<String>, //use_app_user为假时必填,用户标识
     pub res_type: String,
     #[serde(deserialize_with = "crate::common::deserialize_vec_u64")]
     pub op_ids: Vec<u64>,
@@ -73,7 +81,13 @@ pub async fn res_type_op_add(
     req_dao: &RequestDao,
 ) -> JsonResult<JsonResponse> {
     inner_app_rbac_check(app, req_dao).await?;
-    let user_id = inner_user_data_to_user_id(app, param.user_param.as_deref(), req_dao).await?;
+    let user_id = inner_user_data_to_user_id(
+        app,
+        param.use_app_user,
+        param.user_param.as_deref(),
+        req_dao,
+    )
+    .await?;
 
     let mut op_data = vec![];
     for tmp in req_dao
@@ -111,7 +125,8 @@ pub async fn res_type_op_add(
 
 #[derive(Debug, Deserialize)]
 pub struct ResDelOpParam {
-    pub user_param: Option<String>,
+    pub use_app_user: bool,
+    pub user_param: Option<String>, //use_app_user为假时必填,用户标识
     pub res_type: String,
     #[serde(deserialize_with = "crate::common::deserialize_vec_u64")]
     pub op_ids: Vec<u64>,
@@ -123,7 +138,13 @@ pub async fn res_type_op_del(
     req_dao: &RequestDao,
 ) -> JsonResult<JsonResponse> {
     inner_app_rbac_check(app, req_dao).await?;
-    let user_id = inner_user_data_to_user_id(app, param.user_param.as_deref(), req_dao).await?;
+    let user_id = inner_user_data_to_user_id(
+        app,
+        param.use_app_user,
+        param.user_param.as_deref(),
+        req_dao,
+    )
+    .await?;
 
     req_dao
         .web_dao
@@ -147,7 +168,8 @@ pub async fn res_type_op_del(
 
 #[derive(Debug, Deserialize)]
 pub struct ResTypeOpListParam {
-    pub user_param: Option<String>,
+    pub use_app_user: bool,
+    pub user_param: Option<String>, //use_app_user为假时必填,用户标识
     pub res_type: String,
     pub page: Option<PageParam>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
@@ -160,7 +182,13 @@ pub async fn res_type_op_data(
     req_dao: &RequestDao,
 ) -> JsonResult<JsonResponse> {
     inner_app_rbac_check(app, req_dao).await?;
-    let user_id = inner_user_data_to_user_id(app, param.user_param.as_deref(), req_dao).await?;
+    let user_id = inner_user_data_to_user_id(
+        app,
+        param.use_app_user,
+        param.user_param.as_deref(),
+        req_dao,
+    )
+    .await?;
 
     let res_param = ResTypeParam {
         res_type: &param.res_type,
@@ -193,6 +221,6 @@ pub async fn res_type_op_data(
         None
     };
     Ok(JsonResponse::data(JsonData::body(
-        json!({ "data": rows,"total":count}),
+        json!({ "data": bind_vec_user_info_from_req!(req_dao, rows, user_id),"total":count}),
     )))
 }

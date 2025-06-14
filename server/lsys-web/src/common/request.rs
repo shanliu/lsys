@@ -2,18 +2,18 @@
 
 use std::{ops::Deref, sync::Arc};
 
+use async_trait::async_trait;
 use lsys_access::dao::{AccessSession, AccessSessionData, AccessSessionToken};
 use lsys_app::dao::{RestAuthData, RestAuthSession, RestAuthToken};
-use lsys_core::{FluentBundle, IntoFluentMessage, RequestEnv};
+use lsys_core::{FluentBundle, RequestEnv};
 
 use lsys_user::dao::{UserAuthData, UserAuthSession, UserAuthToken};
 
 use crate::{
-    common::{JsonError, JsonResponse},
+    common::{JsonError, JsonResponse, JsonResult},
     dao::WebDao,
 };
 use tokio::sync::RwLock;
-use tracing::warn;
 
 pub struct RequestDao {
     pub web_dao: Arc<WebDao>,
@@ -61,14 +61,22 @@ impl<T: AccessSessionToken, D: AccessSessionData, S: AccessSession<T, D>> Deref
     }
 }
 
-//登陆信息特征
+//解析TOKEN单独抽离出来,异步,避免一些框架的REQ无法SYNC
+
+#[async_trait]
+pub trait RequestSessionTokenPaser<T: AccessSessionToken> {
+    //任意TOKEN数据
+    type TD;
+    //解析 TD 为 T
+    async fn parse_user_token(&self, token_data: Self::TD) -> JsonResult<T>;
+}
+
+//执行顺序: get_token_data -> get_paser -> get_paser.parse_user_token -> finish_user_token
 pub trait RequestSessionToken<T: AccessSessionToken> {
-    //获取登陆信息 SessionToken
-    fn get_user_token(&self) -> T;
-    //是否可以支持刷新，如cookie等需要定时刷新登陆信息
-    fn is_refresh(&self, token: &T) -> bool;
-    //但支持刷新时，实现刷新具体操作
-    fn refresh_user_token(&self, token: &T);
+    type L: RequestSessionTokenPaser<T>;
+    fn get_paser(&self) -> Self::L;
+    fn get_token_data(&self) -> Option<<Self::L as RequestSessionTokenPaser<T>>::TD>;
+    fn finish_user_token(&self, user_token: &T);
 }
 
 impl<T: AccessSessionToken, D: AccessSessionData, S: AccessSession<T, D>> RequestAuthDao<T, D, S> {
@@ -80,25 +88,16 @@ impl<T: AccessSessionToken, D: AccessSessionData, S: AccessSession<T, D>> Reques
             marker_d: std::marker::PhantomData,
         }
     }
-    pub async fn set_request_token(&self, token: &impl RequestSessionToken<T>) {
-        let mut set = self.user_session.write().await;
-        let user_token = token.get_user_token();
-        if token.is_refresh(&user_token) {
-            set.set_session_token(user_token);
-            match set.refresh_session(true).await {
-                Ok(rut) => {
-                    token.refresh_user_token(&rut);
-                }
-                Err(e) => {
-                    warn!(
-                        "check user auth error:{}",
-                        e.to_fluent_message().default_format()
-                    );
-                }
-            }
-        } else {
-            set.set_session_token(user_token);
-        };
+    pub async fn set_request_token(&self, token: &impl RequestSessionToken<T>) -> JsonResult<()> {
+        if let Some(token_data) = token.get_token_data() {
+            let user_token = token.get_paser().parse_user_token(token_data).await?;
+            token.finish_user_token(&user_token);
+            self.user_session
+                .write()
+                .await
+                .set_session_token(user_token);
+        }
+        Ok(())
     }
 }
 

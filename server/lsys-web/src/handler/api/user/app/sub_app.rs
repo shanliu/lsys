@@ -1,10 +1,11 @@
-use crate::common::{JsonData, JsonResult};
+use crate::common::{JsonData, JsonError, JsonResult};
 
 use crate::common::{JsonResponse, UserAuthQueryDao};
 use crate::dao::access::api::user::{CheckUserAppEdit, CheckUserAppSenderSmsConfig};
 use lsys_access::dao::AccessSession;
 use lsys_app::dao::{UserAppDataParam, SUB_APP_SECRET_NOTIFY_TYPE};
 use lsys_app::model::AppStatus;
+use lsys_core::fluent_message;
 use serde::Deserialize;
 use serde_json::json;
 
@@ -141,7 +142,11 @@ pub async fn sub_app_notify_set_config(
             },
         )
         .await?;
-
+    if app.parent_app_id != 0 {
+        return Err(JsonError::Message(fluent_message!(
+            "app-notify-only-parent"
+        )));
+    }
     req_dao
         .web_dao
         .web_app

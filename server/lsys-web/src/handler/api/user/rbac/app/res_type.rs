@@ -13,7 +13,8 @@ use serde_json::json;
 pub struct AppResTypeListParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
-    pub user_param: Option<String>,
+    pub use_app_user: bool,
+    pub user_param: Option<String>, //use_app_user为假时必填,用户标识
     pub res_type: Option<String>,
     pub page: Option<PageParam>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
@@ -26,7 +27,13 @@ pub async fn app_res_type_data(
 ) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let app = app_check_get(param.app_id, false, &auth_data, req_dao).await?;
-    let user_id = inner_user_data_to_user_id(&app, param.user_param.as_deref(), req_dao).await?;
+    let user_id = inner_user_data_to_user_id(
+        &app,
+        param.use_app_user,
+        param.user_param.as_deref(),
+        req_dao,
+    )
+    .await?;
 
     let res_param = ResTypeListParam {
         user_id: Some(user_id),
@@ -73,7 +80,8 @@ pub async fn app_res_type_data(
 pub struct AppResTypeAddOpParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
-    pub user_param: Option<String>,
+    pub use_app_user: bool,
+    pub user_param: Option<String>, //use_app_user为假时必填,用户标识
     pub res_type: String,
     #[serde(deserialize_with = "crate::common::deserialize_vec_u64")]
     pub op_ids: Vec<u64>,
@@ -86,7 +94,13 @@ pub async fn app_res_type_op_add(
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
     let app = app_check_get(param.app_id, true, &auth_data, req_dao).await?;
-    let user_id = inner_user_data_to_user_id(&app, param.user_param.as_deref(), req_dao).await?;
+    let user_id = inner_user_data_to_user_id(
+        &app,
+        param.use_app_user,
+        param.user_param.as_deref(),
+        req_dao,
+    )
+    .await?;
 
     let op_data = req_dao
         .web_dao
@@ -123,7 +137,8 @@ pub async fn app_res_type_op_add(
 pub struct AppResDelOpParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
-    pub user_param: Option<String>,
+    pub use_app_user: bool,
+    pub user_param: Option<String>, //use_app_user为假时必填,用户标识
     pub res_type: String,
     #[serde(deserialize_with = "crate::common::deserialize_vec_u64")]
     pub op_ids: Vec<u64>,
@@ -135,7 +150,13 @@ pub async fn app_res_type_op_del(
 ) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let app = app_check_get(param.app_id, true, &auth_data, req_dao).await?;
-    let user_id = inner_user_data_to_user_id(&app, param.user_param.as_deref(), req_dao).await?;
+    let user_id = inner_user_data_to_user_id(
+        &app,
+        param.use_app_user,
+        param.user_param.as_deref(),
+        req_dao,
+    )
+    .await?;
 
     req_dao
         .web_dao
@@ -161,7 +182,8 @@ pub async fn app_res_type_op_del(
 pub struct AppResTypeOpListParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
-    pub user_param: Option<String>,
+    pub use_app_user: bool,
+    pub user_param: Option<String>, //use_app_user为假时必填,用户标识
     pub res_type: String,
     pub page: Option<PageParam>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
@@ -174,7 +196,13 @@ pub async fn app_res_type_op_data(
 ) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let app = app_check_get(param.app_id, true, &auth_data, req_dao).await?;
-    let user_id = inner_user_data_to_user_id(&app, param.user_param.as_deref(), req_dao).await?;
+    let user_id = inner_user_data_to_user_id(
+        &app,
+        param.use_app_user,
+        param.user_param.as_deref(),
+        req_dao,
+    )
+    .await?;
 
     let res_param = ResTypeParam {
         res_type: &param.res_type,

@@ -367,7 +367,7 @@ impl SenderTaskExecutor<u64, MailTaskItem, MailTaskData> for SmtpSenderTask {
         let context = Context::from_value(var_tpl)
             .map_err(|e| SenderExecError::Finish(format!("prare tpl fail[{}]:{}", hand_id, e)))?;
 
-        let mut bad_res = vec![];
+        
         let mut email_builder = Message::builder();
 
         if let Ok(from) = mail_tpl_config.from_email.parse::<Mailbox>() {
@@ -380,7 +380,7 @@ impl SenderTaskExecutor<u64, MailTaskItem, MailTaskData> for SmtpSenderTask {
         } else if let Ok(reply) = mail_tpl_config.reply_email.parse::<Mailbox>() {
             email_builder = email_builder.reply_to(reply);
         }
-
+        let mut bad_res = vec![];
         let mut is_send = false;
         for tmp in data.data.iter() {
             email_builder = match tmp.to_mail.parse::<Mailbox>() {

@@ -38,7 +38,12 @@ impl WebUserAccount {
                 env_data,
             )
             .await?;
-        user_session.write().await.refresh_session(false).await?;
+        let token = self
+            .user_dao
+            .auth_dao
+            .reload(user_session.read().await.get_session_token())
+            .await?;
+        user_session.write().await.set_session_token(token);
         Ok(())
     }
 }
@@ -125,7 +130,12 @@ impl WebUserAccount {
             return Err(err.into());
         }
         db.commit().await?;
-        user_session.write().await.refresh_session(false).await?;
+        let token = self
+            .user_dao
+            .auth_dao
+            .reload(user_session.read().await.get_session_token())
+            .await?;
+        user_session.write().await.set_session_token(token);
         Ok(())
     }
 }

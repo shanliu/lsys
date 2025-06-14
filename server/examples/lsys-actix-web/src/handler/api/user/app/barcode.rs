@@ -16,7 +16,10 @@ pub async fn barcode(
     jwt: JwtQuery,
     req: HttpRequest,
 ) -> ResponseJsonResult<ResponseJson> {
-    auth_dao.set_request_token(&jwt).await;
+    auth_dao
+        .set_request_token(&jwt)
+        .await
+        .map_err(|e| auth_dao.fluent_error_json_response(&e))?;
     Ok(match path.into_inner().as_str() {
         "mapping" => mapping_data(&auth_dao).await,
         "create_config_add" => {

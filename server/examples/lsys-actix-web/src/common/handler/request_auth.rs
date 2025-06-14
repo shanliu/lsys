@@ -1,11 +1,16 @@
+use std::sync::Arc;
 use std::{ops::Deref, str::FromStr};
 
 use actix_utils::future::{err, ok, Ready};
+use actix_web::cookie::Cookie;
 use actix_web::{dev::Payload, web::Data, FromRequest, HttpMessage, HttpRequest};
 
+use lsys_web::common::{JsonResult, RequestSessionTokenPaser};
 use lsys_web::lsys_app::dao::{RestAuthSession, RestAuthToken};
 use lsys_web::lsys_core::{now_time, IntoFluentMessage, RequestEnv};
 
+use actix_http::header;
+use async_trait::async_trait;
 use lsys_web::lsys_user::dao::{UserAuthSession, UserAuthToken};
 use lsys_web::{
     common::{
@@ -14,8 +19,6 @@ use lsys_web::{
     },
     dao::WebDao,
 };
-
-use actix_http::header;
 
 use super::{ResponseJson, AUTH_COOKIE_NAME};
 
@@ -96,47 +99,65 @@ impl FromRequest for UserAuthQuery {
     }
 }
 
+pub struct CookieTokenPaser {
+    web_dao: Arc<WebDao>,
+}
+
+#[async_trait]
+impl RequestSessionTokenPaser<UserAuthToken> for CookieTokenPaser {
+    type TD = Cookie<'static>;
+    async fn parse_user_token(&self, cookie: Cookie<'static>) -> JsonResult<UserAuthToken> {
+        let token = UserAuthToken::from_str(cookie.value())?;
+        let token = if now_time().unwrap_or_default() - 30 > token.time_out {
+            self.web_dao
+                .web_user
+                .user_dao
+                .auth_dao
+                .reload(&token)
+                .await?
+        } else {
+            token
+        };
+        Ok(token)
+    }
+}
 //COOKIE登陆实现[默认实现]
 pub struct CookieToken<'t> {
-    request_dao: &'t UserAuthQuery,
+    query: &'t UserAuthQuery,
 }
 impl<'t> From<&'t UserAuthQuery> for CookieToken<'t> {
     fn from(request_dao: &'t UserAuthQuery) -> Self {
-        Self { request_dao }
-    }
-}
-impl CookieToken<'_> {
-    pub fn set_token(&self, token: UserAuthToken) {
-        self.request_dao
-            .req
-            .extensions_mut()
-            .insert::<UserAuthToken>(token);
+        Self { query: request_dao }
     }
 }
 
 impl RequestSessionToken<UserAuthToken> for CookieToken<'_> {
-    fn get_user_token(&self) -> UserAuthToken {
-        if let Some(cookie) = self.request_dao.req.cookie(AUTH_COOKIE_NAME) {
-            UserAuthToken::from_str(cookie.value()).unwrap_or_default()
-        } else {
-            UserAuthToken::default()
+    type L = CookieTokenPaser;
+    fn get_paser(&self) -> Self::L {
+        CookieTokenPaser {
+            web_dao: self.query.web_dao.clone(),
         }
     }
-    fn is_refresh(&self, token: &UserAuthToken) -> bool {
-        if !token.token.is_empty() {
-            return now_time().unwrap_or_default() - 30 > token.time_out;
-        }
-        false
+    fn get_token_data(&self) -> Option<Cookie<'static>> {
+        self.query.req.cookie(AUTH_COOKIE_NAME).and_then(|e| {
+            if e.value().is_empty() {
+                None
+            } else {
+                Some(e)
+            }
+        })
     }
-    fn refresh_user_token(&self, token: &UserAuthToken) {
-        self.set_token(token.to_owned());
+    fn finish_user_token(&self, user_token: &UserAuthToken) {
+        self.query
+            .req
+            .extensions_mut()
+            .insert::<UserAuthToken>(user_token.to_owned());
     }
 }
 
 //oauth 登陆实现，跟普通登陆实现方式不相同
 pub struct OauthAuthQuery {
     pub inner: RestAuthQueryDao,
-    // pub req: HttpRequest,
 }
 
 impl Deref for OauthAuthQuery {

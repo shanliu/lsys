@@ -6,5 +6,4 @@ use serde::{Deserialize, Serialize};
 pub enum SessionStatus {
     Enable = 1,
     Delete = 2,
-    Refresh = 3,
 }

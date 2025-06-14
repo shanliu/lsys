@@ -14,7 +14,10 @@ pub(crate) async fn email(
     json_param: JsonQuery,
     auth_dao: UserAuthQuery,
 ) -> ResponseJsonResult<ResponseJson> {
-    auth_dao.set_request_token(&jwt).await;
+    auth_dao
+        .set_request_token(&jwt)
+        .await
+        .map_err(|e| auth_dao.fluent_error_json_response(&e))?;
     Ok(match path.into_inner().as_str() {
         "add" => email_add(&json_param.param::<EmailAddParam>()?, &auth_dao).await,
         "send_code" => email_send_code(&json_param.param::<EmailSendCodeParam>()?, &auth_dao).await,

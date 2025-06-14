@@ -11,7 +11,8 @@ use serde_json::json;
 pub struct AppOpAddParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
-    pub user_param: Option<String>,
+    pub use_app_user: bool,
+    pub user_param: Option<String>, //use_app_user为假时必填,用户标识
     pub op_key: String,
     pub op_name: Option<String>,
 }
@@ -21,7 +22,13 @@ pub async fn app_op_add(
 ) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let app = app_check_get(param.app_id, true, &auth_data, req_dao).await?;
-    let user_id = inner_user_data_to_user_id(&app, param.user_param.as_deref(), req_dao).await?;
+    let user_id = inner_user_data_to_user_id(
+        &app,
+        param.use_app_user,
+        param.user_param.as_deref(),
+        req_dao,
+    )
+    .await?;
 
     let id = req_dao
         .web_dao
@@ -129,7 +136,8 @@ pub async fn app_op_del(
 pub struct AppOpDataParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
-    pub user_param: Option<String>,
+    pub use_app_user: bool,
+    pub user_param: Option<String>, //use_app_user为假时必填,用户标识
     pub op_name: Option<String>,
     pub op_key: Option<String>,
     #[serde(
@@ -148,7 +156,13 @@ pub async fn app_op_data(
 ) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let app = app_check_get(param.app_id, true, &auth_data, req_dao).await?;
-    let user_id = inner_user_data_to_user_id(&app, param.user_param.as_deref(), req_dao).await?;
+    let user_id = inner_user_data_to_user_id(
+        &app,
+        param.use_app_user,
+        param.user_param.as_deref(),
+        req_dao,
+    )
+    .await?;
 
     let res = req_dao
         .web_dao

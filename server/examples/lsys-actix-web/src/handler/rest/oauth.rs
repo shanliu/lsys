@@ -47,7 +47,10 @@ pub(crate) async fn user_data(
     rest: RestQuery,
     oauth_param: OauthAuthQuery,
 ) -> ResponseJsonResult<ResponseJson> {
-    oauth_param.set_request_token(&rest).await;
+    oauth_param
+        .set_request_token(&rest)
+        .await
+        .map_err(|e| oauth_param.fluent_error_json_response(&e))?;
     Ok(match rest.rfc.method.as_deref() {
         Some("info") => {
             account_data_from_oauth(&rest.param::<AccountOptionDataParam>()?, &oauth_param).await

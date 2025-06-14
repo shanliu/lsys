@@ -21,7 +21,7 @@ pub struct AppAuditResParam {
 
 #[derive(Debug, Deserialize)]
 pub struct AppAuditParam {
-    pub user_param: Option<String>,
+    pub user_param: Option<String>, //用户标识过滤,不传不过滤
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
     pub user_ip: Option<String>,

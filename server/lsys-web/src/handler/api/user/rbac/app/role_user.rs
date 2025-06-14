@@ -13,7 +13,8 @@ use serde::Deserialize;
 use serde_json::json;
 #[derive(Debug, Deserialize)]
 pub struct AppRoleUserItemParam {
-    pub user_param: Option<String>,
+    pub use_app_user: bool,
+    pub user_param: Option<String>, //use_app_user为假时必填,用户标识
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub timeout: u64,
 }
@@ -39,33 +40,29 @@ pub async fn app_role_user_add(
     let app = app_check_get(role.app_id, true, &auth_data, req_dao).await?;
     let mut add_user = Vec::with_capacity(param.user_data.len());
     for e in param.user_data.iter() {
-        match e.user_param.as_ref().and_then(|s| {
-            if s.trim_matches(['\n', ' ', '\t']).is_empty() {
-                None
-            } else {
-                Some(s)
-            }
-        }) {
-            Some(user_param) => {
-                let user_info = req_dao
-                    .web_dao
-                    .web_access
-                    .access_dao
-                    .user
-                    .cache()
-                    .sync_user(app.id, user_param, None, None)
-                    .await?;
-                add_user.push(RoleAddUser {
-                    user_id: user_info.id,
-                    timeout: e.timeout,
-                });
-            }
-            None => {
-                add_user.push(RoleAddUser {
-                    user_id: app.user_id,
-                    timeout: e.timeout,
-                });
-            }
+        if e.use_app_user {
+            add_user.push(RoleAddUser {
+                user_id: app.user_id,
+                timeout: e.timeout,
+            });
+        } else {
+            let user_info = req_dao
+                .web_dao
+                .web_access
+                .access_dao
+                .user
+                .cache()
+                .sync_user(
+                    app.id,
+                    e.user_param.as_deref().unwrap_or_default(),
+                    None,
+                    None,
+                )
+                .await?;
+            add_user.push(RoleAddUser {
+                user_id: user_info.id,
+                timeout: e.timeout,
+            });
         }
     }
     req_dao
@@ -82,6 +79,7 @@ pub async fn app_role_user_add(
 pub struct AppRoleUserDelParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub role_id: u64,
+    pub use_app_user: bool,
     pub user_data: Vec<String>,
 }
 
@@ -110,8 +108,10 @@ pub async fn app_role_user_del(
             .await?;
         user_id_data.push(user_info.id);
     }
-
     let app = app_check_get(role.app_id, true, &auth_data, req_dao).await?;
+    if param.use_app_user {
+        user_id_data.push(app.user_id);
+    }
     req_dao
         .web_dao
         .web_rbac

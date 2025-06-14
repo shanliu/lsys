@@ -10,15 +10,16 @@ use std::collections::HashMap;
 pub struct ResCheckParam {
     pub res_type: String,           //资源KEY
     pub res_data: String,           //资源KEY
-    pub user_param: Option<String>, //资源用户标识,空为APP用户
-
-    pub ops: Vec<String>, //授权列表
+    pub use_app_user: bool,         //使用当前APP用户
+    pub user_param: Option<String>, //use_app_user为假时必填,用户标识
+    pub ops: Vec<String>,           //授权列表
 }
 
 #[derive(Debug, Deserialize)]
 pub struct RoleCheckParam {
     pub role_key: String,
-    pub user_param: Option<String>, //资源用户标识,空为APP用户
+    pub use_app_user: bool,
+    pub user_param: Option<String>, //use_app_user为假时必填,用户标识
 }
 
 #[derive(Debug, Deserialize)]
@@ -29,7 +30,7 @@ pub struct AccessCheckParam {
 
 #[derive(Debug, Deserialize)]
 pub struct CheckParam {
-    pub user_param: Option<String>, //资源用户标识,空为APP用户
+    pub user_param: Option<String>, //use_app_user为假时必填,用户标识
     pub token_data: Option<String>,
     pub request_ip: Option<String>,
     pub access: AccessCheckParam,
@@ -101,15 +102,22 @@ async fn inner_access_check(
     let mut user_list = HashMap::new();
     for e in param.access.role_key.iter() {
         if !user_list.contains_key(&e.user_param) {
-            let user_id = inner_user_data_to_user_id(app, e.user_param.as_deref(), req_dao).await?;
+            let user_id =
+                inner_user_data_to_user_id(app, e.use_app_user, e.user_param.as_deref(), req_dao)
+                    .await?;
             user_list.insert(e.user_param.clone(), user_id);
         }
     }
     for te in param.access.check_res.iter() {
         for e in te.iter() {
             if !user_list.contains_key(&e.user_param) {
-                let user_id =
-                    inner_user_data_to_user_id(app, e.user_param.as_deref(), req_dao).await?;
+                let user_id = inner_user_data_to_user_id(
+                    app,
+                    e.use_app_user,
+                    e.user_param.as_deref(),
+                    req_dao,
+                )
+                .await?;
                 user_list.insert(e.user_param.clone(), user_id);
             }
         }

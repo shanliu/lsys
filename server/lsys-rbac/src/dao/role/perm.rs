@@ -39,13 +39,13 @@ impl RbacRole {
         if perm_vec.is_empty() {
             return Ok(());
         }
-        if !RbacRoleResRange::Exclude.eq(role.user_range)
-            && !RbacRoleResRange::Include.eq(role.user_range)
+        if !RbacRoleResRange::Exclude.eq(role.res_range)
+            && !RbacRoleResRange::Include.eq(role.res_range)
         {
             return Err(RbacError::System(fluent_message!("rbac-res-perm-wrong",{
                 "name":&role.role_name,
                 "role_id":role.id,
-                "range":role.user_range
+                "range":role.res_range
             })));
         }
 
@@ -334,10 +334,15 @@ impl RbacRole {
         db: &mut Transaction<'_, sqlx::MySql>,
         env_data: Option<&RequestEnv>,
     ) -> RbacResult<()> {
+        if op_data.is_empty() {
+            return Ok(());
+        }
         let mut perm_id = 0;
         loop {
             let role_data=sqlx::query(&sql_format!(
-                "select role.*,perm.op_id,perm.id as perm_id from {} as role join {} as perm on role.id=perm.role_id where perm.res_id={} and perm.op_id in ({}) and perm.id>{} order by perm.id asc limit 100 ",
+                "select role.*,perm.op_id,perm.id as perm_id 
+                    from {} as role join {} as perm on role.id=perm.role_id 
+                    where perm.res_id={} and perm.op_id in ({}) and perm.id>{} order by perm.id asc limit 100 ",
                 RbacRoleModel::table_name(),
                 RbacPermModel::table_name(),
                 res.id,
