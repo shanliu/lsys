@@ -3,51 +3,12 @@ use crate::{
     dao::access::api::system::{CheckAdminRbacEdit, CheckAdminRbacView},
 };
 use lsys_access::dao::AccessSession;
-use lsys_core::FluentMessage;
 use lsys_rbac::{
     dao::{ResTypeListParam as DaoResTypeListParam, ResTypeParam},
     model::RbacOpModel,
 };
 use serde::Deserialize;
 use serde_json::json;
-
-//静态资源类型数据
-
-pub async fn res_tpl_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
-    req_dao.user_session.read().await.get_session_data().await?;
-    let tpl_data = req_dao
-        .web_dao
-        .web_rbac
-        .res_tpl_data(false, false)
-        .into_iter()
-        .map(|e| {
-            json!({
-                "res_type":e.key,
-                "res_name":req_dao.fluent.format_message(&FluentMessage {
-                    id: format!("res-admin-{}", e.key),
-                    crate_name: env!("CARGO_PKG_NAME").to_string(),
-                    data: vec![],
-                }),
-                "op_data": e.ops
-                .iter()
-                .map(|eop| {
-                    json!({
-                        "key":eop,
-                        "name": req_dao.fluent.format_message(&FluentMessage {
-                            id: format!("res-op-admin-{}", eop),
-                            crate_name: env!("CARGO_PKG_NAME").to_string(),
-                            data: vec![],
-                        })
-                    })
-                })
-                .collect::<Vec<_>>(),
-            })
-        })
-        .collect::<Vec<_>>();
-    Ok(JsonResponse::data(JsonData::body(
-        json!({ "tpl_data": tpl_data }),
-    )))
-}
 
 //从现有资源统计资源类型
 #[derive(Debug, Deserialize)]

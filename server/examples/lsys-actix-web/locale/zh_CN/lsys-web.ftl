@@ -89,6 +89,7 @@ res-op-user-edit-barcode = 用户编辑条形码
 res-op-user-view-notify = 用户查看回调通知
 res-op-user-rbac-check = 用户权限检测
 res-op-user-rbac-edit = 用户权限编辑
+res-op-user-external-edit = 绑定账号管理
 res-op-user-app-mail-config = 用户邮件应用配置
 res-op-user-app-mail-veiw = 用户邮件应用查看
 res-op-user-app-mail-manage = 用户邮件应用管理

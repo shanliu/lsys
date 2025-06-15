@@ -1,8 +1,8 @@
 pub mod access;
 #[macro_use]
 mod common;
+pub mod res_op;
 pub mod res_tpl;
-pub mod user;
 
 pub use common::*;
 use std::sync::Arc;

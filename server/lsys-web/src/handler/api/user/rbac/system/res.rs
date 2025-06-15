@@ -1,7 +1,7 @@
 use crate::common::JsonData;
 use crate::{
     common::{JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
-    dao::user::RbacUserSyncOpParam,
+    dao::res_op::RbacSyncOpParam,
 };
 use lsys_access::dao::AccessSession;
 use lsys_core::FluentMessage;
@@ -9,7 +9,8 @@ use lsys_rbac::dao::ResTypeParam;
 use serde::Deserialize;
 use serde_json::json;
 
-pub async fn system_res_global_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
+//系统内置的用户资源数据
+pub async fn global_res_data_from_tpl_res(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let tpl_data = req_dao.web_dao.web_rbac.res_tpl_data(true, false);
     let mut out_data = vec![];
@@ -17,7 +18,7 @@ pub async fn system_res_global_data(req_dao: &UserAuthQueryDao) -> JsonResult<Js
         let key_data = tmp
             .ops
             .iter()
-            .map(|e| RbacUserSyncOpParam {
+            .map(|e| RbacSyncOpParam {
                 op_key: e,
                 init_op_name: None,
             })
@@ -26,7 +27,61 @@ pub async fn system_res_global_data(req_dao: &UserAuthQueryDao) -> JsonResult<Js
         let tpl_data = req_dao
             .web_dao
             .web_rbac
-            .user_sync_res_type_op_id(
+            .sync_res_type_op_id(
+                &ResTypeParam {
+                    res_type: tmp.key,
+                    user_id: auth_data.user_id(),
+                    app_id: 0,
+                },
+                &key_data,
+                auth_data.user_id(),
+                Some(&req_dao.req_env),
+            )
+            .await?;
+        out_data.push(json!({
+            "res_type": tmp.key,
+            "res_name": req_dao.fluent.format_message(&FluentMessage {
+                id: format!("res-user-{}", tmp.key),
+                crate_name: env!("CARGO_PKG_NAME").to_string(),
+                data: vec![],
+            }),
+            "op_data": tpl_data.iter().map(|(e,op_id)| {
+                json!({
+                    "op_key": e.op_key,
+                    "op_id": op_id,
+                    "op_name":req_dao.fluent.format_message(&FluentMessage {
+                        id: format!("res-op-user-{}", e.op_key),
+                        crate_name: env!("CARGO_PKG_NAME").to_string(),
+                        data: vec![],
+                    })
+                })
+            }).collect::<Vec<_>>(),
+        }));
+    }
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "tpl_data": out_data }),
+    )))
+}
+
+//系统内置的用户资源数据
+pub async fn user_res_type_from_tpl_res(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let tpl_data = req_dao.web_dao.web_rbac.res_tpl_data(true, true);
+    let mut out_data = vec![];
+    for tmp in tpl_data.into_iter() {
+        let key_data = tmp
+            .ops
+            .iter()
+            .map(|e| RbacSyncOpParam {
+                op_key: e,
+                init_op_name: None,
+            })
+            .collect::<Vec<_>>();
+        let key_data = key_data.iter().collect::<Vec<_>>();
+        let tpl_data = req_dao
+            .web_dao
+            .web_rbac
+            .sync_res_type_op_id(
                 &ResTypeParam {
                     res_type: tmp.key,
                     user_id: auth_data.user_id(),
@@ -63,15 +118,15 @@ pub async fn system_res_global_data(req_dao: &UserAuthQueryDao) -> JsonResult<Js
 }
 
 #[derive(Debug, Deserialize)]
-pub struct SystemResParam {
+pub struct UserResDataFromUserResTypeParam {
     pub res_type: String,
     pub page: Option<PageParam>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
 }
 
-pub async fn system_res_data(
-    param: &SystemResParam,
+pub async fn user_res_data_from_user_res_type(
+    param: &UserResDataFromUserResTypeParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
@@ -79,8 +134,9 @@ pub async fn system_res_data(
     let res_data = req_dao
         .web_dao
         .web_rbac
-        .res_tpl_user_sync(
+        .res_tpl_sync(
             auth_data.user_id(),
+            0,
             &param.res_type,
             &res_data,
             auth_data.user_id(),

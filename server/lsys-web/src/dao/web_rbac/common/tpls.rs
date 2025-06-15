@@ -24,7 +24,7 @@ macro_rules! access_res_tpl {
             let tdat = <$res_type>::tpl_data();
             for e in tdat.iter() {
                 for tmp in data.iter_mut() {
-                    if tmp.key == e.key {
+                    if tmp.key == e.key && tmp.user == e.user && tmp.data == e.data{
                         for ot in e.ops.iter() {
                             if !tmp.ops.contains(ot) {
                                 tmp.ops.push(*ot)
@@ -34,7 +34,7 @@ macro_rules! access_res_tpl {
                 }
             }
             for tmp in tdat {
-                if !data.iter().any(|e| e.key == tmp.key) {
+                if !data.iter().any(|e| tmp.key == e.key && tmp.user == e.user && tmp.data == e.data) {
                     data.push(tmp)
                 }
             }
