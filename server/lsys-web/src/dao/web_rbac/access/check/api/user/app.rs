@@ -23,7 +23,7 @@ impl RbacCheckAccess for CheckUserAppView {
 impl RbacCheckResTpl for CheckUserAppView {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
-            user: false,
+            user: true,
             data: false,
             key: "global-user",
             ops: vec!["view-app"],
@@ -58,7 +58,7 @@ impl RbacCheckAccess for CheckUserAppEdit {
 impl RbacCheckResTpl for CheckUserAppEdit {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
-            user: false,
+            user: true,
             data: false,
             key: "global-user",
             ops: vec!["edit-app"],

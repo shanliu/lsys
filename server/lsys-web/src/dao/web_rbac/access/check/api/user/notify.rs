@@ -22,7 +22,7 @@ impl RbacCheckAccess for CheckUserNotifyView {
 impl RbacCheckResTpl for CheckUserNotifyView {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
-            user: false,
+            user: true,
             data: false,
             key: "global-user",
             ops: vec!["view-notify"],

@@ -22,7 +22,7 @@ impl RbacCheckAccess for CheckUserRbacView {
 impl RbacCheckResTpl for CheckUserRbacView {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
-            user: false,
+            user: true,
             data: false,
             key: "global-user",
             ops: vec!["rbac-check"],
