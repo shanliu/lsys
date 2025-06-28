@@ -9,8 +9,6 @@ mod web_setting;
 
 #[cfg(feature = "barcode")]
 mod app_barcode;
-#[cfg(feature = "docs")]
-mod web_doc;
 
 pub use app_area::*;
 #[cfg(feature = "barcode")]
@@ -25,8 +23,7 @@ use lsys_user::dao::login::{
 pub use web_access::*;
 pub use web_account::*;
 pub use web_app::*;
-#[cfg(feature = "docs")]
-pub use web_doc::*;
+
 pub use web_rbac::*;
 pub use web_setting::*;
 
@@ -64,8 +61,6 @@ pub struct WebDao {
     pub app_captcha: Arc<AppCaptcha>,
     pub app_sender: Arc<AppSender>,
     pub app_area: Arc<AppArea>,
-    #[cfg(feature = "docs")]
-    pub web_doc: Arc<WebDoc>,
     #[cfg(feature = "barcode")]
     pub app_barcode: Arc<AppBarCode>,
 }
@@ -235,17 +230,6 @@ impl WebDao {
             cache_item.push(Box::new(item))
         }
 
-        #[cfg(feature = "docs")]
-        let web_doc = Arc::new(
-            WebDoc::new(
-                app_core.clone(),
-                db.clone(),
-                remote_notify.clone(),
-                change_logger.clone(),
-            )
-            .await,
-        );
-
         remote_notify
             .push_run(Box::new(LocalCacheClear::new(cache_item)))
             .await;
@@ -270,8 +254,6 @@ impl WebDao {
             app_captcha,
             app_sender,
             app_area,
-            #[cfg(feature = "docs")]
-            web_doc,
             #[cfg(feature = "barcode")]
             app_barcode,
         })

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::common::{JsonData, JsonError, JsonFluent};
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonResponse, JsonResult, RequestDao},
     dao::access::rest::CheckRestApp,
@@ -32,7 +33,12 @@ pub async fn do_login(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, None, &CheckRestApp {})
+        .check(
+            &RbacAccessCheckEnv::any(&req_dao.req_env),
+            &CheckRestApp {
+                res_user_id: app.user_id,
+            },
+        )
         .await?;
     req_dao
         .web_dao
@@ -133,7 +139,12 @@ pub async fn login_info(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, None, &CheckRestApp {})
+        .check(
+            &RbacAccessCheckEnv::any(&req_dao.req_env),
+            &CheckRestApp {
+                res_user_id: app.user_id,
+            },
+        )
         .await?;
     req_dao
         .web_dao

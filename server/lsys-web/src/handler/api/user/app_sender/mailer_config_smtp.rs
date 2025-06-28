@@ -1,7 +1,8 @@
 use crate::common::JsonData;
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonResponse, JsonResult, UserAuthQueryDao},
-    dao::access::api::user::CheckUserAppSenderMailConfig,
+    dao::access::api::system::user::CheckUserAppSenderMailConfig,
 };
 use lsys_access::dao::AccessSession;
 use serde::Deserialize;
@@ -22,17 +23,6 @@ pub async fn mailer_smtp_config_list(
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
-        .web_rbac
-        .check(
-            &req_dao.req_env,
-            Some(&auth_data),
-            &CheckUserAppSenderMailConfig {
-                res_user_id: auth_data.user_id(),
-            },
-        )
-        .await?;
 
     let row = req_dao
         .web_dao
@@ -41,6 +31,17 @@ pub async fn mailer_smtp_config_list(
         .smtp_sender
         .list_config(param.ids.as_deref())
         .await?;
+    req_dao
+        .web_dao
+        .web_rbac
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckUserAppSenderMailConfig {
+                res_user_id: auth_data.user_id(),
+            },
+        )
+        .await?;
+
     let row = row
         .into_iter()
         .map(|e| {

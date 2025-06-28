@@ -339,11 +339,11 @@ impl AppNotifyRecord {
     //删除回调
     pub(crate) async fn del(
         &self,
-        notify_id: u64,
+        data: &AppNotifyDataModel,
         del_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> AppResult<()> {
-        let data = self.find_data_by_id(&notify_id).await?;
+        // let data = self.find_data_by_id(&notify_id).await?;
         if AppNotifyDataStatus::Delete.eq(data.status) {
             return Ok(());
         }
@@ -354,10 +354,7 @@ impl AppNotifyRecord {
             delete_time:create_time
         });
         Update::<AppNotifyDataModel, _>::new(change)
-            .execute_by_where(
-                &WhereOption::Where(sql_format!("id={}", notify_id)),
-                &self.db,
-            )
+            .execute_by_where(&WhereOption::Where(sql_format!("id={}", data.id)), &self.db)
             .await?;
         self.logger
             .add(
@@ -365,7 +362,7 @@ impl AppNotifyRecord {
                     source: "del",
                     info: "",
                 },
-                Some(notify_id),
+                Some(data.id),
                 Some(del_user_id),
                 None,
                 env_data,

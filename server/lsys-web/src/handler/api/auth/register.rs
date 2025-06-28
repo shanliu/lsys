@@ -1,13 +1,13 @@
-use serde::Deserialize;
-use serde_json::json;
-
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{CaptchaParam, JsonData, JsonResponse, JsonResult, RequestDao},
     dao::{
-        access::api::auth::CheckSystemRegister, RegFromEmailData, RegFromMobileData,
+        access::api::system::auth::CheckSystemRegister, RegFromEmailData, RegFromMobileData,
         RegFromNameData, RegSendCodeFromEmailData, RegSendCodeFromMobileData,
     },
 };
+use serde::Deserialize;
+use serde_json::json;
 
 #[derive(Debug, Deserialize)]
 pub struct RegFromNameParam {
@@ -23,7 +23,10 @@ pub async fn user_reg_from_name(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, None, &CheckSystemRegister {})
+        .check(
+            &RbacAccessCheckEnv::any(&req_dao.req_env),
+            &CheckSystemRegister {},
+        )
         .await?;
     let user = req_dao
         .web_dao
@@ -108,7 +111,10 @@ pub async fn user_reg_from_email(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, None, &CheckSystemRegister {})
+        .check(
+            &RbacAccessCheckEnv::any(&req_dao.req_env),
+            &CheckSystemRegister {},
+        )
         .await?;
     let id = req_dao
         .web_dao
@@ -144,7 +150,10 @@ pub async fn user_reg_from_mobile(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, None, &CheckSystemRegister {})
+        .check(
+            &RbacAccessCheckEnv::any(&req_dao.req_env),
+            &CheckSystemRegister {},
+        )
         .await?;
     let id = req_dao
         .web_dao

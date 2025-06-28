@@ -1,7 +1,8 @@
 use crate::common::JsonData;
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonError, JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
-    dao::access::api::user::CheckUserAppView,
+    dao::access::api::system::user::CheckUserAppView,
 };
 use lsys_access::dao::AccessSession;
 use lsys_app::dao::UserParentAppDataParam;
@@ -99,8 +100,7 @@ pub async fn app_list(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppView {
                 res_user_id: auth_data.user_id(),
             },
@@ -231,8 +231,7 @@ pub async fn parent_app_list(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppView {
                 res_user_id: auth_data.user_id(),
             },
@@ -299,19 +298,14 @@ pub async fn secret_view(
         .app
         .find_by_id(param.app_id)
         .await?;
-    req_dao
-        .web_dao
-        .web_app
-        .self_app_check(&app, &auth_data)
-        .await?;
+
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppView {
-                res_user_id: app.user_id,
+                res_user_id: auth_data.user_id(),
             },
         )
         .await?;
@@ -378,12 +372,12 @@ pub async fn sub_app_secret_view(
         .app
         .find_by_id(app.parent_app_id)
         .await?;
+
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppView {
                 res_user_id: parent_app.user_id,
             },
@@ -461,17 +455,12 @@ pub async fn request_list(
         .app
         .find_by_id(param.app_id)
         .await?;
-    req_dao
-        .web_dao
-        .web_app
-        .self_app_check(&app, &auth_data)
-        .await?;
+
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppView {
                 res_user_id: app.user_id,
             },
@@ -589,17 +578,12 @@ pub async fn sub_request_list(
         .app
         .find_by_id(param.app_id)
         .await?;
-    req_dao
-        .web_dao
-        .web_app
-        .self_app_check(&app, &auth_data)
-        .await?;
+
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppView {
                 res_user_id: app.user_id,
             },

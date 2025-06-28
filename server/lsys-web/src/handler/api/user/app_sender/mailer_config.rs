@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
 use crate::common::JsonData;
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
-    dao::access::api::user::CheckUserAppSenderMailConfig,
+    dao::access::api::system::user::CheckUserAppSenderMailConfig,
 };
 use lsys_access::dao::{AccessSession, SessionBody};
 use lsys_app_sender::{
@@ -27,13 +28,16 @@ pub(super) async fn mailer_inner_access_check(
         .cache()
         .find_by_id(app_id)
         .await?;
-    app.app_status_check()?;
+
     req_dao
         .web_dao
-        .web_app
-        .self_app_check(&app, session_body)
+        .web_rbac
+        .check(
+            &RbacAccessCheckEnv::session_body(session_body, &req_dao.req_env),
+            &CheckUserAppSenderMailConfig { res_user_id },
+        )
         .await?;
-
+    app.app_status_check()?;
     req_dao
         .web_dao
         .web_app
@@ -43,15 +47,6 @@ pub(super) async fn mailer_inner_access_check(
         .exter_feature_check(&app, &[crate::handler::APP_FEATURE_MAIL])
         .await?;
 
-    req_dao
-        .web_dao
-        .web_rbac
-        .check(
-            &req_dao.req_env,
-            Some(session_body),
-            &CheckUserAppSenderMailConfig { res_user_id },
-        )
-        .await?;
     Ok(())
 }
 
@@ -141,8 +136,7 @@ pub async fn mailer_config_list(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppSenderMailConfig {
                 res_user_id: auth_data.user_id(),
             },
@@ -205,8 +199,7 @@ pub async fn mailer_tpl_config_list(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppSenderMailConfig {
                 res_user_id: auth_data.user_id(),
             },

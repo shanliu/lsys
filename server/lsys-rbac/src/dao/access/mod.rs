@@ -4,7 +4,8 @@ mod data_res;
 mod data_user;
 
 pub use {
-    check::AccessCheckEnv, check::AccessCheckRes, check::AccessSessionRole, check::AccessUnauthRes,
+    check::AccessCheckEnv, check::AccessCheckOp, check::AccessCheckRes, check::AccessSessionRole,
+    check::AccessUnauthRes,
 };
 
 pub use data_audit::AuditDataParam;

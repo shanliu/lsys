@@ -16,9 +16,6 @@ use lsys_user::dao::AccountError;
 use lsys_user::dao::UserAuthError;
 use std::num::ParseIntError;
 
-#[cfg(feature = "docs")]
-use lsys_docs::dao::GitDocError;
-
 pub trait FluentFormat {
     fn fluent_format(&self, fluent: &FluentBundle) -> String;
 }
@@ -55,9 +52,6 @@ crate_error_fluent_string!(serde_json::Error, "serde-json-error");
 crate_error_fluent_string!(ParseIntError, "parse-error");
 crate_error_fluent_string!(std::string::FromUtf8Error, "utf8-parse-error");
 crate_error_fluent_string!(dotenv::Error, "dotenv-error");
-
-#[cfg(feature = "docs")]
-crate_error_fluent_string!(git2::Error, "git-error");
 
 impl FluentFormat for lsys_lib_area::AreaError {
     fn fluent_format(&self, fluent: &FluentBundle) -> String {
@@ -260,19 +254,6 @@ impl FluentFormat for LoggerError {
 impl FluentFormat for ValidError {
     fn fluent_format(&self, fluent: &FluentBundle) -> String {
         fluent.format_message(&self.to_fluent_message())
-    }
-}
-
-#[cfg(feature = "docs")]
-impl FluentFormat for GitDocError {
-    fn fluent_format(&self, fluent: &FluentBundle) -> String {
-        match self {
-            GitDocError::Sqlx(error) => error.fluent_format(fluent),
-            GitDocError::Git(error) => error.fluent_format(fluent),
-            GitDocError::System(fluent_message) => fluent.format_message(fluent_message),
-            GitDocError::Remote(fluent_message) => fluent.format_message(fluent_message),
-            GitDocError::Vaild(valid_error) => valid_error.fluent_format(fluent),
-        }
     }
 }
 

@@ -8,10 +8,9 @@ use lsys_logger::dao::ChangeLoggerDao;
 use lsys_user::dao::UserDao;
 pub use oauth::*;
 
+use super::{AppArea, AppCaptcha, AppSender};
 use sqlx::{MySql, Pool};
 use std::sync::Arc;
-
-use super::{AppArea, AppCaptcha, AppSender};
 pub struct WebUser {
     pub account: Arc<WebUserAccount>,            //account一些扩充
     pub auth: Arc<WebUserAuth>,                  //auth一些扩充

@@ -310,13 +310,9 @@ pub struct RbacAuditDetailModel {
     #[sqlx(default)]
     pub check_result: i8,
 
-    /// 是否自身角色
+    /// 资源是否要授权访问
     #[sqlx(default)]
-    pub is_self: i8,
-
-    /// 是否超级用户角色
-    #[sqlx(default)]
-    pub is_root: i8,
+    pub res_auth: i8,
 
     /// 是否超级用户角色
     #[sqlx(default)]

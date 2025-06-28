@@ -32,7 +32,7 @@ CREATE TABLE `yaf_sender_log` (
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
     `sender_message_id` bigint unsigned NOT NULL COMMENT 'ID',
     `executor_type` varchar(32) NOT NULL DEFAULT '' COMMENT '执行发送类型',
-    `message` varchar(255) NOT NULL COMMENT '发送相关消息',
+    `message` varchar(512) NOT NULL COMMENT '发送相关消息',
     `status` tinyint NOT NULL COMMENT '操作状态',
     `create_time` bigint unsigned NOT NULL COMMENT '创建时间',
     PRIMARY KEY (`id`),

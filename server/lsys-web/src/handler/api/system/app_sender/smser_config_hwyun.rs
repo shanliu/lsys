@@ -1,9 +1,10 @@
 use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
-use crate::dao::access::api::system::CheckAdminSmsConfig;
-use crate::dao::access::api::system::CheckAdminSmsMgr;
+use crate::dao::access::api::system::admin::CheckAdminSmsConfig;
+use crate::dao::access::api::system::admin::CheckAdminSmsMgr;
 use lsys_access::dao::AccessSession;
 use lsys_app_sender::dao::HwYunConfig;
 use lsys_setting::dao::SettingData;
+use crate::dao::access::RbacAccessCheckEnv;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 #[derive(Serialize)]
@@ -40,7 +41,7 @@ pub async fn smser_hw_config_list(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsConfig {})
+        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminSmsConfig {})
         .await?;
     let data = req_dao
         .web_dao
@@ -92,7 +93,7 @@ pub async fn smser_hw_config_add(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsConfig {})
+        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminSmsConfig {})
         .await?;
 
     let row = req_dao
@@ -136,7 +137,7 @@ pub async fn smser_hw_config_edit(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsConfig {})
+        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminSmsConfig {})
         .await?;
 
     let row = req_dao
@@ -174,7 +175,7 @@ pub async fn smser_hw_config_del(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsConfig {})
+        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminSmsConfig {})
         .await?;
 
     let row = req_dao
@@ -208,7 +209,7 @@ pub async fn smser_tpl_config_hw_add(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsMgr {})
+        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminSmsMgr {})
         .await?;
 
     let row = req_dao

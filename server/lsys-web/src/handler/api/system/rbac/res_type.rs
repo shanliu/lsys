@@ -1,12 +1,13 @@
 use crate::{
     common::{JsonData, JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
-    dao::access::api::system::{CheckAdminRbacEdit, CheckAdminRbacView},
+    dao::access::api::system::admin::{CheckAdminRbacEdit, CheckAdminRbacView},
 };
 use lsys_access::dao::AccessSession;
 use lsys_rbac::{
     dao::{ResTypeListParam as DaoResTypeListParam, ResTypeParam},
     model::RbacOpModel,
 };
+use crate::dao::access::RbacAccessCheckEnv;
 use serde::Deserialize;
 use serde_json::json;
 
@@ -28,7 +29,7 @@ pub async fn res_type_data(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacView {})
+        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminRbacView {})
         .await?;
 
     let res_param = DaoResTypeListParam {
@@ -82,7 +83,7 @@ pub async fn res_type_op_add(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacEdit {})
+        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminRbacEdit {})
         .await?;
 
     let op_data = req_dao
@@ -132,7 +133,7 @@ pub async fn res_type_op_del(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacEdit {})
+        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminRbacEdit {})
         .await?;
 
     req_dao
@@ -173,7 +174,7 @@ pub async fn res_type_op_data(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacView {})
+        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminRbacView {})
         .await?;
 
     let res_param = ResTypeParam {

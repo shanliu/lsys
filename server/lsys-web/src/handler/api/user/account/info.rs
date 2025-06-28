@@ -1,11 +1,12 @@
 use crate::common::JsonData;
 use crate::{
     common::{JsonResponse, JsonResult, UserAuthQueryDao},
-    dao::{access::api::user::CheckUserInfoEdit, InfoSetUserInfoData},
+    dao::{access::api::system::user::CheckUserInfoEdit, InfoSetUserInfoData},
 };
 use lsys_access::dao::AccessSession;
 use serde::Deserialize;
 use serde_json::json;
+use crate::dao::access::RbacAccessCheckEnv;
 #[derive(Debug, Deserialize)]
 pub struct InfoSetUserNameParam {
     pub name: String,
@@ -19,7 +20,12 @@ pub async fn info_set_username(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckUserInfoEdit {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckUserInfoEdit {
+                res_user_id: auth_data.user_id(),
+            },
+        )
         .await?;
 
     req_dao
@@ -45,7 +51,12 @@ pub async fn info_check_username(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckUserInfoEdit {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckUserInfoEdit {
+                res_user_id: auth_data.user_id(),
+            },
+        )
         .await?;
     req_dao
         .web_dao
@@ -75,7 +86,12 @@ pub async fn info_set_data(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckUserInfoEdit {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckUserInfoEdit {
+                res_user_id: auth_data.user_id(),
+            },
+        )
         .await?;
 
     req_dao

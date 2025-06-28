@@ -3,7 +3,7 @@ use crate::common::JsonData;
 use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::UserAuthQueryDao;
-use crate::dao::access::api::system::CheckAdminSiteSetting;
+use crate::dao::access::api::system::admin::CheckAdminSiteSetting;
 use lsys_access::dao::AccessSession;
 use lsys_setting::dao::NotFoundResult;
 use lsys_setting::dao::SingleSettingData;
@@ -11,6 +11,7 @@ use lsys_setting::dao::{SettingDecode, SettingEncode, SettingKey};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 pub use site_setting::*;
+use crate::dao::access::RbacAccessCheckEnv;
 
 pub async fn setting_set<
     'a,
@@ -26,8 +27,7 @@ pub async fn setting_set<
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminSiteSetting {},
         )
         .await?;
@@ -59,8 +59,7 @@ pub async fn setting_get<A: SettingKey + SettingDecode + SettingEncode + Seriali
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminSiteSetting {},
         )
         .await?;

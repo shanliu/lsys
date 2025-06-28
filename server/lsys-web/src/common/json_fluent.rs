@@ -16,9 +16,6 @@ use lsys_app::dao::AppError;
 
 use super::{JsonData, JsonFluent};
 
-#[cfg(feature = "docs")]
-use lsys_docs::dao::GitDocError;
-
 //lib error
 
 impl JsonFluent for sqlx::Error {
@@ -46,8 +43,6 @@ crate_error_fluent!(deadpool_redis::PoolError, "redis");
 crate_error_fluent!(serde_json::Error, "serde");
 crate_error_fluent!(ParseIntError, "parse");
 crate_error_fluent!(std::string::FromUtf8Error, "parse");
-#[cfg(feature = "docs")]
-crate_error_fluent!(git2::Error, "git");
 
 //内部错误
 
@@ -304,17 +299,3 @@ impl JsonFluent for lsys_app_barcode::dao::BarCodeError {
 }
 #[cfg(feature = "barcode")]
 crate_error_fluent!(base64::DecodeError, "base64");
-
-#[cfg(feature = "docs")]
-impl JsonFluent for GitDocError {
-    fn to_json_data(&self, fluent: &FluentBundle) -> JsonData {
-        let json_data = JsonData::default().set_code(500).set_sub_code("doc");
-        match self {
-            GitDocError::Sqlx(err) => err.to_json_data(fluent),
-            GitDocError::Git(err) => err.to_json_data(fluent),
-            GitDocError::System(_) => json_data,
-            GitDocError::Remote(_) => json_data,
-            GitDocError::Vaild(err) => err.to_json_data(fluent),
-        }
-    }
-}

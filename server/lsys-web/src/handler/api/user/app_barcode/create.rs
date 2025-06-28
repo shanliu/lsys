@@ -4,8 +4,9 @@ use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::PageParam;
 use crate::common::UserAuthQueryDao;
-use crate::dao::access::api::user::CheckUserBarCodeEdit;
-use crate::dao::access::api::user::CheckUserBarCodeView;
+use crate::dao::access::api::system::user::CheckUserBarCodeEdit;
+use crate::dao::access::api::system::user::CheckUserBarCodeView;
+use crate::dao::access::RbacAccessCheckEnv;
 use lsys_access::dao::AccessSession;
 use lsys_app_barcode::model::BarcodeCreateModel;
 use lsys_app_barcode::model::BarcodeCreateStatus;
@@ -45,12 +46,18 @@ pub async fn create_config_add(
         .cache()
         .find_by_id(param.app_id)
         .await?;
-    app.app_status_check()?;
+
     req_dao
         .web_dao
-        .web_app
-        .self_app_check(&app, &auth_data)
+        .web_rbac
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckUserBarCodeEdit {
+                res_user_id: app.user_id,
+            },
+        )
         .await?;
+    app.app_status_check()?;
     req_dao
         .web_dao
         .web_app
@@ -64,8 +71,7 @@ pub async fn create_config_add(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserBarCodeEdit {
                 res_user_id: auth_data.user_id(),
             },
@@ -150,10 +156,9 @@ pub async fn create_config_edit(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserBarCodeEdit {
-                res_user_id: data.user_id,
+                res_user_id: app.user_id,
             },
         )
         .await?;
@@ -204,8 +209,7 @@ pub async fn create_config_delete(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserBarCodeEdit {
                 res_user_id: data.user_id,
             },
@@ -242,8 +246,7 @@ pub async fn create_config_list(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserBarCodeView {
                 res_user_id: auth_data.user_id(),
             },

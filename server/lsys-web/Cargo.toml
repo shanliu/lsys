@@ -72,18 +72,14 @@ lsys-lib-area = { default-features = false, features = [
 ], path = "../lsys-lib-area" }
 
 
-lsys-docs = { path = "../lsys-docs", optional = true }
 lsys-app-barcode = { path = "../lsys-app-barcode", optional = true }
 image = { version = "0.25.1", default-features = false, optional = true }
 base64 = { version = "~0.22.0", optional = true }
 regex = "~1.11.1"
 
 
-git2 = { version = "0.20.0", optional = true }
-
 [features]
-default = ["docs", "barcode"]
-docs = ["lsys-docs", "git2"]
+default = ["barcode"]
 barcode = [
     "lsys-app-barcode",
     "image",

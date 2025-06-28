@@ -1,6 +1,7 @@
 use crate::common::{JsonData, PageParam};
 use crate::common::{JsonResponse, JsonResult, UserAuthQueryDao};
-use crate::dao::access::api::user::CheckUserAppSenderSmsConfig;
+use crate::dao::access::api::system::user::CheckUserAppSenderSmsConfig;
+use crate::dao::access::RbacAccessCheckEnv;
 use lsys_access::dao::AccessSession;
 use lsys_app::dao::UserAppDataParam;
 use lsys_app::model::AppStatus;
@@ -25,10 +26,14 @@ pub(super) async fn smser_inner_access_check(
         .cache()
         .find_by_id(app_id)
         .await?;
+
     req_dao
         .web_dao
-        .web_app
-        .self_app_check(&app, &auth_data)
+        .web_rbac
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckUserAppSenderSmsConfig { res_user_id },
+        )
         .await?;
     app.app_status_check()?;
     req_dao
@@ -40,15 +45,6 @@ pub(super) async fn smser_inner_access_check(
         .exter_feature_check(&app, &[crate::handler::APP_FEATURE_SMS])
         .await?;
 
-    req_dao
-        .web_dao
-        .web_rbac
-        .check(
-            &req_dao.req_env,
-            Some(&auth_data),
-            &CheckUserAppSenderSmsConfig { res_user_id },
-        )
-        .await?;
     Ok(())
 }
 
@@ -138,8 +134,7 @@ pub async fn smser_config_list(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppSenderSmsConfig {
                 res_user_id: auth_data.user_id(),
             },
@@ -186,8 +181,7 @@ pub async fn smser_notify_get_config(req_dao: &UserAuthQueryDao) -> JsonResult<J
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppSenderSmsConfig {
                 res_user_id: auth_data.user_id(),
             },
@@ -305,8 +299,7 @@ pub async fn smser_tpl_config_list(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppSenderSmsConfig {
                 res_user_id: auth_data.user_id(),
             },

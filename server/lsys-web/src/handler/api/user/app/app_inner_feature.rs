@@ -1,7 +1,8 @@
 use crate::common::JsonResult;
 
 use crate::common::{JsonResponse, UserAuthQueryDao};
-use crate::dao::access::api::user::CheckUserAppEdit;
+use crate::dao::access::api::system::user::CheckUserAppEdit;
+use crate::dao::access::RbacAccessCheckEnv;
 use lsys_access::dao::AccessSession;
 use serde::Deserialize;
 
@@ -23,23 +24,18 @@ pub async fn request_inner_feature_exter_login_request(
         .app
         .find_by_id(param.app_id)
         .await?;
-    app.app_status_check()?;
-    req_dao
-        .web_dao
-        .web_app
-        .self_app_check(&app, &auth_data)
-        .await?;
+
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppEdit {
                 res_user_id: app.user_id,
             },
         )
         .await?;
+    app.app_status_check()?;
     req_dao
         .web_dao
         .web_app

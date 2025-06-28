@@ -1,9 +1,10 @@
 use crate::{
     common::{JsonData, JsonResponse, JsonResult, LimitParam, UserAuthQueryDao},
-    dao::access::api::system::{CheckAdminRbacEdit, CheckAdminRbacView},
+    dao::access::api::system::admin::{CheckAdminRbacEdit, CheckAdminRbacView},
 };
 use lsys_access::dao::{AccessSession, UserDataParam, UserInfo};
 use serde_json::json;
+use crate::dao::access::RbacAccessCheckEnv;
 
 use crate::common::{JsonError, PageParam};
 use lsys_core::fluent_message;
@@ -34,7 +35,7 @@ pub async fn role_user_add(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacEdit {})
+        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminRbacEdit {})
         .await?;
 
     let role = req_dao
@@ -121,7 +122,7 @@ pub async fn role_user_del(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacEdit {})
+        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminRbacEdit {})
         .await?;
     let role = req_dao
         .web_dao
@@ -166,7 +167,7 @@ pub async fn role_user_data(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacView {})
+        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminRbacView {})
         .await?;
 
     let role = req_dao
@@ -226,7 +227,7 @@ pub async fn role_user_available(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacEdit {})
+        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminRbacEdit {})
         .await?;
     let user_param = UserDataParam {
         app_id: Some(0),

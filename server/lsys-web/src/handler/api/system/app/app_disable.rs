@@ -1,7 +1,8 @@
 use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::UserAuthQueryDao;
-use crate::dao::access::api::system::CheckAdminApp;
+use crate::dao::access::api::system::admin::CheckAdminApp;
+use crate::dao::access::RbacAccessCheckEnv;
 use lsys_access::dao::AccessSession;
 use serde::Deserialize;
 
@@ -16,7 +17,7 @@ pub async fn disable(param: &DisableParam, req_dao: &UserAuthQueryDao) -> JsonRe
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminApp {})
+        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminApp {})
         .await?;
     let app = req_dao
         .web_dao

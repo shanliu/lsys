@@ -2,10 +2,10 @@ use crate::common::JsonData;
 use crate::common::RequestDao;
 use crate::common::{JsonResponse, JsonResult};
 use crate::dao::access::rest::CheckRestApp;
+use crate::dao::access::RbacAccessCheckEnv;
 use lsys_app::model::AppModel;
 use serde::Deserialize;
 use serde_json::json;
-
 #[derive(Debug, Deserialize)]
 pub struct SubAppViewParam {
     pub client_id: String,
@@ -21,7 +21,12 @@ pub async fn subapp_view(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, None, &CheckRestApp {})
+        .check(
+            &RbacAccessCheckEnv::any(&req_dao.req_env),
+            &CheckRestApp {
+                res_user_id: app.user_id,
+            },
+        )
         .await?;
 
     req_dao
@@ -88,7 +93,12 @@ pub async fn subapp_oauth_secret(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, None, &CheckRestApp {})
+        .check(
+            &RbacAccessCheckEnv::any(&req_dao.req_env),
+            &CheckRestApp {
+                res_user_id: app.user_id,
+            },
+        )
         .await?;
 
     //父应用开通了 OAuthServer
@@ -145,7 +155,12 @@ pub async fn subapp_oauth_scope(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, None, &CheckRestApp {})
+        .check(
+            &RbacAccessCheckEnv::any(&req_dao.req_env),
+            &CheckRestApp {
+                res_user_id: app.user_id,
+            },
+        )
         .await?;
 
     //父应用开通了 OAuthServer

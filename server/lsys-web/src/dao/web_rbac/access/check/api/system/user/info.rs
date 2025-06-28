@@ -1,21 +1,20 @@
-//rest接口权限定义
 use crate::dao::{CheckResTpl, RbacCheckAccess, RbacCheckResTpl};
 use lsys_rbac::dao::{AccessCheckEnv, AccessCheckOp, AccessCheckRes, RbacAccess, RbacResult};
 
-pub struct CheckRestApp {
+pub struct CheckUserInfoEdit {
     pub res_user_id: u64,
 }
 #[async_trait::async_trait]
-impl RbacCheckAccess for CheckRestApp {
+impl RbacCheckAccess for CheckUserInfoEdit {
     async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
         access
             .check(
                 check_env, //资源访问用户
                 &[AccessCheckRes::system_empty_data(
-                    "global-app",
+                    "global-user",
                     vec![AccessCheckOp::new(
-                        "rest",
-                        check_env.user_id != self.res_user_id,
+                        "info-edit",
+                        self.res_user_id != check_env.user_id,
                     )],
                 )],
             )
@@ -23,13 +22,13 @@ impl RbacCheckAccess for CheckRestApp {
     }
 }
 
-impl RbacCheckResTpl for CheckRestApp {
+impl RbacCheckResTpl for CheckUserInfoEdit {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
             user: false,
             data: false,
-            key: "global-app",
-            ops: vec!["rest"],
+            key: "global-user",
+            ops: vec!["info-edit"],
         }]
     }
 }

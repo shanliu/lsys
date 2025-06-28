@@ -1,7 +1,9 @@
 use crate::common::JsonData;
 use crate::common::JsonError;
 use crate::dao::access::rest::CheckRestApp;
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::{common::JsonResponse, common::JsonResult, common::RequestDao};
+use base64::Engine;
 use lsys_app::model::AppModel;
 use lsys_app_barcode::dao::BarcodeParseRecord;
 use lsys_app_barcode::dao::ParseParam as BarcodeParseParam;
@@ -9,8 +11,6 @@ use lsys_app_barcode::model::BarcodeCreateStatus;
 use lsys_core::fluent_message;
 use serde::Deserialize;
 use serde_json::json;
-
-use base64::Engine;
 use std::path::Path;
 #[derive(Debug, Deserialize)]
 pub struct ParseParam {
@@ -53,7 +53,12 @@ pub async fn parse_image(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, None, &CheckRestApp {})
+        .check(
+            &RbacAccessCheckEnv::any(&req_dao.req_env),
+            &CheckRestApp {
+                res_user_id: app.user_id,
+            },
+        )
         .await?;
     req_dao
         .web_dao

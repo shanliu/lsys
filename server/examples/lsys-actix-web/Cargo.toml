@@ -4,7 +4,6 @@ version = "0.0.1"
 authors = ["liushan <shan.liu@msn.com>"]
 edition = "2021"
 
-
 [dependencies]
 lsys-web = { path = "../../lsys-web", features = [] }
 lsys-web-module-oauth = { path = "../lsys-web-module-oauth" }
@@ -44,7 +43,7 @@ form_urlencoded = "~1.2.0"
 # tracing-subscriber = { version = "~0.3.11", features = ["env-filter"] }
 
 futures-util = "~0.3.*"
-md5 = "~0.7.0"
+md5 = "~0.8.0"
 mime = "~0.3.16"
 nanoid = "~0.4.0"
 
@@ -58,6 +57,5 @@ time = { version = "0.3.36" }
 async-trait = "0.1.57"
 
 [features]
-default = ["docs", "barcode"]
-docs = ["lsys-web/docs"]
+default = ["barcode"]
 barcode = ["lsys-web/barcode", "tempfile"]

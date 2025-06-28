@@ -1,4 +1,5 @@
 use crate::common::JsonData;
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonError, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao},
     dao::access::rest::CheckRestApp,
@@ -31,7 +32,12 @@ pub async fn scope_get(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckRestApp {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckRestApp {
+                res_user_id: app.user_id,
+            },
+        )
         .await?;
     req_dao
         .web_dao
@@ -79,7 +85,12 @@ pub async fn create_code(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckRestApp {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckRestApp {
+                res_user_id: app.user_id,
+            },
+        )
         .await?;
     if !req_dao
         .web_dao
@@ -149,7 +160,12 @@ async fn check_app_secret(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, None, &CheckRestApp {})
+        .check(
+            &RbacAccessCheckEnv::any(&req_dao.req_env),
+            &CheckRestApp {
+                res_user_id: app.user_id,
+            },
+        )
         .await?;
     let oauth_secret = req_dao
         .web_dao

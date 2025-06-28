@@ -4,7 +4,6 @@ version = "0.0.1"
 authors = ["liushan <shan.liu@msn.com>"]
 edition = "2021"
 
-
 [dependencies]
 tokio = { version = "~1.45.0" }
 deadpool-redis = { version = "~0.21.0" }

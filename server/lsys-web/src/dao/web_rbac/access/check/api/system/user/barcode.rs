@@ -1,63 +1,69 @@
-use lsys_rbac::dao::{AccessCheckEnv, AccessCheckRes, RbacAccess, RbacResult};
-
 use crate::dao::{CheckResTpl, RbacCheckAccess, RbacCheckAccessDepend, RbacCheckResTpl};
+use lsys_rbac::dao::{AccessCheckEnv, AccessCheckOp, AccessCheckRes, RbacAccess, RbacResult};
 
-pub struct CheckUserRbacView {
+pub struct CheckUserBarCodeView {
     pub res_user_id: u64,
 }
 #[async_trait::async_trait]
-impl RbacCheckAccess for CheckUserRbacView {
+impl RbacCheckAccess for CheckUserBarCodeView {
     async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
         access
             .check(
                 check_env,
                 &[AccessCheckRes::system_empty_data(
                     "global-user",
-                    vec!["rbac-check"],
+                    vec![AccessCheckOp::new(
+                        "view-barcode",
+                        self.res_user_id != check_env.user_id,
+                    )],
                 )],
             )
             .await
     }
 }
-impl RbacCheckResTpl for CheckUserRbacView {
+impl RbacCheckResTpl for CheckUserBarCodeView {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
-            user: true,
+            user: false,
             data: false,
             key: "global-user",
-            ops: vec!["rbac-check"],
+            ops: vec!["view-barcode"],
         }]
     }
 }
-pub struct CheckUserRbacEdit {
+
+pub struct CheckUserBarCodeEdit {
     pub res_user_id: u64,
 }
 #[async_trait::async_trait]
-impl RbacCheckAccess for CheckUserRbacEdit {
+impl RbacCheckAccess for CheckUserBarCodeEdit {
     async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
         access
             .check(
                 check_env,
                 &[AccessCheckRes::system_empty_data(
                     "global-user",
-                    vec!["rbac-edit"],
+                    vec![AccessCheckOp::new(
+                        "edit-barcode",
+                        self.res_user_id != check_env.user_id,
+                    )],
                 )],
             )
             .await
     }
     fn depends(&self) -> Vec<Box<RbacCheckAccessDepend>> {
-        vec![Box::new(CheckUserRbacView {
+        vec![Box::new(CheckUserBarCodeView {
             res_user_id: self.res_user_id,
         })]
     }
 }
-impl RbacCheckResTpl for CheckUserRbacEdit {
+impl RbacCheckResTpl for CheckUserBarCodeEdit {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
-            user: true,
+            user: false,
             data: false,
             key: "global-user",
-            ops: vec!["rbac-edit"],
+            ops: vec!["edit-barcode"],
         }]
     }
 }

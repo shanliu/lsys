@@ -1,9 +1,9 @@
 use crate::common::JsonResult;
 use crate::common::{JsonResponse, UserAuthQueryDao};
-use crate::dao::access::api::user::CheckUserAppEdit;
+use crate::dao::access::api::system::user::CheckUserAppEdit;
 use lsys_access::dao::AccessSession;
 use lsys_app::dao::AppDataParam;
-
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::common::JsonData;
 use serde::Deserialize;
 use serde_json::json;
@@ -22,8 +22,7 @@ pub async fn add(param: &AddParam, req_dao: &UserAuthQueryDao) -> JsonResult<Jso
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppEdit {
                 res_user_id: auth_data.user_id(),
             },

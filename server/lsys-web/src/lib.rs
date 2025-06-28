@@ -19,5 +19,3 @@ pub use tera;
 
 #[cfg(feature = "barcode")]
 pub use lsys_app_barcode;
-#[cfg(feature = "docs")]
-pub use lsys_docs;

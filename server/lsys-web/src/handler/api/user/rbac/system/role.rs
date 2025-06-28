@@ -1,7 +1,8 @@
 use crate::common::JsonData;
 use crate::common::{JsonResponse, UserAuthQueryDao};
 use crate::common::{JsonResult, PageParam};
-use crate::dao::access::api::user::{CheckUserRbacEdit, CheckUserRbacView};
+use crate::dao::access::api::system::user::{CheckUserRbacEdit, CheckUserRbacView};
+use crate::dao::access::RbacAccessCheckEnv;
 use lsys_access::dao::AccessSession;
 use lsys_rbac::dao::{RbacRoleAddData, RbacRoleUserRangeData};
 use lsys_rbac::{
@@ -31,8 +32,7 @@ pub async fn system_role_add(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserRbacEdit {
                 res_user_id: auth_data.user_id(),
             },
@@ -100,8 +100,7 @@ pub async fn system_role_edit(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserRbacEdit {
                 res_user_id: role.user_id,
             },
@@ -164,8 +163,7 @@ pub async fn system_role_del(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserRbacEdit {
                 res_user_id: role.user_id,
             },
@@ -228,8 +226,7 @@ pub async fn system_role_data(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserRbacView {
                 res_user_id: auth_data.user_id(),
             },

@@ -1,7 +1,8 @@
 use crate::common::JsonData;
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
-    dao::access::api::user::CheckUserAppSenderMailConfig,
+    dao::access::api::system::user::CheckUserAppSenderMailConfig,
 };
 use lsys_access::dao::AccessSession;
 use lsys_app_sender::model::SenderType;
@@ -25,10 +26,9 @@ pub async fn mailer_tpl_body_list(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppSenderMailConfig {
-                res_user_id: auth_data.user_id(),
+                 res_user_id: auth_data.user_id(),
             },
         )
         .await?;
@@ -81,8 +81,7 @@ pub async fn mailer_tpl_body_add(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppSenderMailConfig {
                 res_user_id: auth_data.user_id(),
             },
@@ -123,8 +122,7 @@ pub async fn mailer_tpl_body_edit(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppSenderMailConfig {
                 res_user_id: tpl.user_id,
             },
@@ -162,8 +160,7 @@ pub async fn mailer_tpl_body_del(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppSenderMailConfig {
                 res_user_id: data.user_id,
             },

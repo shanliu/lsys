@@ -4,7 +4,6 @@ version = "0.0.1"
 authors = ["liushan <shan.liu@msn.com>"]
 edition = "2021"
 
-
 [dependencies]
 lsys-core-macros = { path = "../lsys-core-macros" }
 futures-util = "~0.3.31"

@@ -1,8 +1,11 @@
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonData, JsonResponse, JsonResult, RequestDao},
-    dao::{access::api::auth::CheckSystemLogin, OauthCallbackParam, OauthLogin, OauthLoginParam},
+    dao::{
+        access::api::system::auth::CheckSystemLogin, OauthCallbackParam, OauthLogin,
+        OauthLoginParam,
+    },
 };
-
 use serde::Serialize;
 use serde_json::json;
 //检查权限并获取登录URL
@@ -19,7 +22,10 @@ pub async fn user_external_login_url<
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, None, &CheckSystemLogin {})
+        .check(
+            &RbacAccessCheckEnv::any(&req_dao.req_env),
+            &CheckSystemLogin {},
+        )
         .await?;
     let url = req_dao
         .web_dao

@@ -20,6 +20,7 @@ pub use role::*;
 pub use role_perm::*;
 pub use role_user::*;
 mod mapping;
+use crate::dao::access::RbacAccessCheckEnv;
 pub use mapping::*;
 
 //当用户ID为APP应用的用户ID时,作为外部应用系统RBAC权限
@@ -28,13 +29,17 @@ pub use mapping::*;
 
 //校验APP是否开通RBAC功能
 async fn inner_app_rbac_check(app: &AppModel, req_dao: &RequestDao) -> JsonResult<()> {
-    app.app_status_check()?;
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, None, &CheckRestApp {})
+        .check(
+            &RbacAccessCheckEnv::sys_user(app.user_id, &req_dao.req_env),
+            &CheckRestApp {
+                res_user_id: app.user_id,
+            },
+        )
         .await?;
-
+    app.app_status_check()?;
     req_dao
         .web_dao
         .web_app

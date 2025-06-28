@@ -1,14 +1,4 @@
-mod app;
-mod base;
-mod doc;
-mod rbac;
-mod sender;
-mod setting;
-mod user;
-pub use app::*;
-pub use base::*;
-pub use doc::*;
-pub use rbac::*;
-pub use sender::*;
-pub use setting::*;
-pub use user::*;
+//系统权限定义
+pub mod admin;
+pub mod auth;
+pub mod user;

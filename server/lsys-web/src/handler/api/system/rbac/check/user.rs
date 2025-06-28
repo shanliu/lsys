@@ -1,7 +1,8 @@
 use crate::common::JsonData;
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
-    dao::access::api::system::CheckAdminRbacView,
+    dao::access::api::system::admin::CheckAdminRbacView,
 };
 use lsys_access::dao::AccessSession;
 use lsys_rbac::dao::{CustomUserListResData, SessionUserListResData};
@@ -29,7 +30,10 @@ pub async fn check_res_user_from_res(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacView {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminRbacView {},
+        )
         .await?;
     let user_set_data = req_dao
         .web_dao
@@ -89,7 +93,10 @@ pub async fn check_res_role_data_from_res(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacView {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminRbacView {},
+        )
         .await?;
 
     let res_data = req_dao
@@ -170,7 +177,10 @@ pub async fn check_res_user_data_from_res(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacView {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminRbacView {},
+        )
         .await?;
     let res_data = req_dao
         .web_dao

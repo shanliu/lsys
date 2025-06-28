@@ -1,6 +1,9 @@
 use crate::{
     common::{CaptchaParam, JsonResult, UserAuthQueryDao},
-    dao::{access::api::auth::CheckSystemLogin, ShowUserAuthData},
+    dao::{
+        access::{api::system::auth::CheckSystemLogin, RbacAccessCheckEnv},
+        ShowUserAuthData,
+    },
 };
 
 use lsys_user::dao::UserAuthToken;
@@ -19,7 +22,10 @@ pub async fn user_login_from_app_code(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, None, &CheckSystemLogin {})
+        .check(
+            &RbacAccessCheckEnv::any(&req_dao.req_env),
+            &CheckSystemLogin {},
+        )
         .await?;
 
     let app = req_dao

@@ -1,11 +1,12 @@
 use crate::common::JsonData;
 use crate::{
     common::{JsonError, JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
-    dao::access::api::user::{CheckUserAppSenderMailMsg, CheckUserAppSenderMailSend},
+    dao::access::api::system::user::{CheckUserAppSenderMailSend, CheckUserAppSenderMailView},
 };
 use std::collections::HashMap;
 
 use crate::common::LimitParam;
+use crate::dao::access::RbacAccessCheckEnv;
 use lsys_access::dao::AccessSession;
 use lsys_app_sender::model::SenderMailMessageStatus;
 use lsys_core::now_time;
@@ -48,9 +49,8 @@ pub async fn mailer_message_log(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
-            &CheckUserAppSenderMailMsg {
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckUserAppSenderMailView {
                 res_user_id: body.user_id,
             },
         )
@@ -117,9 +117,8 @@ pub async fn mailer_message_body(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
-            &CheckUserAppSenderMailMsg {
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckUserAppSenderMailView {
                 res_user_id: body.user_id,
             },
         )
@@ -161,9 +160,8 @@ pub async fn mailer_message_list(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
-            &CheckUserAppSenderMailMsg {
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckUserAppSenderMailView {
                 res_user_id: auth_data.user_id(),
             },
         )
@@ -282,9 +280,8 @@ pub async fn mailer_message_cancel(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
-            &CheckUserAppSenderMailMsg {
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckUserAppSenderMailView {
                 res_user_id: body.user_id,
             },
         )
@@ -334,23 +331,18 @@ pub async fn mailer_message_send(
         .app
         .find_by_id(param.app_id)
         .await?;
-    app.app_status_check()?;
-    req_dao
-        .web_dao
-        .web_app
-        .self_app_check(&app, &auth_data)
-        .await?;
+
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppSenderMailSend {
                 res_user_id: app.user_id,
             },
         )
         .await?;
+    app.app_status_check()?;
 
     let send_time = if let Some(ref t) = param.send_time {
         if t.is_empty() {

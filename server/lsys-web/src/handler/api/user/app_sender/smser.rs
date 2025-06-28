@@ -1,7 +1,8 @@
 use crate::common::JsonData;
 use crate::common::{JsonError, JsonResponse, JsonResult, UserAuthQueryDao};
 use crate::common::{LimitParam, PageParam};
-use crate::dao::access::api::user::{CheckUserAppSenderSmsMsg, CheckUserAppSenderSmsSend};
+use crate::dao::access::api::system::user::{CheckUserAppSenderSmsSend, CheckUserAppSenderSmsView};
+use crate::dao::access::RbacAccessCheckEnv;
 use lsys_access::dao::AccessSession;
 use lsys_app_sender::model::SenderSmsMessageStatus;
 use lsys_core::{now_time, str_time, IntoFluentMessage};
@@ -45,9 +46,8 @@ pub async fn smser_message_log(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
-            &CheckUserAppSenderSmsMsg {
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckUserAppSenderSmsView {
                 res_user_id: body.user_id,
             },
         )
@@ -145,9 +145,8 @@ pub async fn smser_message_list(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
-            &CheckUserAppSenderSmsMsg {
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckUserAppSenderSmsView {
                 res_user_id: auth_data.user_id(),
             },
         )
@@ -286,9 +285,8 @@ pub async fn smser_message_cancel(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
-            &CheckUserAppSenderSmsMsg {
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckUserAppSenderSmsView {
                 res_user_id: body.user_id,
             },
         )
@@ -340,23 +338,18 @@ pub async fn smser_message_send(
         .app
         .find_by_id(param.app_id)
         .await?;
-    app.app_status_check()?;
-    req_dao
-        .web_dao
-        .web_app
-        .self_app_check(&app, &auth_data)
-        .await?;
+
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppSenderSmsSend {
                 res_user_id: app.user_id,
             },
         )
         .await?;
+    app.app_status_check()?;
 
     let send_time = if let Some(ref t) = param.send_time {
         if t.is_empty() {

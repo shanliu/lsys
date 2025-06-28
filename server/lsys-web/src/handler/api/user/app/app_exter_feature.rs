@@ -1,6 +1,7 @@
 use crate::common::{JsonError, JsonResult};
 use crate::common::{JsonResponse, UserAuthQueryDao};
-use crate::dao::access::api::user::CheckUserAppEdit;
+use crate::dao::access::api::system::user::CheckUserAppEdit;
+use crate::dao::access::RbacAccessCheckEnv;
 
 use lsys_access::dao::AccessSession;
 use lsys_app::model::AppRequestStatus;
@@ -26,12 +27,18 @@ pub async fn request_exter_feature(
         .app
         .find_by_id(param.app_id)
         .await?;
-    app.app_status_check()?;
+
     req_dao
         .web_dao
-        .web_app
-        .self_app_check(&app, &auth_data)
+        .web_rbac
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckUserAppEdit {
+                res_user_id: app.user_id,
+            },
+        )
         .await?;
+    app.app_status_check()?;
     //添加外部功能时检测是否开通必要的的依赖关系
     let mut featch_key = Vec::with_capacity(param.featuer_data.len());
     for fk in param.featuer_data.iter() {
@@ -51,17 +58,6 @@ pub async fn request_exter_feature(
             }
         }
     }
-    req_dao
-        .web_dao
-        .web_rbac
-        .check(
-            &req_dao.req_env,
-            Some(&auth_data),
-            &CheckUserAppEdit {
-                res_user_id: app.user_id,
-            },
-        )
-        .await?;
 
     if app.parent_app_id > 0 {
         let parent_app = req_dao
@@ -142,8 +138,7 @@ pub async fn confirm_exter_feature(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppEdit {
                 res_user_id: parent_app.user_id,
             },

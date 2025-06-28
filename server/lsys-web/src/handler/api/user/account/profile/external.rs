@@ -1,11 +1,11 @@
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonData, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao},
     dao::{
-        access::api::{auth::CheckSystemLogin, user::CheckUserExternalEdit},
+        access::api::system::{auth::CheckSystemLogin, user::CheckUserExternalEdit},
         OauthCallbackParam, OauthLogin, OauthLoginParam,
     },
 };
-
 use lsys_access::dao::AccessSession;
 
 use serde::{Deserialize, Serialize};
@@ -33,8 +33,7 @@ pub async fn external_delete(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserExternalEdit {
                 res_user_id: req_dao
                     .web_dao
@@ -97,7 +96,10 @@ pub async fn external_bind_url<
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, None, &CheckSystemLogin {})
+        .check(
+            &RbacAccessCheckEnv::any(&req_dao.req_env),
+            &CheckSystemLogin {},
+        )
         .await?;
     let url = req_dao
         .web_dao
@@ -124,7 +126,10 @@ pub async fn external_bind<
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckSystemLogin {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckSystemLogin {},
+        )
         .await?;
     let (ext_model, _, _) = &req_dao
         .web_dao

@@ -4,7 +4,6 @@ version = "0.0.1"
 authors = ["liushan <shan.liu@msn.com>"]
 edition = "2021"
 
-
 [dependencies]
 lsys-core = { path = "../lsys-core" }
 lsys-access = { path = "../lsys-access" } #完成OAUTH登录

@@ -3,11 +3,12 @@ use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::LimitParam;
 use crate::common::UserAuthQueryDao;
-use crate::dao::access::api::system::CheckAdminRbacView;
+use crate::dao::access::api::system::admin::CheckAdminRbacView;
 use lsys_access::dao::AccessSession;
 use lsys_rbac::dao::AuditDataParam;
 use serde::Deserialize;
 use serde_json::{json, Value};
+use crate::dao::access::RbacAccessCheckEnv;
 
 //查看用户访问授权日志数据
 
@@ -43,7 +44,7 @@ pub async fn audit_data(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacView {})
+        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminRbacView {})
         .await?;
     let res = req_dao
         .web_dao

@@ -1,92 +1,98 @@
 use crate::dao::{CheckResTpl, RbacCheckAccess, RbacCheckResTpl};
-use lsys_rbac::dao::{RbacAccess, RbacResult};
-
 use lsys_rbac::dao::AccessCheckEnv;
+use lsys_rbac::dao::AccessCheckOp;
 use lsys_rbac::dao::AccessCheckRes;
-
-pub struct CheckUserAppSenderMailConfig {
+use lsys_rbac::dao::RbacAccess;
+use lsys_rbac::dao::RbacResult;
+pub struct CheckUserAppSenderSmsConfig {
     pub res_user_id: u64,
 }
 #[async_trait::async_trait]
-impl RbacCheckAccess for CheckUserAppSenderMailConfig {
+impl RbacCheckAccess for CheckUserAppSenderSmsConfig {
     async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
         access
             .list_check(
                 check_env,
-                &[&[AccessCheckRes::user_empty_data(
-                    self.res_user_id,
+                &[&[AccessCheckRes::system_empty_data(
                     "global-user",
-                    vec!["app-mail-config"],
+                    vec![AccessCheckOp::new(
+                        "app-sms-config",
+                        self.res_user_id != check_env.user_id,
+                    )],
                 )]],
             )
             .await
     }
 }
-impl RbacCheckResTpl for CheckUserAppSenderMailConfig {
+impl RbacCheckResTpl for CheckUserAppSenderSmsConfig {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
-            user: true,
+            user: false,
             data: false,
             key: "global-user",
-            ops: vec!["app-mail-config"],
+            ops: vec!["app-sms-config"],
         }]
     }
 }
 
-pub struct CheckUserAppSenderMailMsg {
+pub struct CheckUserAppSenderSmsView {
     pub res_user_id: u64,
 }
 #[async_trait::async_trait]
-impl RbacCheckAccess for CheckUserAppSenderMailMsg {
+impl RbacCheckAccess for CheckUserAppSenderSmsView {
     async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
         access
             .list_check(
                 check_env,
-                &[&[AccessCheckRes::user_empty_data(
-                    self.res_user_id,
+                &[&[AccessCheckRes::system_empty_data(
                     "global-user",
-                    vec!["app-mail-veiw"],
+                    vec![AccessCheckOp::new(
+                        "app-sms-view",
+                        self.res_user_id != check_env.user_id,
+                    )],
                 )]],
             )
             .await
     }
 }
-impl RbacCheckResTpl for CheckUserAppSenderMailMsg {
+impl RbacCheckResTpl for CheckUserAppSenderSmsView {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
-            user: true,
+            user: false,
             data: false,
             key: "global-user",
-            ops: vec!["app-mail-manage"],
+            ops: vec!["app-sms-view"],
         }]
     }
 }
 
-pub struct CheckUserAppSenderMailSend {
+pub struct CheckUserAppSenderSmsSend {
     pub res_user_id: u64,
 }
 #[async_trait::async_trait]
-impl RbacCheckAccess for CheckUserAppSenderMailSend {
+impl RbacCheckAccess for CheckUserAppSenderSmsSend {
     async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
         access
             .list_check(
                 check_env,
-                &[&[AccessCheckRes::user_empty_data(
-                    self.res_user_id,
-                    "global-user",
-                    vec!["app-mail-send"],
+                &[&[AccessCheckRes::system_empty_data(
+                    "sender-sms",
+                    vec![AccessCheckOp::new(
+                        "app-sms-send",
+                        self.res_user_id != check_env.user_id,
+                    )],
                 )]],
             )
             .await
     }
 }
-impl RbacCheckResTpl for CheckUserAppSenderMailSend {
+impl RbacCheckResTpl for CheckUserAppSenderSmsSend {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
-            user: true,
+            user: false,
             data: false,
             key: "global-user",
-            ops: vec!["app-mail-send"],
+            ops: vec!["app-sms-send"],
         }]
     }
 }

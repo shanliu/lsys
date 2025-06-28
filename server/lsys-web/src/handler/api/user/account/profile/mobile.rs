@@ -1,7 +1,8 @@
 use crate::common::JsonData;
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{CaptchaParam, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao},
-    dao::access::api::user::{CheckUserMobileBase, CheckUserMobileEdit},
+    dao::access::api::system::user::CheckUserMobileEdit,
 };
 use lsys_access::dao::{AccessSession, AccessSessionData};
 use lsys_user::model::AccountMobileStatus;
@@ -21,7 +22,12 @@ pub async fn mobile_add(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckUserMobileBase {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckUserMobileEdit {
+                res_user_id: auth_data.user_id(),
+            },
+        )
         .await?;
     let mobile_id = req_dao
         .web_dao
@@ -55,7 +61,12 @@ pub async fn mobile_send_code(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckUserMobileBase {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckUserMobileEdit {
+                res_user_id: auth_data.user_id(),
+            },
+        )
         .await?;
     req_dao
         .web_dao
@@ -82,11 +93,6 @@ pub async fn mobile_confirm(
     param: &MobileConfirmParam,
     req_dao: &RequestDao,
 ) -> JsonResult<JsonResponse> {
-    req_dao
-        .web_dao
-        .web_rbac
-        .check(&req_dao.req_env, None, &CheckUserMobileBase {})
-        .await?;
     let mobile = req_dao
         .web_dao
         .web_user
@@ -95,6 +101,7 @@ pub async fn mobile_confirm(
         .account_mobile
         .find_by_id(&param.mobile_id)
         .await?;
+
     req_dao
         .web_dao
         .web_user
@@ -131,8 +138,7 @@ pub async fn mobile_delete(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserMobileEdit {
                 res_user_id: req_dao
                     .web_dao
@@ -185,6 +191,7 @@ pub async fn mobile_list_data(
         .account
         .user_mobile(auth_data.user_id(), status.as_deref())
         .await?;
+
     Ok(JsonResponse::data(JsonData::body(json!({
         "data": data ,
         "total":data.len(),

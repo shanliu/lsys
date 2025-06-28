@@ -1,6 +1,7 @@
 use crate::common::{JsonError, JsonResult};
 use crate::common::{JsonResponse, UserAuthQueryDao};
-use crate::dao::access::api::user::CheckUserAppEdit;
+use crate::dao::access::api::system::user::CheckUserAppEdit;
+use crate::dao::access::RbacAccessCheckEnv;
 use lsys_access::dao::AccessSession;
 use lsys_app::model::AppRequestStatus;
 use lsys_core::fluent_message;
@@ -42,13 +43,13 @@ pub async fn confirm(param: &ConfirmParam, req_dao: &UserAuthQueryDao) -> JsonRe
         .app
         .find_by_id(req_app.parent_app_id)
         .await?;
+
     //当前登录用户对父应用的可编辑
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppEdit {
                 res_user_id: parent_app.user_id,
             },

@@ -1,7 +1,8 @@
 use crate::common::JsonData;
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonResponse, JsonResult, LimitParam, UserAuthQueryDao},
-    dao::{access::api::system::CheckAdminUserManage, AccountOptionData},
+    dao::{access::api::system::admin::CheckAdminUserManage, AccountOptionData},
 };
 use lsys_access::dao::AccessSession;
 use lsys_user::model::{
@@ -41,7 +42,10 @@ pub async fn account_search(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminUserManage {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminUserManage {},
+        )
         .await?;
 
     let email = if let Some(ref e) = param.email {
@@ -192,7 +196,10 @@ pub async fn account_detail(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminUserManage {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminUserManage {},
+        )
         .await?;
 
     let email = if let Some(ref e) = param.email {

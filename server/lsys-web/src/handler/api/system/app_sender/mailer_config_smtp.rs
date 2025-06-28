@@ -1,14 +1,14 @@
-use lsys_access::dao::AccessSession;
-use lsys_app_sender::dao::SmtpConfig;
-use serde::{Deserialize, Serialize};
-use serde_json::json;
-
 use crate::common::JsonData;
 use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::UserAuthQueryDao;
-use crate::dao::access::api::system::CheckAdminMailConfig;
-use crate::dao::access::api::system::CheckAdminMailMgr;
+use crate::dao::access::api::system::admin::CheckAdminMailConfig;
+use crate::dao::access::api::system::admin::CheckAdminMailMgr;
+use crate::dao::access::RbacAccessCheckEnv;
+use lsys_access::dao::AccessSession;
+use lsys_app_sender::dao::SmtpConfig;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
 
 #[derive(Serialize, Default)]
 pub struct ShowSmtpConfigRecord {
@@ -45,7 +45,10 @@ pub async fn mailer_smtp_config_list(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailConfig {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminMailConfig {},
+        )
         .await?;
     let row = req_dao
         .web_dao
@@ -105,7 +108,10 @@ pub async fn mailer_smtp_config_add(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailConfig {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminMailConfig {},
+        )
         .await?;
 
     let row = req_dao
@@ -161,7 +167,10 @@ pub async fn mailer_smtp_config_check(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailConfig {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminMailConfig {},
+        )
         .await?;
 
     req_dao
@@ -216,7 +225,10 @@ pub async fn mailer_smtp_config_edit(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailConfig {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminMailConfig {},
+        )
         .await?;
 
     let row = req_dao
@@ -263,7 +275,10 @@ pub async fn mailer_smtp_config_del(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailConfig {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminMailConfig {},
+        )
         .await?;
 
     let row = req_dao
@@ -297,7 +312,10 @@ pub async fn mailer_tpl_config_smtp_add(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailMgr {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminMailMgr {},
+        )
         .await?;
 
     let row = req_dao

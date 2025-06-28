@@ -1,12 +1,12 @@
+use crate::dao::access::RbacAccessCheckEnv;
+use crate::{
+    common::{JsonData, JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
+    dao::access::api::system::admin::CheckAdminMailMgr,
+};
 use lsys_access::dao::AccessSession;
 use lsys_app_sender::model::SenderType;
 use serde::Deserialize;
 use serde_json::json;
-
-use crate::{
-    common::{JsonData, JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
-    dao::access::api::system::CheckAdminMailMgr,
-};
 
 #[derive(Debug, Deserialize)]
 pub struct MailerTplListParam {
@@ -26,7 +26,10 @@ pub async fn mailer_tpl_body_list(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailMgr {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminMailMgr {},
+        )
         .await?;
 
     let data = req_dao
@@ -77,7 +80,10 @@ pub async fn mailer_tpl_body_add(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailMgr {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminMailMgr {},
+        )
         .await?;
     let id = req_dao
         .web_dao
@@ -110,7 +116,10 @@ pub async fn mailer_tpl_body_edit(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailMgr {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminMailMgr {},
+        )
         .await?;
     let tpl = req_dao.web_dao.app_sender.tpl.find_by_id(&param.id).await?;
     req_dao
@@ -141,7 +150,10 @@ pub async fn mailer_tpl_body_del(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailMgr {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminMailMgr {},
+        )
         .await?;
     let data = req_dao.web_dao.app_sender.tpl.find_by_id(&param.id).await?;
     req_dao

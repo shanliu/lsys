@@ -1,8 +1,9 @@
 use crate::common::JsonData;
 use crate::common::{JsonResponse, JsonResult};
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{LimitParam, UserAuthQueryDao},
-    dao::access::api::system::CheckAdminUserManage,
+    dao::access::api::system::admin::CheckAdminUserManage,
 };
 use lsys_access::dao::{AccessError, AccessSession, SessionDataParam};
 use serde::Deserialize;
@@ -31,7 +32,10 @@ pub async fn login_history(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminUserManage {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminUserManage {},
+        )
         .await?;
     let session_param = SessionDataParam {
         app_id: Some(param.app_id),
@@ -86,7 +90,10 @@ pub async fn user_logout(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminUserManage {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminUserManage {},
+        )
         .await?;
     let session_res = req_dao
         .web_dao

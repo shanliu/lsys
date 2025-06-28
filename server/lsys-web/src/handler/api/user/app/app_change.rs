@@ -1,7 +1,8 @@
 use crate::common::JsonData;
 use crate::common::JsonResult;
 use crate::common::{JsonResponse, UserAuthQueryDao};
-use crate::dao::access::api::user::CheckUserAppEdit;
+use crate::dao::access::api::system::user::CheckUserAppEdit;
+use crate::dao::access::RbacAccessCheckEnv;
 use lsys_access::dao::AccessSession;
 use lsys_app::dao::AppDataParam;
 use serde::Deserialize;
@@ -23,17 +24,12 @@ pub async fn change(param: &ChangeParam, req_dao: &UserAuthQueryDao) -> JsonResu
         .app
         .find_by_id(param.app_id)
         .await?;
-    req_dao
-        .web_dao
-        .web_app
-        .self_app_check(&app, &auth_data)
-        .await?;
+
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppEdit {
                 res_user_id: app.user_id,
             },
@@ -96,23 +92,18 @@ pub async fn app_secret_add(
         .app
         .find_by_id(param.app_id)
         .await?;
-    app.app_status_check()?;
-    req_dao
-        .web_dao
-        .web_app
-        .self_app_check(&app, &auth_data)
-        .await?;
+
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppEdit {
                 res_user_id: app.user_id,
             },
         )
         .await?;
+    app.app_status_check()?;
 
     let secret_data = req_dao
         .web_dao
@@ -155,23 +146,18 @@ pub async fn app_secret_change(
         .app
         .find_by_id(param.app_id)
         .await?;
-    app.app_status_check()?;
-    req_dao
-        .web_dao
-        .web_app
-        .self_app_check(&app, &auth_data)
-        .await?;
+
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppEdit {
                 res_user_id: app.user_id,
             },
         )
         .await?;
+    app.app_status_check()?;
 
     let secret_data = req_dao
         .web_dao
@@ -212,17 +198,12 @@ pub async fn app_secret_del(
         .app
         .find_by_id(param.app_id)
         .await?;
-    req_dao
-        .web_dao
-        .web_app
-        .self_app_check(&app, &auth_data)
-        .await?;
+
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppEdit {
                 res_user_id: app.user_id,
             },
@@ -266,24 +247,19 @@ pub async fn notify_secret_change(
         .app
         .find_by_id(param.app_id)
         .await?;
-    app.app_status_check()?;
-    req_dao
-        .web_dao
-        .web_app
-        .self_app_check(&app, &auth_data)
-        .await?;
+
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppEdit {
                 res_user_id: app.user_id,
             },
         )
         .await?;
 
+    app.app_status_check()?;
     let secret_data = req_dao
         .web_dao
         .web_app

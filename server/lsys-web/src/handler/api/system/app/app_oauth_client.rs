@@ -1,6 +1,6 @@
 use crate::{
     common::{JsonResponse, JsonResult, UserAuthQueryDao},
-    dao::access::api::system::CheckAdminApp,
+    dao::access::{api::system::admin::CheckAdminApp, RbacAccessCheckEnv},
 };
 
 use lsys_access::dao::AccessSession;
@@ -25,7 +25,10 @@ pub async fn oauth_client_confirm(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminApp {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminApp {},
+        )
         .await?;
     let confirm_status = AppRequestStatus::try_from(param.confirm_status)?;
     let app = req_dao
@@ -68,7 +71,10 @@ pub async fn oauth_client_scope_confirm(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminApp {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminApp {},
+        )
         .await?;
     let req_app = req_dao
         .web_dao
@@ -118,7 +124,10 @@ pub async fn oauth_client_clear_access_token(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminApp {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminApp {},
+        )
         .await?;
     let app = req_dao
         .web_dao
@@ -152,7 +161,10 @@ pub async fn oauth_client_clear_refresh_token(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminApp {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminApp {},
+        )
         .await?;
     let app = req_dao
         .web_dao

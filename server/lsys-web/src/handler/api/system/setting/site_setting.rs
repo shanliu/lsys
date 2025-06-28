@@ -1,7 +1,7 @@
 use crate::common::JsonData;
 use crate::common::JsonResponse;
 use crate::common::JsonResult;
-use crate::dao::access::api::system::CheckAdminSiteSetting;
+use crate::dao::access::api::system::admin::CheckAdminSiteSetting;
 use crate::dao::SiteConfig;
 use crate::dao::SiteConfigData;
 use lsys_access::dao::AccessSession;
@@ -9,7 +9,7 @@ use lsys_setting::dao::NotFoundResult;
 use lsys_user::dao::AccountPasswordConfig;
 use serde::Deserialize;
 use serde_json::json;
-
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::common::UserAuthQueryDao;
 
 #[derive(Debug, Deserialize)]
@@ -31,8 +31,7 @@ pub async fn site_config_set(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminSiteSetting {},
         )
         .await?;
@@ -59,8 +58,7 @@ pub async fn site_config_get(req_dao: &UserAuthQueryDao) -> JsonResult<JsonRespo
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminSiteSetting {},
         )
         .await?;

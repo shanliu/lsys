@@ -1,7 +1,8 @@
 use crate::common::JsonData;
 use crate::common::UserAuthQueryDao;
 use crate::common::{JsonResponse, JsonResult, LimitParam};
-use crate::dao::access::api::user::CheckUserNotifyView;
+use crate::dao::access::api::system::user::CheckUserNotifyView;
+use crate::dao::access::RbacAccessCheckEnv;
 use lsys_access::dao::AccessSession;
 use lsys_app::model::AppNotifyDataStatus;
 use serde::{Deserialize, Serialize};
@@ -45,8 +46,7 @@ pub async fn notify_data_list(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserNotifyView {
                 res_user_id: auth_data.user_id(),
             },
@@ -133,14 +133,30 @@ pub async fn notify_data_del(
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
+    let notify = req_dao
+        .web_dao
+        .web_app
+        .app_dao
+        .app_notify
+        .record
+        .find_data_by_id(&param.id)
+        .await?;
+
+    let app = req_dao
+        .web_dao
+        .web_app
+        .app_dao
+        .app
+        .find_by_id(notify.app_id)
+        .await?;
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserNotifyView {
-                res_user_id: auth_data.user_id(),
+                res_user_id: app.user_id,
             },
         )
         .await?;
@@ -150,7 +166,7 @@ pub async fn notify_data_del(
         .web_app
         .app_dao
         .app_notify
-        .remove_notify(param.id, auth_data.user_id(), Some(&req_dao.req_env))
+        .remove_notify(&notify, auth_data.user_id(), Some(&req_dao.req_env))
         .await?;
     Ok(JsonResponse::default())
 }

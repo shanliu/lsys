@@ -1,6 +1,7 @@
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonData, JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
-    dao::access::api::system::{CheckAdminRbacEdit, CheckAdminRbacView},
+    dao::access::api::system::admin::{CheckAdminRbacEdit, CheckAdminRbacView},
 };
 use lsys_access::dao::AccessSession;
 use lsys_rbac::dao::{RbacResAddData, RbacResData, ResDataParam};
@@ -20,7 +21,10 @@ pub async fn res_add(param: &ResAddParam, req_dao: &UserAuthQueryDao) -> JsonRes
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacEdit {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminRbacEdit {},
+        )
         .await?;
     let id = req_dao
         .web_dao
@@ -70,7 +74,10 @@ pub async fn res_edit(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacEdit {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminRbacEdit {},
+        )
         .await?;
     let op = req_dao
         .web_dao
@@ -117,7 +124,10 @@ pub async fn res_del(param: &ResDelParam, req_dao: &UserAuthQueryDao) -> JsonRes
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacEdit {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminRbacEdit {},
+        )
         .await?;
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let res = req_dao
@@ -160,7 +170,10 @@ pub async fn res_data(param: &ResParam, req_dao: &UserAuthQueryDao) -> JsonResul
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminRbacView {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminRbacView {},
+        )
         .await?;
     let res = req_dao
         .web_dao

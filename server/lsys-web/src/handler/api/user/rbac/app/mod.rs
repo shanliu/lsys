@@ -9,7 +9,10 @@ mod role_user;
 
 use crate::{
     common::{JsonError, JsonResult, RequestDao, UserAuthQueryDao},
-    dao::access::api::user::{CheckUserAppEdit, CheckUserAppView},
+    dao::access::{
+        api::system::user::{CheckUserAppEdit, CheckUserAppView},
+        RbacAccessCheckEnv,
+    },
 };
 pub use audit::*;
 pub use check::*;
@@ -45,19 +48,13 @@ async fn app_check_get(
         .app
         .find_by_id(app_id)
         .await?;
-    app.app_status_check()?;
-    req_dao
-        .web_dao
-        .web_app
-        .self_app_check(&app, auth_data)
-        .await?;
+
     if is_edit {
         req_dao
             .web_dao
             .web_rbac
             .check(
-                &req_dao.req_env,
-                Some(auth_data),
+                &RbacAccessCheckEnv::session_body(auth_data, &req_dao.req_env),
                 &CheckUserAppEdit {
                     res_user_id: app.user_id,
                 },
@@ -68,14 +65,14 @@ async fn app_check_get(
             .web_dao
             .web_rbac
             .check(
-                &req_dao.req_env,
-                Some(auth_data),
+                &RbacAccessCheckEnv::session_body(auth_data, &req_dao.req_env),
                 &CheckUserAppView {
                     res_user_id: app.user_id,
                 },
             )
             .await?;
     }
+    app.app_status_check()?;
     req_dao
         .web_dao
         .web_app

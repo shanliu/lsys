@@ -1,10 +1,7 @@
 mod oauth_server;
 use lsys_access::dao::AccessDao;
-use lsys_access::dao::SessionBody;
 use lsys_app::dao::AppConfig;
 use lsys_app::dao::AppDao;
-use lsys_app::model::AppModel;
-use lsys_core::fluent_message;
 use lsys_core::AppCore;
 use lsys_core::AppCoreError;
 use lsys_core::RemoteNotify;
@@ -12,9 +9,6 @@ use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::MySql;
 use std::sync::Arc;
 
-use crate::common::JsonData;
-use crate::common::JsonError;
-use crate::common::JsonResult;
 pub struct WebApp {
     pub app_dao: Arc<AppDao>,
 }
@@ -53,21 +47,5 @@ impl WebApp {
             async move { task_notify_app_dao.listen_task_notify().await }
         });
         Ok(Self { app_dao })
-    }
-    //检测指定App是否当前登陆用户的APP
-    pub async fn self_app_check(
-        &self,
-        app: &AppModel,
-        session_body: &SessionBody,
-    ) -> JsonResult<()> {
-        if app.user_id != session_body.user_id() {
-            return Err(JsonError::JsonResponse(
-                JsonData::default()
-                    .set_code(403)
-                    .set_sub_code("no_self_app"),
-                fluent_message!("no-self-app"),
-            ));
-        }
-        Ok(())
     }
 }

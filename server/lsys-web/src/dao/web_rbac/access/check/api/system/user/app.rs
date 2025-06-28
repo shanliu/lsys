@@ -1,5 +1,5 @@
 use crate::dao::{CheckResTpl, RbacCheckAccess, RbacCheckAccessDepend, RbacCheckResTpl};
-use lsys_rbac::dao::{AccessCheckEnv, AccessCheckRes, RbacAccess, RbacResult};
+use lsys_rbac::dao::{AccessCheckEnv, AccessCheckOp, AccessCheckRes, RbacAccess, RbacResult};
 
 pub struct CheckUserAppView {
     pub res_user_id: u64,
@@ -10,10 +10,12 @@ impl RbacCheckAccess for CheckUserAppView {
         access
             .check(
                 check_env, //资源访问用户
-                &[AccessCheckRes::user_empty_data(
-                    self.res_user_id,
+                &[AccessCheckRes::system_empty_data(
                     "global-user",
-                    vec!["view-app"],
+                    vec![AccessCheckOp::new(
+                        "view-app",
+                        self.res_user_id != check_env.user_id,
+                    )],
                 )],
             )
             .await
@@ -23,7 +25,7 @@ impl RbacCheckAccess for CheckUserAppView {
 impl RbacCheckResTpl for CheckUserAppView {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
-            user: true,
+            user: false,
             data: false,
             key: "global-user",
             ops: vec!["view-app"],
@@ -40,10 +42,12 @@ impl RbacCheckAccess for CheckUserAppEdit {
         access
             .check(
                 check_env, //资源访问用户
-                &[AccessCheckRes::user_empty_data(
-                    self.res_user_id,
+                &[AccessCheckRes::system_empty_data(
                     "global-user",
-                    vec!["edit-app"],
+                    vec![AccessCheckOp::new(
+                        "edit-app",
+                        self.res_user_id != check_env.user_id,
+                    )],
                 )],
             )
             .await
@@ -58,7 +62,7 @@ impl RbacCheckAccess for CheckUserAppEdit {
 impl RbacCheckResTpl for CheckUserAppEdit {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
-            user: true,
+            user: false,
             data: false,
             key: "global-user",
             ops: vec!["edit-app"],

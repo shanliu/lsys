@@ -1,14 +1,12 @@
 use crate::common::JsonData;
 use crate::{
     common::{JsonResponse, JsonResult, UserAuthQueryDao},
-    dao::{
-        access::api::user::{CheckUserAddressBase, CheckUserAddressEdit},
-        AddressData,
-    },
+    dao::{access::api::system::user::CheckUserAddressEdit, AddressData},
 };
 use lsys_access::dao::{AccessSession, AccessSessionData};
 use serde::Deserialize;
 use serde_json::json;
+use crate::dao::access::RbacAccessCheckEnv;
 
 #[derive(Debug, Deserialize)]
 pub struct AddressAddParam {
@@ -27,8 +25,14 @@ pub async fn address_add(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckUserAddressBase {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckUserAddressEdit {
+                res_user_id: auth_data.user_id(),
+            },
+        )
         .await?;
+
     let id = req_dao
         .web_dao
         .web_user
@@ -77,8 +81,7 @@ pub async fn address_edit(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAddressEdit {
                 res_user_id: req_dao
                     .web_dao
@@ -134,8 +137,7 @@ pub async fn address_delete(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAddressEdit {
                 res_user_id: req_dao
                     .web_dao

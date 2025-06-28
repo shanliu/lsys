@@ -1,6 +1,5 @@
-use std::collections::HashMap;
-
 use crate::common::JsonData;
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonError, JsonResponse, JsonResult, RequestDao},
     dao::access::rest::CheckRestApp,
@@ -9,6 +8,7 @@ use lsys_app::model::AppModel;
 use lsys_core::{str_time, IntoFluentMessage};
 use serde::Deserialize;
 use serde_json::{json, Value};
+use std::collections::HashMap;
 
 #[derive(Debug, Deserialize)]
 pub struct SendParam {
@@ -28,7 +28,12 @@ pub async fn send(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, None, &CheckRestApp {})
+        .check(
+            &RbacAccessCheckEnv::any(&req_dao.req_env),
+            &CheckRestApp {
+                res_user_id: app.user_id,
+            },
+        )
         .await?;
 
     req_dao

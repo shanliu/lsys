@@ -3,8 +3,6 @@
 pub mod app;
 mod area;
 mod captcha;
-#[cfg(feature = "docs")]
-mod docs;
 mod login;
 mod oauth;
 mod options;
@@ -13,8 +11,6 @@ mod register;
 mod site;
 pub use area::*;
 pub use captcha::*;
-#[cfg(feature = "docs")]
-pub use docs::*;
 pub use login::*;
 pub use oauth::*;
 pub use options::*;

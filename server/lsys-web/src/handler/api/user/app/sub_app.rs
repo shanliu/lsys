@@ -1,7 +1,8 @@
 use crate::common::{JsonData, JsonError, JsonResult};
 
 use crate::common::{JsonResponse, UserAuthQueryDao};
-use crate::dao::access::api::user::{CheckUserAppEdit, CheckUserAppSenderSmsConfig};
+use crate::dao::access::api::system::user::{CheckUserAppEdit, CheckUserAppSenderSmsConfig};
+use crate::dao::access::RbacAccessCheckEnv;
 use lsys_access::dao::AccessSession;
 use lsys_app::dao::{UserAppDataParam, SUB_APP_SECRET_NOTIFY_TYPE};
 use lsys_app::model::AppStatus;
@@ -27,18 +28,12 @@ pub async fn sub_app_request(
         .app
         .find_by_id(param.app_id)
         .await?;
-    app.app_status_check()?;
-    req_dao
-        .web_dao
-        .web_app
-        .self_app_check(&app, &auth_data)
-        .await?;
+
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppEdit {
                 res_user_id: app.user_id,
             },
@@ -60,8 +55,7 @@ pub async fn sub_app_notify_get_config(req_dao: &UserAuthQueryDao) -> JsonResult
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppSenderSmsConfig {
                 res_user_id: auth_data.user_id(),
             },
@@ -137,23 +131,18 @@ pub async fn sub_app_notify_set_config(
         .app
         .find_by_id(param.app_id)
         .await?;
-    app.app_status_check()?;
-    req_dao
-        .web_dao
-        .web_app
-        .self_app_check(&app, &auth_data)
-        .await?;
+
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppEdit {
                 res_user_id: app.user_id,
             },
         )
         .await?;
+    app.app_status_check()?;
     if app.parent_app_id != 0 {
         return Err(JsonError::Message(fluent_message!(
             "app-notify-only-parent"

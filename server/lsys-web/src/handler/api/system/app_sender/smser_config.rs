@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
-use crate::dao::access::api::system::CheckAdminSmsMgr;
+use crate::dao::access::api::system::admin::CheckAdminSmsMgr;
 use lsys_access::dao::AccessSession;
-
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::common::PageParam;
 use lsys_app_sender::model::SenderSmsConfigType;
 use lsys_app_sender::model::SenderTplConfigStatus;
@@ -27,7 +27,7 @@ pub async fn smser_config_add(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsMgr {})
+        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminSmsMgr {})
         .await?;
 
     let config_type = SenderSmsConfigType::try_from(param.config_type)?;
@@ -64,7 +64,7 @@ pub async fn smser_config_del(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsMgr {})
+        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminSmsMgr {})
         .await?;
     let config = req_dao
         .web_dao
@@ -100,7 +100,7 @@ pub async fn smser_config_list(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsMgr {})
+        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminSmsMgr {})
         .await?;
 
     let data = req_dao
@@ -159,7 +159,7 @@ pub async fn smser_tpl_config_list(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsMgr {})
+        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminSmsMgr {})
         .await?;
     let tpl_data = req_dao
         .web_dao
@@ -251,7 +251,7 @@ pub async fn smser_tpl_config_del(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsMgr {})
+        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminSmsMgr {})
         .await?;
     let config = req_dao
         .web_dao

@@ -49,22 +49,6 @@ where
         );
 
     let mut system_scope = scope("/system");
-    #[cfg(feature = "docs")]
-    {
-        app = {
-            system_scope = system_scope.service(
-                scope("/docs")
-                    .service(system::docs::setting)
-                    .service(public::options),
-            );
-            app.service(
-                scope("/docs")
-                    .service(public::docs_raw)
-                    .service(public::docs_read)
-                    .service(public::options),
-            )
-        };
-    }
 
     #[cfg(feature = "barcode")]
     {

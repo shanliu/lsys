@@ -3,7 +3,8 @@ use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::PageParam;
 use crate::common::UserAuthQueryDao;
-use crate::dao::access::api::system::CheckAdminApp;
+use crate::dao::access::api::system::admin::CheckAdminApp;
+use crate::dao::access::RbacAccessCheckEnv;
 use lsys_access::dao::AccessSession;
 use lsys_app::dao::AppAttrParam;
 use lsys_app::dao::AppRequestData;
@@ -54,7 +55,7 @@ pub async fn app_list(param: &ListParam, req_dao: &UserAuthQueryDao) -> JsonResu
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminApp {})
+        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminApp {})
         .await?;
     let status = if let Some(e) = param.status {
         Some(match AppStatus::try_from(e) {
@@ -206,7 +207,7 @@ pub async fn request_list(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminApp {})
+        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminApp {})
         .await?;
     let status = if let Some(e) = param.status {
         Some(match AppRequestStatus::try_from(e) {

@@ -1,5 +1,6 @@
 use crate::common::{JsonData, JsonResponse, JsonResult, LimitParam, PageParam, UserAuthQueryDao};
-use crate::dao::access::api::system::CheckAdminSmsMgr;
+use crate::dao::access::api::system::admin::CheckAdminSmsMgr;
+use crate::dao::access::RbacAccessCheckEnv;
 use lsys_access::dao::AccessSession;
 use lsys_app_sender::model::SenderSmsMessageStatus;
 use lsys_core::{now_time, IntoFluentMessage};
@@ -25,7 +26,10 @@ pub async fn smser_message_log(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsMgr {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminSmsMgr {},
+        )
         .await?;
     let res = req_dao
         .web_dao
@@ -72,7 +76,10 @@ pub async fn smser_message_body(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsMgr {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminSmsMgr {},
+        )
         .await?;
 
     let msg = req_dao
@@ -126,7 +133,10 @@ pub async fn smser_message_list(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsMgr {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminSmsMgr {},
+        )
         .await?;
 
     let status = if let Some(e) = param.status {
@@ -247,7 +257,10 @@ pub async fn smser_message_cancel(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsMgr {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminSmsMgr {},
+        )
         .await?;
     let msg = req_dao
         .web_dao

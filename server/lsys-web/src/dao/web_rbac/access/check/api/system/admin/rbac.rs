@@ -1,8 +1,8 @@
 use crate::dao::{
-    access::check::api::system::CheckAdminBase, CheckResTpl, RbacCheckAccess,
+    access::check::api::system::admin::CheckAdminBase, CheckResTpl, RbacCheckAccess,
     RbacCheckAccessDepend, RbacCheckResTpl,
 };
-use lsys_rbac::dao::{AccessCheckEnv, AccessCheckRes, RbacAccess, RbacResult};
+use lsys_rbac::dao::{AccessCheckEnv, AccessCheckOp, AccessCheckRes, RbacAccess, RbacResult};
 
 pub struct CheckAdminRbacView {}
 #[async_trait::async_trait]
@@ -13,7 +13,7 @@ impl RbacCheckAccess for CheckAdminRbacView {
                 check_env, //资源访问用户
                 &[AccessCheckRes::system_empty_data(
                     "global-system",
-                    vec!["view-rbac"],
+                    vec![AccessCheckOp::new("view-rbac", true)],
                 )],
             )
             .await
@@ -43,7 +43,7 @@ impl RbacCheckAccess for CheckAdminRbacEdit {
                 check_env, //资源访问用户
                 &[AccessCheckRes::system_empty_data(
                     "global-system",
-                    vec!["edit-rbac"],
+                    vec![AccessCheckOp::new("edit-rbac", true)],
                 )],
             )
             .await

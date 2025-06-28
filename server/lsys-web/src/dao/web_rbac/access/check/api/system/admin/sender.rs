@@ -1,8 +1,8 @@
 use crate::dao::{
-    access::api::system::CheckAdminBase, CheckResTpl, RbacCheckAccess, RbacCheckAccessDepend,
-    RbacCheckResTpl,
+    access::api::system::admin::CheckAdminBase, CheckResTpl, RbacCheckAccess,
+    RbacCheckAccessDepend, RbacCheckResTpl,
 };
-use lsys_rbac::dao::{AccessCheckEnv, AccessCheckRes, RbacAccess, RbacResult};
+use lsys_rbac::dao::{AccessCheckEnv, AccessCheckOp, AccessCheckRes, RbacAccess, RbacResult};
 
 pub struct CheckAdminSmsConfig {}
 #[async_trait::async_trait]
@@ -13,7 +13,7 @@ impl RbacCheckAccess for CheckAdminSmsConfig {
                 check_env,
                 &[AccessCheckRes::system_empty_data(
                     "global-system",
-                    vec!["app-sms-config"],
+                    vec![AccessCheckOp::new("app-sms-config", true)],
                 )],
             )
             .await
@@ -42,7 +42,7 @@ impl RbacCheckAccess for CheckAdminSmsMgr {
                 check_env,
                 &[AccessCheckRes::system_empty_data(
                     "global-system",
-                    vec!["app-sms-mgr"],
+                    vec![AccessCheckOp::new("app-sms-mgr", true)],
                 )],
             )
             .await
@@ -71,7 +71,7 @@ impl RbacCheckAccess for CheckAdminMailConfig {
                 check_env,
                 &[AccessCheckRes::system_empty_data(
                     "global-system",
-                    vec!["app-mail-config"],
+                    vec![AccessCheckOp::new("app-mail-config", true)],
                 )],
             )
             .await
@@ -100,7 +100,7 @@ impl RbacCheckAccess for CheckAdminMailMgr {
                 check_env,
                 &[AccessCheckRes::system_empty_data(
                     "global-system",
-                    vec!["app-mail-mgr"],
+                    vec![AccessCheckOp::new("app-mail-mgr", true)],
                 )],
             )
             .await

@@ -1,14 +1,14 @@
-use std::collections::HashMap;
-
 use crate::common::{JsonData, PageParam};
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonResponse, JsonResult, UserAuthQueryDao},
-    dao::access::api::system::CheckAdminMailMgr,
+    dao::access::api::system::admin::CheckAdminMailMgr,
 };
 use lsys_access::dao::AccessSession;
 use lsys_app_sender::model::{SenderMailConfigType, SenderTplConfigStatus};
 use serde::Deserialize;
 use serde_json::{json, Value};
+use std::collections::HashMap;
 
 #[derive(Debug, Deserialize)]
 pub struct MailerConfigAddParam {
@@ -28,7 +28,10 @@ pub async fn mailer_config_add(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailMgr {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminMailMgr {},
+        )
         .await?;
     let config_type = SenderMailConfigType::try_from(param.config_type)?;
     let id = req_dao
@@ -64,7 +67,10 @@ pub async fn mailer_config_del(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailMgr {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminMailMgr {},
+        )
         .await?;
     let config = req_dao
         .web_dao
@@ -100,7 +106,10 @@ pub async fn mailer_config_list(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailMgr {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminMailMgr {},
+        )
         .await?;
 
     let data = req_dao
@@ -158,7 +167,10 @@ pub async fn mailer_tpl_config_list(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailMgr {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminMailMgr {},
+        )
         .await?;
 
     let tpl_data = req_dao
@@ -252,7 +264,10 @@ pub async fn mailer_tpl_config_del(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailMgr {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminMailMgr {},
+        )
         .await?;
     let config = req_dao
         .web_dao

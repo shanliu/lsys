@@ -1,6 +1,7 @@
 use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
-use crate::dao::access::api::system::{CheckAdminSmsConfig, CheckAdminSmsMgr};
+use crate::dao::access::api::system::admin::{CheckAdminSmsConfig, CheckAdminSmsMgr};
 use lsys_access::dao::AccessSession;
+use crate::dao::access::RbacAccessCheckEnv;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 #[derive(Debug, Deserialize)]
@@ -34,7 +35,7 @@ pub async fn smser_jd_config_list(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsConfig {})
+        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminSmsConfig {})
         .await?;
     let row = req_dao
         .web_dao
@@ -81,7 +82,7 @@ pub async fn smser_jd_config_add(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsConfig {})
+        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminSmsConfig {})
         .await?;
 
     let row = req_dao
@@ -123,7 +124,7 @@ pub async fn smser_jd_config_edit(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsConfig {})
+        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminSmsConfig {})
         .await?;
 
     let row = req_dao
@@ -160,7 +161,7 @@ pub async fn smser_jd_config_del(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsConfig {})
+        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminSmsConfig {})
         .await?;
 
     let row = req_dao
@@ -193,7 +194,7 @@ pub async fn smser_tpl_config_jd_add(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminSmsMgr {})
+        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminSmsMgr {})
         .await?;
 
     let row = req_dao

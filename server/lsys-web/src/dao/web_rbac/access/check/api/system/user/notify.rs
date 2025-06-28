@@ -1,5 +1,5 @@
 use crate::dao::{CheckResTpl, RbacCheckAccess, RbacCheckResTpl};
-use lsys_rbac::dao::{AccessCheckEnv, AccessCheckRes, RbacAccess, RbacResult};
+use lsys_rbac::dao::{AccessCheckEnv, AccessCheckOp, AccessCheckRes, RbacAccess, RbacResult};
 
 pub struct CheckUserNotifyView {
     pub res_user_id: u64,
@@ -10,10 +10,12 @@ impl RbacCheckAccess for CheckUserNotifyView {
         access
             .check(
                 check_env,
-                &[AccessCheckRes::user_empty_data(
-                    self.res_user_id,
+                &[AccessCheckRes::system_empty_data(
                     "global-user",
-                    vec!["view-notify"],
+                    vec![AccessCheckOp::new(
+                        "view-notify",
+                        self.res_user_id != check_env.user_id,
+                    )],
                 )],
             )
             .await
@@ -22,7 +24,7 @@ impl RbacCheckAccess for CheckUserNotifyView {
 impl RbacCheckResTpl for CheckUserNotifyView {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
-            user: true,
+            user: false,
             data: false,
             key: "global-user",
             ops: vec!["view-notify"],

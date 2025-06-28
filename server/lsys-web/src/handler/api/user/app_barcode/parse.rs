@@ -6,11 +6,12 @@ use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::PageParam;
 use crate::common::UserAuthQueryDao;
-use crate::dao::access::api::user::CheckUserBarCodeEdit;
-use crate::dao::access::api::user::CheckUserBarCodeView;
+use crate::dao::access::api::system::user::CheckUserBarCodeEdit;
+use crate::dao::access::api::system::user::CheckUserBarCodeView;
 use serde::Deserialize;
 use serde_json::json;
 use serde_json::Value;
+use crate::dao::access::RbacAccessCheckEnv;
 
 #[derive(Debug, Deserialize)]
 pub struct ParseRecordListParam {
@@ -31,10 +32,9 @@ pub async fn parse_record_list(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserBarCodeView {
-                res_user_id: auth_data.user_id(),
+                 res_user_id:auth_data.user_id()
             },
         )
         .await?;
@@ -121,10 +121,9 @@ pub async fn parse_record_delete(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserBarCodeEdit {
-                res_user_id: data.user_id,
+                 res_user_id:data.user_id
             },
         )
         .await?;

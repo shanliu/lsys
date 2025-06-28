@@ -1,13 +1,13 @@
 use crate::{
     common::{JsonData, JsonResponse, JsonResult, LimitParam, PageParam, UserAuthQueryDao},
-    dao::access::api::system::CheckAdminMailMgr,
+    dao::access::api::system::admin::CheckAdminMailMgr,
 };
 use lsys_access::dao::AccessSession;
 use lsys_app_sender::model::SenderMailMessageStatus;
 use lsys_core::now_time;
 use serde::Deserialize;
 use serde_json::json;
-
+use crate::dao::access::RbacAccessCheckEnv;
 #[derive(Debug, Deserialize)]
 pub struct MailerMessageLogParam {
     #[serde(default, deserialize_with = "crate::common::deserialize_u64")]
@@ -26,7 +26,7 @@ pub async fn mailer_message_log(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailMgr {})
+        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminMailMgr {})
         .await?;
 
     let res = req_dao
@@ -74,7 +74,7 @@ pub async fn mailer_message_body(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailMgr {})
+        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminMailMgr {})
         .await?;
 
     let msg = req_dao
@@ -128,7 +128,7 @@ pub async fn mailer_message_list(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailMgr {})
+        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminMailMgr {})
         .await?;
     let status = if let Some(e) = param.status {
         Some(SenderMailMessageStatus::try_from(e)?)
@@ -228,7 +228,7 @@ pub async fn mailer_message_cancel(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminMailMgr {})
+        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminMailMgr {})
         .await?;
     let msg = req_dao
         .web_dao

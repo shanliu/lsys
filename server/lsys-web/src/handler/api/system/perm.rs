@@ -3,11 +3,11 @@ use crate::common::JsonError;
 use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::UserAuthQueryDao;
-use crate::dao::access::api::system::{
+use crate::dao::access::api::system::admin::{
     CheckAdminBase, CheckAdminChangeLogsView, CheckAdminDocs, CheckAdminMailConfig,
     CheckAdminSmsConfig,
 };
-use crate::dao::access::api::user::CheckUserAppSenderSmsConfig;
+use crate::dao::access::RbacAccessCheckEnv;
 use lsys_access::dao::AccessSession;
 use lsys_core::fluent_message;
 use serde::{Deserialize, Serialize};
@@ -32,20 +32,17 @@ pub async fn perm_check(
                 let _ = req_dao
                     .web_dao
                     .web_rbac
-                    .check(&req_dao.req_env, Some(&auth_data), &$data)
+                    .check(
+                        &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+                        &$data,
+                    )
                     .await?;
             }
         };
     }
     check!("admin-sms-config", CheckAdminSmsConfig {});
-    check!(
-        "admin-sender-config",
-        CheckUserAppSenderSmsConfig { res_user_id: 0 }
-    );
     check!("admin-mail-config", CheckAdminMailConfig {});
-
     check!("admin-main", CheckAdminBase {});
-
     check!("admin-logs", CheckAdminChangeLogsView {});
     check!("docs-edit", CheckAdminDocs {});
 

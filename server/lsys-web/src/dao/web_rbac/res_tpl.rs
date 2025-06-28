@@ -1,16 +1,15 @@
-use crate::dao::access::api::auth::{CheckSystemLogin, CheckSystemRegister};
-use crate::dao::access::api::system::{
+use crate::dao::access::api::system::admin::{
     CheckAdminApp, CheckAdminBase, CheckAdminChangeLogsView, CheckAdminDocs, CheckAdminMailConfig,
     CheckAdminMailMgr, CheckAdminRbacEdit, CheckAdminRbacView, CheckAdminSiteSetting,
     CheckAdminSmsConfig, CheckAdminSmsMgr, CheckAdminUserManage,
 };
-use crate::dao::access::api::user::{
-    CheckUserAddressBase, CheckUserAddressEdit, CheckUserAppEdit, CheckUserAppSenderMailConfig,
-    CheckUserAppSenderMailMsg, CheckUserAppSenderMailSend, CheckUserAppSenderSmsConfig,
-    CheckUserAppSenderSmsMsg, CheckUserAppSenderSmsSend, CheckUserAppView, CheckUserBarCodeEdit,
-    CheckUserBarCodeView, CheckUserEmailBase, CheckUserEmailEdit, CheckUserExternalEdit,
-    CheckUserInfoEdit, CheckUserMobileBase, CheckUserMobileEdit, CheckUserNotifyView,
-    CheckUserRbacEdit, CheckUserRbacView,
+use crate::dao::access::api::system::auth::{CheckSystemLogin, CheckSystemRegister};
+use crate::dao::access::api::system::user::{
+    CheckUserAddressEdit, CheckUserAppEdit, CheckUserAppSenderMailConfig,
+    CheckUserAppSenderMailSend, CheckUserAppSenderMailView, CheckUserAppSenderSmsConfig,
+    CheckUserAppSenderSmsSend, CheckUserAppSenderSmsView, CheckUserAppView, CheckUserBarCodeEdit,
+    CheckUserBarCodeView, CheckUserEmailEdit, CheckUserExternalEdit, CheckUserInfoEdit,
+    CheckUserMobileEdit, CheckUserNotifyView, CheckUserRbacEdit, CheckUserRbacView,
 };
 use crate::dao::access::rest::CheckRestApp;
 use crate::dao::{CheckResTpl, WebRbac};
@@ -31,13 +30,10 @@ impl WebRbac {
             CheckAdminSiteSetting,
             CheckAdminUserManage,
             CheckAdminChangeLogsView,
-            CheckUserAddressBase,
             CheckUserAddressEdit,
-            CheckUserEmailBase,
             CheckUserEmailEdit,
             CheckUserExternalEdit,
             CheckUserInfoEdit,
-            CheckUserMobileBase,
             CheckUserMobileEdit,
             CheckUserAppView,
             CheckUserAppEdit,
@@ -47,10 +43,10 @@ impl WebRbac {
             CheckUserRbacView,
             CheckUserRbacEdit,
             CheckUserAppSenderMailConfig,
-            CheckUserAppSenderMailMsg,
+            CheckUserAppSenderMailView,
             CheckUserAppSenderMailSend,
             CheckUserAppSenderSmsConfig,
-            CheckUserAppSenderSmsMsg,
+            CheckUserAppSenderSmsView,
             CheckUserAppSenderSmsSend,
             CheckSystemLogin,
             CheckSystemRegister,

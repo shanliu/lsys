@@ -17,7 +17,7 @@ use sqlx::Pool;
 
 use crate::{
     dao::{AppError, AppResult, AppSecret},
-    model::{AppNotifyTryTimeMode, AppNotifyType},
+    model::{AppNotifyDataModel, AppNotifyTryTimeMode, AppNotifyType},
 };
 
 use super::App;
@@ -100,22 +100,16 @@ impl AppNotify {
     //删除回调
     pub async fn remove_notify(
         &self,
-        notify_id: u64,
+        data: &AppNotifyDataModel,
         del_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> AppResult<()> {
-        if self
-            .task
-            .task_data()
-            .await?
-            .iter()
-            .any(|e| *e.0 == notify_id)
-        {
+        if self.task.task_data().await?.iter().any(|e| *e.0 == data.id) {
             return Err(AppError::System(fluent_message!(
                 "del-notify-data-bad-status"
             )));
         }
-        self.record.del(notify_id, del_user_id, env_data).await
+        self.record.del(data, del_user_id, env_data).await
     }
     //后台发送任务，内部循环不退出
     pub async fn task(&self, app_core: Arc<AppCore>, app: Arc<App>) -> AppResult<()> {

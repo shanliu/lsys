@@ -8,7 +8,6 @@ pub use common::*;
 use std::sync::Arc;
 
 use lsys_rbac::dao::RbacDao;
-
 pub struct WebRbac {
     pub rbac_dao: Arc<RbacDao>,
 }

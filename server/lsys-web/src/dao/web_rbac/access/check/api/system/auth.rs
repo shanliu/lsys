@@ -1,59 +1,55 @@
 use crate::dao::{CheckResTpl, RbacCheckAccess, RbacCheckResTpl};
-use lsys_rbac::dao::{AccessCheckEnv, AccessCheckRes, RbacAccess, RbacResult};
-
-pub struct CheckUserMobileBase {}
+use lsys_rbac::dao::{AccessCheckEnv, AccessCheckOp, AccessCheckRes, RbacAccess, RbacResult};
+pub struct CheckSystemLogin {}
 #[async_trait::async_trait]
-impl RbacCheckAccess for CheckUserMobileBase {
+impl RbacCheckAccess for CheckSystemLogin {
     async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
         access
             .check(
                 check_env, //资源访问用户
                 &[AccessCheckRes::system_empty_data(
                     "global-public",
-                    vec!["mobile-base"],
+                    vec![AccessCheckOp::new("login", false)],
                 )],
             )
             .await
     }
 }
 
-impl RbacCheckResTpl for CheckUserMobileBase {
+impl RbacCheckResTpl for CheckSystemLogin {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
             user: false,
             data: false,
-            key: "global-user",
-            ops: vec!["mobile-base"],
+            key: "global-public",
+            ops: vec!["login"],
         }]
     }
 }
 
-pub struct CheckUserMobileEdit {
-    pub res_user_id: u64,
-}
+pub struct CheckSystemRegister {}
 #[async_trait::async_trait]
-impl RbacCheckAccess for CheckUserMobileEdit {
+impl RbacCheckAccess for CheckSystemRegister {
     async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
         access
             .check(
                 check_env, //资源访问用户
-                &[AccessCheckRes::user_empty_data(
-                    self.res_user_id,
-                    "global-user",
-                    vec!["mobile-edit"],
+                &[AccessCheckRes::system_empty_data(
+                    "global-public",
+                    vec![AccessCheckOp::new("register", false)],
                 )],
             )
             .await
     }
 }
 
-impl RbacCheckResTpl for CheckUserMobileEdit {
+impl RbacCheckResTpl for CheckSystemRegister {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
-            user: true,
+            user: false,
             data: false,
-            key: "global-user",
-            ops: vec!["mobile-edit"],
+            key: "global-public",
+            ops: vec!["register"],
         }]
     }
 }

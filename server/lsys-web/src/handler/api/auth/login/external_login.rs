@@ -1,8 +1,9 @@
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonResult, UserAuthQueryDao},
     dao::{
-        access::api::auth::CheckSystemLogin, OauthCallbackParam, OauthLogin, OauthLoginParam,
-        ShowUserAuthData,
+        access::api::system::auth::CheckSystemLogin, OauthCallbackParam, OauthLogin,
+        OauthLoginParam, ShowUserAuthData,
     },
 };
 use lsys_user::dao::UserAuthToken;
@@ -23,7 +24,10 @@ pub async fn user_login_from_external<
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, None, &CheckSystemLogin {})
+        .check(
+            &RbacAccessCheckEnv::any(&req_dao.req_env),
+            &CheckSystemLogin {},
+        )
         .await?;
 
     req_dao

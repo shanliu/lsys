@@ -2,17 +2,24 @@ use super::{inner_app_rbac_check, inner_user_data_to_user_id};
 use crate::common::JsonData;
 use crate::common::{JsonResponse, JsonResult, RequestDao};
 use lsys_app::model::AppModel;
-use lsys_rbac::dao::{AccessCheckEnv, AccessCheckRes, AccessSessionRole};
+use lsys_rbac::dao::{AccessCheckEnv, AccessCheckOp, AccessCheckRes, AccessSessionRole};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
+
+#[derive(Debug, Deserialize)]
+pub struct ResReqAuthParam {
+    pub op_key: String, //资源KEY
+    pub req_auth: bool, //资源KEY
+}
+
 #[derive(Debug, Deserialize)]
 pub struct ResCheckParam {
     pub res_type: String,           //资源KEY
     pub res_data: String,           //资源KEY
     pub use_app_user: bool,         //使用当前APP用户
     pub user_param: Option<String>, //use_app_user为假时必填,用户标识
-    pub ops: Vec<String>,           //授权列表
+    pub ops: Vec<ResReqAuthParam>,  //授权列表
 }
 
 #[derive(Debug, Deserialize)]
@@ -157,7 +164,14 @@ async fn inner_access_check(
                     res_type: &check_res.res_type,
                     res_data: &check_res.res_data,
                     app_id: app.id,
-                    op_key_data: check_res.ops.iter().map(|e| e.as_str()).collect::<Vec<_>>(),
+                    op_key_data: check_res
+                        .ops
+                        .iter()
+                        .map(|e| AccessCheckOp {
+                            op_key: &e.op_key,
+                            req_auth: e.req_auth,
+                        })
+                        .collect::<Vec<_>>(),
                 })
                 .collect::<Vec<_>>()
         })

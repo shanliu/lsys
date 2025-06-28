@@ -1,6 +1,7 @@
 use crate::common::{JsonError, JsonResult};
 use crate::common::{JsonResponse, UserAuthQueryDao};
-use crate::dao::access::api::user::CheckUserAppEdit;
+use crate::dao::access::api::system::user::CheckUserAppEdit;
+use crate::dao::access::RbacAccessCheckEnv;
 use lsys_access::dao::AccessSession;
 use lsys_app::dao::AppOAuthServerScopeParam;
 use lsys_app::model::AppRequestStatus;
@@ -30,16 +31,7 @@ pub async fn oauth_server_client_confirm(
         .app
         .find_by_id(param.app_id)
         .await?;
-    app.app_status_check()?;
-    if app.parent_app_id == 0 {
-        return Err(JsonError::Message(fluent_message!("not-user-app-confirm")));
-    }
 
-    req_dao
-        .web_dao
-        .web_app
-        .self_app_check(&app, &auth_data)
-        .await?;
     let parent_app = req_dao
         .web_dao
         .web_app
@@ -52,13 +44,17 @@ pub async fn oauth_server_client_confirm(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppEdit {
                 res_user_id: parent_app.user_id,
             },
         )
         .await?;
+
+    app.app_status_check()?;
+    if app.parent_app_id == 0 {
+        return Err(JsonError::Message(fluent_message!("not-user-app-confirm")));
+    }
 
     req_dao
         .web_dao
@@ -131,8 +127,7 @@ pub async fn oauth_server_client_scope_confirm(
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppEdit {
                 res_user_id: parent_app.user_id,
             },
@@ -176,12 +171,19 @@ pub async fn oauth_server_request(
         .app
         .find_by_id(param.app_id)
         .await?;
-    app.app_status_check()?;
+
     req_dao
         .web_dao
-        .web_app
-        .self_app_check(&app, &auth_data)
+        .web_rbac
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckUserAppEdit {
+                res_user_id: app.user_id,
+            },
+        )
         .await?;
+
+    app.app_status_check()?;
     req_dao
         .web_dao
         .web_app
@@ -216,6 +218,16 @@ pub async fn oauth_server_setting(
         .app_dao
         .app
         .find_by_id(param.app_id)
+        .await?;
+    req_dao
+        .web_dao
+        .web_rbac
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckUserAppEdit {
+                res_user_id: app.user_id,
+            },
+        )
         .await?;
 
     req_dao

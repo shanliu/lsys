@@ -1,8 +1,8 @@
 use crate::dao::{
-    access::api::system::CheckAdminBase, CheckResTpl, RbacCheckAccess, RbacCheckAccessDepend,
-    RbacCheckResTpl,
+    access::api::system::admin::CheckAdminBase, CheckResTpl, RbacCheckAccess,
+    RbacCheckAccessDepend, RbacCheckResTpl,
 };
-use lsys_rbac::dao::{AccessCheckEnv, AccessCheckRes, RbacAccess, RbacResult};
+use lsys_rbac::dao::{AccessCheckEnv, AccessCheckOp, AccessCheckRes, RbacAccess, RbacResult};
 
 pub struct CheckAdminUserManage {}
 #[async_trait::async_trait]
@@ -13,7 +13,7 @@ impl RbacCheckAccess for CheckAdminUserManage {
                 check_env, //资源访问用户
                 &[AccessCheckRes::system_empty_data(
                     "global-system",
-                    vec!["manage-user"],
+                    vec![AccessCheckOp::new("manage-user", true)],
                 )],
             )
             .await
@@ -27,7 +27,7 @@ impl RbacCheckResTpl for CheckAdminUserManage {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
             user: false,
-            data:false,
+            data: false,
             key: "global-system",
             ops: vec!["manage-user"],
         }]
@@ -43,7 +43,7 @@ impl RbacCheckAccess for CheckAdminChangeLogsView {
                 check_env,
                 &[AccessCheckRes::system_empty_data(
                     "global-system",
-                    vec!["see-change-log"],
+                    vec![AccessCheckOp::new("see-change-log", true)],
                 )],
             )
             .await
@@ -56,7 +56,7 @@ impl RbacCheckResTpl for CheckAdminChangeLogsView {
     fn tpl_data() -> Vec<CheckResTpl> {
         vec![CheckResTpl {
             user: false,
-            data:false,
+            data: false,
             key: "global-system",
             ops: vec!["see-change-log"],
         }]

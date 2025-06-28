@@ -1,7 +1,8 @@
 use crate::common::JsonData;
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{CaptchaParam, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao},
-    dao::access::api::user::{CheckUserEmailBase, CheckUserEmailEdit},
+    dao::access::api::system::user::CheckUserEmailEdit,
 };
 use lsys_access::dao::{AccessSession, AccessSessionData};
 use lsys_user::model::AccountEmailStatus;
@@ -17,10 +18,16 @@ pub async fn email_add(
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckUserEmailBase {})
+        .check(
+            &RbacAccessCheckEnv::sys_user(auth_data.user_id(), &req_dao.req_env),
+            &CheckUserEmailEdit {
+                res_user_id: auth_data.user_id(),
+            },
+        )
         .await?;
 
     let id = req_dao
@@ -51,7 +58,12 @@ pub async fn email_send_code(
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckUserEmailBase {})
+        .check(
+            &RbacAccessCheckEnv::sys_user(auth_data.user_id(), &req_dao.req_env),
+            &CheckUserEmailEdit {
+                res_user_id: auth_data.user_id(),
+            },
+        )
         .await?;
 
     req_dao
@@ -85,11 +97,20 @@ pub async fn email_confirm(
         .account_email
         .find_by_id(&param.email_id)
         .await?;
-
+    let uid = req_dao
+        .web_dao
+        .web_user
+        .account
+        .account_id_to_user(email.account_id)
+        .await?
+        .id;
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, None, &CheckUserEmailBase {})
+        .check(
+            &RbacAccessCheckEnv::sys_user(uid, &req_dao.req_env),
+            &CheckUserEmailEdit { res_user_id: uid },
+        )
         .await?;
     req_dao
         .web_dao
@@ -120,12 +141,12 @@ pub async fn email_delete(
         .account_email
         .find_by_id(&param.email_id)
         .await?;
+
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &req_dao.req_env,
-            Some(&auth_data),
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserEmailEdit {
                 res_user_id: req_dao
                     .web_dao

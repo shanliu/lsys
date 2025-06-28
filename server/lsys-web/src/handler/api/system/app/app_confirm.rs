@@ -1,5 +1,6 @@
 use crate::common::{JsonError, JsonResponse, JsonResult, UserAuthQueryDao};
-use crate::dao::access::api::system::CheckAdminApp;
+use crate::dao::access::api::system::admin::CheckAdminApp;
+use crate::dao::access::RbacAccessCheckEnv;
 use lsys_access::dao::AccessSession;
 use lsys_app::model::AppRequestStatus;
 use lsys_core::fluent_message;
@@ -19,7 +20,7 @@ pub async fn confirm(param: &ConfirmParam, req_dao: &UserAuthQueryDao) -> JsonRe
     req_dao
         .web_dao
         .web_rbac
-        .check(&req_dao.req_env, Some(&auth_data), &CheckAdminApp {})
+        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminApp {})
         .await?;
     let req_app = req_dao
         .web_dao

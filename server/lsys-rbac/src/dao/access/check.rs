@@ -11,7 +11,7 @@ use crate::{
         op::OpInfo,
         res::ResInfo,
         result::{RbacError, RbacResult},
-        role::{AccessResInfo, AccessRoleData, AccessRoleInfo, AccessRoleRow},
+        role::{AccessResInfo,  AccessRoleInfo, AccessRoleRow},
     },
     model::{
         RbacAuditDetailModel, RbacAuditDetailModelRef, RbacAuditModel, RbacAuditModelRef,
@@ -23,22 +23,32 @@ use super::RbacAccess;
 
 //进行权限校验
 
+pub struct AccessCheckOp<'t> {
+    pub op_key: &'t str,         //资源类型
+    pub req_auth: bool,         //资源是否需要授权
+}
+impl<'t> AccessCheckOp<'t> {
+     // 用户待验证资源
+    pub fn new(op_key:&'t str,req_auth: bool)->Self{
+        Self { op_key, req_auth}
+    }
+}
 pub struct AccessCheckRes<'t> {
     pub user_id: u64,              //资源用户ID
     pub app_id: u64,               //app_id >0 时,该用户 使用app
     pub res_type: &'t str,         //资源类型
     pub res_data: &'t str,         //资源数据
-    pub op_key_data: Vec<&'t str>, //授权操作结构列表,不用&'t [&'t str],因为多层数组难以转换类型
+    pub op_key_data: Vec<AccessCheckOp<'t>>, //授权操作结构列表,不用&'t [&'t str],因为多层数组难以转换类型
 }
 
 impl<'t> AccessCheckRes<'t> {
     // 用户待验证资源
-    pub fn user<'s: 't>(
+    pub fn user(
         user_id: u64,
-        res_type: &'s str,
-        res_data: &'s str,
-        op_key_data: Vec<&'s str>,
-    ) -> AccessCheckRes<'s> {
+        res_type: &'t str,
+        res_data: &'t str,
+        op_key_data: Vec<AccessCheckOp<'t>>,
+    ) -> AccessCheckRes<'t> {
         AccessCheckRes {
             res_type,
             app_id: 0,
@@ -48,21 +58,21 @@ impl<'t> AccessCheckRes<'t> {
         }
     }
     // 用户待验证资源
-    pub fn user_empty_data<'s: 't>(
+    pub fn user_empty_data(
         user_id: u64,
-        res_type: &'s str,
-        ops: Vec<&'s str>,
-    ) -> AccessCheckRes<'s> {
+        res_type: &'t str,
+        ops: Vec<AccessCheckOp<'t>>,
+    ) -> AccessCheckRes<'t> {
         Self::user(user_id, res_type, "", ops)
     }
     // 用户APP待验证资源
-    pub fn user_app<'s: 't>(
+    pub fn user_app(
         user_id: u64,
         app_id: u64,
-        res_type: &'s str,
-        res_data: &'s str,
-        op_key_data: Vec<&'s str>,
-    ) -> AccessCheckRes<'s> {
+        res_type: &'t str,
+        res_data: &'t str,
+        op_key_data: Vec<AccessCheckOp<'t>>,
+    ) -> AccessCheckRes<'t> {
         AccessCheckRes {
             res_type,
             app_id,
@@ -72,12 +82,12 @@ impl<'t> AccessCheckRes<'t> {
         }
     }
     // 用户APP待验证资源
-    pub fn user_app_empty_data<'s: 't>(
+    pub fn user_app_empty_data(
         user_id: u64,
         app_id: u64,
-        res_type: &'s str,
-        ops: Vec<&'s str>,
-    ) -> AccessCheckRes<'s> {
+        res_type: &'t str,
+        ops: Vec<AccessCheckOp<'t>>,
+    ) -> AccessCheckRes<'t> {
         AccessCheckRes {
             res_type,
             app_id,
@@ -87,15 +97,15 @@ impl<'t> AccessCheckRes<'t> {
         }
     }
     // 系统待验证资源
-    pub fn system<'s: 't>(
-        res_type: &'s str,
-        res_data: &'s str,
-        ops: Vec<&'s str>,
-    ) -> AccessCheckRes<'s> {
+    pub fn system(
+        res_type: &'t str,
+        res_data: &'t str,
+        ops: Vec<AccessCheckOp<'t>>,
+    ) -> AccessCheckRes<'t> {
         Self::user(0, res_type, res_data, ops)
     }
     // 系统待验证资源
-    pub fn system_empty_data<'s: 't>(res_type: &'s str, ops: Vec<&'s str>) -> AccessCheckRes<'s> {
+    pub fn system_empty_data(res_type: &'t str, ops: Vec<AccessCheckOp<'t>>) -> AccessCheckRes<'t> {
         Self::user(0, res_type, "", ops)
     }
 }
@@ -140,18 +150,18 @@ struct AccessCheckItem<'t> {
     res_detail: Option<&'t RbacResModel>,
     op_detail: Option<&'t RbacOpModel>,
     role_data: Vec<&'t AccessRoleRow>,
-    is_self: bool,
-    is_root: bool,
+    res_auth: bool,
+    // is_root: bool,
     is_role_excluce: bool,
     is_role_include: bool,
     is_role_all: bool,
     check_result: bool,
 }
 
-enum AccessRoleList {
-    Root,
-    RoleData(AccessRoleData),
-}
+// enum AccessRoleList {
+//     Root,
+//     RoleData(AccessRoleData),
+// }
 
 impl RbacAccess {
     async fn check_param_valid(&self,
@@ -177,7 +187,7 @@ impl RbacAccess {
 
             for rtmp in &tmp.op_key_data{
                 param_valid
-                .add(valid_key!("op_key_data"), rtmp, &ValidParamCheck::default().add_rule(ValidPattern::Ident).add_rule(ValidStrlen::range(1, 32)));
+                .add(valid_key!("op_key_data"), &rtmp.op_key, &ValidParamCheck::default().add_rule(ValidPattern::Ident).add_rule(ValidStrlen::range(1, 32)));
             }
         }
         param_valid.check()?;
@@ -213,7 +223,7 @@ impl RbacAccess {
                 e.op_key_data
                     .iter()
                     .map(|w| OpInfo {
-                        op_key: w,
+                        op_key: w.op_key,
                         app_id: e.app_id,
                         user_id: e.user_id,
                     })
@@ -223,7 +233,7 @@ impl RbacAccess {
         let op_list = self.op.cache().find_vec_by_info(&op_info).await?;
         let mut check_data = vec![];
 
-        let access_role_list = if !self.is_root(env_data.user_id) {
+        let access_role_list={
             let mut tmp_check = HashMap::new();
             for item in check_res_data {
                 tmp_check
@@ -244,7 +254,7 @@ impl RbacAccess {
                                     op_list
                                         .iter()
                                         .find(|r| {
-                                            r.0.op_key == *o
+                                            r.0.op_key == o.op_key
                                                 && *tu_id == r.0.user_id
                                                 && *tapp_id == r.0.app_id
                                         })
@@ -279,21 +289,13 @@ impl RbacAccess {
                     role_key: e.role_key,
                 })
                 .collect::<Vec<_>>();
-            //根据访问用户 访问资源 会话角色 获取用于权限校验的相关角色列表
-            AccessRoleList::RoleData(
+          
                 self.role
                     .cache()
                     .find_access_row(env_data.user_id, res_check, &role_check)
-                    .await?,
-            )
-        } else {
-            AccessRoleList::Root
+                    .await?
         };
-
-        let sys_all = match access_role_list {
-            AccessRoleList::Root => vec![],
-            AccessRoleList::RoleData(ref role_list) => role_list.get_system_all_role(),
-        };
+        let sys_role_all =  access_role_list.get_system_all_role();
         for res_item in check_res_data {
             let res_detail = res_list
                 .iter()
@@ -311,213 +313,184 @@ impl RbacAccess {
                 let op_detail = op_list
                     .iter()
                     .find(|e| {
-                        e.0.op_key == *op_item
+                        e.0.op_key == op_item.op_key
                             && e.0.user_id == res_item.user_id
                             && e.0.app_id == res_item.app_id
                     })
                     .and_then(|e| e.1.as_ref());
 
-                match access_role_list {
-                    AccessRoleList::Root => {
-                        //pass
-                        check_data.push(AccessCheckItem {
-                            check_res_item: res_item,
-                            op_key: op_item,
-                            role_data: vec![],
-                            res_detail,
-                            op_detail,
-                            is_self: false,
-                            is_root: true,
-                            is_role_all: false,
-                            is_role_excluce: false,
-                            is_role_include: false,
-                            check_result: true,
-                        });
-                        continue;
-                    }
-                    AccessRoleList::RoleData(ref role_list) => {
-                        let sys_excluce =
-                            if let (Some(res_val), Some(op_val)) = (res_detail, op_detail) {
-                                role_list.get_system_exclude_role(res_val.id, op_val.id)
-                            } else {
-                                vec![]
-                            };
-                        //系统屏蔽
-                        if !sys_excluce.is_empty() {
-                            //bad
-                            check_data.push(AccessCheckItem {
-                                check_res_item: res_item,
-                                op_key: op_item,
-                                role_data: sys_excluce,
-                                res_detail,
-                                op_detail,
-                                is_self: false,
-                                is_root: false,
-                                is_role_all: false,
-                                is_role_excluce: true,
-                                is_role_include: false,
-                                check_result: false,
-                            });
-
-                            continue;
-                        }
-                        //系统允许全部
-                        if !sys_all.is_empty() {
-                            //pass
-                            check_data.push(AccessCheckItem {
-                                check_res_item: res_item,
-                                op_key: op_item,
-                                role_data: sys_all.clone(),
-                                res_detail,
-                                op_detail,
-                                is_self: false,
-                                is_root: false,
-                                is_role_all: true,
-                                is_role_excluce: false,
-                                is_role_include: false,
-                                check_result: true,
-                            });
-                            continue;
-                        }
-
-                        let sys_include =
-                            if let (Some(res_val), Some(op_val)) = (res_detail, op_detail) {
-                                role_list.get_system_exclude_role(res_val.id, op_val.id)
-                            } else {
-                                vec![]
-                            };
-                        //系统允许部分
-                        if !sys_include.is_empty() {
-                            //pass
-                            check_data.push(AccessCheckItem {
-                                check_res_item: res_item,
-                                op_key: op_item,
-                                role_data: sys_include,
-                                res_detail,
-                                op_detail,
-                                is_self: false,
-                                is_root: false,
-                                is_role_all: false,
-                                is_role_excluce: false,
-                                is_role_include: true,
-                                check_result: true,
-                            });
-                            continue;
-                        }
-                        //自身资源
-                        if env_data.user_id == res_item.user_id {
-                            //pass
-                            check_data.push(AccessCheckItem {
-                                check_res_item: res_item,
-                                op_key: op_item,
-                                role_data: vec![],
-                                res_detail,
-                                op_detail,
-                                is_self: true,
-                                is_root: false,
-                                is_role_all: false,
-                                is_role_excluce: false,
-                                is_role_include: false,
-                                check_result: true,
-                            });
-                            continue;
-                        }
-                        //用户屏蔽
-                        let user_excluce = if let (Some(res_val), Some(op_val)) =
-                            (res_detail, op_detail)
-                        {
-                            role_list.get_user_exclude_role(res_item.user_id, res_val.id, op_val.id)
-                        } else {
-                            vec![]
-                        };
-
-                        if !user_excluce.is_empty() {
-                            //bad
-                            check_data.push(AccessCheckItem {
-                                check_res_item: res_item,
-                                op_key: op_item,
-                                role_data: user_excluce,
-                                res_detail,
-                                op_detail,
-                                is_self: false,
-                                is_root: false,
-                                is_role_all: false,
-                                is_role_excluce: true,
-                                is_role_include: false,
-                                check_result: false,
-                            });
-
-                            continue;
-                        }
-                        //用户允许全部
-                        if !user_all
-                            .get_or_init(|| role_list.get_user_all_role(res_item.user_id))
-                            .is_empty()
-                        {
-                            //pass
-                            check_data.push(AccessCheckItem {
-                                check_res_item: res_item,
-                                op_key: op_item,
-                                role_data: user_all
-                                    .get()
-                                    .map(|e| e.to_owned())
-                                    .to_owned()
-                                    .unwrap_or_default(),
-                                res_detail,
-                                op_detail,
-                                is_self: false,
-                                is_root: false,
-                                is_role_all: true,
-                                is_role_excluce: false,
-                                is_role_include: false,
-                                check_result: true,
-                            });
-                            continue;
-                        }
-                        //用户允许部分
-                        let user_include = if let (Some(res_val), Some(op_val)) =
-                            (res_detail, op_detail)
-                        {
-                            role_list.get_user_include_role(res_item.user_id, res_val.id, op_val.id)
-                        } else {
-                            vec![]
-                        };
-
-                        if !user_include.is_empty() {
-                            //pass
-                            check_data.push(AccessCheckItem {
-                                check_res_item: res_item,
-                                op_key: op_item,
-                                role_data: user_include,
-                                res_detail,
-                                op_detail,
-                                is_self: false,
-                                is_root: false,
-                                is_role_all: false,
-                                is_role_excluce: false,
-                                is_role_include: true,
-                                check_result: true,
-                            });
-                            continue;
-                        }
-                        //无任何匹配的角色
-                        //bad
-                        check_data.push(AccessCheckItem {
-                            check_res_item: res_item,
-                            op_key: op_item,
-                            role_data: vec![],
-                            res_detail,
-                            op_detail,
-                            is_self: false,
-                            is_root: false,
-                            is_role_all: false,
-                            is_role_excluce: false,
-                            is_role_include: false,
-                            check_result: false,
-                        });
-                    }
+                let sys_excluce =
+                    if let (Some(res_val), Some(op_val)) = (res_detail, op_detail) {
+                        access_role_list.get_system_exclude_role(res_val.id, op_val.id)
+                    } else {
+                        vec![]
+                    };
+                //系统屏蔽
+                if !sys_excluce.is_empty() {
+                    //bad
+                    check_data.push(AccessCheckItem {
+                        check_res_item: res_item,
+                        op_key: op_item.op_key,
+                        role_data: sys_excluce,
+                        res_detail,
+                        op_detail,
+                        res_auth: false,
+                        // is_root: false,
+                        is_role_all: false,
+                        is_role_excluce: true,
+                        is_role_include: false,
+                        check_result: false,
+                    });
+                    continue;
                 }
-            }
+                //系统允许全部
+                if !sys_role_all.is_empty() {
+                    //pass
+                    check_data.push(AccessCheckItem {
+                        check_res_item: res_item,
+                        op_key: op_item.op_key,
+                        role_data: sys_role_all.clone(),
+                        res_detail,
+                        op_detail,
+                        res_auth: false,
+                        is_role_all: true,
+                        is_role_excluce: false,
+                        is_role_include: false,
+                        check_result: true,
+                    });
+                    continue;
+                }
+                let sys_include =
+                    if let (Some(res_val), Some(op_val)) = (res_detail, op_detail) {
+                        access_role_list.get_system_exclude_role(res_val.id, op_val.id)
+                    } else {
+                        vec![]
+                    };
+                //系统允许部分
+                if !sys_include.is_empty() {
+                    //pass
+                    check_data.push(AccessCheckItem {
+                        check_res_item: res_item,
+                        op_key: op_item.op_key,
+                        role_data: sys_include,
+                        res_detail,
+                        op_detail,
+                        res_auth: false,
+                        is_role_all: false,
+                        is_role_excluce: false,
+                        is_role_include: true,
+                        check_result: true,
+                    });
+                    continue;
+                }
+                      
+                //用户屏蔽
+                let user_excluce = if let (Some(res_val), Some(op_val)) =
+                    (res_detail, op_detail)
+                {
+                    access_role_list.get_user_exclude_role(res_item.user_id, res_val.id, op_val.id)
+                } else {
+                    vec![]
+                };
+
+                if !user_excluce.is_empty() {
+                    //bad
+                    check_data.push(AccessCheckItem {
+                        check_res_item: res_item,
+                        op_key: op_item.op_key,
+                        role_data: user_excluce,
+                        res_detail,
+                        op_detail,
+                        res_auth: false,
+                        is_role_all: false,
+                        is_role_excluce: true,
+                        is_role_include: false,
+                        check_result: false,
+                    });
+
+                    continue;
+                }
+                //用户允许全部
+                if !user_all
+                    .get_or_init(|| access_role_list.get_user_all_role(res_item.user_id))
+                    .is_empty()
+                {
+                    //pass
+                    check_data.push(AccessCheckItem {
+                        check_res_item: res_item,
+                        op_key: op_item.op_key,
+                        role_data: user_all
+                            .get()
+                            .map(|e| e.to_owned())
+                            .to_owned()
+                            .unwrap_or_default(),
+                        res_detail,
+                        op_detail,
+                        res_auth: false,
+                        is_role_all: true,
+                        is_role_excluce: false,
+                        is_role_include: false,
+                        check_result: true,
+                    });
+                    continue;
+                }
+                //用户允许部分
+                let user_include = if let (Some(res_val), Some(op_val)) =
+                    (res_detail, op_detail)
+                {
+                    access_role_list.get_user_include_role(res_item.user_id, res_val.id, op_val.id)
+                } else {
+                    vec![]
+                };
+
+                if !user_include.is_empty() {
+                    //pass
+                    check_data.push(AccessCheckItem {
+                        check_res_item: res_item,
+                        op_key: op_item.op_key,
+                        role_data: user_include,
+                        res_detail,
+                        op_detail,
+                        res_auth: false,
+                        is_role_all: false,
+                        is_role_excluce: false,
+                        is_role_include: true,
+                        check_result: true,
+                    });
+                    continue;
+                }
+
+                if !op_item.req_auth {
+                    //pass
+                    check_data.push(AccessCheckItem {
+                        check_res_item: res_item,
+                        op_key: op_item.op_key,
+                        role_data: user_include,
+                        res_detail,
+                        op_detail,
+                        res_auth: true,
+                        is_role_all: false,
+                        is_role_excluce: false,
+                        is_role_include: true,
+                        check_result: true,
+                    });
+                    continue;
+                }
+                //无任何匹配的角色
+                //bad
+                check_data.push(AccessCheckItem {
+                    check_res_item: res_item,
+                    op_key: op_item.op_key,
+                    role_data: vec![],
+                    res_detail,
+                    op_detail,
+                    res_auth: false,
+                    is_role_all: false,
+                    is_role_excluce: false,
+                    is_role_include: false,
+                    check_result: false,
+                });
+            }   
         }
         let bad_item=check_data.iter().flat_map(|check_item|{
             if check_item.check_result {
@@ -609,8 +582,8 @@ struct AuditItemDetail {
     res_id: u64,
     op_id: u64,
     check_result: i8,
-    is_self: i8,
-    is_root: i8,
+    res_auth: i8,
+  //  is_root: i8,
     is_role_excluce: i8,
     is_role_include: i8,
     is_role_all: i8,
@@ -716,8 +689,8 @@ impl RbacAccess {
                         res_id: e.res_detail.map(|e| e.id).unwrap_or_default(),
                         op_id: e.op_detail.map(|e| e.id).unwrap_or_default(),
                         check_result: if e.check_result { 1 } else { 0 },
-                        is_self: if e.is_self { 1 } else { 0 },
-                        is_root: if e.is_root { 1 } else { 0 },
+                        res_auth: if e.res_auth { 1 } else { 0 },
+                      //  is_root: if e.is_root { 1 } else { 0 },
                         is_role_excluce: if e.is_role_excluce { 1 } else { 0 },
                         is_role_include: if e.is_role_include { 1 } else { 0 },
                         is_role_all: if e.is_role_all { 1 } else { 0 },
@@ -795,8 +768,8 @@ impl RbacAccess {
                             is_role_all:tmp.is_role_all,
                             is_role_include:tmp.is_role_include,
                             is_role_excluce:tmp.is_role_excluce,
-                            is_root:tmp.is_root,
-                            is_self:tmp.is_self,
+                            res_auth:tmp.res_auth,
+                           // is_self:tmp.is_self,
                         }));
                     }
                     if let Err(err) =
