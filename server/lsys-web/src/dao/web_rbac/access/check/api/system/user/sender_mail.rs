@@ -26,12 +26,20 @@ impl RbacCheckAccess for CheckUserAppSenderMailConfig {
 }
 impl RbacCheckResTpl for CheckUserAppSenderMailConfig {
     fn tpl_data() -> Vec<CheckResTpl> {
-        vec![CheckResTpl {
-            user: false,
-            data: false,
-            key: "global-user",
-            ops: vec!["app-mail-config"],
-        }]
+        vec![
+            CheckResTpl {
+                user: false,
+                data: false,
+                key: "global-user",
+                ops: vec!["app-mail-config"],
+            },
+            CheckResTpl {
+                user: false,
+                data: true,
+                key: "global-user",
+                ops: vec!["app-mail-config"],
+            },
+        ]
     }
 }
 
@@ -44,25 +52,43 @@ impl RbacCheckAccess for CheckUserAppSenderMailView {
         access
             .list_check(
                 check_env,
-                &[&[AccessCheckRes::system_empty_data(
-                    "global-user",
-                    vec![AccessCheckOp::new(
-                        "app-mail-veiw",
-                        self.res_user_id != check_env.user_id,
+                &[
+                    &[AccessCheckRes::system_empty_data(
+                        "global-user",
+                        vec![AccessCheckOp::new(
+                            "app-mail-veiw",
+                            self.res_user_id != check_env.user_id,
+                        )],
                     )],
-                )]],
+                    &[AccessCheckRes::system(
+                        "global-user",
+                        &self.res_user_id.to_string(),
+                        vec![AccessCheckOp::new(
+                            "app-mail-veiw",
+                            self.res_user_id != check_env.user_id,
+                        )],
+                    )],
+                ],
             )
             .await
     }
 }
 impl RbacCheckResTpl for CheckUserAppSenderMailView {
     fn tpl_data() -> Vec<CheckResTpl> {
-        vec![CheckResTpl {
-            user: false,
-            data: false,
-            key: "global-user",
-            ops: vec!["app-mail-view"],
-        }]
+        vec![
+            CheckResTpl {
+                user: false,
+                data: false,
+                key: "global-user",
+                ops: vec!["app-mail-view"],
+            },
+            CheckResTpl {
+                user: false,
+                data: true,
+                key: "global-user",
+                ops: vec!["app-mail-view"],
+            },
+        ]
     }
 }
 

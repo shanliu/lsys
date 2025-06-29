@@ -22,7 +22,6 @@ pub use role::*;
 //RBAC授权系统
 
 pub struct RbacConfig {
-    pub root_id_data: Vec<u64>,
     pub res_cache: LocalCacheConfig,
     pub op_cache: LocalCacheConfig,
     pub role_relation_cache: LocalCacheConfig,
@@ -31,9 +30,8 @@ pub struct RbacConfig {
 }
 
 impl RbacConfig {
-    pub fn new(root_id_data: Vec<u64>, use_cache: bool) -> Self {
+    pub fn new(use_cache: bool) -> Self {
         Self {
-            root_id_data,
             role_relation_cache: LocalCacheConfig::new(
                 "rbac-relation",
                 if use_cache { None } else { Some(0) },
@@ -95,7 +93,6 @@ impl RbacDao {
         ));
         Ok(Self {
             access: Arc::new(RbacAccess::new(
-                config.root_id_data,
                 db,
                 role.clone(),
                 res.clone(),

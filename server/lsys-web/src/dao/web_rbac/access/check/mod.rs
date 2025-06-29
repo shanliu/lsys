@@ -140,6 +140,9 @@ impl WebRbac {
         check_env: &RbacAccessCheckEnv<'_>,
         check_dep: &RbacCheckAccessDepend,
     ) -> RbacResult<()> {
+        if check_env.user_app_id == 0 && check_env.user_id > 0 && self.is_root(check_env.user_id) {
+            return Ok(());
+        }
         for pr in check_dep.depends() {
             self.check(check_env, pr.as_ref()).await?
         }

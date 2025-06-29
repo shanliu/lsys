@@ -9,27 +9,45 @@ pub struct CheckUserRbacView {
 impl RbacCheckAccess for CheckUserRbacView {
     async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
         access
-            .check(
+            .list_check(
                 check_env,
-                &[AccessCheckRes::system_empty_data(
-                    "global-user",
-                    vec![AccessCheckOp::new(
-                        "rbac-view",
-                        self.res_user_id != check_env.user_id,
+                &[
+                    &[AccessCheckRes::system_empty_data(
+                        "global-user",
+                        vec![AccessCheckOp::new(
+                            "rbac-view",
+                            self.res_user_id != check_env.user_id,
+                        )],
                     )],
-                )],
+                    &[AccessCheckRes::system(
+                        "global-user",
+                        &self.res_user_id.to_string(),
+                        vec![AccessCheckOp::new(
+                            "rbac-view",
+                            self.res_user_id != check_env.user_id,
+                        )],
+                    )],
+                ],
             )
             .await
     }
 }
 impl RbacCheckResTpl for CheckUserRbacView {
     fn tpl_data() -> Vec<CheckResTpl> {
-        vec![CheckResTpl {
-            user: false,
-            data: false,
-            key: "global-user",
-            ops: vec!["rbac-view"],
-        }]
+        vec![
+            CheckResTpl {
+                user: false,
+                data: false,
+                key: "global-user",
+                ops: vec!["rbac-view"],
+            },
+            CheckResTpl {
+                user: false,
+                data: true,
+                key: "global-user",
+                ops: vec!["rbac-view"],
+            },
+        ]
     }
 }
 pub struct CheckUserRbacEdit {
@@ -39,15 +57,25 @@ pub struct CheckUserRbacEdit {
 impl RbacCheckAccess for CheckUserRbacEdit {
     async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
         access
-            .check(
+            .list_check(
                 check_env,
-                &[AccessCheckRes::system_empty_data(
-                    "global-user",
-                    vec![AccessCheckOp::new(
-                        "rbac-edit",
-                        self.res_user_id != check_env.user_id,
+                &[
+                    &[AccessCheckRes::system_empty_data(
+                        "global-user",
+                        vec![AccessCheckOp::new(
+                            "rbac-edit",
+                            self.res_user_id != check_env.user_id,
+                        )],
                     )],
-                )],
+                    &[AccessCheckRes::system(
+                        "global-user",
+                        &self.res_user_id.to_string(),
+                        vec![AccessCheckOp::new(
+                            "rbac-edit",
+                            self.res_user_id != check_env.user_id,
+                        )],
+                    )],
+                ],
             )
             .await
     }
@@ -59,11 +87,19 @@ impl RbacCheckAccess for CheckUserRbacEdit {
 }
 impl RbacCheckResTpl for CheckUserRbacEdit {
     fn tpl_data() -> Vec<CheckResTpl> {
-        vec![CheckResTpl {
-            user: false,
-            data: false,
-            key: "global-user",
-            ops: vec!["rbac-edit"],
-        }]
+        vec![
+            CheckResTpl {
+                user: false,
+                data: false,
+                key: "global-user",
+                ops: vec!["rbac-edit"],
+            },
+            CheckResTpl {
+                user: false,
+                data: true,
+                key: "global-user",
+                ops: vec!["rbac-edit"],
+            },
+        ]
     }
 }

@@ -9,15 +9,25 @@ pub struct CheckRestApp {
 impl RbacCheckAccess for CheckRestApp {
     async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
         access
-            .check(
+            .list_check(
                 check_env, //资源访问用户
-                &[AccessCheckRes::system_empty_data(
-                    "global-app",
-                    vec![AccessCheckOp::new(
-                        "rest",
-                        check_env.user_id != self.res_user_id,
+                &[
+                    &[AccessCheckRes::system(
+                        "global-app",
+                        &self.res_user_id.to_string(),
+                        vec![AccessCheckOp::new(
+                            "rest",
+                            check_env.user_id != self.res_user_id,
+                        )],
                     )],
-                )],
+                    &[AccessCheckRes::system_empty_data(
+                        "global-app",
+                        vec![AccessCheckOp::new(
+                            "rest",
+                            check_env.user_id != self.res_user_id,
+                        )],
+                    )],
+                ],
             )
             .await
     }

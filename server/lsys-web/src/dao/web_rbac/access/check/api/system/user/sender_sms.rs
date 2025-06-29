@@ -13,25 +13,43 @@ impl RbacCheckAccess for CheckUserAppSenderSmsConfig {
         access
             .list_check(
                 check_env,
-                &[&[AccessCheckRes::system_empty_data(
-                    "global-user",
-                    vec![AccessCheckOp::new(
-                        "app-sms-config",
-                        self.res_user_id != check_env.user_id,
+                &[
+                    &[AccessCheckRes::system_empty_data(
+                        "global-user",
+                        vec![AccessCheckOp::new(
+                            "app-sms-config",
+                            self.res_user_id != check_env.user_id,
+                        )],
                     )],
-                )]],
+                    &[AccessCheckRes::system(
+                        "global-user",
+                        &self.res_user_id.to_string(),
+                        vec![AccessCheckOp::new(
+                            "app-sms-config",
+                            self.res_user_id != check_env.user_id,
+                        )],
+                    )],
+                ],
             )
             .await
     }
 }
 impl RbacCheckResTpl for CheckUserAppSenderSmsConfig {
     fn tpl_data() -> Vec<CheckResTpl> {
-        vec![CheckResTpl {
-            user: false,
-            data: false,
-            key: "global-user",
-            ops: vec!["app-sms-config"],
-        }]
+        vec![
+            CheckResTpl {
+                user: false,
+                data: false,
+                key: "global-user",
+                ops: vec!["app-sms-config"],
+            },
+            CheckResTpl {
+                user: false,
+                data: true,
+                key: "global-user",
+                ops: vec!["app-sms-config"],
+            },
+        ]
     }
 }
 
@@ -44,25 +62,43 @@ impl RbacCheckAccess for CheckUserAppSenderSmsView {
         access
             .list_check(
                 check_env,
-                &[&[AccessCheckRes::system_empty_data(
-                    "global-user",
-                    vec![AccessCheckOp::new(
-                        "app-sms-view",
-                        self.res_user_id != check_env.user_id,
+                &[
+                    &[AccessCheckRes::system_empty_data(
+                        "global-user",
+                        vec![AccessCheckOp::new(
+                            "app-sms-view",
+                            self.res_user_id != check_env.user_id,
+                        )],
                     )],
-                )]],
+                    &[AccessCheckRes::system(
+                        "global-user",
+                        &self.res_user_id.to_string(),
+                        vec![AccessCheckOp::new(
+                            "app-sms-view",
+                            self.res_user_id != check_env.user_id,
+                        )],
+                    )],
+                ],
             )
             .await
     }
 }
 impl RbacCheckResTpl for CheckUserAppSenderSmsView {
     fn tpl_data() -> Vec<CheckResTpl> {
-        vec![CheckResTpl {
-            user: false,
-            data: false,
-            key: "global-user",
-            ops: vec!["app-sms-view"],
-        }]
+        vec![
+            CheckResTpl {
+                user: false,
+                data: false,
+                key: "global-user",
+                ops: vec!["app-sms-view"],
+            },
+            CheckResTpl {
+                user: false,
+                data: true,
+                key: "global-user",
+                ops: vec!["app-sms-view"],
+            },
+        ]
     }
 }
 

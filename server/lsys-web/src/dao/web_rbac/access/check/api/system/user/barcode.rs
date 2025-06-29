@@ -8,27 +8,45 @@ pub struct CheckUserBarCodeView {
 impl RbacCheckAccess for CheckUserBarCodeView {
     async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
         access
-            .check(
+            .list_check(
                 check_env,
-                &[AccessCheckRes::system_empty_data(
-                    "global-user",
-                    vec![AccessCheckOp::new(
-                        "view-barcode",
-                        self.res_user_id != check_env.user_id,
+                &[
+                    &[AccessCheckRes::system_empty_data(
+                        "global-user",
+                        vec![AccessCheckOp::new(
+                            "view-barcode",
+                            self.res_user_id != check_env.user_id,
+                        )],
                     )],
-                )],
+                    &[AccessCheckRes::system(
+                        "global-user",
+                        &self.res_user_id.to_string(),
+                        vec![AccessCheckOp::new(
+                            "view-barcode",
+                            self.res_user_id != check_env.user_id,
+                        )],
+                    )],
+                ],
             )
             .await
     }
 }
 impl RbacCheckResTpl for CheckUserBarCodeView {
     fn tpl_data() -> Vec<CheckResTpl> {
-        vec![CheckResTpl {
-            user: false,
-            data: false,
-            key: "global-user",
-            ops: vec!["view-barcode"],
-        }]
+        vec![
+            CheckResTpl {
+                user: false,
+                data: false,
+                key: "global-user",
+                ops: vec!["view-barcode"],
+            },
+            CheckResTpl {
+                user: false,
+                data: true,
+                key: "global-user",
+                ops: vec!["view-barcode"],
+            },
+        ]
     }
 }
 
@@ -39,15 +57,25 @@ pub struct CheckUserBarCodeEdit {
 impl RbacCheckAccess for CheckUserBarCodeEdit {
     async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
         access
-            .check(
+            .list_check(
                 check_env,
-                &[AccessCheckRes::system_empty_data(
-                    "global-user",
-                    vec![AccessCheckOp::new(
-                        "edit-barcode",
-                        self.res_user_id != check_env.user_id,
+                &[
+                    &[AccessCheckRes::system_empty_data(
+                        "global-user",
+                        vec![AccessCheckOp::new(
+                            "edit-barcode",
+                            self.res_user_id != check_env.user_id,
+                        )],
                     )],
-                )],
+                    &[AccessCheckRes::system(
+                        "global-user",
+                        &self.res_user_id.to_string(),
+                        vec![AccessCheckOp::new(
+                            "edit-barcode",
+                            self.res_user_id != check_env.user_id,
+                        )],
+                    )],
+                ],
             )
             .await
     }
@@ -59,11 +87,19 @@ impl RbacCheckAccess for CheckUserBarCodeEdit {
 }
 impl RbacCheckResTpl for CheckUserBarCodeEdit {
     fn tpl_data() -> Vec<CheckResTpl> {
-        vec![CheckResTpl {
-            user: false,
-            data: false,
-            key: "global-user",
-            ops: vec!["edit-barcode"],
-        }]
+        vec![
+            CheckResTpl {
+                user: false,
+                data: false,
+                key: "global-user",
+                ops: vec!["edit-barcode"],
+            },
+            CheckResTpl {
+                user: false,
+                data: true,
+                key: "global-user",
+                ops: vec!["edit-barcode"],
+            },
+        ]
     }
 }

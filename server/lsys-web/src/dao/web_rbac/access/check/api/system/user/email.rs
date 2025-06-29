@@ -8,15 +8,25 @@ pub struct CheckUserEmailEdit {
 impl RbacCheckAccess for CheckUserEmailEdit {
     async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
         access
-            .check(
+            .list_check(
                 check_env, //资源访问用户
-                &[AccessCheckRes::system_empty_data(
-                    "global-user",
-                    vec![AccessCheckOp::new(
-                        "email-edit",
-                        self.res_user_id != check_env.user_id,
+                &[
+                    &[AccessCheckRes::system_empty_data(
+                        "global-user",
+                        vec![AccessCheckOp::new(
+                            "email-edit",
+                            self.res_user_id != check_env.user_id,
+                        )],
                     )],
-                )],
+                    &[AccessCheckRes::system(
+                        "global-user",
+                        &self.res_user_id.to_string(),
+                        vec![AccessCheckOp::new(
+                            "email-edit",
+                            self.res_user_id != check_env.user_id,
+                        )],
+                    )],
+                ],
             )
             .await
     }
@@ -24,11 +34,19 @@ impl RbacCheckAccess for CheckUserEmailEdit {
 
 impl RbacCheckResTpl for CheckUserEmailEdit {
     fn tpl_data() -> Vec<CheckResTpl> {
-        vec![CheckResTpl {
-            user: false,
-            data: false,
-            key: "global-user",
-            ops: vec!["email-edit"],
-        }]
+        vec![
+            CheckResTpl {
+                user: false,
+                data: false,
+                key: "global-user",
+                ops: vec!["email-edit"],
+            },
+            CheckResTpl {
+                user: false,
+                data: true,
+                key: "global-user",
+                ops: vec!["email-edit"],
+            },
+        ]
     }
 }

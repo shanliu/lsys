@@ -182,15 +182,18 @@ impl WebDao {
             .iter()
             .filter_map(|e| e.to_owned().into_int().map(|e| e as u64).ok())
             .collect::<Vec<u64>>();
-        let web_rbac = Arc::new(WebRbac::new(Arc::new(
-            RbacDao::new(
-                db.clone(),
-                remote_notify.clone(),
-                RbacConfig::new(root_user_id, use_cache),
-                change_logger.clone(),
-            )
-            .await?,
-        )));
+        let web_rbac = Arc::new(WebRbac::new(
+            Arc::new(
+                RbacDao::new(
+                    db.clone(),
+                    remote_notify.clone(),
+                    RbacConfig::new(use_cache),
+                    change_logger.clone(),
+                )
+                .await?,
+            ),
+            root_user_id,
+        ));
 
         let web_user = Arc::new(WebUser::new(
             db.clone(),
