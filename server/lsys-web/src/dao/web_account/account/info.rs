@@ -2,48 +2,31 @@ use crate::common::JsonData;
 use crate::common::{JsonError, JsonResult};
 
 use super::WebUserAccount;
-use lsys_access::dao::AccessSession;
-use lsys_access::dao::AccessSessionData;
 use lsys_access::dao::SessionBody;
 use lsys_core::model_option_set;
 use lsys_core::{fluent_message, RequestEnv};
+
 use lsys_user::model::AccountPasswordModel;
-use lsys_user::{
-    dao::{AccountError, UserAuthSession},
-    model::AccountInfoModelRef,
-};
-use tokio::sync::RwLock;
+use lsys_user::{dao::AccountError, model::AccountInfoModelRef};
 
 impl WebUserAccount {
     pub async fn user_info_set_username(
         &self,
         name: &str,
-        user_session: &RwLock<UserAuthSession>,
+        session_body: &SessionBody,
         env_data: Option<&RequestEnv>,
     ) -> JsonResult<()> {
-        let auth_data = user_session.read().await.get_session_data().await?;
         let account = self
             .user_dao
             .account_dao
-            .session_account(auth_data.session_body())
+            .session_account(session_body)
             .await?;
         self.user_dao
             .account_dao
             .account_name
-            .change_account_name(
-                &account,
-                name,
-                auth_data.session_body().user_id(),
-                None,
-                env_data,
-            )
+            .change_account_name(&account, name, session_body.user_id(), None, env_data)
             .await?;
-        let token = self
-            .user_dao
-            .auth_dao
-            .reload(user_session.read().await.get_session_token())
-            .await?;
-        user_session.write().await.set_session_token(token);
+
         Ok(())
     }
 }
@@ -79,14 +62,13 @@ impl WebUserAccount {
     pub async fn user_info_set_data(
         &self,
         param: &InfoSetUserInfoData<'_>,
-        user_session: &RwLock<UserAuthSession>,
+        session_body: &SessionBody,
         env_data: Option<&RequestEnv>,
     ) -> JsonResult<()> {
-        let auth_data = user_session.read().await.get_session_data().await?;
         let account = self
             .user_dao
             .account_dao
-            .session_account(auth_data.session_body())
+            .session_account(session_body)
             .await?;
         let mut db = self.db.begin().await?;
         if let Some(nikename) = param.nikename {
@@ -97,7 +79,7 @@ impl WebUserAccount {
                 .set_nikename(
                     &account,
                     nikename,
-                    auth_data.session_body().user_id(),
+                    session_body.user_id(),
                     Some(&mut db),
                     env_data,
                 )
@@ -120,7 +102,7 @@ impl WebUserAccount {
             .set_info(
                 &account,
                 &info,
-                auth_data.session_body().user_id(),
+                session_body.user_id(),
                 Some(&mut db),
                 env_data,
             )
@@ -130,12 +112,11 @@ impl WebUserAccount {
             return Err(err.into());
         }
         db.commit().await?;
-        let token = self
-            .user_dao
-            .auth_dao
-            .reload(user_session.read().await.get_session_token())
-            .await?;
-        user_session.write().await.set_session_token(token);
+        // let token = self
+        //     .user_dao
+        //     .auth_dao
+        //     .reload(user_session.read().await.get_session_token())
+        //     .await?;
         Ok(())
     }
 }

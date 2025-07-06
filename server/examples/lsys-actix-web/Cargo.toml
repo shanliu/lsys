@@ -9,7 +9,7 @@ lsys-web = { path = "../../lsys-web", features = [] }
 lsys-web-module-oauth = { path = "../lsys-web-module-oauth" }
 lsys-web-subapp-demo = { path = "../lsys-web-subapp-demo" }
 
-tokio = { version = "~1.45.0", features = ["fs"] }
+tokio = { version = "~1.46.0", features = ["fs"] }
 tracing = { version = "~0.1.*" }                   # log-always 保持log的输出 当使用tracing时会出现两次
 
 

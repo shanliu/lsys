@@ -29,14 +29,20 @@ pub use mapping::*;
 
 //校验APP是否开通RBAC功能
 async fn inner_app_rbac_check(app: &AppModel, req_dao: &RequestDao) -> JsonResult<()> {
+    let app_user = req_dao
+        .web_dao
+        .web_access
+        .access_dao
+        .user
+        .cache()
+        .find_by_id(&app.user_id)
+        .await?;
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &RbacAccessCheckEnv::sys_user(app.user_id, &req_dao.req_env),
-            &CheckRestApp {
-                res_user_id: app.user_id,
-            },
+            &RbacAccessCheckEnv::user(&app_user, &req_dao.req_env),
+            &CheckRestApp {},
         )
         .await?;
     app.app_status_check()?;

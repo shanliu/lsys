@@ -13,7 +13,7 @@ impl RbacCheckAccess for CheckAdminSmsConfig {
                 check_env,
                 &[AccessCheckRes::system_empty_data(
                     "global-system",
-                    vec![AccessCheckOp::new("app-sms-config", true)],
+                    vec![AccessCheckOp::new("sys-sms-config", true)],
                 )],
             )
             .await
@@ -28,7 +28,7 @@ impl RbacCheckResTpl for CheckAdminSmsConfig {
             user: false,
             data: false,
             key: "global-system",
-            ops: vec!["app-sms-config"],
+            ops: vec!["sys-sms-config"],
         }]
     }
 }
@@ -42,7 +42,7 @@ impl RbacCheckAccess for CheckAdminSmsMgr {
                 check_env,
                 &[AccessCheckRes::system_empty_data(
                     "global-system",
-                    vec![AccessCheckOp::new("app-sms-mgr", true)],
+                    vec![AccessCheckOp::new("sys-sms-mgr", true)],
                 )],
             )
             .await
@@ -57,7 +57,7 @@ impl RbacCheckResTpl for CheckAdminSmsMgr {
             user: false,
             data: false,
             key: "global-system",
-            ops: vec!["app-sms-mgr"],
+            ops: vec!["sys-sms-mgr"],
         }]
     }
 }
@@ -71,7 +71,7 @@ impl RbacCheckAccess for CheckAdminMailConfig {
                 check_env,
                 &[AccessCheckRes::system_empty_data(
                     "global-system",
-                    vec![AccessCheckOp::new("app-mail-config", true)],
+                    vec![AccessCheckOp::new("sys-mail-config", true)],
                 )],
             )
             .await
@@ -86,7 +86,7 @@ impl RbacCheckResTpl for CheckAdminMailConfig {
             user: false,
             data: false,
             key: "global-system",
-            ops: vec!["app-mail-config"],
+            ops: vec!["sys-mail-config"],
         }]
     }
 }
@@ -100,7 +100,7 @@ impl RbacCheckAccess for CheckAdminMailMgr {
                 check_env,
                 &[AccessCheckRes::system_empty_data(
                     "global-system",
-                    vec![AccessCheckOp::new("app-mail-mgr", true)],
+                    vec![AccessCheckOp::new("sys-mail-mgr", true)],
                 )],
             )
             .await
@@ -115,7 +115,7 @@ impl RbacCheckResTpl for CheckAdminMailMgr {
             user: false,
             data: false,
             key: "global-system",
-            ops: vec!["app-mail-mgr"],
+            ops: vec!["sys-mail-mgr"],
         }]
     }
 }

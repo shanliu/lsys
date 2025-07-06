@@ -13,10 +13,7 @@ impl RbacCheckAccess for CheckUserExternalEdit {
                 &[
                     &[AccessCheckRes::system_empty_data(
                         "global-user",
-                        vec![AccessCheckOp::new(
-                            "external-edit",
-                            self.res_user_id != check_env.user_id,
-                        )],
+                        vec![AccessCheckOp::new("external-edit", false)],
                     )],
                     &[AccessCheckRes::system(
                         "global-user",

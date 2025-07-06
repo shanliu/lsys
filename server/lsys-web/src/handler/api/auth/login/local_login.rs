@@ -1,16 +1,54 @@
 use std::borrow::Borrow;
 
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{CaptchaParam, JsonData, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao},
     dao::{access::api::system::auth::CheckSystemLogin, ShowUserAuthData},
 };
-use crate::dao::access::RbacAccessCheckEnv;
+use lsys_access::dao::{AccessSession, SessionBody};
 use lsys_user::dao::{
     login::{EmailCodeLogin, EmailLogin, MobileCodeLogin, MobileLogin, NameLogin},
     UserAuthToken,
 };
 use serde::Deserialize;
 use serde_json::json;
+
+pub async fn user_login_finish(
+    session_body: SessionBody,
+    req_dao: &UserAuthQueryDao,
+) -> JsonResult<(UserAuthToken, ShowUserAuthData)> {
+    req_dao
+        .web_dao
+        .web_rbac
+        .check(
+            &RbacAccessCheckEnv::session_body(&session_body, &req_dao.req_env),
+            &CheckSystemLogin {},
+        )
+        .await?;
+
+    let user_token = UserAuthToken::new(
+        session_body.session().user_app_id,
+        session_body.token_data(),
+        session_body.user_id(),
+        session_body.session().expire_time,
+    );
+    req_dao
+        .user_session
+        .write()
+        .await
+        .set_session_token(user_token.to_owned());
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    Ok((
+        user_token,
+        req_dao
+            .web_dao
+            .web_user
+            .auth
+            .create_show_account_auth_data(&auth_data)
+            .await?,
+    ))
+}
+
 #[derive(Deserialize)]
 pub struct NameLoginParam {
     name: String,
@@ -22,12 +60,7 @@ pub async fn user_login_from_name(
     param: &NameLoginParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<(UserAuthToken, ShowUserAuthData)> {
-    req_dao
-        .web_dao
-        .web_rbac
-        .check(&RbacAccessCheckEnv::any(&req_dao.req_env),&CheckSystemLogin {})
-        .await?;
-    req_dao
+    let session_body = req_dao
         .web_dao
         .web_user
         .auth
@@ -39,10 +72,10 @@ pub async fn user_login_from_name(
             )
             .await?,
             param.captcha.as_ref(),
-            &req_dao.user_session,
             Some(&req_dao.req_env),
         )
-        .await
+        .await?;
+    user_login_finish(session_body, req_dao).await
 }
 
 #[derive(Deserialize)]
@@ -55,12 +88,7 @@ pub async fn user_login_from_email(
     param: &EmailLoginParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<(UserAuthToken, ShowUserAuthData)> {
-    req_dao
-        .web_dao
-        .web_rbac
-        .check(&RbacAccessCheckEnv::any(&req_dao.req_env),&CheckSystemLogin {})
-        .await?;
-    req_dao
+    let session_body = req_dao
         .web_dao
         .web_user
         .auth
@@ -72,10 +100,11 @@ pub async fn user_login_from_email(
             )
             .await?,
             param.captcha.as_ref(),
-            &req_dao.user_session,
             Some(&req_dao.req_env),
         )
-        .await
+        .await?;
+
+    user_login_finish(session_body, req_dao).await
 }
 
 #[derive(Deserialize)]
@@ -89,12 +118,7 @@ pub async fn user_login_from_email_code(
     param: &EmailCodeLoginParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<(UserAuthToken, ShowUserAuthData)> {
-    req_dao
-        .web_dao
-        .web_rbac
-        .check(&RbacAccessCheckEnv::any(&req_dao.req_env),&CheckSystemLogin {})
-        .await?;
-    req_dao
+    let session_body = req_dao
         .web_dao
         .web_user
         .auth
@@ -107,10 +131,11 @@ pub async fn user_login_from_email_code(
             )
             .await?,
             param.captcha.as_ref(),
-            &req_dao.user_session,
             Some(&req_dao.req_env),
         )
-        .await
+        .await?;
+
+    user_login_finish(session_body, req_dao).await
 }
 
 #[derive(Deserialize)]
@@ -125,12 +150,7 @@ pub async fn user_login_from_mobile(
     param: &MobileLoginParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<(UserAuthToken, ShowUserAuthData)> {
-    req_dao
-        .web_dao
-        .web_rbac
-        .check(&RbacAccessCheckEnv::any(&req_dao.req_env),&CheckSystemLogin {})
-        .await?;
-    req_dao
+    let session_body = req_dao
         .web_dao
         .web_user
         .auth
@@ -143,10 +163,11 @@ pub async fn user_login_from_mobile(
             )
             .await?,
             param.captcha.as_ref(),
-            &req_dao.user_session,
             Some(&req_dao.req_env),
         )
-        .await
+        .await?;
+
+    user_login_finish(session_body, req_dao).await
 }
 
 #[derive(Deserialize)]
@@ -161,12 +182,7 @@ pub async fn user_login_from_mobile_code(
     param: &MobileCodeLoginParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<(UserAuthToken, ShowUserAuthData)> {
-    req_dao
-        .web_dao
-        .web_rbac
-        .check(&RbacAccessCheckEnv::any(&req_dao.req_env),&CheckSystemLogin {})
-        .await?;
-    req_dao
+    let session_body = req_dao
         .web_dao
         .web_user
         .auth
@@ -180,10 +196,11 @@ pub async fn user_login_from_mobile_code(
             )
             .await?,
             param.captcha.as_ref(),
-            &req_dao.user_session,
             Some(&req_dao.req_env),
         )
-        .await
+        .await?;
+
+    user_login_finish(session_body, req_dao).await
 }
 
 #[derive(Deserialize)]

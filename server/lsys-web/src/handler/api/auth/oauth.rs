@@ -1,10 +1,6 @@
-use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonData, JsonResponse, JsonResult, RequestDao},
-    dao::{
-        access::api::system::auth::CheckSystemLogin, OauthCallbackParam, OauthLogin,
-        OauthLoginParam,
-    },
+    dao::{OauthCallbackParam, OauthLogin, OauthLoginParam},
 };
 use serde::Serialize;
 use serde_json::json;
@@ -19,14 +15,6 @@ pub async fn user_external_login_url<
     param: &L,
     req_dao: &RequestDao,
 ) -> JsonResult<JsonResponse> {
-    req_dao
-        .web_dao
-        .web_rbac
-        .check(
-            &RbacAccessCheckEnv::any(&req_dao.req_env),
-            &CheckSystemLogin {},
-        )
-        .await?;
     let url = req_dao
         .web_dao
         .web_user

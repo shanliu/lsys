@@ -1,14 +1,7 @@
 use crate::common::JsonResult;
-use lsys_access::dao::AccessSession;
-use lsys_access::dao::AccessSessionData;
 use lsys_access::dao::SessionBody;
 use lsys_core::RequestEnv;
-use lsys_user::dao::UserAuthToken;
-use lsys_user::{
-    dao::UserAuthSession,
-    model::{AccountInfoModelRef, AccountModel, AccountStatus},
-};
-use tokio::sync::RwLock;
+use lsys_user::model::{AccountInfoModelRef, AccountModel, AccountStatus};
 
 use super::WebUserAccount;
 use lsys_core::model_option_set;
@@ -17,25 +10,13 @@ impl WebUserAccount {
     //删除当前登录用户
     pub async fn user_delete_from_session(
         &self,
-        user_session: &RwLock<UserAuthSession>,
+        session: &SessionBody,
         env_data: Option<&RequestEnv>,
     ) -> JsonResult<()> {
-        let auth_data = user_session.read().await.get_session_data().await?;
-        let account = self
-            .user_dao
-            .account_dao
-            .session_account(auth_data.session_body())
-            .await?;
-        self.user_delete(&account, auth_data.session_body(), env_data)
-            .await?;
-        self.user_dao
-            .auth_dao
-            .logout(user_session.read().await.get_session_token())
-            .await?;
-        user_session
-            .write()
-            .await
-            .set_session_token(UserAuthToken::default());
+        let account = self.user_dao.account_dao.session_account(session).await?;
+        self.user_delete(&account, session, env_data).await?;
+        self.user_dao.auth_dao.logout(session).await?;
+
         Ok(())
     }
     //删除用户

@@ -4,8 +4,7 @@ use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::UserAuthQueryDao;
 use crate::dao::access::api::system::admin::{
-    CheckAdminBase, CheckAdminChangeLogsView, CheckAdminDocs, CheckAdminMailConfig,
-    CheckAdminSmsConfig,
+    CheckAdminBase, CheckAdminChangeLogsView, CheckAdminMailConfig, CheckAdminSmsConfig,
 };
 use crate::dao::access::RbacAccessCheckEnv;
 use lsys_access::dao::AccessSession;
@@ -44,7 +43,6 @@ pub async fn perm_check(
     check!("admin-mail-config", CheckAdminMailConfig {});
     check!("admin-main", CheckAdminBase {});
     check!("admin-logs", CheckAdminChangeLogsView {});
-    check!("docs-edit", CheckAdminDocs {});
 
     Err(JsonError::Message(fluent_message!("rbac-unkown-res",{
         "res":&check_res.name

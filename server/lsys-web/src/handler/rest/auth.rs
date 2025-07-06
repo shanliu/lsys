@@ -30,14 +30,20 @@ pub async fn do_login(
     app: &AppModel,
     req_dao: &RequestDao,
 ) -> JsonResult<JsonResponse> {
+    let app_user = req_dao
+        .web_dao
+        .web_access
+        .access_dao
+        .user
+        .cache()
+        .find_by_id(&app.user_id)
+        .await?;
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &RbacAccessCheckEnv::any(&req_dao.req_env),
-            &CheckRestApp {
-                res_user_id: app.user_id,
-            },
+            &RbacAccessCheckEnv::user(&app_user, &req_dao.req_env),
+            &CheckRestApp {},
         )
         .await?;
     req_dao
@@ -136,14 +142,20 @@ pub async fn login_info(
     app: &AppModel,
     req_dao: &RequestDao,
 ) -> JsonResult<JsonResponse> {
+    let app_user = req_dao
+        .web_dao
+        .web_access
+        .access_dao
+        .user
+        .cache()
+        .find_by_id(&app.user_id)
+        .await?;
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &RbacAccessCheckEnv::any(&req_dao.req_env),
-            &CheckRestApp {
-                res_user_id: app.user_id,
-            },
+            &RbacAccessCheckEnv::user(&app_user, &req_dao.req_env),
+            &CheckRestApp {},
         )
         .await?;
     req_dao

@@ -13,10 +13,7 @@ impl RbacCheckAccess for CheckUserInfoEdit {
                 &[
                     &[AccessCheckRes::system_empty_data(
                         "global-user",
-                        vec![AccessCheckOp::new(
-                            "info-edit",
-                            self.res_user_id != check_env.user_id,
-                        )],
+                        vec![AccessCheckOp::new("info-edit", false)],
                     )],
                     &[AccessCheckRes::system(
                         "global-user",

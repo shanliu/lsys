@@ -13,13 +13,20 @@ impl RbacCheckAccess for CheckUserAppSenderMailConfig {
         access
             .list_check(
                 check_env,
-                &[&[AccessCheckRes::system_empty_data(
-                    "global-user",
-                    vec![AccessCheckOp::new(
-                        "app-mail-config",
-                        self.res_user_id != check_env.user_id,
+                &[
+                    &[AccessCheckRes::system_empty_data(
+                        "global-user",
+                        vec![AccessCheckOp::new("sys-mail-config", false)],
                     )],
-                )]],
+                    &[AccessCheckRes::system(
+                        "global-user",
+                        &self.res_user_id.to_string(),
+                        vec![AccessCheckOp::new(
+                            "sys-mail-config",
+                            self.res_user_id != check_env.user_id,
+                        )],
+                    )],
+                ],
             )
             .await
     }
@@ -31,13 +38,13 @@ impl RbacCheckResTpl for CheckUserAppSenderMailConfig {
                 user: false,
                 data: false,
                 key: "global-user",
-                ops: vec!["app-mail-config"],
+                ops: vec!["sys-mail-config"],
             },
             CheckResTpl {
                 user: false,
                 data: true,
                 key: "global-user",
-                ops: vec!["app-mail-config"],
+                ops: vec!["sys-mail-config"],
             },
         ]
     }
@@ -55,16 +62,13 @@ impl RbacCheckAccess for CheckUserAppSenderMailView {
                 &[
                     &[AccessCheckRes::system_empty_data(
                         "global-user",
-                        vec![AccessCheckOp::new(
-                            "app-mail-veiw",
-                            self.res_user_id != check_env.user_id,
-                        )],
+                        vec![AccessCheckOp::new("sys-mail-veiw", false)],
                     )],
                     &[AccessCheckRes::system(
                         "global-user",
                         &self.res_user_id.to_string(),
                         vec![AccessCheckOp::new(
-                            "app-mail-veiw",
+                            "sys-mail-veiw",
                             self.res_user_id != check_env.user_id,
                         )],
                     )],
@@ -80,13 +84,13 @@ impl RbacCheckResTpl for CheckUserAppSenderMailView {
                 user: false,
                 data: false,
                 key: "global-user",
-                ops: vec!["app-mail-view"],
+                ops: vec!["sys-mail-view"],
             },
             CheckResTpl {
                 user: false,
                 data: true,
                 key: "global-user",
-                ops: vec!["app-mail-view"],
+                ops: vec!["sys-mail-view"],
             },
         ]
     }
@@ -101,13 +105,20 @@ impl RbacCheckAccess for CheckUserAppSenderMailSend {
         access
             .list_check(
                 check_env,
-                &[&[AccessCheckRes::system_empty_data(
-                    "global-user",
-                    vec![AccessCheckOp::new(
-                        "app-mail-send",
-                        self.res_user_id != check_env.user_id,
+                &[
+                    &[AccessCheckRes::system_empty_data(
+                        "global-user",
+                        vec![AccessCheckOp::new("app-mail-send", false)],
                     )],
-                )]],
+                    &[AccessCheckRes::system(
+                        "global-user",
+                        &self.res_user_id.to_string(),
+                        vec![AccessCheckOp::new(
+                            "sys-mail-send",
+                            self.res_user_id != check_env.user_id,
+                        )],
+                    )],
+                ],
             )
             .await
     }
@@ -118,7 +129,7 @@ impl RbacCheckResTpl for CheckUserAppSenderMailSend {
             user: false,
             data: false,
             key: "global-user",
-            ops: vec!["app-mail-send"],
+            ops: vec!["sys-mail-send"],
         }]
     }
 }

@@ -17,14 +17,20 @@ pub async fn demo_api1(
     req_dao: &RequestDao,
 ) -> JsonResult<JsonResponse> {
     //全局启用app验证
+    let app_user = req_dao
+        .web_dao
+        .web_access
+        .access_dao
+        .user
+        .cache()
+        .find_by_id(&app.user_id)
+        .await?;
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &RbacAccessCheckEnv::any(&req_dao.req_env),
-            &CheckRestApp {
-                res_user_id: app.user_id,
-            },
+            &RbacAccessCheckEnv::user(&app_user, &req_dao.req_env),
+            &CheckRestApp {},
         )
         .await?;
     //是否启用功能验证

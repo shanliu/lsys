@@ -13,16 +13,13 @@ impl RbacCheckAccess for CheckUserBarCodeView {
                 &[
                     &[AccessCheckRes::system_empty_data(
                         "global-user",
-                        vec![AccessCheckOp::new(
-                            "view-barcode",
-                            self.res_user_id != check_env.user_id,
-                        )],
+                        vec![AccessCheckOp::new("barcode-view", false)],
                     )],
                     &[AccessCheckRes::system(
                         "global-user",
                         &self.res_user_id.to_string(),
                         vec![AccessCheckOp::new(
-                            "view-barcode",
+                            "barcode-view",
                             self.res_user_id != check_env.user_id,
                         )],
                     )],
@@ -38,13 +35,13 @@ impl RbacCheckResTpl for CheckUserBarCodeView {
                 user: false,
                 data: false,
                 key: "global-user",
-                ops: vec!["view-barcode"],
+                ops: vec!["barcode-view"],
             },
             CheckResTpl {
                 user: false,
                 data: true,
                 key: "global-user",
-                ops: vec!["view-barcode"],
+                ops: vec!["barcode-view"],
             },
         ]
     }
@@ -62,16 +59,13 @@ impl RbacCheckAccess for CheckUserBarCodeEdit {
                 &[
                     &[AccessCheckRes::system_empty_data(
                         "global-user",
-                        vec![AccessCheckOp::new(
-                            "edit-barcode",
-                            self.res_user_id != check_env.user_id,
-                        )],
+                        vec![AccessCheckOp::new("barcode-edit", false)],
                     )],
                     &[AccessCheckRes::system(
                         "global-user",
                         &self.res_user_id.to_string(),
                         vec![AccessCheckOp::new(
-                            "edit-barcode",
+                            "barcode-edit",
                             self.res_user_id != check_env.user_id,
                         )],
                     )],
@@ -92,13 +86,13 @@ impl RbacCheckResTpl for CheckUserBarCodeEdit {
                 user: false,
                 data: false,
                 key: "global-user",
-                ops: vec!["edit-barcode"],
+                ops: vec!["barcode-edit"],
             },
             CheckResTpl {
                 user: false,
                 data: true,
                 key: "global-user",
-                ops: vec!["edit-barcode"],
+                ops: vec!["barcode-edit"],
             },
         ]
     }

@@ -10,7 +10,7 @@ use serde::Deserialize;
 use serde_json::json;
 
 //系统内置的用户资源数据
-pub async fn global_res_data_from_tpl_res(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
+pub async fn static_res_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let tpl_data = req_dao.web_dao.web_rbac.res_tpl_data(true, false);
     let mut out_data = vec![];
@@ -64,7 +64,7 @@ pub async fn global_res_data_from_tpl_res(req_dao: &UserAuthQueryDao) -> JsonRes
 }
 
 //系统内置的用户资源数据
-pub async fn user_res_type_from_tpl_res(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
+pub async fn dynamic_res_type(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let tpl_data = req_dao.web_dao.web_rbac.res_tpl_data(true, true);
     let mut out_data = vec![];
@@ -119,25 +119,26 @@ pub async fn user_res_type_from_tpl_res(req_dao: &UserAuthQueryDao) -> JsonResul
 
 #[derive(Debug, Deserialize)]
 pub struct UserResDataFromUserResTypeParam {
-    pub res_type: String,
     pub page: Option<PageParam>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
 }
 
-pub async fn user_res_data_from_user_res_type(
-    param: &UserResDataFromUserResTypeParam,
+pub async fn dynamic_res_type_from_test(
+    _param: &UserResDataFromUserResTypeParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     let res_data = vec!["111"]; //@todo 资源标识列表
+    let tpl_data = req_dao.web_dao.web_rbac.res_tpl_data(true, true);
     let res_data = req_dao
         .web_dao
         .web_rbac
         .res_tpl_sync(
+            &tpl_data,
             auth_data.user_id(),
             0,
-            &param.res_type,
+            "test",
             &res_data,
             auth_data.user_id(),
             Some(&req_dao.req_env),

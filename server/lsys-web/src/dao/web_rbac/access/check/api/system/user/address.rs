@@ -13,10 +13,7 @@ impl RbacCheckAccess for CheckUserAddressEdit {
                 &[
                     &[AccessCheckRes::system_empty_data(
                         "global-user",
-                        vec![AccessCheckOp::new(
-                            "address-edit",
-                            self.res_user_id != check_env.user_id,
-                        )],
+                        vec![AccessCheckOp::new("address-edit", false)],
                     )],
                     &[AccessCheckRes::system(
                         "global-user",
@@ -39,13 +36,13 @@ impl RbacCheckResTpl for CheckUserAddressEdit {
                 user: false,
                 data: false,
                 key: "global-user",
-                ops: vec!["address-base"],
+                ops: vec!["address-edit"],
             },
             CheckResTpl {
                 user: false,
                 data: true,
                 key: "global-user",
-                ops: vec!["address-base"],
+                ops: vec!["address-edit"],
             },
         ]
     }

@@ -10,7 +10,8 @@ use std::collections::HashMap;
 #[derive(Debug, Deserialize)]
 pub struct ResReqAuthParam {
     pub op_key: String, //资源KEY
-    pub req_auth: bool, //资源KEY
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
+    pub req_auth: bool, //默认是否需要授权,
 }
 
 #[derive(Debug, Deserialize)]

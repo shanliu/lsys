@@ -21,6 +21,14 @@ pub async fn scope_get(
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    req_dao
+        .web_dao
+        .web_rbac
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckRestApp {},
+        )
+        .await?;
     let app = req_dao
         .web_dao
         .web_app
@@ -29,16 +37,7 @@ pub async fn scope_get(
         .cache()
         .find_by_client_id(&param.client_id)
         .await?;
-    req_dao
-        .web_dao
-        .web_rbac
-        .check(
-            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
-            &CheckRestApp {
-                res_user_id: app.user_id,
-            },
-        )
-        .await?;
+
     req_dao
         .web_dao
         .web_app
@@ -82,16 +81,24 @@ pub async fn create_code(
         .app
         .find_by_client_id(&param.client_id)
         .await?;
+
+    let app_user = req_dao
+        .web_dao
+        .web_access
+        .access_dao
+        .user
+        .cache()
+        .find_by_id(&app.user_id)
+        .await?;
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
-            &CheckRestApp {
-                res_user_id: app.user_id,
-            },
+            &RbacAccessCheckEnv::user(&app_user, &req_dao.req_env),
+            &CheckRestApp {},
         )
         .await?;
+
     if !req_dao
         .web_dao
         .web_app
@@ -157,16 +164,23 @@ async fn check_app_secret(
         .cache()
         .find_by_client_id(client_id)
         .await?;
+    let app_user = req_dao
+        .web_dao
+        .web_access
+        .access_dao
+        .user
+        .cache()
+        .find_by_id(&app.user_id)
+        .await?;
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &RbacAccessCheckEnv::any(&req_dao.req_env),
-            &CheckRestApp {
-                res_user_id: app.user_id,
-            },
+            &RbacAccessCheckEnv::user(&app_user, &req_dao.req_env),
+            &CheckRestApp {},
         )
         .await?;
+
     let oauth_secret = req_dao
         .web_dao
         .web_app

@@ -5,6 +5,7 @@ pub mod rest;
 use crate::dao::RbacCheckAccessDepend;
 use crate::dao::WebRbac;
 use lsys_access::dao::SessionBody;
+use lsys_access::model::UserModel;
 use lsys_core::RequestEnv;
 use lsys_rbac::dao::AccessCheckEnv;
 use lsys_rbac::dao::AccessSessionRole;
@@ -36,7 +37,7 @@ impl<'t> RbacAccessCheckEnv<'t> {
             },
         }
     }
-    pub fn sys_user(user_id: u64, req_env: &'t RequestEnv) -> Self {
+    pub fn user(user: &UserModel, req_env: &'t RequestEnv) -> Self {
         Self {
             check_env: AccessCheckEnv {
                 user_req_env: Some(req_env),
@@ -52,30 +53,8 @@ impl<'t> RbacAccessCheckEnv<'t> {
                         app_id: 0,
                     },
                 ],
-                user_id,
-                user_app_id: 0,
-                user_login_token: None,
-            },
-        }
-    }
-    pub fn app_user(user_app_id: u64, user_id: u64, req_env: &'t RequestEnv) -> Self {
-        Self {
-            check_env: AccessCheckEnv {
-                user_req_env: Some(req_env),
-                session_role: vec![
-                    AccessSessionRole {
-                        role_key: "system-global",
-                        user_id: 0,
-                        app_id: 0,
-                    },
-                    AccessSessionRole {
-                        role_key: "system-login",
-                        user_id: 0,
-                        app_id: 0,
-                    },
-                ],
-                user_id,
-                user_app_id,
+                user_id: user.id,
+                user_app_id: user.app_id,
                 user_login_token: None,
             },
         }

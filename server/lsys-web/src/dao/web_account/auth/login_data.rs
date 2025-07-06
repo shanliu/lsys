@@ -4,11 +4,8 @@ use super::WebUserAuth;
 use crate::common::JsonResult;
 
 use crate::dao::ShowUserAuthData;
-use lsys_access::dao::AccessSession;
 
-use lsys_user::dao::{UserAuthData, UserAuthSession};
-
-use tokio::sync::RwLock;
+use lsys_user::dao::UserAuthData;
 
 pub struct UserAuthDataOptionData {
     pub auth: Option<bool>,
@@ -17,20 +14,15 @@ pub struct UserAuthDataOptionData {
 impl WebUserAuth {
     pub async fn login_data_from_user_auth(
         &self,
-        user_session: &RwLock<UserAuthSession>,
+        auth_data: &UserAuthData,
         param: &UserAuthDataOptionData,
-    ) -> JsonResult<(UserAuthData, Option<ShowUserAuthData>, bool)> {
-        let auth_data = user_session.read().await.get_session_data().await?;
+    ) -> JsonResult<(Option<ShowUserAuthData>, bool)> {
         let out_auth_data = if param.auth.unwrap_or(false) {
-            Some(self.create_show_account_auth_data(&auth_data).await?)
+            Some(self.create_show_account_auth_data(auth_data).await?)
         } else {
             None
         };
-        let account = self
-            .user_dao
-            .account_dao
-            .session_account(&auth_data)
-            .await?;
+        let account = self.user_dao.account_dao.session_account(auth_data).await?;
 
         let passwrod_timeout = if param.password_timeout.unwrap_or(false) {
             self.user_dao
@@ -42,6 +34,6 @@ impl WebUserAuth {
         } else {
             false
         };
-        Ok((auth_data, out_auth_data, passwrod_timeout))
+        Ok((out_auth_data, passwrod_timeout))
     }
 }

@@ -1,4 +1,5 @@
 use crate::common::JsonData;
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonResponse, JsonResult, UserAuthQueryDao},
     dao::{access::api::system::user::CheckUserInfoEdit, InfoSetUserInfoData},
@@ -6,7 +7,6 @@ use crate::{
 use lsys_access::dao::AccessSession;
 use serde::Deserialize;
 use serde_json::json;
-use crate::dao::access::RbacAccessCheckEnv;
 #[derive(Debug, Deserialize)]
 pub struct InfoSetUserNameParam {
     pub name: String,
@@ -32,9 +32,16 @@ pub async fn info_set_username(
         .web_dao
         .web_user
         .account
-        .user_info_set_username(&param.name, &req_dao.user_session, Some(&req_dao.req_env))
+        .user_info_set_username(&param.name, &auth_data, Some(&req_dao.req_env))
         .await?;
-
+    let token = req_dao
+        .web_dao
+        .web_user
+        .user_dao
+        .auth_dao
+        .reload(req_dao.user_session.read().await.get_session_token())
+        .await?;
+    req_dao.user_session.write().await.set_session_token(token);
     Ok(JsonResponse::default())
 }
 
@@ -105,10 +112,18 @@ pub async fn info_set_data(
                 headimg: param.headimg.as_deref(),
                 birthday: param.birthday.as_deref(),
             },
-            &req_dao.user_session,
+            &auth_data,
             Some(&req_dao.req_env),
         )
         .await?;
+    let token = req_dao
+        .web_dao
+        .web_user
+        .user_dao
+        .auth_dao
+        .reload(req_dao.user_session.read().await.get_session_token())
+        .await?;
+    req_dao.user_session.write().await.set_session_token(token);
 
     Ok(JsonResponse::default())
 }

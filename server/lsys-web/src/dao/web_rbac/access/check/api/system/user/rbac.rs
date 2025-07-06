@@ -14,10 +14,7 @@ impl RbacCheckAccess for CheckUserRbacView {
                 &[
                     &[AccessCheckRes::system_empty_data(
                         "global-user",
-                        vec![AccessCheckOp::new(
-                            "rbac-view",
-                            self.res_user_id != check_env.user_id,
-                        )],
+                        vec![AccessCheckOp::new("rbac-view", false)],
                     )],
                     &[AccessCheckRes::system(
                         "global-user",
@@ -62,10 +59,7 @@ impl RbacCheckAccess for CheckUserRbacEdit {
                 &[
                     &[AccessCheckRes::system_empty_data(
                         "global-user",
-                        vec![AccessCheckOp::new(
-                            "rbac-edit",
-                            self.res_user_id != check_env.user_id,
-                        )],
+                        vec![AccessCheckOp::new("rbac-edit", false)],
                     )],
                     &[AccessCheckRes::system(
                         "global-user",

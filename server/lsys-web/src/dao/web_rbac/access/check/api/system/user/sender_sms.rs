@@ -16,10 +16,7 @@ impl RbacCheckAccess for CheckUserAppSenderSmsConfig {
                 &[
                     &[AccessCheckRes::system_empty_data(
                         "global-user",
-                        vec![AccessCheckOp::new(
-                            "app-sms-config",
-                            self.res_user_id != check_env.user_id,
-                        )],
+                        vec![AccessCheckOp::new("app-sms-config", false)],
                     )],
                     &[AccessCheckRes::system(
                         "global-user",
@@ -65,10 +62,7 @@ impl RbacCheckAccess for CheckUserAppSenderSmsView {
                 &[
                     &[AccessCheckRes::system_empty_data(
                         "global-user",
-                        vec![AccessCheckOp::new(
-                            "app-sms-view",
-                            self.res_user_id != check_env.user_id,
-                        )],
+                        vec![AccessCheckOp::new("app-sms-view", false)],
                     )],
                     &[AccessCheckRes::system(
                         "global-user",
@@ -111,13 +105,20 @@ impl RbacCheckAccess for CheckUserAppSenderSmsSend {
         access
             .list_check(
                 check_env,
-                &[&[AccessCheckRes::system_empty_data(
-                    "sender-sms",
-                    vec![AccessCheckOp::new(
-                        "app-sms-send",
-                        self.res_user_id != check_env.user_id,
+                &[
+                    &[AccessCheckRes::system_empty_data(
+                        "sender-sms",
+                        vec![AccessCheckOp::new("app-sms-send", false)],
                     )],
-                )]],
+                    &[AccessCheckRes::system(
+                        "global-user",
+                        &self.res_user_id.to_string(),
+                        vec![AccessCheckOp::new(
+                            "app-sms-send",
+                            self.res_user_id != check_env.user_id,
+                        )],
+                    )],
+                ],
             )
             .await
     }

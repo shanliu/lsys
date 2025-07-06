@@ -5,8 +5,8 @@ use crate::{
         ShowUserAuthData,
     },
 };
-
-use lsys_user::dao::UserAuthToken;
+use lsys_access::dao::AccessSession;
+use lsys_user::dao::{AuthCode, UserAuthToken};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -19,15 +19,6 @@ pub async fn user_login_from_app_code(
     param: &AppCodeLoginParam,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<(UserAuthToken, ShowUserAuthData)> {
-    req_dao
-        .web_dao
-        .web_rbac
-        .check(
-            &RbacAccessCheckEnv::any(&req_dao.req_env),
-            &CheckSystemLogin {},
-        )
-        .await?;
-
     let app = req_dao
         .web_dao
         .web_app
@@ -46,7 +37,7 @@ pub async fn user_login_from_app_code(
         .inner_feature_exter_login_check(&app)
         .await?;
 
-    req_dao
+    let session_body = req_dao
         .web_dao
         .web_user
         .auth
@@ -54,8 +45,33 @@ pub async fn user_login_from_app_code(
             app.id,
             &param.token_data,
             param.captcha.as_ref(),
-            &req_dao.user_session,
             Some(&req_dao.req_env),
         )
+        .await?;
+
+    req_dao
+        .web_dao
+        .web_rbac
+        .check(
+            &RbacAccessCheckEnv::session_body(&session_body, &req_dao.req_env),
+            &CheckSystemLogin {},
+        )
+        .await?;
+
+    let user_token = AuthCode::to_token(&session_body);
+    req_dao
+        .user_session
+        .write()
         .await
+        .set_session_token(user_token.to_owned());
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    Ok((
+        user_token,
+        req_dao
+            .web_dao
+            .web_user
+            .auth
+            .create_show_account_auth_data(&auth_data)
+            .await?,
+    ))
 }

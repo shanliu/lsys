@@ -11,7 +11,7 @@ lsys-logger = { path = "../lsys-logger" }
 sqlx = { version = "~0.8.6", features = ["mysql", "runtime-tokio-native-tls"] }
 
 
-tokio = { version = "~1.45.0", features = ["macros"] }
+tokio = { version = "~1.46.0", features = ["macros"] }
 deadpool-redis = { version = "~0.21.0" }
 redis = { version = "~0.31.0" }
 

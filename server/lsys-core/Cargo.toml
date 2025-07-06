@@ -9,7 +9,7 @@ lsys-core-macros = { path = "../lsys-core-macros" }
 futures-util = "~0.3.31"
 dotenv = "~0.15.*"
 
-tokio = { version = "~1.45.0", features = ["fs", "macros"] }
+tokio = { version = "~1.46.0", features = ["fs", "macros"] }
 deadpool-redis = { version = "~0.21.0" }
 redis = { version = "~0.31.0", features = [ # 根据 deadpool-redis 的版本适配 
     "aio",
@@ -42,7 +42,7 @@ tera = "~1.20"
 parking_lot = "~0.12.*"
 
 
-fluent = "~0.16.*"
+fluent = "~0.17.*"
 unic-langid = { version = "~0.9.*", features = ["unic-langid-macros"] }
 intl-memoizer = "~0.5.2"
 
@@ -67,7 +67,7 @@ rs-snowflake = "~0.6.0"
 crc32fast = "~1.4.2"
 
 
-num_cpus = "~1.16.0"
+num_cpus = "~1.17.0"
 
 lazy_static = "1.5.0"
 

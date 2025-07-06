@@ -3,7 +3,7 @@ use crate::common::{JsonResult, UserAuthQueryDao};
 use lsys_access::dao::AccessSession;
 use lsys_access::dao::AccessSessionData;
 use lsys_core::fluent_message;
-use lsys_user::dao::AccountError;
+use lsys_user::dao::{AccountError, UserAuthToken};
 use serde::Deserialize;
 #[derive(Debug, Deserialize)]
 pub struct DeleteParam {
@@ -38,7 +38,12 @@ pub async fn delete(param: &DeleteParam, req_dao: &UserAuthQueryDao) -> JsonResu
         .web_dao
         .web_user
         .account
-        .user_delete_from_session(&req_dao.user_session, Some(&req_dao.req_env))
+        .user_delete_from_session(&auth_data, Some(&req_dao.req_env))
         .await?;
+    req_dao
+        .user_session
+        .write()
+        .await
+        .set_session_token(UserAuthToken::default());
     Ok(JsonResponse::default())
 }

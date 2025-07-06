@@ -23,7 +23,7 @@ pub async fn email_add(
         .web_dao
         .web_rbac
         .check(
-            &RbacAccessCheckEnv::sys_user(auth_data.user_id(), &req_dao.req_env),
+            &RbacAccessCheckEnv::user(auth_data.user(), &req_dao.req_env),
             &CheckUserEmailEdit {
                 res_user_id: auth_data.user_id(),
             },
@@ -59,7 +59,7 @@ pub async fn email_send_code(
         .web_dao
         .web_rbac
         .check(
-            &RbacAccessCheckEnv::sys_user(auth_data.user_id(), &req_dao.req_env),
+            &RbacAccessCheckEnv::user(auth_data.user(), &req_dao.req_env),
             &CheckUserEmailEdit {
                 res_user_id: auth_data.user_id(),
             },
@@ -97,19 +97,30 @@ pub async fn email_confirm(
         .account_email
         .find_by_id(&param.email_id)
         .await?;
-    let uid = req_dao
+    let email_user = req_dao
         .web_dao
-        .web_user
-        .account
-        .account_id_to_user(email.account_id)
-        .await?
-        .id;
+        .web_access
+        .access_dao
+        .user
+        .cache()
+        .find_by_id(
+            &req_dao
+                .web_dao
+                .web_user
+                .account
+                .account_id_to_user(email.account_id)
+                .await?
+                .id,
+        )
+        .await?;
     req_dao
         .web_dao
         .web_rbac
         .check(
-            &RbacAccessCheckEnv::sys_user(uid, &req_dao.req_env),
-            &CheckUserEmailEdit { res_user_id: uid },
+            &RbacAccessCheckEnv::user(&email_user, &req_dao.req_env),
+            &CheckUserEmailEdit {
+                res_user_id: email_user.id,
+            },
         )
         .await?;
     req_dao

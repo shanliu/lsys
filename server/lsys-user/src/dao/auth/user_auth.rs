@@ -218,12 +218,12 @@ impl UserAuthDao {
         }
     }
     //退出登录
-    pub async fn logout(&self, user_token: &UserAuthToken) -> UserAuthResult<()> {
+    pub async fn logout(&self, session_body: &SessionBody) -> UserAuthResult<()> {
         match self
             .access
             .auth
             .cache()
-            .login_data(user_token.app_id, 0, &user_token.token)
+            .login_data(session_body.user().app_id, 0, session_body.token_data())
             .await
         {
             Ok(e) => {

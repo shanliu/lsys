@@ -13,10 +13,7 @@ impl RbacCheckAccess for CheckUserMobileEdit {
                 &[
                     &[AccessCheckRes::system_empty_data(
                         "global-user",
-                        vec![AccessCheckOp::new(
-                            "mobile-edit",
-                            self.res_user_id != check_env.user_id,
-                        )],
+                        vec![AccessCheckOp::new("mobile-edit", false)],
                     )],
                     &[AccessCheckRes::system(
                         "global-user",

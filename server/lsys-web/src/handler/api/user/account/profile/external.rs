@@ -93,14 +93,6 @@ pub async fn external_bind_url<
     param: &L,
     req_dao: &RequestDao,
 ) -> JsonResult<JsonResponse> {
-    req_dao
-        .web_dao
-        .web_rbac
-        .check(
-            &RbacAccessCheckEnv::any(&req_dao.req_env),
-            &CheckSystemLogin {},
-        )
-        .await?;
     let url = req_dao
         .web_dao
         .web_user

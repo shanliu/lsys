@@ -198,7 +198,6 @@ pub struct RoleDataParam {
 #[derive(Serialize)]
 struct RbacRoleDataRecord {
     pub id: u64,
-    pub user_id: u64,
     pub role_key: String,
     pub user_range: i8,
     pub res_range: i8,
@@ -256,7 +255,6 @@ pub async fn role_data(
         .into_iter()
         .map(|e| RbacRoleDataRecord {
             id: e.id,
-            user_id: e.user_id,
             role_key: e.role_key,
             user_range: e.user_range,
             res_range: e.res_range,

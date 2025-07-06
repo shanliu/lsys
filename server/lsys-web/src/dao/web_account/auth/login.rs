@@ -2,12 +2,13 @@
 use super::WebUserAuth;
 use crate::common::{CaptchaParam, JsonError, JsonResult};
 use crate::dao::{OauthCallbackParam, OauthLogin, OauthLoginParam};
-use lsys_access::dao::AccessSession;
+
+use lsys_access::dao::SessionBody;
 use lsys_core::{fluent_message, now_time, IntoFluentMessage, RequestEnv};
 use lsys_user::dao::login::ExternalLogin;
 use lsys_user::dao::{
     login::{AccountLoginEnv, AccountLoginMeta, AccountLoginParam},
-    AuthCode, UserAuthData, UserAuthError, UserAuthSession, UserAuthToken,
+    UserAuthData, UserAuthError,
 };
 use lsys_user::dao::{
     login::{
@@ -21,7 +22,6 @@ use serde::Serialize;
 use serde_json::json;
 use serde_json::Value;
 use std::net::IpAddr;
-use tokio::sync::RwLock;
 #[derive(Debug, Clone, Serialize)]
 pub struct ShowUserAuthData {
     pub login_type: String,
@@ -103,9 +103,8 @@ impl WebUserAuth {
         &self,
         param: &TO,
         code: Option<&CaptchaParam>,
-        user_session: &RwLock<UserAuthSession>,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<(UserAuthToken, ShowUserAuthData)> {
+    ) -> JsonResult<SessionBody> {
         let lenv = AccountLoginEnv {
             login_ip: env_data
                 .map(|e| e.request_ip.as_ref().map(|e| e.parse::<IpAddr>().ok()))
@@ -140,9 +139,7 @@ impl WebUserAuth {
             res?
         }
         let token = self.user_dao.auth_account_dao.login(param, lenv).await?;
-        user_session.write().await.set_session_token(token.clone());
-        let auth_data = user_session.read().await.get_session_data().await?;
-        Ok((token, self.create_show_account_auth_data(&auth_data).await?))
+        Ok(token)
     }
     //通过APP code登录
     // 由  self.user_dao.auth_code_dao.code_login 产生 login_code
@@ -151,9 +148,8 @@ impl WebUserAuth {
         app_id: u64,
         token_data: &str,
         code: Option<&CaptchaParam>,
-        user_session: &RwLock<UserAuthSession>,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<(UserAuthToken, ShowUserAuthData)> {
+    ) -> JsonResult<SessionBody> {
         let login_ip = env_data
             .map(|e| e.request_ip.to_owned())
             .unwrap_or_default()
@@ -198,10 +194,10 @@ impl WebUserAuth {
                 );
             }
         }
-        let token = AuthCode::to_token(&session_body);
-        user_session.write().await.set_session_token(token.clone());
-        let auth_data = user_session.read().await.get_session_data().await?;
-        Ok((token, self.create_show_account_auth_data(&auth_data).await?))
+        Ok(session_body)
+        // user_session.write().await.set_session_token(token.clone());
+        // let auth_data = user_session.read().await.get_session_data().await?;
+        // Ok((token, self.create_show_account_auth_data(&auth_data).await?))
     }
     //外部账号登录
     pub async fn external_login<
@@ -214,9 +210,8 @@ impl WebUserAuth {
         oauth: &T,
         param: &P,
         op_user_id: u64,
-        user_session: &RwLock<UserAuthSession>,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<(UserAuthToken, ShowUserAuthData)> {
+    ) -> JsonResult<SessionBody> {
         let res = self
             .oauth_user_login(oauth, param, op_user_id, env_data)
             .await?;
@@ -227,7 +222,7 @@ impl WebUserAuth {
                 .unwrap_or_default()
                 .unwrap_or_default(),
         };
-        let token = self
+        let session_body = self
             .user_dao
             .auth_account_dao
             .login(
@@ -239,21 +234,6 @@ impl WebUserAuth {
                 login_env,
             )
             .await?;
-        user_session.write().await.set_session_token(token.clone());
-        let auth_data = user_session.read().await.get_session_data().await?;
-        Ok((token, self.create_show_account_auth_data(&auth_data).await?))
-    }
-
-    /// logout
-    pub async fn user_logout(&self, user_session: &RwLock<UserAuthSession>) -> JsonResult<()> {
-        self.user_dao
-            .auth_dao
-            .logout(user_session.read().await.get_session_token())
-            .await?;
-        user_session
-            .write()
-            .await
-            .set_session_token(UserAuthToken::default());
-        Ok(())
+        Ok(session_body)
     }
 }

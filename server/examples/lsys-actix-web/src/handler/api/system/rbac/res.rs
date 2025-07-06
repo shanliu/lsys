@@ -3,10 +3,10 @@ use crate::common::handler::{
 };
 use actix_web::post;
 use lsys_web::handler::api::system::rbac::{
-    data_res_from_res_type, data_res_type, global_res_tpl, res_add, res_data, res_del, res_edit,
-    res_type_data, res_type_op_add, res_type_op_data, res_type_op_del, DataResFromResTypeParam,
-    ResAddParam, ResDelOpParam, ResDelParam, ResEditParam, ResParam, ResTypeAddOpParam,
-    ResTypeListParam, ResTypeOpListParam,
+    dynamic_res_data_global_user, dynamic_res_type, res_add, res_data, res_del, res_edit,
+    res_type_data, res_type_op_add, res_type_op_data, res_type_op_del, static_res_data,
+    DynamicResDataFromUserParam, ResAddParam, ResDelOpParam, ResDelParam, ResEditParam, ResParam,
+    ResTypeAddOpParam, ResTypeListParam, ResTypeOpListParam,
 };
 
 #[post("/res/{method}")]
@@ -25,10 +25,15 @@ pub async fn res(
         "edit" => res_edit(&json_param.param::<ResEditParam>()?, &auth_dao).await,
         "delete" => res_del(&json_param.param::<ResDelParam>()?, &auth_dao).await,
         "list" => res_data(&json_param.param::<ResParam>()?, &auth_dao).await,
-        "tpl_global_res" => global_res_tpl(&auth_dao).await,
-        "tpl_data_res_type" => data_res_type(&auth_dao).await,
-        "tpl_data_res" => {
-            data_res_from_res_type(&json_param.param::<DataResFromResTypeParam>()?, &auth_dao).await
+        "static_res_data" => static_res_data(&auth_dao).await,
+        "dynamic_res_type" => dynamic_res_type(&auth_dao).await,
+        "dynamic_res_data_global_user" => {
+            //基于user的rbac资源
+            dynamic_res_data_global_user(
+                &json_param.param::<DynamicResDataFromUserParam>()?,
+                &auth_dao,
+            )
+            .await
         }
         "type_data" => res_type_data(&json_param.param::<ResTypeListParam>()?, &auth_dao).await,
         "type_op_add" => {

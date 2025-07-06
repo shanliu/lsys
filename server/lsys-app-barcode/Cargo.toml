@@ -10,7 +10,7 @@ lsys-core = { path = "../lsys-core" }
 lsys-logger = { path = "../lsys-logger" }
 
 
-tokio = { version = "~1.45.0" }
+tokio = { version = "~1.46.0" }
 
 sqlx = { version = "~0.8.6", features = ["mysql", "runtime-tokio-native-tls"] }
 async-trait = "~0.1.*"
@@ -25,4 +25,4 @@ rxing = { version = "0.7.1", default-features = false, features = [
 ] }
 sha2 = "~0.10.8"
 tracing = { version = "~0.1.*" } # log-always 保持log的输出 当使用tracing时会出现两次
-md5 = "~0.7.0"
+md5 = "~0.8.0"

@@ -4,7 +4,7 @@ use lsys_rbac::dao::{
 };
 
 use super::WebRbac;
-use crate::common::JsonResult;
+use crate::{common::JsonResult, dao::CheckResTpl};
 
 pub struct RbacSyncResParam<'t> {
     pub res_type: &'t str,
@@ -193,8 +193,10 @@ pub struct RbacSyncResRecrod {
 
 impl WebRbac {
     //把资源及操作模板数据同步到数据库并返回结果
+    #[allow(clippy::too_many_arguments)]
     pub async fn res_tpl_sync(
         &self,
+        tpl_data: &[CheckResTpl],
         user_id: u64,
         app_id: u64,
         res_type: &str,
@@ -202,7 +204,6 @@ impl WebRbac {
         init_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> JsonResult<Vec<RbacSyncResRecrod>> {
-        let tpl_data = self.res_tpl_data(true, true);
         let res_id_str = res_data.iter().map(|e| e.as_ref()).collect::<Vec<_>>();
         let res_param = res_id_str
             .iter()

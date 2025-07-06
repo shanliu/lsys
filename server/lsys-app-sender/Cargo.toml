@@ -17,7 +17,7 @@ chrono = { version = "~0.4.31" }
 serde = { version = "1.0.*" }
 serde_json = "1.0.*"
 futures = "0.3"
-tokio = { version = "~1.45.0" }
+tokio = { version = "~1.46.0" }
 deadpool-redis = { version = "~0.21.0" }
 redis = { version = "~0.31.0", features = [
     "tokio-comp",

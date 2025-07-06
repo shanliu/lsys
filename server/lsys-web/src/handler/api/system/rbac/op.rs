@@ -199,8 +199,15 @@ pub async fn op_data(param: &OpDataParam, req_dao: &UserAuthQueryDao) -> JsonRes
     } else {
         None
     };
-
+    let mut out_res = json!(res);
+    if let Some(arr) = out_res.as_array_mut() {
+        for item in arr {
+            if let Some(obj) = item.as_object_mut() {
+                obj.remove("user_id");
+            }
+        }
+    }
     Ok(JsonResponse::data(JsonData::body(
-        json!({ "data": res,"total":count}),
+        json!({ "data": out_res,"total":count}),
     )))
 }

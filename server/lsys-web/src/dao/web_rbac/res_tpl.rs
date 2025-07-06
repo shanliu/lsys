@@ -1,5 +1,5 @@
 use crate::dao::access::api::system::admin::{
-    CheckAdminApp, CheckAdminBase, CheckAdminChangeLogsView, CheckAdminDocs, CheckAdminMailConfig,
+    CheckAdminApp, CheckAdminBase, CheckAdminChangeLogsView, CheckAdminMailConfig,
     CheckAdminMailMgr, CheckAdminRbacEdit, CheckAdminRbacView, CheckAdminSiteSetting,
     CheckAdminSmsConfig, CheckAdminSmsMgr, CheckAdminUserManage,
 };
@@ -23,7 +23,6 @@ impl WebRbac {
             CheckAdminSmsConfig,
             CheckAdminSmsMgr,
             CheckAdminMailMgr,
-            CheckAdminDocs,
             CheckAdminRbacView,
             CheckAdminRbacEdit,
             CheckAdminApp,

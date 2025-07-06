@@ -3,8 +3,7 @@ use crate::common::handler::{
 };
 use actix_web::post;
 use lsys_web::handler::api::user::rbac::{
-    global_res_data_from_tpl_res, user_res_data_from_user_res_type, user_res_type_from_tpl_res,
-    UserResDataFromUserResTypeParam,
+    dynamic_res_type, dynamic_res_type_from_test, static_res_data, UserResDataFromUserResTypeParam,
 };
 
 #[post("/res/{method}")]
@@ -19,10 +18,10 @@ pub async fn res(
         .await
         .map_err(|e| auth_dao.fluent_error_json_response(&e))?;
     let data = match path.into_inner().as_str() {
-        "tpl_global_res_data" => global_res_data_from_tpl_res(&auth_dao).await,
-        "tpl_user_res_type" => user_res_type_from_tpl_res(&auth_dao).await,
-        "tpl_user_res_data" => {
-            user_res_data_from_user_res_type(
+        "static_res_data" => static_res_data(&auth_dao).await,
+        "dynamic_res_type" => dynamic_res_type(&auth_dao).await,
+        "dynamic_res_data_test" => {
+            dynamic_res_type_from_test(
                 &json_param.param::<UserResDataFromUserResTypeParam>()?,
                 &auth_dao,
             )

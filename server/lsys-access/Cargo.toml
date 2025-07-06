@@ -5,7 +5,7 @@ authors = ["liushan <shan.liu@msn.com>"]
 edition = "2021"
 
 [dependencies]
-tokio = { version = "~1.45.0" }
+tokio = { version = "~1.46.0" }
 lsys-core = { path = "../lsys-core" }
 sqlx = { version = "~0.8.6", features = ["mysql", "runtime-tokio-native-tls"] }
 

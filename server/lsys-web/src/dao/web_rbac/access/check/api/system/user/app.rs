@@ -13,10 +13,7 @@ impl RbacCheckAccess for CheckUserAppView {
                 &[
                     &[AccessCheckRes::system_empty_data(
                         "global-user",
-                        vec![AccessCheckOp::new(
-                            "view-app",
-                            self.res_user_id != check_env.user_id,
-                        )],
+                        vec![AccessCheckOp::new("view-app", false)],
                     )],
                     &[AccessCheckRes::system(
                         "global-user",
@@ -39,13 +36,13 @@ impl RbacCheckResTpl for CheckUserAppView {
                 user: false,
                 data: false,
                 key: "global-user",
-                ops: vec!["view-app"],
+                ops: vec!["app-view"],
             },
             CheckResTpl {
                 user: false,
                 data: true,
                 key: "global-user",
-                ops: vec!["view-app"],
+                ops: vec!["app-view"],
             },
         ]
     }
@@ -63,16 +60,13 @@ impl RbacCheckAccess for CheckUserAppEdit {
                 &[
                     &[AccessCheckRes::system_empty_data(
                         "global-user",
-                        vec![AccessCheckOp::new(
-                            "edit-app",
-                            self.res_user_id != check_env.user_id,
-                        )],
+                        vec![AccessCheckOp::new("app-edit", false)],
                     )],
                     &[AccessCheckRes::system(
                         "global-user",
                         &self.res_user_id.to_string(),
                         vec![AccessCheckOp::new(
-                            "edit-app",
+                            "app-edit",
                             self.res_user_id != check_env.user_id,
                         )],
                     )],
@@ -94,13 +88,13 @@ impl RbacCheckResTpl for CheckUserAppEdit {
                 user: false,
                 data: false,
                 key: "global-user",
-                ops: vec!["edit-app"],
+                ops: vec!["app-edit"],
             },
             CheckResTpl {
                 user: false,
                 data: true,
                 key: "global-user",
-                ops: vec!["edit-app"],
+                ops: vec!["app-edit"],
             },
         ]
     }

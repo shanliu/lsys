@@ -1,5 +1,5 @@
 //内部账号关联登陆验证实现
-use crate::dao::{AccountResult, UserAuthError, UserAuthResult, UserAuthToken};
+use crate::dao::{AccountResult, UserAuthError, UserAuthResult};
 use crate::model::{AccountModel, AccountStatus};
 use ip2location::Record;
 use login::{AccountLoginEnv, AccountLoginParam};
@@ -169,7 +169,7 @@ impl AuthAccount {
         &self,
         login_param: &TO,
         login_env: AccountLoginEnv,
-    ) -> AccountResult<UserAuthToken> {
+    ) -> AccountResult<SessionBody> {
         let login_ip = login_env
             .login_ip
             .unwrap_or(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)))
@@ -192,12 +192,7 @@ impl AuthAccount {
                 self.account_history
                     .finish_history(login_id, is_login, account.id, "")
                     .await?;
-                Ok(UserAuthToken::new(
-                    session.session().user_app_id,
-                    session.token_data(),
-                    session.user_id(),
-                    session.session().expire_time,
-                ))
+                Ok(session)
             }
             Err(err) => {
                 let account_id = match err {

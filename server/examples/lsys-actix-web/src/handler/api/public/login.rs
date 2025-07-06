@@ -29,7 +29,7 @@ use lsys_web::handler::api::auth::MobileSendCodeLoginParam;
 use lsys_web::handler::api::auth::NameLoginParam;
 use lsys_web::handler::api::auth::UserAuthDataOptionParam;
 use lsys_web::handler::api::auth::{login_data_from_user_auth, user_external_login_url};
-
+use lsys_web::lsys_access::dao::AccessSession;
 use lsys_web_module_oauth::module::{
     WeChatConfig, WechatCallbackParam, WechatLogin, WechatLoginParam, OAUTH_TYPE_WECHAT,
 };
@@ -187,13 +187,28 @@ pub async fn logout(jwt: JwtQuery, auth_dao: UserAuthQuery) -> ResponseJsonResul
         .set_request_token(&jwt)
         .await
         .map_err(|e| auth_dao.fluent_error_json_response(&e))?;
+
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| auth_dao.fluent_error_json_response(&e.into()))?;
+
     auth_dao
         .web_dao
         .web_user
-        .auth
-        .user_logout(&auth_dao.user_session)
+        .user_dao
+        .auth_dao
+        .logout(&auth_data)
         .await
-        .map_err(|e| auth_dao.fluent_error_json_response(&e))?;
+        .map_err(|e| auth_dao.fluent_error_json_response(&e.into()))?;
+    auth_dao
+        .user_session
+        .write()
+        .await
+        .set_session_token(UserAuthToken::default());
     Ok(JsonResponse::default().into())
 }
 
