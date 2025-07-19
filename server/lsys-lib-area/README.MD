@@ -11,7 +11,7 @@
 
 2. 县区级经纬度坐标数据 [sqlite数据,需解压](https://github.com/shanliu/lsys/releases/download/v0.0.0/area-data.db.zip) [csv数据](https://github.com/shanliu/lsys/releases/download/v0.0.0/2023-7-area-geo.csv.gz)
 
-3. 接口示例文档：(https://lsys.cc/docs/api/public/area/find.html)[https://lsys.cc/docs/api/public/area/find.html]
+3. 接口实例及文档：[https://lsys.cc/docs/api/public/area/find.html](https://lsys.cc/docs/api/public/area/find.html)
 
 
 #### 基于 axum 的示例
