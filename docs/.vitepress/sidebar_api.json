@@ -1,0 +1,458 @@
+[
+    {
+        "text": "公共接口",
+        "items": [
+        {
+            "text": "APP相关",
+            "items": [
+            { "text": "显示二维码", "link": "/api/public/app/barcode_show.md" }
+            ]
+        },
+        {
+            "text": "地区相关",
+            "items": [
+            { "text": "根据行政区域编码查询地区列表", "link": "/api/public/area/find.md" },
+            { "text": "根据经纬度查询所在地区", "link": "/api/public/area/geo.md" },
+            { "text": "查询地区列表", "link": "/api/public/area/list.md" },
+            { "text": "查询相关地区", "link": "/api/public/area/related.md" },
+            { "text": "根据关键词搜索地区", "link": "/api/public/area/search.md" }
+            ]
+        },
+        {
+            "text": "登录相关",
+            "items": [
+            { "text": "APP Code 登录", "link": "/api/public/login/app_code.md" },
+            { "text": "邮箱验证码登录", "link": "/api/public/login/email_code.md" },
+            { "text": "发送邮箱验证码", "link": "/api/public/login/email_code_send.md" },
+            { "text": "邮箱密码登录", "link": "/api/public/login/email_password.md" },
+            { "text": "用户名密码登录", "link": "/api/public/login/name_password.md" },
+            { "text": "短信验证码登录", "link": "/api/public/login/sms_code.md" },
+            { "text": "发送短信验证码", "link": "/api/public/login/sms_code_send.md" },
+            { "text": "短信密码登录", "link": "/api/public/login/sms_password.md" },
+              { "text": "第三方-微信登录", "link": "/api/public/login/exter_wechat.md" }
+            ]
+        },
+        {
+            "text": "密码相关",
+            "items": [
+            { "text": "邮箱找回密码", "link": "/api/public/password/email.md" },
+            { "text": "邮箱找回密码-发送邮箱验证码", "link": "/api/public/password/email_code.md" },
+            { "text": "手机找回密码", "link": "/api/public/password/mobile.md" },
+            { "text": "手机找回密码-发送手机验证码", "link": "/api/public/password/mobile_code.md" }
+            ]
+        },
+        {
+            "text": "注册相关",
+            "items": [
+            { "text": "邮箱注册", "link": "/api/public/register/email.md" },
+            { "text": "邮箱验证码注册", "link": "/api/public/register/email_code.md" },
+            { "text": "用户名注册", "link": "/api/public/register/name.md" },
+            { "text": "短信注册", "link": "/api/public/register/sms.md" },
+            { "text": "短信验证码注册", "link": "/api/public/register/sms_code.md" }
+            ]
+        },
+        {
+            "text": "站点相关",
+            "items": [
+            { "text": "站点信息", "link": "/api/public/site/info.md" }
+            ]
+        }
+        ]
+    },
+    {
+        "text": "系统接口",
+        "items": [
+        {
+            "text": "APP管理",
+            "items": [
+            { "text": "退出指定APP登陆", "link": "/api/system/app/app_logout.md" },
+            { "text": "审核APP申请", "link": "/api/system/app/confirm.md" },
+            { "text": "审核外部功能申请", "link": "/api/system/app/confirm_exter_feature.md" },
+            { "text": "审核APP外部登陆申请", "link": "/api/system/app/confirm_inner_feature_exter_login_confirm.md" },
+            { "text": "审核开通子应用权限申请", "link": "/api/system/app/confirm_inner_feature_sub_app_confirm.md" },
+            { "text": "删除APP", "link": "/api/system/app/delete.md" },
+            { "text": "禁用APP", "link": "/api/system/app/disable.md" },
+            { "text": "系统APP列表", "link": "/api/system/app/list.md" },
+            { "text": "状态字典", "link": "/api/system/app/mapping.md" },
+            { "text": "清除APP的OAuth访问令牌", "link": "/api/system/app/oauth_clear_access_token.md" },
+            { "text": "清除APP的OAuth刷新令牌", "link": "/api/system/app/oauth_clear_refresh_token.md" },
+            { "text": "审核APP的OAuth登陆申请", "link": "/api/system/app/oauth_client_confirm.md" },
+            { "text": "审核APP的OAuth登陆权限申请", "link": "/api/system/app/oauth_client_scope_confirm.md" },
+            { "text": "审核APP的提供OAuth服务申请", "link": "/api/system/app/oauth_server_confirm.md" },
+            { "text": "APP申请请求列表", "link": "/api/system/app/request_list.md" }
+            ]
+        },
+        {
+            "text": "配置管理",
+            "items": [
+            { "text": "获取微信OAuth配置", "link": "/api/system/config/oauth_config_wechat_get.md" },
+            { "text": "设置微信OAuth配置", "link": "/api/system/config/oauth_config_wechat_set.md" },
+            { "text": "获取站点配置", "link": "/api/system/config/site_config_get.md" },
+            { "text": "设置站点配置", "link": "/api/system/config/site_config_set.md" }
+            ]
+        },
+        {
+            "text": "RBAC权限",
+            "items": [
+            { "text": "基础", "items": [
+                { "text": "RBAC字典信息", "link": "/api/system/rbac/base/mapping.md" }
+            ] },
+            { "text": "资源操作", "items": [
+                { "text": "添加资源操作", "link": "/api/system/rbac/op/add.md" },
+                { "text": "删除资源操作", "link": "/api/system/rbac/op/delete.md" },
+                { "text": "编辑资源操作", "link": "/api/system/rbac/op/edit.md" },
+                { "text": "资源可用操作列表", "link": "/api/system/rbac/op/list.md" }
+            ] },
+            { "text": "资源", "items": [
+                { "text": "添加资源", "link": "/api/system/rbac/res/add.md" },
+                { "text": "删除资源", "link": "/api/system/rbac/res/delete.md" },
+                { "text": "编辑资源", "link": "/api/system/rbac/res/edit.md" },
+                { "text": "资源列表", "link": "/api/system/rbac/res/list.md" },
+                { "text": "模板资源数据", "link": "/api/system/rbac/res/tpl_data_res.md" },
+                { "text": "模板资源类型数据", "link": "/api/system/rbac/res/tpl_data_res_type.md" },
+                { "text": "全局模板资源", "link": "/api/system/rbac/res/tpl_global_res.md" },
+                { "text": "资源类型数据", "link": "/api/system/rbac/res/type_data.md" },
+                { "text": "类型操作-添加", "link": "/api/system/rbac/res/type_op_add.md" },
+                { "text": "类型操作-数据", "link": "/api/system/rbac/res/type_op_data.md" },
+                { "text": "类型操作-删除", "link": "/api/system/rbac/res/type_op_del.md" }
+            ] },
+            { "text": "角色", "items": [
+                { "text": "添加角色", "link": "/api/system/rbac/role/add.md" },
+                { "text": "删除角色", "link": "/api/system/rbac/role/delete.md" },
+                { "text": "编辑角色", "link": "/api/system/rbac/role/edit.md" },
+                { "text": "角色列表", "link": "/api/system/rbac/role/list.md" },
+                { "text": "权限-添加", "link": "/api/system/rbac/role/perm_add.md" },
+                { "text": "权限-数据", "link": "/api/system/rbac/role/perm_data.md" },
+                { "text": "权限-删除", "link": "/api/system/rbac/role/perm_delete.md" },
+                { "text": "用户-添加", "link": "/api/system/rbac/role/user_add.md" },
+                { "text": "用户-数据", "link": "/api/system/rbac/role/user_data.md" },
+                { "text": "用户-删除", "link": "/api/system/rbac/role/user_delete.md" }
+            ] }
+            ]
+        },
+        {
+            "text": "邮件服务",
+            "items": [
+            { "text": "添加邮件配置", "link": "/api/system/sender_mailer/config_add.md" },
+            { "text": "删除邮件配置", "link": "/api/system/sender_mailer/config_del.md" },
+            { "text": "邮件配置列表", "link": "/api/system/sender_mailer/config_list.md" },
+            { "text": "状态字典", "link": "/api/system/sender_mailer/mapping.md" },
+            { "text": "取消邮件发送", "link": "/api/system/sender_mailer/message_cancel.md" },
+            { "text": "发送邮件列表", "link": "/api/system/sender_mailer/message_list.md" },
+            { "text": "发送邮件日志", "link": "/api/system/sender_mailer/message_logs.md" },
+            { "text": "查看发送邮件内容", "link": "/api/system/sender_mailer/message_view.md" },
+            { "text": "添加SMTP配置", "link": "/api/system/sender_mailer/smtp_config_add.md" },
+            { "text": "检测SMTP配置是否可用", "link": "/api/system/sender_mailer/smtp_config_check.md" },
+            { "text": "删除SMTP配置", "link": "/api/system/sender_mailer/smtp_config_del.md" },
+            { "text": "编辑SMTP配置", "link": "/api/system/sender_mailer/smtp_config_edit.md" },
+            { "text": "SMTP配置列表", "link": "/api/system/sender_mailer/smtp_config_list.md" },
+            { "text": "添加SMTP模板配置", "link": "/api/system/sender_mailer/smtp_tpl_config_add.md" },
+            { "text": "添加邮件模板内容", "link": "/api/system/sender_mailer/tpl_body_add.md" },
+            { "text": "删除邮件模板内容", "link": "/api/system/sender_mailer/tpl_body_del.md" },
+            { "text": "编辑邮件模板内容", "link": "/api/system/sender_mailer/tpl_body_edit.md" },
+            { "text": "邮件模板列表", "link": "/api/system/sender_mailer/tpl_body_list.md" },
+            { "text": "删除模板配置", "link": "/api/system/sender_mailer/tpl_config_delete.md" },
+            { "text": "模板配置列表", "link": "/api/system/sender_mailer/tpl_config_list.md" }
+            ]
+        },
+        {
+            "text": "短信服务",
+            "items": [
+            { "text": "状态字典", "link": "/api/system/sender_smser/mapping.md" },
+            { "text": "取消短信发送", "link": "/api/system/sender_smser/message_cancel.md" },
+            { "text": "短信发送列表", "link": "/api/system/sender_smser/message_list.md" },
+            { "text": "短信发送日志", "link": "/api/system/sender_smser/message_logs.md" },
+            { "text": "查看短信内容", "link": "/api/system/sender_smser/message_view.md" },
+            { "text": "配置添加接口", "link": "/api/system/sender_smser/config_add.md" },
+            { "text": "配置删除接口", "link": "/api/system/sender_smser/config_del.md" },
+            { "text": "配置列表接口", "link": "/api/system/sender_smser/config_list.md" },
+             { "text": "删除模板配置", "link": "/api/system/sender_smser/tpl_config_delete.md" },
+            { "text": "模板配置列表", "link": "/api/system/sender_smser/tpl_config_list.md" },
+            { "text": "阿里云短信配置添加接口", "link": "/api/system/sender_smser/ali_config_add.md" },
+            { "text": "阿里云短信配置删除接口", "link": "/api/system/sender_smser/ali_config_del.md" },
+            { "text": "阿里云短信配置编辑接口", "link": "/api/system/sender_smser/ali_config_edit.md" },
+            { "text": "阿里云短信配置列表接口", "link": "/api/system/sender_smser/ali_config_list.md" },
+            { "text": "阿里云短信模板配置添加接口", "link": "/api/system/sender_smser/ali_tpl_config_add.md" },
+            { "text": "容联云短信配置添加接口", "link": "/api/system/sender_smser/cloopen_config_add.md" },
+            { "text": "容联云短信配置删除接口", "link": "/api/system/sender_smser/cloopen_config_del.md" },
+            { "text": "容联云短信配置编辑接口", "link": "/api/system/sender_smser/cloopen_config_edit.md" },
+            { "text": "容联云短信配置列表接口", "link": "/api/system/sender_smser/cloopen_config_list.md" },
+            { "text": "容联云短信模板配置添加接口", "link": "/api/system/sender_smser/cloopen_tpl_config_add.md" },
+            { "text": "华为云短信配置添加接口", "link": "/api/system/sender_smser/hw_config_add.md" },
+            { "text": "华为云短信配置删除接口", "link": "/api/system/sender_smser/hw_config_del.md" },
+            { "text": "华为云短信配置编辑接口", "link": "/api/system/sender_smser/hw_config_edit.md" },
+            { "text": "华为云短信配置列表接口", "link": "/api/system/sender_smser/hw_config_list.md" },
+            { "text": "华为云短信模板配置添加接口", "link": "/api/system/sender_smser/hw_tpl_config_add.md" },
+            { "text": "京东云短信配置添加接口", "link": "/api/system/sender_smser/jd_config_add.md" },
+            { "text": "京东云短信配置删除接口", "link": "/api/system/sender_smser/jd_config_del.md" },
+            { "text": "京东云短信配置编辑接口", "link": "/api/system/sender_smser/jd_config_edit.md" },
+            { "text": "京东云短信配置列表接口", "link": "/api/system/sender_smser/jd_config_list.md" },
+            { "text": "京东云短信模板配置添加接口", "link": "/api/system/sender_smser/jd_tpl_config_add.md" },
+            { "text": "网易云短信配置添加接口", "link": "/api/system/sender_smser/netease_config_add.md" },
+            { "text": "网易云短信配置删除接口", "link": "/api/system/sender_smser/netease_config_del.md" },
+            { "text": "网易云短信配置编辑接口", "link": "/api/system/sender_smser/netease_config_edit.md" },
+            { "text": "网易云短信配置列表接口", "link": "/api/system/sender_smser/netease_config_list.md" },
+            { "text": "网易云短信模板配置添加接口", "link": "/api/system/sender_smser/netease_tpl_config_add.md" },
+            { "text": "腾讯云短信配置添加接口", "link": "/api/system/sender_smser/tencent_config_add.md" },
+            { "text": "腾讯云短信配置删除接口", "link": "/api/system/sender_smser/tencent_config_del.md" },
+            { "text": "腾讯云短信配置编辑接口", "link": "/api/system/sender_smser/tencent_config_edit.md" },
+            { "text": "腾讯云短信配置列表接口", "link": "/api/system/sender_smser/tencent_config_list.md" },
+            { "text": "腾讯云短信模板配置添加接口", "link": "/api/system/sender_smser/tencent_tpl_config_add.md" }
+           
+            ]
+        },
+        {
+            "text": "用户管理",
+            "items": [
+            { "text": "指定用户退出登录", "link": "/api/system/user/user_logout.md" },
+            { "text": "账号详情", "link": "/api/system/user/account_detail.md" },
+            { "text": "账号搜索", "link": "/api/system/user/account_search.md" },
+            { "text": "系统变更日志", "link": "/api/system/user/change_logs.md" },
+            { "text": "登录历史", "link": "/api/system/user/login_history.md" },
+            { "text": "状态字典", "link": "/api/system/user/mapping.md" }
+            ]
+        }
+        ]
+    },
+    {
+        "text": "用户接口",
+        "items": [
+        {
+            "text": "账号管理",
+            "items": [
+            { "text": "验证用户名是否可用", "link": "/api/user/account/check_username.md" },
+            { "text": "删除账号", "link": "/api/user/account/delete.md" },
+            { "text": "获取登录数据", "link": "/api/user/account/login_data.md" },
+            { "text": "登录历史", "link": "/api/user/account/login_history.md" },
+            { "text": "退出登录", "link": "/api/user/account/logout.md" },
+            { "text": "状态字典", "link": "/api/user/account/mapping.md" },
+            { "text": "修改密码", "link": "/api/user/account/password_modify.md" },
+            { "text": "设置用户信息", "link": "/api/user/account/set_info.md" },
+            { "text": "设置密码", "link": "/api/user/account/set_password.md" },
+            { "text": "设置用户名", "link": "/api/user/account/set_username.md" }
+            ]
+        },
+        {
+            "text": "账号资料",
+            "items": [
+            { "text": "地址", "items": [
+                { "text": "添加用户地址", "link": "/api/user/account_profile/address/add.md" },
+                { "text": "删除用户地址", "link": "/api/user/account_profile/address/delete.md" },
+                { "text": "编辑用户地址", "link": "/api/user/account_profile/address/edit.md" },
+                { "text": "获取用户地址列表", "link": "/api/user/account_profile/address/list_data.md" }
+            ] },
+            { "text": "邮箱", "items": [
+                { "text": "添加邮箱", "link": "/api/user/account_profile/email/add.md" },
+                { "text": "邮箱确认", "link": "/api/user/account_profile/email/confirm.md" },
+                { "text": "删除邮箱", "link": "/api/user/account_profile/email/delete.md" },
+                { "text": "获取邮箱列表", "link": "/api/user/account_profile/email/list_data.md" },
+                { "text": "发送验证码", "link": "/api/user/account_profile/email/send_code.md" }
+            ] },
+            { "text": "外部账号", "items": [
+                { "text": "绑定检查", "link": "/api/user/account_profile/external/bind_check.md" },
+                { "text": "绑定链接", "link": "/api/user/account_profile/external/bind_url.md" },
+                { "text": "删除外部账号", "link": "/api/user/account_profile/external/delete.md" },
+                { "text": "获取外部账号列表", "link": "/api/user/account_profile/external/list_data.md" }
+            ] },
+            { "text": "手机", "items": [
+                { "text": "添加手机", "link": "/api/user/account_profile/mobile/add.md" },
+                { "text": "手机确认", "link": "/api/user/account_profile/mobile/confirm.md" },
+                { "text": "删除手机", "link": "/api/user/account_profile/mobile/delete.md" },
+                { "text": "获取手机列表", "link": "/api/user/account_profile/mobile/list_data.md" },
+                { "text": "发送验证码", "link": "/api/user/account_profile/mobile/send_code.md" }
+            ] }
+            ]
+        },
+        {
+            "text": "APP管理",
+            "items": [
+            { "text": "申请APP", "link": "/api/user/app/add.md" },
+            { "text": "APP密钥添加", "link": "/api/user/app/app_secret_add.md" },
+            { "text": "APP密钥变更", "link": "/api/user/app/app_secret_change.md" },
+            { "text": "APP密钥删除", "link": "/api/user/app/app_secret_del.md" },
+            { "text": "查看APP密钥", "link": "/api/user/app/app_secret_view.md" },
+            { "text": "申请修改APP信息", "link": "/api/user/app/change.md" },
+            { "text": "审核子APP申请", "link": "/api/user/app/confirm.md" },
+            { "text": "审核子APP外部权限申请", "link": "/api/user/app/confirm_exter_feature.md" },
+            { "text": "删除APP", "link": "/api/user/app/delete.md" },
+            { "text": "APP列表", "link": "/api/user/app/list.md" },
+            { "text": "状态字典", "link": "/api/user/app/mapping.md" },
+            { "text": "APP回调信息删除", "link": "/api/user/app/notify_del.md" },
+            { "text": "APP回调信息列表", "link": "/api/user/app/notify_list.md" },
+            { "text": "APP回调密钥修改", "link": "/api/user/app/notify_secret_change.md" },
+            { "text": "申请OAuth登陆", "link": "/api/user/app/oauth_client_request.md" },
+            { "text": "OAuth登陆可申请权限列表", "link": "/api/user/app/oauth_client_scope_data.md" },
+            { "text": "OAuth登陆可申请申请新权限", "link": "/api/user/app/oauth_client_scope_request.md" },
+            { "text": "OAuth登陆密钥添加", "link": "/api/user/app/oauth_client_secret_add.md" },
+            { "text": "OAuth登陆密钥变更", "link": "/api/user/app/oauth_client_secret_change.md" },
+            { "text": "OAuth登陆密钥删除", "link": "/api/user/app/oauth_client_secret_del.md" },
+            { "text": "OAuth登陆设置域名", "link": "/api/user/app/oauth_client_set_domain.md" },
+            { "text": "已开通OAuth服务:审核子APP-OAuth登陆申请", "link": "/api/user/app/oauth_server_client_confirm.md" },
+            { "text": "已开通OAuth服务:审核子APP-OAuth登陆申请新权限", "link": "/api/user/app/oauth_server_client_scope_confirm.md" },
+            { "text": "申请开通OAuth服务", "link": "/api/user/app/oauth_server_request.md" },
+            { "text": "已开通OAuth服务:配置OAuth服务", "link": "/api/user/app/oauth_server_setting.md" },
+            { "text": "可用父级APP列表", "link": "/api/user/app/parent_app.md" },
+            { "text": "申请APP外部权限", "link": "/api/user/app/request_exter_feature.md" },
+            { "text": "申请APP外部登陆", "link": "/api/user/app/request_inner_feature_exter_login_request.md" },
+            { "text": "APP申请列表", "link": "/api/user/app/request_list.md" },
+            { "text": "已开通子应用权限:获取子应用变更回调配置数据", "link": "/api/user/app/sub_app_notify_get_config.md" },
+            { "text": "已开通子应用权限:设置子应用变更回调配置数据", "link": "/api/user/app/sub_app_notify_set_config.md" },
+            { "text": "已开通子应用权限:子应用申请请求列表", "link": "/api/user/app/sub_app_request.md" },
+            { "text": "已开通子应用权限:子应用密钥查看", "link": "/api/user/app/sub_app_secret_view.md" },
+            { "text": "已开通子应用权限:子请求列表", "link": "/api/user/app/sub_request_list.md" }
+            ]
+        },
+        {
+            "text": "APP条形码",
+            "items": [
+            { "text": "添加条形码配置", "link": "/api/user/app_barcode/create_config_add.md" },
+            { "text": "删除条形码配置", "link": "/api/user/app_barcode/create_config_delete.md" },
+            { "text": "编辑条形码配置", "link": "/api/user/app_barcode/create_config_edit.md" },
+            { "text": "条形码配置列表", "link": "/api/user/app_barcode/create_config_list.md" },
+            { "text": "状态字典", "link": "/api/user/app_barcode/mapping.md" },
+            { "text": "解析记录删除", "link": "/api/user/app_barcode/parse_record_delete.md" },
+            { "text": "解析记录列表", "link": "/api/user/app_barcode/parse_record_list.md" }
+            ]
+        },
+        {
+            "text": "RBAC权限",
+            "items": [
+            { "text": "基础", "items": [
+                { "text": "审计数据", "link": "/api/user/app_rbac/base/audit_data.md" },
+                { "text": "RBAC字典数据", "link": "/api/user/app_rbac/base/mapping.md" }
+            ] },
+            { "text": "资源操作", "items": [
+                { "text": "添加资源操作", "link": "/api/user/app_rbac/op/add.md" },
+                { "text": "删除资源操作", "link": "/api/user/app_rbac/op/delete.md" },
+                { "text": "编辑资源操作", "link": "/api/user/app_rbac/op/edit.md" },
+                { "text": "资源可以操作列表", "link": "/api/user/app_rbac/op/list.md" }
+            ] },
+            { "text": "资源", "items": [
+                { "text": "添加资源", "link": "/api/user/app_rbac/res/add.md" },
+                { "text": "删除资源", "link": "/api/user/app_rbac/res/delete.md" },
+                { "text": "编辑资源", "link": "/api/user/app_rbac/res/edit.md" },
+                { "text": "资源列表", "link": "/api/user/app_rbac/res/list.md" },
+                { "text": "类型数据", "link": "/api/user/app_rbac/res/type_data.md" },
+                { "text": "类型操作-添加", "link": "/api/user/app_rbac/res/type_op_add.md" },
+                { "text": "类型操作-数据", "link": "/api/user/app_rbac/res/type_op_data.md" },
+                { "text": "类型操作-删除", "link": "/api/user/app_rbac/res/type_op_del.md" }
+            ] },
+            { "text": "角色", "items": [
+                { "text": "添加角色", "link": "/api/user/app_rbac/role/add.md" },
+                { "text": "可用用户", "link": "/api/user/app_rbac/role/available_user.md" },
+                { "text": "删除角色", "link": "/api/user/app_rbac/role/delete.md" },
+                { "text": "编辑角色", "link": "/api/user/app_rbac/role/edit.md" },
+                { "text": "角色列表", "link": "/api/user/app_rbac/role/list.md" },
+                { "text": "权限-添加", "link": "/api/user/app_rbac/role/perm_add.md" },
+                { "text": "权限-数据", "link": "/api/user/app_rbac/role/perm_data.md" },
+                { "text": "权限-删除", "link": "/api/user/app_rbac/role/perm_delete.md" },
+                { "text": "用户-添加", "link": "/api/user/app_rbac/role/user_add.md" },
+                { "text": "用户-数据", "link": "/api/user/app_rbac/role/user_data.md" },
+                { "text": "用户-删除", "link": "/api/user/app_rbac/role/user_delete.md" }
+            ] }
+            ]
+        },
+        {
+            "text": "邮件服务",
+            "items": [
+            { "text": "添加邮件发送配置", "link": "/api/user/app_sender_mailer/config_add.md" },
+            { "text": "删除邮件发送配置", "link": "/api/user/app_sender_mailer/config_del.md" },
+            { "text": "邮件发送配置列表", "link": "/api/user/app_sender_mailer/config_list.md" },
+            { "text": "状态字典", "link": "/api/user/app_sender_mailer/mapping.md" },
+            { "text": "取消邮件发送", "link": "/api/user/app_sender_mailer/message_cancel.md" },
+            { "text": "邮件发送列表", "link": "/api/user/app_sender_mailer/message_list.md" },
+            { "text": "邮件发送日志", "link": "/api/user/app_sender_mailer/message_logs.md" },
+            { "text": "邮件内容消息", "link": "/api/user/app_sender_mailer/message_view.md" },
+            { "text": "添加SMTP配置", "link": "/api/user/app_sender_mailer/smtp_config_add.md" },
+            { "text": "SMTP配置列表", "link": "/api/user/app_sender_mailer/smtp_config_list.md" },
+            { "text": "添加模板内容", "link": "/api/user/app_sender_mailer/tpl_body_add.md" },
+            { "text": "删除模板内容", "link": "/api/user/app_sender_mailer/tpl_body_del.md" },
+            { "text": "编辑模板内容", "link": "/api/user/app_sender_mailer/tpl_body_edit.md" },
+            { "text": "模板内容列表", "link": "/api/user/app_sender_mailer/tpl_body_list.md" },
+            { "text": "删除模板配置", "link": "/api/user/app_sender_mailer/tpl_config_del.md" },
+            { "text": "模板配置列表", "link": "/api/user/app_sender_mailer/tpl_config_list.md" }
+            ]
+        },
+        {
+            "text": "短信服务",
+            "items": [
+            { "text": "删除短信模板配置", "link": "/api/user/app_sender_smser/tpl_config_del.md" },
+            { "text": "短信模板配置列表", "link": "/api/user/app_sender_smser/tpl_config_list.md" },
+            { "text": "状态字典", "link": "/api/user/app_sender_smser/mapping.md" },
+            { "text": "发送短信配置添加接口", "link": "/api/user/app_sender_smser/config_add.md" },
+            { "text": "发送短信配置删除接口", "link": "/api/user/app_sender_smser/config_del.md" },
+            { "text": "发送短信配置列表接口", "link": "/api/user/app_sender_smser/config_list.md" },
+            { "text": "短信发送取消", "link": "/api/user/app_sender_smser/message_cancel.md" },
+            { "text": "短信发送列表", "link": "/api/user/app_sender_smser/message_list.md" },
+            { "text": "短信发送日志", "link": "/api/user/app_sender_smser/message_logs.md" },
+            { "text": "短信发送", "link": "/api/user/app_sender_smser/message_send.md" },
+            { "text": "短信内容查看", "link": "/api/user/app_sender_smser/message_view.md" },
+            { "text": "完成短信发送回调通知配置获取", "link": "/api/user/app_sender_smser/notify_get_config.md" },
+            { "text": "完成短信发送回调通知配置设置", "link": "/api/user/app_sender_smser/notify_set_config.md" },
+            { "text": "阿里云应用短信配置添加接口", "link": "/api/user/app_sender_smser/ali_app_config_add.md" },
+            { "text": "阿里云短信配置列表接口", "link": "/api/user/app_sender_smser/ali_config_list.md" },
+            { "text": "容联云应用短信配置添加接口", "link": "/api/user/app_sender_smser/cloopen_app_config_add.md" },
+            { "text": "容联云短信配置列表接口", "link": "/api/user/app_sender_smser/cloopen_config_list.md" },
+           
+            { "text": "华为云应用短信配置添加接口", "link": "/api/user/app_sender_smser/hw_app_config_add.md" },
+            { "text": "华为云短信配置列表接口", "link": "/api/user/app_sender_smser/hw_config_list.md" },
+            { "text": "京东云应用短信配置添加接口", "link": "/api/user/app_sender_smser/jd_app_config_add.md" },
+            { "text": "京东云短信配置列表接口", "link": "/api/user/app_sender_smser/jd_config_list.md" },
+            
+            { "text": "网易云应用短信配置添加接口", "link": "/api/user/app_sender_smser/netease_app_config_add.md" },
+            { "text": "网易云短信配置列表接口", "link": "/api/user/app_sender_smser/netease_config_list.md" },
+           
+            { "text": "腾讯云应用短信配置添加接口", "link": "/api/user/app_sender_smser/ten_app_config_add.md" },
+            { "text": "腾讯云短信配置列表接口", "link": "/api/user/app_sender_smser/ten_config_list.md" }
+            
+            ]
+        },
+        {
+            "text": "OAuth",
+            "items": [
+            { "text": "OAuth完成登录", "link": "/api/user/oauth/login.md" },
+            { "text": "OAuth授权信息数据", "link": "/api/user/oauth/scope.md" }
+            ]
+        },
+        {
+            "text": "RBAC权限",
+            "items": [
+            { "text": "基础", "items": [
+                { "text": "审计", "link": "/api/user/rbac/base/audit.md" },
+                { "text": "RBAC字典", "link": "/api/user/rbac/base/mapping.md" }
+            ] },
+            { "text": "资源操作", "items": [
+                { "text": "添加资源操作", "link": "/api/user/rbac/op/add.md" },
+                { "text": "删除资源操作", "link": "/api/user/rbac/op/delete.md" },
+                { "text": "编辑资源操作", "link": "/api/user/rbac/op/edit.md" },
+                { "text": "资源可以操作列表", "link": "/api/user/rbac/op/list.md" }
+            ] },
+            { "text": "资源", "items": [
+                { "text": "模板全局资源数据", "link": "/api/user/rbac/res/tpl_global_res_data.md" },
+                { "text": "模板用户资源数据", "link": "/api/user/rbac/res/tpl_user_res_data.md" },
+                { "text": "模板用户资源类型", "link": "/api/user/rbac/res/tpl_user_res_type.md" }
+            ] },
+            { "text": "角色", "items": [
+                { "text": "添加角色", "link": "/api/user/rbac/role/add.md" },
+                { "text": "可用用户", "link": "/api/user/rbac/role/available_user.md" },
+                { "text": "删除角色", "link": "/api/user/rbac/role/delete.md" },
+                { "text": "编辑角色", "link": "/api/user/rbac/role/edit.md" },
+                { "text": "角色列表", "link": "/api/user/rbac/role/list.md" },
+                { "text": "权限-添加", "link": "/api/user/rbac/role/perm_add.md" },
+                { "text": "权限-数据", "link": "/api/user/rbac/role/perm_data.md" },
+                { "text": "权限-删除", "link": "/api/user/rbac/role/perm_delete.md" },
+                { "text": "用户-添加", "link": "/api/user/rbac/role/user_add.md" },
+                { "text": "用户-数据", "link": "/api/user/rbac/role/user_data.md" },
+                { "text": "用户-删除", "link": "/api/user/rbac/role/user_delete.md" }
+            ] }
+            ]
+        },
+        {
+            "text": "回调处理",
+            "items": [
+                { "text": "短信外部回调","link": "/api/notify/sms.md" }
+            ]
+        }
+    ]
+    }
+]

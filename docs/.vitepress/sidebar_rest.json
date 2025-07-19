@@ -1,0 +1,221 @@
+[
+    {
+        "text": "接口签名指南",
+        "link": "/rest/index.md"
+    },
+    {
+        "text": "应用管理",
+        "items": [
+            {
+                "text": "获取应用信息",
+                "link": "/rest/app/info.md"
+            },
+            {
+                "text": "OAuth授权范围",
+                "link": "/rest/app/oauth_scope.md"
+            },
+            {
+                "text": "OAuth密钥管理",
+                "link": "/rest/app/oauth_secret.md"
+            }
+        ]
+    },
+    {
+        "text": "外部登录",
+        "items": [
+            {
+                "text": "用户登录",
+                "link": "/rest/auth/do_login.md"
+            },
+            {
+                "text": "用户登出",
+                "link": "/rest/auth/do_logout.md"
+            },
+            {
+                "text": "登录信息",
+                "link": "/rest/auth/login_info.md"
+            }
+        ]
+    },
+    {
+        "text": "OAuth登录",
+        "items": [
+            {
+                "text": "获取OAuth信息",
+                "link": "/rest/oauth/info.md"
+            },
+            {
+                "text": "刷新访问令牌",
+                "link": "/rest/oauth/refresh_token.md"
+            },
+            {
+                "text": "获取访问令牌",
+                "link": "/rest/oauth/token.md"
+            }
+        ]
+    },
+    {
+        "text": "条形生成及解析",
+        "items": [
+            {
+                "text": "生成条形码",
+                "link": "/rest/barcode/create.md"
+            },
+            {
+                "text": "解析条形码",
+                "link": "/rest/barcode/parse.md"
+            }
+        ]
+    },
+    {
+        "text": "邮件服务",
+        "items": [
+            {
+                "text": "发送邮件",
+                "link": "/rest/mail/send.md"
+            },
+            {
+                "text": "取消发送",
+                "link": "/rest/mail/cancel.md"
+            }
+        ]
+    },
+    {
+        "text": "短信服务",
+        "items": [
+            {
+                "text": "发送短信",
+                "link": "/rest/sms/send.md"
+            },
+            {
+                "text": "取消发送",
+                "link": "/rest/sms/cancel.md"
+            }
+        ]
+    },
+    {
+        "text": "RBAC权限",
+        "items": [
+            {
+                "text": "基础功能",
+                "items": [
+                    {
+                        "text": "状态字典",
+                        "link": "/rest/rbac/base/mapping.md"
+                    },
+                    {
+                        "text": "批量资源检测是否授权",
+                        "link": "/rest/rbac/base/access_list.md"
+                    },
+                    {
+                        "text": "资源检测是否授权",
+                        "link": "/rest/rbac/base/access.md"
+                    }
+                ]
+            },
+            {
+                "text": "资源可用操作管理",
+                "items": [
+                    {
+                        "text": "添加操作",
+                        "link": "/rest/rbac/op/add.md"
+                    },
+                    {
+                        "text": "编辑操作",
+                        "link": "/rest/rbac/op/edit.md"
+                    },
+                    {
+                        "text": "删除操作",
+                        "link": "/rest/rbac/op/delete.md"
+                    },
+                    {
+                        "text": "可用操作列表",
+                        "link": "/rest/rbac/op/list.md"
+                    }
+                ]
+            },
+            {
+                "text": "资源管理",
+                "items": [
+                    {
+                        "text": "添加资源",
+                        "link": "/rest/rbac/res/add.md"
+                    },
+                    {
+                        "text": "编辑资源",
+                        "link": "/rest/rbac/res/edit.md"
+                    },
+                    {
+                        "text": "删除资源",
+                        "link": "/rest/rbac/res/delete.md"
+                    },
+                    {
+                        "text": "资源列表",
+                        "link": "/rest/rbac/res/list.md"
+                    },
+                    {
+                        "text": "资源类型数据",
+                        "link": "/rest/rbac/res/type_data.md"
+                    },
+                    {
+                        "text": "添加操作类型",
+                        "link": "/rest/rbac/res/type_op_add.md"
+                    },
+                    {
+                        "text": "操作类型数据",
+                        "link": "/rest/rbac/res/type_op_data.md"
+                    },
+                    {
+                        "text": "删除操作类型",
+                        "link": "/rest/rbac/res/type_op_del.md"
+                    }
+                ]
+            },
+            {
+                "text": "角色管理",
+                "items": [
+                    {
+                        "text": "添加角色",
+                        "link": "/rest/rbac/role/add.md"
+                    },
+                    {
+                        "text": "编辑角色",
+                        "link": "/rest/rbac/role/edit.md"
+                    },
+                    {
+                        "text": "删除角色",
+                        "link": "/rest/rbac/role/delete.md"
+                    },
+                    {
+                        "text": "角色列表",
+                        "link": "/rest/rbac/role/list.md"
+                    },
+                    {
+                        "text": "添加权限",
+                        "link": "/rest/rbac/role/perm_add.md"
+                    },
+                    {
+                        "text": "权限数据",
+                        "link": "/rest/rbac/role/perm_data.md"
+                    },
+                    {
+                        "text": "删除权限",
+                        "link": "/rest/rbac/role/perm_delete.md"
+                    },
+                    {
+                        "text": "添加用户",
+                        "link": "/rest/rbac/role/user_add.md"
+                    },
+                    {
+                        "text": "用户数据",
+                        "link": "/rest/rbac/role/user_data.md"
+                    },
+                    {
+                        "text": "删除用户",
+                        "link": "/rest/rbac/role/user_delete.md"
+                    }
+                ]
+            }
+        ]
+    }
+]
