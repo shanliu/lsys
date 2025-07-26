@@ -21,7 +21,7 @@
 > 示例
 
 ```http
-POST /rest/app?method=oauth_secret
+POST /rest/app?method=sub_app_oauth_secret
 Content-type:application/json
 
 {

@@ -22,7 +22,7 @@ func TestGetLoginUrl(t *testing.T) {
 // 登录后获取TOKEN
 func TestGetToken(t *testing.T) {
 	sysApi := GetRestApi()
-	token, err := sysApi.OAuthAccessToken(context.Background(), "c936ed75412a0b8f")
+	token, err := sysApi.OAuthAccessToken(context.Background(), "a7fe813d10846015b1acbe41f515b72a")
 	if err == nil {
 		fmt.Printf("token :%s \n", token.AccessToken)
 	} else {
@@ -34,7 +34,7 @@ func TestGetToken(t *testing.T) {
 // //通过TOKEN得到用户信息
 func TestGetUserData(t *testing.T) {
 	sysApi := GetRestApi()
-	tokenApi := sysApi.TokenRestApi("58f34acd692b70e1")
+	tokenApi := sysApi.TokenRestApi("zswdwnrxjccpymuxpapbatxfflyiqzoa")
 	data, err := tokenApi.OAuthUserInfo(context.Background(), true, true, false, false, false, false)
 	if err == nil {
 		fmt.Printf("sub app output :%s", data)

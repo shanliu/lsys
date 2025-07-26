@@ -8,6 +8,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+//本应用,通过直接用本地用户,登录到lsys系统
+
 func Login(c *gin.Context) {
 
 	account := "test"

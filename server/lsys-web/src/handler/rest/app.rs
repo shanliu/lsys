@@ -7,14 +7,12 @@ use lsys_app::model::AppModel;
 use serde::Deserialize;
 use serde_json::json;
 #[derive(Debug, Deserialize)]
-pub struct SubAppViewParam {
+pub struct SubAppInfoParam {
     pub client_id: String,
-    #[serde(deserialize_with = "crate::common::deserialize_bool")]
-    pub user_data: bool,
 }
 
-pub async fn subapp_view(
-    param: &SubAppViewParam,
+pub async fn subapp_info(
+    param: &SubAppInfoParam,
     app: &AppModel,
     req_dao: &RequestDao,
 ) -> JsonResult<JsonResponse> {
@@ -60,27 +58,68 @@ pub async fn subapp_view(
         .find_app_secret_by_client_id(&out_app.client_id)
         .await?;
 
-    let user_info = if param.user_data {
-        let user_info = req_dao
-            .web_dao
-            .web_access
-            .access_dao
-            .user
-            .cache()
-            .find_user_by_id(out_app.user_id)
-            .await?;
-        json!({
-            "user_id": user_info.id,
-            "user_nickname": user_info.user_nickname,
-            "user_data": user_info.user_data,
-        })
-    } else {
-        json!(null)
-    };
     Ok(JsonResponse::data(JsonData::body(json!({
         "name": out_app.name,
         "client_id":out_app.client_id,
         "sub_secret": client_data,
+    }))))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SubAppUserParam {
+    pub client_id: String,
+}
+
+pub async fn subapp_user(
+    param: &SubAppUserParam,
+    app: &AppModel,
+    req_dao: &RequestDao,
+) -> JsonResult<JsonResponse> {
+    let app_user = req_dao
+        .web_dao
+        .web_access
+        .access_dao
+        .user
+        .cache()
+        .find_by_id(&app.user_id)
+        .await?;
+    req_dao
+        .web_dao
+        .web_rbac
+        .check(
+            &RbacAccessCheckEnv::user(&app_user, &req_dao.req_env),
+            &CheckRestApp {},
+        )
+        .await?;
+    req_dao
+        .web_dao
+        .web_app
+        .app_dao
+        .app
+        .inner_feature_sub_app_check(app)
+        .await?;
+
+    let out_app = req_dao
+        .web_dao
+        .web_app
+        .app_dao
+        .app
+        .cache()
+        .find_sub_app_by_client_id(app, &param.client_id)
+        .await?;
+
+    let user_info = req_dao
+        .web_dao
+        .web_access
+        .access_dao
+        .user
+        .cache()
+        .find_user_by_id(out_app.user_id)
+        .await?;
+
+    Ok(JsonResponse::data(JsonData::body(json!({
+        "name": out_app.name,
+        "client_id":out_app.client_id,
         "user_data":user_info,
     }))))
 }

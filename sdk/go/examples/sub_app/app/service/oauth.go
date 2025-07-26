@@ -5,7 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
-	"lsysrest/lsysrest"
+	"lsysrest/lsyslib"
 	"rest_client"
 
 	"github.com/gin-contrib/sessions"
@@ -26,7 +26,7 @@ func GetLoginUrl(c *gin.Context, callUrl string) (string, error) {
 	return url, nil
 }
 
-func GetToken(c *gin.Context, state string, code string) (*lsysrest.TokenData, error) {
+func GetToken(c *gin.Context, state string, code string) (*lsyslib.TokenData, error) {
 	session := sessions.Default(c)
 	tmp, ok := session.Get("oauth-state").(string)
 	if ok && tmp != state {
@@ -41,7 +41,7 @@ func GetUserData(token string) (*rest_client.JsonData, error) {
 
 }
 
-func RefreshToken(token string) (*lsysrest.TokenData, error) {
+func RefreshToken(token string) (*lsyslib.TokenData, error) {
 	tokenApi := GetRestApi().TokenRestApi(token)
 	return tokenApi.OAuthRefreshToken(context.Background())
 }

@@ -16,16 +16,18 @@ pub struct ResReqAuthParam {
 
 #[derive(Debug, Deserialize)]
 pub struct ResCheckParam {
-    pub res_type: String,           //资源KEY
-    pub res_data: String,           //资源KEY
-    pub use_app_user: bool,         //使用当前APP用户
+    pub res_type: String, //资源KEY
+    pub res_data: String, //资源KEY
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
+    pub use_app_user: bool, //使用当前APP用户
     pub user_param: Option<String>, //use_app_user为假时必填,用户标识
-    pub ops: Vec<ResReqAuthParam>,  //授权列表
+    pub ops: Vec<ResReqAuthParam>, //授权列表
 }
 
 #[derive(Debug, Deserialize)]
 pub struct RoleCheckParam {
     pub role_key: String,
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub use_app_user: bool,
     pub user_param: Option<String>, //use_app_user为假时必填,用户标识
 }

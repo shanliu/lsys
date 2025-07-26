@@ -10,12 +10,25 @@ import (
 
 func TestGetSubAppInfo(t *testing.T) {
 	sysApi := GetRestApi()
-
 	//示例1
 	//app信息获取
-	err1, data1 := sysApi.SubAppInfo(context.Background(), "afsd")
+	data1, err1 := sysApi.SubAppInfo(context.Background(), "Sapp00122")
 	if err1 == nil {
-		fmt.Printf("token :%s \n", data1)
+		fmt.Printf("app info :%s \n", data1)
+	} else {
+		fmt.Printf("err :%s \n", err1)
+	}
+}
+
+// 获取子应用数据,用于外部系统校验
+
+func TestGetSubAppUser(t *testing.T) {
+	sysApi := GetRestApi()
+	//示例1
+	//app信息获取
+	data1, err1 := sysApi.SubAppUser(context.Background(), "Sapp00122")
+	if err1 == nil {
+		fmt.Printf("user info :%s \n", data1)
 	} else {
 		fmt.Printf("err :%s \n", err1)
 	}

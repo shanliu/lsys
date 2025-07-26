@@ -24,7 +24,7 @@
 > 示例
 
 ```http
-POST /rest/app?method=oauth_scope
+POST /rest/app?method=sub_app_oauth_scope
 Content-type:application/json
 
 {

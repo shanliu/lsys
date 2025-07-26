@@ -5,7 +5,6 @@
 | 参数 | 类型 | 是否必填 | 描述 |
 |------|------|----------|------|
 | client_id | string | 是 | 应用KEY |
-| user_data | bool | 是 | 是否返回应用对应的用户信息 |
 
 > 响应参数
 
@@ -13,8 +12,6 @@
 |------|------|------|
 | response.client_id | string | 应用KEY |
 | response.name | string | 应用名称 |
-| response.sub_secret.secret_data | string | 密钥数据 |
-| response.sub_secret.time_out | int | 超时时间 |
 | response.user_data.user_data | string | 用户标识 |
 | response.user_data.user_id | string | 用户ID |
 | response.user_data.user_nickname | string | 用户昵称 |
@@ -26,12 +23,11 @@
 > 示例
 
 ```http
-POST /rest/app?method=info
+POST /rest/app?method=sub_app_user
 Content-type:application/json
 
 {
-    "client_id": "dd9319fss",
-    "user_data":true
+    "client_id": "Sapp00122"
 }
 ```
 
@@ -40,16 +36,12 @@ Content-type:application/json
   "response": {
     "client_id": "dd9319fss",
     "name": "dd11127",
-    "sub_secret": [
-      {
-        "secret_data": "482a5edc4b943eb9796ed7492d3a1df3",
-        "time_out": "0"
-      }
-    ],
     "user_data": {
-      "user_data": "1",
-      "user_id": "1",
-      "user_nickname": "root"
+      "app_id": "0",
+      "id": "33",
+      "user_account": "aaaaaa333",
+      "user_data": "7",
+      "user_nickname": "x11"
     }
   },
   "result": {

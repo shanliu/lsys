@@ -24,8 +24,8 @@ func TestMail(t *testing.T) {
 			map[string]string{
 				"code": "sss",
 			},
-			"", //非必须 例:2023-12-11 11:11:11
-			"", //回复邮箱
+			"",                 //非必须 例:2023-12-11 11:11:11
+			"shan.liu@msn.com", //回复邮箱
 			1,
 		)
 		if err1 == nil {

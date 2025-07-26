@@ -7,6 +7,7 @@ use serde::Deserialize;
 use serde_json::json;
 #[derive(Debug, Deserialize)]
 pub struct ResTypeListParam {
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub use_app_user: bool,
     pub user_param: Option<String>, //use_app_user为假时必填,用户标识
     pub res_type: Option<String>,
@@ -68,6 +69,7 @@ pub async fn res_type_data(
 
 #[derive(Debug, Deserialize)]
 pub struct ResTypeAddOpParam {
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub use_app_user: bool,
     pub user_param: Option<String>, //use_app_user为假时必填,用户标识
     pub res_type: String,
@@ -125,6 +127,7 @@ pub async fn res_type_op_add(
 
 #[derive(Debug, Deserialize)]
 pub struct ResDelOpParam {
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub use_app_user: bool,
     pub user_param: Option<String>, //use_app_user为假时必填,用户标识
     pub res_type: String,
@@ -168,6 +171,7 @@ pub async fn res_type_op_del(
 
 #[derive(Debug, Deserialize)]
 pub struct ResTypeOpListParam {
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub use_app_user: bool,
     pub user_param: Option<String>, //use_app_user为假时必填,用户标识
     pub res_type: String,

@@ -10,6 +10,7 @@ use super::{inner_app_rbac_check, inner_app_self_check, inner_user_data_to_user_
 
 #[derive(Debug, Deserialize)]
 pub struct OpAddParam {
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub use_app_user: bool,
     pub user_param: Option<String>, //use_app_user为假时必填,用户标识
     pub op_key: String,
@@ -136,6 +137,7 @@ pub async fn op_del(
 #[derive(Debug, Deserialize)]
 
 pub struct OpDataParam {
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub use_app_user: bool,
     pub user_param: Option<String>, //use_app_user为假时必填,用户标识
     pub op_name: Option<String>,

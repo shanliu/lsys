@@ -1,8 +1,27 @@
-package lsysrest
+package lsyslib
 
 import (
 	"context"
+	"net/http"
+	"rest_client"
+	"time"
 )
+
+const (
+	AccessCheck = 400
+)
+
+func init() {
+	RestApiClientSetConfig(map[int]rest_client.RestBuild{
+		AccessCheck: &RestClientBuild{
+			Payload:    http.MethodPost,
+			HttpMethod: http.MethodPost,
+			Path:       "/rest/rbac/base",
+			Method:     "access",
+			Timeout:    60 * time.Second,
+		},
+	})
+}
 
 // CheckRes 资源接口
 type CheckRes interface {
@@ -21,12 +40,14 @@ func (EmptyCheckRelation) ToCheckRelation(_ context.Context) []map[string]interf
 }
 
 // RbacCheck 权限校验
-func (receiver *RestApi) RbacCheck(ctx context.Context, userId int, relation CheckRelation, checkRes CheckRes) error {
+func (receiver *LsysApi) RbacCheck(ctx context.Context, userId string, relation CheckRelation, checkRes CheckRes) error {
 	data1 := (<-receiver.rest.Do(ctx, AccessCheck, map[string]interface{}{
-		"user_id": userId,
+		"user_param": userId,
+		"token_data": nil,
+		"request_ip": "1.1.0.1",
 		"access": map[string]interface{}{
-			"role_key": relation.ToCheckRelation(ctx),
-			"check_res":    checkRes.ToRbacRes(ctx),
+			"role_key":  relation.ToCheckRelation(ctx),
+			"check_res": checkRes.ToRbacRes(ctx),
 		},
 	})).JsonResult()
 	if data1.Err() != nil {

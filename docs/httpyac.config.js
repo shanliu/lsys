@@ -55,7 +55,7 @@ function restRequestHook(request, yac) {
         default: yac.variables.APP_CLIENT_ID ?? '',
     }, {
         name: 'version',
-        default: '2.0',
+        default: '3.0',
     }]) {
         if (query.get(opt.name)) {
             params[opt.name] = query.get(opt.name);

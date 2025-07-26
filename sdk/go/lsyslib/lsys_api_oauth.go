@@ -1,16 +1,17 @@
-package lsysrest
+package lsyslib
 
 import (
 	"context"
-	"github.com/tidwall/gjson"
 	"net/http"
 	"net/url"
 	"rest_client"
 	"time"
+
+	"github.com/tidwall/gjson"
 )
 
 // OAuthRestConfig Oauth内部服务配置
-type OAuthRestConfig struct {
+type OAuthClientConfig struct {
 	Name        string
 	AppKey      string
 	AppSecret   string
@@ -18,7 +19,7 @@ type OAuthRestConfig struct {
 	EventCreate func(ctx context.Context) rest_client.RestEvent
 }
 
-func (clf *OAuthRestConfig) GetName() string {
+func (clf *OAuthClientConfig) GetName() string {
 	return clf.Name
 }
 
@@ -34,7 +35,7 @@ func (clt *OAuthRestBuild) BuildRequest(ctx context.Context, client *rest_client
 	if err != nil {
 		return rest_client.NewRestResultFromError(err, &rest_client.RestEventNoop{})
 	}
-	config, ok := tConfig.(*OAuthRestConfig)
+	config, ok := tConfig.(*OAuthClientConfig)
 	if !ok {
 		return rest_client.NewRestResultFromError(rest_client.NewRestClientError("11", "build config is wrong"), &rest_client.RestEventNoop{})
 	}

@@ -2,7 +2,7 @@ package router
 
 import (
 	"encoding/json"
-	"lsysrest/lsysrest"
+	"lsysrest/lsyslib"
 	"net/http"
 	"sub_app/app/service"
 	"time"
@@ -10,6 +10,8 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 )
+
+//本应用,通过OAUTH登录,得到LSYS系统的授权
 
 func OauthCallback(c *gin.Context) {
 	code, find1 := c.GetQuery("code")
@@ -41,7 +43,7 @@ func OauthUserInfo(c *gin.Context) {
 		service.ErrorPage(c, "登录超时或未登录,请重新登录")
 		return
 	}
-	var data *lsysrest.TokenData
+	var data *lsyslib.TokenData
 	err := json.Unmarshal([]byte(tmp), &data)
 	if err != nil {
 		service.ErrorPage(c, "授权信息异常，请重新授权:"+err.Error())
@@ -68,10 +70,10 @@ func OauthUserInfo(c *gin.Context) {
 		service.ErrorPage(c, err.Error())
 		return
 	}
-
+	expire, _ := data.ExpiresIn.Int64()
 	c.HTML(http.StatusOK, "user.html", gin.H{
 		"token":    data.AccessToken,
-		"expires":  time.Unix(data.ExpiresIn, 0).Format("2006-01-02 15:04:05"),
+		"expires":  time.Unix(expire, 0).Format("2006-01-02 15:04:05"),
 		"nikename": user.Get("user_data.user.nickname").String(),
 		"username": user.Get("user_data.name.username").String(),
 	})

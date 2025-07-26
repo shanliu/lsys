@@ -1,4 +1,4 @@
-package lsysrest
+package lsyslib
 
 import (
 	"context"
@@ -8,17 +8,39 @@ import (
 	"net/http"
 	"rest_client"
 	"strings"
+	"time"
 )
 
-// SubAppInfo 应用信息
-func (receiver *RestApi) SubAppInfo(ctx context.Context, appId string) (*rest_client.JsonData, error) {
-	data1 := (<-receiver.rest.Do(ctx, SubAppInfo, map[string]interface{}{
-		"client_id": appId,
-	})).JsonResult()
-	if data1.Err() != nil {
-		return nil, data1.Err()
-	}
-	return data1.GetData("response"), nil
+const (
+	AppAuthLogin  = 301
+	AppAuthLogout = 302
+	AppAuthInfo   = 303
+)
+
+func init() {
+	RestApiClientSetConfig(map[int]rest_client.RestBuild{
+		AppAuthLogin: &RestClientBuild{
+			Payload:    http.MethodPost,
+			HttpMethod: http.MethodPost,
+			Path:       "/rest/auth",
+			Method:     "do_login",
+			Timeout:    60 * time.Second,
+		},
+		AppAuthLogout: &RestClientBuild{
+			Payload:    http.MethodPost,
+			HttpMethod: http.MethodPost,
+			Path:       "/rest/auth",
+			Method:     "do_logout",
+			Timeout:    60 * time.Second,
+		},
+		AppAuthInfo: &RestClientBuild{
+			Payload:    http.MethodPost,
+			HttpMethod: http.MethodPost,
+			Path:       "/rest/auth",
+			Method:     "login_info",
+			Timeout:    60 * time.Second,
+		},
+	})
 }
 
 func generateRandomString(n int) (string, error) {
@@ -47,24 +69,25 @@ func getUserAgentAndIP(r *http.Request) (userAgent string, clientIP string) {
 }
 
 // AppAuthLogin 登录
-func (receiver *RestApi) AppAuthLogin(ctx context.Context, userData, userName string, req *http.Request) (string, error) {
+func (receiver *LsysApi) AppAuthLogin(ctx context.Context, userData, userName string, req *http.Request) (string, error) {
 	r, e := generateRandomString(32)
 	if e != nil {
 		return "", e
 	}
 	userAgent := ""
-	clientIP := ""
+	clientIP := "127.0.0.1"
 	if req != nil {
 		userAgent, clientIP = getUserAgentAndIP(req)
 	}
 	data1 := (<-receiver.rest.Do(ctx, AppAuthLogin, map[string]interface{}{
-		"expire_time":  3600 * 24,
-		"token_code":   r,
-		"user_data":    userData,
-		"user_name":    userName,
-		"user_account": userName,
-		"login_ip":     clientIP,
-		"device_name":  userAgent,
+		"user_nickname": userName,
+		"expire_time":   3600 * 24,
+		"token_code":    r,
+		"user_data":     userData,
+		"user_name":     userName,
+		"user_account":  userName,
+		"login_ip":      clientIP,
+		"device_name":   userAgent,
 	})).JsonResult()
 	if data1.Err() != nil {
 		return "", data1.Err()
@@ -73,9 +96,9 @@ func (receiver *RestApi) AppAuthLogin(ctx context.Context, userData, userName st
 }
 
 // AppAuthInfo 退出
-func (receiver *RestApi) AppAuthInfo(ctx context.Context, loginCode string) (*rest_client.JsonData, error) {
+func (receiver *LsysApi) AppAuthInfo(ctx context.Context, tokenData string) (*rest_client.JsonData, error) {
 	data1 := (<-receiver.rest.Do(ctx, AppAuthInfo, map[string]interface{}{
-		"token_data": loginCode,
+		"token_data": tokenData,
 	})).JsonResult()
 	if data1.Err() != nil {
 		return nil, data1.Err()
@@ -84,9 +107,9 @@ func (receiver *RestApi) AppAuthInfo(ctx context.Context, loginCode string) (*re
 }
 
 // AppAuthLogout 退出
-func (receiver *RestApi) AppAuthLogout(ctx context.Context, loginCode string) error {
+func (receiver *LsysApi) AppAuthLogout(ctx context.Context, tokenData string) error {
 	data1 := (<-receiver.rest.Do(ctx, AppAuthLogout, map[string]interface{}{
-		"token_data": loginCode,
+		"token_data": tokenData,
 	})).JsonResult()
 	if data1.Err() != nil {
 		return data1.Err()

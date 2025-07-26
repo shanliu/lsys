@@ -1,11 +1,11 @@
-package lsysrest
+package lsyslib
 
 import (
 	"rest_client"
 )
 
 // RestApiConfig 配置
-type RestApiConfig struct {
+type LsysApiConfig struct {
 	//应用可在 https://www.lsys.cc/app.html#/user/app 申请
 	AppId     string //应用ID
 	AppHost   string //应用HOST
@@ -16,34 +16,34 @@ type RestApiConfig struct {
 }
 
 // RestApi 调用接口
-type RestApi struct {
+type LsysApi struct {
 	client *rest_client.RestClientManager
 	rest   *rest_client.RestClient
 	oauth  *rest_client.RestClient
-	config *RestApiConfig
+	config *LsysApiConfig
 }
 
-func (me *RestApi) Config() *RestApiConfig {
+func (me *LsysApi) Config() *LsysApiConfig {
 	return me.config
 }
 
 // NewRestApi 新建调用接口实例
-func NewRestApi(config *RestApiConfig) *RestApi {
+func NewRestApi(config *LsysApiConfig) *LsysApi {
 	client := rest_client.NewRestClientManager()
 	//配置
 	client.SetRestConfig(&RestClientConfig{
-		Name:      "l-sys-rest-config",
+		Name:      "lsys-rest-config",
 		AppKey:    config.AppId,
 		AppSecret: config.AppSecret,
 		AppUrl:    config.AppHost,
 	})
-	client.SetRestConfig(&OAuthRestConfig{
-		Name:      "l-sys-oauth-config",
+	client.SetRestConfig(&OAuthClientConfig{
+		Name:      "lsys-oauth-config",
 		AppKey:    config.AppId,
 		AppSecret: config.AppOAuthSecret,
 		AppUrl:    config.AppHost,
 	})
-	return &RestApi{
+	return &LsysApi{
 		client: client,
 		rest:   client.NewApi(&RestApiClient{}),
 		oauth:  client.NewApi(&OAuthApiClient{}),

@@ -1,4 +1,4 @@
-package lsysrest
+package lsyslib
 
 import (
 	"context"
@@ -76,7 +76,7 @@ type RestRequestIp interface {
 // RestParamSign 参数签名生成
 func RestParamSign(version, appKey, method, timestamp, appSecret, requestIp, token, body string) string {
 	reqParam := map[string]string{
-		"app_id":    appKey,
+		"client_id": appKey,
 		"version":   version,
 		"timestamp": timestamp,
 	}
@@ -164,12 +164,13 @@ func (clt *RestClientBuild) BuildRequest(ctx context.Context, client *rest_clien
 			}
 		}
 	}
-
+	varsion := "3.0"
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
-	dataSign := RestParamSign("2.0", appid, clt.Method, timestamp, keyConfig, reqIp, token, jsonData)
+	dataSign := RestParamSign(varsion, appid, clt.Method, timestamp, keyConfig, reqIp, token, jsonData)
 	reqParam := map[string]string{
-		"app_id":    appid,
-		"version":   "2.0",
+		"client_id": appid,
+		"version":   varsion,
+		"lang":      "zh_CN",
 		"timestamp": timestamp,
 		"sign":      dataSign,
 	}

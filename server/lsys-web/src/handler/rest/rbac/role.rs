@@ -20,6 +20,7 @@ use serde_json::json;
 
 #[derive(Debug, Deserialize)]
 pub struct RoleAddParam {
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub use_app_user: bool,
     pub user_param: Option<String>, //use_app_user为假时必填,用户标识
     pub role_key: String,
@@ -159,6 +160,7 @@ pub async fn role_del(
 }
 #[derive(Debug, Deserialize)]
 pub struct RoleDataParam {
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub use_app_user: bool,
     pub user_param: Option<String>, //use_app_user为假时必填,用户标识
     pub role_key: Option<String>,

@@ -11,6 +11,7 @@ use serde_json::json;
 pub struct AppResAddParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub use_app_user: bool,
     pub user_param: Option<String>, //use_app_user为假时必填,用户标识
     pub res_name: Option<String>,
@@ -142,6 +143,7 @@ pub async fn app_res_del(
 pub struct AppResParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub use_app_user: bool,
     pub user_param: Option<String>, //use_app_user为假时必填,用户标识
     pub res_type: Option<String>,

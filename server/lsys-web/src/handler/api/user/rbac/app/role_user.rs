@@ -13,6 +13,7 @@ use serde::Deserialize;
 use serde_json::json;
 #[derive(Debug, Deserialize)]
 pub struct AppRoleUserItemParam {
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub use_app_user: bool,
     pub user_param: Option<String>, //use_app_user为假时必填,用户标识
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
@@ -79,6 +80,7 @@ pub async fn app_role_user_add(
 pub struct AppRoleUserDelParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub role_id: u64,
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub use_app_user: bool,
     pub user_data: Vec<String>,
 }
