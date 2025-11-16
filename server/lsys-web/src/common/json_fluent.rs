@@ -86,6 +86,7 @@ impl JsonFluent for ValidCodeError {
             ValidCodeError::Redis(err) => err.to_json_data(fluent),
             ValidCodeError::RedisPool(err) => err.to_json_data(fluent),
             ValidCodeError::Valid(err) => err.to_json_data(fluent),
+            ValidCodeError::Serialize(_) => json_data.set_sub_code("serialize_error"),
         }
     }
 }
@@ -102,7 +103,7 @@ impl JsonFluent for UserAuthError {
     fn to_json_data(&self, fluent: &FluentBundle) -> JsonData {
         let json_data = JsonData::default().set_code(500);
         match self {
-            UserAuthError::NotLogin(_) => json_data.set_sub_code("not_login"),
+            UserAuthError::NotLogin(_) => json_data.set_code(403).set_sub_code("not_login"),
             UserAuthError::System(_) => json_data.set_sub_code("auth"),
             UserAuthError::CheckCaptchaNeed(_) => json_data.set_sub_code("need_captcha"),
             UserAuthError::CheckUserLock((time, _)) => {

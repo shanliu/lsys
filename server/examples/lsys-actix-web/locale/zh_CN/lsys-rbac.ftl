@@ -53,9 +53,6 @@ status-RbacRoleUserStatus-Delete = 删除
 status-RbacAuditResult-Succ = 授权失败
 status-RbacAuditResult-Fail = 授权通过
 
-status-RbacAuditIs-Yes = 授权通过
-status-RbacAuditIs-No = 授权失败
-
 #校验名称
 
 

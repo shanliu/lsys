@@ -150,6 +150,7 @@ impl FluentFormat for ValidCodeError {
                 fluent.format_message(&valid_code_check_error.message)
             }
             ValidCodeError::Valid(valid_error) => valid_error.fluent_format(fluent),
+            ValidCodeError::Serialize(valid_error) => valid_error.fluent_format(fluent),
         }
     }
 }

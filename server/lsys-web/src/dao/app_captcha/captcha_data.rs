@@ -1,4 +1,6 @@
 use async_trait::async_trait;
+
+use base64::Engine;
 use captcha::filters::{Dots, Noise, Wave};
 use captcha::Captcha;
 use deadpool_redis::Connection;
@@ -50,5 +52,12 @@ impl CaptchaValidCodeData {
             image_data: catpcha.as_png().unwrap_or_default(),
             save_time,
         }
+    }
+    pub fn base64_image(&self) -> String {
+        format!(
+            "data:{};base64,{}",
+            self.image_header,
+            base64::engine::general_purpose::STANDARD.encode(&self.image_data)
+        )
     }
 }

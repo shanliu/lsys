@@ -97,7 +97,7 @@ pub struct EmailCodeLogin {
 impl EmailCodeLogin {
     /// 验证码生成
     fn valid_code(redis: deadpool_redis::Pool) -> lsys_core::ValidCode {
-        lsys_core::ValidCode::new(redis, "email-login", true)
+        lsys_core::ValidCode::new(redis, "email-login", true, Some(6))
     }
     async fn email_param_valid(email: &str) -> AccountResult<()> {
         ValidParam::default()

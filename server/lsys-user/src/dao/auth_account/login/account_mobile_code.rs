@@ -20,7 +20,7 @@ use tracing::warn;
 impl MobileCodeLogin {
     /// 验证码生成
     fn valid_code(redis: deadpool_redis::Pool) -> lsys_core::ValidCode {
-        lsys_core::ValidCode::new(redis, "mobile-login", true)
+        lsys_core::ValidCode::new(redis, "mobile-login", true, Some(6))
     }
     async fn mobile_param_valid(area_code: &str, mobile: &str) -> AccountResult<()> {
         ValidParam::default()

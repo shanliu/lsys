@@ -4,7 +4,8 @@ use crate::dao::logger::AppViewSecretLog;
 use crate::dao::AppSecretRecrod;
 use crate::model::{
     AppFeatureModel, AppFeatureStatus, AppModel, AppOAuthClientModel, AppOAuthServerScopeModel,
-    AppOAuthServerScopeStatus, AppRequestType, AppSecretType, AppStatus,
+    AppOAuthServerScopeStatus, AppRequestModel, AppRequestStatus, AppRequestType, AppSecretType,
+    AppStatus,
 };
 
 use lsys_core::db::ModelTableName;
@@ -85,6 +86,10 @@ pub struct AppAttrParam {
     pub exter_feature: bool,
     //获取子应用数量
     pub sub_app_count: bool,
+    //获取该应用的请求数量
+    pub req_pending_count: bool,
+    //获取该应用的子应用请求数量
+    pub sub_req_pending_count: bool,
     //获取OAUTH登录信息
     pub oauth_client_data: bool,
     //获取OAUTH服务信息
@@ -104,6 +109,8 @@ pub struct AppAttrData {
     pub exter_feature: Option<Vec<String>>, //外部功能及启用状态
     pub sub_app_count: Option<Vec<(i8, i64)>>, //子APP数量
     pub parent_app: Option<AppModel>, //上一级APP信息
+    pub req_pending_count: Option<i64>, //当前应用请求数量
+    pub sub_req_pending_count: Option<i64>, //当前应用的子应用请求汇总
 }
 
 impl App {
@@ -143,6 +150,34 @@ impl App {
                     AppStatus::Init as i8,
                     AppStatus::Init as i8,
                 ]
+            ))
+            .fetch_all(&self.db)
+            .await?
+        } else {
+            vec![]
+        };
+        let req_pending_data = if !sub_ids.is_empty() && app_attr.req_pending_count {
+            sqlx::query_as::<_, (u64, i64)>(&sql_format!(
+                "select app_id,status,count(*) as total from {} where
+                app_id in ({}) and status = {}
+                group by app_id,status",
+                AppRequestModel::table_name(),
+                sub_ids,
+                AppRequestStatus::Pending as i8
+            ))
+            .fetch_all(&self.db)
+            .await?
+        } else {
+            vec![]
+        };
+        let sub_req_pending_data = if !sub_ids.is_empty() && app_attr.sub_req_pending_count {
+            sqlx::query_as::<_, (u64, i64)>(&sql_format!(
+                "select parent_app_id,status,count(*) as total from {} where
+                parent_app_id in ({}) and status in ({})
+                group by parent_app_id,status",
+                AppRequestModel::table_name(),
+                sub_ids,
+                AppRequestStatus::Pending as i8
             ))
             .fetch_all(&self.db)
             .await?
@@ -316,6 +351,28 @@ impl App {
                     } else {
                         None
                     },
+                    req_pending_count: if app_attr.req_pending_count {
+                        Some(
+                            req_pending_data
+                                .iter()
+                                .find(|t| t.0 == e.id)
+                                .map(|t| t.1)
+                                .unwrap_or(0),
+                        )
+                    } else {
+                        None
+                    },
+                    sub_req_pending_count: if app_attr.sub_req_pending_count {
+                        Some(
+                            sub_req_pending_data
+                                .iter()
+                                .find(|t| t.0 == e.id)
+                                .map(|t| t.1)
+                                .unwrap_or(0),
+                        )
+                    } else {
+                        None
+                    },
                 };
                 (e, attr)
             })
@@ -411,10 +468,84 @@ impl App {
 }
 
 #[derive(Clone, Debug)]
+pub struct SystemSubAppParam<'t> {
+    pub status: Option<AppStatus>,
+    pub client_id: Option<&'t str>,
+    pub app_id: u64,
+}
+
+impl App {
+    fn system_sub_app_data_sql(&self, app_where: &SystemSubAppParam) -> Option<Vec<String>> {
+        let mut sql_vec = vec![sql_format!("parent_app_id= {}", app_where.app_id)];
+
+        if let Some(ref tmp) = app_where.status {
+            sql_vec.push(sql_format!("status = {}", *tmp as i8));
+        }
+        if let Some(ref tmp) = app_where.client_id {
+            let tmp = string_clear(tmp, StringClear::Option(STRING_CLEAR_FORMAT), Some(64));
+            if tmp.is_empty() {
+                return None;
+            }
+            sql_vec.push(sql_format!("client_id = {}", tmp));
+        };
+        Some(sql_vec)
+    }
+    //系统APP的数据
+    pub async fn system_sub_app_data(
+        &self,
+        app_where: &SystemSubAppParam<'_>,
+        app_attr: Option<&AppAttrParam>,
+        page: Option<&PageParam>,
+    ) -> AppResult<Vec<(AppModel, AppAttrData)>> {
+        let where_sql = match self.system_sub_app_data_sql(app_where) {
+            Some(sql) => sql,
+            None => return Ok(vec![]),
+        };
+        let page_sql = if let Some(pdat) = page {
+            format!(
+                " order by id desc limit {} offset {} ",
+                pdat.limit, pdat.offset
+            )
+        } else {
+            " order by id desc".to_string()
+        };
+        let out_data = sqlx::query_as::<_, AppModel>(&sql_format!(
+            "select * from {} where {} {}",
+            AppModel::table_name(),
+            SqlExpr(where_sql.join(" and ")),
+            if page.is_some() {
+                SqlExpr(page_sql)
+            } else {
+                SqlExpr("".to_string())
+            }
+        ))
+        .fetch_all(&self.db)
+        .await?;
+        self.attr_app_data(out_data, app_attr).await
+    }
+    //系统APP的数量
+    pub async fn system_sub_app_count(&self, app_where: &SystemSubAppParam<'_>) -> AppResult<i64> {
+        let where_sql = match self.system_sub_app_data_sql(app_where) {
+            Some(sql) => sql,
+            None => return Ok(0),
+        };
+        let sql = sql_format!(
+            "select  count(*) as total from {} where {}",
+            AppModel::table_name(),
+            SqlExpr(where_sql.join(" and "))
+        );
+        let query = sqlx::query_scalar::<_, i64>(&sql);
+        let res = query.fetch_one(&self.db).await?;
+        Ok(res)
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct UserAppDataParam<'t> {
     pub parent_app_id: Option<u64>,
     pub status: Option<AppStatus>,
     pub client_id: Option<&'t str>,
+    pub like_client_id: Option<&'t str>,
     pub app_id: Option<u64>,
 }
 
@@ -434,6 +565,14 @@ impl App {
             }
             sql_vec.push(sql_format!("client_id = {}", tmp));
         };
+        if let Some(ref tmp) = app_where.like_client_id {
+            let tmp = string_clear(tmp, StringClear::Option(STRING_CLEAR_FORMAT), Some(64));
+            if tmp.is_empty() {
+                return None;
+            }
+            sql_vec.push(sql_format!("client_id like {}", format!("{}%", tmp)));
+        };
+
         if let Some(ref tmp) = app_where.app_id {
             sql_vec.push(sql_format!("id = {}", tmp));
         }
@@ -485,6 +624,71 @@ impl App {
         };
         let sql = sql_format!(
             "select count(*) as total from {} where {}",
+            AppModel::table_name(),
+            SqlExpr(where_sql.join(" and "))
+        );
+        let query = sqlx::query_scalar::<_, i64>(&sql);
+        let res = query.fetch_one(&self.db).await?;
+        Ok(res)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct UserSubAppParam {
+    pub status: Option<AppStatus>,
+    pub app_id: u64,
+}
+
+impl App {
+    fn user_sub_app_data_sql(&self, app_where: &UserSubAppParam) -> Option<Vec<String>> {
+        let mut sql_vec = vec![sql_format!("parent_app_id= {}", app_where.app_id)];
+
+        if let Some(ref tmp) = app_where.status {
+            sql_vec.push(sql_format!("status = {}", *tmp as i8));
+        }
+        Some(sql_vec)
+    }
+    //用户指定APP的子应用数据
+    pub async fn user_sub_app_data(
+        &self,
+        app_where: &UserSubAppParam,
+        app_attr: Option<&AppAttrParam>,
+        page: Option<&PageParam>,
+    ) -> AppResult<Vec<(AppModel, AppAttrData)>> {
+        let where_sql = match self.user_sub_app_data_sql(app_where) {
+            Some(sql) => sql,
+            None => return Ok(vec![]),
+        };
+        let page_sql = if let Some(pdat) = page {
+            format!(
+                " order by id desc limit {} offset {} ",
+                pdat.limit, pdat.offset
+            )
+        } else {
+            " order by id desc".to_string()
+        };
+        let out_data = sqlx::query_as::<_, AppModel>(&sql_format!(
+            "select * from {} where {} {}",
+            AppModel::table_name(),
+            SqlExpr(where_sql.join(" and ")),
+            if page.is_some() {
+                SqlExpr(page_sql)
+            } else {
+                SqlExpr("".to_string())
+            }
+        ))
+        .fetch_all(&self.db)
+        .await?;
+        self.attr_app_data(out_data, app_attr).await
+    }
+    //用户指定APP的子应用数量
+    pub async fn user_sub_app_count(&self, app_where: &UserSubAppParam) -> AppResult<i64> {
+        let where_sql = match self.user_sub_app_data_sql(app_where) {
+            Some(sql) => sql,
+            None => return Ok(0),
+        };
+        let sql = sql_format!(
+            "select  count(*) as total from {} where {}",
             AppModel::table_name(),
             SqlExpr(where_sql.join(" and "))
         );
@@ -577,16 +781,48 @@ impl App {
 
 impl App {
     //查看secret
-    pub async fn app_view_secret(
+    pub async fn view_app_secret(
         &self,
         app: &AppModel,
         view_user_id: u64,
         env_data: Option<&RequestEnv>,
-    ) -> AppResult<(Vec<AppSecretRecrod>, AppSecretRecrod)> {
+    ) -> AppResult<Vec<AppSecretRecrod>> {
         let app_secret = self
             .app_secret
             .multiple_find_secret_by_app_id(app.id, AppSecretType::App)
             .await?;
+        self.logger
+            .add(
+                &AppViewSecretLog {
+                    action: "view_secret",
+                    app_id: app.id,
+                    user_id: app.user_id,
+                    app_name: &app.name,
+                    secret_data: &format!(
+                        "{}",
+                        &app_secret
+                            .iter()
+                            .map(|e| e.secret_data.as_str())
+                            .collect::<Vec<_>>()
+                            .join(",")
+                    ),
+                },
+                Some(app.id),
+                Some(view_user_id),
+                None,
+                env_data,
+            )
+            .await;
+        Ok(app_secret)
+    }
+      //查看secret
+    pub async fn view_notify_secret(
+        &self,
+        app: &AppModel,
+        view_user_id: u64,
+        env_data: Option<&RequestEnv>,
+    ) -> AppResult<AppSecretRecrod> {
+
         let notify_secret = self
             .app_secret
             .single_find_secret_app_id(app.id, AppSecretType::Notify)
@@ -599,12 +835,7 @@ impl App {
                     user_id: app.user_id,
                     app_name: &app.name,
                     secret_data: &format!(
-                        "{}-{}",
-                        &app_secret
-                            .iter()
-                            .map(|e| e.secret_data.as_str())
-                            .collect::<Vec<_>>()
-                            .join(","),
+                        "{}",
                         notify_secret.secret_data
                     ),
                 },
@@ -614,6 +845,6 @@ impl App {
                 env_data,
             )
             .await;
-        Ok((app_secret, notify_secret))
+        Ok(notify_secret)
     }
 }

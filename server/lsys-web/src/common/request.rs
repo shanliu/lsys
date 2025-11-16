@@ -29,9 +29,11 @@ impl RequestDao {
             req_env,
         }
     }
+    // 将 JsonError 转为 JsonResponse
     pub fn fluent_error_json_response(&self, data: &JsonError) -> JsonResponse {
         data.to_json_response(&self.fluent)
     }
+    // 将 JsonError 转为本地化字符串
     pub fn fluent_error_string(&self, data: &JsonError) -> String {
         match data {
             JsonError::Error(fluent_error_json_data) => {

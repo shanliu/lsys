@@ -36,6 +36,7 @@ role-perm-bad-res = Invalid resource ID: {$res_id}
 role-user-not-system-user = User {$user_name}[{$user_id}] is not a system user, belongs to app: {$app_id}
 role-user-not-found = User ID {$user_id} does not exist
 not-user-app-confirm = Not a user app
+app-is-subapp = This app is a sub-app
 barcode-add-status-error = Record status parsing error: {$msg}
 bad-audit-access = Unauthorized access to audit data
 barcode-parse-error = Parsing failed, record: {$record}

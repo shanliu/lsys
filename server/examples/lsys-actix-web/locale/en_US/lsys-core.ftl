@@ -6,6 +6,7 @@ notify-error = Remote notification error: {$msg}
 notify-time-out = Remote notification timeout: {$msg}
 valid-code-not-match = Submitted verification code [{$code}] does not match
 valid-code-not-found = Verification code [{$code}] does not exist or has expired
+valid-code-max-try = Verification code [{$code}] maximum attempts exceeded, please retrieve a new one
 valid-code-submit-empty = Verification code cannot be empty
 valid-rule-item = {$name} error: {$error}
 valid-error = Validation failed [{$errors}]

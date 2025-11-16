@@ -162,12 +162,18 @@ pub async fn address_delete(
 
 pub async fn address_list_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-
+    let account = req_dao
+        .web_dao
+        .web_user
+        .user_dao
+        .account_dao
+        .session_account(&auth_data)
+        .await?;
     let data = req_dao
         .web_dao
         .web_user
         .account
-        .user_address(auth_data.user_id())
+        .user_address(account.id)
         .await?;
     let data_list = data
         .iter()

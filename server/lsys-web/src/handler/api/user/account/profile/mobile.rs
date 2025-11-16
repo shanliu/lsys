@@ -185,11 +185,18 @@ pub async fn mobile_list_data(
     } else {
         None
     };
+    let account = req_dao
+        .web_dao
+        .web_user
+        .user_dao
+        .account_dao
+        .session_account(&auth_data)
+        .await?;
     let data = req_dao
         .web_dao
         .web_user
         .account
-        .user_mobile(auth_data.user_id(), status.as_deref())
+        .user_mobile(account.id, status.as_deref())
         .await?;
 
     Ok(JsonResponse::data(JsonData::body(json!({

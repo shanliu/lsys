@@ -50,7 +50,7 @@ impl AccountPassword {
 impl AccountPassword {
     /// 验证码生成
     pub fn valid_code(&self) -> lsys_core::ValidCode {
-        lsys_core::ValidCode::new(self.redis.clone(), "passwrod", true)
+        lsys_core::ValidCode::new(self.redis.clone(), "passwrod", true, Some(6))
     }
     /// 获取验证码
     pub async fn valid_code_set<T: lsys_core::ValidCodeData>(

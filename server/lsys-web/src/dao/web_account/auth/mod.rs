@@ -9,6 +9,7 @@ use std::sync::Arc;
 
 pub use login::*;
 pub use login_data::*;
+use lsys_app::dao::AppDao;
 use lsys_user::dao::UserDao;
 pub use password::*;
 pub use register::*;
@@ -18,6 +19,7 @@ use crate::dao::{AppCaptcha, AppSender};
 
 pub struct WebUserAuth {
     user_dao: Arc<UserDao>,
+    app_dao: Arc<AppDao>,
     captcha: Arc<AppCaptcha>,
     sender: Arc<AppSender>,
     db: Pool<sqlx::MySql>,
@@ -27,11 +29,13 @@ impl WebUserAuth {
     pub fn new(
         db: Pool<MySql>,
         user_dao: Arc<UserDao>,
+        app_dao: Arc<AppDao>,
         captcha: Arc<AppCaptcha>,
         sender: Arc<AppSender>,
     ) -> Self {
         WebUserAuth {
             user_dao,
+            app_dao,
             captcha,
             sender,
             db,

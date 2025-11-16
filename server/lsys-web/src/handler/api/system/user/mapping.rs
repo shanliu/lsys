@@ -10,20 +10,20 @@ use serde_json::json;
 pub async fn mapping_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     Ok(JsonResponse::data(JsonData::body(json!({
         "session_status":vec![
-            status_format!(json req_dao, SessionStatus::Enable),
-            status_format!(json req_dao, SessionStatus::Delete),
+            status_json_format!(req_dao, SessionStatus::Enable),
+            status_json_format!(req_dao, SessionStatus::Delete),
         ],
         "mobile_status":vec![
-             status_format!(json req_dao, AccountMobileStatus::Init),
-            status_format!(json req_dao, AccountMobileStatus::Valid),
+             status_json_format!(req_dao, AccountMobileStatus::Init),
+            status_json_format!(req_dao, AccountMobileStatus::Valid),
         ],
         "email_status":vec![
-            status_format!(json req_dao, AccountEmailStatus::Init),
-            status_format!(json req_dao, AccountEmailStatus::Valid),
+            status_json_format!(req_dao, AccountEmailStatus::Init),
+            status_json_format!(req_dao, AccountEmailStatus::Valid),
         ],
         "account_status":vec![
-            status_format!(json req_dao, AccountStatus::Init),
-            status_format!(json req_dao, AccountStatus::Enable),
+            status_json_format!(req_dao, AccountStatus::Init),
+            status_json_format!(req_dao, AccountStatus::Enable),
         ],
     }))))
 }

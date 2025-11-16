@@ -191,6 +191,7 @@ pub async fn smser_notify_get_config(req_dao: &UserAuthQueryDao) -> JsonResult<J
         status: Some(AppStatus::Enable),
         parent_app_id: Some(auth_data.session().user_app_id),
         client_id: None,
+        like_client_id: None,
         app_id: None,
     };
     let apps = req_dao

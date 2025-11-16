@@ -7,10 +7,11 @@ use lsys_web::handler::api::system::app::{
     confirm_inner_feature_exter_login_confirm, confirm_inner_feature_sub_app_confirm, delete,
     disable, mapping_data, oauth_client_clear_access_token, oauth_client_clear_refresh_token,
     oauth_client_confirm, oauth_client_scope_confirm, oauth_server_confirm, request_list,
-    AppLogoutParam, ClearOAuthClientAccessTokenParam, ClearOAuthClientRefreshTokenParam,
-    ConfirmExterFeatureParam, ConfirmExterLoginFeatureParam, ConfirmInnerFeatureSubAppParam,
-    ConfirmOAuthClientParam, ConfirmOAuthClientScopeParam, ConfirmOAuthServerParam, ConfirmParam,
-    DeleteParam, DisableParam, ListParam, RequestListParam,
+    sub_app_list, AppLogoutParam, ClearOAuthClientAccessTokenParam,
+    ClearOAuthClientRefreshTokenParam, ConfirmExterFeatureParam, ConfirmExterLoginFeatureParam,
+    ConfirmInnerFeatureSubAppParam, ConfirmOAuthClientParam, ConfirmOAuthClientScopeParam,
+    ConfirmOAuthServerParam, ConfirmParam, DeleteParam, DisableParam, ListParam, RequestListParam,
+    SubListParam,
 };
 
 #[post("/{method}")]
@@ -61,6 +62,7 @@ pub(crate) async fn app(
             .await
         }
         "list" => app_list(&json_param.param::<ListParam>()?, &auth_dao).await,
+        "sub_list" => sub_app_list(&json_param.param::<SubListParam>()?, &auth_dao).await,
         "mapping" => mapping_data(&auth_dao).await,
         "request_list" => request_list(&json_param.param::<RequestListParam>()?, &auth_dao).await,
         "oauth_client_confirm" => {

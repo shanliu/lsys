@@ -6,6 +6,7 @@ notify-error = 远程通知异常:{$msg}
 notify-time-out = 远程通知超时:{$msg}
 valid-code-not-match = 提交的验证码({$code})不匹配
 valid-code-not-found = 验证码({$code})不存在或已经超时
+valid-code-max-try = 验证码({$code})最大尝试次数已用完,请重新获取
 valid-code-submit-empty = 验证码不为空
 
 

@@ -32,8 +32,6 @@ status-RbacRoleUserStatus-Enable = Active
 status-RbacRoleUserStatus-Delete = Deleted
 status-RbacAuditResult-Succ = Authorization failed
 status-RbacAuditResult-Fail = Authorization approved
-status-RbacAuditIs-Yes = Authorization approved
-status-RbacAuditIs-No = Authorization failed
 # Validation Names
 valid-rule-name-login_token_data = Login token data
 valid-rule-name-res_type = Resource type

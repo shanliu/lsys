@@ -1,3 +1,4 @@
+mod auth;
 mod notify;
 mod public;
 mod system;
@@ -21,20 +22,26 @@ where
 
     api_scope = api_scope
         .service(
+            scope("/captcha")
+                .service(public::captcha_json)
+                .service(public::options),
+        )
+        .service(
             scope("/auth")
-                .service(public::login)
-                .service(public::logout)
-                .service(public::user_data)
-                .service(public::external_login_url)
-                .service(public::external_state_callback)
-                .service(public::external_state_check)
-                .service(public::password)
-                .service(public::register)
+                .service(auth::perm)
+                .service(auth::login)
+                .service(auth::logout)
+                .service(auth::user_data)
+                .service(auth::external_login_url)
+                .service(auth::external_state_callback)
+                .service(auth::external_state_check)
+                .service(auth::password)
+                .service(auth::register)
                 .service(public::options),
         )
         .service(
             scope("/oauth")
-                .service(public::oauth)
+                .service(auth::oauth)
                 .service(public::options),
         )
         .service(

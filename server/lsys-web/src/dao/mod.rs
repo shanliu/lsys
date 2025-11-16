@@ -198,6 +198,7 @@ impl WebDao {
         let web_user = Arc::new(WebUser::new(
             db.clone(),
             user_dao,
+            web_app.app_dao.clone(),
             app_sender.clone(),
             app_captcha.clone(),
             app_area.clone(),

@@ -20,6 +20,7 @@ pub enum ValidCodeError {
     Tag(FluentMessage),
     NotMatch(ValidCodeCheckError),
     Valid(ValidError),
+    Serialize(serde_json::Error),
 }
 
 impl IntoFluentMessage for ValidCodeError {
@@ -31,6 +32,7 @@ impl IntoFluentMessage for ValidCodeError {
             ValidCodeError::Tag(err) => err.to_owned(),
             ValidCodeError::NotMatch(err) => err.message.clone(),
             ValidCodeError::Valid(err) => err.to_fluent_message(),
+            ValidCodeError::Serialize(err) => fluent_message!("serialize-error", err),
         }
     }
 }

@@ -4,6 +4,7 @@ mod oauth;
 
 pub use account::*;
 pub use auth::*;
+use lsys_app::dao::AppDao;
 use lsys_logger::dao::ChangeLoggerDao;
 use lsys_user::dao::UserDao;
 pub use oauth::*;
@@ -22,6 +23,7 @@ impl WebUser {
     pub fn new(
         db: Pool<MySql>,
         user_dao: Arc<UserDao>,
+        app_dao: Arc<AppDao>,
         sender: Arc<AppSender>,
         captcha: Arc<AppCaptcha>,
         area: Arc<AppArea>,
@@ -38,6 +40,7 @@ impl WebUser {
             auth: Arc::new(WebUserAuth::new(
                 db.clone(),
                 user_dao.clone(),
+                app_dao,
                 captcha,
                 sender,
             )),

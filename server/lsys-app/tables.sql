@@ -93,7 +93,7 @@ CREATE TABLE `yaf_app_request` (
     `app_id` bigint unsigned NOT NULL COMMENT '应用ID',
     `request_type` tinyint NOT NULL COMMENT '请求类型:申请应用 更改应用 申请功能',
     `status` tinyint NOT NULL COMMENT '状态:待审核,已审核,已删除',
-    `request_user_id` bigint unsigned NOT NULL COMMENT '最后更新用户',
+    `request_user_id` bigint unsigned NOT NULL COMMENT '请求用户',
     `request_time` bigint unsigned NOT NULL COMMENT '最后更改时间',
     `confirm_user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '确认用户',
     `confirm_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '确认时间',

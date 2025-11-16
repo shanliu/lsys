@@ -53,7 +53,7 @@ where
 {
     type Response = ServiceResponse<B>;
     type Error = Error;
-    type Future = DefaultHeaderFuture<S, B>;
+    type Future = RequestIDFuture<S, B>;
     actix_service::forward_ready!(service);
     fn call(&self, mut req: ServiceRequest) -> Self::Future {
         let mut req_id = String::from("");
@@ -74,7 +74,7 @@ where
             }
         }
         let fut = self.service.call(req);
-        DefaultHeaderFuture {
+        RequestIDFuture {
             fut,
             name: self.name,
             req_id,
@@ -84,7 +84,7 @@ where
 }
 
 #[pin_project::pin_project]
-pub struct DefaultHeaderFuture<S: Service<ServiceRequest>, B> {
+pub struct RequestIDFuture<S: Service<ServiceRequest>, B> {
     #[pin]
     fut: S::Future,
     name: &'static str,
@@ -92,7 +92,7 @@ pub struct DefaultHeaderFuture<S: Service<ServiceRequest>, B> {
     _body: PhantomData<B>,
 }
 
-impl<S, B> Future for DefaultHeaderFuture<S, B>
+impl<S, B> Future for RequestIDFuture<S, B>
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
 {

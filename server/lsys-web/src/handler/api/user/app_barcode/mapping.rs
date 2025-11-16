@@ -9,13 +9,13 @@ use serde_json::json;
 pub async fn mapping_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     Ok(JsonResponse::data(JsonData::body(json!({
         "create_status":vec![
-            status_format!(json req_dao, BarcodeCreateStatus::EnablePrivate),
-            status_format!(json req_dao, BarcodeCreateStatus::EnablePublic),
+            status_json_format!(req_dao, BarcodeCreateStatus::EnablePrivate),
+            status_json_format!(req_dao, BarcodeCreateStatus::EnablePublic),
 
         ],
          "parse_status":vec![
-            status_format!(json req_dao, BarcodeParseStatus::Succ),
-            status_format!(json req_dao, BarcodeParseStatus::Fail),
+            status_json_format!(req_dao, BarcodeParseStatus::Succ),
+            status_json_format!(req_dao, BarcodeParseStatus::Fail),
 
         ],
     }))))

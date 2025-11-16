@@ -6,6 +6,7 @@ use std::{collections::HashMap, sync::OnceLock};
 use tokio::sync::mpsc::{self, Sender};
 use tracing::{info, warn};
 
+use crate::model::RbacAuditResult;
 use crate::{
     dao::{
         op::OpInfo,
@@ -667,7 +668,7 @@ impl RbacAccess {
             user_id: env_data.user_id,
             user_app_id: env_data.user_app_id,
             role_key_data,
-            check_result: if check_result { 1 } else { 0 },
+            check_result: if check_result { RbacAuditResult::Succ as i8 } else {  RbacAuditResult::Fail as i8 },
             token_data: env_data
                 .user_login_token
                 .as_ref()
@@ -688,7 +689,7 @@ impl RbacAccess {
                         op_key: e.op_key.to_owned(),
                         res_id: e.res_detail.map(|e| e.id).unwrap_or_default(),
                         op_id: e.op_detail.map(|e| e.id).unwrap_or_default(),
-                        check_result: if e.check_result { 1 } else { 0 },
+                        check_result: if check_result { RbacAuditResult::Succ as i8 } else {  RbacAuditResult::Fail as i8 },
                         res_auth: if e.res_auth { 1 } else { 0 },
                       //  is_root: if e.is_root { 1 } else { 0 },
                         is_role_excluce: if e.is_role_excluce { 1 } else { 0 },

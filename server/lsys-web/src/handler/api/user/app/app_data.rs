@@ -6,6 +6,7 @@ use crate::{
 };
 use lsys_access::dao::AccessSession;
 use lsys_app::dao::UserParentAppDataParam;
+use lsys_app::model::AppRequestType;
 use lsys_app::{
     dao::{AppAttrParam, AppRequestData, UserAppDataParam},
     model::{AppRequestStatus, AppStatus},
@@ -34,6 +35,7 @@ pub struct ShowAppRecord {
     pub oauth_server_scope_data: Option<Vec<serde_json::Value>>, //OAUTH服务SCOPE设置
     pub exter_feature: Option<Vec<String>>,           //外部功能及启用状态
     pub sub_app_count: Option<serde_json::Value>,     //子APP数量
+    pub sub_req_pending_count: i64,                   //子APP请求数量
 }
 
 #[derive(Deserialize)]
@@ -48,6 +50,18 @@ pub struct UserAppListParam {
     pub page: Option<PageParam>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
+    pub attr_inner_feature: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
+    pub attr_exter_feature: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
+    pub attr_sub_app_count: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
+    pub attr_oauth_client_data: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
+    pub attr_oauth_server_data: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
+    pub attr_parent_app: Option<bool>,
 }
 
 pub async fn app_list(
@@ -83,16 +97,19 @@ pub async fn app_list(
     let app_param = UserAppDataParam {
         parent_app_id: param.parent_app_id,
         status,
-        client_id: param.client_id.as_deref(),
+        like_client_id: param.client_id.as_deref(),
+        client_id: None,
         app_id: param.app_id,
     };
     let app_attr = AppAttrParam {
-        inner_feature: true,
-        exter_feature: true,
-        sub_app_count: true,
-        oauth_client_data: true,
-        oauth_server_data: true,
-        parent_app: true,
+        inner_feature: param.attr_inner_feature.unwrap_or(true),
+        exter_feature: param.attr_exter_feature.unwrap_or(true),
+        sub_app_count: param.attr_sub_app_count.unwrap_or(true),
+        oauth_client_data: param.attr_oauth_client_data.unwrap_or(true),
+        oauth_server_data: param.attr_oauth_server_data.unwrap_or(true),
+        parent_app: param.attr_parent_app.unwrap_or(true),
+        req_pending_count: false,
+        sub_req_pending_count: true,
     };
 
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
@@ -178,6 +195,7 @@ pub async fn app_list(
                     "disable":disable
                 })
             }),
+            sub_req_pending_count: e.1.sub_req_pending_count.unwrap_or(0),
         })
         .collect::<Vec<_>>();
 
@@ -283,6 +301,8 @@ pub struct SecretViewSecretParam {
     #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub app_secret: bool,
     #[serde(deserialize_with = "crate::common::deserialize_bool")]
+    pub notify_secret: bool,
+    #[serde(deserialize_with = "crate::common::deserialize_bool")]
     pub oauth_secret: bool,
 }
 
@@ -311,15 +331,24 @@ pub async fn secret_view(
         .await?;
     let mut out_data = Map::new();
     if param.app_secret {
-        let (app_secret_data, notify_data) = req_dao
+       let app_secret_data=  req_dao
             .web_dao
             .web_app
             .app_dao
             .app
-            .app_view_secret(&app, auth_data.user_id(), Some(&req_dao.req_env))
+            .view_app_secret(&app, auth_data.user_id(), Some(&req_dao.req_env))
             .await?;
         out_data.insert("app_secret".to_string(), json!(app_secret_data));
-        out_data.insert(
+    }
+    if param.notify_secret {
+        let notify_data=  req_dao
+            .web_dao
+            .web_app
+            .app_dao
+            .app
+            .view_notify_secret(&app, auth_data.user_id(), Some(&req_dao.req_env))
+            .await?;
+         out_data.insert(
             "notify_secret".to_string(),
             json!({
                 "secret":notify_data.secret_data,
@@ -385,14 +414,23 @@ pub async fn sub_app_secret_view(
         .await?;
     let mut out_data = Map::new();
     if param.app_secret {
-        let (app_secret_data, notify_data) = req_dao
+        let app_secret_data= req_dao
             .web_dao
             .web_app
             .app_dao
             .app
-            .app_view_secret(&app, auth_data.user_id(), Some(&req_dao.req_env))
+            .view_app_secret(&app, auth_data.user_id(), Some(&req_dao.req_env))
             .await?;
         out_data.insert("app_secret".to_string(), json!(app_secret_data));
+    }
+    if param.notify_secret {
+        let notify_data = req_dao
+            .web_dao
+            .web_app
+            .app_dao
+            .app
+            .view_notify_secret(&app, auth_data.user_id(), Some(&req_dao.req_env))
+            .await?;
         out_data.insert(
             "notify_secret".to_string(),
             json!({
@@ -420,6 +458,8 @@ pub struct RequestListParam {
     pub app_id: u64,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
     pub status: Option<i8>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
+    pub request_type: Option<i8>,
     pub page: Option<PageParam>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
@@ -430,6 +470,13 @@ pub struct ShowRequestRecord {
     pub id: u64,
     pub app_id: u64,
     pub status: i8,
+    pub parent_app_id: u64,
+    pub parent_app_name: String,
+    pub parent_app_client_id: String,
+    pub parent_app_user_id: u64,
+    pub app_name: String,
+    pub app_client: String,
+    pub app_status: i8,
     pub request_type: i8,
     pub request_user_id: u64,
     pub request_time: u64,
@@ -475,15 +522,25 @@ pub async fn request_list(
     } else {
         None
     };
+    let req_type = if let Some(e) = param.request_type {
+        Some(match AppRequestType::try_from(e) {
+            Ok(ts) => ts,
+            Err(err) => return Err(err.into()),
+        })
+    } else {
+        None
+    };
     let appdata = req_dao
         .web_dao
         .web_app
         .app_dao
         .app
         .app_request_data(
+            Some(auth_data.user_id()),
             Some(app.id),
             Some(app.parent_app_id),
             status,
+            req_type,
             param.page.as_ref().map(|e| e.into()).as_ref(),
         )
         .await?;
@@ -493,7 +550,7 @@ pub async fn request_list(
                 let mut feature_data = None;
                 let mut oauth_client_data = None;
                 let mut change_data = None;
-                match e.1 {
+                match e.2 {
                     AppRequestData::Feature(d) => {
                         feature_data = Some(json!({
                             "feature":d.feature_data,
@@ -526,6 +583,13 @@ pub async fn request_list(
                     feature_data,
                     oauth_client_data,
                     change_data,
+                    parent_app_id: e.1.parent_app_id,
+                    parent_app_name: e.1.parent_app_name,
+                    parent_app_client_id: e.1.parent_app_client_id,
+                    parent_app_user_id: e.1.parent_app_user_id,
+                    app_name: e.1.name,
+                    app_client: e.1.client_id,
+                    app_status: e.1.status,
                 }
             })
             .collect::<Vec<_>>();
@@ -537,7 +601,7 @@ pub async fn request_list(
                 .web_app
                 .app_dao
                 .app
-                .app_request_count(Some(app.id), Some(app.parent_app_id), status)
+                .app_request_count(  Some(auth_data.user_id()),Some(app.id), Some(app.parent_app_id), status, req_type)
                 .await?,
         )
     } else {
@@ -547,7 +611,8 @@ pub async fn request_list(
         "data": bind_vec_user_info_from_req!(
             req_dao,
             out,
-            request_user_id
+            [confirm_user_id:"confirm_user_data"],
+            true
         ),
         "total":count
     }))))
@@ -557,11 +622,34 @@ pub async fn request_list(
 pub struct SubRequestListParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
+    #[serde(deserialize_with = "crate::common::deserialize_option_u64")]
+    pub sub_app_id: Option<u64>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
     pub status: Option<i8>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
+    pub request_type: Option<i8>,
     pub page: Option<PageParam>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
+}
+
+#[derive(Serialize)]
+pub struct ShowSubRequestRecord {
+    pub id: u64,
+    pub app_id: u64,
+    pub status: i8,
+    pub app_name: String,
+    pub app_client: String,
+    pub app_status: i8,
+    pub request_type: i8,
+    pub request_user_id: u64,
+    pub request_time: u64,
+    pub confirm_user_id: u64,
+    pub confirm_time: u64,
+    pub confirm_note: String,
+    pub feature_data: Option<serde_json::Value>,
+    pub oauth_client_data: Option<serde_json::Value>,
+    pub change_data: Option<serde_json::Value>,
 }
 
 //指定APP的被请求功能列表
@@ -604,6 +692,14 @@ pub async fn sub_request_list(
     } else {
         None
     };
+    let req_type = if let Some(e) = param.request_type {
+        Some(match AppRequestType::try_from(e) {
+            Ok(ts) => ts,
+            Err(err) => return Err(err.into()),
+        })
+    } else {
+        None
+    };
     let appdata = req_dao
         .web_dao
         .web_app
@@ -611,8 +707,10 @@ pub async fn sub_request_list(
         .app
         .app_request_data(
             None,
+            param.sub_app_id,
             Some(app.id),
             status,
+            req_type,
             param.page.as_ref().map(|e| e.into()).as_ref(),
         )
         .await?;
@@ -622,7 +720,7 @@ pub async fn sub_request_list(
                 let mut feature_data = None;
                 let mut oauth_client_data = None;
                 let mut change_data = None;
-                match e.1 {
+                match e.2 {
                     AppRequestData::Feature(d) => {
                         feature_data = Some(json!({
                             "feature":d.feature_data,
@@ -642,7 +740,7 @@ pub async fn sub_request_list(
                     AppRequestData::None => {}
                 };
 
-                ShowRequestRecord {
+                ShowSubRequestRecord {
                     id: e.0.id,
                     status: e.0.status,
                     app_id: e.0.app_id,
@@ -655,6 +753,9 @@ pub async fn sub_request_list(
                     feature_data,
                     oauth_client_data,
                     change_data,
+                    app_name: e.1.name,
+                    app_client: e.1.client_id,
+                    app_status: e.1.status,
                 }
             })
             .collect::<Vec<_>>();
@@ -666,7 +767,7 @@ pub async fn sub_request_list(
                 .web_app
                 .app_dao
                 .app
-                .app_request_count(None, Some(app.id), status)
+                .app_request_count( None,param.sub_app_id, Some(app.id), status, req_type)
                 .await?,
         )
     } else {

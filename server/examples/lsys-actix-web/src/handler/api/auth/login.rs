@@ -10,7 +10,6 @@ use lsys_web::lsys_user::dao::UserAuthToken;
 
 use lsys_web::common::{JsonData, JsonError, JsonResponse, JsonResult};
 use lsys_web::dao::ShowUserAuthData;
-use lsys_web::handler::api::auth::user_login_email_send_code;
 use lsys_web::handler::api::auth::user_login_from_app_code;
 use lsys_web::handler::api::auth::user_login_from_email;
 use lsys_web::handler::api::auth::user_login_from_email_code;
@@ -29,6 +28,7 @@ use lsys_web::handler::api::auth::MobileSendCodeLoginParam;
 use lsys_web::handler::api::auth::NameLoginParam;
 use lsys_web::handler::api::auth::UserAuthDataOptionParam;
 use lsys_web::handler::api::auth::{login_data_from_user_auth, user_external_login_url};
+use lsys_web::handler::api::auth::{mapping_data, user_login_email_send_code};
 use lsys_web::lsys_access::dao::AccessSession;
 use lsys_web_module_oauth::module::{
     WeChatConfig, WechatCallbackParam, WechatLogin, WechatLoginParam, OAUTH_TYPE_WECHAT,
@@ -77,6 +77,18 @@ pub(crate) async fn login(
     auth_dao: UserAuthQuery,
 ) -> ResponseJsonResult<ResponseJson> {
     let res = match path.into_inner().as_str() {
+        "mapping" => {
+            mapping_data(
+                &auth_dao,
+                json!([
+                    {
+                        "key":OAUTH_TYPE_WECHAT,
+                        "val":auth_dao.fluent.format_message(&fluent_message!("dict-exter-type-{}",OAUTH_TYPE_WECHAT)),
+                    }
+                ])
+            )
+            .await
+        }
         "sms-send-code" => {
             user_login_mobile_send_code(&json_param.param::<MobileSendCodeLoginParam>()?, &auth_dao)
                 .await

@@ -36,7 +36,7 @@ status-NotifyDataStatus-Succ = 回调完成
 status-NotifyDataStatus-Fail = 回调失败
 
 
-status-AppStatus-Init = 正常
+status-AppStatus-Init =  审核中
 status-AppStatus-Enable = 正常
 status-AppStatus-Disable = 被禁用
 status-AppStatus-Delete = 删除
@@ -53,14 +53,14 @@ status-AppOAuthServerScopeStatus-Enable = 正常
 status-AppOAuthServerScopeStatus-Delete = 删除
 
 
-status-AppRequestType-AppReq = 新应用申请
-status-AppRequestType-AppChange = 应该更改申请
-status-AppRequestType-SubApp = 子应用可用申请
-status-AppRequestType-ExterLogin = 外部账号登录系统申请
-status-AppRequestType-OAuthServer = Oauth服务申请
-status-AppRequestType-OAuthClient = Oauth登录申请
-status-AppRequestType-OAuthClientScope = OAUTH登录新增权限申请
-status-AppRequestType-ExterFeatuer = 外部功能申请:如发短信邮件等
+status-AppRequestType-AppReq = 新应用
+status-AppRequestType-AppChange = 更改信息
+status-AppRequestType-SubApp = 子应用
+status-AppRequestType-ExterLogin = 外部账号登录
+status-AppRequestType-OAuthServer = OAuth服务器
+status-AppRequestType-OAuthClient = OAuth登录
+status-AppRequestType-OAuthClientScope = OAuth登录新权限
+status-AppRequestType-ExterFeatuer = 附属功能
 
 
 

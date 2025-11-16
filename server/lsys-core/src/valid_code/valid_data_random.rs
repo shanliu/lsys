@@ -41,7 +41,7 @@ impl ValidCodeData for ValidCodeDataRandom {
                 }
             }
         }
-        let out_code = rand_str(RandType::Number, 6);
+        let out_code = rand_str(RandType::VaildCode, 6);
         let _: () = redis.set(change_key.as_str(), out_code.clone()).await?;
         let _: () = redis
             .expire(change_key.as_str(), self.duration_time as i64)

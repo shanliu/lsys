@@ -4,7 +4,7 @@ use crate::common::{CaptchaParam, JsonError, JsonResult};
 use crate::dao::{OauthCallbackParam, OauthLogin, OauthLoginParam};
 
 use lsys_access::dao::SessionBody;
-use lsys_core::{fluent_message, now_time, IntoFluentMessage, RequestEnv};
+use lsys_core::{fluent_message, IntoFluentMessage, RequestEnv};
 use lsys_user::dao::login::ExternalLogin;
 use lsys_user::dao::{
     login::{AccountLoginEnv, AccountLoginMeta, AccountLoginParam},
@@ -18,6 +18,14 @@ use lsys_user::dao::{
     },
     CODE_LOGIN_TYPE,
 };
+#[derive(Debug, Clone, Serialize)]
+pub struct ShowUserAppData {
+    pub app_id: u64,
+    pub client_id: String,
+    pub app_name: String,
+    pub change_time: u64,
+}
+
 use serde::Serialize;
 use serde_json::json;
 use serde_json::Value;
@@ -26,6 +34,7 @@ use std::net::IpAddr;
 pub struct ShowUserAuthData {
     pub login_type: String,
     pub login_data: Value,
+    pub app_data: Option<ShowUserAppData>,
     pub user_id: u64,
     pub user_nickname: String,
     pub empty_password: bool,
@@ -74,11 +83,28 @@ impl WebUserAuth {
         } else {
             return Err(JsonError::Message(fluent_message!("bad-session-data")));
         };
-
-        let stime = now_time().unwrap_or_default();
+        let app_data = if auth_data.session().user_app_id > 0 {
+            let app = self
+                .app_dao
+                .app
+                .cache()
+                .find_by_id(auth_data.session().user_app_id)
+                .await?;
+            Some(ShowUserAppData {
+                app_id: app.id,
+                app_name: app.name,
+                client_id: app.client_id,
+                change_time: app.change_time,
+            })
+        } else {
+            None
+        };
+        //session 过期时间
         let time_out = auth_data.session().expire_time;
-        let login_time = time_out.saturating_sub(stime);
+        //登录时间
+        let login_time = auth_data.session().add_time;
         Ok(ShowUserAuthData {
+            app_data,
             login_type: auth_data.session().login_type.to_owned(),
             login_data: show_login_data,
             user_id: auth_data.user_id(),

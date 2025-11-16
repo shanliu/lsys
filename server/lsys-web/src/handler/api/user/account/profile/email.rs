@@ -201,11 +201,18 @@ pub async fn email_list_data(
     } else {
         None
     };
+    let account = req_dao
+        .web_dao
+        .web_user
+        .user_dao
+        .account_dao
+        .session_account(&auth_data)
+        .await?;
     let data = req_dao
         .web_dao
         .web_user
         .account
-        .user_email(auth_data.user_id(), status.as_deref())
+        .user_email(account.id, status.as_deref())
         .await?;
     Ok(JsonResponse::data(JsonData::body(json!({
         "data": data ,

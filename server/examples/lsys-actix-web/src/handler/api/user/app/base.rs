@@ -9,7 +9,7 @@ use lsys_web::handler::api::user::app::{
     oauth_client_scope_request, oauth_client_set_domain, oauth_secret_add, oauth_secret_change,
     oauth_secret_del, oauth_server_client_confirm, oauth_server_client_scope_confirm,
     oauth_server_request, oauth_server_setting, parent_app_list, request_exter_feature,
-    request_inner_feature_exter_login_request, request_list, secret_view,
+    request_inner_feature_exter_login_request, request_list, secret_view, sub_app_list,
     sub_app_notify_get_config, sub_app_notify_set_config, sub_app_request, sub_app_secret_view,
     sub_request_list, AddAppSecretParam, AddOAuthSecretParam, AddParam, ChangeAppSecretParam,
     ChangeNotifySecretParam, ChangeOAuthSecretParam, ChangeParam, ConfirmExterFeatureParam,
@@ -18,8 +18,8 @@ use lsys_web::handler::api::user::app::{
     DeleteParam, NotifyDataDelParam, NotifyDataListParam, OAuthClientRequestParam,
     OAuthClientScopeDataParam, OAuthServerRequestParam, RequestExterFeatureParam,
     RequestExterLoginFeatureParam, RequestExterSubAppParam, RequestListParam,
-    SecretViewSecretParam, SubAppNotifyConfigParam, SubRequestListParam, UserAppListParam,
-    UserParentAppListParam,
+    SecretViewSecretParam, SubAppListParam, SubAppNotifyGetConfigParam,
+    SubAppNotifySetConfigParam, SubRequestListParam,UserAppListParam, UserParentAppListParam,
 };
 #[post("/{method}")]
 pub(crate) async fn base(
@@ -80,9 +80,14 @@ pub(crate) async fn base(
         "sub_app_request" => {
             sub_app_request(&json_param.param::<RequestExterSubAppParam>()?, &auth_dao).await
         }
-        "sub_app_notify_get_config" => sub_app_notify_get_config(&auth_dao).await,
+        "sub_app_list" => {
+            sub_app_list(&json_param.param::<SubAppListParam>()?, &auth_dao).await
+        }
+        "sub_app_notify_get_config" => {
+            sub_app_notify_get_config(&json_param.param::<SubAppNotifyGetConfigParam>()?, &auth_dao).await
+        },
         "sub_app_notify_set_config" => {
-            sub_app_notify_set_config(&json_param.param::<SubAppNotifyConfigParam>()?, &auth_dao)
+            sub_app_notify_set_config(&json_param.param::<SubAppNotifySetConfigParam>()?, &auth_dao)
                 .await
         }
         "oauth_client_scope_data" => {

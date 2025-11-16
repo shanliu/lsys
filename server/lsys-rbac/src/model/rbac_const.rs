@@ -64,12 +64,5 @@ pub enum RbacRoleUserStatus {
 #[lsys_model_status(field_type = "i8")]
 pub enum RbacAuditResult {
     Succ = 1,
-    Fail = 2,
-}
-
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-#[lsys_model_status(field_type = "i8")]
-pub enum RbacAuditIs {
-    Yes = 1,
-    No = 0,
+    Fail = 0,
 }

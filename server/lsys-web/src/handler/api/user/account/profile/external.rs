@@ -70,11 +70,18 @@ pub async fn external_list_data(
         .oauth_type
         .as_ref()
         .map(|e| e.iter().map(|e| e.as_str()).collect::<Vec<_>>());
+    let account = req_dao
+        .web_dao
+        .web_user
+        .user_dao
+        .account_dao
+        .session_account(&auth_data)
+        .await?;
     let data = req_dao
         .web_dao
         .web_user
         .account
-        .user_external(auth_data.user_id(), otype.as_ref().map(|e| e.as_ref()))
+        .user_external(account.id, otype.as_ref().map(|e| e.as_ref()))
         .await?;
     Ok(JsonResponse::data(JsonData::body(json!({
         "data": data ,

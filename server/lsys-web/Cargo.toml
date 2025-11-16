@@ -58,7 +58,6 @@ lsys-app-sender = { path = "../lsys-app-sender", features = [
     "sms-aliyun",
     "sms-jdcloud",
     "sms-huawei",
-    "sms-jdcloud",
     "sms-netease",
     "sms-tencent",
     "sms-cloopen",

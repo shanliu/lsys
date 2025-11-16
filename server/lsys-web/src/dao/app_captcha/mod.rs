@@ -17,6 +17,7 @@ impl AppCaptcha {
             self.redis.clone(),
             &format!("captcha-{}", captcha_key),
             true,
+            Some(6),
         )
     }
     pub fn valid_code_builder(&self) -> CaptchaValidCodeData {

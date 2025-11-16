@@ -37,6 +37,7 @@ role-perm-bad-res = 资源id:{$res_id}数据丢失或不可用
 role-user-not-system-user = 用户{$user_name}({$user_id})非系统用户，属于应用:{$app_id}
 role-user-not-found = 无法添加用户ID{$user_id}到角色,用户id不存在
 not-user-app-confirm = 非子应用
+app-is-subapp = 该应用为子应用
 barcode-add-status-error = 解析记录状态异常:{$msg}
 bad-audit-access = 非法访问审计数据
 barcode-parse-error = 解析失败,记录为:{$record}
@@ -105,3 +106,11 @@ valid-rule-name-area_code = 地区编码
 #字典 
 dict-SMS_NOTIFY_TYPE = 短信发送结果回调
 dict-SUB_APP_SECRET_NOTIFY_TYPE = 子应用密钥更改回调
+
+
+dict-login-type-email = 邮箱
+dict-login-type-email_code = 邮箱验证码
+dict-login-type-name = 账号
+dict-login-type-mobile = 手机号
+dict-login-type-mobile_code = 短信验证码
+dict-login-type-external = 外部账号

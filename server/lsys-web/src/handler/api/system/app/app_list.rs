@@ -9,6 +9,7 @@ use lsys_access::dao::AccessSession;
 use lsys_app::dao::AppAttrParam;
 use lsys_app::dao::AppRequestData;
 use lsys_app::dao::SystemAppParam;
+use lsys_app::dao::SystemSubAppParam;
 use lsys_app::model::AppRequestStatus;
 use lsys_app::model::AppStatus;
 use serde::Deserialize;
@@ -25,6 +26,8 @@ pub struct ListParam {
     #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
     pub status: Option<i8>,
     pub client_id: Option<String>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
+    pub detail_data: Option<bool>,
     pub page: Option<PageParam>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
@@ -39,14 +42,15 @@ pub struct ShowAppRecord {
     pub user_id: u64,
     pub change_time: u64,
     pub change_user_id: u64,
-    pub exter_login: bool,
-    pub oauth_client: bool,                           //是否启用OAUTH登录
-    pub oauth_client_data: Option<serde_json::Value>, //OAUTH登录信息
-    pub sup_app: bool,                                //是否开启子应用,可查看子应用信息
-    pub oauth_server: bool,                           //是否启用OAUTH服务
+    pub exter_login: bool,                                       //请求数量
+    pub oauth_client: bool,                                      //是否启用OAUTH登录
+    pub oauth_client_data: Option<serde_json::Value>,            //OAUTH登录信息
+    pub sup_app: bool,                                           //是否开启子应用,可查看子应用信息
+    pub oauth_server: bool,                                      //是否启用OAUTH服务
     pub oauth_server_scope_data: Option<Vec<serde_json::Value>>, //OAUTH服务SCOPE设置
-    pub exter_feature: Option<Vec<String>>,           //外部功能及启用状态
-    pub sub_app_count: Option<serde_json::Value>,     //子APP数量
+    pub exter_feature: Option<Vec<String>>,                      //外部功能及启用状态
+    pub sub_app_count: Option<serde_json::Value>,                //子APP数量
+    pub req_count: i64,                                          //该应用请求数量
 }
 //系统所有的APP列表
 pub async fn app_list(param: &ListParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
@@ -55,7 +59,10 @@ pub async fn app_list(param: &ListParam, req_dao: &UserAuthQueryDao) -> JsonResu
     req_dao
         .web_dao
         .web_rbac
-        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminApp {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminApp {},
+        )
         .await?;
     let status = if let Some(e) = param.status {
         Some(match AppStatus::try_from(e) {
@@ -72,13 +79,28 @@ pub async fn app_list(param: &ListParam, req_dao: &UserAuthQueryDao) -> JsonResu
         app_id: param.app_id,
         app_name: param.app_name.as_deref(),
     };
-    let app_attr = AppAttrParam {
-        inner_feature: true,
-        exter_feature: true,
-        sub_app_count: true,
-        oauth_client_data: true,
-        oauth_server_data: true,
-        parent_app: true,
+    let app_attr = if param.detail_data.unwrap_or(false) {
+        AppAttrParam {
+            inner_feature: true,
+            exter_feature: true,
+            sub_app_count: true,
+            oauth_client_data: true,
+            oauth_server_data: true,
+            parent_app: false,
+            req_pending_count: true,
+            sub_req_pending_count: false,
+        }
+    } else {
+        AppAttrParam {
+            inner_feature: true,
+            exter_feature: false,
+            sub_app_count: true,
+            oauth_client_data: false,
+            oauth_server_data: false,
+            parent_app: false,
+            req_pending_count: true,
+            sub_req_pending_count: false,
+        }
     };
     let appdata = req_dao
         .web_dao
@@ -122,6 +144,7 @@ pub async fn app_list(param: &ListParam, req_dao: &UserAuthQueryDao) -> JsonResu
                     .collect::<Vec<_>>()
             }),
             exter_feature: e.1.exter_feature,
+            req_count: e.1.req_pending_count.unwrap_or(0),
             sub_app_count: e.1.sub_app_count.map(|t| {
                 let enable = t
                     .iter()
@@ -171,11 +194,130 @@ pub async fn app_list(param: &ListParam, req_dao: &UserAuthQueryDao) -> JsonResu
 }
 
 #[derive(Deserialize)]
+pub struct SubListParam {
+    #[serde(default, deserialize_with = "crate::common::deserialize_u64")]
+    pub app_id: u64,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
+    pub status: Option<i8>,
+    pub page: Option<PageParam>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
+    pub count_num: Option<bool>,
+}
+
+#[derive(Serialize)]
+pub struct ShowSubAppRecord {
+    pub id: u64,
+    pub name: String,
+    pub client_id: String,
+    pub status: i8,
+    pub user_id: u64,
+    pub change_time: u64,
+    pub change_user_id: u64,
+    pub oauth_client: bool,                           //是否启用OAUTH登录
+    pub oauth_client_data: Option<serde_json::Value>, //OAUTH登录信息
+    pub exter_feature: Option<Vec<String>>,           //外部功能及启用状态
+}
+//系统所有的APP列表
+pub async fn sub_app_list(
+    param: &SubListParam,
+    req_dao: &UserAuthQueryDao,
+) -> JsonResult<JsonResponse> {
+    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
+    req_dao
+        .web_dao
+        .web_rbac
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminApp {},
+        )
+        .await?;
+    let status = if let Some(e) = param.status {
+        Some(match AppStatus::try_from(e) {
+            Ok(ts) => ts,
+            Err(err) => return Err(err.into()),
+        })
+    } else {
+        None
+    };
+    let app_param = SystemSubAppParam {
+        status,
+        client_id: None,
+        app_id: param.app_id,
+    };
+    let app_attr = AppAttrParam {
+        inner_feature: true,
+        exter_feature: true,
+        sub_app_count: false,
+        oauth_client_data: true,
+        oauth_server_data: false,
+        parent_app: false,
+        req_pending_count: false,
+        sub_req_pending_count: false,
+    };
+    let appdata = req_dao
+        .web_dao
+        .web_app
+        .app_dao
+        .app
+        .system_sub_app_data(
+            &app_param,
+            Some(&app_attr),
+            param.page.as_ref().map(|e| e.into()).as_ref(),
+        )
+        .await?;
+    let out = appdata
+        .into_iter()
+        .map(|e| ShowSubAppRecord {
+            id: e.0.id,
+            name: e.0.name,
+            client_id: e.0.client_id,
+            status: e.0.status,
+            user_id: e.0.user_id,
+            change_time: e.0.change_time,
+            change_user_id: e.0.change_user_id,
+            oauth_client: e.1.oauth_client.unwrap_or(false),
+            oauth_client_data: e.1.oauth_client_data.map(|t| {
+                json!({
+                    "callback_domain":t.callback_domain,
+                    "scope_data":t.scope_data,
+                })
+            }),
+            exter_feature: e.1.exter_feature,
+        })
+        .collect::<Vec<_>>();
+
+    let count = if param.count_num.unwrap_or(false) {
+        Some(
+            req_dao
+                .web_dao
+                .web_app
+                .app_dao
+                .app
+                .system_sub_app_count(&app_param)
+                .await?,
+        )
+    } else {
+        None
+    };
+    Ok(JsonResponse::data(JsonData::body(json!({
+        "data": bind_vec_user_info_from_req!(
+            req_dao,
+            out,
+            user_id,false
+        ),
+        "total":count
+    }))))
+}
+
+#[derive(Deserialize)]
 pub struct RequestListParam {
     #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub app_id: Option<u64>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
     pub status: Option<i8>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
+    pub request_type: Option<i8>,
     pub page: Option<PageParam>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
@@ -185,6 +327,10 @@ pub struct RequestListParam {
 pub struct ShowRequestRecord {
     pub id: u64,
     pub app_id: u64,
+    pub parent_app_id: u64,
+    pub app_name: String,
+    pub app_client: String,
+    pub app_status: i8,
     pub status: i8,
     pub request_type: i8,
     pub request_user_id: u64,
@@ -207,10 +353,21 @@ pub async fn request_list(
     req_dao
         .web_dao
         .web_rbac
-        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminApp {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminApp {},
+        )
         .await?;
     let status = if let Some(e) = param.status {
         Some(match AppRequestStatus::try_from(e) {
+            Ok(ts) => ts,
+            Err(err) => return Err(err.into()),
+        })
+    } else {
+        None
+    };
+    let req_type = if let Some(e) = param.request_type {
+        Some(match lsys_app::model::AppRequestType::try_from(e) {
             Ok(ts) => ts,
             Err(err) => return Err(err.into()),
         })
@@ -223,9 +380,11 @@ pub async fn request_list(
         .app_dao
         .app
         .app_request_data(
+            None,
             param.app_id,
             Some(0),
             status,
+            req_type,
             param.page.as_ref().map(|e| e.into()).as_ref(),
         )
         .await?;
@@ -235,7 +394,7 @@ pub async fn request_list(
                 let mut feature_data = None;
                 let mut oauth_client_data = None;
                 let mut change_data = None;
-                match e.1 {
+                match e.2 {
                     AppRequestData::Feature(d) => {
                         feature_data = Some(json!({
                             "feature":d.feature_data,
@@ -268,6 +427,10 @@ pub async fn request_list(
                     feature_data,
                     oauth_client_data,
                     change_data,
+                    parent_app_id: e.1.parent_app_id,
+                    app_name: e.1.name,
+                    app_status: e.1.status,
+                    app_client: e.1.client_id,
                 }
             })
             .collect::<Vec<_>>();
@@ -279,7 +442,7 @@ pub async fn request_list(
                 .web_app
                 .app_dao
                 .app
-                .app_request_count(param.app_id, Some(0), status)
+                .app_request_count( None,param.app_id, Some(0), status, req_type)
                 .await?,
         )
     } else {

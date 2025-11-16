@@ -77,7 +77,7 @@ impl<T: Display> ValidRule for ValidPattern<T> {
                 }
                 if !data
                     .chars()
-                    .all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.')
+                    .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.')
                 {
                     return Err(ValidRuleError::new(
                         fluent_message!("valid-not-pattern-ident",{

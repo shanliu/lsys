@@ -10,29 +10,29 @@ use serde_json::json;
 pub async fn mapping_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     Ok(JsonResponse::data(JsonData::body(json!({
         "app_status":vec![
-            status_format!(json req_dao, AppStatus::Enable),
-            status_format!(json req_dao, AppStatus::Init),
-            status_format!(json req_dao, AppStatus::Disable),
+            status_json_format!(req_dao, AppStatus::Enable),
+            status_json_format!(req_dao, AppStatus::Init),
+            status_json_format!(req_dao, AppStatus::Disable),
         ],
         "request_status":vec![
-            status_format!(json req_dao, AppRequestStatus::Pending),
-            status_format!(json req_dao, AppRequestStatus::Approved),
-            status_format!(json req_dao, AppRequestStatus::Rejected),
-            status_format!(json req_dao, AppRequestStatus::Invalid),
+            status_json_format!(req_dao, AppRequestStatus::Pending),
+            status_json_format!(req_dao, AppRequestStatus::Approved),
+            status_json_format!(req_dao, AppRequestStatus::Rejected),
+            status_json_format!(req_dao, AppRequestStatus::Invalid),
         ],
         "secret_status":vec![
-            status_format!(json req_dao, AppSecretStatus::Enable),
-            status_format!(json req_dao, AppSecretStatus::Delete),
+            status_json_format!(req_dao, AppSecretStatus::Enable),
+            status_json_format!(req_dao, AppSecretStatus::Delete),
         ],
          "request_type":vec![
-            status_format!(json req_dao, AppRequestType::AppReq),
-            status_format!(json req_dao, AppRequestType::AppChange),
-            status_format!(json req_dao, AppRequestType::SubApp),
-            status_format!(json req_dao, AppRequestType::ExterLogin),
-            status_format!(json req_dao, AppRequestType::OAuthServer),
-            status_format!(json req_dao, AppRequestType::OAuthClient),
-            status_format!(json req_dao, AppRequestType::OAuthClientScope),
-            status_format!(json req_dao, AppRequestType::ExterFeatuer),
+            status_json_format!(req_dao, AppRequestType::AppReq),
+            status_json_format!(req_dao, AppRequestType::AppChange),
+            status_json_format!(req_dao, AppRequestType::SubApp),
+            status_json_format!(req_dao, AppRequestType::ExterLogin),
+            status_json_format!(req_dao, AppRequestType::OAuthServer),
+            status_json_format!(req_dao, AppRequestType::OAuthClient),
+            status_json_format!(req_dao, AppRequestType::OAuthClientScope),
+            status_json_format!(req_dao, AppRequestType::ExterFeatuer),
         ],
     }))))
 }
