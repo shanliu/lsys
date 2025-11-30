@@ -30,7 +30,8 @@ impl WebUserAuth {
                 .account_password
                 .password_timeout(account.password_id)
                 .await
-                .unwrap_or(false)
+                .unwrap_or((false, 0))
+                .0
         } else {
             false
         };

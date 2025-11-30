@@ -295,15 +295,17 @@ impl AccountPassword {
             == account_password.password)
     }
     /// 检测指定ID密码是否超时
-    pub async fn password_timeout(&self, account_id: u64) -> AccountResult<bool> {
+    /// 返回 (是否超时, 密码有效期配置)
+    pub async fn password_timeout(&self, account_id: u64) -> AccountResult<(bool, u64)> {
         if let Ok(set) = self
             .setting
             .load::<AccountPasswordConfig>(None)
             .await
             .notfound_default()
         {
+            let timeout_value = set.timeout;
             if set.timeout == 0 {
-                return Ok(false);
+                return Ok((false, timeout_value));
             }
             let sql = sql_format!(
                 "select p.add_time from {} as p join {} as u
@@ -317,9 +319,10 @@ impl AccountPassword {
                 .fetch_one(&self.db)
                 .await?;
             if add_time + set.timeout < now_time().unwrap_or_default() {
-                return Ok(true);
+                return Ok((true, timeout_value));
             }
+            return Ok((false, timeout_value));
         }
-        Ok(false)
+        Ok((false, 0))
     }
 }

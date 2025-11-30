@@ -416,6 +416,7 @@ impl SenderTaskExecutor<u64, MailTaskItem, MailTaskData> for SmtpSenderTask {
         let subject = self
             .tpls
             .render(
+                tpl_config.app_id,
                 SenderType::Mailer,
                 &mail_tpl_config.subject_tpl_id,
                 &context,
@@ -436,7 +437,12 @@ impl SenderTaskExecutor<u64, MailTaskItem, MailTaskData> for SmtpSenderTask {
 
         let body = self
             .tpls
-            .render(SenderType::Mailer, &mail_tpl_config.body_tpl_id, &context)
+            .render(
+                tpl_config.app_id,
+                SenderType::Mailer,
+                &mail_tpl_config.body_tpl_id,
+                &context,
+            )
             .await
             .map_err(|e| match e {
                 SenderError::Tera(error) => SenderExecError::Finish(format!(

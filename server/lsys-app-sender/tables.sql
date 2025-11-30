@@ -56,6 +56,7 @@ CREATE TABLE `yaf_sender_tpl_config` (
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '发送模板配置,以tpl_id为KEY实现配置,config_data(当前tpl_id特殊配置)+setting_id(全局共用配置)';
 CREATE TABLE `yaf_sender_tpl_body` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+    `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
     `sender_type` tinyint NOT NULL COMMENT '发送类型',
     `tpl_id` varchar(32) NOT NULL COMMENT ' 模板ID',
     `tpl_data` text NOT NULL COMMENT '模板',

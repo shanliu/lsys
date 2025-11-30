@@ -8,6 +8,7 @@ use crate::dao::access::RbacAccessCheckEnv;
 use lsys_access::dao::AccessSession;
 use lsys_app::dao::AppAttrParam;
 use lsys_app::dao::AppRequestData;
+use lsys_app::dao::AppRequestParam;
 use lsys_app::dao::SystemAppParam;
 use lsys_app::dao::SystemSubAppParam;
 use lsys_app::model::AppRequestStatus;
@@ -313,6 +314,8 @@ pub async fn sub_app_list(
 #[derive(Deserialize)]
 pub struct RequestListParam {
     #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
+    pub id: Option<u64>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub app_id: Option<u64>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
     pub status: Option<i8>,
@@ -380,11 +383,14 @@ pub async fn request_list(
         .app_dao
         .app
         .app_request_data(
-            None,
-            param.app_id,
-            Some(0),
-            status,
-            req_type,
+            &AppRequestParam {
+                id: param.id,
+                request_user_id: None,
+                app_id: param.app_id,
+                parent_app_id: Some(0),
+                status,
+                request_type: req_type,
+            },
             param.page.as_ref().map(|e| e.into()).as_ref(),
         )
         .await?;
@@ -442,7 +448,14 @@ pub async fn request_list(
                 .web_app
                 .app_dao
                 .app
-                .app_request_count( None,param.app_id, Some(0), status, req_type)
+                .app_request_count(&AppRequestParam {
+                    id: param.id,
+                    request_user_id: None,
+                    app_id: param.app_id,
+                    parent_app_id: Some(0),
+                    status,
+                    request_type: req_type,
+                })
                 .await?,
         )
     } else {

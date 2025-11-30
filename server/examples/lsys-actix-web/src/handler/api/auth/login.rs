@@ -62,7 +62,8 @@ async fn jwt_login_data(
         .account_password
         .password_timeout(data.account_id)
         .await
-        .unwrap_or(false);
+        .unwrap_or((false, 0))
+        .0;
     Ok(JsonResponse::data(JsonData::body(json!({
         "auth_data":data,
         "jwt":token,

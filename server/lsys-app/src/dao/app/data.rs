@@ -798,14 +798,12 @@ impl App {
                     app_id: app.id,
                     user_id: app.user_id,
                     app_name: &app.name,
-                    secret_data: &format!(
-                        "{}",
-                        &app_secret
-                            .iter()
-                            .map(|e| e.secret_data.as_str())
-                            .collect::<Vec<_>>()
-                            .join(",")
-                    ),
+                    secret_data: &app_secret
+                        .iter()
+                        .map(|e| e.secret_data.as_str())
+                        .collect::<Vec<_>>()
+                        .join(",")
+                        .to_string(),
                 },
                 Some(app.id),
                 Some(view_user_id),
@@ -815,14 +813,13 @@ impl App {
             .await;
         Ok(app_secret)
     }
-      //查看secret
+    //查看secret
     pub async fn view_notify_secret(
         &self,
         app: &AppModel,
         view_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> AppResult<AppSecretRecrod> {
-
         let notify_secret = self
             .app_secret
             .single_find_secret_app_id(app.id, AppSecretType::Notify)
@@ -834,10 +831,7 @@ impl App {
                     app_id: app.id,
                     user_id: app.user_id,
                     app_name: &app.name,
-                    secret_data: &format!(
-                        "{}",
-                        notify_secret.secret_data
-                    ),
+                    secret_data: &notify_secret.secret_data.to_string(),
                 },
                 Some(app.id),
                 Some(view_user_id),

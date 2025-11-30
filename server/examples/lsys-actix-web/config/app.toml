@@ -61,5 +61,5 @@ ip_city_db = "data/IP2LOCATION-LITE-DB11.BIN"
 #app_jwt_key = "bbb" #jwt 密钥
 
 
-#文档临时文件保存目录
-#doc_git_dir = "/tmp/"
+#接口允许域名
+api-allow-origin = "*"

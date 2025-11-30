@@ -124,7 +124,8 @@ impl WebUserAccount {
     pub async fn password_last_modify(
         &self,
         session_body: &SessionBody,
-    ) -> JsonResult<(AccountPasswordModel, bool)> {
+    ) -> JsonResult<(AccountPasswordModel, bool, u64)> {
+        //密码记录,是否超时,密码超时时长
         let account = self
             .user_dao
             .account_dao
@@ -139,13 +140,13 @@ impl WebUserAccount {
             .account_password
             .find_by_id(&account.password_id)
             .await?;
-        let passwrod_timeout = self
+        let (is_passwrod_timeout, password_timeout_value) = self
             .user_dao
             .account_dao
             .account_password
             .password_timeout(account.id)
             .await
-            .unwrap_or(false);
-        Ok((user, passwrod_timeout))
+            .unwrap_or((false, 0));
+        Ok((user, is_passwrod_timeout, password_timeout_value))
     }
 }

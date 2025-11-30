@@ -2,19 +2,19 @@ mod result;
 mod rustls;
 use actix_web::dev::Server;
 use actix_web::web::{Data, JsonConfig};
-use actix_web::{error, http, middleware as middlewares, App, HttpResponse, HttpServer};
+use actix_web::{error, http, middleware as middlewares, HttpResponse, HttpServer};
 
+use actix_web::App;
 use futures_util::TryFutureExt;
-
 use jsonwebtoken::{DecodingKey, Validation};
 use lsys_web::common::FluentFormat;
 use lsys_web::dao::WebDao;
 use lsys_web::lsys_core::{AppCore, AppCoreError};
-
 use std::sync::Arc;
+use tracing::debug;
 
 use crate::common::handler::{JwtQueryConfig, RestQueryConfig};
-use crate::common::middleware::{RedirectSsl, RequestID};
+use crate::common::middleware::{AllowOrigin, RedirectSsl, RequestID};
 use crate::handler::render_500;
 use crate::handler::router;
 use result::AppError;
@@ -39,6 +39,20 @@ pub async fn create_server(app_dir: &str) -> Result<Server, AppError> {
         .find(None)
         .get_int("app_json_limit")
         .unwrap_or(4096);
+
+    let origin_list = match app_dao
+        .app_core
+        .config
+        .find(None)
+        .get_string("api-allow-origin")
+    {
+        Ok(v) => v.split(",").map(|o| o.trim().to_string()).collect(),
+        Err(err) => {
+            debug!("not set api-allow-origin: {}", err);
+            vec![]
+        }
+    };
+
     let is_use_ssl = bind_ssl_data.is_some();
     let mut server = HttpServer::new(move || {
         let jwt_config = JwtQueryConfig::new(
@@ -65,6 +79,27 @@ pub async fn create_server(app_dir: &str) -> Result<Server, AppError> {
                         })
                 })
             }));
+        //  use tokio::time::{sleep, Duration};
+        // use actix_web::middleware::Next;
+        // use actix_web::{
+        //     body::MessageBody,
+        //     dev::{ServiceRequest, ServiceResponse},
+        //     http::header::Accept,
+        //     web::{Header, Query},
+        //      Error,
+        // };
+        // use std::collections::HashMap;
+        // async fn my_extracting_mw(
+        //     _: Header<Accept>,
+        //     _: Query<HashMap<String, String>>,
+        //     req: ServiceRequest,
+        //     next: Next<impl MessageBody>,
+        // ) -> Result<ServiceResponse<impl MessageBody>, Error> {
+        //     sleep(Duration::from_secs(1)).await;
+        //     // 继续处理请求
+        //     next.call(req).await
+        //     // post-processing
+        // }
         let app = App::new()
             .wrap(RedirectSsl::new(is_use_ssl))
             .wrap(middlewares::Logger::default())
@@ -73,8 +108,10 @@ pub async fn create_server(app_dir: &str) -> Result<Server, AppError> {
                 middlewares::ErrorHandlers::new()
                     .handler(http::StatusCode::INTERNAL_SERVER_ERROR, render_500),
             )
-            .wrap(middlewares::DefaultHeaders::new().add(("Access-Control-Allow-Origin", "*")))
+            .wrap(middlewares::DefaultHeaders::new().add(("X-Server-Name", "lsys")))
+            //.wrap(middlewares::from_fn(my_extracting_mw))
             .wrap(RequestID::new(None))
+            .wrap(AllowOrigin(origin_list.clone()))
             .app_data(app_dao.clone())
             .app_data(json_config)
             .app_data(jwt_config)

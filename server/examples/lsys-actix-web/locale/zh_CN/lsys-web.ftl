@@ -108,9 +108,15 @@ dict-SMS_NOTIFY_TYPE = 短信发送结果回调
 dict-SUB_APP_SECRET_NOTIFY_TYPE = 子应用密钥更改回调
 
 
+#字典 
+dict-APP_FEATURE_BARCODE = 条码服务
+dict-APP_FEATURE_MAIL = 邮件服务
+dict-APP_FEATURE_RBAC = 权限服务
+dict-APP_FEATURE_SMS = 短信服务
+
 dict-login-type-email = 邮箱
-dict-login-type-email_code = 邮箱验证码
+dict-login-type-email-code = 邮箱验证码
 dict-login-type-name = 账号
 dict-login-type-mobile = 手机号
-dict-login-type-mobile_code = 短信验证码
+dict-login-type-mobile-code = 短信验证码
 dict-login-type-external = 外部账号

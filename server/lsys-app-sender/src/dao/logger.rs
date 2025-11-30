@@ -28,6 +28,7 @@ impl ChangeLogData for LogMessage<'_> {
 pub(crate) struct LogMessageTpls<'t> {
     pub action: &'t str,
     pub sender_type: i8,
+    pub app_id: u64,
     pub tpl_id: &'t str,
     pub user_id: u64,
     pub tpl_data: &'t str,

@@ -13,6 +13,8 @@ use serde_json::json;
 pub struct MailerTplListParam {
     #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub id: Option<u64>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_u64")]
+    pub app_id: u64,
     pub tpl_id: Option<String>,
     pub count_num: Option<bool>,
     pub page: Option<PageParam>,
@@ -28,9 +30,27 @@ pub async fn mailer_tpl_body_list(
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppSenderMailConfig {
-                 res_user_id: auth_data.user_id(),
+                res_user_id: auth_data.user_id(),
             },
         )
+        .await?;
+
+    let app = req_dao
+        .web_dao
+        .web_app
+        .app_dao
+        .app
+        .cache()
+        .find_by_id(param.app_id)
+        .await?;
+    app.app_status_check()?;
+    req_dao
+        .web_dao
+        .web_app
+        .app_dao
+        .app
+        .cache()
+        .exter_feature_check(&app, &[crate::handler::APP_FEATURE_MAIL])
         .await?;
 
     let data = req_dao
@@ -38,7 +58,7 @@ pub async fn mailer_tpl_body_list(
         .app_sender
         .tpl
         .list_data(
-            auth_data.user_id(),
+            app.id,
             Some(SenderType::Mailer),
             param.id,
             param.tpl_id.as_deref(),
@@ -52,7 +72,7 @@ pub async fn mailer_tpl_body_list(
                 .app_sender
                 .tpl
                 .list_count(
-                    auth_data.user_id(),
+                    app.id,
                     Some(SenderType::Mailer),
                     param.id,
                     param.tpl_id.as_deref(),
@@ -69,6 +89,7 @@ pub async fn mailer_tpl_body_list(
 
 #[derive(Debug, Deserialize)]
 pub struct MailerTplAddParam {
+    pub app_id: u64,
     pub tpl_id: String,
     pub tpl_data: String,
 }
@@ -88,11 +109,30 @@ pub async fn mailer_tpl_body_add(
         )
         .await?;
 
+    let app = req_dao
+        .web_dao
+        .web_app
+        .app_dao
+        .app
+        .cache()
+        .find_by_id(param.app_id)
+        .await?;
+    app.app_status_check()?;
+    req_dao
+        .web_dao
+        .web_app
+        .app_dao
+        .app
+        .cache()
+        .exter_feature_check(&app, &[crate::handler::APP_FEATURE_MAIL])
+        .await?;
+
     let id = req_dao
         .web_dao
         .app_sender
         .tpl
         .add(
+            app.id,
             SenderType::Mailer,
             param.tpl_id.as_str(),
             &param.tpl_data,
@@ -127,6 +167,24 @@ pub async fn mailer_tpl_body_edit(
                 res_user_id: tpl.user_id,
             },
         )
+        .await?;
+
+    let app = req_dao
+        .web_dao
+        .web_app
+        .app_dao
+        .app
+        .cache()
+        .find_by_id(tpl.app_id)
+        .await?;
+    app.app_status_check()?;
+    req_dao
+        .web_dao
+        .web_app
+        .app_dao
+        .app
+        .cache()
+        .exter_feature_check(&app, &[crate::handler::APP_FEATURE_MAIL])
         .await?;
 
     req_dao
@@ -165,6 +223,24 @@ pub async fn mailer_tpl_body_del(
                 res_user_id: data.user_id,
             },
         )
+        .await?;
+
+    let app = req_dao
+        .web_dao
+        .web_app
+        .app_dao
+        .app
+        .cache()
+        .find_by_id(data.app_id)
+        .await?;
+    app.app_status_check()?;
+    req_dao
+        .web_dao
+        .web_app
+        .app_dao
+        .app
+        .cache()
+        .exter_feature_check(&app, &[crate::handler::APP_FEATURE_MAIL])
         .await?;
 
     req_dao

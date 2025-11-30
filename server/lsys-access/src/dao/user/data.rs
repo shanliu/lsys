@@ -183,6 +183,7 @@ pub struct SessionDataParam {
 
 #[derive(Serialize, Debug)]
 pub struct SessionDataRecord {
+    pub id: u64,
     pub token_data: String,
     pub user_id: u64,
     pub app_id: u64,
@@ -284,6 +285,7 @@ impl AccessUser {
             out_data
                 .into_iter()
                 .map(|e| SessionDataRecord {
+                    id: e.id,
                     token_data: e.token_data,
                     user_id: e.user_id,
                     app_id: e.user_app_id,

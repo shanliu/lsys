@@ -144,6 +144,10 @@ pub struct SenderTplBodyModel {
     #[sqlx(default)]
     pub id: u64,
 
+    /// 应用ID
+    #[sqlx(default)]
+    pub app_id: u64,
+
     //来源
     #[sqlx(default)]
     pub sender_type: i8,
@@ -160,7 +164,7 @@ pub struct SenderTplBodyModel {
     #[sqlx(default)]
     pub status: i8,
 
-    /// 发送用户ID
+    /// 属于用户ID
     #[sqlx(default)]
     pub user_id: u64,
 

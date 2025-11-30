@@ -13,6 +13,16 @@ use crate::{
 };
 use lsys_core::db::SqlQuote;
 
+#[derive(Clone, Debug)]
+pub struct AppRequestParam {
+    pub id: Option<u64>,
+    pub request_user_id: Option<u64>, //查看指定用户的申请列表
+    pub app_id: Option<u64>,          //查看app的申请列表
+    pub parent_app_id: Option<u64>,   //查看子级的待审核列表
+    pub status: Option<AppRequestStatus>,
+    pub request_type: Option<AppRequestType>,
+}
+
 pub enum AppRequestData {
     None,
     Feature(AppRequestFeatureModel),
@@ -43,32 +53,35 @@ impl App {
         .fetch_one(&self.db)
         .await?)
     }
+    fn app_request_where_sql(&self, req_param: &AppRequestParam) -> Option<String> {
+        let mut sql = vec![];
+        if let Some(tmp) = req_param.app_id {
+            sql.push(sql_format!("app_id={}", tmp));
+        }
+        if let Some(tmp) = req_param.parent_app_id {
+            sql.push(sql_format!("parent_app_id={}", tmp));
+        }
+        if let Some(tmp) = req_param.status {
+            sql.push(sql_format!("status={}", tmp as i8));
+        }
+        if let Some(tmp) = req_param.request_type {
+            sql.push(sql_format!("request_type={}", tmp as i8));
+        }
+        if let Some(tmp) = req_param.request_user_id {
+            sql.push(sql_format!("request_user_id={}", tmp));
+        }
+        Some(sql.join(" and "))
+    }
     //待审核列表
     pub async fn app_request_data(
         &self,
-        request_user_id:Option<u64>,        //查看指定用户的申请列表
-        app_id: Option<u64>,        //查看app的申请列表
-        parent_app_id: Option<u64>, //查看子级的待审核列表
-        status: Option<AppRequestStatus>,
-        request_type: Option<AppRequestType>,
+        req_param: &AppRequestParam,
         page: Option<&PageParam>,
     ) -> AppResult<Vec<(AppRequestModel, AppInfoData, AppRequestData)>> {
-        let mut sql = vec![];
-        if let Some(tmp) = app_id {
-            sql.push(sql_format!("app_id={}", tmp));
-        }
-        if let Some(tmp) = parent_app_id {
-            sql.push(sql_format!("parent_app_id={}", tmp));
-        }
-        if let Some(tmp) = status {
-            sql.push(sql_format!("status={}", tmp as i8));
-        }
-        if let Some(tmp) = request_type {
-            sql.push(sql_format!("request_type={}", tmp as i8));
-        }
-        if let Some(tmp) = request_user_id {
-            sql.push(sql_format!("request_user_id={}", tmp));
-        }
+        let where_sql = match self.app_request_where_sql(req_param) {
+            Some(s) => s,
+            None => return Ok(vec![]),
+        };
         let page_sql = if let Some(pdat) = page {
             format!(
                 " order by id desc limit {} offset {} ",
@@ -80,8 +93,8 @@ impl App {
         let data = sqlx::query_as::<_, AppRequestModel>(&sql_format!(
             "select * from {} {} {}",
             AppRequestModel::table_name(),
-            if !sql.is_empty() {
-                SqlExpr(format!(" where {}", sql.join(" and ")))
+            if !where_sql.is_empty() {
+                SqlExpr(format!(" where {}", where_sql))
             } else {
                 SqlExpr("".to_string())
             },
@@ -95,12 +108,12 @@ impl App {
         let parent_id_tmp = data
             .iter()
             .map(|t| t.parent_app_id)
-            .filter(|t| *t>0)
+            .filter(|t| *t > 0)
             .collect::<Vec<u64>>();
         app_id_tmp.extend(parent_id_tmp);
 
         let app_info_data = if !app_id_tmp.is_empty() {
-            sqlx::query_as::<_, (u64, u64, String, String, i8,u64)>(&sql_format!(
+            sqlx::query_as::<_, (u64, u64, String, String, i8, u64)>(&sql_format!(
                 "select id,parent_app_id,name,client_id,status,user_id from {} where id in ({})",
                 AppModel::table_name(),
                 app_id_tmp,
@@ -196,15 +209,10 @@ impl App {
                 } else {
                     AppRequestData::None
                 };
-                let par_info= app_info_data
+                let par_info = app_info_data
                     .iter()
                     .find(|t| t.0 == e.parent_app_id)
-                    .map(|t| (
-                        t.2.to_owned(),
-                        t.3.to_owned(),
-                        t.4,
-                        t.5
-                    ))
+                    .map(|t| (t.2.to_owned(), t.3.to_owned(), t.4, t.5))
                     .unwrap_or_default();
                 let app_info = app_info_data
                     .iter()
@@ -225,35 +233,16 @@ impl App {
             .collect::<Vec<_>>())
     }
     //待审核总数
-    pub async fn app_request_count(
-        &self,
-        request_user_id:Option<u64>,        //查看指定用户的申请列表
-        app_id: Option<u64>,
-        parent_app_id: Option<u64>,
-        status: Option<AppRequestStatus>,
-        request_type: Option<AppRequestType>,
-    ) -> AppResult<i64> {
-        let mut sql = vec![];
-        if let Some(tmp) = app_id {
-            sql.push(sql_format!("app_id={}", tmp));
-        }
-        if let Some(tmp) = parent_app_id {
-            sql.push(sql_format!("parent_app_id={}", tmp));
-        }
-        if let Some(tmp) = status {
-            sql.push(sql_format!("status={}", tmp as i8));
-        }
-        if let Some(tmp) = request_type {
-            sql.push(sql_format!("request_type={}", tmp as i8));
-        }
-        if let Some(tmp) = request_user_id {
-            sql.push(sql_format!("request_user_id={}", tmp as i8));
-        }
+    pub async fn app_request_count(&self, req_param: &AppRequestParam) -> AppResult<i64> {
+        let where_sql = match self.app_request_where_sql(req_param) {
+            Some(s) => s,
+            None => return Ok(0),
+        };
         let sql = sql_format!(
             "select count(*) as total from {} {}",
             AppRequestModel::table_name(),
-            if !sql.is_empty() {
-                SqlExpr(format!(" where {}", sql.join(" and ")))
+            if !where_sql.is_empty() {
+                SqlExpr(format!(" where {}", where_sql))
             } else {
                 SqlExpr("".to_string())
             }

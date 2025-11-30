@@ -3,8 +3,8 @@ use std::sync::Arc;
 use crate::dao::{SenderError, SenderResult};
 use crate::model::{SenderTplBodyModel, SenderTplBodyModelRef, SenderTplBodyStatus, SenderType};
 use lsys_core::{
-    fluent_message, now_time, valid_key, PageParam, RequestEnv, ValidParam, ValidParamCheck,
-    ValidPattern, ValidStrlen,
+    fluent_message, now_time, valid_key, PageParam, RequestEnv, ValidNumber, ValidParam,
+    ValidParamCheck, ValidPattern, ValidStrlen,
 };
 
 use lsys_core::db::{Insert, ModelTableName, SqlExpr, SqlQuote, Update};
@@ -41,8 +41,13 @@ impl MessageTpls {
         "id={id}"
     );
 
-    async fn add_param_valid(&self, tpl_id: &str, tpl_data: &str) -> SenderResult<()> {
+    async fn add_param_valid(&self, app_id: u64, tpl_id: &str, tpl_data: &str) -> SenderResult<()> {
         ValidParam::default()
+            .add(
+                valid_key!("app_id"),
+                &app_id,
+                &ValidParamCheck::default().add_rule(ValidNumber::min(1)),
+            )
             .add(
                 valid_key!("tpl_id"),
                 &tpl_id,
@@ -58,8 +63,10 @@ impl MessageTpls {
             .check()?;
         Ok(())
     }
+    #[allow(clippy::too_many_arguments)]
     pub async fn add(
         &self,
+        app_id: u64,
         sender_type: SenderType,
         tpl_id: &str,
         tpl_data: &str,
@@ -67,7 +74,7 @@ impl MessageTpls {
         add_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
-        self.add_param_valid(tpl_id, tpl_data).await?;
+        self.add_param_valid(app_id, tpl_id, tpl_data).await?;
         let sender_type = sender_type as i8;
         Template::new(&self.tpl_key(sender_type, tpl_id), None, tpl_data)
             .map_err(SenderError::Tera)?;
@@ -79,8 +86,9 @@ impl MessageTpls {
         let status = SenderTplBodyStatus::Enable as i8;
 
         let res = sqlx::query_as::<_, SenderTplBodyModel>(&sql_format!(
-            "select * from {} where tpl_id={} and status = {} and user_id = {} ",
+            "select * from {} where app_id={} and tpl_id={} and status = {} and user_id = {} ",
             SenderTplBodyModel::table_name(),
+            app_id,
             tpl_id,
             SenderTplBodyStatus::Enable,
             user_id
@@ -104,6 +112,7 @@ impl MessageTpls {
             }
         }
         let idata = model_option_set!(SenderTplBodyModelRef,{
+            app_id:app_id,
             sender_type:sender_type,
             tpl_id:tpl_id,
             tpl_data:tpl_data,
@@ -121,6 +130,7 @@ impl MessageTpls {
             .add(
                 &LogMessageTpls {
                     action: "add",
+                    app_id,
                     sender_type,
                     tpl_id: &tpl_id,
                     tpl_data: &tpl_data,
@@ -149,19 +159,19 @@ impl MessageTpls {
         &self,
         tpl: &SenderTplBodyModel,
         tpl_data: &str,
-        user_id: u64,
+        change_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
         self.edit_param_valid(tpl_data).await?;
         let tkey = self.tpl_key(tpl.sender_type, &tpl.tpl_id);
         Template::new(&tkey, None, tpl_data)?;
-        let user_id = user_id.to_owned();
+        let change_user_id = change_user_id.to_owned();
         let time = now_time().unwrap_or_default();
         let tpl_data = tpl_data.to_owned();
 
         let change = model_option_set!(SenderTplBodyModelRef,{
             tpl_data:tpl_data,
-            change_user_id:user_id,
+            change_user_id:change_user_id,
             change_time:time,
         });
         let row = Update::<SenderTplBodyModel, _>::new(change)
@@ -176,12 +186,13 @@ impl MessageTpls {
                 &LogMessageTpls {
                     action: "edit",
                     sender_type: tpl.sender_type,
+                    app_id: tpl.app_id,
                     tpl_id: &tpl.tpl_id,
                     tpl_data: &tpl_data,
                     user_id: tpl.user_id,
                 },
                 Some(tpl.id),
-                Some(user_id),
+                Some(change_user_id),
                 None,
                 env_data,
             )
@@ -222,6 +233,7 @@ impl MessageTpls {
                     action: "del",
                     sender_type: tpl.sender_type,
                     tpl_id: &tpl.tpl_id,
+                    app_id: tpl.app_id,
                     tpl_data: &tpl.tpl_data,
                     user_id: tpl.user_id,
                 },
@@ -240,6 +252,7 @@ impl MessageTpls {
     //渲染指定模板内容
     pub async fn render(
         &self,
+        app_id: u64,
         sender_type: SenderType,
         tpl_id: &str,
         context: &Context,
@@ -248,8 +261,9 @@ impl MessageTpls {
         let tkey = &self.tpl_key(sender_type, tpl_id);
         if !self.tera.read().await.templates.contains_key(tkey) {
             let tpl = sqlx::query_as::<_, SenderTplBodyModel>(&sql_format!(
-                "select * from {} where sender_type={} and tpl_id={} and status = {}",
+                "select * from {} where app_id={} and sender_type={} and tpl_id={} and status = {}",
                 SenderTplBodyModel::table_name(),
+                app_id,
                 sender_type,
                 tpl_id,
                 SenderTplBodyStatus::Enable
@@ -275,14 +289,14 @@ impl MessageTpls {
     }
     fn list_where_sql(
         &self,
-        user_id: u64,
+        app_id: u64,
         sender_type: Option<SenderType>,
         id: Option<u64>,
         tpl_id: Option<&str>,
     ) -> String {
         let mut sqlwhere = vec![sql_format!(
-            "user_id={} and status ={}",
-            user_id,
+            "app_id={} and status ={}",
+            app_id,
             SenderTplBodyStatus::Enable
         )];
         if let Some(s) = sender_type {
@@ -298,21 +312,13 @@ impl MessageTpls {
     }
     pub async fn list_data(
         &self,
-        user_id: u64,
+        app_id: u64,
         sender_type: Option<SenderType>,
         id: Option<u64>,
         tpl_id: Option<&str>,
         page: Option<&PageParam>,
     ) -> SenderResult<Vec<SenderTplBodyModel>> {
-        let sqlwhere = self.list_where_sql(user_id, sender_type, id, tpl_id);
-        // let page_sql = if let Some(pdat) = page {
-        //     format!(
-        //         " order by id desc limit {} offset {} ",
-        //         pdat.limit, pdat.offset
-        //     )
-        // } else {
-        //     " ".to_string()
-        // };
+        let sqlwhere = self.list_where_sql(app_id, sender_type, id, tpl_id);
         let sql = sql_format!(
             "select * from {} {} order by id desc {}",
             SenderTplBodyModel::table_name(),
@@ -332,12 +338,12 @@ impl MessageTpls {
     }
     pub async fn list_count(
         &self,
-        user_id: u64,
+        app_id: u64,
         sender_type: Option<SenderType>,
         id: Option<u64>,
         tpl_id: Option<&str>,
     ) -> SenderResult<i64> {
-        let sqlwhere = self.list_where_sql(user_id, sender_type, id, tpl_id);
+        let sqlwhere = self.list_where_sql(app_id, sender_type, id, tpl_id);
         let sql = sql_format!(
             "select count(*) as total from {} where {}",
             SenderTplBodyModel::table_name(),

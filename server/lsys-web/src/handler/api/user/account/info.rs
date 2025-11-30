@@ -131,15 +131,26 @@ pub async fn info_set_data(
 pub async fn password_last_modify(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
 
-    let (passwrod, passwrod_timeout) = req_dao
+    let (passwrod, is_expired, timeout_config) = req_dao
         .web_dao
         .web_user
         .account
         .password_last_modify(&auth_data)
         .await?;
 
+    // 计算剩余有效时间
+    let remaining_time = if timeout_config == 0 {
+        0 // 永久有效
+    } else {
+        let expire_time = passwrod.add_time + timeout_config;
+        let current_time = lsys_core::now_time().unwrap_or_default();
+        expire_time.saturating_sub(current_time)
+    };
+
     Ok(JsonResponse::data(JsonData::body(json!({
-        "last_time":passwrod.add_time,
-        "password_timeout":passwrod_timeout,
+        "last_time": passwrod.add_time,
+        "remaining_time": remaining_time,
+        "is_expired": is_expired,
+        "total_timeout": timeout_config,
     }))))
 }

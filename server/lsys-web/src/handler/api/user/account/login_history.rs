@@ -14,6 +14,7 @@ pub struct LoginHistoryParam {
     #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
     pub is_login: Option<i8>,
     pub limit: Option<LimitParam>,
+    pub count_num: Option<bool>,
 }
 
 pub async fn login_history(
@@ -36,20 +37,26 @@ pub async fn login_history(
             param.limit.as_ref().map(|e| e.into()).as_ref(),
         )
         .await?;
-    let total = req_dao
-        .web_dao
-        .web_user
-        .user_dao
-        .account_dao
-        .account_login_hostory
-        .history_count(
-            Some(auth_data.account_id()?),
-            param.login_account.as_deref(),
-            param.is_login,
-            param.login_type.as_deref(),
-            param.login_ip.as_deref(),
+    let total = if param.count_num.unwrap_or(false) {
+        Some(
+            req_dao
+                .web_dao
+                .web_user
+                .user_dao
+                .account_dao
+                .account_login_hostory
+                .history_count(
+                    Some(auth_data.account_id()?),
+                    param.login_account.as_deref(),
+                    param.is_login,
+                    param.login_type.as_deref(),
+                    param.login_ip.as_deref(),
+                )
+                .await?
         )
-        .await?;
+    } else {
+        None
+    };
     Ok(JsonResponse::data(JsonData::body(json!({
         "data": data ,
         "next": next,

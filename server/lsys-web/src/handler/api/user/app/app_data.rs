@@ -5,7 +5,7 @@ use crate::{
     dao::access::api::system::user::CheckUserAppView,
 };
 use lsys_access::dao::AccessSession;
-use lsys_app::dao::UserParentAppDataParam;
+use lsys_app::dao::{AppRequestParam, UserParentAppDataParam};
 use lsys_app::model::AppRequestType;
 use lsys_app::{
     dao::{AppAttrParam, AppRequestData, UserAppDataParam},
@@ -331,7 +331,7 @@ pub async fn secret_view(
         .await?;
     let mut out_data = Map::new();
     if param.app_secret {
-       let app_secret_data=  req_dao
+        let app_secret_data = req_dao
             .web_dao
             .web_app
             .app_dao
@@ -341,14 +341,14 @@ pub async fn secret_view(
         out_data.insert("app_secret".to_string(), json!(app_secret_data));
     }
     if param.notify_secret {
-        let notify_data=  req_dao
+        let notify_data = req_dao
             .web_dao
             .web_app
             .app_dao
             .app
             .view_notify_secret(&app, auth_data.user_id(), Some(&req_dao.req_env))
             .await?;
-         out_data.insert(
+        out_data.insert(
             "notify_secret".to_string(),
             json!({
                 "secret":notify_data.secret_data,
@@ -414,7 +414,7 @@ pub async fn sub_app_secret_view(
         .await?;
     let mut out_data = Map::new();
     if param.app_secret {
-        let app_secret_data= req_dao
+        let app_secret_data = req_dao
             .web_dao
             .web_app
             .app_dao
@@ -456,6 +456,8 @@ pub async fn sub_app_secret_view(
 pub struct RequestListParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
+    pub id: Option<u64>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
     pub status: Option<i8>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
@@ -536,11 +538,14 @@ pub async fn request_list(
         .app_dao
         .app
         .app_request_data(
-            Some(auth_data.user_id()),
-            Some(app.id),
-            Some(app.parent_app_id),
-            status,
-            req_type,
+            &AppRequestParam {
+                id: param.id,
+                request_user_id: Some(auth_data.user_id()),
+                app_id: Some(app.id),
+                parent_app_id: Some(app.parent_app_id),
+                status,
+                request_type: req_type,
+            },
             param.page.as_ref().map(|e| e.into()).as_ref(),
         )
         .await?;
@@ -601,7 +606,14 @@ pub async fn request_list(
                 .web_app
                 .app_dao
                 .app
-                .app_request_count(  Some(auth_data.user_id()),Some(app.id), Some(app.parent_app_id), status, req_type)
+                .app_request_count(&AppRequestParam {
+                    id: param.id,
+                    request_user_id: Some(auth_data.user_id()),
+                    app_id: Some(app.id),
+                    parent_app_id: Some(app.parent_app_id),
+                    status,
+                    request_type: req_type,
+                })
                 .await?,
         )
     } else {
@@ -622,6 +634,8 @@ pub async fn request_list(
 pub struct SubRequestListParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
+    #[serde(deserialize_with = "crate::common::deserialize_option_u64")]
+    pub id: Option<u64>,
     #[serde(deserialize_with = "crate::common::deserialize_option_u64")]
     pub sub_app_id: Option<u64>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
@@ -706,11 +720,14 @@ pub async fn sub_request_list(
         .app_dao
         .app
         .app_request_data(
-            None,
-            param.sub_app_id,
-            Some(app.id),
-            status,
-            req_type,
+            &AppRequestParam {
+                id: param.id,
+                request_user_id: None,
+                app_id: param.sub_app_id,
+                parent_app_id: Some(app.id),
+                status,
+                request_type: req_type,
+            },
             param.page.as_ref().map(|e| e.into()).as_ref(),
         )
         .await?;
@@ -767,7 +784,14 @@ pub async fn sub_request_list(
                 .web_app
                 .app_dao
                 .app
-                .app_request_count( None,param.sub_app_id, Some(app.id), status, req_type)
+                .app_request_count(&AppRequestParam {
+                    id: param.id,
+                    request_user_id: None,
+                    app_id: param.sub_app_id,
+                    parent_app_id: Some(app.id),
+                    status,
+                    request_type: req_type,
+                })
                 .await?,
         )
     } else {
