@@ -26,7 +26,7 @@ Content-Type: application/json
 
 {
     "nikename":"x11",
-    "name": "aaaaaa333",
+    "name": "aaaaaff",
     "password": "qq001200"
 }
 ```

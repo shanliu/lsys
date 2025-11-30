@@ -4,6 +4,7 @@
 
 | 参数名 | 类型 | 必填 | 说明 |
 |--------|------|------|------|
+| app_id | string | 是 | 应用ID |
 | tpl_id | string | 是 | 模板ID |
 | tpl_data | string | 是 | 模板内容(支持变量: {{变量名}}) |
 
@@ -24,6 +25,7 @@ Content-Type:application/json
 Authorization:Bearer {{APP_BEARER_TEST_ACCOUNT}}
 
 {
+  "app_id":1,
    "tpl_id":"test1",
    "tpl_data":"bad \{\{code\}\} aa is: \{\{aa\}\}"
 }

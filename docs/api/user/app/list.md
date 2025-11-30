@@ -41,6 +41,7 @@
 | response.data[].user_data.user_data | string | 用户数据 |
 | response.data[].user_data.user_nickname | string | 用户昵称 |
 | response.data[].user_id | string | 用户ID |
+| response.data[].sub_req_pending_count | string | 请求数量 |
 | response.total | string | 总数 |
 | result.code | string | 状态码 |
 | result.message | string | 消息 |
@@ -77,6 +78,8 @@ Authorization:Bearer {{APP_BEARER_TEST_ACCOUNT}}
         "client_id": "testapp",
         "exter_feature": [],
         "exter_login": "0",
+        "sub_req_pending_count": "0",
+        
         "id": "6",
         "name": "测试APP",
         "oauth_client": "0",

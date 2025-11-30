@@ -23,7 +23,7 @@
 > 示例
 
 ```http
-POST /api/system/app/mapping
+POST /api/user/app/mapping
 Content-Type:application/json
 Authorization:Bearer {{APP_BEARER_TEST_ACCOUNT}}
 

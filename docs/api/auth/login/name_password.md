@@ -47,10 +47,10 @@ POST /api/auth/login/name
 Content-Type: application/json
 
 {
-    "name": "name",
+    "name": "aaaaa",
     "password": "000000",
     "captcha":  {
-        "code":"2Rh",
+        "code":"idx",
         "key":"aaaaa"
     }
 }

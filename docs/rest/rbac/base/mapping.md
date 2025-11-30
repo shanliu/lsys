@@ -4,9 +4,6 @@
 
 | 参数名 | 类型 | 说明 |
 |--------|------|------|
-| response.audit_is | array | 授权状态列表 |
-| response.audit_is.key | string | 状态key |
-| response.audit_is.val | string | 状态说明 |
 | response.audit_result | array | 授权结果列表 |
 | response.audit_result.key | string | 结果key |
 | response.audit_result.val | string | 结果说明 |
@@ -31,16 +28,6 @@ Content-type:application/json
 ```json
 {
   "response": {
-    "audit_is": [
-      {
-        "key": "1",
-        "val": "授权通过"
-      },
-      {
-        "key": "0",
-        "val": "授权失败"
-      }
-    ],
     "audit_result": [
       {
         "key": "1",

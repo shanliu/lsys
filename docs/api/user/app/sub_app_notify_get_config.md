@@ -22,22 +22,20 @@ Content-Type:application/json
 Authorization:Bearer {{APP_BEARER_TEST_ACCOUNT}}
 
 {
-     
+      "app_id": 1
 }
 ```
 
 ```json
 {
   "response": {
-    "data": [
-      {
-        "app_id": "1",
-        "app_name": "ddff237222",
-        "call_url": "https://www.baidu.com/",
-        "change_time": "1749450206",
-        "change_user_id": "1"
-      }
-    ]
+    "data": {
+      "app_id": "1",
+      "app_name": "测试应用",
+      "call_url": "https://www.baidu.com/",
+      "change_time": "1763112160",
+      "change_user_id": "1"
+    }
   },
   "result": {
     "code": "200",

@@ -8,7 +8,11 @@
         "items": [
             {
                 "text": "获取应用信息",
-                "link": "/rest/app/info.md"
+                "link": "/rest/app/app_info.md"
+            },
+			{
+                "text": "获取应用用户信息",
+                "link": "/rest/app/user_info.md"
             },
             {
                 "text": "OAuth授权范围",

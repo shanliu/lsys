@@ -5,6 +5,7 @@
 | 参数名 | 类型 | 必填 | 说明 |
 |--------|------|------|------|
 | id | int | 否 | 内容ID |
+| app_id | int | 是 | 应用id |
 | tpl_id | string | 否 | 模板ID |
 | count_num | boolean | 否 | 是否返回总数 |
 | page.page | int | 是 | 页码 |
@@ -17,6 +18,7 @@
 | response.data.change_time | string | 修改时间(秒) |
 | response.data.change_user_id | string | 修改用户ID |
 | response.data.id | string | 内容ID |
+| response.data.app_id | string | appID |
 | response.data.sender_type | string | 发送器类型 |
 | response.data.status | string | 状态 |
 | response.data.tpl_data | string | 模板内容 |
@@ -35,6 +37,7 @@ Content-Type:application/json
 Authorization:Bearer {{APP_BEARER_TEST_ACCOUNT}}
 
 {
+  "app_id":1,
    "id":null,
    "tpl_id":null,
    "count_num":true,
@@ -53,6 +56,7 @@ Authorization:Bearer {{APP_BEARER_TEST_ACCOUNT}}
         "change_time": "1749875598",
         "change_user_id": "7",
         "id": "6",
+        "app_id":"1",
         "sender_type": "2",
         "status": "1",
         "tpl_data": "bad {{code}} aa is: {{aa}}",

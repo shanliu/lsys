@@ -4,9 +4,6 @@
 
 | 参数名 | 类型 | 说明 |
 |--------|------|------|
-| response.audit_is | string | 授权结果 |
-| response.audit_is.key | string | 授权状态键值 |
-| response.audit_is.val | string | 授权状态描述 |
 | response.audit_result.key | string | 授权结果 |
 | response.audit_result.key | string | 授权结果键值 |
 | response.audit_result.val | string | 授权结果描述 |
@@ -33,16 +30,6 @@ Authorization:Bearer {{APP_BEARER_TEST_ACCOUNT}}
 ```json
 {
   "response": {
-    "audit_is": [
-      {
-        "key": "1",
-        "val": "授权通过"
-      },
-      {
-        "key": "0",
-        "val": "授权失败"
-      }
-    ],
     "audit_result": [
       {
         "key": "1",
