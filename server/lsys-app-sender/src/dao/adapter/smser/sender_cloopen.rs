@@ -44,7 +44,7 @@ impl CloOpenConfig {
             self.account_sid.chars().take(2).collect::<String>(),
             self.account_sid
                 .chars()
-                .skip(if len - 2 > 0 { len - 2 } else { len })
+                .skip(if len > 2 { len - 2 } else { len })
                 .take(2)
                 .collect::<String>()
         )
@@ -56,7 +56,7 @@ impl CloOpenConfig {
             self.account_token.chars().take(2).collect::<String>(),
             self.account_token
                 .chars()
-                .skip(if len - 2 > 0 { len - 2 } else { len })
+                .skip(if len > 2 { len - 2 } else { len })
                 .take(2)
                 .collect::<String>()
         )

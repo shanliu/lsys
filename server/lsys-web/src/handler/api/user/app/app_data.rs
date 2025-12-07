@@ -634,9 +634,9 @@ pub async fn request_list(
 pub struct SubRequestListParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
-    #[serde(deserialize_with = "crate::common::deserialize_option_u64")]
+    #[serde(default,deserialize_with = "crate::common::deserialize_option_u64")]
     pub id: Option<u64>,
-    #[serde(deserialize_with = "crate::common::deserialize_option_u64")]
+    #[serde(default,deserialize_with = "crate::common::deserialize_option_u64")]
     pub sub_app_id: Option<u64>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
     pub status: Option<i8>,

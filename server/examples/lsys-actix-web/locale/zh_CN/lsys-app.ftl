@@ -60,7 +60,7 @@ status-AppRequestType-ExterLogin = 外部账号登录
 status-AppRequestType-OAuthServer = OAuth服务器
 status-AppRequestType-OAuthClient = OAuth登录
 status-AppRequestType-OAuthClientScope = OAuth登录新权限
-status-AppRequestType-ExterFeatuer = 附属功能
+status-AppRequestType-ExterFeatuer = 扩展功能
 
 
 

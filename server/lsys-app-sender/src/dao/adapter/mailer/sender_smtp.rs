@@ -60,7 +60,7 @@ impl SmtpConfig {
             self.password.chars().take(2).collect::<String>(),
             self.password
                 .chars()
-                .skip(if len - 2 > 0 { len - 2 } else { len })
+                .skip(if len > 2 { len - 2 } else { len })
                 .take(2)
                 .collect::<String>()
         )
@@ -72,7 +72,7 @@ impl SmtpConfig {
             self.user.chars().take(2).collect::<String>(),
             self.user
                 .chars()
-                .skip(if len - 2 > 0 { len - 2 } else { len })
+                .skip(if len > 2 { len - 2 } else { len })
                 .take(2)
                 .collect::<String>()
         )

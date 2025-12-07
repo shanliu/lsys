@@ -591,8 +591,11 @@ impl App {
         let time = now_time()?;
         let mut db = self.db.begin().await?;
 
-        let status = AppStatus::Enable as i8;
-
+        let status = if confirm_status == AppRequestStatus::Approved {
+            AppStatus::Enable as i8
+        } else {
+            AppStatus::Disable as i8
+        };
         let change = model_option_set!(AppModelRef,{
             name:req_info.name,
             client_id:req_info.client_id,

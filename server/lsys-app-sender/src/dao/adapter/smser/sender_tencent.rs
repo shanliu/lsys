@@ -51,7 +51,7 @@ impl TenYunConfig {
             self.secret_id.chars().take(2).collect::<String>(),
             self.secret_id
                 .chars()
-                .skip(if len - 2 > 0 { len - 2 } else { len })
+                .skip(if len > 2 { len - 2 } else { len })
                 .take(2)
                 .collect::<String>()
         )
@@ -63,7 +63,7 @@ impl TenYunConfig {
             self.secret_key.chars().take(2).collect::<String>(),
             self.secret_key
                 .chars()
-                .skip(if len - 2 > 0 { len - 2 } else { len })
+                .skip(if len > 2 { len - 2 } else { len })
                 .take(2)
                 .collect::<String>()
         )

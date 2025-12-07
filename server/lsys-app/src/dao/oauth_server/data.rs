@@ -24,6 +24,9 @@ impl AppOAuthServer {
     }
     //检测指定SCOPE在OAUTH服务中是否存在
     pub async fn check_scope(&self, app: &AppModel, scope_data: &[&str]) -> AppResult<()> {
+        if scope_data.is_empty() {
+            return Ok(());
+        }
         self.check_scope_param_valid(scope_data).await?;
         app.app_status_check()?;
         let oa_res = sqlx::query_scalar::<_, String>(&sql_format!(

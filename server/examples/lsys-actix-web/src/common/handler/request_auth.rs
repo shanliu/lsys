@@ -108,7 +108,7 @@ impl RequestSessionTokenPaser<UserAuthToken> for CookieTokenPaser {
     type TD = Cookie<'static>;
     async fn parse_user_token(&self, cookie: Cookie<'static>) -> JsonResult<UserAuthToken> {
         let token = UserAuthToken::from_str(cookie.value())?;
-        let token = if now_time().unwrap_or_default() - 30 > token.time_out {
+        let token = if now_time().unwrap_or_default() > token.time_out + 30 {
             self.web_dao
                 .web_user
                 .user_dao

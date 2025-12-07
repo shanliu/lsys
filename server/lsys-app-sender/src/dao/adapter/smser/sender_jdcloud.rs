@@ -42,7 +42,7 @@ impl JDCloudConfig {
             self.access_key.chars().take(2).collect::<String>(),
             self.access_key
                 .chars()
-                .skip(if len - 2 > 0 { len - 2 } else { len })
+                .skip(if len > 2 { len - 2 } else { len })
                 .take(2)
                 .collect::<String>()
         )
@@ -54,7 +54,7 @@ impl JDCloudConfig {
             self.access_secret.chars().take(2).collect::<String>(),
             self.access_secret
                 .chars()
-                .skip(if len - 2 > 0 { len - 2 } else { len })
+                .skip(if len > 2 { len - 2 } else { len })
                 .take(2)
                 .collect::<String>()
         )

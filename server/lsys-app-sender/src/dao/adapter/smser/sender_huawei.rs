@@ -46,7 +46,7 @@ impl HwYunConfig {
             self.app_key.chars().take(2).collect::<String>(),
             self.app_key
                 .chars()
-                .skip(if len - 2 > 0 { len - 2 } else { len })
+                .skip(if len > 2 { len - 2 } else { len })
                 .take(2)
                 .collect::<String>()
         )
@@ -58,7 +58,7 @@ impl HwYunConfig {
             self.app_secret.chars().take(2).collect::<String>(),
             self.app_secret
                 .chars()
-                .skip(if len - 2 > 0 { len - 2 } else { len })
+                .skip(if len > 2 { len - 2 } else { len })
                 .take(2)
                 .collect::<String>()
         )

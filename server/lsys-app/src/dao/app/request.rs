@@ -55,6 +55,9 @@ impl App {
     }
     fn app_request_where_sql(&self, req_param: &AppRequestParam) -> Option<String> {
         let mut sql = vec![];
+        if let Some(tmp) = req_param.id {
+            sql.push(sql_format!("id={}", tmp));
+        }
         if let Some(tmp) = req_param.app_id {
             sql.push(sql_format!("app_id={}", tmp));
         }
