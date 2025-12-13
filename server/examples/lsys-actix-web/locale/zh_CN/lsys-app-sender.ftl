@@ -88,8 +88,8 @@ status-SenderSmsConfigType-Block = 指定号码屏蔽
 
 
 
-status-SenderSmsBodyStatus-Init = 待发送
-status-SenderSmsBodyStatus-Finish = 已发送
+status-SenderSmsBodyStatus-Init = 发送中
+status-SenderSmsBodyStatus-Finish = 发送完成
 
 
 
@@ -120,8 +120,8 @@ status-SenderMailConfigType-BlockDomain = 指定邮箱屏蔽
 
 
 
-status-SenderMailBodyStatus-Init = 待发送
-status-SenderMailBodyStatus-Finish = 已发送
+status-SenderMailBodyStatus-Init = 发送中
+status-SenderMailBodyStatus-Finish = 发送完成
 
 
 

@@ -243,6 +243,7 @@ pub async fn smser_message_list(
                 "max_try_num":e.1.as_ref().map(|t|t.max_try_num),
                 "add_time":e.1.as_ref().map(|t|t.add_time),
                 "status":e.0.status,
+                "body_status":e.1.as_ref().map(|t|t.status),
                 "now_send":now_send,
                 "on_task":s.is_some(),
                 "expected_time":e.1.as_ref().map(|t|t.expected_time),

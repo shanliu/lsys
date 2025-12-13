@@ -104,8 +104,8 @@ valid-rule-name-area_code = 地区编码
 
 
 #字典 
-dict-SMS_NOTIFY_TYPE = 短信发送结果回调
-dict-SUB_APP_SECRET_NOTIFY_TYPE = 子应用密钥更改回调
+dict-SMS_NOTIFY_METHOD = 短信发送结果回调
+dict-SUB_APP_SECRET_NOTIFY_METHOD = 子应用密钥更改回调
 
 
 #字典 

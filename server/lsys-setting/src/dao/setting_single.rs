@@ -1,6 +1,6 @@
 use crate::model::{SettingModel, SettingModelRef, SettingStatus, SettingType};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::db::{Insert, ModelTableName, SqlQuote, Update};
+use lsys_core::db::{Insert, ModelTableName, SqlQuote, Update, WhereOption};
 use lsys_core::{
     db_option_executor, model_option_set, sql_format, string_clear, valid_key, StringClear,
     ValidParam, ValidParamCheck, ValidPattern, ValidStrlen, STRING_CLEAR_FORMAT,
@@ -129,7 +129,10 @@ impl SingleSetting {
                     db,
                     {
                         Update::<SettingModel, _>::new(change)
-                            .execute_by_pk(&set, db.as_executor())
+                            .execute_by_where(
+                                &WhereOption::Where(sql_format!("id={}", set.id)),
+                                db.as_executor(),
+                            )
                             .await?;
                     },
                     transaction,

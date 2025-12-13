@@ -465,7 +465,7 @@ pub async fn request_list(
         "data": bind_vec_user_info_from_req!(
             req_dao,
             out,
-            request_user_id,
+            [request_user_id:"request_user_data",confirm_user_id:"confirm_user_data"],
             false
         ),
         "total":count

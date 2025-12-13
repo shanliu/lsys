@@ -149,7 +149,7 @@ impl App {
                 confirm_note:confirm_note,
             });
             Update::<AppRequestModel, _>::new(change)
-                .execute_by_pk(req, &self.db)
+                .execute_by_where(&WhereOption::Where(sql_format!("id={}", req.id)), &self.db)
                 .await?;
             return Ok(());
         }
@@ -213,7 +213,7 @@ impl App {
             confirm_note:confirm_note,
         });
         let cres = Update::<AppRequestModel, _>::new(change)
-            .execute_by_pk(req, &mut *db)
+            .execute_by_where(&WhereOption::Where(sql_format!("id={}", req.id)), &mut *db)
             .await;
         if let Err(err) = cres {
             db.rollback().await?;

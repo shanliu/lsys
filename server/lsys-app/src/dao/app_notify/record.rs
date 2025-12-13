@@ -134,7 +134,7 @@ impl AppNotifyRecord {
                     change_user_id:change_user_id,
                 });
                 Update::<AppNotifyConfigModel, _>::new(change)
-                    .execute_by_pk(&row, &self.db)
+                    .execute_by_where(&WhereOption::Where(sql_format!("id={}", row.id)), &self.db)
                     .await?;
                 row.id
             }
@@ -376,7 +376,7 @@ impl AppNotifyRecord {
         app_user_id: Option<u64>,
         notify_method: Option<&str>,
         notify_key: Option<&str>,
-        status: Option<AppNotifyDataStatus>,
+        status: Option<&[AppNotifyDataStatus]>,
     ) -> Option<Vec<String>> {
         let mut sqlwhere = vec![];
         if let Some(s) = notify_method {
@@ -401,19 +401,24 @@ impl AppNotifyRecord {
             ));
         }
         if let Some(s) = status {
-            sqlwhere.push(sql_format!("d.status={} ", s));
+            let s: Vec<i8> = s.iter().map(|e| *e as i8).collect();
+            if s.is_empty() {
+                return None;
+            }
+            sqlwhere.push(sql_format!("d.status in ({}) ", s));
         }
         Some(sqlwhere)
     }
 
     //消息数量
+
     pub async fn data_count(
         &self,
         app_id: Option<u64>,
         app_user_id: Option<u64>,
         notify_method: Option<&str>,
         notify_key: Option<&str>,
-        status: Option<AppNotifyDataStatus>,
+        status: Option<&[AppNotifyDataStatus]>,
     ) -> AppResult<i64> {
         let sqlwhere = match self.data_sql(app_id, app_user_id, notify_method, notify_key, status) {
             Some(s) => s,
@@ -434,13 +439,15 @@ impl AppNotifyRecord {
         Ok(res)
     }
     //消息列表
+    #[allow(clippy::too_many_arguments)]
     pub async fn data_list(
         &self,
         app_id: Option<u64>,
         app_user_id: Option<u64>,
         notify_method: Option<&str>,
         notify_key: Option<&str>,
-        status: Option<AppNotifyDataStatus>,
+        status: Option<&[AppNotifyDataStatus]>,
+        attr_callback_data: bool,
         limit: Option<&LimitParam>,
     ) -> AppResult<(Vec<(AppNotifyDataModel, String)>, Option<u64>)> {
         let sqlwhere = match self.data_sql(app_id, app_user_id, notify_method, notify_key, status) {
@@ -476,13 +483,22 @@ impl AppNotifyRecord {
             )
         };
 
-        let sql = sql_format!(
-            "select d.*,c.call_url from {} as d left join {} as c on d.app_id=c.app_id and d.notify_method=c.notify_method
-            {}",
-            AppNotifyDataModel::table_name(),
-            AppNotifyConfigModel::table_name(),
-            SqlExpr(where_sql)
-        );
+        let sql = if attr_callback_data {
+            sql_format!(
+                "select d.*,c.call_url from {} as d left join {} as c on d.app_id=c.app_id and d.notify_method=c.notify_method
+                {}",
+                AppNotifyDataModel::table_name(),
+                AppNotifyConfigModel::table_name(),
+                SqlExpr(where_sql)
+            )
+        } else {
+            sql_format!(
+                "select d.id,d.app_id,d.notify_method,d.notify_type,d.notify_key,d.status,d.publish_time,d.next_time,d.create_time,'' as call_url from {} as d 
+                {}",
+                AppNotifyDataModel::table_name(),
+                SqlExpr(where_sql)
+            )
+        };
 
         let mut m_data = sqlx::query(sql.as_str())
             .try_map(

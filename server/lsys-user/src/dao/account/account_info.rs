@@ -1,5 +1,6 @@
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
+    db::WhereOption,
     now_time, valid_key, RemoteNotify, RequestEnv, ValidDateTime, ValidIp, ValidNumber, ValidParam,
     ValidParamCheck, ValidPattern, ValidStrlen,
 };
@@ -145,7 +146,10 @@ impl AccountInfo {
             }
             Ok(account_info) => {
                 Update::<AccountInfoModel, _>::new(set_info)
-                    .execute_by_pk(&account_info, &mut *db)
+                    .execute_by_where(
+                        &WhereOption::Where(sql_format!("id={}", account_info.id)),
+                        &mut *db,
+                    )
                     .await
             }
             Err(err) => {

@@ -16,7 +16,7 @@ use tracing::warn;
 use super::logger::LogAccount;
 use super::AccountError;
 use super::{AccountIndex, AccountItem};
-use lsys_core::db::{Insert, Update};
+use lsys_core::db::{Insert, Update, WhereOption};
 use lsys_core::db::{ModelTableName, SqlQuote};
 use lsys_core::IntoFluentMessage;
 use lsys_core::{model_option_set, sql_format};
@@ -183,7 +183,10 @@ impl Account {
             None => self.db.begin().await?,
         };
         let tmp = Update::<AccountModel, _>::new(change)
-            .execute_by_pk(account, &mut *db)
+            .execute_by_where(
+                &WhereOption::Where(sql_format!("id={}", account.id)),
+                &mut *db,
+            )
             .await;
         if let Err(ie) = tmp {
             db.rollback().await?;
@@ -243,7 +246,10 @@ impl Account {
         let del_name_ow = del_name.map(|e| e.to_string());
         change.nickname = del_name_ow.as_ref();
         let tmp = Update::<AccountModel, _>::new(change)
-            .execute_by_pk(account, &mut *db)
+            .execute_by_where(
+                &WhereOption::Where(sql_format!("id={}", account.id)),
+                &mut *db,
+            )
             .await;
         if let Err(e) = tmp {
             db.rollback().await?;
@@ -290,7 +296,10 @@ impl Account {
             None => self.db.begin().await?,
         };
         let res = Update::<AccountModel, _>::new(change)
-            .execute_by_pk(account, &mut *db)
+            .execute_by_where(
+                &WhereOption::Where(sql_format!("id={}", account.id)),
+                &mut *db,
+            )
             .await;
         let out = match res {
             Err(e) => {

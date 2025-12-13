@@ -11,9 +11,7 @@ use crate::{
     },
 };
 use lsys_core::{
-    fluent_message, now_time, string_clear, valid_key, LimitParam, PageParam, RequestEnv,
-    StringClear, ValidMobile, ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
-    STRING_CLEAR_FORMAT,
+    LimitParam, PageParam, RequestEnv, STRING_CLEAR_FORMAT, StringClear, ValidMobile, ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen, db::WhereOption, fluent_message, now_time, string_clear, valid_key
 };
 
 use lsys_core::db::{Insert, ModelTableName, SqlExpr, Update};
@@ -431,7 +429,10 @@ impl SmsRecord {
                 status: SenderSmsMessageStatus::IsCancel as i8
             });
             Update::<SenderSmsMessageModel, _>::new(change)
-                .execute_by_pk(message, &self.db)
+                .execute_by_where(
+                    &WhereOption::Where(sql_format!("id={}", message.id)),
+                    &self.db,
+                )
                 .await?;
 
             self.logger

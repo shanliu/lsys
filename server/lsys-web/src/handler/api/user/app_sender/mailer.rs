@@ -236,6 +236,7 @@ pub async fn mailer_message_list(
                 "add_time":e.1.as_ref().map(|t|t.add_time),
                 "expected_time":e.1.as_ref().map(|t|t.expected_time),
                 "to_mail":e.0.to_mail,
+                "body_status":e.1.as_ref().map(|t|t.status),
                 "try_num":e.0.try_num,
                 "status":e.0.status,
                 "now_send":now_send,

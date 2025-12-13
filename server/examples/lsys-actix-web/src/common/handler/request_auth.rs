@@ -26,6 +26,7 @@ use super::{ResponseJson, AUTH_COOKIE_NAME};
 
 pub struct UserAuthQuery {
     pub inner: UserAuthQueryDao,
+    #[allow(unused)]
     pub req: HttpRequest,
 }
 
@@ -99,6 +100,7 @@ impl FromRequest for UserAuthQuery {
     }
 }
 
+#[allow(unused)]
 pub struct CookieTokenPaser {
     web_dao: Arc<WebDao>,
 }
@@ -122,6 +124,7 @@ impl RequestSessionTokenPaser<UserAuthToken> for CookieTokenPaser {
     }
 }
 //COOKIE登陆实现[默认实现]
+#[allow(unused)]
 pub struct CookieToken<'t> {
     query: &'t UserAuthQuery,
 }

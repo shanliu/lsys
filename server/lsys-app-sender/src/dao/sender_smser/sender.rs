@@ -31,7 +31,7 @@ use lsys_core::TaskDispatch;
 
 const SMSER_REDIS_PREFIX: &str = "sender-sms";
 
-pub const SMS_NOTIFY_TYPE: &str = "sms_notify";
+pub const SMS_NOTIFY_METHOD: &str = "sms_notify";
 
 pub struct SmsSenderConfig {
     pub sender_task_size: Option<usize>,
@@ -189,7 +189,7 @@ impl SmsSenderDao {
         //后台同步短信发送结果触发句柄 && 后台同步短信发送结果同步任务 --end
 
         let app_notify_sender = Arc::new(app_notify.sender_create(
-            SMS_NOTIFY_TYPE,
+            SMS_NOTIFY_METHOD,
             sms_config.notify_type,
             sms_config.notify_try_max,
             sms_config.notify_try_mode,

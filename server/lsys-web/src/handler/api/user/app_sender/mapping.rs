@@ -40,7 +40,7 @@ pub async fn mailer_mapping_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonR
             status_json_format!(req_dao, SenderMailConfigType::Block),
             status_json_format!(req_dao, SenderMailConfigType::BlockDomain),
         ],
-        "mail_branch_status":vec![
+        "mail_body_status":vec![
             status_json_format!(req_dao, SenderMailBodyStatus::Init),
             status_json_format!(req_dao, SenderMailBodyStatus::Finish),
         ],
@@ -75,7 +75,7 @@ pub async fn smser_mapping_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonRe
             status_json_format!(req_dao, SenderSmsConfigType::PassTpl),
             status_json_format!(req_dao, SenderSmsConfigType::Block),
         ],
-         "sms_branch_status":vec![
+         "sms_body_status":vec![
             status_json_format!(req_dao, SenderSmsBodyStatus::Init),
             status_json_format!(req_dao, SenderSmsBodyStatus::Finish),
         ],

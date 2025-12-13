@@ -29,11 +29,11 @@
 | response.data.request_type | string | 请求类型 |
 | response.data.request_user_id | string | 请求用户ID |
 | response.data.status | string | 状态 |
-| response.data.user_data.app_id | string | 用户所属应用ID |
-| response.data.user_data.id | string | 用户ID |
-| response.data.user_data.user_account | string | 用户账号 |
-| response.data.user_data.user_data | string | 用户数据 |
-| response.data.user_data.user_nickname | string | 用户昵称 |
+| response.data.request_user_data.app_id | string | 用户所属应用ID |
+| response.data.request_user_data.id | string | 用户ID |
+| response.data.request_user_data.user_account | string | 用户账号 |
+| response.data.request_user_data.user_data | string | 用户数据 |
+| response.data.request_user_data.user_nickname | string | 用户昵称 |
 | response.total | int | 总记录数 |
 | result.code | int | 响应代码 |
 | result.message | string | 响应消息 |
@@ -84,7 +84,7 @@ Authorization:Bearer {{APP_BEARER_TEST_ACCOUNT}}
         "request_type": "1",
         "request_user_id": "1",
         "status": "2",
-        "user_data": {
+        "request_user_data": {
           "app_id": "0",
           "id": "1",
           "user_account": "aaaaa",

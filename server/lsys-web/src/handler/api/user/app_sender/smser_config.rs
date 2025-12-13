@@ -5,7 +5,7 @@ use crate::dao::access::RbacAccessCheckEnv;
 use lsys_access::dao::AccessSession;
 use lsys_app::dao::UserAppDataParam;
 use lsys_app::model::AppStatus;
-use lsys_app_sender::dao::SMS_NOTIFY_TYPE;
+use lsys_app_sender::dao::SMS_NOTIFY_METHOD;
 use lsys_app_sender::model::SenderSmsConfigType;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -209,7 +209,7 @@ pub async fn smser_notify_get_config(req_dao: &UserAuthQueryDao) -> JsonResult<J
         .record
         .find_config_by_apps(
             &apps.iter().map(|e| e.0.id).collect::<Vec<_>>(),
-            SMS_NOTIFY_TYPE,
+            SMS_NOTIFY_METHOD,
         )
         .await?;
     let data = apps
@@ -268,7 +268,7 @@ pub async fn smser_notify_set_config(
         .record
         .set_app_config(
             &app,
-            SMS_NOTIFY_TYPE,
+            SMS_NOTIFY_METHOD,
             &param.url,
             auth_data.user_id(),
             Some(&req_dao.req_env),

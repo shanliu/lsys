@@ -3,11 +3,11 @@ use std::sync::Arc;
 use crate::dao::{SenderError, SenderResult};
 use crate::model::{SenderTplBodyModel, SenderTplBodyModelRef, SenderTplBodyStatus, SenderType};
 use lsys_core::{
-    fluent_message, now_time, valid_key, PageParam, RequestEnv, ValidNumber, ValidParam,
-    ValidParamCheck, ValidPattern, ValidStrlen,
+    fluent_message, now_time, string_clear, valid_key, PageParam, RequestEnv, StringClear,
+    ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen, STRING_CLEAR_FORMAT,
 };
 
-use lsys_core::db::{Insert, ModelTableName, SqlExpr, SqlQuote, Update};
+use lsys_core::db::{Insert, ModelTableName, SqlExpr, SqlQuote, Update, WhereOption};
 use lsys_core::{model_option_set, sql_format};
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::Pool;
@@ -175,7 +175,7 @@ impl MessageTpls {
             change_time:time,
         });
         let row = Update::<SenderTplBodyModel, _>::new(change)
-            .execute_by_pk(tpl, &self.db)
+            .execute_by_where(&WhereOption::Where(sql_format!("id={}", tpl.id)), &self.db)
             .await?
             .rows_affected();
 
@@ -220,7 +220,7 @@ impl MessageTpls {
             change_time:time,
         });
         let row = Update::<SenderTplBodyModel, _>::new(change)
-            .execute_by_pk(tpl, &self.db)
+            .execute_by_where(&WhereOption::Where(sql_format!("id={}", tpl.id)), &self.db)
             .await?
             .rows_affected();
         let tkey = self.tpl_key(tpl.sender_type, &tpl.tpl_id);
@@ -293,7 +293,8 @@ impl MessageTpls {
         sender_type: Option<SenderType>,
         id: Option<u64>,
         tpl_id: Option<&str>,
-    ) -> String {
+        tpl_id_like: Option<&str>,
+    ) -> Option<String> {
         let mut sqlwhere = vec![sql_format!(
             "app_id={} and status ={}",
             app_id,
@@ -308,7 +309,14 @@ impl MessageTpls {
         if let Some(s) = tpl_id {
             sqlwhere.push(sql_format!("tpl_id={} ", s));
         }
-        sqlwhere.join(" and ")
+        if let Some(tmp) = tpl_id_like {
+            let tmp = string_clear(tmp, StringClear::Option(STRING_CLEAR_FORMAT), Some(128));
+            if tmp.is_empty() {
+                return None;
+            }
+            sqlwhere.push(sql_format!("tpl_id like {}", format!("{}%", tmp)));
+        }
+        Some(sqlwhere.join(" and "))
     }
     pub async fn list_data(
         &self,
@@ -316,9 +324,13 @@ impl MessageTpls {
         sender_type: Option<SenderType>,
         id: Option<u64>,
         tpl_id: Option<&str>,
+        tpl_id_like: Option<&str>,
         page: Option<&PageParam>,
     ) -> SenderResult<Vec<SenderTplBodyModel>> {
-        let sqlwhere = self.list_where_sql(app_id, sender_type, id, tpl_id);
+        let sqlwhere = match self.list_where_sql(app_id, sender_type, id, tpl_id, tpl_id_like) {
+            Some(s) => s,
+            None => return Ok(vec![]),
+        };
         let sql = sql_format!(
             "select * from {} {} order by id desc {}",
             SenderTplBodyModel::table_name(),
@@ -342,8 +354,12 @@ impl MessageTpls {
         sender_type: Option<SenderType>,
         id: Option<u64>,
         tpl_id: Option<&str>,
+        tpl_id_like: Option<&str>,
     ) -> SenderResult<i64> {
-        let sqlwhere = self.list_where_sql(app_id, sender_type, id, tpl_id);
+        let sqlwhere = match self.list_where_sql(app_id, sender_type, id, tpl_id, tpl_id_like) {
+            Some(s) => s,
+            None => return Ok(0),
+        };
         let sql = sql_format!(
             "select count(*) as total from {} where {}",
             SenderTplBodyModel::table_name(),

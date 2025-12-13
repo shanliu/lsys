@@ -13,6 +13,7 @@ pub struct MailerTplListParam {
     #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub id: Option<u64>,
     pub tpl_id: Option<String>,
+    pub tpl_id_like: Option<String>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
     pub page: Option<PageParam>,
@@ -41,6 +42,7 @@ pub async fn mailer_tpl_body_list(
             Some(SenderType::Mailer),
             param.id,
             param.tpl_id.as_deref(),
+            param.tpl_id_like.as_deref(),
             param.page.as_ref().map(|e| e.into()).as_ref(),
         )
         .await?;
@@ -55,6 +57,7 @@ pub async fn mailer_tpl_body_list(
                     Some(SenderType::Mailer),
                     param.id,
                     param.tpl_id.as_deref(),
+                    param.tpl_id_like.as_deref(),
                 )
                 .await?,
         )

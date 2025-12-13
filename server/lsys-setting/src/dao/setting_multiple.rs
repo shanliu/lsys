@@ -322,7 +322,10 @@ impl MultipleSetting {
                     db,
                     {
                         Update::<SettingModel, _>::new(change)
-                            .execute_by_pk(&item, db.as_executor())
+                            .execute_by_where(
+                                &WhereOption::Where(sql_format!("id={}", item.id)),
+                                db.as_executor(),
+                            )
                             .await?
                     },
                     transaction,

@@ -6,10 +6,13 @@ use crate::{
         AppRequestType,
     },
 };
-use lsys_core::{db::SqlQuote, string_clear, StringClear, STRING_CLEAR_FORMAT};
 use lsys_core::{
     db::{Insert, ModelTableName, Update},
     STRING_CLEAR_XSS,
+};
+use lsys_core::{
+    db::{SqlQuote, WhereOption},
+    string_clear, StringClear, STRING_CLEAR_FORMAT,
 };
 use lsys_core::{fluent_message, now_time, RequestEnv};
 use lsys_core::{model_option_set, sql_format};
@@ -219,7 +222,10 @@ impl App {
                 confirm_note:confirm_note,
             });
             Update::<AppRequestModel, _>::new(change)
-                .execute_by_pk(req, &self.db)
+                .execute_by_where(
+                    &lsys_core::db::WhereOption::Where(sql_format!("id={}", req.id)),
+                    &self.db,
+                )
                 .await?;
             return Ok(());
         }
@@ -293,7 +299,7 @@ impl App {
             confirm_note:confirm_note,
         });
         let cres = Update::<AppRequestModel, _>::new(change)
-            .execute_by_pk(req, &mut *db)
+            .execute_by_where(&WhereOption::Where(sql_format!("id={}", req.id)), &mut *db)
             .await;
         if let Err(err) = cres {
             db.rollback().await?;

@@ -46,7 +46,7 @@ Content-Type:application/json
 Authorization:Bearer {{APP_BEARER_TEST_ACCOUNT}}
 
 {
-    "app_id":16,
+    "app_id":1,
     "tpl_id":null,
    "status":null,
    "body_id":null,

@@ -14,7 +14,7 @@ use lsys_core::{
 
 use super::logger::LogAccountExternal;
 use super::AccountIndex;
-use lsys_core::db::{Insert, ModelTableName, SqlQuote, Update};
+use lsys_core::db::{Insert, ModelTableName, SqlQuote, Update, WhereOption};
 use lsys_core::{db_option_executor, model_option_set, sql_format};
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{Acquire, MySql, Pool, Transaction};
@@ -206,7 +206,10 @@ impl AccountExternal {
                     db,
                     {
                         Update::<AccountExternalModel, _>::new(change)
-                            .execute_by_pk(&account_ext, db.as_executor())
+                            .execute_by_where(
+                                &WhereOption::Where(sql_format!("id={}", account_ext.id)),
+                                db.as_executor(),
+                            )
                             .await?;
                     },
                     transaction,
@@ -416,7 +419,10 @@ impl AccountExternal {
         let external_nikename_ow = external_link.map(|e| e.to_string());
         change.external_nikename = external_nikename_ow.as_ref();
         Update::<AccountExternalModel, _>::new(change)
-            .execute_by_pk(account_ext, &self.db)
+            .execute_by_where(
+                &WhereOption::Where(sql_format!("id={}", account_ext.id)),
+                &self.db,
+            )
             .await?;
         self.cache.clear(&account_ext.id).await;
         self.account_cache.clear(&account_ext.account_id).await;
@@ -468,7 +474,10 @@ impl AccountExternal {
             None => self.db.begin().await?,
         };
         let res = Update::<AccountExternalModel, _>::new(change)
-            .execute_by_pk(account_ext, &mut *db)
+            .execute_by_where(
+                &WhereOption::Where(sql_format!("id={}", account_ext.id)),
+                &mut *db,
+            )
             .await;
         let out = match res {
             Err(e) => {

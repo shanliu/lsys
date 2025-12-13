@@ -112,37 +112,4 @@ where
         res = self.bind_values(res);
         executor.execute(res).await
     }
-    pub async fn execute_by_pk<'c, E>(
-        &self,
-        source: &T,
-        executor: E,
-    ) -> Result<sqlx::mysql::MySqlQueryResult, Error>
-    where
-        for<'n> <sqlx::MySql as sqlx::Database>::Arguments<'n>:
-            Arguments<'n> + IntoArguments<'n, sqlx::MySql>,
-        E: Executor<'c, Database = sqlx::MySql>,
-    {
-        if self.empty_change() {
-            return Ok(sqlx::mysql::MySqlQueryResult::default());
-        }
-        let table = T::table_name();
-        let pkf = T::table_pk();
-        let mut where_sql = vec![];
-        let values = self.sql_sets();
-        for val in pkf.0.iter() {
-            where_sql.push(format!("{}=?", val.name));
-        }
-        let sql = format!(
-            "UPDATE {} SET {} WHERE {}",
-            table.full_name(),
-            values,
-            where_sql.join(" and ")
-        );
-        let mut res = sqlx::query(sql.as_str());
-        res = self.bind_values(res);
-        for val in pkf.0.iter() {
-            res = source.query_sqlx_bind(val, res);
-        }
-        executor.execute(res).await
-    }
 }

@@ -16,6 +16,8 @@ pub struct NotifyDataListParam {
     pub notify_key: Option<String>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
     pub status: Option<i8>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
+    pub attr_callback_data: Option<bool>,
     pub limit: Option<LimitParam>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
@@ -28,6 +30,7 @@ pub struct NotifyDataListRecord {
     pub notify_method: String,
     pub notify_type: u8,
     pub notify_key: String,
+    pub notify_payload: String,
     pub call_url: String,
     pub status: i8,
     pub result: String,
@@ -55,11 +58,15 @@ pub async fn notify_data_list(
 
     let status = if let Some(e) = param.status {
         Some(match AppNotifyDataStatus::try_from(e) {
-            Ok(ts) => ts,
+            Ok(ts) => vec![ts],
             Err(err) => return Err(err.into()),
         })
     } else {
-        None
+        Some(vec![
+            AppNotifyDataStatus::Init,
+            AppNotifyDataStatus::Succ,
+            AppNotifyDataStatus::Fail,
+        ])
     };
 
     let res = req_dao
@@ -73,7 +80,8 @@ pub async fn notify_data_list(
             Some(auth_data.user_id()),
             param.notify_method.as_deref(),
             param.notify_key.as_deref(),
-            status,
+            status.as_deref(),
+            param.attr_callback_data.unwrap_or(false),
             param.limit.as_ref().map(|e| e.into()).as_ref(),
         )
         .await?;
@@ -88,6 +96,7 @@ pub async fn notify_data_list(
             notify_method: e.0.notify_method,
             notify_type: e.0.notify_type,
             notify_key: e.0.notify_key,
+            notify_payload: e.0.notify_payload,
             call_url: e.1,
             result: e.0.result,
             try_num: e.0.try_num,
@@ -110,7 +119,7 @@ pub async fn notify_data_list(
                     Some(auth_data.user_id()),
                     param.notify_method.as_deref(),
                     param.notify_key.as_deref(),
-                    status,
+                    status.as_deref(),
                 )
                 .await?,
         )

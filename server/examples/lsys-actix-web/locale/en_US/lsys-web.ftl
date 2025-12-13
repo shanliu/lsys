@@ -87,5 +87,5 @@ res-op-user-app-sms-send = Send user SMS app messages
 # Validation Names
 valid-rule-name-area_code = Area code
 # Dictionaries 
-dict-SMS_NOTIFY_TYPE = SMS send result callback
-dict-SUB_APP_SECRET_NOTIFY_TYPE = Sub-app secret key change callback
+dict-SMS_NOTIFY_METHOD = SMS send result callback
+dict-SUB_APP_SECRET_NOTIFY_METHOD = Sub-app secret key change callback

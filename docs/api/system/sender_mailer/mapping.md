@@ -10,9 +10,9 @@
 | response.log_type | array | 日志类型列表 |
 | response.log_type.key | string | 类型键值 |
 | response.log_type.val | string | 类型描述 |
-| response.mail_branch_status | array | 邮件分支状态列表 |
-| response.mail_branch_status.key | string | 状态键值 |
-| response.mail_branch_status.val | string | 状态描述 |
+| response.mail_body_status | array | 邮件分支状态列表 |
+| response.mail_body_status.key | string | 状态键值 |
+| response.mail_body_status.val | string | 状态描述 |
 | response.mail_config_type | array | 邮件配置类型列表 |
 | response.mail_config_type.key | string | 配置键值 |
 | response.mail_config_type.val | string | 配置描述 |
@@ -78,7 +78,7 @@ Authorization:Bearer {{APP_BEARER_TEST_ACCOUNT}}
         "val": "取消发送"
       }
     ],
-    "mail_branch_status": [
+    "mail_body_status": [
       {
         "key": "1",
         "val": "待发送"

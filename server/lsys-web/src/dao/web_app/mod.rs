@@ -1,4 +1,5 @@
 mod oauth_server;
+mod stat;
 use lsys_access::dao::AccessDao;
 use lsys_app::dao::AppConfig;
 use lsys_app::dao::AppDao;
@@ -11,6 +12,7 @@ use std::sync::Arc;
 
 pub struct WebApp {
     pub app_dao: Arc<AppDao>,
+    db: sqlx::Pool<MySql>,
 }
 
 impl WebApp {
@@ -26,7 +28,7 @@ impl WebApp {
         let app_dao = AppDao::new(
             app_core,
             access_dao,
-            db,
+            db.clone(),
             redis,
             remote_notify,
             change_logger,
@@ -46,6 +48,6 @@ impl WebApp {
             let task_notify_app_dao = app_dao.clone();
             async move { task_notify_app_dao.listen_task_notify().await }
         });
-        Ok(Self { app_dao })
+        Ok(Self { app_dao, db })
     }
 }

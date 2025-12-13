@@ -10,7 +10,7 @@ use lsys_core::{
     StringClear, ValidEmail, ValidParam, ValidParamCheck, ValidStrlen, STRING_CLEAR_FORMAT,
 };
 
-use lsys_core::db::SqlQuote;
+use lsys_core::db::{SqlQuote, WhereOption};
 use lsys_core::db::{Insert, ModelTableName, Update};
 use lsys_core::{model_option_set, sql_format};
 use lsys_logger::dao::ChangeLoggerDao;
@@ -328,7 +328,10 @@ impl AccountEmail {
         let mut db = self.db.begin().await?;
 
         let tmp = Update::<AccountEmailModel, _>::new(change)
-            .execute_by_pk(email, &mut *db)
+            .execute_by_where(
+                &WhereOption::Where(sql_format!("id={}", email.id)),
+                &mut *db,
+            )
             .await;
         let res = match tmp {
             Ok(e) => e,
@@ -394,7 +397,10 @@ impl AccountEmail {
             None => self.db.begin().await?,
         };
         let res = Update::<AccountEmailModel, _>::new(change)
-            .execute_by_pk(email, &mut *db)
+            .execute_by_where(
+                &WhereOption::Where(sql_format!("id={}", email.id)),
+                &mut *db,
+            )
             .await;
         match res {
             Err(e) => {

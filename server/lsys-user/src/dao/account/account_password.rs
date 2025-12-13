@@ -8,7 +8,7 @@ use lsys_core::{
     ValidParamCheck, ValidPassword,
 };
 
-use lsys_core::db::{Insert, Update};
+use lsys_core::db::{Insert, Update, WhereOption};
 use lsys_core::db::{ModelTableName, SqlQuote};
 use lsys_core::{model_option_set, sql_format};
 use lsys_logger::dao::ChangeLoggerDao;
@@ -180,7 +180,10 @@ impl AccountPassword {
                     let change = lsys_core::model_option_set!(AccountPasswordModelRef, { disable_time: time });
                     //ta.execute(query)
                     Update::<AccountPasswordModel, _>::new(change)
-                        .execute_by_pk(&account_pass, &mut *ta)
+                        .execute_by_where(
+                            &WhereOption::Where(sql_format!("id={}", account_pass.id)),
+                            &mut *ta,
+                        )
                         .await?;
                 }
                 Err(err) => {
@@ -234,7 +237,10 @@ impl AccountPassword {
                     change_time:time,
                 });
                 let u_res = Update::<AccountModel, _>::new(change)
-                    .execute_by_pk(account, &mut *ta)
+                    .execute_by_where(
+                        &WhereOption::Where(sql_format!("id={}", account.id)),
+                        &mut *ta,
+                    )
                     .await;
                 match u_res {
                     Err(e) => {

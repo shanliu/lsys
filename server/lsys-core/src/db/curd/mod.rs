@@ -58,7 +58,6 @@ pub trait ModelTableName {
 }
 /// model实现得到表字段和字段值绑定 trait
 pub trait ModelTableField {
-    fn table_pk() -> TableFields;
     fn table_column() -> TableFields;
     fn query_sqlx_bind<'t>(
         &'t self,

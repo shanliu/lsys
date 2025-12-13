@@ -6,7 +6,9 @@ use crate::dao::access::api::system::user::{
 };
 use crate::dao::access::RbacAccessCheckEnv;
 use lsys_access::dao::AccessSession;
-use lsys_app::dao::{AppAttrParam, UserAppDataParam, UserSubAppParam, SUB_APP_SECRET_NOTIFY_TYPE};
+use lsys_app::dao::{
+    AppAttrParam, UserAppDataParam, UserSubAppParam, SUB_APP_SECRET_NOTIFY_METHOD,
+};
 use lsys_app::model::AppStatus;
 use lsys_core::fluent_message;
 use serde::Deserialize;
@@ -58,9 +60,9 @@ pub struct SubAppNotifyGetConfigParam {
     pub app_id: u64,
 }
 
-pub async fn sub_app_notify_get_config( 
+pub async fn sub_app_notify_get_config(
     param: &SubAppNotifyGetConfigParam,
-    req_dao: &UserAuthQueryDao
+    req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
     req_dao
@@ -95,30 +97,28 @@ pub async fn sub_app_notify_get_config(
         .record
         .find_config_by_apps(
             &apps.iter().map(|e| e.0.id).collect::<Vec<_>>(),
-            SUB_APP_SECRET_NOTIFY_TYPE,
+            SUB_APP_SECRET_NOTIFY_METHOD,
         )
         .await?;
-    let data = apps
-        .first()
-        .map(|e| {
-            let n = notify.iter().find(|t| t.app_id == e.0.id);
-            let url = n.map(|t| &t.call_url);
-            let change_time = n.map(|t| {
-                if t.change_time > 0 {
-                    t.change_time
-                } else {
-                    t.create_time
-                }
-            });
-            let change_user_id = n.map(|t| t.change_user_id);
-            json!({
-                "app_id":e.0.id,
-                "app_name":e.0.name,
-                "call_url":url,
-                "change_time":change_time,
-                "change_user_id":change_user_id,
-            })
+    let data = apps.first().map(|e| {
+        let n = notify.iter().find(|t| t.app_id == e.0.id);
+        let url = n.map(|t| &t.call_url);
+        let change_time = n.map(|t| {
+            if t.change_time > 0 {
+                t.change_time
+            } else {
+                t.create_time
+            }
         });
+        let change_user_id = n.map(|t| t.change_user_id);
+        json!({
+            "app_id":e.0.id,
+            "app_name":e.0.name,
+            "call_url":url,
+            "change_time":change_time,
+            "change_user_id":change_user_id,
+        })
+    });
     Ok(JsonResponse::data(JsonData::body(json!({
         "data":data,
     }))))
@@ -168,7 +168,7 @@ pub async fn sub_app_notify_set_config(
         .record
         .set_app_config(
             &app,
-            SUB_APP_SECRET_NOTIFY_TYPE,
+            SUB_APP_SECRET_NOTIFY_METHOD,
             &param.url,
             auth_data.user_id(),
             Some(&req_dao.req_env),
@@ -181,6 +181,8 @@ pub async fn sub_app_notify_set_config(
 pub struct SubAppListParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
+    pub sub_app_id: Option<u64>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
     pub status: Option<i8>,
     pub page: Option<PageParam>,
@@ -250,6 +252,7 @@ pub async fn sub_app_list(
     let app_param = UserSubAppParam {
         status,
         app_id: param.app_id,
+        sub_app_id: param.sub_app_id,
     };
 
     let app_attr = AppAttrParam {

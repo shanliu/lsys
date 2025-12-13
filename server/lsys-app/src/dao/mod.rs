@@ -30,7 +30,7 @@ pub use result::*;
 pub use session::*;
 use sqlx::{MySql, Pool};
 use std::sync::Arc;
-pub const SUB_APP_SECRET_NOTIFY_TYPE: &str = "sub_app_notify";
+pub const SUB_APP_SECRET_NOTIFY_METHOD: &str = "sub_app_notify";
 pub struct AppDao {
     //内部依赖
     app_core: Arc<AppCore>,
@@ -135,7 +135,7 @@ impl AppDao {
             config.sub_app_notify_config.timeout_task_config,
         ));
         let sub_app_notify_sender = app_notify.sender_create(
-            SUB_APP_SECRET_NOTIFY_TYPE,
+            SUB_APP_SECRET_NOTIFY_METHOD,
             config.sub_app_notify_config.notify_type,
             config.sub_app_notify_config.notify_try_max,
             config.sub_app_notify_config.notify_try_mode,

@@ -417,7 +417,7 @@ impl App {
                 client_id:client_id
             });
             let req_res = Update::<AppModel, _>::new(change)
-                .execute_by_pk(app, &mut *db)
+                .execute_by_where(&WhereOption::Where(sql_format!("id={}", app.id)), &mut *db)
                 .await;
             if let Err(e) = req_res {
                 db.rollback().await?;
@@ -604,7 +604,7 @@ impl App {
             change_time:time
         });
         let req_res = Update::<AppModel, _>::new(change)
-            .execute_by_pk(app, &mut *db)
+            .execute_by_where(&WhereOption::Where(sql_format!("id={}", app.id)), &mut *db)
             .await;
         if let Err(e) = req_res {
             db.rollback().await?;
@@ -621,7 +621,7 @@ impl App {
             confirm_note:confirm_note,
         });
         let req_res = Update::<AppRequestModel, _>::new(change)
-            .execute_by_pk(req, &mut *db)
+            .execute_by_where(&WhereOption::Where(sql_format!("id={}", req.id)), &mut *db)
             .await;
         if let Err(e) = req_res {
             db.rollback().await?;
@@ -820,7 +820,7 @@ impl App {
             change_time:time
         });
         let req_res = Update::<AppModel, _>::new(change_app)
-            .execute_by_pk(app, &mut *db)
+            .execute_by_where(&WhereOption::Where(sql_format!("id={}", app.id)), &mut *db)
             .await;
         if let Err(e) = req_res {
             db.rollback().await?;

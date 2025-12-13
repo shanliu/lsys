@@ -9,6 +9,7 @@ mod app_mapping;
 mod app_notify;
 mod app_oauth_client;
 mod app_oauth_server;
+mod app_stat;
 mod sub_app;
 
 pub use app_add::*;
@@ -22,4 +23,5 @@ pub use app_mapping::*;
 pub use app_notify::*;
 pub use app_oauth_client::*;
 pub use app_oauth_server::*;
+pub use app_stat::*;
 pub use sub_app::*;

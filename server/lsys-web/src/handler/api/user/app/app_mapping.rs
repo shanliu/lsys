@@ -6,18 +6,18 @@ use crate::handler::APP_FEATURE_BARCODE;
 use crate::handler::APP_FEATURE_MAIL;
 use crate::handler::APP_FEATURE_RBAC;
 use crate::handler::APP_FEATURE_SMS;
-use lsys_app::dao::SUB_APP_SECRET_NOTIFY_TYPE;
+use lsys_app::dao::SUB_APP_SECRET_NOTIFY_METHOD;
 use lsys_app::model::AppNotifyDataStatus;
 use lsys_app::model::AppRequestStatus;
 use lsys_app::model::AppRequestType;
 use lsys_app::model::AppStatus;
-use lsys_app_sender::dao::SMS_NOTIFY_TYPE;
+use lsys_app_sender::dao::SMS_NOTIFY_METHOD;
 use serde_json::json;
 pub async fn mapping_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     Ok(JsonResponse::data(JsonData::body(json!({
         "notify_method":vec![
-            const_json_format!(req_dao, SMS_NOTIFY_TYPE),
-            const_json_format!(req_dao, SUB_APP_SECRET_NOTIFY_TYPE),
+            const_json_format!(req_dao, SMS_NOTIFY_METHOD),
+            const_json_format!(req_dao, SUB_APP_SECRET_NOTIFY_METHOD),
         ],
         "notify_status":vec![
             status_json_format!(req_dao, AppNotifyDataStatus::Init),

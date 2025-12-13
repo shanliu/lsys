@@ -1,7 +1,5 @@
 use lsys_core::{
-    cache::{LocalCache, LocalCacheConfig},
-    now_time, valid_key, RemoteNotify, RequestEnv, ValidMobile, ValidNumber, ValidParam,
-    ValidParamCheck, ValidPattern, ValidStrlen,
+    RemoteNotify, RequestEnv, ValidMobile, ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen, cache::{LocalCache, LocalCacheConfig}, db::WhereOption, now_time, valid_key
 };
 
 use lsys_core::db::{Insert, ModelTableName, SqlQuote, Update};
@@ -150,7 +148,10 @@ impl AccountAddress {
             None => self.db.begin().await?,
         };
         let tmp = Update::<AccountAddressModel, _>::new(address_data)
-            .execute_by_pk(address, &mut *db)
+            .execute_by_where(
+                &WhereOption::Where(sql_format!("id={}", address.id)),
+                &mut *db,
+            )
             .await;
         match tmp {
             Err(e) => {
@@ -348,7 +349,10 @@ impl AccountAddress {
             None => self.db.begin().await?,
         };
         let res = Update::<AccountAddressModel, _>::new(change)
-            .execute_by_pk(address, &mut *db)
+            .execute_by_where(
+                &WhereOption::Where(sql_format!("id={}", address.id)),
+                &mut *db,
+            )
             .await;
         match res {
             Err(e) => {

@@ -28,6 +28,7 @@ use barcode::BarCodeCore;
 use logger::LogBarCodeParseRecord;
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
+    db::WhereOption,
     fluent_message, now_time, PageParam, RemoteNotify, RequestEnv, ValidColor, ValidContains,
     ValidNumber,
 };
@@ -496,7 +497,10 @@ impl BarCodeDao {
             image_background:image_background,
         });
         let row = Update::<BarcodeCreateModel, _>::new(change)
-            .execute_by_pk(create_config, &self.db)
+            .execute_by_where(
+                &WhereOption::Where(sql_format!("id={}", create_config.id)),
+                &self.db,
+            )
             .await
             .map(|e| e.rows_affected())?;
 
@@ -535,7 +539,10 @@ impl BarCodeDao {
             change_time: time,
         });
         Update::<BarcodeCreateModel, _>::new(change)
-            .execute_by_pk(create_config, &self.db)
+            .execute_by_where(
+                &WhereOption::Where(sql_format!("id={}", create_config.id)),
+                &self.db,
+            )
             .await?;
 
         self.logger
@@ -740,7 +747,10 @@ impl BarCodeDao {
             change_time: time,
         });
         Update::<BarcodeParseModel, _>::new(change)
-            .execute_by_pk(parse_record, &self.db)
+            .execute_by_where(
+                &WhereOption::Where(sql_format!("id={}", parse_record.id)),
+                &self.db,
+            )
             .await?;
         self.logger
             .add(

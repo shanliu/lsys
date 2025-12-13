@@ -75,7 +75,6 @@ pub fn lsys_model(args: TokenStream, item: TokenStream) -> TokenStream {
 
     let mut table_name = None;
     let mut rename_all = None;
-    let mut table_pk = vec![];
     let args = syn::parse_macro_input!(args as syn::AttributeArgs);
     // for attr in args
     //     .iter()
@@ -100,14 +99,6 @@ pub fn lsys_model(args: TokenStream, item: TokenStream) -> TokenStream {
                     }
                     .value();
                     table_name = Some(val);
-                }
-                "table_pk" => {
-                    let val = match ident.lit {
-                        syn::Lit::Str(val) => val,
-                        _ => unreachable!("table pk field must be string"),
-                    }
-                    .value();
-                    table_pk.push(val);
                 }
                 "rename_all" => {
                     if let syn::Lit::Str(val) = ident.lit {
@@ -174,34 +165,9 @@ pub fn lsys_model(args: TokenStream, item: TokenStream) -> TokenStream {
                     })
                     .collect();
                 let change_struct = quote::format_ident!("{}Ref", struct_name);
-                let mut pk_fields = vec![];
-                for field in fields_name.named.iter() {
-                    let field_name = field.ident.as_ref().unwrap();
-                    if table_pk.contains(&field_name.to_string()) {
-                        let str_field_name = match get_sqlx_field_rename(&field.attrs) {
-                            Some(str) => str,
-                            _ => change_sqlx_field_rename(&rename_all, field_name.to_string()),
-                        };
-                        pk_fields.push(quote! {
-                            #field_name[#str_field_name]
-                        });
-                    }
-                }
-                if pk_fields.is_empty() {
-                    if let Some(field) = fields_name.named.iter().next() {
-                        let field_name = field.ident.as_ref().unwrap();
-                        let str_field_name = match get_sqlx_field_rename(&field.attrs) {
-                            Some(str) => str,
-                            _ => change_sqlx_field_rename(&rename_all, field_name.to_string()),
-                        };
-                        pk_fields.push(quote! {
-                            #field_name[#str_field_name]
-                        });
-                    }
-                }
                 let implemented_show = quote! {
                     #input
-                    lsys_core::db_model_table_value_bind_define!(#struct_name,#table_name,{#(#bind_fields),*},{#(#pk_fields),*});
+                    lsys_core::db_model_table_value_bind_define!(#struct_name,#table_name,{#(#bind_fields),*});
                     lsys_core::db_model_table_ref_define!(#struct_name,#change_struct,{#(#change_fields),*});
                 };
                 implemented_show

@@ -250,7 +250,10 @@ impl RbacRes {
             db,
             {
                 let out = Update::<RbacResModel, _>::new(change)
-                    .execute_by_pk(res, db.as_executor())
+                    .execute_by_where(
+                        &WhereOption::Where(sql_format!("id={}", res.id)),
+                        db.as_executor(),
+                    )
                     .await?;
                 Ok(out.rows_affected())
             },
@@ -312,7 +315,7 @@ impl RbacRes {
             None => self.db.begin().await?,
         };
         let tmp = Update::<RbacResModel, _>::new(change)
-            .execute_by_pk(res, &mut *db)
+            .execute_by_where(&WhereOption::Where(sql_format!("id={}", res.id)), &mut *db)
             .await;
         if let Err(e) = tmp {
             db.rollback().await?;

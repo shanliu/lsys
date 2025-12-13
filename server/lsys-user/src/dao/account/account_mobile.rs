@@ -11,7 +11,7 @@ use lsys_core::{
 };
 use lsys_core::{IntoFluentMessage, RequestEnv};
 
-use lsys_core::db::{Insert, ModelTableName, SqlQuote, Update};
+use lsys_core::db::{Insert, ModelTableName, SqlQuote, Update, WhereOption};
 use lsys_core::{model_option_set, sql_format};
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{Acquire, MySql, Pool, Transaction};
@@ -348,7 +348,10 @@ impl AccountMobile {
         let mut db = self.db.begin().await?;
 
         let tmp = Update::<AccountMobileModel, _>::new(change)
-            .execute_by_pk(account_mobile, &mut *db)
+            .execute_by_where(
+                &WhereOption::Where(sql_format!("id={}", account_mobile.id)),
+                &mut *db,
+            )
             .await;
         let res = match tmp {
             Ok(e) => e,
@@ -413,7 +416,10 @@ impl AccountMobile {
             None => self.db.begin().await?,
         };
         let res = Update::<AccountMobileModel, _>::new(change)
-            .execute_by_pk(account_mobile, &mut *db)
+            .execute_by_where(
+                &WhereOption::Where(sql_format!("id={}", account_mobile.id)),
+                &mut *db,
+            )
             .await;
         let out = match res {
             Err(e) => {

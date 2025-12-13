@@ -65,7 +65,7 @@ Authorization:Bearer {{APP_BEARER_TEST_ACCOUNT}}
         "val": "取消发送"
       }
     ],
-    "sms_branch_status": [
+    "sms_body_status": [
       {
         "key": "1",
         "val": "待发送"

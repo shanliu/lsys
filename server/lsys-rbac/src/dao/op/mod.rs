@@ -236,7 +236,10 @@ impl RbacOp {
             db,
             {
                 let out = Update::<RbacOpModel, _>::new(change)
-                    .execute_by_pk(op, db.as_executor())
+                    .execute_by_where(
+                        &WhereOption::Where(sql_format!("id={}", op.id)),
+                        db.as_executor(),
+                    )
                     .await?;
                 Ok(out.rows_affected())
             },
@@ -299,7 +302,7 @@ impl RbacOp {
         });
 
         let tmp = Update::<RbacOpModel, _>::new(change)
-            .execute_by_pk(op, &mut *db)
+            .execute_by_where(&WhereOption::Where(sql_format!("id={}", op.id)), &mut *db)
             .await;
         if let Err(e) = tmp {
             db.rollback().await?;

@@ -194,20 +194,13 @@ macro_rules! db_model_table_value_bind_define {
             }
             return $res
     };
-    ($self_var:ident,$struct_name:ident,$table_name:expr,{$($name:ident[$column_name:literal]),+},{$($pk_name:ident[$pk_column_name:literal]),+})=>{
+    ($self_var:ident,$struct_name:ident,$table_name:expr,{$($name:ident[$column_name:literal]),+})=>{
         impl $crate::db::ModelTableName for $struct_name {
             fn table_name() -> $crate::db::TableName {
                 $crate::db::TableName::new($table_name)
             }
         }
         impl $crate::db::ModelTableField for $struct_name{
-            fn table_pk() -> $crate::db::TableFields {
-                $crate::db::TableFields::new(vec![
-                    $(
-                        $crate::db::FieldItem::new(stringify!($pk_name),$pk_column_name)
-                    ),*
-                ])
-            }
             fn table_column() -> $crate::db::TableFields {
                 $crate::db::TableFields::new(vec![
                     $(
@@ -236,13 +229,14 @@ macro_rules! db_model_table_value_bind_define {
             }
         }
     };
-    ($struct_name:ident,$table_name:expr,{$($name:ident[$column_name:literal]),+},{$($pk_name:ident[$pk_column_name:literal]),+$(,)?})=>{
-        $crate::db_model_table_value_bind_define!(self ,$struct_name,$table_name,{$($name[$column_name]),+},{$($pk_name[$pk_column_name]),+});
+    ($struct_name:ident,$table_name:expr,{$($name:ident[$column_name:literal]),+})=>{
+        $crate::db_model_table_value_bind_define!(self ,$struct_name,$table_name,{$($name[$column_name]),+});
     };
 }
 
 #[test]
 fn test_model_define_bind_macro() {
+    #[allow(unused)]
     pub struct UserModel {
         pub id: u32,
         pub nickname: String,
@@ -256,8 +250,6 @@ fn test_model_define_bind_macro() {
         gender["gender"],
         headimg["headimg"],
         password_id["password_id"]
-    },{
-        id["id"]
     });
     crate::db_model_table_ref_define!(UserModel,UserModelRef,{
         id["id"]: u32,

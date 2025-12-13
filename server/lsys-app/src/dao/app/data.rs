@@ -637,6 +637,7 @@ impl App {
 pub struct UserSubAppParam {
     pub status: Option<AppStatus>,
     pub app_id: u64,
+    pub sub_app_id: Option<u64>,
 }
 
 impl App {
@@ -645,6 +646,9 @@ impl App {
 
         if let Some(ref tmp) = app_where.status {
             sql_vec.push(sql_format!("status = {}", *tmp as i8));
+        }
+        if let Some(ref tmp) = app_where.sub_app_id {
+            sql_vec.push(sql_format!("id = {}", *tmp));
         }
         Some(sql_vec)
     }

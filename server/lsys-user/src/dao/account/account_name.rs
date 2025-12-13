@@ -230,7 +230,10 @@ impl AccountName {
                             None => self.db.begin().await?,
                         };
                         let tmp = Update::<AccountNameModel, _>::new(change)
-                            .execute_by_pk(&account_name, &mut *db)
+                            .execute_by_where(
+                                &WhereOption::Where(sql_format!("id={}", account_name.id)),
+                                &mut *db,
+                            )
                             .await;
                         if let Err(ie) = tmp {
                             db.rollback().await?;

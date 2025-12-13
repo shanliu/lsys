@@ -7,7 +7,7 @@ use crate::model::{
 
 use super::logger::LogAppConfig;
 use super::{SenderError, SenderResult};
-use lsys_core::db::SqlQuote;
+use lsys_core::db::{SqlQuote, WhereOption};
 use lsys_core::db::{Insert, ModelTableName, SqlExpr, Update};
 use lsys_core::{
     fluent_message, now_time, sql_format, string_clear, valid_key, PageParam, RequestEnv,
@@ -325,7 +325,10 @@ impl SenderTplConfig {
             change_user_id:user_id
         });
         let res = Update::<SenderTplConfigModel, _>::new(change)
-            .execute_by_pk(config, &self.db)
+            .execute_by_where(
+                &WhereOption::Where(sql_format!("id={}", config.id)),
+                &self.db,
+            )
             .await;
 
         self.logger

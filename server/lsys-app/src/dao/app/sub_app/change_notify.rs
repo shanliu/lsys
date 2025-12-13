@@ -55,7 +55,6 @@ impl SubAppChangeNotify {
                     .app_notify_sender
                     .send(
                         app.parent_app_id,
-                        // SUB_APP_SECRET_NOTIFY_TYPE,
                         &app.id.to_string(),
                         &json!({
                             "client_id":app.client_id,

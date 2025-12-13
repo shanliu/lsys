@@ -26,6 +26,7 @@ pub struct ShowAppRecord {
     pub user_id: u64,
     pub change_time: u64,
     pub change_user_id: u64,
+    pub parent_app_id: u64,
     pub parent_app: Option<serde_json::Value>,
     pub exter_login: bool,
     pub oauth_client: bool,                           //是否启用OAUTH登录
@@ -145,11 +146,14 @@ pub async fn app_list(
             user_id: e.0.user_id,
             change_time: e.0.change_time,
             change_user_id: e.0.change_user_id,
+            parent_app_id: e.0.parent_app_id,
             parent_app: e.1.parent_app.map(|t| {
                 json!({
                     "id":t.id,
                     "name":t.name,
+                    "client_id":t.client_id,
                     "user_id":t.user_id,
+                    "status":t.status,
                 })
             }),
             exter_login: e.1.exter_login.unwrap_or(false),
@@ -634,9 +638,9 @@ pub async fn request_list(
 pub struct SubRequestListParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
-    #[serde(default,deserialize_with = "crate::common::deserialize_option_u64")]
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub id: Option<u64>,
-    #[serde(default,deserialize_with = "crate::common::deserialize_option_u64")]
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub sub_app_id: Option<u64>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
     pub status: Option<i8>,

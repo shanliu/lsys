@@ -49,8 +49,7 @@ pub(crate) async fn add_notify_callback(
     if let Err(err) = notify_sender
         .send(
             app_id,
-            // SMS_NOTIFY_TYPE,
-            &sms.id.to_string(),
+            &sms.snid.to_string(),
             &json!({
                 "id":sms.id,
                 "mobile":sms.mobile,

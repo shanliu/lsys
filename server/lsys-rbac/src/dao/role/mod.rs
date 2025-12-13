@@ -341,7 +341,10 @@ impl RbacRole {
             db,
             {
                 let out = Update::<RbacRoleModel, _>::new(change)
-                    .execute_by_pk(role, db.as_executor())
+                    .execute_by_where(
+                        &WhereOption::Where(sql_format!("id={}", role.id)),
+                        db.as_executor(),
+                    )
                     .await?;
                 out.rows_affected()
             },
@@ -388,7 +391,7 @@ impl RbacRole {
             status:(RbacRoleStatus::Delete as i8)
         });
         let tmp = Update::<RbacRoleModel, _>::new(change)
-            .execute_by_pk(role, &mut *db)
+            .execute_by_where(&WhereOption::Where(sql_format!("id={}", role.id)), &mut *db)
             .await;
         if let Err(e) = tmp {
             db.rollback().await?;

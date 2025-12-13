@@ -1,3 +1,4 @@
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonData, JsonResponse, JsonResult, LimitParam, PageParam, UserAuthQueryDao},
     dao::access::api::system::admin::CheckAdminMailMgr,
@@ -7,7 +8,6 @@ use lsys_app_sender::model::SenderMailMessageStatus;
 use lsys_core::now_time;
 use serde::Deserialize;
 use serde_json::json;
-use crate::dao::access::RbacAccessCheckEnv;
 #[derive(Debug, Deserialize)]
 pub struct MailerMessageLogParam {
     #[serde(default, deserialize_with = "crate::common::deserialize_u64")]
@@ -26,7 +26,10 @@ pub async fn mailer_message_log(
     req_dao
         .web_dao
         .web_rbac
-        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminMailMgr {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminMailMgr {},
+        )
         .await?;
 
     let res = req_dao
@@ -74,7 +77,10 @@ pub async fn mailer_message_body(
     req_dao
         .web_dao
         .web_rbac
-        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminMailMgr {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminMailMgr {},
+        )
         .await?;
 
     let msg = req_dao
@@ -128,7 +134,10 @@ pub async fn mailer_message_list(
     req_dao
         .web_dao
         .web_rbac
-        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminMailMgr {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminMailMgr {},
+        )
         .await?;
     let status = if let Some(e) = param.status {
         Some(SenderMailMessageStatus::try_from(e)?)
@@ -199,6 +208,7 @@ pub async fn mailer_message_list(
                 "max_try_num":e.1.as_ref().map(|t|t.max_try_num),
                 "add_time":e.1.as_ref().map(|t|t.add_time),
                 "expected_time":e.1.as_ref().map(|t|t.expected_time),
+                "body_status":e.1.as_ref().map(|t|t.status),
                 "to_mail":e.0.to_mail,
                 "try_num":e.0.try_num,
                 "status":e.0.status,
@@ -228,7 +238,10 @@ pub async fn mailer_message_cancel(
     req_dao
         .web_dao
         .web_rbac
-        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminMailMgr {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminMailMgr {},
+        )
         .await?;
     let msg = req_dao
         .web_dao

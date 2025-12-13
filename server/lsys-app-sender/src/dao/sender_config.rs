@@ -4,7 +4,7 @@ use crate::dao::{SenderError, SenderResult};
 use crate::model::{SenderConfigModel, SenderConfigModelRef, SenderConfigStatus, SenderType};
 use lsys_core::{now_time, RequestEnv};
 
-use lsys_core::db::{Insert, ModelTableName, Update};
+use lsys_core::db::{Insert, ModelTableName, Update, WhereOption};
 use lsys_core::sql_format;
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::Pool;
@@ -108,8 +108,11 @@ impl SenderConfig {
             change_time:time,
             change_user_id:user_id
         });
-        let res = Update::< SenderConfigModel, _>::new(change)
-            .execute_by_pk(config, &self.db)
+        let res = Update::<SenderConfigModel, _>::new(change)
+            .execute_by_where(
+                &WhereOption::Where(sql_format!("id={}", config.id)),
+                &self.db,
+            )
             .await;
         match res {
             Err(e) => Err(SenderError::Sqlx(e))?,
