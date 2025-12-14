@@ -99,7 +99,7 @@ impl WechatLogin {
         let login_data =
             serde_json::to_string(&user_auth).map_err(|e| req_dao.fluent_json_data(e))?;
         redis
-            .set_ex(&login_key, login_data, self.timeout)
+            .set_ex::<_, _, ()>(&login_key, login_data, self.timeout)
             .await
             .map_err(|e| req_dao.fluent_json_data(e))?;
         Ok(JsonData::default())
@@ -191,7 +191,7 @@ impl OauthLogin<WechatLoginParam, WechatCallbackParam, WechatExternalData> for W
         let state_key = state_key(state_ukey);
         let mut redis = webuser.redis.get().await.map_err(|e| e.to_string())?;
         redis
-            .set_ex(state_key.as_str(), state_rand.clone(), self.timeout)
+            .set_ex::<_, _, ()>(state_key.as_str(), state_rand.clone(), self.timeout)
             .await
             .map_err(|e| e.to_string())?;
         let url = self.lib.build_authorization_url(

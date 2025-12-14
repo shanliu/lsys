@@ -62,7 +62,8 @@ impl SmsStatusQuery {
             return Ok(());
         }
         let mut conn = self.redis.get().await?;
-        conn.sadd(&self.notify_data_key, query_ids).await?;
+        conn.sadd::<_, _, ()>(&self.notify_data_key, query_ids)
+            .await?;
 
         Ok(())
     }

@@ -91,8 +91,8 @@ impl AppsOauth {
             scope: scope.to_owned(),
             user_id,
         })?;
-        redis.set(save_key.as_str(), val).await?;
-        redis.expire(save_key.as_str(), self.duration_time).await?;
+        redis.set::<_, _, ()>(save_key.as_str(), val).await?;
+        redis.expire::<_, ()>(save_key.as_str(), self.duration_time).await?;
         Ok(code)
     }
     //从数据库中移除app token，返回移除数量
@@ -200,7 +200,7 @@ impl AppsOauth {
                     .await;
                 match data {
                     Ok(code) => {
-                        match redis.del(save_key).await {
+                        match redis.del::<_, ()>(save_key.as_str()).await {
                             Ok(()) => {}
                             Err(err) => {
                                 warn!("remove oauth code fail:{}", err);
@@ -218,7 +218,7 @@ impl AppsOauth {
                 }
             }
             Err(err) => {
-                redis.del(save_key).await?;
+                redis.del::<_, ()>(save_key.as_str()).await?;
                 Err(err.into())
             }
         }

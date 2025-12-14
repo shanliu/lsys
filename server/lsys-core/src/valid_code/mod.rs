@@ -95,8 +95,8 @@ impl ValidCodeData for ValidCodeDataRandom {
             };
 
         if self.save_time() > 0 && duration_time > 0 {
-            redis.set(change_key.as_str(), out_code.clone()).await?;
-            redis
+            let _: () = redis.set(change_key.as_str(), out_code.clone()).await?;
+            let _: () = redis
                 .expire(change_key.as_str(), duration_time as usize)
                 .await?;
         }
@@ -110,7 +110,7 @@ impl ValidCodeData for ValidCodeDataRandom {
         tag: &'t str,
     ) -> ValidCodeResult<()> {
         let change_key = CODE_CHANGE_KEY.to_owned() + prefix + tag;
-        redis.del(change_key).await?;
+        let _: () = redis.del(change_key).await?;
         Ok(())
     }
 
@@ -170,11 +170,11 @@ impl ValidCode {
             out_code
         );
         if code.is_none() || out_code != code.unwrap_or_default() {
-            redis.set(save_key.as_str(), out_code.clone()).await?;
+            let _: () = redis.set(save_key.as_str(), out_code.clone()).await?;
         }
         let save_time = valid_code_builder.save_time();
         if save_time > 0 {
-            redis.expire(save_key.as_str(), save_time).await?;
+            let _: () = redis.expire(save_key.as_str(), save_time).await?;
         }
         Ok((out_code, save_time))
     }
@@ -194,7 +194,7 @@ impl ValidCode {
         let save_key = CODE_SAVE_KEY.to_owned() + self.prefix.as_str() + tag;
         let mut redis = self.redis.get().await?;
         if save_time > 0 {
-            redis.expire(save_key.as_str(), save_time).await?;
+            let _: () = redis.expire(save_key.as_str(), save_time).await?;
         }
         Ok((code, save_time))
     }
@@ -205,7 +205,7 @@ impl ValidCode {
     ) -> ValidCodeResult<()> {
         let save_key = CODE_SAVE_KEY.to_owned() + self.prefix.as_str() + tag;
         let mut redis = self.redis.get().await?;
-        redis.del(save_key).await?;
+        let _: () = redis.del(save_key).await?;
         valid_code_builder
             .clear_code(&mut redis, &self.prefix, tag)
             .await?;
