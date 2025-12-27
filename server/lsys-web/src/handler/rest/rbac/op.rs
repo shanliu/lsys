@@ -2,8 +2,8 @@ use crate::common::{JsonResponse, JsonResult, PageParam, RequestDao};
 
 use crate::common::JsonData;
 use lsys_app::model::AppModel;
-use lsys_rbac::dao::{OpDataParam as DaoOpDataParam, RbacOpAddData, RbacOpData};
-use serde::Deserialize;
+use lsys_rbac::dao::{OpDataAttrParam, OpDataParam as DaoOpDataParam, RbacOpAddData, RbacOpData};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use super::{inner_app_rbac_check, inner_app_self_check, inner_user_data_to_user_id};
@@ -150,6 +150,23 @@ pub struct OpDataParam {
     pub page: Option<PageParam>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
+    pub res_type_count: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
+    pub check_role_use: Option<bool>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct RbacOpRecord {
+    pub id: u64,
+    pub user_id: u64,
+    pub app_id: u64,
+    pub op_key: String,
+    pub op_name: String,
+    pub change_user_id: u64,
+    pub change_time: u64,
+    pub res_type_count: i64,
+    pub is_role_use: bool,
 }
 
 pub async fn op_data(
@@ -171,7 +188,7 @@ pub async fn op_data(
         .web_rbac
         .rbac_dao
         .op
-        .op_data(
+        .op_info(
             &DaoOpDataParam {
                 user_id: target_user_id,
                 app_id: Some(app.id),
@@ -179,9 +196,26 @@ pub async fn op_data(
                 op_key: param.op_key.as_deref(),
                 ids: param.ids.as_deref(),
             },
+            &OpDataAttrParam {
+                res_type_count: param.res_type_count.unwrap_or_default(),
+                check_role_use: param.check_role_use.unwrap_or_default(),
+            },
             param.page.as_ref().map(|e| e.into()).as_ref(),
         )
-        .await?;
+        .await?
+        .into_iter()
+        .map(|(e, i)| RbacOpRecord {
+            id: e.id,
+            app_id: e.app_id,
+            op_key: e.op_key,
+            op_name: e.op_name,
+            change_user_id: e.change_user_id,
+            change_time: e.change_time,
+            res_type_count: i.res_type_count,
+            is_role_use: i.is_role_use,
+            user_id: e.user_id,
+        })
+        .collect::<Vec<RbacOpRecord>>();
     let count = if param.count_num.unwrap_or(false) {
         Some(
             req_dao

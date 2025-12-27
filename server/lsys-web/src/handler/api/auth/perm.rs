@@ -89,15 +89,35 @@ async fn perm_parse_app_id(
     Ok(app)
 }
 
-async fn perm_map_check(check_res: &RbacAccessParam, req_dao: &UserAuthQueryDao) -> Result<i8, (i8, JsonError)> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await.map_err(|e| (0, e.into()))?;
+async fn perm_map_check(
+    check_res: &RbacAccessParam,
+    req_dao: &UserAuthQueryDao,
+) -> Result<i8, (i8, JsonError)> {
+    let auth_data = req_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await
+        .map_err(|e| (0, e.into()))?;
 
     match check_res.name.as_str() {
-        "admin:app:request:list" => Err((0, JsonError::Message(fluent_message!("rbac-unkown-res",{
-            "res":&check_res.name
-        })))),
+        "user:account" => {
+            if auth_data.user().app_id != 0 {
+                return Err((0, JsonError::Message(fluent_message!("app-is-subapp"))));
+            }
+            Ok(1)
+        }
+        "admin:app:request:list" => Err((
+            0,
+            JsonError::Message(fluent_message!("rbac-unkown-res",{
+                "res":&check_res.name
+            })),
+        )),
         "app:subapp" => {
-            let app = perm_parse_app_id(check_res, req_dao).await.map_err(|e| (0, e))?;
+            let app = perm_parse_app_id(check_res, req_dao)
+                .await
+                .map_err(|e| (0, e))?;
             if app.parent_app_id != 0 {
                 return Err((0, JsonError::Message(fluent_message!("app-is-subapp"))));
             }
@@ -110,18 +130,22 @@ async fn perm_map_check(check_res: &RbacAccessParam, req_dao: &UserAuthQueryDao)
                         res_user_id: app.user_id,
                     },
                 )
-                .await.map_err(|e| (2, e.into()))?;
+                .await
+                .map_err(|e| (2, e.into()))?;
             req_dao
                 .web_dao
                 .web_app
                 .app_dao
                 .app
                 .inner_feature_sub_app_check(&app)
-                .await.map_err(|e| (2, e.into()))?;
+                .await
+                .map_err(|e| (2, e.into()))?;
             Ok(1)
         }
         "app:oauth:server" => {
-            let app = perm_parse_app_id(check_res, req_dao).await.map_err(|e| (0, e))?;
+            let app = perm_parse_app_id(check_res, req_dao)
+                .await
+                .map_err(|e| (0, e))?;
             if app.parent_app_id != 0 {
                 return Err((0, JsonError::Message(fluent_message!("app-is-subapp"))));
             }
@@ -134,7 +158,8 @@ async fn perm_map_check(check_res: &RbacAccessParam, req_dao: &UserAuthQueryDao)
                         res_user_id: app.user_id,
                     },
                 )
-                .await.map_err(|e| (2, e.into()))?;
+                .await
+                .map_err(|e| (2, e.into()))?;
             req_dao
                 .web_dao
                 .web_app
@@ -145,11 +170,14 @@ async fn perm_map_check(check_res: &RbacAccessParam, req_dao: &UserAuthQueryDao)
                     &app,
                     &[lsys_app::model::AppRequestType::OAuthServer.feature_key()],
                 )
-                .await.map_err(|e| (2, e.into()))?;
+                .await
+                .map_err(|e| (2, e.into()))?;
             Ok(1)
         }
         "app:mail" => {
-            let app = perm_parse_app_id(check_res, req_dao).await.map_err(|e| (0, e))?;
+            let app = perm_parse_app_id(check_res, req_dao)
+                .await
+                .map_err(|e| (0, e))?;
             req_dao
                 .web_dao
                 .web_rbac
@@ -159,7 +187,8 @@ async fn perm_map_check(check_res: &RbacAccessParam, req_dao: &UserAuthQueryDao)
                         res_user_id: app.user_id,
                     },
                 )
-                .await.map_err(|e| (2, e.into()))?;
+                .await
+                .map_err(|e| (2, e.into()))?;
             req_dao
                 .web_dao
                 .web_app
@@ -167,11 +196,14 @@ async fn perm_map_check(check_res: &RbacAccessParam, req_dao: &UserAuthQueryDao)
                 .app
                 .cache()
                 .exter_feature_check(&app, &[crate::handler::APP_FEATURE_MAIL])
-                .await.map_err(|e| (2, e.into()))?;
+                .await
+                .map_err(|e| (2, e.into()))?;
             Ok(1)
         }
         "app:sms" => {
-            let app = perm_parse_app_id(check_res, req_dao).await.map_err(|e| (0, e))?;
+            let app = perm_parse_app_id(check_res, req_dao)
+                .await
+                .map_err(|e| (0, e))?;
             req_dao
                 .web_dao
                 .web_rbac
@@ -181,7 +213,8 @@ async fn perm_map_check(check_res: &RbacAccessParam, req_dao: &UserAuthQueryDao)
                         res_user_id: app.user_id,
                     },
                 )
-                .await.map_err(|e| (2, e.into()))?;
+                .await
+                .map_err(|e| (2, e.into()))?;
             req_dao
                 .web_dao
                 .web_app
@@ -189,11 +222,17 @@ async fn perm_map_check(check_res: &RbacAccessParam, req_dao: &UserAuthQueryDao)
                 .app
                 .cache()
                 .exter_feature_check(&app, &[crate::handler::APP_FEATURE_SMS])
-                .await.map_err(|e| (2, e.into()))?;
+                .await
+                .map_err(|e| (2, e.into()))?;
             Ok(1)
         }
         "app:rbac" => {
-            let app = perm_parse_app_id(check_res, req_dao).await.map_err(|e| (0, e))?;
+            if auth_data.user().app_id != 0 {
+                return Err((0, JsonError::Message(fluent_message!("app-is-subapp"))));
+            }
+            let app = perm_parse_app_id(check_res, req_dao)
+                .await
+                .map_err(|e| (0, e))?;
             req_dao
                 .web_dao
                 .web_rbac
@@ -203,7 +242,8 @@ async fn perm_map_check(check_res: &RbacAccessParam, req_dao: &UserAuthQueryDao)
                         res_user_id: app.user_id,
                     },
                 )
-                .await.map_err(|e| (2, e.into()))?;
+                .await
+                .map_err(|e| (2, e.into()))?;
             req_dao
                 .web_dao
                 .web_app
@@ -211,11 +251,14 @@ async fn perm_map_check(check_res: &RbacAccessParam, req_dao: &UserAuthQueryDao)
                 .app
                 .cache()
                 .exter_feature_check(&app, &[crate::handler::APP_FEATURE_RBAC])
-                .await.map_err(|e| (2, e.into()))?;
+                .await
+                .map_err(|e| (2, e.into()))?;
             Ok(1)
         }
         "app:barcode" => {
-            let app = perm_parse_app_id(check_res, req_dao).await.map_err(|e| (0, e))?;
+            let app = perm_parse_app_id(check_res, req_dao)
+                .await
+                .map_err(|e| (0, e))?;
             req_dao
                 .web_dao
                 .web_rbac
@@ -225,7 +268,8 @@ async fn perm_map_check(check_res: &RbacAccessParam, req_dao: &UserAuthQueryDao)
                         res_user_id: app.user_id,
                     },
                 )
-                .await.map_err(|e| (2, e.into()))?;
+                .await
+                .map_err(|e| (2, e.into()))?;
             req_dao
                 .web_dao
                 .web_app
@@ -233,7 +277,8 @@ async fn perm_map_check(check_res: &RbacAccessParam, req_dao: &UserAuthQueryDao)
                 .app
                 .cache()
                 .exter_feature_check(&app, &[crate::handler::APP_FEATURE_BARCODE])
-                .await.map_err(|e| (2, e.into()))?;
+                .await
+                .map_err(|e| (2, e.into()))?;
             Ok(1)
         }
         "system:app:sub" => Ok(1),
@@ -244,14 +289,16 @@ async fn perm_map_check(check_res: &RbacAccessParam, req_dao: &UserAuthQueryDao)
                 &auth_data,
                 &req_dao.req_env,
             )
-            .await.map_err(|e| (2, e))?;
+            .await
+            .map_err(|e| (2, e))?;
             perm_check(
                 &CheckAdminSmsConfig {},
                 &req_dao.web_dao.web_rbac,
                 &auth_data,
                 &req_dao.req_env,
             )
-            .await.map_err(|e| (2, e))?;
+            .await
+            .map_err(|e| (2, e))?;
             Ok(1)
         }
         "admin-mail-config" => {
@@ -261,23 +308,28 @@ async fn perm_map_check(check_res: &RbacAccessParam, req_dao: &UserAuthQueryDao)
                 &auth_data,
                 &req_dao.req_env,
             )
-            .await.map_err(|e| (2, e))?;
+            .await
+            .map_err(|e| (2, e))?;
             perm_check(
                 &CheckAdminMailConfig {},
                 &req_dao.web_dao.web_rbac,
                 &auth_data,
                 &req_dao.req_env,
             )
-            .await.map_err(|e| (2, e))?;
+            .await
+            .map_err(|e| (2, e))?;
             Ok(1)
         }
         _ => {
             if req_dao.web_dao.web_rbac.is_root(auth_data.user_id()) {
                 Ok(1)
             } else {
-                Err((0, JsonError::Message(fluent_message!("rbac-unkown-res",{
-                    "res":&check_res.name
-                }))))
+                Err((
+                    0,
+                    JsonError::Message(fluent_message!("rbac-unkown-res",{
+                        "res":&check_res.name
+                    })),
+                ))
             }
         }
     }

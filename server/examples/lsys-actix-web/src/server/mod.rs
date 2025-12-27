@@ -11,6 +11,7 @@ use lsys_web::common::FluentFormat;
 use lsys_web::dao::WebDao;
 use lsys_web::lsys_core::{AppCore, AppCoreError};
 use std::sync::Arc;
+use std::time::Duration;
 use tracing::debug;
 
 use crate::common::handler::{JwtQueryConfig, RestQueryConfig};
@@ -125,6 +126,10 @@ pub async fn create_server(app_dir: &str) -> Result<Server, AppError> {
             .bind_rustls_0_23(ssl_addr, ssl_data)
             .map_err(AppCoreError::Io)?;
     }
-    let s = server.run();
+    let s = server
+        .keep_alive(Duration::from_secs(75)) // Keep-Alive 超时
+        .client_request_timeout(Duration::from_secs(60)) // 客户端请求超时
+        .client_disconnect_timeout(Duration::from_secs(10)) // 客户端关闭超时
+        .run();
     Ok(s)
 }

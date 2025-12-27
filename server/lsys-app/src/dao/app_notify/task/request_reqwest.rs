@@ -73,10 +73,11 @@ impl AppNotifyRequest for AppNotifyRequestReqwest {
 
         let mut call_url = config.call_url.to_owned();
         if !config.call_url.contains('?') {
-            call_url += "?"
-        };
-        if !call_url.ends_with('&') {
-            call_url += "&"
+            call_url += "?";
+        }
+        let trimmed = call_url.trim();
+        if !trimmed.ends_with('&') && !trimmed.ends_with('?') {
+            call_url += "&";
         }
         call_url += param_str.as_str();
 
@@ -93,7 +94,7 @@ impl AppNotifyRequest for AppNotifyRequestReqwest {
                     use futures::StreamExt;
                     let mut buffer = Vec::new();
                     let http_code = resp.status();
-                    let mut stream = resp.bytes_stream().take(512);
+                    let mut stream = resp.bytes_stream().take(256);
                     while let Some(item) = stream.next().await {
                         match item {
                             Ok(st) => {
@@ -105,9 +106,10 @@ impl AppNotifyRequest for AppNotifyRequestReqwest {
                         }
                     }
                     let s = format!(
-                        "Code:{} Res:{}",
+                        "Code:{} Res:{}\nUrl:{}",
                         http_code.as_u16(),
-                        String::from_utf8_lossy(&buffer)
+                        String::from_utf8_lossy(&buffer),
+                        call_url,
                     );
                     info!("http notify fail: {} [{}]", &call_url, &s);
                     Err(s)

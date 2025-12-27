@@ -87,7 +87,7 @@ pub async fn sub_app_notify_get_config(
         .web_app
         .app_dao
         .app
-        .user_app_data(auth_data.user_id(), &app_param, None, None)
+        .user_app_info(auth_data.user_id(), &app_param, None, None)
         .await?;
     let notify = req_dao
         .web_dao
@@ -271,7 +271,7 @@ pub async fn sub_app_list(
         .web_app
         .app_dao
         .app
-        .user_sub_app_data(
+        .user_sub_app_info(
             &app_param,
             Some(&app_attr),
             param.page.as_ref().map(|e| e.into()).as_ref(),

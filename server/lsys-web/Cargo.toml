@@ -30,6 +30,8 @@ reqwest = { version = "~0.12.9", features = ["json", "stream"] }
 chrono = { version = "~0.4.31" }
 serde_urlencoded = "0.7"
 
+url = "~2.5.7"
+
 #日志
 tracing = { version = "0.1.*" } # log-always 保持log的输出 当使用tracing时会出现两次
 

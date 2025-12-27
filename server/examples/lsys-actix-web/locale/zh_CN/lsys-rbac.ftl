@@ -50,8 +50,8 @@ status-RbacPermStatus-Delete = 删除
 status-RbacRoleUserStatus-Enable = 启用
 status-RbacRoleUserStatus-Delete = 删除
 
-status-RbacAuditResult-Succ = 授权失败
-status-RbacAuditResult-Fail = 授权通过
+status-RbacAuditResult-Succ = 授权通过
+status-RbacAuditResult-Fail = 授权失败
 
 #校验名称
 

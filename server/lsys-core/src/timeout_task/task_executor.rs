@@ -119,7 +119,6 @@ impl<T: TimeOutTaskExecutor> TimeOutTask<T> {
         let channel_buffer = channel_buffer.unwrap_or(10);
         let (task_tx, task_rx) = mpsc::channel::<()>(channel_buffer);
         let (timeout_tx, timeout_rx) = mpsc::channel::<()>(channel_buffer);
-
         let listen_next_time = tokio::spawn({
             let lock_key = self.lock_key.clone();
             let max_lock_time = self.notfiy.config.max_lock_time;
@@ -368,6 +367,7 @@ impl<T: TimeOutTaskExecutor> TimeOutTask<T> {
                         .await
                         .unwrap_or(false)
                     {
+                        drop(conn);
                         sleep(Duration::from_secs(1)).await;
                         continue;
                     }
@@ -481,6 +481,7 @@ impl<T: TimeOutTaskExecutor> TimeOutTask<T> {
                 "listen_timeout_check lock key[{}] -> sleep {}",
                 lock_key, max_lock_time
             );
+            drop(conn);
             sleep(Duration::from_secs(if max_lock_time > 3 {
                 max_lock_time - 3
             } else {

@@ -13,6 +13,9 @@ use lsys_app_sender::model::SenderSmsMessageStatus;
 use serde_json::json;
 pub async fn mailer_mapping_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     Ok(JsonResponse::data(JsonData::body(json!({
+        "config_type":vec![
+            const_json_format!(req_dao, "smtp-config"),
+        ],
         "log_type":vec![
             status_json_format!(req_dao, SenderLogType::Init),
             status_json_format!(req_dao, SenderLogType::Send),
@@ -24,13 +27,6 @@ pub async fn mailer_mapping_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonR
             status_json_format!(req_dao, SenderLogStatus::MessageCancel),
             status_json_format!(req_dao, SenderLogStatus::NotifySucc),
             status_json_format!(req_dao, SenderLogStatus::NotifyFail),
-        ],
-         "sms_config_type":vec![
-            status_json_format!(req_dao, SenderSmsConfigType::Close),
-            status_json_format!(req_dao, SenderSmsConfigType::Limit),
-            status_json_format!(req_dao, SenderSmsConfigType::MaxOfSend),
-            status_json_format!(req_dao, SenderSmsConfigType::PassTpl),
-            status_json_format!(req_dao, SenderSmsConfigType::Block),
         ],
          "mail_config_type":vec![
             status_json_format!(req_dao, SenderMailConfigType::Close),
@@ -56,6 +52,14 @@ pub async fn mailer_mapping_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonR
 
 pub async fn smser_mapping_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     Ok(JsonResponse::data(JsonData::body(json!({
+         "config_type":vec![
+            const_json_format!(req_dao, "ali-sms-config"),
+            const_json_format!(req_dao, "col-sms-config"),
+            const_json_format!(req_dao, "hwyun-sms-config"),
+            const_json_format!(req_dao, "jd-cloud-sms-config"),
+            const_json_format!(req_dao, "163-sms-config"),
+            const_json_format!(req_dao, "tenyun-sms-config"),
+        ],
         "log_type":vec![
             status_json_format!(req_dao, SenderLogType::Init),
             status_json_format!(req_dao, SenderLogType::Send),

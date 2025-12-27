@@ -199,7 +199,7 @@ pub async fn smser_notify_get_config(req_dao: &UserAuthQueryDao) -> JsonResult<J
         .web_app
         .app_dao
         .app
-        .user_app_data(auth_data.user_id(), &app_param, None, None)
+        .user_app_info(auth_data.user_id(), &app_param, None, None)
         .await?;
     let notify = req_dao
         .web_dao
@@ -284,6 +284,7 @@ pub struct SmserTplConfigListParam {
     #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub app_id: Option<u64>,
     pub tpl: Option<String>,
+    pub like_tpl: Option<String>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub app_info: Option<bool>,
     pub page: Option<PageParam>,
@@ -317,6 +318,7 @@ pub async fn smser_tpl_config_list(
             Some(auth_data.user_id()),
             param.app_id,
             param.tpl.as_deref(),
+            param.like_tpl.as_deref(),
             param.page.as_ref().map(|e| e.into()).as_ref(),
         )
         .await?;
@@ -376,6 +378,7 @@ pub async fn smser_tpl_config_list(
                     Some(auth_data.user_id()),
                     param.app_id,
                     param.tpl.as_deref(),
+                    param.like_tpl.as_deref(),
                 )
                 .await?,
         )

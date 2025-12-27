@@ -9,7 +9,7 @@ use lsys_core::{
 use lsys_logger::dao::ChangeLoggerDao;
 use lsys_setting::dao::SettingDao;
 use sqlx::Pool;
-use tracing::warn;
+use tracing::{debug, warn};
 
 use super::{
     MailRecord, MailTaskAcquisition, MailTaskData, MailTaskItem, MailTaskSendTimeNotify, MailerTask,
@@ -303,7 +303,9 @@ impl MailSenderDao {
         &self,
         check_message_data: Vec<(&u64, D)>,
     ) -> SenderResult<Vec<(D, Option<TaskData>)>> {
+        debug!("check mail task is run :{}", check_message_data.len());
         let mut tdata = self.task.task_data().await?;
+        debug!("task data len :{}", tdata.len());
         let mut out = Vec::with_capacity(check_message_data.len());
         for (mid, data) in check_message_data {
             out.push((data, tdata.remove(mid)));

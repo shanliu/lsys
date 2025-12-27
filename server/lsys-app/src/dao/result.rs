@@ -16,6 +16,7 @@ pub enum AppError {
     AppBadStatus,
     AppBadFeature(String, Vec<String>),
     AppOAuthClientBadConfig(String),
+    AppOAuthClientBadDomain(String),
     Sqlx(sqlx::Error),
     System(FluentMessage),
     Redis(RedisError),
@@ -60,6 +61,11 @@ impl IntoFluentMessage for AppError {
                 })
             }
             AppError::AppOAuthClientBadConfig(name) => {
+                fluent_message!("app-config-bad",{
+                    "name":name
+                })
+            }
+            AppError::AppOAuthClientBadDomain(name) => {
                 fluent_message!("app-config-bad",{
                     "name":name
                 })

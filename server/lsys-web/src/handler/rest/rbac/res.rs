@@ -2,8 +2,8 @@ use super::{inner_app_rbac_check, inner_app_self_check, inner_user_data_to_user_
 use crate::common::JsonData;
 use crate::common::{JsonResponse, JsonResult, PageParam, RequestDao};
 use lsys_app::model::AppModel;
-use lsys_rbac::dao::{RbacResAddData, RbacResData, ResDataParam};
-use serde::Deserialize;
+use lsys_rbac::dao::{RbacResAddData, RbacResData, ResDataAttrParam, ResDataParam};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 #[derive(Debug, Deserialize)]
@@ -157,7 +157,24 @@ pub struct ResParam {
     pub page: Option<PageParam>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
+    pub op_count: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
+    pub perm_count: Option<bool>,
 }
+
+#[derive(Debug, Serialize)]
+pub struct RbacResRecord {
+    pub id: u64,
+    pub user_id: u64,
+    pub res_type: String,
+    pub res_data: String,
+    pub res_name: String,
+    pub change_time: u64,
+    pub op_count: i64,
+    pub perm_count: i64,
+}
+
 //资源列表
 pub async fn res_data(
     param: &ResParam,
@@ -178,7 +195,7 @@ pub async fn res_data(
         .web_rbac
         .rbac_dao
         .res
-        .res_data(
+        .res_info(
             &ResDataParam {
                 user_id: Some(target_user_id),
                 app_id: Some(app.id),
@@ -186,6 +203,10 @@ pub async fn res_data(
                 res_type: param.res_type.as_deref(),
                 res_name: param.res_name.as_deref(),
                 ids: param.ids.as_deref(),
+            },
+            &ResDataAttrParam {
+                op_count: param.op_count.unwrap_or(true),
+                perm_count: param.perm_count.unwrap_or(true),
             },
             param.page.as_ref().map(|e| e.into()).as_ref(),
         )
@@ -210,6 +231,19 @@ pub async fn res_data(
     } else {
         None
     };
+    let res = res
+        .into_iter()
+        .map(|(e, info)| RbacResRecord {
+            id: e.id,
+            user_id: e.user_id,
+            res_type: e.res_type,
+            res_data: e.res_data,
+            res_name: e.res_name,
+            change_time: e.change_time,
+            op_count: info.op_count,
+            perm_count: info.perm_count,
+        })
+        .collect::<Vec<_>>();
     Ok(JsonResponse::data(JsonData::body(json!({
         "data": bind_vec_user_info_from_req!(req_dao, res, user_id),
         "total":count

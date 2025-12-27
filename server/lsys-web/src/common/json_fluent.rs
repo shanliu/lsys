@@ -212,6 +212,7 @@ impl JsonFluent for AppError {
             AppError::AppBadStatus => json_data.set_sub_code("app-bad-status"),
             AppError::AppBadFeature(_, _) => json_data.set_sub_code("app-bad-feature"),
             AppError::AppOAuthClientBadConfig(_) => json_data,
+            AppError::AppOAuthClientBadDomain(_) => json_data,
             AppError::Vaild(err) => err.to_json_data(fluent),
         }
     }

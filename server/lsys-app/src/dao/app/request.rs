@@ -75,36 +75,15 @@ impl App {
         }
         Some(sql.join(" and "))
     }
+}
+impl App {
     //待审核列表
-    pub async fn app_request_data(
+    pub async fn app_request_info(
         &self,
         req_param: &AppRequestParam,
         page: Option<&PageParam>,
     ) -> AppResult<Vec<(AppRequestModel, AppInfoData, AppRequestData)>> {
-        let where_sql = match self.app_request_where_sql(req_param) {
-            Some(s) => s,
-            None => return Ok(vec![]),
-        };
-        let page_sql = if let Some(pdat) = page {
-            format!(
-                " order by id desc limit {} offset {} ",
-                pdat.limit, pdat.offset
-            )
-        } else {
-            " order by id desc".to_string()
-        };
-        let data = sqlx::query_as::<_, AppRequestModel>(&sql_format!(
-            "select * from {} {} {}",
-            AppRequestModel::table_name(),
-            if !where_sql.is_empty() {
-                SqlExpr(format!(" where {}", where_sql))
-            } else {
-                SqlExpr("".to_string())
-            },
-            SqlExpr(page_sql),
-        ))
-        .fetch_all(&self.db)
-        .await?;
+        let data = self.app_request_data(req_param, page).await?;
 
         let mut app_id_tmp = data.iter().map(|t| t.app_id).collect::<Vec<u64>>();
 
@@ -234,6 +213,38 @@ impl App {
                 (e, app_info, out_attr)
             })
             .collect::<Vec<_>>())
+    }
+    //待审核列表
+    pub async fn app_request_data(
+        &self,
+        req_param: &AppRequestParam,
+        page: Option<&PageParam>,
+    ) -> AppResult<Vec<AppRequestModel>> {
+        let where_sql = match self.app_request_where_sql(req_param) {
+            Some(s) => s,
+            None => return Ok(vec![]),
+        };
+        let page_sql = if let Some(pdat) = page {
+            format!(
+                " order by id desc limit {} offset {} ",
+                pdat.limit, pdat.offset
+            )
+        } else {
+            " order by id desc".to_string()
+        };
+        let data = sqlx::query_as::<_, AppRequestModel>(&sql_format!(
+            "select * from {} {} {}",
+            AppRequestModel::table_name(),
+            if !where_sql.is_empty() {
+                SqlExpr(format!(" where {}", where_sql))
+            } else {
+                SqlExpr("".to_string())
+            },
+            SqlExpr(page_sql),
+        ))
+        .fetch_all(&self.db)
+        .await?;
+        Ok(data)
     }
     //待审核总数
     pub async fn app_request_count(&self, req_param: &AppRequestParam) -> AppResult<i64> {

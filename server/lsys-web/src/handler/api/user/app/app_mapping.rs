@@ -12,8 +12,25 @@ use lsys_app::model::AppRequestStatus;
 use lsys_app::model::AppRequestType;
 use lsys_app::model::AppStatus;
 use lsys_app_sender::dao::SMS_NOTIFY_METHOD;
+use lsys_access::dao::AccessSession;
 use serde_json::json;
 pub async fn mapping_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
+     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+
+    let exter_features=if auth_data.user().app_id>0{
+        vec![
+            const_json_format!(req_dao, APP_FEATURE_SMS),
+            const_json_format!(req_dao, APP_FEATURE_MAIL),
+            const_json_format!(req_dao, APP_FEATURE_BARCODE),
+        ]
+    }else{
+        vec![
+            const_json_format!(req_dao, APP_FEATURE_SMS),
+            const_json_format!(req_dao, APP_FEATURE_MAIL),
+            const_json_format!(req_dao, APP_FEATURE_BARCODE),
+            const_json_format!(req_dao, APP_FEATURE_RBAC),
+        ]
+    };
     Ok(JsonResponse::data(JsonData::body(json!({
         "notify_method":vec![
             const_json_format!(req_dao, SMS_NOTIFY_METHOD),
@@ -35,12 +52,7 @@ pub async fn mapping_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse
             status_json_format!(req_dao, AppRequestStatus::Rejected),
             status_json_format!(req_dao, AppRequestStatus::Invalid),
         ],
-        "exter_features":vec![
-            const_json_format!(req_dao, APP_FEATURE_SMS),
-            const_json_format!(req_dao, APP_FEATURE_MAIL),
-            const_json_format!(req_dao, APP_FEATURE_BARCODE),
-            const_json_format!(req_dao, APP_FEATURE_RBAC),
-        ],
+        "exter_features":exter_features,
          "request_type":vec![
             status_json_format!(req_dao, AppRequestType::AppReq),
             status_json_format!(req_dao, AppRequestType::AppChange),

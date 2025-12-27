@@ -2,14 +2,15 @@ use super::res_type::ResTypeParam;
 use super::RbacRes;
 use crate::dao::result::RbacResult;
 use crate::model::{
-    RbacOpModel, RbacOpResModel, RbacOpResStatus, RbacOpStatus, RbacResModel, RbacResStatus,
+    RbacOpModel, RbacOpResModel, RbacOpResStatus, RbacOpStatus, RbacPermModel, RbacPermStatus,
+    RbacResModel, RbacResStatus,
 };
 use lsys_core::db::{ModelTableName, SqlExpr, SqlQuote};
 use lsys_core::{impl_dao_fetch_one_by_one, PageParam, StringClear, STRING_CLEAR_FORMAT};
 use lsys_core::{sql_format, string_clear};
 use serde::Serialize;
 use sqlx::Row;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::vec;
 //RBAC中资源相关实现
 
@@ -47,6 +48,7 @@ pub struct ResDataParam<'t> {
     pub res_name: Option<&'t str>,
     pub ids: Option<&'t [u64]>,
 }
+
 //资源管理
 impl RbacRes {
     fn res_sql(&self, filed: &str, res_param: &ResDataParam<'_>) -> Option<String> {
@@ -97,7 +99,116 @@ impl RbacRes {
             None => Ok(0),
         }
     }
+}
+
+#[derive(Default)]
+pub struct ResDataAttrParam {
+    //关联的操作数量
+    pub op_count: bool,
+    //关联授权数量
+    pub perm_count: bool,
+}
+#[derive(Default)]
+pub struct RbacResInfoData {
+    pub op_count: i64,
+    pub perm_count: i64,
+}
+impl RbacRes {
+    /// 获取资源关联的授权数量
+    pub async fn res_perm_count(&self, res_ids: &[u64]) -> RbacResult<Vec<(u64, i64)>> {
+        if res_ids.is_empty() {
+            return Ok(vec![]);
+        }
+        let sql = sql_format!(
+                            "select res_id,count(*) as total from {} where res_id in ({}) and status={} group by res_id",
+                            RbacPermModel::table_name(),
+                            res_ids,
+                            RbacPermStatus::Enable
+                        );
+        let perm_counts = sqlx::query(&sql)
+            .try_map(|row: sqlx::mysql::MySqlRow| {
+                let res_id = row.try_get::<u64, &str>("res_id").unwrap_or_default();
+                let total = row.try_get::<i64, &str>("total").unwrap_or_default();
+                Ok((res_id, total))
+            })
+            .fetch_all(&self.db)
+            .await?;
+        Ok(perm_counts)
+    }
+
     /// 获取指定用户和ID的列表
+    pub async fn res_info(
+        &self,
+        res_param: &ResDataParam<'_>,
+        res_attr: &ResDataAttrParam,
+        page: Option<&PageParam>,
+    ) -> RbacResult<Vec<(RbacResModel, RbacResInfoData)>> {
+        let res = self.res_data(res_param, page).await?;
+        let mut op_count_map: HashMap<u64, i64> = HashMap::new();
+        if res_attr.op_count && !res.is_empty() {
+            let mut res_sql = Vec::with_capacity(res.len());
+            let mut uniq_key = HashSet::new();
+            for e in &res {
+                let uniq_id = format!("{}_{}_{}", e.user_id, e.app_id, e.res_type);
+                if uniq_key.contains(&uniq_id) {
+                    continue;
+                }
+                uniq_key.insert(uniq_id);
+                res_sql.push(sql_format!(
+                    "select res_type,user_id,app_id,count(*) as total from {} where 
+                                    status={}  and res_type = {} and
+                                    user_id = {} and app_id = {}
+                                    group by res_type",
+                    RbacOpResModel::table_name(),
+                    RbacOpResStatus::Enable,
+                    e.res_type,
+                    e.user_id,
+                    e.app_id,
+                ));
+            }
+            let sql = res_sql.join(" union all ");
+            let op_counts = sqlx::query(&sql)
+                .try_map(|row: sqlx::mysql::MySqlRow| {
+                    let res_type = row.try_get::<String, &str>("res_type").unwrap_or_default();
+                    let user_id = row.try_get::<u64, &str>("user_id").unwrap_or_default();
+                    let app_id = row.try_get::<u64, &str>("app_id").unwrap_or_default();
+                    let total = row.try_get::<i64, &str>("total").unwrap_or_default();
+                    Ok((res_type, user_id, app_id, total))
+                })
+                .fetch_all(&self.db)
+                .await?;
+            for e in &res {
+                let mut set_total = 0;
+                for (res_type, user_id, app_id, total) in op_counts.iter() {
+                    if e.res_type == *res_type && e.user_id == *user_id && e.app_id == *app_id {
+                        set_total = *total;
+
+                        break;
+                    }
+                }
+                op_count_map.insert(e.id, set_total);
+            }
+        }
+        let mut perm_count_map: HashMap<u64, i64> = HashMap::new();
+        if res_attr.perm_count && !res.is_empty() {
+            let perm_counts = self
+                .res_perm_count(&res.iter().map(|e| e.id).collect::<Vec<_>>())
+                .await?;
+            for (res_id, total) in perm_counts {
+                perm_count_map.insert(res_id, total);
+            }
+        }
+        Ok(res
+            .into_iter()
+            .map(|e| {
+                let info = RbacResInfoData {
+                    op_count: *op_count_map.get(&e.id).unwrap_or(&0),
+                    perm_count: *perm_count_map.get(&e.id).unwrap_or(&0),
+                };
+                (e, info)
+            })
+            .collect::<Vec<_>>())
+    }
     pub async fn res_data(
         &self,
         res_param: &ResDataParam<'_>,
@@ -108,9 +219,10 @@ impl RbacRes {
                 if let Some(pdat) = page {
                     sql += format!(" limit {} offset {}", pdat.limit, pdat.offset).as_str();
                 }
-                Ok(sqlx::query_as::<_, RbacResModel>(&sql)
+                let res = sqlx::query_as::<_, RbacResModel>(&sql)
                     .fetch_all(&self.db)
-                    .await?)
+                    .await?;
+                Ok(res)
             }
             None => Ok(vec![]),
         }

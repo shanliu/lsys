@@ -7,8 +7,8 @@ use crate::model::{
 
 use super::logger::LogAppConfig;
 use super::{SenderError, SenderResult};
-use lsys_core::db::{SqlQuote, WhereOption};
 use lsys_core::db::{Insert, ModelTableName, SqlExpr, Update};
+use lsys_core::db::{SqlQuote, WhereOption};
 use lsys_core::{
     fluent_message, now_time, sql_format, string_clear, valid_key, PageParam, RequestEnv,
     StringClear, ValidError, ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
@@ -87,28 +87,16 @@ impl SenderTplConfig {
         user_id: Option<u64>,
         app_id: Option<u64>,
         tpl_key: Option<&str>,
+        like_tpl_key: Option<&str>,
     ) -> SenderResult<i64> {
-        let mut sqlwhere = vec![sql_format!(
-            "sender_type={} and status ={}",
-            self.send_type as i8,
-            SenderTplConfigStatus::Enable as i8
-        )];
-        if let Some(aid) = id {
-            sqlwhere.push(sql_format!("id = {}  ", aid));
-        }
-        if let Some(aid) = app_id {
-            sqlwhere.push(sql_format!("app_id = {}  ", aid));
-        }
-        if let Some(uid) = user_id {
-            sqlwhere.push(sql_format!("user_id={} ", uid));
-        }
-        if let Some(tpl) = tpl_key {
-            let tpl = string_clear(tpl, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
-            if tpl.is_empty() {
-                return Ok(0);
-            }
-            sqlwhere.push(sql_format!("tpl_key={} ", tpl));
-        }
+        let sqlwhere = match self
+            .list_where(id, user_id, app_id, tpl_key, like_tpl_key)
+            .await
+        {
+            Some(v) => v,
+            None => return Ok(0),
+        };
+
         let sql = format!(
             "select count(*) as total from {}
             where {}",
@@ -119,15 +107,14 @@ impl SenderTplConfig {
             .fetch_one(&self.db)
             .await?)
     }
-
-    pub async fn list_config(
+    async fn list_where(
         &self,
         id: Option<u64>,
         user_id: Option<u64>,
         app_id: Option<u64>,
         tpl_key: Option<&str>,
-        page: Option<&PageParam>,
-    ) -> SenderResult<Vec<(SenderTplConfigModel, Option<SettingModel>)>> {
+        like_tpl_key: Option<&str>,
+    ) -> Option<Vec<String>> {
         let mut sqlwhere = vec![sql_format!(
             "sender_type={} and status ={}",
             self.send_type as i8,
@@ -145,10 +132,35 @@ impl SenderTplConfig {
         if let Some(tpl) = tpl_key {
             let tpl = string_clear(tpl, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
             if tpl.is_empty() {
-                return Ok(vec![]);
+                return None;
             }
             sqlwhere.push(sql_format!("tpl_key={} ", tpl));
         }
+        if let Some(ref tmp) = like_tpl_key {
+            let tmp = string_clear(tmp, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
+            if tmp.is_empty() {
+                return None;
+            }
+            sqlwhere.push(sql_format!("tpl_key like {}", format!("{}%", tmp)));
+        };
+        Some(sqlwhere)
+    }
+    pub async fn list_config(
+        &self,
+        id: Option<u64>,
+        user_id: Option<u64>,
+        app_id: Option<u64>,
+        tpl_key: Option<&str>,
+        like_tpl_key: Option<&str>,
+        page: Option<&PageParam>,
+    ) -> SenderResult<Vec<(SenderTplConfigModel, Option<SettingModel>)>> {
+        let sqlwhere = match self
+            .list_where(id, user_id, app_id, tpl_key, like_tpl_key)
+            .await
+        {
+            Some(v) => v,
+            None => return Ok(vec![]),
+        };
         let mut sql = format!("{}  order by id desc", sqlwhere.join(" and "));
         if let Some(pdat) = page {
             sql += format!(" limit {} offset {}", pdat.limit, pdat.offset).as_str();

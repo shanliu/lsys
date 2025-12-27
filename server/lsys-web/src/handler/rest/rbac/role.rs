@@ -10,6 +10,7 @@ use lsys_access::dao::UserInfo;
 use lsys_app::model::AppModel;
 use lsys_rbac::dao::RbacRoleAddData;
 use lsys_rbac::dao::RbacRoleUserRangeData;
+use lsys_rbac::dao::RoleDataAttrParam;
 use lsys_rbac::{
     dao::RoleDataParam as DaoRoleDataParam,
     model::{RbacRoleResRange, RbacRoleUserRange},
@@ -181,6 +182,10 @@ pub struct RoleDataParam {
     pub page: Option<PageParam>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
+    pub res_count: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
+    pub res_op_count: Option<bool>,
 }
 
 #[derive(Debug, Serialize)]
@@ -201,6 +206,8 @@ pub struct RoleDataRecord {
     pub change_time: u64,
     pub user_count: Option<i64>,
     pub user_list: Option<Vec<RoleUserDataRecord>>,
+    pub res_count: Option<i64>,
+    pub res_op_count: Option<i64>,
 }
 
 pub async fn role_data(
@@ -229,12 +236,12 @@ pub async fn role_data(
         None
     };
 
-    let mut role_data = req_dao
+    let role_data = req_dao
         .web_dao
         .web_rbac
         .rbac_dao
         .role
-        .role_data(
+        .role_info(
             &DaoRoleDataParam {
                 user_id: target_user_id,
                 app_id: Some(app.id),
@@ -244,39 +251,18 @@ pub async fn role_data(
                 role_key: param.role_key.as_deref(),
                 role_name: param.role_name.as_deref(),
             },
+            &RoleDataAttrParam {
+                user_count: param.user_count,
+                user_data: param.user_data,
+                res_count: param.res_count,
+                res_op_count: param.res_op_count,
+            },
             param.page.as_ref().map(|e| e.into()).as_ref(),
         )
-        .await?
-        .into_iter()
-        .map(|e| RoleDataRecord {
-            id: e.id,
-            user_id: e.user_id,
-            role_key: e.role_key,
-            user_range: e.user_range,
-            res_range: e.res_range,
-            role_name: e.role_name,
-            change_time: e.change_time,
-            user_count: None,
-            user_list: None,
-        })
-        .collect::<Vec<_>>();
-
-    if param.user_count.unwrap_or(false) {
-        let role_ids = role_data.iter().map(|e| e.id).collect::<Vec<_>>();
-        let user_data = req_dao
-            .web_dao
-            .web_rbac
-            .rbac_dao
-            .role
-            .role_user_group_count(&role_ids, false)
-            .await?;
-        for tmp in role_data.iter_mut() {
-            tmp.user_count = user_data.get(&tmp.id).copied();
-        }
-    }
+        .await?;
     let user_data_limit = param.user_data.unwrap_or(0);
-    if user_data_limit > 0 {
-        let role_ids = role_data.iter().map(|e| e.id).collect::<Vec<_>>();
+    let user_info_set = if !role_data.is_empty() && user_data_limit > 0 {
+        let role_ids = role_data.iter().map(|e| e.0.id).collect::<Vec<_>>();
         let user_data = req_dao
             .web_dao
             .web_rbac
@@ -294,26 +280,48 @@ pub async fn role_data(
             .iter()
             .flat_map(|e| e.1.iter().map(|f| f.user_id).collect::<Vec<u64>>())
             .collect::<Vec<_>>();
-        let user_info = req_dao
-            .web_dao
-            .web_access
-            .access_dao
-            .user
-            .cache()
-            .find_users_by_ids(&user_data_ids)
-            .await?;
-        for tmp in role_data.iter_mut() {
-            tmp.user_list = user_data.get(&tmp.id).map(|e| {
+        Some(
+            req_dao
+                .web_dao
+                .web_access
+                .access_dao
+                .user
+                .cache()
+                .find_users_by_ids(&user_data_ids)
+                .await?,
+        )
+    } else {
+        None
+    };
+    let role_data = role_data
+        .into_iter()
+        .map(|(e, info)| {
+            let user_list = info.user_data.map(|e| {
                 e.iter()
                     .map(|f| RoleUserDataRecord {
                         timeout: f.timeout,
                         change_time: f.change_time,
-                        user_data: user_info.get(f.user_id).to_owned(),
+                        user_data: user_info_set
+                            .as_ref()
+                            .and_then(|t| t.get(f.user_id).to_owned()),
                     })
                     .collect::<Vec<_>>()
             });
-        }
-    }
+            RoleDataRecord {
+                id: e.id,
+                user_id: e.user_id,
+                role_key: e.role_key,
+                user_range: e.user_range,
+                res_range: e.res_range,
+                role_name: e.role_name,
+                change_time: e.change_time,
+                user_count: info.user_count,
+                user_list,
+                res_count: info.res_count,
+                res_op_count: info.res_op_count,
+            }
+        })
+        .collect::<Vec<_>>();
 
     let count = if param.count_num.unwrap_or(false) {
         Some(

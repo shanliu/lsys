@@ -184,6 +184,7 @@ pub async fn mailer_tpl_config_list(
             Some(0),
             Some(0),
             param.tpl.as_deref(),
+            None,
             param.page.as_ref().map(|e| e.into()).as_ref(),
         )
         .await?;
@@ -238,7 +239,7 @@ pub async fn mailer_tpl_config_list(
                 .mailer
                 .mailer_dao
                 .tpl_config
-                .count_config(param.id, Some(0), Some(0), param.tpl.as_deref())
+                .count_config(param.id, Some(0), Some(0), param.tpl.as_deref(), None)
                 .await?,
         )
     } else {

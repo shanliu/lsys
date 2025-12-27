@@ -122,6 +122,128 @@ impl RbacRole {
     }
 }
 
+#[derive(Default)]
+pub struct RoleDataAttrParam {
+    pub user_count: Option<bool>,
+    pub user_data: Option<u64>,
+    pub res_count: Option<bool>,
+    pub res_op_count: Option<bool>,
+}
+#[derive(Default)]
+pub struct RbacRoleInfoData {
+    pub user_count: Option<i64>,
+    pub user_data: Option<Vec<RbacRoleUserModel>>,
+    pub res_count: Option<i64>,
+    pub res_op_count: Option<i64>,
+}
+impl RbacRole {
+    /// 获取角色对应的资源授权数量
+    pub async fn role_res_op_count(&self, role_id: &[u64]) -> RbacResult<Vec<(u64, i64)>> {
+        if role_id.is_empty() {
+            return Ok(vec![]);
+        }
+        let sql = sql_format!(
+                "select role_id,count(*) as total from {} where role_id in ({}) and status={} group by role_id",
+                RbacPermModel::table_name(),
+                role_id,
+                RbacPermStatus::Enable
+            );
+        let perm_counts = sqlx::query(&sql)
+            .try_map(|row: sqlx::mysql::MySqlRow| {
+                let role_id = row.try_get::<u64, &str>("role_id").unwrap_or_default();
+                let total = row.try_get::<i64, &str>("total").unwrap_or_default();
+                Ok((role_id, total))
+            })
+            .fetch_all(&self.db)
+            .await?;
+        Ok(perm_counts)
+    }
+    /// 获取角色对应的资源数量
+    pub async fn role_res_count(&self, role_id: &[u64]) -> RbacResult<Vec<(u64, i64)>> {
+        if role_id.is_empty() {
+            return Ok(vec![]);
+        }
+        let sql = sql_format!(
+                "select role_id,COUNT(DISTINCT res_id) as total from {} where role_id in ({}) and status={} group by role_id",
+                RbacPermModel::table_name(),
+                role_id,
+                RbacPermStatus::Enable
+            );
+        let perm_counts = sqlx::query(&sql)
+            .try_map(|row: sqlx::mysql::MySqlRow| {
+                let role_id = row.try_get::<u64, &str>("role_id").unwrap_or_default();
+                let total = row.try_get::<i64, &str>("total").unwrap_or_default();
+                Ok((role_id, total))
+            })
+            .fetch_all(&self.db)
+            .await?;
+        Ok(perm_counts)
+    }
+    /// 获取角色详细信息包括扩展数据
+    pub async fn role_info(
+        &self,
+        role_param: &RoleDataParam<'_>,
+        role_attr: &RoleDataAttrParam,
+        page: Option<&PageParam>,
+    ) -> RbacResult<Vec<(RbacRoleModel, RbacRoleInfoData)>> {
+        let role_data = self.role_data(role_param, page).await?;
+        let user_count_map = if role_attr.user_count.unwrap_or(false) {
+            let role_ids = role_data.iter().map(|e| e.id).collect::<Vec<_>>();
+            self.role_user_group_count(&role_ids, false)
+                .await?
+                .into_iter()
+                .collect::<HashMap<u64, i64>>()
+        } else {
+            HashMap::new()
+        };
+        let user_data_limit = role_attr.user_data.unwrap_or(0);
+        let user_data_map = if user_data_limit > 0 {
+            let role_ids = role_data.iter().map(|e| e.id).collect::<Vec<_>>();
+            self.role_user_group_data(
+                &role_ids,
+                None,
+                false,
+                Some(&lsys_core::PageParam::new(0, user_data_limit)),
+            )
+            .await?
+        } else {
+            HashMap::new()
+        };
+        let res_count_map = if role_attr.res_count.unwrap_or(false) {
+            let role_ids = role_data.iter().map(|e| e.id).collect::<Vec<_>>();
+            let res_counts = self.role_res_count(&role_ids).await?;
+            res_counts.into_iter().collect::<HashMap<u64, i64>>()
+        } else {
+            HashMap::new()
+        };
+        let res_op_count_map = if role_attr.res_op_count.unwrap_or(false) {
+            let role_ids = role_data.iter().map(|e| e.id).collect::<Vec<_>>();
+            let res_op_counts = self.role_res_op_count(&role_ids).await?;
+            res_op_counts.into_iter().collect::<HashMap<u64, i64>>()
+        } else {
+            HashMap::new()
+        };
+        Ok(role_data
+            .into_iter()
+            .map(|e| {
+                let user_count = user_count_map.get(&e.id).copied();
+                let user_data = user_data_map.get(&e.id).map(|v| v.to_owned());
+                let res_count = res_count_map.get(&e.id).copied();
+                let res_op_count = res_op_count_map.get(&e.id).copied();
+                (
+                    e,
+                    RbacRoleInfoData {
+                        user_count,
+                        user_data,
+                        res_count,
+                        res_op_count,
+                    },
+                )
+            })
+            .collect::<Vec<_>>())
+    }
+}
+
 #[derive(Serialize)]
 pub struct RolePermData {
     pub user_id: u64,
@@ -278,9 +400,9 @@ impl RbacRole {
         &self,
         role_ids: &[u64],
         all: bool,
-    ) -> RbacResult<HashMap<u64, i64>> {
+    ) -> RbacResult<Vec<(u64, i64)>> {
         if role_ids.is_empty() {
-            return Ok(HashMap::new());
+            return Ok(vec![]);
         }
         let sql = sql_format!(
             "select role_id,
@@ -304,9 +426,7 @@ impl RbacRole {
         );
         Ok(sqlx::query_as::<_, (u64, i64)>(sql.as_str())
             .fetch_all(&self.db)
-            .await?
-            .into_iter()
-            .collect::<HashMap<u64, i64>>())
+            .await?)
     }
     /// 一批角色获取角色对应用户
     pub async fn role_user_group_data(

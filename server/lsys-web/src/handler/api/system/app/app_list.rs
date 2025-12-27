@@ -108,7 +108,7 @@ pub async fn app_list(param: &ListParam, req_dao: &UserAuthQueryDao) -> JsonResu
         .web_app
         .app_dao
         .app
-        .system_app_data(
+        .system_app_info(
             &app_param,
             Some(&app_attr),
             param.page.as_ref().map(|e| e.into()).as_ref(),
@@ -261,7 +261,7 @@ pub async fn sub_app_list(
         .web_app
         .app_dao
         .app
-        .system_sub_app_data(
+        .system_sub_app_info(
             &app_param,
             Some(&app_attr),
             param.page.as_ref().map(|e| e.into()).as_ref(),
@@ -382,7 +382,7 @@ pub async fn request_list(
         .web_app
         .app_dao
         .app
-        .app_request_data(
+        .app_request_info(
             &AppRequestParam {
                 id: param.id,
                 request_user_id: None,

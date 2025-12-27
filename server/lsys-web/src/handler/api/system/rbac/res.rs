@@ -4,8 +4,8 @@ use crate::{
     dao::access::api::system::admin::{CheckAdminRbacEdit, CheckAdminRbacView},
 };
 use lsys_access::dao::AccessSession;
-use lsys_rbac::dao::{RbacResAddData, RbacResData, ResDataParam};
-use serde::Deserialize;
+use lsys_rbac::dao::{RbacResAddData, RbacResData, ResDataAttrParam, ResDataParam};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 #[derive(Debug, Deserialize)]
@@ -151,8 +151,11 @@ pub async fn res_del(param: &ResDelParam, req_dao: &UserAuthQueryDao) -> JsonRes
 pub struct ResParam {
     #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
     pub user_id: Option<u64>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_u64")]
+    pub app_id: Option<u64>,
     pub res_type: Option<String>,
     pub res_data: Option<String>,
+
     pub res_name: Option<String>,
     #[serde(
         default,
@@ -162,7 +165,26 @@ pub struct ResParam {
     pub page: Option<PageParam>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
+    pub op_count: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
+    pub perm_count: Option<bool>,
 }
+
+#[derive(Debug, Serialize)]
+pub struct RbacResRecord {
+    pub id: u64,
+    pub res_type: String,
+    pub res_data: String,
+    pub user_id: u64,
+    pub app_id: u64,
+    pub res_name: String,
+    pub change_user_id: u64,
+    pub change_time: u64,
+    pub op_count: i64,
+    pub perm_count: i64,
+}
+
 //资源列表
 pub async fn res_data(param: &ResParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
@@ -180,14 +202,18 @@ pub async fn res_data(param: &ResParam, req_dao: &UserAuthQueryDao) -> JsonResul
         .web_rbac
         .rbac_dao
         .res
-        .res_data(
+        .res_info(
             &ResDataParam {
-                user_id: param.user_id,
-                app_id: None,
+                user_id: param.user_id.or(Some(0)),
+                app_id: param.app_id.or(Some(0)),
                 res_data: param.res_data.as_deref(),
                 res_type: param.res_type.as_deref(),
                 res_name: param.res_name.as_deref(),
                 ids: param.ids.as_deref(),
+            },
+            &ResDataAttrParam {
+                op_count: param.op_count.unwrap_or(true),
+                perm_count: param.perm_count.unwrap_or(true),
             },
             param.page.as_ref().map(|e| e.into()).as_ref(),
         )
@@ -200,8 +226,8 @@ pub async fn res_data(param: &ResParam, req_dao: &UserAuthQueryDao) -> JsonResul
                 .rbac_dao
                 .res
                 .res_count(&ResDataParam {
-                    user_id: param.user_id,
-                    app_id: None,
+                    user_id: param.user_id.or(Some(0)),
+                    app_id: param.app_id.or(Some(0)),
                     res_data: param.res_data.as_deref(),
                     res_type: param.res_type.as_deref(),
                     res_name: param.res_name.as_deref(),
@@ -212,7 +238,22 @@ pub async fn res_data(param: &ResParam, req_dao: &UserAuthQueryDao) -> JsonResul
     } else {
         None
     };
+    let res = res
+        .into_iter()
+        .map(|(e, info)| RbacResRecord {
+            id: e.id,
+            res_type: e.res_type,
+            res_data: e.res_data,
+            user_id: e.user_id,
+            app_id: e.app_id,
+            res_name: e.res_name,
+            change_user_id: e.change_user_id,
+            change_time: e.change_time,
+            op_count: info.op_count,
+            perm_count: info.perm_count,
+        })
+        .collect::<Vec<_>>();
     Ok(JsonResponse::data(JsonData::body(
-        json!({ "data": res,"total":count}),
+        json!({ "data": bind_vec_user_info_from_req!(req_dao, res, user_id),"total":count}),
     )))
 }

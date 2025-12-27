@@ -114,7 +114,7 @@ pub struct AppAttrData {
 }
 
 impl App {
-    async fn attr_app_data(
+    async fn attr_app_info(
         &self,
         out_data: Vec<AppModel>,
         app_attr: Option<&AppAttrParam>,
@@ -418,12 +418,20 @@ impl App {
         Some(sql_vec)
     }
     //系统APP的数据
-    pub async fn system_app_data(
+    pub async fn system_app_info(
         &self,
         app_where: &SystemAppParam<'_>,
         app_attr: Option<&AppAttrParam>,
         page: Option<&PageParam>,
     ) -> AppResult<Vec<(AppModel, AppAttrData)>> {
+        let out_data = self.system_app_data(app_where, page).await?;
+        self.attr_app_info(out_data, app_attr).await
+    }
+    pub async fn system_app_data(
+        &self,
+        app_where: &SystemAppParam<'_>,
+        page: Option<&PageParam>,
+    ) -> AppResult<Vec<AppModel>> {
         let where_sql = match self.system_app_data_sql(app_where) {
             Some(sql) => sql,
             None => return Ok(vec![]),
@@ -448,7 +456,7 @@ impl App {
         ))
         .fetch_all(&self.db)
         .await?;
-        self.attr_app_data(out_data, app_attr).await
+        Ok(out_data)
     }
     //系统APP的数量
     pub async fn system_app_count(&self, app_where: &SystemAppParam<'_>) -> AppResult<i64> {
@@ -490,13 +498,23 @@ impl App {
         };
         Some(sql_vec)
     }
+
     //系统APP的数据
-    pub async fn system_sub_app_data(
+
+    pub async fn system_sub_app_info(
         &self,
         app_where: &SystemSubAppParam<'_>,
         app_attr: Option<&AppAttrParam>,
         page: Option<&PageParam>,
     ) -> AppResult<Vec<(AppModel, AppAttrData)>> {
+        let out_data = self.system_sub_app_data(app_where, page).await?;
+        self.attr_app_info(out_data, app_attr).await
+    }
+    pub async fn system_sub_app_data(
+        &self,
+        app_where: &SystemSubAppParam<'_>,
+        page: Option<&PageParam>,
+    ) -> AppResult<Vec<AppModel>> {
         let where_sql = match self.system_sub_app_data_sql(app_where) {
             Some(sql) => sql,
             None => return Ok(vec![]),
@@ -521,7 +539,7 @@ impl App {
         ))
         .fetch_all(&self.db)
         .await?;
-        self.attr_app_data(out_data, app_attr).await
+        Ok(out_data)
     }
     //系统APP的数量
     pub async fn system_sub_app_count(&self, app_where: &SystemSubAppParam<'_>) -> AppResult<i64> {
@@ -579,13 +597,22 @@ impl App {
         Some(sql_vec)
     }
     //指定用户APP的数据
-    pub async fn user_app_data(
+    pub async fn user_app_info(
         &self,
         user_id: u64,
         app_where: &UserAppDataParam<'_>,
         app_attr: Option<&AppAttrParam>,
         page: Option<&PageParam>,
     ) -> AppResult<Vec<(AppModel, AppAttrData)>> {
+        let out_data = self.user_app_data(user_id, app_where, page).await?;
+        self.attr_app_info(out_data, app_attr).await
+    }
+    pub async fn user_app_data(
+        &self,
+        user_id: u64,
+        app_where: &UserAppDataParam<'_>,
+        page: Option<&PageParam>,
+    ) -> AppResult<Vec<AppModel>> {
         let where_sql = match self.user_app_data_sql(user_id, app_where) {
             Some(sql) => sql,
             None => return Ok(vec![]),
@@ -610,7 +637,7 @@ impl App {
         ))
         .fetch_all(&self.db)
         .await?;
-        self.attr_app_data(out_data, app_attr).await
+        Ok(out_data)
     }
     //指定用户APP的数量
     pub async fn user_app_count(
@@ -653,12 +680,20 @@ impl App {
         Some(sql_vec)
     }
     //用户指定APP的子应用数据
-    pub async fn user_sub_app_data(
+    pub async fn user_sub_app_info(
         &self,
         app_where: &UserSubAppParam,
         app_attr: Option<&AppAttrParam>,
         page: Option<&PageParam>,
     ) -> AppResult<Vec<(AppModel, AppAttrData)>> {
+        let out_data = self.user_sub_app_data(app_where, page).await?;
+        self.attr_app_info(out_data, app_attr).await
+    }
+    pub async fn user_sub_app_data(
+        &self,
+        app_where: &UserSubAppParam,
+        page: Option<&PageParam>,
+    ) -> AppResult<Vec<AppModel>> {
         let where_sql = match self.user_sub_app_data_sql(app_where) {
             Some(sql) => sql,
             None => return Ok(vec![]),
@@ -683,7 +718,7 @@ impl App {
         ))
         .fetch_all(&self.db)
         .await?;
-        self.attr_app_data(out_data, app_attr).await
+        Ok(out_data)
     }
     //用户指定APP的子应用数量
     pub async fn user_sub_app_count(&self, app_where: &UserSubAppParam) -> AppResult<i64> {

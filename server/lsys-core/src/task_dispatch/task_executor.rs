@@ -249,35 +249,41 @@ impl<
         T: TaskItem<I>, // 实在不想细细折腾，直接 'static ，毕竟T也没打算带用带引用
     > TaskDispatch<I, T>
 {
-    // 通知执行模块进行任务执行操作
-    // * `redis` - 存放任务的RDIS
-    // pub async fn notify(&self) -> Result<(), AppCoreError> {
-    //     debug!("notify send :{}", self.list_notify);
-    //     let mut redis = self.redis.get().await?;
-    //     self._notify(&mut redis).await?;
-    //     Ok(())
-    // }
-    // async fn _notify(&self, redis: &mut MultiplexedConnection) -> Result<(), RedisError> {
-    //     if let Ok(len) = redis.llen::<&str, i64>(&self.list_notify).await {
-    //         if len > 1 {
-    //             return Ok(());
-    //         }
-    //     }
-    //     redis.lpush(&self.list_notify, 1).await
-    // }
-
     /// 获得执行中任务信息
     /// * `redis` - 存放执行任务的RDIS
     pub async fn task_data(&self) -> Result<HashMap<I, TaskData>, AppCoreError> {
+        debug!(
+            "task redis is start :{} {:?}",
+            self.config.task_list_key(),
+            self.redis.status()
+        );
         let mut redis = self.redis.get().await?;
+        debug!("task redis is finish :{}", self.config.task_list_key());
         self._task_data(&mut redis).await
     }
     async fn _task_data(
         &self,
         redis: &mut MultiplexedConnection,
     ) -> Result<HashMap<I, TaskData>, AppCoreError> {
+        debug!("task get data start :{}", self.config.task_list_key());
         let redis_data_opt: Result<Option<HashMap<I, TaskData>>, _> =
             redis.hgetall(self.config.task_list_key()).await;
+        match redis_data_opt.as_ref() {
+            Ok(data) => {
+                debug!(
+                    "task get data succ :{} total:{}",
+                    self.config.task_list_key(),
+                    data.as_ref().map(|d| d.len()).unwrap_or(0)
+                );
+            }
+            Err(err) => {
+                debug!(
+                    "task get data fail :{} {}",
+                    self.config.task_list_key(),
+                    err
+                );
+            }
+        };
         Ok(redis_data_opt.map(|data| data.unwrap_or_default())?)
     }
 

@@ -4,6 +4,7 @@ use crate::{
     dao::access::api::system::admin::{CheckAdminRbacEdit, CheckAdminRbacView},
 };
 use lsys_access::dao::AccessSession;
+use lsys_rbac::dao::RoleDataAttrParam;
 use serde_json::json;
 
 use crate::common::PageParam;
@@ -190,6 +191,10 @@ pub struct RoleDataParam {
     pub user_data: Option<u64>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_i8")]
     pub res_range: Option<i8>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
+    pub res_count: Option<bool>,
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
+    pub res_op_count: Option<bool>,
     pub page: Option<PageParam>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
@@ -207,6 +212,8 @@ struct RbacRoleDataRecord {
     pub change_time: u64,
     pub user_count: Option<i64>,
     pub user_data: Option<Vec<RbacRoleUserModel>>,
+    pub res_count: Option<i64>,
+    pub res_op_count: Option<i64>,
 }
 
 pub async fn role_data(
@@ -234,12 +241,12 @@ pub async fn role_data(
         None
     };
 
-    let mut role_data = req_dao
+    let role_data = req_dao
         .web_dao
         .web_rbac
         .rbac_dao
         .role
-        .role_data(
+        .role_info(
             &DaoRoleDataParam {
                 user_id: 0,
                 app_id: Some(0),
@@ -249,11 +256,17 @@ pub async fn role_data(
                 role_key: param.role_key.as_deref(),
                 role_name: param.role_name.as_deref(),
             },
+            &RoleDataAttrParam {
+                user_count: param.user_count,
+                user_data: param.user_data,
+                res_count: param.res_count,
+                res_op_count: param.res_op_count,
+            },
             param.page.as_ref().map(|e| e.into()).as_ref(),
         )
         .await?
         .into_iter()
-        .map(|e| RbacRoleDataRecord {
+        .map(|(e, info)| RbacRoleDataRecord {
             id: e.id,
             role_key: e.role_key,
             user_range: e.user_range,
@@ -262,44 +275,12 @@ pub async fn role_data(
             status: e.status,
             change_user_id: e.change_user_id,
             change_time: e.change_time,
-            user_count: None,
-            user_data: None,
+            user_count: info.user_count,
+            user_data: info.user_data,
+            res_count: info.res_count,
+            res_op_count: info.res_op_count,
         })
         .collect::<Vec<_>>();
-
-    if param.user_count.unwrap_or(false) {
-        let role_ids = role_data.iter().map(|e| e.id).collect::<Vec<_>>();
-        let user_data = req_dao
-            .web_dao
-            .web_rbac
-            .rbac_dao
-            .role
-            .role_user_group_count(&role_ids, false)
-            .await?;
-        for tmp in role_data.iter_mut() {
-            tmp.user_count = user_data.get(&tmp.id).copied();
-        }
-    }
-    let user_data_limit = param.user_data.unwrap_or(0);
-    if user_data_limit > 0 {
-        let role_ids = role_data.iter().map(|e| e.id).collect::<Vec<_>>();
-        let user_data = req_dao
-            .web_dao
-            .web_rbac
-            .rbac_dao
-            .role
-            .role_user_group_data(
-                &role_ids,
-                None,
-                false,
-                Some(&lsys_core::PageParam::new(0, user_data_limit)),
-            )
-            .await?;
-
-        for tmp in role_data.iter_mut() {
-            tmp.user_data = user_data.get(&tmp.id).map(|e| e.to_owned());
-        }
-    }
 
     let count = if param.count_num.unwrap_or(false) {
         Some(

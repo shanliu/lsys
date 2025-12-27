@@ -7,6 +7,7 @@ use lsys_core::db::ModelTableName;
 use lsys_core::db::SqlQuote;
 use lsys_core::sql_format;
 use lsys_core::RequestEnv;
+use url::Url;
 
 use super::super::{AppError, AppResult};
 use super::AppOAuthClient;
@@ -32,12 +33,39 @@ impl AppOAuthClient {
     ) -> AppResult<bool> {
         let oauth = self.find_by_app(app).await?;
         if oauth.callback_domain.is_empty() {
-            return Err(AppError::AppOAuthClientBadConfig(app.client_id.to_owned()));
+            return Err(AppError::AppOAuthClientBadDomain(app.client_id.to_owned()));
         }
-        Ok(
-            redirect_uri.starts_with(&("https://".to_string() + &oauth.callback_domain))
-                || redirect_uri.starts_with(&("http://".to_string() + &oauth.callback_domain)),
-        )
+
+        let redirect_url = match Url::parse(redirect_uri) {
+            Ok(url) => url,
+            Err(_) => return Ok(false),
+        };
+
+        match redirect_url.scheme() {
+            "http" | "https" => {}
+            _ => return Ok(false),
+        }
+
+        let redirect_host = match redirect_url.host_str() {
+            Some(host) if !host.is_empty() => host,
+            _ => return Ok(false),
+        };
+
+        let configured = oauth.callback_domain.trim();
+        if configured.is_empty() {
+            return Err(AppError::AppOAuthClientBadDomain(app.client_id.to_owned()));
+        }
+        if configured.starts_with("www.") {
+            return Ok(redirect_host.eq_ignore_ascii_case(configured));
+        }
+
+        if redirect_host.eq_ignore_ascii_case(configured) {
+            return Ok(true);
+        }
+
+        Ok(redirect_host
+            .strip_prefix("www.")
+            .is_some_and(|h| h.eq_ignore_ascii_case(configured)))
     }
     pub(crate) async fn inner_find_by_app(&self, app: &AppModel) -> AppResult<AppOAuthClientModel> {
         sqlx::query_as::<_, AppOAuthClientModel>(&sql_format!(

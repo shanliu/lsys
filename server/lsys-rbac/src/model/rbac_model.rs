@@ -136,11 +136,11 @@ pub struct RbacOpResModel {
     #[sqlx(default)]
     pub res_type: String,
 
-    /// 用户ID
+    ///冗余 res的 user_id
     #[sqlx(default)]
     pub user_id: u64,
 
-    ///应用ID,当user_id时,对应关联的应用ID
+    ///冗余 res的 app_id
     #[sqlx(default)]
     pub app_id: u64,
 

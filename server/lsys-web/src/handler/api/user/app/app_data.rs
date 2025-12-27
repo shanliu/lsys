@@ -129,7 +129,7 @@ pub async fn app_list(
         .web_app
         .app_dao
         .app
-        .user_app_data(
+        .user_app_info(
             auth_data.user_id(),
             &app_param,
             Some(&app_attr),
@@ -541,7 +541,7 @@ pub async fn request_list(
         .web_app
         .app_dao
         .app
-        .app_request_data(
+        .app_request_info(
             &AppRequestParam {
                 id: param.id,
                 request_user_id: Some(auth_data.user_id()),
@@ -723,7 +723,7 @@ pub async fn sub_request_list(
         .web_app
         .app_dao
         .app
-        .app_request_data(
+        .app_request_info(
             &AppRequestParam {
                 id: param.id,
                 request_user_id: None,

@@ -88,8 +88,8 @@ CREATE TABLE `yaf_rbac_op_res` (
         `res_type`,
         `user_id`,
         `app_id`,
-        `op_id`,
-        `status`
+        `status`,
+        `op_id`
     ) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '操作跟资源关联';
 
