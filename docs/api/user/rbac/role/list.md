@@ -8,6 +8,8 @@
 | role_key | string | 否 | 角色标识 |
 | user_data | string | 否 | 用户数据 |
 | user_count | boolean | 否 | 是否返回用户数量 |
+| res_count | int | 是否返回关联资源数量 |
+| res_op_count | int | 是否返回关联授权数量 |
 | ids | array | 否 | 角色ID列表 |
 | user_range | int | 否 | 用户范围 |
 | res_range | int | 否 | 资源范围 |
@@ -51,6 +53,8 @@ Authorization:Bearer {{APP_BEARER_TEST_ACCOUNT}}
     "ids":null,
     "user_range":null,
     "res_range":null,
+     "res_count":true,
+    "res_op_count":true,
      "count_num":true,
     "page":{
       "page":1,

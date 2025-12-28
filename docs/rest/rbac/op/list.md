@@ -10,6 +10,8 @@
 | op_key | string | 操作key过滤 |
 | ids | array | ID过滤数组 |
 | count_num | boolean | 是否返回总数 |
+| res_type_count | boolean | 已关联资源类型数量 |
+| check_role_use | boolean | 是否关联角色 |
 | page.page | int | 页码 |
 | page.limit | int | 每页数量 |
 

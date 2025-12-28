@@ -12,6 +12,8 @@
 | user_range | string | 否 | 用户范围 |
 | res_range | string | 否 | 资源范围 |
 | count_num | boolean | 否 | 是否统计总数 |
+| res_count | int | 是否返回关联资源数量 |
+| res_op_count | int | 是否返回关联授权数量 |
 | page.page | int | 是 | 页码 |
 | page.limit | int | 是 | 每页数量 |
 
@@ -48,6 +50,8 @@ Authorization:Bearer {{APP_BEARER_TEST_ACCOUNT}}
     "user_data":null,
     "user_count":true,
     "ids":null,
+    "res_count":true,
+    "res_op_count":true,
     "user_range": null,
     "res_range": null,
      "count_num":true,

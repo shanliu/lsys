@@ -8,6 +8,8 @@
 | op_key | string | 否 | 操作键名 |
 | ids | array | 否 | ID列表 |
 | count_num | boolean | 否 | 是否返回总数 |
+| res_type_count | boolean | 已关联资源类型数量 |
+| check_role_use | boolean | 是否关联角色 |
 | page.page | int | 是 | 页码 |
 | page.limit | int | 是 | 每页数量 |
 

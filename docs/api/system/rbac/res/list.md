@@ -10,6 +10,8 @@
 | res_name | string | 否 | 资源名称 |
 | ids | array | 否 | ID列表 |
 | count_num | boolean | 否 | 是否返回总数 |
+| perm_count | string | 是否返回关联授权数量 |
+| op_count | string | 是否返回关联操作数量 |
 | page.page | int | 是 | 页码 |
 | page.limit | int | 是 | 每页记录数 |
 
@@ -44,6 +46,8 @@ Authorization:Bearer {{APP_BEARER_TEST_ACCOUNT}}
     "res_type":null,
     "res_data":null,
     "res_name":null,
+     "perm_count":true,
+    "op_count":true,
     "ids":null,
     "count_num":true,
     "page":{

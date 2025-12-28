@@ -1,5 +1,6 @@
 > 示例
 
+
 ```http
 POST /api/user/app_rbac/role/list
 Content-Type:application/json
@@ -12,6 +13,8 @@ Authorization:Bearer {{APP_BEARER_TEST_ACCOUNT}}
     "role_name":"xxx",
     "role_key":"xxx",
     "user_data":1,
+    "res_count":true,
+    "res_op_count":true,
     "user_count":true,
     "ids":[1],
     "user_range": 1,

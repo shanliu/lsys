@@ -9,6 +9,8 @@
 | res_type | string | 资源类型过滤 |
 | res_data | string | 资源数据过滤 |
 | res_name | string | 资源名称过滤 |
+| perm_count | string | 是否返回关联授权数量 |
+| op_count | string | 是否返回关联操作数量 |
 | ids | array | ID过滤数组 |
 | count_num | boolean | 是否返回总数 |
 | page.page | int | 页码 |
@@ -46,6 +48,8 @@ Content-type:application/json
   "use_app_user":false,
     "user_param": "account_11",
    "res_type":null,
+   "perm_count":true,
+    "op_count":true,
     "res_data":null,
     "res_name":null,
     "ids":null,

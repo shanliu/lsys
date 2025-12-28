@@ -4,7 +4,6 @@
 > 示例
 
 ```http
-# res_type = test
 POST /api/user/rbac/res/dynamic_res_data_test
 Content-Type:application/json
 Authorization:Bearer {{APP_BEARER_TEST_ACCOUNT}}

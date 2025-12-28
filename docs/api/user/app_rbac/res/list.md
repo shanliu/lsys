@@ -11,6 +11,8 @@ Authorization:Bearer {{APP_BEARER_TEST_ACCOUNT}}
     "user_param":"xx",
     "res_type":"111",
     "res_data":"111",
+    "perm_count":true,
+    "op_count":true,
     "res_name": "111",
     "ids":[11],
     "count_num":true,

@@ -13,6 +13,8 @@
 | ids | array | ID过滤数组 |
 | user_range | int | 用户范围过滤 |
 | res_range | int | 资源范围过滤 |
+| res_count | int | 是否返回关联资源数量 |
+| res_op_count | int | 是否返回关联授权数量 |
 | count_num | boolean | 是否返回总数 |
 | page.page | int | 页码 |
 | page.limit | int | 每页数量 |
@@ -49,6 +51,8 @@ Content-type:application/json
    "role_name":null,
     "role_key":null,
     "user_data":null,
+     "res_count":true,
+    "res_op_count":true,
     "user_count":true,
     "ids":null,
     "user_range": null,

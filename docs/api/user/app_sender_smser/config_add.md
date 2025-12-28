@@ -28,8 +28,11 @@ Authorization:Bearer {{APP_BEARER_TEST_ACCOUNT}}
 {
    "app_id": 16,
     "priority": 1,
-    "config_type": 3,
-    "config_data":100
+    "config_type": 10,
+    "config_data":{
+      "area": "86", 
+      "mobile": "13800138000"
+    }
 }
 ```
 
