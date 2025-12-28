@@ -129,9 +129,12 @@ impl RbacOp {
                 RbacPermStatus::Enable
             ));
         }
-        let op_counts = sqlx::query_scalar::<_, u64>(&sql.join(" union all"))
-            .fetch_all(&self.db)
-            .await?;
+        let op_counts = sqlx::query_scalar::<_, u64>(&format!(
+            "select * from (({})) as t",
+            &sql.join(") union all (")
+        ))
+        .fetch_all(&self.db)
+        .await?;
         Ok(op_ids
             .iter()
             .map(|e| (*e, op_counts.contains(e)))

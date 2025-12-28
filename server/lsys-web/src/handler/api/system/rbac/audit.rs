@@ -4,11 +4,11 @@ use crate::common::JsonResult;
 use crate::common::LimitParam;
 use crate::common::UserAuthQueryDao;
 use crate::dao::access::api::system::admin::CheckAdminRbacView;
+use crate::dao::access::RbacAccessCheckEnv;
 use lsys_access::dao::AccessSession;
 use lsys_rbac::dao::AuditDataParam;
 use serde::Deserialize;
 use serde_json::{json, Value};
-use crate::dao::access::RbacAccessCheckEnv;
 
 //查看用户访问授权日志数据
 
@@ -44,7 +44,10 @@ pub async fn audit_data(
     req_dao
         .web_dao
         .web_rbac
-        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminRbacView {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminRbacView {},
+        )
         .await?;
     let res = req_dao
         .web_dao
@@ -83,13 +86,22 @@ pub async fn audit_data(
     } else {
         None
     };
+    let user_data = req_dao
+        .web_dao
+        .web_access
+        .access_dao
+        .user
+        .cache()
+        .find_users_by_ids(&res.0.iter().map(|e| e.0.user_id).collect::<Vec<_>>())
+        .await?;
     let out_data = res
         .0
         .iter()
         .map(|(a, b)| {
             json!({
                 "audit":a,
-                "detail":b
+                "detail":b,
+                "user":user_data.get(a.user_id)
             })
         })
         .collect::<Vec<Value>>();
