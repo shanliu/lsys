@@ -4,7 +4,7 @@ import sidebarApi from './sidebar_api.json' assert { type: 'json' };
 export default defineConfig({
   title: "lsys 在线文档",
   base: '/docs/',
-  outDir: '../ui/dest/docs',
+  outDir: '../ui/dist/docs',
   themeConfig: {
     nav: [
        {

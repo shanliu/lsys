@@ -21,34 +21,34 @@
         {
             "text": "登录相关",
             "items": [
-            { "text": "APP Code 登录", "link": "/api/public/login/app_code.md" },
-            { "text": "邮箱验证码登录", "link": "/api/public/login/email_code.md" },
-            { "text": "发送邮箱验证码", "link": "/api/public/login/email_code_send.md" },
-            { "text": "邮箱密码登录", "link": "/api/public/login/email_password.md" },
-            { "text": "用户名密码登录", "link": "/api/public/login/name_password.md" },
-            { "text": "短信验证码登录", "link": "/api/public/login/sms_code.md" },
-            { "text": "发送短信验证码", "link": "/api/public/login/sms_code_send.md" },
-            { "text": "短信密码登录", "link": "/api/public/login/sms_password.md" },
-              { "text": "第三方-微信登录", "link": "/api/public/login/exter_wechat.md" }
+            { "text": "APP Code 登录", "link": "/api/auth/login/app_code.md" },
+            { "text": "邮箱验证码登录", "link": "/api/auth/login/email_code.md" },
+            { "text": "发送邮箱验证码", "link": "/api/auth/login/email_code_send.md" },
+            { "text": "邮箱密码登录", "link": "/api/auth/login/email_password.md" },
+            { "text": "用户名密码登录", "link": "/api/auth/login/name_password.md" },
+            { "text": "短信验证码登录", "link": "/api/auth/login/sms_code.md" },
+            { "text": "发送短信验证码", "link": "/api/auth/login/sms_code_send.md" },
+            { "text": "短信密码登录", "link": "/api/auth/login/sms_password.md" },
+              { "text": "第三方-微信登录", "link": "/api/auth/login/exter_wechat.md" }
             ]
         },
         {
             "text": "密码相关",
             "items": [
-            { "text": "邮箱找回密码", "link": "/api/public/password/email.md" },
-            { "text": "邮箱找回密码-发送邮箱验证码", "link": "/api/public/password/email_code.md" },
-            { "text": "手机找回密码", "link": "/api/public/password/mobile.md" },
-            { "text": "手机找回密码-发送手机验证码", "link": "/api/public/password/mobile_code.md" }
+            { "text": "邮箱找回密码", "link": "/api/auth/password/email.md" },
+            { "text": "邮箱找回密码-发送邮箱验证码", "link": "/api/auth/password/email_code.md" },
+            { "text": "手机找回密码", "link": "/api/auth/password/mobile.md" },
+            { "text": "手机找回密码-发送手机验证码", "link": "/api/auth/password/mobile_code.md" }
             ]
         },
         {
             "text": "注册相关",
             "items": [
-            { "text": "邮箱注册", "link": "/api/public/register/email.md" },
-            { "text": "邮箱验证码注册", "link": "/api/public/register/email_code.md" },
-            { "text": "用户名注册", "link": "/api/public/register/name.md" },
-            { "text": "短信注册", "link": "/api/public/register/sms.md" },
-            { "text": "短信验证码注册", "link": "/api/public/register/sms_code.md" }
+            { "text": "邮箱注册", "link": "/api/auth/register/email.md" },
+            { "text": "邮箱验证码注册", "link": "/api/auth/register/email_code.md" },
+            { "text": "用户名注册", "link": "/api/auth/register/name.md" },
+            { "text": "短信注册", "link": "/api/auth/register/sms.md" },
+            { "text": "短信验证码注册", "link": "/api/auth/register/sms_code.md" }
             ]
         },
         {
