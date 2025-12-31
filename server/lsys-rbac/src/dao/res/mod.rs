@@ -1,7 +1,7 @@
 mod access;
 mod cache;
 mod data;
-mod logger;
+pub(crate) mod logger;
 mod res_type;
 use logger::LogRes;
 //RBAC中资源相关实现

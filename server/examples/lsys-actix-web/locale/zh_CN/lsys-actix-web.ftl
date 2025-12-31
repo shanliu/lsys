@@ -10,5 +10,8 @@ barcode-read-data-error = 无法解析图片，读取临时文件失败:{$msg}
 barcode-format-error = 无法解析图片，格式不支持,详细:{$msg}
 
 
+const-OAUTH_TYPE_WECHAT="微信登陆"
+
+
 
 

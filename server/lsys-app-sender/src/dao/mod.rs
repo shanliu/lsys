@@ -23,3 +23,14 @@ pub use sender_tpl_config::*;
 pub(crate) use sender_wait::*;
 mod result;
 pub use result::*;
+
+pub fn log_types() -> Vec<&'static str> {
+    use logger::{LogAppConfig, LogMessage, LogMessageTpls, LogSenderConfig};
+    use lsys_logger::dao::ChangeLogData;
+    vec![
+        LogMessage::log_type(),
+        LogMessageTpls::log_type(),
+        LogAppConfig::log_type(),
+        LogSenderConfig::log_type(),
+    ]
+}

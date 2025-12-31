@@ -9,7 +9,7 @@ access-parse-error = 解析用户ID错误,详细:{$msg}
 # 状态
 
 status-SessionStatus-Enable = 正常
-status-SessionStatus-Delete = 删除
+status-SessionStatus-Delete = 失效
 status-SessionStatus-Refresh = 刷新
 
 

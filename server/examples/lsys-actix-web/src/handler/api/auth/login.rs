@@ -5,6 +5,7 @@ use crate::common::handler::{
 use actix_web::post;
 
 use jsonwebtoken::{encode, EncodingKey, Header};
+use lsys_web::const_json_format;
 use lsys_web::lsys_core::fluent_message;
 use lsys_web::lsys_user::dao::UserAuthToken;
 
@@ -81,12 +82,7 @@ pub(crate) async fn login(
         "mapping" => {
             mapping_data(
                 &auth_dao,
-                json!([
-                    {
-                        "key":OAUTH_TYPE_WECHAT,
-                        "val":auth_dao.fluent.format_message(&fluent_message!("dict-exter-type-{}",OAUTH_TYPE_WECHAT)),
-                    }
-                ])
+                json!([const_json_format!(auth_dao, OAUTH_TYPE_WECHAT)]),
             )
             .await
         }

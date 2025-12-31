@@ -11,7 +11,9 @@ use crate::{
     },
 };
 use lsys_core::{
-    LimitParam, PageParam, RequestEnv, STRING_CLEAR_FORMAT, StringClear, ValidEmail, ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen, db::WhereOption, fluent_message, now_time, string_clear, valid_key
+    db::WhereOption, fluent_message, now_time, string_clear, valid_key, LimitParam, PageParam,
+    RequestEnv, StringClear, ValidEmail, ValidNumber, ValidParam, ValidParamCheck, ValidPattern,
+    ValidStrlen, STRING_CLEAR_FORMAT,
 };
 
 use lsys_core::db::{Insert, ModelTableName, SqlExpr, Update};
@@ -662,10 +664,12 @@ impl MailRecord {
                         .join(" or ");
                     let stime = nowt - limit.range_time;
                     let sql = sql_format!(
-                        "select count(*) as total,{} as limit_id,to_mail from {}
-                        where app_id={} and status in ({}) and expected_time>={} and ({}) group by to_mail",
+                        "select count(*) as total,{} as limit_id,m.to_mail from {} as b join {} as m
+                         on m.sender_body_id=b.id
+                        where b.app_id={} and m.status in ({}) and b.expected_time>={} and ({}) group by m.to_mail",
                         c.id,
                         SenderMailBodyModel::table_name(),
+                        SenderMailMessageModel::table_name(),
                         c.app_id,
                         &[SenderMailMessageStatus::IsSend as i8,SenderMailMessageStatus::IsReceived as i8],
                         stime,

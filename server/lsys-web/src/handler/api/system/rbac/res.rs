@@ -254,6 +254,6 @@ pub async fn res_data(param: &ResParam, req_dao: &UserAuthQueryDao) -> JsonResul
         })
         .collect::<Vec<_>>();
     Ok(JsonResponse::data(JsonData::body(
-        json!({ "data": bind_vec_user_info_from_req!(req_dao, res, user_id),"total":count}),
+        json!({ "data": bind_vec_user_info_from_req!(req_dao, res, user_id,false),"total":count}),
     )))
 }

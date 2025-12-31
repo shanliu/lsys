@@ -1,4 +1,5 @@
 use crate::common::JsonData;
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonResponse, JsonResult, LimitParam, UserAuthQueryDao},
     dao::access::api::system::admin::CheckAdminChangeLogsView,
@@ -6,7 +7,6 @@ use crate::{
 use lsys_access::dao::AccessSession;
 use serde::Deserialize;
 use serde_json::json;
-use crate::dao::access::RbacAccessCheckEnv;
 #[derive(Debug, Deserialize)]
 pub struct ChangeLogsListParam {
     pub log_type: Option<String>,
@@ -56,7 +56,7 @@ pub async fn change_logs_list(
     };
 
     Ok(JsonResponse::data(JsonData::body(json!({
-        "data": res,
+        "data":  bind_vec_user_info_from_req!(req_dao, res, add_user_id,false) ,
         "next": next,
         "total":count,
     }))))

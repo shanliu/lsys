@@ -20,7 +20,7 @@ mod account_mobile;
 mod account_name;
 mod account_password;
 mod cache;
-mod logger;
+pub(crate) mod logger;
 mod password;
 mod result;
 

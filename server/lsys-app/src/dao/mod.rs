@@ -240,4 +240,18 @@ impl AppDao {
             })?;
         Ok(app)
     }
+
+    pub fn log_types() -> Vec<&'static str> {
+        use lsys_logger::dao::ChangeLogData;
+        vec![
+            logger::AppLog::log_type(),
+            logger::AppRequestLog::log_type(),
+            logger::AppOAuthClientSetDomainLog::log_type(),
+            logger::AppOAuthClientSecretSetLog::log_type(),
+            logger::AppOAuthServerSetLog::log_type(),
+            logger::AppViewSecretLog::log_type(),
+            logger::AppNotifyConfigLog::log_type(),
+            logger::AppNotifyDataDelLog::log_type(),
+        ]
+    }
 }

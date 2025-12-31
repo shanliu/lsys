@@ -100,6 +100,14 @@ impl BarCodeDao {
             logger,
         }
     }
+
+    pub fn log_types() -> Vec<&'static str> {
+        use lsys_logger::dao::ChangeLogData;
+        vec![
+            logger::LogBarCodeCreateConfig::log_type(),
+            logger::LogBarCodeParseRecord::log_type(),
+        ]
+    }
 }
 impl BarCodeDao {
     lsys_core::impl_dao_fetch_one_by_one!(

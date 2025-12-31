@@ -104,4 +104,16 @@ impl RbacDao {
             op,
         })
     }
+
+    pub fn log_types() -> Vec<&'static str> {
+        use lsys_logger::dao::ChangeLogData;
+        vec![
+            op::logger::LogOp::log_type(),
+            res::logger::LogRes::log_type(),
+            res::logger::LogResTypeOp::log_type(),
+            role::logger::LogRole::log_type(),
+            role::logger::LogRoleUser::log_type(),
+            role::logger::LogRolePerm::log_type(),
+        ]
+    }
 }

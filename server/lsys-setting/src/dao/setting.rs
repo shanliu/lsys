@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-
 use std::ops::Deref;
 
 use lsys_logger::dao::ChangeLogData;
@@ -91,6 +90,11 @@ impl SettingDao {
         "id in ({ids}) and  status = {status}",
         status = SettingStatus::Enable
     );
+
+    pub fn log_types() -> Vec<&'static str> {
+        use lsys_logger::dao::ChangeLogData;
+        vec![SettingLog::log_type()]
+    }
 }
 
 pub trait SettingKey {

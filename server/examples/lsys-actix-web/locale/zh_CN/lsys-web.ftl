@@ -104,19 +104,70 @@ valid-rule-name-area_code = 地区编码
 
 
 #字典 
-dict-SMS_NOTIFY_METHOD = 短信发送结果回调
-dict-SUB_APP_SECRET_NOTIFY_METHOD = 子应用密钥更改回调
+const-SMS_NOTIFY_METHOD = 短信发送结果回调
+const-SUB_APP_SECRET_NOTIFY_METHOD = 子应用密钥更改回调
 
 
 #字典 
-dict-APP_FEATURE_BARCODE = 条码服务
-dict-APP_FEATURE_MAIL = 邮件服务
-dict-APP_FEATURE_RBAC = 权限服务
-dict-APP_FEATURE_SMS = 短信服务
+const-APP_FEATURE_BARCODE = 条码服务
+const-APP_FEATURE_MAIL = 邮件服务
+const-APP_FEATURE_RBAC = 权限服务
+const-APP_FEATURE_SMS = 短信服务
 
-dict-login-type-email = 邮箱
-dict-login-type-email-code = 邮箱验证码
-dict-login-type-name = 账号
-dict-login-type-mobile = 手机号
-dict-login-type-mobile-code = 短信验证码
-dict-login-type-external = 外部账号
+var-login-type-email = 邮箱
+var-login-type-email-code = 邮箱验证码
+var-login-type-name = 账号
+var-login-type-mobile = 手机号
+var-login-type-mobile-code = 短信验证码
+var-login-type-external = 外部账号
+
+
+var-smtp-config= SMTP服务器配置
+var-ali-sms-config= 阿里云短信
+var-col-sms-config= 融联云短信
+var-hwyun-sms-config= 华为云短信
+var-jd-cloud-sms-config= 京东云短信
+var-163-sms-config= 网易云短信
+var-tenyun-sms-config= 腾讯云短信
+
+
+var-mqr = 微型 QR 码 
+var-aztec=Aztec 码​
+var-qrcode=二维矩
+var-DXFilmEdge= 胶片边缘码
+var-codabar= 条形码
+var-datamatrix= Data Matrix 码
+
+
+
+
+var-app = 应用操作
+var-app-request = 应用请求处理
+var-app-oauth-client-set = 应用oauth设置
+var-app-oauth-client-secret-set = 应用oauth密钥修改
+var-app-oauth-server-set = 应用oauth服务设置
+var-app-view-secret = 应用查看密钥
+var-app-notify-set = 应用回调设置
+var-app-notify-del = 应用回调删除
+var-account-address =  账号地址修改
+var-account-email = 账号邮箱修改
+var-account-external =  账号关联外部账号
+var-account-info = 设置账号信息
+var-account-mobile = 账号手机修改
+var-account-name =  账号名称修改
+var-user =  用户信息
+var-set-password = 账号设置密码
+var-rbac-op = 权限资源操作管理
+var-rbac-res = 权限资源管理
+var-rbac-res-op = 权限资源关联操作
+var-rbac-role = 权限角色管理
+var-rbac-role-user =权限角色关联用户 
+var-rbac-role-perm = 权限角色关联权限
+var-setting = 设置修改
+var-sender-message = 发送消息处理
+var-sender-tpl = 发送模版管理
+var-sender-app-config = 发送应用配置
+var-sender-config = 发送配置
+var-barcode-create-config = 二维码创建
+var-barcode-parse-record = 二维码解析
+var-message-view = 发送消息查看

@@ -115,7 +115,7 @@ status-SenderMailConfigType-Limit = 频率限制
 status-SenderMailConfigType-MaxOfSend = 每次最大发送数量
 status-SenderMailConfigType-PassTpl = 指定模板不检测限制
 status-SenderMailConfigType-Block = 指定邮箱屏蔽
-status-SenderMailConfigType-BlockDomain = 指定邮箱屏蔽
+status-SenderMailConfigType-BlockDomain = 指定域名屏蔽
 
 
 

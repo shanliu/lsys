@@ -29,7 +29,6 @@ ui_dir = "../../../ui/public/"
 ui_path = "/"
 #404页面渲染ui首页
 ui_404_file = "app.html"
-ui_404_code = 200
 
 #超级管理员id,user表id
 root_user_id = [1]

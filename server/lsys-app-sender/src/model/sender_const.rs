@@ -127,7 +127,7 @@ pub enum SenderMailConfigType {
     MaxOfSend = 3,    //每次最大发送数量
     PassTpl = 4,      //指定模板不检测限制
     Block = 20,       //指定邮箱屏蔽
-    BlockDomain = 21, //指定邮箱屏蔽
+    BlockDomain = 21, //指定域名屏蔽
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]

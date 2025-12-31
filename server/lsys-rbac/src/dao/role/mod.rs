@@ -1,7 +1,7 @@
 mod access;
 mod cache;
 mod data;
-mod logger;
+pub(crate) mod logger;
 mod perm;
 mod user;
 //RBAC中角色相关实现

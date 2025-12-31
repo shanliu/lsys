@@ -8,12 +8,12 @@ use serde_json::json;
 pub async fn mapping_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     Ok(JsonResponse::data(JsonData::body(json!({
         "barcode_type":vec![
-            const_json_format!(req_dao,"mqr"),
-            const_json_format!(req_dao,"aztec"),
-            const_json_format!(req_dao,"qrcode"),
-            const_json_format!(req_dao,"DXFilmEdge"),
-            const_json_format!(req_dao,"codabar"),
-            const_json_format!(req_dao,"datamatrix")
+            var_json_format!(req_dao,"mqr"),
+            var_json_format!(req_dao,"aztec"),
+            var_json_format!(req_dao,"qrcode"),
+            var_json_format!(req_dao,"DXFilmEdge"),
+            var_json_format!(req_dao,"codabar"),
+            var_json_format!(req_dao,"datamatrix")
         ],
         "create_status":vec![
             status_json_format!(req_dao, BarcodeCreateStatus::EnablePrivate),

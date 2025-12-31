@@ -41,7 +41,7 @@ pub async fn mapping_data(req_dao: &RequestDao, exter: Value) -> JsonResult<Json
             "key":&e.0,
             "validity":e.1,
             "val":req_dao.fluent.format_message(&FluentMessage {
-                id: format!("dict-login-type-{}",&e.0),
+                id: format!("var-login-type-{}",&e.0),
                 crate_name:env!("CARGO_PKG_NAME").to_string(),
                 data:vec![]
             }),

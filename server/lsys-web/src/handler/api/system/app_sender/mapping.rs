@@ -14,7 +14,7 @@ use serde_json::json;
 pub async fn mailer_mapping_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     Ok(JsonResponse::data(JsonData::body(json!({
         "config_type":vec![
-            const_json_format!(req_dao, "smtp-config"),
+            var_json_format!(req_dao, "smtp-config"),
         ],
         "log_type":vec![
             status_json_format!(req_dao, SenderLogType::Init),
@@ -53,12 +53,12 @@ pub async fn mailer_mapping_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonR
 pub async fn smser_mapping_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     Ok(JsonResponse::data(JsonData::body(json!({
          "config_type":vec![
-            const_json_format!(req_dao, "ali-sms-config"),
-            const_json_format!(req_dao, "col-sms-config"),
-            const_json_format!(req_dao, "hwyun-sms-config"),
-            const_json_format!(req_dao, "jd-cloud-sms-config"),
-            const_json_format!(req_dao, "163-sms-config"),
-            const_json_format!(req_dao, "tenyun-sms-config"),
+            var_json_format!(req_dao, "ali-sms-config"),
+            var_json_format!(req_dao, "col-sms-config"),
+            var_json_format!(req_dao, "hwyun-sms-config"),
+            var_json_format!(req_dao, "jd-cloud-sms-config"),
+            var_json_format!(req_dao, "163-sms-config"),
+            var_json_format!(req_dao, "tenyun-sms-config"),
         ],
         "log_type":vec![
             status_json_format!(req_dao, SenderLogType::Init),

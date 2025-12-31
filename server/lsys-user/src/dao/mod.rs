@@ -30,4 +30,18 @@ impl UserDao {
             auth_account_dao,
         }
     }
+
+    pub fn log_types() -> Vec<&'static str> {
+        use lsys_logger::dao::ChangeLogData;
+        vec![
+            account::logger::LogAccountAddress::log_type(),
+            account::logger::LogAccountEmail::log_type(),
+            account::logger::LogAccountExternal::log_type(),
+            account::logger::LogAccountInfo::log_type(),
+            account::logger::LogAccountMobile::log_type(),
+            account::logger::LogAccountName::log_type(),
+            account::logger::LogAccount::log_type(),
+            account::logger::LogAccountPassWrod::log_type(),
+        ]
+    }
 }

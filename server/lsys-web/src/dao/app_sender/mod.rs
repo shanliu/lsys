@@ -1,4 +1,4 @@
-mod logger;
+pub(crate) mod logger;
 mod mailer;
 mod smser;
 

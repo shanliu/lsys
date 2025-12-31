@@ -11,7 +11,9 @@ use crate::{
     },
 };
 use lsys_core::{
-    LimitParam, PageParam, RequestEnv, STRING_CLEAR_FORMAT, StringClear, ValidMobile, ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen, db::WhereOption, fluent_message, now_time, string_clear, valid_key
+    db::WhereOption, fluent_message, now_time, string_clear, valid_key, LimitParam, PageParam,
+    RequestEnv, StringClear, ValidMobile, ValidNumber, ValidParam, ValidParamCheck, ValidPattern,
+    ValidStrlen, STRING_CLEAR_FORMAT,
 };
 
 use lsys_core::db::{Insert, ModelTableName, SqlExpr, Update};
@@ -689,10 +691,13 @@ impl SmsRecord {
                         .join(" or ");
                     let stime = nowt - limit.range_time;
                     let sql = sql_format!(
-                        "select count(*) as total,{} as limit_id,area,mobile from {}
-                        where app_id={} and status in ({}) and expected_time>={} and ({}) group by area,mobile",
+                        "select count(*) as total,{} as limit_id,m.area,m.mobile from {} as b join {} as m
+                        on m.sender_body_id=b.id
+                        where b.app_id={} and m.status in ({}) and b.expected_time>={} and ({}) group by m.area,m.mobile",
                         c.id,
                         SenderSmsBodyModel::table_name(),
+                        SenderSmsMessageModel::table_name(),
+        
                         c.app_id,
                         &[SenderSmsMessageStatus::IsSend as i8,SenderSmsMessageStatus::IsReceived  as i8],
                         stime,

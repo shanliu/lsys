@@ -1,7 +1,7 @@
 mod access;
 mod cache;
 mod data;
-mod logger;
+pub(crate) mod logger;
 use logger::LogOp;
 //RBAC中资源相关实现
 use lsys_core::cache::{LocalCache, LocalCacheConfig};

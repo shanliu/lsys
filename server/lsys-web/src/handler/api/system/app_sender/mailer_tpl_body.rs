@@ -71,8 +71,6 @@ pub async fn mailer_tpl_body_list(
 
 #[derive(Debug, Deserialize)]
 pub struct MailerTplAddParam {
-    #[serde(default, deserialize_with = "crate::common::deserialize_u64")]
-    pub app_id: u64,
     pub tpl_id: String,
     pub tpl_data: String,
 }
@@ -95,7 +93,7 @@ pub async fn mailer_tpl_body_add(
         .app_sender
         .tpl
         .add(
-            param.app_id,
+            0,
             SenderType::Mailer,
             &param.tpl_id,
             &param.tpl_data,
