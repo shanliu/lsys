@@ -23,15 +23,19 @@ xcopy /E /I /Y %root_dir%server\\examples\\lsys-actix-web\\static %build_dir%sta
 xcopy %root_dir%server\\examples\\lsys-actix-web\\.env %build_dir% /Y
 mkdir %build_dir%logs
 
-mkdir %root_dir%ui\\public
+mkdir %root_dir%ui\\dist
 cd %root_dir%ui
-call npm install
-call npm run build
+call npm install -g pnpm
+call pnpm install
+call pnpm run build
+cd %root_dir%docs
+call pnpm install
+call pnpm run docs:build
 cd %root_dir%
-xcopy /E /I /Y %root_dir%ui\\public %build_dir%ui
+xcopy /E /I /Y %root_dir%ui\\dist %build_dir%ui
 
 
-powershell.exe -Command "(Get-Content -Path '%build_dir%config\\app.toml') | ForEach-Object { $_ -replace '../../../ui/public/', './ui/' } | Set-Content -Path '%build_dir%config\\app.toml'"
+powershell.exe -Command "(Get-Content -Path '%build_dir%config\\app.toml') | ForEach-Object { $_ -replace '../../../ui/dist/', './ui/' } | Set-Content -Path '%build_dir%config\\app.toml'"
 
 
 set has_assets=false
