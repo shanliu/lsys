@@ -122,7 +122,7 @@ export function HomePage() {
                         DESIGNED_BY::GEMINI 3
                     </div>
                     <div style={{ fontSize: 'small', textAlign: 'center', marginTop: '10px' }}>
-                        <a href="http://www.lsys.cc:8088" target="_blank" rel="noreferrer" style={{ color: 'gray', textDecoration: 'none' }}>Master 分支示例(旧版,仅支持PC)</a>
+                        <a href="http://www.lsys.cc:8088" target="_blank" rel="noreferrer" style={{ color: 'gray', textDecoration: 'none' }}>old分支版本示例(旧版,仅支持PC)</a>
                     </div>
 
 
