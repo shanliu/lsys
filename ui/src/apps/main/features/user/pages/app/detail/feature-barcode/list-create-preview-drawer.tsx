@@ -12,6 +12,13 @@ import { Button } from "@shared/components/ui/button";
 import { Input } from "@shared/components/ui/input";
 import { Label } from "@shared/components/ui/label";
 import { Config } from "@shared/lib/config";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@shared/components/ui/select";
 import { cn } from "@shared/lib/utils";
 import React from "react";
 
@@ -68,43 +75,39 @@ export function BarcodeCreateConfigPreviewDrawer({
                         <div className="rounded-lg border p-4 space-y-3 bg-muted/50">
                             <h3 className="font-semibold text-sm">配置信息</h3>
                             <div className="grid grid-cols-2 gap-3 text-sm">
-                                <div>
+                                <div className="flex items-center">
                                     <span className="text-muted-foreground">条码类型:</span>
                                     <span className="ml-2 font-mono">{barcodeTypeLabel}</span>
                                 </div>
-                                <div>
+                                <div className="flex items-center">
                                     <span className="text-muted-foreground">图片格式:</span>
                                     <span className="ml-2 font-mono">{config.image_format}</span>
                                 </div>
-                                <div>
+                                <div className="flex items-center">
                                     <span className="text-muted-foreground">尺寸:</span>
                                     <span className="ml-2 font-mono">
                                         {config.image_width} × {config.image_height}
                                     </span>
                                 </div>
-                                <div>
+                                <div className="flex items-center">
                                     <span className="text-muted-foreground">边距:</span>
                                     <span className="ml-2 font-mono">{config.margin}px</span>
                                 </div>
-                                <div>
+                                <div className="flex items-center">
                                     <span className="text-muted-foreground">前景色:</span>
-                                    <div className="inline-flex items-center ml-2 gap-2">
-                                        <div
-                                            className="w-4 h-4 rounded border"
-                                            style={{ backgroundColor: config.image_color }}
-                                        />
-                                        <span className="font-mono text-xs">{config.image_color}</span>
-                                    </div>
+                                    <div
+                                        className="w-4 h-4 rounded border ml-2"
+                                        style={{ backgroundColor: config.image_color }}
+                                    />
+                                    <span className="ml-2 font-mono text-xs">{config.image_color}</span>
                                 </div>
-                                <div>
+                                <div className="flex items-center">
                                     <span className="text-muted-foreground">背景色:</span>
-                                    <div className="inline-flex items-center ml-2 gap-2">
-                                        <div
-                                            className="w-4 h-4 rounded border"
-                                            style={{ backgroundColor: config.image_background }}
-                                        />
-                                        <span className="font-mono text-xs">{config.image_background}</span>
-                                    </div>
+                                    <div
+                                        className="w-4 h-4 rounded border ml-2"
+                                        style={{ backgroundColor: config.image_background }}
+                                    />
+                                    <span className="ml-2 font-mono text-xs">{config.image_background}</span>
                                 </div>
                             </div>
                         </div>
@@ -112,15 +115,18 @@ export function BarcodeCreateConfigPreviewDrawer({
                         {/* 内容类型选择 */}
                         <div>
                             <Label htmlFor="contentType">内容类型</Label>
-                            <select
-                                id="contentType"
-                                className="w-full mt-1.5 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                            <Select
                                 value={contentType}
-                                onChange={(e) => setContentType(e.target.value as "text" | "base64")}
+                                onValueChange={(value) => setContentType(value as "text" | "base64")}
                             >
-                                <option value="text">文本 (text)</option>
-                                <option value="base64">Base64 (base64)</option>
-                            </select>
+                                <SelectTrigger id="contentType" className="w-full mt-1.5">
+                                    <SelectValue placeholder="选择内容类型" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="text">文本 (text)</SelectItem>
+                                    <SelectItem value="base64">Base64 (base64)</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
 
                         {/* 内容输入 */}

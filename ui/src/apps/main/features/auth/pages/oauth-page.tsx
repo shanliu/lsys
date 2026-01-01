@@ -1,4 +1,5 @@
 import { Route } from '@/apps/main/routes/_auth/_oauth/oauth'
+import { AppLogo } from '@apps/main/components/local/app-logo'
 import { useAuthData } from '@apps/main/hooks/use-auth-data'
 import { oauthDo, oauthScope, OauthScopeItemType } from '@shared/apis/user/oauth'
 import { Button } from '@shared/components/ui/button'
@@ -14,7 +15,7 @@ import {
 import { useToast } from '@shared/contexts/toast-context'
 import { cn, formatServerError } from '@shared/lib/utils'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { CheckCircle2, Loader2, Shield, XCircle } from 'lucide-react'
+import { CheckCircle2, Loader2, XCircle } from 'lucide-react'
 
 export function OAuthPage() {
     const toast = useToast()
@@ -76,7 +77,7 @@ export function OAuthPage() {
     // 渲染加载状态
     if (scopeQuery.isLoading) {
         return (
-            <div className="bg-primary-foreground container grid h-svh max-w-none items-center justify-center">
+            <div className="bg-primary-foreground container grid h-svh max-w-none items-center justify-center px-4 sm:px-0">
                 <CenteredLoading variant="content" iconSize="lg" />
             </div>
         )
@@ -85,23 +86,29 @@ export function OAuthPage() {
     // 渲染错误状态
     if (scopeQuery.isError) {
         return (
-            <div className="bg-primary-foreground container grid h-svh max-w-none items-center justify-center">
-                <Card className={cn('w-[420px] gap-4')}>
-                    <CardHeader className={cn("items-center")}>
-                        <XCircle className="text-destructive h-12 w-12" />
-                        <CardTitle className={cn('text-lg tracking-tight')}>
-                            授权信息加载失败
-                        </CardTitle>
-                        <CardDescription className={cn("text-center")}>
-                            {formatServerError(scopeQuery.error)}
-                        </CardDescription>
-                    </CardHeader>
-                    <CardFooter className={cn("justify-center")}>
-                        <Button variant="outline" onClick={handleCancel}>
-                            返回
-                        </Button>
-                    </CardFooter>
-                </Card>
+            <div className="bg-primary-foreground container grid h-svh max-w-none items-center justify-center px-4 sm:px-0">
+                <div className="mx-auto flex w-full flex-col justify-center space-y-2 py-8 sm:w-[480px] sm:p-8">
+                    <div className="mb-4 flex items-center justify-center">
+                        <AppLogo alt="Logo" className="mr-2 h-5" linkToHome />
+                        <h1 className="text-xl font-medium">应用授权</h1>
+                    </div>
+                    <Card className={cn('gap-4')}>
+                        <CardHeader className={cn("items-center")}>
+                            <XCircle className="text-destructive h-12 w-12" />
+                            <CardTitle className={cn('text-lg tracking-tight')}>
+                                授权信息加载失败
+                            </CardTitle>
+                            <CardDescription className={cn("text-center")}>
+                                {formatServerError(scopeQuery.error)}
+                            </CardDescription>
+                        </CardHeader>
+                        <CardFooter className={cn("justify-center")}>
+                            <Button variant="outline" onClick={handleCancel}>
+                                返回
+                            </Button>
+                        </CardFooter>
+                    </Card>
+                </div>
             </div>
         )
     }
@@ -109,10 +116,10 @@ export function OAuthPage() {
     const scopeData = scopeQuery.data
 
     return (
-        <div className="bg-primary-foreground container grid h-svh max-w-none items-center justify-center">
+        <div className="bg-primary-foreground container grid h-svh max-w-none items-center justify-center px-4 sm:px-0">
             <div className="mx-auto flex w-full flex-col justify-center space-y-2 py-8 sm:w-[480px] sm:p-8">
                 <div className="mb-4 flex items-center justify-center">
-                    <Shield className="text-primary mr-2 h-8 w-8" />
+                    <AppLogo alt="Logo" className="mr-2 h-5" linkToHome />
                     <h1 className="text-xl font-medium">应用授权</h1>
                 </div>
 

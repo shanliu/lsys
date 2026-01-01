@@ -63,11 +63,21 @@ export function AppRequestDataDisplay({ data, compact = false }: AppRequestDataD
                 </div>
             )
         }
+
+        const features = feature_data.feature.split(/[,，]/).map(f => f.trim()).filter(Boolean);
+
         return (
-            <div className={cn("flex gap-1.5", compact ? "items-center" : "flex-wrap")}>
-                <Badge variant="secondary" className={cn("text-xs", compact && "truncate max-w-[150px]")}>
-                    {feature_data.feature}
-                </Badge>
+            <div className={cn("flex gap-1.5", compact ? "items-center overflow-hidden" : "flex-wrap")}>
+                {features.map((feature, i) => (
+                    <Badge
+                        key={i}
+                        variant="secondary"
+                        className={cn("text-xs", compact && "truncate max-w-[150px]")}
+                        title={feature}
+                    >
+                        {feature}
+                    </Badge>
+                ))}
             </div>
         )
     }

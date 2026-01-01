@@ -131,11 +131,8 @@ var-163-sms-config= 网易云短信
 var-tenyun-sms-config= 腾讯云短信
 
 
-var-mqr = 微型 QR 码 
 var-aztec=Aztec 码​
-var-qrcode=二维矩
-var-DXFilmEdge= 胶片边缘码
-var-codabar= 条形码
+var-qrcode=二维码（QR Code）
 var-datamatrix= Data Matrix 码
 
 

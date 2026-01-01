@@ -333,7 +333,7 @@ function BarcodeCreateConfigContent({ dictData }: BarcodeCreateConfigContentProp
                   }}
                 >
                   <Eye className={cn("h-4 w-4", isMobile ? "mr-2" : "")} />
-                  {isMobile ? " 预览" : ""}
+                  <span className="ml-2">预览</span>
                 </Button>)}
             </DataTableActionItem>
 
