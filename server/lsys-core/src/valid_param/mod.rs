@@ -65,7 +65,7 @@ macro_rules! valid_key {
 
 #[test]
 fn test_valid_param() {
-    check_dome("kk", 0, vec!["aaa"]).unwrap();
+    check_dome("kk@qq.com", 0, vec!["aaa"]).unwrap();
     fn check_dome(email: &str, b: i32, mobile_list: Vec<&str>) -> Result<(), ValidError> {
         let mut valid = ValidParam::default();
         valid
