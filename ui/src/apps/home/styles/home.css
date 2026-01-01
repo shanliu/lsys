@@ -1,0 +1,309 @@
+/* src/styles/home.css */
+:root {
+  /* Light Theme (Default) */
+  --bg-canvas: #f0f0f0;
+  --bg-paper: #ffffff;
+  --bg-grid-line: #e5e5e5;
+
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --text-muted: #888888;
+
+  --border-dashed: #dddddd;
+  --border-strong: #999999;
+  --border-subtle: #eaeaea;
+  --border-grid: #cccccc;
+
+  --btn-bg: #eeeeee;
+  --btn-text: #333333;
+  --btn-border: #999999;
+
+  --caret-color: #333333;
+}
+
+.dark {
+  /* Dark Theme Overrides - Zinc Palette */
+  --bg-canvas: #09090b;
+  --bg-paper: #18181b;
+  --bg-grid-line: #27272a;
+
+  --text-primary: #f4f4f5;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+
+  --border-dashed: #3f3f46;
+  --border-strong: #52525b;
+  --border-subtle: #27272a;
+  --border-grid: #3f3f46;
+
+  --btn-bg: #27272a;
+  --btn-text: #e4e4e7;
+  --btn-border: #52525b;
+
+  --caret-color: #e4e4e7;
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+}
+
+.home-container {
+  font-family: 'JetBrains Mono', 'PingFang SC', monospace;
+  color: var(--text-primary);
+  background-color: transparent;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 40px 0;
+  position: relative;
+}
+
+.static-grid-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+  background-size: 20px 20px;
+  background-image:
+    linear-gradient(var(--bg-grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--bg-grid-line) 1px, transparent 1px);
+  z-index: 0;
+  pointer-events: none;
+  /* Let mouse events pass through to container */
+}
+
+
+/* The Sloppy Doc */
+.draft-doc {
+  background-color: var(--bg-paper);
+  width: 100%;
+  max-width: 800px;
+  height: auto;
+  box-shadow: none;
+  padding: 50px;
+  position: relative;
+  border: none;
+  /* Removed serious border */
+  border-left: 2px dashed var(--border-dashed);
+  /* Just a loose margin line */
+  z-index: 10;
+}
+
+.section-block {
+  margin-bottom: 30px;
+  position: relative;
+  border-top: 1px dashed var(--border-grid);
+  /* Dashed = Draft */
+  padding-top: 20px;
+}
+
+/* Typography - Casual */
+.meta-header {
+  border-bottom: 1px solid var(--border-grid);
+  padding-bottom: 20px;
+  margin-bottom: 40px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+h1.draft-title {
+  font-size: 24px;
+  font-weight: 400;
+  /* Regular weight */
+  margin-bottom: 15px;
+  color: var(--text-primary);
+}
+
+h2.draft-heading {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 20px;
+  color: var(--text-secondary);
+}
+
+p.draft-text {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+  max-width: 600px;
+}
+
+/* Lists - Tables */
+.spec-list {
+  border-top: 1px dashed var(--border-grid);
+}
+
+.spec-item {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  border-bottom: 1px dashed var(--border-subtle);
+  padding: 10px 0;
+  font-size: 14px;
+}
+
+.spec-key {
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.spec-val {
+  color: var(--text-primary);
+}
+
+.caret {
+  display: inline-block;
+  width: 8px;
+  height: 16px;
+  background: var(--caret-color);
+  animation: blink 1s infinite;
+  vertical-align: middle;
+}
+
+/* Button override for inline styles in JSX if needed, but better to use class */
+.btn-enter-system {
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  border: 1px solid var(--btn-border);
+  padding: 8px 16px;
+  font-family: inherit;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.footer-section {
+  margin-top: 0;
+  border-top: 1px dashed var(--border-strong);
+  padding-top: 20px;
+  margin-bottom: 0;
+}
+
+.footer-text {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.signature {
+  text-align: center;
+  margin-top: 40px;
+  font-size: 12px;
+  opacity: 0.5;
+  font-family: monospace;
+  color: var(--text-primary);
+}
+
+/* Buttons row for actions */
+.button-row {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  body {
+    background-color: var(--bg-paper);
+    /* Match system bars/overscroll */
+  }
+
+  .home-container {
+    padding: 0;
+    background-color: var(--bg-paper);
+    /* Unify background */
+    min-height: 100vh;
+    align-items: flex-start;
+    /* Start from top on mobile */
+  }
+
+  /* Remove left border and adjust layout */
+  .draft-doc {
+    padding: 24px;
+    /* Increase padding for better edge distance */
+    max-width: 100%;
+    border-left: none;
+    box-shadow: none;
+    background-color: var(--bg-paper);
+    /* Ensure we are on paper bg */
+  }
+
+  /* Header items - GitHub on right, Status/Date stacked on left */
+  .meta-header {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    border-bottom: 1px dashed var(--border-grid);
+  }
+
+  /* GitHub link moves to end (right side) on mobile */
+  .meta-header>div:first-child {
+    order: 1;
+    margin-left: auto;
+  }
+
+  /* Hide GitHub text on mobile, only show icon */
+  .github-text {
+    display: none;
+  }
+
+  /* Status and Date stay on left */
+  .meta-header>div:nth-child(2),
+  .meta-header>div:nth-child(3) {
+    order: 0;
+  }
+
+  /* Stack spec list items */
+  .spec-item {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  /* Adjust typography for small screens */
+  h1.draft-title {
+    font-size: 20px;
+  }
+
+  p.draft-text {
+    font-size: 14px;
+    max-width: 100%;
+  }
+
+  .signature {
+    margin-top: 30px;
+  }
+
+  /* Make button bigger and easier to tap on mobile */
+  .btn-enter-system {
+    padding: 12px 0;
+    font-size: 16px;
+  }
+
+  /* Keep buttons in a responsive layout on mobile */
+  .button-row {
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .button-row .btn-enter-system {
+    flex: 1 1 calc(50% - 5px);
+    min-width: 0;
+    margin-top: 0;
+  }
+
+  /* First button takes full width */
+  .button-row .btn-enter-system:first-child {
+    flex: 1 1 100%;
+  }
+}

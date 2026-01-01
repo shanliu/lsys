@@ -1,0 +1,37 @@
+/**
+ * Mobile Input Reset
+ * 修复移动端输入框相关的问题
+ */
+
+/* 修复移动端输入框获得焦点时页面缩放的问题 */
+/* iOS Safari 会在输入框字体小于 16px 时自动缩放页面 */
+
+@media screen and (max-width: 767px) {
+
+    /* 禁止双击缩放和捏合缩放 */
+    html {
+        touch-action: manipulation;
+        -webkit-text-size-adjust: 100%;
+        -ms-text-size-adjust: 100%;
+    }
+
+    body {
+        -webkit-text-size-adjust: 100%;
+    }
+}
+
+/* 仅针对 iOS 设备 */
+@supports (-webkit-touch-callout: none) {
+    @media screen and (max-width: 767px) {
+
+        /* 
+         * 设置 font-size: 16px 防止 iOS Safari 在输入框获得焦点时自动缩放页面
+         * iOS 会在输入框字体小于 16px 时触发页面缩放
+         */
+        input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+        textarea,
+        select {
+            font-size: 16px;
+        }
+    }
+}

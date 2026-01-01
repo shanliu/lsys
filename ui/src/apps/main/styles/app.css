@@ -1,0 +1,248 @@
+/* ========================================
+ * 状态颜色系统 - Status Color System
+ * ========================================
+ * 定义通用的语义化状态颜色，不关联具体业务场景
+ * 各模块可根据需要映射业务状态到这些颜色
+ * 
+ * 颜色语义：
+ * - neutral: 中性状态 (灰色)
+ * - info: 信息状态 (蓝色) 
+ * - warning: 警告状态 (黄色)
+ * - success: 成功状态 (绿色)
+ * - danger: 危险/错误状态 (红色)
+ */
+
+:root {
+  /* Neutral - 中性/灰色 */
+  --status-neutral: oklch(0.556 0 0);
+  --status-neutral-foreground: oklch(0.985 0 0);
+
+  /* Info - 信息/蓝色 */
+  --status-info: oklch(0.588 0.158 241.966);
+  --status-info-foreground: oklch(0.985 0 0);
+
+  /* Warning - 警告/黄色 */
+  --status-warning: oklch(0.769 0.188 70.08);
+  --status-warning-foreground: oklch(0.205 0 0);
+
+  /* Success - 成功/绿色 */
+  --status-success: oklch(0.627 0.194 149.214);
+  --status-success-foreground: oklch(0.985 0 0);
+
+  /* Danger - 危险/红色 */
+  --status-danger: oklch(0.577 0.245 27.325);
+  --status-danger-foreground: oklch(0.985 0 0);
+}
+
+.dark {
+  /* Neutral - 中性/灰色 (暗色主题) */
+  --status-neutral: oklch(0.439 0 0);
+  --status-neutral-foreground: oklch(0.985 0 0);
+
+  /* Info - 信息/蓝色 (暗色主题) */
+  --status-info: oklch(0.685 0.169 237.323);
+  --status-info-foreground: oklch(0.145 0 0);
+
+  /* Warning - 警告/黄色 (暗色主题) */
+  --status-warning: oklch(0.769 0.188 70.08);
+  --status-warning-foreground: oklch(0.145 0 0);
+
+  /* Success - 成功/绿色 (暗色主题) */
+  --status-success: oklch(0.696 0.17 162.48);
+  --status-success-foreground: oklch(0.145 0 0);
+
+  /* Danger - 危险/红色 (暗色主题) */
+  --status-danger: oklch(0.637 0.237 25.331);
+  --status-danger-foreground: oklch(0.985 0 0);
+}
+
+@theme inline {
+  /* 注册状态颜色到 Tailwind 主题系统 */
+  --color-status-neutral: var(--status-neutral);
+  --color-status-neutral-foreground: var(--status-neutral-foreground);
+  --color-status-info: var(--status-info);
+  --color-status-info-foreground: var(--status-info-foreground);
+  --color-status-warning: var(--status-warning);
+  --color-status-warning-foreground: var(--status-warning-foreground);
+  --color-status-success: var(--status-success);
+  --color-status-success-foreground: var(--status-success-foreground);
+  --color-status-danger: var(--status-danger);
+  --color-status-danger-foreground: var(--status-danger-foreground);
+}
+
+/* 状态 Badge 样式类 */
+@layer components {
+  .badge-status-neutral {
+    background-color: var(--status-neutral) !important;
+    color: var(--status-neutral-foreground) !important;
+    border-color: transparent !important;
+  }
+
+  .badge-status-info {
+    background-color: var(--status-info) !important;
+    color: var(--status-info-foreground) !important;
+    border-color: transparent !important;
+  }
+
+  .badge-status-warning {
+    background-color: var(--status-warning) !important;
+    color: var(--status-warning-foreground) !important;
+    border-color: transparent !important;
+  }
+
+  .badge-status-success {
+    background-color: var(--status-success) !important;
+    color: var(--status-success-foreground) !important;
+    border-color: transparent !important;
+  }
+
+  .badge-status-danger {
+    background-color: var(--status-danger) !important;
+    color: var(--status-danger-foreground) !important;
+    border-color: transparent !important;
+  }
+}
+
+/* 加载动画 - 竖条起伏 */
+@keyframes wave {
+
+  0%,
+  100% {
+    transform: scaleY(0.5);
+    opacity: 0.5;
+  }
+
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+/* ========================================
+ * Alert 图标对齐修复 - Alert Icon Alignment Fix
+ * ========================================
+ * 修复单行 Alert 中图标与文本垂直对齐问题
+ * 计算方式:
+ * - Alert padding-top: 12px (py-3)
+ * - 文本 line-height: 20px (text-sm)
+ * - 文本中心: 12px + 10px = 22px (相对Alert顶部为 20px)
+ * - 图标顶部位置: 20px - 8px (图标高度的一半) = 12px
+ * - 微调: 向下移动 1px 使视觉效果更居中
+ * - 同时调整文本的 translateY 以保持整体对齐
+ */
+
+@layer components {
+
+  /* 单行 Alert 图标垂直居中对齐 */
+  .alert-icon-centered>svg {
+    top: 0.82rem !important;
+    /* 13px - 与文本行中心对齐并微调 */
+    transform: none !important;
+    /* 移除默认的 translateY */
+  }
+
+  /* 调整紧跟在 svg 后面的 div 的偏移量 */
+  .alert-icon-centered>svg+div {
+    transform: translateY(0.07rem) !important;
+    /* 1px - 将文本也向下移动 */
+  }
+}
+
+/* ========================================
+ * 自定义滚动条样式 - Custom Scrollbar Styles
+ * ========================================
+ * 为桌面端提供符合主题的滚动条样式
+ */
+
+/* 自定义滚动条 - 仅在非移动端生效 */
+.custom-scrollbar {
+  /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.3) rgba(0, 0, 0, 0.1);
+}
+
+/* Webkit 浏览器 (Chrome, Safari, Edge) */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.custom-scrollbar::-webkit-scrollbar-corner {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+/* 暗色主题下的滚动条 */
+.dark .custom-scrollbar {
+  scrollbar-color: rgba(255, 255, 255, 0.4) rgba(255, 255, 255, 0.1);
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-corner {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Table column resizer - using official TanStack Table approach */
+@media (hover: hover) {
+  .table-header-row .resizer {
+    opacity: 0;
+  }
+
+  .table-header-row:hover .resizer {
+    opacity: 1;
+  }
+}
+
+/* ========================================
+ * 表格行 hover 联动效果 - Table Row Hover Effects
+ * ========================================
+ * 主数据行和展开行的统一 hover 效果
+ */
+
+/* 主数据行 hover 时，自身和下一个展开行高亮 */
+.table-main-row:hover,
+.table-main-row:hover+.table-expanded-row {
+  background-color: var(--primary-foreground) !important;
+}
+
+/* 展开行 hover 时，自身和上一个主数据行高亮 */
+.table-expanded-row:hover,
+.table-main-row:has(+ .table-expanded-row:hover) {
+  background-color: var(--primary-foreground) !important;
+}
+
+/* 固定列在 hover 时也需要高亮 */
+.table-main-row:hover .table-sticky-cell,
+.table-main-row:hover+.table-expanded-row .table-sticky-cell {
+  background-color: var(--primary-foreground) !important;
+}
+
+.table-expanded-row:hover .table-sticky-cell,
+.table-main-row:has(+ .table-expanded-row:hover) .table-sticky-cell {
+  background-color: var(--primary-foreground) !important;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-corner {
+  background: rgba(255, 255, 255, 0.1);
+}

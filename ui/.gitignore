@@ -1,0 +1,10 @@
+.idea
+.vscode
+.tanstack
+.history
+.github
+.playwright-mcp
+node_modules
+pnpm-lock.yaml
+pnpm-workspace.yaml
+dist
