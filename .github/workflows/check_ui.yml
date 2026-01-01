@@ -30,5 +30,6 @@ jobs:
     - name: Build ui
       working-directory: ./ui
       run: |
-        npm install
-        npx build
+        npm install -g pnpm
+        pnpm i
+        pnpm build
