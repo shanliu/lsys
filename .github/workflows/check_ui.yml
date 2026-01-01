@@ -31,4 +31,4 @@ jobs:
       working-directory: ./ui
       run: |
         npm install
-        npx webpack
+        npx build
