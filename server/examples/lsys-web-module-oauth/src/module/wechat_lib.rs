@@ -23,10 +23,10 @@ pub static ACCESS_TOKEN: &str = "access_token";
 pub static OPENID: &str = "openid";
 
 impl WeChatLib {
-    pub fn new(appid: String, secret: String, agent_id: Option<i32>) -> Self {
+    pub fn new(appid: &str, secret: &str, agent_id: Option<i32>) -> Self {
         Self {
-            appid,
-            secret,
+            appid: appid.to_owned(),
+            secret: secret.to_owned(),
             agent_id,
         }
     }

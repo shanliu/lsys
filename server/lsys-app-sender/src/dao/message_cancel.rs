@@ -2,9 +2,9 @@ use crate::dao::SenderResult;
 use crate::model::{SenderMessageCancelModel, SenderMessageCancelModelRef, SenderType};
 use lsys_core::now_time;
 
+use lsys_core::db::Insert;
+use lsys_core::db_option_executor;
 use sqlx::{Pool, Transaction};
-use sqlx_model::{executor_option, Insert};
-
 //短信取消发送公共代码
 
 pub struct MessageCancel {
@@ -16,15 +16,15 @@ impl MessageCancel {
     pub fn new(db: Pool<sqlx::MySql>, send_type: SenderType) -> Self {
         Self { db, send_type }
     }
-    pub async fn add<'t>(
+    pub async fn add(
         &self,
-        app_id: &u64,
-        sender_body_id: &u64,
+        app_id: u64,
+        sender_body_id: u64,
         message_ids: &[u64],
-        cancel_user_id: &u64,
-        transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        cancel_user_id: u64,
+        transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
     ) -> SenderResult<()> {
-        if message_ids.is_empty(){
+        if message_ids.is_empty() {
             return Ok(());
         }
         let add_time = now_time().unwrap_or_default();
@@ -32,24 +32,36 @@ impl MessageCancel {
 
         let mut idata = Vec::with_capacity(message_ids.len());
         for id in message_ids {
-            idata.push(sqlx_model::model_option_set!(SenderMessageCancelModelRef, {
-                app_id:*app_id,
-                sender_body_id:*sender_body_id,
+            idata.push(lsys_core::model_option_set!(SenderMessageCancelModelRef, {
+                app_id:app_id,
+                sender_body_id:sender_body_id,
                 sender_message_id:id,
                 sender_type:sender_type,
-                cancel_user_id:*cancel_user_id,
+                cancel_user_id:cancel_user_id,
                 cancel_time:add_time,
             }));
         }
-        executor_option!(
+        let mut idata1 = Vec::with_capacity(message_ids.len());
+        idata1.push(lsys_core::model_option_set!(SenderMessageCancelModelRef, {
+            app_id:app_id,
+            sender_body_id:sender_body_id,
+            sender_message_id:1,
+            sender_type:sender_type,
+            cancel_user_id:cancel_user_id,
+            cancel_time:add_time,
+        }));
+        db_option_executor!(
+            db,
             {
-                Insert::<sqlx::MySql, SenderMessageCancelModel, _>::new_vec(idata)
-                    .execute(db)
+                Insert::<SenderMessageCancelModel, _>::new_vec(idata)
+                    .execute(db.as_executor())
+                    .await?;
+                Insert::<SenderMessageCancelModel, _>::new_vec(idata1)
+                    .execute(db.as_executor())
                     .await?;
             },
             transaction,
-            &self.db,
-            db
+            &self.db
         );
         Ok(())
     }

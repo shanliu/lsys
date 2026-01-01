@@ -1,6 +1,3 @@
-// use std::error::Error;
-// use std::fmt::{Display, Formatter};
-
 use deadpool_redis::PoolError;
 
 use redis::RedisError;
@@ -26,12 +23,6 @@ impl IntoFluentMessage for RemoteNotifyError {
     }
 }
 
-// impl Display for RemoteNotifyError {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-//         write!(f, "{:?}", self)
-//     }
-// }
-// impl Error for RemoteNotifyError {}
 impl From<RedisError> for RemoteNotifyError {
     fn from(err: RedisError) -> Self {
         RemoteNotifyError::Redis(err)

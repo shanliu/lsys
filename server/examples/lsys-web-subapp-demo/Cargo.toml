@@ -4,16 +4,11 @@ version = "0.0.1"
 authors = ["liushan <shan.liu@msn.com>"]
 edition = "2021"
 
-
 [dependencies]
-lsys-rbac = { path = "../../lsys-rbac" }             #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-app = { path = "../../lsys-app" }               #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-web = { path = "../../lsys-web" }               #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-user = { path = "../../lsys-user" }             #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-core = { path = "../../lsys-core" }             #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-app-sender = { path = "../../lsys-app-sender" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-rbac = { path = "../../lsys-rbac" }
+lsys-app = { path = "../../lsys-app" }
+lsys-web = { path = "../../lsys-web" }
+lsys-core = { path = "../../lsys-core" }
+lsys-app-sender = { path = "../../lsys-app-sender" }
 serde = { version = "1.0.*" }
 serde_json = "1.0.*"
-
-
-async-trait = "0.1.57"

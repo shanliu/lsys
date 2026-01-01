@@ -1,0 +1,16 @@
+system-error = System exception, details: {$msg}
+rule-error = Rule validation failed, details: {$msg}
+sqlx-error = Database error: {$msg}
+redis-error = Cache error: {$msg}
+tera-error = Template error: {$msg}
+log-error = Log error: {$msg}
+env-error = Environment variable error: {$msg}
+file-error = File error: {$msg}
+config-error = Configuration error: {$msg}
+utf-parse-error = Invalid UTF character in string, details: {$msg}
+time-format-error = Date parsing error: {$msg}
+time-zone-error = Time zone error
+serde-json-error = JSON error: {$msg}
+time-error = System time error: {$msg}
+io-error = System IO error: {$msg}
+git-error = GIT error: {$msg}

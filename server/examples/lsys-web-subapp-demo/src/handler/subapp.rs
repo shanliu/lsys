@@ -1,58 +1,50 @@
-use lsys_app::model::AppsModel;
-use lsys_rbac::dao::{AccessRes, RbacAccess, RbacCheck, RoleRelationKey, UserRbacResult};
-use lsys_web::{dao::RequestDao, JsonData, JsonResult};
+use lsys_app::model::AppModel;
+use lsys_web::{
+    common::{JsonData, JsonResponse, JsonResult, RequestDao},
+    dao::access::{rest::CheckRestApp, RbacAccessCheckEnv},
+};
 use serde::Deserialize;
 use serde_json::json;
-
-//这里定义访问权限验证
-pub struct DomeAccess {
-    pub app: AppsModel,
-}
-
-#[async_trait::async_trait]
-impl RbacCheck for DomeAccess {
-    async fn check<'t>(
-        &self,
-        access: &'t RbacAccess,
-        _relation: &'t [RoleRelationKey],
-    ) -> UserRbacResult<()> {
-        access
-            .check(
-                self.app.user_id,                                           //资源访问用户
-                &[RoleRelationKey::system(format!("app-{}", self.app.id))], //资源关系
-                &[AccessRes::system(
-                    &format!("app-{}", self.app.id), //资源KEY
-                    &["global-dome-auth"],           //必须验证权限
-                    &[],                             //可选验证权限
-                )],
-            )
-            .await
-    }
-}
 
 #[derive(Debug, Deserialize)]
 pub struct DemoParam {
     pub text: String,
 }
-pub async fn demo_handler(
+
+pub async fn demo_api1(
+    param: &DemoParam,
+    app: &AppModel,
     req_dao: &RequestDao,
-    app: &AppsModel,
-    param: DemoParam,
-) -> JsonResult<JsonData> {
-    //验证权限
+) -> JsonResult<JsonResponse> {
+    //全局启用app验证
+    let app_user = req_dao
+        .web_dao
+        .web_access
+        .access_dao
+        .user
+        .cache()
+        .find_by_id(&app.user_id)
+        .await?;
     req_dao
         .web_dao
-        .user
-        .rbac_dao
-        .rbac
+        .web_rbac
         .check(
-            &DomeAccess {
-                app: app.to_owned(),
-            },
-            None,
+            &RbacAccessCheckEnv::user(&app_user, &req_dao.req_env),
+            &CheckRestApp {},
         )
-        .await
-        .map_err(|e| req_dao.fluent_json_data(e))?;
+        .await?;
+    //是否启用功能验证
+    req_dao
+        .web_dao
+        .web_app
+        .app_dao
+        .app
+        .cache()
+        .exter_feature_check(app, &["my-app-feature"])
+        //request_exter_feature ->featuer_data[my-app-feature]
+        .await?;
     //业务逻辑。。。
-    Ok(JsonData::data(json!({ "text":param.text })))
+    Ok(JsonResponse::data(JsonData::body(
+        json!({ "text":param.text,"app_id":app.id }),
+    )))
 }

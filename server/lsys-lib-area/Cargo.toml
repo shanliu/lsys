@@ -1,6 +1,6 @@
 [package]
 name = "lsys-lib-area"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["liushan <shan.liu@msn.com>"]
 edition = "2021"
 build = "src/build.rs"
@@ -10,25 +10,25 @@ categories = ["web-programming", "geospatial"]
 repository = "https://github.com/shanliu/lsys/tree/main/server/lsys-lib-area"
 
 [dependencies]
-geo = "~0.28.*"
+geo = "~0.30.0"
 rayon = "~1.10.*"
-flate2 = "~1.0.*"
-rusqlite = { version = "~0.31.0", optional = true }
+flate2 = "~1.1.*"
+rusqlite = { version = "~0.32.1", optional = true }
 csv = { version = "~1.3.0", optional = true }
 mysql = { version = "~25.0.0", optional = true }
 log = "~0.4.17"
 #clap = "3.2.25"
 parking_lot = "~0.12.1"
 tantivy = "~0.22.0"
-unicode-segmentation = "~1.11.0"
+unicode-segmentation = "~1.12.0"
 memmap2 = { version = "~0.9", optional = true }
 sha2 = "~0.10.8"
 
 [build-dependencies]
-cc = "~1.0.*"
+cc = { version = "~1.2.*", optional = true }
 #glob = "~0.3.*"
-flate2 = "~1.0.*"
-cbindgen = "~0.26.0"
+flate2 = "~1.1.*"
+cbindgen = { version = "~0.28.0", optional = true }
 
 [lib]
 name = "lsys_lib_area"
@@ -50,7 +50,7 @@ data-csv = ["csv"]
 #启用SQLITE数据源
 data-sqlite = ["rusqlite"]
 #启用SQLITE数据源[内置C源码方式]
-data-sqlite-source = ["data-sqlite"]
+data-sqlite-source = ["data-sqlite", "cc", "cbindgen"]
 #启用mysql数据源支持
 data-mysql = ["mysql"]
 #索引数据使用硬盘存储

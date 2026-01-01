@@ -7,12 +7,12 @@ use super::utils::en_name_keyword;
 
 impl From<mysql::Error> for AreaError {
     fn from(err: mysql::Error) -> Self {
-        AreaError::DB(err.to_string())
+        AreaError::DB(foramt!("mysql error:{:?}", err))
     }
 }
 impl From<mysql::UrlError> for AreaError {
     fn from(err: mysql::UrlError) -> Self {
-        AreaError::DB(err.to_string())
+        AreaError::DB(foramt!("mysql config error:{:?}", err))
     }
 }
 

@@ -1,3 +1,6 @@
+//基于REDIS
+// 多节点缓存同步清理
+//当一个节点发送清理命令,所有节点完成缓存删除
 use async_trait::async_trait;
 
 use serde::{Deserialize, Serialize};
@@ -14,32 +17,32 @@ pub struct LocalCacheMessage {
     pub message: String,
 }
 impl LocalCacheMessage {
-    pub fn new(cache_name: String, message: String) -> Self {
+    pub fn new(cache_name: &str, message: &str) -> Self {
         Self {
-            cache_name,
-            message,
+            cache_name: cache_name.to_string(),
+            message: message.to_string(),
         }
     }
 }
 
 #[async_trait]
-pub trait LocalCacheClearItem {
+pub trait LocalCacheClearItem<'t>: Sync + Send + 't {
     fn cache_name(&self) -> &str;
     async fn clear_from_message(&self, msg: &str) -> Result<(), String>;
 }
 
 /// 订阅远程通知清理本地缓存
-pub struct LocalCacheClear {
-    cache_list: Vec<Box<dyn LocalCacheClearItem + Sync + Send + 'static>>,
+pub struct LocalCacheClear<'t> {
+    cache_list: Vec<Box<dyn LocalCacheClearItem<'t>>>,
 }
-impl LocalCacheClear {
-    pub fn new(cache_list: Vec<Box<dyn LocalCacheClearItem + Sync + Send + 'static>>) -> Self {
+impl<'t> LocalCacheClear<'t> {
+    pub fn new(cache_list: Vec<Box<dyn LocalCacheClearItem<'t>>>) -> Self {
         LocalCacheClear { cache_list }
     }
 }
 
 #[async_trait]
-impl RemoteTask for LocalCacheClear {
+impl RemoteTask for LocalCacheClear<'_> {
     fn msg_type(&self) -> u8 {
         REMOTE_NOTIFY_TYPE_CACHE
     }

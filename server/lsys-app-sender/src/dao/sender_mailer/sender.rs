@@ -1,51 +1,75 @@
 use std::{collections::HashSet, sync::Arc};
 
-use lsys_core::{fluent_message, now_time, AppCore, FluentMessage, RequestEnv, TaskData};
+use lsys_core::{
+    fluent_message, now_time, AppCore, FluentMessage, RequestEnv, TaskData, TaskDispatchConfig,
+    TaskNotify, TaskNotifyConfig, TaskTimeOutNotify, TimeOutTask, TimeOutTaskConfig,
+    TimeOutTaskNotify,
+};
 
-use lsys_logger::dao::ChangeLogger;
-use lsys_setting::dao::Setting;
-use sqlx::{MySql, Pool};
-use tracing::warn;
+use lsys_logger::dao::ChangeLoggerDao;
+use lsys_setting::dao::SettingDao;
+use sqlx::Pool;
+use tracing::{debug, warn};
 
-use super::{MailRecord, MailTaskAcquisition, MailTaskData, MailTaskItem, MailerTask};
+use super::{
+    MailRecord, MailTaskAcquisition, MailTaskData, MailTaskItem, MailTaskSendTimeNotify, MailerTask,
+};
 use crate::{
     dao::{
         MessageCancel, MessageLogs, MessageReader, SenderConfig, SenderError, SenderResult,
-        SenderTaskExecutor, SenderTplConfig, SenderWaitItem, SenderWaitNotify,
+        SenderTaskExecutor, SenderTplConfig, SenderWaitNotify,
     },
     model::{SenderMailBodyModel, SenderMailMessageModel, SenderMailMessageStatus, SenderType},
 };
 use lsys_core::IntoFluentMessage;
 use lsys_core::TaskDispatch;
 
-const MAILER_REDIS_PREFIX: &str = "sender-mail-";
+const MAILER_REDIS_PREFIX: &str = "sender-mail";
 
-pub struct MailSender {
+pub struct MailSenderConfig {
+    pub sender_task_size: Option<usize>,
+    pub sender_task_timeout: usize,
+    pub notify_task_timeout: usize,
+    pub wait_timeout: u8,
+}
+
+impl Default for MailSenderConfig {
+    fn default() -> Self {
+        Self {
+            sender_task_size: None,
+            sender_task_timeout: 300,
+            notify_task_timeout: 300,
+            wait_timeout: 30, //回调等待超时
+        }
+    }
+}
+
+pub struct MailSenderDao {
     pub tpl_config: Arc<SenderTplConfig>,
     pub mail_record: Arc<MailRecord>,
-    redis: deadpool_redis::Pool,
     db: Pool<sqlx::MySql>,
+    redis: deadpool_redis::Pool,
     app_core: Arc<AppCore>,
     message_logs: Arc<MessageLogs>,
     cancel: Arc<MessageCancel>,
     message_reader: Arc<MessageReader<SenderMailBodyModel, SenderMailMessageModel>>,
-    task: TaskDispatch<u64, MailTaskItem>,
+    task: Arc<TaskDispatch<u64, MailTaskItem>>,
     send_wait: Arc<SenderWaitNotify>,
+    task_notify: Arc<TaskNotify>,
+    task_timeout_notify: Arc<TaskTimeOutNotify>,
+    time_out_notify: Arc<TimeOutTaskNotify>,
 }
 
-impl MailSender {
+impl MailSenderDao {
     //发送
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         app_core: Arc<AppCore>,
         redis: deadpool_redis::Pool,
-        db: Pool<MySql>,
-        setting: Arc<Setting>,
-        logger: Arc<ChangeLogger>,
-        task_size: Option<usize>,
-        task_timeout: usize,
-        is_check: bool,
-        wait_timeout: Option<u8>,
+        db: Pool<sqlx::MySql>,
+        setting: Arc<SettingDao>,
+        logger: Arc<ChangeLoggerDao>,
+        mail_config: MailSenderConfig,
     ) -> Self {
         let config: Arc<SenderConfig> = Arc::new(SenderConfig::new(
             db.clone(),
@@ -72,34 +96,61 @@ impl MailSender {
             message_logs.clone(),
             message_reader.clone(),
         ));
+
+        let task_notify_config = Arc::new(TaskNotifyConfig::new(format!(
+            "{}-sender",
+            MAILER_REDIS_PREFIX
+        )));
+        let task_notify = Arc::new(TaskNotify::new(redis.clone(), task_notify_config.clone()));
+        let display_config = Arc::new(TaskDispatchConfig::new(
+            task_notify_config,
+            mail_config.sender_task_timeout,
+            true,
+            mail_config.sender_task_size,
+        ));
+        let task = Arc::new(TaskDispatch::new(
+            redis.clone(),
+            task_notify.clone(),
+            display_config.clone(),
+        ));
+
+        let time_out_notify = Arc::new(TimeOutTaskNotify::new(
+            redis.clone(),
+            TimeOutTaskConfig::new(
+                format!("{}-notify-timeout", MAILER_REDIS_PREFIX),
+                mail_config.notify_task_timeout,
+            ),
+        ));
+
+        let task_timeout_notify = Arc::new(TaskTimeOutNotify::new(
+            app_core.clone(),
+            task_notify.clone(),
+            time_out_notify.clone(),
+            display_config,
+        ));
+
         let wait_status_key = format!("{}-status-data", MAILER_REDIS_PREFIX);
         let send_wait = Arc::new(SenderWaitNotify::new(
             &wait_status_key,
             redis.clone(),
             app_core.clone(),
-            wait_timeout.unwrap_or(30),
+            mail_config.wait_timeout,
         ));
 
-        let task = TaskDispatch::new(
-            format!("{}-notify", MAILER_REDIS_PREFIX),
-            format!("{}-read-lock", MAILER_REDIS_PREFIX),
-            format!("{}-run-task", MAILER_REDIS_PREFIX),
-            task_size,
-            task_timeout,
-            is_check,
-            task_timeout,
-        );
         Self {
             tpl_config,
-            redis,
             mail_record,
             app_core,
             db,
+            redis,
             message_logs,
             message_reader,
             task,
             send_wait,
             cancel,
+            task_timeout_notify,
+            time_out_notify,
+            task_notify,
         }
     }
     //发送模板消息
@@ -108,12 +159,12 @@ impl MailSender {
         &self,
         app_id: Option<u64>,
         mail: &[&'t str],
-        tpl_id: &str,
+        tpl_key: &str,
         tpl_var: &str,
-        send_time: &Option<u64>,
-        user_id: &Option<u64>,
-        reply_mail: &Option<String>,
-        max_try_num: &Option<u8>,
+        send_time: Option<u64>,
+        user_id: Option<u64>,
+        reply_mail: Option<&str>,
+        max_try_num: Option<u8>,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<(u64, Vec<(u64, &'t str, Result<bool, FluentMessage>)>)> {
         let tmp = mail
@@ -125,40 +176,38 @@ impl MailSender {
         let nt = now_time().unwrap_or_default();
         let sendtime = send_time.unwrap_or(nt);
         let sendtime = if sendtime < nt { nt } else { sendtime };
-        let max_try_num = max_try_num.unwrap_or(1);
+        let max_try_num = max_try_num.unwrap_or(0);
         self.mail_record
-            .send_check(app_id, tpl_id, &tmp, sendtime)
+            .send_check(app_id, tpl_key, &tmp, sendtime)
             .await?;
         let res = self
             .mail_record
             .add(
                 &tmp,
-                &app_id.unwrap_or_default(),
-                tpl_id,
+                app_id.unwrap_or_default(),
+                tpl_key,
                 tpl_var,
-                &sendtime,
+                sendtime,
                 reply_mail,
                 user_id,
-                &max_try_num,
+                max_try_num,
                 env_data,
             )
             .await?;
 
         let mut wait = None;
         if max_try_num == 0 && mail.len() == 1 {
-            if let Some((msg_id, _)) = res.1.first() {
-                wait = Some(self.send_wait.wait(SenderWaitItem(res.0, *msg_id)).await);
+            if let Some((snid, _)) = res.1.first() {
+                wait = Some(self.send_wait.message_wait(res.0, *snid).await);
             }
         };
 
-        if send_time
-            .map(|e| e - 1 <= now_time().unwrap_or_default())
-            .unwrap_or(true)
-        {
-            let mut redis = self.redis.get().await?;
-            if let Err(err) = self.task.notify(&mut redis).await {
-                warn!("mail is add [{}] ,but send fail :{}", res.0, err)
-            }
+        if let Err(err) = self.task_timeout_notify.notify_at_time(sendtime).await {
+            warn!(
+                "mail is add [{}] ,but notify fail :{}",
+                res.0,
+                err.to_fluent_message().default_format()
+            )
         }
 
         let mut tmp = vec![];
@@ -192,7 +241,7 @@ impl MailSender {
         &self,
         body: &SenderMailBodyModel,
         msg_data: &[&SenderMailMessageModel],
-        user_id: &u64,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<Vec<(u64, bool, Option<SenderError>)>> {
         //消息id,是否在任务中，错误消息
@@ -218,8 +267,8 @@ impl MailSender {
         }
         self.cancel
             .add(
-                &body.app_id,
-                &body.id,
+                body.app_id,
+                body.id,
                 &cancel_data.iter().map(|e| e.id).collect::<Vec<_>>(),
                 user_id,
                 None,
@@ -254,8 +303,9 @@ impl MailSender {
         &self,
         check_message_data: Vec<(&u64, D)>,
     ) -> SenderResult<Vec<(D, Option<TaskData>)>> {
-        let mut redis = self.redis.get().await?;
-        let mut tdata = self.task.task_data(&mut redis).await?;
+        debug!("check mail task is run :{}", check_message_data.len());
+        let mut tdata = self.task.task_data().await?;
+        debug!("task data len :{}", tdata.len());
         let mut out = Vec::with_capacity(check_message_data.len());
         for (mid, data) in check_message_data {
             out.push((data, tdata.remove(mid)));
@@ -265,7 +315,7 @@ impl MailSender {
     pub async fn cancal_from_message_snid_vec(
         &self,
         msg_snid_data: &[u64],
-        user_id: &u64,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<Vec<(u64, bool, Option<SenderError>)>> {
         let res = self
@@ -296,6 +346,23 @@ impl MailSender {
     pub async fn task_wait(&self) {
         self.send_wait.listen().await;
     }
+    //指定发送时间到期监听处理
+    pub async fn task_sendtime_notify(&self, channel_buffer: Option<usize>) {
+        let task_send_time = Arc::new(MailTaskSendTimeNotify::new(
+            format!("{}-last-run-time", MAILER_REDIS_PREFIX),
+            self.db.clone(),
+            self.redis.clone(),
+            self.task_notify.clone(),
+        ));
+        TimeOutTask::<MailTaskSendTimeNotify>::new(
+            self.app_core.clone(),
+            self.time_out_notify.clone(),
+            task_send_time.clone(),
+            task_send_time,
+        )
+        .listen(channel_buffer)
+        .await;
+    }
     //后台发送任务，内部循环不退出
     pub async fn task_sender(
         &self,
@@ -311,7 +378,11 @@ impl MailSender {
             .dispatch(
                 self.app_core.clone(),
                 acquisition.as_ref(),
-                MailerTask::new(acquisition.to_owned(), self.tpl_config.clone(), se)?,
+                Arc::new(MailerTask::new(
+                    acquisition.to_owned(),
+                    self.tpl_config.clone(),
+                    se,
+                )?),
             )
             .await;
         Ok(())

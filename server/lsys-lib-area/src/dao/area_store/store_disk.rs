@@ -56,19 +56,19 @@ impl AreaCodeIndexDataDisk {
     }
 }
 
-fn index_search(index: &[u64], find: &u64) -> (Option<usize>, usize, usize) {
-    let find_index = index.binary_search(find).ok();
+fn index_search(index: &[u64], find: u64) -> (Option<usize>, usize, usize) {
+    let find_index = index.binary_search(&find).ok();
     let mut start_index = 0;
     let mut end_index = find_index.unwrap_or_default();
     if let Some(tmp_find_index) = &find_index {
         for i in (0..=*tmp_find_index).rev() {
-            if index[i] < *find {
+            if index[i] < find {
                 start_index = i;
                 break;
             }
         }
         for (i, tmp) in index.iter().enumerate().skip(*tmp_find_index) {
-            if *tmp > *find {
+            if *tmp > find {
                 end_index = i;
                 break;
             }
@@ -112,8 +112,8 @@ fn mmap_find_code_index_info(mmap: &Mmap, index: usize) -> AreaResult<(String, A
 }
 
 impl AreaCodeIndexData for AreaCodeIndexDataDisk {
-    fn set(&mut self, key: String, val: AreaCodeIndexInfo) -> AreaResult<()> {
-        self.hash.insert(key, val);
+    fn set(&mut self, key: &str, val: AreaCodeIndexInfo) -> AreaResult<()> {
+        self.hash.insert(key.to_string(), val);
         Ok(())
     }
     fn clear(&mut self) -> AreaResult<()> {
@@ -132,11 +132,8 @@ impl AreaCodeIndexData for AreaCodeIndexDataDisk {
                 return None;
             }
             let find_start = index.parse::<u64>().unwrap_or(0);
-            let (find_index_tmp, start_index, end_index) = index_search(&self.index, &find_start);
-            let find_index = match find_index_tmp {
-                Some(tmp) => tmp,
-                None => return None,
-            };
+            let (find_index_tmp, start_index, end_index) = index_search(&self.index, find_start);
+            let find_index = find_index_tmp?;
             if find_index > 0 {
                 let mut pref_index = find_index;
                 loop {
@@ -356,11 +353,8 @@ fn mmap_code_tree_childs(index_data: &[u64], mmap: &Mmap, index: &str) -> Option
         return None;
     }
     let find_start = index.parse::<u64>().unwrap_or(0);
-    let (find_index_tmp, start_index, end_index) = index_search(index_data, &find_start);
-    let find_index = match find_index_tmp {
-        Some(tmp) => tmp,
-        None => return None,
-    };
+    let (find_index_tmp, start_index, end_index) = index_search(index_data, find_start);
+    let find_index = find_index_tmp?;
     if find_index > 0 {
         let mut prev_index = find_index;
         loop {
@@ -459,10 +453,7 @@ impl AreaCodeIndexTree for AreaCodeIndexTreeDisk {
             None => "",
         };
         if let Some(mmap) = &self.mmap {
-            let tmp = match mmap_code_tree_childs(&self.index, mmap, index) {
-                Some(dat) => dat,
-                None => return None,
-            };
+            let tmp = mmap_code_tree_childs(&self.index, mmap, index)?;
             return Some(
                 tmp.into_iter()
                     .map(|t| {
@@ -703,10 +694,7 @@ impl AreaGeoProvider for DiskAreaGeoProvider {
         Ok(out)
     }
     fn get_polygon_data(&self, index: &usize) -> Option<AreaGeoIndexInfo> {
-        let mmap = match self.mmap.as_ref() {
-            Some(t) => t,
-            None => return None,
-        };
+        let mmap = self.mmap.as_ref()?;
         let info_len = std::mem::size_of::<DiskAreaGeoInfo>();
 
         let (

@@ -1,14 +1,11 @@
 //统一错误
 
 use deadpool_redis::PoolError;
+use lsys_access::dao::AccessError;
 
-use crate::dao::account::UserAccountError;
-use lsys_core::{fluent_message, FluentMessage, IntoFluentMessage, ValidCodeError};
+use lsys_core::{fluent_message, FluentMessage, IntoFluentMessage, ValidCodeError, ValidError};
 
 use redis::RedisError;
-
-// use std::error::Error;
-// use std::fmt::{Display, Formatter};
 
 use std::string::FromUtf8Error;
 
@@ -20,18 +17,16 @@ pub enum UserAuthError {
     Sqlx(sqlx::Error),
     Redis(RedisError),
     RedisPool(PoolError),
-    PasswordNotMatch((u64, FluentMessage)),
-    PasswordNotSet((u64, FluentMessage)),
-    StatusError((u64, FluentMessage)),
+    AccessError(AccessError),
     ValidCode(ValidCodeError),
-    UserNotFind(FluentMessage),
+
     NotLogin(FluentMessage),
-    UserAccount(UserAccountError),
     System(FluentMessage),
-    SerdeJson(serde_json::Error),
+
     CheckUserLock((u64, FluentMessage)),
     CheckCaptchaNeed(FluentMessage),
     Utf8Err(FromUtf8Error),
+    Vaild(ValidError),
 }
 
 impl IntoFluentMessage for UserAuthError {
@@ -41,34 +36,28 @@ impl IntoFluentMessage for UserAuthError {
             UserAuthError::Sqlx(err) => fluent_message!("sqlx-error", err),
             UserAuthError::Redis(err) => fluent_message!("redis-error", err),
             UserAuthError::RedisPool(err) => fluent_message!("redis-error", err),
-            UserAuthError::PasswordNotMatch(err) => err.1.to_owned(),
-            UserAuthError::PasswordNotSet(err) => err.1.to_owned(),
-            UserAuthError::StatusError(err) => err.1.to_owned(),
             UserAuthError::ValidCode(err) => err.to_fluent_message(),
-            UserAuthError::UserNotFind(err) => err.to_owned(),
             UserAuthError::NotLogin(err) => err.to_owned(),
-            UserAuthError::UserAccount(err) => err.to_fluent_message(),
+            UserAuthError::AccessError(err) => err.to_fluent_message(),
             UserAuthError::System(err) => err.to_owned(),
             UserAuthError::CheckUserLock(err) => err.1.to_owned(),
             UserAuthError::CheckCaptchaNeed(err) => err.to_owned(),
-            UserAuthError::SerdeJson(err) => fluent_message!("serde-json-error", err),
             UserAuthError::Utf8Err(err) => fluent_message!("utf-parse-error", err),
+            Self::Vaild(e) => e.to_fluent_message(),
         }
     }
 }
-
-// impl Display for UserAuthError {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-//         write!(f, "{:?}", self)
-//     }
-// }
-// impl Error for UserAuthError {}
 
 pub type UserAuthResult<T> = Result<T, UserAuthError>;
 
 impl From<sqlx::Error> for UserAuthError {
     fn from(err: sqlx::Error) -> Self {
         UserAuthError::Sqlx(err)
+    }
+}
+impl From<ValidError> for UserAuthError {
+    fn from(err: ValidError) -> Self {
+        UserAuthError::Vaild(err)
     }
 }
 impl From<SystemTimeError> for UserAuthError {
@@ -86,16 +75,7 @@ impl From<PoolError> for UserAuthError {
         UserAuthError::RedisPool(err)
     }
 }
-impl From<serde_json::Error> for UserAuthError {
-    fn from(err: serde_json::Error) -> Self {
-        UserAuthError::SerdeJson(err)
-    }
-}
-impl From<UserAccountError> for UserAuthError {
-    fn from(err: UserAccountError) -> Self {
-        UserAuthError::UserAccount(err)
-    }
-}
+
 impl From<FromUtf8Error> for UserAuthError {
     fn from(err: FromUtf8Error) -> Self {
         UserAuthError::Utf8Err(err)
@@ -104,5 +84,10 @@ impl From<FromUtf8Error> for UserAuthError {
 impl From<ValidCodeError> for UserAuthError {
     fn from(err: ValidCodeError) -> Self {
         UserAuthError::ValidCode(err)
+    }
+}
+impl From<AccessError> for UserAuthError {
+    fn from(err: AccessError) -> Self {
+        UserAuthError::AccessError(err)
     }
 }

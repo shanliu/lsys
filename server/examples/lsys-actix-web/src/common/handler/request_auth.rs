@@ -1,18 +1,24 @@
+use std::sync::Arc;
 use std::{ops::Deref, str::FromStr};
 
 use actix_utils::future::{err, ok, Ready};
+use actix_web::cookie::Cookie;
 use actix_web::{dev::Payload, web::Data, FromRequest, HttpMessage, HttpRequest};
 
-use lsys_app::dao::session::RestAuthSession;
-use lsys_core::{now_time, RequestEnv};
-use lsys_user::dao::auth::{SessionToken, UserAuthSession, UserAuthTokenData};
-use lsys_web::{
-    dao::{RequestAuthDao as Request, RequestSessionToken, RestAuthQueryDao},
-    dao::{UserAuthQueryDao, WebDao},
-    JsonData,
-};
+use lsys_web::common::{JsonResult, RequestSessionTokenPaser};
+use lsys_web::lsys_app::dao::{RestAuthSession, RestAuthToken};
+use lsys_web::lsys_core::{now_time, IntoFluentMessage, RequestEnv};
 
-use reqwest::header::{self, HeaderValue};
+use actix_http::header;
+use async_trait::async_trait;
+use lsys_web::lsys_user::dao::{UserAuthSession, UserAuthToken};
+use lsys_web::{
+    common::{
+        JsonData, JsonResponse, RequestAuthDao as Request, RequestSessionToken, RestAuthQueryDao,
+        UserAuthQueryDao,
+    },
+    dao::WebDao,
+};
 
 use super::{ResponseJson, AUTH_COOKIE_NAME};
 
@@ -20,6 +26,7 @@ use super::{ResponseJson, AUTH_COOKIE_NAME};
 
 pub struct UserAuthQuery {
     pub inner: UserAuthQueryDao,
+    #[allow(unused)]
     pub req: HttpRequest,
 }
 
@@ -42,92 +49,118 @@ impl FromRequest for UserAuthQuery {
                     .get(header::ACCEPT_LANGUAGE)
                     .and_then(|t| t.to_str().map(|s| s.split(',').next().unwrap_or(s)).ok())
                     .unwrap_or("zh_CN")
-                    .replace('-', "_")
-                    .to_owned();
+                    .replace('-', "_");
                 let user_agent = req
                     .headers()
                     .get("User-Agent")
-                    .unwrap_or(&HeaderValue::from_static(""))
-                    .to_str()
-                    .unwrap_or_default()
-                    .to_owned();
+                    .and_then(|e| e.to_str().ok());
                 let request_id = req
                     .headers()
                     .get("X-Request-ID")
-                    .unwrap_or(&HeaderValue::from_static(""))
-                    .to_str()
-                    .unwrap_or_default()
-                    .to_owned();
-                let ip = req
-                    .connection_info()
-                    .realip_remote_addr()
-                    .unwrap_or_default()
-                    .to_owned();
+                    .and_then(|e| e.to_str().ok());
+                let device_id = req
+                    .headers()
+                    .get("X-Device-ID")
+                    .and_then(|e| e.to_str().ok());
+                let ip = req.connection_info();
+                let env = match RequestEnv::new(
+                    Some(&user_lang),
+                    ip.realip_remote_addr(),
+                    request_id,
+                    user_agent,
+                    device_id,
+                ) {
+                    Ok(tmp) => tmp,
+                    Err(verr) => {
+                        return err(JsonResponse::data(
+                            JsonData::default()
+                                .set_sub_code("env_valid_err")
+                                .set_code(400),
+                        )
+                        .set_message(verr.to_fluent_message().default_format())
+                        .into())
+                    }
+                };
                 ok(Self {
                     inner: Request::new(
                         app_dao.clone().into_inner(),
-                        RequestEnv::new(
-                            Some(user_lang),
-                            Some(ip),
-                            Some(request_id),
-                            Some(user_agent),
-                        ),
+                        env,
                         UserAuthSession::new(
-                            app_dao.user.user_dao.user_auth.clone(),
-                            SessionToken::default(),
+                            app_dao.web_user.user_dao.auth_dao.clone(),
+                            UserAuthToken::default(),
                         ),
                     ),
                     req: req.to_owned(),
                 })
             }
-            None => err(JsonData::message_error("not find webdao").into()),
+            None => err(JsonResponse::data(JsonData::error())
+                .set_message("not find webdao")
+                .into()),
         }
     }
 }
 
+#[allow(unused)]
+pub struct CookieTokenPaser {
+    web_dao: Arc<WebDao>,
+}
+
+#[async_trait]
+impl RequestSessionTokenPaser<UserAuthToken> for CookieTokenPaser {
+    type TD = Cookie<'static>;
+    async fn parse_user_token(&self, cookie: Cookie<'static>) -> JsonResult<UserAuthToken> {
+        let token = UserAuthToken::from_str(cookie.value())?;
+        let token = if now_time().unwrap_or_default() > token.time_out + 30 {
+            self.web_dao
+                .web_user
+                .user_dao
+                .auth_dao
+                .reload(&token)
+                .await?
+        } else {
+            token
+        };
+        Ok(token)
+    }
+}
 //COOKIE登陆实现[默认实现]
+#[allow(unused)]
 pub struct CookieToken<'t> {
-    request_dao: &'t UserAuthQuery,
+    query: &'t UserAuthQuery,
 }
 impl<'t> From<&'t UserAuthQuery> for CookieToken<'t> {
     fn from(request_dao: &'t UserAuthQuery) -> Self {
-        Self { request_dao }
-    }
-}
-impl<'t> CookieToken<'t> {
-    pub fn set_token(&self, token: SessionToken<UserAuthTokenData>) {
-        self.request_dao
-            .req
-            .extensions_mut()
-            .insert::<SessionToken<UserAuthTokenData>>(token);
+        Self { query: request_dao }
     }
 }
 
-impl<'t> RequestSessionToken<UserAuthTokenData> for CookieToken<'t> {
-    fn get_user_token(&self) -> SessionToken<UserAuthTokenData> {
-        if let Some(cookie) = self.request_dao.req.cookie(AUTH_COOKIE_NAME) {
-            SessionToken::<UserAuthTokenData>::from_str(cookie.value()).unwrap_or_default()
-        } else {
-            SessionToken::<UserAuthTokenData>::default()
+impl RequestSessionToken<UserAuthToken> for CookieToken<'_> {
+    type L = CookieTokenPaser;
+    fn get_paser(&self) -> Self::L {
+        CookieTokenPaser {
+            web_dao: self.query.web_dao.clone(),
         }
     }
-    fn is_refresh(&self, token: &SessionToken<UserAuthTokenData>) -> bool {
-        if token.is_ok() {
-            if let Some(data) = token.data() {
-                return now_time().unwrap_or_default() - 10 > data.time_out;
+    fn get_token_data(&self) -> Option<Cookie<'static>> {
+        self.query.req.cookie(AUTH_COOKIE_NAME).and_then(|e| {
+            if e.value().is_empty() {
+                None
+            } else {
+                Some(e)
             }
-        }
-        false
+        })
     }
-    fn refresh_user_token(&self, token: &SessionToken<UserAuthTokenData>) {
-        self.set_token(token.to_owned());
+    fn finish_user_token(&self, user_token: &UserAuthToken) {
+        self.query
+            .req
+            .extensions_mut()
+            .insert::<UserAuthToken>(user_token.to_owned());
     }
 }
 
 //oauth 登陆实现，跟普通登陆实现方式不相同
 pub struct OauthAuthQuery {
     pub inner: RestAuthQueryDao,
-    pub req: HttpRequest,
 }
 
 impl Deref for OauthAuthQuery {
@@ -149,42 +182,53 @@ impl FromRequest for OauthAuthQuery {
                     .get(header::ACCEPT_LANGUAGE)
                     .and_then(|t| t.to_str().map(|s| s.split(',').next().unwrap_or(s)).ok())
                     .unwrap_or("zh_CN")
-                    .replace('-', "_")
-                    .to_owned();
+                    .replace('-', "_");
                 let user_agent = req
                     .headers()
                     .get("User-Agent")
-                    .unwrap_or(&HeaderValue::from_static(""))
-                    .to_str()
-                    .unwrap_or_default()
-                    .to_owned();
+                    .and_then(|e| e.to_str().ok());
                 let request_id = req
                     .headers()
                     .get("X-Request-ID")
-                    .unwrap_or(&HeaderValue::from_static(""))
-                    .to_str()
-                    .unwrap_or_default()
-                    .to_owned();
-                let ip = req
-                    .connection_info()
-                    .realip_remote_addr()
-                    .unwrap_or_default()
-                    .to_owned();
+                    .and_then(|e| e.to_str().ok());
+                let device_id = req
+                    .headers()
+                    .get("X-Device-ID")
+                    .and_then(|e| e.to_str().ok());
+                let ip = req.connection_info();
+                let env = match RequestEnv::new(
+                    Some(&user_lang),
+                    ip.realip_remote_addr(),
+                    request_id,
+                    user_agent,
+                    device_id,
+                ) {
+                    Ok(tmp) => tmp,
+                    Err(verr) => {
+                        return err(JsonResponse::data(
+                            JsonData::default()
+                                .set_sub_code("env_valid_err")
+                                .set_code(400),
+                        )
+                        .set_message(verr.to_fluent_message().default_format())
+                        .into())
+                    }
+                };
+
                 ok(Self {
                     inner: Request::new(
                         app_dao.clone().into_inner(),
-                        RequestEnv::new(
-                            Some(user_lang),
-                            Some(ip),
-                            Some(request_id),
-                            Some(user_agent),
+                        env,
+                        RestAuthSession::new(
+                            app_dao.web_app.app_dao.clone(),
+                            RestAuthToken::default(),
                         ),
-                        RestAuthSession::new(app_dao.app.app_dao.clone(), SessionToken::default()),
                     ),
-                    req: req.to_owned(),
                 })
             }
-            None => err(JsonData::message_error("not find webdao").into()),
+            None => err(JsonResponse::data(JsonData::error())
+                .set_message("not find webdao")
+                .into()),
         }
     }
 }

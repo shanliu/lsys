@@ -1,13 +1,18 @@
 use std::{ops::Deref, sync::Arc};
 
 use lsys_core::{AppCore, WaitItem, WaitNotify, WaitNotifyResult};
-
+use tokio::sync::oneshot::Receiver;
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub(crate) struct SenderWaitItem(pub u64, pub u64);
+pub(crate) struct SenderWaitItem {
+    body_id: u64,
+    message_snid: u64,
+}
 
 impl WaitItem for SenderWaitItem {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0 || self.1 == other.1
+    fn eq(&self, mq_wait_item: &Self) -> bool {
+        (self.message_snid == mq_wait_item.message_snid)//某个消息ID相同
+            || (self.body_id == mq_wait_item.body_id//内容相同且mq通知未标明具体消息ID
+                && mq_wait_item.message_snid == 0)
     }
 }
 
@@ -34,16 +39,49 @@ impl SenderWaitNotify {
             clear_timeout,
         ))
     }
+    pub async fn message_wait(
+        &self,
+        body_id: u64,
+        message_snid: u64,
+    ) -> Receiver<WaitNotifyResult> {
+        self.wait(SenderWaitItem {
+            body_id,
+            message_snid,
+        })
+        .await
+    }
     pub async fn body_notify(&self, host: &str, body_id: u64, res: WaitNotifyResult) {
         if host.is_empty() {
             return;
         }
-        let _ = self.0.notify(host, SenderWaitItem(body_id, 0), res).await;
+        //整个消息发送完成通知
+        let _ = self
+            .0
+            .notify(
+                host,
+                SenderWaitItem {
+                    body_id,
+                    message_snid: 0,
+                },
+                res,
+            )
+            .await;
     }
-    pub async fn msg_notify(&self, host: &str, msg_id: u64, res: WaitNotifyResult) {
+    pub async fn msg_notify(&self, host: &str, msg_snid: u64, res: WaitNotifyResult) {
         if host.is_empty() {
             return;
         }
-        let _ = self.0.notify(host, SenderWaitItem(0, msg_id), res).await;
+        //单个消息发送完成通知
+        let _ = self
+            .0
+            .notify(
+                host,
+                SenderWaitItem {
+                    body_id: 0,
+                    message_snid: msg_snid,
+                },
+                res,
+            )
+            .await;
     }
 }

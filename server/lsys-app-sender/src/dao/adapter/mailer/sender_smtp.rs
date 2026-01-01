@@ -21,27 +21,26 @@ use lettre::{
     },
     AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
 };
-use lsys_core::{fluent_message, IntoFluentMessage, RequestEnv};
-use lsys_logger::dao::ChangeLogger;
+use lsys_core::{
+    fluent_message, valid_key, IntoFluentMessage, RequestEnv, ValidDomain, ValidEmail, ValidNumber,
+    ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
+};
 use lsys_setting::{
     dao::{
-        MultipleSetting, SettingData, SettingDecode, SettingEncode, SettingJson, SettingKey,
-        SettingResult,
+        MultipleSetting, MultipleSettingData, SettingData, SettingDecode, SettingEncode,
+        SettingJson, SettingKey, SettingResult,
     },
     model::SettingModel,
 };
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tera::Context;
 use tokio::sync::RwLock;
 
-use sqlx::Pool;
 use tracing::debug;
-
 // 邮件发送 smtp 适配
 
-#[derive(Deserialize, Serialize, Clone, Default)]
+#[derive(Deserialize, Serialize, Default)]
 pub struct SmtpConfig {
     pub host: String,
     pub port: u16,
@@ -61,7 +60,7 @@ impl SmtpConfig {
             self.password.chars().take(2).collect::<String>(),
             self.password
                 .chars()
-                .skip(if len - 2 > 0 { len - 2 } else { len })
+                .skip(if len > 2 { len - 2 } else { len })
                 .take(2)
                 .collect::<String>()
         )
@@ -73,7 +72,7 @@ impl SmtpConfig {
             self.user.chars().take(2).collect::<String>(),
             self.user
                 .chars()
-                .skip(if len - 2 > 0 { len - 2 } else { len })
+                .skip(if len > 2 { len - 2 } else { len })
                 .take(2)
                 .collect::<String>()
         )
@@ -106,29 +105,6 @@ pub struct SmtpTplConfig {
     pub body_tpl_id: String,
 }
 
-pub fn check_email(email: &str) -> SenderResult<()> {
-    let re = Regex::new(r"^[A-Za-z0-9\u4e00-\u9fa5\.\-]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$")
-        .map_err(|e| {
-            SenderError::System(lsys_core::fluent_message!("check-email-error",
-                {
-                    "mail":email,
-                    "msg":e
-                }
-            ))
-        })?;
-    if !re.is_match(email) {
-        return Err(SenderError::System(
-            lsys_core::fluent_message!("check-email-not-match",
-                {
-                    "mail":email,
-                }
-
-            ),
-        )); //  "submit email is invalid"
-    }
-    Ok(())
-}
-
 //邮件发送smtp配置
 pub struct SenderSmtpConfig {
     setting: Arc<MultipleSetting>,
@@ -145,38 +121,47 @@ impl SenderSmtpConfig {
     //列出有效的smtp配置
     pub async fn list_config(
         &self,
-        config_ids: &Option<Vec<u64>>,
+        config_ids: Option<&[u64]>,
     ) -> SenderResult<Vec<SettingData<SmtpConfig>>> {
         Ok(self
             .setting
-            .list_data::<SmtpConfig>(&None, config_ids, &None)
+            .list_data::<SmtpConfig>(None, config_ids, None)
             .await?)
     }
     //删除指定的smtp配置
     pub async fn del_config(
         &self,
-        id: &u64,
-        user_id: &u64,
+        id: u64,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
+        self.tpl_config.check_setting_id_used(id).await?;
         Ok(self
             .setting
-            .del::<SmtpConfig>(&None, id, user_id, None, env_data)
+            .del::<SmtpConfig>(None, id, user_id, None, env_data)
             .await?)
     }
     //编辑指定的smtp配置
     pub async fn edit_config(
         &self,
-        id: &u64,
+        id: u64,
         name: &str,
         config: &SmtpConfig,
-        user_id: &u64,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
+        self.check_config_param_valid(config, true).await?;
         self.check_config(config).await?;
         Ok(self
             .setting
-            .edit(&None, id, name, config, user_id, None, env_data)
+            .edit(
+                None,
+                id,
+                &MultipleSettingData { name, data: config },
+                user_id,
+                None,
+                env_data,
+            )
             .await?)
     }
     //添加smtp配置
@@ -184,17 +169,55 @@ impl SenderSmtpConfig {
         &self,
         name: &str,
         config: &SmtpConfig,
-        user_id: &u64,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
-        self.check_config(config).await?;
+        self.check_config_param_valid(config, true).await?;
+        self.check_connect(config).await?;
         Ok(self
             .setting
-            .add(&None, name, config, user_id, None, env_data)
+            .add(
+                None,
+                &MultipleSettingData { name, data: config },
+                user_id,
+                None,
+                env_data,
+            )
             .await?)
     }
-    //检测smtp配置
-    pub async fn check_config(&self, config: &SmtpConfig) -> SenderResult<()> {
+    async fn check_config_param_valid(
+        &self,
+        config: &SmtpConfig,
+        check_limit: bool,
+    ) -> SenderResult<()> {
+        let mut param = ValidParam::default();
+        param
+            .add(
+                valid_key!("smtp_port"),
+                &config.port,
+                &ValidParamCheck::default().add_rule(ValidNumber::min(1)),
+            )
+            .add(
+                valid_key!("smtp_email"),
+                &config.email,
+                &ValidParamCheck::default().add_rule(ValidEmail::default()),
+            )
+            .add(
+                valid_key!("smtp_host"),
+                &config.host,
+                &ValidParamCheck::default().add_rule(ValidDomain::default()),
+            );
+        if check_limit {
+            param.add(
+                valid_key!("smtp_branch_limit"),
+                &config.branch_limit,
+                &ValidParamCheck::default().add_rule(ValidNumber::range(1, 5000)),
+            );
+        }
+        param.check()?;
+        Ok(())
+    }
+    async fn check_connect(&self, config: &SmtpConfig) -> SenderResult<()> {
         connect(config, 5)
             .await
             .map_err(|e| SenderError::System(fluent_message!("smtp-check-error", e)))?
@@ -203,29 +226,71 @@ impl SenderSmtpConfig {
             .map_err(|e| SenderError::System(fluent_message!("smtp-check-error", e)))?;
         Ok(())
     }
+    //检测smtp配置
+    pub async fn check_config(&self, config: &SmtpConfig) -> SenderResult<()> {
+        self.check_config_param_valid(config, false).await?;
+        self.check_connect(config).await?;
+        Ok(())
+    }
+    async fn add_app_config_param_valid(
+        &self,
+        from_email: &str,
+        reply_email: &str,
+        subject_tpl_id: &str,
+        body_tpl_id: &str,
+    ) -> SenderResult<()> {
+        let mut valid_param = ValidParam::default();
+        valid_param
+            .add(
+                valid_key!("from_mail"),
+                &from_email,
+                &ValidParamCheck::default().add_rule(ValidEmail::default()),
+            )
+            .add(
+                valid_key!("subject_tpl_id"),
+                &subject_tpl_id,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Ident)
+                    .add_rule(ValidStrlen::range(1, 32)),
+            )
+            .add(
+                valid_key!("body_tpl_id"),
+                &body_tpl_id,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Ident)
+                    .add_rule(ValidStrlen::range(1, 32)),
+            );
+        if !reply_email.is_empty() {
+            valid_param.add(
+                valid_key!("reply_email"),
+                &reply_email,
+                &ValidParamCheck::default().add_rule(ValidEmail::default()),
+            );
+        }
+        valid_param.check()?;
+        Ok(())
+    }
     //关联发送跟smtp的配置
     #[allow(clippy::too_many_arguments)]
     pub async fn add_app_config(
         &self,
         name: &str,
-        app_id: &u64,
-        tpl_id: &str,
-        smtp_config_id: &u64,
+        app_id: u64,
+        tpl_key: &str,
+        smtp_config_id: u64,
         from_email: &str,
         reply_email: &str,
         subject_tpl_id: &str,
         body_tpl_id: &str,
-        user_id: &u64,
-        add_user_id: &u64,
+        user_id: u64,
+        add_user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<u64> {
-        self.setting
-            .load::<SmtpConfig>(&None, smtp_config_id)
+        self.add_app_config_param_valid(from_email, reply_email, subject_tpl_id, body_tpl_id)
             .await?;
-        check_email(from_email)?;
-        if !reply_email.is_empty() {
-            check_email(reply_email)?;
-        }
+        self.setting
+            .load::<SmtpConfig>(None, smtp_config_id)
+            .await?;
         let from_email = from_email.to_owned();
         let reply_email = reply_email.to_owned();
         let subject_tpl_id = subject_tpl_id.to_owned();
@@ -236,7 +301,7 @@ impl SenderSmtpConfig {
                 name,
                 app_id,
                 smtp_config_id,
-                tpl_id,
+                tpl_key,
                 &SmtpTplConfig {
                     from_email,
                     reply_email,
@@ -261,10 +326,10 @@ pub struct SmtpSenderTask {
 }
 
 impl SmtpSenderTask {
-    pub fn new(db: Pool<sqlx::MySql>, logger: Arc<ChangeLogger>) -> Self {
+    pub fn new(tpls: Arc<MessageTpls>) -> Self {
         Self {
             mailer: Arc::new(RwLock::new(HashMap::new())),
-            tpls: Arc::new(MessageTpls::new(db, logger)),
+            tpls,
         }
     }
 }
@@ -315,7 +380,6 @@ impl SenderTaskExecutor<u64, MailTaskItem, MailTaskData> for SmtpSenderTask {
         let context = Context::from_value(var_tpl)
             .map_err(|e| SenderExecError::Finish(format!("prare tpl fail[{}]:{}", hand_id, e)))?;
 
-        let mut bad_res = vec![];
         let mut email_builder = Message::builder();
 
         if let Ok(from) = mail_tpl_config.from_email.parse::<Mailbox>() {
@@ -328,7 +392,7 @@ impl SenderTaskExecutor<u64, MailTaskItem, MailTaskData> for SmtpSenderTask {
         } else if let Ok(reply) = mail_tpl_config.reply_email.parse::<Mailbox>() {
             email_builder = email_builder.reply_to(reply);
         }
-
+        let mut bad_res = vec![];
         let mut is_send = false;
         for tmp in data.data.iter() {
             email_builder = match tmp.to_mail.parse::<Mailbox>() {
@@ -339,6 +403,7 @@ impl SenderTaskExecutor<u64, MailTaskItem, MailTaskData> for SmtpSenderTask {
                 Err(err) => {
                     bad_res.push(SenderTaskResultItem {
                         id: tmp.id,
+                        snid: tmp.snid,
                         status: SenderTaskStatus::Failed(false),
                         message: err.to_string(),
                         send_id: "".to_owned(),
@@ -351,30 +416,44 @@ impl SenderTaskExecutor<u64, MailTaskItem, MailTaskData> for SmtpSenderTask {
         let subject = self
             .tpls
             .render(
+                tpl_config.app_id,
                 SenderType::Mailer,
                 &mail_tpl_config.subject_tpl_id,
                 &context,
             )
             .await
-            .map_err(|e| {
-                SenderExecError::Finish(format!(
-                    "render subject fail [{}]: {}",
+            .map_err(|e| match e {
+                SenderError::Tera(error) => SenderExecError::Finish(format!(
+                    "sender render subject error[{}]: {:?}",
+                    hand_id, error
+                )),
+                err => SenderExecError::Finish(format!(
+                    "sender render subject error[{}]: {}",
                     hand_id,
-                    e.to_fluent_message().default_format()
-                ))
+                    err.to_fluent_message().default_format()
+                )),
             })?;
         email_builder = email_builder.subject(subject);
 
         let body = self
             .tpls
-            .render(SenderType::Mailer, &mail_tpl_config.body_tpl_id, &context)
+            .render(
+                tpl_config.app_id,
+                SenderType::Mailer,
+                &mail_tpl_config.body_tpl_id,
+                &context,
+            )
             .await
-            .map_err(|e| {
-                SenderExecError::Finish(format!(
-                    "render body fail[{}]: {}",
+            .map_err(|e| match e {
+                SenderError::Tera(error) => SenderExecError::Finish(format!(
+                    "sender render body error[{}]: {:?}",
+                    hand_id, error
+                )),
+                err => SenderExecError::Finish(format!(
+                    "sender render body error[{}]: {}",
                     hand_id,
-                    e.to_fluent_message().default_format()
-                ))
+                    err.to_fluent_message().default_format()
+                )),
             })?;
 
         let msg = email_builder
@@ -407,6 +486,7 @@ impl SenderTaskExecutor<u64, MailTaskItem, MailTaskData> for SmtpSenderTask {
                     .iter()
                     .map(|e| SenderTaskResultItem {
                         id: e.id,
+                        snid: e.snid,
                         status: SenderTaskStatus::Completed,
                         message: response.message().collect::<Vec<&str>>().join(","),
                         send_id: "".to_owned(),
@@ -417,6 +497,7 @@ impl SenderTaskExecutor<u64, MailTaskItem, MailTaskData> for SmtpSenderTask {
                     .iter()
                     .map(|e| SenderTaskResultItem {
                         id: e.id,
+                        snid: e.snid,
                         status: SenderTaskStatus::Failed(true),
                         message: format!("send email fail: {}", err),
                         send_id: "".to_owned(),
@@ -435,8 +516,15 @@ async fn connect(
     config: &SmtpConfig,
     timeout: u64,
 ) -> Result<AsyncSmtpTransport<Tokio1Executor>, String> {
+    debug!(
+        "smtp connect host:{}:{} user:{} tls_domain:{}",
+        config.host, config.port, config.user, config.tls_domain
+    );
     let mut mailer_builder = AsyncSmtpTransport::<Tokio1Executor>::relay(config.host.as_str())
         .map_err(|e| e.to_string())?;
+    if config.port > 0 {
+        mailer_builder = mailer_builder.port(config.port);
+    }
     if !config.user.is_empty() || !config.password.is_empty() {
         let creds = Credentials::new(config.user.clone(), config.password.clone());
         mailer_builder = mailer_builder.credentials(creds)

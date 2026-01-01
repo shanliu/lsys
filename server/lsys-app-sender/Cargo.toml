@@ -6,48 +6,45 @@ edition = "2021"
 
 
 [dependencies]
-lsys-core = { path = "../lsys-core" }             #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-setting = { path = "../lsys-setting" }       #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-logger = { path = "../lsys-logger" }         #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-lib-sms = { path = "../lsys-lib-sms" }       #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-app-notify = { path = "../lsys-app-notify" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-app = { path = "../lsys-app" }
+lsys-core = { path = "../lsys-core" }
+lsys-setting = { path = "../lsys-setting" }
+lsys-logger = { path = "../lsys-logger" }
+lsys-lib-sms = { path = "../lsys-lib-sms" }
 
 
 chrono = { version = "~0.4.31" }
 serde = { version = "1.0.*" }
 serde_json = "1.0.*"
 futures = "0.3"
-tokio = { version = "~1.36" }
-deadpool-redis = { version = "~0.13" }
-redis = { version = "~0.23", features = [
+tokio = { version = "~1.46.0" }
+deadpool-redis = { version = "~0.21.0" }
+redis = { version = "~0.31.0", features = [
     "tokio-comp",
     "connection-manager",
     "aio",
 ] }
 
-sqlx = { version = "~0.6.3", features = [
-    "mysql",
-    "runtime-tokio-native-tls",
-    "offline",
-] }
-sqlx-model = { version = "0.2.3", default-features = false, features = [
-    "sqlx-mysql",
-] }
+sqlx = { version = "~0.8.6", features = ["mysql", "runtime-tokio-native-tls"] }
 
+<<<<<<< HEAD
 # mail send
 lettre = { version = "0.10.4", features = [
+=======
+lettre = { version = "0.10.4", features = [ #0.11 not wroking on msvc 14.44
+>>>>>>> dev
     "smtp-transport",
     "native-tls",
     "tokio1",
     "tokio1-native-tls",
     "builder",
-] }
+] } # mail send
 
 
-hostname = "~0.3.*"
+hostname = "~0.4.0"
 
 
-config = "0.13.2"
+config = "~0.15"
 
 #日志
 tracing = { version = "0.1.*" } # log-always 保持log的输出 当使用tracing时会出现两次
@@ -68,7 +65,7 @@ rs-snowflake = "0.6.0"
 regex = "1.8.4"
 
 
-reqwest = { version = "~0.11.22", optional = true }
+reqwest = { version = "~0.12.9", optional = true }
 
 [features]
 sms-aliyun = ["reqwest"]

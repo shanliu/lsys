@@ -55,9 +55,9 @@ impl FluentMgr {
     }
 
     pub async fn new<P: AsRef<Path>>(
-        path: P,
-        app_fluent: &str,
-        crate_fluent: Option<&[&str]>,
+        path: P,                       //语言文件路径
+        app_fluent: &str,              //公共语言文件
+        crate_fluent: Option<&[&str]>, //指定crate数据,传NONE遍历文件夹产生
     ) -> Result<Self, FluentBundleError> {
         let mut fluents: HashMap<String, Arc<FluentBundle>> = HashMap::new();
         let path = path.as_ref();
@@ -171,23 +171,20 @@ pub struct FluentBundle {
 }
 
 impl FluentBundle {
-    fn find_fluent_bundle(
-        &self,
-        crate_name: &str,
-    ) -> Option<&fluent::bundle::FluentBundle<FluentResource, IntlLangMemoizer>> {
-        self.fluent_bundles
-            .get(crate_name)
-            .or(self.default_bundle.as_ref())
-    }
     pub fn format_message(&self, message: &FluentMessage) -> String {
-        self.find_fluent_bundle(&message.crate_name)
-            .and_then(|fluent| {
+        let message_find =
+            |fluent: &fluent::bundle::FluentBundle<FluentResource, IntlLangMemoizer>| {
                 fluent.get_message(&message.id).and_then(|msg| {
                     msg.value().map(|pattern| {
                         let mut args: fluent::FluentArgs = fluent::FluentArgs::new();
                         for (k, v) in &message.data {
                             let tmp = match v {
                                 crate::FluentData::Message(fmsg) => self.format_message(fmsg),
+                                crate::FluentData::MessageVec(fmsg) => fmsg
+                                    .iter()
+                                    .map(|msg| self.format_message(msg))
+                                    .collect::<Vec<_>>()
+                                    .join(";"),
                                 crate::FluentData::String(msg) => msg.to_owned(),
                             };
                             args.set(k, tmp);
@@ -198,7 +195,11 @@ impl FluentBundle {
                             .to_string()
                     })
                 })
-            })
+            };
+        self.fluent_bundles
+            .get(&message.crate_name)
+            .and_then(message_find)
+            .or(self.default_bundle.as_ref().and_then(message_find))
             .unwrap_or_else(|| {
                 if message.data.is_empty() {
                     message.id.to_string()

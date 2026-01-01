@@ -17,8 +17,8 @@ pub struct AreaCodeIndexDataHashMap {
 }
 
 impl AreaCodeIndexData for AreaCodeIndexDataHashMap {
-    fn set(&mut self, key: String, val: AreaCodeIndexInfo) -> AreaResult<()> {
-        self.hash.insert(key, val);
+    fn set(&mut self, key: &str, val: AreaCodeIndexInfo) -> AreaResult<()> {
+        self.hash.insert(key.to_string(), val);
         Ok(())
     }
     fn clear(&mut self) -> AreaResult<()> {
@@ -29,7 +29,7 @@ impl AreaCodeIndexData for AreaCodeIndexDataHashMap {
         self.hash.get(key).map(|e| e.to_owned())
     }
     fn save(&mut self, version: &str) -> AreaResult<()> {
-        self.version = version.to_owned();
+        version.clone_into(&mut self.version);
         Ok(())
     }
     fn init(&mut self) -> AreaResult<()> {
@@ -97,7 +97,7 @@ impl AreaCodeIndexTree for AreaCodeIndexTreeHashMap {
         )
     }
     fn save(&mut self, version: &str) -> AreaResult<()> {
-        self.version = version.to_owned();
+        version.clone_into(&mut self.version);
         Ok(())
     }
     fn version(&self) -> String {
@@ -155,7 +155,7 @@ impl AreaGeoProvider for MemoryAreaGeoProvider {
         Ok(())
     }
     fn save(&mut self, max_distance: u64, version: &str) -> AreaResult<()> {
-        self.version = version.to_owned();
+        version.clone_into(&mut self.version);
         self.max_distance = max_distance;
         Ok(())
     }

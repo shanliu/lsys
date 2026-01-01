@@ -4,49 +4,37 @@ version = "0.0.1"
 authors = ["liushan <shan.liu@msn.com>"]
 edition = "2021"
 
-
 [dependencies]
-lsys-core = { path = "../../lsys-core" }                      #path 替换为 :,git = "https://github.com/shanliu/lsys"
-lsys-user = { path = "../../lsys-user" }
-lsys-app = { path = "../../lsys-app" }
-lsys-app-sender = { path = "../../lsys-app-sender" }
-lsys-app-barcode = { path = "../../lsys-app-barcode" }
+lsys-web = { path = "../../lsys-web", features = [] }
 lsys-web-module-oauth = { path = "../lsys-web-module-oauth" }
 lsys-web-subapp-demo = { path = "../lsys-web-subapp-demo" }
 
-lsys-web = { path = "../../lsys-web", features = [
-] } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+tokio = { version = "~1.46.0", features = ["fs"] }
+tracing = { version = "~0.1.*" }                   # log-always 保持log的输出 当使用tracing时会出现两次
+
 
 actix = "~0.13.0"
-actix-web = { version = "4.3.1", features = ["rustls"] }
-actix-http = "~3.6.0"
+actix-web = { version = "4.3.1", features = ["rustls", "rustls-0_23"] }
+actix-http = "~3.11.0"
 actix-utils = "~3.0.*"
-actix-service = "~2.0.*"                                 #中间件等辅助宏
-actix-web-validator = "~5.0.1"
-actix-multipart = "0.6.1"
+actix-service = "~2.0.*"
+actix-web-validator = "~6.0.0"
+actix-multipart = "0.7.2"
 actix-files = "~0.6.0"
 actix-web-actors = "4.1.0"
 
-tokio = { version = "~1.36", features = ["fs"] }
 
-
-rustls = "~0.20"
-rustls-pemfile = "~1.0.4"
-
-
+rustls = { version = "~0.23.25", default-features = false, features = [
+    "ring",
+    "std",
+] }
 pin-project = "~1.1.*"
-
-
 jsonwebtoken = "9.2.0"
 serde = { version = "~1.0.*" }
 serde_json = "~1.0.*"
 serde_urlencoded = "~0.7"
 form_urlencoded = "~1.2.0"
-tera = "~1.19"
 
-
-#日志
-tracing = { version = "~0.1.*" } # log-always 保持log的输出 当使用tracing时会出现两次
 
 # tracing-futures = { version = "~0.2.*", features = ["futures-03"] }
 # tracing-attributes = "~0.1.22"                                          #日志属性宏
@@ -54,10 +42,8 @@ tracing = { version = "~0.1.*" } # log-always 保持log的输出 当使用tracin
 # tracing-serde = "~0.1.3"                                                #可序列化变量赋值
 # tracing-subscriber = { version = "~0.3.11", features = ["env-filter"] }
 
-
 futures-util = "~0.3.*"
-reqwest = { version = "~0.11.*", features = ["json", "stream"] }
-md5 = "~0.7.0"
+md5 = "~0.8.0"
 mime = "~0.3.16"
 nanoid = "~0.4.0"
 
@@ -66,8 +52,10 @@ tempfile = { version = "3.10.1", optional = true }
 
 image = { version = "0.25.1", default-features = false }
 
+time = { version = "0.3.36" }
+
+async-trait = "0.1.57"
+
 [features]
-default = ["docs", "barcode", "area"]
-docs = ["lsys-web/docs"]
-area = ["lsys-web/area"]
+default = ["barcode"]
 barcode = ["lsys-web/barcode", "tempfile"]

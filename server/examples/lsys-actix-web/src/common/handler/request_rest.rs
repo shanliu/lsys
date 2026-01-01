@@ -1,5 +1,9 @@
 use std::collections::BTreeMap;
 
+use actix_web::web::{Data, JsonBody};
+use actix_web::{dev::Payload, Error, FromRequest, HttpRequest};
+use async_trait::async_trait;
+use futures_util::{ready, FutureExt};
 use std::ops::Deref;
 use std::sync::Arc;
 use std::{
@@ -8,26 +12,23 @@ use std::{
 };
 use std::{pin::Pin, rc::Rc};
 
-use actix_web::web::{Data, JsonBody};
-use actix_web::{dev::Payload, Error, FromRequest, HttpRequest};
-use futures_util::{ready, FutureExt};
-use lsys_app::dao::session::RestAuthTokenData;
+use lsys_web::lsys_app::dao::RestAuthToken;
+use lsys_web::lsys_core::{IntoFluentMessage, RequestEnv};
 
-use lsys_core::RequestEnv;
-use lsys_user::dao::auth::SessionToken;
-
-use lsys_web::dao::{RequestDao, RequestSessionToken, WebDao};
-use lsys_web::JsonData;
+use lsys_web::common::{
+    JsonData, JsonResponse, JsonResult, RequestDao, RequestSessionToken, RequestSessionTokenPaser,
+};
+use lsys_web::dao::WebDao;
 
 use serde::{de::DeserializeOwned, Deserialize};
 use serde_json::Value;
-use tracing::info;
+use tracing::{debug, info};
 
 use super::ResponseJson;
 
 #[derive(Deserialize)]
 pub struct RestGet {
-    pub app_id: String,
+    pub client_id: String,
     pub version: String,
     pub timestamp: String,
     pub sign: String,
@@ -39,7 +40,7 @@ pub struct RestGet {
 }
 
 pub struct RestRfc {
-    pub app_id: String,
+    pub client_id: String,
     pub version: String,
     pub timestamp: String,
     pub sign: String,
@@ -52,7 +53,7 @@ pub struct RestRfc {
 }
 
 type RestKeyGet =
-    Box<dyn Fn(String, Data<WebDao>) -> Pin<Box<dyn Future<Output = Result<String, String>>>>>;
+    Box<dyn Fn(String, Data<WebDao>) -> Pin<Box<dyn Future<Output = Result<Vec<String>, String>>>>>;
 
 type RestKeyGetOption = Option<Rc<RestKeyGet>>;
 
@@ -60,16 +61,16 @@ async fn check_sign(
     data: &RestRfc,
     key_fn: &RestKeyGetOption,
     app_data: Data<WebDao>,
-) -> Result<(), JsonData> {
+) -> Result<(), JsonResponse> {
     match key_fn {
         Some(kfn) => {
-            let key_res = kfn.as_ref()(data.app_id.clone(), app_data.clone())
+            let key_res = kfn.as_ref()(data.client_id.clone(), app_data.clone())
                 .as_mut()
                 .await;
             match key_res {
                 Ok(app_key) => {
                     let mut map_data = BTreeMap::from([
-                        ("app_id", &data.app_id),
+                        ("client_id", &data.client_id),
                         ("version", &data.version),
                         ("timestamp", &data.timestamp),
                     ]);
@@ -90,18 +91,27 @@ async fn check_sign(
                     if let Some(ref body) = data.payload {
                         url_data += body.to_string().as_str();
                     }
-                    url_data += app_key.as_str();
-                    // dbg!(&url_data);
-                    let digest = md5::compute(url_data.as_bytes());
-                    let hash = format!("{:x}", digest);
 
-                    if hash != data.sign {
-                        return Err(JsonData::message("sign is wrong").set_sub_code("rest_sign"));
+                    for key_tmp in app_key {
+                        let hash_data = url_data.clone() + key_tmp.as_str();
+                        // dbg!(&url_data);
+                        let digest = md5::compute(hash_data.as_bytes());
+                        let hash = format!("{:x}", digest);
+                        if hash == data.sign {
+                            return Ok(());
+                        } else {
+                            debug!("target:{},request:{}", hash, data.sign);
+                        }
                     }
-                    Ok(())
+                    Err(
+                        JsonResponse::data(JsonData::error().set_sub_code("rest_sign"))
+                            .set_message("sign is wrong"),
+                    )
                 }
-                Err(err) => Err(JsonData::message_error(err)
-                    .set_sub_code("rest_sign_key")),
+                Err(err) => Err(JsonResponse::data(
+                    JsonData::error().set_sub_code("rest_sign_key"),
+                )
+                .set_message(err)),
             }
         }
         None => Ok(()),
@@ -110,11 +120,11 @@ async fn check_sign(
 
 #[derive(Clone)]
 enum RestWebDao {
-    Err(JsonData),
+    Err(JsonResponse),
     AppDat(Data<WebDao>, RestKeyGetOption),
 }
 
-type RestExtractBody = Option<Pin<Box<dyn Future<Output = Result<Value, JsonData>>>>>;
+type RestExtractBody = Option<Pin<Box<dyn Future<Output = Result<Value, JsonResponse>>>>>;
 type RestExtractFuture = Option<Pin<Box<dyn Future<Output = Result<RestQuery, ResponseJson>>>>>;
 
 pub struct RestExtractFut {
@@ -146,16 +156,28 @@ impl Future for RestExtractFut {
                                         Ok(body) => {
                                             rfc.payload = Some(body);
                                             check_sign(&rfc, &key_fn, app_dao.to_owned()).await?;
-                                            Ok(RestQuery::new(
-                                                app_dao.into_inner(),
-                                                RequestEnv::new(
-                                                    rfc.request_lang.clone(),
-                                                    rfc.request_ip.clone(),
-                                                    rfc.request_id.clone(),
-                                                    None,
-                                                ),
-                                                rfc,
-                                            ))
+                                            match RequestEnv::new(
+                                                rfc.request_lang.as_deref(),
+                                                rfc.request_ip.as_deref(),
+                                                rfc.request_id.as_deref(),
+                                                None,
+                                                None,
+                                            ) {
+                                                Ok(env) => Ok(RestQuery::new(
+                                                    app_dao.into_inner(),
+                                                    env,
+                                                    rfc,
+                                                )),
+                                                Err(verr) => Err(JsonResponse::data(
+                                                    JsonData::default()
+                                                        .set_sub_code("env_valid_err")
+                                                        .set_code(400),
+                                                )
+                                                .set_message(
+                                                    verr.to_fluent_message().default_format(),
+                                                )
+                                                .into()),
+                                            }
                                         }
                                         Err(err) => Err(err.into()),
                                     }
@@ -168,7 +190,9 @@ impl Future for RestExtractFut {
                                     }
                                 }
                             }
-                            None => Poll::Ready(Err(JsonData::message_error("rfc is take").into())), //理论上不会进这里
+                            None => Poll::Ready(Err(JsonResponse::data(JsonData::error())
+                                .set_message("rfc is take")
+                                .into())), //理论上不会进这里
                         }
                     }
                     None => {
@@ -177,16 +201,24 @@ impl Future for RestExtractFut {
                             Some(rfc) => {
                                 let mut future = Box::pin(async move {
                                     check_sign(&rfc, &key_fn, app_dao.to_owned()).await?;
-                                    Ok(RestQuery::new(
-                                        app_dao.into_inner(),
-                                        RequestEnv::new(
-                                            rfc.request_lang.clone(),
-                                            rfc.request_ip.clone(),
-                                            rfc.request_id.clone(),
-                                            None,
-                                        ),
-                                        rfc,
-                                    ))
+                                    match RequestEnv::new(
+                                        rfc.request_lang.as_deref(),
+                                        rfc.request_ip.as_deref(),
+                                        rfc.request_id.as_deref(),
+                                        None,
+                                        None,
+                                    ) {
+                                        Ok(env) => {
+                                            Ok(RestQuery::new(app_dao.into_inner(), env, rfc))
+                                        }
+                                        Err(verr) => Err(JsonResponse::data(
+                                            JsonData::default()
+                                                .set_sub_code("env_valid_err")
+                                                .set_code(400),
+                                        )
+                                        .set_message(verr.to_fluent_message().default_format())
+                                        .into()),
+                                    }
                                 });
                                 match future.as_mut().poll(cx) {
                                     Poll::Ready(item) => Poll::Ready(Ok(item?)),
@@ -196,7 +228,9 @@ impl Future for RestExtractFut {
                                     }
                                 }
                             }
-                            None => Poll::Ready(Err(JsonData::message_error("rfc is take").into())), //理论上不会进这里
+                            None => Poll::Ready(Err(JsonResponse::data(JsonData::error())
+                                .set_message("rfc is take")
+                                .into())), //理论上不会进这里
                         }
                     }
                 }
@@ -249,30 +283,32 @@ impl Deref for RestQuery {
     }
 }
 
-impl RequestSessionToken<RestAuthTokenData> for RestQuery {
-    fn get_user_token(&self) -> SessionToken<RestAuthTokenData> {
-        self.rfc
-            .token
-            .as_ref()
-            .map(|e| {
-                if e.is_empty() {
-                    SessionToken::default()
-                } else {
-                    let data = RestAuthTokenData {
-                        client_id: self.rfc.app_id.clone(),
-                        token: e.to_owned(),
-                    };
-                    SessionToken::from_data(Some(data))
-                }
-            })
-            .unwrap_or_default()
+pub struct RestQueryTokenPaser {}
+
+#[async_trait]
+impl RequestSessionTokenPaser<RestAuthToken> for RestQueryTokenPaser {
+    type TD = (String, String);
+    async fn parse_user_token(&self, (client_id, token): Self::TD) -> JsonResult<RestAuthToken> {
+        Ok(RestAuthToken { client_id, token })
     }
-    fn is_refresh(&self, _token: &SessionToken<RestAuthTokenData>) -> bool {
-        false
+}
+
+#[async_trait]
+impl RequestSessionToken<RestAuthToken> for RestQuery {
+    type L = RestQueryTokenPaser;
+    fn get_paser(&self) -> Self::L {
+        RestQueryTokenPaser {}
     }
-    fn refresh_user_token(&self, _token: &SessionToken<RestAuthTokenData>) {
-        unimplemented!("not support refresh");
+    fn get_token_data(&self) -> Option<(String, String)> {
+        self.rfc.token.as_ref().and_then(|e| {
+            if e.is_empty() {
+                None
+            } else {
+                Some((self.rfc.client_id.clone(), e.to_owned()))
+            }
+        })
     }
+    fn finish_user_token(&self, _: &RestAuthToken) {}
 }
 
 impl RestQuery {
@@ -282,27 +318,28 @@ impl RestQuery {
             rfc,
         }
     }
-    pub fn param<T: DeserializeOwned>(&mut self) -> Result<T, JsonData> {
-        let body_data = self.rfc.payload.take();
-        match body_data {
-            Some(body) => serde_json::from_value::<T>(body)
-                .map_err(|e| JsonData::error(e).set_sub_code("rest_param_wrong")),
-            None => {
-                Err(JsonData::message_error("param is empty or take")
-                    .set_sub_code("rest_param_empty"))
-            }
+    pub fn param<T: DeserializeOwned>(&self) -> Result<T, JsonResponse> {
+        match self.rfc.payload {
+            Some(ref body) => serde_json::from_value::<T>(body.to_owned()).map_err(|e| {
+                JsonResponse::data(JsonData::error().set_sub_code("rest_param_wrong"))
+                    .set_message(e)
+            }),
+            None => Err(
+                JsonResponse::data(JsonData::error().set_sub_code("rest_param_empty"))
+                    .set_message("param is empty or take"),
+            ),
         }
     }
-    // pub fn clone_param<T: DeserializeOwned>(&self) -> Result<T, JsonData> {
-    //     match &self.rfc.body {
-    //         Some(body) => serde_json::from_value::<T>(body.to_owned())
-    //             .map_err(|e| JsonData::error(e).set_sub_code("rest_param_wrong")),
-    //         None => {
-    //             Err(JsonData::message_error("param is empty or take")
-    //                 .set_sub_code("rest_param_empty"))
-    //         }
-    //     }
-    // }
+    pub async fn get_app(&self) -> Result<lsys_web::lsys_app::model::AppModel, JsonResponse> {
+        self.web_dao
+            .web_app
+            .app_dao
+            .app
+            .cache()
+            .find_by_client_id(&self.rfc.client_id)
+            .await
+            .map_err(|e| self.fluent_error_json_response(&e.into()))
+    }
 }
 
 impl FromRequest for RestQuery {
@@ -332,7 +369,7 @@ impl FromRequest for RestQuery {
                     let mut rfc = RestRfc {
                         request_id,
                         request_lang: get_param.lang,
-                        app_id: get_param.app_id,
+                        client_id: get_param.client_id,
                         version: get_param.version,
                         timestamp: get_param.timestamp,
                         sign: get_param.sign,
@@ -351,7 +388,10 @@ impl FromRequest for RestQuery {
                                     }
                                     Err(err) => (
                                         RestWebDao::Err(
-                                            JsonData::error(err).set_sub_code("rest_payload"),
+                                            JsonResponse::data(
+                                                JsonData::error().set_sub_code("rest_payload"),
+                                            )
+                                            .set_message(err),
                                         ),
                                         None,
                                     ),
@@ -367,13 +407,17 @@ impl FromRequest for RestQuery {
                     }
                 }
                 Err(err) => (
-                    RestWebDao::Err(JsonData::error(err).set_sub_code("rest_parse")),
+                    RestWebDao::Err(
+                        JsonResponse::data(JsonData::error().set_sub_code("rest_parse"))
+                            .set_message(err),
+                    ),
                     None,
                 ),
             },
             None => (
                 RestWebDao::Err(
-                    JsonData::message_error("web dao not reg").set_sub_code("rest_config"),
+                    JsonResponse::data(JsonData::error().set_sub_code("rest_config"))
+                        .set_message("web dao not reg"),
                 ),
                 None,
             ),
@@ -393,7 +437,10 @@ impl FromRequest for RestQuery {
                             "Failed to deserialize Json from payload. Request path: {}",
                             path
                         );
-                        Err(JsonData::error(e).set_sub_code("rest_payload"))
+                        Err(
+                            JsonResponse::data(JsonData::error().set_sub_code("rest_payload"))
+                                .set_message(e),
+                        )
                     }
                 })
                 .boxed_local();

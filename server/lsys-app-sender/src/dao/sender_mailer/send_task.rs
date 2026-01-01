@@ -10,17 +10,18 @@ use crate::{
     },
 };
 use async_trait::async_trait;
+use lsys_core::db::{ModelTableName, SqlExpr, SqlQuote, WhereOption};
 use lsys_core::{fluent_message, now_time, IntoFluentMessage};
 use lsys_core::{TaskAcquisition, TaskData, TaskExecutor, TaskItem, TaskRecord};
 use lsys_setting::model::SettingModel;
-use sqlx_model::{ModelTableName, SqlExpr, SqlQuote};
 use std::{
     collections::HashMap,
     sync::{atomic::AtomicU32, Arc},
 };
 
-use sqlx::{MySql, Pool};
-use sqlx_model::{sql_format, Update};
+use lsys_core::db::Update;
+use lsys_core::sql_format;
+use sqlx::Pool;
 use tracing::warn;
 
 //短信任务记录
@@ -39,7 +40,7 @@ impl SenderTaskItem<u64> for MailTaskItem {
         self.mail.app_id
     }
     fn tpl_id(&self) -> String {
-        self.mail.tpl_id.to_owned()
+        self.mail.tpl_key.to_owned()
     }
 }
 
@@ -107,21 +108,24 @@ impl MailTaskAcquisition {
         );
         if let Err(err) = sqlx::query_scalar::<_, u64>(&sql).fetch_one(&self.db).await {
             match err {
-                sqlx::Error::RowNotFound => self.send_task_body_finish(item.mail.id).await,
+                sqlx::Error::RowNotFound => self.send_task_body_finish(item).await,
                 _ => {
                     warn!("finish task ,check status fail{}", err)
                 }
             }
         }
     }
-    async fn send_task_body_finish(&self, item_id: u64) {
+    async fn send_task_body_finish(&self, item: &MailTaskItem) {
         let finish_time = now_time().unwrap_or_default();
-        let change = sqlx_model::model_option_set!(SenderMailBodyModelRef,{
+        let change = lsys_core::model_option_set!(SenderMailBodyModelRef,{
             status:SenderMailBodyStatus::Finish as i8,
             finish_time:finish_time
         });
-        if let Err(err) = Update::<MySql, SenderMailBodyModel, _>::new(change)
-            .execute_by_scalar_pk(item_id, &self.db)
+        if let Err(err) = Update::<SenderMailBodyModel, _>::new(change)
+            .execute_by_where(
+                &WhereOption::Where(sql_format!("id={}", item.mail.id)),
+                &self.db,
+            )
             .await
         {
             warn!("mail change finish status fail{}", err)
@@ -150,8 +154,7 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
 
         if app_res.is_empty() {
             let sql_where = sql_format!(
-                r#"sender_body_id={} {} ;
-            "#,
+                r#"sender_body_id={} {} "#,
                 record.mail.id,
                 SqlExpr(if sending_data.is_empty() {
                     "".to_string()
@@ -163,7 +166,7 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
                 sql_format!(
                     r#"UPDATE {}
                     SET status={}
-                    WHERE status = {} and  id in (select sender_message_id from {} where {});
+                    WHERE status = {} and  id in (select sender_message_id from {} where {})
                 "#,
                     SenderMailMessageModel::table_name(),
                     SenderMailMessageStatus::IsCancel as i8,
@@ -184,7 +187,7 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
         }
 
         if sending_data.is_empty() && app_res.is_empty() {
-            self.send_task_body_finish(record.mail.id).await;
+            self.send_task_body_finish(record).await;
         }
 
         Ok(MailTaskData::new(app_res))
@@ -281,13 +284,14 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
             .fetch_all(&self.db)
             .await
         {
+            let err_str = error.to_string();
             let log_data = id_items
                 .into_iter()
-                .map(|e| (e, SenderLogStatus::Fail, error.to_string()))
+                .map(|e| (e, SenderLogStatus::Fail, err_str.as_str()))
                 .collect::<Vec<_>>();
             self.message_logs
                 .add_exec_log(
-                    &item.app_id(),
+                    item.app_id(),
                     &log_data,
                     setting.map(|t| t.setting_key.as_str()).unwrap_or(""),
                 )
@@ -309,10 +313,14 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
             let sql = match res_item.status {
                 SenderTaskStatus::Completed => {
                     self.wait_notify
-                        .msg_notify(&item.mail.reply_host, res_item.id, Ok(true))
+                        .msg_notify(&item.mail.reply_host, res_item.snid, Ok(true))
                         .await;
 
-                    log_data.push((res_item.id, SenderLogStatus::Succ, res_item.send_id.clone()));
+                    log_data.push((
+                        res_item.id,
+                        SenderLogStatus::Succ,
+                        res_item.send_id.as_str(),
+                    ));
                     let ntime = now_time().unwrap_or_default();
                     sql_format!(
                         r#"UPDATE {}
@@ -330,10 +338,14 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
                 }
                 SenderTaskStatus::Progress => {
                     self.wait_notify
-                        .msg_notify(&item.mail.reply_host, res_item.id, Ok(false))
+                        .msg_notify(&item.mail.reply_host, res_item.snid, Ok(false))
                         .await;
 
-                    log_data.push((res_item.id, SenderLogStatus::Succ, res_item.send_id.clone()));
+                    log_data.push((
+                        res_item.id,
+                        SenderLogStatus::Succ,
+                        res_item.send_id.as_str(),
+                    ));
                     let ntime = now_time().unwrap_or_default();
                     sql_format!(
                         r#"UPDATE {}
@@ -352,7 +364,7 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
                     self.wait_notify
                         .msg_notify(
                             &item.mail.reply_host,
-                            res_item.id,
+                            res_item.snid,
                             Err(res_item.message.to_owned()),
                         )
                         .await;
@@ -360,7 +372,7 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
                     log_data.push((
                         res_item.id,
                         SenderLogStatus::Fail,
-                        res_item.message.to_owned(),
+                        res_item.message.as_str(),
                     ));
 
                     if retry {
@@ -400,7 +412,7 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
             }
         }
         self.message_logs
-            .add_exec_log(&item.app_id(), &log_data, &setting.setting_key)
+            .add_exec_log(item.app_id(), &log_data, &setting.setting_key)
             .await;
         self.send_record_clear(item).await;
     }
@@ -414,9 +426,9 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
     ) {
         let fail_ids = record.data.iter().map(|e| e.id).collect::<Vec<_>>();
 
-        for tmp in fail_ids.iter() {
+        for tmp in record.data.iter() {
             self.wait_notify
-                .msg_notify(&item.mail.reply_host, *tmp, Err(error.to_string()))
+                .msg_notify(&item.mail.reply_host, tmp.snid, Err(error.to_string()))
                 .await;
         }
 
@@ -462,13 +474,14 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
             warn!("change finish status fail{}", err);
             return;
         }
+        let err_str = error.to_string();
         let log_data = record
             .data
             .iter()
-            .map(|e| (e.id, SenderLogStatus::Fail, error.to_string()))
+            .map(|e| (e.id, SenderLogStatus::Fail, err_str.as_str()))
             .collect::<Vec<_>>();
         self.message_logs
-            .add_exec_log(&item.app_id(), &log_data, &setting.setting_key)
+            .add_exec_log(item.app_id(), &log_data, &setting.setting_key)
             .await;
         self.send_record_clear(item).await;
     }
@@ -477,7 +490,7 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
 #[async_trait]
 impl TaskAcquisition<u64, MailTaskItem> for MailTaskAcquisition {
     //复用父结构体方法实现
-    async fn read_send_task(
+    async fn read_exec_task(
         &self,
         tasking_record: &HashMap<u64, TaskData>,
         limit: usize,
@@ -495,7 +508,6 @@ impl TaskAcquisition<u64, MailTaskItem> for MailTaskAcquisition {
     }
 }
 
-#[derive(Clone)]
 pub struct MailerTask {
     inner: Arc<Vec<SenderTaskExecutorBox<u64, MailTaskItem, MailTaskData>>>,
     acquisition: Arc<MailTaskAcquisition>,

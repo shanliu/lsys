@@ -3,10 +3,10 @@
 #app_host="127.0.0.1"
 #app_port=8080
 #app_ssl_port=443
-#app_ssl_cert=config/cert.pem
-#app_ssl_key=config/key.pem
+#app_ssl_cert = "config/lsys.cc_bundle.crt"
+#app_ssl_key = "config/lsys.cc.key"
 #日志配置
-log_level = "sqlx_core=info,lsys_app_sender=debug,axtix_web=debug,actix=info,mio=error,lsys_user=trace,lsys_web=trace,lsys_core=trace,lsys_user=trace,lsys_rbac=trace,lsys_docs=trace,lsys_actix_web=trace,sqlx=trace,redis=debug,lsys_app_barcode=trace"
+log_level = "sqlx_core=info,lsys_app_sender=debug,lsys_app=trace,axtix_web=debug,actix=info,mio=error,lsys_access=trace,lsys_web=trace,lsys_core=trace,lsys_user=trace,lsys_rbac=trace,lsys_docs=trace,lsys_actix_web=trace,sqlx=trace,redis=debug,lsys_app_barcode=trace"
 log_dir = "logs"
 log_name = "app"
 #数据库配置
@@ -27,7 +27,10 @@ ui_dir = "../../../ui/public/"
 #静态文件访问路径,默认:/ui/
 #ui_path="/ui/"
 ui_path = "/"
-#超级管理员id
+#404页面渲染ui首页
+ui_404_file = "app.html"
+
+#超级管理员id,user表id
 root_user_id = [1]
 
 #语言文件目录
@@ -61,5 +64,5 @@ ip_city_db = "data/IP2LOCATION-LITE-DB11.BIN"
 #app_jwt_key = "bbb" #jwt 密钥
 
 
-#文档临时文件保存目录
-#doc_git_dir = "/tmp/"
+#接口允许域名
+api-allow-origin = "*"

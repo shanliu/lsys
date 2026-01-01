@@ -1,12 +1,9 @@
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
-use sqlx_model::sqlx_model;
-
-      
-
+use lsys_core::db::lsys_model;
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(db_type = "MySql", table_name = "barcode_create")]
+#[lsys_model( table_name = "barcode_create")]
 pub struct BarcodeCreateModel {
     /// id
     #[sqlx(default)]
@@ -32,7 +29,7 @@ pub struct BarcodeCreateModel {
     pub create_time: u64,
 
     #[sqlx(default)]
-    pub status:i8,
+    pub status: i8,
 
     #[sqlx(default)]
     pub barcode_type: String,
@@ -54,11 +51,10 @@ pub struct BarcodeCreateModel {
 
     #[sqlx(default)]
     pub image_background: String,
-
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(db_type = "MySql", table_name = "barcode_parse")]
+#[lsys_model( table_name = "barcode_parse")]
 pub struct BarcodeParseModel {
     /// id
     #[sqlx(default)]
@@ -81,15 +77,14 @@ pub struct BarcodeParseModel {
     #[sqlx(default)]
     pub record: String,
 
+    #[sqlx(default)]
+    pub status: i8,
+
     /// 解析时间
     #[sqlx(default)]
     pub create_time: u64,
 
-    #[sqlx(default)]
-    pub status:i8,
-
     /// 删除时间
     #[sqlx(default)]
     pub change_time: u64,
-
 }

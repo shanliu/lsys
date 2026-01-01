@@ -11,7 +11,7 @@ use crate::{
 use super::utils::{de_gz_data, en_name_keyword, read_file, read_file_md5};
 impl From<std::io::Error> for AreaError {
     fn from(err: std::io::Error) -> Self {
-        AreaError::DB(err.to_string())
+        AreaError::DB(format!("data file error:{:?}", err))
     }
 }
 pub struct CsvAreaCodeData {

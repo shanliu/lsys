@@ -1,5 +1,10 @@
+//基于 REDIS来实现通讯
+// 从而实现广播到其他多个主机,多个主机分别执行任务(并返回结果,可选)
+//目前应用
+// 多节点缓存清理:一个节点发出通知,多个节点同时清理对应缓存
+// 文档模块,多节点同步CLONE GIT :一个节点发出通知,多个节点同时执行git clone
 use std::collections::HashMap;
-// use std::error::Error;
+
 
 use std::sync::Arc;
 
@@ -93,7 +98,10 @@ pub enum LocalExecType {
     IgnoreLocal, //目标包含本机的忽略本机执行
 }
 pub struct ReplyWait {
+    //最多等待返回节点数
+    //当处理节点返回,超过此值时, call 函数返回结果
     pub max_node: usize,
+    //等待超时,call 函数返回结果
     pub timeout: u64,
 }
 
@@ -103,15 +111,15 @@ impl RemoteNotify {
         &self,
         msg_type: u8,//类型，外部定义，别重复了
         data: T,//消息数据
-        target_host: Option<String>,//执行的目标机器
+        target_host: Option<&str>,//执行的目标机器
         local_exe_type: LocalExecType,//执行目标包含本机的执行方式
         reply_wait: Option<ReplyWait>,//执行完是否等待结果
     ) -> Result<Vec<MsgResultBody>, RemoteNotifyError> {
         let mut out = vec![];
         if local_exe_type == LocalExecType::IgnoreLocal//本机忽略执行
             //执行目标仅为本机
-            && match &target_host {
-                Some(th) => self.hostname == *th, 
+            && match target_host {
+                Some(th) => self.hostname.as_str() == th, 
                 None => false,                  
             }
         {
@@ -124,7 +132,7 @@ impl RemoteNotify {
             msg_type,
             id: msg_id,
             from_host: self.hostname.clone(),
-            target_host: target_host.to_owned(),
+            target_host: target_host.map(|e|e.to_owned()),
             ignore_local: match local_exe_type {
                 LocalExecType::RemoteExec => false,
                 LocalExecType::LocalExec | LocalExecType::IgnoreLocal => true,
@@ -312,15 +320,15 @@ impl RemoteNotify {
     }
     pub async fn listen(&self) {
         loop {
-            match self.app_core.create_redis_client() {
+            match self.app_core.create_redis_client().await {
                 Ok(redis_client) => {
-                    let con_res = redis_client.get_async_connection().await;
+                    let con_res = redis_client.get_async_pubsub().await;
                     match con_res {
-                        Ok(con) => {
-                            let mut pubsub = con.into_pubsub();
+                        Ok(mut pubsub) => {
                             let res = pubsub.subscribe(self.channel_name).await;
                             if let Err(err) = res {
                                 error!("listen sub fail :{}", err);
+                                tokio::time::sleep(Duration::from_secs(1)).await;
                                 continue;
                             } else {
                                 info!("listen remote channel succ:{}", self.channel_name);
@@ -346,10 +354,12 @@ impl RemoteNotify {
                                         }
                                         Err(err) => {
                                             error!("read payload fail :{}", err);
+                                            break;
                                         }
                                     },
                                     None => {
-                                        continue;
+                                        debug!("listen_redis_sub none");
+                                        break;
                                     }
                                 }
                             }

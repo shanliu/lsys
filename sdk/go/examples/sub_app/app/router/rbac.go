@@ -6,13 +6,15 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
-	"lsysrest/lsysrest"
+	"lsysrest/lsyslib"
 	"net/http"
 	"strings"
 	"sub_app/app/service"
 
 	"github.com/gin-gonic/gin"
 )
+
+// 本系统 通过接口 实现 本系统的RBAC权限管理
 
 type UserPageCheckRes struct {
 }
@@ -25,22 +27,46 @@ func (res UserPageCheckRes) ToRbacRes(_ context.Context) [][]map[string]interfac
 		{
 			//以下两个校验必须都通过才算通过
 			map[string]interface{}{
-				"res":     "view-user-page", //资源key
-				"user_id": 0,                //0为系统资源
-				"ops":     []string{"view"}, //必须权限
+				"res_type":     "view-user-page", //资源key
+				"res_data":     "1",              //资源key
+				"use_app_user": "0",              //是否使用APP所属的用户,为1时 user_param 被忽略
+				"user_param":   "ccc",            //资源用户ID
+				"ops": []map[string]string{
+					{
+						"op_key":   "view", //操作标识
+						"req_auth": "1",    //无符合权限配置时,是否通过授权,为true时,无匹配授权将返回授权失败
+					},
+				},
 			},
 			map[string]interface{}{
-				"res":        "user-page",              //资源key
-				"user_id":    1,                        //资源用户ID
-				"ops":        []string{"view", "edit"}, //必须权限
-				"option_ops": []string{"review"},       //可选权限,当系统有配置改资源时,进入校验,未配置时不校验
+				"res_type":     "global-user-page", //资源key
+				"res_data":     "",                 //资源key
+				"use_app_user": "0",                //是否使用APP所属的用户,为1时 user_param 被忽略
+				"user_param":   "ccc",              //资源用户ID
+				"ops": []map[string]string{
+					{
+						"op_key":   "view", //操作标识
+						"req_auth": "1",    //无符合权限配置时,是否通过授权,为true时,无匹配授权将返回授权失败
+					},
+					{
+						"op_key":   "edit", //操作标识
+						"req_auth": "1",    //无符合权限配置时,是否通过授权,为true时,无匹配授权将返回授权失败
+					},
+				},
 			},
 		},
 		{
 			map[string]interface{}{
-				"res":     "admin-user-page", //资源key
-				"user_id": 0,                 //0为系统资源
-				"ops":     []string{"edit"},  //必须权限
+				"res_type":     "admin-user-page", //资源key
+				"res_data":     "",                //资源key
+				"use_app_user": "0",               //是否使用APP所属的用户,为1时 user_param 被忽略
+				"user_param":   "ccc",             //资源用户ID
+				"ops": []map[string]string{
+					{
+						"op_key":   "view", //操作标识
+						"req_auth": "1",    //无符合权限配置时,是否通过授权,为true时,无匹配授权将返回授权失败
+					},
+				},
 			},
 		},
 	}
@@ -54,12 +80,13 @@ func (res UserPageCheckRelation) ToCheckRelation(_ context.Context) []map[string
 	//这里可以实现为查数据库或配置等,最后组装出以下MAP数据即可
 	return []map[string]interface{}{
 		{
-			"role_key": "friend", //关系角色KEY
-			"user_id":  2,        //关系角色属于用户ID,如用户间粉丝关系
+			"role_key":     "friend", //关系角色KEY
+			"user_param":   "ccc",    //关系角色属于用户标识
+			"use_app_user": "0",      //是否使用APP所属的用户,为1时 user_param 被忽略
 		},
 		{
-			"role_key": "vip", //关系角色KEY
-			"user_id":  0,     //为0时,该关系为用户跟系统关系
+			"role_key":     "vip", //关系角色KEY
+			"use_app_user": "1",   //是否使用APP所属的用户,为1时 user_param 被忽略
 		},
 	}
 }
@@ -78,14 +105,14 @@ func AppRbac(c *gin.Context) {
 		if e {
 			err = service.GetRestApi().RbacCheck(
 				c,
-				1,
-				&lsysrest.EmptyCheckRelation{}, //无任何关系用
-				&UserPageCheckRes{},            //资源定义,自定义实现
+				"",
+				&lsyslib.EmptyCheckRelation{}, //无任何关系用
+				&UserPageCheckRes{},           //资源定义,自定义实现
 			)
 		} else {
 			err = service.GetRestApi().RbacCheck(
 				c,
-				100,
+				"100",
 				&UserPageCheckRelation{}, //自定义访问用户1跟访问资源的所属用户的关系
 				&UserPageCheckRes{},      //资源定义,自定义实现
 			)
@@ -95,7 +122,7 @@ func AppRbac(c *gin.Context) {
 			param["info"] = "无"
 		} else {
 			var info []string
-			var tmpe *lsysrest.RestClientError
+			var tmpe *lsyslib.RestClientError
 			ok := errors.As(err, &tmpe)
 			if ok {
 				for _, tmp := range tmpe.Data.Get("check_detail").Array() {

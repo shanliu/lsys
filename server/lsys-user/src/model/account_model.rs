@@ -1,10 +1,10 @@
+use lsys_core::db::lsys_model;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
-use sqlx_model::sqlx_model;
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(db_type = "MySql", table_name = "user")]
-pub struct UserModel {
+#[lsys_model(table_name = "account")]
+pub struct AccountModel {
     /// 用户ID
     #[sqlx(default)]
     pub id: u64,
@@ -55,14 +55,14 @@ pub struct UserModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(db_type = "MySql", table_name = "user_address")]
-pub struct UserAddressModel {
+#[lsys_model(table_name = "account_address")]
+pub struct AccountAddressModel {
     #[sqlx(default)]
     pub id: u64,
 
     /// 用户id
     #[sqlx(default)]
-    pub user_id: u64,
+    pub account_id: u64,
 
     /// 国家代码
     #[sqlx(default)]
@@ -98,14 +98,14 @@ pub struct UserAddressModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(db_type = "MySql", table_name = "user_email")]
-pub struct UserEmailModel {
+#[lsys_model(table_name = "account_email")]
+pub struct AccountEmailModel {
     #[sqlx(default)]
     pub id: u64,
 
     /// 用户ID
     #[sqlx(default)]
-    pub user_id: u64,
+    pub account_id: u64,
 
     /// 邮箱
     #[sqlx(default)]
@@ -125,8 +125,8 @@ pub struct UserEmailModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(db_type = "MySql", table_name = "user_external")]
-pub struct UserExternalModel {
+#[lsys_model(table_name = "account_external")]
+pub struct AccountExternalModel {
     #[sqlx(default)]
     pub id: u64,
 
@@ -136,7 +136,7 @@ pub struct UserExternalModel {
 
     /// 用户ID
     #[sqlx(default)]
-    pub user_id: u64,
+    pub account_id: u64,
 
     /// 类型 1 微信
     #[sqlx(default)]
@@ -184,14 +184,14 @@ pub struct UserExternalModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(db_type = "MySql", table_name = "user_info")]
-pub struct UserInfoModel {
+#[lsys_model(table_name = "account_info")]
+pub struct AccountInfoModel {
     #[sqlx(default)]
     pub id: u64,
 
     /// 用户id
     #[sqlx(default)]
-    pub user_id: u64,
+    pub account_id: u64,
 
     /// 性别 1 男 2 女  default:  0
     #[sqlx(default)]
@@ -219,8 +219,8 @@ pub struct UserInfoModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(db_type = "MySql", table_name = "user_login")]
-pub struct UserLoginModel {
+#[lsys_model(table_name = "account_login")]
+pub struct AccountLoginModel {
     #[sqlx(default)]
     pub id: u64,
 
@@ -242,15 +242,11 @@ pub struct UserLoginModel {
 
     /// 尝试登录账号对应用户ID  default:  0
     #[sqlx(default)]
-    pub user_id: u64,
+    pub account_id: u64,
 
     /// 是否登录成功  default:  0
     #[sqlx(default)]
     pub is_login: i8,
-
-    /// 登录token
-    #[sqlx(default)]
-    pub login_token: String,
 
     /// 登录错误消息
     #[sqlx(default)]
@@ -262,14 +258,14 @@ pub struct UserLoginModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(db_type = "MySql", table_name = "user_mobile")]
-pub struct UserMobileModel {
+#[lsys_model(table_name = "account_mobile")]
+pub struct AccountMobileModel {
     #[sqlx(default)]
     pub id: u64,
 
     /// 用户ID
     #[sqlx(default)]
-    pub user_id: u64,
+    pub account_id: u64,
 
     /// 电话区号
     #[sqlx(default)]
@@ -293,14 +289,14 @@ pub struct UserMobileModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(db_type = "MySql", table_name = "user_name")]
-pub struct UserNameModel {
+#[lsys_model(table_name = "account_name")]
+pub struct AccountNameModel {
     #[sqlx(default)]
     pub id: u64,
 
     /// 用户id
     #[sqlx(default)]
-    pub user_id: u64,
+    pub account_id: u64,
 
     /// 登录用户名
     #[sqlx(default)]
@@ -316,14 +312,14 @@ pub struct UserNameModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(db_type = "MySql", table_name = "user_password")]
-pub struct UserPasswordModel {
+#[lsys_model(table_name = "account_password")]
+pub struct AccountPasswordModel {
     #[sqlx(default)]
     pub id: u64,
 
     /// 用户ID
     #[sqlx(default)]
-    pub user_id: u64,
+    pub account_id: u64,
 
     /// 密码
     #[sqlx(default)]
@@ -339,14 +335,14 @@ pub struct UserPasswordModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(db_type = "MySql", table_name = "user_index")]
-pub struct UserIndexModel {
+#[lsys_model(table_name = "account_index")]
+pub struct AccountIndexModel {
     #[sqlx(default)]
     pub id: u64,
 
     /// 用户ID
     #[sqlx(default)]
-    pub user_id: u64,
+    pub account_id: u64,
 
     /// 分类
     #[sqlx(default)]

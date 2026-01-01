@@ -1,11 +1,3 @@
-use std::{
-    collections::HashMap,
-    sync::{atomic::AtomicU32, Arc},
-};
-
-use async_trait::async_trait;
-use lsys_core::{fluent_message, now_time, IntoFluentMessage};
-
 use crate::{
     dao::{
         group_exec, MessageLogs, MessageReader, SenderError, SenderExecError, SenderResult,
@@ -14,17 +6,22 @@ use crate::{
     },
     model::{
         SenderLogStatus, SenderMessageCancelModel, SenderSmsBodyModel, SenderSmsBodyModelRef,
-        SenderSmsBodyStatus, SenderSmsMessageModel, SenderSmsMessageStatus, SenderTplConfigModel,
+        SenderSmsBodyStatus, SenderSmsMessageModel, SenderSmsMessageStatus,
     },
 };
+use async_trait::async_trait;
+use lsys_core::db::SqlQuote;
+use lsys_core::db::{ModelTableName, SqlExpr, Update};
+use lsys_core::sql_format;
+use lsys_core::{db::WhereOption, fluent_message, now_time, IntoFluentMessage};
 use lsys_core::{TaskAcquisition, TaskData, TaskExecutor, TaskItem, TaskRecord};
 use lsys_setting::model::SettingModel;
-use sqlx::{MySql, Pool};
-use sqlx_model::{sql_format, ModelTableName, SqlExpr, Update};
+use sqlx::Pool;
+use std::{
+    collections::HashMap,
+    sync::{atomic::AtomicU32, Arc},
+};
 use tracing::warn;
-
-use super::SmsRecord;
-use sqlx_model::SqlQuote;
 
 pub struct SmsTaskItem {
     pub sms: SenderSmsBodyModel,
@@ -40,7 +37,7 @@ impl SenderTaskItem<u64> for SmsTaskItem {
         self.sms.app_id
     }
     fn tpl_id(&self) -> String {
-        self.sms.tpl_id.to_owned()
+        self.sms.tpl_key.to_owned()
     }
 }
 
@@ -57,18 +54,6 @@ impl SmsTaskData {
     pub fn new(data: Vec<SenderSmsMessageModel>) -> Self {
         Self { data }
     }
-}
-
-#[async_trait]
-pub trait SmsTaskExecutor: Sync + Send + 'static {
-    async fn exec(
-        &self,
-        val: &SmsTaskItem,
-        tpl_config: &SenderTplConfigModel,
-        setting: &SettingModel,
-        record: &SmsRecord,
-    ) -> Result<(), SenderExecError>;
-    fn setting_key(&self) -> String;
 }
 
 pub struct SmsTaskAcquisition {
@@ -120,21 +105,24 @@ impl SmsTaskAcquisition {
         );
         if let Err(err) = sqlx::query_scalar::<_, u64>(&sql).fetch_one(&self.db).await {
             match err {
-                sqlx::Error::RowNotFound => self.send_task_body_finish(item.sms.id).await,
+                sqlx::Error::RowNotFound => self.send_task_body_finish(item).await,
                 _ => {
                     warn!("sms finish task ,check status fail{}", err)
                 }
             }
         }
     }
-    async fn send_task_body_finish(&self, item_id: u64) {
+    async fn send_task_body_finish(&self, item: &SmsTaskItem) {
         let finish_time = now_time().unwrap_or_default();
-        let change = sqlx_model::model_option_set!(SenderSmsBodyModelRef,{
+        let change = lsys_core::model_option_set!(SenderSmsBodyModelRef,{
             status:SenderSmsBodyStatus::Finish as i8,
             finish_time:finish_time
         });
-        if let Err(err) = Update::<MySql, SenderSmsBodyModel, _>::new(change)
-            .execute_by_scalar_pk(item_id, &self.db)
+        if let Err(err) = Update::<SenderSmsBodyModel, _>::new(change)
+            .execute_by_where(
+                &WhereOption::Where(sql_format!("id={}", item.sms.id)),
+                &self.db,
+            )
             .await
         {
             warn!("sms change finish status fail{}", err)
@@ -163,8 +151,7 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
 
         if app_res.is_empty() {
             let sql_where = sql_format!(
-                r#"sender_body_id={} {} ;
-            "#,
+                r#"sender_body_id={} {} "#,
                 record.sms.id,
                 SqlExpr(if sending_data.is_empty() {
                     "".to_string()
@@ -176,7 +163,7 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
                 sql_format!(
                     r#"UPDATE {}
                     SET status={}
-                    WHERE status ={} and id in (select sender_message_id from {} where {});
+                    WHERE status ={} and id in (select sender_message_id from {} where {})
                 "#,
                     SenderSmsMessageModel::table_name(),
                     SenderSmsMessageStatus::IsCancel as i8,
@@ -197,7 +184,7 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
         }
 
         if sending_data.is_empty() && app_res.is_empty() {
-            self.send_task_body_finish(record.sms.id).await;
+            self.send_task_body_finish(record).await;
         }
 
         Ok(SmsTaskData::new(app_res))
@@ -294,13 +281,14 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
             .fetch_all(&self.db)
             .await
         {
+            let err_str = error.to_string();
             let log_data = id_items
                 .into_iter()
-                .map(|e| (e, SenderLogStatus::Fail, error.to_string()))
+                .map(|e| (e, SenderLogStatus::Fail, err_str.as_str()))
                 .collect::<Vec<_>>();
             self.message_logs
                 .add_exec_log(
-                    &item.app_id(),
+                    item.app_id(),
                     &log_data,
                     setting.map(|t| t.setting_key.as_str()).unwrap_or(""),
                 )
@@ -321,10 +309,14 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
             let sql = match res_item.status {
                 SenderTaskStatus::Completed => {
                     self.wait_notify
-                        .msg_notify(&item.sms.reply_host, res_item.id, Ok(true))
+                        .msg_notify(&item.sms.reply_host, res_item.snid, Ok(true))
                         .await;
 
-                    log_data.push((res_item.id, SenderLogStatus::Succ, res_item.send_id.clone()));
+                    log_data.push((
+                        res_item.id,
+                        SenderLogStatus::Succ,
+                        res_item.send_id.as_str(),
+                    ));
                     let ntime = now_time().unwrap_or_default();
                     sql_format!(
                         r#"UPDATE {}
@@ -342,10 +334,14 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
                 }
                 SenderTaskStatus::Progress => {
                     self.wait_notify
-                        .msg_notify(&item.sms.reply_host, res_item.id, Ok(false))
+                        .msg_notify(&item.sms.reply_host, res_item.snid, Ok(false))
                         .await;
 
-                    log_data.push((res_item.id, SenderLogStatus::Succ, res_item.send_id.clone()));
+                    log_data.push((
+                        res_item.id,
+                        SenderLogStatus::Succ,
+                        res_item.send_id.as_str(),
+                    ));
                     let ntime = now_time().unwrap_or_default();
                     sql_format!(
                         r#"UPDATE {}
@@ -364,7 +360,7 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
                     log_data.push((
                         res_item.id,
                         SenderLogStatus::Fail,
-                        res_item.message.to_string(),
+                        res_item.message.as_str(),
                     ));
                     if retry {
                         sql_format!(
@@ -387,7 +383,7 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
                         self.wait_notify
                             .msg_notify(
                                 &item.sms.reply_host,
-                                res_item.id,
+                                res_item.snid,
                                 Err(res_item.message.to_owned()),
                             )
                             .await;
@@ -411,7 +407,7 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
             }
         }
         self.message_logs
-            .add_exec_log(&item.app_id(), &log_data, &setting.setting_key)
+            .add_exec_log(item.app_id(), &log_data, &setting.setting_key)
             .await;
         self.send_record_clear(item).await;
     }
@@ -424,9 +420,9 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
         error: &SenderExecError,
     ) {
         let fail_ids = record.data.iter().map(|e| e.id).collect::<Vec<_>>();
-        for tmp in fail_ids.iter() {
+        for tmp in record.data.iter() {
             self.wait_notify
-                .msg_notify(&item.sms.reply_host, *tmp, Err(error.to_string()))
+                .msg_notify(&item.sms.reply_host, tmp.snid, Err(error.to_string()))
                 .await;
         }
         let sql = match error {
@@ -471,14 +467,14 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
             warn!("change finish status fail{}", err);
             return;
         };
-
+        let err_str = error.to_string();
         let log_data = record
             .data
             .iter()
-            .map(|e| (e.id, SenderLogStatus::Fail, error.to_string()))
+            .map(|e| (e.id, SenderLogStatus::Fail, err_str.as_str()))
             .collect::<Vec<_>>();
         self.message_logs
-            .add_exec_log(&item.app_id(), &log_data, &setting.setting_key)
+            .add_exec_log(item.app_id(), &log_data, &setting.setting_key)
             .await;
         self.send_record_clear(item).await;
     }
@@ -487,7 +483,7 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
 #[async_trait]
 impl TaskAcquisition<u64, SmsTaskItem> for SmsTaskAcquisition {
     //复用父结构体方法实现
-    async fn read_send_task(
+    async fn read_exec_task(
         &self,
         tasking_record: &HashMap<u64, TaskData>,
         limit: usize,
@@ -505,7 +501,6 @@ impl TaskAcquisition<u64, SmsTaskItem> for SmsTaskAcquisition {
     }
 }
 
-#[derive(Clone)]
 pub struct SmsTask {
     inner: Arc<Vec<SenderTaskExecutorBox<u64, SmsTaskItem, SmsTaskData>>>,
     acquisition: Arc<SmsTaskAcquisition>,

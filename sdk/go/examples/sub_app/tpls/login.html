@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>用户页面</title>
+</head>
+<body>
+    <p>
+        <a href="/">返回首页</a>
+    </p>
+    <div>
+        <form action="?" method="post">
+            <div>
+                <label for="ac">
+                    账号
+                </label>
+                <input id="ac" type="text" name="account" value="{{.account}}" />
+            </div>
+            <div>
+                <label for="ap">
+                    密码
+                </label>
+                <input id="ap" type="text" name="password" value="{{.password}}" />
+            </div>
+            <button type="submit">login</button>
+        </form>
+    </div>
+</body>
+</html>

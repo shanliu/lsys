@@ -1,9 +1,13 @@
+// 基于REDIS队列实现,任意一个主机派发出一个任务到队列,并监听结果,由监听队列的节点执行后,将结果返回到派发任务主机
+// 当前用例:
+// 执行短信发送,完成发送后,将结果返回到申请发送短信的主机
 use std::fmt::Debug;
 use std::sync::Arc;
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+
 use tokio::sync::oneshot::{self, Receiver, Sender};
 use tokio::sync::Mutex;
 use tokio::time::{sleep, Duration};
@@ -70,6 +74,7 @@ impl<T: WaitItem + Serialize + DeserializeOwned + Debug> WaitNotify<T> {
     ) -> Receiver<WaitNotifyResult> {
         let (tx, rx) = oneshot::channel::<WaitNotifyResult>();
         self.sender_data.lock().await.push((data, tx));
+        debug!("notify wait {} add listen wait", self.channel_name);
         rx
     }
     pub async fn wait_timeout(
@@ -92,6 +97,10 @@ impl<T: WaitItem + Serialize + DeserializeOwned + Debug> WaitNotify<T> {
         res: WaitNotifyResult,
     ) -> Result<(), WaitNotifyError> {
         let channel_name = self.redis_channel_name(host);
+        debug!(
+            "sender wait {} notify :{:?} [host:{}]",
+            channel_name, data, host
+        );
         let mut redis = self.redis.get().await.map_err(WaitNotifyError::RedisPool)?;
         let res: Result<(), _> = redis
             .lpush(
@@ -101,22 +110,25 @@ impl<T: WaitItem + Serialize + DeserializeOwned + Debug> WaitNotify<T> {
             .await;
 
         if let Err(err) = res {
-            warn!("notify redis fail:{}", err);
+            warn!("notify wait {} redis fail:{}", channel_name, err);
             return Err(WaitNotifyError::Redis(err));
         };
         let res: Result<(), _> = redis
-            .expire(&channel_name, (self.clear_timeout * 2) as usize)
+            .expire(&channel_name, (self.clear_timeout * 2) as i64)
             .await;
         if let Err(err) = res {
-            info!("notify redis set time out fail:{}", err);
+            info!(
+                "notify wait {} redis set time out fail:{}",
+                channel_name, err
+            );
         };
         Ok(())
     }
     pub async fn listen(&self) {
         loop {
-            match self.app_core.create_redis_client() {
+            match self.app_core.create_redis_client().await {
                 Ok(redis_client) => {
-                    let con_res = redis_client.get_async_connection().await;
+                    let con_res = redis_client.get_multiplexed_async_connection().await;
                     match con_res {
                         Ok(mut redis) => {
                             let channel_name = self.redis_channel_name(
@@ -126,21 +138,29 @@ impl<T: WaitItem + Serialize + DeserializeOwned + Debug> WaitNotify<T> {
                                     .as_ref(),
                             );
                             //用list 不用subscribe 这里监听重启后也可以接着处理
-                            let msg: Result<(String, String), _> = redis
-                                .blpop(&channel_name, self.clear_timeout as usize)
-                                .await;
+                            let msg: Result<(String, String), _> =
+                                redis.blpop(&channel_name, self.clear_timeout as f64).await;
 
                             match msg {
                                 Ok(pubsub_msg) => {
-                                    debug!("recv msg:{:?}", pubsub_msg);
+                                    debug!(
+                                        "notify  wait {} sender wait msg:{:?}",
+                                        channel_name, pubsub_msg
+                                    );
                                     match serde_json::from_str::<ListenMsgBody<T>>(&pubsub_msg.1) {
                                         Ok(msg_body) => {
                                             if let Err(err) = self.listen_run(msg_body).await {
-                                                warn!("run remote msg fail :{}", err);
+                                                warn!(
+                                                    "notify  wait {} run remote msg fail :{}",
+                                                    channel_name, err
+                                                );
                                             }
                                         }
                                         Err(err) => {
-                                            error!("parse payload fail :{}", err);
+                                            error!(
+                                                "notify  wait {} parse payload fail :{}",
+                                                channel_name, err
+                                            );
                                         }
                                     }
                                 }
@@ -149,7 +169,10 @@ impl<T: WaitItem + Serialize + DeserializeOwned + Debug> WaitNotify<T> {
                                     {
                                         self.listen_clear().await;
                                     } else {
-                                        warn!("read notify list error:{}", err);
+                                        warn!(
+                                            "notify  wait {} read notify list error:{}",
+                                            channel_name, err
+                                        );
                                         sleep(Duration::from_secs(1)).await;
                                     }
                                     continue;
@@ -157,14 +180,14 @@ impl<T: WaitItem + Serialize + DeserializeOwned + Debug> WaitNotify<T> {
                             };
                         }
                         Err(err) => {
-                            error!("clear conn redis:{}", err);
+                            error!("notify clear conn redis:{}", err);
                             tokio::time::sleep(Duration::from_secs(1)).await;
                         }
                     }
                 }
                 Err(err) => {
                     warn!(
-                        "create remote notify listen client fail:{}",
+                        "notify create remote notify listen client fail:{}",
                         err.to_fluent_message().default_format()
                     );
                     tokio::time::sleep(Duration::from_secs(1)).await;
@@ -173,53 +196,90 @@ impl<T: WaitItem + Serialize + DeserializeOwned + Debug> WaitNotify<T> {
         }
     }
     async fn listen_run(&self, msg: ListenMsgBody<T>) -> Result<(), String> {
-        let tmp = std::mem::take(&mut *self.sender_data.lock().await);
+        let mut lock_data = self.sender_data.lock().await;
+        let tmp = std::mem::take(&mut *lock_data);
+        debug!(
+            "notify  wait {}: all list count {}",
+            self.channel_name,
+            tmp.len()
+        );
         // println!("{:?}", tmp.iter().map(|e| &e.0).collect::<Vec<&T>>());
-        let (tmp1, tmp2) = tmp
-            .into_iter()
-            .partition(|(a, b)| a.eq(&msg.data) || b.is_closed());
-        (*self.sender_data.lock().await) = tmp2;
-
-        for tmp in tmp1 {
-            if tmp.0.eq(&msg.data) {
-                if let Err(err) = tmp.1.send(msg.res.to_owned()) {
-                    return Err(format!("notify channel send fail,data:{:?}", err));
-                }
-                return Ok(());
-            } else if tmp.1.is_closed() {
-                info!("notify channel is close[run] {:?}", tmp.0);
+        let (tmp1, tmp2) = tmp.into_iter().partition(|(a, _)| {
+            debug!(
+                "notify  wait {}: list data:{:?},notify data:{:?}",
+                self.channel_name, &a, &msg.data
+            );
+            a.eq(&msg.data)
+        });
+        *lock_data = tmp2;
+        drop(lock_data);
+        debug!(
+            "notify  wait {}: find list count {}",
+            self.channel_name,
+            tmp1.len()
+        );
+        let succ_find = !tmp1.is_empty();
+        for (tmp_data, tmp_res) in tmp1 {
+            debug!(
+                "notify wait {}: item [{:?} ={:?}]",
+                self.channel_name, tmp_data, msg.data
+            );
+            if tmp_res.is_closed() {
+                info!(
+                    "notify wait {}: channel is close[run] {:?}",
+                    self.channel_name, tmp_data
+                );
+            } else if let Err(err) = tmp_res.send(msg.res.to_owned()) {
+                warn!(
+                    "notify wait {}: channel send fail,data: {:?} error:{:?}",
+                    self.channel_name, tmp_data, err
+                );
             }
         }
-        Err(format!("unkown notify {:?}", msg.data))
+        if !succ_find {
+            info!(
+                "notify wait {}: data [{:?}] not match any wait",
+                self.channel_name, msg.data
+            );
+        }
+        Ok(())
     }
     async fn listen_clear(&self) {
-        let tmp = std::mem::take(&mut *self.sender_data.lock().await);
+        let mut lock_data = self.sender_data.lock().await;
+        let tmp = std::mem::take(&mut *lock_data);
         let (tmp1, tmp2) = tmp.into_iter().partition(|(_, b)| b.is_closed());
-        (*self.sender_data.lock().await) = tmp2;
+        *lock_data = tmp2;
+        drop(lock_data);
         for tmp in tmp1 {
-            info!("notify channel is close[chear] {:?}", tmp.0);
+            info!(
+                "notify wait {} channel is close[chear] {:?}",
+                self.channel_name, tmp.0
+            );
         }
     }
 }
 
 #[tokio::test]
 async fn test_listen_notify() {
-    let app_core = AppCore::init(
+    let app_core = AppCore::new(
         &format!("{}/../examples/lsys-actix-web", env!("CARGO_MANIFEST_DIR")),
         &format!(
             "{}/../examples/lsys-actix-web/config",
             env!("CARGO_MANIFEST_DIR")
         ),
         None,
+        None,
     )
     .await
     .unwrap();
-    impl crate::WaitItem for u64 {
+    #[derive(Serialize, Debug, Deserialize)]
+    struct TmpData(u64);
+    impl crate::WaitItem for TmpData {
         fn eq(&self, other: &Self) -> bool {
-            *self == *other
+            self.0 == other.0
         }
     }
-    let notify = std::sync::Arc::new(WaitNotify::<u64>::new(
+    let notify = std::sync::Arc::new(WaitNotify::<TmpData>::new(
         "sms",
         app_core.create_redis().await.unwrap(),
         Arc::new(app_core),
@@ -230,14 +290,14 @@ async fn test_listen_notify() {
     tokio::spawn(async move {
         tmp.listen().await;
     });
-    let wait = notify.wait(11).await;
+    let wait = notify.wait(TmpData(11)).await;
     notify
         .notify(
             hostname::get()
                 .unwrap_or_default()
                 .to_string_lossy()
                 .as_ref(),
-            11,
+            TmpData(11),
             Err("bad".to_string()),
         )
         .await

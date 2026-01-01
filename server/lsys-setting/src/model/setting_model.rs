@@ -1,9 +1,9 @@
+use lsys_core::db::lsys_model;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
-use sqlx_model::sqlx_model;
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize, Default)]
-#[sqlx_model(db_type = "MySql", table_name = "setting")]
+#[lsys_model( table_name = "setting")]
 pub struct SettingModel {
     /// 消息ID
     #[sqlx(default)]

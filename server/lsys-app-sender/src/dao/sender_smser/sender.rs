@@ -1,32 +1,70 @@
 use std::{collections::HashSet, sync::Arc};
 
+use lsys_app::{
+    dao::{AppNotify, AppNotifySender},
+    model::{AppNotifyTryTimeMode, AppNotifyType},
+};
 use lsys_core::{
     fluent_message, now_time, AppCore, FluentMessage, IntoFluentMessage, RequestEnv, TaskData,
+    TaskDispatchConfig, TaskNotify, TaskNotifyConfig, TaskTimeOutNotify, TimeOutTask,
+    TimeOutTaskConfig, TimeOutTaskNotify,
 };
 
-use lsys_app_notify::dao::Notify;
-use lsys_logger::dao::ChangeLogger;
-use lsys_setting::dao::Setting;
+use lsys_logger::dao::ChangeLoggerDao;
+use lsys_setting::dao::SettingDao;
 use sqlx::Pool;
 use tracing::warn;
 
 use super::{
     SmsRecord, SmsSendNotify, SmsStatusQuery, SmsStatusTask, SmsStatusTaskAcquisition,
     SmsStatusTaskExecutor, SmsStatusTaskItem, SmsTask, SmsTaskAcquisition, SmsTaskData,
-    SmsTaskItem,
+    SmsTaskItem, SmsTaskSendTimeNotify,
 };
 use crate::{
     dao::{
         MessageCancel, MessageLogs, MessageReader, SenderConfig, SenderError, SenderResult,
-        SenderTaskExecutor, SenderTplConfig, SenderWaitItem, SenderWaitNotify,
+        SenderTaskExecutor, SenderTplConfig, SenderWaitNotify,
     },
     model::{SenderSmsBodyModel, SenderSmsMessageModel, SenderSmsMessageStatus, SenderType},
 };
 use lsys_core::TaskDispatch;
 
-const SMSER_REDIS_PREFIX: &str = "sender-sms-";
+const SMSER_REDIS_PREFIX: &str = "sender-sms";
 
-pub struct SmsSender {
+pub const SMS_NOTIFY_METHOD: &str = "sms_notify";
+
+pub struct SmsSenderConfig {
+    pub sender_task_size: Option<usize>,
+    pub sender_task_timeout: usize,
+    pub notify_task_size: Option<usize>,
+    pub notify_task_timeout: usize,
+    pub notify_timeout: u64,
+    pub wait_timeout: u8,
+    //notify config
+    pub notify_type: AppNotifyType,
+    pub notify_try_max: u8,
+    pub notify_try_mode: AppNotifyTryTimeMode,
+    pub notify_try_delay: u16,
+}
+
+impl Default for SmsSenderConfig {
+    fn default() -> Self {
+        Self {
+            sender_task_size: None,
+            notify_task_size: None,
+            sender_task_timeout: 300,
+            notify_task_timeout: 300,
+            notify_timeout: 1800,
+            wait_timeout: 30, //接口回调等待超时
+            notify_type: AppNotifyType::Http,
+            notify_try_max: 3,
+            notify_try_mode: AppNotifyTryTimeMode::Exponential,
+            notify_try_delay: 60,
+        }
+    }
+}
+
+pub struct SmsSenderDao {
     pub tpl_config: Arc<SenderTplConfig>,
     pub sms_record: Arc<SmsRecord>,
     pub sms_notify: Arc<SmsSendNotify>,
@@ -37,30 +75,30 @@ pub struct SmsSender {
     cancel: Arc<MessageCancel>,
     message_logs: Arc<MessageLogs>,
     message_reader: Arc<MessageReader<SenderSmsBodyModel, SenderSmsMessageModel>>,
-    task_sender: TaskDispatch<u64, SmsTaskItem>,
+
     task_status: TaskDispatch<u64, SmsStatusTaskItem>,
+    task_status_notify: Arc<TaskNotify>,
     send_wait: Arc<SenderWaitNotify>,
     task_status_key: String,
-    setting: Arc<Setting>,
-    notify: Arc<Notify>,
+    setting: Arc<SettingDao>,
+    app_notify_sender: Arc<AppNotifySender>,
+    task_sender: Arc<TaskDispatch<u64, SmsTaskItem>>,
+    task_sender_task_timeout_notify: Arc<TaskTimeOutNotify>,
+    task_sender_notify: Arc<TaskNotify>,
+    task_sender_sendtime_notify: Arc<TimeOutTaskNotify>,
 }
 
-impl SmsSender {
+impl SmsSenderDao {
     //短信发送
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         app_core: Arc<AppCore>,
         redis: deadpool_redis::Pool,
         db: Pool<sqlx::MySql>,
-        setting: Arc<Setting>,
-        logger: Arc<ChangeLogger>,
-        notify: Arc<Notify>,
-        sender_task_size: Option<usize>,
-        notify_task_size: Option<usize>,
-        task_timeout: usize,
-        is_check: bool,
-        notify_timeout: Option<u64>,
-        wait_timeout: Option<u8>,
+        setting: Arc<SettingDao>,
+        logger: Arc<ChangeLoggerDao>,
+        app_notify: Arc<AppNotify>,
+        sms_config: SmsSenderConfig,
     ) -> Self {
         let config: Arc<SenderConfig> = Arc::new(SenderConfig::new(
             db.clone(),
@@ -88,42 +126,94 @@ impl SmsSender {
             message_reader.clone(),
         ));
 
-        let task_sender = TaskDispatch::new(
-            format!("{}-sender-notify", SMSER_REDIS_PREFIX),
-            format!("{}-sender-read-lock", SMSER_REDIS_PREFIX),
-            format!("{}-sender-run-task", SMSER_REDIS_PREFIX),
-            sender_task_size,
-            task_timeout,
-            is_check,
-            task_timeout,
-        );
-
-        let task_status = TaskDispatch::new(
-            format!("{}-status-notify", SMSER_REDIS_PREFIX),
-            format!("{}-status-read-lock", SMSER_REDIS_PREFIX),
-            format!("{}-status-run-task", SMSER_REDIS_PREFIX),
-            notify_task_size,
-            task_timeout,
-            is_check,
-            task_timeout,
-        );
-        let task_status_key = format!("{}-status-data", SMSER_REDIS_PREFIX);
-        let sms_notify = Arc::new(SmsSendNotify::new(db.clone(), notify.clone()));
-
-        let status_query = Arc::new(SmsStatusQuery::new(
+        //任务触发句柄 && 任务后台任务-- start
+        let task_sender_notify_config = Arc::new(TaskNotifyConfig::new(format!(
+            "{}-sender",
+            SMSER_REDIS_PREFIX
+        )));
+        let task_sender_notify = Arc::new(TaskNotify::new(
             redis.clone(),
-            task_status_key.clone(),
-            notify_timeout.unwrap_or(1800),
+            task_sender_notify_config.clone(),
         ));
 
+        let task_sender_display_config = Arc::new(TaskDispatchConfig::new(
+            task_sender_notify_config,
+            sms_config.sender_task_timeout,
+            true,
+            sms_config.sender_task_size,
+        ));
+        let task_sender = Arc::new(TaskDispatch::new(
+            redis.clone(),
+            task_sender_notify.clone(),
+            task_sender_display_config.clone(),
+        ));
+        //任务触发句柄 && 任务后台任务-- end
+
+        //定时发送任务触发句柄 && 定时发送后台任务 --start
+        let task_sender_sendtime_notify = Arc::new(TimeOutTaskNotify::new(
+            redis.clone(),
+            TimeOutTaskConfig::new(
+                format!("{}-notify-timeout", SMSER_REDIS_PREFIX),
+                sms_config.notify_task_timeout,
+            ),
+        ));
+
+        let task_sender_task_timeout_notify = Arc::new(TaskTimeOutNotify::new(
+            app_core.clone(),
+            task_sender_notify.clone(),
+            task_sender_sendtime_notify.clone(),
+            task_sender_display_config,
+        ));
+        //定时发送任务触发句柄 && 定时发送后台任务 --end
+
+        //后台同步短信发送结果触发句柄 && 后台同步短信发送结果同步任务 --start
+        let task_status_notify_config = Arc::new(TaskNotifyConfig::new(format!(
+            "{}-status",
+            SMSER_REDIS_PREFIX
+        )));
+        let task_status_notify = Arc::new(TaskNotify::new(
+            redis.clone(),
+            task_status_notify_config.clone(),
+        ));
+        let task_status_display_config = Arc::new(TaskDispatchConfig::new(
+            task_status_notify_config,
+            sms_config.notify_task_timeout,
+            true,
+            sms_config.notify_task_size,
+        ));
+        let task_status = TaskDispatch::new(
+            redis.clone(),
+            task_status_notify.clone(),
+            task_status_display_config.clone(),
+        );
+        //后台同步短信发送结果触发句柄 && 后台同步短信发送结果同步任务 --end
+
+        let app_notify_sender = Arc::new(app_notify.sender_create(
+            SMS_NOTIFY_METHOD,
+            sms_config.notify_type,
+            sms_config.notify_try_max,
+            sms_config.notify_try_mode,
+            sms_config.notify_try_delay,
+            true,
+        ));
+
+        let task_status_key = format!("{}-status-data", SMSER_REDIS_PREFIX);
+        let status_query = Arc::new(SmsStatusQuery::new(
+            redis.clone(),
+            &task_status_key,
+            sms_config.notify_timeout,
+        ));
+
+        //发送结果等待
         let wait_status_key = format!("{}-status-data", SMSER_REDIS_PREFIX);
         let send_wait = Arc::new(SenderWaitNotify::new(
             &wait_status_key,
             redis.clone(),
             app_core.clone(),
-            wait_timeout.unwrap_or(30),
+            sms_config.wait_timeout,
         ));
 
+        let sms_notify = Arc::new(SmsSendNotify::new(db.clone(), app_notify_sender.clone()));
         Self {
             tpl_config,
             redis,
@@ -139,15 +229,21 @@ impl SmsSender {
             setting,
             sms_notify,
             status_query,
-            notify,
             send_wait,
+            app_notify_sender,
+            task_sender_task_timeout_notify,
+            task_sender_notify,
+            task_sender_sendtime_notify,
+            task_status_notify,
         }
     }
     pub async fn add_status_query(&self, items: &[&SenderSmsMessageModel]) -> SenderResult<()> {
         self.status_query.add_query(items).await?;
-        let mut redis = self.redis.get().await?;
-        if let Err(err) = self.task_status.notify(&mut redis).await {
-            warn!("add status query task fail :{}", err)
+        if let Err(err) = self.task_status_notify.notify().await {
+            warn!(
+                "add status query task fail :{}",
+                err.to_fluent_message().default_format()
+            )
         }
         Ok(())
     }
@@ -157,11 +253,11 @@ impl SmsSender {
         &self,
         app_id: Option<u64>,
         mobiles: &[(&'t str, &'t str)],
-        tpl_id: &str,
+        tpl_key: &str,
         tpl_var: &str,
-        send_time: &Option<u64>,
-        user_id: &Option<u64>,
-        max_try_num: &Option<u8>,
+        send_time: Option<u64>,
+        user_id: Option<u64>,
+        max_try_num: Option<u8>,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<(
         u64,
@@ -178,38 +274,41 @@ impl SmsSender {
         let sendtime = send_time.unwrap_or(nt);
         let sendtime = if sendtime < nt { nt } else { sendtime };
         self.sms_record
-            .send_check(app_id, tpl_id, &tmp, sendtime)
+            .send_check(app_id, tpl_key, &tmp, sendtime)
             .await?;
         let res = self
             .sms_record
             .add(
                 &tmp,
-                &app_id.unwrap_or_default(),
-                tpl_id,
+                app_id.unwrap_or_default(),
+                tpl_key,
                 tpl_var,
-                &sendtime,
+                sendtime,
                 user_id,
-                &max_try_num,
+                max_try_num,
                 env_data,
             )
             .await?;
 
         let mut wait = None;
         if max_try_num == 0 && mobiles.len() == 1 {
-            if let Some((msg_id, _, _)) = res.1.first() {
-                wait = Some(self.send_wait.wait(SenderWaitItem(res.0, *msg_id)).await);
+            if let Some((snid, _, _)) = res.1.first() {
+                wait = Some(self.send_wait.message_wait(res.0, *snid).await);
             }
         };
 
-        if send_time
-            .map(|e| e - 1 <= now_time().unwrap_or_default())
-            .unwrap_or(true)
+        if let Err(err) = self
+            .task_sender_task_timeout_notify
+            .notify_at_time(sendtime)
+            .await
         {
-            let mut redis = self.redis.get().await?;
-            if let Err(err) = self.task_sender.notify(&mut redis).await {
-                warn!("sms is add [{}] ,but send fail :{}", res.0, err)
-            }
+            warn!(
+                "mail is add [{}] ,but notify fail :{}",
+                res.0,
+                err.to_fluent_message().default_format()
+            )
         }
+
         let mut tmp = vec![];
         for e in mobiles {
             let msg_id = res
@@ -236,7 +335,7 @@ impl SmsSender {
     pub async fn cancal_from_message_snid_vec(
         &self,
         msg_snid_data: &[u64],
-        user_id: &u64,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<Vec<(u64, bool, Option<SenderError>)>> {
         let res = self
@@ -267,7 +366,7 @@ impl SmsSender {
         &self,
         body: &SenderSmsBodyModel,
         msg_data: &[&SenderSmsMessageModel],
-        user_id: &u64,
+        user_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> SenderResult<Vec<(u64, bool, Option<SenderError>)>> {
         let mut out = Vec::with_capacity(msg_data.len());
@@ -291,8 +390,8 @@ impl SmsSender {
         }
         self.cancel
             .add(
-                &body.app_id,
-                &body.id,
+                body.app_id,
+                body.id,
                 &cancel_data.iter().map(|e| e.id).collect::<Vec<_>>(),
                 user_id,
                 None,
@@ -327,8 +426,7 @@ impl SmsSender {
         &self,
         check_message_data: Vec<(&u64, D)>,
     ) -> SenderResult<Vec<(D, Option<TaskData>)>> {
-        let mut redis = self.redis.get().await?;
-        let mut tdata = self.task_sender.task_data(&mut redis).await?;
+        let mut tdata = self.task_sender.task_data().await?;
         let mut out = Vec::with_capacity(check_message_data.len());
         for (mid, data) in check_message_data {
             out.push((data, tdata.remove(mid)));
@@ -350,7 +448,11 @@ impl SmsSender {
             .dispatch(
                 self.app_core.clone(),
                 acquisition.as_ref(),
-                SmsTask::new(acquisition.to_owned(), self.tpl_config.clone(), se)?,
+                Arc::new(SmsTask::new(
+                    acquisition.to_owned(),
+                    self.tpl_config.clone(),
+                    se,
+                )?),
             )
             .await;
         Ok(())
@@ -359,7 +461,24 @@ impl SmsSender {
     pub async fn task_wait(&self) {
         self.send_wait.listen().await;
     }
-    //后台发送任务，内部循环不退出
+    //指定发送时间到期监听处理
+    pub async fn task_sendtime_notify(&self, channel_buffer: Option<usize>) {
+        let task_send_time = Arc::new(SmsTaskSendTimeNotify::new(
+            format!("{}-last-run-time", SMSER_REDIS_PREFIX),
+            self.db.clone(),
+            self.redis.clone(),
+            self.task_sender_notify.clone(),
+        ));
+        TimeOutTask::<SmsTaskSendTimeNotify>::new(
+            self.app_core.clone(),
+            self.task_sender_sendtime_notify.clone(),
+            task_send_time.clone(),
+            task_send_time,
+        )
+        .listen(channel_buffer)
+        .await;
+    }
+    //后台同步短信发送结果任务，内部循环不退出
     pub async fn task_status_query(
         &self,
         se: Vec<Box<dyn SmsStatusTaskExecutor>>,
@@ -370,14 +489,14 @@ impl SmsSender {
             .dispatch(
                 self.app_core.clone(),
                 &acquisition,
-                SmsStatusTask::new(
+                Arc::new(SmsStatusTask::new(
                     se,
                     self.sms_record.clone(),
                     self.db.clone(),
-                    self.notify.clone(),
+                    self.app_notify_sender.clone(),
                     self.setting.multiple.clone(),
                     self.message_logs.clone(),
-                )?,
+                )?),
             )
             .await;
         Ok(())

@@ -1,25 +1,109 @@
-time-error = 获取系统时间异常:{$msg}
-app-bad-scope = {$scope} 不支持
-auth-not-login = 用户未登录
-user-session-get-error = 获取[{$client_id}]的登录信息失败:{$msg}
-user-session-refresh-error = 更新[{$client_id}]登录信息失败:{$msg}
-user-session-clear-error = 清除登录信息失败:{$msg}
-app-not-confirm = 应用{$name}在审核中
-app-client-id-exits = 应用ID[{$client_id}]已被其他应用 {$other_name} 使用
-auth-alpha-ip-error = IP正则解析错误:{$msg}
-auth-alpha-domain-error = 域名规则解析错误:{$msg}
-app-name-wrong = 应用名应在[{$min}-{$max}]之间,当前为:{$len}
-app-client-id-wrong = 应用ID应在[{$min}-{$max}]之间,当前为:{$len}
-auth-alpha-rule-error = 应用ID正则解析错误:{$msg}
-auth-alpha-check-error = 应用ID仅能是字母或数字
-app-find-bad-status = 应用ID[{$client_id}]状态异常
-app-find-error = 应用ID[{$client_id}]查询异常:{$msg}
-user-not-find = 用户ID[{$user_id}]不存在
-token-not-find = 提交的code[{$code}]不存在于应用[{$name}]
-token-is-timeout = TOKEN:{$token}已经超时,请重新登录
-token-is-delete = 提交的TOKEN不存在或已超时
-app-add-empty-user = 无法向应用{$name}添加空用户
-app-parent-add-self = 应用{$name}进行不能关联自身
-app-parent-secret-empty = 应用{$name}进行关联应用时请提供secret
-app-parent-add-bad-user = 当前应用{$name}不能关联{$parent_name},因为用户{$user_id}未被授权
-app-not-found= 提交的应用:{$app} 不存在
+app-client-id-exits = 应用ID({$client_id})已被其他应用 {$other_name} 使用
+app-client-id-req = 应用ID({$client_id})已被占用
+papp-id-bad = 应用{$name}不可添加子应用
+app-find-bad-status = 应用ID({$client_id})状态异常
+app-req-is-confirm = 该应用请求已处理
+app-req-is-invalid = 该应用请求无效
+app-req-is-miss-info = 请求审核数据缺失
+app-req-status-invalid = 应用确认状态无效
+app-req-bad = 应用未请求或请求授权异常
+app-req-bad-app = 应用未请求授权 
+app-exits-sub-app = 存在（{$total}）个子应用，不能删除。
+app-req-exist-exter-feature = 重复请求授权:{$bad_item}
+app-is-not-system-app = 应用{$name}:{$client_id}非系统应用
+app-oauth-login-bad-scope = 应用不存在授权:{$scope_data}
+app-oauth-server-use-scope = SCOPE已在以下应用中被使用:{$scope_data}
+app-bad-id-error = 账号对应的应用ID{$id}异常，错误详细：{$msg}
+app-bad-error = 应用 {$client_id} 查询异常:{$msg}
+app-bad-scope = 应用未申请以下功能:{$scope}
+app-not-found = 应用不存在 {$name}
+app-bad-status = 应用非正常启用状态
+app-feature-not-support = 应用{$name}的以下功能未开通:{$feature}
+app-config-bad = 应用 {$name}配置异常
+app-session-get-error = 获取应用{$client_id}的授权信息失败:{$msg}
+app-session-refresh-error = 重置应用{$client_id}的授权信息失败:{$msg}
+app-session-clear-error = 清除应用的登录信息失败:{$msg}
+papp-not-match-parent = 当前选择的父应用{$name}于账号应用不匹配
+papp-bad-parent = 请选择父应用
+del-notify-data-bad-status = 当前回调不可删除
+
+notify-reqwest-build-error = 构建回调通知请求异常:{$msg}
+notify-reqwest-check-error = 回调通知({$url})时异常:{$msg}
+
+# 状态
+status-NotifyDataStatus-Init = 未回调
+status-NotifyDataStatus-Succ = 回调完成
+status-NotifyDataStatus-Fail = 回调失败
+
+
+status-AppStatus-Init =  审核中
+status-AppStatus-Enable = 正常
+status-AppStatus-Disable = 被禁用
+status-AppStatus-Delete = 删除
+
+
+
+
+status-AppFeatureStatus-Enable = 正常
+status-AppFeatureStatus-Disable = 被禁用
+status-AppFeatureStatus-Delete = 删除
+
+
+status-AppOAuthServerScopeStatus-Enable = 正常
+status-AppOAuthServerScopeStatus-Delete = 删除
+
+
+status-AppRequestType-AppReq = 新应用
+status-AppRequestType-AppChange = 更改信息
+status-AppRequestType-SubApp = 子应用
+status-AppRequestType-ExterLogin = 外部账号登录
+status-AppRequestType-OAuthServer = OAuth服务器
+status-AppRequestType-OAuthClient = OAuth登录
+status-AppRequestType-OAuthClientScope = OAuth登录新权限
+status-AppRequestType-ExterFeatuer = 扩展功能
+
+
+
+
+
+status-AppRequestStatus-Pending = 待审
+status-AppRequestStatus-Approved = 批准
+status-AppRequestStatus-Rejected = 驳回
+status-AppRequestStatus-Invalid = 作废
+status-AppRequestStatus-Delete = 删除
+
+
+
+
+
+status-AppSecretType-App = 应用
+status-AppSecretType-OAuth = oauth
+status-AppSecretType-Notify = 回调
+
+
+
+
+
+status-AppSecretStatus-Enable = 正常
+status-AppSecretStatus-Delete = 删除
+
+status-AppNotifyDataStatus-Init = 待回调
+status-AppNotifyDataStatus-Succ = 已回调
+status-AppNotifyDataStatus-Fail = 回调失败
+
+#校验名称
+valid-rule-name-app_name = 应用名
+valid-rule-name-parent_app = 父应用
+valid-rule-name-client_id = 应用标识
+valid-rule-name-featuer_data = 功能标识
+valid-rule-name-call_url = 回调地址
+valid-rule-name-method = 回调通知类型
+valid-rule-name-payload = 回调复核数据
+valid-rule-name-secret = 应用秘钥
+valid-rule-name-old_secret_data = 旧秘钥数据
+valid-rule-name-secret_data = 秘钥数据
+valid-rule-name-callback_domain = 登录跳转域名
+valid-rule-name-scope_data = 授权范围
+valid-rule-name-oauth_setting_key = OAUTH授权KEY
+valid-rule-name-oauth_setting_name = OAUTH授权名称
+valid-rule-name-oauth_setting_desc = OAUTH授权介绍

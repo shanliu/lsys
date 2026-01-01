@@ -2,17 +2,19 @@ use std::{pin::Pin, str::FromStr};
 
 use actix_web::{dev::Payload, FromRequest, HttpRequest};
 
-use lsys_user::dao::auth::{SessionToken, UserAuthTokenData};
-use lsys_web::{dao::RequestSessionToken, JsonData};
+use lsys_web::common::{
+    JsonData, JsonResponse, JsonResult, RequestSessionToken, RequestSessionTokenPaser,
+};
+use lsys_web::lsys_user::dao::UserAuthToken;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value;
 
+use async_trait::async_trait;
+use jsonwebtoken::{decode, DecodingKey, TokenData, Validation};
 use std::{
     future::Future,
     task::{Context, Poll},
 };
-
-use jsonwebtoken::{decode, DecodingKey, TokenData, Validation};
 
 use super::ResponseJson;
 
@@ -52,15 +54,17 @@ pub struct JwtExtractFut {
 impl Future for JwtExtractFut {
     type Output = Result<JwtQuery, ResponseJson>;
     fn poll(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Self::Output> {
-        let res =
-            match self.req.headers().get("Authorization") {
-                Some(head) => match head.to_str() {
+        let res = match self.req.headers().get("Authorization") {
+            Some(head) => {
+                match head.to_str() {
                     Ok(mut token) => {
                         token = token.trim_start();
                         if !token.starts_with("Bearer ") {
-                            Err(JsonData::message("not bearer header")
-                                .set_sub_code("jwt_parse_header")
-                                .into())
+                            Err(JsonResponse::data(
+                                JsonData::error().set_sub_code("jwt_parse_header"),
+                            )
+                            .set_message("not bearer header")
+                            .into())
                         } else {
                             token = &token[7..];
                             token = token.trim();
@@ -75,10 +79,10 @@ impl Future for JwtExtractFut {
                                     );
                                     match token_data_opt {
                                     Ok(token_data) => {
-                                        let token_str = token.to_owned();
+                                       // let token_str = token.to_owned();
                                         Ok(JwtQuery {
                                             token_data,
-                                            token_str,
+                                        //    token_str,
                                         })
                                     }
                                     Err(e) => Err(match e.kind() {
@@ -92,57 +96,81 @@ impl Future for JwtExtractFut {
                                         | jsonwebtoken::errors::ErrorKind::InvalidAlgorithm
                                         | jsonwebtoken::errors::ErrorKind::ImmatureSignature
                                         | jsonwebtoken::errors::ErrorKind::InvalidSubject => {
-                                            JsonData::error(e).set_sub_code("jwt_bad_token").into()
+                                            JsonResponse::data(JsonData::error().set_sub_code("jwt_bad_token"))
+                                            .set_message(e).into()
                                         }
-                                        _ => JsonData::error(e)
-                                            .set_sub_code("jwt_parse_system")
+                                        _ => JsonResponse::data(JsonData::error().set_sub_code("jwt_parse_system"))
+                                        .set_message(e)
                                             .into(),
                                     }),
                                 }
                                 }
-                                None => Err(JsonData::message("jwt config not find")
-                                    .set_sub_code("jwt_config")
-                                    .into()),
+                                None => Err(JsonResponse::data(
+                                    JsonData::error().set_sub_code("jwt_config"),
+                                )
+                                .set_message("jwt config not find")
+                                .into()),
                             }
                         }
                     }
-                    Err(e) => Err(JsonData::error(e).set_sub_code("jwt_parse_header").into()),
-                },
-                None => Err(JsonData::message("jwt miss Authorization header")
-                    .set_sub_code("jwt_miss_header")
+                    Err(e) => Err(JsonResponse::data(
+                        JsonData::error().set_sub_code("jwt_parse_header"),
+                    )
+                    .set_message(e)
                     .into()),
-            };
+                }
+            }
+            None => Err(
+                JsonResponse::data(JsonData::error().set_sub_code("jwt_miss_header"))
+                    .set_message("jwt miss Authorization header")
+                    .into(),
+            ),
+        };
         Poll::Ready(res)
     }
 }
 
+pub struct JwtQueryTokenPaser {}
+
+#[async_trait]
+impl RequestSessionTokenPaser<UserAuthToken> for JwtQueryTokenPaser {
+    type TD = String;
+    async fn parse_user_token(&self, jwt_str: String) -> JsonResult<UserAuthToken> {
+        Ok(UserAuthToken::from_str(&jwt_str)?)
+    }
+}
 //jwt 登陆信息实现，服务器端处理跟cookie相同
 pub struct JwtQuery {
     pub token_data: TokenData<JwtClaims>,
-    pub token_str: String,
 }
 
-impl RequestSessionToken<UserAuthTokenData> for JwtQuery {
-    fn get_user_token<'t>(&self) -> SessionToken<UserAuthTokenData> {
-        SessionToken::<UserAuthTokenData>::from_str(self.token_data.claims.token.as_str())
-            .unwrap_or_default()
+#[async_trait]
+impl RequestSessionToken<UserAuthToken> for JwtQuery {
+    type L = JwtQueryTokenPaser;
+    fn get_paser(&self) -> Self::L {
+        JwtQueryTokenPaser {}
     }
-    fn is_refresh(&self, _token: &SessionToken<UserAuthTokenData>) -> bool {
-        false
+    fn get_token_data(&self) -> Option<String> {
+        let jstr = self.token_data.claims.token.to_owned();
+        if jstr.is_empty() {
+            None
+        } else {
+            Some(jstr)
+        }
     }
-    fn refresh_user_token(&self, _token: &SessionToken<UserAuthTokenData>) {
-        unimplemented!("not support refresh");
-    }
+    fn finish_user_token(&self, _: &UserAuthToken) {}
 }
 
 impl JwtQuery {
     #[allow(dead_code)]
-    pub fn param<T: DeserializeOwned>(&self) -> Result<T, JsonData> {
+    pub fn param<T: DeserializeOwned>(&self) -> Result<T, JsonResponse> {
         match self.token_data.claims.data {
-            Some(ref data) => {
-                serde_json::value::from_value::<T>(data.clone()).map_err(JsonData::error)
-            }
-            None => Err(JsonData::message_error("data is null").set_sub_code("jwt_miss_data")),
+            Some(ref data) => serde_json::value::from_value::<T>(data.clone())
+                .map_err(|err| JsonResponse::data(JsonData::error()).set_message(err)),
+            None => Err(
+                JsonResponse::data(JsonData::error().set_sub_code("jwt_miss_data"))
+                    .set_message("data is null"),
+            ),
         }
     }
 }

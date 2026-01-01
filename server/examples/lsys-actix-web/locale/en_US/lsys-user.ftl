@@ -1,51 +1,84 @@
-time-error = Get system time exception:{$msg}
-
-user-address-is-delete = Address duplicate deletion [{$id}].
-
-user-passwrod-wrong = Password must be [{$min}-{$max}] characters, current:{$len}
-
-auth-not-login = User is not logged in or TOKEN has expired.
-
-auth-not-user = User {$name} does not exist.
-
-auth-bad-password = User password is wrong.
-
-auth-not-set-password = User has not set password for login.
-
-
-user-status-invalid = user-status-invalid [{$user}:{$status}]
-
-
-user-auth-parse-bad = user TOKEN exception
-
-user-auth-parse-error = Parsing TOKEN exception:{$msg}
-
-check-user-lock = User {$user} is locked and will be restored in {$time} seconds.
-
-auth-user-captcha = Authentication error submitted when user {$user} logged in.
-
-auth-user-disable = User {$user} has been disabled.
-
-
-user-address-not-empty = Address field: {$name} cannot be null
-
-user-email-exits-other-account = Mailbox [{$email}] is bound to another account [{$id}].
-user-external-other-bind = external-exits-other-account [{$name}] is already bound to other account [{$id}]
-
-user-mobile-exits = Mobile phone number [{$mobile}] is already bound to another account [{$id}].
-
-user-username-error = Login account must be [{$min}-{$max}] characters and cannot start with [{$bad_start}].
-user-name-exits = Login account [{$name}] is already in use.
-
-user-old-passwrod = old password cannot be used
-user-passwrod-delete = Password record lost
-user-bad-status = The status of the added user must be current.
-user-is-delete = user {$user} cannot be enabled, status is invalid
-user-nikename-wrong = Nickname must be non-empty and within {$max} characters
-auth-email-error = Email regular exception: {$msg}
-auth-email-not-match = Mailbox [{$mail}] format error
-auth-mobile-error = Failed to validate cell phone number:{$msg}
-auth-mobile-area-error = Cell phone area code {$area} exception
-serde-error = Serialization exception:{$msg}
-utf-error = String is not a valid UTF character, error details:{$msg}
-not-login-empty-token = user not logged in: token does not exist
+auth-not-user = User {$name} does not exist
+auth-bad-password = Incorrect password
+auth-not-set-password = Password login not enabled for user
+user-status-invalid = User status is invalid [{$user}:{$status}]
+auth-user-captcha = Captcha required for user {$user} login
+auth-user-disable = User {$user} has been disabled
+account-email-exits-other-account = Email [{$email}] is already linked to another account [{$id}]
+account-external-other-bind = External account [{$name}] is already linked to another account [{$id}]
+account-mobile-exits = Phone number [{$mobile}] is already linked to another account [{$id}]
+account-name-exits = Login account [{$name}] is already taken
+account-old-passwrod = Cannot use old password
+account-passwrod-delete = Password record missing
+account-is-delete = User {$user} cannot be activated, invalid status
+email-bad-status = Email deleted: {$email}
+mobile-bad-status = Phone number deleted: {$mobile}
+auth-find-error = Login account missing: {$msg}
+user-auth-parse-error = TOKEN parsing error: {$msg}
+app-auth-parse-bad = Failed to parse app from login info: {$msg}
+app-auth-parse-error = Failed to parse app ID from login info: {$msg}
+user-auth-parse-bad = Invalid user TOKEN
+user-bad-session = Invalid OAuth login session
+auth-not-support-reload = Failed to reload user info
+check-user-lock = User {$user} is locked, will unlock in {$time} seconds
+account-bad-session = Login account parsing error: {$msg}
+auth-bad-session = Failed to reload login account: {$msg}
+# Status
+status-AccountStatus-Enable = Active
+status-AccountStatus-Init = Initial
+status-AccountStatus-Delete = Deleted
+status-AccountEmailStatus-Init = Pending verification
+status-AccountEmailStatus-Valid = Verified
+status-AccountEmailStatus-Delete = Deleted
+status-AccountMobileStatus-Init = Pending verification
+status-AccountMobileStatus-Valid = Verified
+status-AccountMobileStatus-Delete = Deleted
+status-AccountNameStatus-Enable = Active
+status-AccountNameStatus-Delete = Deleted
+status-AccountExternalStatus-Enable = Active
+status-AccountExternalStatus-Delete = Deleted
+status-AccountAddressStatus-Enable = Active
+status-AccountAddressStatus-Delete = Deleted
+status-AccountIndexStatus-Enable = Active
+status-AccountIndexStatus-Delete = Deleted
+status-AccountIndexCat-Address = Address
+status-AccountIndexCat-Email = Email
+status-AccountIndexCat-Mobile = Phone number
+status-AccountIndexCat-ExternalType = External account
+status-AccountIndexCat-AccountName = Account name
+status-AccountIndexCat-NikeName = Nickname
+status-AccountIndexCat-AccountStatus = User status
+status-AccountIndexCat-RegFrom = Registration source
+# Validation Names
+valid-rule-name-address_status = User address status
+valid-rule-name-address_name = Recipient name
+valid-rule-name-login_name = Login username
+valid-rule-name-login_password = Login password
+valid-rule-name-address_country_code = Shipping address country code
+valid-rule-name-address_code = Shipping address code
+valid-rule-name-address_mobile = Shipping phone number
+valid-rule-name-login_mobile = Login phone number
+valid-rule-name-user_mobile = User phone number
+valid-rule-name-login_mobile_area_code = Phone country code
+valid-rule-name-address_info = Shipping area info
+valid-rule-name-address_detail = Shipping address detail
+valid-rule-name-login_email = Login email
+valid-rule-name-user_email = User email
+valid-rule-name-external_config_name = External account configuration
+valid-rule-name-external_type = External account type
+valid-rule-name-external_id = External account ID
+valid-rule-name-external_name = External account name
+valid-rule-name-external_token_data = External account login TOKEN 
+valid-rule-name-external_nikename = External account nickname
+valid-rule-name-external_gender = External account gender
+valid-rule-name-external_link = Social account URL
+valid-rule-name-external_pic = External avatar URL
+valid-rule-name-birthday = Birthday
+valid-rule-name-gender = Gender
+valid-rule-name-headimg = Profile picture
+valid-rule-name-reg_from = Registration source info
+valid-rule-name-reg_ip = Registration IP
+valid-rule-name-username = User login name
+valid-rule-name-user_password = User password
+valid-rule-name-nickname = Nickname
+valid-rule-name-login_code = Login verification code

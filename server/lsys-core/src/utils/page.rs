@@ -27,8 +27,14 @@ pub enum LimitParam {
     },
 }
 impl LimitParam {
-    pub fn new(pos: Option<u64>, eq_pos: bool, limit: u64, next: bool, more: bool) -> Self {
-        if next {
+    pub fn new(
+        pos: Option<u64>, //起始点位置
+        eq_pos: bool,     //起始位置是否等于
+        limit: u64,       //输出数量
+        forward: bool,    //获取上一页还是下一页
+        more: bool,       //是否获取多一个记录
+    ) -> Self {
+        if forward {
             Self::Next {
                 pos,
                 limit,

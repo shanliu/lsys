@@ -21,10 +21,4 @@ impl IntoFluentMessage for WaitNotifyError {
     }
 }
 
-// impl Display for WaitNotifyError {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-//         write!(f, "{:?}", self)
-//     }
-// }
-
-pub type WaitNotifyResult = Result<bool, String>;
+pub type WaitNotifyResult = Result<bool, String>; //bool 是否成功完成,String 错误消息

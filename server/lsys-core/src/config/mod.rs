@@ -1,3 +1,4 @@
+// 配置文件封装
 mod result;
 pub use result::*;
 

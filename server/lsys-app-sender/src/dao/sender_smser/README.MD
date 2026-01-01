@@ -42,8 +42,8 @@ flowchart LR
 ```mermaid
 flowchart LR
     subgraph task[发送任务]
-        后台发送任务 -- 当前时间,状态-->查询待发送记录--根据记录 --> 查询阿里云短信发送关联信息:sender_sms_aliyun --> 随机一条符合记录 -- 阿里云配置ID:aliyun_config_id --> 阿里云配置:yaf_setting.setting_key-ali-sms-config
-        阿里云配置:yaf_setting.setting_key-ali-sms-config --> 以上查找到记录,完成发送,并更改状态为成功
-        阿里云配置:yaf_setting.setting_key-ali-sms-config --> 以上查找到记录失败,取消发送,并更改状态为失败
+        后台发送任务 -- 当前时间,状态-->查询待发送记录--根据记录 --> 查询阿里云短信发送关联信息:sender_sms_aliyun --> 随机一条符合记录 -- 阿里云配置ID:aliyun_config_id --> 阿里云配置:setting.setting_key-ali-sms-config
+        阿里云配置:setting.setting_key-ali-sms-config --> 以上查找到记录,完成发送,并更改状态为成功
+        阿里云配置:setting.setting_key-ali-sms-config --> 以上查找到记录失败,取消发送,并更改状态为失败
     end
 ```

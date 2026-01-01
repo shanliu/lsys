@@ -7,8 +7,10 @@ use crate::{
         SenderType,
     },
 };
-
-use lsys_app_notify::dao::{Notify, NotifyData};
+use lsys_app::dao::AppNotifySender;
+use lsys_core::db::SqlQuote;
+use lsys_core::db::{ModelTableName, SqlExpr};
+use lsys_core::sql_format;
 use lsys_core::IntoFluentMessage;
 use lsys_lib_sms::{SendNotifyError, SendNotifyItem, SendNotifyStatus};
 use lsys_setting::{
@@ -17,36 +19,11 @@ use lsys_setting::{
 };
 use serde_json::json;
 use sqlx::Pool;
-use sqlx_model::SqlQuote;
-use sqlx_model::{sql_format, ModelTableName, Select, SqlExpr};
 use tracing::{info, warn};
-
-pub struct NotifySmsItem {
-    app_id: u64,
-    sms: SenderSmsMessageModel,
-}
-impl NotifyData for NotifySmsItem {
-    fn to_string(&self) -> String {
-        json!({
-            "id":self.sms.id,
-            "mobile":self.sms.mobile,
-            "area":self.sms.area,
-            "status":self.sms.status,
-            "receive_time":self.sms.receive_time,
-        })
-        .to_string()
-    }
-    fn method() -> String {
-        "sms_call".to_owned()
-    }
-    fn app_id(&self) -> &u64 {
-        &self.app_id
-    }
-}
 
 pub(crate) async fn add_notify_callback(
     db: &Pool<sqlx::MySql>,
-    notify: &Arc<Notify>,
+    notify_sender: &AppNotifySender,
     app_id: u64,
     sms_id: u64,
 ) {
@@ -54,9 +31,14 @@ pub(crate) async fn add_notify_callback(
         warn!("System SMS Ignore on sms id:{}", sms_id);
         return;
     }
-    let sms = match Select::type_new::<SenderSmsMessageModel>()
-        .fetch_one_by_scalar_pk::<SenderSmsMessageModel, _, _>(sms_id, db)
-        .await
+
+    let sms = match sqlx::query_as::<_, SenderSmsMessageModel>(&sql_format!(
+        "select * from {} where id={}",
+        SenderSmsMessageModel::table_name(),
+        sms_id
+    ))
+    .fetch_one(db)
+    .await
     {
         Ok(m) => m,
         Err(e) => {
@@ -64,7 +46,25 @@ pub(crate) async fn add_notify_callback(
             return;
         }
     };
-    if let Err(err) = notify.add_data(NotifySmsItem { app_id, sms }).await {
+    if let Err(err) = notify_sender
+        .send(
+            app_id,
+            &sms.snid.to_string(),
+            &json!({
+                "id":sms.id,
+                "mobile":sms.mobile,
+                "area":sms.area,
+                "status":sms.status,
+                "receive_time":sms.receive_time,
+            })
+            .to_string(),
+            // 3,
+            // AppNotifyTryTimeMode::Exponential,
+            // 60,
+            // false,
+        )
+        .await
+    {
         warn!(
             "add notify data fail:{}",
             err.to_fluent_message().default_format()
@@ -91,7 +91,7 @@ pub trait SmsSendNotifyParse {
         items: &[SendNotifyItem],
         msg: Vec<SenderSmsMessageModel>,
     ) -> Result<Vec<(Option<SenderSmsMessageModel>, SendNotifyItem)>, String> {
-        return Ok(items
+        Ok(items
             .iter()
             .map(|e| {
                 let tmp = msg
@@ -103,23 +103,23 @@ pub trait SmsSendNotifyParse {
                     .map(|t| t.to_owned());
                 (tmp, e.to_owned())
             })
-            .collect::<Vec<_>>());
+            .collect::<Vec<_>>())
     }
 }
 
 pub struct SmsSendNotify {
     db: Pool<sqlx::MySql>,
     message_logs: Arc<MessageLogs>,
-    notify: Arc<Notify>,
+    notify_sender: Arc<AppNotifySender>,
 }
 
 impl SmsSendNotify {
-    pub fn new(db: Pool<sqlx::MySql>, notify: Arc<Notify>) -> Self {
+    pub fn new(db: Pool<sqlx::MySql>, notify_sender: Arc<AppNotifySender>) -> Self {
         let message_logs = Arc::new(MessageLogs::new(db.clone(), SenderType::Smser));
         Self {
             db,
             message_logs,
-            notify,
+            notify_sender,
         }
     }
     //输出符合指定设配器的结果
@@ -155,13 +155,15 @@ impl SmsSendNotify {
             return Ok(());
         }
 
-        let msg_data = Select::type_new::<SenderSmsMessageModel>()
-            .fetch_all_by_where::<SenderSmsMessageModel, _>(
-                &sqlx_model::WhereOption::Where(sql_format!("res_data in ({})", send_id)),
-                &self.db,
-            )
-            .await
-            .map_err(|e| e.to_string())?;
+        let msg_data = sqlx::query_as::<_, SenderSmsMessageModel>(&sql_format!(
+            "select * from {} where res_data in ({})",
+            SenderSmsMessageModel::table_name(),
+            send_id
+        ))
+        .fetch_all(&self.db)
+        .await
+        .map_err(|e| e.to_string())?;
+
         let res = data.parse_data(&items, msg_data);
         match res {
             Ok(data) => {
@@ -170,12 +172,13 @@ impl SmsSendNotify {
                     .flat_map(|e| e.0.as_ref().map(|t| t.sender_body_id))
                     .collect::<Vec<_>>();
                 let bodys = if !findid.is_empty() {
-                    match Select::type_new::<SenderSmsBodyModel>()
-                        .fetch_all_by_where::<SenderSmsBodyModel, _>(
-                            &sqlx_model::WhereOption::Where(sql_format!("id in ({})", findid)),
-                            &self.db,
-                        )
-                        .await
+                    match sqlx::query_as::<_, SenderSmsBodyModel>(&sql_format!(
+                        "select * from {} where id in ({})",
+                        SenderSmsBodyModel::table_name(),
+                        findid
+                    ))
+                    .fetch_all(&self.db)
+                    .await
                     {
                         Ok(b) => b,
                         Err(e) => {
@@ -255,10 +258,15 @@ impl SmsSendNotify {
                                 Some(b) => {
                                     //正常解析的回调写日志跟进行回调通知
                                     self.message_logs
-                                        .add_exec_log(&b.app_id, &[(m.id, status, msg)], "")
+                                        .add_exec_log(b.app_id, &[(m.id, status, &msg)], "")
                                         .await;
-                                    add_notify_callback(&self.db, &self.notify, b.app_id, m.id)
-                                        .await;
+                                    add_notify_callback(
+                                        &self.db,
+                                        &self.notify_sender,
+                                        b.app_id,
+                                        m.id,
+                                    )
+                                    .await;
                                 }
                                 None => {
                                     warn!("body is miss. {:?} [{}]", m.id, msg);

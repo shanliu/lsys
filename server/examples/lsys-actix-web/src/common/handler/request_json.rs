@@ -6,19 +6,18 @@ use actix_web::dev::{JsonBody, Payload};
 use actix_web::FromRequest;
 use actix_web::HttpRequest;
 use futures_util::future::{FutureExt, LocalBoxFuture};
-use lsys_web::JsonData;
+use lsys_web::common::{JsonData, JsonResponse};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use tracing::debug;
-
-use crate::error::Error;
 
 #[derive(Debug)]
 pub struct JsonQuery(Value);
 
 impl JsonQuery {
-    pub fn param<T: DeserializeOwned>(&self) -> Result<T, JsonData> {
-        serde_json::value::from_value::<T>(self.0.clone()).map_err(JsonData::error)
+    pub fn param<T: DeserializeOwned>(&self) -> Result<T, JsonResponse> {
+        serde_json::value::from_value::<T>(self.0.clone())
+            .map_err(|err| JsonResponse::data(JsonData::error()).set_message(err))
     }
 }
 
@@ -38,7 +37,7 @@ impl FromRequest for JsonQuery {
             .limit(limit)
             .map(|res: Result<Value, _>| match res {
                 Ok(data) => Ok(JsonQuery(data)),
-                Err(e) => Err(Error::from(e)),
+                Err(e) => Err(actix_web::Error::from(e)),
             })
             .map(move |res| match res {
                 Ok(data) => Ok(data),
@@ -59,7 +58,8 @@ impl FromRequest for JsonQuery {
     }
 }
 
-type JsonConfigHandler = Option<Arc<dyn Fn(Error, &HttpRequest) -> actix_web::Error + Send + Sync>>;
+type JsonConfigHandler =
+    Option<Arc<dyn Fn(actix_web::Error, &HttpRequest) -> actix_web::Error + Send + Sync>>;
 
 #[derive(Clone)]
 pub struct JsonConfig {
@@ -80,7 +80,7 @@ impl JsonConfig {
     #[allow(dead_code)]
     pub fn error_handler<F>(mut self, f: F) -> Self
     where
-        F: Fn(Error, &HttpRequest) -> actix_web::Error + Send + Sync + 'static,
+        F: Fn(actix_web::Error, &HttpRequest) -> actix_web::Error + Send + Sync + 'static,
     {
         self.ehandler = Some(Arc::new(f));
         self

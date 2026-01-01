@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
 
-use lsys_app_notify::dao::Notify;
+use lsys_app::dao::AppNotifySender;
 use lsys_core::fluent_message;
 use lsys_core::now_time;
 use lsys_core::IntoFluentMessage;
@@ -11,12 +11,12 @@ use lsys_setting::dao::MultipleSetting;
 use lsys_lib_sms::SendNotifyStatus;
 use lsys_setting::model::SettingModel;
 
+use lsys_core::db::ModelTableName;
+use lsys_core::db::SqlQuote;
+use lsys_core::sql_format;
 use lsys_lib_sms::SendDetailItem;
 use redis::AsyncCommands;
 use sqlx::Pool;
-use sqlx_model::sql_format;
-use sqlx_model::ModelTableName;
-use sqlx_model::SqlQuote;
 use tracing::warn;
 
 use crate::dao::MessageLogs;
@@ -39,11 +39,11 @@ pub struct SmsStatusQuery {
 }
 
 impl SmsStatusQuery {
-    pub fn new(redis: deadpool_redis::Pool, notify_data_key: String, timeout: u64) -> Self {
+    pub fn new(redis: deadpool_redis::Pool, notify_data_key: &str, timeout: u64) -> Self {
         Self {
             redis,
             timeout,
-            notify_data_key,
+            notify_data_key: notify_data_key.to_string(),
         }
     }
 }
@@ -62,14 +62,18 @@ impl SmsStatusQuery {
             return Ok(());
         }
         let mut conn = self.redis.get().await?;
+<<<<<<< HEAD
         conn.sadd::<_, _, ()>(&self.notify_data_key, query_ids)
             .await?;
+=======
+        let _: () = conn.sadd(&self.notify_data_key, query_ids).await?;
+>>>>>>> dev
 
         Ok(())
     }
 }
 
-pub struct SmsStatusTaskItem(u64);
+pub struct SmsStatusTaskItem(pub u64);
 impl TaskItem<u64> for SmsStatusTaskItem {
     fn to_task_pk(&self) -> u64 {
         self.0
@@ -105,7 +109,7 @@ impl SmsStatusTaskAcquisition {
 #[async_trait]
 impl TaskAcquisition<u64, SmsStatusTaskItem> for SmsStatusTaskAcquisition {
     //复用父结构体方法实现
-    async fn read_send_task(
+    async fn read_exec_task(
         &self,
         tasking_record: &HashMap<u64, TaskData>,
         limit: usize,
@@ -157,14 +161,13 @@ impl TaskAcquisition<u64, SmsStatusTaskItem> for SmsStatusTaskAcquisition {
     }
 }
 
-#[derive(Clone)]
 pub struct SmsStatusTask {
     inner: Arc<Vec<Box<dyn SmsStatusTaskExecutor>>>,
     recrod: Arc<SmsRecord>,
     db: Pool<sqlx::MySql>,
     setting: Arc<MultipleSetting>,
     message_logs: Arc<MessageLogs>,
-    notify: Arc<Notify>,
+    notify_sender: Arc<AppNotifySender>,
 }
 
 impl SmsStatusTask {
@@ -172,7 +175,7 @@ impl SmsStatusTask {
         inner: Vec<Box<dyn SmsStatusTaskExecutor>>,
         recrod: Arc<SmsRecord>,
         db: Pool<sqlx::MySql>,
-        notify: Arc<Notify>,
+        notify_sender: Arc<AppNotifySender>,
         setting: Arc<MultipleSetting>,
         message_logs: Arc<MessageLogs>,
     ) -> Result<Self, SenderError> {
@@ -188,7 +191,7 @@ impl SmsStatusTask {
             db,
             setting,
             message_logs,
-            notify,
+            notify_sender,
         })
     }
 }
@@ -198,17 +201,17 @@ impl TaskExecutor<u64, SmsStatusTaskItem> for SmsStatusTask {
     async fn exec(&self, val: SmsStatusTaskItem) -> Result<(), String> {
         let sms = self
             .recrod
-            .find_message_by_id(&val.0)
+            .find_message_by_id(val.0)
             .await
             .map_err(|e| e.to_fluent_message().default_format())?;
 
         let body = self
             .recrod
-            .find_body_by_id(&sms.sender_body_id)
+            .find_body_by_id(sms.sender_body_id)
             .await
             .map_err(|e| e.to_fluent_message().default_format())?;
 
-        match self.setting.find(&None, &sms.setting_id).await {
+        match self.setting.find(None, sms.setting_id).await {
             Ok(setting) => {
                 for tmp in self.inner.iter() {
                     if tmp.setting_key() == setting.setting_key {
@@ -238,11 +241,11 @@ impl TaskExecutor<u64, SmsStatusTaskItem> for SmsStatusTask {
                                             }
                                             self.message_logs
                                                 .add_exec_log(
-                                                    &body.app_id,
+                                                    body.app_id,
                                                     &[(
                                                         sms.id,
                                                         SenderLogStatus::NotifySucc,
-                                                        ntmp.message.to_string(),
+                                                        &ntmp.message,
                                                     )],
                                                     &setting.setting_key,
                                                 )
@@ -273,11 +276,11 @@ impl TaskExecutor<u64, SmsStatusTaskItem> for SmsStatusTask {
 
                                             self.message_logs
                                                 .add_exec_log(
-                                                    &body.app_id,
+                                                    body.app_id,
                                                     &[(
                                                         sms.id,
                                                         SenderLogStatus::NotifyFail,
-                                                        ntmp.message.to_string(),
+                                                        &ntmp.message,
                                                     )],
                                                     &setting.setting_key,
                                                 )
@@ -286,7 +289,7 @@ impl TaskExecutor<u64, SmsStatusTaskItem> for SmsStatusTask {
                                     }
                                     add_notify_callback(
                                         &self.db,
-                                        &self.notify,
+                                        &self.notify_sender,
                                         body.app_id,
                                         sms.id,
                                     )

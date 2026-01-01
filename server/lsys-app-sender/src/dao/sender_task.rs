@@ -132,11 +132,12 @@ pub(crate) async fn group_exec<
     //获取任务消息可用的发送模板.
     let config = match tpl_config
         .list_config(
-            &None,
-            &None,
-            &Some(val.app_id()),
-            &Some(val.tpl_id()),
-            &None,
+            None,
+            None,
+            Some(val.app_id()),
+            Some(&val.tpl_id()),
+            None,
+            None,
         )
         .await
         .map_err(|e| e.to_fluent_message().default_format())
@@ -203,7 +204,7 @@ pub(crate) async fn group_exec<
     }
 
     if send_group.is_empty() {
-        let msg = format!("can't find any tpl config on tpl :{}", val.tpl_id());
+        let msg = format!("tpl id [{}] not found", val.tpl_id());
         acquisition
             .task_send_fail(val, &[], &SenderExecError::Next(msg.clone()), None)
             .await;

@@ -1,140 +1,89 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use lsys_core::{fluent_message, IntoFluentMessage};
-use lsys_user::dao::auth::{
-    SessionData, SessionToken, SessionTokenData, SessionUserData, UserAuthError, UserAuthResult,
-    UserSession,
+use lsys_access::dao::{
+    AccessError, AccessResult, AccessSession, AccessSessionData, AccessSessionToken, SessionBody,
 };
-use serde::{Deserialize, Serialize};
+use lsys_core::{fluent_message, IntoFluentMessage};
 
-use crate::model::AppsTokenModel;
+use crate::model::AppModel;
 
-use super::{AppDao, AppsError, AppsResult};
+use super::AppDao;
 
 //OAUTH 登录后产生标识
-#[derive(Clone, Debug)]
-pub struct RestAuthTokenData {
+#[derive(Clone, Debug, Default)]
+pub struct RestAuthToken {
     pub client_id: String,
     pub token: String,
 }
-impl SessionTokenData for RestAuthTokenData {}
+impl AccessSessionToken for RestAuthToken {}
+
+impl From<&RestAuthData> for RestAuthToken {
+    fn from(value: &RestAuthData) -> Self {
+        RestAuthToken {
+            client_id: value.app.client_id.to_owned(),
+            token: value.session.token_data().to_owned(),
+        }
+    }
+}
 
 //oauth 登录后数据
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RestAuthData {
-    session_data: SessionUserData,
-    pub token: AppsTokenModel,
+    app: AppModel,
+    session: SessionBody,
+}
+impl std::ops::Deref for RestAuthData {
+    type Target = SessionBody;
+    fn deref(&self) -> &SessionBody {
+        &self.session
+    }
+}
+impl AccessSessionData for RestAuthData {
+    fn session_body(&self) -> &SessionBody {
+        &self.session
+    }
 }
 
-impl SessionData for RestAuthData {
-    fn user_data(&self) -> &SessionUserData {
-        &self.session_data
-    }
-}
 impl RestAuthData {
-    pub fn new(session_data: SessionUserData, token: AppsTokenModel) -> Self {
-        Self {
-            session_data,
-            token,
-        }
-    }
-    pub fn check_scope(&self, scope: &str) -> AppsResult<()> {
-        let split = scope.split(',');
-        for sp in split {
-            if !self.token.scope.contains(sp) {
-                return Err(AppsError::ScopeNotFind(fluent_message!("app-bad-scope",{
-                    "scope":sp
-                })));
-            }
-        }
-        Ok(())
+    pub fn new(app: AppModel, session: SessionBody) -> Self {
+        Self { app, session }
     }
 }
 
 //oauth 登陆 session
 pub struct RestAuthSession {
     app: Arc<AppDao>,
-    user_token: SessionToken<RestAuthTokenData>,
+    user_token: RestAuthToken,
 }
 impl RestAuthSession {
-    pub fn new(app: Arc<AppDao>, user_token: SessionToken<RestAuthTokenData>) -> Self {
+    pub fn new(app: Arc<AppDao>, user_token: RestAuthToken) -> Self {
         Self { app, user_token }
-    }
-    fn token_result<'t>(
-        &self,
-        user_token: &'t SessionToken<RestAuthTokenData>,
-    ) -> UserAuthResult<&'t RestAuthTokenData> {
-        user_token.data().ok_or_else(|| {
-            UserAuthError::System(lsys_core::fluent_message!("auth-not-login")) //"user not login"
-        })
     }
 }
 
-// 实现 UserSession 调用方保持跟其他方式登录一致
-// 不同处理在此 UserSession 实现
+// 实现 AccessSession 调用方保持跟其他方式登录一致
+// 不同处理在此 AccessSession 实现
 #[async_trait]
-impl UserSession<RestAuthTokenData, RestAuthData> for RestAuthSession {
-    fn get_session_token(&self) -> &SessionToken<RestAuthTokenData> {
+impl AccessSession<RestAuthToken, RestAuthData> for RestAuthSession {
+    fn get_session_token(&self) -> &RestAuthToken {
         &self.user_token
     }
-    fn set_session_token(&mut self, token: SessionToken<RestAuthTokenData>) {
+    fn set_session_token(&mut self, token: RestAuthToken) {
         self.user_token = token
     }
-    async fn get_session_data(&self) -> UserAuthResult<RestAuthData> {
-        let token_data = self.token_result(&self.user_token)?;
+    async fn get_session_data(&self) -> AccessResult<RestAuthData> {
+        let app = self.app.rest_session_app(self).await?;
         let data = self
             .app
-            .app_oauth
-            .get_session_data(token_data)
+            .oauth_client
+            .get_session_data(&app, &self.user_token.token)
             .await
             .map_err(|e| {
-                UserAuthError::System(fluent_message!("user-session-get-error",{
-                    "client_id":&token_data.client_id,
+                AccessError::System(fluent_message!("app-session-get-error",{
+                    "client_id":&self.user_token.client_id,
                     "msg":e.to_fluent_message(),
                 }))
             })?;
         Ok(data)
-    }
-    async fn refresh_session(&mut self, reset_token: bool) -> UserAuthResult<RestAuthTokenData> {
-        let token_data = self.token_result(&self.user_token)?;
-        let app = self
-            .app
-            .app
-            .cache()
-            .find_by_client_id(&token_data.client_id)
-            .await
-            .map_err(|e| {
-                UserAuthError::System(fluent_message!("user-session-refresh-error",{
-                    "client_id":&token_data.client_id,
-                    "msg":e.to_fluent_message()
-                }))
-            })?;
-        let data = self
-            .app
-            .app_oauth
-            .refresh_session(&app, token_data, reset_token)
-            .await
-            .map_err(|e| {
-                UserAuthError::System(fluent_message!("user-session-refresh-error",{
-                    "client_id":&token_data.client_id,
-                    "msg":e.to_fluent_message()
-                }))
-            })?;
-        self.set_session_token(SessionToken::from(data.clone()));
-        Ok(data)
-    }
-    async fn clear_session(&mut self) -> UserAuthResult<()> {
-        self.app
-            .app_oauth
-            .clear_session(&self.user_token)
-            .await
-            .map_err(|e| {
-                UserAuthError::System(fluent_message!(
-                    "user-session-clear-error",
-                    e.to_fluent_message()
-                ))
-            })?;
-        Ok(())
     }
 }

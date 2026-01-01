@@ -1,11 +1,11 @@
 #![allow(dead_code)]
+use actix_http::header::{HeaderName, HeaderValue};
 use actix_utils::future::{ready, Ready};
 use actix_web::{
     dev::{Service, ServiceRequest, ServiceResponse, Transform},
     Error,
 };
 use futures_util::ready;
-use reqwest::header::{HeaderName, HeaderValue};
 use std::{
     future::Future,
     marker::PhantomData,
@@ -53,7 +53,7 @@ where
 {
     type Response = ServiceResponse<B>;
     type Error = Error;
-    type Future = DefaultHeaderFuture<S, B>;
+    type Future = RequestIDFuture<S, B>;
     actix_service::forward_ready!(service);
     fn call(&self, mut req: ServiceRequest) -> Self::Future {
         let mut req_id = String::from("");
@@ -61,14 +61,20 @@ where
             req_id = head_id.to_str().unwrap_or_default().to_string();
         }
         if req_id.is_empty() {
-            req_id = nanoid::nanoid!();
+            req_id = nanoid::nanoid!(
+                16,
+                &(b'0'..=b'9')
+                    .chain(b'a'..=b'z')
+                    .map(|c| c as char)
+                    .collect::<Vec<char>>()
+            );
             if let Ok(hval) = HeaderValue::from_str(req_id.as_str()) {
                 let name = HeaderName::from_static(self.name);
                 req.headers_mut().insert(name, hval);
             }
         }
         let fut = self.service.call(req);
-        DefaultHeaderFuture {
+        RequestIDFuture {
             fut,
             name: self.name,
             req_id,
@@ -78,7 +84,7 @@ where
 }
 
 #[pin_project::pin_project]
-pub struct DefaultHeaderFuture<S: Service<ServiceRequest>, B> {
+pub struct RequestIDFuture<S: Service<ServiceRequest>, B> {
     #[pin]
     fut: S::Future,
     name: &'static str,
@@ -86,7 +92,7 @@ pub struct DefaultHeaderFuture<S: Service<ServiceRequest>, B> {
     _body: PhantomData<B>,
 }
 
-impl<S, B> Future for DefaultHeaderFuture<S, B>
+impl<S, B> Future for RequestIDFuture<S, B>
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
 {

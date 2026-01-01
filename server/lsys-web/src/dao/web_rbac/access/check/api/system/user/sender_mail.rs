@@ -1,0 +1,135 @@
+use crate::dao::{CheckResTpl, RbacCheckAccess, RbacCheckResTpl};
+use lsys_rbac::dao::{AccessCheckOp, RbacAccess, RbacResult};
+
+use lsys_rbac::dao::AccessCheckEnv;
+use lsys_rbac::dao::AccessCheckRes;
+
+pub struct CheckUserAppSenderMailConfig {
+    pub res_user_id: u64,
+}
+#[async_trait::async_trait]
+impl RbacCheckAccess for CheckUserAppSenderMailConfig {
+    async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
+        access
+            .list_check(
+                check_env,
+                &[
+                    &[AccessCheckRes::system_empty_data(
+                        "global-user",
+                        vec![AccessCheckOp::new("sys-mail-config", false)],
+                    )],
+                    &[AccessCheckRes::system(
+                        "global-user",
+                        &self.res_user_id.to_string(),
+                        vec![AccessCheckOp::new(
+                            "sys-mail-config",
+                            self.res_user_id != check_env.user_id,
+                        )],
+                    )],
+                ],
+            )
+            .await
+    }
+}
+impl RbacCheckResTpl for CheckUserAppSenderMailConfig {
+    fn tpl_data() -> Vec<CheckResTpl> {
+        vec![
+            CheckResTpl {
+                user: false,
+                data: false,
+                key: "global-user",
+                ops: vec!["sys-mail-config"],
+            },
+            CheckResTpl {
+                user: false,
+                data: true,
+                key: "global-user",
+                ops: vec!["sys-mail-config"],
+            },
+        ]
+    }
+}
+
+pub struct CheckUserAppSenderMailView {
+    pub res_user_id: u64,
+}
+#[async_trait::async_trait]
+impl RbacCheckAccess for CheckUserAppSenderMailView {
+    async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
+        access
+            .list_check(
+                check_env,
+                &[
+                    &[AccessCheckRes::system_empty_data(
+                        "global-user",
+                        vec![AccessCheckOp::new("sys-mail-veiw", false)],
+                    )],
+                    &[AccessCheckRes::system(
+                        "global-user",
+                        &self.res_user_id.to_string(),
+                        vec![AccessCheckOp::new(
+                            "sys-mail-veiw",
+                            self.res_user_id != check_env.user_id,
+                        )],
+                    )],
+                ],
+            )
+            .await
+    }
+}
+impl RbacCheckResTpl for CheckUserAppSenderMailView {
+    fn tpl_data() -> Vec<CheckResTpl> {
+        vec![
+            CheckResTpl {
+                user: false,
+                data: false,
+                key: "global-user",
+                ops: vec!["sys-mail-view"],
+            },
+            CheckResTpl {
+                user: false,
+                data: true,
+                key: "global-user",
+                ops: vec!["sys-mail-view"],
+            },
+        ]
+    }
+}
+
+pub struct CheckUserAppSenderMailSend {
+    pub res_user_id: u64,
+}
+#[async_trait::async_trait]
+impl RbacCheckAccess for CheckUserAppSenderMailSend {
+    async fn check(&self, access: &RbacAccess, check_env: &AccessCheckEnv<'_>) -> RbacResult<()> {
+        access
+            .list_check(
+                check_env,
+                &[
+                    &[AccessCheckRes::system_empty_data(
+                        "global-user",
+                        vec![AccessCheckOp::new("app-mail-send", false)],
+                    )],
+                    &[AccessCheckRes::system(
+                        "global-user",
+                        &self.res_user_id.to_string(),
+                        vec![AccessCheckOp::new(
+                            "sys-mail-send",
+                            self.res_user_id != check_env.user_id,
+                        )],
+                    )],
+                ],
+            )
+            .await
+    }
+}
+impl RbacCheckResTpl for CheckUserAppSenderMailSend {
+    fn tpl_data() -> Vec<CheckResTpl> {
+        vec![CheckResTpl {
+            user: false,
+            data: false,
+            key: "global-user",
+            ops: vec!["sys-mail-send"],
+        }]
+    }
+}

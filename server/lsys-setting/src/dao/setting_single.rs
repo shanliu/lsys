@@ -1,18 +1,19 @@
 use crate::model::{SettingModel, SettingModelRef, SettingStatus, SettingType};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{now_time, RemoteNotify, RequestEnv};
-use lsys_logger::dao::ChangeLogger;
-use sqlx::{MySql, Pool, Transaction};
-use sqlx_model::SqlQuote;
-use sqlx_model::{
-    executor_option, model_option_set, sql_format, Insert, Select, Update, WhereOption,
+use lsys_core::db::{Insert, ModelTableName, SqlQuote, Update, WhereOption};
+use lsys_core::{
+    db_option_executor, model_option_set, sql_format, string_clear, valid_key, StringClear,
+    ValidParam, ValidParamCheck, ValidPattern, ValidStrlen, STRING_CLEAR_FORMAT,
 };
+use lsys_core::{now_time, RemoteNotify, RequestEnv};
+use lsys_logger::dao::ChangeLoggerDao;
+use sqlx::{MySql, Pool, Transaction};
 use std::sync::Arc;
 
 use super::{SettingData, SettingDecode, SettingEncode, SettingLog, SettingResult};
 pub struct SingleSetting {
     db: Pool<MySql>,
-    logger: Arc<ChangeLogger>,
+    logger: Arc<ChangeLoggerDao>,
     //fluent: Arc<FluentBuild>,
     pub(crate) cache: Arc<LocalCache<String, SettingModel>>,
 }
@@ -22,45 +23,75 @@ impl SingleSetting {
         db: Pool<MySql>,
         // _fluent: Arc<FluentBuild>,
         remote_notify: Arc<RemoteNotify>,
-        config:LocalCacheConfig,
-        logger: Arc<ChangeLogger>,
+        config: LocalCacheConfig,
+        logger: Arc<ChangeLoggerDao>,
     ) -> Self {
         Self {
-            cache:Arc::from(LocalCache::new(
-                remote_notify.clone(),
-                config,
-            )),
+            cache: Arc::from(LocalCache::new(remote_notify.clone(), config)),
             db,
             logger, //  fluent,
         }
     }
-    pub async fn save<'t, T: SettingEncode>(
+}
+pub struct SingleSettingData<'t, T: SettingEncode> {
+    pub name: &'t str,
+    pub data: &'t T,
+}
+impl SingleSetting {
+    async fn save_param_valid(&self, key: &str, name: &str, data: &str) -> SettingResult<()> {
+        ValidParam::default()
+            .add(
+                valid_key!("setting_key"),
+                &key,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Ident)
+                    .add_rule(ValidStrlen::range(1, 32)),
+            )
+            .add(
+                valid_key!("setting_name"),
+                &name,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 32)),
+            )
+            .add(
+                valid_key!("setting_data"),
+                &data,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::range(1, 60000)),
+            )
+            .check()?;
+        Ok(())
+    }
+    pub async fn save<T: SettingEncode>(
         &self,
-        user_id: &Option<u64>,
-        name: &str,
-        data: &T,
-        change_user_id: &u64,
-        transaction: Option<&mut Transaction<'t, sqlx::MySql>>,
+        user_id: Option<u64>,
+        param: &SingleSettingData<'_, T>,
+        change_user_id: u64,
+        transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
     ) -> SettingResult<u64> {
-        let name = name.to_owned();
-        let edata = data.encode();
+        let name = param.name.to_owned();
+        let edata = param.data.encode();
         let key = T::key().to_string();
+        self.save_param_valid(&key, &name, &edata).await?;
+
         let time = now_time().unwrap_or_default();
         let uid = user_id.unwrap_or_default();
         let change_user_id = change_user_id.to_owned();
-        let user_name_res = Select::type_new::<SettingModel>()
-            .fetch_one_by_where::<SettingModel, _>(
-                &WhereOption::Where(sql_format!(
-                    "setting_type={} and setting_key={} and user_id={} order by id desc",
-                    SettingType::Single,
-                    key,
-                    uid,
-                )),
-                &self.db,
-            )
-            .await;
-        let did = match user_name_res {
+
+        let tmp_res = sqlx::query_as::<_, SettingModel>(&sql_format!(
+            "select * from {} where setting_type={} and setting_key={} and user_id={} order by id desc",
+            SettingModel::table_name(),
+            SettingType::Single,
+            key,
+            uid,
+        ))
+        .fetch_one(&self.db)
+        .await;
+
+        let did = match tmp_res {
             Err(sqlx::Error::RowNotFound) => {
                 let setting_type = SettingType::Single as i8;
                 let status = SettingStatus::Enable as i8;
@@ -74,35 +105,38 @@ impl SingleSetting {
                     change_user_id: change_user_id,
                     change_time: time,
                 });
-                let dat = executor_option!(
+                let dat = db_option_executor!(
+                    db,
                     {
-                        Insert::<sqlx::MySql, SettingModel, _>::new(new_data)
-                            .execute(db)
+                        Insert::<SettingModel, _>::new(new_data)
+                            .execute(db.as_executor())
                             .await?
                     },
                     transaction,
-                    &self.db,
-                    db
+                    &self.db
                 );
                 self.cache.clear(&format!("{}-{}", key, uid)).await;
                 dat.last_insert_id()
             }
             Ok(set) => {
-                let change = sqlx_model::model_option_set!(SettingModelRef,{
+                let change = lsys_core::model_option_set!(SettingModelRef,{
                     setting_data: edata,
                     name:name,
                     change_user_id: change_user_id,
                     change_time: time,
                 });
-                executor_option!(
+                db_option_executor!(
+                    db,
                     {
-                        Update::<sqlx::MySql, SettingModel, _>::new(change)
-                            .execute_by_pk(&set, db)
+                        Update::<SettingModel, _>::new(change)
+                            .execute_by_where(
+                                &WhereOption::Where(sql_format!("id={}", set.id)),
+                                db.as_executor(),
+                            )
                             .await?;
                     },
                     transaction,
-                    &self.db,
-                    db
+                    &self.db
                 );
                 self.cache
                     .clear(&format!("{}-{}", set.setting_key, set.user_id))
@@ -115,37 +149,36 @@ impl SingleSetting {
             .add(
                 &SettingLog {
                     action: "single_save",
-                    setting_key: key,
+                    setting_key: &key,
                     setting_type: SettingType::Single,
-                    name,
-                    setting_data: edata,
+                    name: &name,
+                    user_id: uid,
+                    setting_data: &edata,
                 },
-                &Some(did),
-                &Some(uid),
-                &Some(change_user_id),
+                Some(did),
+                Some(change_user_id),
                 None,
                 env_data,
             )
             .await;
         Ok(did)
     }
-    pub async fn find(&self, user_id: &Option<u64>, key: &str) -> SettingResult<SettingModel> {
+    pub async fn find(&self, user_id: Option<u64>, key: &str) -> SettingResult<SettingModel> {
         let uid = user_id.unwrap_or_default();
-        Ok(Select::type_new::<SettingModel>()
-            .fetch_one_by_where::<SettingModel, _>(
-                &WhereOption::Where(sql_format!(
-                    "setting_type={} and setting_key={} and user_id={} order by id desc",
-                    SettingType::Single,
-                    key,
-                    uid,
-                )),
-                &self.db,
-            )
-            .await?)
+        let key = string_clear(key, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
+        Ok(sqlx::query_as::<_, SettingModel>(&sql_format!(
+            "select * from {} where setting_type={} and setting_key={} and user_id={} order by id desc",
+            SettingModel::table_name(),
+            SettingType::Single,
+            key,
+            uid,
+        ))
+        .fetch_one(&self.db)
+        .await?)
     }
     pub async fn load<T: SettingDecode>(
         &self,
-        user_id: &Option<u64>,
+        user_id: Option<u64>,
     ) -> SettingResult<SettingData<T>> {
         SettingData::try_from(self.find(user_id, T::key()).await?)
     }

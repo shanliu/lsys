@@ -1,13 +1,17 @@
+use lsys_core::db::lsys_model;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
-use sqlx_model::sqlx_model;
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(db_type = "MySql", table_name = "app")]
-pub struct AppsModel {
+#[lsys_model(table_name = "app")]
+pub struct AppModel {
     /// 用户ID
     #[sqlx(default)]
     pub id: u64,
+
+    //上一级APP ID
+    #[sqlx(default)]
+    pub parent_app_id: u64,
 
     /// 名称
     #[sqlx(default)]
@@ -17,17 +21,6 @@ pub struct AppsModel {
     #[sqlx(default)]
     pub client_id: String,
 
-    /// 秘钥
-    #[sqlx(default)]
-    pub client_secret: String,
-
-    /// oauth 秘钥
-    #[sqlx(default)]
-    pub oauth_secret: String,
-
-    #[sqlx(default)]
-    pub callback_domain: String,
-
     /// 状态
     #[sqlx(default)]
     pub status: i8,
@@ -36,112 +29,402 @@ pub struct AppsModel {
     #[sqlx(default)]
     pub user_id: u64,
 
-    /// 密码ID  default:  0
+    /// 添加用户的APP id
+    #[sqlx(default)]
+    pub user_app_id: u64,
+
+    /// 最后更新用户,审核,禁用时用户
     #[sqlx(default)]
     pub change_user_id: u64,
 
-    /// 添加时间
-    #[sqlx(default)]
-    pub change_time: u64,
-
-    /// 确认用户ID
-    #[sqlx(default)]
-    pub confirm_user_id: u64,
-
-    /// 确认时间
-    #[sqlx(default)]
-    pub confirm_time: u64,
-}
-
-#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(db_type = "MySql", table_name = "app_sub_user")]
-pub struct AppSubUserModel {
-    #[sqlx(default)]
-    pub id: u64,
-
-    /// app id
-    #[sqlx(default)]
-    pub app_id: u64,
-
-    /// sub app id
-    #[sqlx(default)]
-    pub user_id: u64,
-
-    /// 状态
-    #[sqlx(default)]
-    pub status: i8,
-
-    /// 确认时间时间
+    /// 最后更新用户,审核,禁用时时间
     #[sqlx(default)]
     pub change_time: u64,
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(db_type = "MySql", table_name = "app_sub_app")]
-pub struct AppSubAppsModel {
+#[lsys_model(table_name = "app_secret")]
+pub struct AppSecretModel {
+    /// 用户ID
     #[sqlx(default)]
     pub id: u64,
 
-    /// sub app id
-    #[sqlx(default)]
-    pub user_id: u64,
-
-    /// app id
+    //上一级APP ID
     #[sqlx(default)]
     pub app_id: u64,
 
-    /// app id
+    /// 名称
     #[sqlx(default)]
-    pub sub_app_id: u64,
+    pub secret_type: i8,
 
-    /// client_secret
+    /// 密钥数据
     #[sqlx(default)]
-    pub sub_client_secret: String,
-
-    /// 状态
-    #[sqlx(default)]
-    pub status: i8,
-
-    /// 确认时间时间
-    #[sqlx(default)]
-    pub change_time: u64,
-}
-
-#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[sqlx_model(db_type = "MySql", table_name = "app_oauth_token")]
-pub struct AppsTokenModel {
-    #[sqlx(default)]
-    pub id: u64,
-
-    /// app id
-    #[sqlx(default)]
-    pub app_id: u64,
-
-    /// 访问用户
-    #[sqlx(default)]
-    pub access_user_id: u64,
-
-    /// token
-    #[sqlx(default)]
-    pub code: String,
-
-    /// token
-    #[sqlx(default)]
-    pub token: String,
-
-    /// scope
-    #[sqlx(default)]
-    pub scope: String,
-
-    /// 状态
-    #[sqlx(default)]
-    pub status: i8,
-
-    /// 授权时间
-    #[sqlx(default)]
-    pub token_time: u64,
+    pub secret_data: String,
 
     /// 过期时间
     #[sqlx(default)]
-    pub timeout: u64,
+    pub time_out: u64,
+
+    /// 状态
+    #[sqlx(default)]
+    pub status: i8,
+
+    /// 最后更新用户,审核,禁用时用户
+    #[sqlx(default)]
+    pub add_user_id: u64,
+
+    /// 添加用户的APP id
+    #[sqlx(default)]
+    pub change_user_id: u64,
+
+    /// 最后更新时时间
+    #[sqlx(default)]
+    pub change_time: u64,
+}
+
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[lsys_model(table_name = "app_feature")]
+pub struct AppFeatureModel {
+    #[sqlx(default)]
+    pub id: u64,
+
+    /// app id
+    #[sqlx(default)]
+    pub app_id: u64,
+
+    /// client_secret
+    #[sqlx(default)]
+    pub feature_key: String,
+
+    /// 状态
+    #[sqlx(default)]
+    pub status: i8,
+
+    /// 最后更新用户,审核,禁用时用户
+    #[sqlx(default)]
+    pub change_user_id: u64,
+
+    /// 最后更新用户,审核,禁用时时间
+    #[sqlx(default)]
+    pub change_time: u64,
+}
+
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[lsys_model(table_name = "app_oauth_server_scope")]
+pub struct AppOAuthServerScopeModel {
+    #[sqlx(default)]
+    pub id: u64,
+
+    /// app id
+    #[sqlx(default)]
+    pub app_id: u64,
+
+    /// scope_key
+    #[sqlx(default)]
+    pub scope_key: String,
+
+    /// scope_name
+    #[sqlx(default)]
+    pub scope_name: String,
+
+    /// scope_desc
+    #[sqlx(default)]
+    pub scope_desc: String,
+
+    /// 状态
+    #[sqlx(default)]
+    pub status: i8,
+
+    /// 最后更新用户,审核,禁用时用户
+    #[sqlx(default)]
+    pub change_user_id: u64,
+
+    /// 最后更新用户,审核,禁用时时间
+    #[sqlx(default)]
+    pub change_time: u64,
+}
+
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[lsys_model(table_name = "app_request")]
+pub struct AppRequestModel {
+    #[sqlx(default)]
+    pub id: u64,
+
+    /// 冗余APP表parent_app_id 方便用于过滤数据
+    #[sqlx(default)]
+    pub parent_app_id: u64,
+
+    /// app id
+    #[sqlx(default)]
+    pub app_id: u64,
+
+    /// 请求类型
+    #[sqlx(default)]
+    pub request_type: i8,
+
+    /// 状态
+    #[sqlx(default)]
+    pub status: i8,
+
+    /// 请求用户
+    #[sqlx(default)]
+    pub request_user_id: u64,
+
+    /// 请求时间
+    #[sqlx(default)]
+    pub request_time: u64,
+
+    /// 审核用户
+    #[sqlx(default)]
+    pub confirm_user_id: u64,
+
+    /// 审核时间
+    #[sqlx(default)]
+    pub confirm_time: u64,
+
+    /// 审核消息
+    #[sqlx(default)]
+    pub confirm_note: String,
+}
+
+///应用申请OAUTH登录相关数据
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[lsys_model(table_name = "app_request_feature")]
+pub struct AppRequestFeatureModel {
+    #[sqlx(default)]
+    pub id: u64,
+
+    //请求ID
+    #[sqlx(default)]
+    pub app_request_id: u64,
+
+    /// feature_data 数据
+    #[sqlx(default)]
+    pub feature_data: String,
+}
+
+///应用申请OAUTH登录相关数据
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[lsys_model(table_name = "app_request_oauth_client")]
+pub struct AppRequestOAuthClientModel {
+    #[sqlx(default)]
+    pub id: u64,
+
+    //请求ID
+    #[sqlx(default)]
+    pub app_request_id: u64,
+
+    /// scope_data 数据
+    #[sqlx(default)]
+    pub scope_data: String,
+}
+
+/// 请求更改APP信息
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[lsys_model(table_name = "app_request_set_info")]
+pub struct AppRequestSetInfoModel {
+    #[sqlx(default)]
+    pub id: u64,
+
+    //请求ID
+    #[sqlx(default)]
+    pub app_request_id: u64,
+
+    /// 名称
+    #[sqlx(default)]
+    pub name: String,
+
+    /// client_id
+    #[sqlx(default)]
+    pub client_id: String,
+}
+
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[lsys_model(table_name = "app_notify_config")]
+pub struct AppNotifyConfigModel {
+    /// 用户ID
+    #[sqlx(default)]
+    pub id: u64,
+
+    /// 应用ID
+    #[sqlx(default)]
+    pub app_id: u64,
+
+    /// 应用用户ID,冗余
+    #[sqlx(default)]
+    pub app_user_id: u64,
+
+    /// 请求方法名
+    #[sqlx(default)]
+    pub notify_method: String,
+
+    /// 请求方法名
+    #[sqlx(default)]
+    pub call_url: String,
+
+    /// 用户ID 0 为系统角色
+    #[sqlx(default)]
+    pub change_user_id: u64,
+
+    /// 最後更新时间
+    #[sqlx(default)]
+    pub change_time: u64,
+
+    /// 创建时间
+    #[sqlx(default)]
+    pub create_time: u64,
+}
+
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[lsys_model(table_name = "app_notify_data")]
+pub struct AppNotifyDataModel {
+    /// 用户ID
+    #[sqlx(default)]
+    pub id: u64,
+
+    /// 应用ID
+    #[sqlx(default)]
+    pub app_id: u64,
+
+    //请求类型
+    #[sqlx(default)]
+    pub notify_type: u8,
+
+    /// 请求方法名
+    #[sqlx(default)]
+    pub notify_method: String,
+
+    /// 应用内部表示
+    #[sqlx(default)]
+    pub notify_key: String,
+
+    /// 请求JSON数据
+    #[sqlx(default)]
+    pub notify_payload: String,
+
+    /// 请求状态
+    #[sqlx(default)]
+    pub status: i8,
+
+    /// 请求结果
+    #[sqlx(default)]
+    pub result: String,
+
+    /// 请求次数
+    #[sqlx(default)]
+    pub try_max: u8,
+
+    /// 请求次数
+    #[sqlx(default)]
+    pub try_num: u8,
+
+    /// 回调时间计算方式
+    #[sqlx(default)]
+    pub try_mode: i8,
+
+    /// 回调时间基数
+    #[sqlx(default)]
+    pub try_delay: u16,
+
+    /// 最后推送时间
+    #[sqlx(default)]
+    pub publish_time: u64,
+
+    /// 下次推送时间
+    #[sqlx(default)]
+    pub next_time: u64,
+
+    /// 下次推送时间
+    #[sqlx(default)]
+    pub delete_time: u64,
+
+    /// 创建时间
+    #[sqlx(default)]
+    pub create_time: u64,
+}
+
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[lsys_model(table_name = "app_oauth_client")]
+pub struct AppOAuthClientModel {
+    #[sqlx(default)]
+    pub id: u64,
+
+    /// app id
+    #[sqlx(default)]
+    pub app_id: u64,
+
+    /// callback_domain
+    #[sqlx(default)]
+    pub callback_domain: String,
+
+    /// scope_data
+    #[sqlx(default)]
+    pub scope_data: String,
+
+    /// 最后更新用户,审核,禁用时用户
+    #[sqlx(default)]
+    pub change_user_id: u64,
+
+    /// 最后更新用户,审核,禁用时时间
+    #[sqlx(default)]
+    pub change_time: u64,
+}
+
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[lsys_model(table_name = "app_oauth_client_refresh_token")]
+pub struct AppOAuthClientRefreshTokenModel {
+    /// 用户ID
+    #[sqlx(default)]
+    pub id: u64,
+
+    /// 应用ID
+    #[sqlx(default)]
+    pub app_id: u64,
+
+    #[sqlx(default)]
+    pub refresh_token_data: String,
+
+    #[sqlx(default)]
+    pub code_data: String,
+
+    #[sqlx(default)]
+    pub source_code: String,
+
+    /// 状态
+    #[sqlx(default)]
+    pub status: i8,
+
+    /// 最后推送时间
+    #[sqlx(default)]
+    pub time_out: u64,
+
+    /// 时间
+    #[sqlx(default)]
+    pub delete_time: u64,
+
+    /// 创建时间
+    #[sqlx(default)]
+    pub add_time: u64,
+}
+
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
+#[lsys_model(table_name = "app_oauth_client_access")]
+pub struct AppOAuthClientAccessModel {
+    /// 用户ID
+    #[sqlx(default)]
+    pub id: u64,
+
+    /// 应用ID
+    #[sqlx(default)]
+    pub app_id: u64,
+
+    #[sqlx(default)]
+    pub access_token_data: String,
+
+    #[sqlx(default)]
+    pub refresh_token_data: String,
+
+    /// 创建时间
+    #[sqlx(default)]
+    pub add_time: u64,
 }

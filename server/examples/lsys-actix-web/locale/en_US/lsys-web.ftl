@@ -1,49 +1,91 @@
-mail-send-check = Mailbox address error:{$msg}
-mail-send-error = Failed to send mail:{$msg}
-mail-send-reply-check = Wrong e-mail reply address:{$msg}
-sms-send-check = Cell phone number error:{$msg}
- 
-user-external-oauth-error = Failed to load external login configuration:{$msg}
-user-external-login-url = Failed to load external login url:{$msg}
- 
-user-external-call = Failed to request external account information:{$msg}
-
-user-external-other-bind = Account {$name} is bound to another user:{$name}
-rbac-edit-role-bad-user = This role cannot add other users resources
-rbac-unkown-res = Resource {$res} does not exist
-rbac-bad-res-op = Resource operation id [{$op_id}] is not available
-mail-use-other-user-app = Illegal app send mailbox operation
-sms-use-other-user-app = Illegal to send sms from app
-address-miss-city = Please select an address at the county level.
- 
-address-bad-area = The submitted area code does not exist.
-mail-bind-other-user = Mailbox is bound to another account [{$other_user_id}].
- 
-rbac-check-fail = permission check failed
-db-not-found = Result does not exist
-db-error = database error:{$msg}
-
-user-old-passwrod-bad= The original password was submitted incorrectly.
-user-old-passwrod-empty= Please submit the original password.
-
-mail-is-confirm=The mailbox has been confirmed.
-
-email-bad-status=Mailbox does not exist.
-mobile-bad-status=Mobile phone number does not exist.
-
-external-not-support=The login type {$name} is not supported.
-
-username-is-exists=Account already exists: {$id}
-
-password-not-set=The login password is not set.
-
-client-secret-not-match=Secret does not match.
-
-
-app-redirect-uri-not-match= Jump domain [redirect_uri] not supported
-app-domain-not-config=Please configure the domain name in the backend.
-reg-mobile-registered=This cell phone number has already been registered.
-
-mobile-bind-other-user=Mobile is bound to another account:{$id}
-mobile-is-bind=The mailbox is bound to another account.
-
+mail-send-check = Email sending error: {$msg}
+user-external-login-url = Failed to load external account login URL: {$msg}
+user-external-call = Failed to request external account info: {$msg}
+user-external-other-bind = Account {$name} is already linked to another user: {$name}
+rbac-unkown-res    = Resource {$res} does not exist
+address-miss-city = Please select a district/county-level address
+address-bad-area = Submitted area code is invalid
+mail-bind-other-user = Email is already linked to another account [{$other_user_id}]
+db-not-found = No records: {$msg}
+db-error = Database error: {$msg}
+user-old-passwrod-bad = Submitted old password is incorrect
+user-old-passwrod-empty = Please enter old password
+mail-is-confirm = Email already verified
+username-is-exists = Account already exists: {$id}
+password-not-set = Login password not set
+client-secret-not-match = Secret key mismatch
+app-redirect-uri-not-match = Unsupported redirect URI [redirect_uri]
+reg-mobile-registered = Phone number already registered
+mobile-bind-other-user = Phone number is linked to another account: {$id}
+mobile-is-bind = Duplicate phone number link
+lsys-lib-area-error = Address library error: {$msg}
+lsys-lib-area-db = Address data error: {$msg}
+area-not-found = Address not found
+area-store-error = Address storage error: {$msg}
+area-tantivy-error = Address search error: {$msg}
+barcode-image-error = Barcode image error: {$msg}   
+lsys-rxing-error = Barcode parsing library error: {$msg}
+area-not-enable = Address library not enabled
+barcode-bad-format-error = Barcode format error {$msg}
+bad-session-data = Unsupported login data type
+auth-need-captcha = Please enter verification code for CODE login
+app-oauth-login-bad-scope = App lacks authorization: {$scope_data}
+not-system-app-confirm = Not a system app
+role-perm-bad-op = Invalid resource operation ID: {$op_id}
+role-perm-bad-res = Invalid resource ID: {$res_id}
+role-user-not-system-user = User {$user_name}[{$user_id}] is not a system user, belongs to app: {$app_id}
+role-user-not-found = User ID {$user_id} does not exist
+not-user-app-confirm = Not a user app
+app-is-subapp = This app is a sub-app
+barcode-add-status-error = Record status parsing error: {$msg}
+bad-audit-access = Unauthorized access to audit data
+barcode-parse-error = Parsing failed, record: {$record}
+bad-app-id = Illegal operation on non-own app  
+# RBAC Permissions
+res-admin-global-system = System backend permission
+res-op-admin-main = View system backend
+res-op-admin-view-app = View apps
+res-op-admin-edit-app = Edit apps
+res-op-admin-view-docs = View documentation config
+res-op-admin-edit-docs = Edit documentation config
+res-op-admin-view-rbac = View permission config
+res-op-admin-edit-rbac = Edit permission config
+res-op-admin-app-sms-config = SMS app configuration
+res-op-admin-app-sms-mgr = SMS app management
+res-op-admin-app-mail-config = Email app configuration
+res-op-admin-app-mail-mgr = Email app management
+res-op-admin-site-setting = Site configuration
+res-op-admin-manage-user = User management
+res-op-admin-see-change-log = View change logs
+res-admin-global-public = System public permission
+res-op-admin-register = User registration
+res-op-admin-login = User login
+res-admin-global-app = System app permission
+res-op-rest = App API access
+res-user-global-user = User global permission
+res-op-user-address-base = View user shipping addresses
+res-op-user-address-edit = Edit user shipping addresses
+res-op-user-email-base = View user email
+res-op-user-email-edit = Edit user email
+res-op-user-info-edit = Edit user info
+res-op-user-mobile-edit = Edit user phone number
+res-op-user-view-app = View apps
+res-op-user-edit-app = Edit apps
+res-op-user-view-barcode = View barcodes
+res-op-user-edit-barcode = Edit barcodes
+res-op-user-view-notify = View callback notifications
+res-op-user-rbac-check = User permission check
+res-op-user-rbac-edit = Edit user permissions
+res-op-user-app-mail-config = Configure user email apps
+res-op-user-app-mail-veiw = View user email apps
+res-op-user-app-mail-manage = Manage user email apps
+res-op-user-app-mail-send = Send user email app messages
+res-op-user-app-sms-config = Configure user SMS apps
+res-op-user-app-sms-view = View user SMS apps
+res-op-user-app-sms-manage = Manage user SMS apps
+res-op-user-app-sms-send = Send user SMS app messages
+# Validation Names
+valid-rule-name-area_code = Area code
+# Dictionaries 
+const-SMS_NOTIFY_METHOD = SMS send result callback
+const-SUB_APP_SECRET_NOTIFY_METHOD = Sub-app secret key change callback

@@ -1,5 +1,4 @@
-
-use rand::seq::SliceRandom;
+use rand::seq::IndexedRandom;
 use reqwest::Response;
 use reqwest::StatusCode;
 
@@ -8,7 +7,6 @@ use std::{
     time::{SystemTime, SystemTimeError},
 };
 use tracing::debug;
-
 
 #[derive(Debug)]
 pub enum SendError {
@@ -75,7 +73,7 @@ pub type BranchSendNotifyResult = Result<Vec<SendNotifyItem>, SendNotifyError>;
 
 pub(crate) fn rand_str(len: usize) -> String {
     let base_str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    let mut rng = &mut rand::thread_rng();
+    let mut rng = &mut rand::rng();
     String::from_utf8(
         base_str
             .as_bytes()

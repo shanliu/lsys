@@ -1,14 +1,14 @@
 use actix::MailboxError;
+use actix_http::StatusCode;
 use actix_web::{
     body::BoxBody,
     cookie::{time::Duration, Cookie},
     error::{BlockingError, PayloadError},
     HttpMessage, HttpRequest, HttpResponse, Responder, ResponseError,
 };
-use lsys_core::now_time;
-use lsys_user::dao::auth::{SessionToken, UserAuthTokenData};
-use lsys_web::JsonData;
-use reqwest::StatusCode;
+use lsys_web::common::{JsonData, JsonResponse};
+use lsys_web::lsys_core::now_time;
+use lsys_web::lsys_user::dao::UserAuthToken;
 use serde_json::to_string_pretty;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::{error::Error, ops::Deref};
@@ -18,19 +18,20 @@ use super::AUTH_COOKIE_NAME;
 
 #[derive(Debug, Clone)]
 pub struct ResponseJson {
-    inner: JsonData,
+    inner: JsonResponse,
 }
 
 pub type ResponseJsonResult<T> = Result<T, ResponseJson>;
 
 impl Deref for ResponseJson {
-    type Target = JsonData;
+    type Target = JsonResponse;
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
 }
-impl From<JsonData> for ResponseJson {
-    fn from(err: JsonData) -> Self {
+
+impl From<JsonResponse> for ResponseJson {
+    fn from(err: JsonResponse) -> Self {
         ResponseJson { inner: err }
     }
 }
@@ -40,25 +41,19 @@ impl Responder for ResponseJson {
     type Body = BoxBody;
     fn respond_to(self, req: &HttpRequest) -> HttpResponse {
         let mut res = HttpResponse::Ok().json(self.inner.to_value());
-        if let Some(token) = req.extensions().get::<SessionToken<UserAuthTokenData>>() {
-            if token.is_ok() {
-                if let Some(data) = token.data() {
-                    let now_t = now_time().unwrap_or_default();
-                    let age = if data.time_out > now_t {
-                        data.time_out - now_t
-                    } else {
-                        0
-                    };
-                    let cookie = Cookie::build(AUTH_COOKIE_NAME, data.to_string())
-                        //.domain("www.rust-lang.org")
-                        //.secure(true)
-                        .path("/")
-                        .max_age(Duration::seconds(age as i64))
-                        .http_only(true)
-                        .finish();
-                    if let Err(e) = res.add_cookie(&cookie) {
-                        warn!("auth add token fail:{}", e);
-                    }
+        if let Some(token) = req.extensions().get::<UserAuthToken>() {
+            if !token.token.is_empty() {
+                let now_t = now_time().unwrap_or_default();
+                let age = token.time_out.saturating_sub(now_t);
+                let cookie = Cookie::build(AUTH_COOKIE_NAME, token.token.clone())
+                    //.domain("www.rust-lang.org")
+                    //.secure(true)
+                    .path("/")
+                    .max_age(Duration::seconds(age as i64))
+                    .http_only(true)
+                    .finish();
+                if let Err(e) = res.add_cookie(&cookie) {
+                    warn!("auth add token fail:{}", e);
                 }
             }
         }
@@ -99,7 +94,9 @@ macro_rules! result_impl_system_error {
     ($err_type:ty) => {
         impl From<$err_type> for ResponseJson {
             fn from(err: $err_type) -> Self {
-                JsonData::message_error(err.to_string()).into()
+                JsonResponse::data(JsonData::error())
+                    .set_message(err)
+                    .into()
             }
         }
     };

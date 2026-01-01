@@ -14,6 +14,7 @@ fn sms_result_to_task(
                 .find(|e| e.mobile == item.mobile)
                 .map(|e| SenderTaskResultItem {
                     id: item.id,
+                    snid: item.snid,
                     status: match e.status {
                         SendStatus::Progress => SenderTaskStatus::Progress,
                         SendStatus::Completed => SenderTaskStatus::Completed,
@@ -24,6 +25,7 @@ fn sms_result_to_task(
                 })
                 .unwrap_or_else(|| SenderTaskResultItem {
                     id: item.id,
+                    snid: item.snid,
                     status: SenderTaskStatus::Failed(true),
                     message: "miss send".to_owned(),
                     send_id: "".to_owned(),

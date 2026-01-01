@@ -23,14 +23,17 @@ cp  -fr $script_dir/server/examples/lsys-actix-web/.env $script_dir/build || tru
 mkdir -p $script_dir/build/logs || true
 #
 cd $script_dir/ui/ 
-npm i  && npm run build 
+npm install -g pnpm
+pnpm i  && pnpm run build 
+cd $script_dir/docs/ 
+pnpm i  && pnpm run docs:build 
 cd $script_dir/
-cp -fr $script_dir/ui/public/ $script_dir/build/ui/ || true
+cp -fr $script_dir/ui/dist/ $script_dir/build/ui/ || true
 #
 if [ "$(uname)" = "Darwin" ]; then
-   sed -i '' "s|../../../ui/public/|./ui/|g" $script_dir/build/config/app.toml || true
+   sed -i '' "s|../../../ui/dist/|./ui/|g" $script_dir/build/config/app.toml || true
 else
-   sed -i "s|../../../ui/public/|./ui/|g" $script_dir/build/config/app.toml || true
+   sed -i "s|../../../ui/dist/|./ui/|g" $script_dir/build/config/app.toml || true
 fi
 
 

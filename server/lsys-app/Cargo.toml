@@ -4,37 +4,30 @@ version = "0.0.1"
 authors = ["liushan <shan.liu@msn.com>"]
 edition = "2021"
 
-
 [dependencies]
 lsys-core = { path = "../lsys-core" }
-lsys-user = { path = "../lsys-user" }     # OAUTH登录相关实现依赖
-lsys-logger = { path = "../lsys-logger" } #path 替换为 :,git = "https://github.com/shanliu/lsys"
+lsys-access = { path = "../lsys-access" } #完成OAUTH登录
+lsys-logger = { path = "../lsys-logger" }
 
 serde = { version = "1.0.*" }
 serde_json = "1.0.*"
 
-deadpool-redis = { version = "~0.13" }
-redis = { version = "~0.23" }
+deadpool-redis = { version = "~0.21.0" }
+redis = { version = "~0.31.0" }
 
-#db
-sqlx = { version = "~0.6.3", features = [
-    "mysql",
-    "runtime-tokio-native-tls",
-    "offline",
-] }
-sqlx-model = { version = "0.2.3", default-features = false, features = [
-    "sqlx-mysql",
-] }
+sqlx = { version = "~0.8.6", features = ["mysql", "runtime-tokio-native-tls"] }
 
-
-#日志
 tracing = { version = "0.1.*" } # log-always 保持log的输出 当使用tracing时会出现两次
 
 
 async-trait = "0.1.57"
 
-regex = "~1.10"
+
+md5 = "~0.8.0"
 
 
-# rand = "~0.8.0"
-md5 = "0.7.0"
+# notify 
+chrono = { version = "~0.4.31" }
+url = "2.5.0"
+reqwest = { version = "~0.12.9", features = ["stream"] }
+futures = "0.3"

@@ -18,4 +18,4 @@ sequenceDiagram
 
 > [main.go](main.go) 为内部服务实现,HTTP服务基于GIN
 
-> [rest_api_test.go](example_test.go) 为模拟外部调用此应用接口示例
+> [rest_api_test.go](rest_api_test.go) 为模拟外部调用此应用接口示例

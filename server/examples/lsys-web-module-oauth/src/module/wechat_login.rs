@@ -1,32 +1,19 @@
+use std::sync::Arc;
+
 use async_trait::async_trait;
 
-use lsys_core::{fluent_message, rand_str, IntoFluentMessage, RandType};
+use lsys_core::{fluent_message, rand_str, RandType};
 use lsys_web::{
-    dao::{user::WebUser, RequestDao},
-    module::oauth::{OauthCallbackParam, OauthLogin, OauthLoginData, OauthLoginParam},
-    JsonData, JsonResult,
+    common::{JsonError, JsonResponse, JsonResult, RequestDao},
+    dao::{OauthCallbackParam, OauthLogin, OauthLoginData, OauthLoginParam, WebDao},
 };
-// use rand::seq::SliceRandom;
-
 use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
 
-use super::{WeChatConfig, WeChatLib};
+use super::WeChatLib;
 
 pub const OAUTH_TYPE_WECHAT: &str = "wechat";
 
-// fn state_rand(len: usize) -> String {
-//     const BASE_STR: &str = "0123456789";
-//     let mut rng = &mut rand::thread_rng();
-//     String::from_utf8(
-//         BASE_STR
-//             .as_bytes()
-//             .choose_multiple(&mut rng, len)
-//             .cloned()
-//             .collect(),
-//     )
-//     .unwrap_or_default()
-// }
 fn state_key(state: &str) -> String {
     format!("wechat-{}", state)
 }
@@ -55,13 +42,15 @@ pub struct WechatLogin {
     timeout: usize,  //state保存时间
     timeskip: usize, //剩余多少秒时加载下一个二维码
     lib: WeChatLib,
+    web_dao: Arc<WebDao>,
 }
 
 impl WechatLogin {
-    pub fn new(app_id: String, app_secret: String, config: String) -> Self {
+    pub fn new(web_dao: Arc<WebDao>, app_id: &str, app_secret: &str, config: &str) -> Self {
         Self {
+            web_dao,
             lib: WeChatLib::new(app_id, app_secret, None),
-            config,
+            config: config.to_owned(),
             rand_length: 6,
             timeout: 60,
             timeskip: 20,
@@ -84,11 +73,12 @@ impl WechatLogin {
         &self,
         req_dao: &RequestDao,
         user_auth: &WechatCallbackParam,
-    ) -> JsonResult<JsonData> {
-        let (statek, _) = self.parse_state(&user_auth.state).map_err(|e| {
-            req_dao.fluent_json_data(fluent_message!("wechat-parse-state-error", e))
-        })?;
+    ) -> JsonResult<JsonResponse> {
+        let (statek, _) = self
+            .parse_state(&user_auth.state)
+            .map_err(|e| JsonError::Message(fluent_message!("wechat-parse-state-error", e)))?;
         let login_key = login_data_key(&statek);
+<<<<<<< HEAD
         let mut redis = req_dao
             .web_dao
             .user
@@ -103,6 +93,14 @@ impl WechatLogin {
             .await
             .map_err(|e| req_dao.fluent_json_data(e))?;
         Ok(JsonData::default())
+=======
+        let mut redis = req_dao.web_dao.redis.get().await?;
+        let login_data = serde_json::to_string(&user_auth)?;
+        let _: () = redis
+            .set_ex(&login_key, login_data, self.timeout as u64)
+            .await?;
+        Ok(JsonResponse::default())
+>>>>>>> dev
     }
     // pc定时从服务器获取登陆数据
     pub async fn state_check(
@@ -112,39 +110,25 @@ impl WechatLogin {
     ) -> JsonResult<(bool, Option<WechatCallbackParam>)> {
         let state_ukey = &state.chars().take(6).collect::<String>();
         let state_key = state_key(state_ukey);
-        let mut redis = req_dao
-            .web_dao
-            .user
-            .redis
-            .get()
-            .await
-            .map_err(|e| req_dao.fluent_json_data(e))?;
-        let data_opt: Option<String> = redis
-            .get(state_key.as_str())
-            .await
-            .map_err(|e| req_dao.fluent_json_data(e))?;
+        let mut redis = req_dao.web_dao.redis.get().await?;
+
+        let data_opt: Option<String> = redis.get(state_key.as_str()).await?;
+
         let data = data_opt.unwrap_or_default();
-        let ttl: usize = redis
-            .ttl(state_key.as_str())
-            .await
-            .map_err(|e| req_dao.fluent_json_data(e))?;
+        let ttl: usize = redis.ttl(state_key.as_str()).await?;
+
         let reload = data.is_empty() || self.timeout < ttl + self.timeskip;
         if !data.is_empty() {
             let login_key = login_data_key(state_ukey);
-            let data_opt: Option<String> = redis
-                .get(login_key.as_str())
-                .await
-                .map_err(|e| req_dao.fluent_json_data(e))?;
+            let data_opt: Option<String> = redis.get(login_key.as_str()).await?;
+
             let data = data_opt.unwrap_or_default();
             if data.is_empty() {
                 return Ok((false, None));
             }
             return Ok((
                 false,
-                Some(
-                    serde_json::from_str::<WechatCallbackParam>(&data)
-                        .map_err(|e| req_dao.fluent_json_data(e))?,
-                ),
+                Some(serde_json::from_str::<WechatCallbackParam>(&data)?),
             ));
         };
         Ok((reload, None))
@@ -153,32 +137,7 @@ impl WechatLogin {
 
 #[async_trait]
 impl OauthLogin<WechatLoginParam, WechatCallbackParam, WechatExternalData> for WechatLogin {
-    async fn load_config(webuser: &WebUser, key: &str) -> Result<Self, String>
-    where
-        Self: std::marker::Sized,
-    {
-        let config = webuser
-            .setting
-            .single
-            .load::<WeChatConfig>(&None)
-            .await
-            .map_err(|e| {
-                format!(
-                    "load wechat error:{}",
-                    e.to_fluent_message().default_format()
-                )
-            })?;
-        Ok(WechatLogin::new(
-            config.app_id.to_owned(),
-            config.app_secret.to_owned(),
-            key.to_owned(),
-        ))
-    }
-    async fn login_url(
-        &self,
-        webuser: &WebUser,
-        param: &WechatLoginParam,
-    ) -> Result<String, String> {
+    async fn login_url(&self, param: &WechatLoginParam) -> Result<String, String> {
         let state_ukey = &if param.state.is_empty() {
             rand_str(RandType::Number, self.rand_length)
         } else {
@@ -189,9 +148,15 @@ impl OauthLogin<WechatLoginParam, WechatCallbackParam, WechatExternalData> for W
         }
         let state_rand = rand_str(RandType::Number, self.rand_length);
         let state_key = state_key(state_ukey);
+<<<<<<< HEAD
         let mut redis = webuser.redis.get().await.map_err(|e| e.to_string())?;
         redis
             .set_ex::<_, _, ()>(state_key.as_str(), state_rand.clone(), self.timeout)
+=======
+        let mut redis = self.web_dao.redis.get().await.map_err(|e| e.to_string())?;
+        let _: () = redis
+            .set_ex(state_key.as_str(), state_rand.clone(), self.timeout as u64)
+>>>>>>> dev
             .await
             .map_err(|e| e.to_string())?;
         let url = self.lib.build_authorization_url(
@@ -202,12 +167,11 @@ impl OauthLogin<WechatLoginParam, WechatCallbackParam, WechatExternalData> for W
     }
     async fn login_callback(
         &self,
-        webuser: &WebUser,
         param: &WechatCallbackParam,
     ) -> Result<(OauthLoginData, WechatExternalData), String> {
         let (statek, state_rand) = self.parse_state(&param.state)?;
         let state_key = state_key(&statek);
-        let mut redis = webuser.redis.get().await.map_err(|e| e.to_string())?;
+        let mut redis = self.web_dao.redis.get().await.map_err(|e| e.to_string())?;
         let save_state_opt: Option<String> = redis
             .get(state_key.as_str())
             .await

@@ -6,9 +6,8 @@ use std::{
 use deadpool_redis::PoolError;
 use redis::RedisError;
 
-use crate::{fluent_message, FluentMessage, IntoFluentMessage};
+use crate::{fluent_message, FluentMessage, IntoFluentMessage, ValidError};
 #[derive(Debug)]
-//不匹配错误
 pub struct ValidCodeCheckError {
     pub message: FluentMessage,
     pub prefix: String,
@@ -19,8 +18,9 @@ pub enum ValidCodeError {
     Redis(RedisError),
     RedisPool(PoolError),
     Tag(FluentMessage),
-    DelayTimeout(ValidCodeCheckError),
     NotMatch(ValidCodeCheckError),
+    Valid(ValidError),
+    Serialize(serde_json::Error),
 }
 
 impl IntoFluentMessage for ValidCodeError {
@@ -30,17 +30,13 @@ impl IntoFluentMessage for ValidCodeError {
             ValidCodeError::Redis(err) => fluent_message!("redis-error", err),
             ValidCodeError::RedisPool(err) => fluent_message!("redis-error", err),
             ValidCodeError::Tag(err) => err.to_owned(),
-            ValidCodeError::DelayTimeout(err) => err.message.clone(),
             ValidCodeError::NotMatch(err) => err.message.clone(),
+            ValidCodeError::Valid(err) => err.to_fluent_message(),
+            ValidCodeError::Serialize(err) => fluent_message!("serialize-error", err),
         }
     }
 }
 
-// impl Display for ValidCodeError {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-//         write!(f, "{:?}", self)
-//     }
-// }
 impl From<FromUtf8Error> for ValidCodeError {
     fn from(err: FromUtf8Error) -> Self {
         ValidCodeError::Utf8Err(err)
@@ -56,3 +52,9 @@ impl From<PoolError> for ValidCodeError {
         ValidCodeError::RedisPool(err)
     }
 }
+impl From<ValidError> for ValidCodeError {
+    fn from(err: ValidError) -> Self {
+        ValidCodeError::Valid(err)
+    }
+}
+pub type ValidCodeResult<T> = Result<T, ValidCodeError>;

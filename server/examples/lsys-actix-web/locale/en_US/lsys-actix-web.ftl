@@ -1,0 +1,10 @@
+method-not-found = Request method {$path} not found
+jwt-encode-error = JWT generation error: {$msg}
+external-not-support = External login method: {$name} not supported
+barcode-file-dir-error = Failed to parse image - directory creation failed: {$msg}
+barcode-file-create-error = Failed to parse image - temporary file creation failed: {$msg}
+barcode-file-data-error = Failed to parse image - upload data read failed: {$msg}
+barcode-file-write-error = Failed to parse image - upload data write to temporary file failed: {$msg}
+barcode-seek-data-error = Failed to parse image - temporary file seek failed: {$msg}
+barcode-read-data-error = Failed to parse image - temporary file read failed: {$msg}
+barcode-format-error = Failed to parse image - unsupported format, details: {$msg}

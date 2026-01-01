@@ -1,25 +1,21 @@
 #[macro_use]
 mod macros;
 mod api;
-mod notify;
+mod demo;
 mod rest;
 mod web;
-use std::sync::Arc;
-
 use actix_service::ServiceFactory;
-use actix_web::{dev::ServiceRequest, web::to, App, Error};
+use actix_web::{dev::ServiceRequest, App, Error};
 use lsys_web::dao::WebDao;
-use web::index;
-pub(crate) use web::index::render_500;
+use std::sync::Arc;
+pub(crate) use web::system::render_500;
 
-pub(crate) fn router_main<T>(app: App<T>, app_dao: &Arc<WebDao>) -> App<T>
+pub(crate) fn router<T>(app: App<T>, app_dao: &Arc<WebDao>) -> App<T>
 where
     T: ServiceFactory<ServiceRequest, Config = (), Error = Error, InitError = ()>,
 {
+    let app = demo::router(app);
     let app = api::router(app);
     let app = rest::router(app);
-    let app = notify::router(app);
-    let app = web::router(app, app_dao);
-    let app = web::router_ui(app, app_dao);
-    app.default_service(to(index::render_404))
+    web::router(app, app_dao)
 }

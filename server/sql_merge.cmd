@@ -1,1 +1,2 @@
-powershell -Command "if (Test-Path 'tables.sql') { Remove-Item 'tables.sql' }; Get-ChildItem -Directory | ForEach-Object { Get-ChildItem -Path $_.FullName -Filter *.sql | ForEach-Object { Get-Content $_.FullName | Add-Content 'tables.sql'; Add-Content 'tables.sql' '' } }"
+@echo off
+powershell -Command "if (Test-Path 'tables.sql') { Remove-Item 'tables.sql' }; Get-ChildItem -Directory | ForEach-Object { Get-ChildItem -Path $_.FullName -Filter *.sql | ForEach-Object { Add-Content 'tables.sql'  ('-- ---------- ' + $_.FullName + ' ------------'); Get-Content $_.FullName | Add-Content 'tables.sql'; Add-Content 'tables.sql'  ('-- ---------- ' + $_.FullName + ' ------------') } }"

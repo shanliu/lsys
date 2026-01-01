@@ -9,7 +9,7 @@ set "build_dir=%crate_dir%build\"
 set "target_dir=%crate_dir%build\target\"
 
 
-echo off
+@echo off
 
 
 @REM "build init"

@@ -1,6 +1,6 @@
 
 @REM 当cargo 中启用 data-sqlite-source 时,下载sqlite源码
-echo off
+@echo off
 set "crate_dir=%~dp0"
 echo "clear old zip: %crate_dir%sqlite-amalgamation.zip" &&  del %crate_dir%sqlite-amalgamation.zip	
 echo "clear old dir: %crate_dir%sqlite-amalgamation" &&  rmdir /s /q %crate_dir%sqlite-amalgamation	

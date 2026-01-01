@@ -2,16 +2,14 @@ package lib
 
 import (
 	"encoding/json"
-	"io/ioutil"
-	"lsysrest/lsysrest"
-	"rest_client"
-	"sync"
+	"io"
+	"sub_app/app/service"
 	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
-// 基于GIN的 REST接口实现
+// 基于GIN的 LSYS REST接口实现
 
 // RestRequest 接口请求
 type RestRequest struct {
@@ -23,7 +21,7 @@ type RestRequest struct {
 	Token     string
 	Version   string
 	Timestamp time.Time
-	AppInfo   *rest_client.JsonData
+	AppInfo   *service.AppInfoResult
 }
 
 // JsonResponse 接口返回
@@ -98,72 +96,28 @@ func RestJsonResponse() *JsonResponse {
 	}
 }
 
-type appInfoItem struct {
-	appData *rest_client.JsonData
-	timeout time.Time
-}
-
-type appInfoCache struct {
-	appData map[string]*appInfoItem
-	lock    sync.RWMutex
-}
-
-var appInfoCacheData appInfoCache
-var appInfoCacheTime time.Duration
-
-func init() {
-	//app key 缓存时间
-	appInfoCacheTime = time.Second * 60
-	//app key 缓存数据
-	appInfoCacheData = appInfoCache{
-		appData: map[string]*appInfoItem{},
-		lock:    sync.RWMutex{},
-	}
-}
-
-// RestCheckSign 检查请求签名
-func RestCheckSign(ctx *gin.Context, restApi *lsysrest.RestApi) (*RestRequest, *JsonResponse) {
+// 这里实现一个跟 lsys 系统一样的签名验证
+// !!!!! 你完全可以根据自己实际需要,实现你的签名验证方式
+func RestCheckSign(ctx *gin.Context) (*RestRequest, *JsonResponse) {
 	param := map[string]string{
-		"app_id":    "",
+		"client_id": "",
 		"version":   "",
 		"timestamp": "",
 	}
 	sign, find := ctx.GetQuery("sign")
 	if !find {
-		return nil, RestJsonResponse().SetState("miss_sign").SetMessage("not find sign param")
+		return nil, RestJsonResponse().setCode("400").SetState("miss_sign").SetMessage("not find sign param")
 	}
 	for key := range param {
 		if value, find := ctx.GetQuery(key); find {
 			param[key] = value
 		} else {
-			return nil, RestJsonResponse().SetState("miss_param").SetMessage("request miss param:" + key)
+			return nil, RestJsonResponse().setCode("400").SetState("miss_param").SetMessage("request miss param:" + key)
 		}
 	}
 	timestamp, err := time.Parse("2006-01-02 15:04:05", param["timestamp"])
 	if err != nil {
-		return nil, RestJsonResponse().SetState("miss_param").SetMessage("request timestamp format error :" + err.Error())
-	}
-
-	var appInfo *rest_client.JsonData
-	appInfoCacheData.lock.RLock()
-	appId := param["app_id"]
-	if tmp, ok := appInfoCacheData.appData[appId]; ok {
-		if tmp.timeout.After(time.Now()) {
-			appInfo = tmp.appData
-		}
-	}
-	appInfoCacheData.lock.RUnlock()
-	if appInfo == nil {
-		appInfoCacheData.lock.Lock()
-		defer appInfoCacheData.lock.Unlock()
-		err, appInfo = restApi.SubAppInfo(ctx, param["app_id"])
-		if err != nil {
-			return nil, RestJsonResponse().SetState("app_error").SetMessage(err.Error())
-		}
-		appInfoCacheData.appData[appId] = &appInfoItem{
-			appData: appInfo,
-			timeout: time.Now().Add(appInfoCacheTime),
-		}
+		return nil, RestJsonResponse().setCode("400").SetState("miss_param").SetMessage("request timestamp format error :" + err.Error())
 	}
 	if token, find := ctx.GetQuery("token"); find {
 		param["token"] = token
@@ -183,9 +137,9 @@ func RestCheckSign(ctx *gin.Context, restApi *lsysrest.RestApi) (*RestRequest, *
 	requestId := ctx.Request.Header.Get("X-Request-ID")
 	var payload string
 	if ctx.Request.Header.Get("Content-type") == "application/json" {
-		data, err := ioutil.ReadAll(ctx.Request.Body)
+		data, err := io.ReadAll(ctx.Request.Body)
 		if err != nil {
-			return nil, RestJsonResponse().SetState("app_body_wrong").SetMessage(err.Error())
+			return nil, RestJsonResponse().setCode("400").SetState("app_body_wrong").SetMessage(err.Error())
 		} else {
 			payload = string(data)
 		}
@@ -194,28 +148,34 @@ func RestCheckSign(ctx *gin.Context, restApi *lsysrest.RestApi) (*RestRequest, *
 			payload = pl
 		}
 	}
-	secret := appInfo.Get("sub_secret").String()
-	if len(secret) == 0 {
-		return nil, RestJsonResponse().SetState("app_body_wrong").SetMessage("app secret is empty or not config")
+	appData, err := service.GetAppInfo(ctx, param["client_id"])
+	if err != nil {
+		return nil, RestJsonResponse().setCode("500").SetState("system_error").SetMessage(err.Error())
 	}
-	RSign := lsysrest.RestParamSign(
+	// 可以拿APP秘钥,自己实现一个签名方法
+	//一个APP可能会同时存在多个可用的 Secret
+	// for _, secretKey := range appData.GetSecretData() {
+	// 	//分别用 secretKey 参与你的签名验证,任意一个成功为成功
+	// }
+	//这里实现一个跟LSYS系统一致的签名验证方式,建议跟你的实际需要,自行实现
+	if appData.RestParamSignCheck(
 		param["version"],
-		param["app_id"],
+		param["client_id"],
 		param["method"],
 		param["timestamp"],
-		secret,
 		param["request_ip"],
 		param["token"],
-		payload)
-	if sign != RSign {
-		return nil, RestJsonResponse().SetState("app_error").SetMessage("your submit param sign wrong")
+		payload,
+		sign,
+	) {
+		return nil, RestJsonResponse().setCode("401").SetState("sign_error").SetMessage("your submit param sign wrong")
 	}
 	return &RestRequest{
 		RequestId: requestId,
 		RequestIp: param["request_ip"],
-		AppInfo:   appInfo,
+		AppInfo:   appData,
 		Method:    param["method"],
-		AppKey:    param["app_id"],
+		AppKey:    param["client_id"],
 		Timestamp: timestamp,
 		Content:   param["content"],
 		Token:     param["token"],
