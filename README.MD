@@ -20,6 +20,8 @@
 
 > Windows(64bit)系统下可以下载 lsys-for-windows.zip 跳过此编译过程
 
+> 修改ui访问配置 [ui/.env.production](ui/.env.production)  
+
 > windows
 ```
 .\build.cmd zip assets 
@@ -44,15 +46,9 @@ mysql -u your_username -p your_database < ./build/assets/tables.sql #导入到�
 > 修改服务器配置。
 
 ```
-./build/.env  # 配置文件
+./build/.env  # 后段服务配置
 ```
 
-
-> 修改UI访问后台服务地址
-
-```
-./build/ui/config.js # ui 使用内置HTTP服务无需修改,自行部署(如nginx)时指定,示例: "serverURL": "//lsys.cc/"
-```
 
 4. 启动服务
 
@@ -110,3 +106,4 @@ sequenceDiagram
     外部应用接入层-->>前端: 返回结果
     end
 ```
+
