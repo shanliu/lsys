@@ -1,7 +1,7 @@
 > 修改配置,设置服务域名等
 
 
-> [./src/shared/lib/config.ts](./src/shared/lib/config.ts)  
+> [.env.production](.env.production)  
 
 
 > 启动开发环境
