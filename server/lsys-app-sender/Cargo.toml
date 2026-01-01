@@ -27,12 +27,7 @@ redis = { version = "~0.31.0", features = [
 
 sqlx = { version = "~0.8.6", features = ["mysql", "runtime-tokio-native-tls"] }
 
-<<<<<<< HEAD
-# mail send
-lettre = { version = "0.10.4", features = [
-=======
 lettre = { version = "0.10.4", features = [ #0.11 not wroking on msvc 14.44
->>>>>>> dev
     "smtp-transport",
     "native-tls",
     "tokio1",

@@ -34,17 +34,10 @@ func (res *DomeApiClient) ConfigBuilds(_ context.Context) (map[int]rest_client.R
 
 func TestExampleClient(t *testing.T) {
 	client := rest_client.NewRestClientManager()
-<<<<<<< HEAD
-	//先 https://www.lsys.cc/app.html#/user/app 申请应用
-	// AppKey: 为应用的AppID
-	// AppSecret: 点击申请应用右边的 `关联应用授权` 图标, 找到需要 `被授权应用` -> 点击 `未设置授权+` 设置自定义 AppSecret
-	// 示例参见: https://www.lsys.cc/app.html#/user/app?client_id=afsd
-=======
 	//先 https://www.lsys.cc/app.html#/user/app 申请本系统的子应用
 	// AppKey: 为本系统的子应用的AppID
 	// AppSecret: 点击申请应用右边的 `关联应用授权` 图标, 找到需要 `被授权应用` -> 点击 `未设置授权+` 设置自定义 AppSecret
 	// 示例参见: https://www.lsys.cc/app.html#/user/app?client_id=Sapp00122
->>>>>>> dev
 	client.SetRestConfig(
 		&lsyslib.RestClientConfig{
 			Name:      "dome",

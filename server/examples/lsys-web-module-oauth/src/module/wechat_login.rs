@@ -78,29 +78,12 @@ impl WechatLogin {
             .parse_state(&user_auth.state)
             .map_err(|e| JsonError::Message(fluent_message!("wechat-parse-state-error", e)))?;
         let login_key = login_data_key(&statek);
-<<<<<<< HEAD
-        let mut redis = req_dao
-            .web_dao
-            .user
-            .redis
-            .get()
-            .await
-            .map_err(|e| req_dao.fluent_json_data(e))?;
-        let login_data =
-            serde_json::to_string(&user_auth).map_err(|e| req_dao.fluent_json_data(e))?;
-        redis
-            .set_ex::<_, _, ()>(&login_key, login_data, self.timeout)
-            .await
-            .map_err(|e| req_dao.fluent_json_data(e))?;
-        Ok(JsonData::default())
-=======
         let mut redis = req_dao.web_dao.redis.get().await?;
         let login_data = serde_json::to_string(&user_auth)?;
         let _: () = redis
             .set_ex(&login_key, login_data, self.timeout as u64)
             .await?;
         Ok(JsonResponse::default())
->>>>>>> dev
     }
     // pc定时从服务器获取登陆数据
     pub async fn state_check(
@@ -148,15 +131,9 @@ impl OauthLogin<WechatLoginParam, WechatCallbackParam, WechatExternalData> for W
         }
         let state_rand = rand_str(RandType::Number, self.rand_length);
         let state_key = state_key(state_ukey);
-<<<<<<< HEAD
-        let mut redis = webuser.redis.get().await.map_err(|e| e.to_string())?;
-        redis
-            .set_ex::<_, _, ()>(state_key.as_str(), state_rand.clone(), self.timeout)
-=======
         let mut redis = self.web_dao.redis.get().await.map_err(|e| e.to_string())?;
         let _: () = redis
             .set_ex(state_key.as_str(), state_rand.clone(), self.timeout as u64)
->>>>>>> dev
             .await
             .map_err(|e| e.to_string())?;
         let url = self.lib.build_authorization_url(

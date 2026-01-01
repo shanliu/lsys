@@ -9,18 +9,7 @@ import (
 // 邮件发送示例
 
 func TestMail(t *testing.T) {
-<<<<<<< HEAD
-	sysApi := lSysApi.NewRestApi(&lSysApi.RestApiConfig{
-		//应用在 https://www.lsys.cc/app.html#/user/app 申请
-		AppId:          "1212f",                            //应用ID
-		AppSecret:      "3f95638a1e07b87df2b64e09c2541dac", //应用Secret
-		AppHost:        "http://www.lsys.cc",               //应用HOST
-		AppOAuthSecret: "2a97bf1b4f075b0ca7467e7c6b223f89", //应用OauthSecret
-		AppOAuthHost:   "http://www.lsys.cc/oauth.html",
-	})
-=======
 	sysApi := GetRestApi()
->>>>>>> dev
 	//示例1
 	//邮件发送示例
 	for i := 0; i < 1000; i++ {

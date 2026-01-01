@@ -5,11 +5,7 @@ import (
 )
 
 // RestApiConfig 配置
-<<<<<<< HEAD:sdk/go/lsysrest/lsys_core.go
-type RestApiConfig struct {
-=======
 type LsysApiConfig struct {
->>>>>>> dev:sdk/go/lsyslib/lsys_api.go
 	//应用可在 https://www.lsys.cc/app.html#/user/app 申请
 	AppId     string //应用ID
 	AppHost   string //应用HOST

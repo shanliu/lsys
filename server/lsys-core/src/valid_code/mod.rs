@@ -87,58 +87,16 @@ pub trait ValidCodeData {
         code: Option<&'t str>, //上一次生成的校验码
         prefix: &'t str,
         tag: &'t str,
-<<<<<<< HEAD
-    ) -> ValidCodeResult<String> {
-        let duration_time = self.valid_code_time.duration_time;
-        let change_key = CODE_CHANGE_KEY.to_owned() + prefix + tag;
-        let change_code: Option<String> = redis.get(change_key.as_str()).await?;
-        let old_code = code.to_owned().unwrap_or_default();
-        let out_code =
-            if code.is_none() || old_code.is_empty() || change_code.unwrap_or_default() != old_code
-            {
-                self.create_code()?
-            } else {
-                old_code
-            };
-
-        if self.save_time() > 0 && duration_time > 0 {
-            let _: () = redis.set(change_key.as_str(), out_code.clone()).await?;
-            let _: () = redis
-                .expire(change_key.as_str(), duration_time as usize)
-                .await?;
-        }
-        Ok(out_code)
-    }
-
-    async fn clear_code<'t>(
-=======
     ) -> ValidCodeResult<String>;
     //销毁当前已生成的校验码
     async fn destroy_code<'t>(
->>>>>>> dev
         &mut self,
         redis: &'t mut Connection,
         prefix: &'t str,
         tag: &'t str,
-<<<<<<< HEAD
-    ) -> ValidCodeResult<()> {
-        let change_key = CODE_CHANGE_KEY.to_owned() + prefix + tag;
-        let _: () = redis.del(change_key).await?;
-        Ok(())
-    }
-
-    fn save_time(&self) -> usize {
-        if self.valid_code_time.save_time < self.valid_code_time.duration_time {
-            self.valid_code_time.duration_time as usize
-        } else {
-            self.valid_code_time.save_time as usize
-        }
-    }
-=======
     ) -> ValidCodeResult<()>;
     //当前校验码的有效时间
     fn save_time(&self) -> usize;
->>>>>>> dev
 }
 
 impl ValidCode {
@@ -164,38 +122,6 @@ impl ValidCode {
             &tag,
             out_code
         );
-<<<<<<< HEAD
-        if code.is_none() || out_code != code.unwrap_or_default() {
-            let _: () = redis.set(save_key.as_str(), out_code.clone()).await?;
-        }
-        let save_time = valid_code_builder.save_time();
-        if save_time > 0 {
-            let _: () = redis.expire(save_key.as_str(), save_time).await?;
-        }
-        Ok((out_code, save_time))
-    }
-    pub async fn delay_code<T: ValidCodeData>(
-        &self,
-        tag: &String,
-        valid_code_builder: &mut T,
-    ) -> ValidCodeResult<(String, usize)> {
-        let (code, llt) = self.get_code(tag).await?;
-        if code.is_empty() || llt <= 1 {
-            return Err(ValidCodeError::DelayTimeout(ValidCodeCheckError {
-                message: fluent_message!("valid-code-timeout"), //"code is timeout".to_string()
-                prefix: self.prefix.to_owned(),
-            }));
-        }
-        let save_time = valid_code_builder.save_time();
-        let save_key = CODE_SAVE_KEY.to_owned() + self.prefix.as_str() + tag;
-        let mut redis = self.redis.get().await?;
-        if save_time > 0 {
-            let _: () = redis.expire(save_key.as_str(), save_time).await?;
-        }
-        Ok((code, save_time))
-    }
-    pub async fn clear_code<T: ValidCodeData>(
-=======
 
         // 创建新的验证码信息结构
         let code_info = ValidCodeInfo {
@@ -215,7 +141,6 @@ impl ValidCode {
     }
     //销毁当前校验码
     pub async fn destroy_code<T: ValidCodeData>(
->>>>>>> dev
         &self,
         tag: &str,
         valid_code_builder: &mut T,
