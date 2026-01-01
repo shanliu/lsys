@@ -12,7 +12,7 @@ const (
 )
 
 func init() {
-	OAuthApiClientSetConfig(map[int]rest_client.RestBuild{
+	RestTokenApiClientSetConfig(map[int]rest_client.RestBuild{
 		UserInfo: &RestClientBuild{
 			Payload:    http.MethodPost,
 			HttpMethod: http.MethodPost,

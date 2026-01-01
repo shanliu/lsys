@@ -2,6 +2,7 @@ package router
 
 import (
 	"encoding/json"
+	"fmt"
 	"lsysrest/lsyslib"
 	"net/http"
 	"sub_app/app/service"
@@ -51,7 +52,7 @@ func OauthUserInfo(c *gin.Context) {
 	}
 	reload, find1 := c.GetQuery("reload")
 	if find1 && reload == "1" {
-		tmp, err := service.RefreshToken(data.AccessToken)
+		tmp, err := service.RefreshToken(data.RefreshToken)
 		if err != nil {
 			service.ErrorPage(c, err.Error())
 			return
@@ -67,7 +68,7 @@ func OauthUserInfo(c *gin.Context) {
 	}
 	user, err := service.GetUserData(data.AccessToken)
 	if err != nil {
-		service.ErrorPage(c, err.Error())
+		service.ErrorPage(c, fmt.Sprintf("err:[%T] %v", err, err))
 		return
 	}
 	expire, _ := data.ExpiresIn.Int64()

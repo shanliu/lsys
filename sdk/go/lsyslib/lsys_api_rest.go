@@ -245,7 +245,7 @@ func (clt *RestClientBuild) CheckJsonResult(body string) error {
 			msg = body
 
 		}
-		return NewRestClientError(code, gjson.Get(body, "result.state").String(), msg, gjson.Get(body, "response"))
+		return NewRestClientError(code, gjson.Get(body, "result.state").String(), fmt.Sprintf("api:%s", msg), gjson.Get(body, "response"))
 	}
 	return nil
 }

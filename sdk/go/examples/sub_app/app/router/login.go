@@ -37,7 +37,7 @@ func Login(c *gin.Context) {
 
 			//跳转到登录跳转页面
 			c.Redirect(301,
-				fmt.Sprintf("%s/app.html#/login/app?client_id=%s&code=%s",
+				fmt.Sprintf("%s/sign-in/app?client_id=%s&code=%s",
 					service.GetRestApi().Config().AppHost,
 					service.GetRestApi().Config().AppId,
 					data))
