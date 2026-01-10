@@ -35,6 +35,30 @@ func TestGetSubAppUser(t *testing.T) {
 
 }
 
+// 获取子应用OAuth登录已申请的SCOPE
+func TestGetSubAppOAuthScope(t *testing.T) {
+	sysApi := GetRestApi()
+
+	data1, err1 := sysApi.SubAppOAuthScope(context.Background(), "Sapp00122")
+	if err1 == nil {
+		fmt.Printf("oauth scope info :%s \n", data1)
+	} else {
+		fmt.Printf("err :%s \n", err1)
+	}
+}
+
+// 获取子应用OAuth登录信息及秘钥
+func TestGetSubAppOAuthSecret(t *testing.T) {
+	sysApi := GetRestApi()
+
+	data1, err1 := sysApi.SubAppOAuthSecret(context.Background(), "Sapp00122")
+	if err1 == nil {
+		fmt.Printf("oauth secret info :%s \n", data1)
+	} else {
+		fmt.Printf("err :%s \n", err1)
+	}
+}
+
 func TestAppLogin(t *testing.T) {
 	sysApi := GetRestApi()
 

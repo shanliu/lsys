@@ -108,6 +108,7 @@ func AppRbac(c *gin.Context) {
 				"",
 				&lsyslib.EmptyCheckRelation{}, //无任何关系用
 				&UserPageCheckRes{},           //资源定义,自定义实现
+				nil,
 			)
 		} else {
 			err = service.GetRestApi().RbacCheck(
@@ -115,6 +116,7 @@ func AppRbac(c *gin.Context) {
 				"100",
 				&UserPageCheckRelation{}, //自定义访问用户1跟访问资源的所属用户的关系
 				&UserPageCheckRes{},      //资源定义,自定义实现
+				nil,
 			)
 		}
 		if err == nil {

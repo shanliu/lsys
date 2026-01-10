@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net"
 	"net/http"
 	"net/url"
@@ -59,6 +60,19 @@ type RestClientBuild struct {
 	Payload    string        //接口参数传递方式,GET POST
 	Method     string        //接口方法
 
+}
+
+// MultipartFile 上传文件
+type MultipartFile struct {
+	FieldName string    // 字段名，如 "file"
+	FileName  string    // 文件名
+	Reader    io.Reader // 文件读取器，可以是 *os.File 等
+}
+
+// MultipartParam multipart请求参数
+type MultipartParam struct {
+	Payload interface{}     // payload参数，会序列化为JSON放到URL中
+	Files   []MultipartFile // 要上传的文件列表
 }
 
 // RestRequestId 新增请求header的x-request-id
@@ -128,18 +142,39 @@ func (clt *RestClientBuild) BuildRequest(ctx context.Context, client *rest_clien
 	appid := config.AppKey
 	keyConfig := config.AppSecret
 
+	// 判断是否为multipart请求
+	var isMultipart bool
+	var multipartParam *MultipartParam
 	var jsonData string
-	if param == nil {
-		jsonData = ""
-	} else {
-		jsonParam, err := json.Marshal(param)
-		if err != nil {
-			return rest_client.NewRestResultFromError(err, event)
+	var contentType string
+
+	if mp, ok := param.(*MultipartParam); ok {
+		isMultipart = true
+		multipartParam = mp
+		// multipart请求时，payload参数放到URL中
+		if mp.Payload == nil {
+			jsonData = ""
+		} else {
+			jsonParam, err := json.Marshal(mp.Payload)
+			if err != nil {
+				return rest_client.NewRestResultFromError(err, event)
+			}
+			jsonData = string(jsonParam)
 		}
-		jsonData = string(jsonParam)
-	}
-	if clt.Payload != http.MethodGet && len(jsonData) == 0 {
-		jsonData = "{}"
+	} else {
+		if param == nil {
+			jsonData = ""
+		} else {
+			jsonParam, err := json.Marshal(param)
+			if err != nil {
+				return rest_client.NewRestResultFromError(err, event)
+			}
+			jsonData = string(jsonParam)
+		}
+		if clt.Payload != http.MethodGet && len(jsonData) == 0 {
+			jsonData = "{}"
+		}
+		contentType = "application/json"
 	}
 
 	var token string
@@ -151,8 +186,8 @@ func (clt *RestClientBuild) BuildRequest(ctx context.Context, client *rest_clien
 		token = tokenTmp
 	}
 	var reqIp string
-	if rid, find := client.Api.(RestRequestId); find {
-		reqIp = rid.RequestId(ctx)
+	if rip, find := client.Api.(RestRequestIp); find {
+		reqIp = rip.RequestIp(ctx)
 	} else {
 		address, err := net.InterfaceAddrs()
 		if err == nil {
@@ -183,7 +218,7 @@ func (clt *RestClientBuild) BuildRequest(ctx context.Context, client *rest_clien
 	if len(reqIp) > 0 {
 		reqParam["request_ip"] = reqIp
 	}
-	if clt.Payload == http.MethodGet {
+	if clt.Payload == http.MethodGet || isMultipart {
 		if len(jsonData) > 0 {
 			reqParam["payload"] = jsonData
 		}
@@ -200,7 +235,30 @@ func (clt *RestClientBuild) BuildRequest(ctx context.Context, client *rest_clien
 		apiUrl += "&" + paramStr
 	}
 	var ioRead io.Reader
-	if clt.Payload != http.MethodGet {
+	if isMultipart {
+		// 使用 io.Pipe 实现流式上传，避免文件拷贝到内存
+		pr, pw := io.Pipe()
+		writer := multipart.NewWriter(pw)
+		contentType = writer.FormDataContentType()
+
+		// 启动 goroutine 写入 multipart 数据
+		go func() {
+			defer pw.Close()
+			defer writer.Close()
+			for _, file := range multipartParam.Files {
+				part, err := writer.CreateFormFile(file.FieldName, file.FileName)
+				if err != nil {
+					pw.CloseWithError(err)
+					return
+				}
+				if _, err := io.Copy(part, file.Reader); err != nil {
+					pw.CloseWithError(err)
+					return
+				}
+			}
+		}()
+		ioRead = pr
+	} else if clt.Payload != http.MethodGet {
 		ioRead = rest_client.NewRestRequestReader(strings.NewReader(jsonData), event)
 	}
 	event.RequestStart(clt.HttpMethod, apiUrl)
@@ -212,7 +270,9 @@ func (clt *RestClientBuild) BuildRequest(ctx context.Context, client *rest_clien
 		req.Header["X-Request-ID"] = []string{tmp}
 	}
 
-	if clt.Payload != http.MethodGet {
+	if isMultipart {
+		req.Header.Set("Content-Type", contentType)
+	} else if clt.Payload != http.MethodGet {
 		req.Header.Set("Content-Type", "application/json")
 	}
 	if err != nil {
