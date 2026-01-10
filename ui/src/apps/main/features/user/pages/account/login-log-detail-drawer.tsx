@@ -29,13 +29,15 @@ export function LoginLogDetailDrawer({
 }: LoginLogDetailDrawerProps) {
   if (!log) return null;
 
-  // 创建登录状态映射器
+  // 创建登录状态映射器（与主页面保持一致）
   const loginStatus = createStatusMapper(
     {
-      1: "success",
-      0: "danger",
+      0: "danger",    // 失败
+      1: "warning",   // 仅预登陆
+      2: "success",   // 成功
     },
-    (status) => (status === 1 ? "登录成功" : "登录失败"),
+    (status) =>
+      loginDictData.login_status?.getLabel(String(status)) || String(status),
   );
 
   return (

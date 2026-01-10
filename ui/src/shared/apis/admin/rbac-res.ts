@@ -1,7 +1,7 @@
 import { authApi } from "@shared/lib/apis/api_auth";
 import { cleanEmptyStringParams, parseResData } from "@shared/lib/apis/utils";
 import { ApiResult } from "@shared/types/apis-rest";
-import { BoolSchema, PageParam, PageRes, UnixTimestampSchema } from "@shared/types/base-schema";
+import { BoolSchema, PageParam, PageResSchema, UnixTimestampSchema } from "@shared/types/base-schema";
 import { AxiosRequestConfig } from "axios";
 import z from "zod";
 
@@ -17,7 +17,7 @@ export const ResourceAddParamSchema = z.object({
     /** 资源类型 */
     res_type: z.string().min(1, "资源类型不能为空"),
     /** 资源数据 */
-    res_data: z.string().min(1, "资源数据不能为空"),
+    res_data: z.string().optional(),
 });
 export type ResourceAddParamType = z.infer<typeof ResourceAddParamSchema>;
 
@@ -76,12 +76,16 @@ export const ResourceItemSchema = z.object({
     status: z.coerce.number().optional().nullable(),
     /** 用户ID */
     user_id: z.coerce.number(),
+    /** 关联操作数 */
+    op_count: z.coerce.number().nullish(),
+    /** 已授权权限数 */
+    perm_count: z.coerce.number().nullish(),
 });
 export type ResourceItemType = z.infer<typeof ResourceItemSchema>;
 
 export const ResourceListResSchema = z.object({
     data: z.array(ResourceItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type ResourceListResType = z.infer<typeof ResourceListResSchema>;
 
@@ -107,7 +111,7 @@ export const ResourceEditParamSchema = z.object({
     /** 资源类型 */
     res_type: z.string().min(1, "资源类型不能为空"),
     /** 资源数据 */
-    res_data: z.string().min(1, "资源数据不能为空"),
+    res_data: z.string().optional(),
 });
 export type ResourceEditParamType = z.infer<typeof ResourceEditParamSchema>;
 
@@ -164,7 +168,7 @@ export type ResourceTypeItemType = z.infer<typeof ResourceTypeItemSchema>;
 
 export const ResourceTypeDataResSchema = z.object({
     data: z.array(ResourceTypeItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type ResourceTypeDataResType = z.infer<typeof ResourceTypeDataResSchema>;
 
@@ -242,7 +246,7 @@ export type ResourceOpItemType = z.infer<typeof ResourceOpItemSchema>;
 
 export const ResourceTypeOpDataResSchema = z.object({
     data: z.array(ResourceOpItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type ResourceTypeOpDataResType = z.infer<typeof ResourceTypeOpDataResSchema>;
 
@@ -308,9 +312,23 @@ export const StaticResourceDataParamSchema = z.object({
 });
 export type StaticResourceDataParamType = z.infer<typeof StaticResourceDataParamSchema>;
 
+// 静态资源操作数据
+export const StaticResOpDataItemSchema = z.object({
+    key: z.string(),
+    name: z.string(),
+});
+export type StaticResOpDataItemType = z.infer<typeof StaticResOpDataItemSchema>;
+
+// 静态资源模板数据
+export const StaticResTplDataItemSchema = z.object({
+    op_data: z.array(StaticResOpDataItemSchema),
+    res_name: z.string(),
+    res_type: z.string(),
+});
+export type StaticResTplDataItemType = z.infer<typeof StaticResTplDataItemSchema>;
+
 export const StaticResourceDataResSchema = z.object({
-    data: z.array(ResourceItemSchema),
-    ...PageRes,
+    tpl_data: z.array(StaticResTplDataItemSchema),
 });
 export type StaticResourceDataResType = z.infer<typeof StaticResourceDataResSchema>;
 
@@ -336,7 +354,7 @@ export type DynamicResourceTypeParamType = z.infer<typeof DynamicResourceTypePar
 
 export const DynamicResourceTypeResSchema = z.object({
     data: z.array(ResourceTypeItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type DynamicResourceTypeResType = z.infer<typeof DynamicResourceTypeResSchema>;
 
@@ -364,7 +382,7 @@ export type DynamicResourceDataGlobalUserParamType = z.infer<typeof DynamicResou
 
 export const DynamicResourceDataGlobalUserResSchema = z.object({
     data: z.array(ResourceItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type DynamicResourceDataGlobalUserResType = z.infer<typeof DynamicResourceDataGlobalUserResSchema>;
 

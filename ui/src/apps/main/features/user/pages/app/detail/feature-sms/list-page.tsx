@@ -40,7 +40,7 @@ import {
   TIME_STYLE
 } from "@shared/lib/utils";
 import { createCopyWithToast } from "@shared/lib/utils/copy-utils";
-import { type LimitDataType } from "@shared/types/base-schema";
+import { type LimitType } from "@shared/types/base-schema";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { type ColumnDef } from "@tanstack/react-table";
@@ -144,7 +144,7 @@ function AppDetailFeatureSmsListContent({ dictData }: AppDetailFeatureSmsListCon
   };
 
   // 分页状态 - 直接从 URL 参数派生，无需 useState
-  const pagination: LimitDataType = {
+  const pagination: LimitType = {
     pos: filterParam.pos || null,
     limit: currentLimit,
     forward: filterParam.forward || false,

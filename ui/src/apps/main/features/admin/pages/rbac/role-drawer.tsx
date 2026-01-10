@@ -45,12 +45,15 @@ interface RoleDrawerProps {
   open: boolean
   /** 打开状态变化回调 */
   onOpenChange: (open: boolean) => void
+  /** 操作成功后的回调 */
+  onSuccess?: () => void
 }
 
 export function RoleDrawer({
   role,
   open,
   onOpenChange,
+  onSuccess,
 }: RoleDrawerProps) {
   const toast = useToast()
   const queryClient = useQueryClient()
@@ -97,6 +100,7 @@ export function RoleDrawer({
       if (!isEdit) {
         form.reset()
       }
+      onSuccess?.()
     },
     onError: (error: any) => {
       toast.error(formatServerError(error))
@@ -169,22 +173,31 @@ export function RoleDrawer({
             <FormField
               control={form.control}
               name="role_key"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>角色标识</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="输入角色标识"
-                      {...field}
-                      disabled={isEdit}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    角色的唯一标识，创建后不可修改
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
+              render={({ field }) => {
+                const userRange = form.watch('user_range')
+                const isRequired = !isEdit && userRange === 2
+                return (
+                  <FormItem>
+                    <FormLabel>
+                      角色标识
+                      {isRequired && <span className="text-destructive ml-1">*</span>}
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder={isRequired ? "输入角色标识（必填）" : "输入角色标识（可选）"}
+                        {...field}
+                        disabled={isEdit}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {isRequired 
+                        ? '会话角色必须填写标识，用于鉴权时识别，创建后不可修改'
+                        : '角色标识可选，创建后不可修改'}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )
+              }}
             />
 
             {/* 新增时才显示用户范围和资源范围 */}

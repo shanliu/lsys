@@ -2,7 +2,7 @@ import { authApi } from "@shared/lib/apis/api_auth";
 import { cleanEmptyStringParams, parseResData } from "@shared/lib/apis/utils";
 import { DictListSchema } from "@shared/types/apis-dict";
 import { ApiResult } from "@shared/types/apis-rest";
-import { BoolSchema, LimitParam, LimitRes, PageParam, PageRes, UnixTimestampSchema } from "@shared/types/base-schema";
+import { BoolSchema, LimitParam, LimitResSchema, PageParam, PageResSchema, UnixTimestampSchema } from "@shared/types/base-schema";
 import { AxiosRequestConfig } from "axios";
 import z from "zod";
 
@@ -72,7 +72,7 @@ export const userSenderMailerConfigList = async (
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<UserSenderMailerConfigListResType>> => {
     const { data } = await authApi().post('/api/user/app_sender/mailer/config_list', param, config);
-    return data;
+    return parseResData(data, UserSenderMailerConfigListResSchema);
 };
 
 // 125. 获取邮件发送状态映射
@@ -146,7 +146,7 @@ export type UserSenderMailerMessageItemType = z.infer<typeof UserSenderMailerMes
 
 export const UserSenderMailerMessageListResSchema = z.object({
     data: z.array(UserSenderMailerMessageItemSchema),
-    ...LimitRes,
+    ...LimitResSchema,
 });
 export type UserSenderMailerMessageListResType = z.infer<typeof UserSenderMailerMessageListResSchema>;
 
@@ -181,7 +181,7 @@ export type UserSenderMailerMessageLogItemType = z.infer<typeof UserSenderMailer
 
 export const UserSenderMailerMessageLogsResSchema = z.object({
     data: z.array(UserSenderMailerMessageLogItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type UserSenderMailerMessageLogsResType = z.infer<typeof UserSenderMailerMessageLogsResSchema>;
 
@@ -368,7 +368,7 @@ export type UserSenderMailerTplBodyItemType = z.infer<typeof UserSenderMailerTpl
 
 export const UserSenderMailerTplBodyListResSchema = z.object({
     data: z.array(UserSenderMailerTplBodyItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type UserSenderMailerTplBodyListResType = z.infer<typeof UserSenderMailerTplBodyListResSchema>;
 
@@ -433,7 +433,7 @@ export type UserSenderMailerTplConfigItemType = z.infer<typeof UserSenderMailerT
 
 export const UserSenderMailerTplConfigListResSchema = z.object({
     data: z.array(UserSenderMailerTplConfigItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type UserSenderMailerTplConfigListResType = z.infer<typeof UserSenderMailerTplConfigListResSchema>;
 

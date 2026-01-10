@@ -8,28 +8,24 @@ interface AutocompleteOption {
   label: string;
 }
 
-interface AutocompleteInputProps {
+interface AutocompleteInputProps
+  extends Omit<React.ComponentProps<typeof Input>, 'value' | 'onChange'> {
   value?: string;
   onChange?: (value: string) => void;
-  placeholder?: string;
   loading?: boolean;
   options?: string[] | AutocompleteOption[];
-  disabled?: boolean;
-  className?: string;
-  id?: string;
   filterOnInput?: boolean;
 }
 
 export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
   value = '',
   onChange,
-  placeholder,
   loading = false,
   options = [],
-  disabled = false,
-  className,
-  id,
   filterOnInput = true,
+  className,
+  disabled,
+  ...inputProps
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [filteredOptions, setFilteredOptions] = useState<AutocompleteOption[]>([]);
@@ -109,12 +105,11 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
       <div className="relative">
         <Input
           ref={inputRef}
-          id={id}
+          {...inputProps}
           value={value}
           onChange={handleInputChange}
           onClick={handleInputClick}
           onKeyDown={handleKeyDown}
-          placeholder={placeholder}
           disabled={disabled || (loading && !filterOnInput)}
           className={cn("pr-8")}
         />

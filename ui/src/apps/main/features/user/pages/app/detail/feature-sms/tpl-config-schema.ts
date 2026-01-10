@@ -52,7 +52,7 @@ export const TencentSmsConfigFormSchema = z.object({
     tpl_key: z.string().min(1, "模板Key不能为空"),
     config_id: z.coerce.number().min(1, "请选择腾讯云配置"),
     sign_name: z.string().min(1, "短信签名不能为空"),
-    template_id: z.coerce.number().min(1, "模板ID不能为空"),
+    template_id: z.string().min(1, "模板ID不能为空"),
     template_map: z.string().min(1, "模板参数映射不能为空"),
 });
 
@@ -64,7 +64,7 @@ export const HuaweiSmsConfigFormSchema = z.object({
     hw_config_id: z.coerce.number().min(1, "请选择华为云配置"),
     signature: z.string().min(1, "短信签名不能为空"),
     sender: z.string().min(1, "发送者不能为空"),
-    template_id: z.coerce.number().min(1, "模板ID不能为空"),
+    template_id: z.string().min(1, "模板ID不能为空"),
     template_map: z.string().min(1, "模板参数映射不能为空"),
 });
 

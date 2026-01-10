@@ -1,7 +1,7 @@
 import { authApi } from "@shared/lib/apis/api_auth";
 import { cleanEmptyStringParams, parseResData } from "@shared/lib/apis/utils";
 import { ApiResult } from "@shared/types/apis-rest";
-import { BoolSchema, PageParam, PageRes, UnixTimestampSchema } from "@shared/types/base-schema";
+import { BoolSchema, LimitParam, LimitResSchema, PageParam, PageResSchema, UnixTimestampSchema, UserDataResSchema } from "@shared/types/base-schema";
 import { AxiosRequestConfig } from "axios";
 import z from "zod";
 
@@ -18,8 +18,8 @@ export const RoleAddParamSchema = z.object({
     res_range: z.coerce.number().min(1).max(3),
     /** 角色名称 */
     role_name: z.string().min(1, "角色名称不能为空"),
-    /** 角色标识 */
-    role_key: z.string().min(1, "角色标识不能为空"),
+    /** 角色标识（会话角色时必填） */
+    role_key: z.string(),
 });
 export type RoleAddParamType = z.infer<typeof RoleAddParamSchema>;
 
@@ -82,8 +82,10 @@ export const RoleItemSchema = z.object({
     user_count: z.coerce.number().optional().nullable(),
     /** 资源数量 */
     res_count: z.coerce.number().optional().nullable(),
+    /** 资源数量 */
+    res_op_count: z.coerce.number().optional().nullable(),
     /** 用户数据 */
-    user_data: z.string().optional().nullable(),
+    user_data: UserDataResSchema.nullable(),
     /** 用户ID（系统级角色时可能不存在） */
     user_id: z.coerce.number().optional().nullable(),
     /** 用户范围: 1-指定用户, 2-任意用户 */
@@ -91,7 +93,7 @@ export const RoleItemSchema = z.object({
 });
 export const RoleListResSchema = z.object({
     data: z.array(RoleItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type RoleItemType = z.infer<typeof RoleItemSchema>;
 export type RoleListResType = z.infer<typeof RoleListResSchema>;
@@ -153,11 +155,9 @@ export async function roleDelete(
 
 // 可用用户列表
 export const RoleAvailableUserParamSchema = z.object({
-    /** 角色ID */
-    role_id: z.coerce.number().min(1, "角色ID必须大于0"),
     /** 搜索关键词 */
-    keyword: z.string().optional(),
-    ...PageParam,
+    user_data: z.string().optional(),
+    ...LimitParam,
 });
 export type RoleAvailableUserParamType = z.infer<typeof RoleAvailableUserParamSchema>;
 
@@ -167,7 +167,7 @@ export const UserItemSchema = z.object({
     /** 应用ID */
     app_id: z.string().optional(),
     /** 用户数据ID */
-    user_data: z.string().optional(),
+    user_data: z.string(),
     /** 用户名 */
     user_account: z.string(),
     /** 昵称 */
@@ -176,7 +176,7 @@ export const UserItemSchema = z.object({
 
 export const RoleAvailableUserResSchema = z.object({
     data: z.array(UserItemSchema),
-    ...PageRes,
+    ...LimitResSchema,
 });
 export type UserItemType = z.infer<typeof UserItemSchema>;
 export type RoleAvailableUserResType = z.infer<typeof RoleAvailableUserResSchema>;
@@ -189,7 +189,7 @@ export async function roleAvailableUser(
     param: RoleAvailableUserParamType,
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<RoleAvailableUserResType>> {
-    const cleanedParam = cleanEmptyStringParams(param, ['keyword']);
+    const cleanedParam = cleanEmptyStringParams(param, ['user_data']);
     const { data } = await authApi().post("/api/system/rbac/role/available_user", cleanedParam, config);
     return parseResData(data, RoleAvailableUserResSchema);
 }
@@ -217,17 +217,17 @@ export const RoleUserDataItemSchema = z.object({
     /** 超时时间 */
     timeout: z.coerce.number().optional(),
     /** 变更时间 */
-    change_time: z.string().optional(),
+    change_time: UnixTimestampSchema.optional(),
     /** 变更用户ID */
     change_user_id: z.coerce.number().optional(),
     /** 用户详细信息 */
-    user_data: UserItemSchema,
+    user_data: UserDataResSchema,
 });
 export type RoleUserDataItemType = z.infer<typeof RoleUserDataItemSchema>;
 
 export const RoleUserDataResSchema = z.object({
     data: z.array(RoleUserDataItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type RoleUserDataResType = z.infer<typeof RoleUserDataResSchema>;
 
@@ -324,14 +324,14 @@ export const PermissionItemSchema = z.object({
     /** 操作名称 */
     op_name: z.string().optional(),
     /** 变更时间 */
-    change_time: z.string().optional(),
+    change_time: UnixTimestampSchema.optional(),
     /** 变更用户ID */
     change_user_id: z.coerce.number().optional(),
 });
 
 export const RolePermDataResSchema = z.object({
     data: z.array(PermissionItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type PermissionItemType = z.infer<typeof PermissionItemSchema>;
 export type RolePermDataResType = z.infer<typeof RolePermDataResSchema>;

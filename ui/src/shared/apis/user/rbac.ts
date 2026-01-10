@@ -2,7 +2,7 @@ import { authApi } from "@shared/lib/apis/api_auth";
 import { cleanEmptyStringParams, parseResData } from "@shared/lib/apis/utils";
 import { DictListSchema } from "@shared/types/apis-dict";
 import { ApiResult } from "@shared/types/apis-rest";
-import { BoolParamSchema, BoolSchema, LimitParam, LimitRes, PageParam, PageRes, UnixTimestampSchema, UserDataRes } from "@shared/types/base-schema";
+import { BoolSchema, LimitParam, LimitResSchema, PageParam, PageResSchema, UnixTimestampSchema, UserDataResSchema } from "@shared/types/base-schema";
 import { AxiosRequestConfig } from "axios";
 import { z } from "zod";
 import { RoleAddParamSchema, RoleDeleteParamSchema, RoleEditParamSchema, RoleListParamSchema, RolePermDataParamSchema, RoleUserAddParamSchema, RoleUserDataParamSchema, RoleUserDeleteParamSchema } from "../admin/rbac-role";
@@ -58,13 +58,13 @@ export const AuditDataSchema = z.object({
         user_ip: z.string(),
     }),
     detail: z.array(AuditDetailItemSchema),
-    user:UserDataRes.nullable().optional(),
+    user: UserDataResSchema.nullable().optional(),
 });
 export type AuditDataType = z.infer<typeof AuditDataSchema>;
 
 export const AuditListResSchema = z.object({
     data: z.array(AuditDataSchema),
-    ...LimitRes,
+    ...LimitResSchema,
 });
 export type AuditListResType = z.infer<typeof AuditListResSchema>;
 
@@ -155,7 +155,7 @@ export const RoleDataSchema = z.object({
     role_name: z.string(),
     status: z.coerce.number(),
     user_count: z.coerce.number().optional().nullable(),
-    user_data: z.string().optional(),
+    user_data: UserDataResSchema.nullable().optional(),
     user_id: z.coerce.number(),
     user_range: z.coerce.number(),
 });
@@ -163,7 +163,7 @@ export type RoleDataType = z.infer<typeof RoleDataSchema>;
 
 export const RoleListResSchema = z.object({
     data: z.array(RoleDataSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type RoleListResType = z.infer<typeof RoleListResSchema>;
 
@@ -174,19 +174,9 @@ export const availableUserParamSchema = z.object({
 });
 export type AvailableUserParamType = z.infer<typeof availableUserParamSchema>;
 
-// 用户数据响应
-export const UserDataSchema = z.object({
-    app_id: z.coerce.number(),
-    id: z.coerce.number(),
-    user_account: z.string(),
-    user_data: z.string(),
-    user_nickname: z.string(),
-});
-export type UserDataType = z.infer<typeof UserDataSchema>;
-
 export const AvailableUserResSchema = z.object({
-    data: z.array(UserDataSchema),
-    ...LimitRes,
+    data: z.array(UserDataResSchema),
+    ...LimitResSchema,
 });
 export type AvailableUserResType = z.infer<typeof AvailableUserResSchema>;
 
@@ -245,14 +235,14 @@ export const RoleUserDataSchema = z.object({
     role_id: z.coerce.number(),
     status: z.coerce.number(),
     timeout: z.coerce.number(),
-    user_data: UserDataSchema,
+    user_data: UserDataResSchema.nullable(),
     user_id: z.coerce.number(),
 });
 export type RoleUserDataType = z.infer<typeof RoleUserDataSchema>;
 
 export const RoleUserDataResSchema = z.object({
     data: z.array(RoleUserDataSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type RoleUserDataResType = z.infer<typeof RoleUserDataResSchema>;
 
@@ -397,6 +387,7 @@ export const AppRbacAuditDataParamSchema = z.object({
     user_ip: z.string().optional(),
     device_id: z.string().optional(),
     request_id: z.string().optional(),
+    check_result: z.coerce.number().optional(),
     res_data: z.object({
         res_id: z.coerce.number(),
     }),
@@ -409,19 +400,19 @@ export const AppRbacAuditDetailItemSchema = z.object({
     add_time: UnixTimestampSchema,
     check_result: z.string(),
     id: z.coerce.number(),
-    is_role_all: z.string(),
-    is_role_excluce: z.string(),
-    is_role_include: z.string(),
-    is_root: z.string(),
-    is_self: z.string(),
+    is_role_all: z.string().optional(),
+    is_role_excluce: z.string().optional(),
+    is_role_include: z.string().optional(),
+    is_root: z.string().optional(),
+    is_self: z.string().optional(),
     op_id: z.coerce.number(),
     op_key: z.string(),
     rbac_audit_id: z.coerce.number(),
-    res_data: z.string(),
+    res_data: z.string().optional(),
     res_id: z.coerce.number(),
     res_type: z.string(),
     res_user_id: z.coerce.number(),
-    role_data: z.string(),
+    role_data: z.string().optional(),
 });
 export type AppRbacAuditDetailItemType = z.infer<typeof AppRbacAuditDetailItemSchema>;
 
@@ -441,13 +432,13 @@ export const AppRbacAuditDataItemSchema = z.object({
         user_ip: z.string(),
     }),
     detail: z.array(AppRbacAuditDetailItemSchema),
-    user:UserDataRes.nullable().optional(),
+    user: UserDataResSchema.nullable().optional(),
 });
 export type AppRbacAuditDataItemType = z.infer<typeof AppRbacAuditDataItemSchema>;
 
 export const AppRbacAuditDataResSchema = z.object({
     data: z.array(AppRbacAuditDataItemSchema),
-    ...LimitRes,
+    ...LimitResSchema,
 });
 export type AppRbacAuditDataResType = z.infer<typeof AppRbacAuditDataResSchema>;
 
@@ -456,6 +447,9 @@ export const appRbacBaseAuditData = async (
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<AppRbacAuditDataResType>> => {
     const { data } = await authApi().post('/api/user/app_rbac/base/audit_data', param, config);
+    if (data.response) {
+        data.response = AppRbacAuditDataResSchema.parse(data.response);
+    }
     return data;
 };
 
@@ -547,8 +541,8 @@ export const AppRbacOpListParamSchema = z.object({
     op_name: z.string().optional(),
     op_key: z.string().optional(),
     ids: z.array(z.coerce.number()).optional(),
-     res_type_count:BoolParamSchema.optional(),
-    check_role_use:BoolParamSchema.optional(),
+    res_type_count: BoolSchema.optional(),
+    check_role_use: BoolSchema.optional(),
     ...PageParam,
 });
 export type AppRbacOpListParamType = z.infer<typeof AppRbacOpListParamSchema>;
@@ -561,7 +555,7 @@ export const AppRbacOpDataItemSchema = z.object({
     id: z.coerce.number(),
     op_key: z.string(),
     op_name: z.string(),
-    is_role_use: BoolParamSchema.optional(),
+    is_role_use: BoolSchema.optional(),
     res_type_count: z.coerce.number().optional(),
 });
 export type AppRbacOpDataItemType = z.infer<typeof AppRbacOpDataItemSchema>;
@@ -667,9 +661,9 @@ export const AppRbacRoleDataItemSchema = z.object({
     id: z.coerce.number(),
     role_name: z.string(),
     role_key: z.string(),
-    app_id: z.coerce.number(),
-    use_app_user: z.boolean(),
-    user_param: z.string(),
+    app_id: z.coerce.number().optional().nullable(),
+    use_app_user: z.boolean().optional(),
+    user_param: z.string().optional(),
     user_range: z.coerce.number(),
     res_range: z.coerce.number(),
     user_count: z.coerce.number().optional().nullable(),
@@ -680,7 +674,7 @@ export type AppRbacRoleDataItemType = z.infer<typeof AppRbacRoleDataItemSchema>;
 
 export const AppRbacRoleListResSchema = z.object({
     data: z.array(AppRbacRoleDataItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type AppRbacRoleListResType = z.infer<typeof AppRbacRoleListResSchema>;
 
@@ -690,7 +684,7 @@ export const appRbacRoleList = async (
 ): Promise<ApiResult<AppRbacRoleListResType>> => {
     const cleanedParam = cleanEmptyStringParams(param, ['role_name', 'role_key', 'user_data', 'user_param']);
     const { data } = await authApi().post('/api/user/app_rbac/role/list', cleanedParam, config);
-    return data;
+    return parseResData(data, AppRbacRoleListResSchema);
 };
 
 // 103. APP RBAC资源添加
@@ -779,7 +773,7 @@ export const AppRbacResDataItemSchema = z.object({
     use_app_user: z.boolean().optional(),
     user_param: z.string().optional(),
     user_id: z.string().optional(),
-    user_data: UserDataSchema.optional(),
+    user_data: UserDataResSchema.optional(),
     change_time: UnixTimestampSchema.optional(),
     op_count: z.coerce.number().nullish(),
     perm_count: z.coerce.number().nullish(),
@@ -789,7 +783,7 @@ export type AppRbacResDataItemType = z.infer<typeof AppRbacResDataItemSchema>;
 export const AppRbacResListResSchema = z.object({
     data: z.array(AppRbacResDataItemSchema),
     count: z.string().nullish(),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type AppRbacResListResType = z.infer<typeof AppRbacResListResSchema>;
 
@@ -799,7 +793,7 @@ export const appRbacResList = async (
 ): Promise<ApiResult<AppRbacResListResType>> => {
     const cleanedParam = cleanEmptyStringParams(param, ['res_type', 'res_data', 'res_name', 'user_param']);
     const { data } = await authApi().post('/api/user/app_rbac/res/list', cleanedParam, config);
-    return data;
+    return parseResData(data, AppRbacResListResSchema);
 };
 
 // 107. APP RBAC资源类型数据
@@ -821,7 +815,7 @@ export type AppRbacResTypeDataItemType = z.infer<typeof AppRbacResTypeDataItemSc
 
 export const AppRbacResTypeDataResSchema = z.object({
     data: z.array(AppRbacResTypeDataItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type AppRbacResTypeDataResType = z.infer<typeof AppRbacResTypeDataResSchema>;
 
@@ -867,7 +861,7 @@ export type AppRbacResTypeOpDataParamType = z.infer<typeof AppRbacResTypeOpDataP
 // APP资源类型操作数据项中的操作数据
 export const AppRbacResTypeOpDataOpSchema = z.object({
     app_id: z.string(),
-    change_time: z.string(),
+    change_time: UnixTimestampSchema.optional(),
     change_user_id: z.string(),
     id: z.coerce.number(),
     op_key: z.string(),
@@ -879,7 +873,7 @@ export const AppRbacResTypeOpDataOpSchema = z.object({
 // APP资源类型操作数据项中的关联关系数据
 export const AppRbacResTypeOpDataResSchema = z.object({
     app_id: z.string(),
-    change_time: z.string(),
+    change_time: UnixTimestampSchema.optional(),
     change_user_id: z.string(),
     id: z.coerce.number(),
     op_id: z.string(),
@@ -897,7 +891,7 @@ export type AppRbacResTypeOpDataItemType = z.infer<typeof AppRbacResTypeOpDataIt
 
 export const AppRbacResTypeOpDataListResSchema = z.object({
     data: z.array(AppRbacResTypeOpDataItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type AppRbacResTypeOpDataListResType = z.infer<typeof AppRbacResTypeOpDataListResSchema>;
 
@@ -906,7 +900,7 @@ export const appRbacResTypeOpData = async (
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<AppRbacResTypeOpDataListResType>> => {
     const { data } = await authApi().post('/api/user/app_rbac/res/type_op_data', param, config);
-    return data;
+    return parseResData(data, AppRbacResTypeOpDataListResSchema);
 };
 
 // 110. APP RBAC资源类型操作删除
@@ -948,7 +942,7 @@ export type AppRbacRoleAvailableUserDataItemType = z.infer<typeof AppRbacRoleAva
 
 export const AppRbacRoleAvailableUserResSchema = z.object({
     data: z.array(AppRbacRoleAvailableUserDataItemSchema),
-    ...LimitRes,
+    ...LimitResSchema,
 });
 export type AppRbacRoleAvailableUserResType = z.infer<typeof AppRbacRoleAvailableUserResSchema>;
 
@@ -957,7 +951,7 @@ export const appRbacRoleAvailableUser = async (
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<AppRbacRoleAvailableUserResType>> => {
     const { data } = await authApi().post('/api/user/app_rbac/role/available_user', param, config);
-    return data;
+    return parseResData(data, AppRbacRoleAvailableUserResSchema);
 };
 
 // APP角色权限数据项
@@ -1008,7 +1002,7 @@ export type AppRbacRolePermDataResItemType = z.infer<typeof AppRbacRolePermDataR
 
 export const AppRbacRolePermDataResSchema = z.object({
     data: z.array(AppRbacRolePermDataResItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type AppRbacRolePermDataResType = z.infer<typeof AppRbacRolePermDataResSchema>;
 
@@ -1017,7 +1011,7 @@ export const appRbacRolePermData = async (
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<AppRbacRolePermDataResType>> => {
     const { data } = await authApi().post('/api/user/app_rbac/role/perm_data', param, config);
-    return data;
+    return parseResData(data, AppRbacRolePermDataResSchema);
 };
 
 // 118. APP RBAC角色权限删除
@@ -1087,7 +1081,7 @@ export type AppRbacRoleUserDataResItemType = z.infer<typeof AppRbacRoleUserDataR
 
 export const AppRbacRoleUserDataResSchema = z.object({
     data: z.array(AppRbacRoleUserDataResItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type AppRbacRoleUserDataResType = z.infer<typeof AppRbacRoleUserDataResSchema>;
 
@@ -1096,7 +1090,7 @@ export const appRbacRoleUserData = async (
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<AppRbacRoleUserDataResType>> => {
     const { data } = await authApi().post('/api/user/app_rbac/role/user_data', param, config);
-    return data;
+    return parseResData(data, AppRbacRoleUserDataResSchema);
 };
 
 // 121. APP RBAC角色用户删除

@@ -117,6 +117,17 @@ export function HomePage() {
                             SDK示例
                         </button>
                     </div>
+
+                    <div className="qr-block" aria-label="二维码">
+                        <img
+                            className="qr-image"
+                            src="https://www.lsys.cc/barcode/base64/1/aHR0cHM6Ly9sc3lzLmNjLw=="
+                            alt="手机浏览二维码"
+                            loading="lazy"
+                        />
+                        <div className="qr-caption">手机扫码浏览</div>
+                    </div>
+
                     {/* Signature */}
                     <div className="signature">
                         DESIGNED_BY::GEMINI 3
@@ -141,7 +152,7 @@ if (!rootElement) {
     document.body.appendChild(rootElement)
 }
 
-if (rootElement && !rootElement.innerHTML) {
+if (rootElement) {
     const root = ReactDOM.createRoot(rootElement)
     root.render(
         <StrictMode>

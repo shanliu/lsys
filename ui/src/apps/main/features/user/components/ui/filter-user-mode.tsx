@@ -159,7 +159,7 @@ export function FilterUserMode({
             enableDoubleClickPaste={true}
             showClearButton={true}
             disabled={disabled}
-            className="w-40 h-10 text-base"
+            className="w-[8.5rem] h-10 text-base"
           />
         </div>
       )}

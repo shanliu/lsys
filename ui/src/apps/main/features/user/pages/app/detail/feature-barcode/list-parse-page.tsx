@@ -171,6 +171,7 @@ function BarcodeParseRecordContent({ dictData }: BarcodeParseRecordContentProps)
     mutationFn: (id: number) => userBarcodeParseRecordDelete({ id }),
     onSuccess: () => {
       toast.success("解析记录删除成功");
+      countNumManager.reset();
       queryClient.invalidateQueries({ queryKey: ["barcode-parse-record-list", appId] });
     },
     onError: (error: any) => {

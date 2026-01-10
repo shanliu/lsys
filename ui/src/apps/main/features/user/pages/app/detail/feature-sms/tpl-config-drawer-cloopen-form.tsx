@@ -71,7 +71,12 @@ export function TplConfigDrawerCloopenForm({ form }: TplConfigDrawerCloopenFormP
                     <FormItem>
                         <FormLabel>容联云短信模板ID</FormLabel>
                         <FormControl>
-                            <Input placeholder="123456" {...field} />
+                            <Input
+                                placeholder="如: tpl-001"
+                                {...field}
+                                value={field.value ?? ""}
+                                onChange={(e) => field.onChange(e.target.value)}
+                            />
                         </FormControl>
                         <FormMessage />
                     </FormItem>

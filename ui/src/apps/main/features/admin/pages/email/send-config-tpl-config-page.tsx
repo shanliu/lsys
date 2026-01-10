@@ -38,7 +38,6 @@ import { EmailSendConfigTplConfigDetailDrawer } from "./send-config-tpl-config-d
 import { EmailSendConfigTplConfigDrawer } from "./send-config-tpl-config-drawer";
 import {
   EmailSendConfigTplConfigFilterFormSchema,
-  EmailSendConfigTplConfigFilterParamSchema,
   EmailSendConfigTplConfigFilterParamType
 } from "./send-config-tpl-config-schema";
 import { EmailSendConfigNavContainer } from "@apps/main/features/admin/components/ui/email-send-config-nav";
@@ -110,6 +109,7 @@ export function EmailSendConfigTplConfigPage() {
     mutationFn: (id: number) => systemSenderMailerTplConfigDelete({ tpl_config_id: id }),
     onSuccess: () => {
       toast.success("配置删除成功");
+      countNumManager.reset();
       queryClient.invalidateQueries({ queryKey: ["admin-tpl-config-list"] });
     },
     onError: (error: any) => {

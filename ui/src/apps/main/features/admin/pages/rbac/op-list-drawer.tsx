@@ -127,6 +127,7 @@ export function OpListDrawer({
     mutationFn: (opId: number) => opDelete({ op_id: opId }),
     onSuccess: () => {
       toast.success('操作删除成功')
+      countNumManager.reset()
       queryClient.invalidateQueries({ queryKey: ['admin-rbac-op-list'] })
     },
     onError: (error: any) => {
@@ -181,14 +182,14 @@ export function OpListDrawer({
         <code className="text-sm bg-muted px-1.5 py-0.5 rounded">{getValue()}</code>
       ),
     },
-    ...(!isMobile ? [{
+    {
       accessorKey: 'res_type_count',
       header: '已关联资源类型',
       size: 120,
       cell: ({ getValue }: any) => {
         const count = getValue()
         return count !== undefined ? (
-          <Badge variant="secondary" className="text-xs font-normal">{count}</Badge>
+          <Badge variant="secondary" className="text-xs font-normal">{count}个</Badge>
         ) : '-'
       },
     },
@@ -204,7 +205,7 @@ export function OpListDrawer({
           </Badge>
         ) : '-'
       },
-    }] : []),
+    },
     {
       id: 'actions',
       header: () => <div className={cn(isMobile ? '' : 'text-center')}>操作</div>,
@@ -224,7 +225,7 @@ export function OpListDrawer({
                 <span className="ml-2">编辑</span>
               </Button>
             </DataTableActionItem>
-            <DataTableActionItem mobileDisplay="collapsed" desktopDisplay="collapsed">
+            <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
               <ConfirmDialog
                 title="删除操作"
                 description={`确定要删除操作「${op.op_name}」吗？删除后无法恢复。`}
@@ -251,7 +252,7 @@ export function OpListDrawer({
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className={cn('overflow-hidden flex flex-col p-0 md:w-[900px]')} showCloseButton={false}>
-        <DrawerHeader className="px-6 pt-6">
+        <DrawerHeader className="pt-4 md:pt-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <DrawerTitle className="flex items-center gap-2">
@@ -269,7 +270,7 @@ export function OpListDrawer({
           </div>
         </DrawerHeader>
 
-        <div className="flex-1 overflow-hidden flex flex-col px-6 pb-6">
+        <div className="flex-1 overflow-hidden flex flex-col pb-4 md:pb-6">
           {/* 过滤器 */}
           <div className="flex-shrink-0 mt-4 mb-3">
             <FilterContainer
@@ -361,6 +362,7 @@ export function OpListDrawer({
               onClose={() => setIsFormOpen(false)}
               onSuccess={() => {
                 setIsFormOpen(false)
+                countNumManager.reset()
                 queryClient.invalidateQueries({ queryKey: ['admin-rbac-op-list'] })
               }}
             />
@@ -425,14 +427,14 @@ function OpForm({ op, onClose, onSuccess }: OpFormProps) {
   return (
     <Drawer open={true} onOpenChange={(open) => !open && onClose()}>
       <DrawerContent className={cn('flex flex-col md:w-[480px]')} showCloseButton={false}>
-        <DrawerHeader className="px-6 pt-6 pb-4">
+        <DrawerHeader className="px-4 pt-4 pb-3 md:px-6 md:pt-6 md:pb-4">
           <DrawerTitle>{isEdit ? '编辑操作' : '新增操作'}</DrawerTitle>
           <DrawerDescription>
             {isEdit ? '修改操作权限信息' : '添加新的操作权限'}
           </DrawerDescription>
         </DrawerHeader>
 
-        <div className="flex-1 overflow-y-auto px-6 pb-6">
+        <div className="flex-1 overflow-y-auto px-4 pb-4 md:px-6 md:pb-6">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField

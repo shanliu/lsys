@@ -1,4 +1,3 @@
-import { useAuthRedirect } from '@apps/main/hooks/use-auth-redirect'
 import {
   RegisterSmsParamSchema,
   RegisterSmsParamType,
@@ -21,14 +20,14 @@ import { useToast } from '@shared/contexts/toast-context'
 import { cn, formatServerError } from '@shared/lib/utils'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { Loader2, Mail } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 
 export default function SignUpSmsPage() {
   const toast = useToast();
-  const handleAuthRedirect = useAuthRedirect();
+  const navigate = useNavigate();
 
   const [sendCodeCaptcha, setSendCodeCaptcha] = useState<CaptchaData>({
     code: '',
@@ -92,7 +91,7 @@ export default function SignUpSmsPage() {
       const res = await registerSms(data);
       if (res.status) {
         toast.success("注册成功");
-        handleAuthRedirect();
+        navigate({ to: '/sign-in/sms' });
       }
       return res;
     },

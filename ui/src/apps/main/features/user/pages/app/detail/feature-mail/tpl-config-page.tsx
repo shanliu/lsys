@@ -176,6 +176,7 @@ function AppDetailFeatureMailTplConfigContent({ dictData }: AppDetailFeatureMail
     mutationFn: (id: number) => userSenderMailerTplConfigDel({ tpl_config_id: id }),
     onSuccess: () => {
       toast.success("配置删除成功");
+      countNumManager.reset();
       queryClient.invalidateQueries({ queryKey: ["tpl-config-list", appId] });
     },
     onError: (error: any) => {

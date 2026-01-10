@@ -24,6 +24,7 @@ import { Route as AuthSignInIndexRouteImport } from './routes/_auth/sign-in/inde
 import { Route as AuthSignUpSmsRouteImport } from './routes/_auth/sign-up/sms'
 import { Route as AuthSignUpMailRouteImport } from './routes/_auth/sign-up/mail'
 import { Route as AuthSignInSmsRouteImport } from './routes/_auth/sign-in/sms'
+import { Route as AuthSignInMfaRouteImport } from './routes/_auth/sign-in/mfa'
 import { Route as AuthSignInMailRouteImport } from './routes/_auth/sign-in/mail'
 import { Route as AuthSignInAppRouteImport } from './routes/_auth/sign-in/app'
 import { Route as AuthFindPasswordSmsRouteImport } from './routes/_auth/find-password/sms'
@@ -41,6 +42,7 @@ import { Route as MainAdminConfigIndexRouteImport } from './routes/_main/admin/c
 import { Route as MainUserAccountSetNameRouteImport } from './routes/_main/user/account/set-name'
 import { Route as MainUserAccountSetInfoRouteImport } from './routes/_main/user/account/set-info'
 import { Route as MainUserAccountMobileRouteImport } from './routes/_main/user/account/mobile'
+import { Route as MainUserAccountMfaRouteImport } from './routes/_main/user/account/mfa'
 import { Route as MainUserAccountLoginLogRouteImport } from './routes/_main/user/account/login-log'
 import { Route as MainUserAccountExternalRouteImport } from './routes/_main/user/account/external'
 import { Route as MainUserAccountEmailRouteImport } from './routes/_main/user/account/email'
@@ -169,6 +171,11 @@ const AuthSignInSmsRoute = AuthSignInSmsRouteImport.update({
   path: '/sms',
   getParentRoute: () => AuthSignInRouteRoute,
 } as any)
+const AuthSignInMfaRoute = AuthSignInMfaRouteImport.update({
+  id: '/mfa',
+  path: '/mfa',
+  getParentRoute: () => AuthSignInRouteRoute,
+} as any)
 const AuthSignInMailRoute = AuthSignInMailRouteImport.update({
   id: '/mail',
   path: '/mail',
@@ -252,6 +259,11 @@ const MainUserAccountSetInfoRoute = MainUserAccountSetInfoRouteImport.update({
 const MainUserAccountMobileRoute = MainUserAccountMobileRouteImport.update({
   id: '/mobile',
   path: '/mobile',
+  getParentRoute: () => MainUserAccountRouteRoute,
+} as any)
+const MainUserAccountMfaRoute = MainUserAccountMfaRouteImport.update({
+  id: '/mfa',
+  path: '/mfa',
   getParentRoute: () => MainUserAccountRouteRoute,
 } as any)
 const MainUserAccountLoginLogRoute = MainUserAccountLoginLogRouteImport.update({
@@ -577,6 +589,7 @@ export interface FileRoutesByFullPath {
   '/find-password/sms': typeof AuthFindPasswordSmsRoute
   '/sign-in/app': typeof AuthSignInAppRoute
   '/sign-in/mail': typeof AuthSignInMailRoute
+  '/sign-in/mfa': typeof AuthSignInMfaRoute
   '/sign-in/sms': typeof AuthSignInSmsRoute
   '/sign-up/mail': typeof AuthSignUpMailRoute
   '/sign-up/sms': typeof AuthSignUpSmsRoute
@@ -603,6 +616,7 @@ export interface FileRoutesByFullPath {
   '/user/account/email': typeof MainUserAccountEmailRoute
   '/user/account/external': typeof MainUserAccountExternalRoute
   '/user/account/login-log': typeof MainUserAccountLoginLogRoute
+  '/user/account/mfa': typeof MainUserAccountMfaRoute
   '/user/account/mobile': typeof MainUserAccountMobileRoute
   '/user/account/set-info': typeof MainUserAccountSetInfoRoute
   '/user/account/set-name': typeof MainUserAccountSetNameRoute
@@ -659,6 +673,7 @@ export interface FileRoutesByTo {
   '/find-password/sms': typeof AuthFindPasswordSmsRoute
   '/sign-in/app': typeof AuthSignInAppRoute
   '/sign-in/mail': typeof AuthSignInMailRoute
+  '/sign-in/mfa': typeof AuthSignInMfaRoute
   '/sign-in/sms': typeof AuthSignInSmsRoute
   '/sign-up/mail': typeof AuthSignUpMailRoute
   '/sign-up/sms': typeof AuthSignUpSmsRoute
@@ -684,6 +699,7 @@ export interface FileRoutesByTo {
   '/user/account/email': typeof MainUserAccountEmailRoute
   '/user/account/external': typeof MainUserAccountExternalRoute
   '/user/account/login-log': typeof MainUserAccountLoginLogRoute
+  '/user/account/mfa': typeof MainUserAccountMfaRoute
   '/user/account/mobile': typeof MainUserAccountMobileRoute
   '/user/account/set-info': typeof MainUserAccountSetInfoRoute
   '/user/account/set-name': typeof MainUserAccountSetNameRoute
@@ -747,6 +763,7 @@ export interface FileRoutesById {
   '/_auth/find-password/sms': typeof AuthFindPasswordSmsRoute
   '/_auth/sign-in/app': typeof AuthSignInAppRoute
   '/_auth/sign-in/mail': typeof AuthSignInMailRoute
+  '/_auth/sign-in/mfa': typeof AuthSignInMfaRoute
   '/_auth/sign-in/sms': typeof AuthSignInSmsRoute
   '/_auth/sign-up/mail': typeof AuthSignUpMailRoute
   '/_auth/sign-up/sms': typeof AuthSignUpSmsRoute
@@ -773,6 +790,7 @@ export interface FileRoutesById {
   '/_main/user/account/email': typeof MainUserAccountEmailRoute
   '/_main/user/account/external': typeof MainUserAccountExternalRoute
   '/_main/user/account/login-log': typeof MainUserAccountLoginLogRoute
+  '/_main/user/account/mfa': typeof MainUserAccountMfaRoute
   '/_main/user/account/mobile': typeof MainUserAccountMobileRoute
   '/_main/user/account/set-info': typeof MainUserAccountSetInfoRoute
   '/_main/user/account/set-name': typeof MainUserAccountSetNameRoute
@@ -835,6 +853,7 @@ export interface FileRouteTypes {
     | '/find-password/sms'
     | '/sign-in/app'
     | '/sign-in/mail'
+    | '/sign-in/mfa'
     | '/sign-in/sms'
     | '/sign-up/mail'
     | '/sign-up/sms'
@@ -861,6 +880,7 @@ export interface FileRouteTypes {
     | '/user/account/email'
     | '/user/account/external'
     | '/user/account/login-log'
+    | '/user/account/mfa'
     | '/user/account/mobile'
     | '/user/account/set-info'
     | '/user/account/set-name'
@@ -917,6 +937,7 @@ export interface FileRouteTypes {
     | '/find-password/sms'
     | '/sign-in/app'
     | '/sign-in/mail'
+    | '/sign-in/mfa'
     | '/sign-in/sms'
     | '/sign-up/mail'
     | '/sign-up/sms'
@@ -942,6 +963,7 @@ export interface FileRouteTypes {
     | '/user/account/email'
     | '/user/account/external'
     | '/user/account/login-log'
+    | '/user/account/mfa'
     | '/user/account/mobile'
     | '/user/account/set-info'
     | '/user/account/set-name'
@@ -1004,6 +1026,7 @@ export interface FileRouteTypes {
     | '/_auth/find-password/sms'
     | '/_auth/sign-in/app'
     | '/_auth/sign-in/mail'
+    | '/_auth/sign-in/mfa'
     | '/_auth/sign-in/sms'
     | '/_auth/sign-up/mail'
     | '/_auth/sign-up/sms'
@@ -1030,6 +1053,7 @@ export interface FileRouteTypes {
     | '/_main/user/account/email'
     | '/_main/user/account/external'
     | '/_main/user/account/login-log'
+    | '/_main/user/account/mfa'
     | '/_main/user/account/mobile'
     | '/_main/user/account/set-info'
     | '/_main/user/account/set-name'
@@ -1183,6 +1207,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthSignInSmsRouteImport
       parentRoute: typeof AuthSignInRouteRoute
     }
+    '/_auth/sign-in/mfa': {
+      id: '/_auth/sign-in/mfa'
+      path: '/mfa'
+      fullPath: '/sign-in/mfa'
+      preLoaderRoute: typeof AuthSignInMfaRouteImport
+      parentRoute: typeof AuthSignInRouteRoute
+    }
     '/_auth/sign-in/mail': {
       id: '/_auth/sign-in/mail'
       path: '/mail'
@@ -1300,6 +1331,13 @@ declare module '@tanstack/react-router' {
       path: '/mobile'
       fullPath: '/user/account/mobile'
       preLoaderRoute: typeof MainUserAccountMobileRouteImport
+      parentRoute: typeof MainUserAccountRouteRoute
+    }
+    '/_main/user/account/mfa': {
+      id: '/_main/user/account/mfa'
+      path: '/mfa'
+      fullPath: '/user/account/mfa'
+      preLoaderRoute: typeof MainUserAccountMfaRouteImport
       parentRoute: typeof MainUserAccountRouteRoute
     }
     '/_main/user/account/login-log': {
@@ -1701,6 +1739,7 @@ const AuthFindPasswordRouteRouteWithChildren =
 interface AuthSignInRouteRouteChildren {
   AuthSignInAppRoute: typeof AuthSignInAppRoute
   AuthSignInMailRoute: typeof AuthSignInMailRoute
+  AuthSignInMfaRoute: typeof AuthSignInMfaRoute
   AuthSignInSmsRoute: typeof AuthSignInSmsRoute
   AuthSignInIndexRoute: typeof AuthSignInIndexRoute
 }
@@ -1708,6 +1747,7 @@ interface AuthSignInRouteRouteChildren {
 const AuthSignInRouteRouteChildren: AuthSignInRouteRouteChildren = {
   AuthSignInAppRoute: AuthSignInAppRoute,
   AuthSignInMailRoute: AuthSignInMailRoute,
+  AuthSignInMfaRoute: AuthSignInMfaRoute,
   AuthSignInSmsRoute: AuthSignInSmsRoute,
   AuthSignInIndexRoute: AuthSignInIndexRoute,
 }
@@ -1872,6 +1912,7 @@ interface MainUserAccountRouteRouteChildren {
   MainUserAccountEmailRoute: typeof MainUserAccountEmailRoute
   MainUserAccountExternalRoute: typeof MainUserAccountExternalRoute
   MainUserAccountLoginLogRoute: typeof MainUserAccountLoginLogRoute
+  MainUserAccountMfaRoute: typeof MainUserAccountMfaRoute
   MainUserAccountMobileRoute: typeof MainUserAccountMobileRoute
   MainUserAccountSetInfoRoute: typeof MainUserAccountSetInfoRoute
   MainUserAccountSetNameRoute: typeof MainUserAccountSetNameRoute
@@ -1883,6 +1924,7 @@ const MainUserAccountRouteRouteChildren: MainUserAccountRouteRouteChildren = {
   MainUserAccountEmailRoute: MainUserAccountEmailRoute,
   MainUserAccountExternalRoute: MainUserAccountExternalRoute,
   MainUserAccountLoginLogRoute: MainUserAccountLoginLogRoute,
+  MainUserAccountMfaRoute: MainUserAccountMfaRoute,
   MainUserAccountMobileRoute: MainUserAccountMobileRoute,
   MainUserAccountSetInfoRoute: MainUserAccountSetInfoRoute,
   MainUserAccountSetNameRoute: MainUserAccountSetNameRoute,

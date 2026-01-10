@@ -40,7 +40,7 @@ import {
   TIME_STYLE
 } from "@shared/lib/utils"
 import { DictList } from "@shared/types/apis-dict"
-import { type LimitDataType } from "@shared/types/base-schema"
+import { type LimitType } from "@shared/types/base-schema"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { type ColumnDef } from "@tanstack/react-table"
@@ -212,7 +212,7 @@ function AppNotifyContent({ dictData, notifyStatusMapper, appData, onOpenDetail 
   };
 
   // 分页状态 - 直接从 URL 参数派生
-  const pagination: LimitDataType = {
+  const pagination: LimitType = {
     pos: filterParam.pos || null,
     limit: filterParam.limit || DEFAULT_PAGE_SIZE,
     forward: filterParam.forward || false,
@@ -233,7 +233,7 @@ function AppNotifyContent({ dictData, notifyStatusMapper, appData, onOpenDetail 
     limit: pagination,
     attr_callback_data: true,
     method: filters.notify_method || undefined,
-    status: filters.notify_status || undefined,
+    status: filters.notify_status ? Number(filters.notify_status) : undefined,
   }
 
   // 获取回调通知列表
@@ -265,6 +265,7 @@ function AppNotifyContent({ dictData, notifyStatusMapper, appData, onOpenDetail 
     mutationFn: (id: number) => appNotifyDel({ id }),
     onSuccess: () => {
       toast.success("回调记录删除成功")
+      countNumManager.reset()
       queryClient.invalidateQueries({ queryKey: ['app-notify-list', appId] })
     },
     onError: (error: any) => {

@@ -128,7 +128,7 @@ export function FindPasswordMailPage() {
         <div className="text-green-500 text-5xl mb-2">✓</div>
         <h3 className="text-lg font-medium">密码重置成功</h3>
         <p className="text-muted-foreground text-sm">您的密码已成功重置，请使用新密码登录</p>
-        <Link to="/sign-in">
+        <Link to="/sign-in/mail">
           <Button className="mt-4">返回登录</Button>
         </Link>
       </div>

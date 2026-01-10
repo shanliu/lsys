@@ -2,7 +2,7 @@ import { authApi } from "@shared/lib/apis/api_auth";
 import { cleanEmptyStringParams, parseResData } from "@shared/lib/apis/utils";
 import { DictListSchema } from "@shared/types/apis-dict";
 import { ApiResult } from "@shared/types/apis-rest";
-import { BoolSchema, LimitParam, LimitRes, UnixTimestampSchema, UserDataRes } from "@shared/types/base-schema";
+import { BoolSchema, LimitParam, LimitResSchema, UnixTimestampSchema, UserDataResSchema } from "@shared/types/base-schema";
 import { AxiosRequestConfig } from "axios";
 import z from "zod";
 
@@ -158,7 +158,7 @@ export type SystemUserAccountItemType = z.infer<typeof SystemUserAccountItemSche
 
 export const SystemUserAccountSearchResSchema = z.object({
     data: z.array(SystemUserAccountItemSchema),
-    ...LimitRes,
+    ...LimitResSchema,
 });
 export type SystemUserAccountSearchResType = z.infer<typeof SystemUserAccountSearchResSchema>;
 
@@ -191,13 +191,13 @@ export const SystemUserChangeLogItemSchema = z.object({
     request_id: z.string(),
     request_user_agent: z.string(),
     source_id: z.string(),
-    user_data: UserDataRes.nullable().optional(),
+    user_data: UserDataResSchema.nullable().optional(),
 });
 export type SystemUserChangeLogItemType = z.infer<typeof SystemUserChangeLogItemSchema>;
 
 export const SystemUserChangeLogsResSchema = z.object({
     data: z.array(SystemUserChangeLogItemSchema),
-    ...LimitRes,
+    ...LimitResSchema,
 });
 export type SystemUserChangeLogsResType = z.infer<typeof SystemUserChangeLogsResSchema>;
 
@@ -234,13 +234,13 @@ export const SystemUserLoginHistoryItemSchema = z.object({
     status: z.coerce.number(),
     token_data: z.string(),
     user_id: z.coerce.number(),
-    user_data: UserDataRes.nullable().optional(),
+    user_data: UserDataResSchema.nullable().optional(),
 });
 export type SystemUserLoginHistoryItemType = z.infer<typeof SystemUserLoginHistoryItemSchema>;
 
 export const SystemUserLoginHistoryResSchema = z.object({
     data: z.array(SystemUserLoginHistoryItemSchema),
-    ...LimitRes,
+    ...LimitResSchema,
 });
 export type SystemUserLoginHistoryResType = z.infer<typeof SystemUserLoginHistoryResSchema>;
 

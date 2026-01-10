@@ -462,6 +462,23 @@ export function AddressSelector({
     })
   }, [queryClient])
 
+  // 使用 TanStack Query 获取地理位置区域数据的辅助函数
+  const fetchAreaGeo = useCallback(async (lat: number, lng: number) => {
+    const queryKey = ['area-geo', lat, lng]
+
+    return queryClient.fetchQuery({
+      queryKey,
+      queryFn: async ({ signal }) => {
+        const result = await areaGeo({ lat, lng }, { signal })
+        if (!result.status || !result.response?.area) {
+          throw new Error('Failed to fetch geo area data')
+        }
+        return result.response.area
+      },
+      staleTime: 5 * 60 * 1000, // 5分钟缓存
+    })
+  }, [queryClient])
+
   // 处理地区选择 - 核心功能：逐级选择
   const handleAreaSelect = useCallback(async (area: AreaData, columnIndex: number) => {
     // 防止快速点击（300ms内的重复点击被忽略）
@@ -761,10 +778,9 @@ export function AddressSelector({
       })
 
       const { latitude, longitude } = position.coords
-      const result = await areaGeo({ lat: latitude, lng: longitude })
+      const path = await fetchAreaGeo(latitude, longitude)
 
-      if (result.status && result.response?.area && Array.isArray(result.response.area) && result.response.area.length > 0) {
-        const path = result.response.area
+      if (path && Array.isArray(path) && path.length > 0) {
         const area = path[path.length - 1]
 
         // 构建层级列表数据以便显示选择路径
@@ -878,7 +894,7 @@ export function AddressSelector({
     } finally {
       setIsGeoLoading(false)
     }
-  }, [buildPathText, initialData, prefetchAreaList, saveAreaDataToCache, onChange, showError, selectLevel])
+  }, [buildPathText, initialData, prefetchAreaList, fetchAreaGeo, saveAreaDataToCache, onChange, showError, selectLevel])
 
   const handleOpenChange = useCallback((newOpen: boolean) => {
     if (newOpen) {

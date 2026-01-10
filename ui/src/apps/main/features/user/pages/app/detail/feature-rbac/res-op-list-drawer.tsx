@@ -143,6 +143,7 @@ export function ResOpListDrawer({
     mutationFn: (opId: number) => appRbacOpDelete({ op_id: opId }),
     onSuccess: () => {
       toast.success('操作删除成功')
+      countNumManager.reset()
       queryClient.invalidateQueries({ queryKey: ['rbac-op-list'] })
     },
     onError: (error: any) => {
@@ -499,7 +500,7 @@ function OpFormPanel({
                           />
                         </FormControl>
                         <div className="space-y-1 leading-none">
-                          <FormLabel>使用应用用户</FormLabel>
+                          <FormLabel>应用本身</FormLabel>
                           <FormDescription>
                             启用后将使用应用自己的用户体系
                           </FormDescription>

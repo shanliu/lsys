@@ -79,7 +79,7 @@ export function RoleDrawer({
           role_key: '',
           user_range: 1,
           res_range: 1,
-          use_app_user: false,
+          use_app_user: true,
           user_param: '',
         },
   })
@@ -171,7 +171,7 @@ export function RoleDrawer({
                         />
                       </FormControl>
                       <div className="space-y-1 leading-none">
-                        <FormLabel>使用应用用户</FormLabel>
+                        <FormLabel>应用本身</FormLabel>
                         <FormDescription>
                           启用后将使用应用自己的用户体系
                         </FormDescription>

@@ -1,4 +1,3 @@
-import { getHomeUrl } from '@apps/main/components/local/app-logo'
 import { useDictData } from '@apps/main/hooks/use-dict-data'
 import { useAuthRedirect } from '@apps/main/hooks/use-auth-redirect'
 import { Route } from '@apps/main/routes/_auth/sign-in/sms'
@@ -26,23 +25,24 @@ import {
 import { Input } from '@shared/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@shared/components/ui/tabs'
 import { useToast } from '@shared/contexts/toast-context'
-import { cn, formatServerError } from '@shared/lib/utils'
+import { cn, formatServerError, getHomeUrl } from '@shared/lib/utils'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
-import { AlertCircle, Home, KeySquare, Loader2, Mail, RefreshCw } from 'lucide-react'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { AlertCircle, KeySquare, Loader2, Mail, RefreshCw } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 
 export default function SignInSmsPage() {
   const toast = useToast();
   const search = Route.useSearch();
+  const navigate = useNavigate();
   const handleAuthRedirect = useAuthRedirect();
 
   // 使用字典加载登录类型
   const { dictData, isLoading: dictLoading, isError: dictError, refetch: refetchDict } = useDictData(['auth_login'] as const);
 
-  const [activeTab, setActiveTab] = useState<'password' | 'code'>('code');
+  const [activeTab, setActiveTab] = useState<'password' | 'code'>('password');
   const [captchaData, setCaptchaData] = useState<CaptchaData>({
     code: '',
     key: '',
@@ -97,6 +97,14 @@ export default function SignInSmsPage() {
         ...data,
         captcha: { code: captchaData.code, key: captchaData.key },
       });
+      // 检查是否需要 MFA 验证
+      if (res.mfa_token) {
+        navigate({
+          to: '/sign-in/mfa',
+          search: { mfa_token: res.mfa_token, redirect_uri: search.redirect_uri }
+        });
+        return res;
+      }
       if (res.status) {
         toast.success("登录成功");
         handleAuthRedirect();
@@ -152,6 +160,14 @@ export default function SignInSmsPage() {
         ...data,
         captcha: { code: captchaData.code, key: captchaData.key },
       });
+      // 检查是否需要 MFA 验证
+      if (res.mfa_token) {
+        navigate({
+          to: '/sign-in/mfa',
+          search: { mfa_token: res.mfa_token, redirect_uri: search.redirect_uri }
+        });
+        return res;
+      }
       if (res.status) {
         toast.success("登录成功");
         handleAuthRedirect();
@@ -230,9 +246,9 @@ export default function SignInSmsPage() {
           <FormLabel>手机号</FormLabel>
           <FormControl>
             <div className="flex gap-2">
-              <Input 
-                className="w-20 shrink-0" 
-                placeholder="+86" 
+              <Input
+                className="w-20 shrink-0"
+                placeholder="+86"
                 value={`+${form.getValues('area_code')}`}
                 onChange={(e) => {
                   const val = e.target.value.replace(/[^0-9]/g, '');
@@ -318,9 +334,9 @@ export default function SignInSmsPage() {
               <FormControl>
                 <div className="flex gap-2">
                   <Input className="flex-1" placeholder='请输入短信验证码' {...field} />
-                  <Button 
-                    type="button" 
-                    variant="outline" 
+                  <Button
+                    type="button"
+                    variant="outline"
                     onClick={() => sendCodeMutation.mutate()}
                     disabled={isSendCodeDisabled}
                     className="shrink-0"
@@ -363,8 +379,8 @@ export default function SignInSmsPage() {
       {showTabs ? (
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'password' | 'code')}>
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="code">验证码登录</TabsTrigger>
             <TabsTrigger value="password">密码登录</TabsTrigger>
+            <TabsTrigger value="code">验证码登录</TabsTrigger>
           </TabsList>
           <TabsContent value="password" className="mt-4">
             {renderPasswordForm()}
@@ -394,22 +410,22 @@ export default function SignInSmsPage() {
       </div>
 
       {(supportsNameLogin || supportsEmailLogin) && (
-          <div className={cn('grid gap-2', supportsNameLogin && supportsEmailLogin ? 'grid-cols-2' : 'grid-cols-1')}>
-            {supportsNameLogin && (
-              <Link to='/sign-in' search={search}>
-                <Button variant='outline' type='button' className="w-full">
-                  <KeySquare className='h-4 w-4' /> 账号登录
-                </Button>
-              </Link>
-            )}
-            {supportsEmailLogin && (
-              <Link to='/sign-in/mail' search={search}>
-                <Button variant='outline' type='button' className="w-full">
-                  <Mail className='h-4 w-4' /> 邮箱登录
-                </Button>
-              </Link>
-            )}
-          </div>
+        <div className={cn('grid gap-2', supportsNameLogin && supportsEmailLogin ? 'grid-cols-2' : 'grid-cols-1')}>
+          {supportsNameLogin && (
+            <Link to='/sign-in' search={search}>
+              <Button variant='outline' type='button' className="w-full">
+                <KeySquare className='h-4 w-4' /> 账号登录
+              </Button>
+            </Link>
+          )}
+          {supportsEmailLogin && (
+            <Link to='/sign-in/mail' search={search}>
+              <Button variant='outline' type='button' className="w-full">
+                <Mail className='h-4 w-4' /> 邮箱登录
+              </Button>
+            </Link>
+          )}
+        </div>
       )}
     </div>
   )

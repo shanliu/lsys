@@ -3,17 +3,13 @@
 import {
     systemSenderMailerConfigDel,
     systemSenderMailerConfigList,
+    SystemSenderMailerConfigListItemType,
     systemSenderMailerMapping,
 } from "@shared/apis/admin/sender-mailer";
 import { SenderRuleConfigView } from "@apps/main/components/local/sender-config/rule-config-view";
 import { ConfirmDialog } from "@shared/components/custom/dialog/confirm-dialog";
 import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
 import { PageSkeletonTable } from "@shared/components/custom/page-placeholder/skeleton-table";
-import {
-    DEFAULT_PAGE_SIZE,
-    PagePagination,
-} from "@apps/main/lib/pagination-utils";
-import { Route } from "@apps/main/routes/_main/admin/email/send-config/rule";
 import { DataTable, DataTableAction, DataTableActionItem } from "@shared/components/custom/table";
 import { Badge } from "@shared/components/ui/badge";
 import { Button } from "@shared/components/ui/button";
@@ -29,13 +25,6 @@ import React from "react";
 import { emailSendConfigModuleConfig } from "../nav-info";
 import { EmailSendConfigRuleDrawer } from "./send-config-rule-drawer";
 
-interface EmailSendConfigRuleConfigItem {
-    id: number;
-    add_time: number;
-    config_data: string;
-    config_type: string;
-    priority: number;
-}
 
 export function EmailSendConfigRulePage() {
     const [configDrawerOpen, setConfigDrawerOpen] = React.useState(false);
@@ -60,7 +49,7 @@ export function EmailSendConfigRulePage() {
     // 如果字典加载失败，显示错误页面
     if (dictError && dictErrors) {
         return (
-            <EmailSendConfigNavContainer  className={cn("m-4 md:m-6")} {...emailSendConfigModuleConfig}>
+            <EmailSendConfigNavContainer className={cn("m-4 md:m-6")} {...emailSendConfigModuleConfig}>
                 <CenteredError
                     variant="content"
                     error={dictErrors}
@@ -73,7 +62,7 @@ export function EmailSendConfigRulePage() {
     // 如果字典加载中，显示骨架屏
     if (dictIsLoading || !dictData) {
         return (
-            <EmailSendConfigNavContainer  className={cn("m-4 md:m-6")} {...emailSendConfigModuleConfig}>
+            <EmailSendConfigNavContainer className={cn("m-4 md:m-6")} {...emailSendConfigModuleConfig}>
                 <PageSkeletonTable variant="content" />
             </EmailSendConfigNavContainer>
         );
@@ -83,7 +72,7 @@ export function EmailSendConfigRulePage() {
     return (
         <>
             <EmailSendConfigNavContainer
-             className={cn("m-4 md:m-6")}  
+                className={cn("m-4 md:m-6")}
                 {...emailSendConfigModuleConfig}
                 actions={
                     <Button
@@ -116,9 +105,6 @@ export function EmailSendConfigSendRuleContent({ dictData }: EmailSendConfigSend
     const queryClient = useQueryClient();
     const isMobile = useIsMobile();
 
-    const currentPage = 1;
-    const currentLimit = DEFAULT_PAGE_SIZE;
-
     // 获取邮件配置列表数据
     const {
         data: configData,
@@ -135,7 +121,7 @@ export function EmailSendConfigSendRuleContent({ dictData }: EmailSendConfigSend
     });
 
     // 从查询结果中提取数据
-    const configs = getQueryResponseData<EmailSendConfigRuleConfigItem[]>(configData, []);
+    const configs = getQueryResponseData<SystemSenderMailerConfigListItemType[]>(configData, []);
 
     // 删除配置
     const deleteMutation = useMutation({
@@ -159,7 +145,7 @@ export function EmailSendConfigSendRuleContent({ dictData }: EmailSendConfigSend
     };
 
     // 定义表格列配置
-    const columns: ColumnDef<EmailSendConfigRuleConfigItem>[] = [
+    const columns: ColumnDef<SystemSenderMailerConfigListItemType>[] = [
         {
             accessorKey: "id",
             header: () => <div className={cn(isMobile ? "" : "text-right")}>ID</div>,

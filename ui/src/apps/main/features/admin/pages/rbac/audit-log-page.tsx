@@ -24,6 +24,7 @@ import { CenteredError } from "@shared/components/custom/page-placeholder/center
 import { PageSkeletonTable } from "@shared/components/custom/page-placeholder/skeleton-table";
 import { OffsetPagination } from "@shared/components/custom/pagination";
 import { DataTable, DataTableAction, DataTableActionItem } from "@shared/components/custom/table";
+import CopyableText from "@shared/components/custom/text/copyable-text";
 import { Badge } from "@shared/components/ui/badge";
 import { Button } from "@shared/components/ui/button";
 import { useIsMobile } from "@shared/hooks/use-mobile";
@@ -110,7 +111,6 @@ function AuditLogContent({ dictData }: AuditLogContentProps) {
     user_id: filterParam.user_id || null,
     app_id: filterParam.app_id || null,
     user_ip: filterParam.user_ip || null,
-    device_id: filterParam.device_id || null,
     request_id: filterParam.request_id || null,
   };
 
@@ -142,7 +142,6 @@ function AuditLogContent({ dictData }: AuditLogContentProps) {
       filters.user_id,
       filters.app_id,
       filters.user_ip,
-      filters.device_id,
       filters.request_id,
     ],
     queryFn: ({ signal }) =>
@@ -161,8 +160,6 @@ function AuditLogContent({ dictData }: AuditLogContentProps) {
           ...(filters.app_id !== undefined &&
             filters.app_id !== null && { app_id: filters.app_id }),
           ...(filters.user_ip && { user_ip: filters.user_ip }),
-          ...(filters.device_id !== undefined &&
-            filters.device_id !== null && { device_id: filters.device_id }),
           ...(filters.request_id !== undefined &&
             filters.request_id !== null && { request_id: filters.request_id }),
         },
@@ -223,7 +220,7 @@ function AuditLogContent({ dictData }: AuditLogContentProps) {
       {
         accessorKey: "audit.check_result",
         header: "审计结果",
-        size: 100,
+        size: 120,
         cell: ({ getValue }) => {
           const result = getValue<string>() ?? "";
           return (
@@ -245,8 +242,34 @@ function AuditLogContent({ dictData }: AuditLogContentProps) {
         },
       },
       {
+        accessorKey: "audit.user_ip",
+        header: "用户IP",
+        size: 130,
+        cell: ({ getValue }) => {
+          const ip = getValue<string>();
+          return ip ? (
+            <CopyableText value={ip} className={cn("text-xs whitespace-nowrap")} />
+          ) : (
+            <div className="font-mono text-xs">-</div>
+          );
+        },
+      },
+      {
+        accessorKey: "audit.request_id",
+        header: "请求ID",
+        size: 200,
+        cell: ({ getValue }) => {
+          const requestId = getValue<string>();
+          return (
+            <div className="font-mono text-xs truncate" title={requestId}>
+              {requestId || "-"}
+            </div>
+          );
+        },
+      },
+      {
         accessorKey: "detail",
-        header: "权限检查数",
+        header: "权限检测资源",
         size: 100,
         cell: ({ getValue }) => {
           return <AuditDetailTooltip details={getValue<any[]>()} />;
@@ -255,7 +278,7 @@ function AuditLogContent({ dictData }: AuditLogContentProps) {
       {
         accessorKey: "audit.add_time",
         header: "授权时间",
-        size: 140,
+        size: 180,
         cell: ({ getValue }) => {
           const date = getValue<Date>();
           const timeElement = formatTime(
@@ -324,7 +347,6 @@ function AuditLogContent({ dictData }: AuditLogContentProps) {
               user_id: filterParam.user_id?.toString(),
               app_id: filterParam.app_id?.toString(),
               user_ip: filterParam.user_ip,
-              device_id: filterParam.device_id?.toString(),
               request_id: filterParam.request_id?.toString(),
             }}
             resolver={zodResolver(RbacAuditLogFilterFormSchema) as any}
@@ -378,18 +400,6 @@ function AuditLogContent({ dictData }: AuditLogContentProps) {
                     name="user_ip"
                     placeholder="输入IP地址"
                     label="用户IP"
-                    disabled={isLoading}
-                    layoutParams={layoutParams}
-                  />
-                </div>
-
-                {/* 设备ID过滤 */}
-                <div className="flex-1 min-w-[120px] max-w-[180px]">
-                  <FilterInput
-                    name="device_id"
-                    placeholder="输入设备ID"
-                    type="number"
-                    label="设备ID"
                     disabled={isLoading}
                     layoutParams={layoutParams}
                   />

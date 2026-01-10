@@ -1,8 +1,8 @@
 import {
   resourceAdd,
   resourceEdit,
-  dynamicResourceType,
   type ResourceItemType,
+  type StaticResTplDataItemType,
 } from '@shared/apis/admin/rbac-res'
 import {
   Drawer,
@@ -24,9 +24,9 @@ import {
 } from '@shared/components/ui/form'
 import { Input } from '@shared/components/ui/input'
 import { useToast } from '@shared/contexts/toast-context'
-import { formatServerError, getQueryResponseData } from '@shared/lib/utils'
+import { formatServerError } from '@shared/lib/utils'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 import React from 'react'
 import { useForm } from 'react-hook-form'
@@ -39,72 +39,96 @@ interface ResDrawerProps {
   open: boolean
   /** 打开状态变化回调 */
   onOpenChange: (open: boolean) => void
+  /** 保存成功后的回调 */
+  onSaveSuccess?: (resType: string) => void
+  /** 静态资源模板数据 */
+  staticResources?: StaticResTplDataItemType[]
 }
 
 export function ResDrawer({
   resource,
   open,
   onOpenChange,
+  onSaveSuccess,
+  staticResources = [],
 }: ResDrawerProps) {
   const toast = useToast()
   const queryClient = useQueryClient()
   const isEdit = !!resource
 
-  // 获取动态资源类型列表
-  const { data: resTypeData, isLoading: resTypeLoading } = useQuery({
-    queryKey: ['admin-rbac-dynamic-res-type'],
-    queryFn: async ({ signal }) => {
-      const result = await dynamicResourceType({
-        page: { limit: 100 },
-        count_num: false,
-      }, { signal })
-      return result
-    },
-    staleTime: 5 * 60 * 1000, // 5分钟缓存
-  })
+  // 从静态资源中提取唯一的资源名称和类型
+  const resNameOptions = React.useMemo(() => {
+    const names = new Set<string>()
+    staticResources.forEach(r => {
+      if (r.res_name) names.add(r.res_name)
+    })
+    return Array.from(names)
+  }, [staticResources])
 
-  // 将资源类型转换为 AutocompleteInput 需要的格式
   const resTypeOptions = React.useMemo(() => {
-    const types = getQueryResponseData<{ id: number; res_type: string; description?: string }[]>(resTypeData, [])
-    return types.map(item => ({
-      value: item.res_type,
-      label: item.description ? `${item.res_type} - ${item.description}` : item.res_type,
-    }))
-  }, [resTypeData])
+    const types = new Set<string>()
+    staticResources.forEach(r => {
+      if (r.res_type) types.add(r.res_type)
+    })
+    return Array.from(types)
+  }, [staticResources])
+
+  // 创建资源名称和类型的映射关系
+  const resNameToType = React.useMemo(() => {
+    const map = new Map<string, string>()
+    staticResources.forEach(r => {
+      if (r.res_name && r.res_type) {
+        map.set(r.res_name, r.res_type)
+      }
+    })
+    return map
+  }, [staticResources])
+
+  const resTypeToName = React.useMemo(() => {
+    const map = new Map<string, string>()
+    staticResources.forEach(r => {
+      if (r.res_name && r.res_type && !map.has(r.res_type)) {
+        map.set(r.res_type, r.res_name)
+      }
+    })
+    return map
+  }, [staticResources])
 
   const form = useForm<ResFormType>({
     resolver: zodResolver(ResFormSchema),
     defaultValues: resource
       ? {
-          res_name: resource.res_name,
-          res_type: resource.res_type,
-          res_data: resource.res_data,
-        }
+        res_name: resource.res_name,
+        res_type: resource.res_type,
+        res_data: resource.res_data ?? '',
+      }
       : {
-          res_name: '',
-          res_type: '',
-          res_data: '',
-        },
+        res_name: '',
+        res_type: '',
+        res_data: '',
+      },
   })
 
   const mutation = useMutation({
     mutationFn: (data: ResFormType) =>
       isEdit
         ? resourceEdit({
-            res_id: resource.id,
-            res_name: data.res_name,
-            res_type: data.res_type,
-            res_data: data.res_data,
-          })
+          res_id: resource.id,
+          res_name: data.res_name,
+          res_type: data.res_type,
+          res_data: data.res_data,
+        })
         : resourceAdd({
-            res_name: data.res_name,
-            res_type: data.res_type,
-            res_data: data.res_data,
-          }),
+          res_name: data.res_name,
+          res_type: data.res_type,
+          res_data: data.res_data,
+        }),
     onSuccess: () => {
       toast.success(isEdit ? '资源更新成功' : '资源添加成功')
       queryClient.invalidateQueries({ queryKey: ['admin-rbac-res-list'] })
       onOpenChange(false)
+      const formData = form.getValues()
+      onSaveSuccess?.(formData.res_type)
       if (!isEdit) {
         form.reset()
       }
@@ -125,7 +149,7 @@ export function ResDrawer({
         form.reset({
           res_name: resource.res_name,
           res_type: resource.res_type,
-          res_data: resource.res_data,
+          res_data: resource.res_data ?? '',
         })
       } else {
         form.reset({
@@ -156,7 +180,19 @@ export function ResDrawer({
                 <FormItem>
                   <FormLabel>资源名称</FormLabel>
                   <FormControl>
-                    <Input placeholder="输入资源名称" {...field} />
+                    <AutocompleteInput
+                      value={field.value}
+                      onChange={(value) => {
+                        field.onChange(value)
+                        // 当资源名称选择后，自动填充对应的资源类型
+                        if (resNameToType.has(value)) {
+                          form.setValue('res_type', resNameToType.get(value)!)
+                        }
+                      }}
+                      placeholder="输入或选择资源名称"
+                      options={resNameOptions}
+                      filterOnInput={false}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -172,11 +208,17 @@ export function ResDrawer({
                   <FormControl>
                     <AutocompleteInput
                       value={field.value}
-                      onChange={field.onChange}
+                       filterOnInput={false}
+                      onChange={(value) => {
+                        field.onChange(value)
+                        // 当资源类型选择后，自动填充对应的资源名称
+                        if (resTypeToName.has(value)) {
+                          form.setValue('res_name', resTypeToName.get(value)!)
+                        }
+                      }}
                       placeholder="输入或选择资源类型"
-                      loading={resTypeLoading}
                       options={resTypeOptions}
-                      filterOnInput={true}
+                   
                     />
                   </FormControl>
                   <FormDescription>

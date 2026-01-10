@@ -15,6 +15,10 @@ export interface ContentDialogProps {
   confirmText?: string
   /** 自定义 footer，如果提供则覆盖默认的确认按钮 */
   footer?: (closeDialog: () => void) => React.ReactNode
+  /** 对话框的打开状态（可选，如果提供则为受控模式） */
+  open?: boolean
+  /** 对话框打开状态变化的回调（在受控模式下使用） */
+  onOpenChange?: (open: boolean) => void
 }
 
 /**
@@ -48,13 +52,27 @@ export function ContentDialog({
   className,
   confirmText = "确定",
   footer,
+  open: controlledOpen,
+  onOpenChange,
 }: ContentDialogProps) {
-  const [open, setOpen] = React.useState(false)
+  const [internalOpen, setInternalOpen] = React.useState(false)
 
-  const closeDialog = () => setOpen(false)
+  // 判断是否为受控模式
+  const isControlled = controlledOpen !== undefined
+  const open = isControlled ? controlledOpen : internalOpen
+
+  const handleOpenChange = (newOpen: boolean) => {
+    if (isControlled) {
+      onOpenChange?.(newOpen)
+    } else {
+      setInternalOpen(newOpen)
+    }
+  }
+
+  const closeDialog = () => handleOpenChange(false)
 
   return (
-    <AlertDialog open={open} onOpenChange={setOpen}>
+    <AlertDialog open={open} onOpenChange={handleOpenChange}>
       <AlertDialogTrigger asChild>
         {children}
       </AlertDialogTrigger>

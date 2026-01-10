@@ -206,6 +206,28 @@ p.draft-text {
   margin-top: 20px;
 }
 
+.qr-block {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.qr-image {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+  border: 1px dashed var(--border-grid);
+  background: var(--bg-paper);
+}
+
+.qr-caption {
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
 @keyframes blink {
   50% {
     opacity: 0;
@@ -305,5 +327,10 @@ p.draft-text {
   /* First button takes full width */
   .button-row .btn-enter-system:first-child {
     flex: 1 1 100%;
+  }
+
+  /* Do not show QR on mobile */
+  .qr-block {
+    display: none;
   }
 }

@@ -2,7 +2,7 @@ import { authApi } from "@shared/lib/apis/api_auth";
 import { cleanEmptyStringParams, parseResData } from "@shared/lib/apis/utils";
 import { DictListSchema } from "@shared/types/apis-dict";
 import { ApiResult } from "@shared/types/apis-rest";
-import { BoolSchema, LimitParam, LimitRes, PageParam, PageRes, UnixTimestampSchema } from "@shared/types/base-schema";
+import { BoolSchema, LimitParam, LimitResSchema, PageParam, PageResSchema, UnixTimestampSchema, UserDataResSchema } from "@shared/types/base-schema";
 import { AxiosRequestConfig } from "axios";
 import z from "zod";
 
@@ -60,20 +60,14 @@ const AppListItemSchema = z.object({
         init: z.coerce.number(),
     }).nullable().optional(),
     sup_app: BoolSchema,
-    user_data: z.object({
-        app_id: z.coerce.number(),
-        id: z.coerce.number(),
-        user_account: z.string(),
-        user_data: z.string(),
-        user_nickname: z.string(),
-    }).nullable().optional(),
+    user_data: UserDataResSchema.nullable().optional(),
     user_id: z.coerce.number(),
 });
 export type AppListItemType = z.infer<typeof AppListItemSchema>;
 
 export const AppListResSchema = z.object({
     data: z.array(AppListItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type AppListResType = z.infer<typeof AppListResSchema>;
 
@@ -297,20 +291,14 @@ const AppParentListItemSchema = z.object({
     id: z.coerce.number(),
     name: z.string(),
     status: z.coerce.number(),
-    user_data: z.object({
-        app_id: z.coerce.number(),
-        id: z.coerce.number(),
-        user_account: z.string(),
-        user_data: z.string(),
-        user_nickname: z.string(),
-    }),
+    user_data: UserDataResSchema.nullable().optional(),
     user_id: z.coerce.number(),
 });
 export type AppParentListItemType = z.infer<typeof AppParentListItemSchema>;
 
 export const AppParentListResSchema = z.object({
     data: z.array(AppParentListItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type AppParentListResType = z.infer<typeof AppParentListResSchema>;
 
@@ -409,13 +397,7 @@ export const AppRequestItemSchema = z.object({
     /** 确认用户ID */
     confirm_user_id: z.coerce.number().optional().nullable(),
     /** 确认用户数据 */
-    confirm_user_data: z.object({
-        app_id: z.coerce.number(),
-        id: z.coerce.number(),
-        user_account: z.string(),
-        user_data: z.string(),
-        user_nickname: z.string(),
-    }).nullable().optional(),
+    confirm_user_data: UserDataResSchema.nullable().optional(),
     /** 确认备注 */
     confirm_note: z.string().nullable().optional(),
     /** 变更数据 */
@@ -436,7 +418,7 @@ export type AppRequestItemType = z.infer<typeof AppRequestItemSchema>;
 
 export const AppRequestListResSchema = z.object({
     data: z.array(AppRequestItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type AppRequestListResType = z.infer<typeof AppRequestListResSchema>;
 
@@ -492,13 +474,7 @@ export const AppSubRequestItemSchema = z.object({
         scope_data: z.array(z.string()).optional(),
     }).nullable().optional(),
     /** 请求用户数据 */
-    user_data: z.object({
-        app_id: z.coerce.number(),
-        id: z.coerce.number(),
-        user_account: z.string(),
-        user_data: z.string(),
-        user_nickname: z.string(),
-    }).nullable().optional(),
+    user_data: UserDataResSchema.nullable().optional(),
     /** 应用名称 */
     app_name: z.string().nullable(),
     /** 应用标识 */
@@ -510,7 +486,7 @@ export type AppSubRequestItemType = z.infer<typeof AppSubRequestItemSchema>;
 
 export const AppSubRequestListResSchema = z.object({
     data: z.array(AppSubRequestItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type AppSubRequestListResType = z.infer<typeof AppSubRequestListResSchema>;
 
@@ -613,7 +589,7 @@ export type AppNotifyListItemType = z.infer<typeof AppNotifyListItemSchema>;
 
 export const AppNotifyListResSchema = z.object({
     data: z.array(AppNotifyListItemSchema),
-    ...LimitRes,
+    ...LimitResSchema,
 });
 export type AppNotifyListResType = z.infer<typeof AppNotifyListResSchema>;
 
@@ -877,14 +853,8 @@ const AppSubAppListItemSchema = z.object({
         scope_data: z.string(),
     }).nullable().optional(),
     status: z.coerce.number(),
-    sup_app: BoolSchema,
-    user_data: z.object({
-        app_id: z.coerce.number(),
-        id: z.coerce.number(),
-        user_account: z.string(),
-        user_data: z.string(),
-        user_nickname: z.string(),
-    }).nullable().optional(),
+    sup_app: BoolSchema.optional(),
+    user_data: UserDataResSchema.nullable().optional(),
     user_id: z.coerce.number(),
     /** 子应用请求待处理数量 */
     sub_req_pending_count: z.coerce.number().optional().nullable(),
@@ -893,7 +863,7 @@ export type AppSubAppListItemType = z.infer<typeof AppSubAppListItemSchema>;
 
 export const AppSubAppListResSchema = z.object({
     data: z.array(AppSubAppListItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type AppSubAppListResType = z.infer<typeof AppSubAppListResSchema>;
 

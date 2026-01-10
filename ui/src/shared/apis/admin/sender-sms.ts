@@ -2,7 +2,7 @@ import { authApi } from "@shared/lib/apis/api_auth";
 import { cleanEmptyStringParams, parseResData } from "@shared/lib/apis/utils";
 import { DictListSchema } from "@shared/types/apis-dict";
 import { ApiResult } from "@shared/types/apis-rest";
-import { BoolSchema, LimitParam, LimitRes, PageParam, PageRes, UnixTimestampSchema } from "@shared/types/base-schema";
+import { BoolSchema, LimitParam, LimitResSchema, PageParam, PageResSchema, UnixTimestampSchema } from "@shared/types/base-schema";
 import { AxiosRequestConfig } from "axios";
 import z from "zod";
 
@@ -113,7 +113,7 @@ export type SystemSenderSmsMessageItemType = z.infer<typeof SystemSenderSmsMessa
 
 export const SystemSenderSmsMessageListResSchema = z.object({
     data: z.array(SystemSenderSmsMessageItemSchema),
-    ...LimitRes,
+    ...LimitResSchema,
 });
 export type SystemSenderSmsMessageListResType = z.infer<typeof SystemSenderSmsMessageListResSchema>;
 
@@ -181,7 +181,7 @@ export type SystemSenderSmsMessageLogItemType = z.infer<typeof SystemSenderSmsMe
 
 export const SystemSenderSmsMessageLogsResSchema = z.object({
     data: z.array(SystemSenderSmsMessageLogItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type SystemSenderSmsMessageLogsResType = z.infer<typeof SystemSenderSmsMessageLogsResSchema>;
 
@@ -236,7 +236,7 @@ export type SystemSenderSmsTplConfigItemType = z.infer<typeof SystemSenderSmsTpl
 
 export const SystemSenderSmsTplConfigListResSchema = z.object({
     data: z.array(SystemSenderSmsTplConfigItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type SystemSenderSmsTplConfigListResType = z.infer<typeof SystemSenderSmsTplConfigListResSchema>;
 

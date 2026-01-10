@@ -35,7 +35,7 @@ import {
   getQueryResponseNext,
   TIME_STYLE,
 } from '@shared/lib/utils';
-import type { LimitDataType } from '@shared/types/base-schema';
+import type { LimitType } from '@shared/types/base-schema';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import type { ColumnDef } from '@tanstack/react-table';
@@ -109,13 +109,12 @@ function AppDetailFeatureRbacAuditContent({
   // 过滤条件从 URL 参数获取
   const filters = {
     user_ip: filterParam.user_ip || null,
-    device_id: filterParam.device_id || null,
     request_id: filterParam.request_id || null,
     check_result: filterParam.check_result || null,
   };
 
   // 分页状态 - 直接从 URL 参数派生
-  const pagination: LimitDataType = {
+  const pagination: LimitType = {
     pos: filterParam.pos || null,
     limit: currentLimit,
     forward: filterParam.forward || false,
@@ -146,7 +145,6 @@ function AppDetailFeatureRbacAuditContent({
       pagination.more,
       pagination.eq_pos,
       filters.user_ip,
-      filters.device_id,
       filters.request_id,
       filters.check_result,
     ],
@@ -163,8 +161,8 @@ function AppDetailFeatureRbacAuditContent({
           },
           count_num: countNumManager.getCountNum(),
           user_ip: filters.user_ip || undefined,
-          device_id: filters.device_id || undefined,
           request_id: filters.request_id || undefined,
+          check_result: filters.check_result ? Number(filters.check_result) : undefined,
           res_data: { res_id: 0 },
         },
         { signal }
@@ -236,7 +234,8 @@ function AppDetailFeatureRbacAuditContent({
     {
       id: 'check_result',
       accessorFn: (row) => row.audit.check_result,
-      header: '审计结果',
+      header: '授权结果',
+       size: 100,
       cell: ({ getValue }) => {
         const result = getValue<string>();
         return (
@@ -251,6 +250,7 @@ function AppDetailFeatureRbacAuditContent({
     {
       id: 'user_info',
       header: '用户',
+         size: 100,
       cell: ({ row }) => {
         const { user } = row.original;
         return (
@@ -260,10 +260,28 @@ function AppDetailFeatureRbacAuditContent({
         );
       },
     },
-
+    {
+      id: 'user_ip',
+      accessorFn: (row) => row.audit.user_ip,
+      header: 'IP地址',
+      cell: ({ getValue }) => (
+        <div className="font-mono text-xs py-1">{getValue<string>() || '-'}</div>
+      ),
+    },
+    {
+      id: 'request_id',
+      accessorFn: (row) => row.audit.request_id,
+      header: '请求ID',
+      cell: ({ getValue }) => (
+        <div className="font-mono text-xs py-1 max-w-[120px] truncate" title={getValue<string>() || ''}>
+          {getValue<string>() || '-'}
+        </div>
+      ),
+    },
     {
       id: 'detail_count',
       header: '详情数',
+        size: 60,
       cell: ({ row }) => {
         return (
           <div className="py-1">
@@ -275,7 +293,7 @@ function AppDetailFeatureRbacAuditContent({
     {
       id: 'add_time',
       accessorFn: (row) => row.audit.add_time,
-      header: '审计时间',
+      header: '授权时间',
       cell: ({ getValue }) => {
         const addTime = getValue<Date | null>();
         return (
@@ -319,7 +337,6 @@ function AppDetailFeatureRbacAuditContent({
           <FilterContainer
             defaultValues={{
               user_ip: filterParam.user_ip,
-              device_id: filterParam.device_id,
               request_id: filterParam.request_id,
               check_result: filterParam.check_result,
             }}
@@ -327,13 +344,11 @@ function AppDetailFeatureRbacAuditContent({
             onSubmit={(data) => {
               const transformedData = data as {
                 user_ip?: string;
-                device_id?: string;
                 request_id?: string;
                 check_result?: string;
               };
               searchGo({
                 user_ip: transformedData.user_ip,
-                device_id: transformedData.device_id,
                 request_id: transformedData.request_id,
                 check_result: transformedData.check_result,
                 pos: null,
@@ -348,7 +363,6 @@ function AppDetailFeatureRbacAuditContent({
                 forward: false,
                 eq_pos: false,
                 user_ip: undefined,
-                device_id: undefined,
                 request_id: undefined,
                 check_result: undefined,
               });
@@ -365,11 +379,12 @@ function AppDetailFeatureRbacAuditContent({
                   <FilterDictSelect
                     name="check_result"
                     placeholder="选择结果"
-                    label="审计结果"
+                    label="授权结果"
                     disabled={isLoading}
                     dictData={dictData.audit_result}
                     layoutParams={layoutParams}
                     allLabel="全部"
+                    className="w-28"
                   />
                 )}
 
@@ -380,15 +395,7 @@ function AppDetailFeatureRbacAuditContent({
                   label="IP地址"
                   disabled={isLoading}
                   layoutParams={layoutParams}
-                />
-
-                {/* 设备ID过滤 */}
-                <FilterInput
-                  name="device_id"
-                  placeholder="输入设备ID"
-                  label="设备ID"
-                  disabled={isLoading}
-                  layoutParams={layoutParams}
+                  className="w-[13rem]"
                 />
 
                 {/* 请求ID过滤 */}
@@ -398,6 +405,7 @@ function AppDetailFeatureRbacAuditContent({
                   label="请求ID"
                   disabled={isLoading}
                   layoutParams={layoutParams}
+                  className="w-[13rem]"
                 />
 
                 {/* 动作按钮区域 */}

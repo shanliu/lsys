@@ -1,19 +1,43 @@
 import { z } from "zod";
 
 export const BoolSchema = z.preprocess((val) => {
-  if (
-    val === "1" ||
-    val === "true" ||
-    val === "True" ||
-    val === "yes" ||
-    val === "on" ||
-    val === 1 ||
-    val === true
-  )
-    return true;
-  return false;
+    if ( val === true)return true;
+    if (val === undefined || val === 'undefined') return undefined;
+    if (val === null || val === 'null') return null;
+    if (typeof val === 'string') {
+        const s = val.trim();
+        if (s === '') return undefined;
+        if (s === '1' 
+          || s.toLowerCase() === 'true' 
+          || s.toLowerCase() === 'yes' 
+          || s.toLowerCase() === 'on'
+        ) return true;
+        if (s === '0' 
+          || s.toLowerCase() === 'false' 
+          || s.toLowerCase() === 'no' 
+          || s.toLowerCase() === 'off'
+        ) return false;
+        // 其它字符串尝试数字化
+        const num = Number(s);
+        if (!Number.isNaN(num)) return num !== 0;
+        return undefined; // 无法解析的字符串视为未提供
+    }
+    if (typeof val === 'number') return val !== 0;
+    if (typeof val === 'boolean') return val;
+    return false;
 }, z.boolean()) as z.ZodType<boolean>;
 export type BoolType = z.infer<typeof BoolSchema>;
+
+export const MobileSchema = z
+    .string()
+    .regex(/^1[3-9]\d{9}$/, "请输入正确的手机号码");
+export type MobileType = z.infer<typeof MobileSchema>;
+
+// 邮箱验证
+export const EmailSchema = z
+    .string()
+    .regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "请输入有效的邮箱地址");
+export type EmailType = z.infer<typeof EmailSchema>;
 
 
 
@@ -63,7 +87,7 @@ export const PageParam = {
   count_num: BoolSchema.default(false),
 };
 
-export type PageDataType = z.infer<typeof PageParam.page>;
+export type PageType = z.infer<typeof PageParam.page>;
 
 // 偏移分页字段定义（用于 FilterParamSchema.extend() 和 LimitParam）
 export const LimitDataParam = {
@@ -83,19 +107,19 @@ export const LimitParam = {
   count_num: BoolSchema.default(false),
 };
 
-export type LimitDataType = z.infer<typeof LimitParam.limit>;
+export type LimitType = z.infer<typeof LimitParam.limit>;
 
-export const PageRes = {
+export const PageResSchema = {
   total: z.coerce.number().nullable().optional(),
 };
 
-export const LimitRes = {
+export const LimitResSchema = {
   next: z.coerce.number().nullable().optional(),
   total: z.coerce.number().nullable().optional(),
 };
 
 // 用户数据结构
-export const UserDataRes = z.object({
+export const UserDataResSchema = z.object({
   /** 用户所属应用ID */
   app_id: z.coerce.number(),
   /** 用户ID */
@@ -108,7 +132,7 @@ export const UserDataRes = z.object({
   user_nickname: z.string(),
 });
 
-export type UserDataType = z.infer<typeof UserDataRes>;
+export type UserDataResType = z.infer<typeof UserDataResSchema>;
 
 
 
@@ -130,39 +154,3 @@ export const NumberParamSchema = z.preprocess((val) => {
     return null;
 }, z.number().nullable().optional()) as z.ZodType<number | null | undefined>;
 export type NumberParamType = z.infer<typeof NumberParamSchema>;
-
-// 通用布尔参数 Schema 处理：
-// '' 或空白 => undefined（移除 URL 参数）
-// 'undefined' => undefined，'null' 或 null => null
-// '1'/'true'/'True'/'yes'/'on' => true
-// '0'/'false'/'False'/'no'/'off' => false
-// 其它类型按 JS 语义：boolean、number 0/1、字符串解析
-export const BoolParamSchema = z.preprocess((val) => {
-    if (val === undefined || val === 'undefined') return undefined;
-    if (val === null || val === 'null') return null;
-    if (typeof val === 'string') {
-        const s = val.trim();
-        if (s === '') return undefined;
-        if (s === '1' || s.toLowerCase() === 'true' || s.toLowerCase() === 'yes' || s.toLowerCase() === 'on') return true;
-        if (s === '0' || s.toLowerCase() === 'false' || s.toLowerCase() === 'no' || s.toLowerCase() === 'off') return false;
-        // 其它字符串尝试数字化
-        const num = Number(s);
-        if (!Number.isNaN(num)) return num !== 0;
-        return undefined; // 无法解析的字符串视为未提供
-    }
-    if (typeof val === 'number') return val !== 0;
-    if (typeof val === 'boolean') return val;
-    return undefined;
-}, z.boolean().optional().nullable()) as z.ZodType<boolean | null | undefined>;
-export type BoolParamType = z.infer<typeof BoolParamSchema>;
-
-export const MobileSchema = z
-    .string()
-    .regex(/^1[3-9]\d{9}$/, "请输入正确的手机号码");
-export type MobileType = z.infer<typeof MobileSchema>;
-
-// 邮箱验证
-export const EmailSchema = z
-    .string()
-    .regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "请输入有效的邮箱地址");
-export type EmailType = z.infer<typeof EmailSchema>;

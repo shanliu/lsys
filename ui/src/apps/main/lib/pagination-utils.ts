@@ -1,4 +1,4 @@
-import type { LimitDataType } from "@shared/types/base-schema";
+import type { LimitType } from "@shared/types/base-schema";
 import type { NavigateOptions } from "@tanstack/react-router";
 import { useCallback, useRef } from "react";
 
@@ -173,7 +173,7 @@ function OffsetPaginationCanPrev(options: {
  * const { handleNextPage, handlePrevPage, canGoNext, canGoPrev } = useOffsetPaginationHandlers({
  *   minId: messages.length > 0 ? messages[0].id : null,
  *   maxId: messages.length > 0 ? messages[messages.length - 1].id : null,
- *   pagination: pagination, // 直接传入整个 LimitDataType 对象
+ *   pagination: pagination, // 直接传入整个 LimitType 对象
  *   nextPageStartPos: nextPageStartPos,
  *   searchGo: (param) => navigate({ search: { ...filterParam, ...param } }),
  *   defaultForward: false, // 默认排序方向（从大到小为 false，从小到大为 true）
@@ -186,8 +186,8 @@ export function useOffsetPaginationHandlers(options: {
     minId: number | null;
     /** 当前页面数据中的最大ID（最后一条记录的ID） */
     maxId: number | null;
-    /** 当前分页状态 - 使用全局统一的 LimitDataType */
-    pagination: LimitDataType;
+    /** 当前分页状态 - 使用全局统一的 LimitType */
+    pagination: LimitType;
     /** 下一页起始位置（API返回的next字段） */
     nextPageStartPos: number | null | undefined;
     /** 搜索导航函数 - 用于更新URL参数 */
@@ -444,6 +444,7 @@ export function useCountNumManager(filters?: Record<string, any>) {
         reset: useCallback(() => {
             countNumRef.current = true;
             hasLoadedRef.current = false;
+            totalRef.current = null;
         }, []),
 
         /**

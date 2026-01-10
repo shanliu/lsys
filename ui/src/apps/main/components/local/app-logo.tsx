@@ -1,16 +1,8 @@
 import logoImage from "@shared/assets/logo.png";
 import logoImageDark from "@shared/assets/logo_black.png";
 import { useTheme } from "@shared/contexts/theme-context";
-import { cn } from "@shared/lib/utils";
+import { cn, getHomeUrl } from "@shared/lib/utils";
 import React from "react";
-
-/**
- * 获取首页 URL
- * @returns 首页 URL 字符串
- */
-export function getHomeUrl(): string {
-    return '/index.html';
-}
 
 export interface AppLogoProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, "src"> {
     /** 是否将 Logo 包装为链接到首页 */

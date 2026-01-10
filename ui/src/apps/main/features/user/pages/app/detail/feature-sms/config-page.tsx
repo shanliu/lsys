@@ -146,6 +146,7 @@ export function SmsConfigContent({ dictData }: SmsConfigContentProps) {
     mutationFn: (id: number) => userSenderSmsConfigDel({ config_id: id }),
     onSuccess: () => {
       toast.success("配置删除成功");
+      countNumManager.reset();
       queryClient.invalidateQueries({ queryKey: ["sms-config-list", appId] });
     },
     onError: (error: any) => {

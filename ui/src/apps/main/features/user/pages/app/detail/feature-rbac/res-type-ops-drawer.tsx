@@ -42,6 +42,8 @@ interface ResTypeOpsDrawerProps {
   appId: number
   /** 用户模式 */
   userMode: RbacUserModeContext
+  /** 操作成功回调 */
+  onSuccess?: () => void
 }
 
 export function ResTypeOpsDrawer({
@@ -50,6 +52,7 @@ export function ResTypeOpsDrawer({
   onOpenChange,
   appId,
   userMode,
+  onSuccess,
 }: ResTypeOpsDrawerProps) {
   const toast = useToast()
   const queryClient = useQueryClient()
@@ -119,6 +122,7 @@ export function ResTypeOpsDrawer({
         queryKey: ['rbac-res-type-ops', appId, resType],
       })
       setSelectedOpIds([])
+      onSuccess?.()
     },
     onError: (error: any) => {
       toast.error(formatServerError(error))
@@ -140,6 +144,7 @@ export function ResTypeOpsDrawer({
       queryClient.invalidateQueries({
         queryKey: ['rbac-res-type-ops', appId, resType],
       })
+      onSuccess?.()
     },
     onError: (error: any) => {
       toast.error(formatServerError(error))

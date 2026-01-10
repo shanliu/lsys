@@ -6,12 +6,12 @@ import {
   TooltipTrigger,
 } from '@shared/components/ui/tooltip'
 import { cn } from '@shared/lib/utils'
-import { type UserDataType } from '@shared/types/base-schema'
+import { type UserDataResType } from '@shared/types/base-schema'
 import { Building2, Database, ExternalLink, Hash, Shield, User } from 'lucide-react'
 import { useState } from 'react'
 
 interface UserDataTooltipProps {
-  userData: UserDataType | null | undefined
+  userData: UserDataResType | null | undefined
   className?: string
 }
 
@@ -73,7 +73,15 @@ export function UserDataTooltip({ userData, className }: UserDataTooltipProps) {
             onMouseLeave={handleMouseLeave}
           >
             <span className={cn("font-medium truncate max-w-[80px]")} title={userData.user_nickname}>
-              {userData.user_nickname}
+              {userData.user_nickname}{' '}
+              <span
+                className={cn(
+                  "text-muted-foreground text-[10px] leading-none",
+                  "bg-muted/50 px-1 py-0.5 rounded",
+                )}
+              >
+                {userData.id}
+              </span>
             </span>
           </span>
         </TooltipTrigger>
