@@ -147,7 +147,7 @@ Content-type:application/json
         "status": "1",
         "username": "name"
       },
-      "user": {
+      "account": {
         "add_time": "1747934040",
         "address_count": "3",
         "change_time": "1748179060",

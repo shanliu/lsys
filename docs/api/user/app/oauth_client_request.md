@@ -25,7 +25,7 @@ Content-Type:application/json
 Authorization:Bearer {{APP_BEARER_TEST_ACCOUNT}}
 
 {
-     "app_id": 15,
+     "app_id": 54,
      "scope_data":[]
 }
 ```

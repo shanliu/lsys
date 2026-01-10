@@ -1,12 +1,11 @@
-### 应用审核
+### 绑定MFA设备
 
 > 请求参数
 
 | 参数名 | 类型 | 必填 | 说明 |
 |--------|------|------|------|
-| app_req_id | int | 是 | 应用请求ID |
-| confirm_status | int | 是 | 审核状态 2通过 3驳回 |
-| confirm_note | string | 是 | 审核备注 |
+| secret | string | 是 | Base32编码的Secret密钥 |
+| code | string | 是 | MFA设备显示的TOTP验证码（6位数字） |
 
 > 响应参数
 
@@ -16,18 +15,16 @@
 | result.message | string | 响应消息 |
 | result.state | string | 响应状态 |
 
-
 > 示例
 
 ```http
-POST /api/system/app/confirm
-Content-Type:application/json
+POST /api/user/mfa/bind_device
+Content-Type: application/json
 Authorization:Bearer {{APP_BEARER_TEST_ACCOUNT}}
 
 {
-   "app_req_id": 77,
-   "confirm_status": 2,
-   "confirm_note": "ssss"
+  "secret": "JBSWY3DPEBLW64TMMQ3G",
+  "code": "123456"
 }
 
 ```

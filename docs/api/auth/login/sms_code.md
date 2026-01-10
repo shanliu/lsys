@@ -17,6 +17,7 @@
 
 | 参数名 | 类型 | 说明 |
 |--------|------|------|
+| response.mfa_token | string | 需要MFA时返回的二次验证票据，拿到后调用 `/api/auth/login/mfa-verify` 完成登录 |
 | response.auth_data.account_id | string | 账户ID |
 | response.auth_data.empty_password | string | 是否为空密码(0否1是) |
 | response.auth_data.login_data.account_id | string | 登录账户ID |
@@ -63,6 +64,13 @@ Content-Type: application/json
 
 
 ```json
+// 需要 MFA 时：
+// {
+//   "response": { "mfa_token": "..." },
+//   "result": { "code": "200", "message": "ok", "state": "ok" }
+// }
+
+// MFA 不需要时：
 {
   "response": {
     "auth_data": {

@@ -8,7 +8,6 @@
 | menu_res[].name | string | 检查项名称 |
 | menu_res[].check_res.user_param | string | 用户参数 |
 | menu_res[].check_res.token_data | string | token数据 |
-| menu_res[].check_res.request_ip | string | 请求IP |
 | menu_res[].check_res.access.role_key | array | 角色key数组 |
 | menu_res[].check_res.access.check_res | array | 检查资源数组 |
 
@@ -33,7 +32,6 @@ Content-type:application/json
             "check_res":{
                 "user_param": "account_11",
                 "token_data": "sub",
-                "request_ip": "1.1.1.1",
                 "access":{
                     "role_key":[
                         {
