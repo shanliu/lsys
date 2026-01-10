@@ -1,5 +1,5 @@
 
-import { AppLogo, getHomeUrl } from "@apps/main/components/local/app-logo";
+import { AppLogo } from "@apps/main/components/local/app-logo";
 import { useMobileMenu } from "@apps/main/contexts/mobile-menu-context";
 import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
 import { CenteredLoading } from "@shared/components/custom/page-placeholder/centered-loading";
@@ -17,7 +17,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@shared/components/ui/sheet";
 import { useTheme, type Theme } from "@shared/contexts/theme-context";
 import { useMenu } from "@apps/main/hooks/use-menu-data";
 import { useIsMobile } from "@shared/hooks/use-mobile";
-import { cn } from "@shared/lib/utils";
+import { cn, getHomeUrl } from "@shared/lib/utils";
 import { Link, useLocation, useMatches } from "@tanstack/react-router";
 import { ChevronDown, Menu, Monitor, Moon, Sun } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -192,18 +192,26 @@ function DesktopNav() {
                   <div className="grid gap-4 grid-cols-[180px_1fr]">
                     {/* 左侧 - 首页 */}
                     <NavigationMenuLink asChild>
+
                       <a href={getHomeUrl()}
                         className={cn(
                           "group relative flex h-full select-none flex-col justify-center rounded-lg p-5 no-underline outline-none",
                           "border border-border/50 bg-card",
-                          "hover:border-primary/30 hover:bg-accent/50 hover:shadow-sm transition-all duration-200"
+                          "hover:border-primary/30 hover:bg-accent/50 hover:shadow-sm transition-all duration-200",
+                          (userMenus.length==1?"py-4 px-3":"")
                         )}
                       >
-                        <div className="flex items-center gap-3 mb-2">
-                          <AppLogo alt="Logo" className="h-8 w-8 object-contain drop-shadow-sm" />
-                          <div className="text-lg font-bold">首页</div>
+                        <div className={cn("flex items-center gap-3 mb-2" ,(userMenus.length==1?"gap-1 mb-0":""))}>
+                          <AppLogo alt="Logo" className={
+                            cn(
+                              " drop-shadow-sm",
+                            (userMenus.length==1?"h-3":"h-8 w-8 object-contain")
+                          )} />
+                          <div className={cn((userMenus.length==1?"text-sm truncate":"text-lg  font-bold"))}>首页</div>
                         </div>
-                        <p className="text-sm leading-tight text-muted-foreground">
+                        <p className={cn("text-sm leading-tight text-muted-foreground"
+                          ,(userMenus.length==1?"text-xs truncate":"")
+                        )}>
                           返回系统首页
                         </p>
                       </a>
@@ -521,13 +529,11 @@ function MobileNav() {
         // 获取路径段
         const pathParts = childPathWithoutQuery.split('/').filter(Boolean);
         
-        // 对于三段及以上路径（如 /admin/rbac/role），使用前三段作为模块前缀
+        // 对于三段及以上路径（如 /admin/rbac/role），检查前两段是否相同
         // 这样可以匹配同一模块下的其他页面（如 /admin/rbac/resource）
         if (pathParts.length >= 3) {
-          const threeSegmentPrefix = '/' + pathParts.slice(0, 3).join('/');
           const currentPathParts = location.pathname.split('/').filter(Boolean);
           if (currentPathParts.length >= 3) {
-            const currentThreeSegmentPrefix = '/' + currentPathParts.slice(0, 3).join('/');
             // 检查前两段是否相同（如 /admin/rbac）
             if (pathParts[0] === currentPathParts[0] && pathParts[1] === currentPathParts[1]) {
               return true;

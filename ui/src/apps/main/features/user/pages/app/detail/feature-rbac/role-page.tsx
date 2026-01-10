@@ -167,6 +167,7 @@ function RoleListContent({ appId, drawerOpen, setDrawerOpen }: RoleListContentPr
     mutationFn: (roleId: number) => appRbacRoleDelete({ role_id: roleId }),
     onSuccess: () => {
       toast.success('角色删除成功')
+      countNumManager.reset()
       queryClient.invalidateQueries({ queryKey: ['rbac-role-list'] })
     },
     onError: (error: any) => {
@@ -183,12 +184,6 @@ function RoleListContent({ appId, drawerOpen, setDrawerOpen }: RoleListContentPr
   const clearCacheAndReload = () => {
     countNumManager.reset()
     queryClient.invalidateQueries({ queryKey: ['rbac-role-list'] })
-  }
-
-  // 打开新增/编辑抽屉
-  const _handleAdd = () => {
-    setEditingRole(undefined)
-    setDrawerOpen(true)
   }
 
   // 打开编辑抽屉
@@ -419,6 +414,7 @@ function RoleListContent({ appId, drawerOpen, setDrawerOpen }: RoleListContentPr
                   label="角色名称"
                   disabled={isLoading}
                   layoutParams={layoutParams}
+                  className="w-[8.5rem]"
                 />
 
                 <FilterInput
@@ -427,6 +423,7 @@ function RoleListContent({ appId, drawerOpen, setDrawerOpen }: RoleListContentPr
                   label="角色标识"
                   disabled={isLoading}
                   layoutParams={layoutParams}
+                  className="w-[8.5rem]"
                 />
 
                 <FilterSelect
@@ -437,6 +434,7 @@ function RoleListContent({ appId, drawerOpen, setDrawerOpen }: RoleListContentPr
                   options={userRangeOptions}
                   allLabel="全部"
                   layoutParams={layoutParams}
+                  className="w-28"
                 />
 
                 <FilterSelect
@@ -447,6 +445,7 @@ function RoleListContent({ appId, drawerOpen, setDrawerOpen }: RoleListContentPr
                   options={resRangeOptions}
                   allLabel="全部"
                   layoutParams={layoutParams}
+                  className="w-28"
                 />
 
                 <FilterActions

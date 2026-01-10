@@ -56,36 +56,36 @@ export function ResDrawer({
     resolver: zodResolver(ResFormSchema),
     defaultValues: resource
       ? {
-          res_name: resource.res_name,
-          res_type: resource.res_type,
-          res_data: resource.res_data,
-        }
+        res_name: resource.res_name,
+        res_type: resource.res_type,
+        res_data: resource.res_data ?? '',
+      }
       : {
-          res_name: '',
-          res_type: '',
-          res_data: '',
-          use_app_user: false,
-          user_param: '',
-        },
+        res_name: '',
+        res_type: '',
+        res_data: '',
+        use_app_user: true,
+        user_param: '',
+      },
   })
 
   const mutation = useMutation({
     mutationFn: (data: ResFormType) =>
       isEdit
         ? appRbacResEdit({
-            res_id: resource.id,
-            res_name: data.res_name,
-            res_type: data.res_type,
-            res_data: data.res_data,
-          })
+          res_id: resource.id,
+          res_name: data.res_name,
+          res_type: data.res_type,
+          res_data: data.res_data ?? '',
+        })
         : appRbacResAdd({
-            app_id: appId,
-            use_app_user: data.use_app_user ?? false,
-            user_param: data.user_param ?? '',
-            res_name: data.res_name,
-            res_type: data.res_type,
-            res_data: data.res_data,
-          }),
+          app_id: appId,
+          use_app_user: data.use_app_user ?? false,
+          user_param: data.user_param ?? '',
+          res_name: data.res_name,
+          res_type: data.res_type,
+          res_data: data.res_data ?? '',
+        }),
     onSuccess: () => {
       toast.success(isEdit ? '资源更新成功' : '资源添加成功')
       queryClient.invalidateQueries({ queryKey: ['rbac-res-list'] })
@@ -110,14 +110,14 @@ export function ResDrawer({
         form.reset({
           res_name: resource.res_name,
           res_type: resource.res_type,
-          res_data: resource.res_data,
+          res_data: resource.res_data ?? '',
         })
       } else {
         form.reset({
           res_name: '',
           res_type: '',
           res_data: '',
-          use_app_user: false,
+          use_app_user: true,
           user_param: '',
         })
       }
@@ -154,7 +154,7 @@ export function ResDrawer({
                         />
                       </FormControl>
                       <div className="space-y-1 leading-none">
-                        <FormLabel>使用应用用户</FormLabel>
+                        <FormLabel>应用本身</FormLabel>
                         <FormDescription>
                           启用后将使用应用自己的用户体系
                         </FormDescription>

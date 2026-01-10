@@ -1,5 +1,6 @@
 import { FilterContainer } from "@apps/main/components/filter-container/container";
 import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
+import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
 import { FilterInput } from "@apps/main/components/filter-container/filter-input";
 import { FilterSelect } from "@apps/main/components/filter-container/filter-select";
 import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
@@ -35,7 +36,7 @@ import {
   getQueryResponseNext,
   TIME_STYLE,
 } from "@shared/lib/utils";
-import { type LimitDataType } from "@shared/types/base-schema";
+import { type LimitType } from "@shared/types/base-schema";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { ColumnDef } from "@tanstack/react-table";
@@ -114,7 +115,7 @@ function AccountLoginLogContent({ loginDictData }: AccountLoginLogContentProps) 
   };
 
   // 分页状态 - 直接从 URL 参数派生，无需 useState
-  const pagination: LimitDataType = {
+  const pagination: LimitType = {
     pos: filterParam.pos || null,
     limit: filterParam.limit || DEFAULT_PAGE_SIZE,
     forward: filterParam.forward || false,
@@ -188,17 +189,19 @@ function AccountLoginLogContent({ loginDictData }: AccountLoginLogContentProps) 
     });
   };
 
-  // 创建登录状态映射器
-  const loginStatus = createStatusMapper(
-    {
-      1: "success",
-      0: "danger",
-    },
-    (status) => (status === 1 ? "成功" : "失败"),
-  );
-
   // 预处理字典数据，避免重复判断
   const loginTypeDict = loginDictData.login_type;
+
+  // 字典数据已加载，创建登录状态映射器
+  const loginStatus = createStatusMapper(
+    {
+      0: "danger",    // 失败
+      1: "warning",   // 仅预登陆
+      2: "success",   // 成功
+    },
+    (status) =>
+      loginDictData.login_status?.getLabel(String(status)) || String(status),
+  );
 
   // 定义表格列
   const columns = useMemo<ColumnDef<AccountLoginHistoryItemType>[]>(
@@ -284,7 +287,7 @@ function AccountLoginLogContent({ loginDictData }: AccountLoginLogContentProps) 
         },
       },
     ],
-    [loginTypeDict, isMobile, loginStatus],
+    [loginTypeDict, loginStatus, isMobile],
   );
 
   const isLoading = queryIsLoading || isFetching;
@@ -363,20 +366,17 @@ function AccountLoginLogContent({ loginDictData }: AccountLoginLogContentProps) 
               </div>
 
               {/* 是否登录成功 */}
-              <div className="flex-1 min-w-[180px] max-w-[300px]">
-                <FilterSelect
+              {loginDictData.login_status && (
+                <FilterDictSelect
                   name="is_login"
                   placeholder="选择状态"
                   label="登录状态"
                   disabled={isLoading}
+                  dictData={loginDictData.login_status}
                   layoutParams={layoutParams}
                   allLabel="全部"
-                  options={[
-                    { label: "登录成功", value: "1" },
-                    { label: "登录失败", value: "0" },
-                  ]}
                 />
-              </div>
+              )}
 
               {/* 动作按钮区域 */}
               <div className={cn(layoutParams.isMobile ? "w-full" : "flex-shrink-0")}>

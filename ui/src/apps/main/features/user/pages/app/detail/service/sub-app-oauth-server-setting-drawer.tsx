@@ -10,7 +10,7 @@ import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } f
 import { useToast } from "@shared/contexts/toast-context"
 import { cn, formatServerError } from "@shared/lib/utils"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation } from "@tanstack/react-query"
 import { Plus, Trash2 } from "lucide-react"
 import React from "react"
 import { useFieldArray, useForm } from "react-hook-form"
@@ -37,11 +37,11 @@ interface SubAppOAuthServerSettingDrawerProps {
     scopeData: OAuthServerScopeDataItem[]
     open: boolean
     onOpenChange: (open: boolean) => void
+    onSaveSuccess?: () => void
 }
 
-export function SubAppOAuthServerSettingDrawer({ appId, scopeData, open, onOpenChange }: SubAppOAuthServerSettingDrawerProps) {
+export function SubAppOAuthServerSettingDrawer({ appId, scopeData, open, onOpenChange, onSaveSuccess }: SubAppOAuthServerSettingDrawerProps) {
     const toast = useToast()
-    const queryClient = useQueryClient()
 
     const form = useForm<OAuthServerSettingFormData>({
         resolver: zodResolver(OAuthServerSettingFormSchema),
@@ -78,8 +78,8 @@ export function SubAppOAuthServerSettingDrawer({ appId, scopeData, open, onOpenC
         onSuccess: (result) => {
             if (result.status) {
                 toast.success("OAuth服务设置已更新")
-                queryClient.invalidateQueries({ queryKey: ['app-oauth-server-detail', appId] })
                 onOpenChange(false)
+                onSaveSuccess?.()
             } else {
                 toast.error(formatServerError(result))
             }

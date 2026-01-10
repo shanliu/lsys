@@ -71,7 +71,12 @@ export function TplConfigDrawerNeteaseForm({ form }: TplConfigDrawerNeteaseFormP
                     <FormItem>
                         <FormLabel>模板ID</FormLabel>
                         <FormControl>
-                            <Input placeholder="123456" {...field} />
+                            <Input
+                                placeholder="如: 123456 或 tpl-001"
+                                {...field}
+                                value={field.value ?? ""}
+                                onChange={(e) => field.onChange(e.target.value)}
+                            />
                         </FormControl>
                         <FormMessage />
                     </FormItem>

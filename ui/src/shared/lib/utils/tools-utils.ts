@@ -218,3 +218,11 @@ export function calculateRemainingSeconds(timeOut: Date | null): number {
   const remaining = Math.floor((timeOut.getTime() - now) / 1000)
   return remaining > 0 ? remaining : 0
 }
+
+/**
+ * 获取首页 URL
+ * @returns 首页 URL 字符串
+ */
+export function getHomeUrl(): string {
+  return '/index.html'
+}

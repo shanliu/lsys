@@ -12,7 +12,7 @@ import { type StatusMapper } from "@apps/main/lib/status-utils";
 import { type AppRequestItemType } from "@shared/apis/user/app";
 import CopyableText from "@shared/components/custom/text/copyable-text";
 import { Badge } from "@shared/components/ui/badge";
-import { cn, formatTime, TIME_STYLE } from "@shared/lib/utils";
+import { formatTime, TIME_STYLE } from "@shared/lib/utils";
 import { Link } from "@tanstack/react-router";
 import { useMemo } from "react";
 

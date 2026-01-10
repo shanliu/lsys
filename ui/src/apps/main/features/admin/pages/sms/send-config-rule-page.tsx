@@ -10,10 +10,6 @@ import { SenderRuleConfigView } from "@apps/main/components/local/sender-config/
 import { ConfirmDialog } from "@shared/components/custom/dialog/confirm-dialog";
 import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
 import { PageSkeletonTable } from "@shared/components/custom/page-placeholder/skeleton-table";
-import {
-    DEFAULT_PAGE_SIZE,
-} from "@apps/main/lib/pagination-utils";
-import { Route } from "@apps/main/routes/_main/admin/sms/send-config/rule";
 import { DataTable, DataTableAction, DataTableActionItem } from "@shared/components/custom/table";
 import { Badge } from "@shared/components/ui/badge";
 import { Button } from "@shared/components/ui/button";
@@ -107,9 +103,6 @@ export function SmsSendConfigRuleContent({ dictData }: SmsSendConfigRuleContentP
     const toast = useToast();
     const queryClient = useQueryClient();
     const isMobile = useIsMobile();
-
-    const currentPage = 1;
-    const currentLimit = DEFAULT_PAGE_SIZE;
 
     // 获取短信配置列表数据
     const {

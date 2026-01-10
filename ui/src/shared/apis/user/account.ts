@@ -3,7 +3,7 @@ import { cleanEmptyStringParams, parseResData } from "@shared/lib/apis/utils";
 import { userStore } from "@shared/lib/auth";
 import { DictListSchema } from "@shared/types/apis-dict";
 import { ApiResult } from "@shared/types/apis-rest";
-import { BoolSchema, LimitParam, LimitRes, UnixTimestampSchema } from "@shared/types/base-schema";
+import { BoolSchema, LimitParam, LimitResSchema, UnixTimestampSchema } from "@shared/types/base-schema";
 import { AxiosRequestConfig } from "axios";
 import z from "zod";
 
@@ -50,7 +50,8 @@ const AccountAuthDataSchema = z.object({
         change_time: UnixTimestampSchema,
         id: z.coerce.number(),
         status: z.coerce.number(),
-        username: z.string().optional().default(""),
+        // Backend is expected to always return username; make it required so the inferred type is `string`
+        username: z.string(),
     }),
     login_time: UnixTimestampSchema,
     login_type: z.string(),
@@ -74,10 +75,10 @@ export const AccountLoginDataResSchema = z.object({
         passwrod_timeut: z.string().nullable().optional(),
         // account 基础信息（你提供的结构）统一命名为 user
         account: z.object({
-            add_time: z.coerce.number().optional().nullable(),
+            add_time: UnixTimestampSchema.optional(),
             address_count: z.coerce.number().optional().nullable(),
-            change_time: z.coerce.number().optional().nullable(),
-            confirm_time: z.coerce.number().optional().nullable(),
+            change_time: UnixTimestampSchema.optional(),
+            confirm_time: UnixTimestampSchema.optional(),
             email_count: z.coerce.number().optional().nullable(),
             external_count: z.coerce.number().optional().nullable(),
             id: z.coerce.number().optional().nullable(),
@@ -124,7 +125,7 @@ export type AccountLoginHistoryItemType = z.infer<typeof AccountLoginHistoryItem
 
 export const AccountLoginHistoryResSchema = z.object({
     data: z.array(AccountLoginHistoryItemSchema),
-    ...LimitRes,
+    ...LimitResSchema,
 });
 export type AccountLoginHistoryResType = z.infer<typeof AccountLoginHistoryResSchema>;
 
@@ -235,6 +236,60 @@ export async function accountMapping(
 ): Promise<ApiResult<AccountMappingResType>> {
     const { data } = await authApi().post("/api/user/base/mapping", {}, config);
     return parseResData(data, AccountMappingResSchema);
+}
+
+// MFA相关接口
+
+// 获取MFA二维码
+export const MfaBindQrcodeResSchema = z.object({
+    secret: z.string(),
+    otpauth_url: z.string(),
+    app_name: z.string(),
+    len: z.coerce.number().optional(),
+});
+export type MfaBindQrcodeResType = z.infer<typeof MfaBindQrcodeResSchema>;
+
+export async function mfaBindQrcode(
+    config?: AxiosRequestConfig<any>
+): Promise<ApiResult<MfaBindQrcodeResType>> {
+    const { data } = await authApi().post("/api/user/mfa/bind_qrcode", {}, config);
+    return parseResData(data, MfaBindQrcodeResSchema);
+}
+
+// 绑定MFA设备
+export const MfaBindDeviceParamSchema = z.object({
+    secret: z.string().min(1, "Secret不能为空"),
+    code: z.string().min(1, "验证码不能为空"),
+});
+export type MfaBindDeviceParamType = z.infer<typeof MfaBindDeviceParamSchema>;
+
+export async function mfaBindDevice(
+    param: MfaBindDeviceParamType,
+    config?: AxiosRequestConfig<any>
+): Promise<ApiResult> {
+    const { data } = await authApi().post("/api/user/mfa/bind_device", param, config);
+    return data;
+}
+
+// 获取MFA绑定状态
+export const MfaStatusResSchema = z.object({
+    enabled: BoolSchema,
+});
+export type MfaStatusResType = z.infer<typeof MfaStatusResSchema>;
+
+export async function mfaStatus(
+    config?: AxiosRequestConfig<any>
+): Promise<ApiResult<MfaStatusResType>> {
+    const { data } = await authApi().post("/api/user/mfa/bind_status", {}, config);
+    return parseResData(data, MfaStatusResSchema);
+}
+
+// 解绑MFA设备
+export async function mfaUnbind(
+    config?: AxiosRequestConfig<any>
+): Promise<ApiResult> {
+    const { data } = await authApi().post("/api/user/mfa/unbind", {}, config);
+    return data;
 }
 
 

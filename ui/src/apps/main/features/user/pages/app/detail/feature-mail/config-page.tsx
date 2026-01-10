@@ -149,6 +149,7 @@ export function MailConfigContent({ dictData }: MailConfigContentProps) {
     mutationFn: (id: number) => userSenderMailerConfigDel({ config_id: id }),
     onSuccess: () => {
       toast.success("配置删除成功");
+      countNumManager.reset();
       queryClient.invalidateQueries({ queryKey: ["mail-config-list", appId] });
     },
     onError: (error: any) => {
@@ -218,7 +219,7 @@ export function MailConfigContent({ dictData }: MailConfigContentProps) {
       size: 150,
       cell: ({ getValue }) => (
         <div className="text-sm text-muted-foreground whitespace-nowrap">
-          {formatTime(getValue<number>(), TIME_STYLE.ABSOLUTE_TEXT)}
+          {formatTime(getValue<Date | null>(), TIME_STYLE.ABSOLUTE_TEXT)}
         </div>
       ),
     },

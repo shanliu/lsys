@@ -114,6 +114,7 @@ export default function AppDetailFeatureMailTplPage() {
     mutationFn: (id: number) => userSenderMailerTplBodyDel({ id }),
     onSuccess: () => {
       toast.success("模板删除成功");
+      countNumManager.reset();
       queryClient.invalidateQueries({ queryKey: ["mail-tpl-list", appId] });
     },
     onError: (error: any) => {

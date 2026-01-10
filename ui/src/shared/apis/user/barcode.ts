@@ -2,7 +2,7 @@ import { authApi } from "@shared/lib/apis/api_auth";
 import { parseResData } from "@shared/lib/apis/utils";
 import { DictListSchema } from "@shared/types/apis-dict";
 import { ApiResult } from "@shared/types/apis-rest";
-import { PageParam, PageRes, UnixTimestampSchema } from "@shared/types/base-schema";
+import { PageParam, PageResSchema, UnixTimestampSchema } from "@shared/types/base-schema";
 import { AxiosRequestConfig } from "axios";
 import z from "zod";
 
@@ -49,7 +49,7 @@ export type UserBarcodeCreateConfigItemType = z.infer<typeof UserBarcodeCreateCo
 
 export const UserBarcodeCreateConfigListResSchema = z.object({
     data: z.array(UserBarcodeCreateConfigItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type UserBarcodeCreateConfigListResType = z.infer<typeof UserBarcodeCreateConfigListResSchema>;
 
@@ -148,7 +148,7 @@ export type UserBarcodeParseRecordItemType = z.infer<typeof UserBarcodeParseReco
 
 export const UserBarcodeParseRecordListResSchema = z.object({
     data: z.array(UserBarcodeParseRecordItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type UserBarcodeParseRecordListResType = z.infer<typeof UserBarcodeParseRecordListResSchema>;
 

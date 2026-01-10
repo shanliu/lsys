@@ -23,7 +23,7 @@ export type ResListFilterParamType = z.infer<typeof ResListFilterParamSchema>
 export const ResFormSchema = z.object({
   res_name: z.string().min(1, '资源名称必须填写'),
   res_type: z.string().min(1, '资源类型必须填写'),
-  res_data: z.string().min(1, '资源数据必须填写'),
+  res_data: z.string().optional(),
 })
 
 export type ResFormType = z.infer<typeof ResFormSchema>

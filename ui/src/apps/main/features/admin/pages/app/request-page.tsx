@@ -129,7 +129,7 @@ function AppRequestContent({ dictData }: AppRequestContentProps) {
           ...(filterParam.id !== undefined && { id: filterParam.id }),
           ...(filterParam.app_id !== undefined && { app_id: filterParam.app_id }),
           ...(filterParam.request_type && { request_type: filterParam.request_type }),
-          ...(filterParam.status && { status: filterParam.status }),
+          ...(filterParam.status && { status: Number(filterParam.status) }),
         },
         { signal },
       ),
@@ -212,7 +212,7 @@ function AppRequestContent({ dictData }: AppRequestContentProps) {
     const baseColumns: ColumnDef<AppRequestItemType>[] = [
       {
         accessorKey: "id",
-        header: () => <div className={cn(isMobile ? "" : "text-right")}>ID</div>,
+        header: () => <div className={cn(isMobile ? "" : "text-right")}>请求ID</div>,
         size: 80,
         cell: ({ getValue }) => (
           <div className={cn("font-mono text-xs", isMobile ? "" : "text-right")}>{getValue() as number}</div>
@@ -220,14 +220,14 @@ function AppRequestContent({ dictData }: AppRequestContentProps) {
       },
       {
         accessorKey: "app_name",
-        header: "应用名",
+        header: () => <span>应用名<span className="text-xs text-muted-foreground">(应用ID)</span></span>,
         cell: ({ row }) => {
           const request = row.original;
           if (!request.app_name || !request.app_id) {
             return <span className="text-muted-foreground">-</span>;
           }
           return (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <Link
                 to="/admin/app/list"
                 search={{ app_id: request.app_id, detail: 1 } as any}
@@ -235,8 +235,13 @@ function AppRequestContent({ dictData }: AppRequestContentProps) {
               >
                 {request.app_name}
               </Link>
-              <span className="text-xs text-muted-foreground">
-                AppId:{request.app_id}
+              <span
+                className={cn(
+                  "text-muted-foreground text-[10px] leading-none",
+                  "bg-muted/50 px-1 py-0.5 rounded",
+                )}
+              >
+                {request.app_id}
               </span>
             </div>
           );
@@ -325,7 +330,7 @@ function AppRequestContent({ dictData }: AppRequestContentProps) {
         header: () => <div className="text-center">操作</div>,
         cell: ({ row }) => {
           const request = row.original;
-          const isPending = request.status === 1;
+          const isPending = Number(request.status) === 1;
           // 未审核状态：显示审核按钮
           if (isPending) {
             return (

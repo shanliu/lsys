@@ -221,6 +221,7 @@ export function RolePermsDrawer({
     },
     onSuccess: () => {
       toast.success('资源添加成功')
+      countNumManager.reset()
       queryClient.invalidateQueries({ queryKey: ['admin-rbac-role-perms', role.id] })
       queryClient.invalidateQueries({ queryKey: ['admin-rbac-role-list'], refetchType: 'all' })
       setSelectedResId(null)
@@ -245,6 +246,7 @@ export function RolePermsDrawer({
       }),
     onSuccess: () => {
       toast.success('资源删除成功')
+      countNumManager.reset()
       queryClient.invalidateQueries({ queryKey: ['admin-rbac-role-perms', role.id] })
       queryClient.invalidateQueries({ queryKey: ['admin-rbac-role-list'], refetchType: 'all' })
     },
@@ -264,17 +266,27 @@ export function RolePermsDrawer({
         <DrawerHeader>
           <DrawerTitle className="flex items-center gap-2">
             <Shield className="h-5 w-5" />
-            角色资源管理
+            {role.res_range === 3 ? '角色禁止资源管理' : '角色授权资源管理'}
           </DrawerTitle>
           <DrawerDescription>
-            管理角色「{role.role_name}」的资源配置
+            {role.res_range === 3
+              ? `配置角色「${role.role_name}」禁止访问的资源（黑名单）`
+              : `配置角色「${role.role_name}」允许访问的资源（白名单）`
+            }
           </DrawerDescription>
         </DrawerHeader>
 
         <div className="mt-6 space-y-6">
+          {/* 提示信息 */}
+          {role.res_range === 3 && (
+            <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
+              在此处添加的资源将被<strong>禁止访问</strong>，请谨慎操作。
+            </div>
+          )}
+
           {/* 添加资源区域 */}
           <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
-            <h4 className="font-medium">添加资源</h4>
+            <h4 className="font-medium">{role.res_range === 3 ? '添加禁止资源' : '添加授权资源'}</h4>
             <div className="flex flex-wrap gap-3 items-end">
               <div className="flex-1 min-w-[150px]">
                 <label className="text-sm text-muted-foreground mb-1.5 block">选择资源</label>
@@ -286,11 +298,17 @@ export function RolePermsDrawer({
                     <SelectValue placeholder="选择资源" />
                   </SelectTrigger>
                   <SelectContent className="max-h-[300px]">
-                    {resources.map((res) => (
-                      <SelectItem key={res.id} value={res.id.toString()}>
-                        {res.res_name} ({res.res_type})
-                      </SelectItem>
-                    ))}
+                    {resources.map((res) => {
+                      const displayName = res.res_name || res.res_type
+                      const displayText = res.res_data
+                        ? `${displayName}(${res.res_type}:${res.res_data})`
+                        : `${displayName}(${res.res_type})`
+                      return (
+                        <SelectItem key={res.id} value={res.id.toString()}>
+                          {displayText}
+                        </SelectItem>
+                      )
+                    })}
                   </SelectContent>
                 </Select>
               </div>
@@ -300,10 +318,16 @@ export function RolePermsDrawer({
                 <Select
                   value={selectedOpId?.toString() || ''}
                   onValueChange={(value) => setSelectedOpId(Number(value))}
-                  disabled={!selectedResId || opsLoading}
+                  disabled={!selectedResId || opsLoading || (selectedResId !== null && !opsLoading && operations.length === 0)}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder={opsLoading ? '加载中...' : '选择操作'} />
+                    <SelectValue placeholder={
+                      opsLoading
+                        ? '加载中...'
+                        : (selectedResId && operations.length === 0
+                          ? '无可用操作'
+                          : '选择操作')
+                    } />
                   </SelectTrigger>
                   <SelectContent className="max-h-[300px]">
                     {operations.map((op) => (
@@ -323,21 +347,26 @@ export function RolePermsDrawer({
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
                 <Plus className="mr-2 h-4 w-4" />
-                添加资源
+                {role.res_range === 3 ? '禁止资源' : '授权资源'}
               </Button>
             </div>
           </div>
 
           {/* 资源列表 */}
           <div className="space-y-3">
-            <h4 className="font-medium">已配置资源 ({countNumManager.getTotal() ?? perms.length})</h4>
+            <h4 className="font-medium">
+              {role.res_range === 3 ? '已禁止资源' : '已授权资源'}
+              <span className="ml-2 text-muted-foreground font-normal">
+                ({countNumManager.getTotal() ?? perms.length})
+              </span>
+            </h4>
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             ) : perms.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                暂无资源配置
+                {role.res_range === 3 ? '暂无禁止资源配置' : '暂无授权资源配置'}
               </div>
             ) : (
               <RolePermsListView
@@ -349,18 +378,20 @@ export function RolePermsDrawer({
             )}
 
             {/* 分页 */}
-            <PagePagination
-              currentPage={pagination.page}
-              pageSize={pagination.limit}
-              total={countNumManager.getTotal() ?? 0}
-              loading={isLoading}
-              onChange={(page: number) => {
-                setPagination((prev) => ({ ...prev, page }))
-              }}
-              onPageSizeChange={(limit: number) => {
-                setPagination({ page: 1, limit })
-              }}
-            />
+            {(countNumManager.getTotal() ?? 0) > 0 && (
+              <PagePagination
+                currentPage={pagination.page}
+                pageSize={pagination.limit}
+                total={countNumManager.getTotal() ?? 0}
+                loading={isLoading}
+                onChange={(page: number) => {
+                  setPagination((prev) => ({ ...prev, page }))
+                }}
+                onPageSizeChange={(limit: number) => {
+                  setPagination({ page: 1, limit })
+                }}
+              />
+            )}
           </div>
         </div>
       </DrawerContent>

@@ -6,7 +6,6 @@
 |--------|------|------|
 | user_param | string | 用户参数 |
 | token_data | string | token数据 |
-| request_ip | string | 请求IP |
 | access.role_key | array | 角色key数组 |
 | access.role_key[].role_key | string | 角色key |
 | access.role_key[].use_app_user | boolean | 是否使用app用户 |
@@ -28,7 +27,6 @@ Content-type:application/json
 {
     "user_param":"ccc",
     "token_data": null,
-    "request_ip": "1.1.1.1",
     "access":{
             "role_key":[
                {

@@ -12,9 +12,9 @@ func TestMail(t *testing.T) {
 	sysApi := GetRestApi()
 	//示例1
 	//邮件发送示例
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 2; i++ {
 		var mail []string
-		for j := 0; j < 100; j++ {
+		for j := 0; j < 2; j++ {
 			mail = append(mail, fmt.Sprintf("shan.liu@msn%d.com", j))
 		}
 		data, err1 := sysApi.MailSend(

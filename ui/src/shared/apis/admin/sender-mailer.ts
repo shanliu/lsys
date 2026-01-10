@@ -2,7 +2,7 @@ import { authApi } from "@shared/lib/apis/api_auth";
 import { cleanEmptyStringParams, parseResData } from "@shared/lib/apis/utils";
 import { DictListSchema } from "@shared/types/apis-dict";
 import { ApiResult } from "@shared/types/apis-rest";
-import { BoolSchema, LimitParam, LimitRes, PageParam, PageRes, UnixTimestampSchema } from "@shared/types/base-schema";
+import { BoolSchema, LimitParam, LimitResSchema, PageParam, PageResSchema, UnixTimestampSchema } from "@shared/types/base-schema";
 import { AxiosRequestConfig } from "axios";
 import z from "zod";
 
@@ -245,7 +245,7 @@ export type SystemSenderMailerMessageItemType = z.infer<typeof SystemSenderMaile
 
 export const SystemSenderMailerMessageListResSchema = z.object({
     data: z.array(SystemSenderMailerMessageItemSchema),
-    ...LimitRes,
+    ...LimitResSchema,
 });
 export type SystemSenderMailerMessageListResType = z.infer<typeof SystemSenderMailerMessageListResSchema>;
 
@@ -313,7 +313,7 @@ export type SystemSenderMailerMessageLogItemType = z.infer<typeof SystemSenderMa
 
 export const SystemSenderMailerMessageLogsResSchema = z.object({
     data: z.array(SystemSenderMailerMessageLogItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type SystemSenderMailerMessageLogsResType = z.infer<typeof SystemSenderMailerMessageLogsResSchema>;
 
@@ -422,7 +422,7 @@ export type SystemSenderMailerTplBodyItemType = z.infer<typeof SystemSenderMaile
 
 export const SystemSenderMailerTplBodyListResSchema = z.object({
     data: z.array(SystemSenderMailerTplBodyItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type SystemSenderMailerTplBodyListResType = z.infer<typeof SystemSenderMailerTplBodyListResSchema>;
 
@@ -487,7 +487,7 @@ export type SystemSenderMailerTplConfigItemType = z.infer<typeof SystemSenderMai
 
 export const SystemSenderMailerTplConfigListResSchema = z.object({
     data: z.array(SystemSenderMailerTplConfigItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type SystemSenderMailerTplConfigListResType = z.infer<typeof SystemSenderMailerTplConfigListResSchema>;
 

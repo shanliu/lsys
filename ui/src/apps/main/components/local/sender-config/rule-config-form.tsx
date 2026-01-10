@@ -1,4 +1,5 @@
 import { TimeoutInput } from '@shared/components/custom/input/timeout-input';
+import { NumberInput } from '@shared/components/custom/input/number-input';
 import { Alert, AlertDescription } from "@shared/components/ui/alert";
 import { Input } from "@shared/components/ui/input";
 import { Label } from "@shared/components/ui/label";
@@ -63,11 +64,18 @@ export function SenderRuleConfigType2Add({ form, fieldPrefix = "config_data" }: 
                 <Label>最大发送数量</Label>
                 <div className="flex items-center gap-2">
                     <Mail className="h-4 w-4 text-muted-foreground" />
-                    <Input
-                        type="number"
-                        placeholder="例如: 100"
-                        min={1}
-                        {...form.register(maxSendField, { valueAsNumber: true })}
+                    <Controller
+                        control={form.control}
+                        name={maxSendField}
+                        render={({ field }) => (
+                            <NumberInput
+                                className="flex-1"
+                                value={field.value ?? 1}
+                                onChange={field.onChange}
+                                placeholder="例如: 100"
+                                min={1}
+                            />
+                        )}
                     />
                 </div>
                 <p className="text-[0.8rem] text-muted-foreground">
@@ -94,11 +102,18 @@ export function SenderRuleConfigType3Add({ form, fieldName = "config_data" }: Se
             <Label>每次最大发送数量</Label>
             <div className="flex items-center gap-2">
                 <Hash className="h-4 w-4 text-muted-foreground" />
-                <Input
-                    type="number"
-                    placeholder="例如: 50"
-                    min={1}
-                    {...form.register(fieldName, { valueAsNumber: true })}
+                <Controller
+                    control={form.control}
+                    name={fieldName}
+                    render={({ field }) => (
+                        <NumberInput
+                            className="flex-1"
+                            value={field.value ?? 1}
+                            onChange={field.onChange}
+                            placeholder="例如: 50"
+                            min={1}
+                        />
+                    )}
                 />
             </div>
             <p className="text-[0.8rem] text-muted-foreground">

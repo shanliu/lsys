@@ -41,7 +41,6 @@ import { SmsSendConfigTplConfigDetailDrawer } from "./send-config-tpl-config-det
 import { SmsSendConfigTplConfigDrawer } from "./send-config-tpl-config-drawer";
 import {
   SmsSendConfigTplFilterFormSchema,
-  SmsSendConfigTplFilterParamSchema,
   SmsSendConfigTplFilterParamType,
 } from "./send-config-tpl-config-schema";
 
@@ -113,6 +112,7 @@ export function SmsSendConfigTplConfigPage() {
     mutationFn: (id: number) => systemSenderSmsTplConfigDelete({ tpl_config_id: id }),
     onSuccess: () => {
       toast.success("配置删除成功");
+      countNumManager.reset();
       queryClient.invalidateQueries({ queryKey: ["admin-tpl-config-list"] });
     },
     onError: (error: any) => {

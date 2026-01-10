@@ -40,10 +40,15 @@ import {
   PopoverTrigger,
 } from '@shared/components/ui/popover'
 import { useToast } from '@shared/contexts/toast-context'
-import { formatServerError, getQueryResponseData } from '@shared/lib/utils'
+import { formatServerError, getQueryResponseData, formatTime, TIME_STYLE, formatSeconds } from '@shared/lib/utils'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Loader2, Plus, Trash2, Users } from 'lucide-react'
-import React, { useState } from 'react'
+
+import { CenteredError } from '@shared/components/custom/page-placeholder/centered-error'
+import { CenteredLoading } from '@shared/components/custom/page-placeholder/centered-loading'
+import { Plus, Trash2, Users } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
+import React, { useState, useDeferredValue } from 'react'
+
 
 // 移动端/PC端自适应列表视图组件
 interface RoleUsersListViewProps {
@@ -86,6 +91,9 @@ function RoleUsersListView({ roleUsers, onDelete }: RoleUsersListViewProps) {
               </div>
               <div className="text-sm">
                 <Badge variant="outline">{item.user_data.user_account}</Badge>
+                <span className="text-xs text-muted-foreground ml-1">
+                  #{item.user_data.id}
+                </span>
               </div>
             </div>
             <div className="flex items-start gap-3">
@@ -93,6 +101,20 @@ function RoleUsersListView({ roleUsers, onDelete }: RoleUsersListViewProps) {
                 昵称
               </div>
               <div className="text-sm">{item.user_data.user_nickname || '-'}</div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="text-xs font-medium text-muted-foreground whitespace-nowrap min-w-[50px] shrink-0 pt-0.5">
+                有效期
+              </div>
+              <div className="text-sm">{formatSeconds(item.timeout || 0)}</div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="text-xs font-medium text-muted-foreground whitespace-nowrap min-w-[50px] shrink-0 pt-0.5">
+                更改于
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {formatTime(item.change_time || null, TIME_STYLE.RELATIVE_ELEMENT)}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -133,7 +155,7 @@ export function RoleUsersDrawer({
   const countNumManager = useCountNumManager()
 
   // 获取角色用户列表
-  const { data: usersData, isSuccess, isLoading } = useQuery({
+  const { data: usersData, isSuccess, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['admin-rbac-role-users', role.id, pagination.page, pagination.limit],
     queryFn: async ({ signal }) => {
       const result = await roleUserData(
@@ -159,15 +181,20 @@ export function RoleUsersDrawer({
     countNumManager.handlePageQueryResult(usersData)
   }
 
+  // 使用 deferred value 减少请求频率
+  const debouncedSearchText = useDeferredValue(searchText)
+
   // 获取可用用户列表
   const { data: availableUsersData, isLoading: availableLoading } = useQuery({
-    queryKey: ['admin-rbac-available-users', role.id, searchText],
+    queryKey: ['admin-rbac-available-users', role.id, debouncedSearchText],
     queryFn: async ({ signal }) => {
       const result = await roleAvailableUser(
         {
-          role_id: role.id,
-          keyword: searchText || undefined,
-          page: { page: 1, limit: 20 },
+          user_data: debouncedSearchText || undefined,
+          limit: {
+            limit: 20,
+            forward: true
+          },
           count_num: false,
         },
         { signal }
@@ -194,6 +221,7 @@ export function RoleUsersDrawer({
       }),
     onSuccess: () => {
       toast.success('用户添加成功')
+      countNumManager.reset()
       queryClient.invalidateQueries({ queryKey: ['admin-rbac-role-users', role.id] })
       queryClient.invalidateQueries({ queryKey: ['admin-rbac-available-users', role.id] })
       queryClient.invalidateQueries({ queryKey: ['admin-rbac-role-list'], refetchType: 'all' })
@@ -216,6 +244,7 @@ export function RoleUsersDrawer({
       }),
     onSuccess: () => {
       toast.success('用户移除成功')
+      countNumManager.reset()
       queryClient.invalidateQueries({ queryKey: ['admin-rbac-role-users', role.id] })
       queryClient.invalidateQueries({ queryKey: ['admin-rbac-role-list'], refetchType: 'all' })
     },
@@ -329,9 +358,9 @@ export function RoleUsersDrawer({
           <div className="space-y-3">
             <h4 className="font-medium">已关联用户 ({countNumManager.getTotal() ?? roleUsers.length})</h4>
             {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
+              <CenteredLoading className="py-8" />
+            ) : isError ? (
+              <CenteredError error={error} onReset={() => refetch()} className="py-8" />
             ) : roleUsers.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 暂无关联用户
@@ -346,18 +375,20 @@ export function RoleUsersDrawer({
             )}
 
             {/* 分页 */}
-            <PagePagination
-              currentPage={pagination.page}
-              pageSize={pagination.limit}
-              total={countNumManager.getTotal() ?? 0}
-              loading={isLoading}
-              onChange={(page: number) => {
-                setPagination((prev) => ({ ...prev, page }))
-              }}
-              onPageSizeChange={(limit: number) => {
-                setPagination({ page: 1, limit })
-              }}
-            />
+            {(countNumManager.getTotal() ?? 0) > 0 && (
+              <PagePagination
+                currentPage={pagination.page}
+                pageSize={pagination.limit}
+                total={countNumManager.getTotal() ?? 0}
+                loading={isLoading}
+                onChange={(page: number) => {
+                  setPagination((prev) => ({ ...prev, page }))
+                }}
+                onPageSizeChange={(limit: number) => {
+                  setPagination({ page: 1, limit })
+                }}
+              />
+            )}
           </div>
         </div>
       </DrawerContent>

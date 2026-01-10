@@ -15,16 +15,17 @@
 
 | 参数名 | 类型 | 说明 |
 |--------|------|------|
+| response.mfa_token | string | 需要MFA时返回的二次验证票据，拿到后调用 `/api/auth/login/mfa-verify` 完成登录 |
 | response.auth_data.account_id | string | 账号ID |
 | response.auth_data.empty_password | string | 是否为空密码 |
 | response.auth_data.login_data.account_id | string | 账号ID |
-| response.auth_data.login_data.change_time | int | 更改时间 |
+| response.auth_data.login_data.change_time | int | 更改时间(秒) |
 | response.auth_data.login_data.id | string | 登录ID |
 | response.auth_data.login_data.status | string | 状态 |
 | response.auth_data.login_data.username | string | 用户名 |
-| response.auth_data.login_time | int | 登录时长 |
+| response.auth_data.login_time | int | 登录时长(秒) |
 | response.auth_data.login_type | string | 登录类型 |
-| response.auth_data.time_out | int | 超时时间 |
+| response.auth_data.time_out | int | 超时时间(秒) |
 | response.auth_data.user_id | string | 用户ID |
 | response.auth_data.user_nickname | string | 用户昵称 |
 | response.jwt | string | JWT令牌 |
@@ -57,6 +58,13 @@ Content-Type: application/json
 ```
 
 ```json
+// 需要 MFA 时：
+// {
+//   "response": { "mfa_token": "..." },
+//   "result": { "code": "200", "message": "ok", "state": "ok" }
+// }
+
+// MFA 不需要时：
 {
   "response": {
     "auth_data": {

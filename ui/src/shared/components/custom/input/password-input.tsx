@@ -1,4 +1,5 @@
 import { cn } from '@shared/lib/utils'
+import { useIsMobile } from '@shared/hooks/use-mobile'
 import { Eye, EyeClosed } from 'lucide-react'
 import * as React from 'react'
 import { Button } from '../../ui/button'
@@ -11,30 +12,40 @@ type PasswordInputProps = Omit<
 
 const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputProps>(
   ({ className, disabled, onChange, value, ...props }, ref) => {
+    const isMobile = useIsMobile()
     const [showPassword, setShowPassword] = React.useState(false)
+    const inputRef = React.useRef<HTMLInputElement>(null)
+
+    // 桌面端专用状态 - 字符叠加层功能
     const [lastChar, setLastChar] = React.useState('')
     const [showLastChar, setShowLastChar] = React.useState(false)
     const [cursorPosition, setCursorPosition] = React.useState(0)
     const [prevLength, setPrevLength] = React.useState(0)
     const timeoutRef = React.useRef<NodeJS.Timeout | null>(null)
-    const inputRef = React.useRef<HTMLInputElement>(null)
 
     // 合并refs
     React.useImperativeHandle(ref, () => inputRef.current!, [])
 
+    // 桌面端专用 - 清理定时器
     const clearCharTimeout = React.useCallback(() => {
+      if (isMobile) return
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current)
         timeoutRef.current = null
       }
-    }, [])
+    }, [isMobile])
 
     const handleChange = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
       const newValue = e.target.value
       const currentLength = newValue.length
+      // 获取实际光标位置
+      const actualCursorPos = e.target.selectionStart ?? currentLength
 
       // 调用外部onChange
       onChange?.(e)
+
+      // 移动端不需要字符叠加层功能
+      if (isMobile) return
 
       if (showPassword) {
         // 显示密码模式，不需要特殊处理
@@ -47,51 +58,50 @@ const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputProps>(
         // 清理之前的定时器（只在有新字符时清理）
         clearCharTimeout()
 
-        // 有新字符输入
-        const newChar = newValue[currentLength - 1]
+        // 有新字符输入 - 使用光标位置前一个字符（刚输入的字符）
+        const newCharIndex = actualCursorPos - 1
+        const newChar = newValue[newCharIndex] ?? ''
         setLastChar(newChar)
         setShowLastChar(true)
-        setCursorPosition(currentLength)
+        setCursorPosition(actualCursorPos)
 
-
-
-        // 3秒后隐藏字符
+        // 0.5秒后隐藏字符
         timeoutRef.current = setTimeout(() => {
           setShowLastChar(false)
           setLastChar('')
-
         }, 500)
       } else if (currentLength < prevLength) {
         // 只有在删除字符时才清理显示状态
         clearCharTimeout()
         setShowLastChar(false)
         setLastChar('')
-
       }
       // 如果长度相同，不做任何处理，让字符继续显示
 
       setPrevLength(currentLength)
-    }, [showPassword, onChange, clearCharTimeout, prevLength])
+    }, [isMobile, showPassword, onChange, clearCharTimeout, prevLength])
 
     const togglePasswordVisibility = React.useCallback(() => {
       setShowPassword(prev => {
-        if (!prev) {
-          // 切换到显示模式时，清理字符显示
+        if (!prev && !isMobile) {
+          // 切换到显示模式时，清理字符显示（仅桌面端）
           clearCharTimeout()
           setShowLastChar(false)
           setLastChar('')
         }
         return !prev
       })
-    }, [clearCharTimeout])
+    }, [isMobile, clearCharTimeout])
 
-    // 组件卸载时清理定时器
+    // 桌面端 - 组件卸载时清理定时器
     React.useEffect(() => {
+      if (isMobile) return
       return clearCharTimeout
-    }, [clearCharTimeout])
+    }, [isMobile, clearCharTimeout])
 
-    // 初始化和同步外部value
+    // 桌面端 - 初始化和同步外部value
     React.useEffect(() => {
+      if (isMobile) return
       if (value !== undefined) {
         const valueLength = String(value).length
         const currentPrevLength = prevLength
@@ -105,16 +115,15 @@ const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputProps>(
             setShowLastChar(false)
             setLastChar('')
             clearCharTimeout()
-
           }
         }
       }
-    }, [value, prevLength, clearCharTimeout])
+    }, [isMobile, value, prevLength, clearCharTimeout])
 
-    // 计算字符显示位置
+    // 桌面端专用 - 计算字符显示位置
     const getCharPosition = React.useCallback(() => {
-      if (!inputRef.current || !showLastChar || cursorPosition === 0) {
-        return { left: 0, opacity: 0 }
+      if (isMobile || !inputRef.current || !showLastChar || cursorPosition === 0) {
+        return { left: 0, opacity: 0, charWidth: 14 }
       }
 
       const input = inputRef.current
@@ -146,9 +155,10 @@ const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputProps>(
       }
 
       return { left: 0, opacity: 0, charWidth: 14 }
-    }, [showLastChar, cursorPosition])
+    }, [isMobile, showLastChar, cursorPosition])
 
-    const charPosition = getCharPosition()
+    // 仅在桌面端计算字符位置
+    const charPosition = !isMobile ? getCharPosition() : null
 
     return (
       <div className={`relative ${className || ''}`}>
@@ -162,14 +172,14 @@ const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputProps>(
           {...props}
         />
 
-        {/* 显示当前输入字符的叠加层 */}
-        {!showPassword && showLastChar && lastChar && (
+        {/* 桌面端专用 - 显示当前输入字符的叠加层 */}
+        {!isMobile && !showPassword && showLastChar && lastChar && charPosition && (
           <div
             className="absolute top-1/2 -translate-y-1/2 pointer-events-none select-none text-foreground flex items-center justify-center bg-background dark:bg-background rounded-sm z-10 h-5 text-sm"
             style={{
               left: `${charPosition.left}px`,
               opacity: charPosition.opacity,
-              width: `${charPosition.charWidth || 14}px`
+              width: `${charPosition.charWidth}px`
             }}
           >
             {lastChar}

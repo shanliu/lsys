@@ -187,6 +187,7 @@ function BarcodeCreateConfigContent({ dictData }: BarcodeCreateConfigContentProp
     mutationFn: (id: number) => userBarcodeCreateConfigDelete({ id }),
     onSuccess: () => {
       toast.success("配置删除成功");
+      countNumManager.reset();
       queryClient.invalidateQueries({ queryKey: ["barcode-create-config-list", appId] });
     },
     onError: (error: any) => {

@@ -8,6 +8,7 @@ import {
   Mail,
   MapPin,
   PlusSquare,
+  Shield,
   Smartphone,
   User,
   UserCog
@@ -85,6 +86,11 @@ export function getUserMenu(): MenuConfig[] {
           name: '基本信息',
           path: '/user/account/set-info',
           icon: UserCog,
+        },
+        {
+          name: '双因素认证',
+          path: '/user/account/mfa',
+          icon: Shield,
         },
       ]
     }

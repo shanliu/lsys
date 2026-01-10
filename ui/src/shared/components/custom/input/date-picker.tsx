@@ -11,7 +11,15 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@shared/components/ui/popover"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@shared/components/ui/sheet"
 import { cn } from "@shared/lib/utils"
+import { useIsMobile } from "@shared/hooks/use-mobile"
 
 interface DatePickerProps {
   value?: Date
@@ -37,6 +45,7 @@ export function DatePicker({
   toYear,
 }: DatePickerProps) {
   const [open, setOpen] = useState(false)
+  const isMobile = useIsMobile()
 
   const handleSelect = (date: Date | undefined) => {
     onChange?.(date)
@@ -45,29 +54,76 @@ export function DatePicker({
     }
   }
 
+  const triggerButton = (
+    <Button
+      variant="outline"
+      className={cn(
+        "h-10 w-full justify-start text-left font-normal",
+        !value && "text-muted-foreground",
+        className
+      )}
+      disabled={disabled}
+    >
+      <CalendarIcon className={cn("mr-2 h-4 w-4")} />
+      {value ? (
+        format(value, "yyyy年MM月dd日", { locale: zhCN })
+      ) : (
+        <span>{placeholder}</span>
+      )}
+    </Button>
+  )
+
+  // 移动端使用底部 Sheet
+  if (isMobile) {
+    return (
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetTrigger asChild>
+          {triggerButton}
+        </SheetTrigger>
+        <SheetContent 
+          side="bottom" 
+          className="px-4 pb-6 rounded-t-xl max-h-[70dvh] overflow-y-auto"
+        >
+          <SheetHeader className="text-left">
+            <SheetTitle>{placeholder}</SheetTitle>
+          </SheetHeader>
+          <div className="flex justify-center pt-4 pb-4">
+            <Calendar
+              className={cn("w-full rounded-md [--cell-size:2.5rem]")}
+              mode="single"
+              selected={value}
+              defaultMonth={value}
+              onSelect={handleSelect}
+              locale={zhCN}
+              disabled={(date) => {
+                if (fromDate && date < fromDate) return true
+                if (toDate && date > toDate) return true
+                return false
+              }}
+              captionLayout="dropdown"
+              fromYear={fromYear}
+              toYear={toYear}
+              fromDate={fromDate}
+              toDate={toDate}
+              classNames={{
+                nav: cn("absolute inset-x-0 top-2 flex w-full items-center justify-between gap-1 rdp-nav "),
+              }}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
+    )
+  }
+
+  // PC端使用 Popover（保持原有逻辑）
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          className={cn(
-            "h-10 w-full justify-start text-left font-normal",
-            !value && "text-muted-foreground",
-            className
-          )}
-          disabled={disabled}
-        >
-          <CalendarIcon className={cn("mr-2 h-4 w-4")} />
-          {value ? (
-            format(value, "yyyy年MM月dd日", { locale: zhCN })
-          ) : (
-            <span>{placeholder}</span>
-          )}
-        </Button>
+        {triggerButton}
       </PopoverTrigger>
-      <PopoverContent className={cn("w-min-320 p-0 rounded-md")} align="start">
+      <PopoverContent className={cn("w-auto min-w-[320px] p-0 rounded-md")} align="start">
         <Calendar
-          className={cn("w-full rounded-md")}
+           className={cn("w-full rounded-md")}
           mode="single"
           selected={value}
           defaultMonth={value}

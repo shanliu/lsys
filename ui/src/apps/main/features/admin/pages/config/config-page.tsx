@@ -16,7 +16,7 @@ export function ConfigPage() {
     };
 
     return (
-        <div className="h-full flex flex-col  px-4 ">
+        <div className="h-full flex flex-col  px-4 mt-4">
             {renderContent()}
         </div>
     );

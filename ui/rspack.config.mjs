@@ -99,12 +99,12 @@ export default defineConfig({
 			generatedRouteTree: resolve(__dirname, tsrConfig.generatedRouteTree),
 		}),
 		...apps.map(app => new rspack.HtmlRspackPlugin({
+			template: resolve(__dirname, 'public/template.html'),
 			filename: app.output,
 			chunks: [app.name],
 			title: app.title,
-			meta: {
-				viewport: 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=0, viewport-fit=cover',
-			},
+			favicon: resolve(__dirname, 'public/favicon.ico'),
+			inject: 'body',
 		})),
 		isDev ? new ReactRefreshRspackPlugin() : null
 	].filter(Boolean),

@@ -75,7 +75,7 @@ func OauthUserInfo(c *gin.Context) {
 	c.HTML(http.StatusOK, "user.html", gin.H{
 		"token":    data.AccessToken,
 		"expires":  time.Unix(expire, 0).Format("2006-01-02 15:04:05"),
-		"nikename": user.Get("user_data.user.nickname").String(),
-		"username": user.Get("user_data.name.username").String(),
+		"nikename": user.Get("user_data.account.nickname").String(),
+		"username": user.Get("user_data.account.username").String(),
 	})
 }

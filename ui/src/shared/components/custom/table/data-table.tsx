@@ -426,8 +426,8 @@ export function DataTable<TData>({
                             ? flexRender(header, headerCell.getContext())
                             : (header as React.ReactNode)}
                         </div>
-                        <div className={cn("text-sm flex-1 min-w-0 overflow-x-auto")}>
-                          <div className={cn("break-all")}>
+                        <div className={cn("text-sm flex-1 min-w-0 overflow-x-auto text-left")}>
+                          <div className={cn("break-all [&>*]:text-left")}>
                             {flexRender(
                               cell.column.columnDef.cell,
                               cell.getContext(),

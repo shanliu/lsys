@@ -35,7 +35,7 @@ if (!rootElement) {
   document.body.appendChild(rootElement)
 }
 
-if (rootElement && !rootElement.innerHTML) {
+if (rootElement) {
   const root = ReactDOM.createRoot(rootElement)
   root.render(
     <StrictMode>

@@ -125,7 +125,7 @@ export const smsSendConfigModuleConfig: SubNavigationMenuInfo = {
  * RBAC权限管理模块导航配置
  */
 export const rbacModuleConfig: SubNavigationMenuInfo = {
-  title: 'RBAC权限管理',
+  title: '权限管理',
   subtitle: '管理系统角色和资源权限',
   menuItems: [
     {

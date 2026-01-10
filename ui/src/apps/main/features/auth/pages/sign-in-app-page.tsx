@@ -5,6 +5,7 @@ import { Button } from '@shared/components/ui/button'
 import { useToast } from '@shared/contexts/toast-context'
 import { formatServerError } from '@shared/lib/utils'
 import { useMutation } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -13,6 +14,7 @@ import { useAuthRedirect } from '@apps/main/hooks/use-auth-redirect'
 export default function SignInAppPage() {
     const toast = useToast()
     const search = Route.useSearch()
+    const navigate = useNavigate()
     const handleAuthRedirect = useAuthRedirect()
     const [captchaData, setCaptchaData] = useState<CaptchaData>({
         code: '',
@@ -35,15 +37,19 @@ export default function SignInAppPage() {
                 token_data: search.code,
                 captcha: captchaData,
             })
-            return res.response
-        },
-        onSuccess: (data) => {
-            if (!data) {
-                toast.error('登录响应异常')
-                return
+            // 检查是否需要 MFA 验证
+            if (res.mfa_token) {
+                navigate({
+                    to: '/sign-in/mfa',
+                    search: { mfa_token: res.mfa_token, redirect_uri: search.redirect_uri }
+                });
+                return res;
             }
-            toast.success('登录成功')
-            handleAuthRedirect()
+            if (res.status && res.response) {
+                toast.success('登录成功')
+                handleAuthRedirect()
+            }
+            return res
         },
         onError: (error: any) => {
             toast.error(formatServerError(error))

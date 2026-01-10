@@ -26,10 +26,22 @@ export type RoleListFilterParamType = z.infer<typeof RoleListFilterParamSchema>
 // 角色表单 Schema（添加/编辑）
 export const RoleFormSchema = z.object({
   role_name: z.string().min(1, '角色名称必须填写'),
-  role_key: z.string().min(1, '角色标识必须填写'),
+  role_key: z.string(),
   user_range: z.coerce.number().min(1, '请选择用户范围'),
   res_range: z.coerce.number().min(1, '请选择资源范围'),
-})
+}).refine(
+  (data) => {
+    // 用户范围为2（任意用户/会话角色）时，角色标识必填
+    if (data.user_range === 2) {
+      return data.role_key && data.role_key.trim().length > 0
+    }
+    return true
+  },
+  {
+    message: '会话角色必须填写角色标识',
+    path: ['role_key'],
+  }
+)
 
 export type RoleFormType = z.infer<typeof RoleFormSchema>
 

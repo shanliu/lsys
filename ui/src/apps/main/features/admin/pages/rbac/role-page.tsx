@@ -34,7 +34,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { type ColumnDef } from '@tanstack/react-table'
-import { Edit, Plus, Shield, Trash2, Users } from 'lucide-react'
+import { Edit, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { RbacNavContainer } from '@apps/main/features/admin/components/ui/rbac-nav'
 import { rbacModuleConfig } from '../nav-info'
@@ -137,6 +137,7 @@ function RoleListContent({ dictData }: RoleListContentProps) {
           res_range: filterParam.res_range,
           user_count: true,
           res_count: true,
+          res_op_count: true,
           page: {
             page: currentPage,
             limit: currentLimit,
@@ -161,6 +162,7 @@ function RoleListContent({ dictData }: RoleListContentProps) {
     mutationFn: (roleId: number) => roleDelete({ role_id: roleId }),
     onSuccess: () => {
       toast.success('角色删除成功')
+      countNumManager.reset()
       queryClient.invalidateQueries({ queryKey: ['admin-rbac-role-list'], refetchType: 'all' })
     },
     onError: (error: any) => {
@@ -239,16 +241,17 @@ function RoleListContent({ dictData }: RoleListContentProps) {
         const label = dictData.role_res_range?.getLabel(String(value)) || String(value)
         const role = row.original
         const resCount = role.res_count ?? 0
+        const opCount = role.res_op_count ?? 0
 
         return (
           <div className="flex items-center gap-2 whitespace-nowrap">
-            {String(value) === '1' ? (
+            {['3', '1'].includes(String(value)) ? (
               <Badge
                 variant="outline"
                 className="cursor-pointer hover:bg-accent"
                 onClick={() => handleManagePerms(role)}
               >
-                {label}:{resCount}项
+                {label}:{resCount}个/{opCount}项
               </Badge>
             ) : (
               <Badge variant="outline">{label}</Badge>
@@ -293,33 +296,8 @@ function RoleListContent({ dictData }: RoleListContentProps) {
 
         return (
           <DataTableAction className={cn(isMobile ? 'justify-end' : 'justify-center')}>
-            {String(role.res_range) === '1' && (
-              <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={cn('h-7 px-2')}
-                  onClick={() => handleManagePerms(role)}
-                >
-                  <Shield className="h-4 w-4" />
-                  <span className="ml-2">关联资源</span>
-                </Button>
-              </DataTableActionItem>
-            )}
-            {String(role.user_range) === '1' && (
-              <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={cn('h-7 px-2')}
-                  onClick={() => handleManageUsers(role)}
-                >
-                  <Users className="h-4 w-4" />
-                  <span className="ml-2">关联用户</span>
-                </Button>
-              </DataTableActionItem>
-            )}
-            <DataTableActionItem mobileDisplay="collapsed" desktopDisplay="collapsed">
+
+            <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
               <Button
                 variant="ghost"
                 size="sm"
@@ -330,7 +308,7 @@ function RoleListContent({ dictData }: RoleListContentProps) {
                 <span className="ml-2">编辑信息</span>
               </Button>
             </DataTableActionItem>
-            <DataTableActionItem mobileDisplay="collapsed" desktopDisplay="collapsed">
+            <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
               <ConfirmDialog
                 title="删除角色"
                 description={`确定要删除角色「${role.role_name}」吗？删除后无法恢复。`}
@@ -381,139 +359,140 @@ function RoleListContent({ dictData }: RoleListContentProps) {
         {/* 过滤器 */}
         <div className="flex-shrink-0 mb-1 sm:mb-4">
           <FilterContainer
-          defaultValues={{
-            role_name: filterParam.role_name,
-            role_key: filterParam.role_key,
-            user_range: filterParam.user_range?.toString(),
-            res_range: filterParam.res_range?.toString(),
-          }}
-          resolver={zodResolver(RoleListFilterFormSchema) as any}
-          onSubmit={(data) => {
-            navigate({
-              search: { ...data, page: 1, limit: currentLimit } as any,
-            })
-          }}
-          onReset={() => {
-            navigate({
-              search: { page: 1, limit: currentLimit } as any,
-            })
-          }}
-          countComponent={
-            <FilterTotalCount total={countNumManager.getTotal() ?? 0} loading={isLoading} />
-          }
-          className="bg-card rounded-lg border shadow-sm relative"
-        >
-          {(layoutParams, form) => (
-            <div className="flex-1 flex flex-wrap items-end gap-3">
-              <FilterInput
-                name="role_name"
-                placeholder="输入角色名称"
-                label="角色名称"
-                disabled={isLoading}
-                layoutParams={layoutParams}
-                className={cn(layoutParams.isMobile ? "w-full" : "w-36")}
-              />
-
-              <FilterInput
-                name="role_key"
-                placeholder="输入角色标识"
-                label="角色标识"
-                disabled={isLoading}
-                layoutParams={layoutParams}
-                className={cn(layoutParams.isMobile ? "w-full" : "w-36")}
-              />
-
-              <FilterSelect
-                name="user_range"
-                placeholder="选择用户范围"
-                label="用户范围"
-                disabled={isLoading}
-                options={userRangeOptions}
-                allLabel="全部"
-                layoutParams={layoutParams}
-                className={cn(layoutParams.isMobile ? "w-full" : "w-32")}
-              />
-
-              <FilterSelect
-                name="res_range"
-                placeholder="选择资源范围"
-                label="资源范围"
-                disabled={isLoading}
-                options={resRangeOptions}
-                allLabel="全部"
-                layoutParams={layoutParams}
-                className={cn(layoutParams.isMobile ? "w-full" : "w-32")}
-              />
-
-              <FilterActions
-                form={form}
-                loading={isLoading}
-                layoutParams={layoutParams}
-                onRefreshSearch={clearCacheAndReload}
-              />
-            </div>
-          )}
-        </FilterContainer>
-      </div>
-
-      {/* 表格和分页 */}
-      <div className="flex-1 flex flex-col min-h-0">
-        <div className="flex-1 overflow-hidden">
-          <DataTable
-            data={roles}
-            columns={columns}
-            loading={isLoading}
-            error={isError ? <CenteredError error={error} variant="content" onReset={refreshData} /> : null}
-            scrollSnapDelay={300}
-            className="[&_tr]:h-11 [&_td]:py-1 [&_th]:py-1 [&_table]:border-0 [&_.table-container]:border-0 [&_tbody_tr:last-child]:border-b h-full"
-            tableContainerClassName="h-full"
-          />
-        </div>
-
-        <div className="flex-shrink-0 pt-4 pb-4">
-          <PagePagination
-            currentPage={currentPage}
-            pageSize={currentLimit}
-            total={countNumManager.getTotal() ?? 0}
-            loading={isLoading}
-            onChange={(page: number) => {
+            defaultValues={{
+              role_name: filterParam.role_name,
+              role_key: filterParam.role_key,
+              user_range: filterParam.user_range?.toString(),
+              res_range: filterParam.res_range?.toString(),
+            }}
+            resolver={zodResolver(RoleListFilterFormSchema) as any}
+            onSubmit={(data) => {
               navigate({
-                search: { ...filterParam, page } as any,
+                search: { ...data, page: 1, limit: currentLimit } as any,
               })
             }}
-            onPageSizeChange={(limit: number) => {
+            onReset={() => {
               navigate({
-                search: { ...filterParam, page: 1, limit } as any,
+                search: { page: 1, limit: currentLimit } as any,
               })
             }}
-          />
+            countComponent={
+              <FilterTotalCount total={countNumManager.getTotal() ?? 0} loading={isLoading} />
+            }
+            className="bg-card rounded-lg border shadow-sm relative"
+          >
+            {(layoutParams, form) => (
+              <div className="flex-1 flex flex-wrap items-end gap-3">
+                <FilterInput
+                  name="role_name"
+                  placeholder="输入角色名称"
+                  label="角色名称"
+                  disabled={isLoading}
+                  layoutParams={layoutParams}
+                  className={cn(layoutParams.isMobile ? "w-full" : "w-36")}
+                />
+
+                <FilterInput
+                  name="role_key"
+                  placeholder="输入角色标识"
+                  label="角色标识"
+                  disabled={isLoading}
+                  layoutParams={layoutParams}
+                  className={cn(layoutParams.isMobile ? "w-full" : "w-36")}
+                />
+
+                <FilterSelect
+                  name="user_range"
+                  placeholder="选择用户范围"
+                  label="用户范围"
+                  disabled={isLoading}
+                  options={userRangeOptions}
+                  allLabel="全部"
+                  layoutParams={layoutParams}
+                  className={cn(layoutParams.isMobile ? "w-full" : "w-32")}
+                />
+
+                <FilterSelect
+                  name="res_range"
+                  placeholder="选择资源范围"
+                  label="资源范围"
+                  disabled={isLoading}
+                  options={resRangeOptions}
+                  allLabel="全部"
+                  layoutParams={layoutParams}
+                  className={cn(layoutParams.isMobile ? "w-full" : "w-32")}
+                />
+
+                <FilterActions
+                  form={form}
+                  loading={isLoading}
+                  layoutParams={layoutParams}
+                  onRefreshSearch={clearCacheAndReload}
+                />
+              </div>
+            )}
+          </FilterContainer>
         </div>
-      </div>
 
-      {/* 抽屉组件 */}
-      <RoleDrawer
-        role={editingRole}
-        open={drawerOpen}
-        onOpenChange={setDrawerOpen}
-      />
+        {/* 表格和分页 */}
+        <div className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 overflow-hidden">
+            <DataTable
+              data={roles}
+              columns={columns}
+              loading={isLoading}
+              error={isError ? <CenteredError error={error} variant="content" onReset={refreshData} /> : null}
+              scrollSnapDelay={300}
+              className="[&_tr]:h-11 [&_td]:py-1 [&_th]:py-1 [&_table]:border-0 [&_.table-container]:border-0 [&_tbody_tr:last-child]:border-b h-full"
+              tableContainerClassName="h-full"
+            />
+          </div>
 
-      {selectedRole && (
-        <>
-          <RoleUsersDrawer
-            key={`users-${selectedRole.id}`}
-            role={selectedRole}
-            open={usersDrawerOpen}
-            onOpenChange={setUsersDrawerOpen}
-          />
+          <div className="flex-shrink-0 pt-4 pb-4">
+            <PagePagination
+              currentPage={currentPage}
+              pageSize={currentLimit}
+              total={countNumManager.getTotal() ?? 0}
+              loading={isLoading}
+              onChange={(page: number) => {
+                navigate({
+                  search: { ...filterParam, page } as any,
+                })
+              }}
+              onPageSizeChange={(limit: number) => {
+                navigate({
+                  search: { ...filterParam, page: 1, limit } as any,
+                })
+              }}
+            />
+          </div>
+        </div>
 
-          <RolePermsDrawer
-            key={`perms-${selectedRole.id}`}
-            role={selectedRole}
-            open={permsDrawerOpen}
-            onOpenChange={setPermsDrawerOpen}
-          />
-        </>
-      )}
+        {/* 抽屉组件 */}
+        <RoleDrawer
+          role={editingRole}
+          open={drawerOpen}
+          onOpenChange={setDrawerOpen}
+          onSuccess={clearCacheAndReload}
+        />
+
+        {selectedRole && (
+          <>
+            <RoleUsersDrawer
+              key={`users-${selectedRole.id}`}
+              role={selectedRole}
+              open={usersDrawerOpen}
+              onOpenChange={setUsersDrawerOpen}
+            />
+
+            <RolePermsDrawer
+              key={`perms-${selectedRole.id}`}
+              role={selectedRole}
+              open={permsDrawerOpen}
+              onOpenChange={setPermsDrawerOpen}
+            />
+          </>
+        )}
       </div>
     </RbacNavContainer>
   )

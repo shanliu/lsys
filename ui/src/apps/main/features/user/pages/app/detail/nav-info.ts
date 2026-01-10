@@ -93,10 +93,10 @@ export const featureBarcodeModuleConfig: SubNavigationMenuInfo = {
  * RBAC权限管理模块配置
  */
 export const featureRbacModuleConfig: SubNavigationMenuInfo = {
-  title: 'RBAC权限管理',
+  title: '权限管理',
   subtitle: '管理角色和资源权限',
   menuItems: [
-     {
+    {
       name: '授权日志',
       icon: Accessibility,
       path: '/user/app/$appId/features-rbac/audit',

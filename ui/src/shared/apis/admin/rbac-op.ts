@@ -1,7 +1,7 @@
 import { authApi } from "@shared/lib/apis/api_auth";
 import { cleanEmptyStringParams, parseResData } from "@shared/lib/apis/utils";
 import { ApiResult } from "@shared/types/apis-rest";
-import { BoolParamSchema, PageParam, PageRes, UnixTimestampSchema } from "@shared/types/base-schema";
+import { BoolSchema, PageParam, PageResSchema, UnixTimestampSchema } from "@shared/types/base-schema";
 import { AxiosRequestConfig } from "axios";
 import z from "zod";
 
@@ -17,8 +17,8 @@ export const OpListParamSchema = z.object({
     op_key: z.string().optional(),
     /** 操作名称 */
     op_name: z.string().optional(),
-    res_type_count:BoolParamSchema.optional(),
-    check_role_use:BoolParamSchema.optional(),
+    res_type_count:BoolSchema.optional(),
+    check_role_use:BoolSchema.optional(),
     ...PageParam,
 });
 export type OpListParamType = z.infer<typeof OpListParamSchema>;
@@ -40,13 +40,13 @@ export const OpItemSchema = z.object({
     /** 关联的资源类型数量（可选，需要传入 res_type_count: true 参数） */
     res_type_count: z.coerce.number().optional(),
     /** 是否被角色使用（可选，需要传入 check_role_use: true 参数） */
-    is_role_use: BoolParamSchema.optional(),
+    is_role_use: BoolSchema.optional(),
 });
 export type OpItemType = z.infer<typeof OpItemSchema>;
 
 export const OpListResSchema = z.object({
     data: z.array(OpItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type OpListResType = z.infer<typeof OpListResSchema>;
 
@@ -125,11 +125,6 @@ export const OpDeleteParamSchema = z.object({
 });
 export type OpDeleteParamType = z.infer<typeof OpDeleteParamSchema>;
 
-export const OpDeleteResSchema = z.object({
-    num: z.coerce.number(),
-});
-export type OpDeleteResType = z.infer<typeof OpDeleteResSchema>;
-
 /**
  * 删除资源操作
  * @description 删除指定的资源操作权限定义
@@ -137,9 +132,9 @@ export type OpDeleteResType = z.infer<typeof OpDeleteResSchema>;
 export async function opDelete(
     param: OpDeleteParamType,
     config?: AxiosRequestConfig<any>
-): Promise<ApiResult<OpDeleteResType>> {
+): Promise<ApiResult> {
     const { data } = await authApi().post("/api/system/rbac/op/delete", param, config);
-    return parseResData(data, OpDeleteResSchema);
+    return data;
 }
 
 

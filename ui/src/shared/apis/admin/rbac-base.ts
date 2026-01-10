@@ -2,7 +2,7 @@ import { authApi } from "@shared/lib/apis/api_auth";
 import { cleanEmptyStringParams, parseResData } from "@shared/lib/apis/utils";
 import { DictListSchema } from "@shared/types/apis-dict";
 import { ApiResult } from "@shared/types/apis-rest";
-import { BoolSchema, LimitParam, LimitRes, UnixTimestampSchema, UserDataRes } from "@shared/types/base-schema";
+import { BoolSchema, LimitParam, LimitResSchema, UnixTimestampSchema, UserDataResSchema } from "@shared/types/base-schema";
 import { AxiosRequestConfig } from "axios";
 import z from "zod";
 
@@ -116,14 +116,14 @@ export const AuditDataSchema = z.object({
     audit: AuditSchema,
     /** 详细审计数据 */
     detail: z.array(AuditDetailSchema).default([]),
-    user:UserDataRes.nullable().optional(),
+    user:UserDataResSchema.nullable().optional(),
 });
 export type AuditDataType = z.infer<typeof AuditDataSchema>;
 
 export const RbacAuditDataResSchema = z.object({
     /** 审计数据列表 */
     data: z.array(AuditDataSchema),
-    ...LimitRes,
+    ...LimitResSchema,
 });
 export type RbacAuditDataResType = z.infer<typeof RbacAuditDataResSchema>;
 

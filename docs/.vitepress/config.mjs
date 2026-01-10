@@ -29,7 +29,7 @@ export default defineConfig({
           },
           {
             text: 'SDK及示例',
-            link: 'http://lsys.cc:8080/',
+            link: 'http://lsys.cc:8081/',
           }
         ],
       }

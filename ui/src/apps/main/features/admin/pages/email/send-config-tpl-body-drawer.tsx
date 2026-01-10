@@ -35,9 +35,10 @@ interface EmailSendConfigTplBodyDrawerProps {
     tpl?: SystemSenderMailerTplBodyItemType;
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    onSuccess?: () => void;
 }
 
-export function EmailSendConfigTplBodyDrawer({ tpl, open, onOpenChange }: EmailSendConfigTplBodyDrawerProps) {
+export function EmailSendConfigTplBodyDrawer({ tpl, open, onOpenChange, onSuccess }: EmailSendConfigTplBodyDrawerProps) {
     const toast = useToast();
     const queryClient = useQueryClient();
     const isEdit = !!tpl;
@@ -64,6 +65,7 @@ export function EmailSendConfigTplBodyDrawer({ tpl, open, onOpenChange }: EmailS
             toast.success(isEdit ? "模板更新成功" : "模板添加成功");
             queryClient.invalidateQueries({ queryKey: ["admin-mail-tpl-list"] });
             onOpenChange(false);
+            onSuccess?.();
             if (!isEdit) {
                 form.reset();
             }

@@ -24,7 +24,7 @@ Content-Type:application/json
 Authorization:Bearer {{APP_BEARER_TEST_ACCOUNT}}
 
 {
-   "app_id": 16,
+   "app_id": 54,
    "confirm_status": 2,
    "confirm_note": "ssss"
 }

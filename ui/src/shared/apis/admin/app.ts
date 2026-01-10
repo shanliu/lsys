@@ -4,7 +4,7 @@ import { authApi } from "@shared/lib/apis/api_auth";
 import { cleanEmptyStringParams, parseResData } from "@shared/lib/apis/utils";
 import { DictListSchema } from "@shared/types/apis-dict";
 import { ApiResult } from "@shared/types/apis-rest";
-import { BoolSchema, PageParam, PageRes, UnixTimestampSchema, UserDataRes } from "@shared/types/base-schema";
+import { BoolSchema, PageParam, PageResSchema, UnixTimestampSchema, UserDataResSchema } from "@shared/types/base-schema";
 import { AxiosRequestConfig } from "axios";
 import z from "zod";
 
@@ -109,13 +109,13 @@ export const SubAppItemSchema = z.object({
     /** 是否开通子应用功能 */
     sup_app: BoolSchema,
     /** 用户数据 */
-    user_data: UserDataRes.nullable().optional(),
+    user_data: UserDataResSchema.nullable().optional(),
 });
 export type SubAppItemType = z.infer<typeof SubAppItemSchema>;
 
 export const SubAppListResSchema = z.object({
     data: z.array(SubAppItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type SubAppListResType = z.infer<typeof SubAppListResSchema>;
 
@@ -187,7 +187,7 @@ export const AppItemSchema = z.object({
     /** 子应用统计数量 */
     sub_app_count: SubAppCountSchema.nullable().optional(),
     /** 用户数据 */
-    user_data: UserDataRes.nullable().optional(),
+    user_data: UserDataResSchema.nullable().optional(),
     /** 请求数量 */
     req_count: z.coerce.number().optional().nullable(),
 });
@@ -195,7 +195,7 @@ export type AppItemType = z.infer<typeof AppItemSchema>;
 
 export const AppListResSchema = z.object({
     data: z.array(AppItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type AppListResType = z.infer<typeof AppListResSchema>;
 
@@ -541,14 +541,14 @@ export const AppRequestItemSchema = z.object({
         scope_data: z.array(z.string()).optional(),
     }).nullable().optional(),
     /** 用户数据 */
-    request_user_data: UserDataRes.nullable().optional(),
-    confirm_user_data: UserDataRes.nullable().optional(),
+    request_user_data: UserDataResSchema.nullable().optional(),
+    confirm_user_data: UserDataResSchema.nullable().optional(),
 });
 export type AppRequestItemType = z.infer<typeof AppRequestItemSchema>;
 
 export const AppRequestListResSchema = z.object({
     data: z.array(AppRequestItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type AppRequestListResType = z.infer<typeof AppRequestListResSchema>;
 

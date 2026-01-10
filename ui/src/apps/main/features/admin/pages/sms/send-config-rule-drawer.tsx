@@ -35,7 +35,7 @@ import { cn, formatServerError } from "@shared/lib/utils";
 import { DictItemType } from "@shared/types/apis-dict";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
+import { ArrowUpDown, Loader2 } from "lucide-react";
 import React from "react";
 import { useForm } from "react-hook-form";
 import {
@@ -183,13 +183,17 @@ export function SmsSendConfigRuleDrawer({
                                 <FormItem>
                                     <FormLabel>优先级</FormLabel>
                                     <FormControl>
-                                        <NumberInput
-                                            min={0}
-                                            max={100}
-                                            placeholder="输入优先级"
-                                            value={field.value}
-                                            onChange={(value) => field.onChange(value)}
-                                        />
+                                        <div className="flex items-center gap-2">
+                                            <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+                                            <NumberInput
+                                                className="flex-1"
+                                                min={0}
+                                                max={100}
+                                                placeholder="输入优先级"
+                                                value={field.value}
+                                                onChange={(value) => field.onChange(value)}
+                                            />
+                                        </div>
                                     </FormControl>
                                     <FormDescription>数值越大优先级越高</FormDescription>
                                     <FormMessage />

@@ -17,6 +17,7 @@ import {
 import { DataTable, DataTableAction, DataTableActionItem } from '@shared/components/custom/table'
 import { Badge } from '@shared/components/ui/badge'
 import { Button } from '@shared/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@shared/components/ui/tooltip'
 import { useToast } from '@shared/contexts/toast-context'
 import { AppDetailNavContainer } from '@apps/main/features/user/components/ui/app-detail-nav'
 import { FilterUserMode, type RbacUserModeContext } from '@apps/main/features/user/components/ui/filter-user-mode'
@@ -31,7 +32,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { type ColumnDef } from '@tanstack/react-table'
-import { Cog, Edit, Plus, Settings, Trash2 } from 'lucide-react'
+import { Cog, Edit, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { featureRbacModuleConfig } from '../nav-info'
 import { ResDrawer } from './res-drawer'
@@ -40,6 +41,8 @@ import {
   ResListFilterFormSchema
 } from './res-schema'
 import { ResTypeOpsDrawer } from './res-type-ops-drawer'
+import { UserDataTooltip } from '@/apps/main/components/local/user-data-tooltip'
+import { UserDataResType } from '@/shared/types/base-schema'
 
 export default function AppDetailFeatureRbacResPage() {
   const { appId } = Route.useParams()
@@ -163,6 +166,7 @@ function ResListContent({ appId, drawerOpen, setDrawerOpen, opListDrawerOpen, se
     mutationFn: (resId: number) => appRbacResDelete({ res_id: resId }),
     onSuccess: () => {
       toast.success('资源删除成功')
+      countNumManager.reset()
       queryClient.invalidateQueries({ queryKey: ['rbac-res-list'] })
     },
     onError: (error: any) => {
@@ -179,12 +183,6 @@ function ResListContent({ appId, drawerOpen, setDrawerOpen, opListDrawerOpen, se
   const clearCacheAndReload = () => {
     countNumManager.reset()
     queryClient.invalidateQueries({ queryKey: ['rbac-res-list'] })
-  }
-
-  // 打开新增/编辑抽屉
-  const _handleAdd = () => {
-    setEditingRes(undefined)
-    setDrawerOpen(true)
   }
 
   // 打开编辑抽屉
@@ -241,22 +239,32 @@ function ResListContent({ appId, drawerOpen, setDrawerOpen, opListDrawerOpen, se
     },
     {
       accessorKey: 'op_count',
-      header: () => <div className="text-center">操作数</div>,
+      header: () => <div className="text-center">已关联操作</div>,
       size: 80,
-      cell: ({ getValue }) => {
+      cell: ({ getValue, row }) => {
         const count = getValue<number | null | undefined>()
+        const res = row.original
         return (
           <div className="text-center">
-            <Badge variant="secondary" className="font-mono">
-              {count ?? 0}
-            </Badge>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge
+                  variant="secondary"
+                  className="font-mono cursor-pointer hover:bg-secondary/80"
+                  onClick={() => handleManageOps(res.res_type)}
+                >
+                  {count ?? 0}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>关联操作</TooltipContent>
+            </Tooltip>
           </div>
         )
       },
     },
     {
       accessorKey: 'perm_count',
-      header: () => <div className="text-center">权限数</div>,
+      header: () => <div className="text-center">已关联权限</div>,
       size: 80,
       cell: ({ getValue }) => {
         const count = getValue<number | null | undefined>()
@@ -274,12 +282,8 @@ function ResListContent({ appId, drawerOpen, setDrawerOpen, opListDrawerOpen, se
       header: '创建者',
       size: 100,
       cell: ({ getValue }) => {
-        const userData = getValue<{ user_nickname?: string } | undefined>()
-        return (
-          <span className="text-sm text-muted-foreground">
-            {userData?.user_nickname ?? '-'}
-          </span>
-        )
+        const userData = getValue<UserDataResType | null>()
+        return <UserDataTooltip userData={userData} />
       },
     },
     {
@@ -296,21 +300,10 @@ function ResListContent({ appId, drawerOpen, setDrawerOpen, opListDrawerOpen, se
                 variant="ghost"
                 size="sm"
                 className={cn('h-7 px-2')}
-                onClick={() => handleManageOps(res.res_type)}
-              >
-                <Settings className="h-4 w-4" />
-                <span className="ml-2">类型操作</span>
-              </Button>
-            </DataTableActionItem>
-            <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
-              <Button
-                variant="ghost"
-                size="sm"
-                className={cn('h-7 px-2')}
                 onClick={() => handleEdit(res)}
               >
                 <Edit className="h-4 w-4" />
-                <span className="ml-2">编辑</span>
+                <span className="ml-2">编辑信息</span>
               </Button>
             </DataTableActionItem>
             <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
@@ -327,7 +320,7 @@ function ResListContent({ appId, drawerOpen, setDrawerOpen, opListDrawerOpen, se
                   className={cn('h-7 px-2 ')}
                 >
                   <Trash2 className="h-4 w-4" />
-                  <span className="ml-2">删除</span>
+                  <span className="ml-2">删除资源</span>
                 </Button>
               </ConfirmDialog>
             </DataTableActionItem>
@@ -377,6 +370,7 @@ function ResListContent({ appId, drawerOpen, setDrawerOpen, opListDrawerOpen, se
                 label="资源名称"
                 disabled={isLoading}
                 layoutParams={layoutParams}
+                className="w-[8.5rem]"
               />
 
               <FilterInput
@@ -385,6 +379,7 @@ function ResListContent({ appId, drawerOpen, setDrawerOpen, opListDrawerOpen, se
                 label="资源类型"
                 disabled={isLoading}
                 layoutParams={layoutParams}
+                className="w-[8.5rem]"
               />
 
               <FilterInput
@@ -393,6 +388,7 @@ function ResListContent({ appId, drawerOpen, setDrawerOpen, opListDrawerOpen, se
                 label="资源数据"
                 disabled={isLoading}
                 layoutParams={layoutParams}
+                className="w-[8.5rem]"
               />
 
               <FilterActions
@@ -454,6 +450,7 @@ function ResListContent({ appId, drawerOpen, setDrawerOpen, opListDrawerOpen, se
         onOpenChange={setOpsDrawerOpen}
         appId={appId}
         userMode={userMode}
+        onSuccess={refreshData}
       />
 
       {/* 操作管理抽屉 */}

@@ -2,7 +2,7 @@ import { authApi } from "@shared/lib/apis/api_auth";
 import { cleanEmptyStringParams, parseResData } from "@shared/lib/apis/utils";
 import { DictListSchema } from "@shared/types/apis-dict";
 import { ApiResult } from "@shared/types/apis-rest";
-import { BoolSchema, LimitParam, LimitRes, PageParam, PageRes, UnixTimestampSchema } from "@shared/types/base-schema";
+import { BoolSchema, LimitParam, LimitResSchema, PageParam, PageResSchema, UnixTimestampSchema } from "@shared/types/base-schema";
 import { AxiosRequestConfig } from "axios";
 import z from "zod";
 
@@ -141,7 +141,7 @@ export type UserSenderSmsMessageItemType = z.infer<typeof UserSenderSmsMessageIt
 
 export const UserSenderSmsMessageListResSchema = z.object({
     data: z.array(UserSenderSmsMessageItemSchema),
-    ...LimitRes,
+    ...LimitResSchema,
 });
 export type UserSenderSmsMessageListResType = z.infer<typeof UserSenderSmsMessageListResSchema>;
 
@@ -209,7 +209,7 @@ export type UserSenderSmsMessageLogItemType = z.infer<typeof UserSenderSmsMessag
 
 export const UserSenderSmsMessageLogsResSchema = z.object({
     data: z.array(UserSenderSmsMessageLogItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type UserSenderSmsMessageLogsResType = z.infer<typeof UserSenderSmsMessageLogsResSchema>;
 
@@ -294,7 +294,7 @@ export type UserSenderSmsTplConfigItemType = z.infer<typeof UserSenderSmsTplConf
 
 export const UserSenderSmsTplConfigListResSchema = z.object({
     data: z.array(UserSenderSmsTplConfigItemSchema),
-    ...PageRes,
+    ...PageResSchema,
 });
 export type UserSenderSmsTplConfigListResType = z.infer<typeof UserSenderSmsTplConfigListResSchema>;
 
@@ -402,7 +402,7 @@ export const UserSenderSmsTenAppConfigAddParamSchema = z.object({
     config_id: z.coerce.number().min(1, "腾讯云配置ID必须大于0"),
     tpl_key: z.string().min(1, "模板标识不能为空"),
     sign_name: z.string().min(1, "短信签名不能为空"),
-    template_id: z.coerce.number().min(1, "模板ID不能为空"),
+    template_id: z.string().min(1, "模板ID不能为空"),
     template_map: z.string().min(1, "模板参数映射不能为空"),
 });
 export type UserSenderSmsTenAppConfigAddParamType = z.infer<typeof UserSenderSmsTenAppConfigAddParamSchema>;
@@ -453,7 +453,7 @@ export const UserSenderSmsHwAppConfigAddParamSchema = z.object({
     tpl_key: z.string().min(1, "模板标识不能为空"),
     signature: z.string().min(1, "短信签名不能为空"),
     sender: z.string().min(1, "发送者不能为空"),
-    template_id: z.coerce.number().min(1, "模板ID不能为空"),
+    template_id: z.string().min(1, "模板ID不能为空"),
     template_map: z.string().min(1, "模板参数映射不能为空"),
 });
 export type UserSenderSmsHwAppConfigAddParamType = z.infer<typeof UserSenderSmsHwAppConfigAddParamSchema>;

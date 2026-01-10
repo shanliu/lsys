@@ -98,10 +98,9 @@ export function TplConfigDrawerHuaweiForm({ form }: TplConfigDrawerHuaweiFormPro
                         <FormLabel>模板ID</FormLabel>
                         <FormControl>
                             <Input
-                                type="number"
-                                placeholder="123456"
+                                placeholder="如: tpl-001"
                                 {...field}
-                                onChange={(e) => field.onChange(Number(e.target.value))}
+                                onChange={(e) => field.onChange(e.target.value)}
                             />
                         </FormControl>
                         <FormMessage />

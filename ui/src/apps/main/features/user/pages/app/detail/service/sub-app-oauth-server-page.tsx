@@ -148,6 +148,9 @@ function AppServiceSubAppOauthServerContent({
                 scopeData={scopeData}
                 open={scopeDrawerOpen}
                 onOpenChange={setScopeDrawerOpen}
+                onSaveSuccess={() => {
+                    queryClient.invalidateQueries({ queryKey: ['app-oauth-server-detail', appId] })
+                }}
             />
         </div>
     )

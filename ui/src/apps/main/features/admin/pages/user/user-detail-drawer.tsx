@@ -1,3 +1,4 @@
+import { CenteredLoading } from "@/shared/components/custom/page-placeholder/centered-loading";
 import type { TypedDictData } from "@apps/main/hooks/use-dict-data";
 import { createStatusMapper } from "@apps/main/lib/status-utils";
 import {
@@ -13,7 +14,6 @@ import {
   type SystemUserLoginHistoryParamType,
   type SystemUserLogoutParamType,
 } from "@shared/apis/admin/user";
-import { PageSkeletonCard } from "@shared/components/custom/page-placeholder/skeleton-card";
 import CopyableText from "@shared/components/custom/text/copyable-text";
 import { Badge } from "@shared/components/ui/badge";
 import { Button } from "@shared/components/ui/button";
@@ -34,6 +34,7 @@ import {
 import { useIsMobile } from "@shared/hooks/use-mobile";
 import {
   cn,
+  formatServerError,
   formatTime,
   getQueryResponseData,
   TIME_STYLE,
@@ -98,6 +99,7 @@ export function UserDetailDrawer({
     data: userDetailData,
     isLoading: userDetailIsLoading,
     isError: userDetailIsError,
+    error: userDetailError,
   } = useQuery({
     queryKey: ["systemUserAccountDetail", userDetailParams],
     queryFn: ({ signal }) =>
@@ -261,12 +263,12 @@ export function UserDetailDrawer({
           <ScrollArea className="flex-1">
             <div className={cn("p-6", isMobile && "p-4")}>
               {userDetailIsLoading && (
-                <PageSkeletonCard variant="content" itemCount={4} />
+                 <CenteredLoading variant="content" />
               )}
 
               {userDetailIsError && (
                 <div className="text-sm text-destructive text-center py-8">
-                  加载用户详情失败
+                  {formatServerError(userDetailError, "加载用户详情失败")}
                 </div>
               )}
 
@@ -609,7 +611,7 @@ function LoginHistorySection({
   isMobile: boolean;
 }) {
   if (isLoading) {
-    return <PageSkeletonCard variant="content" itemCount={3} />;
+    return <CenteredLoading variant="content" />;
   }
 
   return (

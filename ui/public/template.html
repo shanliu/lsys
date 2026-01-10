@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=0, viewport-fit=cover" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <title><%= htmlRspackPlugin.options.title %></title>
+    <style>
+      /* 页面初始加载动画 - HTML 解析完成就立即显示 */
+      .app-loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        background: #ffffff;
+        gap: 4px;
+      }
+      .app-loading .bar {
+        width: 3px;
+        height: 24px;
+        background: hsl(222.2 47.4% 11.2% / 0.4);
+        border-radius: 2px;
+        animation: wave 1.2s ease-in-out infinite;
+      }
+      .app-loading .bar:nth-child(1) { animation-delay: 0s; }
+      .app-loading .bar:nth-child(2) { animation-delay: 0.1s; }
+      .app-loading .bar:nth-child(3) { animation-delay: 0.2s; }
+      .app-loading .bar:nth-child(4) { animation-delay: 0.3s; }
+      .app-loading .bar:nth-child(5) { animation-delay: 0.4s; }
+      
+      @media (prefers-color-scheme: dark) {
+        .app-loading {
+          background: #0a0a0a;
+        }
+        .app-loading .bar {
+          background: hsl(210 40% 98% / 0.4);
+        }
+      }
+      @keyframes wave {
+        0%, 100% { transform: scaleY(0.5); }
+        50% { transform: scaleY(1); }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <!-- 加载动画 - React 渲染后会自动替换 -->
+      <div class="app-loading" role="status" aria-label="正在加载...">
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+      </div>
+    </div>
+  </body>
+</html>

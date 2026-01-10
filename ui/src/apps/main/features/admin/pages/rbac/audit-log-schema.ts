@@ -7,7 +7,6 @@ const RbacAuditLogFilterBaseSchema = z.object({
   user_id: NumberParamSchema,
   app_id: NumberParamSchema,
   user_ip: z.string().optional(),
-  device_id: NumberParamSchema,
   request_id: NumberParamSchema,
 });
 
@@ -19,7 +18,6 @@ export const RbacAuditLogFilterFormSchema = z.object({
   user_id: NumberParamSchema.catch(undefined),
   app_id: NumberParamSchema.catch(undefined),
   user_ip: z.string().optional(),
-  device_id: NumberParamSchema.catch(undefined),
   request_id: NumberParamSchema.catch(undefined),
 });
 

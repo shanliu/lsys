@@ -39,7 +39,6 @@ import { emailSendConfigModuleConfig } from "../nav-info";
 import { EmailSendConfigTplBodyDrawer } from "./send-config-tpl-body-drawer";
 import {
   EmailSendConfigTplBodyFilterFormSchema,
-  EmailSendConfigTplBodyFilterParamSchema,
   EmailSendConfigTplBodyFilterParamType
 } from "./send-config-tpl-body-schema";
 
@@ -108,6 +107,7 @@ export function EmailSendConfigTplBodyPage() {
     mutationFn: (id: number) => systemSenderMailerTplBodyDel({ id }),
     onSuccess: () => {
       toast.success("模板删除成功");
+      countNumManager.reset();
       queryClient.invalidateQueries({ queryKey: ["admin-mail-tpl-list"] });
     },
     onError: (error: any) => {
@@ -332,6 +332,7 @@ export function EmailSendConfigTplBodyPage() {
             setEditingTpl(undefined);
           }
         }}
+        onSuccess={clearCacheAndReload}
       />
     </EmailSendConfigNavContainer>
   );

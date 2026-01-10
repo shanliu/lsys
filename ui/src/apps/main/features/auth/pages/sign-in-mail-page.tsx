@@ -1,4 +1,3 @@
-import { getHomeUrl } from '@apps/main/components/local/app-logo'
 import { useDictData } from '@apps/main/hooks/use-dict-data'
 import { useAuthRedirect } from '@apps/main/hooks/use-auth-redirect'
 import { Route } from '@apps/main/routes/_auth/sign-in/mail'
@@ -26,17 +25,18 @@ import {
 import { Input } from '@shared/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@shared/components/ui/tabs'
 import { useToast } from '@shared/contexts/toast-context'
-import { cn, formatServerError } from '@shared/lib/utils'
+import { cn, formatServerError, getHomeUrl } from '@shared/lib/utils'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
-import { AlertCircle, CardSim, Home, KeySquare, Loader2, RefreshCw } from 'lucide-react'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { AlertCircle, CardSim, KeySquare, Loader2, RefreshCw } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 
 export default function SignInMailPage() {
   const toast = useToast();
   const search = Route.useSearch();
+  const navigate = useNavigate();
   const handleAuthRedirect = useAuthRedirect();
 
   // 使用字典加载登录类型
@@ -95,6 +95,14 @@ export default function SignInMailPage() {
         ...data,
         captcha: { code: captchaData.code, key: captchaData.key },
       });
+      // 检查是否需要 MFA 验证
+      if (res.mfa_token) {
+        navigate({
+          to: '/sign-in/mfa',
+          search: { mfa_token: res.mfa_token, redirect_uri: search.redirect_uri }
+        });
+        return res;
+      }
       if (res.status) {
         toast.success("登录成功");
         handleAuthRedirect();
@@ -148,6 +156,14 @@ export default function SignInMailPage() {
         ...data,
         captcha: { code: captchaData.code, key: captchaData.key },
       });
+      // 检查是否需要 MFA 验证
+      if (res.mfa_token) {
+        navigate({
+          to: '/sign-in/mfa',
+          search: { mfa_token: res.mfa_token, redirect_uri: search.redirect_uri }
+        });
+        return res;
+      }
       if (res.status) {
         toast.success("登录成功");
         handleAuthRedirect();
@@ -212,7 +228,6 @@ export default function SignInMailPage() {
   }
 
   const showTabs = supportsEmailPassword && supportsEmailCode;
-  const defaultTab = supportsEmailPassword ? 'password' : 'code';
 
   const isPasswordSubmitDisabled = passwordMutation.isPending || !captchaData.code || captchaData.validation !== 'success';
   const isCodeSubmitDisabled = codeMutation.isPending || !captchaData.code || captchaData.validation !== 'success';
@@ -312,9 +327,9 @@ export default function SignInMailPage() {
               <FormControl>
                 <div className="flex gap-2">
                   <Input className="flex-1" placeholder='请输入邮箱验证码' {...field} />
-                  <Button 
-                    type="button" 
-                    variant="outline" 
+                  <Button
+                    type="button"
+                    variant="outline"
                     onClick={() => sendCodeMutation.mutate()}
                     disabled={isSendCodeDisabled}
                     className="shrink-0"
@@ -388,22 +403,22 @@ export default function SignInMailPage() {
       </div>
 
       {(supportsNameLogin || supportsSmsLogin) && (
-          <div className={cn('grid gap-2', supportsNameLogin && supportsSmsLogin ? 'grid-cols-2' : 'grid-cols-1')}>
-            {supportsNameLogin && (
-              <Link to='/sign-in' search={search}>
-                <Button variant='outline' type='button' className="w-full">
-                  <KeySquare className='h-4 w-4' /> 账号登录
-                </Button>
-              </Link>
-            )}
-            {supportsSmsLogin && (
-              <Link to='/sign-in/sms' search={search}>
-                <Button variant='outline' type='button' className="w-full">
-                  <CardSim className='h-4 w-4' /> 短信登录
-                </Button>
-              </Link>
-            )}
-          </div>
+        <div className={cn('grid gap-2', supportsNameLogin && supportsSmsLogin ? 'grid-cols-2' : 'grid-cols-1')}>
+          {supportsNameLogin && (
+            <Link to='/sign-in' search={search}>
+              <Button variant='outline' type='button' className="w-full">
+                <KeySquare className='h-4 w-4' /> 账号登录
+              </Button>
+            </Link>
+          )}
+          {supportsSmsLogin && (
+            <Link to='/sign-in/sms' search={search}>
+              <Button variant='outline' type='button' className="w-full">
+                <CardSim className='h-4 w-4' /> 短信登录
+              </Button>
+            </Link>
+          )}
+        </div>
       )}
     </div>
   )
