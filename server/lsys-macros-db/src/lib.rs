@@ -9,35 +9,30 @@ use syn::{parse_macro_input, Data, DataEnum, DataStruct, DeriveInput, Fields, Me
 ///
 /// ## 示例
 ///
-/// ```rust
-/// #[lsys_model(table_name = "users", rename_all = "camelCase")]
-/// pub struct UserModel {
-///     pub id: u64,
-///     pub user_name: String,           // -> userName
-///     #[column(rename = "created_ts")]
-///     pub created_at: i64,             // -> created_ts
-///     pub bio: Option<String>,
-/// }
-/// ```
+// #[lsys_model(table_name = "users", rename_all = "camelCase")]
+// pub struct UserModel {
+//     pub id: u64,
+//     pub user_name: String,           // -> userName
+//     #[column(rename = "created_ts")]
+//     pub created_at: i64,             // -> created_ts
+//     pub bio: Option<String>,
+// }
 ///
-/// ## 生成代码
+// ## 生成代码
+// impl UserModel {
+//     pub const ID: Field<u64> = Field::new("id");
+//     pub const USER_NAME: Field<String> = Field::with_column("user_name", "userName");
+//     pub const CREATED_AT: Field<i64> = Field::with_column("created_at", "created_ts");
+//     pub const BIO: Field<Option<String>> = Field::new("bio");
+//
+//     pub fn fields() -> &'static [FieldMeta] { ... }
+//     pub fn to_insert(&self) -> Insert<Self> { ... }
+//     pub fn diff_update(&self, old: &Self) -> Update<Self> { ... }
+// }
 ///
-/// ```rust
-/// impl UserModel {
-///     pub const ID: Field<u64> = Field::new("id");
-///     pub const USER_NAME: Field<String> = Field::with_column("user_name", "userName");
-///     pub const CREATED_AT: Field<i64> = Field::with_column("created_at", "created_ts");
-///     pub const BIO: Field<Option<String>> = Field::new("bio");
-///
-///     pub fn fields() -> &'static [FieldMeta] { ... }
-///     pub fn to_insert(&self) -> Insert<Self> { ... }
-///     pub fn diff_update(&self, old: &Self) -> Update<Self> { ... }
-/// }
-///
-/// impl TableMeta for UserModel {
-///     fn table_name() -> TableName { TableName::new("users") }
-/// }
-/// ```
+// impl TableMeta for UserModel {
+//     fn table_name() -> TableName { TableName::new("users") }
+// }
 #[proc_macro_attribute]
 pub fn lsys_model(args: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
