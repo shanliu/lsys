@@ -1,11 +1,13 @@
 mod del;
 mod info;
 mod login_history;
+mod mfa;
 mod password;
 mod profile;
 pub use del::*;
 pub use info::*;
 pub use login_history::*;
+pub use mfa::*;
 pub use password::*;
 pub use profile::*;
 mod mapping;

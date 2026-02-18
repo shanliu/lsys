@@ -5,15 +5,15 @@ use crate::{
         SenderTaskItem, SenderTaskResultItem, SenderTaskStatus, SenderTplConfig, SenderWaitNotify,
     },
     model::{
-        SenderLogStatus, SenderMessageCancelModel, SenderSmsBodyModel, SenderSmsBodyModelRef,
+        SenderLogStatus, SenderMessageCancelModel, SenderSmsBodyModel,
         SenderSmsBodyStatus, SenderSmsMessageModel, SenderSmsMessageStatus,
     },
 };
 use async_trait::async_trait;
 use lsys_core::db::SqlQuote;
-use lsys_core::db::{ModelTableName, SqlExpr, Update};
+use lsys_core::db::{TableMeta, SqlExpr, SqlSuffix, Update};
 use lsys_core::sql_format;
-use lsys_core::{db::WhereOption, fluent_message, now_time, IntoFluentMessage};
+use lsys_core::{fluent_message, now_time, IntoFluentMessage};
 use lsys_core::{TaskAcquisition, TaskData, TaskExecutor, TaskItem, TaskRecord};
 use lsys_setting::model::SettingModel;
 use sqlx::Pool;
@@ -114,13 +114,11 @@ impl SmsTaskAcquisition {
     }
     async fn send_task_body_finish(&self, item: &SmsTaskItem) {
         let finish_time = now_time().unwrap_or_default();
-        let change = lsys_core::model_option_set!(SenderSmsBodyModelRef,{
-            status:SenderSmsBodyStatus::Finish as i8,
-            finish_time:finish_time
-        });
-        if let Err(err) = Update::<SenderSmsBodyModel, _>::new(change)
-            .execute_by_where(
-                &WhereOption::Where(sql_format!("id={}", item.sms.id)),
+        if let Err(err) = Update::<SenderSmsBodyModel>::new()
+            .set(SenderSmsBodyModel::STATUS, SenderSmsBodyStatus::Finish as i8)
+            .set(SenderSmsBodyModel::FINISH_TIME, finish_time)
+            .execute(
+                SqlSuffix::Where(&sql_format!("id={}", item.sms.id)),
                 &self.db,
             )
             .await

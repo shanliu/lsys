@@ -1,4 +1,4 @@
-use crate::common::JsonData;
+use crate::common::{JsonData, ToOffsetPageParam};
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonError, JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
@@ -133,7 +133,7 @@ pub async fn app_list(
             auth_data.user_id(),
             &app_param,
             Some(&app_attr),
-            param.page.as_ref().map(|e| e.into()).as_ref(),
+            &param.page.to_offset_page_param(),
         )
         .await?;
     let out = appdata
@@ -265,7 +265,7 @@ pub async fn parent_app_list(
         .web_app
         .app_dao
         .app
-        .user_parent_app_data(&app_param, param.page.as_ref().map(|e| e.into()).as_ref())
+        .user_parent_app_data(&app_param, &param.page.to_offset_page_param())
         .await?;
     let out = appdata
         .into_iter()
@@ -550,7 +550,7 @@ pub async fn request_list(
                 status,
                 request_type: req_type,
             },
-            param.page.as_ref().map(|e| e.into()).as_ref(),
+            &param.page.to_offset_page_param(),
         )
         .await?;
     let out = appdata
@@ -732,7 +732,7 @@ pub async fn sub_request_list(
                 status,
                 request_type: req_type,
             },
-            param.page.as_ref().map(|e| e.into()).as_ref(),
+            &param.page.to_offset_page_param(),
         )
         .await?;
     let out = appdata

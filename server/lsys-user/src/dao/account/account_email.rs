@@ -3,16 +3,17 @@ use std::sync::Arc;
 
 use crate::dao::AccountResult;
 
-use crate::model::{AccountEmailModel, AccountEmailModelRef, AccountEmailStatus, AccountModel};
+use crate::model::{AccountEmailModel, AccountEmailStatus, AccountModel};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::{
-    fluent_message, now_time, string_clear, valid_key, IntoFluentMessage, RemoteNotify, RequestEnv,
-    StringClear, ValidEmail, ValidParam, ValidParamCheck, ValidStrlen, STRING_CLEAR_FORMAT,
+    db::query_string_field_max, fluent_message, now_time, string_clear, valid_key,
+    IntoFluentMessage, RemoteNotify, RequestEnv, StringClear, ValidEmail, ValidParam,
+    ValidParamCheck, ValidStrlen, STRING_CLEAR_FORMAT,
 };
 
-use lsys_core::db::{SqlQuote, WhereOption};
-use lsys_core::db::{Insert, ModelTableName, Update};
-use lsys_core::{model_option_set, sql_format};
+use lsys_core::db::{SqlQuote, SqlSuffix};
+use lsys_core::db::{Insert, TableMeta, Update};
+use lsys_core::sql_format;
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{Acquire, MySql, Pool, Transaction};
 
@@ -70,13 +71,17 @@ impl AccountEmail {
         Ok(useremal)
     }
     async fn email_param_valid(&self, email: &str) -> AccountResult<()> {
+        let email_max = query_string_field_max::<AccountEmailModel>(&self.db, &AccountEmailModel::EMAIL)
+            .await
+            .len_or(150);
+
         ValidParam::default()
             .add(
                 valid_key!("email"),
                 &email,
                 &ValidParamCheck::default()
                     .add_rule(ValidEmail::default())
-                    .add_rule(ValidStrlen::range(3, 150)),
+                    .add_rule(ValidStrlen::range(3, email_max)),
             )
             .check()?;
         Ok(())
@@ -127,19 +132,17 @@ impl AccountEmail {
         let time = now_time()?;
         let _status = status as i8;
         let email_ow = email.to_string();
-        let idata = model_option_set!(AccountEmailModelRef,{
-            email:email_ow,
-            account_id:account.id,
-            change_time:time,
-            status:_status,
-        });
 
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
 
-        let res = Insert::<AccountEmailModel, _>::new(idata)
+        let res = Insert::<AccountEmailModel>::new()
+            .set(AccountEmailModel::EMAIL, email_ow)
+            .set(AccountEmailModel::ACCOUNT_ID, account.id)
+            .set(AccountEmailModel::CHANGE_TIME, time)
+            .set(AccountEmailModel::STATUS, _status)
             .execute(&mut *db)
             .await;
         match res {
@@ -320,16 +323,14 @@ impl AccountEmail {
             }
         }
         let time = now_time()?;
-        let change = lsys_core::model_option_set!(AccountEmailModelRef,{
-            status:AccountEmailStatus::Valid as i8,
-            confirm_time:time,
-        });
 
         let mut db = self.db.begin().await?;
 
-        let tmp = Update::<AccountEmailModel, _>::new(change)
-            .execute_by_where(
-                &WhereOption::Where(sql_format!("id={}", email.id)),
+        let tmp = Update::<AccountEmailModel>::new()
+            .set(AccountEmailModel::STATUS, AccountEmailStatus::Valid as i8)
+            .set(AccountEmailModel::CONFIRM_TIME, time)
+            .execute(
+                SqlSuffix::Where(&sql_format!("id={}", email.id)),
                 &mut *db,
             )
             .await;
@@ -388,17 +389,15 @@ impl AccountEmail {
             return Ok(0_u64);
         }
         let time = now_time()?;
-        let change = lsys_core::model_option_set!(AccountEmailModelRef,{
-            status:AccountEmailStatus::Delete as i8,
-            change_time:time,
-        });
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let res = Update::<AccountEmailModel, _>::new(change)
-            .execute_by_where(
-                &WhereOption::Where(sql_format!("id={}", email.id)),
+        let res = Update::<AccountEmailModel>::new()
+            .set(AccountEmailModel::STATUS, AccountEmailStatus::Delete as i8)
+            .set(AccountEmailModel::CHANGE_TIME, time)
+            .execute(
+                SqlSuffix::Where(&sql_format!("id={}", email.id)),
                 &mut *db,
             )
             .await;

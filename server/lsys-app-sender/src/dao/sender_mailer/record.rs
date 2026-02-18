@@ -5,18 +5,18 @@ use crate::{
         logger::LogMessage, MessageLogs, MessageReader, SenderConfig, SenderError, SenderResult,
     },
     model::{
-        SenderConfigModel, SenderLogModel, SenderMailBodyModel, SenderMailBodyModelRef,
-        SenderMailBodyStatus, SenderMailConfigData, SenderMailConfigLimit, SenderMailConfigType,
-        SenderMailMessageModel, SenderMailMessageModelRef, SenderMailMessageStatus, SenderType,
+        SenderConfigModel, SenderLogModel, SenderMailBodyModel, SenderMailBodyStatus,
+        SenderMailConfigData, SenderMailConfigLimit, SenderMailConfigType, SenderMailMessageModel,
+        SenderMailMessageStatus, SenderType,
     },
 };
 use lsys_core::{
-    db::WhereOption, fluent_message, now_time, string_clear, valid_key, LimitParam, PageParam,
-    RequestEnv, StringClear, ValidEmail, ValidNumber, ValidParam, ValidParamCheck, ValidPattern,
-    ValidStrlen, STRING_CLEAR_FORMAT,
+    db::{CursorPageData, CursorPageParam, OffsetPageParam},
+    fluent_message, now_time, string_clear, valid_key, RequestEnv, StringClear, ValidEmail,
+    ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen, STRING_CLEAR_FORMAT,
 };
 
-use lsys_core::db::{Insert, ModelTableName, SqlExpr, Update};
+use lsys_core::db::{BatchInsert, Insert, SqlExpr, SqlSuffix, TableMeta, Update};
 use lsys_core::sql_format;
 use lsys_logger::dao::ChangeLoggerDao;
 use serde_json::Value;
@@ -118,16 +118,16 @@ impl MailRecord {
         msg_snid: Option<u64>,
         status: Option<SenderMailMessageStatus>,
         to_mail: Option<&str>,
-        limit: Option<&LimitParam>,
+        limit: &CursorPageParam<u64>,
     ) -> SenderResult<(
         Vec<(SenderMailMessageModel, Option<SenderMailBodyModel>)>,
-        Option<u64>,
+        CursorPageData<u64>,
     )> {
         let mut sqlwhere = vec![];
         if let Some(s) = to_mail {
             let s = string_clear(s, StringClear::Option(STRING_CLEAR_FORMAT), Some(255));
             if s.is_empty() {
-                return Ok((vec![], Some(0)));
+                return Ok((vec![], CursorPageData::default()));
             }
             sqlwhere.push(sql_format!("m.to_mail={}", s));
         }
@@ -141,7 +141,7 @@ impl MailRecord {
         if let Some(t) = tpl_key {
             let t = string_clear(t, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
             if t.is_empty() {
-                return Ok((vec![], Some(0)));
+                return Ok((vec![], CursorPageData::default()));
             }
             sqlwhere.push(sql_format!("b.tpl_key={} ", t));
         }
@@ -154,49 +154,26 @@ impl MailRecord {
         if let Some(s) = msg_snid {
             sqlwhere.push(sql_format!("m.snid={} ", s));
         }
-        let where_sql = if let Some(page) = limit {
-            let page_where = page.where_sql(
-                "m.id",
-                if sqlwhere.is_empty() {
-                    None
-                } else {
-                    Some("and")
-                },
-            );
-            format!(
-                "{} {} {} order by {} {} ",
-                if !sqlwhere.is_empty() || !page_where.is_empty() {
-                    "where "
-                } else {
-                    ""
-                },
-                sqlwhere.join(" and "),
-                page_where,
-                page.order_sql("m.id"),
-                page.limit_sql(),
-            )
+
+        let query_limit = limit.page_query("m.id");
+        let where_str = sqlwhere.join(" and ");
+        let suff_sql = query_limit.build_query_sql(if sqlwhere.is_empty() {
+            None
         } else {
-            format!(
-                "{} {}  order by m.id desc",
-                if !sqlwhere.is_empty() { "where " } else { "" },
-                sqlwhere.join(" and ")
-            )
-        };
+            Some(&where_str)
+        });
 
         let sql = sql_format!(
             "select m.* from {} as m join {} as b on m.sender_body_id=b.id {}",
             SenderMailMessageModel::table_name(),
             SenderMailBodyModel::table_name(),
-            SqlExpr(where_sql)
+            SqlExpr(suff_sql)
         );
 
         let res = sqlx::query_as::<_, SenderMailMessageModel>(sql.as_str());
         let mut m_data = res.fetch_all(&self.db).await?;
 
-        let next = limit
-            .as_ref()
-            .map(|page| page.tidy(&mut m_data))
-            .unwrap_or_default();
+        let next = query_limit.finalize(&mut m_data, |c, d| *d == c.id, |c| c.id);
 
         let pks = m_data
             .iter()
@@ -228,7 +205,7 @@ impl MailRecord {
             })
             .collect::<Vec<_>>();
 
-        Ok((out_data, next.map(|t| t.id)))
+        Ok((out_data, next))
     }
     pub async fn message_log_count(&self, message_id: u64) -> SenderResult<i64> {
         self.message_logs.list_count(message_id).await
@@ -236,7 +213,7 @@ impl MailRecord {
     pub async fn message_log_list(
         &self,
         message_id: u64,
-        page: Option<&PageParam>,
+        page: &OffsetPageParam,
     ) -> SenderResult<Vec<SenderLogModel>> {
         self.message_logs.list_data(message_id, page).await
     }
@@ -315,7 +292,6 @@ impl MailRecord {
         let tpl_var = tpl_var.to_owned();
         let mut max_try_num = max_try_num.to_owned();
 
-        let mut idata = Vec::with_capacity(mail.len());
         let reqid = env_data
             .map(|t| t.request_id.to_owned().unwrap_or_default())
             .unwrap_or_default();
@@ -347,42 +323,45 @@ impl MailRecord {
             max_try_num = 10
         }
 
-        let body_id = Insert::<SenderMailBodyModel, _>::new(
-            lsys_core::model_option_set!(SenderMailBodyModelRef,{
-                request_id:reqid,
-                app_id:app_id,
-                tpl_key:tpl_key,
-                tpl_var:tpl_var,
-                status:SenderMailBodyStatus::Init as i8,
-                add_time:add_time,
-                reply_mail:reply_mail,
-                max_try_num:max_try_num as u16,
-                user_id:user_id,
-                user_ip:user_ip,
-                expected_time:expected_time,
-                reply_host:reply_host,
-            }),
-        )
-        .execute(&mut *tran)
-        .await?
-        .last_insert_id();
-        let res_data = "".to_string();
+        let body_id = Insert::<SenderMailBodyModel>::new()
+            .set(SenderMailBodyModel::REQUEST_ID, reqid)
+            .set(SenderMailBodyModel::APP_ID, app_id)
+            .set(SenderMailBodyModel::TPL_KEY, &tpl_key)
+            .set(SenderMailBodyModel::TPL_VAR, &tpl_var)
+            .set(
+                SenderMailBodyModel::STATUS,
+                SenderMailBodyStatus::Init as i8,
+            )
+            .set(SenderMailBodyModel::ADD_TIME, add_time)
+            .set(SenderMailBodyModel::REPLY_MAIL, &reply_mail)
+            .set(SenderMailBodyModel::MAX_TRY_NUM, max_try_num as u16)
+            .set(SenderMailBodyModel::USER_ID, user_id)
+            .set(SenderMailBodyModel::USER_IP, user_ip)
+            .set(SenderMailBodyModel::EXPECTED_TIME, expected_time)
+            .set(SenderMailBodyModel::REPLY_HOST, reply_host)
+            .execute(&mut *tran)
+            .await?
+            .last_insert_id();
+        let res_data = "";
+        let mut batch = BatchInsert::<SenderMailMessageModel>::with_capacity(add_data.len());
         for (aid, _, to) in add_data.iter() {
-            idata.push(lsys_core::model_option_set!(SenderMailMessageModelRef,{
-                snid:aid,
-                sender_body_id:body_id,
-                to_mail:to,
-                try_num:0,
-                status:SenderMailMessageStatus::Init as i8,
-                send_time:0,
-                add_time:add_time,
-                res_data:res_data,
-            }));
+            batch = batch.push(
+                Insert::<SenderMailMessageModel>::new()
+                    .set(SenderMailMessageModel::SNID, *aid)
+                    .set(SenderMailMessageModel::SENDER_BODY_ID, body_id)
+                    .set(SenderMailMessageModel::TO_MAIL, to)
+                    .set(SenderMailMessageModel::TRY_NUM, 0u16)
+                    .set(
+                        SenderMailMessageModel::STATUS,
+                        SenderMailMessageStatus::Init as i8,
+                    )
+                    .set(SenderMailMessageModel::SEND_TIME, 0u64)
+                    .set(SenderMailMessageModel::ADD_TIME, add_time)
+                    .set(SenderMailMessageModel::RES_DATA, res_data),
+            );
         }
 
-        let tmp = Insert::<SenderMailMessageModel, _>::new_vec(idata)
-            .execute(&mut *tran)
-            .await;
+        let tmp = batch.execute(&mut *tran).await;
         if let Err(err) = tmp {
             tran.rollback().await?;
             return Err(err.into());
@@ -422,12 +401,13 @@ impl MailRecord {
             return Ok(());
         }
         if SenderMailMessageStatus::Init.eq(message.status) {
-            let change = lsys_core::model_option_set!(SenderMailMessageModelRef, {
-                status: SenderMailMessageStatus::IsCancel as i8
-            });
-            Update::<SenderMailMessageModel, _>::new(change)
-                .execute_by_where(
-                    &WhereOption::Where(sql_format!("id={}", message.id)),
+            Update::<SenderMailMessageModel>::new()
+                .set(
+                    SenderMailMessageModel::STATUS,
+                    SenderMailMessageStatus::IsCancel as i8,
+                )
+                .execute(
+                    SqlSuffix::Where(&sql_format!("id={}", message.id)),
                     &self.db,
                 )
                 .await?;

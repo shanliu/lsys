@@ -7,12 +7,12 @@ use serde::{Deserialize, Serialize};
 use std::convert::From;
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct AppSecretRecrod {
+pub struct AppSecretRecord {
     pub secret_data: String,
     pub time_out: u64,
 }
 
-impl From<AppSecretModel> for AppSecretRecrod {
+impl From<AppSecretModel> for AppSecretRecord {
     fn from(s: AppSecretModel) -> Self {
         Self {
             secret_data: s.secret_data,

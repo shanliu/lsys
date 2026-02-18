@@ -1,6 +1,7 @@
-use crate::common::JsonData;
+use crate::common::{JsonData, ToCursorPageParam};
 use crate::common::{LimitParam, UserAuthQueryDao};
 use lsys_access::dao::AccessSession;
+use lsys_core::db::CursorPageSort;
 use serde::Deserialize;
 use serde_json::json;
 
@@ -22,7 +23,7 @@ pub async fn login_history(
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let (data, next) = req_dao
+    let (data, next_data) = req_dao
         .web_dao
         .web_user
         .user_dao
@@ -34,7 +35,7 @@ pub async fn login_history(
             param.is_login,
             param.login_type.as_deref(),
             param.login_ip.as_deref(),
-            param.limit.as_ref().map(|e| e.into()).as_ref(),
+            &param.limit.to_u64_cursor_page_param(CursorPageSort::Desc),
         )
         .await?;
     let total = if param.count_num.unwrap_or(false) {
@@ -59,7 +60,8 @@ pub async fn login_history(
     };
     Ok(JsonResponse::data(JsonData::body(json!({
         "data": data ,
-        "next": next,
+        "next_cursor": next_data.next_cursor,
+        "prev_cursor": next_data.prev_cursor,
         "total":total,
     }))))
 }

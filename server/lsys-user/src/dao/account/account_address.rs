@@ -1,15 +1,18 @@
 use lsys_core::{
-    RemoteNotify, RequestEnv, ValidMobile, ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen, cache::{LocalCache, LocalCacheConfig}, db::WhereOption, now_time, valid_key
+    cache::{LocalCache, LocalCacheConfig},
+    db::query_string_field_max,
+    now_time, valid_key, RemoteNotify, RequestEnv, ValidMobile, ValidNumber, ValidParam,
+    ValidParamCheck, ValidPattern, ValidStrlen,
 };
 
-use lsys_core::db::{Insert, ModelTableName, SqlQuote, Update};
+use lsys_core::db::{Insert, TableMeta, SqlQuote, Update, SqlSuffix};
 use lsys_core::sql_format;
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{Acquire, MySql, Pool, Transaction};
 use std::{collections::HashMap, sync::Arc};
 
 use crate::model::{
-    AccountAddressModel, AccountAddressModelRef, AccountAddressStatus, AccountModel,
+    AccountAddressModel, AccountAddressStatus, AccountModel,
 };
 
 use super::{logger::LogAccountAddress, AccountIndex, AccountResult};
@@ -59,6 +62,22 @@ impl AccountAddress {
         statis: Option<i8>,
         address_data: &AccountAddressParam<'_>,
     ) -> AccountResult<()> {
+        let name_max = query_string_field_max::<AccountAddressModel>(&self.db, &AccountAddressModel::NAME)
+            .await
+            .len_or(16);
+        let country_code_max = query_string_field_max::<AccountAddressModel>(&self.db, &AccountAddressModel::COUNTRY_CODE)
+            .await
+            .len_or(21);
+        let address_code_max = query_string_field_max::<AccountAddressModel>(&self.db, &AccountAddressModel::ADDRESS_CODE)
+            .await
+            .len_or(21);
+        let address_info_max = query_string_field_max::<AccountAddressModel>(&self.db, &AccountAddressModel::ADDRESS_INFO)
+            .await
+            .len_or(64);
+        let address_detail_max = query_string_field_max::<AccountAddressModel>(&self.db, &AccountAddressModel::ADDRESS_DETAIL)
+            .await
+            .len_or(128);
+
         let mut valid_param = ValidParam::default();
         if let Some(statis) = statis {
             valid_param.add(
@@ -74,19 +93,19 @@ impl AccountAddress {
             &address_data.name,
             &ValidParamCheck::default()
                 .add_rule(ValidPattern::NotFormat)
-                .add_rule(ValidStrlen::range(4, 16)),
+                .add_rule(ValidStrlen::range(4, name_max)),
         );
         valid_param.add(
             valid_key!("address_country_code"),
             &address_data.country_code,
-            &ValidParamCheck::default().add_rule(ValidStrlen::range(1, 21)),
+            &ValidParamCheck::default().add_rule(ValidStrlen::range(1, country_code_max)),
         );
         valid_param.add(
             valid_key!("address_code"),
             &address_data.address_code,
             &ValidParamCheck::default()
                 .add_rule(ValidPattern::Numeric)
-                .add_rule(ValidStrlen::range(4, 21)),
+                .add_rule(ValidStrlen::range(4, address_code_max)),
         );
         valid_param.add(
             valid_key!("address_mobile"),
@@ -99,7 +118,7 @@ impl AccountAddress {
             &address_data.address_info,
             &ValidParamCheck::default()
                 .add_rule(ValidPattern::NotFormat)
-                .add_rule(ValidStrlen::range(1, 64)),
+                .add_rule(ValidStrlen::range(1, address_info_max)),
         );
 
         valid_param.add(
@@ -107,7 +126,7 @@ impl AccountAddress {
             &address_data.address_detail,
             &ValidParamCheck::default()
                 .add_rule(ValidPattern::NotFormat)
-                .add_rule(ValidStrlen::range(1, 128)),
+                .add_rule(ValidStrlen::range(1, address_detail_max)),
         );
 
         Ok(())
@@ -132,24 +151,22 @@ impl AccountAddress {
         let address_detail = address_param.address_detail.to_owned();
         let name = address_param.name.to_owned();
         let mobile = address_param.mobile.to_owned();
-        let address_data = lsys_core::model_option_set!(AccountAddressModelRef,{
-            change_time:time,
-            country_code:country_code,
-            address_code:address_code,
-            address_info:address_info,
-            address_detail:address_detail,
-            name:name,
-            mobile:mobile,
-            account_id:address.account_id
-        });
 
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let tmp = Update::<AccountAddressModel, _>::new(address_data)
-            .execute_by_where(
-                &WhereOption::Where(sql_format!("id={}", address.id)),
+        let tmp = Update::<AccountAddressModel>::new()
+            .set(AccountAddressModel::CHANGE_TIME, time)
+            .set(AccountAddressModel::COUNTRY_CODE, country_code)
+            .set(AccountAddressModel::ADDRESS_CODE, address_code)
+            .set(AccountAddressModel::ADDRESS_INFO, &address_info)
+            .set(AccountAddressModel::ADDRESS_DETAIL, address_detail)
+            .set(AccountAddressModel::NAME, name)
+            .set(AccountAddressModel::MOBILE, mobile)
+            .set(AccountAddressModel::ACCOUNT_ID, address.account_id)
+            .execute(
+                SqlSuffix::Where(&sql_format!("id={}", address.id)),
                 &mut *db,
             )
             .await;
@@ -229,17 +246,6 @@ impl AccountAddress {
         let address_detail = address_param.address_detail.to_owned();
         let name = address_param.name.to_owned();
         let mobile = address_param.mobile.to_owned();
-        let address_data = lsys_core::model_option_set!(AccountAddressModelRef,{
-            status:AccountAddressStatus::Enable as i8,
-            change_time:time,
-            country_code:country_code,
-            address_code:address_code,
-            address_info:address_info,
-            address_detail:address_detail,
-            name:name,
-            mobile:mobile,
-            account_id:account.id,
-        });
         let address_res = sqlx::query_as::<_, AccountAddressModel>(&sql_format!(
             "select * from {} where  account_id={} and address_code={} and address_info={} and address_detail={} and name={} and mobile={} and status={}",
             AccountAddressModel::table_name(),
@@ -263,7 +269,16 @@ impl AccountAddress {
             None => self.db.begin().await?,
         };
 
-        let res = Insert::<AccountAddressModel, _>::new(address_data)
+        let res = Insert::<AccountAddressModel>::new()
+            .set(AccountAddressModel::STATUS, AccountAddressStatus::Enable as i8)
+            .set(AccountAddressModel::CHANGE_TIME, time)
+            .set(AccountAddressModel::COUNTRY_CODE, country_code)
+            .set(AccountAddressModel::ADDRESS_CODE, &address_code)
+            .set(AccountAddressModel::ADDRESS_INFO, &address_info)
+            .set(AccountAddressModel::ADDRESS_DETAIL, &address_detail)
+            .set(AccountAddressModel::NAME, &name)
+            .set(AccountAddressModel::MOBILE, &mobile)
+            .set(AccountAddressModel::ACCOUNT_ID, account.id)
             .execute(&mut *db)
             .await;
         match res {
@@ -340,17 +355,15 @@ impl AccountAddress {
         env_data: Option<&RequestEnv>,
     ) -> AccountResult<u64> {
         let time = now_time()?;
-        let change = lsys_core::model_option_set!(AccountAddressModelRef,{
-            status:AccountAddressStatus::Delete as i8,
-            change_time:time,
-        });
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let res = Update::<AccountAddressModel, _>::new(change)
-            .execute_by_where(
-                &WhereOption::Where(sql_format!("id={}", address.id)),
+        let res = Update::<AccountAddressModel>::new()
+            .set(AccountAddressModel::STATUS, AccountAddressStatus::Delete as i8)
+            .set(AccountAddressModel::CHANGE_TIME, time)
+            .execute(
+                SqlSuffix::Where(&sql_format!("id={}", address.id)),
                 &mut *db,
             )
             .await;

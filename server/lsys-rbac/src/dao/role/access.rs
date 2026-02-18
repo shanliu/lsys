@@ -3,7 +3,7 @@ use lsys_core::now_time;
 //RBAC中角色相关实现
 use sqlx::{FromRow, Row};
 use lsys_core::sql_format;
-use lsys_core::db::ModelTableName;
+use lsys_core::db::TableMeta;
 use tracing::error;
 
 use crate::{dao::result::RbacResult, 

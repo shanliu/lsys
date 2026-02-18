@@ -1,17 +1,17 @@
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::db::{Insert, ModelTableName, SqlExpr, Update, WhereOption};
+use lsys_core::db::{query_string_field_max, Insert, SqlExpr, SqlSuffix, TableMeta, Update};
+use lsys_core::{db::OffsetPageParam, now_time, IntoFluentMessage, RemoteNotify, RequestEnv};
 use lsys_core::{
-    db_option_executor, fluent_message, model_option_set, sql_format, valid_key, ValidError,
-    ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
+    db_option_executor, fluent_message, sql_format, valid_key, ValidError, ValidNumber, ValidParam,
+    ValidParamCheck, ValidPattern, ValidStrlen,
 };
-use lsys_core::{now_time, IntoFluentMessage, PageParam, RemoteNotify, RequestEnv};
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{MySql, Pool, Transaction};
 use std::sync::Arc;
 use tracing::log::warn;
 
 use super::{SettingData, SettingDecode, SettingEncode, SettingError, SettingLog, SettingResult};
-use crate::model::{SettingModel, SettingModelRef, SettingStatus, SettingType};
+use crate::model::{SettingModel, SettingStatus, SettingType};
 use lsys_core::db::SqlQuote;
 
 pub struct MultipleSetting {
@@ -43,27 +43,37 @@ pub struct MultipleSettingData<'t, T: SettingEncode> {
 }
 impl MultipleSetting {
     async fn add_param_valid(&self, key: &str, name: &str, data: &str) -> SettingResult<()> {
+        let setting_key_max = query_string_field_max::<SettingModel>(&self.db, &SettingModel::SETTING_KEY)
+            .await
+            .len_or(32);
+        let name_max = query_string_field_max::<SettingModel>(&self.db, &SettingModel::NAME)
+            .await
+            .len_or(32);
+        let setting_data_max = query_string_field_max::<SettingModel>(&self.db, &SettingModel::SETTING_DATA)
+            .await
+            .len_or(60000);
+
         ValidParam::default()
             .add(
                 valid_key!("setting_key"),
                 &key,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::Ident)
-                    .add_rule(ValidStrlen::range(1, 32)),
+                    .add_rule(ValidStrlen::range(1, setting_key_max)),
             )
             .add(
                 valid_key!("setting_name"),
                 &name,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)
-                    .add_rule(ValidStrlen::range(1, 32)),
+                    .add_rule(ValidStrlen::range(1, name_max)),
             )
             .add(
                 valid_key!("setting_data"),
                 &data,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)
-                    .add_rule(ValidStrlen::range(1, 60000)),
+                    .add_rule(ValidStrlen::range(1, setting_data_max)),
             )
             .check()?;
         Ok(())
@@ -112,20 +122,18 @@ impl MultipleSetting {
             Err(err) => return Err(err)?,
         }
 
-        let new_data = model_option_set!(SettingModelRef,{
-            name:name,
-            setting_type:setting_type,
-            setting_key: key,
-            setting_data: edata,
-            user_id: uid,
-            status: status,
-            change_user_id: change_user_id,
-            change_time: time,
-        });
         let dat = db_option_executor!(
             db,
             {
-                Insert::<SettingModel, _>::new(new_data)
+                Insert::<SettingModel>::new()
+                    .set(SettingModel::NAME, &name)
+                    .set(SettingModel::SETTING_TYPE, setting_type)
+                    .set(SettingModel::SETTING_KEY, &key)
+                    .set(SettingModel::SETTING_DATA, &edata)
+                    .set(SettingModel::USER_ID, uid)
+                    .set(SettingModel::STATUS, status)
+                    .set(SettingModel::CHANGE_USER_ID, change_user_id)
+                    .set(SettingModel::CHANGE_TIME, time)
                     .execute(db.as_executor())
                     .await?
             },
@@ -158,6 +166,16 @@ impl MultipleSetting {
         name: &str,
         data: &str,
     ) -> SettingResult<()> {
+        let setting_key_max = query_string_field_max::<SettingModel>(&self.db, &SettingModel::SETTING_KEY)
+            .await
+            .len_or(32);
+        let name_max = query_string_field_max::<SettingModel>(&self.db, &SettingModel::NAME)
+            .await
+            .len_or(32);
+        let setting_data_max = query_string_field_max::<SettingModel>(&self.db, &SettingModel::SETTING_DATA)
+            .await
+            .len_or(60000);
+
         ValidParam::default()
             .add(
                 valid_key!("setting_id"),
@@ -169,21 +187,21 @@ impl MultipleSetting {
                 &key,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::Ident)
-                    .add_rule(ValidStrlen::range(1, 32)),
+                    .add_rule(ValidStrlen::range(1, setting_key_max)),
             )
             .add(
                 valid_key!("setting_name"),
                 &name,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)
-                    .add_rule(ValidStrlen::range(1, 32)),
+                    .add_rule(ValidStrlen::range(1, name_max)),
             )
             .add(
                 valid_key!("setting_data"),
                 &data,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)
-                    .add_rule(ValidStrlen::range(1, 60000)),
+                    .add_rule(ValidStrlen::range(1, setting_data_max)),
             )
             .check()?;
         Ok(())
@@ -233,27 +251,24 @@ impl MultipleSetting {
         }
 
         let time = now_time().unwrap_or_default();
-        let change = lsys_core::model_option_set!(SettingModelRef,{
-            setting_data: edata,
-            name:name,
-            change_user_id: change_user_id,
-            change_time: time,
-        });
+
+        let where_clause = sql_format!(
+            "id={} and setting_type={} and setting_key={} and user_id={}",
+            id,
+            SettingType::Multiple,
+            key,
+            uid,
+        );
 
         let cu = db_option_executor!(
             db,
             {
-                Update::<SettingModel, _>::new(change)
-                    .execute_by_where(
-                        &WhereOption::Where(sql_format!(
-                            "id={} and setting_type={} and setting_key={} and user_id={}",
-                            id,
-                            SettingType::Multiple,
-                            key,
-                            uid,
-                        )),
-                        db.as_executor(),
-                    )
+                Update::<SettingModel>::new()
+                    .set(SettingModel::SETTING_DATA, &edata)
+                    .set(SettingModel::NAME, &name)
+                    .set(SettingModel::CHANGE_USER_ID, change_user_id)
+                    .set(SettingModel::CHANGE_TIME, time)
+                    .execute(SqlSuffix::Where(&where_clause), db.as_executor())
                     .await?
             },
             transaction,
@@ -313,17 +328,15 @@ impl MultipleSetting {
                 if SettingStatus::Delete.eq(item.status) {
                     return Ok(0);
                 }
-                let change = lsys_core::model_option_set!(SettingModelRef,{
-                    status: status,
-                    change_user_id: change_user_id,
-                    change_time: time,
-                });
                 let cu = db_option_executor!(
                     db,
                     {
-                        Update::<SettingModel, _>::new(change)
-                            .execute_by_where(
-                                &WhereOption::Where(sql_format!("id={}", item.id)),
+                        Update::<SettingModel>::new()
+                            .set(SettingModel::STATUS, status)
+                            .set(SettingModel::CHANGE_USER_ID, change_user_id)
+                            .set(SettingModel::CHANGE_TIME, time)
+                            .execute(
+                                SqlSuffix::Where(&sql_format!("id={}", item.id)),
                                 db.as_executor(),
                             )
                             .await?
@@ -360,7 +373,7 @@ impl MultipleSetting {
         &self,
         user_id: Option<u64>,
         ids: Option<&[u64]>,
-        page: Option<&PageParam>,
+        page: &OffsetPageParam,
     ) -> SettingResult<Vec<SettingData<T>>> {
         let key = T::key().to_string();
         let uid = user_id.unwrap_or_default();
@@ -377,9 +390,7 @@ impl MultipleSetting {
             }
             sql += sql_format!(" and id in ({})", id).as_str();
         }
-        if let Some(pdat) = page {
-            sql += format!(" limit {} offset {}", pdat.limit, pdat.offset).as_str();
-        }
+        sql += &page.page_query().limit_sql().unwrap_or_default();
 
         let data = sqlx::query_as::<_, SettingModel>(&sql_format!(
             "select * from {} where {}",

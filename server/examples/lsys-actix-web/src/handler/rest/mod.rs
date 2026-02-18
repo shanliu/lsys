@@ -1,8 +1,6 @@
 //rest 接口
 mod app;
 mod auth;
-#[cfg(feature = "barcode")]
-mod barcode;
 mod mail;
 mod oauth;
 mod rbac;
@@ -27,9 +25,6 @@ where
         .service(scope("/auth").service(auth::auth))
         .service(scope("/mail").service(mail::mail))
         .service(scope("/sms").service(sms::sms));
-
-    #[cfg(feature = "barcode")]
-    let rest_scope = rest_scope.service(scope("/barcode").service(barcode::barcode));
 
     app.service(
         scope("/oauth")

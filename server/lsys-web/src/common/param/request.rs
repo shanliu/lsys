@@ -1,3 +1,7 @@
+use lsys_core::db::{
+    CursorConfig, CursorLimit, CursorPageDir, CursorPageParam, CursorPageSort, OffsetPageParam,
+    OffsetPageValue,
+};
 use serde::Deserialize;
 #[derive(Debug, Deserialize)]
 pub struct PageParam {
@@ -11,10 +15,23 @@ impl Default for PageParam {
         Self { page: 1, limit: 10 }
     }
 }
-impl From<&PageParam> for lsys_core::PageParam {
-    fn from(p: &PageParam) -> Self {
-        let limit = if p.limit > 100 { 100 } else { p.limit };
-        lsys_core::PageParam::page(p.page, limit)
+
+pub trait ToOffsetPageParam {
+    fn to_offset_page_param(&self) -> OffsetPageParam;
+}
+impl ToOffsetPageParam for Option<PageParam> {
+    fn to_offset_page_param(&self) -> OffsetPageParam {
+        //这里控制分页默认值
+        self.as_ref()
+            .map(|e| e.to_offset_page_param())
+            .unwrap_or_else(|| ToOffsetPageParam::to_offset_page_param(&PageParam::default()))
+    }
+}
+impl ToOffsetPageParam for PageParam {
+    fn to_offset_page_param(&self) -> OffsetPageParam {
+        let limit = if self.limit > 100 { 100 } else { self.limit };
+        let offset = (self.page.saturating_sub(1)) * limit;
+        OffsetPageParam::new(Some(OffsetPageValue::new(offset, limit)))
     }
 }
 
@@ -22,8 +39,6 @@ impl From<&PageParam> for lsys_core::PageParam {
 pub struct LimitParam {
     #[serde(default, deserialize_with = "super::deserialize_option_string")]
     pos: Option<String>, //起点位置，默认起点0，可传字符串或数字
-    #[serde(default, deserialize_with = "super::deserialize_option_bool")]
-    eq_pos: Option<bool>, //是否等于起点位置，传真或假
     #[serde(deserialize_with = "super::deserialize_u64")]
     limit: u64, //显示数量
     #[serde(deserialize_with = "super::deserialize_bool")]
@@ -35,27 +50,39 @@ impl Default for LimitParam {
     fn default() -> Self {
         Self {
             pos: None,
-            eq_pos: None,
             limit: 10,
             forward: false,
             more: Some(false),
         }
     }
 }
-impl From<&LimitParam> for lsys_core::LimitParam {
-    fn from(p: &LimitParam) -> Self {
-        let limit = if p.limit > 100 { 100 } else { p.limit };
-        let pos = p
-            .pos
-            .as_ref()
-            .map(|e| e.parse::<u64>().ok())
-            .unwrap_or_default();
-        lsys_core::LimitParam::new(
-            pos,
-            p.eq_pos.unwrap_or(false),
-            limit,
-            p.forward,
-            p.more.unwrap_or(false),
+
+pub trait ToCursorPageParam {
+    fn to_u64_cursor_page_param(&self, primary_sort: CursorPageSort) -> CursorPageParam<u64>;
+}
+impl ToCursorPageParam for Option<LimitParam> {
+    fn to_u64_cursor_page_param(&self, primary_sort: CursorPageSort) -> CursorPageParam<u64> {
+        self.as_ref()
+            .map(|e| e.to_u64_cursor_page_param(primary_sort))
+            .unwrap_or_else(|| LimitParam::default().to_u64_cursor_page_param(primary_sort))
+    }
+}
+impl ToCursorPageParam for LimitParam {
+    fn to_u64_cursor_page_param(&self, primary_sort: CursorPageSort) -> CursorPageParam<u64> {
+        let limit = if self.limit > 100 { 100 } else { self.limit };
+        let offset = self.pos.as_ref().and_then(|e| e.parse::<u64>().ok());
+        CursorPageParam::new(
+            if self.forward {
+                CursorPageDir::Next
+            } else {
+                CursorPageDir::Prev
+            },
+            CursorConfig::primary(primary_sort),
+            offset,
+            CursorLimit::Limit {
+                limit,
+                more: self.more.unwrap_or(false),
+            },
         )
     }
 }

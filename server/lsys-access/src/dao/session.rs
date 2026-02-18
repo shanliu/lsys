@@ -33,7 +33,7 @@ impl SessionBody {
             Ok(e) => Ok(e),
             Err(err) => Err(AccessError::BadAccount(fluent_message!(
                 "access-parse-error",
-                err
+                format!("({}):{}", self.user.user_data, err)
             ))),
         }
     }

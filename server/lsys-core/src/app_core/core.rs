@@ -1,13 +1,15 @@
 use dotenv::dotenv;
 
+#[cfg(feature = "db")]
+use crate::db::TableName;
 use crate::AppCoreCreate;
+#[cfg(feature = "db")]
 use sqlx::Pool;
 use std::env;
 use std::path::PathBuf;
 use std::str::FromStr;
+#[cfg(feature = "tera")]
 use tera::Tera;
-
-use crate::db::TableName;
 
 use super::result::AppCoreError;
 use crate::BaseAppCoreCreate;
@@ -74,6 +76,7 @@ impl AppCore {
         self.create.init_tracing(self).await
         //这里可以做一些必要检查
     }
+    #[cfg(feature = "db")]
     pub async fn create_db(&self) -> Result<Pool<sqlx::MySql>, AppCoreError> {
         let table_prefix = self
             .config
@@ -107,12 +110,15 @@ impl AppCore {
         let node_id = (node_id.abs() % 31) as i32;
         snowflake::SnowflakeIdGenerator::new(machine_id, node_id)
     }
+    #[cfg(feature = "redis")]
     pub async fn create_redis_client(&self) -> Result<redis::Client, AppCoreError> {
         self.create.create_redis_client(self).await
     }
+    #[cfg(feature = "redis")]
     pub async fn create_redis(&self) -> Result<deadpool_redis::Pool, AppCoreError> {
         self.create.create_redis_pool(self).await
     }
+    #[cfg(feature = "tera")]
     pub async fn create_tera(&self) -> Result<Tera, AppCoreError> {
         self.create.create_tera(self).await
     }

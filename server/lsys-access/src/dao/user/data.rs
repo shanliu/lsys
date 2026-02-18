@@ -4,10 +4,10 @@ use crate::model::{SessionModel, SessionStatus};
 use crate::{dao::AccessResult, model::UserModel};
 
 use super::AccessUser;
-use lsys_core::db::{ModelTableName, SqlExpr, SqlQuote};
+use lsys_core::db::{CursorPageData, CursorPageParam, SqlExpr, SqlQuote, TableMeta};
 use lsys_core::{
-    now_time, sql_format, string_clear, valid_key, LimitParam, StringClear, ValidParam,
-    ValidParamCheck, ValidPattern, ValidStrlen, STRING_CLEAR_FORMAT,
+    db::query_string_field_max, now_time, sql_format, string_clear, valid_key, StringClear,
+    ValidParam, ValidParamCheck, ValidPattern, ValidStrlen, STRING_CLEAR_FORMAT,
 };
 use serde::Serialize;
 impl AccessUser {
@@ -35,13 +35,18 @@ impl AccessUser {
 impl AccessUser {
     async fn find_by_data_param_valid(&self, user_data: &str) -> AccessResult<()> {
         let user_data = user_data.to_string();
+        let user_data_max =
+            query_string_field_max::<UserModel>(&self.db, &UserModel::USER_DATA)
+                .await
+                .len_or(32);
+
         ValidParam::default()
             .add(
                 valid_key!("user_data"),
                 &user_data,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::Ident)
-                    .add_rule(ValidStrlen::range(1, 32)),
+                    .add_rule(ValidStrlen::range(1, user_data_max)),
             )
             .check()?;
         Ok(())
@@ -106,52 +111,22 @@ impl AccessUser {
     pub async fn user_data(
         &self,
         param: &UserDataParam<'_>,
-        limit: Option<&LimitParam>,
-    ) -> AccessResult<(Vec<UserModel>, Option<u64>)> {
-        let where_sql = match self.user_data_where(param) {
+        limit: &CursorPageParam<u64>,
+    ) -> AccessResult<(Vec<UserModel>, CursorPageData<u64>)> {
+        let where_arr = match self.user_data_where(param) {
             Some(sql) => sql,
-            None => return Ok((vec![], None)),
+            None => return Ok((vec![], CursorPageData::default())),
         };
-        let where_sql = if let Some(page) = limit {
-            let page_where = page.where_sql(
-                "id",
-                if where_sql.is_empty() {
-                    None
-                } else {
-                    Some("and")
-                },
-            );
-            format!(
-                "{} {} {} order by {} {} ",
-                if !where_sql.is_empty() || !page_where.is_empty() {
-                    "where "
-                } else {
-                    ""
-                },
-                where_sql.join(" and "),
-                page_where,
-                page.order_sql("id"),
-                page.limit_sql(),
-            )
-        } else {
-            format!(
-                "{} {}  order by id desc",
-                if !where_sql.is_empty() { "where " } else { "" },
-                where_sql.join(" and ")
-            )
-        };
+        let query_limit = limit.page_query("id");
+        let suff_sql = query_limit.build_query_sql(Some(&where_arr.join(" and ")));
         let mut out_data = sqlx::query_as::<_, UserModel>(&sql_format!(
             "select * from {} {}",
             UserModel::table_name(),
-            SqlExpr(where_sql)
+            SqlExpr(suff_sql)
         ))
         .fetch_all(&self.db)
         .await?;
-        let next = limit
-            .as_ref()
-            .map(|page| page.tidy(&mut out_data))
-            .unwrap_or_default()
-            .map(|e| e.id);
+        let next = query_limit.finalize(&mut out_data, |c, d| *d == c.id, |c| c.id);
         Ok((out_data, next))
     }
     pub async fn user_count(&self, param: &UserDataParam<'_>) -> AccessResult<i64> {
@@ -233,53 +208,23 @@ impl AccessUser {
     pub async fn session_data(
         &self,
         param: &SessionDataParam,
-        limit: Option<&LimitParam>,
-    ) -> AccessResult<(Vec<SessionDataRecord>, Option<u64>)> {
-        let where_sql = match self.session_data_where(param) {
+        limit: &CursorPageParam<u64>,
+    ) -> AccessResult<(Vec<SessionDataRecord>, CursorPageData<u64>)> {
+        let where_arr = match self.session_data_where(param) {
             Some(sql) => sql,
-            None => return Ok((vec![], None)),
+            None => return Ok((vec![], CursorPageData::default())),
         };
-        let where_sql = if let Some(page) = limit {
-            let page_where = page.where_sql(
-                "id",
-                if where_sql.is_empty() {
-                    None
-                } else {
-                    Some("and")
-                },
-            );
-            format!(
-                "{} {} {} order by {} {} ",
-                if !where_sql.is_empty() || !page_where.is_empty() {
-                    "where "
-                } else {
-                    ""
-                },
-                where_sql.join(" and "),
-                page_where,
-                page.order_sql("id"),
-                page.limit_sql(),
-            )
-        } else {
-            format!(
-                "{} {}  order by id desc",
-                if !where_sql.is_empty() { "where " } else { "" },
-                where_sql.join(" and ")
-            )
-        };
+        let query_limit = limit.page_query("id");
+        let suff_sql = query_limit.build_query_sql(Some(&where_arr.join(" and ")));
         let mut out_data = sqlx::query_as::<_, SessionModel>(&sql_format!(
             "select * from {} {}",
             SessionModel::table_name(),
-            SqlExpr(where_sql)
+            SqlExpr(suff_sql)
         ))
         .fetch_all(&self.db)
         .await?;
 
-        let next = limit
-            .as_ref()
-            .map(|page| page.tidy(&mut out_data))
-            .unwrap_or_default()
-            .map(|e| e.id);
+        let next = query_limit.finalize(&mut out_data, |c, d| *d == c.id, |c| c.id);
         let ntime = now_time().unwrap_or_default();
         Ok((
             out_data

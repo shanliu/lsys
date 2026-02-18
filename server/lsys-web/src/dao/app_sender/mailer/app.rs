@@ -4,7 +4,7 @@ use lsys_core::RequestEnv;
 use serde_json::json;
 use std::collections::HashMap;
 
-use crate::common::JsonResult;
+use crate::dao::WebResult;
 
 use super::SenderMailer;
 
@@ -21,7 +21,7 @@ impl SenderMailer {
         reply: Option<&str>,
         max_try_num: Option<u8>,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<Vec<(u64, &'t str)>> {
+    ) -> WebResult<Vec<(u64, &'t str)>> {
         let tos = to.to_vec();
         let res = self
             .mailer_dao
@@ -46,7 +46,7 @@ impl SenderMailer {
         app: &AppModel,
         snid_data: &[u64],
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<Vec<(u64, bool, Option<SenderError>)>> {
+    ) -> WebResult<Vec<(u64, bool, Option<SenderError>)>> {
         Ok(self
             .mailer_dao
             .cancal_from_message_snid_vec(snid_data, app.user_id, env_data)

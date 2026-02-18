@@ -6,6 +6,7 @@ use crate::common::PageParam;
 use crate::common::RequestDao;
 
 use crate::common::JsonData;
+use crate::common::ToOffsetPageParam;
 use lsys_app::model::AppModel;
 
 use lsys_rbac::dao::RoleAddUser;
@@ -146,11 +147,7 @@ pub async fn role_user_data(
         .web_rbac
         .rbac_dao
         .role
-        .role_user_data(
-            &role,
-            param.all,
-            param.page.as_ref().map(|e| e.into()).as_ref(),
-        )
+        .role_user_data(&role, param.all, &param.page.to_offset_page_param())
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(

@@ -4,10 +4,13 @@ use lsys_core::{FluentBundle, FluentMessage};
 
 use super::{FluentFormat, JsonData, JsonResponse};
 
-//直接用 'static 不能加‘t,声明周期往上层扩散非常难处理
+/// JSON 响应格式化 trait
+/// 用于将错误转换为 JsonData
 pub trait JsonFluent: FluentFormat + 'static {
     fn to_json_data(&self, fluent: &FluentBundle) -> JsonData;
 }
+
+/// JSON 错误枚举
 pub enum JsonError {
     Error(Box<dyn JsonFluent>),
     Message(FluentMessage),
@@ -19,6 +22,7 @@ impl<T: JsonFluent> From<T> for JsonError {
         Self::Error(Box::new(value))
     }
 }
+
 impl JsonError {
     pub fn to_json_response(&self, fluent: &FluentBundle) -> JsonResponse {
         match self {
@@ -36,4 +40,6 @@ impl JsonError {
     }
 }
 
+/// JSON 结果类型别名
 pub type JsonResult<T> = Result<T, JsonError>;
+

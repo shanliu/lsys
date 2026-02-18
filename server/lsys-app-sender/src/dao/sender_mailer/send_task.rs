@@ -5,12 +5,12 @@ use crate::{
         SenderTaskItem, SenderTaskResultItem, SenderTaskStatus, SenderTplConfig, SenderWaitNotify,
     },
     model::{
-        SenderLogStatus, SenderMailBodyModel, SenderMailBodyModelRef, SenderMailBodyStatus,
+        SenderLogStatus, SenderMailBodyModel, SenderMailBodyStatus,
         SenderMailMessageModel, SenderMailMessageStatus, SenderMessageCancelModel,
     },
 };
 use async_trait::async_trait;
-use lsys_core::db::{ModelTableName, SqlExpr, SqlQuote, WhereOption};
+use lsys_core::db::{TableMeta, SqlExpr, SqlQuote, SqlSuffix};
 use lsys_core::{fluent_message, now_time, IntoFluentMessage};
 use lsys_core::{TaskAcquisition, TaskData, TaskExecutor, TaskItem, TaskRecord};
 use lsys_setting::model::SettingModel;
@@ -117,13 +117,11 @@ impl MailTaskAcquisition {
     }
     async fn send_task_body_finish(&self, item: &MailTaskItem) {
         let finish_time = now_time().unwrap_or_default();
-        let change = lsys_core::model_option_set!(SenderMailBodyModelRef,{
-            status:SenderMailBodyStatus::Finish as i8,
-            finish_time:finish_time
-        });
-        if let Err(err) = Update::<SenderMailBodyModel, _>::new(change)
-            .execute_by_where(
-                &WhereOption::Where(sql_format!("id={}", item.mail.id)),
+        if let Err(err) = Update::<SenderMailBodyModel>::new()
+            .set(SenderMailBodyModel::STATUS, SenderMailBodyStatus::Finish as i8)
+            .set(SenderMailBodyModel::FINISH_TIME, finish_time)
+            .execute(
+                SqlSuffix::Where(&sql_format!("id={}", item.mail.id)),
                 &self.db,
             )
             .await

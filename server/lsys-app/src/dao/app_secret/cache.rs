@@ -4,7 +4,7 @@ use crate::dao::AppResult;
 use crate::dao::AppSecret;
 use crate::model::AppSecretType;
 
-use super::{AppSecretCacheKey, AppSecretRecrod};
+use super::{AppSecretCacheKey, AppSecretRecord};
 impl AppSecret {
     pub fn cache(&'_ self) -> AppSecretCache<'_> {
         AppSecretCache { dao: self }
@@ -20,7 +20,7 @@ impl AppSecretCache<'_> {
         &self,
         app_id: u64,
         secret_type: AppSecretType,
-    ) -> AppResult<Vec<AppSecretRecrod>> {
+    ) -> AppResult<Vec<AppSecretRecord>> {
         let cache_key = AppSecretCacheKey {
             secret_type: secret_type as i8,
             app_id,
@@ -70,7 +70,7 @@ impl AppSecretCache<'_> {
         &self,
         app_id: u64,
         secret_type: AppSecretType,
-    ) -> AppResult<AppSecretRecrod> {
+    ) -> AppResult<AppSecretRecord> {
         let cache_key = AppSecretCacheKey {
             secret_type: secret_type as i8,
             app_id,

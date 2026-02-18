@@ -1,14 +1,15 @@
-use lsys_core::db::{Insert, ModelTableName, SqlExpr, SqlQuote, Update, WhereOption};
+use lsys_core::db::{
+    CursorPageData, CursorPageParam, Insert, SqlExpr, SqlQuote, SqlSuffix, TableMeta, Update,
+};
 use lsys_core::{
-    model_option_set, now_time, sql_format, string_clear, LimitParam, StringClear, VecStringJoin,
-    STRING_CLEAR_FORMAT,
+    now_time, sql_format, string_clear, StringClear, VecStringJoin, STRING_CLEAR_FORMAT,
 };
 
 use sqlx::{MySql, Pool};
 
 use tracing::error;
 
-use crate::model::{AccountLoginModel, AccountLoginModelRef};
+use crate::model::{AccountLoginModel, AccountLoginStatus};
 
 use super::AccountResult;
 
@@ -57,53 +58,28 @@ impl AccountLoginHistory {
         is_login: Option<i8>,
         login_type: Option<&str>,
         login_ip: Option<&str>,
-        limit: Option<&LimitParam>,
-    ) -> AccountResult<(Vec<AccountLoginModel>, Option<u64>)> {
+        limit: &CursorPageParam<u64>,
+    ) -> AccountResult<(Vec<AccountLoginModel>, CursorPageData<u64>)> {
         let sqlwhere =
             self.history_where(account_id, login_account, is_login, login_type, login_ip);
 
-        let tmp = if let Some(page) = limit {
-            let page_where = page.where_sql(
-                "id",
-                if sqlwhere.is_empty() {
-                    None
-                } else {
-                    Some("and")
-                },
-            );
-            format!(
-                "{} {} {} order by {} {} ",
-                if !sqlwhere.is_empty() || !page_where.is_empty() {
-                    "where "
-                } else {
-                    ""
-                },
-                sqlwhere.join(" and "),
-                page_where,
-                page.order_sql("id"),
-                page.limit_sql(),
-            )
+        let query_limit = limit.page_query("id");
+        let where_str = sqlwhere.join(" and ");
+        let suff_sql = query_limit.build_query_sql(if sqlwhere.is_empty() {
+            None
         } else {
-            format!(
-                "{} {}  order by id desc",
-                if !sqlwhere.is_empty() { "where " } else { "" },
-                sqlwhere.join(" and ")
-            )
-        };
+            Some(&where_str)
+        });
 
         let mut data = sqlx::query_as::<_, AccountLoginModel>(&sql_format!(
             "select * from {} {}",
             AccountLoginModel::table_name(),
-            SqlExpr(tmp)
+            SqlExpr(suff_sql)
         ))
         .fetch_all(&self.db)
         .await?;
 
-        let next = limit
-            .as_ref()
-            .map(|page| page.tidy(&mut data))
-            .unwrap_or_default()
-            .map(|e| e.id);
+        let next = query_limit.finalize(&mut data, |c, d| *d == c.id, |c| c.id);
         Ok((data, next))
     }
     /// 登陆历史数量
@@ -158,16 +134,14 @@ impl AccountLoginHistory {
             StringClear::Option(STRING_CLEAR_FORMAT),
             Some(100),
         );
-        let new_data = model_option_set!(AccountLoginModelRef,{
-            login_type:login_type,
-            login_account:login_account,
-            login_ip:login_ip,
-            account_id: 0,
-            is_login: 0,
-            login_city:login_city,
-            add_time: time,
-        });
-        let login_res = Insert::<AccountLoginModel, _>::new(new_data)
+        let login_res = Insert::<AccountLoginModel>::new()
+            .set(AccountLoginModel::LOGIN_TYPE, login_type)
+            .set(AccountLoginModel::LOGIN_ACCOUNT, login_account)
+            .set(AccountLoginModel::LOGIN_IP, login_ip)
+            .set(AccountLoginModel::ACCOUNT_ID, 0_u64)
+            .set(AccountLoginModel::IS_LOGIN, 0_i8)
+            .set(AccountLoginModel::LOGIN_CITY, login_city)
+            .set(AccountLoginModel::ADD_TIME, time)
             .execute(&self.db)
             .await?;
         Ok(login_res.last_insert_id())
@@ -176,22 +150,17 @@ impl AccountLoginHistory {
     pub async fn finish_history(
         &self,
         login_id: u64,
-        is_login: i8,
+        is_login: AccountLoginStatus,
         account_id: u64,
         login_msg: impl ToString,
     ) -> AccountResult<()> {
         let login_msg = login_msg.to_string();
-        let change = lsys_core::model_option_set!(AccountLoginModelRef,{
-            is_login:is_login,
-            account_id:account_id,
-            login_msg:login_msg,
-
-        });
-        let ures = Update::<AccountLoginModel, _>::new(change)
-            .execute_by_where(
-                &WhereOption::Where(sql_format!("id={}", login_id)),
-                &self.db,
-            )
+        let is_login = is_login as i8;
+        let ures = Update::<AccountLoginModel>::new()
+            .set(AccountLoginModel::IS_LOGIN, is_login)
+            .set(AccountLoginModel::ACCOUNT_ID, account_id)
+            .set(AccountLoginModel::LOGIN_MSG, login_msg)
+            .execute(SqlSuffix::Where(&sql_format!("id={}", login_id)), &self.db)
             .await;
         if let Err(err) = ures {
             error!(

@@ -3,8 +3,9 @@ use lsys_access::dao::SessionBody;
 use lsys_core::{fluent_message, RequestEnv};
 
 use super::WebUserAuth;
+use crate::common::CaptchaParam;
 use crate::common::JsonData;
-use crate::common::{CaptchaParam, JsonError, JsonResult};
+use crate::dao::{WebError, WebResult};
 
 impl WebUserAuth {
     //统一重置密码
@@ -16,7 +17,7 @@ impl WebUserAuth {
         code: &str,
         op_user_id: u64,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<u64> {
+    ) -> WebResult<u64> {
         let user = self
             .user_dao
             .account_dao
@@ -54,7 +55,7 @@ impl WebUserAuth {
         param: &SetPasswordData<'_>,
         session_body: &SessionBody,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<u64> {
+    ) -> WebResult<u64> {
         let account = self
             .user_dao
             .account_dao
@@ -70,14 +71,14 @@ impl WebUserAuth {
                     .check_password(&account, old_passwrod)
                     .await?;
                 if !check {
-                    return Err(JsonError::JsonResponse(
-                        JsonData::default().set_sub_code("bad_passwrod"),
+                    return Err(WebError::JsonResponse(
+                        Box::new(JsonData::default().set_sub_code("bad_passwrod")),
                         fluent_message!("user-old-passwrod-bad"),
                     ));
                 }
             } else {
-                return Err(JsonError::JsonResponse(
-                    JsonData::default().set_sub_code("need_old_passwrod"),
+                return Err(WebError::JsonResponse(
+                    Box::new(JsonData::default().set_sub_code("need_old_passwrod")),
                     fluent_message!("user-old-passwrod-empty"),
                 ));
             }
@@ -109,7 +110,7 @@ impl WebUserAuth {
         &self,
         param: &ResetPasswordSendCodeFromMobileData<'_>,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<usize> {
+    ) -> WebResult<usize> {
         let mobile = self
             .user_dao
             .account_dao
@@ -164,7 +165,7 @@ impl WebUserAuth {
         &self,
         param: &ResetPasswordSendCodeFromEmailData<'_>,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<usize> {
+    ) -> WebResult<usize> {
         let user_email = self
             .user_dao
             .account_dao
@@ -219,7 +220,7 @@ impl WebUserAuth {
         param: &ResetPasswordFromEmailData<'_>,
         op_user_id: u64,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<u64> {
+    ) -> WebResult<u64> {
         let email = self
             .user_dao
             .account_dao
@@ -252,7 +253,7 @@ impl WebUserAuth {
         param: &ResetPasswordFromMobileData<'_>,
         op_user_id: u64,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<u64> {
+    ) -> WebResult<u64> {
         let mobile = self
             .user_dao
             .account_dao

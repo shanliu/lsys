@@ -1,18 +1,18 @@
 use std::collections::HashMap;
 
 use crate::dao::logger::AppViewSecretLog;
-use crate::dao::AppSecretRecrod;
+use crate::dao::AppSecretRecord;
 use crate::model::{
     AppFeatureModel, AppFeatureStatus, AppModel, AppOAuthClientModel, AppOAuthServerScopeModel,
     AppOAuthServerScopeStatus, AppRequestModel, AppRequestStatus, AppRequestType, AppSecretType,
     AppStatus,
 };
 
-use lsys_core::db::ModelTableName;
-use lsys_core::db::{SqlExpr, SqlQuote};
+use lsys_core::db::TableMeta;
+use lsys_core::db::{OffsetPageParam, SqlExpr, SqlQuote};
 use lsys_core::{
-    impl_dao_fetch_map_by_vec, string_clear, valid_key, PageParam, StringClear, ValidParam,
-    ValidParamCheck, ValidPattern, ValidStrlen, STRING_CLEAR_FORMAT,
+    db::query_string_field_max, impl_dao_fetch_map_by_vec, string_clear, valid_key, StringClear,
+    ValidParam, ValidParamCheck, ValidPattern, ValidStrlen, STRING_CLEAR_FORMAT,
 };
 use lsys_core::{sql_format, RequestEnv};
 
@@ -50,12 +50,17 @@ impl App {
         ]
     );
     async fn find_by_client_id_param_valid(&self, client_id: &str) -> AppResult<()> {
+        let client_id_max =
+            query_string_field_max::<AppModel>(&self.db, &AppModel::CLIENT_ID)
+                .await
+                .len_or(32);
+
         ValidParam::default()
             .add(
                 valid_key!("client_id"),
                 &client_id,
                 &ValidParamCheck::default()
-                    .add_rule(ValidStrlen::range(3, 32))
+                    .add_rule(ValidStrlen::range(3, client_id_max))
                     .add_rule(ValidPattern::Ident),
             )
             .check()?;
@@ -422,7 +427,7 @@ impl App {
         &self,
         app_where: &SystemAppParam<'_>,
         app_attr: Option<&AppAttrParam>,
-        page: Option<&PageParam>,
+        page: &OffsetPageParam,
     ) -> AppResult<Vec<(AppModel, AppAttrData)>> {
         let out_data = self.system_app_data(app_where, page).await?;
         self.attr_app_info(out_data, app_attr).await
@@ -430,29 +435,17 @@ impl App {
     pub async fn system_app_data(
         &self,
         app_where: &SystemAppParam<'_>,
-        page: Option<&PageParam>,
+        page: &OffsetPageParam,
     ) -> AppResult<Vec<AppModel>> {
         let where_sql = match self.system_app_data_sql(app_where) {
             Some(sql) => sql,
             None => return Ok(vec![]),
         };
-        let page_sql = if let Some(pdat) = page {
-            format!(
-                " order by id desc limit {} offset {} ",
-                pdat.limit, pdat.offset
-            )
-        } else {
-            " order by id desc".to_string()
-        };
         let out_data = sqlx::query_as::<_, AppModel>(&sql_format!(
-            "select * from {} where {} {}",
+            "select * from {} where {} order by id desc {}",
             AppModel::table_name(),
             SqlExpr(where_sql.join(" and ")),
-            if page.is_some() {
-                SqlExpr(page_sql)
-            } else {
-                SqlExpr("".to_string())
-            }
+            SqlExpr(page.page_query().limit_sql().unwrap_or_default())
         ))
         .fetch_all(&self.db)
         .await?;
@@ -505,7 +498,7 @@ impl App {
         &self,
         app_where: &SystemSubAppParam<'_>,
         app_attr: Option<&AppAttrParam>,
-        page: Option<&PageParam>,
+        page: &OffsetPageParam,
     ) -> AppResult<Vec<(AppModel, AppAttrData)>> {
         let out_data = self.system_sub_app_data(app_where, page).await?;
         self.attr_app_info(out_data, app_attr).await
@@ -513,29 +506,17 @@ impl App {
     pub async fn system_sub_app_data(
         &self,
         app_where: &SystemSubAppParam<'_>,
-        page: Option<&PageParam>,
+        page: &OffsetPageParam,
     ) -> AppResult<Vec<AppModel>> {
         let where_sql = match self.system_sub_app_data_sql(app_where) {
             Some(sql) => sql,
             None => return Ok(vec![]),
         };
-        let page_sql = if let Some(pdat) = page {
-            format!(
-                " order by id desc limit {} offset {} ",
-                pdat.limit, pdat.offset
-            )
-        } else {
-            " order by id desc".to_string()
-        };
         let out_data = sqlx::query_as::<_, AppModel>(&sql_format!(
-            "select * from {} where {} {}",
+            "select * from {} where {} order by id desc {}",
             AppModel::table_name(),
             SqlExpr(where_sql.join(" and ")),
-            if page.is_some() {
-                SqlExpr(page_sql)
-            } else {
-                SqlExpr("".to_string())
-            }
+            SqlExpr(page.page_query().limit_sql().unwrap_or_default())
         ))
         .fetch_all(&self.db)
         .await?;
@@ -602,7 +583,7 @@ impl App {
         user_id: u64,
         app_where: &UserAppDataParam<'_>,
         app_attr: Option<&AppAttrParam>,
-        page: Option<&PageParam>,
+        page: &OffsetPageParam,
     ) -> AppResult<Vec<(AppModel, AppAttrData)>> {
         let out_data = self.user_app_data(user_id, app_where, page).await?;
         self.attr_app_info(out_data, app_attr).await
@@ -611,29 +592,17 @@ impl App {
         &self,
         user_id: u64,
         app_where: &UserAppDataParam<'_>,
-        page: Option<&PageParam>,
+        page: &OffsetPageParam,
     ) -> AppResult<Vec<AppModel>> {
         let where_sql = match self.user_app_data_sql(user_id, app_where) {
             Some(sql) => sql,
             None => return Ok(vec![]),
         };
-        let page_sql = if let Some(pdat) = page {
-            format!(
-                " order by id desc limit {} offset {} ",
-                pdat.limit, pdat.offset
-            )
-        } else {
-            " order by id desc".to_string()
-        };
         let out_data = sqlx::query_as::<_, AppModel>(&sql_format!(
-            "select * from {} where {} {}",
+            "select * from {} where {} order by id desc {}",
             AppModel::table_name(),
             SqlExpr(where_sql.join(" and ")),
-            if page.is_some() {
-                SqlExpr(page_sql)
-            } else {
-                SqlExpr("".to_string())
-            }
+            SqlExpr(page.page_query().limit_sql().unwrap_or_default())
         ))
         .fetch_all(&self.db)
         .await?;
@@ -684,7 +653,7 @@ impl App {
         &self,
         app_where: &UserSubAppParam,
         app_attr: Option<&AppAttrParam>,
-        page: Option<&PageParam>,
+        page: &OffsetPageParam,
     ) -> AppResult<Vec<(AppModel, AppAttrData)>> {
         let out_data = self.user_sub_app_data(app_where, page).await?;
         self.attr_app_info(out_data, app_attr).await
@@ -692,29 +661,17 @@ impl App {
     pub async fn user_sub_app_data(
         &self,
         app_where: &UserSubAppParam,
-        page: Option<&PageParam>,
+        page: &OffsetPageParam,
     ) -> AppResult<Vec<AppModel>> {
         let where_sql = match self.user_sub_app_data_sql(app_where) {
             Some(sql) => sql,
             None => return Ok(vec![]),
         };
-        let page_sql = if let Some(pdat) = page {
-            format!(
-                " order by id desc limit {} offset {} ",
-                pdat.limit, pdat.offset
-            )
-        } else {
-            " order by id desc".to_string()
-        };
         let out_data = sqlx::query_as::<_, AppModel>(&sql_format!(
-            "select * from {} where {} {}",
+            "select * from {} where {} order by id desc {}",
             AppModel::table_name(),
             SqlExpr(where_sql.join(" and ")),
-            if page.is_some() {
-                SqlExpr(page_sql)
-            } else {
-                SqlExpr("".to_string())
-            }
+            SqlExpr(page.page_query().limit_sql().unwrap_or_default())
         ))
         .fetch_all(&self.db)
         .await?;
@@ -770,29 +727,17 @@ impl App {
     pub async fn user_parent_app_data(
         &self,
         app_where: &UserParentAppDataParam<'_>,
-        page: Option<&PageParam>,
+        page: &OffsetPageParam,
     ) -> AppResult<Vec<AppModel>> {
         let where_sql = match self.user_parent_app_data_sql(app_where) {
             Some(sql) => sql,
             None => return Ok(vec![]),
         };
-        let page_sql = if let Some(pdat) = page {
-            format!(
-                " order by id desc limit {} offset {} ",
-                pdat.limit, pdat.offset
-            )
-        } else {
-            " order by id desc".to_string()
-        };
         let out_data = sqlx::query_as::<_, AppModel>(&sql_format!(
-            "select * from {} where {} {}",
+            "select * from {} where {} order by id desc {}",
             AppModel::table_name(),
             SqlExpr(where_sql.join(" and ")),
-            if page.is_some() {
-                SqlExpr(page_sql)
-            } else {
-                SqlExpr("".to_string())
-            }
+            SqlExpr(page.page_query().limit_sql().unwrap_or_default())
         ))
         .fetch_all(&self.db)
         .await?;
@@ -825,7 +770,7 @@ impl App {
         app: &AppModel,
         view_user_id: u64,
         env_data: Option<&RequestEnv>,
-    ) -> AppResult<Vec<AppSecretRecrod>> {
+    ) -> AppResult<Vec<AppSecretRecord>> {
         let app_secret = self
             .app_secret
             .multiple_find_secret_by_app_id(app.id, AppSecretType::App)
@@ -858,7 +803,7 @@ impl App {
         app: &AppModel,
         view_user_id: u64,
         env_data: Option<&RequestEnv>,
-    ) -> AppResult<AppSecretRecrod> {
+    ) -> AppResult<AppSecretRecord> {
         let notify_secret = self
             .app_secret
             .single_find_secret_app_id(app.id, AppSecretType::Notify)

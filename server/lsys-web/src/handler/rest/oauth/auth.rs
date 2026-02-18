@@ -120,6 +120,15 @@ pub async fn create_code(
         .await?;
     let user_data = auth_data.session_body().user();
     let session_data = auth_data.session_body().session();
+
+    if app.parent_app_id != user_data.app_id {
+        return Err(JsonError::Message(fluent_message!("oauth-user-not-match",{
+            "user_app_id":user_data.app_id,
+            "oauth_parent_app_id":app.parent_app_id,
+            "app_id":app.id,
+        })));
+    }
+
     let code = req_dao
         .web_dao
         .web_app
@@ -128,6 +137,7 @@ pub async fn create_code(
         .create_code(
             &app,
             &AppOAuthCodeData {
+                user_app_id: user_data.app_id,
                 user_data: &user_data.user_data,
                 user_nickname: &user_data.user_nickname,
                 user_account: Some(&user_data.user_account),

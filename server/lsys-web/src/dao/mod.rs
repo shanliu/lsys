@@ -1,29 +1,34 @@
 mod app_area;
 mod app_captcha;
 mod app_sender;
+pub mod result;
 mod web_access;
 mod web_account;
 mod web_app;
+mod web_files;
+mod web_mfa;
 mod web_rbac;
 mod web_setting;
 
-#[cfg(feature = "barcode")]
-mod app_barcode;
-
 pub use app_area::*;
-#[cfg(feature = "barcode")]
-pub use app_barcode::*;
 pub use app_captcha::*;
 pub use app_sender::*;
+use lsys_core::db::init_string_field_cache;
+pub use result::{WebError, WebResult};
 
+use ip2location::LocationDB;
 use lsys_user::dao::login::{
     EmailCodeLoginReload, EmailLoginReload, ExternalLoginReload, MobileCodeLoginReload,
     MobileLoginReload, NameLoginReload,
 };
+use tokio::sync::Mutex;
+use tracing::{info, warn};
 pub use web_access::*;
 pub use web_account::*;
 pub use web_app::*;
 
+pub use web_files::*;
+pub use web_mfa::*;
 pub use web_rbac::*;
 pub use web_setting::*;
 
@@ -31,7 +36,7 @@ use lsys_access::dao::{AccessConfig, AccessDao, AccessLocalCacheClear};
 use lsys_app::dao::{AppConfig, AppLocalCacheClear};
 // use lsys_app_notify::dao::{NotifyConfig, NotifyDao};
 use lsys_core::cache::{LocalCacheClear, LocalCacheClearItem};
-use lsys_core::{AppCore, AppCoreError, FluentMgr, RemoteNotify};
+use lsys_core::{AppCore, FluentMgr, IntoFluentMessage, RemoteNotify};
 
 use lsys_logger::dao::ChangeLoggerDao;
 use lsys_rbac::dao::RbacLocalCacheClear;
@@ -39,7 +44,7 @@ use lsys_rbac::dao::{RbacConfig, RbacDao};
 use lsys_setting::dao::{SettingConfig, SettingDao, SettingLocalCacheClear};
 use lsys_user::dao::{
     AccountConfig, AccountDao, AccountLocalCacheClear, AuthAccount, AuthAccountConfig, AuthCode,
-    UserAuthDao, UserDao,
+    MfaLoginDao, UserAuthDao, UserDao,
 };
 
 use sqlx::{MySql, Pool};
@@ -58,15 +63,15 @@ pub struct WebDao {
     pub web_rbac: Arc<WebRbac>,
     pub web_setting: Arc<WebSetting>,
     pub web_app: Arc<WebApp>,
+    pub web_files: Arc<WebFiles>,
     pub app_captcha: Arc<AppCaptcha>,
     pub app_sender: Arc<AppSender>,
     pub app_area: Arc<AppArea>,
-    #[cfg(feature = "barcode")]
-    pub app_barcode: Arc<AppBarCode>,
+    pub web_mfa: Arc<WebMfa>,
 }
 
 impl WebDao {
-    pub async fn new(app_core: Arc<AppCore>) -> Result<WebDao, AppCoreError> {
+    pub async fn new(app_core: Arc<AppCore>) -> WebResult<WebDao> {
         let path = app_core.config_path(app_core.config.find(None), "fluent_dir")?;
         let use_cache = app_core
             .config
@@ -74,8 +79,10 @@ impl WebDao {
             .get_bool("use_cache")
             .unwrap_or(false);
 
-        let fluent = FluentMgr::new(path, "app", None).await?;
-        let db = app_core.create_db().await?;
+        let fluent = FluentMgr::new(path, "app", None)
+            .await
+            .map_err(|e| WebError::AppCore(e.into()))?;
+
         let tera = Arc::new(app_core.create_tera().await?);
         let redis = app_core.create_redis().await?;
         let remote_notify = Arc::new(RemoteNotify::new(
@@ -83,6 +90,9 @@ impl WebDao {
             app_core.clone(),
             redis.clone(),
         )?);
+        init_string_field_cache(remote_notify.clone(), use_cache).await;
+        let db = app_core.create_db().await?;
+
         let change_logger = Arc::new(ChangeLoggerDao::new(db.clone()));
         let setting_dao = Arc::new(
             SettingDao::new(
@@ -94,6 +104,8 @@ impl WebDao {
             )
             .await?,
         );
+
+        let web_setting = Arc::new(WebSetting::new(setting_dao.clone(), db.clone()));
         let access_dao = Arc::new(AccessDao::new(
             db.clone(),
             remote_notify.clone(),
@@ -104,7 +116,6 @@ impl WebDao {
             db.clone(),
             redis.clone(),
             setting_dao.single.clone(),
-            access_dao.clone(),
             AccountConfig::new(use_cache),
             remote_notify.clone(),
             change_logger.clone(),
@@ -120,10 +131,37 @@ impl WebDao {
                 Box::new(ExternalLoginReload::new(account_dao.clone())),
             ],
         ));
+        let ip_db = match app_core.config_path(app_core.config.find(None), "ip_city_db") {
+            Ok(ip_db_path) => match LocationDB::from_file(&ip_db_path) {
+                Ok(city_db) => Some(Arc::new(Mutex::new(ip2location::DB::LocationDb(city_db)))),
+                Err(err) => {
+                    warn!("read ip city db error[{}]:{:?} [download url: https://github.com/shanliu/lsys/releases/tag/v0.0.0 IP2LOCATION-LITE-DB11.BIN.zip (unzip) ]", ip_db_path.display(), err);
+                    None
+                }
+            },
+            Err(err) => {
+                info!(
+                    "ip city db not config:{}",
+                    err.to_fluent_message().default_format()
+                );
+                None
+            }
+        };
+
+        let mfa_totp_dao = Arc::new(lsys_mfa::dao::MfaTotpDao::new(db.clone(), None));
+        let mfa_login_dao = Arc::new(MfaLoginDao::new(
+            redis.clone(),
+            access_dao.clone(),
+            mfa_totp_dao.clone(),
+            app_core.clone(),
+            account_dao.account_login_hostory.clone(),
+            ip_db.clone(),
+        ));
         let auth_account_dao = Arc::new(AuthAccount::new(
             account_dao.account_login_hostory.clone(),
             access_dao.clone(),
-            AuthAccountConfig::new(None),
+            AuthAccountConfig::new(ip_db),
+            mfa_login_dao.clone(),
         ));
         let auth_code_dao = Arc::new(AuthCode::new(access_dao.clone(), app_core.clone()));
 
@@ -132,6 +170,7 @@ impl WebDao {
             auth_dao,
             auth_account_dao,
             auth_code_dao,
+            mfa_login_dao,
         ));
 
         let web_app = Arc::new(
@@ -142,6 +181,7 @@ impl WebDao {
                 access_dao.clone(),
                 remote_notify.clone(),
                 change_logger.clone(),
+                web_setting.clone(),
                 AppConfig::new(
                     use_cache,
                     120,             //oauth Code有效期120秒
@@ -154,6 +194,11 @@ impl WebDao {
 
         let app_area = Arc::new(AppArea::new(app_core.clone())?);
         let app_captcha = Arc::new(AppCaptcha::new(redis.clone()));
+        let web_files = Arc::new(WebFiles::new(
+            db.clone(),
+            &app_core,
+            change_logger.clone(),
+        ));
         let app_sender = Arc::new(
             AppSender::new(
                 app_core.clone(),
@@ -165,15 +210,6 @@ impl WebDao {
             )
             .await?,
         );
-        //启动回调任务
-        #[cfg(feature = "barcode")]
-        let app_barcode = Arc::new(AppBarCode::new(
-            app_core.clone(),
-            db.clone(),
-            remote_notify.clone(),
-            change_logger.clone(),
-        ));
-
         let root_user_id = app_core
             .config
             .find(None)
@@ -194,7 +230,7 @@ impl WebDao {
             ),
             root_user_id,
         ));
-
+        let web_mfa = Arc::new(WebMfa::new(mfa_totp_dao));
         let web_user = Arc::new(WebUser::new(
             db.clone(),
             user_dao,
@@ -203,11 +239,13 @@ impl WebDao {
             app_captcha.clone(),
             app_area.clone(),
             change_logger.clone(),
+            web_mfa.clone(),
+            access_dao.clone(),
         ));
 
         let web_access = Arc::new(WebAccess::new(access_dao.clone()));
 
-        let web_setting = Arc::new(WebSetting::new(setting_dao.clone(), db.clone()));
+        // web_setting 已在 web_app 之前初始化，用于 WebApp 内部读取/写入 setting.multiple
 
         // 本地lua缓存清理 local cache
         let mut cache_item: Vec<Box<dyn LocalCacheClearItem>> = vec![];
@@ -225,12 +263,6 @@ impl WebDao {
             cache_item.push(Box::new(item))
         }
         for item in RbacLocalCacheClear::new_clears(&web_rbac.rbac_dao) {
-            cache_item.push(Box::new(item))
-        }
-        #[cfg(feature = "barcode")]
-        for item in
-            lsys_app_barcode::dao::BarCodeLocalCacheClear::new_clears(&app_barcode.barcode_dao)
-        {
             cache_item.push(Box::new(item))
         }
 
@@ -255,11 +287,11 @@ impl WebDao {
             web_rbac,
             web_setting,
             web_app,
+            web_files,
             app_captcha,
             app_sender,
             app_area,
-            #[cfg(feature = "barcode")]
-            app_barcode,
+            web_mfa,
         })
     }
     pub fn bind_addr(&self) -> String {

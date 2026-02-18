@@ -6,7 +6,7 @@ use crate::{
 use lsys_access::dao::AccessSession;
 use serde_json::json;
 
-use crate::common::{JsonError, PageParam};
+use crate::common::{JsonError, PageParam, ToOffsetPageParam};
 use lsys_core::fluent_message;
 use lsys_rbac::dao::RolePerm;
 use serde::Deserialize;
@@ -223,7 +223,7 @@ pub async fn role_perm_data(
         .web_rbac
         .rbac_dao
         .role
-        .role_perm_data(&role, param.page.as_ref().map(|e| e.into()).as_ref())
+        .role_perm_data(&role, &param.page.to_offset_page_param())
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(

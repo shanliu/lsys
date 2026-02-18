@@ -1,21 +1,17 @@
 use crate::{
     dao::{logger::AppRequestLog, AppResult},
     model::{
-        AppFeatureModel, AppFeatureModelRef, AppFeatureStatus, AppModel, AppRequestFeatureModel,
-        AppRequestFeatureModelRef, AppRequestModel, AppRequestModelRef, AppRequestStatus,
-        AppRequestType,
+        AppFeatureModel, AppFeatureStatus, AppModel, AppRequestFeatureModel, AppRequestModel,
+        AppRequestStatus, AppRequestType,
     },
 };
+use lsys_core::sql_format;
+use lsys_core::{db::SqlQuote, string_clear, StringClear, STRING_CLEAR_FORMAT};
 use lsys_core::{
-    db::{Insert, ModelTableName, Update},
+    db::{BatchInsert, Insert, TableMeta, SqlSuffix, Update},
     STRING_CLEAR_XSS,
 };
-use lsys_core::{
-    db::{SqlQuote, WhereOption},
-    string_clear, StringClear, STRING_CLEAR_FORMAT,
-};
 use lsys_core::{fluent_message, now_time, RequestEnv};
-use lsys_core::{model_option_set, sql_format};
 
 use super::{App, AppError};
 
@@ -107,15 +103,13 @@ impl App {
         let time = now_time()?;
         let mut db = self.db.begin().await?;
 
-        let idata = model_option_set!(AppRequestModelRef,{
-            parent_app_id:app.parent_app_id,
-            app_id:app.id,
-            request_type:request_type,
-            status:req_status,
-            request_user_id:req_user_id,
-            request_time:time,
-        });
-        let req_res = Insert::<AppRequestModel, _>::new(idata)
+        let req_res = Insert::<AppRequestModel>::new()
+            .set(AppRequestModel::PARENT_APP_ID, app.parent_app_id)
+            .set(AppRequestModel::APP_ID, app.id)
+            .set(AppRequestModel::REQUEST_TYPE, request_type)
+            .set(AppRequestModel::STATUS, req_status)
+            .set(AppRequestModel::REQUEST_USER_ID, req_user_id)
+            .set(AppRequestModel::REQUEST_TIME, time)
             .execute(&mut *db)
             .await;
         let req_id = match req_res {
@@ -126,11 +120,12 @@ impl App {
             Ok(mr) => mr.last_insert_id(),
         };
         let need_feature_data_str = need_feature_data.join(",");
-        let idata = model_option_set!(AppRequestFeatureModelRef,{
-            app_request_id:req_id,
-            feature_data:need_feature_data_str,
-        });
-        let req_res = Insert::<AppRequestFeatureModel, _>::new(idata)
+        let req_res = Insert::<AppRequestFeatureModel>::new()
+            .set(AppRequestFeatureModel::APP_REQUEST_ID, req_id)
+            .set(
+                AppRequestFeatureModel::FEATURE_DATA,
+                need_feature_data_str.clone(),
+            )
             .execute(&mut *db)
             .await;
         if let Err(err) = req_res {
@@ -215,17 +210,12 @@ impl App {
         if req_status == AppRequestStatus::Rejected {
             //驳回
             let status = req_status as i8;
-            let change = model_option_set!(AppRequestModelRef,{
-                status:status,
-                confirm_user_id:confirm_user_id,
-                confirm_time:time,
-                confirm_note:confirm_note,
-            });
-            Update::<AppRequestModel, _>::new(change)
-                .execute_by_where(
-                    &lsys_core::db::WhereOption::Where(sql_format!("id={}", req.id)),
-                    &self.db,
-                )
+            Update::<AppRequestModel>::new()
+                .set(AppRequestModel::STATUS, status)
+                .set(AppRequestModel::CONFIRM_USER_ID, confirm_user_id)
+                .set(AppRequestModel::CONFIRM_TIME, time)
+                .set(AppRequestModel::CONFIRM_NOTE, confirm_note.clone())
+                .execute(SqlSuffix::Where(&sql_format!("id={}", req.id)), &self.db)
                 .await?;
             return Ok(());
         }
@@ -255,14 +245,12 @@ impl App {
             .map(|e| e.0)
             .collect::<Vec<u64>>();
         if !set_status_id.is_empty() {
-            let change = model_option_set!(AppFeatureModelRef,{
-                status:set_status,
-                change_user_id:confirm_user_id,
-                change_time:time
-            });
-            let cres = Update::<AppFeatureModel, _>::new(change)
-                .execute_by_where(
-                    &lsys_core::db::WhereOption::Where(sql_format!("id in ({})", set_status_id)),
+            let cres = Update::<AppFeatureModel>::new()
+                .set(AppFeatureModel::STATUS, set_status)
+                .set(AppFeatureModel::CHANGE_USER_ID, confirm_user_id)
+                .set(AppFeatureModel::CHANGE_TIME, time)
+                .execute(
+                    SqlSuffix::Where(&sql_format!("id in ({})", set_status_id)),
                     &mut *db,
                 )
                 .await;
@@ -272,19 +260,18 @@ impl App {
             }
         }
 
-        let mut iarr = vec![];
+        let mut batch_insert = BatchInsert::<AppFeatureModel>::with_capacity(set_val.len());
         for tmp in set_val.iter() {
-            iarr.push(model_option_set!(AppFeatureModelRef,{
-                app_id:app.id,
-                feature_key:tmp,
-                status:set_status,
-                change_user_id:confirm_user_id,
-                change_time:time
-            }));
+            batch_insert = batch_insert.push(
+                Insert::<AppFeatureModel>::new()
+                    .set(AppFeatureModel::APP_ID, app.id)
+                    .set(AppFeatureModel::FEATURE_KEY, tmp)
+                    .set(AppFeatureModel::STATUS, set_status)
+                    .set(AppFeatureModel::CHANGE_USER_ID, confirm_user_id)
+                    .set(AppFeatureModel::CHANGE_TIME, time),
+            );
         }
-        let cres = Insert::<AppFeatureModel, _>::new_vec(iarr)
-            .execute(&mut *db)
-            .await;
+        let cres = batch_insert.execute(&mut *db).await;
         if let Err(err) = cres {
             db.rollback().await?;
             return Err(err.into());
@@ -292,14 +279,12 @@ impl App {
 
         let status = AppRequestStatus::Approved as i8;
 
-        let change = model_option_set!(AppRequestModelRef,{
-            status:status,
-            confirm_user_id:confirm_user_id,
-            confirm_time:time,
-            confirm_note:confirm_note,
-        });
-        let cres = Update::<AppRequestModel, _>::new(change)
-            .execute_by_where(&WhereOption::Where(sql_format!("id={}", req.id)), &mut *db)
+        let cres = Update::<AppRequestModel>::new()
+            .set(AppRequestModel::STATUS, status)
+            .set(AppRequestModel::CONFIRM_USER_ID, confirm_user_id)
+            .set(AppRequestModel::CONFIRM_TIME, time)
+            .set(AppRequestModel::CONFIRM_NOTE, confirm_note.clone())
+            .execute(SqlSuffix::Where(&sql_format!("id={}", req.id)), &mut *db)
             .await;
         if let Err(err) = cres {
             db.rollback().await?;

@@ -3,13 +3,12 @@ use crate::dao::AppSecret;
 use crate::model::AppModel;
 use crate::model::AppNotifyDataModel;
 use crate::model::AppSecretModel;
-use crate::model::AppSecretModelRef;
 use crate::model::AppSecretStatus;
 use crate::model::AppSecretType;
-use lsys_core::db::ModelTableName;
+use lsys_core::db::TableMeta;
 use lsys_core::db::SqlQuote;
+use lsys_core::db::SqlSuffix;
 use lsys_core::db::Update;
-use lsys_core::db::WhereOption;
 use lsys_core::IntoFluentMessage;
 use lsys_core::{now_time, sql_format};
 use lsys_core::{TimeOutTaskExec, TimeOutTaskExecutor, TimeOutTaskNextTime};
@@ -131,14 +130,12 @@ impl TimeOutTaskExec for SubAppChangeNotify {
                 start_id = app_item.id;
                 self.add_app_secret_change_notify(&app_item).await;
                 let status = AppSecretStatus::Delete.to();
-                let change = lsys_core::model_option_set!(AppSecretModelRef,{
-                    status:status,
-                    change_user_id:0,
-                    change_time:ntime,
-                });
-                Update::<AppSecretModel, _>::new(change)
-                    .execute_by_where(
-                        &WhereOption::Where(sql_format!(
+                Update::<AppSecretModel>::new()
+                    .set(AppSecretModel::STATUS, status)
+                    .set(AppSecretModel::CHANGE_USER_ID, 0u64)
+                    .set(AppSecretModel::CHANGE_TIME, ntime)
+                    .execute(
+                        SqlSuffix::Where(&sql_format!(
                             "app_id={} and status={} and time_out>0 and time_out<={} ",
                             start_id,
                             AppSecretStatus::Enable as i8,

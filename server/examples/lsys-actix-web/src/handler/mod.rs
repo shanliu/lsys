@@ -3,6 +3,7 @@ mod macros;
 mod api;
 mod demo;
 mod rest;
+mod service;
 mod web;
 use actix_service::ServiceFactory;
 use actix_web::{dev::ServiceRequest, App, Error};
@@ -17,5 +18,6 @@ where
     let app = demo::router(app);
     let app = api::router(app);
     let app = rest::router(app);
+    let app = service::router(app);
     web::router(app, app_dao)
 }

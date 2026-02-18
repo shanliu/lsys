@@ -1,6 +1,6 @@
 use super::AppOAuthClient;
 use crate::{
-    dao::{AppError, AppResult, AppSecretRecrod},
+    dao::{AppError, AppResult, AppSecretRecord},
     model::{AppModel, AppOAuthClientModel, AppSecretType},
 };
 impl AppOAuthClient {
@@ -27,7 +27,7 @@ impl AppOAuthClientCache<'_> {
     pub async fn find_secret_by_app_id(
         &self,
         app_id: u64,
-    ) -> Result<Vec<AppSecretRecrod>, AppError> {
+    ) -> Result<Vec<AppSecretRecord>, AppError> {
         self.dao
             .app_secret
             .cache()

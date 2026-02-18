@@ -2,7 +2,7 @@
 
 use crate::dao::result::RbacResult;
 use crate::model::{RbacOpModel, RbacOpStatus};
-use lsys_core::db::{ModelTableName, SqlExpr, SqlQuote};
+use lsys_core::db::{TableMeta, SqlExpr, SqlQuote};
 use lsys_core::{sql_format, string_clear, StringClear, STRING_CLEAR_FORMAT};
 use std::vec;
 

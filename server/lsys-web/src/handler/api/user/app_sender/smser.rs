@@ -1,10 +1,11 @@
-use crate::common::JsonData;
+use crate::common::{JsonData, ToCursorPageParam, ToOffsetPageParam};
 use crate::common::{JsonError, JsonResponse, JsonResult, UserAuthQueryDao};
 use crate::common::{LimitParam, PageParam};
 use crate::dao::access::api::system::user::{CheckUserAppSenderSmsSend, CheckUserAppSenderSmsView};
 use crate::dao::access::RbacAccessCheckEnv;
 use lsys_access::dao::AccessSession;
 use lsys_app_sender::model::SenderSmsMessageStatus;
+use lsys_core::db::CursorPageSort;
 use lsys_core::{now_time, str_time, IntoFluentMessage};
 use serde::Deserialize;
 use serde_json::json;
@@ -58,10 +59,7 @@ pub async fn smser_message_log(
         .smser
         .smser_dao
         .sms_record
-        .message_log_list(
-            param.message_id,
-            param.page.as_ref().map(|e| e.into()).as_ref(),
-        )
+        .message_log_list(param.message_id, &param.page.to_offset_page_param())
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
@@ -171,7 +169,7 @@ pub async fn smser_message_list(
             param.snid.as_ref().and_then(|e| e.parse::<u64>().ok()),
             status,
             param.mobile.as_deref(),
-            param.limit.as_ref().map(|e| e.into()).as_ref(),
+            &param.limit.to_u64_cursor_page_param(CursorPageSort::Desc),
         )
         .await?;
     let count = if param.count_num.unwrap_or(false) {
@@ -216,7 +214,8 @@ pub async fn smser_message_list(
         );
     }
     let ntime = now_time().unwrap_or_default();
-    let next = res.1;
+    let next_cursor = res.1.next_cursor;
+    let prev_cursor = res.1.prev_cursor;
     let res_data = req_dao
         .web_dao
         .app_sender
@@ -237,7 +236,8 @@ pub async fn smser_message_list(
                 "id":e.0.id,
                 "snid":e.0.snid,
                 "app_id":e.1.as_ref().map(|t|t.app_id),
-                "mobile":format!("{}-{}",e.0.area,e.0.mobile),
+                "area":&e.0.area,
+                "mobile":&e.0.mobile,
                 "tpl_key":e.1.as_ref().map(|t|t.tpl_key.to_owned()),
                 "try_num":e.0.try_num,
                 "max_try_num":e.1.as_ref().map(|t|t.max_try_num),
@@ -252,7 +252,7 @@ pub async fn smser_message_list(
         })
         .collect::<Vec<_>>();
     Ok(JsonResponse::data(JsonData::body(
-        json!({ "data": res,"total":count,"next":next}),
+        json!({ "data": res,"total":count,"next_cursor":next_cursor,"prev_cursor":prev_cursor}),
     )))
 }
 #[derive(Debug, Deserialize)]

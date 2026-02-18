@@ -1,4 +1,4 @@
-use lsys_core::db::Insert;
+use lsys_core::db::{query_string_field_max, BatchInsert, Insert};
 use lsys_core::{fluent_message, now_time, valid_key, FluentMessage, RequestEnv, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -7,6 +7,7 @@ use tokio::sync::mpsc::{self, Sender};
 use tracing::{info, warn};
 
 use crate::model::RbacAuditResult;
+use crate::model::RbacRoleModel;
 use crate::{
     dao::{
         op::OpInfo,
@@ -15,7 +16,7 @@ use crate::{
         role::{AccessResInfo,  AccessRoleInfo, AccessRoleRow},
     },
     model::{
-        RbacAuditDetailModel, RbacAuditDetailModelRef, RbacAuditModel, RbacAuditModelRef,
+        RbacAuditDetailModel, RbacAuditModel,
         RbacOpModel, RbacResModel,
     },
 };
@@ -170,6 +171,19 @@ impl RbacAccess {
         //待检测资源需要操作的列表
         check_res_data: &[AccessCheckRes<'_>],
     ) -> RbacResult<()>{
+        let role_key_max = query_string_field_max::<RbacRoleModel>(&self.db, &RbacRoleModel::ROLE_KEY)
+            .await
+            .len_or(32);
+        let res_type_max = query_string_field_max::<RbacResModel>(&self.db, &RbacResModel::RES_TYPE)
+            .await
+            .len_or(32);
+        let res_data_max = query_string_field_max::<RbacResModel>(&self.db, &RbacResModel::RES_DATA)
+            .await
+            .len_or(32);
+        let op_key_max = query_string_field_max::<RbacOpModel>(&self.db, &RbacOpModel::OP_KEY)
+            .await
+            .len_or(32);
+
         let mut param_valid=ValidParam::default();
         if let Some(user_login_token)=&env_data.user_login_token{
             param_valid.add(
@@ -179,16 +193,16 @@ impl RbacAccess {
             );
         }   
         for tmp in &env_data.session_role{
-            param_valid.add(valid_key!("role_key"), &tmp.role_key, &ValidParamCheck::default().add_rule(ValidPattern::Ident).add_rule(ValidStrlen::range(1, 32)));
+            param_valid.add(valid_key!("role_key"), &tmp.role_key, &ValidParamCheck::default().add_rule(ValidPattern::Ident).add_rule(ValidStrlen::range(1, role_key_max)));
         }
         for tmp in check_res_data{
                param_valid
-                .add(valid_key!("res_type"), &tmp.res_type, &ValidParamCheck::default().add_rule(ValidPattern::Ident).add_rule(ValidStrlen::range(1, 32)))
-                .add(valid_key!("res_data"), &tmp.res_data, &ValidParamCheck::default().add_rule(ValidPattern::NotFormat).add_rule(ValidStrlen::range(0, 32)));
+                .add(valid_key!("res_type"), &tmp.res_type, &ValidParamCheck::default().add_rule(ValidPattern::Ident).add_rule(ValidStrlen::range(1, res_type_max)))
+                .add(valid_key!("res_data"), &tmp.res_data, &ValidParamCheck::default().add_rule(ValidPattern::NotFormat).add_rule(ValidStrlen::range(0, res_data_max)));
 
             for rtmp in &tmp.op_key_data{
                 param_valid
-                .add(valid_key!("op_key_data"), &rtmp.op_key, &ValidParamCheck::default().add_rule(ValidPattern::Ident).add_rule(ValidStrlen::range(1, 32)));
+                .add(valid_key!("op_key_data"), &rtmp.op_key, &ValidParamCheck::default().add_rule(ValidPattern::Ident).add_rule(ValidStrlen::range(1, op_key_max)));
             }
         }
         param_valid.check()?;
@@ -729,19 +743,17 @@ impl RbacAccess {
     async fn audit_add(db: &sqlx::Pool<sqlx::MySql>, msg: AuditItem) {
         match db.begin().await {
             Ok(mut db_tran) => {
-                let vdata = lsys_core::model_option_set!(RbacAuditModelRef,{
-                    user_id:msg.user_id,
-                    user_app_id:msg.user_app_id,
-                    role_key_data:msg.role_key_data,
-                    check_result:msg.check_result,
-                    token_data:msg.token_data,
-                    user_ip:msg.user_ip,
-                    device_id:msg.device_id,
-                    device_name:msg.device_name,
-                    request_id:msg.request_id,
-                    add_time:msg.add_time,
-                });
-                let rbac_audit_id = match Insert::<RbacAuditModel, _>::new(vdata)
+                let rbac_audit_id = match Insert::<RbacAuditModel>::new()
+                    .set(RbacAuditModel::USER_ID, msg.user_id)
+                    .set(RbacAuditModel::USER_APP_ID, msg.user_app_id)
+                    .set(RbacAuditModel::ROLE_KEY_DATA, msg.role_key_data)
+                    .set(RbacAuditModel::CHECK_RESULT, msg.check_result)
+                    .set(RbacAuditModel::TOKEN_DATA, msg.token_data)
+                    .set(RbacAuditModel::USER_IP, msg.user_ip)
+                    .set(RbacAuditModel::DEVICE_ID, msg.device_id)
+                    .set(RbacAuditModel::DEVICE_NAME, msg.device_name)
+                    .set(RbacAuditModel::REQUEST_ID, msg.request_id)
+                    .set(RbacAuditModel::ADD_TIME, msg.add_time)
                     .execute(&mut *db_tran)
                     .await
                 {
@@ -753,28 +765,25 @@ impl RbacAccess {
                     }
                 };
                 if !msg.detail.is_empty() {
-                    let mut dvdata = Vec::with_capacity(msg.detail.len());
+                    let mut batch = BatchInsert::<RbacAuditDetailModel>::with_capacity(msg.detail.len());
                     for tmp in msg.detail.iter() {
-                        dvdata.push(lsys_core::model_option_set!(RbacAuditDetailModelRef,{
-                            res_type:tmp.res_type,
-                            res_data:tmp.res_data,
-                            res_user_id:tmp.res_user_id,
-                            op_key:tmp.op_key,
-                            rbac_audit_id:rbac_audit_id,
-                            check_result:tmp.check_result,
-                            add_time:msg.add_time,
-                            res_id:tmp.res_id,
-                            op_id:tmp.op_id,
-                            role_data:tmp.role_data,
-                            is_role_all:tmp.is_role_all,
-                            is_role_include:tmp.is_role_include,
-                            is_role_excluce:tmp.is_role_excluce,
-                            res_auth:tmp.res_auth,
-                           // is_self:tmp.is_self,
-                        }));
+                        batch = batch.push(Insert::<RbacAuditDetailModel>::new()
+                            .set(RbacAuditDetailModel::RES_TYPE, &tmp.res_type)
+                            .set(RbacAuditDetailModel::RES_DATA, &tmp.res_data)
+                            .set(RbacAuditDetailModel::RES_USER_ID, tmp.res_user_id)
+                            .set(RbacAuditDetailModel::OP_KEY, &tmp.op_key)
+                            .set(RbacAuditDetailModel::RBAC_AUDIT_ID, rbac_audit_id)
+                            .set(RbacAuditDetailModel::CHECK_RESULT, tmp.check_result)
+                            .set(RbacAuditDetailModel::ADD_TIME, msg.add_time)
+                            .set(RbacAuditDetailModel::RES_ID, tmp.res_id)
+                            .set(RbacAuditDetailModel::OP_ID, tmp.op_id)
+                            .set(RbacAuditDetailModel::ROLE_DATA, &tmp.role_data)
+                            .set(RbacAuditDetailModel::IS_ROLE_ALL, tmp.is_role_all)
+                            .set(RbacAuditDetailModel::IS_ROLE_INCLUDE, tmp.is_role_include)
+                            .set(RbacAuditDetailModel::IS_ROLE_EXCLUCE, tmp.is_role_excluce)
+                            .set(RbacAuditDetailModel::RES_AUTH, tmp.res_auth));
                     }
-                    if let Err(err) =
-                        Insert::<RbacAuditDetailModel, _>::new_vec(dvdata)
+                    if let Err(err) = batch
                             .execute(&mut *db_tran)
                             .await
                     {

@@ -2,9 +2,10 @@ pub(crate) mod logger;
 mod mailer;
 mod smser;
 
+use crate::dao::WebResult;
 use lsys_app::dao::AppNotify;
 use lsys_app_sender::dao::{MailSenderConfig, MessageTpls, SmsSenderConfig};
-use lsys_core::{AppCore, AppCoreError, IntoFluentMessage};
+use lsys_core::{AppCore, IntoFluentMessage};
 use lsys_logger::dao::ChangeLoggerDao;
 use lsys_setting::dao::SettingDao;
 pub use mailer::*;
@@ -28,7 +29,7 @@ impl AppSender {
         notify: Arc<AppNotify>,
         setting: Arc<SettingDao>,
         change_logger: Arc<ChangeLoggerDao>,
-    ) -> Result<AppSender, AppCoreError> {
+    ) -> WebResult<AppSender> {
         let tpl = Arc::new(MessageTpls::new(
             db.clone(),
             change_logger.clone(),

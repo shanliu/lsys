@@ -4,18 +4,19 @@ use std::sync::Arc;
 use crate::dao::{AccountError, AccountResult};
 
 use crate::model::{
-    AccountExternalModel, AccountExternalModelRef, AccountExternalStatus, AccountModel,
+    AccountExternalModel, AccountExternalStatus, AccountModel,
 };
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::{
-    fluent_message, now_time, string_clear, valid_key, RemoteNotify, RequestEnv, StringClear,
-    ValidParam, ValidParamCheck, ValidPattern, ValidStrlen, ValidUrl, STRING_CLEAR_FORMAT,
+    db::query_string_field_max, fluent_message, now_time, string_clear, valid_key, RemoteNotify,
+    RequestEnv, StringClear, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen, ValidUrl,
+    STRING_CLEAR_FORMAT,
 };
 
 use super::logger::LogAccountExternal;
 use super::AccountIndex;
-use lsys_core::db::{Insert, ModelTableName, SqlQuote, Update, WhereOption};
-use lsys_core::{db_option_executor, model_option_set, sql_format};
+use lsys_core::db::{Insert, TableMeta, SqlQuote, Update, SqlSuffix};
+use lsys_core::{db_option_executor, sql_format};
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{Acquire, MySql, Pool, Transaction};
 
@@ -127,34 +128,47 @@ impl AccountExternal {
         external_id: &str,
         external_name: &str,
     ) -> AccountResult<()> {
+        let config_name_max = query_string_field_max::<AccountExternalModel>(&self.db, &AccountExternalModel::CONFIG_NAME)
+            .await
+            .len_or(32);
+        let external_type_max = query_string_field_max::<AccountExternalModel>(&self.db, &AccountExternalModel::EXTERNAL_TYPE)
+            .await
+            .len_or(64);
+        let external_id_max = query_string_field_max::<AccountExternalModel>(&self.db, &AccountExternalModel::EXTERNAL_ID)
+            .await
+            .len_or(125);
+        let external_name_max = query_string_field_max::<AccountExternalModel>(&self.db, &AccountExternalModel::EXTERNAL_NAME)
+            .await
+            .len_or(256);
+
         ValidParam::default()
             .add(
                 valid_key!("external_config_name"),
                 &config_name,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::Ident)
-                    .add_rule(ValidStrlen::range(1, 32)),
+                    .add_rule(ValidStrlen::range(1, config_name_max)),
             )
             .add(
                 valid_key!("external_type"),
                 &external_type,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::Ident)
-                    .add_rule(ValidStrlen::range(1, 64)),
+                    .add_rule(ValidStrlen::range(1, external_type_max)),
             )
             .add(
                 valid_key!("external_id"),
                 &external_id,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)
-                    .add_rule(ValidStrlen::range(1, 125)),
+                    .add_rule(ValidStrlen::range(1, external_id_max)),
             )
             .add(
                 valid_key!("external_name"),
                 &external_name,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)
-                    .add_rule(ValidStrlen::range(1, 256)),
+                    .add_rule(ValidStrlen::range(1, external_name_max)),
             )
             .check()?;
         Ok(())
@@ -197,17 +211,15 @@ impl AccountExternal {
                     )); //"this account {$name} bind in other account[{$id}]",
                 }
                 let external_name_ow = external_name.to_owned();
-                let change = lsys_core::model_option_set!(AccountExternalModelRef,{
-                    status:AccountExternalStatus::Enable as i8,
-                    external_name:external_name_ow,
-                    change_time:time
-                });
                 db_option_executor!(
                     db,
                     {
-                        Update::<AccountExternalModel, _>::new(change)
-                            .execute_by_where(
-                                &WhereOption::Where(sql_format!("id={}", account_ext.id)),
+                        Update::<AccountExternalModel>::new()
+                            .set(AccountExternalModel::STATUS, AccountExternalStatus::Enable as i8)
+                            .set(AccountExternalModel::EXTERNAL_NAME, external_name_ow)
+                            .set(AccountExternalModel::CHANGE_TIME, time)
+                            .execute(
+                                SqlSuffix::Where(&sql_format!("id={}", account_ext.id)),
                                 db.as_executor(),
                             )
                             .await?;
@@ -223,21 +235,18 @@ impl AccountExternal {
                 let external_type_ow = external_type.to_owned();
                 let config_name_ow = config_name.to_owned();
 
-                let new_data = model_option_set!(AccountExternalModelRef,{
-                    account_id:account.id,
-                    status:AccountExternalStatus::Enable as i8,
-                    config_name:config_name_ow,
-                    external_type:external_type_ow,
-                    external_id:external_id_ow,
-                    external_name:external_name_ow,
-                    change_time:time,
-                });
-
                 let mut db = match transaction {
                     Some(pb) => pb.begin().await?,
                     None => db.begin().await?,
                 };
-                let res = Insert::<AccountExternalModel, _>::new(new_data)
+                let res = Insert::<AccountExternalModel>::new()
+                    .set(AccountExternalModel::ACCOUNT_ID, account.id)
+                    .set(AccountExternalModel::STATUS, AccountExternalStatus::Enable as i8)
+                    .set(AccountExternalModel::CONFIG_NAME, config_name_ow)
+                    .set(AccountExternalModel::EXTERNAL_TYPE, external_type_ow)
+                    .set(AccountExternalModel::EXTERNAL_ID, external_id_ow)
+                    .set(AccountExternalModel::EXTERNAL_NAME, external_name_ow)
+                    .set(AccountExternalModel::CHANGE_TIME, time)
                     .execute(&mut *db)
                     .await;
                 match res {
@@ -322,6 +331,25 @@ impl AccountExternal {
         external_link: Option<&str>,
         external_pic: Option<&str>,
     ) -> AccountResult<()> {
+        let external_name_max = query_string_field_max::<AccountExternalModel>(&self.db, &AccountExternalModel::EXTERNAL_NAME)
+            .await
+            .len_or(256);
+        let token_data_max = query_string_field_max::<AccountExternalModel>(&self.db, &AccountExternalModel::TOKEN_DATA)
+            .await
+            .len_or(256);
+        let external_nikename_max = query_string_field_max::<AccountExternalModel>(&self.db, &AccountExternalModel::EXTERNAL_NIKENAME)
+            .await
+            .len_or(65);
+        let external_gender_max = query_string_field_max::<AccountExternalModel>(&self.db, &AccountExternalModel::EXTERNAL_GENDER)
+            .await
+            .len_or(8);
+        let external_link_max = query_string_field_max::<AccountExternalModel>(&self.db, &AccountExternalModel::EXTERNAL_LINK)
+            .await
+            .len_or(255);
+        let external_pic_max = query_string_field_max::<AccountExternalModel>(&self.db, &AccountExternalModel::EXTERNAL_PIC)
+            .await
+            .len_or(512);
+
         let mut param_valid = ValidParam::default();
         param_valid
             .add(
@@ -329,14 +357,14 @@ impl AccountExternal {
                 &external_name,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)
-                    .add_rule(ValidStrlen::range(1, 256)),
+                    .add_rule(ValidStrlen::range(1, external_name_max)),
             )
             .add(
                 valid_key!("external_token_data"),
                 &token_data,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)
-                    .add_rule(ValidStrlen::range(1, 256)),
+                    .add_rule(ValidStrlen::range(1, token_data_max)),
             );
         if let Some(external_nikename) = external_nikename {
             param_valid.add(
@@ -344,7 +372,7 @@ impl AccountExternal {
                 &external_nikename,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)
-                    .add_rule(ValidStrlen::range(0, 65)),
+                    .add_rule(ValidStrlen::range(0, external_nikename_max)),
             );
         }
         if let Some(external_gender) = external_gender {
@@ -353,7 +381,7 @@ impl AccountExternal {
                 &external_gender,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)
-                    .add_rule(ValidStrlen::range(1, 8)),
+                    .add_rule(ValidStrlen::range(1, external_gender_max)),
             );
         }
         if let Some(external_link) = external_link {
@@ -362,7 +390,7 @@ impl AccountExternal {
                 &external_link,
                 &ValidParamCheck::default()
                     .add_rule(ValidUrl::default())
-                    .add_rule(ValidStrlen::range(9, 255)),
+                    .add_rule(ValidStrlen::range(9, external_link_max)),
             );
         }
         if let Some(external_pic) = external_pic {
@@ -371,7 +399,7 @@ impl AccountExternal {
                 &external_pic,
                 &ValidParamCheck::default()
                     .add_rule(ValidUrl::default())
-                    .add_rule(ValidStrlen::range(9, 512)),
+                    .add_rule(ValidStrlen::range(9, external_pic_max)),
             );
         }
         param_valid.check()?;
@@ -404,23 +432,26 @@ impl AccountExternal {
         let time = now_time()?;
         let external_name_ow = external_name.to_string();
         let token_data_ow = token_data.to_string();
-        let mut change = lsys_core::model_option_set!(AccountExternalModelRef,{
-            external_name:external_name_ow,
-            token_data:token_data_ow,
-            token_timeout:token_timeout,
-            change_time:time,
-        });
-        let external_link_ow = external_link.map(|e| e.to_string());
-        change.external_link = external_link_ow.as_ref();
-        let external_gender_ow = external_link.map(|e| e.to_string());
-        change.external_gender = external_gender_ow.as_ref();
-        let external_pic_ow = external_link.map(|e| e.to_string());
-        change.external_pic = external_pic_ow.as_ref();
-        let external_nikename_ow = external_link.map(|e| e.to_string());
-        change.external_nikename = external_nikename_ow.as_ref();
-        Update::<AccountExternalModel, _>::new(change)
-            .execute_by_where(
-                &WhereOption::Where(sql_format!("id={}", account_ext.id)),
+        let mut update = Update::<AccountExternalModel>::new()
+            .set(AccountExternalModel::EXTERNAL_NAME, external_name_ow)
+            .set(AccountExternalModel::TOKEN_DATA, token_data_ow)
+            .set(AccountExternalModel::TOKEN_TIMEOUT, token_timeout)
+            .set(AccountExternalModel::CHANGE_TIME, time);
+        if let Some(link) = external_link {
+            update = update.set(AccountExternalModel::EXTERNAL_LINK, link.to_string());
+        }
+        if let Some(gender) = external_gender {
+            update = update.set(AccountExternalModel::EXTERNAL_GENDER, gender.to_string());
+        }
+        if let Some(pic) = external_pic {
+            update = update.set(AccountExternalModel::EXTERNAL_PIC, pic.to_string());
+        }
+        if let Some(nikename) = external_nikename {
+            update = update.set(AccountExternalModel::EXTERNAL_NIKENAME, nikename.to_string());
+        }
+        update
+            .execute(
+                SqlSuffix::Where(&sql_format!("id={}", account_ext.id)),
                 &self.db,
             )
             .await?;
@@ -465,17 +496,15 @@ impl AccountExternal {
             return Ok(0_u64);
         }
         let time = now_time()?;
-        let change = lsys_core::model_option_set!(AccountExternalModelRef,{
-            status:AccountExternalStatus::Delete as i8,
-            change_time:time
-        });
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let res = Update::<AccountExternalModel, _>::new(change)
-            .execute_by_where(
-                &WhereOption::Where(sql_format!("id={}", account_ext.id)),
+        let res = Update::<AccountExternalModel>::new()
+            .set(AccountExternalModel::STATUS, AccountExternalStatus::Delete as i8)
+            .set(AccountExternalModel::CHANGE_TIME, time)
+            .execute(
+                SqlSuffix::Where(&sql_format!("id={}", account_ext.id)),
                 &mut *db,
             )
             .await;

@@ -82,7 +82,7 @@ fn build_date_range(days: u64, end_ts: u64) -> Vec<String> {
     if days == 0 {
         return Vec::new();
     }
-    let default_date = NaiveDate::from_ymd_opt(1970, 1, 1).unwrap();
+    let default_date = NaiveDate::from_ymd_opt(1970, 1, 1).unwrap_or_default();
     const UNIX_EPOCH_DAYS_FROM_CE: i32 = 719_163;
     let end_days = (end_ts / 86_400) as i64;
     let end_days_from_ce = UNIX_EPOCH_DAYS_FROM_CE as i64 + end_days;
@@ -172,10 +172,7 @@ fn fill_status_stats_for_statuses(
     for status in statuses {
         let map = data.get(status);
         for date in date_range {
-            let total = map
-                .and_then(|inner| inner.get(date))
-                .copied()
-                .unwrap_or(0);
+            let total = map.and_then(|inner| inner.get(date)).copied().unwrap_or(0);
             result.push(StatusStatData {
                 date: date.clone(),
                 status: *status,
@@ -204,10 +201,7 @@ fn fill_notify_stats_for_types(
         for status in statuses {
             let map = data.get(&(*notify_type, *status));
             for date in date_range {
-                let total = map
-                    .and_then(|inner| inner.get(date))
-                    .copied()
-                    .unwrap_or(0);
+                let total = map.and_then(|inner| inner.get(date)).copied().unwrap_or(0);
                 result.push(NotifyStatData {
                     date: date.clone(),
                     notify_type: *notify_type,
@@ -238,10 +232,7 @@ fn fill_notify_stats_all_status(
     for notify_type in notify_types {
         let map = data.get(notify_type);
         for date in date_range {
-            let total = map
-                .and_then(|inner| inner.get(date))
-                .copied()
-                .unwrap_or(0);
+            let total = map.and_then(|inner| inner.get(date)).copied().unwrap_or(0);
             result.push(NotifyStatData {
                 date: date.clone(),
                 notify_type: *notify_type,
@@ -310,9 +301,14 @@ pub async fn stat(param: &AppStatParam, req_dao: &UserAuthQueryDao) -> JsonResul
     if notify_statuses.is_empty() {
         notify_statuses.push(AppNotifyDataStatus::Succ as i8);
     }
-    let mut notify_data_all = fill_notify_stats_all_status(&date_labels, &notify_stats_raw, &notify_types);
-    let notify_status_details =
-        fill_notify_stats_for_types(&date_labels, &notify_stats_raw, &notify_types, &notify_statuses);
+    let mut notify_data_all =
+        fill_notify_stats_all_status(&date_labels, &notify_stats_raw, &notify_types);
+    let notify_status_details = fill_notify_stats_for_types(
+        &date_labels,
+        &notify_stats_raw,
+        &notify_types,
+        &notify_statuses,
+    );
     notify_data_all.extend(notify_status_details);
     let notify_data_success = fill_notify_stats_for_types(
         &date_labels,

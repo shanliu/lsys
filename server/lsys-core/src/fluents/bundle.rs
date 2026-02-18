@@ -5,6 +5,7 @@ use crate::FluentMessage;
 
 use crate::FluentBundleError;
 use std::{collections::HashMap, path::Path, str::FromStr, sync::Arc};
+#[cfg(feature = "tokio")]
 use tokio::io::AsyncReadExt;
 use unic_langid::LanguageIdentifier;
 pub struct FluentMgr {
@@ -14,6 +15,7 @@ pub struct FluentMgr {
 }
 
 impl FluentMgr {
+    #[cfg(feature = "tokio")]
     async fn init_read_file<P: AsRef<Path>>(file_path: P) -> Result<String, FluentBundleError> {
         let mut f = tokio::fs::File::open(file_path.as_ref())
             .await
@@ -27,6 +29,18 @@ impl FluentMgr {
         let mut buffer = Vec::new();
         // read the whole file
         f.read_to_end(&mut buffer).await?;
+        Ok(String::from_utf8(buffer).unwrap_or_default())
+    }
+
+    #[cfg(not(feature = "tokio"))]
+    fn init_read_file<P: AsRef<Path>>(file_path: P) -> Result<String, FluentBundleError> {
+        use std::io::Read;
+        let mut f = std::fs::File::open(file_path.as_ref()).map_err(|e| {
+            FluentBundleError::System(format!("open file[{:?}] error:{}", file_path.as_ref(), e))
+        })?;
+        let mut buffer = Vec::new();
+        // read the whole file
+        f.read_to_end(&mut buffer)?;
         Ok(String::from_utf8(buffer).unwrap_or_default())
     }
     fn init_create_bundle(
@@ -54,6 +68,7 @@ impl FluentMgr {
         Ok(bundle)
     }
 
+    #[cfg(feature = "tokio")]
     pub async fn new<P: AsRef<Path>>(
         path: P,                       //语言文件路径
         app_fluent: &str,              //公共语言文件
@@ -132,6 +147,108 @@ impl FluentMgr {
                     for (file_path, file_name) in fluent_item {
                         let file_path = file_path.as_path();
                         let ftl_string = Self::init_read_file(file_path).await?;
+                        let bundle =
+                            Self::init_create_bundle(lang_den.clone(), &[&ftl_string, &pub_str])?;
+                        bundles.fluent_bundles.insert(file_name, bundle);
+                    }
+                    fluents.insert(lang_str, Arc::new(bundles));
+                }
+            }
+            Err(err) => {
+                tracing::error!("fluent dir:{:?} on {:?}", err, path);
+            }
+        }
+        Ok(FluentMgr {
+            bundle_data: fluents,
+            default_lang: "en-US",
+            default_bundle: Arc::new(FluentBundle {
+                fluent_bundles: HashMap::new(),
+                default_bundle: None,
+            }),
+        })
+    }
+
+    #[cfg(not(feature = "tokio"))]
+    pub fn new<P: AsRef<Path>>(
+        path: P,                       //语言文件路径
+        app_fluent: &str,              //公共语言文件
+        crate_fluent: Option<&[&str]>, //指定crate数据,传NONE遍历文件夹产生
+    ) -> Result<Self, FluentBundleError> {
+        let mut fluents: HashMap<String, Arc<FluentBundle>> = HashMap::new();
+        let path = path.as_ref();
+        match std::fs::read_dir(path) {
+            Ok(dir) => {
+                for entry in dir {
+                    let entry = entry?;
+                    let ftype = entry.file_type();
+                    if ftype.is_err() || !ftype?.is_dir() {
+                        continue;
+                    }
+                    let lang = entry.file_name();
+                    #[allow(unused_assignments)]
+                    let mut lang_den = LanguageIdentifier::default();
+                    let lang_str = lang.clone().into_string().unwrap_or_default();
+                    match LanguageIdentifier::from_str(lang_str.as_str()) {
+                        Err(_) => continue,
+                        Ok(_lang_den) => {
+                            lang_den = _lang_den;
+                        }
+                    }
+                    let dir_path = path.to_path_buf().join(lang);
+
+                    let pub_file = dir_path.clone().join(format!("./{}.ftl", app_fluent));
+                    let pub_str = if pub_file.is_file() {
+                        Self::init_read_file(pub_file)?
+                    } else {
+                        "".to_string()
+                    };
+
+                    let mut fluent_item = vec![];
+
+                    match crate_fluent {
+                        Some(fluent_name) => {
+                            for item in fluent_name {
+                                fluent_item.push((
+                                    dir_path.clone().join(format!("./{}.ftl", item)),
+                                    item.to_string(),
+                                ));
+                            }
+                        }
+                        None => {
+                            let sdir = std::fs::read_dir(dir_path.as_path())?;
+                            for fileentry in sdir {
+                                let fileentry = fileentry?;
+                                if !fileentry.file_type()?.is_file() {
+                                    continue;
+                                }
+                                let file_path = fileentry.path();
+
+                                if file_path.as_path().extension().unwrap_or_default() != "ftl" {
+                                    continue;
+                                }
+                                let file_name = if let Some(name) = file_path.as_path().file_stem()
+                                {
+                                    name.to_string_lossy().to_string()
+                                } else {
+                                    continue;
+                                };
+                                if file_name.as_str() == app_fluent {
+                                    continue;
+                                }
+                                fluent_item.push((file_path, file_name));
+                            }
+                        }
+                    }
+                    let mut bundles = FluentBundle {
+                        fluent_bundles: HashMap::new(),
+                        default_bundle: Some(Self::init_create_bundle(
+                            lang_den.clone(),
+                            &[&pub_str],
+                        )?),
+                    };
+                    for (file_path, file_name) in fluent_item {
+                        let file_path = file_path.as_path();
+                        let ftl_string = Self::init_read_file(file_path)?;
                         let bundle =
                             Self::init_create_bundle(lang_den.clone(), &[&ftl_string, &pub_str])?;
                         bundles.fluent_bundles.insert(file_name, bundle);

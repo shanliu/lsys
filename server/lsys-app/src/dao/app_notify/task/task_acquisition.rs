@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use lsys_core::db::{ModelTableName, SqlExpr};
+use lsys_core::db::{TableMeta, SqlExpr};
 use lsys_core::sql_format;
 use lsys_core::{now_time, TaskAcquisition, TaskData, TaskItem, TaskRecord};
 use sqlx::{MySql, Pool};

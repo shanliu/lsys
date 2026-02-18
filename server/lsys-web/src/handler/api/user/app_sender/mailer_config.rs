@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::common::JsonData;
+use crate::common::{JsonData, ToOffsetPageParam};
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
@@ -218,7 +218,7 @@ pub async fn mailer_tpl_config_list(
             param.app_id,
             param.tpl.as_deref(),
             param.like_tpl.as_deref(),
-            param.page.as_ref().map(|e| e.into()).as_ref(),
+            &param.page.to_offset_page_param(),
         )
         .await?;
     let app_data = if param.app_info.unwrap_or(false) && !tpl_data.is_empty() {

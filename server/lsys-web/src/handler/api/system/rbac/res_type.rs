@@ -1,5 +1,5 @@
 use crate::{
-    common::{JsonData, JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
+    common::{JsonData, JsonResponse, JsonResult, PageParam, ToOffsetPageParam, UserAuthQueryDao},
     dao::access::api::system::admin::{CheckAdminRbacEdit, CheckAdminRbacView},
 };
 use lsys_access::dao::AccessSession;
@@ -46,7 +46,7 @@ pub async fn res_type_data(
         .web_rbac
         .rbac_dao
         .res
-        .res_type_data(&res_param, param.page.as_ref().map(|e| e.into()).as_ref())
+        .res_type_data(&res_param, &param.page.to_offset_page_param())
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
@@ -192,7 +192,7 @@ pub async fn res_type_op_data(
             &res_param,
             None,
             true,
-            param.page.as_ref().map(|e| e.into()).as_ref(),
+            &param.page.to_offset_page_param(),
         )
         .await?;
     let count = if param.count_num.unwrap_or(false) {

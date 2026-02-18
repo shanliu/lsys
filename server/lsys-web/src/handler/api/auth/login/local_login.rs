@@ -6,10 +6,8 @@ use crate::{
     dao::{access::api::system::auth::CheckSystemLogin, ShowUserAuthData},
 };
 use lsys_access::dao::{AccessSession, SessionBody};
-use lsys_user::dao::{
-    login::{EmailCodeLogin, EmailLogin, MobileCodeLogin, MobileLogin, NameLogin},
-    UserAuthToken,
-};
+use lsys_user::dao::login::{EmailCodeLogin, EmailLogin, MobileCodeLogin, MobileLogin, NameLogin};
+use lsys_user::dao::UserAuthToken;
 use serde::Deserialize;
 use serde_json::json;
 
@@ -48,6 +46,7 @@ pub async fn user_login_finish(
             .await?,
     ))
 }
+
 
 #[derive(Deserialize)]
 pub struct NameLoginParam {
@@ -103,7 +102,6 @@ pub async fn user_login_from_email(
             Some(&req_dao.req_env),
         )
         .await?;
-
     user_login_finish(session_body, req_dao).await
 }
 
@@ -134,7 +132,6 @@ pub async fn user_login_from_email_code(
             Some(&req_dao.req_env),
         )
         .await?;
-
     user_login_finish(session_body, req_dao).await
 }
 
@@ -166,7 +163,6 @@ pub async fn user_login_from_mobile(
             Some(&req_dao.req_env),
         )
         .await?;
-
     user_login_finish(session_body, req_dao).await
 }
 
@@ -199,7 +195,6 @@ pub async fn user_login_from_mobile_code(
             Some(&req_dao.req_env),
         )
         .await?;
-
     user_login_finish(session_body, req_dao).await
 }
 

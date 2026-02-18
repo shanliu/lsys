@@ -12,8 +12,8 @@ use async_trait::async_trait;
 
 use chrono::DateTime;
 use lsys_core::{
-    valid_key, IntoFluentMessage, RequestEnv, ValidNumber, ValidParam, ValidParamCheck,
-    ValidPattern, ValidStrlen,
+    db::OffsetPageParam, valid_key, IntoFluentMessage, RequestEnv, ValidNumber, ValidParam,
+    ValidParamCheck, ValidPattern, ValidStrlen,
 };
 use lsys_lib_sms::{
     template_map_to_arr, SendDetailItem, SendError, SendNotifyError, SendNotifyItem, TenSms,
@@ -114,7 +114,7 @@ impl SenderTenYunConfig {
     ) -> SenderResult<Vec<SettingData<TenYunConfig>>> {
         let data = self
             .setting
-            .list_data::<TenYunConfig>(None, config_ids, None)
+            .list_data::<TenYunConfig>(None, config_ids, &OffsetPageParam::new(None))
             .await?;
         Ok(data)
     }

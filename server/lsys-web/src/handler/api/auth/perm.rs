@@ -9,7 +9,6 @@ use crate::dao::access::api::system::admin::{
 use crate::dao::access::api::system::user::CheckUserAppSenderMailView;
 use crate::dao::access::api::system::user::CheckUserAppSenderSmsView;
 use crate::dao::access::api::system::user::CheckUserAppView;
-use crate::dao::access::api::system::user::CheckUserBarCodeView;
 use crate::dao::access::api::system::user::CheckUserRbacView;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::RbacCheckAccessDepend;
@@ -255,28 +254,18 @@ async fn perm_map_check(
                 .map_err(|e| (2, e.into()))?;
             Ok(1)
         }
-        "app:barcode" => {
+        name if name.starts_with("app:feature:") => {
+            let key = &name["app:feature:".len()..];
             let app = perm_parse_app_id(check_res, req_dao)
                 .await
                 .map_err(|e| (0, e))?;
-            req_dao
-                .web_dao
-                .web_rbac
-                .check(
-                    &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
-                    &CheckUserBarCodeView {
-                        res_user_id: app.user_id,
-                    },
-                )
-                .await
-                .map_err(|e| (2, e.into()))?;
             req_dao
                 .web_dao
                 .web_app
                 .app_dao
                 .app
                 .cache()
-                .exter_feature_check(&app, &[crate::handler::APP_FEATURE_BARCODE])
+                .exter_feature_check(&app, &[key])
                 .await
                 .map_err(|e| (2, e.into()))?;
             Ok(1)

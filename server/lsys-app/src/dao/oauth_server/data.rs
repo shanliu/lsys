@@ -3,7 +3,7 @@ use crate::model::{AppModel, AppOAuthServerScopeModel, AppRequestType};
 
 use super::AppOAuthServer;
 use crate::model::AppOAuthServerScopeStatus;
-use lsys_core::db::ModelTableName;
+use lsys_core::db::TableMeta;
 use lsys_core::db::SqlQuote;
 use lsys_core::{sql_format, valid_key, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
 

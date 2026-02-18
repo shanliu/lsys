@@ -1,13 +1,13 @@
 mod request_reqwest;
 mod task_acquisition;
-use crate::dao::{App, AppSecret, AppSecretRecrod};
+use crate::dao::{App, AppSecret, AppSecretRecord};
 use crate::model::{
     AppModel, AppNotifyConfigModel, AppNotifyDataModel, AppNotifyDataStatus, AppNotifyTryTimeMode,
     AppNotifyType, AppSecretType,
 };
 use async_trait::async_trait;
 use lsys_core::db::SqlQuote;
-use lsys_core::db::{ModelTableName, SqlExpr};
+use lsys_core::db::{TableMeta, SqlExpr};
 use lsys_core::{now_time, IntoFluentMessage, TaskExecutor, TaskNotify, ValidRule};
 use lsys_core::{sql_format, ValidUrl};
 use sqlx::Pool;
@@ -24,7 +24,7 @@ pub trait AppNotifyRequest: Send + Sync + 'static {
         app: &AppModel,
         config: &AppNotifyConfigModel,
         record: &AppNotifyDataModel,
-        secret: &AppSecretRecrod,
+        secret: &AppSecretRecord,
     ) -> Result<(), String>;
 }
 

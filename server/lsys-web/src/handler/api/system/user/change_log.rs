@@ -1,10 +1,9 @@
-use crate::common::JsonData;
+use crate::common::{JsonData, ToCursorPageParam};
+use crate::common::{JsonResponse, JsonResult, LimitParam, UserAuthQueryDao};
+use crate::dao::access::api::system::admin::CheckAdminChangeLogsView;
 use crate::dao::access::RbacAccessCheckEnv;
-use crate::{
-    common::{JsonResponse, JsonResult, LimitParam, UserAuthQueryDao},
-    dao::access::api::system::admin::CheckAdminChangeLogsView,
-};
 use lsys_access::dao::AccessSession;
+use lsys_core::db::CursorPageSort;
 use serde::Deserialize;
 use serde_json::json;
 #[derive(Debug, Deserialize)]
@@ -31,14 +30,14 @@ pub async fn change_logs_list(
             &CheckAdminChangeLogsView {},
         )
         .await?;
-    let (res, next) = req_dao
+    let (res, next_data) = req_dao
         .web_dao
         .web_user
         .change_logger_dao
         .list_data(
             param.log_type.as_deref(),
             param.add_user_id,
-            param.limit.as_ref().map(|e| e.into()).as_ref(),
+            &param.limit.to_u64_cursor_page_param(CursorPageSort::Desc),
         )
         .await?;
 
@@ -57,7 +56,8 @@ pub async fn change_logs_list(
 
     Ok(JsonResponse::data(JsonData::body(json!({
         "data":  bind_vec_user_info_from_req!(req_dao, res, add_user_id,false) ,
-        "next": next,
+        "next_cursor": next_data.next_cursor,
+        "prev_cursor": next_data.prev_cursor,
         "total":count,
     }))))
 }

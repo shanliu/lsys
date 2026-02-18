@@ -5,8 +5,8 @@ authors = ["liushan <shan.liu@msn.com>"]
 edition = "2021"
 
 [dependencies]
-tokio = { version = "~1.46.0" }
-lsys-core = { path = "../lsys-core" }
+tokio = { version = "~1.49.0" }
+lsys-core = { path = "../lsys-core", features = ["db", "redis"] }
 sqlx = { version = "~0.8.6", features = ["mysql", "runtime-tokio-native-tls"] }
 
 async-trait = "~0.1.*"

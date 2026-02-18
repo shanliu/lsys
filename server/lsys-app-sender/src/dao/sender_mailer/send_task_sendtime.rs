@@ -1,6 +1,6 @@
 use crate::model::SenderMailBodyModel;
 use crate::model::SenderMailBodyStatus;
-use lsys_core::db::ModelTableName;
+use lsys_core::db::TableMeta;
 use lsys_core::db::SqlQuote;
 use lsys_core::TaskNotify;
 use lsys_core::{now_time, sql_format};

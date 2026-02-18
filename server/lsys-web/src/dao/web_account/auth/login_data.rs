@@ -1,7 +1,7 @@
 //统一登陆过程
 use super::WebUserAuth;
 
-use crate::common::JsonResult;
+use crate::dao::WebResult;
 
 use crate::dao::ShowUserAuthData;
 
@@ -16,7 +16,7 @@ impl WebUserAuth {
         &self,
         auth_data: &UserAuthData,
         param: &UserAuthDataOptionData,
-    ) -> JsonResult<(Option<ShowUserAuthData>, bool)> {
+    ) -> WebResult<(Option<ShowUserAuthData>, bool)> {
         let out_auth_data = if param.auth.unwrap_or(false) {
             Some(self.create_show_account_auth_data(auth_data).await?)
         } else {

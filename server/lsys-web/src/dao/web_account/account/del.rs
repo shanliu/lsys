@@ -1,10 +1,10 @@
-use crate::common::JsonResult;
+use crate::dao::WebResult;
 use lsys_access::dao::SessionBody;
 use lsys_core::RequestEnv;
-use lsys_user::model::{AccountInfoModelRef, AccountModel, AccountStatus};
+use lsys_user::dao::AccountInfoParam;
+use lsys_user::model::{AccountModel, AccountStatus};
 
 use super::WebUserAccount;
-use lsys_core::model_option_set;
 
 impl WebUserAccount {
     //删除当前登录用户
@@ -12,7 +12,7 @@ impl WebUserAccount {
         &self,
         session: &SessionBody,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<()> {
+    ) -> WebResult<()> {
         let account = self.user_dao.account_dao.session_account(session).await?;
         self.user_delete(&account, session, env_data).await?;
         self.user_dao.auth_dao.logout(session).await?;
@@ -25,7 +25,7 @@ impl WebUserAccount {
         user: &AccountModel,
         session_body: &SessionBody,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<()> {
+    ) -> WebResult<()> {
         if AccountStatus::Delete.eq(user.status) {
             return Ok(());
         }
@@ -84,17 +84,17 @@ impl WebUserAccount {
                 return Err(err.into());
             }
         }
-        let headimg = "".to_string();
-        let info_ref = model_option_set!(AccountInfoModelRef,{
-            headimg:headimg,
-        });
+        let info_param = AccountInfoParam {
+            headimg: Some(""),
+            ..Default::default()
+        };
         let res = self
             .user_dao
             .account_dao
             .account_info
             .set_info(
                 user,
-                &info_ref,
+                &info_param,
                 session_body.user_id(),
                 Some(&mut tran),
                 env_data,

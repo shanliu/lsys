@@ -10,6 +10,10 @@ use std::{
         Arc,
     },
 };
+
+#[cfg(not(feature = "tokio"))]
+use parking_lot::Mutex;
+#[cfg(feature = "tokio")]
 use tokio::sync::Mutex;
 use tracing::{debug, warn};
 

@@ -1,4 +1,6 @@
-use crate::common::{JsonData, JsonResponse, JsonResult, PageParam, UserAuthQueryDao};
+use crate::common::{
+    JsonData, JsonResponse, JsonResult, PageParam, ToOffsetPageParam, UserAuthQueryDao,
+};
 use crate::dao::access::api::system::admin::{CheckAdminRbacEdit, CheckAdminRbacView};
 use crate::dao::access::RbacAccessCheckEnv;
 use lsys_access::dao::AccessSession;
@@ -197,7 +199,7 @@ pub async fn op_data(param: &OpDataParam, req_dao: &UserAuthQueryDao) -> JsonRes
                 res_type_count: param.res_type_count.unwrap_or_default(),
                 check_role_use: param.check_role_use.unwrap_or_default(),
             },
-            param.page.as_ref().map(|e| e.into()).as_ref(),
+            &param.page.to_offset_page_param(),
         )
         .await?
         .into_iter()

@@ -1,18 +1,20 @@
+use crate::dao::utils::env_to_city;
 //内部账号关联登陆验证实现
 use crate::dao::{AccountResult, UserAuthError, UserAuthResult};
-use crate::model::{AccountModel, AccountStatus};
-use ip2location::Record;
+use crate::model::{AccountLoginStatus, AccountModel, AccountStatus};
 use login::{AccountLoginEnv, AccountLoginParam};
 use lsys_access::dao::{AccessAuthLoginData, AccessDao, AccessLoginData, SessionBody};
+use lsys_core::db::{CursorConfig, CursorLimit, CursorPageDir, CursorPageParam, CursorPageSort};
 use lsys_core::now_time;
-use lsys_core::{fluent_message, IntoFluentMessage, LimitParam};
+use lsys_core::{fluent_message, IntoFluentMessage};
+use lsys_mfa::dao::MfaSubject;
 use tokio::sync::Mutex;
 
 use std::net::{IpAddr, Ipv4Addr};
 
 use std::sync::Arc;
 
-use tracing::{debug, warn};
+use tracing::warn;
 
 use super::{AccountError, AccountLoginHistory};
 use login::AccountLoginMeta;
@@ -24,16 +26,16 @@ pub struct AuthAccountConfig {
     pub login_limit_captcha: u32,
     pub login_limit_lock: u32,
     pub login_limit_time: u64,
-    pub ip_db: Option<Mutex<ip2location::DB>>,
+    ip_db: Option<Arc<Mutex<ip2location::DB>>>,
 }
 
 impl AuthAccountConfig {
-    pub fn new(ip_db: Option<ip2location::DB>) -> Self {
+    pub fn new(ip_db: Option<Arc<Mutex<ip2location::DB>>>) -> Self {
         Self {
             login_limit_captcha: 3,
             login_limit_lock: 8,
             login_limit_time: 300,
-            ip_db: ip_db.map(|e| Mutex::new(e)),
+            ip_db,
         }
     }
 }
@@ -41,6 +43,7 @@ pub struct AuthAccount {
     account_history: Arc<AccountLoginHistory>,
     access: Arc<AccessDao>,
     login_config: AuthAccountConfig,
+    mfa_login: Arc<crate::dao::MfaLoginDao>,
 }
 impl AuthAccount {
     /// 对外对象创建
@@ -48,11 +51,13 @@ impl AuthAccount {
         account_history: Arc<AccountLoginHistory>,
         access: Arc<AccessDao>,
         login_config: AuthAccountConfig,
+        mfa_login: Arc<crate::dao::MfaLoginDao>,
     ) -> Self {
         Self {
             account_history,
             access,
             login_config,
+            mfa_login,
         }
     }
     /// 检测用户是否可以登录及是否需要登录验证码
@@ -69,7 +74,15 @@ impl AuthAccount {
                 None,
                 None,
                 None,
-                Some(&LimitParam::new(None, true, 5, false, false)),
+                &CursorPageParam::new(
+                    CursorPageDir::Next,
+                    CursorConfig::primary(CursorPageSort::Desc),
+                    None,
+                    CursorLimit::Limit {
+                        limit: 5,
+                        more: false,
+                    },
+                ),
             )
             .await;
         match user_res {
@@ -101,15 +114,17 @@ impl AuthAccount {
                     }
                 }
                 let mut is_captcha = false;
-                if let Some(mut now_city) = self.env_to_city(login_env).await {
-                    for u in ues.iter() {
-                        let tmp_c = u.login_city.replace(['-', ' '], "");
-                        if tmp_c.is_empty() {
-                            continue;
-                        }
-                        now_city = now_city.replace(['-', ' '], "");
-                        if now_city != tmp_c {
-                            is_captcha = true;
+                if let Some(ref ip_db) = self.login_config.ip_db {
+                    if let Some(mut now_city) = env_to_city(ip_db, login_env).await {
+                        for u in ues.iter() {
+                            let tmp_c = u.login_city.replace(['-', ' '], "");
+                            if tmp_c.is_empty() {
+                                continue;
+                            }
+                            now_city = now_city.replace(['-', ' '], "");
+                            if now_city != tmp_c {
+                                is_captcha = true;
+                            }
                         }
                     }
                 }
@@ -133,38 +148,6 @@ impl AuthAccount {
         Ok(())
     }
     //IP 转成城市
-    async fn env_to_city(&self, login_env: &AccountLoginEnv) -> Option<String> {
-        let login_ip = login_env.login_ip?;
-        if let Some(ref lock_db) = self.login_config.ip_db {
-            #[allow(unused_mut)]
-            let mut db = lock_db.lock().await;
-            if let Some(ref ip) = login_env.login_ip {
-                let bip = *ip;
-                if let Ok(rec) = db.ip_lookup(bip) {
-                    match rec {
-                        Record::LocationDb(record) => {
-                            debug!("parse city: {:?} on ip: {:?}", record, login_ip);
-                            let city = [
-                                record
-                                    .country
-                                    .map(|e| e.short_name.to_string())
-                                    .unwrap_or_default(),
-                                record.region.unwrap_or_default().to_string(),
-                                record.city.unwrap_or_default().to_string(),
-                            ]
-                            .into_iter()
-                            .filter(|e| !e.is_empty() && *e != "-")
-                            .collect::<Vec<String>>()
-                            .join("-");
-                            return Some(city);
-                        }
-                        Record::ProxyDb(_) => {}
-                    }
-                }
-            }
-        }
-        None
-    }
     //执行登录
     pub async fn login<TO: AccountLoginParam>(
         &self,
@@ -175,7 +158,11 @@ impl AuthAccount {
             .login_ip
             .unwrap_or(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)))
             .to_string();
-        let city = self.env_to_city(&login_env).await.unwrap_or_default();
+        let city = if let Some(ref ip_db) = self.login_config.ip_db {
+            env_to_city(ip_db, &login_env).await.unwrap_or_default()
+        } else {
+            "".to_string()
+        };
         let login_account = login_param.account_name();
         let login_id = self
             .account_history
@@ -189,26 +176,28 @@ impl AuthAccount {
         let res = self.login_user(login_param, login_env).await;
         match res {
             Ok((account, session)) => {
-                let is_login = i8::from(session.is_valid());
                 self.account_history
-                    .finish_history(login_id, is_login, account.id, "")
+                    .finish_history(login_id, AccountLoginStatus::LoginSuccess, account.id, "")
                     .await?;
                 Ok(session)
             }
             Err(err) => {
-                let account_id = match err {
-                    AccountError::PasswordNotMatch((uid, _)) => uid,
-                    AccountError::PasswordNotSet((uid, _)) => uid,
-                    AccountError::AuthStatusError((uid, _)) => uid,
-                    _ => 0,
+                let (status, account_id) = match &err {
+                    AccountError::MfaNeed { account_id, .. } => {
+                        (AccountLoginStatus::PreLoginSuccess, *account_id)
+                    }
+                    AccountError::PasswordNotMatch((uid, _)) => (AccountLoginStatus::Failed, *uid),
+                    AccountError::PasswordNotSet((uid, _)) => (AccountLoginStatus::Failed, *uid),
+                    AccountError::AuthStatusError((uid, _)) => (AccountLoginStatus::Failed, *uid),
+                    _ => (AccountLoginStatus::Failed, 0),
+                };
+                let login_msg = if matches!(status, AccountLoginStatus::PreLoginSuccess) {
+                    "".to_string()
+                } else {
+                    err.to_fluent_message().default_format()
                 };
                 self.account_history
-                    .finish_history(
-                        login_id,
-                        0,
-                        account_id,
-                        err.to_fluent_message().default_format(),
-                    )
+                    .finish_history(login_id, status, account_id, login_msg)
                     .await?;
                 Err(err)
             }
@@ -245,6 +234,29 @@ impl AuthAccount {
             expire_time: time + <TO as AccountLoginParam>::Meta::login_timeout(),
             session_data,
         };
+
+        // If MFA is enabled for this subject, require verification before creating session.
+        let subject = MfaSubject::new(0, account.id.to_string());
+        if self.mfa_login.is_totp_enabled(&subject).await? {
+            let mfa_token = self
+                .mfa_login
+                .create_prelogin_totp(
+                    crate::dao::PreloginTotpParams {
+                        subject,
+                        app_id: 0,
+                        oauth_app_id: 0,
+                        user_nickname: account.nickname.clone(),
+                        token_data: None,
+                        login_type: <TO as AccountLoginParam>::Meta::login_type().to_owned(),
+                    },
+                    &login_data,
+                )
+                .await?;
+            return Err(AccountError::MfaNeed {
+                account_id: account.id,
+                mfa_token,
+            });
+        }
         let session = self
             .access
             .auth

@@ -1,10 +1,11 @@
-use crate::common::JsonData;
-use crate::common::{JsonResponse, LimitParam, UserAuthQueryDao};
+use crate::common::{JsonData, LimitParam, ToCursorPageParam, ToOffsetPageParam};
+use crate::common::{JsonResponse, UserAuthQueryDao};
 use crate::common::{JsonResult, PageParam};
 use crate::dao::access::api::system::admin::CheckAdminRbacEdit;
 use crate::dao::access::api::system::user::{CheckUserRbacEdit, CheckUserRbacView};
 use crate::dao::access::RbacAccessCheckEnv;
 use lsys_access::dao::{AccessSession, UserDataParam, UserInfo};
+use lsys_core::db::CursorPageSort;
 use lsys_rbac::dao::RoleAddUser;
 use serde::Deserialize;
 use serde_json::json;
@@ -161,11 +162,7 @@ pub async fn system_role_user_data(
         .web_rbac
         .rbac_dao
         .role
-        .role_user_data(
-            &role,
-            param.all,
-            param.page.as_ref().map(|e| e.into()).as_ref(),
-        )
+        .role_user_data(&role, param.all, &param.page.to_offset_page_param())
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
@@ -222,7 +219,10 @@ pub async fn system_role_user_available(
         .web_access
         .access_dao
         .user
-        .user_data(&user_param, param.limit.as_ref().map(|e| e.into()).as_ref())
+        .user_data(
+            &user_param,
+            &param.limit.to_u64_cursor_page_param(CursorPageSort::Desc),
+        )
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
@@ -243,7 +243,8 @@ pub async fn system_role_user_available(
         .collect::<Vec<_>>();
     Ok(JsonResponse::data(JsonData::body(json!({
         "data":out_res,
-        "next":next,
+        "next_cursor":next.next_cursor,
+        "prev_cursor":next.prev_cursor,
         "total":count
     }))))
 }

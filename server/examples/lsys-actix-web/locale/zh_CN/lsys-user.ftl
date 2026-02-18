@@ -92,6 +92,10 @@ status-AccountIndexCat-NikeName = 昵称
 status-AccountIndexCat-AccountStatus = 用户状态
 status-AccountIndexCat-RegFrom = 注册来源
 
+status-AccountLoginStatus-LoginSuccess= 登陆成功
+status-AccountLoginStatus-PreLoginSuccess=预登陆
+status-AccountLoginStatus-Failed=登陆失败
+
 
 #校验名称
 
@@ -128,4 +132,6 @@ valid-rule-name-username = 用户登陆名
 valid-rule-name-user_password = 用户密码
 valid-rule-name-nickname = 昵称
 valid-rule-name-login_code = 登陆验证码
+
+
 

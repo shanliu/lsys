@@ -1,9 +1,6 @@
 // oauth 中 scope 数据操作相关封装
-use crate::dao::WebApp;
-use lsys_app::{
-    dao::{AppError, AppResult},
-    model::AppModel,
-};
+use crate::dao::{WebApp, WebError, WebResult};
+use lsys_app::{dao::AppError, model::AppModel};
 use lsys_core::fluent_message;
 
 use serde::Serialize;
@@ -20,7 +17,7 @@ impl WebApp {
     pub async fn app_oauth_server_scope_data(
         &self,
         app: Option<&AppModel>,
-    ) -> AppResult<Vec<ScopeItem>> {
+    ) -> WebResult<Vec<ScopeItem>> {
         match app {
             Some(app) => {
                 if app.parent_app_id > 0 {
@@ -69,7 +66,7 @@ impl WebApp {
         &self,
         app: &AppModel,
         scope_data: &[&str],
-    ) -> AppResult<Vec<ScopeItem>> {
+    ) -> WebResult<Vec<ScopeItem>> {
         let papp = if app.parent_app_id > 0 {
             Some(
                 self.app_dao
@@ -87,11 +84,11 @@ impl WebApp {
             if let Some(t) = server_spoce.iter().find(|e| e.key.as_str() == *tmp) {
                 out.push(t.to_owned());
             } else {
-                return Err(AppError::System(
+                return Err(WebError::AppError(AppError::System(
                     fluent_message!("app-oauth-login-bad-scope",{
                         "scope_data":tmp
                     }),
-                ));
+                )));
             }
         }
         let oauth_spoce_str = self
@@ -104,7 +101,9 @@ impl WebApp {
         let oauth_spoce = oauth_spoce_str.split(",").collect::<Vec<&str>>();
         for tmp in out.iter() {
             if !oauth_spoce.contains(&tmp.key.as_str()) {
-                return Err(AppError::ScopeBad(vec![tmp.key.to_owned()]));
+                return Err(WebError::AppError(AppError::ScopeBad(vec![tmp
+                    .key
+                    .to_owned()])));
             }
         }
         Ok(out)
@@ -113,7 +112,7 @@ impl WebApp {
     pub async fn app_oauth_client_get_scope_data(
         &self,
         app: &AppModel,
-    ) -> AppResult<Vec<ScopeItem>> {
+    ) -> WebResult<Vec<ScopeItem>> {
         let papp = if app.parent_app_id > 0 {
             Some(
                 self.app_dao

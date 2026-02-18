@@ -6,12 +6,12 @@ edition = "2021"
 
 
 [dependencies]
-lsys-core = { path = "../lsys-core" }
+lsys-core = { path = "../lsys-core", features = ["db", "redis"] }
 lsys-logger = { path = "../lsys-logger" }
 serde = { version = "1.0.*" }
 serde_json = "1.0.*"
 
-tokio = { version = "~1.46.0" }
+tokio = { version = "~1.49.0" }
 
 sqlx = { version = "~0.8.6", features = ["mysql", "runtime-tokio-native-tls"] }
 
@@ -21,5 +21,5 @@ tracing = { version = "0.1.*" } # log-always 保持log的输出 当使用tracing
 
 async-trait = "~0.1.*"
 
-deadpool-redis = { version = "~0.21.0" }
-redis = { version = "~0.31.0" }
+deadpool-redis = { version = "~0.22.1" }
+redis = { version = "~0.32.0" }

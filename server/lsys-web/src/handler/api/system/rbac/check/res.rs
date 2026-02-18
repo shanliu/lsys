@@ -13,7 +13,7 @@ pub struct ResUserFromUserParam {
     pub access_user_id: u64,
     pub page: Option<PageParam>,
 }
-use crate::common::JsonData;
+use crate::common::{JsonData, ToOffsetPageParam};
 //1 得到用户列表
 pub async fn check_res_user_from_user(
     param: &ResUserFromUserParam,
@@ -36,7 +36,7 @@ pub async fn check_res_user_from_user(
         .access
         .find_res_user_list_from_user(
             param.access_user_id,
-            param.page.as_ref().map(|e| e.into()).as_ref(),
+            &param.page.to_offset_page_param(),
         )
         .await?;
     let is_system = user_ids.contains(&0);
@@ -142,7 +142,7 @@ pub async fn check_res_list_from_user(
             param.role_user_id,
             param.role_app_id,
             res_range,
-            param.page.as_ref().map(|e| e.into()).as_ref(),
+            &param.page.to_offset_page_param(),
         )
         .await?;
     let count = req_dao
@@ -217,7 +217,7 @@ pub async fn check_res_info_from_session(
                         app_id: param.app_id,
                     },
                     *d,
-                    param.page.as_ref().map(|e| e.into()).as_ref(),
+                    &param.page.to_offset_page_param(),
                 )
                 .await?;
             count = req_dao

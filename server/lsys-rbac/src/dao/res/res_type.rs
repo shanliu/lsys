@@ -2,17 +2,15 @@
 use lsys_core::{fluent_message, string_clear, StringClear, STRING_CLEAR_FORMAT};
 
 use crate::dao::result::{RbacError, RbacResult};
-use crate::model::{
-    RbacOpModel, RbacOpResModel, RbacOpResModelRef, RbacOpResStatus, RbacResModel, RbacResStatus,
-};
+use crate::model::{RbacOpModel, RbacOpResModel, RbacOpResStatus, RbacResModel, RbacResStatus};
 
 use sqlx::{FromRow, Row};
 use std::vec;
 
 use lsys_core::{now_time, RequestEnv};
 
-use lsys_core::db::{Insert, ModelTableName, SqlQuote, Update, WhereOption};
-use lsys_core::{model_option_set, sql_format};
+use lsys_core::db::{BatchInsert, Insert, SqlQuote, SqlSuffix, TableMeta, Update};
+use lsys_core::sql_format;
 use sqlx::{Acquire, Transaction};
 
 use super::logger::LogResTypeOp;
@@ -70,21 +68,16 @@ impl RbacRes {
         };
         let res_type = res_type_data.res_type.to_string();
         let nowtime = now_time().unwrap_or_default();
-        let mut add_item = vec![];
+        let mut batch = BatchInsert::<RbacOpResModel>::new();
         for op in op_vec {
             let mut is_updata = false;
             for (itemid, op_id) in op_res.iter() {
                 if *op_id == op.id {
-                    let item = model_option_set!(RbacOpResModelRef,{
-                        change_time:nowtime,
-                        change_user_id:add_user_id,
-                        status:(RbacOpResStatus::Enable as i8),
-                    });
-                    if let Err(err) = Update::<RbacOpResModel, _>::new(item)
-                        .execute_by_where(
-                            &WhereOption::Where(sql_format!("id={}", *itemid)),
-                            &mut *db,
-                        )
+                    if let Err(err) = Update::<RbacOpResModel>::new()
+                        .set(RbacOpResModel::CHANGE_TIME, nowtime)
+                        .set(RbacOpResModel::CHANGE_USER_ID, add_user_id)
+                        .set(RbacOpResModel::STATUS, RbacOpResStatus::Enable as i8)
+                        .execute(SqlSuffix::Where(&sql_format!("id={}", *itemid)), &mut *db)
                         .await
                     {
                         db.rollback().await?;
@@ -94,22 +87,20 @@ impl RbacRes {
                 }
             }
             if !is_updata {
-                add_item.push(model_option_set!(RbacOpResModelRef,{
-                    op_id:op.id,
-                    res_type:res_type,
-                    user_id:res_type_data.user_id,
-                    app_id:res_type_data.app_id,
-                    change_time:nowtime,
-                    change_user_id:add_user_id,
-                    status:(RbacOpResStatus::Enable as i8),
-                }));
+                batch = batch.push(
+                    Insert::<RbacOpResModel>::new()
+                        .set(RbacOpResModel::OP_ID, op.id)
+                        .set(RbacOpResModel::RES_TYPE, &res_type)
+                        .set(RbacOpResModel::USER_ID, res_type_data.user_id)
+                        .set(RbacOpResModel::APP_ID, res_type_data.app_id)
+                        .set(RbacOpResModel::CHANGE_TIME, nowtime)
+                        .set(RbacOpResModel::CHANGE_USER_ID, add_user_id)
+                        .set(RbacOpResModel::STATUS, RbacOpResStatus::Enable as i8),
+                );
             }
         }
-        if !add_item.is_empty() {
-            if let Err(err) = Insert::<RbacOpResModel, _>::new_vec(add_item)
-                .execute(&mut *db)
-                .await
-            {
+        if !batch.is_empty() {
+            if let Err(err) = batch.execute(&mut *db).await {
                 db.rollback().await?;
                 return Err(err.into());
             }
@@ -192,19 +183,17 @@ impl RbacRes {
             }
         }
         let time = now_time().unwrap_or_default();
-        let ddata = model_option_set!(RbacOpResModelRef,{
-            change_user_id:del_user_id,
-            change_time:time,
-            status:(RbacOpResStatus::Delete as i8),
-        });
         let res_type = string_clear(
             res_type_data.res_type,
             StringClear::Option(STRING_CLEAR_FORMAT),
             Some(33),
         );
-        let tmp = Update::<RbacOpResModel, _>::new(ddata)
-            .execute_by_where(
-                &lsys_core::db::WhereOption::Where(sql_format!(
+        let tmp = Update::<RbacOpResModel>::new()
+            .set(RbacOpResModel::CHANGE_USER_ID, del_user_id)
+            .set(RbacOpResModel::CHANGE_TIME, time)
+            .set(RbacOpResModel::STATUS, RbacOpResStatus::Delete as i8)
+            .execute(
+                SqlSuffix::Where(&sql_format!(
                     "res_type={} and user_id={} and app_id={} and op_id in ({})",
                     res_type,
                     res_type_data.user_id,
@@ -305,19 +294,17 @@ impl RbacRes {
                     continue;
                 }
                 let time = now_time().unwrap_or_default();
-                let ddata = model_option_set!(RbacOpResModelRef,{
-                    change_user_id:delete_user_id,
-                    change_time:time,
-                    status:(RbacOpResStatus::Delete as i8),
-                });
                 let tmp_res_type = string_clear(
                     tmp_res_type,
                     StringClear::Option(STRING_CLEAR_FORMAT),
                     Some(33),
                 );
-                let tmp = Update::<RbacOpResModel, _>::new(ddata)
-                    .execute_by_where(
-                        &lsys_core::db::WhereOption::Where(sql_format!(
+                let tmp = Update::<RbacOpResModel>::new()
+                    .set(RbacOpResModel::CHANGE_USER_ID, delete_user_id)
+                    .set(RbacOpResModel::CHANGE_TIME, time)
+                    .set(RbacOpResModel::STATUS, RbacOpResStatus::Delete as i8)
+                    .execute(
+                        SqlSuffix::Where(&sql_format!(
                             "res_type={} and user_id={} and app_id={} and op_id in ({})",
                             tmp_res_type,
                             tmp_user_id,

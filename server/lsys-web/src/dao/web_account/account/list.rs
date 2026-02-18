@@ -3,7 +3,7 @@ use lsys_user::model::{
     AccountInfoModel, AccountMobileModel, AccountMobileStatus, AccountModel, AccountNameModel,
 };
 
-use crate::common::JsonResult;
+use crate::dao::WebResult;
 
 use super::{AccountOptionData, WebUserAccount};
 use std::collections::HashMap;
@@ -36,7 +36,7 @@ impl WebUserAccount {
         &self,
         ids: &[u64],
         data_option: &AccountOptionData<'_>,
-    ) -> JsonResult<
+    ) -> WebResult<
         HashMap<
             u64,
             (

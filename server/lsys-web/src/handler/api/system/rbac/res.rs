@@ -1,3 +1,4 @@
+use crate::common::ToOffsetPageParam;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonData, JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
@@ -215,7 +216,7 @@ pub async fn res_data(param: &ResParam, req_dao: &UserAuthQueryDao) -> JsonResul
                 op_count: param.op_count.unwrap_or(true),
                 perm_count: param.perm_count.unwrap_or(true),
             },
-            param.page.as_ref().map(|e| e.into()).as_ref(),
+            &param.page.to_offset_page_param(),
         )
         .await?;
     let count = if param.count_num.unwrap_or(false) {

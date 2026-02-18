@@ -1,17 +1,27 @@
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
-    db::WhereOption,
+    db::query_string_field_max,
     now_time, valid_key, RemoteNotify, RequestEnv, ValidDateTime, ValidIp, ValidNumber, ValidParam,
     ValidParamCheck, ValidPattern, ValidStrlen,
 };
 
-use lsys_core::db::{Insert, ModelTableName, Update};
+use lsys_core::db::{Insert, SqlSuffix, TableMeta, Update};
 use lsys_core::sql_format;
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{Acquire, MySql, Pool, Transaction};
 use std::{collections::HashMap, sync::Arc};
 
-use crate::model::{AccountInfoModel, AccountInfoModelRef, AccountModel};
+use crate::model::{AccountInfoModel, AccountModel};
+
+// 用户信息参数结构体
+#[derive(Debug, Default)]
+pub struct AccountInfoParam<'a> {
+    pub gender: Option<i32>,
+    pub headimg: Option<&'a str>,
+    pub birthday: Option<&'a str>,
+    pub reg_ip: Option<&'a str>,
+    pub reg_from: Option<&'a str>,
+}
 
 use super::{logger::LogAccountInfo, AccountIndex, AccountResult};
 use lsys_core::db::SqlQuote;
@@ -39,46 +49,53 @@ impl AccountInfo {
             index,
         }
     }
-    async fn info_param_valid(&self, info: &AccountInfoModelRef<'_>) -> AccountResult<()> {
+    async fn info_param_valid(&self, info_param: &AccountInfoParam<'_>) -> AccountResult<()> {
+        let headimg_max = query_string_field_max::<AccountInfoModel>(&self.db, &AccountInfoModel::HEADIMG)
+            .await
+            .len_or(500);
+        let reg_from_max = query_string_field_max::<AccountInfoModel>(&self.db, &AccountInfoModel::REG_FROM)
+            .await
+            .len_or(32);
+
         let mut param_valid = ValidParam::default();
-        if let Some(tmp) = info.birthday {
+        if let Some(tmp) = info_param.birthday {
             param_valid.add(
                 valid_key!("birthday"),
-                tmp,
+                &tmp,
                 &ValidParamCheck::default().add_rule(ValidDateTime::Date),
             );
         }
-        if let Some(tmp) = info.gender {
+        if let Some(tmp) = info_param.gender {
             param_valid.add(
                 valid_key!("gender"),
-                tmp,
+                &tmp,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)
                     .add_rule(ValidNumber::range(0, 3)),
             );
         }
-        if let Some(tmp) = info.headimg {
+        if let Some(tmp) = info_param.headimg {
             param_valid.add(
                 valid_key!("headimg"),
-                tmp,
+                &tmp,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)
-                    .add_rule(ValidStrlen::range(0, 512)),
+                    .add_rule(ValidStrlen::range(0, headimg_max)),
             );
         }
-        if let Some(tmp) = info.reg_from {
+        if let Some(tmp) = info_param.reg_from {
             param_valid.add(
                 valid_key!("reg_from"),
-                tmp,
+                &tmp,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)
-                    .add_rule(ValidStrlen::range(0, 32)),
+                    .add_rule(ValidStrlen::range(0, reg_from_max)),
             );
         }
-        if let Some(tmp) = info.reg_ip {
+        if let Some(tmp) = info_param.reg_ip {
             param_valid.add(
                 valid_key!("reg_ip"),
-                tmp,
+                &tmp,
                 &ValidParamCheck::default().add_rule(ValidIp::default()),
             );
         }
@@ -89,23 +106,13 @@ impl AccountInfo {
     pub async fn set_info(
         &self,
         account: &AccountModel,
-        info: &AccountInfoModelRef<'_>,
+        info_param: &AccountInfoParam<'_>,
         op_user_id: u64,
         transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
     ) -> AccountResult<()> {
-        self.info_param_valid(info).await?;
+        self.info_param_valid(info_param).await?;
         let time = now_time()?;
-        let set_info = AccountInfoModelRef {
-            id: None,
-            account_id: Some(&account.id),
-            gender: info.gender,
-            headimg: info.headimg,
-            birthday: info.birthday,
-            reg_ip: info.reg_ip,
-            reg_from: info.reg_from,
-            change_time: Some(&time),
-        };
 
         let account_res = sqlx::query_as::<_, AccountInfoModel>(&sql_format!(
             "select * from {} where account_id={}",
@@ -122,14 +129,14 @@ impl AccountInfo {
 
         let tmp = match account_res {
             Err(sqlx::Error::RowNotFound) => {
-                if let Some(rf) = info.reg_from {
+                if let Some(rf) = info_param.reg_from {
                     if !rf.is_empty() {
                         if let Err(ie) = self
                             .index
                             .cat_one_add(
                                 crate::model::AccountIndexCat::RegFrom,
                                 account.id,
-                                rf.as_str(),
+                                rf,
                                 Some(&mut db),
                             )
                             .await
@@ -140,14 +147,48 @@ impl AccountInfo {
                     }
                 }
 
-                Insert::<AccountInfoModel, _>::new(set_info)
-                    .execute(&mut *db)
-                    .await
+                let mut insert = Insert::<AccountInfoModel>::new()
+                    .set(AccountInfoModel::ACCOUNT_ID, account.id)
+                    .set(AccountInfoModel::CHANGE_TIME, time);
+                if let Some(g) = info_param.gender {
+                    insert = insert.set(AccountInfoModel::GENDER, g);
+                }
+                if let Some(h) = info_param.headimg {
+                    insert = insert.set(AccountInfoModel::HEADIMG, h.to_string());
+                }
+                if let Some(b) = info_param.birthday {
+                    insert = insert.set(AccountInfoModel::BIRTHDAY, b.to_string());
+                }
+                if let Some(ri) = info_param.reg_ip {
+                    insert = insert.set(AccountInfoModel::REG_IP, ri.to_string());
+                }
+                if let Some(rf) = info_param.reg_from {
+                    insert = insert.set(AccountInfoModel::REG_FROM, rf.to_string());
+                }
+                insert.execute(&mut *db).await
             }
             Ok(account_info) => {
-                Update::<AccountInfoModel, _>::new(set_info)
-                    .execute_by_where(
-                        &WhereOption::Where(sql_format!("id={}", account_info.id)),
+                let mut update = Update::<AccountInfoModel>::new()
+                    .set(AccountInfoModel::ACCOUNT_ID, account.id)
+                    .set(AccountInfoModel::CHANGE_TIME, time);
+                if let Some(g) = info_param.gender {
+                    update = update.set(AccountInfoModel::GENDER, g);
+                }
+                if let Some(h) = info_param.headimg {
+                    update = update.set(AccountInfoModel::HEADIMG, h.to_string());
+                }
+                if let Some(b) = info_param.birthday {
+                    update = update.set(AccountInfoModel::BIRTHDAY, b.to_string());
+                }
+                if let Some(ri) = info_param.reg_ip {
+                    update = update.set(AccountInfoModel::REG_IP, ri.to_string());
+                }
+                if let Some(rf) = info_param.reg_from {
+                    update = update.set(AccountInfoModel::REG_FROM, rf.to_string());
+                }
+                update
+                    .execute(
+                        SqlSuffix::Where(&sql_format!("id={}", account_info.id)),
                         &mut *db,
                     )
                     .await
@@ -163,20 +204,29 @@ impl AccountInfo {
         db.commit().await?;
         self.cache.clear(&account.id).await;
 
-        let reg_from = info.reg_from.map(|e| e.to_string()).unwrap_or_default();
-        let reg_ip = info.reg_ip.map(|e| e.to_string()).unwrap_or_default();
-        let birthday = info.birthday.map(|e| e.to_string()).unwrap_or_default();
-        let headimg = info.headimg.map(|e| e.to_string()).unwrap_or_default();
-        let gender = info.gender.map(|e| e.to_owned()).unwrap_or_default();
+        let reg_from_log = info_param
+            .reg_from
+            .map(|e| e.to_string())
+            .unwrap_or_default();
+        let reg_ip_log = info_param.reg_ip.map(|e| e.to_string()).unwrap_or_default();
+        let birthday_log = info_param
+            .birthday
+            .map(|e| e.to_string())
+            .unwrap_or_default();
+        let headimg_log = info_param
+            .headimg
+            .map(|e| e.to_string())
+            .unwrap_or_default();
+        let gender_log = info_param.gender.unwrap_or_default();
 
         self.logger
             .add(
                 &LogAccountInfo {
-                    gender,
-                    headimg: &headimg,
-                    birthday: &birthday,
-                    reg_ip: &reg_ip,
-                    reg_from: &reg_from,
+                    gender: gender_log,
+                    headimg: &headimg_log,
+                    birthday: &birthday_log,
+                    reg_ip: &reg_ip_log,
+                    reg_from: &reg_from_log,
                 },
                 Some(account.id),
                 Some(op_user_id),

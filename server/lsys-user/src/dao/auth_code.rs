@@ -30,7 +30,7 @@ impl AuthCode {
             .add(
                 valid_key!("app_id"),
                 &app_id,
-                &ValidParamCheck::default().add_rule(ValidNumber::id()),
+                &ValidParamCheck::default().add_rule(ValidNumber::min(1)),
             )
             .add(
                 valid_key!("token_code"),

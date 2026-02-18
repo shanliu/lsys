@@ -8,7 +8,7 @@ use std::{
 use async_trait::async_trait;
 
 use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
-use lsys_core::{IntoFluentMessage, TaskAcquisition, TaskItem};
+use lsys_core::{db::OffsetPageParam, IntoFluentMessage, TaskAcquisition, TaskItem};
 use lsys_setting::model::SettingModel;
 use redis::{FromRedisValue, ToRedisArgs};
 
@@ -137,7 +137,7 @@ pub(crate) async fn group_exec<
             Some(val.app_id()),
             Some(&val.tpl_id()),
             None,
-            None,
+            &OffsetPageParam::new(None),
         )
         .await
         .map_err(|e| e.to_fluent_message().default_format())

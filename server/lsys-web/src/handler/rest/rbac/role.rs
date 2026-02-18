@@ -6,8 +6,10 @@ use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::PageParam;
 use crate::common::RequestDao;
+use crate::common::ToOffsetPageParam;
 use lsys_access::dao::UserInfo;
 use lsys_app::model::AppModel;
+use lsys_core::db::{OffsetPageParam, OffsetPageValue};
 use lsys_rbac::dao::RbacRoleAddData;
 use lsys_rbac::dao::RbacRoleUserRangeData;
 use lsys_rbac::dao::RoleDataAttrParam;
@@ -257,7 +259,7 @@ pub async fn role_data(
                 res_count: param.res_count,
                 res_op_count: param.res_op_count,
             },
-            param.page.as_ref().map(|e| e.into()).as_ref(),
+            &param.page.to_offset_page_param(),
         )
         .await?;
     let user_data_limit = param.user_data.unwrap_or(0);
@@ -272,7 +274,7 @@ pub async fn role_data(
                 &role_ids,
                 None,
                 false,
-                Some(&lsys_core::PageParam::new(0, user_data_limit)),
+                &OffsetPageParam::new(Some(OffsetPageValue::new(0, user_data_limit))),
             )
             .await?;
 

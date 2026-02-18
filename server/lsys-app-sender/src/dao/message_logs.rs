@@ -1,8 +1,10 @@
 use crate::dao::SenderResult;
-use crate::model::{SenderLogModel, SenderLogModelRef, SenderLogStatus, SenderLogType, SenderType};
-use lsys_core::{now_time, PageParam};
+use crate::model::{SenderLogModel, SenderLogStatus, SenderLogType, SenderType};
+use lsys_core::db::OffsetPageParam;
+use lsys_core::now_time;
 
-use lsys_core::db::{Insert, ModelTableName, SqlExpr};
+use lsys_core::db::BatchInsert;
+use lsys_core::db::{Insert, TableMeta, SqlExpr};
 use lsys_core::sql_format;
 use sqlx::Pool;
 
@@ -33,26 +35,25 @@ impl MessageLogs {
         let log_type = SenderLogType::Send as i8;
         let sender_type = self.send_type as i8;
         let executor_type = executor_type.to_owned();
-        let mut idata = Vec::with_capacity(log_data.len());
         let tmp_dat = log_data
             .iter()
             .map(|(a, b, c)| (*a, (*b as i8), c.to_string()))
             .collect::<Vec<(u64, i8, String)>>();
+        let mut batch = BatchInsert::<SenderLogModel>::with_capacity(tmp_dat.len());
         for (message_id, log_status, message) in tmp_dat.iter() {
-            idata.push(lsys_core::model_option_set!(SenderLogModelRef,{
-                sender_message_id:message_id,
-                app_id:app_id,
-                sender_type:sender_type,
-                log_type:log_type,
-                status:log_status,
-                executor_type:executor_type,
-                message:message,
-                create_time:send_time,
-            }));
+            batch = batch.push(
+                Insert::<SenderLogModel>::new()
+                    .set(SenderLogModel::SENDER_MESSAGE_ID, *message_id)
+                    .set(SenderLogModel::APP_ID, app_id)
+                    .set(SenderLogModel::SENDER_TYPE, sender_type)
+                    .set(SenderLogModel::LOG_TYPE, log_type)
+                    .set(SenderLogModel::STATUS, *log_status)
+                    .set(SenderLogModel::EXECUTOR_TYPE, &executor_type)
+                    .set(SenderLogModel::MESSAGE, message)
+                    .set(SenderLogModel::CREATE_TIME, send_time),
+            );
         }
-        let tmp = Insert::<SenderLogModel, _>::new_vec(idata)
-            .execute(&self.db)
-            .await;
+        let tmp = batch.execute(&self.db).await;
         if let Err(ie) = tmp {
             warn!(
                 "sms[{}:{}] is send ,add history fail : {:?}",
@@ -79,17 +80,15 @@ impl MessageLogs {
     pub async fn list_data(
         &self,
         message_id: u64,
-        page: Option<&PageParam>,
+        page: &OffsetPageParam,
     ) -> SenderResult<Vec<SenderLogModel>> {
         let sender_type = self.send_type as i8;
-        let mut sql = sql_format!(
-            "sender_type={} and sender_message_id = {} order by id desc ",
+        let sql = sql_format!(
+            "sender_type={} and sender_message_id = {} order by id desc {}",
             sender_type,
-            message_id
+            message_id,
+            page.page_query().limit_sql().unwrap_or_default()
         );
-        if let Some(pdat) = page {
-            sql += format!(" limit {} offset {}", pdat.limit, pdat.offset).as_str();
-        }
         let data = sqlx::query_as::<_, SenderLogModel>(&sql_format!(
             "select * from {} where {}",
             SenderLogModel::table_name(),

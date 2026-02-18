@@ -4,18 +4,18 @@ use super::logger::AppOAuthServerSetLog;
 use super::{App, AppError, AppResult};
 use crate::model::{AppModel, AppRequestModel};
 use crate::model::{
-    AppOAuthClientModel, AppOAuthServerScopeModel, AppOAuthServerScopeModelRef,
-    AppOAuthServerScopeStatus, AppRequestStatus, AppRequestType, AppStatus,
+    AppOAuthClientModel, AppOAuthServerScopeModel, AppOAuthServerScopeStatus, AppRequestStatus,
+    AppRequestType, AppStatus,
 };
 pub use data::AppOAuthServerScopeData;
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::db::{Insert, ModelTableName, Update};
-use lsys_core::db::{SqlQuote, WhereOption};
+use lsys_core::db::SqlQuote;
+use lsys_core::db::{BatchInsert, Insert, TableMeta, SqlSuffix, Update};
+use lsys_core::sql_format;
 use lsys_core::{
     fluent_message, now_time, valid_key, RemoteNotify, RequestEnv, ValidParam, ValidParamCheck,
     ValidPattern, ValidStrlen,
 };
-use lsys_core::{model_option_set, sql_format};
 use lsys_logger::dao::ChangeLoggerDao;
 // use regex::Regex;
 use serde::Serialize;
@@ -203,14 +203,12 @@ impl AppOAuthServer {
 
         if !del_data.is_empty() {
             let del_status = AppOAuthServerScopeStatus::Delete as i8;
-            let change = model_option_set!(AppOAuthServerScopeModelRef,{
-                status:del_status,
-                change_user_id:set_user_id,
-                change_time:time
-            });
-            let cres = Update::<AppOAuthServerScopeModel, _>::new(change)
-                .execute_by_where(
-                    &lsys_core::db::WhereOption::Where(sql_format!(
+            let cres = Update::<AppOAuthServerScopeModel>::new()
+                .set(AppOAuthServerScopeModel::STATUS, del_status)
+                .set(AppOAuthServerScopeModel::CHANGE_USER_ID, set_user_id)
+                .set(AppOAuthServerScopeModel::CHANGE_TIME, time)
+                .execute(
+                    SqlSuffix::Where(&sql_format!(
                         "app_id={} and scope_key in ({})",
                         app.id,
                         del_data
@@ -227,41 +225,41 @@ impl AppOAuthServer {
         let set_status = AppOAuthServerScopeStatus::Enable as i8;
 
         for tmp in change_data {
-            let change = model_option_set!(AppOAuthServerScopeModelRef,{
-                app_id:app.id,
-                scope_key:tmp.1,
-                status:set_status,
-                scope_name:tmp.2,
-                scope_desc:tmp.3,
-                change_user_id:set_user_id,
-                change_time:time
-            });
-            let cres = Update::<AppOAuthServerScopeModel, _>::new(change)
-                .execute_by_where(&WhereOption::Where(sql_format!("id={}", tmp.0)), &mut *db)
+            let cres = Update::<AppOAuthServerScopeModel>::new()
+                .set(AppOAuthServerScopeModel::APP_ID, app.id)
+                .set(AppOAuthServerScopeModel::SCOPE_KEY, tmp.1)
+                .set(AppOAuthServerScopeModel::STATUS, set_status)
+                .set(AppOAuthServerScopeModel::SCOPE_NAME, tmp.2)
+                .set(AppOAuthServerScopeModel::SCOPE_DESC, tmp.3)
+                .set(AppOAuthServerScopeModel::CHANGE_USER_ID, set_user_id)
+                .set(AppOAuthServerScopeModel::CHANGE_TIME, time)
+                .execute(SqlSuffix::Where(&sql_format!("id={}", tmp.0)), &mut *db)
                 .await;
             if let Err(err) = cres {
                 db.rollback().await?;
                 return Err(err.into());
             }
         }
-        let mut add_vec = vec![];
-        for tmp in add_data.iter() {
-            add_vec.push(model_option_set!(AppOAuthServerScopeModelRef,{
-                app_id:app.id,
-                scope_key:tmp.0,
-                scope_name:tmp.1,
-                scope_desc:tmp.2,
-                status:set_status,
-                change_user_id:set_user_id,
-                change_time:time
-            }));
-        }
-        let cres = Insert::<AppOAuthServerScopeModel, _>::new_vec(add_vec)
-            .execute(&mut *db)
-            .await;
-        if let Err(err) = cres {
-            db.rollback().await?;
-            return Err(err.into());
+        if !add_data.is_empty() {
+            let mut batch_insert =
+                BatchInsert::<AppOAuthServerScopeModel>::with_capacity(add_data.len());
+            for tmp in add_data.iter() {
+                batch_insert = batch_insert.push(
+                    Insert::<AppOAuthServerScopeModel>::new()
+                        .set(AppOAuthServerScopeModel::APP_ID, app.id)
+                        .set(AppOAuthServerScopeModel::SCOPE_KEY, &tmp.0)
+                        .set(AppOAuthServerScopeModel::SCOPE_NAME, &tmp.1)
+                        .set(AppOAuthServerScopeModel::SCOPE_DESC, &tmp.2)
+                        .set(AppOAuthServerScopeModel::STATUS, set_status)
+                        .set(AppOAuthServerScopeModel::CHANGE_USER_ID, set_user_id)
+                        .set(AppOAuthServerScopeModel::CHANGE_TIME, time),
+                );
+            }
+            let cres = batch_insert.execute(&mut *db).await;
+            if let Err(err) = cres {
+                db.rollback().await?;
+                return Err(err.into());
+            }
         }
 
         db.commit().await?;

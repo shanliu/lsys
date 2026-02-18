@@ -5,22 +5,21 @@ mod request;
 mod sub_app;
 use lsys_access::dao::AccessDao;
 use lsys_core::{
-    fluent_message, now_time, rand_str, string_clear, valid_key, AppCore, RequestEnv, StringClear,
-    TimeOutTask, TimeOutTaskNotify, ValidError, ValidParam, ValidParamCheck, ValidPattern,
-    ValidStrlen, STRING_CLEAR_FORMAT, STRING_CLEAR_XSS,
+    db::query_string_field_max, fluent_message, now_time, rand_str, string_clear, valid_key,
+    AppCore, RequestEnv, StringClear, TimeOutTask, TimeOutTaskNotify, ValidError, ValidParam,
+    ValidParamCheck, ValidPattern, ValidStrlen, STRING_CLEAR_FORMAT, STRING_CLEAR_XSS,
 };
 
 pub use data::*;
-use lsys_core::db::{Insert, ModelTableName, Update, WhereOption};
-use lsys_core::{model_option_set, sql_format};
+use lsys_core::db::{Insert, TableMeta, SqlSuffix, Update};
+use lsys_core::sql_format;
 pub use request::*;
 pub use sub_app::*;
 
 use std::sync::Arc;
 
-use crate::model::AppRequestSetInfoModelRef;
 use crate::model::{
-    AppModel, AppModelRef, AppRequestModel, AppRequestModelRef, AppRequestSetInfoModel,
+    AppModel, AppRequestModel, AppRequestSetInfoModel,
     AppRequestStatus, AppRequestType, AppSecretType, AppStatus,
 };
 use lsys_core::{
@@ -97,19 +96,28 @@ impl App {
             StringClear::Option(STRING_CLEAR_FORMAT),
             None,
         );
+
+        // 先获取所有字段长度
+        let name_max = query_string_field_max::<AppModel>(&self.db, &AppModel::NAME)
+            .await
+            .len_or(24);
+        let client_id_max = query_string_field_max::<AppModel>(&self.db, &AppModel::CLIENT_ID)
+            .await
+            .len_or(32);
+
         ValidParam::default()
             .add(
                 valid_key!("app_name"),
                 &name,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)
-                    .add_rule(ValidStrlen::range(3, 24)),
+                    .add_rule(ValidStrlen::range(3, name_max)),
             )
             .add(
                 valid_key!("client_id"),
                 &client_id,
                 &ValidParamCheck::default()
-                    .add_rule(ValidStrlen::range(3, 32))
+                    .add_rule(ValidStrlen::range(3, client_id_max))
                     .add_rule(ValidPattern::Ident),
             )
             .check()?;
@@ -230,17 +238,17 @@ impl App {
         let status = AppStatus::Init as i8;
         let parent_app_id = parent_app.as_ref().map(|e| e.id).unwrap_or_default();
 
-        let idata = model_option_set!(AppModelRef,{
-            name:name,
-            parent_app_id:parent_app_id,
-            client_id:client_id,
-            status:status,
-            user_id:user_id,
-            user_app_id:user_app_id,
-            change_user_id:add_user_id,
-            change_time:time,
-        });
-        let res = Insert::<AppModel, _>::new(idata).execute(&mut *db).await;
+        let res = Insert::<AppModel>::new()
+            .set(AppModel::NAME, &name)
+            .set(AppModel::PARENT_APP_ID, parent_app_id)
+            .set(AppModel::CLIENT_ID, &client_id)
+            .set(AppModel::STATUS, status)
+            .set(AppModel::USER_ID, user_id)
+            .set(AppModel::USER_APP_ID, user_app_id)
+            .set(AppModel::CHANGE_USER_ID, add_user_id)
+            .set(AppModel::CHANGE_TIME, time)
+            .execute(&mut *db)
+            .await;
 
         let app_id = match res {
             Err(e) => {
@@ -286,15 +294,13 @@ impl App {
 
         let req_status = AppRequestStatus::Pending as i8;
         let request_type = AppRequestType::AppReq as i8;
-        let idata = model_option_set!(AppRequestModelRef,{
-            parent_app_id:parent_app_id,
-            app_id:app_id,
-            request_type:request_type,
-            status:req_status,
-            request_user_id:user_id,
-            request_time:time,
-        });
-        let req_res = Insert::<AppRequestModel, _>::new(idata)
+        let req_res = Insert::<AppRequestModel>::new()
+            .set(AppRequestModel::PARENT_APP_ID, parent_app_id)
+            .set(AppRequestModel::APP_ID, app_id)
+            .set(AppRequestModel::REQUEST_TYPE, request_type)
+            .set(AppRequestModel::STATUS, req_status)
+            .set(AppRequestModel::REQUEST_USER_ID, user_id)
+            .set(AppRequestModel::REQUEST_TIME, time)
             .execute(&mut *db)
             .await;
         let req_id = match req_res {
@@ -304,12 +310,10 @@ impl App {
             }
             Ok(mr) => mr.last_insert_id(),
         };
-        let idata = model_option_set!(AppRequestSetInfoModelRef,{
-            app_request_id:req_id,
-            name:name,
-            client_id:client_id,
-        });
-        let req_res = Insert::<AppRequestSetInfoModel, _>::new(idata)
+        let req_res = Insert::<AppRequestSetInfoModel>::new()
+            .set(AppRequestSetInfoModel::APP_REQUEST_ID, req_id)
+            .set(AppRequestSetInfoModel::NAME, name.clone())
+            .set(AppRequestSetInfoModel::CLIENT_ID, client_id.clone())
             .execute(&mut *db)
             .await;
         if let Err(err) = req_res {
@@ -412,12 +416,10 @@ impl App {
         let mut db = self.db.begin().await?;
 
         if AppStatus::Init.eq(app.status) {
-            let change = model_option_set!(AppModelRef,{
-                name:name,
-                client_id:client_id
-            });
-            let req_res = Update::<AppModel, _>::new(change)
-                .execute_by_where(&WhereOption::Where(sql_format!("id={}", app.id)), &mut *db)
+            let req_res = Update::<AppModel>::new()
+                .set(AppModel::NAME, &name)
+                .set(AppModel::CLIENT_ID, &client_id)
+                .execute(SqlSuffix::Where(&sql_format!("id={}", app.id)), &mut *db)
                 .await;
             if let Err(e) = req_res {
                 db.rollback().await?;
@@ -427,12 +429,10 @@ impl App {
 
         //废弃以前申请
         let req_status = AppRequestStatus::Invalid as i8;
-        let change = model_option_set!(AppRequestModelRef,{
-            status:req_status,
-        });
-        let req_res = Update::<AppRequestModel, _>::new(change)
-            .execute_by_where(
-                &lsys_core::db::WhereOption::Where(sql_format!(
+        let req_res = Update::<AppRequestModel>::new()
+            .set(AppRequestModel::STATUS, req_status)
+            .execute(
+                SqlSuffix::Where(&sql_format!(
                     "app_id={} and request_type in ({})",
                     app.id,
                     &[
@@ -454,15 +454,13 @@ impl App {
         } else {
             AppRequestType::AppChange
         } as i8;
-        let idata = model_option_set!(AppRequestModelRef,{
-            parent_app_id:app.parent_app_id,
-            app_id:app.id,
-            request_type:request_type,
-            status:req_status,
-            request_user_id:change_user_id,
-            request_time:time,
-        });
-        let req_res = Insert::<AppRequestModel, _>::new(idata)
+        let req_res = Insert::<AppRequestModel>::new()
+            .set(AppRequestModel::PARENT_APP_ID, app.parent_app_id)
+            .set(AppRequestModel::APP_ID, app.id)
+            .set(AppRequestModel::REQUEST_TYPE, request_type)
+            .set(AppRequestModel::STATUS, req_status)
+            .set(AppRequestModel::REQUEST_USER_ID, change_user_id)
+            .set(AppRequestModel::REQUEST_TIME, time)
             .execute(&mut *db)
             .await;
         let req_id = match req_res {
@@ -472,12 +470,10 @@ impl App {
             }
             Ok(mr) => mr.last_insert_id(),
         };
-        let idata = model_option_set!(AppRequestSetInfoModelRef,{
-            app_request_id:req_id,
-            name:name,
-            client_id:client_id,
-        });
-        let req_res = Insert::<AppRequestSetInfoModel, _>::new(idata)
+        let req_res = Insert::<AppRequestSetInfoModel>::new()
+            .set(AppRequestSetInfoModel::APP_REQUEST_ID, req_id)
+            .set(AppRequestSetInfoModel::NAME, name.clone())
+            .set(AppRequestSetInfoModel::CLIENT_ID, client_id.clone())
             .execute(&mut *db)
             .await;
         if let Err(err) = req_res {
@@ -596,15 +592,13 @@ impl App {
         } else {
             AppStatus::Disable as i8
         };
-        let change = model_option_set!(AppModelRef,{
-            name:req_info.name,
-            client_id:req_info.client_id,
-            status:status,
-            change_user_id:confirm_user_id,
-            change_time:time
-        });
-        let req_res = Update::<AppModel, _>::new(change)
-            .execute_by_where(&WhereOption::Where(sql_format!("id={}", app.id)), &mut *db)
+        let req_res = Update::<AppModel>::new()
+            .set(AppModel::NAME, req_info.name.clone())
+            .set(AppModel::CLIENT_ID, req_info.client_id.clone())
+            .set(AppModel::STATUS, status)
+            .set(AppModel::CHANGE_USER_ID, confirm_user_id)
+            .set(AppModel::CHANGE_TIME, time)
+            .execute(SqlSuffix::Where(&sql_format!("id={}", app.id)), &mut *db)
             .await;
         if let Err(e) = req_res {
             db.rollback().await?;
@@ -614,14 +608,12 @@ impl App {
         //废弃以前申请
         let confirm_status = confirm_status as i8;
         let confirm_note = confirm_note.to_string();
-        let change = model_option_set!(AppRequestModelRef,{
-            status:confirm_status,
-            confirm_user_id:confirm_user_id,
-            confirm_time:time,
-            confirm_note:confirm_note,
-        });
-        let req_res = Update::<AppRequestModel, _>::new(change)
-            .execute_by_where(&WhereOption::Where(sql_format!("id={}", req.id)), &mut *db)
+        let req_res = Update::<AppRequestModel>::new()
+            .set(AppRequestModel::STATUS, confirm_status)
+            .set(AppRequestModel::CONFIRM_USER_ID, confirm_user_id)
+            .set(AppRequestModel::CONFIRM_TIME, time)
+            .set(AppRequestModel::CONFIRM_NOTE, confirm_note)
+            .execute(SqlSuffix::Where(&sql_format!("id={}", req.id)), &mut *db)
             .await;
         if let Err(e) = req_res {
             db.rollback().await?;
@@ -679,14 +671,12 @@ impl App {
 
         let status = AppStatus::Disable as i8;
 
-        let change = model_option_set!(AppModelRef,{
-            status:status,
-            change_user_id:disable_user_id,
-            change_time:time
-        });
-        let req_res = Update::<AppModel, _>::new(change)
-            .execute_by_where(
-                &WhereOption::Where(sql_format!("id={} or parent_app_id={}", app.id, app.id)),
+        let req_res = Update::<AppModel>::new()
+            .set(AppModel::STATUS, status)
+            .set(AppModel::CHANGE_USER_ID, disable_user_id)
+            .set(AppModel::CHANGE_TIME, time)
+            .execute(
+                SqlSuffix::Where(&sql_format!("id={} or parent_app_id={}", app.id, app.id)),
                 &mut *db,
             )
             .await;
@@ -697,14 +687,12 @@ impl App {
 
         //废弃以前申请
         let confirm_status = AppRequestStatus::Invalid as i8;
-        let change = model_option_set!(AppRequestModelRef,{
-            status:confirm_status,
-            confirm_user_id:disable_user_id,
-            confirm_time:time,
-        });
-        let req_res = Update::<AppRequestModel, _>::new(change)
-            .execute_by_where(
-                &lsys_core::db::WhereOption::Where(sql_format!(
+        let req_res = Update::<AppRequestModel>::new()
+            .set(AppRequestModel::STATUS, confirm_status)
+            .set(AppRequestModel::CONFIRM_USER_ID, disable_user_id)
+            .set(AppRequestModel::CONFIRM_TIME, time)
+            .execute(
+                SqlSuffix::Where(&sql_format!(
                     "(app_id={} or app_id in (select id from {} where parent_app_id={})) and status={}",
                     app.id,
                     AppModel::table_name(),
@@ -814,13 +802,11 @@ impl App {
 
         let status = AppStatus::Delete as i8;
 
-        let change_app = model_option_set!(AppModelRef,{
-            status:status,
-            change_user_id:delete_user_id,
-            change_time:time
-        });
-        let req_res = Update::<AppModel, _>::new(change_app)
-            .execute_by_where(&WhereOption::Where(sql_format!("id={}", app.id)), &mut *db)
+        let req_res = Update::<AppModel>::new()
+            .set(AppModel::STATUS, status)
+            .set(AppModel::CHANGE_USER_ID, delete_user_id)
+            .set(AppModel::CHANGE_TIME, time)
+            .execute(SqlSuffix::Where(&sql_format!("id={}", app.id)), &mut *db)
             .await;
         if let Err(e) = req_res {
             db.rollback().await?;
@@ -829,14 +815,12 @@ impl App {
 
         //废弃以前申请
         let confirm_status = AppRequestStatus::Invalid as i8;
-        let change_req = model_option_set!(AppRequestModelRef,{
-            status:confirm_status,
-            confirm_user_id:delete_user_id,
-            confirm_time:time,
-        });
-        let req_res = Update::<AppRequestModel, _>::new(change_req)
-            .execute_by_where(
-                &lsys_core::db::WhereOption::Where(sql_format!(
+        let req_res = Update::<AppRequestModel>::new()
+            .set(AppRequestModel::STATUS, confirm_status)
+            .set(AppRequestModel::CONFIRM_USER_ID, delete_user_id)
+            .set(AppRequestModel::CONFIRM_TIME, time)
+            .execute(
+                SqlSuffix::Where(&sql_format!(
                     "app_id={} and status={}",
                     app.id,
                     AppRequestStatus::Pending as i8

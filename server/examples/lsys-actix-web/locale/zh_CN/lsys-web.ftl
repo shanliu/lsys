@@ -24,10 +24,7 @@ lsys-lib-area-db = 地址数据异常:{$msg}
 area-not-found = 地址信息未找到
 area-store-error = 地址存储异常:{$msg}
 area-tantivy-error = 地址搜索异常:{$msg}
-barcode-image-error = 条码图片异常:{$msg}   
-lsys-rxing-error = 条码解析库异常:{$msg}
 area-not-enable = 地址库未启用
-barcode-bad-format-error = 条码格式异常{$msg}
 bad-session-data = 登陆数据类型不支持
 auth-need-captcha = Code登陆请输入验证码
 app-oauth-login-bad-scope = 应用不存在授权:{$scope_data}
@@ -38,14 +35,11 @@ role-user-not-system-user = 用户{$user_name}({$user_id})非系统用户，属�
 role-user-not-found = 无法添加用户ID{$user_id}到角色,用户id不存在
 not-user-app-confirm = 非子应用
 app-is-subapp = 该应用为子应用
-barcode-add-status-error = 解析记录状态异常:{$msg}
 bad-audit-access = 非法访问审计数据
-barcode-parse-error = 解析失败,记录为:{$record}
 bad-app-id = 非法操作非自身app  
 access-token-data-token-code-exits =登陆时发现 token_code 已使用，请更换
-show-barcode-bad-type =不支持数据类型,只支持text或base64
-barcode-bad-auth-error = 非公开二维码配置
 app-notify-only-parent = 回调通知只支持系统应用
+oauth-user-not-match=OAuth不能跨用户进行授权(用户应用ID:{$user_app_id},OAuth属于应用:{$oauth_parent_app_id})
 #rbac 权限
 res-admin-global-system = 系统后台权限
 res-op-admin-main = 查看系统后台
@@ -81,8 +75,6 @@ res-op-admin-info-edit = 用户信息编辑
 res-op-admin-mobile-edit = 用户手机号编辑
 res-op-admin-app-view = 用户查看应用
 res-op-admin-app-edit = 用户编辑应用
-res-op-admin-barcode-view = 用户查看条形码
-res-op-admin-barcode-edit = 用户编辑条形码
 res-op-admin-notify-view = 用户查看回调通知
 res-op-admin-rbac-view = 用户权限检测
 res-op-admin-rbac-check = 用户权限检测
@@ -109,7 +101,6 @@ const-SUB_APP_SECRET_NOTIFY_METHOD = 子应用密钥更改回调
 
 
 #字典 
-const-APP_FEATURE_BARCODE = 条码服务
 const-APP_FEATURE_MAIL = 邮件服务
 const-APP_FEATURE_RBAC = 权限服务
 const-APP_FEATURE_SMS = 短信服务
@@ -131,9 +122,6 @@ var-163-sms-config= 网易云短信
 var-tenyun-sms-config= 腾讯云短信
 
 
-var-aztec=Aztec 码​
-var-qrcode=二维码（QR Code）
-var-datamatrix= Data Matrix 码
 
 
 
@@ -165,6 +153,4 @@ var-sender-message = 发送消息处理
 var-sender-tpl = 发送模版管理
 var-sender-app-config = 发送应用配置
 var-sender-config = 发送配置
-var-barcode-create-config = 二维码创建
-var-barcode-parse-record = 二维码解析
 var-message-view = 发送消息查看

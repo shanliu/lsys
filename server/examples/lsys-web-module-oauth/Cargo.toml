@@ -5,7 +5,7 @@ authors = ["liushan <shan.liu@msn.com>"]
 edition = "2021"
 
 [dependencies]
-lsys-core = { path = "../../lsys-core" }
+lsys-core = { path = "../../lsys-core", features = ["db", "redis"] }
 lsys-web = { path = "../../lsys-web" }
 lsys-setting = { path = "../../lsys-setting" }
 lsys-rbac = { path = "../../lsys-rbac" }
@@ -21,13 +21,13 @@ async-trait = "0.1.57"
 config = "~0.15"
 
 
-redis = { version = "~0.31.0" }
+redis = { version = "~0.32.0" }
 
 
 urlencoding = { version = "2.1.0" }
 
 
-reqwest = { version = "~0.12.9", features = ["json", "stream"] }
+reqwest = { version = "~0.13.1", features = ["json", "stream"] }
 
 
 sqlx = { version = "~0.8.6", features = ["mysql", "runtime-tokio-native-tls"] }

@@ -1,3 +1,4 @@
+use crate::common::ToOffsetPageParam;
 use crate::common::{JsonData, PageParam};
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
@@ -185,7 +186,7 @@ pub async fn mailer_tpl_config_list(
             Some(0),
             param.tpl.as_deref(),
             None,
-            param.page.as_ref().map(|e| e.into()).as_ref(),
+            &param.page.to_offset_page_param(),
         )
         .await?;
     let app_data = if param.app_info.unwrap_or(false) && !tpl_data.is_empty() {

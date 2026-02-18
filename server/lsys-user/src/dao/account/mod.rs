@@ -1,5 +1,5 @@
 // 内部账号实现
-use lsys_access::dao::{AccessDao, SessionBody};
+use lsys_access::dao::SessionBody;
 use lsys_core::{cache::LocalCacheConfig, fluent_message, IntoFluentMessage, RemoteNotify};
 
 use lsys_logger::dao::ChangeLoggerDao;
@@ -30,6 +30,7 @@ use account_email::*;
 use account_external::*;
 use account_index::*;
 use account_info::*;
+pub use account_info::AccountInfoParam;
 pub use account_login_history::*;
 use account_mobile::*;
 use account_name::*;
@@ -112,7 +113,6 @@ impl AccountDao {
         db: Pool<MySql>,
         redis: deadpool_redis::Pool,
         setting: Arc<SingleSetting>,
-        access: Arc<AccessDao>,
         config: AccountConfig,
         remote_notify: Arc<RemoteNotify>,
         logger: Arc<ChangeLoggerDao>,
@@ -121,7 +121,6 @@ impl AccountDao {
         let password_hash = Arc::from(AccountPasswordHash::default());
         let account = Arc::from(Account::new(
             db.clone(),
-            access.clone(),
             account_index.clone(),
             remote_notify.clone(),
             config.account_cache,
@@ -156,7 +155,6 @@ impl AccountDao {
             account_name: Arc::from(AccountName::new(
                 db.clone(),
                 account_index.clone(),
-                access,
                 remote_notify.clone(),
                 config.name_cache,
                 logger.clone(),

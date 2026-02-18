@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use actix_web::web::{Data, JsonBody};
 use actix_web::{dev::Payload, Error, FromRequest, HttpRequest};
 use async_trait::async_trait;
@@ -13,6 +11,7 @@ use std::{
 use std::{pin::Pin, rc::Rc};
 
 use lsys_web::lsys_app::dao::RestAuthToken;
+use lsys_web::lsys_core::api_utils::{compute_rest_sign, RestSignData};
 use lsys_web::lsys_core::{IntoFluentMessage, RequestEnv};
 
 use lsys_web::common::{
@@ -28,6 +27,7 @@ use super::ResponseJson;
 
 #[derive(Deserialize)]
 pub struct RestGet {
+    //对外定义
     pub client_id: String,
     pub version: String,
     pub timestamp: String,
@@ -36,10 +36,10 @@ pub struct RestGet {
     pub request_ip: Option<String>,
     pub method: Option<String>,
     pub token: Option<String>,
-    pub lang: Option<String>,
 }
 
 pub struct RestRfc {
+    //内部使用
     pub client_id: String,
     pub version: String,
     pub timestamp: String,
@@ -68,45 +68,39 @@ async fn check_sign(
                 .as_mut()
                 .await;
             match key_res {
-                Ok(app_key) => {
-                    let mut map_data = BTreeMap::from([
-                        ("client_id", &data.client_id),
-                        ("version", &data.version),
-                        ("timestamp", &data.timestamp),
-                    ]);
-                    if let Some(ref request_ip) = data.request_ip {
-                        map_data.insert("request_ip", request_ip);
-                    }
-                    if let Some(ref method) = data.method {
-                        map_data.insert("method", method);
-                    }
-                    if let Some(ref token) = data.token {
-                        map_data.insert("token", token);
-                    }
-                    let mut encoded = &mut form_urlencoded::Serializer::new(String::new());
-                    for (e0, e1) in map_data.into_iter() {
-                        encoded = encoded.append_pair(e0, e1.as_str())
-                    }
-                    let mut url_data = encoded.finish();
-                    if let Some(ref body) = data.payload {
-                        url_data += body.to_string().as_str();
+                Ok(app_keys) => {
+                    let sign_data = RestSignData {
+                        client_id: &data.client_id,
+                        version: &data.version,
+                        timestamp: &data.timestamp,
+                        request_ip: data.request_ip.as_deref(),
+                        method: data.method.as_deref(),
+                        token: data.token.as_deref(),
+                        payload: data.payload.as_ref(),
+                    };
+
+                    // 尝试所有密钥验证签名
+                    let mut matched = false;
+                    let mut last_result = None;
+                    for key in &app_keys {
+                        let result = compute_rest_sign(&sign_data, key);
+                        if result.signature == data.sign {
+                            matched = true;
+                            break;
+                        }
+                        last_result = Some(result);
                     }
 
-                    for key_tmp in app_key {
-                        let hash_data = url_data.clone() + key_tmp.as_str();
-                        // dbg!(&url_data);
-                        let digest = md5::compute(hash_data.as_bytes());
-                        let hash = format!("{:x}", digest);
-                        if hash == data.sign {
-                            return Ok(());
-                        } else {
-                            debug!("target:{},request:{}", hash, data.sign);
-                        }
+                    if matched {
+                        Ok(())
+                    } else {
+                        let computed = last_result.map(|r| r.signature).unwrap_or_default();
+                        debug!("target:{},request:{}", computed, &data.sign);
+                        Err(
+                            JsonResponse::data(JsonData::error().set_sub_code("rest_sign"))
+                                .set_message("sign is wrong"),
+                        )
                     }
-                    Err(
-                        JsonResponse::data(JsonData::error().set_sub_code("rest_sign"))
-                            .set_message("sign is wrong"),
-                    )
                 }
                 Err(err) => Err(JsonResponse::data(
                     JsonData::error().set_sub_code("rest_sign_key"),
@@ -361,6 +355,20 @@ impl FromRequest for RestQuery {
             .headers()
             .get("X-Request-ID")
             .map(|e| e.to_str().unwrap_or_default().to_string());
+        let request_lang = req
+            .headers()
+            .get(actix_web::http::header::ACCEPT_LANGUAGE)
+            .and_then(|e| e.to_str().ok())
+            .and_then(|s| s.split(',').next()) // 取第一个语言
+            .map(|s| s.split(';').next().unwrap_or(s).trim()) // 移除 q= 权重部分
+            .map(|s| {
+                // 将浏览器格式 "zh-CN" 转换为 "zh_CN" 格式
+                if let Some((lang, region)) = s.split_once('-') {
+                    format!("{}_{}", lang.to_lowercase(), region.to_uppercase())
+                } else {
+                    s.to_lowercase()
+                }
+            });
 
         let (rest_dao, rfc) = match req.app_data::<Data<WebDao>>() {
             Some(app_dao) => match serde_urlencoded::from_str::<RestGet>(req.query_string()) {
@@ -368,7 +376,7 @@ impl FromRequest for RestQuery {
                     let rest_dao = RestWebDao::AppDat(app_dao.clone(), app_key);
                     let mut rfc = RestRfc {
                         request_id,
-                        request_lang: get_param.lang,
+                        request_lang,
                         client_id: get_param.client_id,
                         version: get_param.version,
                         timestamp: get_param.timestamp,

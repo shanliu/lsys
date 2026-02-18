@@ -1,10 +1,15 @@
+use crate::common::{ToCursorPageParam, ToOffsetPageParam};
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
-    common::{JsonData, JsonResponse, JsonResult, LimitParam, PageParam, UserAuthQueryDao},
+    common::{
+        JsonData, JsonResponse, JsonResult, LimitParam, PageParam,
+        UserAuthQueryDao,
+    },
     dao::access::api::system::admin::CheckAdminMailMgr,
 };
 use lsys_access::dao::AccessSession;
 use lsys_app_sender::model::SenderMailMessageStatus;
+use lsys_core::db::CursorPageSort;
 use lsys_core::now_time;
 use serde::Deserialize;
 use serde_json::json;
@@ -38,10 +43,7 @@ pub async fn mailer_message_log(
         .mailer
         .mailer_dao
         .mail_record
-        .message_log_list(
-            param.message_id,
-            param.page.as_ref().map(|e| e.into()).as_ref(),
-        )
+        .message_log_list(param.message_id, &param.page.to_offset_page_param())
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
@@ -158,7 +160,7 @@ pub async fn mailer_message_list(
             param.snid.as_ref().and_then(|e| e.parse::<u64>().ok()),
             status,
             param.to_mail.as_deref(),
-            param.limit.as_ref().map(|e| e.into()).as_ref(),
+            &param.limit.to_u64_cursor_page_param(CursorPageSort::Desc),
         )
         .await?;
     let count = if param.count_num.unwrap_or(false) {
@@ -184,7 +186,8 @@ pub async fn mailer_message_list(
         None
     };
     let ntime = now_time().unwrap_or_default();
-    let next = res.1;
+    let next_cursor = res.1.next_cursor;
+    let prev_cursor = res.1.prev_cursor;
     let res_data = req_dao
         .web_dao
         .app_sender
@@ -219,7 +222,7 @@ pub async fn mailer_message_list(
         })
         .collect::<Vec<_>>();
     Ok(JsonResponse::data(JsonData::body(
-        json!({ "data": res,"total":count,"next":next}),
+        json!({ "data": res,"total":count,"next_cursor":next_cursor,"prev_cursor":prev_cursor}),
     )))
 }
 

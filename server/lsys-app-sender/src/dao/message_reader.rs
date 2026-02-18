@@ -5,7 +5,7 @@ use crate::{
     model::{SenderMessageCancelModel, SenderType},
 };
 
-use lsys_core::db::{ModelTableField, ModelTableName, SqlExpr};
+use lsys_core::db::{TableMeta, SqlExpr};
 use lsys_core::sql_format;
 use lsys_core::{now_time, AppCore};
 use parking_lot::Mutex;
@@ -18,10 +18,8 @@ use lsys_core::{TaskData, TaskItem};
 
 pub struct MessageReader<BM, MM>
 where
-    for<'t> BM:
-        FromRow<'t, sqlx::mysql::MySqlRow> + Send + Unpin + ModelTableName + ModelTableField,
-    for<'t> MM:
-        FromRow<'t, sqlx::mysql::MySqlRow> + Send + Unpin + ModelTableName + ModelTableField,
+    for<'t> BM: FromRow<'t, sqlx::mysql::MySqlRow> + Send + Unpin + TableMeta,
+    for<'t> MM: FromRow<'t, sqlx::mysql::MySqlRow> + Send + Unpin + TableMeta,
 {
     db: Pool<MySql>,
     id_generator: Arc<Mutex<snowflake::SnowflakeIdGenerator>>,
@@ -32,10 +30,8 @@ where
 
 impl<BM, MM> MessageReader<BM, MM>
 where
-    for<'r> BM:
-        FromRow<'r, sqlx::mysql::MySqlRow> + Send + Unpin + ModelTableName + ModelTableField,
-    for<'t> MM:
-        FromRow<'t, sqlx::mysql::MySqlRow> + Send + Unpin + ModelTableName + ModelTableField,
+    for<'r> BM: FromRow<'r, sqlx::mysql::MySqlRow> + Send + Unpin + TableMeta,
+    for<'t> MM: FromRow<'t, sqlx::mysql::MySqlRow> + Send + Unpin + TableMeta,
 {
     pub fn new(db: Pool<sqlx::MySql>, app_core: Arc<AppCore>, send_type: SenderType) -> Self {
         let id_generator = Arc::new(Mutex::new(app_core.create_snowflake_id_generator()));

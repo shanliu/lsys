@@ -1,4 +1,3 @@
-use lsys_access::dao::{AccessConfig, AccessDao};
 use lsys_core::{AppCore, RemoteNotify};
 use lsys_logger::dao::ChangeLoggerDao;
 use lsys_setting::dao::{SettingConfig, SettingDao};
@@ -18,11 +17,6 @@ async fn user_dao() -> AccountDao {
 
     let remote_notify =
         Arc::new(RemoteNotify::new("lsys-remote-notify", app_core.clone(), redis.clone()).unwrap());
-    let access = Arc::new(AccessDao::new(
-        db.clone(),
-        remote_notify.clone(),
-        AccessConfig::new(false),
-    ));
     let config = SettingDao::new(
         //   app_core.clone(),
         db.clone(),
@@ -36,7 +30,6 @@ async fn user_dao() -> AccountDao {
         db,
         redis,
         config.single,
-        access,
         AccountConfig::new(false),
         remote_notify,
         logger,

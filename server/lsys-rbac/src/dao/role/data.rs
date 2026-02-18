@@ -6,11 +6,12 @@ use crate::{
         RbacRoleStatus, RbacRoleUserModel, RbacRoleUserRange, RbacRoleUserStatus,
     },
 };
+use lsys_core::db::{OffsetPageParam, OffsetPageValue};
 use lsys_core::{
-    db::{ModelTableName, SqlExpr, SqlQuote},
+    db::{SqlExpr, SqlQuote, TableMeta},
     string_clear, STRING_CLEAR_FORMAT,
 };
-use lsys_core::{impl_dao_fetch_map_by_vec, impl_dao_fetch_one_by_one, now_time, PageParam};
+use lsys_core::{impl_dao_fetch_map_by_vec, impl_dao_fetch_one_by_one, now_time};
 use lsys_core::{sql_format, StringClear};
 use serde::Serialize;
 use sqlx::Row;
@@ -106,13 +107,15 @@ impl RbacRole {
     pub async fn role_data(
         &self,
         role_param: &RoleDataParam<'_>,
-        page: Option<&PageParam>,
+        page: &OffsetPageParam,
     ) -> RbacResult<Vec<RbacRoleModel>> {
         match self.role_sql("*", role_param) {
-            Some(mut sql) => {
-                if let Some(pdat) = page {
-                    sql += format!(" limit {} offset {}", pdat.limit, pdat.offset).as_str();
-                }
+            Some(sql) => {
+                let sql = format!(
+                    "{}  order by id desc  {}",
+                    sql,
+                    page.page_query().limit_sql().unwrap_or_default()
+                );
                 Ok(sqlx::query_as::<_, RbacRoleModel>(&sql)
                     .fetch_all(&self.db)
                     .await?)
@@ -184,7 +187,7 @@ impl RbacRole {
         &self,
         role_param: &RoleDataParam<'_>,
         role_attr: &RoleDataAttrParam,
-        page: Option<&PageParam>,
+        page: &OffsetPageParam,
     ) -> RbacResult<Vec<(RbacRoleModel, RbacRoleInfoData)>> {
         let role_data = self.role_data(role_param, page).await?;
         let user_count_map = if role_attr.user_count.unwrap_or(false) {
@@ -203,7 +206,7 @@ impl RbacRole {
                 &role_ids,
                 None,
                 false,
-                Some(&lsys_core::PageParam::new(0, user_data_limit)),
+                &OffsetPageParam::new(Some(OffsetPageValue::new(0, user_data_limit))),
             )
             .await?
         } else {
@@ -263,14 +266,14 @@ impl RbacRole {
     pub async fn role_perm_data(
         &self,
         role: &RbacRoleModel,
-        page: Option<&PageParam>,
+        page: &OffsetPageParam,
     ) -> RbacResult<Vec<RolePermData>> {
         if !RbacRoleResRange::Exclude.eq(role.res_range)
             && !RbacRoleResRange::Include.eq(role.res_range)
         {
             return Ok(vec![]);
         }
-        let mut sql = sql_format!(
+        let sql = sql_format!(
             "select 
                 res.user_id,perm.change_user_id,perm.change_time,
                 res.id as res_id,res.res_type,res.res_data,res.status as res_status,
@@ -281,16 +284,14 @@ impl RbacRole {
             join {} as op on perm.op_id=op.id
             where perm.status={} 
                 and perm.role_id={}
-            order by perm.id desc",
+            order by perm.id desc {}",
             RbacPermModel::table_name(),
             RbacResModel::table_name(),
             RbacOpModel::table_name(),
             RbacPermStatus::Enable,
             role.id,
+            SqlExpr(page.page_query().limit_sql().unwrap_or_default()),
         );
-        if let Some(pdat) = page {
-            sql += format!(" limit {} offset {}", pdat.limit, pdat.offset).as_str();
-        }
         Ok(sqlx::query(&sql)
             .try_map(|row: sqlx::mysql::MySqlRow| {
                 let user_id = row.try_get::<u64, &str>("user_id").unwrap_or_default();
@@ -347,14 +348,14 @@ impl RbacRole {
         &self,
         role: &RbacRoleModel,
         all: bool,
-        page: Option<&PageParam>,
+        page: &OffsetPageParam,
     ) -> RbacResult<Vec<RbacRoleUserModel>> {
         if !RbacRoleUserRange::Custom.eq(role.user_range) {
             return Ok(vec![]);
         }
-        let mut sql = sql_format!(
+        let sql = sql_format!(
             "select  * from  {}  where status={} and role_id={} {}
-            order by id desc",
+            order by id desc {}",
             RbacRoleUserModel::table_name(),
             RbacRoleUserStatus::Enable,
             role.id,
@@ -365,11 +366,9 @@ impl RbacRole {
                     " and (timeout=0 or timeout>{})",
                     now_time().unwrap_or(0)
                 ))
-            }
+            },
+            SqlExpr(page.page_query().limit_sql().unwrap_or_default()),
         );
-        if let Some(pdat) = page {
-            sql += format!(" limit {} offset {}", pdat.limit, pdat.offset).as_str();
-        }
         Ok(sqlx::query_as::<_, RbacRoleUserModel>(&sql)
             .fetch_all(&self.db)
             .await?)
@@ -434,7 +433,7 @@ impl RbacRole {
         role_ids: &[u64],
         user_ids: Option<&[u64]>, //用在检查指定用户id是否已经添加
         all: bool,
-        page: Option<&PageParam>,
+        page: &OffsetPageParam,
     ) -> RbacResult<HashMap<u64, Vec<RbacRoleUserModel>>> {
         if role_ids.is_empty() {
             return Ok(HashMap::new());
@@ -457,9 +456,7 @@ impl RbacRole {
         if let Some(u_ids) = user_ids {
             sql += &sql_format!(" and user_id in ({})", u_ids);
         }
-        if let Some(pdat) = page {
-            sql += format!(" limit {} offset {}", pdat.limit, pdat.offset).as_str();
-        }
+        sql += &page.page_query().limit_sql().unwrap_or_default();
         let data = sqlx::query_as::<_, RbacRoleUserModel>(&sql)
             .fetch_all(&self.db)
             .await?;

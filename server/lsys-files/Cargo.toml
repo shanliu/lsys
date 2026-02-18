@@ -1,0 +1,30 @@
+[package]
+name = "lsys-files"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lsys-core = { path = "../lsys-core", features = ["db"] }
+lsys-logger = { path = "../lsys-logger" }
+
+serde = { version = "1.0.*", features = ["derive"] }
+serde_json = "1.0.*"
+
+tokio = { version = "~1.49.0", features = [
+    "sync",
+    "fs",
+    "io-util",
+    "macros",
+    "rt",
+] }
+sqlx = { version = "~0.8.6", features = ["mysql", "runtime-tokio-native-tls"] }
+
+sha1 = "0.10"
+md5 = "0.8.*"
+mime_guess = "2.0"
+fs2 = "0.4"
+reqwest = { version = "0.13", features = ["stream"] }
+tracing = "0.1"
+chrono = "0.4"
+futures-util = "0.3"
+async-trait = "0.1"

@@ -4,6 +4,7 @@ use deadpool_redis::PoolError;
 use lsys_access::dao::AccessError;
 use lsys_core::{fluent_message, FluentMessage, IntoFluentMessage, ValidCodeError, ValidError};
 
+use lsys_mfa::dao::MfaError;
 use lsys_setting::dao::SettingError;
 use redis::RedisError;
 
@@ -26,6 +27,8 @@ pub enum AccountError {
     PasswordNotSet((u64, FluentMessage)),
     UserNotFind(FluentMessage),
     Vaild(ValidError),
+    MfaNeed { account_id: u64, mfa_token: String },
+    MfaError(MfaError),
 }
 
 impl IntoFluentMessage for AccountError {
@@ -38,6 +41,8 @@ impl IntoFluentMessage for AccountError {
             Self::RedisPool(err) => fluent_message!("redis-error", err),
             Self::ValidCode(err) => err.to_fluent_message(),
             Self::Setting(err) => err.to_fluent_message(),
+            Self::MfaNeed { .. } => fluent_message!("need-mfa-valid"),
+            Self::MfaError(err) => err.to_fluent_message(),
             Self::Param(err) => err.to_owned(),
             Self::AccessError(err) => err.to_fluent_message(),
             Self::AuthStatusError(err) => err.1.to_owned(),
@@ -101,5 +106,10 @@ impl From<ValidCodeError> for AccountError {
 impl From<SettingError> for AccountError {
     fn from(err: SettingError) -> Self {
         AccountError::Setting(err)
+    }
+}
+impl From<MfaError> for AccountError {
+    fn from(err: MfaError) -> Self {
+        AccountError::MfaError(err)
     }
 }

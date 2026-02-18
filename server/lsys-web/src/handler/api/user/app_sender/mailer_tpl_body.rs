@@ -1,4 +1,4 @@
-use crate::common::JsonData;
+use crate::common::{JsonData, ToOffsetPageParam};
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
@@ -64,7 +64,7 @@ pub async fn mailer_tpl_body_list(
             param.id,
             param.tpl_id.as_deref(),
             param.tpl_id_like.as_deref(),
-            param.page.as_ref().map(|e| e.into()).as_ref(),
+            &param.page.to_offset_page_param(),
         )
         .await?;
     let count = if param.count_num.unwrap_or(false) {

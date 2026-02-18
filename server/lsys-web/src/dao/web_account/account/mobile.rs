@@ -1,4 +1,5 @@
-use crate::common::{CaptchaParam, JsonData, JsonError, JsonResult};
+use crate::common::CaptchaParam;
+use crate::dao::{WebError, WebResult};
 use lsys_access::dao::SessionBody;
 use lsys_core::{fluent_message, RequestEnv};
 use lsys_user::{dao::AccountError, model::AccountMobileStatus};
@@ -12,7 +13,7 @@ impl WebUserAccount {
         mobile: &str,
         session_body: &SessionBody,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<u64> {
+    ) -> WebResult<u64> {
         let account = self
             .user_dao
             .account_dao
@@ -44,7 +45,7 @@ impl WebUserAccount {
         captcha: &CaptchaParam,
         session_body: &SessionBody,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<usize> {
+    ) -> WebResult<usize> {
         let valid_code = self.captcha.valid_code(&crate::dao::CaptchaKey::AddSmsCode);
         valid_code.check_code(&captcha.into()).await?;
 
@@ -58,15 +59,15 @@ impl WebUserAccount {
             Ok(mobile) => {
                 if AccountMobileStatus::Valid.eq(mobile.status) {
                     if mobile.account_id != session_body.user_id() {
-                        return Err(JsonError::JsonResponse(
-                            JsonData::default(),
+                        return Err(WebError::JsonResponse(
+                            Box::default(),
                             fluent_message!("mobile-bind-other-user",{
                                 "id": mobile.account_id
                             }),
                         ));
                     } else {
-                        return Err(JsonError::JsonResponse(
-                            JsonData::default(),
+                        return Err(WebError::JsonResponse(
+                            Box::default(),
                             fluent_message!("mobile-is-bind"),
                         ));
                     }

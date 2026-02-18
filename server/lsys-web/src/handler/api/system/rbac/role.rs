@@ -7,7 +7,7 @@ use lsys_access::dao::AccessSession;
 use lsys_rbac::dao::RoleDataAttrParam;
 use serde_json::json;
 
-use crate::common::PageParam;
+use crate::common::{PageParam, ToOffsetPageParam};
 
 use lsys_rbac::{
     dao::{RbacRoleAddData, RbacRoleUserRangeData, RoleDataParam as DaoRoleDataParam},
@@ -262,7 +262,7 @@ pub async fn role_data(
                 res_count: param.res_count,
                 res_op_count: param.res_op_count,
             },
-            param.page.as_ref().map(|e| e.into()).as_ref(),
+            &param.page.to_offset_page_param(),
         )
         .await?
         .into_iter()

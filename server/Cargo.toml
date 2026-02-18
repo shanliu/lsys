@@ -1,10 +1,11 @@
 [workspace]
 resolver = "2"
 members = [
-    "lsys-core-macros",
+    "lsys-macros-db",
     "lsys-lib-sms",
     "lsys-lib-area",
     "lsys-core",
+    "lsys-mfa",
     "lsys-rbac",
     "lsys-user",
     "lsys-web",
@@ -12,8 +13,9 @@ members = [
     "lsys-logger",
     "lsys-app",
     "lsys-app-sender",
-    "lsys-app-barcode",
     "lsys-access",
+    "lsys-sdk",
+    "lsys-files",
     "examples/*",
 ]
 
@@ -24,7 +26,7 @@ incremental = true
 lto = false
 debug = true
 panic = 'unwind'
-codegen-units = 256
+codegen-units = 64
 rpath = false
 overflow-checks = true
 

@@ -10,8 +10,8 @@ use crate::{
 };
 use async_trait::async_trait;
 use lsys_core::{
-    valid_key, IntoFluentMessage, RequestEnv, ValidNumber, ValidParam, ValidParamCheck,
-    ValidPattern, ValidStrlen, ValidUrl,
+    db::OffsetPageParam, valid_key, IntoFluentMessage, RequestEnv, ValidNumber, ValidParam,
+    ValidParamCheck, ValidPattern, ValidStrlen, ValidUrl,
 };
 use lsys_setting::{
     dao::{
@@ -110,7 +110,7 @@ impl SenderHwYunConfig {
     ) -> SenderResult<Vec<SettingData<HwYunConfig>>> {
         let data = self
             .setting
-            .list_data::<HwYunConfig>(None, config_ids, None)
+            .list_data::<HwYunConfig>(None, config_ids, &OffsetPageParam::new(None))
             .await?;
         Ok(data)
     }

@@ -11,8 +11,8 @@ use crate::{
 use async_trait::async_trait;
 use chrono::DateTime;
 use lsys_core::{
-    valid_key, IntoFluentMessage, RequestEnv, ValidNumber, ValidParam, ValidParamCheck,
-    ValidPattern, ValidStrlen,
+    db::OffsetPageParam, valid_key, IntoFluentMessage, RequestEnv, ValidNumber, ValidParam,
+    ValidParamCheck, ValidPattern, ValidStrlen,
 };
 use lsys_lib_sms::{AliSms, SendDetailItem, SendError, SendNotifyError};
 use lsys_setting::{
@@ -108,7 +108,7 @@ impl SenderAliYunConfig {
     ) -> SenderResult<Vec<SettingData<AliYunConfig>>> {
         let data = self
             .setting
-            .list_data::<AliYunConfig>(None, ali_config_ids, None)
+            .list_data::<AliYunConfig>(None, ali_config_ids, &OffsetPageParam::new(None))
             .await?;
         Ok(data)
     }

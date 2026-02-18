@@ -1,4 +1,4 @@
-use crate::common::JsonData;
+use crate::common::{JsonData, ToOffsetPageParam};
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
@@ -117,7 +117,7 @@ pub async fn check_res_role_data_from_res(
                 is_system: param.is_system,
                 is_self: param.is_self,
             },
-            param.page.as_ref().map(|e| e.into()).as_ref(),
+            &param.page.to_offset_page_param(),
         )
         .await?;
     let res_count = req_dao
@@ -200,7 +200,7 @@ pub async fn check_res_user_data_from_res(
                 is_system: param.is_system,
                 is_self: param.is_self,
             },
-            param.page.as_ref().map(|e| e.into()).as_ref(),
+            &param.page.to_offset_page_param(),
         )
         .await?;
     let res_count = req_dao

@@ -1,16 +1,14 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use crate::model::{
-    SenderTplConfigModel, SenderTplConfigModelRef, SenderTplConfigStatus, SenderType,
-};
+use crate::model::{SenderTplConfigModel, SenderTplConfigStatus, SenderType};
 
 use super::logger::LogAppConfig;
 use super::{SenderError, SenderResult};
-use lsys_core::db::{Insert, ModelTableName, SqlExpr, Update};
-use lsys_core::db::{SqlQuote, WhereOption};
+use lsys_core::db::{Insert, TableMeta, SqlExpr, SqlSuffix, Update};
+use lsys_core::db::SqlQuote;
 use lsys_core::{
-    fluent_message, now_time, sql_format, string_clear, valid_key, PageParam, RequestEnv,
+    db::OffsetPageParam, fluent_message, now_time, sql_format, string_clear, valid_key, RequestEnv,
     StringClear, ValidError, ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
     STRING_CLEAR_FORMAT,
 };
@@ -152,7 +150,7 @@ impl SenderTplConfig {
         app_id: Option<u64>,
         tpl_key: Option<&str>,
         like_tpl_key: Option<&str>,
-        page: Option<&PageParam>,
+        page: &OffsetPageParam,
     ) -> SenderResult<Vec<(SenderTplConfigModel, Option<SettingModel>)>> {
         let sqlwhere = match self
             .list_where(id, user_id, app_id, tpl_key, like_tpl_key)
@@ -161,10 +159,7 @@ impl SenderTplConfig {
             Some(v) => v,
             None => return Ok(vec![]),
         };
-        let mut sql = format!("{}  order by id desc", sqlwhere.join(" and "));
-        if let Some(pdat) = page {
-            sql += format!(" limit {} offset {}", pdat.limit, pdat.offset).as_str();
-        }
+        let sql = format!("{}  order by id desc {}", sqlwhere.join(" and "), page.page_query().limit_sql().unwrap_or_default());
 
         let res = sqlx::query_as::<_, SenderTplConfigModel>(&sql_format!(
             "select * from {} where {}",
@@ -282,20 +277,18 @@ impl SenderTplConfig {
         let config_data = json!(config_data).to_string();
         let time = now_time().unwrap_or_default();
         let send_type = self.send_type as i8;
-        let add = lsys_core::model_option_set!(SenderTplConfigModelRef,{
-            name:name,
-            sender_type:send_type,
-            app_id:app_id,
-            tpl_key:tpl_key,
-            config_data:config_data,
-            change_time:time,
-            user_id:user_id,
-            change_user_id:add_user_id,
-            setting_id:setting_id,
-            status:SenderTplConfigStatus::Enable as i8,
-        });
 
-        let id = Insert::<SenderTplConfigModel, _>::new(add)
+        let id = Insert::<SenderTplConfigModel>::new()
+            .set(SenderTplConfigModel::NAME, &name)
+            .set(SenderTplConfigModel::SENDER_TYPE, send_type)
+            .set(SenderTplConfigModel::APP_ID, app_id)
+            .set(SenderTplConfigModel::TPL_KEY, &tpl_key)
+            .set(SenderTplConfigModel::CONFIG_DATA, &config_data)
+            .set(SenderTplConfigModel::CHANGE_TIME, time)
+            .set(SenderTplConfigModel::USER_ID, user_id)
+            .set(SenderTplConfigModel::CHANGE_USER_ID, add_user_id)
+            .set(SenderTplConfigModel::SETTING_ID, setting_id)
+            .set(SenderTplConfigModel::STATUS, SenderTplConfigStatus::Enable as i8)
             .execute(&self.db)
             .await
             .map(|e| e.last_insert_id())?;
@@ -331,14 +324,12 @@ impl SenderTplConfig {
             return Ok(0);
         }
         let time = now_time().unwrap_or_default();
-        let change = lsys_core::model_option_set!(SenderTplConfigModelRef,{
-            status:SenderTplConfigStatus::Delete as i8,
-            change_time:time,
-            change_user_id:user_id
-        });
-        let res = Update::<SenderTplConfigModel, _>::new(change)
-            .execute_by_where(
-                &WhereOption::Where(sql_format!("id={}", config.id)),
+        let res = Update::<SenderTplConfigModel>::new()
+            .set(SenderTplConfigModel::STATUS, SenderTplConfigStatus::Delete as i8)
+            .set(SenderTplConfigModel::CHANGE_TIME, time)
+            .set(SenderTplConfigModel::CHANGE_USER_ID, user_id)
+            .execute(
+                SqlSuffix::Where(&sql_format!("id={}", config.id)),
                 &self.db,
             )
             .await;

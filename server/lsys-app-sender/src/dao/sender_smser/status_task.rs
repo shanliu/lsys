@@ -11,7 +11,7 @@ use lsys_setting::dao::MultipleSetting;
 use lsys_lib_sms::SendNotifyStatus;
 use lsys_setting::model::SettingModel;
 
-use lsys_core::db::ModelTableName;
+use lsys_core::db::TableMeta;
 use lsys_core::db::SqlQuote;
 use lsys_core::sql_format;
 use lsys_lib_sms::SendDetailItem;
@@ -136,7 +136,7 @@ impl TaskAcquisition<u64, SmsStatusTaskItem> for SmsStatusTaskAcquisition {
                     .map_err(|e| e.to_string())?;
                 let mut out = Vec::with_capacity(limit);
                 let mut next = false;
-                while let Some(tmp) = iter.next_item().await {
+                while let Some(Ok(tmp)) = iter.next_item().await {
                     if items.contains(&tmp) {
                         continue;
                     }

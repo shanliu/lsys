@@ -18,11 +18,11 @@ use crate::{
     },
     model::RbacRoleResRange,
 };
-use lsys_core::db::ModelTableName;
+use lsys_core::db::OffsetPageParam;
 use lsys_core::db::SqlQuote;
+use lsys_core::db::TableMeta;
 use lsys_core::sql_format;
 use lsys_core::string_clear;
-use lsys_core::PageParam;
 use lsys_core::StringClear;
 use lsys_core::STRING_CLEAR_FORMAT;
 use serde::Serialize;
@@ -455,7 +455,7 @@ impl RbacAccess {
         // res_range_include: bool,
         // is_system: bool,
         // is_self: bool,
-        page: Option<&PageParam>,
+        page: &OffsetPageParam,
     ) -> RbacResult<Vec<AccessResUserRow>> {
         let field = r#"
         role.id as role_id,
@@ -482,13 +482,11 @@ impl RbacAccess {
         if sql.is_empty() {
             return Ok(vec![]);
         }
-        let mut sql = format!("select * (({})) as tmp", sql.join(") union all ("));
-        if let Some(pdat) = page {
-            sql = format!(
-                "select ({}) order by res_range asc limit {} offset {} ",
-                sql, pdat.limit, pdat.offset
-            )
-        };
+        let sql = format!(
+            "select (select * (({})) as tmp) order by res_range asc {}",
+            sql.join(") union all ("),
+            page.page_query().limit_sql().unwrap_or_default()
+        );
         Ok(sqlx::query(&sql)
             .try_map(|row: sqlx::mysql::MySqlRow| {
                 Ok(AccessResUserRow {
@@ -689,7 +687,7 @@ impl RbacAccess {
     pub async fn find_session_role_list_from_res(
         &self,
         param: &SessionUserListResData<'_>,
-        page: Option<&PageParam>,
+        page: &OffsetPageParam,
     ) -> RbacResult<Vec<AccessResRoleRow>> {
         let field = r#"
             role.id as role_id,
@@ -703,13 +701,11 @@ impl RbacAccess {
         if sql.is_empty() {
             return Ok(vec![]);
         }
-        let mut sql = format!("select * (({})) as tmp", sql.join(") union all ("));
-        if let Some(pdat) = page {
-            sql = format!(
-                "select ({}) order by res_range asc limit {} offset {} ",
-                sql, pdat.limit, pdat.offset
-            )
-        };
+        let sql = format!(
+            "select (select * (({})) as tmp) order by res_range asc {}",
+            sql.join(") union all ("),
+            page.page_query().limit_sql().unwrap_or_default()
+        );
         Ok(sqlx::query(&sql)
             .try_map(|row: sqlx::mysql::MySqlRow| {
                 Ok(AccessResRoleRow {

@@ -2,14 +2,13 @@ use crate::dao::result::RbacResult;
 use crate::model::{
     RbacOpModel, RbacOpResModel, RbacOpResStatus, RbacOpStatus, RbacPermModel, RbacPermStatus,
 };
-use lsys_core::{
-    impl_dao_fetch_one_by_one, string_clear, PageParam, StringClear, STRING_CLEAR_FORMAT,
-};
+use lsys_core::db::OffsetPageParam;
+use lsys_core::{impl_dao_fetch_one_by_one, string_clear, StringClear, STRING_CLEAR_FORMAT};
 use sqlx::Row;
 use std::collections::HashMap;
 use std::vec;
 
-use lsys_core::db::{ModelTableName, SqlExpr, SqlQuote};
+use lsys_core::db::{SqlExpr, SqlQuote, TableMeta};
 use lsys_core::sql_format;
 
 use super::RbacOp;
@@ -159,7 +158,7 @@ impl RbacOp {
         &self,
         op_param: &OpDataParam<'_>,
         op_attr: &OpDataAttrParam,
-        page: Option<&PageParam>,
+        page: &OffsetPageParam,
     ) -> RbacResult<Vec<(RbacOpModel, RbacOpInfoData)>> {
         let res = self.op_data(op_param, page).await?;
         let mut res_type_map: HashMap<u64, i64> = HashMap::new();
@@ -195,13 +194,15 @@ impl RbacOp {
     pub async fn op_data(
         &self,
         op_param: &OpDataParam<'_>,
-        page: Option<&PageParam>,
+        page: &OffsetPageParam,
     ) -> RbacResult<Vec<RbacOpModel>> {
         match self.op_sql("*", op_param) {
-            Some(mut sql) => {
-                if let Some(pdat) = page {
-                    sql += format!(" limit {} offset {}", pdat.limit, pdat.offset).as_str();
-                }
+            Some(sql) => {
+                let sql = format!(
+                    "{} order by id desc {}",
+                    sql,
+                    page.page_query().limit_sql().unwrap_or_default()
+                );
                 Ok(sqlx::query_as::<_, RbacOpModel>(&sql)
                     .fetch_all(&self.db)
                     .await?)

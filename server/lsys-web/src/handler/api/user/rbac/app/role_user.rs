@@ -1,16 +1,23 @@
 use super::app_check_get;
+
 use crate::common::JsonData;
+use crate::common::JsonError;
 use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::LimitParam;
 use crate::common::PageParam;
+use crate::common::ToCursorPageParam;
+use crate::common::ToOffsetPageParam;
 use crate::common::UserAuthQueryDao;
 use lsys_access::dao::AccessSession;
 use lsys_access::dao::UserDataParam;
 use lsys_access::dao::UserInfo;
+use lsys_core::db::CursorPageSort;
+use lsys_core::fluent_message;
 use lsys_rbac::dao::RoleAddUser;
 use serde::Deserialize;
 use serde_json::json;
+
 #[derive(Debug, Deserialize)]
 pub struct AppRoleUserItemParam {
     #[serde(deserialize_with = "crate::common::deserialize_bool")]
@@ -100,6 +107,9 @@ pub async fn app_role_user_del(
 
     let mut user_id_data = vec![];
     for tmp in &param.user_data {
+        if role.app_id == 0 {
+            return Err(JsonError::Message(fluent_message!("rbac-role-no-app")));
+        }
         let user_info = req_dao
             .web_dao
             .web_access
@@ -153,11 +163,7 @@ pub async fn app_role_user_data(
         .web_rbac
         .rbac_dao
         .role
-        .role_user_data(
-            &role,
-            param.all,
-            param.page.as_ref().map(|e| e.into()).as_ref(),
-        )
+        .role_user_data(&role, param.all, &param.page.to_offset_page_param())
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
@@ -205,7 +211,10 @@ pub async fn app_role_user_available(
         .web_access
         .access_dao
         .user
-        .user_data(&user_param, param.limit.as_ref().map(|e| e.into()).as_ref())
+        .user_data(
+            &user_param,
+            &param.limit.to_u64_cursor_page_param(CursorPageSort::Desc),
+        )
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
@@ -223,7 +232,8 @@ pub async fn app_role_user_available(
     let out_res = res.into_iter().map(UserInfo::from).collect::<Vec<_>>();
     Ok(JsonResponse::data(JsonData::body(json!({
         "data":out_res,
-        "next":next,
+        "next_cursor":next.next_cursor,
+        "prev_cursor":next.prev_cursor,
         "total":count
     }))))
 }

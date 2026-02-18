@@ -1,4 +1,4 @@
-use crate::common::{JsonData, PageParam};
+use crate::common::{JsonData, PageParam, ToOffsetPageParam};
 use crate::common::{JsonResponse, JsonResult, UserAuthQueryDao};
 use crate::dao::access::api::system::user::CheckUserAppSenderSmsConfig;
 use crate::dao::access::RbacAccessCheckEnv;
@@ -7,6 +7,7 @@ use lsys_app::dao::UserAppDataParam;
 use lsys_app::model::AppStatus;
 use lsys_app_sender::dao::SMS_NOTIFY_METHOD;
 use lsys_app_sender::model::SenderSmsConfigType;
+use lsys_core::db::OffsetPageParam;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -199,7 +200,12 @@ pub async fn smser_notify_get_config(req_dao: &UserAuthQueryDao) -> JsonResult<J
         .web_app
         .app_dao
         .app
-        .user_app_info(auth_data.user_id(), &app_param, None, None)
+        .user_app_info(
+            auth_data.user_id(),
+            &app_param,
+            None,
+            &OffsetPageParam::new(None),
+        )
         .await?;
     let notify = req_dao
         .web_dao
@@ -319,7 +325,7 @@ pub async fn smser_tpl_config_list(
             param.app_id,
             param.tpl.as_deref(),
             param.like_tpl.as_deref(),
-            param.page.as_ref().map(|e| e.into()).as_ref(),
+            &param.page.to_offset_page_param(),
         )
         .await?;
     let app_data = if param.app_info.unwrap_or(false) && !tpl_data.is_empty() {

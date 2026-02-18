@@ -42,6 +42,12 @@ impl Config {
                     crate_configs.insert(item.to_string(), crate_config.build()?);
                 }
             }
+            #[cfg(not(feature = "tokio"))]
+            None => match std::fs::read_dir(path.as_ref()) {
+                Ok(_) => todo!(),
+                Err(_) => todo!(),
+            },
+            #[cfg(feature = "tokio")]
             None => match tokio::fs::read_dir(path.as_ref()).await {
                 Ok(mut dir) => {
                     while let Some(fileentry) = dir.next_entry().await? {

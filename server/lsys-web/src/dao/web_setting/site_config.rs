@@ -9,7 +9,7 @@ use lsys_setting::dao::{
 };
 use serde::Serialize;
 
-use crate::common::JsonResult;
+use crate::dao::WebResult;
 
 use super::WebSetting;
 
@@ -46,7 +46,7 @@ impl WebSetting {
         session_body: &SessionBody,
         param: &SiteConfigData<'_>,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<()> {
+    ) -> WebResult<()> {
         let mut transaction = self.db.begin().await?;
         if let Err(e) = self
             .setting_dao

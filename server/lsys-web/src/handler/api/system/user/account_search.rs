@@ -1,10 +1,11 @@
-use crate::common::JsonData;
+use crate::common::{JsonData, ToCursorPageParam};
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonResponse, JsonResult, LimitParam, UserAuthQueryDao},
     dao::{access::api::system::admin::CheckAdminUserManage, AccountOptionData},
 };
 use lsys_access::dao::AccessSession;
+use lsys_core::db::CursorPageSort;
 use lsys_user::model::{
     AccountAddressModel, AccountEmailModel, AccountEmailStatus, AccountExternalModel,
     AccountIndexCat, AccountInfoModel, AccountMobileModel, AccountMobileStatus, AccountModel,
@@ -95,10 +96,11 @@ pub async fn account_search(
         .search(
             &param.key_word.to_owned().unwrap_or_default(),
             param.enable,
-            param.limit.as_ref().map(|e| e.into()).as_ref(),
+            &param.limit.to_u64_cursor_page_param(CursorPageSort::Desc),
         )
         .await?;
-    let next = user.1;
+    let next_cursor = user.1.next_cursor;
+    let prev_cursor = user.1.prev_cursor;
 
     let user_data = req_dao
         .web_dao
@@ -164,7 +166,8 @@ pub async fn account_search(
     }
     Ok(JsonResponse::data(JsonData::body(json!({
         "data": out,
-        "next": next
+        "next_cursor": next_cursor,
+        "prev_cursor": prev_cursor
     }))))
 }
 

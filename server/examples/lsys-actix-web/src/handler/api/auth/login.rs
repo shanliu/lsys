@@ -7,6 +7,7 @@ use actix_web::post;
 use jsonwebtoken::{encode, EncodingKey, Header};
 use lsys_web::const_json_format;
 use lsys_web::lsys_core::fluent_message;
+// use lsys_web::lsys_core::IntoFluentMessage;
 use lsys_web::lsys_user::dao::UserAuthToken;
 
 use lsys_web::common::{JsonData, JsonError, JsonResponse, JsonResult};
@@ -19,10 +20,12 @@ use lsys_web::handler::api::auth::user_login_from_mobile;
 use lsys_web::handler::api::auth::user_login_from_mobile_code;
 use lsys_web::handler::api::auth::user_login_from_name;
 use lsys_web::handler::api::auth::user_login_mobile_send_code;
+use lsys_web::handler::api::auth::user_mfa_verify;
 use lsys_web::handler::api::auth::AppCodeLoginParam;
 use lsys_web::handler::api::auth::EmailCodeLoginParam;
 use lsys_web::handler::api::auth::EmailLoginParam;
 use lsys_web::handler::api::auth::EmailSendCodeLoginParam;
+use lsys_web::handler::api::auth::MfaVerifyParam;
 use lsys_web::handler::api::auth::MobileCodeLoginParam;
 use lsys_web::handler::api::auth::MobileLoginParam;
 use lsys_web::handler::api::auth::MobileSendCodeLoginParam;
@@ -95,39 +98,68 @@ pub(crate) async fn login(
                 .await
         }
         e => {
-            let (token, data) = match e {
-                "name" => {
-                    user_login_from_name(&json_param.param::<NameLoginParam>()?, &auth_dao).await
+            match e {
+                "mfa-verify" => {
+                    let (token, data) =
+                        user_mfa_verify(&json_param.param::<MfaVerifyParam>()?, &auth_dao)
+                            .await
+                            .map_err(|e| auth_dao.fluent_error_json_response(&e))?;
+                    jwt_login_data(&auth_dao, token, data).await
                 }
-                "sms" => {
-                    user_login_from_mobile(&json_param.param::<MobileLoginParam>()?, &auth_dao)
-                        .await
+                _ => {
+                    let (token, auth_data) = match e {
+                        "name" => {
+                            user_login_from_name(&json_param.param::<NameLoginParam>()?, &auth_dao)
+                                .await
+                        }
+                        "sms" => {
+                            user_login_from_mobile(
+                                &json_param.param::<MobileLoginParam>()?,
+                                &auth_dao,
+                            )
+                            .await
+                        }
+                        "email" => {
+                            user_login_from_email(
+                                &json_param.param::<EmailLoginParam>()?,
+                                &auth_dao,
+                            )
+                            .await
+                        }
+                        "sms-code" => {
+                            user_login_from_mobile_code(
+                                &json_param.param::<MobileCodeLoginParam>()?,
+                                &auth_dao,
+                            )
+                            .await
+                        }
+                        "email-code" => {
+                            user_login_from_email_code(
+                                &json_param.param::<EmailCodeLoginParam>()?,
+                                &auth_dao,
+                            )
+                            .await
+                        }
+                        "app-code" => {
+                            // code login remains single-phase
+                            let (token, data) = user_login_from_app_code(
+                                &json_param.param::<AppCodeLoginParam>()?,
+                                &auth_dao,
+                            )
+                            .await
+                            .map_err(|e| auth_dao.fluent_error_json_response(&e))?;
+                            return Ok(jwt_login_data(&auth_dao, token, data)
+                                .await
+                                .map_err(|e| auth_dao.fluent_error_json_response(&e))?
+                                .into());
+                        }
+                        name => handler_not_found!(name),
+                    }
+                    .map_err(|e| auth_dao.fluent_error_json_response(&e))?;
+
+                    jwt_login_data(&auth_dao, token, auth_data).await
                 }
-                "email" => {
-                    user_login_from_email(&json_param.param::<EmailLoginParam>()?, &auth_dao).await
-                }
-                "sms-code" => {
-                    user_login_from_mobile_code(
-                        &json_param.param::<MobileCodeLoginParam>()?,
-                        &auth_dao,
-                    )
-                    .await
-                }
-                "email-code" => {
-                    user_login_from_email_code(
-                        &json_param.param::<EmailCodeLoginParam>()?,
-                        &auth_dao,
-                    )
-                    .await
-                }
-                "app-code" => {
-                    user_login_from_app_code(&json_param.param::<AppCodeLoginParam>()?, &auth_dao)
-                        .await
-                }
-                name => handler_not_found!(name),
             }
-            .map_err(|e| auth_dao.fluent_error_json_response(&e))?;
-            jwt_login_data(&auth_dao, token, data).await
         }
     };
     Ok(res
@@ -301,13 +333,13 @@ pub async fn external_state_check(
                 .await
                 .map_err(|e| auth_dao.fluent_error_json_response(&e))?;
             if let Some(ldat) = login_data {
-                let (token, data) =
-                    user_login_from_external::<WechatLogin, WechatLoginParam, _, _>(
-                        &wechat, &ldat, 0, &auth_dao,
-                    )
-                    .await
-                    .map_err(|e| auth_dao.fluent_error_json_response(&e))?;
-                jwt_login_data(&auth_dao, token, data).await
+                let (token, auth_data) = user_login_from_external::<WechatLogin, WechatLoginParam, _, _>(
+                    &wechat, &ldat, 0, &auth_dao,
+                )
+                .await
+                .map_err(|e| auth_dao.fluent_error_json_response(&e))?;
+
+                jwt_login_data(&auth_dao, token, auth_data).await
             } else {
                 Ok(JsonResponse::data(JsonData::body(
                     json!({ "reload": reload }),

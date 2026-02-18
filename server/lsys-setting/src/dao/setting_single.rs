@@ -1,8 +1,8 @@
-use crate::model::{SettingModel, SettingModelRef, SettingStatus, SettingType};
+use crate::model::{SettingModel, SettingStatus, SettingType};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::db::{Insert, ModelTableName, SqlQuote, Update, WhereOption};
+use lsys_core::db::{query_string_field_max, Insert, SqlQuote, SqlSuffix, TableMeta, Update};
 use lsys_core::{
-    db_option_executor, model_option_set, sql_format, string_clear, valid_key, StringClear,
+    db_option_executor, sql_format, string_clear, valid_key, StringClear,
     ValidParam, ValidParamCheck, ValidPattern, ValidStrlen, STRING_CLEAR_FORMAT,
 };
 use lsys_core::{now_time, RemoteNotify, RequestEnv};
@@ -39,27 +39,37 @@ pub struct SingleSettingData<'t, T: SettingEncode> {
 }
 impl SingleSetting {
     async fn save_param_valid(&self, key: &str, name: &str, data: &str) -> SettingResult<()> {
+        let setting_key_max = query_string_field_max::<SettingModel>(&self.db, &SettingModel::SETTING_KEY)
+            .await
+            .len_or(32);
+        let name_max = query_string_field_max::<SettingModel>(&self.db, &SettingModel::NAME)
+            .await
+            .len_or(32);
+        let setting_data_max = query_string_field_max::<SettingModel>(&self.db, &SettingModel::SETTING_DATA)
+            .await
+            .len_or(60000);
+
         ValidParam::default()
             .add(
                 valid_key!("setting_key"),
                 &key,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::Ident)
-                    .add_rule(ValidStrlen::range(1, 32)),
+                    .add_rule(ValidStrlen::range(1, setting_key_max)),
             )
             .add(
                 valid_key!("setting_name"),
                 &name,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)
-                    .add_rule(ValidStrlen::range(1, 32)),
+                    .add_rule(ValidStrlen::range(1, name_max)),
             )
             .add(
                 valid_key!("setting_data"),
                 &data,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)
-                    .add_rule(ValidStrlen::range(1, 60000)),
+                    .add_rule(ValidStrlen::range(1, setting_data_max)),
             )
             .check()?;
         Ok(())
@@ -95,20 +105,18 @@ impl SingleSetting {
             Err(sqlx::Error::RowNotFound) => {
                 let setting_type = SettingType::Single as i8;
                 let status = SettingStatus::Enable as i8;
-                let new_data = model_option_set!(SettingModelRef,{
-                    setting_type:setting_type,
-                    setting_key: key,
-                    setting_data: edata,
-                    user_id: uid,
-                    name:name,
-                    status: status,
-                    change_user_id: change_user_id,
-                    change_time: time,
-                });
                 let dat = db_option_executor!(
                     db,
                     {
-                        Insert::<SettingModel, _>::new(new_data)
+                        Insert::<SettingModel>::new()
+                            .set(SettingModel::SETTING_TYPE, setting_type)
+                            .set(SettingModel::SETTING_KEY, &key)
+                            .set(SettingModel::SETTING_DATA, &edata)
+                            .set(SettingModel::USER_ID, uid)
+                            .set(SettingModel::NAME, &name)
+                            .set(SettingModel::STATUS, status)
+                            .set(SettingModel::CHANGE_USER_ID, change_user_id)
+                            .set(SettingModel::CHANGE_TIME, time)
                             .execute(db.as_executor())
                             .await?
                     },
@@ -119,20 +127,15 @@ impl SingleSetting {
                 dat.last_insert_id()
             }
             Ok(set) => {
-                let change = lsys_core::model_option_set!(SettingModelRef,{
-                    setting_data: edata,
-                    name:name,
-                    change_user_id: change_user_id,
-                    change_time: time,
-                });
                 db_option_executor!(
                     db,
                     {
-                        Update::<SettingModel, _>::new(change)
-                            .execute_by_where(
-                                &WhereOption::Where(sql_format!("id={}", set.id)),
-                                db.as_executor(),
-                            )
+                        Update::<SettingModel>::new()
+                            .set(SettingModel::SETTING_DATA, &edata)
+                            .set(SettingModel::NAME, &name)
+                            .set(SettingModel::CHANGE_USER_ID, change_user_id)
+                            .set(SettingModel::CHANGE_TIME, time)
+                            .execute(SqlSuffix::Where(&sql_format!("id={}", set.id)), db.as_executor())
                             .await?;
                     },
                     transaction,

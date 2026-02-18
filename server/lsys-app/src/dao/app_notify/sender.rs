@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use lsys_core::{db::ModelTableName, sql_format, IntoFluentMessage, TaskNotify};
+use lsys_core::{db::TableMeta, sql_format, IntoFluentMessage, TaskNotify};
 use sqlx::Pool;
 use tracing::{info, warn};
 

@@ -1,12 +1,13 @@
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
-    common::{JsonData, JsonResponse, JsonResult, LimitParam, UserAuthQueryDao},
+    common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao},
     dao::access::api::system::admin::{CheckAdminRbacEdit, CheckAdminRbacView},
 };
 use lsys_access::dao::{AccessSession, UserDataParam, UserInfo};
+use lsys_core::db::CursorPageSort;
 use serde_json::json;
-use crate::dao::access::RbacAccessCheckEnv;
 
-use crate::common::{JsonError, PageParam};
+use crate::common::{JsonError, LimitParam, PageParam, ToCursorPageParam, ToOffsetPageParam};
 use lsys_core::fluent_message;
 use lsys_rbac::dao::RoleAddUser;
 use serde::Deserialize;
@@ -35,7 +36,10 @@ pub async fn role_user_add(
     req_dao
         .web_dao
         .web_rbac
-        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminRbacEdit {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminRbacEdit {},
+        )
         .await?;
 
     let role = req_dao
@@ -122,7 +126,10 @@ pub async fn role_user_del(
     req_dao
         .web_dao
         .web_rbac
-        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminRbacEdit {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminRbacEdit {},
+        )
         .await?;
     let role = req_dao
         .web_dao
@@ -167,7 +174,10 @@ pub async fn role_user_data(
     req_dao
         .web_dao
         .web_rbac
-        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminRbacView {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminRbacView {},
+        )
         .await?;
 
     let role = req_dao
@@ -182,11 +192,7 @@ pub async fn role_user_data(
         .web_rbac
         .rbac_dao
         .role
-        .role_user_data(
-            &role,
-            param.all,
-            param.page.as_ref().map(|e| e.into()).as_ref(),
-        )
+        .role_user_data(&role, param.all, &param.page.to_offset_page_param())
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
@@ -227,7 +233,10 @@ pub async fn role_user_available(
     req_dao
         .web_dao
         .web_rbac
-        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminRbacEdit {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminRbacEdit {},
+        )
         .await?;
     let user_param = UserDataParam {
         app_id: Some(0),
@@ -240,7 +249,10 @@ pub async fn role_user_available(
         .web_access
         .access_dao
         .user
-        .user_data(&user_param, param.limit.as_ref().map(|e| e.into()).as_ref())
+        .user_data(
+            &user_param,
+            &param.limit.to_u64_cursor_page_param(CursorPageSort::Desc),
+        )
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
@@ -258,7 +270,8 @@ pub async fn role_user_available(
     let out_res = res.into_iter().map(UserInfo::from).collect::<Vec<_>>();
     Ok(JsonResponse::data(JsonData::body(json!({
         "data":out_res,
-        "next":next,
+        "next_cursor":next.next_cursor,
+        "prev_cursor":next.prev_cursor,
         "total":count
     }))))
 }

@@ -56,17 +56,6 @@ where
         );
 
     let mut system_scope = scope("/system");
-
-    #[cfg(feature = "barcode")]
-    {
-        app = {
-            app.service(
-                scope("/barcode")
-                    .service(public::app::show_code)
-                    .service(public::options),
-            )
-        };
-    }
     system_scope = system_scope
         .service(
             scope("/user")
@@ -94,6 +83,11 @@ where
                 .service(system::rbac::role)
                 .service(public::options),
         )
+        .service(
+            scope("/file")
+                .service(system::file)
+                .service(public::options),
+        )
         .service(public::options);
     api_scope = api_scope.service(system_scope);
     let mut user_scope = scope("/user");
@@ -107,6 +101,7 @@ where
                 .service(public::options),
         )
         .service(scope("/base").service(user::base).service(public::options))
+        .service(scope("/mfa").service(user::mfa).service(public::options))
         .service(
             scope("/rbac")
                 .service(user::rbac::base)
@@ -132,15 +127,13 @@ where
             scope("/app")
                 .service(user::app::base)
                 .service(public::options),
-        );
-    #[cfg(feature = "barcode")]
-    {
-        user_scope = user_scope.service(
-            scope("/app_barcode")
-                .service(user::app::barcode)
+        )
+        .service(
+            scope("/file")
+                .service(user::file_upload_data)
+                .service(user::file)
                 .service(public::options),
         );
-    }
     api_scope = api_scope.service(user_scope).service(public::options);
     app.service(api_scope)
 }

@@ -6,7 +6,7 @@ use lsys_user::{
     },
 };
 
-use crate::common::JsonResult;
+use crate::dao::WebResult;
 
 use super::WebUserAccount;
 macro_rules! list_data_status_filter {
@@ -26,7 +26,7 @@ macro_rules! list_data_status_filter {
 
 impl WebUserAccount {
     //用户地址列表
-    pub async fn user_address(&self, id: u64) -> JsonResult<Vec<AccountAddressModel>> {
+    pub async fn user_address(&self, id: u64) -> WebResult<Vec<AccountAddressModel>> {
         Ok(self
             .user_dao
             .account_dao
@@ -40,7 +40,7 @@ impl WebUserAccount {
         &self,
         id: u64,
         status: Option<&[AccountMobileStatus]>,
-    ) -> JsonResult<Vec<AccountMobileModel>> {
+    ) -> WebResult<Vec<AccountMobileModel>> {
         let mut tmp = self
             .user_dao
             .account_dao
@@ -61,7 +61,7 @@ impl WebUserAccount {
         &self,
         id: u64,
         status: Option<&[AccountEmailStatus]>,
-    ) -> JsonResult<Vec<AccountEmailModel>> {
+    ) -> WebResult<Vec<AccountEmailModel>> {
         let mut tmp = self
             .user_dao
             .account_dao
@@ -81,7 +81,7 @@ impl WebUserAccount {
         &self,
         id: u64,
         oauth_type: Option<&[&str]>,
-    ) -> JsonResult<Vec<AccountExternalModel>> {
+    ) -> WebResult<Vec<AccountExternalModel>> {
         let mut res = self
             .user_dao
             .account_dao
@@ -117,7 +117,7 @@ impl WebUserAccount {
         &self,
         id: u64,
         data_option: &AccountOptionData<'_>,
-    ) -> JsonResult<(
+    ) -> WebResult<(
         Option<AccountModel>,
         Option<AccountNameModel>,
         Option<AccountInfoModel>,

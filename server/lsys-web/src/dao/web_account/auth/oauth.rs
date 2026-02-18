@@ -1,11 +1,10 @@
 //统一ouath登陆及已登陆账号的oauth绑定
 use super::{AccountRegData, WebUserAuth};
-use crate::common::{JsonError, JsonResult};
 use crate::dao::{OauthCallbackParam, OauthLogin, OauthLoginData, OauthLoginParam};
-use lsys_core::model_option_set;
+use crate::dao::{WebError, WebResult};
 use lsys_core::{fluent_message, RequestEnv};
-use lsys_user::dao::AccountError;
-use lsys_user::model::{AccountExternalModel, AccountExternalStatus, AccountInfoModelRef};
+use lsys_user::dao::{AccountError, AccountInfoParam};
+use lsys_user::model::{AccountExternalModel, AccountExternalStatus};
 use serde::Serialize;
 
 impl WebUserAuth {
@@ -19,11 +18,11 @@ impl WebUserAuth {
         &self,
         oauth: &T,
         param: &L,
-    ) -> JsonResult<String> {
+    ) -> WebResult<String> {
         let url = oauth
             .login_url(param)
             .await
-            .map_err(|e| JsonError::Message(fluent_message!("user-external-login-url", e)))?;
+            .map_err(|e| WebError::Message(fluent_message!("user-external-login-url", e)))?;
         Ok(url)
     }
     //得到外部数据转为内部AccountExternalModel
@@ -38,11 +37,11 @@ impl WebUserAuth {
         param: &P,
         op_user_id: u64,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<(AccountExternalModel, OauthLoginData, D)> {
+    ) -> WebResult<(AccountExternalModel, OauthLoginData, D)> {
         let (data, ext_data) = oauth
             .login_callback(param)
             .await
-            .map_err(|e| JsonError::Message(fluent_message!("user-external-call", e)))?;
+            .map_err(|e| WebError::Message(fluent_message!("user-external-call", e)))?;
         let user_ext_rs = self
             .user_dao
             .account_dao
@@ -68,18 +67,11 @@ impl WebUserAuth {
         };
         let user_ext = match ext_op {
             None => {
-                let reg_from = format!("oauth-{}", data.external_type);
-                let reg_op = env_data
-                    .map(|e| e.request_id.as_ref().map(|e| e.to_string()))
-                    .unwrap_or_default()
+                let reg_ip = env_data
+                    .map(|e| e.request_ip.clone().unwrap_or_default())
                     .unwrap_or_default();
-                let mut info = model_option_set!(AccountInfoModelRef,{
-                    reg_ip:reg_op,
-                    reg_from:reg_from,
-                });
-                if let Some(ref img) = data.external_pic {
-                    info.headimg = Some(img);
-                }
+                let reg_from = format!("oauth-{}", data.external_type);
+                
                 let user = self
                     .reg_user(
                         &AccountRegData {
@@ -95,7 +87,12 @@ impl WebUserAuth {
                                 data.external_id.as_str(),
                                 data.external_name.as_str(),
                             )),
-                            info: Some(info),
+                            info_param: Some(AccountInfoParam {
+                                reg_ip: Some(&reg_ip),
+                                reg_from: Some(&reg_from),
+                                headimg: data.external_pic.as_deref(),
+                                ..Default::default()
+                            }),
                         },
                         op_user_id,
                         env_data,
@@ -147,11 +144,11 @@ impl WebUserAuth {
         account_id: u64,
         op_user_id: u64,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<(AccountExternalModel, OauthLoginData, D)> {
+    ) -> WebResult<(AccountExternalModel, OauthLoginData, D)> {
         let (param, ext_data) = oauth
             .login_callback(param)
             .await
-            .map_err(|e| JsonError::Message(fluent_message!("user-external-call", e)))?;
+            .map_err(|e| WebError::Message(fluent_message!("user-external-bind", e)))?;
         let user_external = &self.user_dao.account_dao.account_external;
         let extdata = user_external
             .find_by_external(&param.config_name, &param.external_type, &param.external_id)
@@ -160,11 +157,10 @@ impl WebUserAuth {
             Ok(ext) => {
                 if AccountExternalStatus::Enable.eq(ext.status) {
                     if ext.account_id != account_id {
-                        return Err(JsonError::Message(
-                            fluent_message!("user-external-other-bind",
-                                {"name":ext.external_name,"id":ext.account_id }
-                            ),
-                        )); //"this account {$name} bind on other account[{$id}]",
+                        return Err(WebError::Message(fluent_message!(
+                            "user-external-other-bind",
+                            {"name":ext.external_name,"id":ext.account_id }
+                        ))); //"this account {$name} bind on other account[{$id}]",
                     }
                     Some(ext)
                 } else {

@@ -6,14 +6,14 @@ edition = "2021"
 
 [dependencies]
 
-lsys-core = { path = "../lsys-core" }
+lsys-core = { path = "../lsys-core", features = ["db", "redis"] }
 lsys-logger = { path = "../lsys-logger" }
 sqlx = { version = "~0.8.6", features = ["mysql", "runtime-tokio-native-tls"] }
 
 
-tokio = { version = "~1.46.0", features = ["macros"] }
-deadpool-redis = { version = "~0.21.0" }
-redis = { version = "~0.31.0" }
+tokio = { version = "~1.49.0", features = ["macros"] }
+deadpool-redis = { version = "~0.22.1" }
+redis = { version = "~0.32.0" }
 
 serde = { version = "1.0.*" }
 serde_json = "1.0.*"

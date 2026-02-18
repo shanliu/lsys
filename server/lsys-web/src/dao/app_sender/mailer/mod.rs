@@ -3,8 +3,7 @@ mod app;
 use lsys_access::dao::SessionBody;
 use lsys_app_sender::{
     dao::{
-        MailSenderConfig, MailSenderDao, MessageTpls, SenderError, SenderResult, SenderSmtpConfig,
-        SmtpSenderTask,
+        MailSenderConfig, MailSenderDao, MessageTpls, SenderError, SenderSmtpConfig, SmtpSenderTask,
     },
     model::{SenderMailBodyModel, SenderMailMessageModel},
 };
@@ -15,7 +14,7 @@ use sqlx::{MySql, Pool};
 use std::sync::Arc;
 use tera::Context;
 
-use crate::common::{JsonError, JsonResult};
+use crate::dao::{WebError, WebResult};
 
 use super::logger::MessageView;
 
@@ -61,7 +60,7 @@ impl SenderMailer {
         code: &str,
         ttl: &usize,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<()> {
+    ) -> WebResult<()> {
         let mut context = Context::new();
         context.insert("code", code);
         context.insert("ttl", ttl);
@@ -83,7 +82,7 @@ impl SenderMailer {
         body: &str,
         max_try_num: Option<u8>,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<u64> {
+    ) -> WebResult<u64> {
         let mut out = self
             .mailer_dao
             .send(
@@ -105,7 +104,7 @@ impl SenderMailer {
                 tmp1.0
             }
             None => {
-                return Err(JsonError::Message(fluent_message!(
+                return Err(WebError::Message(fluent_message!(
                     "mail-send-check",
                     "unkown error"
                 )))
@@ -113,9 +112,9 @@ impl SenderMailer {
         })
     }
     // 后台任务
-    pub async fn task_sender(&self) -> SenderResult<()> {
+    pub async fn task_sender(&self) -> WebResult<()> {
         let task = SmtpSenderTask::new(self.tpls.clone());
-        self.mailer_dao.task_sender(vec![Box::new(task)]).await
+        Ok(self.mailer_dao.task_sender(vec![Box::new(task)]).await?)
     }
     // 后台任务
     pub async fn task_wait(&self) {
@@ -132,7 +131,7 @@ impl SenderMailer {
         message: &[&SenderMailMessageModel],
         user_id: u64,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<Vec<(u64, bool, Option<SenderError>)>> {
+    ) -> WebResult<Vec<(u64, bool, Option<SenderError>)>> {
         Ok(self
             .mailer_dao
             .cancal_from_message(body, message, user_id, env_data)
@@ -145,7 +144,7 @@ impl SenderMailer {
         body: &SenderMailBodyModel,
         session_body: &SessionBody,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<()> {
+    ) -> WebResult<()> {
         self.logger
             .add(
                 &MessageView {

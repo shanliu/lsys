@@ -9,7 +9,7 @@ use lsys_core::{
     fluent_message, valid_key, RemoteNotify, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
 };
 
-use crate::model::{RbacOpModel, RbacOpModelRef, RbacOpStatus};
+use crate::model::{RbacOpModel, RbacOpStatus};
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{MySql, Pool};
 use std::sync::Arc;
@@ -17,8 +17,8 @@ use std::vec;
 
 use lsys_core::{now_time, RequestEnv};
 
-use lsys_core::db::{Insert, ModelTableName, SqlQuote, Update, WhereOption};
-use lsys_core::{db_option_executor, model_option_set, sql_format};
+use lsys_core::db::{query_string_field_max, Insert, TableMeta, SqlQuote, SqlSuffix, Update};
+use lsys_core::{db_option_executor, sql_format};
 use sqlx::{Acquire, Transaction};
 
 use super::res::RbacRes;
@@ -67,20 +67,27 @@ pub struct RbacOpAddData<'t> {
 
 impl RbacOp {
     async fn op_param_valid(&self, param: &RbacOpData<'_>) -> RbacResult<()> {
+        let op_key_max = query_string_field_max::<RbacOpModel>(&self.db, &RbacOpModel::OP_KEY)
+            .await
+            .len_or(32);
+        let op_name_max = query_string_field_max::<RbacOpModel>(&self.db, &RbacOpModel::OP_NAME)
+            .await
+            .len_or(32);
+
         ValidParam::default()
             .add(
                 valid_key!("op_key"),
                 &param.op_key,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::Ident)
-                    .add_rule(ValidStrlen::range(1, 32)),
+                    .add_rule(ValidStrlen::range(1, op_key_max)),
             )
             .add(
                 valid_key!("op_name"),
                 &param.op_key,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)
-                    .add_rule(ValidStrlen::range(0, 32)),
+                    .add_rule(ValidStrlen::range(0, op_name_max)),
             )
             .check()?;
         Ok(())
@@ -118,30 +125,26 @@ impl RbacOp {
             Err(sqlx::Error::RowNotFound) => {
                 let app_id = param.app_id.unwrap_or_default();
                 let time = now_time().unwrap_or_default();
-                let idata = model_option_set!(RbacOpModelRef,{
-                    op_key:op_key,
-                    op_name:op_name,
-                    user_id:param.user_id,
-                    app_id:app_id,
-                    change_time:time,
-                    change_user_id:add_user_id,
-                    status:(RbacOpStatus::Enable as i8),
-                });
-                let other_change = model_option_set!(RbacOpModelRef,{
-                    change_time:time,
-                    change_user_id:add_user_id,
-                    status:(RbacOpStatus::Enable as i8),
-                });
                 let id = db_option_executor!(
                     db,
                     {
-                        let res = Insert::<RbacOpModel, _>::new(idata)
+                        let res = Insert::<RbacOpModel>::new()
+                            .set(RbacOpModel::OP_KEY, &op_key)
+                            .set(RbacOpModel::OP_NAME, &op_name)
+                            .set(RbacOpModel::USER_ID, param.user_id)
+                            .set(RbacOpModel::APP_ID, app_id)
+                            .set(RbacOpModel::CHANGE_TIME, time)
+                            .set(RbacOpModel::CHANGE_USER_ID, add_user_id)
+                            .set(RbacOpModel::STATUS, RbacOpStatus::Enable as i8)
                             .execute(db.as_executor())
                             .await?;
                         let add_id = res.last_insert_id();
-                        Update::<RbacOpModel, _>::new(other_change)
-                            .execute_by_where(
-                                &WhereOption::Where(sql_format!(
+                        Update::<RbacOpModel>::new()
+                            .set(RbacOpModel::CHANGE_TIME, time)
+                            .set(RbacOpModel::CHANGE_USER_ID, add_user_id)
+                            .set(RbacOpModel::STATUS, RbacOpStatus::Enable as i8)
+                            .execute(
+                                SqlSuffix::Where(&sql_format!(
                                 "user_id={} and op_key={} and  app_id={} and status={} and id!={}",
                                 param.user_id,
                                 op_key,
@@ -224,20 +227,23 @@ impl RbacOp {
         let op_key = op_info.op_key.to_string();
         let opt_name = op_info.op_name.map(|e| e.to_owned());
         let time = now_time().unwrap_or_default();
-        let mut change = lsys_core::model_option_set!(RbacOpModelRef,{
-            change_user_id:change_user_id,
-            change_time:time,
-        });
         let opt_key = Some(op_key);
-        change.op_key = opt_key.as_ref();
-        change.op_name = opt_name.as_ref();
         let db = &self.db;
         let fout = db_option_executor!(
             db,
             {
-                let out = Update::<RbacOpModel, _>::new(change)
-                    .execute_by_where(
-                        &WhereOption::Where(sql_format!("id={}", op.id)),
+                let mut update = Update::<RbacOpModel>::new()
+                    .set(RbacOpModel::CHANGE_USER_ID, change_user_id)
+                    .set(RbacOpModel::CHANGE_TIME, time);
+                if let Some(ref key) = opt_key {
+                    update = update.set(RbacOpModel::OP_KEY, key as &str);
+                }
+                if let Some(ref name) = opt_name {
+                    update = update.set(RbacOpModel::OP_NAME, name as &str);
+                }
+                let out = update
+                    .execute(
+                        SqlSuffix::Where(&sql_format!("id={}", op.id)),
                         db.as_executor(),
                     )
                     .await?;
@@ -295,14 +301,12 @@ impl RbacOp {
         };
 
         let time = now_time().unwrap_or_default();
-        let change = lsys_core::model_option_set!(RbacOpModelRef,{
-            change_user_id:delete_user_id,
-            change_time:time,
-            status:(RbacOpStatus::Delete as i8)
-        });
 
-        let tmp = Update::<RbacOpModel, _>::new(change)
-            .execute_by_where(&WhereOption::Where(sql_format!("id={}", op.id)), &mut *db)
+        let tmp = Update::<RbacOpModel>::new()
+            .set(RbacOpModel::CHANGE_USER_ID, delete_user_id)
+            .set(RbacOpModel::CHANGE_TIME, time)
+            .set(RbacOpModel::STATUS, RbacOpStatus::Delete as i8)
+            .execute(SqlSuffix::Where(&sql_format!("id={}", op.id)), &mut *db)
             .await;
         if let Err(e) = tmp {
             db.rollback().await?;

@@ -1,4 +1,5 @@
-use crate::common::{JsonData, JsonError, JsonResult};
+use crate::common::JsonData;
+use crate::dao::{WebError, WebResult};
 use lsys_access::dao::SessionBody;
 use lsys_core::{fluent_message, RequestEnv};
 use lsys_user::dao::AccountAddressParam;
@@ -20,22 +21,22 @@ impl WebUserAccount {
         param: &AddressData<'_>,
         session_body: &SessionBody,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<u64> {
+    ) -> WebResult<u64> {
         let account = self
             .user_dao
             .account_dao
             .session_account(session_body)
             .await?;
         if param.code.trim().len() < 6 {
-            return Err(JsonError::JsonResponse(
-                JsonData::default().set_code(500).set_sub_code("bad_code"),
+            return Err(WebError::JsonResponse(
+                Box::new(JsonData::default().set_code(500).set_sub_code("bad_code")),
                 fluent_message!("address-miss-city"), // JsonResponse::message("your submit area miss city").set_code("bad_code")
             ));
         }
         let area = self.area.code_related(param.code)?;
         if area.is_empty() {
-            return Err(JsonError::JsonResponse(
-                JsonData::default().set_code(500).set_sub_code("bad_code"),
+            return Err(WebError::JsonResponse(
+                Box::new(JsonData::default().set_code(500).set_sub_code("bad_code")),
                 fluent_message!("address-bad-area"), // JsonResponse::message("your submit area miss city").set_code("bad_code")
             ));
         }
@@ -68,17 +69,17 @@ impl WebUserAccount {
         param: &AddressData<'_>,
         session_body: &SessionBody,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<()> {
+    ) -> WebResult<()> {
         if param.code.trim().len() < 6 {
-            return Err(JsonError::JsonResponse(
-                JsonData::default().set_code(500).set_sub_code("bad_code"),
+            return Err(WebError::JsonResponse(
+                Box::new(JsonData::default().set_code(500).set_sub_code("bad_code")),
                 fluent_message!("address-miss-city"),
             ));
         }
         let area = self.area.code_find(param.code)?;
         if area.is_empty() {
-            return Err(JsonError::JsonResponse(
-                JsonData::default().set_code(500).set_sub_code("bad_code"),
+            return Err(WebError::JsonResponse(
+                Box::new(JsonData::default().set_code(500).set_sub_code("bad_code")),
                 fluent_message!("address-bad-area"),
             ));
         }

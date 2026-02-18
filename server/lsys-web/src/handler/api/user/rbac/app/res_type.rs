@@ -1,5 +1,5 @@
 use super::{app_check_get, inner_user_data_to_user_id};
-use crate::common::JsonData;
+use crate::common::{JsonData, ToOffsetPageParam};
 use crate::common::{JsonResponse, JsonResult, PageParam, UserAuthQueryDao};
 use lsys_access::dao::AccessSession;
 use lsys_rbac::{
@@ -57,7 +57,7 @@ pub async fn app_res_type_data(
         .web_rbac
         .rbac_dao
         .res
-        .res_type_data(&res_param, param.page.as_ref().map(|e| e.into()).as_ref())
+        .res_type_data(&res_param, &param.page.to_offset_page_param())
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
@@ -223,7 +223,7 @@ pub async fn app_res_type_op_data(
             &res_param,
             None,
             true,
-            param.page.as_ref().map(|e| e.into()).as_ref(),
+            &param.page.to_offset_page_param(),
         )
         .await?;
     let count = if param.count_num.unwrap_or(false) {

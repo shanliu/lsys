@@ -5,11 +5,11 @@ authors = ["liushan <shan.liu@msn.com>"]
 edition = "2021"
 
 [dependencies]
-lsys-core = { path = "../lsys-core" }
+lsys-core = { path = "../lsys-core", features = ["db"] }
 serde = { version = "1.0.*" }
 serde_json = "1.0.*"
 
-tokio = { version = "~1.46.0" }
+tokio = { version = "~1.49.0" }
 
 sqlx = { version = "~0.8.6", features = ["mysql", "runtime-tokio-native-tls"] }
 

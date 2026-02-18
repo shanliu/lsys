@@ -5,7 +5,7 @@ use lsys_app_sender::dao::SenderError;
 use lsys_core::RequestEnv;
 use serde_json::json;
 
-use crate::common::JsonResult;
+use crate::dao::WebResult;
 
 use super::SenderSmser;
 
@@ -22,7 +22,7 @@ impl SenderSmser {
         send_time: Option<u64>,
         max_try_num: Option<u8>,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<Vec<(u64, &'t str)>> {
+    ) -> WebResult<Vec<(u64, &'t str)>> {
         let out = self
             .smser_dao
             .send(
@@ -44,7 +44,7 @@ impl SenderSmser {
         app: &AppModel,
         snid_data: &[u64],
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<Vec<(u64, bool, Option<SenderError>)>> {
+    ) -> WebResult<Vec<(u64, bool, Option<SenderError>)>> {
         Ok(self
             .smser_dao
             .cancal_from_message_snid_vec(snid_data, app.user_id, env_data)

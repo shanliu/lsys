@@ -5,14 +5,15 @@ authors = ["liushan <shan.liu@msn.com>"]
 edition = "2021"
 
 [dependencies]
-tokio = { version = "~1.46.0" }
-deadpool-redis = { version = "~0.21.0" }
-redis = { version = "~0.31.0" }
-lsys-core = { path = "../lsys-core" }
+tokio = { version = "~1.49.0" }
+deadpool-redis = { version = "~0.22.1" }
+redis = { version = "~0.32.0" }
+lsys-core = { path = "../lsys-core", features = ["db", "redis"] }
 #lsys-app = { path = "../lsys-app" }
 lsys-setting = { path = "../lsys-setting" }
 lsys-logger = { path = "../lsys-logger" }
 lsys-access = { path = "../lsys-access" }
+lsys-mfa = { path = "../lsys-mfa" }
 sqlx = { version = "~0.8.6", features = ["mysql", "runtime-tokio-native-tls"] }
 
 
@@ -31,16 +32,16 @@ base64 = "0.22.1"
 tracing = { version = "~0.1.*" } # log-always 保持log的输出 当使用tracing时会出现两次
 
 
-hashlink = "~0.10"
+hashlink = "~0.11"
 
 hostname = "~0.4.*"
 
 
-ip2location = "~0.5"
+ip2location = "~0.6"
 
 
 config = "~0.15"
 
 
 [dev-dependencies]
-tokio = { version = "~1.46.0", features = ["test-util"] }
+tokio = { version = "~1.49.0", features = ["test-util"] }

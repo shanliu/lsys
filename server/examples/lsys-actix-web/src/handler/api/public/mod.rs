@@ -1,6 +1,5 @@
 //公开接口
 
-pub mod app;
 mod area;
 mod captcha;
 mod options;

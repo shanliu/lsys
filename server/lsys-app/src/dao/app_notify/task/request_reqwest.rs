@@ -1,4 +1,4 @@
-use crate::dao::{AppError, AppSecretRecrod};
+use crate::dao::{AppError, AppSecretRecord};
 use crate::model::{AppModel, AppNotifyConfigModel, AppNotifyDataModel};
 use chrono::{DateTime, Local};
 
@@ -37,7 +37,7 @@ impl AppNotifyRequest for AppNotifyRequestReqwest {
         app: &AppModel,
         config: &AppNotifyConfigModel,
         record: &AppNotifyDataModel,
-        client_secret: &AppSecretRecrod,
+        client_secret: &AppSecretRecord,
     ) -> Result<(), String> {
         let mut headers = HeaderMap::new();
         if let Ok(value) = HeaderValue::from_str("application/json;charset=utf-8") {

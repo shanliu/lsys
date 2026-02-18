@@ -4,10 +4,13 @@ mod oauth;
 
 pub use account::*;
 pub use auth::*;
+use lsys_access::dao::AccessDao;
 use lsys_app::dao::AppDao;
 use lsys_logger::dao::ChangeLoggerDao;
 use lsys_user::dao::UserDao;
 pub use oauth::*;
+
+use crate::dao::WebMfa;
 
 use super::{AppArea, AppCaptcha, AppSender};
 use sqlx::{MySql, Pool};
@@ -20,6 +23,7 @@ pub struct WebUser {
 }
 
 impl WebUser {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         db: Pool<MySql>,
         user_dao: Arc<UserDao>,
@@ -28,10 +32,13 @@ impl WebUser {
         captcha: Arc<AppCaptcha>,
         area: Arc<AppArea>,
         logger: Arc<ChangeLoggerDao>,
+        mfa: Arc<WebMfa>,
+        access_dao: Arc<AccessDao>,
     ) -> Self {
         WebUser {
             account: Arc::new(WebUserAccount::new(
                 user_dao.clone(),
+                access_dao.clone(),
                 captcha.clone(),
                 sender.clone(),
                 area.clone(),
@@ -41,8 +48,10 @@ impl WebUser {
                 db.clone(),
                 user_dao.clone(),
                 app_dao,
+                access_dao,
                 captcha,
                 sender,
+                mfa,
             )),
             user_dao,
             change_logger_dao: logger,

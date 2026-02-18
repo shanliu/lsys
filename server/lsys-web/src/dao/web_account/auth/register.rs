@@ -1,14 +1,13 @@
 //用户注册的封装
-use lsys_core::RequestEnv;
-use lsys_user::{
-    dao::AccountResult,
-    model::{AccountEmailStatus, AccountInfoModelRef, AccountMobileStatus, AccountModel},
-};
+use lsys_core::{IntoFluentMessage, RequestEnv};
+use lsys_user::dao::AccountInfoParam;
+use lsys_user::model::{AccountEmailStatus, AccountMobileStatus, AccountModel};
 
 use lsys_core::fluent_message;
-use lsys_core::model_option_set;
+use tracing::warn;
 
-use crate::common::{CaptchaParam, JsonData, JsonError, JsonResult};
+use crate::common::{CaptchaParam, JsonData};
+use crate::dao::{WebError, WebResult};
 
 use super::WebUserAuth;
 
@@ -20,7 +19,7 @@ pub struct AccountRegData<'t> {
     pub email: Option<(&'t str, AccountEmailStatus)>,
     pub mobile: Option<(&'t str, &'t str, AccountMobileStatus)>,
     pub external: Option<(&'t str, &'t str, &'t str, &'t str)>,
-    pub info: Option<AccountInfoModelRef<'t>>,
+    pub info_param: Option<AccountInfoParam<'t>>,
 }
 
 impl WebUserAuth {
@@ -30,7 +29,7 @@ impl WebUserAuth {
         reg_data: &AccountRegData<'_>,
         op_user_id: u64,
         env_data: Option<&RequestEnv>,
-    ) -> AccountResult<AccountModel> {
+    ) -> WebResult<AccountModel> {
         let mut tran = self.db.begin().await?;
         let user = match self
             .user_dao
@@ -42,7 +41,7 @@ impl WebUserAuth {
             Ok(u) => u,
             Err(err) => {
                 tran.rollback().await?;
-                return Err(err);
+                return Err(err.into());
             }
         };
         if reg_data.status_enable {
@@ -54,7 +53,7 @@ impl WebUserAuth {
                 .await;
             if let Err(err) = res {
                 tran.rollback().await?;
-                return Err(err);
+                return Err(err.into());
             }
         }
         if let Some(pw) = reg_data.passwrod {
@@ -66,7 +65,7 @@ impl WebUserAuth {
                 .await;
             if let Err(err) = res {
                 tran.rollback().await?;
-                return Err(err);
+                return Err(err.into());
             }
         }
         if let Some((un, st)) = reg_data.email {
@@ -78,7 +77,7 @@ impl WebUserAuth {
                 .await;
             if let Err(err) = res {
                 tran.rollback().await?;
-                return Err(err);
+                return Err(err.into());
             }
         }
         if let Some(un) = reg_data.name {
@@ -90,7 +89,7 @@ impl WebUserAuth {
                 .await;
             if let Err(err) = res {
                 tran.rollback().await?;
-                return Err(err);
+                return Err(err.into());
             }
         }
         if let Some((area, mob, st)) = reg_data.mobile {
@@ -102,7 +101,7 @@ impl WebUserAuth {
                 .await;
             if let Err(err) = res {
                 tran.rollback().await?;
-                return Err(err);
+                return Err(err.into());
             }
         }
         if let Some((config_name, external_type, external_id, external_name)) = reg_data.external {
@@ -123,22 +122,42 @@ impl WebUserAuth {
                 .await;
             if let Err(err) = res {
                 tran.rollback().await?;
-                return Err(err);
+                return Err(err.into());
             }
         }
-        if let Some(ref info_ref) = reg_data.info {
+        if let Some(info_param) = &reg_data.info_param {
             let res = self
                 .user_dao
                 .account_dao
                 .account_info
-                .set_info(&user, info_ref, op_user_id, Some(&mut tran), env_data)
+                .set_info(
+                    &user,
+                    info_param,
+                    op_user_id,
+                    Some(&mut tran),
+                    env_data,
+                )
                 .await;
             if let Err(err) = res {
                 tran.rollback().await?;
-                return Err(err);
+                return Err(err.into());
             }
         }
         tran.commit().await?;
+
+        //此过程必须,同步过去好查数据
+        if let Err(err) = self
+            .access_dao
+            .user
+            .sync_user(0, user.id, Some(reg_data.nikename), None)
+            .await
+        {
+            warn!(
+                "sync user to access fail:{}",
+                err.to_fluent_message().default_format()
+            );
+        };
+
         Ok(user)
     }
 }
@@ -155,13 +174,11 @@ impl WebUserAuth {
         param: &RegFromNameData<'_>,
         op_user_id: u64,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<u64> {
+    ) -> WebResult<u64> {
         let reg_ip = env_data
             .map(|e| e.request_ip.clone().unwrap_or_default())
             .unwrap_or_default();
-        let info = model_option_set!(AccountInfoModelRef,{
-            reg_ip:  reg_ip,
-        });
+        let reg_from = "name".to_string();
         let user = self
             .reg_user(
                 &AccountRegData {
@@ -172,7 +189,11 @@ impl WebUserAuth {
                     email: None,
                     mobile: None,
                     external: None,
-                    info: Some(info),
+                    info_param: Some(AccountInfoParam {
+                        reg_ip: Some(&reg_ip),
+                        reg_from: Some(&reg_from),
+                        ..Default::default()
+                    }),
                 },
                 op_user_id,
                 env_data,
@@ -192,7 +213,7 @@ impl WebUserAuth {
         &self,
         param: &RegSendCodeFromMobileData<'_>,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<usize> {
+    ) -> WebResult<usize> {
         let valid_code = self.captcha.valid_code(&crate::dao::CaptchaKey::RegSms);
         valid_code.check_code(&param.captcha.into()).await?;
         let mobile_res = self
@@ -203,8 +224,8 @@ impl WebUserAuth {
             .await;
         if let Ok(mobile) = mobile_res {
             if AccountMobileStatus::Valid.eq(mobile.status) {
-                return Err(JsonError::JsonResponse(
-                    JsonData::default().set_sub_code("mobile_is_reg"),
+                return Err(WebError::JsonResponse(
+                    Box::new(JsonData::default().set_sub_code("mobile_is_reg")),
                     fluent_message!("reg-mobile-registered"),
                 ));
             }
@@ -250,7 +271,7 @@ impl WebUserAuth {
         &self,
         param: &RegSendCodeFromEmailData<'_>,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<usize> {
+    ) -> WebResult<usize> {
         let valid_code = self.captcha.valid_code(&crate::dao::CaptchaKey::RegEmail);
         let email_res = self
             .user_dao
@@ -260,8 +281,8 @@ impl WebUserAuth {
             .await;
         if let Ok(email) = email_res {
             if AccountEmailStatus::Valid.eq(email.status) {
-                return Err(JsonError::JsonResponse(
-                    JsonData::default().set_sub_code("mobile_is_reg"),
+                return Err(WebError::JsonResponse(
+                    Box::new(JsonData::default().set_sub_code("mobile_is_reg")),
                     fluent_message!("reg-mobile-registered"),
                 ));
             }
@@ -305,7 +326,7 @@ impl WebUserAuth {
         param: &RegFromEmailData<'_>,
         op_user_id: u64,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<u64> {
+    ) -> WebResult<u64> {
         self.user_dao
             .account_dao
             .account_email
@@ -314,9 +335,7 @@ impl WebUserAuth {
         let reg_ip = env_data
             .map(|e| e.request_ip.clone().unwrap_or_default())
             .unwrap_or_default();
-        let info = model_option_set!(AccountInfoModelRef,{
-            reg_ip:reg_ip,
-        });
+        let reg_from = "email".to_string();
         let user = self
             .reg_user(
                 &AccountRegData {
@@ -327,7 +346,11 @@ impl WebUserAuth {
                     email: Some((param.email, AccountEmailStatus::Valid)),
                     mobile: None,
                     external: None,
-                    info: Some(info),
+                    info_param: Some(AccountInfoParam {
+                        reg_ip: Some(&reg_ip),
+                        reg_from: Some(&reg_from),
+                        ..Default::default()
+                    }),
                 },
                 op_user_id,
                 env_data,
@@ -356,7 +379,7 @@ impl WebUserAuth {
         param: &RegFromMobileData<'_>,
         op_user_id: u64,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<u64> {
+    ) -> WebResult<u64> {
         self.user_dao
             .account_dao
             .account_mobile
@@ -365,9 +388,7 @@ impl WebUserAuth {
         let reg_ip = env_data
             .map(|e| e.request_ip.clone().unwrap_or_default())
             .unwrap_or_default();
-        let info = model_option_set!(AccountInfoModelRef,{
-            reg_ip:reg_ip,
-        });
+        let reg_from = "mobile".to_string();
         let user = self
             .reg_user(
                 &AccountRegData {
@@ -378,7 +399,11 @@ impl WebUserAuth {
                     email: None,
                     mobile: Some((param.area_code, param.mobile, AccountMobileStatus::Valid)),
                     external: None,
-                    info: Some(info),
+                    info_param: Some(AccountInfoParam {
+                        reg_ip: Some(&reg_ip),
+                        reg_from: Some(&reg_from),
+                        ..Default::default()
+                    }),
                 },
                 op_user_id,
                 env_data,

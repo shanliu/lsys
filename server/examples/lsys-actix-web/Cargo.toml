@@ -9,7 +9,7 @@ lsys-web = { path = "../../lsys-web", features = [] }
 lsys-web-module-oauth = { path = "../lsys-web-module-oauth" }
 lsys-web-subapp-demo = { path = "../lsys-web-subapp-demo" }
 
-tokio = { version = "~1.46.0", features = ["fs"] }
+tokio = { version = "~1.49.0", features = ["fs"] }
 tracing = { version = "~0.1.*" }                   # log-always 保持log的输出 当使用tracing时会出现两次
 
 
@@ -18,18 +18,21 @@ actix-web = { version = "4.3.1", features = ["rustls", "rustls-0_23"] }
 actix-http = "~3.11.0"
 actix-utils = "~3.0.*"
 actix-service = "~2.0.*"
-actix-web-validator = "~6.0.0"
-actix-multipart = "0.7.2"
+actix-web-validator = "~7.0.0"
 actix-files = "~0.6.0"
 actix-web-actors = "4.1.0"
+actix-multipart = "~0.7.0"
 
 
 rustls = { version = "~0.23.25", default-features = false, features = [
-    "ring",
+    "aws_lc_rs",
     "std",
+    "tls12",
 ] }
 pin-project = "~1.1.*"
-jsonwebtoken = "9.2.0"
+jsonwebtoken = { version = "~10.3.0", default-features = false, features = [
+    "aws_lc_rs",
+] }
 serde = { version = "~1.0.*" }
 serde_json = "~1.0.*"
 serde_urlencoded = "~0.7"
@@ -48,14 +51,9 @@ mime = "~0.3.16"
 nanoid = "~0.4.0"
 
 
-tempfile = { version = "3.10.1", optional = true }
-
-image = { version = "0.25.1", default-features = false }
-
 time = { version = "0.3.36" }
 
 async-trait = "0.1.57"
 
 [features]
-default = ["barcode"]
-barcode = ["lsys-web/barcode", "tempfile"]
+default = []

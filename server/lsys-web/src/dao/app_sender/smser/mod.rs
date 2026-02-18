@@ -7,8 +7,8 @@ use lsys_app_sender::{
         AliYunSendStatus, AliYunSenderTask, CloOpenSenderTask, HwYunSenderTask, JDCloudSenderTask,
         JDSendStatus, NetEaseSendStatus, NetEaseSenderTask, SenderAliYunConfig,
         SenderCloOpenConfig, SenderError, SenderHwYunConfig, SenderJDCloudConfig,
-        SenderNetEaseConfig, SenderResult, SenderTenYunConfig, SmsSenderConfig, SmsSenderDao,
-        TenYunSendStatus, TenyunSenderTask,
+        SenderNetEaseConfig, SenderTenYunConfig, SmsSenderConfig, SmsSenderDao, TenYunSendStatus,
+        TenyunSenderTask,
     },
     model::{SenderSmsBodyModel, SenderSmsMessageModel},
 };
@@ -19,7 +19,7 @@ use serde_json::json;
 use sqlx::{MySql, Pool};
 use std::{collections::HashMap, sync::Arc};
 
-use crate::common::{JsonError, JsonResult};
+use crate::dao::{WebError, WebResult};
 
 use super::logger::MessageView;
 
@@ -87,8 +87,9 @@ impl SenderSmser {
         self.smser_dao.task_sendtime_notify(None).await
     }
     // 短信后台任务
-    pub async fn task_sender(&self) -> SenderResult<()> {
-        self.smser_dao
+    pub async fn task_sender(&self) -> WebResult<()> {
+        Ok(self
+            .smser_dao
             .task_sender(vec![
                 Box::<AliYunSenderTask>::default(),
                 Box::<HwYunSenderTask>::default(),
@@ -97,18 +98,19 @@ impl SenderSmser {
                 Box::<JDCloudSenderTask>::default(),
                 Box::<CloOpenSenderTask>::default(),
             ])
-            .await
+            .await?)
     }
     // 短信发送状态查询任务
-    pub async fn task_status_query(&self) -> SenderResult<()> {
-        self.smser_dao
+    pub async fn task_status_query(&self) -> WebResult<()> {
+        Ok(self
+            .smser_dao
             .task_status_query(vec![
                 Box::<AliYunSendStatus>::default(),
                 Box::<JDSendStatus>::default(),
                 Box::<NetEaseSendStatus>::default(),
                 Box::<TenYunSendStatus>::default(),
             ])
-            .await
+            .await?)
     }
     // 通过消息取消发送
     pub async fn send_cancel(
@@ -117,7 +119,7 @@ impl SenderSmser {
         message: &[&SenderSmsMessageModel],
         user_id: u64,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<Vec<(u64, bool, Option<SenderError>)>> {
+    ) -> WebResult<Vec<(u64, bool, Option<SenderError>)>> {
         Ok(self
             .smser_dao
             .cancal_from_message(body, message, user_id, env_data)
@@ -132,7 +134,7 @@ impl SenderSmser {
         body: &str,
         max_try_num: Option<u8>,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<u64> {
+    ) -> WebResult<u64> {
         let mut out = self
             .smser_dao
             .send(
@@ -153,7 +155,7 @@ impl SenderSmser {
                 tmp1.0
             }
             None => {
-                return Err(JsonError::Message(fluent_message!(
+                return Err(WebError::Message(fluent_message!(
                     "mail-send-check",
                     "unkown error"
                 )))
@@ -169,7 +171,7 @@ impl SenderSmser {
         code: &str,
         ttl: &usize,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<u64> {
+    ) -> WebResult<u64> {
         let mut context = HashMap::new();
         context.insert("code", code.to_owned());
         context.insert("time", ttl.to_string());
@@ -190,7 +192,7 @@ impl SenderSmser {
         body: &SenderSmsBodyModel,
         session_body: &SessionBody,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<()> {
+    ) -> WebResult<()> {
         self.logger
             .add(
                 &MessageView {

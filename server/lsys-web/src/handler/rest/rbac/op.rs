@@ -1,4 +1,4 @@
-use crate::common::{JsonResponse, JsonResult, PageParam, RequestDao};
+use crate::common::{JsonResponse, JsonResult, PageParam, RequestDao, ToOffsetPageParam};
 
 use crate::common::JsonData;
 use lsys_app::model::AppModel;
@@ -200,7 +200,7 @@ pub async fn op_data(
                 res_type_count: param.res_type_count.unwrap_or_default(),
                 check_role_use: param.check_role_use.unwrap_or_default(),
             },
-            param.page.as_ref().map(|e| e.into()).as_ref(),
+            &param.page.to_offset_page_param(),
         )
         .await?
         .into_iter()

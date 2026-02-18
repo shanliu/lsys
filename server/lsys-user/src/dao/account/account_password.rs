@@ -2,15 +2,15 @@ use std::sync::Arc;
 
 use crate::dao::AccountResult;
 
-use crate::model::{AccountModel, AccountModelRef, AccountPasswordModel, AccountPasswordModelRef};
+use crate::model::{AccountModel, AccountPasswordModel};
 use lsys_core::{
     fluent_message, now_time, valid_key, IntoFluentMessage, RequestEnv, ValidParam,
     ValidParamCheck, ValidPassword,
 };
 
-use lsys_core::db::{Insert, Update, WhereOption};
-use lsys_core::db::{ModelTableName, SqlQuote};
-use lsys_core::{model_option_set, sql_format};
+use lsys_core::db::{Insert, Update, SqlSuffix};
+use lsys_core::db::{TableMeta, SqlQuote};
+use lsys_core::sql_format;
 use lsys_logger::dao::ChangeLoggerDao;
 use lsys_setting::dao::{NotFoundResult, SingleSetting};
 use sqlx::{Acquire, MySql, Pool, Transaction};
@@ -177,11 +177,10 @@ impl AccountPassword {
                         Some(pb) => pb.begin().await?,
                         None => db.begin().await?,
                     };
-                    let change = lsys_core::model_option_set!(AccountPasswordModelRef, { disable_time: time });
-                    //ta.execute(query)
-                    Update::<AccountPasswordModel, _>::new(change)
-                        .execute_by_where(
-                            &WhereOption::Where(sql_format!("id={}", account_pass.id)),
+                    Update::<AccountPasswordModel>::new()
+                        .set(AccountPasswordModel::DISABLE_TIME, time)
+                        .execute(
+                            SqlSuffix::Where(&sql_format!("id={}", account_pass.id)),
                             &mut *ta,
                         )
                         .await?;
@@ -216,13 +215,11 @@ impl AccountPassword {
             }
         }
 
-        let new_data = model_option_set!(AccountPasswordModelRef,{
-            account_id:account.id,
-            password:nh_passwrod,
-            disable_time: 0,
-            add_time: time,
-        });
-        let res = Insert::<AccountPasswordModel, _>::new(new_data)
+        let res = Insert::<AccountPasswordModel>::new()
+            .set(AccountPasswordModel::ACCOUNT_ID, account.id)
+            .set(AccountPasswordModel::PASSWORD, nh_passwrod)
+            .set(AccountPasswordModel::DISABLE_TIME, 0_u64)
+            .set(AccountPasswordModel::ADD_TIME, time)
             .execute(&mut *ta)
             .await;
         match res {
@@ -232,13 +229,11 @@ impl AccountPassword {
             }
             Ok(data) => {
                 let pid = data.last_insert_id();
-                let change = lsys_core::model_option_set!(AccountModelRef,{
-                    password_id:pid,
-                    change_time:time,
-                });
-                let u_res = Update::<AccountModel, _>::new(change)
-                    .execute_by_where(
-                        &WhereOption::Where(sql_format!("id={}", account.id)),
+                let u_res = Update::<AccountModel>::new()
+                    .set(AccountModel::PASSWORD_ID, pid)
+                    .set(AccountModel::CHANGE_TIME, time)
+                    .execute(
+                        SqlSuffix::Where(&sql_format!("id={}", account.id)),
                         &mut *ta,
                     )
                     .await;

@@ -1,14 +1,14 @@
 use std::sync::Arc;
 
 use crate::dao::{SenderError, SenderResult};
-use crate::model::{SenderTplBodyModel, SenderTplBodyModelRef, SenderTplBodyStatus, SenderType};
+use crate::model::{SenderTplBodyModel, SenderTplBodyStatus, SenderType};
 use lsys_core::{
-    fluent_message, now_time, string_clear, valid_key, PageParam, RequestEnv, StringClear,
+    db::OffsetPageParam, fluent_message, now_time, string_clear, valid_key, RequestEnv, StringClear,
     ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen, STRING_CLEAR_FORMAT,
 };
 
-use lsys_core::db::{Insert, ModelTableName, SqlExpr, SqlQuote, Update, WhereOption};
-use lsys_core::{model_option_set, sql_format};
+use lsys_core::db::{Insert, TableMeta, SqlExpr, SqlQuote, SqlSuffix, Update};
+use lsys_core::sql_format;
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::Pool;
 use tera::{Context, Template, Tera};
@@ -111,17 +111,15 @@ impl MessageTpls {
                 return Err(err.into());
             }
         }
-        let idata = model_option_set!(SenderTplBodyModelRef,{
-            app_id:app_id,
-            sender_type:sender_type,
-            tpl_id:tpl_id,
-            tpl_data:tpl_data,
-            user_id:user_id,
-            change_time:time,
-            change_user_id:add_user_id,
-            status:status,
-        });
-        let id = Insert::<SenderTplBodyModel, _>::new(idata)
+        let id = Insert::<SenderTplBodyModel>::new()
+            .set(SenderTplBodyModel::APP_ID, app_id)
+            .set(SenderTplBodyModel::SENDER_TYPE, sender_type)
+            .set(SenderTplBodyModel::TPL_ID, &tpl_id)
+            .set(SenderTplBodyModel::TPL_DATA, &tpl_data)
+            .set(SenderTplBodyModel::USER_ID, user_id)
+            .set(SenderTplBodyModel::CHANGE_TIME, time)
+            .set(SenderTplBodyModel::CHANGE_USER_ID, add_user_id)
+            .set(SenderTplBodyModel::STATUS, status)
             .execute(&self.db)
             .await?
             .last_insert_id();
@@ -169,13 +167,11 @@ impl MessageTpls {
         let time = now_time().unwrap_or_default();
         let tpl_data = tpl_data.to_owned();
 
-        let change = model_option_set!(SenderTplBodyModelRef,{
-            tpl_data:tpl_data,
-            change_user_id:change_user_id,
-            change_time:time,
-        });
-        let row = Update::<SenderTplBodyModel, _>::new(change)
-            .execute_by_where(&WhereOption::Where(sql_format!("id={}", tpl.id)), &self.db)
+        let row = Update::<SenderTplBodyModel>::new()
+            .set(SenderTplBodyModel::TPL_DATA, &tpl_data)
+            .set(SenderTplBodyModel::CHANGE_USER_ID, change_user_id)
+            .set(SenderTplBodyModel::CHANGE_TIME, time)
+            .execute(SqlSuffix::Where(&sql_format!("id={}", tpl.id)), &self.db)
             .await?
             .rows_affected();
 
@@ -214,13 +210,11 @@ impl MessageTpls {
         let user_id = user_id.to_owned();
         let time = now_time().unwrap_or_default();
         let status = SenderTplBodyStatus::Delete as i8;
-        let change = model_option_set!(SenderTplBodyModelRef,{
-            status:status,
-            user_id:user_id,
-            change_time:time,
-        });
-        let row = Update::<SenderTplBodyModel, _>::new(change)
-            .execute_by_where(&WhereOption::Where(sql_format!("id={}", tpl.id)), &self.db)
+        let row = Update::<SenderTplBodyModel>::new()
+            .set(SenderTplBodyModel::STATUS, status)
+            .set(SenderTplBodyModel::USER_ID, user_id)
+            .set(SenderTplBodyModel::CHANGE_TIME, time)
+            .execute(SqlSuffix::Where(&sql_format!("id={}", tpl.id)), &self.db)
             .await?
             .rows_affected();
         let tkey = self.tpl_key(tpl.sender_type, &tpl.tpl_id);
@@ -325,7 +319,7 @@ impl MessageTpls {
         id: Option<u64>,
         tpl_id: Option<&str>,
         tpl_id_like: Option<&str>,
-        page: Option<&PageParam>,
+        page: &OffsetPageParam,
     ) -> SenderResult<Vec<SenderTplBodyModel>> {
         let sqlwhere = match self.list_where_sql(app_id, sender_type, id, tpl_id, tpl_id_like) {
             Some(s) => s,
@@ -339,10 +333,7 @@ impl MessageTpls {
             } else {
                 SqlExpr("".to_string())
             },
-            match page {
-                Some(pdat) => SqlExpr(format!("limit {} offset {}", pdat.limit, pdat.offset)),
-                None => SqlExpr("".to_string()),
-            }
+            SqlExpr(page.page_query().limit_sql().unwrap_or_default())
         );
         Ok(sqlx::query_as::<_, SenderTplBodyModel>(&sql)
             .fetch_all(&self.db)

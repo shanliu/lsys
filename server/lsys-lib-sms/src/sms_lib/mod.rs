@@ -74,14 +74,8 @@ pub type BranchSendNotifyResult = Result<Vec<SendNotifyItem>, SendNotifyError>;
 pub(crate) fn rand_str(len: usize) -> String {
     let base_str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     let mut rng = &mut rand::rng();
-    String::from_utf8(
-        base_str
-            .as_bytes()
-            .choose_multiple(&mut rng, len)
-            .cloned()
-            .collect(),
-    )
-    .unwrap_or_default()
+    String::from_utf8(base_str.as_bytes().sample(&mut rng, len).cloned().collect())
+        .unwrap_or_default()
 }
 
 pub(crate) fn now_time() -> Result<u64, SystemTimeError> {

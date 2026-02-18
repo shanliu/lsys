@@ -11,9 +11,9 @@ serde = { version = "1.0.*" }
 serde_json = "1.0.*"
 dotenv = "0.15.*"
 
-tokio = { version = "~1.46.0", features = ["fs"] }
-deadpool-redis = { version = "~0.21.0" }
-redis = { version = "~0.31.0" }
+tokio = { version = "~1.49.0", features = ["fs"] }
+deadpool-redis = { version = "~0.22.1" }
+redis = { version = "~0.32.0" }
 
 async-recursion = "~1.1.1"
 
@@ -26,7 +26,12 @@ sqlx = { version = "~0.8.6", features = ["mysql", "runtime-tokio-native-tls"] }
 
 
 #客户端
-reqwest = { version = "~0.12.9", features = ["json", "stream"] }
+reqwest = { version = "~0.13.1", features = ["json", "stream"] }
+rustls = { version = "~0.23.35", default-features = false, features = [
+    "aws_lc_rs",
+    "std",
+    "tls12",
+] }
 chrono = { version = "~0.4.31" }
 serde_urlencoded = "0.7"
 
@@ -43,7 +48,7 @@ fluent = "0.17.0"
 
 mime = "0.3.16"
 
-ip2location = "~0.5.0"
+ip2location = "~0.6.0"
 
 captcha = "1.0.0"
 
@@ -51,11 +56,14 @@ async-trait = "0.1.57"
 
 config = "~0.15"
 
-lsys-core = { path = "../lsys-core" }
+rand = "~0.10.0"
+
+lsys-core = { path = "../lsys-core", features = ["db", "tera", "redis"] }
 lsys-rbac = { path = "../lsys-rbac" }
 lsys-access = { path = "../lsys-access" }
 lsys-user = { path = "../lsys-user" }
 lsys-app = { path = "../lsys-app" }
+lsys-mfa = { path = "../lsys-mfa" }
 lsys-app-sender = { path = "../lsys-app-sender", features = [
     "sms-aliyun",
     "sms-jdcloud",
@@ -66,6 +74,7 @@ lsys-app-sender = { path = "../lsys-app-sender", features = [
 ] }
 lsys-setting = { path = "../lsys-setting" }
 lsys-logger = { path = "../lsys-logger" }
+lsys-files = { path = "../lsys-files" }
 
 lsys-lib-area = { default-features = false, features = [
     "data-csv",
@@ -73,19 +82,9 @@ lsys-lib-area = { default-features = false, features = [
 ], path = "../lsys-lib-area" }
 
 
-lsys-app-barcode = { path = "../lsys-app-barcode", optional = true }
-image = { version = "0.25.1", default-features = false, optional = true }
-base64 = { version = "~0.22.0", optional = true }
-regex = "~1.11.1"
+base64 = { version = "~0.22.0" }
+regex = "~1.12.2"
 
 
 [features]
-default = ["barcode"]
-barcode = [
-    "lsys-app-barcode",
-    "image",
-    "base64",
-    "image/png",
-    "image/webp",
-    "image/jpeg",
-]
+default = []

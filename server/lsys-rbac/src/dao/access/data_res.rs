@@ -7,10 +7,11 @@ use crate::{
         RbacRoleModel, RbacRoleResRange, RbacRoleUserModel, RbacRoleUserRange, RbacRoleUserStatus,
     },
 };
+use lsys_core::db::OffsetPageParam;
 use lsys_core::db::SqlQuote;
-use lsys_core::db::{ModelTableName, SqlExpr};
+use lsys_core::db::{SqlExpr, TableMeta};
 use lsys_core::{sql_format, string_clear};
-use lsys_core::{PageParam, StringClear, STRING_CLEAR_FORMAT};
+use lsys_core::{StringClear, STRING_CLEAR_FORMAT};
 use serde::Serialize;
 use sqlx::Row;
 
@@ -89,7 +90,7 @@ impl RbacAccess {
     pub async fn find_res_user_list_from_user(
         &self,
         user_id: u64, //访问用户ID,0 为游客
-        page: Option<&PageParam>,
+        page: &OffsetPageParam,
     ) -> RbacResult<Vec<u64>> {
         if user_id == 0 {
             return Ok(vec![]);
@@ -99,13 +100,11 @@ impl RbacAccess {
             self.find_res_user_custom_sql_from_user(user_id, RbacRoleResRange::Include),
             self.find_res_user_custom_sql_from_user(user_id, RbacRoleResRange::Any),
         ];
-        let mut sql = format!(
-            "select DISTINCT user_id from (({})) as tmp order by user_id asc ",
-            sql_arr.join(") union all (")
+        let sql = format!(
+            "select DISTINCT user_id from (({})) as tmp order by user_id asc {}",
+            sql_arr.join(") union all ("),
+            page.page_query().limit_sql().unwrap_or_default()
         );
-        if let Some(pdat) = page {
-            sql = format!(" {} limit {} offset {} ", sql, pdat.limit, pdat.offset)
-        };
         Ok(sqlx::query_scalar::<_, u64>(&sql)
             .fetch_all(&self.db)
             .await?)
@@ -354,11 +353,11 @@ impl RbacAccess {
         role_user_id: u64,           //指定角色用户,0为系统
         role_app_id: Option<u64>,    //应用ID
         res_range: RbacRoleResRange, //RbacRoleResRange::Include RbacRoleResRange::Exclude
-        page: Option<&PageParam>,
+        page: &OffsetPageParam,
     ) -> RbacResult<Vec<AccessPermRow>> {
         match res_range {
             RbacRoleResRange::Exclude | RbacRoleResRange::Include => {
-                let mut sql = if user_id == 0 {
+                let sql = if user_id == 0 {
                     return Ok(vec![]);
                 } else {
                     self.find_res_custom_sql_from_user(
@@ -369,12 +368,11 @@ impl RbacAccess {
                         self.res_list_sql_field(),
                     )
                 };
-                if let Some(pdat) = page {
-                    sql = format!(
-                        "order by perm.id desc {} limit {} offset {} ",
-                        sql, pdat.limit, pdat.offset
-                    )
-                };
+                let sql = format!(
+                    "order by perm.id desc {} {}",
+                    sql,
+                    page.page_query().limit_sql().unwrap_or_default()
+                );
                 Ok(sqlx::query(&sql)
                     .try_map(|row| Ok(self.res_list_from_mysql_row(row)))
                     .fetch_all(&self.db)
@@ -470,16 +468,15 @@ impl RbacAccess {
         //该数据直接映射为对应角色
         role_data: &AccessSessionRole<'_>,
         res_range: RbacRoleResRange,
-        page: Option<&PageParam>,
+        page: &OffsetPageParam,
     ) -> RbacResult<Vec<AccessPermRow>> {
-        let mut sql =
+        let sql =
             self.find_res_sql_from_session_role(role_data, res_range, self.res_list_sql_field());
-        if let Some(pdat) = page {
-            sql = format!(
-                "order by perm.id desc {} limit {} offset {} ",
-                sql, pdat.limit, pdat.offset
-            )
-        };
+        let sql = format!(
+            "order by perm.id desc {} {}",
+            sql,
+            page.page_query().limit_sql().unwrap_or_default()
+        );
         Ok(sqlx::query(&sql)
             .try_map(|row| Ok(self.res_list_from_mysql_row(row)))
             .fetch_all(&self.db)

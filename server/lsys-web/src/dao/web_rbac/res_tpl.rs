@@ -1,15 +1,16 @@
 use crate::dao::access::api::system::admin::{
-    CheckAdminApp, CheckAdminBase, CheckAdminChangeLogsView, CheckAdminMailConfig,
-    CheckAdminMailMgr, CheckAdminRbacEdit, CheckAdminRbacView, CheckAdminSiteSetting,
-    CheckAdminSmsConfig, CheckAdminSmsMgr, CheckAdminUserManage,
+    CheckAdminApp, CheckAdminBase, CheckAdminChangeLogsView, CheckAdminFileManage,
+    CheckAdminMailConfig, CheckAdminMailMgr, CheckAdminRbacEdit, CheckAdminRbacView,
+    CheckAdminSiteSetting, CheckAdminSmsConfig, CheckAdminSmsMgr, CheckAdminUserManage,
 };
 use crate::dao::access::api::system::auth::{CheckSystemLogin, CheckSystemRegister};
 use crate::dao::access::api::system::user::{
     CheckUserAddressEdit, CheckUserAppEdit, CheckUserAppSenderMailConfig,
     CheckUserAppSenderMailSend, CheckUserAppSenderMailView, CheckUserAppSenderSmsConfig,
-    CheckUserAppSenderSmsSend, CheckUserAppSenderSmsView, CheckUserAppView, CheckUserBarCodeEdit,
-    CheckUserBarCodeView, CheckUserEmailEdit, CheckUserExternalEdit, CheckUserInfoEdit,
-    CheckUserMobileEdit, CheckUserNotifyView, CheckUserRbacEdit, CheckUserRbacView,
+    CheckUserAppSenderSmsSend, CheckUserAppSenderSmsView, CheckUserAppView, CheckUserEmailEdit,
+    CheckUserExternalEdit, CheckUserFileDelete, CheckUserFileUpload, CheckUserFileView,
+    CheckUserInfoEdit, CheckUserMobileEdit, CheckUserNotifyView, CheckUserRbacEdit,
+    CheckUserRbacView,
 };
 use crate::dao::access::rest::CheckRestApp;
 use crate::dao::{CheckResTpl, WebRbac};
@@ -29,6 +30,7 @@ impl WebRbac {
             CheckAdminSiteSetting,
             CheckAdminUserManage,
             CheckAdminChangeLogsView,
+            CheckAdminFileManage,
             CheckUserAddressEdit,
             CheckUserEmailEdit,
             CheckUserExternalEdit,
@@ -36,8 +38,6 @@ impl WebRbac {
             CheckUserMobileEdit,
             CheckUserAppView,
             CheckUserAppEdit,
-            CheckUserBarCodeView,
-            CheckUserBarCodeEdit,
             CheckUserNotifyView,
             CheckUserRbacView,
             CheckUserRbacEdit,
@@ -47,6 +47,9 @@ impl WebRbac {
             CheckUserAppSenderSmsConfig,
             CheckUserAppSenderSmsView,
             CheckUserAppSenderSmsSend,
+            CheckUserFileUpload,
+            CheckUserFileView,
+            CheckUserFileDelete,
             CheckSystemLogin,
             CheckSystemRegister,
             CheckRestApp,

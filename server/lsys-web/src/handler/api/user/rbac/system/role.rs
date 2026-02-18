@@ -1,4 +1,4 @@
-use crate::common::JsonData;
+use crate::common::{JsonData, ToOffsetPageParam};
 use crate::common::{JsonResponse, UserAuthQueryDao};
 use crate::common::{JsonResult, PageParam};
 use crate::dao::access::api::system::user::{CheckUserRbacEdit, CheckUserRbacView};
@@ -271,7 +271,7 @@ pub async fn system_role_data(
                 res_count: param.res_count,
                 res_op_count: param.res_op_count,
             },
-            param.page.as_ref().map(|e| e.into()).as_ref(),
+            &param.page.to_offset_page_param(),
         )
         .await?
         .into_iter()

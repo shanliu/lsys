@@ -1,16 +1,17 @@
 mod cache;
 mod data;
 mod info;
-use crate::model::{UserModel, UserModelRef};
+use crate::model::UserModel;
 use cache::AccessUserCache;
 pub use data::*;
 pub use info::*;
 
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::db::{Insert, Update};
+use lsys_core::db::SqlQuote;
+use lsys_core::db::{Insert, TableMeta, Update};
 use lsys_core::{
-    now_time, string_clear, valid_key, RemoteNotify, StringClear, ValidParam, ValidParamCheck,
-    ValidPattern, ValidStrlen, STRING_CLEAR_FORMAT,
+    db::query_string_field_max, now_time, sql_format, string_clear, valid_key, RemoteNotify,
+    StringClear, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen, STRING_CLEAR_FORMAT,
 };
 use serde::Deserialize;
 use serde::Serialize;
@@ -63,12 +64,27 @@ impl AccessUser {
         user_account: Option<&str>,
     ) -> AccessResult<(String, Option<String>, Option<String>)> {
         let user_data = string_clear(user_data, StringClear::Option(STRING_CLEAR_FORMAT), None);
+
+        // 先获取字段长度
+        let user_data_max =
+            query_string_field_max::<UserModel>(&self.db, &UserModel::USER_DATA)
+                .await
+                .len_or(32);
+        let nickname_max =
+            query_string_field_max::<UserModel>(&self.db, &UserModel::USER_NICKNAME)
+                .await
+                .len_or(32);
+        let account_max =
+            query_string_field_max::<UserModel>(&self.db, &UserModel::USER_ACCOUNT)
+                .await
+                .len_or(128);
+
         let mut valid_param = ValidParam::default();
         valid_param.add(
             valid_key!("user_data"),
             &user_data,
             &ValidParamCheck::default()
-                .add_rule(ValidStrlen::range(1, 32))
+                .add_rule(ValidStrlen::range(1, user_data_max))
                 .add_rule(ValidPattern::Ident),
         );
 
@@ -79,7 +95,7 @@ impl AccessUser {
                 valid_param.add(
                     valid_key!("user_nickname"),
                     &tmp_name.as_str(),
-                    &ValidParamCheck::default().add_rule(ValidStrlen::max(32)),
+                    &ValidParamCheck::default().add_rule(ValidStrlen::max(nickname_max)),
                 );
             }
         }
@@ -89,7 +105,7 @@ impl AccessUser {
             valid_param.add(
                 valid_key!("user_account"),
                 &account.as_str(),
-                &ValidParamCheck::default().add_rule(ValidStrlen::max(128)),
+                &ValidParamCheck::default().add_rule(ValidStrlen::max(account_max)),
             );
         }
         valid_param.check()?;
@@ -107,39 +123,60 @@ impl AccessUser {
             .sync_user_param_valid(user_data, user_nickname, user_account)
             .await?;
         let time = now_time()?;
-        let mut vdata = lsys_core::model_option_set!(UserModelRef,{
-            app_id:app_id,
-            user_data:user_data,
-            change_time:time,
-        });
-        if let Some(ref tmp_name) = tmp_user_nickname {
+        
+        // Determine user_nickname value
+        let user_nickname_val = if let Some(ref tmp_name) = tmp_user_nickname {
             if tmp_name.is_empty() {
-                vdata.user_nickname = Some(&user_data);
+                user_data.clone()
             } else {
-                vdata.user_nickname = tmp_user_nickname.as_ref();
+                tmp_name.clone()
             }
         } else {
-            vdata.user_nickname = Some(&user_data);
+            user_data.clone()
+        };
+        
+        // Build insert
+        let mut insert = Insert::<UserModel>::new()
+            .set(UserModel::APP_ID, app_id)
+            .set(UserModel::USER_DATA, &user_data)
+            .set(UserModel::CHANGE_TIME, time)
+            .set(UserModel::USER_NICKNAME, &user_nickname_val);
+        
+        if let Some(ref account) = tmp_user_account {
+            insert = insert.set(UserModel::USER_ACCOUNT, account);
         }
-        vdata.user_account = tmp_user_account.as_ref();
-        let mut change = lsys_core::model_option_set!(UserModelRef,{
-            change_time:time,
-        });
+        
+        // Build update
+        let mut update = Update::<UserModel>::new()
+            .set(UserModel::CHANGE_TIME, time);
+        
         if tmp_user_nickname
             .as_ref()
             .map(|e| !e.is_empty())
             .unwrap_or(false)
         {
-            change.user_nickname = tmp_user_nickname.as_ref();
+            update = update.set(UserModel::USER_NICKNAME, &user_nickname_val);
         }
-        change.user_account = tmp_user_account.as_ref();
-        match Insert::<UserModel, _>::new(vdata)
-            .execute_update(&Update::<UserModel, _>::new(change), &self.db)
-            .await
-        {
+        
+        if let Some(ref account) = tmp_user_account {
+            update = update.set(UserModel::USER_ACCOUNT, account);
+        }
+        
+        match insert.execute_update(update, &self.db).await {
             Ok(row) => {
                 self.user_cache.clear(&row.last_insert_id()).await;
-                Ok(row.last_insert_id())
+                if row.last_insert_id() == 0 {
+                    Ok(sqlx::query_scalar::<_, u64>(&sql_format!(
+                        "select id from {} where app_id={} and user_data={}",
+                        UserModel::table_name(),
+                        app_id,
+                        user_data,
+                    ))
+                    .fetch_one(&self.db)
+                    .await?)
+                } else {
+                    Ok(row.last_insert_id())
+                }
             }
             Err(err) => Err(err.into()),
         }

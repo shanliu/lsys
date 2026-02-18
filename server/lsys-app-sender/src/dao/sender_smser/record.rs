@@ -5,18 +5,18 @@ use crate::{
         logger::LogMessage, MessageLogs, MessageReader, SenderConfig, SenderError, SenderResult,
     },
     model::{
-        SenderConfigModel, SenderLogModel, SenderSmsBodyModel, SenderSmsBodyModelRef,
+        SenderConfigModel, SenderLogModel, SenderSmsBodyModel,
         SenderSmsBodyStatus, SenderSmsConfigData, SenderSmsConfigLimit, SenderSmsConfigType,
-        SenderSmsMessageModel, SenderSmsMessageModelRef, SenderSmsMessageStatus, SenderType,
+        SenderSmsMessageModel, SenderSmsMessageStatus, SenderType,
     },
 };
 use lsys_core::{
-    db::WhereOption, fluent_message, now_time, string_clear, valid_key, LimitParam, PageParam,
+    db::{OffsetPageParam, CursorPageData, CursorPageParam}, fluent_message, now_time, string_clear, valid_key,
     RequestEnv, StringClear, ValidMobile, ValidNumber, ValidParam, ValidParamCheck, ValidPattern,
     ValidStrlen, STRING_CLEAR_FORMAT,
 };
 
-use lsys_core::db::{Insert, ModelTableName, SqlExpr, Update};
+use lsys_core::db::{BatchInsert, Insert, TableMeta, SqlExpr, SqlSuffix, Update};
 use lsys_core::sql_format;
 use lsys_logger::dao::ChangeLoggerDao;
 use serde_json::Value;
@@ -126,16 +126,16 @@ impl SmsRecord {
         msg_snid: Option<u64>,
         status: Option<SenderSmsMessageStatus>,
         mobile: Option<&str>,
-        limit: Option<&LimitParam>,
+        limit: &CursorPageParam<u64>,
     ) -> SenderResult<(
         Vec<(SenderSmsMessageModel, Option<SenderSmsBodyModel>)>,
-        Option<u64>,
+        CursorPageData<u64>,
     )> {
         let mut sqlwhere = vec![];
         if let Some(t) = mobile {
             let t = string_clear(t, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
             if t.is_empty() {
-                return Ok((vec![], None));
+                return Ok((vec![], CursorPageData::default()));
             }
             sqlwhere.push(sql_format!("m.mobile={}", t));
         }
@@ -149,7 +149,7 @@ impl SmsRecord {
         if let Some(t) = tpl_key {
             let t = string_clear(t, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
             if t.is_empty() {
-                return Ok((vec![], None));
+                return Ok((vec![], CursorPageData::default()));
             }
             sqlwhere.push(sql_format!("b.tpl_key={} ", t));
         }
@@ -163,49 +163,25 @@ impl SmsRecord {
             sqlwhere.push(sql_format!("m.sender_body_id={} ", s));
         }
 
-        let where_sql = if let Some(page) = limit {
-            let page_where = page.where_sql(
-                "m.id",
-                if sqlwhere.is_empty() {
-                    None
-                } else {
-                    Some("and")
-                },
-            );
-            format!(
-                "{} {} {} order by {} {} ",
-                if !sqlwhere.is_empty() || !page_where.is_empty() {
-                    "where "
-                } else {
-                    ""
-                },
-                sqlwhere.join(" and "),
-                page_where,
-                page.order_sql("m.id"),
-                page.limit_sql(),
-            )
+        let query_limit = limit.page_query("m.id")    ;
+        let where_str = sqlwhere.join(" and ");
+        let suff_sql = query_limit.build_query_sql(if sqlwhere.is_empty() {
+            None
         } else {
-            format!(
-                "{} {}  order by m.id desc",
-                if !sqlwhere.is_empty() { "where " } else { "" },
-                sqlwhere.join(" and ")
-            )
-        };
+            Some(&where_str)
+        });
 
         let sql = sql_format!(
             "select m.* from {} as m join {} as b on m.sender_body_id=b.id {}",
             SenderSmsMessageModel::table_name(),
             SenderSmsBodyModel::table_name(),
-            SqlExpr(where_sql)
+            SqlExpr(suff_sql)
         );
 
         let res = sqlx::query_as::<_, SenderSmsMessageModel>(sql.as_str());
         let mut m_data = res.fetch_all(&self.db).await?;
 
-        let next = limit
-            .as_ref()
-            .map(|page| page.tidy(&mut m_data))
-            .unwrap_or_default();
+        let next = query_limit.finalize(&mut m_data, |c, d| *d == c.id, |c| c.id);
 
         let pks = m_data
             .iter()
@@ -237,7 +213,7 @@ impl SmsRecord {
             })
             .collect::<Vec<_>>();
 
-        Ok((out_data, next.map(|t| t.id)))
+        Ok((out_data, next))
     }
     //消息日志数量
     pub async fn message_log_count(&self, message_id: u64) -> SenderResult<i64> {
@@ -247,7 +223,7 @@ impl SmsRecord {
     pub async fn message_log_list(
         &self,
         message_id: u64,
-        page: Option<&PageParam>,
+        page: &OffsetPageParam,
     ) -> SenderResult<Vec<SenderLogModel>> {
         self.message_logs.list_data(message_id, page).await
     }
@@ -315,7 +291,6 @@ impl SmsRecord {
         let add_time = now_time().unwrap_or_default();
         let tpl_key = tpl_key.to_owned();
         let tpl_var = tpl_var.to_owned();
-        let mut idata = Vec::with_capacity(mobiles.len());
         let mut max_try_num = max_try_num.to_owned();
         let add_data = mobiles
             .iter()
@@ -347,23 +322,20 @@ impl SmsRecord {
         if max_try_num > 10 {
             max_try_num = 10
         }
-        let res = Insert::<SenderSmsBodyModel, _>::new(
-            lsys_core::model_option_set!(SenderSmsBodyModelRef,{
-                app_id:app_id,
-                tpl_key:tpl_key,
-                request_id:reqid,
-                tpl_var:tpl_var,
-                reply_host:reply_host,
-                status:SenderSmsBodyStatus::Init as i8,
-                add_time:add_time,
-                max_try_num:max_try_num as u16,
-                user_id:user_id,
-                user_ip:user_ip,
-                expected_time:expected_time,
-            }),
-        )
-        .execute(&mut *tran)
-        .await;
+        let res = Insert::<SenderSmsBodyModel>::new()
+            .set(SenderSmsBodyModel::APP_ID, app_id)
+            .set(SenderSmsBodyModel::TPL_KEY, &tpl_key)
+            .set(SenderSmsBodyModel::REQUEST_ID, reqid)
+            .set(SenderSmsBodyModel::TPL_VAR, &tpl_var)
+            .set(SenderSmsBodyModel::REPLY_HOST, reply_host)
+            .set(SenderSmsBodyModel::STATUS, SenderSmsBodyStatus::Init as i8)
+            .set(SenderSmsBodyModel::ADD_TIME, add_time)
+            .set(SenderSmsBodyModel::MAX_TRY_NUM, max_try_num as u16)
+            .set(SenderSmsBodyModel::USER_ID, user_id)
+            .set(SenderSmsBodyModel::USER_IP, user_ip)
+            .set(SenderSmsBodyModel::EXPECTED_TIME, expected_time)
+            .execute(&mut *tran)
+            .await;
         let body_id = match res {
             Ok(e) => e.last_insert_id(),
             Err(err) => {
@@ -371,23 +343,23 @@ impl SmsRecord {
                 return Err(err.into());
             }
         };
-        let res_data = "".to_string();
+        let res_data = "";
+        let mut batch = BatchInsert::<SenderSmsMessageModel>::with_capacity(add_data.len());
         for (id, _, _, area, mobile) in add_data.iter() {
-            idata.push(lsys_core::model_option_set!(SenderSmsMessageModelRef,{
-                snid:id,
-                sender_body_id:body_id,
-                mobile:*mobile,
-                area:*area,
-                try_num:0,
-                status:SenderSmsMessageStatus::Init as i8,
-                send_time:0,
-                add_time:add_time,
-                res_data:res_data,
-            }));
+            batch = batch.push(
+                Insert::<SenderSmsMessageModel>::new()
+                    .set(SenderSmsMessageModel::SNID, *id)
+                    .set(SenderSmsMessageModel::SENDER_BODY_ID, body_id)
+                    .set(SenderSmsMessageModel::MOBILE, mobile)
+                    .set(SenderSmsMessageModel::AREA, area)
+                    .set(SenderSmsMessageModel::TRY_NUM, 0u16)
+                    .set(SenderSmsMessageModel::STATUS, SenderSmsMessageStatus::Init as i8)
+                    .set(SenderSmsMessageModel::SEND_TIME, 0u64)
+                    .set(SenderSmsMessageModel::ADD_TIME, add_time)
+                    .set(SenderSmsMessageModel::RES_DATA, res_data),
+            );
         }
-        Insert::<SenderSmsMessageModel, _>::new_vec(idata)
-            .execute(&mut *tran)
-            .await?;
+        batch.execute(&mut *tran).await?;
 
         tran.commit().await?;
 
@@ -427,12 +399,10 @@ impl SmsRecord {
             return Ok(());
         }
         if SenderSmsMessageStatus::Init.eq(message.status) {
-            let change = lsys_core::model_option_set!(SenderSmsMessageModelRef, {
-                status: SenderSmsMessageStatus::IsCancel as i8
-            });
-            Update::<SenderSmsMessageModel, _>::new(change)
-                .execute_by_where(
-                    &WhereOption::Where(sql_format!("id={}", message.id)),
+            Update::<SenderSmsMessageModel>::new()
+                .set(SenderSmsMessageModel::STATUS, SenderSmsMessageStatus::IsCancel as i8)
+                .execute(
+                    SqlSuffix::Where(&sql_format!("id={}", message.id)),
                     &self.db,
                 )
                 .await?;

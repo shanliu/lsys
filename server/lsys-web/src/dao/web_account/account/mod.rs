@@ -10,18 +10,16 @@ mod mobile;
 pub use address::*;
 pub use detail::*;
 pub use info::*;
-use lsys_access::dao::UserInfo;
+use lsys_access::dao::{AccessDao, UserInfo};
 use lsys_user::dao::UserDao;
 use sqlx::Pool;
 use std::sync::Arc;
 
-use crate::{
-    common::JsonResult,
-    dao::{AppArea, AppCaptcha, AppSender},
-};
+use crate::dao::{AppArea, AppCaptcha, AppSender, WebResult};
 
 pub struct WebUserAccount {
     user_dao: Arc<UserDao>,
+    access_dao: Arc<AccessDao>,
     captcha: Arc<AppCaptcha>,
     sender: Arc<AppSender>,
     area: Arc<AppArea>,
@@ -31,6 +29,7 @@ pub struct WebUserAccount {
 impl WebUserAccount {
     pub fn new(
         user_dao: Arc<UserDao>,
+        access_dao: Arc<AccessDao>,
         captcha: Arc<AppCaptcha>,
         sender: Arc<AppSender>,
         area: Arc<AppArea>,
@@ -42,10 +41,11 @@ impl WebUserAccount {
             sender,
             area,
             db,
+            access_dao,
         }
     }
     //转换 account_id 为用户数据
-    pub async fn account_id_to_user(&self, account_id: u64) -> JsonResult<UserInfo> {
+    pub async fn account_id_to_user(&self, account_id: u64) -> WebResult<UserInfo> {
         let account = self
             .user_dao
             .account_dao
@@ -54,11 +54,10 @@ impl WebUserAccount {
             .find_by_id(&account_id)
             .await?;
         Ok(self
-            .user_dao
-            .account_dao
-            .account
+            .access_dao
+            .user
             .cache()
-            .get_user(&account)
+            .sync_user(0, account.id, Some(&account.nickname), None)
             .await?)
     }
 }

@@ -5,15 +5,15 @@ authors = ["liushan <shan.liu@msn.com>"]
 edition = "2021"
 
 [dependencies]
-lsys-core = { path = "../lsys-core" }
-lsys-access = { path = "../lsys-access" } #完成OAUTH登录
+lsys-core = { path = "../lsys-core", features = ["db", "redis"] }
+lsys-access = { path = "../lsys-access" }                         #完成OAUTH登录
 lsys-logger = { path = "../lsys-logger" }
 
 serde = { version = "1.0.*" }
 serde_json = "1.0.*"
 
-deadpool-redis = { version = "~0.21.0" }
-redis = { version = "~0.31.0" }
+deadpool-redis = { version = "~0.22.1" }
+redis = { version = "~0.32.0" }
 
 sqlx = { version = "~0.8.6", features = ["mysql", "runtime-tokio-native-tls"] }
 
@@ -29,5 +29,5 @@ md5 = "~0.8.0"
 # notify 
 chrono = { version = "~0.4.31" }
 url = "2.5.0"
-reqwest = { version = "~0.12.9", features = ["stream"] }
+reqwest = { version = "~0.13.1", features = ["stream"] }
 futures = "0.3"

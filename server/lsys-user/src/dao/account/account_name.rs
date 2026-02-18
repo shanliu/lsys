@@ -1,5 +1,6 @@
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
+    db::query_string_field_max,
     fluent_message, now_time, string_clear, valid_key, RemoteNotify, RequestEnv, StringClear,
     ValidError, ValidParam, ValidParamCheck, ValidPattern, ValidStrMatch, ValidStrlen,
     STRING_CLEAR_FORMAT,
@@ -7,22 +8,19 @@ use lsys_core::{
 
 use lsys_logger::dao::ChangeLoggerDao;
 // use rand::seq::SliceRandom;
-use lsys_core::db::{Insert, ModelTableName, SqlQuote, Update, WhereOption};
-use lsys_core::{model_option_set, sql_format};
+use lsys_core::db::{Insert, SqlQuote, SqlSuffix, TableMeta, Update};
+use lsys_core::sql_format;
 use sqlx::{Acquire, MySql, Pool, Transaction};
 use std::{collections::HashMap, sync::Arc};
-use tracing::warn;
 
-use crate::model::{AccountModel, AccountNameModel, AccountNameModelRef, AccountNameStatus};
+use crate::model::{AccountModel, AccountNameModel, AccountNameStatus};
 
 use super::{logger::LogAccountName, AccountError, AccountIndex, AccountResult};
-use lsys_access::dao::AccessDao;
-use lsys_core::IntoFluentMessage;
+
 pub struct AccountName {
     db: Pool<MySql>,
     // fluent: Arc<FluentBuild>,
     index: Arc<AccountIndex>,
-    access: Arc<AccessDao>,
     pub(crate) cache: Arc<LocalCache<u64, AccountNameModel>>,
     logger: Arc<ChangeLoggerDao>,
 }
@@ -31,7 +29,6 @@ impl AccountName {
     pub fn new(
         db: Pool<MySql>,
         index: Arc<AccountIndex>,
-        access: Arc<AccessDao>,
         remote_notify: Arc<RemoteNotify>,
         config: LocalCacheConfig,
         logger: Arc<ChangeLoggerDao>,
@@ -39,7 +36,6 @@ impl AccountName {
         Self {
             cache: Arc::new(LocalCache::new(remote_notify, config)),
             db,
-            access,
             index,
             logger,
         }
@@ -73,19 +69,17 @@ impl AccountName {
         let ntime = now_time().unwrap_or_default();
         let username = "del_".to_string() + "_" + account.id.to_string().as_str();
         let status = AccountNameStatus::Delete as i8;
-        let name_change = lsys_core::model_option_set!(AccountNameModelRef,{
-            username:username,
-            change_time:ntime,
-            status:status
-        });
 
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let res = Update::<AccountNameModel, _>::new(name_change)
-            .execute_by_where(
-                &WhereOption::Where(sql_format!("account_id={}", account.id)),
+        let res = Update::<AccountNameModel>::new()
+            .set(AccountNameModel::USERNAME, &username)
+            .set(AccountNameModel::CHANGE_TIME, ntime)
+            .set(AccountNameModel::STATUS, status)
+            .execute(
+                SqlSuffix::Where(&sql_format!("account_id={}", account.id)),
                 &mut *db,
             )
             .await;
@@ -122,13 +116,18 @@ impl AccountName {
         Ok(())
     }
     async fn name_param_valid(&self, username: &str) -> AccountResult<()> {
+        let username_max =
+            query_string_field_max::<AccountNameModel>(&self.db, &AccountNameModel::USERNAME)
+                .await
+                .len_or(32);
+
         ValidParam::default()
             .add(
                 valid_key!("username"),
                 &username,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::Ident)
-                    .add_rule(ValidStrlen::range(3, 32))
+                    .add_rule(ValidStrlen::range(3, username_max))
                     .add_rule(ValidStrMatch::StartNotWith("del_")),
             )
             .check()?;
@@ -170,17 +169,15 @@ impl AccountName {
                 match account_name_res {
                     Err(sqlx::Error::RowNotFound) => {
                         let status = AccountNameStatus::Enable as i8;
-                        let new_data = model_option_set!(AccountNameModelRef,{
-                            account_id:account.id,
-                            username:username,
-                            status:status,
-                            change_time: time,
-                        });
                         let mut db = match transaction {
                             Some(pb) => pb.begin().await?,
                             None => self.db.begin().await?,
                         };
-                        let tmp = Insert::<AccountNameModel, _>::new(new_data)
+                        let tmp = Insert::<AccountNameModel>::new()
+                            .set(AccountNameModel::ACCOUNT_ID, account.id)
+                            .set(AccountNameModel::USERNAME, &username)
+                            .set(AccountNameModel::STATUS, status)
+                            .set(AccountNameModel::CHANGE_TIME, time)
                             .execute(&mut *db)
                             .await;
                         if let Err(ie) = tmp {
@@ -220,18 +217,16 @@ impl AccountName {
                     }
                     Ok(account_name) => {
                         let status = AccountNameStatus::Enable as i8;
-                        let change = lsys_core::model_option_set!(AccountNameModelRef,{
-                            status:status,
-                            username:username,
-                            change_time:time
-                        });
                         let mut db = match transaction {
                             Some(pb) => pb.begin().await?,
                             None => self.db.begin().await?,
                         };
-                        let tmp = Update::<AccountNameModel, _>::new(change)
-                            .execute_by_where(
-                                &WhereOption::Where(sql_format!("id={}", account_name.id)),
+                        let tmp = Update::<AccountNameModel>::new()
+                            .set(AccountNameModel::STATUS, status)
+                            .set(AccountNameModel::USERNAME, &username)
+                            .set(AccountNameModel::CHANGE_TIME, time)
+                            .execute(
+                                SqlSuffix::Where(&sql_format!("id={}", account_name.id)),
                                 &mut *db,
                             )
                             .await;
@@ -276,17 +271,6 @@ impl AccountName {
         };
         if out.is_ok() {
             //此过程必须,通过过去好查数据
-            if let Err(err) = self
-                .access
-                .user
-                .sync_user(0, account.id, None, Some(&username))
-                .await
-            {
-                warn!(
-                    "sync user account to access fail:{}",
-                    err.to_fluent_message().default_format()
-                );
-            };
 
             self.logger
                 .add(

@@ -1,4 +1,4 @@
-use crate::common::JsonData;
+use crate::common::{JsonData, ToCursorPageParam};
 use crate::common::{JsonResponse, JsonResult};
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
@@ -6,6 +6,7 @@ use crate::{
     dao::access::api::system::admin::CheckAdminUserManage,
 };
 use lsys_access::dao::{AccessError, AccessSession, SessionDataParam};
+use lsys_core::db::CursorPageSort;
 use serde::Deserialize;
 use serde_json::json;
 
@@ -43,14 +44,14 @@ pub async fn login_history(
         user_id: param.user_id,
         is_enable: param.is_enable,
     };
-    let (res, next) = req_dao
+    let (res, next_data) = req_dao
         .web_dao
         .web_access
         .access_dao
         .user
         .session_data(
             &session_param,
-            param.limit.as_ref().map(|e| e.into()).as_ref(),
+            &param.limit.to_u64_cursor_page_param(CursorPageSort::Desc),
         )
         .await?;
 
@@ -69,7 +70,8 @@ pub async fn login_history(
     };
     Ok(JsonResponse::data(JsonData::body(json!({
         "data": bind_vec_user_info_from_req!(req_dao, res, user_id,false) ,
-        "next": next,
+        "next_cursor": next_data.next_cursor,
+        "prev_cursor": next_data.prev_cursor,
         "total":count,
     }))))
 }

@@ -1,20 +1,24 @@
-// use config::Config;
+#[cfg(feature = "redis")]
 use deadpool_redis::{Config as RedisConfig, Runtime};
 
-use log::LevelFilter;
-
+#[cfg(not(feature = "tokio"))]
+use parking_lot::Mutex;
+#[cfg(feature = "db")]
 use sqlx::pool::PoolOptions;
+#[cfg(feature = "db")]
 use sqlx::{ConnectOptions, Pool};
+#[cfg(feature = "tokio")]
 use tokio::sync::Mutex;
-use tracing::debug;
 
 use std::str::FromStr;
 
 use crate::app_core::result::AppCoreError;
+#[cfg(feature = "tera")]
+use crate::{tera_second_format, tera_time_format};
+use crate::{AppCore, FluentMgr};
 use async_trait::async_trait;
+#[cfg(feature = "tera")]
 use tera::Tera;
-
-use crate::{tera_second_format, tera_time_format, AppCore, FluentMgr};
 
 use super::AppCoreCreate;
 
@@ -84,12 +88,22 @@ impl AppCoreCreate for BaseAppCoreCreate {
                         .with_env_filter(log_level) //格式 模块:最大等级 mod:level
                         .try_init()
                         .map_err(|e| AppCoreError::System(e.to_string()))?;
-                    *self.log_guard.lock().await = Some(guard);
+
+                    #[cfg(feature = "tokio")]
+                    {
+                        *self.log_guard.lock().await = Some(guard);
+                    }
+
+                    #[cfg(not(feature = "tokio"))]
+                    {
+                        *self.log_guard.lock() = Some(guard);
+                    }
                 }
             };
         }
         Ok(())
     }
+    #[cfg(feature = "db")]
     async fn create_db(&self, app_core: &AppCore) -> Result<Pool<sqlx::MySql>, AppCoreError> {
         let database_url = app_core
             .config
@@ -110,7 +124,7 @@ impl AppCoreCreate for BaseAppCoreCreate {
             .unwrap_or(5);
         let mut option = sqlx::mysql::MySqlConnectOptions::from_str(&database_url)
             .map_err(|e| AppCoreError::System(e.to_string()))?;
-        let level = LevelFilter::from_str(&database_level).unwrap_or(LevelFilter::Trace);
+        let level = log::LevelFilter::from_str(&database_level).unwrap_or(log::LevelFilter::Trace);
         option = option.log_statements(level);
         let poll = PoolOptions::<sqlx::MySql>::new()
             .max_connections(database_max)
@@ -118,6 +132,7 @@ impl AppCoreCreate for BaseAppCoreCreate {
             .await?;
         Ok(poll)
     }
+    #[cfg(feature = "redis")]
     async fn create_redis_client(&self, app_core: &AppCore) -> Result<redis::Client, AppCoreError> {
         let redis_url = app_core
             .config
@@ -127,6 +142,7 @@ impl AppCoreCreate for BaseAppCoreCreate {
         let b = redis::Client::open(redis_url)?;
         Ok(b)
     }
+    #[cfg(feature = "redis")]
     async fn create_redis_pool(
         &self,
         app_core: &AppCore,
@@ -140,6 +156,7 @@ impl AppCoreCreate for BaseAppCoreCreate {
         let pool = cfg.create_pool(Some(Runtime::Tokio1))?;
         Ok(pool)
     }
+    #[cfg(feature = "tera")]
     async fn create_tera(&self, app_core: &AppCore) -> Result<Tera, AppCoreError> {
         let tpl_dir = app_core.config_path(app_core.config.find(None), "tpl_dir")?;
         let tpl_exts = app_core
@@ -159,7 +176,7 @@ impl AppCoreCreate for BaseAppCoreCreate {
                 ])
                 .join(",")
         );
-        debug!("tpl dir is:{}", tpl_pat);
+        tracing::debug!("tpl dir is:{}", tpl_pat);
         let mut tera = Tera::new(tpl_pat)?;
         tera.register_filter("second_format", tera_second_format);
         tera.register_filter("time_format", tera_time_format);
@@ -167,6 +184,9 @@ impl AppCoreCreate for BaseAppCoreCreate {
     }
     async fn create_fluent(&self, app_core: &AppCore) -> Result<FluentMgr, AppCoreError> {
         let path = { app_core.config_path(app_core.config.find(None), "fluent_dir")? };
+        #[cfg(not(feature = "tokio"))]
+        let fluent = FluentMgr::new(path, "lsys", None)?;
+        #[cfg(feature = "tokio")]
         let fluent = FluentMgr::new(path, "lsys", None).await?;
         Ok(fluent)
     }

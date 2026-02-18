@@ -2,9 +2,12 @@
 
 use lsys_access::dao::AccessError;
 use lsys_app_sender::dao::SenderError;
-use lsys_core::{AppCoreError, ConfigError, FluentBundle, ValidCodeError, ValidError};
+use lsys_core::{
+    AppCoreError, ConfigError, FluentBundle, RemoteNotifyError, ValidCodeError, ValidError,
+};
 
 use lsys_logger::dao::LoggerError;
+use lsys_mfa::dao::MfaError;
 use lsys_rbac::dao::RbacError;
 use lsys_setting::dao::SettingError;
 use lsys_user::dao::{AccountError, UserAuthError};
@@ -13,6 +16,8 @@ use serde_json::json;
 use std::{collections::HashMap, num::ParseIntError};
 
 use lsys_app::dao::AppError;
+
+use crate::dao::WebError;
 
 use super::{JsonData, JsonFluent};
 
@@ -70,6 +75,12 @@ impl JsonFluent for AccountError {
             AccountError::AuthStatusError(_) => json_data.set_sub_code("status_wrong"),
             AccountError::UserNotFind(_) => json_data.set_sub_code("not_find"),
             AccountError::Vaild(err) => err.to_json_data(fluent),
+            AccountError::MfaNeed { mfa_token, .. } => {
+                json_data.set_sub_code("mfa_need").set_body(json!({
+                    "mfa_token":mfa_token
+                }))
+            }
+            AccountError::MfaError(err) => err.to_json_data(fluent),
         }
     }
 }
@@ -228,11 +239,69 @@ impl JsonFluent for ConfigError {
         .set_sub_code("config")
     }
 }
+impl JsonFluent for RemoteNotifyError {
+    fn to_json_data(&self, fluent: &FluentBundle) -> JsonData {
+        match self {
+            RemoteNotifyError::System(_) => JsonData::error(),
+            RemoteNotifyError::RedisPool(pool_error) => pool_error.to_json_data(fluent),
+            RemoteNotifyError::Redis(redis_error) => redis_error.to_json_data(fluent),
+            RemoteNotifyError::RemoteTimeOut => JsonData::error(),
+        }
+    }
+}
 
 impl JsonFluent for LoggerError {
     fn to_json_data(&self, fluent: &FluentBundle) -> JsonData {
         match self {
             LoggerError::Sqlx(err) => err.to_json_data(fluent),
+        }
+    }
+}
+
+impl JsonFluent for WebError {
+    fn to_json_data(&self, fluent: &FluentBundle) -> JsonData {
+        match self {
+            WebError::AppCore(err) => err.to_json_data(fluent),
+            WebError::AreaError(err) => err.to_json_data(fluent),
+            WebError::Message(_) => JsonData::error(),
+            WebError::JsonResponse(e, _) => *e.to_owned(),
+            WebError::RemoteNotifyError(err) => err.to_json_data(fluent),
+            WebError::Sqlx(err) => err.to_json_data(fluent),
+            WebError::SettingError(err) => err.to_json_data(fluent),
+            WebError::SenderError(err) => err.to_json_data(fluent),
+            WebError::RbacError(err) => err.to_json_data(fluent),
+            WebError::AccountError(err) => err.to_json_data(fluent),
+            WebError::UserAuthError(err) => err.to_json_data(fluent),
+            WebError::AppError(err) => err.to_json_data(fluent),
+            WebError::MfaError(err) => err.to_json_data(fluent),
+            WebError::ValidError(err) => err.to_json_data(fluent),
+            WebError::ValidCodeError(err) => err.to_json_data(fluent),
+            WebError::AccessError(err) => err.to_json_data(fluent),
+            WebError::FileError(err) => err.to_json_data(fluent),
+        }
+    }
+}
+
+impl JsonFluent for MfaError {
+    fn to_json_data(&self, fluent: &FluentBundle) -> JsonData {
+        match self {
+            MfaError::Sqlx(err) => err.to_json_data(fluent),
+            MfaError::ValidParam(err) => err.to_json_data(fluent),
+            MfaError::NotEnabled => JsonData::default()
+                .set_code(500)
+                .set_sub_code("mfa-not-enabled"),
+            MfaError::VerifyFailed => JsonData::default()
+                .set_code(500)
+                .set_sub_code("mfa-verify-failed"),
+            MfaError::Replay => JsonData::default()
+                .set_code(500)
+                .set_sub_code("mfa-verify-failed"),
+            MfaError::SecretInvalid => JsonData::default()
+                .set_code(500)
+                .set_sub_code("mfa-secret-invalid"),
+            MfaError::TokenExpired => JsonData::default()
+                .set_code(500)
+                .set_sub_code("mfa-token-expired"),
         }
     }
 }
@@ -280,24 +349,29 @@ impl JsonFluent for lsys_lib_area::AreaError {
     }
 }
 
-#[cfg(feature = "barcode")]
-impl JsonFluent for lsys_app_barcode::dao::BarCodeError {
+impl JsonFluent for lsys_files::common::FileError {
     fn to_json_data(&self, fluent: &FluentBundle) -> JsonData {
         match self {
-            lsys_app_barcode::dao::BarCodeError::System(_) => JsonData::default()
-                .set_code(500)
-                .set_sub_code("app_barcode"),
-            lsys_app_barcode::dao::BarCodeError::DB(err) => err.to_json_data(fluent),
-            lsys_app_barcode::dao::BarCodeError::RXing(_) => {
-                JsonData::default().set_code(500).set_sub_code("rxing")
+            lsys_files::common::FileError::Sqlx(e) => e.to_json_data(fluent),
+            lsys_files::common::FileError::Io(e) => e.to_json_data(fluent),
+            lsys_files::common::FileError::System(_) => {
+                JsonData::default().set_code(500).set_sub_code("file-system")
             }
-            lsys_app_barcode::dao::BarCodeError::Io(err) => err.to_json_data(fluent),
-            lsys_app_barcode::dao::BarCodeError::Image(_) => {
-                JsonData::default().set_code(500).set_sub_code("image")
+            lsys_files::common::FileError::Param(_) => {
+                JsonData::default().set_code(400).set_sub_code("file-param")
             }
-            lsys_app_barcode::dao::BarCodeError::Vaild(err) => err.to_json_data(fluent),
+            lsys_files::common::FileError::Http(_) => {
+                JsonData::default().set_code(500).set_sub_code("file-http")
+            }
+            lsys_files::common::FileError::InvalidStatusCode(_) => {
+                JsonData::default().set_code(500).set_sub_code("file-status-code")
+            }
+            lsys_files::common::FileError::RedirectLimitExceeded => {
+                JsonData::default().set_code(500).set_sub_code("file-redirect")
+            }
+            lsys_files::common::FileError::InvalidChunkData(_) => {
+                JsonData::default().set_code(400).set_sub_code("file-chunk")
+            }
         }
     }
 }
-#[cfg(feature = "barcode")]
-crate_error_fluent!(base64::DecodeError, "base64");

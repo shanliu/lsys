@@ -1,6 +1,6 @@
-use crate::common::{JsonData, JsonResponse, JsonResult, LimitParam, UserAuthQueryDao};
+use crate::common::{JsonData, JsonResponse, JsonResult, LimitParam, ToCursorPageParam, UserAuthQueryDao};
 use lsys_access::dao::{AccessSession, UserDataParam};
-use lsys_core::FluentMessage;
+use lsys_core::{FluentMessage, db::CursorPageSort};
 use serde::Deserialize;
 use serde_json::json;
 
@@ -89,7 +89,7 @@ pub async fn dynamic_res_data_global_user(
                 user_account: None,
                 user_any: None,
             },
-            param.limit.as_ref().map(|e| e.into()).as_ref(),
+            &param.limit.to_u64_cursor_page_param(CursorPageSort::Desc),
         )
         .await?;
     let total = if param.count_num.unwrap_or_default() {
@@ -155,7 +155,10 @@ pub async fn dynamic_res_data_global_user(
             }).collect::<Vec<_>>(),
         }));
     }
-    Ok(JsonResponse::data(JsonData::body(
-        json!({ "tpl_data": out_data,"total":total,"next_id":user_res_data.1 }),
-    )))
+    Ok(JsonResponse::data(JsonData::body(json!({
+        "tpl_data": out_data,
+        "total":total,
+        "next_cursor":user_res_data.1.next_cursor,
+        "prev_cursor":user_res_data.1.prev_cursor
+    }))))
 }

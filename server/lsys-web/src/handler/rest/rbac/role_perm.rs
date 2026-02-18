@@ -4,6 +4,7 @@ use crate::common::JsonData;
 use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::RequestDao;
+use crate::common::ToOffsetPageParam;
 use crate::common::{JsonError, PageParam};
 use lsys_app::model::AppModel;
 use lsys_core::fluent_message;
@@ -196,7 +197,7 @@ pub async fn role_perm_data(
         .web_rbac
         .rbac_dao
         .role
-        .role_perm_data(&role, param.page.as_ref().map(|e| e.into()).as_ref())
+        .role_perm_data(&role, &param.page.to_offset_page_param())
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(

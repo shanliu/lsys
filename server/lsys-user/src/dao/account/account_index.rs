@@ -1,12 +1,13 @@
-use crate::model::{
-    AccountIndexCat, AccountIndexModel, AccountIndexModelRef, AccountIndexStatus, AccountStatus,
-};
+use crate::model::{AccountIndexCat, AccountIndexModel, AccountIndexStatus, AccountStatus};
 use config::Map;
-use lsys_core::{now_time, string_clear, LimitParam, StringClear};
+use lsys_core::{now_time, string_clear, StringClear};
 
 use super::AccountResult;
-use lsys_core::db::{Insert, ModelTableName, SqlExpr, SqlQuote, Update};
-use lsys_core::{db_option_executor, model_option_set, sql_format};
+use lsys_core::db::{
+    BatchInsert, CursorPageData, CursorPageParam, Insert, SqlExpr, SqlQuote, SqlSuffix, TableMeta,
+    Update,
+};
+use lsys_core::{db_option_executor, sql_format};
 use sqlx::{Acquire, MySql, Pool, Transaction};
 pub struct AccountIndex {
     db: Pool<MySql>,
@@ -31,40 +32,51 @@ impl AccountIndex {
         let index_cat = cat as u8;
         let status = AccountIndexStatus::Enable as i8;
         let index_data = index_data.to_string();
-        let vdata = model_option_set!(AccountIndexModelRef,{
-            index_cat:index_cat,
-            index_data:index_data,
-            account_id:account_id,
-            status:status,
-            change_time:time,
-        });
-        let change = lsys_core::model_option_set!(AccountIndexModelRef,{
-            status:status,
-            change_time:time
-        });
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let tmp = Insert::<AccountIndexModel, _>::new(vdata)
-            .execute_update(&Update::<AccountIndexModel, _>::new(change), &mut *db)
+        let tmp = Insert::<AccountIndexModel>::new()
+            .set(AccountIndexModel::INDEX_CAT, index_cat)
+            .set(AccountIndexModel::INDEX_DATA, &index_data)
+            .set(AccountIndexModel::ACCOUNT_ID, account_id)
+            .set(AccountIndexModel::STATUS, status)
+            .set(AccountIndexModel::CHANGE_TIME, time)
+            .execute_update(
+                Update::<AccountIndexModel>::new()
+                    .set(AccountIndexModel::STATUS, status)
+                    .set(AccountIndexModel::CHANGE_TIME, time),
+                &mut *db,
+            )
             .await;
         let addid = match tmp {
             Err(ie) => {
                 db.rollback().await?;
                 return Err(ie.into());
             }
-            Ok(r) => r.last_insert_id(),
+            Ok(row) => {
+                if row.last_insert_id() == 0 {
+                    sqlx::query_scalar::<_, u64>(&sql_format!(
+                        "select id from {} where account_id={} and index_cat={} and index_data={}",
+                        AccountIndexModel::table_name(),
+                        account_id,
+                        index_cat,
+                        index_data
+                    ))
+                    .fetch_one(&self.db)
+                    .await?
+                } else {
+                    row.last_insert_id()
+                }
+            }
         };
         if addid > 0 {
             let del_status = AccountIndexStatus::Delete as i8;
-            let change = lsys_core::model_option_set!(AccountIndexModelRef,{
-                status:del_status,
-                change_time:time
-            });
-            let tmp = Update::<AccountIndexModel, _>::new(change)
-                .execute_by_where(
-                    &lsys_core::db::WhereOption::Where(sql_format!(
+            let tmp = Update::<AccountIndexModel>::new()
+                .set(AccountIndexModel::STATUS, del_status)
+                .set(AccountIndexModel::CHANGE_TIME, time)
+                .execute(
+                    SqlSuffix::Where(&sql_format!(
                         "account_id={} and index_cat={} and id!={}",
                         account_id,
                         index_cat,
@@ -87,35 +99,33 @@ impl AccountIndex {
         account_id: u64,
         index_data: &[&str],
         transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
-    ) -> AccountResult<u64> {
+    ) -> AccountResult<()> {
         if index_data.is_empty() {
-            return Ok(0);
+            return Ok(());
         }
-
         let time = now_time()?;
         let index_cat = cat as u8;
         let status = AccountIndexStatus::Enable as i8;
-        let mut vdata = Vec::with_capacity(index_data.len());
         let tmp_data = index_data.iter().map(|e| e.to_string()).collect::<Vec<_>>();
+        let mut batch = BatchInsert::<AccountIndexModel>::with_capacity(tmp_data.len());
         for t in tmp_data.iter() {
-            vdata.push(model_option_set!(AccountIndexModelRef,{
-                index_cat:index_cat,
-                index_data:t,
-                account_id:account_id,
-                status:status,
-                change_time:time,
-            }));
+            batch = batch.push(
+                Insert::<AccountIndexModel>::new()
+                    .set(AccountIndexModel::INDEX_CAT, index_cat)
+                    .set(AccountIndexModel::INDEX_DATA, t)
+                    .set(AccountIndexModel::ACCOUNT_ID, account_id)
+                    .set(AccountIndexModel::STATUS, status)
+                    .set(AccountIndexModel::CHANGE_TIME, time),
+            );
         }
-        let update = model_option_set!(AccountIndexModelRef,{
-            status:status,
-            change_time:time,
-        });
-        let res = db_option_executor!(
+        db_option_executor!(
             db,
             {
-                Insert::<AccountIndexModel, _>::new_vec(vdata)
+                batch
                     .execute_update(
-                        &Update::<AccountIndexModel, _>::new(update),
+                        Update::<AccountIndexModel>::new()
+                            .set(AccountIndexModel::STATUS, status)
+                            .set(AccountIndexModel::CHANGE_TIME, time),
                         db.as_executor(),
                     )
                     .await?
@@ -123,7 +133,7 @@ impl AccountIndex {
             transaction,
             &self.db
         );
-        Ok(res.last_insert_id())
+        Ok(())
     }
     pub async fn del(
         &self,
@@ -137,16 +147,14 @@ impl AccountIndex {
         }
         let index_cat = cat as u8;
         let time = now_time()?;
-        let change = lsys_core::model_option_set!(AccountIndexModelRef,{
-            status:AccountIndexStatus::Delete as i8,
-            change_time:time,
-        });
         let res = db_option_executor!(
             db,
             {
-                Update::<AccountIndexModel, _>::new(change)
-                    .execute_by_where(
-                        &lsys_core::db::WhereOption::Where(sql_format!(
+                Update::<AccountIndexModel>::new()
+                    .set(AccountIndexModel::STATUS, AccountIndexStatus::Delete as i8)
+                    .set(AccountIndexModel::CHANGE_TIME, time)
+                    .execute(
+                        SqlSuffix::Where(&sql_format!(
                             "index_data  in ({}) and index_cat={} and account_id={}",
                             index_data,
                             index_cat,
@@ -169,16 +177,14 @@ impl AccountIndex {
     ) -> AccountResult<u64> {
         let index_cat = cat as u8;
         let time = now_time()?;
-        let change = lsys_core::model_option_set!(AccountIndexModelRef,{
-            status:AccountIndexStatus::Delete as i8,
-            change_time:time,
-        });
         let res = db_option_executor!(
             db,
             {
-                Update::<AccountIndexModel, _>::new(change)
-                    .execute_by_where(
-                        &lsys_core::db::WhereOption::Where(sql_format!(
+                Update::<AccountIndexModel>::new()
+                    .set(AccountIndexModel::STATUS, AccountIndexStatus::Delete as i8)
+                    .set(AccountIndexModel::CHANGE_TIME, time)
+                    .execute(
+                        SqlSuffix::Where(&sql_format!(
                             "index_cat={} and account_id={}",
                             index_cat,
                             account_id
@@ -198,19 +204,14 @@ impl AccountIndex {
         transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
     ) -> AccountResult<u64> {
         let time = now_time()?;
-        let change = lsys_core::model_option_set!(AccountIndexModelRef,{
-            status:AccountIndexStatus::Delete as i8,
-            change_time:time,
-        });
         let res = db_option_executor!(
             db,
             {
-                Update::<AccountIndexModel, _>::new(change)
-                    .execute_by_where(
-                        &lsys_core::db::WhereOption::Where(sql_format!(
-                            "account_id={}",
-                            account_id
-                        )),
+                Update::<AccountIndexModel>::new()
+                    .set(AccountIndexModel::STATUS, AccountIndexStatus::Delete as i8)
+                    .set(AccountIndexModel::CHANGE_TIME, time)
+                    .execute(
+                        SqlSuffix::Where(&sql_format!("account_id={}", account_id)),
                         db.as_executor(),
                     )
                     .await
@@ -233,8 +234,8 @@ impl AccountIndex {
         account_status: &[AccountStatus],
         key_word: &str,
         param: &[AccountIndexCat],
-        limit: Option<&LimitParam>,
-    ) -> AccountResult<(Vec<AccountItem>, Option<u64>)> {
+        limit: &CursorPageParam<u64>,
+    ) -> AccountResult<(Vec<AccountItem>, CursorPageData<u64>)> {
         let account_status_data = if account_status.is_empty() {
             vec![AccountStatus::Enable, AccountStatus::Init]
                 .into_iter()
@@ -278,28 +279,23 @@ impl AccountIndex {
                 },
             )
         };
-        if let Some(page) = limit {
-            sql = format!(
-                "{} {} group by k.account_id HAVING cat_more IS NOT NULL order by {} {} ",
-                sql,
-                page.where_sql("k.account_id", Some("and")),
-                page.order_sql("k.account_id"),
-                page.limit_sql(),
-            );
-        } else {
-            sql += " group by k.account_id HAVING cat_more IS NOT NULL order by k.account_id desc";
-        }
-        let mut res = sqlx::query_as::<_, (u64, String)>(sql.as_str())
+        let query_limit = limit.page_query("k.account_id");
+        let cursor_where = query_limit.where_sql();
+        sql = format!(
+            "{} {} group by k.account_id HAVING cat_more IS NOT NULL {} {}",
+            sql,
+            if cursor_where.is_empty() {
+                "".to_string()
+            } else {
+                format!("and {}", cursor_where)
+            },
+            query_limit.order_by_sql(),
+            query_limit.limit_sql().unwrap_or_default(),
+        );
+        let mut res: Vec<(u64, String)> = sqlx::query_as::<_, (u64, String)>(sql.as_str())
             .fetch_all(&self.db)
             .await?;
-        if let Some(LimitParam::Next { .. }) = limit {
-            res.reverse();
-        };
-        let next = limit
-            .as_ref()
-            .map(|page| page.tidy(&mut res))
-            .unwrap_or_default()
-            .map(|e| e.0);
+        let next = query_limit.finalize(&mut res, |row, cursor| row.0 == *cursor, |row| row.0);
         let out = res
             .into_iter()
             .map(|e| {

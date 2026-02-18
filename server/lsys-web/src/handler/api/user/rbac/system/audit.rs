@@ -2,8 +2,10 @@ use crate::common::JsonData;
 use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::LimitParam;
+use crate::common::ToCursorPageParam;
 use crate::common::UserAuthQueryDao;
 use lsys_access::dao::AccessSession;
+use lsys_core::db::CursorPageSort;
 use lsys_rbac::dao::AuditDataParam;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -45,7 +47,7 @@ pub async fn system_audit_data(
                 request_id: param.request_id.as_deref(),
                 res_data: param.res_data.as_ref().map(|e| (e.res_id, e.op_id)),
             },
-            param.limit.as_ref().map(|e| e.into()).as_ref(),
+            &param.limit.to_u64_cursor_page_param(CursorPageSort::Desc),
         )
         .await?;
     let count = if param.count_num.unwrap_or(false) {
@@ -89,7 +91,8 @@ pub async fn system_audit_data(
         .collect::<Vec<Value>>();
     Ok(JsonResponse::data(JsonData::body(json!({
         "data": out_data,
-        "next": res.1,
+        "next_cursor": res.1.next_cursor,
+        "prev_cursor": res.1.prev_cursor,
         "total": count,
     }))))
 }

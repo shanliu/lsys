@@ -1,9 +1,9 @@
 use crate::dao::logger::AppViewSecretLog;
-use crate::dao::AppSecretRecrod;
+use crate::dao::AppSecretRecord;
 use crate::model::AppSecretType;
 use crate::model::{AppModel, AppOAuthClientModel, AppRequestType};
 
-use lsys_core::db::ModelTableName;
+use lsys_core::db::TableMeta;
 use lsys_core::db::SqlQuote;
 use lsys_core::sql_format;
 use lsys_core::RequestEnv;
@@ -89,7 +89,7 @@ impl AppOAuthClient {
         app: &AppModel,
         view_user_id: u64,
         env_data: Option<&RequestEnv>,
-    ) -> AppResult<Vec<AppSecretRecrod>> {
+    ) -> AppResult<Vec<AppSecretRecord>> {
         let secret_data = self
             .app_secret
             .multiple_find_secret_by_app_id(app.id, AppSecretType::OAuth)

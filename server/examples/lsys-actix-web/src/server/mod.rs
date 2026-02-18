@@ -9,7 +9,7 @@ use futures_util::TryFutureExt;
 use jsonwebtoken::{DecodingKey, Validation};
 use lsys_web::common::FluentFormat;
 use lsys_web::dao::WebDao;
-use lsys_web::lsys_core::{AppCore, AppCoreError};
+use lsys_web::lsys_core::{AppCore, AppCoreError, IntoFluentMessage};
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::debug;
@@ -25,7 +25,9 @@ pub async fn create_server(app_dir: &str) -> Result<Server, AppError> {
     let app_core = AppCore::new(app_dir, "config", None, None).await?;
     app_core.init().await?;
     let app_core = Arc::new(app_core);
-    let app_dao = Data::new(WebDao::new(app_core.clone()).await?);
+    let app_dao = Data::new(WebDao::new(app_core.clone()).await.map_err(|e| {
+        AppError::AppCore(AppCoreError::System(e.to_fluent_message().default_format()))
+    })?);
     let bind_addr = app_dao.bind_addr();
     let bind_ssl_data = app_dao.bind_ssl_data();
     let app_jwt_key = app_dao
@@ -45,11 +47,11 @@ pub async fn create_server(app_dir: &str) -> Result<Server, AppError> {
         .app_core
         .config
         .find(None)
-        .get_string("api-allow-origin")
+        .get_string("api_allow_origin")
     {
         Ok(v) => v.split(",").map(|o| o.trim().to_string()).collect(),
         Err(err) => {
-            debug!("not set api-allow-origin: {}", err);
+            debug!("not set api_allow_origin: {}", err);
             vec![]
         }
     };

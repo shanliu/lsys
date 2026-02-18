@@ -3,27 +3,25 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::dao::AccountResult;
-use crate::model::{AccountIndexCat, AccountModel, AccountModelRef, AccountStatus};
-use lsys_access::dao::{AccessDao, UserInfo};
+use crate::model::{AccountIndexCat, AccountModel, AccountStatus};
+
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
+use lsys_core::db::{CursorPageData, CursorPageParam};
 use lsys_core::{
-    fluent_message, now_time, valid_key, LimitParam, RemoteNotify, RequestEnv, ValidParam,
-    ValidParamCheck, ValidPattern, ValidStrlen,
+    db::query_string_field_max, fluent_message, now_time, valid_key, RemoteNotify, RequestEnv,
+    ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
 };
 use lsys_logger::dao::ChangeLoggerDao;
-use tracing::warn;
 
 use super::logger::LogAccount;
 use super::AccountError;
 use super::{AccountIndex, AccountItem};
-use lsys_core::db::{Insert, Update, WhereOption};
-use lsys_core::db::{ModelTableName, SqlQuote};
-use lsys_core::IntoFluentMessage;
-use lsys_core::{model_option_set, sql_format};
+use lsys_core::db::{Insert, SqlSuffix, Update};
+use lsys_core::db::{SqlQuote, TableMeta};
+use lsys_core::sql_format;
 use sqlx::{Acquire, MySql, Pool, Transaction};
 pub struct Account {
     db: Pool<MySql>,
-    access: Arc<AccessDao>,
     index: Arc<AccountIndex>,
     pub(crate) cache: Arc<LocalCache<u64, AccountModel>>,
     logger: Arc<ChangeLoggerDao>,
@@ -34,7 +32,6 @@ pub struct Account {
 impl Account {
     pub fn new(
         db: Pool<MySql>,
-        access: Arc<AccessDao>,
         index: Arc<AccountIndex>,
         remote_notify: Arc<RemoteNotify>,
         config: LocalCacheConfig,
@@ -43,19 +40,23 @@ impl Account {
         Self {
             cache: Arc::new(LocalCache::new(remote_notify, config)),
             db,
-            access,
             index,
             logger,
         }
     }
     async fn nickname_param_valid(&self, nickname: &str) -> AccountResult<()> {
+        let nickname_max =
+            query_string_field_max::<AccountModel>(&self.db, &AccountModel::NICKNAME)
+                .await
+                .len_or(32);
+
         ValidParam::default()
             .add(
                 valid_key!("nickname"),
                 &nickname,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)
-                    .add_rule(ValidStrlen::range(1, 32)),
+                    .add_rule(ValidStrlen::range(1, nickname_max)),
             )
             .check()?;
 
@@ -73,19 +74,17 @@ impl Account {
         let time = now_time()?;
         let u_status = AccountStatus::Init as i8;
         let nickname_ow = nickname.to_string();
-        let new_data = model_option_set!(AccountModelRef,{
-            nickname:nickname_ow,
-            add_time:time,
-            change_time:time,
-            use_name:0,
-            status:u_status,
-        });
 
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let tmp = Insert::<AccountModel, _>::new(new_data)
+        let tmp = Insert::<AccountModel>::new()
+            .set(AccountModel::NICKNAME, nickname_ow)
+            .set(AccountModel::ADD_TIME, time)
+            .set(AccountModel::CHANGE_TIME, time)
+            .set(AccountModel::USE_NAME, 0i8)
+            .set(AccountModel::STATUS, u_status)
             .execute(&mut *db)
             .await;
         let res = match tmp {
@@ -127,19 +126,6 @@ impl Account {
         }
         db.commit().await?;
 
-        //此过程必须,同步过去好查数据
-        if let Err(err) = self
-            .access
-            .user
-            .sync_user(0, account.id, Some(nickname), None)
-            .await
-        {
-            warn!(
-                "sync user to access fail:{}",
-                err.to_fluent_message().default_format()
-            );
-        };
-
         self.logger
             .add(
                 &LogAccount {
@@ -173,18 +159,16 @@ impl Account {
             return Ok(());
         }
         let time = now_time().unwrap_or_default();
-        let change = lsys_core::model_option_set!(AccountModelRef,{
-            change_time:time,
-            confirm_time:time,
-            status:AccountStatus::Enable as i8,
-        });
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let tmp = Update::<AccountModel, _>::new(change)
-            .execute_by_where(
-                &WhereOption::Where(sql_format!("id={}", account.id)),
+        let tmp = Update::<AccountModel>::new()
+            .set(AccountModel::CHANGE_TIME, time)
+            .set(AccountModel::CONFIRM_TIME, time)
+            .set(AccountModel::STATUS, AccountStatus::Enable as i8)
+            .execute(
+                SqlSuffix::Where(&sql_format!("id={}", account.id)),
                 &mut *db,
             )
             .await;
@@ -239,15 +223,16 @@ impl Account {
         };
 
         //delete account data
-        let mut change = lsys_core::model_option_set!(AccountModelRef,{
-            status:AccountStatus::Delete as i8,
-            change_time:time
-        });
         let del_name_ow = del_name.map(|e| e.to_string());
-        change.nickname = del_name_ow.as_ref();
-        let tmp = Update::<AccountModel, _>::new(change)
-            .execute_by_where(
-                &WhereOption::Where(sql_format!("id={}", account.id)),
+        let mut update = Update::<AccountModel>::new()
+            .set(AccountModel::STATUS, AccountStatus::Delete as i8)
+            .set(AccountModel::CHANGE_TIME, time);
+        if let Some(ref name) = del_name_ow {
+            update = update.set(AccountModel::NICKNAME, name as &str);
+        }
+        let tmp = update
+            .execute(
+                SqlSuffix::Where(&sql_format!("id={}", account.id)),
                 &mut *db,
             )
             .await;
@@ -287,17 +272,15 @@ impl Account {
         self.nickname_param_valid(nikename).await?;
         let nikename = nikename.to_string();
         let time = now_time().unwrap_or_default();
-        let change = lsys_core::model_option_set!(AccountModelRef,{
-            change_time:time,
-            nickname:nikename,
-        });
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let res = Update::<AccountModel, _>::new(change)
-            .execute_by_where(
-                &WhereOption::Where(sql_format!("id={}", account.id)),
+        let res = Update::<AccountModel>::new()
+            .set(AccountModel::CHANGE_TIME, time)
+            .set(AccountModel::NICKNAME, &nikename)
+            .execute(
+                SqlSuffix::Where(&sql_format!("id={}", account.id)),
                 &mut *db,
             )
             .await;
@@ -325,19 +308,6 @@ impl Account {
                 self.cache.clear(&account.id).await;
                 Ok(mr.last_insert_id())
             }
-        };
-
-        //此过程必须,通过过去好查数据
-        if let Err(err) = self
-            .access
-            .user
-            .sync_user(0, account.id, Some(&account.nickname), None)
-            .await
-        {
-            warn!(
-                "sync user nikename to access fail:{}",
-                err.to_fluent_message().default_format()
-            );
         };
 
         self.logger
@@ -381,8 +351,8 @@ impl Account {
         &self,
         key_word: &str,
         enable_account: bool,
-        limit: Option<&LimitParam>,
-    ) -> AccountResult<(Vec<AccountItem>, Option<u64>)> {
+        limit: &CursorPageParam<u64>,
+    ) -> AccountResult<(Vec<AccountItem>, CursorPageData<u64>)> {
         self.index
             .search(
                 if enable_account {
@@ -419,13 +389,4 @@ impl AccountCache<'_> {
         u64,
         AccountResult<HashMap<u64, AccountModel>>
     );
-    pub async fn get_user(&self, account: &AccountModel) -> AccountResult<UserInfo> {
-        Ok(self
-            .dao
-            .access
-            .user
-            .cache()
-            .sync_user(0, account.id, Some(&account.nickname), None)
-            .await?)
-    }
 }

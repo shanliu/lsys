@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 lsys-app = { path = "../lsys-app" }
-lsys-core = { path = "../lsys-core" }
+lsys-core = { path = "../lsys-core", features = ["db", "redis"] }
 lsys-setting = { path = "../lsys-setting" }
 lsys-logger = { path = "../lsys-logger" }
 lsys-lib-sms = { path = "../lsys-lib-sms" }
@@ -17,12 +17,13 @@ chrono = { version = "~0.4.31" }
 serde = { version = "1.0.*" }
 serde_json = "1.0.*"
 futures = "0.3"
-tokio = { version = "~1.46.0" }
-deadpool-redis = { version = "~0.21.0" }
-redis = { version = "~0.31.0", features = [
+tokio = { version = "~1.49.0" }
+deadpool-redis = { version = "~0.22.1" }
+redis = { version = "~0.32.0", features = [
     "tokio-comp",
     "connection-manager",
     "aio",
+    "safe_iterators",
 ] }
 
 sqlx = { version = "~0.8.6", features = ["mysql", "runtime-tokio-native-tls"] }
@@ -60,7 +61,7 @@ rs-snowflake = "0.6.0"
 regex = "1.8.4"
 
 
-reqwest = { version = "~0.12.9", optional = true }
+reqwest = { version = "~0.13.1", optional = true }
 
 [features]
 sms-aliyun = ["reqwest"]

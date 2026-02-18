@@ -4,7 +4,6 @@ use crate::common::JsonResult;
 use crate::common::UserAuthQueryDao;
 use lsys_access::model::SessionStatus;
 use lsys_app::dao::AppDao;
-use lsys_app_barcode::dao::BarCodeDao;
 use lsys_app_sender::dao;
 use lsys_logger::dao::ChangeLogData;
 use lsys_rbac::dao::RbacDao;
@@ -33,9 +32,6 @@ pub async fn mapping_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse
         change_types.push(var_json_format!(req_dao, log_type));
     }
     for log_type in dao::log_types() {
-        change_types.push(var_json_format!(req_dao, log_type));
-    }
-    for log_type in BarCodeDao::log_types() {
         change_types.push(var_json_format!(req_dao, log_type));
     }
     let msg_type = <crate::dao::logger::MessageView as ChangeLogData>::log_type();

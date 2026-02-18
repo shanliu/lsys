@@ -11,8 +11,8 @@ use crate::{
 use async_trait::async_trait;
 
 use lsys_core::{
-    valid_key, IntoFluentMessage, RequestEnv, ValidNumber, ValidParam, ValidParamCheck,
-    ValidPattern, ValidStrlen,
+    db::OffsetPageParam, valid_key, IntoFluentMessage, RequestEnv, ValidNumber, ValidParam,
+    ValidParamCheck, ValidPattern, ValidStrlen,
 };
 use lsys_lib_sms::{
     template_map_to_arr, NeteaseSms, SendDetailItem, SendError, SendNotifyError, SendNotifyItem,
@@ -106,7 +106,7 @@ impl SenderNetEaseConfig {
     ) -> SenderResult<Vec<SettingData<NetEaseConfig>>> {
         let data = self
             .setting
-            .list_data::<NetEaseConfig>(None, config_ids, None)
+            .list_data::<NetEaseConfig>(None, config_ids, &OffsetPageParam::new(None))
             .await?;
         Ok(data)
     }

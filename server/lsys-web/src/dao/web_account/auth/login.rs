@@ -1,10 +1,12 @@
 //统一登陆过程
 use super::WebUserAuth;
-use crate::common::{CaptchaParam, JsonError, JsonResult};
+use crate::common::CaptchaParam;
 use crate::dao::{OauthCallbackParam, OauthLogin, OauthLoginParam};
+use crate::dao::{WebError, WebResult};
 
 use lsys_access::dao::SessionBody;
 use lsys_core::{fluent_message, IntoFluentMessage, RequestEnv};
+use lsys_mfa::dao::MfaSubject;
 use lsys_user::dao::login::ExternalLogin;
 use lsys_user::dao::{
     login::{AccountLoginEnv, AccountLoginMeta, AccountLoginParam},
@@ -38,6 +40,7 @@ pub struct ShowUserAuthData {
     pub user_id: u64,
     pub user_nickname: String,
     pub empty_password: bool,
+    pub mfa_enabled: bool,
     pub account_id: u64,
     pub time_out: u64,
     pub login_time: u64,
@@ -47,7 +50,7 @@ impl WebUserAuth {
     pub async fn create_show_account_auth_data(
         &self,
         auth_data: &UserAuthData,
-    ) -> JsonResult<ShowUserAuthData> {
+    ) -> WebResult<ShowUserAuthData> {
         let show_login_data = if auth_data.session().login_type == NameLoginMeta::login_type() {
             json!(NameLoginData::from(&self.user_dao.account_dao, auth_data)
                 .await?
@@ -81,7 +84,7 @@ impl WebUserAuth {
         } else if auth_data.session().login_type == CODE_LOGIN_TYPE {
             json!({})
         } else {
-            return Err(JsonError::Message(fluent_message!("bad-session-data")));
+            return Err(WebError::Message(fluent_message!("bad-session-data")));
         };
         let app_data = if auth_data.session().user_app_id > 0 {
             let app = self
@@ -103,8 +106,18 @@ impl WebUserAuth {
         let time_out = auth_data.session().expire_time;
         //登录时间
         let login_time = auth_data.session().add_time;
+        let is_enabled = self
+            .mfa
+            .totp_dao
+            .is_enabled(&MfaSubject {
+                app_id: auth_data.user().app_id,
+                user_data: auth_data.user().user_data.clone(),
+            })
+            .await?;
+
         Ok(ShowUserAuthData {
             app_data,
+            mfa_enabled: is_enabled,
             login_type: auth_data.session().login_type.to_owned(),
             login_data: show_login_data,
             user_id: auth_data.user_id(),
@@ -130,7 +143,7 @@ impl WebUserAuth {
         param: &TO,
         code: Option<&CaptchaParam>,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<SessionBody> {
+    ) -> WebResult<SessionBody> {
         let lenv = AccountLoginEnv {
             login_ip: env_data
                 .map(|e| e.request_ip.as_ref().map(|e| e.parse::<IpAddr>().ok()))
@@ -164,8 +177,7 @@ impl WebUserAuth {
         } else {
             res?
         }
-        let token = self.user_dao.auth_account_dao.login(param, lenv).await?;
-        Ok(token)
+        Ok(self.user_dao.auth_account_dao.login(param, lenv).await?)
     }
     //通过APP code登录
     // 由  self.user_dao.auth_code_dao.code_login 产生 login_code
@@ -175,7 +187,7 @@ impl WebUserAuth {
         token_data: &str,
         code: Option<&CaptchaParam>,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<SessionBody> {
+    ) -> WebResult<SessionBody> {
         let login_ip = env_data
             .map(|e| e.request_ip.to_owned())
             .unwrap_or_default()
@@ -237,7 +249,7 @@ impl WebUserAuth {
         param: &P,
         op_user_id: u64,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<SessionBody> {
+    ) -> WebResult<SessionBody> {
         let res = self
             .oauth_user_login(oauth, param, op_user_id, env_data)
             .await?;
@@ -248,7 +260,7 @@ impl WebUserAuth {
                 .unwrap_or_default()
                 .unwrap_or_default(),
         };
-        let session_body = self
+        let login_result = self
             .user_dao
             .auth_account_dao
             .login(
@@ -260,6 +272,6 @@ impl WebUserAuth {
                 login_env,
             )
             .await?;
-        Ok(session_body)
+        Ok(login_result)
     }
 }

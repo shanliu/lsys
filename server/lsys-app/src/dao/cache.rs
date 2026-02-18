@@ -8,12 +8,12 @@ use lsys_core::{
 
 use crate::model::{AppModel, AppOAuthClientModel};
 
-use super::{AppDao, AppOAuthServerScopeData, AppSecretCacheKey, AppSecretRecrod};
+use super::{AppDao, AppOAuthServerScopeData, AppSecretCacheKey, AppSecretRecord};
 
 pub enum AppLocalCacheClear {
     AppId(Arc<LocalCache<u64, AppModel>>),
     AppClientId(Arc<LocalCache<String, Option<u64>>>),
-    AppSecret(Arc<LocalCache<AppSecretCacheKey, Vec<AppSecretRecrod>>>),
+    AppSecret(Arc<LocalCache<AppSecretCacheKey, Vec<AppSecretRecord>>>),
     AppFeature(Arc<LocalCache<u64, Vec<(String, bool)>>>),
     OAuthClient(Arc<LocalCache<u64, AppOAuthClientModel>>),
     OAuthServerScope(Arc<LocalCache<u64, Vec<AppOAuthServerScopeData>>>),

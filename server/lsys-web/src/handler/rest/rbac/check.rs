@@ -40,9 +40,8 @@ pub struct AccessCheckParam {
 
 #[derive(Debug, Deserialize)]
 pub struct CheckParam {
-    pub user_param: Option<String>, //use_app_user为假时必填,用户标识
-    pub token_data: Option<String>,
-    pub request_ip: Option<String>,
+    pub user_param: Option<String>, //用户标识，未登录或游客等设置为none
+    pub token_data: Option<String>, //仅用于记录日志用，可选
     pub access: AccessCheckParam,
 }
 
@@ -143,8 +142,7 @@ async fn inner_access_check(
             app_id: app.id,
         })
         .collect::<Vec<_>>();
-    let mut req_env = req_dao.req_env.clone();
-    req_env.request_ip = param.request_ip.clone();
+    let req_env = req_dao.req_env.clone();
     let check_env = AccessCheckEnv {
         user_req_env: Some(&req_env),
         user_app_id: user_data.as_ref().map(|e| e.app_id).unwrap_or_default(),

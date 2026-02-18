@@ -1,4 +1,4 @@
-use crate::common::{JsonData, JsonError, JsonResult};
+use crate::common::{JsonData, JsonError, JsonResult, ToOffsetPageParam};
 
 use crate::common::{JsonResponse, PageParam, UserAuthQueryDao};
 use crate::dao::access::api::system::user::{
@@ -10,6 +10,7 @@ use lsys_app::dao::{
     AppAttrParam, UserAppDataParam, UserSubAppParam, SUB_APP_SECRET_NOTIFY_METHOD,
 };
 use lsys_app::model::AppStatus;
+use lsys_core::db::OffsetPageParam;
 use lsys_core::fluent_message;
 use serde::Deserialize;
 use serde::Serialize;
@@ -87,7 +88,7 @@ pub async fn sub_app_notify_get_config(
         .web_app
         .app_dao
         .app
-        .user_app_info(auth_data.user_id(), &app_param, None, None)
+        .user_app_info(auth_data.user_id(), &app_param, None, &OffsetPageParam::new(None))
         .await?;
     let notify = req_dao
         .web_dao
@@ -274,7 +275,7 @@ pub async fn sub_app_list(
         .user_sub_app_info(
             &app_param,
             Some(&app_attr),
-            param.page.as_ref().map(|e| e.into()).as_ref(),
+            &param.page.to_offset_page_param(),
         )
         .await?;
 

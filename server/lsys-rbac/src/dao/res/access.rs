@@ -1,7 +1,7 @@
 //RBAC中资源相关实现
 
 use crate::model::{RbacResModel, RbacResStatus};
-use lsys_core::db::{ModelTableName, SqlExpr, SqlQuote};
+use lsys_core::db::{TableMeta, SqlExpr, SqlQuote};
 use lsys_core::{sql_format, string_clear, StringClear, STRING_CLEAR_FORMAT};
 use std::vec;
 

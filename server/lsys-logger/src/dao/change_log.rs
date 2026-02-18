@@ -1,12 +1,12 @@
-use lsys_core::{now_time, string_clear, LimitParam, RequestEnv, StringClear, STRING_CLEAR_FORMAT};
+use lsys_core::{now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT};
 
-use lsys_core::db::{Insert, ModelTableName, SqlExpr};
-use lsys_core::{db_option_executor, model_option_set, sql_format};
+use lsys_core::db::{CursorPageData, CursorPageParam, Insert, SqlExpr, TableMeta};
+use lsys_core::{db_option_executor, sql_format};
 use sqlx::{MySql, Pool, Transaction};
 use tracing::{debug, warn};
 
 use super::LoggerResult;
-use crate::model::{ChangeLogModel, ChangeLogModelRef};
+use crate::model::ChangeLogModel;
 use lsys_core::db::SqlQuote;
 
 pub trait ChangeLogData {
@@ -39,7 +39,7 @@ impl ChangeLoggerDao {
         let time = env_data
             .map(|e| e.request_time)
             .unwrap_or_else(|| now_time().unwrap_or_default());
-        let user_ip = env_data
+        let user_ip: String = env_data
             .map(|e| {
                 e.request_ip
                     .as_ref()
@@ -50,7 +50,7 @@ impl ChangeLoggerDao {
             .chars()
             .take(46)
             .collect();
-        let request_id = env_data
+        let request_id: String = env_data
             .as_ref()
             .map(|e| {
                 e.request_id
@@ -62,7 +62,7 @@ impl ChangeLoggerDao {
             .chars()
             .take(64)
             .collect();
-        let request_user_agent = env_data
+        let request_user_agent: String = env_data
             .as_ref()
             .map(|e| {
                 e.request_user_agent
@@ -74,7 +74,7 @@ impl ChangeLoggerDao {
             .chars()
             .take(254)
             .collect();
-        let device_id = env_data
+        let device_id: String = env_data
             .as_ref()
             .map(|e| {
                 e.device_id
@@ -87,23 +87,20 @@ impl ChangeLoggerDao {
             .take(64)
             .collect();
 
-        let new_data = model_option_set!(ChangeLogModelRef, {
-            log_type: log_type,
-            message:message,
-            log_data:log_data,
-            source_id:source_id,
-            add_user_id:add_user_id,
-            add_user_ip:user_ip,
-            request_id:request_id,
-            add_time:time,
-            device_id:device_id,
-            request_user_agent:request_user_agent,
-        });
-
         let res = db_option_executor!(
             db,
             {
-                Insert::<ChangeLogModel, _>::new(new_data)
+                Insert::<ChangeLogModel>::new()
+                    .set(ChangeLogModel::LOG_TYPE, log_type)
+                    .set(ChangeLogModel::MESSAGE, message)
+                    .set(ChangeLogModel::LOG_DATA, log_data)
+                    .set(ChangeLogModel::SOURCE_ID, source_id)
+                    .set(ChangeLogModel::ADD_USER_ID, add_user_id)
+                    .set(ChangeLogModel::ADD_USER_IP, user_ip)
+                    .set(ChangeLogModel::REQUEST_ID, request_id)
+                    .set(ChangeLogModel::ADD_TIME, time)
+                    .set(ChangeLogModel::DEVICE_ID, device_id)
+                    .set(ChangeLogModel::REQUEST_USER_AGENT, request_user_agent)
                     .execute(db.as_executor())
                     .await
             },
@@ -133,50 +130,29 @@ impl ChangeLoggerDao {
         &self,
         log_type: Option<&str>,
         add_user_id: Option<u64>,
-        limit: Option<&LimitParam>,
-    ) -> LoggerResult<(Vec<ChangeLogModel>, Option<u64>)> {
+        limit: &CursorPageParam<u64>,
+    ) -> LoggerResult<(Vec<ChangeLogModel>, CursorPageData<u64>)> {
         let sqlwhere = match self.list_where(log_type, add_user_id) {
             Some(t) => t,
-            None => return Ok((vec![], None)),
+            None => return Ok((vec![], CursorPageData::default())),
         };
-        let tmp = if let Some(page) = limit {
-            let page_where = page.where_sql(
-                "id",
-                if sqlwhere.is_empty() {
-                    None
-                } else {
-                    Some("and")
-                },
-            );
-            format!(
-                "{} {} {} order by {} {} ",
-                if !sqlwhere.is_empty() || !page_where.is_empty() {
-                    "where "
-                } else {
-                    ""
-                },
-                sqlwhere.join(" and "),
-                page_where,
-                page.order_sql("id"),
-                page.limit_sql(),
-            )
+        let query_limit = limit.page_query("id");
+        let where_str = sqlwhere.join(" and ");
+        let suff_sql = query_limit.build_query_sql(if sqlwhere.is_empty() {
+            None
         } else {
-            format!("{}  order by id desc", sqlwhere.join(" and "))
-        };
+            Some(&where_str)
+        });
 
         let mut data = sqlx::query_as::<_, ChangeLogModel>(&sql_format!(
             "select * from {} {}",
             ChangeLogModel::table_name(),
-            SqlExpr(tmp)
+            SqlExpr(suff_sql)
         ))
         .fetch_all(&self.db)
         .await?;
 
-        let next = limit
-            .as_ref()
-            .map(|page| page.tidy(&mut data))
-            .unwrap_or_default()
-            .map(|e| e.id);
+        let next = query_limit.finalize(&mut data, |c, d| *d == c.id, |c| c.id);
         Ok((data, next))
     }
     pub async fn list_count(

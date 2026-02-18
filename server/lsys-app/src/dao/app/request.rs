@@ -1,6 +1,5 @@
-use lsys_core::db::{ModelTableName, SqlExpr};
+use lsys_core::db::{OffsetPageParam, SqlExpr, TableMeta};
 use lsys_core::sql_format;
-use lsys_core::PageParam;
 
 use super::App;
 use crate::model::AppModel;
@@ -81,7 +80,7 @@ impl App {
     pub async fn app_request_info(
         &self,
         req_param: &AppRequestParam,
-        page: Option<&PageParam>,
+        page: &OffsetPageParam,
     ) -> AppResult<Vec<(AppRequestModel, AppInfoData, AppRequestData)>> {
         let data = self.app_request_data(req_param, page).await?;
 
@@ -218,29 +217,21 @@ impl App {
     pub async fn app_request_data(
         &self,
         req_param: &AppRequestParam,
-        page: Option<&PageParam>,
+        page: &OffsetPageParam,
     ) -> AppResult<Vec<AppRequestModel>> {
         let where_sql = match self.app_request_where_sql(req_param) {
             Some(s) => s,
             None => return Ok(vec![]),
         };
-        let page_sql = if let Some(pdat) = page {
-            format!(
-                " order by id desc limit {} offset {} ",
-                pdat.limit, pdat.offset
-            )
-        } else {
-            " order by id desc".to_string()
-        };
         let data = sqlx::query_as::<_, AppRequestModel>(&sql_format!(
-            "select * from {} {} {}",
+            "select * from {} {} order by id desc {}",
             AppRequestModel::table_name(),
             if !where_sql.is_empty() {
                 SqlExpr(format!(" where {}", where_sql))
             } else {
                 SqlExpr("".to_string())
             },
-            SqlExpr(page_sql),
+            SqlExpr(page.page_query().limit_sql().unwrap_or_default()),
         ))
         .fetch_all(&self.db)
         .await?;

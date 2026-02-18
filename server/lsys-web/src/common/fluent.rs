@@ -10,12 +10,16 @@ use lsys_core::RemoteNotifyError;
 use lsys_core::ValidError;
 use lsys_core::{fluent_message, ConfigError, FluentBundle, IntoFluentMessage, ValidCodeError};
 use lsys_logger::dao::LoggerError;
+use lsys_mfa::dao::MfaError;
 use lsys_rbac::dao::RbacError;
 use lsys_setting::dao::SettingError;
 use lsys_user::dao::AccountError;
 use lsys_user::dao::UserAuthError;
 use std::num::ParseIntError;
 
+use crate::dao::WebError;
+
+/// 多语言格式化 trait
 pub trait FluentFormat {
     fn fluent_format(&self, fluent: &FluentBundle) -> String;
 }
@@ -124,7 +128,6 @@ impl FluentFormat for AccountError {
             AccountError::Status(e) => fluent.format_message(&e.1),
             AccountError::Redis(redis_error) => redis_error.fluent_format(fluent),
             AccountError::RedisPool(pool_error) => pool_error.fluent_format(fluent),
-            AccountError::SerdeJson(error) => error.fluent_format(fluent),
             AccountError::ValidCode(valid_code_error) => valid_code_error.fluent_format(fluent),
             AccountError::Setting(setting_error) => setting_error.fluent_format(fluent),
             AccountError::Param(fluent_message) => fluent.format_message(fluent_message),
@@ -135,6 +138,8 @@ impl FluentFormat for AccountError {
             AccountError::PasswordNotSet(e) => fluent.format_message(&e.1),
             AccountError::UserNotFind(fluent_message) => fluent.format_message(fluent_message),
             AccountError::Vaild(valid_error) => valid_error.fluent_format(fluent),
+            AccountError::MfaError(mfa_error) => mfa_error.fluent_format(fluent),
+            _ => fluent.format_message(&self.to_fluent_message()),
         }
     }
 }
@@ -258,17 +263,34 @@ impl FluentFormat for ValidError {
     }
 }
 
-#[cfg(feature = "barcode")]
-impl FluentFormat for lsys_app_barcode::dao::BarCodeError {
+impl FluentFormat for MfaError {
     fn fluent_format(&self, fluent: &FluentBundle) -> String {
         match self {
-            lsys_app_barcode::dao::BarCodeError::System(err) => fluent.format_message(err),
-            lsys_app_barcode::dao::BarCodeError::DB(err) => err.fluent_format(fluent),
-            lsys_app_barcode::dao::BarCodeError::Io(err) => err.fluent_format(fluent),
-            lsys_app_barcode::dao::BarCodeError::Vaild(err) => err.fluent_format(fluent),
+            MfaError::Sqlx(e) => e.fluent_format(fluent),
+            MfaError::ValidParam(e) => e.fluent_format(fluent),
             _ => fluent.format_message(&self.to_fluent_message()),
         }
     }
 }
-#[cfg(feature = "barcode")]
-crate_error_fluent_string!(base64::DecodeError, "base64-error");
+
+impl FluentFormat for lsys_files::common::FileError {
+    fn fluent_format(&self, fluent: &FluentBundle) -> String {
+        match self {
+            lsys_files::common::FileError::Sqlx(e) => e.fluent_format(fluent),
+            lsys_files::common::FileError::Io(e) => e.fluent_format(fluent),
+            _ => fluent.format_message(&self.to_fluent_message()),
+        }
+    }
+}
+
+impl FluentFormat for WebError {
+    fn fluent_format(&self, fluent: &FluentBundle) -> String {
+        match self {
+            WebError::Message(fluent_message) => fluent.format_message(fluent_message),
+            WebError::JsonResponse(_, fluent_message) => fluent.format_message(fluent_message),
+            _ => fluent.format_message(&self.to_fluent_message()),
+        }
+    }
+}
+
+

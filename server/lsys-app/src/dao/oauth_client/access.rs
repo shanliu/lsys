@@ -8,7 +8,10 @@ use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
-use crate::dao::{AppError, AppResult};
+use crate::{
+    dao::{AppError, AppResult},
+    model::AppModel,
+};
 
 use lsys_access::dao::{
     AccessAuth, AccessAuthLoginData, AccessLoginData, AccessResult, SessionBody,
@@ -47,6 +50,7 @@ fn create_save_key(prefix: &str, app_id: u64, oauth_app_id: u64, code: &str) -> 
 
 #[derive(Serialize, Deserialize)]
 pub struct AccessOAuthCodeData<'t> {
+    pub user_app_id: u64,
     pub user_data: &'t str,
     pub user_nickname: &'t str,
     pub user_account: Option<&'t str>,
@@ -196,13 +200,16 @@ impl AppOAuthClientAccess {
     }
     pub async fn do_login(
         &self,
-        app_id: u64,
-        oauth_app_id: u64,
+        oauth_app: &AppModel,
         token_data: Option<&str>,
         time_out: u64,
         code_data: AccessOAuthCodeData<'_>,
         session_data: &[(&str, &str)],
     ) -> AppResult<SessionBody> {
+        // if oauth_app.parent_app_id != code_data.user_app_id {
+        //     // 跨应用访问，创建AccessOAuthCodeData时拦截
+        //     // 如果后面要 跨应用访问 在做其他考虑
+        // }
         let expire_time = if time_out > 0 {
             now_time().unwrap_or_default() + time_out
         } else {
@@ -221,8 +228,8 @@ impl AppOAuthClientAccess {
         Ok(self
             .auth
             .do_login(&AccessAuthLoginData {
-                app_id,
-                oauth_app_id,
+                app_id: code_data.user_app_id,
+                oauth_app_id: oauth_app.id,
                 user_data: &code_data.user_data,
                 user_nickname: code_data.user_nickname,
                 token_data,

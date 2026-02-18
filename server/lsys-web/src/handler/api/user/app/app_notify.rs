@@ -1,10 +1,12 @@
 use crate::common::JsonData;
+use crate::common::ToCursorPageParam;
 use crate::common::UserAuthQueryDao;
 use crate::common::{JsonResponse, JsonResult, LimitParam};
 use crate::dao::access::api::system::user::CheckUserNotifyView;
 use crate::dao::access::RbacAccessCheckEnv;
 use lsys_access::dao::AccessSession;
 use lsys_app::model::AppNotifyDataStatus;
+use lsys_core::db::CursorPageSort;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
@@ -82,10 +84,11 @@ pub async fn notify_data_list(
             param.notify_key.as_deref(),
             status.as_deref(),
             param.attr_callback_data.unwrap_or(false),
-            param.limit.as_ref().map(|e| e.into()).as_ref(),
+            &param.limit.to_u64_cursor_page_param(CursorPageSort::Desc),
         )
         .await?;
-    let next = res.1;
+    let next_cursor = res.1.next_cursor;
+    let prev_cursor = res.1.prev_cursor;
     let out = res
         .0
         .into_iter()
@@ -127,7 +130,7 @@ pub async fn notify_data_list(
         None
     };
     Ok(JsonResponse::data(JsonData::body(
-        json!({ "data":out,"next":next, "total":count,}),
+        json!({ "data":out,"next_cursor":next_cursor,"prev_cursor":prev_cursor, "total":count,}),
     )))
 }
 

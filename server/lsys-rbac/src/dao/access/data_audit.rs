@@ -1,6 +1,6 @@
-use lsys_core::db::{ModelTableName, SqlExpr};
+use lsys_core::db::{CursorPageData, CursorPageParam, SqlExpr, TableMeta};
+use lsys_core::StringClear;
 use lsys_core::{sql_format, string_clear, STRING_CLEAR_FORMAT};
-use lsys_core::{LimitParam, StringClear};
 
 use crate::{
     dao::result::RbacResult,
@@ -80,52 +80,29 @@ impl RbacAccess {
     pub async fn audit_data(
         &self,
         res_param: &AuditDataParam<'_>,
-        limit: Option<&LimitParam>,
+        limit: &CursorPageParam<u64>,
     ) -> RbacResult<(
         Vec<(RbacAuditModel, Vec<RbacAuditDetailModel>)>,
-        Option<u64>,
+        CursorPageData<u64>,
     )> {
         match self.audit_sql(res_param) {
             Some(sqlwhere) => {
+                let query_limit = limit.page_query("id");
+                let where_str = sqlwhere.join(" and ");
+                let suff_sql = query_limit.build_query_sql(if sqlwhere.is_empty() {
+                    None
+                } else {
+                    Some(&where_str)
+                });
                 let sql = format!(
                     "select * from {} {}",
                     RbacAuditModel::table_name(),
-                    if let Some(page) = limit {
-                        let page_where = page.where_sql(
-                            "id",
-                            if sqlwhere.is_empty() {
-                                None
-                            } else {
-                                Some("and")
-                            },
-                        );
-                        format!(
-                            "{} {} {} order by {} {} ",
-                            if !sqlwhere.is_empty() || !page_where.is_empty() {
-                                "where "
-                            } else {
-                                ""
-                            },
-                            sqlwhere.join(" and "),
-                            page_where,
-                            page.order_sql("id"),
-                            page.limit_sql(),
-                        )
-                    } else {
-                        format!(
-                            "{} {}  order by id desc",
-                            if !sqlwhere.is_empty() { "where " } else { "" },
-                            sqlwhere.join(" and ")
-                        )
-                    }
+                    suff_sql
                 );
                 let mut row = sqlx::query_as::<_, RbacAuditModel>(&sql)
                     .fetch_all(&self.db)
                     .await?;
-                let next = limit
-                    .as_ref()
-                    .map(|page| page.tidy(&mut row))
-                    .unwrap_or_default();
+                let next = query_limit.finalize(&mut row, |c, d| *d == c.id, |c| c.id);
 
                 let mut out_data = Vec::with_capacity(row.len());
                 if !row.is_empty() {
@@ -151,9 +128,9 @@ impl RbacAccess {
                     }
                 }
 
-                Ok((out_data, next.map(|t| t.id)))
+                Ok((out_data, next))
             }
-            None => Ok((vec![], None)),
+            None => Ok((vec![], CursorPageData::default())),
         }
     }
 }

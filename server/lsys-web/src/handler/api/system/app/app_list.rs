@@ -2,6 +2,7 @@ use crate::common::JsonData;
 use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::PageParam;
+use crate::common::ToOffsetPageParam;
 use crate::common::UserAuthQueryDao;
 use crate::dao::access::api::system::admin::CheckAdminApp;
 use crate::dao::access::RbacAccessCheckEnv;
@@ -111,7 +112,7 @@ pub async fn app_list(param: &ListParam, req_dao: &UserAuthQueryDao) -> JsonResu
         .system_app_info(
             &app_param,
             Some(&app_attr),
-            param.page.as_ref().map(|e| e.into()).as_ref(),
+            &param.page.to_offset_page_param(),
         )
         .await?;
     let out = appdata
@@ -264,7 +265,7 @@ pub async fn sub_app_list(
         .system_sub_app_info(
             &app_param,
             Some(&app_attr),
-            param.page.as_ref().map(|e| e.into()).as_ref(),
+            &param.page.to_offset_page_param(),
         )
         .await?;
     let out = appdata
@@ -391,7 +392,7 @@ pub async fn request_list(
                 status,
                 request_type: req_type,
             },
-            param.page.as_ref().map(|e| e.into()).as_ref(),
+            &param.page.to_offset_page_param(),
         )
         .await?;
     let out = appdata

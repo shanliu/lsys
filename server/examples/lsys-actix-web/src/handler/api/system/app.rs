@@ -5,13 +5,15 @@ use actix_web::post;
 use lsys_web::handler::api::system::app::{
     app_list, app_logout, confirm, confirm_exter_feature,
     confirm_inner_feature_exter_login_confirm, confirm_inner_feature_sub_app_confirm, delete,
-    disable, mapping_data, oauth_client_clear_access_token, oauth_client_clear_refresh_token,
+    disable, exter_feature_add, exter_feature_del, exter_feature_edit, exter_feature_list,
+    mapping_data, oauth_client_clear_access_token, oauth_client_clear_refresh_token,
     oauth_client_confirm, oauth_client_scope_confirm, oauth_server_confirm, request_list,
     sub_app_list, AppLogoutParam, ClearOAuthClientAccessTokenParam,
     ClearOAuthClientRefreshTokenParam, ConfirmExterFeatureParam, ConfirmExterLoginFeatureParam,
     ConfirmInnerFeatureSubAppParam, ConfirmOAuthClientParam, ConfirmOAuthClientScopeParam,
-    ConfirmOAuthServerParam, ConfirmParam, DeleteParam, DisableParam, ListParam, RequestListParam,
-    SubListParam,
+    ConfirmOAuthServerParam, ConfirmParam, DeleteParam, DisableParam, ExterFeatureAddParam,
+    ExterFeatureDelParam, ExterFeatureEditParam, ExterFeatureListParam, ListParam,
+    RequestListParam, SubListParam,
 };
 
 #[post("/{method}")]
@@ -46,6 +48,18 @@ pub(crate) async fn app(
         "disable" => disable(&json_param.param::<DisableParam>()?, &auth_dao).await,
         "confirm_exter_feature" => {
             confirm_exter_feature(&json_param.param::<ConfirmExterFeatureParam>()?, &auth_dao).await
+        }
+        "exter_feature_add" => {
+            exter_feature_add(&json_param.param::<ExterFeatureAddParam>()?, &auth_dao).await
+        }
+        "exter_feature_edit" => {
+            exter_feature_edit(&json_param.param::<ExterFeatureEditParam>()?, &auth_dao).await
+        }
+        "exter_feature_del" => {
+            exter_feature_del(&json_param.param::<ExterFeatureDelParam>()?, &auth_dao).await
+        }
+        "exter_feature_list" => {
+            exter_feature_list(&json_param.param::<ExterFeatureListParam>()?, &auth_dao).await
         }
         "confirm_inner_feature_exter_login_confirm" => {
             confirm_inner_feature_exter_login_confirm(

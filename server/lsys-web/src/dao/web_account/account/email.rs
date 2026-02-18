@@ -1,5 +1,6 @@
 use super::WebUserAccount;
-use crate::common::{CaptchaParam, JsonData, JsonError, JsonResult};
+use crate::common::{CaptchaParam, JsonData};
+use crate::dao::{WebError, WebResult};
 use lsys_access::dao::SessionBody;
 use lsys_core::{fluent_message, RequestEnv};
 use lsys_user::{dao::AccountError, model::AccountEmailStatus};
@@ -11,7 +12,7 @@ impl WebUserAccount {
         email: &str,
         session_body: &SessionBody,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<u64> {
+    ) -> WebResult<u64> {
         let account = self
             .user_dao
             .account_dao
@@ -43,7 +44,7 @@ impl WebUserAccount {
         captcha: &CaptchaParam,
         session_body: &SessionBody,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<()> {
+    ) -> WebResult<()> {
         let valid_code = self
             .captcha
             .valid_code(&crate::dao::CaptchaKey::AddEmailCode);
@@ -58,18 +59,20 @@ impl WebUserAccount {
             Ok(email) => {
                 if AccountEmailStatus::Valid.eq(email.status) {
                     if email.account_id != session_body.user_id() {
-                        return Err(JsonError::JsonResponse(
-                            JsonData::default().set_code(500),
+                        return Err(WebError::JsonResponse(
+                            Box::new(JsonData::default().set_code(500)),
                             fluent_message!("mail-bind-other-user",{
                                 "other.account_id":email.account_id,
                                 "account_id":session_body.user_id()
                             }),
                         ));
                     } else {
-                        return Err(JsonError::JsonResponse(
-                            JsonData::default()
-                                .set_code(500)
-                                .set_sub_code("mail-is-confirm"),
+                        return Err(WebError::JsonResponse(
+                            Box::new(
+                                JsonData::default()
+                                    .set_code(500)
+                                    .set_sub_code("mail-is-confirm"),
+                            ),
                             fluent_message!("mail-is-confirm"),
                         ));
                     }

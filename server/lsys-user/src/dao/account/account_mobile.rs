@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use crate::dao::AccountResult;
 
-use crate::model::{AccountMobileModel, AccountMobileModelRef, AccountMobileStatus, AccountModel};
+use crate::model::{AccountMobileModel, AccountMobileStatus, AccountModel};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::{
     fluent_message, now_time, string_clear, valid_key, RemoteNotify, StringClear, ValidMobile,
@@ -11,8 +11,8 @@ use lsys_core::{
 };
 use lsys_core::{IntoFluentMessage, RequestEnv};
 
-use lsys_core::db::{Insert, ModelTableName, SqlQuote, Update, WhereOption};
-use lsys_core::{model_option_set, sql_format};
+use lsys_core::db::{Insert, TableMeta, SqlQuote, Update, SqlSuffix};
+use lsys_core::sql_format;
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{Acquire, MySql, Pool, Transaction};
 
@@ -142,20 +142,18 @@ impl AccountMobile {
         let _status = status as i8;
         let area_code_ow = area_code.to_string();
         let mobile_ow = mobile.to_string();
-        let idata = model_option_set!(AccountMobileModelRef,{
-            mobile:mobile_ow,
-            status:_status,
-            area_code:area_code_ow,
-            account_id:account.id,
-            change_time:time,
-        });
 
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
 
-        let res = Insert::<AccountMobileModel, _>::new(idata)
+        let res = Insert::<AccountMobileModel>::new()
+            .set(AccountMobileModel::MOBILE, mobile_ow)
+            .set(AccountMobileModel::STATUS, _status)
+            .set(AccountMobileModel::AREA_CODE, area_code_ow)
+            .set(AccountMobileModel::ACCOUNT_ID, account.id)
+            .set(AccountMobileModel::CHANGE_TIME, time)
             .execute(&mut *db)
             .await;
         let aid = match res {
@@ -341,15 +339,14 @@ impl AccountMobile {
             }
         }
         let time = now_time()?;
-        let change = lsys_core::model_option_set!(AccountMobileModelRef,{
-            status:AccountMobileStatus::Valid as i8,
-            confirm_time:time
-        });
+
         let mut db = self.db.begin().await?;
 
-        let tmp = Update::<AccountMobileModel, _>::new(change)
-            .execute_by_where(
-                &WhereOption::Where(sql_format!("id={}", account_mobile.id)),
+        let tmp = Update::<AccountMobileModel>::new()
+            .set(AccountMobileModel::STATUS, AccountMobileStatus::Valid as i8)
+            .set(AccountMobileModel::CONFIRM_TIME, time)
+            .execute(
+                SqlSuffix::Where(&sql_format!("id={}", account_mobile.id)),
                 &mut *db,
             )
             .await;
@@ -407,17 +404,15 @@ impl AccountMobile {
             return Ok(0_u64);
         }
         let time = now_time()?;
-        let change = lsys_core::model_option_set!(AccountMobileModelRef,{
-            status:AccountMobileStatus::Delete as i8,
-            change_time:time
-        });
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let res = Update::<AccountMobileModel, _>::new(change)
-            .execute_by_where(
-                &WhereOption::Where(sql_format!("id={}", account_mobile.id)),
+        let res = Update::<AccountMobileModel>::new()
+            .set(AccountMobileModel::STATUS, AccountMobileStatus::Delete as i8)
+            .set(AccountMobileModel::CHANGE_TIME, time)
+            .execute(
+                SqlSuffix::Where(&sql_format!("id={}", account_mobile.id)),
                 &mut *db,
             )
             .await;

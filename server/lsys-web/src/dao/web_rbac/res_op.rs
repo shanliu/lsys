@@ -1,10 +1,11 @@
+use lsys_core::db::OffsetPageParam;
 use lsys_core::RequestEnv;
 use lsys_rbac::dao::{
     OpInfo, RbacOpAddData, RbacOpData, RbacResAddData, RbacResData, ResInfo, ResTypeParam,
 };
 
 use super::WebRbac;
-use crate::{common::JsonResult, dao::CheckResTpl};
+use crate::{dao::CheckResTpl, dao::WebResult};
 
 pub struct RbacSyncResParam<'t> {
     pub res_type: &'t str,
@@ -24,7 +25,7 @@ impl WebRbac {
         res_key: &'t [RbacSyncResParam<'t>],
         init_user_id: u64,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<Vec<(&'t RbacSyncResParam<'t>, u64)>> {
+    ) -> WebResult<Vec<(&'t RbacSyncResParam<'t>, u64)>> {
         let keys = res_key
             .iter()
             .map(|e| ResInfo {
@@ -90,7 +91,7 @@ impl WebRbac {
         op_key: &'t [&'t RbacSyncOpParam<'t>],
         init_user_id: u64,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<Vec<(&'t RbacSyncOpParam<'t>, u64)>> {
+    ) -> WebResult<Vec<(&'t RbacSyncOpParam<'t>, u64)>> {
         let data = self
             .sync_op_id(
                 res_type_data.user_id,
@@ -108,7 +109,7 @@ impl WebRbac {
                 res_type_data,
                 Some(&op_key.iter().map(|e| e.op_key).collect::<Vec<_>>()),
                 false,
-                None,
+                &OffsetPageParam::new(None),
             )
             .await?;
         let op_vec_data = self
@@ -136,7 +137,7 @@ impl WebRbac {
         op_key: &'t [&'t RbacSyncOpParam<'t>],
         init_user_id: u64,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<Vec<(&'t RbacSyncOpParam<'t>, u64)>> {
+    ) -> WebResult<Vec<(&'t RbacSyncOpParam<'t>, u64)>> {
         let keys = op_key
             .iter()
             .map(|e| OpInfo {
@@ -203,7 +204,7 @@ impl WebRbac {
         res_data: &[impl AsRef<str>],
         init_user_id: u64,
         env_data: Option<&RequestEnv>,
-    ) -> JsonResult<Vec<RbacSyncResRecrod>> {
+    ) -> WebResult<Vec<RbacSyncResRecrod>> {
         let res_id_str = res_data.iter().map(|e| e.as_ref()).collect::<Vec<_>>();
         let res_param = res_id_str
             .iter()

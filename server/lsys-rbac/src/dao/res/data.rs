@@ -5,8 +5,8 @@ use crate::model::{
     RbacOpModel, RbacOpResModel, RbacOpResStatus, RbacOpStatus, RbacPermModel, RbacPermStatus,
     RbacResModel, RbacResStatus,
 };
-use lsys_core::db::{ModelTableName, SqlExpr, SqlQuote};
-use lsys_core::{impl_dao_fetch_one_by_one, PageParam, StringClear, STRING_CLEAR_FORMAT};
+use lsys_core::db::{OffsetPageParam, SqlExpr, SqlQuote, TableMeta};
+use lsys_core::{impl_dao_fetch_one_by_one, StringClear, STRING_CLEAR_FORMAT};
 use lsys_core::{sql_format, string_clear};
 use serde::Serialize;
 use sqlx::Row;
@@ -141,7 +141,7 @@ impl RbacRes {
         &self,
         res_param: &ResDataParam<'_>,
         res_attr: &ResDataAttrParam,
-        page: Option<&PageParam>,
+        page: &OffsetPageParam,
     ) -> RbacResult<Vec<(RbacResModel, RbacResInfoData)>> {
         let res = self.res_data(res_param, page).await?;
         let mut op_count_map: HashMap<u64, i64> = HashMap::new();
@@ -212,13 +212,15 @@ impl RbacRes {
     pub async fn res_data(
         &self,
         res_param: &ResDataParam<'_>,
-        page: Option<&PageParam>,
+        page: &OffsetPageParam,
     ) -> RbacResult<Vec<RbacResModel>> {
         match self.res_sql("*", res_param) {
-            Some(mut sql) => {
-                if let Some(pdat) = page {
-                    sql += format!(" limit {} offset {}", pdat.limit, pdat.offset).as_str();
-                }
+            Some(sql) => {
+                let sql = format!(
+                    "{} order by id desc {}",
+                    sql,
+                    page.page_query().limit_sql().unwrap_or_default()
+                );
                 let res = sqlx::query_as::<_, RbacResModel>(&sql)
                     .fetch_all(&self.db)
                     .await?;
@@ -281,23 +283,19 @@ impl RbacRes {
     pub async fn res_type_data(
         &self,
         res_param: &ResTypeListParam<'_>,
-        page: Option<&PageParam>,
+        page: &OffsetPageParam,
     ) -> RbacResult<Vec<ResTypeListRecord>> {
         let (where_sql, group_sql) = match self.res_type_sql_where(res_param) {
             Some(op_dat) => op_dat,
             None => return Ok(vec![]),
         };
         let sql = sql_format!(
-            "select user_id,app_id,res_type,CONVERT(count(*),UNSIGNED) as total from {} {} {} ",
+            "select user_id,app_id,res_type,CONVERT(count(*),UNSIGNED) as total from {} {} {} {}",
             RbacResModel::table_name(),
             SqlExpr(where_sql),
-            SqlExpr(group_sql)
+            SqlExpr(group_sql),
+            SqlExpr(page.page_query().limit_sql().unwrap_or_default())
         );
-        let sql = if let Some(pdat) = page {
-            format!("{} limit {} offset {} ", sql, pdat.limit, pdat.offset)
-        } else {
-            sql
-        };
         let res = sqlx::query(&sql)
             .try_map(|row: sqlx::mysql::MySqlRow| {
                 let user_id = row.try_get::<u64, &str>("user_id").unwrap_or_default();
@@ -344,7 +342,7 @@ impl RbacRes {
         res_type_data: &ResTypeParam<'_>,
         op_key: Option<&[&str]>,
         fetch_op_data: bool,
-        page: Option<&PageParam>,
+        page: &OffsetPageParam,
     ) -> RbacResult<Vec<RbacOpResRecord>> {
         let op_sql = match op_key {
             Some(op_dat) => {
@@ -380,14 +378,11 @@ impl RbacRes {
             RbacOpResStatus::Enable,
             SqlExpr(op_sql)
         );
-        let sql = if let Some(pdat) = page {
-            format!(
-                "{} order by op_res.change_time desc limit {} offset {} ",
-                sql, pdat.limit, pdat.offset
-            )
-        } else {
-            format!("{} order by op_res.change_time desc ", sql)
-        };
+        let sql = format!(
+            "{} order by op_res.change_time desc {}",
+            sql,
+            page.page_query().limit_sql().unwrap_or_default()
+        );
         let mut res = sqlx::query_as::<_, RbacOpResModel>(&sql)
             .fetch_all(&self.db)
             .await?

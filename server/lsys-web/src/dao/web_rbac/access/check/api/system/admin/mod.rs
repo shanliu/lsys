@@ -1,11 +1,13 @@
 mod app;
 mod base;
+mod file;
 mod rbac;
 mod sender;
 mod setting;
 mod user;
 pub use app::*;
 pub use base::*;
+pub use file::*;
 pub use rbac::*;
 pub use sender::*;
 pub use setting::*;

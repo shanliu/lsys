@@ -22,8 +22,8 @@ use lettre::{
     AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
 };
 use lsys_core::{
-    fluent_message, valid_key, IntoFluentMessage, RequestEnv, ValidDomain, ValidEmail, ValidNumber,
-    ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
+    db::OffsetPageParam, fluent_message, valid_key, IntoFluentMessage, RequestEnv, ValidDomain,
+    ValidEmail, ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
 };
 use lsys_setting::{
     dao::{
@@ -125,7 +125,7 @@ impl SenderSmtpConfig {
     ) -> SenderResult<Vec<SettingData<SmtpConfig>>> {
         Ok(self
             .setting
-            .list_data::<SmtpConfig>(None, config_ids, None)
+            .list_data::<SmtpConfig>(None, config_ids, &OffsetPageParam::new(None))
             .await?)
     }
     //删除指定的smtp配置

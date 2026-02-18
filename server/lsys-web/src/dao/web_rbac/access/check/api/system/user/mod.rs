@@ -1,8 +1,8 @@
 mod address;
 mod app;
-mod barcode;
 mod email;
 mod external;
+mod file;
 mod info;
 mod mobile;
 mod notify;
@@ -12,9 +12,9 @@ mod sender_sms;
 
 pub use address::*;
 pub use app::*;
-pub use barcode::*;
 pub use email::*;
 pub use external::*;
+pub use file::*;
 pub use info::*;
 pub use mobile::*;
 pub use notify::*;

@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use crate::dao::{SenderError, SenderResult};
-use crate::model::{SenderConfigModel, SenderConfigModelRef, SenderConfigStatus, SenderType};
+use crate::model::{SenderConfigModel, SenderConfigStatus, SenderType};
 use lsys_core::{now_time, RequestEnv};
 
-use lsys_core::db::{Insert, ModelTableName, Update, WhereOption};
+use lsys_core::db::{Insert, TableMeta, SqlSuffix, Update};
 use lsys_core::sql_format;
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::Pool;
@@ -57,18 +57,16 @@ impl SenderConfig {
         let app_id = app_id.unwrap_or_default();
         let time = now_time().unwrap_or_default();
         let config_data = config_data.to_string();
-        let add = lsys_core::model_option_set!(SenderConfigModelRef, {
-            app_id:app_id,
-            sender_type:sender_type,
-            priority:priority,
-            config_type:config_type,
-            user_id:user_id,
-            change_user_id:add_user_id,
-            change_time:time,
-            status:SenderConfigStatus::Enable as i8,
-            config_data:config_data,
-        });
-        let id = Insert::<SenderConfigModel, _>::new(add)
+        let id = Insert::<SenderConfigModel>::new()
+            .set(SenderConfigModel::APP_ID, app_id)
+            .set(SenderConfigModel::SENDER_TYPE, sender_type)
+            .set(SenderConfigModel::PRIORITY, priority)
+            .set(SenderConfigModel::CONFIG_TYPE, config_type)
+            .set(SenderConfigModel::USER_ID, user_id)
+            .set(SenderConfigModel::CHANGE_USER_ID, add_user_id)
+            .set(SenderConfigModel::CHANGE_TIME, time)
+            .set(SenderConfigModel::STATUS, SenderConfigStatus::Enable as i8)
+            .set(SenderConfigModel::CONFIG_DATA, &config_data)
             .execute(&self.db)
             .await
             .map(|e| e.last_insert_id())?;
@@ -103,14 +101,12 @@ impl SenderConfig {
             return Ok(0);
         }
         let time = now_time().unwrap_or_default();
-        let change = lsys_core::model_option_set!(SenderConfigModelRef,{
-            status:SenderConfigStatus::Delete as i8,
-            change_time:time,
-            change_user_id:user_id
-        });
-        let res = Update::<SenderConfigModel, _>::new(change)
-            .execute_by_where(
-                &WhereOption::Where(sql_format!("id={}", config.id)),
+        let res = Update::<SenderConfigModel>::new()
+            .set(SenderConfigModel::STATUS, SenderConfigStatus::Delete as i8)
+            .set(SenderConfigModel::CHANGE_TIME, time)
+            .set(SenderConfigModel::CHANGE_USER_ID, user_id)
+            .execute(
+                SqlSuffix::Where(&sql_format!("id={}", config.id)),
                 &self.db,
             )
             .await;

@@ -1,10 +1,9 @@
-use crate::common::JsonError;
-use crate::common::JsonResult;
+use crate::dao::{WebError, WebResult};
 use lsys_core::{
     fluent_message, string_clear, valid_key, StringClear, ValidParam, ValidParamCheck,
     ValidPattern, ValidStrlen,
 };
-use lsys_core::{AppCore, AppCoreError, IntoFluentMessage};
+use lsys_core::{AppCore, IntoFluentMessage};
 use lsys_lib_area::{AreaCodeItem, AreaCodeRelatedItem, AreaDao, AreaSearchItem};
 use std::sync::Arc;
 use tracing::{error, info, warn};
@@ -13,7 +12,7 @@ pub struct AppArea {
 }
 
 impl AppArea {
-    pub fn new(app_core: Arc<AppCore>) -> Result<Self, AppCoreError> {
+    pub fn new(app_core: Arc<AppCore>) -> WebResult<AppArea> {
         let area = match app_core.config_path(app_core.config.find(None), "area_code_db") {
             Ok(code_path) => {
                 match lsys_lib_area::CsvAreaCodeData::from_inner_path(code_path.clone(), true) {
@@ -56,12 +55,8 @@ impl AppArea {
                             .map(|e| e.unsigned_abs() as usize)
                             .ok();
                         let area_store =
-                            lsys_lib_area::AreaStoreDisk::new(area_index_dir, area_index_size)
-                                .map_err(|e| AppCoreError::System(e.to_string()))?;
-                        Some(
-                            AreaDao::from_csv_disk(data, area_store)
-                                .map_err(|e| AppCoreError::System(e.to_string()))?,
-                        )
+                            lsys_lib_area::AreaStoreDisk::new(area_index_dir, area_index_size)?;
+                        Some(AreaDao::from_csv_disk(data, area_store)?)
                     }
                     Err(err) => {
                         warn!("area code db load fail on {} [download url: https://github.com/shanliu/lsys/releases/tag/v0.0.0 2023-7-area-code.csv.gz ],error detail:{}",code_path.display(),err);
@@ -86,14 +81,14 @@ macro_rules! get_area {
         match $area.as_ref() {
             Some(area) => area,
             None => {
-                return Err(JsonError::Message(fluent_message!("area-not-enable")));
+                return Err(WebError::Message(fluent_message!("area-not-enable")));
             }
         }
     };
 }
 #[allow(clippy::result_large_err)]
 impl AppArea {
-    fn code_param(&self, code: &str) -> JsonResult<()> {
+    fn code_param(&self, code: &str) -> WebResult<()> {
         ValidParam::default()
             .add(
                 valid_key!("area_code"),
@@ -105,23 +100,23 @@ impl AppArea {
             .check()?;
         Ok(())
     }
-    pub fn code_find(&self, code: &str) -> JsonResult<Vec<AreaCodeItem>> {
+    pub fn code_find(&self, code: &str) -> WebResult<Vec<AreaCodeItem>> {
         self.code_param(code)?;
         Ok(get_area!(self.area).code_find(code)?)
     }
-    pub fn code_related(&self, code: &str) -> JsonResult<Vec<Vec<AreaCodeRelatedItem>>> {
+    pub fn code_related(&self, code: &str) -> WebResult<Vec<Vec<AreaCodeRelatedItem>>> {
         self.code_param(code)?;
         Ok(get_area!(self.area).code_related(code)?)
     }
-    pub fn code_childs(&self, code: &str) -> JsonResult<Vec<AreaCodeItem>> {
+    pub fn code_childs(&self, code: &str) -> WebResult<Vec<AreaCodeItem>> {
         self.code_param(code)?;
         Ok(get_area!(self.area).code_childs(code)?)
     }
-    pub fn code_search(&self, name: &str, limit: usize) -> JsonResult<Vec<AreaSearchItem>> {
+    pub fn code_search(&self, name: &str, limit: usize) -> WebResult<Vec<AreaSearchItem>> {
         let name = string_clear(name, StringClear::LikeKeyWord, Some(255));
         Ok(get_area!(self.area).code_search(&name, limit)?)
     }
-    pub fn geo_search(&self, lat: f64, lng: f64) -> JsonResult<Vec<AreaCodeItem>> {
+    pub fn geo_search(&self, lat: f64, lng: f64) -> WebResult<Vec<AreaCodeItem>> {
         Ok(get_area!(self.area).geo_search(lat, lng)?)
     }
 }
