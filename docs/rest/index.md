@@ -22,6 +22,8 @@ layout : doc
 | 参数          | 类型     | 是否必填 | 最大长度 | 描述                      | 示例值        |
 |--------------|---------|---------|---------|---------------------------|--------------|
 | X-Request-ID | string  | 否      | 32      | 请求ID,每次请求不同          | xxxxx12456  |
+| accept-language | string  | 否      | 32      |    请求返回语言     | zh_CN 参考浏览器请求头 |
+
 
 > GET参数:
 
@@ -33,8 +35,7 @@ layout : doc
 | sign       | string  | 是      | 32      | 请求参数的签名串                          | 生成方式参见`签名生成`                 |
 | request_ip | string  | 否      | 40      | 客户端IP,存在时加入签名                   | 127.0.0.1                            |
 | method     | string  | 否      | 128     | 接口名称,可以放到URL中,存在时加入签名      | product.detail                        |
-| token      | string  | 否      | 无      | OAUTH登录后获取TOKEN,存在时需加入签名      | MTQtSldES1RIUVVZT0NGUkVNUEdJQlpBTlhM |
-| lang       | string  | 否      | 无      | 接口返回语言，默认简体中文(zh_CN),不参与签名 | zh_CN                                |
+| token      | string  | 否      | 无      | OAUTH登录后获取TOKEN,存在时需加入签名      | MTQtSldES1RIUVVZT0NGUkVNUEdJQlpBTlhM |                        |
 | payload    | string  | 否      | 无      | Header的Content-type非application/json时有效,内容为无换行的JSON | {"id":1}     |
 
 
