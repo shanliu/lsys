@@ -17,10 +17,12 @@ impl FieldMeta {
     ///
     /// # Examples
     /// ```
+    /// use lsys_core::db::sqlx::field::FieldMeta;
     /// // 静态
     /// const F: FieldMeta = FieldMeta::new("user_id", "userId");
     ///
     /// // 动态场景直接构造
+    /// let id = 1;
     /// let f = FieldMeta {
     ///     name: format!("field_{}", id).into(),
     ///     column: format!("col_{}", id).into()
@@ -37,6 +39,7 @@ impl FieldMeta {
     ///
     /// # Examples
     /// ```
+    /// use lsys_core::db::sqlx::field::FieldMeta;
     /// const F: FieldMeta = FieldMeta::same("id");
     /// ```
     pub const fn same(name: &'static str) -> Self {
@@ -77,7 +80,10 @@ impl<T> Field<T> {
     ///
     /// # Examples
     /// ```
+    /// use lsys_core::db::sqlx::field::{FieldMeta, Field};
     /// // 动态创建
+    /// let name = "user_id";
+    /// let column = "userId";
     /// let f: Field<u64> = Field::from_meta(FieldMeta::new(name, column));
     /// let f: Field<u64> = Field::from_meta(FieldMeta::same(name));
     /// ```

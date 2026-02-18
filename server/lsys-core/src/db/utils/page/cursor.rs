@@ -306,10 +306,22 @@ impl<'a, 'b, C: CursorValue> CursorPageQuery<'a, 'b, C> {
     /// 返回组合好的 SQL 片段
     ///
     /// # Example
-    /// ```
-    /// let query = param.page_query(config);
+    /// ```no_run
+    /// # use lsys_core::db::utils::page::cursor::{CursorPageQuery, CursorPageParam, CursorLimit, CursorPageDir, CursorPageConfig};
+    /// # struct MockCursorValue;
+    /// # impl lsys_core::db::utils::page::cursor::CursorValue for MockCursorValue {
+    /// #     fn key_value(&self) -> std::boxed::Box<dyn std::fmt::Display> { std::boxed::Box::new("1") }
+    /// #     fn extra_values(&self) -> Vec<(String, String)> { vec![] }
+    /// # }
+    /// let param = CursorPageParam {
+    ///     cursor: None,
+    ///     limit: CursorLimit::Limit { limit: 10, more: true },
+    ///     dir: CursorPageDir::Next,
+    ///     config: &CursorPageConfig::default(),
+    /// };
+    /// let query = CursorPageQuery::new("id", &param);
     /// let sql_fragment = query.build_query_sql(Some("status = 1"));
-    /// // 结果: "WHERE status = 1 AND (cursor_condition) ORDER BY id DESC LIMIT 10"
+    /// // 结果: "WHERE status = 1 ORDER BY id DESC LIMIT 10"
     /// ```
     pub fn build_query_sql(&self, extra_where_suffix: Option<&str>) -> String {
         let mut parts = Vec::new();

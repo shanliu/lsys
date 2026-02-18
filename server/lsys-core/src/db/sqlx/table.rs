@@ -21,11 +21,13 @@ impl TableName {
     ///
     /// # Examples
     /// ```
+    /// use lsys_core::db::sqlx::table::TableName;
     /// // 静态（零开销）
     /// let t = TableName::new("users");
     /// let t = TableName::new("other_db.users");
     ///
     /// // 动态
+    /// let id = 1;
     /// let t = TableName::new(format!("user_{}", id));
     /// ```
     pub fn new(full_name: impl Into<Cow<'static, str>>) -> Self {
@@ -50,10 +52,13 @@ impl TableName {
     ///
     /// # Examples
     /// ```
+    /// use lsys_core::db::sqlx::table::TableName;
     /// // 静态
     /// let t = TableName::with_db("other_db.", "users");
     ///
     /// // 动态
+    /// let db_name = "my_db.";
+    /// let table_name = "users";
     /// let t = TableName::with_db(db_name, table_name);
     /// ```
     pub fn with_db(db: impl Into<Cow<'static, str>>, name: impl Into<Cow<'static, str>>) -> Self {
