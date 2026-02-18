@@ -106,22 +106,6 @@ mod cache {
     /// # Arguments
     /// * `remote_notify` - 远程通知实例
     /// * `use_cache` - 是否启用缓存，false 时缓存大小设为 0
-    ///
-    /// # Examples
-    /// ```no_run
-    /// # use lsys_core::RemoteNotify;
-    /// # use std::sync::Arc;
-    /// # use lsys_core::db::init_string_field_cache;
-    /// # #[tokio::main]
-    /// # async fn main() {
-    /// # let remote_notify = Arc::new(RemoteNotify::default());
-    /// // 启用缓存
-    /// init_string_field_cache(remote_notify.clone(), true).await;
-    ///
-    /// // 禁用缓存
-    /// init_string_field_cache(remote_notify.clone(), false).await;
-    /// # }
-    /// ```
     pub async fn init_string_field_cache(remote_notify: Arc<RemoteNotify>, use_cache: bool) {
         let _ = STRING_FIELD_CACHE
             .get_or_init(|| async {

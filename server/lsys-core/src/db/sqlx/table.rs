@@ -18,18 +18,6 @@ pub struct TableName {
 
 impl TableName {
     /// 创建表名（自动处理静态和动态字符串）
-    ///
-    /// # Examples
-    /// ```
-    /// use lsys_core::db::sqlx::table::TableName;
-    /// // 静态（零开销）
-    /// let t = TableName::new("users");
-    /// let t = TableName::new("other_db.users");
-    ///
-    /// // 动态
-    /// let id = 1;
-    /// let t = TableName::new(format!("user_{}", id));
-    /// ```
     pub fn new(full_name: impl Into<Cow<'static, str>>) -> Self {
         let full_name = full_name.into();
         match full_name.rfind('.') {
@@ -49,18 +37,6 @@ impl TableName {
     }
 
     /// 分别指定数据库和表名（自动处理静态和动态）
-    ///
-    /// # Examples
-    /// ```
-    /// use lsys_core::db::sqlx::table::TableName;
-    /// // 静态
-    /// let t = TableName::with_db("other_db.", "users");
-    ///
-    /// // 动态
-    /// let db_name = "my_db.";
-    /// let table_name = "users";
-    /// let t = TableName::with_db(db_name, table_name);
-    /// ```
     pub fn with_db(db: impl Into<Cow<'static, str>>, name: impl Into<Cow<'static, str>>) -> Self {
         Self {
             db: db.into(),

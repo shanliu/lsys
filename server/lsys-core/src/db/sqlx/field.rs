@@ -14,20 +14,6 @@ pub struct FieldMeta {
 
 impl FieldMeta {
     /// 创建字段元信息（const 版本，用于编译时常量）
-    ///
-    /// # Examples
-    /// ```
-    /// use lsys_core::db::sqlx::field::FieldMeta;
-    /// // 静态
-    /// const F: FieldMeta = FieldMeta::new("user_id", "userId");
-    ///
-    /// // 动态场景直接构造
-    /// let id = 1;
-    /// let f = FieldMeta {
-    ///     name: format!("field_{}", id).into(),
-    ///     column: format!("col_{}", id).into()
-    /// };
-    /// ```
     pub const fn new(name: &'static str, column: &'static str) -> Self {
         Self {
             name: Cow::Borrowed(name),
@@ -36,12 +22,6 @@ impl FieldMeta {
     }
 
     /// 字段名与列名相同（const 版本）
-    ///
-    /// # Examples
-    /// ```
-    /// use lsys_core::db::sqlx::field::FieldMeta;
-    /// const F: FieldMeta = FieldMeta::same("id");
-    /// ```
     pub const fn same(name: &'static str) -> Self {
         Self {
             name: Cow::Borrowed(name),
@@ -77,16 +57,6 @@ impl<T> Field<T> {
     }
 
     /// 从 FieldMeta 创建（用于动态场景）
-    ///
-    /// # Examples
-    /// ```
-    /// use lsys_core::db::sqlx::field::{FieldMeta, Field};
-    /// // 动态创建
-    /// let name = "user_id";
-    /// let column = "userId";
-    /// let f: Field<u64> = Field::from_meta(FieldMeta::new(name, column));
-    /// let f: Field<u64> = Field::from_meta(FieldMeta::same(name));
-    /// ```
     pub fn from_meta(meta: FieldMeta) -> Self {
         Self {
             meta,
