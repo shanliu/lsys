@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import SparkMD5 from 'spark-md5';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -140,52 +141,30 @@ export function getQueryResponseData<T>(
 }
 
 /**
- * 从 useQuery 返回结果中提取响应的 next 字段（用于偏移分页）
- *
- * @param queryData useQuery 返回的结果对象
- * @returns next 字段值或 null
+ * 游标分页响应类型
+ * 服务端直接返回 next_cursor 和 prev_cursor 字段
  */
-export function getQueryResponseNext(
-  queryData: { response?: { next?: number | null } } | any,
-): number | null {
-  return queryData?.response?.next ?? null;
+export interface CursorPageResponseType {
+  next_cursor?: number | null;
+  prev_cursor?: number | null;
 }
 
 /**
- * 从数组中提取指定字段的最小值和最大值
- * 
- * @param array - 对象数组
- * @param field - 要提取值的字段名
- * @param minKey - 返回对象中最小值的键名
- * @param maxKey - 返回对象中最大值的键名
- * @returns 包含最小值和最大值的对象
+ * 从 useQuery 返回结果中提取游标分页字段
+ * 服务端现在直接在响应根级别返回 next_cursor 和 prev_cursor
+ *
+ * @param queryData useQuery 返回的结果对象
+ * @returns CursorPageResponseType 对象或 null
  */
-export function extractMinMax<
-  T extends Record<string, any>,
-  K extends keyof T,
-  MinKey extends string,
-  MaxKey extends string
->(
-  array: T[],
-  field: K,
-  minKey: MinKey,
-  maxKey: MaxKey
-): { [P in MinKey | MaxKey]: number | null } {
-  if (array.length === 0) {
-    return {
-      [minKey]: null,
-      [maxKey]: null,
-    } as { [P in MinKey | MaxKey]: number | null };
-  }
-
-  const values = array.map(item => item[field]);
-  const minValue = Math.min(...values as number[]);
-  const maxValue = Math.max(...values as number[]);
-
+export function getQueryResponseCursor(
+  queryData: { response?: CursorPageResponseType } | any,
+): CursorPageResponseType | null {
+  const response = queryData?.response;
+  if (!response) return null;
   return {
-    [minKey]: minValue,
-    [maxKey]: maxValue,
-  } as { [P in MinKey | MaxKey]: number | null };
+    next_cursor: response.next_cursor ?? null,
+    prev_cursor: response.prev_cursor ?? null,
+  };
 }
 
 /**
@@ -225,4 +204,49 @@ export function calculateRemainingSeconds(timeOut: Date | null): number {
  */
 export function getHomeUrl(): string {
   return '/index.html'
+}
+
+/**
+ * 计算文件的 MD5 哈希值（分片读取方式，适合大文件）
+ * @param file - 文件对象
+ * @param onProgress - 进度回调，参数范围0-100
+ * @returns Promise<string> 文件的 MD5 哈希值
+ */
+export function calculateFileMd5(
+  file: File,
+  onProgress?: (progress: number) => void
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const chunkSize = 2 * 1024 * 1024 // 2MB chunks for hashing
+    const chunks = Math.ceil(file.size / chunkSize)
+    let currentChunk = 0
+    const spark = new SparkMD5.ArrayBuffer()
+    const reader = new FileReader()
+
+    reader.onload = (e) => {
+      if (e.target?.result) {
+        spark.append(e.target.result as ArrayBuffer)
+      }
+      currentChunk++
+      onProgress?.(Math.round((currentChunk / chunks) * 100))
+
+      if (currentChunk < chunks) {
+        loadNext()
+      } else {
+        resolve(spark.end())
+      }
+    }
+
+    reader.onerror = () => {
+      reject(new Error('文件读取失败'))
+    }
+
+    const loadNext = () => {
+      const start = currentChunk * chunkSize
+      const end = Math.min(start + chunkSize, file.size)
+      reader.readAsArrayBuffer(file.slice(start, end))
+    }
+
+    loadNext()
+  })
 }

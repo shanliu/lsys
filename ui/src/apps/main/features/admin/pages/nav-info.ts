@@ -1,5 +1,5 @@
 import { SubNavigationMenuInfo } from '@apps/main/components/local/sub-navigation-menu'
-import { FileText, Globe, KeyRound, Route, Ruler, Server, Shield, ShieldCheck } from 'lucide-react'
+import { FileText, Globe, KeyRound, Puzzle, Route, Ruler, Server, Shield, ShieldCheck } from 'lucide-react'
 
 /**
  * 系统配置模块导航配置
@@ -17,6 +17,11 @@ export const configModuleConfig: SubNavigationMenuInfo = {
       name: 'OAuth配置',
       icon: KeyRound,
       path: '/admin/config?type=oauth',
+    },
+    {
+      name: '扩展功能',
+      icon: Puzzle,
+      path: '/admin/config?type=exter-feature',
     },
   ],
 }

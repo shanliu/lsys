@@ -112,7 +112,7 @@ export function getAppMenu(params: AppMenuParams): MenuConfig[] {
           permission: { name: 'app:sms', data: { app_id: appId } },
           showDisabled: true
         },
-       
+
         {
           name: '权限管理',
           icon: Shield,
@@ -122,13 +122,22 @@ export function getAppMenu(params: AppMenuParams): MenuConfig[] {
           params: { appId },
           path: '/user/app/$appId/features-rbac/audit',
         },
-         {
+        {
           name: '条码管理',
           path: '/user/app/$appId/features-barcode/list-create',
           noAuthPath: "/user/app/$appId/request-prompt?type=barcode",
           params: { appId },
           icon: QrCode,
-          permission: { name: 'app:barcode', data: { app_id: appId } },
+          permission: { name: 'app:feature:barcode', data: { app_id: appId } },
+          showDisabled: true
+        },
+        {
+          name: '文件管理',
+          path: '/user/app/$appId/features-file/list',
+          noAuthPath: "/user/app/$appId/request-prompt?type=file",
+          params: { appId },
+          icon: QrCode,
+          permission: { name: 'app:feature:file', data: { app_id: appId } },
           showDisabled: true
         },
       ]

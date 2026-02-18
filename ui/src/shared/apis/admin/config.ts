@@ -117,6 +117,118 @@ export async function setWechatOAuthConfig(
     return data;
 }
 
+/**
+ * 外部扩展能力管理 API
+ */
 
+// 外部扩展能力项数据结构
+export const ExterFeatureItemSchema = z.object({
+    /** 记录ID */
+    id: z.coerce.number(),
+    /** 扩展能力标识 */
+    key: z.string(),
+    /** 扩展能力名称/标题 */
+    title: z.string(),
+});
+export type ExterFeatureItemType = z.infer<typeof ExterFeatureItemSchema>;
+
+// 外部扩展能力列表响应
+export const ExterFeatureListResSchema = z.object({
+    /** 数据列表 */
+    data: z.array(ExterFeatureItemSchema),
+});
+export type ExterFeatureListResType = z.infer<typeof ExterFeatureListResSchema>;
+
+// 列表查询参数
+export const ExterFeatureListParamSchema = z.object({
+    /** 分页参数 */
+    page: z.object({
+        page: z.coerce.number(),
+        limit: z.coerce.number(),
+    }).optional(),
+});
+export type ExterFeatureListParamType = z.infer<typeof ExterFeatureListParamSchema>;
+
+/**
+ * 获取外部扩展能力列表
+ * @description 获取系统中定义的外部扩展能力列表（来自数据库配置）
+ */
+export async function getExterFeatureList(
+    param?: ExterFeatureListParamType,
+    config?: AxiosRequestConfig<any>
+): Promise<ApiResult<ExterFeatureListResType>> {
+    const { data } = await authApi().post("/api/system/app/exter_feature_list", param || {}, config);
+    return parseResData(data, ExterFeatureListResSchema);
+}
+
+// 新增外部扩展能力参数
+export const ExterFeatureAddParamSchema = z.object({
+    /** 扩展能力标识 */
+    feature_key: z.string().min(1, "标识不能为空").regex(/^[a-zA-Z0-9_-]+$/, "标识只能包含数字、字母、下划线和横杠"),
+    /** 扩展能力名称/标题 */
+    title: z.string().min(1, "名称不能为空"),
+});
+export type ExterFeatureAddParamType = z.infer<typeof ExterFeatureAddParamSchema>;
+
+// 新增响应
+export const ExterFeatureAddResSchema = z.object({
+    /** 新增记录ID */
+    id: z.coerce.number(),
+});
+export type ExterFeatureAddResType = z.infer<typeof ExterFeatureAddResSchema>;
+
+/**
+ * 新增外部扩展能力
+ * @description 添加一个新的外部扩展能力定义
+ */
+export async function addExterFeature(
+    param: ExterFeatureAddParamType,
+    config?: AxiosRequestConfig<any>
+): Promise<ApiResult<ExterFeatureAddResType>> {
+    const { data } = await authApi().post("/api/system/app/exter_feature_add", param, config);
+    return parseResData(data, ExterFeatureAddResSchema);
+}
+
+// 编辑外部扩展能力参数
+export const ExterFeatureEditParamSchema = z.object({
+    /** 记录ID */
+    id: z.coerce.number(),
+    /** 扩展能力标识 */
+    feature_key: z.string().min(1, "标识不能为空").regex(/^[a-zA-Z0-9_-]+$/, "标识只能包含数字、字母、下划线和横杠"),
+    /** 扩展能力名称/标题 */
+    title: z.string().min(1, "名称不能为空"),
+});
+export type ExterFeatureEditParamType = z.infer<typeof ExterFeatureEditParamSchema>;
+
+/**
+ * 编辑外部扩展能力
+ * @description 修改一个已存在的外部扩展能力定义
+ */
+export async function editExterFeature(
+    param: ExterFeatureEditParamType,
+    config?: AxiosRequestConfig<any>
+): Promise<ApiResult> {
+    const { data } = await authApi().post("/api/system/app/exter_feature_edit", param, config);
+    return data;
+}
+
+// 删除外部扩展能力参数
+export const ExterFeatureDelParamSchema = z.object({
+    /** 记录ID */
+    id: z.coerce.number(),
+});
+export type ExterFeatureDelParamType = z.infer<typeof ExterFeatureDelParamSchema>;
+
+/**
+ * 删除外部扩展能力
+ * @description 删除一个外部扩展能力定义
+ */
+export async function delExterFeature(
+    param: ExterFeatureDelParamType,
+    config?: AxiosRequestConfig<any>
+): Promise<ApiResult> {
+    const { data } = await authApi().post("/api/system/app/exter_feature_del", param, config);
+    return data;
+}
 
 

@@ -1,4 +1,3 @@
-import type { LimitType } from "@shared/types/base-schema";
 import type { NavigateOptions } from "@tanstack/react-router";
 import { useCallback, useRef } from "react";
 
@@ -54,244 +53,6 @@ export function useSearchNavigate<TSearchParams extends Record<string, any>>(
         },
         [navigate, currentSearch],
     );
-}
-
-/**
- * 计算下一页的 pos 和 eq_pos 参数
- * @param options 配置选项
- * @param options.maxId 当前页面数据中的最大ID（最后一条记录的ID）
- * @param options.next 接口返回的 next 字段值
- * @param options.currentForward 当前的 forward 状态
- * @returns 包含 pos 和 eq_pos 的对象
- */
-function OffsetPaginationCalcNext(options: {
-    maxId: number | null;
-    next: number | null | undefined;
-    currentForward: boolean;
-}): { pos: number | null; eq_pos: boolean } {
-    const { maxId, next, currentForward } = options;
-
-    let pos: number | null = null;
-    let eq_pos = false;
-
-    // 获取当前页面最后一条记录的ID作为默认pos
-    if (maxId !== null) {
-        pos = maxId;
-    }
-
-    // 如果接口返回了next且当前不是forward模式，使用API返回的next值
-    if (next && !currentForward) {
-        pos = next;
-        eq_pos = true;
-    }
-
-    return { pos, eq_pos };
-}
-
-/**
- * 计算上一页的 pos 和 eq_pos 参数
- * @param options 配置选项
- * @param options.minId 当前页面数据中的最小ID（第一条记录的ID）
- * @param options.next 接口返回的 next 字段值
- * @param options.currentForward 当前的 forward 状态
- * @returns 包含 pos 和 eq_pos 的对象
- */
-function OffsetPaginationCalcPrev(options: {
-    minId: number | null;
-    next: number | null | undefined;
-    currentForward: boolean;
-}): { pos: number | null; eq_pos: boolean } {
-    const { minId, next, currentForward } = options;
-
-    let pos: number | null = null;
-    let eq_pos = false;
-
-    // 获取当前页面第一条记录的ID作为默认pos
-    if (minId !== null) {
-        pos = minId;
-    }
-
-    // 如果当前是forward模式且接口返回了next，使用API返回的next值
-    if (currentForward && next) {
-        pos = next;
-        eq_pos = true;
-    }
-
-    return { pos, eq_pos };
-}
-
-/**
- * 判断是否可以进入下一页
- * @param options 配置选项
- * @param options.currentForward 当前的 forward 状态
- * @param options.next 接口返回的 next 字段值
- * @param options.currentPos 当前的 pos 值
- * @returns 是否可以进入下一页
- */
-function OffsetPaginationCanNext(options: {
-    currentForward: boolean;
-    next: number | null | undefined;
-    currentPos: number | null;
-}): boolean {
-    const { currentForward, next, currentPos } = options;
-
-    // 下一页：在forward=false模式下有next可以继续向后翻，或在forward=true模式下可以返回到更旧数据
-    return (
-        (!currentForward && next !== null && next !== undefined) ||
-        (currentForward && currentPos !== null)
-    );
-}
-
-/**
- * 判断是否可以进入上一页
- * @param options 配置选项
- * @param options.currentForward 当前的 forward 状态
- * @param options.next 接口返回的 next 字段值
- * @param options.currentPos 当前的 pos 值
- * @returns 是否可以进入上一页
- */
-function OffsetPaginationCanPrev(options: {
-    currentForward: boolean;
-    next: number | null | undefined;
-    currentPos: number | null;
-}): boolean {
-    const { currentForward, next, currentPos } = options;
-
-    // 上一页：在forward=true模式下有next可以继续向前翻，或在forward=false模式下不在首页可以切换到向前模式
-    return (
-        (currentForward && next !== null && next !== undefined) ||
-        (!currentForward && currentPos !== null)
-    );
-}
-
-/**
- * 创建偏移分页处理器
- * 用于统一管理分页相关的逻辑，避免在每个页面重复定义
- *
- * @example
- * ```tsx
- * const { handleNextPage, handlePrevPage, canGoNext, canGoPrev } = useOffsetPaginationHandlers({
- *   minId: messages.length > 0 ? messages[0].id : null,
- *   maxId: messages.length > 0 ? messages[messages.length - 1].id : null,
- *   pagination: pagination, // 直接传入整个 LimitType 对象
- *   nextPageStartPos: nextPageStartPos,
- *   searchGo: (param) => navigate({ search: { ...filterParam, ...param } }),
- *   defaultForward: false, // 默认排序方向（从大到小为 false，从小到大为 true）
- *   setPagination, // 可选
- * })
- * ```
- */
-export function useOffsetPaginationHandlers(options: {
-    /** 当前页面数据中的最小ID（第一条记录的ID） */
-    minId: number | null;
-    /** 当前页面数据中的最大ID（最后一条记录的ID） */
-    maxId: number | null;
-    /** 当前分页状态 - 使用全局统一的 LimitType */
-    pagination: LimitType;
-    /** 下一页起始位置（API返回的next字段） */
-    nextPageStartPos: number | null | undefined;
-    /** 搜索导航函数 - 用于更新URL参数 */
-    searchGo: (
-        param: { pos: number | null; forward: boolean; eq_pos: boolean } & Record<
-            string,
-            any
-        >,
-    ) => void;
-    /** 默认排序方向 - false: 从大到小(新到旧), true: 从小到大(旧到新)。默认为 false */
-    defaultForward?: boolean;
-    /** 可选：本地分页状态更新函数 */
-    setPagination?: React.Dispatch<React.SetStateAction<any>>;
-}): {
-    /** 下一页处理函数 */
-    handleNextPage: () => void;
-    /** 上一页处理函数 */
-    handlePrevPage: () => void;
-    /** 是否可以进入下一页 */
-    canGoNext: boolean;
-    /** 是否可以进入上一页 */
-    canGoPrev: boolean;
-} {
-    const {
-        minId,
-        maxId,
-        pagination,
-        nextPageStartPos,
-        searchGo,
-        defaultForward = false,
-        setPagination,
-    } = options;
-
-    // 下一页处理函数
-    const handleNextPage = () => {
-        const { pos, eq_pos } = OffsetPaginationCalcNext({
-            maxId,
-            next: nextPageStartPos,
-            currentForward: pagination.forward || defaultForward,
-        });
-
-        // 更新 URL（分页状态由 URL 参数驱动）
-        searchGo({
-            pos,
-            forward: defaultForward, // 使用配置的默认排序方向
-            eq_pos, // 包含pos位置的数据
-        });
-
-        // 可选：同步更新本地状态
-        if (setPagination) {
-            setPagination((prev: any) => ({
-                ...prev,
-                pos,
-                forward: defaultForward,
-                eq_pos,
-            }));
-        }
-    };
-
-    // 上一页处理函数
-    const handlePrevPage = () => {
-        const { pos, eq_pos } = OffsetPaginationCalcPrev({
-            minId,
-            next: nextPageStartPos,
-            currentForward: pagination.forward || defaultForward,
-        });
-
-        // 更新 URL（分页状态由 URL 参数驱动）
-        searchGo({
-            pos,
-            forward: !defaultForward, // 反向查询
-            eq_pos, // 不包含pos位置的数据
-        });
-
-        // 可选：同步更新本地状态
-        if (setPagination) {
-            setPagination((prev: any) => ({
-                ...prev,
-                pos,
-                forward: !defaultForward,
-                eq_pos,
-            }));
-        }
-    };
-
-    // 分页按钮状态判断
-    const canGoNext = OffsetPaginationCanNext({
-        currentForward: pagination.forward || defaultForward,
-        next: nextPageStartPos,
-        currentPos: pagination.pos ?? null,
-    });
-
-    const canGoPrev = OffsetPaginationCanPrev({
-        currentForward: pagination.forward || defaultForward,
-        next: nextPageStartPos,
-        currentPos: pagination.pos ?? null,
-    });
-
-    return {
-        handleNextPage,
-        handlePrevPage,
-        canGoNext,
-        canGoPrev,
-    };
 }
 
 /**
@@ -370,17 +131,19 @@ export function useCountNumManager(filters?: Record<string, any>) {
 
         /**
          * 处理 Limit 分页的查询结果
-         * 自动提取 response.total 和 response.next 并更新状态
+         * 自动提取 response.total 和 response.next_cursor/prev_cursor 并更新状态
+         * 服务端直接返回 next_cursor 和 prev_cursor 字段
          * @param queryResult - TanStack Query 的查询结果对象
          */
         handleLimitQueryResult: useCallback((queryData: {
             response?: {
                 total?: number | null;
-                next?: number | null;
+                next_cursor?: number | null;
+                prev_cursor?: number | null;
             };
         }) => {
             if (queryData?.response) {
-                const { total, next } = queryData.response;
+                const { total, next_cursor, prev_cursor } = queryData.response;
 
                 // 如果返回了有效的 total（包括0），缓存并设置 count_num = false
                 if (total !== null && total !== undefined && total >= 0) {
@@ -389,8 +152,8 @@ export function useCountNumManager(filters?: Record<string, any>) {
                     countNumRef.current = false;
                 }
 
-                // 如果没有下一页，重置 count_num = true
-                if (hasLoadedRef.current && (next === null || next === undefined)) {
+                // 如果没有下一页游标，重置 count_num = true
+                if (hasLoadedRef.current && (next_cursor === null || next_cursor === undefined) && (prev_cursor === null || prev_cursor === undefined)) {
                     countNumRef.current = true;
                 }
             }

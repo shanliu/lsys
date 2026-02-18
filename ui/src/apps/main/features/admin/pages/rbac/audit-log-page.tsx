@@ -10,7 +10,6 @@ import {
   DEFAULT_PAGE_SIZE,
   PAGE_SIZE_OPTIONS,
   useCountNumManager,
-  useOffsetPaginationHandlers,
   useSearchNavigate,
 } from "@apps/main/lib/pagination-utils";
 import { createStatusMapper } from "@apps/main/lib/status-utils";
@@ -30,10 +29,9 @@ import { Button } from "@shared/components/ui/button";
 import { useIsMobile } from "@shared/hooks/use-mobile";
 import {
   cn,
-  extractMinMax,
   formatTime,
+  getQueryResponseCursor,
   getQueryResponseData,
-  getQueryResponseNext,
   TIME_STYLE,
 } from "@shared/lib/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -118,9 +116,8 @@ function AuditLogContent({ dictData }: AuditLogContentProps) {
   const pagination: RbacOffsetPaginationType = {
     pos: filterParam.pos || null,
     limit: filterParam.limit || DEFAULT_PAGE_SIZE,
-    forward: filterParam.forward || false,
+    forward: filterParam.forward ?? true,
     more: true,
-    eq_pos: filterParam.eq_pos || false,
   };
 
   const currentLimit = pagination.limit;
@@ -138,7 +135,6 @@ function AuditLogContent({ dictData }: AuditLogContentProps) {
       pagination.pos,
       pagination.limit,
       pagination.forward,
-      pagination.eq_pos,
       filters.user_id,
       filters.app_id,
       filters.user_ip,
@@ -148,7 +144,6 @@ function AuditLogContent({ dictData }: AuditLogContentProps) {
       rbacAuditData(
         {
           limit: {
-            eq_pos: pagination.eq_pos,
             pos: pagination.pos,
             limit: pagination.limit,
             forward: pagination.forward,
@@ -184,7 +179,7 @@ function AuditLogContent({ dictData }: AuditLogContentProps) {
 
   // 获取API响应数据
   const audits = getQueryResponseData<AuditDataType[]>(auditData, []);
-  const nextPageStartPos = getQueryResponseNext(auditData);
+  const cursorData = getQueryResponseCursor(auditData);
 
   const auditResultDict = dictData.audit_result;
 
@@ -320,16 +315,6 @@ function AuditLogContent({ dictData }: AuditLogContentProps) {
     [auditResultMapper, handleViewDetail, isMobile],
   );
 
-  // 使用统一的分页处理器
-  const { handleNextPage, handlePrevPage, canGoNext, canGoPrev } =
-    useOffsetPaginationHandlers({
-      ...extractMinMax(audits.map(a => ({ id: a.audit.id })), 'id', 'minId', 'maxId'),
-      pagination,
-      nextPageStartPos,
-      searchGo,
-      defaultForward: false, // 从大到小排序（新到旧）
-    });
-
   // 关闭详情对话框
   const handleCloseDetailDialog = () => {
     setDetailDialog({ open: false, audit: null });
@@ -353,15 +338,14 @@ function AuditLogContent({ dictData }: AuditLogContentProps) {
             onSubmit={(data) => {
               // zod schema 已经处理了类型转换和空值清理，直接使用数据
               navigate({
-                search: { ...data, pos: null, forward: false, eq_pos: false } as any,
+                search: { ...data, pos: null, forward: true } as any,
               });
             }}
             onReset={() => {
               navigate({
                 search: {
                   pos: null,
-                  forward: false,
-                  eq_pos: false,
+                  forward: true,
                   limit: currentLimit,
                 } as any,
               });
@@ -449,13 +433,11 @@ function AuditLogContent({ dictData }: AuditLogContentProps) {
             {(countNumManager.getTotal() ?? 0) > 0 && (
               <OffsetPagination
                 limit={pagination.limit}
-                hasNext={canGoNext}
-                canGoPrev={canGoPrev}
+                cursorData={cursorData}
+                searchGo={searchGo}
                 total={countNumManager.getTotal()}
                 currentPageSize={audits.length}
                 loading={isLoading}
-                onPrevious={handlePrevPage}
-                onNext={handleNextPage}
                 onRefresh={refreshData}
                 showRefresh={true}
                 showPageSize={true}
@@ -464,8 +446,7 @@ function AuditLogContent({ dictData }: AuditLogContentProps) {
                   searchGo({
                     limit: pageSize,
                     pos: null,
-                    forward: false,
-                    eq_pos: false,
+                    forward: true,
                   });
                 }}
               />

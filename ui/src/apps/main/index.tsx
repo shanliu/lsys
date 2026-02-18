@@ -1,5 +1,6 @@
 
 import { Config } from '@shared/lib/config'
+import { initJwtSharingHost } from '@shared/lib/auth'
 import { queryClient } from '@shared/lib/query-client'
 import '@shared/styles/globals.css'
 import { QueryClientProvider } from '@tanstack/react-query'
@@ -9,10 +10,14 @@ import * as ReactDOM from 'react-dom/client'
 import { routeTree } from './routeTree.gen'
 import './styles/app.css'
 
+// Initialize JWT sharing for sub-services (barcode, etc.)
+// This allows sub-service domains to request JWT via postMessage
+initJwtSharingHost();
+
 // Create a new router instance
 const router = createRouter({
   routeTree,
-  basepath: Config.appBaseUrl,
+  basepath: Config.uiBasePath,
   context: { queryClient },
   defaultPreload: 'viewport',
   defaultPreloadStaleTime: 0,

@@ -9,14 +9,13 @@ import {
   DEFAULT_PAGE_SIZE,
   PAGE_SIZE_OPTIONS,
   useCountNumManager,
-  useOffsetPaginationHandlers,
   useSearchNavigate
 } from "@apps/main/lib/pagination-utils";
 import { Route } from "@apps/main/routes/_main/admin/user/change-log";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  type SystemUserChangeLogItemType,
   systemUserChangeLogs,
+  type SystemUserChangeLogItemType,
   type SystemUserChangeLogsParamType,
 } from "@shared/apis/admin/user";
 import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
@@ -28,10 +27,9 @@ import { Button } from "@shared/components/ui/button";
 import { useIsMobile } from "@shared/hooks/use-mobile";
 import {
   cn,
-  extractMinMax,
   formatTime,
+  getQueryResponseCursor,
   getQueryResponseData,
-  getQueryResponseNext,
   TIME_STYLE,
 } from "@shared/lib/utils";
 import { type LimitType } from "@shared/types/base-schema";
@@ -115,9 +113,8 @@ function ChangeLogContent({ dictData }: ChangeLogContentProps) {
   const pagination: LimitType = {
     pos: filterParam.pos || null,
     limit: currentLimit,
-    forward: filterParam.forward || false,
+    forward: filterParam.forward ?? true,
     more: true,
-    eq_pos: filterParam.eq_pos || false,
   };
 
   // 搜索导航函数
@@ -129,7 +126,6 @@ function ChangeLogContent({ dictData }: ChangeLogContentProps) {
   // 构建查询参数
   const queryParams: SystemUserChangeLogsParamType = {
     limit: {
-      eq_pos: pagination.eq_pos,
       pos: pagination.pos,
       limit: pagination.limit,
       forward: pagination.forward,
@@ -163,7 +159,7 @@ function ChangeLogContent({ dictData }: ChangeLogContentProps) {
 
   // 获取API响应数据
   const logs = getQueryResponseData<SystemUserChangeLogItemType[]>(logData, []);
-  const nextPageStartPos = getQueryResponseNext(logData);
+  const cursorData = getQueryResponseCursor(logData);
 
   // 处理查看详情（用 useMemo 因为在 columns useMemo 中使用）
   const handleViewDetail = useMemo(
@@ -253,16 +249,6 @@ function ChangeLogContent({ dictData }: ChangeLogContentProps) {
     [handleViewDetail, isMobile, dictData],
   );
 
-  // 使用统一的分页处理器
-  const { handleNextPage, handlePrevPage, canGoNext, canGoPrev } =
-    useOffsetPaginationHandlers({
-      ...extractMinMax(logs, 'id', 'minId', 'maxId'),
-      pagination,
-      nextPageStartPos,
-      searchGo,
-      defaultForward: false, // 从大到小排序（新到旧）
-    });
-
   // 关闭详情对话框
   const handleCloseDetailDialog = () => {
     setDetailDialog({ open: false, log: null });
@@ -283,7 +269,7 @@ function ChangeLogContent({ dictData }: ChangeLogContentProps) {
           onSubmit={(data) => {
             // zod schema 已经处理了类型转换和空值清理，直接使用数据
             navigate({
-              search: { ...data, pos: null, forward: false, eq_pos: false } as any,
+              search: { ...data, pos: null, forward: true } as any,
             });
           }}
           onReset={() => {
@@ -291,8 +277,7 @@ function ChangeLogContent({ dictData }: ChangeLogContentProps) {
               search: {
                 pos: null,
                 limit: currentLimit,
-                forward: false,
-                eq_pos: false,
+                forward: true,
               } as any,
             });
           }}
@@ -360,13 +345,11 @@ function ChangeLogContent({ dictData }: ChangeLogContentProps) {
           {(countNumManager.getTotal() ?? 0) > 0 && (
             <OffsetPagination
               limit={currentLimit}
-              hasNext={canGoNext}
-              canGoPrev={canGoPrev}
+              cursorData={cursorData}
+              searchGo={searchGo}
               total={countNumManager.getTotal()}
               currentPageSize={logs.length}
               loading={isLoading}
-              onPrevious={handlePrevPage}
-              onNext={handleNextPage}
               onRefresh={refreshData}
               showRefresh={true}
               showPageSize={true}
@@ -375,8 +358,7 @@ function ChangeLogContent({ dictData }: ChangeLogContentProps) {
                 searchGo({
                   limit: pageSize,
                   pos: null,
-                  forward: false,
-                  eq_pos: false,
+                  forward: true,
                 });
               }}
             />

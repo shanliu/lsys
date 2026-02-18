@@ -116,10 +116,14 @@ export function useDictData<T extends readonly (keyof DictTypeMap)[]>(
       if (apiResult?.status && apiResult?.response) {
         const response = apiResult.response;
         // 将 API 响应中的字典数组转换为 DictList 实例
-        // response 结构如 { app_status: [...], request_status: [...], ... }
+        // 仅当数组元素符合 DictItem 结构（含 key 和 val 字段）时转换
         Object.entries(response).forEach(([fieldName, value]) => {
-          if (Array.isArray(value)) {
+          if (Array.isArray(value) && value.every(item =>
+            item != null && typeof item === 'object' && 'key' in item && 'val' in item
+          )) {
             data[fieldName] = Object.assign(new DictList(), value);
+          } else {
+            data[fieldName] = value;
           }
         });
       }

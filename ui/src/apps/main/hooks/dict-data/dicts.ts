@@ -20,6 +20,7 @@ import { userBarcodeMapping as userBarcodeMappingFn, UserBarcodeMapResType as us
 import { appRbacBaseMapping, AppRbacBaseMappingResType as userRbacMapRes } from '@shared/apis/user/rbac';
 import { userSenderMailerMapping as userSenderMailerMappingFn, UserSenderMailerMappingResType as userSenderMailerMapRes } from '@shared/apis/user/sender-mailer';
 import { userSenderSmsMapping as userSenderSmsMappingFn, UserSenderSmsMapResType as userSenderSmsMapRes } from '@shared/apis/user/sender-sms';
+import { userFileMapping as userFileMappingFn, UserFileMappingResType as userFileMapRes } from '@shared/apis/user/file';
 // user_rbac 目前与 admin_rbac 使用同一底层映射，如后续有独立 user 端 RBAC mapping 再调整
 // NOTE: 某些 admin 与 user 共享同名字典，命名统一以所在模块前缀 + 功能名
 import { userQueryKey } from '@apps/main/lib/auth-utils';
@@ -109,5 +110,11 @@ export const dictDefinitions = {
     queryKey: (params?: any) => userQueryKey('dict', 'app_rbac', params),
     queryFn: async (context: DictQueryContext, _params?: any) => await appRbacBaseMapping({}, { signal: context.signal }),
     type: {} as userRbacMapRes,
+  },
+  // 用户端 - 文件管理字典
+  user_file: {
+    queryKey: (params?: any) => userQueryKey('dict', 'user_file', params),
+    queryFn: async (context: DictQueryContext, _params?: any) => await userFileMappingFn({ signal: context.signal }),
+    type: {} as userFileMapRes,
   },
 } as const;

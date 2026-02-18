@@ -8,25 +8,22 @@ import {
 } from "@shared/components/ui/select";
 import { useIsMobile } from "@shared/hooks/use-mobile";
 import { cn } from "@shared/lib/utils";
+import type { CursorPageResponseType } from "@shared/lib/utils/tools-utils";
 import { ChevronLeft, ChevronRight, Loader2, RefreshCw } from "lucide-react";
 
 export interface OffsetPaginationProps {
   /** 每页限制数量 */
   limit: number;
-  /** 是否有下一页 */
-  hasNext: boolean;
-  /** 是否可以向前翻页 */
-  canGoPrev: boolean;
+  /** 游标数据（自动计算分页状态） */
+  cursorData: CursorPageResponseType | null;
+  /** 搜索导航函数（自动处理分页跳转） */
+  searchGo: (param: { pos: number | null; forward?: boolean } & Record<string, any>) => void;
   /** 总记录数 */
   total?: number | null;
   /** 当前页实际记录数 */
   currentPageSize: number;
   /** 加载状态 */
   loading?: boolean;
-  /** 点击上一页回调 */
-  onPrevious?: () => void;
-  /** 点击下一页回调 */
-  onNext?: () => void;
   /** 刷新回调 */
   onRefresh?: () => void;
   /** 是否显示刷新按钮 */
@@ -43,13 +40,11 @@ export interface OffsetPaginationProps {
 
 export function OffsetPagination({
   limit,
-  hasNext,
-  canGoPrev,
+  cursorData,
+  searchGo,
   total = null,
   currentPageSize,
   loading = false,
-  onPrevious,
-  onNext,
   onRefresh,
   showRefresh = false,
   className,
@@ -58,6 +53,23 @@ export function OffsetPagination({
   onPageSizeChange,
 }: OffsetPaginationProps) {
   const isMobile = useIsMobile();
+
+  // 根据 cursorData 自动计算分页状态
+  const hasNext = cursorData?.next_cursor != null;
+  const canGoPrev = cursorData?.prev_cursor != null;
+
+  // 分页处理函数
+  const onPrevious = () => {
+    if (cursorData?.prev_cursor != null) {
+      searchGo({ pos: cursorData.prev_cursor, forward: false });
+    }
+  };
+
+  const onNext = () => {
+    if (cursorData?.next_cursor != null) {
+      searchGo({ pos: cursorData.next_cursor, forward: true });
+    }
+  };
 
   // 计算总页数（当有总数时）
   const totalPages = total ? Math.ceil(total / limit) : undefined;
@@ -165,7 +177,7 @@ export function OffsetPagination({
               onValueChange={(value) => onPageSizeChange(Number(value))}
               disabled={loading || (total !== null && total !== undefined && total < Math.min(...pageSizeOptions))}
             >
-              <SelectTrigger className={cn("h-8 w-16")}>
+              <SelectTrigger className={cn("h-8 w-20 text-center")}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="max-h-[300px]">

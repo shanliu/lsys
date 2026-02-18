@@ -1,6 +1,7 @@
-import { useDictData } from '@apps/main/hooks/use-dict-data'
 import { useAuthRedirect } from '@apps/main/hooks/use-auth-redirect'
+import { useDictData } from '@apps/main/hooks/use-dict-data'
 import { Route } from '@apps/main/routes/_auth/sign-in'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { LoginNamePasswordParamSchema, LoginNamePasswordParamType, loginNamePassword } from '@shared/apis/auth/login'
 import { CaptchaData, CaptchaInput } from '@shared/components/custom/input/captcha-input'
 import { PasswordInput } from '@shared/components/custom/input/password-input'
@@ -17,7 +18,6 @@ import {
 import { Input } from '@shared/components/ui/input'
 import { useToast } from '@shared/contexts/toast-context'
 import { cn, formatServerError, getHomeUrl } from '@shared/lib/utils'
-import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { AlertCircle, CardSim, Loader2, Mail, RefreshCw } from 'lucide-react'
@@ -105,9 +105,9 @@ export default function SignInAccountPage() {
 
   // 检查是否支持账号密码登录
   const loginTypes = dictData?.login_type || [];
-  const supportsNameLogin = loginTypes.some(item => item.key === 'name');
-  const supportsEmailLogin = loginTypes.some(item => item.key === 'email' || item.key === 'email-code');
-  const supportsSmsLogin = loginTypes.some(item => item.key === 'mobile' || item.key === 'mobile-code');
+  const supportsNameLogin = loginTypes.some(item => item.key === 'login-type-name');
+  const supportsEmailLogin = loginTypes.some(item => item.key === 'login-type-email' || item.key === 'login-type-email-code');
+  const supportsSmsLogin = loginTypes.some(item => item.key === 'login-type-mobile' || item.key === 'login-type-mobile-code');
 
   if (!supportsNameLogin) {
     return (

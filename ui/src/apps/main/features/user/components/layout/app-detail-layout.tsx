@@ -1,7 +1,7 @@
 import { TopNavigationMenu } from '@apps/main/components/local/top-navigation-menu'
 import { useMenu } from '@apps/main/hooks/use-menu-data'
-import { cn } from '@shared/lib/utils'
 import { Route as AppRoute } from '@apps/main/routes/_main/user/app/$appId/route'
+import { cn } from '@shared/lib/utils'
 import { Outlet, useLocation } from '@tanstack/react-router'
 import { useMemo } from 'react'
 import { AppDetailSwitcher } from '../ui/app-detail-switcher'
@@ -163,8 +163,13 @@ export function AppDetailLayout() {
 
   return (
     <div className="flex flex-col">
-      <UserSidebarNav>
-        <div className="flex-1 min-w-0 overflow-visible">
+      <UserSidebarNav className="justify-between md:justify-start">
+        {/* 移动端：AppDetailSwitcher 在左边，TopNavigationMenu 在右边，两边分开 */}
+        {/* 桌面端：TopNavigationMenu 占用 flex-1，AppDetailSwitcher 在右边 */}
+        <div className="order-1 md:order-2 flex-shrink-0 md:ml-auto">
+          <AppDetailSwitcher userAppId={params.appId} />
+        </div>
+        <div className="order-2 md:order-1 md:flex-1 min-w-0 overflow-visible">
           <TopNavigationMenu
             isLoading={isLoading}
             isError={isError}
@@ -172,9 +177,6 @@ export function AppDetailLayout() {
             loadingSkeletonCount={3}
             menuItems={enhancedMenuItems}
           />
-        </div>
-        <div className="flex-shrink-0 ml-auto  ">
-          <AppDetailSwitcher userAppId={params.appId} />
         </div>
       </UserSidebarNav>
       <main className={cn("flex-1 px-4 md:p-6 ")}>

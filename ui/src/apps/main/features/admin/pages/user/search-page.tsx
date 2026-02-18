@@ -8,7 +8,6 @@ import {
   DEFAULT_PAGE_SIZE,
   PAGE_SIZE_OPTIONS,
   useCountNumManager,
-  useOffsetPaginationHandlers,
   useSearchNavigate,
 } from "@apps/main/lib/pagination-utils";
 import { createStatusMapper } from "@apps/main/lib/status-utils";
@@ -29,10 +28,9 @@ import { Button } from "@shared/components/ui/button";
 import { useIsMobile } from "@shared/hooks/use-mobile";
 import {
   cn,
-  extractMinMax,
   formatTime,
+  getQueryResponseCursor,
   getQueryResponseData,
-  getQueryResponseNext,
   TIME_STYLE,
 } from "@shared/lib/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -117,9 +115,8 @@ function UserSearchContent({ dictData }: UserSearchContentProps) {
   const pagination = {
     pos: filterParam.pos || null,
     limit: currentLimit,
-    forward: filterParam.forward || false,
+    forward: filterParam.forward ?? true,
     more: true,
-    eq_pos: filterParam.eq_pos || false,
   };
 
   // 搜索导航函数
@@ -137,7 +134,6 @@ function UserSearchContent({ dictData }: UserSearchContentProps) {
   // 构建查询参数
   const queryParams: SystemUserAccountSearchParamType = {
     limit: {
-      eq_pos: pagination.eq_pos,
       pos: pagination.pos,
       limit: pagination.limit,
       forward: pagination.forward,
@@ -180,7 +176,7 @@ function UserSearchContent({ dictData }: UserSearchContentProps) {
 
   // 获取API响应数据
   const users = getQueryResponseData<SystemUserAccountItemType[]>(userData, []);
-  const nextPageStartPos = getQueryResponseNext(userData);
+  const cursorData = getQueryResponseCursor(userData);
 
   // 获取字典数据
   const accountStatusDict = dictData.account_status;
@@ -371,21 +367,6 @@ function UserSearchContent({ dictData }: UserSearchContentProps) {
     [userStatus, handleViewDetail, isMobile]
   );
 
-  // 使用统一的分页处理器
-  const { handleNextPage, handlePrevPage, canGoNext, canGoPrev } =
-    useOffsetPaginationHandlers({
-      ...extractMinMax(
-        users.map((u) => ({ id: u.user.id })),
-        "id",
-        "minId",
-        "maxId"
-      ),
-      pagination,
-      nextPageStartPos,
-      searchGo,
-      defaultForward: false,
-    });
-
   const isLoading = userIsLoading;
 
   // 表单默认值
@@ -423,8 +404,7 @@ function UserSearchContent({ dictData }: UserSearchContentProps) {
                 key_word: data.key_word || undefined,
                 enable: enableValue,
                 pos: null,
-                forward: false,
-                eq_pos: false,
+                forward: true,
               } as any,
             });
           }}
@@ -433,8 +413,7 @@ function UserSearchContent({ dictData }: UserSearchContentProps) {
               search: {
                 pos: null,
                 limit: currentLimit,
-                forward: false,
-                eq_pos: false,
+                forward: true,
               } as any,
             });
           }}
@@ -513,13 +492,11 @@ function UserSearchContent({ dictData }: UserSearchContentProps) {
           {(countNumManager.getTotal() ?? 0) > 0 && (
             <OffsetPagination
               limit={pagination.limit}
-              hasNext={canGoNext}
-              canGoPrev={canGoPrev}
+              cursorData={cursorData}
+              searchGo={searchGo}
               total={countNumManager.getTotal()}
               currentPageSize={users.length}
               loading={isLoading}
-              onPrevious={handlePrevPage}
-              onNext={handleNextPage}
               onRefresh={refreshData}
               showRefresh={true}
               showPageSize={true}
@@ -528,8 +505,7 @@ function UserSearchContent({ dictData }: UserSearchContentProps) {
                 searchGo({
                   limit: pageSize,
                   pos: null,
-                  forward: false,
-                  eq_pos: false,
+                  forward: true,
                 });
               }}
             />

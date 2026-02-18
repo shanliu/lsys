@@ -14,7 +14,6 @@ import {
   OffsetPagination,
   PAGE_SIZE_OPTIONS,
   useCountNumManager,
-  useOffsetPaginationHandlers,
   useSearchNavigate,
 } from "@apps/main/lib/pagination-utils";
 import { createStatusMapper } from "@apps/main/lib/status-utils";
@@ -34,11 +33,10 @@ import { Badge } from "@shared/components/ui/badge";
 import { Button } from "@shared/components/ui/button";
 import {
   cn,
-  extractMinMax,
   formatServerError,
   formatTime,
+  getQueryResponseCursor,
   getQueryResponseData,
-  getQueryResponseNext,
   TIME_STYLE,
 } from "@shared/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -132,9 +130,8 @@ function SendLogContent({ dictData }: SendLogContentProps) {
   const pagination = {
     pos: filterParam.pos || null,
     limit: currentLimit,
-    forward: filterParam.forward || false,
+    forward: filterParam.forward ?? true,
     more: true,
-    eq_pos: filterParam.eq_pos || false,
   };
 
   // 搜索导航函数
@@ -150,7 +147,6 @@ function SendLogContent({ dictData }: SendLogContentProps) {
       pagination.pos,
       pagination.limit,
       pagination.forward,
-      pagination.eq_pos,
       filters.tpl_key,
       filters.status,
       filters.body_id,
@@ -161,7 +157,6 @@ function SendLogContent({ dictData }: SendLogContentProps) {
       systemSenderMailerMessageList(
         {
           limit: {
-            eq_pos: pagination.eq_pos,
             pos: pagination.pos,
             limit: pagination.limit,
             forward: pagination.forward,
@@ -214,17 +209,7 @@ function SendLogContent({ dictData }: SendLogContentProps) {
     messageData,
     [],
   );
-  const nextPageStartPos = getQueryResponseNext(messageData);
-
-  // 使用统一的分页处理器
-  const { handleNextPage, handlePrevPage, canGoNext, canGoPrev } =
-    useOffsetPaginationHandlers({
-      ...extractMinMax(messages, 'id', 'minId', 'maxId'),
-      pagination,
-      nextPageStartPos,
-      searchGo,
-      defaultForward: false, // 从大到小排序（新到旧）
-    });
+  const cursorData = getQueryResponseCursor(messageData);
 
   // 刷新数据
   const refreshData = () => {
@@ -439,7 +424,7 @@ function SendLogContent({ dictData }: SendLogContentProps) {
             onSubmit={(data) => {
               // zod schema 已经处理了类型转换和空值清理，直接使用数据
               navigate({
-                search: { ...data, pos: null, forward: false, eq_pos: false } as any,
+                search: { ...data, pos: null, forward: true } as any,
               });
             }}
             onReset={() => {
@@ -447,8 +432,7 @@ function SendLogContent({ dictData }: SendLogContentProps) {
                 search: {
                   pos: null,
                   limit: currentLimit,
-                  forward: false,
-                  eq_pos: false,
+                  forward: true,
                 } as any,
               });
             }}
@@ -539,13 +523,11 @@ function SendLogContent({ dictData }: SendLogContentProps) {
             {(countNumManager.getTotal() ?? 0) > 0 && (
               <OffsetPagination
                 limit={currentLimit}
-                hasNext={canGoNext}
-                canGoPrev={canGoPrev}
+                cursorData={cursorData}
+                searchGo={searchGo}
                 total={countNumManager.getTotal()}
                 currentPageSize={messages.length}
                 loading={isLoading}
-                onPrevious={handlePrevPage}
-                onNext={handleNextPage}
                 onRefresh={refreshData}
                 showRefresh={true}
                 showPageSize={true}
@@ -554,8 +536,7 @@ function SendLogContent({ dictData }: SendLogContentProps) {
                   searchGo({
                     limit: pageSize,
                     pos: null,
-                    forward: false,
-                    eq_pos: false,
+                    forward: true,
                   });
                 }}
               />

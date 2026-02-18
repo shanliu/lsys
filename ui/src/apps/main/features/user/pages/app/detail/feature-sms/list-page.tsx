@@ -10,7 +10,6 @@ import {
   OffsetPagination,
   PAGE_SIZE_OPTIONS,
   useCountNumManager,
-  useOffsetPaginationHandlers,
   useSearchNavigate,
 } from "@apps/main/lib/pagination-utils";
 import { createStatusMapper } from "@apps/main/lib/status-utils";
@@ -32,11 +31,10 @@ import { Button } from "@shared/components/ui/button";
 import { useToast } from "@shared/contexts/toast-context";
 import {
   cn,
-  extractMinMax,
   formatServerError,
   formatTime,
+  getQueryResponseCursor,
   getQueryResponseData,
-  getQueryResponseNext,
   TIME_STYLE
 } from "@shared/lib/utils";
 import { createCopyWithToast } from "@shared/lib/utils/copy-utils";
@@ -147,9 +145,8 @@ function AppDetailFeatureSmsListContent({ dictData }: AppDetailFeatureSmsListCon
   const pagination: LimitType = {
     pos: filterParam.pos || null,
     limit: currentLimit,
-    forward: filterParam.forward || false,
+    forward: filterParam.forward ?? true,
     more: true,
-    eq_pos: filterParam.eq_pos || false,
   };
 
   // 搜索导航函数
@@ -167,7 +164,6 @@ function AppDetailFeatureSmsListContent({ dictData }: AppDetailFeatureSmsListCon
       currentLimit,
       pagination.forward,
       pagination.more,
-      pagination.eq_pos,
       filters.status,
       filters.tpl_key,
       filters.mobile,
@@ -178,7 +174,6 @@ function AppDetailFeatureSmsListContent({ dictData }: AppDetailFeatureSmsListCon
         {
           app_id: Number(appId),
           limit: {
-            eq_pos: pagination.eq_pos,
             pos: pagination.pos,
             limit: currentLimit,
             forward: pagination.forward,
@@ -200,7 +195,7 @@ function AppDetailFeatureSmsListContent({ dictData }: AppDetailFeatureSmsListCon
 
   // 获取消息列表数据
   const messages = getQueryResponseData<UserSenderSmsMessageItemType[]>(messageData, []);
-  const nextPageStartPos = getQueryResponseNext(messageData);
+  const cursorData = getQueryResponseCursor(messageData);
 
   // 取消发送消息的mutation
   const cancelMessageMutation = useMutation({
@@ -228,16 +223,6 @@ function AppDetailFeatureSmsListContent({ dictData }: AppDetailFeatureSmsListCon
     setSelectedMessage(message);
     setLogsDrawerOpen(true);
   };
-
-  // 使用统一的分页处理器
-  const { handleNextPage, handlePrevPage, canGoNext, canGoPrev } =
-    useOffsetPaginationHandlers({
-      ...extractMinMax(messages, 'id', 'minId', 'maxId'),
-      pagination,
-      nextPageStartPos,
-      searchGo,
-      defaultForward: false, // 从大到小排序（新到旧）
-    });
 
   // 刷新数据
   const refreshData = () => {
@@ -476,16 +461,14 @@ function AppDetailFeatureSmsListContent({ dictData }: AppDetailFeatureSmsListCon
                 mobile: transformedData.mobile,
                 snid: transformedData.snid,
                 pos: null, // 重置分页位置
-                forward: false,
-                eq_pos: false,
+                forward: true,
               });
             }}
             onReset={() => {
               searchGo({
                 pos: null,
                 limit: currentLimit,
-                forward: false,
-                eq_pos: false,
+                forward: true,
                 status: undefined,
                 tpl_key: undefined,
                 mobile: undefined,
@@ -571,13 +554,11 @@ function AppDetailFeatureSmsListContent({ dictData }: AppDetailFeatureSmsListCon
             {(countNumManager.getTotal() ?? 0) > 0 && (
               <OffsetPagination
                 limit={currentLimit}
-                hasNext={canGoNext}
-                canGoPrev={canGoPrev}
+                cursorData={cursorData}
+                searchGo={searchGo}
                 total={countNumManager.getTotal()}
                 currentPageSize={messages.length}
                 loading={isLoading}
-                onPrevious={handlePrevPage}
-                onNext={handleNextPage}
                 onRefresh={refreshData}
                 showRefresh={true}
                 showPageSize={true}
@@ -587,8 +568,7 @@ function AppDetailFeatureSmsListContent({ dictData }: AppDetailFeatureSmsListCon
                   searchGo({
                     limit: pageSize,
                     pos: null, // 重置分页位置
-                    forward: false,
-                    eq_pos: false,
+                    forward: true,
                   });
                 }}
               />

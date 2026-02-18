@@ -12,7 +12,6 @@ import {
   DEFAULT_PAGE_SIZE,
   PAGE_SIZE_OPTIONS,
   useCountNumManager,
-  useOffsetPaginationHandlers,
   useSearchNavigate,
 } from "@apps/main/lib/pagination-utils"
 import { createStatusMapper } from "@apps/main/lib/status-utils"
@@ -35,8 +34,9 @@ import { Button } from "@shared/components/ui/button"
 import { useToast } from "@shared/contexts/toast-context"
 import { useIsMobile } from "@shared/hooks/use-mobile"
 import {
-  cn, extractMinMax, formatServerError, formatTime, getQueryResponseData,
-  getQueryResponseNext,
+  cn, formatServerError, formatTime,
+  getQueryResponseCursor,
+  getQueryResponseData,
   TIME_STYLE
 } from "@shared/lib/utils"
 import { DictList } from "@shared/types/apis-dict"
@@ -215,9 +215,8 @@ function AppNotifyContent({ dictData, notifyStatusMapper, appData, onOpenDetail 
   const pagination: LimitType = {
     pos: filterParam.pos || null,
     limit: filterParam.limit || DEFAULT_PAGE_SIZE,
-    forward: filterParam.forward || false,
+    forward: filterParam.forward ?? true,
     more: true,
-    eq_pos: filterParam.eq_pos || false,
   };
 
   // 搜索导航函数
@@ -245,7 +244,6 @@ function AppNotifyContent({ dictData, notifyStatusMapper, appData, onOpenDetail 
       currentLimit,
       pagination.forward,
       pagination.more,
-      pagination.eq_pos,
       filters.notify_method,
       filters.notify_status,
     ],
@@ -259,7 +257,7 @@ function AppNotifyContent({ dictData, notifyStatusMapper, appData, onOpenDetail 
 
   // 获取响应数据
   const messages = getQueryResponseData<AppNotifyListItemType[]>(notifyData, []);
-  const nextPageStartPos = getQueryResponseNext(notifyData);
+  const cursorData = getQueryResponseCursor(notifyData);
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => appNotifyDel({ id }),
@@ -369,16 +367,6 @@ function AppNotifyContent({ dictData, notifyStatusMapper, appData, onOpenDetail 
   ]
 
 
-  // 使用统一的分页处理器
-  const { handleNextPage, handlePrevPage, canGoNext, canGoPrev } =
-    useOffsetPaginationHandlers({
-      ...extractMinMax(messages, 'id', 'minId', 'maxId'),
-      pagination,
-      nextPageStartPos,
-      searchGo,
-      defaultForward: false, // 从大到小排序（新到旧）
-    })
-
   // 刷新数据
   const handleRefresh = React.useCallback(() => {
     queryClient.refetchQueries({
@@ -398,8 +386,7 @@ function AppNotifyContent({ dictData, notifyStatusMapper, appData, onOpenDetail 
       searchGo({
         limit: pageSize,
         pos: null, // 重置分页位置
-        forward: false,
-        eq_pos: false,
+        forward: true,
       })
     },
     [searchGo]
@@ -424,15 +411,13 @@ function AppNotifyContent({ dictData, notifyStatusMapper, appData, onOpenDetail 
               notify_method: transformedData.notify_method,
               notify_status: transformedData.notify_status,
               pos: null,
-              eq_pos: false,
             });
           }}
           onReset={() => {
             searchGo({
               pos: null,
               limit: currentLimit,
-              forward: false,
-              eq_pos: false,
+              forward: true,
               notify_method: undefined,
               notify_status: undefined,
             });
@@ -506,13 +491,11 @@ function AppNotifyContent({ dictData, notifyStatusMapper, appData, onOpenDetail 
           {(countNumManager.getTotal() ?? 0) > 0 && (
             <OffsetPagination
               limit={currentLimit}
-              hasNext={canGoNext}
-              canGoPrev={canGoPrev}
+              cursorData={cursorData}
+              searchGo={searchGo}
               total={countNumManager.getTotal()}
               currentPageSize={messages.length}
               loading={isLoading}
-              onNext={handleNextPage}
-              onPrevious={handlePrevPage}
               onRefresh={handleRefresh}
               showRefresh={true}
               showPageSize={true}

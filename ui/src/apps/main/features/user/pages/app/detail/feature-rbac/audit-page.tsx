@@ -12,7 +12,6 @@ import {
   OffsetPagination,
   PAGE_SIZE_OPTIONS,
   useCountNumManager,
-  useOffsetPaginationHandlers,
   useSearchNavigate,
 } from '@apps/main/lib/pagination-utils';
 import { createStatusMapper } from '@apps/main/lib/status-utils';
@@ -29,10 +28,9 @@ import { Badge } from '@shared/components/ui/badge';
 import { Button } from '@shared/components/ui/button';
 import {
   cn,
-  extractMinMax,
   formatTime,
+  getQueryResponseCursor,
   getQueryResponseData,
-  getQueryResponseNext,
   TIME_STYLE,
 } from '@shared/lib/utils';
 import type { LimitType } from '@shared/types/base-schema';
@@ -117,9 +115,8 @@ function AppDetailFeatureRbacAuditContent({
   const pagination: LimitType = {
     pos: filterParam.pos || null,
     limit: currentLimit,
-    forward: filterParam.forward || false,
+    forward: filterParam.forward ?? true,
     more: true,
-    eq_pos: filterParam.eq_pos || false,
   };
 
   // 搜索导航函数
@@ -143,7 +140,6 @@ function AppDetailFeatureRbacAuditContent({
       currentLimit,
       pagination.forward,
       pagination.more,
-      pagination.eq_pos,
       filters.user_ip,
       filters.request_id,
       filters.check_result,
@@ -153,7 +149,6 @@ function AppDetailFeatureRbacAuditContent({
         {
           app_id: appId,
           limit: {
-            eq_pos: pagination.eq_pos,
             pos: pagination.pos,
             limit: currentLimit,
             forward: pagination.forward,
@@ -175,27 +170,13 @@ function AppDetailFeatureRbacAuditContent({
 
   // 获取审计列表数据
   const audits = getQueryResponseData<AppRbacAuditDataItemType[]>(auditData, []);
-  const nextPageStartPos = getQueryResponseNext(auditData);
+  const cursorData = getQueryResponseCursor(auditData);
 
   // 打开详情抽屉
   const handleOpenDetail = (audit: AppRbacAuditDataItemType) => {
     setSelectedAudit(audit);
     setDetailDrawerOpen(true);
   };
-
-  // 使用统一的分页处理器
-  const { handleNextPage, handlePrevPage, canGoNext, canGoPrev } = useOffsetPaginationHandlers({
-    ...extractMinMax(
-      audits.map((a) => ({ id: a.audit.id })),
-      'id',
-      'minId',
-      'maxId'
-    ),
-    pagination,
-    nextPageStartPos,
-    searchGo,
-    defaultForward: false,
-  });
 
   // 刷新数据
   const refreshData = () => {
@@ -235,7 +216,7 @@ function AppDetailFeatureRbacAuditContent({
       id: 'check_result',
       accessorFn: (row) => row.audit.check_result,
       header: '授权结果',
-       size: 100,
+      size: 100,
       cell: ({ getValue }) => {
         const result = getValue<string>();
         return (
@@ -250,7 +231,7 @@ function AppDetailFeatureRbacAuditContent({
     {
       id: 'user_info',
       header: '用户',
-         size: 100,
+      size: 100,
       cell: ({ row }) => {
         const { user } = row.original;
         return (
@@ -281,7 +262,7 @@ function AppDetailFeatureRbacAuditContent({
     {
       id: 'detail_count',
       header: '详情数',
-        size: 60,
+      size: 60,
       cell: ({ row }) => {
         return (
           <div className="py-1">
@@ -352,16 +333,14 @@ function AppDetailFeatureRbacAuditContent({
                 request_id: transformedData.request_id,
                 check_result: transformedData.check_result,
                 pos: null,
-                forward: false,
-                eq_pos: false,
+                forward: true,
               });
             }}
             onReset={() => {
               searchGo({
                 pos: null,
                 limit: currentLimit,
-                forward: false,
-                eq_pos: false,
+                forward: true,
                 user_ip: undefined,
                 request_id: undefined,
                 check_result: undefined,
@@ -441,13 +420,11 @@ function AppDetailFeatureRbacAuditContent({
             {(countNumManager.getTotal() ?? 0) > 0 && (
               <OffsetPagination
                 limit={currentLimit}
-                hasNext={canGoNext}
-                canGoPrev={canGoPrev}
+                cursorData={cursorData}
+                searchGo={searchGo}
                 total={countNumManager.getTotal()}
                 currentPageSize={audits.length}
                 loading={isLoading}
-                onPrevious={handlePrevPage}
-                onNext={handleNextPage}
                 onRefresh={refreshData}
                 showRefresh={true}
                 showPageSize={true}
@@ -456,8 +433,7 @@ function AppDetailFeatureRbacAuditContent({
                   searchGo({
                     limit: pageSize,
                     pos: null,
-                    forward: false,
-                    eq_pos: false,
+                    forward: true,
                   });
                 }}
               />

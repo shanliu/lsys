@@ -121,7 +121,7 @@ export function HomePage() {
                     <div className="qr-block" aria-label="二维码">
                         <img
                             className="qr-image"
-                            src="https://www.lsys.cc/barcode/base64/1/aHR0cHM6Ly9sc3lzLmNjLw=="
+                            src="https://code.lsys.cc/barcode/base64/1/aHR0cHM6Ly9sc3lzLmNjLw=="
                             alt="手机浏览二维码"
                             loading="lazy"
                         />

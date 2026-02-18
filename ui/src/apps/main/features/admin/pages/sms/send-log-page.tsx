@@ -14,7 +14,6 @@ import {
   OffsetPagination,
   PAGE_SIZE_OPTIONS,
   useCountNumManager,
-  useOffsetPaginationHandlers,
   useSearchNavigate,
 } from "@apps/main/lib/pagination-utils";
 import { createStatusMapper } from "@apps/main/lib/status-utils";
@@ -34,11 +33,10 @@ import { Badge } from "@shared/components/ui/badge";
 import { Button } from "@shared/components/ui/button";
 import {
   cn,
-  extractMinMax,
   formatServerError,
   formatTime,
+  getQueryResponseCursor,
   getQueryResponseData,
-  getQueryResponseNext,
   TIME_STYLE,
 } from "@shared/lib/utils";
 import { type LimitType } from "@shared/types/base-schema";
@@ -109,9 +107,8 @@ function SendLogContent({ dictData }: SendLogContentProps) {
   const pagination: LimitType = {
     pos: filterParam.pos || null,
     limit: currentLimit,
-    forward: filterParam.forward || false,
+    forward: filterParam.forward ?? true,
     more: true,
-    eq_pos: filterParam.eq_pos || false,
   };
 
   // 搜索导航函数
@@ -148,7 +145,6 @@ function SendLogContent({ dictData }: SendLogContentProps) {
       pagination.pos,
       pagination.limit,
       pagination.forward,
-      pagination.eq_pos,
       filterParam.tpl_key,
       filterParam.status,
       filterParam.body_id,
@@ -161,7 +157,6 @@ function SendLogContent({ dictData }: SendLogContentProps) {
           limit: {
             pos: pagination.pos,
             limit: pagination.limit,
-            eq_pos: pagination.eq_pos,
             forward: pagination.forward,
             more: true,
           },
@@ -222,7 +217,7 @@ function SendLogContent({ dictData }: SendLogContentProps) {
     messageData,
     [],
   );
-  const nextPageStartPos = getQueryResponseNext(messageData);
+  const cursorData = getQueryResponseCursor(messageData);
 
   // 创建状态映射器
   const smsStatus = createStatusMapper(
@@ -396,16 +391,6 @@ function SendLogContent({ dictData }: SendLogContentProps) {
     [smsStatus, cancelingIds, handleCancelMessage, handleViewDetail, handleViewLogs],
   );
 
-  // 使用统一的分页处理器
-  const { handleNextPage, handlePrevPage, canGoNext, canGoPrev } =
-    useOffsetPaginationHandlers({
-      ...extractMinMax(messages, 'id', 'minId', 'maxId'),
-      pagination,
-      nextPageStartPos,
-      searchGo,
-      defaultForward: false, // 从大到小排序（新到旧）
-    });
-
   // 关闭详情抽屉
   const handleCloseDetailDrawer = () => {
     setDetailDrawer({ open: false, message: null });
@@ -526,13 +511,11 @@ function SendLogContent({ dictData }: SendLogContentProps) {
             {(countNumManager.getTotal() ?? 0) > 0 && (
               <OffsetPagination
                 limit={currentLimit}
-                hasNext={canGoNext}
-                canGoPrev={canGoPrev}
+                cursorData={cursorData}
+                searchGo={searchGo}
                 total={countNumManager.getTotal()}
                 currentPageSize={messages.length}
                 loading={isLoading}
-                onPrevious={handlePrevPage}
-                onNext={handleNextPage}
                 onRefresh={refreshData}
                 showRefresh={true}
                 showPageSize={true}
@@ -541,8 +524,7 @@ function SendLogContent({ dictData }: SendLogContentProps) {
                   searchGo({
                     limit: pageSize,
                     pos: null,
-                    forward: false,
-                    eq_pos: false,
+                    forward: true,
                   });
                 }}
               />

@@ -10,7 +10,6 @@ import {
   DEFAULT_PAGE_SIZE,
   PAGE_SIZE_OPTIONS,
   useCountNumManager,
-  useOffsetPaginationHandlers,
   useSearchNavigate,
 } from "@apps/main/lib/pagination-utils";
 import { createStatusMapper } from "@apps/main/lib/status-utils";
@@ -30,10 +29,9 @@ import { Button } from "@shared/components/ui/button";
 import { useIsMobile } from "@shared/hooks/use-mobile";
 import {
   cn,
-  extractMinMax,
   formatTime,
+  getQueryResponseCursor,
   getQueryResponseData,
-  getQueryResponseNext,
   TIME_STYLE,
 } from "@shared/lib/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -124,9 +122,8 @@ function LoginLogContent({ dictData }: LoginLogContentProps) {
   const pagination: LoginOffsetPaginationType = {
     pos: filterParam.pos || null,
     limit: filterParam.limit || DEFAULT_PAGE_SIZE,
-    forward: filterParam.forward || false,
+    forward: filterParam.forward ?? true,
     more: true,
-    eq_pos: filterParam.eq_pos || false,
   };
 
   // 搜索导航函数
@@ -138,7 +135,6 @@ function LoginLogContent({ dictData }: LoginLogContentProps) {
   // 构建查询参数， app_id 默认为 0（系统）
   const queryParams: SystemUserLoginHistoryParamType = {
     limit: {
-      eq_pos: pagination.eq_pos,
       pos: pagination.pos,
       limit: pagination.limit,
       forward: pagination.forward,
@@ -179,7 +175,7 @@ function LoginLogContent({ dictData }: LoginLogContentProps) {
     loginData,
     [],
   );
-  const nextPageStartPos = getQueryResponseNext(loginData);
+  const cursorData = getQueryResponseCursor(loginData);
 
   // 状态样式映射
   const statusMapper = useMemo(
@@ -292,16 +288,6 @@ function LoginLogContent({ dictData }: LoginLogContentProps) {
     [handleViewDetail, isMobile, statusMapper],
   );
 
-  // 使用统一的分页处理器
-  const { handleNextPage, handlePrevPage, canGoNext, canGoPrev } =
-    useOffsetPaginationHandlers({
-      ...extractMinMax(logins, 'id', 'minId', 'maxId'),
-      pagination,
-      nextPageStartPos,
-      searchGo,
-      defaultForward: false, // 从大到小排序（新到旧）
-    });
-
   // 关闭详情对话框
   const handleCloseDetailDialog = () => {
     setDetailDialog({ open: false, login: null });
@@ -325,7 +311,7 @@ function LoginLogContent({ dictData }: LoginLogContentProps) {
             onSubmit={(data) => {
               // zod schema 已经处理了类型转换和空值清理，直接使用数据
               navigate({
-                search: { ...data, pos: null, forward: false, eq_pos: false } as any,
+                search: { ...data, pos: null, forward: true } as any,
               });
             }}
             onReset={() => {
@@ -333,8 +319,7 @@ function LoginLogContent({ dictData }: LoginLogContentProps) {
                 search: {
                   pos: null,
                   limit: currentLimit,
-                  forward: false,
-                  eq_pos: false,
+                  forward: true,
                   app_id: 0,
                 } as any,
               });
@@ -433,13 +418,11 @@ function LoginLogContent({ dictData }: LoginLogContentProps) {
             {(countNumManager.getTotal() ?? 0) > 0 && (
               <OffsetPagination
                 limit={pagination.limit}
-                hasNext={canGoNext}
-                canGoPrev={canGoPrev}
+                cursorData={cursorData}
+                searchGo={searchGo}
                 total={countNumManager.getTotal()}
                 currentPageSize={logins.length}
                 loading={isLoading}
-                onPrevious={handlePrevPage}
-                onNext={handleNextPage}
                 onRefresh={refreshData}
                 showRefresh={true}
                 showPageSize={true}
@@ -448,8 +431,7 @@ function LoginLogContent({ dictData }: LoginLogContentProps) {
                   searchGo({
                     limit: pageSize,
                     pos: null,
-                    forward: false,
-                    eq_pos: false,
+                    forward: true,
                   });
                 }}
               />

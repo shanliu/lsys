@@ -10,7 +10,6 @@ import {
   OffsetPagination,
   PAGE_SIZE_OPTIONS,
   useCountNumManager,
-  useOffsetPaginationHandlers,
   useSearchNavigate,
 } from "@apps/main/lib/pagination-utils";
 import { createStatusMapper } from "@apps/main/lib/status-utils";
@@ -33,10 +32,9 @@ import { Button } from "@shared/components/ui/button";
 import { useToast } from "@shared/contexts/toast-context";
 import {
   cn,
-  extractMinMax,
   formatTime,
+  getQueryResponseCursor,
   getQueryResponseData,
-  getQueryResponseNext,
   TIME_STYLE,
 } from "@shared/lib/utils";
 import { createCopyWithToast } from "@shared/lib/utils/copy-utils";
@@ -129,9 +127,8 @@ function AppDetailFeatureMailListContent({ dictData }: AppDetailFeatureMailListC
   const pagination: LimitType = {
     pos: filterParam.pos || null,
     limit: filterParam.limit || DEFAULT_PAGE_SIZE,
-    forward: filterParam.forward || false,
+    forward: filterParam.forward ?? true,
     more: true,
-    eq_pos: filterParam.eq_pos || false,
   };
 
   // 搜索导航函数
@@ -149,7 +146,6 @@ function AppDetailFeatureMailListContent({ dictData }: AppDetailFeatureMailListC
       currentLimit,
       pagination.forward,
       pagination.more,
-      pagination.eq_pos,
       filters.status,
       filters.tpl_id,
       filters.to_mail,
@@ -178,7 +174,7 @@ function AppDetailFeatureMailListContent({ dictData }: AppDetailFeatureMailListC
 
   // 获取消息列表数据
   const messages = getQueryResponseData<UserSenderMailerMessageItemType[]>(messageData, []);
-  const nextPageStartPos = getQueryResponseNext(messageData);
+  const cursorData = getQueryResponseCursor(messageData);
 
   // 调试信息
 
@@ -209,16 +205,6 @@ function AppDetailFeatureMailListContent({ dictData }: AppDetailFeatureMailListC
     setSelectedMessage(message);
     setLogsDrawerOpen(true);
   };
-
-  // 使用统一的分页处理器
-  const { handleNextPage, handlePrevPage, canGoNext, canGoPrev } =
-    useOffsetPaginationHandlers({
-      ...extractMinMax(messages, 'id', 'minId', 'maxId'),
-      pagination,
-      nextPageStartPos,
-      searchGo,
-      defaultForward: false, // 从大到小排序（新到旧）
-    });
 
   // 刷新数据
   const refreshData = () => {
@@ -454,16 +440,14 @@ function AppDetailFeatureMailListContent({ dictData }: AppDetailFeatureMailListC
                 to_mail: transformedData.to_mail,
                 snid: transformedData.snid,
                 pos: null, // 重置分页位置
-                forward: false,
-                eq_pos: false,
+                forward: true,
               });
             }}
             onReset={() => {
               searchGo({
                 pos: null,
                 limit: currentLimit,
-                forward: false,
-                eq_pos: false,
+                forward: true,
                 status: undefined,
                 tpl_id: undefined,
                 to_mail: undefined,
@@ -555,13 +539,11 @@ function AppDetailFeatureMailListContent({ dictData }: AppDetailFeatureMailListC
             {(countNumManager.getTotal() ?? 0) > 0 && (
               <OffsetPagination
                 limit={currentLimit}
-                hasNext={canGoNext}
-                canGoPrev={canGoPrev}
+                cursorData={cursorData}
+                searchGo={searchGo}
                 total={countNumManager.getTotal()}
                 currentPageSize={messages.length}
                 loading={isLoading}
-                onPrevious={handlePrevPage}
-                onNext={handleNextPage}
                 onRefresh={refreshData}
                 showRefresh={true}
                 showPageSize={true}
@@ -571,8 +553,7 @@ function AppDetailFeatureMailListContent({ dictData }: AppDetailFeatureMailListC
                   searchGo({
                     limit: pageSize,
                     pos: null, // 重置分页位置
-                    forward: false,
-                    eq_pos: false,
+                    forward: true,
                   });
                 }}
               />

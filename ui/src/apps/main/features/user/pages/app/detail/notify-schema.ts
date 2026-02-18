@@ -12,7 +12,6 @@ export const AppNotifyListFilterParamSchema = AppNotifyListFilterBaseSchema.exte
     pos: NumberParamSchema,
     limit: NumberParamSchema,
     forward: z.coerce.boolean().optional(),
-    eq_pos: z.coerce.boolean().optional(),
 });
 
 // 表单过滤器 schema（不包含分页参数）

@@ -1,42 +1,42 @@
 import { z } from "zod";
 
 export const BoolSchema = z.preprocess((val) => {
-    if ( val === true)return true;
-    if (val === undefined || val === 'undefined') return undefined;
-    if (val === null || val === 'null') return null;
-    if (typeof val === 'string') {
-        const s = val.trim();
-        if (s === '') return undefined;
-        if (s === '1' 
-          || s.toLowerCase() === 'true' 
-          || s.toLowerCase() === 'yes' 
-          || s.toLowerCase() === 'on'
-        ) return true;
-        if (s === '0' 
-          || s.toLowerCase() === 'false' 
-          || s.toLowerCase() === 'no' 
-          || s.toLowerCase() === 'off'
-        ) return false;
-        // 其它字符串尝试数字化
-        const num = Number(s);
-        if (!Number.isNaN(num)) return num !== 0;
-        return undefined; // 无法解析的字符串视为未提供
-    }
-    if (typeof val === 'number') return val !== 0;
-    if (typeof val === 'boolean') return val;
-    return false;
+  if (val === true) return true;
+  if (val === undefined || val === 'undefined') return undefined;
+  if (val === null || val === 'null') return null;
+  if (typeof val === 'string') {
+    const s = val.trim();
+    if (s === '') return undefined;
+    if (s === '1'
+      || s.toLowerCase() === 'true'
+      || s.toLowerCase() === 'yes'
+      || s.toLowerCase() === 'on'
+    ) return true;
+    if (s === '0'
+      || s.toLowerCase() === 'false'
+      || s.toLowerCase() === 'no'
+      || s.toLowerCase() === 'off'
+    ) return false;
+    // 其它字符串尝试数字化
+    const num = Number(s);
+    if (!Number.isNaN(num)) return num !== 0;
+    return undefined; // 无法解析的字符串视为未提供
+  }
+  if (typeof val === 'number') return val !== 0;
+  if (typeof val === 'boolean') return val;
+  return false;
 }, z.boolean()) as z.ZodType<boolean>;
 export type BoolType = z.infer<typeof BoolSchema>;
 
 export const MobileSchema = z
-    .string()
-    .regex(/^1[3-9]\d{9}$/, "请输入正确的手机号码");
+  .string()
+  .regex(/^1[3-9]\d{9}$/, "请输入正确的手机号码");
 export type MobileType = z.infer<typeof MobileSchema>;
 
 // 邮箱验证
 export const EmailSchema = z
-    .string()
-    .regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "请输入有效的邮箱地址");
+  .string()
+  .regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "请输入有效的邮箱地址");
 export type EmailType = z.infer<typeof EmailSchema>;
 
 
@@ -91,14 +91,13 @@ export type PageType = z.infer<typeof PageParam.page>;
 
 // 偏移分页字段定义（用于 FilterParamSchema.extend() 和 LimitParam）
 export const LimitDataParam = {
-  eq_pos: z.coerce.boolean().optional(), // 取值时是否包含pos位置的数据
   pos: z.coerce.number().min(0, "起始位置最小为0").nullable().optional(), //可选。第一页传null。
   limit: z.coerce
     .number()
     .min(1, "返回结果最小为1")
     .max(100, "返回值最大为100")
     .optional(),
-  forward: BoolSchema.optional(), //数据正序还是倒序
+  forward: BoolSchema.optional(), //向前翻页(下一页)为true，向后翻页(上一页)为false，默认为true
   more: BoolSchema.optional(), //尝试检查是否还有下一页数据
 } as const;
 
@@ -113,8 +112,17 @@ export const PageResSchema = {
   total: z.coerce.number().nullable().optional(),
 };
 
+// 游标分页响应结构，服务端直接返回 next_cursor 和 prev_cursor
+export const CursorPageResSchema = z.object({
+  next_cursor: z.coerce.number().nullable().optional(),
+  prev_cursor: z.coerce.number().nullable().optional(),
+});
+
+export type CursorPageResType = z.infer<typeof CursorPageResSchema>;
+
 export const LimitResSchema = {
-  next: z.coerce.number().nullable().optional(),
+  next_cursor: z.coerce.number().nullable().optional(),
+  prev_cursor: z.coerce.number().nullable().optional(),
   total: z.coerce.number().nullable().optional(),
 };
 
@@ -139,18 +147,18 @@ export type UserDataResType = z.infer<typeof UserDataResSchema>;
 
 // 其余可解析的数字/数字字符串 -> number
 export const NumberParamSchema = z.preprocess((val) => {
-    // 空字符串应视为未提供 -> undefined（用于移除 URL 参数）
-    if (val === '' || (typeof val === 'string' && val.trim() === '')) return undefined;
-    if (val === 'null' || val === null) return null;
-    if (val === 'undefined' || val === undefined) return undefined;
-    if (val instanceof Date) return Number.isNaN(val.getTime()) ? null : val.getTime();
-    if (typeof val === 'number') return Number.isNaN(val) ? null : val;
-    if (typeof val === 'string') {
-        const trimmed = val.trim();
-        const num = Number(trimmed);
-        return Number.isNaN(num) ? null : num;
-    }
-    // 其它类型视为无效 -> null
-    return null;
+  // 空字符串应视为未提供 -> undefined（用于移除 URL 参数）
+  if (val === '' || (typeof val === 'string' && val.trim() === '')) return undefined;
+  if (val === 'null' || val === null) return null;
+  if (val === 'undefined' || val === undefined) return undefined;
+  if (val instanceof Date) return Number.isNaN(val.getTime()) ? null : val.getTime();
+  if (typeof val === 'number') return Number.isNaN(val) ? null : val;
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    const num = Number(trimmed);
+    return Number.isNaN(num) ? null : num;
+  }
+  // 其它类型视为无效 -> null
+  return null;
 }, z.number().nullable().optional()) as z.ZodType<number | null | undefined>;
 export type NumberParamType = z.infer<typeof NumberParamSchema>;

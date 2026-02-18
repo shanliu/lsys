@@ -18,9 +18,11 @@ export const authApi = (): AxiosInstance => {
     return createApiClient({
         apiBaseUrl: Config.apiBaseUrl,
         timeout: Config.timeOut,
-        headers: () => {
+        headers: (config) => {
             let headers: Record<string, string> = {};
-            headers['Content-type'] = 'application/json';
+            if (!(config?.data instanceof FormData)) {
+                headers['Content-type'] = 'application/json';
+            }
             if (!headers['Authorization']) {
                 const loginData = userStore.getState().current()
                 if (loginData) {

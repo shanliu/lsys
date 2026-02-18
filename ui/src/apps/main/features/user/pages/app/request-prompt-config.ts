@@ -95,6 +95,18 @@ export const SERVICE_TYPE_CONFIGS: Record<string, ServiceTypeConfig> = {
     icon: Shield,
     serviceRoute: '/user/app/$appId/service/feature',
     buttonText: '申请扩展功能'
+  },
+  file: {
+    type: 'file',
+    title: '文件管理服务',
+    description: '您的应用尚未开通文件管理功能',
+    details: [
+      '应用全局文件管理',
+      '统一文件上传处理'
+    ],
+    icon: Shield,
+    serviceRoute: '/user/app/$appId/service/feature',
+    buttonText: '申请扩展功能'
   }
 }
 

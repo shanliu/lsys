@@ -12,6 +12,7 @@ import { Button } from "@shared/components/ui/button";
 import { Input } from "@shared/components/ui/input";
 import { Label } from "@shared/components/ui/label";
 import { Config } from "@shared/lib/config";
+import { getBarcodeBaseUrl } from "@shared/lib/apis/api_barcode";
 import {
     Select,
     SelectContent,
@@ -54,7 +55,8 @@ export function BarcodeCreateConfigPreviewDrawer({
         const encodedContent = contentType === "text"
             ? encodeURIComponent(previewTransformedContent)
             : previewTransformedContent;
-        return `${Config.apiBaseUrl}/barcode/${contentType}/${config.id}/${encodedContent}`;
+        const barcodeBaseUrl = getBarcodeBaseUrl();
+        return `${barcodeBaseUrl}/barcode/${contentType}/${config.id}/${encodedContent}`;
     }, [contentType, config.id, previewTransformedContent]);
 
     const previewContentLabel = contentType === "text" ? "文本内容" : "Base64 内容";

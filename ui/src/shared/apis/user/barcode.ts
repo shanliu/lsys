@@ -1,4 +1,4 @@
-import { authApi } from "@shared/lib/apis/api_auth";
+import { barcodeApi } from "@shared/lib/apis/api_barcode";
 import { parseResData } from "@shared/lib/apis/utils";
 import { DictListSchema } from "@shared/types/apis-dict";
 import { ApiResult } from "@shared/types/apis-rest";
@@ -6,9 +6,9 @@ import { PageParam, PageResSchema, UnixTimestampSchema } from "@shared/types/bas
 import { AxiosRequestConfig } from "axios";
 import z from "zod";
 
-// User App Barcode APIs
+// User App Barcode APIs - Now using independent barcode service
 export const UserBarcodeMapResSchema = z.object({
-    create_status:DictListSchema,
+    create_status: DictListSchema,
     parse_status: DictListSchema,
     barcode_type: DictListSchema,
 });
@@ -18,7 +18,7 @@ export async function userBarcodeMapping(
     param: {},
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<UserBarcodeMapResType>> {
-    const { data } = await authApi().post("/api/user/app_barcode/mapping", param, config);
+    const { data } = await (await barcodeApi()).post("/api/user/app_barcode/mapping", param, config);
     return parseResData(data, UserBarcodeMapResSchema);
 }
 
@@ -57,8 +57,8 @@ export async function userBarcodeCreateConfigList(
     param: UserBarcodeCreateConfigListParamType,
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<UserBarcodeCreateConfigListResType>> {
-    if (param?.barcode_type=="")delete param.barcode_type;
-    const { data } = await authApi().post("/api/user/app_barcode/create_config_list", param, config);
+    if (param?.barcode_type == "") delete param.barcode_type;
+    const { data } = await (await barcodeApi()).post("/api/user/app_barcode/create_config_list", param, config);
     return parseResData(data, UserBarcodeCreateConfigListResSchema);
 }
 
@@ -85,7 +85,7 @@ export async function userBarcodeCreateConfigAdd(
     param: UserBarcodeCreateConfigAddParamType,
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<UserBarcodeCreateConfigAddResType>> {
-    const { data } = await authApi().post("/api/user/app_barcode/create_config_add", param, config);
+    const { data } = await (await barcodeApi()).post("/api/user/app_barcode/create_config_add", param, config);
     return parseResData(data, UserBarcodeCreateConfigAddResSchema);
 }
 
@@ -107,7 +107,7 @@ export async function userBarcodeCreateConfigEdit(
     param: UserBarcodeCreateConfigEditParamType,
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult> {
-    const { data } = await authApi().post("/api/user/app_barcode/create_config_edit", param, config);
+    const { data } = await (await barcodeApi()).post("/api/user/app_barcode/create_config_edit", param, config);
     return data;
 }
 
@@ -121,7 +121,7 @@ export async function userBarcodeCreateConfigDelete(
     param: UserBarcodeCreateConfigDeleteParamType,
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult> {
-    const { data } = await authApi().post("/api/user/app_barcode/create_config_delete", param, config);
+    const { data } = await (await barcodeApi()).post("/api/user/app_barcode/create_config_delete", param, config);
     return data;
 }
 
@@ -156,8 +156,8 @@ export async function userBarcodeParseRecordList(
     param: UserBarcodeParseRecordListParamType,
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<UserBarcodeParseRecordListResType>> {
-    if (param?.barcode_type=="")delete param.barcode_type;
-    const { data } = await authApi().post("/api/user/app_barcode/parse_record_list", param, config);
+    if (param?.barcode_type == "") delete param.barcode_type;
+    const { data } = await (await barcodeApi()).post("/api/user/app_barcode/parse_record_list", param, config);
     return parseResData(data, UserBarcodeParseRecordListResSchema);
 }
 
@@ -171,7 +171,7 @@ export async function userBarcodeParseRecordDelete(
     param: UserBarcodeParseRecordDeleteParamType,
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult> {
-    const { data } = await authApi().post("/api/user/app_barcode/parse_record_delete", param, config);
+    const { data } = await (await barcodeApi()).post("/api/user/app_barcode/parse_record_delete", param, config);
     return data;
 }
 

@@ -140,8 +140,14 @@ export function getSystemMenu(): MenuConfig[] {
     {
       name: '系统配置',
       icon: Settings,
-      path: '/admin/config?type=site',
-      permission: 'admin:config:site',
+      children: [
+        {
+          name: '站点配置',
+          path: '/admin/config?type=site',
+          permission: 'admin:config:site',
+          icon: Settings
+        }
+      ]
     }
   ]
 }

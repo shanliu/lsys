@@ -1,15 +1,17 @@
 import { CenteredError } from '@shared/components/custom/page-placeholder/centered-error';
 import { Route } from '@apps/main/routes/_main/admin/config';
+import { ExterFeaturePage } from './exter-feature-page';
 import { OAuthConfigPage } from './oauth-config-page';
 import { SiteConfigPage } from './site-config-page';
 
 export function ConfigPage() {
     const router = Route.useSearch();
-    
+
     const renderContent = () => {
         switch (router.type) {
             case "site": return <SiteConfigPage />
             case "oauth": return <OAuthConfigPage />
+            case "exter-feature": return <ExterFeaturePage />
             default:
                 return <CenteredError variant='page' error={"类型不支持"} />
         }

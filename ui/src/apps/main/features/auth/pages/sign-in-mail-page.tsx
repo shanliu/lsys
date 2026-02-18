@@ -1,6 +1,7 @@
-import { useDictData } from '@apps/main/hooks/use-dict-data'
 import { useAuthRedirect } from '@apps/main/hooks/use-auth-redirect'
+import { useDictData } from '@apps/main/hooks/use-dict-data'
 import { Route } from '@apps/main/routes/_auth/sign-in/mail'
+import { zodResolver } from '@hookform/resolvers/zod'
 import {
   LoginEmailCodeParamSchema,
   LoginEmailCodeParamType,
@@ -26,7 +27,6 @@ import { Input } from '@shared/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@shared/components/ui/tabs'
 import { useToast } from '@shared/contexts/toast-context'
 import { cn, formatServerError, getHomeUrl } from '@shared/lib/utils'
-import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { AlertCircle, CardSim, KeySquare, Loader2, RefreshCw } from 'lucide-react'
@@ -195,10 +195,10 @@ export default function SignInMailPage() {
   }
 
   const loginTypes = dictData?.login_type || [];
-  const supportsEmailPassword = loginTypes.some(item => item.key === 'email');
-  const supportsEmailCode = loginTypes.some(item => item.key === 'email-code');
-  const supportsNameLogin = loginTypes.some(item => item.key === 'name');
-  const supportsSmsLogin = loginTypes.some(item => item.key === 'mobile' || item.key === 'mobile-code');
+  const supportsEmailPassword = loginTypes.some(item => item.key === 'login-type-email');
+  const supportsEmailCode = loginTypes.some(item => item.key === 'login-type-email-code');
+  const supportsNameLogin = loginTypes.some(item => item.key === 'login-type-name');
+  const supportsSmsLogin = loginTypes.some(item => item.key === 'login-type-mobile' || item.key === 'login-type-mobile-code');
 
   if (!supportsEmailPassword && !supportsEmailCode) {
     return (

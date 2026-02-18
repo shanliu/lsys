@@ -29,5 +29,4 @@ export type RbacOffsetPaginationType = {
   limit: number
   forward: boolean
   more: boolean
-  eq_pos: boolean
 };

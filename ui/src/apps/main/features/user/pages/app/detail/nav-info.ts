@@ -3,6 +3,15 @@ import { Accessibility, Box, FileText, History, KeyRound, LogIn, Network, Puzzle
 
 
 /**
+ * 文件管理模块配置
+ */
+export const featureFileModuleConfig: SubNavigationMenuInfo = {
+  title: '文件管理',
+  subtitle: '管理文件上传、下载和存储',
+  menuItems: [],
+}
+
+/**
  * 邮件模块配置
  */
 export const featureMailModuleConfig: SubNavigationMenuInfo = {
