@@ -65,7 +65,7 @@ CREATE TABLE `yaf_file_oss` (
   `region` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '区域/endpoint 信息（可选）如果OSS支持',
   `size` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '对象大小（字节）',
   `last_error` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '最后一次同步错误消息,方便列表查看',
-    KEY `oss_provider_status` (`file_id`,`bucket`,`object_key`) USING BTREE,
+    KEY `oss_provider_status` (`file_id`,`bucket`,`object_key`(100)) USING BTREE,
     KEY `oss_url_md5` (`object_url_md5`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='OSS远程文件';
 
