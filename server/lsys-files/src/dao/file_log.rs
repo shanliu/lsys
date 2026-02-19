@@ -54,7 +54,7 @@ impl FileLogDao {
         &self,
         file_id: u64,
         page: &OffsetPageParam,
-    ) -> Result<Vec<FileLogModel>, sqlx::Error> {
+    ) -> crate::common::FileResult<Vec<FileLogModel>> {
         let sql = format!(
             "SELECT * FROM {} WHERE file_id={} ORDER BY id DESC {}",
             FileLogModel::table_name().sql_quote(),
@@ -64,15 +64,19 @@ impl FileLogDao {
         sqlx::query_as::<_, FileLogModel>(&sql)
             .fetch_all(&self.db)
             .await
+            .map_err(Into::into)
     }
 
     /// 查询文件日志总数
-    pub async fn count_by_file_id(&self, file_id: u64) -> Result<i64, sqlx::Error> {
+    pub async fn count_by_file_id(&self, file_id: u64) -> crate::common::FileResult<i64> {
         let sql = format!(
             "SELECT COUNT(*) as count FROM {} WHERE file_id={}",
             FileLogModel::table_name().sql_quote(),
             file_id
         );
-        sqlx::query_scalar(&sql).fetch_one(&self.db).await
+        sqlx::query_scalar(&sql)
+            .fetch_one(&self.db)
+            .await
+            .map_err(Into::into)
     }
 }

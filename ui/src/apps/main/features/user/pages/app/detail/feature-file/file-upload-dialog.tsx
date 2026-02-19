@@ -276,7 +276,7 @@ export function FileUploadDialog({
         // 立即中止所有进行中的请求
         abortRef.current?.abort();
         uploadControllerRef.current?.abort();
-        
+
         if (fileId) {
             try {
                 await deleteMutation.mutateAsync({ app_id: appId, file_id: fileId });
@@ -601,7 +601,7 @@ export function FileUploadDialog({
                         description="关闭将取消当前上传并删除已上传的文件数据。确认要关闭吗？"
                         onConfirm={handleClose}
                     >
-                        <Button variant="destructive" className="text-destructive-foreground">关闭上传</Button>
+                        <Button variant="outline" className="btn-destructive-outline">关闭上传</Button>
                     </ConfirmDialog>
                 </div>
             );
@@ -616,7 +616,7 @@ export function FileUploadDialog({
                         description="关闭将取消当前上传并删除已上传的文件数据。确认要关闭吗？"
                         onConfirm={handleClose}
                     >
-                        <Button variant="destructive" className="text-destructive-foreground">关闭上传</Button>
+                        <Button variant="outline" className="btn-destructive-outline">关闭上传</Button>
                     </ConfirmDialog>
                 </div>
             );
@@ -631,7 +631,7 @@ export function FileUploadDialog({
                         description="关闭将取消当前上传并删除已上传的文件数据。确认要关闭吗？"
                         onConfirm={handleClose}
                     >
-                        <Button variant="destructive" className="text-destructive-foreground">关闭上传</Button>
+                        <Button variant="outline" className="btn-destructive-outline">关闭上传</Button>
                     </ConfirmDialog>
                 </div>
             );

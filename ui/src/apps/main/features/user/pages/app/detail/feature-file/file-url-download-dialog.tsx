@@ -73,10 +73,12 @@ export function FileUrlDownloadDialog({
 
     // 开始下载
     const startDownload = useCallback(async () => {
-        const urls = urlText
-            .split('\n')
-            .map(u => u.trim())
-            .filter(u => u.length > 0 && (u.startsWith('http://') || u.startsWith('https://')));
+        const urls = [...new Set(
+            urlText
+                .split('\n')
+                .map(u => u.trim())
+                .filter(u => u.length > 0 && (u.startsWith('http://') || u.startsWith('https://')))
+        )];
 
         if (urls.length === 0) {
             showError('请输入有效的 URL（以 http:// 或 https:// 开头）');
@@ -194,41 +196,56 @@ export function FileUrlDownloadDialog({
     const hasPending = records.some(r => r.status === 'pending');
 
     const content = (
-        <div className="space-y-4">
+        <div className="space-y-4 w-full">
             {stage === 'input' ? (
                 <>
-                    <div className="space-y-2">
+                    <div className="space-y-2 w-full">
                         <Label>URL 列表</Label>
                         <Textarea
                             value={urlText}
                             onChange={(e) => setUrlText(e.target.value)}
                             placeholder={'请输入要下载的文件 URL，每行一个\nhttps://example.com/file1.jpg\nhttps://example.com/file2.png'}
-                            rows={8}
-                            className="font-mono text-sm"
+                            rows={6}
+                            className="font-mono text-sm w-full resize-none"
                         />
                         <p className="text-xs text-muted-foreground">
                             每行输入一个 URL，支持批量下载
                         </p>
                     </div>
-                    <div className="flex items-center gap-3">
-                        <Label className="flex-shrink-0">最大下载线程</Label>
-                        <Select
-                            value={String(maxConcurrency)}
-                            onValueChange={(val) => setMaxConcurrency(Number(val))}
-                        >
-                            <SelectTrigger className="w-24">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {MAX_CONCURRENCY_OPTIONS.map(n => (
-                                    <SelectItem key={n} value={String(n)}>{n}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                    <div className="flex items-center justify-between gap-3 w-full">
+                        <div className="flex items-center gap-3">
+                            <Label className="flex-shrink-0">最大下载线程</Label>
+                            <Select
+                                value={String(maxConcurrency)}
+                                onValueChange={(val) => setMaxConcurrency(Number(val))}
+                            >
+                                <SelectTrigger className="w-24">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {MAX_CONCURRENCY_OPTIONS.map(n => (
+                                        <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <Button
+                                onClick={startDownload}
+                                disabled={!urlText.trim()}
+                            >
+                                <Download className="h-4 w-4 mr-1" />
+                                下载
+                            </Button>
+                            <Button variant="outline" onClick={() => setOpen(false)}>
+                                关闭
+                            </Button>
+                        </div>
                     </div>
                 </>
             ) : (
-                <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                <div className="space-y-2 max-h-[300px] overflow-y-auto w-full">
                     {records.map((record, idx) => (
                         <div
                             key={idx}
@@ -247,7 +264,7 @@ export function FileUrlDownloadDialog({
                                 {record.status === 'pending' && <Download className="h-4 w-4 text-muted-foreground" />}
                             </div>
                             <div className="flex-1 min-w-0">
-                                <p className="truncate font-mono text-xs">{record.url}</p>
+                                <p className="break-all font-mono text-xs whitespace-normal overflow-hidden">{record.url}</p>
                                 {record.message && (
                                     <p className={cn(
                                         "text-xs mt-0.5",
@@ -266,20 +283,7 @@ export function FileUrlDownloadDialog({
 
     const footer = (closeDialog: () => void) => {
         if (stage === 'input') {
-            return (
-                <div className="flex gap-2 w-full justify-end">
-                    <Button
-                        onClick={startDownload}
-                        disabled={!urlText.trim()}
-                    >
-                        <Download className="h-4 w-4 mr-1" />
-                        下载
-                    </Button>
-                    <Button variant="outline" onClick={closeDialog}>
-                        关闭
-                    </Button>
-                </div>
-            );
+            return null;
         }
 
         if (stage === 'downloading') {
@@ -299,7 +303,7 @@ export function FileUrlDownloadDialog({
                         description="关闭将停止所有正在进行的下载。确认要关闭吗？"
                         onConfirm={async () => handleCloseDialog()}
                     >
-                        <Button variant="destructive">关闭</Button>
+                        <Button variant="outline" className="btn-destructive-outline">关闭</Button>
                     </ConfirmDialog>
                 </div>
             );
@@ -320,7 +324,7 @@ export function FileUrlDownloadDialog({
                         description="关闭将停止所有正在进行的下载。确认要关闭吗？"
                         onConfirm={async () => handleCloseDialog()}
                     >
-                        <Button variant="destructive">关闭</Button>
+                        <Button variant="outline" className="btn-destructive-outline">关闭</Button>
                     </ConfirmDialog>
                 </div>
             );
@@ -329,7 +333,16 @@ export function FileUrlDownloadDialog({
         // done stage
         return (
             <div className="flex gap-2 w-full justify-end">
-                <Button variant="outline" onClick={handleCloseDialog}>关闭</Button>
+                <Button onClick={() => {
+                    const successCount = records.filter(r => r.status === 'success').length;
+                    if (successCount > 0) {
+                        onSuccess?.();
+                    }
+                    resetState();
+                    setOpen(false);
+                }}>
+                    完成
+                </Button>
             </div>
         );
     };

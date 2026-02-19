@@ -5,7 +5,7 @@ use crate::dao::access::api::system::admin::CheckAdminFileManage;
 use crate::dao::access::RbacAccessCheckEnv;
 use lsys_access::dao::AccessSession;
 use lsys_core::db::CursorPageSort;
-use lsys_files::dao::FileListFilter;
+use lsys_files::dao::{FileListFilter, FileListAttrParam};
 use serde::Deserialize;
 use serde_json::json;
 
@@ -77,11 +77,16 @@ pub async fn admin_file_list(
         file_md5: param.file_md5.clone(),
     };
 
+    let attr_param = FileListAttrParam {
+        attr_local: Some(true),
+        attr_oss: Some(true),
+    };
+
     let (data, page_data) = req_dao
         .web_dao
         .web_files
         .file_dao
-        .list_files(&filter, &page)
+        .list_files(&filter, &page, &attr_param)
         .await?;
 
     let mut items: Vec<serde_json::Value> = Vec::with_capacity(data.len());
@@ -90,18 +95,18 @@ pub async fn admin_file_list(
     let file_models: Vec<lsys_files::model::FileModel> = data
         .iter()
         .map(|item| lsys_files::model::FileModel {
-            id: item.id,
-            storage_type: item.storage_type.clone(),
-            status: item.status,
-            file_name: item.file_name.clone(),
-            file_md5: item.file_md5.clone(),
-            file_size: item.file_size,
-            modify_time: item.modify_time,
-            content_type: item.content_type.clone(),
-            copy_file_id: item.copy_file_id,
-            from_user_id: item.from_user_id,
-            add_time: item.add_time,
-            change_time: item.change_time,
+            id: item.item.id,
+            storage_type: item.item.storage_type.clone(),
+            status: item.item.status,
+            file_name: item.item.file_name.clone(),
+            file_md5: item.item.file_md5.clone(),
+            file_size: item.item.file_size,
+            modify_time: item.item.modify_time,
+            content_type: item.item.content_type.clone(),
+            copy_file_id: item.item.copy_file_id,
+            from_user_id: item.item.from_user_id,
+            add_time: item.item.add_time,
+            change_time: item.item.change_time,
         })
         .collect();
     let url_map = req_dao
@@ -113,23 +118,47 @@ pub async fn admin_file_list(
         .unwrap_or_default();
 
     for item in &data {
-        let file_url = url_map.get(&item.id).cloned();
-        items.push(json!({
-            "id": item.id,
-            "file_user_id": item.file_user_id,
-            "file_name": item.file_name,
-            "file_md5": item.file_md5,
-            "file_size": item.file_size,
-            "storage_type": item.storage_type,
-            "status": item.status,
-            "content_type": item.content_type,
-            "source_url": item.source_url,
+        let file_url = url_map.get(&item.item.id).cloned();
+        let mut obj = json!({
+            "id": item.item.id,
+            "file_user_id": item.item.file_user_id,
+            "file_name": item.item.file_name,
+            "file_md5": item.item.file_md5,
+            "file_size": item.item.file_size,
+            "storage_type": item.item.storage_type,
+            "status": item.item.status,
+            "content_type": item.item.content_type,
+            "source_url": item.item.source_url,
             "file_url": file_url,
-            "add_time": item.file_user_add_time,
-            "user_id": item.user_id,
-            "from_user_id": item.from_user_id,
-            "copy_file_id": item.copy_file_id,
-        }));
+            "add_time": item.item.file_user_add_time,
+            "user_id": item.item.user_id,
+            "from_user_id": item.item.from_user_id,
+            "copy_file_id": item.item.copy_file_id,
+        });
+        
+        // 摊平 attr_local 数据
+        if let Some(local) = &item.attr_local {
+            obj["local_id"] = json!(local.id);
+            obj["source_type"] = json!(local.source_type);
+            obj["source_name"] = json!(local.source_name);
+            obj["local_path"] = json!(local.local_path);
+            obj["file_chunk_total"] = json!(local.file_chunk_total);
+            obj["file_chunk_succ"] = json!(local.file_chunk_succ);
+            obj["file_chunk_size"] = json!(local.file_chunk_size);
+        }
+        
+        // 摊平 attr_oss 数据
+        if let Some(oss) = &item.attr_oss {
+            obj["oss_id"] = json!(oss.id);
+            obj["object_key"] = json!(oss.object_key);
+            obj["local_file_id"] = json!(oss.local_file_id);
+            obj["object_url"] = json!(oss.object_url);
+            obj["bucket"] = json!(oss.bucket);
+            obj["region"] = json!(oss.region);
+            obj["oss_size"] = json!(oss.size);
+        }
+        
+        items.push(obj);
     }
 
     let total = if param.count_num.unwrap_or(false) {

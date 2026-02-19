@@ -42,6 +42,17 @@ export function FileDetailDrawer({
         return parseFloat((size / Math.pow(1024, i)).toFixed(2)) + ' ' + units[i];
     };
 
+    // 获取来源类型标签
+    const getSourceTypeLabel = (sourceType?: string | null): string => {
+        if (!sourceType) return '-';
+        return dictData.file_source_type?.getLabel(sourceType) || sourceType;
+    };
+
+    // 获取存储类型标签
+    const getStorageTypeLabel = (storageType?: string | null): string => {
+        return storageType || '-';
+    };
+
     return (
         <Drawer open={open} onOpenChange={onOpenChange}>
             <DrawerContent>
@@ -76,7 +87,7 @@ export function FileDetailDrawer({
                             </div>
                             <div className="flex flex-col space-y-1">
                                 <span className="text-xs text-muted-foreground">存储类型</span>
-                                <span className="text-sm font-medium">{file.storage_type || '-'}</span>
+                                <span className="text-sm font-medium">{getStorageTypeLabel(file.storage_type)}</span>
                             </div>
                         </div>
                     </div>
@@ -148,6 +159,107 @@ export function FileDetailDrawer({
                     </div>
 
                     <div className="border-t" />
+
+                    {/* 本地存储属性 */}
+                    {(file.local_id || file.local_path) && (
+                        <>
+                            <div className="space-y-4">
+                                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">本地存储</h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    {file.local_id != null && (
+                                        <div className="flex flex-col space-y-1">
+                                            <span className="text-xs text-muted-foreground">本地 ID</span>
+                                            <span className="text-sm font-medium">{file.local_id}</span>
+                                        </div>
+                                    )}
+                                    {file.source_type && (
+                                        <div className="flex flex-col space-y-1">
+                                            <span className="text-xs text-muted-foreground">来源类型</span>
+                                            <span className="text-sm font-medium">{getSourceTypeLabel(file.source_type)}</span>
+                                        </div>
+                                    )}
+                                    {file.local_path && (
+                                        <div className="flex flex-col space-y-1 sm:col-span-2">
+                                            <span className="text-xs text-muted-foreground">本地路径</span>
+                                            <span className="text-sm font-mono break-all">{file.local_path}</span>
+                                        </div>
+                                    )}
+                                    {file.file_chunk_total !== undefined && (
+                                        <>
+                                            <div className="flex flex-col space-y-1">
+                                                <span className="text-xs text-muted-foreground">分片总数</span>
+                                                <span className="text-sm font-medium">{file.file_chunk_total}</span>
+                                            </div>
+                                            <div className="flex flex-col space-y-1">
+                                                <span className="text-xs text-muted-foreground">成功分片数</span>
+                                                <span className="text-sm font-medium">{file.file_chunk_succ}</span>
+                                            </div>
+                                            <div className="flex flex-col space-y-1">
+                                                <span className="text-xs text-muted-foreground">分片大小</span>
+                                                <span className="text-sm font-medium">{formatFileSize(file.file_chunk_size || 0)}</span>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="border-t" />
+                        </>
+                    )}
+
+                    {/* OSS 存储属性 */}
+                    {(file.oss_id || file.object_key) && (
+                        <>
+                            <div className="space-y-4">
+                                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">OSS 存储</h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    {file.oss_id != null && (
+                                        <div className="flex flex-col space-y-1">
+                                            <span className="text-xs text-muted-foreground">OSS ID</span>
+                                            <span className="text-sm font-medium">{file.oss_id}</span>
+                                        </div>
+                                    )}
+                                    {file.bucket && (
+                                        <div className="flex flex-col space-y-1">
+                                            <span className="text-xs text-muted-foreground">存储桶</span>
+                                            <span className="text-sm font-medium">{file.bucket}</span>
+                                        </div>
+                                    )}
+                                    {file.region && (
+                                        <div className="flex flex-col space-y-1">
+                                            <span className="text-xs text-muted-foreground">地域</span>
+                                            <span className="text-sm font-medium">{file.region}</span>
+                                        </div>
+                                    )}
+                                    {file.object_key && (
+                                        <div className="flex flex-col space-y-1 sm:col-span-2">
+                                            <span className="text-xs text-muted-foreground">对象 Key</span>
+                                            <span className="text-sm font-mono break-all">{file.object_key}</span>
+                                        </div>
+                                    )}
+                                    {file.object_url && (
+                                        <div className="flex flex-col space-y-1 sm:col-span-2">
+                                            <span className="text-xs text-muted-foreground">对象 URL</span>
+                                            <a
+                                                href={file.object_url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-sm font-medium text-primary break-all hover:underline"
+                                            >
+                                                {file.object_url}
+                                            </a>
+                                        </div>
+                                    )}
+                                    {file.oss_size !== undefined && (
+                                        <div className="flex flex-col space-y-1">
+                                            <span className="text-xs text-muted-foreground">OSS 大小</span>
+                                            <span className="text-sm font-medium">{formatFileSize(file.oss_size || 0)}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="border-t" />
+                        </>
+                    )}
 
                     {/* 其他信息 */}
                     <div className="space-y-4">

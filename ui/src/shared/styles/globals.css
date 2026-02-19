@@ -202,3 +202,18 @@
   display: none;
   /* Chrome, Safari and Opera */
 }
+
+/* Component utilities (Tailwind way) */
+@layer components {
+
+  /* Destructive outline button: themed border + text, subtle red hover without white/black text */
+  .btn-destructive-outline {
+    @apply border-destructive text-destructive bg-background shadow-sm;
+  }
+
+  /* Ensure hover text color uses theme destructive variable and cannot be overridden */
+  .btn-destructive-outline:hover {
+    @apply bg-destructive/10;
+    color: var(--color-destructive) !important;
+  }
+}

@@ -1,9 +1,8 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use fs2::FileExt;
 use lsys_core::db::{
-    CursorPageData, CursorPageParam, Insert, SqlExpr, SqlQuote, SqlSuffix, TableMeta, Update,
+    CursorPageData, CursorPageParam, Insert, SqlQuote, SqlSuffix, TableMeta, Update,
 };
 use lsys_core::sql_format;
 use lsys_core::{fluent_message, now_time, RequestEnv};
@@ -24,20 +23,6 @@ pub struct FileDao {
     helper: Arc<FileHelper>,
     download_manager: Arc<FileDownloadManager>,
     logger: Arc<ChangeLoggerDao>,
-}
-
-/// 写文件句柄包装
-pub struct FileWriteHandle {
-    pub file: FileModel,
-    pub file_local: FileLocalModel,
-    pub file_local_chunk: Option<FileLocalChunkModel>,
-    pub handle: tokio::fs::File,
-}
-
-impl FileWriteHandle {
-    pub fn into_handle(self) -> tokio::fs::File {
-        self.handle
-    }
 }
 
 /// 本地文件导入模式
@@ -91,6 +76,115 @@ pub struct FileListItem {
     pub delete_time: u64,
 }
 
+/// 文件列表 attr 参数
+/// 
+/// 用于指定在列表查询中是否需要查询关联表的详细信息。
+/// - attr_local: 为 true 时，对于 storage_type 为 "local" 的文件，查询并返回 file_local 表的关键信息
+/// - attr_oss: 为 true 时，对于 storage_type 非 "local" 的文件，查询并返回 file_oss 表的关键信息
+///
+/// # 使用示例
+/// ```ignore
+/// let attr_param = FileListAttrParam {
+///     attr_local: Some(true),
+///     attr_oss: Some(true),
+/// };
+/// let (items, page_data) = file_dao.list_files(&filter, &page, &attr_param).await?;
+/// // items 中的每个 FileListItemAttr 都可能包含 attr_local 或 attr_oss 信息
+/// ```
+#[derive(Debug, Default)]
+pub struct FileListAttrParam {
+    pub attr_local: Option<bool>,
+    pub attr_oss: Option<bool>,
+}
+
+/// 本地文件属性（摊平后的关键数据）
+/// 
+/// 当 FileListAttrParam 中 attr_local 为 true 时，对于本地文件会返回此结构体中的信息，
+/// 已将 file_local 表的关键字段摊平在此结构体中。
+/// 
+/// 注意：本结构体不进行序列化，由调用端负责摊平数据并输出到 JSON。
+#[derive(Debug, Clone)]
+pub struct FileLocalAttr {
+    pub id: u64,
+    pub source_type: i8,
+    pub source_name: String,
+    pub oss_file_id: u64,
+    pub local_path: String,
+    pub file_chunk_total: u32,
+    pub file_chunk_succ: u32,
+    pub file_chunk_size: u64,
+    pub last_error: String,
+}
+
+/// OSS 文件属性（摊平后的关键数据）
+/// 
+/// 当 FileListAttrParam 中 attr_oss 为 true 时，对于 OSS 文件会返回此结构体中的信息，
+/// 已将 file_oss 表的关键字段摊平在此结构体中。
+/// 
+/// 注意：本结构体不进行序列化，由调用端负责摊平数据并输出到 JSON。
+#[derive(Debug, Clone)]
+pub struct FileOssAttr {
+    pub id: u64,
+    pub object_key: String,
+    pub local_file_id: u64,
+    pub object_url: String,
+    pub bucket: String,
+    pub region: String,
+    pub size: u64,
+    pub last_error: String,
+}
+
+/// 文件列表返回结果（包含 attr 属性）
+/// 
+/// 本结构体由 DAO 层返回，包含基础信息 item 和可选的关联表属性 attr_local/attr_oss。
+/// 不进行序列化，由调用端（web 层）负责摊平所有数据并生成 JSON 响应。
+/// 
+/// # 调用端摊平示例
+/// ```ignore
+/// let (items_with_attrs, page) = file_dao.list_files(
+///     &filter, 
+///     &page, 
+///     &FileListAttrParam {
+///         attr_local: Some(true),
+///         attr_oss: Some(true),
+///     }
+/// ).await?;
+/// 
+/// let json_items: Vec<serde_json::Value> = items_with_attrs
+///     .into_iter()
+///     .map(|item| {
+///         let mut obj = serde_json::json!({
+///             "id": item.item.id,
+///             "file_name": item.item.file_name,
+///             "file_size": item.item.file_size,
+///             // ... 摊平 FileListItem 的所有字段
+///         });
+///         
+///         // 摊平 attr_local
+///         if let Some(local) = item.attr_local {
+///             obj["local_path"] = json!(local.local_path);
+///             obj["file_chunk_total"] = json!(local.file_chunk_total);
+///             // ... 其他字段
+///         }
+///         
+///         // 摊平 attr_oss
+///         if let Some(oss) = item.attr_oss {
+///             obj["object_url"] = json!(oss.object_url);
+///             obj["bucket"] = json!(oss.bucket);
+///             // ... 其他字段
+///         }
+///         
+///         obj
+///     })
+///     .collect();
+/// ```
+#[derive(Debug, Clone)]
+pub struct FileListItemAttr {
+    pub item: FileListItem,
+    pub attr_local: Option<FileLocalAttr>,
+    pub attr_oss: Option<FileOssAttr>,
+}
+
 impl FileDao {
     pub fn new(
         helper: Arc<FileHelper>,
@@ -108,12 +202,16 @@ impl FileDao {
         &self.helper
     }
 
-    fn db(&self) -> &Pool<MySql> {
+    pub(crate) fn db(&self) -> &Pool<MySql> {
         self.helper.db()
     }
 
-    fn log_dao(&self) -> &FileLogDao {
+    pub(crate) fn log_dao(&self) -> &FileLogDao {
         self.helper.log_dao()
+    }
+
+    pub(crate) fn logger(&self) -> &ChangeLoggerDao {
+        &self.logger
     }
 
     // ==================== 创建方法 1: OSS 远程文件 ====================
@@ -568,635 +666,6 @@ impl FileDao {
         }
     }
 
-    /// 创建上传函数
-    pub async fn create_upload(
-        &self,
-        user_id: u64,
-        app_id: u64,
-        chunks: &[ChunkInfo],
-        file_name: &str,
-        env_data: Option<&RequestEnv>,
-    ) -> FileResult<FileModel> {
-        if chunks.is_empty() {
-            return Err(FileError::Param(fluent_message!("file-chunks-empty")));
-        }
-
-        let now = now_time()?;
-        let mut tx = self.db().begin().await?;
-
-        let tx_result: FileResult<u64> = async {
-            let file_res;
-            if chunks.len() == 1 {
-                let chunk = &chunks[0];
-                let chunk_md5 = chunk.md5.as_deref().unwrap_or("");
-
-                file_res = Insert::<FileModel>::new()
-                    .set(FileModel::STORAGE_TYPE, FileModel::STORAGE_TYPE_LOCAL)
-                    .set(FileModel::STATUS, FileStatus::Unfinished as i8)
-                    .set(FileModel::FILE_MD5, chunk_md5)
-                    .set(FileModel::FILE_SIZE, chunk.len)
-                    .set(FileModel::FILE_NAME, file_name)
-                    .set(FileModel::CONTENT_TYPE, "")
-                    .set(FileModel::MODIFY_TIME, 0u64)
-                    .set(FileModel::FROM_USER_ID, user_id)
-                    .set(FileModel::ADD_TIME, now)
-                    .set(FileModel::CHANGE_TIME, 0u64)
-                    .set(FileModel::COPY_FILE_ID, 0u64)
-                    .execute(&mut *tx)
-                    .await?;
-
-                let file_id = file_res.last_insert_id();
-
-                Insert::<FileLocalModel>::new()
-                    .set(FileLocalModel::FILE_ID, file_id)
-                    .set(FileLocalModel::SOURCE_TYPE, FileSourceType::Upload as i8)
-                    .set(FileLocalModel::SOURCE_NAME, "")
-                    .set(FileLocalModel::OSS_FILE_ID, 0u64)
-                    .set(FileLocalModel::LOCAL_PATH, "")
-                    .set(FileLocalModel::FILE_CHUNK_TOTAL, 0u32)
-                    .set(FileLocalModel::FILE_CHUNK_SUCC, 0u32)
-                    .set(FileLocalModel::FILE_CHUNK_SIZE, 0u64)
-                    .set(FileLocalModel::LAST_ERROR, "")
-                    .execute(&mut *tx)
-                    .await?;
-
-                Insert::<FileUserModel>::new()
-                    .set(FileUserModel::USER_ID, user_id)
-                    .set(FileUserModel::APP_ID, app_id)
-                    .set(FileUserModel::FILE_ID, file_id)
-                    .set(FileUserModel::STATUS, FileUserStatus::Normal as i8)
-                    .set(FileUserModel::SOURCE_URL, "")
-                    .set(FileUserModel::SOURCE_MD5, "")
-                    .set(FileUserModel::ADD_TIME, now)
-                    .set(FileUserModel::DELETE_TIME, 0u64)
-                    .execute(&mut *tx)
-                    .await?;
-            } else {
-                let total_size: u64 = chunks.iter().map(|c| c.len).sum();
-
-                file_res = Insert::<FileModel>::new()
-                    .set(FileModel::STORAGE_TYPE, FileModel::STORAGE_TYPE_LOCAL)
-                    .set(FileModel::STATUS, FileStatus::Unfinished as i8)
-                    .set(FileModel::FILE_MD5, "")
-                    .set(FileModel::FILE_SIZE, total_size)
-                    .set(FileModel::FILE_NAME, file_name)
-                    .set(FileModel::CONTENT_TYPE, "")
-                    .set(FileModel::MODIFY_TIME, 0u64)
-                    .set(FileModel::FROM_USER_ID, user_id)
-                    .set(FileModel::ADD_TIME, now)
-                    .set(FileModel::CHANGE_TIME, 0u64)
-                    .set(FileModel::COPY_FILE_ID, 0u64)
-                    .execute(&mut *tx)
-                    .await?;
-
-                let file_id = file_res.last_insert_id();
-
-                Insert::<FileLocalModel>::new()
-                    .set(FileLocalModel::FILE_ID, file_id)
-                    .set(FileLocalModel::SOURCE_TYPE, FileSourceType::Upload as i8)
-                    .set(FileLocalModel::SOURCE_NAME, "")
-                    .set(FileLocalModel::OSS_FILE_ID, 0u64)
-                    .set(FileLocalModel::LOCAL_PATH, "")
-                    .set(FileLocalModel::FILE_CHUNK_TOTAL, chunks.len() as u32)
-                    .set(FileLocalModel::FILE_CHUNK_SUCC, 0u32)
-                    .set(FileLocalModel::FILE_CHUNK_SIZE, 0u64)
-                    .set(FileLocalModel::LAST_ERROR, "")
-                    .execute(&mut *tx)
-                    .await?;
-
-                for (idx, chunk) in chunks.iter().enumerate() {
-                    Insert::<FileLocalChunkModel>::new()
-                        .set(FileLocalChunkModel::FILE_ID, file_id)
-                        .set(FileLocalChunkModel::CHUNK_INDEX, idx as u32)
-                        .set(FileLocalChunkModel::START_OFFSET, chunk.offset)
-                        .set(FileLocalChunkModel::CHUNK_MD5, "")
-                        .set(
-                            FileLocalChunkModel::UPLOAD_MD5,
-                            chunk.md5.as_deref().unwrap_or(""),
-                        )
-                        .set(FileLocalChunkModel::CHUNK_PATH, "")
-                        .set(FileLocalChunkModel::FILE_SIZE, chunk.len)
-                        .set(FileLocalChunkModel::COMPLETE_SIZE, 0u64)
-                        .set(
-                            FileLocalChunkModel::STATUS,
-                            FileChunkStatus::Unfinished as i8,
-                        )
-                        .set(FileLocalChunkModel::ADD_TIME, now)
-                        .set(FileLocalChunkModel::CHANGE_TIME, 0u64)
-                        .execute(&mut *tx)
-                        .await?;
-                }
-
-                Insert::<FileUserModel>::new()
-                    .set(FileUserModel::USER_ID, user_id)
-                    .set(FileUserModel::APP_ID, app_id)
-                    .set(FileUserModel::FILE_ID, file_id)
-                    .set(FileUserModel::STATUS, FileUserStatus::Normal as i8)
-                    .set(FileUserModel::SOURCE_URL, "")
-                    .set(FileUserModel::SOURCE_MD5, "")
-                    .set(FileUserModel::ADD_TIME, now)
-                    .set(FileUserModel::DELETE_TIME, 0u64)
-                    .execute(&mut *tx)
-                    .await?;
-            }
-
-            self.log_dao()
-                .add(
-                    file_res.last_insert_id(),
-                    0,
-                    user_id,
-                    "create_upload: file created",
-                    Some(&mut tx),
-                )
-                .await;
-
-            Ok(file_res.last_insert_id())
-        }
-        .await;
-
-        let file_id = match tx_result {
-            Ok(id) => {
-                tx.commit().await?;
-                id
-            }
-            Err(e) => {
-                let _ = tx.rollback().await;
-                return Err(e);
-            }
-        };
-
-        let file = self
-            .helper
-            .find_file_by_id(file_id)
-            .await?
-            .ok_or_else(|| FileError::System(fluent_message!("file-create-error")))?;
-
-        self.logger
-            .add(
-                &LogFileUpload {
-                    action: "create_upload",
-                    user_id,
-                    file_id: file.id,
-                    file_name: &file.file_name,
-                    chunk_count: chunks.len(),
-                },
-                Some(file.id),
-                Some(user_id),
-                None,
-                env_data,
-            )
-            .await;
-
-        Ok(file)
-    }
-
-    /// 获取上传文件写句柄
-    pub async fn get_upload_handle(
-        &self,
-        file: &FileModel,
-        chunk_index: u32,
-    ) -> FileResult<FileWriteHandle> {
-        let mut file_local = self
-            .helper
-            .find_file_local_by_file_id(file.id)
-            .await?
-            .ok_or_else(|| FileError::Param(fluent_message!("file-local-not-found")))?;
-
-        if file_local.file_chunk_total > 1 {
-            // 多分片
-            if chunk_index >= file_local.file_chunk_total {
-                return Err(FileError::Param(fluent_message!(
-                    "file-chunk-index-out-of-range"
-                )));
-            }
-
-            let mut chunk = self
-                .helper
-                .find_chunk_by_file_and_index(file.id, chunk_index)
-                .await?
-                .ok_or_else(|| FileError::Param(fluent_message!("file-chunk-not-found")))?;
-
-            let (handle, _rel_path) = if !chunk.chunk_path.is_empty() {
-                // 已存在路径, 获取写锁
-                let full = self.helper.get_full_local_path(&chunk.chunk_path);
-                let f = tokio::fs::OpenOptions::new()
-                    .write(true)
-                    .create(true)
-                    .truncate(false)
-                    .open(&full)
-                    .await?;
-                (f, chunk.chunk_path.clone())
-            } else {
-                // 新增文件
-                let chunk_ext = FileHelper::extract_extension(&file.file_name);
-                let (rel, full) = self
-                    .helper
-                    .create_new_file(&format!("chunk.{}", chunk_ext))
-                    .await?;
-                let f = tokio::fs::OpenOptions::new()
-                    .write(true)
-                    .open(&full)
-                    .await?;
-
-                // 保存路径
-                chunk.chunk_path = rel.clone();
-                Update::<FileLocalChunkModel>::new()
-                    .set(FileLocalChunkModel::CHUNK_PATH, &rel)
-                    .execute(SqlSuffix::Where(&sql_format!("id={}", chunk.id)), self.db())
-                    .await?;
-                (f, rel)
-            };
-
-            // 获取排他文件锁，防止并发写入冲突
-            let handle = {
-                let std_file = handle
-                    .try_into_std()
-                    .map_err(|_| FileError::System(fluent_message!("file-lock-error")))?;
-                std_file.try_lock_exclusive()?;
-                tokio::fs::File::from_std(std_file)
-            };
-
-            Ok(FileWriteHandle {
-                file: file.clone(),
-                file_local,
-                file_local_chunk: Some(chunk),
-                handle,
-            })
-        } else {
-            // 单文件
-            let (handle, _rel_path) = if !file_local.local_path.is_empty() {
-                let full = self.helper.get_full_local_path(&file_local.local_path);
-                let f = tokio::fs::OpenOptions::new()
-                    .write(true)
-                    .create(true)
-                    .truncate(false)
-                    .open(&full)
-                    .await?;
-                (f, file_local.local_path.clone())
-            } else {
-                let upload_ext = FileHelper::extract_extension(&file.file_name);
-                let (rel, full) = self
-                    .helper
-                    .create_new_file(&format!("upload.{}", upload_ext))
-                    .await?;
-                let f = tokio::fs::OpenOptions::new()
-                    .write(true)
-                    .open(&full)
-                    .await?;
-
-                file_local.local_path = rel.clone();
-                Update::<FileLocalModel>::new()
-                    .set(FileLocalModel::LOCAL_PATH, &rel)
-                    .execute(
-                        SqlSuffix::Where(&sql_format!("id={}", file_local.id)),
-                        self.db(),
-                    )
-                    .await?;
-                (f, rel)
-            };
-
-            // 获取排他文件锁，防止并发写入冲突
-            let handle = {
-                let std_file = handle
-                    .try_into_std()
-                    .map_err(|_| FileError::System(fluent_message!("file-lock-error")))?;
-                std_file.try_lock_exclusive()?;
-                tokio::fs::File::from_std(std_file)
-            };
-
-            Ok(FileWriteHandle {
-                file: file.clone(),
-                file_local,
-                file_local_chunk: None,
-                handle,
-            })
-        }
-    }
-
-    /// 写入文件函数
-    pub async fn write_file(
-        &self,
-        write_handle: &mut FileWriteHandle,
-        data: &[u8],
-    ) -> FileResult<usize> {
-        use tokio::io::AsyncWriteExt;
-
-        if write_handle.file_local.file_chunk_total > 1 {
-            let chunk = write_handle
-                .file_local_chunk
-                .as_mut()
-                .ok_or_else(|| FileError::Param(fluent_message!("file-chunk-required")))?;
-            chunk.complete_size += data.len() as u64;
-
-            // 立即同步已写入数据量到数据库
-            Update::<FileLocalChunkModel>::new()
-                .set(FileLocalChunkModel::COMPLETE_SIZE, chunk.complete_size)
-                .execute(SqlSuffix::Where(&sql_format!("id={}", chunk.id)), self.db())
-                .await?;
-        } else {
-            if write_handle.file_local_chunk.is_some() {
-                return Err(FileError::Param(fluent_message!("file-chunk-unexpected")));
-            }
-            write_handle.file_local.file_chunk_size += data.len() as u64;
-
-            // 立即同步已写入数据量到数据库
-            Update::<FileLocalModel>::new()
-                .set(
-                    FileLocalModel::FILE_CHUNK_SIZE,
-                    write_handle.file_local.file_chunk_size,
-                )
-                .execute(
-                    SqlSuffix::Where(&sql_format!("id={}", write_handle.file_local.id)),
-                    self.db(),
-                )
-                .await?;
-        }
-
-        write_handle.handle.write_all(data).await?;
-        Ok(data.len())
-    }
-
-    /// 完成文件函数
-    pub async fn complete_upload(
-        &self,
-        mut write_handle: FileWriteHandle,
-        env_data: Option<&RequestEnv>,
-    ) -> FileResult<FileModel> {
-        use tokio::io::AsyncWriteExt;
-        write_handle.handle.flush().await?;
-        // 显式解锁文件后再关闭句柄
-        let std_file = write_handle
-            .handle
-            .try_into_std()
-            .map_err(|_| FileError::System(fluent_message!("file-lock-error")))?;
-        std_file.unlock()?;
-        drop(std_file);
-
-        let now = now_time()?;
-
-        if write_handle.file_local.file_chunk_total > 1 {
-            // 多分片完成
-            let mut chunk = write_handle
-                .file_local_chunk
-                .ok_or_else(|| FileError::Param(fluent_message!("file-chunk-required")))?;
-
-            let chunk_full = self.helper.get_full_local_path(&chunk.chunk_path);
-            let metadata = tokio::fs::metadata(&chunk_full).await?;
-            let chunk_data = tokio::fs::read(&chunk_full).await?;
-            let chunk_md5 = format!("{:x}", md5::compute(&chunk_data));
-
-            let actual_size = metadata.len();
-            let status = if !chunk.upload_md5.is_empty() && chunk_md5 != chunk.upload_md5 {
-                FileChunkStatus::Failed as i8
-            } else {
-                FileChunkStatus::Normal as i8
-            };
-
-            chunk.chunk_md5 = chunk_md5.clone();
-            chunk.complete_size = actual_size;
-            chunk.status = status;
-
-            Update::<FileLocalChunkModel>::new()
-                .set(FileLocalChunkModel::FILE_SIZE, actual_size)
-                .set(FileLocalChunkModel::CHUNK_MD5, &chunk_md5)
-                .set(FileLocalChunkModel::STATUS, status)
-                .set(FileLocalChunkModel::COMPLETE_SIZE, actual_size)
-                .set(FileLocalChunkModel::CHANGE_TIME, now)
-                .execute(SqlSuffix::Where(&sql_format!("id={}", chunk.id)), self.db())
-                .await?;
-
-            // file_local: file_chunk_succ+1, file_chunk_size+=actual_size (原子操作)
-            Update::<FileLocalModel>::new()
-                .set(
-                    FileLocalModel::FILE_CHUNK_SUCC,
-                    SqlExpr("file_chunk_succ + 1"),
-                )
-                .set(
-                    FileLocalModel::FILE_CHUNK_SIZE,
-                    SqlExpr(format!("file_chunk_size + {}", actual_size)),
-                )
-                .execute(
-                    SqlSuffix::Where(&sql_format!("id={}", write_handle.file_local.id)),
-                    self.db(),
-                )
-                .await?;
-
-            self.log_dao()
-                .add(
-                    write_handle.file.id,
-                    chunk.id,
-                    write_handle.file.from_user_id,
-                    &format!("complete_upload: chunk {} done", chunk.chunk_index),
-                    None,
-                )
-                .await;
-
-            // 检查所有 chunk 是否都=1(正常)
-            let all_chunks = self
-                .helper
-                .find_chunks_by_file_id(write_handle.file.id)
-                .await?;
-            let all_normal = all_chunks
-                .iter()
-                .all(|c| FileChunkStatus::Normal.eq(c.status));
-
-            if all_normal {
-                // 合并文件
-                let merge_ext = FileHelper::extract_extension(&write_handle.file.file_name);
-                let (merge_rel, merge_full) = self
-                    .helper
-                    .create_new_file(&format!("merged.{}", merge_ext))
-                    .await?;
-                match self
-                    .helper
-                    .merge_chunk_files(&all_chunks, &merge_full)
-                    .await
-                {
-                    Err(e) => {
-                        // 合并失败
-                        write_handle.file_local.local_path = merge_rel.clone();
-                        write_handle.file.status = FileStatus::Failed.to();
-                        write_handle.file.change_time = now;
-
-                        Update::<FileLocalModel>::new()
-                            .set(FileLocalModel::LOCAL_PATH, &merge_rel)
-                            .execute(
-                                SqlSuffix::Where(&sql_format!("id={}", write_handle.file_local.id)),
-                                self.db(),
-                            )
-                            .await?;
-
-                        Update::<FileModel>::new()
-                            .set(FileModel::STATUS, FileStatus::Failed as i8)
-                            .set(FileModel::CHANGE_TIME, now)
-                            .execute(
-                                SqlSuffix::Where(&sql_format!("id={}", write_handle.file.id)),
-                                self.db(),
-                            )
-                            .await?;
-
-                        self.log_dao()
-                            .add(
-                                write_handle.file.id,
-                                0,
-                                write_handle.file.from_user_id,
-                                &format!("complete_upload: merge failed: {}", e),
-                                None,
-                            )
-                            .await;
-                    }
-                    Ok(_) => {
-                        // 更新所有 chunk status=已合并
-                        let chunk_ids: Vec<u64> = all_chunks.iter().map(|c| c.id).collect();
-                        Update::<FileLocalChunkModel>::new()
-                            .set(FileLocalChunkModel::STATUS, FileChunkStatus::Merged as i8)
-                            .set(FileLocalChunkModel::CHANGE_TIME, now)
-                            .execute(
-                                SqlSuffix::Where(&sql_format!("file_id={}", write_handle.file.id)),
-                                self.db(),
-                            )
-                            .await?;
-
-                        // 清理已合并的chunk文件
-                        self.helper.cleanup_merged_chunks(chunk_ids);
-
-                        // 辅助函数.2
-                        let result = self
-                            .helper
-                            .complete_file_and_local(
-                                &mut write_handle.file,
-                                &mut write_handle.file_local,
-                                &merge_rel,
-                            )
-                            .await?;
-
-                        if result.is_some() {
-                            if let Err(e) = tokio::fs::remove_file(&merge_full).await {
-                                warn!("complete_upload: remove merge file failed: {}", e);
-                            }
-                            self.log_dao()
-                                .add(
-                                    write_handle.file.id,
-                                    0,
-                                    write_handle.file.from_user_id,
-                                    "complete_upload: merged, duplicate found",
-                                    None,
-                                )
-                                .await;
-                        }
-                    }
-                }
-            }
-        } else {
-            // 单文件完成
-            if write_handle.file_local_chunk.is_some() {
-                return Err(FileError::Param(fluent_message!("file-chunk-unexpected")));
-            }
-            let local_path = write_handle.file_local.local_path.clone();
-            self.helper
-                .complete_file_and_local(
-                    &mut write_handle.file,
-                    &mut write_handle.file_local,
-                    &local_path,
-                )
-                .await?;
-        }
-
-        // 返回最新的文件记录
-        let file = self
-            .helper
-            .find_file_by_id(write_handle.file.id)
-            .await?
-            .ok_or_else(|| FileError::System(fluent_message!("file-not-found")))?;
-
-        self.logger
-            .add(
-                &LogFileUpload {
-                    action: "complete_upload",
-                    user_id: file.from_user_id,
-                    file_id: file.id,
-                    file_name: &file.file_name,
-                    chunk_count: 0,
-                },
-                Some(file.id),
-                Some(file.from_user_id),
-                None,
-                env_data,
-            )
-            .await;
-
-        Ok(file)
-    }
-
-    /// 失败文件处理函数 chunk
-    pub async fn fail_upload(
-        &self,
-        mut write_handle: FileWriteHandle,
-        env_data: Option<&RequestEnv>,
-    ) -> FileResult<()> {
-        use tokio::io::AsyncWriteExt;
-        let _ = write_handle.handle.flush().await;
-        // 显式解锁文件后再关闭句柄
-        if let Ok(std_file) = write_handle.handle.try_into_std() {
-            let _ = std_file.unlock();
-        }
-
-        let now = now_time()?;
-
-        if write_handle.file_local.file_chunk_total > 1 {
-            let chunk = write_handle
-                .file_local_chunk
-                .ok_or_else(|| FileError::Param(fluent_message!("file-chunk-required")))?;
-
-            Update::<FileLocalChunkModel>::new()
-                .set(FileLocalChunkModel::STATUS, FileChunkStatus::Failed as i8)
-                .set(FileLocalChunkModel::CHANGE_TIME, now)
-                .execute(SqlSuffix::Where(&sql_format!("id={}", chunk.id)), self.db())
-                .await?;
-
-            self.log_dao()
-                .add(
-                    write_handle.file.id,
-                    chunk.id,
-                    write_handle.file.from_user_id,
-                    "fail_upload: chunk failed",
-                    None,
-                )
-                .await;
-        } else {
-            if write_handle.file_local_chunk.is_some() {
-                return Err(FileError::Param(fluent_message!("file-chunk-unexpected")));
-            }
-
-            Update::<FileModel>::new()
-                .set(FileModel::STATUS, FileStatus::Failed as i8)
-                .set(FileModel::CHANGE_TIME, now)
-                .execute(
-                    SqlSuffix::Where(&sql_format!("id={}", write_handle.file.id)),
-                    self.db(),
-                )
-                .await?;
-        }
-
-        self.logger
-            .add(
-                &LogFileUpload {
-                    action: "fail_upload",
-                    user_id: write_handle.file.from_user_id,
-                    file_id: write_handle.file.id,
-                    file_name: &write_handle.file.file_name,
-                    chunk_count: 0,
-                },
-                Some(write_handle.file.id),
-                Some(write_handle.file.from_user_id),
-                None,
-                env_data,
-            )
-            .await;
-
-        Ok(())
-    }
-
     // ==================== 创建方法 4: 已知本地文件生成 ====================
     #[allow(clippy::too_many_arguments)]
     pub async fn create_from_local_file(
@@ -1352,7 +821,7 @@ impl FileDao {
 
         let full_path = self.helper.get_full_local_path(&relative_path);
         let metadata = tokio::fs::metadata(&full_path).await?;
-        let content_type = get_content_type(actual_name)?;
+        let content_type = get_content_type(&full_path).await?;
         let modify_time = metadata
             .modified()
             .ok()
@@ -1614,31 +1083,8 @@ impl FileDao {
 
     // ==================== 操作方法 3: 转换为URL访问地址 ====================
     pub async fn get_file_url(&self, file: &FileModel) -> FileResult<Option<String>> {
-        if !FileStatus::Normal.eq(file.status) {
-            return Ok(None);
-        }
-
-        if file.storage_type == FileModel::STORAGE_TYPE_LOCAL {
-            let local = self.helper.find_file_local_by_file_id(file.id).await?;
-            if let Some(local_rec) = local {
-                if local_rec.local_path.is_empty() {
-                    return Ok(None);
-                }
-                let prefix = &self.helper.config().local_file_url_prefix;
-                let url = format!("{}{}", prefix, local_rec.local_path);
-                return Ok(Some(url));
-            }
-            Ok(None)
-        } else {
-            let oss = self.helper.find_file_oss_by_file_id(file.id).await?;
-            if let Some(oss_rec) = oss {
-                if oss_rec.object_url.is_empty() {
-                    return Ok(None);
-                }
-                return Ok(Some(oss_rec.object_url));
-            }
-            Ok(None)
-        }
+        let urls = self.get_file_urls(std::slice::from_ref(file)).await?;
+        Ok(urls.get(&file.id).cloned())
     }
 
     /// 批量获取文件 URL
@@ -1904,11 +1350,58 @@ impl FileDao {
     }
 
     /// 文件列表查询
+    /// 
+    /// 此方法基于 FileListAttrParam 参数决定是否查询关联表的详细信息。
+    /// 返回数据已将关联表信息摊平到 FileListItemAttr 中。
+    /// 
+    /// # 参数
+    /// - `filter`: 文件列表过滤条件
+    /// - `page`: 分页参数
+    /// - `attr_param`: attr 参数，指定是否需要查询 local 或 oss 的详细信息
+    /// 
+    /// # 返回
+    /// - `Ok((Vec<FileListItemAttr>, CursorPageData<u64>))`: 查询成功，返回文件列表和分页信息
+    /// - `Err(FileError)`: 查询失败
+    /// 
+    /// # 性能说明
+    /// - 如果 attr_local 和 attr_oss 都为 false/None，则不会额外查询 file_local 和 file_oss 表
+    /// - 如果需要 attr，会进行批量查询，对于 n 条记录最多进行 2 次额外的 SQL 查询
+    /// 
+    /// # 使用示例
+    /// ```ignore
+    /// // 不查询 attr 信息（仅基础数据）
+    /// let (items, page) = file_dao.list_files(
+    ///     &filter, 
+    ///     &page, 
+    ///     &FileListAttrParam::default()
+    /// ).await?;
+    /// 
+    /// // 查询 local 和 oss 的详细信息
+    /// let (items, page) = file_dao.list_files(
+    ///     &filter, 
+    ///     &page, 
+    ///     &FileListAttrParam {
+    ///         attr_local: Some(true),
+    ///         attr_oss: Some(true),
+    ///     }
+    /// ).await?;
+    /// 
+    /// // 在返回时可以摊平数据
+    /// for item in items {
+    ///     if let Some(local_attr) = item.attr_local {
+    ///         println!("Local path: {}", local_attr.local_path);
+    ///     }
+    ///     if let Some(oss_attr) = item.attr_oss {
+    ///         println!("OSS URL: {}", oss_attr.object_url);
+    ///     }
+    /// }
+    /// ```
     pub async fn list_files(
         &self,
         filter: &FileListFilter,
         page: &CursorPageParam<u64>,
-    ) -> FileResult<(Vec<FileListItem>, CursorPageData<u64>)> {
+        attr_param: &FileListAttrParam,
+    ) -> FileResult<(Vec<FileListItemAttr>, CursorPageData<u64>)> {
         let where_clauses = match self.build_file_list_where(filter).await? {
             Some(clauses) => clauses,
             None => return Ok((vec![], CursorPageData::default())),
@@ -1938,8 +1431,106 @@ impl FileDao {
             .await?;
 
         let next = query_limit.finalize(&mut data, |d, c| d.file_user_id == *c, |d| d.file_user_id);
-        Ok((data, next))
+
+        // 如果需要查询 attr，进行额外的数据库查询
+        let mut result = Vec::with_capacity(data.len());
+        
+        // 收集需要查询的 file_id
+        let need_attr_local = attr_param.attr_local.unwrap_or(false);
+        let need_attr_oss = attr_param.attr_oss.unwrap_or(false);
+
+        let mut local_file_ids: Vec<u64> = Vec::new();
+        let mut oss_file_ids: Vec<u64> = Vec::new();
+
+        if need_attr_local || need_attr_oss {
+            for item in &data {
+                if need_attr_local && item.storage_type == FileModel::STORAGE_TYPE_LOCAL {
+                    local_file_ids.push(item.id);
+                }
+                if need_attr_oss && item.storage_type != FileModel::STORAGE_TYPE_LOCAL {
+                    oss_file_ids.push(item.id);
+                }
+            }
+        }
+
+        // 批量查询 file_local 记录
+        let mut local_map: std::collections::HashMap<u64, FileLocalAttr> = std::collections::HashMap::new();
+        if !local_file_ids.is_empty() {
+            let id_str: Vec<String> = local_file_ids.iter().map(|i| i.to_string()).collect();
+            let sql = format!(
+                "SELECT * FROM {} WHERE file_id IN ({})",
+                FileLocalModel::table_name().sql_quote(),
+                id_str.join(",")
+            );
+            let locals: Vec<FileLocalModel> =
+                sqlx::query_as::<_, FileLocalModel>(&sql)
+                    .fetch_all(self.db())
+                    .await?;
+            for local in locals {
+                local_map.insert(local.file_id, FileLocalAttr {
+                    id: local.id,
+                    source_type: local.source_type,
+                    source_name: local.source_name,
+                    oss_file_id: local.oss_file_id,
+                    local_path: local.local_path,
+                    file_chunk_total: local.file_chunk_total,
+                    file_chunk_succ: local.file_chunk_succ,
+                    file_chunk_size: local.file_chunk_size,
+                    last_error: local.last_error,
+                });
+            }
+        }
+
+        // 批量查询 file_oss 记录
+        let mut oss_map: std::collections::HashMap<u64, FileOssAttr> = std::collections::HashMap::new();
+        if !oss_file_ids.is_empty() {
+            let id_str: Vec<String> = oss_file_ids.iter().map(|i| i.to_string()).collect();
+            let sql = format!(
+                "SELECT * FROM {} WHERE file_id IN ({})",
+                FileOssModel::table_name().sql_quote(),
+                id_str.join(",")
+            );
+            let osses: Vec<FileOssModel> =
+                sqlx::query_as::<_, FileOssModel>(&sql)
+                    .fetch_all(self.db())
+                    .await?;
+            for oss in osses {
+                oss_map.insert(oss.file_id, FileOssAttr {
+                    id: oss.id,
+                    object_key: oss.object_key,
+                    local_file_id: oss.local_file_id,
+                    object_url: oss.object_url,
+                    bucket: oss.bucket,
+                    region: oss.region,
+                    size: oss.size,
+                    last_error: oss.last_error,
+                });
+            }
+        }
+
+        // 组合返回结果
+        for item in data {
+            let attr_local = if need_attr_local {
+                local_map.remove(&item.id)
+            } else {
+                None
+            };
+            let attr_oss = if need_attr_oss {
+                oss_map.remove(&item.id)
+            } else {
+                None
+            };
+
+            result.push(FileListItemAttr {
+                item,
+                attr_local,
+                attr_oss,
+            });
+        }
+
+        Ok((result, next))
     }
+
 
     /// 文件总数统计
     pub async fn count_files(&self, filter: &FileListFilter) -> FileResult<i64> {

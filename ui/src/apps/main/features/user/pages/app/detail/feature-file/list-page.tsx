@@ -39,9 +39,10 @@ import { type LimitType } from "@shared/types/base-schema";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { type ColumnDef } from "@tanstack/react-table";
-import { Download, Eye, FileText, Link, Trash2, Upload } from "lucide-react";
-import { useState } from "react";
+import { Download, Eye, FileText, Link, Trash2, Upload, Columns } from "lucide-react";
+import { useEffect, useState } from "react";
 import { featureFileModuleConfig } from "../nav-info";
+import { FileChunksDrawer } from "./file-chunks-drawer";
 import { FileDetailDrawer } from "./file-detail-drawer";
 import { FileLogsDrawer } from "./file-logs-drawer";
 import { FileUploadDialog } from "./file-upload-dialog";
@@ -50,6 +51,7 @@ import { FileListFilterFormSchema } from "./list-schema";
 
 export default function AppDetailFeatureFileListPage() {
     const { appId } = Route.useParams();
+    const navigate = useNavigate();
     const queryClient = useQueryClient();
     const {
         dictData,
@@ -70,7 +72,31 @@ export default function AppDetailFeatureFileListPage() {
     }
 
     const onUploadSuccess = () => {
+        // 重置分页：先重置查询缓存，然后清除分页参数
         queryClient.invalidateQueries({ queryKey: ["userFileList"] });
+        // 使用 setTimeout 确保在对话框关闭后重置分页
+        setTimeout(() => {
+            navigate({
+                to: "/user/app/$appId/features-file/list",
+                params: { appId },
+                search: {},
+                replace: true,
+            });
+        }, 100);
+    };
+
+    const onDownloadSuccess = () => {
+        // 重置分页：先重置查询缓存，然后清除分页参数
+        queryClient.invalidateQueries({ queryKey: ["userFileList"] });
+        // 使用 setTimeout 确保在对话框关闭后重置分页
+        setTimeout(() => {
+            navigate({
+                to: "/user/app/$appId/features-file/list",
+                params: { appId },
+                search: {},
+                replace: true,
+            });
+        }, 100);
     };
 
     return (
@@ -91,7 +117,7 @@ export default function AppDetailFeatureFileListPage() {
                     <FileUrlDownloadDialog
                         appId={Number(appId)}
                         uploadConfig={dictData}
-                        onSuccess={onUploadSuccess}
+                        onSuccess={onDownloadSuccess}
                     >
                         <Button size="sm" variant="outline">
                             <Link className="h-4 w-4 mr-1" />
@@ -101,17 +127,17 @@ export default function AppDetailFeatureFileListPage() {
                 </div>
             }
         >
-            <AppDetailFeatureFileListContent dictData={dictData} />
+            <AppDetailFeatureFileListContent appId={Number(appId)} dictData={dictData} />
         </AppDetailNavContainer>
     );
 }
 
 interface AppDetailFeatureFileListContentProps {
+    appId: number;
     dictData: TypedDictData<["user_file"]>;
 }
 
-function AppDetailFeatureFileListContent({ dictData }: AppDetailFeatureFileListContentProps) {
-    const { appId } = Route.useParams();
+function AppDetailFeatureFileListContent({ appId, dictData }: AppDetailFeatureFileListContentProps) {
     const queryClient = useQueryClient();
     const { success: showSuccess, error: showError } = useToast();
     const navigate = useNavigate();
@@ -126,6 +152,10 @@ function AppDetailFeatureFileListContent({ dictData }: AppDetailFeatureFileListC
     // 日志抽屉状态
     const [logsDrawerOpen, setLogsDrawerOpen] = useState(false);
     const [logsFile, setLogsFile] = useState<UserFileItemType | null>(null);
+
+    // 分片抽屉状态
+    const [chunksDrawerOpen, setChunksDrawerOpen] = useState(false);
+    const [chunksFile, setChunksFile] = useState<UserFileItemType | null>(null);
 
     // 过滤条件
     const filters = {
@@ -221,6 +251,17 @@ function AppDetailFeatureFileListContent({ dictData }: AppDetailFeatureFileListC
         const units = ["B", "KB", "MB", "GB", "TB"];
         const i = Math.floor(Math.log(size) / Math.log(1024));
         return parseFloat((size / Math.pow(1024, i)).toFixed(2)) + " " + units[i];
+    };
+
+    // 获取存储类型标签
+    const getStorageTypeLabel = (storageType?: string | null): string => {
+        return storageType || '-';
+    };
+
+    // 获取来源类型标签
+    const getSourceTypeLabel = (sourceType?: string | null): string => {
+        if (!sourceType) return '-';
+        return dictData.file_source_type?.getLabel(sourceType) || sourceType;
     };
 
     // 表格列定义
@@ -336,6 +377,25 @@ function AppDetailFeatureFileListContent({ dictData }: AppDetailFeatureFileListC
                                 <span className="text-xs ml-1">日志</span>
                             </Button>
                         </DataTableActionItem>
+
+                        {/* 分片 */}
+                        {file.file_chunk_total && file.file_chunk_total > 1 ? (
+                            <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className={cn("h-auto px-2 py-1")}
+                                    title="文件分片"
+                                    onClick={() => {
+                                        setChunksFile(file);
+                                        setChunksDrawerOpen(true);
+                                    }}
+                                >
+                                    <Columns className="h-3 w-3" />
+                                    <span className="text-xs ml-1">分片</span>
+                                </Button>
+                            </DataTableActionItem>
+                        ) : null}
 
                         {/* 下载 */}
                         {file.url && file.status === 1 ? (
@@ -533,6 +593,17 @@ function AppDetailFeatureFileListContent({ dictData }: AppDetailFeatureFileListC
                         file={logsFile}
                         isOpen={logsDrawerOpen}
                         onOpenChange={setLogsDrawerOpen}
+                    />
+                )}
+
+                {/* 分片抽屉 */}
+                {chunksFile && (
+                    <FileChunksDrawer
+                        appId={Number(appId)}
+                        file={chunksFile}
+                        isOpen={chunksDrawerOpen}
+                        onOpenChange={setChunksDrawerOpen}
+                        dictData={dictData}
                     />
                 )}
             </div>

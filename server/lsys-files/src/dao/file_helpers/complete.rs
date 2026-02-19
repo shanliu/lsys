@@ -41,27 +41,37 @@ impl FileHelper {
                 { "status": &format!("{}", file.status) }
             )));
         }
-        // 根据是否分片判断 local_path 的要求
-        if file_local.file_chunk_total > 1 {
-            // 分片上传：local_path 必须为空（来自下载或合并，新创建的路径通过参数传入）
-            if !file_local.local_path.is_empty() {
-                return Err(FileError::Param(fluent_message!(
-                    "file-local-path-not-empty"
-                )));
-            }
-        } else {
-            // 单文件上传：local_path 必须不为空（已在 open_file_write 时创建和设置）
-            if file_local.local_path.is_empty() {
-                return Err(FileError::Param(fluent_message!(
-                    "file-local-path-empty"
-                )));
-            }
+
+        // 路径验证逻辑说明（支持四种调用场景）：
+        // 1. 下载单文件：new_local_path=rel_path(有值), local_path=空
+        // 2. 下载多分片：new_local_path=merge_rel(有值), local_path=空, file_chunk_total>1
+        // 3. 上传单文件：new_local_path=local_path(同一值，有值), file_chunk_total=0
+        // 4. 上传多分片：new_local_path=merge_rel(有值), local_path=空, file_chunk_total>1
+
+        // 检查至少有一个路径提供
+        if new_local_path.is_empty() && file_local.local_path.is_empty() {
+            return Err(FileError::Param(fluent_message!("file-local-path-empty")));
+        }
+
+        // 分片场景（下载或上传）必须通过 new_local_path 参数传入最终路径
+        // 此时 local_path 应始终为空
+        if file_local.file_chunk_total > 1 && !file_local.local_path.is_empty() {
+            return Err(FileError::Param(fluent_message!(
+                "file-local-path-not-empty"
+            )));
         }
         if file.id != file_local.file_id {
             return Err(FileError::Param(fluent_message!("file-id-mismatch")));
         }
 
-        let full_path = self.get_full_local_path(new_local_path);
+        // 确定要使用的实际路径（优先使用 new_local_path）
+        let actual_local_path = if !new_local_path.is_empty() {
+            new_local_path.to_string()
+        } else {
+            file_local.local_path.clone()
+        };
+
+        let full_path = self.get_full_local_path(&actual_local_path);
         // 计算新文件的 MD5
         let file_md5 = self.compute_file_md5(&full_path).await?;
         let now = now_time()?;
@@ -133,7 +143,7 @@ impl FileHelper {
 
         // 不存在已有文件, 用新文件完成
         let metadata = tokio::fs::metadata(&full_path).await?;
-        let content_type = get_content_type(new_local_path)?;
+        let content_type = get_content_type(&full_path).await?;
         let modify_time = metadata
             .modified()
             .ok()
@@ -148,7 +158,7 @@ impl FileHelper {
         file.copy_file_id = 0;
         file.status = FileStatus::Normal.to();
         file.change_time = now;
-        file_local.local_path = new_local_path.to_string();
+        file_local.local_path = actual_local_path;
 
         Update::<FileModel>::new()
             .set(FileModel::FILE_SIZE, file.file_size)

@@ -5,7 +5,7 @@ import { PagePagination, useCountNumManager } from '@apps/main/lib/pagination-ut
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@apps/main/components/local/drawer'
 import { cn, formatTime, getQueryResponseData, TIME_STYLE } from '@shared/lib/utils'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useCallback, useState } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 
 interface FileLogsDrawerProps {
     appId: number
@@ -27,6 +27,12 @@ export function FileLogsDrawer({
 
     // count_num 优化管理器
     const countNumManager = useCountNumManager({})
+
+    // 当文件切换时重置分页和计数管理器
+    useEffect(() => {
+        setPage(1)
+        countNumManager.reset()
+    }, [file.id])
 
     // 获取日志数据 - 只有在抽屉打开时才启用查询
     const { data: logsData, isSuccess, isLoading, isError, error } = useQuery({

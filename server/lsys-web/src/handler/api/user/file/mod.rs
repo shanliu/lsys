@@ -1,3 +1,4 @@
+mod file_chunks;
 mod file_delete;
 mod file_from_url;
 mod file_list;
@@ -5,6 +6,7 @@ mod file_logs;
 mod file_upload;
 mod mapping;
 
+pub use file_chunks::*;
 pub use file_delete::*;
 pub use file_from_url::*;
 pub use file_list::*;

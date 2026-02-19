@@ -10,7 +10,8 @@ import {
   Puzzle,
   QrCode,
   Settings,
-  Shield
+  Shield,
+  File
 } from 'lucide-react'
 import { z } from 'zod'
 import type { MenuConfig } from '../types'
@@ -112,7 +113,15 @@ export function getAppMenu(params: AppMenuParams): MenuConfig[] {
           permission: { name: 'app:sms', data: { app_id: appId } },
           showDisabled: true
         },
-
+        {
+          name: '文件管理',
+          path: '/user/app/$appId/features-file/list',
+          noAuthPath: "/user/app/$appId/request-prompt?type=file",
+          params: { appId },
+          icon: File,
+          permission: { name: 'app:feature:file', data: { app_id: appId } },
+          showDisabled: true
+        },
         {
           name: '权限管理',
           icon: Shield,
@@ -130,16 +139,8 @@ export function getAppMenu(params: AppMenuParams): MenuConfig[] {
           icon: QrCode,
           permission: { name: 'app:feature:barcode', data: { app_id: appId } },
           showDisabled: true
-        },
-        {
-          name: '文件管理',
-          path: '/user/app/$appId/features-file/list',
-          noAuthPath: "/user/app/$appId/request-prompt?type=file",
-          params: { appId },
-          icon: QrCode,
-          permission: { name: 'app:feature:file', data: { app_id: appId } },
-          showDisabled: true
-        },
+        }
+
       ]
     }
   ]

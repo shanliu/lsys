@@ -45,6 +45,28 @@ export const UserFileListParamSchema = z.object({
 });
 export type UserFileListParamType = z.infer<typeof UserFileListParamSchema>;
 
+// 本地存储属性
+export const FileAttrLocalSchema = z.object({
+    id: z.coerce.number(),
+    source_type: z.string(),
+    local_path: z.string(),
+    file_chunk_total: z.coerce.number(),
+    file_chunk_succ: z.coerce.number(),
+    file_chunk_size: z.coerce.number(),
+}).nullable().optional();
+export type FileAttrLocalType = z.infer<typeof FileAttrLocalSchema>;
+
+// OSS 存储属性
+export const FileAttrOssSchema = z.object({
+    id: z.coerce.number(),
+    object_key: z.string(),
+    object_url: z.string(),
+    bucket: z.string(),
+    region: z.string(),
+    oss_size: z.coerce.number(),
+}).nullable().optional();
+export type FileAttrOssType = z.infer<typeof FileAttrOssSchema>;
+
 export const UserFileItemSchema = z.object({
     id: z.coerce.number(),
     file_user_id: z.coerce.number(),
@@ -58,6 +80,18 @@ export const UserFileItemSchema = z.object({
     url: z.string().nullable(),
     add_time: UnixTimestampSchema,
     user_id: z.coerce.number(),
+    local_id: z.coerce.number().nullable().optional(),
+    source_type: z.string().nullable().optional(),
+    local_path: z.string().nullable().optional(),
+    file_chunk_total: z.coerce.number().nullable().optional(),
+    file_chunk_succ: z.coerce.number().nullable().optional(),
+    file_chunk_size: z.coerce.number().nullable().optional(),
+    oss_id: z.coerce.number().nullable().optional(),
+    object_key: z.string().nullable().optional(),
+    object_url: z.string().nullable().optional(),
+    bucket: z.string().nullable().optional(),
+    region: z.string().nullable().optional(),
+    oss_size: z.coerce.number().nullable().optional(),
 });
 export type UserFileItemType = z.infer<typeof UserFileItemSchema>;
 
@@ -223,4 +257,42 @@ export const userFileLogs = async (
 ): Promise<ApiResult<UserFileLogsResType>> => {
     const { data } = await authApi().post('/api/user/file/logs', param, config);
     return parseResData(data, UserFileLogsResSchema);
+};
+// ==================== 文件分片列表 ====================
+
+export const UserFileChunksParamSchema = z.object({
+    app_id: z.coerce.number(),
+    file_id: z.coerce.number(),
+    ...PageParam,
+});
+export type UserFileChunksParamType = z.infer<typeof UserFileChunksParamSchema>;
+
+export const UserFileChunkItemSchema = z.object({
+    id: z.coerce.number(),
+    file_id: z.coerce.number(),
+    chunk_index: z.coerce.number(),
+    start_offset: z.coerce.number(),
+    chunk_md5: z.string(),
+    upload_md5: z.string(),
+    chunk_path: z.string(),
+    file_size: z.coerce.number(),
+    complete_size: z.coerce.number(),
+    status: z.coerce.number(),
+    add_time: UnixTimestampSchema,
+    change_time: UnixTimestampSchema,
+});
+export type UserFileChunkItemType = z.infer<typeof UserFileChunkItemSchema>;
+
+export const UserFileChunksResSchema = z.object({
+    data: z.array(UserFileChunkItemSchema),
+    ...PageResSchema,
+});
+export type UserFileChunksResType = z.infer<typeof UserFileChunksResSchema>;
+
+export const userFileChunks = async (
+    param: UserFileChunksParamType,
+    config?: AxiosRequestConfig<any>
+): Promise<ApiResult<UserFileChunksResType>> => {
+    const { data } = await authApi().post('/api/user/file/chunks', param, config);
+    return parseResData(data, UserFileChunksResSchema);
 };

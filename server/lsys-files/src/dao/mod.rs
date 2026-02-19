@@ -2,14 +2,18 @@ mod file_config;
 mod file_dao;
 mod file_download;
 mod file_helpers;
+mod file_local_chunk;
 mod file_log;
+mod file_upload;
 mod logger;
 
 pub use file_config::*;
 pub use file_dao::*;
 pub use file_download::*;
 pub use file_helpers::*;
+pub use file_local_chunk::*;
 pub use file_log::*;
+pub use file_upload::*;
 
 // Re-export common types
 pub use crate::common::*;
@@ -45,7 +49,11 @@ impl FileDaoBuilder {
 
     /// 构建文件 DAO（直接传入配置）
     /// 需要在 tokio runtime 中调用 (因为下载管理器需要 spawn)
-    pub fn build_with_config(db: Pool<MySql>, config: FileConfig, logger: Arc<ChangeLoggerDao>) -> FileDao {
+    pub fn build_with_config(
+        db: Pool<MySql>,
+        config: FileConfig,
+        logger: Arc<ChangeLoggerDao>,
+    ) -> FileDao {
         let helper = Arc::new(FileHelper::new(db.clone(), config.clone()));
         let download = Arc::new(FileDownloadManager::new(helper.clone()));
 

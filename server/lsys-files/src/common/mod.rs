@@ -9,4 +9,4 @@ pub use error::{FileError, FileResult};
 pub use oss::{OssProvider, OssResult};
 
 // Re-export file types
-pub use file::get_content_type;
+pub(crate) use file::get_content_type;

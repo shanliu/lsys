@@ -6,6 +6,7 @@ use actix_multipart::Multipart;
 use actix_web::post;
 use futures_util::StreamExt;
 
+use lsys_web::handler::api::user::file::file_chunks;
 use lsys_web::handler::api::user::file::file_delete;
 use lsys_web::handler::api::user::file::file_from_url;
 use lsys_web::handler::api::user::file::file_list;
@@ -18,6 +19,7 @@ use lsys_web::handler::api::user::file::file_upload_find_file;
 use lsys_web::handler::api::user::file::file_upload_handle;
 use lsys_web::handler::api::user::file::file_upload_write;
 use lsys_web::handler::api::user::file::mapping_data;
+use lsys_web::handler::api::user::file::FileChunksParam;
 use lsys_web::handler::api::user::file::FileDeleteParam;
 use lsys_web::handler::api::user::file::FileFromUrlParam;
 use lsys_web::handler::api::user::file::FileListParam;
@@ -150,6 +152,7 @@ pub async fn file(
         "delete" => file_delete(&json_param.param::<FileDeleteParam>()?, &auth_dao).await,
         "from_url" => file_from_url(&json_param.param::<FileFromUrlParam>()?, &auth_dao).await,
         "logs" => file_logs(&json_param.param::<FileLogsParam>()?, &auth_dao).await,
+        "chunks" => file_chunks(&json_param.param::<FileChunksParam>()?, &auth_dao).await,
         name => handler_not_found!(name),
     }
     .map_err(|e| auth_dao.fluent_error_json_response(&e))?
