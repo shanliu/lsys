@@ -1,6 +1,7 @@
 use std::{ops::Deref, sync::Arc};
 
-use lsys_core::{AppCore, WaitItem, WaitNotify, WaitNotifyResult};
+use lsys_core::app_core::AppCore;
+use lsys_core::listen_notify::{WaitItem, WaitNotify, WaitNotifyResult};
 use tokio::sync::oneshot::Receiver;
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub(crate) struct SenderWaitItem {

@@ -6,21 +6,17 @@
 #app_ssl_cert = "config/lsys.cc_bundle.crt"
 #app_ssl_key = "config/lsys.cc.key"
 #日志配置
-log_level = "sqlx_core=info,lsys_app_sender=debug,lsys_app=trace,axtix_web=debug,actix=info,mio=error,lsys_access=trace,lsys_web=trace,lsys_core=trace,lsys_user=trace,lsys_rbac=trace,lsys_docs=trace,lsys_actix_web=trace,sqlx=trace,redis=debug,lsys_app_barcode=trace"
+log_level = "sqlx_core=info,lsys_app_sender=debug,lsys_app=trace,axtix_web=debug,actix=info,mio=error,lsys_access=trace,lsys_web=trace,lsys_core=trace,lsys_user=trace,lsys_rbac=trace,lsys_docs=trace,lsys_actix_web=trace,sqlx=trace,redis=debug"
 log_dir = "logs"
 log_name = "app"
 #数据库配置
 #database_url="mysql://root:000@127.0.0.1:3306/test"
-#公共表前缀
-database_table_prefix = "yaf_"
 #redis 配置
 #redis_url="redis://127.0.0.1/"
 
 #是否使用LUA缓存
 use_cache = false
 
-#二维码最大内容长度
-barcode_create_max = 500
 
 #静态文件目录
 ui_dir = "../../../ui/public/"
@@ -65,4 +61,20 @@ ip_city_db = "data/IP2LOCATION-LITE-DB11.BIN"
 
 
 #接口允许域名
-api-allow-origin = "*"
+api_allow_origin = "*"
+
+service_api_key = "xxx"
+
+# 文件服务配置
+# 存储基础路径 (默认: /tmp)
+file_storage_base_path = "./data/files"
+# 本地文件URL前缀 (默认: /file/)
+file_local_url_prefix = "/file/"
+# 清理开关 (默认: true)
+file_cleanup_enabled = true
+# 最小分片大小（字节）(默认: 1048576 即 1MB)
+file_min_chunk_size = 1048576
+# 最大下载并发数 (默认: 10)
+file_max_download_concurrency = 10
+# 下载超时时间（秒）(默认: 60)
+file_download_timeout_secs = 60

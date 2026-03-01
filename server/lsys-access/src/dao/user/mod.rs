@@ -9,10 +9,10 @@ pub use info::*;
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::db::SqlQuote;
 use lsys_core::db::{Insert, TableMeta, Update};
-use lsys_core::{
-    db::query_string_field_max, now_time, sql_format, string_clear, valid_key, RemoteNotify,
-    StringClear, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen, STRING_CLEAR_FORMAT,
-};
+use lsys_core::{db::utils::fetch_string_field_max, sql_format, valid_key};
+use lsys_core::remote_notify::RemoteNotify;
+use lsys_core::utils::{now_time, string_clear, StringClear, STRING_CLEAR_FORMAT};
+use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
 use serde::Deserialize;
 use serde::Serialize;
 use sqlx::{MySql, Pool};
@@ -66,18 +66,15 @@ impl AccessUser {
         let user_data = string_clear(user_data, StringClear::Option(STRING_CLEAR_FORMAT), None);
 
         // 先获取字段长度
-        let user_data_max =
-            query_string_field_max::<UserModel>(&self.db, &UserModel::USER_DATA)
-                .await
-                .len_or(32);
-        let nickname_max =
-            query_string_field_max::<UserModel>(&self.db, &UserModel::USER_NICKNAME)
-                .await
-                .len_or(32);
-        let account_max =
-            query_string_field_max::<UserModel>(&self.db, &UserModel::USER_ACCOUNT)
-                .await
-                .len_or(128);
+        let user_data_max = fetch_string_field_max::<UserModel>(&self.db, &UserModel::USER_DATA)
+            .await
+            .len_or(32);
+        let nickname_max = fetch_string_field_max::<UserModel>(&self.db, &UserModel::USER_NICKNAME)
+            .await
+            .len_or(32);
+        let account_max = fetch_string_field_max::<UserModel>(&self.db, &UserModel::USER_ACCOUNT)
+            .await
+            .len_or(128);
 
         let mut valid_param = ValidParam::default();
         valid_param.add(
@@ -123,7 +120,7 @@ impl AccessUser {
             .sync_user_param_valid(user_data, user_nickname, user_account)
             .await?;
         let time = now_time()?;
-        
+
         // Determine user_nickname value
         let user_nickname_val = if let Some(ref tmp_name) = tmp_user_nickname {
             if tmp_name.is_empty() {
@@ -134,22 +131,21 @@ impl AccessUser {
         } else {
             user_data.clone()
         };
-        
+
         // Build insert
-        let mut insert = Insert::<UserModel>::new()
+        let mut insert = Insert::<_, UserModel>::new()
             .set(UserModel::APP_ID, app_id)
             .set(UserModel::USER_DATA, &user_data)
             .set(UserModel::CHANGE_TIME, time)
             .set(UserModel::USER_NICKNAME, &user_nickname_val);
-        
+
         if let Some(ref account) = tmp_user_account {
             insert = insert.set(UserModel::USER_ACCOUNT, account);
         }
-        
+
         // Build update
-        let mut update = Update::<UserModel>::new()
-            .set(UserModel::CHANGE_TIME, time);
-        
+        let mut update = Update::<_, UserModel>::new().set(UserModel::CHANGE_TIME, time);
+
         if tmp_user_nickname
             .as_ref()
             .map(|e| !e.is_empty())
@@ -157,11 +153,11 @@ impl AccessUser {
         {
             update = update.set(UserModel::USER_NICKNAME, &user_nickname_val);
         }
-        
+
         if let Some(ref account) = tmp_user_account {
             update = update.set(UserModel::USER_ACCOUNT, account);
         }
-        
+
         match insert.execute_update(update, &self.db).await {
             Ok(row) => {
                 self.user_cache.clear(&row.last_insert_id()).await;

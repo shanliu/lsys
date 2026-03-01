@@ -1,5 +1,6 @@
 use super::ValidRule;
-use crate::{fluent_message, ValidRuleError};
+use crate::fluent_message;
+use crate::valid_param::ValidRuleError;
 use std::fmt::Display;
 struct ValidColorPhantom<T: Display>(std::marker::PhantomData<T>);
 pub enum ValidColor<T: Display> {

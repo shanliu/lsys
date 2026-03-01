@@ -1,8 +1,12 @@
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
-    db::query_string_field_max,
-    now_time, valid_key, RemoteNotify, RequestEnv, ValidMobile, ValidNumber, ValidParam,
-    ValidParamCheck, ValidPattern, ValidStrlen,
+    db::utils::fetch_string_field_max,
+    valid_key,
+};
+use lsys_core::remote_notify::RemoteNotify;
+use lsys_core::utils::{now_time, RequestEnv};
+use lsys_core::valid_param::{
+    ValidMobile, ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
 };
 
 use lsys_core::db::{Insert, TableMeta, SqlQuote, Update, SqlSuffix};
@@ -62,19 +66,19 @@ impl AccountAddress {
         statis: Option<i8>,
         address_data: &AccountAddressParam<'_>,
     ) -> AccountResult<()> {
-        let name_max = query_string_field_max::<AccountAddressModel>(&self.db, &AccountAddressModel::NAME)
+        let name_max = fetch_string_field_max::<AccountAddressModel>(&self.db, &AccountAddressModel::NAME)
             .await
             .len_or(16);
-        let country_code_max = query_string_field_max::<AccountAddressModel>(&self.db, &AccountAddressModel::COUNTRY_CODE)
+        let country_code_max = fetch_string_field_max::<AccountAddressModel>(&self.db, &AccountAddressModel::COUNTRY_CODE)
             .await
             .len_or(21);
-        let address_code_max = query_string_field_max::<AccountAddressModel>(&self.db, &AccountAddressModel::ADDRESS_CODE)
+        let address_code_max = fetch_string_field_max::<AccountAddressModel>(&self.db, &AccountAddressModel::ADDRESS_CODE)
             .await
             .len_or(21);
-        let address_info_max = query_string_field_max::<AccountAddressModel>(&self.db, &AccountAddressModel::ADDRESS_INFO)
+        let address_info_max = fetch_string_field_max::<AccountAddressModel>(&self.db, &AccountAddressModel::ADDRESS_INFO)
             .await
             .len_or(64);
-        let address_detail_max = query_string_field_max::<AccountAddressModel>(&self.db, &AccountAddressModel::ADDRESS_DETAIL)
+        let address_detail_max = fetch_string_field_max::<AccountAddressModel>(&self.db, &AccountAddressModel::ADDRESS_DETAIL)
             .await
             .len_or(128);
 
@@ -156,7 +160,7 @@ impl AccountAddress {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let tmp = Update::<AccountAddressModel>::new()
+        let tmp = Update::<_,AccountAddressModel>::new()
             .set(AccountAddressModel::CHANGE_TIME, time)
             .set(AccountAddressModel::COUNTRY_CODE, country_code)
             .set(AccountAddressModel::ADDRESS_CODE, address_code)
@@ -269,7 +273,7 @@ impl AccountAddress {
             None => self.db.begin().await?,
         };
 
-        let res = Insert::<AccountAddressModel>::new()
+        let res = Insert::<_,AccountAddressModel>::new()
             .set(AccountAddressModel::STATUS, AccountAddressStatus::Enable as i8)
             .set(AccountAddressModel::CHANGE_TIME, time)
             .set(AccountAddressModel::COUNTRY_CODE, country_code)
@@ -359,7 +363,7 @@ impl AccountAddress {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let res = Update::<AccountAddressModel>::new()
+        let res = Update::<_,AccountAddressModel>::new()
             .set(AccountAddressModel::STATUS, AccountAddressStatus::Delete as i8)
             .set(AccountAddressModel::CHANGE_TIME, time)
             .execute(
@@ -430,36 +434,25 @@ impl AccountAddress {
             }
         }
     }
-    lsys_core::impl_dao_fetch_one_by_one!(
-        db,
-        find_by_id,
-        u64,
-        AccountAddressModel,
-        AccountResult<AccountAddressModel>,
-        id,
-        "id={id}"
-    );
-    lsys_core::impl_dao_fetch_vec_by_one!(
-        db,
-        find_by_account_id_vec,
-        u64,
-        AccountAddressModel,
-        AccountResult<Vec<AccountAddressModel>>,
-        uid,
-        "account_id = {uid} and status = {status}",
-        status = AccountAddressStatus::Enable
-    );
-    lsys_core::impl_dao_fetch_vec_by_vec!(
-        db,
-        find_by_account_ids_vec,
-        u64,
-        AccountAddressModel,
-        AccountResult<HashMap<u64, Vec<AccountAddressModel>>>,
-        account_id,
-        uid,
-        "account_id in ({uid}) and status = {status}",
-        status = AccountAddressStatus::Enable
-    );
+    pub async fn find_by_id(&self, id: &u64) -> AccountResult<AccountAddressModel> {
+        Ok(lsys_core::db::utils::fetch_one::<AccountAddressModel>(
+            &self.db,
+            lsys_core::sql_format!("id={id}", id = id),
+        ).await?)
+    }
+    pub async fn find_by_account_id_vec(&self, id: &u64) -> AccountResult<Vec<AccountAddressModel>> {
+        Ok(lsys_core::db::utils::fetch_vec::<AccountAddressModel>(
+            &self.db,
+            lsys_core::sql_format!("account_id = {uid} and status = {status}", uid = id, status = AccountAddressStatus::Enable),
+        ).await?)
+    }
+    pub async fn find_by_account_ids_vec(&self, ids: &[u64]) -> AccountResult<HashMap<u64, Vec<AccountAddressModel>>> {
+        Ok(lsys_core::db::utils::fetch_group::<AccountAddressModel, _, _>(
+            &self.db,
+            lsys_core::sql_format!("account_id in ({uid}) and status = {status}", uid = ids, status = AccountAddressStatus::Enable),
+            |v| v.account_id,
+        ).await?)
+    }
     pub fn cache(&'_ self) -> AccountAddressCache<'_> {
         AccountAddressCache { dao: self }
     }

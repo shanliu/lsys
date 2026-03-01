@@ -104,7 +104,7 @@ pub async fn mfa_bind_device(
 
     // 验证TOTP码 - 检查用户输入的验证码是否正确
     let code_trimmed = param.code.trim();
-    let now = lsys_core::now_time().unwrap_or_default();
+    let now = lsys_core::utils::now_time().unwrap_or_default();
     let now_step = now / config.step_seconds;
 
     // 检查time window内的所有可能的TOTP值

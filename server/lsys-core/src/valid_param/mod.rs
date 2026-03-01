@@ -56,7 +56,7 @@ impl ValidParam {
 #[macro_export]
 macro_rules! valid_key {
     ($name:literal) => {
-        $crate::ValidRuleKey {
+        $crate::valid_param::ValidRuleKey {
             name: $name.to_string(),
             crate_name: env!("CARGO_PKG_NAME"),
         }

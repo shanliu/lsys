@@ -5,16 +5,13 @@ use crate::{
         AppRequestStatus, AppRequestType,
     },
 };
-use lsys_core::{
-    db::{Insert, TableMeta, SqlSuffix, Update},
-    string_clear, StringClear, STRING_CLEAR_XSS,
-};
-use lsys_core::{
-    db::SqlQuote,
-    STRING_CLEAR_FORMAT,
-};
-use lsys_core::{fluent_message, now_time, RequestEnv};
+use lsys_core::{db::{Insert, TableMeta, SqlSuffix, Update}};
+use lsys_core::db::SqlQuote;
+use lsys_core::fluent_message;
 use lsys_core::sql_format;
+use lsys_core::utils::{
+    now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT, STRING_CLEAR_XSS,
+};
 
 use super::{App, AppError};
 
@@ -72,7 +69,7 @@ impl App {
 
         let time = now_time()?;
 
-        let req_id = Insert::<AppRequestModel>::new()
+        let req_id = Insert::<_,AppRequestModel>::new()
             .set(AppRequestModel::PARENT_APP_ID, app.parent_app_id)
             .set(AppRequestModel::APP_ID, app.id)
             .set(AppRequestModel::REQUEST_TYPE, request_type)
@@ -140,7 +137,7 @@ impl App {
             //驳回
             let status = req_status as i8;
             let confirm_note = confirm_note.to_owned();
-            Update::<AppRequestModel>::new()
+            Update::<_,AppRequestModel>::new()
                 .set(AppRequestModel::STATUS, status)
                 .set(AppRequestModel::CONFIRM_USER_ID, confirm_user_id)
                 .set(AppRequestModel::CONFIRM_TIME, time)
@@ -165,7 +162,7 @@ impl App {
         match req_res {
             Ok((fid, fstatus)) => {
                 if !AppFeatureStatus::Enable.eq(fstatus) {
-                    let cres = Update::<AppFeatureModel>::new()
+                    let cres = Update::<_,AppFeatureModel>::new()
                         .set(AppFeatureModel::STATUS, set_status)
                         .set(AppFeatureModel::CHANGE_USER_ID, confirm_user_id)
                         .set(AppFeatureModel::CHANGE_TIME, time)
@@ -178,7 +175,7 @@ impl App {
                 }
             }
             Err(sqlx::Error::RowNotFound) => {
-                let cres = Insert::<AppFeatureModel>::new()
+                let cres = Insert::<_,AppFeatureModel>::new()
                     .set(AppFeatureModel::APP_ID, app.id)
                     .set(AppFeatureModel::FEATURE_KEY, fkey)
                     .set(AppFeatureModel::STATUS, set_status)
@@ -198,7 +195,7 @@ impl App {
 
         let status = AppRequestStatus::Approved as i8;
         let confirm_note = confirm_note.to_owned();
-        let cres = Update::<AppRequestModel>::new()
+        let cres = Update::<_,AppRequestModel>::new()
             .set(AppRequestModel::STATUS, status)
             .set(AppRequestModel::CONFIRM_USER_ID, confirm_user_id)
             .set(AppRequestModel::CONFIRM_TIME, time)

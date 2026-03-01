@@ -28,15 +28,17 @@ use logger::LogBarCodeParseRecord;
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
     db::SqlSuffix,
-    fluent_message, now_time, RemoteNotify, RequestEnv, ValidColor, ValidContains, ValidNumber,
+    fluent_message,
 };
 use lsys_core::{db::OffsetPageParam, sql_format};
-use lsys_core::{db::SqlQuote, STRING_CLEAR_FORMAT};
-use lsys_core::{
-    db::{BatchInsert, Insert, SqlExpr, TableMeta, Update},
-    string_clear, StringClear,
+use lsys_core::db::SqlQuote;
+use lsys_core::db::{BatchInsert, Insert, SqlExpr, TableMeta, Update};
+use lsys_core::remote_notify::RemoteNotify;
+use lsys_core::utils::{now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT};
+use lsys_core::valid_key;
+use lsys_core::valid_param::{
+    ValidColor, ValidContains, ValidNumber, ValidParam, ValidParamCheck, ValidStrlen,
 };
-use lsys_core::{valid_key, ValidParam, ValidParamCheck, ValidStrlen};
 
 use crate::dao::logger::LogBarCodeCreateConfig;
 use sha2::Digest;
@@ -110,15 +112,12 @@ impl BarCodeDao {
 }
 
 impl BarCodeDao {
-    lsys_core::impl_dao_fetch_one_by_one!(
-        db,
-        find_by_create_config_id,
-        u64,
-        BarcodeCreateModel,
-        BarCodeResult<BarcodeCreateModel>,
-        id,
-        "id={id}"
-    );
+    pub async fn find_by_create_config_id(&self, id: &u64) -> BarCodeResult<BarcodeCreateModel> {
+        Ok(lsys_core::db::utils::fetch_one::<BarcodeCreateModel>(
+            &self.db,
+            lsys_core::sql_format!("id={id}", id = id),
+        ).await?)
+    }
 
     //根据配置,创建一个二维码
     pub async fn create(
@@ -251,10 +250,10 @@ impl BarCodeDao {
                     .collect::<Vec<(String, String)>>();
                 let create_time = now_time().unwrap_or_default();
                 let status = BarcodeParseStatus::Succ as i8;
-                let mut batch = BatchInsert::<BarcodeParseModel>::with_capacity(tmps.len());
+                let mut batch = BatchInsert::<_,BarcodeParseModel>::with_capacity(tmps.len());
                 for tmp in tmps.iter() {
                     batch = batch.push(
-                        Insert::<BarcodeParseModel>::new()
+                        Insert::<_,BarcodeParseModel>::new()
                             .set(BarcodeParseModel::USER_ID, user_id)
                             .set(BarcodeParseModel::APP_ID, app_id)
                             .set(BarcodeParseModel::FILE_HASH, &file_hash)
@@ -291,7 +290,7 @@ impl BarCodeDao {
                 let create_time = now_time().unwrap_or_default();
                 let barcode_type = "";
                 let status = BarcodeParseStatus::Fail as i8;
-                match Insert::<BarcodeParseModel>::new()
+                match Insert::<_,BarcodeParseModel>::new()
                     .set(BarcodeParseModel::USER_ID, user_id)
                     .set(BarcodeParseModel::APP_ID, app_id)
                     .set(BarcodeParseModel::FILE_HASH, &file_hash)
@@ -427,7 +426,7 @@ impl BarCodeDao {
 
         let create_time = now_time().unwrap_or_default();
         let status = status.to();
-        let res = Insert::<BarcodeCreateModel>::new()
+        let res = Insert::<_,BarcodeCreateModel>::new()
             .set(BarcodeCreateModel::APP_ID, app_id)
             .set(BarcodeCreateModel::USER_ID, user_id)
             .set(BarcodeCreateModel::CHANGE_USER_ID, user_id)
@@ -498,7 +497,7 @@ impl BarCodeDao {
 
         let change_time = now_time().unwrap_or_default();
         let status = status.to();
-        let row = Update::<BarcodeCreateModel>::new()
+        let row = Update::<_,BarcodeCreateModel>::new()
             .set(BarcodeCreateModel::CHANGE_USER_ID, change_user_id)
             .set(BarcodeCreateModel::CHANGE_TIME, change_time)
             .set(BarcodeCreateModel::BARCODE_TYPE, barcode_type)
@@ -547,7 +546,7 @@ impl BarCodeDao {
         env_data: Option<&RequestEnv>,
     ) -> BarCodeResult<()> {
         let time = now_time()?;
-        Update::<BarcodeCreateModel>::new()
+        Update::<_,BarcodeCreateModel>::new()
             .set(
                 BarcodeCreateModel::STATUS,
                 BarcodeCreateStatus::Delete as i8,
@@ -657,15 +656,12 @@ impl BarCodeDao {
         Ok(res)
     }
 
-    lsys_core::impl_dao_fetch_one_by_one!(
-        db,
-        find_by_parse_record_id,
-        u64,
-        BarcodeParseModel,
-        BarCodeResult<BarcodeParseModel>,
-        id,
-        "id={id}"
-    );
+    pub async fn find_by_parse_record_id(&self, id: &u64) -> BarCodeResult<BarcodeParseModel> {
+        Ok(lsys_core::db::utils::fetch_one::<BarcodeParseModel>(
+            &self.db,
+            lsys_core::sql_format!("id={id}", id = id),
+        ).await?)
+    }
 
     fn list_parse_record_where_sql(
         &self,
@@ -748,7 +744,7 @@ impl BarCodeDao {
         env_data: Option<&RequestEnv>,
     ) -> BarCodeResult<()> {
         let time = now_time()?;
-        Update::<BarcodeParseModel>::new()
+        Update::<_,BarcodeParseModel>::new()
             .set(BarcodeParseModel::STATUS, BarcodeParseStatus::Delete as i8)
             .set(BarcodeParseModel::CHANGE_TIME, time)
             .execute(

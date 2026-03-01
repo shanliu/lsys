@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 
-lsys-core = { path = "../lsys-core", features = ["db", "redis"] }
+lsys-core = { path = "../lsys-core", features = ["db-mysql", "redis"] }
 lsys-logger = { path = "../lsys-logger" }
 sqlx = { version = "~0.8.6", features = ["mysql", "runtime-tokio-native-tls"] }
 

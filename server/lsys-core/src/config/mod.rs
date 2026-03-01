@@ -3,7 +3,7 @@ mod result;
 pub use result::*;
 
 use std::{collections::HashMap, path::Path};
-
+use tracing::info;
 use config::builder::DefaultState;
 
 pub struct Config {
@@ -37,15 +37,42 @@ impl Config {
             Some(config_name) => {
                 for item in config_name {
                     let file_path = path.as_ref().to_path_buf().join(format!("./{}.toml", item));
+                     info!("load crate config:{:?}", file_path);
                     let crate_config = Self::default_config(&path, app_config)
                         .add_source(config::File::from(file_path));
-                    crate_configs.insert(item.to_string(), crate_config.build()?);
+                    let config_item= crate_config.build()?;
+                    crate_configs.insert(item.to_string(), config_item);
                 }
             }
             #[cfg(not(feature = "tokio"))]
             None => match std::fs::read_dir(path.as_ref()) {
-                Ok(_) => todo!(),
-                Err(_) => todo!(),
+                Ok(dir) => {
+                    for fileentry in dir {
+                        let fileentry = fileentry?;
+                        if !fileentry.file_type()?.is_file() {
+                            continue;
+                        }
+                        let file_path = fileentry.path();
+                        let file_path = file_path.as_path();
+                        if file_path.extension().unwrap_or_default() != "toml" {
+                            continue;
+                        }
+                        let file_name = if let Some(name) = file_path.file_stem() {
+                            name.to_string_lossy().to_string()
+                        } else {
+                            continue;
+                        };
+                        if file_name.as_str() == app_config {
+                            continue;
+                        }
+                        let crate_config = Self::default_config(&path, app_config)
+                            .add_source(config::File::from(file_path));
+                        crate_configs.insert(file_name, crate_config.build()?);
+                    }
+                },
+                Err(err) => {
+                     tracing::error!("fluent dir:{:?} on {:?}", err, path.as_ref());
+                },
             },
             #[cfg(feature = "tokio")]
             None => match tokio::fs::read_dir(path.as_ref()).await {

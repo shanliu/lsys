@@ -8,9 +8,11 @@ use crate::model::{AccountIndexCat, AccountModel, AccountStatus};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::db::{CursorPageData, CursorPageParam};
 use lsys_core::{
-    db::query_string_field_max, fluent_message, now_time, valid_key, RemoteNotify, RequestEnv,
-    ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
+    db::utils::fetch_string_field_max, fluent_message, valid_key,
 };
+use lsys_core::remote_notify::RemoteNotify;
+use lsys_core::utils::{now_time, RequestEnv};
+use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
 use lsys_logger::dao::ChangeLoggerDao;
 
 use super::logger::LogAccount;
@@ -46,7 +48,7 @@ impl Account {
     }
     async fn nickname_param_valid(&self, nickname: &str) -> AccountResult<()> {
         let nickname_max =
-            query_string_field_max::<AccountModel>(&self.db, &AccountModel::NICKNAME)
+            fetch_string_field_max::<AccountModel>(&self.db, &AccountModel::NICKNAME)
                 .await
                 .len_or(32);
 
@@ -79,7 +81,7 @@ impl Account {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let tmp = Insert::<AccountModel>::new()
+        let tmp = Insert::<_,AccountModel>::new()
             .set(AccountModel::NICKNAME, nickname_ow)
             .set(AccountModel::ADD_TIME, time)
             .set(AccountModel::CHANGE_TIME, time)
@@ -163,7 +165,7 @@ impl Account {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let tmp = Update::<AccountModel>::new()
+        let tmp = Update::<_,AccountModel>::new()
             .set(AccountModel::CHANGE_TIME, time)
             .set(AccountModel::CONFIRM_TIME, time)
             .set(AccountModel::STATUS, AccountStatus::Enable as i8)
@@ -224,7 +226,7 @@ impl Account {
 
         //delete account data
         let del_name_ow = del_name.map(|e| e.to_string());
-        let mut update = Update::<AccountModel>::new()
+        let mut update = Update::<_,AccountModel>::new()
             .set(AccountModel::STATUS, AccountStatus::Delete as i8)
             .set(AccountModel::CHANGE_TIME, time);
         if let Some(ref name) = del_name_ow {
@@ -276,7 +278,7 @@ impl Account {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let res = Update::<AccountModel>::new()
+        let res = Update::<_,AccountModel>::new()
             .set(AccountModel::CHANGE_TIME, time)
             .set(AccountModel::NICKNAME, &nikename)
             .execute(
@@ -325,27 +327,19 @@ impl Account {
             .await;
         out
     }
-    lsys_core::impl_dao_fetch_one_by_one!(
-        db,
-        find_by_id,
-        u64,
-        AccountModel,
-        AccountResult<AccountModel>,
-        id,
-        "id = {id} and status in ({status})",
-        status = [AccountStatus::Enable as i8, AccountStatus::Init as i8]
-    );
-    lsys_core::impl_dao_fetch_map_by_vec!(
-        db,
-        find_by_ids,
-        u64,
-        AccountModel,
-        AccountResult<HashMap<u64, AccountModel>>,
-        id,
-        ids,
-        "id in ({ids}) and status in ({status})",
-        status = [AccountStatus::Enable as i8, AccountStatus::Init as i8]
-    );
+    pub async fn find_by_id(&self, id: &u64) -> AccountResult<AccountModel> {
+        Ok(lsys_core::db::utils::fetch_one::<AccountModel>(
+            &self.db,
+            lsys_core::sql_format!("id = {id} and status in ({status})", id = id, status = [AccountStatus::Enable as i8, AccountStatus::Init as i8]),
+        ).await?)
+    }
+    pub async fn find_by_ids(&self, ids: &[u64]) -> AccountResult<HashMap<u64, AccountModel>> {
+        Ok(lsys_core::db::utils::fetch_map::<AccountModel, _, _>(
+            &self.db,
+            lsys_core::sql_format!("id in ({ids}) and status in ({status})", ids = ids, status = [AccountStatus::Enable as i8, AccountStatus::Init as i8]),
+            |v| v.id,
+        ).await?)
+    }
     //搜索用户
     pub async fn search(
         &self,

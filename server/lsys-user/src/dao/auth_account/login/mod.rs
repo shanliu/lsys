@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use futures_util::Future;
 use lsys_access::dao::SessionBody;
 use lsys_core::fluent_message;
-use lsys_core::IntoFluentMessage;
+use lsys_core::fluents::IntoFluentMessage;
 use std::net::IpAddr;
 use std::sync::Arc;
 

@@ -1,10 +1,10 @@
 use crate::dao::SenderResult;
 use crate::model::{SenderMessageCancelModel, SenderType};
-use lsys_core::now_time;
+use lsys_core::utils::now_time;
 
 use lsys_core::db::BatchInsert;
 use lsys_core::db::Insert;
-use lsys_core::db_option_executor;
+use lsys_core::db::OptionTxExecutor;
 use sqlx::{Pool, Transaction};
 //短信取消发送公共代码
 
@@ -31,10 +31,10 @@ impl MessageCancel {
         let add_time = now_time().unwrap_or_default();
         let sender_type = self.send_type as i8;
 
-        let mut batch = BatchInsert::<SenderMessageCancelModel>::with_capacity(message_ids.len());
+        let mut batch = BatchInsert::<_,SenderMessageCancelModel>::with_capacity(message_ids.len());
         for id in message_ids {
             batch = batch.push(
-                Insert::<SenderMessageCancelModel>::new()
+                Insert::<_,SenderMessageCancelModel>::new()
                     .set(SenderMessageCancelModel::APP_ID, app_id)
                     .set(SenderMessageCancelModel::SENDER_BODY_ID, sender_body_id)
                     .set(SenderMessageCancelModel::SENDER_MESSAGE_ID, *id)
@@ -43,14 +43,7 @@ impl MessageCancel {
                     .set(SenderMessageCancelModel::CANCEL_TIME, add_time),
             );
         }
-        db_option_executor!(
-            db,
-            {
-                batch.execute(db.as_executor()).await?;
-            },
-            transaction,
-            &self.db
-        );
+        batch.execute(OptionTxExecutor::new(transaction, &self.db)).await?;
         Ok(())
     }
 }

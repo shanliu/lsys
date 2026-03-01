@@ -93,8 +93,8 @@ pub struct CaptchaParam {
     pub code: String,
 }
 
-impl<'t> From<&'t CaptchaParam> for lsys_core::CheckCodeData<'t> {
-    fn from(p: &'t CaptchaParam) -> lsys_core::CheckCodeData<'t> {
-        lsys_core::CheckCodeData::new(&p.key, &p.code)
+impl<'t> From<&'t CaptchaParam> for lsys_core::valid_code::CheckCodeData<'t> {
+    fn from(p: &'t CaptchaParam) -> lsys_core::valid_code::CheckCodeData<'t> {
+        lsys_core::valid_code::CheckCodeData::new(&p.key, &p.code)
     }
 }

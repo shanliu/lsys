@@ -12,7 +12,8 @@ use std::{pin::Pin, rc::Rc};
 
 use lsys_web::lsys_app::dao::RestAuthToken;
 use lsys_web::lsys_core::api_utils::{compute_rest_sign, RestSignData};
-use lsys_web::lsys_core::{IntoFluentMessage, RequestEnv};
+use lsys_web::lsys_core::fluents::IntoFluentMessage;
+use lsys_web::lsys_core::utils::RequestEnv;
 
 use lsys_web::common::{
     JsonData, JsonResponse, JsonResult, RequestDao, RequestSessionToken, RequestSessionTokenPaser,

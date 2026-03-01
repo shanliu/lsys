@@ -2,9 +2,14 @@ use std::sync::Arc;
 
 use crate::dao::{SenderError, SenderResult};
 use crate::model::{SenderTplBodyModel, SenderTplBodyStatus, SenderType};
-use lsys_core::{
-    db::OffsetPageParam, fluent_message, now_time, string_clear, valid_key, RequestEnv, StringClear,
-    ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen, STRING_CLEAR_FORMAT,
+use lsys_core::db::OffsetPageParam;
+use lsys_core::fluent_message;
+use lsys_core::utils::{
+    now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT,
+};
+use lsys_core::valid_key;
+use lsys_core::valid_param::{
+    ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
 };
 
 use lsys_core::db::{Insert, TableMeta, SqlExpr, SqlQuote, SqlSuffix, Update};
@@ -31,15 +36,12 @@ impl MessageTpls {
             logger,
         }
     }
-    lsys_core::impl_dao_fetch_one_by_one!(
-        db,
-        find_by_id,
-        u64,
-        SenderTplBodyModel,
-        SenderResult<SenderTplBodyModel>,
-        id,
-        "id={id}"
-    );
+    pub async fn find_by_id(&self, id: &u64) -> SenderResult<SenderTplBodyModel> {
+        Ok(lsys_core::db::utils::fetch_one::<SenderTplBodyModel>(
+            &self.db,
+            lsys_core::sql_format!("id={id}", id = id),
+        ).await?)
+    }
 
     async fn add_param_valid(&self, app_id: u64, tpl_id: &str, tpl_data: &str) -> SenderResult<()> {
         ValidParam::default()
@@ -111,7 +113,7 @@ impl MessageTpls {
                 return Err(err.into());
             }
         }
-        let id = Insert::<SenderTplBodyModel>::new()
+        let id = Insert::<_,SenderTplBodyModel>::new()
             .set(SenderTplBodyModel::APP_ID, app_id)
             .set(SenderTplBodyModel::SENDER_TYPE, sender_type)
             .set(SenderTplBodyModel::TPL_ID, &tpl_id)
@@ -167,7 +169,7 @@ impl MessageTpls {
         let time = now_time().unwrap_or_default();
         let tpl_data = tpl_data.to_owned();
 
-        let row = Update::<SenderTplBodyModel>::new()
+        let row = Update::<_,SenderTplBodyModel>::new()
             .set(SenderTplBodyModel::TPL_DATA, &tpl_data)
             .set(SenderTplBodyModel::CHANGE_USER_ID, change_user_id)
             .set(SenderTplBodyModel::CHANGE_TIME, time)
@@ -210,7 +212,7 @@ impl MessageTpls {
         let user_id = user_id.to_owned();
         let time = now_time().unwrap_or_default();
         let status = SenderTplBodyStatus::Delete as i8;
-        let row = Update::<SenderTplBodyModel>::new()
+        let row = Update::<_,SenderTplBodyModel>::new()
             .set(SenderTplBodyModel::STATUS, status)
             .set(SenderTplBodyModel::USER_ID, user_id)
             .set(SenderTplBodyModel::CHANGE_TIME, time)

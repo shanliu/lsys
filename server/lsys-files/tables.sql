@@ -1,4 +1,4 @@
-CREATE TABLE `yaf_file` (
+CREATE TABLE `lst_file` (
 	`id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
     `storage_type` VARCHAR(12) NOT NULL COMMENT '文件存储类型：local=本地存储, aliyun=阿里云OSS,tencent=腾讯云COS',
     `status` TINYINT NOT NULL COMMENT '状态：1=正常, 2=已删除,3=未完成,4=失败',
@@ -18,7 +18,7 @@ CREATE TABLE `yaf_file` (
     KEY `copy_file_id` (`copy_file_id`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '文件列表';
 
-CREATE TABLE `yaf_file_local` (
+CREATE TABLE `lst_file_local` (
 	`id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
     `file_id` BIGINT UNSIGNED NOT NULL COMMENT '文件ID',
     `source_type` TINYINT NOT NULL COMMENT '文件来源：1=上传, 2=URL下载, 3=本地路径,4=OSS同步',
@@ -36,7 +36,7 @@ CREATE TABLE `yaf_file_local` (
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '本地文件';
 
 
-CREATE TABLE `yaf_file_local_chunk` (
+CREATE TABLE `lst_file_local_chunk` (
 	`id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
 	`file_id` BIGINT UNSIGNED NOT NULL COMMENT '文件ID',
 	`chunk_index` INT UNSIGNED NOT NULL COMMENT '分片索引(从0开始)',
@@ -54,11 +54,11 @@ CREATE TABLE `yaf_file_local_chunk` (
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '本地文件 上传 或 URL下载分块';
 
 
-CREATE TABLE `yaf_file_oss` (
+CREATE TABLE `lst_file_oss` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  `file_id` BIGINT UNSIGNED NOT NULL COMMENT '关联 yaf_file.id',
+  `file_id` BIGINT UNSIGNED NOT NULL COMMENT '关联 lst_file.id',
   `object_key` VARCHAR(1024) NOT NULL COMMENT '对象键（路径）',
-  `local_file_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'local 文件上传到OSS时的本地 yaf_file.id',
+  `local_file_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'local 文件上传到OSS时的本地 lst_file.id',
   `object_url` VARCHAR(2048) NOT NULL DEFAULT '' COMMENT '对外访问 URL（若可公开访问/或 CDN 地址）',
   `object_url_md5` CHAR(32) NOT NULL DEFAULT '' COMMENT '对外访问 URL md5 方便查询',
   `bucket` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '目标 bucket 如果OSS支持',
@@ -69,7 +69,7 @@ CREATE TABLE `yaf_file_oss` (
     KEY `oss_url_md5` (`object_url_md5`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='OSS远程文件';
 
-CREATE TABLE `yaf_file_log` (
+CREATE TABLE `lst_file_log` (
 	`id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
 	`file_id` BIGINT UNSIGNED NOT NULL COMMENT '文件ID',
     `file_chunk_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '分片ID',
@@ -80,7 +80,7 @@ CREATE TABLE `yaf_file_log` (
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '文件日志';
 
 
-CREATE TABLE `yaf_file_user` (
+CREATE TABLE `lst_file_user` (
 	`id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
     `user_id` BIGINT UNSIGNED NOT NULL COMMENT '上传用户ID',
     `app_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '应用ID,0=系统,>0=具体应用',
@@ -94,3 +94,19 @@ CREATE TABLE `yaf_file_user` (
     KEY `file_user_status_time` (`user_id`,`app_id`,`file_id`,`add_time`,`status`) USING BTREE,
     KEY `app_id` (`app_id`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户文件列表';
+
+
+CREATE TABLE `lst_file_tag` (
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `file_id` BIGINT UNSIGNED NOT NULL COMMENT '文件ID (lst_file.id)',
+    `user_id` BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+    `app_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '应用ID',
+    `tag_name` VARCHAR(100) NOT NULL COMMENT '标签名称（归一化存储：trim+小写）',
+    `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态：1=正常, 2=已删除',
+    `add_time` BIGINT UNSIGNED NOT NULL COMMENT '添加时间',
+    `change_time` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '最后修改时间',
+    KEY `idx_file_user_app_tag` (`file_id`, `user_id`, `app_id`, `tag_name`, `status`) USING BTREE,
+    KEY `idx_tag_name_status` (`tag_name`, `status`, `app_id`) USING BTREE,
+    KEY `idx_file_status` (`file_id`, `status`) USING BTREE,
+    KEY `idx_user_app_status` (`user_id`, `app_id`, `status`) USING BTREE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='文件标签关联表';

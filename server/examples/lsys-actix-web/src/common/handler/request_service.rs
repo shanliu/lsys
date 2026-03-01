@@ -6,7 +6,8 @@ use lsys_web::lsys_access::dao::AccessSession;
 use lsys_web::lsys_core::api_utils::{
     compute_service_sign, SERVICE_SIGNATURE_HEADER, SERVICE_TIMESTAMP_HEADER,
 };
-use lsys_web::lsys_core::{IntoFluentMessage, RequestEnv};
+use lsys_web::lsys_core::fluents::IntoFluentMessage;
+use lsys_web::lsys_core::utils::RequestEnv;
 use lsys_web::lsys_user::dao::{UserAuthSession, UserAuthToken};
 use lsys_web::{
     common::{JsonData, JsonResponse, RequestAuthDao},

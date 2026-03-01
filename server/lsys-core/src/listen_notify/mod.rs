@@ -15,7 +15,9 @@ use tokio::time::{sleep, Duration};
 use redis::AsyncCommands;
 use tracing::{debug, error, info, warn};
 
-use crate::{fluent_message, AppCore, IntoFluentMessage};
+use crate::fluent_message;
+use crate::app_core::AppCore;
+use crate::fluents::IntoFluentMessage;
 mod result;
 pub use result::*;
 pub trait WaitItem {
@@ -126,7 +128,7 @@ impl<T: WaitItem + Serialize + DeserializeOwned + Debug> WaitNotify<T> {
     }
     pub async fn listen(&self) {
         loop {
-            match self.app_core.create_redis_client().await {
+            match crate::app_core::create_redis_client(self.app_core.as_ref()).await {
                 Ok(redis_client) => {
                     let con_res = redis_client.get_multiplexed_async_connection().await;
                     match con_res {
@@ -267,21 +269,21 @@ async fn test_listen_notify() {
             "{}/../examples/lsys-actix-web/config",
             env!("CARGO_MANIFEST_DIR")
         ),
-        None,
+        "app",
         None,
     )
     .await
     .unwrap();
     #[derive(Serialize, Debug, Deserialize)]
     struct TmpData(u64);
-    impl crate::WaitItem for TmpData {
+    impl crate::listen_notify::WaitItem for TmpData {
         fn eq(&self, other: &Self) -> bool {
             self.0 == other.0
         }
     }
     let notify = std::sync::Arc::new(WaitNotify::<TmpData>::new(
         "sms",
-        app_core.create_redis().await.unwrap(),
+        crate::app_core::create_redis_pool(&app_core).await.unwrap(),
         Arc::new(app_core),
         10,
     ));

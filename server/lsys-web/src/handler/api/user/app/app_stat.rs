@@ -6,7 +6,7 @@ use crate::dao::access::RbacAccessCheckEnv;
 use chrono::{Duration, NaiveDate};
 use lsys_access::dao::AccessSession;
 use lsys_app::model::{AppNotifyDataStatus, AppRequestStatus, AppStatus};
-use lsys_core::now_time;
+use lsys_core::utils::now_time;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::{HashMap, HashSet};
@@ -283,7 +283,7 @@ pub async fn stat(param: &AppStatParam, req_dao: &UserAuthQueryDao) -> JsonResul
     let notify_stats_raw = req_dao
         .web_dao
         .web_app
-        .yaf_app_notify_data(app.id, days)
+        .app_notify_data(app.id, days)
         .await?
         .into_iter()
         .map(|e| NotifyStatData {
@@ -321,7 +321,7 @@ pub async fn stat(param: &AppStatParam, req_dao: &UserAuthQueryDao) -> JsonResul
     let oauth_access_raw = req_dao
         .web_dao
         .web_app
-        .yaf_app_oauth_client_access(app.id, days)
+        .app_oauth_client_access(app.id, days)
         .await?
         .into_iter()
         .map(|e| DailyStatData {
@@ -335,7 +335,7 @@ pub async fn stat(param: &AppStatParam, req_dao: &UserAuthQueryDao) -> JsonResul
     let sub_app_stats_raw = req_dao
         .web_dao
         .web_app
-        .yaf_app(app.id, days)
+        .app_day_stat(app.id, days)
         .await?
         .into_iter()
         .map(|e| StatusStatData {
@@ -360,7 +360,7 @@ pub async fn stat(param: &AppStatParam, req_dao: &UserAuthQueryDao) -> JsonResul
     let request_stats_raw = req_dao
         .web_dao
         .web_app
-        .yaf_app_request(app.id, days)
+        .app_request(app.id, days)
         .await?
         .into_iter()
         .map(|e| StatusStatData {

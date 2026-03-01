@@ -8,7 +8,9 @@ use redis::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{now_time, AppCore, AppCoreError, IntoFluentMessage};
+use crate::utils::now_time;
+use crate::app_core::{AppCore, AppCoreError};
+use crate::fluents::IntoFluentMessage;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::hash::Hash;
@@ -331,7 +333,7 @@ impl<
         let (channel_sender, mut channel_receiver) =
             tokio::sync::mpsc::channel::<T>(self.config.task_size);
         let task_list_key = self.config.task_list_key().to_owned();
-        let redis_client = match app_core.create_redis_client().await {
+        let redis_client = match crate::app_core::create_redis_client(app_core.as_ref()).await {
             Ok(redis_client) => redis_client,
             Err(err) => {
                 error!(

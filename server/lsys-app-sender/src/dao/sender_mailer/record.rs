@@ -10,10 +10,14 @@ use crate::{
         SenderMailMessageStatus, SenderType,
     },
 };
-use lsys_core::{
-    db::{CursorPageData, CursorPageParam, OffsetPageParam},
-    fluent_message, now_time, string_clear, valid_key, RequestEnv, StringClear, ValidEmail,
-    ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen, STRING_CLEAR_FORMAT,
+use lsys_core::db::{CursorPageData, CursorPageParam, OffsetPageParam};
+use lsys_core::fluent_message;
+use lsys_core::utils::{
+    now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT,
+};
+use lsys_core::valid_key;
+use lsys_core::valid_param::{
+    ValidEmail, ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
 };
 
 use lsys_core::db::{BatchInsert, Insert, SqlExpr, SqlSuffix, TableMeta, Update};
@@ -323,7 +327,7 @@ impl MailRecord {
             max_try_num = 10
         }
 
-        let body_id = Insert::<SenderMailBodyModel>::new()
+        let body_id = Insert::<_,SenderMailBodyModel>::new()
             .set(SenderMailBodyModel::REQUEST_ID, reqid)
             .set(SenderMailBodyModel::APP_ID, app_id)
             .set(SenderMailBodyModel::TPL_KEY, &tpl_key)
@@ -343,10 +347,10 @@ impl MailRecord {
             .await?
             .last_insert_id();
         let res_data = "";
-        let mut batch = BatchInsert::<SenderMailMessageModel>::with_capacity(add_data.len());
+        let mut batch = BatchInsert::<_,SenderMailMessageModel>::with_capacity(add_data.len());
         for (aid, _, to) in add_data.iter() {
             batch = batch.push(
-                Insert::<SenderMailMessageModel>::new()
+                Insert::<_,SenderMailMessageModel>::new()
                     .set(SenderMailMessageModel::SNID, *aid)
                     .set(SenderMailMessageModel::SENDER_BODY_ID, body_id)
                     .set(SenderMailMessageModel::TO_MAIL, to)
@@ -401,7 +405,7 @@ impl MailRecord {
             return Ok(());
         }
         if SenderMailMessageStatus::Init.eq(message.status) {
-            Update::<SenderMailMessageModel>::new()
+            Update::<_,SenderMailMessageModel>::new()
                 .set(
                     SenderMailMessageModel::STATUS,
                     SenderMailMessageStatus::IsCancel as i8,

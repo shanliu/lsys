@@ -2,7 +2,9 @@
 // 使用示例
 // 子应用秘钥超时,仅在一个节点进行超时回调任务添加
 
-use crate::{now_time, AppCore, AppCoreError, IntoFluentMessage};
+use crate::utils::now_time;
+use crate::app_core::{AppCore, AppCoreError};
+use crate::fluents::IntoFluentMessage;
 use futures_util::{FutureExt, StreamExt};
 use redis::aio::MultiplexedConnection;
 use redis::{AsyncCommands, RedisError};
@@ -504,7 +506,7 @@ impl<T: TimeOutTaskExecutor> TimeOutTask<T> {
         );
         loop {
             let _ = span!(Level::INFO, "listen_redis_sub").enter();
-            match app_core.create_redis_client().await {
+            match crate::app_core::create_redis_client(app_core.as_ref()).await {
                 Ok(redis_client) => {
                     let con_res = redis_client.get_async_pubsub().await;
                     match con_res {

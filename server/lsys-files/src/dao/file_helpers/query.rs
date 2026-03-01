@@ -145,4 +145,22 @@ impl FileHelper {
         .await?;
         Ok(row)
     }
+
+    /// 通过 storage_type + MD5 查询已存在的正常状态文件记录
+    pub async fn find_existing_file(
+        &self,
+        storage_type: &str,
+        file_md5: &str,
+    ) -> FileResult<Option<FileModel>> {
+        let row = sqlx::query_as::<_, FileModel>(&sql_format!(
+            "SELECT * FROM {} WHERE storage_type={} AND file_md5={} AND status={} LIMIT 1",
+            FileModel::table_name(),
+            storage_type,
+            file_md5,
+            FileStatus::Normal as i8
+        ))
+        .fetch_optional(&self.db)
+        .await?;
+        Ok(row)
+    }
 }

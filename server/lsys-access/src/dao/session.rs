@@ -1,5 +1,6 @@
 use async_trait::async_trait;
-use lsys_core::{fluent_message, now_time};
+use lsys_core::fluent_message;
+use lsys_core::utils::now_time;
 
 use crate::model::{SessionModel, SessionStatus, UserModel};
 

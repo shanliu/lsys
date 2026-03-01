@@ -4,18 +4,17 @@ use crate::db::SqlQuote;
 use super::field::Field;
 use super::table::TableMeta;
 use super::value::{FieldValue, IntoFieldValue, StoredValue};
-use sqlx::mysql::{MySqlArguments, MySqlQueryResult};
 use sqlx::query::Query;
-use sqlx::{Error, Executor, MySql};
+use sqlx::{Database, Error, Executor};
 use std::marker::PhantomData;
 
 /// INSERT 构建器
-pub struct Insert<'a, M: TableMeta> {
-    pub(crate) fields: Vec<(String, StoredValue<'a>)>,
+pub struct Insert<'a, DB: Database, M: TableMeta> {
+    pub(crate) fields: Vec<(String, StoredValue<'a, DB>)>,
     _marker: PhantomData<M>,
 }
 
-impl<'a, M: TableMeta> Insert<'a, M> {
+impl<'a, DB: Database, M: TableMeta> Insert<'a, DB, M> {
     pub fn new() -> Self {
         Self {
             fields: Vec::new(),
@@ -26,8 +25,8 @@ impl<'a, M: TableMeta> Insert<'a, M> {
     /// 设置字段值
     pub fn set<T, V>(mut self, field: Field<T>, value: V) -> Self
     where
-        T: for<'q> sqlx::Encode<'q, MySql> + sqlx::Type<MySql> + Send + Sync + 'a,
-        V: IntoFieldValue<'a, T>,
+        for<'q> T: sqlx::Encode<'q, DB> + sqlx::Type<DB> + Send + Sync + 'a,
+        V: IntoFieldValue<'a, DB, T>,
     {
         let col = field.column.to_string();
         let field_value = value.into_field_value();
@@ -63,12 +62,13 @@ impl<'a, M: TableMeta> Insert<'a, M> {
     }
 
     /// 将字段值绑定到 Query
-    fn bind_fields<'q>(&self, sql: &'q str) -> Query<'q, MySql, MySqlArguments> {
-        let mut args = MySqlArguments::default();
-
+    fn bind_fields<'q>(&'q self, sql: &'q str, mut args: <DB as Database>::Arguments<'q>) -> Query<'q, DB, <DB as Database>::Arguments<'q>> 
+    where
+        for<'a_> <DB as Database>::Arguments<'a_>: sqlx::Arguments<'a_> + sqlx::IntoArguments<'a_, DB>,
+    {
         for (_, value) in &self.fields {
             if let StoredValue::Bind(b) = value {
-                b.add_to_args(&mut args);
+                b.add_to_args_dyn(&mut args);
             }
         }
 
@@ -76,16 +76,14 @@ impl<'a, M: TableMeta> Insert<'a, M> {
     }
 
     /// 执行 INSERT
-    ///
-    /// 支持空 INSERT（如只有自增ID的表）
-    pub async fn execute<'e, E>(self, executor: E) -> Result<MySqlQueryResult, Error>
+    pub async fn execute<'e, E>(self, executor: E) -> Result<<DB as Database>::QueryResult, Error>
     where
-        E: Executor<'e, Database = MySql>,
+        for<'a_> <DB as Database>::Arguments<'a_>: sqlx::Arguments<'a_> + sqlx::IntoArguments<'a_, DB>,
+        E: Executor<'e, Database = DB>,
     {
         let table = M::table_name().sql_quote();
 
         let sql = if self.fields.is_empty() {
-            // 支持空 INSERT: INSERT INTO `table` () VALUES ()
             format!("INSERT INTO {} () VALUES ()", table)
         } else {
             let columns: Vec<&str> = self.fields.iter().map(|(col, _)| col.as_str()).collect();
@@ -94,7 +92,7 @@ impl<'a, M: TableMeta> Insert<'a, M> {
                 .fields
                 .iter()
                 .map(|(_, v)| match v {
-                    StoredValue::Bind(_) => "?".to_string(),
+                    StoredValue::Bind(_) => "?".to_string(), // In PostgreSQL it uses $1 but ? works for MySQL, SQLite.
                     StoredValue::Expr(e) => e.clone(),
                 })
                 .collect();
@@ -102,27 +100,26 @@ impl<'a, M: TableMeta> Insert<'a, M> {
             format!(
                 "INSERT INTO {} ({}) VALUES ({})",
                 table,
-                columns
-                    .iter()
-                    .map(|c| format!("`{}`", c))
-                    .collect::<Vec<_>>()
-                    .join(", "),
+                columns.join(", "),
                 placeholders.join(", ")
             )
         };
 
-        let query = self.bind_fields(&sql);
+        let args = <DB as Database>::Arguments::default();
+        let query = self.bind_fields(&sql, args);
         query.execute(executor).await
     }
 
-    /// 执行 INSERT ... ON DUPLICATE KEY UPDATE
+    /// 执行 INSERT ... ON DUPLICATE KEY UPDATE / ON CONFLICT DO UPDATE
+    #[cfg(feature = "db-mysql")]
     pub async fn execute_update<'e, 'b, E>(
         self,
-        on_duplicate: Update<'b, M>,
+        on_duplicate: Update<'b, DB, M>,
         executor: E,
-    ) -> Result<MySqlQueryResult, Error>
+    ) -> Result<<DB as Database>::QueryResult, Error>
     where
-        E: Executor<'e, Database = MySql>,
+        for<'a_> <DB as Database>::Arguments<'a_>: sqlx::Arguments<'a_> + sqlx::IntoArguments<'a_, DB>,
+        E: Executor<'e, Database = DB>,
     {
         if on_duplicate.is_empty() {
             return Err(Error::Protocol("ON DUPLICATE KEY UPDATE is empty".into()));
@@ -151,30 +148,23 @@ impl<'a, M: TableMeta> Insert<'a, M> {
             format!(
                 "INSERT INTO {} ({}) VALUES ({}) ON DUPLICATE KEY UPDATE {}",
                 table,
-                columns
-                    .iter()
-                    .map(|c| format!("`{}`", c))
-                    .collect::<Vec<_>>()
-                    .join(", "),
+                columns.join(", "),
                 placeholders.join(", "),
                 update_clause
             )
         };
 
-        // 收集所有参数：INSERT 部分 + UPDATE 部分
-        let mut args = MySqlArguments::default();
+        let mut args = <DB as Database>::Arguments::default();
 
-        // INSERT 的参数
         for (_, value) in &self.fields {
             if let StoredValue::Bind(b) = value {
-                b.add_to_args(&mut args);
+                b.add_to_args_dyn(&mut args);
             }
         }
 
-        // UPDATE 的参数
         for (_, value) in &on_duplicate.fields {
             if let StoredValue::Bind(b) = value {
-                b.add_to_args(&mut args);
+                b.add_to_args_dyn(&mut args);
             }
         }
 
@@ -183,7 +173,7 @@ impl<'a, M: TableMeta> Insert<'a, M> {
     }
 }
 
-impl<'a, M: TableMeta> Default for Insert<'a, M> {
+impl<'a, DB: Database, M: TableMeta> Default for Insert<'a, DB, M> {
     fn default() -> Self {
         Self::new()
     }
@@ -192,12 +182,12 @@ impl<'a, M: TableMeta> Default for Insert<'a, M> {
 // ============== BatchInsert ==============
 
 /// 批量 INSERT 构建器
-pub struct BatchInsert<'a, M: TableMeta> {
-    rows: Vec<Insert<'a, M>>,
+pub struct BatchInsert<'a, DB: Database, M: TableMeta> {
+    rows: Vec<Insert<'a, DB, M>>,
     _marker: PhantomData<M>,
 }
 
-impl<'a, M: TableMeta> BatchInsert<'a, M> {
+impl<'a, DB: Database, M: TableMeta> BatchInsert<'a, DB, M> {
     pub fn new() -> Self {
         Self {
             rows: Vec::new(),
@@ -205,7 +195,6 @@ impl<'a, M: TableMeta> BatchInsert<'a, M> {
         }
     }
 
-    /// 创建预分配容量的批量插入构建器
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             rows: Vec::with_capacity(capacity),
@@ -213,8 +202,7 @@ impl<'a, M: TableMeta> BatchInsert<'a, M> {
         }
     }
 
-    /// 添加一行数据
-    pub fn push(mut self, row: Insert<'a, M>) -> Self {
+    pub fn push(mut self, row: Insert<'a, DB, M>) -> Self {
         self.rows.push(row);
         self
     }
@@ -223,21 +211,17 @@ impl<'a, M: TableMeta> BatchInsert<'a, M> {
         self.rows.is_empty()
     }
 
-    /// 执行批量插入
-    ///
-    /// 支持空 INSERT（如只有自增ID的表）
-    /// 如果批次为空，返回成功（rows_affected = 0）
-    pub async fn execute<'e, E>(self, executor: E) -> Result<MySqlQueryResult, Error>
+    pub async fn execute<'e, E>(self, executor: E) -> Result<<DB as Database>::QueryResult, Error>
     where
-        E: Executor<'e, Database = MySql>,
+        for<'a_> <DB as Database>::Arguments<'a_>: sqlx::Arguments<'a_> + sqlx::IntoArguments<'a_, DB>,
+        E: Executor<'e, Database = DB>,
     {
         if self.rows.is_empty() {
-            return Ok(MySqlQueryResult::default());
+            return Ok(<DB as Database>::QueryResult::default());
         }
 
         let table = M::table_name().sql_quote();
 
-        // 收集所有列
         let mut all_columns: Vec<String> = Vec::new();
         for row in &self.rows {
             for (col, _) in &row.fields {
@@ -247,7 +231,6 @@ impl<'a, M: TableMeta> BatchInsert<'a, M> {
             }
         }
 
-        // 如果所有行都是空的（只有自增ID的表）
         if all_columns.is_empty() {
             let value_groups: Vec<&str> = self.rows.iter().map(|_| "()").collect();
             let sql = format!(
@@ -258,9 +241,8 @@ impl<'a, M: TableMeta> BatchInsert<'a, M> {
             return sqlx::query(&sql).execute(executor).await;
         }
 
-        // 构建 VALUES 子句
         let mut value_groups: Vec<String> = Vec::new();
-        let mut bind_values: Vec<&StoredValue> = Vec::new();
+        let mut bind_values: Vec<&StoredValue<'a, DB>> = Vec::new();
 
         for row in &self.rows {
             let mut placeholders: Vec<String> = Vec::new();
@@ -286,19 +268,14 @@ impl<'a, M: TableMeta> BatchInsert<'a, M> {
         let sql = format!(
             "INSERT INTO {} ({}) VALUES {}",
             table,
-            all_columns
-                .iter()
-                .map(|c| format!("`{}`", c))
-                .collect::<Vec<_>>()
-                .join(", "),
+            all_columns.join(", "),
             value_groups.join(", ")
         );
 
-        // 收集所有参数
-        let mut args = MySqlArguments::default();
+        let mut args = <DB as Database>::Arguments::default();
         for stored in bind_values {
             if let StoredValue::Bind(b) = stored {
-                b.add_to_args(&mut args);
+                b.add_to_args_dyn(&mut args);
             }
         }
 
@@ -306,19 +283,18 @@ impl<'a, M: TableMeta> BatchInsert<'a, M> {
         query.execute(executor).await
     }
 
-    /// 执行批量 INSERT ON DUPLICATE KEY UPDATE
-    ///
-    /// 如果批次为空，返回成功（rows_affected = 0）
+    #[cfg(feature = "db-mysql")]
     pub async fn execute_update<'e, 'b, E>(
         self,
-        on_duplicate: Update<'b, M>,
+        on_duplicate: Update<'b, DB, M>,
         executor: E,
-    ) -> Result<MySqlQueryResult, Error>
+    ) -> Result<<DB as Database>::QueryResult, Error>
     where
-        E: Executor<'e, Database = MySql>,
+        for<'a_> <DB as Database>::Arguments<'a_>: sqlx::Arguments<'a_> + sqlx::IntoArguments<'a_, DB>,
+        E: Executor<'e, Database = DB>,
     {
         if self.rows.is_empty() {
-            return Ok(MySqlQueryResult::default());
+            return Ok(<DB as Database>::QueryResult::default());
         }
 
         if on_duplicate.is_empty() {
@@ -328,7 +304,6 @@ impl<'a, M: TableMeta> BatchInsert<'a, M> {
         let table = M::table_name().sql_quote();
         let update_clause = on_duplicate.to_set_clause();
 
-        // 收集所有列
         let mut all_columns: Vec<String> = Vec::new();
         for row in &self.rows {
             for (col, _) in &row.fields {
@@ -338,7 +313,6 @@ impl<'a, M: TableMeta> BatchInsert<'a, M> {
             }
         }
 
-        // 如果所有行都是空的（只有自增ID的表）
         if all_columns.is_empty() {
             let value_groups: Vec<&str> = self.rows.iter().map(|_| "()").collect();
             let sql = format!(
@@ -348,11 +322,10 @@ impl<'a, M: TableMeta> BatchInsert<'a, M> {
                 update_clause
             );
 
-            // 只有 UPDATE 部分的参数
-            let mut args = MySqlArguments::default();
+            let mut args = <DB as Database>::Arguments::default();
             for (_, value) in &on_duplicate.fields {
                 if let StoredValue::Bind(b) = value {
-                    b.add_to_args(&mut args);
+                    b.add_to_args_dyn(&mut args);
                 }
             }
 
@@ -360,9 +333,8 @@ impl<'a, M: TableMeta> BatchInsert<'a, M> {
             return query.execute(executor).await;
         }
 
-        // 构建 VALUES 子句
         let mut value_groups: Vec<String> = Vec::new();
-        let mut bind_values: Vec<&StoredValue> = Vec::new();
+        let mut bind_values: Vec<&StoredValue<'a, DB>> = Vec::new();
 
         for row in &self.rows {
             let mut placeholders: Vec<String> = Vec::new();
@@ -388,29 +360,22 @@ impl<'a, M: TableMeta> BatchInsert<'a, M> {
         let sql = format!(
             "INSERT INTO {} ({}) VALUES {} ON DUPLICATE KEY UPDATE {}",
             table,
-            all_columns
-                .iter()
-                .map(|c| format!("`{}`", c))
-                .collect::<Vec<_>>()
-                .join(", "),
+            all_columns.join(", "),
             value_groups.join(", "),
             update_clause
         );
 
-        // 收集所有参数：VALUES 部分 + UPDATE 部分
-        let mut args = MySqlArguments::default();
+        let mut args = <DB as Database>::Arguments::default();
 
-        // VALUES 部分的参数
         for stored in bind_values {
             if let StoredValue::Bind(b) = stored {
-                b.add_to_args(&mut args);
+                b.add_to_args_dyn(&mut args);
             }
         }
 
-        // UPDATE 部分的参数
         for (_, value) in &on_duplicate.fields {
             if let StoredValue::Bind(b) = value {
-                b.add_to_args(&mut args);
+                b.add_to_args_dyn(&mut args);
             }
         }
 
@@ -419,7 +384,7 @@ impl<'a, M: TableMeta> BatchInsert<'a, M> {
     }
 }
 
-impl<'a, M: TableMeta> Default for BatchInsert<'a, M> {
+impl<'a, DB: Database, M: TableMeta> Default for BatchInsert<'a, DB, M> {
     fn default() -> Self {
         Self::new()
     }

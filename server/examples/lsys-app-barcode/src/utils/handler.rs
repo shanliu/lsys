@@ -4,33 +4,33 @@ use axum::{
 };
 use lsys_core::{
     api_utils::{JsonData, JsonResponse},
-    FluentBundle, FluentMgr, IntoFluentMessage, RequestEnv,
 };
+use lsys_core::fluents::{FluentBundle, FluentMessage, FluentMgr, IntoFluentMessage};
+use lsys_core::utils::RequestEnv;
 use serde_json::Value;
 use std::sync::Arc;
 
 // ---- response helpers ----
 
-use lsys_core::FluentMessage;
 use serde_json::json;
 
 use crate::model::{BarcodeCreateStatus, BarcodeParseStatus};
 
-pub fn create_status_json(fluent: &lsys_core::FluentBundle, status: BarcodeCreateStatus) -> Value {
+pub fn create_status_json(fluent: &FluentBundle, status: BarcodeCreateStatus) -> Value {
     json!({
         "key": status as i8,
         "val": fluent.format_message(&status.fluent()),
     })
 }
 
-pub fn parse_status_json(fluent: &lsys_core::FluentBundle, status: BarcodeParseStatus) -> Value {
+pub fn parse_status_json(fluent: &FluentBundle, status: BarcodeParseStatus) -> Value {
     json!({
         "key": status as i8,
         "val": fluent.format_message(&status.fluent()),
     })
 }
 
-pub fn barcode_type_json(fluent: &lsys_core::FluentBundle, barcode_type: &str) -> Value {
+pub fn barcode_type_json(fluent: &FluentBundle, barcode_type: &str) -> Value {
     let msg = FluentMessage {
         id: format!("var-{}", barcode_type),
         crate_name: env!("CARGO_PKG_NAME").to_string(),

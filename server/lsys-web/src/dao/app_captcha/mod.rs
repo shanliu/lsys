@@ -2,7 +2,7 @@ mod captcha_data;
 mod captcha_key;
 pub use captcha_data::*;
 pub use captcha_key::*;
-use lsys_core::ValidCode;
+use lsys_core::valid_code::ValidCode;
 
 pub struct AppCaptcha {
     redis: deadpool_redis::Pool,

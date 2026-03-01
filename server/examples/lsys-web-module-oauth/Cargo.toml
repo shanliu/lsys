@@ -5,7 +5,7 @@ authors = ["liushan <shan.liu@msn.com>"]
 edition = "2021"
 
 [dependencies]
-lsys-core = { path = "../../lsys-core", features = ["db", "redis"] }
+lsys-core = { path = "../../lsys-core", features = ["db-mysql", "redis"] }
 lsys-web = { path = "../../lsys-web" }
 lsys-setting = { path = "../../lsys-setting" }
 lsys-rbac = { path = "../../lsys-rbac" }

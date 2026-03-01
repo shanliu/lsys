@@ -11,7 +11,7 @@ use lsys_app::dao::AppNotifySender;
 use lsys_core::db::SqlQuote;
 use lsys_core::db::{TableMeta, SqlExpr};
 use lsys_core::sql_format;
-use lsys_core::IntoFluentMessage;
+use lsys_core::fluents::IntoFluentMessage;
 use lsys_lib_sms::{SendNotifyError, SendNotifyItem, SendNotifyStatus};
 use lsys_setting::{
     dao::{SettingData, SettingDecode, SettingKey},

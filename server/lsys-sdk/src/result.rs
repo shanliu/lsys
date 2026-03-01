@@ -1,4 +1,5 @@
-use lsys_core::{fluent_message, FluentMessage, IntoFluentMessage};
+use lsys_core::fluent_message;
+use lsys_core::fluents::{FluentMessage, IntoFluentMessage};
 use serde_json::Value;
 use std::fmt;
 

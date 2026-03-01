@@ -1,4 +1,4 @@
-CREATE TABLE `yaf_rbac_role` (
+CREATE TABLE `lst_rbac_role` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID,当user_id时,对应关联的应用ID',
@@ -29,7 +29,7 @@ CREATE TABLE `yaf_rbac_role` (
         `app_id`
     ) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '角色';
-CREATE TABLE `yaf_rbac_res` (
+CREATE TABLE `lst_rbac_res` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID,当user_id时,对应关联的应用ID',
@@ -55,7 +55,7 @@ CREATE TABLE `yaf_rbac_res` (
         `app_id`
     ) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '资源';
-CREATE TABLE `yaf_rbac_op` (
+CREATE TABLE `lst_rbac_op` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID,当user_id时,对应关联的应用ID',
@@ -74,7 +74,7 @@ CREATE TABLE `yaf_rbac_op` (
         `app_id`
     ) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '资源操作';
-CREATE TABLE `yaf_rbac_op_res` (
+CREATE TABLE `lst_rbac_op_res` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `res_type` varchar(32) NOT NULL COMMENT '资源类型',
     `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
@@ -93,7 +93,7 @@ CREATE TABLE `yaf_rbac_op_res` (
     ) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '操作跟资源关联';
 
-CREATE TABLE `yaf_rbac_perm` (
+CREATE TABLE `lst_rbac_perm` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `role_id` bigint unsigned NOT NULL COMMENT '角色ID',
     `res_id` bigint unsigned NOT NULL COMMENT '资源ID',
@@ -110,7 +110,7 @@ CREATE TABLE `yaf_rbac_perm` (
     ) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '角色关联的资源操作';
 
-CREATE TABLE `yaf_rbac_role_user` (
+CREATE TABLE `lst_rbac_role_user` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `role_id` bigint unsigned NOT NULL COMMENT '角色ID',
     `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
@@ -123,7 +123,7 @@ CREATE TABLE `yaf_rbac_role_user` (
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '角色关联的用户';
 
 
-CREATE TABLE `yaf_rbac_audit` (
+CREATE TABLE `lst_rbac_audit` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `user_id` bigint unsigned NOT NULL COMMENT '访问用户ID',
     `user_app_id` bigint unsigned NOT NULL COMMENT '访问用户ID关联appid',
@@ -142,7 +142,7 @@ CREATE TABLE `yaf_rbac_audit` (
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '授权审计记录';
 
 
-CREATE TABLE `yaf_rbac_audit_detail` (
+CREATE TABLE `lst_rbac_audit_detail` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `rbac_audit_id` bigint unsigned NOT NULL COMMENT '审计ID',
     `res_type` varchar(32) NOT NULL COMMENT '资源类型',

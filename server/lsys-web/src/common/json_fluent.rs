@@ -3,7 +3,12 @@
 use lsys_access::dao::AccessError;
 use lsys_app_sender::dao::SenderError;
 use lsys_core::{
-    AppCoreError, ConfigError, FluentBundle, RemoteNotifyError, ValidCodeError, ValidError,
+    app_core::AppCoreError,
+    config::ConfigError,
+    fluents::FluentBundle,
+    remote_notify::RemoteNotifyError,
+    valid_code::ValidCodeError,
+    valid_param::ValidError,
 };
 
 use lsys_logger::dao::LoggerError;
@@ -371,6 +376,12 @@ impl JsonFluent for lsys_files::common::FileError {
             }
             lsys_files::common::FileError::InvalidChunkData(_) => {
                 JsonData::default().set_code(400).set_sub_code("file-chunk")
+            }
+            lsys_files::common::FileError::DownloadTimeout(_, _) => {
+                JsonData::default().set_code(504).set_sub_code("file-download-timeout")
+            }
+            lsys_files::common::FileError::DownloadFailed(_, _) => {
+                JsonData::default().set_code(500).set_sub_code("file-download-failed")
             }
         }
     }

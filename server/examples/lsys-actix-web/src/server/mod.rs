@@ -4,26 +4,28 @@ use actix_web::dev::Server;
 use actix_web::web::{Data, JsonConfig};
 use actix_web::{error, http, middleware as middlewares, HttpResponse, HttpServer};
 
+use crate::common::handler::{JwtQueryConfig, RestQueryConfig};
+use crate::common::middleware::{AllowOrigin, RedirectSsl, RequestID};
+use crate::handler::render_500;
+use crate::handler::router;
 use actix_web::App;
 use futures_util::TryFutureExt;
 use jsonwebtoken::{DecodingKey, Validation};
 use lsys_web::common::FluentFormat;
 use lsys_web::dao::WebDao;
-use lsys_web::lsys_core::{AppCore, AppCoreError, IntoFluentMessage};
+use lsys_web::lsys_core::app_core::utils::init_tracing;
+use lsys_web::lsys_core::app_core::{AppCore, AppCoreError};
+use lsys_web::lsys_core::config::ConfigError;
+use lsys_web::lsys_core::fluents::IntoFluentMessage;
+use result::AppError;
+use rustls::load_rustls_config;
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::debug;
 
-use crate::common::handler::{JwtQueryConfig, RestQueryConfig};
-use crate::common::middleware::{AllowOrigin, RedirectSsl, RequestID};
-use crate::handler::render_500;
-use crate::handler::router;
-use result::AppError;
-use rustls::load_rustls_config;
-
 pub async fn create_server(app_dir: &str) -> Result<Server, AppError> {
-    let app_core = AppCore::new(app_dir, "config", None, None).await?;
-    app_core.init().await?;
+    let app_core = AppCore::new(app_dir, "config", "app", None).await?;
+    init_tracing(&app_core).await?;
     let app_core = Arc::new(app_core);
     let app_dao = Data::new(WebDao::new(app_core.clone()).await.map_err(|e| {
         AppError::AppCore(AppCoreError::System(e.to_fluent_message().default_format()))
@@ -35,7 +37,7 @@ pub async fn create_server(app_dir: &str) -> Result<Server, AppError> {
         .config
         .find(None)
         .get_string("app_jwt_key")
-        .map_err(|err| AppCoreError::Config(lsys_web::lsys_core::ConfigError::Config(err)))?;
+        .map_err(|err| AppCoreError::Config(ConfigError::Config(err)))?;
     let app_json_limit = app_dao
         .app_core
         .config

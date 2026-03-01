@@ -11,7 +11,7 @@ use crate::auth::RestAuthorizeResponse;
 use crate::dao::{BarcodeParseRecord, ParseParam as BarcodeParseParam};
 use crate::server::AppState;
 use crate::utils::handler::{env_from_headers, json_err, json_fluent_err, json_ok};
-use lsys_core::FluentBundle;
+use lsys_core::fluents::FluentBundle;
 
 use super::utils::upload_field;
 use super::RestGet;

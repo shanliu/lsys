@@ -7,12 +7,13 @@ use crate::{
 
 use lsys_core::db::{TableMeta, SqlExpr};
 use lsys_core::sql_format;
-use lsys_core::{now_time, AppCore};
+use lsys_core::app_core::AppCore;
 use parking_lot::Mutex;
 use sqlx::{FromRow, MySql, Pool};
 
 use lsys_core::db::SqlQuote;
-use lsys_core::{TaskData, TaskItem};
+use lsys_core::task_dispatch::{TaskData, TaskItem};
+use lsys_core::utils::now_time;
 
 //统一任务消息读取实现
 
@@ -34,7 +35,7 @@ where
     for<'t> MM: FromRow<'t, sqlx::mysql::MySqlRow> + Send + Unpin + TableMeta,
 {
     pub fn new(db: Pool<sqlx::MySql>, app_core: Arc<AppCore>, send_type: SenderType) -> Self {
-        let id_generator = Arc::new(Mutex::new(app_core.create_snowflake_id_generator()));
+        let id_generator = Arc::new(Mutex::new(lsys_core::app_core::create_snowflake_id_generator(app_core.as_ref())));
         Self {
             id_generator,
             db,
@@ -125,24 +126,18 @@ where
         .fetch_all(&self.db)
         .await?)
     }
-    lsys_core::impl_dao_fetch_one_by_one!(
-        db,
-        find_message_by_id,
-        u64,
-        MM,
-        SenderResult<MM>,
-        id,
-        "id={id}"
-    );
-    lsys_core::impl_dao_fetch_one_by_one!(
-        db,
-        find_body_by_id,
-        u64,
-        BM,
-        SenderResult<BM>,
-        id,
-        "id={id}"
-    );
+    pub async fn find_message_by_id(&self, id: &u64) -> SenderResult<MM> {
+        Ok(lsys_core::db::utils::fetch_one::<MM>(
+            &self.db,
+            lsys_core::sql_format!("id={id}", id = id),
+        ).await?)
+    }
+    pub async fn find_body_by_id(&self, id: &u64) -> SenderResult<BM> {
+        Ok(lsys_core::db::utils::fetch_one::<BM>(
+            &self.db,
+            lsys_core::sql_format!("id={id}", id = id),
+        ).await?)
+    }
     pub async fn find_body_by_id_vec(&self, ids: &[u64]) -> SenderResult<Vec<BM>> {
         Ok(sqlx::query_as::<_, BM>(&sql_format!(
             "select * from {} where id in ({}) ",

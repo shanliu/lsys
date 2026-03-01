@@ -3,7 +3,7 @@ use crate::model::{
     RbacOpModel, RbacOpResModel, RbacOpResStatus, RbacOpStatus, RbacPermModel, RbacPermStatus,
 };
 use lsys_core::db::OffsetPageParam;
-use lsys_core::{impl_dao_fetch_one_by_one, string_clear, StringClear, STRING_CLEAR_FORMAT};
+use lsys_core::utils::{string_clear, StringClear, STRING_CLEAR_FORMAT};
 use sqlx::Row;
 use std::collections::HashMap;
 use std::vec;
@@ -16,27 +16,19 @@ use super::RbacOp;
 //资源操作相关数据获取
 
 impl RbacOp {
-    impl_dao_fetch_one_by_one!(
-        db,
-        find_by_id,
-        u64,
-        RbacOpModel,
-        RbacResult<RbacOpModel>,
-        id,
-        "id={id} and status = {status}",
-        status = RbacOpStatus::Enable
-    );
-    lsys_core::impl_dao_fetch_map_by_vec!(
-        db,
-        find_by_ids,
-        u64,
-        RbacOpModel,
-        RbacResult<HashMap<u64, RbacOpModel>>,
-        id,
-        ids,
-        "id in ({ids}) and  status = {status}",
-        status = RbacOpStatus::Enable
-    );
+    pub async fn find_by_id(&self, id: &u64) -> RbacResult<RbacOpModel> {
+        Ok(lsys_core::db::utils::fetch_one::<RbacOpModel>(
+            &self.db,
+            lsys_core::sql_format!("id={id} and status = {status}", id = id, status = RbacOpStatus::Enable),
+        ).await?)
+    }
+    pub async fn find_by_ids(&self, ids: &[u64]) -> RbacResult<HashMap<u64, RbacOpModel>> {
+        Ok(lsys_core::db::utils::fetch_map::<RbacOpModel, _, _>(
+            &self.db,
+            lsys_core::sql_format!("id in ({ids}) and  status = {status}", ids = ids, status = RbacOpStatus::Enable),
+            |v| v.id,
+        ).await?)
+    }
 }
 
 pub struct OpDataParam<'t> {

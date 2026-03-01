@@ -1,5 +1,6 @@
 //用户注册的封装
-use lsys_core::{IntoFluentMessage, RequestEnv};
+use lsys_core::fluents::IntoFluentMessage;
+use lsys_core::utils::RequestEnv;
 use lsys_user::dao::AccountInfoParam;
 use lsys_user::model::{AccountEmailStatus, AccountMobileStatus, AccountModel};
 

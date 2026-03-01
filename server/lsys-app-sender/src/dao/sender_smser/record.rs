@@ -10,10 +10,14 @@ use crate::{
         SenderSmsMessageModel, SenderSmsMessageStatus, SenderType,
     },
 };
-use lsys_core::{
-    db::{OffsetPageParam, CursorPageData, CursorPageParam}, fluent_message, now_time, string_clear, valid_key,
-    RequestEnv, StringClear, ValidMobile, ValidNumber, ValidParam, ValidParamCheck, ValidPattern,
-    ValidStrlen, STRING_CLEAR_FORMAT,
+use lsys_core::db::{CursorPageData, CursorPageParam, OffsetPageParam};
+use lsys_core::fluent_message;
+use lsys_core::utils::{
+    now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT,
+};
+use lsys_core::valid_key;
+use lsys_core::valid_param::{
+    ValidMobile, ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
 };
 
 use lsys_core::db::{BatchInsert, Insert, TableMeta, SqlExpr, SqlSuffix, Update};
@@ -322,7 +326,7 @@ impl SmsRecord {
         if max_try_num > 10 {
             max_try_num = 10
         }
-        let res = Insert::<SenderSmsBodyModel>::new()
+        let res = Insert::<_,SenderSmsBodyModel>::new()
             .set(SenderSmsBodyModel::APP_ID, app_id)
             .set(SenderSmsBodyModel::TPL_KEY, &tpl_key)
             .set(SenderSmsBodyModel::REQUEST_ID, reqid)
@@ -344,10 +348,10 @@ impl SmsRecord {
             }
         };
         let res_data = "";
-        let mut batch = BatchInsert::<SenderSmsMessageModel>::with_capacity(add_data.len());
+        let mut batch = BatchInsert::<_,SenderSmsMessageModel>::with_capacity(add_data.len());
         for (id, _, _, area, mobile) in add_data.iter() {
             batch = batch.push(
-                Insert::<SenderSmsMessageModel>::new()
+                Insert::<_,SenderSmsMessageModel>::new()
                     .set(SenderSmsMessageModel::SNID, *id)
                     .set(SenderSmsMessageModel::SENDER_BODY_ID, body_id)
                     .set(SenderSmsMessageModel::MOBILE, mobile)
@@ -399,7 +403,7 @@ impl SmsRecord {
             return Ok(());
         }
         if SenderSmsMessageStatus::Init.eq(message.status) {
-            Update::<SenderSmsMessageModel>::new()
+            Update::<_,SenderSmsMessageModel>::new()
                 .set(SenderSmsMessageModel::STATUS, SenderSmsMessageStatus::IsCancel as i8)
                 .execute(
                     SqlSuffix::Where(&sql_format!("id={}", message.id)),

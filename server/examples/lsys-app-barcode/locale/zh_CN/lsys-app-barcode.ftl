@@ -4,7 +4,6 @@ barcode-app-id = 创建条形码需选择应用
 barcode-image = 创建条形码图片格式不支持：{$val}
 barcode-type = 条形码类型不支持：{$val}
 rxing-error = 条码解析库异常:{$msg}
-barcode-image-error = 条形码图片解析异常:{$msg}   
 
 # 认证错误
 auth-param-parse-error = 请求参数解析错误: {$message}

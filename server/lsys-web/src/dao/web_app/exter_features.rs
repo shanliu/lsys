@@ -1,5 +1,6 @@
 use crate::dao::{WebApp, WebResult};
 use lsys_core::db::OffsetPageParam;
+use lsys_core::utils::RequestEnv;
 use lsys_setting::dao::{
     MultipleSettingData, SettingDecode, SettingEncode, SettingJson, SettingKey, SettingResult,
 };
@@ -45,7 +46,7 @@ impl WebApp {
         feature_key: &str,
         data: &WebExterFeatureSetting,
         change_user_id: u64,
-        env_data: Option<&lsys_core::RequestEnv>,
+        env_data: Option<&RequestEnv>,
     ) -> WebResult<u64> {
         let id = self
             .web_setting
@@ -71,7 +72,7 @@ impl WebApp {
         feature_key: &str,
         data: &WebExterFeatureSetting,
         change_user_id: u64,
-        env_data: Option<&lsys_core::RequestEnv>,
+        env_data: Option<&RequestEnv>,
     ) -> WebResult<u64> {
         let rows = self
             .web_setting
@@ -96,7 +97,7 @@ impl WebApp {
         &self,
         id: u64,
         change_user_id: u64,
-        env_data: Option<&lsys_core::RequestEnv>,
+        env_data: Option<&RequestEnv>,
     ) -> WebResult<u64> {
         let rows = self
             .web_setting

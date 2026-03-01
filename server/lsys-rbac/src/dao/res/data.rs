@@ -6,8 +6,8 @@ use crate::model::{
     RbacResModel, RbacResStatus,
 };
 use lsys_core::db::{OffsetPageParam, SqlExpr, SqlQuote, TableMeta};
-use lsys_core::{impl_dao_fetch_one_by_one, StringClear, STRING_CLEAR_FORMAT};
-use lsys_core::{sql_format, string_clear};
+use lsys_core::sql_format;
+use lsys_core::utils::{string_clear, StringClear, STRING_CLEAR_FORMAT};
 use serde::Serialize;
 use sqlx::Row;
 use std::collections::{HashMap, HashSet};
@@ -17,27 +17,19 @@ use std::vec;
 //资源的数据获取
 
 impl RbacRes {
-    impl_dao_fetch_one_by_one!(
-        db,
-        find_by_id,
-        u64,
-        RbacResModel,
-        RbacResult<RbacResModel>,
-        id,
-        "id={id} and status = {status}",
-        status = RbacResStatus::Enable
-    );
-    lsys_core::impl_dao_fetch_map_by_vec!(
-        db,
-        find_by_ids,
-        u64,
-        RbacResModel,
-        RbacResult<HashMap<u64, RbacResModel>>,
-        id,
-        ids,
-        "id in ({ids}) and  status = {status}",
-        status = RbacResStatus::Enable
-    );
+    pub async fn find_by_id(&self, id: &u64) -> RbacResult<RbacResModel> {
+        Ok(lsys_core::db::utils::fetch_one::<RbacResModel>(
+            &self.db,
+            lsys_core::sql_format!("id={id} and status = {status}", id = id, status = RbacResStatus::Enable),
+        ).await?)
+    }
+    pub async fn find_by_ids(&self, ids: &[u64]) -> RbacResult<HashMap<u64, RbacResModel>> {
+        Ok(lsys_core::db::utils::fetch_map::<RbacResModel, _, _>(
+            &self.db,
+            lsys_core::sql_format!("id in ({ids}) and  status = {status}", ids = ids, status = RbacResStatus::Enable),
+            |v| v.id,
+        ).await?)
+    }
 }
 
 pub struct ResDataParam<'t> {

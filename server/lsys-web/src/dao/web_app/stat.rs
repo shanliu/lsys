@@ -2,7 +2,8 @@
 use crate::dao::{WebApp, WebResult};
 use lsys_app::model::{AppModel, AppNotifyDataModel, AppOAuthClientAccessModel, AppRequestModel};
 use lsys_core::db::SqlQuote;
-use lsys_core::{db::TableMeta, now_time, sql_format};
+use lsys_core::utils::now_time;
+use lsys_core::{db::TableMeta, sql_format};
 use serde::Serialize;
 use sqlx::FromRow;
 
@@ -30,7 +31,7 @@ pub struct NotifyTypeDailyStat {
 impl WebApp {
     /// 统计 AppNotifyDataModel 按 notify_type & status 各状态总数
     /// 指定倒数天数内每天的总数汇总
-    pub async fn yaf_app_notify_data(
+    pub async fn app_notify_data(
         &self,
         app_id: u64,
         days: u64,
@@ -63,7 +64,7 @@ impl WebApp {
     }
 
     /// 统计 AppOAuthClientAccessModel 指定倒数天数内每天的总数汇总
-    pub async fn yaf_app_oauth_client_access(
+    pub async fn app_oauth_client_access(
         &self,
         app_id: u64,
         days: u64,
@@ -95,7 +96,7 @@ impl WebApp {
 
     /// 统计 AppModel parent_app_id=(参数 app_id) & status (Enable 跟全部)
     /// 指定倒数天数内每天的总数汇总
-    pub async fn yaf_app(&self, app_id: u64, days: u64) -> WebResult<Vec<StatusDailyStat>> {
+    pub async fn app_day_stat(&self, app_id: u64, days: u64) -> WebResult<Vec<StatusDailyStat>> {
         let now = now_time().unwrap_or_default();
         let start_time = now.saturating_sub(days * 86400);
 
@@ -124,7 +125,7 @@ impl WebApp {
 
     /// 统计 AppRequestModel parent_app_id=(参数 app_id) & status ((Approved+Rejected) 跟全部)
     /// 指定倒数天数内每天的总数汇总
-    pub async fn yaf_app_request(&self, app_id: u64, days: u64) -> WebResult<Vec<StatusDailyStat>> {
+    pub async fn app_request(&self, app_id: u64, days: u64) -> WebResult<Vec<StatusDailyStat>> {
         let now = now_time().unwrap_or_default();
         let start_time = now.saturating_sub(days * 86400);
 

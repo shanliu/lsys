@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 tokio = { version = "~1.49.0" }
-lsys-core = { path = "../lsys-core", features = ["db", "redis"] }
+lsys-core = { path = "../lsys-core", features = ["db-mysql", "redis"] }
 sqlx = { version = "~0.8.6", features = ["mysql", "runtime-tokio-native-tls"] }
 
 async-trait = "~0.1.*"

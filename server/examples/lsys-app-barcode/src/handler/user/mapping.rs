@@ -7,7 +7,7 @@ use crate::model::{BarcodeCreateStatus, BarcodeParseStatus};
 use crate::server::AppState;
 use crate::utils::handler::{barcode_type_json, create_status_json, parse_status_json};
 use crate::utils::handler::{json_fluent_err, json_ok};
-use lsys_core::FluentBundle;
+use lsys_core::fluents::FluentBundle;
 
 pub(crate) async fn handle_mapping(
     state: &Arc<AppState>,

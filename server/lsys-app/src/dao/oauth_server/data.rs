@@ -5,7 +5,8 @@ use super::AppOAuthServer;
 use crate::model::AppOAuthServerScopeStatus;
 use lsys_core::db::TableMeta;
 use lsys_core::db::SqlQuote;
-use lsys_core::{sql_format, valid_key, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
+use lsys_core::{sql_format, valid_key};
+use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
 
 impl AppOAuthServer {
     async fn check_scope_param_valid(&self, scope_data: &[&str]) -> AppResult<()> {

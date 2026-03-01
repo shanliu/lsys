@@ -1,4 +1,4 @@
-CREATE TABLE `yaf_setting` (
+CREATE TABLE `lst_setting` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `setting_type` tinyint NOT NULL COMMENT '类型',
     `name` varchar(32) NOT NULL COMMENT '应用端配置显示名',

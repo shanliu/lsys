@@ -1,6 +1,6 @@
-CREATE TABLE `yaf_user` (
+CREATE TABLE `lst_user` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-    `app_id` bigint unsigned NOT NULL COMMENT '应用ID,内置账号登录为0,为yaf_app的ID,>0时为外部账号',
+    `app_id` bigint unsigned NOT NULL COMMENT '应用ID,内置账号登录为0,为lst_app的ID,>0时为外部账号',
     `user_data` varchar(32) NOT NULL COMMENT '用户唯一标识',
     `user_account` varchar(128) NOT NULL DEFAULT '' COMMENT '尝试登录账号',
     `user_nickname` varchar(32) NOT NULL  COMMENT '用户名称',
@@ -9,10 +9,10 @@ CREATE TABLE `yaf_user` (
     UNIQUE KEY `user_index` (`app_id`, `user_data`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户登录记录';
 
-CREATE TABLE `yaf_session` (
+CREATE TABLE `lst_session` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `user_id` bigint unsigned NOT NULL COMMENT '尝试登录账号对应用户ID',
-    `user_app_id` bigint unsigned NOT NULL COMMENT '冗余yaf_user的app_id',
+    `user_app_id` bigint unsigned NOT NULL COMMENT '冗余lst_user的app_id',
     `oauth_app_id` bigint unsigned NOT NULL COMMENT 'OAUTH登录时的app_id,非OAUTH登录为0,子应用或子应用的应用ID',
     `token_data` varchar(64) NOT NULL COMMENT '授权token',
     `source_token_data` varchar(64) NOT NULL DEFAULT '' COMMENT '源授权token',
@@ -38,7 +38,7 @@ CREATE TABLE `yaf_session` (
     ) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户登录记录';
 
-CREATE TABLE `yaf_session_data` (
+CREATE TABLE `lst_session_data` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `session_id` bigint unsigned NOT NULL COMMENT '冗余SESSION id',
     `data_key` varchar(12) NOT NULL COMMENT '数据类型',

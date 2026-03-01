@@ -11,8 +11,10 @@ use crate::{
 };
 use async_trait::async_trait;
 use lsys_core::db::{TableMeta, SqlExpr, SqlQuote, SqlSuffix};
-use lsys_core::{fluent_message, now_time, IntoFluentMessage};
-use lsys_core::{TaskAcquisition, TaskData, TaskExecutor, TaskItem, TaskRecord};
+use lsys_core::fluent_message;
+use lsys_core::fluents::IntoFluentMessage;
+use lsys_core::task_dispatch::{TaskAcquisition, TaskData, TaskExecutor, TaskItem, TaskRecord};
+use lsys_core::utils::now_time;
 use lsys_setting::model::SettingModel;
 use std::{
     collections::HashMap,
@@ -117,7 +119,7 @@ impl MailTaskAcquisition {
     }
     async fn send_task_body_finish(&self, item: &MailTaskItem) {
         let finish_time = now_time().unwrap_or_default();
-        if let Err(err) = Update::<SenderMailBodyModel>::new()
+        if let Err(err) = Update::<_,SenderMailBodyModel>::new()
             .set(SenderMailBodyModel::STATUS, SenderMailBodyStatus::Finish as i8)
             .set(SenderMailBodyModel::FINISH_TIME, finish_time)
             .execute(

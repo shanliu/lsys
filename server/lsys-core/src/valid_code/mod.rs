@@ -15,7 +15,8 @@ pub struct ValidCodeInfo {
     pub check: u32,
 }
 
-use crate::{fluent_message, valid_key, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
+use crate::{fluent_message, valid_key};
+use crate::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
 const CODE_SAVE_KEY: &str = "valid-save";
 
 pub struct ValidCode {

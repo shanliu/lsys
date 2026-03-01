@@ -1,4 +1,4 @@
-use lsys_core::AppCore;
+use lsys_core::app_core::AppCore;
 
 /// 文件服务配置
 #[derive(Debug, Clone)]

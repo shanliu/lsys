@@ -8,7 +8,7 @@ edition = "2021"
 tokio = { version = "~1.49.0" }
 deadpool-redis = { version = "~0.22.1" }
 redis = { version = "~0.32.0" }
-lsys-core = { path = "../lsys-core", features = ["db", "redis"] }
+lsys-core = { path = "../lsys-core", features = ["db-mysql", "redis"] }
 #lsys-app = { path = "../lsys-app" }
 lsys-setting = { path = "../lsys-setting" }
 lsys-logger = { path = "../lsys-logger" }

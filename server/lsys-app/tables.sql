@@ -1,4 +1,4 @@
-CREATE TABLE `yaf_app` (
+CREATE TABLE `lst_app` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
     `parent_app_id` bigint unsigned NOT NULL COMMENT '父级APP应用ID,0为系统内置用户应用',
     `name` varchar(32) NOT NULL COMMENT '应用名称',
@@ -13,7 +13,7 @@ CREATE TABLE `yaf_app` (
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '应用数据';
 
 
-CREATE TABLE `yaf_app_feature` (
+CREATE TABLE `lst_app_feature` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
     `app_id` bigint unsigned NOT NULL COMMENT 'app的id',
     `feature_key` varchar(32) NOT NULL COMMENT '功能KEY',
@@ -24,7 +24,7 @@ CREATE TABLE `yaf_app_feature` (
     UNIQUE KEY `app_key` (`app_id`,`feature_key`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '可用功能数据';
 
-CREATE TABLE `yaf_app_oauth_client` (
+CREATE TABLE `lst_app_oauth_client` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
     `app_id` bigint unsigned NOT NULL COMMENT 'app的id',
     `callback_domain` varchar(255) NOT NULL DEFAULT '' COMMENT '回调域名',
@@ -35,7 +35,7 @@ CREATE TABLE `yaf_app_oauth_client` (
     UNIQUE KEY `app_id` (`app_id`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = 'OAUTH登录数据';
 
-CREATE TABLE `yaf_app_oauth_client_refresh_token` (
+CREATE TABLE `lst_app_oauth_client_refresh_token` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
     `app_id` bigint unsigned NOT NULL COMMENT 'app的id',
     `refresh_token_data` varchar(64) NOT NULL COMMENT '生成记录的CODE',
@@ -49,7 +49,7 @@ CREATE TABLE `yaf_app_oauth_client_refresh_token` (
     KEY `app_refresh_token_data` (`app_id`,`refresh_token_data`,`time_out`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = 'OAUTH登录刷新token';
 
-CREATE TABLE `yaf_app_oauth_client_access` (
+CREATE TABLE `lst_app_oauth_client_access` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
     `app_id` bigint unsigned NOT NULL COMMENT 'app的id',
     `access_token_data` varchar(64) NOT NULL COMMENT 'token data',
@@ -59,7 +59,7 @@ CREATE TABLE `yaf_app_oauth_client_access` (
     KEY `token_index` (`app_id`,`refresh_token_data`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = 'OAUTH登录token';
 
-CREATE TABLE `yaf_app_oauth_server_scope` (
+CREATE TABLE `lst_app_oauth_server_scope` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
     `app_id` bigint unsigned NOT NULL COMMENT 'app的id',
     `scope_key` varchar(12) NOT NULL  COMMENT 'SCOPE KEY',
@@ -73,7 +73,7 @@ CREATE TABLE `yaf_app_oauth_server_scope` (
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '外部账号OAUTH登录服务SCOPE数据';
 
 
-CREATE TABLE `yaf_app_secret` (
+CREATE TABLE `lst_app_secret` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
     `app_id` bigint unsigned NOT NULL COMMENT 'app的id',
     `secret_type` tinyint NOT NULL COMMENT '密钥类型',
@@ -87,7 +87,7 @@ CREATE TABLE `yaf_app_secret` (
     UNIQUE KEY `app_secret` (`app_id`,`secret_type`,`secret_data`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '应用密钥数据';
 
-CREATE TABLE `yaf_app_request` (
+CREATE TABLE `lst_app_request` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
     `parent_app_id` bigint unsigned NOT NULL COMMENT '父级APP应用ID,0为系统内置用户应用',
     `app_id` bigint unsigned NOT NULL COMMENT '应用ID',
@@ -103,7 +103,7 @@ CREATE TABLE `yaf_app_request` (
     KEY `parent_app_user_id` (`parent_app_id`,`app_id`,`status`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '应用申请';
 
-CREATE TABLE `yaf_app_request_feature` (
+CREATE TABLE `lst_app_request_feature` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
     `app_request_id` bigint unsigned NOT NULL COMMENT '应用ID',
     `feature_data` varchar(255) NOT NULL DEFAULT '' COMMENT '申请的feature列表',
@@ -112,7 +112,7 @@ CREATE TABLE `yaf_app_request_feature` (
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '应用申请OAUTH登录相关数据';
 
 
-CREATE TABLE `yaf_app_request_oauth_client` (
+CREATE TABLE `lst_app_request_oauth_client` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
     `app_request_id` bigint unsigned NOT NULL COMMENT '应用ID',
     `scope_data` varchar(255) NOT NULL DEFAULT '' COMMENT '申请的SCOPE列表',
@@ -120,7 +120,7 @@ CREATE TABLE `yaf_app_request_oauth_client` (
     UNIQUE KEY `req_id` (`app_request_id`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '应用申请OAUTH登录相关数据';
 
-CREATE TABLE `yaf_app_request_set_info` (
+CREATE TABLE `lst_app_request_set_info` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
     `app_request_id` bigint unsigned NOT NULL COMMENT '应用ID',
     `name` varchar(32) NOT NULL  DEFAULT '' COMMENT '应用名称',
@@ -132,7 +132,7 @@ CREATE TABLE `yaf_app_request_set_info` (
 
 
 
-CREATE TABLE `yaf_app_notify_config` (
+CREATE TABLE `lst_app_notify_config` (
     `id` int unsigned NOT NULL AUTO_INCREMENT,
     `app_id` bigint unsigned NOT NULL DEFAULT '0' COMMENT '应用ID',
     `app_user_id` bigint unsigned NOT NULL DEFAULT '0' COMMENT '冗余应用用户ID',
@@ -144,7 +144,7 @@ CREATE TABLE `yaf_app_notify_config` (
     PRIMARY KEY (`id`),
     UNIQUE KEY `notify_config_id_IDX` (`app_id`, `notify_method`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '结果推送配置';
-CREATE TABLE `yaf_app_notify_data` (
+CREATE TABLE `lst_app_notify_data` (
     `id` int unsigned NOT NULL AUTO_INCREMENT,
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
     `notify_method` varchar(64) NOT NULL COMMENT '请求方法名',

@@ -1,5 +1,9 @@
-use lsys_core::db::{query_string_field_max, BatchInsert, Insert};
-use lsys_core::{fluent_message, now_time, valid_key, FluentMessage, RequestEnv, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
+use lsys_core::db::{utils::fetch_string_field_max, BatchInsert, Insert};
+use lsys_core::fluent_message;
+use lsys_core::fluents::FluentMessage;
+use lsys_core::utils::{now_time, RequestEnv};
+use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
+use lsys_core::valid_key;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{collections::HashMap, sync::OnceLock};
@@ -171,16 +175,16 @@ impl RbacAccess {
         //待检测资源需要操作的列表
         check_res_data: &[AccessCheckRes<'_>],
     ) -> RbacResult<()>{
-        let role_key_max = query_string_field_max::<RbacRoleModel>(&self.db, &RbacRoleModel::ROLE_KEY)
+        let role_key_max = fetch_string_field_max::<RbacRoleModel>(&self.db, &RbacRoleModel::ROLE_KEY)
             .await
             .len_or(32);
-        let res_type_max = query_string_field_max::<RbacResModel>(&self.db, &RbacResModel::RES_TYPE)
+        let res_type_max = fetch_string_field_max::<RbacResModel>(&self.db, &RbacResModel::RES_TYPE)
             .await
             .len_or(32);
-        let res_data_max = query_string_field_max::<RbacResModel>(&self.db, &RbacResModel::RES_DATA)
+        let res_data_max = fetch_string_field_max::<RbacResModel>(&self.db, &RbacResModel::RES_DATA)
             .await
             .len_or(32);
-        let op_key_max = query_string_field_max::<RbacOpModel>(&self.db, &RbacOpModel::OP_KEY)
+        let op_key_max = fetch_string_field_max::<RbacOpModel>(&self.db, &RbacOpModel::OP_KEY)
             .await
             .len_or(32);
 
@@ -220,8 +224,8 @@ impl RbacAccess {
         }
         self.check_param_valid(env_data,check_res_data).await?;
         //把check_res_data转为数据库记录
-        //user_id+res_type+res_data => yaf_rbac_res
-        //user_id+op_key_data => yaf_rbac_op
+        //user_id+res_type+res_data => lst_rbac_res
+        //user_id+op_key_data => lst_rbac_op
         let res_info = check_res_data
             .iter()
             .map(|e| ResInfo {
@@ -743,7 +747,7 @@ impl RbacAccess {
     async fn audit_add(db: &sqlx::Pool<sqlx::MySql>, msg: AuditItem) {
         match db.begin().await {
             Ok(mut db_tran) => {
-                let rbac_audit_id = match Insert::<RbacAuditModel>::new()
+                let rbac_audit_id = match Insert::<_,RbacAuditModel>::new()
                     .set(RbacAuditModel::USER_ID, msg.user_id)
                     .set(RbacAuditModel::USER_APP_ID, msg.user_app_id)
                     .set(RbacAuditModel::ROLE_KEY_DATA, msg.role_key_data)
@@ -765,9 +769,9 @@ impl RbacAccess {
                     }
                 };
                 if !msg.detail.is_empty() {
-                    let mut batch = BatchInsert::<RbacAuditDetailModel>::with_capacity(msg.detail.len());
+                    let mut batch = BatchInsert::<_,RbacAuditDetailModel>::with_capacity(msg.detail.len());
                     for tmp in msg.detail.iter() {
-                        batch = batch.push(Insert::<RbacAuditDetailModel>::new()
+                        batch = batch.push(Insert::<_,RbacAuditDetailModel>::new()
                             .set(RbacAuditDetailModel::RES_TYPE, &tmp.res_type)
                             .set(RbacAuditDetailModel::RES_DATA, &tmp.res_data)
                             .set(RbacAuditDetailModel::RES_USER_ID, tmp.res_user_id)

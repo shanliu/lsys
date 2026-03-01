@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize, Default)]
-#[lsys_model(table_name = "file")]
+#[lsys_model(table_name = "lst_file")]
 pub struct FileModel {
     #[sqlx(default)]
     pub id: u64,
@@ -48,7 +48,7 @@ impl FileModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize, Default)]
-#[lsys_model(table_name = "file_local")]
+#[lsys_model(table_name = "lst_file_local")]
 pub struct FileLocalModel {
     #[sqlx(default)]
     pub id: u64,
@@ -82,7 +82,7 @@ pub struct FileLocalModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize, Default)]
-#[lsys_model(table_name = "file_local_chunk")]
+#[lsys_model(table_name = "lst_file_local_chunk")]
 pub struct FileLocalChunkModel {
     #[sqlx(default)]
     pub id: u64,
@@ -122,7 +122,7 @@ pub struct FileLocalChunkModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize, Default)]
-#[lsys_model(table_name = "file_oss")]
+#[lsys_model(table_name = "lst_file_oss")]
 pub struct FileOssModel {
     #[sqlx(default)]
     pub id: u64,
@@ -156,7 +156,7 @@ pub struct FileOssModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize, Default)]
-#[lsys_model(table_name = "file_log")]
+#[lsys_model(table_name = "lst_file_log")]
 pub struct FileLogModel {
     #[sqlx(default)]
     pub id: u64,
@@ -178,7 +178,7 @@ pub struct FileLogModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize, Default)]
-#[lsys_model(table_name = "file_user")]
+#[lsys_model(table_name = "lst_file_user")]
 pub struct FileUserModel {
     #[sqlx(default)]
     pub id: u64,
@@ -207,4 +207,33 @@ pub struct FileUserModel {
 
     #[sqlx(default)]
     pub delete_time: u64,
+}
+
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize, Default)]
+#[lsys_model(table_name = "lst_file_tag")]
+pub struct FileTagModel {
+    #[sqlx(default)]
+    pub id: u64,
+
+    #[sqlx(default)]
+    pub file_id: u64,
+
+    #[sqlx(default)]
+    pub user_id: u64,
+
+    /// 应用ID,0=系统,>0=具体应用
+    #[sqlx(default)]
+    pub app_id: u64,
+
+    #[sqlx(default)]
+    pub tag_name: String,
+
+    #[sqlx(default)]
+    pub status: i8,
+
+    #[sqlx(default)]
+    pub add_time: u64,
+
+    #[sqlx(default)]
+    pub change_time: u64,
 }

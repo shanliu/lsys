@@ -11,10 +11,11 @@ use crate::model::{
 use lsys_core::db::TableMeta;
 use lsys_core::db::{OffsetPageParam, SqlExpr, SqlQuote};
 use lsys_core::{
-    db::query_string_field_max, impl_dao_fetch_map_by_vec, string_clear, valid_key, StringClear,
-    ValidParam, ValidParamCheck, ValidPattern, ValidStrlen, STRING_CLEAR_FORMAT,
+    db::utils::fetch_string_field_max, valid_key,
 };
-use lsys_core::{sql_format, RequestEnv};
+use lsys_core::sql_format;
+use lsys_core::utils::{string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT};
+use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
 
 use super::super::{AppError, AppResult};
 use super::App;
@@ -34,24 +35,16 @@ impl App {
             _ => AppError::Sqlx(e),
         })
     }
-    impl_dao_fetch_map_by_vec!(
-        db,
-        find_by_ids,
-        u64,
-        AppModel,
-        AppResult<HashMap<u64, AppModel>>,
-        id,
-        id,
-        "id in ({id}) and status in ({status})",
-        status = &[
-            AppStatus::Enable as i8,
-            AppStatus::Init as i8,
-            AppStatus::Disable as i8
-        ]
-    );
+    pub async fn find_by_ids(&self, ids: &[u64]) -> AppResult<HashMap<u64, AppModel>> {
+        Ok(lsys_core::db::utils::fetch_map::<AppModel, _, _>(
+            &self.db,
+            lsys_core::sql_format!("id in ({id}) and status in ({status})", id = ids, status = &[AppStatus::Enable as i8, AppStatus::Init as i8, AppStatus::Disable as i8]),
+            |v| v.id,
+        ).await?)
+    }
     async fn find_by_client_id_param_valid(&self, client_id: &str) -> AppResult<()> {
         let client_id_max =
-            query_string_field_max::<AppModel>(&self.db, &AppModel::CLIENT_ID)
+            fetch_string_field_max::<AppModel>(&self.db, &AppModel::CLIENT_ID)
                 .await
                 .len_or(32);
 

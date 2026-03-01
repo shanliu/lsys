@@ -4,10 +4,16 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use lsys_core::{db::TableName, AppCore, FluentMgr, RemoteNotify};
+use lsys_core::app_core::utils;
+use lsys_core::app_core::AppCore;
+use lsys_core::fluents::FluentMgr;
+use lsys_core::remote_notify::RemoteNotify;
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::MySql;
-use tower_http::{cors::{Any, CorsLayer}, trace::TraceLayer};
+use tower_http::{
+    cors::{Any, CorsLayer},
+    trace::TraceLayer,
+};
 
 use crate::auth::BarcodeClient;
 use crate::dao::BarCodeDao;
@@ -29,18 +35,16 @@ pub async fn run() -> Result<(), String> {
     // Reuse the same config layout as other examples.
     let app_dir = std::env::var("APP_DIR").unwrap_or_else(|_| "./".to_string());
 
-    let app_core = AppCore::new(&app_dir, "config", None, None)
+    let app_core = AppCore::new(&app_dir, "config", "app-barcode", None)
         .await
         .map_err(|e| format!("appcore init error: {e:?}"))?;
     let app_core = Arc::new(app_core);
 
-    let db = app_core
-        .create_db()
+    let db = utils::create_mysql_pool(app_core.as_ref())
         .await
         .map_err(|e| format!("create db error: {e:?}"))?;
 
-    let redis = app_core
-        .create_redis()
+    let redis = utils::create_redis_pool(app_core.as_ref())
         .await
         .map_err(|e| format!("create redis error: {e:?}"))?;
 
@@ -92,13 +96,6 @@ pub async fn run() -> Result<(), String> {
     let fluent = FluentMgr::new(fluent_path, "app", None)
         .await
         .map_err(|e| format!("fluent init error: {e:?}"))?;
-
-    let table_prefix = app_core
-        .config
-        .find(None)
-        .get_string("database_table_prefix")
-        .unwrap_or_default();
-    TableName::set_prefix(table_prefix);
 
     // Build CORS layer from config
     let cors_layer = {

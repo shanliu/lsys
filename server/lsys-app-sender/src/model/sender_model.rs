@@ -5,7 +5,7 @@ use sqlx::FromRow;
 // 公共表 -start
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(table_name = "sender_config")]
+#[lsys_model(table_name = "lst_sender_config")]
 pub struct SenderConfigModel {
     /// ID
     #[sqlx(default)]
@@ -49,7 +49,7 @@ pub struct SenderConfigModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(table_name = "sender_log")]
+#[lsys_model(table_name = "lst_sender_log")]
 pub struct SenderLogModel {
     /// 消息ID
     #[sqlx(default)]
@@ -90,7 +90,7 @@ pub struct SenderLogModel {
 
 // 模板配置
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(table_name = "sender_tpl_config")]
+#[lsys_model(table_name = "lst_sender_tpl_config")]
 pub struct SenderTplConfigModel {
     /// 消息ID
     #[sqlx(default)]
@@ -138,7 +138,7 @@ pub struct SenderTplConfigModel {
 }
 // 模板内容
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(table_name = "sender_tpl_body")]
+#[lsys_model(table_name = "lst_sender_tpl_body")]
 pub struct SenderTplBodyModel {
     /// 消息ID
     #[sqlx(default)]
@@ -178,7 +178,7 @@ pub struct SenderTplBodyModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(table_name = "sender_message_cancel")]
+#[lsys_model(table_name = "lst_sender_message_cancel")]
 pub struct SenderMessageCancelModel {
     /// 消息ID
     #[sqlx(default)]
@@ -212,7 +212,7 @@ pub struct SenderMessageCancelModel {
 // 短信数据
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(table_name = "sender_sms_body")]
+#[lsys_model(table_name = "lst_sender_sms_body")]
 pub struct SenderSmsBodyModel {
     /// 消息ID
     #[sqlx(default)]
@@ -270,7 +270,7 @@ pub struct SenderSmsBodyModel {
 // 短信数据
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(table_name = "sender_sms_message")]
+#[lsys_model(table_name = "lst_sender_sms_message")]
 pub struct SenderSmsMessageModel {
     ///自增ID
     #[sqlx(default)]
@@ -324,7 +324,7 @@ pub struct SenderSmsMessageModel {
 // 邮件数据
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(table_name = "sender_mail_body")]
+#[lsys_model(table_name = "lst_sender_mail_body")]
 pub struct SenderMailBodyModel {
     /// 消息ID
     #[sqlx(default)]
@@ -381,7 +381,7 @@ pub struct SenderMailBodyModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(table_name = "sender_mail_message")]
+#[lsys_model(table_name = "lst_sender_mail_message")]
 pub struct SenderMailMessageModel {
     /// 自增ID
     #[sqlx(default)]

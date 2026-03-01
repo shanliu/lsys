@@ -1,4 +1,4 @@
-CREATE TABLE `yaf_change_logs` (
+CREATE TABLE `lst_change_logs` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `log_type` varchar(32) NOT NULL COMMENT '日志类型',
     `log_data` text NOT NULL COMMENT '日志数据',

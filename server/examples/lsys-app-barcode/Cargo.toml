@@ -27,7 +27,7 @@ serde_urlencoded = "0.7"
 
 tempfile = "3.10.1"
 
-lsys-core = { path = "../../lsys-core", features = ["db", "redis"] }
+lsys-core = { path = "../../lsys-core", features = ["db-mysql", "redis"] }
 lsys-logger = { path = "../../lsys-logger" }
 
 lsys-sdk = { path = "../../lsys-sdk" }

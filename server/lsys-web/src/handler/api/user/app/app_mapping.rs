@@ -14,7 +14,7 @@ use lsys_app::model::AppRequestType;
 use lsys_app::model::AppStatus;
 use lsys_app_sender::dao::SMS_NOTIFY_METHOD;
 use lsys_core::db::OffsetPageParam;
-use lsys_core::IntoFluentMessage;
+use lsys_core::fluents::IntoFluentMessage;
 use serde_json::json;
 pub async fn mapping_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
     let auth_data = req_dao.user_session.read().await.get_session_data().await?;

@@ -7,12 +7,9 @@ use crate::{
     },
 };
 use lsys_core::db::{OffsetPageParam, OffsetPageValue};
-use lsys_core::{
-    db::{SqlExpr, SqlQuote, TableMeta},
-    string_clear, STRING_CLEAR_FORMAT,
-};
-use lsys_core::{impl_dao_fetch_map_by_vec, impl_dao_fetch_one_by_one, now_time};
-use lsys_core::{sql_format, StringClear};
+use lsys_core::db::{SqlExpr, SqlQuote, TableMeta};
+use lsys_core::sql_format;
+use lsys_core::utils::{now_time, string_clear, StringClear, STRING_CLEAR_FORMAT};
 use serde::Serialize;
 use sqlx::Row;
 use std::{collections::HashMap, vec};
@@ -20,27 +17,19 @@ use std::{collections::HashMap, vec};
 //角色数据的获取
 
 impl RbacRole {
-    impl_dao_fetch_one_by_one!(
-        db,
-        find_by_id,
-        u64,
-        RbacRoleModel,
-        RbacResult<RbacRoleModel>,
-        id,
-        "id={id} and status = {status}",
-        status = RbacRoleStatus::Enable
-    );
-    impl_dao_fetch_map_by_vec!(
-        db,
-        find_by_ids,
-        u64,
-        RbacRoleModel,
-        RbacResult<HashMap<u64, RbacRoleModel>>,
-        id,
-        id,
-        "id in ({id}) and status = {status}",
-        status = RbacRoleStatus::Enable
-    );
+    pub async fn find_by_id(&self, id: &u64) -> RbacResult<RbacRoleModel> {
+        Ok(lsys_core::db::utils::fetch_one::<RbacRoleModel>(
+            &self.db,
+            lsys_core::sql_format!("id={id} and status = {status}", id = id, status = RbacRoleStatus::Enable),
+        ).await?)
+    }
+    pub async fn find_by_ids(&self, ids: &[u64]) -> RbacResult<HashMap<u64, RbacRoleModel>> {
+        Ok(lsys_core::db::utils::fetch_map::<RbacRoleModel, _, _>(
+            &self.db,
+            lsys_core::sql_format!("id in ({id}) and status = {status}", id = ids, status = RbacRoleStatus::Enable),
+            |v| v.id,
+        ).await?)
+    }
 }
 
 pub struct RoleDataParam<'t> {

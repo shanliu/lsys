@@ -90,7 +90,7 @@ impl StringFieldType for Option<String> {}
 mod cache {
     use super::*;
     use crate::cache::{LocalCache, LocalCacheConfig};
-    use crate::RemoteNotify;
+    use crate::remote_notify::RemoteNotify;
     use std::collections::HashMap;
     use std::sync::Arc;
     use tokio::sync::OnceCell;
@@ -240,7 +240,7 @@ async fn query_table_string_fields(
 /// # 缓存
 /// - 启用 `redis` feature 且调用了 `init_string_field_cache` 时：查询整表并缓存所有字符串字段
 /// - 未启用时：只查询指定字段，避免不必要的解析
-pub async fn query_string_field_max<M: TableMeta>(
+pub async fn fetch_string_field_max<M: TableMeta>(
     pool: &Pool<MySql>,
     field: &Field<impl StringFieldType>,
 ) -> StringFieldMaxResult {

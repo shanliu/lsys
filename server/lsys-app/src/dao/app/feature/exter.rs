@@ -5,13 +5,13 @@ use crate::{
         AppRequestStatus, AppRequestType,
     },
 };
+use lsys_core::fluent_message;
 use lsys_core::sql_format;
-use lsys_core::{db::SqlQuote, string_clear, StringClear, STRING_CLEAR_FORMAT};
-use lsys_core::{
-    db::{BatchInsert, Insert, TableMeta, SqlSuffix, Update},
-    STRING_CLEAR_XSS,
+use lsys_core::db::SqlQuote;
+use lsys_core::db::{BatchInsert, Insert, TableMeta, SqlSuffix, Update};
+use lsys_core::utils::{
+    now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT, STRING_CLEAR_XSS,
 };
-use lsys_core::{fluent_message, now_time, RequestEnv};
 
 use super::{App, AppError};
 
@@ -103,7 +103,7 @@ impl App {
         let time = now_time()?;
         let mut db = self.db.begin().await?;
 
-        let req_res = Insert::<AppRequestModel>::new()
+        let req_res = Insert::<_,AppRequestModel>::new()
             .set(AppRequestModel::PARENT_APP_ID, app.parent_app_id)
             .set(AppRequestModel::APP_ID, app.id)
             .set(AppRequestModel::REQUEST_TYPE, request_type)
@@ -120,7 +120,7 @@ impl App {
             Ok(mr) => mr.last_insert_id(),
         };
         let need_feature_data_str = need_feature_data.join(",");
-        let req_res = Insert::<AppRequestFeatureModel>::new()
+        let req_res = Insert::<_,AppRequestFeatureModel>::new()
             .set(AppRequestFeatureModel::APP_REQUEST_ID, req_id)
             .set(
                 AppRequestFeatureModel::FEATURE_DATA,
@@ -210,7 +210,7 @@ impl App {
         if req_status == AppRequestStatus::Rejected {
             //驳回
             let status = req_status as i8;
-            Update::<AppRequestModel>::new()
+            Update::<_,AppRequestModel>::new()
                 .set(AppRequestModel::STATUS, status)
                 .set(AppRequestModel::CONFIRM_USER_ID, confirm_user_id)
                 .set(AppRequestModel::CONFIRM_TIME, time)
@@ -245,7 +245,7 @@ impl App {
             .map(|e| e.0)
             .collect::<Vec<u64>>();
         if !set_status_id.is_empty() {
-            let cres = Update::<AppFeatureModel>::new()
+            let cres = Update::<_,AppFeatureModel>::new()
                 .set(AppFeatureModel::STATUS, set_status)
                 .set(AppFeatureModel::CHANGE_USER_ID, confirm_user_id)
                 .set(AppFeatureModel::CHANGE_TIME, time)
@@ -260,10 +260,10 @@ impl App {
             }
         }
 
-        let mut batch_insert = BatchInsert::<AppFeatureModel>::with_capacity(set_val.len());
+        let mut batch_insert = BatchInsert::<_,AppFeatureModel>::with_capacity(set_val.len());
         for tmp in set_val.iter() {
             batch_insert = batch_insert.push(
-                Insert::<AppFeatureModel>::new()
+                Insert::<_,AppFeatureModel>::new()
                     .set(AppFeatureModel::APP_ID, app.id)
                     .set(AppFeatureModel::FEATURE_KEY, tmp)
                     .set(AppFeatureModel::STATUS, set_status)
@@ -279,7 +279,7 @@ impl App {
 
         let status = AppRequestStatus::Approved as i8;
 
-        let cres = Update::<AppRequestModel>::new()
+        let cres = Update::<_,AppRequestModel>::new()
             .set(AppRequestModel::STATUS, status)
             .set(AppRequestModel::CONFIRM_USER_ID, confirm_user_id)
             .set(AppRequestModel::CONFIRM_TIME, time)

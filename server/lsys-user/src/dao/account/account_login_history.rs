@@ -1,9 +1,10 @@
 use lsys_core::db::{
     CursorPageData, CursorPageParam, Insert, SqlExpr, SqlQuote, SqlSuffix, TableMeta, Update,
 };
-use lsys_core::{
-    now_time, sql_format, string_clear, StringClear, VecStringJoin, STRING_CLEAR_FORMAT,
+use lsys_core::utils::{
+    now_time, string_clear, StringClear, VecStringJoin, STRING_CLEAR_FORMAT,
 };
+use lsys_core::sql_format;
 
 use sqlx::{MySql, Pool};
 
@@ -134,7 +135,7 @@ impl AccountLoginHistory {
             StringClear::Option(STRING_CLEAR_FORMAT),
             Some(100),
         );
-        let login_res = Insert::<AccountLoginModel>::new()
+        let login_res = Insert::<_,AccountLoginModel>::new()
             .set(AccountLoginModel::LOGIN_TYPE, login_type)
             .set(AccountLoginModel::LOGIN_ACCOUNT, login_account)
             .set(AccountLoginModel::LOGIN_IP, login_ip)
@@ -156,7 +157,7 @@ impl AccountLoginHistory {
     ) -> AccountResult<()> {
         let login_msg = login_msg.to_string();
         let is_login = is_login as i8;
-        let ures = Update::<AccountLoginModel>::new()
+        let ures = Update::<_,AccountLoginModel>::new()
             .set(AccountLoginModel::IS_LOGIN, is_login)
             .set(AccountLoginModel::ACCOUNT_ID, account_id)
             .set(AccountLoginModel::LOGIN_MSG, login_msg)

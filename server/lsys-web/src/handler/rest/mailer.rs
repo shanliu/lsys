@@ -5,7 +5,8 @@ use crate::{
     dao::access::rest::CheckRestApp,
 };
 use lsys_app::model::AppModel;
-use lsys_core::{str_time, IntoFluentMessage};
+use lsys_core::fluents::IntoFluentMessage;
+use lsys_core::utils::str_time;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::HashMap;

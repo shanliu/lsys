@@ -7,10 +7,14 @@ use super::logger::LogAppConfig;
 use super::{SenderError, SenderResult};
 use lsys_core::db::{Insert, TableMeta, SqlExpr, SqlSuffix, Update};
 use lsys_core::db::SqlQuote;
-use lsys_core::{
-    db::OffsetPageParam, fluent_message, now_time, sql_format, string_clear, valid_key, RequestEnv,
-    StringClear, ValidError, ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
-    STRING_CLEAR_FORMAT,
+use lsys_core::db::OffsetPageParam;
+use lsys_core::{fluent_message, sql_format};
+use lsys_core::utils::{
+    now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT,
+};
+use lsys_core::valid_key;
+use lsys_core::valid_param::{
+    ValidError, ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
 };
 use lsys_logger::dao::ChangeLoggerDao;
 use lsys_setting::dao::SettingDao;
@@ -278,7 +282,7 @@ impl SenderTplConfig {
         let time = now_time().unwrap_or_default();
         let send_type = self.send_type as i8;
 
-        let id = Insert::<SenderTplConfigModel>::new()
+        let id = Insert::<_,SenderTplConfigModel>::new()
             .set(SenderTplConfigModel::NAME, &name)
             .set(SenderTplConfigModel::SENDER_TYPE, send_type)
             .set(SenderTplConfigModel::APP_ID, app_id)
@@ -324,7 +328,7 @@ impl SenderTplConfig {
             return Ok(0);
         }
         let time = now_time().unwrap_or_default();
-        let res = Update::<SenderTplConfigModel>::new()
+        let res = Update::<_,SenderTplConfigModel>::new()
             .set(SenderTplConfigModel::STATUS, SenderTplConfigStatus::Delete as i8)
             .set(SenderTplConfigModel::CHANGE_TIME, time)
             .set(SenderTplConfigModel::CHANGE_USER_ID, user_id)

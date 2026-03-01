@@ -5,7 +5,7 @@ use crate::{
 use lsys_core::db::TableMeta;
 use lsys_core::db::SqlQuote;
 use lsys_core::sql_format;
-use lsys_core::RequestEnv;
+use lsys_core::utils::RequestEnv;
 
 impl App {
     //子APP信息查询权限检测,非系统应用无此功能

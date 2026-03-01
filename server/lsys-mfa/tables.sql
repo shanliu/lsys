@@ -5,7 +5,7 @@
 -- - Keeps history: enabling a new secret inserts a new row; older enabled rows should be marked disabled.
 -- - Reads the latest enabled row by `ORDER BY id DESC LIMIT 1`.
 
-CREATE TABLE IF NOT EXISTS yaf_mfa_totp (
+CREATE TABLE IF NOT EXISTS lst_mfa_totp (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 
     `app_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,

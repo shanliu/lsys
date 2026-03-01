@@ -15,7 +15,6 @@ pub async fn mapping_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse
         .web_dao
         .web_files
         .file_dao
-        .helper()
         .config()
         .min_chunk_size;
 

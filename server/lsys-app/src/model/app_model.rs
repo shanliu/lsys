@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(table_name = "app")]
+#[lsys_model(table_name = "lst_app")]
 pub struct AppModel {
     /// 用户ID
     #[sqlx(default)]
@@ -43,7 +43,7 @@ pub struct AppModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(table_name = "app_secret")]
+#[lsys_model(table_name = "lst_app_secret")]
 pub struct AppSecretModel {
     /// 用户ID
     #[sqlx(default)]
@@ -83,7 +83,7 @@ pub struct AppSecretModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(table_name = "app_feature")]
+#[lsys_model(table_name = "lst_app_feature")]
 pub struct AppFeatureModel {
     #[sqlx(default)]
     pub id: u64,
@@ -110,7 +110,7 @@ pub struct AppFeatureModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(table_name = "app_oauth_server_scope")]
+#[lsys_model(table_name = "lst_app_oauth_server_scope")]
 pub struct AppOAuthServerScopeModel {
     #[sqlx(default)]
     pub id: u64,
@@ -145,7 +145,7 @@ pub struct AppOAuthServerScopeModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(table_name = "app_request")]
+#[lsys_model(table_name = "lst_app_request")]
 pub struct AppRequestModel {
     #[sqlx(default)]
     pub id: u64,
@@ -189,7 +189,7 @@ pub struct AppRequestModel {
 
 ///应用申请OAUTH登录相关数据
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(table_name = "app_request_feature")]
+#[lsys_model(table_name = "lst_app_request_feature")]
 pub struct AppRequestFeatureModel {
     #[sqlx(default)]
     pub id: u64,
@@ -205,7 +205,7 @@ pub struct AppRequestFeatureModel {
 
 ///应用申请OAUTH登录相关数据
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(table_name = "app_request_oauth_client")]
+#[lsys_model(table_name = "lst_app_request_oauth_client")]
 pub struct AppRequestOAuthClientModel {
     #[sqlx(default)]
     pub id: u64,
@@ -221,7 +221,7 @@ pub struct AppRequestOAuthClientModel {
 
 /// 请求更改APP信息
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(table_name = "app_request_set_info")]
+#[lsys_model(table_name = "lst_app_request_set_info")]
 pub struct AppRequestSetInfoModel {
     #[sqlx(default)]
     pub id: u64,
@@ -240,7 +240,7 @@ pub struct AppRequestSetInfoModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(table_name = "app_notify_config")]
+#[lsys_model(table_name = "lst_app_notify_config")]
 pub struct AppNotifyConfigModel {
     /// 用户ID
     #[sqlx(default)]
@@ -276,7 +276,7 @@ pub struct AppNotifyConfigModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(table_name = "app_notify_data")]
+#[lsys_model(table_name = "lst_app_notify_data")]
 pub struct AppNotifyDataModel {
     /// 用户ID
     #[sqlx(default)]
@@ -344,7 +344,7 @@ pub struct AppNotifyDataModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(table_name = "app_oauth_client")]
+#[lsys_model(table_name = "lst_app_oauth_client")]
 pub struct AppOAuthClientModel {
     #[sqlx(default)]
     pub id: u64,
@@ -371,7 +371,7 @@ pub struct AppOAuthClientModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(table_name = "app_oauth_client_refresh_token")]
+#[lsys_model(table_name = "lst_app_oauth_client_refresh_token")]
 pub struct AppOAuthClientRefreshTokenModel {
     /// 用户ID
     #[sqlx(default)]
@@ -408,7 +408,7 @@ pub struct AppOAuthClientRefreshTokenModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model(table_name = "app_oauth_client_access")]
+#[lsys_model(table_name = "lst_app_oauth_client_access")]
 pub struct AppOAuthClientAccessModel {
     /// 用户ID
     #[sqlx(default)]

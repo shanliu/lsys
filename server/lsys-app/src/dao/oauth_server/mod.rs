@@ -11,11 +11,11 @@ pub use data::AppOAuthServerScopeData;
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::db::SqlQuote;
 use lsys_core::db::{BatchInsert, Insert, TableMeta, SqlSuffix, Update};
+use lsys_core::remote_notify::RemoteNotify;
 use lsys_core::sql_format;
-use lsys_core::{
-    fluent_message, now_time, valid_key, RemoteNotify, RequestEnv, ValidParam, ValidParamCheck,
-    ValidPattern, ValidStrlen,
-};
+use lsys_core::{fluent_message, valid_key};
+use lsys_core::utils::{now_time, RequestEnv};
+use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
 use lsys_logger::dao::ChangeLoggerDao;
 // use regex::Regex;
 use serde::Serialize;
@@ -203,7 +203,7 @@ impl AppOAuthServer {
 
         if !del_data.is_empty() {
             let del_status = AppOAuthServerScopeStatus::Delete as i8;
-            let cres = Update::<AppOAuthServerScopeModel>::new()
+            let cres = Update::<_,AppOAuthServerScopeModel>::new()
                 .set(AppOAuthServerScopeModel::STATUS, del_status)
                 .set(AppOAuthServerScopeModel::CHANGE_USER_ID, set_user_id)
                 .set(AppOAuthServerScopeModel::CHANGE_TIME, time)
@@ -225,7 +225,7 @@ impl AppOAuthServer {
         let set_status = AppOAuthServerScopeStatus::Enable as i8;
 
         for tmp in change_data {
-            let cres = Update::<AppOAuthServerScopeModel>::new()
+            let cres = Update::<_,AppOAuthServerScopeModel>::new()
                 .set(AppOAuthServerScopeModel::APP_ID, app.id)
                 .set(AppOAuthServerScopeModel::SCOPE_KEY, tmp.1)
                 .set(AppOAuthServerScopeModel::STATUS, set_status)
@@ -242,10 +242,10 @@ impl AppOAuthServer {
         }
         if !add_data.is_empty() {
             let mut batch_insert =
-                BatchInsert::<AppOAuthServerScopeModel>::with_capacity(add_data.len());
+                BatchInsert::<_,AppOAuthServerScopeModel>::with_capacity(add_data.len());
             for tmp in add_data.iter() {
                 batch_insert = batch_insert.push(
-                    Insert::<AppOAuthServerScopeModel>::new()
+                    Insert::<_,AppOAuthServerScopeModel>::new()
                         .set(AppOAuthServerScopeModel::APP_ID, app.id)
                         .set(AppOAuthServerScopeModel::SCOPE_KEY, &tmp.0)
                         .set(AppOAuthServerScopeModel::SCOPE_NAME, &tmp.1)

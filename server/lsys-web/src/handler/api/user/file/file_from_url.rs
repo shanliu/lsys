@@ -18,6 +18,8 @@ pub struct FileFromUrlParam {
         deserialize_with = "crate::common::deserialize_u32"
     )]
     pub max_concurrency: u32,
+    #[serde(default)]
+    pub tag_names: Option<Vec<String>>,
 }
 
 impl FileFromUrlParam {
@@ -84,6 +86,7 @@ pub async fn file_from_url(
         }]
     };
 
+    let tag_refs: Vec<&str> = param.tag_names.as_deref().unwrap_or(&[]).iter().map(String::as_str).collect();
     let file_user_id = req_dao
         .web_dao
         .web_files
@@ -94,6 +97,8 @@ pub async fn file_from_url(
             app.id,
             &chunks,
             url_info.content_type.as_deref(),
+            &tag_refs,
+            None,
             Some(&req_dao.req_env),
         )
         .await?;

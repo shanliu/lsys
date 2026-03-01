@@ -1,13 +1,13 @@
 use crate::model::{AccountIndexCat, AccountIndexModel, AccountIndexStatus, AccountStatus};
 use config::Map;
-use lsys_core::{now_time, string_clear, StringClear};
+use lsys_core::utils::{now_time, string_clear, StringClear};
 
 use super::AccountResult;
 use lsys_core::db::{
     BatchInsert, CursorPageData, CursorPageParam, Insert, SqlExpr, SqlQuote, SqlSuffix, TableMeta,
-    Update,
+    Update, OptionTxExecutor
 };
-use lsys_core::{db_option_executor, sql_format};
+use lsys_core::sql_format;
 use sqlx::{Acquire, MySql, Pool, Transaction};
 pub struct AccountIndex {
     db: Pool<MySql>,
@@ -36,14 +36,14 @@ impl AccountIndex {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let tmp = Insert::<AccountIndexModel>::new()
+        let tmp = Insert::<_,AccountIndexModel>::new()
             .set(AccountIndexModel::INDEX_CAT, index_cat)
             .set(AccountIndexModel::INDEX_DATA, &index_data)
             .set(AccountIndexModel::ACCOUNT_ID, account_id)
             .set(AccountIndexModel::STATUS, status)
             .set(AccountIndexModel::CHANGE_TIME, time)
             .execute_update(
-                Update::<AccountIndexModel>::new()
+                Update::<_,AccountIndexModel>::new()
                     .set(AccountIndexModel::STATUS, status)
                     .set(AccountIndexModel::CHANGE_TIME, time),
                 &mut *db,
@@ -72,7 +72,7 @@ impl AccountIndex {
         };
         if addid > 0 {
             let del_status = AccountIndexStatus::Delete as i8;
-            let tmp = Update::<AccountIndexModel>::new()
+            let tmp = Update::<_,AccountIndexModel>::new()
                 .set(AccountIndexModel::STATUS, del_status)
                 .set(AccountIndexModel::CHANGE_TIME, time)
                 .execute(
@@ -107,10 +107,10 @@ impl AccountIndex {
         let index_cat = cat as u8;
         let status = AccountIndexStatus::Enable as i8;
         let tmp_data = index_data.iter().map(|e| e.to_string()).collect::<Vec<_>>();
-        let mut batch = BatchInsert::<AccountIndexModel>::with_capacity(tmp_data.len());
+        let mut batch = BatchInsert::<_,AccountIndexModel>::with_capacity(tmp_data.len());
         for t in tmp_data.iter() {
             batch = batch.push(
-                Insert::<AccountIndexModel>::new()
+                Insert::<_,AccountIndexModel>::new()
                     .set(AccountIndexModel::INDEX_CAT, index_cat)
                     .set(AccountIndexModel::INDEX_DATA, t)
                     .set(AccountIndexModel::ACCOUNT_ID, account_id)
@@ -118,21 +118,14 @@ impl AccountIndex {
                     .set(AccountIndexModel::CHANGE_TIME, time),
             );
         }
-        db_option_executor!(
-            db,
-            {
-                batch
-                    .execute_update(
-                        Update::<AccountIndexModel>::new()
-                            .set(AccountIndexModel::STATUS, status)
-                            .set(AccountIndexModel::CHANGE_TIME, time),
-                        db.as_executor(),
-                    )
-                    .await?
-            },
-            transaction,
-            &self.db
-        );
+        batch
+            .execute_update(
+                Update::<_,AccountIndexModel>::new()
+                    .set(AccountIndexModel::STATUS, status)
+                    .set(AccountIndexModel::CHANGE_TIME, time),
+                OptionTxExecutor::new(transaction, &self.db),
+            )
+            .await?;
         Ok(())
     }
     pub async fn del(
@@ -147,26 +140,19 @@ impl AccountIndex {
         }
         let index_cat = cat as u8;
         let time = now_time()?;
-        let res = db_option_executor!(
-            db,
-            {
-                Update::<AccountIndexModel>::new()
-                    .set(AccountIndexModel::STATUS, AccountIndexStatus::Delete as i8)
-                    .set(AccountIndexModel::CHANGE_TIME, time)
-                    .execute(
-                        SqlSuffix::Where(&sql_format!(
-                            "index_data  in ({}) and index_cat={} and account_id={}",
-                            index_data,
-                            index_cat,
-                            account_id
-                        )),
-                        db.as_executor(),
-                    )
-                    .await
-            },
-            transaction,
-            &self.db
-        )?;
+        let res = Update::<_,AccountIndexModel>::new()
+            .set(AccountIndexModel::STATUS, AccountIndexStatus::Delete as i8)
+            .set(AccountIndexModel::CHANGE_TIME, time)
+            .execute(
+                SqlSuffix::Where(&sql_format!(
+                    "index_data  in ({}) and index_cat={} and account_id={}",
+                    index_data,
+                    index_cat,
+                    account_id
+                )),
+                OptionTxExecutor::new(transaction, &self.db),
+            )
+            .await?;
         Ok(res.rows_affected())
     }
     pub async fn cat_del(
@@ -177,25 +163,18 @@ impl AccountIndex {
     ) -> AccountResult<u64> {
         let index_cat = cat as u8;
         let time = now_time()?;
-        let res = db_option_executor!(
-            db,
-            {
-                Update::<AccountIndexModel>::new()
-                    .set(AccountIndexModel::STATUS, AccountIndexStatus::Delete as i8)
-                    .set(AccountIndexModel::CHANGE_TIME, time)
-                    .execute(
-                        SqlSuffix::Where(&sql_format!(
-                            "index_cat={} and account_id={}",
-                            index_cat,
-                            account_id
-                        )),
-                        db.as_executor(),
-                    )
-                    .await
-            },
-            transaction,
-            &self.db
-        )?;
+        let res = Update::<_,AccountIndexModel>::new()
+            .set(AccountIndexModel::STATUS, AccountIndexStatus::Delete as i8)
+            .set(AccountIndexModel::CHANGE_TIME, time)
+            .execute(
+                SqlSuffix::Where(&sql_format!(
+                    "index_cat={} and account_id={}",
+                    index_cat,
+                    account_id
+                )),
+                OptionTxExecutor::new(transaction, &self.db),
+            )
+            .await?;
         Ok(res.rows_affected())
     }
     pub async fn account_del(
@@ -204,21 +183,14 @@ impl AccountIndex {
         transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
     ) -> AccountResult<u64> {
         let time = now_time()?;
-        let res = db_option_executor!(
-            db,
-            {
-                Update::<AccountIndexModel>::new()
-                    .set(AccountIndexModel::STATUS, AccountIndexStatus::Delete as i8)
-                    .set(AccountIndexModel::CHANGE_TIME, time)
-                    .execute(
-                        SqlSuffix::Where(&sql_format!("account_id={}", account_id)),
-                        db.as_executor(),
-                    )
-                    .await
-            },
-            transaction,
-            &self.db
-        )?;
+        let res = Update::<_,AccountIndexModel>::new()
+            .set(AccountIndexModel::STATUS, AccountIndexStatus::Delete as i8)
+            .set(AccountIndexModel::CHANGE_TIME, time)
+            .execute(
+                SqlSuffix::Where(&sql_format!("account_id={}", account_id)),
+                OptionTxExecutor::new(transaction, &self.db),
+            )
+            .await?;
         Ok(res.rows_affected())
     }
 }

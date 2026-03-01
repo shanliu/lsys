@@ -5,15 +5,11 @@ use lsys_core::db::TableMeta;
 use lsys_core::db::SqlQuote;
 use lsys_core::db::SqlSuffix;
 use lsys_core::db::Update;
-use lsys_core::now_time;
-use lsys_core::rand_str;
+use lsys_core::remote_notify::RemoteNotify;
 use lsys_core::sql_format;
 use lsys_core::valid_key;
-use lsys_core::RemoteNotify;
-use lsys_core::ValidParam;
-use lsys_core::ValidParamCheck;
-use lsys_core::ValidPattern;
-use lsys_core::ValidStrlen;
+use lsys_core::utils::{now_time, rand_str, RandType};
+use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
 use serde::Deserialize;
 use serde::Serialize;
 use sqlx::Acquire;
@@ -96,7 +92,7 @@ impl AppSecret {
         let secret_status = AppSecretStatus::Enable as i8;
         let secret_type = secret_type as i8;
         let secret_data = secret_data.to_owned();
-        let secret_idata = Insert::<AppSecretModel>::new()
+        let secret_idata = Insert::<_,AppSecretModel>::new()
             .set(AppSecretModel::APP_ID, app_id)
             .set(AppSecretModel::SECRET_TYPE, secret_type)
             .set(AppSecretModel::SECRET_DATA, secret_data.clone())
@@ -105,7 +101,7 @@ impl AppSecret {
             .set(AppSecretModel::ADD_USER_ID, user_id)
             .set(AppSecretModel::CHANGE_USER_ID, user_id)
             .set(AppSecretModel::CHANGE_TIME, ntime);
-        let secret_udata = Update::<AppSecretModel>::new()
+        let secret_udata = Update::<_,AppSecretModel>::new()
             .set(AppSecretModel::SECRET_DATA, secret_data.clone())
             .set(AppSecretModel::STATUS, secret_status)
             .set(AppSecretModel::TIME_OUT, time_out)
@@ -137,7 +133,7 @@ impl AppSecret {
         };
         if add_id > 0 {
             let bad_status = AppSecretStatus::Delete as i8;
-            let ures = Update::<AppSecretModel>::new()
+            let ures = Update::<_,AppSecretModel>::new()
                 .set(AppSecretModel::STATUS, bad_status)
                 .set(AppSecretModel::CHANGE_USER_ID, user_id)
                 .set(AppSecretModel::CHANGE_TIME, ntime)
@@ -189,7 +185,7 @@ impl AppSecret {
         let secret_status = AppSecretStatus::Enable as i8;
         let secret_type = secret_type as i8;
         let secret_data = secret_data.to_owned();
-        let secret_idata = Insert::<AppSecretModel>::new()
+        let secret_idata = Insert::<_,AppSecretModel>::new()
             .set(AppSecretModel::APP_ID, app_id)
             .set(AppSecretModel::SECRET_TYPE, secret_type)
             .set(AppSecretModel::SECRET_DATA, secret_data.clone())
@@ -198,7 +194,7 @@ impl AppSecret {
             .set(AppSecretModel::ADD_USER_ID, user_id)
             .set(AppSecretModel::CHANGE_USER_ID, user_id)
             .set(AppSecretModel::CHANGE_TIME, ntime);
-        let secret_udata = Update::<AppSecretModel>::new()
+        let secret_udata = Update::<_,AppSecretModel>::new()
             .set(AppSecretModel::SECRET_DATA, secret_data.clone())
             .set(AppSecretModel::STATUS, secret_status)
             .set(AppSecretModel::TIME_OUT, time_out)
@@ -235,7 +231,7 @@ impl AppSecret {
         let secret_data = secret_data.to_owned();
         let ntime = now_time().unwrap_or_default();
         let status_del = AppSecretStatus::Delete as i8;
-        Update::<AppSecretModel>::new()
+        Update::<_,AppSecretModel>::new()
             .set(AppSecretModel::SECRET_DATA, &secret_data)
             .set(AppSecretModel::STATUS, status_del)
             .set(AppSecretModel::CHANGE_USER_ID, change_user_id)
@@ -289,7 +285,7 @@ impl AppSecret {
         let time_out = if time_out > 0 { ntime + time_out } else { 0 };
 
         let secret_data = secret_data.to_owned();
-        Update::<AppSecretModel>::new()
+        Update::<_,AppSecretModel>::new()
             .set(AppSecretModel::SECRET_DATA, secret_data)
             .set(AppSecretModel::TIME_OUT, time_out)
             .set(AppSecretModel::CHANGE_USER_ID, change_user_id)
@@ -333,7 +329,7 @@ impl AppSecret {
             .check()?;
         let ntime = now_time().unwrap_or_default();
         let secret_status = AppSecretStatus::Delete as i8;
-        Update::<AppSecretModel>::new()
+        Update::<_,AppSecretModel>::new()
             .set(AppSecretModel::STATUS, secret_status)
             .set(AppSecretModel::CHANGE_USER_ID, change_user_id)
             .set(AppSecretModel::CHANGE_TIME, ntime)
@@ -371,7 +367,7 @@ impl AppSecret {
         .await?;
         let ntime = now_time().unwrap_or_default();
         let secret_status = AppSecretStatus::Delete as i8;
-        Update::<AppSecretModel>::new()
+        Update::<_,AppSecretModel>::new()
             .set(AppSecretModel::STATUS, secret_status)
             .set(AppSecretModel::CHANGE_USER_ID, change_user_id)
             .set(AppSecretModel::CHANGE_TIME, ntime)
@@ -416,7 +412,7 @@ impl AppSecret {
 
         })?;
         if out.is_empty() {
-            let secret_data = rand_str(lsys_core::RandType::LowerHex, 32);
+            let secret_data = rand_str(RandType::LowerHex, 32);
             self.multiple_add(app_id, secret_type, &secret_data, 0, 0, &self.db)
                 .await?;
             return Ok(vec![AppSecretRecord {
@@ -448,7 +444,7 @@ impl AppSecret {
             Ok(dat) => Ok(AppSecretRecord::from(dat)),
             Err(err) => {
                 if matches!(err, sqlx::Error::RowNotFound) {
-                    let secret_data = rand_str(lsys_core::RandType::LowerHex, 32);
+                    let secret_data = rand_str(RandType::LowerHex, 32);
                     self.single_set(app_id, secret_type, &secret_data, 0, 0, None)
                         .await?;
                     return Ok(AppSecretRecord {

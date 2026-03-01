@@ -5,38 +5,31 @@ use crate::{dao::AccessResult, model::UserModel};
 
 use super::AccessUser;
 use lsys_core::db::{CursorPageData, CursorPageParam, SqlExpr, SqlQuote, TableMeta};
-use lsys_core::{
-    db::query_string_field_max, now_time, sql_format, string_clear, valid_key, StringClear,
-    ValidParam, ValidParamCheck, ValidPattern, ValidStrlen, STRING_CLEAR_FORMAT,
-};
+use lsys_core::{db::utils::fetch_string_field_max, sql_format, valid_key};
+use lsys_core::utils::{now_time, string_clear, StringClear, STRING_CLEAR_FORMAT};
+use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
 use serde::Serialize;
 impl AccessUser {
     //通过ID获取用户
-    lsys_core::impl_dao_fetch_one_by_one!(
-        db,
-        find_by_id,
-        u64,
-        UserModel,
-        AccessResult<UserModel>,
-        id,
-        "id = {id} "
-    );
-    lsys_core::impl_dao_fetch_map_by_vec!(
-        db,
-        find_by_ids,
-        u64,
-        UserModel,
-        AccessResult<HashMap<u64, UserModel>>,
-        id,
-        ids,
-        "id in ({ids}) "
-    );
+    pub async fn find_by_id(&self, id: &u64) -> AccessResult<UserModel> {
+        Ok(lsys_core::db::utils::fetch_one::<UserModel>(
+            &self.db,
+            lsys_core::sql_format!("id = {id} ", id = id),
+        ).await?)
+    }
+    pub async fn find_by_ids(&self, ids: &[u64]) -> AccessResult<HashMap<u64, UserModel>> {
+        Ok(lsys_core::db::utils::fetch_map::<UserModel, _, _>(
+            &self.db,
+            lsys_core::sql_format!("id in ({ids}) ", ids = ids),
+            |v| v.id,
+        ).await?)
+    }
 }
 impl AccessUser {
     async fn find_by_data_param_valid(&self, user_data: &str) -> AccessResult<()> {
         let user_data = user_data.to_string();
         let user_data_max =
-            query_string_field_max::<UserModel>(&self.db, &UserModel::USER_DATA)
+            fetch_string_field_max::<UserModel>(&self.db, &UserModel::USER_DATA)
                 .await
                 .len_or(32);
 

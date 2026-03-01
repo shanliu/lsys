@@ -1,11 +1,13 @@
 use crate::model::{SettingModel, SettingStatus, SettingType};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::db::{query_string_field_max, Insert, SqlQuote, SqlSuffix, TableMeta, Update};
-use lsys_core::{
-    db_option_executor, sql_format, string_clear, valid_key, StringClear,
-    ValidParam, ValidParamCheck, ValidPattern, ValidStrlen, STRING_CLEAR_FORMAT,
+use lsys_core::db::{
+    utils::fetch_string_field_max, Insert, OptionTxExecutor, SqlQuote, SqlSuffix, TableMeta,
+    Update,
 };
-use lsys_core::{now_time, RemoteNotify, RequestEnv};
+use lsys_core::remote_notify::RemoteNotify;
+use lsys_core::utils::{now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT};
+use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
+use lsys_core::{sql_format, valid_key};
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{MySql, Pool, Transaction};
 use std::sync::Arc;
@@ -39,15 +41,17 @@ pub struct SingleSettingData<'t, T: SettingEncode> {
 }
 impl SingleSetting {
     async fn save_param_valid(&self, key: &str, name: &str, data: &str) -> SettingResult<()> {
-        let setting_key_max = query_string_field_max::<SettingModel>(&self.db, &SettingModel::SETTING_KEY)
+        let setting_key_max =
+            fetch_string_field_max::<SettingModel>(&self.db, &SettingModel::SETTING_KEY)
+                .await
+                .len_or(32);
+        let name_max = fetch_string_field_max::<SettingModel>(&self.db, &SettingModel::NAME)
             .await
             .len_or(32);
-        let name_max = query_string_field_max::<SettingModel>(&self.db, &SettingModel::NAME)
-            .await
-            .len_or(32);
-        let setting_data_max = query_string_field_max::<SettingModel>(&self.db, &SettingModel::SETTING_DATA)
-            .await
-            .len_or(60000);
+        let setting_data_max =
+            fetch_string_field_max::<SettingModel>(&self.db, &SettingModel::SETTING_DATA)
+                .await
+                .len_or(60000);
 
         ValidParam::default()
             .add(
@@ -79,7 +83,7 @@ impl SingleSetting {
         user_id: Option<u64>,
         param: &SingleSettingData<'_, T>,
         change_user_id: u64,
-        transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
+        mut transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
     ) -> SettingResult<u64> {
         let name = param.name.to_owned();
@@ -105,42 +109,31 @@ impl SingleSetting {
             Err(sqlx::Error::RowNotFound) => {
                 let setting_type = SettingType::Single as i8;
                 let status = SettingStatus::Enable as i8;
-                let dat = db_option_executor!(
-                    db,
-                    {
-                        Insert::<SettingModel>::new()
-                            .set(SettingModel::SETTING_TYPE, setting_type)
-                            .set(SettingModel::SETTING_KEY, &key)
-                            .set(SettingModel::SETTING_DATA, &edata)
-                            .set(SettingModel::USER_ID, uid)
-                            .set(SettingModel::NAME, &name)
-                            .set(SettingModel::STATUS, status)
-                            .set(SettingModel::CHANGE_USER_ID, change_user_id)
-                            .set(SettingModel::CHANGE_TIME, time)
-                            .execute(db.as_executor())
-                            .await?
-                    },
-                    transaction,
-                    &self.db
-                );
+                let dat = Insert::<_, SettingModel>::new()
+                    .set(SettingModel::SETTING_TYPE, setting_type)
+                    .set(SettingModel::SETTING_KEY, &key)
+                    .set(SettingModel::SETTING_DATA, &edata)
+                    .set(SettingModel::USER_ID, uid)
+                    .set(SettingModel::NAME, &name)
+                    .set(SettingModel::STATUS, status)
+                    .set(SettingModel::CHANGE_USER_ID, change_user_id)
+                    .set(SettingModel::CHANGE_TIME, time)
+                    .execute(OptionTxExecutor::new(transaction.as_deref_mut(), &self.db))
+                    .await?;
                 self.cache.clear(&format!("{}-{}", key, uid)).await;
                 dat.last_insert_id()
             }
             Ok(set) => {
-                db_option_executor!(
-                    db,
-                    {
-                        Update::<SettingModel>::new()
-                            .set(SettingModel::SETTING_DATA, &edata)
-                            .set(SettingModel::NAME, &name)
-                            .set(SettingModel::CHANGE_USER_ID, change_user_id)
-                            .set(SettingModel::CHANGE_TIME, time)
-                            .execute(SqlSuffix::Where(&sql_format!("id={}", set.id)), db.as_executor())
-                            .await?;
-                    },
-                    transaction,
-                    &self.db
-                );
+                Update::<_, SettingModel>::new()
+                    .set(SettingModel::SETTING_DATA, &edata)
+                    .set(SettingModel::NAME, &name)
+                    .set(SettingModel::CHANGE_USER_ID, change_user_id)
+                    .set(SettingModel::CHANGE_TIME, time)
+                    .execute(
+                        SqlSuffix::Where(&sql_format!("id={}", set.id)),
+                        OptionTxExecutor::new(transaction, &self.db),
+                    )
+                    .await?;
                 self.cache
                     .clear(&format!("{}-{}", set.setting_key, set.user_id))
                     .await;

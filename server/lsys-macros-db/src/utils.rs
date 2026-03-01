@@ -1,7 +1,6 @@
 use heck::{
     ToKebabCase, ToLowerCamelCase, ToPascalCase, ToShoutySnakeCase, ToSnakeCase,
 };
-use quote::quote;
 use syn::{Attribute, Meta, NestedMeta};
 
 /// 支持的命名规则
@@ -106,13 +105,4 @@ pub fn infer_table_name(struct_name: &str) -> String {
     RenameRule::SnakeCase.apply(&name)
 }
 
-/// 判断类型是否需要 clone
-pub fn needs_clone_for_type(ty: &syn::Type) -> bool {
-    let type_str = quote!(#ty).to_string();
-    type_str.contains("String")
-        || type_str.contains("Vec")
-        || type_str.contains("Option")
-        || type_str.contains("Box")
-        || type_str.contains("HashMap")
-        || type_str.contains("HashSet")
-}
+

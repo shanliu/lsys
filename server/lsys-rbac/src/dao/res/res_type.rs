@@ -1,5 +1,6 @@
 //RBAC中资源相关实现
-use lsys_core::{fluent_message, string_clear, StringClear, STRING_CLEAR_FORMAT};
+use lsys_core::fluent_message;
+use lsys_core::utils::{string_clear, StringClear, STRING_CLEAR_FORMAT};
 
 use crate::dao::result::{RbacError, RbacResult};
 use crate::model::{RbacOpModel, RbacOpResModel, RbacOpResStatus, RbacResModel, RbacResStatus};
@@ -7,7 +8,7 @@ use crate::model::{RbacOpModel, RbacOpResModel, RbacOpResStatus, RbacResModel, R
 use sqlx::{FromRow, Row};
 use std::vec;
 
-use lsys_core::{now_time, RequestEnv};
+use lsys_core::utils::{now_time, RequestEnv};
 
 use lsys_core::db::{BatchInsert, Insert, SqlQuote, SqlSuffix, TableMeta, Update};
 use lsys_core::sql_format;
@@ -68,12 +69,12 @@ impl RbacRes {
         };
         let res_type = res_type_data.res_type.to_string();
         let nowtime = now_time().unwrap_or_default();
-        let mut batch = BatchInsert::<RbacOpResModel>::new();
+        let mut batch = BatchInsert::<_,RbacOpResModel>::new();
         for op in op_vec {
             let mut is_updata = false;
             for (itemid, op_id) in op_res.iter() {
                 if *op_id == op.id {
-                    if let Err(err) = Update::<RbacOpResModel>::new()
+                    if let Err(err) = Update::<_,RbacOpResModel>::new()
                         .set(RbacOpResModel::CHANGE_TIME, nowtime)
                         .set(RbacOpResModel::CHANGE_USER_ID, add_user_id)
                         .set(RbacOpResModel::STATUS, RbacOpResStatus::Enable as i8)
@@ -88,7 +89,7 @@ impl RbacRes {
             }
             if !is_updata {
                 batch = batch.push(
-                    Insert::<RbacOpResModel>::new()
+                    Insert::<_,RbacOpResModel>::new()
                         .set(RbacOpResModel::OP_ID, op.id)
                         .set(RbacOpResModel::RES_TYPE, &res_type)
                         .set(RbacOpResModel::USER_ID, res_type_data.user_id)
@@ -188,7 +189,7 @@ impl RbacRes {
             StringClear::Option(STRING_CLEAR_FORMAT),
             Some(33),
         );
-        let tmp = Update::<RbacOpResModel>::new()
+        let tmp = Update::<_,RbacOpResModel>::new()
             .set(RbacOpResModel::CHANGE_USER_ID, del_user_id)
             .set(RbacOpResModel::CHANGE_TIME, time)
             .set(RbacOpResModel::STATUS, RbacOpResStatus::Delete as i8)
@@ -299,7 +300,7 @@ impl RbacRes {
                     StringClear::Option(STRING_CLEAR_FORMAT),
                     Some(33),
                 );
-                let tmp = Update::<RbacOpResModel>::new()
+                let tmp = Update::<_,RbacOpResModel>::new()
                     .set(RbacOpResModel::CHANGE_USER_ID, delete_user_id)
                     .set(RbacOpResModel::CHANGE_TIME, time)
                     .set(RbacOpResModel::STATUS, RbacOpResStatus::Delete as i8)

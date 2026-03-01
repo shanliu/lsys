@@ -4,7 +4,7 @@ use base64::Engine;
 use captcha::filters::{Dots, Noise, Wave};
 use captcha::Captcha;
 use deadpool_redis::Connection;
-use lsys_core::{ValidCodeData, ValidCodeResult};
+use lsys_core::valid_code::{ValidCodeData, ValidCodeResult};
 
 pub struct CaptchaValidCodeData {
     pub code: String,

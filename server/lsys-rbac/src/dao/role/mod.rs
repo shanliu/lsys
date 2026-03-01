@@ -6,16 +6,20 @@ mod perm;
 mod user;
 //RBAC中角色相关实现
 use logger::LogRole;
-use lsys_core::{
-    cache::{LocalCache, LocalCacheConfig},
-    fluent_message, now_time, valid_key, RemoteNotify, RequestEnv, ValidParam,
-    ValidParamCheck, ValidPattern, ValidStrlen,
-};
+use lsys_core::cache::{LocalCache, LocalCacheConfig};
+use lsys_core::fluent_message;
+use lsys_core::remote_notify::RemoteNotify;
+use lsys_core::utils::{now_time, RequestEnv};
+use lsys_core::valid_key;
+use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
 use sqlx::Acquire;
 use std::{sync::Arc, vec};
 
-use lsys_core::db::{query_string_field_max, Insert, TableMeta, SqlQuote, SqlSuffix, Update};
-use lsys_core::{db_option_executor, sql_format};
+use lsys_core::db::{
+    utils::fetch_string_field_max, Insert, OptionTxExecutor, SqlQuote, SqlSuffix, TableMeta,
+    Update,
+};
+use lsys_core::sql_format;
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{MySql, Pool, Transaction};
 
@@ -76,12 +80,14 @@ pub struct RbacRoleAddData<'t> {
 
 impl RbacRole {
     async fn role_param_valid(&self, param: &RbacRoleUserRangeData<'_>) -> RbacResult<()> {
-        let role_key_max = query_string_field_max::<RbacRoleModel>(&self.db, &RbacRoleModel::ROLE_KEY)
-            .await
-            .len_or(32);
-        let role_name_max = query_string_field_max::<RbacRoleModel>(&self.db, &RbacRoleModel::ROLE_NAME)
-            .await
-            .len_or(32);
+        let role_key_max =
+            fetch_string_field_max::<RbacRoleModel>(&self.db, &RbacRoleModel::ROLE_KEY)
+                .await
+                .len_or(32);
+        let role_name_max =
+            fetch_string_field_max::<RbacRoleModel>(&self.db, &RbacRoleModel::ROLE_NAME)
+                .await
+                .len_or(32);
 
         let mut param_valid = ValidParam::default();
         match param {
@@ -124,7 +130,7 @@ impl RbacRole {
         &self,
         param: &RbacRoleAddData<'_>,
         add_user_id: u64,
-        transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
+        mut transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
     ) -> RbacResult<RbacRoleModel> {
         self.role_param_valid(&param.role_info).await?;
@@ -193,43 +199,36 @@ impl RbacRole {
             Err(sqlx::Error::RowNotFound) => {
                 let app_id = param.app_id.unwrap_or_default();
                 let time = now_time().unwrap_or_default();
-                let id = db_option_executor!(
-                    db,
-                    {
-                        let res = Insert::<RbacRoleModel>::new()
-                            .set(RbacRoleModel::ROLE_KEY, &role_key)
-                            .set(RbacRoleModel::USER_RANGE, user_range)
-                            .set(RbacRoleModel::RES_RANGE, res_range)
-                            .set(RbacRoleModel::ROLE_NAME, &role_name)
-                            .set(RbacRoleModel::USER_ID, param.user_id)
-                            .set(RbacRoleModel::APP_ID, app_id)
-                            .set(RbacRoleModel::CHANGE_TIME, time)
-                            .set(RbacRoleModel::CHANGE_USER_ID, add_user_id)
-                            .set(RbacRoleModel::STATUS, RbacRoleStatus::Enable as i8)
-                            .execute(db.as_executor())
-                            .await?;
-                        let add_id = res.last_insert_id();
-                        Update::<RbacRoleModel>::new()
-                            .set(RbacRoleModel::CHANGE_TIME, time)
-                            .set(RbacRoleModel::CHANGE_USER_ID, add_user_id)
-                            .set(RbacRoleModel::STATUS, RbacRoleStatus::Enable as i8)
-                            .execute(
-                                SqlSuffix::Where(&sql_format!(
-                                    "user_id={} and role_key={} and app_id={} and status={} and id!={}",
-                                    param.user_id,
-                                    role_key,
-                                    app_id,
-                                    RbacRoleStatus::Enable as i8,
-                                    add_id,
-                                )),
-                                db.as_executor(),
-                            )
-                            .await?;
-                        add_id
-                    },
-                    transaction,
-                    &self.db
-                );
+                let res = Insert::<_, RbacRoleModel>::new()
+                    .set(RbacRoleModel::ROLE_KEY, &role_key)
+                    .set(RbacRoleModel::USER_RANGE, user_range)
+                    .set(RbacRoleModel::RES_RANGE, res_range)
+                    .set(RbacRoleModel::ROLE_NAME, &role_name)
+                    .set(RbacRoleModel::USER_ID, param.user_id)
+                    .set(RbacRoleModel::APP_ID, app_id)
+                    .set(RbacRoleModel::CHANGE_TIME, time)
+                    .set(RbacRoleModel::CHANGE_USER_ID, add_user_id)
+                    .set(RbacRoleModel::STATUS, RbacRoleStatus::Enable as i8)
+                    .execute(OptionTxExecutor::new(transaction.as_deref_mut(), &self.db))
+                    .await?;
+                let add_id = res.last_insert_id();
+                Update::<_, RbacRoleModel>::new()
+                    .set(RbacRoleModel::CHANGE_TIME, time)
+                    .set(RbacRoleModel::CHANGE_USER_ID, add_user_id)
+                    .set(RbacRoleModel::STATUS, RbacRoleStatus::Enable as i8)
+                    .execute(
+                        SqlSuffix::Where(&sql_format!(
+                            "user_id={} and role_key={} and app_id={} and status={} and id!={}",
+                            param.user_id,
+                            role_key,
+                            app_id,
+                            RbacRoleStatus::Enable as i8,
+                            add_id,
+                        )),
+                        OptionTxExecutor::new(transaction, &self.db),
+                    )
+                    .await?;
+                let id = add_id;
                 let role = self.find_by_id(&id).await?;
                 self.cache().clear_access(&role, Some(&[]), Some(&[])).await;
                 self.logger
@@ -331,30 +330,22 @@ impl RbacRole {
             Err(sqlx::Error::RowNotFound) => {}
             Err(e) => return Err(e)?,
         }
-        let db = &self.db;
-        let fout = db_option_executor!(
-            db,
-            {
-                let mut update = Update::<RbacRoleModel>::new()
-                    .set(RbacRoleModel::CHANGE_USER_ID, change_user_id)
-                    .set(RbacRoleModel::CHANGE_TIME, time);
-                if let Some(ref name) = opt_name {
-                    update = update.set(RbacRoleModel::ROLE_NAME, name as &str);
-                }
-                if let Some(ref key) = opt_key {
-                    update = update.set(RbacRoleModel::ROLE_KEY, key as &str);
-                }
-                let out = update
-                    .execute(
-                        SqlSuffix::Where(&sql_format!("id={}", role.id)),
-                        db.as_executor(),
-                    )
-                    .await?;
-                out.rows_affected()
-            },
-            transaction,
-            db
-        );
+        let mut update = Update::<_, RbacRoleModel>::new()
+            .set(RbacRoleModel::CHANGE_USER_ID, change_user_id)
+            .set(RbacRoleModel::CHANGE_TIME, time);
+        if let Some(ref name) = opt_name {
+            update = update.set(RbacRoleModel::ROLE_NAME, name as &str);
+        }
+        if let Some(ref key) = opt_key {
+            update = update.set(RbacRoleModel::ROLE_KEY, key as &str);
+        }
+        let out = update
+            .execute(
+                SqlSuffix::Where(&sql_format!("id={}", role.id)),
+                OptionTxExecutor::new(transaction, &self.db),
+            )
+            .await?;
+        let fout = out.rows_affected();
         self.cache().clear_access(role, Some(&[]), Some(&[])).await;
         self.logger
             .add(
@@ -389,7 +380,7 @@ impl RbacRole {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let tmp = Update::<RbacRoleModel>::new()
+        let tmp = Update::<_, RbacRoleModel>::new()
             .set(RbacRoleModel::CHANGE_USER_ID, delete_user_id)
             .set(RbacRoleModel::CHANGE_TIME, time)
             .set(RbacRoleModel::STATUS, RbacRoleStatus::Delete as i8)
@@ -400,7 +391,7 @@ impl RbacRole {
             return Err(e)?;
         }
 
-        let tmp = Update::<RbacPermModel>::new()
+        let tmp = Update::<_, RbacPermModel>::new()
             .set(RbacPermModel::CHANGE_USER_ID, delete_user_id)
             .set(RbacPermModel::CHANGE_TIME, time)
             .set(RbacPermModel::STATUS, RbacPermStatus::Delete as i8)
@@ -414,7 +405,7 @@ impl RbacRole {
             return Err(e)?;
         }
 
-        let tmp = Update::<RbacRoleUserModel>::new()
+        let tmp = Update::<_, RbacRoleUserModel>::new()
             .set(RbacRoleUserModel::CHANGE_USER_ID, delete_user_id)
             .set(RbacRoleUserModel::CHANGE_TIME, time)
             .set(RbacRoleUserModel::STATUS, RbacRoleUserStatus::Delete as i8)

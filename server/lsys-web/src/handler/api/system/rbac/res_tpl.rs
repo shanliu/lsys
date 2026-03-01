@@ -1,6 +1,6 @@
 use crate::common::{JsonData, JsonResponse, JsonResult, LimitParam, ToCursorPageParam, UserAuthQueryDao};
 use lsys_access::dao::{AccessSession, UserDataParam};
-use lsys_core::{FluentMessage, db::CursorPageSort};
+use lsys_core::{db::CursorPageSort, fluents::FluentMessage};
 use serde::Deserialize;
 use serde_json::json;
 

@@ -1,6 +1,6 @@
 // 定义一些公共返回
 
-use lsys_core::{FluentBundle, FluentMessage};
+use lsys_core::fluents::{FluentBundle, FluentMessage};
 
 use super::{FluentFormat, JsonData, JsonResponse};
 

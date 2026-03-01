@@ -4,16 +4,17 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{
-    now_time, rand_str, string_clear, valid_key, RandType, RemoteNotify, StringClear, ValidIp,
-    ValidParam, ValidParamCheck, ValidPattern, ValidStrlen, STRING_CLEAR_FORMAT,
+use lsys_core::{sql_format, valid_key};
+use lsys_core::remote_notify::RemoteNotify;
+use lsys_core::utils::{
+    now_time, rand_str, string_clear, RandType, StringClear, STRING_CLEAR_FORMAT,
 };
+use lsys_core::valid_param::{ValidIp, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
 
 use crate::dao::AccessUser;
 use lsys_core::db::SqlQuote;
 use lsys_core::db::{BatchInsert, Insert, Update};
 use lsys_core::db::{SqlSuffix, TableMeta};
-use lsys_core::sql_format;
 use serde::{Deserialize, Serialize};
 use sqlx::{MySql, Pool};
 
@@ -63,15 +64,12 @@ impl AccessAuth {
         }
     }
     //通过ID获取用户
-    lsys_core::impl_dao_fetch_one_by_one!(
-        db,
-        find_user_by_id,
-        u64,
-        UserModel,
-        AccessResult<UserModel>,
-        id,
-        "id = {id} "
-    );
+    pub async fn find_user_by_id(&self, id: &u64) -> AccessResult<UserModel> {
+        Ok(lsys_core::db::utils::fetch_one::<UserModel>(
+            &self.db,
+            lsys_core::sql_format!("id = {id} ", id = id),
+        ).await?)
+    }
     fn wrap_session_body(
         &self,
         session: SessionModel,
@@ -104,7 +102,7 @@ impl AccessAuth {
         }
         let time = now_time()?;
         let status = SessionStatus::Delete.to();
-        Update::<SessionModel>::new()
+        Update::<_, SessionModel>::new()
             .set(SessionModel::STATUS, status)
             .set(SessionModel::LOGOUT_TIME, time)
             .execute(
@@ -320,7 +318,7 @@ impl AccessAuth {
                     return Err(AccessError::LoginTokenDataExit(sid));
                 }
                 let mut db = self.db.begin().await?;
-                if let Err(err) = Update::<SessionModel>::new()
+                if let Err(err) = Update::<_, SessionModel>::new()
                     .set(SessionModel::DEVICE_NAME, device_name)
                     .set(SessionModel::EXPIRE_TIME, expire_time)
                     .execute(SqlSuffix::Where(&sql_format!("id={} ", sid)), &self.db)
@@ -331,13 +329,13 @@ impl AccessAuth {
                 }
                 if !session_data_tmp.is_empty() {
                     for t in session_data_tmp.iter() {
-                        if let Err(err) = Insert::<SessionDataModel>::new()
+                        if let Err(err) = Insert::<_, SessionDataModel>::new()
                             .set(SessionDataModel::SESSION_ID, sid)
                             .set(SessionDataModel::DATA_KEY, &t.0)
                             .set(SessionDataModel::DATA_VAL, &t.1)
                             .set(SessionDataModel::CHANGE_TIME, time)
                             .execute_update(
-                                Update::<SessionDataModel>::new()
+                                Update::<_, SessionDataModel>::new()
                                     .set(SessionDataModel::DATA_VAL, &t.1)
                                     .set(SessionDataModel::CHANGE_TIME, time),
                                 &mut *db,
@@ -358,7 +356,7 @@ impl AccessAuth {
             Err(sqlx::Error::RowNotFound) => {
                 let mut db = self.db.begin().await?;
 
-                let sid = match Insert::<SessionModel>::new()
+                let sid = match Insert::<_, SessionModel>::new()
                     .set(SessionModel::USER_ID, user_id)
                     .set(SessionModel::USER_APP_ID, login_param.app_id)
                     .set(SessionModel::OAUTH_APP_ID, login_param.oauth_app_id)
@@ -383,10 +381,10 @@ impl AccessAuth {
 
                 if !session_data.is_empty() {
                     let mut batch =
-                        BatchInsert::<SessionDataModel>::with_capacity(session_data_tmp.len());
+                        BatchInsert::<_, SessionDataModel>::with_capacity(session_data_tmp.len());
                     for t in session_data_tmp.iter() {
                         batch = batch.push(
-                            Insert::<SessionDataModel>::new()
+                            Insert::<_, SessionDataModel>::new()
                                 .set(SessionDataModel::SESSION_ID, sid)
                                 .set(SessionDataModel::DATA_KEY, &t.0)
                                 .set(SessionDataModel::DATA_VAL, &t.1)
@@ -419,7 +417,7 @@ impl AccessAuth {
             return Ok(SessionBody::new(session_body.user().to_owned(), session));
         }
         let expire_time = add_time + session.expire_time;
-        Update::<SessionModel>::new()
+        Update::<_, SessionModel>::new()
             .set(SessionModel::EXPIRE_TIME, expire_time)
             .execute(
                 SqlSuffix::Where(&sql_format!("id={} ", session.id)),
@@ -440,7 +438,7 @@ impl AccessAuth {
     pub async fn do_logout(&self, session_body: &SessionBody) -> AccessResult<()> {
         let time = now_time()?;
         let status = SessionStatus::Delete.to();
-        Update::<SessionModel>::new()
+        Update::<_, SessionModel>::new()
             .set(SessionModel::STATUS, status)
             .set(SessionModel::LOGOUT_TIME, time)
             .execute(
@@ -582,13 +580,13 @@ impl AccessAuth {
         for (data_key, data_val) in data {
             let data_key = data_key.to_string();
             let data_val = data_val.to_string();
-            if let Err(err) = Insert::<SessionDataModel>::new()
+            if let Err(err) = Insert::<_, SessionDataModel>::new()
                 .set(SessionDataModel::SESSION_ID, session_body.session().id)
                 .set(SessionDataModel::DATA_KEY, &data_key)
                 .set(SessionDataModel::DATA_VAL, &data_val)
                 .set(SessionDataModel::CHANGE_TIME, time)
                 .execute_update(
-                    Update::<SessionDataModel>::new()
+                    Update::<_, SessionDataModel>::new()
                         .set(SessionDataModel::DATA_VAL, &data_val)
                         .set(SessionDataModel::CHANGE_TIME, time),
                     &mut *db,

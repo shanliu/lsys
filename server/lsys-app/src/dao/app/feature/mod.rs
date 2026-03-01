@@ -8,7 +8,8 @@ use crate::{
 use lsys_core::db::TableMeta;
 use lsys_core::db::SqlQuote;
 use lsys_core::sql_format;
-use lsys_core::{valid_key, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
+use lsys_core::valid_key;
+use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
 
 impl App {
     async fn exter_feature_param_valid(&self, featuer_data: &[&str]) -> AppResult<()> {

@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
-use lsys_core::{
-    fluent_message, now_time, rand_str, valid_key, ValidIp, ValidParam, ValidParamCheck,
-    ValidPattern, ValidStrlen,
+use lsys_core::fluent_message;
+use lsys_core::utils::{now_time, rand_str, RandType};
+use lsys_core::valid_key;
+use lsys_core::valid_param::{
+    ValidIp, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
 };
 use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
@@ -36,7 +38,7 @@ impl AppOAuthClientAccess {
     }
 }
 fn range_client_key() -> String {
-    rand_str(lsys_core::RandType::LowerHex, 32)
+    rand_str(RandType::LowerHex, 32)
 }
 pub const OAUTH_LOGIN_TYPE: &str = "oauth";
 

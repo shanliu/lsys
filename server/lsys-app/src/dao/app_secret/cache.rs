@@ -1,4 +1,4 @@
-use lsys_core::now_time;
+use lsys_core::utils::now_time;
 
 use crate::dao::AppResult;
 use crate::dao::AppSecret;

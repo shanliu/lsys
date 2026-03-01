@@ -2,13 +2,14 @@ use std::path::Path;
 use std::sync::Arc;
 
 use lsys_core::db::{SqlExpr, SqlQuote, SqlSuffix, TableMeta, Update};
-use lsys_core::now_time;
 use lsys_core::sql_format;
+use lsys_core::utils::now_time;
 use sqlx::{MySql, Pool};
 use tokio::sync::mpsc;
 use tracing::{info, warn};
 
 use super::file_helpers::FileHelper;
+use super::file_log::FileLogDao;
 use super::FileResult;
 use crate::model::*;
 
@@ -19,6 +20,20 @@ pub struct DownloadTask {
     pub file_user_id: u64,
     /// chunk 索引, 对于非分片下载传 0
     pub chunk_index: u32,
+    /// 下载完成通知的发送端 (可选, 用于同步等待下载完成)
+    pub done_tx: Option<tokio::sync::mpsc::Sender<Result<(), String>>>,
+}
+
+/// 发送下载完成/失败通知
+async fn notify_done(
+    done_tx: &Option<tokio::sync::mpsc::Sender<Result<(), String>>>,
+    result: Result<(), String>,
+) {
+    if let Some(tx) = done_tx {
+        if let Err(e) = tx.send(result).await {
+            warn!("download: done_tx send failed: {}", e);
+        }
+    }
 }
 
 /// 下载最大重试次数 (首次 + 重试)
@@ -53,6 +68,12 @@ impl FileDownloadManager {
     pub fn push(&self, task: DownloadTask) {
         if let Err(e) = self.sender.send(task) {
             warn!("push download task failed: {}", e);
+            // 从失败的 SendError 中取回 done_tx, 及时通知调用方
+            if let Some(done_tx) = e.0.done_tx {
+                let _ = done_tx.try_send(Err(
+                    "push download task failed: download queue closed".to_string()
+                ));
+            }
         }
     }
 
@@ -63,7 +84,7 @@ impl FileDownloadManager {
     ) {
         info!("file download listener started");
         let mut tasks = tokio::task::JoinSet::new();
-        let max_concurrency = helper.config().max_download_concurrency;
+        let max_concurrency = helper.config.max_download_concurrency;
 
         loop {
             // 如果当前执行下载协程数量 >= 最大, 等待一个完成
@@ -85,8 +106,21 @@ impl FileDownloadManager {
                         Some(download_task) => {
                             let h = helper.clone();
                             tasks.spawn(async move {
-                                if let Err(e) = Self::execute_download(&h, download_task).await {
-                                    warn!("download task error: {}", e);
+                                // 备份 done_tx, 兜底: 若 execute_download 内部通过 ? 返回 Err
+                                // 导致 done_tx 被 drop 而未发送通知, 这里会捕获并发送错误
+                                let done_tx_backup = download_task.done_tx.clone();
+                                match Self::execute_download(&h, download_task).await {
+                                    Ok(()) => {
+                                        // 内部已处理通知, 或是分片等待中, 正常释放备份
+                                    }
+                                    Err(e) => {
+                                        warn!("download task error: {}", e);
+                                        notify_done(
+                                            &done_tx_backup,
+                                            Err(format!("download task error: {}", e)),
+                                        )
+                                        .await;
+                                    }
                                 }
                             });
                         }
@@ -126,8 +160,8 @@ impl FileDownloadManager {
 
     /// 执行单个下载任务
     async fn execute_download(helper: &FileHelper, task: DownloadTask) -> FileResult<()> {
-        let db = helper.db();
-        let log_dao = helper.log_dao();
+        let db = &helper.db;
+        let log_dao = FileLogDao::new(helper.db.clone());
 
         // 步骤1: 查询 file_user 和 file
         let file_user = match helper.find_file_user_by_id(task.file_user_id).await? {
@@ -136,6 +170,7 @@ impl FileDownloadManager {
                 log_dao
                     .add(0, 0, 0, "download: file_user not found", None)
                     .await;
+                notify_done(&task.done_tx, Err("file_user not found".to_string())).await;
                 return Ok(());
             }
         };
@@ -152,6 +187,7 @@ impl FileDownloadManager {
                         None,
                     )
                     .await;
+                notify_done(&task.done_tx, Err("file not found".to_string())).await;
                 return Ok(());
             }
         };
@@ -169,6 +205,11 @@ impl FileDownloadManager {
                     None,
                 )
                 .await;
+            notify_done(
+                &task.done_tx,
+                Err(format!("source_url is not HTTP: {}", source_url)),
+            )
+            .await;
             return Ok(());
         }
 
@@ -184,6 +225,7 @@ impl FileDownloadManager {
                     None,
                 )
                 .await;
+            notify_done(&task.done_tx, Err("storage_type is not local".to_string())).await;
             return Ok(());
         }
 
@@ -201,6 +243,7 @@ impl FileDownloadManager {
                         None,
                     )
                     .await;
+                notify_done(&task.done_tx, Err("file_local not found".to_string())).await;
                 return Ok(());
             }
         };
@@ -219,6 +262,7 @@ impl FileDownloadManager {
                             None,
                         )
                         .await;
+                    notify_done(&task.done_tx, Ok(())).await;
                     return Ok(());
                 }
             }
@@ -239,6 +283,11 @@ impl FileDownloadManager {
                     None,
                 )
                 .await;
+            notify_done(
+                &task.done_tx,
+                Err("file completed but local file missing".to_string()),
+            )
+            .await;
             return Ok(());
         }
 
@@ -252,6 +301,11 @@ impl FileDownloadManager {
                     None,
                 )
                 .await;
+            notify_done(
+                &task.done_tx,
+                Err(format!("unexpected file status={}", file.status)),
+            )
+            .await;
             return Ok(());
         }
 
@@ -264,6 +318,7 @@ impl FileDownloadManager {
                 &mut file_local,
                 task.chunk_index,
                 file_user.user_id,
+                task.done_tx,
             )
             .await?;
         } else {
@@ -274,6 +329,7 @@ impl FileDownloadManager {
                 &mut file,
                 &mut file_local,
                 file_user.user_id,
+                task.done_tx,
             )
             .await?;
         }
@@ -289,9 +345,10 @@ impl FileDownloadManager {
         file_local: &mut FileLocalModel,
         chunk_index: u32,
         user_id: u64,
+        done_tx: Option<tokio::sync::mpsc::Sender<Result<(), String>>>,
     ) -> FileResult<()> {
-        let db = helper.db();
-        let log_dao = helper.log_dao();
+        let db = &helper.db;
+        let log_dao = FileLogDao::new(helper.db.clone());
 
         // 4.1 查询 file_local_chunk
         let mut chunk = match helper
@@ -303,6 +360,7 @@ impl FileDownloadManager {
                 let err_msg = format!("download: chunk not found index={}", chunk_index);
                 Self::set_file_and_local_error(db, file, file_local, &err_msg).await;
                 log_dao.add(file.id, 0, user_id, &err_msg, None).await;
+                notify_done(&done_tx, Err(err_msg)).await;
                 return Ok(());
             }
         };
@@ -323,8 +381,16 @@ impl FileDownloadManager {
                         )
                         .await;
                     // 进入 4.4
-                    Self::on_chunk_complete(helper, db, file, file_local, &mut chunk, user_id)
-                        .await?;
+                    Self::on_chunk_complete(
+                        helper,
+                        db,
+                        file,
+                        file_local,
+                        &mut chunk,
+                        user_id,
+                        done_tx.clone(),
+                    )
+                    .await?;
                     return Ok(());
                 }
                 // 文件不存在, 进入 4.2 重新下载 (fallthrough)
@@ -339,6 +405,11 @@ impl FileDownloadManager {
                     None,
                 )
                 .await;
+            notify_done(
+                &done_tx,
+                Err(format!("unexpected chunk status={}", chunk.status)),
+            )
+            .await;
             return Ok(());
         }
 
@@ -362,7 +433,7 @@ impl FileDownloadManager {
             // 4.3 分片下载失败
             chunk.chunk_path = rel_path.clone();
             let now = now_time().unwrap_or_default();
-            let _ = Update::<FileLocalChunkModel>::new()
+            let _ = Update::<_, FileLocalChunkModel>::new()
                 .set(FileLocalChunkModel::CHUNK_PATH, &rel_path)
                 .set(FileLocalChunkModel::STATUS, FileChunkStatus::Failed as i8)
                 .set(FileLocalChunkModel::CHANGE_TIME, now)
@@ -379,18 +450,19 @@ impl FileDownloadManager {
                     None,
                 )
                 .await;
+            notify_done(&done_tx, Err("chunk download failed".to_string())).await;
             return Ok(());
         }
 
         // 设置 chunk_path
-        let _ = Update::<FileLocalChunkModel>::new()
+        let _ = Update::<_, FileLocalChunkModel>::new()
             .set(FileLocalChunkModel::CHUNK_PATH, &rel_path)
             .execute(SqlSuffix::Where(&sql_format!("id={}", chunk.id)), db)
             .await;
         chunk.chunk_path = rel_path;
 
         // 4.4 分片下载完成
-        Self::on_chunk_complete(helper, db, file, file_local, &mut chunk, user_id).await?;
+        Self::on_chunk_complete(helper, db, file, file_local, &mut chunk, user_id, done_tx).await?;
 
         Ok(())
     }
@@ -403,8 +475,9 @@ impl FileDownloadManager {
         file_local: &mut FileLocalModel,
         chunk: &mut FileLocalChunkModel,
         user_id: u64,
+        done_tx: Option<tokio::sync::mpsc::Sender<Result<(), String>>>,
     ) -> FileResult<()> {
-        let log_dao = helper.log_dao();
+        let log_dao = FileLogDao::new(helper.db.clone());
         let now = now_time().unwrap_or_default();
 
         // 计算 chunk md5 和 complete_size
@@ -420,7 +493,7 @@ impl FileDownloadManager {
         chunk.change_time = now;
 
         // 更新 chunk
-        let _ = Update::<FileLocalChunkModel>::new()
+        let _ = Update::<_, FileLocalChunkModel>::new()
             .set(FileLocalChunkModel::STATUS, FileChunkStatus::Normal as i8)
             .set(FileLocalChunkModel::CHANGE_TIME, now)
             .set(FileLocalChunkModel::CHUNK_MD5, &chunk_md5)
@@ -429,7 +502,7 @@ impl FileDownloadManager {
             .await;
 
         // 更新 file_local: file_chunk_succ+1, file_chunk_size+=complete_size (原子操作)
-        let _ = Update::<FileLocalModel>::new()
+        let _ = Update::<_, FileLocalModel>::new()
             .set(
                 FileLocalModel::FILE_CHUNK_SUCC,
                 SqlExpr("file_chunk_succ + 1"),
@@ -471,17 +544,18 @@ impl FileDownloadManager {
                 file.change_time = now;
                 let err_msg = format!("download: merge chunks failed: {}", e);
                 Self::set_file_error(db, file).await;
-                let _ = Update::<FileLocalModel>::new()
+                let _ = Update::<_, FileLocalModel>::new()
                     .set(FileLocalModel::LOCAL_PATH, &merge_rel)
                     .set(FileLocalModel::LAST_ERROR, err_msg.as_str())
                     .execute(SqlSuffix::Where(&sql_format!("id={}", file_local.id)), db)
                     .await;
                 log_dao.add(file.id, 0, user_id, &err_msg, None).await;
+                notify_done(&done_tx, Err(err_msg)).await;
             }
             Ok(_) => {
                 // 更新所有 chunk status=已合并
                 let chunk_ids: Vec<u64> = all_chunks.iter().map(|c| c.id).collect();
-                let _ = Update::<FileLocalChunkModel>::new()
+                let _ = Update::<_, FileLocalChunkModel>::new()
                     .set(FileLocalChunkModel::STATUS, FileChunkStatus::Merged as i8)
                     .set(FileLocalChunkModel::CHANGE_TIME, now)
                     .execute(SqlSuffix::Where(&sql_format!("file_id={}", file.id)), db)
@@ -510,6 +584,8 @@ impl FileDownloadManager {
                                 None,
                             )
                             .await;
+                        // 通知下载完成
+                        notify_done(&done_tx, Ok(())).await;
                     }
                     Ok(None) => {
                         log_dao
@@ -521,6 +597,8 @@ impl FileDownloadManager {
                                 None,
                             )
                             .await;
+                        // 通知下载完成
+                        notify_done(&done_tx, Ok(())).await;
                     }
                     Err(e) => {
                         warn!("download: complete_file_and_local error: {}", e);
@@ -533,6 +611,7 @@ impl FileDownloadManager {
                                 None,
                             )
                             .await;
+                        notify_done(&done_tx, Err(format!("complete error: {}", e))).await;
                     }
                 }
             }
@@ -549,8 +628,9 @@ impl FileDownloadManager {
         file: &mut FileModel,
         file_local: &mut FileLocalModel,
         user_id: u64,
+        done_tx: Option<tokio::sync::mpsc::Sender<Result<(), String>>>,
     ) -> FileResult<()> {
-        let log_dao = helper.log_dao();
+        let log_dao = FileLogDao::new(helper.db.clone());
 
         // 创建新文件
         let ext = file_extension(&file.file_name);
@@ -562,7 +642,7 @@ impl FileDownloadManager {
         if !download_ok {
             // 步骤6: 下载失败
             file_local.local_path = rel_path.clone();
-            let _ = Update::<FileLocalModel>::new()
+            let _ = Update::<_, FileLocalModel>::new()
                 .set(FileLocalModel::LOCAL_PATH, &rel_path)
                 .execute(SqlSuffix::Where(&sql_format!("id={}", file_local.id)), db)
                 .await;
@@ -582,6 +662,7 @@ impl FileDownloadManager {
                     None,
                 )
                 .await;
+            notify_done(&done_tx, Err("single download failed".to_string())).await;
             return Ok(());
         }
 
@@ -604,11 +685,15 @@ impl FileDownloadManager {
                         None,
                     )
                     .await;
+                // 通知下载完成
+                notify_done(&done_tx, Ok(())).await;
             }
             Ok(None) => {
                 log_dao
                     .add(file.id, 0, user_id, "download: complete", None)
                     .await;
+                // 通知下载完成
+                notify_done(&done_tx, Ok(())).await;
             }
             Err(e) => {
                 warn!("download: complete_file_and_local error: {}", e);
@@ -621,6 +706,7 @@ impl FileDownloadManager {
                         None,
                     )
                     .await;
+                notify_done(&done_tx, Err(format!("complete error: {}", e))).await;
             }
         }
 
@@ -677,8 +763,8 @@ impl FileDownloadManager {
         use futures_util::StreamExt;
         use tokio::io::AsyncWriteExt;
 
-        let db = helper.db();
-        let timeout_secs = helper.config().download_timeout_secs;
+        let db = &helper.db;
+        let timeout_secs = helper.config.download_timeout_secs;
         let client = reqwest::Client::new();
         let end_offset = start_offset + expected_size - 1;
         let range_header = format!("bytes={}-{}", start_offset, end_offset);
@@ -706,14 +792,14 @@ impl FileDownloadManager {
             // 更新 chunk complete_size
             let now = now_time().unwrap_or_default();
             chunk.complete_size = downloaded;
-            let _ = Update::<FileLocalChunkModel>::new()
+            let _ = Update::<_, FileLocalChunkModel>::new()
                 .set(FileLocalChunkModel::COMPLETE_SIZE, downloaded)
                 .set(FileLocalChunkModel::CHANGE_TIME, now)
                 .execute(SqlSuffix::Where(&sql_format!("id={}", chunk.id)), db)
                 .await;
 
             // 原子更新 file.file_size
-            let _ = Update::<FileModel>::new()
+            let _ = Update::<_, FileModel>::new()
                 .set(
                     FileModel::FILE_SIZE,
                     SqlExpr(format!("file_size + {}", bytes.len() as u64)),
@@ -778,8 +864,8 @@ impl FileDownloadManager {
         use futures_util::StreamExt;
         use tokio::io::AsyncWriteExt;
 
-        let db = helper.db();
-        let timeout_secs = helper.config().download_timeout_secs;
+        let db = &helper.db;
+        let timeout_secs = helper.config.download_timeout_secs;
         let client = reqwest::Client::new();
         let resp = client
             .get(url)
@@ -799,7 +885,7 @@ impl FileDownloadManager {
             file_handle.write_all(&bytes).await?;
 
             // 原子更新 file_size
-            let _ = Update::<FileModel>::new()
+            let _ = Update::<_, FileModel>::new()
                 .set(
                     FileModel::FILE_SIZE,
                     SqlExpr(format!("file_size + {}", bytes.len() as u64)),
@@ -832,7 +918,7 @@ impl FileDownloadManager {
         let now = now_time().unwrap_or_default();
         file.status = FileStatus::Failed.to();
         file.change_time = now;
-        let _ = Update::<FileModel>::new()
+        let _ = Update::<_, FileModel>::new()
             .set(FileModel::STATUS, FileStatus::Failed as i8)
             .set(FileModel::CHANGE_TIME, now)
             .execute(SqlSuffix::Where(&sql_format!("id={}", file.id)), db)
@@ -847,7 +933,7 @@ impl FileDownloadManager {
         error_msg: &str,
     ) {
         Self::set_file_error(db, file).await;
-        let _ = Update::<FileLocalModel>::new()
+        let _ = Update::<_, FileLocalModel>::new()
             .set(FileLocalModel::LAST_ERROR, error_msg)
             .execute(SqlSuffix::Where(&sql_format!("id={}", file_local.id)), db)
             .await;

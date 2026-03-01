@@ -1,15 +1,15 @@
 //用户文件列表接口
 
+use crate::common::LimitParam;
 use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
 use crate::dao::access::api::system::user::CheckUserFileView;
 use crate::dao::access::RbacAccessCheckEnv;
 use lsys_access::dao::AccessSession;
 use lsys_core::db::CursorPageSort;
-use lsys_files::dao::{FileListFilter, FileListAttrParam};
+use lsys_files::dao::{FileDataListParam, FileListAttrParam};
 use lsys_files::model::FileModel;
 use serde::Deserialize;
 use serde_json::json;
-use crate::common::LimitParam;
 
 #[derive(Debug, Deserialize)]
 pub struct FileListParam {
@@ -32,6 +32,9 @@ pub struct FileListParam {
     pub limit: Option<LimitParam>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
+    /// 按标签名过滤
+    #[serde(default)]
+    pub tag_names: Option<Vec<String>>,
 }
 
 /// 文件列表
@@ -57,27 +60,31 @@ pub async fn file_list(
     use crate::common::ToCursorPageParam;
     let page = param.limit.to_u64_cursor_page_param(CursorPageSort::Desc);
 
-    let filter = FileListFilter {
-        url: param.url.clone(),
-        source_url: param.source_url.clone(),
+    let tag_refs: Option<Vec<&str>> = param.tag_names.as_ref().map(|v| v.iter().map(String::as_str).collect());
+    let filter = FileDataListParam {
+        url: param.url.as_deref(),
+        source_url: param.source_url.as_deref(),
         user_id: Some(param.user_id.unwrap_or(user_id)),
         app_id: Some(app.id),
         add_time_start: param.add_time_start,
         add_time_end: param.add_time_end,
         status: None,
-        storage_type: param.storage_type.clone(),
-        file_md5: param.file_md5.clone(),
+        storage_type: param.storage_type.as_deref(),
+        file_md5: param.file_md5.as_deref(),
+        tag_names: tag_refs.as_deref(),
     };
 
     let attr_param = FileListAttrParam {
         attr_local: Some(true),
         attr_oss: Some(true),
+        attr_tag: Some(true),
     };
 
     let (data, page_data) = req_dao
         .web_dao
         .web_files
         .file_dao
+        .data_dao()
         .list_files(&filter, &page, &attr_param)
         .await?;
 
@@ -121,7 +128,7 @@ pub async fn file_list(
             "add_time": item.item.file_user_add_time,
             "user_id": item.item.user_id,
         });
-        
+
         // 摊平 attr_local 数据
         if let Some(local) = &item.attr_local {
             obj["local_id"] = json!(local.id);
@@ -131,7 +138,7 @@ pub async fn file_list(
             obj["file_chunk_succ"] = json!(local.file_chunk_succ);
             obj["file_chunk_size"] = json!(local.file_chunk_size);
         }
-        
+
         // 摊平 attr_oss 数据
         if let Some(oss) = &item.attr_oss {
             obj["oss_id"] = json!(oss.id);
@@ -141,12 +148,35 @@ pub async fn file_list(
             obj["region"] = json!(oss.region);
             obj["oss_size"] = json!(oss.size);
         }
-        
+
+        // 摊平 attr_tag 数据
+        if let Some(tag_attr) = &item.attr_tag {
+            let tags: Vec<serde_json::Value> = tag_attr
+                .tags
+                .iter()
+                .map(|t| {
+                    json!({
+                        "tag_name": t.tag_name,
+                        "add_time": t.add_time,
+                    })
+                })
+                .collect();
+            obj["tags"] = json!(tags);
+        }
+
         items.push(obj);
     }
 
     let total = if param.count_num.unwrap_or(false) {
-        Some(req_dao.web_dao.web_files.file_dao.count_files(&filter).await?)
+        Some(
+            req_dao
+                .web_dao
+                .web_files
+                .file_dao
+                .data_dao()
+                .count_files(&filter)
+                .await?,
+        )
     } else {
         None
     };

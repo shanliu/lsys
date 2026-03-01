@@ -1,4 +1,5 @@
-use lsys_core::{fluent_message, FluentMessage, IntoFluentMessage};
+use lsys_core::fluent_message;
+use lsys_core::fluents::{FluentMessage, IntoFluentMessage};
 #[derive(Debug)]
 pub enum LoggerError {
     Sqlx(sqlx::Error),

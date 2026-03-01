@@ -1,7 +1,11 @@
-use lsys_core::{now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT};
+use lsys_core::utils::{
+    now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT,
+};
 
-use lsys_core::db::{CursorPageData, CursorPageParam, Insert, SqlExpr, TableMeta};
-use lsys_core::{db_option_executor, sql_format};
+use lsys_core::db::{
+    CursorPageData, CursorPageParam, Insert, OptionTxExecutor, SqlExpr, TableMeta,
+};
+use lsys_core::sql_format;
 use sqlx::{MySql, Pool, Transaction};
 use tracing::{debug, warn};
 
@@ -87,26 +91,20 @@ impl ChangeLoggerDao {
             .take(64)
             .collect();
 
-        let res = db_option_executor!(
-            db,
-            {
-                Insert::<ChangeLogModel>::new()
-                    .set(ChangeLogModel::LOG_TYPE, log_type)
-                    .set(ChangeLogModel::MESSAGE, message)
-                    .set(ChangeLogModel::LOG_DATA, log_data)
-                    .set(ChangeLogModel::SOURCE_ID, source_id)
-                    .set(ChangeLogModel::ADD_USER_ID, add_user_id)
-                    .set(ChangeLogModel::ADD_USER_IP, user_ip)
-                    .set(ChangeLogModel::REQUEST_ID, request_id)
-                    .set(ChangeLogModel::ADD_TIME, time)
-                    .set(ChangeLogModel::DEVICE_ID, device_id)
-                    .set(ChangeLogModel::REQUEST_USER_AGENT, request_user_agent)
-                    .execute(db.as_executor())
-                    .await
-            },
-            transaction,
-            &self.db
-        );
+        let res = Insert::<_, ChangeLogModel>::new()
+            .set(ChangeLogModel::LOG_TYPE, log_type)
+            .set(ChangeLogModel::MESSAGE, message)
+            .set(ChangeLogModel::LOG_DATA, log_data)
+            .set(ChangeLogModel::SOURCE_ID, source_id)
+            .set(ChangeLogModel::ADD_USER_ID, add_user_id)
+            .set(ChangeLogModel::ADD_USER_IP, user_ip)
+            .set(ChangeLogModel::REQUEST_ID, request_id)
+            .set(ChangeLogModel::ADD_TIME, time)
+            .set(ChangeLogModel::DEVICE_ID, device_id)
+            .set(ChangeLogModel::REQUEST_USER_AGENT, request_user_agent)
+            .execute(OptionTxExecutor::new(transaction, &self.db))
+            .await;
+
         match res {
             Err(err) => warn!("add log fail:{}", err),
             Ok(r) => debug!("add log id:{}", r.last_insert_id()),

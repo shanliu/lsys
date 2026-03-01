@@ -1,6 +1,6 @@
 use lsys_core::db::{CursorPageData, CursorPageParam, SqlExpr, TableMeta};
-use lsys_core::StringClear;
-use lsys_core::{sql_format, string_clear, STRING_CLEAR_FORMAT};
+use lsys_core::utils::{string_clear, StringClear, STRING_CLEAR_FORMAT};
+use lsys_core::sql_format;
 
 use crate::{
     dao::result::RbacResult,

@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use deadpool_redis::{redis::AsyncCommands, Connection};
 
-use crate::{rand_str, RandType};
+use crate::utils::{rand_str, RandType};
 
 use super::{ValidCodeData, ValidCodeResult};
 

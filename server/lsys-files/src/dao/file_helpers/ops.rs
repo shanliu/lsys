@@ -182,7 +182,8 @@ impl FileHelper {
         chunk_ids: &[u64],
     ) {
         use lsys_core::db::{SqlSuffix, TableMeta, Update};
-        use lsys_core::{now_time, sql_format};
+        use lsys_core::sql_format;
+        use lsys_core::utils::now_time;
         use tracing::{info, warn};
 
         for &chunk_id in chunk_ids {
@@ -224,7 +225,7 @@ impl FileHelper {
             }
 
             let now = now_time().unwrap_or_default();
-            if let Err(e) = Update::<FileLocalChunkModel>::new()
+            if let Err(e) = Update::<_,FileLocalChunkModel>::new()
                 .set(FileLocalChunkModel::STATUS, FileChunkStatus::Cleaned as i8)
                 .set(FileLocalChunkModel::CHANGE_TIME, now)
                 .execute(SqlSuffix::Where(&sql_format!("id={}", chunk_id)), db)

@@ -68,7 +68,6 @@ lsys-macros-db = { path = "../lsys-macros-db", optional = true }
 #db
 sqlx = { version = "~0.8.6", features = [
     "runtime-tokio-native-tls",
-    "mysql",
 ], optional = true }
 
 tera = { version = "~1.20", optional = true }
@@ -86,5 +85,6 @@ redis = { version = "~0.32.0", features = [ # 根据 deadpool-redis 的版本适
 default = []
 tokio = ["dep:tokio"]
 db = ["dep:sqlx", "dep:lsys-macros-db", "tokio"]
+db-mysql = ["db", "sqlx/mysql"]
 tera = ["dep:tera"]
 redis = ["dep:redis", "dep:deadpool-redis", "tokio"]

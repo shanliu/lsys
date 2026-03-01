@@ -30,24 +30,16 @@ pub async fn file_chunks(
 
     let page: OffsetPageParam = param.page.to_offset_page_param();
 
-    let data = req_dao
-        .web_dao
-        .web_files
-        .file_dao
-        .helper()
-        .chunk_dao()
-        .list_by_file_id(param.file_id, &page)
+    let data_dao = req_dao.web_dao.web_files.file_dao.data_dao();
+
+    let data = data_dao
+        .list_chunks_by_file_id(param.file_id, &page)
         .await?;
 
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
-                .web_files
-                .file_dao
-                .helper()
-                .chunk_dao()
-                .count_by_file_id(param.file_id)
+            data_dao
+                .count_chunks_by_file_id(param.file_id)
                 .await?,
         )
     } else {

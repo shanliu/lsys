@@ -5,11 +5,14 @@ use crate::dao::AccountResult;
 
 use crate::model::{AccountMobileModel, AccountMobileStatus, AccountModel};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{
-    fluent_message, now_time, string_clear, valid_key, RemoteNotify, StringClear, ValidMobile,
-    ValidParam, ValidParamCheck, STRING_CLEAR_FORMAT,
+use lsys_core::fluents::IntoFluentMessage;
+use lsys_core::remote_notify::RemoteNotify;
+use lsys_core::utils::{
+    now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT,
 };
-use lsys_core::{IntoFluentMessage, RequestEnv};
+use lsys_core::valid_code::{CheckCodeData, ValidCode, ValidCodeData, ValidCodeDataRandom};
+use lsys_core::valid_param::{ValidMobile, ValidParam, ValidParamCheck};
+use lsys_core::{fluent_message, valid_key};
 
 use lsys_core::db::{Insert, TableMeta, SqlQuote, Update, SqlSuffix};
 use lsys_core::sql_format;
@@ -148,7 +151,7 @@ impl AccountMobile {
             None => self.db.begin().await?,
         };
 
-        let res = Insert::<AccountMobileModel>::new()
+        let res = Insert::<_,AccountMobileModel>::new()
             .set(AccountMobileModel::MOBILE, mobile_ow)
             .set(AccountMobileModel::STATUS, _status)
             .set(AccountMobileModel::AREA_CODE, area_code_ow)
@@ -223,11 +226,11 @@ impl AccountMobile {
 
 impl AccountMobile {
     /// 验证码生成
-    pub fn valid_code(&self) -> lsys_core::ValidCode {
-        lsys_core::ValidCode::new(self.redis.clone(), "mobile", true, Some(6))
+    pub fn valid_code(&self) -> ValidCode {
+        ValidCode::new(self.redis.clone(), "mobile", true, Some(6))
     }
     /// 获取验证码
-    pub async fn valid_code_set<T: lsys_core::ValidCodeData>(
+    pub async fn valid_code_set<T: ValidCodeData>(
         &self,
         valid_code_data: &mut T,
         area_code: &str,
@@ -241,8 +244,8 @@ impl AccountMobile {
         Ok(out)
     }
     /// 验证码构造器
-    pub fn valid_code_builder(&self) -> lsys_core::ValidCodeDataRandom {
-        lsys_core::ValidCodeDataRandom::new(120, 30)
+    pub fn valid_code_builder(&self) -> ValidCodeDataRandom {
+        ValidCodeDataRandom::new(120, 30)
     }
     /// 检测验证码
     pub async fn valid_code_check(
@@ -251,7 +254,6 @@ impl AccountMobile {
         area_code: &str,
         mobile: &str,
     ) -> AccountResult<()> {
-        use lsys_core::CheckCodeData;
         self.valid_code()
             .check_code(&CheckCodeData::new(
                 &format!("{}-{}", area_code, mobile),
@@ -342,7 +344,7 @@ impl AccountMobile {
 
         let mut db = self.db.begin().await?;
 
-        let tmp = Update::<AccountMobileModel>::new()
+        let tmp = Update::<_,AccountMobileModel>::new()
             .set(AccountMobileModel::STATUS, AccountMobileStatus::Valid as i8)
             .set(AccountMobileModel::CONFIRM_TIME, time)
             .execute(
@@ -408,7 +410,7 @@ impl AccountMobile {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let res = Update::<AccountMobileModel>::new()
+        let res = Update::<_,AccountMobileModel>::new()
             .set(AccountMobileModel::STATUS, AccountMobileStatus::Delete as i8)
             .set(AccountMobileModel::CHANGE_TIME, time)
             .execute(
@@ -474,60 +476,32 @@ impl AccountMobile {
             .await;
         out
     }
-    lsys_core::impl_dao_fetch_one_by_one!(
-        db,
-        find_by_id,
-        u64,
-        AccountMobileModel,
-        AccountResult<AccountMobileModel>,
-        id,
-        "id={id} and status in ({status})",
-        status = [
-            AccountMobileStatus::Valid as i8,
-            AccountMobileStatus::Init as i8
-        ]
-    );
-    lsys_core::impl_dao_fetch_map_by_vec!(
-        db,
-        find_by_ids,
-        u64,
-        AccountMobileModel,
-        AccountResult<HashMap<u64, AccountMobileModel>>,
-        id,
-        ids,
-        "id in ({ids}) and status in ({status})",
-        status = [
-            AccountMobileStatus::Valid as i8,
-            AccountMobileStatus::Init as i8
-        ]
-    );
-    lsys_core::impl_dao_fetch_vec_by_one!(
-        db,
-        find_by_account_id_vec,
-        u64,
-        AccountMobileModel,
-        AccountResult<Vec<AccountMobileModel>>,
-        uid,
-        "account_id = {uid} and status in ( {status}) order by id desc",
-        status = [
-            AccountMobileStatus::Init as i8,
-            AccountMobileStatus::Valid as i8
-        ]
-    );
-    lsys_core::impl_dao_fetch_vec_by_vec!(
-        db,
-        find_by_account_ids_vec,
-        u64,
-        AccountMobileModel,
-        AccountResult<HashMap<u64, Vec<AccountMobileModel>>>,
-        account_id,
-        uid,
-        "account_id in ({uid}) and status in ({status})  order by id desc",
-        status = [
-            AccountMobileStatus::Init as i8,
-            AccountMobileStatus::Valid as i8
-        ]
-    );
+    pub async fn find_by_id(&self, id: &u64) -> AccountResult<AccountMobileModel> {
+        Ok(lsys_core::db::utils::fetch_one::<AccountMobileModel>(
+            &self.db,
+            lsys_core::sql_format!("id={id} and status in ({status})", id = id, status = [AccountMobileStatus::Valid as i8, AccountMobileStatus::Init as i8]),
+        ).await?)
+    }
+    pub async fn find_by_ids(&self, ids: &[u64]) -> AccountResult<HashMap<u64, AccountMobileModel>> {
+        Ok(lsys_core::db::utils::fetch_map::<AccountMobileModel, _, _>(
+            &self.db,
+            lsys_core::sql_format!("id in ({ids}) and status in ({status})", ids = ids, status = [AccountMobileStatus::Valid as i8, AccountMobileStatus::Init as i8]),
+            |v| v.id,
+        ).await?)
+    }
+    pub async fn find_by_account_id_vec(&self, id: &u64) -> AccountResult<Vec<AccountMobileModel>> {
+        Ok(lsys_core::db::utils::fetch_vec::<AccountMobileModel>(
+            &self.db,
+            lsys_core::sql_format!("account_id = {uid} and status in ( {status}) order by id desc", uid = id, status = [AccountMobileStatus::Init as i8, AccountMobileStatus::Valid as i8]),
+        ).await?)
+    }
+    pub async fn find_by_account_ids_vec(&self, ids: &[u64]) -> AccountResult<HashMap<u64, Vec<AccountMobileModel>>> {
+        Ok(lsys_core::db::utils::fetch_group::<AccountMobileModel, _, _>(
+            &self.db,
+            lsys_core::sql_format!("account_id in ({uid}) and status in ({status})  order by id desc", uid = ids, status = [AccountMobileStatus::Init as i8, AccountMobileStatus::Valid as i8]),
+            |v| v.account_id,
+        ).await?)
+    }
     pub fn cache(&'_ self) -> AccountMobileCache<'_> {
         AccountMobileCache { dao: self }
     }

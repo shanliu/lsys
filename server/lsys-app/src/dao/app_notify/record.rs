@@ -8,7 +8,10 @@ use crate::model::{
     AppNotifyType,
 };
 use lsys_core::{
-    db::query_string_field_max, fluent_message, now_time, string_clear, valid_key, RequestEnv,
+    db::utils::fetch_string_field_max, fluent_message, valid_key,
+};
+use lsys_core::utils::{now_time, string_clear, RequestEnv, StringClear};
+use lsys_core::valid_param::{
     ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen, ValidUrl,
 };
 
@@ -32,21 +35,18 @@ impl AppNotifyRecord {
     pub fn new(db: Pool<sqlx::MySql>, logger: Arc<ChangeLoggerDao>) -> Self {
         Self { db, logger }
     }
-    lsys_core::impl_dao_fetch_one_by_one!(
-        db,
-        find_data_by_id,
-        u64,
-        AppNotifyDataModel,
-        AppResult<AppNotifyDataModel>,
-        id,
-        "id={id}"
-    );
+    pub async fn find_data_by_id(&self, id: &u64) -> AppResult<AppNotifyDataModel> {
+        Ok(lsys_core::db::utils::fetch_one::<AppNotifyDataModel>(
+            &self.db,
+            lsys_core::sql_format!("id={id}", id = id),
+        ).await?)
+    }
     pub async fn find_config_by_app(
         &self,
         app_id: u64,
         notify_method: &str,
     ) -> AppResult<AppNotifyConfigModel> {
-        let method = string_clear(notify_method, lsys_core::StringClear::Ident, Some(65));
+        let method = string_clear(notify_method, StringClear::Ident, Some(65));
         let data = sqlx::query_as::<_, AppNotifyConfigModel>(&sql_format!(
             "select * from {} where app_id={} and notify_method={}",
             AppNotifyConfigModel::table_name(),
@@ -65,7 +65,7 @@ impl AppNotifyRecord {
         if app_id.is_empty() {
             return Ok(vec![]);
         }
-        let method = string_clear(notify_method, lsys_core::StringClear::Ident, Some(65));
+        let method = string_clear(notify_method, StringClear::Ident, Some(65));
         let data = sqlx::query_as::<_, AppNotifyConfigModel>(&sql_format!(
             "select * from {} where app_id in ({}) and notify_method={}",
             AppNotifyConfigModel::table_name(),
@@ -82,13 +82,13 @@ impl AppNotifyRecord {
         call_url: &str,
     ) -> AppResult<()> {
         // 先获取所有字段长度
-        let method_max = query_string_field_max::<AppNotifyConfigModel>(
+        let method_max = fetch_string_field_max::<AppNotifyConfigModel>(
             &self.db,
             &AppNotifyConfigModel::NOTIFY_METHOD,
         )
         .await
         .len_or(64);
-        let url_max = query_string_field_max::<AppNotifyConfigModel>(
+        let url_max = fetch_string_field_max::<AppNotifyConfigModel>(
             &self.db,
             &AppNotifyConfigModel::CALL_URL,
         )
@@ -144,7 +144,7 @@ impl AppNotifyRecord {
         let create_time = now_time().unwrap_or_default();
         let id = match self.find_config_by_app(app.id, notify_method).await {
             Ok(row) => {
-                Update::<AppNotifyConfigModel>::new()
+                Update::<_,AppNotifyConfigModel>::new()
                     .set(AppNotifyConfigModel::CALL_URL, call_url.clone())
                     .set(AppNotifyConfigModel::CHANGE_TIME, create_time)
                     .set(AppNotifyConfigModel::CHANGE_USER_ID, change_user_id)
@@ -154,7 +154,7 @@ impl AppNotifyRecord {
             }
             Err(AppError::Sqlx(sqlx::Error::RowNotFound)) => {
                 let notify_method = notify_method.to_owned();
-                let res = Insert::<AppNotifyConfigModel>::new()
+                let res = Insert::<_,AppNotifyConfigModel>::new()
                     .set(AppNotifyConfigModel::APP_ID, app.id)
                     .set(AppNotifyConfigModel::NOTIFY_METHOD, notify_method)
                     .set(AppNotifyConfigModel::CALL_URL, call_url.clone())
@@ -198,19 +198,19 @@ impl AppNotifyRecord {
         try_delay: u16,
     ) -> AppResult<()> {
         // 先获取所有字段长度
-        let method_max = query_string_field_max::<AppNotifyDataModel>(
+        let method_max = fetch_string_field_max::<AppNotifyDataModel>(
             &self.db,
             &AppNotifyDataModel::NOTIFY_METHOD,
         )
         .await
         .len_or(64);
-        let key_max = query_string_field_max::<AppNotifyDataModel>(
+        let key_max = fetch_string_field_max::<AppNotifyDataModel>(
             &self.db,
             &AppNotifyDataModel::NOTIFY_KEY,
         )
         .await
         .len_or(64);
-        let payload_max = query_string_field_max::<AppNotifyDataModel>(
+        let payload_max = fetch_string_field_max::<AppNotifyDataModel>(
             &self.db,
             &AppNotifyDataModel::NOTIFY_PAYLOAD,
         )
@@ -295,7 +295,7 @@ impl AppNotifyRecord {
         };
         let mut remove_history_count = 0;
         let mut tdb = self.db.begin().await?;
-        let res = Insert::<AppNotifyDataModel>::new()
+        let res = Insert::<_,AppNotifyDataModel>::new()
             .set(AppNotifyDataModel::APP_ID, app_id)
             .set(AppNotifyDataModel::NOTIFY_METHOD, notify_method.clone())
             .set(AppNotifyDataModel::NOTIFY_PAYLOAD, notify_data)
@@ -322,7 +322,7 @@ impl AppNotifyRecord {
         };
         if clear_init_status {
             let del_status = AppNotifyDataStatus::Delete as i8;
-            match Update::<AppNotifyDataModel>::new()
+            match Update::<_,AppNotifyDataModel>::new()
                 .set(AppNotifyDataModel::STATUS, del_status)
                 .set(AppNotifyDataModel::DELETE_TIME, create_time)
                 .execute(
@@ -377,7 +377,7 @@ impl AppNotifyRecord {
         }
         let create_time = now_time().unwrap_or_default();
         let del_status = AppNotifyDataStatus::Delete as i8;
-        Update::<AppNotifyDataModel>::new()
+        Update::<_,AppNotifyDataModel>::new()
             .set(AppNotifyDataModel::STATUS, del_status)
             .set(AppNotifyDataModel::DELETE_TIME, create_time)
             .execute(SqlSuffix::Where(&sql_format!("id={}", data.id)), &self.db)
@@ -406,14 +406,14 @@ impl AppNotifyRecord {
     ) -> Option<Vec<String>> {
         let mut sqlwhere = vec![];
         if let Some(s) = notify_method {
-            let s = string_clear(s, lsys_core::StringClear::Ident, Some(65));
+            let s = string_clear(s, StringClear::Ident, Some(65));
             if s.is_empty() {
                 return None;
             }
             sqlwhere.push(sql_format!("d.notify_method={}", s));
         }
         if let Some(s) = notify_key {
-            let s = string_clear(s, lsys_core::StringClear::Ident, Some(65));
+            let s = string_clear(s, StringClear::Ident, Some(65));
             sqlwhere.push(sql_format!("d.notify_key={}", s));
         }
         if let Some(aid) = app_id {

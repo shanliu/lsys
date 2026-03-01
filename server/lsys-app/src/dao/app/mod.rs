@@ -5,10 +5,16 @@ mod request;
 mod sub_app;
 use lsys_access::dao::AccessDao;
 use lsys_core::{
-    db::query_string_field_max, fluent_message, now_time, rand_str, string_clear, valid_key,
-    AppCore, RequestEnv, StringClear, TimeOutTask, TimeOutTaskNotify, ValidError, ValidParam,
-    ValidParamCheck, ValidPattern, ValidStrlen, STRING_CLEAR_FORMAT, STRING_CLEAR_XSS,
+    db::utils::fetch_string_field_max, fluent_message, valid_key,
 };
+use lsys_core::app_core::AppCore;
+use lsys_core::remote_notify::RemoteNotify;
+use lsys_core::timeout_task::{TimeOutTask, TimeOutTaskNotify};
+use lsys_core::utils::{
+    now_time, rand_str, string_clear, RandType, RequestEnv, StringClear, STRING_CLEAR_FORMAT,
+    STRING_CLEAR_XSS,
+};
+use lsys_core::valid_param::{ValidError, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
 
 pub use data::*;
 use lsys_core::db::{Insert, TableMeta, SqlSuffix, Update};
@@ -22,10 +28,7 @@ use crate::model::{
     AppModel, AppRequestModel, AppRequestSetInfoModel,
     AppRequestStatus, AppRequestType, AppSecretType, AppStatus,
 };
-use lsys_core::{
-    cache::{LocalCache, LocalCacheConfig},
-    RemoteNotify,
-};
+use lsys_core::cache::{LocalCache, LocalCacheConfig};
 
 use super::AppSecret;
 use super::{logger::AppLog, AppError, AppResult};
@@ -98,10 +101,10 @@ impl App {
         );
 
         // 先获取所有字段长度
-        let name_max = query_string_field_max::<AppModel>(&self.db, &AppModel::NAME)
+        let name_max = fetch_string_field_max::<AppModel>(&self.db, &AppModel::NAME)
             .await
             .len_or(24);
-        let client_id_max = query_string_field_max::<AppModel>(&self.db, &AppModel::CLIENT_ID)
+        let client_id_max = fetch_string_field_max::<AppModel>(&self.db, &AppModel::CLIENT_ID)
             .await
             .len_or(32);
 
@@ -238,7 +241,7 @@ impl App {
         let status = AppStatus::Init as i8;
         let parent_app_id = parent_app.as_ref().map(|e| e.id).unwrap_or_default();
 
-        let res = Insert::<AppModel>::new()
+        let res = Insert::<_,AppModel>::new()
             .set(AppModel::NAME, &name)
             .set(AppModel::PARENT_APP_ID, parent_app_id)
             .set(AppModel::CLIENT_ID, &client_id)
@@ -258,7 +261,7 @@ impl App {
             Ok(mr) => mr.last_insert_id(),
         };
 
-        let secret_data = rand_str(lsys_core::RandType::LowerHex, 32);
+        let secret_data = rand_str(RandType::LowerHex, 32);
         if let Err(e) = self
             .app_secret
             .single_set(
@@ -275,7 +278,7 @@ impl App {
             return Err(e);
         };
 
-        let secret_data = rand_str(lsys_core::RandType::LowerHex, 32);
+        let secret_data = rand_str(RandType::LowerHex, 32);
         if let Err(e) = self
             .app_secret
             .multiple_add(
@@ -294,7 +297,7 @@ impl App {
 
         let req_status = AppRequestStatus::Pending as i8;
         let request_type = AppRequestType::AppReq as i8;
-        let req_res = Insert::<AppRequestModel>::new()
+        let req_res = Insert::<_,AppRequestModel>::new()
             .set(AppRequestModel::PARENT_APP_ID, parent_app_id)
             .set(AppRequestModel::APP_ID, app_id)
             .set(AppRequestModel::REQUEST_TYPE, request_type)
@@ -310,7 +313,7 @@ impl App {
             }
             Ok(mr) => mr.last_insert_id(),
         };
-        let req_res = Insert::<AppRequestSetInfoModel>::new()
+        let req_res = Insert::<_,AppRequestSetInfoModel>::new()
             .set(AppRequestSetInfoModel::APP_REQUEST_ID, req_id)
             .set(AppRequestSetInfoModel::NAME, name.clone())
             .set(AppRequestSetInfoModel::CLIENT_ID, client_id.clone())
@@ -416,7 +419,7 @@ impl App {
         let mut db = self.db.begin().await?;
 
         if AppStatus::Init.eq(app.status) {
-            let req_res = Update::<AppModel>::new()
+            let req_res = Update::<_,AppModel>::new()
                 .set(AppModel::NAME, &name)
                 .set(AppModel::CLIENT_ID, &client_id)
                 .execute(SqlSuffix::Where(&sql_format!("id={}", app.id)), &mut *db)
@@ -429,7 +432,7 @@ impl App {
 
         //废弃以前申请
         let req_status = AppRequestStatus::Invalid as i8;
-        let req_res = Update::<AppRequestModel>::new()
+        let req_res = Update::<_,AppRequestModel>::new()
             .set(AppRequestModel::STATUS, req_status)
             .execute(
                 SqlSuffix::Where(&sql_format!(
@@ -454,7 +457,7 @@ impl App {
         } else {
             AppRequestType::AppChange
         } as i8;
-        let req_res = Insert::<AppRequestModel>::new()
+        let req_res = Insert::<_,AppRequestModel>::new()
             .set(AppRequestModel::PARENT_APP_ID, app.parent_app_id)
             .set(AppRequestModel::APP_ID, app.id)
             .set(AppRequestModel::REQUEST_TYPE, request_type)
@@ -470,7 +473,7 @@ impl App {
             }
             Ok(mr) => mr.last_insert_id(),
         };
-        let req_res = Insert::<AppRequestSetInfoModel>::new()
+        let req_res = Insert::<_,AppRequestSetInfoModel>::new()
             .set(AppRequestSetInfoModel::APP_REQUEST_ID, req_id)
             .set(AppRequestSetInfoModel::NAME, name.clone())
             .set(AppRequestSetInfoModel::CLIENT_ID, client_id.clone())
@@ -592,7 +595,7 @@ impl App {
         } else {
             AppStatus::Disable as i8
         };
-        let req_res = Update::<AppModel>::new()
+        let req_res = Update::<_,AppModel>::new()
             .set(AppModel::NAME, req_info.name.clone())
             .set(AppModel::CLIENT_ID, req_info.client_id.clone())
             .set(AppModel::STATUS, status)
@@ -608,7 +611,7 @@ impl App {
         //废弃以前申请
         let confirm_status = confirm_status as i8;
         let confirm_note = confirm_note.to_string();
-        let req_res = Update::<AppRequestModel>::new()
+        let req_res = Update::<_,AppRequestModel>::new()
             .set(AppRequestModel::STATUS, confirm_status)
             .set(AppRequestModel::CONFIRM_USER_ID, confirm_user_id)
             .set(AppRequestModel::CONFIRM_TIME, time)
@@ -671,7 +674,7 @@ impl App {
 
         let status = AppStatus::Disable as i8;
 
-        let req_res = Update::<AppModel>::new()
+        let req_res = Update::<_,AppModel>::new()
             .set(AppModel::STATUS, status)
             .set(AppModel::CHANGE_USER_ID, disable_user_id)
             .set(AppModel::CHANGE_TIME, time)
@@ -687,7 +690,7 @@ impl App {
 
         //废弃以前申请
         let confirm_status = AppRequestStatus::Invalid as i8;
-        let req_res = Update::<AppRequestModel>::new()
+        let req_res = Update::<_,AppRequestModel>::new()
             .set(AppRequestModel::STATUS, confirm_status)
             .set(AppRequestModel::CONFIRM_USER_ID, disable_user_id)
             .set(AppRequestModel::CONFIRM_TIME, time)
@@ -802,7 +805,7 @@ impl App {
 
         let status = AppStatus::Delete as i8;
 
-        let req_res = Update::<AppModel>::new()
+        let req_res = Update::<_,AppModel>::new()
             .set(AppModel::STATUS, status)
             .set(AppModel::CHANGE_USER_ID, delete_user_id)
             .set(AppModel::CHANGE_TIME, time)
@@ -815,7 +818,7 @@ impl App {
 
         //废弃以前申请
         let confirm_status = AppRequestStatus::Invalid as i8;
-        let req_res = Update::<AppRequestModel>::new()
+        let req_res = Update::<_,AppRequestModel>::new()
             .set(AppRequestModel::STATUS, confirm_status)
             .set(AppRequestModel::CONFIRM_USER_ID, delete_user_id)
             .set(AppRequestModel::CONFIRM_TIME, time)
@@ -880,7 +883,7 @@ impl App {
     ) -> AppResult<String> {
         let client_secret = match secret {
             Some(sstr) => sstr.to_string(),
-            None => rand_str(lsys_core::RandType::LowerHex, 32),
+            None => rand_str(RandType::LowerHex, 32),
         };
         let mut db = self.db.begin().await?;
         self.app_secret
@@ -925,7 +928,7 @@ impl App {
     ) -> AppResult<String> {
         let client_secret = match secret {
             Some(sstr) => sstr.to_string(),
-            None => rand_str(lsys_core::RandType::LowerHex, 32),
+            None => rand_str(RandType::LowerHex, 32),
         };
         self.app_secret
             .multiple_add(
@@ -975,7 +978,7 @@ impl App {
     ) -> AppResult<String> {
         let client_secret = match secret {
             Some(sstr) => sstr.to_string(),
-            None => rand_str(lsys_core::RandType::LowerHex, 32),
+            None => rand_str(RandType::LowerHex, 32),
         };
         self.app_secret
             .multiple_change(

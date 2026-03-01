@@ -7,10 +7,12 @@ use crate::dao::{AccountDao, AccountResult, UserAuthData, UserAuthResult, UserLo
 use crate::model::{AccountEmailModel, AccountModel};
 use async_trait::async_trait;
 use lsys_access::dao::SessionBody;
-use lsys_core::{
-    fluent_message, valid_key, IntoFluentMessage, ValidEmail, ValidParam, ValidParamCheck,
-    ValidPattern, ValidStrlen,
+use lsys_core::fluents::IntoFluentMessage;
+use lsys_core::valid_code::{CheckCodeData, ValidCode, ValidCodeData, ValidCodeDataRandom};
+use lsys_core::valid_param::{
+    ValidEmail, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
 };
+use lsys_core::{fluent_message, valid_key};
 use serde_json::{json, Value};
 use std::sync::Arc;
 
@@ -96,8 +98,8 @@ pub struct EmailCodeLogin {
 
 impl EmailCodeLogin {
     /// 验证码生成
-    fn valid_code(redis: deadpool_redis::Pool) -> lsys_core::ValidCode {
-        lsys_core::ValidCode::new(redis, "email-login", true, Some(6))
+    fn valid_code(redis: deadpool_redis::Pool) -> ValidCode {
+        ValidCode::new(redis, "email-login", true, Some(6))
     }
     async fn email_param_valid(email: &str) -> AccountResult<()> {
         ValidParam::default()
@@ -112,7 +114,7 @@ impl EmailCodeLogin {
         Ok(())
     }
     /// 获取验证码
-    pub async fn valid_code_set<T: lsys_core::ValidCodeData>(
+    pub async fn valid_code_set<T: ValidCodeData>(
         redis: deadpool_redis::Pool,
         valid_code_data: &mut T,
         email: &str,
@@ -123,8 +125,8 @@ impl EmailCodeLogin {
         Ok(code)
     }
     /// 验证码构造器
-    pub fn valid_code_builder() -> lsys_core::ValidCodeDataRandom {
-        lsys_core::ValidCodeDataRandom::new(300, 30)
+    pub fn valid_code_builder() -> ValidCodeDataRandom {
+        ValidCodeDataRandom::new(300, 30)
     }
     /// 检测验证码
     pub async fn valid_code_check(
@@ -133,7 +135,7 @@ impl EmailCodeLogin {
         email: &str,
     ) -> AccountResult<()> {
         Self::valid_code(redis)
-            .check_code(&lsys_core::CheckCodeData::new(email, code))
+            .check_code(&CheckCodeData::new(email, code))
             .await?;
         Ok(())
     }

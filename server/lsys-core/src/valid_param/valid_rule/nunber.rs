@@ -1,5 +1,6 @@
 use super::ValidRule;
-use crate::{fluent_message, ValidRuleError};
+use crate::fluent_message;
+use crate::valid_param::ValidRuleError;
 use std::default::Default;
 use std::fmt::Display;
 use std::marker::PhantomData;

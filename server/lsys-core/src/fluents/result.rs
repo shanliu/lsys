@@ -1,4 +1,5 @@
-use crate::{fluent_message, FluentMessage, IntoFluentMessage};
+use crate::fluent_message;
+use crate::fluents::{FluentMessage, IntoFluentMessage};
 
 #[derive(Debug)]
 pub enum FluentBundleError {

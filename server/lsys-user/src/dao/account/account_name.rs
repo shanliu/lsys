@@ -1,9 +1,14 @@
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
-    db::query_string_field_max,
-    fluent_message, now_time, string_clear, valid_key, RemoteNotify, RequestEnv, StringClear,
+    db::utils::fetch_string_field_max,
+    fluent_message, valid_key,
+};
+use lsys_core::remote_notify::RemoteNotify;
+use lsys_core::utils::{
+    now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT,
+};
+use lsys_core::valid_param::{
     ValidError, ValidParam, ValidParamCheck, ValidPattern, ValidStrMatch, ValidStrlen,
-    STRING_CLEAR_FORMAT,
 };
 
 use lsys_logger::dao::ChangeLoggerDao;
@@ -74,7 +79,7 @@ impl AccountName {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let res = Update::<AccountNameModel>::new()
+        let res = Update::<_,AccountNameModel>::new()
             .set(AccountNameModel::USERNAME, &username)
             .set(AccountNameModel::CHANGE_TIME, ntime)
             .set(AccountNameModel::STATUS, status)
@@ -117,7 +122,7 @@ impl AccountName {
     }
     async fn name_param_valid(&self, username: &str) -> AccountResult<()> {
         let username_max =
-            query_string_field_max::<AccountNameModel>(&self.db, &AccountNameModel::USERNAME)
+            fetch_string_field_max::<AccountNameModel>(&self.db, &AccountNameModel::USERNAME)
                 .await
                 .len_or(32);
 
@@ -173,7 +178,7 @@ impl AccountName {
                             Some(pb) => pb.begin().await?,
                             None => self.db.begin().await?,
                         };
-                        let tmp = Insert::<AccountNameModel>::new()
+                        let tmp = Insert::<_,AccountNameModel>::new()
                             .set(AccountNameModel::ACCOUNT_ID, account.id)
                             .set(AccountNameModel::USERNAME, &username)
                             .set(AccountNameModel::STATUS, status)
@@ -221,7 +226,7 @@ impl AccountName {
                             Some(pb) => pb.begin().await?,
                             None => self.db.begin().await?,
                         };
-                        let tmp = Update::<AccountNameModel>::new()
+                        let tmp = Update::<_,AccountNameModel>::new()
                             .set(AccountNameModel::STATUS, status)
                             .set(AccountNameModel::USERNAME, &username)
                             .set(AccountNameModel::CHANGE_TIME, time)
@@ -288,25 +293,19 @@ impl AccountName {
         out
     }
 
-    lsys_core::impl_dao_fetch_one_by_one!(
-        db,
-        find_by_account_id,
-        u64,
-        AccountNameModel,
-        AccountResult<AccountNameModel>,
-        id,
-        "account_id = {id}  order by id desc"
-    );
-    lsys_core::impl_dao_fetch_map_by_vec!(
-        db,
-        find_by_account_ids,
-        u64,
-        AccountNameModel,
-        AccountResult<HashMap<u64, AccountNameModel>>,
-        account_id,
-        ids,
-        "account_id in ({ids})  order by id desc"
-    );
+    pub async fn find_by_account_id(&self, id: &u64) -> AccountResult<AccountNameModel> {
+        Ok(lsys_core::db::utils::fetch_one::<AccountNameModel>(
+            &self.db,
+            lsys_core::sql_format!("account_id = {id}  order by id desc", id = id),
+        ).await?)
+    }
+    pub async fn find_by_account_ids(&self, ids: &[u64]) -> AccountResult<HashMap<u64, AccountNameModel>> {
+        Ok(lsys_core::db::utils::fetch_map::<AccountNameModel, _, _>(
+            &self.db,
+            lsys_core::sql_format!("account_id in ({ids})  order by id desc", ids = ids),
+            |v| v.account_id,
+        ).await?)
+    }
     pub fn cache(&'_ self) -> AccountNameCache<'_> {
         AccountNameCache { dao: self }
     }

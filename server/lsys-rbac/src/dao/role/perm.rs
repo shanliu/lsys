@@ -7,10 +7,11 @@ use crate::{
 };
 use lsys_core::{
     db::{BatchInsert, Insert, SqlExpr, SqlSuffix, TableMeta, Update},
-    string_clear, StringClear, STRING_CLEAR_FORMAT,
 };
-use lsys_core::{db_option_executor, sql_format};
-use lsys_core::{fluent_message, now_time, RequestEnv};
+use lsys_core::utils::{now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT};
+use lsys_core::db::OptionTxExecutor;
+use lsys_core::sql_format;
+use lsys_core::fluent_message;
 use serde::Serialize;
 use sqlx::{FromRow, Row, Transaction};
 
@@ -152,12 +153,12 @@ impl RbacRole {
         };
 
         let nowtime = now_time().unwrap_or_default();
-        let mut batch = BatchInsert::<RbacPermModel>::new();
+        let mut batch = BatchInsert::<_,RbacPermModel>::new();
         for RolePerm { op, res } in perm_vec {
             let mut is_updata = false;
             for (itemid, res_id, op_id) in perm_res.iter() {
                 if *res_id == res.id && *op_id == op.id {
-                    if let Err(err) = Update::<RbacPermModel>::new()
+                    if let Err(err) = Update::<_,RbacPermModel>::new()
                         .set(RbacPermModel::ROLE_ID, role.id)
                         .set(RbacPermModel::CHANGE_TIME, nowtime)
                         .set(RbacPermModel::CHANGE_USER_ID, add_user_id)
@@ -173,7 +174,7 @@ impl RbacRole {
             }
             if !is_updata {
                 batch = batch.push(
-                    Insert::<RbacPermModel>::new()
+                    Insert::<_,RbacPermModel>::new()
                         .set(RbacPermModel::OP_ID, op.id)
                         .set(RbacPermModel::RES_ID, res.id)
                         .set(RbacPermModel::ROLE_ID, role.id)
@@ -231,38 +232,30 @@ impl RbacRole {
             return Ok(0);
         }
         let time = now_time().unwrap_or_default();
-        let db = &self.db;
-        let res = db_option_executor!(
-            db,
-            {
-                Update::<RbacPermModel>::new()
-                    .set(RbacPermModel::CHANGE_USER_ID, del_user_id)
-                    .set(RbacPermModel::CHANGE_TIME, time)
-                    .set(RbacPermModel::STATUS, RbacPermStatus::Delete as i8)
-                    .execute(
-                        SqlSuffix::Where(&sql_format!(
-                            "role_id ={} and ({})",
-                            role.id,
-                            SqlExpr(format!(
-                                "({})",
-                                perm_vec
-                                    .iter()
-                                    .map(|e| sql_format!(
-                                        "res_id={} and op_id={}",
-                                        e.res.id,
-                                        e.op.id
-                                    ))
-                                    .collect::<Vec<_>>()
-                                    .join(") or (")
+        let res = Update::<_,RbacPermModel>::new()
+            .set(RbacPermModel::CHANGE_USER_ID, del_user_id)
+            .set(RbacPermModel::CHANGE_TIME, time)
+            .set(RbacPermModel::STATUS, RbacPermStatus::Delete as i8)
+            .execute(
+                SqlSuffix::Where(&sql_format!(
+                    "role_id ={} and ({})",
+                    role.id,
+                    SqlExpr(format!(
+                        "({})",
+                        perm_vec
+                            .iter()
+                            .map(|e| sql_format!(
+                                "res_id={} and op_id={}",
+                                e.res.id,
+                                e.op.id
                             ))
-                        )),
-                        db.as_executor(),
-                    )
-                    .await?
-            },
-            transaction,
-            db
-        );
+                            .collect::<Vec<_>>()
+                            .join(") or (")
+                    ))
+                )),
+                OptionTxExecutor::new(transaction, &self.db),
+            )
+            .await?;
 
         let res_op_data = perm_vec
             .iter()
@@ -435,7 +428,7 @@ impl RbacRole {
         let status = RbacPermStatus::Delete as i8;
         let time = now_time().unwrap_or_default();
         for (op_id, role) in role_data {
-            let tmp = Update::<RbacPermModel>::new()
+            let tmp = Update::<_,RbacPermModel>::new()
                 .set(RbacPermModel::STATUS, status)
                 .set(RbacPermModel::CHANGE_USER_ID, delete_user_id)
                 .set(RbacPermModel::CHANGE_TIME, time)

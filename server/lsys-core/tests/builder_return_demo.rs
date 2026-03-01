@@ -1,5 +1,5 @@
 // 演示：从函数返回 Insert/BatchInsert/Update 构建器
-#![cfg(feature = "db")]
+#![cfg(feature = "db-mysql")]
 
 use lsys_core::db::BatchInsert;
 use lsys_core::db::Field;
@@ -7,6 +7,7 @@ use lsys_core::db::Insert;
 use lsys_core::db::TableMeta;
 use lsys_core::db::TableName;
 use lsys_core::db::Update;
+use sqlx::MySql;
 
 #[test]
 
@@ -26,8 +27,8 @@ fn builder_return_demo() {
     }
 
     // ✅ 示例 1：返回 Insert<'static>
-    fn create_insert() -> Insert<'static, UserModel> {
-        Insert::<UserModel>::new()
+    fn create_insert() -> Insert<'static, MySql, UserModel> {
+        Insert::<_, UserModel>::new()
             .set(UserModel::NAME, "张三".to_string())
             .set(UserModel::AGE, 25i32)
             .set(UserModel::STATUS, 1i8)
@@ -35,18 +36,18 @@ fn builder_return_demo() {
     }
 
     // ✅ 示例 2：返回 Update<'static>
-    fn create_update() -> Update<'static, UserModel> {
-        Update::<UserModel>::new()
+    fn create_update() -> Update<'static, MySql, UserModel> {
+        Update::<_, UserModel>::new()
             .set(UserModel::NAME, "李四".to_string())
             .set(UserModel::AGE, 30)
     }
 
     // ✅ 示例 3：返回 BatchInsert<'static>
-    fn create_batch() -> BatchInsert<'static, UserModel> {
-        let mut batch = BatchInsert::<UserModel>::with_capacity(3);
+    fn create_batch() -> BatchInsert<'static, MySql, UserModel> {
+        let mut batch = BatchInsert::<_, UserModel>::with_capacity(3);
         for i in 1..=3 {
             batch = batch.push(
-                Insert::<UserModel>::new()
+                Insert::<_, UserModel>::new()
                     .set(UserModel::ID, i as u64)
                     .set(UserModel::NAME, format!("用户_{}", i))
                     .set(UserModel::AGE, 20 + i)
@@ -84,20 +85,20 @@ fn builder_return_demo() {
     println!("🔬 验证：String vs &str 的类型推断\n");
 
     // 测试：明确使用 String（owned）
-    fn returns_static() -> Insert<'static, UserModel> {
+    fn returns_static() -> Insert<'static, MySql, UserModel> {
         let owned_string = String::from("这是owned String");
 
         // ✅ String 精确匹配 impl for String，存储 owned 值
-        Insert::<UserModel>::new()
+        Insert::<_, UserModel>::new()
             .set(UserModel::NAME, owned_string) // 传入 String
             .set(UserModel::AGE, 30)
         // owned_string 被 move 进去，不是借用
     }
 
     // 测试：明确使用引用
-    fn returns_with_lifetime<'a>(name: &'a str) -> Insert<'a, UserModel> {
+    fn returns_with_lifetime<'a>(name: &'a str) -> Insert<'a, MySql, UserModel> {
         // &str 精确匹配 impl for &'a str，存储引用
-        Insert::<UserModel>::new()
+        Insert::<_, UserModel>::new()
             .set(UserModel::NAME, name) // 传入 &str，生命周期为 'a
             .set(UserModel::AGE, 25)
     }
@@ -112,11 +113,11 @@ fn builder_return_demo() {
     println!("✅ &str → Insert<'a> 绑定到外部生命周期");
 
     // 关键测试：String 不会被隐式转为 &str
-    fn test_no_implicit_conversion() -> Insert<'static, UserModel> {
+    fn test_no_implicit_conversion() -> Insert<'static, MySql, UserModel> {
         let s1 = String::from("字符串1");
 
         // 这两个都是 String（owned），不会被转为 &str
-        Insert::<UserModel>::new()
+        Insert::<_, UserModel>::new()
             .set(UserModel::NAME, s1) // String，不是 &str
             .set(UserModel::STATUS, 1i8)
         // s1 被 move，如果是 &str 这里会编译失败
@@ -126,8 +127,8 @@ fn builder_return_demo() {
     println!("✅ String 不会隐式转换为 &str");
 
     // 对比：如果用引用，必须保证生命周期
-    fn test_reference_needs_lifetime<'a>(s: &'a String) -> Insert<'a, UserModel> {
-        Insert::<UserModel>::new()
+    fn test_reference_needs_lifetime<'a>(s: &'a String) -> Insert<'a, MySql, UserModel> {
+        Insert::<_, UserModel>::new()
             .set(UserModel::NAME, s) // &String → 存储 &str，需要 'a
             .set(UserModel::STATUS, 1i8)
     }

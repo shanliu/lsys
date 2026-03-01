@@ -1,4 +1,5 @@
-use crate::{fluent_message, FluentMessage, IntoFluentMessage};
+use crate::fluent_message;
+use crate::fluents::{FluentMessage, IntoFluentMessage};
 use deadpool_redis::PoolError;
 use std::fmt::Debug;
 

@@ -2,7 +2,8 @@ use chrono::offset::Local;
 use chrono::{DateTime, FixedOffset, NaiveDateTime, TimeZone};
 use std::time::{SystemTime, SystemTimeError};
 
-use crate::{fluent_message, FluentMessage};
+use crate::fluent_message;
+use crate::fluents::FluentMessage;
 pub fn now_time() -> Result<u64, SystemTimeError> {
     Ok(SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)?

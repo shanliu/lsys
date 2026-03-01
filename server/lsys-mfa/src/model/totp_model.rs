@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize, Default)]
-#[lsys_model(table_name = "mfa_totp")]
+#[lsys_model(table_name = "lst_mfa_totp")]
 pub struct MfaTotpModel {
     #[sqlx(default)]
     pub id: u64,

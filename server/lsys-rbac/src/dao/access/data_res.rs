@@ -10,8 +10,8 @@ use crate::{
 use lsys_core::db::OffsetPageParam;
 use lsys_core::db::SqlQuote;
 use lsys_core::db::{SqlExpr, TableMeta};
-use lsys_core::{sql_format, string_clear};
-use lsys_core::{StringClear, STRING_CLEAR_FORMAT};
+use lsys_core::sql_format;
+use lsys_core::utils::{string_clear, StringClear, STRING_CLEAR_FORMAT};
 use serde::Serialize;
 use sqlx::Row;
 

@@ -7,7 +7,8 @@ use std::sync::Arc;
 
 pub use auth::*;
 pub use cache::*;
-use lsys_core::{cache::LocalCacheConfig, RemoteNotify};
+use lsys_core::cache::LocalCacheConfig;
+use lsys_core::remote_notify::RemoteNotify;
 pub use result::*;
 pub use session::*;
 use sqlx::{MySql, Pool};

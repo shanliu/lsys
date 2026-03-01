@@ -3,7 +3,7 @@ use base64::Engine;
 
 use lsys_access::dao::{AccessDao, AccessSessionData, AccessSessionToken, SessionBody};
 use lsys_core::fluent_message;
-use lsys_core::now_time;
+use lsys_core::utils::now_time;
 
 use std::str::FromStr;
 use std::sync::Arc;

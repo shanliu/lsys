@@ -13,7 +13,7 @@ mod web_setting;
 pub use app_area::*;
 pub use app_captcha::*;
 pub use app_sender::*;
-use lsys_core::db::init_string_field_cache;
+use lsys_core::db::utils::init_string_field_cache;
 pub use result::{WebError, WebResult};
 
 use ip2location::LocationDB;
@@ -35,8 +35,10 @@ pub use web_setting::*;
 use lsys_access::dao::{AccessConfig, AccessDao, AccessLocalCacheClear};
 use lsys_app::dao::{AppConfig, AppLocalCacheClear};
 // use lsys_app_notify::dao::{NotifyConfig, NotifyDao};
+use lsys_core::app_core::AppCore;
 use lsys_core::cache::{LocalCacheClear, LocalCacheClearItem};
-use lsys_core::{AppCore, FluentMgr, IntoFluentMessage, RemoteNotify};
+use lsys_core::fluents::{FluentMgr, IntoFluentMessage};
+use lsys_core::remote_notify::RemoteNotify;
 
 use lsys_logger::dao::ChangeLoggerDao;
 use lsys_rbac::dao::RbacLocalCacheClear;
@@ -83,15 +85,15 @@ impl WebDao {
             .await
             .map_err(|e| WebError::AppCore(e.into()))?;
 
-        let tera = Arc::new(app_core.create_tera().await?);
-        let redis = app_core.create_redis().await?;
+        let tera = Arc::new(lsys_core::app_core::create_tera(&app_core).await?);
+        let redis = lsys_core::app_core::create_redis_pool(&app_core).await?;
         let remote_notify = Arc::new(RemoteNotify::new(
             "lsys-remote-notify",
             app_core.clone(),
             redis.clone(),
         )?);
         init_string_field_cache(remote_notify.clone(), use_cache).await;
-        let db = app_core.create_db().await?;
+        let db = lsys_core::app_core::create_mysql_pool(&app_core).await?;
 
         let change_logger = Arc::new(ChangeLoggerDao::new(db.clone()));
         let setting_dao = Arc::new(
@@ -194,11 +196,7 @@ impl WebDao {
 
         let app_area = Arc::new(AppArea::new(app_core.clone())?);
         let app_captcha = Arc::new(AppCaptcha::new(redis.clone()));
-        let web_files = Arc::new(WebFiles::new(
-            db.clone(),
-            &app_core,
-            change_logger.clone(),
-        ));
+        let web_files = Arc::new(WebFiles::new(db.clone(), &app_core, change_logger.clone()));
         let app_sender = Arc::new(
             AppSender::new(
                 app_core.clone(),

@@ -17,6 +17,8 @@ pub struct FileUploadCreateParam {
     pub app_id: u64,
     pub file_name: String,
     pub chunks: Vec<FileUploadChunkParam>,
+    #[serde(default)]
+    pub tag_names: Option<Vec<String>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -34,6 +36,8 @@ pub struct FileUploadByMd5Param {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
     pub app_id: u64,
     pub file_md5: String,
+    #[serde(default)]
+    pub tag_names: Option<Vec<String>>,
 }
 
 // ==================== 处理函数 ====================
@@ -62,11 +66,12 @@ pub async fn file_upload_by_md5(
         )
         .await?;
 
+    let tag_refs: Vec<&str> = param.tag_names.as_deref().unwrap_or(&[]).iter().map(String::as_str).collect();
     let result = req_dao
         .web_dao
         .web_files
         .file_dao
-        .create_from_md5(&param.file_md5, user_id, app.id, Some(&req_dao.req_env))
+        .create_from_md5(&param.file_md5, user_id, app.id, &tag_refs, Some(&req_dao.req_env))
         .await?;
 
     match result {
@@ -128,6 +133,7 @@ pub async fn file_upload_create(
         ));
     }
 
+    let tag_refs: Vec<&str> = param.tag_names.as_deref().unwrap_or(&[]).iter().map(String::as_str).collect();
     let file = req_dao
         .web_dao
         .web_files
@@ -137,6 +143,7 @@ pub async fn file_upload_create(
             app.id,
             &chunks,
             &param.file_name,
+            &tag_refs,
             Some(&req_dao.req_env),
         )
         .await?;

@@ -4,8 +4,8 @@ use async_trait::async_trait;
 
 use lsys_app::dao::AppNotifySender;
 use lsys_core::fluent_message;
-use lsys_core::now_time;
-use lsys_core::IntoFluentMessage;
+use lsys_core::fluents::IntoFluentMessage;
+use lsys_core::utils::now_time;
 use lsys_setting::dao::MultipleSetting;
 
 use lsys_lib_sms::SendNotifyStatus;
@@ -27,7 +27,7 @@ use crate::{
     dao::{SenderError, SenderExecError},
     model::{SenderSmsMessageModel, SenderSmsMessageStatus},
 };
-use lsys_core::{TaskAcquisition, TaskData, TaskExecutor, TaskItem, TaskRecord};
+use lsys_core::task_dispatch::{TaskAcquisition, TaskData, TaskExecutor, TaskItem, TaskRecord};
 
 use super::add_notify_callback;
 use super::SmsRecord;

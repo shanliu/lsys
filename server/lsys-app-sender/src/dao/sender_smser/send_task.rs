@@ -13,8 +13,10 @@ use async_trait::async_trait;
 use lsys_core::db::SqlQuote;
 use lsys_core::db::{TableMeta, SqlExpr, SqlSuffix, Update};
 use lsys_core::sql_format;
-use lsys_core::{fluent_message, now_time, IntoFluentMessage};
-use lsys_core::{TaskAcquisition, TaskData, TaskExecutor, TaskItem, TaskRecord};
+use lsys_core::fluent_message;
+use lsys_core::fluents::IntoFluentMessage;
+use lsys_core::task_dispatch::{TaskAcquisition, TaskData, TaskExecutor, TaskItem, TaskRecord};
+use lsys_core::utils::now_time;
 use lsys_setting::model::SettingModel;
 use sqlx::Pool;
 use std::{
@@ -114,7 +116,7 @@ impl SmsTaskAcquisition {
     }
     async fn send_task_body_finish(&self, item: &SmsTaskItem) {
         let finish_time = now_time().unwrap_or_default();
-        if let Err(err) = Update::<SenderSmsBodyModel>::new()
+        if let Err(err) = Update::<_,SenderSmsBodyModel>::new()
             .set(SenderSmsBodyModel::STATUS, SenderSmsBodyStatus::Finish as i8)
             .set(SenderSmsBodyModel::FINISH_TIME, finish_time)
             .execute(

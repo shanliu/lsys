@@ -7,7 +7,7 @@ use actix_web::{
     HttpMessage, HttpRequest, HttpResponse, Responder, ResponseError,
 };
 use lsys_web::common::{JsonData, JsonResponse};
-use lsys_web::lsys_core::now_time;
+use lsys_web::lsys_core::utils::now_time;
 use lsys_web::lsys_user::dao::UserAuthToken;
 use serde_json::to_string_pretty;
 use std::fmt::{Display, Formatter, Result as FmtResult};

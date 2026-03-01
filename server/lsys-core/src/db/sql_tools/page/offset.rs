@@ -22,16 +22,16 @@ impl OffsetPageParam {
     pub fn new(value: Option<OffsetPageValue>) -> Self {
         Self { value }
     }
-    #[cfg(feature = "db")] //only mysql,so cfg db
+    #[cfg(feature = "db-mysql")] //only mysql,so cfg db
     pub fn page_query(&self) -> OffsetPageQuery<'_> {
         OffsetPageQuery::new(self)
     }
 }
-#[cfg(feature = "db")]
+#[cfg(feature = "db-mysql")]
 pub struct OffsetPageQuery<'a> {
     pub param: &'a OffsetPageParam,
 }
-#[cfg(feature = "db")]
+#[cfg(feature = "db-mysql")]
 impl<'a> OffsetPageQuery<'a> {
     pub fn new(param: &'a OffsetPageParam) -> Self {
         Self { param }

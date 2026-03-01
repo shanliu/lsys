@@ -3,7 +3,8 @@
 use crate::dao::result::RbacResult;
 use crate::model::{RbacOpModel, RbacOpStatus};
 use lsys_core::db::{TableMeta, SqlExpr, SqlQuote};
-use lsys_core::{sql_format, string_clear, StringClear, STRING_CLEAR_FORMAT};
+use lsys_core::sql_format;
+use lsys_core::utils::{string_clear, StringClear, STRING_CLEAR_FORMAT};
 use std::vec;
 
 use super::cache::OpCacheKey;

@@ -2,7 +2,8 @@ use super::WebUserAccount;
 use crate::common::{CaptchaParam, JsonData};
 use crate::dao::{WebError, WebResult};
 use lsys_access::dao::SessionBody;
-use lsys_core::{fluent_message, RequestEnv};
+use lsys_core::fluent_message;
+use lsys_core::utils::RequestEnv;
 use lsys_user::{dao::AccountError, model::AccountEmailStatus};
 
 impl WebUserAccount {

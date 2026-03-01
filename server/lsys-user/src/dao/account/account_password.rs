@@ -3,10 +3,11 @@ use std::sync::Arc;
 use crate::dao::AccountResult;
 
 use crate::model::{AccountModel, AccountPasswordModel};
-use lsys_core::{
-    fluent_message, now_time, valid_key, IntoFluentMessage, RequestEnv, ValidParam,
-    ValidParamCheck, ValidPassword,
-};
+use lsys_core::fluents::IntoFluentMessage;
+use lsys_core::utils::{now_time, RequestEnv};
+use lsys_core::valid_code::{CheckCodeData, ValidCode, ValidCodeData, ValidCodeDataRandom};
+use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPassword};
+use lsys_core::{fluent_message, valid_key};
 
 use lsys_core::db::{Insert, Update, SqlSuffix};
 use lsys_core::db::{TableMeta, SqlQuote};
@@ -49,11 +50,11 @@ impl AccountPassword {
 }
 impl AccountPassword {
     /// 验证码生成
-    pub fn valid_code(&self) -> lsys_core::ValidCode {
-        lsys_core::ValidCode::new(self.redis.clone(), "passwrod", true, Some(6))
+    pub fn valid_code(&self) -> ValidCode {
+        ValidCode::new(self.redis.clone(), "passwrod", true, Some(6))
     }
     /// 获取验证码
-    pub async fn valid_code_set<T: lsys_core::ValidCodeData>(
+    pub async fn valid_code_set<T: ValidCodeData>(
         &self,
         valid_code_data: &mut T,
         account_id: u64,
@@ -66,8 +67,8 @@ impl AccountPassword {
         Ok(out)
     }
     /// 验证码构造器
-    pub fn valid_code_builder(&self) -> lsys_core::ValidCodeDataRandom {
-        lsys_core::ValidCodeDataRandom::new(300, 30)
+    pub fn valid_code_builder(&self) -> ValidCodeDataRandom {
+        ValidCodeDataRandom::new(300, 30)
     }
     /// 检测验证码
     pub async fn valid_code_check(
@@ -76,8 +77,6 @@ impl AccountPassword {
         account_id: u64,
         from_type: &str,
     ) -> AccountResult<()> {
-        use lsys_core::CheckCodeData;
-
         self.valid_code()
             .check_code(&CheckCodeData::new(
                 &format!("{}-{}", account_id, from_type),
@@ -177,7 +176,7 @@ impl AccountPassword {
                         Some(pb) => pb.begin().await?,
                         None => db.begin().await?,
                     };
-                    Update::<AccountPasswordModel>::new()
+                    Update::<_,AccountPasswordModel>::new()
                         .set(AccountPasswordModel::DISABLE_TIME, time)
                         .execute(
                             SqlSuffix::Where(&sql_format!("id={}", account_pass.id)),
@@ -215,7 +214,7 @@ impl AccountPassword {
             }
         }
 
-        let res = Insert::<AccountPasswordModel>::new()
+        let res = Insert::<_,AccountPasswordModel>::new()
             .set(AccountPasswordModel::ACCOUNT_ID, account.id)
             .set(AccountPasswordModel::PASSWORD, nh_passwrod)
             .set(AccountPasswordModel::DISABLE_TIME, 0_u64)
@@ -229,7 +228,7 @@ impl AccountPassword {
             }
             Ok(data) => {
                 let pid = data.last_insert_id();
-                let u_res = Update::<AccountModel>::new()
+                let u_res = Update::<_,AccountModel>::new()
                     .set(AccountModel::PASSWORD_ID, pid)
                     .set(AccountModel::CHANGE_TIME, time)
                     .execute(
@@ -263,15 +262,12 @@ impl AccountPassword {
             }
         }
     }
-    lsys_core::impl_dao_fetch_one_by_one!(
-        db,
-        find_by_id,
-        u64,
-        AccountPasswordModel,
-        AccountResult<AccountPasswordModel>,
-        id,
-        "id = {id} "
-    );
+    pub async fn find_by_id(&self, id: &u64) -> AccountResult<AccountPasswordModel> {
+        Ok(lsys_core::db::utils::fetch_one::<AccountPasswordModel>(
+            &self.db,
+            lsys_core::sql_format!("id = {id} ", id = id),
+        ).await?)
+    }
     /// 检测密码是否正确
     pub async fn check_password(
         &self,

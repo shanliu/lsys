@@ -19,7 +19,9 @@ use tracing::{debug, warn};
 
 pub use clear::*;
 
-use crate::{now_time, IntoFluentMessage, LocalExecType, RemoteNotify};
+use crate::utils::now_time;
+use crate::fluents::IntoFluentMessage;
+use crate::remote_notify::{LocalExecType, RemoteNotify};
 
 pub const REMOTE_NOTIFY_TYPE_CACHE: u8 = 101;
 

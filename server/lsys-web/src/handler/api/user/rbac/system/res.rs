@@ -4,7 +4,7 @@ use crate::{
     dao::res_op::RbacSyncOpParam,
 };
 use lsys_access::dao::AccessSession;
-use lsys_core::FluentMessage;
+use lsys_core::fluents::FluentMessage;
 use lsys_rbac::dao::ResTypeParam;
 use serde::Deserialize;
 use serde_json::json;

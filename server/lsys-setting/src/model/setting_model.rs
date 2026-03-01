@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize, Default)]
-#[lsys_model( table_name = "setting")]
+#[lsys_model( table_name = "lst_setting")]
 pub struct SettingModel {
     /// 消息ID
     #[sqlx(default)]

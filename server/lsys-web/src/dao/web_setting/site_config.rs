@@ -1,6 +1,6 @@
 //站点配置
 use lsys_access::dao::SessionBody;
-use lsys_core::RequestEnv;
+use lsys_core::utils::RequestEnv;
 use lsys_user::dao::AccountPasswordConfig;
 use serde::Deserialize;
 

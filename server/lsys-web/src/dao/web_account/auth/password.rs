@@ -1,6 +1,7 @@
 // 密码修改相关操作封装
 use lsys_access::dao::SessionBody;
-use lsys_core::{fluent_message, RequestEnv};
+use lsys_core::fluent_message;
+use lsys_core::utils::RequestEnv;
 
 use super::WebUserAuth;
 use crate::common::CaptchaParam;

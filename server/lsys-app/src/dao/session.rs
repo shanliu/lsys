@@ -4,7 +4,8 @@ use async_trait::async_trait;
 use lsys_access::dao::{
     AccessError, AccessResult, AccessSession, AccessSessionData, AccessSessionToken, SessionBody,
 };
-use lsys_core::{fluent_message, IntoFluentMessage};
+use lsys_core::fluent_message;
+use lsys_core::fluents::IntoFluentMessage;
 
 use crate::model::AppModel;
 

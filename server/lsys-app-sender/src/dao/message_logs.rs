@@ -1,7 +1,7 @@
 use crate::dao::SenderResult;
 use crate::model::{SenderLogModel, SenderLogStatus, SenderLogType, SenderType};
 use lsys_core::db::OffsetPageParam;
-use lsys_core::now_time;
+use lsys_core::utils::now_time;
 
 use lsys_core::db::BatchInsert;
 use lsys_core::db::{Insert, TableMeta, SqlExpr};
@@ -39,10 +39,10 @@ impl MessageLogs {
             .iter()
             .map(|(a, b, c)| (*a, (*b as i8), c.to_string()))
             .collect::<Vec<(u64, i8, String)>>();
-        let mut batch = BatchInsert::<SenderLogModel>::with_capacity(tmp_dat.len());
+        let mut batch = BatchInsert::<_,SenderLogModel>::with_capacity(tmp_dat.len());
         for (message_id, log_status, message) in tmp_dat.iter() {
             batch = batch.push(
-                Insert::<SenderLogModel>::new()
+                Insert::<_,SenderLogModel>::new()
                     .set(SenderLogModel::SENDER_MESSAGE_ID, *message_id)
                     .set(SenderLogModel::APP_ID, app_id)
                     .set(SenderLogModel::SENDER_TYPE, sender_type)

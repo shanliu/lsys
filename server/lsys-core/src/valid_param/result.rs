@@ -1,6 +1,6 @@
 use serde_json::{json, Value};
 
-use crate::{FluentData, FluentMessage, IntoFluentMessage};
+use crate::fluents::{FluentData, FluentMessage, IntoFluentMessage};
 
 use super::ValidRuleKey;
 

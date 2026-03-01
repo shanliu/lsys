@@ -5,11 +5,14 @@ use crate::dao::AccountResult;
 
 use crate::model::{AccountEmailModel, AccountEmailStatus, AccountModel};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{
-    db::query_string_field_max, fluent_message, now_time, string_clear, valid_key,
-    IntoFluentMessage, RemoteNotify, RequestEnv, StringClear, ValidEmail, ValidParam,
-    ValidParamCheck, ValidStrlen, STRING_CLEAR_FORMAT,
+use lsys_core::fluents::IntoFluentMessage;
+use lsys_core::remote_notify::RemoteNotify;
+use lsys_core::utils::{
+    now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT,
 };
+use lsys_core::valid_code::{CheckCodeData, ValidCode, ValidCodeData, ValidCodeDataRandom};
+use lsys_core::valid_param::{ValidEmail, ValidParam, ValidParamCheck, ValidStrlen};
+use lsys_core::{db::utils::fetch_string_field_max, fluent_message, valid_key};
 
 use lsys_core::db::{SqlQuote, SqlSuffix};
 use lsys_core::db::{Insert, TableMeta, Update};
@@ -71,7 +74,7 @@ impl AccountEmail {
         Ok(useremal)
     }
     async fn email_param_valid(&self, email: &str) -> AccountResult<()> {
-        let email_max = query_string_field_max::<AccountEmailModel>(&self.db, &AccountEmailModel::EMAIL)
+        let email_max = fetch_string_field_max::<AccountEmailModel>(&self.db, &AccountEmailModel::EMAIL)
             .await
             .len_or(150);
 
@@ -138,7 +141,7 @@ impl AccountEmail {
             None => self.db.begin().await?,
         };
 
-        let res = Insert::<AccountEmailModel>::new()
+        let res = Insert::<_,AccountEmailModel>::new()
             .set(AccountEmailModel::EMAIL, email_ow)
             .set(AccountEmailModel::ACCOUNT_ID, account.id)
             .set(AccountEmailModel::CHANGE_TIME, time)
@@ -212,11 +215,11 @@ impl AccountEmail {
 
 impl AccountEmail {
     /// 验证码生成
-    pub fn valid_code(&self) -> lsys_core::ValidCode {
-        lsys_core::ValidCode::new(self.redis.clone(), "email", true, Some(6))
+    pub fn valid_code(&self) -> ValidCode {
+        ValidCode::new(self.redis.clone(), "email", true, Some(6))
     }
     /// 获取验证码
-    pub async fn valid_code_set<T: lsys_core::ValidCodeData>(
+    pub async fn valid_code_set<T: ValidCodeData>(
         &self,
         valid_code_data: &mut T,
         account_id: u64,
@@ -230,8 +233,8 @@ impl AccountEmail {
         Ok(out)
     }
     /// 验证码构造器
-    pub fn valid_code_builder(&self) -> lsys_core::ValidCodeDataRandom {
-        lsys_core::ValidCodeDataRandom::new(300, 60)
+    pub fn valid_code_builder(&self) -> ValidCodeDataRandom {
+        ValidCodeDataRandom::new(300, 60)
     }
     /// 检测验证码
     pub async fn valid_code_check(
@@ -240,8 +243,6 @@ impl AccountEmail {
         account_id: u64,
         email: &str,
     ) -> AccountResult<()> {
-        use lsys_core::CheckCodeData;
-
         self.valid_code()
             .check_code(&CheckCodeData::new(
                 &format!("{}-{}", account_id, email),
@@ -326,7 +327,7 @@ impl AccountEmail {
 
         let mut db = self.db.begin().await?;
 
-        let tmp = Update::<AccountEmailModel>::new()
+        let tmp = Update::<_,AccountEmailModel>::new()
             .set(AccountEmailModel::STATUS, AccountEmailStatus::Valid as i8)
             .set(AccountEmailModel::CONFIRM_TIME, time)
             .execute(
@@ -393,7 +394,7 @@ impl AccountEmail {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let res = Update::<AccountEmailModel>::new()
+        let res = Update::<_,AccountEmailModel>::new()
             .set(AccountEmailModel::STATUS, AccountEmailStatus::Delete as i8)
             .set(AccountEmailModel::CHANGE_TIME, time)
             .execute(
@@ -464,60 +465,32 @@ impl AccountEmail {
         }
     }
 
-    lsys_core::impl_dao_fetch_one_by_one!(
-        db,
-        find_by_id,
-        u64,
-        AccountEmailModel,
-        AccountResult<AccountEmailModel>,
-        id,
-        "id={id} and status in ({status})",
-        status = [
-            AccountEmailStatus::Valid as i8,
-            AccountEmailStatus::Init as i8
-        ]
-    );
-    lsys_core::impl_dao_fetch_map_by_vec!(
-        db,
-        find_by_ids,
-        u64,
-        AccountEmailModel,
-        AccountResult<HashMap<u64, AccountEmailModel>>,
-        id,
-        ids,
-        "id in ({ids}) and status in ({status})",
-        status = [
-            AccountEmailStatus::Valid as i8,
-            AccountEmailStatus::Init as i8
-        ]
-    );
-    lsys_core::impl_dao_fetch_vec_by_one!(
-        db,
-        find_by_account_id_vec,
-        u64,
-        AccountEmailModel,
-        AccountResult<Vec<AccountEmailModel>>,
-        uid,
-        "account_id = {uid} and status in ({status})  order by id desc",
-        status = [
-            AccountEmailStatus::Init as i8,
-            AccountEmailStatus::Valid as i8
-        ]
-    );
-    lsys_core::impl_dao_fetch_vec_by_vec!(
-        db,
-        find_by_account_ids_vec,
-        u64,
-        AccountEmailModel,
-        AccountResult<HashMap<u64, Vec<AccountEmailModel>>>,
-        account_id,
-        uid,
-        "account_id in ({uid}) and status in ({status}) order by id desc",
-        status = [
-            AccountEmailStatus::Init as i8,
-            AccountEmailStatus::Valid as i8
-        ]
-    );
+    pub async fn find_by_id(&self, id: &u64) -> AccountResult<AccountEmailModel> {
+        Ok(lsys_core::db::utils::fetch_one::<AccountEmailModel>(
+            &self.db,
+            lsys_core::sql_format!("id={id} and status in ({status})", id = id, status = [AccountEmailStatus::Valid as i8, AccountEmailStatus::Init as i8]),
+        ).await?)
+    }
+    pub async fn find_by_ids(&self, ids: &[u64]) -> AccountResult<HashMap<u64, AccountEmailModel>> {
+        Ok(lsys_core::db::utils::fetch_map::<AccountEmailModel, _, _>(
+            &self.db,
+            lsys_core::sql_format!("id in ({ids}) and status in ({status})", ids = ids, status = [AccountEmailStatus::Valid as i8, AccountEmailStatus::Init as i8]),
+            |v| v.id,
+        ).await?)
+    }
+    pub async fn find_by_account_id_vec(&self, id: &u64) -> AccountResult<Vec<AccountEmailModel>> {
+        Ok(lsys_core::db::utils::fetch_vec::<AccountEmailModel>(
+            &self.db,
+            lsys_core::sql_format!("account_id = {uid} and status in ({status})  order by id desc", uid = id, status = [AccountEmailStatus::Init as i8, AccountEmailStatus::Valid as i8]),
+        ).await?)
+    }
+    pub async fn find_by_account_ids_vec(&self, ids: &[u64]) -> AccountResult<HashMap<u64, Vec<AccountEmailModel>>> {
+        Ok(lsys_core::db::utils::fetch_group::<AccountEmailModel, _, _>(
+            &self.db,
+            lsys_core::sql_format!("account_id in ({uid}) and status in ({status}) order by id desc", uid = ids, status = [AccountEmailStatus::Init as i8, AccountEmailStatus::Valid as i8]),
+            |v| v.account_id,
+        ).await?)
+    }
     pub fn cache(&'_ self) -> AccountEmailCache<'_> {
         AccountEmailCache { dao: self }
     }

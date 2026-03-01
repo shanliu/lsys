@@ -1,8 +1,12 @@
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
-    db::query_string_field_max,
-    now_time, valid_key, RemoteNotify, RequestEnv, ValidDateTime, ValidIp, ValidNumber, ValidParam,
-    ValidParamCheck, ValidPattern, ValidStrlen,
+    db::utils::fetch_string_field_max,
+    valid_key,
+};
+use lsys_core::remote_notify::RemoteNotify;
+use lsys_core::utils::{now_time, RequestEnv};
+use lsys_core::valid_param::{
+    ValidDateTime, ValidIp, ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
 };
 
 use lsys_core::db::{Insert, SqlSuffix, TableMeta, Update};
@@ -50,10 +54,10 @@ impl AccountInfo {
         }
     }
     async fn info_param_valid(&self, info_param: &AccountInfoParam<'_>) -> AccountResult<()> {
-        let headimg_max = query_string_field_max::<AccountInfoModel>(&self.db, &AccountInfoModel::HEADIMG)
+        let headimg_max = fetch_string_field_max::<AccountInfoModel>(&self.db, &AccountInfoModel::HEADIMG)
             .await
             .len_or(500);
-        let reg_from_max = query_string_field_max::<AccountInfoModel>(&self.db, &AccountInfoModel::REG_FROM)
+        let reg_from_max = fetch_string_field_max::<AccountInfoModel>(&self.db, &AccountInfoModel::REG_FROM)
             .await
             .len_or(32);
 
@@ -147,7 +151,7 @@ impl AccountInfo {
                     }
                 }
 
-                let mut insert = Insert::<AccountInfoModel>::new()
+                let mut insert = Insert::<_,AccountInfoModel>::new()
                     .set(AccountInfoModel::ACCOUNT_ID, account.id)
                     .set(AccountInfoModel::CHANGE_TIME, time);
                 if let Some(g) = info_param.gender {
@@ -168,7 +172,7 @@ impl AccountInfo {
                 insert.execute(&mut *db).await
             }
             Ok(account_info) => {
-                let mut update = Update::<AccountInfoModel>::new()
+                let mut update = Update::<_,AccountInfoModel>::new()
                     .set(AccountInfoModel::ACCOUNT_ID, account.id)
                     .set(AccountInfoModel::CHANGE_TIME, time);
                 if let Some(g) = info_param.gender {
@@ -237,25 +241,19 @@ impl AccountInfo {
 
         Ok(())
     }
-    lsys_core::impl_dao_fetch_one_by_one!(
-        db,
-        find_by_account_id,
-        u64,
-        AccountInfoModel,
-        AccountResult<AccountInfoModel>,
-        id,
-        "account_id = {id}"
-    );
-    lsys_core::impl_dao_fetch_map_by_vec!(
-        db,
-        find_by_account_ids,
-        u64,
-        AccountInfoModel,
-        AccountResult<HashMap<u64, AccountInfoModel>>,
-        account_id,
-        ids,
-        "account_id in ({ids})"
-    );
+    pub async fn find_by_account_id(&self, id: &u64) -> AccountResult<AccountInfoModel> {
+        Ok(lsys_core::db::utils::fetch_one::<AccountInfoModel>(
+            &self.db,
+            lsys_core::sql_format!("account_id = {id}", id = id),
+        ).await?)
+    }
+    pub async fn find_by_account_ids(&self, ids: &[u64]) -> AccountResult<HashMap<u64, AccountInfoModel>> {
+        Ok(lsys_core::db::utils::fetch_map::<AccountInfoModel, _, _>(
+            &self.db,
+            lsys_core::sql_format!("account_id in ({ids})", ids = ids),
+            |v| v.account_id,
+        ).await?)
+    }
     pub fn cache(&'_ self) -> AccountInfoCache<'_> {
         AccountInfoCache { dao: self }
     }

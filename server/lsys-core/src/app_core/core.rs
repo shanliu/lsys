@@ -1,32 +1,23 @@
 use dotenv::dotenv;
 
-#[cfg(feature = "db")]
-use crate::db::TableName;
-use crate::AppCoreCreate;
-#[cfg(feature = "db")]
-use sqlx::Pool;
 use std::env;
 use std::path::PathBuf;
 use std::str::FromStr;
-#[cfg(feature = "tera")]
-use tera::Tera;
 
 use super::result::AppCoreError;
-use crate::BaseAppCoreCreate;
-use crate::Config;
+use crate::config::Config;
 
 pub struct AppCore {
     pub app_path: PathBuf,
     pub config: Config,
-    create: Box<dyn AppCoreCreate>,
 }
 
 impl AppCore {
     pub async fn new(
         app_dir: &str,
         config_dir: &str,
-        config_files: Option<&[&str]>,
-        create: Option<Box<dyn AppCoreCreate>>,
+        app_file: &str,
+        crate_files: Option<&[&str]>,
     ) -> Result<AppCore, AppCoreError> {
         let mut app_path = PathBuf::from_str(app_dir)
             .map_err(|e| AppCoreError::AppDir(format!("app dir [{}] error: {}", app_dir, e)))?;
@@ -52,11 +43,7 @@ impl AppCore {
         dbg!(&app_path);
         Ok(AppCore {
             app_path,
-            create: match create {
-                Some(val) => val,
-                None => Box::new(BaseAppCoreCreate::default()),
-            },
-            config: Config::new(config_path, "app", config_files).await?,
+            config: Config::new(config_path, app_file, crate_files).await?,
         })
     }
     //根据配置获取文件路径
@@ -70,56 +57,5 @@ impl AppCore {
             return Ok(path);
         }
         Ok(self.app_path.join(path))
-    }
-    //初始化系统
-    pub async fn init(&self) -> Result<(), AppCoreError> {
-        self.create.init_tracing(self).await
-        //这里可以做一些必要检查
-    }
-    #[cfg(feature = "db")]
-    pub async fn create_db(&self) -> Result<Pool<sqlx::MySql>, AppCoreError> {
-        let table_prefix = self
-            .config
-            .find(None)
-            .get_string("database_table_prefix")
-            .unwrap_or_default();
-        TableName::set_prefix(table_prefix);
-        let poll = self.create.create_db(self).await?;
-        Ok(poll)
-    }
-    pub fn create_snowflake_id_generator(&self) -> snowflake::SnowflakeIdGenerator {
-        let machine_id = self
-            .config
-            .find(None)
-            .get_int("snowflake_machine_id")
-            .unwrap_or(1);
-        let machine_id = (machine_id.abs() % 31) as i32;
-        let node_id = self
-            .config
-            .find(None)
-            .get_int("snowflake_node_id")
-            .unwrap_or_else(|_| {
-                crc32fast::hash(
-                    hostname::get()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                        .as_bytes(),
-                )
-                .into()
-            });
-        let node_id = (node_id.abs() % 31) as i32;
-        snowflake::SnowflakeIdGenerator::new(machine_id, node_id)
-    }
-    #[cfg(feature = "redis")]
-    pub async fn create_redis_client(&self) -> Result<redis::Client, AppCoreError> {
-        self.create.create_redis_client(self).await
-    }
-    #[cfg(feature = "redis")]
-    pub async fn create_redis(&self) -> Result<deadpool_redis::Pool, AppCoreError> {
-        self.create.create_redis_pool(self).await
-    }
-    #[cfg(feature = "tera")]
-    pub async fn create_tera(&self) -> Result<Tera, AppCoreError> {
-        self.create.create_tera(self).await
     }
 }

@@ -65,39 +65,39 @@ impl super::FileHelper {
 
         Ok(chunks)
     }
-}
 
-/// 检查并发chunk的数据是否合规
-///
-/// 参数: chunk数据数组
-///
-/// 返回: 总大小或错误
-pub fn validate_chunks(chunks: &[ChunkInfo]) -> FileResult<u64> {
-    if chunks.is_empty() {
-        return Err(FileError::InvalidChunkData(
-            "chunks array is empty".to_string(),
-        ));
-    }
-
-    // 按offset排序检查
-    let mut sorted_chunks = chunks.to_vec();
-    sorted_chunks.sort_by_key(|c| c.offset);
-
-    let mut expected_offset = 0u64;
-
-    for chunk in sorted_chunks.iter() {
-        // 检查offset + len 是否连续
-        if chunk.offset != expected_offset {
-            return Err(FileError::InvalidChunkData(format!(
-                "gap found at offset: expected {}, got {}",
-                expected_offset, chunk.offset
-            )));
+    /// 检查并发chunk的数据是否合规
+    ///
+    /// 参数: chunk数据数组
+    ///
+    /// 返回: 总大小或错误
+    pub fn validate_chunks(chunks: &[ChunkInfo]) -> FileResult<u64> {
+        if chunks.is_empty() {
+            return Err(FileError::InvalidChunkData(
+                "chunks array is empty".to_string(),
+            ));
         }
 
-        expected_offset = chunk.offset + chunk.len;
-    }
+        // 按offset排序检查
+        let mut sorted_chunks = chunks.to_vec();
+        sorted_chunks.sort_by_key(|c| c.offset);
 
-    Ok(expected_offset)
+        let mut expected_offset = 0u64;
+
+        for chunk in sorted_chunks.iter() {
+            // 检查offset + len 是否连续
+            if chunk.offset != expected_offset {
+                return Err(FileError::InvalidChunkData(format!(
+                    "gap found at offset: expected {}, got {}",
+                    expected_offset, chunk.offset
+                )));
+            }
+
+            expected_offset = chunk.offset + chunk.len;
+        }
+
+        Ok(expected_offset)
+    }
 }
 
 #[cfg(test)]
@@ -124,7 +124,7 @@ mod tests {
             },
         ];
 
-        let total = validate_chunks(&chunks).unwrap();
+        let total = super::super::FileHelper::validate_chunks(&chunks).unwrap();
         assert_eq!(total, 4500);
     }
 
@@ -143,14 +143,14 @@ mod tests {
             },
         ];
 
-        let result = validate_chunks(&chunks);
+        let result = super::super::FileHelper::validate_chunks(&chunks);
         assert!(result.is_err());
     }
 
     #[test]
     fn test_validate_chunks_empty() {
         let chunks: Vec<ChunkInfo> = vec![];
-        let result = validate_chunks(&chunks);
+        let result = super::super::FileHelper::validate_chunks(&chunks);
         assert!(result.is_err());
     }
 
@@ -169,7 +169,7 @@ mod tests {
             },
         ];
 
-        let total = validate_chunks(&chunks).unwrap();
+        let total = super::super::FileHelper::validate_chunks(&chunks).unwrap();
         assert_eq!(total, 3000);
     }
 }

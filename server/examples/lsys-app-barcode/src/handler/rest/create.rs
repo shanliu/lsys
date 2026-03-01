@@ -12,7 +12,7 @@ use crate::auth::RestAuthorizeResponse;
 use crate::model::BarcodeCreateStatus;
 use crate::server::AppState;
 use crate::utils::handler::{json_err, json_fluent_err, json_ok};
-use lsys_core::FluentBundle;
+use lsys_core::fluents::FluentBundle;
 
 use super::RestGet;
 

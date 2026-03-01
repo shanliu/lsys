@@ -5,7 +5,7 @@ use actix_service::ServiceFactory;
 use actix_web::web::to;
 use actix_web::{dev::ServiceRequest, web, App, Error};
 use lsys_web::dao::WebDao;
-use lsys_web::lsys_core::IntoFluentMessage;
+use lsys_web::lsys_core::fluents::IntoFluentMessage;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::{debug, info, warn};

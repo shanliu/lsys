@@ -6,9 +6,10 @@ mod res_type;
 use logger::LogRes;
 //RBAC中资源相关实现
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{
-    fluent_message, valid_key, RemoteNotify, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
-};
+use lsys_core::fluent_message;
+use lsys_core::remote_notify::RemoteNotify;
+use lsys_core::valid_key;
+use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
 
 use crate::model::RbacResModel;
 use lsys_logger::dao::ChangeLoggerDao;
@@ -16,7 +17,7 @@ use sqlx::{MySql, Pool};
 use std::sync::Arc;
 use std::vec;
 
-use lsys_core::{now_time, RequestEnv};
+use lsys_core::utils::{now_time, RequestEnv};
 
 use super::result::{RbacError, RbacResult};
 use super::role::RbacRole;
@@ -24,8 +25,11 @@ use crate::model::RbacResStatus;
 pub use access::ResInfo;
 pub(crate) use cache::*;
 pub use data::*;
-use lsys_core::db::{query_string_field_max, Insert, TableMeta, SqlQuote, SqlSuffix, Update};
-use lsys_core::{db_option_executor, sql_format};
+use lsys_core::db::OptionTxExecutor;
+use lsys_core::db::{
+    utils::fetch_string_field_max, Insert, SqlQuote, SqlSuffix, TableMeta, Update,
+};
+use lsys_core::sql_format;
 pub use res_type::*;
 use sqlx::{Acquire, Transaction};
 //资源的操作相关实现
@@ -68,15 +72,18 @@ pub struct RbacResAddData<'t> {
 
 impl RbacRes {
     async fn res_param_valid(&self, param: &RbacResData<'_>) -> RbacResult<()> {
-        let res_type_max = query_string_field_max::<RbacResModel>(&self.db, &RbacResModel::RES_TYPE)
-            .await
-            .len_or(32);
-        let res_data_max = query_string_field_max::<RbacResModel>(&self.db, &RbacResModel::RES_DATA)
-            .await
-            .len_or(32);
-        let res_name_max = query_string_field_max::<RbacResModel>(&self.db, &RbacResModel::RES_NAME)
-            .await
-            .len_or(32);
+        let res_type_max =
+            fetch_string_field_max::<RbacResModel>(&self.db, &RbacResModel::RES_TYPE)
+                .await
+                .len_or(32);
+        let res_data_max =
+            fetch_string_field_max::<RbacResModel>(&self.db, &RbacResModel::RES_DATA)
+                .await
+                .len_or(32);
+        let res_name_max =
+            fetch_string_field_max::<RbacResModel>(&self.db, &RbacResModel::RES_NAME)
+                .await
+                .len_or(32);
 
         let mut param_valid = ValidParam::default();
         param_valid
@@ -110,7 +117,7 @@ impl RbacRes {
         &self,
         param: &RbacResAddData<'_>,
         add_user_id: u64,
-        transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
+        mut transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
     ) -> RbacResult<u64> {
         self.res_param_valid(&param.res_info).await?;
@@ -142,40 +149,32 @@ impl RbacRes {
             Err(sqlx::Error::RowNotFound) => {
                 let app_id = param.app_id.unwrap_or_default();
                 let time = now_time().unwrap_or_default();
-                let id = db_option_executor!(
-                    db,
-                    {
-                        let res = Insert::<RbacResModel>::new()
-                            .set(RbacResModel::RES_NAME, &res_name)
-                            .set(RbacResModel::RES_TYPE, &res_type)
-                            .set(RbacResModel::RES_DATA, &res_data)
-                            .set(RbacResModel::USER_ID, param.user_id)
-                            .set(RbacResModel::APP_ID, app_id)
-                            .set(RbacResModel::CHANGE_TIME, time)
-                            .set(RbacResModel::CHANGE_USER_ID, add_user_id)
-                            .set(RbacResModel::STATUS, RbacResStatus::Enable as i8)
-                            .execute(db.as_executor())
-                            .await?;
-                        let add_id = res.last_insert_id();
-                        Update::<RbacResModel>::new()
-                            .set(RbacResModel::CHANGE_TIME, time)
-                            .set(RbacResModel::CHANGE_USER_ID, add_user_id)
-                            .set(RbacResModel::STATUS, RbacResStatus::Enable as i8)
-                            .execute(SqlSuffix::Where(&sql_format!(
-                                "user_id={} and res_type={} and res_data={} and app_id={} and status={} and id!={}",
-                                param.user_id,
-                                res_type,
-                                res_data,
-                                app_id,
-                                RbacResStatus::Enable as i8,
-                                add_id
-                            )), db.as_executor())
-                            .await?;
+                let res = Insert::<_, RbacResModel>::new()
+                    .set(RbacResModel::RES_NAME, &res_name)
+                    .set(RbacResModel::RES_TYPE, &res_type)
+                    .set(RbacResModel::RES_DATA, &res_data)
+                    .set(RbacResModel::USER_ID, param.user_id)
+                    .set(RbacResModel::APP_ID, app_id)
+                    .set(RbacResModel::CHANGE_TIME, time)
+                    .set(RbacResModel::CHANGE_USER_ID, add_user_id)
+                    .set(RbacResModel::STATUS, RbacResStatus::Enable as i8)
+                    .execute(OptionTxExecutor::new(transaction.as_deref_mut(), &self.db))
+                    .await?;
+                let add_id = res.last_insert_id();
+                Update::<_,RbacResModel>::new()
+                    .set(RbacResModel::CHANGE_TIME, time)
+                    .set(RbacResModel::CHANGE_USER_ID, add_user_id)
+                    .set(RbacResModel::STATUS, RbacResStatus::Enable as i8)
+                    .execute(SqlSuffix::Where(&sql_format!(
+                        "user_id={} and res_type={} and res_data={} and app_id={} and status={} and id!={}",
+                        param.user_id,
+                        res_type,
+                        res_data,
+                        app_id,
+                        RbacResStatus::Enable as i8,
                         add_id
-                    },
-                    transaction,
-                    &self.db
-                );
+                    )), OptionTxExecutor::new(transaction, &self.db))
+                    .await?;
                 self.cache_res_data
                     .clear(&ResCacheKey {
                         res_type: res_type.clone(),
@@ -195,14 +194,14 @@ impl RbacRes {
                             res_type: &res_type,
                             res_data: &res_data,
                         },
-                        Some(id),
+                        Some(add_id),
                         Some(add_user_id),
                         None,
                         env_data,
                     )
                     .await;
 
-                Ok(id)
+                Ok(add_id)
             }
             Err(e) => Err(e)?,
         }
@@ -244,29 +243,21 @@ impl RbacRes {
         let res_type = res_info.res_type.to_owned();
         let res_data = res_info.res_data.to_owned();
         let res_name = res_info.res_name.map(|e| e.to_owned());
-        let db = &self.db;
-        let fout = db_option_executor!(
-            db,
-            {
-                let mut update = Update::<RbacResModel>::new()
-                    .set(RbacResModel::CHANGE_USER_ID, change_user_id)
-                    .set(RbacResModel::CHANGE_TIME, time)
-                    .set(RbacResModel::RES_DATA, &res_data)
-                    .set(RbacResModel::RES_TYPE, &res_type);
-                if let Some(ref name) = res_name {
-                    update = update.set(RbacResModel::RES_NAME, name as &str);
-                }
-                let out = update
-                    .execute(
-                        SqlSuffix::Where(&sql_format!("id={}", res.id)),
-                        db.as_executor(),
-                    )
-                    .await?;
-                Ok(out.rows_affected())
-            },
-            transaction,
-            db
-        );
+        let mut update = Update::<_, RbacResModel>::new()
+            .set(RbacResModel::CHANGE_USER_ID, change_user_id)
+            .set(RbacResModel::CHANGE_TIME, time)
+            .set(RbacResModel::RES_DATA, &res_data)
+            .set(RbacResModel::RES_TYPE, &res_type);
+        if let Some(ref name) = res_name {
+            update = update.set(RbacResModel::RES_NAME, name as &str);
+        }
+        let out = update
+            .execute(
+                SqlSuffix::Where(&sql_format!("id={}", res.id)),
+                OptionTxExecutor::new(transaction, &self.db),
+            )
+            .await?;
+        let fout = out.rows_affected();
         self.cache_res_data
             .clear(&ResCacheKey {
                 res_type: res_type.to_owned(),
@@ -300,7 +291,7 @@ impl RbacRes {
                 env_data,
             )
             .await;
-        fout
+        Ok(fout)
     }
     // /// 删除资源
     pub async fn del_res(
@@ -316,7 +307,7 @@ impl RbacRes {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let tmp = Update::<RbacResModel>::new()
+        let tmp = Update::<_, RbacResModel>::new()
             .set(RbacResModel::CHANGE_USER_ID, delete_user_id)
             .set(RbacResModel::CHANGE_TIME, time)
             .set(RbacResModel::STATUS, RbacResStatus::Delete as i8)

@@ -5,9 +5,10 @@ pub(crate) mod logger;
 use logger::LogOp;
 //RBAC中资源相关实现
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{
-    fluent_message, valid_key, RemoteNotify, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
-};
+use lsys_core::fluent_message;
+use lsys_core::remote_notify::RemoteNotify;
+use lsys_core::valid_key;
+use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
 
 use crate::model::{RbacOpModel, RbacOpStatus};
 use lsys_logger::dao::ChangeLoggerDao;
@@ -15,10 +16,13 @@ use sqlx::{MySql, Pool};
 use std::sync::Arc;
 use std::vec;
 
-use lsys_core::{now_time, RequestEnv};
+use lsys_core::utils::{now_time, RequestEnv};
 
-use lsys_core::db::{query_string_field_max, Insert, TableMeta, SqlQuote, SqlSuffix, Update};
-use lsys_core::{db_option_executor, sql_format};
+use lsys_core::db::{
+    utils::fetch_string_field_max, Insert, OptionTxExecutor, SqlQuote, SqlSuffix, TableMeta,
+    Update,
+};
+use lsys_core::sql_format;
 use sqlx::{Acquire, Transaction};
 
 use super::res::RbacRes;
@@ -67,10 +71,10 @@ pub struct RbacOpAddData<'t> {
 
 impl RbacOp {
     async fn op_param_valid(&self, param: &RbacOpData<'_>) -> RbacResult<()> {
-        let op_key_max = query_string_field_max::<RbacOpModel>(&self.db, &RbacOpModel::OP_KEY)
+        let op_key_max = fetch_string_field_max::<RbacOpModel>(&self.db, &RbacOpModel::OP_KEY)
             .await
             .len_or(32);
-        let op_name_max = query_string_field_max::<RbacOpModel>(&self.db, &RbacOpModel::OP_NAME)
+        let op_name_max = fetch_string_field_max::<RbacOpModel>(&self.db, &RbacOpModel::OP_NAME)
             .await
             .len_or(32);
 
@@ -97,7 +101,7 @@ impl RbacOp {
         &self,
         param: &RbacOpAddData<'_>,
         add_user_id: u64,
-        transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
+        mut transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
         env_data: Option<&RequestEnv>,
     ) -> RbacResult<u64> {
         self.op_param_valid(&param.op_info).await?;
@@ -125,41 +129,34 @@ impl RbacOp {
             Err(sqlx::Error::RowNotFound) => {
                 let app_id = param.app_id.unwrap_or_default();
                 let time = now_time().unwrap_or_default();
-                let id = db_option_executor!(
-                    db,
-                    {
-                        let res = Insert::<RbacOpModel>::new()
-                            .set(RbacOpModel::OP_KEY, &op_key)
-                            .set(RbacOpModel::OP_NAME, &op_name)
-                            .set(RbacOpModel::USER_ID, param.user_id)
-                            .set(RbacOpModel::APP_ID, app_id)
-                            .set(RbacOpModel::CHANGE_TIME, time)
-                            .set(RbacOpModel::CHANGE_USER_ID, add_user_id)
-                            .set(RbacOpModel::STATUS, RbacOpStatus::Enable as i8)
-                            .execute(db.as_executor())
-                            .await?;
-                        let add_id = res.last_insert_id();
-                        Update::<RbacOpModel>::new()
-                            .set(RbacOpModel::CHANGE_TIME, time)
-                            .set(RbacOpModel::CHANGE_USER_ID, add_user_id)
-                            .set(RbacOpModel::STATUS, RbacOpStatus::Enable as i8)
-                            .execute(
-                                SqlSuffix::Where(&sql_format!(
-                                "user_id={} and op_key={} and  app_id={} and status={} and id!={}",
-                                param.user_id,
-                                op_key,
-                                app_id,
-                                RbacOpStatus::Enable as i8,
-                                add_id
-                            )),
-                                db.as_executor(),
-                            )
-                            .await?;
-                        add_id
-                    },
-                    transaction,
-                    &self.db
-                );
+                let res = Insert::<_, RbacOpModel>::new()
+                    .set(RbacOpModel::OP_KEY, &op_key)
+                    .set(RbacOpModel::OP_NAME, &op_name)
+                    .set(RbacOpModel::USER_ID, param.user_id)
+                    .set(RbacOpModel::APP_ID, app_id)
+                    .set(RbacOpModel::CHANGE_TIME, time)
+                    .set(RbacOpModel::CHANGE_USER_ID, add_user_id)
+                    .set(RbacOpModel::STATUS, RbacOpStatus::Enable as i8)
+                    .execute(OptionTxExecutor::new(transaction.as_deref_mut(), &self.db))
+                    .await?;
+                let add_id = res.last_insert_id();
+                Update::<_, RbacOpModel>::new()
+                    .set(RbacOpModel::CHANGE_TIME, time)
+                    .set(RbacOpModel::CHANGE_USER_ID, add_user_id)
+                    .set(RbacOpModel::STATUS, RbacOpStatus::Enable as i8)
+                    .execute(
+                        SqlSuffix::Where(&sql_format!(
+                            "user_id={} and op_key={} and  app_id={} and status={} and id!={}",
+                            param.user_id,
+                            op_key,
+                            app_id,
+                            RbacOpStatus::Enable as i8,
+                            add_id
+                        )),
+                        OptionTxExecutor::new(transaction, &self.db),
+                    )
+                    .await?;
+                let id = add_id;
                 self.cache_op_data
                     .clear(&OpCacheKey {
                         op_key: op_key.to_owned(),
@@ -228,30 +225,22 @@ impl RbacOp {
         let opt_name = op_info.op_name.map(|e| e.to_owned());
         let time = now_time().unwrap_or_default();
         let opt_key = Some(op_key);
-        let db = &self.db;
-        let fout = db_option_executor!(
-            db,
-            {
-                let mut update = Update::<RbacOpModel>::new()
-                    .set(RbacOpModel::CHANGE_USER_ID, change_user_id)
-                    .set(RbacOpModel::CHANGE_TIME, time);
-                if let Some(ref key) = opt_key {
-                    update = update.set(RbacOpModel::OP_KEY, key as &str);
-                }
-                if let Some(ref name) = opt_name {
-                    update = update.set(RbacOpModel::OP_NAME, name as &str);
-                }
-                let out = update
-                    .execute(
-                        SqlSuffix::Where(&sql_format!("id={}", op.id)),
-                        db.as_executor(),
-                    )
-                    .await?;
-                Ok(out.rows_affected())
-            },
-            transaction,
-            db
-        );
+        let mut update = Update::<_, RbacOpModel>::new()
+            .set(RbacOpModel::CHANGE_USER_ID, change_user_id)
+            .set(RbacOpModel::CHANGE_TIME, time);
+        if let Some(ref key) = opt_key {
+            update = update.set(RbacOpModel::OP_KEY, key as &str);
+        }
+        if let Some(ref name) = opt_name {
+            update = update.set(RbacOpModel::OP_NAME, name as &str);
+        }
+        let out = update
+            .execute(
+                SqlSuffix::Where(&sql_format!("id={}", op.id)),
+                OptionTxExecutor::new(transaction, &self.db),
+            )
+            .await?;
+        let fout = out.rows_affected();
         self.cache_op_data
             .clear(&OpCacheKey {
                 op_key: opt_key.to_owned().unwrap_or(op.op_key.clone()),
@@ -282,7 +271,7 @@ impl RbacOp {
                 env_data,
             )
             .await;
-        fout
+        Ok(fout)
     }
     // /// 删除资源
     pub async fn del_op(
@@ -302,7 +291,7 @@ impl RbacOp {
 
         let time = now_time().unwrap_or_default();
 
-        let tmp = Update::<RbacOpModel>::new()
+        let tmp = Update::<_, RbacOpModel>::new()
             .set(RbacOpModel::CHANGE_USER_ID, delete_user_id)
             .set(RbacOpModel::CHANGE_TIME, time)
             .set(RbacOpModel::STATUS, RbacOpStatus::Delete as i8)

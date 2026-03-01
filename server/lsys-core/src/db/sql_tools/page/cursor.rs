@@ -64,7 +64,7 @@ impl<C: CursorValue> CursorPageParam<C> {
             limit,
         }
     }
-    #[cfg(feature = "db")] //only mysql,so cfg db
+    #[cfg(feature = "db-mysql")] //only mysql,so cfg db
     pub fn page_query<'a, 'b>(&'a self, primary_key: &'b str) -> CursorPageQuery<'a, 'b, C> {
         CursorPageQuery::new(primary_key, self)
     }
@@ -97,12 +97,12 @@ pub struct CursorPageData<C: CursorValue> {
     pub next_cursor: Option<C>,
     pub prev_cursor: Option<C>,
 }
-#[cfg(feature = "db")]
+#[cfg(feature = "db-mysql")]
 pub struct CursorPageQuery<'a, 'b, C: CursorValue> {
     primary_key: &'b str,
     param: &'a CursorPageParam<C>,
 }
-#[cfg(feature = "db")]
+#[cfg(feature = "db-mysql")]
 impl<'a, 'b, C: CursorValue> CursorPageQuery<'a, 'b, C> {
     pub fn new(primary_key: &'b str, param: &'a CursorPageParam<C>) -> Self {
         Self { primary_key, param }

@@ -65,7 +65,7 @@ impl IntoFluentMessage for FluentMessage {
 macro_rules! fluent_message {
     ($key:literal) => {
         {
-            $crate::FluentMessage {
+            $crate::fluents::FluentMessage {
                 id: $key.to_owned(),
                 crate_name:env!("CARGO_PKG_NAME").to_string(),
                 data:vec![]
@@ -74,21 +74,21 @@ macro_rules! fluent_message {
     };
     ($key:literal,{$($msg_key:literal:$msg_val:expr),+$(,)*}) => {
         {
-            $crate::FluentMessage {
+            $crate::fluents::FluentMessage {
                 id: $key.to_owned(),
                 crate_name:env!("CARGO_PKG_NAME").to_string(),
                 data:vec![
-                    $( ($msg_key.to_owned(),$crate::FluentData::from($msg_val)) ),*
+                    $( ($msg_key.to_owned(),$crate::fluents::FluentData::from($msg_val)) ),*
                 ]
             }
         }
     };
     ($key:literal,$msg_val:expr) => {
         {
-            $crate::FluentMessage {
+            $crate::fluents::FluentMessage {
                 id: $key.to_owned(),
                 crate_name:env!("CARGO_PKG_NAME").to_string(),
-                data:vec![("msg".to_owned(),$crate::FluentData::from($msg_val))]
+                data:vec![("msg".to_owned(),$crate::fluents::FluentData::from($msg_val))]
             }
         }
     };

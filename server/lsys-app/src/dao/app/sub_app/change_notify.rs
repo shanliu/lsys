@@ -9,9 +9,10 @@ use lsys_core::db::TableMeta;
 use lsys_core::db::SqlQuote;
 use lsys_core::db::SqlSuffix;
 use lsys_core::db::Update;
-use lsys_core::IntoFluentMessage;
-use lsys_core::{now_time, sql_format};
-use lsys_core::{TimeOutTaskExec, TimeOutTaskExecutor, TimeOutTaskNextTime};
+use lsys_core::fluents::IntoFluentMessage;
+use lsys_core::{sql_format};
+use lsys_core::timeout_task::{TimeOutTaskExec, TimeOutTaskExecutor, TimeOutTaskNextTime};
+use lsys_core::utils::now_time;
 use serde_json::json;
 use sqlx::MySql;
 use sqlx::Pool;
@@ -130,7 +131,7 @@ impl TimeOutTaskExec for SubAppChangeNotify {
                 start_id = app_item.id;
                 self.add_app_secret_change_notify(&app_item).await;
                 let status = AppSecretStatus::Delete.to();
-                Update::<AppSecretModel>::new()
+                Update::<_,AppSecretModel>::new()
                     .set(AppSecretModel::STATUS, status)
                     .set(AppSecretModel::CHANGE_USER_ID, 0u64)
                     .set(AppSecretModel::CHANGE_TIME, ntime)

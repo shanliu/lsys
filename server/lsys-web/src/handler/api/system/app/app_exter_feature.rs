@@ -7,7 +7,7 @@ use crate::{
 };
 use lsys_access::dao::AccessSession;
 use lsys_app::model::AppRequestStatus;
-use lsys_core::IntoFluentMessage;
+use lsys_core::fluents::IntoFluentMessage;
 use serde::Deserialize;
 use serde_json::json;
 

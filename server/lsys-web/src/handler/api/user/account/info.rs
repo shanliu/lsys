@@ -143,7 +143,7 @@ pub async fn password_last_modify(req_dao: &UserAuthQueryDao) -> JsonResult<Json
         0 // 永久有效
     } else {
         let expire_time = passwrod.add_time + timeout_config;
-        let current_time = lsys_core::now_time().unwrap_or_default();
+        let current_time = lsys_core::utils::now_time().unwrap_or_default();
         expire_time.saturating_sub(current_time)
     };
 

@@ -1,5 +1,6 @@
 use super::ValidRule;
-use crate::{fluent_message, ValidRuleError};
+use crate::fluent_message;
+use crate::valid_param::ValidRuleError;
 use std::fmt::Display;
 
 pub struct ValidStrlen<T: Display> {

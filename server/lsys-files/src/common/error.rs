@@ -1,4 +1,5 @@
-use lsys_core::{fluent_message, FluentMessage, IntoFluentMessage};
+use lsys_core::fluent_message;
+use lsys_core::fluents::{FluentMessage, IntoFluentMessage};
 
 /// 文件错误类型
 #[derive(Debug)]
@@ -11,6 +12,10 @@ pub enum FileError {
     InvalidStatusCode(u16),
     RedirectLimitExceeded,
     InvalidChunkData(String),
+    /// 等待下载完成超时
+    DownloadTimeout(u64, u64),
+    /// 下载失败
+    DownloadFailed(u64, String),
 }
 
 impl std::fmt::Display for FileError {
@@ -24,6 +29,8 @@ impl std::fmt::Display for FileError {
             FileError::InvalidStatusCode(code) => write!(f, "Invalid status code: {}", code),
             FileError::RedirectLimitExceeded => write!(f, "Redirect limit exceeded"),
             FileError::InvalidChunkData(e) => write!(f, "Invalid chunk data: {}", e),
+            FileError::DownloadTimeout(timeout, file_user_id) => write!(f, "Download timeout after {}s, file_user_id={}", timeout, file_user_id),
+            FileError::DownloadFailed(file_user_id, msg) => write!(f, "Download failed, file_user_id={}, msg={}", file_user_id, msg),
         }
     }
 }
@@ -43,6 +50,12 @@ impl IntoFluentMessage for FileError {
                 fluent_message!("file-error", "Redirect limit exceeded")
             }
             FileError::InvalidChunkData(e) => fluent_message!("file-error", e),
+            FileError::DownloadTimeout(timeout, file_user_id) => {
+                fluent_message!("file-download-timeout", &format!("Download timeout after {}s, file_user_id={}", timeout, file_user_id))
+            }
+            FileError::DownloadFailed(file_user_id, msg) => {
+                fluent_message!("file-download-failed", &format!("Download failed, file_user_id={}, msg={}", file_user_id, msg))
+            }
         }
     }
 }

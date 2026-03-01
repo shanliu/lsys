@@ -1,4 +1,4 @@
-CREATE TABLE `yaf_sender_config` (
+CREATE TABLE `lst_sender_config` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
     `priority` tinyint DEFAULT 99,
@@ -12,7 +12,7 @@ CREATE TABLE `yaf_sender_config` (
     PRIMARY KEY (`id`),
     KEY `appid` (`app_id`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '发送配置,如发送限额等';
-CREATE TABLE `yaf_sender_message_cancel` (
+CREATE TABLE `lst_sender_message_cancel` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
     `sender_type` tinyint NOT NULL COMMENT '发送类型',
@@ -25,7 +25,7 @@ CREATE TABLE `yaf_sender_message_cancel` (
     KEY `message_id` (`sender_message_id`) USING BTREE,
     KEY `sender_type` (`sender_type`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '取消发送列表';
-CREATE TABLE `yaf_sender_log` (
+CREATE TABLE `lst_sender_log` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `sender_type` tinyint NOT NULL COMMENT '发送类型',
     `log_type` tinyint NOT NULL COMMENT '日志类型,如发送,取消等',
@@ -40,7 +40,7 @@ CREATE TABLE `yaf_sender_log` (
     KEY `message_id` (`sender_message_id`) USING BTREE,
     KEY `sender_type` (`sender_type`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '后台发送日志';
-CREATE TABLE `yaf_sender_tpl_config` (
+CREATE TABLE `lst_sender_tpl_config` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `sender_type` tinyint NOT NULL COMMENT '发送类型',
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
@@ -54,7 +54,7 @@ CREATE TABLE `yaf_sender_tpl_config` (
     `change_user_id` bigint unsigned NOT NULL COMMENT '最后更改用户id',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '发送模板配置,以tpl_id为KEY实现配置,config_data(当前tpl_id特殊配置)+setting_id(全局共用配置)';
-CREATE TABLE `yaf_sender_tpl_body` (
+CREATE TABLE `lst_sender_tpl_body` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
     `sender_type` tinyint NOT NULL COMMENT '发送类型',
@@ -68,7 +68,7 @@ CREATE TABLE `yaf_sender_tpl_body` (
     KEY `tpl_id` (`tpl_id`, `status`) USING BTREE,
     KEY `sender_type` (`sender_type`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '发送模板内容,有些接口不用这个';
-CREATE TABLE `yaf_sender_mail_body` (
+CREATE TABLE `lst_sender_mail_body` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID,由应用生成',
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
     `tpl_key` varchar(32) NOT NULL COMMENT '模板ID',
@@ -86,7 +86,7 @@ CREATE TABLE `yaf_sender_mail_body` (
     PRIMARY KEY (`id`),
     KEY `sender_record_data_IDX` (`expected_time`, `status`, `id`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '发送邮件数据';
-CREATE TABLE `yaf_sender_mail_message` (
+CREATE TABLE `lst_sender_mail_message` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID,由应用生成',
     `snid` bigint unsigned NOT NULL COMMENT '消息ID',
     `sender_body_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '邮件内容ID',
@@ -104,7 +104,7 @@ CREATE TABLE `yaf_sender_mail_message` (
     KEY `sender_add_time_IDX` (`add_time`) USING BTREE,
     KEY `sender_res_data_IDX` (`setting_id`, `res_data`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '发送邮件收件人信息';
-CREATE TABLE `yaf_sender_sms_body` (
+CREATE TABLE `lst_sender_sms_body` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID,由应用生成',
     `app_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '应用ID',
     `tpl_key` varchar(32) NOT NULL COMMENT '模板ID',
@@ -121,7 +121,7 @@ CREATE TABLE `yaf_sender_sms_body` (
     PRIMARY KEY (`id`),
     KEY `sender_record_data_IDX` (`expected_time`, `status`, `id`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '发送短信数据';
-CREATE TABLE `yaf_sender_sms_message` (
+CREATE TABLE `lst_sender_sms_message` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID,由应用生成',
     `snid` bigint unsigned NOT NULL COMMENT '消息ID',
     `sender_body_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '内容ID',

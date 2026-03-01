@@ -2,7 +2,7 @@ use async_trait::async_trait;
 
 use super::{UserAuthDao, UserAuthData, UserAuthError, UserAuthToken};
 use lsys_access::dao::{AccessError, AccessResult, AccessSession};
-use lsys_core::IntoFluentMessage;
+use lsys_core::fluents::IntoFluentMessage;
 // use std::str::FromStr;
 use std::sync::Arc;
 

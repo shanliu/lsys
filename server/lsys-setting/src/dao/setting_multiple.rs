@@ -1,10 +1,17 @@
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::db::{query_string_field_max, Insert, SqlExpr, SqlSuffix, TableMeta, Update};
-use lsys_core::{db::OffsetPageParam, now_time, IntoFluentMessage, RemoteNotify, RequestEnv};
-use lsys_core::{
-    db_option_executor, fluent_message, sql_format, valid_key, ValidError, ValidNumber, ValidParam,
-    ValidParamCheck, ValidPattern, ValidStrlen,
+use lsys_core::db::OffsetPageParam;
+use lsys_core::db::{
+    utils::fetch_string_field_max, Insert, OptionTxExecutor, SqlExpr, SqlSuffix, TableMeta,
+    Update,
 };
+use lsys_core::fluent_message;
+use lsys_core::fluents::IntoFluentMessage;
+use lsys_core::remote_notify::RemoteNotify;
+use lsys_core::utils::{now_time, RequestEnv};
+use lsys_core::valid_param::{
+    ValidError, ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
+};
+use lsys_core::{sql_format, valid_key};
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{MySql, Pool, Transaction};
 use std::sync::Arc;
@@ -43,15 +50,17 @@ pub struct MultipleSettingData<'t, T: SettingEncode> {
 }
 impl MultipleSetting {
     async fn add_param_valid(&self, key: &str, name: &str, data: &str) -> SettingResult<()> {
-        let setting_key_max = query_string_field_max::<SettingModel>(&self.db, &SettingModel::SETTING_KEY)
+        let setting_key_max =
+            fetch_string_field_max::<SettingModel>(&self.db, &SettingModel::SETTING_KEY)
+                .await
+                .len_or(32);
+        let name_max = fetch_string_field_max::<SettingModel>(&self.db, &SettingModel::NAME)
             .await
             .len_or(32);
-        let name_max = query_string_field_max::<SettingModel>(&self.db, &SettingModel::NAME)
-            .await
-            .len_or(32);
-        let setting_data_max = query_string_field_max::<SettingModel>(&self.db, &SettingModel::SETTING_DATA)
-            .await
-            .len_or(60000);
+        let setting_data_max =
+            fetch_string_field_max::<SettingModel>(&self.db, &SettingModel::SETTING_DATA)
+                .await
+                .len_or(60000);
 
         ValidParam::default()
             .add(
@@ -122,24 +131,17 @@ impl MultipleSetting {
             Err(err) => return Err(err)?,
         }
 
-        let dat = db_option_executor!(
-            db,
-            {
-                Insert::<SettingModel>::new()
-                    .set(SettingModel::NAME, &name)
-                    .set(SettingModel::SETTING_TYPE, setting_type)
-                    .set(SettingModel::SETTING_KEY, &key)
-                    .set(SettingModel::SETTING_DATA, &edata)
-                    .set(SettingModel::USER_ID, uid)
-                    .set(SettingModel::STATUS, status)
-                    .set(SettingModel::CHANGE_USER_ID, change_user_id)
-                    .set(SettingModel::CHANGE_TIME, time)
-                    .execute(db.as_executor())
-                    .await?
-            },
-            transaction,
-            &self.db
-        );
+        let dat = Insert::<_, SettingModel>::new()
+            .set(SettingModel::NAME, &name)
+            .set(SettingModel::SETTING_TYPE, setting_type)
+            .set(SettingModel::SETTING_KEY, &key)
+            .set(SettingModel::SETTING_DATA, &edata)
+            .set(SettingModel::USER_ID, uid)
+            .set(SettingModel::STATUS, status)
+            .set(SettingModel::CHANGE_USER_ID, change_user_id)
+            .set(SettingModel::CHANGE_TIME, time)
+            .execute(OptionTxExecutor::new(transaction, &self.db))
+            .await?;
         self.cache.clear(&format!("{}-{}", key, uid)).await;
         self.logger
             .add(
@@ -166,15 +168,17 @@ impl MultipleSetting {
         name: &str,
         data: &str,
     ) -> SettingResult<()> {
-        let setting_key_max = query_string_field_max::<SettingModel>(&self.db, &SettingModel::SETTING_KEY)
+        let setting_key_max =
+            fetch_string_field_max::<SettingModel>(&self.db, &SettingModel::SETTING_KEY)
+                .await
+                .len_or(32);
+        let name_max = fetch_string_field_max::<SettingModel>(&self.db, &SettingModel::NAME)
             .await
             .len_or(32);
-        let name_max = query_string_field_max::<SettingModel>(&self.db, &SettingModel::NAME)
-            .await
-            .len_or(32);
-        let setting_data_max = query_string_field_max::<SettingModel>(&self.db, &SettingModel::SETTING_DATA)
-            .await
-            .len_or(60000);
+        let setting_data_max =
+            fetch_string_field_max::<SettingModel>(&self.db, &SettingModel::SETTING_DATA)
+                .await
+                .len_or(60000);
 
         ValidParam::default()
             .add(
@@ -260,20 +264,16 @@ impl MultipleSetting {
             uid,
         );
 
-        let cu = db_option_executor!(
-            db,
-            {
-                Update::<SettingModel>::new()
-                    .set(SettingModel::SETTING_DATA, &edata)
-                    .set(SettingModel::NAME, &name)
-                    .set(SettingModel::CHANGE_USER_ID, change_user_id)
-                    .set(SettingModel::CHANGE_TIME, time)
-                    .execute(SqlSuffix::Where(&where_clause), db.as_executor())
-                    .await?
-            },
-            transaction,
-            &self.db
-        );
+        let cu = Update::<_, SettingModel>::new()
+            .set(SettingModel::SETTING_DATA, &edata)
+            .set(SettingModel::NAME, &name)
+            .set(SettingModel::CHANGE_USER_ID, change_user_id)
+            .set(SettingModel::CHANGE_TIME, time)
+            .execute(
+                SqlSuffix::Where(&where_clause),
+                OptionTxExecutor::new(transaction, &self.db),
+            )
+            .await?;
 
         self.cache.clear(&format!("{}-{}", key, uid)).await;
 
@@ -328,22 +328,15 @@ impl MultipleSetting {
                 if SettingStatus::Delete.eq(item.status) {
                     return Ok(0);
                 }
-                let cu = db_option_executor!(
-                    db,
-                    {
-                        Update::<SettingModel>::new()
-                            .set(SettingModel::STATUS, status)
-                            .set(SettingModel::CHANGE_USER_ID, change_user_id)
-                            .set(SettingModel::CHANGE_TIME, time)
-                            .execute(
-                                SqlSuffix::Where(&sql_format!("id={}", item.id)),
-                                db.as_executor(),
-                            )
-                            .await?
-                    },
-                    transaction,
-                    &self.db
-                );
+                let cu = Update::<_, SettingModel>::new()
+                    .set(SettingModel::STATUS, status)
+                    .set(SettingModel::CHANGE_USER_ID, change_user_id)
+                    .set(SettingModel::CHANGE_TIME, time)
+                    .execute(
+                        SqlSuffix::Where(&sql_format!("id={}", item.id)),
+                        OptionTxExecutor::new(transaction, &self.db),
+                    )
+                    .await?;
                 self.cache.clear(&format!("{}-{}", key, uid)).await;
 
                 self.logger

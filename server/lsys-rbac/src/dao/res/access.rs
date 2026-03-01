@@ -2,7 +2,8 @@
 
 use crate::model::{RbacResModel, RbacResStatus};
 use lsys_core::db::{TableMeta, SqlExpr, SqlQuote};
-use lsys_core::{sql_format, string_clear, StringClear, STRING_CLEAR_FORMAT};
+use lsys_core::sql_format;
+use lsys_core::utils::{string_clear, StringClear, STRING_CLEAR_FORMAT};
 use std::vec;
 
 use super::{RbacRes, ResCacheKey};

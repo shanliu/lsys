@@ -1,4 +1,4 @@
-CREATE TABLE `yaf_barcode_create` (
+CREATE TABLE `lst_barcode_create` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `app_id` bigint unsigned NOT NULL COMMENT '应用ID',
     `user_id` bigint unsigned NOT NULL COMMENT '用户id',
@@ -17,7 +17,7 @@ CREATE TABLE `yaf_barcode_create` (
     KEY `appid` (`app_id`) USING BTREE,
     KEY `user_id` (`user_id`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = 'barcode显示配置';
-CREATE TABLE `yaf_barcode_parse` (
+CREATE TABLE `lst_barcode_parse` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `user_id` bigint unsigned NOT NULL COMMENT '用户id',
     `app_id` bigint unsigned NOT NULL COMMENT '应用ID',

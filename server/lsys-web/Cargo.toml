@@ -58,7 +58,7 @@ config = "~0.15"
 
 rand = "~0.10.0"
 
-lsys-core = { path = "../lsys-core", features = ["db", "tera", "redis"] }
+lsys-core = { path = "../lsys-core", features = ["db-mysql", "tera", "redis"] }
 lsys-rbac = { path = "../lsys-rbac" }
 lsys-access = { path = "../lsys-access" }
 lsys-user = { path = "../lsys-user" }

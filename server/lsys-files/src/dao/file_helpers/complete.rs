@@ -1,6 +1,7 @@
 use lsys_core::db::{SqlQuote, SqlSuffix, TableMeta, Update};
 use lsys_core::sql_format;
-use lsys_core::{fluent_message, now_time};
+use lsys_core::fluent_message;
+use lsys_core::utils::now_time;
 
 use super::super::{FileError, FileResult};
 use super::FileHelper;
@@ -8,27 +9,9 @@ use crate::common::get_content_type;
 use crate::model::*;
 
 impl FileHelper {
-    /// 通过 storage_type + MD5 查询已存在的正常状态文件记录
-    pub async fn find_existing_file(
-        &self,
-        storage_type: &str,
-        file_md5: &str,
-    ) -> FileResult<Option<FileModel>> {
-        let row = sqlx::query_as::<_, FileModel>(&sql_format!(
-            "SELECT * FROM {} WHERE storage_type={} AND file_md5={} AND status={} LIMIT 1",
-            FileModel::table_name(),
-            storage_type,
-            file_md5,
-            FileStatus::Normal as i8
-        ))
-        .fetch_optional(&self.db)
-        .await?;
-        Ok(row)
-    }
-
     /// 通过指定文件完成 FILE 跟 FILE_LOCAL 的记录
     /// 返回 Some(other_file) 表示找到了已有的相同MD5文件, None 表示用新文件完成
-    pub async fn complete_file_and_local(
+    pub(crate) async fn complete_file_and_local(
         &self,
         file: &mut FileModel,
         file_local: &mut FileLocalModel,
@@ -116,7 +99,7 @@ impl FileHelper {
                     file_local.local_path = other_local_rec.local_path.clone();
 
                     // 更新数据库
-                    Update::<FileModel>::new()
+                    Update::<_,FileModel>::new()
                         .set(FileModel::FILE_SIZE, file.file_size)
                         .set(FileModel::FILE_MD5, &file.file_md5)
                         .set(FileModel::CONTENT_TYPE, &file.content_type)
@@ -128,7 +111,7 @@ impl FileHelper {
                         .execute(SqlSuffix::Where(&sql_format!("id={}", file.id)), &self.db)
                         .await?;
 
-                    Update::<FileLocalModel>::new()
+                    Update::<_,FileLocalModel>::new()
                         .set(FileLocalModel::LOCAL_PATH, &file_local.local_path)
                         .execute(
                             SqlSuffix::Where(&sql_format!("id={}", file_local.id)),
@@ -160,7 +143,7 @@ impl FileHelper {
         file.change_time = now;
         file_local.local_path = actual_local_path;
 
-        Update::<FileModel>::new()
+        Update::<_,FileModel>::new()
             .set(FileModel::FILE_SIZE, file.file_size)
             .set(FileModel::FILE_MD5, &file.file_md5)
             .set(FileModel::CONTENT_TYPE, &file.content_type)
@@ -171,7 +154,7 @@ impl FileHelper {
             .execute(SqlSuffix::Where(&sql_format!("id={}", file.id)), &self.db)
             .await?;
 
-        Update::<FileLocalModel>::new()
+        Update::<_,FileLocalModel>::new()
             .set(FileLocalModel::LOCAL_PATH, &file_local.local_path)
             .execute(
                 SqlSuffix::Where(&sql_format!("id={}", file_local.id)),

@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::warn;
 
-use crate::{MsgSendBody, RemoteTask};
+use crate::remote_notify::{MsgSendBody, RemoteTask};
 
 use super::REMOTE_NOTIFY_TYPE_CACHE;
 

@@ -1,8 +1,8 @@
-use lsys_core::db::{query_string_field_max, Insert, SqlQuote, SqlSuffix, TableMeta, Update};
-use lsys_core::{
-    now_time, sql_format, valid_key, AppCore, ValidParam, ValidParamCheck,
-    ValidPattern, ValidStrlen,
-};
+use lsys_core::db::{utils::fetch_string_field_max, Insert, SqlQuote, SqlSuffix, TableMeta, Update};
+use lsys_core::{sql_format, valid_key};
+use lsys_core::app_core::AppCore;
+use lsys_core::utils::now_time;
+use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
 use sqlx::{MySql, Pool, Row};
 use std::collections::HashSet;
 
@@ -105,7 +105,7 @@ impl MfaTotpDao {
         }
 
         let user_data_max =
-            query_string_field_max::<MfaTotpModel>(&self.db, &MfaTotpModel::USER_DATA)
+            fetch_string_field_max::<MfaTotpModel>(&self.db, &MfaTotpModel::USER_DATA)
                 .await
                 .len_or(32);
 
@@ -165,11 +165,11 @@ impl MfaTotpDao {
         secret_data: &str,
     ) -> MfaResult<u64> {
         let secret_data_max =
-            query_string_field_max::<MfaTotpModel>(&self.db, &MfaTotpModel::SECRET_DATA)
+            fetch_string_field_max::<MfaTotpModel>(&self.db, &MfaTotpModel::SECRET_DATA)
                 .await
                 .len_or(128);
         let user_data_max =
-            query_string_field_max::<MfaTotpModel>(&self.db, &MfaTotpModel::USER_DATA)
+            fetch_string_field_max::<MfaTotpModel>(&self.db, &MfaTotpModel::USER_DATA)
                 .await
                 .len_or(32);
 
@@ -199,7 +199,7 @@ impl MfaTotpDao {
         // Insert first (newest row wins), then best-effort disable older enabled rows.
         // This avoids transaction isolation issues where concurrent transactions cannot see
         // each other's uncommitted inserts.
-        let res = Insert::<MfaTotpModel>::new()
+        let res = Insert::<_, MfaTotpModel>::new()
             .set(MfaTotpModel::APP_ID, subject.app_id)
             .set(MfaTotpModel::USER_DATA, &subject.user_data)
             .set(MfaTotpModel::STATUS, status_enable)
@@ -212,7 +212,7 @@ impl MfaTotpDao {
             .await?;
         let new_id = res.last_insert_id();
 
-        Update::<MfaTotpModel>::new()
+        Update::<_, MfaTotpModel>::new()
             .set(MfaTotpModel::STATUS, status_disable)
             .set(MfaTotpModel::CHANGE_TIME, time)
             .execute(
@@ -233,7 +233,7 @@ impl MfaTotpDao {
     pub async fn disable(&self, subject: &MfaSubject) -> MfaResult<()> {
         let time = now_time().unwrap_or_default();
         let status_disable = MfaStatus::Disable as i8;
-        Update::<MfaTotpModel>::new()
+        Update::<_, MfaTotpModel>::new()
             .set(MfaTotpModel::STATUS, status_disable)
             .set(MfaTotpModel::CHANGE_TIME, time)
             .execute(
@@ -251,7 +251,7 @@ impl MfaTotpDao {
 
     pub async fn verify_totp(&self, subject: &MfaSubject, code: &str) -> MfaResult<()> {
         let user_data_max =
-            query_string_field_max::<MfaTotpModel>(&self.db, &MfaTotpModel::USER_DATA)
+            fetch_string_field_max::<MfaTotpModel>(&self.db, &MfaTotpModel::USER_DATA)
                 .await
                 .len_or(32);
 
@@ -305,7 +305,7 @@ impl MfaTotpDao {
         }
 
         let time = now;
-        Update::<MfaTotpModel>::new()
+        Update::<_, MfaTotpModel>::new()
             .set(MfaTotpModel::LAST_USED_STEP, used_step)
             .set(MfaTotpModel::LAST_USED_TIME, time)
             .set(MfaTotpModel::CHANGE_TIME, time)

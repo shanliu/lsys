@@ -36,3 +36,10 @@ pub enum FileUserStatus {
     Normal = 1,
     Deleted = 2,
 }
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[lsys_model_status(field_type = "i8")]
+pub enum FileTagStatus {
+    Normal = 1,
+    Deleted = 2,
+}

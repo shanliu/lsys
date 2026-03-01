@@ -1,4 +1,6 @@
-use lsys_core::{AppCore, RemoteNotify};
+use lsys_core::app_core::utils;
+use lsys_core::app_core::AppCore;
+use lsys_core::remote_notify::RemoteNotify;
 use lsys_logger::dao::ChangeLoggerDao;
 use lsys_setting::dao::{SettingConfig, SettingDao};
 use lsys_user::dao::{AccountConfig, AccountDao};
@@ -9,9 +11,9 @@ use std::sync::Arc;
 mod account_dao;
 #[allow(dead_code)]
 async fn user_dao() -> AccountDao {
-    let app_core = AppCore::new("", "config", None, None).await.unwrap();
-    let db: Pool<MySql> = app_core.create_db().await.unwrap();
-    let redis = app_core.create_redis().await.unwrap();
+    let app_core: AppCore = AppCore::new("./", "config", "app", None).await.unwrap();
+    let db: Pool<MySql> = utils::create_mysql_pool(&app_core).await.unwrap();
+    let redis = utils::create_redis_pool(&app_core).await.unwrap();
     let app_core = Arc::new(app_core);
     let logger = Arc::new(ChangeLoggerDao::new(db.clone()));
 

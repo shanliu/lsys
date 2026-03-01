@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use lsys_core::AppCore;
+use lsys_core::app_core::AppCore;
 use lsys_files::dao::{FileDao, FileDaoBuilder};
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{MySql, Pool};

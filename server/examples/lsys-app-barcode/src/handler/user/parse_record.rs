@@ -11,7 +11,8 @@ use crate::dao::BarcodeParseRecord;
 use crate::handler::common::{PageParam, ToOffsetPageParam};
 use crate::server::AppState;
 use crate::utils::handler::{json_err, json_fluent_err, json_ok};
-use lsys_core::{FluentBundle, RequestEnv};
+use lsys_core::fluents::FluentBundle;
+use lsys_core::utils::RequestEnv;
 
 #[derive(Debug, Deserialize)]
 struct ParseRecordListParam {

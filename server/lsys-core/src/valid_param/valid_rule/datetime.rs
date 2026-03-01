@@ -1,7 +1,8 @@
 use regex::Regex;
 
 use super::ValidRule;
-use crate::{fluent_message, ValidRuleError};
+use crate::fluent_message;
+use crate::valid_param::ValidRuleError;
 use std::fmt::Display;
 
 struct ValidDateTimePhantom<T: Display>(std::marker::PhantomData<T>);

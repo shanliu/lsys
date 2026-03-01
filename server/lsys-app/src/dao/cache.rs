@@ -3,8 +3,8 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use lsys_core::{
     cache::{LocalCache, LocalCacheClearItem},
-    IntoFluentMessage,
 };
+use lsys_core::fluents::IntoFluentMessage;
 
 use crate::model::{AppModel, AppOAuthClientModel};
 

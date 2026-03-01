@@ -17,13 +17,14 @@ use tokio::sync::{mpsc, Mutex, RwLock,};
 use tokio::time::Duration;
 
 use futures_util::StreamExt;
+use crate::app_core;
 
 use tracing::{debug, error, info, warn};
 
-use crate::AppCore;
+use crate::app_core::AppCore;
 mod result;
 pub use result::*;
-use crate::IntoFluentMessage;
+use crate::fluents::IntoFluentMessage;
 use redis::AsyncCommands as _;
 //发送消息
 #[derive(Serialize, Deserialize, Clone)]
@@ -77,7 +78,8 @@ impl RemoteNotify {
             .unwrap_or_default()
             .to_string_lossy()
             .to_string();
-        let id_generator = Mutex::new(app_core.create_snowflake_id_generator());
+        let id_generator =
+            Mutex::new(crate::app_core::create_snowflake_id_generator(app_core.as_ref()));
         Ok(Self {
             channel_name,
             app_core,
@@ -320,7 +322,7 @@ impl RemoteNotify {
     }
     pub async fn listen(&self) {
         loop {
-            match self.app_core.create_redis_client().await {
+            match app_core::create_redis_client(self.app_core.as_ref()).await {
                 Ok(redis_client) => {
                     let con_res = redis_client.get_async_pubsub().await;
                     match con_res {

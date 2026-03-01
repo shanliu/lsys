@@ -1,6 +1,7 @@
 use http::HeaderMap;
 use lsys_core::api_utils::{compute_rest_sign, RestSignData};
-use lsys_core::{fluent_message, FluentMessage, IntoFluentMessage};
+use lsys_core::fluent_message;
+use lsys_core::fluents::{FluentMessage, IntoFluentMessage};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::fmt;

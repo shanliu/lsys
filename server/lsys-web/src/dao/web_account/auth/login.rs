@@ -5,7 +5,9 @@ use crate::dao::{OauthCallbackParam, OauthLogin, OauthLoginParam};
 use crate::dao::{WebError, WebResult};
 
 use lsys_access::dao::SessionBody;
-use lsys_core::{fluent_message, IntoFluentMessage, RequestEnv};
+use lsys_core::fluent_message;
+use lsys_core::fluents::IntoFluentMessage;
+use lsys_core::utils::RequestEnv;
 use lsys_mfa::dao::MfaSubject;
 use lsys_user::dao::login::ExternalLogin;
 use lsys_user::dao::{

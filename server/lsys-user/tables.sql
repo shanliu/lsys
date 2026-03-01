@@ -1,4 +1,4 @@
-CREATE TABLE `yaf_account` (
+CREATE TABLE `lst_account` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '用户ID',
     `nickname` varchar(32) DEFAULT '' NOT NULL COMMENT '昵称',
     `status` tinyint NOT NULL DEFAULT 1 COMMENT '状态',
@@ -13,7 +13,7 @@ CREATE TABLE `yaf_account` (
     `change_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '最后更改时间',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户';
-CREATE TABLE `yaf_account_address` (
+CREATE TABLE `lst_account_address` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `account_id` bigint unsigned NOT NULL COMMENT '用户ID',
     `country_code` varchar(6) NOT NULL COMMENT '国家代码',
@@ -26,7 +26,7 @@ CREATE TABLE `yaf_account_address` (
     `change_time` int unsigned NOT NULL DEFAULT 0 COMMENT '最后更改时间',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户收货地址';
-CREATE TABLE `yaf_account_email` (
+CREATE TABLE `lst_account_email` (
     `id` int unsigned NOT NULL AUTO_INCREMENT,
     `account_id` bigint unsigned NOT NULL COMMENT '用户ID',
     `email` varchar(150) NOT NULL COMMENT '邮箱',
@@ -35,7 +35,7 @@ CREATE TABLE `yaf_account_email` (
     `change_time` int unsigned NOT NULL DEFAULT 0 COMMENT '最后更改时间',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户关联邮箱';
-CREATE TABLE `yaf_account_external` (
+CREATE TABLE `lst_account_external` (
     `id` int unsigned NOT NULL AUTO_INCREMENT,
     `account_id` bigint unsigned NOT NULL COMMENT '用户ID',
     `external_type` varchar(64) NOT NULL COMMENT '类型',
@@ -52,7 +52,7 @@ CREATE TABLE `yaf_account_external` (
     `token_timeout` int unsigned DEFAULT 0 COMMENT '外部站点登录超时',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '外部账号登录';
-CREATE TABLE `yaf_account_info` (
+CREATE TABLE `lst_account_info` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `account_id` bigint unsigned NOT NULL COMMENT '用户ID',
     `gender` tinyint NOT NULL DEFAULT 0 COMMENT '性别 1 男 2 女',
@@ -64,7 +64,7 @@ CREATE TABLE `yaf_account_info` (
     PRIMARY KEY (`id`),
     UNIQUE KEY `account_account_id_IDX` (`account_id`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户资料表';
-CREATE TABLE `yaf_account_mobile` (
+CREATE TABLE `lst_account_mobile` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `account_id` bigint unsigned NOT NULL COMMENT '用户ID',
     `area_code` char(4) NOT NULL COMMENT '电话区号',
@@ -74,7 +74,7 @@ CREATE TABLE `yaf_account_mobile` (
     `change_time` int unsigned NOT NULL DEFAULT 0 COMMENT '最后更改时间',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户登关联手机号';
-CREATE TABLE `yaf_account_name` (
+CREATE TABLE `lst_account_name` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `account_id` bigint unsigned NOT NULL COMMENT '用户ID',
     `username` varchar(100) NOT NULL DEFAULT '' COMMENT '登录用户名',
@@ -84,7 +84,7 @@ CREATE TABLE `yaf_account_name` (
     UNIQUE KEY `account_account_id_IDX` (`account_id`) USING BTREE,
     UNIQUE KEY `account_username_IDX` (`username`, `status`) USING BTREE
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户登录账号';
-CREATE TABLE `yaf_account_password` (
+CREATE TABLE `lst_account_password` (
     `id` int unsigned NOT NULL AUTO_INCREMENT,
     `account_id` bigint unsigned NOT NULL COMMENT '用户ID',
     `password` varchar(150) NOT NULL COMMENT '密码',
@@ -92,7 +92,7 @@ CREATE TABLE `yaf_account_password` (
     `disable_time` int unsigned NOT NULL DEFAULT 0 COMMENT '停用时间',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户登录密码';
-CREATE TABLE `yaf_account_index` (
+CREATE TABLE `lst_account_index` (
     `id` int(10) unsigned NOT NULL AUTO_INCREMENT COMMENT '用户ID',
     `account_id` bigint(20) unsigned NOT NULL COMMENT '用户ID',
     `index_cat` tinyint(3) unsigned NOT NULL COMMENT '索引分类',
@@ -104,7 +104,7 @@ CREATE TABLE `yaf_account_index` (
     KEY `account_index_index_data_IDX` (`index_data`, `status`) USING BTREE,
     KEY `account_index_account_id_status_IDX` (`account_id`, `status`) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 18221001 DEFAULT CHARSET = utf8mb4 COMMENT = '用户数据索引,尝试用外部搜索引擎代替';
-CREATE TABLE `yaf_account_login` (
+CREATE TABLE `lst_account_login` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `login_account` varchar(128) NOT NULL COMMENT '尝试登录账号',
     `is_login` tinyint NOT NULL DEFAULT 0 COMMENT '是否登录成功',

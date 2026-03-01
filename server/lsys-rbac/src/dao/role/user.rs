@@ -1,11 +1,12 @@
 //RBAC中角色相关实现
 
-use lsys_core::{now_time, RequestEnv};
+use lsys_core::utils::{now_time, RequestEnv};
 
 use serde::Serialize;
 
 use lsys_core::db::{BatchInsert, Insert, SqlQuote, SqlSuffix, TableMeta, Update};
-use lsys_core::{db_option_executor, sql_format};
+use lsys_core::sql_format;
+use lsys_core::db::OptionTxExecutor;
 use sqlx::Transaction;
 
 use super::{logger::LogRoleUser, RbacRole};
@@ -62,12 +63,12 @@ impl RbacRole {
         };
 
         let nowtime = now_time().unwrap_or_default();
-        let mut batch = BatchInsert::<RbacRoleUserModel>::new();
+        let mut batch = BatchInsert::<_,RbacRoleUserModel>::new();
         for RoleAddUser { user_id, timeout } in user_vec.iter() {
             let mut is_updata = false;
             for (itemid, uid) in user_res.iter() {
                 if uid == user_id {
-                    if let Err(err) = Update::<RbacRoleUserModel>::new()
+                    if let Err(err) = Update::<_,RbacRoleUserModel>::new()
                         .set(RbacRoleUserModel::ROLE_ID, role.id)
                         .set(RbacRoleUserModel::CHANGE_TIME, nowtime)
                         .set(RbacRoleUserModel::CHANGE_USER_ID, add_user_id)
@@ -83,7 +84,7 @@ impl RbacRole {
             }
             if !is_updata {
                 batch = batch.push(
-                    Insert::<RbacRoleUserModel>::new()
+                    Insert::<_,RbacRoleUserModel>::new()
                         .set(RbacRoleUserModel::USER_ID, *user_id)
                         .set(RbacRoleUserModel::TIMEOUT, *timeout)
                         .set(RbacRoleUserModel::ROLE_ID, role.id)
@@ -136,27 +137,19 @@ impl RbacRole {
             return Ok(0);
         }
         let time = now_time().unwrap_or_default();
-        let db = &self.db;
-        let res = db_option_executor!(
-            db,
-            {
-                Update::<RbacRoleUserModel>::new()
-                    .set(RbacRoleUserModel::CHANGE_USER_ID, del_user_id)
-                    .set(RbacRoleUserModel::CHANGE_TIME, time)
-                    .set(RbacRoleUserModel::STATUS, RbacRoleUserStatus::Delete as i8)
-                    .execute(
-                        SqlSuffix::Where(&sql_format!(
-                            "role_id ={} and user_id  in ({})",
-                            role.id,
-                            user_id_vec
-                        )),
-                        db.as_executor(),
-                    )
-                    .await?
-            },
-            transaction,
-            db
-        );
+        let res = Update::<_,RbacRoleUserModel>::new()
+            .set(RbacRoleUserModel::CHANGE_USER_ID, del_user_id)
+            .set(RbacRoleUserModel::CHANGE_TIME, time)
+            .set(RbacRoleUserModel::STATUS, RbacRoleUserStatus::Delete as i8)
+            .execute(
+                SqlSuffix::Where(&sql_format!(
+                    "role_id ={} and user_id  in ({})",
+                    role.id,
+                    user_id_vec
+                )),
+                OptionTxExecutor::new(transaction, &self.db),
+            )
+            .await?;
 
         self.cache()
             .clear_access(role, Some(&[]), Some(user_id_vec))

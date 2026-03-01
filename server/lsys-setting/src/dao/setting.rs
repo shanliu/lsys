@@ -12,7 +12,10 @@ use std::sync::Arc;
 
 use super::{MultipleSetting, SettingError, SettingResult, SingleSetting};
 
-use lsys_core::{cache::LocalCacheConfig, AppCoreError, RemoteNotify};
+use lsys_core::app_core::AppCoreError;
+use lsys_core::cache::LocalCacheConfig;
+use lsys_core::db::SqlQuote;
+use lsys_core::remote_notify::RemoteNotify;
 use lsys_logger::dao::ChangeLoggerDao;
 
 pub struct SettingConfig {
@@ -69,27 +72,19 @@ impl SettingDao {
             db,
         })
     }
-    lsys_core::impl_dao_fetch_one_by_one!(
-        db,
-        find_by_id,
-        u64,
-        SettingModel,
-        SettingResult<SettingModel>,
-        id,
-        "id={id} and status = {status}",
-        status = SettingStatus::Enable
-    );
-    lsys_core::impl_dao_fetch_map_by_vec!(
-        db,
-        find_by_ids,
-        u64,
-        SettingModel,
-        SettingResult<HashMap<u64, SettingModel>>,
-        id,
-        ids,
-        "id in ({ids}) and  status = {status}",
-        status = SettingStatus::Enable
-    );
+    pub async fn find_by_id(&self, id: &u64) -> SettingResult<SettingModel> {
+        Ok(lsys_core::db::utils::fetch_one::<SettingModel>(
+            &self.db,
+            lsys_core::sql_format!("id={id} and status = {status}", id = id, status = SettingStatus::Enable),
+        ).await?)
+    }
+    pub async fn find_by_ids(&self, ids: &[u64]) -> SettingResult<HashMap<u64, SettingModel>> {
+        Ok(lsys_core::db::utils::fetch_map::<SettingModel, _, _>(
+            &self.db,
+            lsys_core::sql_format!("id in ({ids}) and  status = {status}", ids = ids, status = SettingStatus::Enable),
+            |v| v.id,
+        ).await?)
+    }
 
     pub fn log_types() -> Vec<&'static str> {
         use lsys_logger::dao::ChangeLogData;

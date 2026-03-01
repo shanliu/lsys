@@ -1,9 +1,8 @@
 use fluent::FluentResource;
 use intl_memoizer::concurrent::IntlLangMemoizer;
 
-use crate::FluentMessage;
-
-use crate::FluentBundleError;
+use crate::fluents::FluentMessage;
+use crate::fluents::FluentBundleError;
 use std::{collections::HashMap, path::Path, str::FromStr, sync::Arc};
 #[cfg(feature = "tokio")]
 use tokio::io::AsyncReadExt;
@@ -296,13 +295,13 @@ impl FluentBundle {
                         let mut args: fluent::FluentArgs = fluent::FluentArgs::new();
                         for (k, v) in &message.data {
                             let tmp = match v {
-                                crate::FluentData::Message(fmsg) => self.format_message(fmsg),
-                                crate::FluentData::MessageVec(fmsg) => fmsg
+                                crate::fluents::FluentData::Message(fmsg) => self.format_message(fmsg),
+                                crate::fluents::FluentData::MessageVec(fmsg) => fmsg
                                     .iter()
                                     .map(|msg| self.format_message(msg))
                                     .collect::<Vec<_>>()
                                     .join(";"),
-                                crate::FluentData::String(msg) => msg.to_owned(),
+                                crate::fluents::FluentData::String(msg) => msg.to_owned(),
                             };
                             args.set(k, tmp);
                         }

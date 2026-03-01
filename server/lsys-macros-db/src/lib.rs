@@ -1,6 +1,6 @@
 mod utils;
 
-use crate::utils::{infer_table_name, needs_clone_for_type, resolve_column_name, RenameRule};
+use crate::utils::{infer_table_name, resolve_column_name, RenameRule};
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, Data, DataEnum, DataStruct, DeriveInput, Fields, Meta, NestedMeta};
@@ -75,6 +75,7 @@ pub fn lsys_model(args: TokenStream, item: TokenStream) -> TokenStream {
             let mut diff_update_fields = Vec::new();
             let mut field_name_literals = Vec::new();
             let mut column_name_literals = Vec::new();
+            let mut field_types_for_bounds = Vec::new();
 
             for field in fields.named.iter() {
                 let field_ident = field.ident.as_ref().unwrap();
@@ -102,26 +103,34 @@ pub fn lsys_model(args: TokenStream, item: TokenStream) -> TokenStream {
                     });
                 }
 
-                if needs_clone_for_type(field_type) {
-                    insert_fields.push(quote! {
-                        .set(Self::#const_name, self.#field_ident.clone())
-                    });
-                    diff_update_fields.push(quote! {
-                        if self.#field_ident != old.#field_ident {
-                            set = set.set(Self::#const_name, self.#field_ident.clone());
-                        }
-                    });
-                } else {
-                    insert_fields.push(quote! {
-                        .set(Self::#const_name, self.#field_ident)
-                    });
-                    diff_update_fields.push(quote! {
-                        if self.#field_ident != old.#field_ident {
-                            set = set.set(Self::#const_name, self.#field_ident);
-                        }
-                    });
-                }
+                // 统一 clone，Copy 类型 clone == copy，编译器会优化
+                insert_fields.push(quote! {
+                    .set(Self::#const_name, self.#field_ident.clone())
+                });
+                diff_update_fields.push(quote! {
+                    if self.#field_ident != old.#field_ident {
+                        set = set.set(Self::#const_name, self.#field_ident.clone());
+                    }
+                });
+
+                field_types_for_bounds.push(field_type.clone());
             }
+
+            // 去重字段类型（按 token 字符串）
+            let mut seen = std::collections::HashSet::new();
+            let unique_field_types: Vec<_> = field_types_for_bounds
+                .iter()
+                .filter(|ty| seen.insert(quote!(#ty).to_string()))
+                .collect();
+
+            let where_bounds: Vec<_> = unique_field_types
+                .iter()
+                .map(|ty| {
+                    quote! {
+                        for<'q> #ty: sqlx::Encode<'q, DB> + sqlx::Type<DB> + Send + Sync
+                    }
+                })
+                .collect();
 
             let field_count = field_name_literals.len();
 
@@ -139,14 +148,20 @@ pub fn lsys_model(args: TokenStream, item: TokenStream) -> TokenStream {
                     }
 
                     /// 转换为 Insert 构建器
-                    pub fn to_insert(&self) -> lsys_core::db::Insert<Self> {
-                        lsys_core::db::Insert::new()
+                    pub fn to_insert<'t, DB: sqlx::Database>(&'t self) -> lsys_core::db::Insert<'t, DB, Self>
+                    where
+                        #(#where_bounds),*
+                    {
+                        lsys_core::db::Insert::<DB, Self>::new()
                             #(#insert_fields)*
                     }
 
                     /// 生成差异 Update（只包含变化的字段）
-                    pub fn diff_update(&self, old: &Self) -> lsys_core::db::Update<Self> {
-                        let mut set = lsys_core::db::Update::new();
+                    pub fn diff_update<'t, DB: sqlx::Database>(&'t self, old: &Self) -> lsys_core::db::Update<'t, DB, Self>
+                    where
+                        #(#where_bounds),*
+                    {
+                        let mut set = lsys_core::db::Update::<DB, Self>::new();
                         #(#diff_update_fields)*
                         set
                     }

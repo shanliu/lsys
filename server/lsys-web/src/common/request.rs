@@ -5,7 +5,8 @@ use std::{ops::Deref, sync::Arc};
 use async_trait::async_trait;
 use lsys_access::dao::{AccessSession, AccessSessionData, AccessSessionToken};
 use lsys_app::dao::{RestAuthData, RestAuthSession, RestAuthToken};
-use lsys_core::{FluentBundle, RequestEnv};
+use lsys_core::fluents::FluentBundle;
+use lsys_core::utils::RequestEnv;
 
 use lsys_user::dao::{UserAuthData, UserAuthSession, UserAuthToken};
 

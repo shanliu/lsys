@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::dao::{SenderError, SenderResult};
 use crate::model::{SenderConfigModel, SenderConfigStatus, SenderType};
-use lsys_core::{now_time, RequestEnv};
+use lsys_core::utils::{now_time, RequestEnv};
 
 use lsys_core::db::{Insert, TableMeta, SqlSuffix, Update};
 use lsys_core::sql_format;
@@ -57,7 +57,7 @@ impl SenderConfig {
         let app_id = app_id.unwrap_or_default();
         let time = now_time().unwrap_or_default();
         let config_data = config_data.to_string();
-        let id = Insert::<SenderConfigModel>::new()
+        let id = Insert::<_,SenderConfigModel>::new()
             .set(SenderConfigModel::APP_ID, app_id)
             .set(SenderConfigModel::SENDER_TYPE, sender_type)
             .set(SenderConfigModel::PRIORITY, priority)
@@ -101,7 +101,7 @@ impl SenderConfig {
             return Ok(0);
         }
         let time = now_time().unwrap_or_default();
-        let res = Update::<SenderConfigModel>::new()
+        let res = Update::<_,SenderConfigModel>::new()
             .set(SenderConfigModel::STATUS, SenderConfigStatus::Delete as i8)
             .set(SenderConfigModel::CHANGE_TIME, time)
             .set(SenderConfigModel::CHANGE_USER_ID, user_id)
