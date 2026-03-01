@@ -5,12 +5,17 @@ mkdir %build_dir%
 xcopy "README.MD" %build_dir% /Y
 xcopy LICENSE %build_dir% /Y
 
-mkdir %root_dir%server\\examples\\lsys-actix-web\data
-cd %root_dir%server\\examples\\lsys-actix-web 
 cargo version
 rustc -V
 cargo update
+
+mkdir %root_dir%server\\examples\\lsys-actix-web\data
+cd %root_dir%server\\examples\\lsys-actix-web 
 cargo build -r -vvv 
+
+cd %root_dir%server\\examples\\lsys-app-barcode
+cargo build -r -vvv 
+
 cd %root_dir%server && call sql_merge.cmd
 
 mkdir %build_dir%assets
@@ -21,6 +26,9 @@ xcopy /E /I /Y %root_dir%server\\examples\\lsys-actix-web\\data %build_dir%data
 xcopy /E /I /Y %root_dir%server\\examples\\lsys-actix-web\\locale %build_dir%locale
 xcopy /E /I /Y %root_dir%server\\examples\\lsys-actix-web\\static %build_dir%static
 xcopy %root_dir%server\\examples\\lsys-actix-web\\.env %build_dir% /Y
+xcopy %root_dir%server\\target\\release\\lsys-app-barcode.exe %build_dir% /Y 
+xcopy /E /I /Y %root_dir%server\\examples\\lsys-app-barcode\\config %build_dir%config
+xcopy /E /I /Y %root_dir%server\\examples\\lsys-app-barcode\\locale %build_dir%locale
 mkdir %build_dir%logs
 
 mkdir %root_dir%ui\\dist

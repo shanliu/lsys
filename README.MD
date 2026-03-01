@@ -20,7 +20,7 @@
 
 > Windows(64bit)系统下可以下载 lsys-for-windows.zip 跳过此编译过程
 
-> 修改ui访问配置 [ui/.env.production](ui/.env.production)  
+> 修改ui访问配置 [ui/.env.production](ui/.env.production) 或 编译完成后在目录`build/ui`中搜索并替换
 
 > windows
 ```

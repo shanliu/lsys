@@ -9,6 +9,8 @@ cp  -fr $script_dir/LICENSE $script_dir/build || true
 mkdir -p $script_dir/server/examples/lsys-actix-web/data || true
 cd $script_dir/server/examples/lsys-actix-web || true
 cargo build \-r 
+cd $script_dir/server/examples/lsys-app-barcode || true
+cargo build \-r 
 cd $script_dir/server
 bash $script_dir/server/sql_merge.sh || true
 cd $script_dir 
@@ -20,6 +22,9 @@ cp  -fr $script_dir/server/examples/lsys-actix-web/data $script_dir/build || tru
 cp  -fr $script_dir/server/examples/lsys-actix-web/locale $script_dir/build || true
 cp  -fr $script_dir/server/examples/lsys-actix-web/static $script_dir/build || true
 cp  -fr $script_dir/server/examples/lsys-actix-web/.env $script_dir/build || true
+cp  -fr $script_dir/server/target/release/lsys-app-barcode $script_dir/build || true
+cp  -fr $script_dir/server/examples/lsys-app-barcode/config/* $script_dir/build/config/ || true
+cp  -fr $script_dir/server/examples/lsys-app-barcode/locale/* $script_dir/build/locale/ || true
 mkdir -p $script_dir/build/logs || true
 #
 cd $script_dir/ui/ 
