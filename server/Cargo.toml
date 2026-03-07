@@ -4,6 +4,7 @@ members = [
     "lsys-macros-db",
     "lsys-lib-sms",
     "lsys-lib-area",
+    "lsys-lib-jsrun",
     "lsys-core",
     "lsys-mfa",
     "lsys-rbac",

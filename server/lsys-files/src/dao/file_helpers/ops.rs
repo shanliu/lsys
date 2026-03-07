@@ -12,37 +12,52 @@ use crate::model::*;
 impl FileHelper {
     /// 新增文件函数: 在存储基础路径建立年月子目录, 创建可写入文件句柄
     /// 返回 (相对路径, 完整路径)
-    pub async fn create_new_file(&self, file_name: &str) -> FileResult<(String, PathBuf)> {
+    ///
+    /// - `prefix`: 文件名前缀 (如 "{app_id}_{user_id}_{type}")
+    /// - `ext`: 文件扩展名 (不含点号), 为空时使用 "dat"
+    ///
+    /// 生成文件名格式: {sub_dir}/{prefix}_{random}.{ext}
+    /// 其中 sub_dir 为年月目录 (如 "202603"), 用于文件归档和 MV 移动后的分类
+    /// 生成后检查是否已存在, 存在时重新生成
+    pub async fn create_new_file(&self, prefix: &str, ext: &str) -> FileResult<(String, PathBuf)> {
         let now = Local::now();
-        let sub_dir = now.format("%Y%m").to_string();
+        let sub_dir = now.format("%Y%m%d").to_string();
         let base = Path::new(&self.config.storage_base_path);
         let dir = base.join(&sub_dir);
 
         // 确保目录存在
         fs::create_dir_all(&dir).await?;
 
-        // 生成唯一文件名: timestamp_随机数_原文件名
-        let ts = now.timestamp_millis();
-        let rand_val: u32 = rand_simple();
-        let safe_name = sanitize_filename(file_name);
-        let new_name = format!(
-            "{}_{}{}",
-            ts,
-            rand_val,
-            if safe_name.is_empty() {
-                ".dat".to_string()
+        let extension = ext.trim_start_matches('.');
+        let extension = if extension.is_empty() {
+            "dat"
+        } else {
+            extension
+        };
+        let safe_prefix = sanitize_filename(prefix);
+
+        loop {
+            let rand_val: String = rand_simple();
+            let new_name = if safe_prefix.is_empty() {
+                format!("{}_{}.{}", sub_dir, rand_val, extension)
             } else {
-                format!("_{}", safe_name)
+                format!("{}_{}_{}.{}", safe_prefix, sub_dir, rand_val, extension)
+            };
+
+            let full_path = dir.join(&new_name);
+
+            // 检查文件是否已存在, 存在时重新生成
+            if full_path.exists() {
+                continue;
             }
-        );
 
-        let relative_path = format!("{}/{}", sub_dir, new_name);
-        let full_path = dir.join(&new_name);
+            let relative_path = format!("{}/{}", sub_dir, new_name);
 
-        // 创建文件
-        fs::File::create(&full_path).await?;
+            // 创建文件
+            fs::File::create(&full_path).await?;
 
-        Ok((relative_path, full_path))
+            return Ok((relative_path, full_path));
+        }
     }
 
     /// 从文件名中提取扩展名，拿不到则返回 "dat"
@@ -63,6 +78,7 @@ impl FileHelper {
     pub async fn move_file_to_storage(
         &self,
         source_path: &str,
+        prefix: &str,
         target_name: Option<&str>,
     ) -> FileResult<String> {
         let src_path = Path::new(source_path);
@@ -72,8 +88,9 @@ impl FileHelper {
                 .map(|n| n.to_string_lossy().to_string())
                 .unwrap_or_else(|| "unknown".to_string())
         });
+        let ext = Self::extract_extension(&file_name);
 
-        let (relative_path, full_path) = self.create_new_file(&file_name).await?;
+        let (relative_path, full_path) = self.create_new_file(prefix, ext).await?;
 
         // 移动文件
         if let Err(rename_err) = fs::rename(source_path, &full_path).await {
@@ -103,6 +120,7 @@ impl FileHelper {
     pub async fn copy_file_to_storage(
         &self,
         source_path: &str,
+        prefix: &str,
         target_name: Option<&str>,
     ) -> FileResult<String> {
         let src_path = Path::new(source_path);
@@ -112,8 +130,9 @@ impl FileHelper {
                 .map(|n| n.to_string_lossy().to_string())
                 .unwrap_or_else(|| "unknown".to_string())
         });
+        let ext = Self::extract_extension(&file_name);
 
-        let (relative_path, full_path) = self.create_new_file(&file_name).await?;
+        let (relative_path, full_path) = self.create_new_file(prefix, ext).await?;
 
         fs::copy(source_path, &full_path).await.map_err(|e| {
             warn!("copy_file_to_storage: copy failed: {}", e);
@@ -225,7 +244,7 @@ impl FileHelper {
             }
 
             let now = now_time().unwrap_or_default();
-            if let Err(e) = Update::<_,FileLocalChunkModel>::new()
+            if let Err(e) = Update::<_, FileLocalChunkModel>::new()
                 .set(FileLocalChunkModel::STATUS, FileChunkStatus::Cleaned as i8)
                 .set(FileLocalChunkModel::CHANGE_TIME, now)
                 .execute(SqlSuffix::Where(&sql_format!("id={}", chunk_id)), db)
@@ -237,13 +256,32 @@ impl FileHelper {
     }
 }
 
-/// 简单随机数生成
-fn rand_simple() -> u32 {
-    use std::time::SystemTime;
-    let dur = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap_or_default();
-    (dur.subsec_nanos() ^ 0xdeadbeef) % 1_000_000
+/// 生成高质量的随机数字符串：结合当天秒数 + 微秒 + 随机数，确保完全不重复
+/// 格式: ((当天秒数+1) * 1000000) + 微秒(0-999999) + 随机数(0-9)
+/// 返回固定 10 位长度的字符串（前导零补齐），可用于同一秒内的高频调用
+fn rand_simple() -> String {
+    use chrono::Timelike;
+    
+    // 获取当前时间
+    let now = chrono::Local::now();
+    
+    // 计算当前时间距离今天0点的秒数（0-86399），加1后为 1-86400
+    let seconds_today = ((now.hour() * 3600 + now.minute() * 60 + now.second()) as u64) + 1;
+    
+    // 获取微秒部分（0-999999）
+    let microseconds = now.timestamp_subsec_micros() as u64;
+    
+    // 生成 0-9 的随机数（1位）
+    let random_digit = (rand::random::<u32>() % 10) as u64;
+    
+    // 合并：(秒数+1) * 1000000 + 微秒 + 随机数
+    // 利用微秒（0-999999）来填充同一秒内的时间差异
+    // 最小值：1 * 1000000 + 0 + 0 = 1000000
+    // 最大值：86400 * 1000000 + 999999 + 9 = 86,400,999,999+9（11位）
+    let combined = (seconds_today * 1_000_000) + microseconds + random_digit;
+    
+    // 返回最后10位，确保长度一致
+    format!("{:0>10}", combined % 10_000_000_000)
 }
 
 /// 清理文件名中的危险字符

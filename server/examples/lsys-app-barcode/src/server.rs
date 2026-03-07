@@ -59,7 +59,7 @@ pub async fn run() -> Result<(), String> {
         .config
         .find(None)
         .get_string("service_url")
-        .unwrap_or_else(|_| "https://lsys.cc/".to_string());
+        .unwrap_or_else(|_| "https://www.lsys.cc/".to_string());
 
     let service_api_key = app_core
         .config

@@ -18,16 +18,16 @@ type Config = z.infer<typeof ConfigSchema>;
 export type AppHost = z.infer<typeof AppHostSchema>;
 
 function getEnvConfig(): Config {
-    const apiBaseUrl = process.env.API_BASE_URL;
+    const apiBaseUrl = process.env.API_BASE_URL || `${window.location.protocol}//${window.location.hostname}:${window.location.port}`;
     const uiBasePath = process.env.UI_BASE_PATH || '/';
-    const env = process.env.ENV;
+    const env = process.env.ENV || 'production';
     const showDevtools = process.env.SHOW_DEVTOOLS === 'true';
 
     // App host configuration
+    const codehost = window.location.hostname.replace("www","code");
     const appHost: z.infer<typeof AppHostSchema> = {
-        barcodeUrl: process.env.BARCODE_BASE_URL,
+        barcodeUrl: process.env.BARCODE_BASE_URL || `${window.location.protocol}//${codehost}:${window.location.port}`,
     };
-
     if (apiBaseUrl && env) {
         return ConfigSchema.parse({ uiBasePath, apiBaseUrl, env, showDevtools, appHost });
     }

@@ -104,6 +104,7 @@ const-SUB_APP_SECRET_NOTIFY_METHOD = 子应用密钥更改回调
 const-APP_FEATURE_MAIL = 邮件服务
 const-APP_FEATURE_RBAC = 权限服务
 const-APP_FEATURE_SMS = 短信服务
+const-APP_FEATURE_FILE = 文件服务
 
 var-login-type-email = 邮箱
 var-login-type-email-code = 邮箱验证码
@@ -154,3 +155,13 @@ var-sender-tpl = 发送模版管理
 var-sender-app-config = 发送应用配置
 var-sender-config = 发送配置
 var-message-view = 发送消息查看
+# Collector Script Status
+status-CollectorScriptStatus-Enable = 启用
+status-CollectorScriptStatus-Disable = 禁用
+status-CollectorScriptStatus-Deleted = 已删除
+# Collector Record Status
+status-CollectorRecordStatus-Pending = 待执行
+status-CollectorRecordStatus-Running = 执行中
+status-CollectorRecordStatus-Success = 成功
+status-CollectorRecordStatus-Failed = 失败
+status-CollectorRecordStatus-Timeout = 超时

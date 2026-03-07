@@ -110,6 +110,6 @@ pub async fn secret(param: &AppSecretParam, req_dao: &RequestDao) -> JsonResult<
     Ok(JsonResponse::data(JsonData::body(json!({
         "app_id": app.id,
         "user_id": app.user_id,
-        "secret_data": secrets,
+        "secrets": secrets,
     }))))
 }

@@ -11,8 +11,6 @@ import { ContentDialog } from "@shared/components/custom/dialog/content-dialog";
 import { Button } from "@shared/components/ui/button";
 import { Input } from "@shared/components/ui/input";
 import { Label } from "@shared/components/ui/label";
-import { Config } from "@shared/lib/config";
-import { getBarcodeBaseUrl } from "@shared/lib/apis/api_barcode";
 import {
     Select,
     SelectContent,
@@ -20,6 +18,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@shared/components/ui/select";
+import { getBarcodeBaseUrl } from "@shared/lib/apis/api_barcode";
 import { cn } from "@shared/lib/utils";
 import React from "react";
 

@@ -22,10 +22,11 @@
 // system\sender_smser\tencent_config_del.md
 // system\sender_smser\tencent_config_edit.md
 // system\sender_smser\tencent_config_list.md
-import { CenteredError } from '@shared/components/custom/page-placeholder/centered-error';
 import { Route } from '@apps/main/routes/_main/admin/sms/adapter-config';
+import { CenteredError } from '@shared/components/custom/page-placeholder/centered-error';
 import { SmsAdapterConfigAliyunSmsPage } from './adapter-config-aliyun-page';
 import { SmsAdapterConfigCloopenSmsPage } from './adapter-config-cloopen-page';
+import { SmsAdapterConfigEmaySmsPage } from './adapter-config-emay-page';
 import { SmsAdapterConfigHuaweiSmsPage } from './adapter-config-huawei-page';
 import { SmsAdapterConfigJdSmsPage } from './adapter-config-jd-page';
 import { SmsAdapterConfigNeteaseSmsPage } from './adapter-config-netease-page';
@@ -33,7 +34,7 @@ import { SmsAdapterConfigTencentSmsPage } from './adapter-config-tencent-page';
 
 export function SmsAdapterConfigPage() {
     const router = Route.useSearch();
-    
+
     const renderContent = () => {
         switch (router.type) {
             case "aliyun": return <SmsAdapterConfigAliyunSmsPage />
@@ -42,6 +43,7 @@ export function SmsAdapterConfigPage() {
             case "jd": return <SmsAdapterConfigJdSmsPage />
             case "netease": return <SmsAdapterConfigNeteaseSmsPage />
             case "tencent": return <SmsAdapterConfigTencentSmsPage />
+            case "emay": return <SmsAdapterConfigEmaySmsPage />
             default:
                 return <CenteredError variant='page' error={"类型不支持"} />
         }

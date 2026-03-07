@@ -163,4 +163,21 @@ impl FileHelper {
         .await?;
         Ok(row)
     }
+
+    /// 查找某个 file_id 对应的最早创建的 file_user 记录 (最小 ID)
+    /// 用于反向查找文件的原始所属者, 而非硬编码 app_id=0
+    pub async fn find_min_file_user_by_file_id(
+        &self,
+        file_id: u64,
+    ) -> FileResult<Option<FileUserModel>> {
+        let row = sqlx::query_as::<_, FileUserModel>(&sql_format!(
+            "SELECT * FROM {} WHERE file_id={} AND status={} ORDER BY id ASC LIMIT 1",
+            FileUserModel::table_name(),
+            file_id,
+            FileUserStatus::Normal as i8
+        ))
+        .fetch_optional(&self.db)
+        .await?;
+        Ok(row)
+    }
 }

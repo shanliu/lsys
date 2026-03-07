@@ -21,6 +21,8 @@ pub struct FileDataListParam<'a> {
     pub file_md5: Option<&'a str>,
     /// 按标签名过滤（AND 语义：文件必须拥有所有指定标签）
     pub tag_names: Option<&'a [&'a str]>,
+    /// 按标签名过滤（OR 语义：文件只需拥有任意一个指定标签）
+    pub tag_any_names: Option<&'a [&'a str]>,
 }
 
 /// 文件列表返回结果 (file join file_user)
@@ -142,8 +144,11 @@ impl FileDataDao {
         if let Some(url) = filter.url {
             if !url.is_empty() {
                 let prefix = &self.helper.config.local_file_url_prefix;
-                if url.starts_with(prefix) {
-                    let local_path = &url[prefix.len()..];
+                // Support both prefix-only paths and full URLs that contain the prefix,
+                // e.g. "/file/..." or "http://host/file/...". Find the prefix anywhere
+                // inside the URL and extract the local_path after it.
+                if let Some(pos) = url.find(prefix) {
+                    let local_path = &url[pos + prefix.len()..];
                     let rows = sqlx::query_as::<_, FileLocalModel>(&sql_format!(
                         "SELECT * FROM {} WHERE local_path={} LIMIT 100",
                         FileLocalModel::table_name(),
@@ -208,6 +213,13 @@ impl FileDataDao {
             where_clauses.push(sql_format!("fu.app_id={}", aid));
         }
 
+        // 构建 tag 子查询的 app_id 过滤条件（复用文件的 app_id）
+        let tag_app_filter = if let Some(aid) = filter.app_id {
+            sql_format!(" AND app_id={}", aid)
+        } else {
+            String::new()
+        };
+
         // tag_names 过滤 (AND 语义)
         if let Some(tags) = filter.tag_names {
             let tags: Vec<String> = tags
@@ -218,11 +230,31 @@ impl FileDataDao {
             if !tags.is_empty() {
                 let tag_values: Vec<String> = tags.iter().map(|t| sql_format!("{}", t)).collect();
                 where_clauses.push(format!(
-                    "f.id IN (SELECT file_id FROM {} WHERE tag_name IN ({}) AND status={} GROUP BY file_id HAVING COUNT(DISTINCT tag_name)={})",
+                    "f.id IN (SELECT file_id FROM {} WHERE tag_name IN ({}) AND status={}{} GROUP BY file_id HAVING COUNT(DISTINCT tag_name)={})",
                     FileTagModel::table_name().sql_quote(),
                     tag_values.join(","),
                     FileTagStatus::Normal as i8,
+                    tag_app_filter,
                     tags.len()
+                ));
+            }
+        }
+
+        // tag_any_names 过滤 (OR 语义：任意一个标签匹配即可)
+        if let Some(tags) = filter.tag_any_names {
+            let tags: Vec<String> = tags
+                .iter()
+                .map(|t| t.trim().to_lowercase())
+                .filter(|t| !t.is_empty())
+                .collect();
+            if !tags.is_empty() {
+                let tag_values: Vec<String> = tags.iter().map(|t| sql_format!("{}", t)).collect();
+                where_clauses.push(format!(
+                    "f.id IN (SELECT DISTINCT file_id FROM {} WHERE tag_name IN ({}) AND status={}{})",
+                    FileTagModel::table_name().sql_quote(),
+                    tag_values.join(","),
+                    FileTagStatus::Normal as i8,
+                    tag_app_filter
                 ));
             }
         }
@@ -466,18 +498,84 @@ impl FileDataDao {
             .map_err(Into::into)
     }
 
+    /// 查询指定文件在指定用户+应用下的所有标签（status=Normal），按添加时间升序
+    ///
+    /// 用于前端标签抽屉展示。
+    pub async fn list_tags_by_file(
+        &self,
+        file_id: u64,
+        user_id: u64,
+        app_id: u64,
+    ) -> FileResult<Vec<FileTagModel>> {
+        let sql = sql_format!(
+            "SELECT * FROM {} WHERE file_id={} AND user_id={} AND app_id={} AND status={} ORDER BY add_time ASC",
+            FileTagModel::table_name(),
+            file_id,
+            user_id,
+            app_id,
+            FileTagStatus::Normal as i8
+        );
+        let rows = sqlx::query_as::<_, FileTagModel>(&sql)
+            .fetch_all(&self.helper.db)
+            .await?;
+        Ok(rows)
+    }
+
+    /// 统计指定文件在指定用户+应用下的标签数量（status=Normal）
+    pub async fn count_tags_by_file(
+        &self,
+        file_id: u64,
+        user_id: u64,
+        app_id: u64,
+    ) -> FileResult<i64> {
+        let sql = sql_format!(
+            "SELECT COUNT(*) FROM {} WHERE file_id={} AND user_id={} AND app_id={} AND status={}",
+            FileTagModel::table_name(),
+            file_id,
+            user_id,
+            app_id,
+            FileTagStatus::Normal as i8
+        );
+        let count = sqlx::query_scalar::<_, i64>(&sql)
+            .fetch_one(&self.helper.db)
+            .await?;
+        Ok(count)
+    }
+
     /// 查询某用户某应用下所有标签名（去重）
+    ///
+    /// - `tag_name_prefix`: 可选的标签名前缀过滤（LIKE 'prefix%'）
+    /// - `limit`: 最大返回条数
     pub async fn list_tag_names_by_user(
         &self,
         user_id: u64,
         app_id: u64,
+        tag_name_prefix: Option<&str>,
+        limit: u32,
     ) -> FileResult<Vec<String>> {
-        let sql = format!(
-            "SELECT DISTINCT tag_name FROM {} WHERE user_id={} AND app_id={} AND status={} ORDER BY tag_name ASC",
-            FileTagModel::table_name().sql_quote(),
-            user_id,
-            app_id,
+        let mut where_clauses = format!(
+            "user_id={} AND app_id={} AND status={}",
+            sql_format!("{}", user_id),
+            sql_format!("{}", app_id),
             FileTagStatus::Normal as i8
+        );
+
+        if let Some(prefix) = tag_name_prefix {
+            let prefix = prefix.trim();
+            if !prefix.is_empty() {
+                let like_val = format!("{}%", prefix.replace('%', "\\%").replace('_', "\\_"));
+                where_clauses.push_str(&format!(
+                    " AND tag_name LIKE {}",
+                    sql_format!("{}", like_val)
+                ));
+            }
+        }
+
+        let sql = format!(
+            "SELECT DISTINCT tag_name FROM {} WHERE {} ORDER BY tag_name ASC LIMIT {}",
+            FileTagModel::table_name().sql_quote(),
+            where_clauses,
+            limit
         );
 
         let rows: Vec<(String,)> = sqlx::query_as(&sql).fetch_all(&self.helper.db).await?;

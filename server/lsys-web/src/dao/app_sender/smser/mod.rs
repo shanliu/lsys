@@ -4,9 +4,9 @@ use lsys_access::dao::SessionBody;
 use lsys_app::dao::AppNotify;
 use lsys_app_sender::{
     dao::{
-        AliYunSendStatus, AliYunSenderTask, CloOpenSenderTask, HwYunSenderTask, JDCloudSenderTask,
+        AliYunSendStatus, AliYunSenderTask, CloOpenSenderTask, EmaySenderTask, HwYunSenderTask, JDCloudSenderTask,
         JDSendStatus, NetEaseSendStatus, NetEaseSenderTask, SenderAliYunConfig,
-        SenderCloOpenConfig, SenderError, SenderHwYunConfig, SenderJDCloudConfig,
+        SenderCloOpenConfig, SenderEmayConfig, SenderError, SenderHwYunConfig, SenderJDCloudConfig,
         SenderNetEaseConfig, SenderTenYunConfig, SmsSenderConfig, SmsSenderDao, TenYunSendStatus,
         TenyunSenderTask,
     },
@@ -30,6 +30,7 @@ pub struct SenderSmser {
     pub hwyun_sender: SenderHwYunConfig,
     pub tenyun_sender: SenderTenYunConfig,
     pub cloopen_sender: SenderCloOpenConfig,
+    pub emay_sender: SenderEmayConfig,
     pub netease_sender: SenderNetEaseConfig,
     pub jd_sender: SenderJDCloudConfig,
     pub smser_dao: Arc<SmsSenderDao>,
@@ -66,6 +67,8 @@ impl SenderSmser {
 
         let cloopen_sender =
             SenderCloOpenConfig::new(setting.multiple.clone(), smser_dao.tpl_config.clone());
+        let emay_sender =
+            SenderEmayConfig::new(setting.multiple.clone(), smser_dao.tpl_config.clone());
         let netease_sender =
             SenderNetEaseConfig::new(setting.multiple.clone(), smser_dao.tpl_config.clone());
         let jd_sender =
@@ -77,6 +80,7 @@ impl SenderSmser {
             hwyun_sender,
             tenyun_sender,
             cloopen_sender,
+            emay_sender,
             netease_sender,
             jd_sender,
             logger,
@@ -99,6 +103,7 @@ impl SenderSmser {
                 Box::<NetEaseSenderTask>::default(),
                 Box::<JDCloudSenderTask>::default(),
                 Box::<CloOpenSenderTask>::default(),
+                Box::<EmaySenderTask>::default(),
             ])
             .await?)
     }

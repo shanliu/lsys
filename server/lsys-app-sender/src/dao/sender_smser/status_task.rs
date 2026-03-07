@@ -116,7 +116,7 @@ impl TaskAcquisition<u64, SmsStatusTaskItem> for SmsStatusTaskAcquisition {
             let mut conn = self.redis.get().await.map_err(|e| e.to_string())?;
             if tasking_record.is_empty() {
                 let mut tmp: Vec<u64> = conn
-                    .srandmember_multiple(&self.notify_data_key, limit + 1)
+                    .srandmember_multiple(&self.notify_data_key, (limit + 1) as isize)
                     .await
                     .map_err(|e| e.to_string())?;
                 if tmp.len() > limit {

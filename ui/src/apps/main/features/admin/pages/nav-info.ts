@@ -103,6 +103,11 @@ export const smsAdapterConfigModuleConfig: SubNavigationMenuInfo = {
       icon: Server,
       path: '/admin/sms/adapter-config?type=cloopen',
     },
+    {
+      name: '软通亿美短信',
+      icon: Server,
+      path: '/admin/sms/adapter-config?type=emay',
+    },
   ],
 }
 

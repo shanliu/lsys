@@ -196,7 +196,7 @@ impl WebDao {
 
         let app_area = Arc::new(AppArea::new(app_core.clone())?);
         let app_captcha = Arc::new(AppCaptcha::new(redis.clone()));
-        let web_files = Arc::new(WebFiles::new(db.clone(), &app_core, change_logger.clone()));
+        let web_files = Arc::new(WebFiles::new(db.clone(), redis.clone(), &app_core, change_logger.clone())?);
         let app_sender = Arc::new(
             AppSender::new(
                 app_core.clone(),

@@ -2,4 +2,5 @@
 //! 用于服务间内部调用的接口
 pub mod app;
 pub mod auth;
+pub mod file;
 pub mod rbac;

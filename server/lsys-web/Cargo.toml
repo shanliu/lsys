@@ -12,8 +12,8 @@ serde_json = "1.0.*"
 dotenv = "0.15.*"
 
 tokio = { version = "~1.49.0", features = ["fs"] }
-deadpool-redis = { version = "~0.22.1" }
-redis = { version = "~0.32.0" }
+deadpool-redis = { version = "~0.23.0" }
+redis = { version = "~1.0.3" }
 
 async-recursion = "~1.1.1"
 
@@ -71,10 +71,12 @@ lsys-app-sender = { path = "../lsys-app-sender", features = [
     "sms-netease",
     "sms-tencent",
     "sms-cloopen",
+    "sms-emay",
 ] }
 lsys-setting = { path = "../lsys-setting" }
 lsys-logger = { path = "../lsys-logger" }
 lsys-files = { path = "../lsys-files" }
+lsys-lib-jsrun = { path = "../lsys-lib-jsrun" }
 
 lsys-lib-area = { default-features = false, features = [
     "data-csv",
@@ -84,6 +86,7 @@ lsys-lib-area = { default-features = false, features = [
 
 base64 = { version = "~0.22.0" }
 regex = "~1.12.2"
+md5 = "~0.8"
 
 
 [features]

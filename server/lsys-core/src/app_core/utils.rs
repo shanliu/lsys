@@ -73,7 +73,8 @@ pub async fn init_tracing(app_core: &AppCore) -> Result<(), AppCoreError> {
                     .with_max_level(log_max_level)
                     .with_env_filter(log_level) //格式 模块:最大等级 mod:level
                     .try_init()
-                    .map_err(|e| AppCoreError::System(e.to_string()))?
+                    .map_err(|e| AppCoreError::System(e.to_string()))?;
+                std::mem::forget(_guard);
             }
         }
     }

@@ -1,5 +1,5 @@
 import { SubNavigationMenuInfo } from '@apps/main/components/local/sub-navigation-menu'
-import { Accessibility, Box, FileText, History, KeyRound, LogIn, Network, Puzzle, QrCode, Route, Ruler, ScanLine, Send, Users } from 'lucide-react'
+import { Accessibility, Box, FileText, FolderOpen, History, KeyRound, LogIn, Network, Puzzle, QrCode, Route, Ruler, ScanLine, Send, Terminal, Users } from 'lucide-react'
 
 
 /**
@@ -8,7 +8,18 @@ import { Accessibility, Box, FileText, History, KeyRound, LogIn, Network, Puzzle
 export const featureFileModuleConfig: SubNavigationMenuInfo = {
   title: '文件管理',
   subtitle: '管理文件上传、下载和存储',
-  menuItems: [],
+  menuItems: [
+    {
+      name: '文件管理',
+      icon: FolderOpen,
+      path: '/user/app/$appId/features-file/list',
+    },
+    {
+      name: '采集管理',
+      icon: Terminal,
+      path: '/user/app/$appId/features-file/collector',
+    },
+  ],
 }
 
 /**

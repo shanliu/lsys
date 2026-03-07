@@ -16,6 +16,7 @@ pub struct FileWriteHandle {
     pub file_local: FileLocalModel,
     pub file_local_chunk: Option<FileLocalChunkModel>,
     pub handle: tokio::fs::File,
+    pub app_id: u64,
 }
 
 impl FileWriteHandle {
@@ -26,6 +27,7 @@ impl FileWriteHandle {
 
 impl FileDao {
     /// 创建上传函数
+    /// 返回 (file_id, file_user_id)
     pub async fn create_upload(
         &self,
         user_id: u64,
@@ -34,7 +36,7 @@ impl FileDao {
         file_name: &str,
         tag_names: &[&str],
         env_data: Option<&RequestEnv>,
-    ) -> FileResult<FileModel> {
+    ) -> FileResult<(u64, u64)> {
         if chunks.is_empty() {
             return Err(FileError::Param(fluent_message!("file-chunks-empty")));
         }
@@ -42,7 +44,7 @@ impl FileDao {
         let now = now_time()?;
         let mut tx = self.helper.db.begin().await?;
 
-        let tx_result: FileResult<u64> = async {
+        let tx_result: FileResult<(u64, u64)> = async {
             let file_res;
             if chunks.len() == 1 {
                 let chunk = &chunks[0];
@@ -78,7 +80,7 @@ impl FileDao {
                     .execute(&mut *tx)
                     .await?;
 
-                Insert::<_, FileUserModel>::new()
+                let fu_res = Insert::<_, FileUserModel>::new()
                     .set(FileUserModel::USER_ID, user_id)
                     .set(FileUserModel::APP_ID, app_id)
                     .set(FileUserModel::FILE_ID, file_id)
@@ -89,6 +91,26 @@ impl FileDao {
                     .set(FileUserModel::DELETE_TIME, 0u64)
                     .execute(&mut *tx)
                     .await?;
+
+                let file_user_id = fu_res.last_insert_id();
+
+                self.log_dao
+                    .add(
+                        file_id,
+                        0,
+                        user_id,
+                        "create_upload: file created",
+                        Some(&mut tx),
+                    )
+                    .await;
+
+                for tag_name in tag_names {
+                    self.tag_dao
+                        .add_tag(file_id, user_id, app_id, tag_name, Some(&mut tx))
+                        .await?;
+                }
+
+                Ok((file_id, file_user_id))
             } else {
                 let total_size: u64 = chunks.iter().map(|c| c.len).sum();
 
@@ -145,7 +167,7 @@ impl FileDao {
                         .await?;
                 }
 
-                Insert::<_, FileUserModel>::new()
+                let fu_res = Insert::<_, FileUserModel>::new()
                     .set(FileUserModel::USER_ID, user_id)
                     .set(FileUserModel::APP_ID, app_id)
                     .set(FileUserModel::FILE_ID, file_id)
@@ -156,30 +178,31 @@ impl FileDao {
                     .set(FileUserModel::DELETE_TIME, 0u64)
                     .execute(&mut *tx)
                     .await?;
+
+                let file_user_id = fu_res.last_insert_id();
+
+                self.log_dao
+                    .add(
+                        file_id,
+                        0,
+                        user_id,
+                        "create_upload: file created",
+                        Some(&mut tx),
+                    )
+                    .await;
+
+                for tag_name in tag_names {
+                    self.tag_dao
+                        .add_tag(file_id, user_id, app_id, tag_name, Some(&mut tx))
+                        .await?;
+                }
+
+                Ok((file_id, file_user_id))
             }
-
-            let file_id = file_res.last_insert_id();
-            self.log_dao
-                .add(
-                    file_id,
-                    0,
-                    user_id,
-                    "create_upload: file created",
-                    Some(&mut tx),
-                )
-                .await;
-
-            for tag_name in tag_names {
-                self.tag_dao
-                    .add_tag(file_id, user_id, app_id, tag_name, Some(&mut tx))
-                    .await?;
-            }
-
-            Ok(file_id)
         }
         .await;
 
-        let file_id = match tx_result {
+        let (file_id, file_user_id) = match tx_result {
             Ok(id) => {
                 tx.commit().await?;
                 id
@@ -190,36 +213,60 @@ impl FileDao {
             }
         };
 
-        let file = self
-            .helper
-            .find_file_by_id(file_id)
-            .await?
-            .ok_or_else(|| FileError::System(fluent_message!("file-create-error")))?;
-
         self.logger
             .add(
                 &LogFileUpload {
                     action: "create_upload",
                     user_id,
-                    file_id: file.id,
-                    file_name: &file.file_name,
+                    file_id,
+                    file_name,
                     chunk_count: chunks.len(),
                 },
-                Some(file.id),
+                Some(file_id),
                 Some(user_id),
                 None,
                 env_data,
             )
             .await;
 
-        Ok(file)
+        Ok((file_id, file_user_id))
     }
 
-    /// 获取上传文件写句柄
-    pub async fn get_upload_handle(
+    /// 通过 file_user_id 获取上传文件写句柄
+    /// 前端传入 file_user_id 而非 file_id, 内部解析 file_user → file → get_upload_handle
+    /// app_id 从 file_user 记录中获取, 无需外部传入
+    pub async fn get_upload_handle_by_file_user_id(
+        &self,
+        file_user_id: u64,
+        chunk_index: u32,
+    ) -> FileResult<FileWriteHandle> {
+        let file_user = self
+            .helper
+            .find_file_user_by_id(file_user_id)
+            .await?
+            .ok_or_else(|| FileError::Param(fluent_message!("file-user-not-found")))?;
+
+        let file = self
+            .helper
+            .find_file_by_id(file_user.file_id)
+            .await?
+            .ok_or_else(|| FileError::Param(fluent_message!("file-not-found")))?;
+
+        // 校验文件所属用户
+        if file.from_user_id != file_user.user_id {
+            return Err(FileError::Param(fluent_message!("file-user-mismatch")));
+        }
+
+        self.get_upload_handle(&file, chunk_index, file_user.app_id)
+            .await
+    }
+
+    /// 获取上传文件写句柄 (内部方法)
+    pub(crate) async fn get_upload_handle(
         &self,
         file: &FileModel,
         chunk_index: u32,
+        app_id: u64,
     ) -> FileResult<FileWriteHandle> {
         let mut file_local = self
             .helper
@@ -255,10 +302,8 @@ impl FileDao {
                 // 新增文件
                 let chunk_ext =
                     crate::dao::file_helpers::FileHelper::extract_extension(&file.file_name);
-                let (rel, full) = self
-                    .helper
-                    .create_new_file(&format!("chunk.{}", chunk_ext))
-                    .await?;
+                let prefix = format!("{}_{}_chunk{}", app_id, file.from_user_id, chunk_index);
+                let (rel, full) = self.helper.create_new_file(&prefix, chunk_ext).await?;
                 let f = tokio::fs::OpenOptions::new()
                     .write(true)
                     .open(&full)
@@ -290,6 +335,7 @@ impl FileDao {
                 file_local,
                 file_local_chunk: Some(chunk),
                 handle,
+                app_id,
             })
         } else {
             // 单文件
@@ -305,10 +351,8 @@ impl FileDao {
             } else {
                 let upload_ext =
                     crate::dao::file_helpers::FileHelper::extract_extension(&file.file_name);
-                let (rel, full) = self
-                    .helper
-                    .create_new_file(&format!("upload.{}", upload_ext))
-                    .await?;
+                let prefix = format!("{}_{}_upload", app_id, file.from_user_id);
+                let (rel, full) = self.helper.create_new_file(&prefix, upload_ext).await?;
                 let f = tokio::fs::OpenOptions::new()
                     .write(true)
                     .open(&full)
@@ -339,6 +383,7 @@ impl FileDao {
                 file_local,
                 file_local_chunk: None,
                 handle,
+                app_id,
             })
         }
     }
@@ -479,9 +524,12 @@ impl FileDao {
                 let merge_ext = crate::dao::file_helpers::FileHelper::extract_extension(
                     &write_handle.file.file_name,
                 );
-                let (merge_rel, merge_full) = helper
-                    .create_new_file(&format!("merged.{}", merge_ext))
-                    .await?;
+                let merge_prefix = format!(
+                    "{}_{}_merge",
+                    write_handle.app_id, write_handle.file.from_user_id
+                );
+                let (merge_rel, merge_full) =
+                    helper.create_new_file(&merge_prefix, merge_ext).await?;
                 match helper.merge_chunk_files(&all_chunks, &merge_full).await {
                     Err(e) => {
                         // 合并失败

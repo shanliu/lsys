@@ -79,10 +79,9 @@ impl SqlQuote<String> for TableName {
 impl TableName {
     /// 判断是否为简单标识符
     fn is_simple_identifier(s: &str) -> bool {
-        if s.is_empty() {
+        let Some(first) = s.chars().next() else {
             return false;
-        }
-        let first = s.chars().next().unwrap();
+        };
         if !first.is_ascii_alphabetic() && first != '_' {
             return false;
         }

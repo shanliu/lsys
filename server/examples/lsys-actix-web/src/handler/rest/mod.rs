@@ -1,14 +1,15 @@
 //rest 接口
 mod app;
 mod auth;
+mod collector;
 mod mail;
 mod oauth;
 mod rbac;
 mod sms;
 
-//后台页面接口(jwt 接口)
 use actix_service::ServiceFactory;
 use actix_web::{dev::ServiceRequest, web::scope, App, Error};
+
 pub(crate) fn router<T>(app: App<T>) -> App<T>
 where
     T: ServiceFactory<ServiceRequest, Config = (), Error = Error, InitError = ()>,
@@ -24,13 +25,18 @@ where
         .service(scope("/app").service(app::app))
         .service(scope("/auth").service(auth::auth))
         .service(scope("/mail").service(mail::mail))
-        .service(scope("/sms").service(sms::sms));
+        .service(scope("/sms").service(sms::sms))
+        .service(
+            scope("/collector")
+                .service(collector::collector),
+        );
 
     app.service(
         scope("/oauth")
             .service(oauth::token)
             .service(oauth::refresh)
-            .service(oauth::user_data),
+            .service(oauth::user_data)
     )
     .service(rest_scope)
 }
+

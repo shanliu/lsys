@@ -83,3 +83,18 @@ valid-rule-name-area_code = Area code
 # Dictionaries 
 const-SMS_NOTIFY_METHOD = SMS send result callback
 const-SUB_APP_SECRET_NOTIFY_METHOD = Sub-app secret key change callback
+# Collector Script Status
+status-CollectorScriptStatus-Enable = Enabled
+status-CollectorScriptStatus-Disable = Disabled
+status-CollectorScriptStatus-Deleted = Deleted
+# Collector Record Status
+status-CollectorRecordStatus-Pending = Pending
+status-CollectorRecordStatus-Running = Running
+status-CollectorRecordStatus-Success = Success
+status-CollectorRecordStatus-Failed = Failed
+status-CollectorRecordStatus-Timeout = Timeout
+
+const-APP_FEATURE_MAIL = Mail
+const-APP_FEATURE_RBAC = RBAC
+const-APP_FEATURE_SMS = SMS
+const-APP_FEATURE_FILE = File

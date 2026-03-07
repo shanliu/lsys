@@ -96,6 +96,7 @@ import { Route as MainUserAppAppIdFeaturesMailSendRouteImport } from './routes/_
 import { Route as MainUserAppAppIdFeaturesMailListRouteImport } from './routes/_main/user/app/$appId/features-mail/list'
 import { Route as MainUserAppAppIdFeaturesMailConfigRouteImport } from './routes/_main/user/app/$appId/features-mail/config'
 import { Route as MainUserAppAppIdFeaturesFileListRouteImport } from './routes/_main/user/app/$appId/features-file/list'
+import { Route as MainUserAppAppIdFeaturesFileCollectorRouteImport } from './routes/_main/user/app/$appId/features-file/collector'
 import { Route as MainUserAppAppIdFeaturesBarcodeListParseRouteImport } from './routes/_main/user/app/$appId/features-barcode/list-parse'
 import { Route as MainUserAppAppIdFeaturesBarcodeListCreateRouteImport } from './routes/_main/user/app/$appId/features-barcode/list-create'
 
@@ -562,6 +563,12 @@ const MainUserAppAppIdFeaturesFileListRoute =
     path: '/features-file/list',
     getParentRoute: () => MainUserAppAppIdRouteRoute,
   } as any)
+const MainUserAppAppIdFeaturesFileCollectorRoute =
+  MainUserAppAppIdFeaturesFileCollectorRouteImport.update({
+    id: '/features-file/collector',
+    path: '/features-file/collector',
+    getParentRoute: () => MainUserAppAppIdRouteRoute,
+  } as any)
 const MainUserAppAppIdFeaturesBarcodeListParseRoute =
   MainUserAppAppIdFeaturesBarcodeListParseRouteImport.update({
     id: '/features-barcode/list-parse',
@@ -643,6 +650,7 @@ export interface FileRoutesByFullPath {
   '/user/app/$appId/': typeof MainUserAppAppIdIndexRoute
   '/user/app/$appId/features-barcode/list-create': typeof MainUserAppAppIdFeaturesBarcodeListCreateRoute
   '/user/app/$appId/features-barcode/list-parse': typeof MainUserAppAppIdFeaturesBarcodeListParseRoute
+  '/user/app/$appId/features-file/collector': typeof MainUserAppAppIdFeaturesFileCollectorRoute
   '/user/app/$appId/features-file/list': typeof MainUserAppAppIdFeaturesFileListRoute
   '/user/app/$appId/features-mail/config': typeof MainUserAppAppIdFeaturesMailConfigRoute
   '/user/app/$appId/features-mail/list': typeof MainUserAppAppIdFeaturesMailListRoute
@@ -727,6 +735,7 @@ export interface FileRoutesByTo {
   '/user/app/$appId': typeof MainUserAppAppIdIndexRoute
   '/user/app/$appId/features-barcode/list-create': typeof MainUserAppAppIdFeaturesBarcodeListCreateRoute
   '/user/app/$appId/features-barcode/list-parse': typeof MainUserAppAppIdFeaturesBarcodeListParseRoute
+  '/user/app/$appId/features-file/collector': typeof MainUserAppAppIdFeaturesFileCollectorRoute
   '/user/app/$appId/features-file/list': typeof MainUserAppAppIdFeaturesFileListRoute
   '/user/app/$appId/features-mail/config': typeof MainUserAppAppIdFeaturesMailConfigRoute
   '/user/app/$appId/features-mail/list': typeof MainUserAppAppIdFeaturesMailListRoute
@@ -819,6 +828,7 @@ export interface FileRoutesById {
   '/_main/user/app/$appId/': typeof MainUserAppAppIdIndexRoute
   '/_main/user/app/$appId/features-barcode/list-create': typeof MainUserAppAppIdFeaturesBarcodeListCreateRoute
   '/_main/user/app/$appId/features-barcode/list-parse': typeof MainUserAppAppIdFeaturesBarcodeListParseRoute
+  '/_main/user/app/$appId/features-file/collector': typeof MainUserAppAppIdFeaturesFileCollectorRoute
   '/_main/user/app/$appId/features-file/list': typeof MainUserAppAppIdFeaturesFileListRoute
   '/_main/user/app/$appId/features-mail/config': typeof MainUserAppAppIdFeaturesMailConfigRoute
   '/_main/user/app/$appId/features-mail/list': typeof MainUserAppAppIdFeaturesMailListRoute
@@ -910,6 +920,7 @@ export interface FileRouteTypes {
     | '/user/app/$appId/'
     | '/user/app/$appId/features-barcode/list-create'
     | '/user/app/$appId/features-barcode/list-parse'
+    | '/user/app/$appId/features-file/collector'
     | '/user/app/$appId/features-file/list'
     | '/user/app/$appId/features-mail/config'
     | '/user/app/$appId/features-mail/list'
@@ -994,6 +1005,7 @@ export interface FileRouteTypes {
     | '/user/app/$appId'
     | '/user/app/$appId/features-barcode/list-create'
     | '/user/app/$appId/features-barcode/list-parse'
+    | '/user/app/$appId/features-file/collector'
     | '/user/app/$appId/features-file/list'
     | '/user/app/$appId/features-mail/config'
     | '/user/app/$appId/features-mail/list'
@@ -1085,6 +1097,7 @@ export interface FileRouteTypes {
     | '/_main/user/app/$appId/'
     | '/_main/user/app/$appId/features-barcode/list-create'
     | '/_main/user/app/$appId/features-barcode/list-parse'
+    | '/_main/user/app/$appId/features-file/collector'
     | '/_main/user/app/$appId/features-file/list'
     | '/_main/user/app/$appId/features-mail/config'
     | '/_main/user/app/$appId/features-mail/list'
@@ -1724,6 +1737,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MainUserAppAppIdFeaturesFileListRouteImport
       parentRoute: typeof MainUserAppAppIdRouteRoute
     }
+    '/_main/user/app/$appId/features-file/collector': {
+      id: '/_main/user/app/$appId/features-file/collector'
+      path: '/features-file/collector'
+      fullPath: '/user/app/$appId/features-file/collector'
+      preLoaderRoute: typeof MainUserAppAppIdFeaturesFileCollectorRouteImport
+      parentRoute: typeof MainUserAppAppIdRouteRoute
+    }
     '/_main/user/app/$appId/features-barcode/list-parse': {
       id: '/_main/user/app/$appId/features-barcode/list-parse'
       path: '/features-barcode/list-parse'
@@ -1961,6 +1981,7 @@ interface MainUserAppAppIdRouteRouteChildren {
   MainUserAppAppIdIndexRoute: typeof MainUserAppAppIdIndexRoute
   MainUserAppAppIdFeaturesBarcodeListCreateRoute: typeof MainUserAppAppIdFeaturesBarcodeListCreateRoute
   MainUserAppAppIdFeaturesBarcodeListParseRoute: typeof MainUserAppAppIdFeaturesBarcodeListParseRoute
+  MainUserAppAppIdFeaturesFileCollectorRoute: typeof MainUserAppAppIdFeaturesFileCollectorRoute
   MainUserAppAppIdFeaturesFileListRoute: typeof MainUserAppAppIdFeaturesFileListRoute
   MainUserAppAppIdFeaturesMailConfigRoute: typeof MainUserAppAppIdFeaturesMailConfigRoute
   MainUserAppAppIdFeaturesMailListRoute: typeof MainUserAppAppIdFeaturesMailListRoute
@@ -1993,6 +2014,8 @@ const MainUserAppAppIdRouteRouteChildren: MainUserAppAppIdRouteRouteChildren = {
     MainUserAppAppIdFeaturesBarcodeListCreateRoute,
   MainUserAppAppIdFeaturesBarcodeListParseRoute:
     MainUserAppAppIdFeaturesBarcodeListParseRoute,
+  MainUserAppAppIdFeaturesFileCollectorRoute:
+    MainUserAppAppIdFeaturesFileCollectorRoute,
   MainUserAppAppIdFeaturesFileListRoute: MainUserAppAppIdFeaturesFileListRoute,
   MainUserAppAppIdFeaturesMailConfigRoute:
     MainUserAppAppIdFeaturesMailConfigRoute,

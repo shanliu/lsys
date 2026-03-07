@@ -106,7 +106,7 @@ CREATE TABLE `lst_file_tag` (
     `add_time` BIGINT UNSIGNED NOT NULL COMMENT '添加时间',
     `change_time` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '最后修改时间',
     KEY `idx_file_user_app_tag` (`file_id`, `user_id`, `app_id`, `tag_name`, `status`) USING BTREE,
-    KEY `idx_tag_name_status` (`tag_name`, `status`, `app_id`) USING BTREE,
+    KEY `idx_tag_name_status` (`tag_name`, `status`, `app_id`, `file_id`) USING BTREE,
     KEY `idx_file_status` (`file_id`, `status`) USING BTREE,
     KEY `idx_user_app_status` (`user_id`, `app_id`, `status`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='文件标签关联表';

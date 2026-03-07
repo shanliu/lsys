@@ -130,7 +130,11 @@ impl<T: WaitItem + Serialize + DeserializeOwned + Debug> WaitNotify<T> {
         loop {
             match crate::app_core::create_redis_client(self.app_core.as_ref()).await {
                 Ok(redis_client) => {
-                    let con_res = redis_client.get_multiplexed_async_connection().await;
+                    // redis 1.0.x 默认 response_timeout 为 500ms，会导致 blpop 等阻塞命令立即超时返回
+                    // 设置为 blpop 超时 + 5s 缓冲，既允许 blpop 正常等待，又能在连接异常时兜底超时
+                    let blpop_conn_config = redis::AsyncConnectionConfig::new()
+                        .set_response_timeout(Some(std::time::Duration::from_secs(self.clear_timeout as u64 + 5)));
+                    let con_res = redis_client.get_multiplexed_async_connection_with_config(&blpop_conn_config).await;
                     match con_res {
                         Ok(mut redis) => {
                             let channel_name = self.redis_channel_name(
@@ -140,11 +144,12 @@ impl<T: WaitItem + Serialize + DeserializeOwned + Debug> WaitNotify<T> {
                                     .as_ref(),
                             );
                             //用list 不用subscribe 这里监听重启后也可以接着处理
-                            let msg: Result<(String, String), _> =
+                            // 使用 Option 包裹，BLPOP 超时返回 nil 时解析为 None 而非报错
+                            let msg: Result<Option<(String, String)>, _> =
                                 redis.blpop(&channel_name, self.clear_timeout as f64).await;
 
                             match msg {
-                                Ok(pubsub_msg) => {
+                                Ok(Some(pubsub_msg)) => {
                                     debug!(
                                         "notify  wait {} sender wait msg:{:?}",
                                         channel_name, pubsub_msg
@@ -166,8 +171,13 @@ impl<T: WaitItem + Serialize + DeserializeOwned + Debug> WaitNotify<T> {
                                         }
                                     }
                                 }
+                                Ok(None) => {
+                                    // BLPOP 超时，执行清理逻辑
+                                    self.listen_clear().await;
+                                    continue;
+                                }
                                 Err(err) => {
-                                    if err.kind() == redis::ErrorKind::TypeError || err.is_timeout()
+                                    if err.is_timeout()
                                     {
                                         self.listen_clear().await;
                                     } else {

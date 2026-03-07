@@ -24,16 +24,26 @@ chrono = { version = "~0.4.31" }
 hmac = { version = "~0.12.1" }
 hex = { version = "~0.4.3" }
 reqwest = { version = "~0.13.1", features = ["form"] }
+aes = { version = "~0.8", optional = true }
 
 
 [dev-dependencies]
 tokio = { version = "~1.49.0", features = ["test-util", "full"] }
 
 [features]
-default = ["aliyun", "huawei", "tencent", "jdcloud", "netease", "cloopen"]
+default = [
+    "aliyun",
+    "huawei",
+    "tencent",
+    "jdcloud",
+    "netease",
+    "cloopen",
+    "emay",
+]
 aliyun = []
 huawei = []
 tencent = []
 jdcloud = []
 netease = []
 cloopen = []
+emay = ["dep:aes"]

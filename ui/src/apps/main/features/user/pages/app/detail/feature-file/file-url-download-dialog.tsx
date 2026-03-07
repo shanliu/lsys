@@ -1,14 +1,14 @@
 import { userFileFromUrl, type UserFileMappingResType } from '@shared/apis/user/file';
-import { ContentDialog } from '@shared/components/custom/dialog/content-dialog';
 import { ConfirmDialog } from '@shared/components/custom/dialog/confirm-dialog';
+import { ContentDialog } from '@shared/components/custom/dialog/content-dialog';
 import { Button } from '@shared/components/ui/button';
 import { Label } from '@shared/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@shared/components/ui/select';
 import { Textarea } from '@shared/components/ui/textarea';
 import { useToast } from '@shared/contexts/toast-context';
 import { cn } from '@shared/lib/utils';
-import { CheckCircle2, Download, Loader2, Pause, Play, XCircle } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
+import { CheckCircle2, Download, Loader2, Pause, Play, XCircle } from 'lucide-react';
 import React, { useCallback, useRef, useState } from 'react';
 
 type DialogStage = 'input' | 'downloading' | 'paused' | 'done';
@@ -71,33 +71,6 @@ export function FileUrlDownloadDialog({
         setOpen(newOpen);
     }, [stage, resetState]);
 
-    // 开始下载
-    const startDownload = useCallback(async () => {
-        const urls = [...new Set(
-            urlText
-                .split('\n')
-                .map(u => u.trim())
-                .filter(u => u.length > 0 && (u.startsWith('http://') || u.startsWith('https://')))
-        )];
-
-        if (urls.length === 0) {
-            showError('请输入有效的 URL（以 http:// 或 https:// 开头）');
-            return;
-        }
-
-        const initialRecords: UrlRecord[] = urls.map(url => ({
-            url,
-            status: 'pending',
-        }));
-        setRecords(initialRecords);
-        setStage('downloading');
-        isPausedRef.current = false;
-        isAbortedRef.current = false;
-        downloadingRef.current = true;
-
-        await processRecords(initialRecords);
-    }, [urlText, appId, maxConcurrency]);
-
     // 处理下载记录
     const processRecords = useCallback(async (currentRecords: UrlRecord[]) => {
         const updatedRecords = [...currentRecords];
@@ -158,6 +131,33 @@ export function FileUrlDownloadDialog({
             }
         }
     }, [appId, maxConcurrency, showSuccess, onSuccess, downloadFileMutation]);
+
+    // 开始下载
+    const startDownload = useCallback(async () => {
+        const urls = [...new Set(
+            urlText
+                .split('\n')
+                .map(u => u.trim())
+                .filter(u => u.length > 0 && (u.startsWith('http://') || u.startsWith('https://')))
+        )];
+
+        if (urls.length === 0) {
+            showError('请输入有效的 URL（以 http:// 或 https:// 开头）');
+            return;
+        }
+
+        const initialRecords: UrlRecord[] = urls.map(url => ({
+            url,
+            status: 'pending',
+        }));
+        setRecords(initialRecords);
+        setStage('downloading');
+        isPausedRef.current = false;
+        isAbortedRef.current = false;
+        downloadingRef.current = true;
+
+        await processRecords(initialRecords);
+    }, [urlText, processRecords, showError]);
 
     // 暂停 / 继续
     const handlePause = useCallback(() => {

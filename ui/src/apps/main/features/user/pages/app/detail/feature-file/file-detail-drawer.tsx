@@ -1,4 +1,4 @@
-import { type UserFileItemType } from '@shared/apis/user/file';
+import { type FileTagType, type UserFileItemType } from '@shared/apis/user/file';
 import { Badge } from '@shared/components/ui/badge';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@apps/main/components/local/drawer';
 import { useToast } from '@shared/contexts/toast-context';
@@ -255,6 +255,29 @@ export function FileDetailDrawer({
                                             <span className="text-sm font-medium">{formatFileSize(file.oss_size || 0)}</span>
                                         </div>
                                     )}
+                                </div>
+                            </div>
+                            <div className="border-t" />
+                        </>
+                    )}
+
+                    {/* 标签信息 */}
+                    {file.tags && file.tags.length > 0 && (
+                        <>
+                            <div className="space-y-4">
+                                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">标签</h3>
+                                <div className="flex flex-wrap gap-2">
+                                    {file.tags.map((tag: FileTagType, index: number) => (
+                                        <Badge
+                                            key={index}
+                                            variant="secondary"
+                                            className="text-xs px-2 py-0.5 cursor-pointer hover:bg-accent transition-colors"
+                                            title={`添加时间: ${tag.add_time ? formatTime(tag.add_time, TIME_STYLE.ABSOLUTE_TEXT) : '-'}\n点击复制`}
+                                            onClick={() => copyText(tag.tag_name, '标签已复制')}
+                                        >
+                                            {tag.tag_name}
+                                        </Badge>
+                                    ))}
                                 </div>
                             </div>
                             <div className="border-t" />

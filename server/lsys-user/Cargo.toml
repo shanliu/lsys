@@ -6,8 +6,8 @@ edition = "2021"
 
 [dependencies]
 tokio = { version = "~1.49.0" }
-deadpool-redis = { version = "~0.22.1" }
-redis = { version = "~0.32.0" }
+deadpool-redis = { version = "~0.23.0" }
+redis = { version = "~1.0.3" }
 lsys-core = { path = "../lsys-core", features = ["db-mysql", "redis"] }
 #lsys-app = { path = "../lsys-app" }
 lsys-setting = { path = "../lsys-setting" }

@@ -1,18 +1,20 @@
 import {
-    aliSmsTplConfigAdd,
-    cloopenSmsTplConfigAdd,
-    hwSmsTplConfigAdd,
-    jdSmsTplConfigAdd,
-    neteaseSmsTplConfigAdd,
-    tencentSmsTplConfigAdd,
-} from "@shared/apis/admin/sender-sms";
-import {
     Drawer,
     DrawerContent,
     DrawerDescription,
     DrawerHeader,
     DrawerTitle,
 } from "@apps/main/components/local/drawer";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+    aliSmsTplConfigAdd,
+    cloopenSmsTplConfigAdd,
+    emaySmsTplConfigAdd,
+    hwSmsTplConfigAdd,
+    jdSmsTplConfigAdd,
+    neteaseSmsTplConfigAdd,
+    tencentSmsTplConfigAdd,
+} from "@shared/apis/admin/sender-sms";
 import { Button } from "@shared/components/ui/button";
 import { Form } from "@shared/components/ui/form";
 import {
@@ -24,13 +26,13 @@ import {
 } from "@shared/components/ui/select";
 import { useToast } from "@shared/contexts/toast-context";
 import { cn, formatServerError } from "@shared/lib/utils";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import React from "react";
 import { useForm } from "react-hook-form";
 import { SmsSendConfigTplConfigDrawerAliForm } from "./send-config-tpl-config-drawer-ali-form";
 import { SmsSendConfigTplConfigDrawerCloopenForm } from "./send-config-tpl-config-drawer-cloopen-form";
+import { SmsSendConfigTplConfigDrawerEmayForm } from "./send-config-tpl-config-drawer-emay-form";
 import { SmsSendConfigTplConfigDrawerHuaweiForm } from "./send-config-tpl-config-drawer-huawei-form";
 import { SmsSendConfigTplConfigDrawerJdForm } from "./send-config-tpl-config-drawer-jd-form";
 import { SmsSendConfigTplConfigDrawerNeteaseForm } from "./send-config-tpl-config-drawer-netease-form";
@@ -111,6 +113,13 @@ export function SmsSendConfigTplConfigDrawer({ open, onOpenChange }: SmsSendConf
                         config_id: data.config_id,
                         template_id: data.template_id,
                         template_map: data.template_map,
+                    });
+                case SmsProviderType.EMAY:
+                    return emaySmsTplConfigAdd({
+                        name: data.name,
+                        tpl_key: data.tpl_key,
+                        config_id: data.config_id,
+                        extended_code: data.extended_code || "",
                     });
                 default:
                     throw new Error("不支持的提供商类型");
@@ -195,6 +204,9 @@ export function SmsSendConfigTplConfigDrawer({ open, onOpenChange }: SmsSendConf
                                 )}
                                 {providerType === SmsProviderType.CLOOPEN && (
                                     <SmsSendConfigTplConfigDrawerCloopenForm form={form as any} />
+                                )}
+                                {providerType === SmsProviderType.EMAY && (
+                                    <SmsSendConfigTplConfigDrawerEmayForm form={form as any} />
                                 )}
 
                                 <div className={cn("flex justify-end gap-2 pt-4")}>

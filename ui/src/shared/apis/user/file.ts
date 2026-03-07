@@ -35,12 +35,15 @@ export const userFileMapping = async (
 export const UserFileListParamSchema = z.object({
     app_id: z.coerce.number(),
     user_id: z.coerce.number().nullable().optional(),
+    status: z.coerce.number().nullable().optional(),
     url: z.string().nullable().optional(),
     source_url: z.string().nullable().optional(),
     add_time_start: z.coerce.number().nullable().optional(),
     add_time_end: z.coerce.number().nullable().optional(),
     storage_type: z.string().nullable().optional(),
     file_md5: z.string().nullable().optional(),
+    tag_names: z.array(z.string()).nullable().optional(),
+    attr_tag: z.boolean().nullable().optional(),
     ...LimitParam,
 });
 export type UserFileListParamType = z.infer<typeof UserFileListParamSchema>;
@@ -67,6 +70,12 @@ export const FileAttrOssSchema = z.object({
 }).nullable().optional();
 export type FileAttrOssType = z.infer<typeof FileAttrOssSchema>;
 
+export const FileTagSchema = z.object({
+    tag_name: z.string(),
+    add_time: UnixTimestampSchema,
+});
+export type FileTagType = z.infer<typeof FileTagSchema>;
+
 export const UserFileItemSchema = z.object({
     id: z.coerce.number(),
     file_user_id: z.coerce.number(),
@@ -80,6 +89,9 @@ export const UserFileItemSchema = z.object({
     url: z.string().nullable(),
     add_time: UnixTimestampSchema,
     user_id: z.coerce.number(),
+    tags: z.array(FileTagSchema).nullable().optional(),
+    tag_count: z.coerce.number().nullable().optional(),
+    first_tag: FileTagSchema.nullable().optional(),
     local_id: z.coerce.number().nullable().optional(),
     source_type: z.string().nullable().optional(),
     local_path: z.string().nullable().optional(),
@@ -108,6 +120,28 @@ export const userFileList = async (
     const cleanedParam = cleanEmptyStringParams(param, ['url', 'source_url', 'storage_type', 'file_md5']);
     const { data } = await authApi().post('/api/user/file/list', cleanedParam, config);
     return parseResData(data, UserFileListResSchema);
+};
+
+// ==================== 标签名列表 ====================
+
+export const UserFileTagNamesParamSchema = z.object({
+    app_id: z.coerce.number(),
+    tag_name_prefix: z.string().nullable().optional(),
+    limit: z.coerce.number().nullable().optional(),
+});
+export type UserFileTagNamesParamType = z.infer<typeof UserFileTagNamesParamSchema>;
+
+export const UserFileTagNamesResSchema = z.object({
+    data: z.array(z.string()),
+});
+export type UserFileTagNamesResType = z.infer<typeof UserFileTagNamesResSchema>;
+
+export const userFileTagNames = async (
+    param: UserFileTagNamesParamType,
+    config?: AxiosRequestConfig<any>
+): Promise<ApiResult<UserFileTagNamesResType>> => {
+    const { data } = await authApi().post('/api/user/file/tag_names', param, config);
+    return parseResData(data, UserFileTagNamesResSchema);
 };
 
 // ==================== 文件删除 ====================
@@ -165,6 +199,7 @@ export const UserFileUploadCreateParamSchema = z.object({
 export type UserFileUploadCreateParamType = z.infer<typeof UserFileUploadCreateParamSchema>;
 
 export const UserFileUploadCreateResSchema = z.object({
+    file_user_id: z.coerce.number(),
     file_id: z.coerce.number(),
     file_name: z.string(),
     status: z.coerce.number(),
@@ -183,19 +218,19 @@ export const userFileUploadCreate = async (
 
 /**
  * 上传分片数据（multipart/form-data）
- * @param fileId 文件ID
+ * @param fileUserId 文件用户关联ID（由 upload_create 返回）
  * @param chunkIndex 分片索引
  * @param file 文件 Blob
  * @param config Axios 配置（支持 onUploadProgress、signal 等）
  */
 export const userFileUploadData = async (
-    fileId: number,
+    fileUserId: number,
     chunkIndex: number,
     file: Blob,
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<any>> => {
     const formData = new FormData();
-    formData.append('file_id', String(fileId));
+    formData.append('file_user_id', String(fileUserId));
     formData.append('chunk_index', String(chunkIndex));
     formData.append('file', file);
 
@@ -295,4 +330,72 @@ export const userFileChunks = async (
 ): Promise<ApiResult<UserFileChunksResType>> => {
     const { data } = await authApi().post('/api/user/file/chunks', param, config);
     return parseResData(data, UserFileChunksResSchema);
+};
+
+// ==================== 文件标签管理 ====================
+
+// 获取单个文件的标签列表
+export const UserFileTagsParamSchema = z.object({
+    file_user_id: z.coerce.number(),
+});
+export type UserFileTagsParamType = z.infer<typeof UserFileTagsParamSchema>;
+
+export const UserFileTagItemSchema = z.object({
+    id: z.coerce.number(),
+    tag_name: z.string(),
+    add_time: UnixTimestampSchema,
+});
+export type UserFileTagItemType = z.infer<typeof UserFileTagItemSchema>;
+
+export const UserFileTagsResSchema = z.object({
+    data: z.array(UserFileTagItemSchema),
+});
+export type UserFileTagsResType = z.infer<typeof UserFileTagsResSchema>;
+
+export const userFileTags = async (
+    param: UserFileTagsParamType,
+    config?: AxiosRequestConfig<any>
+): Promise<ApiResult<UserFileTagsResType>> => {
+    const { data } = await authApi().post('/api/user/file/tags', param, config);
+    return parseResData(data, UserFileTagsResSchema);
+};
+
+// 添加标签
+export const UserFileTagAddParamSchema = z.object({
+    file_user_id: z.coerce.number(),
+    tag_name: z.string(),
+});
+export type UserFileTagAddParamType = z.infer<typeof UserFileTagAddParamSchema>;
+
+export const UserFileTagAddResSchema = z.object({
+    id: z.coerce.number(),
+});
+export type UserFileTagAddResType = z.infer<typeof UserFileTagAddResSchema>;
+
+export const userFileTagAdd = async (
+    param: UserFileTagAddParamType,
+    config?: AxiosRequestConfig<any>
+): Promise<ApiResult<UserFileTagAddResType>> => {
+    const { data } = await authApi().post('/api/user/file/tag_add', param, config);
+    return parseResData(data, UserFileTagAddResSchema);
+};
+
+// 移除标签
+export const UserFileTagRemoveParamSchema = z.object({
+    file_user_id: z.coerce.number(),
+    tag_name: z.string(),
+});
+export type UserFileTagRemoveParamType = z.infer<typeof UserFileTagRemoveParamSchema>;
+
+export const UserFileTagRemoveResSchema = z.object({
+    affected: z.coerce.number(),
+});
+export type UserFileTagRemoveResType = z.infer<typeof UserFileTagRemoveResSchema>;
+
+export const userFileTagRemove = async (
+    param: UserFileTagRemoveParamType,
+    config?: AxiosRequestConfig<any>
+): Promise<ApiResult<UserFileTagRemoveResType>> => {
+    const { data } = await authApi().post('/api/user/file/tag_remove', param, config);
+    return parseResData(data, UserFileTagRemoveResSchema);
 };

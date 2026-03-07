@@ -79,3 +79,15 @@ export const CloopenSmsConfigFormSchema = z.object({
 
 export type CloopenSmsConfigFormType = z.infer<typeof CloopenSmsConfigFormSchema>
 
+// ===== 亿美软通短信配置 =====
+export const EmaySmsConfigFormSchema = z.object({
+  name: z.string().min(1, '配置名称不能为空'),
+  host: z.string().min(1, '服务地址不能为空'),
+  app_id: z.string().min(1, 'App ID不能为空'),
+  secret_key: z.string().min(1, 'Secret Key不能为空'),
+  callback_key: z.string().optional(),
+  limit: NumberParamSchema.refine(val => val == null || val >= 0, '限制数量不能小于0'),
+})
+
+export type EmaySmsConfigFormType = z.infer<typeof EmaySmsConfigFormSchema>
+

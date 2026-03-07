@@ -171,3 +171,8 @@ pub use sender_netease::*;
 mod sender_cloopen;
 #[cfg(feature = "cloopen")]
 pub use sender_cloopen::*;
+
+#[cfg(feature = "emay")]
+mod sender_emay;
+#[cfg(feature = "emay")]
+pub use sender_emay::*;

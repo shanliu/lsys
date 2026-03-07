@@ -10,6 +10,7 @@
 
 mod app;
 mod auth;
+mod file;
 mod rbac;
 
 use actix_service::ServiceFactory;
@@ -22,7 +23,8 @@ where
     let service_scope = scope("/service")
         .service(auth::verify)
         .service(rbac::check)
-        .service(app::app);
+        .service(app::app)
+        .service(file::file);
 
     app.service(service_scope)
 }

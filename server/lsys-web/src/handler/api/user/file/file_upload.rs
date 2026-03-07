@@ -5,7 +5,7 @@ use crate::dao::access::api::system::user::CheckUserFileUpload;
 use crate::dao::access::RbacAccessCheckEnv;
 use lsys_access::dao::AccessSession;
 use lsys_files::dao::{ChunkInfo, FileWriteHandle};
-use lsys_files::model::FileModel;
+use lsys_files::model::FileStatus;
 use serde::Deserialize;
 use serde_json::json;
 
@@ -134,7 +134,7 @@ pub async fn file_upload_create(
     }
 
     let tag_refs: Vec<&str> = param.tag_names.as_deref().unwrap_or(&[]).iter().map(String::as_str).collect();
-    let file = req_dao
+    let (file_id, file_user_id) = req_dao
         .web_dao
         .web_files
         .file_dao
@@ -149,47 +149,16 @@ pub async fn file_upload_create(
         .await?;
 
     Ok(JsonResponse::data(JsonData::body(json!({
-        "file_id": file.id,
-        "file_name": file.file_name,
-        "status": file.status,
+        "file_user_id": file_user_id,
+        "file_id": file_id,
+        "file_name": param.file_name,
+        "status": FileStatus::Unfinished as i8,
     }))))
 }
 
-/// 查找上传文件并校验权限（代理函数，供外部组合调用）
-pub async fn file_upload_find_file(
-    file_id: u64,
-    req_dao: &UserAuthQueryDao,
-) -> JsonResult<FileModel> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-
-    let file = req_dao
-        .web_dao
-        .web_files
-        .file_dao
-        .helper()
-        .find_file_by_id(file_id)
-        .await?
-        .ok_or_else(|| {
-            crate::common::JsonError::Message(lsys_core::fluent_message!("file-not-found"))
-        })?;
-
-    req_dao
-        .web_dao
-        .web_rbac
-        .check(
-            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
-            &CheckUserFileUpload {
-                res_user_id: file.from_user_id,
-            },
-        )
-        .await?;
-
-    Ok(file)
-}
-
-/// 获取上传写句柄（代理函数，供外部组合调用）
+/// 获取上传写句柄（通过 file_user_id，app_id 自动从 file_user 记录获取）
 pub async fn file_upload_handle(
-    file: &FileModel,
+    file_user_id: u64,
     chunk_index: u32,
     req_dao: &UserAuthQueryDao,
 ) -> JsonResult<FileWriteHandle> {
@@ -197,7 +166,7 @@ pub async fn file_upload_handle(
         .web_dao
         .web_files
         .file_dao
-        .get_upload_handle(file, chunk_index)
+        .get_upload_handle_by_file_user_id(file_user_id, chunk_index)
         .await?;
     Ok(handle)
 }

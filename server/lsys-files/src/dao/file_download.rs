@@ -318,6 +318,7 @@ impl FileDownloadManager {
                 &mut file_local,
                 task.chunk_index,
                 file_user.user_id,
+                file_user.app_id,
                 task.done_tx,
             )
             .await?;
@@ -329,6 +330,7 @@ impl FileDownloadManager {
                 &mut file,
                 &mut file_local,
                 file_user.user_id,
+                file_user.app_id,
                 task.done_tx,
             )
             .await?;
@@ -338,6 +340,7 @@ impl FileDownloadManager {
     }
 
     /// 分片下载 (步骤 4)
+    #[allow(clippy::too_many_arguments)]
     async fn download_chunked(
         helper: &FileHelper,
         source_url: &str,
@@ -345,6 +348,7 @@ impl FileDownloadManager {
         file_local: &mut FileLocalModel,
         chunk_index: u32,
         user_id: u64,
+        app_id: u64,
         done_tx: Option<tokio::sync::mpsc::Sender<Result<(), String>>>,
     ) -> FileResult<()> {
         let db = &helper.db;
@@ -388,6 +392,7 @@ impl FileDownloadManager {
                         file_local,
                         &mut chunk,
                         user_id,
+                        app_id,
                         done_tx.clone(),
                     )
                     .await?;
@@ -415,7 +420,8 @@ impl FileDownloadManager {
 
         // 4.2 创建新文件并下载
         let ext = file_extension(&file.file_name);
-        let (rel_path, full_path) = helper.create_new_file(&format!("chunk{}", ext)).await?;
+        let prefix = format!("{}_{}_dlchunk{}", app_id, user_id, chunk_index);
+        let (rel_path, full_path) = helper.create_new_file(&prefix, &ext).await?;
 
         // 下载 (带重试)
         let download_ok = Self::download_range(
@@ -462,12 +468,16 @@ impl FileDownloadManager {
         chunk.chunk_path = rel_path;
 
         // 4.4 分片下载完成
-        Self::on_chunk_complete(helper, db, file, file_local, &mut chunk, user_id, done_tx).await?;
+        Self::on_chunk_complete(
+            helper, db, file, file_local, &mut chunk, user_id, app_id, done_tx,
+        )
+        .await?;
 
         Ok(())
     }
 
     /// 4.4 分片下载完成
+    #[allow(clippy::too_many_arguments)]
     async fn on_chunk_complete(
         helper: &FileHelper,
         db: &Pool<MySql>,
@@ -475,6 +485,7 @@ impl FileDownloadManager {
         file_local: &mut FileLocalModel,
         chunk: &mut FileLocalChunkModel,
         user_id: u64,
+        app_id: u64,
         done_tx: Option<tokio::sync::mpsc::Sender<Result<(), String>>>,
     ) -> FileResult<()> {
         let log_dao = FileLogDao::new(helper.db.clone());
@@ -535,7 +546,8 @@ impl FileDownloadManager {
 
         // 所有分片都完成, 合并文件
         let ext = file_extension(&file.file_name);
-        let (merge_rel, merge_full) = helper.create_new_file(&format!("merged{}", ext)).await?;
+        let merge_prefix = format!("{}_{}_dlmerge", app_id, user_id);
+        let (merge_rel, merge_full) = helper.create_new_file(&merge_prefix, &ext).await?;
         match helper.merge_chunk_files(&all_chunks, &merge_full).await {
             Err(e) => {
                 // 合并失败
@@ -621,6 +633,7 @@ impl FileDownloadManager {
     }
 
     /// 步骤5: 非分片下载
+    #[allow(clippy::too_many_arguments)]
     async fn download_single(
         helper: &FileHelper,
         db: &Pool<MySql>,
@@ -628,13 +641,15 @@ impl FileDownloadManager {
         file: &mut FileModel,
         file_local: &mut FileLocalModel,
         user_id: u64,
+        app_id: u64,
         done_tx: Option<tokio::sync::mpsc::Sender<Result<(), String>>>,
     ) -> FileResult<()> {
         let log_dao = FileLogDao::new(helper.db.clone());
 
         // 创建新文件
         let ext = file_extension(&file.file_name);
-        let (rel_path, full_path) = helper.create_new_file(&format!("download{}", ext)).await?;
+        let prefix = format!("{}_{}_dl", app_id, user_id);
+        let (rel_path, full_path) = helper.create_new_file(&prefix, &ext).await?;
 
         // 下载
         let download_ok = Self::download_full(helper, source_url, &full_path, file).await;

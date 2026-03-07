@@ -64,3 +64,8 @@ pub use sender_netease::*;
 mod sender_cloopen;
 #[cfg(feature = "sms-cloopen")]
 pub use sender_cloopen::*;
+
+#[cfg(feature = "sms-emay")]
+mod sender_emay;
+#[cfg(feature = "sms-emay")]
+pub use sender_emay::*;

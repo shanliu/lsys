@@ -40,6 +40,7 @@ export function FileUploadDialog({
     const [stage, setStage] = useState<UploadStage>('idle');
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [fileId, setFileId] = useState<number | null>(null);
+    const [fileUserId, setFileUserId] = useState<number | null>(null);
     const [progress, setProgress] = useState(0);
     const [errorMsg, setErrorMsg] = useState('');
     const [chunkTasks, setChunkTasks] = useState<ChunkTask[]>([]);
@@ -86,6 +87,7 @@ export function FileUploadDialog({
         setStage('idle');
         setSelectedFile(null);
         setFileId(null);
+        setFileUserId(null);
         setProgress(0);
         setHashProgress(0);
         setErrorMsg('');
@@ -104,7 +106,7 @@ export function FileUploadDialog({
     // 并发上传分片（带并发控制和完整的取消支持）
     const uploadChunksWithConcurrency = useCallback(async (
         file: File,
-        fileId: number,
+        fileUserId: number,
         tasks: ChunkTask[],
         totalSize: number,
         concurrency: number
@@ -145,7 +147,7 @@ export function FileUploadDialog({
                     abortRef.current = controller;
 
                     // 使用分片上传 API（支持进度回调）
-                    await userFileUploadData(fileId, task.index, blob, {
+                    await userFileUploadData(fileUserId, task.index, blob, {
                         signal: controller.signal,
                         onUploadProgress: (event: AxiosProgressEvent) => {
                             if (event.total) {
@@ -231,7 +233,7 @@ export function FileUploadDialog({
 
     // 恢复上传（重新上传剩余分片）
     const resumeUpload = useCallback(async () => {
-        if (!selectedFile || !fileId) return;
+        if (!selectedFile || !fileUserId) return;
 
         setStage('uploading');
         isPausedRef.current = false;
@@ -242,7 +244,7 @@ export function FileUploadDialog({
             const totalSize = selectedFile.size;
 
             try {
-                await uploadChunksWithConcurrency(selectedFile, fileId, tasks, totalSize, maxConcurrentChunks);
+                await uploadChunksWithConcurrency(selectedFile, fileUserId, tasks, totalSize, maxConcurrentChunks);
             } catch (err: any) {
                 if (err?.message === 'PAUSED') {
                     setStage('paused');
@@ -260,7 +262,7 @@ export function FileUploadDialog({
             setErrorMsg(msg);
             setStage('error');
         }
-    }, [selectedFile, fileId, chunkTasks, showSuccess, onSuccess, uploadChunksWithConcurrency, maxConcurrentChunks]);
+    }, [selectedFile, fileUserId, chunkTasks, showSuccess, onSuccess, uploadChunksWithConcurrency, maxConcurrentChunks]);
 
     // 暂停上传
     const handlePause = useCallback(() => {
@@ -357,7 +359,9 @@ export function FileUploadDialog({
                 }
 
                 const fId = createRes.response.file_id;
+                const fUserId = createRes.response.file_user_id;
                 setFileId(fId);
+                setFileUserId(fUserId);
 
                 // 初始化分片任务
                 const tasks: ChunkTask[] = chunks.map((c, i) => ({
@@ -371,7 +375,7 @@ export function FileUploadDialog({
                 // 并发上传分片
                 const totalSize = selectedFile.size;
                 try {
-                    await uploadChunksWithConcurrency(selectedFile, fId, tasks, totalSize, maxConcurrentChunks);
+                    await uploadChunksWithConcurrency(selectedFile, fUserId, tasks, totalSize, maxConcurrentChunks);
                 } catch (err: any) {
                     if (err?.message === 'PAUSED') {
                         setStage('paused');

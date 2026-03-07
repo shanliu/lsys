@@ -110,7 +110,7 @@ export function HomePage() {
                             查看文档
                         </button>
                         <button
-                            onClick={() => { window.open("https://github.com/shanliu/lsys/tree/dev/sdk", "_blank") }}
+                            onClick={() => { window.open("https://github.com/shanliu/lsys/tree/main/sdk", "_blank") }}
                             className="btn-enter-system"
                             aria-label="SDK示例"
                         >
@@ -131,9 +131,6 @@ export function HomePage() {
                     {/* Signature */}
                     <div className="signature">
                         DESIGNED_BY::GEMINI 3
-                    </div>
-                    <div style={{ fontSize: 'small', textAlign: 'center', marginTop: '10px' }}>
-                        <a href="http://www.lsys.cc:8088" target="_blank" rel="noreferrer" style={{ color: 'gray', textDecoration: 'none' }}>old分支版本示例(旧版,仅支持PC)</a>
                     </div>
 
 

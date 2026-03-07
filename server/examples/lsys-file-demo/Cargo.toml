@@ -1,0 +1,28 @@
+[package]
+name = "lsys-file-demo"
+version = "0.0.1"
+authors = ["liushan <shan.liu@msn.com>"]
+edition = "2021"
+
+[dependencies]
+tracing = { version = "0.1.*" }
+tracing-subscriber = { version = "0.3.*", features = ["env-filter"] }
+
+tokio = { version = "~1.49.0", features = [
+    "rt-multi-thread",
+    "macros",
+    "fs",
+    "signal",
+] }
+
+axum = { version = "0.7.9", features = ["multipart", "json"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["trace", "cors"] }
+http = "1"
+bytes = "1"
+
+serde = { version = "1.0.*", features = ["derive"] }
+serde_json = "1.0.*"
+
+lsys-core = { path = "../../lsys-core", features = ["db-mysql", "redis"] }
+lsys-sdk = { path = "../../lsys-sdk" }

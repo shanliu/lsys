@@ -250,10 +250,19 @@ impl FileDao {
             .await?
             .ok_or_else(|| FileError::Param(fluent_message!("file-oss-not-found")))?;
 
+        // 反向查询最早的 file_user 记录, 获取真实 app_id
+        let min_file_user = self
+            .helper
+            .find_min_file_user_by_file_id(file.id)
+            .await?
+            .ok_or_else(|| FileError::Param(fluent_message!("file-user-not-found")))?;
+        let sync_app_id = min_file_user.app_id;
+
         let oss_ext = FileHelper::extract_extension(&file.file_name);
+        let oss_prefix = format!("{}_{}_oss", sync_app_id, file.from_user_id);
         let (_rel_path, full_path) = self
             .helper
-            .create_new_file(&format!("oss_sync.{}", oss_ext))
+            .create_new_file(&oss_prefix, oss_ext)
             .await?;
         oss_provider
             .download_to_local(&file_oss, full_path.to_str().unwrap_or(""))
@@ -266,7 +275,7 @@ impl FileDao {
             .create_from_local_file(
                 full_path.to_str().unwrap_or(""),
                 file.from_user_id,
-                0, // 系统内部同步，app_id=0
+                sync_app_id,
                 Some(&file.file_name),
                 LocalFileMode::Move,
                 None,

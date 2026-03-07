@@ -107,7 +107,7 @@ export const SubAppItemSchema = z.object({
     /** OAuth客户端数据 */
     oauth_client_data: OAuthClientDataSchema.nullable().optional(),
     /** 是否开通子应用功能 */
-    sup_app: BoolSchema,
+    sup_app: BoolSchema.optional(),
     /** 用户数据 */
     user_data: UserDataResSchema.nullable().optional(),
 });
@@ -495,7 +495,7 @@ export const AppRequestListParamSchema = z.object({
     /** 应用ID */
     app_id: z.coerce.number().optional().nullable(),
     /** 申请状态 */
-    status:  z.coerce.number().optional(),
+    status: z.coerce.number().optional(),
     ...PageParam,
 });
 export type AppRequestListParamType = z.infer<typeof AppRequestListParamSchema>;

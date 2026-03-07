@@ -41,6 +41,11 @@ use lsys_web::handler::api::system::app_sender::{
     smser_tpl_config_ten_add, SmserAppTenConfigAddParam, SmserTenConfigAddParam,
     SmserTenConfigDelParam, SmserTenConfigEditParam, SmserTenConfigListParam,
 };
+use lsys_web::handler::api::system::app_sender::{
+    smser_emay_config_add, smser_emay_config_del, smser_emay_config_edit, smser_emay_config_list,
+    smser_tpl_config_emay_add, SmserAppEmayConfigAddParam, SmserEmayConfigAddParam,
+    SmserEmayConfigDelParam, SmserEmayConfigEditParam, SmserEmayConfigListParam,
+};
 
 #[post("smser/{method}")]
 pub(crate) async fn smser(
@@ -272,6 +277,39 @@ pub(crate) async fn smser(
         "tencent_tpl_config_add" => {
             smser_tpl_config_ten_add(&json_param.param::<SmserAppTenConfigAddParam>()?, &auth_dao)
                 .await
+        }
+        //emay
+        "emay_config_list" => {
+            smser_emay_config_list(
+                &json_param.param::<SmserEmayConfigListParam>()?,
+                |key| {
+                    req.url_for(
+                        "sms_notify",
+                        [key.model().id.to_string(), key.callback_key.to_owned()],
+                    )
+                    .map(|e| e.to_string())
+                    .unwrap_or_default()
+                },
+                &auth_dao,
+            )
+            .await
+        }
+        "emay_config_add" => {
+            smser_emay_config_add(&json_param.param::<SmserEmayConfigAddParam>()?, &auth_dao).await
+        }
+        "emay_config_edit" => {
+            smser_emay_config_edit(&json_param.param::<SmserEmayConfigEditParam>()?, &auth_dao)
+                .await
+        }
+        "emay_config_del" => {
+            smser_emay_config_del(&json_param.param::<SmserEmayConfigDelParam>()?, &auth_dao).await
+        }
+        "emay_tpl_config_add" => {
+            smser_tpl_config_emay_add(
+                &json_param.param::<SmserAppEmayConfigAddParam>()?,
+                &auth_dao,
+            )
+            .await
         }
         name => handler_not_found!(name),
     }

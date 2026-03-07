@@ -22,6 +22,7 @@ actix-web-validator = "~7.0.0"
 actix-files = "~0.6.0"
 actix-web-actors = "4.1.0"
 actix-multipart = "~0.7.0"
+actix-cors = "0.7.1"
 
 
 rustls = { version = "~0.23.25", default-features = false, features = [

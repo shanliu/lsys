@@ -11,11 +11,14 @@ use lsys_web::handler::api::user::file::file_delete;
 use lsys_web::handler::api::user::file::file_from_url;
 use lsys_web::handler::api::user::file::file_list;
 use lsys_web::handler::api::user::file::file_logs;
+use lsys_web::handler::api::user::file::file_tag_add;
+use lsys_web::handler::api::user::file::file_tag_names;
+use lsys_web::handler::api::user::file::file_tag_remove;
+use lsys_web::handler::api::user::file::file_tags;
 use lsys_web::handler::api::user::file::file_upload_by_md5;
 use lsys_web::handler::api::user::file::file_upload_complete;
 use lsys_web::handler::api::user::file::file_upload_create;
 use lsys_web::handler::api::user::file::file_upload_fail;
-use lsys_web::handler::api::user::file::file_upload_find_file;
 use lsys_web::handler::api::user::file::file_upload_handle;
 use lsys_web::handler::api::user::file::file_upload_write;
 use lsys_web::handler::api::user::file::mapping_data;
@@ -24,13 +27,17 @@ use lsys_web::handler::api::user::file::FileDeleteParam;
 use lsys_web::handler::api::user::file::FileFromUrlParam;
 use lsys_web::handler::api::user::file::FileListParam;
 use lsys_web::handler::api::user::file::FileLogsParam;
+use lsys_web::handler::api::user::file::FileTagAddParam;
+use lsys_web::handler::api::user::file::FileTagNamesParam;
+use lsys_web::handler::api::user::file::FileTagRemoveParam;
+use lsys_web::handler::api::user::file::FileTagsParam;
 use lsys_web::handler::api::user::file::FileUploadByMd5Param;
 use lsys_web::handler::api::user::file::FileUploadCreateParam;
 
 /// 上传文件数据（multipart 表单上传）
 ///
 /// 表单字段：
-/// - `file_id`: 上传任务ID（由 upload_create 返回）
+/// - `file_user_id`: 上传任务的 file_user ID（由 upload_create 返回）
 /// - `chunk_index`: 分片索引（可选，默认 0）
 /// - `file`: 二进制文件数据
 ///
@@ -46,7 +53,7 @@ pub async fn file_upload_data(
         .await
         .map_err(|e| auth_dao.fluent_error_json_response(&e))?;
 
-    let mut file_id: Option<u64> = None;
+    let mut file_user_id: Option<u64> = None;
     let mut chunk_index: u32 = 0;
     let mut file_data: Vec<u8> = Vec::new();
 
@@ -59,7 +66,7 @@ pub async fn file_upload_data(
         })?;
         let field_name = field.name().unwrap_or("").to_string();
         match field_name.as_str() {
-            "file_id" => {
+            "file_user_id" => {
                 let mut buf = Vec::new();
                 while let Some(chunk) = field.next().await {
                     let chunk = chunk.map_err(|e| {
@@ -70,7 +77,7 @@ pub async fn file_upload_data(
                     buf.extend_from_slice(&chunk);
                 }
                 let val = String::from_utf8_lossy(&buf);
-                file_id = Some(val.trim().parse::<u64>().map_err(|_| {
+                file_user_id = Some(val.trim().parse::<u64>().map_err(|_| {
                     auth_dao.fluent_error_json_response(&lsys_web::common::JsonError::Message(
                         lsys_web::lsys_core::fluent_message!("param-error"),
                     ))
@@ -103,15 +110,14 @@ pub async fn file_upload_data(
         }
     }
 
-    let file_id = file_id.ok_or_else(|| {
+    let file_user_id = file_user_id.ok_or_else(|| {
         auth_dao.fluent_error_json_response(&lsys_web::common::JsonError::Message(
             lsys_web::lsys_core::fluent_message!("param-error"),
         ))
     })?;
 
     let result: lsys_web::common::JsonResult<lsys_web::common::JsonResponse> = async {
-        let upload_file = file_upload_find_file(file_id, &auth_dao).await?;
-        let mut handle = file_upload_handle(&upload_file, chunk_index, &auth_dao).await?;
+        let mut handle = file_upload_handle(file_user_id, chunk_index, &auth_dao).await?;
 
         // 写入数据，成功则 complete，失败则 fail
         match file_upload_write(&mut handle, &file_data, &auth_dao).await {
@@ -143,6 +149,12 @@ pub async fn file(
     Ok(match path.into_inner().as_str() {
         "mapping" => mapping_data(&auth_dao).await,
         "list" => file_list(&json_param.param::<FileListParam>()?, &auth_dao).await,
+        "tag_names" => file_tag_names(&json_param.param::<FileTagNamesParam>()?, &auth_dao).await,
+        "tags" => file_tags(&json_param.param::<FileTagsParam>()?, &auth_dao).await,
+        "tag_add" => file_tag_add(&json_param.param::<FileTagAddParam>()?, &auth_dao).await,
+        "tag_remove" => {
+            file_tag_remove(&json_param.param::<FileTagRemoveParam>()?, &auth_dao).await
+        }
         "upload_create" => {
             file_upload_create(&json_param.param::<FileUploadCreateParam>()?, &auth_dao).await
         }

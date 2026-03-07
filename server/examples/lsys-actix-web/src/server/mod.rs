@@ -5,9 +5,10 @@ use actix_web::web::{Data, JsonConfig};
 use actix_web::{error, http, middleware as middlewares, HttpResponse, HttpServer};
 
 use crate::common::handler::{JwtQueryConfig, RestQueryConfig};
-use crate::common::middleware::{AllowOrigin, RedirectSsl, RequestID};
+use crate::common::middleware::{RedirectSsl, RequestID};
 use crate::handler::render_500;
 use crate::handler::router;
+use actix_cors::Cors;
 use actix_web::App;
 use futures_util::TryFutureExt;
 use jsonwebtoken::{DecodingKey, Validation};
@@ -105,6 +106,19 @@ pub async fn create_server(app_dir: &str) -> Result<Server, AppError> {
         //     next.call(req).await
         //     // post-processing
         // }
+        let mut cors = Cors::default()
+            .allow_any_header()
+            .allowed_methods(vec!["GET", "POST", "OPTIONS"])
+            .max_age(3600);
+
+        if origin_list.iter().any(|o| o == "*") || origin_list.is_empty() {
+            cors = cors.allow_any_origin();
+        } else {
+            for origin in &origin_list {
+                cors = cors.allowed_origin(origin);
+            }
+        }
+
         let app = App::new()
             .wrap(RedirectSsl::new(is_use_ssl))
             .wrap(middlewares::Logger::default())
@@ -116,7 +130,7 @@ pub async fn create_server(app_dir: &str) -> Result<Server, AppError> {
             .wrap(middlewares::DefaultHeaders::new().add(("X-Server-Name", "lsys")))
             //.wrap(middlewares::from_fn(my_extracting_mw))
             .wrap(RequestID::new(None))
-            .wrap(AllowOrigin(origin_list.clone()))
+            .wrap(cors)
             .app_data(app_dao.clone())
             .app_data(json_config)
             .app_data(jwt_config)

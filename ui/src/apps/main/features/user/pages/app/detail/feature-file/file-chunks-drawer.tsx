@@ -1,12 +1,12 @@
-import { type UserFileItemType, type UserFileChunkItemType, userFileChunks } from '@shared/apis/user/file'
-import { CenteredError } from '@shared/components/custom/page-placeholder/centered-error'
-import { CenteredLoading } from '@shared/components/custom/page-placeholder/centered-loading'
-import { PagePagination, useCountNumManager } from '@apps/main/lib/pagination-utils'
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@apps/main/components/local/drawer'
 import { type TypedDictData } from '@apps/main/hooks/use-dict-data'
-import { cn, formatTime, getQueryResponseData, TIME_STYLE, formatFileSize } from '@shared/lib/utils'
+import { PagePagination, useCountNumManager } from '@apps/main/lib/pagination-utils'
+import { type UserFileChunkItemType, userFileChunks, type UserFileItemType } from '@shared/apis/user/file'
+import { CenteredError } from '@shared/components/custom/page-placeholder/centered-error'
+import { CenteredLoading } from '@shared/components/custom/page-placeholder/centered-loading'
+import { cn, formatFileSize, formatTime, getQueryResponseData, TIME_STYLE } from '@shared/lib/utils'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useCallback, useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 interface FileChunksDrawerProps {
     appId: number
@@ -30,12 +30,13 @@ export function FileChunksDrawer({
 
     // count_num 优化管理器
     const countNumManager = useCountNumManager({})
+    const { reset: resetCountNum } = countNumManager
 
     // 当文件切换时重置分页和计数管理器
     useEffect(() => {
         setPage(1)
-        countNumManager.reset()
-    }, [file.id])
+        resetCountNum()
+    }, [file.id, resetCountNum])
 
     // 获取分片数据 - 只有在抽屉打开时才启用查询
     const { data: chunksData, isSuccess, isLoading, isError, error } = useQuery({

@@ -1,0 +1,574 @@
+import { FilterContainer } from "@apps/main/components/filter-container/container";
+import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
+import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
+import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
+import { AppDetailNavContainer } from "@apps/main/features/user/components/ui/app-detail-nav";
+import { useDictData } from "@apps/main/hooks/use-dict-data";
+import {
+    DEFAULT_PAGE_SIZE,
+    PagePagination,
+    useCountNumManager,
+} from "@apps/main/lib/pagination-utils";
+import { createStatusMapper } from "@apps/main/lib/status-utils";
+import { Route } from "@apps/main/routes/_main/user/app/$appId/features-file/collector";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+    userCollectorScriptDelete,
+    userCollectorScriptList,
+    userCollectorScriptStatus,
+    type CollectorScriptItemType,
+} from "@shared/apis/user/collector";
+import { DataTable } from "@shared/components/custom//table";
+import { ConfirmDialog } from "@shared/components/custom/dialog/confirm-dialog";
+import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
+import { DataTableAction, DataTableActionItem } from "@shared/components/custom/table";
+import { Badge } from "@shared/components/ui/badge";
+import { Button } from "@shared/components/ui/button";
+import { useToast } from "@shared/contexts/toast-context";
+import {
+    cn,
+    formatServerError,
+    formatTime,
+    getQueryResponseData,
+    TIME_STYLE,
+} from "@shared/lib/utils";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
+import { type ColumnDef } from "@tanstack/react-table";
+import { Eye, FileText, FolderOpen, Play, Plus, Power, PowerOff, ScrollText, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { featureFileModuleConfig } from "../nav-info";
+import { CollectorFilesDrawer } from "./collector-files-drawer";
+import { CollectorListFilterFormSchema } from "./collector-list-schema";
+import { CollectorLogsDrawer } from "./collector-logs-drawer";
+import { CollectorRecordsDrawer } from "./collector-records-drawer";
+import { CollectorScriptDrawer } from "./collector-script-drawer";
+import { CollectorTriggerDialog } from "./collector-trigger-dialog";
+
+// 脚本状态样式映射
+const scriptStatusStyleMapper = createStatusMapper(
+    {
+        1: "success",
+        2: "danger",
+    },
+);
+
+export default function AppDetailFeatureCollectorListPage() {
+    const { appId } = Route.useParams();
+    const queryClient = useQueryClient();
+
+    // 字典数据
+    const {
+        dictData,
+    } = useDictData(["user_collector"] as const);
+
+    // 新增/编辑脚本抽屉
+    const [scriptDrawerOpen, setScriptDrawerOpen] = useState(false);
+    const [editScript, setEditScript] = useState<CollectorScriptItemType | null>(null);
+
+    const onScriptSuccess = () => {
+        queryClient.invalidateQueries({ queryKey: ["collectorScriptList"] });
+        setScriptDrawerOpen(false);
+        setEditScript(null);
+    };
+
+    return (
+        <AppDetailNavContainer
+            {...featureFileModuleConfig}
+            actions={
+                <Button
+                    size="sm"
+                    variant="default"
+                    onClick={() => {
+                        setEditScript(null);
+                        setScriptDrawerOpen(true);
+                    }}
+                >
+                    <Plus className="h-4 w-4 mr-1" />
+                    新增脚本
+                </Button>
+            }
+        >
+            <CollectorListContent appId={Number(appId)} dictData={dictData} onEdit={(script) => {
+                setEditScript(script);
+                setScriptDrawerOpen(true);
+            }} />
+
+            <CollectorScriptDrawer
+                appId={Number(appId)}
+                script={editScript}
+                open={scriptDrawerOpen}
+                onOpenChange={(open) => {
+                    setScriptDrawerOpen(open);
+                    if (!open) setEditScript(null);
+                }}
+                onSuccess={onScriptSuccess}
+            />
+        </AppDetailNavContainer>
+    );
+}
+
+interface CollectorListContentProps {
+    appId: number;
+    dictData: ReturnType<typeof useDictData<readonly ["user_collector"]>>["dictData"];
+    onEdit: (script: CollectorScriptItemType) => void;
+}
+
+function CollectorListContent({ appId, dictData, onEdit }: CollectorListContentProps) {
+    const queryClient = useQueryClient();
+    const { success: showSuccess, error: showError } = useToast();
+    const navigate = useNavigate();
+
+    const filterParam = Route.useSearch();
+    const currentPage = filterParam.page || 1;
+    const currentLimit = filterParam.limit || DEFAULT_PAGE_SIZE;
+
+    // 抽屉和弹窗状态
+    const [recordsDrawerOpen, setRecordsDrawerOpen] = useState(false);
+    const [recordsScript, setRecordsScript] = useState<CollectorScriptItemType | null>(null);
+
+    const [filesDrawerOpen, setFilesDrawerOpen] = useState(false);
+    const [filesScript, setFilesScript] = useState<CollectorScriptItemType | null>(null);
+
+    const [logsDrawerOpen, setLogsDrawerOpen] = useState(false);
+    const [logsScript, setLogsScript] = useState<CollectorScriptItemType | null>(null);
+
+    const [triggerDialogOpen, setTriggerDialogOpen] = useState(false);
+    const [triggerScript, setTriggerScript] = useState<CollectorScriptItemType | null>(null);
+
+    // 过滤条件
+    const filters = {
+        status: filterParam.status || null,
+    };
+
+    const countNumManager = useCountNumManager(filters);
+
+    // 获取脚本列表
+    const { data: scriptData, isSuccess, isLoading, isError, error } = useQuery({
+        queryKey: [
+            "collectorScriptList",
+            appId,
+            currentPage,
+            currentLimit,
+            filters.status,
+        ],
+        queryFn: ({ signal }) =>
+            userCollectorScriptList(
+                {
+                    app_id: appId,
+                    page: {
+                        page: currentPage,
+                        limit: currentLimit,
+                    },
+                    count_num: countNumManager.getCountNum(),
+                    status: filters.status,
+                },
+                { signal }
+            ),
+        placeholderData: (previousData) => previousData,
+    });
+
+    isSuccess && countNumManager.handlePageQueryResult(scriptData);
+
+    const scripts = getQueryResponseData<CollectorScriptItemType[]>(scriptData, []);
+
+    // 删除脚本
+    const deleteScriptMutation = useMutation({
+        mutationFn: (params: { script_id: number }) =>
+            userCollectorScriptDelete({ app_id: appId, script_id: params.script_id }),
+        onSuccess: () => {
+            showSuccess("脚本已删除");
+            countNumManager.reset();
+            queryClient.invalidateQueries({ queryKey: ["collectorScriptList"] });
+        },
+        onError: (error: any) => {
+            showError(formatServerError(error));
+        },
+    });
+
+    // 变更状态
+    const statusMutation = useMutation({
+        mutationFn: (params: { script_id: number; status: number }) =>
+            userCollectorScriptStatus({ app_id: appId, script_id: params.script_id, status: params.status }),
+        onSuccess: () => {
+            showSuccess("状态已更新");
+            queryClient.invalidateQueries({ queryKey: ["collectorScriptList"] });
+        },
+        onError: (error: any) => {
+            showError(formatServerError(error));
+        },
+    });
+
+    const refreshData = () => {
+        queryClient.refetchQueries({ queryKey: ["collectorScriptList"] });
+    };
+
+    const clearCacheAndReload = () => {
+        countNumManager.reset();
+        queryClient.invalidateQueries({ queryKey: ["collectorScriptList"] });
+    };
+
+    // 表格列定义
+    const columns: ColumnDef<CollectorScriptItemType>[] = [
+        {
+            accessorKey: "id",
+            header: "ID",
+            size: 60,
+            cell: ({ getValue }) => (
+                <div className="py-1 text-xs text-muted-foreground">{getValue<number>()}</div>
+            ),
+        },
+        {
+            accessorKey: "name",
+            header: "脚本名称",
+            cell: ({ getValue }) => (
+                <div className="max-w-[200px] truncate py-1 text-sm font-medium" title={getValue<string>()}>
+                    {getValue<string>() || "-"}
+                </div>
+            ),
+        },
+        {
+            accessorKey: "status",
+            header: "状态",
+            size: 80,
+            cell: ({ getValue }) => {
+                const status = getValue<number>();
+                return (
+                    <div className="py-1">
+                        <Badge className={cn(scriptStatusStyleMapper.getClass(status))}>
+                            {dictData.script_status?.getLabel(String(status)) || String(status)}
+                        </Badge>
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: "timeout_secs",
+            header: "超时(秒)",
+            size: 90,
+            cell: ({ getValue }) => (
+                <div className="py-1 text-sm">{getValue<number>()}</div>
+            ),
+        },
+        {
+            accessorKey: "memory_limit",
+            header: "内存限制",
+            size: 100,
+            cell: ({ getValue }) => {
+                const bytes = getValue<number>();
+                if (!bytes) return <div className="py-1 text-sm">-</div>;
+                const mb = (bytes / 1024 / 1024).toFixed(1);
+                return <div className="py-1 text-sm">{mb} MB</div>;
+            },
+        },
+        {
+            accessorKey: "add_time",
+            header: "添加时间",
+            size: 120,
+            cell: ({ getValue }) => {
+                const addTime = getValue<Date | null>();
+                return (
+                    <div className="text-xs py-1">
+                        {addTime ? formatTime(addTime, TIME_STYLE.RELATIVE_ELEMENT) : "-"}
+                    </div>
+                );
+            },
+        },
+        {
+            id: "actions",
+            header: () => <div className="text-center py-1">操作</div>,
+            size: 200,
+            cell: ({ row }) => {
+                const script = row.original;
+                const isEnabled = script.status === 1;
+                return (
+                    <DataTableAction className="justify-end sm:justify-center">
+                        {/* 触发执行 */}
+                        <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className={cn("h-auto px-2 py-1")}
+                                title="触发执行"
+                                onClick={() => {
+                                    setTriggerScript(script);
+                                    setTriggerDialogOpen(true);
+                                }}
+                            >
+                                <Play className="h-3 w-3" />
+                                <span className="text-xs ml-1">执行</span>
+                            </Button>
+                        </DataTableActionItem>
+
+                        {/* 采集记录 */}
+                        <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className={cn("h-auto px-2 py-1")}
+                                title="采集记录"
+                                onClick={() => {
+                                    setRecordsScript(script);
+                                    setRecordsDrawerOpen(true);
+                                }}
+                            >
+                                <ScrollText className="h-3 w-3" />
+                                <span className="text-xs ml-1">记录</span>
+                            </Button>
+                        </DataTableActionItem>
+
+                        {/* 采集文件 */}
+                        <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className={cn("h-auto px-2 py-1")}
+                                title="采集文件"
+                                onClick={() => {
+                                    setFilesScript(script);
+                                    setFilesDrawerOpen(true);
+                                }}
+                            >
+                                <FolderOpen className="h-3 w-3" />
+                                <span className="text-xs ml-1">文件</span>
+                            </Button>
+                        </DataTableActionItem>
+
+                        {/* 运行日志 */}
+                        <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className={cn("h-auto px-2 py-1")}
+                                title="运行日志"
+                                onClick={() => {
+                                    setLogsScript(script);
+                                    setLogsDrawerOpen(true);
+                                }}
+                            >
+                                <FileText className="h-3 w-3" />
+                                <span className="text-xs ml-1">日志</span>
+                            </Button>
+                        </DataTableActionItem>
+
+                        {/* 编辑 */}
+                        <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className={cn("h-auto px-2 py-1")}
+                                title="编辑脚本"
+                                onClick={() => onEdit(script)}
+                            >
+                                <Eye className="h-3 w-3" />
+                                <span className="text-xs ml-1">编辑</span>
+                            </Button>
+                        </DataTableActionItem>
+
+                        {/* 启用/禁用 */}
+                        <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
+                            <ConfirmDialog
+                                title={isEnabled ? "确认禁用" : "确认启用"}
+                                description={
+                                    <>
+                                        您确定要{isEnabled ? "禁用" : "启用"}脚本 <strong>{script.name}</strong> 吗？
+                                    </>
+                                }
+                                onConfirm={async () => {
+                                    await statusMutation.mutateAsync({
+                                        script_id: script.id,
+                                        status: isEnabled ? 2 : 1,
+                                    });
+                                }}
+                            >
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className={cn("h-auto px-2 py-1", isEnabled ? "text-orange-500 hover:text-orange-600" : "text-green-500 hover:text-green-600")}
+                                    title={isEnabled ? "禁用" : "启用"}
+                                >
+                                    {isEnabled ? <PowerOff className="h-3 w-3" /> : <Power className="h-3 w-3" />}
+                                    <span className="text-xs ml-1">{isEnabled ? "禁用" : "启用"}</span>
+                                </Button>
+                            </ConfirmDialog>
+                        </DataTableActionItem>
+
+                        {/* 删除 */}
+                        <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
+                            <ConfirmDialog
+                                title="确认删除"
+                                description={
+                                    <>
+                                        您确定要删除脚本 <strong>{script.name}</strong> 吗？删除后将无法恢复。
+                                    </>
+                                }
+                                onConfirm={async () => {
+                                    await deleteScriptMutation.mutateAsync({ script_id: script.id });
+                                }}
+                            >
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className={cn("h-auto px-2 py-1 text-destructive hover:text-destructive")}
+                                    title="删除脚本"
+                                >
+                                    <Trash2 className="h-3 w-3" />
+                                    <span className="text-xs ml-1">删除</span>
+                                </Button>
+                            </ConfirmDialog>
+                        </DataTableActionItem>
+                    </DataTableAction>
+                );
+            },
+        },
+    ];
+
+    return (
+        <>
+            <div className="flex flex-col min-h-0 space-y-3">
+                <div className="flex-shrink-0 mb-1 sm:mb-4 space-y-3">
+                    <FilterContainer
+                        defaultValues={{
+                            status: filterParam.status?.toString(),
+                        }}
+                        resolver={zodResolver(CollectorListFilterFormSchema) as any}
+                        onSubmit={(data) => {
+                            const transformedData = data as { status?: number };
+                            navigate({
+                                to: "/user/app/$appId/features-file/collector",
+                                params: { appId: appId },
+                                search: {
+                                    status: transformedData.status,
+                                    page: 1,
+                                    limit: currentLimit,
+                                },
+                            });
+                        }}
+                        onReset={() => {
+                            navigate({
+                                to: "/user/app/$appId/features-file/collector",
+                                params: { appId: appId },
+                                search: {
+                                    page: 1,
+                                    limit: currentLimit,
+                                },
+                            });
+                        }}
+                        countComponent={
+                            <FilterTotalCount total={countNumManager.getTotal() ?? 0} loading={isLoading} />
+                        }
+                        className="bg-card rounded-lg border shadow-sm relative"
+                    >
+                        {(layoutParams, form) => (
+                            <div className="flex-1 flex flex-wrap items-end gap-3">
+                                {/* 状态过滤 */}
+                                {dictData.script_status && (
+                                    <FilterDictSelect
+                                        name="status"
+                                        placeholder="选择状态"
+                                        label="状态"
+                                        disabled={isLoading}
+                                        dictData={dictData.script_status}
+                                        layoutParams={layoutParams}
+                                        allLabel="全部"
+                                        className={layoutParams.isMobile ? undefined : "min-w-[100px] max-w-[130px]"}
+                                    />
+                                )}
+
+                                {/* 动作按钮区域 */}
+                                <div className={cn(layoutParams.isMobile ? "w-full" : "flex-shrink-0")}>
+                                    <FilterActions
+                                        form={form}
+                                        loading={isLoading}
+                                        layoutParams={layoutParams}
+                                        onRefreshSearch={clearCacheAndReload}
+                                    />
+                                </div>
+                            </div>
+                        )}
+                    </FilterContainer>
+                </div>
+
+                {/* 表格和分页容器 */}
+                <div className="flex-1 flex flex-col min-h-0">
+                    <div className="flex-1 overflow-hidden">
+                        <DataTable
+                            data={scripts}
+                            columns={columns}
+                            loading={isLoading}
+                            error={isError ? <CenteredError error={error} variant="content" onReset={refreshData} /> : null}
+                            scrollSnapDelay={300}
+                            leftStickyColumns={[
+                                { column: 0, minWidth: "60px", maxWidth: "60px" },
+                            ]}
+                            className="[&_tr]:h-11 [&_td]:py-1 [&_th]:py-1 [&_table]:border-0 [&_.table-container]:border-0 [&_tbody_tr:last-child]:border-b h-full"
+                            tableContainerClassName="h-full"
+                        />
+                    </div>
+
+                    {/* 分页控件 */}
+                    <div className="flex-shrink-0 pt-4 pb-4">
+                        {(countNumManager.getTotal() ?? 0) > 0 && (
+                            <PagePagination
+                                currentPage={currentPage}
+                                pageSize={currentLimit}
+                                total={countNumManager.getTotal() ?? 0}
+                                loading={isLoading}
+                                onChange={(page) => {
+                                    navigate({
+                                        to: "/user/app/$appId/features-file/collector",
+                                        params: { appId: appId },
+                                        search: {
+                                            ...filterParam,
+                                            page,
+                                        },
+                                    });
+                                }}
+                            />
+                        )}
+                    </div>
+                </div>
+
+                {/* 触发执行弹窗 */}
+                {triggerScript && (
+                    <CollectorTriggerDialog
+                        appId={appId}
+                        script={triggerScript}
+                        open={triggerDialogOpen}
+                        onOpenChange={setTriggerDialogOpen}
+                    />
+                )}
+
+                {/* 采集记录抽屉 */}
+                {recordsScript && (
+                    <CollectorRecordsDrawer
+                        appId={appId}
+                        script={recordsScript}
+                        isOpen={recordsDrawerOpen}
+                        onOpenChange={setRecordsDrawerOpen}
+                    />
+                )}
+
+                {/* 采集文件抽屉 */}
+                {filesScript && (
+                    <CollectorFilesDrawer
+                        appId={appId}
+                        script={filesScript}
+                        isOpen={filesDrawerOpen}
+                        onOpenChange={setFilesDrawerOpen}
+                    />
+                )}
+
+                {/* 运行日志抽屉 */}
+                {logsScript && (
+                    <CollectorLogsDrawer
+                        appId={appId}
+                        script={logsScript}
+                        isOpen={logsDrawerOpen}
+                        onOpenChange={setLogsDrawerOpen}
+                    />
+                )}
+            </div>
+        </>
+    );
+}

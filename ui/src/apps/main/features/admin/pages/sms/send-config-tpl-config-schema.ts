@@ -27,6 +27,7 @@ export enum SmsProviderType {
     JD = "jd",
     NETEASE = "netease",
     CLOOPEN = "cloopen",
+    EMAY = "emay",
 }
 
 export const SMS_PROVIDER_LABELS = {
@@ -36,6 +37,7 @@ export const SMS_PROVIDER_LABELS = {
     [SmsProviderType.JD]: "京东云短信",
     [SmsProviderType.NETEASE]: "网易云短信",
     [SmsProviderType.CLOOPEN]: "容联云短信",
+    [SmsProviderType.EMAY]: "亿美软通短信",
 };
 
 // 阿里云短信配置
@@ -102,6 +104,15 @@ export const CloopenSmsConfigFormSchema = z.object({
     template_map: z.string().min(1, "模板参数映射不能为空"),
 });
 
+// 亿美软通短信配置
+export const EmaySmsConfigTplFormSchema = z.object({
+    provider_type: z.literal(SmsProviderType.EMAY),
+    name: z.string().min(1, "配置名称不能为空"),
+    tpl_key: z.string().min(1, "模板Key不能为空"),
+    config_id: z.coerce.number().min(1, "请选择亿美软通配置"),
+    extended_code: z.string(),
+});
+
 // 统一的模板配置表单 Schema
 export const TplConfigFormSchema = z.discriminatedUnion("provider_type", [
     AliSmsConfigFormSchema,
@@ -110,6 +121,7 @@ export const TplConfigFormSchema = z.discriminatedUnion("provider_type", [
     JdSmsConfigFormSchema,
     NeteaseSmsConfigFormSchema,
     CloopenSmsConfigFormSchema,
+    EmaySmsConfigTplFormSchema,
 ]);
 
 export type TplConfigFormType = z.infer<typeof TplConfigFormSchema>;

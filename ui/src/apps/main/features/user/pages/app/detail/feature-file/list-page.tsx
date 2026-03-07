@@ -1,7 +1,8 @@
 import { FilterContainer } from "@apps/main/components/filter-container/container";
 import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
+import { FilterContentSearch } from "@apps/main/components/filter-container/filter-content-search";
 import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
-import { FilterInput } from "@apps/main/components/filter-container/filter-input";
+import { FilterTagCombobox } from "@apps/main/components/filter-container/filter-tag-combobox";
 import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
 import { AppDetailNavContainer } from "@apps/main/features/user/components/ui/app-detail-nav";
 import { useDictData, type TypedDictData } from "@apps/main/hooks/use-dict-data";
@@ -18,6 +19,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
     userFileDelete,
     userFileList,
+    userFileTagNames,
     type UserFileItemType,
 } from "@shared/apis/user/file";
 import { DataTable } from "@shared/components/custom//table";
@@ -27,6 +29,7 @@ import { PageSkeletonTable } from "@shared/components/custom/page-placeholder/sk
 import { DataTableAction, DataTableActionItem } from "@shared/components/custom/table";
 import { Badge } from "@shared/components/ui/badge";
 import { Button } from "@shared/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@shared/components/ui/tooltip";
 import { useToast } from "@shared/contexts/toast-context";
 import {
     cn,
@@ -39,15 +42,16 @@ import { type LimitType } from "@shared/types/base-schema";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { type ColumnDef } from "@tanstack/react-table";
-import { Download, Eye, FileText, Link, Trash2, Upload, Columns } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Cloud, Columns, Download, Eye, FileText, Link, Tags, Trash2, Upload } from "lucide-react";
+import React, { useState } from "react";
 import { featureFileModuleConfig } from "../nav-info";
 import { FileChunksDrawer } from "./file-chunks-drawer";
 import { FileDetailDrawer } from "./file-detail-drawer";
 import { FileLogsDrawer } from "./file-logs-drawer";
+import { FileTagsDrawer } from "./file-tags-drawer";
 import { FileUploadDialog } from "./file-upload-dialog";
 import { FileUrlDownloadDialog } from "./file-url-download-dialog";
-import { FileListFilterFormSchema } from "./list-schema";
+import { CONTENT_SEARCH_TYPES, FileListFilterFormSchema } from "./list-schema";
 
 export default function AppDetailFeatureFileListPage() {
     const { appId } = Route.useParams();
@@ -157,11 +161,16 @@ function AppDetailFeatureFileListContent({ appId, dictData }: AppDetailFeatureFi
     const [chunksDrawerOpen, setChunksDrawerOpen] = useState(false);
     const [chunksFile, setChunksFile] = useState<UserFileItemType | null>(null);
 
+    // 标签抽屉状态
+    const [tagsDrawerOpen, setTagsDrawerOpen] = useState(false);
+    const [tagsFile, setTagsFile] = useState<UserFileItemType | null>(null);
+
     // 过滤条件
     const filters = {
-        storage_type: filterParam.storage_type || null,
-        file_md5: filterParam.file_md5 || null,
         status: filterParam.status || null,
+        tag_name: filterParam.tag_name || null,
+        content_type: filterParam.content_type || null,
+        content_value: filterParam.content_value || null,
     };
 
     // 分页
@@ -175,6 +184,18 @@ function AppDetailFeatureFileListContent({ appId, dictData }: AppDetailFeatureFi
     const searchGo = useSearchNavigate(navigate, filterParam);
     const countNumManager = useCountNumManager(filters);
 
+    // 根据 content_type 映射到 API 参数
+    const contentFilterParams = React.useMemo(() => {
+        if (!filters.content_type || !filters.content_value) return {};
+        const map: Record<string, string> = {
+            file_md5: 'file_md5',
+            source_url: 'source_url',
+            url: 'url',
+        };
+        const key = map[filters.content_type];
+        return key ? { [key]: filters.content_value } : {};
+    }, [filters.content_type, filters.content_value]);
+
     // 获取文件列表
     const { data: fileData, isSuccess, isLoading, isError, error } = useQuery({
         queryKey: [
@@ -184,9 +205,10 @@ function AppDetailFeatureFileListContent({ appId, dictData }: AppDetailFeatureFi
             currentLimit,
             pagination.forward,
             pagination.more,
-            filters.storage_type,
-            filters.file_md5,
             filters.status,
+            filters.tag_name,
+            filters.content_type,
+            filters.content_value,
         ],
         queryFn: ({ signal }) =>
             userFileList(
@@ -194,8 +216,9 @@ function AppDetailFeatureFileListContent({ appId, dictData }: AppDetailFeatureFi
                     app_id: Number(appId),
                     limit: pagination,
                     count_num: countNumManager.getCountNum(),
-                    storage_type: filters.storage_type,
-                    file_md5: filters.file_md5,
+                    status: filters.status ?? undefined,
+                    tag_names: filters.tag_name ? [filters.tag_name] : undefined,
+                    ...contentFilterParams,
                 },
                 { signal }
             ),
@@ -253,17 +276,6 @@ function AppDetailFeatureFileListContent({ appId, dictData }: AppDetailFeatureFi
         return parseFloat((size / Math.pow(1024, i)).toFixed(2)) + " " + units[i];
     };
 
-    // 获取存储类型标签
-    const getStorageTypeLabel = (storageType?: string | null): string => {
-        return storageType || '-';
-    };
-
-    // 获取来源类型标签
-    const getSourceTypeLabel = (sourceType?: string | null): string => {
-        if (!sourceType) return '-';
-        return dictData.file_source_type?.getLabel(sourceType) || sourceType;
-    };
-
     // 表格列定义
     const columns: ColumnDef<UserFileItemType>[] = [
         {
@@ -277,19 +289,30 @@ function AppDetailFeatureFileListContent({ appId, dictData }: AppDetailFeatureFi
         {
             accessorKey: "file_name",
             header: "文件名",
-            cell: ({ getValue }) => (
-                <div className="max-w-[200px] truncate py-1 text-sm" title={getValue<string>()}>
-                    {getValue<string>() || "-"}
-                </div>
-            ),
-        },
-        {
-            accessorKey: "storage_type",
-            header: "存储类型",
-            size: 100,
-            cell: ({ getValue }) => (
-                <div className="py-1 text-sm">{getValue<string>() || "-"}</div>
-            ),
+            cell: ({ row }) => {
+                const fileName = row.original.file_name;
+                const storageType = row.original.storage_type;
+                const isCloud = storageType && storageType !== "local";
+                return (
+                    <div className="flex items-center gap-1 py-1 max-w-[220px]">
+                        <span className="truncate text-sm" title={fileName}>
+                            {fileName || "-"}
+                        </span>
+                        {isCloud && (
+                            <TooltipProvider delayDuration={200}>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Cloud className="h-3.5 w-3.5 flex-shrink-0 text-blue-400 cursor-pointer" />
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top">
+                                        <span>{storageType}</span>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        )}
+                    </div>
+                );
+            },
         },
         {
             accessorKey: "file_size",
@@ -307,6 +330,66 @@ function AppDetailFeatureFileListContent({ appId, dictData }: AppDetailFeatureFi
                     {getValue<string>() || "-"}
                 </div>
             ),
+        },
+        {
+            accessorKey: "tag_count",
+            header: "标签",
+            size: 140,
+            cell: ({ row }) => {
+                const file = row.original;
+                const tagCount = file.tag_count ?? 0;
+                const firstTag = file.first_tag;
+                // 如果有完整 tags 数据（attr_tag=true 时），使用 tags
+                const tags = file.tags;
+                const displayFirstTag = firstTag ?? (tags && tags.length > 0 ? tags[0] : null);
+                const displayCount = tagCount > 0 ? tagCount : (tags?.length ?? 0);
+
+                if (displayCount === 0) {
+                    return (
+                        <div
+                            className="flex items-center gap-1 py-1 cursor-pointer group"
+                            onClick={() => {
+                                setTagsFile(file);
+                                setTagsDrawerOpen(true);
+                            }}
+                            title="点击添加标签"
+                        >
+                            <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">-</span>
+                            <Tags className="h-3 w-3 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors flex-shrink-0 ml-0.5" />
+                        </div>
+                    );
+                }
+
+                return (
+                    <div
+                        className="flex items-center gap-1 py-1 cursor-pointer group"
+                        onClick={() => {
+                            setTagsFile(file);
+                            setTagsDrawerOpen(true);
+                        }}
+                        title="点击管理标签"
+                    >
+                        {displayFirstTag && (
+                            <Badge
+                                variant="secondary"
+                                className="text-xs px-1.5 py-0 truncate max-w-[90px] group-hover:bg-secondary/60 transition-colors"
+                                title={displayFirstTag.tag_name}
+                            >
+                                {displayFirstTag.tag_name}
+                            </Badge>
+                        )}
+                        {displayCount > 1 && (
+                            <Badge
+                                variant="outline"
+                                className="text-xs px-1.5 py-0 flex-shrink-0 group-hover:bg-accent transition-colors"
+                            >
+                                +{displayCount - 1}
+                            </Badge>
+                        )}
+                        <Tags className="h-3 w-3 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors flex-shrink-0 ml-0.5" />
+                    </div>
+                );
+            },
         },
         {
             accessorKey: "status",
@@ -452,21 +535,24 @@ function AppDetailFeatureFileListContent({ appId, dictData }: AppDetailFeatureFi
                     {/* 过滤器 */}
                     <FilterContainer
                         defaultValues={{
-                            storage_type: filterParam.storage_type,
-                            file_md5: filterParam.file_md5,
                             status: filterParam.status?.toString(),
+                            tag_name: filterParam.tag_name,
+                            content_type: filterParam.content_type,
+                            content_value: filterParam.content_value,
                         }}
                         resolver={zodResolver(FileListFilterFormSchema) as any}
                         onSubmit={(data) => {
                             const transformedData = data as {
-                                storage_type?: string;
-                                file_md5?: string;
                                 status?: number;
+                                tag_name?: string;
+                                content_type?: string;
+                                content_value?: string;
                             };
                             searchGo({
-                                storage_type: transformedData.storage_type,
-                                file_md5: transformedData.file_md5,
                                 status: transformedData.status,
+                                tag_name: transformedData.tag_name,
+                                content_type: transformedData.content_type,
+                                content_value: transformedData.content_type ? transformedData.content_value : undefined,
                                 pos: null,
                                 forward: true,
                             });
@@ -476,9 +562,10 @@ function AppDetailFeatureFileListContent({ appId, dictData }: AppDetailFeatureFi
                                 pos: null,
                                 limit: currentLimit,
                                 forward: true,
-                                storage_type: undefined,
-                                file_md5: undefined,
                                 status: undefined,
+                                tag_name: undefined,
+                                content_type: undefined,
+                                content_value: undefined,
                             });
                         }}
                         countComponent={
@@ -498,23 +585,48 @@ function AppDetailFeatureFileListContent({ appId, dictData }: AppDetailFeatureFi
                                         dictData={dictData.file_status}
                                         layoutParams={layoutParams}
                                         allLabel="全部"
+                                        className={layoutParams.isMobile ? undefined : "min-w-[100px] max-w-[130px]"}
                                     />
                                 )}
 
-                                {/* 存储类型过滤 */}
-                                <FilterInput
-                                    name="storage_type"
-                                    placeholder="输入存储类型"
-                                    label="存储类型"
+                                {/* 标签过滤 */}
+                                <FilterTagCombobox
+                                    name="tag_name"
+                                    placeholder="选择标签"
+                                    searchPlaceholder="搜索标签..."
+                                    label="标签"
                                     disabled={isLoading}
+                                    allLabel="全部"
                                     layoutParams={layoutParams}
+                                    fetchTagNames={async (prefix: string) => {
+                                        const res = await queryClient.fetchQuery({
+                                            queryKey: ["userFileTagNames", appId, prefix],
+                                            queryFn: () => userFileTagNames({
+                                                app_id: Number(appId),
+                                                tag_name_prefix: prefix || undefined,
+                                                limit: 5,
+                                            }),
+                                            staleTime: 30_000,
+                                        });
+                                        return res?.response?.data ?? [];
+                                    }}
                                 />
 
-                                {/* MD5过滤 */}
-                                <FilterInput
-                                    name="file_md5"
-                                    placeholder="输入文件MD5"
-                                    label="文件MD5"
+                                {/* 文件内容过滤 */}
+                                <FilterContentSearch
+                                    typeName="content_type"
+                                    valueName="content_value"
+                                    options={CONTENT_SEARCH_TYPES as unknown as { value: string; label: string }[]}
+                                    label="文件内容"
+                                    typePlaceholder="选择类型"
+                                    valuePlaceholder={(type) => {
+                                        const placeholders: Record<string, string> = {
+                                            file_md5: '输入文件MD5',
+                                            source_url: '输入来源URL',
+                                            url: '输入本地URL',
+                                        };
+                                        return placeholders[type] || '请输入...';
+                                    }}
                                     disabled={isLoading}
                                     layoutParams={layoutParams}
                                 />
@@ -604,6 +716,18 @@ function AppDetailFeatureFileListContent({ appId, dictData }: AppDetailFeatureFi
                         isOpen={chunksDrawerOpen}
                         onOpenChange={setChunksDrawerOpen}
                         dictData={dictData}
+                    />
+                )}
+
+                {/* 标签抽屉 */}
+                {tagsFile && (
+                    <FileTagsDrawer
+                        file={tagsFile}
+                        isOpen={tagsDrawerOpen}
+                        onOpenChange={setTagsDrawerOpen}
+                        onTagsChanged={() => {
+                            queryClient.invalidateQueries({ queryKey: ["userFileList"] });
+                        }}
                     />
                 )}
             </div>

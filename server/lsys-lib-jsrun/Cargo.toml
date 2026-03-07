@@ -1,0 +1,45 @@
+[package]
+name = "lsys-lib-jsrun"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rquickjs = { version = "0.11", features = [
+    "futures",
+    "macro",
+    "classes",
+    "properties",
+    "array-buffer",
+    "loader",
+] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1", features = [
+    "sync",
+    "fs",
+    "io-util",
+    "macros",
+    "rt",
+    "rt-multi-thread",
+    "time",
+] }
+reqwest = { version = "0.12", features = ["json", "gzip", "brotli", "deflate"] }
+moka = { version = "0.12", features = ["future", "sync"] }
+chrono = "0.4"
+thiserror = "2"
+tracing = "0.1"
+
+[dev-dependencies]
+tracing-subscriber = "0.3"
+
+[[example]]
+name = "basic"
+path = "examples/basic.rs"
+
+[[example]]
+name = "batch"
+path = "examples/batch.rs"
+
+[[example]]
+name = "test_imports"
+path = "examples/test_imports.rs"

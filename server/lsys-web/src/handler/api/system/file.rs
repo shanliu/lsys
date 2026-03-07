@@ -29,7 +29,7 @@ pub struct AdminFileListParam {
     pub storage_type: Option<String>,
     #[serde(default)]
     pub file_md5: Option<String>,
-    pub page: Option<crate::common::LimitParam>,
+    pub limit: Option<crate::common::LimitParam>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
     /// 按标签名过滤
@@ -66,9 +66,12 @@ pub async fn admin_file_list(
         .await?;
 
     use crate::common::ToCursorPageParam;
-    let page = param.page.to_u64_cursor_page_param(CursorPageSort::Desc);
+    let page = param.limit.to_u64_cursor_page_param(CursorPageSort::Desc);
 
-    let tag_refs: Option<Vec<&str>> = param.tag_names.as_ref().map(|v| v.iter().map(String::as_str).collect());
+    let tag_refs: Option<Vec<&str>> = param
+        .tag_names
+        .as_ref()
+        .map(|v| v.iter().map(String::as_str).collect());
     let filter = FileDataListParam {
         url: param.url.as_deref(),
         source_url: param.source_url.as_deref(),
@@ -80,6 +83,7 @@ pub async fn admin_file_list(
         storage_type: param.storage_type.as_deref(),
         file_md5: param.file_md5.as_deref(),
         tag_names: tag_refs.as_deref(),
+        tag_any_names: None,
     };
 
     let attr_param = FileListAttrParam {

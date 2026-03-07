@@ -171,15 +171,16 @@ impl FileDao {
                 .unwrap_or("unknown")
         });
 
+        let prefix = format!("{}_{}_local", app_id, user_id);
         let relative_path = match mode {
             LocalFileMode::Move => {
                 self.helper
-                    .move_file_to_storage(local_file_path, Some(actual_name))
+                    .move_file_to_storage(local_file_path, &prefix, Some(actual_name))
                     .await?
             }
             LocalFileMode::Copy => {
                 self.helper
-                    .copy_file_to_storage(local_file_path, Some(actual_name))
+                    .copy_file_to_storage(local_file_path, &prefix, Some(actual_name))
                     .await?
             }
         };
@@ -328,7 +329,9 @@ impl FileDao {
                 .ok_or_else(|| FileError::Param(fluent_message!("file-local-not-found")))?;
 
             let src_full = self.helper.get_full_local_path(&local.local_path);
-            let (_rel, dst_full) = self.helper.create_new_file(&file.file_name).await?;
+            let copy_prefix = format!("{}_{}_copy", app_id, user_id);
+            let copy_ext = crate::dao::file_helpers::FileHelper::extract_extension(&file.file_name);
+            let (_rel, dst_full) = self.helper.create_new_file(&copy_prefix, copy_ext).await?;
             fs::copy(&src_full, &dst_full).await?;
 
             // 拷贝源文件的标签

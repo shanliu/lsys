@@ -180,7 +180,8 @@ impl BarcodeClient {
                 // 密钥已过期，跳过
                 continue;
             }
-            let result = compute_rest_sign(&sign_data, &key.secret_data);
+            let secret_str = key.secret_data.as_str().unwrap_or("");
+            let result = compute_rest_sign(&sign_data, secret_str);
             if result.signature == params.sign {
                 sign_matched = true;
                 break;

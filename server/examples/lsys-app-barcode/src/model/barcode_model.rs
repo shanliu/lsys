@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model( table_name = "barcode_create")]
+#[lsys_model( table_name = "lst_barcode_create")]
 pub struct BarcodeCreateModel {
     /// id
     #[sqlx(default)]
@@ -54,7 +54,7 @@ pub struct BarcodeCreateModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize)]
-#[lsys_model( table_name = "barcode_parse")]
+#[lsys_model( table_name = "lst_barcode_parse")]
 pub struct BarcodeParseModel {
     /// id
     #[sqlx(default)]

@@ -1,11 +1,18 @@
 //文件模块封装
 
+pub mod collector;
+pub mod upload_token;
+
 use std::sync::Arc;
 
 use lsys_core::app_core::AppCore;
 use lsys_files::dao::{FileDao, FileDaoBuilder};
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{MySql, Pool};
+
+use self::collector::WebFileCollector;
+use self::upload_token::UploadTokenDao;
+use super::result::WebResult;
 
 /// 上传配置：最大文件大小 & 分片规则
 #[derive(Debug, Clone)]
@@ -56,18 +63,31 @@ impl UploadConfig {
 pub struct WebFiles {
     pub file_dao: Arc<FileDao>,
     pub upload_config: UploadConfig,
+    pub upload_token: Arc<UploadTokenDao>,
+    pub collector: Arc<WebFileCollector>,
     db: Pool<MySql>,
 }
 
 impl WebFiles {
-    pub fn new(db: Pool<MySql>, app_core: &AppCore, logger: Arc<ChangeLoggerDao>) -> Self {
-        let file_dao = Arc::new(FileDaoBuilder::build(db.clone(), app_core, logger));
+    pub fn new(
+        db: Pool<MySql>,
+        redis: deadpool_redis::Pool,
+        app_core: &AppCore,
+        logger: Arc<ChangeLoggerDao>,
+    ) -> WebResult<Self> {
+        let file_dao = Arc::new(FileDaoBuilder::build(db.clone(), app_core, logger.clone()));
         let upload_config = UploadConfig::from_config(app_core);
-        Self {
+        let upload_token = Arc::new(UploadTokenDao::new(redis));
+        let collector = Arc::new(
+            WebFileCollector::new(db.clone(), file_dao.clone(), logger, app_core)?,
+        );
+        Ok(Self {
             file_dao,
             upload_config,
+            upload_token,
+            collector,
             db,
-        }
+        })
     }
 
     pub fn db(&self) -> &Pool<MySql> {

@@ -19,6 +19,11 @@ pub use types::{
 // 业务类型导出
 pub use impls::app::{AppFeatureResponse, AppSecretResponse};
 pub use impls::auth::{AuthVerifyParam, AuthVerifyResponse};
+pub use impls::file::{
+    FileChunkParam, FileFromLocalResponse, FileFromUrlResponse, FileInfoItem, FileInfoResponse,
+    FileListItem, FileListResponse, FileMappingResponse, FileTagItem, FileUploadByMd5Response,
+    FileUploadCreateResponse, FileUploadRetokenResponse, FileUrlsResponse,
+};
 pub use impls::rbac::{
     AccessCheckParam, RbacCheckItem, RbacCheckParam, RbacCheckRequest, RbacCheckResponse,
     RbacCheckStatus, ResCheckParam, ResReqAuthParam, RoleCheckParam,

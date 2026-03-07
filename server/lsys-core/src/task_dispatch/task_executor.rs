@@ -4,7 +4,7 @@
 use async_trait::async_trait;
 use redis::aio::MultiplexedConnection;
 use redis::{
-    AsyncCommands, ErrorKind, FromRedisValue, RedisError, RedisResult, ToRedisArgs, Value,
+    AsyncCommands, FromRedisValue, ParsingError, ToRedisArgs, ToSingleRedisArg, Value,
 };
 use serde::{Deserialize, Serialize};
 
@@ -37,33 +37,26 @@ pub struct TaskData {
     pub time: u64,
 }
 impl FromRedisValue for TaskData {
-    fn from_redis_value(val: &Value) -> RedisResult<Self> {
-        let valstr = match *val {
-            Value::BulkString(ref bytes) => from_utf8(bytes)?.to_string(),
-            _ => {
-                return Err(RedisError::from((
-                    ErrorKind::TypeError,
-                    "Response was of incompatible type",
-                    format!(
-                        "Response type not string compatible. (response was {:?})",
-                        val
-                    ),
+    fn from_redis_value(val: Value) -> Result<Self, ParsingError> {
+        let valstr = match val {
+            Value::BulkString(bytes) => from_utf8(&bytes)?.to_string(),
+            other => {
+                return Err(ParsingError::from(format!(
+                    "Response type not string compatible. (response was {:?})",
+                    other
                 )))
             }
         };
         match serde_json::from_str::<TaskData>(&valstr) {
             Ok(data) => Ok(data),
-            Err(err) => Err(RedisError::from((
-                ErrorKind::TypeError,
-                "Response was of incompatible type",
-                format!(
-                    "Response type parse error:{}. (response was {:?})",
-                    err, val
-                ),
+            Err(err) => Err(ParsingError::from(format!(
+                "Response type parse error: {}",
+                err
             ))),
         }
     }
 }
+impl ToSingleRedisArg for TaskData {}
 impl ToRedisArgs for TaskData {
     fn write_redis_args<W>(&self, out: &mut W)
     where
@@ -185,7 +178,7 @@ impl TaskDispatchConfig {
 
 // 任务派发执行抽象实现
 pub struct TaskDispatch<
-    I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display + Clone,
+    I: FromRedisValue + ToRedisArgs + ToSingleRedisArg + Eq + Hash + Send + Sync + Display + Clone,
     T: TaskItem<I>,
 > {
     config: Arc<TaskDispatchConfig>,
@@ -212,7 +205,7 @@ pub struct TaskDispatch<
 }
 
 impl<
-        I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display + Clone,
+        I: FromRedisValue + ToRedisArgs + ToSingleRedisArg + Eq + Hash + Send + Sync + Display + Clone,
         T: TaskItem<I>,
     > TaskDispatch<I, T>
 {
@@ -247,7 +240,7 @@ impl<
 }
 
 impl<
-        I: FromRedisValue + ToRedisArgs + Eq + Hash + Send + Sync + Display + Clone,
+        I: FromRedisValue + ToRedisArgs + ToSingleRedisArg + Eq + Hash + Send + Sync + Display + Clone,
         T: TaskItem<I>, // 实在不想细细折腾，直接 'static ，毕竟T也没打算带用带引用
     > TaskDispatch<I, T>
 {
@@ -567,11 +560,16 @@ impl<
         });
         debug!("connect redis {}", self.config.task_list_key());
         let list_notify_key = self.config.notify_config.list_notify_key();
+        // redis 1.0.x 默认 response_timeout 为 500ms，会导致 blpop 等阻塞命令立即超时返回
+        // 设置为 blpop 超时 + 5s 缓冲，既允许 blpop 正常等待，又能在连接异常时兜底超时
+        let blpop_conn_config = redis::AsyncConnectionConfig::new()
+            .set_response_timeout(Some(std::time::Duration::from_secs(self.config.task_timeout as u64 + 5)));
         loop {
             //监听 list_notify 通知,获取发送任务加入到发送列表(本地channel 及 redis执行任务列表)
             debug!("listen task:{}", self.config.task_list_key());
-            match redis_client.get_multiplexed_async_connection().await {
+            match redis_client.get_multiplexed_async_connection_with_config(&blpop_conn_config).await {
                 Ok(mut redis) => {
+                    info!("config.task_timeout {} is:{}",self.config.task_list_key(), self.config.task_timeout);
                     let block: Result<Option<()>, _> = redis
                         .blpop(list_notify_key, self.config.task_timeout as f64)
                         .await;
@@ -587,9 +585,17 @@ impl<
                             }
                         }
                         Err(err) => {
-                            warn!("read pop error[{}]:{}", self.config.task_list_key(), err);
-                            sleep(Duration::from_secs(1)).await;
-                            continue;
+                           
+                            if err.to_string().contains("timed out") {
+                                if !self.config.is_timeout_check {
+                                    continue;
+                                }
+                                info!("timeout check task:{}", self.config.task_list_key());
+                            } else {
+                                warn!("read pop error[{}]:{}", self.config.task_list_key(), err);
+                                sleep(Duration::from_secs(1)).await;
+                                continue;
+                            }
                         }
                     };
 

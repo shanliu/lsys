@@ -1022,3 +1022,128 @@ export async function tencentSmsTplConfigAdd(
     return parseResData(data, TencentSmsTplConfigAddResSchema);
 }
 
+// ===== 亿美软通短信配置 =====
+// 亿美软通短信配置添加
+export const EmaySmsConfigAddParamSchema = z.object({
+    name: z.string(),
+    host: z.string(),
+    app_id: z.string(),
+    secret_key: z.string(),
+    callback_key: z.string().optional(),
+    limit: z.coerce.number().optional().nullable(),
+});
+export type EmaySmsConfigAddParamType = z.infer<typeof EmaySmsConfigAddParamSchema>;
+
+export const EmaySmsConfigAddResSchema = z.object({
+    id: z.coerce.number(),
+});
+export type EmaySmsConfigAddResType = z.infer<typeof EmaySmsConfigAddResSchema>;
+
+export async function emaySmsConfigAdd(
+    param: EmaySmsConfigAddParamType,
+    config?: AxiosRequestConfig<any>
+): Promise<ApiResult<EmaySmsConfigAddResType>> {
+    const { data } = await authApi().post("/api/system/sender/smser/emay_config_add", param, config);
+    return parseResData(data, EmaySmsConfigAddResSchema);
+}
+
+// 亿美软通短信配置删除
+export const EmaySmsConfigDelParamSchema = z.object({
+    id: z.coerce.number(),
+});
+export type EmaySmsConfigDelParamType = z.infer<typeof EmaySmsConfigDelParamSchema>;
+
+export const EmaySmsConfigDelResSchema = z.object({
+    num: z.string(),
+});
+export type EmaySmsConfigDelResType = z.infer<typeof EmaySmsConfigDelResSchema>;
+
+export async function emaySmsConfigDel(
+    param: EmaySmsConfigDelParamType,
+    config?: AxiosRequestConfig<any>
+): Promise<ApiResult<EmaySmsConfigDelResType>> {
+    const { data } = await authApi().post("/api/system/sender/smser/emay_config_del", param, config);
+    return parseResData(data, EmaySmsConfigDelResSchema);
+}
+
+// 亿美软通短信配置编辑
+export const EmaySmsConfigEditParamSchema = z.object({
+    id: z.coerce.number(),
+    name: z.string(),
+    host: z.string(),
+    app_id: z.string(),
+    secret_key: z.string(),
+    callback_key: z.string().optional(),
+    limit: z.coerce.number().optional().nullable(),
+});
+export type EmaySmsConfigEditParamType = z.infer<typeof EmaySmsConfigEditParamSchema>;
+
+export const EmaySmsConfigEditResSchema = z.object({
+    num: z.string(),
+});
+export type EmaySmsConfigEditResType = z.infer<typeof EmaySmsConfigEditResSchema>;
+
+export async function emaySmsConfigEdit(
+    param: EmaySmsConfigEditParamType,
+    config?: AxiosRequestConfig<any>
+): Promise<ApiResult<EmaySmsConfigEditResType>> {
+    const { data } = await authApi().post("/api/system/sender/smser/emay_config_edit", param, config);
+    return parseResData(data, EmaySmsConfigEditResSchema);
+}
+
+// 亿美软通短信配置列表
+export const EmaySmsConfigListParamSchema = z.object({
+    ids: z.array(z.coerce.number()).optional(),
+});
+export type EmaySmsConfigListParamType = z.infer<typeof EmaySmsConfigListParamSchema>;
+
+export const EmaySmsConfigItemSchema = z.object({
+    id: z.coerce.number(),
+    name: z.string(),
+    host: z.string(),
+    app_id: z.string(),
+    hide_app_id: z.string(),
+    secret_key: z.string(),
+    callback_key: z.string(),
+    callback_url: z.string(),
+    limit: z.coerce.number(),
+    change_time: UnixTimestampSchema,
+    change_user_id: z.coerce.number(),
+});
+export type EmaySmsConfigItemType = z.infer<typeof EmaySmsConfigItemSchema>;
+
+export const EmaySmsConfigListResSchema = z.object({
+    data: z.array(EmaySmsConfigItemSchema),
+});
+export type EmaySmsConfigListResType = z.infer<typeof EmaySmsConfigListResSchema>;
+
+export async function emaySmsConfigList(
+    param: EmaySmsConfigListParamType,
+    config?: AxiosRequestConfig<any>
+): Promise<ApiResult<EmaySmsConfigListResType>> {
+    const { data } = await authApi().post("/api/system/sender/smser/emay_config_list", param, config);
+    return parseResData(data, EmaySmsConfigListResSchema);
+}
+
+// 亿美软通短信模板配置添加
+export const EmaySmsTplConfigAddParamSchema = z.object({
+    name: z.string(),
+    config_id: z.coerce.number(),
+    tpl_key: z.string(),
+    extended_code: z.string(),
+});
+export type EmaySmsTplConfigAddParamType = z.infer<typeof EmaySmsTplConfigAddParamSchema>;
+
+export const EmaySmsTplConfigAddResSchema = z.object({
+    id: z.coerce.number(),
+});
+export type EmaySmsTplConfigAddResType = z.infer<typeof EmaySmsTplConfigAddResSchema>;
+
+export async function emaySmsTplConfigAdd(
+    param: EmaySmsTplConfigAddParamType,
+    config?: AxiosRequestConfig<any>
+): Promise<ApiResult<EmaySmsTplConfigAddResType>> {
+    const { data } = await authApi().post("/api/system/sender/smser/emay_tpl_config_add", param, config);
+    return parseResData(data, EmaySmsTplConfigAddResSchema);
+}
+

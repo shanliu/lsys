@@ -35,7 +35,8 @@ pub(crate) struct AppSecretParam {
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct AppSecretRecord {
-    pub secret_data: String,
+    pub secret_data: serde_json::Value,
+    #[serde(deserialize_with = "crate::utils::deserialize_u64_from_string")]
     pub time_out: u64,
 }
 

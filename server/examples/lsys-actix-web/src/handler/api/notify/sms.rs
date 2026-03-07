@@ -5,7 +5,7 @@ use actix_web::web::Bytes;
 use actix_web::{post, HttpRequest, HttpResponse};
 
 use lsys_web::lsys_app_sender::dao::{
-    AliYunNotify, CloOpenNotify, HwYunNotify, NetEaseNotify, TenYunNotify,
+    AliYunNotify, CloOpenNotify, EmayNotify, HwYunNotify, NetEaseNotify, TenYunNotify,
 };
 
 use crate::common::handler::ReqQuery;
@@ -86,6 +86,13 @@ pub(crate) async fn notify(
             &notify_body,
         );
         notify.output::<TenYunNotify>(&notify.save(config, notify_data).await)
+    } else if notify.check::<EmayNotify>(&config) {
+        let notify_body = String::from_utf8_lossy(&body).to_string();
+        let notify_data = EmayNotify::new(
+            path.callback_key.as_deref().unwrap_or_default(),
+            &notify_body,
+        );
+        notify.output::<EmayNotify>(&notify.save(config, notify_data).await)
     } else {
         return HttpResponse::NotFound().body("unkown key type");
     };
