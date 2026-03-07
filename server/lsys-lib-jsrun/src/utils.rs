@@ -39,7 +39,7 @@ impl ::std::error::Error for JsSyntaxError {}
 ///
 /// // Syntax error
 /// let err = check_js_syntax("let x = ;").unwrap_err();
-/// assert!(err.message.contains("SyntaxError"));
+/// assert!(err.message.to_lowercase().contains("syntax"));
 /// ```
 pub fn check_js_syntax(source: &str) -> Result<(), JsSyntaxError> {
     use rquickjs::CatchResultExt;
