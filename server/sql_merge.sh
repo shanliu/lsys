@@ -10,10 +10,10 @@ find . -type f -name "tables.sql" ! -path "./tables.sql" | sort | while read -r 
     if [ "$(uname)" = "Darwin" ]; then
         echo  "-- ---------- $f ------------" >> "$outputFile"
         cat "$f" >> "$outputFile"
-        echo  "\n-- ---------- $f ------------" >> "$outputFile"
+        echo -e " \n -- ---------- $f ------------" >> "$outputFile"
     else
         echo -e "-- ---------- $f ------------" >> "$outputFile"
         cat "$f" >> "$outputFile"
-        echo -e  "\n-- ---------- $f ------------\n" >> "$outputFile"
+        echo -e  " \n -- ---------- $f ------------\n" >> "$outputFile"
     fi
 done
