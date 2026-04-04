@@ -47,6 +47,8 @@ jobs:
 
     - name: Build ui
       working-directory: ./ui
+      env:
+        PNPM_INSTALL_OPTIONAL: true
       run: |
-        pnpm install
+        pnpm install --force
         pnpm build
