@@ -163,11 +163,9 @@ mod tests {
     fn test_update_with_dynamic_field_value() {
         use sqlx::MySql;
         
-        // 测试 FieldValue::Dynamic 是否能正确构建 SQL
+        // 测试 FieldValue::Expr 和 FieldValue::Dynamic
         let update = Update::<MySql, TestModel>::new()
-            .set(TestModel::TRY_NUM, FieldValue::Dynamic(Box::new(|qb| {
-                qb.push("try_num+1");
-            })))
+            .set(TestModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))  // 简单表达式用 Expr
             .set(TestModel::STATUS, FieldValue::Dynamic(Box::new(|qb| {
                 qb.push("if(try_num>=");
                 qb.push_bind(3_i32);
@@ -183,11 +181,11 @@ mod tests {
         assert_eq!(update.fields[0].0, "try_num");
         assert_eq!(update.fields[1].0, "status");
         
-        // 验证是 Dynamic 类型
-        assert!(matches!(update.fields[0].1, StoredValue::Dynamic(_)));
+        // 验证类型
+        assert!(matches!(update.fields[0].1, StoredValue::Expr(_)));
         assert!(matches!(update.fields[1].1, StoredValue::Dynamic(_)));
         
-        println!("✓ FieldValue::Dynamic 字段设置成功");
+        println!("✓ FieldValue::Expr 和 FieldValue::Dynamic 字段设置成功");
     }
 
     #[cfg(feature = "db-mysql")]
