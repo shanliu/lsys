@@ -4,6 +4,8 @@
 	"version": "0.0.1",
 	"license": "MIT",
 	"scripts": {
+		"preinstall": "npx only-allow pnpm",
+		"postinstall": "pnpm rebuild @tailwindcss/postcss",
 		"dev": "rspack dev",
 		"build": "cross-env NODE_ENV=production tsr generate && rspack build --mode=production",
 		"preview": "rspack preview",
