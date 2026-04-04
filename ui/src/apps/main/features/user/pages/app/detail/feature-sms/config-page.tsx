@@ -1,25 +1,26 @@
 "use client";
 
-import { userSenderSmsConfigDel, UserSenderSmsConfigItemType, userSenderSmsConfigList } from "@shared/apis/user/sender-sms";
-import { SenderRuleConfigView } from "@apps/main/components/local/sender-config/rule-config-view";
-import { ConfirmDialog } from "@shared/components/custom/dialog/confirm-dialog";
 import { FilterContainer } from "@apps/main/components/filter-container/container";
 import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
 import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
 import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
+import { SenderRuleConfigView } from "@apps/main/components/local/sender-config/rule-config-view";
+import { AppDetailNavContainer } from "@apps/main/features/user/components/ui/app-detail-nav";
+import { TypedDictData, useDictData } from "@apps/main/hooks/use-dict-data";
+import { DEFAULT_PAGE_SIZE, PagePagination, usePageCountNum } from "@apps/main/lib/pagination-utils";
+import { Route } from "@apps/main/routes/_main/user/app/$appId/features-sms/config";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { userSenderSmsConfigDel, UserSenderSmsConfigItemType, userSenderSmsConfigList } from "@shared/apis/user/sender-sms";
+import { ConfirmDialog } from "@shared/components/custom/dialog/confirm-dialog";
 import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
 import { PageSkeletonTable } from "@shared/components/custom/page-placeholder/skeleton-table";
-import { DEFAULT_PAGE_SIZE, PagePagination, useCountNumManager } from "@apps/main/lib/pagination-utils";
 import { DataTable, DataTableAction, DataTableActionItem } from "@shared/components/custom/table";
 import { Badge } from "@shared/components/ui/badge";
 import { Button } from "@shared/components/ui/button";
 import { useToast } from "@shared/contexts/toast-context";
-import { AppDetailNavContainer } from "@apps/main/features/user/components/ui/app-detail-nav";
-import { TypedDictData, useDictData } from "@apps/main/hooks/use-dict-data";
 import { useIsMobile } from "@shared/hooks/use-mobile";
 import { cn, formatServerError, formatTime, getQueryResponseData, TIME_STYLE } from "@shared/lib/utils";
-import { Route } from "@apps/main/routes/_main/user/app/$appId/features-sms/config";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { formatTotalCount } from "@shared/lib/utils/format-utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { ColumnDef } from "@tanstack/react-table";
@@ -110,7 +111,7 @@ export function SmsConfigContent({ dictData }: SmsConfigContentProps) {
   };
 
   // count_num 优化管理器（传入 filters 自动监听变化）
-  const countNumManager = useCountNumManager(filters);
+  const countNumManager = usePageCountNum(filters);
 
   // 获取短信配置列表数据
   const {
@@ -247,7 +248,7 @@ export function SmsConfigContent({ dictData }: SmsConfigContentProps) {
                   title="删除"
                 >
                   <Trash2 className=" h-4 w-4" />
-                   {isMobile ? <span className="ml-2">删除</span>: null}
+                  {isMobile ? <span className="ml-2">删除</span> : null}
                 </Button>
               </ConfirmDialog>
             </DataTableActionItem>
@@ -278,7 +279,7 @@ export function SmsConfigContent({ dictData }: SmsConfigContentProps) {
           }}
           countComponent={
             <FilterTotalCount
-              total={configs.length ?? 0}
+              value={formatTotalCount(configs.length)}
               loading={isLoading}
             />
           }

@@ -1,57 +1,67 @@
-"use client"
+"use client";
 
-import { FilterContainer } from "@apps/main/components/filter-container/container"
-import { FilterActions } from "@apps/main/components/filter-container/filter-actions"
-import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select"
-import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count"
-import { AppDetailNavContainer } from "@apps/main/features/user/components/ui/app-detail-nav"
-import { NotifyKeyLink } from "@apps/main/features/user/components/ui/notify-key-link"
-import { useDictData, type TypedDictData } from "@apps/main/hooks/use-dict-data"
-import { appQueryKey } from "@apps/main/lib/auth-utils"
+import { FilterContainer } from "@apps/main/components/filter-container/container";
+import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
+import { UserExportAction } from "@apps/main/features/user/components/ui/user-export-action";
+import { EXPORT_TYPE_APP_NOTIFY_LIST } from "@shared/apis/user/file";
+import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
+import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
+import { AppDetailNavContainer } from "@apps/main/features/user/components/ui/app-detail-nav";
+import { NotifyKeyLink } from "@apps/main/features/user/components/ui/notify-key-link";
+import {
+  useDictData,
+  type TypedDictData,
+} from "@apps/main/hooks/use-dict-data";
+import { appQueryKey } from "@apps/main/lib/auth-utils";
 import {
   DEFAULT_PAGE_SIZE,
   PAGE_SIZE_OPTIONS,
-  useCountNumManager,
+  useLimitCountNum,
   useSearchNavigate,
-} from "@apps/main/lib/pagination-utils"
-import { createStatusMapper } from "@apps/main/lib/status-utils"
-import { Route } from "@apps/main/routes/_main/user/app/$appId/notify"
-import { zodResolver } from "@hookform/resolvers/zod"
+} from "@apps/main/lib/pagination-utils";
+import { createStatusMapper } from "@apps/main/lib/status-utils";
+import { Route } from "@apps/main/routes/_main/user/app/$appId/notify";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
   appList,
   appNotifyDel,
   appNotifyList,
   type AppListItemType,
   type AppNotifyListItemType,
-} from "@shared/apis/user/app"
-import { ConfirmDialog } from "@shared/components/custom/dialog/confirm-dialog"
-import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error"
-import { PageSkeletonTable } from "@shared/components/custom/page-placeholder/skeleton-table"
-import { OffsetPagination } from "@shared/components/custom/pagination"
-import { DataTable, DataTableAction, DataTableActionItem } from "@shared/components/custom/table"
-import { Badge } from "@shared/components/ui/badge"
-import { Button } from "@shared/components/ui/button"
-import { useToast } from "@shared/contexts/toast-context"
-import { useIsMobile } from "@shared/hooks/use-mobile"
+} from "@shared/apis/user/app";
+import { ConfirmDialog } from "@shared/components/custom/dialog/confirm-dialog";
+import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
+import { PageSkeletonTable } from "@shared/components/custom/page-placeholder/skeleton-table";
+import { CursorPagination } from "@shared/components/custom/pagination";
 import {
-  cn, formatServerError, formatTime,
+  DataTable,
+  DataTableAction,
+  DataTableActionItem,
+} from "@shared/components/custom/table";
+import { Badge } from "@shared/components/ui/badge";
+import { Button } from "@shared/components/ui/button";
+import { useToast } from "@shared/contexts/toast-context";
+import { useIsMobile } from "@shared/hooks/use-mobile";
+import {
+  cn,
+  formatServerError,
+  formatTime,
   getQueryResponseCursor,
   getQueryResponseData,
-  TIME_STYLE
-} from "@shared/lib/utils"
-import { DictList } from "@shared/types/apis-dict"
-import { type LimitType } from "@shared/types/base-schema"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useNavigate } from "@tanstack/react-router"
-import { type ColumnDef } from "@tanstack/react-table"
-import { Eye, Key, Trash2 } from "lucide-react"
-import React from "react"
-import { notifyModuleConfig } from "./nav-info"
-import { NotifyDetailDrawer } from "./notify-detail-drawer"
-import {
-  AppNotifyListFilterFormSchema
-} from "./notify-schema"
-import { NotifySecretDrawer } from "./notify-secret-drawer"
+  TIME_STYLE,
+} from "@shared/lib/utils";
+import { formatTotalCount } from "@shared/lib/utils/format-utils";
+import { DictList } from "@shared/types/apis-dict";
+import { type LimitType } from "@shared/types/base-schema";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
+import { type ColumnDef } from "@tanstack/react-table";
+import { Eye, Key, Trash2 } from "lucide-react";
+import React from "react";
+import { notifyModuleConfig } from "./nav-info";
+import { NotifyDetailDrawer } from "./notify-detail-drawer";
+import { AppNotifyListFilterFormSchema } from "./notify-schema";
+import { NotifySecretDrawer } from "./notify-secret-drawer";
 
 export function AppNotifyPage() {
   // docs\api\user\app\notify_del.md
@@ -67,28 +77,29 @@ export function AppNotifyPage() {
     data: appData,
     isLoading: isLoadingApp,
     isError: isAppError,
-    error: appError
+    error: appError,
   } = useQuery({
     queryKey: appQueryKey(appId),
     queryFn: async () => {
       const result = await appList({
         app_id: Number(appId),
         page: { page: 1, limit: 1 },
-        count_num: false
-      })
+        count_num: false,
+      });
       if (!result.status) {
-        throw result
+        throw result;
       }
       if (result.response?.data && result.response.data.length > 0) {
-        return result.response.data[0]
+        return result.response.data[0];
       }
-      return null
+      return null;
     },
-    enabled: !!appId
+    enabled: !!appId,
   });
   const [secretDrawerOpen, setSecretDrawerOpen] = React.useState(false);
   const [detailDrawerOpen, setDetailDrawerOpen] = React.useState(false);
-  const [selectedNotify, setSelectedNotify] = React.useState<AppNotifyListItemType | null>(null);
+  const [selectedNotify, setSelectedNotify] =
+    React.useState<AppNotifyListItemType | null>(null);
 
   // 字典数据获取 - 统一在最顶层获取一次
   const {
@@ -97,19 +108,22 @@ export function AppNotifyPage() {
     isError: dictError,
     errors: dictErrors,
     refetch: refetchDict,
-  } = useDictData(['user_app'] as const);
+  } = useDictData(["user_app"] as const);
 
   // 字典数据已加载，创建状态映射器（需要在早期返回之前调用）
   const notifyStatusMapper = React.useMemo(
-    () => dictData ? createStatusMapper<string>(
-      {
-        "1": "warning",   // 待回调 - 黄色警告色
-        "2": "success",   // 已回调 - 绿色成功色
-        "3": "danger",    // 回调失败 - 红色危险色
-      },
-      (status) => dictData.notify_status.getLabel(status) || status
-    ) : null,
-    [dictData]
+    () =>
+      dictData
+        ? createStatusMapper<string>(
+            {
+              "1": "warning", // 待回调 - 黄色警告色
+              "2": "success", // 已回调 - 绿色成功色
+              "3": "danger", // 回调失败 - 红色危险色
+            },
+            (status) => dictData.notify_status.getLabel(status) || status,
+          )
+        : null,
+    [dictData],
   );
 
   // 如果字典加载失败，显示错误页面
@@ -127,11 +141,7 @@ export function AppNotifyPage() {
   // 如果应用详情加载失败，显示错误页面
   if (isAppError) {
     return (
-      <CenteredError
-        variant="page"
-        error={appError}
-        className={cn("md:m-6")}
-      />
+      <CenteredError variant="page" error={appError} className={cn("md:m-6")} />
     );
   }
 
@@ -151,7 +161,11 @@ export function AppNotifyPage() {
       <AppDetailNavContainer
         {...notifyModuleConfig}
         actions={
-          <Button variant="outline" size="sm" onClick={() => setSecretDrawerOpen(true)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setSecretDrawerOpen(true)}
+          >
             <Key className={cn("mr-2 h-4 w-4")} />
             回调密钥
           </Button>
@@ -183,7 +197,7 @@ export function AppNotifyPage() {
         appId={String(appId)}
       />
     </>
-  )
+  );
 }
 
 // 内容组件：负责内容加载和渲染
@@ -194,7 +208,12 @@ interface AppNotifyContentProps {
   onOpenDetail: (notify: AppNotifyListItemType) => void;
 }
 
-function AppNotifyContent({ dictData, notifyStatusMapper, appData, onOpenDetail }: AppNotifyContentProps) {
+function AppNotifyContent({
+  dictData,
+  notifyStatusMapper,
+  appData,
+  onOpenDetail,
+}: AppNotifyContentProps) {
   const { appId } = Route.useParams();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -223,7 +242,7 @@ function AppNotifyContent({ dictData, notifyStatusMapper, appData, onOpenDetail 
   const searchGo = useSearchNavigate(navigate, filterParam);
 
   // count_num 优化管理器（传入 filters 自动监听变化）
-  const countNumManager = useCountNumManager(filters);
+  const countNumManager = useLimitCountNum(filters);
 
   // 构建查询参数
   const queryParams = {
@@ -233,12 +252,18 @@ function AppNotifyContent({ dictData, notifyStatusMapper, appData, onOpenDetail 
     attr_callback_data: true,
     method: filters.notify_method || undefined,
     status: filters.notify_status ? Number(filters.notify_status) : undefined,
-  }
+  };
 
   // 获取回调通知列表
-  const { data: notifyData, isSuccess, isLoading, isError, error } = useQuery({
+  const {
+    data: notifyData,
+    isSuccess,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: [
-      'app-notify-list',
+      "app-notify-list",
       appId,
       pagination.pos,
       currentLimit,
@@ -250,30 +275,31 @@ function AppNotifyContent({ dictData, notifyStatusMapper, appData, onOpenDetail 
     queryFn: ({ signal }) => appNotifyList(queryParams, { signal }),
   });
 
-
-
   // 处理 Limit 分页查询结果（自动提取 total 和 next）
-  isSuccess && countNumManager.handleLimitQueryResult(notifyData);
+  isSuccess && countNumManager.handleQueryResult(notifyData);
 
   // 获取响应数据
-  const messages = getQueryResponseData<AppNotifyListItemType[]>(notifyData, []);
+  const messages = getQueryResponseData<AppNotifyListItemType[]>(
+    notifyData,
+    [],
+  );
   const cursorData = getQueryResponseCursor(notifyData);
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => appNotifyDel({ id }),
     onSuccess: () => {
-      toast.success("回调记录删除成功")
-      countNumManager.reset()
-      queryClient.invalidateQueries({ queryKey: ['app-notify-list', appId] })
+      toast.success("回调记录删除成功");
+      countNumManager.reset();
+      queryClient.invalidateQueries({ queryKey: ["app-notify-list", appId] });
     },
     onError: (error: any) => {
-      toast.error(formatServerError(error))
-    }
-  })
+      toast.error(formatServerError(error));
+    },
+  });
 
   const handleDelete = async (id: number) => {
-    await deleteMutation.mutateAsync(id)
-  }
+    await deleteMutation.mutateAsync(id);
+  };
 
   // 定义表格列
   const columns: ColumnDef<AppNotifyListItemType>[] = [
@@ -281,7 +307,11 @@ function AppNotifyContent({ dictData, notifyStatusMapper, appData, onOpenDetail 
       accessorKey: "id",
       header: () => <div className={cn(isMobile ? "" : "text-right")}>ID</div>,
       size: 60,
-      cell: ({ row }) => <div className={cn(isMobile ? "" : "text-right")}>{row.original.id}</div>
+      cell: ({ row }) => (
+        <div className={cn(isMobile ? "" : "text-right")}>
+          {row.original.id}
+        </div>
+      ),
     },
     {
       accessorKey: "notify_method",
@@ -289,9 +319,10 @@ function AppNotifyContent({ dictData, notifyStatusMapper, appData, onOpenDetail 
       size: 80,
       cell: ({ row }) => (
         <span>
-          {dictData.notify_method.getLabel(row.original.notify_method) || row.original.notify_method}
+          {dictData.notify_method.getLabel(row.original.notify_method) ||
+            row.original.notify_method}
         </span>
-      )
+      ),
     },
     {
       accessorKey: "notify_key",
@@ -302,19 +333,23 @@ function AppNotifyContent({ dictData, notifyStatusMapper, appData, onOpenDetail 
           appId={appId}
           notifyMethod={row.original.notify_method}
           notifyKey={row.original.notify_key}
-          className={cn("bg-gray-100 bg-opacity-50 text-primary hover:underline")}
+          className={cn(
+            "bg-gray-100 bg-opacity-50 text-primary hover:underline",
+          )}
         />
-      )
+      ),
     },
     {
       accessorKey: "status",
       header: "状态",
       size: 80,
       cell: ({ row }) => (
-        <Badge className={notifyStatusMapper.getClass(String(row.original.status))}>
+        <Badge
+          className={notifyStatusMapper.getClass(String(row.original.status))}
+        >
           {notifyStatusMapper.getText(String(row.original.status))}
         </Badge>
-      )
+      ),
     },
     {
       accessorKey: "publish_time",
@@ -322,17 +357,24 @@ function AppNotifyContent({ dictData, notifyStatusMapper, appData, onOpenDetail 
       size: 140,
       cell: ({ row }) => {
         const isSuccess = row.original.status === 2;
-        const timeToShow = isSuccess ? row.original.publish_time : row.original.next_time;
+        const timeToShow = isSuccess
+          ? row.original.publish_time
+          : row.original.next_time;
         return <>{formatTime(timeToShow, TIME_STYLE.ABSOLUTE_ELEMENT)}</>;
-      }
+      },
     },
     {
       id: "actions",
       size: 80,
       header: () => <div className="text-center">操作</div>,
       cell: ({ row }) => (
-        <DataTableAction className={cn(isMobile ? "justify-end" : "justify-center")}>
-          <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
+        <DataTableAction
+          className={cn(isMobile ? "justify-end" : "justify-center")}
+        >
+          <DataTableActionItem
+            mobileDisplay="display"
+            desktopDisplay="collapsed"
+          >
             <Button
               size="sm"
               variant="ghost"
@@ -344,7 +386,10 @@ function AppNotifyContent({ dictData, notifyStatusMapper, appData, onOpenDetail 
               <span className="ml-2">回调详情</span>
             </Button>
           </DataTableActionItem>
-          <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
+          <DataTableActionItem
+            mobileDisplay="display"
+            desktopDisplay="collapsed"
+          >
             <ConfirmDialog
               title="确认删除"
               description="确定要删除这条回调记录吗？"
@@ -362,23 +407,22 @@ function AppNotifyContent({ dictData, notifyStatusMapper, appData, onOpenDetail 
             </ConfirmDialog>
           </DataTableActionItem>
         </DataTableAction>
-      )
-    }
-  ]
-
+      ),
+    },
+  ];
 
   // 刷新数据
   const handleRefresh = React.useCallback(() => {
     queryClient.refetchQueries({
-      queryKey: ['app-notify-list'],
-    })
-  }, [queryClient])
+      queryKey: ["app-notify-list"],
+    });
+  }, [queryClient]);
 
   // 清除缓存并重新加载数据（双击搜索按钮时）
   const clearCacheAndReload = React.useCallback(() => {
     countNumManager.reset();
-    queryClient.invalidateQueries({ queryKey: ['app-notify-list'] });
-  }, [queryClient, countNumManager])
+    queryClient.invalidateQueries({ queryKey: ["app-notify-list"] });
+  }, [queryClient, countNumManager]);
 
   // 页面大小变化处理
   const handlePageSizeChange = React.useCallback(
@@ -387,10 +431,10 @@ function AppNotifyContent({ dictData, notifyStatusMapper, appData, onOpenDetail 
         limit: pageSize,
         pos: null, // 重置分页位置
         forward: true,
-      })
+      });
     },
-    [searchGo]
-  )
+    [searchGo],
+  );
 
   return (
     <div className="flex h-full flex-1 flex-col">
@@ -423,33 +467,39 @@ function AppNotifyContent({ dictData, notifyStatusMapper, appData, onOpenDetail 
             });
           }}
           countComponent={
-            <FilterTotalCount total={countNumManager.getTotal() ?? 0} loading={isLoading} />
+            <FilterTotalCount
+              value={formatTotalCount(countNumManager.getTotalInfo())}
+              loading={isLoading}
+            />
           }
           className={cn("bg-card rounded-lg border shadow-sm relative")}
         >
           {(layoutParams, form) => (
             <div className={cn("flex-1 flex flex-wrap items-end gap-3")}>
               {/* 回调方法过滤 */}
-              {dictData.notify_method && (() => {
-                // 如果有父应用，过滤掉 sub_app_notify
-                let notifyMethodData = dictData.notify_method;
-                if (appData?.parent_app_id && appData.parent_app_id > 0) {
-                  const filtered = dictData.notify_method.filter((item: any) => item.key !== 'sub_app_notify');
-                  notifyMethodData = new DictList(...filtered);
-                }
+              {dictData.notify_method &&
+                (() => {
+                  // 如果有父应用，过滤掉 sub_app_notify
+                  let notifyMethodData = dictData.notify_method;
+                  if (appData?.parent_app_id && appData.parent_app_id > 0) {
+                    const filtered = dictData.notify_method.filter(
+                      (item: any) => item.key !== "sub_app_notify",
+                    );
+                    notifyMethodData = new DictList(...filtered);
+                  }
 
-                return (
-                  <FilterDictSelect
-                    name="notify_method"
-                    placeholder="选择回调方法"
-                    label="回调类型"
-                    disabled={isLoading}
-                    dictData={notifyMethodData}
-                    layoutParams={layoutParams}
-                    allLabel="全部"
-                  />
-                );
-              })()}
+                  return (
+                    <FilterDictSelect
+                      name="notify_method"
+                      placeholder="选择回调方法"
+                      label="回调类型"
+                      disabled={isLoading}
+                      dictData={notifyMethodData}
+                      layoutParams={layoutParams}
+                      allLabel="全部"
+                    />
+                  );
+                })()}
 
               {/* 回调状态过滤 */}
               {dictData.notify_status && (
@@ -465,12 +515,29 @@ function AppNotifyContent({ dictData, notifyStatusMapper, appData, onOpenDetail 
               )}
 
               {/* 动作按钮区域 */}
-              <div className={cn(layoutParams.isMobile ? "w-full" : "flex-shrink-0")}>
+              <div
+                className={cn(
+                  layoutParams.isMobile ? "w-full" : "flex-shrink-0",
+                )}
+              >
                 <FilterActions
                   form={form}
                   loading={isLoading}
                   layoutParams={layoutParams}
                   onRefreshSearch={clearCacheAndReload}
+                  extraActions={
+                    <UserExportAction
+                      appId={Number(appId)}
+                      exportType={EXPORT_TYPE_APP_NOTIFY_LIST}
+                      params={{
+                        method: filters.notify_method ?? undefined,
+                        status: filters.notify_status
+                          ? Number(filters.notify_status)
+                          : undefined,
+                      }}
+                      layoutParams={layoutParams}
+                    />
+                  }
                 />
               </div>
             </div>
@@ -483,17 +550,24 @@ function AppNotifyContent({ dictData, notifyStatusMapper, appData, onOpenDetail 
           data={messages}
           columns={columns}
           loading={isLoading}
-          error={isError ? <CenteredError error={error} variant="content" onReset={handleRefresh} /> : null}
-
+          error={
+            isError ? (
+              <CenteredError
+                error={error}
+                variant="content"
+                onReset={handleRefresh}
+              />
+            ) : null
+          }
           className={cn("flex-1")}
         />
         <div className={cn("py-4")}>
-          {(countNumManager.getTotal() ?? 0) > 0 && (
-            <OffsetPagination
+          {countNumManager.hasTotalInfo() && (
+            <CursorPagination
               limit={currentLimit}
               cursorData={cursorData}
               searchGo={searchGo}
-              total={countNumManager.getTotal()}
+              totalInfo={countNumManager.getTotalInfo()}
               currentPageSize={messages.length}
               loading={isLoading}
               onRefresh={handleRefresh}
@@ -506,5 +580,5 @@ function AppNotifyContent({ dictData, notifyStatusMapper, appData, onOpenDetail 
         </div>
       </div>
     </div>
-  )
+  );
 }

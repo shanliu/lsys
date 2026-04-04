@@ -5,7 +5,7 @@ import {
 } from "@shared/apis/admin/sender-mailer";
 import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
 import { CenteredLoading } from "@shared/components/custom/page-placeholder/centered-loading";
-import { PagePagination, useCountNumManager } from "@apps/main/lib/pagination-utils";
+import { PagePagination, usePageCountNum } from "@apps/main/lib/pagination-utils";
 import { Badge } from "@shared/components/ui/badge";
 import {
   Drawer,
@@ -44,7 +44,7 @@ export function SendLogLogsDrawer({
   const pageSize = 10;
 
   // count_num 管理器
-  const countNumManager = useCountNumManager({ messageId: message.id });
+  const countNumManager = usePageCountNum({ messageId: message.id });
 
   // 获取日志列表 - 只有在抽屉打开时才启用查询
   const {
@@ -68,7 +68,7 @@ export function SendLogLogsDrawer({
   });
 
   // 处理 Page 分页查询结果（自动提取 total）
-  isSuccess && countNumManager.handlePageQueryResult(logsData);
+  isSuccess && countNumManager.handleQueryResult(logsData);
 
   const logs = getQueryResponseData<SystemSenderMailerMessageLogItemType[]>(
     logsData,

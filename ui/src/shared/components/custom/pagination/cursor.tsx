@@ -9,17 +9,18 @@ import {
 import { useIsMobile } from "@shared/hooks/use-mobile";
 import { cn } from "@shared/lib/utils";
 import type { CursorPageResponseType } from "@shared/lib/utils/tools-utils";
+import type { TotalRecrodResType } from "@shared/types/base-schema";
 import { ChevronLeft, ChevronRight, Loader2, RefreshCw } from "lucide-react";
 
-export interface OffsetPaginationProps {
+export interface CursorPaginationProps {
   /** 每页限制数量 */
   limit: number;
   /** 游标数据（自动计算分页状态） */
   cursorData: CursorPageResponseType | null;
   /** 搜索导航函数（自动处理分页跳转） */
   searchGo: (param: { pos: number | null; forward?: boolean } & Record<string, any>) => void;
-  /** 总记录数 */
-  total?: number | null;
+  /** 总记录数信息（含 exact / over） */
+  totalInfo?: TotalRecrodResType | null;
   /** 当前页实际记录数 */
   currentPageSize: number;
   /** 加载状态 */
@@ -38,11 +39,11 @@ export interface OffsetPaginationProps {
   onPageSizeChange?: (pageSize: number) => void;
 }
 
-export function OffsetPagination({
+export function CursorPagination({
   limit,
   cursorData,
   searchGo,
-  total = null,
+  totalInfo = null,
   currentPageSize,
   loading = false,
   onRefresh,
@@ -51,28 +52,36 @@ export function OffsetPagination({
   pageSizeOptions = [20, 50, 100],
   showPageSize = true,
   onPageSizeChange,
-}: OffsetPaginationProps) {
+}: CursorPaginationProps) {
   const isMobile = useIsMobile();
 
   // 根据 cursorData 自动计算分页状态
-  const hasNext = cursorData?.next_cursor != null;
-  const canGoPrev = cursorData?.prev_cursor != null;
+  const hasNext = cursorData?.next != null;
+  const canGoPrev = cursorData?.prev != null;
 
   // 分页处理函数
   const onPrevious = () => {
-    if (cursorData?.prev_cursor != null) {
-      searchGo({ pos: cursorData.prev_cursor, forward: false });
+    if (cursorData?.prev != null) {
+      searchGo({ pos: cursorData.prev, forward: false });
     }
   };
 
   const onNext = () => {
-    if (cursorData?.next_cursor != null) {
-      searchGo({ pos: cursorData.next_cursor, forward: true });
+    if (cursorData?.next != null) {
+      searchGo({ pos: cursorData.next, forward: true });
     }
   };
 
-  // 计算总页数（当有总数时）
-  const totalPages = total ? Math.ceil(total / limit) : undefined;
+  // 解析总数显示
+  const exactTotal = totalInfo?.exact ?? null;
+  const overTotal = totalInfo?.over ?? null;
+  const isExact = exactTotal !== null;
+  const isOver = !isExact && overTotal !== null;
+
+
+  // 计算总页数
+  const exactPages = isExact && exactTotal ? Math.ceil(exactTotal / limit) : null;
+  const overPages = isOver && overTotal ? Math.ceil(overTotal / limit) : null;
 
   // 移动端显示
   if (isMobile) {
@@ -103,8 +112,10 @@ export function OffsetPagination({
             {loading ? (
               <Loader2 className={cn("h-3 w-3 animate-spin [animation-duration:0.5s]")} />
             ) : currentPageSize && currentPageSize > 0 ? (
-              total !== null && total !== undefined ? (
-                <span>{total}条·{totalPages}页</span>
+              isExact && exactPages ? (
+                <span>{exactTotal!.toLocaleString()}条·{exactPages}页</span>
+              ) : isOver ? (
+                <span>超{overTotal!.toLocaleString()}条·{overPages}+页</span>
               ) : (
                 <span>—</span>
               )
@@ -142,17 +153,25 @@ export function OffsetPagination({
           </div>
         ) : currentPageSize && currentPageSize > 0 ? (
           <div className="flex items-center gap-1">
-            {total !== null && total !== undefined && (
+            {isExact && exactPages ? (
               <>
                 <span className="hidden lg:inline">
-                  共 {total} 条{totalPages && `，共 ${totalPages} 页`}
+                  共 {exactTotal!.toLocaleString()} 条，共 {exactPages} 页
                 </span>
                 <span className="lg:hidden">
-                  {total}条·{totalPages}页
+                  {exactTotal!.toLocaleString()}条·{exactPages}页
                 </span>
               </>
-            )}
-            {(total === null || total === undefined) && (
+            ) : isOver ? (
+              <>
+                <span className="hidden lg:inline">
+                  超过 {overTotal!.toLocaleString()} 条，超过 {overPages} 页
+                </span>
+                <span className="lg:hidden">
+                  超{overTotal!.toLocaleString()}条·{overPages}+页
+                </span>
+              </>
+            ) : (
               <span>第 1 页</span>
             )}
           </div>
@@ -175,7 +194,7 @@ export function OffsetPagination({
             <Select
               value={String(limit)}
               onValueChange={(value) => onPageSizeChange(Number(value))}
-              disabled={loading || (total !== null && total !== undefined && total < Math.min(...pageSizeOptions))}
+              disabled={loading || (isExact && exactTotal !== null && exactTotal < Math.min(...pageSizeOptions)) || (isOver && overTotal !== null && overTotal < Math.min(...pageSizeOptions))}
             >
               <SelectTrigger className={cn("h-8 w-20 text-center")}>
                 <SelectValue />
@@ -185,7 +204,7 @@ export function OffsetPagination({
                   <SelectItem
                     key={size}
                     value={String(size)}
-                    disabled={total !== null && total !== undefined && total < size}
+                    disabled={(isExact && exactTotal !== null && exactTotal < size) || (isOver && overTotal !== null && overTotal < size)}
                   >
                     {size}
                   </SelectItem>

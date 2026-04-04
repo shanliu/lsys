@@ -22,7 +22,7 @@ import {
 import {
   DEFAULT_PAGE_SIZE,
   PagePagination,
-  useCountNumManager,
+  usePageCountNum,
 } from '@apps/main/lib/pagination-utils'
 import { Badge } from '@shared/components/ui/badge'
 import { Button } from '@shared/components/ui/button'
@@ -133,7 +133,7 @@ export function RolePermsDrawer({
   })
 
   // count_num 优化管理器
-  const countNumManager = useCountNumManager()
+  const countNumManager = usePageCountNum()
 
   // 获取角色权限列表
   const { data: permsData, isSuccess, isLoading } = useQuery({
@@ -158,7 +158,7 @@ export function RolePermsDrawer({
 
   // 处理分页查询结果
   if (isSuccess) {
-    countNumManager.handlePageQueryResult(permsData)
+    countNumManager.handleQueryResult(permsData)
   }
 
   // 获取资源列表

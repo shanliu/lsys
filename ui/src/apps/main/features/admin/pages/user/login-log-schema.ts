@@ -1,5 +1,4 @@
-import { LimitDataParam } from '@shared/types/base-schema';
-import { NumberParamSchema } from '@shared/types/base-schema';
+import { LimitDataParam, NumberParamSchema } from '@shared/types/base-schema';
 import { z } from 'zod';
 
 // 基础过滤器字段 schema，app_id 默认为 0（系统）
@@ -25,11 +24,3 @@ export const LoginLogFilterFormSchema = z.object({
 });
 
 export type LoginLogFilterParamType = z.infer<typeof LoginLogFilterParamSchema>;
-
-// 偏移分页状态类型
-export type LoginOffsetPaginationType = {
-  pos: number | null
-  limit: number
-  forward: boolean
-  more: boolean
-};

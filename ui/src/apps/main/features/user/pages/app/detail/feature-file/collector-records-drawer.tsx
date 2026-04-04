@@ -5,8 +5,9 @@ import {
     DrawerHeader,
     DrawerTitle,
 } from "@apps/main/components/local/drawer";
-import { PagePagination, useCountNumManager } from "@apps/main/lib/pagination-utils";
+import { CursorPagination, useLimitCountNum } from "@apps/main/lib/pagination-utils";
 import { createStatusMapper } from "@apps/main/lib/status-utils";
+import { useDictData } from "@apps/main/hooks/use-dict-data";
 import {
     userCollectorRecordList,
     type CollectorRecordItemType,
@@ -16,33 +17,21 @@ import { CenteredError } from "@shared/components/custom/page-placeholder/center
 import { CenteredLoading } from "@shared/components/custom/page-placeholder/centered-loading";
 import { Badge } from "@shared/components/ui/badge";
 import { Button } from "@shared/components/ui/button";
-import { cn, formatTime, getQueryResponseData, TIME_STYLE } from "@shared/lib/utils";
+import { cn, formatTime, getQueryResponseCursor, getQueryResponseData, TIME_STYLE } from "@shared/lib/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText, FolderOpen } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { CollectorRecordFilesDrawer } from "./collector-record-files-drawer";
 import { CollectorRecordLogsDrawer } from "./collector-record-logs-drawer";
 
-// 采集记录状态映射
-const recordStatusMapper = createStatusMapper(
-    {
-        1: "info",      // 等待中
-        2: "warning",   // 执行中
-        3: "success",   // 完成
-        4: "danger",    // 失败
-        5: "neutral",   // 取消
-    },
-    (status) => {
-        switch (status) {
-            case 1: return "等待中";
-            case 2: return "执行中";
-            case 3: return "完成";
-            case 4: return "失败";
-            case 5: return "取消";
-            default: return String(status);
-        }
-    },
-);
+// 采集记录状态颜色（UI 相关，保留本地）
+const RECORD_STATUS_COLOR: Record<number, 'info' | 'warning' | 'success' | 'danger' | 'neutral'> = {
+    1: "info",      // 等待中
+    2: "warning",   // 执行中
+    3: "success",   // 完成
+    4: "danger",    // 失败
+    5: "neutral",   // 取消
+};
 
 interface CollectorRecordsDrawerProps {
     appId: number;
@@ -58,33 +47,38 @@ export function CollectorRecordsDrawer({
     onOpenChange,
 }: CollectorRecordsDrawerProps) {
     const queryClient = useQueryClient();
-    const [page, setPage] = useState(1);
+    const [cursorParams, setCursorParams] = useState<{ pos: number | null; forward: boolean }>({ pos: null, forward: true });
     const pageSize = 10;
+    const { dictData: collectorDict } = useDictData(['user_collector'] as const);
 
+    const recordStatusMapper = createStatusMapper(
+        RECORD_STATUS_COLOR,
+        (status) => collectorDict?.record_status?.getLabel(String(status), '') ?? '',
+    );
     // 记录关联文件/日志抽屉状态
     const [recordFilesOpen, setRecordFilesOpen] = useState(false);
     const [recordLogsOpen, setRecordLogsOpen] = useState(false);
     const [selectedRecord, setSelectedRecord] = useState<CollectorRecordItemType | null>(null);
 
-    const countNumManager = useCountNumManager({});
+    const countNumManager = useLimitCountNum({});
     const { reset: resetCountNum } = countNumManager;
 
     useEffect(() => {
-        setPage(1);
+        setCursorParams({ pos: null, forward: true });
         resetCountNum();
     }, [script.id, resetCountNum]);
 
     const { data: recordsData, isSuccess, isLoading, isError, error } = useQuery({
-        queryKey: ["collectorRecordList", appId, script.id, page],
+        queryKey: ["collectorRecordList", appId, script.id, cursorParams.pos, cursorParams.forward],
         queryFn: ({ signal }) =>
             userCollectorRecordList(
                 {
                     app_id: appId,
                     script_id: script.id,
                     limit: {
-                        pos: (page - 1) * pageSize || null,
+                        pos: cursorParams.pos,
                         limit: pageSize,
-                        forward: true,
+                        forward: cursorParams.forward,
                     },
                     count_num: countNumManager.getCountNum(),
                 },
@@ -93,7 +87,8 @@ export function CollectorRecordsDrawer({
         enabled: isOpen,
     });
 
-    isSuccess && countNumManager.handlePageQueryResult(recordsData);
+    isSuccess && countNumManager.handleQueryResult(recordsData);
+    const cursorData = getQueryResponseCursor(recordsData);
 
     const records = getQueryResponseData<CollectorRecordItemType[]>(recordsData, []);
 
@@ -101,10 +96,14 @@ export function CollectorRecordsDrawer({
         queryClient.refetchQueries({ queryKey: ["collectorRecordList", appId, script.id] });
     }, [queryClient, appId, script.id]);
 
+    const localSearchGo = useCallback((param: { pos: number | null; forward?: boolean }) => {
+        setCursorParams({ pos: param.pos ?? null, forward: param.forward ?? true });
+    }, []);
+
     const handleOpenChange = (open: boolean) => {
         onOpenChange(open);
         if (!open) {
-            setPage(1);
+            setCursorParams({ pos: null, forward: true });
         }
     };
 
@@ -216,15 +215,14 @@ export function CollectorRecordsDrawer({
                         </div>
 
                         <div className="flex justify-end">
-                            <PagePagination
-                                currentPage={page}
-                                pageSize={pageSize}
-                                total={countNumManager.getTotal() ?? 0}
+                            <CursorPagination
+                                limit={pageSize}
+                                cursorData={cursorData}
+                                searchGo={localSearchGo}
+                                totalInfo={countNumManager.getTotalInfo()}
+                                currentPageSize={records.length}
                                 loading={isLoading}
-                                onChange={(newPage) => setPage(newPage)}
-                                showTotal={false}
                                 showPageSize={false}
-                                showSizeCount={5}
                             />
                         </div>
                     </div>

@@ -3,7 +3,7 @@ import { Badge } from '@shared/components/ui/badge';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@apps/main/components/local/drawer';
 import { useToast } from '@shared/contexts/toast-context';
 import { type TypedDictData } from '@apps/main/hooks/use-dict-data';
-import { cn, formatTime, TIME_STYLE } from '@shared/lib/utils';
+import { cn, formatFileSize, formatTime, TIME_STYLE } from '@shared/lib/utils';
 import { createCopyWithToast } from '@shared/lib/utils/copy-utils';
 import { createStatusMapper } from '@apps/main/lib/status-utils';
 
@@ -35,13 +35,6 @@ export function FileDetailDrawer({
         (status) => dictData.file_status?.getLabel(String(status)) || String(status),
     );
 
-    const formatFileSize = (size: number): string => {
-        if (size === 0) return '0 B';
-        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-        const i = Math.floor(Math.log(size) / Math.log(1024));
-        return parseFloat((size / Math.pow(1024, i)).toFixed(2)) + ' ' + units[i];
-    };
-
     // 获取来源类型标签
     const getSourceTypeLabel = (sourceType?: string | null): string => {
         if (!sourceType) return '-';
@@ -66,12 +59,12 @@ export function FileDetailDrawer({
                         <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">基本信息</h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="flex flex-col space-y-1">
-                                <span className="text-xs text-muted-foreground">文件ID</span>
+                                <span className="text-xs text-muted-foreground">ID</span>
                                 <span className="text-sm font-medium">{file.id}</span>
                             </div>
                             <div className="flex flex-col space-y-1">
-                                <span className="text-xs text-muted-foreground">用户文件ID</span>
-                                <span className="text-sm font-medium">{file.file_user_id}</span>
+                                <span className="text-xs text-muted-foreground">文件ID</span>
+                                <span className="text-sm font-medium">{file.file_id}</span>
                             </div>
                             <div className="flex flex-col space-y-1 sm:col-span-2">
                                 <span className="text-xs text-muted-foreground">文件名</span>

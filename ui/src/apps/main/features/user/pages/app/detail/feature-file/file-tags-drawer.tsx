@@ -6,12 +6,14 @@ import {
     DrawerTitle,
 } from "@apps/main/components/local/drawer";
 import {
-    userFileTags,
     userFileTagAdd,
     userFileTagRemove,
+    userFileTags,
     type UserFileItemType,
     type UserFileTagItemType,
 } from "@shared/apis/user/file";
+import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
+import { CenteredLoading } from "@shared/components/custom/page-placeholder/centered-loading";
 import { Badge } from "@shared/components/ui/badge";
 import { Button } from "@shared/components/ui/button";
 import { Input } from "@shared/components/ui/input";
@@ -21,13 +23,11 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@shared/components/ui/tooltip";
-import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
-import { CenteredLoading } from "@shared/components/custom/page-placeholder/centered-loading";
 import { useToast } from "@shared/contexts/toast-context";
 import { cn, formatTime, TIME_STYLE } from "@shared/lib/utils";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Loader2, Plus, X } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 interface FileTagsDrawerProps {
     file: UserFileItemType;
@@ -43,7 +43,6 @@ export function FileTagsDrawer({
     onOpenChange,
     onTagsChanged,
 }: FileTagsDrawerProps) {
-    const queryClient = useQueryClient();
     const { success: showSuccess, error: showError } = useToast();
     const [newTagName, setNewTagName] = useState("");
 
@@ -60,23 +59,25 @@ export function FileTagsDrawer({
         error,
         refetch,
     } = useQuery({
-        queryKey: ["userFileTags", file.file_user_id],
+        queryKey: ["userFileTags", file.id],
         queryFn: ({ signal }) =>
             userFileTags(
-                { file_user_id: file.file_user_id },
+                { id: file.id },
                 { signal }
             ),
         enabled: isOpen,
     });
 
-    const tags: UserFileTagItemType[] =
-        tagsData?.response?.data ?? [];
+    const tags: UserFileTagItemType[] = useMemo(
+        () => tagsData?.response?.data ?? [],
+        [tagsData]
+    );
 
     // 添加标签
     const addTagMutation = useMutation({
         mutationFn: (tagName: string) =>
             userFileTagAdd({
-                file_user_id: file.file_user_id,
+                id: file.id,
                 tag_name: tagName,
             }),
         onSuccess: () => {
@@ -96,7 +97,7 @@ export function FileTagsDrawer({
     const removeTagMutation = useMutation({
         mutationFn: (tagName: string) =>
             userFileTagRemove({
-                file_user_id: file.file_user_id,
+                id: file.id,
                 tag_name: tagName,
             }),
         onSuccess: () => {

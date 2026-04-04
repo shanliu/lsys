@@ -2,6 +2,7 @@ import { FilterContainer } from '@apps/main/components/filter-container/containe
 import { FilterActions } from '@apps/main/components/filter-container/filter-actions'
 import { FilterInput } from '@apps/main/components/filter-container/filter-input'
 import { FilterTotalCount } from '@apps/main/components/filter-container/filter-total-count'
+import { formatTotalCount } from '@shared/lib/utils/format-utils'
 import {
   Drawer,
   DrawerContent,
@@ -12,7 +13,7 @@ import {
 import { FilterUserMode, type RbacUserModeContext } from '@apps/main/features/user/components/ui/filter-user-mode'
 import {
   DEFAULT_PAGE_SIZE,
-  useCountNumManager,
+  usePageCountNum,
 } from '@apps/main/lib/pagination-utils'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
@@ -94,7 +95,7 @@ export function ResOpListDrawer({
   }
 
   // count_num 优化管理器
-  const countNumManager = useCountNumManager(filters)
+  const countNumManager = usePageCountNum(filters)
 
   // 获取操作列表
   const { data: opData, isSuccess, isLoading, isError, error } = useQuery({
@@ -133,7 +134,7 @@ export function ResOpListDrawer({
   })
 
   // 处理分页查询结果
-  isSuccess && countNumManager.handlePageQueryResult(opData)
+  isSuccess && countNumManager.handleQueryResult(opData)
 
   // 从查询结果中提取数据
   const operations = getQueryResponseData<AppRbacOpDataItemType[]>(opData, [])
@@ -300,7 +301,7 @@ export function ResOpListDrawer({
                 setFilterParams({ page: 1, limit: filterParams.limit })
               }}
               countComponent={
-                <FilterTotalCount total={countNumManager.getTotal() ?? 0} loading={isLoading} />
+                <FilterTotalCount value={formatTotalCount(countNumManager.getTotal())} loading={isLoading} />
               }
               className="bg-muted/50 rounded-lg border p-3"
             >

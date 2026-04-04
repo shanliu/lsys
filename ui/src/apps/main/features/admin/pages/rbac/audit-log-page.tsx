@@ -1,15 +1,20 @@
-import { FilterContainer } from "@apps/main/components/filter-container/container";
+﻿import { FilterContainer } from "@apps/main/components/filter-container/container";
 import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
+import { AdminExportAction } from "@apps/main/features/admin/components/ui/admin-export-action";
+import { EXPORT_TYPE_SYSTEM_RBAC_AUDIT } from "@shared/apis/admin/export";
 import { FilterInput } from "@apps/main/components/filter-container/filter-input";
 import { FilterSystemAppSelector } from "@apps/main/components/filter-container/filter-system-app-selector";
 import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
 import { AuditDetailTooltip } from "@apps/main/components/local/audit-detail-tooltip";
 import { UserDataTooltip } from "@apps/main/components/local/user-data-tooltip";
-import { useDictData, type TypedDictData } from "@apps/main/hooks/use-dict-data";
+import {
+  useDictData,
+  type TypedDictData,
+} from "@apps/main/hooks/use-dict-data";
 import {
   DEFAULT_PAGE_SIZE,
   PAGE_SIZE_OPTIONS,
-  useCountNumManager,
+  useLimitCountNum,
   useSearchNavigate,
 } from "@apps/main/lib/pagination-utils";
 import { createStatusMapper } from "@apps/main/lib/status-utils";
@@ -21,8 +26,12 @@ import {
 } from "@shared/apis/admin/rbac-base";
 import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
 import { PageSkeletonTable } from "@shared/components/custom/page-placeholder/skeleton-table";
-import { OffsetPagination } from "@shared/components/custom/pagination";
-import { DataTable, DataTableAction, DataTableActionItem } from "@shared/components/custom/table";
+import { CursorPagination } from "@shared/components/custom/pagination";
+import {
+  DataTable,
+  DataTableAction,
+  DataTableActionItem,
+} from "@shared/components/custom/table";
 import CopyableText from "@shared/components/custom/text/copyable-text";
 import { Badge } from "@shared/components/ui/badge";
 import { Button } from "@shared/components/ui/button";
@@ -34,18 +43,15 @@ import {
   getQueryResponseData,
   TIME_STYLE,
 } from "@shared/lib/utils";
+import { formatTotalCount } from "@shared/lib/utils/format-utils";
+import { type LimitType } from "@shared/types/base-schema";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { ColumnDef } from "@tanstack/react-table";
-import {
-  Eye
-} from "lucide-react";
+import { Eye } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { AuditLogDetailDrawer } from "./audit-log-detail-drawer";
-import {
-  RbacAuditLogFilterFormSchema,
-  type RbacOffsetPaginationType
-} from "./audit-log-schema";
+import { RbacAuditLogFilterFormSchema } from "./audit-log-schema";
 
 export function AuditLogPage() {
   // 字典数据获取 - 统一在最顶层获取一次
@@ -112,24 +118,30 @@ function AuditLogContent({ dictData }: AuditLogContentProps) {
     request_id: filterParam.request_id || null,
   };
 
+  const currentLimit = filterParam.limit || DEFAULT_PAGE_SIZE;
+
   // 分页状态 - 直接从 URL 参数派生，无需 useState
-  const pagination: RbacOffsetPaginationType = {
+  const pagination: LimitType = {
     pos: filterParam.pos || null,
-    limit: filterParam.limit || DEFAULT_PAGE_SIZE,
+    limit: currentLimit,
     forward: filterParam.forward ?? true,
     more: true,
   };
-
-  const currentLimit = pagination.limit;
 
   // 搜索导航函数
   const searchGo = useSearchNavigate(navigate, filterParam);
 
   // count_num 优化管理器（传入 filters 自动监听变化）
-  const countNumManager = useCountNumManager(filters);
+  const countNumManager = useLimitCountNum(filters);
 
   // 获取审计数据
-  const { data: auditData, isSuccess: auditIsSuccess, isLoading: auditIsLoading, isError: auditIsError, error: auditError } = useQuery({
+  const {
+    data: auditData,
+    isSuccess: auditIsSuccess,
+    isLoading: auditIsLoading,
+    isError: auditIsError,
+    error: auditError,
+  } = useQuery({
     queryKey: [
       "rbacAuditData",
       pagination.pos,
@@ -164,7 +176,7 @@ function AuditLogContent({ dictData }: AuditLogContentProps) {
   });
 
   // 处理 Limit 分页查询结果（自动提取 total 和 next）
-  auditIsSuccess && countNumManager.handleLimitQueryResult(auditData);
+  auditIsSuccess && countNumManager.handleQueryResult(auditData);
 
   // 刷新数据
   const refreshData = () => {
@@ -206,10 +218,16 @@ function AuditLogContent({ dictData }: AuditLogContentProps) {
     () => [
       {
         accessorKey: "audit.id",
-        header: () => <div className={cn(isMobile ? "" : "text-right")}>ID</div>,
+        header: () => (
+          <div className={cn(isMobile ? "" : "text-right")}>ID</div>
+        ),
         size: 80,
         cell: ({ getValue }) => (
-          <div className={cn("font-mono text-xs", isMobile ? "" : "text-right")}>{getValue<number>()}</div>
+          <div
+            className={cn("font-mono text-xs", isMobile ? "" : "text-right")}
+          >
+            {getValue<number>()}
+          </div>
         ),
       },
       {
@@ -233,7 +251,7 @@ function AuditLogContent({ dictData }: AuditLogContentProps) {
         header: "用户",
         size: 120,
         cell: ({ getValue }) => {
-          return <UserDataTooltip userData={getValue<any>()} />
+          return <UserDataTooltip userData={getValue<any>()} />;
         },
       },
       {
@@ -243,7 +261,10 @@ function AuditLogContent({ dictData }: AuditLogContentProps) {
         cell: ({ getValue }) => {
           const ip = getValue<string>();
           return ip ? (
-            <CopyableText value={ip} className={cn("text-xs whitespace-nowrap")} />
+            <CopyableText
+              value={ip}
+              className={cn("text-xs whitespace-nowrap")}
+            />
           ) : (
             <div className="font-mono text-xs">-</div>
           );
@@ -276,10 +297,7 @@ function AuditLogContent({ dictData }: AuditLogContentProps) {
         size: 180,
         cell: ({ getValue }) => {
           const date = getValue<Date>();
-          const timeElement = formatTime(
-            date,
-            TIME_STYLE.ABSOLUTE_TEXT,
-          );
+          const timeElement = formatTime(date, TIME_STYLE.ABSOLUTE_TEXT);
           return (
             <div className="text-xs text-muted-foreground">{timeElement}</div>
           );
@@ -293,8 +311,13 @@ function AuditLogContent({ dictData }: AuditLogContentProps) {
           const audit = row.original;
 
           return (
-            <DataTableAction className={cn(isMobile ? "justify-end" : "justify-center")}>
-              <DataTableActionItem mobileDisplay="display" desktopDisplay="display">
+            <DataTableAction
+              className={cn(isMobile ? "justify-end" : "justify-center")}
+            >
+              <DataTableActionItem
+                mobileDisplay="display"
+                desktopDisplay="display"
+              >
                 <Button
                   onClick={() => handleViewDetail(audit)}
                   variant="ghost"
@@ -304,7 +327,6 @@ function AuditLogContent({ dictData }: AuditLogContentProps) {
                 >
                   <Eye className="h-4 w-4" />
                   {isMobile ? <span className="mr-2">查看详情</span> : ""}
-
                 </Button>
               </DataTableActionItem>
             </DataTableAction>
@@ -350,7 +372,12 @@ function AuditLogContent({ dictData }: AuditLogContentProps) {
                 } as any,
               });
             }}
-            countComponent={<FilterTotalCount total={countNumManager.getTotal() ?? 0} loading={isLoading} />}
+            countComponent={
+              <FilterTotalCount
+                value={formatTotalCount(countNumManager.getTotalInfo())}
+                loading={isLoading}
+              />
+            }
             className="bg-card rounded-lg border shadow-sm relative"
           >
             {(layoutParams, form) => (
@@ -402,12 +429,28 @@ function AuditLogContent({ dictData }: AuditLogContentProps) {
                 </div>
 
                 {/* 动作按钮区域 */}
-                <div className={cn(layoutParams.isMobile ? "w-full" : "flex-shrink-0")}>
+                <div
+                  className={cn(
+                    layoutParams.isMobile ? "w-full" : "flex-shrink-0",
+                  )}
+                >
                   <FilterActions
                     form={form}
                     loading={isLoading}
                     layoutParams={layoutParams}
                     onRefreshSearch={clearCacheAndReload}
+                    extraActions={
+                      <AdminExportAction
+                        exportType={EXPORT_TYPE_SYSTEM_RBAC_AUDIT}
+                        params={{
+                          user_id: filters.user_id,
+                          app_id: filters.app_id,
+                          user_ip: filters.user_ip,
+                          request_id: filters.request_id,
+                        }}
+                        layoutParams={layoutParams}
+                      />
+                    }
                   />
                 </div>
               </div>
@@ -423,19 +466,27 @@ function AuditLogContent({ dictData }: AuditLogContentProps) {
               data={audits}
               columns={columns}
               loading={isLoading}
-              error={auditIsError ? <CenteredError error={auditError} variant="content" onReset={refreshData} /> : null}
+              error={
+                auditIsError ? (
+                  <CenteredError
+                    error={auditError}
+                    variant="content"
+                    onReset={refreshData}
+                  />
+                ) : null
+              }
               className="h-full [&_.data-table-row]:h-12 [&_td]:py-2 [&_th]:py-2 [&_table]:border-0 [&_.table-container]:border-0 [&_tbody_tr:last-child]:border-b [&_.data-table-wrapper]:overflow-auto [&_.data-table-wrapper]:h-full"
             />
           </div>
 
           {/* 分页控件 - 确保分页条始终显示 */}
           <div className="flex-shrink-0 pt-4">
-            {(countNumManager.getTotal() ?? 0) > 0 && (
-              <OffsetPagination
-                limit={pagination.limit}
+            {countNumManager.hasTotalInfo() && (
+              <CursorPagination
+                limit={currentLimit}
                 cursorData={cursorData}
                 searchGo={searchGo}
-                total={countNumManager.getTotal()}
+                totalInfo={countNumManager.getTotalInfo()}
                 currentPageSize={audits.length}
                 loading={isLoading}
                 onRefresh={refreshData}

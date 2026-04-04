@@ -1,15 +1,20 @@
 import { FilterContainer } from "@apps/main/components/filter-container/container";
 import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
+import { UserExportAction } from "@apps/main/features/user/components/ui/user-export-action";
+import { EXPORT_TYPE_USER_SMSER_MESSAGE_LIST } from "@shared/apis/user/file";
 import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
 import { FilterInput } from "@apps/main/components/filter-container/filter-input";
 import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
 import { AppDetailNavContainer } from "@apps/main/features/user/components/ui/app-detail-nav";
-import { useDictData, type TypedDictData } from "@apps/main/hooks/use-dict-data";
 import {
+  useDictData,
+  type TypedDictData,
+} from "@apps/main/hooks/use-dict-data";
+import {
+  CursorPagination,
   DEFAULT_PAGE_SIZE,
-  OffsetPagination,
   PAGE_SIZE_OPTIONS,
-  useCountNumManager,
+  useLimitCountNum,
   useSearchNavigate,
 } from "@apps/main/lib/pagination-utils";
 import { createStatusMapper } from "@apps/main/lib/status-utils";
@@ -18,13 +23,16 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   userSenderSmsMessageCancel,
   UserSenderSmsMessageItemType,
-  userSenderSmsMessageList
+  userSenderSmsMessageList,
 } from "@shared/apis/user/sender-sms";
 import { DataTable } from "@shared/components/custom//table";
 import { ConfirmDialog } from "@shared/components/custom/dialog/confirm-dialog";
 import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
 import { PageSkeletonTable } from "@shared/components/custom/page-placeholder/skeleton-table";
-import { DataTableAction, DataTableActionItem } from "@shared/components/custom/table";
+import {
+  DataTableAction,
+  DataTableActionItem,
+} from "@shared/components/custom/table";
 import { MaskedText } from "@shared/components/custom/text/masked-text";
 import { Badge } from "@shared/components/ui/badge";
 import { Button } from "@shared/components/ui/button";
@@ -35,9 +43,10 @@ import {
   formatTime,
   getQueryResponseCursor,
   getQueryResponseData,
-  TIME_STYLE
+  TIME_STYLE,
 } from "@shared/lib/utils";
 import { createCopyWithToast } from "@shared/lib/utils/copy-utils";
+import { formatTotalCount } from "@shared/lib/utils/format-utils";
 import { type LimitType } from "@shared/types/base-schema";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
@@ -48,9 +57,7 @@ import { featureSmsModuleConfig } from "../nav-info";
 import { ListContentDrawer } from "./list-content-drawer";
 import { ListLogsDrawer } from "./list-logs-drawer";
 import { ListNotifyDrawer } from "./list-notify-drawer";
-import {
-  SmsListFilterFormSchema
-} from "./list-schema";
+import { SmsListFilterFormSchema } from "./list-schema";
 
 export default function AppDetailFeatureSmsListPage() {
   // user\app_sender_smser\mapping.md
@@ -59,8 +66,8 @@ export default function AppDetailFeatureSmsListPage() {
   // user\app_sender_smser\message_logs.md
   // user\app_sender_smser\message_view.md
 
-  const { appId } = Route.useParams()
-  const [notifyDrawerOpen, setNotifyDrawerOpen] = useState(false)
+  const { appId } = Route.useParams();
+  const [notifyDrawerOpen, setNotifyDrawerOpen] = useState(false);
 
   // 字典数据获取 - 统一在最顶层获取一次
   const {
@@ -74,11 +81,7 @@ export default function AppDetailFeatureSmsListPage() {
   // 如果字典加载失败，显示错误页面
   if (dictError && dictErrors.length > 0) {
     return (
-      <CenteredError
-        variant="page"
-        error={dictErrors}
-        onReset={refetchDict}
-      />
+      <CenteredError variant="page" error={dictErrors} onReset={refetchDict} />
     );
   }
 
@@ -90,13 +93,19 @@ export default function AppDetailFeatureSmsListPage() {
   // 字典加载成功，渲染内容组件
   return (
     <>
-      <AppDetailNavContainer {...featureSmsModuleConfig}
+      <AppDetailNavContainer
+        {...featureSmsModuleConfig}
         actions={
-          <Button variant="outline" size="sm" onClick={() => setNotifyDrawerOpen(true)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setNotifyDrawerOpen(true)}
+          >
             <Settings className={cn("mr-2 h-4 w-4")} />
             通知配置
           </Button>
-        }>
+        }
+      >
         <AppDetailFeatureSmsListContent dictData={dictData} />
       </AppDetailNavContainer>
       <ListNotifyDrawer
@@ -105,19 +114,19 @@ export default function AppDetailFeatureSmsListPage() {
         onOpenChange={setNotifyDrawerOpen}
       />
     </>
-  )
+  );
 }
 interface AppDetailFeatureSmsListContentProps {
-
   dictData: TypedDictData<["user_sender_sms"]>;
 }
 
-function AppDetailFeatureSmsListContent({ dictData }: AppDetailFeatureSmsListContentProps) {
+function AppDetailFeatureSmsListContent({
+  dictData,
+}: AppDetailFeatureSmsListContentProps) {
   const { appId } = Route.useParams();
   const queryClient = useQueryClient();
   const { success: showSuccess, error: showError } = useToast();
   const navigate = useNavigate();
-
 
   // 创建复制函数
   const copyText = createCopyWithToast(showSuccess, showError);
@@ -128,10 +137,12 @@ function AppDetailFeatureSmsListContent({ dictData }: AppDetailFeatureSmsListCon
 
   // 日志抽屉状态
   const [logsDrawerOpen, setLogsDrawerOpen] = useState(false);
-  const [selectedMessage, setSelectedMessage] = useState<UserSenderSmsMessageItemType | null>(null);
+  const [selectedMessage, setSelectedMessage] =
+    useState<UserSenderSmsMessageItemType | null>(null);
   // 详细信息抽屉状态
   const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
-  const [detailMessage, setDetailMessage] = useState<UserSenderSmsMessageItemType | null>(null);
+  const [detailMessage, setDetailMessage] =
+    useState<UserSenderSmsMessageItemType | null>(null);
 
   // 过滤条件从 URL 参数获取
   const filters = {
@@ -153,10 +164,16 @@ function AppDetailFeatureSmsListContent({ dictData }: AppDetailFeatureSmsListCon
   const searchGo = useSearchNavigate(navigate, filterParam);
 
   // count_num 优化管理器（传入 filters 自动监听变化）
-  const countNumManager = useCountNumManager(filters);
+  const countNumManager = useLimitCountNum(filters);
 
   // 获取消息列表数据
-  const { data: messageData, isSuccess, isLoading, isError, error } = useQuery({
+  const {
+    data: messageData,
+    isSuccess,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: [
       "userSenderSmsMessageList",
       appId,
@@ -185,16 +202,19 @@ function AppDetailFeatureSmsListContent({ dictData }: AppDetailFeatureSmsListCon
           to_mobile: filters.mobile || undefined,
           snid: filters.snid ? Number(filters.snid) : undefined,
         },
-        { signal }
+        { signal },
       ),
     placeholderData: (previousData) => previousData,
   });
 
   // 处理 Limit 分页查询结果（自动提取 total 和 next）
-  isSuccess && countNumManager.handleLimitQueryResult(messageData);
+  isSuccess && countNumManager.handleQueryResult(messageData);
 
   // 获取消息列表数据
-  const messages = getQueryResponseData<UserSenderSmsMessageItemType[]>(messageData, []);
+  const messages = getQueryResponseData<UserSenderSmsMessageItemType[]>(
+    messageData,
+    [],
+  );
   const cursorData = getQueryResponseCursor(messageData);
 
   // 取消发送消息的mutation
@@ -238,11 +258,11 @@ function AppDetailFeatureSmsListContent({ dictData }: AppDetailFeatureSmsListCon
   // 字典数据已加载，创建状态映射器
   const smsStatus = createStatusMapper(
     {
-      1: "info",      // 待发送
-      2: "success",   // 已发送
-      3: "danger",    // 发送失败
-      4: "warning",   // 已取消
-      5: "success",   // 已接收
+      1: "info", // 待发送
+      2: "success", // 已发送
+      3: "danger", // 发送失败
+      4: "warning", // 已取消
+      5: "success", // 已接收
     },
     (status) =>
       dictData.sms_send_status?.getLabel(String(status)) || String(status),
@@ -362,10 +382,12 @@ function AppDetailFeatureSmsListContent({ dictData }: AppDetailFeatureSmsListCon
       cell: ({ row }) => {
         const message = row.original;
 
-
         return (
           <DataTableAction className="justify-end sm:justify-center gap-1">
-            <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
+            <DataTableActionItem
+              mobileDisplay="display"
+              desktopDisplay="collapsed"
+            >
               <Button
                 variant="ghost"
                 size="sm"
@@ -380,7 +402,10 @@ function AppDetailFeatureSmsListContent({ dictData }: AppDetailFeatureSmsListCon
                 <span className="text-xs ml-1">详细信息</span>
               </Button>
             </DataTableActionItem>
-            <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
+            <DataTableActionItem
+              mobileDisplay="display"
+              desktopDisplay="collapsed"
+            >
               <Button
                 variant="ghost"
                 size="sm"
@@ -393,7 +418,10 @@ function AppDetailFeatureSmsListContent({ dictData }: AppDetailFeatureSmsListCon
               </Button>
             </DataTableActionItem>
             {message.status === 1 && (
-              <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
+              <DataTableActionItem
+                mobileDisplay="display"
+                desktopDisplay="collapsed"
+              >
                 {/* 只有状态为发送中(1)时才显示取消按钮 */}
 
                 <ConfirmDialog
@@ -411,9 +439,7 @@ function AppDetailFeatureSmsListContent({ dictData }: AppDetailFeatureSmsListCon
                       />
                     </>
                   }
-                  onConfirm={async () =>
-                    await handleCancelMessage(message.id)
-                  }
+                  onConfirm={async () => await handleCancelMessage(message.id)}
                 >
                   <Button
                     variant="ghost"
@@ -435,7 +461,6 @@ function AppDetailFeatureSmsListContent({ dictData }: AppDetailFeatureSmsListCon
 
   return (
     <>
-
       <div className="flex flex-col min-h-0 space-y-6">
         <div className="flex-shrink-0 mb-1 sm:mb-4">
           {/* 过滤器 */}
@@ -476,7 +501,10 @@ function AppDetailFeatureSmsListContent({ dictData }: AppDetailFeatureSmsListCon
               });
             }}
             countComponent={
-              <FilterTotalCount total={countNumManager.getTotal() ?? 0} loading={isLoading} />
+              <FilterTotalCount
+                value={formatTotalCount(countNumManager.getTotalInfo())}
+                loading={isLoading}
+              />
             }
             className="bg-card rounded-lg border shadow-sm relative"
           >
@@ -523,12 +551,30 @@ function AppDetailFeatureSmsListContent({ dictData }: AppDetailFeatureSmsListCon
                 />
 
                 {/* 动作按钮区域 */}
-                <div className={cn(layoutParams.isMobile ? "w-full" : "flex-shrink-0")}>
+                <div
+                  className={cn(
+                    layoutParams.isMobile ? "w-full" : "flex-shrink-0",
+                  )}
+                >
                   <FilterActions
                     form={form}
                     loading={isLoading}
                     layoutParams={layoutParams}
                     onRefreshSearch={clearCacheAndReload}
+                    extraActions={
+                      <UserExportAction
+                        appId={Number(appId)}
+                        exportType={EXPORT_TYPE_USER_SMSER_MESSAGE_LIST}
+                        params={{
+                          app_id: Number(appId),
+                          status: filters.status,
+                          tpl_key: filters.tpl_key,
+                          mobile: filters.mobile,
+                          snid: filters.snid,
+                        }}
+                        layoutParams={layoutParams}
+                      />
+                    }
                   />
                 </div>
               </div>
@@ -542,21 +588,30 @@ function AppDetailFeatureSmsListContent({ dictData }: AppDetailFeatureSmsListCon
             data={messages}
             columns={columns}
             loading={isLoading}
-            error={isError ? <CenteredError error={error} variant="content" onReset={refreshData} /> : null}
-
+            error={
+              isError ? (
+                <CenteredError
+                  error={error}
+                  variant="content"
+                  onReset={refreshData}
+                />
+              ) : null
+            }
             scrollSnapDelay={300}
-            leftStickyColumns={[{ column: 0, minWidth: "160px", maxWidth: "160px" }]}
+            leftStickyColumns={[
+              { column: 0, minWidth: "160px", maxWidth: "160px" },
+            ]}
             className="[&_tr]:h-11 [&_td]:py-1 [&_th]:py-1 [&_table]:border-0 [&_.table-container]:border-0 [&_tbody_tr:last-child]:border-b"
           />
 
           {/* 分页控件 */}
           <div className="flex-shrink-0 pt-4">
-            {(countNumManager.getTotal() ?? 0) > 0 && (
-              <OffsetPagination
+            {countNumManager.hasTotalInfo() && (
+              <CursorPagination
                 limit={currentLimit}
                 cursorData={cursorData}
                 searchGo={searchGo}
-                total={countNumManager.getTotal()}
+                totalInfo={countNumManager.getTotalInfo()}
                 currentPageSize={messages.length}
                 loading={isLoading}
                 onRefresh={refreshData}
@@ -596,5 +651,5 @@ function AppDetailFeatureSmsListContent({ dictData }: AppDetailFeatureSmsListCon
         )}
       </div>
     </>
-  )
+  );
 }

@@ -1,14 +1,4 @@
 import {
-  roleUserData,
-  roleUserAdd,
-  roleUserDelete,
-  roleAvailableUser,
-  type RoleItemType,
-  type UserItemType,
-  type RoleUserDataItemType,
-} from '@shared/apis/admin/rbac-role'
-import { ConfirmDialog } from '@shared/components/custom/dialog/confirm-dialog'
-import {
   Drawer,
   DrawerContent,
   DrawerDescription,
@@ -18,12 +8,22 @@ import {
 import {
   DEFAULT_PAGE_SIZE,
   PagePagination,
-  useCountNumManager,
+  usePageCountNum,
 } from '@apps/main/lib/pagination-utils'
+import {
+  roleAvailableUser,
+  roleUserAdd,
+  roleUserData,
+  roleUserDelete,
+  type RoleItemType,
+  type RoleUserDataItemType,
+  type UserItemType,
+} from '@shared/apis/admin/rbac-role'
+import { ConfirmDialog } from '@shared/components/custom/dialog/confirm-dialog'
+import { TimeoutInput } from '@shared/components/custom/input/timeout-input'
 import { Badge } from '@shared/components/ui/badge'
 import { Button } from '@shared/components/ui/button'
 import { Card, CardContent } from '@shared/components/ui/card'
-import { useIsMobile } from '@shared/hooks/use-mobile'
 import {
   Command,
   CommandEmpty,
@@ -32,7 +32,6 @@ import {
   CommandItem,
   CommandList,
 } from '@shared/components/ui/command'
-import { TimeoutInput } from '@shared/components/custom/input/timeout-input'
 import { Label } from '@shared/components/ui/label'
 import {
   Popover,
@@ -40,14 +39,14 @@ import {
   PopoverTrigger,
 } from '@shared/components/ui/popover'
 import { useToast } from '@shared/contexts/toast-context'
-import { formatServerError, getQueryResponseData, formatTime, TIME_STYLE, formatSeconds } from '@shared/lib/utils'
+import { useIsMobile } from '@shared/hooks/use-mobile'
+import { formatSeconds, formatServerError, formatTime, getQueryResponseData, TIME_STYLE } from '@shared/lib/utils'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { CenteredError } from '@shared/components/custom/page-placeholder/centered-error'
 import { CenteredLoading } from '@shared/components/custom/page-placeholder/centered-loading'
-import { Plus, Trash2, Users } from 'lucide-react'
-import { Loader2 } from 'lucide-react'
-import React, { useState, useDeferredValue } from 'react'
+import { Loader2, Plus, Trash2, Users } from 'lucide-react'
+import React, { useDeferredValue, useState } from 'react'
 
 
 // 移动端/PC端自适应列表视图组件
@@ -152,7 +151,7 @@ export function RoleUsersDrawer({
   })
 
   // count_num 优化管理器
-  const countNumManager = useCountNumManager()
+  const countNumManager = usePageCountNum()
 
   // 获取角色用户列表
   const { data: usersData, isSuccess, isLoading, isError, error, refetch } = useQuery({
@@ -178,7 +177,7 @@ export function RoleUsersDrawer({
 
   // 处理分页查询结果
   if (isSuccess) {
-    countNumManager.handlePageQueryResult(usersData)
+    countNumManager.handleQueryResult(usersData)
   }
 
   // 使用 deferred value 减少请求频率
@@ -375,7 +374,7 @@ export function RoleUsersDrawer({
             )}
 
             {/* 分页 */}
-            {(countNumManager.getTotal() ?? 0) > 0 && (
+            {countNumManager.hasTotal() && (
               <PagePagination
                 currentPage={pagination.page}
                 pageSize={pagination.limit}

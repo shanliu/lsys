@@ -3,8 +3,8 @@ import z from "zod";
 
 
 export const DictItemSchema = z.object({
-    key: z.string(),
-    val: z.string()
+    key: z.coerce.string(),
+    val: z.coerce.string(),
 });
 
 export type DictItemType = z.infer<typeof DictItemSchema>;

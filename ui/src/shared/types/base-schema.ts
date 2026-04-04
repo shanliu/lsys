@@ -112,18 +112,42 @@ export const PageResSchema = {
   total: z.coerce.number().nullable().optional(),
 };
 
-// 游标分页响应结构，服务端直接返回 next_cursor 和 prev_cursor
+// 其余可解析的数字/数字字符串 -> number
+export const NumberParamSchema = z.preprocess((val) => {
+  // 空字符串应视为未提供 -> undefined（用于移除 URL 参数）
+  if (val === '' || (typeof val === 'string' && val.trim() === '')) return undefined;
+  if (val === 'null' || val === null) return null;
+  if (val === 'undefined' || val === undefined) return undefined;
+  if (val instanceof Date) return Number.isNaN(val.getTime()) ? null : val.getTime();
+  if (typeof val === 'number') return Number.isNaN(val) ? null : val;
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    const num = Number(trimmed);
+    return Number.isNaN(num) ? null : num;
+  }
+  // 其它类型视为无效 -> null
+  return null;
+}, z.number().nullable().optional()) as z.ZodType<number | null | undefined>;
+export type NumberParamType = z.infer<typeof NumberParamSchema>;
+
+// 服务端 TotalRecrodResp 结构: { exact: number|null, over: number|null }
+export const TotalRecrodResSchema = z.object({
+  exact: NumberParamSchema,
+  over: NumberParamSchema,
+});
+export type TotalRecrodResType = z.infer<typeof TotalRecrodResSchema>;
+
+// 游标分页响应结构，服务端嵌套在 cursor 字段内
 export const CursorPageResSchema = z.object({
-  next_cursor: z.coerce.number().nullable().optional(),
-  prev_cursor: z.coerce.number().nullable().optional(),
+  next: z.coerce.number().nullable().optional(),
+  prev: z.coerce.number().nullable().optional(),
 });
 
 export type CursorPageResType = z.infer<typeof CursorPageResSchema>;
 
 export const LimitResSchema = {
-  next_cursor: z.coerce.number().nullable().optional(),
-  prev_cursor: z.coerce.number().nullable().optional(),
-  total: z.coerce.number().nullable().optional(),
+  cursor: CursorPageResSchema.nullable().optional(),
+  total: TotalRecrodResSchema.nullable().optional(),
 };
 
 // 用户数据结构
@@ -145,20 +169,3 @@ export type UserDataResType = z.infer<typeof UserDataResSchema>;
 
 
 
-// 其余可解析的数字/数字字符串 -> number
-export const NumberParamSchema = z.preprocess((val) => {
-  // 空字符串应视为未提供 -> undefined（用于移除 URL 参数）
-  if (val === '' || (typeof val === 'string' && val.trim() === '')) return undefined;
-  if (val === 'null' || val === null) return null;
-  if (val === 'undefined' || val === undefined) return undefined;
-  if (val instanceof Date) return Number.isNaN(val.getTime()) ? null : val.getTime();
-  if (typeof val === 'number') return Number.isNaN(val) ? null : val;
-  if (typeof val === 'string') {
-    const trimmed = val.trim();
-    const num = Number(trimmed);
-    return Number.isNaN(num) ? null : num;
-  }
-  // 其它类型视为无效 -> null
-  return null;
-}, z.number().nullable().optional()) as z.ZodType<number | null | undefined>;
-export type NumberParamType = z.infer<typeof NumberParamSchema>;

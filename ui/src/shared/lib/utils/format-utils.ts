@@ -11,6 +11,7 @@ import {
 } from "date-fns"
 import { zhCN } from "date-fns/locale"
 import React, { type JSX } from "react"
+import type { TotalRecrodResType } from "@shared/types/base-schema"
 
 
 /**
@@ -187,7 +188,7 @@ export function formatSeconds(seconds: number): string {
   if (minutes > 0) parts.push(`${minutes}分`)
   if (secs > 0) parts.push(`${secs}秒`)
 
-  return parts.length > 0 ? parts.join("") : "0秒"
+  return parts.length > 0 ? parts.join("") : "1秒内"
 }
 
 /**
@@ -200,4 +201,28 @@ export function formatFileSize(size: number): string {
   const units = ['B', 'KB', 'MB', 'GB', 'TB']
   const i = Math.floor(Math.log(size) / Math.log(1024))
   return parseFloat((size / Math.pow(1024, i)).toFixed(2)) + ' ' + units[i]
+}
+
+/**
+ * 格式化数量显示
+ * 支持 TotalRecrodResType（含 exact/over）或普通数字
+ * @param value - 总数信息对象 { exact, over } 或普通数字
+ * @returns 格式化后的字符串，如 "1.5万"、"≈100+"、"999"
+ */
+export function formatTotalCount(value: TotalRecrodResType | number | null | undefined): string {
+  if (value === null || value === undefined) return '0'
+  if (typeof value === 'number') return formatNumber(value)
+  if (value.exact !== null && value.exact !== undefined) {
+    return formatNumber(value.exact)
+  }
+  if (value.over !== null && value.over !== undefined) {
+    return `${value.over}+`
+  }
+  return '0'
+}
+
+function formatNumber(val: number): string {
+  if (val >= 10000) return `${(val / 10000).toFixed(1)}万`
+  if (val >= 1000) return `${(val / 1000).toFixed(1)}k`
+  return val.toLocaleString()
 }

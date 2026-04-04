@@ -11,13 +11,14 @@ import z from "zod";
 export const UserCollectorMappingResSchema = z.object({
     script_status: DictListSchema,
     record_status: DictListSchema,
+    log_level: DictListSchema,
 });
 export type UserCollectorMappingResType = z.infer<typeof UserCollectorMappingResSchema>;
 
 export const userCollectorMapping = async (
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<UserCollectorMappingResType>> => {
-    const { data } = await authApi().post('/api/user/file/collector/mapping', {}, config);
+    const { data } = await authApi().post('/api/user/app_collector/mapping', {}, config);
     return parseResData(data, UserCollectorMappingResSchema);
 };
 
@@ -54,7 +55,7 @@ export const userCollectorScriptList = async (
     param: CollectorScriptListParamType,
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<CollectorScriptListResType>> => {
-    const { data } = await authApi().post('/api/user/file/collector/scripts', param, config);
+    const { data } = await authApi().post('/api/user/app_collector/scripts', param, config);
     return parseResData(data, CollectorScriptListResSchema);
 };
 
@@ -78,7 +79,7 @@ export const userCollectorScriptAdd = async (
     param: CollectorScriptAddParamType,
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<CollectorScriptAddResType>> => {
-    const { data } = await authApi().post('/api/user/file/collector/script_add', param, config);
+    const { data } = await authApi().post('/api/user/app_collector/script_add', param, config);
     return parseResData(data, CollectorScriptAddResSchema);
 };
 
@@ -98,7 +99,7 @@ export const userCollectorScriptEdit = async (
     param: CollectorScriptEditParamType,
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult> => {
-    const { data } = await authApi().post('/api/user/file/collector/script_edit', param, config);
+    const { data } = await authApi().post('/api/user/app_collector/script_edit', param, config);
     return data;
 };
 
@@ -115,7 +116,7 @@ export const userCollectorScriptStatus = async (
     param: CollectorScriptStatusParamType,
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult> => {
-    const { data } = await authApi().post('/api/user/file/collector/script_status', param, config);
+    const { data } = await authApi().post('/api/user/app_collector/script_status', param, config);
     return data;
 };
 
@@ -131,7 +132,7 @@ export const userCollectorScriptDelete = async (
     param: CollectorScriptDeleteParamType,
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult> => {
-    const { data } = await authApi().post('/api/user/file/collector/script_del', param, config);
+    const { data } = await authApi().post('/api/user/app_collector/script_del', param, config);
     return data;
 };
 
@@ -162,7 +163,7 @@ export const userCollectorScriptDetail = async (
     param: CollectorScriptDetailParamType,
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<CollectorScriptDetailResType>> => {
-    const { data } = await authApi().post('/api/user/file/collector/script_detail', param, config);
+    const { data } = await authApi().post('/api/user/app_collector/script_detail', param, config);
     return parseResData(data, CollectorScriptDetailResSchema);
 };
 
@@ -203,7 +204,7 @@ export const userCollectorRecordList = async (
     param: CollectorRecordListParamType,
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<CollectorRecordListResType>> => {
-    const { data } = await authApi().post('/api/user/file/collector/script_records', param, config);
+    const { data } = await authApi().post('/api/user/app_collector/script_records', param, config);
     return parseResData(data, CollectorRecordListResSchema);
 };
 
@@ -244,7 +245,7 @@ export const userCollectorFileList = async (
     param: CollectorFileListParamType,
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<CollectorFileListResType>> => {
-    const { data } = await authApi().post('/api/user/file/collector/script_files', param, config);
+    const { data } = await authApi().post('/api/user/app_collector/script_files', param, config);
     return parseResData(data, CollectorFileListResSchema);
 };
 
@@ -281,7 +282,7 @@ export const userCollectorLogList = async (
     param: CollectorLogListParamType,
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<CollectorLogListResType>> => {
-    const { data } = await authApi().post('/api/user/file/collector/script_logs', param, config);
+    const { data } = await authApi().post('/api/user/app_collector/script_logs', param, config);
     return parseResData(data, CollectorLogListResSchema);
 };
 
@@ -304,7 +305,7 @@ export const userCollectorRecordFileList = async (
     param: CollectorRecordFileListParamType,
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<CollectorRecordFileListResType>> => {
-    const { data } = await authApi().post('/api/user/file/collector/record_files', param, config);
+    const { data } = await authApi().post('/api/user/app_collector/record_files', param, config);
     return parseResData(data, CollectorRecordFileListResSchema);
 };
 
@@ -328,7 +329,7 @@ export const userCollectorRecordLogList = async (
     param: CollectorRecordLogListParamType,
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<CollectorRecordLogListResType>> => {
-    const { data } = await authApi().post('/api/user/file/collector/record_logs', param, config);
+    const { data } = await authApi().post('/api/user/app_collector/record_logs', param, config);
     return parseResData(data, CollectorRecordLogListResSchema);
 };
 
@@ -354,6 +355,6 @@ export const userCollectorSubmitTask = async (
     param: CollectorSubmitTaskParamType,
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<CollectorSubmitTaskResType>> => {
-    const { data } = await authApi().post('/api/user/file/collector/submit_task', param, config);
+    const { data } = await authApi().post('/api/user/app_collector/submit_task', param, config);
     return parseResData(data, CollectorSubmitTaskResSchema);
 };

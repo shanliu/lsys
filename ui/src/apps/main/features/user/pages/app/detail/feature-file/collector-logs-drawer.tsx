@@ -5,7 +5,9 @@ import {
     DrawerHeader,
     DrawerTitle,
 } from "@apps/main/components/local/drawer";
-import { PagePagination, useCountNumManager } from "@apps/main/lib/pagination-utils";
+import { useDictData } from "@apps/main/hooks/use-dict-data";
+import { createStatusMapper } from "@apps/main/lib/status-utils";
+import { CursorPagination, useLimitCountNum } from "@apps/main/lib/pagination-utils";
 import {
     userCollectorLogList,
     type CollectorLogItemType,
@@ -14,17 +16,18 @@ import {
 import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
 import { CenteredLoading } from "@shared/components/custom/page-placeholder/centered-loading";
 import { Badge } from "@shared/components/ui/badge";
-import { cn, formatTime, getQueryResponseData, TIME_STYLE } from "@shared/lib/utils";
+import { cn, formatTime, getQueryResponseCursor, getQueryResponseData, TIME_STYLE } from "@shared/lib/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 
-// 日志级别映射
-const logLevelMap: Record<number, { label: string; variant: string }> = {
-    1: { label: "DEBUG", variant: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300" },
-    2: { label: "INFO", variant: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" },
-    3: { label: "WARN", variant: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300" },
-    4: { label: "ERROR", variant: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300" },
-};
+// 日志级别颜色映射（使用统一状态管理）
+const logLevelMapper = createStatusMapper({
+    1: 'neutral',   // DEBUG
+    2: 'info',      // INFO
+    3: 'warning',   // WARN
+    4: 'danger',    // ERROR
+    10: 'info',     // SYSTEM
+});
 
 interface CollectorLogsDrawerProps {
     appId: number;
@@ -40,28 +43,29 @@ export function CollectorLogsDrawer({
     onOpenChange,
 }: CollectorLogsDrawerProps) {
     const queryClient = useQueryClient();
-    const [page, setPage] = useState(1);
+    const [cursorParams, setCursorParams] = useState<{ pos: number | null; forward: boolean }>({ pos: null, forward: true });
     const pageSize = 20;
+    const { dictData: collectorDict } = useDictData(['user_collector'] as const);
 
-    const countNumManager = useCountNumManager({});
+    const countNumManager = useLimitCountNum({});
     const { reset: resetCountNum } = countNumManager;
 
     useEffect(() => {
-        setPage(1);
+        setCursorParams({ pos: null, forward: true });
         resetCountNum();
     }, [script.id, resetCountNum]);
 
     const { data: logsData, isSuccess, isLoading, isError, error } = useQuery({
-        queryKey: ["collectorLogList", appId, script.id, page],
+        queryKey: ["collectorLogList", appId, script.id, cursorParams.pos, cursorParams.forward],
         queryFn: ({ signal }) =>
             userCollectorLogList(
                 {
                     app_id: appId,
                     script_id: script.id,
                     limit: {
-                        pos: (page - 1) * pageSize || null,
+                        pos: cursorParams.pos,
                         limit: pageSize,
-                        forward: true,
+                        forward: cursorParams.forward,
                     },
                     count_num: countNumManager.getCountNum(),
                 },
@@ -70,7 +74,8 @@ export function CollectorLogsDrawer({
         enabled: isOpen,
     });
 
-    isSuccess && countNumManager.handlePageQueryResult(logsData);
+    isSuccess && countNumManager.handleQueryResult(logsData);
+    const cursorData = getQueryResponseCursor(logsData);
 
     const logs = getQueryResponseData<CollectorLogItemType[]>(logsData, []);
 
@@ -78,15 +83,21 @@ export function CollectorLogsDrawer({
         queryClient.refetchQueries({ queryKey: ["collectorLogList", appId, script.id] });
     }, [queryClient, appId, script.id]);
 
+    const localSearchGo = useCallback((param: { pos: number | null; forward?: boolean }) => {
+        setCursorParams({ pos: param.pos ?? null, forward: param.forward ?? true });
+    }, []);
+
     const handleOpenChange = (open: boolean) => {
         onOpenChange(open);
         if (!open) {
-            setPage(1);
+            setCursorParams({ pos: null, forward: true });
         }
     };
 
     const getLevelInfo = (level: number) => {
-        return logLevelMap[level] || { label: String(level), variant: "bg-gray-100 text-gray-700" };
+        const label = collectorDict?.log_level?.getLabel(String(level), '') ?? '';
+        const cls = logLevelMapper.getClass(level);
+        return { label, cls };
     };
 
     return (
@@ -118,7 +129,7 @@ export function CollectorLogsDrawer({
                                     <div key={log.id} className="border rounded-lg p-3 space-y-1.5 bg-card">
                                         <div className="flex items-center justify-between gap-2">
                                             <div className="flex items-center gap-2">
-                                                <Badge className={cn("text-xs font-mono", levelInfo.variant)}>
+                                                <Badge className={cn("text-xs font-mono", levelInfo.cls)}>
                                                     {levelInfo.label}
                                                 </Badge>
                                                 <span className="text-xs font-mono text-muted-foreground" title={log.request_id}>
@@ -140,15 +151,14 @@ export function CollectorLogsDrawer({
                     </div>
 
                     <div className="flex justify-end">
-                        <PagePagination
-                            currentPage={page}
-                            pageSize={pageSize}
-                            total={countNumManager.getTotal() ?? 0}
+                        <CursorPagination
+                            limit={pageSize}
+                            cursorData={cursorData}
+                            searchGo={localSearchGo}
+                            totalInfo={countNumManager.getTotalInfo()}
+                            currentPageSize={logs.length}
                             loading={isLoading}
-                            onChange={(newPage) => setPage(newPage)}
-                            showTotal={false}
                             showPageSize={false}
-                            showSizeCount={5}
                         />
                     </div>
                 </div>

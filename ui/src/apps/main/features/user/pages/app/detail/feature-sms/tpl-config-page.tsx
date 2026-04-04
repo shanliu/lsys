@@ -1,25 +1,33 @@
 "use client";
 
+import { FilterContainer } from "@apps/main/components/filter-container/container";
+import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
+import { UserExportAction } from "@apps/main/features/user/components/ui/user-export-action";
+import { EXPORT_TYPE_USER_SMSER_TPL_CONFIG } from "@shared/apis/user/file";
+import { FilterInput } from "@apps/main/components/filter-container/filter-input";
+import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
+import { AppDetailNavContainer } from "@apps/main/features/user/components/ui/app-detail-nav";
+import {
+  DEFAULT_PAGE_SIZE,
+  PagePagination,
+  usePageCountNum,
+} from "@apps/main/lib/pagination-utils";
+import { Route } from "@apps/main/routes/_main/user/app/$appId/features-sms/tpl-config";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
   userSenderSmsTplConfigDel,
   UserSenderSmsTplConfigItemType,
   userSenderSmsTplConfigList,
 } from "@shared/apis/user/sender-sms";
 import { ConfirmDialog } from "@shared/components/custom/dialog/confirm-dialog";
-import { FilterContainer } from "@apps/main/components/filter-container/container";
-import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
-import { FilterInput } from "@apps/main/components/filter-container/filter-input";
-import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
 import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
 import {
-  DEFAULT_PAGE_SIZE,
-  PagePagination,
-  useCountNumManager,
-} from "@apps/main/lib/pagination-utils";
-import { DataTable, DataTableAction, DataTableActionItem } from "@shared/components/custom/table";
+  DataTable,
+  DataTableAction,
+  DataTableActionItem,
+} from "@shared/components/custom/table";
 import { Button } from "@shared/components/ui/button";
 import { useToast } from "@shared/contexts/toast-context";
-import { AppDetailNavContainer } from "@apps/main/features/user/components/ui/app-detail-nav";
 import { useIsMobile } from "@shared/hooks/use-mobile";
 import {
   cn,
@@ -28,8 +36,7 @@ import {
   getQueryResponseData,
   TIME_STYLE,
 } from "@shared/lib/utils";
-import { Route } from "@apps/main/routes/_main/user/app/$appId/features-sms/tpl-config";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { formatTotalCount } from "@shared/lib/utils/format-utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { type ColumnDef } from "@tanstack/react-table";
@@ -37,9 +44,7 @@ import { ExternalLink, Trash2 } from "lucide-react";
 import React from "react";
 import { featureSmsModuleConfig } from "../nav-info";
 import { TplConfigDrawer } from "./tpl-config-drawer";
-import {
-  TplConfigFilterFormSchema
-} from "./tpl-config-schema";
+import { TplConfigFilterFormSchema } from "./tpl-config-schema";
 
 export default function AppDetailFeatureSmsTplConfigPage() {
   const { appId } = Route.useParams();
@@ -61,7 +66,7 @@ export default function AppDetailFeatureSmsTplConfigPage() {
   };
 
   // count_num 优化管理器（传入 filters 自动监听变化）
-  const countNumManager = useCountNumManager(filters);
+  const countNumManager = usePageCountNum(filters);
 
   // 获取模板配置列表数据
   const {
@@ -89,7 +94,7 @@ export default function AppDetailFeatureSmsTplConfigPage() {
           },
           count_num: countNumManager.getCountNum(),
         },
-        { signal }
+        { signal },
       );
       return result;
     },
@@ -97,10 +102,13 @@ export default function AppDetailFeatureSmsTplConfigPage() {
   });
 
   // 处理 Page 分页查询结果（自动提取 total）
-  isSuccess && countNumManager.handlePageQueryResult(configData);
+  isSuccess && countNumManager.handleQueryResult(configData);
 
   // 从查询结果中提取数据
-  const configs = getQueryResponseData<UserSenderSmsTplConfigItemType[]>(configData, []);
+  const configs = getQueryResponseData<UserSenderSmsTplConfigItemType[]>(
+    configData,
+    [],
+  );
 
   // 删除配置
   const deleteMutation = useMutation({
@@ -137,7 +145,9 @@ export default function AppDetailFeatureSmsTplConfigPage() {
       header: () => <div className={cn(isMobile ? "" : "text-right")}>ID</div>,
       size: 80,
       cell: ({ getValue }) => (
-        <div className={cn("font-mono text-sm", isMobile ? "" : "text-right")}>{getValue<number>()}</div>
+        <div className={cn("font-mono text-sm", isMobile ? "" : "text-right")}>
+          {getValue<number>()}
+        </div>
       ),
     },
     {
@@ -225,8 +235,13 @@ export default function AppDetailFeatureSmsTplConfigPage() {
         const config = row.original;
 
         return (
-          <DataTableAction className={cn(isMobile ? "justify-end" : "justify-center")}>
-            <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
+          <DataTableAction
+            className={cn(isMobile ? "justify-end" : "justify-center")}
+          >
+            <DataTableActionItem
+              mobileDisplay="display"
+              desktopDisplay="collapsed"
+            >
               <ConfirmDialog
                 title="确认删除"
                 description={
@@ -266,7 +281,7 @@ export default function AppDetailFeatureSmsTplConfigPage() {
             onClick={() => setDrawerOpen(true)}
           >
             <ExternalLink className=" h-4 w-4" />
-           <span className="ml-2">新增配置</span>
+            <span className="ml-2">新增配置</span>
           </Button>
         }
       >
@@ -290,7 +305,7 @@ export default function AppDetailFeatureSmsTplConfigPage() {
               }}
               countComponent={
                 <FilterTotalCount
-                  total={countNumManager.getTotal() ?? 0}
+                  value={formatTotalCount(countNumManager.getTotal())}
                   loading={isLoading}
                 />
               }
@@ -313,6 +328,13 @@ export default function AppDetailFeatureSmsTplConfigPage() {
                     loading={isLoading}
                     layoutParams={layoutParams}
                     onRefreshSearch={clearCacheAndReload}
+                    extraActions={
+                      <UserExportAction
+                        appId={Number(appId)}
+                        exportType={EXPORT_TYPE_USER_SMSER_TPL_CONFIG}
+                        params={{ app_id: Number(appId), tpl: filters.tpl }}
+                      />
+                    }
                   />
                 </div>
               )}
@@ -329,7 +351,11 @@ export default function AppDetailFeatureSmsTplConfigPage() {
                 loading={isLoading}
                 error={
                   isError ? (
-                    <CenteredError error={error} variant="content" onReset={refreshData} />
+                    <CenteredError
+                      error={error}
+                      variant="content"
+                      onReset={refreshData}
+                    />
                   ) : null
                 }
                 scrollSnapDelay={300}
@@ -371,5 +397,4 @@ export default function AppDetailFeatureSmsTplConfigPage() {
 }
 
 // 导出 schema 供路由使用
-export { TplConfigFilterParamSchema } from './tpl-config-schema';
-
+export { TplConfigFilterParamSchema } from "./tpl-config-schema";

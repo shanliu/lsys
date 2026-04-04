@@ -1,7 +1,7 @@
 import { type UserSenderMailerMessageItemType, type UserSenderMailerMessageLogItemType, userSenderMailerMessageLogs } from '@shared/apis/user/sender-mailer'
 import { CenteredError } from '@shared/components/custom/page-placeholder/centered-error'
 import { CenteredLoading } from '@shared/components/custom/page-placeholder/centered-loading'
-import { PagePagination, useCountNumManager } from '@apps/main/lib/pagination-utils'
+import { PagePagination, usePageCountNum } from '@apps/main/lib/pagination-utils'
 import { MaskedText } from '@shared/components/custom/text/masked-text'
 import { Badge } from '@shared/components/ui/badge'
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@apps/main/components/local/drawer'
@@ -30,7 +30,7 @@ export function ListLogsDrawer({
   const pageSize = 10
 
   // count_num 优化管理器
-  const countNumManager = useCountNumManager({});
+  const countNumManager = usePageCountNum({});
 
   // 获取日志数据 - 只有在抽屉打开时才启用查询
   const { data: logsData, isSuccess, isLoading, isError, error } = useQuery({
@@ -47,7 +47,7 @@ export function ListLogsDrawer({
   })
 
   // 处理 Page 分页查询结果（自动提取 total）
-  isSuccess && countNumManager.handlePageQueryResult(logsData);
+  isSuccess && countNumManager.handleQueryResult(logsData);
 
   const logs = getQueryResponseData<UserSenderMailerMessageLogItemType[]>(logsData, [])
 

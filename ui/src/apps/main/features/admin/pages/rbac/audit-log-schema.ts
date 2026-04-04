@@ -1,5 +1,4 @@
-import { LimitDataParam } from '@shared/types/base-schema';
-import { NumberParamSchema } from '@shared/types/base-schema';
+import { LimitDataParam, NumberParamSchema } from '@shared/types/base-schema';
 import { z } from 'zod';
 
 // 基础过滤器字段 schema
@@ -22,11 +21,3 @@ export const RbacAuditLogFilterFormSchema = z.object({
 });
 
 export type RbacAuditLogFilterParamType = z.infer<typeof RbacAuditLogFilterParamSchema>;
-
-// 偏移分页状态类型
-export type RbacOffsetPaginationType = {
-  pos: number | null
-  limit: number
-  forward: boolean
-  more: boolean
-};

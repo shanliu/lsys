@@ -561,7 +561,7 @@ export const AppRbacOpDataItemSchema = z.object({
 export type AppRbacOpDataItemType = z.infer<typeof AppRbacOpDataItemSchema>;
 
 export const AppRbacOpListResSchema = z.object({
-    count: z.string().nullish(),
+    count: z.coerce.number().nullable().optional(),
     data: z.array(AppRbacOpDataItemSchema),
 });
 export type AppRbacOpListResType = z.infer<typeof AppRbacOpListResSchema>;
@@ -782,7 +782,7 @@ export type AppRbacResDataItemType = z.infer<typeof AppRbacResDataItemSchema>;
 
 export const AppRbacResListResSchema = z.object({
     data: z.array(AppRbacResDataItemSchema),
-    count: z.string().nullish(),
+    count: z.coerce.number().nullable().optional(),
     ...PageResSchema,
 });
 export type AppRbacResListResType = z.infer<typeof AppRbacResListResSchema>;

@@ -9,20 +9,30 @@ import { SenderTplConfigView } from "@apps/main/components/local/sender-config/t
 import { ConfirmDialog } from "@shared/components/custom/dialog/confirm-dialog";
 import { FilterContainer } from "@apps/main/components/filter-container/container";
 import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
+import { UserExportAction } from "@apps/main/features/user/components/ui/user-export-action";
+import { EXPORT_TYPE_USER_MAILER_TPL_CONFIG } from "@shared/apis/user/file";
 import { FilterInput } from "@apps/main/components/filter-container/filter-input";
 import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
+import { formatTotalCount } from "@shared/lib/utils/format-utils";
 import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
 import { PageSkeletonTable } from "@shared/components/custom/page-placeholder/skeleton-table";
 import {
   DEFAULT_PAGE_SIZE,
   PagePagination,
-  useCountNumManager,
+  usePageCountNum,
 } from "@apps/main/lib/pagination-utils";
-import { DataTable, DataTableAction, DataTableActionItem } from "@shared/components/custom/table";
+import {
+  DataTable,
+  DataTableAction,
+  DataTableActionItem,
+} from "@shared/components/custom/table";
 import { Button } from "@shared/components/ui/button";
 import { useToast } from "@shared/contexts/toast-context";
 import { AppDetailNavContainer } from "@apps/main/features/user/components/ui/app-detail-nav";
-import { useDictData, type TypedDictData } from "@apps/main/hooks/use-dict-data";
+import {
+  useDictData,
+  type TypedDictData,
+} from "@apps/main/hooks/use-dict-data";
 import { useIsMobile } from "@shared/hooks/use-mobile";
 import {
   cn,
@@ -41,9 +51,7 @@ import React from "react";
 import { featureMailModuleConfig } from "../nav-info";
 import { TplConfigDetailDrawer } from "./tpl-config-detail-drawer";
 import { TplConfigDrawer } from "./tpl-config-drawer";
-import {
-  TplConfigFilterFormSchema
-} from "./tpl-config-schema";
+import { TplConfigFilterFormSchema } from "./tpl-config-schema";
 
 export default function AppDetailFeatureMailTplConfigPage() {
   // user\app_sender_mailer\tpl_config_del.md
@@ -66,18 +74,13 @@ export default function AppDetailFeatureMailTplConfigPage() {
   // 如果字典加载失败，显示错误页面
   if (dictError && dictErrors.length > 0) {
     return (
-      <CenteredError
-        variant="page"
-        error={dictErrors}
-        onReset={refetchDict}
-      
-      />
+      <CenteredError variant="page" error={dictErrors} onReset={refetchDict} />
     );
   }
 
   // 如果字典加载中，显示骨架屏
   if (dictIsLoading) {
-    return <PageSkeletonTable variant="page"  />;
+    return <PageSkeletonTable variant="page" />;
   }
 
   // 字典加载成功，渲染内容组件
@@ -86,7 +89,11 @@ export default function AppDetailFeatureMailTplConfigPage() {
       <AppDetailNavContainer
         {...featureMailModuleConfig}
         actions={
-          <Button size="sm" variant="outline" onClick={() => setTplConfigDrawerOpen(true)}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setTplConfigDrawerOpen(true)}
+          >
             <Plus className={cn("mr-2 h-4 w-4")} />
             新增配置
           </Button>
@@ -109,14 +116,17 @@ interface AppDetailFeatureMailTplConfigContentProps {
   dictData: TypedDictData<["user_sender_mailer"]>;
 }
 
-function AppDetailFeatureMailTplConfigContent({ dictData }: AppDetailFeatureMailTplConfigContentProps) {
+function AppDetailFeatureMailTplConfigContent({
+  dictData,
+}: AppDetailFeatureMailTplConfigContentProps) {
   const { appId } = Route.useParams();
   const toast = useToast();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [detailDrawerOpen, setDetailDrawerOpen] = React.useState(false);
-  const [detailConfig, setDetailConfig] = React.useState<UserSenderMailerTplConfigItemType | null>(null);
+  const [detailConfig, setDetailConfig] =
+    React.useState<UserSenderMailerTplConfigItemType | null>(null);
 
   // 从 URL 搜索参数获取过滤条件
   const filterParam = Route.useSearch();
@@ -130,7 +140,7 @@ function AppDetailFeatureMailTplConfigContent({ dictData }: AppDetailFeatureMail
   };
 
   // count_num 优化管理器（传入 filters 自动监听变化）
-  const countNumManager = useCountNumManager(filters);
+  const countNumManager = usePageCountNum(filters);
 
   // 获取模板配置列表数据
   const {
@@ -158,7 +168,7 @@ function AppDetailFeatureMailTplConfigContent({ dictData }: AppDetailFeatureMail
           },
           count_num: countNumManager.getCountNum(),
         },
-        { signal }
+        { signal },
       );
       return result;
     },
@@ -166,14 +176,18 @@ function AppDetailFeatureMailTplConfigContent({ dictData }: AppDetailFeatureMail
   });
 
   // 处理 Page 分页查询结果（自动提取 total）
-  isSuccess && countNumManager.handlePageQueryResult(configData);
+  isSuccess && countNumManager.handleQueryResult(configData);
 
   // 从查询结果中提取数据
-  const configs = getQueryResponseData<UserSenderMailerTplConfigItemType[]>(configData, []);
+  const configs = getQueryResponseData<UserSenderMailerTplConfigItemType[]>(
+    configData,
+    [],
+  );
 
   // 删除配置
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => userSenderMailerTplConfigDel({ tpl_config_id: id }),
+    mutationFn: (id: number) =>
+      userSenderMailerTplConfigDel({ tpl_config_id: id }),
     onSuccess: () => {
       toast.success("配置删除成功");
       countNumManager.reset();
@@ -206,7 +220,9 @@ function AppDetailFeatureMailTplConfigContent({ dictData }: AppDetailFeatureMail
       header: () => <div className={cn(isMobile ? "" : "text-right")}>ID</div>,
       size: 80,
       cell: ({ getValue }) => (
-        <div className={cn("font-mono text-sm", isMobile ? "" : "text-right")}>{getValue<number>()}</div>
+        <div className={cn("font-mono text-sm", isMobile ? "" : "text-right")}>
+          {getValue<number>()}
+        </div>
       ),
     },
     {
@@ -270,8 +286,13 @@ function AppDetailFeatureMailTplConfigContent({ dictData }: AppDetailFeatureMail
         const config = row.original;
 
         return (
-          <DataTableAction className={cn(isMobile ? "justify-end" : "justify-center")}>
-            <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
+          <DataTableAction
+            className={cn(isMobile ? "justify-end" : "justify-center")}
+          >
+            <DataTableActionItem
+              mobileDisplay="display"
+              desktopDisplay="collapsed"
+            >
               <Button
                 variant="ghost"
                 size="sm"
@@ -282,11 +303,14 @@ function AppDetailFeatureMailTplConfigContent({ dictData }: AppDetailFeatureMail
                   setDetailDrawerOpen(true);
                 }}
               >
-              <FileText className="h-3 w-3" />
-              <span className="text-xs ml-1">详细信息</span>
+                <FileText className="h-3 w-3" />
+                <span className="text-xs ml-1">详细信息</span>
               </Button>
             </DataTableActionItem>
-            <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
+            <DataTableActionItem
+              mobileDisplay="display"
+              desktopDisplay="collapsed"
+            >
               <ConfirmDialog
                 title="确认删除"
                 description={
@@ -336,7 +360,7 @@ function AppDetailFeatureMailTplConfigContent({ dictData }: AppDetailFeatureMail
           }}
           countComponent={
             <FilterTotalCount
-              total={countNumManager.getTotal() ?? 0}
+              value={formatTotalCount(countNumManager.getTotal())}
               loading={isLoading}
             />
           }
@@ -359,6 +383,14 @@ function AppDetailFeatureMailTplConfigContent({ dictData }: AppDetailFeatureMail
                 loading={isLoading}
                 layoutParams={layoutParams}
                 onRefreshSearch={clearCacheAndReload}
+                extraActions={
+                  <UserExportAction
+                    appId={Number(appId)}
+                    exportType={EXPORT_TYPE_USER_MAILER_TPL_CONFIG}
+                    params={{ app_id: Number(appId), tpl: filters.tpl }}
+                    layoutParams={layoutParams}
+                  />
+                }
               />
             </div>
           )}
@@ -375,7 +407,11 @@ function AppDetailFeatureMailTplConfigContent({ dictData }: AppDetailFeatureMail
             loading={isLoading}
             error={
               isError ? (
-                <CenteredError error={error} variant="content" onReset={refreshData} />
+                <CenteredError
+                  error={error}
+                  variant="content"
+                  onReset={refreshData}
+                />
               ) : null
             }
             scrollSnapDelay={300}
@@ -418,5 +454,4 @@ function AppDetailFeatureMailTplConfigContent({ dictData }: AppDetailFeatureMail
 }
 
 // 导出 schema 供路由使用
-export { TplConfigFilterParamSchema } from './tpl-config-schema';
-
+export { TplConfigFilterParamSchema } from "./tpl-config-schema";

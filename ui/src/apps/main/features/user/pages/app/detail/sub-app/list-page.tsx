@@ -1,24 +1,31 @@
 import { FilterContainer } from "@apps/main/components/filter-container/container";
 import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
+import { UserExportAction } from "@apps/main/features/user/components/ui/user-export-action";
+import { EXPORT_TYPE_USER_SUB_APP_LIST } from "@shared/apis/user/file";
 import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
 import { FilterInput } from "@apps/main/components/filter-container/filter-input";
 import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
+import { formatTotalCount } from "@shared/lib/utils/format-utils";
 import { UserDataTooltip } from "@apps/main/components/local/user-data-tooltip";
 import { AppDetailNavContainer } from "@apps/main/features/user/components/ui/app-detail-nav";
-import { useDictData, type TypedDictData } from "@apps/main/hooks/use-dict-data";
+import {
+  useDictData,
+  type TypedDictData,
+} from "@apps/main/hooks/use-dict-data";
 import {
   DEFAULT_PAGE_SIZE,
   PagePagination,
-  useCountNumManager,
+  usePageCountNum,
 } from "@apps/main/lib/pagination-utils";
 import { createStatusMapper } from "@apps/main/lib/status-utils";
 import { Route } from "@apps/main/routes/_main/user/app/$appId/sub-app/list";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { appSubAppList, AppSubAppListItemType } from "@shared/apis/user/app";
 import {
-  appSubAppList,
-  AppSubAppListItemType,
-} from "@shared/apis/user/app";
-import { DataTable, DataTableAction, DataTableActionItem } from "@shared/components/custom//table";
+  DataTable,
+  DataTableAction,
+  DataTableActionItem,
+} from "@shared/components/custom//table";
 import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
 import { PageSkeletonTable } from "@shared/components/custom/page-placeholder/skeleton-table";
 import { Badge } from "@shared/components/ui/badge";
@@ -37,9 +44,7 @@ import { Eye, List, Settings } from "lucide-react";
 import { useState } from "react";
 import { subAppModuleConfig } from "../nav-info";
 import { ListNotifyDrawer } from "./list-notify-drawer";
-import {
-  SubAppListFilterFormSchema
-} from "./list-schema";
+import { SubAppListFilterFormSchema } from "./list-schema";
 import { SubAppDetailDrawer } from "./list-sub-app-detail-drawer";
 import { SubAppSecretDrawer } from "./list-sub-app-secret-drawer";
 
@@ -48,9 +53,8 @@ export function SubAppListPage() {
   //docs\api\user\app\sub_app_secret_view.md
   // 字典数据获取 - 统一在最顶层获取一次
 
-  const { appId } = Route.useParams()
-  const [notifyDrawerOpen, setNotifyDrawerOpen] = useState(false)
-
+  const { appId } = Route.useParams();
+  const [notifyDrawerOpen, setNotifyDrawerOpen] = useState(false);
 
   const {
     dictData,
@@ -63,11 +67,7 @@ export function SubAppListPage() {
   // 如果字典加载失败，显示错误页面
   if (dictError && dictErrors.length > 0) {
     return (
-      <CenteredError
-        variant="page"
-        error={dictErrors}
-        onReset={refetchDict}
-      />
+      <CenteredError variant="page" error={dictErrors} onReset={refetchDict} />
     );
   }
 
@@ -79,13 +79,19 @@ export function SubAppListPage() {
   // 字典加载成功，渲染内容组件
   return (
     <>
-      <AppDetailNavContainer {...subAppModuleConfig}
+      <AppDetailNavContainer
+        {...subAppModuleConfig}
         actions={
-          <Button variant="outline" size="sm" onClick={() => setNotifyDrawerOpen(true)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setNotifyDrawerOpen(true)}
+          >
             <Settings className={cn("mr-2 h-4 w-4")} />
             通知配置
           </Button>
-        }>
+        }
+      >
         <SubAppListContent dictData={dictData} />
       </AppDetailNavContainer>
       <ListNotifyDrawer
@@ -94,12 +100,11 @@ export function SubAppListPage() {
         onOpenChange={setNotifyDrawerOpen}
       />
     </>
-  )
+  );
 }
 
 // 内容组件：负责内容加载和渲染
 interface SubAppListContentProps {
-
   dictData: TypedDictData<["user_app"]>;
 }
 
@@ -122,10 +127,16 @@ function SubAppListContent({ dictData }: SubAppListContentProps) {
   };
 
   // count_num 优化管理器（传入 filters 自动监听变化）
-  const countNumManager = useCountNumManager(filters);
+  const countNumManager = usePageCountNum(filters);
 
   // 获取子应用列表数据
-  const { data: subAppData, isSuccess, isLoading, isError, error } = useQuery({
+  const {
+    data: subAppData,
+    isSuccess,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: [
       "appSubAppList",
       appId,
@@ -146,7 +157,7 @@ function SubAppListContent({ dictData }: SubAppListContentProps) {
           },
           count_num: countNumManager.getCountNum(),
         },
-        { signal }
+        { signal },
       );
       return result;
     },
@@ -154,7 +165,7 @@ function SubAppListContent({ dictData }: SubAppListContentProps) {
   });
 
   // 处理 Page 分页查询结果（自动提取 total）
-  isSuccess && countNumManager.handlePageQueryResult(subAppData);
+  isSuccess && countNumManager.handleQueryResult(subAppData);
 
   // 从查询结果中提取数据
   const subApps = getQueryResponseData<AppSubAppListItemType[]>(subAppData, []);
@@ -188,7 +199,9 @@ function SubAppListContent({ dictData }: SubAppListContentProps) {
       header: () => <div className={cn(isMobile ? "" : "text-right")}>ID</div>,
       size: 80,
       cell: ({ getValue }) => (
-        <div className={cn("font-mono text-sm", isMobile ? "" : "text-right")}>{getValue<number>()}</div>
+        <div className={cn("font-mono text-sm", isMobile ? "" : "text-right")}>
+          {getValue<number>()}
+        </div>
       ),
     },
     {
@@ -238,7 +251,9 @@ function SubAppListContent({ dictData }: SubAppListContentProps) {
               title="请求列表"
             >
               <List className=" h-4 w-4" />
-              <span className="ml-2">待处理 ({sub_req_pending_count || 0}) 个</span>
+              <span className="ml-2">
+                待处理 ({sub_req_pending_count || 0}) 个
+              </span>
             </Button>
           </Link>
         );
@@ -271,8 +286,13 @@ function SubAppListContent({ dictData }: SubAppListContentProps) {
         const subApp = row.original;
 
         return (
-          <DataTableAction className={cn(isMobile ? "justify-end" : "justify-center")}>
-            <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
+          <DataTableAction
+            className={cn(isMobile ? "justify-end" : "justify-center")}
+          >
+            <DataTableActionItem
+              mobileDisplay="display"
+              desktopDisplay="collapsed"
+            >
               <SubAppDetailDrawer subApp={subApp} appStatusMapper={appStatus}>
                 <Button
                   variant="ghost"
@@ -284,10 +304,12 @@ function SubAppListContent({ dictData }: SubAppListContentProps) {
                   <span className="ml-2">查看详情</span>
                 </Button>
               </SubAppDetailDrawer>
-
             </DataTableActionItem>
-            <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
-              <SubAppSecretDrawer subApp={subApp} >
+            <DataTableActionItem
+              mobileDisplay="display"
+              desktopDisplay="collapsed"
+            >
+              <SubAppSecretDrawer subApp={subApp}>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -327,7 +349,10 @@ function SubAppListContent({ dictData }: SubAppListContentProps) {
             });
           }}
           countComponent={
-            <FilterTotalCount total={countNumManager.getTotal() ?? 0} loading={isLoading} />
+            <FilterTotalCount
+              value={formatTotalCount(countNumManager.getTotal())}
+              loading={isLoading}
+            />
           }
           className="bg-card rounded-lg border shadow-sm relative"
         >
@@ -362,6 +387,18 @@ function SubAppListContent({ dictData }: SubAppListContentProps) {
                 loading={isLoading}
                 layoutParams={layoutParams}
                 onRefreshSearch={clearCacheAndReload}
+                extraActions={
+                  <UserExportAction
+                    appId={Number(appId)}
+                    exportType={EXPORT_TYPE_USER_SUB_APP_LIST}
+                    params={{
+                      app_id: Number(appId),
+                      sub_app_id: filters.sub_app_id,
+                      status: filters.status,
+                    }}
+                    layoutParams={layoutParams}
+                  />
+                }
               />
             </div>
           )}
@@ -376,8 +413,15 @@ function SubAppListContent({ dictData }: SubAppListContentProps) {
             data={subApps}
             columns={columns}
             loading={isLoading}
-            error={isError ? <CenteredError error={error} variant="content" onReset={refreshData} /> : null}
-
+            error={
+              isError ? (
+                <CenteredError
+                  error={error}
+                  variant="content"
+                  onReset={refreshData}
+                />
+              ) : null
+            }
             scrollSnapDelay={300}
             className="[&_tr]:h-11 [&_td]:py-1 [&_th]:py-1 [&_table]:border-0 [&_.table-container]:border-0 [&_tbody_tr:last-child]:border-b h-full"
             tableContainerClassName="h-full"
@@ -409,5 +453,4 @@ function SubAppListContent({ dictData }: SubAppListContentProps) {
 }
 
 // 导出 schema 供路由使用
-export { SubAppListFilterParamSchema } from './list-schema';
-
+export { SubAppListFilterParamSchema } from "./list-schema";

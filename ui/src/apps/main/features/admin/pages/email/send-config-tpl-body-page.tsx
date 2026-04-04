@@ -7,7 +7,7 @@ import { FilterTotalCount } from "@apps/main/components/filter-container/filter-
 import { EmailSendConfigNavContainer } from "@apps/main/features/admin/components/ui/email-send-config-nav";
 import {
   DEFAULT_PAGE_SIZE,
-  useCountNumManager,
+  usePageCountNum,
   useSearchNavigate,
 } from "@apps/main/lib/pagination-utils";
 import { Route } from "@apps/main/routes/_main/admin/email/send-config/template";
@@ -31,6 +31,7 @@ import {
   getQueryResponseData,
   TIME_STYLE,
 } from "@shared/lib/utils";
+import { formatTotalCount } from "@shared/lib/utils/format-utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ColumnDef } from "@tanstack/react-table";
 import { Edit2, Plus, Trash2 } from "lucide-react";
@@ -63,7 +64,7 @@ export function EmailSendConfigTplBodyPage() {
   };
 
   // count_num 优化管理器
-  const countNumManager = useCountNumManager(filters);
+  const countNumManager = usePageCountNum(filters);
 
   // 获取模板列表数据
   const {
@@ -97,7 +98,7 @@ export function EmailSendConfigTplBodyPage() {
   });
 
   // 处理 Page 分页查询结果
-  isSuccess && countNumManager.handlePageQueryResult(tplData);
+  isSuccess && countNumManager.handleQueryResult(tplData);
 
   // 从查询结果中提取数据
   const templates = getQueryResponseData<SystemSenderMailerTplBodyItemType[]>(tplData, []);
@@ -257,7 +258,7 @@ export function EmailSendConfigTplBodyPage() {
             }}
             countComponent={
               <FilterTotalCount
-                total={countNumManager.getTotal() ?? 0}
+                value={formatTotalCount(countNumManager.getTotal())}
                 loading={isLoading}
               />
             }

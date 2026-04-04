@@ -1,47 +1,54 @@
-import { FilterContainer } from '@apps/main/components/filter-container/container';
-import { FilterActions } from '@apps/main/components/filter-container/filter-actions';
-import { FilterDictSelect } from '@apps/main/components/filter-container/filter-dict-select';
-import { FilterInput } from '@apps/main/components/filter-container/filter-input';
-import { FilterTotalCount } from '@apps/main/components/filter-container/filter-total-count';
-import { AuditDetailTooltip } from '@apps/main/components/local/audit-detail-tooltip';
-import { UserDataTooltip } from '@apps/main/components/local/user-data-tooltip';
-import { AppDetailNavContainer } from '@apps/main/features/user/components/ui/app-detail-nav';
-import { useDictData } from '@apps/main/hooks/use-dict-data';
+import { UserExportAction } from "@apps/main/features/user/components/ui/user-export-action";
+import { EXPORT_TYPE_USER_RBAC_APP_AUDIT } from "@shared/apis/user/file";
+import { FilterContainer } from "@apps/main/components/filter-container/container";
+import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
+import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
+import { FilterInput } from "@apps/main/components/filter-container/filter-input";
+import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
+import { AuditDetailTooltip } from "@apps/main/components/local/audit-detail-tooltip";
+import { UserDataTooltip } from "@apps/main/components/local/user-data-tooltip";
+import { AppDetailNavContainer } from "@apps/main/features/user/components/ui/app-detail-nav";
+import { useDictData } from "@apps/main/hooks/use-dict-data";
 import {
+  CursorPagination,
   DEFAULT_PAGE_SIZE,
-  OffsetPagination,
   PAGE_SIZE_OPTIONS,
-  useCountNumManager,
+  useLimitCountNum,
   useSearchNavigate,
-} from '@apps/main/lib/pagination-utils';
-import { createStatusMapper } from '@apps/main/lib/status-utils';
-import { Route } from '@apps/main/routes/_main/user/app/$appId/features-rbac/audit';
-import { zodResolver } from '@hookform/resolvers/zod';
+} from "@apps/main/lib/pagination-utils";
+import { createStatusMapper } from "@apps/main/lib/status-utils";
+import { Route } from "@apps/main/routes/_main/user/app/$appId/features-rbac/audit";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
   appRbacBaseAuditData,
   type AppRbacAuditDataItemType,
-} from '@shared/apis/user/rbac';
-import { CenteredError } from '@shared/components/custom/page-placeholder/centered-error';
-import { PageSkeletonTable } from '@shared/components/custom/page-placeholder/skeleton-table';
-import { DataTable, DataTableAction, DataTableActionItem } from '@shared/components/custom/table';
-import { Badge } from '@shared/components/ui/badge';
-import { Button } from '@shared/components/ui/button';
+} from "@shared/apis/user/rbac";
+import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
+import { PageSkeletonTable } from "@shared/components/custom/page-placeholder/skeleton-table";
+import {
+  DataTable,
+  DataTableAction,
+  DataTableActionItem,
+} from "@shared/components/custom/table";
+import { Badge } from "@shared/components/ui/badge";
+import { Button } from "@shared/components/ui/button";
 import {
   cn,
   formatTime,
   getQueryResponseCursor,
   getQueryResponseData,
   TIME_STYLE,
-} from '@shared/lib/utils';
-import type { LimitType } from '@shared/types/base-schema';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
-import type { ColumnDef } from '@tanstack/react-table';
-import { Eye } from 'lucide-react';
-import { useState } from 'react';
-import { featureRbacModuleConfig } from '../nav-info';
-import { AuditDetailDrawer } from './audit-detail-drawer';
-import { AuditListFilterFormSchema } from './audit-schema';
+} from "@shared/lib/utils";
+import { formatTotalCount } from "@shared/lib/utils/format-utils";
+import type { LimitType } from "@shared/types/base-schema";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
+import type { ColumnDef } from "@tanstack/react-table";
+import { Eye } from "lucide-react";
+import { useState } from "react";
+import { featureRbacModuleConfig } from "../nav-info";
+import { AuditDetailDrawer } from "./audit-detail-drawer";
+import { AuditListFilterFormSchema } from "./audit-schema";
 
 export default function AppDetailFeatureRbacAuditPage() {
   const { appId } = Route.useParams();
@@ -53,7 +60,7 @@ export default function AppDetailFeatureRbacAuditPage() {
     isError: dictError,
     errors: dictErrors,
     refetch: refetchDict,
-  } = useDictData(['app_rbac'] as const);
+  } = useDictData(["app_rbac"] as const);
 
   // 字典数据加载错误
   if (dictError) {
@@ -61,7 +68,7 @@ export default function AppDetailFeatureRbacAuditPage() {
       <AppDetailNavContainer {...featureRbacModuleConfig}>
         <CenteredError
           variant="content"
-          error={dictErrors?.[0] || '加载字典数据失败'}
+          error={dictErrors?.[0] || "加载字典数据失败"}
           onReset={refetchDict}
         />
       </AppDetailNavContainer>
@@ -79,14 +86,17 @@ export default function AppDetailFeatureRbacAuditPage() {
 
   return (
     <AppDetailNavContainer {...featureRbacModuleConfig}>
-      <AppDetailFeatureRbacAuditContent appId={Number(appId)} dictData={dictData} />
+      <AppDetailFeatureRbacAuditContent
+        appId={Number(appId)}
+        dictData={dictData}
+      />
     </AppDetailNavContainer>
   );
 }
 
 interface AppDetailFeatureRbacAuditContentProps {
   appId: number;
-  dictData: ReturnType<typeof useDictData<['app_rbac']>>['dictData'];
+  dictData: ReturnType<typeof useDictData<["app_rbac"]>>["dictData"];
 }
 
 function AppDetailFeatureRbacAuditContent({
@@ -102,7 +112,8 @@ function AppDetailFeatureRbacAuditContent({
 
   // 详情抽屉状态
   const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
-  const [selectedAudit, setSelectedAudit] = useState<AppRbacAuditDataItemType | null>(null);
+  const [selectedAudit, setSelectedAudit] =
+    useState<AppRbacAuditDataItemType | null>(null);
 
   // 过滤条件从 URL 参数获取
   const filters = {
@@ -123,7 +134,7 @@ function AppDetailFeatureRbacAuditContent({
   const searchGo = useSearchNavigate(navigate, filterParam);
 
   // count_num 优化管理器
-  const countNumManager = useCountNumManager(filters);
+  const countNumManager = useLimitCountNum(filters);
 
   // 获取审计列表数据
   const {
@@ -134,7 +145,7 @@ function AppDetailFeatureRbacAuditContent({
     error,
   } = useQuery({
     queryKey: [
-      'appRbacAuditData',
+      "appRbacAuditData",
       appId,
       pagination.pos,
       currentLimit,
@@ -157,19 +168,24 @@ function AppDetailFeatureRbacAuditContent({
           count_num: countNumManager.getCountNum(),
           user_ip: filters.user_ip || undefined,
           request_id: filters.request_id || undefined,
-          check_result: filters.check_result ? Number(filters.check_result) : undefined,
+          check_result: filters.check_result
+            ? Number(filters.check_result)
+            : undefined,
           res_data: { res_id: 0 },
         },
-        { signal }
+        { signal },
       ),
     placeholderData: (previousData) => previousData,
   });
 
   // 处理 Limit 分页查询结果
-  isSuccess && countNumManager.handleLimitQueryResult(auditData);
+  isSuccess && countNumManager.handleQueryResult(auditData);
 
   // 获取审计列表数据
-  const audits = getQueryResponseData<AppRbacAuditDataItemType[]>(auditData, []);
+  const audits = getQueryResponseData<AppRbacAuditDataItemType[]>(
+    auditData,
+    [],
+  );
   const cursorData = getQueryResponseCursor(auditData);
 
   // 打开详情抽屉
@@ -180,13 +196,13 @@ function AppDetailFeatureRbacAuditContent({
 
   // 刷新数据
   const refreshData = () => {
-    queryClient.refetchQueries({ queryKey: ['appRbacAuditData'] });
+    queryClient.refetchQueries({ queryKey: ["appRbacAuditData"] });
   };
 
   // 清除缓存并重新加载数据
   const clearCacheAndReload = () => {
     countNumManager.reset();
-    queryClient.invalidateQueries({ queryKey: ['appRbacAuditData'] });
+    queryClient.invalidateQueries({ queryKey: ["appRbacAuditData"] });
   };
 
   // loading 状态
@@ -195,27 +211,30 @@ function AppDetailFeatureRbacAuditContent({
   // 审计结果状态映射：1=授权通过(success), 0=授权失败(danger)
   const checkResultStatus = createStatusMapper<string>(
     {
-      '1': 'success',
-      '0': 'danger',
-    } as Record<string, 'success' | 'danger'>,
-    (result) => dictData.audit_result?.getLabel(String(result)) || String(result)
+      "1": "success",
+      "0": "danger",
+    } as Record<string, "success" | "danger">,
+    (result) =>
+      dictData.audit_result?.getLabel(String(result)) || String(result),
   );
 
   // 定义表格列配置
   const columns: ColumnDef<AppRbacAuditDataItemType>[] = [
     {
-      id: 'id',
+      id: "id",
       accessorFn: (row) => row.audit.id,
       header: () => <div className="sm:text-right min-w-[50px] py-1">ID</div>,
       size: 60,
       cell: ({ getValue }) => (
-        <div className="font-mono text-xs sm:text-right min-w-[50px] py-1">{getValue<number>()}</div>
+        <div className="font-mono text-xs sm:text-right min-w-[50px] py-1">
+          {getValue<number>()}
+        </div>
       ),
     },
     {
-      id: 'check_result',
+      id: "check_result",
       accessorFn: (row) => row.audit.check_result,
-      header: '授权结果',
+      header: "授权结果",
       size: 100,
       cell: ({ getValue }) => {
         const result = getValue<string>();
@@ -229,8 +248,8 @@ function AppDetailFeatureRbacAuditContent({
       },
     },
     {
-      id: 'user_info',
-      header: '用户',
+      id: "user_info",
+      header: "用户",
       size: 100,
       cell: ({ row }) => {
         const { user } = row.original;
@@ -242,26 +261,31 @@ function AppDetailFeatureRbacAuditContent({
       },
     },
     {
-      id: 'user_ip',
+      id: "user_ip",
       accessorFn: (row) => row.audit.user_ip,
-      header: 'IP地址',
+      header: "IP地址",
       cell: ({ getValue }) => (
-        <div className="font-mono text-xs py-1">{getValue<string>() || '-'}</div>
-      ),
-    },
-    {
-      id: 'request_id',
-      accessorFn: (row) => row.audit.request_id,
-      header: '请求ID',
-      cell: ({ getValue }) => (
-        <div className="font-mono text-xs py-1 max-w-[120px] truncate" title={getValue<string>() || ''}>
-          {getValue<string>() || '-'}
+        <div className="font-mono text-xs py-1">
+          {getValue<string>() || "-"}
         </div>
       ),
     },
     {
-      id: 'detail_count',
-      header: '详情数',
+      id: "request_id",
+      accessorFn: (row) => row.audit.request_id,
+      header: "请求ID",
+      cell: ({ getValue }) => (
+        <div
+          className="font-mono text-xs py-1 max-w-[120px] truncate"
+          title={getValue<string>() || ""}
+        >
+          {getValue<string>() || "-"}
+        </div>
+      ),
+    },
+    {
+      id: "detail_count",
+      header: "详情数",
       size: 60,
       cell: ({ row }) => {
         return (
@@ -272,31 +296,34 @@ function AppDetailFeatureRbacAuditContent({
       },
     },
     {
-      id: 'add_time',
+      id: "add_time",
       accessorFn: (row) => row.audit.add_time,
-      header: '授权时间',
+      header: "授权时间",
       cell: ({ getValue }) => {
         const addTime = getValue<Date | null>();
         return (
           <div className="text-xs py-1">
-            {addTime ? formatTime(addTime, TIME_STYLE.RELATIVE_ELEMENT) : '-'}
+            {addTime ? formatTime(addTime, TIME_STYLE.RELATIVE_ELEMENT) : "-"}
           </div>
         );
       },
     },
     {
-      id: 'actions',
+      id: "actions",
       header: () => <div className="text-center py-1">操作</div>,
       cell: ({ row }) => {
         const audit = row.original;
 
         return (
           <DataTableAction className="justify-end sm:justify-center gap-1">
-            <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
+            <DataTableActionItem
+              mobileDisplay="display"
+              desktopDisplay="collapsed"
+            >
               <Button
                 variant="ghost"
                 size="sm"
-                className={cn('h-auto px-2 py-1')}
+                className={cn("h-auto px-2 py-1")}
                 title="查看详情"
                 onClick={() => handleOpenDetail(audit)}
               >
@@ -347,7 +374,10 @@ function AppDetailFeatureRbacAuditContent({
               });
             }}
             countComponent={
-              <FilterTotalCount total={countNumManager.getTotal() ?? 0} loading={isLoading} />
+              <FilterTotalCount
+                value={formatTotalCount(countNumManager.getTotalInfo())}
+                loading={isLoading}
+              />
             }
             className="bg-card rounded-lg border shadow-sm relative"
           >
@@ -388,12 +418,29 @@ function AppDetailFeatureRbacAuditContent({
                 />
 
                 {/* 动作按钮区域 */}
-                <div className={cn(layoutParams.isMobile ? 'w-full' : 'flex-shrink-0')}>
+                <div
+                  className={cn(
+                    layoutParams.isMobile ? "w-full" : "flex-shrink-0",
+                  )}
+                >
                   <FilterActions
                     form={form}
                     loading={isLoading}
                     layoutParams={layoutParams}
                     onRefreshSearch={clearCacheAndReload}
+                    extraActions={
+                      <UserExportAction
+                        appId={appId}
+                        exportType={EXPORT_TYPE_USER_RBAC_APP_AUDIT}
+                        params={{
+                          app_id: appId,
+                          user_ip: filters.user_ip,
+                          request_id: filters.request_id,
+                          check_result: filters.check_result,
+                        }}
+                        layoutParams={layoutParams}
+                      />
+                    }
                   />
                 </div>
               </div>
@@ -408,21 +455,29 @@ function AppDetailFeatureRbacAuditContent({
             columns={columns}
             loading={isLoading}
             error={
-              isError ? <CenteredError error={error} variant="content" onReset={refreshData} /> : null
+              isError ? (
+                <CenteredError
+                  error={error}
+                  variant="content"
+                  onReset={refreshData}
+                />
+              ) : null
             }
             scrollSnapDelay={300}
-            leftStickyColumns={[{ column: 0, minWidth: '80px', maxWidth: '80px' }]}
+            leftStickyColumns={[
+              { column: 0, minWidth: "80px", maxWidth: "80px" },
+            ]}
             className="[&_tr]:h-11 [&_td]:py-1 [&_th]:py-1 [&_table]:border-0 [&_.table-container]:border-0 [&_tbody_tr:last-child]:border-b"
           />
 
           {/* 分页控件 */}
           <div className="flex-shrink-0 pt-4">
-            {(countNumManager.getTotal() ?? 0) > 0 && (
-              <OffsetPagination
+            {countNumManager.hasTotalInfo() && (
+              <CursorPagination
                 limit={currentLimit}
                 cursorData={cursorData}
                 searchGo={searchGo}
-                total={countNumManager.getTotal()}
+                totalInfo={countNumManager.getTotalInfo()}
                 currentPageSize={audits.length}
                 loading={isLoading}
                 onRefresh={refreshData}

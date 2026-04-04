@@ -1,4 +1,4 @@
-import { userFileFromUrl, type UserFileMappingResType } from '@shared/apis/user/file';
+import { userFileFromUrl } from '@shared/apis/user/file';
 import { ConfirmDialog } from '@shared/components/custom/dialog/confirm-dialog';
 import { ContentDialog } from '@shared/components/custom/dialog/content-dialog';
 import { Button } from '@shared/components/ui/button';
@@ -23,7 +23,6 @@ interface UrlRecord {
 interface FileUrlDownloadDialogProps {
     children: React.ReactNode;
     appId: number;
-    uploadConfig: UserFileMappingResType;
     onSuccess?: () => void;
 }
 
@@ -33,7 +32,6 @@ const MAX_CONCURRENCY_OPTIONS = [1, 2, 3, 4, 5, 6, 8, 10];
 export function FileUrlDownloadDialog({
     children,
     appId,
-    uploadConfig,
     onSuccess,
 }: FileUrlDownloadDialogProps) {
     const { success: showSuccess, error: showError } = useToast();
@@ -104,7 +102,7 @@ export function FileUrlDownloadDialog({
 
                 if (res.status && res.response) {
                     updatedRecords[i].status = 'success';
-                    updatedRecords[i].fileUserId = res.response.file_user_id;
+                    updatedRecords[i].fileUserId = res.response.id;
                     updatedRecords[i].message = '下载成功';
                 } else {
                     updatedRecords[i].status = 'error';

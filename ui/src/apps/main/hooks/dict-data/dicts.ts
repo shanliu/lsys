@@ -8,6 +8,10 @@
 
 import type { AppMapResType as adminAppMapRes } from '@shared/apis/admin/app';
 import { appMapping as adminAppMapping } from '@shared/apis/admin/app';
+import type { AdminExportMappingResType as adminExportMapRes } from '@shared/apis/admin/export';
+import { adminExportTaskMapping as adminExportMappingFn } from '@shared/apis/admin/export';
+import type { AdminFileMappingResType as adminFileMapRes } from '@shared/apis/admin/file';
+import { adminFileMapping as adminFileMappingFn } from '@shared/apis/admin/file';
 import type { RbacBaseMappingResType as adminRbacMapRes } from '@shared/apis/admin/rbac-base';
 import { rbacBaseMapping as adminRbacBaseMapping } from '@shared/apis/admin/rbac-base';
 import { systemSenderMailerMapping as adminSenderMailerMapping, SystemSenderMailerMapResType as adminSenderMailerMapRes } from '@shared/apis/admin/sender-mailer';
@@ -21,6 +25,7 @@ import { appRbacBaseMapping, AppRbacBaseMappingResType as userRbacMapRes } from 
 import { userSenderMailerMapping as userSenderMailerMappingFn, UserSenderMailerMappingResType as userSenderMailerMapRes } from '@shared/apis/user/sender-mailer';
 import { userSenderSmsMapping as userSenderSmsMappingFn, UserSenderSmsMapResType as userSenderSmsMapRes } from '@shared/apis/user/sender-sms';
 import { userFileMapping as userFileMappingFn, UserFileMappingResType as userFileMapRes } from '@shared/apis/user/file';
+import { userExportTaskMapping as userExportMappingFn, UserExportMappingResType as userExportMapRes } from '@shared/apis/user/file';
 import { userCollectorMapping as userCollectorMappingFn, UserCollectorMappingResType as userCollectorMapRes } from '@shared/apis/user/collector';
 // user_rbac 目前与 admin_rbac 使用同一底层映射，如后续有独立 user 端 RBAC mapping 再调整
 // NOTE: 某些 admin 与 user 共享同名字典，命名统一以所在模块前缀 + 功能名
@@ -118,10 +123,28 @@ export const dictDefinitions = {
     queryFn: async (context: DictQueryContext, _params?: any) => await userFileMappingFn({ signal: context.signal }),
     type: {} as userFileMapRes,
   },
+  // 用户端 - 导出任务字典
+  user_export: {
+    queryKey: (params?: any) => userQueryKey('dict', 'user_export', params),
+    queryFn: async (context: DictQueryContext, _params?: any) => await userExportMappingFn({ signal: context.signal }),
+    type: {} as userExportMapRes,
+  },
   // 用户端 - 采集管理字典
   user_collector: {
     queryKey: (params?: any) => userQueryKey('dict', 'user_collector', params),
     queryFn: async (context: DictQueryContext, _params?: any) => await userCollectorMappingFn({ signal: context.signal }),
     type: {} as userCollectorMapRes,
+  },
+  // 管理端 - 文件管理字典
+  admin_file: {
+    queryKey: (params?: any) => userQueryKey('dict', 'admin_file', params),
+    queryFn: async (context: DictQueryContext, _params?: any) => await adminFileMappingFn({ signal: context.signal }),
+    type: {} as adminFileMapRes,
+  },
+  // 管理端 - 导出任务字典
+  admin_export: {
+    queryKey: (params?: any) => userQueryKey('dict', 'admin_export', params),
+    queryFn: async (context: DictQueryContext, _params?: any) => await adminExportMappingFn({ signal: context.signal }),
+    type: {} as adminExportMapRes,
   },
 } as const;

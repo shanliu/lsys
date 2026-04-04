@@ -1,13 +1,18 @@
-import { FilterContainer } from "@apps/main/components/filter-container/container";
+﻿import { FilterContainer } from "@apps/main/components/filter-container/container";
 import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
+import { AdminExportAction } from "@apps/main/features/admin/components/ui/admin-export-action";
+import { EXPORT_TYPE_SYSTEM_ACCOUNT_SEARCH } from "@shared/apis/admin/export";
 import { FilterInput } from "@apps/main/components/filter-container/filter-input";
 import { FilterSelect } from "@apps/main/components/filter-container/filter-select";
 import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
-import { useDictData, type TypedDictData } from "@apps/main/hooks/use-dict-data";
+import {
+  useDictData,
+  type TypedDictData,
+} from "@apps/main/hooks/use-dict-data";
 import {
   DEFAULT_PAGE_SIZE,
   PAGE_SIZE_OPTIONS,
-  useCountNumManager,
+  useLimitCountNum,
   useSearchNavigate,
 } from "@apps/main/lib/pagination-utils";
 import { createStatusMapper } from "@apps/main/lib/status-utils";
@@ -20,8 +25,12 @@ import {
 } from "@shared/apis/admin/user";
 import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
 import { PageSkeletonTable } from "@shared/components/custom/page-placeholder/skeleton-table";
-import { OffsetPagination } from "@shared/components/custom/pagination";
-import { DataTable, DataTableAction, DataTableActionItem } from "@shared/components/custom/table";
+import { CursorPagination } from "@shared/components/custom/pagination";
+import {
+  DataTable,
+  DataTableAction,
+  DataTableActionItem,
+} from "@shared/components/custom/table";
 import CopyableText from "@shared/components/custom/text/copyable-text";
 import { Badge } from "@shared/components/ui/badge";
 import { Button } from "@shared/components/ui/button";
@@ -33,6 +42,7 @@ import {
   getQueryResponseData,
   TIME_STYLE,
 } from "@shared/lib/utils";
+import { formatTotalCount } from "@shared/lib/utils/format-utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { type ColumnDef } from "@tanstack/react-table";
@@ -123,7 +133,7 @@ function UserSearchContent({ dictData }: UserSearchContentProps) {
   const searchGo = useSearchNavigate(navigate, filterParam);
 
   // count_num 优化管理器
-  const countNumManager = useCountNumManager(filters);
+  const countNumManager = useLimitCountNum(filters);
 
   // 计算 enable 参数值
   // 当 enable 为 undefined 时，默认查询启用用户
@@ -161,7 +171,7 @@ function UserSearchContent({ dictData }: UserSearchContentProps) {
   });
 
   // 处理 Limit 分页查询结果
-  userIsSuccess && countNumManager.handleLimitQueryResult(userData);
+  userIsSuccess && countNumManager.handleQueryResult(userData);
 
   // 刷新数据
   const refreshData = () => {
@@ -198,15 +208,15 @@ function UserSearchContent({ dictData }: UserSearchContentProps) {
     () =>
       accountStatusDict
         ? createStatusMapper(
-          {
-            1: "neutral",
-            2: "success",
-          },
-          (status) =>
-            accountStatusDict.getLabel(String(status)) || String(status)
-        )
+            {
+              1: "neutral",
+              2: "success",
+            },
+            (status) =>
+              accountStatusDict.getLabel(String(status)) || String(status),
+          )
         : null,
-    [accountStatusDict]
+    [accountStatusDict],
   );
 
   // 定义表格列
@@ -214,10 +224,16 @@ function UserSearchContent({ dictData }: UserSearchContentProps) {
     () => [
       {
         accessorKey: "user.id",
-        header: () => <div className={cn(isMobile ? "" : "text-right")}>ID</div>,
+        header: () => (
+          <div className={cn(isMobile ? "" : "text-right")}>ID</div>
+        ),
         size: 80,
         cell: ({ getValue }) => (
-          <div className={cn("font-mono text-xs", isMobile ? "" : "text-right")}>{getValue<number>()}</div>
+          <div
+            className={cn("font-mono text-xs", isMobile ? "" : "text-right")}
+          >
+            {getValue<number>()}
+          </div>
         ),
       },
       {
@@ -339,12 +355,18 @@ function UserSearchContent({ dictData }: UserSearchContentProps) {
       },
       {
         id: "actions",
-        header: () => <div className={cn(isMobile ? "text-right" : "text-center")}>操作</div>,
+        header: () => (
+          <div className={cn(isMobile ? "text-right" : "text-center")}>
+            操作
+          </div>
+        ),
         cell: ({ row }) => {
           const user = row.original;
 
           return (
-            <DataTableAction className={cn(isMobile ? "justify-end" : "justify-center")}>
+            <DataTableAction
+              className={cn(isMobile ? "justify-end" : "justify-center")}
+            >
               <DataTableActionItem
                 mobileDisplay="display"
                 desktopDisplay="display"
@@ -364,7 +386,7 @@ function UserSearchContent({ dictData }: UserSearchContentProps) {
         },
       },
     ],
-    [userStatus, handleViewDetail, isMobile]
+    [userStatus, handleViewDetail, isMobile],
   );
 
   const isLoading = userIsLoading;
@@ -372,7 +394,12 @@ function UserSearchContent({ dictData }: UserSearchContentProps) {
   // 表单默认值
   const defaultValues = {
     key_word: filters.key_word ?? "",
-    enable: filters.enable === true ? "true" : filters.enable === false ? "false" : "",
+    enable:
+      filters.enable === true
+        ? "true"
+        : filters.enable === false
+          ? "false"
+          : "",
   };
 
   return (
@@ -397,7 +424,12 @@ function UserSearchContent({ dictData }: UserSearchContentProps) {
           resolver={zodResolver(UserAccountFilterFormSchema) as any}
           onSubmit={(data) => {
             // 转换 enable 字段：空字符串视为 undefined（全部）
-            const enableValue = data.enable === "true" ? true : data.enable === "false" ? false : undefined;
+            const enableValue =
+              data.enable === "true"
+                ? true
+                : data.enable === "false"
+                  ? false
+                  : undefined;
             navigate({
               search: {
                 ...filterParam,
@@ -417,14 +449,19 @@ function UserSearchContent({ dictData }: UserSearchContentProps) {
               } as any,
             });
           }}
-          countComponent={<FilterTotalCount total={countNumManager.getTotal() ?? 0} loading={isLoading} />}
+          countComponent={
+            <FilterTotalCount
+              value={formatTotalCount(countNumManager.getTotalInfo())}
+              loading={isLoading}
+            />
+          }
           className={cn("bg-card rounded-lg border shadow-sm relative")}
         >
           {(layoutParams, form) => (
             <div
               className={cn(
                 "flex items-end gap-4 flex-wrap",
-                layoutParams.isMobile && "flex-col items-stretch"
+                layoutParams.isMobile && "flex-col items-stretch",
               )}
             >
               <div className="flex-1 min-w-[180px] max-w-[280px]">
@@ -453,12 +490,25 @@ function UserSearchContent({ dictData }: UserSearchContentProps) {
               </div>
 
               {/* 动作按钮区域 */}
-              <div className={cn(layoutParams.isMobile ? "w-full" : "flex-shrink-0")}>
+              <div
+                className={cn(
+                  layoutParams.isMobile ? "w-full" : "flex-shrink-0",
+                )}
+              >
                 <FilterActions
                   form={form}
                   loading={isLoading}
                   layoutParams={layoutParams}
                   onRefreshSearch={clearCacheAndReload}
+                  extraActions={
+                    <AdminExportAction
+                      exportType={EXPORT_TYPE_SYSTEM_ACCOUNT_SEARCH}
+                      params={{
+                        key_word: filters.key_word,
+                        enable: filters.enable,
+                      }}
+                    />
+                  }
                 />
               </div>
             </div>
@@ -489,12 +539,12 @@ function UserSearchContent({ dictData }: UserSearchContentProps) {
 
         {/* 分页控件 */}
         <div className="flex-shrink-0 pt-4">
-          {(countNumManager.getTotal() ?? 0) > 0 && (
-            <OffsetPagination
+          {countNumManager.hasTotalInfo() && (
+            <CursorPagination
               limit={pagination.limit}
               cursorData={cursorData}
               searchGo={searchGo}
-              total={countNumManager.getTotal()}
+              totalInfo={countNumManager.getTotalInfo()}
               currentPageSize={users.length}
               loading={isLoading}
               onRefresh={refreshData}

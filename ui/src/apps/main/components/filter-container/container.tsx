@@ -105,9 +105,10 @@ export function FilterContainer<
       if (Object.keys(form.formState.errors).length > 0) {
         // 显示所有验证错误
         Object.entries(form.formState.errors).forEach(([field, error]) => {
-          const message = typeof error?.message === 'string'
-            ? error.message
-            : `${field} 验证失败`;
+          const message =
+            typeof error?.message === "string"
+              ? error.message
+              : `${field} 验证失败`;
           toast.error(message);
         });
         return;
@@ -124,12 +125,14 @@ export function FilterContainer<
 
   // 处理表单重置
   const handleReset = React.useCallback(() => {
-    const resetValues = initValues ?? (defaultValues
-      ? Object.keys(defaultValues).reduce((acc, key) => {
-        acc[key as keyof TFieldValues] = "" as any;
-        return acc;
-      }, {} as TFieldValues)
-      : undefined);
+    const resetValues =
+      initValues ??
+      (defaultValues
+        ? Object.keys(defaultValues).reduce((acc, key) => {
+            acc[key as keyof TFieldValues] = "" as any;
+            return acc;
+          }, {} as TFieldValues)
+        : undefined);
     form.reset(resetValues);
     onReset?.();
   }, [form, initValues, defaultValues, onReset]);
@@ -204,7 +207,9 @@ export function FilterContainer<
                 contentClassName="p-4"
               >
                 <DrawerHeader className={cn("pb-4")}>
-                  <DrawerTitle className={cn("flex items-center gap-2 text-left")}>
+                  <DrawerTitle
+                    className={cn("flex items-center gap-2 text-left")}
+                  >
                     <Filter className={cn("h-4 w-4")} />
                     筛选条件
                   </DrawerTitle>

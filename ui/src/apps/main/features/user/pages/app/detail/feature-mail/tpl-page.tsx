@@ -3,20 +3,27 @@
 import {
   userSenderMailerTplBodyDel,
   userSenderMailerTplBodyList,
-  type UserSenderMailerTplBodyItemType
+  type UserSenderMailerTplBodyItemType,
 } from "@shared/apis/user/sender-mailer";
 import { ConfirmDialog } from "@shared/components/custom/dialog/confirm-dialog";
 import { FilterContainer } from "@apps/main/components/filter-container/container";
 import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
+import { UserExportAction } from "@apps/main/features/user/components/ui/user-export-action";
+import { EXPORT_TYPE_USER_MAILER_TPL_BODY } from "@shared/apis/user/file";
 import { FilterInput } from "@apps/main/components/filter-container/filter-input";
 import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
+import { formatTotalCount } from "@shared/lib/utils/format-utils";
 import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
 import {
   DEFAULT_PAGE_SIZE,
   PagePagination,
-  useCountNumManager,
+  usePageCountNum,
 } from "@apps/main/lib/pagination-utils";
-import { DataTable, DataTableAction, DataTableActionItem } from "@shared/components/custom/table";
+import {
+  DataTable,
+  DataTableAction,
+  DataTableActionItem,
+} from "@shared/components/custom/table";
 import { Button } from "@shared/components/ui/button";
 import { useToast } from "@shared/contexts/toast-context";
 import { AppDetailNavContainer } from "@apps/main/features/user/components/ui/app-detail-nav";
@@ -38,9 +45,7 @@ import { Edit2, Plus, Trash2 } from "lucide-react";
 import React from "react";
 import { featureMailModuleConfig } from "../nav-info";
 import { MailTplDrawer } from "./tpl-drawer";
-import {
-  MailTplFilterFormSchema
-} from "./tpl-schema";
+import { MailTplFilterFormSchema } from "./tpl-schema";
 
 export default function AppDetailFeatureMailTplPage() {
   // user\app_sender_mailer\tpl_body_add.md
@@ -54,7 +59,9 @@ export default function AppDetailFeatureMailTplPage() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [tplDrawerOpen, setTplDrawerOpen] = React.useState(false);
-  const [editingTpl, setEditingTpl] = React.useState<UserSenderMailerTplBodyItemType | undefined>();
+  const [editingTpl, setEditingTpl] = React.useState<
+    UserSenderMailerTplBodyItemType | undefined
+  >();
 
   // 从 URL 搜索参数获取过滤条件
   const filterParam = Route.useSearch();
@@ -68,7 +75,7 @@ export default function AppDetailFeatureMailTplPage() {
   };
 
   // count_num 优化管理器
-  const countNumManager = useCountNumManager(filters);
+  const countNumManager = usePageCountNum(filters);
 
   // 获取模板列表数据
   const {
@@ -96,7 +103,7 @@ export default function AppDetailFeatureMailTplPage() {
           },
           count_num: countNumManager.getCountNum(),
         },
-        { signal }
+        { signal },
       );
       return result;
     },
@@ -104,10 +111,13 @@ export default function AppDetailFeatureMailTplPage() {
   });
 
   // 处理 Page 分页查询结果
-  isSuccess && countNumManager.handlePageQueryResult(tplData);
+  isSuccess && countNumManager.handleQueryResult(tplData);
 
   // 从查询结果中提取数据
-  const templates = getQueryResponseData<UserSenderMailerTplBodyItemType[]>(tplData, []);
+  const templates = getQueryResponseData<UserSenderMailerTplBodyItemType[]>(
+    tplData,
+    [],
+  );
 
   // 删除模板
   const deleteMutation = useMutation({
@@ -144,7 +154,9 @@ export default function AppDetailFeatureMailTplPage() {
       header: () => <div className={cn(isMobile ? "" : "text-right")}>ID</div>,
       size: 80,
       cell: ({ getValue }) => (
-        <div className={cn("font-mono text-sm", isMobile ? "" : "text-right")}>{getValue<number>()}</div>
+        <div className={cn("font-mono text-sm", isMobile ? "" : "text-right")}>
+          {getValue<number>()}
+        </div>
       ),
     },
     {
@@ -184,8 +196,13 @@ export default function AppDetailFeatureMailTplPage() {
         const tpl = row.original;
 
         return (
-          <DataTableAction className={cn(isMobile ? "justify-end" : "justify-center")}>
-            <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
+          <DataTableAction
+            className={cn(isMobile ? "justify-end" : "justify-center")}
+          >
+            <DataTableActionItem
+              mobileDisplay="display"
+              desktopDisplay="collapsed"
+            >
               <Button
                 variant="ghost"
                 size="sm"
@@ -200,7 +217,10 @@ export default function AppDetailFeatureMailTplPage() {
               </Button>
             </DataTableActionItem>
 
-            <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
+            <DataTableActionItem
+              mobileDisplay="display"
+              desktopDisplay="collapsed"
+            >
               <ConfirmDialog
                 title="确认删除"
                 description={
@@ -267,7 +287,7 @@ export default function AppDetailFeatureMailTplPage() {
               }}
               countComponent={
                 <FilterTotalCount
-                  total={countNumManager.getTotal() ?? 0}
+                  value={formatTotalCount(countNumManager.getTotal())}
                   loading={isLoading}
                 />
               }
@@ -290,6 +310,16 @@ export default function AppDetailFeatureMailTplPage() {
                     loading={isLoading}
                     layoutParams={layoutParams}
                     onRefreshSearch={clearCacheAndReload}
+                    extraActions={
+                      <UserExportAction
+                        appId={Number(appId)}
+                        exportType={EXPORT_TYPE_USER_MAILER_TPL_BODY}
+                        params={{
+                          app_id: Number(appId),
+                          tpl_id: filters.tpl_id,
+                        }}
+                      />
+                    }
                   />
                 </div>
               )}
@@ -306,7 +336,11 @@ export default function AppDetailFeatureMailTplPage() {
                 loading={isLoading}
                 error={
                   isError ? (
-                    <CenteredError error={error} variant="content" onReset={refreshData} />
+                    <CenteredError
+                      error={error}
+                      variant="content"
+                      onReset={refreshData}
+                    />
                   ) : null
                 }
                 scrollSnapDelay={300}
@@ -353,4 +387,4 @@ export default function AppDetailFeatureMailTplPage() {
 }
 
 // 导出 schema 供路由使用
-export { MailTplFilterParamSchema } from './tpl-schema';
+export { MailTplFilterParamSchema } from "./tpl-schema";

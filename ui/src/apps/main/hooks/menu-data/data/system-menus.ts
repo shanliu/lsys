@@ -4,6 +4,7 @@ import {
   ClipboardList,
   Cog,
   FileSearch,
+  Folder,
   FolderOpen,
   History,
   KeyRound,
@@ -110,6 +111,24 @@ export function getSystemMenu(): MenuConfig[] {
           path: '/admin/rbac/role',
           permission: 'admin:rbac:role',
           icon: Users
+        }
+      ]
+    },
+    {
+      name: '系统文件',
+      icon: Folder,
+      children: [
+        {
+          name: '文件管理',
+          path: '/admin/file/list',
+          permission: 'admin:file:list',
+          icon: UserSearch
+        },
+        {
+          name: 'OSS配置',
+          path: '/admin/file/oss-config',
+          permission: 'admin:file:oss-config',
+          icon: Activity
         }
       ]
     },

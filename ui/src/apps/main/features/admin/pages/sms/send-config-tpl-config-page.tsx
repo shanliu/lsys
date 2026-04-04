@@ -1,28 +1,29 @@
 "use client";
 
+import { FilterContainer } from "@apps/main/components/filter-container/container";
+import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
+import { FilterInput } from "@apps/main/components/filter-container/filter-input";
+import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
+import { SmsSendConfigNavContainer } from "@apps/main/features/admin/components/ui/sms-send-config-nav";
+import {
+  DEFAULT_PAGE_SIZE,
+  PagePagination,
+  usePageCountNum,
+  useSearchNavigate,
+} from "@apps/main/lib/pagination-utils";
+import { Route } from "@apps/main/routes/_main/admin/sms/send-config/channel";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
   systemSenderSmsTplConfigDelete,
   SystemSenderSmsTplConfigItemType,
   systemSenderSmsTplConfigList,
 } from "@shared/apis/admin/sender-sms";
 import { ConfirmDialog } from "@shared/components/custom/dialog/confirm-dialog";
-import { FilterContainer } from "@apps/main/components/filter-container/container";
-import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
-import { FilterInput } from "@apps/main/components/filter-container/filter-input";
-import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
 import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
 import { PageSkeletonTable } from "@shared/components/custom/page-placeholder/skeleton-table";
-import {
-  DEFAULT_PAGE_SIZE,
-  PagePagination,
-  useCountNumManager,
-  useSearchNavigate,
-} from "@apps/main/lib/pagination-utils";
-import { Route } from "@apps/main/routes/_main/admin/sms/send-config/channel";
 import { DataTable, DataTableAction, DataTableActionItem } from "@shared/components/custom/table";
 import { Button } from "@shared/components/ui/button";
 import { useToast } from "@shared/contexts/toast-context";
-import { SmsSendConfigNavContainer } from "@apps/main/features/admin/components/ui/sms-send-config-nav";
 import { useIsMobile } from "@shared/hooks/use-mobile";
 import {
   cn,
@@ -31,7 +32,7 @@ import {
   getQueryResponseData,
   TIME_STYLE,
 } from "@shared/lib/utils";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { formatTotalCount } from "@shared/lib/utils/format-utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ColumnDef } from "@tanstack/react-table";
 import { Eye, Plus, Trash2 } from "lucide-react";
@@ -68,7 +69,7 @@ export function SmsSendConfigTplConfigPage() {
   };
 
   // count_num 优化管理器（传入 filters 自动监听变化）
-  const countNumManager = useCountNumManager(filters);
+  const countNumManager = usePageCountNum(filters);
 
   // 获取模板配置列表数据
   const {
@@ -102,7 +103,7 @@ export function SmsSendConfigTplConfigPage() {
   });
 
   // 处理 Page 分页查询结果（自动提取 total）
-  isSuccess && countNumManager.handlePageQueryResult(configData);
+  isSuccess && countNumManager.handleQueryResult(configData);
 
   // 从查询结果中提取数据
   const configs = getQueryResponseData<SystemSenderSmsTplConfigItemType[]>(configData, []);
@@ -149,7 +150,7 @@ export function SmsSendConfigTplConfigPage() {
     {
       accessorKey: "tpl_key",
       header: "模板Key",
-     size: 380,
+      size: 380,
       cell: ({ getValue }) => (
         <div className={cn("font-mono text-sm", isMobile ? "break-all" : "whitespace-nowrap")}>{getValue<string>()}</div>
       ),
@@ -243,7 +244,7 @@ export function SmsSendConfigTplConfigPage() {
                 }}
               >
                 <Eye className="h-4 w-4" />
-                 <span className="ml-2">详情</span>
+                <span className="ml-2">详情</span>
               </Button>
             </DataTableActionItem>
             <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
@@ -265,7 +266,7 @@ export function SmsSendConfigTplConfigPage() {
                   title="删除"
                 >
                   <Trash2 className="h-4 w-4" />
-                    <span className="ml-2">删除</span>  
+                  <span className="ml-2">删除</span>
                 </Button>
               </ConfirmDialog>
             </DataTableActionItem>
@@ -327,7 +328,7 @@ export function SmsSendConfigTplConfigPage() {
           }}
           countComponent={
             <FilterTotalCount
-              total={countNumManager.getTotal() ?? 0}
+              value={formatTotalCount(countNumManager.getTotal())}
               loading={isLoading}
             />
           }

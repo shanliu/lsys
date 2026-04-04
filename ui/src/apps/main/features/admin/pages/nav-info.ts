@@ -2,6 +2,26 @@ import { SubNavigationMenuInfo } from '@apps/main/components/local/sub-navigatio
 import { FileText, Globe, KeyRound, Puzzle, Route, Ruler, Server, Shield, ShieldCheck } from 'lucide-react'
 
 /**
+ * 文件管理模块导航配置
+ */
+export const fileManageModuleConfig: SubNavigationMenuInfo = {
+  title: '文件管理',
+  subtitle: '管理系统文件与 OSS 存储配置',
+  menuItems: [
+    {
+      name: '文件列表',
+      icon: FileText,
+      path: '/admin/file?tab=list',
+    },
+    {
+      name: 'OSS 配置',
+      icon: Server,
+      path: '/admin/file?tab=oss-config',
+    },
+  ],
+}
+
+/**
  * 系统配置模块导航配置
  */
 export const configModuleConfig: SubNavigationMenuInfo = {

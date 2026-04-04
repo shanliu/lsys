@@ -1,12 +1,20 @@
-import { FilterContainer } from "@apps/main/components/filter-container/container";
+﻿import { FilterContainer } from "@apps/main/components/filter-container/container";
 import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
+import { AdminExportAction } from "@apps/main/features/admin/components/ui/admin-export-action";
+import { EXPORT_TYPE_SYSTEM_REQUEST_LIST } from "@shared/apis/admin/export";
 import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
 import { FilterInput } from "@apps/main/components/filter-container/filter-input";
 import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
 import { PermGuard } from "@apps/main/components/local/perm-guard";
 import { UserDataTooltip } from "@apps/main/components/local/user-data-tooltip";
-import { useDictData, type TypedDictData } from "@apps/main/hooks/use-dict-data";
-import { DEFAULT_PAGE_SIZE, useCountNumManager } from "@apps/main/lib/pagination-utils";
+import {
+  useDictData,
+  type TypedDictData,
+} from "@apps/main/hooks/use-dict-data";
+import {
+  DEFAULT_PAGE_SIZE,
+  usePageCountNum,
+} from "@apps/main/lib/pagination-utils";
 import { createStatusMapper } from "@apps/main/lib/status-utils";
 import { Route } from "@apps/main/routes/_main/admin/app/request";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -17,13 +25,18 @@ import {
 import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
 import { PageSkeletonTable } from "@shared/components/custom/page-placeholder/skeleton-table";
 import { PagePagination } from "@shared/components/custom/pagination";
-import { DataTable, DataTableAction, DataTableActionItem } from "@shared/components/custom/table";
+import {
+  DataTable,
+  DataTableAction,
+  DataTableActionItem,
+} from "@shared/components/custom/table";
 import { Badge } from "@shared/components/ui/badge";
 import { Button } from "@shared/components/ui/button";
 import { useIsMobile } from "@shared/hooks/use-mobile";
 import {
   cn,
   formatTime,
+  formatTotalCount,
   getQueryResponseData,
   TIME_STYLE,
 } from "@shared/lib/utils";
@@ -36,9 +49,7 @@ import { AppRequestDataDisplay } from "../../components/ui/app-request-data-disp
 import { hasRequestData } from "../../components/ui/app-request-utils";
 import { RequestAuditActionDrawer } from "./request-audit-action-drawer";
 import { RequestAuditInfoDrawer } from "./request-audit-info-drawer";
-import {
-  AdminAppRequestFilterFormSchema
-} from "./request-schema";
+import { AdminAppRequestFilterFormSchema } from "./request-schema";
 
 export function AppRequestPage() {
   // system\app\mapping.md
@@ -105,10 +116,16 @@ function AppRequestContent({ dictData }: AppRequestContentProps) {
   };
 
   // count_num 优化管理器（传入 filters 自动监听变化）
-  const countNumManager = useCountNumManager(filters);
+  const countNumManager = usePageCountNum(filters);
 
   // 获取请求列表数据
-  const { data: requestData, isSuccess, isLoading, isError, error } = useQuery({
+  const {
+    data: requestData,
+    isSuccess,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: [
       "appRequestList",
       currentPage,
@@ -127,8 +144,12 @@ function AppRequestContent({ dictData }: AppRequestContentProps) {
           },
           count_num: countNumManager.getCountNum(),
           ...(filterParam.id !== undefined && { id: filterParam.id }),
-          ...(filterParam.app_id !== undefined && { app_id: filterParam.app_id }),
-          ...(filterParam.request_type && { request_type: filterParam.request_type }),
+          ...(filterParam.app_id !== undefined && {
+            app_id: filterParam.app_id,
+          }),
+          ...(filterParam.request_type && {
+            request_type: filterParam.request_type,
+          }),
           ...(filterParam.status && { status: Number(filterParam.status) }),
         },
         { signal },
@@ -137,7 +158,7 @@ function AppRequestContent({ dictData }: AppRequestContentProps) {
   });
 
   // 处理 Page 分页查询结果（自动提取 total）
-  isSuccess && countNumManager.handlePageQueryResult(requestData);
+  isSuccess && countNumManager.handleQueryResult(requestData);
 
   // 刷新数据
   const refreshData = useCallback(() => {
@@ -187,11 +208,12 @@ function AppRequestContent({ dictData }: AppRequestContentProps) {
 
   // 状态样式映射
   const statusMapper = useMemo(
-    () => createStatusMapper(
-      { 1: "warning", 2: "success", 3: "danger", 4: "neutral" },
-      getStatusText,
-    ),
-    [getStatusText]
+    () =>
+      createStatusMapper(
+        { 1: "warning", 2: "success", 3: "danger", 4: "neutral" },
+        getStatusText,
+      ),
+    [getStatusText],
   );
 
   // 渲染附加数据
@@ -212,15 +234,26 @@ function AppRequestContent({ dictData }: AppRequestContentProps) {
     const baseColumns: ColumnDef<AppRequestItemType>[] = [
       {
         accessorKey: "id",
-        header: () => <div className={cn(isMobile ? "" : "text-right")}>请求ID</div>,
+        header: () => (
+          <div className={cn(isMobile ? "" : "text-right")}>请求ID</div>
+        ),
         size: 80,
         cell: ({ getValue }) => (
-          <div className={cn("font-mono text-xs", isMobile ? "" : "text-right")}>{getValue() as number}</div>
+          <div
+            className={cn("font-mono text-xs", isMobile ? "" : "text-right")}
+          >
+            {getValue() as number}
+          </div>
         ),
       },
       {
         accessorKey: "app_name",
-        header: () => <span>应用名<span className="text-xs text-muted-foreground">(应用ID)</span></span>,
+        header: () => (
+          <span>
+            应用名
+            <span className="text-xs text-muted-foreground">(应用ID)</span>
+          </span>
+        ),
         cell: ({ row }) => {
           const request = row.original;
           if (!request.app_name || !request.app_id) {
@@ -251,9 +284,7 @@ function AppRequestContent({ dictData }: AppRequestContentProps) {
         accessorKey: "app_client",
         header: "应用标识",
         size: 120,
-        cell: ({ getValue }) => (
-          getValue() as string
-        ),
+        cell: ({ getValue }) => getValue() as string,
       },
       {
         accessorKey: "request_type",
@@ -273,7 +304,10 @@ function AppRequestContent({ dictData }: AppRequestContentProps) {
           const status = getValue() as number | string | undefined;
           const statusNum = Number(status) || 0;
           return (
-            <Badge variant="secondary" className={statusMapper.getClass(statusNum)}>
+            <Badge
+              variant="secondary"
+              className={statusMapper.getClass(statusNum)}
+            >
               {statusMapper.getText(statusNum)}
             </Badge>
           );
@@ -284,10 +318,7 @@ function AppRequestContent({ dictData }: AppRequestContentProps) {
         header: "请求用户",
         size: 120,
         cell: ({ getValue }) => (
-          <UserDataTooltip
-            userData={getValue() as any}
-            className="text-xs"
-          />
+          <UserDataTooltip userData={getValue() as any} className="text-xs" />
         ),
       },
       {
@@ -334,8 +365,13 @@ function AppRequestContent({ dictData }: AppRequestContentProps) {
           // 未审核状态：显示审核按钮
           if (isPending) {
             return (
-              <DataTableAction className={cn(isMobile ? "justify-end" : "justify-center")}>
-                <DataTableActionItem mobileDisplay="display" desktopDisplay="display">
+              <DataTableAction
+                className={cn(isMobile ? "justify-end" : "justify-center")}
+              >
+                <DataTableActionItem
+                  mobileDisplay="display"
+                  desktopDisplay="display"
+                >
                   <PermGuard
                     permission="admin:app:request:confirm"
                     fallback="disabled"
@@ -358,8 +394,13 @@ function AppRequestContent({ dictData }: AppRequestContentProps) {
 
           // 其他状态：显示详情按钮
           return (
-            <DataTableAction className={cn(isMobile ? "justify-end" : "justify-center")}>
-              <DataTableActionItem mobileDisplay="display" desktopDisplay="display">
+            <DataTableAction
+              className={cn(isMobile ? "justify-end" : "justify-center")}
+            >
+              <DataTableActionItem
+                mobileDisplay="display"
+                desktopDisplay="display"
+              >
                 <Button
                   onClick={() => setSelectedRequestForInfo(request)}
                   variant="ghost"
@@ -378,11 +419,7 @@ function AppRequestContent({ dictData }: AppRequestContentProps) {
     ];
 
     return baseColumns;
-  }, [
-    statusMapper,
-    getRequestTypeText,
-    isMobile
-  ]);
+  }, [statusMapper, getRequestTypeText, isMobile]);
 
   return (
     <div className="container mx-auto p-4 max-w-[1600px] flex flex-col min-h-0 space-y-5">
@@ -408,7 +445,10 @@ function AppRequestContent({ dictData }: AppRequestContentProps) {
             });
           }}
           countComponent={
-            <FilterTotalCount total={countNumManager.getTotal() ?? 0} loading={isLoading} />
+            <FilterTotalCount
+              value={formatTotalCount(countNumManager.getTotal())}
+              loading={isLoading}
+            />
           }
           className={cn("bg-card rounded-lg border shadow-sm relative")}
         >
@@ -457,12 +497,28 @@ function AppRequestContent({ dictData }: AppRequestContentProps) {
               />
 
               {/* 动作按钮区域 */}
-              <div className={cn(layoutParams.isMobile ? "w-full" : "flex-shrink-0")}>
+              <div
+                className={cn(
+                  layoutParams.isMobile ? "w-full" : "flex-shrink-0",
+                )}
+              >
                 <FilterActions
                   form={form}
                   loading={isLoading}
                   layoutParams={layoutParams}
                   onRefreshSearch={clearCacheAndReload}
+                  extraActions={
+                    <AdminExportAction
+                      exportType={EXPORT_TYPE_SYSTEM_REQUEST_LIST}
+                      params={{
+                        id: filters.id,
+                        app_id: filters.app_id,
+                        request_type: filters.request_type,
+                        status: filters.status,
+                      }}
+                      layoutParams={layoutParams}
+                    />
+                  }
                 />
               </div>
             </div>
@@ -479,10 +535,22 @@ function AppRequestContent({ dictData }: AppRequestContentProps) {
               data={requests}
               columns={columns}
               loading={isLoading}
-              error={isError ? <CenteredError error={error} variant="content" onReset={refreshData} /> : null}
+              error={
+                isError ? (
+                  <CenteredError
+                    error={error}
+                    variant="content"
+                    onReset={refreshData}
+                  />
+                ) : null
+              }
               expandedRowRender={renderAdditionalData}
-              rightStickyColumns={[{ column: "actions", minWidth: "80px", maxWidth: "100px" }]}
-              className={cn("h-full [&_.data-table-row]:h-12 [&_td]:py-2 [&_th]:py-2 [&_table]:border-0 [&_.table-container]:border-0 [&_tbody_tr:last-child]:border-b [&_.data-table-wrapper]:overflow-auto [&_.data-table-wrapper]:h-full")}
+              rightStickyColumns={[
+                { column: "actions", minWidth: "80px", maxWidth: "100px" },
+              ]}
+              className={cn(
+                "h-full [&_.data-table-row]:h-12 [&_td]:py-2 [&_th]:py-2 [&_table]:border-0 [&_.table-container]:border-0 [&_tbody_tr:last-child]:border-b [&_.data-table-wrapper]:overflow-auto [&_.data-table-wrapper]:h-full",
+              )}
             />
 
             <RequestAuditInfoDrawer
@@ -525,4 +593,3 @@ function AppRequestContent({ dictData }: AppRequestContentProps) {
 
 // 导出 schema 供路由使用
 export { AdminAppRequestFilterParamSchema } from "./request-schema";
-

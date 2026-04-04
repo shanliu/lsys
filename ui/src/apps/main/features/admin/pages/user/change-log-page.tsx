@@ -1,15 +1,20 @@
-import { FilterContainer } from "@apps/main/components/filter-container/container";
+﻿import { FilterContainer } from "@apps/main/components/filter-container/container";
 import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
+import { AdminExportAction } from "@apps/main/features/admin/components/ui/admin-export-action";
+import { EXPORT_TYPE_SYSTEM_CHANGE_LOG } from "@shared/apis/admin/export";
 import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
 import { FilterInput } from "@apps/main/components/filter-container/filter-input";
 import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
 import { UserDataTooltip } from "@apps/main/components/local/user-data-tooltip";
-import { useDictData, type TypedDictData } from "@apps/main/hooks/use-dict-data";
+import {
+  useDictData,
+  type TypedDictData,
+} from "@apps/main/hooks/use-dict-data";
 import {
   DEFAULT_PAGE_SIZE,
   PAGE_SIZE_OPTIONS,
-  useCountNumManager,
-  useSearchNavigate
+  useLimitCountNum,
+  useSearchNavigate,
 } from "@apps/main/lib/pagination-utils";
 import { Route } from "@apps/main/routes/_main/admin/user/change-log";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,8 +25,12 @@ import {
 } from "@shared/apis/admin/user";
 import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
 import { PageSkeletonTable } from "@shared/components/custom/page-placeholder/skeleton-table";
-import { OffsetPagination } from "@shared/components/custom/pagination";
-import { DataTable, DataTableAction, DataTableActionItem } from "@shared/components/custom/table";
+import { CursorPagination } from "@shared/components/custom/pagination";
+import {
+  DataTable,
+  DataTableAction,
+  DataTableActionItem,
+} from "@shared/components/custom/table";
 import { Badge } from "@shared/components/ui/badge";
 import { Button } from "@shared/components/ui/button";
 import { useIsMobile } from "@shared/hooks/use-mobile";
@@ -32,6 +41,7 @@ import {
   getQueryResponseData,
   TIME_STYLE,
 } from "@shared/lib/utils";
+import { formatTotalCount } from "@shared/lib/utils/format-utils";
 import { type LimitType } from "@shared/types/base-schema";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
@@ -39,9 +49,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { Eye } from "lucide-react";
 import { useMemo, useState } from "react";
 import { ChangeLogDetailDrawer } from "./change-log-detail-drawer";
-import {
-  UserChangeLogFilterFormSchema
-} from "./change-log-schema";
+import { UserChangeLogFilterFormSchema } from "./change-log-schema";
 
 export function ChangeLogPage() {
   // system\user\mapping.md
@@ -121,7 +129,7 @@ function ChangeLogContent({ dictData }: ChangeLogContentProps) {
   const searchGo = useSearchNavigate(navigate, filterParam);
 
   // count_num 优化管理器（传入 filters 自动监听变化）
-  const countNumManager = useCountNumManager(filters);
+  const countNumManager = useLimitCountNum(filters);
 
   // 构建查询参数
   const queryParams: SystemUserChangeLogsParamType = {
@@ -138,13 +146,19 @@ function ChangeLogContent({ dictData }: ChangeLogContentProps) {
   };
 
   // 获取变更日志数据
-  const { data: logData, isSuccess, isLoading, isError, error } = useQuery({
+  const {
+    data: logData,
+    isSuccess,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: ["systemUserChangeLogs", queryParams],
     queryFn: ({ signal }) => systemUserChangeLogs(queryParams, { signal }),
   });
 
   // 处理 Limit 分页查询结果（自动提取 total 和 next）
-  isSuccess && countNumManager.handleLimitQueryResult(logData);
+  isSuccess && countNumManager.handleQueryResult(logData);
 
   // 刷新数据
   const refreshData = () => {
@@ -174,10 +188,16 @@ function ChangeLogContent({ dictData }: ChangeLogContentProps) {
     () => [
       {
         accessorKey: "id",
-        header: () => <div className={cn(isMobile ? "" : "text-right")}>ID</div>,
+        header: () => (
+          <div className={cn(isMobile ? "" : "text-right")}>ID</div>
+        ),
         size: 80,
         cell: ({ getValue }) => (
-          <div className={cn("font-mono text-xs", isMobile ? "" : "text-right")}>{getValue<number>()}</div>
+          <div
+            className={cn("font-mono text-xs", isMobile ? "" : "text-right")}
+          >
+            {getValue<number>()}
+          </div>
         ),
       },
       {
@@ -228,8 +248,13 @@ function ChangeLogContent({ dictData }: ChangeLogContentProps) {
         cell: ({ row }) => {
           const log = row.original;
           return (
-            <DataTableAction className={cn(isMobile ? "justify-end" : "justify-center")}>
-              <DataTableActionItem mobileDisplay="display" desktopDisplay="display">
+            <DataTableAction
+              className={cn(isMobile ? "justify-end" : "justify-center")}
+            >
+              <DataTableActionItem
+                mobileDisplay="display"
+                desktopDisplay="display"
+              >
                 <Button
                   variant="ghost"
                   size="sm"
@@ -281,7 +306,12 @@ function ChangeLogContent({ dictData }: ChangeLogContentProps) {
               } as any,
             });
           }}
-          countComponent={<FilterTotalCount total={countNumManager.getTotal() ?? 0} loading={isLoading} />}
+          countComponent={
+            <FilterTotalCount
+              value={formatTotalCount(countNumManager.getTotalInfo())}
+              loading={isLoading}
+            />
+          }
           className={cn("bg-card rounded-lg border shadow-sm relative")}
         >
           {(layoutParams, form) => (
@@ -314,12 +344,26 @@ function ChangeLogContent({ dictData }: ChangeLogContentProps) {
               </div>
 
               {/* 动作按钮区域 */}
-              <div className={cn(layoutParams.isMobile ? "w-full" : "flex-shrink-0")}>
+              <div
+                className={cn(
+                  layoutParams.isMobile ? "w-full" : "flex-shrink-0",
+                )}
+              >
                 <FilterActions
                   form={form}
                   loading={isLoading}
                   layoutParams={layoutParams}
                   onRefreshSearch={clearCacheAndReload}
+                  extraActions={
+                    <AdminExportAction
+                      exportType={EXPORT_TYPE_SYSTEM_CHANGE_LOG}
+                      params={{
+                        log_type: filters.log_type,
+                        add_user_id: filters.add_user_id,
+                      }}
+                      layoutParams={layoutParams}
+                    />
+                  }
                 />
               </div>
             </div>
@@ -335,19 +379,29 @@ function ChangeLogContent({ dictData }: ChangeLogContentProps) {
             data={logs}
             columns={columns}
             loading={isLoading}
-            error={isError ? <CenteredError error={error} variant="content" onReset={refreshData} /> : null}
-            className={cn("h-full [&_.data-table-row]:h-12 [&_td]:py-2 [&_th]:py-2 [&_table]:border-0 [&_.table-container]:border-0 [&_tbody_tr:last-child]:border-b [&_.data-table-wrapper]:overflow-auto [&_.data-table-wrapper]:h-full")}
+            error={
+              isError ? (
+                <CenteredError
+                  error={error}
+                  variant="content"
+                  onReset={refreshData}
+                />
+              ) : null
+            }
+            className={cn(
+              "h-full [&_.data-table-row]:h-12 [&_td]:py-2 [&_th]:py-2 [&_table]:border-0 [&_.table-container]:border-0 [&_tbody_tr:last-child]:border-b [&_.data-table-wrapper]:overflow-auto [&_.data-table-wrapper]:h-full",
+            )}
           />
         </div>
 
         {/* 分页控件 */}
         <div className="flex-shrink-0 pt-4">
-          {(countNumManager.getTotal() ?? 0) > 0 && (
-            <OffsetPagination
+          {countNumManager.hasTotalInfo() && (
+            <CursorPagination
               limit={currentLimit}
               cursorData={cursorData}
               searchGo={searchGo}
-              total={countNumManager.getTotal()}
+              totalInfo={countNumManager.getTotalInfo()}
               currentPageSize={logs.length}
               loading={isLoading}
               onRefresh={refreshData}
@@ -366,11 +420,13 @@ function ChangeLogContent({ dictData }: ChangeLogContentProps) {
         </div>
       </div>
 
-      {detailDialog.log && <ChangeLogDetailDrawer
-        log={detailDialog.log}
-        open={detailDialog.open}
-        onOpenChange={handleCloseDetailDialog}
-      />}
+      {detailDialog.log && (
+        <ChangeLogDetailDrawer
+          log={detailDialog.log}
+          open={detailDialog.open}
+          onOpenChange={handleCloseDetailDialog}
+        />
+      )}
     </div>
   );
 }

@@ -8,9 +8,10 @@ import { FilterContainer } from "@apps/main/components/filter-container/containe
 import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
 import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
 import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
+import { formatTotalCount } from "@shared/lib/utils/format-utils";
 import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
 import { PageSkeletonTable } from "@shared/components/custom/page-placeholder/skeleton-table";
-import { DEFAULT_PAGE_SIZE, PagePagination, useCountNumManager } from "@apps/main/lib/pagination-utils";
+import { DEFAULT_PAGE_SIZE, PagePagination, usePageCountNum } from "@apps/main/lib/pagination-utils";
 import { DataTable, DataTableAction, DataTableActionItem } from "@shared/components/custom/table";
 import { Badge } from "@shared/components/ui/badge";
 import { Button } from "@shared/components/ui/button";
@@ -54,14 +55,14 @@ export default function AppDetailFeatureMailConfigPage() {
         variant="page"
         error={dictErrors}
         onReset={refetchDict}
-       
+
       />
     );
   }
 
   // 如果字典加载中，显示骨架屏
   if (dictIsLoading) {
-    return <PageSkeletonTable variant="page"  />;
+    return <PageSkeletonTable variant="page" />;
   }
 
   // 字典加载成功，渲染内容组件
@@ -113,7 +114,7 @@ export function MailConfigContent({ dictData }: MailConfigContentProps) {
   };
 
   // count_num 优化管理器（传入 filters 自动监听变化）
-  const countNumManager = useCountNumManager(filters);
+  const countNumManager = usePageCountNum(filters);
 
   // 获取邮件配置列表数据
   const {
@@ -250,7 +251,7 @@ export function MailConfigContent({ dictData }: MailConfigContentProps) {
                   title="删除"
                 >
                   <Trash2 className="h-4 w-4" />
-                 {isMobile ? <span className="ml-2">删除</span>: null}
+                  {isMobile ? <span className="ml-2">删除</span> : null}
                 </Button>
               </ConfirmDialog>
             </DataTableActionItem>
@@ -281,7 +282,7 @@ export function MailConfigContent({ dictData }: MailConfigContentProps) {
           }}
           countComponent={
             <FilterTotalCount
-              total={configs.length ?? 0}
+              value={formatTotalCount(configs.length)}
               loading={isLoading}
             />
           }

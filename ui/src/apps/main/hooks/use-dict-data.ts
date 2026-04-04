@@ -9,16 +9,24 @@
  * - 错误处理
  */
 
-import { DictList } from '@shared/types/apis-dict';
+import { DictItemType, DictList } from '@shared/types/apis-dict';
 import { ApiResult } from '@shared/types/apis-rest';
 import { useQueries } from '@tanstack/react-query';
-import { DictQueryContext, DictTypeMap, dictQueryKeyMap, dictQueryMap, paramParse } from './dict-data';
+import { DictQueryContext, paramParse } from './dict-data/common';
+import { DictTypeMap, dictQueryKeyMap, dictQueryMap } from './dict-data/mappings';
 /**
  * 将 API 响应类型转换为运行时字典类型的工具类型
- * 将数组类型转换为 DictList 实例
+ * - 元素类型恰好为 DictItemType 的数组 → DictList（支持 getLabel 等方法）
+ * - 元素类型为 DictItemType 超集的数组（如 StorageTypeDictItemType[]）→ 保留原类型
  */
 type ApiResponseToDictData<T> = {
-  [K in keyof T]: T[K] extends any[] ? DictList : T[K];
+  [K in keyof T]: T[K] extends Array<infer Item>
+    ? Item extends DictItemType
+      ? DictItemType extends Item
+        ? DictList        // 恰好是 DictItemType[] → 转为 DictList
+        : T[K]            // 含额外字段的数组 → 保留原类型
+      : T[K]
+    : T[K];
 };
 
 /**

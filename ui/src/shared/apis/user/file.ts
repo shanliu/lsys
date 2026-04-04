@@ -11,11 +11,19 @@ import z from "zod";
 export const UserFileMappingParamSchema = z.object({});
 export type UserFileMappingParamType = z.infer<typeof UserFileMappingParamSchema>;
 
+export const StorageTypeDictItemSchema = z.object({
+    key: z.string(),
+    val: z.string(),
+    type: z.enum(['local', 'oss']),
+});
+export type StorageTypeDictItemType = z.infer<typeof StorageTypeDictItemSchema>;
+
 export const UserFileMappingResSchema = z.object({
     min_chunk_size: z.coerce.number(),
     max_upload_size: z.coerce.number(),
     chunk_threshold: z.coerce.number(),
     default_chunk_size: z.coerce.number(),
+    storage_type: z.array(StorageTypeDictItemSchema),
     file_source_type: DictListSchema,
     file_status: DictListSchema,
     file_chunk_status: DictListSchema,
@@ -26,7 +34,7 @@ export type UserFileMappingResType = z.infer<typeof UserFileMappingResSchema>;
 export const userFileMapping = async (
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<UserFileMappingResType>> => {
-    const { data } = await authApi().post('/api/user/file/mapping', {}, config);
+    const { data } = await authApi().post('/api/user/app_file/mapping', {}, config);
     return parseResData(data, UserFileMappingResSchema);
 };
 
@@ -78,7 +86,7 @@ export type FileTagType = z.infer<typeof FileTagSchema>;
 
 export const UserFileItemSchema = z.object({
     id: z.coerce.number(),
-    file_user_id: z.coerce.number(),
+    file_id: z.coerce.number(),
     file_name: z.string(),
     file_md5: z.string().nullable(),
     file_size: z.coerce.number(),
@@ -118,7 +126,7 @@ export const userFileList = async (
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<UserFileListResType>> => {
     const cleanedParam = cleanEmptyStringParams(param, ['url', 'source_url', 'storage_type', 'file_md5']);
-    const { data } = await authApi().post('/api/user/file/list', cleanedParam, config);
+    const { data } = await authApi().post('/api/user/app_file/list', cleanedParam, config);
     return parseResData(data, UserFileListResSchema);
 };
 
@@ -140,15 +148,14 @@ export const userFileTagNames = async (
     param: UserFileTagNamesParamType,
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<UserFileTagNamesResType>> => {
-    const { data } = await authApi().post('/api/user/file/tag_names', param, config);
+    const { data } = await authApi().post('/api/user/app_file/tag_names', param, config);
     return parseResData(data, UserFileTagNamesResSchema);
 };
 
 // ==================== 文件删除 ====================
 
 export const UserFileDeleteParamSchema = z.object({
-    app_id: z.coerce.number(),
-    file_id: z.coerce.number(),
+    file_user_id: z.coerce.number(),
 });
 export type UserFileDeleteParamType = z.infer<typeof UserFileDeleteParamSchema>;
 
@@ -156,7 +163,7 @@ export const userFileDelete = async (
     param: UserFileDeleteParamType,
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<any>> => {
-    const { data } = await authApi().post('/api/user/file/delete', param, config);
+    const { data } = await authApi().post('/api/user/app_file/delete', param, config);
     return data;
 };
 
@@ -170,7 +177,7 @@ export type UserFileUploadByMd5ParamType = z.infer<typeof UserFileUploadByMd5Par
 
 export const UserFileUploadByMd5ResSchema = z.object({
     matched: BoolSchema,
-    file_user_id: z.coerce.number().optional(),
+    id: z.coerce.number().optional(),
 });
 export type UserFileUploadByMd5ResType = z.infer<typeof UserFileUploadByMd5ResSchema>;
 
@@ -178,7 +185,7 @@ export const userFileUploadByMd5 = async (
     param: UserFileUploadByMd5ParamType,
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<UserFileUploadByMd5ResType>> => {
-    const { data } = await authApi().post('/api/user/file/upload_by_md5', param, config);
+    const { data } = await authApi().post('/api/user/app_file/upload_by_md5', param, config);
     return parseResData(data, UserFileUploadByMd5ResSchema);
 };
 
@@ -199,7 +206,7 @@ export const UserFileUploadCreateParamSchema = z.object({
 export type UserFileUploadCreateParamType = z.infer<typeof UserFileUploadCreateParamSchema>;
 
 export const UserFileUploadCreateResSchema = z.object({
-    file_user_id: z.coerce.number(),
+    id: z.coerce.number(),
     file_id: z.coerce.number(),
     file_name: z.string(),
     status: z.coerce.number(),
@@ -210,7 +217,7 @@ export const userFileUploadCreate = async (
     param: UserFileUploadCreateParamType,
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<UserFileUploadCreateResType>> => {
-    const { data } = await authApi().post('/api/user/file/upload_create', param, config);
+    const { data } = await authApi().post('/api/user/app_file/upload_create', param, config);
     return parseResData(data, UserFileUploadCreateResSchema);
 };
 
@@ -230,11 +237,11 @@ export const userFileUploadData = async (
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<any>> => {
     const formData = new FormData();
-    formData.append('file_user_id', String(fileUserId));
+    formData.append('id', String(fileUserId));
     formData.append('chunk_index', String(chunkIndex));
     formData.append('file', file);
 
-    const { data } = await authApi().post('/api/user/file/upload_data', formData, {
+    const { data } = await authApi().post('/api/user/app_file/upload_data', formData, {
         ...config,
     });
     return data;
@@ -250,7 +257,7 @@ export const UserFileFromUrlParamSchema = z.object({
 export type UserFileFromUrlParamType = z.infer<typeof UserFileFromUrlParamSchema>;
 
 export const UserFileFromUrlResSchema = z.object({
-    file_user_id: z.coerce.number(),
+    id: z.coerce.number(),
 });
 export type UserFileFromUrlResType = z.infer<typeof UserFileFromUrlResSchema>;
 
@@ -258,7 +265,7 @@ export const userFileFromUrl = async (
     param: UserFileFromUrlParamType,
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<UserFileFromUrlResType>> => {
-    const { data } = await authApi().post('/api/user/file/from_url', param, config);
+    const { data } = await authApi().post('/api/user/app_file/from_url', param, config);
     return parseResData(data, UserFileFromUrlResSchema);
 };
 
@@ -290,7 +297,7 @@ export const userFileLogs = async (
     param: UserFileLogsParamType,
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<UserFileLogsResType>> => {
-    const { data } = await authApi().post('/api/user/file/logs', param, config);
+    const { data } = await authApi().post('/api/user/app_file/logs', param, config);
     return parseResData(data, UserFileLogsResSchema);
 };
 // ==================== 文件分片列表 ====================
@@ -328,7 +335,7 @@ export const userFileChunks = async (
     param: UserFileChunksParamType,
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<UserFileChunksResType>> => {
-    const { data } = await authApi().post('/api/user/file/chunks', param, config);
+    const { data } = await authApi().post('/api/user/app_file/chunks', param, config);
     return parseResData(data, UserFileChunksResSchema);
 };
 
@@ -336,7 +343,7 @@ export const userFileChunks = async (
 
 // 获取单个文件的标签列表
 export const UserFileTagsParamSchema = z.object({
-    file_user_id: z.coerce.number(),
+    id: z.coerce.number(),
 });
 export type UserFileTagsParamType = z.infer<typeof UserFileTagsParamSchema>;
 
@@ -356,13 +363,13 @@ export const userFileTags = async (
     param: UserFileTagsParamType,
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<UserFileTagsResType>> => {
-    const { data } = await authApi().post('/api/user/file/tags', param, config);
+    const { data } = await authApi().post('/api/user/app_file/tags', param, config);
     return parseResData(data, UserFileTagsResSchema);
 };
 
 // 添加标签
 export const UserFileTagAddParamSchema = z.object({
-    file_user_id: z.coerce.number(),
+    id: z.coerce.number(),
     tag_name: z.string(),
 });
 export type UserFileTagAddParamType = z.infer<typeof UserFileTagAddParamSchema>;
@@ -376,13 +383,13 @@ export const userFileTagAdd = async (
     param: UserFileTagAddParamType,
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<UserFileTagAddResType>> => {
-    const { data } = await authApi().post('/api/user/file/tag_add', param, config);
+    const { data } = await authApi().post('/api/user/app_file/tag_add', param, config);
     return parseResData(data, UserFileTagAddResSchema);
 };
 
 // 移除标签
 export const UserFileTagRemoveParamSchema = z.object({
-    file_user_id: z.coerce.number(),
+    id: z.coerce.number(),
     tag_name: z.string(),
 });
 export type UserFileTagRemoveParamType = z.infer<typeof UserFileTagRemoveParamSchema>;
@@ -396,6 +403,159 @@ export const userFileTagRemove = async (
     param: UserFileTagRemoveParamType,
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<UserFileTagRemoveResType>> => {
-    const { data } = await authApi().post('/api/user/file/tag_remove', param, config);
+    const { data } = await authApi().post('/api/user/app_file/tag_remove', param, config);
     return parseResData(data, UserFileTagRemoveResSchema);
+};
+
+// ==================== 文件批量导出 ====================
+
+export const UserFileExportSubmitParamSchema = z.object({
+    app_id: z.coerce.number(),
+    export_type: z.string(),
+    params: z.record(z.unknown()).optional(),
+});
+export type UserFileExportSubmitParamType = z.infer<typeof UserFileExportSubmitParamSchema>;
+
+export const UserFileExportSubmitResSchema = z.object({
+    id: z.coerce.number(),
+});
+export type UserFileExportSubmitResType = z.infer<typeof UserFileExportSubmitResSchema>;
+
+export const userFileExportSubmit = async (
+    param: UserFileExportSubmitParamType,
+    config?: AxiosRequestConfig<any>
+): Promise<ApiResult<UserFileExportSubmitResType>> => {
+    const { data } = await authApi().post('/api/user/app_export_task/export_submit', param, config);
+    return parseResData(data, UserFileExportSubmitResSchema);
+};
+
+// ==================== 用户导出类型常量 ====================
+
+// 文件
+export const EXPORT_TYPE_USER_FILE_LIST = 'user_file_list';
+export const EXPORT_TYPE_USER_FILE_LOG = 'user_file_log';
+export const EXPORT_TYPE_USER_FILE_CHUNK = 'user_file_chunk';
+
+// 应用
+export const EXPORT_TYPE_USER_APP_REQUEST = 'user_app_request';
+export const EXPORT_TYPE_USER_SUB_REQUEST = 'user_sub_request';
+export const EXPORT_TYPE_USER_APP_LIST = 'user_app_list';
+export const EXPORT_TYPE_USER_PARENT_APP_LIST = 'user_parent_app_list';
+export const EXPORT_TYPE_USER_SUB_APP_LIST = 'user_sub_app_list';
+
+// 通知
+export const EXPORT_TYPE_APP_NOTIFY_LIST = 'app_notify_list';
+
+// 邮件
+export const EXPORT_TYPE_USER_MAILER_MESSAGE_LIST = 'user_mailer_message_list';
+export const EXPORT_TYPE_USER_MAILER_MESSAGE_LOG = 'user_mailer_message_log';
+export const EXPORT_TYPE_USER_MAILER_TPL_CONFIG = 'user_mailer_tpl_config';
+export const EXPORT_TYPE_USER_MAILER_TPL_BODY = 'user_mailer_tpl_body';
+
+// 短信
+export const EXPORT_TYPE_USER_SMSER_MESSAGE_LIST = 'user_smser_message_list';
+export const EXPORT_TYPE_USER_SMSER_MESSAGE_LOG = 'user_smser_message_log';
+export const EXPORT_TYPE_USER_SMSER_TPL_CONFIG = 'user_smser_tpl_config';
+
+// 登录历史
+export const EXPORT_TYPE_USER_LOGIN_HISTORY = 'user_login_history';
+
+// RBAC
+export const EXPORT_TYPE_USER_RBAC_SYSTEM_AUDIT = 'user_rbac_system_audit';
+export const EXPORT_TYPE_USER_RBAC_APP_AUDIT = 'user_rbac_app_audit';
+export const EXPORT_TYPE_USER_RBAC_SYSTEM_ROLE_PERM = 'user_rbac_system_role_perm';
+export const EXPORT_TYPE_USER_RBAC_APP_ROLE_PERM = 'user_rbac_app_role_perm';
+export const EXPORT_TYPE_USER_RBAC_APP_RES = 'user_rbac_app_res';
+export const EXPORT_TYPE_USER_RBAC_SYSTEM_ROLE_USER = 'user_rbac_system_role_user';
+export const EXPORT_TYPE_USER_RBAC_APP_ROLE_USER = 'user_rbac_app_role_user';
+export const EXPORT_TYPE_USER_RBAC_APP_RES_TYPE = 'user_rbac_app_res_type';
+export const EXPORT_TYPE_USER_RBAC_APP_RES_TYPE_OP = 'user_rbac_app_res_type_op';
+export const EXPORT_TYPE_USER_RBAC_APP_OP = 'user_rbac_app_op';
+export const EXPORT_TYPE_USER_RBAC_SYSTEM_ROLE = 'user_rbac_system_role';
+export const EXPORT_TYPE_USER_RBAC_APP_ROLE = 'user_rbac_app_role';
+export const EXPORT_TYPE_USER_SYSTEM_ROLE_USER_AVAILABLE = 'user_system_role_user_available';
+export const EXPORT_TYPE_USER_APP_ROLE_USER_AVAILABLE = 'user_app_role_user_available';
+
+export const UserFileExportListParamSchema = z.object({
+    app_id: z.coerce.number().optional(),
+    export_type: z.string().optional(),
+    status: z.coerce.number().optional(),
+    page: z.object({
+        page: z.coerce.number().min(1).optional(),
+        limit: z.coerce.number().min(1).max(50).optional(),
+    }).optional(),
+    count_num: z.boolean().optional(),
+});
+export type UserFileExportListParamType = z.infer<typeof UserFileExportListParamSchema>;
+
+// 与服务端 ExportTaskModel 字段对应
+export const UserFileExportTaskFileSchema = z.object({
+    file_id: z.coerce.number(),
+    file_name: z.string(),
+    file_size: z.coerce.number(),
+    content_type: z.string(),
+    file_url: z.string().nullable().optional(),
+});
+export type UserFileExportTaskFileType = z.infer<typeof UserFileExportTaskFileSchema>;
+
+export const UserFileExportTaskSchema = z.object({
+    id: z.coerce.number(),
+    app_id: z.coerce.number(),
+    export_type: z.string(),
+    export_params: z.string(),          // JSON 字符串，需前端 JSON.parse 后展示
+    status: z.coerce.number(),          // 1=Pending 2=Running 3=Success 4=Failed 5=Deleted
+    error_message: z.string().optional(),
+    add_time: UnixTimestampSchema,
+    change_time: UnixTimestampSchema.nullable().optional(),
+    file: UserFileExportTaskFileSchema.nullable().optional(),
+});
+export type UserFileExportTaskType = z.infer<typeof UserFileExportTaskSchema>;
+
+export const UserFileExportListResSchema = z.object({
+    data: z.array(UserFileExportTaskSchema),
+    total: z.coerce.number().nullable().optional(),
+});
+export type UserFileExportListResType = z.infer<typeof UserFileExportListResSchema>;
+
+export const userFileExportList = async (
+    param: UserFileExportListParamType,
+    config?: AxiosRequestConfig<any>
+): Promise<ApiResult<UserFileExportListResType>> => {
+    const { data } = await authApi().post('/api/user/app_export_task/export_list', param, config);
+    return parseResData(data, UserFileExportListResSchema);
+};
+
+// ==================== 活跃导出任务计数 ====================
+
+export const UserFileExportActiveCountParamSchema = z.object({
+    app_id: z.coerce.number().optional(),
+    export_type: z.string().optional(),
+});
+export type UserFileExportActiveCountParamType = z.infer<typeof UserFileExportActiveCountParamSchema>;
+
+export const UserFileExportActiveCountResSchema = z.object({
+    count: z.coerce.number(),
+});
+export type UserFileExportActiveCountResType = z.infer<typeof UserFileExportActiveCountResSchema>;
+
+export const userFileExportActiveCount = async (
+    param: UserFileExportActiveCountParamType,
+    config?: AxiosRequestConfig<any>
+): Promise<ApiResult<UserFileExportActiveCountResType>> => {
+    const { data } = await authApi().post('/api/user/app_export_task/export_active_count', param, config);
+    return parseResData(data, UserFileExportActiveCountResSchema);
+};
+
+// ==================== 导出任务字典映射 ====================
+
+export const UserExportMappingResSchema = z.object({
+    export_task_status: DictListSchema,
+});
+export type UserExportMappingResType = z.infer<typeof UserExportMappingResSchema>;
+
+export const userExportTaskMapping = async (
+    config?: AxiosRequestConfig<any>
+): Promise<ApiResult<UserExportMappingResType>> => {
+    const { data } = await authApi().post('/api/user/app_export_task/mapping', {}, config);
+    return parseResData(data, UserExportMappingResSchema);
 };

@@ -4,11 +4,12 @@ import { FilterContainer } from "@apps/main/components/filter-container/containe
 import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
 import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
 import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
+import { formatTotalCount } from "@shared/lib/utils/format-utils";
 import { AppDetailNavContainer } from "@apps/main/features/user/components/ui/app-detail-nav";
 import { useDictData, type TypedDictData } from "@apps/main/hooks/use-dict-data";
 import {
   DEFAULT_PAGE_SIZE,
-  useCountNumManager,
+  usePageCountNum,
 } from "@apps/main/lib/pagination-utils";
 import { createStatusMapper } from "@apps/main/lib/status-utils";
 import { Route } from "@apps/main/routes/_main/user/app/$appId/features-barcode/list-parse";
@@ -124,7 +125,7 @@ function BarcodeParseRecordContent({ dictData }: BarcodeParseRecordContentProps)
   };
 
   // count_num 优化管理器（传入 filters 自动监听变化）
-  const countNumManager = useCountNumManager(filters);
+  const countNumManager = usePageCountNum(filters);
 
   // 获取解析记录列表数据
   const {
@@ -161,7 +162,7 @@ function BarcodeParseRecordContent({ dictData }: BarcodeParseRecordContentProps)
   });
 
   // 处理 Page 分页查询结果（自动提取 total）
-  isSuccess && countNumManager.handlePageQueryResult(recordData);
+  isSuccess && countNumManager.handleQueryResult(recordData);
 
   // 从查询结果中提取数据
   const records = getQueryResponseData<UserBarcodeParseRecordItemType[]>(recordData, []);
@@ -333,7 +334,7 @@ function BarcodeParseRecordContent({ dictData }: BarcodeParseRecordContentProps)
           }}
           countComponent={
             <FilterTotalCount
-              total={countNumManager.getTotal() ?? 0}
+              value={formatTotalCount(countNumManager.getTotal())}
               loading={isLoading}
             />
           }

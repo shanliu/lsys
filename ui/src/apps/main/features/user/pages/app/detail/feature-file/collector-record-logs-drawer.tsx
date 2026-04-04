@@ -5,7 +5,9 @@ import {
     DrawerHeader,
     DrawerTitle,
 } from "@apps/main/components/local/drawer";
-import { PagePagination, useCountNumManager } from "@apps/main/lib/pagination-utils";
+import { useDictData } from "@apps/main/hooks/use-dict-data";
+import { createStatusMapper } from "@apps/main/lib/status-utils";
+import { PagePagination, usePageCountNum } from "@apps/main/lib/pagination-utils";
 import {
     userCollectorRecordLogList,
     type CollectorLogItemType,
@@ -18,13 +20,14 @@ import { cn, formatTime, getQueryResponseData, TIME_STYLE } from "@shared/lib/ut
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 
-// 日志级别映射
-const logLevelMap: Record<number, { label: string; variant: string }> = {
-    1: { label: "DEBUG", variant: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300" },
-    2: { label: "INFO", variant: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" },
-    3: { label: "WARN", variant: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300" },
-    4: { label: "ERROR", variant: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300" },
-};
+// 日志级别颜色映射（使用统一状态管理）
+const logLevelMapper = createStatusMapper({
+    1: 'neutral',   // DEBUG
+    2: 'info',      // INFO
+    3: 'warning',   // WARN
+    4: 'danger',    // ERROR
+    10: 'info',     // SYSTEM
+});
 
 interface CollectorRecordLogsDrawerProps {
     appId: number;
@@ -42,8 +45,9 @@ export function CollectorRecordLogsDrawer({
     const queryClient = useQueryClient();
     const [page, setPage] = useState(1);
     const pageSize = 20;
+    const { dictData: collectorDict } = useDictData(['user_collector'] as const);
 
-    const countNumManager = useCountNumManager({});
+    const countNumManager = usePageCountNum({});
     const { reset: resetCountNum } = countNumManager;
 
     useEffect(() => {
@@ -69,7 +73,7 @@ export function CollectorRecordLogsDrawer({
         enabled: isOpen,
     });
 
-    isSuccess && countNumManager.handlePageQueryResult(logsData);
+    isSuccess && countNumManager.handleQueryResult(logsData);
 
     const logs = getQueryResponseData<CollectorLogItemType[]>(logsData, []);
 
@@ -85,7 +89,9 @@ export function CollectorRecordLogsDrawer({
     };
 
     const getLevelInfo = (level: number) => {
-        return logLevelMap[level] || { label: String(level), variant: "bg-gray-100 text-gray-700" };
+        const label = collectorDict?.log_level?.getLabel(String(level), '') ?? '';
+        const cls = logLevelMapper.getClass(level);
+        return { label, cls };
     };
 
     return (
@@ -116,7 +122,7 @@ export function CollectorRecordLogsDrawer({
                                     <div key={log.id} className="border rounded-lg p-3 space-y-1.5 bg-card">
                                         <div className="flex items-center justify-between gap-2">
                                             <div className="flex items-center gap-2">
-                                                <Badge className={cn("text-xs font-mono", levelInfo.variant)}>
+                                                <Badge className={cn("text-xs font-mono", levelInfo.cls)}>
                                                     {levelInfo.label}
                                                 </Badge>
                                             </div>

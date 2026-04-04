@@ -1,4 +1,12 @@
-import { userFileDelete, userFileUploadCreate, userFileUploadData, userFileUploadByMd5, type UserFileMappingResType } from '@shared/apis/user/file';
+import { userFileDelete, userFileUploadCreate, userFileUploadData, userFileUploadByMd5 } from '@shared/apis/user/file';
+
+// 上传配置所需的最小字段
+interface UploadConfig {
+    min_chunk_size: number;
+    max_upload_size: number;
+    chunk_threshold: number;
+    default_chunk_size: number;
+}
 import { ContentDialog } from '@shared/components/custom/dialog/content-dialog';
 import { ConfirmDialog } from '@shared/components/custom/dialog/confirm-dialog';
 import { Button } from '@shared/components/ui/button';
@@ -16,7 +24,7 @@ type UploadStage = 'idle' | 'hashing' | 'uploading' | 'paused' | 'success' | 'er
 interface FileUploadDialogProps {
     children: React.ReactNode;
     appId: number;
-    uploadConfig: UserFileMappingResType;
+    uploadConfig: UploadConfig;
     onSuccess?: () => void;
     maxConcurrentChunks?: number;
 }
@@ -39,7 +47,6 @@ export function FileUploadDialog({
     const [open, setOpen] = useState(false);
     const [stage, setStage] = useState<UploadStage>('idle');
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const [fileId, setFileId] = useState<number | null>(null);
     const [fileUserId, setFileUserId] = useState<number | null>(null);
     const [progress, setProgress] = useState(0);
     const [errorMsg, setErrorMsg] = useState('');
@@ -67,7 +74,7 @@ export function FileUploadDialog({
     });
 
     const deleteMutation = useMutation({
-        mutationFn: (params: { app_id: number; file_id: number }) =>
+        mutationFn: (params: { file_user_id: number }) =>
             userFileDelete(params),
     });
 
@@ -86,7 +93,6 @@ export function FileUploadDialog({
     const resetState = useCallback(() => {
         setStage('idle');
         setSelectedFile(null);
-        setFileId(null);
         setFileUserId(null);
         setProgress(0);
         setHashProgress(0);
@@ -279,9 +285,9 @@ export function FileUploadDialog({
         abortRef.current?.abort();
         uploadControllerRef.current?.abort();
 
-        if (fileId) {
+        if (fileUserId) {
             try {
-                await deleteMutation.mutateAsync({ app_id: appId, file_id: fileId });
+                await deleteMutation.mutateAsync({ file_user_id: fileUserId });
                 resetState();
                 setOpen(false);
             } catch (err: any) {
@@ -294,7 +300,7 @@ export function FileUploadDialog({
             resetState();
             setOpen(false);
         }
-    }, [fileId, appId, resetState, showError, deleteMutation]);
+    }, [fileUserId, resetState, showError, deleteMutation]);
 
     // 文件选择处理 - 只做状态更新，让 UI 立即响应
     const handleFileSelect = useCallback((file: File) => {
@@ -358,9 +364,7 @@ export function FileUploadDialog({
                     throw new Error(createRes.message || '创建上传任务失败');
                 }
 
-                const fId = createRes.response.file_id;
-                const fUserId = createRes.response.file_user_id;
-                setFileId(fId);
+                const fUserId = createRes.response.id;
                 setFileUserId(fUserId);
 
                 // 初始化分片任务

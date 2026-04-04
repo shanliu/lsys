@@ -12,7 +12,7 @@ import {
 } from "@apps/main/components/local/drawer";
 import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
 import { CenteredLoading } from "@shared/components/custom/page-placeholder/centered-loading";
-import { PagePagination, useCountNumManager } from "@apps/main/lib/pagination-utils";
+import { PagePagination, usePageCountNum } from "@apps/main/lib/pagination-utils";
 import { Badge } from "@shared/components/ui/badge";
 import { cn, formatTime, getQueryResponseData, TIME_STYLE } from "@shared/lib/utils";
 import { createStatusMapper } from "@apps/main/lib/status-utils";
@@ -46,7 +46,7 @@ export function SendLogLogsDrawer({
   const messageId = message.id;
 
   // count_num 管理器
-  const countNumManager = useCountNumManager({ messageId });
+  const countNumManager = usePageCountNum({ messageId });
 
   // 获取日志列表
   const {
@@ -70,7 +70,7 @@ export function SendLogLogsDrawer({
   });
 
   // 处理分页查询结果
-  isSuccess && countNumManager.handlePageQueryResult(logsData);
+  isSuccess && countNumManager.handleQueryResult(logsData);
 
   const logs = getQueryResponseData<SystemSenderSmsMessageLogItemType[]>(
     logsData,

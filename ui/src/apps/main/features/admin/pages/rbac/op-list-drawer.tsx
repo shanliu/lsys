@@ -11,7 +11,7 @@ import {
 } from '@apps/main/components/local/drawer'
 import {
   DEFAULT_PAGE_SIZE,
-  useCountNumManager,
+  usePageCountNum,
 } from '@apps/main/lib/pagination-utils'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
@@ -39,6 +39,7 @@ import { Input } from '@shared/components/ui/input'
 import { useToast } from '@shared/contexts/toast-context'
 import { useIsMobile } from '@shared/hooks/use-mobile'
 import { cn, formatServerError, getQueryResponseData } from '@shared/lib/utils'
+import { formatTotalCount } from '@shared/lib/utils/format-utils'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Cog, Edit, Loader2, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
@@ -82,7 +83,7 @@ export function OpListDrawer({
   }
 
   // count_num 优化管理器
-  const countNumManager = useCountNumManager(filters)
+  const countNumManager = usePageCountNum(filters)
 
   // 获取操作列表
   const { data: opData, isSuccess, isLoading, isError, error } = useQuery({
@@ -116,7 +117,7 @@ export function OpListDrawer({
 
   // 处理分页查询结果
   if (isSuccess) {
-    countNumManager.handlePageQueryResult(opData)
+    countNumManager.handleQueryResult(opData)
   }
 
   // 从查询结果中提取数据
@@ -293,7 +294,7 @@ export function OpListDrawer({
                 })
               }}
               countComponent={
-                <FilterTotalCount total={countNumManager.getTotal() ?? 0} loading={isLoading} />
+                <FilterTotalCount value={formatTotalCount(countNumManager.getTotal())} loading={isLoading} />
               }
               className="bg-muted/50 rounded-lg border relative"
             >

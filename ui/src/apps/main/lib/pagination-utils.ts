@@ -1,11 +1,15 @@
+import type { TotalRecrodResType } from "@shared/types/base-schema";
 import type { NavigateOptions } from "@tanstack/react-router";
 import { useCallback, useRef } from "react";
 
+// Re-export TotalRecrodResType from shared for convenience
+export type { TotalRecrodResType } from "@shared/types/base-schema";
+
 // Re-export UI components from shared for convenience
 export {
-    OffsetPagination,
+    CursorPagination,
     PagePagination,
-    type OffsetPaginationProps,
+    type CursorPaginationProps,
     type PagePaginationProps
 } from '@shared/components/custom/pagination';
 
@@ -56,55 +60,33 @@ export function useSearchNavigate<TSearchParams extends Record<string, any>>(
 }
 
 /**
- * 创建 count_num 优化管理器
- * 用于优化分页查询中的 count_num 参数，减少不必要的总数统计请求
+ * Limit（游标）分页的 count_num 优化 Hook
  *
  * 优化策略：
  * 1. 初始化时 count_num = true，首次请求统计总数
  * 2. 加载到 total > 0 后设为 false，后续翻页不再统计
- * 3. Limit分页：当 next 为 null（无下一页）时重置为 true
- * 4. 筛选条件变化时需手动调用 reset() 重置为 true
+ * 3. 当 cursor.next 和 cursor.prev 均为 null（无更多数据）时重置为 true
+ * 4. 传入 filters 后自动监听变化并重置
  *
  * @example
  * ```tsx
- * // 1. 创建管理器
- * const countNumManager = useCountNumManager();
+ * const countNum = useLimitCountNum(filters);
  *
- * // 2. 筛选条件变化时重置
- * useEffect(() => {
- *   countNumManager.reset();
- * }, [filters.field1, filters.field2]);
- *
- * // 3. 构建查询参数
- * const queryParams = {
- *   limit: pagination,
- *   count_num: countNumManager.getCountNum(),
- *   ...filters,
- * };
- *
- * // 4. 查询数据
  * const query = useQuery({
- *   queryKey: ["data", queryParams],
- *   queryFn: async () => await fetchData(queryParams)
+ *   queryKey: ["data", params],
+ *   queryFn: () => fetchData({ ...params, count_num: countNum.getCountNum() }),
  * });
  *
- * // 5. 处理 Limit 分页响应（自动提取 total 和 next）
- * query.isSuccess&&countNumManager.handleLimitQueryResult(query.data);;
- * 
- * // 或处理 Page 分页响应
- * query.isSuccess&&countNumManager.handlePageQueryResult(query.data);;
- *
- * // 6. 获取 total
- * const total = countNumManager.getTotal();
+ * query.isSuccess && countNum.handleQueryResult(query.data);
+ * const totalInfo = countNum.getTotalInfo();
  * ```
  */
-export function useCountNumManager(filters?: Record<string, any>) {
+export function useLimitCountNum(filters?: Record<string, any>) {
     const countNumRef = useRef(true);
-    const totalRef = useRef<number | null>(null);
+    const totalInfoRef = useRef<TotalRecrodResType | null>(null);
     const hasLoadedRef = useRef(false);
     const lastFiltersRef = useRef<string>(JSON.stringify(filters || {}));
 
-    // 自动检测筛选条件变化并重置
     const currentFilters = JSON.stringify(filters || {});
     if (filters && currentFilters !== lastFiltersRef.current) {
         countNumRef.current = true;
@@ -113,65 +95,95 @@ export function useCountNumManager(filters?: Record<string, any>) {
     }
 
     return {
-        /**
-         * 获取当前的 count_num 值
-         * @returns 是否需要统计总数
-         */
-        getCountNum: useCallback(() => {
-            return countNumRef.current;
-        }, []),
+        getCountNum: useCallback(() => countNumRef.current, []),
+        getTotalInfo: useCallback((): TotalRecrodResType | null => totalInfoRef.current, []),
+        hasTotalInfo: useCallback(() => (totalInfoRef.current?.exact ?? totalInfoRef.current?.over ?? 0) > 0, []),
 
-        /**
-         * 获取缓存的 total 值
-         * @returns 总数，如果未加载则返回 null
-         */
-        getTotal: useCallback(() => {
-            return totalRef.current;
-        }, []),
-
-        /**
-         * 处理 Limit 分页的查询结果
-         * 自动提取 response.total 和 response.next_cursor/prev_cursor 并更新状态
-         * 服务端直接返回 next_cursor 和 prev_cursor 字段
-         * @param queryResult - TanStack Query 的查询结果对象
-         */
-        handleLimitQueryResult: useCallback((queryData: {
+        handleQueryResult: useCallback((queryData: {
             response?: {
-                total?: number | null;
-                next_cursor?: number | null;
-                prev_cursor?: number | null;
+                total?: { exact?: number | null; over?: number | null } | null;
+                cursor?: { next?: number | null; prev?: number | null } | null;
             };
         }) => {
             if (queryData?.response) {
-                const { total, next_cursor, prev_cursor } = queryData.response;
+                const { total, cursor } = queryData.response;
 
-                // 如果返回了有效的 total（包括0），缓存并设置 count_num = false
-                if (total !== null && total !== undefined && total >= 0) {
-                    totalRef.current = total;
+                if (total) {
+                    totalInfoRef.current = total;
+                }
+
+                const numTotal = total?.exact ?? total?.over ?? null;
+
+                if (numTotal !== null && numTotal >= 0) {
                     hasLoadedRef.current = true;
                     countNumRef.current = false;
                 }
 
-                // 如果没有下一页游标，重置 count_num = true
+                const next_cursor = cursor?.next;
+                const prev_cursor = cursor?.prev;
+
                 if (hasLoadedRef.current && (next_cursor === null || next_cursor === undefined) && (prev_cursor === null || prev_cursor === undefined)) {
                     countNumRef.current = true;
                 }
             }
         }, []),
 
-        /**
-         * 处理 Page 分页的查询结果
-         * 自动提取 response.total 或 response.count 并更新状态
-         * 支持 total 和 count 字段，兼容 string 和 number 类型
-         * @param queryResult - TanStack Query 的查询结果对象
-         * @param currentPage - 当前页码
-         * @param pageSize - 每页数量
-         */
-        handlePageQueryResult: useCallback((
+        reset: useCallback(() => {
+            countNumRef.current = true;
+            hasLoadedRef.current = false;
+            totalInfoRef.current = null;
+        }, []),
+
+
+
+    };
+}
+
+/**
+ * Page（页码）分页的 count_num 优化 Hook
+ *
+ * 优化策略：
+ * 1. 初始化时 count_num = true，首次请求统计总数
+ * 2. 加载到 total > 0 后设为 false，后续翻页不再统计
+ * 3. 当 currentPage 接近最后一页时重置为 true
+ * 4. 传入 filters 后自动监听变化并重置
+ *
+ * @example
+ * ```tsx
+ * const countNum = usePageCountNum(filters);
+ *
+ * const query = useQuery({
+ *   queryKey: ["data", params],
+ *   queryFn: () => fetchData({ ...params, count_num: countNum.getCountNum() }),
+ * });
+ *
+ * query.isSuccess && countNum.handleQueryResult(query.data, currentPage, pageSize);
+ * const total = countNum.getTotal();
+ * ```
+ */
+export function usePageCountNum(filters?: Record<string, any>) {
+    const countNumRef = useRef(true);
+    const totalRef = useRef<number | null>(null);
+    const hasLoadedRef = useRef(false);
+    const lastFiltersRef = useRef<string>(JSON.stringify(filters || {}));
+
+    const currentFilters = JSON.stringify(filters || {});
+    if (filters && currentFilters !== lastFiltersRef.current) {
+        countNumRef.current = true;
+        hasLoadedRef.current = false;
+        lastFiltersRef.current = currentFilters;
+    }
+
+    return {
+        getCountNum: useCallback(() => countNumRef.current, []),
+        getTotal: useCallback(() => totalRef.current, []),
+        hasTotal: useCallback(() => (totalRef.current ?? 0) > 0, []),
+
+        handleQueryResult: useCallback((
             queryData?: {
                 response?: {
-                    total?: number | string | null;
-                    count?: number | string | null;
+                    total?: number | null;
+                    count?: number | null;
                     [key: string]: unknown;
                 };
             },
@@ -179,17 +191,13 @@ export function useCountNumManager(filters?: Record<string, any>) {
             pageSize?: number
         ) => {
             if (queryData?.response) {
-                // 兼容 total 和 count 字段，支持 string 和 number 类型
-                const rawTotal = queryData.response.total ?? queryData.response.count;
-                const total = rawTotal !== null && rawTotal !== undefined ? Number(rawTotal) : null;
+                const total = queryData.response.total ?? queryData.response.count ?? null;
 
-                // 如果返回了有效的 total（包括0），缓存并设置 count_num = false
-                if (total !== null && !isNaN(total) && total >= 0) {
+                if (total !== null && total >= 0) {
                     totalRef.current = total;
                     hasLoadedRef.current = true;
                     countNumRef.current = false;
 
-                    // 如果提供了页码和页面大小，检查是否接近最后一页
                     if (currentPage !== undefined && pageSize !== undefined && pageSize > 0) {
                         const totalPages = Math.ceil(total / pageSize);
                         if (currentPage >= totalPages - 1) {
@@ -200,30 +208,13 @@ export function useCountNumManager(filters?: Record<string, any>) {
             }
         }, []),
 
-        /**
-         * 重置 count_num 为 true
-         * 在筛选条件变化、页面大小变化等场景下调用
-         */
         reset: useCallback(() => {
             countNumRef.current = true;
             hasLoadedRef.current = false;
             totalRef.current = null;
         }, []),
 
-        /**
-         * 手动设置 count_num 值（一般不需要使用）
-         * @param value - 要设置的值
-         */
-        setCountNum: useCallback((value: boolean) => {
-            countNumRef.current = value;
-        }, []),
 
-        /**
-         * 手动设置 total 值（一般不需要使用）
-         * @param value - 要设置的总数
-         */
-        setTotal: useCallback((value: number | null) => {
-            totalRef.current = value;
-        }, []),
+
     };
 }

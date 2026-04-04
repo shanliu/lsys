@@ -1,5 +1,7 @@
 import { FilterContainer } from "@apps/main/components/filter-container/container";
 import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
+import { UserExportAction } from "@apps/main/features/user/components/ui/user-export-action";
+import { EXPORT_TYPE_USER_LOGIN_HISTORY } from "@shared/apis/user/file";
 import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
 import { FilterInput } from "@apps/main/components/filter-container/filter-input";
 import { FilterSelect } from "@apps/main/components/filter-container/filter-select";
@@ -7,7 +9,7 @@ import { FilterTotalCount } from "@apps/main/components/filter-container/filter-
 import {
   DEFAULT_PAGE_SIZE,
   PAGE_SIZE_OPTIONS,
-  useCountNumManager,
+  useLimitCountNum,
   useSearchNavigate,
 } from "@apps/main/lib/pagination-utils";
 import {
@@ -15,13 +17,22 @@ import {
   type AccountLoginHistoryItemType,
 } from "@shared/apis/user/account";
 import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
-import { OffsetPagination } from "@shared/components/custom/pagination";
-import { DataTable, DataTableAction, DataTableActionItem } from "@shared/components/custom/table";
+import { CursorPagination } from "@shared/components/custom/pagination";
+import {
+  DataTable,
+  DataTableAction,
+  DataTableActionItem,
+} from "@shared/components/custom/table";
 import CopyableText from "@shared/components/custom/text/copyable-text";
 import { Badge } from "@shared/components/ui/badge";
 import { Button } from "@shared/components/ui/button";
+import { formatTotalCount } from "@shared/lib/utils/format-utils";
 
-import { useDictData, type TypedDictData } from "@apps/main/hooks/use-dict-data";
+import {
+  useDictData,
+  type TypedDictData,
+} from "@apps/main/hooks/use-dict-data";
+import { DictList } from "@shared/types/apis-dict";
 import { createStatusMapper } from "@apps/main/lib/status-utils";
 import { Route } from "@apps/main/routes/_main/user/account/login-log";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -89,7 +100,9 @@ interface AccountLoginLogContentProps {
   loginDictData: TypedDictData<["auth_login"]>;
 }
 
-function AccountLoginLogContent({ loginDictData }: AccountLoginLogContentProps) {
+function AccountLoginLogContent({
+  loginDictData,
+}: AccountLoginLogContentProps) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -124,7 +137,7 @@ function AccountLoginLogContent({ loginDictData }: AccountLoginLogContentProps) 
   const searchGo = useSearchNavigate(navigate, filterParam);
 
   // count_num 优化管理器（传入 filters 自动监听变化）
-  const countNumManager = useCountNumManager(filters);
+  const countNumManager = useLimitCountNum(filters);
 
   // 构建查询参数（不包含 count_num，在 queryFn 中动态获取）
   const queryParams = {
@@ -137,23 +150,34 @@ function AccountLoginLogContent({ loginDictData }: AccountLoginLogContentProps) 
     ...(filters.login_type && { login_type: filters.login_type }),
     ...(filters.login_account && { login_account: filters.login_account }),
     ...(filters.login_ip && { login_ip: filters.login_ip }),
-    ...(filters.is_login !== null && filters.is_login !== undefined && { is_login: filters.is_login }),
+    ...(filters.is_login !== null &&
+      filters.is_login !== undefined && { is_login: filters.is_login }),
   };
 
   // 获取登录日志数据
-  const { data: logData, isSuccess, isLoading: queryIsLoading, isFetching, isError, error } = useQuery({
+  const {
+    data: logData,
+    isSuccess,
+    isLoading: queryIsLoading,
+    isFetching,
+    isError,
+    error,
+  } = useQuery({
     queryKey: ["accountLoginHistory", queryParams],
     queryFn: ({ signal }) =>
       // 在查询时动态获取 count_num，确保使用最新值
-      accountLoginHistory({
-        ...queryParams,
-        count_num: countNumManager.getCountNum(),
-      }, { signal }),
+      accountLoginHistory(
+        {
+          ...queryParams,
+          count_num: countNumManager.getCountNum(),
+        },
+        { signal },
+      ),
     placeholderData: (previousData) => previousData, // 保持之前的数据，防止加载时数据清空
   });
 
   // 处理 Limit 分页查询结果（自动提取 total 和 next）
-  isSuccess && countNumManager.handleLimitQueryResult(logData);
+  isSuccess && countNumManager.handleQueryResult(logData);
 
   // 获取API响应数据
   const logs = getQueryResponseData<AccountLoginHistoryItemType[]>(logData, []);
@@ -171,19 +195,20 @@ function AccountLoginLogContent({ loginDictData }: AccountLoginLogContentProps) 
 
     // 2. 使其失效并重新获取（保证 count_num: true 会生效）
     queryClient.invalidateQueries({
-      queryKey: ["accountLoginHistory"]
+      queryKey: ["accountLoginHistory"],
     });
   };
 
   // 预处理字典数据，避免重复判断
-  const loginTypeDict = loginDictData.login_type;
+  // login_type 含额外 validity 字段，运行时已是 DictList 实例，断言以使用其方法
+  const loginTypeDict = loginDictData.login_type as unknown as DictList;
 
   // 字典数据已加载，创建登录状态映射器
   const loginStatus = createStatusMapper(
     {
-      0: "danger",    // 失败
-      1: "warning",   // 仅预登陆
-      2: "success",   // 成功
+      0: "danger", // 失败
+      1: "warning", // 仅预登陆
+      2: "success", // 成功
     },
     (status) =>
       loginDictData.login_status?.getLabel(String(status)) || String(status),
@@ -194,10 +219,19 @@ function AccountLoginLogContent({ loginDictData }: AccountLoginLogContentProps) 
     () => [
       {
         accessorKey: "id",
-        header: () => <div className={cn(isMobile ? "" : "text-right")}>ID</div>,
+        header: () => (
+          <div className={cn(isMobile ? "" : "text-right")}>ID</div>
+        ),
         size: 80,
         cell: ({ getValue }) => (
-          <div className={cn("font-mono text-xs whitespace-nowrap", isMobile ? "" : "text-right")}>{getValue<number>()}</div>
+          <div
+            className={cn(
+              "font-mono text-xs whitespace-nowrap",
+              isMobile ? "" : "text-right",
+            )}
+          >
+            {getValue<number>()}
+          </div>
         ),
       },
       {
@@ -222,7 +256,10 @@ function AccountLoginLogContent({ loginDictData }: AccountLoginLogContentProps) 
         accessorKey: "login_ip",
         header: "登录IP",
         cell: ({ getValue }) => (
-          <CopyableText value={getValue<string>()} className={cn("text-xs whitespace-nowrap")} />
+          <CopyableText
+            value={getValue<string>()}
+            className={cn("text-xs whitespace-nowrap")}
+          />
         ),
       },
       {
@@ -231,7 +268,9 @@ function AccountLoginLogContent({ loginDictData }: AccountLoginLogContentProps) 
         cell: ({ getValue }) => {
           const isLogin = getValue<number>();
           return (
-            <Badge className={cn(loginStatus.getClass(isLogin), "whitespace-nowrap")}>
+            <Badge
+              className={cn(loginStatus.getClass(isLogin), "whitespace-nowrap")}
+            >
               {loginStatus.getText(isLogin)}
             </Badge>
           );
@@ -244,7 +283,9 @@ function AccountLoginLogContent({ loginDictData }: AccountLoginLogContentProps) 
           const date = getValue<Date | null>();
           const timeElement = formatTime(date, TIME_STYLE.RELATIVE_ELEMENT);
           return (
-            <div className="text-xs text-muted-foreground whitespace-nowrap">{timeElement}</div>
+            <div className="text-xs text-muted-foreground whitespace-nowrap">
+              {timeElement}
+            </div>
           );
         },
       },
@@ -255,8 +296,13 @@ function AccountLoginLogContent({ loginDictData }: AccountLoginLogContentProps) 
         cell: ({ row }) => {
           const log = row.original;
           return (
-            <DataTableAction className={cn(isMobile ? "justify-end" : "justify-center")}>
-              <DataTableActionItem mobileDisplay="display" desktopDisplay="display">
+            <DataTableAction
+              className={cn(isMobile ? "justify-end" : "justify-center")}
+            >
+              <DataTableActionItem
+                mobileDisplay="display"
+                desktopDisplay="display"
+              >
                 <Button
                   variant="ghost"
                   size="sm"
@@ -280,7 +326,6 @@ function AccountLoginLogContent({ loginDictData }: AccountLoginLogContentProps) 
 
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-4 py-3 max-w-[1600px] flex flex-col min-h-0 space-y-4">
-
       {/* 搜索和过滤 */}
       <div className="flex-shrink-0 mb-1 sm:mb-4">
         <FilterContainer
@@ -311,7 +356,12 @@ function AccountLoginLogContent({ loginDictData }: AccountLoginLogContentProps) 
               } as any,
             });
           }}
-          countComponent={<FilterTotalCount total={countNumManager.getTotal() ?? 0} loading={isLoading} />}
+          countComponent={
+            <FilterTotalCount
+              value={formatTotalCount(countNumManager.getTotalInfo())}
+              loading={isLoading}
+            />
+          }
         >
           {(layoutParams, form) => (
             <div className="flex-1 flex flex-wrap items-end gap-2">
@@ -364,12 +414,28 @@ function AccountLoginLogContent({ loginDictData }: AccountLoginLogContentProps) 
               )}
 
               {/* 动作按钮区域 */}
-              <div className={cn(layoutParams.isMobile ? "w-full" : "flex-shrink-0")}>
+              <div
+                className={cn(
+                  layoutParams.isMobile ? "w-full" : "flex-shrink-0",
+                )}
+              >
                 <FilterActions
                   form={form}
                   loading={isLoading}
                   layoutParams={layoutParams}
                   onRefreshSearch={clearCacheAndReload}
+                  extraActions={
+                    <UserExportAction
+                      exportType={EXPORT_TYPE_USER_LOGIN_HISTORY}
+                      params={{
+                        login_type: filters.login_type,
+                        login_account: filters.login_account,
+                        login_ip: filters.login_ip,
+                        is_login: filters.is_login,
+                      }}
+                      layoutParams={layoutParams}
+                    />
+                  }
                 />
               </div>
             </div>
@@ -379,23 +445,32 @@ function AccountLoginLogContent({ loginDictData }: AccountLoginLogContentProps) 
 
       {/* 表格和分页容器 */}
       <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-
         <div className="flex-1 min-h-0">
           <DataTable
             data={logs}
             columns={columns}
             loading={isLoading}
-            error={isError ? <CenteredError error={error} variant="content" onReset={refreshData} /> : null}
-            className={cn("h-full [&_.data-table-row]:h-12 [&_td]:py-2 [&_th]:py-2 [&_table]:border-0 [&_.table-container]:border-0 [&_tbody_tr:last-child]:border-b [&_.data-table-wrapper]:overflow-auto [&_.data-table-wrapper]:h-full")}
+            error={
+              isError ? (
+                <CenteredError
+                  error={error}
+                  variant="content"
+                  onReset={refreshData}
+                />
+              ) : null
+            }
+            className={cn(
+              "h-full [&_.data-table-row]:h-12 [&_td]:py-2 [&_th]:py-2 [&_table]:border-0 [&_.table-container]:border-0 [&_tbody_tr:last-child]:border-b [&_.data-table-wrapper]:overflow-auto [&_.data-table-wrapper]:h-full",
+            )}
           />
         </div>
 
         <div className="flex-shrink-0 pt-2">
-          <OffsetPagination
+          <CursorPagination
             limit={currentLimit}
             cursorData={cursorData}
             searchGo={searchGo}
-            total={countNumManager.getTotal()}
+            totalInfo={countNumManager.getTotalInfo()}
             currentPageSize={logs.length}
             loading={isLoading}
             onRefresh={refreshData}
@@ -425,4 +500,3 @@ function AccountLoginLogContent({ loginDictData }: AccountLoginLogContentProps) 
 
 // 导出 schema 供路由使用
 export { LoginLogFilterParamSchema } from "./login-log-schema";
-

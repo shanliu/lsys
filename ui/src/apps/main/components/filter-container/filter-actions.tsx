@@ -15,6 +15,8 @@ export interface FilterActionsProps<TFieldValues extends FieldValues = FieldValu
   // 刷新搜索的回调（用于清除缓存并重新加载）
   // 桌面端：双击搜索按钮触发 | 移动端：长按搜索按钮触发
   onRefreshSearch?: () => void
+  // 额外操作按钮，渲染在搜索/重置按钮之后
+  extraActions?: React.ReactNode
 }
 
 /**
@@ -30,6 +32,7 @@ export function FilterActions<TFieldValues extends FieldValues = FieldValues>({
   className,
   layoutParams,
   onRefreshSearch,
+  extraActions,
 }: FilterActionsProps<TFieldValues>) {
   const isMobile = layoutParams?.isMobile
 
@@ -177,6 +180,7 @@ export function FilterActions<TFieldValues extends FieldValues = FieldValues>({
             重置
           </Button>
         )}
+        {extraActions}
       </div>
     )
   }
@@ -214,6 +218,7 @@ export function FilterActions<TFieldValues extends FieldValues = FieldValues>({
           重置
         </Button>
       )}
+      {extraActions}
     </div>
   )
 }

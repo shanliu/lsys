@@ -1,13 +1,12 @@
-import React from 'react'
-import { cn } from '@shared/lib/utils'
 import { Badge } from '@shared/components/ui/badge'
-import { BarChart3, Loader2 } from 'lucide-react'
 import { useIsMobile } from '@shared/hooks/use-mobile'
+import { cn } from '@shared/lib/utils'
+import { BarChart3, Loader2 } from 'lucide-react'
 
 // 总数显示组件的 props 接口
 export interface FilterTotalCountProps {
-  // 总数值
-  total: number
+  // 已格式化的显示值
+  value: string
   // 总数标签文本，默认为 "总数"
   label?: string
   // 自定义样式类名
@@ -26,23 +25,12 @@ export interface FilterTotalCountProps {
  * - 加载时组件会有半透明效果
  */
 export function FilterTotalCount({
-  total,
+  value,
   label = '总数',
   className,
   loading = false,
 }: FilterTotalCountProps) {
   const isMobile = useIsMobile()
-
-  // 格式化总数显示
-  const formattedTotal = React.useMemo(() => {
-    if (total >= 10000) {
-      return `${(total / 10000).toFixed(1)}万`
-    }
-    if (total >= 1000) {
-      return `${(total / 1000).toFixed(1)}k`
-    }
-    return total.toString()
-  }, [total])
 
   // 根据设备类型使用不同的显示方式
   if (isMobile) {
@@ -56,7 +44,7 @@ export function FilterTotalCount({
         <BarChart3 className={cn("h-3.5 w-3.5 text-primary")} />
         <span>{label}:</span>
         <span className="font-medium text-foreground">
-          {loading ?  <Loader2 className={cn("h-3.5 w-3.5 animate-spin text-primary")} /> : formattedTotal}
+          {loading ? <Loader2 className={cn("h-3.5 w-3.5 animate-spin text-primary")} /> : value}
         </span>
       </div>
     )
@@ -64,8 +52,8 @@ export function FilterTotalCount({
 
   // 桌面端：Badge 样式
   return (
-    <Badge 
-      variant="secondary" 
+    <Badge
+      variant="secondary"
       className={cn(
         "flex items-center gap-1 font-medium text-xs bg-background/90 backdrop-blur-sm text-foreground border border-border/50 shadow-sm hover:bg-background/95 transition-colors px-2 py-1",
         loading && "opacity-70",
@@ -75,7 +63,7 @@ export function FilterTotalCount({
       <BarChart3 className={cn("h-3 w-3 text-primary")} />
       <span className="text-muted-foreground">{label}:</span>
       <span className="font-semibold text-primary">
-        {loading ?   <Loader2 className={cn("h-3 w-3 animate-spin text-primary")} /> : formattedTotal}
+        {loading ? <Loader2 className={cn("h-3 w-3 animate-spin text-primary")} /> : value}
       </span>
     </Badge>
   )

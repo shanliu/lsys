@@ -1,2 +1,3 @@
-export { OffsetPagination, type OffsetPaginationProps } from './offset'
+export { CursorPagination, type CursorPaginationProps } from './cursor'
 export { PagePagination, type PagePaginationProps } from './page'
+

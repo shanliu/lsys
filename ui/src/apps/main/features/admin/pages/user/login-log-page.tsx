@@ -1,15 +1,20 @@
-import { FilterContainer } from "@apps/main/components/filter-container/container";
+﻿import { FilterContainer } from "@apps/main/components/filter-container/container";
 import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
+import { AdminExportAction } from "@apps/main/features/admin/components/ui/admin-export-action";
+import { EXPORT_TYPE_SYSTEM_LOGIN_HISTORY } from "@shared/apis/admin/export";
 import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
 import { FilterInput } from "@apps/main/components/filter-container/filter-input";
 import { FilterSystemAppSelector } from "@apps/main/components/filter-container/filter-system-app-selector";
 import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
 import { UserDataTooltip } from "@apps/main/components/local/user-data-tooltip";
-import { useDictData, type TypedDictData } from "@apps/main/hooks/use-dict-data";
+import {
+  useDictData,
+  type TypedDictData,
+} from "@apps/main/hooks/use-dict-data";
 import {
   DEFAULT_PAGE_SIZE,
   PAGE_SIZE_OPTIONS,
-  useCountNumManager,
+  useLimitCountNum,
   useSearchNavigate,
 } from "@apps/main/lib/pagination-utils";
 import { createStatusMapper } from "@apps/main/lib/status-utils";
@@ -22,8 +27,12 @@ import {
 } from "@shared/apis/admin/user";
 import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
 import { PageSkeletonTable } from "@shared/components/custom/page-placeholder/skeleton-table";
-import { OffsetPagination } from "@shared/components/custom/pagination";
-import { DataTable, DataTableAction, DataTableActionItem } from "@shared/components/custom/table";
+import { CursorPagination } from "@shared/components/custom/pagination";
+import {
+  DataTable,
+  DataTableAction,
+  DataTableActionItem,
+} from "@shared/components/custom/table";
 import { Badge } from "@shared/components/ui/badge";
 import { Button } from "@shared/components/ui/button";
 import { useIsMobile } from "@shared/hooks/use-mobile";
@@ -34,16 +43,15 @@ import {
   getQueryResponseData,
   TIME_STYLE,
 } from "@shared/lib/utils";
+import { formatTotalCount } from "@shared/lib/utils/format-utils";
+import { type LimitType } from "@shared/types/base-schema";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { ColumnDef } from "@tanstack/react-table";
 import { Eye } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { LoginLogDetailDrawer } from "./login-log-detail-drawer";
-import {
-  LoginLogFilterFormSchema,
-  type LoginOffsetPaginationType
-} from "./login-log-schema";
+import { LoginLogFilterFormSchema } from "./login-log-schema";
 
 export function LoginLogPage() {
   //system\user\login_history.md
@@ -106,8 +114,6 @@ function LoginLogContent({ dictData }: LoginLogContentProps) {
     login: null as SystemUserLoginHistoryItemType | null,
   });
 
-
-
   // 过滤条件从 URL 参数获取
   const filters = {
     app_id: filterParam.app_id ?? 0,
@@ -119,9 +125,9 @@ function LoginLogContent({ dictData }: LoginLogContentProps) {
   const currentLimit = filterParam.limit || DEFAULT_PAGE_SIZE;
 
   // 分页状态 - 直接从 URL 参数派生，无需 useState
-  const pagination: LoginOffsetPaginationType = {
+  const pagination: LimitType = {
     pos: filterParam.pos || null,
-    limit: filterParam.limit || DEFAULT_PAGE_SIZE,
+    limit: currentLimit,
     forward: filterParam.forward ?? true,
     more: true,
   };
@@ -130,7 +136,7 @@ function LoginLogContent({ dictData }: LoginLogContentProps) {
   const searchGo = useSearchNavigate(navigate, filterParam);
 
   // count_num 优化管理器（传入 filters 自动监听变化）
-  const countNumManager = useCountNumManager(filters);
+  const countNumManager = useLimitCountNum(filters);
 
   // 构建查询参数， app_id 默认为 0（系统）
   const queryParams: SystemUserLoginHistoryParamType = {
@@ -150,13 +156,19 @@ function LoginLogContent({ dictData }: LoginLogContentProps) {
   };
 
   // 获取登录历史数据
-  const { data: loginData, isSuccess: loginIsSuccess, isLoading: loginIsLoading, isError, error } = useQuery({
+  const {
+    data: loginData,
+    isSuccess: loginIsSuccess,
+    isLoading: loginIsLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: ["systemUserLoginHistory", queryParams],
     queryFn: ({ signal }) => systemUserLoginHistory(queryParams, { signal }),
   });
 
   // 处理 Limit 分页查询结果（自动提取 total 和 next）
-  loginIsSuccess && countNumManager.handleLimitQueryResult(loginData);
+  loginIsSuccess && countNumManager.handleQueryResult(loginData);
 
   // 刷新数据
   const refreshData = () => {
@@ -169,8 +181,6 @@ function LoginLogContent({ dictData }: LoginLogContentProps) {
     queryClient.invalidateQueries({ queryKey: ["systemUserLoginHistory"] });
   };
 
-
-
   const logins = getQueryResponseData<SystemUserLoginHistoryItemType[]>(
     loginData,
     [],
@@ -179,29 +189,38 @@ function LoginLogContent({ dictData }: LoginLogContentProps) {
 
   // 状态样式映射
   const statusMapper = useMemo(
-    () => createStatusMapper(
-      { 1: "success", 2: "danger" },
-      (status) => dictData.session_status.getLabel(String(status)) || String(status),
-    ),
-    [dictData]
+    () =>
+      createStatusMapper(
+        { 1: "success", 2: "danger" },
+        (status) =>
+          dictData.session_status.getLabel(String(status)) || String(status),
+      ),
+    [dictData],
   );
 
   // 处理查看详情
-  const handleViewDetail = useCallback((login: SystemUserLoginHistoryItemType) => {
-    setDetailDialog({ open: true, login });
-  }, []);
-
-
+  const handleViewDetail = useCallback(
+    (login: SystemUserLoginHistoryItemType) => {
+      setDetailDialog({ open: true, login });
+    },
+    [],
+  );
 
   // 定义表格列
   const columns = useMemo<ColumnDef<SystemUserLoginHistoryItemType>[]>(
     () => [
       {
         accessorKey: "id",
-        header: () => <div className={cn(isMobile ? "" : "text-right")}>ID</div>,
+        header: () => (
+          <div className={cn(isMobile ? "" : "text-right")}>ID</div>
+        ),
         size: 80,
         cell: ({ getValue }) => (
-          <div className={cn("font-mono text-xs", isMobile ? "" : "text-right")}>{getValue<number>()}</div>
+          <div
+            className={cn("font-mono text-xs", isMobile ? "" : "text-right")}
+          >
+            {getValue<number>()}
+          </div>
         ),
       },
       {
@@ -221,7 +240,6 @@ function LoginLogContent({ dictData }: LoginLogContentProps) {
         ),
       },
 
-
       {
         accessorKey: "status",
         header: "状态",
@@ -229,7 +247,10 @@ function LoginLogContent({ dictData }: LoginLogContentProps) {
         cell: ({ getValue }) => {
           const status = getValue<number>();
           return (
-            <Badge variant="secondary" className={statusMapper.getClass(status)}>
+            <Badge
+              variant="secondary"
+              className={statusMapper.getClass(status)}
+            >
               {statusMapper.getText(status)}
             </Badge>
           );
@@ -272,10 +293,19 @@ function LoginLogContent({ dictData }: LoginLogContentProps) {
           const login = row.original;
 
           return (
-            <DataTableAction className={cn(isMobile ? "justify-end" : "justify-center")}>
-
-              <DataTableActionItem mobileDisplay="display" desktopDisplay="display">
-                <Button onClick={() => handleViewDetail(login)} variant="ghost" size="sm" className={cn("px-2")}>
+            <DataTableAction
+              className={cn(isMobile ? "justify-end" : "justify-center")}
+            >
+              <DataTableActionItem
+                mobileDisplay="display"
+                desktopDisplay="display"
+              >
+                <Button
+                  onClick={() => handleViewDetail(login)}
+                  variant="ghost"
+                  size="sm"
+                  className={cn("px-2")}
+                >
                   <Eye className={cn("h-4 w-4")} />
                   {isMobile && <span className="ml-2">详情</span>}
                 </Button>
@@ -302,7 +332,10 @@ function LoginLogContent({ dictData }: LoginLogContentProps) {
         <div className="flex-shrink-0 mb-1 sm:mb-4">
           <FilterContainer
             defaultValues={{
-              app_id: filterParam.app_id !== undefined ? String(filterParam.app_id) : "0",
+              app_id:
+                filterParam.app_id !== undefined
+                  ? String(filterParam.app_id)
+                  : "0",
               oauth_app_id: filterParam.oauth_app_id?.toString(),
               user_id: filterParam.user_id?.toString(),
               is_enable: filterParam.is_enable?.toString(),
@@ -324,7 +357,12 @@ function LoginLogContent({ dictData }: LoginLogContentProps) {
                 } as any,
               });
             }}
-            countComponent={<FilterTotalCount total={countNumManager.getTotal() ?? 0} loading={isLoading} />}
+            countComponent={
+              <FilterTotalCount
+                value={formatTotalCount(countNumManager.getTotalInfo())}
+                loading={isLoading}
+              />
+            }
             className={cn("bg-card rounded-lg border shadow-sm relative")}
           >
             {(layoutParams, form) => (
@@ -387,12 +425,27 @@ function LoginLogContent({ dictData }: LoginLogContentProps) {
                 )}
 
                 {/* 动作按钮区域 */}
-                <div className={cn(layoutParams.isMobile ? "w-full" : "flex-shrink-0")}>
+                <div
+                  className={cn(
+                    layoutParams.isMobile ? "w-full" : "flex-shrink-0",
+                  )}
+                >
                   <FilterActions
                     form={form}
                     loading={isLoading}
                     layoutParams={layoutParams}
                     onRefreshSearch={clearCacheAndReload}
+                    extraActions={
+                      <AdminExportAction
+                        exportType={EXPORT_TYPE_SYSTEM_LOGIN_HISTORY}
+                        params={{
+                          app_id: filters.app_id,
+                          oauth_app_id: filters.oauth_app_id,
+                          user_id: filters.user_id,
+                          is_enable: filters.is_enable,
+                        }}
+                      />
+                    }
                   />
                 </div>
               </div>
@@ -408,19 +461,29 @@ function LoginLogContent({ dictData }: LoginLogContentProps) {
               data={logins}
               columns={columns}
               loading={isLoading}
-              error={isError ? <CenteredError error={error} variant="content" onReset={refreshData} /> : null}
-              className={cn("h-full [&_.data-table-row]:h-12 [&_td]:py-2 [&_th]:py-2 [&_table]:border-0 [&_.table-container]:border-0 [&_tbody_tr:last-child]:border-b [&_.data-table-wrapper]:overflow-auto [&_.data-table-wrapper]:h-full")}
+              error={
+                isError ? (
+                  <CenteredError
+                    error={error}
+                    variant="content"
+                    onReset={refreshData}
+                  />
+                ) : null
+              }
+              className={cn(
+                "h-full [&_.data-table-row]:h-12 [&_td]:py-2 [&_th]:py-2 [&_table]:border-0 [&_.table-container]:border-0 [&_tbody_tr:last-child]:border-b [&_.data-table-wrapper]:overflow-auto [&_.data-table-wrapper]:h-full",
+              )}
             />
           </div>
 
           {/* 分页控件 */}
           <div className="flex-shrink-0 pt-4">
-            {(countNumManager.getTotal() ?? 0) > 0 && (
-              <OffsetPagination
-                limit={pagination.limit}
+            {countNumManager.hasTotalInfo() && (
+              <CursorPagination
+                limit={currentLimit}
                 cursorData={cursorData}
                 searchGo={searchGo}
-                total={countNumManager.getTotal()}
+                totalInfo={countNumManager.getTotalInfo()}
                 currentPageSize={logins.length}
                 loading={isLoading}
                 onRefresh={refreshData}
@@ -438,11 +501,13 @@ function LoginLogContent({ dictData }: LoginLogContentProps) {
             )}
           </div>
         </div>
-        {detailDialog.login && <LoginLogDetailDrawer
-          login={detailDialog.login}
-          open={detailDialog.open}
-          onOpenChange={handleCloseDetailDialog}
-        />}
+        {detailDialog.login && (
+          <LoginLogDetailDrawer
+            login={detailDialog.login}
+            open={detailDialog.open}
+            onOpenChange={handleCloseDetailDialog}
+          />
+        )}
       </div>
     </>
   );

@@ -35,6 +35,7 @@ import { Route as MainUserAccountRouteRouteImport } from './routes/_main/user/ac
 import { Route as MainAdminUserRouteRouteImport } from './routes/_main/admin/user/route'
 import { Route as MainAdminSmsRouteRouteImport } from './routes/_main/admin/sms/route'
 import { Route as MainAdminRbacRouteRouteImport } from './routes/_main/admin/rbac/route'
+import { Route as MainAdminFileRouteRouteImport } from './routes/_main/admin/file/route'
 import { Route as MainAdminEmailRouteRouteImport } from './routes/_main/admin/email/route'
 import { Route as MainAdminConfigRouteRouteImport } from './routes/_main/admin/config/route'
 import { Route as MainAdminAppRouteRouteImport } from './routes/_main/admin/app/route'
@@ -57,6 +58,8 @@ import { Route as MainAdminRbacRoleRouteImport } from './routes/_main/admin/rbac
 import { Route as MainAdminRbacResourceRouteImport } from './routes/_main/admin/rbac/resource'
 import { Route as MainAdminRbacResRouteImport } from './routes/_main/admin/rbac/res'
 import { Route as MainAdminRbacAuditLogRouteImport } from './routes/_main/admin/rbac/audit-log'
+import { Route as MainAdminFileOssConfigRouteImport } from './routes/_main/admin/file/oss-config'
+import { Route as MainAdminFileListRouteImport } from './routes/_main/admin/file/list'
 import { Route as MainAdminEmailSendLogRouteImport } from './routes/_main/admin/email/send-log'
 import { Route as MainAdminEmailAdapterConfigRouteImport } from './routes/_main/admin/email/adapter-config'
 import { Route as MainAdminAppRequestRouteImport } from './routes/_main/admin/app/request'
@@ -228,6 +231,11 @@ const MainAdminRbacRouteRoute = MainAdminRbacRouteRouteImport.update({
   path: '/rbac',
   getParentRoute: () => MainAdminRouteRoute,
 } as any)
+const MainAdminFileRouteRoute = MainAdminFileRouteRouteImport.update({
+  id: '/file',
+  path: '/file',
+  getParentRoute: () => MainAdminRouteRoute,
+} as any)
 const MainAdminEmailRouteRoute = MainAdminEmailRouteRouteImport.update({
   id: '/email',
   path: '/email',
@@ -339,6 +347,16 @@ const MainAdminRbacAuditLogRoute = MainAdminRbacAuditLogRouteImport.update({
   id: '/audit-log',
   path: '/audit-log',
   getParentRoute: () => MainAdminRbacRouteRoute,
+} as any)
+const MainAdminFileOssConfigRoute = MainAdminFileOssConfigRouteImport.update({
+  id: '/oss-config',
+  path: '/oss-config',
+  getParentRoute: () => MainAdminFileRouteRoute,
+} as any)
+const MainAdminFileListRoute = MainAdminFileListRouteImport.update({
+  id: '/list',
+  path: '/list',
+  getParentRoute: () => MainAdminFileRouteRoute,
 } as any)
 const MainAdminEmailSendLogRoute = MainAdminEmailSendLogRouteImport.update({
   id: '/send-log',
@@ -583,16 +601,17 @@ const MainUserAppAppIdFeaturesBarcodeListCreateRoute =
   } as any)
 
 export interface FileRoutesByFullPath {
+  '/': typeof rootIndexRoute
   '/find-password': typeof AuthFindPasswordRouteRouteWithChildren
   '/sign-in': typeof AuthSignInRouteRouteWithChildren
   '/sign-up': typeof AuthSignUpRouteRouteWithChildren
   '/admin': typeof MainAdminRouteRouteWithChildren
   '/user': typeof MainUserRouteRouteWithChildren
   '/switch-user': typeof MainSwitchUserRoute
-  '/': typeof rootIndexRoute
   '/admin/app': typeof MainAdminAppRouteRouteWithChildren
   '/admin/config': typeof MainAdminConfigRouteRouteWithChildren
   '/admin/email': typeof MainAdminEmailRouteRouteWithChildren
+  '/admin/file': typeof MainAdminFileRouteRouteWithChildren
   '/admin/rbac': typeof MainAdminRbacRouteRouteWithChildren
   '/admin/sms': typeof MainAdminSmsRouteRouteWithChildren
   '/admin/user': typeof MainAdminUserRouteRouteWithChildren
@@ -616,6 +635,8 @@ export interface FileRoutesByFullPath {
   '/admin/app/request': typeof MainAdminAppRequestRoute
   '/admin/email/adapter-config': typeof MainAdminEmailAdapterConfigRoute
   '/admin/email/send-log': typeof MainAdminEmailSendLogRoute
+  '/admin/file/list': typeof MainAdminFileListRoute
+  '/admin/file/oss-config': typeof MainAdminFileOssConfigRoute
   '/admin/rbac/audit-log': typeof MainAdminRbacAuditLogRoute
   '/admin/rbac/res': typeof MainAdminRbacResRoute
   '/admin/rbac/resource': typeof MainAdminRbacResourceRoute
@@ -673,12 +694,13 @@ export interface FileRoutesByFullPath {
   '/user/app/$appId/sub-app/request': typeof MainUserAppAppIdSubAppRequestRoute
 }
 export interface FileRoutesByTo {
+  '/': typeof rootIndexRoute
   '/find-password': typeof AuthFindPasswordRouteRouteWithChildren
   '/sign-up': typeof AuthSignUpRouteRouteWithChildren
   '/switch-user': typeof MainSwitchUserRoute
-  '/': typeof rootIndexRoute
   '/admin/app': typeof MainAdminAppRouteRouteWithChildren
   '/admin/email': typeof MainAdminEmailRouteRouteWithChildren
+  '/admin/file': typeof MainAdminFileRouteRouteWithChildren
   '/admin/rbac': typeof MainAdminRbacRouteRouteWithChildren
   '/admin/sms': typeof MainAdminSmsRouteRouteWithChildren
   '/admin/user': typeof MainAdminUserRouteRouteWithChildren
@@ -701,6 +723,8 @@ export interface FileRoutesByTo {
   '/admin/app/request': typeof MainAdminAppRequestRoute
   '/admin/email/adapter-config': typeof MainAdminEmailAdapterConfigRoute
   '/admin/email/send-log': typeof MainAdminEmailSendLogRoute
+  '/admin/file/list': typeof MainAdminFileListRoute
+  '/admin/file/oss-config': typeof MainAdminFileOssConfigRoute
   '/admin/rbac/audit-log': typeof MainAdminRbacAuditLogRoute
   '/admin/rbac/res': typeof MainAdminRbacResRoute
   '/admin/rbac/resource': typeof MainAdminRbacResourceRoute
@@ -771,6 +795,7 @@ export interface FileRoutesById {
   '/_main/admin/app': typeof MainAdminAppRouteRouteWithChildren
   '/_main/admin/config': typeof MainAdminConfigRouteRouteWithChildren
   '/_main/admin/email': typeof MainAdminEmailRouteRouteWithChildren
+  '/_main/admin/file': typeof MainAdminFileRouteRouteWithChildren
   '/_main/admin/rbac': typeof MainAdminRbacRouteRouteWithChildren
   '/_main/admin/sms': typeof MainAdminSmsRouteRouteWithChildren
   '/_main/admin/user': typeof MainAdminUserRouteRouteWithChildren
@@ -794,6 +819,8 @@ export interface FileRoutesById {
   '/_main/admin/app/request': typeof MainAdminAppRequestRoute
   '/_main/admin/email/adapter-config': typeof MainAdminEmailAdapterConfigRoute
   '/_main/admin/email/send-log': typeof MainAdminEmailSendLogRoute
+  '/_main/admin/file/list': typeof MainAdminFileListRoute
+  '/_main/admin/file/oss-config': typeof MainAdminFileOssConfigRoute
   '/_main/admin/rbac/audit-log': typeof MainAdminRbacAuditLogRoute
   '/_main/admin/rbac/res': typeof MainAdminRbacResRoute
   '/_main/admin/rbac/resource': typeof MainAdminRbacResourceRoute
@@ -853,16 +880,17 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
+    | '/'
     | '/find-password'
     | '/sign-in'
     | '/sign-up'
     | '/admin'
     | '/user'
     | '/switch-user'
-    | '/'
     | '/admin/app'
     | '/admin/config'
     | '/admin/email'
+    | '/admin/file'
     | '/admin/rbac'
     | '/admin/sms'
     | '/admin/user'
@@ -886,6 +914,8 @@ export interface FileRouteTypes {
     | '/admin/app/request'
     | '/admin/email/adapter-config'
     | '/admin/email/send-log'
+    | '/admin/file/list'
+    | '/admin/file/oss-config'
     | '/admin/rbac/audit-log'
     | '/admin/rbac/res'
     | '/admin/rbac/resource'
@@ -943,12 +973,13 @@ export interface FileRouteTypes {
     | '/user/app/$appId/sub-app/request'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/'
     | '/find-password'
     | '/sign-up'
     | '/switch-user'
-    | '/'
     | '/admin/app'
     | '/admin/email'
+    | '/admin/file'
     | '/admin/rbac'
     | '/admin/sms'
     | '/admin/user'
@@ -971,6 +1002,8 @@ export interface FileRouteTypes {
     | '/admin/app/request'
     | '/admin/email/adapter-config'
     | '/admin/email/send-log'
+    | '/admin/file/list'
+    | '/admin/file/oss-config'
     | '/admin/rbac/audit-log'
     | '/admin/rbac/res'
     | '/admin/rbac/resource'
@@ -1040,6 +1073,7 @@ export interface FileRouteTypes {
     | '/_main/admin/app'
     | '/_main/admin/config'
     | '/_main/admin/email'
+    | '/_main/admin/file'
     | '/_main/admin/rbac'
     | '/_main/admin/sms'
     | '/_main/admin/user'
@@ -1063,6 +1097,8 @@ export interface FileRouteTypes {
     | '/_main/admin/app/request'
     | '/_main/admin/email/adapter-config'
     | '/_main/admin/email/send-log'
+    | '/_main/admin/file/list'
+    | '/_main/admin/file/oss-config'
     | '/_main/admin/rbac/audit-log'
     | '/_main/admin/rbac/res'
     | '/_main/admin/rbac/resource'
@@ -1131,14 +1167,14 @@ declare module '@tanstack/react-router' {
     '/_main': {
       id: '/_main'
       path: ''
-      fullPath: ''
+      fullPath: '/'
       preLoaderRoute: typeof MainRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_auth': {
       id: '/_auth'
       path: ''
-      fullPath: ''
+      fullPath: '/'
       preLoaderRoute: typeof AuthRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
@@ -1310,6 +1346,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MainAdminRbacRouteRouteImport
       parentRoute: typeof MainAdminRouteRoute
     }
+    '/_main/admin/file': {
+      id: '/_main/admin/file'
+      path: '/file'
+      fullPath: '/admin/file'
+      preLoaderRoute: typeof MainAdminFileRouteRouteImport
+      parentRoute: typeof MainAdminRouteRoute
+    }
     '/_main/admin/email': {
       id: '/_main/admin/email'
       path: '/email'
@@ -1463,6 +1506,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/rbac/audit-log'
       preLoaderRoute: typeof MainAdminRbacAuditLogRouteImport
       parentRoute: typeof MainAdminRbacRouteRoute
+    }
+    '/_main/admin/file/oss-config': {
+      id: '/_main/admin/file/oss-config'
+      path: '/oss-config'
+      fullPath: '/admin/file/oss-config'
+      preLoaderRoute: typeof MainAdminFileOssConfigRouteImport
+      parentRoute: typeof MainAdminFileRouteRoute
+    }
+    '/_main/admin/file/list': {
+      id: '/_main/admin/file/list'
+      path: '/list'
+      fullPath: '/admin/file/list'
+      preLoaderRoute: typeof MainAdminFileListRouteImport
+      parentRoute: typeof MainAdminFileRouteRoute
     }
     '/_main/admin/email/send-log': {
       id: '/_main/admin/email/send-log'
@@ -1873,6 +1930,19 @@ const MainAdminEmailRouteRouteChildren: MainAdminEmailRouteRouteChildren = {
 const MainAdminEmailRouteRouteWithChildren =
   MainAdminEmailRouteRoute._addFileChildren(MainAdminEmailRouteRouteChildren)
 
+interface MainAdminFileRouteRouteChildren {
+  MainAdminFileListRoute: typeof MainAdminFileListRoute
+  MainAdminFileOssConfigRoute: typeof MainAdminFileOssConfigRoute
+}
+
+const MainAdminFileRouteRouteChildren: MainAdminFileRouteRouteChildren = {
+  MainAdminFileListRoute: MainAdminFileListRoute,
+  MainAdminFileOssConfigRoute: MainAdminFileOssConfigRoute,
+}
+
+const MainAdminFileRouteRouteWithChildren =
+  MainAdminFileRouteRoute._addFileChildren(MainAdminFileRouteRouteChildren)
+
 interface MainAdminRbacRouteRouteChildren {
   MainAdminRbacAuditLogRoute: typeof MainAdminRbacAuditLogRoute
   MainAdminRbacResRoute: typeof MainAdminRbacResRoute
@@ -1926,6 +1996,7 @@ interface MainAdminRouteRouteChildren {
   MainAdminAppRouteRoute: typeof MainAdminAppRouteRouteWithChildren
   MainAdminConfigRouteRoute: typeof MainAdminConfigRouteRouteWithChildren
   MainAdminEmailRouteRoute: typeof MainAdminEmailRouteRouteWithChildren
+  MainAdminFileRouteRoute: typeof MainAdminFileRouteRouteWithChildren
   MainAdminRbacRouteRoute: typeof MainAdminRbacRouteRouteWithChildren
   MainAdminSmsRouteRoute: typeof MainAdminSmsRouteRouteWithChildren
   MainAdminUserRouteRoute: typeof MainAdminUserRouteRouteWithChildren
@@ -1936,6 +2007,7 @@ const MainAdminRouteRouteChildren: MainAdminRouteRouteChildren = {
   MainAdminAppRouteRoute: MainAdminAppRouteRouteWithChildren,
   MainAdminConfigRouteRoute: MainAdminConfigRouteRouteWithChildren,
   MainAdminEmailRouteRoute: MainAdminEmailRouteRouteWithChildren,
+  MainAdminFileRouteRoute: MainAdminFileRouteRouteWithChildren,
   MainAdminRbacRouteRoute: MainAdminRbacRouteRouteWithChildren,
   MainAdminSmsRouteRoute: MainAdminSmsRouteRouteWithChildren,
   MainAdminUserRouteRoute: MainAdminUserRouteRouteWithChildren,

@@ -1,23 +1,25 @@
 "use client";
 
+import { FilterContainer } from "@apps/main/components/filter-container/container";
+import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
+import { FilterInput } from "@apps/main/components/filter-container/filter-input";
+import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
+import { EmailSendConfigNavContainer } from "@apps/main/features/admin/components/ui/email-send-config-nav";
+import {
+  DEFAULT_PAGE_SIZE,
+  PagePagination,
+  usePageCountNum,
+  useSearchNavigate,
+} from "@apps/main/lib/pagination-utils";
+import { Route } from "@apps/main/routes/_main/admin/email/send-config/channel";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
   systemSenderMailerTplConfigDelete,
   SystemSenderMailerTplConfigItemType,
   systemSenderMailerTplConfigList,
 } from "@shared/apis/admin/sender-mailer";
 import { ConfirmDialog } from "@shared/components/custom/dialog/confirm-dialog";
-import { FilterContainer } from "@apps/main/components/filter-container/container";
-import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
-import { FilterInput } from "@apps/main/components/filter-container/filter-input";
-import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
 import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
-import {
-  DEFAULT_PAGE_SIZE,
-  PagePagination,
-  useCountNumManager,
-  useSearchNavigate,
-} from "@apps/main/lib/pagination-utils";
-import { Route } from "@apps/main/routes/_main/admin/email/send-config/channel";
 import { DataTable, DataTableAction, DataTableActionItem } from "@shared/components/custom/table";
 import { Button } from "@shared/components/ui/button";
 import { useToast } from "@shared/contexts/toast-context";
@@ -26,22 +28,21 @@ import {
   cn,
   formatServerError,
   formatTime,
+  formatTotalCount,
   getQueryResponseData,
   TIME_STYLE,
 } from "@shared/lib/utils";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ColumnDef } from "@tanstack/react-table";
 import { Eye, Plus, Trash2 } from "lucide-react";
 import React from "react";
+import { emailSendConfigModuleConfig } from "../nav-info";
 import { EmailSendConfigTplConfigDetailDrawer } from "./send-config-tpl-config-detail-drawer";
 import { EmailSendConfigTplConfigDrawer } from "./send-config-tpl-config-drawer";
 import {
   EmailSendConfigTplConfigFilterFormSchema,
   EmailSendConfigTplConfigFilterParamType
 } from "./send-config-tpl-config-schema";
-import { EmailSendConfigNavContainer } from "@apps/main/features/admin/components/ui/email-send-config-nav";
-import { emailSendConfigModuleConfig } from "../nav-info";
 
 export function EmailSendConfigTplConfigPage() {
   // 从 URL 获取 filter 状态
@@ -65,7 +66,7 @@ export function EmailSendConfigTplConfigPage() {
   };
 
   // count_num 优化管理器（传入 filters 自动监听变化）
-  const countNumManager = useCountNumManager(filters);
+  const countNumManager = usePageCountNum(filters);
 
   // 获取模板配置列表数据
   const {
@@ -99,7 +100,7 @@ export function EmailSendConfigTplConfigPage() {
   });
 
   // 处理 Page 分页查询结果（自动提取 total）
-  isSuccess && countNumManager.handlePageQueryResult(configData);
+  isSuccess && countNumManager.handleQueryResult(configData);
 
   // 从查询结果中提取数据
   const configs = getQueryResponseData<SystemSenderMailerTplConfigItemType[]>(configData, []);
@@ -145,7 +146,7 @@ export function EmailSendConfigTplConfigPage() {
     {
       accessorKey: "name",
       header: "配置名称",
-        size: 100,
+      size: 100,
       cell: ({ getValue }) => (
         <div className="font-medium">{getValue<string>()}</div>
       ),
@@ -153,14 +154,14 @@ export function EmailSendConfigTplConfigPage() {
     {
       accessorKey: "tpl_key",
       header: "模板Key",
-       size: 300,
+      size: 300,
       cell: ({ getValue }) => (
         <div className="font-mono text-sm">{getValue<string>()}</div>
       ),
     },
     {
       accessorKey: "setting_name",
-      header: "SMTP配置",  size: 100,
+      header: "SMTP配置", size: 100,
       cell: ({ row }) => (
         <div className="text-sm">
           <div className="font-medium">{row.original.setting_name}</div>
@@ -222,7 +223,7 @@ export function EmailSendConfigTplConfigPage() {
                 }}
               >
                 <Eye className="h-4 w-4" />
-              <span className="ml-2">详情</span>
+                <span className="ml-2">详情</span>
               </Button>
             </DataTableActionItem>
             <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
@@ -256,7 +257,7 @@ export function EmailSendConfigTplConfigPage() {
 
   return (
     <EmailSendConfigNavContainer
-     className={cn("m-4 md:m-6")}  
+      className={cn("m-4 md:m-6")}
       {...emailSendConfigModuleConfig}
       actions={
         <Button size="sm" variant="outline" onClick={() => setTplConfigDrawerOpen(true)}>
@@ -282,7 +283,7 @@ export function EmailSendConfigTplConfigPage() {
             }}
             countComponent={
               <FilterTotalCount
-                total={countNumManager.getTotal() ?? 0}
+                value={formatTotalCount(countNumManager.getTotal())}
                 loading={isLoading}
               />
             }

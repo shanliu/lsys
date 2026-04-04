@@ -1,11 +1,19 @@
-import { FilterContainer } from "@apps/main/components/filter-container/container";
+﻿import { FilterContainer } from "@apps/main/components/filter-container/container";
 import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
+import { AdminExportAction } from "@apps/main/features/admin/components/ui/admin-export-action";
+import { EXPORT_TYPE_SYSTEM_APP_LIST } from "@shared/apis/admin/export";
 import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
 import { FilterInput } from "@apps/main/components/filter-container/filter-input";
 import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
 import { UserDataTooltip } from "@apps/main/components/local/user-data-tooltip";
-import { useDictData, type TypedDictData } from "@apps/main/hooks/use-dict-data";
-import { DEFAULT_PAGE_SIZE, useCountNumManager } from "@apps/main/lib/pagination-utils";
+import {
+  useDictData,
+  type TypedDictData,
+} from "@apps/main/hooks/use-dict-data";
+import {
+  DEFAULT_PAGE_SIZE,
+  usePageCountNum,
+} from "@apps/main/lib/pagination-utils";
 import { createStatusMapper } from "@apps/main/lib/status-utils";
 import { Route } from "@apps/main/routes/_main/admin/app/list";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,7 +21,11 @@ import { appList, type AppItemType } from "@shared/apis/admin/app";
 import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
 import { PageSkeletonTable } from "@shared/components/custom/page-placeholder/skeleton-table";
 import { PagePagination } from "@shared/components/custom/pagination";
-import { DataTable, DataTableAction, DataTableActionItem } from "@shared/components/custom/table";
+import {
+  DataTable,
+  DataTableAction,
+  DataTableActionItem,
+} from "@shared/components/custom/table";
 import CopyableText from "@shared/components/custom/text/copyable-text";
 import { Badge } from "@shared/components/ui/badge";
 import { Button } from "@shared/components/ui/button";
@@ -24,15 +36,14 @@ import {
   getQueryResponseData,
   TIME_STYLE,
 } from "@shared/lib/utils";
+import { formatTotalCount } from "@shared/lib/utils/format-utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { ColumnDef } from "@tanstack/react-table";
 import { Eye, List } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { AppDetailDrawer } from "./list-detail-drawer";
-import {
-  AdminAppListFilterFormSchema
-} from "./list-schema";
+import { AdminAppListFilterFormSchema } from "./list-schema";
 import { ListSubAppDrawer } from "./list-sub-app-drawer";
 
 export function AppListPage() {
@@ -67,7 +78,7 @@ export function AppListPage() {
 
   // 如果字典加载中，显示骨架屏
   if (dictIsLoading) {
-    return <PageSkeletonTable variant="page" className={cn('m-4 md:m-6')} />;
+    return <PageSkeletonTable variant="page" className={cn("m-4 md:m-6")} />;
   }
 
   // 字典加载成功，渲染内容组件
@@ -111,10 +122,16 @@ function AppListContent({ dictData }: AppListContentProps) {
   };
 
   // count_num 优化管理器（传入 filters 自动监听变化）
-  const countNumManager = useCountNumManager(filters);
+  const countNumManager = usePageCountNum(filters);
 
   // 获取应用列表数据
-  const { data: appData, isSuccess, isLoading, isError, error } = useQuery({
+  const {
+    data: appData,
+    isSuccess,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: [
       "appList",
       filterParam.page || 1,
@@ -135,10 +152,16 @@ function AppListContent({ dictData }: AppListContentProps) {
           count_num: countNumManager.getCountNum(),
           detail_data: false, // 列表页面不需要详细数据
           ...(filterParam.app_name && { app_name: filterParam.app_name }),
-          ...(filterParam.status !== undefined && { status: filterParam.status }),
-          ...(filterParam.user_id !== undefined && { user_id: filterParam.user_id }),
+          ...(filterParam.status !== undefined && {
+            status: filterParam.status,
+          }),
+          ...(filterParam.user_id !== undefined && {
+            user_id: filterParam.user_id,
+          }),
           ...(filterParam.client_id && { client_id: filterParam.client_id }),
-          ...(filterParam.app_id !== undefined && { app_id: filterParam.app_id }),
+          ...(filterParam.app_id !== undefined && {
+            app_id: filterParam.app_id,
+          }),
         },
         { signal },
       ),
@@ -146,7 +169,7 @@ function AppListContent({ dictData }: AppListContentProps) {
   });
 
   // 处理 Page 分页查询结果（自动提取 total）
-  isSuccess && countNumManager.handlePageQueryResult(appData);
+  isSuccess && countNumManager.handleQueryResult(appData);
 
   // 刷新数据
   const refreshData = () => {
@@ -218,7 +241,7 @@ function AppListContent({ dictData }: AppListContentProps) {
       apps.length > 0
     ) {
       // 查找该 app_id 对应的应用对象
-      const targetApp = apps.find(app => app.id === filterParam.app_id);
+      const targetApp = apps.find((app) => app.id === filterParam.app_id);
       if (targetApp) {
         setDetailDrawer({ open: true, appId: targetApp.id });
       }
@@ -231,7 +254,9 @@ function AppListContent({ dictData }: AppListContentProps) {
       createStatusMapper(
         { 1: "warning", 2: "success", 3: "neutral" },
         (status: number) => {
-          return dictData.app_status?.getLabel(String(status)) || String(status);
+          return (
+            dictData.app_status?.getLabel(String(status)) || String(status)
+          );
         },
       ),
     [dictData.app_status],
@@ -242,10 +267,16 @@ function AppListContent({ dictData }: AppListContentProps) {
     () => [
       {
         accessorKey: "id",
-        header: () => <div className={cn(isMobile ? "" : "text-right")}>ID</div>,
+        header: () => (
+          <div className={cn(isMobile ? "" : "text-right")}>ID</div>
+        ),
         size: 80,
         cell: ({ getValue }) => (
-          <div className={cn("font-mono text-xs", isMobile ? "" : "text-right")}>{getValue<number>()}</div>
+          <div
+            className={cn("font-mono text-xs", isMobile ? "" : "text-right")}
+          >
+            {getValue<number>()}
+          </div>
         ),
       },
       {
@@ -278,7 +309,10 @@ function AppListContent({ dictData }: AppListContentProps) {
         cell: ({ getValue }) => {
           const status = getValue<number>();
           return (
-            <Badge variant="secondary" className={statusMapper.getClass(status)}>
+            <Badge
+              variant="secondary"
+              className={statusMapper.getClass(status)}
+            >
               {statusMapper.getText(status)}
             </Badge>
           );
@@ -331,8 +365,13 @@ function AppListContent({ dictData }: AppListContentProps) {
           const app = row.original;
 
           return (
-            <DataTableAction className={cn(isMobile ? "justify-end" : "justify-center")}>
-              <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
+            <DataTableAction
+              className={cn(isMobile ? "justify-end" : "justify-center")}
+            >
+              <DataTableActionItem
+                mobileDisplay="display"
+                desktopDisplay="collapsed"
+              >
                 <Button
                   variant="ghost"
                   size="sm"
@@ -340,11 +379,18 @@ function AppListContent({ dictData }: AppListContentProps) {
                   onClick={() => handleViewDetail(app.id)}
                   title="查看详情"
                 >
-                  <Eye className={cn(isMobile ? "mr-1 h-3.5 w-3.5" : "mr-2 h-4 w-4")} />
+                  <Eye
+                    className={cn(
+                      isMobile ? "mr-1 h-3.5 w-3.5" : "mr-2 h-4 w-4",
+                    )}
+                  />
                   {isMobile ? "详情" : "查看详情"}
                 </Button>
               </DataTableActionItem>
-              <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
+              <DataTableActionItem
+                mobileDisplay="display"
+                desktopDisplay="collapsed"
+              >
                 <Button
                   variant="ghost"
                   size="sm"
@@ -352,11 +398,18 @@ function AppListContent({ dictData }: AppListContentProps) {
                   onClick={() => handleViewSubApps(app.id)}
                   title="子应用列表"
                 >
-                  <List className={cn(isMobile ? "mr-1 h-3.5 w-3.5" : "mr-2 h-4 w-4")} />
+                  <List
+                    className={cn(
+                      isMobile ? "mr-1 h-3.5 w-3.5" : "mr-2 h-4 w-4",
+                    )}
+                  />
                   {isMobile ? "子应用" : "子应用列表"}
                 </Button>
               </DataTableActionItem>
-              <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
+              <DataTableActionItem
+                mobileDisplay="display"
+                desktopDisplay="collapsed"
+              >
                 <Button
                   variant="ghost"
                   size="sm"
@@ -364,7 +417,11 @@ function AppListContent({ dictData }: AppListContentProps) {
                   onClick={() => handleViewRequests(app.id)}
                   title="请求列表"
                 >
-                  <List className={cn(isMobile ? "mr-1 h-3.5 w-3.5" : "mr-2 h-4 w-4")} />
+                  <List
+                    className={cn(
+                      isMobile ? "mr-1 h-3.5 w-3.5" : "mr-2 h-4 w-4",
+                    )}
+                  />
                   {isMobile ? "请求" : "请求列表"}
                 </Button>
               </DataTableActionItem>
@@ -408,7 +465,12 @@ function AppListContent({ dictData }: AppListContentProps) {
                 search: { page: 1, limit: currentLimit } as any,
               });
             }}
-            countComponent={<FilterTotalCount total={countNumManager.getTotal() ?? 0} loading={isLoading} />}
+            countComponent={
+              <FilterTotalCount
+                value={formatTotalCount(countNumManager.getTotal())}
+                loading={isLoading}
+              />
+            }
             className={cn("bg-card rounded-lg border shadow-sm relative")}
           >
             {(layoutParams, form) => (
@@ -470,12 +532,29 @@ function AppListContent({ dictData }: AppListContentProps) {
                 />
 
                 {/* 动作按钮区域 */}
-                <div className={cn(layoutParams.isMobile ? "w-full" : "flex-shrink-0")}>
+                <div
+                  className={cn(
+                    layoutParams.isMobile ? "w-full" : "flex-shrink-0",
+                  )}
+                >
                   <FilterActions
                     form={form}
                     loading={isLoading}
                     layoutParams={layoutParams}
                     onRefreshSearch={clearCacheAndReload}
+                    extraActions={
+                      <AdminExportAction
+                        exportType={EXPORT_TYPE_SYSTEM_APP_LIST}
+                        params={{
+                          app_name: filters.app_name,
+                          status: filters.status,
+                          user_id: filters.user_id,
+                          client_id: filters.client_id,
+                          app_id: filters.app_id,
+                        }}
+                        layoutParams={layoutParams}
+                      />
+                    }
                   />
                 </div>
               </div>
@@ -492,8 +571,19 @@ function AppListContent({ dictData }: AppListContentProps) {
                 data={apps}
                 columns={columns}
                 loading={isLoading}
-                error={isError ? <CenteredError error={error} variant="content" onReset={refreshData} /> : null}
-                className={cn("h-full [&_.data-table-row]:h-12 [&_td]:py-2 [&_th]:py-2 [&_table]:border-0 [&_.table-container]:border-0 [&_tbody_tr:last-child]:border-b [&_.data-table-wrapper]:overflow-auto [&_.data-table-wrapper]:h-full", isMobile && "border-0 rounded-none")}
+                error={
+                  isError ? (
+                    <CenteredError
+                      error={error}
+                      variant="content"
+                      onReset={refreshData}
+                    />
+                  ) : null
+                }
+                className={cn(
+                  "h-full [&_.data-table-row]:h-12 [&_td]:py-2 [&_th]:py-2 [&_table]:border-0 [&_.table-container]:border-0 [&_tbody_tr:last-child]:border-b [&_.data-table-wrapper]:overflow-auto [&_.data-table-wrapper]:h-full",
+                  isMobile && "border-0 rounded-none",
+                )}
               />
             </div>
           </div>
@@ -534,4 +624,3 @@ function AppListContent({ dictData }: AppListContentProps) {
 
 // 导出 schema 供路由使用
 export { AdminAppListFilterParamSchema } from "./list-schema";
-

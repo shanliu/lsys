@@ -1,15 +1,20 @@
 import { FilterContainer } from "@apps/main/components/filter-container/container";
 import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
+import { UserExportAction } from "@apps/main/features/user/components/ui/user-export-action";
+import { EXPORT_TYPE_USER_MAILER_MESSAGE_LIST } from "@shared/apis/user/file";
 import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
 import { FilterInput } from "@apps/main/components/filter-container/filter-input";
 import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
 import { AppDetailNavContainer } from "@apps/main/features/user/components/ui/app-detail-nav";
-import { useDictData, type TypedDictData } from "@apps/main/hooks/use-dict-data";
 import {
+  useDictData,
+  type TypedDictData,
+} from "@apps/main/hooks/use-dict-data";
+import {
+  CursorPagination,
   DEFAULT_PAGE_SIZE,
-  OffsetPagination,
   PAGE_SIZE_OPTIONS,
-  useCountNumManager,
+  useLimitCountNum,
   useSearchNavigate,
 } from "@apps/main/lib/pagination-utils";
 import { createStatusMapper } from "@apps/main/lib/status-utils";
@@ -24,7 +29,10 @@ import { DataTable } from "@shared/components/custom//table";
 import { ConfirmDialog } from "@shared/components/custom/dialog/confirm-dialog";
 import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
 import { PageSkeletonTable } from "@shared/components/custom/page-placeholder/skeleton-table";
-import { DataTableAction, DataTableActionItem } from "@shared/components/custom/table";
+import {
+  DataTableAction,
+  DataTableActionItem,
+} from "@shared/components/custom/table";
 import CopyableText from "@shared/components/custom/text/copyable-text";
 import { MaskedText } from "@shared/components/custom/text/masked-text";
 import { Badge } from "@shared/components/ui/badge";
@@ -38,6 +46,7 @@ import {
   TIME_STYLE,
 } from "@shared/lib/utils";
 import { createCopyWithToast } from "@shared/lib/utils/copy-utils";
+import { formatTotalCount } from "@shared/lib/utils/format-utils";
 import { type LimitType } from "@shared/types/base-schema";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
@@ -47,9 +56,7 @@ import { useState } from "react";
 import { featureMailModuleConfig } from "../nav-info";
 import { ListContentDrawer } from "./list-content-drawer";
 import { ListLogsDrawer } from "./list-logs-drawer";
-import {
-  MailListFilterFormSchema
-} from "./list-schema";
+import { MailListFilterFormSchema } from "./list-schema";
 
 export default function AppDetailFeatureMailListPage() {
   // user\app_sender_mailer\message_view.md
@@ -70,12 +77,7 @@ export default function AppDetailFeatureMailListPage() {
   // 如果字典加载失败，显示错误页面
   if (dictError && dictErrors.length > 0) {
     return (
-      <CenteredError
-        variant="page"
-        error={dictErrors}
-        onReset={refetchDict}
-
-      />
+      <CenteredError variant="page" error={dictErrors} onReset={refetchDict} />
     );
   }
 
@@ -85,9 +87,11 @@ export default function AppDetailFeatureMailListPage() {
   }
 
   // 字典加载成功，渲染内容组件
-  return <AppDetailNavContainer {...featureMailModuleConfig}>
-    <AppDetailFeatureMailListContent dictData={dictData} />
-  </AppDetailNavContainer>;
+  return (
+    <AppDetailNavContainer {...featureMailModuleConfig}>
+      <AppDetailFeatureMailListContent dictData={dictData} />
+    </AppDetailNavContainer>
+  );
 }
 
 // 内容组件：负责内容加载和渲染
@@ -95,7 +99,9 @@ interface AppDetailFeatureMailListContentProps {
   dictData: TypedDictData<["user_sender_mailer"]>;
 }
 
-function AppDetailFeatureMailListContent({ dictData }: AppDetailFeatureMailListContentProps) {
+function AppDetailFeatureMailListContent({
+  dictData,
+}: AppDetailFeatureMailListContentProps) {
   const { appId } = Route.useParams();
   const queryClient = useQueryClient();
   const { success: showSuccess, error: showError } = useToast();
@@ -110,10 +116,12 @@ function AppDetailFeatureMailListContent({ dictData }: AppDetailFeatureMailListC
 
   // 日志抽屉状态
   const [logsDrawerOpen, setLogsDrawerOpen] = useState(false);
-  const [selectedMessage, setSelectedMessage] = useState<UserSenderMailerMessageItemType | null>(null);
+  const [selectedMessage, setSelectedMessage] =
+    useState<UserSenderMailerMessageItemType | null>(null);
   // 详细信息抽屉状态
   const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
-  const [detailMessage, setDetailMessage] = useState<UserSenderMailerMessageItemType | null>(null);
+  const [detailMessage, setDetailMessage] =
+    useState<UserSenderMailerMessageItemType | null>(null);
 
   // 过滤条件从 URL 参数获取
   const filters = {
@@ -135,10 +143,16 @@ function AppDetailFeatureMailListContent({ dictData }: AppDetailFeatureMailListC
   const searchGo = useSearchNavigate(navigate, filterParam);
 
   // count_num 优化管理器（传入 filters 自动监听变化）
-  const countNumManager = useCountNumManager(filters);
+  const countNumManager = useLimitCountNum(filters);
 
   // 获取消息列表数据
-  const { data: messageData, isSuccess, isLoading, isError, error } = useQuery({
+  const {
+    data: messageData,
+    isSuccess,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: [
       "userSenderMailerMessageList",
       appId,
@@ -162,22 +176,23 @@ function AppDetailFeatureMailListContent({ dictData }: AppDetailFeatureMailListC
           to_mail: filters.to_mail,
           snid: filters.snid,
         },
-        { signal }
-      )
-    ,
+        { signal },
+      ),
     placeholderData: (previousData) => previousData,
   });
   console.log("messageData:", isError);
 
   // 处理 Limit 分页查询结果（自动提取 total 和 next）
-  isSuccess && countNumManager.handleLimitQueryResult(messageData);
+  isSuccess && countNumManager.handleQueryResult(messageData);
 
   // 获取消息列表数据
-  const messages = getQueryResponseData<UserSenderMailerMessageItemType[]>(messageData, []);
+  const messages = getQueryResponseData<UserSenderMailerMessageItemType[]>(
+    messageData,
+    [],
+  );
   const cursorData = getQueryResponseCursor(messageData);
 
   // 调试信息
-
 
   // 取消发送消息的mutation
   const cancelMessageMutation = useMutation({
@@ -214,17 +229,19 @@ function AppDetailFeatureMailListContent({ dictData }: AppDetailFeatureMailListC
   // 清除缓存并重新加载数据（双击搜索按钮时）
   const clearCacheAndReload = () => {
     countNumManager.reset();
-    queryClient.invalidateQueries({ queryKey: ["userSenderMailerMessageList"] });
+    queryClient.invalidateQueries({
+      queryKey: ["userSenderMailerMessageList"],
+    });
   };
 
   // 字典数据已加载，创建状态映射器
   const mailStatus = createStatusMapper(
     {
-      1: "info",      // 待发送
-      2: "success",   // 已发送
-      3: "danger",    // 发送失败
-      4: "warning",   // 已取消
-      5: "success",   // 已接收
+      1: "info", // 待发送
+      2: "success", // 已发送
+      3: "danger", // 发送失败
+      4: "warning", // 已取消
+      5: "success", // 已接收
     },
     (status) =>
       dictData.mail_send_status?.getLabel(String(status)) || String(status),
@@ -345,76 +362,83 @@ function AppDetailFeatureMailListContent({ dictData }: AppDetailFeatureMailListC
       size: 80,
       cell: ({ row }) => {
         const message = row.original;
-        return <DataTableAction className="justify-end sm:justify-center">
-          <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
-            <Button
-              variant="ghost"
-              size="sm"
-              className={cn("h-auto px-2 py-1")}
-              title="查看内容"
-              onClick={() => {
-                setDetailMessage(message);
-                setDetailDrawerOpen(true);
-              }}
+        return (
+          <DataTableAction className="justify-end sm:justify-center">
+            <DataTableActionItem
+              mobileDisplay="display"
+              desktopDisplay="collapsed"
             >
-              <FileText className="h-3 w-3" />
-              <span className="text-xs ml-1">详细信息</span>
-            </Button>
-          </DataTableActionItem>
-          <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
-            <Button
-              variant="ghost"
-              size="sm"
-              className={cn("h-auto px-2 py-1")}
-              title="查看日志"
-              onClick={() => handleOpenLogs(message)}
-            >
-              <Eye className="h-3 w-3" />
-              <span className="text-xs ml-1">查看日志</span>
-            </Button>
-          </DataTableActionItem>
-          {message.status === 1 ? (
-            <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
-
-              <ConfirmDialog
-                title="确认取消发送"
-                description={
-                  <>
-                    您确定要取消发送这封邮件吗？取消后将无法恢复。
-                    <br />
-                    收件人：
-                    <MaskedText
-                      text={message.to_mail}
-                      type="email"
-                      clickable={true}
-                      className="inline"
-                    />
-                  </>
-                }
-                onConfirm={async () =>
-                  await handleCancelMessage(message.id)
-                }
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn("h-auto px-2 py-1")}
+                title="查看内容"
+                onClick={() => {
+                  setDetailMessage(message);
+                  setDetailDrawerOpen(true);
+                }}
               >
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={cn("h-auto px-2 py-1")}
-                  title="取消发送"
+                <FileText className="h-3 w-3" />
+                <span className="text-xs ml-1">详细信息</span>
+              </Button>
+            </DataTableActionItem>
+            <DataTableActionItem
+              mobileDisplay="display"
+              desktopDisplay="collapsed"
+            >
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn("h-auto px-2 py-1")}
+                title="查看日志"
+                onClick={() => handleOpenLogs(message)}
+              >
+                <Eye className="h-3 w-3" />
+                <span className="text-xs ml-1">查看日志</span>
+              </Button>
+            </DataTableActionItem>
+            {message.status === 1 ? (
+              <DataTableActionItem
+                mobileDisplay="display"
+                desktopDisplay="collapsed"
+              >
+                <ConfirmDialog
+                  title="确认取消发送"
+                  description={
+                    <>
+                      您确定要取消发送这封邮件吗？取消后将无法恢复。
+                      <br />
+                      收件人：
+                      <MaskedText
+                        text={message.to_mail}
+                        type="email"
+                        clickable={true}
+                        className="inline"
+                      />
+                    </>
+                  }
+                  onConfirm={async () => await handleCancelMessage(message.id)}
                 >
-                  <X className="h-3 w-3" />
-                  <span className="text-xs ml-1">取消发送</span>
-                </Button>
-              </ConfirmDialog>
-
-            </DataTableActionItem>) : null}
-        </DataTableAction>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={cn("h-auto px-2 py-1")}
+                    title="取消发送"
+                  >
+                    <X className="h-3 w-3" />
+                    <span className="text-xs ml-1">取消发送</span>
+                  </Button>
+                </ConfirmDialog>
+              </DataTableActionItem>
+            ) : null}
+          </DataTableAction>
+        );
       },
     },
   ];
 
   return (
     <>
-
       <div className="flex flex-col min-h-0 space-y-3">
         <div className="flex-shrink-0 mb-1 sm:mb-4">
           {/* 过滤器 */}
@@ -455,7 +479,10 @@ function AppDetailFeatureMailListContent({ dictData }: AppDetailFeatureMailListC
               });
             }}
             countComponent={
-              <FilterTotalCount total={countNumManager.getTotal() ?? 0} loading={isLoading} />
+              <FilterTotalCount
+                value={formatTotalCount(countNumManager.getTotalInfo())}
+                loading={isLoading}
+              />
             }
             className="bg-card rounded-lg border shadow-sm relative"
           >
@@ -502,12 +529,30 @@ function AppDetailFeatureMailListContent({ dictData }: AppDetailFeatureMailListC
                 />
 
                 {/* 动作按钮区域 */}
-                <div className={cn(layoutParams.isMobile ? "w-full" : "flex-shrink-0")}>
+                <div
+                  className={cn(
+                    layoutParams.isMobile ? "w-full" : "flex-shrink-0",
+                  )}
+                >
                   <FilterActions
                     form={form}
                     loading={isLoading}
                     layoutParams={layoutParams}
                     onRefreshSearch={clearCacheAndReload}
+                    extraActions={
+                      <UserExportAction
+                        appId={Number(appId)}
+                        exportType={EXPORT_TYPE_USER_MAILER_MESSAGE_LIST}
+                        params={{
+                          app_id: Number(appId),
+                          status: filters.status,
+                          tpl_id: filters.tpl_id,
+                          to_mail: filters.to_mail,
+                          snid: filters.snid,
+                        }}
+                        layoutParams={layoutParams}
+                      />
+                    }
                   />
                 </div>
               </div>
@@ -523,8 +568,15 @@ function AppDetailFeatureMailListContent({ dictData }: AppDetailFeatureMailListC
               data={messages}
               columns={columns}
               loading={isLoading}
-              error={isError ? <CenteredError error={error} variant="content" onReset={refreshData} /> : null}
-
+              error={
+                isError ? (
+                  <CenteredError
+                    error={error}
+                    variant="content"
+                    onReset={refreshData}
+                  />
+                ) : null
+              }
               scrollSnapDelay={300}
               leftStickyColumns={[
                 { column: 0, minWidth: "160px", maxWidth: "160px" },
@@ -536,12 +588,12 @@ function AppDetailFeatureMailListContent({ dictData }: AppDetailFeatureMailListC
 
           {/* 分页控件 */}
           <div className="flex-shrink-0 pt-4 pb-4">
-            {(countNumManager.getTotal() ?? 0) > 0 && (
-              <OffsetPagination
+            {countNumManager.hasTotalInfo() && (
+              <CursorPagination
                 limit={currentLimit}
                 cursorData={cursorData}
                 searchGo={searchGo}
-                total={countNumManager.getTotal()}
+                totalInfo={countNumManager.getTotalInfo()}
                 currentPageSize={messages.length}
                 loading={isLoading}
                 onRefresh={refreshData}

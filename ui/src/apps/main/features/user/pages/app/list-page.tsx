@@ -1,42 +1,57 @@
-import { useAuthData } from '@apps/main/hooks/use-auth-data'
-import { useDictData, type TypedDictData } from '@apps/main/hooks/use-dict-data'
-import { Route } from '@apps/main/routes/_main/user/app/_root/list'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { useNavigate } from '@tanstack/react-router'
-import { useMemo } from 'react'
+import { useAuthData } from "@apps/main/hooks/use-auth-data";
+import {
+  useDictData,
+  type TypedDictData,
+} from "@apps/main/hooks/use-dict-data";
+import { Route } from "@apps/main/routes/_main/user/app/_root/list";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useNavigate } from "@tanstack/react-router";
+import { useMemo } from "react";
 // App list grid inlined (removed separate component)
-import { FilterContainer } from '@apps/main/components/filter-container/container'
-import { FilterActions } from '@apps/main/components/filter-container/filter-actions'
-import { FilterDictSelect } from '@apps/main/components/filter-container/filter-dict-select'
-import { FilterInput } from '@apps/main/components/filter-container/filter-input'
-import { FilterTotalCount } from '@apps/main/components/filter-container/filter-total-count'
-import { FilterUserParentAppSelector } from '@apps/main/components/filter-container/filter-user-parent-app-selector'
-import { userQueryKey } from '@apps/main/lib/auth-utils'
-import { PagePagination, useCountNumManager } from '@apps/main/lib/pagination-utils'
-import { appList, type AppListItemType, type AppListParamType } from '@shared/apis/user/app'
-import { CenteredError } from '@shared/components/custom/page-placeholder/centered-error'
-import { PageSkeletonCard } from '@shared/components/custom/page-placeholder/skeleton-card'
-import { Button } from '@shared/components/ui/button'
-import { cn, getQueryResponseData } from '@shared/lib/utils'
-import { useQuery } from '@tanstack/react-query'
-import { Plus, Shield } from 'lucide-react'
-import { AppCard } from './list-app-card'
-import { AppListFilterFormSchema } from './list-schema'
+import { FilterContainer } from "@apps/main/components/filter-container/container";
+import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
+import { UserExportAction } from "@apps/main/features/user/components/ui/user-export-action";
+import { EXPORT_TYPE_USER_APP_LIST } from "@shared/apis/user/file";
+import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
+import { FilterInput } from "@apps/main/components/filter-container/filter-input";
+import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
+import { formatTotalCount } from "@shared/lib/utils/format-utils";
+import { FilterUserParentAppSelector } from "@apps/main/components/filter-container/filter-user-parent-app-selector";
+import { userQueryKey } from "@apps/main/lib/auth-utils";
+import {
+  PagePagination,
+  usePageCountNum,
+} from "@apps/main/lib/pagination-utils";
+import {
+  appList,
+  type AppListItemType,
+  type AppListParamType,
+} from "@shared/apis/user/app";
+import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
+import { PageSkeletonCard } from "@shared/components/custom/page-placeholder/skeleton-card";
+import { Button } from "@shared/components/ui/button";
+import { cn, getQueryResponseData } from "@shared/lib/utils";
+import { useQuery } from "@tanstack/react-query";
+import { Plus, Shield } from "lucide-react";
+import { AppCard } from "./list-app-card";
+import { AppListFilterFormSchema } from "./list-schema";
 
 // 应用列表页面组件
 export default function AppListPage() {
   //docs\api\user\app\list.md
   // 字典数据获取 - 统一在最顶层获取一次
-  const { dictData, isLoading: isDictLoading, isError: isDictError, errors: dictErrors, refetch: refetchDict } = useDictData(['user_app'] as const);
+  const {
+    dictData,
+    isLoading: isDictLoading,
+    isError: isDictError,
+    errors: dictErrors,
+    refetch: refetchDict,
+  } = useDictData(["user_app"] as const);
 
   // 如果字典加载失败，显示错误页面
   if (isDictError) {
     return (
-      <CenteredError
-        variant="page"
-        error={dictErrors}
-        onReset={refetchDict}
-      />
+      <CenteredError variant="page" error={dictErrors} onReset={refetchDict} />
     );
   }
 
@@ -55,14 +70,14 @@ interface AppListContentProps {
 }
 
 function AppListContent({ dictData }: AppListContentProps) {
-  const navigate = useNavigate()
-  const currentFilter = Route.useSearch()
-  const authData = useAuthData()
+  const navigate = useNavigate();
+  const currentFilter = Route.useSearch();
+  const authData = useAuthData();
   // 如果用户 appData 不为空，则隐藏父应用过滤器
-  const hideParentAppFilter = !!authData?.appData
+  const hideParentAppFilter = !!authData?.appData;
 
-  const currentPage = currentFilter.page || 1
-  const currentLimit = currentFilter.limit || 12
+  const currentPage = currentFilter.page || 1;
+  const currentLimit = currentFilter.limit || 12;
 
   // 过滤条件
   const filters = {
@@ -73,39 +88,57 @@ function AppListContent({ dictData }: AppListContentProps) {
   };
 
   // count_num 优化管理器（传入 filters 自动监听变化）
-  const countNumManager = useCountNumManager(filters);
+  const countNumManager = usePageCountNum(filters);
 
-  const appListQueryParam: AppListParamType = useMemo(() => ({
-    page: { page: currentPage, limit: currentLimit },
-    count_num: countNumManager.getCountNum(),
-    parent_app_id: currentFilter.parent_app_id,
-    status: currentFilter.status || null,
-    client_id: currentFilter.client_id,
-    app_id: currentFilter.app_id,
-    attr_inner_feature: true,
-    attr_oauth_client_data: true,
-    attr_oauth_server_data: true,
-    attr_exter_feature: true,
-    attr_parent_app: true,
-    attr_sub_app_count: true,
-  }), [currentPage, currentLimit, currentFilter.parent_app_id, currentFilter.status, currentFilter.client_id, currentFilter.app_id, countNumManager])
+  const appListQueryParam: AppListParamType = useMemo(
+    () => ({
+      page: { page: currentPage, limit: currentLimit },
+      count_num: countNumManager.getCountNum(),
+      parent_app_id: currentFilter.parent_app_id,
+      status: currentFilter.status || null,
+      client_id: currentFilter.client_id,
+      app_id: currentFilter.app_id,
+      attr_inner_feature: true,
+      attr_oauth_client_data: true,
+      attr_oauth_server_data: true,
+      attr_exter_feature: true,
+      attr_parent_app: true,
+      attr_sub_app_count: true,
+    }),
+    [
+      currentPage,
+      currentLimit,
+      currentFilter.parent_app_id,
+      currentFilter.status,
+      currentFilter.client_id,
+      currentFilter.app_id,
+      countNumManager,
+    ],
+  );
 
-  const { data: appListResult, isSuccess, isLoading: isAppListLoading, isError: isAppListError, error: appListError, refetch } = useQuery({
-    queryKey: userQueryKey('appList', appListQueryParam),
+  const {
+    data: appListResult,
+    isSuccess,
+    isLoading: isAppListLoading,
+    isError: isAppListError,
+    error: appListError,
+    refetch,
+  } = useQuery({
+    queryKey: userQueryKey("appList", appListQueryParam),
     queryFn: async ({ signal }) => {
-      const result = await appList(appListQueryParam, { signal })
-      return result
+      const result = await appList(appListQueryParam, { signal });
+      return result;
     },
     staleTime: 3000,
-  })
+  });
 
   // 处理 Page 分页查询结果（自动提取 total）
-  isSuccess && countNumManager.handlePageQueryResult(appListResult);
+  isSuccess && countNumManager.handleQueryResult(appListResult);
 
-  const apps = getQueryResponseData<AppListItemType[]>(appListResult, [])
+  const apps = getQueryResponseData<AppListItemType[]>(appListResult, []);
 
   return (
-    <div className='container mx-auto px-4  py-6 max-w-[1600px] space-y-5'>
+    <div className="container mx-auto px-4  py-6 max-w-[1600px] space-y-5">
       {/* 过滤区域 */}
       <FilterContainer
         defaultValues={{
@@ -119,16 +152,16 @@ function AppListContent({ dictData }: AppListContentProps) {
           // zod schema 已经处理了类型转换和空值清理，直接使用数据
           navigate({
             search: { ...data, page: 1 } as any,
-          })
+          });
         }}
         onReset={() => {
           navigate({
             search: { page: 1, limit: currentLimit } as any,
-          })
+          });
         }}
         countComponent={
           <FilterTotalCount
-            total={countNumManager.getTotal() ?? 0}
+            value={formatTotalCount(countNumManager.getTotal())}
             loading={isAppListLoading}
           />
         }
@@ -145,7 +178,7 @@ function AppListContent({ dictData }: AppListContentProps) {
                 disabled={isAppListLoading}
                 dictData={dictData.app_status}
                 layoutParams={layoutParams}
-                allLabel='全部'
+                allLabel="全部"
               />
 
               {/* 父应用过滤 */}
@@ -180,10 +213,28 @@ function AppListContent({ dictData }: AppListContentProps) {
             </div>
 
             {/* 动作按钮区域 */}
-            <FilterActions
-              form={form}
-              layoutParams={layoutParams}
-            />
+            <div
+              className={cn(layoutParams.isMobile ? "w-full" : "flex-shrink-0")}
+            >
+              <FilterActions
+                form={form}
+                loading={isAppListLoading}
+                layoutParams={layoutParams}
+                onRefreshSearch={() => refetch()}
+                extraActions={
+                  <UserExportAction
+                    exportType={EXPORT_TYPE_USER_APP_LIST}
+                    params={{
+                      parent_app_id: filters.parent_app_id ?? undefined,
+                      status: filters.status ?? undefined,
+                      client_id: filters.client_id || undefined,
+                      app_id: filters.app_id ?? undefined,
+                    }}
+                    layoutParams={layoutParams}
+                  />
+                }
+              />
+            </div>
           </>
         )}
       </FilterContainer>
@@ -200,65 +251,58 @@ function AppListContent({ dictData }: AppListContentProps) {
                 error={appListResult || appListError}
                 onReset={() => refetch()}
               />
-            )
+            );
           }
 
           // 初次加载 skeleton
           if (isAppListLoading && apps.length === 0) {
             // 通过自定义 class 去掉内部 container 额外的 padding，使骨架屏与上方过滤块宽度对齐
-            return (
-              <PageSkeletonCard
-                variant="content"
-                itemCount={8}
-              />
-            )
+            return <PageSkeletonCard variant="content" itemCount={8} />;
           }
 
-          const hasFilters = (
+          const hasFilters =
             currentFilter.status !== undefined ||
             currentFilter.parent_app_id !== undefined ||
-            (currentFilter.client_id && currentFilter.client_id.trim() !== '') ||
-            currentFilter.app_id !== undefined
-          )
+            (currentFilter.client_id &&
+              currentFilter.client_id.trim() !== "") ||
+            currentFilter.app_id !== undefined;
 
           if (!isAppListLoading && apps.length === 0) {
             return (
               <div className="text-center py-16">
                 <div className="bg-muted/50 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-6">
-                  <Shield className={cn('h-8 w-8 text-muted-foreground')} />
+                  <Shield className={cn("h-8 w-8 text-muted-foreground")} />
                 </div>
                 <h3 className="text-lg font-semibold mb-3">
-                  {hasFilters ? '暂无相关应用' : '暂无应用'}
+                  {hasFilters ? "暂无相关应用" : "暂无应用"}
                 </h3>
                 <p className="text-muted-foreground mb-8">
                   {hasFilters
-                    ? '当前过滤条件下没有找到匹配的应用，请尝试调整过滤条件。'
-                    : '您还没有创建任何应用，开始创建您的第一个应用吧！'}
+                    ? "当前过滤条件下没有找到匹配的应用，请尝试调整过滤条件。"
+                    : "您还没有创建任何应用，开始创建您的第一个应用吧！"}
                 </p>
                 {!hasFilters && (
-                  <Button onClick={() => navigate({ to: '/user/app/create' })}>
-                    <Plus className={cn('h-4 w-4 mr-2')} />
+                  <Button onClick={() => navigate({ to: "/user/app/create" })}>
+                    <Plus className={cn("h-4 w-4 mr-2")} />
                     创建第一个应用
                   </Button>
                 )}
               </div>
-            )
+            );
           }
 
           // 正常数据网格
           return (
-            <div className={`space-y-8 ${isAppListLoading ? 'opacity-60 transition-opacity duration-300' : ''}`}>
-              <div className='grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'>
+            <div
+              className={`space-y-8 ${isAppListLoading ? "opacity-60 transition-opacity duration-300" : ""}`}
+            >
+              <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {apps.map((app: AppListItemType) => (
-                  <AppCard
-                    key={app.id}
-                    app={app}
-                    dictData={dictData}
-                  />
+                  <AppCard key={app.id} app={app} dictData={dictData} />
                 ))}
               </div>
             </div>
-          )
+          );
         })()}
 
         {/* 分页区域 */}
@@ -270,12 +314,12 @@ function AppListContent({ dictData }: AppListContentProps) {
           onChange={(page) => {
             navigate({
               search: { ...currentFilter, page } as any,
-            })
+            });
           }}
           onPageSizeChange={(pageSize) => {
             navigate({
               search: { ...currentFilter, limit: pageSize, page: 1 } as any,
-            })
+            });
           }}
           onRefresh={() => refetch()}
           showRefresh={true}
@@ -285,9 +329,8 @@ function AppListContent({ dictData }: AppListContentProps) {
         />
       </div>
     </div>
-  )
+  );
 }
 
 // 导出 schema 供路由使用
-export { AppListFilterParamSchema } from './list-schema'
-
+export { AppListFilterParamSchema } from "./list-schema";

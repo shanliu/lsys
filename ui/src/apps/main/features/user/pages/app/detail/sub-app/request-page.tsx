@@ -3,13 +3,17 @@ import { FilterActions } from "@apps/main/components/filter-container/filter-act
 import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
 import { FilterInput } from "@apps/main/components/filter-container/filter-input";
 import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
+import { UserExportAction } from "@apps/main/features/user/components/ui/user-export-action";
 import { UserDataTooltip } from "@apps/main/components/local/user-data-tooltip";
 import { AppDetailNavContainer } from "@apps/main/features/user/components/ui/app-detail-nav";
 import { SubAppRequestDataDisplay } from "@apps/main/features/user/components/ui/sub-app-request-data-display";
-import { useDictData, type TypedDictData } from "@apps/main/hooks/use-dict-data";
+import {
+  useDictData,
+  type TypedDictData,
+} from "@apps/main/hooks/use-dict-data";
 import {
   DEFAULT_PAGE_SIZE,
-  useCountNumManager,
+  usePageCountNum,
 } from "@apps/main/lib/pagination-utils";
 import { createStatusMapper } from "@apps/main/lib/status-utils";
 import { Route } from "@apps/main/routes/_main/user/app/$appId/sub-app/request";
@@ -21,7 +25,11 @@ import {
 import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
 import { PageSkeletonTable } from "@shared/components/custom/page-placeholder/skeleton-table";
 import { PagePagination } from "@shared/components/custom/pagination";
-import { DataTable, DataTableAction, DataTableActionItem } from "@shared/components/custom/table";
+import {
+  DataTable,
+  DataTableAction,
+  DataTableActionItem,
+} from "@shared/components/custom/table";
 import CopyableText from "@shared/components/custom/text/copyable-text";
 import { Badge } from "@shared/components/ui/badge";
 import { Button } from "@shared/components/ui/button";
@@ -29,6 +37,7 @@ import { useIsMobile } from "@shared/hooks/use-mobile";
 import {
   cn,
   formatTime,
+  formatTotalCount,
   getQueryResponseData,
   TIME_STYLE,
 } from "@shared/lib/utils";
@@ -40,9 +49,7 @@ import { useCallback, useMemo, useState } from "react";
 import { requestPromptModuleConfig } from "../nav-info";
 import { SubAppRequestAuditActionDrawer } from "./request-audit-action-drawer";
 import { SubAppRequestAuditInfoDrawer } from "./request-audit-info-drawer";
-import {
-  SubAppRequestFilterFormSchema
-} from "./request-schema";
+import { SubAppRequestFilterFormSchema } from "./request-schema";
 
 export function SubAppRequestPage() {
   // docs\api\user\app\sub_request_list.md
@@ -63,11 +70,7 @@ export function SubAppRequestPage() {
   // 如果字典加载失败，显示错误页面
   if (dictError && dictErrors.length > 0) {
     return (
-      <CenteredError
-        variant="page"
-        error={dictErrors}
-        onReset={refetchDict}
-      />
+      <CenteredError variant="page" error={dictErrors} onReset={refetchDict} />
     );
   }
 
@@ -109,10 +112,16 @@ function SubAppRequestContent({ dictData }: SubAppRequestContentProps) {
   };
 
   // count_num 优化管理器（传入 filters 自动监听变化）
-  const countNumManager = useCountNumManager(filters);
+  const countNumManager = usePageCountNum(filters);
 
   // 获取子应用请求列表数据
-  const { data: requestData, isSuccess, isLoading, isError, error } = useQuery({
+  const {
+    data: requestData,
+    isSuccess,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: [
       "appSubRequestList",
       appId,
@@ -135,7 +144,7 @@ function SubAppRequestContent({ dictData }: SubAppRequestContentProps) {
           },
           count_num: countNumManager.getCountNum(),
         },
-        { signal }
+        { signal },
       );
       return result;
     },
@@ -143,14 +152,19 @@ function SubAppRequestContent({ dictData }: SubAppRequestContentProps) {
   });
 
   // 处理 Page 分页查询结果（自动提取 total）
-  isSuccess && countNumManager.handlePageQueryResult(requestData);
+  isSuccess && countNumManager.handleQueryResult(requestData);
 
   // 从查询结果中提取数据
   let requests = getQueryResponseData<AppSubRequestItemType[]>(requestData, []);
 
   // 客户端过滤请求类型（API不支持该参数）
-  if (filterParam.request_type !== undefined && filterParam.request_type !== null) {
-    requests = requests.filter((req) => req.request_type === filterParam.request_type);
+  if (
+    filterParam.request_type !== undefined &&
+    filterParam.request_type !== null
+  ) {
+    requests = requests.filter(
+      (req) => req.request_type === filterParam.request_type,
+    );
   }
 
   // 刷新数据
@@ -205,25 +219,32 @@ function SubAppRequestContent({ dictData }: SubAppRequestContentProps) {
   }, []);
 
   // 渲染附加数据
-  const renderAdditionalData = useCallback(
-    (request: AppSubRequestItemType) => {
-      return (
-        <div className="px-4 py-3 space-y-2">
-          <SubAppRequestDataDisplay data={request} showLabel={true} mode="table" />
-        </div>
-      );
-    },
-    [],
-  );
+  const renderAdditionalData = useCallback((request: AppSubRequestItemType) => {
+    return (
+      <div className="px-4 py-3 space-y-2">
+        <SubAppRequestDataDisplay
+          data={request}
+          showLabel={true}
+          mode="table"
+        />
+      </div>
+    );
+  }, []);
   // 定义表格列
   const columns = useMemo<ColumnDef<AppSubRequestItemType>[]>(() => {
     const baseColumns: ColumnDef<AppSubRequestItemType>[] = [
       {
         accessorKey: "id",
-        header: () => <div className={cn(isMobile ? "" : "text-right")}>ID</div>,
+        header: () => (
+          <div className={cn(isMobile ? "" : "text-right")}>ID</div>
+        ),
         size: 80,
         cell: ({ getValue }) => (
-          <div className={cn("font-mono text-xs", isMobile ? "" : "text-right")}>{getValue() as number}</div>
+          <div
+            className={cn("font-mono text-xs", isMobile ? "" : "text-right")}
+          >
+            {getValue() as number}
+          </div>
         ),
       },
 
@@ -238,10 +259,13 @@ function SubAppRequestContent({ dictData }: SubAppRequestContentProps) {
             <div className="text-xs">
               {appName ? (
                 <>
-                  {appName} (<CopyableText value={String(appId)} showIcon={false} />)
+                  {appName} (
+                  <CopyableText value={String(appId)} showIcon={false} />)
                 </>
               ) : (
-                <>(<CopyableText value={String(appId)} showIcon={false} />)</>
+                <>
+                  (<CopyableText value={String(appId)} showIcon={false} />)
+                </>
               )}
             </div>
           );
@@ -252,7 +276,9 @@ function SubAppRequestContent({ dictData }: SubAppRequestContentProps) {
         header: "应用标识",
         size: 150,
         cell: ({ getValue }) => (
-          <div className="font-mono text-xs">{getValue() as string || '-'}</div>
+          <div className="font-mono text-xs">
+            {(getValue() as string) || "-"}
+          </div>
         ),
       },
       {
@@ -273,7 +299,10 @@ function SubAppRequestContent({ dictData }: SubAppRequestContentProps) {
           const status = getValue() as number | string | undefined;
           const statusNum = Number(status) || 0;
           return (
-            <Badge variant="secondary" className={cn(statusMapper.getClass(statusNum))}>
+            <Badge
+              variant="secondary"
+              className={cn(statusMapper.getClass(statusNum))}
+            >
               {statusMapper.getText(statusNum)}
             </Badge>
           );
@@ -323,12 +352,10 @@ function SubAppRequestContent({ dictData }: SubAppRequestContentProps) {
                     className={cn("h-7")}
                     title="审核申请"
                   >
-
                     <>
                       <ShieldCheck className="h-4 w-4" />
                       {isMobile && <span className="ml-2">审核请求</span>}
                     </>
-
                   </Button>
                 </DataTableActionItem>
               </DataTableAction>
@@ -388,7 +415,7 @@ function SubAppRequestContent({ dictData }: SubAppRequestContentProps) {
           }}
           countComponent={
             <FilterTotalCount
-              total={countNumManager.getTotal() ?? 0}
+              value={formatTotalCount(countNumManager.getTotal())}
               loading={isLoading}
             />
           }
@@ -448,6 +475,18 @@ function SubAppRequestContent({ dictData }: SubAppRequestContentProps) {
                 loading={isLoading}
                 layoutParams={layoutParams}
                 onRefreshSearch={clearCacheAndReload}
+                extraActions={
+                  <UserExportAction
+                    appId={Number(appId)}
+                    exportType="user_sub_request"
+                    params={{
+                      app_id: Number(appId),
+                      id: filters.id ?? undefined,
+                      sub_app_id: filters.sub_app_id ?? undefined,
+                      status: filters.status ?? undefined,
+                    }}
+                  />
+                }
               />
             </div>
           )}
@@ -522,4 +561,4 @@ function SubAppRequestContent({ dictData }: SubAppRequestContentProps) {
 }
 
 // 导出 schema 供路由使用
-export { SubAppRequestFilterParamSchema } from './request-schema';
+export { SubAppRequestFilterParamSchema } from "./request-schema";

@@ -32,7 +32,7 @@ import {
 } from '@shared/components/ui/select'
 import { AutocompleteInput } from '@shared/components/custom/input/autocomplete-input'
 import { Label } from '@shared/components/ui/label'
-import { PagePagination, DEFAULT_PAGE_SIZE, useCountNumManager } from '@apps/main/lib/pagination-utils'
+import { PagePagination, DEFAULT_PAGE_SIZE, usePageCountNum } from '@apps/main/lib/pagination-utils'
 import { useToast } from '@shared/contexts/toast-context'
 import { cn, formatServerError, getQueryResponseData } from '@shared/lib/utils'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -103,7 +103,7 @@ export function ResTypeOpsDrawer({
   const [limit, setLimit] = React.useState(DEFAULT_PAGE_SIZE)
 
   // 计数管理器
-  const countNumManager = useCountNumManager({ resType })
+  const countNumManager = usePageCountNum({ resType })
 
   // 使用 useQuery 检查操作标识是否已存在
   const { data: opKeyCheckData } = useQuery({
@@ -156,7 +156,7 @@ export function ResTypeOpsDrawer({
 
   // 处理分页计数
   if (resOpsSuccess) {
-    countNumManager.handlePageQueryResult(resOpsData)
+    countNumManager.handleQueryResult(resOpsData)
   }
 
   // 获取所有已关联的操作ID（用于过滤搜索结果）- 不分页，取前1000个

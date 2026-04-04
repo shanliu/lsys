@@ -2,12 +2,13 @@ import { FilterContainer } from "@apps/main/components/filter-container/containe
 import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
 import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
 import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
+import { formatTotalCount } from "@shared/lib/utils/format-utils";
 import { AppDetailNavContainer } from "@apps/main/features/user/components/ui/app-detail-nav";
 import { useDictData } from "@apps/main/hooks/use-dict-data";
 import {
     DEFAULT_PAGE_SIZE,
     PagePagination,
-    useCountNumManager,
+    usePageCountNum,
 } from "@apps/main/lib/pagination-utils";
 import { createStatusMapper } from "@apps/main/lib/status-utils";
 import { Route } from "@apps/main/routes/_main/user/app/$appId/features-file/collector";
@@ -141,7 +142,7 @@ function CollectorListContent({ appId, dictData, onEdit }: CollectorListContentP
         status: filterParam.status || null,
     };
 
-    const countNumManager = useCountNumManager(filters);
+    const countNumManager = usePageCountNum(filters);
 
     // 获取脚本列表
     const { data: scriptData, isSuccess, isLoading, isError, error } = useQuery({
@@ -168,7 +169,7 @@ function CollectorListContent({ appId, dictData, onEdit }: CollectorListContentP
         placeholderData: (previousData) => previousData,
     });
 
-    isSuccess && countNumManager.handlePageQueryResult(scriptData);
+    isSuccess && countNumManager.handleQueryResult(scriptData);
 
     const scripts = getQueryResponseData<CollectorScriptItemType[]>(scriptData, []);
 
@@ -455,7 +456,7 @@ function CollectorListContent({ appId, dictData, onEdit }: CollectorListContentP
                             });
                         }}
                         countComponent={
-                            <FilterTotalCount total={countNumManager.getTotal() ?? 0} loading={isLoading} />
+                            <FilterTotalCount value={formatTotalCount(countNumManager.getTotal())} loading={isLoading} />
                         }
                         className="bg-card rounded-lg border shadow-sm relative"
                     >

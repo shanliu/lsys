@@ -5,7 +5,7 @@ import {
     DrawerHeader,
     DrawerTitle,
 } from "@apps/main/components/local/drawer";
-import { PagePagination, useCountNumManager } from "@apps/main/lib/pagination-utils";
+import { CursorPagination, useLimitCountNum } from "@apps/main/lib/pagination-utils";
 import {
     userCollectorRecordFileList,
     type CollectorFileItemType,
@@ -14,17 +14,10 @@ import {
 import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
 import { CenteredLoading } from "@shared/components/custom/page-placeholder/centered-loading";
 import { Badge } from "@shared/components/ui/badge";
-import { cn, formatTime, getQueryResponseData, TIME_STYLE } from "@shared/lib/utils";
+import { cn, formatFileSize, formatTime, getQueryResponseCursor, getQueryResponseData, TIME_STYLE } from "@shared/lib/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-
-const formatFileSize = (size: number): string => {
-    if (size === 0) return "0 B";
-    const units = ["B", "KB", "MB", "GB", "TB"];
-    const i = Math.floor(Math.log(size) / Math.log(1024));
-    return parseFloat((size / Math.pow(1024, i)).toFixed(2)) + " " + units[i];
-};
 
 interface CollectorRecordFilesDrawerProps {
     appId: number;
@@ -40,28 +33,28 @@ export function CollectorRecordFilesDrawer({
     onOpenChange,
 }: CollectorRecordFilesDrawerProps) {
     const queryClient = useQueryClient();
-    const [page, setPage] = useState(1);
+    const [cursorParams, setCursorParams] = useState<{ pos: number | null; forward: boolean }>({ pos: null, forward: true });
     const pageSize = 10;
 
-    const countNumManager = useCountNumManager({});
+    const countNumManager = useLimitCountNum({});
     const { reset: resetCountNum } = countNumManager;
 
     useEffect(() => {
-        setPage(1);
+        setCursorParams({ pos: null, forward: true });
         resetCountNum();
     }, [record.request_id, resetCountNum]);
 
     const { data: filesData, isSuccess, isLoading, isError, error } = useQuery({
-        queryKey: ["collectorRecordFileList", appId, record.request_id, page],
+        queryKey: ["collectorRecordFileList", appId, record.request_id, cursorParams.pos, cursorParams.forward],
         queryFn: ({ signal }) =>
             userCollectorRecordFileList(
                 {
                     app_id: appId,
                     request_id: record.request_id,
                     limit: {
-                        pos: (page - 1) * pageSize || null,
+                        pos: cursorParams.pos,
                         limit: pageSize,
-                        forward: true,
+                        forward: cursorParams.forward,
                     },
                     count_num: countNumManager.getCountNum(),
                 },
@@ -70,7 +63,8 @@ export function CollectorRecordFilesDrawer({
         enabled: isOpen,
     });
 
-    isSuccess && countNumManager.handlePageQueryResult(filesData);
+    isSuccess && countNumManager.handleQueryResult(filesData);
+    const cursorData = getQueryResponseCursor(filesData);
 
     const files = getQueryResponseData<CollectorFileItemType[]>(filesData, []);
 
@@ -78,10 +72,14 @@ export function CollectorRecordFilesDrawer({
         queryClient.refetchQueries({ queryKey: ["collectorRecordFileList", appId, record.request_id] });
     }, [queryClient, appId, record.request_id]);
 
+    const localSearchGo = useCallback((param: { pos: number | null; forward?: boolean }) => {
+        setCursorParams({ pos: param.pos ?? null, forward: param.forward ?? true });
+    }, []);
+
     const handleOpenChange = (open: boolean) => {
         onOpenChange(open);
         if (!open) {
-            setPage(1);
+            setCursorParams({ pos: null, forward: true });
         }
     };
 
@@ -175,15 +173,14 @@ export function CollectorRecordFilesDrawer({
                     </div>
 
                     <div className="flex justify-end">
-                        <PagePagination
-                            currentPage={page}
-                            pageSize={pageSize}
-                            total={countNumManager.getTotal() ?? 0}
+                        <CursorPagination
+                            limit={pageSize}
+                            cursorData={cursorData}
+                            searchGo={localSearchGo}
+                            totalInfo={countNumManager.getTotalInfo()}
+                            currentPageSize={files.length}
                             loading={isLoading}
-                            onChange={(newPage) => setPage(newPage)}
-                            showTotal={false}
                             showPageSize={false}
-                            showSizeCount={5}
                         />
                     </div>
                 </div>

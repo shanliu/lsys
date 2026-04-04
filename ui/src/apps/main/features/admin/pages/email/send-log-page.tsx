@@ -10,10 +10,10 @@ import { FilterInput } from "@apps/main/components/filter-container/filter-input
 import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
 import { useDictData, type TypedDictData } from "@apps/main/hooks/use-dict-data";
 import {
+  CursorPagination,
   DEFAULT_PAGE_SIZE,
-  OffsetPagination,
   PAGE_SIZE_OPTIONS,
-  useCountNumManager,
+  useLimitCountNum,
   useSearchNavigate,
 } from "@apps/main/lib/pagination-utils";
 import { createStatusMapper } from "@apps/main/lib/status-utils";
@@ -39,6 +39,7 @@ import {
   getQueryResponseData,
   TIME_STYLE,
 } from "@shared/lib/utils";
+import { formatTotalCount } from "@shared/lib/utils/format-utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { ColumnDef } from "@tanstack/react-table";
@@ -138,7 +139,7 @@ function SendLogContent({ dictData }: SendLogContentProps) {
   const searchGo = useSearchNavigate(navigate, filterParam);
 
   // count_num 优化管理器（传入 filters 自动监听变化）
-  const countNumManager = useCountNumManager(filters);
+  const countNumManager = useLimitCountNum(filters);
 
   // 获取邮件日志数据
   const { data: messageData, isSuccess: messageIsSuccess, isLoading: messageIsLoading, isError, error } = useQuery({
@@ -177,7 +178,7 @@ function SendLogContent({ dictData }: SendLogContentProps) {
   });
 
   // 处理 Limit 分页查询结果（自动提取 total 和 next）
-  messageIsSuccess && countNumManager.handleLimitQueryResult(messageData);
+  messageIsSuccess && countNumManager.handleQueryResult(messageData);
 
   // 取消邮件发送
   const cancelMutation = useMutation({
@@ -436,7 +437,7 @@ function SendLogContent({ dictData }: SendLogContentProps) {
                 } as any,
               });
             }}
-            countComponent={<FilterTotalCount total={countNumManager.getTotal() ?? 0} loading={isLoading} />}
+            countComponent={<FilterTotalCount value={formatTotalCount(countNumManager.getTotalInfo())} loading={isLoading} />}
             className={cn("bg-card rounded-lg border shadow-sm relative")}
           >
             {(layoutParams, form) => (
@@ -520,12 +521,12 @@ function SendLogContent({ dictData }: SendLogContentProps) {
 
           {/* 分页控件 */}
           <div className="flex-shrink-0 pt-4">
-            {(countNumManager.getTotal() ?? 0) > 0 && (
-              <OffsetPagination
+            {countNumManager.hasTotalInfo() && (
+              <CursorPagination
                 limit={currentLimit}
                 cursorData={cursorData}
                 searchGo={searchGo}
-                total={countNumManager.getTotal()}
+                totalInfo={countNumManager.getTotalInfo()}
                 currentPageSize={messages.length}
                 loading={isLoading}
                 onRefresh={refreshData}

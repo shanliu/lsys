@@ -1,6 +1,6 @@
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@apps/main/components/local/drawer'
 import { type TypedDictData } from '@apps/main/hooks/use-dict-data'
-import { PagePagination, useCountNumManager } from '@apps/main/lib/pagination-utils'
+import { PagePagination, usePageCountNum } from '@apps/main/lib/pagination-utils'
 import { type UserFileChunkItemType, userFileChunks, type UserFileItemType } from '@shared/apis/user/file'
 import { CenteredError } from '@shared/components/custom/page-placeholder/centered-error'
 import { CenteredLoading } from '@shared/components/custom/page-placeholder/centered-loading'
@@ -29,7 +29,7 @@ export function FileChunksDrawer({
     const pageSize = 10
 
     // count_num 优化管理器
-    const countNumManager = useCountNumManager({})
+    const countNumManager = usePageCountNum({})
     const { reset: resetCountNum } = countNumManager
 
     // 当文件切换时重置分页和计数管理器
@@ -54,7 +54,7 @@ export function FileChunksDrawer({
     })
 
     // 处理 Page 分页查询结果（自动提取 total）
-    isSuccess && countNumManager.handlePageQueryResult(chunksData)
+    isSuccess && countNumManager.handleQueryResult(chunksData)
 
     const chunks = getQueryResponseData<UserFileChunkItemType[]>(chunksData, [])
 

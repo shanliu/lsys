@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
 import SparkMD5 from 'spark-md5';
+import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -142,28 +142,28 @@ export function getQueryResponseData<T>(
 
 /**
  * 游标分页响应类型
- * 服务端直接返回 next_cursor 和 prev_cursor 字段
+ * 服务端嵌套在 cursor 字段内返回 next 和 prev
  */
 export interface CursorPageResponseType {
-  next_cursor?: number | null;
-  prev_cursor?: number | null;
+  next?: number | null;
+  prev?: number | null;
 }
 
 /**
  * 从 useQuery 返回结果中提取游标分页字段
- * 服务端现在直接在响应根级别返回 next_cursor 和 prev_cursor
+ * 服务端现在将游标嵌套在 response.cursor 对象内
  *
  * @param queryData useQuery 返回的结果对象
  * @returns CursorPageResponseType 对象或 null
  */
 export function getQueryResponseCursor(
-  queryData: { response?: CursorPageResponseType } | any,
+  queryData: { response?: { cursor?: CursorPageResponseType } } | any,
 ): CursorPageResponseType | null {
-  const response = queryData?.response;
-  if (!response) return null;
+  const cursor = queryData?.response?.cursor;
+  if (!cursor) return null;
   return {
-    next_cursor: response.next_cursor ?? null,
-    prev_cursor: response.prev_cursor ?? null,
+    next: cursor.next ?? null,
+    prev: cursor.prev ?? null,
   };
 }
 
