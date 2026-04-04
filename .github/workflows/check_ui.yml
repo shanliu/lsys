@@ -22,14 +22,20 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v2
+      with:
+        version: 8
+
     - name: Use Nodejs
       uses: actions/setup-node@v3
       with:
         node-version: ${{ matrix.node-version }}
+        cache: 'pnpm'
+        cache-dependency-path: ./ui/pnpm-lock.yaml
 
     - name: Build ui
       working-directory: ./ui
       run: |
-        npm install -g pnpm
-        pnpm i
+        pnpm install
         pnpm build
