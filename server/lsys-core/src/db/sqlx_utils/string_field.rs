@@ -473,10 +473,10 @@ fn parse_sqlite_type_max_length(type_str: &str) -> Option<u64> {
         || type_trimmed.starts_with("nchar")
         || type_trimmed.starts_with("nvarchar")
     {
-        if let (Some(start), Some(end)) = (type_trimmed.find('('), type_trimmed.find(')')) {
-            if let Ok(len) = type_trimmed[start + 1..end].trim().parse::<u64>() {
-                return Some(len);
-            }
+        if let (Some(start), Some(end)) = (type_trimmed.find('('), type_trimmed.find(')'))
+            && let Ok(len) = type_trimmed[start + 1..end].trim().parse::<u64>()
+        {
+            return Some(len);
         }
         // 无长度声明，视为无限制
         return Some(FetchFieldStringMaxResult::LONGTEXT_MAX);

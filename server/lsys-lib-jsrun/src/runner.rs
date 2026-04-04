@@ -35,10 +35,10 @@
 //! // Submit with per-task callback (async)
 //! let h1 = runner.submit("1 + 2", None, Some(|result: lsys_lib_jsrun::runner::TaskResult| async move {
 //!     println!("Task {} done: {:?}", result.task_id, result.outcome);
-//! }));
+//! })).await;
 //!
 //! // Submit without callback – just await the handle
-//! let h2 = runner.submit_simple("3 * 4", None);
+//! let h2 = runner.submit_simple("3 * 4", None).await;
 //!
 //! let result = h1.await_result().await;
 //! println!("Got: {:?}", result);
