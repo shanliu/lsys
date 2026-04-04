@@ -5,7 +5,7 @@
 	"license": "MIT",
 	"scripts": {
 		"preinstall": "npx only-allow pnpm",
-		"postinstall": "pnpm rebuild @tailwindcss/postcss",
+		"postinstall": "node -e \"try { require('@tailwindcss/postcss') } catch(e) { process.exit(1) }\" || pnpm rebuild @tailwindcss/postcss",
 		"dev": "rspack dev",
 		"build": "cross-env NODE_ENV=production tsr generate && rspack build --mode=production",
 		"preview": "rspack preview",
