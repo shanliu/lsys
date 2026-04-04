@@ -137,8 +137,8 @@ impl FileDataDao {
     /// 返回 `Ok(true)` 表示成功构建 WHERE 条件。
     async fn build_file_list_where(
         &self,
-        filter: &FileDataListParam<'_>,
         wc: &mut WhereClause<'_, '_, MySql>,
+        filter: &FileDataListParam<'_>,
     ) -> FileResult<bool> {
         // 默认排除已删除的文件和 file_user 记录
         wc.and().field_ne("f.status",FileStatus::Deleted as i8);
@@ -282,7 +282,7 @@ impl FileDataDao {
         ));
         let mut wc = WhereClause::new(&mut qb);
 
-        if !self.build_file_list_where(filter, &mut wc).await? {
+        if !self.build_file_list_where(&mut wc, filter).await? {
             return Ok((vec![], CursorPageData::default()));
         }
 
@@ -460,7 +460,7 @@ impl FileDataDao {
         let mut qb: QueryBuilder<MySql> = QueryBuilder::new(prefix);
         let mut wc = WhereClause::new(&mut qb);
 
-        if !self.build_file_list_where(filter, &mut wc).await? {
+        if !self.build_file_list_where(&mut wc, filter).await? {
             return Ok(TotalRow::Exact(0));
         }
 

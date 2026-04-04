@@ -14,7 +14,7 @@ use lsys_core::valid_code::{CheckCodeData, ValidCode, ValidCodeData, ValidCodeDa
 use lsys_core::valid_param::{ValidEmail, ValidParam, ValidParamCheck, ValidStrlen};
 use lsys_core::{db::utils::FetchField, fluent_message, valid_key};
 
-use lsys_core::db::{QueryBuilderExt};
+use lsys_core::db::{FieldValue, QueryBuilderExt};
 use lsys_core::db::{Insert, TableMeta, Update};
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{Acquire, MySql, Pool, Transaction};
@@ -149,16 +149,13 @@ impl AccountEmail {
                 Err(e)?
             }
             Ok(mr) => {
-                let res = sqlx::query(
-                    format!(
-                        "UPDATE {} SET email_count=email_count+1 WHERE id=?",
-                        AccountModel::table_name(),
-                    )
-                    .as_str(),
-                )
-                .bind(account.id)
-                .execute(&mut *db)
-                .await;
+                use lsys_core::db::Update;
+                let res = Update::<_, AccountModel>::new()
+                    .set(AccountModel::EMAIL_COUNT, FieldValue::Expr("email_count+1".into()))
+                    .execute(&mut *db, |qb| {
+                        qb.push_where().field_eq("id", account.id);
+                    })
+                    .await;
                 match res {
                     Err(e) => {
                         db.rollback().await?;
@@ -399,16 +396,14 @@ impl AccountEmail {
                 Err(e)?
             }
             Ok(mr) => {
-                let res = sqlx::query(
-                    format!(
-                        "UPDATE {} SET email_count=email_count-1 WHERE id=? and email_count-1>=0",
-                        AccountModel::table_name(),
-                    )
-                    .as_str(),
-                )
-                .bind(email.account_id)
-                .execute(&mut *db)
-                .await;
+                use lsys_core::db::Update;
+                let res = Update::<_, AccountModel>::new()
+                    .set(AccountModel::EMAIL_COUNT, FieldValue::Expr("email_count-1".into()))
+                    .execute(&mut *db, |qb| {
+                        qb.push_where().field_eq("id", email.account_id);
+                        qb.push_and().field_gte("email_count", 1_i32);
+                    })
+                    .await;
 
                 match res {
                     Err(e) => {

@@ -225,9 +225,7 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
                 let max_try_num = item.sms.max_try_num;
                 let sender_body_id = item.sms.id;
                 if let Err(err) = Update::<_, SenderSmsMessageModel>::new()
-                    .set(SenderSmsMessageModel::TRY_NUM, FieldValue::Dynamic(Box::new(|qb| {
-                        qb.push("try_num+1");
-                    })))
+                    .set(SenderSmsMessageModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))
                     .set(SenderSmsMessageModel::STATUS, FieldValue::Dynamic(Box::new(move |qb| {
                         qb.push("if(");
                         qb.field_gte("try_num", max_try_num);
@@ -306,23 +304,23 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
                         SenderLogStatus::Succ,
                         res_item.send_id.as_str(),
                     ));
+                    use lsys_core::db::Update;
                     let ntime = now_time().unwrap_or_default();
-                    let sql = format!(
-                        r#"UPDATE {}
-                            SET try_num=try_num+1,status=?,res_data=?,send_time=?,receive_time=?,setting_id=?
-                            WHERE id=?;
-                        "#,
-                        SenderSmsMessageModel::table_name(),
-                    );
-                    sqlx::query(&sql)
-                        .bind(SenderSmsMessageStatus::IsReceived as i8)
-                        .bind(&res_item.send_id)
-                        .bind(ntime)
-                        .bind(ntime)
-                        .bind(setting.id)
-                        .bind(res_item.id)
-                        .execute(&self.db)
+                    let send_id_str = res_item.send_id.clone();
+                    let setting_id_val = setting.id;
+                    let res_id = res_item.id;
+                    Update::<_, SenderSmsMessageModel>::new()
+                        .set(SenderSmsMessageModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))
+                        .set(SenderSmsMessageModel::STATUS, SenderSmsMessageStatus::IsReceived as i8)
+                        .set(SenderSmsMessageModel::RES_DATA, send_id_str)
+                        .set(SenderSmsMessageModel::SEND_TIME, ntime)
+                        .set(SenderSmsMessageModel::RECEIVE_TIME, ntime)
+                        .set(SenderSmsMessageModel::SETTING_ID, setting_id_val)
+                        .execute(&self.db, |qb| {
+                            qb.push_where().field_eq("id", res_id);
+                        })
                         .await
+                        .map(|_| sqlx::mysql::MySqlQueryResult::default())
                 }
                 SenderTaskStatus::Progress => {
                     self.wait_notify
@@ -334,22 +332,22 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
                         SenderLogStatus::Succ,
                         res_item.send_id.as_str(),
                     ));
+                    use lsys_core::db::Update;
                     let ntime = now_time().unwrap_or_default();
-                    let sql = format!(
-                        r#"UPDATE {}
-                            SET try_num=try_num+1,status=?,res_data=?,send_time=?,setting_id=?
-                            WHERE id=?;
-                        "#,
-                        SenderSmsMessageModel::table_name(),
-                    );
-                    sqlx::query(&sql)
-                        .bind(SenderSmsMessageStatus::IsSend as i8)
-                        .bind(&res_item.send_id)
-                        .bind(ntime)
-                        .bind(setting.id)
-                        .bind(res_item.id)
-                        .execute(&self.db)
+                    let send_id_str = res_item.send_id.clone();
+                    let setting_id_val = setting.id;
+                    let res_id = res_item.id;
+                    Update::<_, SenderSmsMessageModel>::new()
+                        .set(SenderSmsMessageModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))
+                        .set(SenderSmsMessageModel::STATUS, SenderSmsMessageStatus::IsSend as i8)
+                        .set(SenderSmsMessageModel::RES_DATA, send_id_str)
+                        .set(SenderSmsMessageModel::SEND_TIME, ntime)
+                        .set(SenderSmsMessageModel::SETTING_ID, setting_id_val)
+                        .execute(&self.db, |qb| {
+                            qb.push_where().field_eq("id", res_id);
+                        })
                         .await
+                        .map(|_| sqlx::mysql::MySqlQueryResult::default())
                 }
                 SenderTaskStatus::Failed(retry) => {
                     log_data.push((
@@ -358,34 +356,37 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
                         res_item.message.as_str(),
                     ));
                     if retry {
-                        let sql_retry = if cancel_data.contains(&res_item.id) {
-                            format!(
-                                r#"UPDATE {}
-                                    SET try_num=try_num+1,status=if(try_num>=?,?,?)
-                                    WHERE id=? and status=?;
-                                "#,
-                                SenderSmsMessageModel::table_name(),
-                            )
-                        } else {
-                            format!(
-                                r#"UPDATE {}
-                                    SET try_num=try_num+1,status=if(try_num>=?,?,status)
-                                    WHERE id=? and status=?;
-                                "#,
-                                SenderSmsMessageModel::table_name(),
-                            )
-                        };
-                        let mut query = sqlx::query(&sql_retry)
-                            .bind(item.sms.max_try_num)
-                            .bind(SenderSmsMessageStatus::SendFail as i8);
-                        if cancel_data.contains(&res_item.id) {
-                            query = query.bind(SenderSmsMessageStatus::IsCancel as i8);
-                        }
-                        query
-                            .bind(res_item.id)
-                            .bind(SenderSmsMessageStatus::Init as i8)
-                            .execute(&self.db).await
+                        use lsys_core::db::Update;
+                        let max_try = item.sms.max_try_num;
+                        let fail_status = SenderSmsMessageStatus::SendFail as i8;
+                        let cancel_status = SenderSmsMessageStatus::IsCancel as i8;
+                        let init_status = SenderSmsMessageStatus::Init as i8;
+                        let res_id = res_item.id;
+                        let is_cancel = cancel_data.contains(&res_item.id);
+                        
+                        Update::<_, SenderSmsMessageModel>::new()
+                            .set(SenderSmsMessageModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))
+                            .set(SenderSmsMessageModel::STATUS, FieldValue::Dynamic(Box::new(move |qb| {
+                                qb.push("if(");
+                                qb.field_gte("try_num", max_try);
+                                qb.push(",");
+                                qb.push_bind(fail_status);
+                                qb.push(",");
+                                if is_cancel {
+                                    qb.push_bind(cancel_status);
+                                } else {
+                                    qb.push("status");
+                                }
+                                qb.push(")");
+                            })))
+                            .execute(&self.db, |qb| {
+                                qb.push_where().field_eq("id", res_id);
+                                qb.push_and().field_eq("status", init_status);
+                            })
+                            .await
+                            .map(|_| sqlx::mysql::MySqlQueryResult::default())
                     } else {
+                        use lsys_core::db::Update;
                         self.wait_notify
                             .msg_notify(
                                 &item.sms.reply_host,
@@ -394,18 +395,18 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
                             )
                             .await;
 
-                        let sql_no_retry = format!(
-                            r#"UPDATE {}
-                                SET try_num=try_num+1,status=?
-                                WHERE id=? and status=?;
-                            "#,
-                            SenderSmsMessageModel::table_name(),
-                        );
-                        sqlx::query(&sql_no_retry)
-                            .bind(SenderSmsMessageStatus::SendFail as i8)
-                            .bind(res_item.id)
-                            .bind(SenderSmsMessageStatus::Init as i8)
-                            .execute(&self.db).await
+                        let fail_status = SenderSmsMessageStatus::SendFail as i8;
+                        let init_status = SenderSmsMessageStatus::Init as i8;
+                        let res_id = res_item.id;
+                        Update::<_, SenderSmsMessageModel>::new()
+                            .set(SenderSmsMessageModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))
+                            .set(SenderSmsMessageModel::STATUS, fail_status)
+                            .execute(&self.db, |qb| {
+                                qb.push_where().field_eq("id", res_id);
+                                qb.push_and().field_eq("status", init_status);
+                            })
+                            .await
+                            .map(|_| sqlx::mysql::MySqlQueryResult::default())
                     }
                 }
             };
@@ -453,9 +454,7 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
 
                 let max_try_num = item.sms.max_try_num;
                 if let Err(err) = Update::<_, SenderSmsMessageModel>::new()
-                    .set(SenderSmsMessageModel::TRY_NUM, FieldValue::Dynamic(Box::new(|qb| {
-                        qb.push("try_num+1");
-                    })))
+                    .set(SenderSmsMessageModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))
                     .set(SenderSmsMessageModel::STATUS, FieldValue::Dynamic(Box::new(move |qb| {
                         qb.push("if(");
                         qb.field_gte("try_num", max_try_num);

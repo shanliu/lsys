@@ -9,7 +9,7 @@ use lsys_core::valid_param::{
     ValidMobile, ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
 };
 
-use lsys_core::db::{Insert, TableMeta, QueryBuilderExt, Update};
+use lsys_core::db::{Insert, TableMeta, QueryBuilderExt, Update, FieldValue};
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{Acquire, MySql, Pool, Transaction};
 use std::{collections::HashMap, sync::Arc};
@@ -290,16 +290,13 @@ impl AccountAddress {
                 Err(e)?
             }
             Ok(mr) => {
-                let res = sqlx::query(
-                    format!(
-                        "UPDATE {} SET address_count=address_count+1 WHERE id=?",
-                        AccountModel::table_name(),
-                    )
-                    .as_str(),
-                )
-                .bind(account.id)
-                .execute(&mut *db)
-                .await;
+                use lsys_core::db::Update;
+                let res = Update::<_, AccountModel>::new()
+                    .set(AccountModel::ADDRESS_COUNT, FieldValue::Expr("address_count+1".into()))
+                    .execute(&mut *db, |qb| {
+                        qb.push_where().field_eq("id", account.id);
+                    })
+                    .await;
                 match res {
                     Err(e) => {
                         db.rollback().await?;
@@ -375,16 +372,14 @@ impl AccountAddress {
                 Err(e)?
             }
             Ok(mr) => {
-                let res = sqlx::query(
-                    format!(
-                    "UPDATE {} SET address_count=address_count-1 WHERE id=? and address_count-1>=0",
-                    AccountModel::table_name(),
-                )
-                    .as_str(),
-                )
-                .bind(address.account_id)
-                .execute(&mut *db)
-                .await;
+                use lsys_core::db::Update;
+                let res = Update::<_, AccountModel>::new()
+                    .set(AccountModel::ADDRESS_COUNT, FieldValue::Expr("address_count-1".into()))
+                    .execute(&mut *db, |qb| {
+                        qb.push_where().field_eq("id", address.account_id);
+                        qb.push_and().field_gte("address_count", 1_i32);
+                    })
+                    .await;
                 match res {
                     Err(e) => {
                         db.rollback().await?;

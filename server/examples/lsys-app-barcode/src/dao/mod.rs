@@ -585,11 +585,11 @@ impl BarCodeDao {
 
     fn list_create_config_where(
         &self,
+        wc: &mut WhereClause<'_, '_, MySql>,
         user_id: u64,
         id: Option<u64>,
         app_id: Option<u64>,
         barcode_type: Option<&str>,
-        wc: &mut WhereClause<'_, '_, MySql>,
     ) -> bool {
         wc.and().field_eq("user_id", user_id);
         wc.and().field_in_copied("status", &[BarcodeCreateStatus::EnablePrivate as i8, BarcodeCreateStatus::EnablePublic as i8]);
@@ -623,7 +623,7 @@ impl BarCodeDao {
             BarcodeCreateModel::table_name(),
         ));
         let mut wc = WhereClause::new(&mut qb);
-        if !self.list_create_config_where(user_id, id, app_id, barcode_type, &mut wc) {
+        if !self.list_create_config_where(&mut wc, user_id, id, app_id, barcode_type) {
             return Ok(vec![]);
         }
         wc.builder().push(" order by id desc");
@@ -647,7 +647,7 @@ impl BarCodeDao {
             BarcodeCreateModel::table_name(),
         ));
         let mut wc = WhereClause::new(&mut qb);
-        if !self.list_create_config_where(user_id, id, app_id, barcode_type, &mut wc) {
+        if !self.list_create_config_where(&mut wc, user_id, id, app_id, barcode_type) {
             return Ok(0);
         }
         let res = wc.builder().build_query_scalar::<i64>().fetch_one(&self.db).await?;
@@ -666,10 +666,10 @@ impl BarCodeDao {
 
     fn list_parse_record_where(
         &self,
+        wc: &mut WhereClause<'_, '_, MySql>,
         user_id: u64,
         app_id: Option<u64>,
         barcode_type: Option<&str>,
-        wc: &mut WhereClause<'_, '_, MySql>,
     ) -> bool {
         wc.and().field_eq("user_id", user_id);
         wc.and().field_in_copied("status", &[BarcodeParseStatus::Succ as i8, BarcodeParseStatus::Fail as i8]);
@@ -699,7 +699,7 @@ impl BarCodeDao {
             BarcodeParseModel::table_name(),
         ));
         let mut wc = WhereClause::new(&mut qb);
-        if !self.list_parse_record_where(user_id, app_id, barcode_type, &mut wc) {
+        if !self.list_parse_record_where(&mut wc, user_id, app_id, barcode_type) {
             return Ok(vec![]);
         }
         wc.builder().push(" order by id desc");
@@ -725,7 +725,7 @@ impl BarCodeDao {
             BarcodeParseModel::table_name(),
         ));
         let mut wc = WhereClause::new(&mut qb);
-        if !self.list_parse_record_where(user_id, app_id, barcode_type, &mut wc) {
+        if !self.list_parse_record_where(&mut wc, user_id, app_id, barcode_type) {
             return Ok(0);
         }
         let res = wc.builder().build_query_scalar::<i64>().fetch_one(&self.db).await?;

@@ -608,7 +608,7 @@ impl App {
             .set(AppRequestModel::CONFIRM_TIME, time)
             .set(AppRequestModel::CONFIRM_NOTE, confirm_note)
             .execute(&mut *db, |qb| {
-                qb.push_where().field_eq("app_id", req.id);
+                qb.push_where().field_eq("id", req.id);
             })
             .await;
         if let Err(e) = req_res {

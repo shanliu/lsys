@@ -54,7 +54,8 @@ VALUES(1, 0, '1', 'aaaaa', 'root', UNIX_TIMESTAMP());
 -- ----------- 采集脚本配置  ---------------
 CREATE TABLE `lst_collector_script` (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    `user_id` BIGINT UNSIGNED NOT NULL COMMENT '创建用户ID',
+    `add_user_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '创建用户ID',
+    `app_user_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '应用关联用户ID，仅冗余，不做过滤',
     `app_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '应用ID,0=系统',
     `name` VARCHAR(100) NOT NULL COMMENT '脚本名称（唯一标识，用作文件TAG）',
     `script_code` MEDIUMTEXT NOT NULL COMMENT 'JS脚本代码',

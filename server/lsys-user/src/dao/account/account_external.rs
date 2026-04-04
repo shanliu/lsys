@@ -18,7 +18,7 @@ use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStr
 
 use super::logger::LogAccountExternal;
 use super::AccountIndex;
-use lsys_core::db::{Insert, TableMeta, QueryBuilderExt, Update, OptionTxExecutor};
+use lsys_core::db::{Insert, TableMeta, QueryBuilderExt, Update, OptionTxExecutor, FieldValue};
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{Acquire, MySql, Pool, Transaction};
 
@@ -253,16 +253,13 @@ impl AccountExternal {
                         return Err(e.into());
                     }
                     Ok(mr) => {
-                        let res = sqlx::query(
-                            format!(
-                                "UPDATE {} SET external_count=external_count+1 WHERE id=?",
-                                AccountModel::table_name(),
-                            )
-                            .as_str(),
-                        )
-                        .bind(account.id)
-                        .execute(&mut *db)
-                        .await;
+                        use lsys_core::db::Update;
+                        let res = Update::<_, AccountModel>::new()
+                            .set(AccountModel::EXTERNAL_COUNT, FieldValue::Expr("external_count+1".into()))
+                            .execute(&mut *db, |qb| {
+                                qb.push_where().field_eq("id", account.id);
+                            })
+                            .await;
                         match res {
                             Err(e) => {
                                 db.rollback().await?;
@@ -511,12 +508,14 @@ impl AccountExternal {
                 Err(e)?
             }
             Ok(mr) => {
-                let res=sqlx::query(format!(
-                        "UPDATE {} SET external_count=external_count-1 WHERE id=? and external_count-1>=0",
-                        AccountModel::table_name(),
-                    ).as_str())
-                    .bind(account_ext.account_id)
-                    .execute(&mut *db).await;
+                use lsys_core::db::Update;
+                let res=Update::<_, AccountModel>::new()
+                    .set(AccountModel::EXTERNAL_COUNT, FieldValue::Expr("external_count-1".into()))
+                    .execute(&mut *db, |qb| {
+                        qb.push_where().field_eq("id", account_ext.account_id);
+                        qb.push_and().field_gte("external_count", 1_i32);
+                    })
+                    .await;
                 match res {
                     Err(e) => {
                         db.rollback().await?;

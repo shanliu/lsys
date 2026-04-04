@@ -6,7 +6,8 @@ use crate::model::{
     AppNotifyType, AppSecretType,
 };
 use async_trait::async_trait;
-use lsys_core::db::TableMeta;
+use lsys_core::db::{TableMeta, QueryBuilderExt, FieldValue};
+use lsys_core::db::Update;
 use lsys_core::fluents::IntoFluentMessage;
 use lsys_core::task_dispatch::{TaskExecutor, TaskNotify};
 use lsys_core::utils::now_time;
@@ -97,6 +98,7 @@ async fn change_notify_check_num_error_status(
 
     match db.begin().await {
         Ok(mut tdb) => {
+            // Note: Complex JOIN UPDATE - keeping raw SQL as Update builder doesn't support JOINs yet
             let sql = format!(
                 r#"
                 UPDATE {} t1
@@ -126,20 +128,23 @@ async fn change_notify_check_num_error_status(
                 warn!("change notify data other record fail[{}]{}", nid, err);
                 return;
             }
-            let sql = format!(
-                r#"UPDATE {}
-                SET status=if((try_num+1)>=try_max,?,status),result=?,try_num=try_num+1,next_time=?,publish_time=?
-                WHERE id=?;
-            "#,
-                AppNotifyDataModel::table_name(),
-            );
-            if let Err(err) = sqlx::query(sql.as_str())
-                .bind(AppNotifyDataStatus::Fail as i8)
-                .bind(msg)
-                .bind(ntime + addtime)
-                .bind(ntime)
-                .bind(nid)
-                .execute(&mut *tdb)
+            use lsys_core::db::{Update, FieldValue};
+            let fail_status = AppNotifyDataStatus::Fail as i8;
+            let msg_str = msg.to_string();
+            let next_time_val = ntime + addtime;
+            if let Err(err) = Update::<_, AppNotifyDataModel>::new()
+                .set(AppNotifyDataModel::STATUS, FieldValue::Dynamic(Box::new(move |qb| {
+                    qb.push("if((try_num+1)>=try_max,");
+                    qb.push_bind(fail_status);
+                    qb.push(",status)");
+                })))
+                .set(AppNotifyDataModel::RESULT, msg_str)
+                .set(AppNotifyDataModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))
+                .set(AppNotifyDataModel::NEXT_TIME, next_time_val)
+                .set(AppNotifyDataModel::PUBLISH_TIME, ntime)
+                .execute(&mut *tdb, |qb| {
+                    qb.push_where().field_eq("id", nid);
+                })
                 .await
             {
                 warn!("change notify data status to fail is fail[{}]{}", nid, err);
@@ -165,6 +170,7 @@ async fn change_notify_error_status(
     let ntime = now_time().unwrap_or_default();
     let addtime = next_time_add(now_num, retry_mode, retry_base);
 
+    // Note: Complex JOIN UPDATE - keeping raw SQL as Update builder doesn't support JOINs yet
     let sql = format!(
         r#"
           UPDATE {} AS t1
@@ -298,19 +304,15 @@ impl AppNotifyTask {
         {
             Ok(()) => {
                 debug!("notify {} success", &val.0.id);
+               
                 let ntime = now_time().unwrap_or_default();
-                let sql = format!(
-                    r#"UPDATE {}
-                        SET status=?,try_num=try_num+1,publish_time=?
-                        WHERE id=?;
-                    "#,
-                    AppNotifyDataModel::table_name(),
-                );
-                if let Err(err) = sqlx::query(sql.as_str())
-                    .bind(AppNotifyDataStatus::Succ as i8)
-                    .bind(ntime)
-                    .bind(val.0.id)
-                    .execute(&self.db)
+                if let Err(err) = Update::<_, AppNotifyDataModel>::new()
+                    .set(AppNotifyDataModel::STATUS, AppNotifyDataStatus::Succ as i8)
+                    .set(AppNotifyDataModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))
+                    .set(AppNotifyDataModel::PUBLISH_TIME, ntime)
+                    .execute(&self.db, |qb| {
+                        qb.push_where().field_eq("id", val.0.id);
+                    })
                     .await
                 {
                     warn!(

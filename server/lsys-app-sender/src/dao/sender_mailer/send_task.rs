@@ -229,9 +229,7 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
                 let max_try_num = item.mail.max_try_num;
                 let sender_body_id = item.mail.id;
                 if let Err(err) = Update::<_, SenderMailMessageModel>::new()
-                    .set(SenderMailMessageModel::TRY_NUM, FieldValue::Dynamic(Box::new(|qb| {
-                        qb.push("try_num+1");
-                    })))
+                    .set(SenderMailMessageModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))
                     .set(SenderMailMessageModel::STATUS, FieldValue::Dynamic(Box::new(move |qb| {
                         qb.push("if(");
                         qb.field_gte("try_num", max_try_num);
@@ -312,23 +310,23 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
                         SenderLogStatus::Succ,
                         res_item.send_id.as_str(),
                     ));
+                    use lsys_core::db::Update;
                     let ntime = now_time().unwrap_or_default();
-                    let sql = format!(
-                        r#"UPDATE {}
-                            SET try_num=try_num+1,status=?,res_data=?,send_time=?,receive_time=?,setting_id=?
-                            WHERE id=?;
-                        "#,
-                        SenderMailMessageModel::table_name(),
-                    );
-                    sqlx::query(&sql)
-                        .bind(SenderMailMessageStatus::IsReceived as i8)
-                        .bind(&res_item.send_id)
-                        .bind(ntime)
-                        .bind(ntime)
-                        .bind(setting.id)
-                        .bind(res_item.id)
-                        .execute(&self.db)
+                    let send_id_str = res_item.send_id.clone();
+                    let setting_id_val = setting.id;
+                    let res_id = res_item.id;
+                    Update::<_, SenderMailMessageModel>::new()
+                        .set(SenderMailMessageModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))
+                        .set(SenderMailMessageModel::STATUS, SenderMailMessageStatus::IsReceived as i8)
+                        .set(SenderMailMessageModel::RES_DATA, send_id_str)
+                        .set(SenderMailMessageModel::SEND_TIME, ntime)
+                        .set(SenderMailMessageModel::RECEIVE_TIME, ntime)
+                        .set(SenderMailMessageModel::SETTING_ID, setting_id_val)
+                        .execute(&self.db, |qb| {
+                            qb.push_where().field_eq("id", res_id);
+                        })
                         .await
+                        .map(|_| sqlx::mysql::MySqlQueryResult::default())
                 }
                 SenderTaskStatus::Progress => {
                     self.wait_notify
@@ -340,22 +338,22 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
                         SenderLogStatus::Succ,
                         res_item.send_id.as_str(),
                     ));
+                    use lsys_core::db::Update;
                     let ntime = now_time().unwrap_or_default();
-                    let sql = format!(
-                        r#"UPDATE {}
-                            SET try_num=try_num+1,status=?,res_data=?,send_time=?,setting_id=?
-                            WHERE id=?;
-                        "#,
-                        SenderMailMessageModel::table_name(),
-                    );
-                    sqlx::query(&sql)
-                        .bind(SenderMailMessageStatus::IsSend as i8)
-                        .bind(&res_item.send_id)
-                        .bind(ntime)
-                        .bind(setting.id)
-                        .bind(res_item.id)
-                        .execute(&self.db)
+                    let send_id_str = res_item.send_id.clone();
+                    let setting_id_val = setting.id;
+                    let res_id = res_item.id;
+                    Update::<_, SenderMailMessageModel>::new()
+                        .set(SenderMailMessageModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))
+                        .set(SenderMailMessageModel::STATUS, SenderMailMessageStatus::IsSend as i8)
+                        .set(SenderMailMessageModel::RES_DATA, send_id_str)
+                        .set(SenderMailMessageModel::SEND_TIME, ntime)
+                        .set(SenderMailMessageModel::SETTING_ID, setting_id_val)
+                        .execute(&self.db, |qb| {
+                            qb.push_where().field_eq("id", res_id);
+                        })
                         .await
+                        .map(|_| sqlx::mysql::MySqlQueryResult::default())
                 }
                 SenderTaskStatus::Failed(retry) => {
                     self.wait_notify
@@ -377,9 +375,7 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
                         let res_id = res_item.id;
                         let is_cancel = cancel_data.contains(&res_item.id);
                         Update::<_, SenderMailMessageModel>::new()
-                            .set(SenderMailMessageModel::TRY_NUM, FieldValue::Dynamic(Box::new(|qb| {
-                                qb.push("try_num+1");
-                            })))
+                            .set(SenderMailMessageModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))
                             .set(SenderMailMessageModel::STATUS, FieldValue::Dynamic(Box::new(move |qb| {
                                 qb.push("if(");
                                 qb.field_gte("try_num", max_try_num);
@@ -458,9 +454,7 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
 
                 let max_try_num = item.mail.max_try_num;
                 if let Err(err) = Update::<_, SenderMailMessageModel>::new()
-                    .set(SenderMailMessageModel::TRY_NUM, FieldValue::Dynamic(Box::new(|qb| {
-                        qb.push("try_num+1");
-                    })))
+                    .set(SenderMailMessageModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))
                     .set(SenderMailMessageModel::STATUS, FieldValue::Dynamic(Box::new(move |qb| {
                         qb.push("if(");
                         qb.field_gte("try_num", max_try_num);

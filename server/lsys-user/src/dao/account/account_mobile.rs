@@ -14,7 +14,7 @@ use lsys_core::valid_code::{CheckCodeData, ValidCode, ValidCodeData, ValidCodeDa
 use lsys_core::valid_param::{ValidMobile, ValidParam, ValidParamCheck};
 use lsys_core::{fluent_message, valid_key};
 
-use lsys_core::db::{Insert, TableMeta, QueryBuilderExt, Update};
+use lsys_core::db::{FieldValue, Insert, QueryBuilderExt, TableMeta, Update};
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{Acquire, MySql, Pool, Transaction};
 
@@ -160,16 +160,13 @@ impl AccountMobile {
                 return Err(e.into());
             }
             Ok(mr) => {
-                let res = sqlx::query(
-                    format!(
-                        "UPDATE {} SET mobile_count=mobile_count+1 WHERE id=?",
-                        AccountModel::table_name(),
-                    )
-                    .as_str(),
-                )
-                .bind(account.id)
-                .execute(&mut *db)
-                .await;
+                use lsys_core::db::Update;
+                let res = Update::<_, AccountModel>::new()
+                    .set(AccountModel::MOBILE_COUNT, FieldValue::Expr("mobile_count+1".into()))
+                    .execute(&mut *db, |qb| {
+                        qb.push_where().field_eq("id", account.id);
+                    })
+                    .await;
                 match res {
                     Err(e) => {
                         db.rollback().await?;
@@ -415,12 +412,14 @@ impl AccountMobile {
                 Err(e)?
             }
             Ok(mr) => {
-                let res= sqlx::query(format!(
-                        "UPDATE {} SET mobile_count=mobile_count-1 WHERE id=? and mobile_count-1>=0",
-                        AccountModel::table_name(),
-                    ).as_str())
-                    .bind(account_mobile.account_id)
-                    .execute(&mut *db).await;
+                use lsys_core::db::Update;
+                let res= Update::<_, AccountModel>::new()
+                    .set(AccountModel::MOBILE_COUNT, FieldValue::Expr("mobile_count-1".into()))
+                    .execute(&mut *db, |qb| {
+                        qb.push_where().field_eq("id", account_mobile.account_id);
+                        qb.push_and().field_gte("mobile_count", 1_i32);
+                    })
+                    .await;
                 match res {
                     Err(e) => {
                         db.rollback().await?;

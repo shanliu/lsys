@@ -187,16 +187,13 @@ impl AccountName {
                             db.rollback().await?;
                             return Err(ie.into());
                         }
-                        let tmp = sqlx::query(
-                            format!(
-                                "UPDATE {} SET use_name=1 WHERE id=?",
-                                AccountModel::table_name(),
-                            )
-                            .as_str(),
-                        )
-                        .bind(account.id)
-                        .execute(&mut *db)
-                        .await;
+                        use lsys_core::db::Update;
+                        let tmp = Update::<_, AccountModel>::new()
+                            .set(AccountModel::USE_NAME, 1_i8)
+                            .execute(&mut *db, |qb| {
+                                qb.push_where().field_eq("id", account.id);
+                            })
+                            .await;
                         if let Err(ie) = tmp {
                             db.rollback().await?;
                             return Err(ie.into());
