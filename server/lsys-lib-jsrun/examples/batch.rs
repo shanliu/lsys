@@ -13,8 +13,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ..Default::default()
     })?;
 
-    // ── 2. Create the task runner ───────────────────────────
-    let runner = JsTaskRunner::new(engine, RuntimeConfig::default());
+    // ── 2. Create the task runner ─────────────────────────────────
+    let runner = std::sync::Arc::new(JsTaskRunner::new(engine, RuntimeConfig::default()));
+    tokio::spawn({ let r = runner.clone(); async move { r.run().await; } });
+    tokio::spawn({ let r = runner.clone(); async move { r.run_engine_cleanup().await; } });
 
     // ── 3. Submit tasks with per-task callbacks ──────────────
     println!("Submitting 6 tasks (engine max_runtimes=4, so 2 will queue)...\n");
@@ -39,7 +41,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     result.task_id, result.elapsed, result.outcome
                 );
             }),
-        );
+        ).await;
         println!("  📤 Submitted task #{}", h.task_id);
         handles.push(h);
     }
@@ -61,7 +63,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             i = i
         );
         // These tasks have no callback – just await the handle
-        let h = runner.submit_simple(code, None);
+        let h = runner.submit_simple(code, None).await;
         println!("  📤 Submitted dynamic task #{}", h.task_id);
         handles.push(h);
     }

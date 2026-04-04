@@ -5,12 +5,8 @@ use crate::model::AppNotifyDataModel;
 use crate::model::AppSecretModel;
 use crate::model::AppSecretStatus;
 use crate::model::AppSecretType;
-use lsys_core::db::TableMeta;
-use lsys_core::db::SqlQuote;
-use lsys_core::db::SqlSuffix;
-use lsys_core::db::Update;
+use lsys_core::db::{QueryBuilderExt, TableMeta, Update};
 use lsys_core::fluents::IntoFluentMessage;
-use lsys_core::{sql_format};
 use lsys_core::timeout_task::{TimeOutTaskExec, TimeOutTaskExecutor, TimeOutTaskNextTime};
 use lsys_core::utils::now_time;
 use serde_json::json;
@@ -91,7 +87,7 @@ impl TimeOutTaskExec for SubAppChangeNotify {
         let mut runtime = ntime;
         let mut start_id = 0;
         loop {
-            let add_res = sqlx::query_as::<_, AppModel>(&sql_format!(
+            let add_res = sqlx::query_as::<_, AppModel>(&format!(
                 "
                 select * from {} as p join (
                     select
@@ -103,47 +99,48 @@ impl TimeOutTaskExec for SubAppChangeNotify {
                         on
                                 se.app_id= da.app_id
                         where
-                                se.status   ={}
-                        and  se.time_out >0 and se.time_out <={}
-                        and     se.app_id   >{}
+                                se.status   = ?
+                        and  se.time_out >0 and se.time_out <= ?
+                        and     se.app_id   > ?
                         and (se.time_out <da.create_time or da.create_time is null)
                         group by
                                 se.app_id
                         order by
                                 se.app_id asc
-                        limit 100 
+                        limit 100
                 ) as t on p.id=t.app_id order by id asc limit 100
                 ",
                 AppModel::table_name(),
                 AppSecretModel::table_name(),
-                AppNotifyDataModel::table_name(),
-                AppSecretStatus::Enable as i8,
-                ntime,
-                start_id
+                AppNotifyDataModel::table_name()
             ))
+            .bind(AppSecretStatus::Enable as i8)
+            .bind(ntime)
+            .bind(start_id)
             .fetch_all(&self.db)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| e.to_string())?; 
             if add_res.is_empty() {
                 break;
             }
             for app_item in add_res {
                 start_id = app_item.id;
                 self.add_app_secret_change_notify(&app_item).await;
-                let status = AppSecretStatus::Delete.to();
-                Update::<_,AppSecretModel>::new()
+                let status = AppSecretStatus::Delete as i8;
+                Update::<_, AppSecretModel>::new()
                     .set(AppSecretModel::STATUS, status)
                     .set(AppSecretModel::CHANGE_USER_ID, 0u64)
                     .set(AppSecretModel::CHANGE_TIME, ntime)
-                    .execute(
-                        SqlSuffix::Where(&sql_format!(
-                            "app_id={} and status={} and time_out>0 and time_out<={} ",
-                            start_id,
-                            AppSecretStatus::Enable as i8,
-                            ntime
-                        )),
-                        &self.db,
-                    )
+                    .execute(&self.db, |qb| {
+                        qb.push_where()
+                            .field_eq("app_id", start_id)
+                            .push_and()
+                            .field_eq("status", AppSecretStatus::Enable as i8)
+                            .push_and()
+                            .push("time_out>0")
+                            .push_and()
+                            .field_lte("time_out", ntime);
+                    })
                     .await
                     .map_err(|e| e.to_string())?;
             }
@@ -167,7 +164,7 @@ impl TimeOutTaskExec for SubAppChangeNotify {
 impl TimeOutTaskNextTime for SubAppChangeNotify {
     async fn next_time(&self, max_lock_time: usize) -> Result<Option<u64>, String> {
         let ntime = now_time().unwrap_or_default();
-        let timeout_res = sqlx::query_scalar::<_, u64>(&sql_format!(
+        let timeout_res = sqlx::query_scalar::<_, u64>(&format!(
             r#"
                 select
                     se.time_out
@@ -178,20 +175,20 @@ impl TimeOutTaskNextTime for SubAppChangeNotify {
                 on
                         se.app_id= da.app_id
                 where
-                        se.status   ={}
-                and  se.time_out >0 and se.time_out <={}
+                        se.status   = ?
+                and  se.time_out >0 and se.time_out <= ?
                 and (se.time_out <da.create_time or da.create_time is null)
                 order by
                         se.time_out asc
                 limit 1
             "#,
             AppSecretModel::table_name(),
-            AppNotifyDataModel::table_name(),
-            AppSecretStatus::Enable as i8,
-            (ntime + max_lock_time as u64)
+            AppNotifyDataModel::table_name()
         ))
+        .bind(AppSecretStatus::Enable as i8)
+        .bind(ntime + max_lock_time as u64)
         .fetch_one(&self.db)
-        .await;
+        .await; 
         match timeout_res {
             Ok(dat) => Ok(Some(dat)),
             Err(sqlx::Error::RowNotFound) => Ok(None),

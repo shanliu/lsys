@@ -4,12 +4,9 @@ use crate::dao::{SenderError, SenderResult};
 use crate::model::{SenderConfigModel, SenderConfigStatus, SenderType};
 use lsys_core::utils::{now_time, RequestEnv};
 
-use lsys_core::db::{Insert, TableMeta, SqlSuffix, Update};
-use lsys_core::sql_format;
+use lsys_core::db::{Insert, QueryBuilderExt, TableMeta, Update};
 use lsys_logger::dao::ChangeLoggerDao;
-use sqlx::Pool;
-
-use lsys_core::db::SqlQuote;
+use sqlx::{MySql, Pool};
 
 use super::logger::LogSenderConfig;
 
@@ -31,14 +28,15 @@ impl SenderConfig {
         }
     }
     pub async fn find_by_id(&self, id: u64) -> SenderResult<SenderConfigModel> {
-        let data = sqlx::query_as::<_, SenderConfigModel>(&sql_format!(
-            "select * from {} where sender_type={} and id={} ",
+        let mut qb = sqlx::QueryBuilder::<MySql>::new(format!(
+            "select * from {}",
             SenderConfigModel::table_name(),
-            self.send_type,
-            id
-        ))
-        .fetch_one(&self.db)
-        .await?;
+        ));
+        qb.push_where().field_eq("sender_type", self.send_type as i8);
+        qb.push_and().field_eq("id", id);
+        let data = qb.build_query_as::<SenderConfigModel>()
+            .fetch_one(&self.db)
+            .await?;
 
         Ok(data)
     }
@@ -105,10 +103,9 @@ impl SenderConfig {
             .set(SenderConfigModel::STATUS, SenderConfigStatus::Delete as i8)
             .set(SenderConfigModel::CHANGE_TIME, time)
             .set(SenderConfigModel::CHANGE_USER_ID, user_id)
-            .execute(
-                SqlSuffix::Where(&sql_format!("id={}", config.id)),
-                &self.db,
-            )
+            .execute(&self.db, |qb| {
+                qb.push_where().field_eq("id", config.id);
+            })
             .await;
         match res {
             Err(e) => Err(SenderError::Sqlx(e))?,
@@ -143,27 +140,26 @@ impl SenderConfig {
         app_id: Option<u64>,
     ) -> SenderResult<Vec<SenderConfigModel>> {
         let sender_type = self.send_type as i8;
-        let mut sqlwhere = vec![sql_format!(
-            "sender_type={} and status ={}",
-            sender_type,
-            SenderConfigStatus::Enable
-        )];
+        let mut qb = sqlx::QueryBuilder::<MySql>::new(format!(
+            "select * from {}",
+            SenderConfigModel::table_name(),
+        ));
+        qb.push_where().field_eq("sender_type", sender_type);
+        qb.push_and().field_eq("status", SenderConfigStatus::Enable as i8);
         if let Some(aid) = app_id {
-            sqlwhere.push(sql_format!("app_id = {}  ", aid));
+            qb.push_and().field_eq("app_id", aid);
         }
         if let Some(uid) = id {
-            sqlwhere.push(sql_format!("id={} ", uid));
+            qb.push_and().field_eq("id", uid);
         }
         if let Some(uid) = user_id {
-            sqlwhere.push(sql_format!("user_id={} ", uid));
+            qb.push_and().field_eq("user_id", uid);
         }
-
-        Ok(sqlx::query_as::<_, SenderConfigModel>(&format!(
-            "select * from {} where {} order by id desc",
-            SenderConfigModel::table_name(),
-            sqlwhere.join(" and ")
-        ))
-        .fetch_all(&self.db)
-        .await?)
+        qb.push(" order by id desc");
+        Ok(qb.build_query_as::<SenderConfigModel>()
+            .fetch_all(&self.db)
+            .await?)
     }
 }
+
+

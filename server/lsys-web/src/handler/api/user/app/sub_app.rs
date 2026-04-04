@@ -12,6 +12,7 @@ use lsys_app::dao::{
 use lsys_app::model::AppStatus;
 use lsys_core::db::OffsetPageParam;
 use lsys_core::fluent_message;
+use lsys_core::api_utils::JsonPageData;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
@@ -315,13 +316,12 @@ pub async fn sub_app_list(
         None
     };
 
-    Ok(JsonResponse::data(JsonData::body(json!({
-        "data": bind_vec_user_info_from_req!(
+    Ok(JsonResponse::data(JsonData::body(
+        JsonPageData::total(json!(bind_vec_user_info_from_req!(
             req_dao,
             out,
             user_id,
             false
-        ),
-        "total":count
-    }))))
+        )), count),
+    )))
 }

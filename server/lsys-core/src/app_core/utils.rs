@@ -1,9 +1,9 @@
 #[cfg(feature = "redis")]
 use deadpool_redis::{Config as RedisConfig, Runtime};
 
-#[cfg(feature = "db")]
+#[cfg(feature = "db-mysql")]
 use sqlx::pool::PoolOptions;
-#[cfg(feature = "db")]
+#[cfg(feature = "db-mysql")]
 use sqlx::{ConnectOptions, Pool};
 
 use std::str::FromStr;

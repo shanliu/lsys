@@ -28,7 +28,6 @@ pub async fn public_show(
     let code = match state
         .barcode
         .cache()
-        .dao
         .find_by_create_config_id(&code_id)
         .await
     {

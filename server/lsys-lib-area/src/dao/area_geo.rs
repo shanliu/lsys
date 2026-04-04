@@ -74,13 +74,11 @@ impl<AP: AreaGeoProvider> AreaGeo<AP> {
                 let mut cs = Vec::with_capacity(ps.len());
                 for pt in ps {
                     let mut iter = pt.split_whitespace();
-                    if let (Some(x), Some(y)) = (iter.next(), iter.next()) {
-                        if let Ok(x) = x.parse::<f64>() {
-                            if let Ok(y) = y.parse::<f64>() {
+                    if let (Some(x), Some(y)) = (iter.next(), iter.next())
+                        && let Ok(x) = x.parse::<f64>()
+                            && let Ok(y) = y.parse::<f64>() {
                                 cs.push(coord! { x:x, y:y});
                             }
-                        }
-                    }
                 }
                 if cs.is_empty() {
                     continue;
@@ -149,11 +147,10 @@ impl<AP: AreaGeoProvider> AreaGeo<AP> {
         dit_data.sort_by_key(|&(_, _, dit)| dit);
         dit_data.truncate(20);
         for (i, code, _) in dit_data {
-            if let Some(ply_data) = self.geo_data.get_polygon_data(&i) {
-                if ply_data.detail.coordinate_position(coord) == CoordPos::Inside {
+            if let Some(ply_data) = self.geo_data.get_polygon_data(&i)
+                && ply_data.detail.coordinate_position(coord) == CoordPos::Inside {
                     return Ok(code);
                 }
-            }
         }
         Err(AreaError::NotFind(format!(
             "not any area :{},{}",

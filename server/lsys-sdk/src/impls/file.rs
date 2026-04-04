@@ -2,6 +2,7 @@
 //!
 //! 提供文件上传、秒传、从 URL/本地导入、列表、删除、URL 获取、详情等方法。
 
+use lsys_core::api_utils::{PageCursorValue, PageTotalRowValue};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -124,7 +125,7 @@ pub(crate) struct FileInfoParam {
 #[derive(Debug, Clone, Deserialize)]
 pub struct FileUploadCreateResponse {
     #[serde(deserialize_with = "crate::utils::deserialize_u64_from_string")]
-    pub file_user_id: u64,
+    pub id: u64,
     #[serde(deserialize_with = "crate::utils::deserialize_u64_from_string")]
     pub file_id: u64,
     pub file_name: String,
@@ -148,14 +149,14 @@ pub struct FileUploadByMd5Response {
         default,
         deserialize_with = "crate::utils::deserialize_option_u64_from_string"
     )]
-    pub file_user_id: Option<u64>,
+    pub id: Option<u64>,
 }
 
 /// 从 URL 创建文件响应
 #[derive(Debug, Clone, Deserialize)]
 pub struct FileFromUrlResponse {
     #[serde(deserialize_with = "crate::utils::deserialize_u64_from_string")]
-    pub file_user_id: u64,
+    pub id: u64,
 }
 
 /// 从本地文件导入响应
@@ -186,7 +187,7 @@ pub struct FileListItem {
     #[serde(deserialize_with = "crate::utils::deserialize_u64_from_string")]
     pub id: u64,
     #[serde(deserialize_with = "crate::utils::deserialize_u64_from_string")]
-    pub file_user_id: u64,
+    pub file_id: u64,
     pub file_name: String,
     pub file_md5: String,
     #[serde(deserialize_with = "crate::utils::deserialize_u64_from_string")]
@@ -209,25 +210,62 @@ pub struct FileListItem {
     pub tags: Option<Vec<FileTagItem>>,
 }
 
+/// 游标分页响应
+#[derive(Debug, Clone, Deserialize)]
+pub struct CursorResp {
+    #[serde(
+        default,
+        deserialize_with = "crate::utils::deserialize_option_u64_from_string"
+    )]
+    pub next: Option<u64>,
+    #[serde(
+        default,
+        deserialize_with = "crate::utils::deserialize_option_u64_from_string"
+    )]
+    pub prev: Option<u64>,
+}
+
+/// 总数响应（精确或近似）
+#[derive(Debug, Clone, Deserialize)]
+pub struct TotalResp {
+    #[serde(
+        default,
+        deserialize_with = "crate::utils::deserialize_option_u64_from_string"
+    )]
+    pub exact: Option<u64>,
+    #[serde(
+        default,
+        deserialize_with = "crate::utils::deserialize_option_u64_from_string"
+    )]
+    pub over: Option<u64>,
+}
+
+impl From<CursorResp> for PageCursorValue {
+    fn from(value: CursorResp) -> Self {
+        Self {
+            next: value.next,
+            prev: value.prev,
+        }
+    }
+}
+
+impl From<TotalResp> for PageTotalRowValue {
+    fn from(value: TotalResp) -> Self {
+        Self {
+            exact: value.exact,
+            over: value.over,
+        }
+    }
+}
+
 /// 文件列表响应
 #[derive(Debug, Clone, Deserialize)]
 pub struct FileListResponse {
     pub data: Vec<FileListItem>,
-    #[serde(
-        default,
-        deserialize_with = "crate::utils::deserialize_option_u64_from_string"
-    )]
-    pub next_cursor: Option<u64>,
-    #[serde(
-        default,
-        deserialize_with = "crate::utils::deserialize_option_u64_from_string"
-    )]
-    pub prev_cursor: Option<u64>,
-    #[serde(
-        default,
-        deserialize_with = "crate::utils::deserialize_option_i64_from_string"
-    )]
-    pub total: Option<i64>,
+    #[serde(default)]
+    pub cursor: Option<CursorResp>,
+    #[serde(default)]
+    pub total: Option<TotalResp>,
 }
 
 /// 文件 URL 映射响应
@@ -240,7 +278,7 @@ pub struct FileUrlsResponse {
 #[derive(Debug, Clone, Deserialize, serde::Serialize)]
 pub struct FileInfoItem {
     #[serde(deserialize_with = "crate::utils::deserialize_u64_from_string")]
-    pub file_user_id: u64,
+    pub id: u64,
     #[serde(deserialize_with = "crate::utils::deserialize_u64_from_string")]
     pub file_id: u64,
     pub file_name: String,

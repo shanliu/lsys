@@ -10,9 +10,8 @@ use std::vec;
 
 use lsys_core::utils::{now_time, RequestEnv};
 
-use lsys_core::db::{BatchInsert, Insert, SqlQuote, SqlSuffix, TableMeta, Update};
-use lsys_core::sql_format;
-use sqlx::{Acquire, Transaction};
+use lsys_core::db::{BatchInsert, Insert, QueryBuilderExt, TableMeta, Update};
+use sqlx::{Acquire, MySql, QueryBuilder, Transaction};
 
 use super::logger::LogResTypeOp;
 use super::RbacRes;
@@ -52,14 +51,15 @@ impl RbacRes {
             StringClear::Option(STRING_CLEAR_FORMAT),
             Some(33),
         );
-        let op_res = sqlx::query_as::<_, (u64, u64)>(&sql_format!(
-            "select id,op_id from {} where res_type={} and user_id={} and app_id={} and op_id in ({})",
+        let mut qb: QueryBuilder<'_, MySql> = QueryBuilder::new(format!(
+            "select id,op_id from {}",
             RbacOpResModel::table_name(),
-            res_type,
-            res_type_data.user_id,
-            res_type_data.app_id,
-            op_vec.iter().map(|e| e.id).collect::<Vec<_>>()
-        ))
+        ));
+        qb.push_where().field_eq("res_type", res_type);
+        qb.push_and().field_eq("user_id", res_type_data.user_id);
+        qb.push_and().field_eq("app_id", res_type_data.app_id);
+        qb.field_in("op_id", op_vec.iter().map(|e| e.id));
+        let op_res = qb.build_query_as::<(u64, u64)>()
         .fetch_all(&self.db)
         .await?;
 
@@ -78,7 +78,9 @@ impl RbacRes {
                         .set(RbacOpResModel::CHANGE_TIME, nowtime)
                         .set(RbacOpResModel::CHANGE_USER_ID, add_user_id)
                         .set(RbacOpResModel::STATUS, RbacOpResStatus::Enable as i8)
-                        .execute(SqlSuffix::Where(&sql_format!("id={}", *itemid)), &mut *db)
+                        .execute(&mut *db, |qb| {
+                            qb.push_where().field_eq("id", *itemid);
+                        })
                         .await
                     {
                         db.rollback().await?;
@@ -100,12 +102,11 @@ impl RbacRes {
                 );
             }
         }
-        if !batch.is_empty() {
-            if let Err(err) = batch.execute(&mut *db).await {
+        if !batch.is_empty()
+            && let Err(err) = batch.execute(&mut *db).await {
                 db.rollback().await?;
                 return Err(err.into());
             }
-        }
         db.commit().await?;
         self.logger
             .add(
@@ -147,16 +148,16 @@ impl RbacRes {
                 StringClear::Option(STRING_CLEAR_FORMAT),
                 Some(33),
             );
-            let sql = sql_format!(
-                "select * from {} where res_type={} and user_id={} and app_id={} and status ={} and id>{} order by id asc limit 100",
+            let sql = format!(
+                "select * from {} where res_type=? and user_id=? and app_id=? and status =? and id>? order by id asc limit 100",
                 RbacResModel::table_name(),
-                res_type,
-                res_type_data.user_id,
-                res_type_data.app_id,
-                RbacResStatus::Enable as i8,
-                res_start_id
             );
             let res_tmp = sqlx::query_as::<_, RbacResModel>(sql.as_str())
+                .bind(&res_type)
+                .bind(res_type_data.user_id)
+                .bind(res_type_data.app_id)
+                .bind(RbacResStatus::Enable as i8)
+                .bind(res_start_id)
                 .fetch_all(&self.db)
                 .await;
 
@@ -193,16 +194,12 @@ impl RbacRes {
             .set(RbacOpResModel::CHANGE_USER_ID, del_user_id)
             .set(RbacOpResModel::CHANGE_TIME, time)
             .set(RbacOpResModel::STATUS, RbacOpResStatus::Delete as i8)
-            .execute(
-                SqlSuffix::Where(&sql_format!(
-                    "res_type={} and user_id={} and app_id={} and op_id in ({})",
-                    res_type,
-                    res_type_data.user_id,
-                    res_type_data.app_id,
-                    op_id_vec
-                )),
-                &mut *db,
-            )
+            .execute(&mut *db, |qb| {
+                qb.push_where().field_eq("res_type", res_type.to_owned());
+                qb.push_and().field_eq("user_id", res_type_data.user_id);
+                qb.push_and().field_eq("app_id", res_type_data.app_id);
+                qb.field_in_copied("op_id", op_id_vec);
+            })
             .await;
         if let Err(e) = tmp {
             db.rollback().await?;
@@ -225,17 +222,17 @@ impl RbacRes {
         };
         let mut start_id = 0;
         loop {
-            let res_data = match sqlx::query(&sql_format!(
+            let res_data = match sqlx::query(&format!(
                 "select op_res.op_id as op_id,res.*,op_res.id as op_res_id from {} as res 
                     join {} as op_res on res.res_type=op_res.res_type and res.user_id=op_res.user_id
-                    where op_res.op_id={} and res.status={} and op_res.status={} and op_res.id>{} order by op_res.id asc limit 100",
+                    where op_res.op_id=? and res.status=? and op_res.status=? and op_res.id>? order by op_res.id asc limit 100",
                 RbacResModel::table_name(),
                 RbacOpResModel::table_name(),
-                op.id,
-                RbacResStatus::Enable,
-                RbacOpResStatus::Enable,
-                start_id,
             ))
+            .bind(op.id)
+            .bind(RbacResStatus::Enable as i8)
+            .bind(RbacOpResStatus::Enable as i8)
+            .bind(start_id)
             .try_map(
                 |row: sqlx::mysql::MySqlRow| match RbacResModel::from_row(&row) {
                     Ok(res) => {
@@ -304,16 +301,12 @@ impl RbacRes {
                     .set(RbacOpResModel::CHANGE_USER_ID, delete_user_id)
                     .set(RbacOpResModel::CHANGE_TIME, time)
                     .set(RbacOpResModel::STATUS, RbacOpResStatus::Delete as i8)
-                    .execute(
-                        SqlSuffix::Where(&sql_format!(
-                            "res_type={} and user_id={} and app_id={} and op_id in ({})",
-                            tmp_res_type,
-                            tmp_user_id,
-                            tmp_app_id,
-                            op_id_vec
-                        )),
-                        &mut *db,
-                    )
+                    .execute(&mut *db, |qb| {
+                        qb.push_where().field_eq("res_type", tmp_res_type.to_owned());
+                        qb.push_and().field_eq("user_id", tmp_user_id);
+                        qb.push_and().field_eq("app_id", tmp_app_id);
+                        qb.field_in_copied("op_id", &op_id_vec);
+                    })
                     .await;
                 if let Err(e) = tmp {
                     db.rollback().await?;

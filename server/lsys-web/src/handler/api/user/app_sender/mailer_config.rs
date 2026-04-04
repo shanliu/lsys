@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::common::{JsonData, ToOffsetPageParam};
+use crate::common::{JsonData, JsonPageData, ToOffsetPageParam};
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
@@ -285,7 +285,7 @@ pub async fn mailer_tpl_config_list(
         None
     };
     Ok(JsonResponse::data(JsonData::body(
-        json!({ "data": row ,"total":total}),
+        JsonPageData::total(row, total),
     )))
 }
 #[derive(Debug, Deserialize)]

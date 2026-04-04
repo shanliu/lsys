@@ -1,6 +1,6 @@
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
-    db::utils::fetch_string_field_max,
+    db::utils::FetchField,
     valid_key,
 };
 use lsys_core::remote_notify::RemoteNotify;
@@ -9,8 +9,7 @@ use lsys_core::valid_param::{
     ValidMobile, ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
 };
 
-use lsys_core::db::{Insert, TableMeta, SqlQuote, Update, SqlSuffix};
-use lsys_core::sql_format;
+use lsys_core::db::{Insert, TableMeta, QueryBuilderExt, Update};
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{Acquire, MySql, Pool, Transaction};
 use std::{collections::HashMap, sync::Arc};
@@ -66,19 +65,20 @@ impl AccountAddress {
         statis: Option<i8>,
         address_data: &AccountAddressParam<'_>,
     ) -> AccountResult<()> {
-        let name_max = fetch_string_field_max::<AccountAddressModel>(&self.db, &AccountAddressModel::NAME)
+        let fetch_field = FetchField::new(&self.db);
+        let name_max = fetch_field.string_max::<AccountAddressModel>(&AccountAddressModel::NAME)
             .await
             .len_or(16);
-        let country_code_max = fetch_string_field_max::<AccountAddressModel>(&self.db, &AccountAddressModel::COUNTRY_CODE)
+        let country_code_max = fetch_field.string_max::<AccountAddressModel>(&AccountAddressModel::COUNTRY_CODE)
             .await
             .len_or(21);
-        let address_code_max = fetch_string_field_max::<AccountAddressModel>(&self.db, &AccountAddressModel::ADDRESS_CODE)
+        let address_code_max = fetch_field.string_max::<AccountAddressModel>(&AccountAddressModel::ADDRESS_CODE)
             .await
             .len_or(21);
-        let address_info_max = fetch_string_field_max::<AccountAddressModel>(&self.db, &AccountAddressModel::ADDRESS_INFO)
+        let address_info_max = fetch_field.string_max::<AccountAddressModel>(&AccountAddressModel::ADDRESS_INFO)
             .await
             .len_or(64);
-        let address_detail_max = fetch_string_field_max::<AccountAddressModel>(&self.db, &AccountAddressModel::ADDRESS_DETAIL)
+        let address_detail_max = fetch_field.string_max::<AccountAddressModel>(&AccountAddressModel::ADDRESS_DETAIL)
             .await
             .len_or(128);
 
@@ -169,10 +169,9 @@ impl AccountAddress {
             .set(AccountAddressModel::NAME, name)
             .set(AccountAddressModel::MOBILE, mobile)
             .set(AccountAddressModel::ACCOUNT_ID, address.account_id)
-            .execute(
-                SqlSuffix::Where(&sql_format!("id={}", address.id)),
-                &mut *db,
-            )
+            .execute(&mut *db, |qb| {
+                qb.push_where().field_eq("id", address.id);
+            })
             .await;
         match tmp {
             Err(e) => {
@@ -250,17 +249,17 @@ impl AccountAddress {
         let address_detail = address_param.address_detail.to_owned();
         let name = address_param.name.to_owned();
         let mobile = address_param.mobile.to_owned();
-        let address_res = sqlx::query_as::<_, AccountAddressModel>(&sql_format!(
-            "select * from {} where  account_id={} and address_code={} and address_info={} and address_detail={} and name={} and mobile={} and status={}",
+        let address_res = sqlx::query_as::<_, AccountAddressModel>(&format!(
+            "select * from {} where  account_id=? and address_code=? and address_info=? and address_detail=? and name=? and mobile=? and status=?",
             AccountAddressModel::table_name(),
-            account.id,
-            address_code,
-            address_info,
-            address_detail,
-            name,
-            mobile,
-            AccountAddressStatus::Enable
         ))
+        .bind(account.id)
+        .bind(&address_code)
+        .bind(&address_info)
+        .bind(&address_detail)
+        .bind(&name)
+        .bind(&mobile)
+        .bind(AccountAddressStatus::Enable as i8)
         .fetch_one(&self.db)
         .await;
 
@@ -292,7 +291,7 @@ impl AccountAddress {
             }
             Ok(mr) => {
                 let res = sqlx::query(
-                    sql_format!(
+                    format!(
                         "UPDATE {} SET address_count=address_count+1 WHERE id=?",
                         AccountModel::table_name(),
                     )
@@ -366,10 +365,9 @@ impl AccountAddress {
         let res = Update::<_,AccountAddressModel>::new()
             .set(AccountAddressModel::STATUS, AccountAddressStatus::Delete as i8)
             .set(AccountAddressModel::CHANGE_TIME, time)
-            .execute(
-                SqlSuffix::Where(&sql_format!("id={}", address.id)),
-                &mut *db,
-            )
+            .execute(&mut *db, |qb| {
+                qb.push_where().field_eq("id", address.id);
+            })
             .await;
         match res {
             Err(e) => {
@@ -378,7 +376,7 @@ impl AccountAddress {
             }
             Ok(mr) => {
                 let res = sqlx::query(
-                    sql_format!(
+                    format!(
                     "UPDATE {} SET address_count=address_count-1 WHERE id=? and address_count-1>=0",
                     AccountModel::table_name(),
                 )
@@ -435,21 +433,30 @@ impl AccountAddress {
         }
     }
     pub async fn find_by_id(&self, id: &u64) -> AccountResult<AccountAddressModel> {
-        Ok(lsys_core::db::utils::fetch_one::<AccountAddressModel>(
+        use lsys_core::db::utils::Fetch;
+        Ok(Fetch::<MySql, AccountAddressModel>::one(
             &self.db,
-            lsys_core::sql_format!("id={id}", id = id),
+            |qb| { qb.field_eq("id", *id); },
         ).await?)
     }
     pub async fn find_by_account_id_vec(&self, id: &u64) -> AccountResult<Vec<AccountAddressModel>> {
-        Ok(lsys_core::db::utils::fetch_vec::<AccountAddressModel>(
+        use lsys_core::db::utils::Fetch;
+        Ok(Fetch::<MySql, AccountAddressModel>::vec(
             &self.db,
-            lsys_core::sql_format!("account_id = {uid} and status = {status}", uid = id, status = AccountAddressStatus::Enable),
+            |qb| {
+                qb.field_eq("account_id", *id);
+                qb.push_and().field_eq("status", AccountAddressStatus::Enable as i8);
+            },
         ).await?)
     }
     pub async fn find_by_account_ids_vec(&self, ids: &[u64]) -> AccountResult<HashMap<u64, Vec<AccountAddressModel>>> {
-        Ok(lsys_core::db::utils::fetch_group::<AccountAddressModel, _, _>(
+        use lsys_core::db::utils::Fetch;
+        Ok(Fetch::<MySql, AccountAddressModel>::group(
             &self.db,
-            lsys_core::sql_format!("account_id in ({uid}) and status = {status}", uid = ids, status = AccountAddressStatus::Enable),
+            |qb| {
+                qb.field_in_copied("account_id", ids);
+                qb.push_and().field_eq("status", AccountAddressStatus::Enable as i8);
+            },
             |v| v.account_id,
         ).await?)
     }
@@ -461,18 +468,18 @@ pub struct AccountAddressCache<'t> {
     pub dao: &'t AccountAddress,
 }
 impl AccountAddressCache<'_> {
-    lsys_core::impl_cache_fetch_one!(
-        find_by_account_id_vec,
-        dao,
-        cache,
-        u64,
-        AccountResult<Vec<AccountAddressModel>>
-    );
-    lsys_core::impl_cache_fetch_vec!(
-        find_by_account_ids_vec,
-        dao,
-        cache,
-        u64,
-        AccountResult<HashMap<u64, Vec<AccountAddressModel>>>
-    );
+    pub async fn find_by_account_id_vec(&self, id: &u64) -> AccountResult<Vec<AccountAddressModel>> {
+        self.dao
+            .cache
+            .get_or_fetch(id, || self.dao.find_by_account_id_vec(id))
+            .await
+    }
+    pub async fn find_by_account_ids_vec(&self, ids: &[u64]) -> AccountResult<HashMap<u64, Vec<AccountAddressModel>>> {
+        self.dao
+            .cache
+            .get_or_fetch_many(ids, |missing| async move {
+                self.dao.find_by_account_ids_vec(&missing).await
+            })
+            .await
+    }
 }

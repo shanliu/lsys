@@ -7,6 +7,7 @@ use lsys_access::dao::AccessSession;
 use lsys_rbac::dao::{OpDataAttrParam, OpDataParam as DaoOpDataParam, RbacOpAddData, RbacOpData};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use lsys_core::api_utils::JsonPageData;
 
 #[derive(Debug, Deserialize)]
 pub struct OpAddParam {
@@ -234,6 +235,6 @@ pub async fn op_data(param: &OpDataParam, req_dao: &UserAuthQueryDao) -> JsonRes
         None
     };
     Ok(JsonResponse::data(JsonData::body(
-        json!({ "data":res,"total":count}),
+        JsonPageData::total(res, count),
     )))
 }

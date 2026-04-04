@@ -14,8 +14,7 @@ use lsys_core::valid_code::{CheckCodeData, ValidCode, ValidCodeData, ValidCodeDa
 use lsys_core::valid_param::{ValidMobile, ValidParam, ValidParamCheck};
 use lsys_core::{fluent_message, valid_key};
 
-use lsys_core::db::{Insert, TableMeta, SqlQuote, Update, SqlSuffix};
-use lsys_core::sql_format;
+use lsys_core::db::{Insert, TableMeta, QueryBuilderExt, Update};
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{Acquire, MySql, Pool, Transaction};
 
@@ -68,16 +67,14 @@ impl AccountMobile {
         if mobile.is_empty() {
             return Err(sqlx::Error::RowNotFound.into());
         }
-        let res = sqlx::query_as::<_, AccountMobileModel>(&sql_format!(
-            "select * from {} where mobile={} and area_code={}  and status in ({}) order by id desc",
+        let res = sqlx::query_as::<_, AccountMobileModel>(&format!(
+            "select * from {} where mobile=? and area_code=?  and status in (?,?) order by id desc",
             AccountMobileModel::table_name(),
-            mobile,
-            area_code,
-            &[
-                AccountMobileStatus::Init as i8,
-                AccountMobileStatus::Valid as i8,
-            ]
         ))
+        .bind(&mobile)
+        .bind(&area_code)
+        .bind(AccountMobileStatus::Init as i8)
+        .bind(AccountMobileStatus::Valid as i8)
         .fetch_one(&self.db)
         .await?;
 
@@ -110,16 +107,14 @@ impl AccountMobile {
         if status == AccountMobileStatus::Delete {
             status = AccountMobileStatus::Init;
         }
-        let mobile_res = sqlx::query_as::<_, AccountMobileModel>(&sql_format!(
-            "select * from {} where area_code={} and mobile={} and status in ({})",
+        let mobile_res = sqlx::query_as::<_, AccountMobileModel>(&format!(
+            "select * from {} where area_code=? and mobile=? and status in (?,?)",
             AccountMobileModel::table_name(),
-            area_code,
-            mobile,
-            &[
-                AccountMobileStatus::Valid as i8,
-                AccountMobileStatus::Init as i8,
-            ]
         ))
+        .bind(area_code)
+        .bind(mobile)
+        .bind(AccountMobileStatus::Valid as i8)
+        .bind(AccountMobileStatus::Init as i8)
         .fetch_one(&self.db)
         .await;
 
@@ -166,7 +161,7 @@ impl AccountMobile {
             }
             Ok(mr) => {
                 let res = sqlx::query(
-                    sql_format!(
+                    format!(
                         "UPDATE {} SET mobile_count=mobile_count+1 WHERE id=?",
                         AccountModel::table_name(),
                     )
@@ -181,8 +176,8 @@ impl AccountMobile {
                         return Err(e.into());
                     }
                     Ok(_) => {
-                        if AccountMobileStatus::Valid == status {
-                            if let Err(ie) = self
+                        if AccountMobileStatus::Valid == status
+                            && let Err(ie) = self
                                 .index
                                 .add(
                                     crate::model::AccountIndexCat::Mobile,
@@ -195,7 +190,6 @@ impl AccountMobile {
                                 db.rollback().await?;
                                 return Err(ie);
                             }
-                        }
 
                         db.commit().await?;
                         self.account_cache.clear(&account.id).await;
@@ -289,8 +283,8 @@ impl AccountMobile {
         let res = self
             .confirm_mobile(account_mobile, op_user_id, env_data)
             .await;
-        if res.is_ok() {
-            if let Err(err) = self
+        if res.is_ok()
+            && let Err(err) = self
                 .valid_code_clear(&account_mobile.area_code, &account_mobile.mobile)
                 .await
             {
@@ -301,7 +295,6 @@ impl AccountMobile {
                     err.to_fluent_message().default_format()
                 );
             }
-        }
         res
     }
     //确认手机号
@@ -315,15 +308,15 @@ impl AccountMobile {
             return Ok(0);
         }
 
-        let mobile_res = sqlx::query_as::<_, AccountMobileModel>(&sql_format!(
-            "select * from {} where  area_code={} and mobile={} and status ={} and account_id!={} and id!={}",
+        let mobile_res = sqlx::query_as::<_, AccountMobileModel>(&format!(
+            "select * from {} where  area_code=? and mobile=? and status=? and account_id!=? and id!=?",
             AccountMobileModel::table_name(),
-            account_mobile.area_code,
-            account_mobile.mobile,
-            AccountMobileStatus::Valid,
-            account_mobile.account_id,
-            account_mobile.id
         ))
+        .bind(&account_mobile.area_code)
+        .bind(&account_mobile.mobile)
+        .bind(AccountMobileStatus::Valid as i8)
+        .bind(account_mobile.account_id)
+        .bind(account_mobile.id)
         .fetch_one(&self.db)
         .await;
 
@@ -347,10 +340,9 @@ impl AccountMobile {
         let tmp = Update::<_,AccountMobileModel>::new()
             .set(AccountMobileModel::STATUS, AccountMobileStatus::Valid as i8)
             .set(AccountMobileModel::CONFIRM_TIME, time)
-            .execute(
-                SqlSuffix::Where(&sql_format!("id={}", account_mobile.id)),
-                &mut *db,
-            )
+            .execute(&mut *db, |qb| {
+                qb.push_where().field_eq("id", account_mobile.id);
+            })
             .await;
         let res = match tmp {
             Ok(e) => e,
@@ -413,10 +405,9 @@ impl AccountMobile {
         let res = Update::<_,AccountMobileModel>::new()
             .set(AccountMobileModel::STATUS, AccountMobileStatus::Delete as i8)
             .set(AccountMobileModel::CHANGE_TIME, time)
-            .execute(
-                SqlSuffix::Where(&sql_format!("id={}", account_mobile.id)),
-                &mut *db,
-            )
+            .execute(&mut *db, |qb| {
+                qb.push_where().field_eq("id", account_mobile.id);
+            })
             .await;
         let out = match res {
             Err(e) => {
@@ -424,7 +415,7 @@ impl AccountMobile {
                 Err(e)?
             }
             Ok(mr) => {
-                let res= sqlx::query(sql_format!(
+                let res= sqlx::query(format!(
                         "UPDATE {} SET mobile_count=mobile_count-1 WHERE id=? and mobile_count-1>=0",
                         AccountModel::table_name(),
                     ).as_str())
@@ -477,28 +468,46 @@ impl AccountMobile {
         out
     }
     pub async fn find_by_id(&self, id: &u64) -> AccountResult<AccountMobileModel> {
-        Ok(lsys_core::db::utils::fetch_one::<AccountMobileModel>(
+        use lsys_core::db::utils::Fetch;
+        Ok(Fetch::<MySql, AccountMobileModel>::one(
             &self.db,
-            lsys_core::sql_format!("id={id} and status in ({status})", id = id, status = [AccountMobileStatus::Valid as i8, AccountMobileStatus::Init as i8]),
+            |qb| {
+                qb.field_eq("id", *id);
+                qb.push_and().field_in_copied("status", &[AccountMobileStatus::Valid as i8, AccountMobileStatus::Init as i8]);
+            },
         ).await?)
     }
     pub async fn find_by_ids(&self, ids: &[u64]) -> AccountResult<HashMap<u64, AccountMobileModel>> {
-        Ok(lsys_core::db::utils::fetch_map::<AccountMobileModel, _, _>(
+        use lsys_core::db::utils::Fetch;
+        Ok(Fetch::<MySql, AccountMobileModel>::map(
             &self.db,
-            lsys_core::sql_format!("id in ({ids}) and status in ({status})", ids = ids, status = [AccountMobileStatus::Valid as i8, AccountMobileStatus::Init as i8]),
+            |qb| {
+                qb.field_in_copied("id", ids);
+                qb.push_and().field_in_copied("status", &[AccountMobileStatus::Valid as i8, AccountMobileStatus::Init as i8]);
+            },
             |v| v.id,
         ).await?)
     }
     pub async fn find_by_account_id_vec(&self, id: &u64) -> AccountResult<Vec<AccountMobileModel>> {
-        Ok(lsys_core::db::utils::fetch_vec::<AccountMobileModel>(
+        use lsys_core::db::utils::Fetch;
+        Ok(Fetch::<MySql, AccountMobileModel>::vec(
             &self.db,
-            lsys_core::sql_format!("account_id = {uid} and status in ( {status}) order by id desc", uid = id, status = [AccountMobileStatus::Init as i8, AccountMobileStatus::Valid as i8]),
+            |qb| {
+                qb.field_eq("account_id", *id);
+                qb.push_and().field_in_copied("status", &[AccountMobileStatus::Init as i8, AccountMobileStatus::Valid as i8]);
+                qb.push(" ORDER BY id DESC");
+            },
         ).await?)
     }
     pub async fn find_by_account_ids_vec(&self, ids: &[u64]) -> AccountResult<HashMap<u64, Vec<AccountMobileModel>>> {
-        Ok(lsys_core::db::utils::fetch_group::<AccountMobileModel, _, _>(
+        use lsys_core::db::utils::Fetch;
+        Ok(Fetch::<MySql, AccountMobileModel>::group(
             &self.db,
-            lsys_core::sql_format!("account_id in ({uid}) and status in ({status})  order by id desc", uid = ids, status = [AccountMobileStatus::Init as i8, AccountMobileStatus::Valid as i8]),
+            |qb| {
+                qb.field_in_copied("account_id", ids);
+                qb.push_and().field_in_copied("status", &[AccountMobileStatus::Init as i8, AccountMobileStatus::Valid as i8]);
+                qb.push(" ORDER BY id DESC");
+            },
             |v| v.account_id,
         ).await?)
     }
@@ -511,20 +520,20 @@ pub struct AccountMobileCache<'t> {
     pub dao: &'t AccountMobile,
 }
 impl AccountMobileCache<'_> {
-    lsys_core::impl_cache_fetch_one!(
-        find_by_id,
-        dao,
-        cache,
-        u64,
-        AccountResult<AccountMobileModel>
-    );
-    lsys_core::impl_cache_fetch_vec!(
-        find_by_ids,
-        dao,
-        cache,
-        u64,
-        AccountResult<HashMap<u64, AccountMobileModel>>
-    );
+    pub async fn find_by_id(&self, id: &u64) -> AccountResult<AccountMobileModel> {
+        self.dao
+            .cache
+            .get_or_fetch(id, || self.dao.find_by_id(id))
+            .await
+    }
+    pub async fn find_by_ids(&self, ids: &[u64]) -> AccountResult<HashMap<u64, AccountMobileModel>> {
+        self.dao
+            .cache
+            .get_or_fetch_many(ids, |missing| async move {
+                self.dao.find_by_ids(&missing).await
+            })
+            .await
+    }
     pub async fn find_by_account_id_vec(
         &self,
         account_id: u64,

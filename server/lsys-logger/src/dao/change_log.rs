@@ -1,17 +1,14 @@
-use lsys_core::utils::{
-    now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT,
-};
+use lsys_core::utils::{now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT};
 
 use lsys_core::db::{
-    CursorPageData, CursorPageParam, Insert, OptionTxExecutor, SqlExpr, TableMeta,
+    CursorPageData, CursorPageParam, Insert, OptionTxExecutor, QueryBuilderExt, TableMeta, TotalParam,
+    TotalRow, WhereClause,
 };
-use lsys_core::sql_format;
-use sqlx::{MySql, Pool, Transaction};
+use sqlx::{MySql, Pool, QueryBuilder, Transaction};
 use tracing::{debug, warn};
 
 use super::LoggerResult;
 use crate::model::ChangeLogModel;
-use lsys_core::db::SqlQuote;
 
 pub trait ChangeLogData {
     fn log_type() -> &'static str; //日志类型
@@ -110,19 +107,23 @@ impl ChangeLoggerDao {
             Ok(r) => debug!("add log id:{}", r.last_insert_id()),
         };
     }
-    fn list_where(&self, log_type: Option<&str>, add_user_id: Option<u64>) -> Option<Vec<String>> {
-        let mut sqlwhere = vec![];
+    fn build_list_where_inner<'a, 'args>(
+        &self,
+        wb: &mut WhereClause<'a, 'args, MySql>,
+        log_type: Option<&str>,
+        add_user_id: Option<u64>,
+    ) -> Option<()> {
         if let Some(tmp) = log_type {
             let tmp = string_clear(tmp, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
             if tmp.is_empty() {
                 return None;
             }
-            sqlwhere.push(sql_format!("log_type = {}  ", tmp));
+            wb.and().field_eq("log_type", tmp);
         }
         if let Some(uid) = add_user_id {
-            sqlwhere.push(sql_format!("add_user_id={} ", uid));
+            wb.and().field_eq("add_user_id", uid);
         }
-        Some(sqlwhere)
+        Some(())
     }
     pub async fn list_data(
         &self,
@@ -130,25 +131,24 @@ impl ChangeLoggerDao {
         add_user_id: Option<u64>,
         limit: &CursorPageParam<u64>,
     ) -> LoggerResult<(Vec<ChangeLogModel>, CursorPageData<u64>)> {
-        let sqlwhere = match self.list_where(log_type, add_user_id) {
-            Some(t) => t,
-            None => return Ok((vec![], CursorPageData::default())),
-        };
         let query_limit = limit.page_query("id");
-        let where_str = sqlwhere.join(" and ");
-        let suff_sql = query_limit.build_query_sql(if sqlwhere.is_empty() {
-            None
-        } else {
-            Some(&where_str)
-        });
-
-        let mut data = sqlx::query_as::<_, ChangeLogModel>(&sql_format!(
-            "select * from {} {}",
+        let mut qb = QueryBuilder::<MySql>::new(format!(
+            "select * from {}",
             ChangeLogModel::table_name(),
-            SqlExpr(suff_sql)
-        ))
-        .fetch_all(&self.db)
-        .await?;
+        ));
+        {
+            let mut wb = WhereClause::new(&mut qb);
+            if self.build_list_where_inner(&mut wb, log_type, add_user_id).is_none() {
+                return Ok((vec![], CursorPageData::default()));
+            }
+            if query_limit.has_cursor() {
+                query_limit.push_where(wb.and());
+            }
+        }
+        query_limit.push_order_by(&mut qb);
+        query_limit.push_limit(&mut qb);
+
+        let mut data = qb.build_query_as::<ChangeLogModel>().fetch_all(&self.db).await?;
 
         let next = query_limit.finalize(&mut data, |c, d| *d == c.id, |c| c.id);
         Ok((data, next))
@@ -157,22 +157,33 @@ impl ChangeLoggerDao {
         &self,
         log_type: Option<&str>,
         add_user_id: Option<u64>,
-    ) -> LoggerResult<i64> {
-        let sqlwhere = match self.list_where(log_type, add_user_id) {
-            Some(t) => t,
-            None => return Ok(0),
-        };
-        let where_sql = if sqlwhere.is_empty() {
-            "".to_string()
+        total_param: &TotalParam,
+    ) -> LoggerResult<TotalRow> {
+        let query = total_param.total_count_query();
+        let mut qb = if query.is_threshold_mode() {
+            QueryBuilder::<MySql>::new(format!(
+                "select count(*) as total from (select 1 from {}",
+                ChangeLogModel::table_name(),
+            ))
         } else {
-            format!("where {} ", sqlwhere.join(" and "))
+            QueryBuilder::<MySql>::new(format!(
+                "select count(*) as total from {}",
+                ChangeLogModel::table_name(),
+            ))
         };
-        return Ok(sqlx::query_scalar::<_, i64>(&sql_format!(
-            "select count(*) as total from {} {}",
-            ChangeLogModel::table_name(),
-            SqlExpr(where_sql)
-        ))
-        .fetch_one(&self.db)
-        .await?);
+        {
+            let mut wb = WhereClause::new(&mut qb);
+            if self.build_list_where_inner(&mut wb, log_type, add_user_id).is_none() {
+                return Ok(TotalRow::Exact(0));
+            }
+        }
+        if query.is_threshold_mode() {
+            query.push_limit(&mut qb);
+            qb.push(") as t");
+        }
+        let count = qb.build_query_scalar().fetch_one(&self.db).await.unwrap_or(0i64) as u64;
+        Ok(query.finalize(count))
     }
 }
+
+

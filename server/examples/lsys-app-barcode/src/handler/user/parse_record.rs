@@ -11,6 +11,7 @@ use crate::dao::BarcodeParseRecord;
 use crate::handler::common::{PageParam, ToOffsetPageParam};
 use crate::server::AppState;
 use crate::utils::handler::{json_err, json_fluent_err, json_ok};
+use lsys_core::api_utils::JsonPageData;
 use lsys_core::fluents::FluentBundle;
 use lsys_core::utils::RequestEnv;
 
@@ -113,7 +114,7 @@ pub(crate) async fn handle_parse_record_list(
         })
         .collect::<Vec<Value>>();
 
-    json_ok(json!({"data": data, "total": count}))
+    json_ok(serde_json::to_value(JsonPageData::total(data, count)).unwrap())
 }
 
 pub(crate) async fn handle_parse_record_delete(

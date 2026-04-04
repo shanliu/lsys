@@ -129,36 +129,30 @@ impl<'a> ServiceRequest<'a> {
 
         // Forward headers if provided
         if let Some(ref fwd) = self.forward {
-            if let Some(ref auth) = fwd.authorization {
-                if let Ok(val) = HeaderValue::from_str(auth) {
+            if let Some(ref auth) = fwd.authorization
+                && let Ok(val) = HeaderValue::from_str(auth) {
                     headers.insert(AUTHORIZATION, val);
                 }
-            }
-            if let Some(ref lang) = fwd.accept_language {
-                if let Ok(val) = HeaderValue::from_str(lang) {
+            if let Some(ref lang) = fwd.accept_language
+                && let Ok(val) = HeaderValue::from_str(lang) {
                     headers.insert(ACCEPT_LANGUAGE_HEADER, val);
                 }
-            }
-            if let Some(ref ua) = fwd.user_agent {
-                if let Ok(val) = HeaderValue::from_str(ua) {
+            if let Some(ref ua) = fwd.user_agent
+                && let Ok(val) = HeaderValue::from_str(ua) {
                     headers.insert(USER_AGENT, val);
                 }
-            }
-            if let Some(ref rid) = fwd.request_id {
-                if let Ok(val) = HeaderValue::from_str(rid) {
+            if let Some(ref rid) = fwd.request_id
+                && let Ok(val) = HeaderValue::from_str(rid) {
                     headers.insert(REQUEST_ID_HEADER, val);
                 }
-            }
-            if let Some(ref did) = fwd.device_id {
-                if let Ok(val) = HeaderValue::from_str(did) {
+            if let Some(ref did) = fwd.device_id
+                && let Ok(val) = HeaderValue::from_str(did) {
                     headers.insert(DEVICE_ID_HEADER, val);
                 }
-            }
-            if let Some(ref ip) = fwd.client_ip {
-                if let Ok(val) = HeaderValue::from_str(ip) {
+            if let Some(ref ip) = fwd.client_ip
+                && let Ok(val) = HeaderValue::from_str(ip) {
                     headers.insert(FORWARDED_FOR_HEADER, val);
                 }
-            }
         }
 
         let mut builder = self

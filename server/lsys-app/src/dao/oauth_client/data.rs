@@ -4,8 +4,6 @@ use crate::model::AppSecretType;
 use crate::model::{AppModel, AppOAuthClientModel, AppRequestType};
 
 use lsys_core::db::TableMeta;
-use lsys_core::db::SqlQuote;
-use lsys_core::sql_format;
 use lsys_core::utils::RequestEnv;
 use url::Url;
 
@@ -68,11 +66,11 @@ impl AppOAuthClient {
             .is_some_and(|h| h.eq_ignore_ascii_case(configured)))
     }
     pub(crate) async fn inner_find_by_app(&self, app: &AppModel) -> AppResult<AppOAuthClientModel> {
-        sqlx::query_as::<_, AppOAuthClientModel>(&sql_format!(
-            "select * from {} where app_id={}",
-            AppOAuthClientModel::table_name(),
-            app.id
+        sqlx::query_as::<_, AppOAuthClientModel>(&format!(
+            "select * from {} where app_id=?",
+            AppOAuthClientModel::table_name()
         ))
+        .bind(app.id)
         .fetch_one(&self.db)
         .await
         .map_err(|e| match e {

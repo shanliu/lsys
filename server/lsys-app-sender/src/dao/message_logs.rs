@@ -4,11 +4,8 @@ use lsys_core::db::OffsetPageParam;
 use lsys_core::utils::now_time;
 
 use lsys_core::db::BatchInsert;
-use lsys_core::db::{Insert, TableMeta, SqlExpr};
-use lsys_core::sql_format;
-use sqlx::Pool;
-
-use lsys_core::db::SqlQuote;
+use lsys_core::db::{Insert, QueryBuilderExt, TableMeta};
+use sqlx::{MySql, Pool, QueryBuilder};
 use tracing::warn;
 
 //发送任务日志相关操作实现
@@ -63,18 +60,15 @@ impl MessageLogs {
     }
     pub async fn list_count(&self, message_id: u64) -> SenderResult<i64> {
         let sender_type = self.send_type as i8;
-        let sqlwhere = sql_format!(
-            "sender_type={} and sender_message_id = {}  ",
-            sender_type,
-            message_id
+        let sql = format!(
+            "select count(*) as total from {} where sender_type=? and sender_message_id = ?",
+            SenderLogModel::table_name()
         );
-        let sql = sql_format!(
-            "select count(*) as total from {} where {}",
-            SenderLogModel::table_name(),
-            SqlExpr(sqlwhere)
-        );
-        let query = sqlx::query_scalar::<_, i64>(&sql);
-        let res = query.fetch_one(&self.db).await?;
+        let res = sqlx::query_scalar::<_, i64>(&sql)
+            .bind(sender_type)
+            .bind(message_id)
+            .fetch_one(&self.db)
+            .await?;
         Ok(res)
     }
     pub async fn list_data(
@@ -83,19 +77,17 @@ impl MessageLogs {
         page: &OffsetPageParam,
     ) -> SenderResult<Vec<SenderLogModel>> {
         let sender_type = self.send_type as i8;
-        let sql = sql_format!(
-            "sender_type={} and sender_message_id = {} order by id desc {}",
-            sender_type,
-            message_id,
-            page.page_query().limit_sql().unwrap_or_default()
-        );
-        let data = sqlx::query_as::<_, SenderLogModel>(&sql_format!(
-            "select * from {} where {}",
+        let mut qb = QueryBuilder::<MySql>::new(format!(
+            "select * from {}",
             SenderLogModel::table_name(),
-            SqlExpr(sql)
-        ))
-        .fetch_all(&self.db)
-        .await?;
+        ));
+        qb.push_where().field_eq("sender_type", sender_type);
+        qb.push_and().field_eq("sender_message_id", message_id);
+        qb.push(" order by id desc");
+        page.push_limit(&mut qb);
+        let data = qb.build_query_as::<SenderLogModel>()
+            .fetch_all(&self.db)
+            .await?;
         Ok(data)
     }
 }

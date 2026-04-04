@@ -7,13 +7,11 @@ use crate::{
         RbacRoleModel, RbacRoleResRange, RbacRoleUserModel, RbacRoleUserRange, RbacRoleUserStatus,
     },
 };
-use lsys_core::db::OffsetPageParam;
-use lsys_core::db::SqlQuote;
-use lsys_core::db::{SqlExpr, TableMeta};
-use lsys_core::sql_format;
+use lsys_core::db::{OffsetPageParam, QueryBuilderExt};
+use lsys_core::db::TableMeta;
 use lsys_core::utils::{string_clear, StringClear, STRING_CLEAR_FORMAT};
 use serde::Serialize;
-use sqlx::Row;
+use sqlx::{MySql, QueryBuilder, Row};
 
 //查询指定用户可访问资源的调用流程:
 
@@ -34,54 +32,56 @@ use sqlx::Row;
 //当为 授权类型为include或exclude,通过 find_res_list_from_session_role 查询出详细
 
 impl RbacAccess {
-    fn find_res_user_custom_sql_from_user(
-        &self,
-        user_id: u64,                //访问用户ID,必须>0
-        res_range: RbacRoleResRange, //RbacRoleResRange::Include RbacRoleResRange::Exclude
-    ) -> String {
+    fn push_res_user_custom_sql_from_user(
+        qb: &mut QueryBuilder<'_, MySql>,
+        user_id: u64,
+        res_range: RbacRoleResRange,
+    ) {
         match res_range {
             RbacRoleResRange::Any => {
-                sql_format!(
+                qb.push(format!(
                     "select  role.user_id
-                    from {} as role 
-                    join {} as role_user on role_user.role_id=role.id
-                    where  role.status ={} 
-                    and role.user_id>0 and role.user_range={} and role.res_range={}
-                    and role_user.user_id={} and (role_user.timeout=0 or role_user.timeout >= UNIX_TIMESTAMP(NOW()))
-                    ",
+                    from {} as role
+                    join {} as role_user on role_user.role_id=role.id",
                     RbacRoleModel::table_name(),
                     RbacRoleUserModel::table_name(),
-                    RbacRoleStatus::Enable as i8,
-                    RbacRoleUserRange::Custom as i8,
-                    res_range as i8,
-                    user_id
-                )
+                ));
+                qb.push_where().field_eq("role.status", RbacRoleStatus::Enable as i8);
+                qb.push_and().field_gt("role.user_id", 0);
+                qb.push_and().field_eq("role.user_range",RbacRoleUserRange::Custom as i8);
+                qb.push_and().field_eq("role.res_range", res_range as i8);
+                qb.push_and().field_eq("role_user.user_id", user_id);
+                qb.push_and().push("(");
+                qb.field_eq("role_user.timeout", 0);
+                qb.push_or().push("role_user.timeout >= UNIX_TIMESTAMP(NOW())");
+                qb.push(")");
             }
             RbacRoleResRange::Exclude | RbacRoleResRange::Include => {
-                sql_format!(
+                qb.push(format!(
                     "select  role.user_id
-                    from {} as role 
+                    from {} as role
                     join {} as perm on role.id=perm.role_id
                     join {} as res on perm.res_id=res.id
                     join {} as op on perm.op_id=op.id
-                    join {} as role_user on role_user.role_id=role.id
-                    where  role.status ={} and perm.status ={} and res.status ={} and op.status ={}
-                    and role.user_id>0 and role.user_range={} and role.res_range={}
-                    and role_user.user_id={} and (role_user.timeout=0 or role_user.timeout >= UNIX_TIMESTAMP(NOW()))
-                    ",
+                    join {} as role_user on role_user.role_id=role.id",
                     RbacRoleModel::table_name(),
                     RbacPermModel::table_name(),
                     RbacResModel::table_name(),
                     RbacOpModel::table_name(),
                     RbacRoleUserModel::table_name(),
-                    RbacRoleStatus::Enable as i8,
-                    RbacPermStatus::Enable as i8,
-                    RbacResStatus::Enable as i8,
-                    RbacOpStatus::Enable as i8,
-                    RbacRoleUserRange::Custom as i8,
-                    res_range as i8,
-                    user_id
-                )
+                ));
+                qb.push_where().field_eq("role.status", RbacRoleStatus::Enable as i8);
+                qb.push_and().field_eq("perm.status", RbacPermStatus::Enable as i8);
+                qb.push_and().field_eq("res.status", RbacResStatus::Enable as i8);
+                qb.push_and().field_eq("op.status", RbacOpStatus::Enable as i8);
+                qb.push_and().field_gt("role.user_id", 0);
+                qb.push_and().field_eq("role.user_range",RbacRoleUserRange::Custom as i8);
+                qb.push_and().field_eq("role.res_range", res_range as i8);
+                qb.push_and().field_eq("role_user.user_id", user_id);
+                qb.push_and().push("(");
+                qb.field_eq("role_user.timeout", 0);
+                qb.push_or().push("role_user.timeout >= UNIX_TIMESTAMP(NOW())");
+                qb.push(")");
             }
         }
     }
@@ -95,17 +95,15 @@ impl RbacAccess {
         if user_id == 0 {
             return Ok(vec![]);
         }
-        let sql_arr = [
-            self.find_res_user_custom_sql_from_user(user_id, RbacRoleResRange::Exclude),
-            self.find_res_user_custom_sql_from_user(user_id, RbacRoleResRange::Include),
-            self.find_res_user_custom_sql_from_user(user_id, RbacRoleResRange::Any),
-        ];
-        let sql = format!(
-            "select DISTINCT user_id from (({})) as tmp order by user_id asc {}",
-            sql_arr.join(") union all ("),
-            page.page_query().limit_sql().unwrap_or_default()
-        );
-        Ok(sqlx::query_scalar::<_, u64>(&sql)
+        let mut qb = QueryBuilder::<MySql>::new("select DISTINCT user_id from ((");
+        Self::push_res_user_custom_sql_from_user(&mut qb, user_id, RbacRoleResRange::Exclude);
+        qb.push(") union all (");
+        Self::push_res_user_custom_sql_from_user(&mut qb, user_id, RbacRoleResRange::Include);
+        qb.push(") union all (");
+        Self::push_res_user_custom_sql_from_user(&mut qb, user_id, RbacRoleResRange::Any);
+        qb.push(")) as tmp order by user_id asc");
+        page.push_limit(&mut qb);
+        Ok(qb.build_query_scalar::<u64>()
             .fetch_all(&self.db)
             .await?)
     }
@@ -114,19 +112,17 @@ impl RbacAccess {
         &self,
         user_id: u64, //访问用户ID,0 为游客
     ) -> RbacResult<i64> {
-        let sql_arr = [
-            self.find_res_user_custom_sql_from_user(user_id, RbacRoleResRange::Exclude),
-            self.find_res_user_custom_sql_from_user(user_id, RbacRoleResRange::Include),
-            self.find_res_user_custom_sql_from_user(user_id, RbacRoleResRange::Any),
-        ];
         if user_id == 0 {
             return Ok(0);
         }
-        let sql = format!(
-            "select COUNT(DISTINCT user_id) AS total from (({})) as tmp",
-            sql_arr.join(") union all (")
-        );
-        Ok(sqlx::query_scalar::<_, i64>(&sql)
+        let mut qb = QueryBuilder::<MySql>::new("select COUNT(DISTINCT user_id) AS total from ((");
+        Self::push_res_user_custom_sql_from_user(&mut qb, user_id, RbacRoleResRange::Exclude);
+        qb.push(") union all (");
+        Self::push_res_user_custom_sql_from_user(&mut qb, user_id, RbacRoleResRange::Include);
+        qb.push(") union all (");
+        Self::push_res_user_custom_sql_from_user(&mut qb, user_id, RbacRoleResRange::Any);
+        qb.push(")) as tmp");
+        Ok(qb.build_query_scalar::<i64>()
             .fetch_one(&self.db)
             .await?)
     }
@@ -144,65 +140,62 @@ pub struct AccessUserFromRes {
 }
 
 impl RbacAccess {
-    fn find_res_data_from_custom_user_sql(&self, user_id: u64, role_user_id: u64) -> Vec<String> {
-        let sql = vec![
-              // 针对特定用户配置权限
-              sql_format!(
-                "select  role.res_range
-                from {} as role 
-                join {} as role_user on role.id=role_user.role_id
-                where role.status ={} and role.user_id ={}
-                and role.res_range = {} and role.user_range = {}
-                and role_user.status={} and role_user.user_id={} and (role_user.timeout=0 or role_user.timeout >= UNIX_TIMESTAMP(NOW())) limit 1",
-                RbacRoleModel::table_name(),
-                RbacRoleUserModel::table_name(),
-                RbacRoleStatus::Enable as i8,
-                role_user_id,
-                RbacRoleResRange::Any as i8,
-                RbacRoleUserRange::Custom as i8,
-                RbacRoleUserStatus::Enable as i8,
-                user_id
-            ),
-            sql_format!(
-                "select role.res_range
-                from {} as role 
-                join {} as perm on role.id=perm.role_id
-                join {} as role_user on role.id=role_user.role_id
-                where role.status ={} and role.user_id ={}
-                and role.res_range = {} and role.user_range = {}
-                and role_user.status={} and role_user.user_id={}  and (role_user.timeout=0 or role_user.timeout >= UNIX_TIMESTAMP(NOW()))
-                limit 1",
-                RbacRoleModel::table_name(),
-                RbacPermModel::table_name(),
-                RbacRoleUserModel::table_name(),
-                RbacRoleStatus::Enable as i8,
-                role_user_id,
-                RbacRoleResRange::Exclude as i8,
-                RbacRoleUserRange::Custom as i8,
-                RbacRoleUserStatus::Enable as i8,
-                user_id
-            ),
-            sql_format!(
-                "select role.res_range
-                from {} as role 
-                join {} as perm on role.id=perm.role_id
-                join {} as role_user on role.id=role_user.role_id
-                where role.status ={} and role.user_id = {}
-                and role.res_range ={} and role.user_range = {}
-                and role_user.status={} and role_user.user_id={}  and (role_user.timeout=0 or role_user.timeout >= UNIX_TIMESTAMP(NOW()))
-                limit 1",
-                RbacRoleModel::table_name(),
-                RbacPermModel::table_name(),
-                RbacRoleUserModel::table_name(),
-                RbacRoleStatus::Enable as i8,
-                role_user_id,
-                RbacRoleResRange::Include as i8,
-                RbacRoleUserRange::Custom as i8,
-                RbacRoleUserStatus::Enable as i8,
-                user_id
-            ),
-        ];
-        sql
+    fn push_res_data_from_custom_user_sql(qb: &mut QueryBuilder<'_, MySql>, user_id: u64, role_user_id: u64) {
+        // Any range
+        qb.push(format!(
+            "select  role.res_range
+            from {} as role
+            join {} as role_user on role.id=role_user.role_id",
+            RbacRoleModel::table_name(),
+            RbacRoleUserModel::table_name(),
+        ));
+        qb.push_where().field_eq("role.status", RbacRoleStatus::Enable as i8);
+        qb.push_and().field_eq("role.user_id", role_user_id);
+        qb.push_and().field_eq("role.res_range", RbacRoleResRange::Any as i8);
+        qb.push_and().field_eq("role.user_range", RbacRoleUserRange::Custom as i8);
+        qb.push_and().field_eq("role_user.status", RbacRoleUserStatus::Enable as i8);
+        qb.push_and().field_eq("role_user.user_id", user_id);
+        qb.push_and().push("(role_user.timeout=0 or role_user.timeout >= UNIX_TIMESTAMP(NOW())) limit 1");
+
+        qb.push(" ) union all (");
+
+        // Exclude range
+        qb.push(format!(
+            "select role.res_range
+            from {} as role
+            join {} as perm on role.id=perm.role_id
+            join {} as role_user on role.id=role_user.role_id",
+            RbacRoleModel::table_name(),
+            RbacPermModel::table_name(),
+            RbacRoleUserModel::table_name(),
+        ));
+        qb.push_where().field_eq("role.status", RbacRoleStatus::Enable as i8);
+        qb.push_and().field_eq("role.user_id", role_user_id);
+        qb.push_and().field_eq("role.res_range", RbacRoleResRange::Exclude as i8);
+        qb.push_and().field_eq("role.user_range", RbacRoleUserRange::Custom as i8);
+        qb.push_and().field_eq("role_user.status", RbacRoleUserStatus::Enable as i8);
+        qb.push_and().field_eq("role_user.user_id", user_id);
+        qb.push_and().push("(role_user.timeout=0 or role_user.timeout >= UNIX_TIMESTAMP(NOW())) limit 1");
+
+        qb.push(" ) union all (");
+
+        // Include range
+        qb.push(format!(
+            "select role.res_range
+            from {} as role
+            join {} as perm on role.id=perm.role_id
+            join {} as role_user on role.id=role_user.role_id",
+            RbacRoleModel::table_name(),
+            RbacPermModel::table_name(),
+            RbacRoleUserModel::table_name(),
+        ));
+        qb.push_where().field_eq("role.status", RbacRoleStatus::Enable as i8);
+        qb.push_and().field_eq("role.user_id", role_user_id);
+        qb.push_and().field_eq("role.res_range", RbacRoleResRange::Include as i8);
+        qb.push_and().field_eq("role.user_range", RbacRoleUserRange::Custom as i8);
+        qb.push_and().field_eq("role_user.status", RbacRoleUserStatus::Enable as i8);
+        qb.push_and().field_eq("role_user.user_id", user_id);
+        qb.push_and().push("(role_user.timeout=0 or role_user.timeout >= UNIX_TIMESTAMP(NOW())) limit 1");
     }
     //列出所有可以访问的资源,包含系统资源跟用户资源
     //不包含会话角色 RbacRoleUserRange::Session,会话角色获取对应被授权资源参见 find_res_range_from_session_role
@@ -219,13 +212,12 @@ impl RbacAccess {
         if access_user_id == 0 {
             return Ok(user_range_custom);
         }
-        let sql = self.find_res_data_from_custom_user_sql(access_user_id, role_user_id);
-        let data = sqlx::query_scalar::<_, i8>(&format!(
-            "select * from (({})) as t",
-            sql.join(" ) union all (")
-        ))
-        .fetch_all(&self.db)
-        .await?;
+        let mut qb = QueryBuilder::<MySql>::new("select * from ((");
+        Self::push_res_data_from_custom_user_sql(&mut qb, access_user_id, role_user_id);
+        qb.push(")) as t");
+        let data = qb.build_query_scalar::<i8>()
+            .fetch_all(&self.db)
+            .await?;
         for db_res_range in data {
             if RbacRoleResRange::Any.eq(db_res_range) {
                 user_range_custom.exist_any_res = true;
@@ -279,44 +271,40 @@ impl RbacAccess {
 }
 
 impl RbacAccess {
-    fn find_res_custom_sql_from_user(
-        &self,
-        user_id: u64,                //访问用户ID,0 为游客
-        role_user_id: u64,           //指定角色用户,0为系统
-        role_app_id: Option<u64>,    //应用ID
-        res_range: RbacRoleResRange, //RbacRoleResRange::Include RbacRoleResRange::Exclude
+    fn push_res_custom_sql_from_user(
+        qb: &mut QueryBuilder<'_, MySql>,
+        user_id: u64,
+        role_user_id: u64,
+        role_app_id: Option<u64>,
+        res_range: RbacRoleResRange,
         field: &str,
-    ) -> String {
-        sql_format!(
+    ) {
+        qb.push(format!(
             "select {}
-            from {} as role 
+            from {} as role
             join {} as perm on role.id=perm.role_id
             join {} as res on perm.res_id=res.id
             join {} as op on perm.op_id=op.id
-            join {} as role_user on role_user.role_id=role.id
-            where  role.status ={} and perm.status ={} and res.status ={} and op.status ={}
-            and role.user_id={} {} and role.user_range={} and role.res_range={}
-            and role_user.user_id={} and (role_user.timeout=0 or role_user.timeout >= UNIX_TIMESTAMP(NOW()))
-            ",
+            join {} as role_user on role_user.role_id=role.id",
             field,
             RbacRoleModel::table_name(),
             RbacPermModel::table_name(),
             RbacResModel::table_name(),
             RbacOpModel::table_name(),
             RbacRoleUserModel::table_name(),
-            RbacRoleStatus::Enable as i8,
-            RbacPermStatus::Enable as i8,
-            RbacResStatus::Enable as i8,
-            RbacOpStatus::Enable as i8,
-            SqlExpr(match role_app_id{
-                Some(app_id)=>sql_format!(" and role.app_id={}",app_id),
-                None=>"".to_string()
-            }),
-            role_user_id,
-            RbacRoleUserRange::Custom as i8,
-            res_range as i8,
-            user_id
-        )
+        ));
+        qb.push_where().field_eq("role.status", RbacRoleStatus::Enable as i8);
+        qb.push_and().field_eq("perm.status", RbacPermStatus::Enable as i8);
+        qb.push_and().field_eq("res.status", RbacResStatus::Enable as i8);
+        qb.push_and().field_eq("op.status", RbacOpStatus::Enable as i8);
+        qb.push_and().field_eq("role.user_id", role_user_id);
+        if let Some(app_id) = role_app_id {
+            qb.push_and().field_eq("role.app_id", app_id);
+        }
+        qb.push_and().field_eq("role.user_range", RbacRoleUserRange::Custom as i8);
+        qb.push_and().field_eq("role.res_range", res_range as i8);
+        qb.push_and().field_eq("role_user.user_id", user_id);
+        qb.push_and().push("(role_user.timeout=0 or role_user.timeout >= UNIX_TIMESTAMP(NOW()))");
     }
     //被用户或系统授权的授权数量
     pub async fn find_res_count_from_custom_user(
@@ -328,18 +316,19 @@ impl RbacAccess {
     ) -> RbacResult<i64> {
         match res_range {
             RbacRoleResRange::Exclude | RbacRoleResRange::Include => {
-                let sql = if user_id == 0 {
+                if user_id == 0 {
                     return Ok(0);
-                } else {
-                    self.find_res_custom_sql_from_user(
-                        user_id,
-                        role_user_id,
-                        role_app_id,
-                        res_range,
-                        "count(*)",
-                    )
-                };
-                Ok(sqlx::query_scalar::<_, i64>(&sql)
+                }
+                let mut qb = QueryBuilder::<MySql>::new("");
+                Self::push_res_custom_sql_from_user(
+                    &mut qb,
+                    user_id,
+                    role_user_id,
+                    role_app_id,
+                    res_range,
+                    "count(*)",
+                );
+                Ok(qb.build_query_scalar::<i64>()
                     .fetch_one(&self.db)
                     .await?)
             }
@@ -357,23 +346,21 @@ impl RbacAccess {
     ) -> RbacResult<Vec<AccessPermRow>> {
         match res_range {
             RbacRoleResRange::Exclude | RbacRoleResRange::Include => {
-                let sql = if user_id == 0 {
+                if user_id == 0 {
                     return Ok(vec![]);
-                } else {
-                    self.find_res_custom_sql_from_user(
-                        user_id,
-                        role_user_id,
-                        role_app_id,
-                        res_range,
-                        self.res_list_sql_field(),
-                    )
-                };
-                let sql = format!(
-                    "order by perm.id desc {} {}",
-                    sql,
-                    page.page_query().limit_sql().unwrap_or_default()
+                }
+                let mut qb = QueryBuilder::<MySql>::new("");
+                Self::push_res_custom_sql_from_user(
+                    &mut qb,
+                    user_id,
+                    role_user_id,
+                    role_app_id,
+                    res_range,
+                    self.res_list_sql_field(),
                 );
-                Ok(sqlx::query(&sql)
+                qb.push(" order by perm.id desc");
+                page.push_limit(&mut qb);
+                Ok(qb.build()
                     .try_map(|row| Ok(self.res_list_from_mysql_row(row)))
                     .fetch_all(&self.db)
                     .await?)
@@ -399,56 +386,52 @@ impl RbacAccess {
             return Err(sqlx::Error::RowNotFound.into());
         }
 
-        let sql = sql_format!(
+        let sql = format!(
             "select role.res_range
-            from {} as role 
-            where role.status ={} and role.role_key={} and role.user_id={} and role.user_range = {} limit 1",
+            from {} as role
+            where role.status =? and role.role_key=? and role.user_id=? and role.user_range = ? limit 1",
             RbacRoleModel::table_name(),
-            RbacRoleStatus::Enable as i8,
-            role_key ,
-            role_data.user_id,
-            RbacRoleUserRange::Session as i8,
         );
         let res_range = sqlx::query_scalar::<_, i8>(&sql)
+            .bind(RbacRoleStatus::Enable as i8)
+            .bind(&role_key)
+            .bind(role_data.user_id)
+            .bind(RbacRoleUserRange::Session as i8)
             .fetch_one(&self.db)
             .await?;
         Ok(RbacRoleResRange::try_from(res_range)?)
     }
-    fn find_res_sql_from_session_role(
-        &self,
+    fn push_res_sql_from_session_role(
+        qb: &mut QueryBuilder<'_, MySql>,
         role_data: &AccessSessionRole,
         res_range: RbacRoleResRange,
         field: &str,
-    ) -> String {
+    ) {
         let role_key = string_clear(
             role_data.role_key,
             StringClear::Option(STRING_CLEAR_FORMAT),
             Some(33),
         );
-        sql_format!(
+        qb.push(format!(
             "select {}
-            from {} as role 
+            from {} as role
             join {} as perm on role.id=perm.role_id
             join {} as res on perm.res_id=res.id
-            join {} as op on perm.op_id=op.id
-            where 
-                role.status ={} and role.role_key={} and role.res_range={} and role.user_id={} and role.user_range = {}
-                and perm.status ={} and res.status ={} and op.status ={}
-            ",
+            join {} as op on perm.op_id=op.id",
             field,
             RbacRoleModel::table_name(),
             RbacPermModel::table_name(),
             RbacResModel::table_name(),
             RbacOpModel::table_name(),
-            RbacRoleStatus::Enable as i8,
-            role_key,
-            res_range as i8,
-            role_data.user_id,
-            RbacRoleUserRange::Session as i8,
-            RbacPermStatus::Enable as i8,
-            RbacResStatus::Enable as i8,
-            RbacOpStatus::Enable as i8,
-        )
+        ));
+        qb.push_where().field_eq("role.status", RbacRoleStatus::Enable as i8);
+        qb.push_and().field_eq("role.role_key", role_key);
+        qb.push_and().field_eq("role.res_range", res_range as i8);
+        qb.push_and().field_eq("role.user_id", role_data.user_id);
+        qb.push_and().field_eq("role.user_range", RbacRoleUserRange::Session as i8);
+        qb.push_and().field_eq("perm.status", RbacPermStatus::Enable as i8);
+        qb.push_and().field_eq("res.status", RbacResStatus::Enable as i8);
+        qb.push_and().field_eq("op.status", RbacOpStatus::Enable as i8);
     }
     //列出会话角色可访问授权数量
     pub async fn find_res_count_from_session_role(
@@ -457,8 +440,9 @@ impl RbacAccess {
         role_data: &AccessSessionRole<'_>,
         res_range: RbacRoleResRange,
     ) -> RbacResult<i64> {
-        let sql = self.find_res_sql_from_session_role(role_data, res_range, "count(*)");
-        Ok(sqlx::query_scalar::<_, i64>(&sql)
+        let mut qb = QueryBuilder::<MySql>::new("");
+        Self::push_res_sql_from_session_role(&mut qb, role_data, res_range, "count(*)");
+        Ok(qb.build_query_scalar::<i64>()
             .fetch_one(&self.db)
             .await?)
     }
@@ -470,14 +454,11 @@ impl RbacAccess {
         res_range: RbacRoleResRange,
         page: &OffsetPageParam,
     ) -> RbacResult<Vec<AccessPermRow>> {
-        let sql =
-            self.find_res_sql_from_session_role(role_data, res_range, self.res_list_sql_field());
-        let sql = format!(
-            "order by perm.id desc {} {}",
-            sql,
-            page.page_query().limit_sql().unwrap_or_default()
-        );
-        Ok(sqlx::query(&sql)
+        let mut qb = QueryBuilder::<MySql>::new("");
+        Self::push_res_sql_from_session_role(&mut qb, role_data, res_range, self.res_list_sql_field());
+        qb.push(" order by perm.id desc");
+        page.push_limit(&mut qb);
+        Ok(qb.build()
             .try_map(|row| Ok(self.res_list_from_mysql_row(row)))
             .fetch_all(&self.db)
             .await?)

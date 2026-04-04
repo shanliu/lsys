@@ -6,10 +6,8 @@ use crate::model::{
     AppNotifyType, AppSecretType,
 };
 use async_trait::async_trait;
-use lsys_core::db::SqlQuote;
-use lsys_core::db::{TableMeta, SqlExpr};
+use lsys_core::db::TableMeta;
 use lsys_core::fluents::IntoFluentMessage;
-use lsys_core::sql_format;
 use lsys_core::task_dispatch::{TaskExecutor, TaskNotify};
 use lsys_core::utils::now_time;
 use lsys_core::valid_param::{ValidRule, ValidUrl};
@@ -99,48 +97,51 @@ async fn change_notify_check_num_error_status(
 
     match db.begin().await {
         Ok(mut tdb) => {
-            let sql = sql_format!(
+            let sql = format!(
                 r#"
                 UPDATE {} t1
                 JOIN (
                     SELECT app_id, notify_method, notify_key 
                     FROM {}
-                    WHERE id = {}
+                    WHERE id = ?
                 ) t2 ON t1.app_id = t2.app_id 
                     AND t1.notify_method = t2.notify_method 
                     AND t1.notify_key = t2.notify_key
-                SET t1.next_time = {}
-                WHERE t1.id != {} AND t1.status = {};
+                SET t1.next_time = ?
+                WHERE t1.id != ? AND t1.status = ?;
                 
             "#,
                 AppNotifyDataModel::table_name(),
                 AppNotifyDataModel::table_name(),
-                nid,
-                ntime + addtime,
-                nid,
-                AppNotifyDataStatus::Init as i8,
             );
-            if let Err(err) = sqlx::query(sql.as_str()).execute(&mut *tdb).await {
+            if let Err(err) = sqlx::query(sql.as_str())
+                .bind(nid)
+                .bind(ntime + addtime)
+                .bind(nid)
+                .bind(AppNotifyDataStatus::Init as i8)
+                .execute(&mut *tdb)
+                .await
+            {
                 let _ = tdb.rollback().await;
                 warn!("change notify data other record fail[{}]{}", nid, err);
                 return;
             }
-            let sql = sql_format!(
+            let sql = format!(
                 r#"UPDATE {}
-                SET status={},result={},try_num=try_num+1,next_time={},publish_time={}
-                WHERE id={};
+                SET status=if((try_num+1)>=try_max,?,status),result=?,try_num=try_num+1,next_time=?,publish_time=?
+                WHERE id=?;
             "#,
                 AppNotifyDataModel::table_name(),
-                SqlExpr(sql_format!(
-                    "if ((try_num+1)>=try_max,{},status)",
-                    AppNotifyDataStatus::Fail as i8
-                )),
-                msg,
-                ntime + addtime,
-                ntime,
-                nid,
             );
-            if let Err(err) = sqlx::query(sql.as_str()).execute(&mut *tdb).await {
+            if let Err(err) = sqlx::query(sql.as_str())
+                .bind(AppNotifyDataStatus::Fail as i8)
+                .bind(msg)
+                .bind(ntime + addtime)
+                .bind(ntime)
+                .bind(nid)
+                .execute(&mut *tdb)
+                .await
+            {
                 warn!("change notify data status to fail is fail[{}]{}", nid, err);
             }
             if let Err(db_err) = tdb.commit().await {
@@ -164,34 +165,37 @@ async fn change_notify_error_status(
     let ntime = now_time().unwrap_or_default();
     let addtime = next_time_add(now_num, retry_mode, retry_base);
 
-    let sql = sql_format!(
+    let sql = format!(
         r#"
           UPDATE {} AS t1
             JOIN (
                 SELECT app_id, notify_method, notify_key
                 FROM {}
-                WHERE id = {}
+                WHERE id = ?
             ) AS t2 ON t1.app_id = t2.app_id
                     AND t1.notify_method = t2.notify_method
                     AND t1.notify_key = t2.notify_key
             SET
-                t1.status = {},
-                t1.result = {},
-                t1.next_time = {},  
-                t1.publish_time = {} 
+                t1.status = ?,
+                t1.result = ?,
+                t1.next_time = ?,  
+                t1.publish_time = ? 
             WHERE
-                t1.status = {}
+                t1.status = ?
         "#,
         AppNotifyDataModel::table_name(),
         AppNotifyDataModel::table_name(),
-        nid,
-        AppNotifyDataStatus::Fail as i8,
-        msg,
-        ntime + addtime,
-        ntime,
-        AppNotifyDataStatus::Init as i8,
     );
-    if let Err(err) = sqlx::query(sql.as_str()).execute(db).await {
+    if let Err(err) = sqlx::query(sql.as_str())
+        .bind(nid)
+        .bind(AppNotifyDataStatus::Fail as i8)
+        .bind(msg)
+        .bind(ntime + addtime)
+        .bind(ntime)
+        .bind(AppNotifyDataStatus::Init as i8)
+        .execute(db)
+        .await
+    {
         warn!("change notify data status fail[{}]{}", nid, err);
     }
 }
@@ -295,17 +299,20 @@ impl AppNotifyTask {
             Ok(()) => {
                 debug!("notify {} success", &val.0.id);
                 let ntime = now_time().unwrap_or_default();
-                let sql = sql_format!(
+                let sql = format!(
                     r#"UPDATE {}
-                        SET status={},try_num=try_num+1,publish_time={}
-                        WHERE id={};
+                        SET status=?,try_num=try_num+1,publish_time=?
+                        WHERE id=?;
                     "#,
                     AppNotifyDataModel::table_name(),
-                    AppNotifyDataStatus::Succ as i8,
-                    ntime,
-                    &val.0.id,
                 );
-                if let Err(err) = sqlx::query(sql.as_str()).execute(&self.db).await {
+                if let Err(err) = sqlx::query(sql.as_str())
+                    .bind(AppNotifyDataStatus::Succ as i8)
+                    .bind(ntime)
+                    .bind(val.0.id)
+                    .execute(&self.db)
+                    .await
+                {
                     warn!(
                         "change notify data status to succ fail[{}]{}",
                         val.0.id, err
@@ -335,38 +342,34 @@ impl TaskExecutor<u64, AppAppNotifyTaskItem> for AppNotifyTask {
     async fn exec(&self, val: AppAppNotifyTaskItem) -> Result<(), String> {
         let task_id = val.0.id;
         let res = self._exec(val).await;
-        let sql = sql_format!(
+        let sql = format!(
             r#"select id from {}
                 WHERE (app_id, notify_method, notify_key) = (
                     SELECT app_id, notify_method, notify_key 
                     FROM {} 
-                    WHERE id = {} and status in ({})
+                    WHERE id = ? and status in (?,?)
                 ) 
-                AND id != {} AND status={} limit 1
+                AND id != ? AND status=? limit 1
             "#,
             AppNotifyDataModel::table_name(),
             AppNotifyDataModel::table_name(),
-            task_id,
-            [
-                AppNotifyDataStatus::Succ as i8,
-                AppNotifyDataStatus::Fail as i8,
-            ],
-            task_id,
-            AppNotifyDataStatus::Init as i8,
         );
         if sqlx::query_scalar::<_, u64>(&sql)
+            .bind(task_id)
+            .bind(AppNotifyDataStatus::Succ as i8)
+            .bind(AppNotifyDataStatus::Fail as i8)
+            .bind(task_id)
+            .bind(AppNotifyDataStatus::Init as i8)
             .fetch_one(&self.db)
             .await
             .is_ok()
-        {
-            if let Err(e) = self.task_notify.notify().await {
+            && let Err(e) = self.task_notify.notify().await {
                 info!(
                     "notify next app fail:{} on :{}",
                     e.to_fluent_message().default_format(),
                     task_id
                 );
             }
-        }
         res
     }
 }

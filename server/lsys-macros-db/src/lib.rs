@@ -148,7 +148,7 @@ pub fn lsys_model(args: TokenStream, item: TokenStream) -> TokenStream {
                     }
 
                     /// 转换为 Insert 构建器
-                    pub fn to_insert<'t, DB: sqlx::Database>(&'t self) -> lsys_core::db::Insert<'t, DB, Self>
+                    pub fn to_insert<DB: sqlx::Database>(&self) -> lsys_core::db::Insert<DB, Self>
                     where
                         #(#where_bounds),*
                     {
@@ -157,7 +157,7 @@ pub fn lsys_model(args: TokenStream, item: TokenStream) -> TokenStream {
                     }
 
                     /// 生成差异 Update（只包含变化的字段）
-                    pub fn diff_update<'t, DB: sqlx::Database>(&'t self, old: &Self) -> lsys_core::db::Update<'t, DB, Self>
+                    pub fn diff_update<DB: sqlx::Database>(&self, old: &Self) -> lsys_core::db::Update<DB, Self>
                     where
                         #(#where_bounds),*
                     {
@@ -191,7 +191,7 @@ pub fn lsys_model_status(args: TokenStream, item: TokenStream) -> TokenStream {
     let mut field_type = None;
 
     for cattr in args.iter() {
-        if let NestedMeta::Meta(Meta::NameValue(ref attr_ident)) = cattr {
+        if let NestedMeta::Meta(Meta::NameValue(attr_ident)) = cattr {
             let name = attr_ident.clone();
             let name = name.path.get_ident().unwrap().to_string();
             let name = name.as_str();

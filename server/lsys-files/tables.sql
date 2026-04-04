@@ -1,6 +1,6 @@
 CREATE TABLE `lst_file` (
 	`id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    `storage_type` VARCHAR(12) NOT NULL COMMENT '文件存储类型：local=本地存储, aliyun=阿里云OSS,tencent=腾讯云COS',
+    `storage_type` VARCHAR(32) NOT NULL COMMENT '文件存储类型：local_*=本地存储, 其他值为OSS配置的config_key',
     `status` TINYINT NOT NULL COMMENT '状态：1=正常, 2=已删除,3=未完成,4=失败',
     `file_name` VARCHAR(255) NOT NULL  DEFAULT '' COMMENT '文件原始文件名',
     `file_md5` CHAR(32) NOT NULL DEFAULT '' COMMENT '文件md5',
@@ -51,7 +51,7 @@ CREATE TABLE `lst_file_local_chunk` (
     `change_time` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '修改时间',
     UNIQUE KEY `file_chunk_index` (`file_id`,`chunk_index`) USING BTREE,
     KEY `file_chunk_status` (`file_id`,`status`) USING BTREE
-) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '本地文件 上传 或 URL下载分块';
+) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '本地文件 上传 或 URL下载分块(多节点同时读写,多个文件不会有并发问题)';
 
 
 CREATE TABLE `lst_file_oss` (
@@ -82,7 +82,8 @@ CREATE TABLE `lst_file_log` (
 
 CREATE TABLE `lst_file_user` (
 	`id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    `user_id` BIGINT UNSIGNED NOT NULL COMMENT '上传用户ID',
+    `user_id` BIGINT UNSIGNED NOT NULL COMMENT '文件属于的用户ID,0=系统',
+    `add_user_id` BIGINT UNSIGNED NOT NULL COMMENT '文件添加(上传)用户ID',
     `app_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '应用ID,0=系统,>0=具体应用',
     `file_id` BIGINT UNSIGNED NOT NULL COMMENT '文件ID',
     `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态：1=正常, 2=已删除',
@@ -90,6 +91,8 @@ CREATE TABLE `lst_file_user` (
     `source_md5` CHAR(32) NOT NULL  DEFAULT '' COMMENT '来源URL hash,上传时用户提交的hash',
     `add_time` BIGINT UNSIGNED NOT NULL COMMENT '添加时间',
     `delete_time` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT  '软删除时间',
+    `expire_time` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '过期时间，0表示永不过期',
+    `policy` VARCHAR(32) NOT NULL COMMENT '上传策略标识',
     KEY `user_source_md5` (`user_id`,`app_id`,`source_md5`) USING BTREE,
     KEY `file_user_status_time` (`user_id`,`app_id`,`file_id`,`add_time`,`status`) USING BTREE,
     KEY `app_id` (`app_id`) USING BTREE

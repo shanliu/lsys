@@ -34,6 +34,10 @@ pub struct CollectorConfig {
     pub max_runtimes: usize,
     /// 采集文件工作目录
     pub work_base_dir: PathBuf,
+    /// 脚本最大执行时间（秒），0 表示不限制
+    pub max_timeout_secs: u32,
+    /// 脚本最大内存使用（字节），0 表示不限制
+    pub max_memory_limit: u64,
 }
 
 impl Default for CollectorConfig {
@@ -41,6 +45,8 @@ impl Default for CollectorConfig {
         Self {
             max_runtimes: 4,
             work_base_dir: std::env::temp_dir().join("lsys-collector"),
+            max_timeout_secs: 0,
+            max_memory_limit: 0,
         }
     }
 }
@@ -58,6 +64,14 @@ impl CollectorConfig {
                 .get_string("collector_work_base_dir")
                 .map(PathBuf::from)
                 .unwrap_or(defaults.work_base_dir),
+            max_timeout_secs: config
+                .get_int("collector_max_timeout_secs")
+                .map(|v| v as u32)
+                .unwrap_or(defaults.max_timeout_secs),
+            max_memory_limit: config
+                .get_int("collector_max_memory_limit")
+                .map(|v| v as u64)
+                .unwrap_or(defaults.max_memory_limit),
         }
     }
 }
@@ -72,7 +86,7 @@ pub struct WebFileCollector {
 }
 
 impl WebFileCollector {
-    /// 创建采集器
+    /// 创建采集器。
     pub fn new(
         db: Pool<MySql>,
         file_dao: Arc<FileDao>,
@@ -88,7 +102,6 @@ impl WebFileCollector {
 
         let engine = JsEngine::new(engine_config)
             .map_err(|e| WebError::Message(fluent_message!("collector-engine-init-error", e)))?;
-
         let runner = JsTaskRunner::new(engine, RuntimeConfig::default());
 
         Ok(Self {
@@ -98,6 +111,16 @@ impl WebFileCollector {
             logger,
             config,
         })
+    }
+
+    /// 运行 JS 任务派发后台循环。通常通过 `tokio::spawn` 调用。
+    pub async fn run_task_loop(&self) {
+        self.runner.run().await;
+    }
+
+    /// 运行 JS 引擎缓存清理后台循环。通常通过 `tokio::spawn` 调用。
+    pub async fn run_cache_cleanup(&self) {
+        self.runner.run_engine_cleanup().await;
     }
 
     /// 从 RequestEnv 提取 request_id，若不存在则自动生成

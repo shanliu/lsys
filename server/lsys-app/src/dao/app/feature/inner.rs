@@ -5,10 +5,8 @@ use crate::{
         AppRequestStatus, AppRequestType,
     },
 };
-use lsys_core::{db::{Insert, TableMeta, SqlSuffix, Update}};
-use lsys_core::db::SqlQuote;
+use lsys_core::{db::{Insert, QueryBuilderExt, TableMeta, Update}};
 use lsys_core::fluent_message;
-use lsys_core::sql_format;
 use lsys_core::utils::{
     now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT, STRING_CLEAR_XSS,
 };
@@ -24,12 +22,12 @@ impl App {
         env_data: Option<&RequestEnv>,
     ) -> AppResult<()> {
         app.app_status_check()?;
-        let req_res = sqlx::query_scalar::<_, i8>(&sql_format!(
-            "select status from {} where app_id={} and feature_key = {} limit 1",
+        let req_res = sqlx::query_scalar::<_, i8>(&format!(
+            "select status from {} where app_id=? and feature_key = ? limit 1",
             AppFeatureModel::table_name(),
-            app.id,
-            inner_request_type.feature_key(),
         ))
+        .bind(app.id)
+        .bind(inner_request_type.feature_key())
         .fetch_one(&self.db)
         .await;
         match req_res {
@@ -47,14 +45,14 @@ impl App {
         let req_status = AppRequestStatus::Pending as i8;
         let request_type = inner_request_type as i8;
 
-        let req_res = sqlx::query_scalar::<_, u64>(&sql_format!(
-            "select id from {} where  parent_app_id={} and app_id={} and request_type={} and status={} limit 1",
+        let req_res = sqlx::query_scalar::<_, u64>(&format!(
+            "select id from {} where  parent_app_id=? and app_id=? and request_type=? and status=? limit 1",
             AppRequestModel::table_name(),
-            app.parent_app_id,
-            app.id,
-            request_type,
-            req_status
         ))
+        .bind(app.parent_app_id)
+        .bind(app.id)
+        .bind(request_type)
+        .bind(req_status)
         .fetch_one(&self.db)
         .await;
         match req_res {
@@ -142,17 +140,19 @@ impl App {
                 .set(AppRequestModel::CONFIRM_USER_ID, confirm_user_id)
                 .set(AppRequestModel::CONFIRM_TIME, time)
                 .set(AppRequestModel::CONFIRM_NOTE, confirm_note)
-                .execute(SqlSuffix::Where(&sql_format!("id={}", req.id)), &self.db)
+                .execute(&self.db, |qb| {
+                    qb.push_where().field_eq("id", req.id);
+                })
                 .await?;
             return Ok(());
         }
         let fkey = req_type.feature_key().to_string();
-        let req_res = sqlx::query_as::<_, (u64, i8)>(&sql_format!(
-            "select id,status from {} where app_id={} and feature_key = {}",
+        let req_res = sqlx::query_as::<_, (u64, i8)>(&format!(
+            "select id,status from {} where app_id=? and feature_key = ?",
             AppFeatureModel::table_name(),
-            app.id,
-            &fkey
         ))
+        .bind(app.id)
+        .bind(&fkey)
         .fetch_one(&self.db)
         .await;
 
@@ -166,7 +166,9 @@ impl App {
                         .set(AppFeatureModel::STATUS, set_status)
                         .set(AppFeatureModel::CHANGE_USER_ID, confirm_user_id)
                         .set(AppFeatureModel::CHANGE_TIME, time)
-                        .execute(SqlSuffix::Where(&sql_format!("id={}", fid)), &mut *db)
+                        .execute(&mut *db, |qb| {
+                            qb.push_where().field_eq("id", fid);
+                        })
                         .await;
                     if let Err(err) = cres {
                         db.rollback().await?;
@@ -200,7 +202,9 @@ impl App {
             .set(AppRequestModel::CONFIRM_USER_ID, confirm_user_id)
             .set(AppRequestModel::CONFIRM_TIME, time)
             .set(AppRequestModel::CONFIRM_NOTE, confirm_note)
-            .execute(SqlSuffix::Where(&sql_format!("id={}", req.id)), &mut *db)
+            .execute(&mut *db, |qb| {
+                qb.push_where().field_eq("id", req.id);
+            })
             .await;
         if let Err(err) = cres {
             db.rollback().await?;

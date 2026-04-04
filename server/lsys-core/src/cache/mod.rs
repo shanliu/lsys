@@ -1,6 +1,4 @@
 mod clear;
-#[macro_use]
-mod macros;
 use hashlink::LruCache;
 
 use std::{
@@ -190,5 +188,50 @@ where
                 err.to_fluent_message().default_format()
             );
         }
+    }
+    /// 查缓存，未命中则通过闭包获取并回填
+    pub async fn get_or_fetch<E, F, Fut>(&self, key: &K, fetch: F) -> Result<T, E>
+    where
+        K: Clone,
+        F: FnOnce() -> Fut,
+        Fut: std::future::Future<Output = Result<T, E>>,
+    {
+        if let Some(data) = self.get(key).await {
+            return Ok(data);
+        }
+        let data = fetch().await?;
+        self.set(key.clone(), data.clone(), 0).await;
+        Ok(data)
+    }
+    /// 批量查缓存，未命中的通过闭包批量获取并回填
+    pub async fn get_or_fetch_many<E, F, Fut>(
+        &self,
+        keys: &[K],
+        fetch: F,
+    ) -> Result<std::collections::HashMap<K, T>, E>
+    where
+        K: Clone,
+        F: FnOnce(Vec<K>) -> Fut,
+        Fut: std::future::Future<Output = Result<std::collections::HashMap<K, T>, E>>,
+    {
+        let mut get = vec![];
+        let mut hash = std::collections::HashMap::with_capacity(keys.len());
+        for key in keys {
+            match self.get(key).await {
+                Some(data) => {
+                    hash.entry(key.clone()).or_insert(data);
+                }
+                None => {
+                    get.push(key.clone());
+                }
+            }
+        }
+        if !get.is_empty() {
+            for (pk, data) in fetch(get).await? {
+                self.set(pk.clone(), data.clone(), 0).await;
+                hash.entry(pk).or_insert(data);
+            }
+        }
+        Ok(hash)
     }
 }

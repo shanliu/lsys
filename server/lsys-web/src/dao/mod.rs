@@ -13,7 +13,9 @@ mod web_setting;
 pub use app_area::*;
 pub use app_captcha::*;
 pub use app_sender::*;
-use lsys_core::db::utils::init_string_field_cache;
+use lsys_core::db::utils::{FetchField,fetch_field_init};
+use lsys_core::fluent_message;
+use lsys_files::dao::FileDaoBuilder;
 pub use result::{WebError, WebResult};
 
 use ip2location::LocationDB;
@@ -54,6 +56,9 @@ use std::sync::Arc;
 use std::vec;
 use tera::Tera;
 
+use crate::dao::export_task::WebExportTask;
+use crate::handler::export::register_exporters;
+
 pub struct WebDao {
     pub app_core: Arc<AppCore>,
     pub db: Pool<MySql>,
@@ -92,8 +97,9 @@ impl WebDao {
             app_core.clone(),
             redis.clone(),
         )?);
-        init_string_field_cache(remote_notify.clone(), use_cache).await;
+        fetch_field_init(remote_notify.clone(), use_cache).await;
         let db = lsys_core::app_core::create_mysql_pool(&app_core).await?;
+        FetchField::init_cache(&db).await;
 
         let change_logger = Arc::new(ChangeLoggerDao::new(db.clone()));
         let setting_dao = Arc::new(
@@ -156,11 +162,11 @@ impl WebDao {
             access_dao.clone(),
             mfa_totp_dao.clone(),
             app_core.clone(),
-            account_dao.account_login_hostory.clone(),
+            account_dao.account_login_history.clone(),
             ip_db.clone(),
         ));
         let auth_account_dao = Arc::new(AuthAccount::new(
-            account_dao.account_login_hostory.clone(),
+            account_dao.account_login_history.clone(),
             access_dao.clone(),
             AuthAccountConfig::new(ip_db),
             mfa_login_dao.clone(),
@@ -196,7 +202,18 @@ impl WebDao {
 
         let app_area = Arc::new(AppArea::new(app_core.clone())?);
         let app_captcha = Arc::new(AppCaptcha::new(redis.clone()));
-        let web_files = Arc::new(WebFiles::new(db.clone(), redis.clone(), &app_core, change_logger.clone())?);
+        // 先不包 Arc，注册 Exporter 后再包
+        let oss_registry = Arc::new(lsys_files::oss::OssProviderRegistry::with_defaults());
+        let file_dao = Arc::new(
+            FileDaoBuilder::build(db.clone(), &app_core, setting_dao.multiple.clone(), oss_registry.clone(), change_logger.clone())
+        );
+        let mut export_task = WebExportTask::new(
+            db.clone(),
+            file_dao.clone(),
+            change_logger.clone(),
+             &app_core,
+        );
+
         let app_sender = Arc::new(
             AppSender::new(
                 app_core.clone(),
@@ -243,7 +260,25 @@ impl WebDao {
 
         let web_access = Arc::new(WebAccess::new(access_dao.clone()));
 
-        // web_setting 已在 web_app 之前初始化，用于 WebApp 内部读取/写入 setting.multiple
+
+        register_exporters(
+            &mut export_task,
+            file_dao.clone(),
+            web_rbac.clone(),
+            account_dao.clone(),
+            access_dao.clone(),
+            web_app.clone(),
+            app_sender.clone(),
+            change_logger.clone(),
+        )
+        .await
+        .map_err(|err| WebError::Message(fluent_message!("export-error", err)))?;
+
+
+        let  web_files =Arc::new(
+            WebFiles::new(db.clone(), redis.clone(), &app_core, file_dao, Arc::new(export_task),change_logger.clone())?
+        );
+
 
         // 本地lua缓存清理 local cache
         let mut cache_item: Vec<Box<dyn LocalCacheClearItem>> = vec![];

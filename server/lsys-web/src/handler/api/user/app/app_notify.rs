@@ -6,9 +6,9 @@ use crate::dao::access::api::system::user::CheckUserNotifyView;
 use crate::dao::access::RbacAccessCheckEnv;
 use lsys_access::dao::AccessSession;
 use lsys_app::model::AppNotifyDataStatus;
-use lsys_core::db::CursorPageSort;
+use lsys_core::api_utils::{JsonPageData, PageCursorValue, PageTotalRowValue};
+use lsys_core::db::{CursorPageSort, TotalParam};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 
 #[derive(Deserialize)]
 pub struct NotifyDataListParam {
@@ -87,8 +87,7 @@ pub async fn notify_data_list(
             &param.limit.to_u64_cursor_page_param(CursorPageSort::Desc),
         )
         .await?;
-    let next_cursor = res.1.next_cursor;
-    let prev_cursor = res.1.prev_cursor;
+    let cursor = PageCursorValue::from(&res.1);
     let out = res
         .0
         .into_iter()
@@ -123,14 +122,16 @@ pub async fn notify_data_list(
                     param.notify_method.as_deref(),
                     param.notify_key.as_deref(),
                     status.as_deref(),
+                    &TotalParam::default(),
                 )
-                .await?,
+                .await
+                .map(PageTotalRowValue::from)?,
         )
     } else {
         None
     };
     Ok(JsonResponse::data(JsonData::body(
-        json!({ "data":out,"next_cursor":next_cursor,"prev_cursor":prev_cursor, "total":count,}),
+        JsonPageData::cursor(out, cursor, count),
     )))
 }
 

@@ -5,10 +5,10 @@ use crate::model::{SenderTplConfigModel, SenderTplConfigStatus, SenderType};
 
 use super::logger::LogAppConfig;
 use super::{SenderError, SenderResult};
-use lsys_core::db::{Insert, TableMeta, SqlExpr, SqlSuffix, Update};
-use lsys_core::db::SqlQuote;
+use lsys_core::db::{Insert, QueryBuilderExt, TableMeta, Update, WhereClause};
 use lsys_core::db::OffsetPageParam;
-use lsys_core::{fluent_message, sql_format};
+use lsys_core::fluent_message;
+use sqlx::{MySql, QueryBuilder};
 use lsys_core::utils::{
     now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT,
 };
@@ -48,12 +48,12 @@ impl SenderTplConfig {
     }
     //检查配置id是否被使用
     pub async fn check_setting_id_used(&self, setting_id: u64) -> SenderResult<()> {
-        match sqlx::query_scalar::<_, i64>(&sql_format!(
-            "select count(*) as total from {} where setting_id={} and status={}",
-            SenderTplConfigModel::table_name(),
-            setting_id,
-            SenderTplConfigStatus::Enable,
+        match sqlx::query_scalar::<_, i64>(&format!(
+            "select count(*) as total from {} where setting_id=? and status=?",
+            SenderTplConfigModel::table_name()
         ))
+        .bind(setting_id)
+        .bind(SenderTplConfigStatus::Enable as i8)
         .fetch_one(&self.db)
         .await
         {
@@ -71,13 +71,13 @@ impl SenderTplConfig {
     }
 
     pub async fn find_by_id(&self, id: u64) -> SenderResult<SenderTplConfigModel> {
-        let data = sqlx::query_as::<_, SenderTplConfigModel>(&sql_format!(
-            "select * from {} where sender_type={} and id={} and status={}",
-            SenderTplConfigModel::table_name(),
-            self.send_type,
-            id,
-            SenderTplConfigStatus::Enable as i8
+        let data = sqlx::query_as::<_, SenderTplConfigModel>(&format!(
+            "select * from {} where sender_type=? and id=? and status=?",
+            SenderTplConfigModel::table_name()
         ))
+        .bind(self.send_type as i8)
+        .bind(id)
+        .bind(SenderTplConfigStatus::Enable as i8)
         .fetch_one(&self.db)
         .await?;
 
@@ -91,61 +91,53 @@ impl SenderTplConfig {
         tpl_key: Option<&str>,
         like_tpl_key: Option<&str>,
     ) -> SenderResult<i64> {
-        let sqlwhere = match self
-            .list_where(id, user_id, app_id, tpl_key, like_tpl_key)
-            .await
-        {
-            Some(v) => v,
-            None => return Ok(0),
-        };
-
-        let sql = format!(
-            "select count(*) as total from {}
-            where {}",
+        let mut qb = QueryBuilder::<MySql>::new(format!(
+            "select count(*) as total from {}",
             SenderTplConfigModel::table_name(),
-            sqlwhere.join(" and "),
-        );
-        Ok(sqlx::query_scalar::<_, i64>(sql.as_str())
-            .fetch_one(&self.db)
-            .await?)
+        ));
+        let res = {
+            let mut wb = WhereClause::new(&mut qb);
+            self.push_list_where(&mut wb, id, user_id, app_id, tpl_key, like_tpl_key).is_none()
+        }; if res {
+            return Ok(0);
+        }
+        Ok(qb.build_query_scalar::<i64>().fetch_one(&self.db).await?)
     }
-    async fn list_where(
+    fn push_list_where<'a, 'args>(
         &self,
+        wb: &mut WhereClause<'a, 'args, MySql>,
         id: Option<u64>,
         user_id: Option<u64>,
         app_id: Option<u64>,
         tpl_key: Option<&str>,
         like_tpl_key: Option<&str>,
-    ) -> Option<Vec<String>> {
-        let mut sqlwhere = vec![sql_format!(
-            "sender_type={} and status ={}",
-            self.send_type as i8,
-            SenderTplConfigStatus::Enable as i8
-        )];
+    ) -> Option<()> {
+        wb.and().field_eq("sender_type", self.send_type as i8);
+        wb.and().field_eq("status", SenderTplConfigStatus::Enable as i8);
         if let Some(aid) = id {
-            sqlwhere.push(sql_format!("id = {}  ", aid));
+            wb.and().field_eq("id", aid);
         }
         if let Some(aid) = app_id {
-            sqlwhere.push(sql_format!("app_id = {}  ", aid));
+            wb.and().field_eq("app_id", aid);
         }
         if let Some(uid) = user_id {
-            sqlwhere.push(sql_format!("user_id={} ", uid));
+            wb.and().field_eq("user_id", uid);
         }
         if let Some(tpl) = tpl_key {
             let tpl = string_clear(tpl, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
             if tpl.is_empty() {
                 return None;
             }
-            sqlwhere.push(sql_format!("tpl_key={} ", tpl));
+            wb.and().field_eq("tpl_key", tpl);
         }
         if let Some(ref tmp) = like_tpl_key {
             let tmp = string_clear(tmp, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
             if tmp.is_empty() {
                 return None;
             }
-            sqlwhere.push(sql_format!("tpl_key like {}", format!("{}%", tmp)));
-        };
-        Some(sqlwhere)
+            wb.and().field_like("tpl_key", format!("{}%", tmp));
+        }
+        Some(())
     }
     pub async fn list_config(
         &self,
@@ -156,22 +148,21 @@ impl SenderTplConfig {
         like_tpl_key: Option<&str>,
         page: &OffsetPageParam,
     ) -> SenderResult<Vec<(SenderTplConfigModel, Option<SettingModel>)>> {
-        let sqlwhere = match self
-            .list_where(id, user_id, app_id, tpl_key, like_tpl_key)
-            .await
-        {
-            Some(v) => v,
-            None => return Ok(vec![]),
-        };
-        let sql = format!("{}  order by id desc {}", sqlwhere.join(" and "), page.page_query().limit_sql().unwrap_or_default());
-
-        let res = sqlx::query_as::<_, SenderTplConfigModel>(&sql_format!(
-            "select * from {} where {}",
+        let mut qb = QueryBuilder::<MySql>::new(format!(
+            "select * from {}",
             SenderTplConfigModel::table_name(),
-            SqlExpr(sql)
-        ))
-        .fetch_all(&self.db)
-        .await?;
+        ));
+        let res = {
+            let mut wb = WhereClause::new(&mut qb);
+            self.push_list_where(&mut wb, id, user_id, app_id, tpl_key, like_tpl_key).is_none()
+        }; if res {
+            return Ok(vec![]);
+        }
+        qb.push(" order by id desc");
+        page.push_limit(&mut qb);
+        let res = qb.build_query_as::<SenderTplConfigModel>()
+            .fetch_all(&self.db)
+            .await?;
 
         if res.is_empty() {
             return Ok(vec![]);
@@ -251,17 +242,18 @@ impl SenderTplConfig {
         self.add_config_param_valid(name, app_id, setting_id, tpl_key)
             .await?;
 
-        let find_res = sqlx::query_scalar::<_, u64>(&sql_format!(
-            "select id from {} where sender_type={} and app_id={} and user_id={} and status={} and name={}",
-            SenderTplConfigModel::table_name(),
-            self.send_type  as i8,
-            app_id,
-            user_id,
-            SenderTplConfigStatus::Enable as i8,
-            name,
-        ))
-        .fetch_one(&self.db)
-        .await;
+        let sql = format!(
+            "select id from {} where sender_type=? and app_id=? and user_id=? and status=? and name=?",
+            SenderTplConfigModel::table_name()
+        );
+        let find_res = sqlx::query_scalar::<_, u64>(&sql)
+            .bind(self.send_type as i8)
+            .bind(app_id)
+            .bind(user_id)
+            .bind(SenderTplConfigStatus::Enable as i8)
+            .bind(name)
+            .fetch_one(&self.db)
+            .await;
         match find_res {
             Ok(id) => {
                 return Err(SenderError::Vaild(ValidError::message(
@@ -332,10 +324,9 @@ impl SenderTplConfig {
             .set(SenderTplConfigModel::STATUS, SenderTplConfigStatus::Delete as i8)
             .set(SenderTplConfigModel::CHANGE_TIME, time)
             .set(SenderTplConfigModel::CHANGE_USER_ID, user_id)
-            .execute(
-                SqlSuffix::Where(&sql_format!("id={}", config.id)),
-                &self.db,
-            )
+            .execute(&self.db, |qb| {
+                qb.push_where().field_eq("id", config.id);
+            })
             .await;
 
         self.logger
@@ -366,3 +357,4 @@ impl SenderTplConfig {
         }
     }
 }
+

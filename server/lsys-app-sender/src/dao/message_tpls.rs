@@ -12,8 +12,8 @@ use lsys_core::valid_param::{
     ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
 };
 
-use lsys_core::db::{Insert, TableMeta, SqlExpr, SqlQuote, SqlSuffix, Update};
-use lsys_core::sql_format;
+use lsys_core::db::{Insert, QueryBuilderExt, TableMeta, Update, WhereClause};
+use sqlx::{MySql, QueryBuilder};
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::Pool;
 use tera::{Context, Template, Tera};
@@ -37,9 +37,10 @@ impl MessageTpls {
         }
     }
     pub async fn find_by_id(&self, id: &u64) -> SenderResult<SenderTplBodyModel> {
-        Ok(lsys_core::db::utils::fetch_one::<SenderTplBodyModel>(
+        use lsys_core::db::utils::Fetch;
+        Ok(Fetch::<MySql, SenderTplBodyModel>::one(
             &self.db,
-            lsys_core::sql_format!("id={id}", id = id),
+            |qb| { qb.field_eq("id", *id); },
         ).await?)
     }
 
@@ -87,14 +88,14 @@ impl MessageTpls {
         let tpl_data = tpl_data.to_owned();
         let status = SenderTplBodyStatus::Enable as i8;
 
-        let res = sqlx::query_as::<_, SenderTplBodyModel>(&sql_format!(
-            "select * from {} where app_id={} and tpl_id={} and status = {} and user_id = {} ",
-            SenderTplBodyModel::table_name(),
-            app_id,
-            tpl_id,
-            SenderTplBodyStatus::Enable,
-            user_id
+        let res = sqlx::query_as::<_, SenderTplBodyModel>(&format!(
+            "select * from {} where app_id=? and tpl_id=? and status=? and user_id=?",
+            SenderTplBodyModel::table_name()
         ))
+        .bind(app_id)
+        .bind(&tpl_id)
+        .bind(SenderTplBodyStatus::Enable as i8)
+        .bind(user_id)
         .fetch_one(&self.db)
         .await;
 
@@ -173,7 +174,9 @@ impl MessageTpls {
             .set(SenderTplBodyModel::TPL_DATA, &tpl_data)
             .set(SenderTplBodyModel::CHANGE_USER_ID, change_user_id)
             .set(SenderTplBodyModel::CHANGE_TIME, time)
-            .execute(SqlSuffix::Where(&sql_format!("id={}", tpl.id)), &self.db)
+            .execute(&self.db, |qb| {
+                qb.push_where().field_eq("id", tpl.id);
+            })
             .await?
             .rows_affected();
 
@@ -216,7 +219,9 @@ impl MessageTpls {
             .set(SenderTplBodyModel::STATUS, status)
             .set(SenderTplBodyModel::USER_ID, user_id)
             .set(SenderTplBodyModel::CHANGE_TIME, time)
-            .execute(SqlSuffix::Where(&sql_format!("id={}", tpl.id)), &self.db)
+            .execute(&self.db, |qb| {
+                qb.push_where().field_eq("id", tpl.id);
+            })
             .await?
             .rows_affected();
         let tkey = self.tpl_key(tpl.sender_type, &tpl.tpl_id);
@@ -256,14 +261,14 @@ impl MessageTpls {
         let sender_type = sender_type as i8;
         let tkey = &self.tpl_key(sender_type, tpl_id);
         if !self.tera.read().await.templates.contains_key(tkey) {
-            let tpl = sqlx::query_as::<_, SenderTplBodyModel>(&sql_format!(
-                "select * from {} where app_id={} and sender_type={} and tpl_id={} and status = {}",
-                SenderTplBodyModel::table_name(),
-                app_id,
-                sender_type,
-                tpl_id,
-                SenderTplBodyStatus::Enable
+            let tpl = sqlx::query_as::<_, SenderTplBodyModel>(&format!(
+                "select * from {} where app_id=? and sender_type=? and tpl_id=? and status=?",
+                SenderTplBodyModel::table_name()
             ))
+            .bind(app_id)
+            .bind(sender_type)
+            .bind(tpl_id)
+            .bind(SenderTplBodyStatus::Enable as i8)
             .fetch_one(&self.db)
             .await?;
 
@@ -283,36 +288,34 @@ impl MessageTpls {
         let data = self.tera.read().await.render(tkey, context)?;
         Ok(data)
     }
-    fn list_where_sql(
+    fn push_list_where<'a, 'args>(
         &self,
+        wb: &mut WhereClause<'a, 'args, MySql>,
         app_id: u64,
         sender_type: Option<SenderType>,
         id: Option<u64>,
         tpl_id: Option<&str>,
         tpl_id_like: Option<&str>,
-    ) -> Option<String> {
-        let mut sqlwhere = vec![sql_format!(
-            "app_id={} and status ={}",
-            app_id,
-            SenderTplBodyStatus::Enable
-        )];
+    ) -> Option<()> {
+        wb.and().field_eq("app_id", app_id);
+        wb.and().field_eq("status", SenderTplBodyStatus::Enable as i8);
         if let Some(s) = sender_type {
-            sqlwhere.push(sql_format!("sender_type={} ", s));
+            wb.and().field_eq("sender_type", s as i8);
         }
         if let Some(s) = id {
-            sqlwhere.push(sql_format!("id={} ", s));
+            wb.and().field_eq("id", s);
         }
         if let Some(s) = tpl_id {
-            sqlwhere.push(sql_format!("tpl_id={} ", s));
+            wb.and().field_eq("tpl_id", s.to_owned());
         }
         if let Some(tmp) = tpl_id_like {
             let tmp = string_clear(tmp, StringClear::Option(STRING_CLEAR_FORMAT), Some(128));
             if tmp.is_empty() {
                 return None;
             }
-            sqlwhere.push(sql_format!("tpl_id like {}", format!("{}%", tmp)));
+            wb.and().field_like("tpl_id", format!("{}%", tmp));
         }
-        Some(sqlwhere.join(" and "))
+        Some(())
     }
     pub async fn list_data(
         &self,
@@ -323,21 +326,19 @@ impl MessageTpls {
         tpl_id_like: Option<&str>,
         page: &OffsetPageParam,
     ) -> SenderResult<Vec<SenderTplBodyModel>> {
-        let sqlwhere = match self.list_where_sql(app_id, sender_type, id, tpl_id, tpl_id_like) {
-            Some(s) => s,
-            None => return Ok(vec![]),
-        };
-        let sql = sql_format!(
-            "select * from {} {} order by id desc {}",
+        let mut qb = QueryBuilder::<MySql>::new(format!(
+            "select * from {}",
             SenderTplBodyModel::table_name(),
-            if !sqlwhere.is_empty() {
-                SqlExpr(format!("where {}", sqlwhere))
-            } else {
-                SqlExpr("".to_string())
-            },
-            SqlExpr(page.page_query().limit_sql().unwrap_or_default())
-        );
-        Ok(sqlx::query_as::<_, SenderTplBodyModel>(&sql)
+        ));
+        let res = {
+            let mut wb = WhereClause::new(&mut qb);
+            self.push_list_where(&mut wb, app_id, sender_type, id, tpl_id, tpl_id_like).is_none()
+        }; if res {
+            return Ok(vec![]);
+        }
+        qb.push(" order by id desc");
+        page.push_limit(&mut qb);
+        Ok(qb.build_query_as::<SenderTplBodyModel>()
             .fetch_all(&self.db)
             .await?)
     }
@@ -349,17 +350,18 @@ impl MessageTpls {
         tpl_id: Option<&str>,
         tpl_id_like: Option<&str>,
     ) -> SenderResult<i64> {
-        let sqlwhere = match self.list_where_sql(app_id, sender_type, id, tpl_id, tpl_id_like) {
-            Some(s) => s,
-            None => return Ok(0),
-        };
-        let sql = sql_format!(
-            "select count(*) as total from {} where {}",
+        let mut qb = QueryBuilder::<MySql>::new(format!(
+            "select count(*) as total from {}",
             SenderTplBodyModel::table_name(),
-            SqlExpr(sqlwhere)
-        );
-        let query = sqlx::query_scalar::<_, i64>(&sql);
-        let res = query.fetch_one(&self.db).await?;
-        Ok(res)
+        ));
+        let res = {
+            let mut wb = WhereClause::new(&mut qb);
+            self.push_list_where(&mut wb, app_id, sender_type, id, tpl_id, tpl_id_like).is_none()
+        }; if res {
+            return Ok(0);
+        }
+        Ok(qb.build_query_scalar::<i64>().fetch_one(&self.db).await?)
     }
 }
+
+

@@ -1,45 +1,50 @@
 // 日志写入 + 查询
 
-use lsys_core::db::{CursorPageData, CursorPageParam, Insert, SqlQuote, TableMeta};
-use lsys_core::fluent_message;
-use lsys_core::sql_format;
+use lsys_core::db::{
+    CursorPageData, CursorPageParam, Insert, QueryBuilderExt, TableMeta, TotalParam, TotalRow,
+    WhereClause,
+};
 use lsys_core::utils::{
     now_time, string_clear, StringClear, STRING_CLEAR_FORMAT, STRING_CLEAR_XSS,
 };
-use sqlx::{MySql, Pool};
+use sqlx::{MySql, Pool, QueryBuilder};
 use tracing::error;
 
-use crate::dao::result::{WebError, WebResult};
+use crate::dao::result::WebResult;
 use crate::model::*;
 
 use super::WebFileCollector;
 
 impl WebFileCollector {
     /// 构建日志查询的 WHERE 子句
-    fn build_log_where(script_id: u64, request_id: Option<&str>, level: Option<u8>) -> String {
-        let mut clauses: Vec<String> = vec![sql_format!("script_id={}", script_id)];
+    fn build_log_where<'a, 'args>(
+        wb: &mut WhereClause<'a, 'args, MySql>,
+        script_id: u64,
+        request_id: Option<&str>,
+        level: Option<u8>,
+    ) {
+        wb.and().field_eq("script_id", script_id);
         if let Some(rid) = request_id {
             let rid = rid.trim();
             if !rid.is_empty() {
-                clauses.push(sql_format!("request_id={}", rid));
+                wb.and().field_eq("request_id", rid.to_owned());
             }
         }
         if let Some(lv) = level {
-            clauses.push(sql_format!("level={}", lv));
+            wb.and().field_eq("level", lv);
         }
-        clauses.join(" AND ")
     }
 
     /// 内部构建 Insert 语句（内部会对 message 做统一清理）
-    fn build_log_insert<'a, S: ToString>(
-        request_id: &'a str,
+    fn build_log_insert<S: ToString>(
+        request_id: &str,
         script_id: u64,
         user_id: u64,
         app_id: u64,
         level: u8,
         message: S,
         add_time: u64,
-    ) -> Insert<'a, sqlx::MySql, CollectorLogModel> {
+    ) -> Insert<sqlx::MySql, CollectorLogModel> {
         let msg = string_clear(
             message.to_string(),
             StringClear::Option(STRING_CLEAR_XSS | STRING_CLEAR_FORMAT),
@@ -66,8 +71,8 @@ impl WebFileCollector {
         level: u8,
         message: &str,
     ) -> WebResult<u64> {
-        let now = now_time().map_err(|e| WebError::Message(fluent_message!("time-error", e)))?;
-        let res =
+        let now = now_time().unwrap_or_default();
+        let res: sqlx::mysql::MySqlQueryResult =
             Self::build_log_insert(request_id, script_id, user_id, app_id, level, message, now)
                 .execute(&self.db)
                 .await?;
@@ -84,7 +89,7 @@ impl WebFileCollector {
         level: u8,
         message: &str,
     ) {
-        let now = now_time().unwrap_or(0);
+        let now = now_time().unwrap_or_default();
         match Self::build_log_insert(request_id, script_id, user_id, app_id, level, message, now)
             .execute(db)
             .await
@@ -110,17 +115,23 @@ impl WebFileCollector {
         level: Option<u8>,
         page: &CursorPageParam<u64>,
     ) -> WebResult<(Vec<CollectorLogModel>, CursorPageData<u64>)> {
-        let where_str = Self::build_log_where(script_id, request_id, level);
         let query_limit = page.page_query("id");
-        let suff_sql = query_limit.build_query_sql(Some(&where_str));
+        let mut qb = QueryBuilder::<MySql>::new(format!(
+            "SELECT * FROM {}",
+            CollectorLogModel::table_name()
+        ));
+        {
+            let mut wb = WhereClause::new(&mut qb);
+            Self::build_log_where(&mut wb, script_id, request_id, level);
+            if query_limit.has_cursor() {
+                query_limit.push_where(wb.and());
+            }
+        }
+        query_limit.push_order_by(&mut qb);
+        query_limit.push_limit(&mut qb);
 
-        let sql = format!(
-            "SELECT * FROM {} {}",
-            CollectorLogModel::table_name().sql_quote(),
-            suff_sql
-        );
-
-        let mut data = sqlx::query_as::<_, CollectorLogModel>(&sql)
+        let mut data = qb
+            .build_query_as::<CollectorLogModel>()
             .fetch_all(&self.db)
             .await?;
 
@@ -134,17 +145,37 @@ impl WebFileCollector {
         script_id: u64,
         request_id: Option<&str>,
         level: Option<u8>,
-    ) -> WebResult<u64> {
-        let where_str = Self::build_log_where(script_id, request_id, level);
-        let sql = format!(
-            "SELECT COUNT(*) FROM {} WHERE {}",
-            CollectorLogModel::table_name().sql_quote(),
-            where_str
-        );
+        total_param: &TotalParam,
+    ) -> WebResult<TotalRow> {
+        let query = total_param.total_count_query();
+        let mut qb = if query.is_threshold_mode() {
+            QueryBuilder::<MySql>::new(format!(
+                "SELECT count(*) FROM (SELECT 1 FROM {}",
+                CollectorLogModel::table_name()
+            ))
+        } else {
+            QueryBuilder::<MySql>::new(format!(
+                "SELECT count(*) FROM {}",
+                CollectorLogModel::table_name()
+            ))
+        };
+        {
+            let mut wb = WhereClause::new(&mut qb);
+            Self::build_log_where(&mut wb, script_id, request_id, level);
+        }
+        if query.is_threshold_mode() {
+            query.push_limit(&mut qb);
+            qb.push(") as t");
+        }
 
-        let count = sqlx::query_scalar::<_, i64>(&sql)
+        let count = qb
+            .build_query_scalar()
             .fetch_one(&self.db)
-            .await?;
-        Ok(count as u64)
+            .await
+            .unwrap_or(0i64) as u64;
+
+        Ok(query.finalize(count))
     }
 }
+
+

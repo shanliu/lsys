@@ -735,14 +735,14 @@ impl<
                         };
                     }
                     //有下一页数据,通知其他执行服务器继续
-                    if task_data.next {
-                        if let Err(err) = self.notify._notify(&mut redis).await {
-                            warn!(
-                                "notify next task:{} fail:{:?}",
-                                self.config.task_list_key(),
-                                err
-                            );
-                        }
+                    if task_data.next
+                        && let Err(err) = self.notify._notify(&mut redis).await
+                    {
+                        warn!(
+                            "notify next task:{} fail:{:?}",
+                            self.config.task_list_key(),
+                            err
+                        );
                     }
                     //把数据添加到任务的channel
                     for tmp in add_task {

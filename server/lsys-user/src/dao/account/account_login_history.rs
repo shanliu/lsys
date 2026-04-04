@@ -1,12 +1,10 @@
 use lsys_core::db::{
-    CursorPageData, CursorPageParam, Insert, SqlExpr, SqlQuote, SqlSuffix, TableMeta, Update,
+    CursorPageData, CursorPageParam, Insert, QueryBuilderExt, TableMeta, TotalParam,
+    TotalRow, Update, WhereClause,
 };
-use lsys_core::utils::{
-    now_time, string_clear, StringClear, VecStringJoin, STRING_CLEAR_FORMAT,
-};
-use lsys_core::sql_format;
+use lsys_core::utils::{now_time, string_clear, StringClear, STRING_CLEAR_FORMAT};
 
-use sqlx::{MySql, Pool};
+use sqlx::{MySql, Pool, QueryBuilder};
 
 use tracing::error;
 
@@ -22,34 +20,33 @@ impl AccountLoginHistory {
     pub fn new(db: Pool<MySql>) -> Self {
         Self { db }
     }
-    fn history_where(
+    fn history_where<'a, 'args>(
         &self,
+        wb: &mut WhereClause<'a, 'args, MySql>,
         account_id: Option<u64>,
         login_account: Option<&str>,
         is_login: Option<i8>,
         login_type: Option<&str>,
         login_ip: Option<&str>,
-    ) -> Vec<String> {
-        let mut where_sql = vec![];
+    ) {
         if let Some(tmp) = account_id {
-            where_sql.push(sql_format!("account_id={}", tmp))
+            wb.and().field_eq("account_id", tmp);
         }
         if let Some(tmp) = login_account {
             let tmp = string_clear(tmp, StringClear::Option(STRING_CLEAR_FORMAT), Some(129));
-            where_sql.push(sql_format!("login_account={}", tmp))
+            wb.and().field_eq("login_account", tmp);
         }
         if let Some(tmp) = is_login {
-            where_sql.push(sql_format!("is_login={}", tmp))
+            wb.and().field_eq("is_login", tmp);
         }
         if let Some(tmp) = login_ip {
             let tmp = string_clear(tmp, StringClear::Option(STRING_CLEAR_FORMAT), Some(47));
-            where_sql.push(sql_format!("login_ip={}", tmp))
+            wb.and().field_eq("login_ip", tmp);
         }
         if let Some(tmp) = login_type {
             let tmp = string_clear(tmp, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
-            where_sql.push(sql_format!("login_type={}", tmp))
+            wb.and().field_eq("login_type", tmp);
         }
-        where_sql
     }
     /// 登陆历史
     pub async fn history_data(
@@ -61,24 +58,25 @@ impl AccountLoginHistory {
         login_ip: Option<&str>,
         limit: &CursorPageParam<u64>,
     ) -> AccountResult<(Vec<AccountLoginModel>, CursorPageData<u64>)> {
-        let sqlwhere =
-            self.history_where(account_id, login_account, is_login, login_type, login_ip);
-
         let query_limit = limit.page_query("id");
-        let where_str = sqlwhere.join(" and ");
-        let suff_sql = query_limit.build_query_sql(if sqlwhere.is_empty() {
-            None
-        } else {
-            Some(&where_str)
-        });
+        let mut qb = QueryBuilder::<MySql>::new(format!(
+            "select * from {}",
+            AccountLoginModel::table_name()
+        ));
+        {
+            let mut wb = WhereClause::new(&mut qb);
+            self.history_where(&mut wb, account_id, login_account, is_login, login_type, login_ip);
+            if query_limit.has_cursor() {
+                query_limit.push_where(wb.and());
+            }
+        }
+        query_limit.push_order_by(&mut qb);
+        query_limit.push_limit(&mut qb);
 
-        let mut data = sqlx::query_as::<_, AccountLoginModel>(&sql_format!(
-            "select * from {} {}",
-            AccountLoginModel::table_name(),
-            SqlExpr(suff_sql)
-        ))
-        .fetch_all(&self.db)
-        .await?;
+        let mut data = qb
+            .build_query_as::<AccountLoginModel>()
+            .fetch_all(&self.db)
+            .await?;
 
         let next = query_limit.finalize(&mut data, |c, d| *d == c.id, |c| c.id);
         Ok((data, next))
@@ -91,24 +89,34 @@ impl AccountLoginHistory {
         is_login: Option<i8>,
         login_type: Option<&str>,
         login_ip: Option<&str>,
-    ) -> AccountResult<i64> {
-        let where_sql =
-            self.history_where(account_id, login_account, is_login, login_type, login_ip);
-
-        let wsql = if where_sql.is_empty() {
-            "".to_string()
+        total_param: &TotalParam,
+    ) -> AccountResult<TotalRow> {
+        let query = total_param.total_count_query();
+        let mut qb = if query.is_threshold_mode() {
+            QueryBuilder::<MySql>::new(format!(
+                "select count(*) as total from (select 1 from {}",
+                AccountLoginModel::table_name()
+            ))
         } else {
-            format!("where {}", where_sql.string_join(" and "))
+            QueryBuilder::<MySql>::new(format!(
+                "select count(*) as total from {}",
+                AccountLoginModel::table_name()
+            ))
         };
-        let sql = format!(
-            "select count(*) as total from {} {}",
-            AccountLoginModel::table_name(),
-            wsql,
-        );
-        let res = sqlx::query_scalar::<_, i64>(sql.as_str())
+        {
+            let mut wb = WhereClause::new(&mut qb);
+            self.history_where(&mut wb, account_id, login_account, is_login, login_type, login_ip);
+        }
+        if query.is_threshold_mode() {
+            query.push_limit(&mut qb);
+            qb.push(") as t");
+        }
+        let count = qb
+            .build_query_scalar()
             .fetch_one(&self.db)
-            .await?;
-        Ok(res)
+            .await
+            .unwrap_or(0i64) as u64;
+        Ok(query.finalize(count))
     }
     /// 设置用户信息
     pub async fn create_history(
@@ -135,7 +143,7 @@ impl AccountLoginHistory {
             StringClear::Option(STRING_CLEAR_FORMAT),
             Some(100),
         );
-        let login_res = Insert::<_,AccountLoginModel>::new()
+        let login_res = Insert::<_, AccountLoginModel>::new()
             .set(AccountLoginModel::LOGIN_TYPE, login_type)
             .set(AccountLoginModel::LOGIN_ACCOUNT, login_account)
             .set(AccountLoginModel::LOGIN_IP, login_ip)
@@ -157,11 +165,13 @@ impl AccountLoginHistory {
     ) -> AccountResult<()> {
         let login_msg = login_msg.to_string();
         let is_login = is_login as i8;
-        let ures = Update::<_,AccountLoginModel>::new()
+        let ures = Update::<_, AccountLoginModel>::new()
             .set(AccountLoginModel::IS_LOGIN, is_login)
             .set(AccountLoginModel::ACCOUNT_ID, account_id)
             .set(AccountLoginModel::LOGIN_MSG, login_msg)
-            .execute(SqlSuffix::Where(&sql_format!("id={}", login_id)), &self.db)
+            .execute(&self.db, |qb| {
+                qb.push_where().field_eq("id", login_id);
+            })
             .await;
         if let Err(err) = ures {
             error!(

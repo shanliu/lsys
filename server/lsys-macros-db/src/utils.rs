@@ -61,13 +61,11 @@ pub fn get_field_rename(attrs: &[Attribute]) -> Option<String> {
 
         if let Meta::List(list) = meta {
             for nested in list.nested.iter() {
-                if let NestedMeta::Meta(Meta::NameValue(nv)) = nested {
-                    if nv.path.is_ident("rename") {
-                        if let syn::Lit::Str(lit) = &nv.lit {
+                if let NestedMeta::Meta(Meta::NameValue(nv)) = nested
+                    && nv.path.is_ident("rename")
+                        && let syn::Lit::Str(lit) = &nv.lit {
                             return Some(lit.value());
                         }
-                    }
-                }
             }
         }
     }

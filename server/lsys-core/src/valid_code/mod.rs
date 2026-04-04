@@ -183,15 +183,15 @@ impl ValidCode {
 
         match inner_code_info {
             Some(mut code_info) => {
-                if let Some(max_try) = self.max_try {
-                    if code_info.check >= max_try {
-                        return Err(ValidCodeError::NotMatch(ValidCodeCheckError {
-                            message: fluent_message!("valid-code-max-try",{//format!("your submit code [{}] not match", code)
-                                "code":check_data.code
-                            }),
-                            prefix: self.prefix.to_owned(),
-                        }));
-                    }
+                if let Some(max_try) = self.max_try
+                    && code_info.check >= max_try
+                {
+                    return Err(ValidCodeError::NotMatch(ValidCodeCheckError {
+                        message: fluent_message!("valid-code-max-try",{//format!("your submit code [{}] not match", code)
+                            "code":check_data.code
+                        }),
+                        prefix: self.prefix.to_owned(),
+                    }));
                 }
                 let s_code = &code_info.code;
                 let is_match = if self.ignore_case {

@@ -5,6 +5,7 @@ use crate::{
     dao::access::api::system::user::CheckUserMobileEdit,
 };
 use lsys_access::dao::{AccessSession, AccessSessionData};
+use lsys_core::api_utils::JsonPageData;
 use lsys_user::model::AccountMobileStatus;
 use serde::Deserialize;
 use serde_json::json;
@@ -198,9 +199,8 @@ pub async fn mobile_list_data(
         .account
         .user_mobile(account.id, status.as_deref())
         .await?;
-
-    Ok(JsonResponse::data(JsonData::body(json!({
-        "data": data ,
-        "total":data.len(),
-    }))))
+    let total=data.len();
+    Ok(JsonResponse::data(JsonData::body(
+        JsonPageData::total(data, total),
+    )))
 }

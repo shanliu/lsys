@@ -48,10 +48,10 @@ impl TaskNotify {
         &self,
         redis: &mut MultiplexedConnection,
     ) -> Result<(), RedisError> {
-        if let Ok(len) = redis.llen::<&str, i64>(self.config.list_notify_key()).await {
-            if len > 1 {
-                return Ok(());
-            }
+        if let Ok(len) = redis.llen::<&str, i64>(self.config.list_notify_key()).await
+            && len > 1
+        {
+            return Ok(());
         }
         redis.lpush(self.config.list_notify_key(), 1).await
     }

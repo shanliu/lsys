@@ -3,8 +3,6 @@ use crate::{
     model::{AppModel, AppRequestModel, AppRequestStatus, AppRequestType},
 };
 use lsys_core::db::TableMeta;
-use lsys_core::db::SqlQuote;
-use lsys_core::sql_format;
 use lsys_core::utils::RequestEnv;
 
 use super::AppExterLogin;
@@ -33,12 +31,12 @@ impl AppExterLogin {
         env_data: Option<&RequestEnv>,
     ) -> AppResult<()> {
         app.app_status_check()?;
-        let req = sqlx::query_as::<_, AppRequestModel>(&sql_format!(
-            "select * from {} where app_id={} and request_type = {}",
-            AppRequestModel::table_name(),
-            app.id,
-            AppRequestType::ExterLogin as i8
+        let req = sqlx::query_as::<_, AppRequestModel>(&format!(
+            "select * from {} where app_id=? and request_type = ?",
+            AppRequestModel::table_name()
         ))
+        .bind(app.id)
+        .bind(AppRequestType::ExterLogin as i8)
         .fetch_one(&self.db)
         .await?;
         self.app

@@ -1,5 +1,14 @@
 use std::fmt::Display;
 
+#[cfg(feature = "db")]
+use sqlx::QueryBuilder;
+#[cfg(feature = "db-mysql")]
+use sqlx::MySql;
+#[cfg(feature = "db-postgres")]
+use sqlx::Postgres;
+#[cfg(feature = "db-sqlite")]
+use sqlx::Sqlite;
+
 pub struct CursorConfig {
     primary_sort: CursorPageSort,
     cursor_extra: Vec<(String, CursorPageSort)>,
@@ -27,10 +36,11 @@ impl CursorConfig {
 // 游标值数据
 pub trait CursorValue {
     /// SQL-formatted primary key value, returns Box<dyn Display> for type erasure.
-    /// Use `.sql_quote()` to create the value, ensuring proper SQL escaping.
+    /// 注意：建议实现 `CursorBind` trait 代替此方法，以使用 bind 参数。
     fn key_value(&self) -> Box<dyn Display>;
     /// Optional additional ORDER BY columns for deterministic ordering.
-    /// Returns (column_name, sql_value) pairs. Use `.sql_quote()` for values.
+    /// Returns (column_name, sql_value) pairs.
+    /// 注意：建议实现 `CursorBind::push_extra_bind()` 代替此方法。
     fn extra_values(&self) -> Vec<(String, Box<dyn Display>)> {
         Vec::new()
     }
@@ -64,7 +74,7 @@ impl<C: CursorValue> CursorPageParam<C> {
             limit,
         }
     }
-    #[cfg(feature = "db-mysql")] //only mysql,so cfg db
+    #[cfg(feature = "db")]
     pub fn page_query<'a, 'b>(&'a self, primary_key: &'b str) -> CursorPageQuery<'a, 'b, C> {
         CursorPageQuery::new(primary_key, self)
     }
@@ -97,17 +107,17 @@ pub struct CursorPageData<C: CursorValue> {
     pub next_cursor: Option<C>,
     pub prev_cursor: Option<C>,
 }
-#[cfg(feature = "db-mysql")]
+#[cfg(feature = "db")]
 pub struct CursorPageQuery<'a, 'b, C: CursorValue> {
     primary_key: &'b str,
     param: &'a CursorPageParam<C>,
 }
-#[cfg(feature = "db-mysql")]
+#[cfg(feature = "db")]
 impl<'a, 'b, C: CursorValue> CursorPageQuery<'a, 'b, C> {
     pub fn new(primary_key: &'b str, param: &'a CursorPageParam<C>) -> Self {
         Self { primary_key, param }
     }
-    fn query_limit(&self) -> Option<u64> {
+    pub fn query_limit(&self) -> Option<u64> {
         match &self.param.limit {
             CursorLimit::None => None,
             CursorLimit::Limit { limit, more } => {
@@ -141,11 +151,11 @@ impl<'a, 'b, C: CursorValue> CursorPageQuery<'a, 'b, C> {
         F2: Fn(&T) -> C,
     {
         let mut has_first = false;
-        if let Some(cursor) = &self.param.cursor {
-            if !rows.is_empty() && filter_first(&rows[0], cursor) {
-                rows.remove(0);
-                has_first = true;
-            }
+        if let Some(cursor) = &self.param.cursor
+            && !rows.is_empty() && filter_first(&rows[0], cursor)
+        {
+            rows.remove(0);
+            has_first = true;
         }
         match self.param.limit {
             CursorLimit::None => CursorPageData {
@@ -192,83 +202,6 @@ impl<'a, 'b, C: CursorValue> CursorPageQuery<'a, 'b, C> {
             }
         }
     }
-    pub fn where_sql(&self) -> String {
-        let Some(c) = self.param.cursor.as_ref() else {
-            return String::new();
-        };
-
-        let op = |sort: CursorPageSort, dir: CursorPageDir, eq: bool| -> String {
-            format!(
-                "{}{}",
-                match (sort, dir) {
-                    (CursorPageSort::Desc, CursorPageDir::Next) => "<",
-                    (CursorPageSort::Desc, CursorPageDir::Prev) => ">",
-                    (CursorPageSort::Asc, CursorPageDir::Next) => ">",
-                    (CursorPageSort::Asc, CursorPageDir::Prev) => "<",
-                },
-                if eq { "=" } else { "" }
-            )
-        };
-        // cursor values
-        let extra_values = c.extra_values();
-
-        // Config Sorts
-        let extra_sorts = self.param.config.cursor_extra();
-
-        let mut ors: Vec<String> = Vec::new();
-
-        // Build OR-chain for lexicographic comparison over extra columns
-        for i in 0..extra_sorts.len() {
-            let mut parts: Vec<String> = Vec::new();
-            // equality for previous extra columns
-            for (col_j, _) in &extra_sorts[0..i] {
-                // Match by column name
-                if let Some((_, val_j)) = extra_values.iter().find(|(k, _)| k == col_j) {
-                    parts.push(format!("{} = {}", col_j, val_j));
-                }
-            }
-            // comparison on the i-th extra column
-            let (ref col_i, sort_i) = extra_sorts[i];
-            if let Some((_, val_i)) = extra_values.iter().find(|(k, _)| k == col_i) {
-                parts.push(format!(
-                    "{} {} {}",
-                    col_i,
-                    op(sort_i, self.param.dir, false),
-                    val_i
-                ));
-            }
-
-            ors.push(parts.join(" AND "));
-        }
-
-        // Final clause: all extras equal AND primary key comparison
-        let mut last_parts: Vec<String> = Vec::new();
-        for (ref col_j, _) in extra_sorts {
-            if let Some((_, val_j)) = extra_values.iter().find(|(k, _)| k == col_j) {
-                last_parts.push(format!("{} = {}", col_j, val_j));
-            }
-        }
-        last_parts.push(format!(
-            "{} {} {}",
-            self.primary_key,
-            op(
-                self.param.config.primary_sort(),
-                self.param.dir,
-                match self.param.limit {
-                    CursorLimit::Limit { limit: _, more } => more,
-                    CursorLimit::None => false,
-                }
-            ),
-            c.key_value()
-        ));
-        ors.push(last_parts.join(" AND "));
-
-        if ors.len() == 1 {
-            ors.pop().unwrap_or_default()
-        } else {
-            format!("({})", ors.join(" OR "))
-        }
-    }
     pub fn order_by_sql(&self) -> String {
         let sort_key_dir = |sort: &CursorPageSort, dir: &CursorPageDir| -> &'static str {
             match (sort, dir) {
@@ -293,38 +226,23 @@ impl<'a, 'b, C: CursorValue> CursorPageQuery<'a, 'b, C> {
 
         format!("order by {}", parts.join(", "))
     }
-    pub fn limit_sql(&self) -> Option<String> {
-        self.query_limit().map(|limit| format!("limit {}", limit))
+
+    pub fn push_order_by<DB>(&self, qb: &mut QueryBuilder<'_, DB>)
+    where
+        DB: sqlx::Database,
+    {
+        qb.push(" ");
+        qb.push(self.order_by_sql());
     }
 
-    /// 生成完整的查询 SQL 片段（WHERE + ORDER BY + LIMIT）
-    ///
-    /// # Arguments
-    /// * `extra_where_suffix` - 额外的业务 WHERE 条件
-    ///
-    /// # Returns
-    /// 返回组合好的 SQL 片段
-    pub fn build_query_sql(&self, extra_where_suffix: Option<&str>) -> String {
-        let mut parts = Vec::new();
-        let cursor_sql = self.where_sql();
-        let extra_where_sql = extra_where_suffix.unwrap_or_default();
-        let where_clause = if !cursor_sql.is_empty() && !extra_where_sql.is_empty() {
-            format!("WHERE {} AND {}", cursor_sql, extra_where_sql)
-        } else if !cursor_sql.is_empty() && extra_where_sql.is_empty() {
-            format!("WHERE {}", cursor_sql)
-        } else if cursor_sql.is_empty() && !extra_where_sql.is_empty() {
-            format!("WHERE {}", extra_where_sql)
-        } else {
-            String::new()
-        };
-        if !where_clause.is_empty() {
-            parts.push(where_clause);
+    pub fn push_limit<DB>(&self, qb: &mut QueryBuilder<'_, DB>)
+    where
+        DB: sqlx::Database,
+    {
+        if let Some(limit) = self.query_limit() {
+            // 使用 SQL 字面量而不是 bind，避免类型问题
+            qb.push(format!(" limit {}", limit));
         }
-        parts.push(self.order_by_sql());
-        if let Some(limit) = self.limit_sql() {
-            parts.push(limit);
-        }
-        parts.join(" ")
     }
 }
 
@@ -333,5 +251,148 @@ impl<'a, 'b, C: CursorValue> CursorPageQuery<'a, 'b, C> {
 impl CursorValue for u64 {
     fn key_value(&self) -> Box<dyn Display> {
         Box::new(*self)
+    }
+}
+
+// ----    CursorBind: bind-aware cursor trait (multi-database)  ----
+
+/// Bind-aware cursor trait —— 为游标分页提供参数化绑定支持。
+///
+/// 相比 `CursorValue`（返回 `Box<dyn Display>` 后字符串内联），
+/// `CursorBind` 通过 `push_bind` 将值安全地绑定到 `QueryBuilder`，
+/// 避免 SQL 注入和跨数据库转义问题。
+///
+/// 泛型参数 `DB` 指定目标数据库后端（MySql / Postgres / Sqlite）。
+///
+/// # 示例 (MySQL)
+/// ```ignore
+/// impl CursorBind<MySql> for MyCursor {
+///     fn push_key_bind(&self, qb: &mut QueryBuilder<'_, MySql>) {
+///         qb.push_bind(self.id);
+///     }
+///     fn push_extra_bind(&self, col_index: usize, qb: &mut QueryBuilder<'_, MySql>) {
+///         if col_index == 0 {
+///             qb.push_bind(self.name.clone());
+///         }
+///     }
+/// }
+/// ```
+#[cfg(feature = "db")]
+pub trait CursorBind<DB: sqlx::Database>: CursorValue {
+    /// 将主键值推入 QueryBuilder 作为绑定参数
+    fn push_key_bind(&self, qb: &mut QueryBuilder<'_, DB>);
+    /// 将第 col_index 个附加排序列的值推入 QueryBuilder 作为绑定参数
+    fn push_extra_bind(&self, _col_index: usize, _qb: &mut QueryBuilder<'_, DB>) {}
+}
+
+#[cfg(feature = "db-mysql")]
+impl CursorBind<MySql> for u64 {
+    fn push_key_bind(&self, qb: &mut QueryBuilder<'_, MySql>) {
+        qb.push_bind(*self);
+    }
+}
+
+#[cfg(feature = "db-postgres")]
+impl CursorBind<Postgres> for u64 {
+    fn push_key_bind(&self, qb: &mut QueryBuilder<'_, Postgres>) {
+        qb.push_bind(*self as i64);
+    }
+}
+
+#[cfg(feature = "db-sqlite")]
+impl CursorBind<Sqlite> for u64 {
+    fn push_key_bind(&self, qb: &mut QueryBuilder<'_, Sqlite>) {
+        qb.push_bind(*self as i64);
+    }
+}
+
+/// CursorPageQuery 的 bind 版本方法 —— 需要 `C: CursorBind<DB>`
+#[cfg(feature = "db")]
+impl<'a, 'b, C: CursorValue> CursorPageQuery<'a, 'b, C> {
+    /// 将游标 WHERE 条件推入 QueryBuilder（使用 bind 参数）。
+    ///
+    /// 如果无游标（cursor 为 None），不推入任何内容。
+    /// 调用方应检查 `has_cursor()` 来决定是否需要 AND 连接。
+    pub fn push_where<DB: sqlx::Database>(&self, qb: &mut QueryBuilder<'_, DB>)
+    where
+        C: CursorBind<DB>,
+    {
+        use crate::db::QueryBuilderExt;
+        let Some(c) = self.param.cursor.as_ref() else {
+            return;
+        };
+
+        let op =
+            |sort: CursorPageSort, dir: CursorPageDir, eq: bool| -> &'static str {
+                match (sort, dir, eq) {
+                    (CursorPageSort::Desc, CursorPageDir::Next, false) => "<",
+                    (CursorPageSort::Desc, CursorPageDir::Next, true) => "<=",
+                    (CursorPageSort::Desc, CursorPageDir::Prev, false) => ">",
+                    (CursorPageSort::Desc, CursorPageDir::Prev, true) => ">=",
+                    (CursorPageSort::Asc, CursorPageDir::Next, false) => ">",
+                    (CursorPageSort::Asc, CursorPageDir::Next, true) => ">=",
+                    (CursorPageSort::Asc, CursorPageDir::Prev, false) => "<",
+                    (CursorPageSort::Asc, CursorPageDir::Prev, true) => "<=",
+                }
+            };
+
+        let extra_sorts = self.param.config.cursor_extra();
+        let pk_eq = match self.param.limit {
+            CursorLimit::Limit { more, .. } => more,
+            CursorLimit::None => false,
+        };
+
+        if extra_sorts.is_empty() {
+            // 简单情况：仅主键比较
+            qb.push(format!(
+                "{} {} ",
+                self.primary_key,
+                op(self.param.config.primary_sort(), self.param.dir, pk_eq)
+            ));
+            c.push_key_bind(qb);
+        } else {
+            // 复杂情况：多列排序的 OR 链
+            qb.push("(");
+            for i in 0..extra_sorts.len() {
+                if i > 0 {
+                    qb.push(" OR ");
+                }
+                qb.push("(");
+                // 前面列的等值条件
+                for (j, (col_j, _)) in extra_sorts.iter().enumerate().take(i) {
+                    qb.push(format!("{} = ", col_j));
+                    c.push_extra_bind(j, qb);
+                    qb.push_and();
+                }
+                // 第 i 列的比较条件
+                let (ref col_i, sort_i) = extra_sorts[i];
+                qb.push(format!(
+                    "{} {} ",
+                    col_i,
+                    op(sort_i, self.param.dir, false)
+                ));
+                c.push_extra_bind(i, qb);
+                qb.push(")");
+            }
+            // 最后一个 OR 分支：所有附加列等值 + 主键比较
+            qb.push(" OR (");
+            for (j, (col_j, _)) in extra_sorts.iter().enumerate() {
+                qb.push(format!("{} = ", col_j));
+                c.push_extra_bind(j, qb);
+                qb.push_and();
+            }
+            qb.push(format!(
+                "{} {} ",
+                self.primary_key,
+                op(self.param.config.primary_sort(), self.param.dir, pk_eq)
+            ));
+            c.push_key_bind(qb);
+            qb.push("))");
+        }
+    }
+
+    /// 是否存在游标值
+    pub fn has_cursor(&self) -> bool {
+        self.param.cursor.is_some()
     }
 }

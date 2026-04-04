@@ -12,8 +12,6 @@ use lsys_lib_sms::SendNotifyStatus;
 use lsys_setting::model::SettingModel;
 
 use lsys_core::db::TableMeta;
-use lsys_core::db::SqlQuote;
-use lsys_core::sql_format;
 use lsys_lib_sms::SendDetailItem;
 use redis::AsyncCommands;
 use sqlx::Pool;
@@ -216,21 +214,19 @@ impl TaskExecutor<u64, SmsStatusTaskItem> for SmsStatusTask {
                                     match ntmp.status {
                                         SendNotifyStatus::Progress => {}
                                         SendNotifyStatus::Completed => {
-                                            if let Err(err) = sqlx::query(
-                                                sql_format!(
-                                                    r#"UPDATE {}
-                                                    SET status={}
-                                                    WHERE setting_id={} and res_data={};
+                                            let sql = format!(
+                                                r#"UPDATE {}
+                                                    SET status=?
+                                                    WHERE setting_id=? and res_data=?;
                                                 "#,
-                                                    SenderSmsMessageModel::table_name(),
-                                                    SenderSmsMessageStatus::IsReceived as i8,
-                                                    setting.id,
-                                                    ntmp.send_id
-                                                )
-                                                .as_str(),
-                                            )
-                                            .execute(&self.db)
-                                            .await
+                                                SenderSmsMessageModel::table_name(),
+                                            );
+                                            if let Err(err) = sqlx::query(&sql)
+                                                .bind(SenderSmsMessageStatus::IsReceived as i8)
+                                                .bind(setting.id)
+                                                .bind(&ntmp.send_id)
+                                                .execute(&self.db)
+                                                .await
                                             {
                                                 warn!("sms change to succ fail[{}]{}", val.0, err);
                                             }
@@ -247,21 +243,19 @@ impl TaskExecutor<u64, SmsStatusTaskItem> for SmsStatusTask {
                                                 .await;
                                         }
                                         SendNotifyStatus::Failed => {
-                                            if let Err(err) = sqlx::query(
-                                                sql_format!(
-                                                    r#"UPDATE {}
-                                                    SET status={}
-                                                    WHERE setting_id={} and res_data={};
+                                            let sql = format!(
+                                                r#"UPDATE {}
+                                                    SET status=?
+                                                    WHERE setting_id=? and res_data=?;
                                                 "#,
-                                                    SenderSmsMessageModel::table_name(),
-                                                    SenderSmsMessageStatus::SendFail as i8,
-                                                    setting.id,
-                                                    ntmp.send_id
-                                                )
-                                                .as_str(),
-                                            )
-                                            .execute(&self.db)
-                                            .await
+                                                SenderSmsMessageModel::table_name(),
+                                            );
+                                            if let Err(err) = sqlx::query(&sql)
+                                                .bind(SenderSmsMessageStatus::SendFail as i8)
+                                                .bind(setting.id)
+                                                .bind(&ntmp.send_id)
+                                                .execute(&self.db)
+                                                .await
                                             {
                                                 warn!(
                                                     "sms change to fail is fail[{}]{}",

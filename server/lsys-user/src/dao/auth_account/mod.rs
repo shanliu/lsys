@@ -115,8 +115,8 @@ impl AuthAccount {
                     }
                 }
                 let mut is_captcha = false;
-                if let Some(ref ip_db) = self.login_config.ip_db {
-                    if let Some(mut now_city) = env_to_city(ip_db, login_env).await {
+                if let Some(ref ip_db) = self.login_config.ip_db
+                    && let Some(mut now_city) = env_to_city(ip_db, login_env).await {
                         for u in ues.iter() {
                             let tmp_c = u.login_city.replace(['-', ' '], "");
                             if tmp_c.is_empty() {
@@ -128,7 +128,6 @@ impl AuthAccount {
                             }
                         }
                     }
-                }
                 if is_captcha
                     || (self.login_config.login_limit_captcha > 0
                         && is_fail >= self.login_config.login_limit_captcha)

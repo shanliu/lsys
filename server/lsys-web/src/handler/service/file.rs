@@ -3,7 +3,9 @@
 //! 提供 service 层文件操作业务逻辑（无框架依赖，纯 Rust 逻辑），
 //! 供 actix-web 路由层调用。
 
-use crate::common::{JsonData, JsonResponse, JsonResult, RequestDao};
+use crate::common::{JsonData, JsonPageData, JsonResponse, JsonResult, RequestDao};
+use lsys_core::api_utils::{PageCursorValue, PageTotalRowValue};
+use lsys_core::db::TotalParam;
 use lsys_files::dao::{ChunkInfo, FileDataListParam, FileListAttrParam, LocalFileMode};
 use lsys_files::model::{FileModel, FileStatus, FileUserStatus};
 use serde::Deserialize;
@@ -16,6 +18,8 @@ use std::path::Path;
 #[derive(Debug, Deserialize)]
 pub struct UploadCreateParam {
     pub user_id: u64,
+    #[serde(default)]
+    pub add_user_id: Option<u64>,
     pub app_id: u64,
     pub file_name: String,
     pub chunks: Vec<UploadChunkParam>,
@@ -122,9 +126,7 @@ pub struct FileListParam {
 /// 文件删除参数
 #[derive(Debug, Deserialize)]
 pub struct FileDeleteParam {
-    pub user_id: u64,
-    pub app_id: u64,
-    pub file_id: u64,
+    pub file_user_id: u64,
 }
 
 /// 批量获取文件 URL 参数
@@ -189,6 +191,7 @@ pub async fn upload_create(
         .file_dao
         .create_upload(
             param.user_id,
+            param.add_user_id.unwrap_or(param.user_id),
             param.app_id,
             &chunks,
             &param.file_name,
@@ -206,7 +209,7 @@ pub async fn upload_create(
         .await?;
 
     Ok(JsonResponse::data(JsonData::body(json!({
-        "file_user_id": file_user_id,
+        "id": file_user_id,
         "file_id": file_id,
         "file_name": param.file_name,
         "status": FileStatus::Unfinished as i8,
@@ -262,13 +265,7 @@ pub async fn upload_retoken(
         .web_dao
         .web_files
         .upload_token
-        .retoken_upload(
-            param.file_user_id,
-            param.user_id,
-            param.app_id,
-            None,
-            None,
-        )
+        .retoken_upload(param.file_user_id, param.user_id, param.app_id, None, None)
         .await?;
 
     Ok(JsonResponse::data(JsonData::body(json!({
@@ -296,6 +293,7 @@ pub async fn upload_by_md5(
         .create_from_md5(
             &param.file_md5,
             param.user_id,
+            param.user_id,
             param.app_id,
             &tag_refs,
             Some(&req_dao.req_env),
@@ -305,7 +303,7 @@ pub async fn upload_by_md5(
     match result {
         Some(file_user_id) => Ok(JsonResponse::data(JsonData::body(json!({
             "matched": true,
-            "file_user_id": file_user_id,
+            "id": file_user_id,
         })))),
         None => Ok(JsonResponse::data(JsonData::body(json!({
             "matched": false,
@@ -314,10 +312,7 @@ pub async fn upload_by_md5(
 }
 
 /// 从 URL 创建文件（支持同步/异步模式）
-pub async fn from_url(
-    param: &FromUrlParam,
-    req_dao: &RequestDao,
-) -> JsonResult<JsonResponse> {
+pub async fn from_url(param: &FromUrlParam, req_dao: &RequestDao) -> JsonResult<JsonResponse> {
     // 探测 URL 信息
     let url_info = req_dao
         .web_dao
@@ -329,15 +324,14 @@ pub async fn from_url(
 
     // 文件大小校验
     let upload_config = &req_dao.web_dao.web_files.upload_config;
-    if let Some(file_size) = url_info.file_size {
-        if file_size > upload_config.max_upload_size {
+    if let Some(file_size) = url_info.file_size
+        && file_size > upload_config.max_upload_size {
             return Err(crate::common::JsonError::Message(
                 lsys_core::fluent_message!("file-size-too-large",
                     {"size": file_size, "max": upload_config.max_upload_size}
                 ),
             ));
         }
-    }
 
     // 根据探测信息构建分片参数
     let chunks = if let Some(file_size) = url_info.file_size {
@@ -370,6 +364,7 @@ pub async fn from_url(
         .create_from_url(
             &param.source_url,
             param.user_id,
+            param.user_id,
             param.app_id,
             &chunks,
             url_info.content_type.as_deref(),
@@ -380,22 +375,16 @@ pub async fn from_url(
         .await?;
 
     Ok(JsonResponse::data(JsonData::body(json!({
-        "file_user_id": file_user_id,
+        "id": file_user_id,
     }))))
 }
 
 /// 从本地文件导入
-pub async fn from_local(
-    param: &FromLocalParam,
-    req_dao: &RequestDao,
-) -> JsonResult<JsonResponse> {
+pub async fn from_local(param: &FromLocalParam, req_dao: &RequestDao) -> JsonResult<JsonResponse> {
     // 安全校验：路径规范化，防止路径遍历攻击
     let local_path = Path::new(&param.local_file_path);
     let canonical_path = local_path.canonicalize().map_err(|e| {
-        crate::common::JsonError::Message(lsys_core::fluent_message!(
-            "file-local-path-invalid",
-            e
-        ))
+        crate::common::JsonError::Message(lsys_core::fluent_message!("file-local-path-invalid", e))
     })?;
 
     // 校验路径在 storage_base_path（网盘挂载目录）下
@@ -441,12 +430,13 @@ pub async fn from_local(
         .map(String::as_str)
         .collect();
 
-    let file = req_dao
+    let (file, _file_user) = req_dao
         .web_dao
         .web_files
         .file_dao
         .create_from_local_file(
             canonical_path.to_str().unwrap_or(&param.local_file_path),
+            param.user_id,
             param.user_id,
             param.app_id,
             param.file_name.as_deref(),
@@ -477,11 +467,10 @@ pub async fn from_local(
 }
 
 /// 文件列表查询
-pub async fn file_list(
-    param: &FileListParam,
-    req_dao: &RequestDao,
-) -> JsonResult<JsonResponse> {
-    use lsys_core::db::{CursorConfig, CursorLimit, CursorPageDir, CursorPageParam, CursorPageSort};
+pub async fn file_list(param: &FileListParam, req_dao: &RequestDao) -> JsonResult<JsonResponse> {
+    use lsys_core::db::{
+        CursorConfig, CursorLimit, CursorPageDir, CursorPageParam, CursorPageSort,
+    };
 
     let limit_val = param.limit.unwrap_or(20).min(100);
     let page = CursorPageParam::new(
@@ -500,7 +489,7 @@ pub async fn file_list(
         .map(|v| v.iter().map(String::as_str).collect());
 
     let filter = FileDataListParam {
-        url: param.url.as_deref(),
+        local_url: param.url.as_deref(),
         source_url: param.source_url.as_deref(),
         user_id: param.user_id,
         app_id: param.app_id,
@@ -531,7 +520,7 @@ pub async fn file_list(
     let file_models: Vec<FileModel> = data
         .iter()
         .map(|item| FileModel {
-            id: item.item.id,
+            id: item.item.file_id,
             storage_type: item.item.storage_type.clone(),
             status: item.item.status,
             file_name: item.item.file_name.clone(),
@@ -551,10 +540,10 @@ pub async fn file_list(
 
     let mut items: Vec<serde_json::Value> = Vec::with_capacity(data.len());
     for item in &data {
-        let url = url_map.get(&item.item.id).cloned();
+        let url = url_map.get(&item.item.file_id).cloned();
         let mut obj = json!({
             "id": item.item.id,
-            "file_user_id": item.item.file_user_id,
+            "file_id": item.item.file_id,
             "file_name": item.item.file_name,
             "file_md5": item.item.file_md5,
             "file_size": item.item.file_size,
@@ -604,19 +593,18 @@ pub async fn file_list(
                 .web_files
                 .file_dao
                 .data_dao()
-                .count_files(&filter)
-                .await?,
+                .count_files(&filter, &TotalParam::default())
+                .await
+                .map(PageTotalRowValue::from)?,
         )
     } else {
         None
     };
 
-    Ok(JsonResponse::data(JsonData::body(json!({
-        "data": items,
-        "next_cursor": page_data.next_cursor,
-        "prev_cursor": page_data.prev_cursor,
-        "total": total,
-    }))))
+    let cursor = PageCursorValue::from(&page_data);
+    Ok(JsonResponse::data(JsonData::body(
+        JsonPageData::cursor(items, cursor, total),
+    )))
 }
 
 /// 文件删除
@@ -624,15 +612,36 @@ pub async fn file_delete(
     param: &FileDeleteParam,
     req_dao: &RequestDao,
 ) -> JsonResult<JsonResponse> {
+    let file_user = req_dao
+        .web_dao
+        .web_files
+        .file_dao
+        .helper()
+        .find_file_user_by_id(param.file_user_id)
+        .await?
+        .ok_or_else(|| lsys_files::dao::FileError::Param(lsys_core::fluent_message!("file-not-found")))?;
+
+    let file = req_dao
+        .web_dao
+        .web_files
+        .file_dao
+        .helper()
+        .find_file_by_id(file_user.file_id)
+        .await?
+        .ok_or_else(|| lsys_files::dao::FileError::Param(lsys_core::fluent_message!("file-not-found")))?;
+
+    let ctx = req_dao
+        .web_dao
+        .web_files
+        .file_dao
+        .create_context(&file_user)
+        .with_file(&file)?;
     req_dao
         .web_dao
         .web_files
         .file_dao
         .delete_file(
-            param.user_id,
-            param.app_id,
-            param.file_id,
-            None,
+            ctx,
             Some(&req_dao.req_env),
         )
         .await?;
@@ -641,10 +650,7 @@ pub async fn file_delete(
 }
 
 /// 批量获取文件 URL
-pub async fn file_urls(
-    param: &FileUrlsParam,
-    req_dao: &RequestDao,
-) -> JsonResult<JsonResponse> {
+pub async fn file_urls(param: &FileUrlsParam, req_dao: &RequestDao) -> JsonResult<JsonResponse> {
     let mut files = Vec::with_capacity(param.file_ids.len());
     for &fid in &param.file_ids {
         if let Some(file) = req_dao
@@ -678,10 +684,7 @@ pub async fn file_urls(
 }
 
 /// 文件详情查询（按 file_user_id）
-pub async fn file_info(
-    param: &FileInfoParam,
-    req_dao: &RequestDao,
-) -> JsonResult<JsonResponse> {
+pub async fn file_info(param: &FileInfoParam, req_dao: &RequestDao) -> JsonResult<JsonResponse> {
     let mut items: Vec<serde_json::Value> = Vec::with_capacity(param.file_user_ids.len());
 
     for &fuid in &param.file_user_ids {
@@ -715,7 +718,7 @@ pub async fn file_info(
                     .unwrap_or_default();
 
                 items.push(json!({
-                    "file_user_id": fu.id,
+                    "id": fu.id,
                     "file_id": f.id,
                     "file_name": f.file_name,
                     "file_md5": f.file_md5,
@@ -735,10 +738,7 @@ pub async fn file_info(
 }
 
 /// 获取文件配置映射
-pub async fn mapping(
-    _param: &(),
-    req_dao: &RequestDao,
-) -> JsonResult<JsonResponse> {
+pub async fn mapping(_param: &(), req_dao: &RequestDao) -> JsonResult<JsonResponse> {
     let config = req_dao.web_dao.web_files.file_dao.config();
     let upload_config = &req_dao.web_dao.web_files.upload_config;
 

@@ -1,4 +1,4 @@
-use lsys_core::db::{utils::fetch_string_field_max, BatchInsert, Insert};
+use lsys_core::db::{utils::FetchField, BatchInsert, Insert};
 use lsys_core::fluent_message;
 use lsys_core::fluents::FluentMessage;
 use lsys_core::utils::{now_time, RequestEnv};
@@ -175,27 +175,28 @@ impl RbacAccess {
         //待检测资源需要操作的列表
         check_res_data: &[AccessCheckRes<'_>],
     ) -> RbacResult<()>{
-        let role_key_max = fetch_string_field_max::<RbacRoleModel>(&self.db, &RbacRoleModel::ROLE_KEY)
+        let fetch_field = FetchField::new(&self.db);
+        let role_key_max = fetch_field.string_max::<RbacRoleModel>( &RbacRoleModel::ROLE_KEY)
             .await
             .len_or(32);
-        let res_type_max = fetch_string_field_max::<RbacResModel>(&self.db, &RbacResModel::RES_TYPE)
+        let res_type_max = fetch_field.string_max::<RbacResModel>( &RbacResModel::RES_TYPE)
             .await
             .len_or(32);
-        let res_data_max = fetch_string_field_max::<RbacResModel>(&self.db, &RbacResModel::RES_DATA)
+        let res_data_max = fetch_field.string_max::<RbacResModel>( &RbacResModel::RES_DATA)
             .await
             .len_or(32);
-        let op_key_max = fetch_string_field_max::<RbacOpModel>(&self.db, &RbacOpModel::OP_KEY)
+        let op_key_max = fetch_field.string_max::<RbacOpModel>( &RbacOpModel::OP_KEY)
             .await
             .len_or(32);
 
         let mut param_valid=ValidParam::default();
         if let Some(user_login_token)=&env_data.user_login_token{
             param_valid.add(
-                valid_key!("user_login_token"), 
-                user_login_token, 
+                valid_key!("user_login_token"),
+                user_login_token,
                 &ValidParamCheck::default().add_rule(ValidPattern::Ident).add_rule(ValidStrlen::range(16, 64))
             );
-        }   
+        }
         for tmp in &env_data.session_role{
             param_valid.add(valid_key!("role_key"), &tmp.role_key, &ValidParamCheck::default().add_rule(ValidPattern::Ident).add_rule(ValidStrlen::range(1, role_key_max)));
         }
@@ -308,7 +309,7 @@ impl RbacAccess {
                     role_key: e.role_key,
                 })
                 .collect::<Vec<_>>();
-          
+
                 self.role
                     .cache()
                     .find_access_row(env_data.user_id, res_check, &role_check)
@@ -402,7 +403,7 @@ impl RbacAccess {
                     });
                     continue;
                 }
-                      
+
                 //用户屏蔽
                 let user_excluce = if let (Some(res_val), Some(op_val)) =
                     (res_detail, op_detail)
@@ -509,11 +510,11 @@ impl RbacAccess {
                     is_role_include: false,
                     check_result: false,
                 });
-            }   
+            }
         }
         let bad_item=check_data.iter().flat_map(|check_item|{
             if check_item.check_result {
-                None                
+                None
             }else{
                 Some(AccessUnauthRes{
                     user_id: check_item.check_res_item.user_id,

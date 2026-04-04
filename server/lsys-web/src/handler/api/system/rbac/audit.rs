@@ -7,7 +7,8 @@ use crate::common::UserAuthQueryDao;
 use crate::dao::access::api::system::admin::CheckAdminRbacView;
 use crate::dao::access::RbacAccessCheckEnv;
 use lsys_access::dao::AccessSession;
-use lsys_core::db::CursorPageSort;
+use lsys_core::api_utils::{JsonPageData, PageCursorValue, PageTotalRowValue};
+use lsys_core::db::{CursorPageSort, TotalParam};
 use lsys_rbac::dao::AuditDataParam;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -82,8 +83,9 @@ pub async fn audit_data(
                     device_id: param.device_id.as_deref(),
                     request_id: param.request_id.as_deref(),
                     res_data: param.res_data.as_ref().map(|e| (e.res_id, e.op_id)),
-                })
-                .await?,
+                }, &TotalParam::default())
+                .await
+                .map(PageTotalRowValue::from)?,
         )
     } else {
         None
@@ -107,10 +109,8 @@ pub async fn audit_data(
             })
         })
         .collect::<Vec<Value>>();
-    Ok(JsonResponse::data(JsonData::body(json!({
-        "data": out_data,
-        "next_cursor": res.1.next_cursor,
-        "prev_cursor": res.1.prev_cursor,
-        "total": count,
-    }))))
+    let cursor = PageCursorValue::from(&res.1);
+    Ok(JsonResponse::data(JsonData::body(
+        JsonPageData::cursor(out_data, cursor, count),
+    )))
 }

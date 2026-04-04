@@ -1,5 +1,5 @@
-use lsys_core::db::{utils::fetch_string_field_max, Insert, SqlQuote, SqlSuffix, TableMeta, Update};
-use lsys_core::{sql_format, valid_key};
+use lsys_core::db::{utils::FetchField, Insert, QueryBuilderExt, TableMeta, Update};
+use lsys_core::valid_key;
 use lsys_core::app_core::AppCore;
 use lsys_core::utils::now_time;
 use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
@@ -80,13 +80,13 @@ impl MfaTotpDao {
     }
 
     pub async fn get_active(&self, subject: &MfaSubject) -> MfaResult<Option<MfaTotpModel>> {
-        let data = sqlx::query_as::<_, MfaTotpModel>(&sql_format!(
-            "select * from {} where app_id={} and user_data={} and status={} order by id desc limit 1",
+        let data = sqlx::query_as::<_, MfaTotpModel>(&format!(
+            "select * from {} where app_id=? and user_data=? and status=? order by id desc limit 1",
             MfaTotpModel::table_name(),
-            subject.app_id,
-            subject.user_data,
-            MfaStatus::Enable as i8,
         ))
+        .bind(subject.app_id)
+        .bind(&subject.user_data)
+        .bind(MfaStatus::Enable as i8)
         .fetch_optional(&self.db)
         .await?;
         Ok(data)
@@ -105,7 +105,7 @@ impl MfaTotpDao {
         }
 
         let user_data_max =
-            fetch_string_field_max::<MfaTotpModel>(&self.db, &MfaTotpModel::USER_DATA)
+           FetchField::new(&self.db).string_max::<MfaTotpModel>( &MfaTotpModel::USER_DATA)
                 .await
                 .len_or(32);
 
@@ -126,21 +126,12 @@ impl MfaTotpDao {
         // MySQL supports row constructor IN: (app_id, user_data) IN ((?, ?), ...)
         let mut qb = sqlx::QueryBuilder::<MySql>::new("select app_id, user_data from ");
         qb.push(MfaTotpModel::table_name());
-        qb.push(" where status=").push_bind(MfaStatus::Enable as i8);
-        qb.push(" and (app_id, user_data) in (");
-
-        {
-            let mut separated = qb.separated(",");
-            for subject in subjects {
-                separated
-                    .push("(")
-                    .push_bind(subject.app_id)
-                    .push(",")
-                    .push_bind(&subject.user_data)
-                    .push(")");
-            }
-        }
-        qb.push(")");
+        qb.push_where().field_eq("status", MfaStatus::Enable as i8);
+        qb.push_and().push("(app_id, user_data) in");
+        qb.push_tuples(subjects.iter(), |mut b, subject| {
+            b.push_bind(subject.app_id)
+                .push_bind(&subject.user_data);
+        });
 
         let rows = qb.build().fetch_all(&self.db).await?;
         let mut enabled: HashSet<(u64, String)> = HashSet::with_capacity(rows.len());
@@ -164,14 +155,13 @@ impl MfaTotpDao {
         subject: &MfaSubject,
         secret_data: &str,
     ) -> MfaResult<u64> {
-        let secret_data_max =
-            fetch_string_field_max::<MfaTotpModel>(&self.db, &MfaTotpModel::SECRET_DATA)
-                .await
-                .len_or(128);
-        let user_data_max =
-            fetch_string_field_max::<MfaTotpModel>(&self.db, &MfaTotpModel::USER_DATA)
-                .await
-                .len_or(32);
+        let fetch_field = FetchField::new(&self.db);
+        let secret_data_max = fetch_field.string_max::<MfaTotpModel>(&MfaTotpModel::SECRET_DATA)
+            .await
+            .len_or(128);
+        let user_data_max = fetch_field.string_max::<MfaTotpModel>(&MfaTotpModel::USER_DATA)
+            .await
+            .len_or(32);
 
         // Validate parameters
         let mut valid_param = ValidParam::default();
@@ -215,16 +205,12 @@ impl MfaTotpDao {
         Update::<_, MfaTotpModel>::new()
             .set(MfaTotpModel::STATUS, status_disable)
             .set(MfaTotpModel::CHANGE_TIME, time)
-            .execute(
-                SqlSuffix::Where(&sql_format!(
-                    "app_id={} and user_data={} and status={} and id<{}",
-                    subject.app_id,
-                    subject.user_data,
-                    MfaStatus::Enable as i8,
-                    new_id,
-                )),
-                &self.db,
-            )
+            .execute(&self.db, |qb| {
+                qb.push_where().field_eq("app_id", subject.app_id);
+                qb.push_and().field_eq("user_data", subject.user_data.to_owned());
+                qb.push_and().field_eq("status", MfaStatus::Enable as i8);
+                qb.push_and().field_lt("id", new_id);
+            })
             .await?;
 
         Ok(new_id)
@@ -236,22 +222,18 @@ impl MfaTotpDao {
         Update::<_, MfaTotpModel>::new()
             .set(MfaTotpModel::STATUS, status_disable)
             .set(MfaTotpModel::CHANGE_TIME, time)
-            .execute(
-                SqlSuffix::Where(&sql_format!(
-                    "app_id={} and user_data={} and status={}",
-                    subject.app_id,
-                    subject.user_data,
-                    MfaStatus::Enable as i8,
-                )),
-                &self.db,
-            )
+            .execute(&self.db, |qb| {
+                qb.push_where().field_eq("app_id", subject.app_id);
+                qb.push_and().field_eq("user_data", subject.user_data.to_owned());
+                qb.push_and().field_eq("status", MfaStatus::Enable as i8);
+            })
             .await?;
         Ok(())
     }
 
     pub async fn verify_totp(&self, subject: &MfaSubject, code: &str) -> MfaResult<()> {
         let user_data_max =
-            fetch_string_field_max::<MfaTotpModel>(&self.db, &MfaTotpModel::USER_DATA)
+           FetchField::new(&self.db).string_max::<MfaTotpModel>( &MfaTotpModel::USER_DATA)
                 .await
                 .len_or(32);
 
@@ -292,8 +274,8 @@ impl MfaTotpDao {
             } else {
                 now_step.saturating_add(offset as u64)
             };
-            let gen = totp_code(&secret, step, self.cfg.digits)?;
-            if gen == code {
+            let generated_code = totp_code(&secret, step, self.cfg.digits)?;
+            if generated_code == code {
                 matched_step = Some(step);
                 break;
             }
@@ -309,7 +291,9 @@ impl MfaTotpDao {
             .set(MfaTotpModel::LAST_USED_STEP, used_step)
             .set(MfaTotpModel::LAST_USED_TIME, time)
             .set(MfaTotpModel::CHANGE_TIME, time)
-            .execute(SqlSuffix::Where(&sql_format!("id={}", row.id)), &self.db)
+            .execute(&self.db, |qb| {
+                qb.push_where().field_eq("id", row.id);
+            })
             .await?;
 
         Ok(())

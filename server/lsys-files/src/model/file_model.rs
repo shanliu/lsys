@@ -44,7 +44,37 @@ pub struct FileModel {
 
 impl FileModel {
     /// 存储类型: 本地
-    pub const STORAGE_TYPE_LOCAL: &'static str = "local";
+    pub const STORAGE_TYPE_LOCAL_PUBLIC: &'static str = "local_public";
+    pub const STORAGE_TYPE_LOCAL_PRIVATE: &'static str = "local_private";
+    pub const STORAGE_TYPE_LOCAL_CRYPTO: &'static str = "local_crypto";
+
+    /// 静态方法：判断指定的 key 是否为本地存储类型
+    pub fn is_local_key(key: &str) -> bool {
+        key == Self::STORAGE_TYPE_LOCAL_PUBLIC
+        || key == Self::STORAGE_TYPE_LOCAL_PRIVATE
+        || key == Self::STORAGE_TYPE_LOCAL_CRYPTO
+    }
+
+    /// 是否为本地存储
+    pub fn is_local(&self) -> bool {
+        Self::is_local_key(&self.storage_type)
+    }
+
+    /// 是否为 OSS 存储（非 local 即 OSS）
+    pub fn is_oss(&self) -> bool {
+        !self.is_local()
+    }
+
+    /// 获取 OSS config_key（仅 OSS 类型有效）
+    ///
+    /// storage_type 直接就是 config_key（如 "aliyun-prod"、"aws-backup"）
+    pub fn oss_config_key(&self) -> Option<&str> {
+        if self.is_oss() {
+            Some(&self.storage_type)
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize, Default)]
@@ -183,8 +213,13 @@ pub struct FileUserModel {
     #[sqlx(default)]
     pub id: u64,
 
+    /// 文件属于的用户ID,0=系统
     #[sqlx(default)]
     pub user_id: u64,
+
+    /// 文件添加(上传)用户ID
+    #[sqlx(default)]
+    pub add_user_id: u64,
 
     /// 应用ID,0=系统,>0=具体应用
     #[sqlx(default)]
@@ -207,6 +242,14 @@ pub struct FileUserModel {
 
     #[sqlx(default)]
     pub delete_time: u64,
+
+    /// 过期时间，0表示永不过期
+    #[sqlx(default)]
+    pub expire_time: u64,
+
+    /// 上传策略标识
+    #[sqlx(default)]
+    pub policy: String,
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize, Default)]

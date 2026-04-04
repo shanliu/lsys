@@ -4,3 +4,4 @@
 /config/key.pem
 /logs/*
 !/logs/README.MD
+.env

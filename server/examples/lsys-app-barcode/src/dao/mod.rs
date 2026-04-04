@@ -13,7 +13,7 @@ use lsys_logger::dao::ChangeLoggerDao;
 use rxing::{BarcodeFormat, RXingResult, ResultPoint};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use sqlx::{MySql, Pool};
+use sqlx::{MySql, Pool, QueryBuilder};
 use tokio::{
     fs::File,
     io::{self, AsyncReadExt},
@@ -25,19 +25,17 @@ use crate::model::{
 };
 use barcode::BarCodeCore;
 use logger::LogBarCodeParseRecord;
-use lsys_core::{
-    cache::{LocalCache, LocalCacheConfig},
-    db::SqlSuffix,
-    fluent_message,
-};
-use lsys_core::{db::OffsetPageParam, sql_format};
-use lsys_core::db::SqlQuote;
-use lsys_core::db::{BatchInsert, Insert, SqlExpr, TableMeta, Update};
+use lsys_core::db::OffsetPageParam;
+use lsys_core::db::{BatchInsert, Insert, QueryBuilderExt, TableMeta, Update, WhereClause};
 use lsys_core::remote_notify::RemoteNotify;
 use lsys_core::utils::{now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT};
 use lsys_core::valid_key;
 use lsys_core::valid_param::{
     ValidColor, ValidContains, ValidNumber, ValidParam, ValidParamCheck, ValidStrlen,
+};
+use lsys_core::{
+    cache::{LocalCache, LocalCacheConfig},
+    fluent_message,
 };
 
 use crate::dao::logger::LogBarCodeCreateConfig;
@@ -113,10 +111,13 @@ impl BarCodeDao {
 
 impl BarCodeDao {
     pub async fn find_by_create_config_id(&self, id: &u64) -> BarCodeResult<BarcodeCreateModel> {
-        Ok(lsys_core::db::utils::fetch_one::<BarcodeCreateModel>(
-            &self.db,
-            lsys_core::sql_format!("id={id}", id = id),
-        ).await?)
+        use lsys_core::db::utils::Fetch;
+        Ok(
+            Fetch::<MySql, BarcodeCreateModel>::one(&self.db, |qb| {
+                qb.field_eq("id", *id);
+            })
+            .await?,
+        )
     }
 
     //根据配置,创建一个二维码
@@ -165,18 +166,16 @@ impl BarCodeDao {
             StringClear::Option(STRING_CLEAR_FORMAT),
             Some(65),
         );
-        sqlx::query_as::<_, BarcodeParseModel>(&sql_format!(
-            "select * from {} where app_id={} and file_hash={} AND STATUS IN ({})",
+        let mut qb = QueryBuilder::<MySql>::new(format!(
+            "select * from {}",
             BarcodeParseModel::table_name(),
-            app_id,
-            file_hash,
-            &[
-                BarcodeParseStatus::Succ as i8,
-                BarcodeParseStatus::Fail as i8,
-            ]
-        ))
-        .fetch_one(&self.db)
-        .await
+        ));
+        qb.push_where().field_eq("app_id", app_id);
+        qb.push_and().field_eq("file_hash", file_hash);
+        qb.push_and().field_in_copied("status", &[BarcodeParseStatus::Succ as i8, BarcodeParseStatus::Fail as i8]);
+        qb.build_query_as::<BarcodeParseModel>()
+            .fetch_one(&self.db)
+            .await
     }
 }
 
@@ -250,10 +249,10 @@ impl BarCodeDao {
                     .collect::<Vec<(String, String)>>();
                 let create_time = now_time().unwrap_or_default();
                 let status = BarcodeParseStatus::Succ as i8;
-                let mut batch = BatchInsert::<_,BarcodeParseModel>::with_capacity(tmps.len());
+                let mut batch = BatchInsert::<_, BarcodeParseModel>::with_capacity(tmps.len());
                 for tmp in tmps.iter() {
                     batch = batch.push(
-                        Insert::<_,BarcodeParseModel>::new()
+                        Insert::<_, BarcodeParseModel>::new()
                             .set(BarcodeParseModel::USER_ID, user_id)
                             .set(BarcodeParseModel::APP_ID, app_id)
                             .set(BarcodeParseModel::FILE_HASH, &file_hash)
@@ -290,7 +289,7 @@ impl BarCodeDao {
                 let create_time = now_time().unwrap_or_default();
                 let barcode_type = "";
                 let status = BarcodeParseStatus::Fail as i8;
-                match Insert::<_,BarcodeParseModel>::new()
+                match Insert::<_, BarcodeParseModel>::new()
                     .set(BarcodeParseModel::USER_ID, user_id)
                     .set(BarcodeParseModel::APP_ID, app_id)
                     .set(BarcodeParseModel::FILE_HASH, &file_hash)
@@ -425,8 +424,8 @@ impl BarCodeDao {
         .await?;
 
         let create_time = now_time().unwrap_or_default();
-        let status = status.to();
-        let res = Insert::<_,BarcodeCreateModel>::new()
+        let status = *status as i8;
+        let res = Insert::<_, BarcodeCreateModel>::new()
             .set(BarcodeCreateModel::APP_ID, app_id)
             .set(BarcodeCreateModel::USER_ID, user_id)
             .set(BarcodeCreateModel::CHANGE_USER_ID, user_id)
@@ -496,8 +495,8 @@ impl BarCodeDao {
         .await?;
 
         let change_time = now_time().unwrap_or_default();
-        let status = status.to();
-        let row = Update::<_,BarcodeCreateModel>::new()
+        let status = *status as i8;
+        let row = Update::<_, BarcodeCreateModel>::new()
             .set(BarcodeCreateModel::CHANGE_USER_ID, change_user_id)
             .set(BarcodeCreateModel::CHANGE_TIME, change_time)
             .set(BarcodeCreateModel::BARCODE_TYPE, barcode_type)
@@ -509,8 +508,10 @@ impl BarCodeDao {
             .set(BarcodeCreateModel::STATUS, status)
             .set(BarcodeCreateModel::IMAGE_BACKGROUND, image_background)
             .execute(
-                SqlSuffix::Where(&sql_format!("id={}", create_config.id)),
                 &self.db,
+                |qb| {
+                    qb.push_where().field_eq("id", create_config.id);
+                },
             )
             .await
             .map(|e| e.rows_affected())?;
@@ -546,15 +547,17 @@ impl BarCodeDao {
         env_data: Option<&RequestEnv>,
     ) -> BarCodeResult<()> {
         let time = now_time()?;
-        Update::<_,BarcodeCreateModel>::new()
+        Update::<_, BarcodeCreateModel>::new()
             .set(
                 BarcodeCreateModel::STATUS,
                 BarcodeCreateStatus::Delete as i8,
             )
             .set(BarcodeCreateModel::CHANGE_TIME, time)
             .execute(
-                SqlSuffix::Where(&sql_format!("id={}", create_config.id)),
                 &self.db,
+                |qb| {
+                    qb.push_where().field_eq("id", create_config.id);
+                },
             )
             .await?;
 
@@ -580,35 +583,30 @@ impl BarCodeDao {
         Ok(())
     }
 
-    fn list_create_config_where_sql(
+    fn list_create_config_where(
         &self,
         user_id: u64,
         id: Option<u64>,
         app_id: Option<u64>,
         barcode_type: Option<&str>,
-    ) -> Option<String> {
-        let mut sqlwhere = vec![sql_format!(
-            "user_id={} and status  in ({})",
-            user_id,
-            &[
-                BarcodeCreateStatus::EnablePrivate as i8,
-                BarcodeCreateStatus::EnablePublic as i8
-            ]
-        )];
+        wc: &mut WhereClause<'_, '_, MySql>,
+    ) -> bool {
+        wc.and().field_eq("user_id", user_id);
+        wc.and().field_in_copied("status", &[BarcodeCreateStatus::EnablePrivate as i8, BarcodeCreateStatus::EnablePublic as i8]);
         if let Some(s) = app_id {
-            sqlwhere.push(sql_format!("app_id={} ", s));
+            wc.and().field_eq("app_id", s);
         }
         if let Some(s) = id {
-            sqlwhere.push(sql_format!("id={} ", s));
+            wc.and().field_eq("id", s);
         }
         if let Some(tmp) = barcode_type {
             let tmp = string_clear(tmp, StringClear::Option(STRING_CLEAR_FORMAT), Some(13));
             if tmp.is_empty() {
-                return None;
+                return false;
             }
-            sqlwhere.push(sql_format!("barcode_type={} ", tmp));
+            wc.and().field_eq("barcode_type", tmp);
         }
-        Some(sqlwhere.join(" and "))
+        true
     }
 
     //列出创建二维码配置
@@ -620,18 +618,20 @@ impl BarCodeDao {
         barcode_type: Option<&str>,
         page: &OffsetPageParam,
     ) -> BarCodeResult<Vec<BarcodeCreateModel>> {
-        let sqlwhere = match self.list_create_config_where_sql(user_id, id, app_id, barcode_type) {
-            Some(tmp) => tmp,
-            None => return Ok(vec![]),
-        };
-        Ok(sqlx::query_as::<_, BarcodeCreateModel>(&format!(
-            "select * from {} where {} order by id desc {}",
+        let mut qb = QueryBuilder::<MySql>::new(format!(
+            "select * from {}",
             BarcodeCreateModel::table_name(),
-            sqlwhere,
-            page.page_query().limit_sql().unwrap_or_default()
-        ))
-        .fetch_all(&self.db)
-        .await?)
+        ));
+        let mut wc = WhereClause::new(&mut qb);
+        if !self.list_create_config_where(user_id, id, app_id, barcode_type, &mut wc) {
+            return Ok(vec![]);
+        }
+        wc.builder().push(" order by id desc");
+        page.push_limit(wc.builder());
+        Ok(wc.builder()
+            .build_query_as::<BarcodeCreateModel>()
+            .fetch_all(&self.db)
+            .await?)
     }
 
     //汇总创建二维码配置
@@ -642,52 +642,48 @@ impl BarCodeDao {
         app_id: Option<u64>,
         barcode_type: Option<&str>,
     ) -> BarCodeResult<i64> {
-        let sqlwhere = match self.list_create_config_where_sql(user_id, id, app_id, barcode_type) {
-            Some(tmp) => tmp,
-            None => return Ok(0),
-        };
-        let sql = sql_format!(
-            "select count(*) as total from {} where {}",
+        let mut qb = QueryBuilder::<MySql>::new(format!(
+            "select count(*) as total from {}",
             BarcodeCreateModel::table_name(),
-            SqlExpr(sqlwhere)
-        );
-        let query = sqlx::query_scalar::<_, i64>(&sql);
-        let res = query.fetch_one(&self.db).await?;
+        ));
+        let mut wc = WhereClause::new(&mut qb);
+        if !self.list_create_config_where(user_id, id, app_id, barcode_type, &mut wc) {
+            return Ok(0);
+        }
+        let res = wc.builder().build_query_scalar::<i64>().fetch_one(&self.db).await?;
         Ok(res)
     }
 
     pub async fn find_by_parse_record_id(&self, id: &u64) -> BarCodeResult<BarcodeParseModel> {
-        Ok(lsys_core::db::utils::fetch_one::<BarcodeParseModel>(
-            &self.db,
-            lsys_core::sql_format!("id={id}", id = id),
-        ).await?)
+        use lsys_core::db::utils::Fetch;
+        Ok(
+            Fetch::<MySql, BarcodeParseModel>::one(&self.db, |qb| {
+                qb.field_eq("id", *id);
+            })
+            .await?,
+        )
     }
 
-    fn list_parse_record_where_sql(
+    fn list_parse_record_where(
         &self,
         user_id: u64,
         app_id: Option<u64>,
         barcode_type: Option<&str>,
-    ) -> Option<String> {
-        let mut sqlwhere = vec![sql_format!(
-            "user_id={} and status in ({})",
-            user_id,
-            &[
-                BarcodeParseStatus::Succ as i8,
-                BarcodeParseStatus::Fail as i8
-            ]
-        )];
+        wc: &mut WhereClause<'_, '_, MySql>,
+    ) -> bool {
+        wc.and().field_eq("user_id", user_id);
+        wc.and().field_in_copied("status", &[BarcodeParseStatus::Succ as i8, BarcodeParseStatus::Fail as i8]);
         if let Some(s) = app_id {
-            sqlwhere.push(sql_format!("app_id={} ", s));
+            wc.and().field_eq("app_id", s);
         }
         if let Some(tmp) = barcode_type {
             let tmp = string_clear(tmp, StringClear::Option(STRING_CLEAR_FORMAT), Some(13));
             if tmp.is_empty() {
-                return None;
+                return false;
             }
-            sqlwhere.push(sql_format!("barcode_type={} ", tmp));
+            wc.and().field_eq("barcode_type", tmp);
         }
-        Some(sqlwhere.join(" and "))
+        true
     }
 
     //历史解析的二维码记录
@@ -698,21 +694,23 @@ impl BarCodeDao {
         barcode_type: Option<&str>,
         page: &OffsetPageParam,
     ) -> BarCodeResult<Vec<BarcodeParseRecord>> {
-        let sqlwhere = match self.list_parse_record_where_sql(user_id, app_id, barcode_type) {
-            Some(tmp) => tmp,
-            None => return Ok(vec![]),
-        };
-        Ok(sqlx::query_as::<_, BarcodeParseModel>(&format!(
-            "select * from {} where {} order by id desc {}",
+        let mut qb = QueryBuilder::<MySql>::new(format!(
+            "select * from {}",
             BarcodeParseModel::table_name(),
-            sqlwhere,
-            page.page_query().limit_sql().unwrap_or_default()
-        ))
-        .fetch_all(&self.db)
-        .await?
-        .into_iter()
-        .map(parse_model_decode)
-        .collect::<_>())
+        ));
+        let mut wc = WhereClause::new(&mut qb);
+        if !self.list_parse_record_where(user_id, app_id, barcode_type, &mut wc) {
+            return Ok(vec![]);
+        }
+        wc.builder().push(" order by id desc");
+        page.push_limit(wc.builder());
+        Ok(wc.builder()
+            .build_query_as::<BarcodeParseModel>()
+            .fetch_all(&self.db)
+            .await?
+            .into_iter()
+            .map(parse_model_decode)
+            .collect::<_>())
     }
 
     //汇总历史解析的二维码记录
@@ -722,17 +720,15 @@ impl BarCodeDao {
         app_id: Option<u64>,
         barcode_type: Option<&str>,
     ) -> BarCodeResult<i64> {
-        let sqlwhere = match self.list_parse_record_where_sql(user_id, app_id, barcode_type) {
-            Some(tmp) => tmp,
-            None => return Ok(0),
-        };
-        let sql = sql_format!(
-            "select count(*) as total from {} where {}",
+        let mut qb = QueryBuilder::<MySql>::new(format!(
+            "select count(*) as total from {}",
             BarcodeParseModel::table_name(),
-            SqlExpr(sqlwhere)
-        );
-        let query = sqlx::query_scalar::<_, i64>(&sql);
-        let res = query.fetch_one(&self.db).await?;
+        ));
+        let mut wc = WhereClause::new(&mut qb);
+        if !self.list_parse_record_where(user_id, app_id, barcode_type, &mut wc) {
+            return Ok(0);
+        }
+        let res = wc.builder().build_query_scalar::<i64>().fetch_one(&self.db).await?;
         Ok(res)
     }
 
@@ -744,12 +740,14 @@ impl BarCodeDao {
         env_data: Option<&RequestEnv>,
     ) -> BarCodeResult<()> {
         let time = now_time()?;
-        Update::<_,BarcodeParseModel>::new()
+        Update::<_, BarcodeParseModel>::new()
             .set(BarcodeParseModel::STATUS, BarcodeParseStatus::Delete as i8)
             .set(BarcodeParseModel::CHANGE_TIME, time)
             .execute(
-                SqlSuffix::Where(&sql_format!("id={}", parse_record.id)),
                 &self.db,
+                |qb| {
+                    qb.push_where().field_eq("id", parse_record.id);
+                },
             )
             .await?;
         self.logger
@@ -779,13 +777,12 @@ pub struct BarCodeCache<'t> {
 }
 
 impl BarCodeCache<'_> {
-    lsys_core::impl_cache_fetch_one!(
-        find_by_create_config_id,
-        dao,
-        create_model,
-        u64,
-        BarCodeResult<BarcodeCreateModel>
-    );
+    pub async fn find_by_create_config_id(&self, id: &u64) -> BarCodeResult<BarcodeCreateModel> {
+        self.dao
+            .create_model
+            .get_or_fetch(id, || self.dao.find_by_create_config_id(id))
+            .await
+    }
 
     pub async fn create(
         &self,

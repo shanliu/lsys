@@ -14,7 +14,7 @@ use super::{MultipleSetting, SettingError, SettingResult, SingleSetting};
 
 use lsys_core::app_core::AppCoreError;
 use lsys_core::cache::LocalCacheConfig;
-use lsys_core::db::SqlQuote;
+use lsys_core::db::QueryBuilderExt;
 use lsys_core::remote_notify::RemoteNotify;
 use lsys_logger::dao::ChangeLoggerDao;
 
@@ -73,15 +73,23 @@ impl SettingDao {
         })
     }
     pub async fn find_by_id(&self, id: &u64) -> SettingResult<SettingModel> {
-        Ok(lsys_core::db::utils::fetch_one::<SettingModel>(
+        Ok(lsys_core::db::utils::Fetch::<MySql, SettingModel>::one(
             &self.db,
-            lsys_core::sql_format!("id={id} and status = {status}", id = id, status = SettingStatus::Enable),
+            |qb| {
+                qb.field_eq("id", *id)
+                  .push_and()
+                  .field_eq("status", SettingStatus::Enable as i8);
+            },
         ).await?)
     }
     pub async fn find_by_ids(&self, ids: &[u64]) -> SettingResult<HashMap<u64, SettingModel>> {
-        Ok(lsys_core::db::utils::fetch_map::<SettingModel, _, _>(
+        Ok(lsys_core::db::utils::Fetch::<MySql, SettingModel>::map(
             &self.db,
-            lsys_core::sql_format!("id in ({ids}) and  status = {status}", ids = ids, status = SettingStatus::Enable),
+            |qb| {
+                qb.field_in_copied("id", ids)
+                  .push_and()
+                  .field_eq("status", SettingStatus::Enable as i8);
+            },
             |v| v.id,
         ).await?)
     }

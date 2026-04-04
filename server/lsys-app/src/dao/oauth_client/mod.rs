@@ -18,14 +18,12 @@ use crate::model::{AppFeatureStatus, AppSecretType};
 pub use login::*;
 use lsys_access::dao::AccessDao;
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::db::SqlQuote;
-use lsys_core::db::{Insert, SqlSuffix, Update};
+use lsys_core::db::{Insert, QueryBuilderExt, Update};
 use lsys_core::db::TableMeta;
 use lsys_core::{
     fluent_message, valid_key,
 };
 use lsys_core::remote_notify::RemoteNotify;
-use lsys_core::sql_format;
 use lsys_core::utils::{
     now_time, rand_str, string_clear, RandType, RequestEnv, StringClear, STRING_CLEAR_FORMAT,
     STRING_CLEAR_XSS,
@@ -103,11 +101,11 @@ impl AppOAuthClient {
     //获取指定APP的已授权的SCOPE DATA 数据
     //不要在外部使用,外部用 cache find_by_app 得到AppOAuthClientModel后获取 scope_data
     async fn get_oauth_client_scope_data(&self, app: &AppModel) -> AppResult<String> {
-        let scope_res = sqlx::query_scalar::<_, String>(&sql_format!(
-            "select scope_data from {} where app_id={}",
+        let scope_res = sqlx::query_scalar::<_, String>(&format!(
+            "select scope_data from {} where app_id=?",
             AppOAuthClientModel::table_name(),
-            app.id,
         ))
+        .bind(app.id)
         .fetch_one(&self.db)
         .await;
         let scope_data = match scope_res {
@@ -131,12 +129,12 @@ impl AppOAuthClient {
 
         self.server_scope_check(app, scope_data).await?;
 
-        let req_res = sqlx::query_scalar::<_, i8>(&sql_format!(
-            "select status from {} where app_id={} and feature_key={}",
+        let req_res = sqlx::query_scalar::<_, i8>(&format!(
+            "select status from {} where app_id=? and feature_key=?",
             AppFeatureModel::table_name(),
-            app.id,
-            AppRequestType::OAuthClient.feature_key(),
         ))
+        .bind(app.id)
+        .bind(AppRequestType::OAuthClient.feature_key())
         .fetch_one(&self.db)
         .await;
         match req_res {
@@ -294,11 +292,11 @@ impl AppOAuthClient {
         self.server_scope_check(app, scope_data).await?;
 
         let mut add_scope = vec![];
-        let oc_res = sqlx::query_scalar::<_, String>(&sql_format!(
-            "select scope_data from {} where app_id={}",
+        let oc_res = sqlx::query_scalar::<_, String>(&format!(
+            "select scope_data from {} where app_id=?",
             AppOAuthClientModel::table_name(),
-            app.id,
         ))
+        .bind(app.id)
         .fetch_one(&self.db)
         .await;
         let scope_inner = match oc_res {
@@ -339,13 +337,13 @@ impl AppOAuthClient {
         if ![AppRequestStatus::Approved, AppRequestStatus::Rejected].contains(&req_status) {
             return Err(AppError::System(fluent_message!("app-req-status-invalid")));
         }
-        let req_res = sqlx::query_as::<_, AppRequestModel>(&sql_format!(
-            "select * from {} where app_id={} and request_type={}
+        let req_res = sqlx::query_as::<_, AppRequestModel>(&format!(
+            "select * from {} where app_id=? and request_type=?
             ",
             AppRequestModel::table_name(),
-            app.id,
-            AppRequestType::OAuthClient as i8,
         ))
+        .bind(app.id)
+        .bind(AppRequestType::OAuthClient as i8)
         .fetch_one(&self.db)
         .await;
         let req = match req_res {
@@ -373,16 +371,18 @@ impl AppOAuthClient {
                 .set(AppRequestModel::CONFIRM_USER_ID, confirm_user_id)
                 .set(AppRequestModel::CONFIRM_TIME, time)
                 .set(AppRequestModel::CONFIRM_NOTE, &confirm_note)
-                .execute(SqlSuffix::Where(&sql_format!("id={}", req.id)), &self.db)
+                .execute(&self.db, |qb| {
+                    qb.push_where().field_eq("id", req.id);
+                })
                 .await?;
             return Ok(());
         }
 
-        let scope_res = sqlx::query_scalar::<_, String>(&sql_format!(
-            "select scope_data from {} where app_request_id={}",
+        let scope_res = sqlx::query_scalar::<_, String>(&format!(
+            "select scope_data from {} where app_request_id=?",
             AppRequestOAuthClientModel::table_name(),
-            req.id,
         ))
+        .bind(req.id)
         .fetch_one(&self.db)
         .await;
         let mut set_req_status = req_status;
@@ -400,22 +400,22 @@ impl AppOAuthClient {
         self.server_scope_check(app, &scope_set).await?;
 
         //通过
-        let oa_res = sqlx::query_as::<_, (u64, String)>(&sql_format!(
-            "select id,scope_data from {} where app_id={}
+        let oa_res = sqlx::query_as::<_, (u64, String)>(&format!(
+            "select id,scope_data from {} where app_id=?
             ",
             AppOAuthClientModel::table_name(),
-            app.id,
         ))
+        .bind(app.id)
         .fetch_one(&self.db)
         .await;
 
-        let fe_res = sqlx::query_scalar::<_, u64>(&sql_format!(
-            "select id from {} where app_id={} and feature_key={}
+        let fe_res = sqlx::query_scalar::<_, u64>(&format!(
+            "select id from {} where app_id=? and feature_key=?
             ",
             AppFeatureModel::table_name(),
-            app.id,
-            AppRequestType::OAuthClient.feature_key(),
         ))
+        .bind(app.id)
+        .bind(AppRequestType::OAuthClient.feature_key())
         .fetch_one(&self.db)
         .await;
 
@@ -428,7 +428,9 @@ impl AppOAuthClient {
                     .set(AppFeatureModel::STATUS, status)
                     .set(AppFeatureModel::CHANGE_USER_ID, confirm_user_id)
                     .set(AppFeatureModel::CHANGE_TIME, time)
-                    .execute(SqlSuffix::Where(&sql_format!("id={}", oid)), &mut *db)
+                    .execute(&mut *db, |qb| {
+                        qb.push_where().field_eq("id", oid);
+                    })
                     .await;
                 if let Err(err) = cres {
                     db.rollback().await?;
@@ -469,7 +471,9 @@ impl AppOAuthClient {
                     .set(AppOAuthClientModel::SCOPE_DATA, set_scope)
                     .set(AppOAuthClientModel::CHANGE_USER_ID, confirm_user_id)
                     .set(AppOAuthClientModel::CHANGE_TIME, time)
-                    .execute(SqlSuffix::Where(&sql_format!("id={}", oid)), &mut *db)
+                    .execute(&mut *db, |qb| {
+                        qb.push_where().field_eq("id", oid);
+                    })
                     .await;
                 if let Err(err) = cres {
                     db.rollback().await?;
@@ -518,7 +522,9 @@ impl AppOAuthClient {
             .set(AppRequestModel::CONFIRM_USER_ID, confirm_user_id)
             .set(AppRequestModel::CONFIRM_TIME, time)
             .set(AppRequestModel::CONFIRM_NOTE, confirm_note)
-            .execute(SqlSuffix::Where(&sql_format!("id={}", req.id)), &mut *db)
+            .execute(&self.db, |qb| {
+                qb.push_where().field_eq("id", req.id);
+            })
             .await;
         if let Err(err) = cres {
             db.rollback().await?;
@@ -568,11 +574,11 @@ impl AppOAuthClient {
         if !AppRequestType::OAuthClientScope.eq(req.request_type) || req.app_id != app.id {
             return Err(AppError::System(fluent_message!("app-req-bad")));
         }
-        let scope_res = sqlx::query_scalar::<_, String>(&sql_format!(
-            "select scope_data from {} where app_request_id={}",
+        let scope_res = sqlx::query_scalar::<_, String>(&format!(
+            "select scope_data from {} where app_request_id=?",
             AppRequestOAuthClientModel::table_name(),
-            req.id,
         ))
+        .bind(req.id)
         .fetch_one(&self.db)
         .await;
         let mut set_req_status = req_status;
@@ -596,7 +602,9 @@ impl AppOAuthClient {
                 .set(AppRequestModel::CONFIRM_USER_ID, confirm_user_id)
                 .set(AppRequestModel::CONFIRM_TIME, time)
                 .set(AppRequestModel::CONFIRM_NOTE, confirm_note)
-                .execute(SqlSuffix::Where(&sql_format!("id={}", req.id)), &self.db)
+                .execute(&self.db, |qb| {
+                    qb.push_where().field_eq("id", req.id);
+                })
                 .await?;
             return Ok(());
         }
@@ -620,10 +628,9 @@ impl AppOAuthClient {
             .set(AppOAuthClientModel::SCOPE_DATA, set_scope)
             .set(AppOAuthClientModel::CHANGE_USER_ID, confirm_user_id)
             .set(AppOAuthClientModel::CHANGE_TIME, time)
-            .execute(
-                SqlSuffix::Where(&sql_format!("app_id={}", app.id)),
-                &mut *db,
-            )
+            .execute(&mut *db, |qb| {
+                qb.push_where().field_eq("app_id", app.id);
+            })
             .await;
         if let Err(err) = cres {
             db.rollback().await?;
@@ -636,7 +643,9 @@ impl AppOAuthClient {
             .set(AppRequestModel::CONFIRM_USER_ID, confirm_user_id)
             .set(AppRequestModel::CONFIRM_TIME, time)
             .set(AppRequestModel::CONFIRM_NOTE, confirm_note)
-            .execute(SqlSuffix::Where(&sql_format!("id={}", req.id)), &mut *db)
+            .execute(&mut *db, |qb| {
+                qb.push_where().field_eq("id", req.id);
+            })
             .await;
         if let Err(err) = cres {
             db.rollback().await?;
@@ -693,12 +702,12 @@ impl AppOAuthClient {
     ) -> AppResult<()> {
         self.oauth_set_domain_param_valid(callback_domain).await?;
         self.oauth_check(app).await?;
-        let oa_res = sqlx::query_scalar::<_, u64>(&sql_format!(
-            "select id from {} where app_id={}
+        let oa_res = sqlx::query_scalar::<_, u64>(&format!(
+            "select id from {} where app_id=?
             ",
             AppOAuthClientModel::table_name(),
-            app.id,
         ))
+        .bind(app.id)
         .fetch_one(&self.db)
         .await;
         let time = now_time()?;
@@ -710,7 +719,9 @@ impl AppOAuthClient {
                     .set(AppOAuthClientModel::CHANGE_USER_ID, set_user_id)
                     .set(AppOAuthClientModel::CHANGE_TIME, time)
                     .set(AppOAuthClientModel::CALLBACK_DOMAIN, &callback_domain)
-                    .execute(SqlSuffix::Where(&sql_format!("id={}", oid)), &self.db)
+                    .execute(&self.db, |qb| {
+                        qb.push_where().field_eq("id", oid);
+                    })
                     .await?;
             }
             Err(sqlx::Error::RowNotFound) => {

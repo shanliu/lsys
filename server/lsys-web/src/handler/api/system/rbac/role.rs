@@ -6,6 +6,7 @@ use crate::{
 use lsys_access::dao::AccessSession;
 use lsys_rbac::dao::RoleDataAttrParam;
 use serde_json::json;
+use lsys_core::api_utils::JsonPageData;
 
 use crate::common::{PageParam, ToOffsetPageParam};
 
@@ -304,6 +305,6 @@ pub async fn role_data(
         None
     };
     Ok(JsonResponse::data(JsonData::body(
-        json!({ "data": role_data,"total":count}),
+        JsonPageData::total(role_data, count),
     )))
 }

@@ -10,9 +10,6 @@ macro_rules! db_model_enum_status_define {
             pub fn eq(&self,eq:$type)->bool{
                 return (*self as $type)==eq;
             }
-            pub fn to(self)->$type{
-                return self as $type
-            }
             pub fn fluent(&self)->$crate::fluents::FluentMessage{
                  $(
                     if *self ==$item {
@@ -30,11 +27,6 @@ macro_rules! db_model_enum_status_define {
                 }
             }
         }
-		impl $crate::db::SqlQuote<$type> for $enum_name {
-			fn sql_quote(&self) -> $type {
-				*self as $type
-			}
-		}
         impl std::convert::TryFrom<$type> for $enum_name {
             type Error=sqlx::Error;
             fn try_from(value:  $type) -> Result<Self, Self::Error> {

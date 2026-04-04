@@ -1,4 +1,4 @@
-use crate::common::{JsonData, ToOffsetPageParam};
+use crate::common::{JsonData, JsonPageData, ToOffsetPageParam};
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
@@ -86,7 +86,7 @@ pub async fn mailer_tpl_body_list(
         None
     };
     Ok(JsonResponse::data(JsonData::body(
-        json!({ "data": data,"total":count }),
+        JsonPageData::total(data, count),
     )))
 }
 

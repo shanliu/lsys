@@ -8,6 +8,8 @@ mod file_from_upload;
 mod file_from_url;
 mod file_helpers;
 mod file_log;
+mod file_op_context;
+mod file_oss_config;
 mod file_tag;
 mod logger;
 
@@ -19,6 +21,8 @@ pub use file_from_local::*;
 pub use file_from_upload::*;
 pub use file_helpers::*;
 pub use file_log::*;
+pub use file_op_context::*;
+pub use file_oss_config::*;
 pub use file_tag::*;
 
 // Re-export common types
@@ -26,8 +30,11 @@ pub use crate::common::*;
 
 use lsys_core::app_core::AppCore;
 use lsys_logger::dao::ChangeLoggerDao;
+use lsys_setting::dao::MultipleSetting;
 use sqlx::{MySql, Pool};
 use std::sync::Arc;
+
+use crate::oss::OssProviderRegistry;
 
 /// 返回文件模块的操作日志类型列表
 pub fn log_types() -> Vec<&'static str> {
@@ -47,22 +54,28 @@ pub struct FileDaoBuilder;
 
 impl FileDaoBuilder {
     /// 构建文件 DAO（从 AppCore 读取配置）
-    /// 需要在 tokio runtime 中调用 (因为下载管理器和清理管理器需要 spawn)
-    pub fn build(db: Pool<MySql>, app_core: &AppCore, logger: Arc<ChangeLoggerDao>) -> FileDao {
+    pub fn build(
+        db: Pool<MySql>,
+        app_core: &AppCore,
+        setting: Arc<MultipleSetting>,
+        registry: Arc<OssProviderRegistry>,
+        logger: Arc<ChangeLoggerDao>,
+    ) -> FileDao {
         let config = FileConfig::from_config(app_core);
-        Self::build_with_config(db, config, logger)
+        Self::build_with_config(db, config, setting, registry, logger)
     }
 
     /// 构建文件 DAO（直接传入配置）
-    /// 需要在 tokio runtime 中调用 (因为下载管理器需要 spawn)
     pub fn build_with_config(
         db: Pool<MySql>,
         config: FileConfig,
+        setting: Arc<MultipleSetting>,
+        registry: Arc<OssProviderRegistry>,
         logger: Arc<ChangeLoggerDao>,
     ) -> FileDao {
         let helper = Arc::new(FileHelper::new(db.clone(), config.clone()));
         let download = Arc::new(FileDownloadManager::new(helper.clone()));
-
-        FileDao::new(helper, download, logger)
+        let oss_config = Arc::new(FileOssConfigDao::new(db, setting, registry));
+        FileDao::new(helper, download, oss_config, logger)
     }
 }

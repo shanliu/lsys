@@ -9,11 +9,15 @@ use crate::model::*;
 
 impl FileDao {
     // ==================== 创建方法 2: 从URL下载远程文件 ====================
+    ///
+    /// - `user_id`: 文件属于的用户ID,0=系统
+    /// - `add_user_id`: 文件添加(上传)用户ID
     #[allow(clippy::too_many_arguments)]
     pub async fn create_from_url(
         &self,
         source_url: &str,
         user_id: u64,
+        add_user_id: u64,
         app_id: u64,
         chunks: &[ChunkInfo],
         content_type: Option<&str>,
@@ -41,11 +45,9 @@ impl FileDao {
                 "create_from_url: existing file_user found, id={}",
                 existing_fu.id
             );
-            for tag_name in tag_names {
-                self.tag_dao
-                    .add_tag(existing_fu.file_id, user_id, app_id, tag_name, None)
-                    .await?;
-            }
+            self.tag_dao
+                .batch_add_tags(existing_fu.file_id, user_id, app_id, tag_names, None)
+                .await?;
             return Ok(existing_fu.id);
         }
 
@@ -60,7 +62,7 @@ impl FileDao {
 
         let tx_result: FileResult<u64> = async {
             let file_res = Insert::<_, FileModel>::new()
-                .set(FileModel::STORAGE_TYPE, FileModel::STORAGE_TYPE_LOCAL)
+                .set(FileModel::STORAGE_TYPE, FileModel::STORAGE_TYPE_LOCAL_PUBLIC)
                 .set(FileModel::STATUS, FileStatus::Unfinished as i8)
                 .set(FileModel::FILE_SIZE, total_size)
                 .set(FileModel::FILE_MD5, "")
@@ -70,7 +72,7 @@ impl FileDao {
                 )
                 .set(FileModel::CONTENT_TYPE, content_type.unwrap_or(""))
                 .set(FileModel::MODIFY_TIME, 0u64)
-                .set(FileModel::FROM_USER_ID, user_id)
+                .set(FileModel::FROM_USER_ID, add_user_id)
                 .set(FileModel::ADD_TIME, now)
                 .set(FileModel::CHANGE_TIME, 0u64)
                 .set(FileModel::COPY_FILE_ID, 0u64)
@@ -123,6 +125,7 @@ impl FileDao {
 
             let fu_res = Insert::<_, FileUserModel>::new()
                 .set(FileUserModel::USER_ID, user_id)
+                .set(FileUserModel::ADD_USER_ID, add_user_id)
                 .set(FileUserModel::APP_ID, app_id)
                 .set(FileUserModel::FILE_ID, file_id)
                 .set(FileUserModel::STATUS, FileUserStatus::Normal as i8)
@@ -145,11 +148,9 @@ impl FileDao {
                 )
                 .await;
 
-            for tag_name in tag_names {
-                self.tag_dao
-                    .add_tag(file_id, user_id, app_id, tag_name, Some(&mut tx))
-                    .await?;
-            }
+            self.tag_dao
+                .batch_add_tags(file_id, user_id, app_id, tag_names, Some(&mut tx))
+                .await?;
 
             Ok(file_user_id)
         }
@@ -211,7 +212,7 @@ impl FileDao {
             .add(
                 &LogFileCreate {
                     action: "create_from_url",
-                    storage_type: FileModel::STORAGE_TYPE_LOCAL,
+                    storage_type: FileModel::STORAGE_TYPE_LOCAL_PUBLIC,
                     user_id,
                     file_id: 0,
                     file_md5: "",

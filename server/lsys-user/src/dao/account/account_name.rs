@@ -1,6 +1,6 @@
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
-    db::utils::fetch_string_field_max,
+    db::utils::FetchField,
     fluent_message, valid_key,
 };
 use lsys_core::remote_notify::RemoteNotify;
@@ -13,8 +13,7 @@ use lsys_core::valid_param::{
 
 use lsys_logger::dao::ChangeLoggerDao;
 // use rand::seq::SliceRandom;
-use lsys_core::db::{Insert, SqlQuote, SqlSuffix, TableMeta, Update};
-use lsys_core::sql_format;
+use lsys_core::db::{Insert, QueryBuilderExt, TableMeta, Update};
 use sqlx::{Acquire, MySql, Pool, Transaction};
 use std::{collections::HashMap, sync::Arc};
 
@@ -51,12 +50,12 @@ impl AccountName {
         if name.is_empty() {
             return Err(sqlx::Error::RowNotFound.into());
         }
-        let res = sqlx::query_as::<_, AccountNameModel>(&sql_format!(
-            "select * from {} where username={} and status={}",
+        let res = sqlx::query_as::<_, AccountNameModel>(&format!(
+            "select * from {} where username=? and status=?",
             AccountNameModel::table_name(),
-            name,
-            AccountNameStatus::Enable
         ))
+        .bind(&name)
+        .bind(AccountNameStatus::Enable as i8)
         .fetch_one(&self.db)
         .await?;
 
@@ -83,10 +82,9 @@ impl AccountName {
             .set(AccountNameModel::USERNAME, &username)
             .set(AccountNameModel::CHANGE_TIME, ntime)
             .set(AccountNameModel::STATUS, status)
-            .execute(
-                SqlSuffix::Where(&sql_format!("account_id={}", account.id)),
-                &mut *db,
-            )
+            .execute(&mut *db, |qb| {
+                qb.push_where().field_eq("account_id", account.id);
+            })
             .await;
         if let Err(e) = res {
             db.rollback().await?;
@@ -122,7 +120,7 @@ impl AccountName {
     }
     async fn name_param_valid(&self, username: &str) -> AccountResult<()> {
         let username_max =
-            fetch_string_field_max::<AccountNameModel>(&self.db, &AccountNameModel::USERNAME)
+           FetchField::new(&self.db).string_max::<AccountNameModel>( &AccountNameModel::USERNAME)
                 .await
                 .len_or(32);
 
@@ -153,21 +151,21 @@ impl AccountName {
         let time = now_time()?;
         let db = &self.db;
 
-        let account_name_res = sqlx::query_as::<_, AccountNameModel>(&sql_format!(
-            "select * from {} where username={}",
+        let account_name_res = sqlx::query_as::<_, AccountNameModel>(&format!(
+            "select * from {} where username=?",
             AccountNameModel::table_name(),
-            username,
         ))
+        .bind(&username)
         .fetch_one(&self.db)
         .await;
 
         let out = match account_name_res {
             Err(sqlx::Error::RowNotFound) => {
-                let account_name_res = sqlx::query_as::<_, AccountNameModel>(&sql_format!(
-                    "select * from {} where account_id={}",
+                let account_name_res = sqlx::query_as::<_, AccountNameModel>(&format!(
+                    "select * from {} where account_id=?",
                     AccountNameModel::table_name(),
-                    account.id,
                 ))
+                .bind(account.id)
                 .fetch_one(db)
                 .await;
 
@@ -190,7 +188,7 @@ impl AccountName {
                             return Err(ie.into());
                         }
                         let tmp = sqlx::query(
-                            sql_format!(
+                            format!(
                                 "UPDATE {} SET use_name=1 WHERE id=?",
                                 AccountModel::table_name(),
                             )
@@ -230,10 +228,9 @@ impl AccountName {
                             .set(AccountNameModel::STATUS, status)
                             .set(AccountNameModel::USERNAME, &username)
                             .set(AccountNameModel::CHANGE_TIME, time)
-                            .execute(
-                                SqlSuffix::Where(&sql_format!("id={}", account_name.id)),
-                                &mut *db,
-                            )
+                            .execute(&mut *db, |qb| {
+                                qb.push_where().field_eq("id", account_name.id);
+                            })
                             .await;
                         if let Err(ie) = tmp {
                             db.rollback().await?;
@@ -294,15 +291,23 @@ impl AccountName {
     }
 
     pub async fn find_by_account_id(&self, id: &u64) -> AccountResult<AccountNameModel> {
-        Ok(lsys_core::db::utils::fetch_one::<AccountNameModel>(
+        use lsys_core::db::utils::Fetch;
+        Ok(Fetch::<MySql, AccountNameModel>::one(
             &self.db,
-            lsys_core::sql_format!("account_id = {id}  order by id desc", id = id),
+            |qb| {
+                qb.field_eq("account_id", *id);
+                qb.push(" ORDER BY id DESC");
+            },
         ).await?)
     }
     pub async fn find_by_account_ids(&self, ids: &[u64]) -> AccountResult<HashMap<u64, AccountNameModel>> {
-        Ok(lsys_core::db::utils::fetch_map::<AccountNameModel, _, _>(
+        use lsys_core::db::utils::Fetch;
+        Ok(Fetch::<MySql, AccountNameModel>::map(
             &self.db,
-            lsys_core::sql_format!("account_id in ({ids})  order by id desc", ids = ids),
+            |qb| {
+                qb.field_in_copied("account_id", ids);
+                qb.push(" ORDER BY id DESC");
+            },
             |v| v.account_id,
         ).await?)
     }
@@ -315,18 +320,18 @@ pub struct AccountNameCache<'t> {
     pub dao: &'t AccountName,
 }
 impl AccountNameCache<'_> {
-    lsys_core::impl_cache_fetch_one!(
-        find_by_account_id,
-        dao,
-        cache,
-        u64,
-        AccountResult<AccountNameModel>
-    );
-    lsys_core::impl_cache_fetch_vec!(
-        find_by_account_ids,
-        dao,
-        cache,
-        u64,
-        AccountResult<HashMap<u64, AccountNameModel>>
-    );
+    pub async fn find_by_account_id(&self, id: &u64) -> AccountResult<AccountNameModel> {
+        self.dao
+            .cache
+            .get_or_fetch(id, || self.dao.find_by_account_id(id))
+            .await
+    }
+    pub async fn find_by_account_ids(&self, ids: &[u64]) -> AccountResult<HashMap<u64, AccountNameModel>> {
+        self.dao
+            .cache
+            .get_or_fetch_many(ids, |missing| async move {
+                self.dao.find_by_account_ids(&missing).await
+            })
+            .await
+    }
 }

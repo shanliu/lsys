@@ -7,6 +7,7 @@ use crate::{
 use lsys_access::dao::{AccessSession, AccessSessionData};
 use serde::Deserialize;
 use serde_json::json;
+use lsys_core::api_utils::JsonPageData;
 
 #[derive(Debug, Deserialize)]
 pub struct AddressAddParam {
@@ -203,8 +204,7 @@ pub async fn address_list_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonRes
             })
         })
         .collect::<Vec<_>>();
-    Ok(JsonResponse::data(JsonData::body(json!({
-        "data": data_list,
-        "total":data.len(),
-    }))))
+    Ok(JsonResponse::data(JsonData::body(
+        JsonPageData::total(data_list, data.len() as u64),
+    )))
 }

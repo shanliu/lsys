@@ -4,7 +4,8 @@ use crate::{
     dao::access::api::system::admin::{CheckAdminRbacEdit, CheckAdminRbacView},
 };
 use lsys_access::dao::{AccessSession, UserDataParam, UserInfo};
-use lsys_core::db::CursorPageSort;
+use lsys_core::api_utils::{JsonPageData, PageCursorValue, PageTotalRowValue};
+use lsys_core::db::{CursorPageSort, TotalParam};
 use serde_json::json;
 
 use crate::common::{JsonError, LimitParam, PageParam, ToCursorPageParam, ToOffsetPageParam};
@@ -207,14 +208,13 @@ pub async fn role_user_data(
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(json!({
-            "data":bind_vec_user_info_from_req!(
-                req_dao,
-                res,
-                user_id,false
-            ),
-            "total":count
-    }))))
+    Ok(JsonResponse::data(JsonData::body(
+        JsonPageData::total(json!(bind_vec_user_info_from_req!(
+            req_dao,
+            res,
+            user_id,false
+        )), count),
+    )))
 }
 
 #[derive(Debug, Deserialize)]
@@ -261,17 +261,16 @@ pub async fn role_user_available(
                 .web_access
                 .access_dao
                 .user
-                .user_count(&user_param)
-                .await?,
+                .user_count(&user_param, &TotalParam::default())
+                .await
+                .map(PageTotalRowValue::from)?,
         )
     } else {
         None
     };
     let out_res = res.into_iter().map(UserInfo::from).collect::<Vec<_>>();
-    Ok(JsonResponse::data(JsonData::body(json!({
-        "data":out_res,
-        "next_cursor":next.next_cursor,
-        "prev_cursor":next.prev_cursor,
-        "total":count
-    }))))
+    let cursor = PageCursorValue::from(&next);
+    Ok(JsonResponse::data(JsonData::body(
+        JsonPageData::cursor(out_res, cursor, count),
+    )))
 }

@@ -197,11 +197,10 @@ impl MailSenderDao {
             .await?;
 
         let mut wait = None;
-        if max_try_num == 0 && mail.len() == 1 {
-            if let Some((snid, _)) = res.1.first() {
+        if max_try_num == 0 && mail.len() == 1
+            && let Some((snid, _)) = res.1.first() {
                 wait = Some(self.send_wait.message_wait(res.0, *snid).await);
-            }
-        };
+            };
 
         if let Err(err) = self.task_timeout_notify.notify_at_time(sendtime).await {
             warn!(

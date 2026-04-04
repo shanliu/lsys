@@ -352,12 +352,12 @@ impl<T: TimeOutTaskExecutor> TimeOutTask<T> {
                     let mut conn_exec = conn.clone();
                     let lock_key = lock_key.to_string();
                     async move {
-                        if let Ok(ttl) = conn_exec.ttl::<&str, usize>(&lock_key).await {
-                            if ttl < max_lock_time / 2 {
-                                let _ = conn_exec
-                                    .expire::<&str, i64>(&lock_key, max_lock_time as i64)
-                                    .await;
-                            }
+                        if let Ok(ttl) = conn_exec.ttl::<&str, usize>(&lock_key).await
+                            && ttl < max_lock_time / 2
+                        {
+                            let _ = conn_exec
+                                .expire::<&str, i64>(&lock_key, max_lock_time as i64)
+                                .await;
                         }
                     }
                     .boxed()
@@ -450,16 +450,15 @@ impl<T: TimeOutTaskExecutor> TimeOutTask<T> {
                         }
                         Err(e) => format!("get lock host fail:{}", e),
                     };
-                    if set_expire || status {
-                        if let Err(err) = conn
+                    if (set_expire || status)
+                        && let Err(err) = conn
                             .expire::<&str, i64>(lock_key, max_lock_time as i64)
                             .await
-                        {
-                            warn!(
-                                "listen_timeout_check lock key[{}] set expire fail:{}",
-                                lock_key, err
-                            );
-                        }
+                    {
+                        warn!(
+                            "listen_timeout_check lock key[{}] set expire fail:{}",
+                            lock_key, err
+                        );
                     }
 
                     if status {

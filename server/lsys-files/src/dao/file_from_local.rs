@@ -21,18 +21,22 @@ pub enum LocalFileMode {
 
 impl FileDao {
     // ==================== 创建方法 4: 已知本地文件生成 ====================
+    ///
+    /// - `user_id`: 文件属于的用户ID,0=系统
+    /// - `add_user_id`: 文件添加(上传)用户ID
     #[allow(clippy::too_many_arguments)]
     pub async fn create_from_local_file(
         &self,
         local_file_path: &str,
         user_id: u64,
+        add_user_id: u64,
         app_id: u64,
         file_name: Option<&str>,
         mode: LocalFileMode,
         copy_file_id: Option<u64>,
         tag_names: &[&str],
         env_data: Option<&RequestEnv>,
-    ) -> FileResult<FileModel> {
+    ) -> FileResult<(FileModel, FileUserModel)> {
         use tracing::info;
 
         info!(
@@ -51,7 +55,7 @@ impl FileDao {
             // 辅助函数.1: 检查是否存在
             if let Some(existing) = self
                 .helper
-                .find_existing_file(FileModel::STORAGE_TYPE_LOCAL, &file_md5)
+                .find_existing_file(FileModel::STORAGE_TYPE_LOCAL_PUBLIC, &file_md5)
                 .await?
             {
                 info!(
@@ -81,7 +85,7 @@ impl FileDao {
                 }
 
                 if physical_exists {
-                    if let Some(_fu) = self
+                    if let Some(fu) = self
                         .helper
                         .find_file_user(user_id, app_id, existing.id, FileUserStatus::Normal)
                         .await?
@@ -103,12 +107,10 @@ impl FileDao {
                                 None,
                             )
                             .await;
-                        for tag_name in tag_names {
-                            self.tag_dao
-                                .add_tag(existing.id, user_id, app_id, tag_name, None)
-                                .await?;
-                        }
-                        return Ok(existing);
+                        self.tag_dao
+                            .batch_add_tags(existing.id, user_id, app_id, tag_names, None)
+                            .await?;
+                        return Ok((existing, fu));
                     }
 
                     // 创建 file_user
@@ -117,6 +119,7 @@ impl FileDao {
                     let tx_result: FileResult<()> = async {
                         Insert::<_, FileUserModel>::new()
                             .set(FileUserModel::USER_ID, user_id)
+                            .set(FileUserModel::ADD_USER_ID, add_user_id)
                             .set(FileUserModel::APP_ID, app_id)
                             .set(FileUserModel::FILE_ID, existing.id)
                             .set(FileUserModel::STATUS, FileUserStatus::Normal as i8)
@@ -135,11 +138,9 @@ impl FileDao {
                                 Some(&mut tx),
                             )
                             .await;
-                        for tag_name in tag_names {
-                            self.tag_dao
-                                .add_tag(existing.id, user_id, app_id, tag_name, Some(&mut tx))
-                                .await?;
-                        }
+                        self.tag_dao
+                            .batch_add_tags(existing.id, user_id, app_id, tag_names, Some(&mut tx))
+                            .await?;
                         Ok(())
                     }
                     .await;
@@ -153,12 +154,17 @@ impl FileDao {
                         }
                     }
 
-                    if mode == LocalFileMode::Move {
-                        if let Err(e) = fs::remove_file(local_file_path).await {
+                    if mode == LocalFileMode::Move
+                        && let Err(e) = fs::remove_file(local_file_path).await {
                             warn!("create_from_local: remove source file failed: {}", e);
                         }
-                    }
-                    return Ok(existing);
+                    // 查询刚创建的 file_user
+                    let file_user = self
+                        .helper
+                        .find_file_user(user_id, app_id, existing.id, FileUserStatus::Normal)
+                        .await?
+                        .ok_or_else(|| FileError::System(fluent_message!("file-user-create-error")))?;
+                    return Ok((existing, file_user));
                 } // end if physical_exists
             }
         } // end if copy_file_id.is_none()
@@ -199,14 +205,14 @@ impl FileDao {
 
         let tx_result: FileResult<u64> = async {
             let file_res = Insert::<_, FileModel>::new()
-                .set(FileModel::STORAGE_TYPE, FileModel::STORAGE_TYPE_LOCAL)
+                .set(FileModel::STORAGE_TYPE, FileModel::STORAGE_TYPE_LOCAL_PUBLIC)
                 .set(FileModel::STATUS, FileStatus::Normal as i8)
                 .set(FileModel::FILE_MD5, &file_md5)
                 .set(FileModel::FILE_SIZE, metadata.len())
                 .set(FileModel::FILE_NAME, actual_name)
                 .set(FileModel::CONTENT_TYPE, &content_type)
                 .set(FileModel::MODIFY_TIME, modify_time)
-                .set(FileModel::FROM_USER_ID, user_id)
+                .set(FileModel::FROM_USER_ID, add_user_id)
                 .set(FileModel::ADD_TIME, now)
                 .set(FileModel::CHANGE_TIME, 0u64)
                 .set(FileModel::COPY_FILE_ID, copy_file_id.unwrap_or(0))
@@ -230,6 +236,7 @@ impl FileDao {
 
             Insert::<_, FileUserModel>::new()
                 .set(FileUserModel::USER_ID, user_id)
+                .set(FileUserModel::ADD_USER_ID, add_user_id)
                 .set(FileUserModel::APP_ID, app_id)
                 .set(FileUserModel::FILE_ID, file_id)
                 .set(FileUserModel::STATUS, FileUserStatus::Normal as i8)
@@ -244,17 +251,15 @@ impl FileDao {
                 .add(
                     file_id,
                     0,
-                    user_id,
+                    add_user_id,
                     "create_from_local: new file created",
                     Some(&mut tx),
                 )
                 .await;
 
-            for tag_name in tag_names {
-                self.tag_dao
-                    .add_tag(file_id, user_id, app_id, tag_name, Some(&mut tx))
-                    .await?;
-            }
+            self.tag_dao
+                .batch_add_tags(file_id, user_id, app_id, tag_names, Some(&mut tx))
+                .await?;
 
             Ok(file_id)
         }
@@ -270,12 +275,10 @@ impl FileDao {
                 // 事务失败时尝试删除已移动的文件
                 let rp = relative_path.clone();
                 let bp = self.helper.config.storage_base_path.clone();
-                tokio::spawn(async move {
-                    let full = std::path::Path::new(&bp).join(&rp);
-                    if let Err(e) = tokio::fs::remove_file(&full).await {
-                        tracing::warn!("create_from_local: rollback remove file failed: {}", e);
-                    }
-                });
+                let full = std::path::Path::new(&bp).join(&rp);
+                if let Err(e) = tokio::fs::remove_file(&full).await {
+                    tracing::warn!("create_from_local: rollback remove file failed: {}", e);
+                }
                 return Err(e);
             }
         };
@@ -286,11 +289,17 @@ impl FileDao {
             .await?
             .ok_or_else(|| FileError::System(fluent_message!("file-create-error")))?;
 
+        let file_user = self
+            .helper
+            .find_file_user(user_id, app_id, file_id, FileUserStatus::Normal)
+            .await?
+            .ok_or_else(|| FileError::System(fluent_message!("file-user-create-error")))?;
+
         self.logger
             .add(
                 &LogFileCreate {
                     action: "create_from_local_file",
-                    storage_type: FileModel::STORAGE_TYPE_LOCAL,
+                    storage_type: FileModel::STORAGE_TYPE_LOCAL_PUBLIC,
                     user_id,
                     file_id: file.id,
                     file_md5: &file.file_md5,
@@ -302,25 +311,35 @@ impl FileDao {
             )
             .await;
 
-        Ok(file)
+        Ok((file, file_user))
     }
 
     // ==================== 操作方法 5: 拷贝函数 ====================
+    /// 拷贝用户文件
+    ///
+    /// 通过 `FileOpContext` 传入参数：
+    /// - 必须: `file_user`
+    /// - 可选: `file`（未提供时自动查询）
+    /// - 可选: `oss_provider`（OSS 文件需要先同步到本地时使用）
     pub async fn copy_file(
         &self,
-        file: &FileModel,
-        user_id: u64,
-        app_id: u64,
-        oss_provider: Option<&dyn OssProvider>,
+        ctx: FileOpContext<'_>,
         env_data: Option<&RequestEnv>,
-    ) -> FileResult<FileModel> {
+    ) -> FileResult<(FileModel, FileUserModel)> {
+        let file_user = ctx.file_user;
+        let file = ctx.file().await?;
+
         if !FileStatus::Normal.eq(file.status) {
             return Err(FileError::Param(fluent_message!(
                 "file-status-must-be-normal"
             )));
         }
 
-        if file.storage_type == FileModel::STORAGE_TYPE_LOCAL {
+        let user_id = file_user.user_id;
+        let add_user_id = file_user.add_user_id;
+        let app_id = file_user.app_id;
+
+        if file.is_local() {
             // 拷贝本地文件
             let local = self
                 .helper
@@ -330,18 +349,19 @@ impl FileDao {
 
             let src_full = self.helper.get_full_local_path(&local.local_path);
             let copy_prefix = format!("{}_{}_copy", app_id, user_id);
-            let copy_ext = crate::dao::file_helpers::FileHelper::extract_extension(&file.file_name);
+            let copy_ext = crate::common::extract_extension(Some(&file.file_name));
             let (_rel, dst_full) = self.helper.create_new_file(&copy_prefix, copy_ext).await?;
             fs::copy(&src_full, &dst_full).await?;
 
             // 拷贝源文件的标签
-            let source_tags = self.tag_dao.get_file_tag_names(file.id).await?;
+            let source_tags = self.data_dao.get_file_tag_names(file.id).await?;
             let source_tag_refs: Vec<&str> = source_tags.iter().map(String::as_str).collect();
 
-            let new_file = self
+            let (new_file, new_file_user) = self
                 .create_from_local_file(
                     dst_full.to_str().unwrap_or(""),
                     user_id,
+                    add_user_id,
                     app_id,
                     Some(&file.file_name),
                     LocalFileMode::Move,
@@ -359,19 +379,23 @@ impl FileDao {
                         new_file_id: new_file.id,
                     },
                     Some(new_file.id),
-                    Some(user_id),
+                    Some(add_user_id),
                     None,
                     env_data,
                 )
                 .await;
 
-            Ok(new_file)
+            Ok((new_file, new_file_user))
         } else {
-            // OSS类型: 先同步到本地再拷贝
-            let provider = oss_provider
-                .ok_or_else(|| FileError::Param(fluent_message!("file-oss-provider-required")))?;
-            let local_file = self.sync_oss_to_local(file, provider, env_data).await?;
-            Box::pin(self.copy_file(&local_file, user_id, app_id, None, env_data)).await
+            // OSS类型: 先同步到本地，再对本地文件进行物理拷贝，确保副本独立
+            let sync_ctx = FileOpContext::new(file_user, &self.helper, &self.oss_config).with_file(file)?;
+            let (local_file, local_file_user) = self
+                .sync_oss_to_local(sync_ctx, env_data)
+                .await?;
+
+            // 对本地文件进行物理拷贝，创建独立副本
+            let copy_ctx = FileOpContext::new(&local_file_user, &self.helper, &self.oss_config).with_file(&local_file)?;
+            Box::pin(self.copy_file(copy_ctx, env_data)).await
         }
     }
 }

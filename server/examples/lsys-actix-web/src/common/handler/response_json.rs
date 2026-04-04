@@ -41,8 +41,8 @@ impl Responder for ResponseJson {
     type Body = BoxBody;
     fn respond_to(self, req: &HttpRequest) -> HttpResponse {
         let mut res = HttpResponse::Ok().json(self.inner.to_value());
-        if let Some(token) = req.extensions().get::<UserAuthToken>() {
-            if !token.token.is_empty() {
+        if let Some(token) = req.extensions().get::<UserAuthToken>()
+            && !token.token.is_empty() {
                 let now_t = now_time().unwrap_or_default();
                 let age = token.time_out.saturating_sub(now_t);
                 let cookie = Cookie::build(AUTH_COOKIE_NAME, token.token.clone())
@@ -56,7 +56,6 @@ impl Responder for ResponseJson {
                     warn!("auth add token fail:{}", e);
                 }
             }
-        }
         res
     }
 }

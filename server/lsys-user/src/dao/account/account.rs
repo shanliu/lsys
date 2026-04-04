@@ -8,7 +8,7 @@ use crate::model::{AccountIndexCat, AccountModel, AccountStatus};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::db::{CursorPageData, CursorPageParam};
 use lsys_core::{
-    db::utils::fetch_string_field_max, fluent_message, valid_key,
+    db::utils::FetchField, fluent_message, valid_key,
 };
 use lsys_core::remote_notify::RemoteNotify;
 use lsys_core::utils::{now_time, RequestEnv};
@@ -18,9 +18,7 @@ use lsys_logger::dao::ChangeLoggerDao;
 use super::logger::LogAccount;
 use super::AccountError;
 use super::{AccountIndex, AccountItem};
-use lsys_core::db::{Insert, SqlSuffix, Update};
-use lsys_core::db::{SqlQuote, TableMeta};
-use lsys_core::sql_format;
+use lsys_core::db::{Insert, Update, QueryBuilderExt, TableMeta};
 use sqlx::{Acquire, MySql, Pool, Transaction};
 pub struct Account {
     db: Pool<MySql>,
@@ -48,7 +46,7 @@ impl Account {
     }
     async fn nickname_param_valid(&self, nickname: &str) -> AccountResult<()> {
         let nickname_max =
-            fetch_string_field_max::<AccountModel>(&self.db, &AccountModel::NICKNAME)
+           FetchField::new(&self.db).string_max::<AccountModel>( &AccountModel::NICKNAME)
                 .await
                 .len_or(32);
 
@@ -98,11 +96,11 @@ impl Account {
         };
         let account_id = res.last_insert_id();
 
-        let tmp = sqlx::query_as::<_, AccountModel>(&sql_format!(
-            "select * from {} where id={} ",
+        let tmp = sqlx::query_as::<_, AccountModel>(&format!(
+            "select * from {} where id=? ",
             AccountModel::table_name(),
-            account_id
         ))
+        .bind(account_id)
         .fetch_one(&mut *db)
         .await;
 
@@ -169,10 +167,9 @@ impl Account {
             .set(AccountModel::CHANGE_TIME, time)
             .set(AccountModel::CONFIRM_TIME, time)
             .set(AccountModel::STATUS, AccountStatus::Enable as i8)
-            .execute(
-                SqlSuffix::Where(&sql_format!("id={}", account.id)),
-                &mut *db,
-            )
+            .execute(&mut *db, |qb| {
+                qb.push_where().field_eq("id", account.id);
+            })
             .await;
         if let Err(ie) = tmp {
             db.rollback().await?;
@@ -233,10 +230,9 @@ impl Account {
             update = update.set(AccountModel::NICKNAME, name as &str);
         }
         let tmp = update
-            .execute(
-                SqlSuffix::Where(&sql_format!("id={}", account.id)),
-                &mut *db,
-            )
+            .execute(&mut *db, |qb| {
+                qb.push_where().field_eq("id", account.id);
+            })
             .await;
         if let Err(e) = tmp {
             db.rollback().await?;
@@ -281,10 +277,9 @@ impl Account {
         let res = Update::<_,AccountModel>::new()
             .set(AccountModel::CHANGE_TIME, time)
             .set(AccountModel::NICKNAME, &nikename)
-            .execute(
-                SqlSuffix::Where(&sql_format!("id={}", account.id)),
-                &mut *db,
-            )
+            .execute(&mut *db, |qb| {
+                qb.push_where().field_eq("id", account.id);
+            })
             .await;
         let out = match res {
             Err(e) => {
@@ -328,15 +323,23 @@ impl Account {
         out
     }
     pub async fn find_by_id(&self, id: &u64) -> AccountResult<AccountModel> {
-        Ok(lsys_core::db::utils::fetch_one::<AccountModel>(
+        use lsys_core::db::utils::Fetch;
+        Ok(Fetch::<MySql, AccountModel>::one(
             &self.db,
-            lsys_core::sql_format!("id = {id} and status in ({status})", id = id, status = [AccountStatus::Enable as i8, AccountStatus::Init as i8]),
+            |qb| {
+                qb.field_eq("id", *id);
+                qb.push_and().field_in_copied("status", &[AccountStatus::Enable as i8, AccountStatus::Init as i8]);
+            },
         ).await?)
     }
     pub async fn find_by_ids(&self, ids: &[u64]) -> AccountResult<HashMap<u64, AccountModel>> {
-        Ok(lsys_core::db::utils::fetch_map::<AccountModel, _, _>(
+        use lsys_core::db::utils::Fetch;
+        Ok(Fetch::<MySql, AccountModel>::map(
             &self.db,
-            lsys_core::sql_format!("id in ({ids}) and status in ({status})", ids = ids, status = [AccountStatus::Enable as i8, AccountStatus::Init as i8]),
+            |qb| {
+                qb.field_in_copied("id", ids);
+                qb.push_and().field_in_copied("status", &[AccountStatus::Enable as i8, AccountStatus::Init as i8]);
+            },
             |v| v.id,
         ).await?)
     }
@@ -375,12 +378,18 @@ pub struct AccountCache<'t> {
     pub dao: &'t Account,
 }
 impl AccountCache<'_> {
-    lsys_core::impl_cache_fetch_one!(find_by_id, dao, cache, u64, AccountResult<AccountModel>);
-    lsys_core::impl_cache_fetch_vec!(
-        find_by_ids,
-        dao,
-        cache,
-        u64,
-        AccountResult<HashMap<u64, AccountModel>>
-    );
+    pub async fn find_by_id(&self, id: &u64) -> AccountResult<AccountModel> {
+        self.dao
+            .cache
+            .get_or_fetch(id, || self.dao.find_by_id(id))
+            .await
+    }
+    pub async fn find_by_ids(&self, ids: &[u64]) -> AccountResult<HashMap<u64, AccountModel>> {
+        self.dao
+            .cache
+            .get_or_fetch_many(ids, |missing| async move {
+                self.dao.find_by_ids(&missing).await
+            })
+            .await
+    }
 }

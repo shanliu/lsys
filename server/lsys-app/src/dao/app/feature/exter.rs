@@ -6,9 +6,8 @@ use crate::{
     },
 };
 use lsys_core::fluent_message;
-use lsys_core::sql_format;
-use lsys_core::db::SqlQuote;
-use lsys_core::db::{BatchInsert, Insert, TableMeta, SqlSuffix, Update};
+use lsys_core::db::{BatchInsert, Insert, QueryBuilderExt, TableMeta, Update};
+use sqlx::{MySql, QueryBuilder};
 use lsys_core::utils::{
     now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT, STRING_CLEAR_XSS,
 };
@@ -35,15 +34,18 @@ impl App {
             .map(|e| self.exter_feature_key(e))
             .collect::<Vec<String>>();
         app.app_status_check()?;
-        let req_res = sqlx::query_scalar::<_, String>(&sql_format!(
-            "select feature_key from {} where app_id={} and feature_key in ({}) and status={}",
-            AppFeatureModel::table_name(),
-            app.id,
-            featuer_data,
-            AppFeatureStatus::Enable as i8
-        ))
-        .fetch_all(&self.db)
-        .await;
+        let req_res = {
+            let mut qb = QueryBuilder::<MySql>::new(format!(
+                "select feature_key from {}",
+                AppFeatureModel::table_name()
+            ));
+            qb.push_where().field_eq("app_id", app.id);
+            qb.push_and().field_in_string("feature_key", &featuer_data);
+            qb.push_and().field_eq("status", AppFeatureStatus::Enable as i8);
+            qb.build_query_scalar::<String>()
+                .fetch_all(&self.db)
+                .await
+        };
         let req_feature = match req_res {
             Ok(dat) => {
                 let mut out = vec![];
@@ -66,16 +68,16 @@ impl App {
         let request_type = AppRequestType::ExterFeatuer as i8;
         let need_feature_data = req_feature.iter().map(|e| e.trim()).collect::<Vec<&str>>();
 
-        let req_res = sqlx::query_scalar::<_, String>(&sql_format!(
+        let req_res = sqlx::query_scalar::<_, String>(&format!(
             "select reqf.feature_data from {} as req join {} reqf on req.id=reqf.app_request_id
-             where req.parent_app_id={} and req.app_id={} and req.request_type={} and req.status={} limit 1",
+             where req.parent_app_id=? and req.app_id=? and req.request_type=? and req.status=? limit 1",
             AppRequestModel::table_name(),
             AppRequestFeatureModel::table_name(),
-            app.parent_app_id,
-            app.id,
-            request_type,
-            req_status
         ))
+        .bind(app.parent_app_id)
+        .bind(app.id)
+        .bind(request_type)
+        .bind(req_status)
         .fetch_one(&self.db)
         .await;
         match req_res {
@@ -179,11 +181,11 @@ impl App {
             return Err(AppError::System(fluent_message!("app-req-status-invalid")));
         }
 
-        let feature_res = sqlx::query_scalar::<_, String>(&sql_format!(
-            "select feature_data from {} where app_request_id={} limit 1",
+        let feature_res = sqlx::query_scalar::<_, String>(&format!(
+            "select feature_data from {} where app_request_id=? limit 1",
             AppRequestFeatureModel::table_name(),
-            req.id,
         ))
+        .bind(req.id)
         .fetch_one(&self.db)
         .await;
         let find_data = match feature_res {
@@ -215,19 +217,24 @@ impl App {
                 .set(AppRequestModel::CONFIRM_USER_ID, confirm_user_id)
                 .set(AppRequestModel::CONFIRM_TIME, time)
                 .set(AppRequestModel::CONFIRM_NOTE, confirm_note.clone())
-                .execute(SqlSuffix::Where(&sql_format!("id={}", req.id)), &self.db)
+                .execute(&self.db, |qb| {
+                    qb.push_where().field_eq("id", req.id);
+                })
                 .await?;
             return Ok(());
         }
 
-        let req_res = sqlx::query_as::<_, (u64, String, i8)>(&sql_format!(
-            "select id,feature_key,status from {} where app_id={} and feature_key in ({}) ",
-            AppFeatureModel::table_name(),
-            app.id,
-            find_data
-        ))
-        .fetch_all(&self.db)
-        .await?;
+        let req_res = {
+            let mut qb = QueryBuilder::<MySql>::new(format!(
+                "select id,feature_key,status from {}",
+                AppFeatureModel::table_name()
+            ));
+            qb.push_where().field_eq("app_id", app.id);
+            qb.push_and().field_in_string("feature_key", &find_data);
+            qb.build_query_as::<(u64, String, i8)>()
+                .fetch_all(&self.db)
+                .await?
+        };
         let mut set_val = vec![];
         for tmp in find_data.iter() {
             let stmp = tmp.to_owned();
@@ -249,10 +256,9 @@ impl App {
                 .set(AppFeatureModel::STATUS, set_status)
                 .set(AppFeatureModel::CHANGE_USER_ID, confirm_user_id)
                 .set(AppFeatureModel::CHANGE_TIME, time)
-                .execute(
-                    SqlSuffix::Where(&sql_format!("id in ({})", set_status_id)),
-                    &mut *db,
-                )
+                .execute(&mut *db, |qb| {
+                    qb.push_where().field_in_copied("id", &set_status_id);
+                })
                 .await;
             if let Err(err) = cres {
                 db.rollback().await?;
@@ -284,7 +290,9 @@ impl App {
             .set(AppRequestModel::CONFIRM_USER_ID, confirm_user_id)
             .set(AppRequestModel::CONFIRM_TIME, time)
             .set(AppRequestModel::CONFIRM_NOTE, confirm_note.clone())
-            .execute(SqlSuffix::Where(&sql_format!("id={}", req.id)), &mut *db)
+            .execute(&mut *db, |qb| {
+                qb.push_where().field_eq("id", req.id);
+            })
             .await;
         if let Err(err) = cres {
             db.rollback().await?;

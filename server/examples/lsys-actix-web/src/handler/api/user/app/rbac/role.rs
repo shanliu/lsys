@@ -2,7 +2,7 @@ use crate::common::handler::{
     JsonQuery, JwtQuery, ResponseJson, ResponseJsonResult, UserAuthQuery,
 };
 use actix_web::post;
-use lsys_web::handler::api::user::rbac::{
+use lsys_web::handler::api::user::app_rbac::{
     app_role_add, app_role_data, app_role_del, app_role_edit, app_role_perm_add,
     app_role_perm_data, app_role_perm_del, app_role_user_add, app_role_user_available,
     app_role_user_data, app_role_user_del, AppRoleAddParam, AppRoleDataParam, AppRoleDelParam,

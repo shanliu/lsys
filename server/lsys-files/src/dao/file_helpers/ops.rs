@@ -1,11 +1,14 @@
 use std::path::{Path, PathBuf};
 
 use chrono::Local;
-use lsys_core::db::SqlQuote;
+use lsys_core::db::QueryBuilderExt;
 use tokio::fs;
-use tracing::warn;
+use lsys_core::db::{TableMeta, Update};
+use lsys_core::utils::now_time;
+use tracing::{info, warn};
 
 use super::super::{FileError, FileResult};
+use super::super::super::common::{rand_simple, sanitize_filename};
 use super::FileHelper;
 use crate::model::*;
 
@@ -60,14 +63,6 @@ impl FileHelper {
         }
     }
 
-    /// 从文件名中提取扩展名，拿不到则返回 "dat"
-    pub fn extract_extension(file_name: &str) -> &str {
-        Path::new(file_name)
-            .extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or("dat")
-    }
-
     /// 获取完整本地路径
     pub fn get_full_local_path(&self, relative_path: &str) -> PathBuf {
         Path::new(&self.config.storage_base_path).join(relative_path)
@@ -81,14 +76,8 @@ impl FileHelper {
         prefix: &str,
         target_name: Option<&str>,
     ) -> FileResult<String> {
-        let src_path = Path::new(source_path);
-        let file_name = target_name.map(|n| n.to_string()).unwrap_or_else(|| {
-            src_path
-                .file_name()
-                .map(|n| n.to_string_lossy().to_string())
-                .unwrap_or_else(|| "unknown".to_string())
-        });
-        let ext = Self::extract_extension(&file_name);
+        let file_name = target_name.unwrap_or(source_path);
+        let ext = crate::common::extract_extension(Some(file_name));
 
         let (relative_path, full_path) = self.create_new_file(prefix, ext).await?;
 
@@ -123,14 +112,8 @@ impl FileHelper {
         prefix: &str,
         target_name: Option<&str>,
     ) -> FileResult<String> {
-        let src_path = Path::new(source_path);
-        let file_name = target_name.map(|n| n.to_string()).unwrap_or_else(|| {
-            src_path
-                .file_name()
-                .map(|n| n.to_string_lossy().to_string())
-                .unwrap_or_else(|| "unknown".to_string())
-        });
-        let ext = Self::extract_extension(&file_name);
+        let file_name = target_name.unwrap_or(source_path);
+        let ext = crate::common::extract_extension(Some(file_name));
 
         let (relative_path, full_path) = self.create_new_file(prefix, ext).await?;
 
@@ -144,9 +127,24 @@ impl FileHelper {
 
     /// 计算文件 MD5
     pub async fn compute_file_md5(&self, path: &PathBuf) -> FileResult<String> {
-        let data = fs::read(path).await?;
-        let digest = md5::compute(&data);
-        Ok(format!("{:x}", digest))
+        use tokio::io::AsyncReadExt;
+
+        // 128 KB 堆缓冲：对齐 Linux readahead，减少 syscall 次数
+        // 直接读入自管缓冲区，避免 BufReader 的内部缓冲造成双重拷贝
+        const BUF_SIZE: usize = 128 * 1024;
+        let mut file = fs::File::open(path).await?;
+        let mut hasher = md5::Context::new();
+        let mut buffer = vec![0u8; BUF_SIZE];
+
+        loop {
+            let bytes_read = file.read(&mut buffer).await?;
+            if bytes_read == 0 {
+                break;
+            }
+            hasher.consume(&buffer[..bytes_read]);
+        }
+
+        Ok(format!("{:x}", hasher.finalize()))
     }
 
     /// 计算字符串 MD5
@@ -161,26 +159,39 @@ impl FileHelper {
         chunks: &[FileLocalChunkModel],
         target_path: &PathBuf,
     ) -> FileResult<()> {
-        use tokio::io::AsyncWriteExt;
+        use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
 
-        let mut target_file = fs::File::create(target_path).await?;
+        // 128 KB：对齐 Linux readahead 默认值，显著减少 syscall 次数
+        // 读写两端使用相同容量，避免一侧成为瓶颈
+        // 相比默认 8 KB，单次 I/O 吞吐提升 16 倍，适合分片合并的大块顺序读写场景
+        const BUF_SIZE: usize = 128 * 1024;
 
         // 按 chunk_index 排序
         let mut sorted: Vec<&FileLocalChunkModel> = chunks.iter().collect();
         sorted.sort_by_key(|c| c.chunk_index);
 
-        for chunk in sorted {
+        let target_file = fs::File::create(target_path).await?;
+        let mut writer = BufWriter::with_capacity(BUF_SIZE, target_file);
+
+        for chunk in &sorted {
             let chunk_full_path = self.get_full_local_path(&chunk.chunk_path);
-            let data = fs::read(&chunk_full_path).await?;
-            target_file.write_all(&data).await?;
+            let src = fs::File::open(&chunk_full_path).await?;
+            // BufReader 将读端也提升为 128 KB，与写端对称
+            // 使用 take(file_size) 限制只读取约定大小，防止实际文件超过约定大小时写入多余数据
+            let mut reader = BufReader::with_capacity(BUF_SIZE, src).take(chunk.file_size);
+            tokio::io::copy(&mut reader, &mut writer).await?;
         }
 
-        target_file.flush().await?;
+        writer.flush().await?;
         Ok(())
     }
 
     /// 清理已合并的chunk文件（异步执行，不阻塞调用者）
-    pub fn cleanup_merged_chunks(&self, chunk_ids: Vec<u64>) {
+    pub fn cleanup_merged_chunks(
+        &self,
+        chunk_ids: Vec<u64>,
+        log_dao: super::super::file_log::FileLogDao,
+    ) {
         if chunk_ids.is_empty() {
             return;
         }
@@ -190,7 +201,7 @@ impl FileHelper {
 
         // spawn 独立任务异步执行，不阻塞调用者
         tokio::spawn(async move {
-            Self::cleanup_chunks_impl(&db, &config, &chunk_ids).await;
+            Self::cleanup_chunks_impl(&db, &config, &log_dao, &chunk_ids).await;
         });
     }
 
@@ -198,19 +209,17 @@ impl FileHelper {
     async fn cleanup_chunks_impl(
         db: &sqlx::Pool<sqlx::MySql>,
         config: &super::super::file_config::FileConfig,
+        log_dao: &super::super::file_log::FileLogDao,
         chunk_ids: &[u64],
     ) {
-        use lsys_core::db::{SqlSuffix, TableMeta, Update};
-        use lsys_core::sql_format;
-        use lsys_core::utils::now_time;
-        use tracing::{info, warn};
+       
 
         for &chunk_id in chunk_ids {
-            let chunk = match sqlx::query_as::<_, FileLocalChunkModel>(&sql_format!(
-                "SELECT * FROM {} WHERE id={} LIMIT 1",
-                FileLocalChunkModel::table_name(),
-                chunk_id
+            let chunk = match sqlx::query_as::<_, FileLocalChunkModel>(&format!(
+                "SELECT * FROM {} WHERE id=? LIMIT 1",
+                FileLocalChunkModel::table_name()
             ))
+            .bind(chunk_id)
             .fetch_optional(db)
             .await
             {
@@ -231,12 +240,32 @@ impl FileHelper {
 
             if !config.cleanup_enabled {
                 info!("cleanup disabled, skip chunk path: {}", chunk.chunk_path);
+                log_dao
+                    .add(
+                        chunk.file_id,
+                        chunk.id,
+                        0,
+                        &format!("chunk cleanup skipped (disabled): {}", chunk.chunk_path),
+                        None,
+                    )
+                    .await;
                 continue;
             }
 
             let full_path = Path::new(&config.storage_base_path).join(&chunk.chunk_path);
             match fs::remove_file(&full_path).await {
-                Ok(_) => info!("cleanup: deleted chunk file {}", chunk.chunk_path),
+                Ok(_) => {
+                    info!("cleanup: deleted chunk file {}", chunk.chunk_path);
+                    log_dao
+                        .add(
+                            chunk.file_id,
+                            chunk.id,
+                            0,
+                            &format!("chunk file deleted: {}", chunk.chunk_path),
+                            None,
+                        )
+                        .await;
+                }
                 Err(e) => warn!(
                     "cleanup: delete chunk file {} failed: {}",
                     chunk.chunk_path, e
@@ -247,7 +276,9 @@ impl FileHelper {
             if let Err(e) = Update::<_, FileLocalChunkModel>::new()
                 .set(FileLocalChunkModel::STATUS, FileChunkStatus::Cleaned as i8)
                 .set(FileLocalChunkModel::CHANGE_TIME, now)
-                .execute(SqlSuffix::Where(&sql_format!("id={}", chunk_id)), db)
+                .execute(db, |qb| {
+                    qb.push_where().field_eq("id", chunk_id);
+                })
                 .await
             {
                 warn!("cleanup: update chunk {} status error: {}", chunk_id, e);
@@ -256,40 +287,3 @@ impl FileHelper {
     }
 }
 
-/// 生成高质量的随机数字符串：结合当天秒数 + 微秒 + 随机数，确保完全不重复
-/// 格式: ((当天秒数+1) * 1000000) + 微秒(0-999999) + 随机数(0-9)
-/// 返回固定 10 位长度的字符串（前导零补齐），可用于同一秒内的高频调用
-fn rand_simple() -> String {
-    use chrono::Timelike;
-    
-    // 获取当前时间
-    let now = chrono::Local::now();
-    
-    // 计算当前时间距离今天0点的秒数（0-86399），加1后为 1-86400
-    let seconds_today = ((now.hour() * 3600 + now.minute() * 60 + now.second()) as u64) + 1;
-    
-    // 获取微秒部分（0-999999）
-    let microseconds = now.timestamp_subsec_micros() as u64;
-    
-    // 生成 0-9 的随机数（1位）
-    let random_digit = (rand::random::<u32>() % 10) as u64;
-    
-    // 合并：(秒数+1) * 1000000 + 微秒 + 随机数
-    // 利用微秒（0-999999）来填充同一秒内的时间差异
-    // 最小值：1 * 1000000 + 0 + 0 = 1000000
-    // 最大值：86400 * 1000000 + 999999 + 9 = 86,400,999,999+9（11位）
-    let combined = (seconds_today * 1_000_000) + microseconds + random_digit;
-    
-    // 返回最后10位，确保长度一致
-    format!("{:0>10}", combined % 10_000_000_000)
-}
-
-/// 清理文件名中的危险字符
-fn sanitize_filename(name: &str) -> String {
-    name.chars()
-        .filter(|c| c.is_alphanumeric() || *c == '.' || *c == '-' || *c == '_')
-        .collect::<String>()
-        .chars()
-        .take(200)
-        .collect()
-}

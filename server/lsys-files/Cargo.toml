@@ -1,11 +1,18 @@
 [package]
 name = "lsys-files"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
+
+[features]
+default = []
+aws-s3 = ["dep:aws-config", "dep:aws-sdk-s3", "tokio/fs"]
+aliyun-oss = ["dep:hmac", "dep:sha1", "dep:base64", "dep:url", "dep:hex", "tokio/fs", "dep:tokio-util"]
+tencent-cos = ["dep:hmac", "dep:sha1", "dep:base64", "dep:url", "dep:hex", "tokio/fs", "dep:tokio-util"]
 
 [dependencies]
 lsys-core = { path = "../lsys-core", features = ["db-mysql"] }
 lsys-logger = { path = "../lsys-logger" }
+lsys-setting = { path = "../lsys-setting" }
 
 serde = { version = "1.0.*", features = ["derive"] }
 serde_json = "1.0.*"
@@ -19,7 +26,7 @@ tokio = { version = "~1.49.0", features = [
 ] }
 sqlx = { version = "~0.8.6", features = ["mysql", "runtime-tokio-native-tls"] }
 
-sha1 = "0.10"
+sha1 = { version = "0.10", optional = true }
 md5 = "0.8.*"
 fs2 = "0.4"
 infer = "0.19.0"
@@ -30,3 +37,12 @@ chrono = "0.4"
 futures-util = "0.3"
 async-trait = "0.1"
 rand = "0.10"
+
+# OSS dependencies
+aws-config = { version = "1.5", optional = true }
+aws-sdk-s3 = { version = "1.74", optional = true }
+hmac = { version = "0.12", optional = true }
+base64 = { version = "0.22", optional = true }
+url = { version = "2.5", optional = true }
+hex = { version = "0.4", optional = true }
+tokio-util = { version = "0.7", features = ["io"], optional = true }

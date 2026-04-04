@@ -8,6 +8,7 @@ use lsys_access::dao::AccessSession;
 use lsys_rbac::dao::{CustomUserListResData, SessionUserListResData};
 use serde::Deserialize;
 use serde_json::json;
+use lsys_core::api_utils::JsonPageData;
 
 #[derive(Debug, Deserialize)]
 pub struct UserFromResParam {
@@ -139,10 +140,9 @@ pub async fn check_res_role_data_from_res(
         })
         .await?;
 
-    Ok(JsonResponse::data(JsonData::body(json!({
-        "data": res_data,
-        "total": res_count,
-    }))))
+    Ok(JsonResponse::data(JsonData::body(
+        JsonPageData::total(res_data, res_count),
+    )))
 }
 
 #[derive(Debug, Deserialize)]
@@ -221,8 +221,7 @@ pub async fn check_res_user_data_from_res(
             is_self: param.is_self,
         })
         .await?;
-    Ok(JsonResponse::data(JsonData::body(json!({
-        "data": res_data,
-        "total": res_count,
-    }))))
+    Ok(JsonResponse::data(JsonData::body(
+        JsonPageData::total(res_data, res_count),
+    )))
 }

@@ -332,17 +332,13 @@ impl<AP: AreaCodeProvider> AreaCode<AP> {
         let out = top_docs
             .into_par_iter()
             .flat_map(|(source, doc_address)| {
-                if let Ok(retrieved_doc) = searcher.doc::<TantivyDocument>(doc_address) {
-                    if let Some(code) = retrieved_doc.get_first(self.tantivy_code_field) {
-                        if let Some(code) = code.as_str() {
-                            if let Ok(item) = self.find(code) {
-                                if !item.is_empty() {
+                if let Ok(retrieved_doc) = searcher.doc::<TantivyDocument>(doc_address)
+                    && let Some(code) = retrieved_doc.get_first(self.tantivy_code_field)
+                        && let Some(code) = code.as_str()
+                            && let Ok(item) = self.find(code)
+                                && !item.is_empty() {
                                     return Some(AreaSearchItem { item, source });
-                                }
-                            }
-                        }
-                    }
-                };
+                                };
                 None
             })
             .collect();

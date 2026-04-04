@@ -2,7 +2,7 @@
 name = "lsys-web"
 version = "0.0.1"
 authors = ["liushan <shan.liu@msn.com>"]
-edition = "2021"
+edition = "2024"
 
 
 [dependencies]
@@ -75,7 +75,7 @@ lsys-app-sender = { path = "../lsys-app-sender", features = [
 ] }
 lsys-setting = { path = "../lsys-setting" }
 lsys-logger = { path = "../lsys-logger" }
-lsys-files = { path = "../lsys-files" }
+lsys-files = { path = "../lsys-files", features = ["aliyun-oss", "aws-s3", "tencent-cos"] }
 lsys-lib-jsrun = { path = "../lsys-lib-jsrun" }
 
 lsys-lib-area = { default-features = false, features = [

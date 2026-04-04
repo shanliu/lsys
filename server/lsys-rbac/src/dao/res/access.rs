@@ -1,8 +1,8 @@
 //RBAC中资源相关实现
 
 use crate::model::{RbacResModel, RbacResStatus};
-use lsys_core::db::{TableMeta, SqlExpr, SqlQuote};
-use lsys_core::sql_format;
+use lsys_core::db::{QueryBuilderExt, TableMeta};
+use sqlx::{MySql, QueryBuilder};
 use lsys_core::utils::{string_clear, StringClear, STRING_CLEAR_FORMAT};
 use std::vec;
 
@@ -29,8 +29,14 @@ impl RbacRes {
         if keys.is_empty() {
             return Ok(vec![]);
         }
-        let mut where_sql = Vec::with_capacity(keys.len());
-        for rkey in keys {
+        let mut qb = QueryBuilder::<MySql>::new(format!(
+            "select * from {} where (",
+            RbacResModel::table_name(),
+        ));
+        for (i, rkey) in keys.iter().enumerate() {
+            if i > 0 {
+                qb.push(" or ");
+            }
             let res_type = string_clear(
                 rkey.res_type,
                 StringClear::Option(STRING_CLEAR_FORMAT),
@@ -41,21 +47,14 @@ impl RbacRes {
                 StringClear::Option(STRING_CLEAR_FORMAT),
                 Some(33),
             );
-            where_sql.push(sql_format!(
-                "(res_type ={} and res_data={} and user_id={} and app_id={})",
-                res_type,
-                res_data,
-                rkey.user_id,
-                rkey.app_id,
-            ));
+            qb.push("(").field_eq("res_type", res_type);
+            qb.push_and().field_eq("res_data", res_data);
+            qb.push_and().field_eq("user_id", rkey.user_id);
+            qb.push_and().field_eq("app_id", rkey.app_id);
+            qb.push(")");
         }
-        let sql = sql_format!(
-            "select * from {} where ({}) and status ={}",
-            RbacResModel::table_name(),
-            SqlExpr(where_sql.join(" or ")),
-            RbacResStatus::Enable as i8
-        );
-        let res = sqlx::query_as::<_, RbacResModel>(sql.as_str())
+        qb.push(")").push_and().field_eq("status", RbacResStatus::Enable as i8);
+        let res = qb.build_query_as::<RbacResModel>()
             .fetch_all(&self.db)
             .await?;
         let out = keys
@@ -88,17 +87,17 @@ impl RbacRes {
             StringClear::Option(STRING_CLEAR_FORMAT),
             Some(33),
         );
-        let sql = sql_format!(
+        let sql = format!(
             "select * from {} where
-            res_type ={} and res_data={} and user_id={} and app_id={} and status ={}",
+            res_type =? and res_data=? and user_id=? and app_id=? and status =?",
             RbacResModel::table_name(),
-            res_type,
-            res_data,
-            rkey.user_id,
-            rkey.app_id,
-            RbacResStatus::Enable as i8
         );
         Ok(sqlx::query_as::<_, RbacResModel>(sql.as_str())
+            .bind(&res_type)
+            .bind(&res_data)
+            .bind(rkey.user_id)
+            .bind(rkey.app_id)
+            .bind(RbacResStatus::Enable as i8)
             .fetch_one(&self.db)
             .await?)
     }

@@ -9,6 +9,7 @@ use std::sync::Arc;
 use axum::extract::State;
 use axum::response::IntoResponse;
 use axum::Json;
+use lsys_core::api_utils::{JsonPageData, PageCursorValue, PageTotalRowValue};
 use lsys_sdk::FileChunkParam;
 use serde::Deserialize;
 use serde_json::json;
@@ -200,7 +201,7 @@ pub async fn demo_upload_by_md5(
     {
         Ok(resp) => ok_response(json!({
             "matched": resp.matched,
-            "file_user_id": resp.file_user_id,
+            "id": resp.id,
         })),
         Err(e) => err_response(&e.to_string()),
     }
@@ -229,7 +230,7 @@ pub async fn demo_from_url(
         .await
     {
         Ok(resp) => ok_response(json!({
-            "file_user_id": resp.file_user_id,
+            "id": resp.id,
         })),
         Err(e) => err_response(&e.to_string()),
     }
@@ -282,11 +283,7 @@ pub async fn demo_from_local(
                     return err_response(&format!("copy to disk failed: {e}"));
                 }
 
-                tracing::info!(
-                    "copied {:?} -> {:?} (not on shared disk)",
-                    src,
-                    dest
-                );
+                tracing::info!("copied {:?} -> {:?} (not on shared disk)", src, dest);
 
                 dest.to_string_lossy().into_owned()
             }
@@ -339,12 +336,18 @@ pub async fn demo_file_list(
         )
         .await
     {
-        Ok(resp) => ok_response(json!({
-            "data": serde_json::to_value(&resp.data).unwrap_or_default(),
-            "next_cursor": resp.next_cursor,
-            "prev_cursor": resp.prev_cursor,
-            "total": resp.total,
-        })),
+        Ok(resp) => {
+            let cursor = resp.cursor.map(PageCursorValue::from).unwrap_or(PageCursorValue {
+                next: None,
+                prev: None,
+            });
+            ok_response(serde_json::to_value(JsonPageData::cursor(
+                serde_json::to_value(&resp.data).unwrap_or_default(),
+                cursor,
+                resp.total.map(PageTotalRowValue::from),
+            ))
+            .unwrap())
+        }
         Err(e) => err_response(&e.to_string()),
     }
 }

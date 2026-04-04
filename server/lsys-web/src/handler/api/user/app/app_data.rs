@@ -12,6 +12,7 @@ use lsys_app::{
     model::{AppRequestStatus, AppStatus},
 };
 use lsys_core::fluent_message;
+use lsys_core::api_utils::JsonPageData;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use serde_json::Map;
@@ -217,10 +218,9 @@ pub async fn app_list(
         None
     };
 
-    Ok(JsonResponse::data(JsonData::body(json!({
-        "data": bind_vec_user_info_from_req!(req_dao,out,user_id),
-        "total":count
-    }))))
+    Ok(JsonResponse::data(JsonData::body(
+        JsonPageData::total(bind_vec_user_info_from_req!(req_dao,out,user_id), count),
+    )))
 }
 
 #[derive(Serialize)]
@@ -292,10 +292,9 @@ pub async fn parent_app_list(
         None
     };
 
-    Ok(JsonResponse::data(JsonData::body(json!({
-        "data": bind_vec_user_info_from_req!(req_dao,out,user_id),
-        "total":count
-    }))))
+    Ok(JsonResponse::data(JsonData::body(
+        JsonPageData::total(bind_vec_user_info_from_req!(req_dao, out, user_id), count),
+    )))
 }
 
 #[derive(Deserialize)]
@@ -623,15 +622,12 @@ pub async fn request_list(
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(json!({
-        "data": bind_vec_user_info_from_req!(
-            req_dao,
-            out,
-            [confirm_user_id:"confirm_user_data"],
-            true
+    Ok(JsonResponse::data(JsonData::body(
+        JsonPageData::total(
+            bind_vec_user_info_from_req!(req_dao, out, [confirm_user_id:"confirm_user_data"], true),
+            count,
         ),
-        "total":count
-    }))))
+    )))
 }
 
 #[derive(Deserialize)]
@@ -801,12 +797,10 @@ pub async fn sub_request_list(
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(json!({
-        "data": bind_vec_user_info_from_req!(
-            req_dao,
-            out,
-            request_user_id
+    Ok(JsonResponse::data(JsonData::body(
+        JsonPageData::total(
+            bind_vec_user_info_from_req!(req_dao, out, request_user_id),
+            count,
         ),
-        "total":count
-    }))))
+    )))
 }

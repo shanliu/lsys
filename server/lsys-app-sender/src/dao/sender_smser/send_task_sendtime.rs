@@ -1,8 +1,6 @@
 use crate::model::SenderSmsBodyModel;
 use crate::model::SenderSmsBodyStatus;
 use lsys_core::db::TableMeta;
-use lsys_core::db::SqlQuote;
-use lsys_core::sql_format;
 use lsys_core::task_dispatch::TaskNotify;
 use lsys_core::timeout_task::{TimeOutTaskExec, TimeOutTaskExecutor, TimeOutTaskNextTime};
 use lsys_core::utils::now_time;
@@ -92,14 +90,14 @@ impl TimeOutTaskNextTime for SmsTaskSendTimeNotify {
             })
             .unwrap_or(ntime);
         debug!("sms check sendtime start time is:{}", ctime);
-        let timeout_res = sqlx::query_scalar::<_, u64>(&sql_format!(
+        let timeout_res = sqlx::query_scalar::<_, u64>(&format!(
             "select expected_time from  {}  where 
-                status={} and expected_time >={} and expected_time <{} order by expected_time asc limit 1",
+                status=? and expected_time >=? and expected_time <? order by expected_time asc limit 1",
             SenderSmsBodyModel::table_name(),
-            SenderSmsBodyStatus::Init as i8,
-            ctime,
-            (ctime + max_lock_time as u64)
         ))
+        .bind(SenderSmsBodyStatus::Init as i8)
+        .bind(ctime)
+        .bind(ctime + max_lock_time as u64)
         .fetch_one(&self.db)
         .await;
         match timeout_res {

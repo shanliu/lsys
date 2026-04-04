@@ -1,10 +1,11 @@
 // 执行记录查询 + 计数 + 记录关联文件/日志独立查询
 
 use lsys_core::db::{
-    CursorPageData, CursorPageParam, OffsetPageParam, SqlQuote, TableMeta,
+    CursorPageData, CursorPageParam, OffsetPageParam, QueryBuilderExt, TableMeta, TotalParam,
+    TotalRow, WhereClause,
 };
-use lsys_core::sql_format;
 use lsys_files::dao::{FileDataListParam, FileListAttrParam};
+use sqlx::{MySql, QueryBuilder};
 
 use crate::dao::result::WebResult;
 use crate::model::*;
@@ -20,18 +21,22 @@ pub type RecordFileTag = ScriptFileTag;
 
 impl WebFileCollector {
     /// 构建记录查询的 WHERE 子句
-    fn build_record_where(script_id: u64, request_id: Option<&str>, status: Option<i8>) -> String {
-        let mut clauses: Vec<String> = vec![sql_format!("script_id={}", script_id)];
+    fn build_record_where<'a, 'args>(
+        wb: &mut WhereClause<'a, 'args, MySql>,
+        script_id: u64,
+        request_id: Option<&str>,
+        status: Option<i8>,
+    ) {
+        wb.and().field_eq("script_id", script_id);
         if let Some(rid) = request_id {
             let rid = rid.trim();
             if !rid.is_empty() {
-                clauses.push(sql_format!("request_id={}", rid));
+                wb.and().field_eq("request_id", rid.to_owned());
             }
         }
         if let Some(s) = status {
-            clauses.push(sql_format!("status={}", s));
+            wb.and().field_eq("status", s);
         }
-        clauses.join(" AND ")
     }
 
     /// 按 request_id 查询记录
@@ -39,14 +44,13 @@ impl WebFileCollector {
         &self,
         request_id: &str,
     ) -> WebResult<Option<CollectorRecordModel>> {
-        let sql = sql_format!(
-            "SELECT * FROM {} WHERE request_id={}",
-            CollectorRecordModel::table_name(),
-            request_id
-        );
-        let row = sqlx::query_as::<_, CollectorRecordModel>(&sql)
-            .fetch_optional(&self.db)
-            .await?;
+        let row = sqlx::query_as::<_, CollectorRecordModel>(&format!(
+            "SELECT * FROM {} WHERE request_id=?",
+            CollectorRecordModel::table_name()
+        ))
+        .bind(request_id)
+        .fetch_optional(&self.db)
+        .await?;
         Ok(row)
     }
 
@@ -58,17 +62,23 @@ impl WebFileCollector {
         status: Option<i8>,
         page: &CursorPageParam<u64>,
     ) -> WebResult<(Vec<CollectorRecordModel>, CursorPageData<u64>)> {
-        let where_str = Self::build_record_where(script_id, request_id, status);
         let query_limit = page.page_query("id");
-        let suff_sql = query_limit.build_query_sql(Some(&where_str));
+        let mut qb = QueryBuilder::<MySql>::new(format!(
+            "SELECT * FROM {}",
+            CollectorRecordModel::table_name()
+        ));
+        {
+            let mut wb = WhereClause::new(&mut qb);
+            Self::build_record_where(&mut wb, script_id, request_id, status);
+            if query_limit.has_cursor() {
+                query_limit.push_where(wb.and());
+            }
+        }
+        query_limit.push_order_by(&mut qb);
+        query_limit.push_limit(&mut qb);
 
-        let sql = format!(
-            "SELECT * FROM {} {}",
-            CollectorRecordModel::table_name().sql_quote(),
-            suff_sql
-        );
-
-        let mut data = sqlx::query_as::<_, CollectorRecordModel>(&sql)
+        let mut data = qb
+            .build_query_as::<CollectorRecordModel>()
             .fetch_all(&self.db)
             .await?;
 
@@ -83,18 +93,35 @@ impl WebFileCollector {
         script_id: u64,
         request_id: Option<&str>,
         status: Option<i8>,
-    ) -> WebResult<u64> {
-        let where_str = Self::build_record_where(script_id, request_id, status);
-        let sql = format!(
-            "SELECT COUNT(*) FROM {} WHERE {}",
-            CollectorRecordModel::table_name().sql_quote(),
-            where_str
-        );
+        total_param: &TotalParam,
+    ) -> WebResult<TotalRow> {
+        let query = total_param.total_count_query();
+        let mut qb = if query.is_threshold_mode() {
+            QueryBuilder::<MySql>::new(format!(
+                "SELECT COUNT(*) FROM (SELECT 1 FROM {}",
+                CollectorRecordModel::table_name()
+            ))
+        } else {
+            QueryBuilder::<MySql>::new(format!(
+                "SELECT COUNT(*) FROM {}",
+                CollectorRecordModel::table_name()
+            ))
+        };
+        {
+            let mut wb = WhereClause::new(&mut qb);
+            Self::build_record_where(&mut wb, script_id, request_id, status);
+        }
+        if query.is_threshold_mode() {
+            query.push_limit(&mut qb);
+            qb.push(") as t");
+        }
 
-        let count = sqlx::query_scalar::<_, i64>(&sql)
+        let count = qb
+            .build_query_scalar()
             .fetch_one(&self.db)
-            .await?;
-        Ok(count as u64)
+            .await
+            .unwrap_or(0i64) as u64;
+        Ok(query.finalize(count))
     }
 
     // ==================== 记录关联文件（按 request_id 查文件） ====================
@@ -193,7 +220,8 @@ impl WebFileCollector {
         &self,
         record: &CollectorRecordModel,
         app_id: Option<u64>,
-    ) -> WebResult<u64> {
+        total_param: &TotalParam,
+    ) -> WebResult<TotalRow> {
         let tag_name = format!("request_{}", record.request_id);
         let tag_refs: Vec<&str> = vec![&tag_name];
 
@@ -203,13 +231,11 @@ impl WebFileCollector {
             ..Default::default()
         };
 
-        let count = self
+        Ok(self
             .file_dao
             .data_dao()
-            .count_files(&file_filter)
-            .await?;
-
-        Ok(count as u64)
+            .count_files(&file_filter, total_param)
+            .await?)
     }
 
     // ==================== 记录关联日志（按 request_id 查日志） ====================
@@ -225,22 +251,19 @@ impl WebFileCollector {
         level: Option<u8>,
         page: &OffsetPageParam,
     ) -> WebResult<Vec<CollectorLogModel>> {
-        let mut clauses: Vec<String> =
-            vec![sql_format!("request_id={}", &record.request_id)];
+        let mut qb = QueryBuilder::<MySql>::new(format!(
+            "SELECT * FROM {}",
+            CollectorLogModel::table_name()
+        ));
+        qb.push_where().field_eq("request_id", record.request_id.to_owned());
         if let Some(lv) = level {
-            clauses.push(sql_format!("level={}", lv));
+            qb.push_and().field_eq("level", lv);
         }
-        let where_str = clauses.join(" AND ");
-        let limit_sql = page.page_query().limit_sql().unwrap_or_default();
+        qb.push(" ORDER BY id ASC");
+        page.push_limit(&mut qb);
 
-        let sql = format!(
-            "SELECT * FROM {} WHERE {} ORDER BY id ASC{}",
-            CollectorLogModel::table_name().sql_quote(),
-            where_str,
-            limit_sql
-        );
-
-        let data = sqlx::query_as::<_, CollectorLogModel>(&sql)
+        let data = qb
+            .build_query_as::<CollectorLogModel>()
             .fetch_all(&self.db)
             .await?;
 
@@ -253,22 +276,22 @@ impl WebFileCollector {
         record: &CollectorRecordModel,
         level: Option<u8>,
     ) -> WebResult<u64> {
-        let mut clauses: Vec<String> =
-            vec![sql_format!("request_id={}", &record.request_id)];
+        let mut qb = QueryBuilder::<MySql>::new(format!(
+            "SELECT COUNT(*) FROM {}",
+            CollectorLogModel::table_name()
+        ));
+        qb.push_where().field_eq("request_id", record.request_id.to_owned());
         if let Some(lv) = level {
-            clauses.push(sql_format!("level={}", lv));
+            qb.push_and().field_eq("level", lv);
         }
-        let where_str = clauses.join(" AND ");
 
-        let sql = format!(
-            "SELECT COUNT(*) FROM {} WHERE {}",
-            CollectorLogModel::table_name().sql_quote(),
-            where_str
-        );
-
-        let count = sqlx::query_scalar::<_, i64>(&sql)
+        let count = qb
+            .build_query_scalar()
             .fetch_one(&self.db)
-            .await?;
+            .await
+            .unwrap_or(0i64);
         Ok(count as u64)
     }
 }
+
+

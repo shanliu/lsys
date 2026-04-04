@@ -125,7 +125,7 @@ CREATE TABLE `lst_sender_sms_message` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID,由应用生成',
     `snid` bigint unsigned NOT NULL COMMENT '消息ID',
     `sender_body_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '内容ID',
-    `area` varchar(32) NOT NULL COMMENT '区号',
+    `area` varchar(12) NOT NULL COMMENT '区号',
     `mobile` varchar(32) NOT NULL COMMENT '手机号',
     `try_num` smallint unsigned NOT NULL DEFAULT 0 COMMENT '发送次数',
     `status` tinyint NOT NULL COMMENT '启用状态',

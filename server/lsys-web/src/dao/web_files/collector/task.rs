@@ -4,12 +4,10 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use lsys_core::db::SqlQuote;
-use lsys_core::db::{Insert, SqlSuffix, Update};
+use lsys_core::db::{Insert, QueryBuilderExt, Update};
 use lsys_core::fluent_message;
 use lsys_core::fluents::IntoFluentMessage;
-use lsys_core::sql_format;
-use lsys_core::utils::now_time;
+use lsys_core::utils::{now_time, RequestEnv};
 use lsys_files::dao::LocalFileMode;
 use lsys_lib_jsrun::runner::{TaskOutcome, TaskResult};
 use lsys_lib_jsrun::{
@@ -22,17 +20,21 @@ use tracing::{error, info};
 use crate::dao::result::{WebError, WebResult};
 use crate::model::*;
 
+use super::logger::LogCollectorTask;
 use super::WebFileCollector;
 
 impl WebFileCollector {
     /// 提交采集任务
+    #[allow(clippy::too_many_arguments)]
     pub async fn submit_task(
         &self,
         script_id: u64,
         user_id: u64,
+        add_user_id: u64,
         app_id: u64,
         request_id: &str,
         params: &serde_json::Value,
+        env_data: Option<&RequestEnv>,
     ) -> WebResult<(u64, u64, String)> {
         // 查询脚本
         let script = self
@@ -53,14 +55,14 @@ impl WebFileCollector {
             )));
         }
 
-        let now = now_time().map_err(|e| WebError::Message(fluent_message!("time-error", e)))?;
+        let now = now_time().unwrap_or_default();
         let params_json = serde_json::to_string(params).unwrap_or_default();
 
         // 插入执行记录（状态=Pending）
         let record_res = Insert::<_, CollectorRecordModel>::new()
             .set(CollectorRecordModel::REQUEST_ID, &request_id)
             .set(CollectorRecordModel::SCRIPT_ID, script_id)
-            .set(CollectorRecordModel::USER_ID, user_id)
+            .set(CollectorRecordModel::ADD_USER_ID, add_user_id)
             .set(CollectorRecordModel::APP_ID, app_id)
             .set(CollectorRecordModel::TASK_ID, 0u64)
             .set(CollectorRecordModel::EXEC_PARAMS, &params_json)
@@ -94,11 +96,10 @@ impl WebFileCollector {
                     return params;
                 }
                 if msg_type == MESSAGE_TYPE_GET_ENV {
-                    if let Some(key) = data.as_str() {
-                        if let Ok(val) = std::env::var(key) {
+                    if let Some(key) = data.as_str()
+                        && let Ok(val) = std::env::var(key) {
                             return serde_json::Value::String(val);
                         }
-                    }
                     return serde_json::Value::Null;
                 }
                 serde_json::Value::Null
@@ -111,9 +112,7 @@ impl WebFileCollector {
         let tag_script_md5 = format!("script_md5_{}", script.script_md5);
         let tag_script_id = format!("script_id_{}", script.id);
         let tag_request_id = format!("request_{}", request_id);
-        let sync_user_id = user_id;
-        let sync_app_id = app_id;
-
+       
         let file_sync_handler: FileLocalSyncHandler = Arc::new(
             move |_ns: Option<String>, file_path: PathBuf, _work_dir: PathBuf| {
                 let file_dao = file_dao.clone();
@@ -126,11 +125,12 @@ impl WebFileCollector {
                     let path_str = file_path.to_string_lossy().to_string();
                     let tag_names: Vec<&str> = vec![&tag1, &tag2, &tag3, &tag4];
 
-                    let file_model = file_dao
+                    let (file_model, _file_user) = file_dao
                         .create_from_local_file(
                             &path_str,
-                            sync_user_id,
-                            sync_app_id,
+                            user_id,
+                            add_user_id,
+                            app_id,
                             None,
                             LocalFileMode::Move,
                             None,
@@ -155,7 +155,7 @@ impl WebFileCollector {
         let db_for_log = self.db.clone();
         let log_request_id = request_id.clone();
         let log_script_id = script_id;
-        let log_user_id = user_id;
+        let log_user_id = add_user_id;
         let log_app_id = app_id;
 
         let log_handler: LogHandler = Arc::new(
@@ -191,24 +191,23 @@ impl WebFileCollector {
 
         // 在提交任务前先将记录状态置为 Running，避免任务完成后 callback 的 UPDATE
         // 被后续的 "更新为 Running" 覆盖（竞态条件）。
-        let start_now =
-            now_time().map_err(|e| WebError::Message(fluent_message!("time-error", e)))?;
+        let start_now = now_time().unwrap_or_default();
+
+        if let Err(e) = Update::<_, CollectorRecordModel>::new()
+            .set(
+                CollectorRecordModel::STATUS,
+                CollectorRecordStatus::Running as i8,
+            )
+            .set(CollectorRecordModel::START_TIME, start_now)
+            .execute(&self.db, |qb| {
+                qb.push_where().field_eq("id", record_id);
+            })
+            .await
         {
-            let where_sql = sql_format!("id={}", record_id);
-            if let Err(e) = Update::<_, CollectorRecordModel>::new()
-                .set(
-                    CollectorRecordModel::STATUS,
-                    CollectorRecordStatus::Running as i8,
-                )
-                .set(CollectorRecordModel::START_TIME, start_now)
-                .execute(SqlSuffix::Where(&where_sql), &self.db)
-                .await
-            {
-                error!(
-                    "collector submit: failed to update record id={} to Running: {}",
-                    record_id, e
-                );
-            }
+            error!(
+                "collector submit: failed to update record id={} to Running: {}",
+                record_id, e
+            );
         }
 
         // 提交任务到 JsTaskRunner，附带 callback 更新记录
@@ -216,7 +215,7 @@ impl WebFileCollector {
         let cb_record_id = record_id;
         let cb_request_id = request_id.clone();
         let cb_script_id = script_id;
-        let cb_user_id = user_id;
+        let cb_user_id = add_user_id;
         let cb_app_id = app_id;
 
         let handle = self.runner.submit(
@@ -229,7 +228,7 @@ impl WebFileCollector {
                 let outcome = result.outcome.clone();
 
                 async move {
-                    let finish_now = now_time().unwrap_or(0);
+                    let finish_now = now_time().unwrap_or_default();
                     let (status, error_msg) = match &outcome {
                         TaskOutcome::Success(_) => {
                             (CollectorRecordStatus::Success as i8, String::new())
@@ -243,14 +242,15 @@ impl WebFileCollector {
                         }
                     };
 
-                    let where_sql = sql_format!("id={}", cb_record_id);
                     let update_result = Update::<_, CollectorRecordModel>::new()
                         .set(CollectorRecordModel::TASK_ID, task_id)
                         .set(CollectorRecordModel::STATUS, status)
                         .set(CollectorRecordModel::ELAPSED_MS, elapsed_ms)
                         .set(CollectorRecordModel::ERROR_MESSAGE, &error_msg)
                         .set(CollectorRecordModel::FINISH_TIME, finish_now)
-                        .execute(SqlSuffix::Where(&where_sql), &db)
+                        .execute(&db, |qb| {
+                            qb.push_where().field_eq("id", cb_record_id);
+                        })
                         .await;
 
                     if let Err(e) = update_result {
@@ -286,15 +286,16 @@ impl WebFileCollector {
                     .await;
                 }
             }),
-        );
+        ).await;
 
         let task_id = handle.task_id;
 
         // 回填 task_id（callback 也会写入相同值，此处仅作补充，不涉及状态）
-        let where_sql = sql_format!("id={}", record_id);
         if let Err(e) = Update::<_, CollectorRecordModel>::new()
             .set(CollectorRecordModel::TASK_ID, task_id)
-            .execute(SqlSuffix::Where(&where_sql), &self.db)
+            .execute(&self.db, |qb| {
+                qb.push_where().field_eq("id", record_id);
+            })
             .await
         {
             error!(
@@ -305,7 +306,7 @@ impl WebFileCollector {
                 &self.db,
                 &request_id,
                 script_id,
-                user_id,
+                add_user_id,
                 app_id,
                 COLLECTOR_LOG_LEVEL_SYSTEM,
                 &format!(
@@ -321,7 +322,7 @@ impl WebFileCollector {
             .add_log(
                 &request_id,
                 script_id,
-                user_id,
+                add_user_id,
                 app_id,
                 COLLECTOR_LOG_LEVEL_SYSTEM,
                 &format!(
@@ -337,6 +338,25 @@ impl WebFileCollector {
                 e.to_fluent_message().default_format()
             );
         }
+
+        self.logger
+            .add(
+                &LogCollectorTask {
+                    action: "submit",
+                    record_id,
+                    task_id,
+                    script_id,
+                    script_name: &script.name,
+                    user_id: add_user_id,
+                    app_id,
+                    request_id: &request_id,
+                },
+                Some(record_id),
+                Some(add_user_id),
+                None,
+                env_data,
+            )
+            .await;
 
         Ok((record_id, task_id, script.name.clone()))
     }

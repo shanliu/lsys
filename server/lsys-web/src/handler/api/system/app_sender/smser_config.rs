@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
+use crate::common::{JsonData, JsonPageData, JsonResponse, JsonResult, UserAuthQueryDao};
 use crate::common::{PageParam, ToOffsetPageParam};
 use crate::dao::access::api::system::admin::CheckAdminSmsMgr;
 use crate::dao::access::RbacAccessCheckEnv;
@@ -246,7 +246,7 @@ pub async fn smser_tpl_config_list(
         None
     };
     Ok(JsonResponse::data(JsonData::body(
-        json!({ "data": row ,"total":total}),
+        JsonPageData::total(row, total),
     )))
 }
 

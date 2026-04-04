@@ -248,11 +248,10 @@ fn parse_jwt_from_request(req: &HttpRequest, web_dao: &Data<WebDao>) -> Option<J
     let token = token_str.trim()[7..].trim();
 
     // Try to get JWT config from app_data
-    if let Some(config) = req.app_data::<JwtQueryConfig>() {
-        if let Ok(token_data) = decode::<JwtClaims>(token, &config.decode_key, &config.validation) {
+    if let Some(config) = req.app_data::<JwtQueryConfig>()
+        && let Ok(token_data) = decode::<JwtClaims>(token, &config.decode_key, &config.validation) {
             return Some(token_data.claims);
         }
-    }
 
     // Fallback: try to decode with app_jwt_key from config
     let jwt_key = web_dao

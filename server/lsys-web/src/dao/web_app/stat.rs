@@ -1,9 +1,8 @@
 // stat 统计数据操作相关封装
 use crate::dao::{WebApp, WebResult};
 use lsys_app::model::{AppModel, AppNotifyDataModel, AppOAuthClientAccessModel, AppRequestModel};
-use lsys_core::db::SqlQuote;
 use lsys_core::utils::now_time;
-use lsys_core::{db::TableMeta, sql_format};
+use lsys_core::db::TableMeta;
 use serde::Serialize;
 use sqlx::FromRow;
 
@@ -39,24 +38,24 @@ impl WebApp {
         let now = now_time().unwrap_or_default();
         let start_time = now.saturating_sub(days * 86400);
 
-        let sql = sql_format!(
+        let sql = format!(
             "SELECT DATE_FORMAT(FROM_UNIXTIME(create_time),'%Y-%m-%d') as date, 
                     notify_type, 
                     status, 
                     COUNT(*) as total
              FROM {}
-             WHERE app_id = {} 
-               AND create_time >= {}
-               AND create_time <= {}
+             WHERE app_id = ? 
+               AND create_time >= ?
+               AND create_time <= ?
              GROUP BY DATE_FORMAT(FROM_UNIXTIME(create_time),'%Y-%m-%d'), notify_type, status
              ORDER BY date ASC, notify_type, status",
-            AppNotifyDataModel::table_name(),
-            app_id,
-            start_time,
-            now
+            AppNotifyDataModel::table_name()
         );
 
         let result = sqlx::query_as::<_, NotifyTypeDailyStat>(&sql)
+            .bind(app_id)
+            .bind(start_time)
+            .bind(now)
             .fetch_all(&self.db)
             .await?;
 
@@ -72,22 +71,22 @@ impl WebApp {
         let now = now_time().unwrap_or_default();
         let start_time = now.saturating_sub(days * 86400);
 
-        let sql = sql_format!(
+        let sql = format!(
             "SELECT DATE_FORMAT(FROM_UNIXTIME(add_time),'%Y-%m-%d') as date, 
                     COUNT(*) as total
              FROM {}
-             WHERE app_id = {} 
-               AND add_time >= {}
-               AND add_time <= {}
+             WHERE app_id = ? 
+               AND add_time >= ?
+               AND add_time <= ?
              GROUP BY DATE_FORMAT(FROM_UNIXTIME(add_time),'%Y-%m-%d')
              ORDER BY date ASC",
-            AppOAuthClientAccessModel::table_name(),
-            app_id,
-            start_time,
-            now
+            AppOAuthClientAccessModel::table_name()
         );
 
         let result = sqlx::query_as::<_, DailyStat>(&sql)
+            .bind(app_id)
+            .bind(start_time)
+            .bind(now)
             .fetch_all(&self.db)
             .await?;
 
@@ -100,23 +99,23 @@ impl WebApp {
         let now = now_time().unwrap_or_default();
         let start_time = now.saturating_sub(days * 86400);
 
-        let sql = sql_format!(
+        let sql = format!(
             "SELECT DATE_FORMAT(FROM_UNIXTIME(change_time),'%Y-%m-%d') as date, 
                     status, 
                     COUNT(*) as total
              FROM {}
-             WHERE parent_app_id = {} 
-               AND change_time >= {}
-               AND change_time <= {}
+             WHERE parent_app_id = ? 
+               AND change_time >= ?
+               AND change_time <= ?
              GROUP BY DATE_FORMAT(FROM_UNIXTIME(change_time),'%Y-%m-%d'), status
              ORDER BY date ASC, status",
-            AppModel::table_name(),
-            app_id,
-            start_time,
-            now
+            AppModel::table_name()
         );
 
         let result = sqlx::query_as::<_, StatusDailyStat>(&sql)
+            .bind(app_id)
+            .bind(start_time)
+            .bind(now)
             .fetch_all(&self.db)
             .await?;
 
@@ -129,23 +128,23 @@ impl WebApp {
         let now = now_time().unwrap_or_default();
         let start_time = now.saturating_sub(days * 86400);
 
-        let sql = sql_format!(
+        let sql = format!(
             "SELECT DATE_FORMAT(FROM_UNIXTIME(request_time),'%Y-%m-%d') as date, 
                     status, 
                     COUNT(*) as total
              FROM {}
-             WHERE parent_app_id = {} 
-               AND request_time >= {}
-               AND request_time <= {}
+             WHERE parent_app_id = ? 
+               AND request_time >= ?
+               AND request_time <= ?
              GROUP BY DATE_FORMAT(FROM_UNIXTIME(request_time),'%Y-%m-%d'), status
              ORDER BY date ASC, status",
-            AppRequestModel::table_name(),
-            app_id,
-            start_time,
-            now
+            AppRequestModel::table_name()
         );
 
         let result = sqlx::query_as::<_, StatusDailyStat>(&sql)
+            .bind(app_id)
+            .bind(start_time)
+            .bind(now)
             .fetch_all(&self.db)
             .await?;
 

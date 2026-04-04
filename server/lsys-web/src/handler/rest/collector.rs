@@ -1,11 +1,12 @@
 // REST 采集接口 — 对外调用
 
-use crate::common::{JsonData, JsonResponse, JsonResult, RequestDao};
+use crate::common::{JsonData, JsonPageData, JsonResponse, JsonResult, RequestDao};
 use crate::dao::access::rest::CheckRestApp;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::collector::WebFileCollector;
 use lsys_app::model::AppModel;
-use lsys_core::db::CursorPageSort;
+use lsys_core::api_utils::{PageCursorValue, PageTotalRowValue};
+use lsys_core::db::{CursorPageSort, TotalParam};
 use serde::Deserialize;
 use serde_json::json;
 
@@ -89,7 +90,15 @@ pub async fn trigger(
         .web_dao
         .web_files
         .collector
-        .submit_task(param.script_id, app.user_id, app.id, &request_id, &params)
+        .submit_task(
+            param.script_id,
+            app.user_id,
+            app.user_id,
+            app.id,
+            &request_id,
+            &params,
+            Some(&req_dao.req_env),
+        )
         .await?;
 
     Ok(JsonResponse::data(JsonData::body(json!({
@@ -217,19 +226,23 @@ pub async fn records(
                 .web_dao
                 .web_files
                 .collector
-                .count_records(param.script_id, param.request_id.as_deref(), param.status)
-                .await?,
+                .count_records(
+                    param.script_id,
+                    param.request_id.as_deref(),
+                    param.status,
+                    &TotalParam::default(),
+                )
+                .await
+                .map(PageTotalRowValue::from)?,
         )
     } else {
         None
     };
 
-    Ok(JsonResponse::data(JsonData::body(json!({
-        "data": record_items,
-        "next_cursor": page_data.next_cursor,
-        "prev_cursor": page_data.prev_cursor,
-        "total": total,
-    }))))
+    let cursor = PageCursorValue::from(&page_data);
+    Ok(JsonResponse::data(JsonData::body(
+        JsonPageData::cursor(record_items, cursor, total),
+    )))
 }
 
 /// GET /rest/collector/record_files — 记录关联文件列表
@@ -310,19 +323,18 @@ pub async fn record_files(
                 .web_dao
                 .web_files
                 .collector
-                .count_record_files(&record, Some(app.id))
-                .await?,
+                .count_record_files(&record, Some(app.id), &TotalParam::default())
+                .await
+                .map(PageTotalRowValue::from)?,
         )
     } else {
         None
     };
 
-    Ok(JsonResponse::data(JsonData::body(json!({
-        "data": items,
-        "next_cursor": page_data.next_cursor,
-        "prev_cursor": page_data.prev_cursor,
-        "total": total,
-    }))))
+    let cursor = PageCursorValue::from(&page_data);
+    Ok(JsonResponse::data(JsonData::body(
+        JsonPageData::cursor(items, cursor, total),
+    )))
 }
 
 /// GET /rest/collector/record_logs — 记录关联日志列表
@@ -399,8 +411,7 @@ pub async fn record_logs(
         None
     };
 
-    Ok(JsonResponse::data(JsonData::body(json!({
-        "data": items,
-        "total": total,
-    }))))
+    Ok(JsonResponse::data(JsonData::body(
+        JsonPageData::total(items, total),
+    )))
 }

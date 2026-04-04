@@ -1,5 +1,4 @@
-use lsys_core::db::{SqlQuote, SqlSuffix, TableMeta, Update};
-use lsys_core::sql_format;
+use lsys_core::db::{QueryBuilderExt, TableMeta, Update};
 use lsys_core::fluent_message;
 use lsys_core::utils::now_time;
 
@@ -60,24 +59,24 @@ impl FileHelper {
         let now = now_time()?;
 
         // 查询是否已存在相同 MD5 的文件 (排除自身)
-        let other_file = sqlx::query_as::<_, FileModel>(&sql_format!(
-            "SELECT * FROM {} WHERE storage_type={} AND file_md5={} AND status={} AND id!={} LIMIT 1",
-            FileModel::table_name(),
-            &file.storage_type,
-            &file_md5,
-            FileStatus::Normal as i8,
-            file.id
+        let other_file = sqlx::query_as::<_, FileModel>(&format!(
+            "SELECT * FROM {} WHERE storage_type=? AND file_md5=? AND status=? AND id!=? LIMIT 1",
+            FileModel::table_name()
         ))
+        .bind(&file.storage_type)
+        .bind(&file_md5)
+        .bind(FileStatus::Normal as i8)
+        .bind(file.id)
         .fetch_optional(&self.db)
         .await?;
 
         if let Some(ref other) = other_file {
             // 查询 other_file 对应的 file_local
-            let other_local = sqlx::query_as::<_, FileLocalModel>(&sql_format!(
-                "SELECT * FROM {} WHERE file_id={} LIMIT 1",
-                FileLocalModel::table_name(),
-                other.id
+            let other_local = sqlx::query_as::<_, FileLocalModel>(&format!(
+                "SELECT * FROM {} WHERE file_id=? LIMIT 1",
+                FileLocalModel::table_name()
             ))
+            .bind(other.id)
             .fetch_optional(&self.db)
             .await?;
 
@@ -94,12 +93,12 @@ impl FileHelper {
                     file.from_user_id = other.from_user_id;
                     file.modify_time = other.modify_time;
                     file.copy_file_id = other.id;
-                    file.status = FileStatus::Normal.to();
+                    file.status = FileStatus::Normal as i8;
                     file.change_time = now;
                     file_local.local_path = other_local_rec.local_path.clone();
 
                     // 更新数据库
-                    Update::<_,FileModel>::new()
+                    Update::<_, FileModel>::new()
                         .set(FileModel::FILE_SIZE, file.file_size)
                         .set(FileModel::FILE_MD5, &file.file_md5)
                         .set(FileModel::CONTENT_TYPE, &file.content_type)
@@ -108,15 +107,16 @@ impl FileHelper {
                         .set(FileModel::COPY_FILE_ID, file.copy_file_id)
                         .set(FileModel::STATUS, file.status)
                         .set(FileModel::CHANGE_TIME, file.change_time)
-                        .execute(SqlSuffix::Where(&sql_format!("id={}", file.id)), &self.db)
+                        .execute(&self.db, |qb| {
+                            qb.push_where().field_eq("id", file.id);
+                        })
                         .await?;
 
-                    Update::<_,FileLocalModel>::new()
+                    Update::<_, FileLocalModel>::new()
                         .set(FileLocalModel::LOCAL_PATH, &file_local.local_path)
-                        .execute(
-                            SqlSuffix::Where(&sql_format!("id={}", file_local.id)),
-                            &self.db,
-                        )
+                        .execute(&self.db, |qb| {
+                            qb.push_where().field_eq("id", file_local.id);
+                        })
                         .await?;
 
                     return Ok(Some(other.clone()));
@@ -139,11 +139,11 @@ impl FileHelper {
         file.content_type = content_type;
         file.modify_time = modify_time;
         file.copy_file_id = 0;
-        file.status = FileStatus::Normal.to();
+        file.status = FileStatus::Normal as i8;
         file.change_time = now;
         file_local.local_path = actual_local_path;
 
-        Update::<_,FileModel>::new()
+        Update::<_, FileModel>::new()
             .set(FileModel::FILE_SIZE, file.file_size)
             .set(FileModel::FILE_MD5, &file.file_md5)
             .set(FileModel::CONTENT_TYPE, &file.content_type)
@@ -151,15 +151,16 @@ impl FileHelper {
             .set(FileModel::COPY_FILE_ID, file.copy_file_id)
             .set(FileModel::STATUS, file.status)
             .set(FileModel::CHANGE_TIME, file.change_time)
-            .execute(SqlSuffix::Where(&sql_format!("id={}", file.id)), &self.db)
+            .execute(&self.db, |qb| {
+                qb.push_where().field_eq("id", file.id);
+            })
             .await?;
 
-        Update::<_,FileLocalModel>::new()
+        Update::<_, FileLocalModel>::new()
             .set(FileLocalModel::LOCAL_PATH, &file_local.local_path)
-            .execute(
-                SqlSuffix::Where(&sql_format!("id={}", file_local.id)),
-                &self.db,
-            )
+            .execute(&self.db, |qb| {
+                qb.push_where().field_eq("id", file_local.id);
+            })
             .await?;
 
         Ok(None)

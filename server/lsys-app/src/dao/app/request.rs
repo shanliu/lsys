@@ -1,5 +1,4 @@
-use lsys_core::db::{OffsetPageParam, SqlExpr, TableMeta};
-use lsys_core::sql_format;
+use lsys_core::db::{OffsetPageParam, TableMeta};
 
 use super::App;
 use crate::model::AppModel;
@@ -10,7 +9,8 @@ use crate::{
         AppRequestSetInfoModel, AppRequestStatus, AppRequestType,
     },
 };
-use lsys_core::db::SqlQuote;
+use lsys_core::db::{QueryBuilderExt, WhereClause};
+use sqlx::{MySql, QueryBuilder};
 
 #[derive(Clone, Debug)]
 pub struct AppRequestParam {
@@ -44,35 +44,33 @@ pub struct AppInfoData {
 impl App {
     /// 根据请求 id 找到对应记录
     pub async fn request_find_by_id(&self, id: u64) -> AppResult<AppRequestModel> {
-        Ok(sqlx::query_as::<_, AppRequestModel>(&sql_format!(
-            "select * from {} where id={}",
+        Ok(sqlx::query_as::<_, AppRequestModel>(&format!(
+            "select * from {} where id=?",
             AppRequestModel::table_name(),
-            id
         ))
+        .bind(id)
         .fetch_one(&self.db)
         .await?)
     }
-    fn app_request_where_sql(&self, req_param: &AppRequestParam) -> Option<String> {
-        let mut sql = vec![];
+    fn app_request_push_where(wb: &mut WhereClause<'_, '_, MySql>, req_param: &AppRequestParam) {
         if let Some(tmp) = req_param.id {
-            sql.push(sql_format!("id={}", tmp));
+            wb.and().field_eq("id", tmp);
         }
         if let Some(tmp) = req_param.app_id {
-            sql.push(sql_format!("app_id={}", tmp));
+            wb.and().field_eq("app_id", tmp);
         }
         if let Some(tmp) = req_param.parent_app_id {
-            sql.push(sql_format!("parent_app_id={}", tmp));
+            wb.and().field_eq("parent_app_id", tmp);
         }
         if let Some(tmp) = req_param.status {
-            sql.push(sql_format!("status={}", tmp as i8));
+            wb.and().field_eq("status", tmp as i8);
         }
         if let Some(tmp) = req_param.request_type {
-            sql.push(sql_format!("request_type={}", tmp as i8));
+            wb.and().field_eq("request_type", tmp as i8);
         }
         if let Some(tmp) = req_param.request_user_id {
-            sql.push(sql_format!("request_user_id={}", tmp));
+            wb.and().field_eq("request_user_id", tmp);
         }
-        Some(sql.join(" and "))
     }
 }
 impl App {
@@ -94,11 +92,12 @@ impl App {
         app_id_tmp.extend(parent_id_tmp);
 
         let app_info_data = if !app_id_tmp.is_empty() {
-            sqlx::query_as::<_, (u64, u64, String, String, i8, u64)>(&sql_format!(
-                "select id,parent_app_id,name,client_id,status,user_id from {} where id in ({})",
-                AppModel::table_name(),
-                app_id_tmp,
-            ))
+            let mut qb: QueryBuilder<'_, MySql> = QueryBuilder::new(format!(
+                "select id,parent_app_id,name,client_id,status,user_id from {}",
+                AppModel::table_name()
+            ));
+            qb.push_where().field_in_copied("id", &app_id_tmp);
+            qb.build_query_as::<(u64, u64, String, String, i8, u64)>()
             .fetch_all(&self.db)
             .await?
         } else {
@@ -111,11 +110,12 @@ impl App {
             .map(|t| t.id)
             .collect::<Vec<u64>>();
         let fet_id_data = if !fet_id_tmp.is_empty() {
-            sqlx::query_as::<_, AppRequestFeatureModel>(&sql_format!(
-                "select * from {} where app_request_id in ({})",
-                AppRequestFeatureModel::table_name(),
-                fet_id_tmp,
-            ))
+            let mut qb: QueryBuilder<'_, MySql> = QueryBuilder::new(format!(
+                "select * from {}",
+                AppRequestFeatureModel::table_name()
+            ));
+            qb.push_where().field_in_copied("app_request_id", &fet_id_tmp);
+            qb.build_query_as::<AppRequestFeatureModel>()
             .fetch_all(&self.db)
             .await?
         } else {
@@ -131,11 +131,12 @@ impl App {
             .map(|t| t.id)
             .collect::<Vec<u64>>();
         let client_id_data = if !client_id_tmp.is_empty() {
-            sqlx::query_as::<_, AppRequestOAuthClientModel>(&sql_format!(
-                "select * from {} where app_request_id in ({})",
-                AppRequestOAuthClientModel::table_name(),
-                client_id_tmp,
-            ))
+            let mut qb: QueryBuilder<'_, MySql> = QueryBuilder::new(format!(
+                "select * from {}",
+                AppRequestOAuthClientModel::table_name()
+            ));
+            qb.push_where().field_in_copied("app_request_id", &client_id_tmp);
+            qb.build_query_as::<AppRequestOAuthClientModel>()
             .fetch_all(&self.db)
             .await?
         } else {
@@ -151,11 +152,12 @@ impl App {
             .map(|t| t.id)
             .collect::<Vec<u64>>();
         let change_id_data = if !change_id_tmp.is_empty() {
-            sqlx::query_as::<_, AppRequestSetInfoModel>(&sql_format!(
-                "select * from {} where app_request_id in ({})",
-                AppRequestSetInfoModel::table_name(),
-                change_id_tmp,
-            ))
+            let mut qb: QueryBuilder<'_, MySql> = QueryBuilder::new(format!(
+                "select * from {}",
+                AppRequestSetInfoModel::table_name()
+            ));
+            qb.push_where().field_in_copied("app_request_id", &change_id_tmp);
+            qb.build_query_as::<AppRequestSetInfoModel>()
             .fetch_all(&self.db)
             .await?
         } else {
@@ -219,41 +221,36 @@ impl App {
         req_param: &AppRequestParam,
         page: &OffsetPageParam,
     ) -> AppResult<Vec<AppRequestModel>> {
-        let where_sql = match self.app_request_where_sql(req_param) {
-            Some(s) => s,
-            None => return Ok(vec![]),
-        };
-        let data = sqlx::query_as::<_, AppRequestModel>(&sql_format!(
-            "select * from {} {} order by id desc {}",
+        let mut qb = QueryBuilder::<MySql>::new(format!(
+            "select * from {}",
             AppRequestModel::table_name(),
-            if !where_sql.is_empty() {
-                SqlExpr(format!(" where {}", where_sql))
-            } else {
-                SqlExpr("".to_string())
-            },
-            SqlExpr(page.page_query().limit_sql().unwrap_or_default()),
-        ))
-        .fetch_all(&self.db)
-        .await?;
+        ));
+        {
+            let mut wb = WhereClause::new(&mut qb);
+            Self::app_request_push_where(&mut wb, req_param);
+        }
+        qb.push(" order by id desc");
+        page.push_limit(&mut qb);
+        let data = qb.build_query_as::<AppRequestModel>()
+            .fetch_all(&self.db)
+            .await?;
         Ok(data)
     }
     //待审核总数
     pub async fn app_request_count(&self, req_param: &AppRequestParam) -> AppResult<i64> {
-        let where_sql = match self.app_request_where_sql(req_param) {
-            Some(s) => s,
-            None => return Ok(0),
-        };
-        let sql = sql_format!(
-            "select count(*) as total from {} {}",
+        let mut qb = QueryBuilder::<MySql>::new(format!(
+            "select count(*) as total from {}",
             AppRequestModel::table_name(),
-            if !where_sql.is_empty() {
-                SqlExpr(format!(" where {}", where_sql))
-            } else {
-                SqlExpr("".to_string())
-            }
-        );
-        let query = sqlx::query_scalar::<_, i64>(&sql);
-        let res = query.fetch_one(&self.db).await?;
+        ));
+        {
+            let mut wb = WhereClause::new(&mut qb);
+            Self::app_request_push_where(&mut wb, req_param);
+        }
+        let res = qb.build_query_scalar::<i64>()
+            .fetch_one(&self.db)
+            .await?;
         Ok(res)
     }
 }
+
+

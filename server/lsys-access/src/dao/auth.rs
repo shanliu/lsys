@@ -4,19 +4,17 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{sql_format, valid_key};
 use lsys_core::remote_notify::RemoteNotify;
 use lsys_core::utils::{
     now_time, rand_str, string_clear, RandType, StringClear, STRING_CLEAR_FORMAT,
 };
+use lsys_core::valid_key;
 use lsys_core::valid_param::{ValidIp, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
 
 use crate::dao::AccessUser;
-use lsys_core::db::SqlQuote;
-use lsys_core::db::{BatchInsert, Insert, Update};
-use lsys_core::db::{SqlSuffix, TableMeta};
+use lsys_core::db::{BatchInsert, Insert, QueryBuilderExt, TableMeta, Update};
 use serde::{Deserialize, Serialize};
-use sqlx::{MySql, Pool};
+use sqlx::{MySql, Pool, QueryBuilder};
 
 use crate::model::{SessionDataModel, SessionModel, SessionStatus, UserModel};
 
@@ -65,10 +63,12 @@ impl AccessAuth {
     }
     //通过ID获取用户
     pub async fn find_user_by_id(&self, id: &u64) -> AccessResult<UserModel> {
-        Ok(lsys_core::db::utils::fetch_one::<UserModel>(
-            &self.db,
-            lsys_core::sql_format!("id = {id} ", id = id),
-        ).await?)
+        Ok(
+            lsys_core::db::utils::Fetch::<MySql, UserModel>::one(&self.db, |qb| {
+                qb.field_eq("id", *id);
+            })
+            .await?,
+        )
     }
     fn wrap_session_body(
         &self,
@@ -101,36 +101,28 @@ impl AccessAuth {
             return Ok(());
         }
         let time = now_time()?;
-        let status = SessionStatus::Delete.to();
+        let status = SessionStatus::Delete as i8;
         Update::<_, SessionModel>::new()
             .set(SessionModel::STATUS, status)
             .set(SessionModel::LOGOUT_TIME, time)
-            .execute(
-                SqlSuffix::Where(&sql_format!("user_app_id={} ", user_app_id)),
-                &self.db,
-            )
+            .execute(&self.db, |qb| {
+                qb.push_where().field_eq("user_app_id", user_app_id);
+            })
             .await?;
         let mut start_id = 0;
         loop {
-            let sql = sql_format!(
-                "select
-                    id,
-                    oauth_app_id,
-                    token_data
-                from {}
-                where logout_time ={}
-                and status={}
-                and user_app_id={}
-                and id>{}
-                order by id asc
-                limit 100",
-                SessionModel::table_name(),
-                time,
-                status,
-                user_app_id,
-                start_id
-            );
-            let res = sqlx::query_as::<_, (u64, u64, String)>(sql.as_str())
+            let mut qb = QueryBuilder::<MySql>::new(format!(
+                "select id, oauth_app_id, token_data from {}",
+                SessionModel::table_name()
+            ));
+            qb.push_where().field_eq("logout_time", time);
+            qb.push_and().field_eq("status", status);
+            qb.push_and().field_eq("user_app_id", user_app_id);
+            qb.push_and().field_gt("id", start_id);
+            qb.push(" ORDER BY id ASC LIMIT 100");
+            
+            let res = qb
+                .build_query_as::<(u64, u64, String)>()
                 .fetch_all(&self.db)
                 .await?;
             if res.is_empty() {
@@ -226,8 +218,8 @@ impl AccessAuth {
                     .add_rule(ValidStrlen::max(64)),
             );
         }
-        if let Some(user_account) = login_param.login_data {
-            if let Some(user_account) = user_account.user_account {
+        if let Some(user_account) = login_param.login_data
+            && let Some(user_account) = user_account.user_account {
                 valid_param.add(
                     valid_key!("user_account"),
                     &user_account,
@@ -236,7 +228,6 @@ impl AccessAuth {
                         .add_rule(ValidStrlen::max(128)),
                 );
             }
-        }
         valid_param.check()?;
         Ok(user_data)
     }
@@ -301,12 +292,12 @@ impl AccessAuth {
             .map(|e| (e.0.to_owned(), e.1.to_string()))
             .collect::<Vec<_>>();
 
-        match sqlx::query_as::<_, (u64, i8, String, String)>(&sql_format!(
-            "select id,status,device_id,login_ip from {} where user_app_id={} and token_data = {}",
+        match sqlx::query_as::<_, (u64, i8, String, String)>(&format!(
+            "select id,status,device_id,login_ip from {} where user_app_id=? and token_data = ?",
             SessionModel::table_name(),
-            login_param.app_id,
-            &token_data,
         ))
+        .bind(login_param.app_id)
+        .bind(token_data.clone())
         .fetch_one(&self.db)
         .await
         {
@@ -321,7 +312,9 @@ impl AccessAuth {
                 if let Err(err) = Update::<_, SessionModel>::new()
                     .set(SessionModel::DEVICE_NAME, device_name)
                     .set(SessionModel::EXPIRE_TIME, expire_time)
-                    .execute(SqlSuffix::Where(&sql_format!("id={} ", sid)), &self.db)
+                    .execute(&self.db, |qb| {
+                        qb.push_where().field_eq("id", sid);
+                    })
                     .await
                 {
                     db.rollback().await?;
@@ -419,10 +412,9 @@ impl AccessAuth {
         let expire_time = add_time + session.expire_time;
         Update::<_, SessionModel>::new()
             .set(SessionModel::EXPIRE_TIME, expire_time)
-            .execute(
-                SqlSuffix::Where(&sql_format!("id={} ", session.id)),
-                &self.db,
-            )
+            .execute(&self.db, |qb| {
+                qb.push_where().field_eq("id", session.id);
+            })
             .await?;
         self.cache()
             .del_session(
@@ -437,14 +429,13 @@ impl AccessAuth {
     //退出登录
     pub async fn do_logout(&self, session_body: &SessionBody) -> AccessResult<()> {
         let time = now_time()?;
-        let status = SessionStatus::Delete.to();
+        let status = SessionStatus::Delete as i8;
         Update::<_, SessionModel>::new()
             .set(SessionModel::STATUS, status)
             .set(SessionModel::LOGOUT_TIME, time)
-            .execute(
-                SqlSuffix::Where(&sql_format!("id={} ", session_body.session().id)),
-                &self.db,
-            )
+            .execute(&self.db, |qb| {
+                qb.push_where().field_eq("id", session_body.session().id);
+            })
             .await?;
         self.cache()
             .del_session(
@@ -480,18 +471,20 @@ impl AccessAuth {
             return Err(AccessError::NotLogin);
         }
 
-        let data =  sqlx::query_as::<_,SessionModel>(&sql_format!(
-                "select * from {} where user_app_id={} and token_data={} and status={}  and oauth_app_id={}",
-                SessionModel::table_name(),
-                app_id,
-                token_data,
-                SessionStatus::Enable as i8,
-                oauth_app_id,
-            )).fetch_one(&self.db).await
-            .map_err(|e| match e {
-                sqlx::Error::RowNotFound => AccessError::NotLogin,
-                _ => AccessError::Sqlx(e),
-            })?;
+        let data = sqlx::query_as::<_, SessionModel>(&format!(
+            "select * from {} where user_app_id=? and token_data=? and status=? and oauth_app_id=?",
+            SessionModel::table_name(),
+        ))
+        .bind(app_id)
+        .bind(token_data)
+        .bind(SessionStatus::Enable as i8)
+        .bind(oauth_app_id)
+        .fetch_one(&self.db)
+        .await
+        .map_err(|e| match e {
+            sqlx::Error::RowNotFound => AccessError::NotLogin,
+            _ => AccessError::Sqlx(e),
+        })?;
         Ok(data)
     }
     //登陆附带数据获取
@@ -522,14 +515,16 @@ impl AccessAuth {
         if data_key.is_empty() {
             return Ok(vec![]);
         }
-        let data = sqlx::query_as::<_, SessionDataModel>(&sql_format!(
-            "select * from {} where session_id={} and data_key in ({})",
+        let mut qb = QueryBuilder::<MySql>::new(format!(
+            "select * from {}",
             SessionDataModel::table_name(),
-            session_body.session().id,
-            data_key
-        ))
-        .fetch_all(&self.db)
-        .await?;
+        ));
+        qb.push_where().field_eq("session_id", session_body.session().id);
+        qb.push_and().field_in_string("data_key", &data_key);
+        let data = qb
+            .build_query_as::<SessionDataModel>()
+            .fetch_all(&self.db)
+            .await?;
         Ok(data
             .into_iter()
             .map(|e| (e.data_key, e.data_val))

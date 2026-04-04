@@ -7,19 +7,17 @@ use actix_web::{HttpResponse, Responder};
 use lsys_web::dao::WebDao;
 
 pub(crate) async fn render_404(app: Data<WebDao>) -> impl Responder {
-    if let Ok(file) = app.app_core.config.find(None).get_string("ui_404_file") {
-        if let Ok(t) = app
+    if let Ok(file) = app.app_core.config.find(None).get_string("ui_404_file")
+        && let Ok(t) = app
             .app_core
             .config_path(app.app_core.config.find(None), "ui_dir")
         {
             let out = t.join(file);
-            if out.is_file() {
-                if let Ok(file) = NamedFile::open_async(out).await {
+            if out.is_file()
+                && let Ok(file) = NamedFile::open_async(out).await {
                     return Either::Left(file.customize());
                 }
-            }
-        }
-    };
+        };
     Either::Right(HttpResponse::build(StatusCode::NOT_FOUND).body("404 - File not found"))
 }
 pub(crate) fn render_500<B>(

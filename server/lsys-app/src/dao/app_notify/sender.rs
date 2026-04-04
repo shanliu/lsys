@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use lsys_core::db::TableMeta;
 use lsys_core::fluents::IntoFluentMessage;
-use lsys_core::sql_format;
 use lsys_core::task_dispatch::TaskNotify;
 use sqlx::Pool;
 use tracing::{info, warn};
@@ -11,7 +10,6 @@ use crate::{
     dao::AppResult,
     model::{AppNotifyConfigModel, AppNotifyTryTimeMode, AppNotifyType},
 };
-use lsys_core::db::SqlQuote;
 
 use super::AppNotifyRecord;
 
@@ -53,13 +51,13 @@ impl AppNotifySender {
         }
     }
     pub async fn send(&self, app_id: u64, notify_key: &str, notify_data: &str) -> AppResult<()> {
-        let call_url = match sqlx::query_scalar::<_, String>(&sql_format!(
+        let call_url = match sqlx::query_scalar::<_, String>(&format!(
             "select call_url from {} 
-                 where app_id={} and notify_method={} order by id desc limit 1",
+                 where app_id=? and notify_method=? order by id desc limit 1",
             AppNotifyConfigModel::table_name(),
-            app_id,
-            &self.notify_method,
         ))
+        .bind(app_id)
+        .bind(&self.notify_method)
         .fetch_one(&self.db)
         .await
         {

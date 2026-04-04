@@ -5,10 +5,9 @@ use crate::{
     dao::AppResult,
     model::{AppFeatureModel, AppFeatureStatus, AppModel},
 };
-use lsys_core::db::TableMeta;
-use lsys_core::db::SqlQuote;
-use lsys_core::sql_format;
+use lsys_core::db::{QueryBuilderExt, TableMeta};
 use lsys_core::valid_key;
+use sqlx::{MySql, QueryBuilder};
 use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
 
 impl App {
@@ -32,15 +31,16 @@ impl App {
             return Ok(());
         }
         self.exter_feature_param_valid(featuer_data).await?;
-        let oa_res = sqlx::query_scalar::<_, String>(&sql_format!(
-            "select feature_key from {} where app_id={} and status={} and feature_key in ({})",
-            AppFeatureModel::table_name(),
-            app.id,
-            AppFeatureStatus::Enable as i8,
-            featuer_data,
-        ))
-        .fetch_all(&self.db)
-        .await?;
+        let mut qb = QueryBuilder::<MySql>::new(format!(
+            "select feature_key from {}",
+            AppFeatureModel::table_name()
+        ));
+        qb.push_where().field_eq("app_id", app.id);
+        qb.push_and().field_eq("status", AppFeatureStatus::Enable as i8);
+        qb.push_and().field_in_string("feature_key", featuer_data);
+        let oa_res = qb.build_query_scalar::<String>()
+            .fetch_all(&self.db)
+            .await?;
         let mut bad = vec![];
         for tmp in featuer_data {
             let ot = tmp.to_string();

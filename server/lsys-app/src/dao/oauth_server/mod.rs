@@ -9,10 +9,8 @@ use crate::model::{
 };
 pub use data::AppOAuthServerScopeData;
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::db::SqlQuote;
-use lsys_core::db::{BatchInsert, Insert, TableMeta, SqlSuffix, Update};
+use lsys_core::db::{BatchInsert, Insert, QueryBuilderExt, TableMeta, Update};
 use lsys_core::remote_notify::RemoteNotify;
-use lsys_core::sql_format;
 use lsys_core::{fluent_message, valid_key};
 use lsys_core::utils::{now_time, RequestEnv};
 use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
@@ -70,12 +68,12 @@ impl AppOAuthServer {
         env_data: Option<&RequestEnv>,
     ) -> AppResult<()> {
         app.app_status_check()?;
-        let req = sqlx::query_as::<_, AppRequestModel>(&sql_format!(
-            "select * from {} where app_id={} and request_type = {}",
+        let req = sqlx::query_as::<_, AppRequestModel>(&format!(
+            "select * from {} where app_id=? and request_type=?",
             AppRequestModel::table_name(),
-            app.id,
-            AppRequestType::OAuthServer as i8
         ))
+        .bind(app.id)
+        .bind(AppRequestType::OAuthServer as i8)
         .fetch_one(&self.db)
         .await?;
         self.app
@@ -136,11 +134,11 @@ impl AppOAuthServer {
     ) -> AppResult<()> {
         self.oauth_setting_param_valid(req).await?;
         self.oauth_check(app).await?;
-        let find_res = sqlx::query_as::<_, (u64, String)>(&sql_format!(
-            "select id,scope_key from {} where app_id={}",
+        let find_res = sqlx::query_as::<_, (u64, String)>(&format!(
+            "select id,scope_key from {} where app_id=?",
             AppOAuthServerScopeModel::table_name(),
-            app.id,
         ))
+        .bind(app.id)
         .fetch_all(&self.db)
         .await?;
         let time = now_time()?;
@@ -174,20 +172,18 @@ impl AppOAuthServer {
         }
 
         for del_key in del_data.iter() {
-            let req = sqlx::query_scalar::<_, String>(&sql_format!(
+            let req = sqlx::query_scalar::<_, String>(&format!(
                 "select app.name from {} as app
                 join  {} as oc on app.id=oc.app_id
-                where app.parent_app_id={} AND status IN ({}) and FIND_IN_SET({}, oc.scope_data)",
+                where app.parent_app_id=? AND status IN (?,?,?) and FIND_IN_SET(?, oc.scope_data)",
                 AppModel::table_name(),
                 AppOAuthClientModel::table_name(),
-                app.id,
-                &[
-                    AppStatus::Enable as i8,
-                    AppStatus::Init as i8,
-                    AppStatus::Disable as i8
-                ],
-                del_key,
             ))
+            .bind(app.id)
+            .bind(AppStatus::Enable as i8)
+            .bind(AppStatus::Init as i8)
+            .bind(AppStatus::Disable as i8)
+            .bind(del_key)
             .fetch_all(&self.db)
             .await?;
             if !req.is_empty() {
@@ -207,14 +203,10 @@ impl AppOAuthServer {
                 .set(AppOAuthServerScopeModel::STATUS, del_status)
                 .set(AppOAuthServerScopeModel::CHANGE_USER_ID, set_user_id)
                 .set(AppOAuthServerScopeModel::CHANGE_TIME, time)
-                .execute(
-                    SqlSuffix::Where(&sql_format!(
-                        "app_id={} and scope_key in ({})",
-                        app.id,
-                        del_data
-                    )),
-                    &mut *db,
-                )
+                .execute(&mut *db, |qb| {
+                    qb.push_where().field_eq("app_id", app.id);
+                    qb.push_and().field_in_string("scope_key", &del_data);
+                })
                 .await;
             if let Err(err) = cres {
                 db.rollback().await?;
@@ -233,7 +225,9 @@ impl AppOAuthServer {
                 .set(AppOAuthServerScopeModel::SCOPE_DESC, tmp.3)
                 .set(AppOAuthServerScopeModel::CHANGE_USER_ID, set_user_id)
                 .set(AppOAuthServerScopeModel::CHANGE_TIME, time)
-                .execute(SqlSuffix::Where(&sql_format!("id={}", tmp.0)), &mut *db)
+                .execute(&mut *db, |qb| {
+                    qb.push_where().field_eq("id", tmp.0);
+                })
                 .await;
             if let Err(err) = cres {
                 db.rollback().await?;

@@ -4,11 +4,10 @@ use lsys_core::utils::{now_time, string_clear, StringClear};
 
 use super::AccountResult;
 use lsys_core::db::{
-    BatchInsert, CursorPageData, CursorPageParam, Insert, SqlExpr, SqlQuote, SqlSuffix, TableMeta,
+    BatchInsert, CursorPageData, CursorPageParam, Insert, QueryBuilderExt, TableMeta,
     Update, OptionTxExecutor
 };
-use lsys_core::sql_format;
-use sqlx::{Acquire, MySql, Pool, Transaction};
+use sqlx::{Acquire, MySql, Pool, QueryBuilder, Transaction};
 pub struct AccountIndex {
     db: Pool<MySql>,
 }
@@ -56,13 +55,13 @@ impl AccountIndex {
             }
             Ok(row) => {
                 if row.last_insert_id() == 0 {
-                    sqlx::query_scalar::<_, u64>(&sql_format!(
-                        "select id from {} where account_id={} and index_cat={} and index_data={}",
+                    sqlx::query_scalar::<_, u64>(&format!(
+                        "select id from {} where account_id=? and index_cat=? and index_data=?",
                         AccountIndexModel::table_name(),
-                        account_id,
-                        index_cat,
-                        index_data
                     ))
+                    .bind(account_id)
+                    .bind(index_cat)
+                    .bind(&index_data)
                     .fetch_one(&self.db)
                     .await?
                 } else {
@@ -75,15 +74,9 @@ impl AccountIndex {
             let tmp = Update::<_,AccountIndexModel>::new()
                 .set(AccountIndexModel::STATUS, del_status)
                 .set(AccountIndexModel::CHANGE_TIME, time)
-                .execute(
-                    SqlSuffix::Where(&sql_format!(
-                        "account_id={} and index_cat={} and id!={}",
-                        account_id,
-                        index_cat,
-                        addid
-                    )),
-                    &mut *db,
-                )
+                .execute(&mut *db, |qb| {
+                    qb.push_where().field_eq("account_id", account_id).push_and().field_eq("index_cat", index_cat).push_and().field_ne("id", addid);
+                })
                 .await;
             if let Err(ie) = tmp {
                 db.rollback().await?;
@@ -143,15 +136,11 @@ impl AccountIndex {
         let res = Update::<_,AccountIndexModel>::new()
             .set(AccountIndexModel::STATUS, AccountIndexStatus::Delete as i8)
             .set(AccountIndexModel::CHANGE_TIME, time)
-            .execute(
-                SqlSuffix::Where(&sql_format!(
-                    "index_data  in ({}) and index_cat={} and account_id={}",
-                    index_data,
-                    index_cat,
-                    account_id
-                )),
-                OptionTxExecutor::new(transaction, &self.db),
-            )
+            .execute(OptionTxExecutor::new(transaction, &self.db), |qb| {
+                qb.push_where().field_in_string("index_data", index_data);
+                qb.push_and().field_eq("index_cat", index_cat);
+                qb.push_and().field_eq("account_id", account_id);
+            })
             .await?;
         Ok(res.rows_affected())
     }
@@ -166,14 +155,9 @@ impl AccountIndex {
         let res = Update::<_,AccountIndexModel>::new()
             .set(AccountIndexModel::STATUS, AccountIndexStatus::Delete as i8)
             .set(AccountIndexModel::CHANGE_TIME, time)
-            .execute(
-                SqlSuffix::Where(&sql_format!(
-                    "index_cat={} and account_id={}",
-                    index_cat,
-                    account_id
-                )),
-                OptionTxExecutor::new(transaction, &self.db),
-            )
+            .execute(OptionTxExecutor::new(transaction, &self.db), |qb| {
+                qb.push_where().field_eq("index_cat", index_cat).push_and().field_eq("account_id", account_id);
+            })
             .await?;
         Ok(res.rows_affected())
     }
@@ -186,10 +170,9 @@ impl AccountIndex {
         let res = Update::<_,AccountIndexModel>::new()
             .set(AccountIndexModel::STATUS, AccountIndexStatus::Delete as i8)
             .set(AccountIndexModel::CHANGE_TIME, time)
-            .execute(
-                SqlSuffix::Where(&sql_format!("account_id={}", account_id)),
-                OptionTxExecutor::new(transaction, &self.db),
-            )
+            .execute(OptionTxExecutor::new(transaction, &self.db), |qb| {
+                qb.push_where().field_eq("account_id", account_id);
+            })
             .await?;
         Ok(res.rows_affected())
     }
@@ -220,51 +203,43 @@ impl AccountIndex {
                 .collect::<Vec<_>>()
         };
         let key_word = string_clear(key_word, StringClear::LikeKeyWord, None);
-        let mut sql = if key_word.is_empty() || param.is_empty() {
-            sql_format!(
-                "select distinct k.account_id,'' as cat_more
-                FROM {} as k
-                where k.status ={} and k.index_cat={} and k.index_data in ({}) ",
+        let mut qb = QueryBuilder::<MySql>::new("");
+        if key_word.is_empty() || param.is_empty() {
+            qb.push(format!(
+                "select distinct k.account_id,'' as cat_more FROM {} as k",
                 AccountIndexModel::table_name(),
-                AccountIndexStatus::Enable as i8,
-                AccountIndexCat::AccountStatus as i8,
-                account_status_data,
-            )
+            ));
+            qb.push_where().field_eq("k.status", AccountIndexStatus::Enable as i8);
+            qb.push_and().field_eq("k.index_cat", AccountIndexCat::AccountStatus as i8);
+            qb.push_and().field_in_string("k.index_data", &account_status_data);
+            qb.push(" ");
         } else {
             let index_cat_data = param.iter().map(|e| *e as i8).collect::<Vec<_>>();
-            sql_format!(
-                "select distinct k.account_id,group_concat(k.index_cat,':',REPLACE(REPLACE(k.index_data,':',' '),',',' ')) as cat_more
-                FROM {} as s
-                inner join {} as k on s.account_id = k.account_id
-                where  s.status ={} and s.index_cat={} and s.index_data in ({}) and k.status ={} and k.index_data like {} {}",
+            qb.push(format!(
+                "select distinct k.account_id,group_concat(k.index_cat,':',REPLACE(REPLACE(k.index_data,':',' '),',',' ')) as cat_more FROM {} as s inner join {} as k on s.account_id = k.account_id",
                 AccountIndexModel::table_name(),
                 AccountIndexModel::table_name(),
-                AccountIndexStatus::Enable as i8,
-                AccountIndexCat::AccountStatus as i8,
-                account_status_data,
-                AccountIndexStatus::Enable as i8,
-                format!("{}%",key_word),
-                if !index_cat_data.is_empty() {
-                    SqlExpr(sql_format!("and k.index_cat in ({})", index_cat_data))
-                } else {
-                    SqlExpr("".to_string())
-                },
-            )
-        };
+            ));
+            qb.push_where().field_eq("s.status", AccountIndexStatus::Enable as i8);
+            qb.push_and().field_eq("s.index_cat", AccountIndexCat::AccountStatus as i8);
+            qb.push_and().field_in_string("s.index_data", &account_status_data);
+            qb.push_and().field_eq("k.status", AccountIndexStatus::Enable as i8);
+            qb.push_and().field_like("k.index_data", format!("{}%", key_word));
+            if !index_cat_data.is_empty() {
+                qb.push_and().field_in_copied("k.index_cat", &index_cat_data);
+            }
+            qb.push(" ");
+        }
         let query_limit = limit.page_query("k.account_id");
-        let cursor_where = query_limit.where_sql();
-        sql = format!(
-            "{} {} group by k.account_id HAVING cat_more IS NOT NULL {} {}",
-            sql,
-            if cursor_where.is_empty() {
-                "".to_string()
-            } else {
-                format!("and {}", cursor_where)
-            },
-            query_limit.order_by_sql(),
-            query_limit.limit_sql().unwrap_or_default(),
-        );
-        let mut res: Vec<(u64, String)> = sqlx::query_as::<_, (u64, String)>(sql.as_str())
+        if query_limit.has_cursor() {
+            qb.push_and();
+            query_limit.push_where(&mut qb);
+            qb.push(" ");
+        }
+        qb.push(" group by k.account_id HAVING cat_more IS NOT NULL ");
+        query_limit.push_order_by(&mut qb);
+        query_limit.push_limit(&mut qb);
+        let mut res: Vec<(u64, String)> = qb.build_query_as::<(u64, String)>()
             .fetch_all(&self.db)
             .await?;
         let next = query_limit.finalize(&mut res, |row, cursor| row.0 == *cursor, |row| row.0);
@@ -274,15 +249,12 @@ impl AccountIndex {
                 let mut cats = Map::new();
                 for item in e.1.split(',') {
                     let mut tmp = item.split(':');
-                    if let Some(cat) = tmp.next() {
-                        if let Ok(cat) = cat.parse::<i8>() {
-                            if let Ok(cat) = AccountIndexCat::try_from(cat) {
-                                if let Some(val) = tmp.next() {
+                    if let Some(cat) = tmp.next()
+                        && let Ok(cat) = cat.parse::<i8>()
+                            && let Ok(cat) = AccountIndexCat::try_from(cat)
+                                && let Some(val) = tmp.next() {
                                     cats.insert(cat, val.to_string());
                                 }
-                            }
-                        }
-                    }
                 }
                 AccountItem {
                     account_id: e.0,

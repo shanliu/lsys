@@ -3,9 +3,9 @@ use crate::model::{AppModel, AppOAuthServerScopeModel, AppRequestType};
 
 use super::AppOAuthServer;
 use crate::model::AppOAuthServerScopeStatus;
-use lsys_core::db::TableMeta;
-use lsys_core::db::SqlQuote;
-use lsys_core::{sql_format, valid_key};
+use lsys_core::db::{QueryBuilderExt, TableMeta};
+use lsys_core::valid_key;
+use sqlx::{MySql, QueryBuilder};
 use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
 
 impl AppOAuthServer {
@@ -30,15 +30,16 @@ impl AppOAuthServer {
         }
         self.check_scope_param_valid(scope_data).await?;
         app.app_status_check()?;
-        let oa_res = sqlx::query_scalar::<_, String>(&sql_format!(
-            "select scope_key from {} where app_id={} and status={} and scope_key in ({})",
-            AppOAuthServerScopeModel::table_name(),
-            app.id,
-            AppOAuthServerScopeStatus::Enable as i8,
-            scope_data,
-        ))
-        .fetch_all(&self.db)
-        .await?;
+        let mut qb = QueryBuilder::<MySql>::new(format!(
+            "select scope_key from {}",
+            AppOAuthServerScopeModel::table_name()
+        ));
+        qb.push_where().field_eq("app_id", app.id);
+        qb.push_and().field_eq("status", AppOAuthServerScopeStatus::Enable as i8);
+        qb.push_and().field_in_string("scope_key", scope_data);
+        let oa_res = qb.build_query_scalar::<String>()
+            .fetch_all(&self.db)
+            .await?;
         let mut out = vec![];
         for tmp in scope_data {
             let stmp = tmp.to_string();
@@ -64,12 +65,12 @@ impl AppOAuthServer {
     //获取所有的OAUTH服务中的SCOPE
     pub async fn get_scope(&self, app: &AppModel) -> AppResult<Vec<AppOAuthServerScopeData>> {
         app.app_status_check()?;
-        let oa_res = sqlx::query_as::<_, (String, String, String)>(&sql_format!(
-            "select scope_key,scope_name,scope_desc from {} where app_id={} and status={}",
+        let oa_res = sqlx::query_as::<_, (String, String, String)>(&format!(
+            "select scope_key,scope_name,scope_desc from {} where app_id=? and status=?",
             AppOAuthServerScopeModel::table_name(),
-            app.id,
-            AppOAuthServerScopeStatus::Enable as i8,
         ))
+        .bind(app.id)
+        .bind(AppOAuthServerScopeStatus::Enable as i8)
         .fetch_all(&self.db)
         .await?
         .into_iter()

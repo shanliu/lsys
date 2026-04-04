@@ -3,9 +3,9 @@
 //! 本测试验证 lsys-sdk 可以正确处理服务器将 BOOL、INT 等类型转为字符串输出的情况
 
 use lsys_sdk::{
-    AppFeatureResponse, AppSecretResponse, AuthVerifyResponse, FileInfoItem, FileListItem,
-    FileListResponse, FileUploadByMd5Response, FileUploadCreateResponse, RbacCheckResponse,
-    RbacCheckStatus,
+    AppFeatureResponse, AppSecretResponse, AuthVerifyResponse, CursorResp, FileInfoItem,
+    FileListItem, FileListResponse, FileUploadByMd5Response, FileUploadCreateResponse,
+    RbacCheckResponse, RbacCheckStatus, TotalResp,
 };
 use serde_json::json;
 
@@ -81,7 +81,7 @@ fn test_u64_from_number() {
 #[test]
 fn test_mixed_types_file_upload_create() {
     let json_data = json!({
-        "file_user_id": "654321",
+        "id": "654321",
         "file_id": "123456",
         "file_name": "test.txt",
         "status": "1",
@@ -89,7 +89,7 @@ fn test_mixed_types_file_upload_create() {
     });
 
     let response: FileUploadCreateResponse = serde_json::from_value(json_data).unwrap();
-    assert_eq!(response.file_user_id, 654321);
+    assert_eq!(response.id, 654321);
     assert_eq!(response.file_id, 123456);
     assert_eq!(response.status, 1);
     assert_eq!(response.upload_token, "token123");
@@ -98,7 +98,7 @@ fn test_mixed_types_file_upload_create() {
 #[test]
 fn test_mixed_types_from_numbers() {
     let json_data = json!({
-        "file_user_id": 654321,
+        "id": 654321,
         "file_id": 123456,
         "file_name": "test.txt",
         "status": 1,
@@ -106,7 +106,7 @@ fn test_mixed_types_from_numbers() {
     });
 
     let response: FileUploadCreateResponse = serde_json::from_value(json_data).unwrap();
-    assert_eq!(response.file_user_id, 654321);
+    assert_eq!(response.id, 654321);
     assert_eq!(response.file_id, 123456);
     assert_eq!(response.status, 1);
 }
@@ -115,12 +115,12 @@ fn test_mixed_types_from_numbers() {
 fn test_bool_matched_from_string() {
     let json_data = json!({
         "matched": "1",
-        "file_user_id": "789"
+        "id": "789"
     });
 
     let response: FileUploadByMd5Response = serde_json::from_value(json_data).unwrap();
     assert!(response.matched);
-    assert_eq!(response.file_user_id, Some(789));
+    assert_eq!(response.id, Some(789));
 }
 
 #[test]
@@ -161,8 +161,8 @@ fn test_rbac_check_status_from_bool() {
 #[test]
 fn test_file_list_item_all_strings() {
     let json_data = json!({
-        "id": "100",
-        "file_user_id": "200",
+        "id": "200",
+        "file_id": "100",
         "file_name": "document.pdf",
         "file_md5": "abc123",
         "file_size": "1024000",
@@ -178,8 +178,8 @@ fn test_file_list_item_all_strings() {
     });
 
     let item: FileListItem = serde_json::from_value(json_data).unwrap();
-    assert_eq!(item.id, 100);
-    assert_eq!(item.file_user_id, 200);
+    assert_eq!(item.id, 200);
+    assert_eq!(item.file_id, 100);
     assert_eq!(item.file_size, 1024000);
     assert_eq!(item.status, 2);
     assert_eq!(item.add_time, 1678901234);
@@ -190,17 +190,24 @@ fn test_file_list_item_all_strings() {
 fn test_file_list_response_with_optional_fields() {
     let json_data = json!({
         "data": [],
-        "next_cursor": "500",
-        "prev_cursor": "100",
-        "total": "42"
+        "cursor": {
+            "next": "500",
+            "prev": "100"
+        },
+        "total": {
+            "exact": "42",
+            "over": null
+        }
     });
 
     let response: FileListResponse = serde_json::from_value(json_data).unwrap();
-    assert_eq!(response.next_cursor, Some(500));
-    assert_eq!(response.prev_cursor, Some(100));
-    assert_eq!(response.total, Some(42));
+    let cursor = response.cursor.unwrap();
+    assert_eq!(cursor.next, Some(500));
+    assert_eq!(cursor.prev, Some(100));
+    let total = response.total.unwrap();
+    assert_eq!(total.exact, Some(42));
+    assert_eq!(total.over, None);
 }
-
 #[test]
 fn test_file_list_response_without_optional_fields() {
     let json_data = json!({
@@ -208,9 +215,8 @@ fn test_file_list_response_without_optional_fields() {
     });
 
     let response: FileListResponse = serde_json::from_value(json_data).unwrap();
-    assert_eq!(response.next_cursor, None);
-    assert_eq!(response.prev_cursor, None);
-    assert_eq!(response.total, None);
+    assert!(response.cursor.is_none());
+    assert!(response.total.is_none());
 }
 
 #[test]
@@ -236,7 +242,7 @@ fn test_app_secret_response_time_out_from_string() {
 #[test]
 fn test_file_info_item_i8_status_from_string() {
     let json_data = json!({
-        "file_user_id": "111",
+        "id": "111",
         "file_id": "222",
         "file_name": "image.png",
         "file_md5": "def456",
@@ -248,7 +254,7 @@ fn test_file_info_item_i8_status_from_string() {
     });
 
     let item: FileInfoItem = serde_json::from_value(json_data).unwrap();
-    assert_eq!(item.file_user_id, 111);
+    assert_eq!(item.id, 111);
     assert_eq!(item.file_id, 222);
     assert_eq!(item.file_size, 2048000);
     assert_eq!(item.status, -1);
@@ -257,7 +263,7 @@ fn test_file_info_item_i8_status_from_string() {
 #[test]
 fn test_negative_i8_from_number() {
     let json_data = json!({
-        "file_user_id": 111,
+        "id": 111,
         "file_id": 222,
         "file_name": "test.txt",
         "file_md5": "abc",
@@ -276,27 +282,77 @@ fn test_negative_i8_from_number() {
 fn test_option_i64_total_from_string() {
     let json_data = json!({
         "data": [],
-        "next_cursor": null,
-        "prev_cursor": null,
-        "total": "-1"
+        "cursor": null,
+        "total": {
+            "exact": null,
+            "over": "10000"
+        }
     });
 
     let response: FileListResponse = serde_json::from_value(json_data).unwrap();
-    assert_eq!(response.total, Some(-1));
+    let total = response.total.unwrap();
+    assert_eq!(total.exact, None);
+    assert_eq!(total.over, Some(10000));
 }
 
 #[test]
 fn test_option_empty_string_as_none() {
-    // 空字符串应该被视为 None
+    // cursor 字段为 null 时应被视为 None
     let json_data = json!({
         "data": [],
-        "next_cursor": "",
-        "prev_cursor": "",
-        "total": ""
+        "cursor": null,
+        "total": null
     });
 
     let response: FileListResponse = serde_json::from_value(json_data).unwrap();
-    assert_eq!(response.next_cursor, None);
-    assert_eq!(response.prev_cursor, None);
-    assert_eq!(response.total, None);
+    assert!(response.cursor.is_none());
+    assert!(response.total.is_none());
+}
+
+#[test]
+fn test_cursor_resp_from_string() {
+    let json_data = json!({
+        "next": "999",
+        "prev": "111"
+    });
+
+    let cursor: CursorResp = serde_json::from_value(json_data).unwrap();
+    assert_eq!(cursor.next, Some(999));
+    assert_eq!(cursor.prev, Some(111));
+}
+
+#[test]
+fn test_cursor_resp_empty() {
+    let json_data = json!({
+        "next": null,
+        "prev": null
+    });
+
+    let cursor: CursorResp = serde_json::from_value(json_data).unwrap();
+    assert_eq!(cursor.next, None);
+    assert_eq!(cursor.prev, None);
+}
+
+#[test]
+fn test_total_resp_exact_from_string() {
+    let json_data = json!({
+        "exact": "12345",
+        "over": null
+    });
+
+    let total: TotalResp = serde_json::from_value(json_data).unwrap();
+    assert_eq!(total.exact, Some(12345));
+    assert_eq!(total.over, None);
+}
+
+#[test]
+fn test_total_resp_over() {
+    let json_data = json!({
+        "exact": null,
+        "over": "10000"
+    });
+
+    let total: TotalResp = serde_json::from_value(json_data).unwrap();
+    assert_eq!(total.exact, None);
+    assert_eq!(total.over, Some(10000));
 }

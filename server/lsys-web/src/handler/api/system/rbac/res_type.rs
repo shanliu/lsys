@@ -9,7 +9,7 @@ use lsys_rbac::{
 };
 use crate::dao::access::RbacAccessCheckEnv;
 use serde::Deserialize;
-use serde_json::json;
+use lsys_core::api_utils::JsonPageData;
 
 //从现有资源统计资源类型
 #[derive(Debug, Deserialize)]
@@ -62,7 +62,7 @@ pub async fn res_type_data(
         None
     };
     Ok(JsonResponse::data(JsonData::body(
-        json!({ "data": rows,"total":count}),
+        JsonPageData::total(rows, count),
     )))
 }
 
@@ -209,6 +209,6 @@ pub async fn res_type_op_data(
         None
     };
     Ok(JsonResponse::data(JsonData::body(
-        json!({ "data": rows,"total":count}),
+        JsonPageData::total(rows, count),
     )))
 }

@@ -1,9 +1,8 @@
 
 use lsys_core::utils::now_time;
 //RBAC中角色相关实现
-use sqlx::{FromRow, Row};
-use lsys_core::sql_format;
-use lsys_core::db::TableMeta;
+use sqlx::{FromRow, MySql, QueryBuilder, Row};
+use lsys_core::db::{QueryBuilderExt, TableMeta};
 use tracing::error;
 
 use crate::{dao::result::RbacResult, 
@@ -13,7 +12,6 @@ use crate::{dao::result::RbacResult,
     }};
 
 use super::{cache::RbacRoleCache, RbacRole};
-use lsys_core::db::SqlQuote;
 
 //角色对应授权检查的相关实现
 
@@ -54,12 +52,12 @@ impl RbacRoleCache<'_>{
                     None => {
                         let mut start_id=0;
                         loop {
-                            match sqlx::query_as::<_, (u64, u64,u64)>(&sql_format!(
-                                "select id,res_id,op_id from {} where role_id={} and id>{} order by id asc limit 100 ",
-                                RbacPermModel::table_name(),
-                                role.id,
-                                start_id
+                            match sqlx::query_as::<_, (u64, u64,u64)>(&format!(
+                                "select id,res_id,op_id from {} where role_id=? and id>? order by id asc limit 100 ",
+                                RbacPermModel::table_name()
                             ))
+                            .bind(role.id)
+                            .bind(start_id)
                             .fetch_all(&self.role.db)
                             .await{
                                 Ok(data) => {
@@ -95,12 +93,12 @@ impl RbacRoleCache<'_>{
                     None => {
                         let mut start_id=0;
                         loop {
-                            match sqlx::query_as::<_, (u64, u64)>(&sql_format!(
-                                "select id,user_id from {} where role_id={} and id>{} order by id asc limit 100 ",
-                                RbacRoleUserModel::table_name(),
-                                role.id,
-                                start_id
+                            match sqlx::query_as::<_, (u64, u64)>(&format!(
+                                "select id,user_id from {} where role_id=? and id>? order by id asc limit 100 ",
+                                RbacRoleUserModel::table_name()
                             ))
+                            .bind(role.id)
+                            .bind(start_id)
                             .fetch_all(&self.role.db)
                             .await{
                                 Ok(data) => {
@@ -137,12 +135,12 @@ impl RbacRoleCache<'_>{
                                 None => {
                                     let mut start_id=0;
                                     loop {
-                                        match sqlx::query_as::<_, (u64, u64)>(&sql_format!(
-                                            "select id,user_id from {} where role_id={} and id>{} order by id asc limit 100 ",
-                                            RbacRoleUserModel::table_name(),
-                                            role.id,
-                                            start_id
+                                        match sqlx::query_as::<_, (u64, u64)>(&format!(
+                                            "select id,user_id from {} where role_id=? and id>? order by id asc limit 100 ",
+                                            RbacRoleUserModel::table_name()
                                         ))
+                                        .bind(role.id)
+                                        .bind(start_id)
                                         .fetch_all(&self.role.db)
                                         .await{
                                             Ok(data) => {
@@ -169,12 +167,12 @@ impl RbacRoleCache<'_>{
                     None => {
                         let mut start_id=0;
                         loop {
-                            match sqlx::query_as::<_, (u64, u64,u64)>(&sql_format!(
-                                "select id,res_id,op_id from {}  where role_id={} and id>{} order by id asc limit 100 ",
-                                RbacPermModel::table_name(),
-                                role.id,
-                                start_id
+                            match sqlx::query_as::<_, (u64, u64,u64)>(&format!(
+                                "select id,res_id,op_id from {}  where role_id=? and id>? order by id asc limit 100 ",
+                                RbacPermModel::table_name()
                             ))
+                            .bind(role.id)
+                            .bind(start_id)
                             .fetch_all(&self.role.db)
                             .await{
                                 Ok(data) => {
@@ -194,12 +192,12 @@ impl RbacRoleCache<'_>{
                                             None => {
                                                 let mut user_start_id=0;
                                                 loop {
-                                                    match sqlx::query_as::<_, (u64, u64)>(&sql_format!(
-                                                        "select id,user_id from {} where role_id={} and id>{} order by id asc limit 100 ",
-                                                        RbacRoleUserModel::table_name(),
-                                                        role.id,
-                                                        user_start_id
+                                                    match sqlx::query_as::<_, (u64, u64)>(&format!(
+                                                        "select id,user_id from {} where role_id=? and id>? order by id asc limit 100 ",
+                                                        RbacRoleUserModel::table_name()
                                                     ))
+                                                    .bind(role.id)
+                                                    .bind(user_start_id)
                                                     .fetch_all(&self.role.db)
                                                     .await{
                                                         Ok(data) => {
@@ -445,11 +443,19 @@ impl AccessRoleData{
 struct RbacRoleFinder<'t>{
    role:&'t RbacRole,
    role_rows:Vec<AccessRoleRow>,
-   sqls:Vec<(String,String)>
+   cache_keys:Vec<String>,
+   qb: QueryBuilder<'static, MySql>,
+   qb_count: usize,
 }
 impl<'t> RbacRoleFinder<'t>{
     fn new(role:&'t RbacRole)->Self{
-        Self{role,role_rows:vec![],sqls:vec![]}
+        Self{role,role_rows:vec![],cache_keys:vec![],qb:QueryBuilder::<MySql>::new("select * from (("),qb_count:0}
+    }
+    fn push_union_sep(&mut self) {
+        if self.qb_count > 0 {
+            self.qb.push(") union all (");
+        }
+        self.qb_count += 1;
     }
      // -----------------
      async fn find_access_user_res_all(
@@ -462,39 +468,27 @@ impl<'t> RbacRoleFinder<'t>{
         match self.role.cache_access.get(&key).await{
             Some(data) =>self.role_rows.extend(data),
             None =>{
-                self.sqls.push((key,self.find_access_row_user_res_all(role_user_id,role_user_app_id,  access_user_id)))
-            },
-        }
-    }
-    fn find_access_row_user_res_all(
-        &self,
-        role_user_id:u64,
-        role_user_app_id:u64,
-        access_user_id:u64,
-    ) ->String{
-        sql_format!(
-            "select {} as cache_key,role.*,CONVERT(0,UNSIGNED) as op_id,CONVERT(0,UNSIGNED) as res_id ,
+                self.push_union_sep();
+                self.qb.push("select ");
+                self.qb.push_bind(key.clone());
+                self.qb.push(format!(
+                    " as cache_key,role.*,CONVERT(0,UNSIGNED) as op_id,CONVERT(0,UNSIGNED) as res_id ,
             CONVERT(0,UNSIGNED) as access_user_id, CONVERT(0,UNSIGNED) as access_timeout,CONVERT(0,UNSIGNED)  as perm_id
             from {} as role 
-            join {} as role_user on role.id=role_user.role_id
-            where role.status ={} and role.user_range={} 
-            and role.user_id={} and role.app_id={} and role.res_range={} 
-            and role_user.user_id={} and role_user.status={}",
-            self.role.cache().find_access_key_user_res_all(
-                role_user_id,
-                role_user_app_id,
-                access_user_id,
-            ),
-            RbacRoleModel::table_name(),
-            RbacRoleUserModel::table_name(),
-            RbacRoleStatus::Enable as i8,
-            RbacRoleUserRange::Custom as i8,
-            role_user_id,
-            role_user_app_id,
-            RbacRoleResRange::Any as i8,
-            access_user_id,
-            RbacRoleUserStatus::Enable as i8,
-        )           
+            join {} as role_user on role.id=role_user.role_id",
+                    RbacRoleModel::table_name(),
+                    RbacRoleUserModel::table_name()
+                ));
+                self.qb.push_where().field_eq("role.status", RbacRoleStatus::Enable as i8);
+                self.qb.push_and().field_eq("role.user_range", RbacRoleUserRange::Custom as i8);
+                self.qb.push_and().field_eq("role.user_id", role_user_id);
+                self.qb.push_and().field_eq("role.app_id", role_user_app_id);
+                self.qb.push_and().field_eq("role.res_range", RbacRoleResRange::Any as i8);
+                self.qb.push_and().field_eq("role_user.user_id", access_user_id);
+                self.qb.push_and().field_eq("role_user.status", RbacRoleUserStatus::Enable as i8);
+                self.cache_keys.push(key);
+            },
+        }
     }
     async fn find_access_session_res_all(
         &mut self,
@@ -506,36 +500,24 @@ impl<'t> RbacRoleFinder<'t>{
         match self.role.cache_access.get(&key).await{
             Some(data) =>self.role_rows.extend(data),
             None =>{
-                self.sqls.push((key,self.find_access_row_session_res_all(role_user_id,role_user_app_id,session_role_key)))
+                self.push_union_sep();
+                self.qb.push("select ");
+                self.qb.push_bind(key.clone());
+                self.qb.push(format!(
+                    " as cache_key,role.*,CONVERT(0,UNSIGNED) as op_id,CONVERT(0,UNSIGNED) as res_id,
+            CONVERT(0,UNSIGNED) as access_user_id, CONVERT(0,UNSIGNED) as access_timeout,CONVERT(0,UNSIGNED)  as perm_id
+            from {} as role",
+                    RbacRoleModel::table_name()
+                ));
+                self.qb.push_where().field_eq("role.status", RbacRoleStatus::Enable as i8);
+                self.qb.push_and().field_eq("role.user_range", RbacRoleUserRange::Session as i8);
+                self.qb.push_and().field_eq("role.user_id", role_user_id);
+                self.qb.push_and().field_eq("role.app_id", role_user_app_id);
+                self.qb.push_and().field_eq("role.res_range", RbacRoleResRange::Any as i8);
+                self.qb.push_and().field_eq("role.role_key", session_role_key.to_owned());
+                self.cache_keys.push(key);
             },
         }
-    }
-    
-    fn find_access_row_session_res_all(
-        &self,
-        role_user_id:u64,
-        role_user_app_id:u64,
-        session_role_key:&str,
-    ) ->String{
-        sql_format!(
-            "select {} as cache_key,role.*,CONVERT(0,UNSIGNED) as op_id,CONVERT(0,UNSIGNED) as res_id,
-            CONVERT(0,UNSIGNED) as access_user_id, CONVERT(0,UNSIGNED) as access_timeout,CONVERT(0,UNSIGNED)  as perm_id
-            from {} as role where role.status ={} and role.user_range={} 
-            and role.user_id={} and role.app_id={}
-            and role.res_range={} and role.role_key={} ",
-            self.role.cache().find_access_key_session_res_all(
-                role_user_id,
-                role_user_app_id,
-                session_role_key,
-            ),
-            RbacRoleModel::table_name(),
-            RbacRoleStatus::Enable as i8,
-            RbacRoleUserRange::Session as i8,
-            role_user_id,
-            role_user_app_id,
-            RbacRoleResRange::Any as i8,
-            session_role_key
-        )           
     }
      // -----------------
     async fn find_access_session_by_res(
@@ -557,14 +539,11 @@ impl<'t> RbacRoleFinder<'t>{
          match self.role.cache_access.get(&key).await{
             Some(data) =>self.role_rows.extend(data),
             None =>{
-                self.sqls.push((key,self.find_access_row_session_by_res(
-                    role_user_id, 
-                    role_user_app_id,
-                    session_role_key,
-                    RbacRoleResRange::Exclude,
-                    res_id,
-                    op_id,
-                )));
+                self.push_union_sep();
+                Self::push_session_by_res_query(&mut self.qb, &key,
+                    role_user_id, role_user_app_id, session_role_key,
+                    RbacRoleResRange::Exclude, res_id, op_id);
+                self.cache_keys.push(key);
             },
         }
         let key=self.role.cache().find_access_key_session_by_res(
@@ -578,53 +557,43 @@ impl<'t> RbacRoleFinder<'t>{
         match self.role.cache_access.get(&key).await{
             Some(data) =>self.role_rows.extend(data),
             None =>{
-                self.sqls.push((key,self.find_access_row_session_by_res(
-                    role_user_id, 
-                    role_user_app_id,
-                    session_role_key,
-                    RbacRoleResRange::Include,
-                    res_id,
-                    op_id,
-                )));
+                self.push_union_sep();
+                Self::push_session_by_res_query(&mut self.qb, &key,
+                    role_user_id, role_user_app_id, session_role_key,
+                    RbacRoleResRange::Include, res_id, op_id);
+                self.cache_keys.push(key);
             },
         }
     }
-    fn find_access_row_session_by_res(
-        &self,
-        role_user_id:u64,
-        role_user_app_id:u64,
-        session_role_key:&str,
-        res_range:RbacRoleResRange,
-        res_id:u64,
-        op_id:u64,
-    ) ->String{   
-        sql_format!(
-            "select {} as cache_key,role.*,perm.op_id,perm.res_id ,
+    #[allow(clippy::too_many_arguments)]
+    fn push_session_by_res_query(
+        qb: &mut QueryBuilder<'static, MySql>,
+        cache_key: &str,
+        role_user_id: u64,
+        role_user_app_id: u64,
+        session_role_key: &str,
+        res_range: RbacRoleResRange,
+        res_id: u64,
+        op_id: u64,
+    ) {
+        qb.push("select ");
+        qb.push_bind(cache_key.to_owned());
+        qb.push(format!(
+            " as cache_key,role.*,perm.op_id,perm.res_id ,
             CONVERT(0,UNSIGNED) as access_user_id, CONVERT(0,UNSIGNED) as access_timeout,CONVERT(0,UNSIGNED)  as perm_id
-            from {} as role join {} as perm on role.id=perm.role_id
-            where role.status ={} and role.user_range={} and role.user_id={} and role.app_id={}
-                and role.res_range={} and perm.op_id={} and perm.res_id={} 
-                and perm.status={} and role.role_key={} ",
-            self.role.cache().find_access_key_session_by_res(
-                role_user_id,
-                role_user_app_id,
-                session_role_key,
-                res_range as i8,
-                res_id,
-                op_id,
-            ),
+            from {} as role join {} as perm on role.id=perm.role_id",
             RbacRoleModel::table_name(),
-            RbacPermModel::table_name(),
-            RbacRoleStatus::Enable as i8,
-            RbacRoleUserRange::Session as i8,
-            role_user_id,
-            role_user_app_id,
-            res_range as i8,
-            op_id,
-            res_id,
-            RbacPermStatus::Enable as i8,
-            session_role_key
-        )           
+            RbacPermModel::table_name()
+        ));
+        qb.push_where().field_eq("role.status", RbacRoleStatus::Enable as i8);
+        qb.push_and().field_eq("role.user_range", RbacRoleUserRange::Session as i8);
+        qb.push_and().field_eq("role.user_id", role_user_id);
+        qb.push_and().field_eq("role.app_id", role_user_app_id);
+        qb.push_and().field_eq("role.res_range", res_range as i8);
+        qb.push_and().field_eq("perm.op_id", op_id);
+        qb.push_and().field_eq("perm.res_id", res_id);
+        qb.push_and().field_eq("perm.status", RbacPermStatus::Enable as i8);
+        qb.push_and().field_eq("role.role_key", session_role_key.to_owned());
     }
       // -----------------
     async fn find_access_user_by_res(
@@ -646,14 +615,11 @@ impl<'t> RbacRoleFinder<'t>{
         match self.role.cache_access.get(&key).await{
             Some(data) =>self.role_rows.extend(data),
             None =>{
-                self.sqls.push((key,self.find_access_row_user_by_res(
-                    role_user_id,
-                    role_user_app_id,
-                    access_user_id,
-                    RbacRoleResRange::Exclude,
-                    res_id,
-                    op_id,
-                )))
+                self.push_union_sep();
+                Self::push_user_by_res_query(&mut self.qb, &key,
+                    role_user_id, role_user_app_id, access_user_id,
+                    RbacRoleResRange::Exclude, res_id, op_id);
+                self.cache_keys.push(key);
             },
         }
         let key=self.role.cache().find_access_key_user_by_res(
@@ -667,113 +633,96 @@ impl<'t> RbacRoleFinder<'t>{
         match self.role.cache_access.get(&key).await{
             Some(data) =>self.role_rows.extend(data),
             None =>{
-                self.sqls.push((key,self.find_access_row_user_by_res(
-                    role_user_id,
-                    role_user_app_id,
-                    access_user_id,
-                    RbacRoleResRange::Include,
-                    res_id,
-                    op_id,
-                )))
+                self.push_union_sep();
+                Self::push_user_by_res_query(&mut self.qb, &key,
+                    role_user_id, role_user_app_id, access_user_id,
+                    RbacRoleResRange::Include, res_id, op_id);
+                self.cache_keys.push(key);
             },
         }
     }
-    fn find_access_row_user_by_res(
-        &self,
-        role_user_id:u64,
-        role_user_app_id:u64,
-        access_user_id:u64,
-        res_range:RbacRoleResRange,
-        res_id:u64,
-        op_id:u64,
-    ) ->String{   
-        sql_format!(
-            "select {} as cache_key,role.*,perm.op_id,perm.res_id,
+    #[allow(clippy::too_many_arguments)]
+    fn push_user_by_res_query(
+        qb: &mut QueryBuilder<'static, MySql>,
+        cache_key: &str,
+        role_user_id: u64,
+        role_user_app_id: u64,
+        access_user_id: u64,
+        res_range: RbacRoleResRange,
+        res_id: u64,
+        op_id: u64,
+    ) {
+        qb.push("select ");
+        qb.push_bind(cache_key.to_owned());
+        qb.push(format!(
+            " as cache_key,role.*,perm.op_id,perm.res_id,
             role_user.user_id as access_user_id,role_user.timeout as access_timeout,perm.id as perm_id
             from {} as role 
             join {} as perm on role.id=perm.role_id
-            join {} as role_user on role.id=role_user.role_id where 
-            role.status ={} and perm.status ={} and role_user.status ={}  
-            and role.user_range={} and role.res_range={}  
-            and perm.op_id={} and perm.res_id={} and role.user_id={} and role.app_id={}
-            and role_user.user_id={}",
-            self.role.cache().find_access_key_user_by_res(
-                role_user_id,
-                role_user_app_id,
-                access_user_id,
-                res_range as i8,
-                res_id,
-                op_id,
-            ),
+            join {} as role_user on role.id=role_user.role_id",
             RbacRoleModel::table_name(),
             RbacPermModel::table_name(),
-            RbacRoleUserModel::table_name(),
-            RbacRoleStatus::Enable as i8,
-            RbacPermStatus::Enable as i8,
-            RbacRoleUserStatus::Enable as i8,
-            RbacRoleUserRange::Custom as i8,
-            res_range as i8,
-            op_id,
-            res_id,
-            role_user_id,
-            role_user_app_id,
-            access_user_id
-        )           
+            RbacRoleUserModel::table_name()
+        ));
+        qb.push_where().field_eq("role.status", RbacRoleStatus::Enable as i8);
+        qb.push_and().field_eq("perm.status", RbacPermStatus::Enable as i8);
+        qb.push_and().field_eq("role_user.status", RbacRoleUserStatus::Enable as i8);
+        qb.push_and().field_eq("role.user_range", RbacRoleUserRange::Custom as i8);
+        qb.push_and().field_eq("role.res_range", res_range as i8);
+        qb.push_and().field_eq("perm.op_id", op_id);
+        qb.push_and().field_eq("perm.res_id", res_id);
+        qb.push_and().field_eq("role.user_id", role_user_id);
+        qb.push_and().field_eq("role.app_id", role_user_app_id);
+        qb.push_and().field_eq("role_user.user_id", access_user_id);
     }
       // -----------------
-    async fn find_access_row_by_sql(&self,sqls:&[&str])-> RbacResult<Vec<(String,AccessRoleRow)>>  {
-        Ok(sqlx::query(&format!(
-            "select * from (({})) as t",
-            sqls.join(") union all (")
-        ))
-        .try_map(
-            |row: sqlx::mysql::MySqlRow| match RbacRoleModel::from_row(&row) {
-                Ok(role) => {
-                    macro_rules! u64_row_get {
-                        ($key:literal) => {
-                            match row.try_get::<u64, &str>($key) {
-                                Ok(id) => id,
-                                Err(err) => {
-                                    // dbg!("{:?}", err);
-                                    error!(
-                                        "find_access_row_by_sql get {} fail:{:?} on id :{}",
-                                        $key,err, role.id
-                                    );
-                                    0
+    async fn get_role_row(mut self)-> RbacResult<Vec<AccessRoleRow>>{
+        if self.qb_count > 0 {
+            self.qb.push(")) as t");
+            let mut role_data: Vec<(String,AccessRoleRow)> = self.qb.build()
+            .try_map(
+                |row: sqlx::mysql::MySqlRow| match RbacRoleModel::from_row(&row) {
+                    Ok(role) => {
+                        macro_rules! u64_row_get {
+                            ($key:literal) => {
+                                match row.try_get::<u64, &str>($key) {
+                                    Ok(id) => id,
+                                    Err(err) => {
+                                        error!(
+                                            "find_access_row_by_sql get {} fail:{:?} on id :{}",
+                                            $key,err, role.id
+                                        );
+                                        0
+                                    }
                                 }
+                            };
+                        }
+                        let op_id =u64_row_get!("op_id");
+                        let res_id =u64_row_get!("res_id");
+                        let perm_id =u64_row_get!("perm_id");
+                        let access_timeout =u64_row_get!("access_timeout");
+                        let access_user_id =u64_row_get!("access_user_id");
+                        let cache_key= match row.try_get::<String, &str>("cache_key") {
+                            Ok(id) => id,
+                            Err(err) => {
+                                return Err(err);
                             }
                         };
+                        Ok((cache_key,AccessRoleRow {
+                            role,
+                            op_id,
+                            res_id,
+                            perm_id,
+                            access_timeout,
+                            access_user_id,
+                        }))
                     }
-                    let op_id =u64_row_get!("op_id");
-                    let res_id =u64_row_get!("res_id");
-                    let perm_id =u64_row_get!("perm_id");
-                    let access_timeout =u64_row_get!("access_timeout");
-                    let access_user_id =u64_row_get!("access_user_id");
-                    let cache_key= match row.try_get::<String, &str>("cache_key") {
-                        Ok(id) => id,
-                        Err(err) => {
-                            return Err(err);
-                        }
-                    };
-                    Ok((cache_key,AccessRoleRow {
-                        role,
-                        op_id,
-                        res_id,
-                        perm_id,
-                        access_timeout,
-                        access_user_id,
-                    }))
-                }
-                Err(err) => Err(err),
-            },
-        )
-        .fetch_all(&self.role.db)
-        .await?)
-    }
-    async fn get_role_row(mut self)-> RbacResult<Vec<AccessRoleRow>>{
-        if !self.sqls.is_empty() {
-            let mut role_data=self.find_access_row_by_sql(&self.sqls.iter().map(|e|e.1.as_str()).collect::<Vec<_>>()).await?;
-            for (key,_) in self.sqls{
+                    Err(err) => Err(err),
+                },
+            )
+            .fetch_all(&self.role.db)
+            .await?;
+            for key in self.cache_keys{
                 let mut set_tmp=Vec::with_capacity(role_data.len());
                 let mut cache_data=Vec::with_capacity(role_data.len());
                 for (tkey,tval) in role_data{

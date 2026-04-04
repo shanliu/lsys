@@ -12,11 +12,10 @@ use lsys_core::utils::{
 };
 use lsys_core::valid_code::{CheckCodeData, ValidCode, ValidCodeData, ValidCodeDataRandom};
 use lsys_core::valid_param::{ValidEmail, ValidParam, ValidParamCheck, ValidStrlen};
-use lsys_core::{db::utils::fetch_string_field_max, fluent_message, valid_key};
+use lsys_core::{db::utils::FetchField, fluent_message, valid_key};
 
-use lsys_core::db::{SqlQuote, SqlSuffix};
+use lsys_core::db::{QueryBuilderExt};
 use lsys_core::db::{Insert, TableMeta, Update};
-use lsys_core::sql_format;
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{Acquire, MySql, Pool, Transaction};
 
@@ -60,21 +59,19 @@ impl AccountEmail {
         if email.is_empty() {
             return Err(sqlx::Error::RowNotFound.into());
         }
-        let useremal = sqlx::query_as::<_, AccountEmailModel>(&sql_format!(
-            "select * from {} where email={} and status in ({}) order by id desc",
+        let useremal = sqlx::query_as::<_, AccountEmailModel>(&format!(
+            "select * from {} where email=? and status in (?,?) order by id desc",
             AccountEmailModel::table_name(),
-            email,
-            &[
-                AccountEmailStatus::Init as i8,
-                AccountEmailStatus::Valid as i8
-            ],
         ))
+        .bind(&email)
+        .bind(AccountEmailStatus::Init as i8)
+        .bind(AccountEmailStatus::Valid as i8)
         .fetch_one(&self.db)
         .await?;
         Ok(useremal)
     }
     async fn email_param_valid(&self, email: &str) -> AccountResult<()> {
-        let email_max = fetch_string_field_max::<AccountEmailModel>(&self.db, &AccountEmailModel::EMAIL)
+        let email_max =FetchField::new(&self.db).string_max::<AccountEmailModel>( &AccountEmailModel::EMAIL)
             .await
             .len_or(150);
 
@@ -102,15 +99,13 @@ impl AccountEmail {
     ) -> AccountResult<u64> {
         self.email_param_valid(email).await?;
 
-        let email_res = sqlx::query_as::<_, AccountEmailModel>(&sql_format!(
-            "select * from {} where email={} and status in ({})",
+        let email_res = sqlx::query_as::<_, AccountEmailModel>(&format!(
+            "select * from {} where email=? and status in (?,?)",
             AccountEmailModel::table_name(),
-            email,
-            &[
-                AccountEmailStatus::Valid as i8,
-                AccountEmailStatus::Init as i8
-            ]
         ))
+        .bind(email)
+        .bind(AccountEmailStatus::Valid as i8)
+        .bind(AccountEmailStatus::Init as i8)
         .fetch_one(&self.db)
         .await;
 
@@ -155,7 +150,7 @@ impl AccountEmail {
             }
             Ok(mr) => {
                 let res = sqlx::query(
-                    sql_format!(
+                    format!(
                         "UPDATE {} SET email_count=email_count+1 WHERE id=?",
                         AccountModel::table_name(),
                     )
@@ -170,8 +165,8 @@ impl AccountEmail {
                         Err(e.into())
                     }
                     Ok(_) => {
-                        if AccountEmailStatus::Valid == status {
-                            if let Err(ie) = self
+                        if AccountEmailStatus::Valid == status
+                            && let Err(ie) = self
                                 .index
                                 .add(
                                     crate::model::AccountIndexCat::Email,
@@ -184,7 +179,6 @@ impl AccountEmail {
                                 db.rollback().await?;
                                 return Err(ie);
                             }
-                        }
 
                         db.commit().await?;
                         self.account_cache.clear(&account.id).await;
@@ -277,15 +271,14 @@ impl AccountEmail {
             .await?;
 
         let res = self.confirm_email(email, op_user_id, env_data).await;
-        if res.is_ok() {
-            if let Err(err) = self.valid_code_clear(email.account_id, &email.email).await {
+        if res.is_ok()
+            && let Err(err) = self.valid_code_clear(email.account_id, &email.email).await {
                 warn!(
                     "email {} valid clear fail:{}",
                     &email.email,
                     err.to_fluent_message().default_format()
                 );
             }
-        }
         res
     }
     /// 确认用户邮箱
@@ -299,14 +292,14 @@ impl AccountEmail {
             return Ok(0);
         }
 
-        let email_res = sqlx::query_as::<_, AccountEmailModel>(&sql_format!(
-            "select * from {} where  email={} and status = {} and account_id!={} and id!={}",
+        let email_res = sqlx::query_as::<_, AccountEmailModel>(&format!(
+            "select * from {} where  email=? and status=? and account_id!=? and id!=?",
             AccountEmailModel::table_name(),
-            email.email,
-            AccountEmailStatus::Valid,
-            email.account_id,
-            email.id
         ))
+        .bind(&email.email)
+        .bind(AccountEmailStatus::Valid as i8)
+        .bind(email.account_id)
+        .bind(email.id)
         .fetch_one(&self.db)
         .await;
 
@@ -330,10 +323,9 @@ impl AccountEmail {
         let tmp = Update::<_,AccountEmailModel>::new()
             .set(AccountEmailModel::STATUS, AccountEmailStatus::Valid as i8)
             .set(AccountEmailModel::CONFIRM_TIME, time)
-            .execute(
-                SqlSuffix::Where(&sql_format!("id={}", email.id)),
-                &mut *db,
-            )
+            .execute(&mut *db, |qb| {
+                qb.push_where().field_eq("id", email.id);
+            })
             .await;
         let res = match tmp {
             Ok(e) => e,
@@ -397,10 +389,9 @@ impl AccountEmail {
         let res = Update::<_,AccountEmailModel>::new()
             .set(AccountEmailModel::STATUS, AccountEmailStatus::Delete as i8)
             .set(AccountEmailModel::CHANGE_TIME, time)
-            .execute(
-                SqlSuffix::Where(&sql_format!("id={}", email.id)),
-                &mut *db,
-            )
+            .execute(&mut *db, |qb| {
+                qb.push_where().field_eq("id", email.id);
+            })
             .await;
         match res {
             Err(e) => {
@@ -409,7 +400,7 @@ impl AccountEmail {
             }
             Ok(mr) => {
                 let res = sqlx::query(
-                    sql_format!(
+                    format!(
                         "UPDATE {} SET email_count=email_count-1 WHERE id=? and email_count-1>=0",
                         AccountModel::table_name(),
                     )
@@ -466,28 +457,46 @@ impl AccountEmail {
     }
 
     pub async fn find_by_id(&self, id: &u64) -> AccountResult<AccountEmailModel> {
-        Ok(lsys_core::db::utils::fetch_one::<AccountEmailModel>(
+        use lsys_core::db::utils::Fetch;
+        Ok(Fetch::<MySql, AccountEmailModel>::one(
             &self.db,
-            lsys_core::sql_format!("id={id} and status in ({status})", id = id, status = [AccountEmailStatus::Valid as i8, AccountEmailStatus::Init as i8]),
+            |qb| {
+                qb.field_eq("id", *id);
+                qb.push_and().field_in_copied("status", &[AccountEmailStatus::Valid as i8, AccountEmailStatus::Init as i8]);
+            },
         ).await?)
     }
     pub async fn find_by_ids(&self, ids: &[u64]) -> AccountResult<HashMap<u64, AccountEmailModel>> {
-        Ok(lsys_core::db::utils::fetch_map::<AccountEmailModel, _, _>(
+        use lsys_core::db::utils::Fetch;
+        Ok(Fetch::<MySql, AccountEmailModel>::map(
             &self.db,
-            lsys_core::sql_format!("id in ({ids}) and status in ({status})", ids = ids, status = [AccountEmailStatus::Valid as i8, AccountEmailStatus::Init as i8]),
+            |qb| {
+                qb.field_in_copied("id", ids);
+                qb.push_and().field_in_copied("status", &[AccountEmailStatus::Valid as i8, AccountEmailStatus::Init as i8]);
+            },
             |v| v.id,
         ).await?)
     }
     pub async fn find_by_account_id_vec(&self, id: &u64) -> AccountResult<Vec<AccountEmailModel>> {
-        Ok(lsys_core::db::utils::fetch_vec::<AccountEmailModel>(
+        use lsys_core::db::utils::Fetch;
+        Ok(Fetch::<MySql, AccountEmailModel>::vec(
             &self.db,
-            lsys_core::sql_format!("account_id = {uid} and status in ({status})  order by id desc", uid = id, status = [AccountEmailStatus::Init as i8, AccountEmailStatus::Valid as i8]),
+            |qb| {
+                qb.field_eq("account_id", *id);
+                qb.push_and().field_in_copied("status", &[AccountEmailStatus::Init as i8, AccountEmailStatus::Valid as i8]);
+                qb.push(" ORDER BY id DESC");
+            },
         ).await?)
     }
     pub async fn find_by_account_ids_vec(&self, ids: &[u64]) -> AccountResult<HashMap<u64, Vec<AccountEmailModel>>> {
-        Ok(lsys_core::db::utils::fetch_group::<AccountEmailModel, _, _>(
+        use lsys_core::db::utils::Fetch;
+        Ok(Fetch::<MySql, AccountEmailModel>::group(
             &self.db,
-            lsys_core::sql_format!("account_id in ({uid}) and status in ({status}) order by id desc", uid = ids, status = [AccountEmailStatus::Init as i8, AccountEmailStatus::Valid as i8]),
+            |qb| {
+                qb.field_in_copied("account_id", ids);
+                qb.push_and().field_in_copied("status", &[AccountEmailStatus::Init as i8, AccountEmailStatus::Valid as i8]);
+                qb.push(" ORDER BY id DESC");
+            },
             |v| v.account_id,
         ).await?)
     }
@@ -500,20 +509,20 @@ pub struct AccountEmailCache<'t> {
     pub dao: &'t AccountEmail,
 }
 impl AccountEmailCache<'_> {
-    lsys_core::impl_cache_fetch_one!(
-        find_by_id,
-        dao,
-        cache,
-        u64,
-        AccountResult<AccountEmailModel>
-    );
-    lsys_core::impl_cache_fetch_vec!(
-        find_by_ids,
-        dao,
-        cache,
-        u64,
-        AccountResult<HashMap<u64, AccountEmailModel>>
-    );
+    pub async fn find_by_id(&self, id: &u64) -> AccountResult<AccountEmailModel> {
+        self.dao
+            .cache
+            .get_or_fetch(id, || self.dao.find_by_id(id))
+            .await
+    }
+    pub async fn find_by_ids(&self, ids: &[u64]) -> AccountResult<HashMap<u64, AccountEmailModel>> {
+        self.dao
+            .cache
+            .get_or_fetch_many(ids, |missing| async move {
+                self.dao.find_by_ids(&missing).await
+            })
+            .await
+    }
     pub async fn find_by_account_id_vec(
         &self,
         account_id: u64,

@@ -2,6 +2,7 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::Response,
 };
+use lsys_core::api_utils::JsonPageData;
 use lsys_core::fluent_message;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -309,5 +310,5 @@ pub(crate) async fn handle_create_config_list(
         None
     };
 
-    json_ok(json!({"data": data, "total": count}))
+    json_ok(serde_json::to_value(JsonPageData::total(data, count)).unwrap())
 }

@@ -115,9 +115,9 @@ pub async fn mfa_bind_device(
         } else {
             now_step.saturating_add(offset as u64)
         };
-        let gen = lsys_mfa::dao::totp_code(&secret_key, step, config.digits)?;
+        let generated_code = lsys_mfa::dao::totp_code(&secret_key, step, config.digits)?;
 
-        if gen == code_trimmed {
+        if generated_code == code_trimmed {
             code_valid = true;
             break;
         }

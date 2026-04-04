@@ -1,6 +1,9 @@
 pub mod account;
 pub mod app;
+pub mod app_collector;
+pub mod app_export_task;
+pub mod app_file;
+pub mod app_rbac;
 pub mod app_sender;
-pub mod collector;
-pub mod file;
+pub mod export_task;
 pub mod rbac;

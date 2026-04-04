@@ -1,8 +1,12 @@
-use crate::common::{JsonData, JsonResponse, JsonResult, LimitParam, ToCursorPageParam, UserAuthQueryDao};
+use crate::common::{
+    JsonData, JsonPageData, JsonResponse, JsonResult, LimitParam, ToCursorPageParam, UserAuthQueryDao,
+};
 use lsys_access::dao::{AccessSession, UserDataParam};
+use lsys_core::api_utils::{PageCursorValue, PageTotalRowValue};
+use lsys_core::db::TotalParam;
 use lsys_core::{db::CursorPageSort, fluents::FluentMessage};
 use serde::Deserialize;
-use serde_json::json;
+use serde_json::{json, Value};
 
 //静态模板资源数据
 
@@ -93,20 +97,25 @@ pub async fn dynamic_res_data_global_user(
         )
         .await?;
     let total = if param.count_num.unwrap_or_default() {
-        req_dao
-            .web_dao
-            .web_access
-            .access_dao
-            .user
-            .user_count(&UserDataParam {
-                app_id: Some(0),
-                user_data: None,
-                user_account: None,
-                user_any: param.user_any.as_deref(),
-            })
-            .await?
+        Some(PageTotalRowValue::from(
+            req_dao
+                .web_dao
+                .web_access
+                .access_dao
+                .user
+                .user_count(
+                    &UserDataParam {
+                        app_id: Some(0),
+                        user_data: None,
+                        user_account: None,
+                        user_any: param.user_any.as_deref(),
+                    },
+                    &TotalParam::default(),
+                )
+                .await?,
+        ))
     } else {
-        0
+        None
     };
     let res_data_key = user_res_data
         .0
@@ -155,10 +164,8 @@ pub async fn dynamic_res_data_global_user(
             }).collect::<Vec<_>>(),
         }));
     }
-    Ok(JsonResponse::data(JsonData::body(json!({
-        "tpl_data": out_data,
-        "total":total,
-        "next_cursor":user_res_data.1.next_cursor,
-        "prev_cursor":user_res_data.1.prev_cursor
-    }))))
+    let cursor = PageCursorValue::from(&user_res_data.1);
+    Ok(JsonResponse::data(JsonData::body(
+        JsonPageData::cursor(Value::Null, cursor, total).set_extra("tpl_data", out_data),
+    )))
 }

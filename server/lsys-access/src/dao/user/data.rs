@@ -4,34 +4,41 @@ use crate::model::{SessionModel, SessionStatus};
 use crate::{dao::AccessResult, model::UserModel};
 
 use super::AccessUser;
-use lsys_core::db::{CursorPageData, CursorPageParam, SqlExpr, SqlQuote, TableMeta};
-use lsys_core::{db::utils::fetch_string_field_max, sql_format, valid_key};
+use lsys_core::db::{
+    CursorPageData, CursorPageParam, QueryBuilderExt, TableMeta, TotalParam, TotalRow,
+    WhereClause,
+};
 use lsys_core::utils::{now_time, string_clear, StringClear, STRING_CLEAR_FORMAT};
 use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
+use lsys_core::{db::utils::FetchField, valid_key};
 use serde::Serialize;
+use sqlx::{MySql, QueryBuilder};
 impl AccessUser {
     //通过ID获取用户
     pub async fn find_by_id(&self, id: &u64) -> AccessResult<UserModel> {
-        Ok(lsys_core::db::utils::fetch_one::<UserModel>(
+        Ok(lsys_core::db::utils::Fetch::<MySql, UserModel>::one(
             &self.db,
-            lsys_core::sql_format!("id = {id} ", id = id),
-        ).await?)
+            |qb| { qb.field_eq("id", *id); },
+        )
+        .await?)
     }
     pub async fn find_by_ids(&self, ids: &[u64]) -> AccessResult<HashMap<u64, UserModel>> {
-        Ok(lsys_core::db::utils::fetch_map::<UserModel, _, _>(
+        Ok(lsys_core::db::utils::Fetch::<MySql, UserModel>::map(
             &self.db,
-            lsys_core::sql_format!("id in ({ids}) ", ids = ids),
+            |qb| {
+                qb.field_in_copied("id", ids);
+            },
             |v| v.id,
-        ).await?)
+        )
+        .await?)
     }
 }
 impl AccessUser {
     async fn find_by_data_param_valid(&self, user_data: &str) -> AccessResult<()> {
         let user_data = user_data.to_string();
-        let user_data_max =
-            fetch_string_field_max::<UserModel>(&self.db, &UserModel::USER_DATA)
-                .await
-                .len_or(32);
+        let user_data_max =FetchField::new(&self.db).string_max::<UserModel>( &UserModel::USER_DATA)
+            .await
+            .len_or(32);
 
         ValidParam::default()
             .add(
@@ -47,15 +54,14 @@ impl AccessUser {
     //通过登录数据查询用户
     pub async fn find_by_data(&self, app_id: u64, user_data: &str) -> AccessResult<UserModel> {
         self.find_by_data_param_valid(user_data).await?;
-        let row = sqlx::query_as::<_, UserModel>(&sql_format!(
-            "select * from {} where app_id={} and user_data={}",
+        Ok(sqlx::query_as::<_, UserModel>(&format!(
+            "select * from {} where app_id=? and user_data=?",
             UserModel::table_name(),
-            app_id,
-            user_data
         ))
+        .bind(app_id)
+        .bind(user_data)
         .fetch_one(&self.db)
-        .await?;
-        Ok(row)
+        .await?)
     }
 }
 
@@ -68,37 +74,36 @@ pub struct UserDataParam<'t> {
 
 impl AccessUser {
     //通过登录数据查询用户
-    fn user_data_where(&self, param: &UserDataParam<'_>) -> Option<Vec<String>> {
-        let mut sql_vec = vec![];
+    fn user_data_where<'a, 'args>(&self, wb: &mut WhereClause<'a, 'args, MySql>, param: &UserDataParam<'_>) -> bool {
         if let Some(ref tmp) = param.app_id {
-            sql_vec.push(sql_format!("app_id = {}", tmp));
+            wb.and().field_eq("app_id", *tmp);
         };
         if let Some(tmp) = param.user_any {
             let tmp = string_clear(tmp, StringClear::Option(STRING_CLEAR_FORMAT), Some(129));
             if tmp.is_empty() {
-                return None;
+                return false;
             }
-            sql_vec.push(sql_format!(
-                " ( user_data = {} or user_account = {} ) ",
-                tmp,
-                tmp
-            ));
+            let qb = wb.and();
+            qb.push("(");
+            qb.field_eq("user_data", tmp.clone());
+            qb.push_or().field_eq("user_account", tmp);
+            qb.push(")");
         }
         if let Some(tmp) = param.user_data {
             let tmp = string_clear(tmp, StringClear::Ident, Some(33));
             if tmp.is_empty() {
-                return None;
+                return false;
             }
-            sql_vec.push(sql_format!("user_data = {}", tmp));
+            wb.and().field_eq("user_data", tmp);
         }
         if let Some(ref tmp) = param.user_account {
             let tmp = string_clear(tmp, StringClear::Option(STRING_CLEAR_FORMAT), Some(129));
             if tmp.is_empty() {
-                return None;
+                return false;
             }
-            sql_vec.push(sql_format!("user_account = {}", tmp));
+            wb.and().field_eq("user_account", tmp);
         }
-        Some(sql_vec)
+        true
     }
     //用户数据
     pub async fn user_data(
@@ -106,39 +111,57 @@ impl AccessUser {
         param: &UserDataParam<'_>,
         limit: &CursorPageParam<u64>,
     ) -> AccessResult<(Vec<UserModel>, CursorPageData<u64>)> {
-        let where_arr = match self.user_data_where(param) {
-            Some(sql) => sql,
-            None => return Ok((vec![], CursorPageData::default())),
-        };
         let query_limit = limit.page_query("id");
-        let suff_sql = query_limit.build_query_sql(Some(&where_arr.join(" and ")));
-        let mut out_data = sqlx::query_as::<_, UserModel>(&sql_format!(
-            "select * from {} {}",
-            UserModel::table_name(),
-            SqlExpr(suff_sql)
-        ))
-        .fetch_all(&self.db)
-        .await?;
+        let mut qb = QueryBuilder::<MySql>::new(format!("select * from {}", UserModel::table_name()));
+        {
+            let mut wb = WhereClause::new(&mut qb);
+            if !self.user_data_where(&mut wb, param) {
+                return Ok((vec![], CursorPageData::default()));
+            }
+            if query_limit.has_cursor() {
+                query_limit.push_where(wb.and());
+            }
+        }
+        query_limit.push_order_by(&mut qb);
+        query_limit.push_limit(&mut qb);
+        let mut out_data = qb.build_query_as::<UserModel>().fetch_all(&self.db).await?;
         let next = query_limit.finalize(&mut out_data, |c, d| *d == c.id, |c| c.id);
         Ok((out_data, next))
     }
-    pub async fn user_count(&self, param: &UserDataParam<'_>) -> AccessResult<i64> {
-        let where_sql = match self.user_data_where(param) {
-            Some(sql) => sql,
-            None => return Ok(0),
+    pub async fn user_count(
+        &self,
+        param: &UserDataParam<'_>,
+        total_param: &TotalParam,
+    ) -> AccessResult<TotalRow> {
+        let query = total_param.total_count_query();
+        let out_total = if query.is_threshold_mode() {
+            let mut qb = QueryBuilder::<MySql>::new(format!(
+                "select count(*) as total from (select 1 from {}",
+                UserModel::table_name()
+            ));
+            {
+                let mut wb = WhereClause::new(&mut qb);
+                if !self.user_data_where(&mut wb, param) {
+                    return Ok(TotalRow::Exact(0));
+                }
+            }
+            query.push_limit(&mut qb);
+            qb.push(") as t");
+            qb.build_query_scalar::<i64>().fetch_one(&self.db).await? as u64
+        } else {
+            let mut qb = QueryBuilder::<MySql>::new(format!(
+                "select count(*) as total from {}",
+                UserModel::table_name()
+            ));
+            {
+                let mut wb = WhereClause::new(&mut qb);
+                if !self.user_data_where(&mut wb, param) {
+                    return Ok(TotalRow::Exact(0));
+                }
+            }
+            qb.build_query_scalar::<i64>().fetch_one(&self.db).await? as u64
         };
-        let out_total = sqlx::query_scalar::<_, i64>(&sql_format!(
-            "select count(*) as total from {} {}",
-            UserModel::table_name(),
-            SqlExpr(format!(
-                "{} {}",
-                if !where_sql.is_empty() { "where " } else { "" },
-                where_sql.join(" and ")
-            ))
-        ))
-        .fetch_one(&self.db)
-        .await?;
-        Ok(out_total)
+        Ok(query.finalize(out_total))
     }
 }
 
@@ -168,34 +191,30 @@ pub struct SessionDataRecord {
 
 impl AccessUser {
     //通过登录数据查询用户
-    fn session_data_where(&self, param: &SessionDataParam) -> Option<Vec<String>> {
-        let mut sql_vec = vec![];
+    fn session_data_where<'a, 'args>(&self, wb: &mut WhereClause<'a, 'args, MySql>, param: &SessionDataParam) {
         if let Some(ref tmp) = param.app_id {
-            sql_vec.push(sql_format!("user_app_id = {}", tmp));
+            wb.and().field_eq("user_app_id", *tmp);
         };
         if let Some(ref tmp) = param.oauth_app_id {
-            sql_vec.push(sql_format!("oauth_app_id = {}", tmp));
+            wb.and().field_eq("oauth_app_id", *tmp);
         };
         if let Some(ref tmp) = param.user_id {
-            sql_vec.push(sql_format!("user_id = {}", tmp));
+            wb.and().field_eq("user_id", *tmp);
         };
         if let Some(ref tmp) = param.is_enable {
             let ntime = now_time().unwrap_or_default();
             if *tmp {
-                sql_vec.push(sql_format!(
-                    "status = {} and expire_time>{}",
-                    SessionStatus::Enable as i8,
-                    ntime
-                ));
+                let qb = wb.and();
+                qb.field_eq("status", SessionStatus::Enable as i8);
+                qb.push_and().field_gt("expire_time", ntime);
             } else {
-                sql_vec.push(sql_format!(
-                    "(status != {} or expire_time<={})",
-                    SessionStatus::Enable as i8,
-                    ntime
-                ));
+                let qb = wb.and();
+                qb.push("(");
+                qb.field_ne("status", SessionStatus::Enable as i8);
+                qb.push_or().field_lte("expire_time", ntime);
+                qb.push(")");
             }
         };
-        Some(sql_vec)
     }
     // 用户登录数据
     pub async fn session_data(
@@ -203,19 +222,23 @@ impl AccessUser {
         param: &SessionDataParam,
         limit: &CursorPageParam<u64>,
     ) -> AccessResult<(Vec<SessionDataRecord>, CursorPageData<u64>)> {
-        let where_arr = match self.session_data_where(param) {
-            Some(sql) => sql,
-            None => return Ok((vec![], CursorPageData::default())),
-        };
         let query_limit = limit.page_query("id");
-        let suff_sql = query_limit.build_query_sql(Some(&where_arr.join(" and ")));
-        let mut out_data = sqlx::query_as::<_, SessionModel>(&sql_format!(
-            "select * from {} {}",
-            SessionModel::table_name(),
-            SqlExpr(suff_sql)
-        ))
-        .fetch_all(&self.db)
-        .await?;
+        let mut qb = QueryBuilder::<MySql>::new(format!(
+            "select * from {}",
+            SessionModel::table_name()
+        ));
+        {
+            let mut wb = WhereClause::new(&mut qb);
+            self.session_data_where(&mut wb, param);
+            if query_limit.has_cursor() {
+                query_limit.push_where(wb.and());
+            }
+        }
+        query_limit.push_order_by(&mut qb);
+        query_limit.push_limit(&mut qb);
+        let mut out_data = qb.build_query_as::<SessionModel>()
+            .fetch_all(&self.db)
+            .await?;
 
         let next = query_limit.finalize(&mut out_data, |c, d| *d == c.id, |c| c.id);
         let ntime = now_time().unwrap_or_default();
@@ -249,22 +272,35 @@ impl AccessUser {
             next,
         ))
     }
-    pub async fn session_count(&self, param: &SessionDataParam) -> AccessResult<i64> {
-        let where_sql = match self.session_data_where(param) {
-            Some(sql) => sql,
-            None => return Ok(0),
+    pub async fn session_count(
+        &self,
+        param: &SessionDataParam,
+        total_param: &TotalParam,
+    ) -> AccessResult<TotalRow> {
+        let query = total_param.total_count_query();
+        let out_total = if query.is_threshold_mode() {
+            let mut qb = QueryBuilder::<MySql>::new(format!(
+                "select count(*) as total from (select 1 from {}",
+                SessionModel::table_name()
+            ));
+            {
+                let mut wb = WhereClause::new(&mut qb);
+                self.session_data_where(&mut wb, param);
+            }
+            query.push_limit(&mut qb);
+            qb.push(") as t");
+            qb.build_query_scalar::<i64>().fetch_one(&self.db).await? as u64
+        } else {
+            let mut qb = QueryBuilder::<MySql>::new(format!(
+                "select count(*) as total from {}",
+                SessionModel::table_name()
+            ));
+            {
+                let mut wb = WhereClause::new(&mut qb);
+                self.session_data_where(&mut wb, param);
+            }
+            qb.build_query_scalar::<i64>().fetch_one(&self.db).await? as u64
         };
-        let out_total = sqlx::query_scalar::<_, i64>(&sql_format!(
-            "select count(*) as total from {} {}",
-            SessionModel::table_name(),
-            SqlExpr(format!(
-                "{} {}",
-                if !where_sql.is_empty() { "where " } else { "" },
-                where_sql.join(" and ")
-            ))
-        ))
-        .fetch_one(&self.db)
-        .await?;
-        Ok(out_total)
+        Ok(query.finalize(out_total))
     }
 }

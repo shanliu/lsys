@@ -223,14 +223,13 @@ impl WebUserAuth {
             .account_mobile
             .find_by_last_mobile(param.area_code, param.mobile)
             .await;
-        if let Ok(mobile) = mobile_res {
-            if AccountMobileStatus::Valid.eq(mobile.status) {
+        if let Ok(mobile) = mobile_res
+            && AccountMobileStatus::Valid.eq(mobile.status) {
                 return Err(WebError::JsonResponse(
                     Box::new(JsonData::default().set_sub_code("mobile_is_reg")),
                     fluent_message!("reg-mobile-registered"),
                 ));
             }
-        }
         let data = self
             .user_dao
             .account_dao
@@ -280,14 +279,13 @@ impl WebUserAuth {
             .account_email
             .find_by_last_email(param.email)
             .await;
-        if let Ok(email) = email_res {
-            if AccountEmailStatus::Valid.eq(email.status) {
+        if let Ok(email) = email_res
+            && AccountEmailStatus::Valid.eq(email.status) {
                 return Err(WebError::JsonResponse(
                     Box::new(JsonData::default().set_sub_code("mobile_is_reg")),
                     fluent_message!("reg-mobile-registered"),
                 ));
             }
-        }
         valid_code.check_code(&param.captcha.into()).await?;
         let data = self
             .user_dao

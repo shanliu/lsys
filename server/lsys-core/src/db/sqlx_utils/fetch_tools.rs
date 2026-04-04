@@ -1,106 +1,125 @@
+// Fetch 工具，用于简化数据库查询操作
+//
+// 使用方式：
+// ```rust
+// use lsys_core::db::sqlx_utils::Fetch;
+//
+// // 查询单条记录
+// let user = Fetch::<MySql, User>::one(&pool, |qb| {
+//     qb.field_eq("id", 1);
+// }).await?;
+//
+// // 查询多条记录
+// let users = Fetch::<MySql, User>::vec(&pool, |qb| {
+//     qb.field_eq("status", "active");
+// }).await?;
+//
+// // 查询并转为 HashMap
+// let user_map = Fetch::<MySql, User>::map(&pool, |qb| {
+//     qb.push(" 1=1 ");
+// }, |u| u.id).await?;
+//
+// // 查询并分组
+// let user_groups = Fetch::<MySql, User>::group(&pool, |qb| {
+//     qb.push(" 1=1 ");
+// }, |u| u.role_id).await?;
+// ```
+
+use sqlx::{Database, FromRow, QueryBuilder};
 use std::collections::HashMap;
 use std::hash::Hash;
+use std::marker::PhantomData;
+use crate::db::TableMeta;
 
-use sqlx::{FromRow, MySql, Pool};
-
-use crate::db::{SqlExpr, SqlQuote, TableMeta};
-
-pub async fn fetch_one<M>(db: &Pool<MySql>, where_sql: impl AsRef<str>) -> Result<M, sqlx::Error>
-where
-    M: TableMeta + Send + Unpin,
-    for<'r> M: FromRow<'r, sqlx::mysql::MySqlRow>,
-{
-    let sql = crate::sql_format!(
-        "select * from {} where {} ",
-        M::table_name(),
-        SqlExpr(where_sql.as_ref())
-    );
-    sqlx::query_as::<_, M>(&sql).fetch_one(db).await
+/// Fetch 工具结构体
+pub struct Fetch<DB: Database, M: TableMeta> {
+    _db: PhantomData<DB>,
+    _model: PhantomData<M>,
 }
 
-pub async fn fetch_vec<M>(
-    db: &Pool<MySql>,
-    where_sql: impl AsRef<str>,
-) -> Result<Vec<M>, sqlx::Error>
-where
-    M: TableMeta + Send + Unpin,
-    for<'r> M: FromRow<'r, sqlx::mysql::MySqlRow>,
-{
-    let sql = crate::sql_format!(
-        "select * from {} where {} ",
-        M::table_name(),
-        SqlExpr(where_sql.as_ref())
-    );
-    sqlx::query_as::<_, M>(&sql).fetch_all(db).await
+/// 内部宏：为指定数据库类型生成 Fetch 实现
+macro_rules! impl_fetch_for_db {
+    ($db_type:ty, $row_type:ty) => {
+        impl<M: TableMeta> Fetch<$db_type, M> {
+            /// 查询单条记录
+            pub async fn one<'e, E>(
+                executor: E,
+                build_where: impl FnOnce(&mut QueryBuilder<'static, $db_type>),
+            ) -> Result<M, sqlx::Error>
+            where
+                E: sqlx::Executor<'e, Database = $db_type>,
+                M: Send + Unpin,
+                for<'r> M: FromRow<'r, $row_type>,
+            {
+                let mut qb = QueryBuilder::new(format!("SELECT * FROM {} WHERE ", M::table_name()));
+                build_where(&mut qb);
+                qb.build_query_as::<M>().fetch_one(executor).await
+            }
+
+            /// 查询多条记录
+            pub async fn vec<'e, E>(
+                executor: E,
+                build_where: impl FnOnce(&mut QueryBuilder<'static, $db_type>),
+            ) -> Result<Vec<M>, sqlx::Error>
+            where
+                E: sqlx::Executor<'e, Database = $db_type>,
+                M: Send + Unpin,
+                for<'r> M: FromRow<'r, $row_type>,
+            {
+                let mut qb = QueryBuilder::new(format!("SELECT * FROM {} WHERE ", M::table_name()));
+                build_where(&mut qb);
+                qb.build_query_as::<M>().fetch_all(executor).await
+            }
+
+            /// 查询并转为 HashMap
+            pub async fn map<'e, E, K, F>(
+                executor: E,
+                build_where: impl FnOnce(&mut QueryBuilder<'static, $db_type>),
+                key_by: F,
+            ) -> Result<HashMap<K, M>, sqlx::Error>
+            where
+                E: sqlx::Executor<'e, Database = $db_type>,
+                M: Send + Unpin,
+                for<'r> M: FromRow<'r, $row_type>,
+                K: Eq + Hash,
+                F: Fn(&M) -> K,
+            {
+                let data = Self::vec(executor, build_where).await?;
+                let mut hash = HashMap::with_capacity(data.len());
+                for item in data {
+                    hash.entry(key_by(&item)).or_insert(item);
+                }
+                Ok(hash)
+            }
+
+            /// 查询并分组
+            pub async fn group<'e, E, K, F>(
+                executor: E,
+                build_where: impl FnOnce(&mut QueryBuilder<'static, $db_type>),
+                key_by: F,
+            ) -> Result<HashMap<K, Vec<M>>, sqlx::Error>
+            where
+                E: sqlx::Executor<'e, Database = $db_type>,
+                M: Send + Unpin,
+                for<'r> M: FromRow<'r, $row_type>,
+                K: Eq + Hash,
+                F: Fn(&M) -> K,
+            {
+                let data = Self::vec(executor, build_where).await?;
+                let mut hash = HashMap::new();
+                for item in data {
+                    hash.entry(key_by(&item)).or_insert_with(Vec::new).push(item);
+                }
+                Ok(hash)
+            }
+        }
+    };
 }
 
-pub async fn fetch_map<M, K, F>(
-    db: &Pool<MySql>,
-    where_sql: impl AsRef<str>,
-    key_by: F,
-) -> Result<HashMap<K, M>, sqlx::Error>
-where
-    M: TableMeta + Send + Unpin,
-    for<'r> M: FromRow<'r, sqlx::mysql::MySqlRow>,
-    K: Eq + Hash,
-    F: Fn(&M) -> K,
-{
-    let data = fetch_vec::<M>(db, where_sql).await?;
-    Ok(build_unique_map(data, key_by))
-}
-
-pub async fn fetch_group<M, K, F>(
-    db: &Pool<MySql>,
-    where_sql: impl AsRef<str>,
-    key_by: F,
-) -> Result<HashMap<K, Vec<M>>, sqlx::Error>
-where
-    M: TableMeta + Send + Unpin,
-    for<'r> M: FromRow<'r, sqlx::mysql::MySqlRow>,
-    K: Eq + Hash,
-    F: Fn(&M) -> K,
-{
-    let data = fetch_vec::<M>(db, where_sql).await?;
-    let mut hash = HashMap::new();
-    for data_ in data.into_iter() {
-        hash.entry(key_by(&data_)).or_insert(vec![]).push(data_);
-    }
-    Ok(hash)
-}
-
-#[inline]
-fn build_unique_map<M, K, F>(data: Vec<M>, key_by: F) -> HashMap<K, M>
-where
-    K: Eq + Hash,
-    F: Fn(&M) -> K,
-{
-    let mut hash = HashMap::with_capacity(data.len());
-    for data_ in data.into_iter() {
-        hash.entry(key_by(&data_)).or_insert(data_);
-    }
-    hash
-}
-
-#[cfg(test)]
-mod tests {
-    use super::build_unique_map;
-
-    #[derive(Clone)]
-    struct TmpModel {
-        id: u64,
-        v: &'static str,
-    }
-
-    #[test]
-    fn test_build_unique_map_keep_first() {
-        let data = vec![
-            TmpModel { id: 1, v: "a" },
-            TmpModel { id: 1, v: "b" },
-            TmpModel { id: 2, v: "c" },
-        ];
-        let map = build_unique_map(data, |m| m.id);
-        assert_eq!(map.len(), 2);
-        assert_eq!(map.get(&1).map(|m| m.v), Some("a"));
-        assert_eq!(map.get(&2).map(|m| m.v), Some("c"));
-    }
-}
+// 为各数据库类型生成实现
+#[cfg(feature = "db-mysql")]
+impl_fetch_for_db!(sqlx::MySql, sqlx::mysql::MySqlRow);
+#[cfg(feature = "db-postgres")]
+impl_fetch_for_db!(sqlx::Postgres, sqlx::postgres::PgRow);
+#[cfg(feature = "db-sqlite")]
+impl_fetch_for_db!(sqlx::Sqlite, sqlx::sqlite::SqliteRow);

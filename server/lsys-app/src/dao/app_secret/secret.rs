@@ -1,12 +1,10 @@
 use lsys_core::cache::LocalCache;
 use lsys_core::cache::LocalCacheConfig;
 use lsys_core::db::Insert;
+use lsys_core::db::QueryBuilderExt;
 use lsys_core::db::TableMeta;
-use lsys_core::db::SqlQuote;
-use lsys_core::db::SqlSuffix;
 use lsys_core::db::Update;
 use lsys_core::remote_notify::RemoteNotify;
-use lsys_core::sql_format;
 use lsys_core::valid_key;
 use lsys_core::utils::{now_time, rand_str, RandType};
 use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
@@ -113,13 +111,13 @@ impl AppSecret {
         let add_id = match res {
             Ok(row) => {
                 if row.last_insert_id() == 0 {
-                    sqlx::query_scalar::<_, u64>(&sql_format!(
-                        "select id from {} where app_id={} and secret_type={} and secret_data={}",
+                    sqlx::query_scalar::<_, u64>(&format!(
+                        "select id from {} where app_id=? and secret_type=? and secret_data=?",
                         AppSecretModel::table_name(),
-                        app_id,
-                        secret_type,
-                        secret_data
                     ))
+                    .bind(app_id)
+                    .bind(secret_type)
+                    .bind(&secret_data)
                     .fetch_one(&self.db)
                     .await?
                 } else {
@@ -137,15 +135,9 @@ impl AppSecret {
                 .set(AppSecretModel::STATUS, bad_status)
                 .set(AppSecretModel::CHANGE_USER_ID, user_id)
                 .set(AppSecretModel::CHANGE_TIME, ntime)
-                .execute(
-                    SqlSuffix::Where(&sql_format!(
-                        "app_id={} and secret_type={} and id!={}",
-                        app_id,
-                        secret_type,
-                        add_id
-                    )),
-                    &mut *db,
-                )
+                .execute(&mut *db, |qb| {
+                    qb.push_where().field_eq("app_id", app_id).push_and().field_eq("secret_type", secret_type).push_and().field_ne("id", add_id);
+                })
                 .await;
             if let Err(e) = ures {
                 db.rollback().await?;
@@ -236,15 +228,11 @@ impl AppSecret {
             .set(AppSecretModel::STATUS, status_del)
             .set(AppSecretModel::CHANGE_USER_ID, change_user_id)
             .set(AppSecretModel::CHANGE_TIME, ntime)
-            .execute(
-                SqlSuffix::Where(&sql_format!(
-                    "app_id={} and secret_type={} and secret_data={} ",
-                    app_id,
-                    secret_type as i8,
-                    secret_data,
-                )),
-                db,
-            )
+            .execute(db, |qb| {
+                qb.push_where().field_eq("app_id", app_id)
+                    .push_and().field_eq("secret_type", secret_type as i8)
+                    .push_and().field_eq("secret_data", secret_data.clone());
+            })
             .await?;
         self.secret_cache
             .clear(&AppSecretCacheKey {
@@ -290,16 +278,12 @@ impl AppSecret {
             .set(AppSecretModel::TIME_OUT, time_out)
             .set(AppSecretModel::CHANGE_USER_ID, change_user_id)
             .set(AppSecretModel::CHANGE_TIME, ntime)
-            .execute(
-                SqlSuffix::Where(&sql_format!(
-                    "app_id={} and secret_type={} and secret_data={} and status={}",
-                    app_id,
-                    secret_type as i8,
-                    old_secret_data,
-                    AppSecretStatus::Enable as i8
-                )),
-                db,
-            )
+            .execute(db, |qb| {
+                qb.push_where().field_eq("app_id", app_id)
+                    .push_and().field_eq("secret_type", secret_type as i8)
+                    .push_and().field_eq("secret_data", old_secret_data.to_owned())
+                    .push_and().field_eq("status", AppSecretStatus::Enable as i8);
+            })
             .await?;
         self.secret_cache
             .clear(&AppSecretCacheKey {
@@ -333,15 +317,11 @@ impl AppSecret {
             .set(AppSecretModel::STATUS, secret_status)
             .set(AppSecretModel::CHANGE_USER_ID, change_user_id)
             .set(AppSecretModel::CHANGE_TIME, ntime)
-            .execute(
-                SqlSuffix::Where(&sql_format!(
-                    "app_id={} and secret_type={} and secret_data={}",
-                    app_id,
-                    secret_type as i8,
-                    secret_data
-                )),
-                db,
-            )
+            .execute(db, |qb| {
+                qb.push_where().field_eq("app_id", app_id)
+                    .push_and().field_eq("secret_type", secret_type as i8)
+                    .push_and().field_eq("secret_data", secret_data.to_owned());
+            })
             .await?;
         self.secret_cache
             .clear(&AppSecretCacheKey {
@@ -357,12 +337,12 @@ impl AppSecret {
         change_user_id: u64,
         db: E,
     ) -> Result<(), AppError> {
-        let clear_data = sqlx::query_scalar::<_, i8>(&sql_format!(
-            "select secret_type from {} where app_id={} and status={} ",
+        let clear_data = sqlx::query_scalar::<_, i8>(&format!(
+            "select secret_type from {} where app_id=? and status=? ",
             AppSecretModel::table_name(),
-            app_id,
-            AppSecretStatus::Enable as i8,
         ))
+        .bind(app_id)
+        .bind(AppSecretStatus::Enable as i8)
         .fetch_all(&self.db)
         .await?;
         let ntime = now_time().unwrap_or_default();
@@ -371,7 +351,9 @@ impl AppSecret {
             .set(AppSecretModel::STATUS, secret_status)
             .set(AppSecretModel::CHANGE_USER_ID, change_user_id)
             .set(AppSecretModel::CHANGE_TIME, ntime)
-            .execute(SqlSuffix::Where(&sql_format!("app_id={}", app_id)), db)
+            .execute(db, |qb| {
+                qb.push_where().field_eq("app_id", app_id);
+            })
             .await?;
         for secret_type in clear_data {
             self.secret_cache
@@ -393,16 +375,16 @@ impl AppSecret {
         secret_type: AppSecretType,
     ) -> AppResult<Vec<AppSecretRecord>> {
         let ntime = now_time().unwrap_or_default();
-        let out=sqlx::query_as::<_, AppSecretModel>(&sql_format!(
-            "select secret_data,time_out from {} where app_id={} and secret_type={} and status={} and (
-                time_out=0 or time_out>{}
+        let out=sqlx::query_as::<_, AppSecretModel>(&format!(
+            "select secret_data,time_out from {} where app_id=? and secret_type=? and status=? and (
+                time_out=0 or time_out>?
             )",
             AppSecretModel::table_name(),
-            app_id,
-            secret_type as i8,
-            AppSecretStatus::Enable as i8,
-            ntime
         ))
+        .bind(app_id)
+        .bind(secret_type as i8)
+        .bind(AppSecretStatus::Enable as i8)
+        .bind(ntime)
         .fetch_all(&self.db)
         .await
         .map(|e| {
@@ -428,16 +410,16 @@ impl AppSecret {
         secret_type: AppSecretType,
     ) -> AppResult<AppSecretRecord> {
         let ntime = now_time().unwrap_or_default();
-        let out=sqlx::query_as::<_, AppSecretModel>(&sql_format!(
-            "select secret_data,time_out from {} where app_id={} and secret_type={} and status={} and (
-                time_out=0 or time_out>{}
+        let out= sqlx::query_as::<_, AppSecretModel>(&format!(
+            "select secret_data,time_out from {} where app_id=? and secret_type=? and status=? and (
+                time_out=0 or time_out>?
             ) order by id desc limit 1",
             AppSecretModel::table_name(),
-            app_id,
-            secret_type as i8,
-            AppSecretStatus::Enable as i8,
-            ntime
         ))
+        .bind(app_id)
+        .bind(secret_type as i8)
+        .bind(AppSecretStatus::Enable as i8)
+        .bind(ntime)
         .fetch_one(&self.db)
         .await;
         match out {

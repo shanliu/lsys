@@ -19,10 +19,8 @@ use std::vec;
 use lsys_core::utils::{now_time, RequestEnv};
 
 use lsys_core::db::{
-    utils::fetch_string_field_max, Insert, OptionTxExecutor, SqlQuote, SqlSuffix, TableMeta,
-    Update,
+    utils::FetchField, Insert, OptionTxExecutor, QueryBuilderExt, TableMeta, Update,
 };
-use lsys_core::sql_format;
 use sqlx::{Acquire, Transaction};
 
 use super::res::RbacRes;
@@ -71,10 +69,11 @@ pub struct RbacOpAddData<'t> {
 
 impl RbacOp {
     async fn op_param_valid(&self, param: &RbacOpData<'_>) -> RbacResult<()> {
-        let op_key_max = fetch_string_field_max::<RbacOpModel>(&self.db, &RbacOpModel::OP_KEY)
+        let fetch_field = FetchField::new(&self.db);
+        let op_key_max = fetch_field.string_max::<RbacOpModel>( &RbacOpModel::OP_KEY)
             .await
             .len_or(32);
-        let op_name_max = fetch_string_field_max::<RbacOpModel>(&self.db, &RbacOpModel::OP_NAME)
+        let op_name_max = fetch_field.string_max::<RbacOpModel>( &RbacOpModel::OP_NAME)
             .await
             .len_or(32);
 
@@ -111,14 +110,14 @@ impl RbacOp {
             .op_name
             .map(|e| e.to_owned())
             .unwrap_or_default();
-        let find_res = sqlx::query_as::<_, RbacOpModel>(&sql_format!(
-            "select * from {} where user_id={} and op_key={} and app_id={} and status={}",
+        let find_res = sqlx::query_as::<_, RbacOpModel>(&format!(
+            "select * from {} where user_id=? and op_key=? and app_id=? and status=?",
             RbacOpModel::table_name(),
-            param.user_id,
-            op_key,
-            param.app_id.unwrap_or_default(),
-            RbacOpStatus::Enable,
         ))
+        .bind(param.user_id)
+        .bind(&op_key)
+        .bind(param.app_id.unwrap_or_default())
+        .bind(RbacOpStatus::Enable as i8)
         .fetch_one(&self.db)
         .await;
         match find_res {
@@ -145,15 +144,14 @@ impl RbacOp {
                     .set(RbacOpModel::CHANGE_USER_ID, add_user_id)
                     .set(RbacOpModel::STATUS, RbacOpStatus::Enable as i8)
                     .execute(
-                        SqlSuffix::Where(&sql_format!(
-                            "user_id={} and op_key={} and  app_id={} and status={} and id!={}",
-                            param.user_id,
-                            op_key,
-                            app_id,
-                            RbacOpStatus::Enable as i8,
-                            add_id
-                        )),
                         OptionTxExecutor::new(transaction, &self.db),
+                        |qb| {
+                            qb.push_where().field_eq("user_id", param.user_id);
+                            qb.push_and().field_eq("op_key", op_key.to_owned());
+                            qb.push_and().field_eq("app_id", app_id);
+                            qb.push_and().field_eq("status", RbacOpStatus::Enable as i8);
+                            qb.push_and().field_ne("id", add_id);
+                        },
                     )
                     .await?;
                 let id = add_id;
@@ -200,15 +198,15 @@ impl RbacOp {
     ) -> RbacResult<u64> {
         self.op_param_valid(op_info).await?;
 
-        let res = sqlx::query_as::<_, RbacOpModel>(&sql_format!(
-            "select * from {} where user_id={} and op_key={} and app_id={} and status={} and id!={}",
+        let res = sqlx::query_as::<_, RbacOpModel>(&format!(
+            "select * from {} where user_id=? and op_key=? and app_id=? and status=? and id!=?",
             RbacOpModel::table_name(),
-            op.user_id,
-             op_info.op_key,
-            op.app_id,
-            RbacOpStatus::Enable,
-            op.id
         ))
+        .bind(op.user_id)
+        .bind(op_info.op_key)
+        .bind(op.app_id)
+        .bind(RbacOpStatus::Enable as i8)
+        .bind(op.id)
         .fetch_one(&self.db)
         .await;
         match res {
@@ -236,8 +234,10 @@ impl RbacOp {
         }
         let out = update
             .execute(
-                SqlSuffix::Where(&sql_format!("id={}", op.id)),
                 OptionTxExecutor::new(transaction, &self.db),
+                |qb| {
+                    qb.push_where().field_eq("id", op.id);
+                },
             )
             .await?;
         let fout = out.rows_affected();
@@ -295,7 +295,9 @@ impl RbacOp {
             .set(RbacOpModel::CHANGE_USER_ID, delete_user_id)
             .set(RbacOpModel::CHANGE_TIME, time)
             .set(RbacOpModel::STATUS, RbacOpStatus::Delete as i8)
-            .execute(SqlSuffix::Where(&sql_format!("id={}", op.id)), &mut *db)
+            .execute(&mut *db, |qb| {
+                qb.push_where().field_eq("id", op.id);
+            })
             .await;
         if let Err(e) = tmp {
             db.rollback().await?;

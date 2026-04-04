@@ -1,32 +1,52 @@
 use crate::db::sqlx::update::Update;
-use crate::db::SqlQuote;
+use crate::db::sqlx::utils::{push_set_clause_to, push_values_to, push_field_value_or_default};
 
 use super::field::Field;
 use super::table::TableMeta;
 use super::value::{FieldValue, IntoFieldValue, StoredValue};
-use sqlx::query::Query;
 use sqlx::{Database, Error, Executor};
 use std::marker::PhantomData;
 
+// 使用公共的数据库类型检测函数
+#[cfg(feature = "db-mysql")]
+#[allow(unused)]
+use super::db_type::is_mysql_db;
+#[cfg(feature = "db-postgres")]
+#[allow(unused)]
+use super::db_type::is_postgres_db;
+#[cfg(feature = "db-sqlite")]
+#[allow(unused)]
+use super::db_type::is_sqlite_db;
+
 /// INSERT 构建器
-pub struct Insert<'a, DB: Database, M: TableMeta> {
-    pub(crate) fields: Vec<(String, StoredValue<'a, DB>)>,
+pub struct Insert<DB: Database, M: TableMeta> {
+    pub(crate) fields: Vec<(String, StoredValue<DB>)>,
     _marker: PhantomData<M>,
 }
 
-impl<'a, DB: Database, M: TableMeta> Insert<'a, DB, M> {
+impl<DB: Database, M: TableMeta> Insert<DB, M> {
     pub fn new() -> Self {
         Self {
             fields: Vec::new(),
             _marker: PhantomData,
         }
     }
+}
+
+impl<DB: Database, M: TableMeta> Default for Insert<DB, M> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<DB: Database, M: TableMeta> Insert<DB, M> {
 
     /// 设置字段值
     pub fn set<T, V>(mut self, field: Field<T>, value: V) -> Self
     where
-        for<'q> T: sqlx::Encode<'q, DB> + sqlx::Type<DB> + Send + Sync + 'a,
-        V: IntoFieldValue<'a, DB, T>,
+        T: Clone + Send + Sync + 'static,
+        for<'q> T: sqlx::Encode<'q, DB> + sqlx::Type<DB>,
+        V: IntoFieldValue<DB, T>,
     {
         let col = field.column.to_string();
         let field_value = value.into_field_value();
@@ -34,8 +54,8 @@ impl<'a, DB: Database, M: TableMeta> Insert<'a, DB, M> {
         let existing_idx = self.fields.iter().position(|(c, _)| c == &col);
 
         match field_value {
-            FieldValue::Bind(v) => {
-                let stored = StoredValue::Bind(v);
+            FieldValue::Value(v) => {
+                let stored = StoredValue::Bind(Box::new(v));
                 match existing_idx {
                     Some(idx) => self.fields[idx] = (col, stored),
                     None => self.fields.push((col, stored)),
@@ -43,6 +63,13 @@ impl<'a, DB: Database, M: TableMeta> Insert<'a, DB, M> {
             }
             FieldValue::Expr(e) => {
                 let stored = StoredValue::Expr(e);
+                match existing_idx {
+                    Some(idx) => self.fields[idx] = (col, stored),
+                    None => self.fields.push((col, stored)),
+                }
+            }
+            FieldValue::Dynamic(f) => {
+                let stored = StoredValue::Dynamic(f);
                 match existing_idx {
                     Some(idx) => self.fields[idx] = (col, stored),
                     None => self.fields.push((col, stored)),
@@ -61,139 +88,40 @@ impl<'a, DB: Database, M: TableMeta> Insert<'a, DB, M> {
         self.fields.is_empty()
     }
 
-    /// 将字段值绑定到 Query
-    fn bind_fields<'q>(&'q self, sql: &'q str, mut args: <DB as Database>::Arguments<'q>) -> Query<'q, DB, <DB as Database>::Arguments<'q>> 
-    where
-        for<'a_> <DB as Database>::Arguments<'a_>: sqlx::Arguments<'a_> + sqlx::IntoArguments<'a_, DB>,
-    {
-        for (_, value) in &self.fields {
-            if let StoredValue::Bind(b) = value {
-                b.add_to_args_dyn(&mut args);
-            }
-        }
+    // 泛型 execute 方法已移至文件末尾的特定数据库实现
+    // 以避免 QueryBuilder 的生命周期问题
 
-        sqlx::query_with(sql, args)
-    }
+    // execute_update_mysql 方法已移至文件末尾的特定数据库实现
+    // 以避免 QueryBuilder 的生命周期问题
 
-    /// 执行 INSERT
-    pub async fn execute<'e, E>(self, executor: E) -> Result<<DB as Database>::QueryResult, Error>
-    where
-        for<'a_> <DB as Database>::Arguments<'a_>: sqlx::Arguments<'a_> + sqlx::IntoArguments<'a_, DB>,
-        E: Executor<'e, Database = DB>,
-    {
-        let table = M::table_name().sql_quote();
+    // execute_update_postgres 方法已移至文件末尾的特定数据库实现
 
-        let sql = if self.fields.is_empty() {
-            format!("INSERT INTO {} () VALUES ()", table)
-        } else {
-            let columns: Vec<&str> = self.fields.iter().map(|(col, _)| col.as_str()).collect();
+    // execute_update_sqlite 方法已移至文件末尾的特定数据库实现
 
-            let placeholders: Vec<String> = self
-                .fields
-                .iter()
-                .map(|(_, v)| match v {
-                    StoredValue::Bind(_) => "?".to_string(), // In PostgreSQL it uses $1 but ? works for MySQL, SQLite.
-                    StoredValue::Expr(e) => e.clone(),
-                })
-                .collect();
-
-            format!(
-                "INSERT INTO {} ({}) VALUES ({})",
-                table,
-                columns.join(", "),
-                placeholders.join(", ")
-            )
-        };
-
-        let args = <DB as Database>::Arguments::default();
-        let query = self.bind_fields(&sql, args);
-        query.execute(executor).await
-    }
-
-    /// 执行 INSERT ... ON DUPLICATE KEY UPDATE / ON CONFLICT DO UPDATE
-    #[cfg(feature = "db-mysql")]
-    pub async fn execute_update<'e, 'b, E>(
-        self,
-        on_duplicate: Update<'b, DB, M>,
-        executor: E,
-    ) -> Result<<DB as Database>::QueryResult, Error>
-    where
-        for<'a_> <DB as Database>::Arguments<'a_>: sqlx::Arguments<'a_> + sqlx::IntoArguments<'a_, DB>,
-        E: Executor<'e, Database = DB>,
-    {
-        if on_duplicate.is_empty() {
-            return Err(Error::Protocol("ON DUPLICATE KEY UPDATE is empty".into()));
-        }
-
-        let table = M::table_name().sql_quote();
-        let update_clause = on_duplicate.to_set_clause();
-
-        let sql = if self.fields.is_empty() {
-            format!(
-                "INSERT INTO {} () VALUES () ON DUPLICATE KEY UPDATE {}",
-                table, update_clause
-            )
-        } else {
-            let columns: Vec<&str> = self.fields.iter().map(|(col, _)| col.as_str()).collect();
-
-            let placeholders: Vec<String> = self
-                .fields
-                .iter()
-                .map(|(_, v)| match v {
-                    StoredValue::Bind(_) => "?".to_string(),
-                    StoredValue::Expr(e) => e.clone(),
-                })
-                .collect();
-
-            format!(
-                "INSERT INTO {} ({}) VALUES ({}) ON DUPLICATE KEY UPDATE {}",
-                table,
-                columns.join(", "),
-                placeholders.join(", "),
-                update_clause
-            )
-        };
-
-        let mut args = <DB as Database>::Arguments::default();
-
-        for (_, value) in &self.fields {
-            if let StoredValue::Bind(b) = value {
-                b.add_to_args_dyn(&mut args);
-            }
-        }
-
-        for (_, value) in &on_duplicate.fields {
-            if let StoredValue::Bind(b) = value {
-                b.add_to_args_dyn(&mut args);
-            }
-        }
-
-        let query = sqlx::query_with(&sql, args);
-        query.execute(executor).await
-    }
+    // execute_update 方法已移至文件末尾的特定数据库实现
 }
 
-impl<'a, DB: Database, M: TableMeta> Default for Insert<'a, DB, M> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-// ============== BatchInsert ==============
-
-/// 批量 INSERT 构建器
-pub struct BatchInsert<'a, DB: Database, M: TableMeta> {
-    rows: Vec<Insert<'a, DB, M>>,
+pub struct BatchInsert<DB: Database, M: TableMeta> {
+    rows: Vec<Insert<DB, M>>,
     _marker: PhantomData<M>,
 }
 
-impl<'a, DB: Database, M: TableMeta> BatchInsert<'a, DB, M> {
+impl<DB: Database, M: TableMeta> BatchInsert<DB, M> {
     pub fn new() -> Self {
         Self {
             rows: Vec::new(),
             _marker: PhantomData,
         }
     }
+}
+
+impl<DB: Database, M: TableMeta> Default for BatchInsert<DB, M> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<DB: Database, M: TableMeta> BatchInsert<DB, M> {
 
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
@@ -202,7 +130,7 @@ impl<'a, DB: Database, M: TableMeta> BatchInsert<'a, DB, M> {
         }
     }
 
-    pub fn push(mut self, row: Insert<'a, DB, M>) -> Self {
+    pub fn push(mut self, row: Insert<DB, M>) -> Self {
         self.rows.push(row);
         self
     }
@@ -211,17 +139,108 @@ impl<'a, DB: Database, M: TableMeta> BatchInsert<'a, DB, M> {
         self.rows.is_empty()
     }
 
-    pub async fn execute<'e, E>(self, executor: E) -> Result<<DB as Database>::QueryResult, Error>
+    // 泛型 execute 方法已移至文件末尾的特定数据库实现
+    // 以避免 QueryBuilder 的生命周期问题
+
+    // BatchInsert 的 execute_update_* 方法已移至文件末尾的特定数据库实现
+
+    // execute_update 方法已移至文件末尾的特定数据库实现
+}
+
+
+
+
+
+
+// ============================================================================
+// MySQL 特定实现
+// ============================================================================
+
+#[cfg(feature = "db-mysql")]
+impl<M: TableMeta> Insert<sqlx::MySql, M> {
+    /// 执行 INSERT
+    pub async fn execute<'e, E>(self, executor: E) -> Result<sqlx::mysql::MySqlQueryResult, Error>
     where
-        for<'a_> <DB as Database>::Arguments<'a_>: sqlx::Arguments<'a_> + sqlx::IntoArguments<'a_, DB>,
-        E: Executor<'e, Database = DB>,
+        E: Executor<'e, Database = sqlx::MySql>,
     {
-        if self.rows.is_empty() {
-            return Ok(<DB as Database>::QueryResult::default());
+        let table = M::table_name().quoted();
+
+        if self.fields.is_empty() {
+            let sql = format!("INSERT INTO {} () VALUES ()", table);
+            return sqlx::query(&sql).execute(executor).await;
         }
 
-        let table = M::table_name().sql_quote();
+        let columns: Vec<&str> = self.fields.iter().map(|(col, _)| col.as_str()).collect();
+        let mut qb = sqlx::QueryBuilder::new(format!("INSERT INTO {} (", table));
 
+        {
+            let mut sep = qb.separated(", ");
+            for col in &columns {
+                sep.push(*col);
+            }
+        }
+
+        qb.push(") VALUES (");
+        push_values_to(&self.fields, &mut qb);
+        qb.push(")");
+
+        qb.build().execute(executor).await
+    }
+
+    /// 执行 INSERT ... ON DUPLICATE KEY UPDATE
+    pub async fn execute_update<'e, E>(
+        self,
+        on_duplicate: Update<sqlx::MySql, M>,
+        executor: E,
+    ) -> Result<sqlx::mysql::MySqlQueryResult, Error>
+    where
+        E: Executor<'e, Database = sqlx::MySql>,
+    {
+        if on_duplicate.is_empty() {
+            return Err(Error::Protocol("ON DUPLICATE KEY UPDATE is empty".into()));
+        }
+
+        let table = M::table_name().quoted();
+
+        if self.fields.is_empty() {
+            let mut qb = sqlx::QueryBuilder::new(
+                format!("INSERT INTO {} () VALUES () ON DUPLICATE KEY UPDATE ", table)
+            );
+            push_set_clause_to(&on_duplicate.fields, &mut qb);
+            return qb.build().execute(executor).await;
+        }
+
+        let columns: Vec<&str> = self.fields.iter().map(|(col, _)| col.as_str()).collect();
+        let mut qb = sqlx::QueryBuilder::new(format!("INSERT INTO {} (", table));
+
+        {
+            let mut sep = qb.separated(", ");
+            for col in &columns {
+                sep.push(*col);
+            }
+        }
+
+        qb.push(") VALUES (");
+        push_values_to(&self.fields, &mut qb);
+        qb.push(") ON DUPLICATE KEY UPDATE ");
+        push_set_clause_to(&on_duplicate.fields, &mut qb);
+
+        qb.build().execute(executor).await
+    }
+}
+
+#[cfg(feature = "db-mysql")]
+impl<M: TableMeta> BatchInsert<sqlx::MySql, M> {
+    /// 执行批量 INSERT
+    pub async fn execute<'e, E>(self, executor: E) -> Result<sqlx::mysql::MySqlQueryResult, Error>
+    where
+        E: Executor<'e, Database = sqlx::MySql>,
+    {
+        if self.rows.is_empty() {
+            return Ok(sqlx::mysql::MySqlQueryResult::default());
+        }
+
+        let table = M::table_name().quoted();
         let mut all_columns: Vec<String> = Vec::new();
         for row in &self.rows {
             for (col, _) in &row.fields {
@@ -233,77 +252,61 @@ impl<'a, DB: Database, M: TableMeta> BatchInsert<'a, DB, M> {
 
         if all_columns.is_empty() {
             let value_groups: Vec<&str> = self.rows.iter().map(|_| "()").collect();
-            let sql = format!(
-                "INSERT INTO {} () VALUES {}",
-                table,
-                value_groups.join(", ")
-            );
+            let sql = format!("INSERT INTO {} () VALUES {}", table, value_groups.join(", "));
             return sqlx::query(&sql).execute(executor).await;
         }
 
-        let mut value_groups: Vec<String> = Vec::new();
-        let mut bind_values: Vec<&StoredValue<'a, DB>> = Vec::new();
+        let mut qb = sqlx::QueryBuilder::new(format!("INSERT INTO {} (", table));
 
-        for row in &self.rows {
-            let mut placeholders: Vec<String> = Vec::new();
-
+        {
+            let mut sep = qb.separated(", ");
             for col in &all_columns {
-                if let Some((_, stored)) = row.fields.iter().find(|(c, _)| c == col) {
-                    match stored {
-                        StoredValue::Bind(_) => {
-                            placeholders.push("?".to_string());
-                            bind_values.push(stored);
-                        }
-                        StoredValue::Expr(e) => {
-                            placeholders.push(e.clone());
-                        }
-                    }
-                } else {
-                    placeholders.push("DEFAULT".to_string());
+                sep.push(col.as_str());
+            }
+        }
+
+        qb.push(") VALUES ");
+
+        let mut first_row = true;
+        for row in &self.rows {
+            if !first_row {
+                qb.push(", ");
+            }
+            first_row = false;
+
+            qb.push("(");
+            let mut first_col = true;
+            for col in &all_columns {
+                if !first_col {
+                    qb.push(", ");
                 }
+                first_col = false;
+                push_field_value_or_default(&row.fields, col, &mut qb, "DEFAULT");
             }
-            value_groups.push(format!("({})", placeholders.join(", ")));
+            qb.push(")");
         }
 
-        let sql = format!(
-            "INSERT INTO {} ({}) VALUES {}",
-            table,
-            all_columns.join(", "),
-            value_groups.join(", ")
-        );
-
-        let mut args = <DB as Database>::Arguments::default();
-        for stored in bind_values {
-            if let StoredValue::Bind(b) = stored {
-                b.add_to_args_dyn(&mut args);
-            }
-        }
-
-        let query = sqlx::query_with(&sql, args);
-        query.execute(executor).await
+        qb.build().execute(executor).await
     }
 
-    #[cfg(feature = "db-mysql")]
-    pub async fn execute_update<'e, 'b, E>(
+    /// 执行批量 INSERT ... ON DUPLICATE KEY UPDATE
+    pub async fn execute_update<'e, E>(
         self,
-        on_duplicate: Update<'b, DB, M>,
+        on_duplicate: Update<sqlx::MySql, M>,
         executor: E,
-    ) -> Result<<DB as Database>::QueryResult, Error>
+    ) -> Result<sqlx::mysql::MySqlQueryResult, Error>
     where
-        for<'a_> <DB as Database>::Arguments<'a_>: sqlx::Arguments<'a_> + sqlx::IntoArguments<'a_, DB>,
-        E: Executor<'e, Database = DB>,
+        E: Executor<'e, Database = sqlx::MySql>,
     {
         if self.rows.is_empty() {
-            return Ok(<DB as Database>::QueryResult::default());
+            return Ok(sqlx::mysql::MySqlQueryResult::default());
         }
 
         if on_duplicate.is_empty() {
             return Err(Error::Protocol("ON DUPLICATE KEY UPDATE is empty".into()));
         }
 
-        let table = M::table_name().sql_quote();
-        let update_clause = on_duplicate.to_set_clause();
-
+        let table = M::table_name().quoted();
         let mut all_columns: Vec<String> = Vec::new();
         for row in &self.rows {
             for (col, _) in &row.fields {
@@ -315,77 +318,496 @@ impl<'a, DB: Database, M: TableMeta> BatchInsert<'a, DB, M> {
 
         if all_columns.is_empty() {
             let value_groups: Vec<&str> = self.rows.iter().map(|_| "()").collect();
-            let sql = format!(
-                "INSERT INTO {} () VALUES {} ON DUPLICATE KEY UPDATE {}",
-                table,
-                value_groups.join(", "),
-                update_clause
+            let mut qb = sqlx::QueryBuilder::new(
+                format!("INSERT INTO {} () VALUES {} ON DUPLICATE KEY UPDATE ", table, value_groups.join(", "))
             );
-
-            let mut args = <DB as Database>::Arguments::default();
-            for (_, value) in &on_duplicate.fields {
-                if let StoredValue::Bind(b) = value {
-                    b.add_to_args_dyn(&mut args);
-                }
-            }
-
-            let query = sqlx::query_with(&sql, args);
-            return query.execute(executor).await;
+            push_set_clause_to(&on_duplicate.fields, &mut qb);
+            return qb.build().execute(executor).await;
         }
 
-        let mut value_groups: Vec<String> = Vec::new();
-        let mut bind_values: Vec<&StoredValue<'a, DB>> = Vec::new();
+        let mut qb = sqlx::QueryBuilder::new(format!("INSERT INTO {} (", table));
 
-        for row in &self.rows {
-            let mut placeholders: Vec<String> = Vec::new();
-
+        {
+            let mut sep = qb.separated(", ");
             for col in &all_columns {
-                if let Some((_, stored)) = row.fields.iter().find(|(c, _)| c == col) {
-                    match stored {
-                        StoredValue::Bind(_) => {
-                            placeholders.push("?".to_string());
-                            bind_values.push(stored);
-                        }
-                        StoredValue::Expr(e) => {
-                            placeholders.push(e.clone());
-                        }
-                    }
-                } else {
-                    placeholders.push("DEFAULT".to_string());
+                sep.push(col.as_str());
+            }
+        }
+
+        qb.push(") VALUES ");
+
+        let mut first_row = true;
+        for row in &self.rows {
+            if !first_row {
+                qb.push(", ");
+            }
+            first_row = false;
+
+            qb.push("(");
+            let mut first_col = true;
+            for col in &all_columns {
+                if !first_col {
+                    qb.push(", ");
                 }
+                first_col = false;
+                push_field_value_or_default(&row.fields, col, &mut qb, "DEFAULT");
             }
-            value_groups.push(format!("({})", placeholders.join(", ")));
+            qb.push(")");
         }
 
-        let sql = format!(
-            "INSERT INTO {} ({}) VALUES {} ON DUPLICATE KEY UPDATE {}",
-            table,
-            all_columns.join(", "),
-            value_groups.join(", "),
-            update_clause
-        );
+        qb.push(" ON DUPLICATE KEY UPDATE ");
+        push_set_clause_to(&on_duplicate.fields, &mut qb);
 
-        let mut args = <DB as Database>::Arguments::default();
-
-        for stored in bind_values {
-            if let StoredValue::Bind(b) = stored {
-                b.add_to_args_dyn(&mut args);
-            }
-        }
-
-        for (_, value) in &on_duplicate.fields {
-            if let StoredValue::Bind(b) = value {
-                b.add_to_args_dyn(&mut args);
-            }
-        }
-
-        let query = sqlx::query_with(&sql, args);
-        query.execute(executor).await
+        qb.build().execute(executor).await
     }
 }
 
-impl<'a, DB: Database, M: TableMeta> Default for BatchInsert<'a, DB, M> {
-    fn default() -> Self {
-        Self::new()
+// ============================================================================
+// PostgreSQL 特定实现
+// ============================================================================
+
+#[cfg(feature = "db-postgres")]
+impl<M: TableMeta> Insert<sqlx::Postgres, M> {
+    /// 执行 INSERT
+    pub async fn execute<'e, E>(self, executor: E) -> Result<sqlx::postgres::PgQueryResult, Error>
+    where
+        E: Executor<'e, Database = sqlx::Postgres>,
+    {
+        let table = M::table_name().quoted();
+
+        if self.fields.is_empty() {
+            let sql = format!("INSERT INTO {} () VALUES ()", table);
+            return sqlx::query(&sql).execute(executor).await;
+        }
+
+        let columns: Vec<&str> = self.fields.iter().map(|(col, _)| col.as_str()).collect();
+        let mut qb = sqlx::QueryBuilder::new(format!("INSERT INTO {} (", table));
+
+        {
+            let mut sep = qb.separated(", ");
+            for col in &columns {
+                sep.push(*col);
+            }
+        }
+
+        qb.push(") VALUES (");
+        push_values_to(&self.fields, &mut qb);
+        qb.push(")");
+
+        qb.build().execute(executor).await
+    }
+
+    /// 执行 INSERT ... ON CONFLICT DO UPDATE
+    pub async fn execute_update<'e, E>(
+        self,
+        on_duplicate: Update<sqlx::Postgres, M>,
+        executor: E,
+    ) -> Result<sqlx::postgres::PgQueryResult, Error>
+    where
+        E: Executor<'e, Database = sqlx::Postgres>,
+    {
+        if on_duplicate.is_empty() {
+            return Err(Error::Protocol("ON CONFLICT DO UPDATE is empty".into()));
+        }
+
+        let table = M::table_name().quoted();
+
+        if self.fields.is_empty() {
+            let conflict_column = on_duplicate.fields.first()
+                .map(|(col, _)| col.as_str())
+                .ok_or_else(|| Error::Protocol("At least one field required for conflict detection".into()))?;
+
+            let mut qb = sqlx::QueryBuilder::new(
+                format!("INSERT INTO {} () VALUES () ON CONFLICT ({}) DO UPDATE SET ", table, conflict_column)
+            );
+            push_set_clause_to(&on_duplicate.fields, &mut qb);
+            return qb.build().execute(executor).await;
+        }
+
+        let columns: Vec<&str> = self.fields.iter().map(|(col, _)| col.as_str()).collect();
+        let conflict_column = columns.first()
+            .ok_or_else(|| Error::Protocol("At least one insert field required for conflict detection".into()))?;
+
+        let mut qb = sqlx::QueryBuilder::new(format!("INSERT INTO {} (", table));
+
+        {
+            let mut sep = qb.separated(", ");
+            for col in &columns {
+                sep.push(*col);
+            }
+        }
+
+        qb.push(") VALUES (");
+        push_values_to(&self.fields, &mut qb);
+        qb.push(format!(") ON CONFLICT ({}) DO UPDATE SET ", conflict_column));
+        push_set_clause_to(&on_duplicate.fields, &mut qb);
+
+        qb.build().execute(executor).await
+    }
+}
+
+#[cfg(feature = "db-postgres")]
+impl<M: TableMeta> BatchInsert<sqlx::Postgres, M> {
+    /// 执行批量 INSERT
+    pub async fn execute<'e, E>(self, executor: E) -> Result<sqlx::postgres::PgQueryResult, Error>
+    where
+        E: Executor<'e, Database = sqlx::Postgres>,
+    {
+        if self.rows.is_empty() {
+            return Ok(sqlx::postgres::PgQueryResult::default());
+        }
+
+        let table = M::table_name().quoted();
+        let mut all_columns: Vec<String> = Vec::new();
+        for row in &self.rows {
+            for (col, _) in &row.fields {
+                if !all_columns.contains(col) {
+                    all_columns.push(col.clone());
+                }
+            }
+        }
+
+        if all_columns.is_empty() {
+            let value_groups: Vec<&str> = self.rows.iter().map(|_| "()").collect();
+            let sql = format!("INSERT INTO {} () VALUES {}", table, value_groups.join(", "));
+            return sqlx::query(&sql).execute(executor).await;
+        }
+
+        let mut qb = sqlx::QueryBuilder::new(format!("INSERT INTO {} (", table));
+
+        {
+            let mut sep = qb.separated(", ");
+            for col in &all_columns {
+                sep.push(col.as_str());
+            }
+        }
+
+        qb.push(") VALUES ");
+
+        let mut first_row = true;
+        for row in &self.rows {
+            if !first_row {
+                qb.push(", ");
+            }
+            first_row = false;
+
+            qb.push("(");
+            let mut first_col = true;
+            for col in &all_columns {
+                if !first_col {
+                    qb.push(", ");
+                }
+                first_col = false;
+                push_field_value_or_default(&row.fields, col, &mut qb, "DEFAULT");
+            }
+            qb.push(")");
+        }
+
+        qb.build().execute(executor).await
+    }
+
+    /// 执行批量 INSERT ... ON CONFLICT DO UPDATE
+    pub async fn execute_update<'e, E>(
+        self,
+        on_duplicate: Update<sqlx::Postgres, M>,
+        executor: E,
+    ) -> Result<sqlx::postgres::PgQueryResult, Error>
+    where
+        E: Executor<'e, Database = sqlx::Postgres>,
+    {
+        if self.rows.is_empty() {
+            return Ok(sqlx::postgres::PgQueryResult::default());
+        }
+
+        if on_duplicate.is_empty() {
+            return Err(Error::Protocol("ON CONFLICT DO UPDATE is empty".into()));
+        }
+
+        let table = M::table_name().quoted();
+        let mut all_columns: Vec<String> = Vec::new();
+        for row in &self.rows {
+            for (col, _) in &row.fields {
+                if !all_columns.contains(col) {
+                    all_columns.push(col.clone());
+                }
+            }
+        }
+
+        if all_columns.is_empty() {
+            let conflict_column = on_duplicate.fields.first()
+                .map(|(col, _)| col.as_str())
+                .ok_or_else(|| Error::Protocol("At least one field required for conflict detection".into()))?;
+
+            let value_groups: Vec<&str> = self.rows.iter().map(|_| "()").collect();
+            let mut qb = sqlx::QueryBuilder::new(
+                format!("INSERT INTO {} () VALUES {} ON CONFLICT ({}) DO UPDATE SET ", table, value_groups.join(", "), conflict_column)
+            );
+            push_set_clause_to(&on_duplicate.fields, &mut qb);
+            return qb.build().execute(executor).await;
+        }
+
+        let conflict_column = all_columns.first()
+            .map(|s| s.as_str())
+            .ok_or_else(|| Error::Protocol("At least one column required for conflict detection".into()))?;
+
+        let mut qb = sqlx::QueryBuilder::new(format!("INSERT INTO {} (", table));
+
+        {
+            let mut sep = qb.separated(", ");
+            for col in &all_columns {
+                sep.push(col.as_str());
+            }
+        }
+
+        qb.push(") VALUES ");
+
+        let mut first_row = true;
+        for row in &self.rows {
+            if !first_row {
+                qb.push(", ");
+            }
+            first_row = false;
+
+            qb.push("(");
+            let mut first_col = true;
+            for col in &all_columns {
+                if !first_col {
+                    qb.push(", ");
+                }
+                first_col = false;
+                push_field_value_or_default(&row.fields, col, &mut qb, "DEFAULT");
+            }
+            qb.push(")");
+        }
+
+        qb.push(format!(" ON CONFLICT ({}) DO UPDATE SET ", conflict_column));
+        push_set_clause_to(&on_duplicate.fields, &mut qb);
+
+        qb.build().execute(executor).await
+    }
+}
+
+// ============================================================================
+// SQLite 特定实现
+// ============================================================================
+
+#[cfg(feature = "db-sqlite")]
+impl<M: TableMeta> Insert<sqlx::Sqlite, M> {
+    /// 执行 INSERT
+    pub async fn execute<'e, E>(self, executor: E) -> Result<sqlx::sqlite::SqliteQueryResult, Error>
+    where
+        E: Executor<'e, Database = sqlx::Sqlite>,
+    {
+        let table = M::table_name().quoted();
+
+        if self.fields.is_empty() {
+            let sql = format!("INSERT INTO {} () VALUES ()", table);
+            return sqlx::query(&sql).execute(executor).await;
+        }
+
+        let columns: Vec<&str> = self.fields.iter().map(|(col, _)| col.as_str()).collect();
+        let mut qb = sqlx::QueryBuilder::new(format!("INSERT INTO {} (", table));
+
+        {
+            let mut sep = qb.separated(", ");
+            for col in &columns {
+                sep.push(*col);
+            }
+        }
+
+        qb.push(") VALUES (");
+        push_values_to(&self.fields, &mut qb);
+        qb.push(")");
+
+        qb.build().execute(executor).await
+    }
+
+    /// 执行 INSERT ... ON CONFLICT DO UPDATE
+    pub async fn execute_update<'e, E>(
+        self,
+        on_duplicate: Update<sqlx::Sqlite, M>,
+        executor: E,
+    ) -> Result<sqlx::sqlite::SqliteQueryResult, Error>
+    where
+        E: Executor<'e, Database = sqlx::Sqlite>,
+    {
+        if on_duplicate.is_empty() {
+            return Err(Error::Protocol("ON CONFLICT DO UPDATE is empty".into()));
+        }
+
+        let table = M::table_name().quoted();
+
+        if self.fields.is_empty() {
+            let conflict_column = on_duplicate.fields.first()
+                .map(|(col, _)| col.as_str())
+                .ok_or_else(|| Error::Protocol("At least one field required for conflict detection".into()))?;
+
+            let mut qb = sqlx::QueryBuilder::new(
+                format!("INSERT INTO {} () VALUES () ON CONFLICT ({}) DO UPDATE SET ", table, conflict_column)
+            );
+            push_set_clause_to(&on_duplicate.fields, &mut qb);
+            return qb.build().execute(executor).await;
+        }
+
+        let columns: Vec<&str> = self.fields.iter().map(|(col, _)| col.as_str()).collect();
+        let conflict_column = columns.first()
+            .ok_or_else(|| Error::Protocol("At least one insert field required for conflict detection".into()))?;
+
+        let mut qb = sqlx::QueryBuilder::new(format!("INSERT INTO {} (", table));
+
+        {
+            let mut sep = qb.separated(", ");
+            for col in &columns {
+                sep.push(*col);
+            }
+        }
+
+        qb.push(") VALUES (");
+        push_values_to(&self.fields, &mut qb);
+        qb.push(format!(") ON CONFLICT ({}) DO UPDATE SET ", conflict_column));
+        push_set_clause_to(&on_duplicate.fields, &mut qb);
+
+        qb.build().execute(executor).await
+    }
+}
+
+#[cfg(feature = "db-sqlite")]
+impl<M: TableMeta> BatchInsert<sqlx::Sqlite, M> {
+    /// 执行批量 INSERT
+    pub async fn execute<'e, E>(self, executor: E) -> Result<sqlx::sqlite::SqliteQueryResult, Error>
+    where
+        E: Executor<'e, Database = sqlx::Sqlite>,
+    {
+        if self.rows.is_empty() {
+            return Ok(sqlx::sqlite::SqliteQueryResult::default());
+        }
+
+        let table = M::table_name().quoted();
+        let mut all_columns: Vec<String> = Vec::new();
+        for row in &self.rows {
+            for (col, _) in &row.fields {
+                if !all_columns.contains(col) {
+                    all_columns.push(col.clone());
+                }
+            }
+        }
+
+        if all_columns.is_empty() {
+            let value_groups: Vec<&str> = self.rows.iter().map(|_| "()").collect();
+            let sql = format!("INSERT INTO {} () VALUES {}", table, value_groups.join(", "));
+            return sqlx::query(&sql).execute(executor).await;
+        }
+
+        let mut qb = sqlx::QueryBuilder::new(format!("INSERT INTO {} (", table));
+
+        {
+            let mut sep = qb.separated(", ");
+            for col in &all_columns {
+                sep.push(col.as_str());
+            }
+        }
+
+        qb.push(") VALUES ");
+
+        let mut first_row = true;
+        for row in &self.rows {
+            if !first_row {
+                qb.push(", ");
+            }
+            first_row = false;
+
+            qb.push("(");
+            let mut first_col = true;
+            for col in &all_columns {
+                if !first_col {
+                    qb.push(", ");
+                }
+                first_col = false;
+                push_field_value_or_default(&row.fields, col, &mut qb, "DEFAULT");
+            }
+            qb.push(")");
+        }
+
+        qb.build().execute(executor).await
+    }
+
+    /// 执行批量 INSERT ... ON CONFLICT DO UPDATE
+    pub async fn execute_update<'e, E>(
+        self,
+        on_duplicate: Update<sqlx::Sqlite, M>,
+        executor: E,
+    ) -> Result<sqlx::sqlite::SqliteQueryResult, Error>
+    where
+        E: Executor<'e, Database = sqlx::Sqlite>,
+    {
+        if self.rows.is_empty() {
+            return Ok(sqlx::sqlite::SqliteQueryResult::default());
+        }
+
+        if on_duplicate.is_empty() {
+            return Err(Error::Protocol("ON CONFLICT DO UPDATE is empty".into()));
+        }
+
+        let table = M::table_name().quoted();
+        let mut all_columns: Vec<String> = Vec::new();
+        for row in &self.rows {
+            for (col, _) in &row.fields {
+                if !all_columns.contains(col) {
+                    all_columns.push(col.clone());
+                }
+            }
+        }
+
+        if all_columns.is_empty() {
+            let conflict_column = on_duplicate.fields.first()
+                .map(|(col, _)| col.as_str())
+                .ok_or_else(|| Error::Protocol("At least one field required for conflict detection".into()))?;
+
+            let value_groups: Vec<&str> = self.rows.iter().map(|_| "()").collect();
+            let mut qb = sqlx::QueryBuilder::new(
+                format!("INSERT INTO {} () VALUES {} ON CONFLICT ({}) DO UPDATE SET ", table, value_groups.join(", "), conflict_column)
+            );
+            push_set_clause_to(&on_duplicate.fields, &mut qb);
+            return qb.build().execute(executor).await;
+        }
+
+        let conflict_column = all_columns.first()
+            .map(|s| s.as_str())
+            .ok_or_else(|| Error::Protocol("At least one column required for conflict detection".into()))?;
+
+        let mut qb = sqlx::QueryBuilder::new(format!("INSERT INTO {} (", table));
+
+        {
+            let mut sep = qb.separated(", ");
+            for col in &all_columns {
+                sep.push(col.as_str());
+            }
+        }
+
+        qb.push(") VALUES ");
+
+        let mut first_row = true;
+        for row in &self.rows {
+            if !first_row {
+                qb.push(", ");
+            }
+            first_row = false;
+
+            qb.push("(");
+            let mut first_col = true;
+            for col in &all_columns {
+                if !first_col {
+                    qb.push(", ");
+                }
+                first_col = false;
+                push_field_value_or_default(&row.fields, col, &mut qb, "DEFAULT");
+            }
+            qb.push(")");
+        }
+
+        qb.push(format!(" ON CONFLICT ({}) DO UPDATE SET ", conflict_column));
+        push_set_clause_to(&on_duplicate.fields, &mut qb);
+
+        qb.build().execute(executor).await
     }
 }

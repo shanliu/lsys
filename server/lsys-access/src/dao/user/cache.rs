@@ -11,15 +11,20 @@ pub struct AccessUserCache<'t> {
     pub dao: &'t AccessUser,
 }
 impl AccessUserCache<'_> {
-    //通过ID获取用户
-    lsys_core::impl_cache_fetch_one!(find_by_id, dao, user_cache, u64, AccessResult<UserModel>);
-    lsys_core::impl_cache_fetch_vec!(
-        find_by_ids,
-        dao,
-        user_cache,
-        u64,
-        AccessResult<HashMap<u64, UserModel>>
-    );
+    pub async fn find_by_id(&self, id: &u64) -> AccessResult<UserModel> {
+        self.dao
+            .user_cache
+            .get_or_fetch(id, || self.dao.find_by_id(id))
+            .await
+    }
+    pub async fn find_by_ids(&self, ids: &[u64]) -> AccessResult<HashMap<u64, UserModel>> {
+        self.dao
+            .user_cache
+            .get_or_fetch_many(ids, |missing| async move {
+                self.dao.find_by_ids(&missing).await
+            })
+            .await
+    }
     ///获取用户信息
     pub async fn find_user_by_data(
         &self,
@@ -73,16 +78,14 @@ impl AccessUserCache<'_> {
         match res {
             Ok(e) => {
                 let mut is_sync = false;
-                if let Some(name_val) = user_nickname {
-                    if e.user_nickname.as_str() != name_val {
+                if let Some(name_val) = user_nickname
+                    && e.user_nickname.as_str() != name_val {
                         is_sync = true;
                     }
-                }
-                if let Some(account_val) = user_account {
-                    if e.user_account.as_str() != account_val {
+                if let Some(account_val) = user_account
+                    && e.user_account.as_str() != account_val {
                         is_sync = true;
                     }
-                }
                 if !is_sync {
                     Ok(e)
                 } else {
@@ -94,7 +97,7 @@ impl AccessUserCache<'_> {
                 }
             }
             Err(err) => {
-                if let AccessError::Sqlx(ref terr) = &err {
+                if let AccessError::Sqlx(terr) = &err {
                     if matches!(terr, sqlx::Error::RowNotFound) {
                         let id = self
                             .dao

@@ -6,6 +6,7 @@ use crate::{
 };
 use lsys_access::dao::AccessSession;
 use lsys_core::db::CursorPageSort;
+use lsys_core::api_utils::PageCursorValue;
 use lsys_user::model::{
     AccountAddressModel, AccountEmailModel, AccountEmailStatus, AccountExternalModel,
     AccountIndexCat, AccountInfoModel, AccountMobileModel, AccountMobileStatus, AccountModel,
@@ -99,8 +100,7 @@ pub async fn account_search(
             &param.limit.to_u64_cursor_page_param(CursorPageSort::Desc),
         )
         .await?;
-    let next_cursor = user.1.next_cursor;
-    let prev_cursor = user.1.prev_cursor;
+    let cursor = PageCursorValue::from(&user.1);
 
     let user_data = req_dao
         .web_dao
@@ -166,8 +166,7 @@ pub async fn account_search(
     }
     Ok(JsonResponse::data(JsonData::body(json!({
         "data": out,
-        "next_cursor": next_cursor,
-        "prev_cursor": prev_cursor
+        "cursor": cursor,
     }))))
 }
 

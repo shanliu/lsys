@@ -2,8 +2,8 @@
 
 use crate::dao::result::RbacResult;
 use crate::model::{RbacOpModel, RbacOpStatus};
-use lsys_core::db::{TableMeta, SqlExpr, SqlQuote};
-use lsys_core::sql_format;
+use lsys_core::db::{QueryBuilderExt, TableMeta};
+use sqlx::{MySql, QueryBuilder};
 use lsys_core::utils::{string_clear, StringClear, STRING_CLEAR_FORMAT};
 use std::vec;
 
@@ -28,28 +28,26 @@ impl RbacOp {
         if keys.is_empty() {
             return Ok(vec![]);
         }
-        let mut where_sql = Vec::with_capacity(keys.len());
-        for rkey in keys {
+        let mut qb = QueryBuilder::<MySql>::new(format!(
+            "select * from {} where (",
+            RbacOpModel::table_name(),
+        ));
+        for (i, rkey) in keys.iter().enumerate() {
+            if i > 0 {
+                qb.push(" or ");
+            }
             let op_key = string_clear(
                 rkey.op_key,
                 StringClear::Option(STRING_CLEAR_FORMAT),
                 Some(33),
             );
-            where_sql.push(sql_format!(
-                "(op_key ={}  and user_id={} and app_id={})",
-                op_key,
-                rkey.user_id,
-                rkey.app_id,
-            ));
+            qb.push("(").field_eq("op_key", op_key);
+            qb.push_and().field_eq("user_id", rkey.user_id);
+            qb.push_and().field_eq("app_id", rkey.app_id);
+            qb.push(")");
         }
-        let sql = sql_format!(
-            "select * from {} where
-            ({}) and status ={}",
-            RbacOpModel::table_name(),
-            SqlExpr(where_sql.join(" or ")),
-            RbacOpStatus::Enable as i8
-        );
-        let res = sqlx::query_as::<_, RbacOpModel>(sql.as_str())
+        qb.push(")").push_and().field_eq("status", RbacOpStatus::Enable as i8);
+        let res = qb.build_query_as::<RbacOpModel>()
             .fetch_all(&self.db)
             .await?;
         Ok(keys
@@ -73,16 +71,16 @@ impl RbacOp {
             StringClear::Option(STRING_CLEAR_FORMAT),
             Some(33),
         );
-        let sql = sql_format!(
+        let sql = format!(
             "select * from {} where
-            op_key ={}  and user_id={} and app_id={} and status ={}",
+            op_key =?  and user_id=? and app_id=? and status =?",
             RbacOpModel::table_name(),
-            op_key,
-            rkey.user_id,
-            rkey.app_id,
-            RbacOpStatus::Enable as i8
         );
         Ok(sqlx::query_as::<_, RbacOpModel>(sql.as_str())
+            .bind(&op_key)
+            .bind(rkey.user_id)
+            .bind(rkey.app_id)
+            .bind(RbacOpStatus::Enable as i8)
             .fetch_one(&self.db)
             .await?)
     }

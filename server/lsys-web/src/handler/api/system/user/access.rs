@@ -6,7 +6,8 @@ use crate::{
     dao::access::api::system::admin::CheckAdminUserManage,
 };
 use lsys_access::dao::{AccessError, AccessSession, SessionDataParam};
-use lsys_core::db::CursorPageSort;
+use lsys_core::api_utils::{JsonPageData, PageCursorValue, PageTotalRowValue};
+use lsys_core::db::{CursorPageSort, TotalParam};
 use serde::Deserialize;
 use serde_json::json;
 
@@ -62,18 +63,17 @@ pub async fn login_history(
                 .web_access
                 .access_dao
                 .user
-                .session_count(&session_param)
-                .await?,
+                .session_count(&session_param, &TotalParam::default())
+                .await
+                .map(PageTotalRowValue::from)?,
         )
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(json!({
-        "data": bind_vec_user_info_from_req!(req_dao, res, user_id,false) ,
-        "next_cursor": next_data.next_cursor,
-        "prev_cursor": next_data.prev_cursor,
-        "total":count,
-    }))))
+    let cursor = PageCursorValue::from(&next_data);
+    Ok(JsonResponse::data(JsonData::body(
+        JsonPageData::cursor(bind_vec_user_info_from_req!(req_dao, res, user_id,false), cursor, count),
+    )))
 }
 
 #[derive(Debug, Deserialize)]

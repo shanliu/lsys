@@ -1,7 +1,6 @@
-use lsys_core::db::{Insert, OptionTxExecutor, SqlQuote, SqlSuffix, TableMeta, Update};
-use lsys_core::sql_format;
+use lsys_core::db::{BatchInsert, Insert, OptionTxExecutor, QueryBuilderExt, TableMeta, Update};
 use lsys_core::utils::now_time;
-use sqlx::{MySql, Pool, Transaction};
+use sqlx::{MySql, Pool, QueryBuilder, Transaction};
 
 use super::*;
 use crate::model::*;
@@ -38,15 +37,17 @@ impl FileTagDao {
         let now = now_time()?;
 
         // 查是否已有 Normal 状态的同名标签（幂等）
-        let existing = sqlx::query_as::<_, FileTagModel>(&sql_format!(
-            "SELECT * FROM {} WHERE file_id={} AND user_id={} AND app_id={} AND tag_name={} AND status={} LIMIT 1",
-            FileTagModel::table_name(),
-            file_id,
-            user_id,
-            app_id,
-            &tag_name,
-            FileTagStatus::Normal as i8
-        ))
+        let existing = sqlx::query_as::<_, FileTagModel>(
+            &format!(
+                "SELECT * FROM {} WHERE file_id=? AND user_id=? AND app_id=? AND tag_name=? AND status=? LIMIT 1",
+                FileTagModel::table_name(),
+            )
+        )
+        .bind(file_id)
+        .bind(user_id)
+        .bind(app_id)
+        .bind(&tag_name)
+        .bind(FileTagStatus::Normal as i8)
         .fetch_optional(&self.db)
         .await?;
 
@@ -69,6 +70,96 @@ impl FileTagDao {
         Ok(res.last_insert_id())
     }
 
+    /// 批量添加标签
+    ///
+    /// 一次性添加多个标签，内部通过单次 SELECT 查找已存在的标签（幂等），
+    /// 再通过 BatchInsert 批量插入不存在的标签，减少数据库往返次数。
+    pub async fn batch_add_tags(
+        &self,
+        file_id: u64,
+        user_id: u64,
+        app_id: u64,
+        tag_names: &[&str],
+        transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
+    ) -> FileResult<Vec<u64>> {
+        // 去重、trim、转小写，过滤空串
+        let tag_names: Vec<String> = tag_names
+            .iter()
+            .map(|t| t.trim().to_lowercase())
+            .filter(|t| !t.is_empty())
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect();
+
+        if tag_names.is_empty() {
+            return Ok(vec![]);
+        }
+
+        // 单次 SELECT 查出所有已存在的 Normal 标签
+        let mut qb: QueryBuilder<MySql> = QueryBuilder::new(format!(
+            "SELECT * FROM {}",
+            FileTagModel::table_name(),
+        ));
+        qb.push_where()
+            .field_eq("file_id", file_id)
+            .push_and()
+            .field_eq("user_id", user_id)
+            .push_and()
+            .field_eq("app_id", app_id)
+            .push_and()
+            .field_in_string("tag_name", &tag_names)
+            .push_and()
+            .field_eq("status", FileTagStatus::Normal as i8);
+
+        let existing_tags: Vec<FileTagModel> = qb.build_query_as()
+            .fetch_all(&self.db)
+            .await?;
+
+        let existing_names: std::collections::HashSet<&str> = existing_tags
+            .iter()
+            .map(|t| t.tag_name.as_str())
+            .collect();
+
+        let mut result_ids: Vec<u64> = existing_tags.iter().map(|t| t.id).collect();
+
+        // 筛选出需要新增的标签
+        let new_tags: Vec<&String> = tag_names
+            .iter()
+            .filter(|t| !existing_names.contains(t.as_str()))
+            .collect();
+
+        if !new_tags.is_empty() {
+            let now = now_time()?;
+
+            let mut batch_insert =
+                BatchInsert::<_, FileTagModel>::with_capacity(new_tags.len());
+            for tag_name in &new_tags {
+                batch_insert = batch_insert.push(
+                    Insert::<_, FileTagModel>::new()
+                        .set(FileTagModel::FILE_ID, file_id)
+                        .set(FileTagModel::USER_ID, user_id)
+                        .set(FileTagModel::APP_ID, app_id)
+                        .set(FileTagModel::TAG_NAME, tag_name.as_str())
+                        .set(FileTagModel::STATUS, FileTagStatus::Normal as i8)
+                        .set(FileTagModel::ADD_TIME, now)
+                        .set(FileTagModel::CHANGE_TIME, 0u64),
+                );
+            }
+
+            let res = batch_insert
+                .execute(OptionTxExecutor::new(transaction, &self.db))
+                .await?;
+
+            // 批量插入的自增 ID 是连续的
+            let first_id = res.last_insert_id();
+            for i in 0..new_tags.len() as u64 {
+                result_ids.push(first_id + i);
+            }
+        }
+
+        Ok(result_ids)
+    }
+
     /// 移除标签（软删除）
     pub async fn remove_tag(
         &self,
@@ -87,22 +178,16 @@ impl FileTagDao {
 
         let now = now_time()?;
 
-        let where_sql = sql_format!(
-            "file_id={} AND user_id={} AND app_id={} AND tag_name={} AND status={}",
-            file_id,
-            user_id,
-            app_id,
-            &tag_name,
-            FileTagStatus::Normal as i8
-        );
-
         let res = Update::<_, FileTagModel>::new()
             .set(FileTagModel::STATUS, FileTagStatus::Deleted as i8)
             .set(FileTagModel::CHANGE_TIME, now)
-            .execute(
-                SqlSuffix::Where(&where_sql),
-                OptionTxExecutor::new(transaction, &self.db),
-            )
+            .execute(OptionTxExecutor::new(transaction, &self.db), |qb| {
+                qb.push_where().field_eq("file_id", file_id)
+                    .push_and().field_eq("user_id", user_id)
+                    .push_and().field_eq("app_id", app_id)
+                    .push_and().field_eq("tag_name", tag_name.clone())
+                    .push_and().field_eq("status", FileTagStatus::Normal as i8);
+            })
             .await?;
 
         Ok(res.rows_affected())
@@ -120,37 +205,18 @@ impl FileTagDao {
     ) -> FileResult<u64> {
         let now = now_time()?;
 
-        let where_sql = sql_format!(
-            "file_id={} AND user_id={} AND app_id={} AND status={}",
-            file_id,
-            user_id,
-            app_id,
-            FileTagStatus::Normal as i8
-        );
-
         let res = Update::<_, FileTagModel>::new()
             .set(FileTagModel::STATUS, FileTagStatus::Deleted as i8)
             .set(FileTagModel::CHANGE_TIME, now)
-            .execute(
-                SqlSuffix::Where(&where_sql),
-                OptionTxExecutor::new(transaction, &self.db),
-            )
+            .execute(OptionTxExecutor::new(transaction, &self.db), |qb| {
+                qb.push_where().field_eq("file_id", file_id)
+                    .push_and().field_eq("user_id", user_id)
+                    .push_and().field_eq("app_id", app_id)
+                    .push_and().field_eq("status", FileTagStatus::Normal as i8);
+            })
             .await?;
 
         Ok(res.rows_affected())
     }
 
-    /// 查询文件的所有标签名（status=Normal，去重）
-    ///
-    /// 用于文件拷贝/同步时获取源文件的标签，以便复制到新文件。
-    pub(crate) async fn get_file_tag_names(&self, file_id: u64) -> FileResult<Vec<String>> {
-        let sql = format!(
-            "SELECT DISTINCT tag_name FROM {} WHERE file_id={} AND status={} ORDER BY tag_name ASC",
-            FileTagModel::table_name().sql_quote(),
-            file_id,
-            FileTagStatus::Normal as i8
-        );
-        let rows: Vec<(String,)> = sqlx::query_as(&sql).fetch_all(&self.db).await?;
-        Ok(rows.into_iter().map(|r| r.0).collect())
-    }
 }

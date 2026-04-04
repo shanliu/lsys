@@ -10,23 +10,18 @@ use crate::{
         SenderMailMessageStatus, SenderType,
     },
 };
-use lsys_core::db::{CursorPageData, CursorPageParam, OffsetPageParam};
+use lsys_core::db::{CursorPageData, CursorPageParam, OffsetPageParam, TotalParam, TotalRow};
 use lsys_core::fluent_message;
-use lsys_core::utils::{
-    now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT,
-};
+use lsys_core::utils::{now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT};
 use lsys_core::valid_key;
 use lsys_core::valid_param::{
     ValidEmail, ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
 };
 
-use lsys_core::db::{BatchInsert, Insert, SqlExpr, SqlSuffix, TableMeta, Update};
-use lsys_core::sql_format;
+use lsys_core::db::{BatchInsert, Insert, QueryBuilderExt, TableMeta, Update, WhereClause};
 use lsys_logger::dao::ChangeLoggerDao;
 use serde_json::Value;
-use sqlx::Pool;
-
-use lsys_core::db::SqlQuote;
+use sqlx::{MySql, Pool, QueryBuilder};
 
 //短信任务记录
 
@@ -39,6 +34,49 @@ pub struct MailRecord {
 }
 
 impl MailRecord {
+    #[allow(clippy::too_many_arguments)]
+    fn build_message_where(
+        wb: &mut WhereClause<'_, '_, MySql>,
+        user_id: Option<u64>,
+        app_id: Option<u64>,
+        tpl_key: Option<&str>,
+        body_id: Option<u64>,
+        msg_snid: Option<u64>,
+        status: Option<i8>,
+        to_mail: Option<&str>,
+    ) -> bool {
+        if let Some(s) = to_mail {
+            let s = string_clear(s, StringClear::Option(STRING_CLEAR_FORMAT), Some(255));
+            if s.is_empty() {
+                return false;
+            }
+            wb.and().field_eq("m.to_mail", s);
+        }
+        if let Some(aid) = app_id {
+            wb.and().field_eq("b.app_id", aid);
+        }
+        if let Some(uid) = user_id {
+            wb.and().field_eq("b.user_id", uid);
+        }
+        if let Some(t) = tpl_key {
+            let t = string_clear(t, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
+            if t.is_empty() {
+                return false;
+            }
+            wb.and().field_eq("b.tpl_key", t);
+        }
+        if let Some(s) = status {
+            wb.and().field_eq("m.status", s);
+        }
+        if let Some(s) = body_id {
+            wb.and().field_eq("m.sender_body_id", s);
+        }
+        if let Some(s) = msg_snid {
+            wb.and().field_eq("m.snid", s);
+        }
+        true
+    }
+
     pub fn new(
         db: Pool<sqlx::MySql>,
         config: Arc<SenderConfig>,
@@ -70,47 +108,49 @@ impl MailRecord {
         msg_snid: Option<u64>,
         status: Option<SenderMailMessageStatus>,
         to_mail: Option<&str>,
-    ) -> SenderResult<i64> {
-        let mut sqlwhere = vec![];
-        if let Some(s) = to_mail {
-            sqlwhere.push(sql_format!("m.to_mail={}", s));
+        total_param: &TotalParam,
+    ) -> SenderResult<TotalRow> {
+        let query = total_param.total_count_query();
+
+        let mut qb = QueryBuilder::<MySql>::new(
+            if query.is_threshold_mode() {
+                format!(
+                    "select count(*) as total from (select 1 from {} as m join {} as b on m.sender_body_id=b.id",
+                    SenderMailMessageModel::table_name(),
+                    SenderMailBodyModel::table_name(),
+                )
+            } else {
+                format!(
+                    "select count(*) as total from {} as m join {} as b on m.sender_body_id=b.id",
+                    SenderMailMessageModel::table_name(),
+                    SenderMailBodyModel::table_name(),
+                )
+            }
+        );
+        let mut wb = WhereClause::new(&mut qb);
+        if !Self::build_message_where(
+            &mut wb,
+            user_id,
+            app_id,
+            tpl_key,
+            body_id,
+            msg_snid,
+            status.map(|s| s as i8),
+            to_mail,
+        ) {
+            return Ok(TotalRow::Exact(0));
         }
 
-        if let Some(aid) = app_id {
-            sqlwhere.push(sql_format!("b.app_id = {}  ", aid));
+        if query.is_threshold_mode() {
+            query.push_limit(&mut qb);
+            qb.push(") as t");
         }
-        if let Some(uid) = user_id {
-            sqlwhere.push(sql_format!("b.user_id={} ", uid));
-        }
-        if let Some(t) = tpl_key {
-            let t = string_clear(t, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
-            if t.is_empty() {
-                return Ok(0);
-            }
-            sqlwhere.push(sql_format!("b.tpl_key={} ", t));
-        }
-        if let Some(s) = status {
-            sqlwhere.push(sql_format!("m.status={} ", s));
-        }
-        if let Some(s) = body_id {
-            sqlwhere.push(sql_format!("m.sender_body_id={} ", s));
-        }
-        if let Some(s) = msg_snid {
-            sqlwhere.push(sql_format!("m.snid={} ", s));
-        }
-        let sql = sql_format!(
-            "select count(*) as total from {} as m join {} as b on m.sender_body_id=b.id {}",
-            SenderMailMessageModel::table_name(),
-            SenderMailBodyModel::table_name(),
-            SqlExpr(if sqlwhere.is_empty() {
-                "".to_string()
-            } else {
-                format!("where {}", sqlwhere.join(" and "))
-            })
-        );
-        let query = sqlx::query_scalar::<_, i64>(&sql);
-        let res = query.fetch_one(&self.db).await?;
-        Ok(res)
+
+        let count = qb.build_query_scalar::<i64>()
+            .fetch_one(&self.db)
+            .await? as u64;
+
+        Ok(query.finalize(count))
     }
     #[allow(clippy::too_many_arguments)]
     pub async fn message_list(
@@ -127,55 +167,35 @@ impl MailRecord {
         Vec<(SenderMailMessageModel, Option<SenderMailBodyModel>)>,
         CursorPageData<u64>,
     )> {
-        let mut sqlwhere = vec![];
-        if let Some(s) = to_mail {
-            let s = string_clear(s, StringClear::Option(STRING_CLEAR_FORMAT), Some(255));
-            if s.is_empty() {
-                return Ok((vec![], CursorPageData::default()));
-            }
-            sqlwhere.push(sql_format!("m.to_mail={}", s));
-        }
-
-        if let Some(aid) = app_id {
-            sqlwhere.push(sql_format!("b.app_id = {}  ", aid));
-        }
-        if let Some(uid) = user_id {
-            sqlwhere.push(sql_format!("b.user_id={} ", uid));
-        }
-        if let Some(t) = tpl_key {
-            let t = string_clear(t, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
-            if t.is_empty() {
-                return Ok((vec![], CursorPageData::default()));
-            }
-            sqlwhere.push(sql_format!("b.tpl_key={} ", t));
-        }
-        if let Some(s) = status {
-            sqlwhere.push(sql_format!("m.status={} ", s));
-        }
-        if let Some(s) = body_id {
-            sqlwhere.push(sql_format!("m.sender_body_id={} ", s));
-        }
-        if let Some(s) = msg_snid {
-            sqlwhere.push(sql_format!("m.snid={} ", s));
-        }
-
         let query_limit = limit.page_query("m.id");
-        let where_str = sqlwhere.join(" and ");
-        let suff_sql = query_limit.build_query_sql(if sqlwhere.is_empty() {
-            None
-        } else {
-            Some(&where_str)
-        });
-
-        let sql = sql_format!(
-            "select m.* from {} as m join {} as b on m.sender_body_id=b.id {}",
+        let mut qb = QueryBuilder::<MySql>::new(format!(
+            "select m.* from {} as m join {} as b on m.sender_body_id=b.id",
             SenderMailMessageModel::table_name(),
             SenderMailBodyModel::table_name(),
-            SqlExpr(suff_sql)
-        );
+        ));
+        let mut wb = WhereClause::new(&mut qb);
+        let has_cursor = query_limit.has_cursor();
+        if has_cursor {
+            query_limit.push_where(wb.and());
+        }
+        if !Self::build_message_where(
+            &mut wb,
+            user_id,
+            app_id,
+            tpl_key,
+            body_id,
+            msg_snid,
+            status.map(|s| s as i8),
+            to_mail,
+        ) {
+            return Ok((vec![], CursorPageData::default()));
+        }
+        query_limit.push_order_by(&mut qb);
+        query_limit.push_limit(&mut qb);
 
-        let res = sqlx::query_as::<_, SenderMailMessageModel>(sql.as_str());
-        let mut m_data = res.fetch_all(&self.db).await?;
+        let mut m_data = qb.build_query_as::<SenderMailMessageModel>()
+            .fetch_all(&self.db)
+            .await?;
 
         let next = query_limit.finalize(&mut m_data, |c, d| *d == c.id, |c| c.id);
 
@@ -187,13 +207,13 @@ impl MailRecord {
             .collect::<Vec<u64>>();
 
         let b_data = if !pks.is_empty() {
-            let sql = sql_format!(
-                "select * from {} where id in ({})",
-                SenderMailBodyModel::table_name(),
-                pks
-            );
-            let res = sqlx::query_as::<_, SenderMailBodyModel>(&sql);
-            res.fetch_all(&self.db).await?
+            let mut pks_qb: QueryBuilder<'_, MySql> = QueryBuilder::new(format!(
+                "select * from {}",
+                SenderMailBodyModel::table_name()
+            ));
+            pks_qb.push_where().field_in_copied("id", &pks);
+            pks_qb.build_query_as::<SenderMailBodyModel>()
+                .fetch_all(&self.db).await?
         } else {
             vec![]
         };
@@ -327,7 +347,7 @@ impl MailRecord {
             max_try_num = 10
         }
 
-        let body_id = Insert::<_,SenderMailBodyModel>::new()
+        let body_id = Insert::<_, SenderMailBodyModel>::new()
             .set(SenderMailBodyModel::REQUEST_ID, reqid)
             .set(SenderMailBodyModel::APP_ID, app_id)
             .set(SenderMailBodyModel::TPL_KEY, &tpl_key)
@@ -347,10 +367,10 @@ impl MailRecord {
             .await?
             .last_insert_id();
         let res_data = "";
-        let mut batch = BatchInsert::<_,SenderMailMessageModel>::with_capacity(add_data.len());
+        let mut batch = BatchInsert::<_, SenderMailMessageModel>::with_capacity(add_data.len());
         for (aid, _, to) in add_data.iter() {
             batch = batch.push(
-                Insert::<_,SenderMailMessageModel>::new()
+                Insert::<_, SenderMailMessageModel>::new()
                     .set(SenderMailMessageModel::SNID, *aid)
                     .set(SenderMailMessageModel::SENDER_BODY_ID, body_id)
                     .set(SenderMailMessageModel::TO_MAIL, to)
@@ -405,15 +425,14 @@ impl MailRecord {
             return Ok(());
         }
         if SenderMailMessageStatus::Init.eq(message.status) {
-            Update::<_,SenderMailMessageModel>::new()
+            Update::<_, SenderMailMessageModel>::new()
                 .set(
                     SenderMailMessageModel::STATUS,
                     SenderMailMessageStatus::IsCancel as i8,
                 )
-                .execute(
-                    SqlSuffix::Where(&sql_format!("id={}", message.id)),
-                    &self.db,
-                )
+                .execute(&self.db, |qb| {
+                    qb.push_where().field_eq("id", message.id);
+                })
                 .await?;
 
             self.logger
@@ -605,7 +624,6 @@ impl MailRecord {
         let mut rule = self
             .config_list(None, None, Some(app_id.unwrap_or_default()))
             .await?;
-        let mut limit_sql = vec![];
         let nowt = send_time;
         rule.sort_by(|a, b| a.0.priority.cmp(&b.0.priority));
         if let Some(max_send) = (|| {
@@ -615,8 +633,8 @@ impl MailRecord {
                 }
             }
             None
-        })() {
-            if mails.len() > max_send as usize {
+        })()
+            && mails.len() > max_send as usize {
                 return Err(SenderError::System(
                     fluent_message!("mail-send-check-max-send", //"send mail limit :{}",
                         {
@@ -625,41 +643,38 @@ impl MailRecord {
                     ),
                 ));
             }
-        }
+        let mut limit_config: Vec<(u64, &SenderMailConfigLimit)> = vec![];
+        let mut qb = QueryBuilder::<MySql>::new("SELECT * FROM (");
         for (c, r) in rule.iter() {
             match r {
                 SenderMailConfigData::Limit(limit) => {
                     if limit.range_time == 0 || limit.max_send == 0 || nowt < limit.range_time {
                         continue;
                     }
-                    let msql = mails
-                        .iter()
-                        .map(|e| {
-                            sql_format!(
-                                "to_mail={}",
-                                string_clear(
-                                    e,
-                                    StringClear::Option(STRING_CLEAR_FORMAT),
-                                    Some(255)
-                                )
-                            )
-                        })
-                        .collect::<Vec<String>>()
-                        .join(" or ");
                     let stime = nowt - limit.range_time;
-                    let sql = sql_format!(
-                        "select count(*) as total,{} as limit_id,m.to_mail from {} as b join {} as m
-                         on m.sender_body_id=b.id
-                        where b.app_id={} and m.status in ({}) and b.expected_time>={} and ({}) group by m.to_mail",
-                        c.id,
+                    if !limit_config.is_empty() {
+                        qb.push(" UNION ALL ");
+                    }
+                    qb.push("select count(*) as total,");
+                    qb.push_bind(c.id);
+                    qb.push(format!(
+                        " as limit_id,m.to_mail from {} as b join {} as m\
+                         on m.sender_body_id=b.id",
                         SenderMailBodyModel::table_name(),
                         SenderMailMessageModel::table_name(),
-                        c.app_id,
-                        &[SenderMailMessageStatus::IsSend as i8,SenderMailMessageStatus::IsReceived as i8],
-                        stime,
-                        SqlExpr(msql)
-                    );
-                    limit_sql.push((sql, c.id, limit));
+                    ));
+                    qb.push_where().field_eq("b.app_id", c.app_id);
+                    qb.push_and().field_in_copied("m.status", &[SenderMailMessageStatus::IsSend as i8, SenderMailMessageStatus::IsReceived as i8]);
+                    qb.push_and().field_gte("b.expected_time", stime);
+                    qb.push_and().push("(");
+                    for (i, e) in mails.iter().enumerate() {
+                        if i > 0 { qb.push(" or "); }
+                        qb.field_eq("to_mail", 
+                            string_clear(e, StringClear::Option(STRING_CLEAR_FORMAT), Some(255))
+                        );
+                    }
+                    qb.push(") group by m.to_mail");
+                    limit_config.push((c.id, limit));
                 }
                 SenderMailConfigData::PassTpl(itpl_key) => {
                     if *tpl_key == *itpl_key {
@@ -705,21 +720,14 @@ impl MailRecord {
                 _ => {}
             }
         }
-        if !limit_sql.is_empty() {
-            let sqls = limit_sql
-                .iter()
-                .map(|e| e.0.as_str())
-                .collect::<Vec<&str>>()
-                .join(") union all (");
-            let data = sqlx::query_as::<_, (i64, i64, String)>(&format!(
-                "select * from (({})) as t",
-                &sqls
-            ))
-            .fetch_all(&self.db)
-            .await?;
-            for (_, id, limit) in limit_sql {
-                if let Some(t) = data.iter().find(|e| e.1 as u64 == id) {
-                    if t.0 >= limit.max_send.into() {
+        if !limit_config.is_empty() {
+            qb.push(") AS t");
+            let data = qb.build_query_as::<(i64, i64, String)>()
+                .fetch_all(&self.db)
+                .await?;
+            for (id, limit) in limit_config {
+                if let Some(t) = data.iter().find(|e| e.1 as u64 == id)
+                    && t.0 >= limit.max_send.into() {
                         return Err(SenderError::System(
                             fluent_message!("mail-send-check-limit", //  "trigger limit rule :{} on {} [{}]",
                                 {
@@ -730,7 +738,6 @@ impl MailRecord {
                             ),
                         ));
                     }
-                }
             }
         }
         Ok(())

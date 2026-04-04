@@ -1,13 +1,13 @@
 // 脚本 CRUD + 列表 + 计数 + 脚本文件查询
 
 use lsys_core::db::{
-    CursorPageData, CursorPageParam, Insert, OffsetPageParam, SqlQuote, SqlSuffix, TableMeta,
-    Update,
+    CursorPageData, CursorPageParam, Insert, OffsetPageParam, QueryBuilderExt,
+    TableMeta, TotalParam, TotalRow, Update, WhereClause,
 };
 use lsys_core::fluent_message;
-use lsys_core::sql_format;
 use lsys_core::utils::{now_time, RequestEnv};
 use lsys_files::dao::{FileDataListParam, FileListAttrParam};
+use sqlx::{MySql, QueryBuilder};
 
 use crate::dao::result::{WebError, WebResult};
 use crate::model::*;
@@ -41,8 +41,9 @@ impl WebFileCollector {
     #[allow(clippy::too_many_arguments)]
     pub async fn script_add(
         &self,
-        user_id: u64,
+        add_user_id: u64,
         app_id: u64,
+        app_user_id: u64,
         name: &str,
         script_code: &str,
         timeout_secs: Option<u32>,
@@ -67,23 +68,40 @@ impl WebFileCollector {
             )));
         }
 
-        let now = now_time().map_err(|e| WebError::Message(fluent_message!("time-error", e)))?;
+        let timeout_val = timeout_secs.unwrap_or(30);
+        let memory_val = memory_limit.unwrap_or(64 * 1024 * 1024);
+
+        if self.config.max_timeout_secs > 0 && timeout_val > self.config.max_timeout_secs {
+            return Err(WebError::Message(fluent_message!(
+                "collector-script-timeout-exceed",
+                {
+                    "max": self.config.max_timeout_secs,
+                    "val": timeout_val
+                }
+            )));
+        }
+        if self.config.max_memory_limit > 0 && memory_val > self.config.max_memory_limit {
+            return Err(WebError::Message(fluent_message!(
+                "collector-script-memory-exceed",
+                {
+                    "max": self.config.max_memory_limit,
+                    "val": memory_val
+                }
+            )));
+        }
+
+        let now = now_time().unwrap_or_default();
         let script_md5 = format!("{:x}", md5::compute(script_code.as_bytes()));
 
         let res = Insert::<_, CollectorScriptModel>::new()
-            .set(CollectorScriptModel::USER_ID, user_id)
+            .set(CollectorScriptModel::ADD_USER_ID, add_user_id)
             .set(CollectorScriptModel::APP_ID, app_id)
+            .set(CollectorScriptModel::APP_USER_ID, app_user_id)
             .set(CollectorScriptModel::NAME, name)
             .set(CollectorScriptModel::SCRIPT_CODE, script_code)
             .set(CollectorScriptModel::SCRIPT_MD5, &script_md5)
-            .set(
-                CollectorScriptModel::TIMEOUT_SECS,
-                timeout_secs.unwrap_or(30),
-            )
-            .set(
-                CollectorScriptModel::MEMORY_LIMIT,
-                memory_limit.unwrap_or(64 * 1024 * 1024),
-            )
+            .set(CollectorScriptModel::TIMEOUT_SECS, timeout_val)
+            .set(CollectorScriptModel::MEMORY_LIMIT, memory_val)
             .set(
                 CollectorScriptModel::STATUS,
                 CollectorScriptStatus::Enable as i8,
@@ -100,12 +118,12 @@ impl WebFileCollector {
                 &LogCollectorScript {
                     action: "add",
                     script_id,
-                    user_id,
+                    user_id: add_user_id,
                     app_id,
                     name,
                 },
                 Some(script_id),
-                Some(user_id),
+                Some(add_user_id),
                 None,
                 env_data,
             )
@@ -142,29 +160,45 @@ impl WebFileCollector {
             )));
         }
 
-        let now = now_time().map_err(|e| WebError::Message(fluent_message!("time-error", e)))?;
-        let script_md5 = format!("{:x}", md5::compute(script_code.as_bytes()));
+        let timeout_val = timeout_secs.unwrap_or(30);
+        let memory_val = memory_limit.unwrap_or(64 * 1024 * 1024);
 
-        let where_sql = sql_format!(
-            "id={} AND status!={}",
-            script_id,
-            CollectorScriptStatus::Deleted as i8
-        );
+        if self.config.max_timeout_secs > 0 && timeout_val > self.config.max_timeout_secs {
+            return Err(WebError::Message(fluent_message!(
+                "collector-script-timeout-exceed",
+                {
+                    "max": self.config.max_timeout_secs,
+                    "val": timeout_val
+                }
+            )));
+        }
+        if self.config.max_memory_limit > 0 && memory_val > self.config.max_memory_limit {
+            return Err(WebError::Message(fluent_message!(
+                "collector-script-memory-exceed",
+                {
+                    "max": self.config.max_memory_limit,
+                    "val": memory_val
+                }
+            )));
+        }
+
+        let now = now_time().unwrap_or_default();
+        let script_md5 = format!("{:x}", md5::compute(script_code.as_bytes()));
 
         let res = Update::<_, CollectorScriptModel>::new()
             .set(CollectorScriptModel::NAME, name)
             .set(CollectorScriptModel::SCRIPT_CODE, script_code)
             .set(CollectorScriptModel::SCRIPT_MD5, &script_md5)
-            .set(
-                CollectorScriptModel::TIMEOUT_SECS,
-                timeout_secs.unwrap_or(30),
-            )
-            .set(
-                CollectorScriptModel::MEMORY_LIMIT,
-                memory_limit.unwrap_or(64 * 1024 * 1024),
-            )
+            .set(CollectorScriptModel::TIMEOUT_SECS, timeout_val)
+            .set(CollectorScriptModel::MEMORY_LIMIT, memory_val)
             .set(CollectorScriptModel::CHANGE_TIME, now)
-            .execute(SqlSuffix::Where(&where_sql), &self.db)
+            .execute(
+                &self.db,
+                |qb| {
+                    qb.push_where().field_eq("id", script_id);
+                    qb.push_and().field_ne("status", CollectorScriptStatus::Deleted as i8);
+                },
+            )
             .await?;
 
         self.logger
@@ -193,18 +227,18 @@ impl WebFileCollector {
         status: CollectorScriptStatus,
         env_data: Option<&RequestEnv>,
     ) -> WebResult<u64> {
-        let now = now_time().map_err(|e| WebError::Message(fluent_message!("time-error", e)))?;
-
-        let where_sql = sql_format!(
-            "id={} AND status!={}",
-            script_id,
-            CollectorScriptStatus::Deleted as i8
-        );
+        let now = now_time().unwrap_or_default();
 
         let res = Update::<_, CollectorScriptModel>::new()
             .set(CollectorScriptModel::STATUS, status as i8)
             .set(CollectorScriptModel::CHANGE_TIME, now)
-            .execute(SqlSuffix::Where(&where_sql), &self.db)
+            .execute(
+                &self.db,
+                |qb| {
+                    qb.push_where().field_eq("id", script_id);
+                    qb.push_and().field_ne("status", CollectorScriptStatus::Deleted as i8);
+                },
+            )
             .await?;
 
         let action = match status {
@@ -246,27 +280,28 @@ impl WebFileCollector {
         &self,
         script_id: u64,
     ) -> WebResult<Option<CollectorScriptModel>> {
-        let sql = sql_format!(
-            "SELECT * FROM {} WHERE id={}",
-            CollectorScriptModel::table_name(),
-            script_id
+        let sql = format!(
+            "SELECT * FROM {} WHERE id=?",
+            CollectorScriptModel::table_name()
         );
         let row = sqlx::query_as::<_, CollectorScriptModel>(&sql)
+            .bind(script_id)
             .fetch_optional(&self.db)
             .await?;
         Ok(row)
     }
 
     /// 构建脚本查询的 WHERE 子句
-    fn build_script_where(app_id: u64, status: Option<i8>) -> String {
-        let mut clauses: Vec<String> = vec![
-            sql_format!("app_id={}", app_id),
-            sql_format!("status!={}", CollectorScriptStatus::Deleted as i8),
-        ];
+    fn build_script_where<'a, 'args>(
+        wb: &mut WhereClause<'a, 'args, MySql>,
+        app_id: u64,
+        status: Option<i8>,
+    ) {
+        wb.and().field_eq("app_id", app_id);
+        wb.and().field_ne("status", CollectorScriptStatus::Deleted as i8);
         if let Some(s) = status {
-            clauses.push(sql_format!("status={}", s));
+            wb.and().field_eq("status", s);
         }
-        clauses.join(" AND ")
     }
 
     /// 脚本列表（Offset 分页）
@@ -276,17 +311,19 @@ impl WebFileCollector {
         status: Option<i8>,
         page: &OffsetPageParam,
     ) -> WebResult<Vec<CollectorScriptModel>> {
-        let where_str = Self::build_script_where(app_id, status);
-        let limit_sql = page.page_query().limit_sql().unwrap_or_default();
+        let mut qb = QueryBuilder::<MySql>::new(format!(
+            "SELECT * FROM {}",
+            CollectorScriptModel::table_name()
+        ));
+        {
+            let mut wb = WhereClause::new(&mut qb);
+            Self::build_script_where(&mut wb, app_id, status);
+        }
+        qb.push(" ORDER BY id DESC");
+        page.push_limit(&mut qb);
 
-        let sql = format!(
-            "SELECT * FROM {} WHERE {} ORDER BY id DESC{}",
-            CollectorScriptModel::table_name().sql_quote(),
-            where_str,
-            limit_sql
-        );
-
-        let data = sqlx::query_as::<_, CollectorScriptModel>(&sql)
+        let data = qb
+            .build_query_as::<CollectorScriptModel>()
             .fetch_all(&self.db)
             .await?;
 
@@ -295,17 +332,20 @@ impl WebFileCollector {
 
     /// 脚本总数
     pub async fn count_scripts(&self, app_id: u64, status: Option<i8>) -> WebResult<u64> {
-        let where_str = Self::build_script_where(app_id, status);
+        let mut qb = QueryBuilder::<MySql>::new(format!(
+            "SELECT COUNT(*) FROM {}",
+            CollectorScriptModel::table_name()
+        ));
+        {
+            let mut wb = WhereClause::new(&mut qb);
+            Self::build_script_where(&mut wb, app_id, status);
+        }
 
-        let sql = format!(
-            "SELECT COUNT(*) FROM {} WHERE {}",
-            CollectorScriptModel::table_name().sql_quote(),
-            where_str
-        );
-
-        let count = sqlx::query_scalar::<_, i64>(&sql)
+        let count = qb
+            .build_query_scalar()
             .fetch_one(&self.db)
-            .await?;
+            .await
+            .unwrap_or(0i64);
         Ok(count as u64)
     }
 
@@ -401,7 +441,8 @@ impl WebFileCollector {
         &self,
         script: &CollectorScriptModel,
         app_id: Option<u64>,
-    ) -> WebResult<u64> {
+        total_param: &TotalParam,
+    ) -> WebResult<TotalRow> {
         let tag_name = format!("script_id_{}", script.id);
         let tag_refs: Vec<&str> = vec![&tag_name];
 
@@ -411,8 +452,12 @@ impl WebFileCollector {
             ..Default::default()
         };
 
-        let count = self.file_dao.data_dao().count_files(&file_filter).await?;
-
-        Ok(count as u64)
+        Ok(self
+            .file_dao
+            .data_dao()
+            .count_files(&file_filter, total_param)
+            .await?)
     }
 }
+
+

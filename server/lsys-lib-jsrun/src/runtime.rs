@@ -267,37 +267,15 @@ pub struct EngineInner {
 
 pub struct JsEngine {
     inner: Arc<EngineInner>,
-    cache_cleanup_task: Option<tokio::task::JoinHandle<()>>,
+    cache_cleanup_interval: Duration,
 }
 
 impl JsEngine {
+
+
     /// Create a new JS engine with the given configuration.
     pub fn new(config: EngineConfig) -> Result<Self, Box<dyn std::error::Error>> {
         let cache = new_shared_cache(config.cache_capacity, config.cache_default_ttl);
-
-        // Periodic cache cleanup task
-        let cache_cleanup_task = if config.cache_cleanup_interval.is_zero() {
-            None
-        } else {
-            let interval = config.cache_cleanup_interval;
-            let cache_clone = cache.clone();
-            Some(tokio::spawn(async move {
-                let mut ticker = tokio::time::interval(interval);
-                ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-
-                loop {
-                    ticker.tick().await;
-                    let removed = cache_clone.cleanup_expired();
-                    if removed > 0 {
-                        tracing::debug!(
-                            target: "jsrun::cache",
-                            removed = removed,
-                            "cache cleanup removed expired entries"
-                        );
-                    }
-                }
-            }))
-        };
 
         Ok(Self {
             inner: Arc::new(EngineInner {
@@ -307,8 +285,40 @@ impl JsEngine {
                 runtime_semaphore: Arc::new(Semaphore::new(config.max_runtimes)),
                 tokio_handle: tokio::runtime::Handle::current(),
             }),
-            cache_cleanup_task,
+            cache_cleanup_interval: config.cache_cleanup_interval,
         })
+    }
+
+    /// 运行缓存清理后台循环。
+    /// 若 `cache_cleanup_interval` 为零则立即返回。
+    /// 通常通过 `tokio::spawn` 调用：
+    /// ```rust,ignore
+    /// let engine = Arc::new(JsEngine::new(config)?);
+    /// tokio::spawn({ let e = engine.clone(); async move { e.run_cache_cleanup().await; } });
+    /// ```
+    pub async fn run_cache_cleanup(&self) {
+        if self.cache_cleanup_interval.is_zero() {
+            return;
+        }
+        Self::cache_cleanup_loop(self.inner.cache.clone(), self.cache_cleanup_interval).await;
+    }
+
+        /// Internal: background task loop for periodic cache cleanup.
+    async fn cache_cleanup_loop(cache: SharedCache, interval: Duration) {
+        let mut ticker = tokio::time::interval(interval);
+        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+        loop {
+            ticker.tick().await;
+            let removed = cache.cleanup_expired();
+            if removed > 0 {
+                tracing::debug!(
+                    target: "jsrun::cache",
+                    removed = removed,
+                    "cache cleanup removed expired entries"
+                );
+            }
+        }
     }
 
     /// Build a [`RuntimeState`] by combining shared resources with per-runtime config.
@@ -451,14 +461,6 @@ impl JsEngine {
     /// Returns the tokio runtime handle captured when the engine was created.
     pub fn tokio_handle(&self) -> &tokio::runtime::Handle {
         &self.inner.tokio_handle
-    }
-}
-
-impl Drop for JsEngine {
-    fn drop(&mut self) {
-        if let Some(task) = self.cache_cleanup_task.take() {
-            task.abort();
-        }
     }
 }
 

@@ -1,5 +1,4 @@
-use lsys_core::db::{SqlQuote, TableMeta};
-use lsys_core::sql_format;
+use lsys_core::db::TableMeta;
 
 use super::super::FileResult;
 use super::FileHelper;
@@ -11,11 +10,11 @@ impl FileHelper {
         &self,
         file_id: u64,
     ) -> FileResult<Option<FileLocalModel>> {
-        let row = sqlx::query_as::<_, FileLocalModel>(&sql_format!(
-            "SELECT * FROM {} WHERE file_id={} LIMIT 1",
-            FileLocalModel::table_name(),
-            file_id
+        let row = sqlx::query_as::<_, FileLocalModel>(&format!(
+            "SELECT * FROM {} WHERE file_id=? LIMIT 1",
+            FileLocalModel::table_name()
         ))
+        .bind(file_id)
         .fetch_optional(&self.db)
         .await?;
         Ok(row)
@@ -26,11 +25,11 @@ impl FileHelper {
         &self,
         oss_file_id: u64,
     ) -> FileResult<Option<FileLocalModel>> {
-        let row = sqlx::query_as::<_, FileLocalModel>(&sql_format!(
-            "SELECT * FROM {} WHERE oss_file_id={} LIMIT 1",
-            FileLocalModel::table_name(),
-            oss_file_id
+        let row = sqlx::query_as::<_, FileLocalModel>(&format!(
+            "SELECT * FROM {} WHERE oss_file_id=? LIMIT 1",
+            FileLocalModel::table_name()
         ))
+        .bind(oss_file_id)
         .fetch_optional(&self.db)
         .await?;
         Ok(row)
@@ -38,11 +37,11 @@ impl FileHelper {
 
     /// 查询 file by id
     pub async fn find_file_by_id(&self, file_id: u64) -> FileResult<Option<FileModel>> {
-        let row = sqlx::query_as::<_, FileModel>(&sql_format!(
-            "SELECT * FROM {} WHERE id={} LIMIT 1",
-            FileModel::table_name(),
-            file_id
+        let row = sqlx::query_as::<_, FileModel>(&format!(
+            "SELECT * FROM {} WHERE id=? LIMIT 1",
+            FileModel::table_name()
         ))
+        .bind(file_id)
         .fetch_optional(&self.db)
         .await?;
         Ok(row)
@@ -50,11 +49,11 @@ impl FileHelper {
 
     /// 查询 file_user by id
     pub async fn find_file_user_by_id(&self, id: u64) -> FileResult<Option<FileUserModel>> {
-        let row = sqlx::query_as::<_, FileUserModel>(&sql_format!(
-            "SELECT * FROM {} WHERE id={} LIMIT 1",
-            FileUserModel::table_name(),
-            id
+        let row = sqlx::query_as::<_, FileUserModel>(&format!(
+            "SELECT * FROM {} WHERE id=? LIMIT 1",
+            FileUserModel::table_name()
         ))
+        .bind(id)
         .fetch_optional(&self.db)
         .await?;
         Ok(row)
@@ -62,11 +61,11 @@ impl FileHelper {
 
     /// 查询 file_oss by file_id
     pub async fn find_file_oss_by_file_id(&self, file_id: u64) -> FileResult<Option<FileOssModel>> {
-        let row = sqlx::query_as::<_, FileOssModel>(&sql_format!(
-            "SELECT * FROM {} WHERE file_id={} LIMIT 1",
-            FileOssModel::table_name(),
-            file_id
+        let row = sqlx::query_as::<_, FileOssModel>(&format!(
+            "SELECT * FROM {} WHERE file_id=? LIMIT 1",
+            FileOssModel::table_name()
         ))
+        .bind(file_id)
         .fetch_optional(&self.db)
         .await?;
         Ok(row)
@@ -78,12 +77,12 @@ impl FileHelper {
         file_id: u64,
         chunk_index: u32,
     ) -> FileResult<Option<FileLocalChunkModel>> {
-        let row = sqlx::query_as::<_, FileLocalChunkModel>(&sql_format!(
-            "SELECT * FROM {} WHERE file_id={} AND chunk_index={} LIMIT 1",
-            FileLocalChunkModel::table_name(),
-            file_id,
-            chunk_index
+        let row = sqlx::query_as::<_, FileLocalChunkModel>(&format!(
+            "SELECT * FROM {} WHERE file_id=? AND chunk_index=? LIMIT 1",
+            FileLocalChunkModel::table_name()
         ))
+        .bind(file_id)
+        .bind(chunk_index)
         .fetch_optional(&self.db)
         .await?;
         Ok(row)
@@ -94,11 +93,11 @@ impl FileHelper {
         &self,
         file_id: u64,
     ) -> FileResult<Vec<FileLocalChunkModel>> {
-        let rows = sqlx::query_as::<_, FileLocalChunkModel>(&sql_format!(
-            "SELECT * FROM {} WHERE file_id={} ORDER BY chunk_index ASC",
-            FileLocalChunkModel::table_name(),
-            file_id
+        let rows = sqlx::query_as::<_, FileLocalChunkModel>(&format!(
+            "SELECT * FROM {} WHERE file_id=? ORDER BY chunk_index ASC",
+            FileLocalChunkModel::table_name()
         ))
+        .bind(file_id)
         .fetch_all(&self.db)
         .await?;
         Ok(rows)
@@ -112,14 +111,14 @@ impl FileHelper {
         file_id: u64,
         status: FileUserStatus,
     ) -> FileResult<Option<FileUserModel>> {
-        let row = sqlx::query_as::<_, FileUserModel>(&sql_format!(
-            "SELECT * FROM {} WHERE user_id={} AND app_id={} AND file_id={} AND status={} LIMIT 1",
-            FileUserModel::table_name(),
-            user_id,
-            app_id,
-            file_id,
-            status as i8
+        let row = sqlx::query_as::<_, FileUserModel>(&format!(
+            "SELECT * FROM {} WHERE user_id=? AND app_id=? AND file_id=? AND status=? LIMIT 1",
+            FileUserModel::table_name()
         ))
+        .bind(user_id)
+        .bind(app_id)
+        .bind(file_id)
+        .bind(status as i8)
         .fetch_optional(&self.db)
         .await?;
         Ok(row)
@@ -133,14 +132,16 @@ impl FileHelper {
         source_md5: &str,
         status: FileUserStatus,
     ) -> FileResult<Option<FileUserModel>> {
-        let row = sqlx::query_as::<_, FileUserModel>(&sql_format!(
-            "SELECT * FROM {} WHERE user_id={} AND app_id={} AND source_md5={} AND status={} LIMIT 1",
-            FileUserModel::table_name(),
-            user_id,
-            app_id,
-            source_md5,
-            status as i8
-        ))
+        let row = sqlx::query_as::<_, FileUserModel>(
+            &format!(
+                "SELECT * FROM {} WHERE user_id=? AND app_id=? AND source_md5=? AND status=? LIMIT 1",
+                FileUserModel::table_name()
+            )
+        )
+        .bind(user_id)
+        .bind(app_id)
+        .bind(source_md5)
+        .bind(status as i8)
         .fetch_optional(&self.db)
         .await?;
         Ok(row)
@@ -152,30 +153,15 @@ impl FileHelper {
         storage_type: &str,
         file_md5: &str,
     ) -> FileResult<Option<FileModel>> {
-        let row = sqlx::query_as::<_, FileModel>(&sql_format!(
-            "SELECT * FROM {} WHERE storage_type={} AND file_md5={} AND status={} LIMIT 1",
-            FileModel::table_name(),
-            storage_type,
-            file_md5,
-            FileStatus::Normal as i8
-        ))
-        .fetch_optional(&self.db)
-        .await?;
-        Ok(row)
-    }
-
-    /// 查找某个 file_id 对应的最早创建的 file_user 记录 (最小 ID)
-    /// 用于反向查找文件的原始所属者, 而非硬编码 app_id=0
-    pub async fn find_min_file_user_by_file_id(
-        &self,
-        file_id: u64,
-    ) -> FileResult<Option<FileUserModel>> {
-        let row = sqlx::query_as::<_, FileUserModel>(&sql_format!(
-            "SELECT * FROM {} WHERE file_id={} AND status={} ORDER BY id ASC LIMIT 1",
-            FileUserModel::table_name(),
-            file_id,
-            FileUserStatus::Normal as i8
-        ))
+        let row = sqlx::query_as::<_, FileModel>(
+            &format!(
+                "SELECT * FROM {} WHERE storage_type=? AND file_md5=? AND status=? LIMIT 1",
+                FileModel::table_name()
+            )
+        )
+        .bind(storage_type)
+        .bind(file_md5)
+        .bind(FileStatus::Normal as i8)
         .fetch_optional(&self.db)
         .await?;
         Ok(row)

@@ -293,12 +293,11 @@ pub(crate) async fn group_exec<
                         for (exec_er, tpl_config, setting) in exec_group.iter() {
                             if setting.setting_key==setting_key{
                                 if tpl_config_id!=tpl_config.id{
-                                    if let Some(r_tmp)=send_ids.get(&setting.id){
-                                        if r_tmp.1>=0 && (min_num<0 ||r_tmp.1<=min_num) {
+                                    if let Some(r_tmp)=send_ids.get(&setting.id)
+                                        && r_tmp.1>=0 && (min_num<0 ||r_tmp.1<=min_num) {
                                             min_num=r_tmp.1;
                                             tar_tmp=Some((exec_er, tpl_config, setting));
                                         }
-                                    }
                                 }else if now_num>=0{
                                     self_tmp=Some((exec_er, tpl_config, setting))
                                 }

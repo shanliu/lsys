@@ -67,14 +67,14 @@ impl<T: Display> ValidRule for ValidPattern<T> {
             }
             //字母 数字 及 - _ 组成，开头不能是 - _ .
             Self::Ident => {
-                if let Some(c) = data.chars().next() {
-                    if c == '-' || c == '_' || c == '.' {
-                        return Err(ValidRuleError::new(
-                            fluent_message!("valid-not-pattern-ident",{
-                                "data":data,
-                            }),
-                        ));
-                    }
+                if let Some(c) = data.chars().next()
+                    && (c == '-' || c == '_' || c == '.')
+                {
+                    return Err(ValidRuleError::new(
+                        fluent_message!("valid-not-pattern-ident",{
+                            "data":data,
+                        }),
+                    ));
                 }
                 if !data
                     .chars()

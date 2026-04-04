@@ -12,7 +12,11 @@ pub struct CollectorScriptModel {
 
     /// 创建用户 ID
     #[sqlx(default)]
-    pub user_id: u64,
+    pub add_user_id: u64,
+
+    /// 应用关联用户 ID，仅冗余，不做过滤
+    #[sqlx(default)]
+    pub app_user_id: u64,
 
     /// 应用 ID，0=系统
     #[sqlx(default)]
@@ -69,7 +73,7 @@ pub struct CollectorRecordModel {
 
     /// 触发用户 ID
     #[sqlx(default)]
-    pub user_id: u64,
+    pub add_user_id: u64,
 
     /// 应用 ID
     #[sqlx(default)]

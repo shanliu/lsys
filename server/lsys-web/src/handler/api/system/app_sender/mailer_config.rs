@@ -7,6 +7,7 @@ use crate::{
 };
 use lsys_access::dao::AccessSession;
 use lsys_app_sender::model::{SenderMailConfigType, SenderTplConfigStatus};
+use lsys_core::api_utils::JsonPageData;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -247,7 +248,7 @@ pub async fn mailer_tpl_config_list(
         None
     };
     Ok(JsonResponse::data(JsonData::body(
-        json!({ "data": row ,"total":total}),
+        JsonPageData::total(row, total),
     )))
 }
 

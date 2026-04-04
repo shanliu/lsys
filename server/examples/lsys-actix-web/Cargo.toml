@@ -2,7 +2,7 @@
 name = "lsys-actix-web"
 version = "0.0.1"
 authors = ["liushan <shan.liu@msn.com>"]
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 lsys-web = { path = "../../lsys-web", features = [] }

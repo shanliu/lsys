@@ -20,9 +20,10 @@ pub use types::{
 pub use impls::app::{AppFeatureResponse, AppSecretResponse};
 pub use impls::auth::{AuthVerifyParam, AuthVerifyResponse};
 pub use impls::file::{
-    FileChunkParam, FileFromLocalResponse, FileFromUrlResponse, FileInfoItem, FileInfoResponse,
-    FileListItem, FileListResponse, FileMappingResponse, FileTagItem, FileUploadByMd5Response,
-    FileUploadCreateResponse, FileUploadRetokenResponse, FileUrlsResponse,
+    CursorResp, FileChunkParam, FileFromLocalResponse, FileFromUrlResponse, FileInfoItem,
+    FileInfoResponse, FileListItem, FileListResponse, FileMappingResponse, FileTagItem,
+    FileUploadByMd5Response, FileUploadCreateResponse, FileUploadRetokenResponse, FileUrlsResponse,
+    TotalResp,
 };
 pub use impls::rbac::{
     AccessCheckParam, RbacCheckItem, RbacCheckParam, RbacCheckRequest, RbacCheckResponse,

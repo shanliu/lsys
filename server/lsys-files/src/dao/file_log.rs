@@ -1,4 +1,4 @@
-use lsys_core::db::{utils::fetch_string_field_max, Insert, OptionTxExecutor};
+use lsys_core::db::{utils::FetchField, Insert, OptionTxExecutor};
 use lsys_core::utils::now_time;
 use sqlx::{MySql, Pool, Transaction};
 use tracing::{debug, warn};
@@ -6,6 +6,7 @@ use tracing::{debug, warn};
 use crate::model::FileLogModel;
 
 /// 文件日志 DAO
+#[derive(Clone)]
 pub struct FileLogDao {
     db: Pool<MySql>,
 }
@@ -25,7 +26,7 @@ impl FileLogDao {
         transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
     ) {
         let time = now_time().unwrap_or_default();
-        let msg_max = fetch_string_field_max::<FileLogModel>(&self.db, &FileLogModel::MESSAGE)
+        let msg_max =FetchField::new(&self.db).string_max::<FileLogModel>( &FileLogModel::MESSAGE)
             .await
             .len_or(1024);
         let msg: String = message.chars().take(msg_max as usize).collect();

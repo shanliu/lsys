@@ -1,4 +1,4 @@
-use crate::common::JsonData;
+use crate::common::{JsonData, JsonPageData};
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{CaptchaParam, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao},
@@ -214,8 +214,8 @@ pub async fn email_list_data(
         .account
         .user_email(account.id, status.as_deref())
         .await?;
-    Ok(JsonResponse::data(JsonData::body(json!({
-        "data": data ,
-        "total":data.len(),
-    }))))
+    let len = data.len() as u64;
+    Ok(JsonResponse::data(JsonData::body(
+        JsonPageData::total(data, len),
+    )))
 }

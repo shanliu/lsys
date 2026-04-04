@@ -8,6 +8,7 @@ use lsys_access::dao::AccessSession;
 use lsys_rbac::dao::{RbacResAddData, RbacResData, ResDataAttrParam, ResDataParam};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use lsys_core::api_utils::JsonPageData;
 
 #[derive(Debug, Deserialize)]
 pub struct ResAddParam {
@@ -255,6 +256,6 @@ pub async fn res_data(param: &ResParam, req_dao: &UserAuthQueryDao) -> JsonResul
         })
         .collect::<Vec<_>>();
     Ok(JsonResponse::data(JsonData::body(
-        json!({ "data": bind_vec_user_info_from_req!(req_dao, res, user_id,false),"total":count}),
+        JsonPageData::total(bind_vec_user_info_from_req!(req_dao, res, user_id,false), count),
     )))
 }

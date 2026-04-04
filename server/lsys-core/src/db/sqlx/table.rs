@@ -1,8 +1,6 @@
 use std::borrow::Cow;
 use std::fmt::Display;
 
-use crate::db::SqlQuote;
-
 /// 表名结构体
 /// 使用 Cow 同时支持静态和动态表名
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -63,9 +61,9 @@ impl Display for TableName {
     }
 }
 
-impl SqlQuote<String> for TableName {
-    fn sql_quote(&self) -> String {
-        // 标准 SQL 语法：简单标识符直接返回，否则加双引号并转义
+impl TableName {
+    /// SQL 标识符引用：简单标识符直接返回，否则加双引号并转义
+    pub fn quoted(&self) -> String {
         let full = self.full_name();
         if Self::is_simple_identifier(&full) {
             full
@@ -74,9 +72,7 @@ impl SqlQuote<String> for TableName {
             format!("\"{}\"", escaped)
         }
     }
-}
 
-impl TableName {
     /// 判断是否为简单标识符
     fn is_simple_identifier(s: &str) -> bool {
         let Some(first) = s.chars().next() else {

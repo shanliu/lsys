@@ -7,9 +7,8 @@ pub use data::*;
 pub use info::*;
 
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::db::SqlQuote;
 use lsys_core::db::{Insert, TableMeta, Update};
-use lsys_core::{db::utils::fetch_string_field_max, sql_format, valid_key};
+use lsys_core::{db::utils::FetchField, valid_key};
 use lsys_core::remote_notify::RemoteNotify;
 use lsys_core::utils::{now_time, string_clear, StringClear, STRING_CLEAR_FORMAT};
 use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
@@ -66,15 +65,10 @@ impl AccessUser {
         let user_data = string_clear(user_data, StringClear::Option(STRING_CLEAR_FORMAT), None);
 
         // 先获取字段长度
-        let user_data_max = fetch_string_field_max::<UserModel>(&self.db, &UserModel::USER_DATA)
-            .await
-            .len_or(32);
-        let nickname_max = fetch_string_field_max::<UserModel>(&self.db, &UserModel::USER_NICKNAME)
-            .await
-            .len_or(32);
-        let account_max = fetch_string_field_max::<UserModel>(&self.db, &UserModel::USER_ACCOUNT)
-            .await
-            .len_or(128);
+        let fetch_field = FetchField::new(&self.db);
+        let user_data_max = fetch_field.string_max::<UserModel>(&UserModel::USER_DATA).await.len_or(32);
+        let nickname_max = fetch_field.string_max::<UserModel>(&UserModel::USER_NICKNAME).await.len_or(32);
+        let account_max = fetch_field.string_max::<UserModel>(&UserModel::USER_ACCOUNT).await.len_or(128);
 
         let mut valid_param = ValidParam::default();
         valid_param.add(
@@ -87,15 +81,14 @@ impl AccessUser {
 
         let tmp_user_nickname =
             user_nickname.map(|e| string_clear(e, StringClear::Option(STRING_CLEAR_FORMAT), None));
-        if let Some(ref tmp_name) = tmp_user_nickname {
-            if !tmp_name.is_empty() {
+        if let Some(ref tmp_name) = tmp_user_nickname
+            && !tmp_name.is_empty() {
                 valid_param.add(
                     valid_key!("user_nickname"),
                     &tmp_name.as_str(),
                     &ValidParamCheck::default().add_rule(ValidStrlen::max(nickname_max)),
                 );
             }
-        }
         let tmp_user_account =
             user_account.map(|e| string_clear(e, StringClear::Option(STRING_CLEAR_FORMAT), None));
         if let Some(ref account) = tmp_user_account {
@@ -162,14 +155,15 @@ impl AccessUser {
             Ok(row) => {
                 self.user_cache.clear(&row.last_insert_id()).await;
                 if row.last_insert_id() == 0 {
-                    Ok(sqlx::query_scalar::<_, u64>(&sql_format!(
-                        "select id from {} where app_id={} and user_data={}",
+                    let user = sqlx::query_as::<_, UserModel>(&format!(
+                        "select * from {} where app_id=? and user_data=?",
                         UserModel::table_name(),
-                        app_id,
-                        user_data,
                     ))
+                    .bind(app_id)
+                    .bind(&user_data)
                     .fetch_one(&self.db)
-                    .await?)
+                    .await?;
+                    Ok(user.id)
                 } else {
                     Ok(row.last_insert_id())
                 }

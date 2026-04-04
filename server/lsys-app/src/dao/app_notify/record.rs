@@ -7,23 +7,17 @@ use crate::model::{
     AppModel, AppNotifyConfigModel, AppNotifyDataModel, AppNotifyDataStatus, AppNotifyTryTimeMode,
     AppNotifyType,
 };
-use lsys_core::{
-    db::utils::fetch_string_field_max, fluent_message, valid_key,
-};
 use lsys_core::utils::{now_time, string_clear, RequestEnv, StringClear};
 use lsys_core::valid_param::{
     ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen, ValidUrl,
 };
+use lsys_core::{db::utils::FetchField, fluent_message, valid_key};
 
-use lsys_core::db::{
-    CursorPageData, CursorPageParam, Insert, SqlExpr, SqlSuffix, TableMeta, Update,
-};
-use lsys_core::sql_format;
+use lsys_core::db::{CursorPageData, CursorPageParam, Insert, QueryBuilderExt, TableMeta, TotalParam, TotalRow, Update, WhereClause};
 use lsys_logger::dao::ChangeLoggerDao;
 use reqwest::Method;
-use sqlx::{FromRow, Pool, Row};
+use sqlx::{FromRow, MySql, Pool, QueryBuilder, Row};
 
-use lsys_core::db::SqlQuote;
 use tracing::warn;
 
 pub struct AppNotifyRecord {
@@ -36,10 +30,13 @@ impl AppNotifyRecord {
         Self { db, logger }
     }
     pub async fn find_data_by_id(&self, id: &u64) -> AppResult<AppNotifyDataModel> {
-        Ok(lsys_core::db::utils::fetch_one::<AppNotifyDataModel>(
+        Ok(lsys_core::db::utils::Fetch::<MySql, AppNotifyDataModel>::one(
             &self.db,
-            lsys_core::sql_format!("id={id}", id = id),
-        ).await?)
+            |qb| {
+                qb.field_eq("id", *id);
+            },
+        )
+        .await?)
     }
     pub async fn find_config_by_app(
         &self,
@@ -47,15 +44,14 @@ impl AppNotifyRecord {
         notify_method: &str,
     ) -> AppResult<AppNotifyConfigModel> {
         let method = string_clear(notify_method, StringClear::Ident, Some(65));
-        let data = sqlx::query_as::<_, AppNotifyConfigModel>(&sql_format!(
-            "select * from {} where app_id={} and notify_method={}",
-            AppNotifyConfigModel::table_name(),
-            app_id,
-            method
-        ))
-        .fetch_one(&self.db)
-        .await?;
-        Ok(data)
+        Ok(lsys_core::db::utils::Fetch::<MySql, AppNotifyConfigModel>::one(
+            &self.db,
+            move |qb| {
+                qb.field_eq("app_id", app_id);
+                qb.push_and().field_eq("notify_method", method);
+            },
+        )
+        .await?)
     }
     pub async fn find_config_by_apps(
         &self,
@@ -66,14 +62,16 @@ impl AppNotifyRecord {
             return Ok(vec![]);
         }
         let method = string_clear(notify_method, StringClear::Ident, Some(65));
-        let data = sqlx::query_as::<_, AppNotifyConfigModel>(&sql_format!(
-            "select * from {} where app_id in ({}) and notify_method={}",
+        let mut qb = QueryBuilder::<MySql>::new(format!(
+            "select * from {}",
             AppNotifyConfigModel::table_name(),
-            app_id,
-            method
-        ))
-        .fetch_all(&self.db)
-        .await?;
+        ));
+        qb.push_where().field_in_copied("app_id", app_id);
+        qb.push_and().field_eq("notify_method", method);
+        let data = qb
+            .build_query_as::<AppNotifyConfigModel>()
+            .fetch_all(&self.db)
+            .await?;
         Ok(data)
     }
     async fn set_app_config_param_valid(
@@ -82,14 +80,13 @@ impl AppNotifyRecord {
         call_url: &str,
     ) -> AppResult<()> {
         // 先获取所有字段长度
-        let method_max = fetch_string_field_max::<AppNotifyConfigModel>(
-            &self.db,
+        let fetch_field = FetchField::new(&self.db);
+        let method_max = fetch_field.string_max::<AppNotifyConfigModel>(
             &AppNotifyConfigModel::NOTIFY_METHOD,
         )
         .await
         .len_or(64);
-        let url_max = fetch_string_field_max::<AppNotifyConfigModel>(
-            &self.db,
+        let url_max = fetch_field.string_max::<AppNotifyConfigModel>(
             &AppNotifyConfigModel::CALL_URL,
         )
         .await
@@ -144,17 +141,19 @@ impl AppNotifyRecord {
         let create_time = now_time().unwrap_or_default();
         let id = match self.find_config_by_app(app.id, notify_method).await {
             Ok(row) => {
-                Update::<_,AppNotifyConfigModel>::new()
+                Update::<_, AppNotifyConfigModel>::new()
                     .set(AppNotifyConfigModel::CALL_URL, call_url.clone())
                     .set(AppNotifyConfigModel::CHANGE_TIME, create_time)
                     .set(AppNotifyConfigModel::CHANGE_USER_ID, change_user_id)
-                    .execute(SqlSuffix::Where(&sql_format!("id={}", row.id)), &self.db)
+                    .execute(&self.db, |qb| {
+                        qb.push_where().field_eq("id", row.id);
+                    })
                     .await?;
                 row.id
             }
             Err(AppError::Sqlx(sqlx::Error::RowNotFound)) => {
                 let notify_method = notify_method.to_owned();
-                let res = Insert::<_,AppNotifyConfigModel>::new()
+                let res = Insert::<_, AppNotifyConfigModel>::new()
                     .set(AppNotifyConfigModel::APP_ID, app.id)
                     .set(AppNotifyConfigModel::NOTIFY_METHOD, notify_method)
                     .set(AppNotifyConfigModel::CALL_URL, call_url.clone())
@@ -198,20 +197,16 @@ impl AppNotifyRecord {
         try_delay: u16,
     ) -> AppResult<()> {
         // 先获取所有字段长度
-        let method_max = fetch_string_field_max::<AppNotifyDataModel>(
-            &self.db,
+        let fetch_field = FetchField::new(&self.db);
+        let method_max = fetch_field.string_max::<AppNotifyDataModel>(
             &AppNotifyDataModel::NOTIFY_METHOD,
         )
         .await
         .len_or(64);
-        let key_max = fetch_string_field_max::<AppNotifyDataModel>(
-            &self.db,
-            &AppNotifyDataModel::NOTIFY_KEY,
-        )
-        .await
-        .len_or(64);
-        let payload_max = fetch_string_field_max::<AppNotifyDataModel>(
-            &self.db,
+        let key_max = fetch_field.string_max::<AppNotifyDataModel>(&AppNotifyDataModel::NOTIFY_KEY)
+            .await
+            .len_or(64);
+        let payload_max = fetch_field.string_max::<AppNotifyDataModel>(
             &AppNotifyDataModel::NOTIFY_PAYLOAD,
         )
         .await
@@ -273,29 +268,29 @@ impl AppNotifyRecord {
         let try_mode = try_mode as i8;
         let status = AppNotifyDataStatus::Init as i8;
 
-        let next_time = if clear_init_status {
-            0
-        } else {
-            match sqlx::query_scalar::<_, Option<u64>>(&sql_format!(
-                "select max(next_time) from {} 
-                            where app_id={} and notify_method={} and notify_key={} and status={}",
-                AppNotifyDataModel::table_name(),
-                &app_id,
-                &notify_method,
-                &notify_key,
-                status
-            ))
-            .fetch_one(&self.db)
-            .await
-            {
-                Ok(t) => t.unwrap_or_default(),
-                Err(sqlx::Error::RowNotFound) => 0,
-                Err(err) => Err(err)?,
-            }
-        };
+            let next_time = if clear_init_status {
+                0
+            } else {
+                match sqlx::query_scalar::<_, Option<u64>>(&format!(
+                    "select max(next_time) from {}
+                            where app_id=? and notify_method=? and notify_key=? and status=?",
+                    AppNotifyDataModel::table_name(),
+                ))
+                .bind(app_id)
+                .bind(&notify_method)
+                .bind(&notify_key)
+                .bind(status)
+                .fetch_one(&self.db)
+                .await
+                {
+                    Ok(t) => t.unwrap_or_default(),
+                    Err(sqlx::Error::RowNotFound) => 0,
+                    Err(err) => Err(err)?,
+                }
+            };
         let mut remove_history_count = 0;
         let mut tdb = self.db.begin().await?;
-        let res = Insert::<_,AppNotifyDataModel>::new()
+        let res = Insert::<_, AppNotifyDataModel>::new()
             .set(AppNotifyDataModel::APP_ID, app_id)
             .set(AppNotifyDataModel::NOTIFY_METHOD, notify_method.clone())
             .set(AppNotifyDataModel::NOTIFY_PAYLOAD, notify_data)
@@ -322,20 +317,16 @@ impl AppNotifyRecord {
         };
         if clear_init_status {
             let del_status = AppNotifyDataStatus::Delete as i8;
-            match Update::<_,AppNotifyDataModel>::new()
+            match Update::<_, AppNotifyDataModel>::new()
                 .set(AppNotifyDataModel::STATUS, del_status)
                 .set(AppNotifyDataModel::DELETE_TIME, create_time)
-                .execute(
-                    SqlSuffix::Where(&sql_format!(
-                        "app_id={} and notify_method={} and notify_key={} and id<{} and status={}",
-                        &app_id,
-                        &notify_method,
-                        &notify_key,
-                        last_id,
-                        status
-                    )),
-                    &mut *tdb,
-                )
+                .execute(&mut *tdb, |qb| {
+                    qb.push_where().field_eq("app_id", app_id)
+                        .push_and().field_eq("notify_method", notify_method)
+                        .push_and().field_eq("notify_key", notify_key)
+                        .push_and().field_lt("id", last_id)
+                        .push_and().field_eq("status", status);
+                })
                 .await
             {
                 Ok(c) => remove_history_count = c.rows_affected(),
@@ -377,10 +368,12 @@ impl AppNotifyRecord {
         }
         let create_time = now_time().unwrap_or_default();
         let del_status = AppNotifyDataStatus::Delete as i8;
-        Update::<_,AppNotifyDataModel>::new()
+        Update::<_, AppNotifyDataModel>::new()
             .set(AppNotifyDataModel::STATUS, del_status)
             .set(AppNotifyDataModel::DELETE_TIME, create_time)
-            .execute(SqlSuffix::Where(&sql_format!("id={}", data.id)), &self.db)
+            .execute(&self.db, |qb| {
+                qb.push_where().field_eq("id", data.id);
+            })
             .await?;
         self.logger
             .add(
@@ -396,44 +389,54 @@ impl AppNotifyRecord {
             .await;
         Ok(())
     }
-    fn data_sql(
+    fn data_sql<'a, 'args>(
         &self,
+        wb: &mut WhereClause<'a, 'args, MySql>,
         app_id: Option<u64>,
         app_user_id: Option<u64>,
         notify_method: Option<&str>,
         notify_key: Option<&str>,
         status: Option<&[AppNotifyDataStatus]>,
-    ) -> Option<Vec<String>> {
-        let mut sqlwhere = vec![];
-        if let Some(s) = notify_method {
-            let s = string_clear(s, StringClear::Ident, Some(65));
-            if s.is_empty() {
+    ) -> Option<()> {
+        // Validate inputs first (return None before any push)
+        let cleaned_method = notify_method.map(|s| string_clear(s, StringClear::Ident, Some(65)));
+        if let Some(ref s) = cleaned_method
+            && s.is_empty() {
                 return None;
             }
-            sqlwhere.push(sql_format!("d.notify_method={}", s));
+        let status_vals: Option<Vec<i8>> = status.map(|s| s.iter().map(|e| *e as i8).collect());
+        if let Some(ref s) = status_vals
+            && s.is_empty() {
+                return None;
+            }
+
+        if let Some(s) = cleaned_method {
+            wb.and().field_eq("d.notify_method", s);
         }
         if let Some(s) = notify_key {
             let s = string_clear(s, StringClear::Ident, Some(65));
-            sqlwhere.push(sql_format!("d.notify_key={}", s));
+            wb.and().field_eq("d.notify_key", s);
         }
         if let Some(aid) = app_id {
-            sqlwhere.push(sql_format!("d.app_id = {}  ", aid));
+            wb.and().field_eq("d.app_id", aid);
         }
         if let Some(uid) = app_user_id {
-            sqlwhere.push(sql_format!(
-                "d.app_id in ( select app_id from {} where app_user_id = {} )",
+            let qb = wb.and();
+            qb.push(format!(
+                "d.app_id IN (SELECT app_id FROM {}",
                 AppNotifyConfigModel::table_name(),
-                uid
             ));
+            qb.push_where().field_eq("app_user_id", uid);
+            qb.push(")");
         }
-        if let Some(s) = status {
-            let s: Vec<i8> = s.iter().map(|e| *e as i8).collect();
+        if let Some(s) = status_vals {
+            let s: Vec<i8> = s.to_vec();
             if s.is_empty() {
                 return None;
             }
-            sqlwhere.push(sql_format!("d.status in ({}) ", s));
+            wb.and().field_in_copied("d.status", &s);
         }
-        Some(sqlwhere)
+        Some(())
     }
 
     //消息数量
@@ -445,24 +448,35 @@ impl AppNotifyRecord {
         notify_method: Option<&str>,
         notify_key: Option<&str>,
         status: Option<&[AppNotifyDataStatus]>,
-    ) -> AppResult<i64> {
-        let sqlwhere = match self.data_sql(app_id, app_user_id, notify_method, notify_key, status) {
-            Some(s) => s,
-            None => return Ok(0),
+        total_param: &TotalParam,
+    ) -> AppResult<TotalRow> {
+        let query = total_param.total_count_query();
+        let mut qb = if query.is_threshold_mode() {
+            QueryBuilder::<MySql>::new(format!(
+                "select count(*) as total from (select 1 from {} as d",
+                AppNotifyDataModel::table_name(),
+            ))
+        } else {
+            QueryBuilder::<MySql>::new(format!(
+                "select count(*) as total from {} as d",
+                AppNotifyDataModel::table_name(),
+            ))
         };
-
-        let sql = sql_format!(
-            "select count(*) as total from {} as d {}",
-            AppNotifyDataModel::table_name(),
-            SqlExpr(if sqlwhere.is_empty() {
-                "".to_string()
-            } else {
-                format!("where {}", sqlwhere.join(" and "))
-            })
-        );
-        let query = sqlx::query_scalar::<_, i64>(&sql);
-        let res = query.fetch_one(&self.db).await?;
-        Ok(res)
+        {
+            let mut wb = WhereClause::new(&mut qb);
+            if self.data_sql(&mut wb, app_id, app_user_id, notify_method, notify_key, status).is_none() {
+                return Ok(TotalRow::Exact(0));
+            }
+        }
+        if query.is_threshold_mode() {
+            query.push_limit(&mut qb);
+            qb.push(") as t");
+        }
+        let count = qb
+            .build_query_scalar::<i64>()
+            .fetch_one(&self.db)
+            .await? as u64;
+        Ok(query.finalize(count))
     }
     //消息列表
     #[allow(clippy::too_many_arguments)]
@@ -476,36 +490,36 @@ impl AppNotifyRecord {
         attr_callback_data: bool,
         limit: &CursorPageParam<u64>,
     ) -> AppResult<(Vec<(AppNotifyDataModel, String)>, CursorPageData<u64>)> {
-        let sqlwhere = match self.data_sql(app_id, app_user_id, notify_method, notify_key, status) {
-            Some(s) => s,
-            None => return Ok((vec![], CursorPageData::default())),
-        };
         let query_limit = limit.page_query("d.id");
-        let where_str = sqlwhere.join(" and ");
-        let where_sql = query_limit.build_query_sql(if sqlwhere.is_empty() {
-            None
-        } else {
-            Some(&where_str)
-        });
 
-        let sql = if attr_callback_data {
-            sql_format!(
-                "select d.*,c.call_url from {} as d left join {} as c on d.app_id=c.app_id and d.notify_method=c.notify_method
-                {}",
+        let mut qb = if attr_callback_data {
+            QueryBuilder::<MySql>::new(format!(
+                "select d.*,c.call_url from {} as d left join {} as c on d.app_id=c.app_id and d.notify_method=c.notify_method",
                 AppNotifyDataModel::table_name(),
                 AppNotifyConfigModel::table_name(),
-                SqlExpr(where_sql)
-            )
+            ))
         } else {
-            sql_format!(
-                "select d.id,d.app_id,d.notify_method,d.notify_type,d.notify_key,d.status,d.publish_time,d.next_time,d.create_time,'' as call_url from {} as d 
-                {}",
+            QueryBuilder::<MySql>::new(format!(
+                "select d.id,d.app_id,d.notify_method,d.notify_type,d.notify_key,d.status,d.publish_time,d.next_time,d.create_time,'' as call_url from {} as d",
                 AppNotifyDataModel::table_name(),
-                SqlExpr(where_sql)
-            )
+            ))
         };
 
-        let mut m_data = sqlx::query(sql.as_str())
+        let cursor_has = query_limit.has_cursor();
+        {
+            let mut wb = WhereClause::new(&mut qb);
+            if self.data_sql(&mut wb, app_id, app_user_id, notify_method, notify_key, status).is_none() {
+                return Ok((vec![], CursorPageData::default()));
+            }
+            if cursor_has {
+                query_limit.push_where(wb.and());
+            }
+        }
+        query_limit.push_order_by(&mut qb);
+        query_limit.push_limit(&mut qb);
+
+        let mut m_data = qb
+            .build()
             .try_map(
                 |row: sqlx::mysql::MySqlRow| match AppNotifyDataModel::from_row(&row) {
                     Ok(res) => {

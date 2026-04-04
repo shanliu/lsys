@@ -39,20 +39,17 @@ fn validate_host(
         .ok_or_else(|| "URL has no host".to_string())?;
 
     // whitelist check
-    if let Some(ref list) = allow_list {
-        if !list.contains(host) {
+    if let Some(list) = allow_list
+        && !list.contains(host) {
             return Err(format!("Host '{}' is not in the allow-list", host));
         }
-    }
 
     // private IP check
-    if deny_private {
-        if let Ok(ip) = host.parse::<IpAddr>() {
-            if is_private_ip(&ip) {
+    if deny_private
+        && let Ok(ip) = host.parse::<IpAddr>()
+            && is_private_ip(&ip) {
                 return Err(format!("Access to private IP '{}' is denied", ip));
             }
-        }
-    }
 
     Ok(())
 }

@@ -30,15 +30,14 @@ impl ValidCodeData for ValidCodeDataRandom {
         tag: &'t str,
     ) -> ValidCodeResult<String> {
         let change_key = CODE_CHANGE_KEY.to_owned() + prefix + tag;
-        if self.duration_time > 0 {
-            if let Some(old_code) = old_code {
-                if !old_code.trim().is_empty() {
-                    let change_code: Option<String> = redis.get(change_key.as_str()).await?;
-                    if change_code.unwrap_or_default() == old_code {
-                        //一定时间内不变
-                        return Ok(old_code.to_string());
-                    }
-                }
+        if self.duration_time > 0
+            && let Some(old_code) = old_code
+            && !old_code.trim().is_empty()
+        {
+            let change_code: Option<String> = redis.get(change_key.as_str()).await?;
+            if change_code.unwrap_or_default() == old_code {
+                //一定时间内不变
+                return Ok(old_code.to_string());
             }
         }
         let out_code = rand_str(RandType::VaildCode, 6);

@@ -53,6 +53,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use tokio::sync::{mpsc, oneshot, Notify};
+use tracing::warn;
 
 use crate::runtime::{JsEngine, RuntimeConfig};
 
@@ -153,20 +154,23 @@ struct TaskEnvelope {
 /// Each submitted task can carry its own completion callback.
 pub struct JsTaskRunner {
     tx: mpsc::Sender<TaskEnvelope>,
-    #[allow(dead_code)]
     engine: Arc<JsEngine>,
     next_id: AtomicU64,
     shutdown: Arc<Notify>,
     in_flight: Arc<AtomicU64>,
     all_done: Arc<Notify>,
-    _bg_handle: tokio::task::JoinHandle<()>,
+    default_config: RuntimeConfig,
+    rx: std::sync::Mutex<Option<mpsc::Receiver<TaskEnvelope>>>,
 }
 
 impl JsTaskRunner {
     /// Create and start a new task runner.
     ///
-    /// * `engine` – shared JS engine (wrapped in `Arc` internally).
-    /// * `default_config` – used for tasks that don't supply their own `RuntimeConfig`.
+    /// 调用 [`run`](Self::run) 启动后台循环，通常通过 `tokio::spawn` 调用：
+    /// ```rust,ignore
+    /// let runner = Arc::new(JsTaskRunner::new(engine, RuntimeConfig::default()));
+    /// tokio::spawn({ let r = runner.clone(); async move { r.run().await; } });
+    /// ```
     pub fn new(engine: JsEngine, default_config: RuntimeConfig) -> Self {
         Self::with_capacity(engine, default_config, 256)
     }
@@ -183,17 +187,6 @@ impl JsTaskRunner {
         let in_flight = Arc::new(AtomicU64::new(0));
         let all_done = Arc::new(Notify::new());
 
-        let bg_handle = {
-            let engine = engine.clone();
-            let shutdown = shutdown.clone();
-            let in_flight = in_flight.clone();
-            let all_done = all_done.clone();
-
-            tokio::spawn(async move {
-                background_loop(rx, engine, default_config, shutdown, in_flight, all_done).await;
-            })
-        };
-
         JsTaskRunner {
             tx,
             engine,
@@ -201,8 +194,32 @@ impl JsTaskRunner {
             shutdown,
             in_flight,
             all_done,
-            _bg_handle: bg_handle,
+            default_config,
+            rx: std::sync::Mutex::new(Some(rx)),
         }
+    }
+
+    /// 运行后台任务派发循环。
+    /// 每个实例只能调用一次，通常通过 `tokio::spawn` 调用。
+    pub async fn run(&self) {
+        let rx = self.rx.lock().ok().and_then(|mut g| g.take());
+        if let Some(rx) = rx {
+            background_loop(
+                rx,
+                self.engine.clone(),
+                self.default_config.clone(),
+                self.shutdown.clone(),
+                self.in_flight.clone(),
+                self.all_done.clone(),
+            )
+            .await;
+        }
+    }
+
+    /// 运行引擎的缓存清理后台循环。
+    /// 委托给 [`JsEngine::run_cache_cleanup`]。
+    pub async fn run_engine_cleanup(&self) {
+        self.engine.run_cache_cleanup().await;
     }
 
     // ── Submitting tasks ─────────────────────────────────────
@@ -217,7 +234,7 @@ impl JsTaskRunner {
     ///
     /// This method will **not** block even if all runtime slots are occupied –
     /// the task is queued and executed as soon as a slot opens up.
-    pub fn submit<F, Fut>(
+    pub async fn submit<F, Fut>(
         &self,
         code: impl Into<String>,
         runtime_config: Option<RuntimeConfig>,
@@ -248,9 +265,9 @@ impl JsTaskRunner {
         // fall back to an async send in a spawned task.
         if let Err(mpsc::error::TrySendError::Full(envelope)) = self.tx.try_send(envelope) {
             let tx = self.tx.clone();
-            tokio::spawn(async move {
-                let _ = tx.send(envelope).await;
-            });
+             if let Err(err) = tx.send(envelope).await{
+                warn!("Failed to submit task {}: {}", task_id, err);
+             }
         }
 
         TaskHandle {
@@ -260,7 +277,7 @@ impl JsTaskRunner {
     }
 
     /// Convenience: submit without a callback (just await the handle).
-    pub fn submit_simple(
+    pub async fn submit_simple(
         &self,
         code: impl Into<String>,
         runtime_config: Option<RuntimeConfig>,
@@ -269,7 +286,7 @@ impl JsTaskRunner {
             code,
             runtime_config,
             None::<fn(TaskResult) -> std::future::Ready<()>>,
-        )
+        ).await
     }
 
     // ── Status ───────────────────────────────────────────────
@@ -290,8 +307,12 @@ impl JsTaskRunner {
     ///
     /// 1. Stops accepting new tasks (channel is closed).
     /// 2. Waits for all in-flight tasks to finish.
-    pub async fn shutdown(self) {
-        drop(self.tx);
+    pub async fn shutdown(&self) {
+        // Drop a clone of tx to signal no more senders when all clones are gone.
+        // We also close our own sender slot immediately.
+        drop(self.tx.clone());
+        // Closing the stored sender is not possible via &self, so we just notify
+        // the background loop and wait for in-flight count to reach zero.
         self.shutdown.notify_one();
 
         while self.in_flight.load(Ordering::Acquire) > 0 {

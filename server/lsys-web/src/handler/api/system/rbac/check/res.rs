@@ -7,6 +7,7 @@ use lsys_access::dao::AccessSession;
 use lsys_rbac::{dao::AccessSessionRole, model::RbacRoleResRange};
 use serde::Deserialize;
 use serde_json::json;
+use lsys_core::api_utils::JsonPageData;
 #[derive(Debug, Deserialize)]
 pub struct ResUserFromUserParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
@@ -58,11 +59,9 @@ pub async fn check_res_user_from_user(
         .find_res_user_count_from_user(param.access_user_id)
         .await?;
 
-    Ok(JsonResponse::data(JsonData::body(json!({
-        "data": user_data,
-        "is_system": is_system,
-        "total": count,
-    }))))
+    Ok(JsonResponse::data(JsonData::body(
+        JsonPageData::total(user_data, count).set_extra("is_system", is_system),
+    )))
 }
 
 #[derive(Debug, Deserialize)]
@@ -158,10 +157,9 @@ pub async fn check_res_list_from_user(
         )
         .await?;
 
-    Ok(JsonResponse::data(JsonData::body(json!({
-        "data": perm_data,
-        "total": count,
-    }))))
+    Ok(JsonResponse::data(JsonData::body(
+        JsonPageData::total(perm_data, count),
+    )))
 }
 
 #[derive(Debug, Deserialize)]
@@ -240,9 +238,7 @@ pub async fn check_res_info_from_session(
         }
     }
 
-    Ok(JsonResponse::data(JsonData::body(json!({
-        "data": perm_data,
-        "all_res": all_res,
-        "total": count,
-    }))))
+    Ok(JsonResponse::data(JsonData::body(
+        JsonPageData::total(perm_data, count).set_extra("all_res", all_res),
+    )))
 }

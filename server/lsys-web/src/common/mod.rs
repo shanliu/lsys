@@ -6,6 +6,6 @@ mod request;
 
 pub use fluent::*;
 pub use json_result::*;
-pub use lsys_core::api_utils::{JsonData, JsonResponse};
+pub use lsys_core::api_utils::{JsonData, JsonPageData, JsonResponse};
 pub use param::*;
 pub use request::*;

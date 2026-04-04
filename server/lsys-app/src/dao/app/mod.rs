@@ -5,7 +5,7 @@ mod request;
 mod sub_app;
 use lsys_access::dao::AccessDao;
 use lsys_core::{
-    db::utils::fetch_string_field_max, fluent_message, valid_key,
+    db::utils::FetchField, fluent_message, valid_key,
 };
 use lsys_core::app_core::AppCore;
 use lsys_core::remote_notify::RemoteNotify;
@@ -17,8 +17,7 @@ use lsys_core::utils::{
 use lsys_core::valid_param::{ValidError, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
 
 pub use data::*;
-use lsys_core::db::{Insert, TableMeta, SqlSuffix, Update};
-use lsys_core::sql_format;
+use lsys_core::db::{Insert, QueryBuilderExt, TableMeta, Update};
 pub use request::*;
 pub use sub_app::*;
 
@@ -32,7 +31,6 @@ use lsys_core::cache::{LocalCache, LocalCacheConfig};
 
 use super::AppSecret;
 use super::{logger::AppLog, AppError, AppResult};
-use lsys_core::db::SqlQuote;
 use lsys_logger::dao::ChangeLoggerDao;
 // use regex::Regex;
 use sqlx::{MySql, Pool};
@@ -101,10 +99,11 @@ impl App {
         );
 
         // 先获取所有字段长度
-        let name_max = fetch_string_field_max::<AppModel>(&self.db, &AppModel::NAME)
+        let fetch_field = FetchField::new(&self.db);
+        let name_max = fetch_field.string_max::<AppModel>(&AppModel::NAME)
             .await
             .len_or(24);
-        let client_id_max = fetch_string_field_max::<AppModel>(&self.db, &AppModel::CLIENT_ID)
+        let client_id_max = fetch_field.string_max::<AppModel>(&AppModel::CLIENT_ID)
             .await
             .len_or(32);
 
@@ -159,8 +158,8 @@ impl App {
                 }
             }
         }
-        if let Some(papp) = parent_app {
-            if papp.parent_app_id > 0 {
+        if let Some(papp) = parent_app
+            && papp.parent_app_id > 0 {
                 return Err(ValidError::message(
                     valid_key!("parent_app"),
                     fluent_message!("papp-id-bad",{
@@ -169,19 +168,16 @@ impl App {
                 )
                 .into());
             }
-        }
 
         let (name, client_id) = self.check_app_param_valid(param).await?;
-        let app_res = sqlx::query_as::<_, AppModel>(&sql_format!(
-            "select * from {} where client_id={} and status in ({})",
+        let app_res = sqlx::query_as::<_, AppModel>(&format!(
+            "select * from {} where client_id=? and status in (?,?,?)",
             AppModel::table_name(),
-            client_id,
-            &[
-                AppStatus::Disable as i8,
-                AppStatus::Enable as i8,
-                AppStatus::Init as i8
-            ]
         ))
+        .bind(&client_id)
+        .bind(AppStatus::Disable as i8)
+        .bind(AppStatus::Enable as i8)
+        .bind(AppStatus::Init as i8)
         .fetch_one(&self.db)
         .await;
         match app_res {
@@ -204,17 +200,17 @@ impl App {
                 return Err(err.into());
             }
         }
-        let req_res = sqlx::query_scalar::<_, u64>(&sql_format!(
+        let req_res = sqlx::query_scalar::<_, u64>(&format!(
             "select req.app_id from {}  as info
                 join {} as req on info.app_request_id=req.id
-                where info.client_id={} and req.status={} and req.request_type={} limit 1
+                where info.client_id=? and req.status=? and req.request_type=? limit 1
             ",
             AppRequestSetInfoModel::table_name(),
             AppRequestModel::table_name(),
-            client_id,
-            AppRequestStatus::Pending as i8,
-            AppRequestType::AppChange as i8
         ))
+        .bind(&client_id)
+        .bind(AppRequestStatus::Pending as i8)
+        .bind(AppRequestType::AppChange as i8)
         .fetch_one(&self.db)
         .await;
         match req_res {
@@ -363,17 +359,15 @@ impl App {
             return Ok(());
         }
         if app.client_id != client_id {
-            let app_res = sqlx::query_as::<_, AppModel>(&sql_format!(
-                "select * from {} where client_id={} and status in ({}) and id !={}",
+            let app_res = sqlx::query_as::<_, AppModel>(&format!(
+                "select * from {} where client_id=? and status in (?,?,?) and id !=?",
                 AppModel::table_name(),
-                client_id,
-                &[
-                    AppStatus::Disable as i8,
-                    AppStatus::Enable as i8,
-                    AppStatus::Init as i8
-                ],
-                app.id
             ))
+            .bind(&client_id)
+            .bind(AppStatus::Disable as i8)
+            .bind(AppStatus::Enable as i8)
+            .bind(AppStatus::Init as i8)
+            .bind(app.id)
             .fetch_one(&self.db)
             .await;
             match app_res {
@@ -388,17 +382,17 @@ impl App {
                     return Err(err.into());
                 }
             }
-            let req_res = sqlx::query_scalar::<_, u64>(&sql_format!(
+            let req_res = sqlx::query_scalar::<_, u64>(&format!(
                 "select req.app_id from {}  as info
                     join {} as req on info.app_request_id=req.id
-                    where info.client_id={} and req.status={} and req.request_type={} limit 1
+                    where info.client_id=? and req.status=? and req.request_type=? limit 1
                 ",
                 AppRequestSetInfoModel::table_name(),
                 AppRequestModel::table_name(),
-                client_id,
-                AppRequestStatus::Pending as i8,
-                AppRequestType::AppChange as i8
             ))
+            .bind(&client_id)
+            .bind(AppRequestStatus::Pending as i8)
+            .bind(AppRequestType::AppChange as i8)
             .fetch_one(&self.db)
             .await;
             match req_res {
@@ -422,7 +416,9 @@ impl App {
             let req_res = Update::<_,AppModel>::new()
                 .set(AppModel::NAME, &name)
                 .set(AppModel::CLIENT_ID, &client_id)
-                .execute(SqlSuffix::Where(&sql_format!("id={}", app.id)), &mut *db)
+                .execute(&mut *db, |qb| {
+                    qb.push_where().field_eq("id", app.id);
+                })
                 .await;
             if let Err(e) = req_res {
                 db.rollback().await?;
@@ -434,17 +430,12 @@ impl App {
         let req_status = AppRequestStatus::Invalid as i8;
         let req_res = Update::<_,AppRequestModel>::new()
             .set(AppRequestModel::STATUS, req_status)
-            .execute(
-                SqlSuffix::Where(&sql_format!(
-                    "app_id={} and request_type in ({})",
-                    app.id,
-                    &[
-                        AppRequestType::AppChange as i8,
-                        AppRequestType::AppReq as i8
-                    ]
-                )),
-                &mut *db,
-            )
+            .execute(&mut *db, |qb| {
+                qb.push_where()
+                    .field_eq("app_id", app.id)
+                    .push_and()
+                    .field_in_copied("request_type", &[AppRequestType::AppChange as i8, AppRequestType::AppReq as i8]);
+            })
             .await;
         if let Err(e) = req_res {
             db.rollback().await?;
@@ -546,11 +537,11 @@ impl App {
         {
             return Err(AppError::System(fluent_message!("app-req-is-invalid")));
         }
-        let req_info = match sqlx::query_as::<_, AppRequestSetInfoModel>(&sql_format!(
-            "select * from {} where app_request_id={}",
+        let req_info = match sqlx::query_as::<_, AppRequestSetInfoModel>(&format!(
+            "select * from {} where app_request_id=?",
             AppRequestSetInfoModel::table_name(),
-            req.id,
         ))
+        .bind(req.id)
         .fetch_one(&self.db)
         .await
         {
@@ -562,17 +553,15 @@ impl App {
                 return Err(err.into());
             }
         };
-        let app_res = sqlx::query_as::<_, AppModel>(&sql_format!(
-            "select * from {} where client_id={} and status in ({}) and id !={}",
+        let app_res = sqlx::query_as::<_, AppModel>(&format!(
+            "select * from {} where client_id=? and status in (?,?,?) and id !=?",
             AppModel::table_name(),
-            req_info.client_id,
-            &[
-                AppStatus::Disable as i8,
-                AppStatus::Enable as i8,
-                AppStatus::Init as i8
-            ],
-            app.id
         ))
+        .bind(&req_info.client_id)
+        .bind(AppStatus::Disable as i8)
+        .bind(AppStatus::Enable as i8)
+        .bind(AppStatus::Init as i8)
+        .bind(app.id)
         .fetch_one(&self.db)
         .await;
         match app_res {
@@ -601,7 +590,9 @@ impl App {
             .set(AppModel::STATUS, status)
             .set(AppModel::CHANGE_USER_ID, confirm_user_id)
             .set(AppModel::CHANGE_TIME, time)
-            .execute(SqlSuffix::Where(&sql_format!("id={}", app.id)), &mut *db)
+            .execute(&mut *db, |qb| {
+                qb.push_where().field_eq("id", app.id);
+            })
             .await;
         if let Err(e) = req_res {
             db.rollback().await?;
@@ -616,7 +607,9 @@ impl App {
             .set(AppRequestModel::CONFIRM_USER_ID, confirm_user_id)
             .set(AppRequestModel::CONFIRM_TIME, time)
             .set(AppRequestModel::CONFIRM_NOTE, confirm_note)
-            .execute(SqlSuffix::Where(&sql_format!("id={}", req.id)), &mut *db)
+            .execute(&mut *db, |qb| {
+                qb.push_where().field_eq("app_id", req.id);
+            })
             .await;
         if let Err(e) = req_res {
             db.rollback().await?;
@@ -678,10 +671,12 @@ impl App {
             .set(AppModel::STATUS, status)
             .set(AppModel::CHANGE_USER_ID, disable_user_id)
             .set(AppModel::CHANGE_TIME, time)
-            .execute(
-                SqlSuffix::Where(&sql_format!("id={} or parent_app_id={}", app.id, app.id)),
-                &mut *db,
-            )
+            .execute(&mut *db, |qb| {
+                qb.push_where()
+                    .field_eq("id", app.id)
+                    .push_or()
+                    .field_eq("parent_app_id", app.id);
+            })
             .await;
         if let Err(e) = req_res {
             db.rollback().await?;
@@ -694,16 +689,17 @@ impl App {
             .set(AppRequestModel::STATUS, confirm_status)
             .set(AppRequestModel::CONFIRM_USER_ID, disable_user_id)
             .set(AppRequestModel::CONFIRM_TIME, time)
-            .execute(
-                SqlSuffix::Where(&sql_format!(
-                    "(app_id={} or app_id in (select id from {} where parent_app_id={})) and status={}",
-                    app.id,
-                    AppModel::table_name(),
-                    app.id,
-                    AppRequestStatus::Pending as i8
-                )),
-                &mut *db,
-            )
+            .execute(&mut *db, |qb| {
+                qb.push_where()
+                    .push("(")
+                    .field_eq("app_id", app.id)
+                    .push(format!(" OR app_id IN (SELECT id FROM {}", AppModel::table_name()))
+                    .push_where()
+                    .field_eq("parent_app_id", app.id)
+                    .push("))")
+                    .push_and()
+                    .field_eq("status", AppRequestStatus::Pending as i8);
+            })
             .await;
         if let Err(e) = req_res {
             db.rollback().await?;
@@ -718,13 +714,13 @@ impl App {
 
         let mut clear_start_id = 0;
         loop {
-            let sub_app = sqlx::query_as::<_, (u64,String)>(&sql_format!(
-                "select * from {} where  parent_app_id ={} and status = {} and id>{}  order by id asc limit 100",
+            let sub_app = sqlx::query_as::<_, (u64,String)>(&format!(
+                "select * from {} where  parent_app_id =? and status = ? and id>?  order by id asc limit 100",
                 AppModel::table_name(),
-                app.id,
-                 AppStatus::Disable as i8,
-                clear_start_id
             ))
+            .bind(app.id)
+            .bind(AppStatus::Disable as i8)
+            .bind(clear_start_id)
             .fetch_all(&self.db)
             .await?;
             if sub_app.is_empty() {
@@ -774,16 +770,14 @@ impl App {
             return Ok(());
         }
 
-        let sub_app_count = sqlx::query_scalar::<_, i64>(&sql_format!(
-            "select count(*) as total from {} where  parent_app_id ={} and status in ({})",
+        let sub_app_count = sqlx::query_scalar::<_, i64>(&format!(
+            "select count(*) as total from {} where  parent_app_id =? and status in (?,?,?)",
             AppModel::table_name(),
-            app.id,
-            &[
-                AppStatus::Enable as i8,
-                AppStatus::Init as i8,
-                AppStatus::Disable as i8
-            ],
         ))
+        .bind(app.id)
+        .bind(AppStatus::Enable as i8)
+        .bind(AppStatus::Init as i8)
+        .bind(AppStatus::Disable as i8)
         .fetch_one(&self.db)
         .await;
         match sub_app_count {
@@ -809,7 +803,9 @@ impl App {
             .set(AppModel::STATUS, status)
             .set(AppModel::CHANGE_USER_ID, delete_user_id)
             .set(AppModel::CHANGE_TIME, time)
-            .execute(SqlSuffix::Where(&sql_format!("id={}", app.id)), &mut *db)
+            .execute(&mut *db, |qb| {
+                qb.push_where().field_eq("id", app.id);
+            })
             .await;
         if let Err(e) = req_res {
             db.rollback().await?;
@@ -822,14 +818,12 @@ impl App {
             .set(AppRequestModel::STATUS, confirm_status)
             .set(AppRequestModel::CONFIRM_USER_ID, delete_user_id)
             .set(AppRequestModel::CONFIRM_TIME, time)
-            .execute(
-                SqlSuffix::Where(&sql_format!(
-                    "app_id={} and status={}",
-                    app.id,
-                    AppRequestStatus::Pending as i8
-                )),
-                &mut *db,
-            )
+            .execute(&mut *db, |qb| {
+                qb.push_where()
+                    .field_eq("app_id", app.id)
+                    .push_and()
+                    .field_eq("status", AppRequestStatus::Pending as i8);
+            })
             .await;
         if let Err(e) = req_res {
             db.rollback().await?;

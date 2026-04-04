@@ -78,4 +78,16 @@ impl From<std::time::SystemTimeError> for FileError {
     }
 }
 
+impl From<lsys_setting::dao::SettingError> for FileError {
+    fn from(err: lsys_setting::dao::SettingError) -> Self {
+        FileError::System(err.to_fluent_message())
+    }
+}
+
+impl From<lsys_core::valid_param::ValidError> for FileError {
+    fn from(err: lsys_core::valid_param::ValidError) -> Self {
+        FileError::Param(err.to_fluent_message())
+    }
+}
+
 pub type FileResult<T> = Result<T, FileError>;

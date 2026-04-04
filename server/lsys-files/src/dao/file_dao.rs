@@ -2,11 +2,11 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use lsys_core::db::{
-    Insert, SqlQuote, SqlSuffix, TableMeta, Update,
+    Insert, QueryBuilderExt, TableMeta, Update
 };
-use lsys_core::sql_format;
 use lsys_core::utils::{now_time, RequestEnv};
 use lsys_logger::dao::ChangeLoggerDao;
+use sqlx::{MySql, QueryBuilder};
 use tracing::warn;
 
 use super::file_data::FileDataDao;
@@ -22,6 +22,7 @@ use crate::model::*;
 pub struct FileDao {
     pub(crate) helper: Arc<FileHelper>,
     pub(crate) download_manager: Arc<FileDownloadManager>,
+    pub(crate) oss_config: Arc<FileOssConfigDao>,
     pub(crate) logger: Arc<ChangeLoggerDao>,
     pub(crate) log_dao: FileLogDao,
     pub(crate) data_dao: FileDataDao,
@@ -32,6 +33,7 @@ impl FileDao {
     pub fn new(
         helper: Arc<FileHelper>,
         download_manager: Arc<FileDownloadManager>,
+        oss_config: Arc<FileOssConfigDao>,
         logger: Arc<ChangeLoggerDao>,
     ) -> Self {
         let log_dao = FileLogDao::new(helper.db.clone());
@@ -40,6 +42,7 @@ impl FileDao {
         Self {
             helper,
             download_manager,
+            oss_config,
             logger,
             log_dao,
             data_dao,
@@ -49,6 +52,11 @@ impl FileDao {
 
     pub fn helper(&self) -> &FileHelper {
         &self.helper
+    }
+
+    /// 创建 FileOpContext（已绑定 helper 和 oss_config）
+    pub fn create_context<'a>(&'a self, file_user: &'a FileUserModel) -> FileOpContext<'a> {
+        FileOpContext::new(file_user, &self.helper, &self.oss_config)
     }
 
     /// 获取文件配置引用
@@ -71,19 +79,35 @@ impl FileDao {
         &self.tag_dao
     }
 
+    /// 获取 OSS 配置管理 DAO
+    pub fn oss_config(&self) -> &FileOssConfigDao {
+        &self.oss_config
+    }
+
+    /// 运行下载监听后台循环。
+    /// 通常通过 `tokio::spawn` 调用。
+    pub async fn run_download_listener(&self) {
+        self.download_manager.listen().await;
+    }
+
     // ==================== 创建方法 3: 本地上传 ====================
 
     /// 3.1 通过已有 FILE 对象创建 file_user 关联
+    ///
+    /// - `user_id`: 文件属于的用户ID,0=系统
+    /// - `add_user_id`: 文件添加(上传)用户ID
     pub async fn create_file_user(
         &self,
         file: &FileModel,
         user_id: u64,
+        add_user_id: u64,
         app_id: u64,
         env_data: Option<&RequestEnv>,
     ) -> FileResult<u64> {
         let now = now_time()?;
         let res = Insert::<_,FileUserModel>::new()
             .set(FileUserModel::USER_ID, user_id)
+            .set(FileUserModel::ADD_USER_ID, add_user_id)
             .set(FileUserModel::APP_ID, app_id)
             .set(FileUserModel::FILE_ID, file.id)
             .set(FileUserModel::STATUS, FileUserStatus::Normal as i8)
@@ -141,7 +165,7 @@ impl FileDao {
             if !FileStatus::Normal.eq(f.status) {
                 continue;
             }
-            if f.storage_type == FileModel::STORAGE_TYPE_LOCAL {
+            if f.is_local() {
                 local_ids.push(f.id);
             } else {
                 oss_ids.push(f.id);
@@ -150,14 +174,12 @@ impl FileDao {
 
         // 批量查询 local 记录
         if !local_ids.is_empty() {
-            let id_str: Vec<String> = local_ids.iter().map(|i| i.to_string()).collect();
-            let sql = format!(
-                "SELECT * FROM {} WHERE file_id IN ({})",
-                FileLocalModel::table_name().sql_quote(),
-                id_str.join(",")
-            );
-            let locals: Vec<FileLocalModel> =
-                sqlx::query_as::<_, FileLocalModel>(&sql)
+            let mut qb: QueryBuilder<MySql> = QueryBuilder::new(format!(
+                "SELECT * FROM {}",
+                FileLocalModel::table_name(),
+            ));
+            qb.push_where().field_in_copied("file_id", &local_ids);
+            let locals: Vec<FileLocalModel> = qb.build_query_as()
                     .fetch_all(&self.helper.db)
                     .await?;
             let prefix = &self.helper.config.local_file_url_prefix;
@@ -170,14 +192,12 @@ impl FileDao {
 
         // 批量查询 oss 记录
         if !oss_ids.is_empty() {
-            let id_str: Vec<String> = oss_ids.iter().map(|i| i.to_string()).collect();
-            let sql = format!(
-                "SELECT * FROM {} WHERE file_id IN ({})",
-                FileOssModel::table_name().sql_quote(),
-                id_str.join(",")
-            );
-            let osses: Vec<FileOssModel> =
-                sqlx::query_as::<_, FileOssModel>(&sql)
+            let mut qb: QueryBuilder<MySql> = QueryBuilder::new(format!(
+                "SELECT * FROM {}",
+                FileOssModel::table_name(),
+            ));
+            qb.push_where().field_in_copied("file_id", &oss_ids);
+            let osses: Vec<FileOssModel> = qb.build_query_as()
                     .fetch_all(&self.helper.db)
                     .await?;
             for oss_rec in &osses {
@@ -191,13 +211,22 @@ impl FileDao {
     }
 
     // ==================== 操作方法 4: 获取本地文件路径 ====================
+    /// 获取用户文件的本地存储路径
+    ///
+    /// 通过 `FileOpContext` 传入参数：
+    /// - 必须: `file_user`
+    /// - 可选: `file`（未提供时自动查询）
+    /// - 可选: `oss_provider`（OSS 文件需要同步到本地时使用）
     pub async fn get_local_path(
         &self,
-        file: &FileModel,
-        oss_provider: Option<&dyn OssProvider>,
+        ctx: FileOpContext<'_>,
+        env_data: Option<&RequestEnv>,
     ) -> FileResult<Option<PathBuf>> {
-        if file.storage_type == FileModel::STORAGE_TYPE_LOCAL {
-            let local = self.helper.find_file_local_by_file_id(file.id).await?;
+        let file_user = ctx.file_user;
+        let file = ctx.file().await?;
+        if file.is_local() {
+            let file_id = file.id;
+            let local = self.helper.find_file_local_by_file_id(file_id).await?;
             if let Some(local_rec) = local {
                 if local_rec.local_path.is_empty() {
                     return Ok(None);
@@ -207,33 +236,39 @@ impl FileDao {
             Ok(None)
         } else {
             // 非local类型, 先同步到本地
-            if let Some(provider) = oss_provider {
-                let local_file = self.sync_oss_to_local(file, provider, None).await?;
-                let local = self
-                    .helper
-                    .find_file_local_by_file_id(local_file.id)
-                    .await?;
-                if let Some(local_rec) = local {
-                    if local_rec.local_path.is_empty() {
-                        return Ok(None);
-                    }
-                    return Ok(Some(self.helper.get_full_local_path(&local_rec.local_path)));
+            let sync_ctx = self.create_context(file_user).with_file(file)?;
+            let (local_file, _local_file_user) = self.sync_oss_to_local(sync_ctx, env_data).await?;
+            let local = self
+                .helper
+                .find_file_local_by_file_id(local_file.id)
+                .await?;
+            if let Some(local_rec) = local {
+                if local_rec.local_path.is_empty() {
+                    return Ok(None);
                 }
+                return Ok(Some(self.helper.get_full_local_path(&local_rec.local_path)));
             }
             Ok(None)
         }
     }
 
     // ==================== 操作方法 8: 删除文件 ====================
+    /// 删除文件
+    ///
+    /// 通过 `FileOpContext` 传入参数：
+    /// - 必须: `file_user`
+    /// - 可选: `file`（未提供时不影响删除逻辑）
+    /// - 可选: `oss_provider`（OSS 文件物理删除时使用）
     pub async fn delete_file(
         &self,
-        user_id: u64,
-        app_id: u64,
-        file_id: u64,
-        oss_provider: Option<&dyn OssProvider>,
+        ctx: FileOpContext<'_>,
         env_data: Option<&RequestEnv>,
     ) -> FileResult<()> {
         use tracing::info;
+
+        let user_id = ctx.file_user.user_id;
+        let app_id = ctx.file_user.app_id;
+        let file_id = ctx.file_user.file_id;
 
         info!(
             "delete_file: starting, user_id={}, app_id={}, file_id={}",
@@ -242,12 +277,12 @@ impl FileDao {
         let now = now_time()?;
 
         // 查询该 file_id 的正常状态 file_user 数量
-        let normal_count = sqlx::query_scalar::<_, i64>(&sql_format!(
-            "SELECT COUNT(*) FROM {} WHERE file_id={} AND status={}",
+        let normal_count = sqlx::query_scalar::<_, i64>(&format!(
+            "SELECT COUNT(*) FROM {} WHERE file_id=? AND status=?",
             FileUserModel::table_name(),
-            file_id,
-            FileUserStatus::Normal as i8
         ))
+        .bind(file_id)
+        .bind(FileUserStatus::Normal as i8)
         .fetch_one(&self.helper.db)
         .await?;
 
@@ -256,22 +291,18 @@ impl FileDao {
             file_id, normal_count
         );
 
-        let where_sql = sql_format!(
-            "user_id={} AND app_id={} AND file_id={} AND status={}",
-            user_id,
-            app_id,
-            file_id,
-            FileUserStatus::Normal as i8
-        );
-
         // 软删除 file_user
         let res = Update::<_,FileUserModel>::new()
             .set(FileUserModel::STATUS, FileUserStatus::Deleted as i8)
             .set(FileUserModel::DELETE_TIME, now)
-            .execute(SqlSuffix::Where(&where_sql), &self.helper.db)
+            .execute(&self.helper.db, |qb| {
+                qb.push_where().field_eq("id", ctx.file_user.id)
+                    .push_and().field_eq("status", FileUserStatus::Normal as i8);
+            })
             .await?;
 
         if res.rows_affected() == 0 {
+            // 物理文件删除判断
             return Ok(());
         }
 
@@ -292,14 +323,10 @@ impl FileDao {
             let file_res = Update::<_,FileModel>::new()
                 .set(FileModel::STATUS, FileStatus::Deleted as i8)
                 .set(FileModel::CHANGE_TIME, now)
-                .execute(
-                    SqlSuffix::Where(&sql_format!(
-                        "id={} AND status={}",
-                        file_id,
-                        FileStatus::Normal as i8
-                    )),
-                    &self.helper.db,
-                )
+                .execute(&self.helper.db, |qb| {
+                    qb.push_where().field_eq("id", file_id)
+                        .push_and().field_eq("status", FileStatus::Normal as i8);
+                })
                 .await?;
 
             if file_res.rows_affected() > 0 {
@@ -307,7 +334,7 @@ impl FileDao {
                     .add(file_id, 0, user_id, "delete_file: file deleted", None)
                     .await;
                 // 物理文件删除判断
-                self.try_cleanup_physical_file(file_id, oss_provider).await;
+                self.try_cleanup_physical_file(file_id, ctx.file().await.ok(), ctx.oss_provider().await.ok()).await;
             }
         }
 
@@ -328,29 +355,38 @@ impl FileDao {
     async fn try_cleanup_physical_file(
         &self,
         file_id: u64,
+        file_opt: Option<&FileModel>,
         oss_provider: Option<&dyn OssProvider>,
     ) {
         use tracing::info;
 
         info!("try_cleanup_physical_file: checking file_id={}", file_id);
 
-        // 获取文件信息
-        let file = match self.helper.find_file_by_id(file_id).await {
-            Ok(Some(f)) => f,
-            Ok(None) => {
-                warn!("try_cleanup_physical_file: file_id={} not found", file_id);
-                return;
-            }
-            Err(e) => {
-                warn!(
-                    "try_cleanup_physical_file: query file_id={} error: {}",
-                    file_id, e
-                );
-                return;
+        // 优先使用调用方传入的 file，否则从 DB 查询
+        let owned_file;
+        let file = if let Some(f) = file_opt {
+            f
+        } else {
+            match self.helper.find_file_by_id(file_id).await {
+                Ok(Some(f)) => {
+                    owned_file = f;
+                    &owned_file
+                }
+                Ok(None) => {
+                    warn!("try_cleanup_physical_file: file_id={} not found", file_id);
+                    return;
+                }
+                Err(e) => {
+                    warn!(
+                        "try_cleanup_physical_file: query file_id={} error: {}",
+                        file_id, e
+                    );
+                    return;
+                }
             }
         };
 
-        if file.storage_type == FileModel::STORAGE_TYPE_LOCAL {
+        if file.is_local() {
             let local = match self.helper.find_file_local_by_file_id(file_id).await {
                 Ok(Some(l)) => l,
                 Ok(None) => {
@@ -375,29 +411,33 @@ impl FileDao {
             }
 
             // 检查是否有其他 local_path 引用
-            let local_path_refs = sqlx::query_scalar::<_, i64>(&sql_format!(
-                "SELECT COUNT(*) FROM {} fl INNER JOIN {} f ON fl.file_id=f.id \
-                 WHERE fl.local_path={} AND f.status={} AND f.id!={}",
-                FileLocalModel::table_name(),
-                FileModel::table_name(),
-                &local.local_path,
-                FileStatus::Normal as i8,
-                file_id
-            ))
+            let local_path_refs = sqlx::query_scalar::<_, i64>(
+                &format!(
+                    "SELECT COUNT(*) FROM {} fl INNER JOIN {} f ON fl.file_id=f.id \
+                     WHERE fl.local_path=? AND f.status=? AND f.id!=?",
+                    FileLocalModel::table_name(),
+                    FileModel::table_name(),
+                )
+            )
+            .bind(&local.local_path)
+            .bind(FileStatus::Normal as i8)
+            .bind(file_id)
             .fetch_one(&self.helper.db)
             .await
             .unwrap_or(0);
 
             // 检查是否有相同 file_md5 的其他文件引用（排除拷贝文件，拷贝文件拥有独立的物理文件）
             let md5_refs = if !file.file_md5.is_empty() {
-                sqlx::query_scalar::<_, i64>(&sql_format!(
-                    "SELECT COUNT(*) FROM {} WHERE file_md5={} AND storage_type={} AND status={} AND id!={} AND copy_file_id=0",
-                    FileModel::table_name(),
-                    &file.file_md5,
-                    &file.storage_type, 
-                    FileStatus::Normal as i8,
-                    file_id
-                ))
+                sqlx::query_scalar::<_, i64>(
+                    &format!(
+                        "SELECT COUNT(*) FROM {} WHERE file_md5=? AND storage_type=? AND status=? AND id!=? AND copy_file_id=0",
+                        FileModel::table_name(),
+                    )
+                )
+                .bind(&file.file_md5)
+                .bind(&file.storage_type)
+                .bind(FileStatus::Normal as i8)
+                .bind(file_id)
                 .fetch_one(&self.helper.db)
                 .await
                 .unwrap_or(0)
@@ -458,14 +498,16 @@ impl FileDao {
                 if let Ok(Some(oss)) = self.helper.find_file_oss_by_file_id(file_id).await {
                     // 检查是否有相同 file_md5 的其他 OSS 文件引用
                     let md5_refs = if !file.file_md5.is_empty() {
-                        sqlx::query_scalar::<_, i64>(&sql_format!(
-                            "SELECT COUNT(*) FROM {} WHERE file_md5={} AND storage_type={} AND status={} AND id!={}",
-                            FileModel::table_name(),
-                            &file.file_md5,
-                            &file.storage_type,
-                            FileStatus::Normal as i8,
-                            file_id
-                        ))
+                        sqlx::query_scalar::<_, i64>(
+                            &format!(
+                                "SELECT COUNT(*) FROM {} WHERE file_md5=? AND storage_type=? AND status=? AND id!=?",
+                                FileModel::table_name(),
+                            )
+                        )
+                        .bind(&file.file_md5)
+                        .bind(&file.storage_type)
+                        .bind(FileStatus::Normal as i8)
+                        .bind(file_id)
                         .fetch_one(&self.helper.db)
                         .await
                         .unwrap_or(0)

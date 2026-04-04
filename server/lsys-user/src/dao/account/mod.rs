@@ -1,9 +1,9 @@
 // 内部账号实现
 use lsys_access::dao::SessionBody;
 use lsys_core::cache::LocalCacheConfig;
+use lsys_core::fluent_message;
 use lsys_core::fluents::IntoFluentMessage;
 use lsys_core::remote_notify::RemoteNotify;
-use lsys_core::fluent_message;
 
 use lsys_logger::dao::ChangeLoggerDao;
 
@@ -32,8 +32,8 @@ pub use account_address::*;
 use account_email::*;
 use account_external::*;
 use account_index::*;
-use account_info::*;
 pub use account_info::AccountInfoParam;
+use account_info::*;
 pub use account_login_history::*;
 use account_mobile::*;
 use account_name::*;
@@ -107,7 +107,7 @@ pub struct AccountDao {
     pub account_info: Arc<AccountInfo>,
     pub account_address: Arc<AccountAddress>,
     pub account_password: Arc<AccountPassword>,
-    pub account_login_hostory: Arc<AccountLoginHistory>,
+    pub account_login_history: Arc<AccountLoginHistory>,
     pub account_passwrod_hash: Arc<AccountPasswordHash>,
 }
 
@@ -129,7 +129,7 @@ impl AccountDao {
             config.account_cache,
             logger.clone(),
         ));
-        let account_login_hostory = Arc::from(AccountLoginHistory::new(db.clone()));
+        let account_login_history = Arc::from(AccountLoginHistory::new(db.clone()));
         AccountDao {
             account,
             account_email: Arc::from(AccountEmail::new(
@@ -185,7 +185,7 @@ impl AccountDao {
                 password_hash.clone(),
             )),
             account_passwrod_hash: password_hash,
-            account_login_hostory,
+            account_login_history,
         }
     }
     pub async fn session_account(

@@ -1,4 +1,4 @@
-use crate::common::JsonData;
+use crate::common::{JsonData, JsonPageData};
 use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::PageParam;
@@ -185,14 +185,12 @@ pub async fn app_list(param: &ListParam, req_dao: &UserAuthQueryDao) -> JsonResu
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(json!({
-        "data": bind_vec_user_info_from_req!(
-            req_dao,
-            out,
-            user_id,false
-        ),
-        "total":count
-    }))))
+    Ok(JsonResponse::data(JsonData::body(
+        JsonPageData::total(
+            bind_vec_user_info_from_req!(req_dao, out, user_id, false),
+            count
+        )
+    )))
 }
 
 #[derive(Deserialize)]
@@ -302,14 +300,12 @@ pub async fn sub_app_list(
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(json!({
-        "data": bind_vec_user_info_from_req!(
-            req_dao,
-            out,
-            user_id,false
-        ),
-        "total":count
-    }))))
+    Ok(JsonResponse::data(JsonData::body(
+        JsonPageData::total(
+            bind_vec_user_info_from_req!(req_dao, out, user_id, false),
+            count
+        )
+    )))
 }
 
 #[derive(Deserialize)]
@@ -462,13 +458,15 @@ pub async fn request_list(
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(json!({
-        "data": bind_vec_user_info_from_req!(
-            req_dao,
-            out,
-            [request_user_id:"request_user_data",confirm_user_id:"confirm_user_data"],
-            false
-        ),
-        "total":count
-    }))))
+    Ok(JsonResponse::data(JsonData::body(
+        JsonPageData::total(
+            bind_vec_user_info_from_req!(
+                req_dao,
+                out,
+                [request_user_id:"request_user_data",confirm_user_id:"confirm_user_data"],
+                false
+            ),
+            count
+        )
+    )))
 }

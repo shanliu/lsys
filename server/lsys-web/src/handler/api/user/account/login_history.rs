@@ -1,9 +1,9 @@
 use crate::common::{JsonData, ToCursorPageParam};
 use crate::common::{LimitParam, UserAuthQueryDao};
 use lsys_access::dao::AccessSession;
-use lsys_core::db::CursorPageSort;
+use lsys_core::api_utils::{JsonPageData, PageCursorValue, PageTotalRowValue};
+use lsys_core::db::{CursorPageSort, TotalParam};
 use serde::Deserialize;
-use serde_json::json;
 
 use crate::common::{JsonResponse, JsonResult};
 
@@ -28,7 +28,7 @@ pub async fn login_history(
         .web_user
         .user_dao
         .account_dao
-        .account_login_hostory
+        .account_login_history
         .history_data(
             Some(auth_data.account_id()?),
             param.login_account.as_deref(),
@@ -45,23 +45,23 @@ pub async fn login_history(
                 .web_user
                 .user_dao
                 .account_dao
-                .account_login_hostory
+                .account_login_history
                 .history_count(
                     Some(auth_data.account_id()?),
                     param.login_account.as_deref(),
                     param.is_login,
                     param.login_type.as_deref(),
                     param.login_ip.as_deref(),
+                    &TotalParam::default(),
                 )
-                .await?
+                .await
+                .map(PageTotalRowValue::from)?,
         )
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(json!({
-        "data": data ,
-        "next_cursor": next_data.next_cursor,
-        "prev_cursor": next_data.prev_cursor,
-        "total":total,
-    }))))
+    let cursor = PageCursorValue::from(&next_data);
+    Ok(JsonResponse::data(JsonData::body(
+        JsonPageData::cursor(data, cursor, total),
+    )))
 }

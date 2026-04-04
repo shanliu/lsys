@@ -24,7 +24,7 @@ use crate::common::handler::{ResponseJson, ResponseJsonResult};
 ///
 /// Multipart 表单字段：
 /// - `upload_token`: 上传令牌（由 upload_create 返回）
-/// - `file_user_id`: 上传任务的 file_user ID
+/// - `id`: 上传任务的 file_user ID
 /// - `chunk_index`: 分片索引（可选，默认 0）
 /// - `file`: 二进制文件数据
 #[post("/upload_by_token")]
@@ -100,7 +100,7 @@ pub async fn upload_by_token(
                 }
                 upload_token = Some(String::from_utf8_lossy(&buf).trim().to_string());
             }
-            "file_user_id" => {
+            "id" => {
                 let mut buf = Vec::new();
                 while let Some(chunk) = field.next().await {
                     let chunk = chunk.map_err(|e| {
@@ -209,7 +209,7 @@ pub async fn upload_by_token(
                 }
 
                 Ok(JsonResponse::data(JsonData::body(json!({
-                    "file_user_id": file_user_id,
+                    "id": file_user_id,
                     "file_id": completed_file.id,
                     "chunk_index": chunk_index,
                     "file_status": completed_file.status,
@@ -239,8 +239,8 @@ pub async fn upload_by_token(
                     .await;
 
                 // 单分片文件 fail 时销毁令牌
-                if let Some(local) = file_local {
-                    if local.file_chunk_total <= 1 {
+                if let Some(local) = file_local
+                    && local.file_chunk_total <= 1 {
                         let _ = req_dao
                             .web_dao
                             .web_files
@@ -248,7 +248,6 @@ pub async fn upload_by_token(
                             .consume_upload_token(&upload_token)
                             .await;
                     }
-                }
                 Err(e.into())
             }
         }

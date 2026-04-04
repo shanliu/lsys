@@ -9,9 +9,8 @@ use lsys_core::valid_code::{CheckCodeData, ValidCode, ValidCodeData, ValidCodeDa
 use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPassword};
 use lsys_core::{fluent_message, valid_key};
 
-use lsys_core::db::{Insert, Update, SqlSuffix};
-use lsys_core::db::{TableMeta, SqlQuote};
-use lsys_core::sql_format;
+use lsys_core::db::{Insert, QueryBuilderExt, Update};
+use lsys_core::db::TableMeta;
 use lsys_logger::dao::ChangeLoggerDao;
 use lsys_setting::dao::{NotFoundResult, SingleSetting};
 use sqlx::{Acquire, MySql, Pool, Transaction};
@@ -122,15 +121,14 @@ impl AccountPassword {
         let res = self
             .set_passwrod(account, new_password, op_user_id, transaction, env_data)
             .await;
-        if res.is_ok() {
-            if let Err(err) = self.valid_code_clear(account.id, from_type).await {
+        if res.is_ok()
+            && let Err(err) = self.valid_code_clear(account.id, from_type).await {
                 warn!(
                     "email {} valid clear fail:{}",
                     account.id,
                     err.to_fluent_message().default_format()
                 );
             }
-        }
         res
     }
 
@@ -155,12 +153,12 @@ impl AccountPassword {
             .await
             .notfound_default()?;
         if account.password_id > 0 {
-            let account_pass_res = sqlx::query_as::<_, AccountPasswordModel>(&sql_format!(
-                "select * from {} where account_id={} and id={}",
+            let account_pass_res = sqlx::query_as::<_, AccountPasswordModel>(&format!(
+                "select * from {} where account_id=? and id=?",
                 AccountPasswordModel::table_name(),
-                account.id,
-                account.password_id,
             ))
+            .bind(account.id)
+            .bind(account.password_id)
             .fetch_one(db)
             .await;
 
@@ -178,10 +176,9 @@ impl AccountPassword {
                     };
                     Update::<_,AccountPasswordModel>::new()
                         .set(AccountPasswordModel::DISABLE_TIME, time)
-                        .execute(
-                            SqlSuffix::Where(&sql_format!("id={}", account_pass.id)),
-                            &mut *ta,
-                        )
+                        .execute(&mut *ta, |qb| {
+                            qb.push_where().field_eq("id", account_pass.id);
+                        })
                         .await?;
                 }
                 Err(err) => {
@@ -196,13 +193,13 @@ impl AccountPassword {
         }
         let nh_passwrod = self.account_passwrd_hash.hash_password(&new_password).await;
         if config.disable_old_password {
-            let old_pass_res = sqlx::query_as::<_, AccountPasswordModel>(&sql_format!(
-                "select * from {} where account_id={} and password={}",
+            let old_pass_res: Result<AccountPasswordModel, sqlx::Error> = sqlx::query_as::<_, AccountPasswordModel>(&format!(
+                "select * from {} where account_id=? and password=?",
                 AccountPasswordModel::table_name(),
-                account.id,
-                nh_passwrod
             ))
-            .fetch_one(db)
+            .bind(account.id)
+            .bind(&nh_passwrod)
+            .fetch_one(&self.db)
             .await;
 
             if old_pass_res.is_ok() {
@@ -231,10 +228,9 @@ impl AccountPassword {
                 let u_res = Update::<_,AccountModel>::new()
                     .set(AccountModel::PASSWORD_ID, pid)
                     .set(AccountModel::CHANGE_TIME, time)
-                    .execute(
-                        SqlSuffix::Where(&sql_format!("id={}", account.id)),
-                        &mut *ta,
-                    )
+                    .execute(&mut *ta, |qb| {
+                        qb.push_where().field_eq("id", account.id);
+                    })
                     .await;
                 match u_res {
                     Err(e) => {
@@ -263,9 +259,10 @@ impl AccountPassword {
         }
     }
     pub async fn find_by_id(&self, id: &u64) -> AccountResult<AccountPasswordModel> {
-        Ok(lsys_core::db::utils::fetch_one::<AccountPasswordModel>(
+        use lsys_core::db::utils::Fetch;
+        Ok(Fetch::<MySql, AccountPasswordModel>::one(
             &self.db,
-            lsys_core::sql_format!("id = {id} ", id = id),
+            |qb| { qb.field_eq("id", *id); },
         ).await?)
     }
     /// 检测密码是否正确
@@ -304,15 +301,15 @@ impl AccountPassword {
             if set.timeout == 0 {
                 return Ok((false, timeout_value));
             }
-            let sql = sql_format!(
+            let sql = format!(
                 "select p.add_time from {} as p join {} as u
                 on p.id=u.password_id
-                where u.id={}",
+                where u.id=?",
                 AccountPasswordModel::table_name(),
                 AccountModel::table_name(),
-                account_id
             );
             let add_time = sqlx::query_scalar::<_, u64>(&sql)
+                .bind(account_id)
                 .fetch_one(&self.db)
                 .await?;
             if add_time + set.timeout < now_time().unwrap_or_default() {

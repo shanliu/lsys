@@ -294,7 +294,7 @@ where
 }
 
 // ==================== i64 ====================
-
+#[allow(dead_code)]
 pub fn deserialize_i64_from_string<'de, D>(deserializer: D) -> Result<i64, D::Error>
 where
     D: Deserializer<'de>,
@@ -344,7 +344,7 @@ where
 
     deserializer.deserialize_any(I64StringVisitor)
 }
-
+#[allow(dead_code)]
 pub fn deserialize_option_i64_from_string<'de, D>(deserializer: D) -> Result<Option<i64>, D::Error>
 where
     D: Deserializer<'de>,

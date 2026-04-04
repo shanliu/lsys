@@ -1,7 +1,6 @@
 use fs2::FileExt;
-use lsys_core::db::{Insert, SqlExpr, SqlQuote, SqlSuffix, Update};
+use lsys_core::db::{FieldValue, Insert, QueryBuilderExt, Update};
 use lsys_core::fluent_message;
-use lsys_core::sql_format;
 use lsys_core::utils::{now_time, RequestEnv};
 use tracing::warn;
 
@@ -28,9 +27,14 @@ impl FileWriteHandle {
 impl FileDao {
     /// 创建上传函数
     /// 返回 (file_id, file_user_id)
+    ///
+    /// - `user_id`: 文件属于的用户ID,0=系统
+    /// - `add_user_id`: 文件添加(上传)用户ID
+    #[allow(clippy::too_many_arguments)]
     pub async fn create_upload(
         &self,
         user_id: u64,
+        add_user_id: u64,
         app_id: u64,
         chunks: &[ChunkInfo],
         file_name: &str,
@@ -51,14 +55,14 @@ impl FileDao {
                 let chunk_md5 = chunk.md5.as_deref().unwrap_or("");
 
                 file_res = Insert::<_, FileModel>::new()
-                    .set(FileModel::STORAGE_TYPE, FileModel::STORAGE_TYPE_LOCAL)
+                    .set(FileModel::STORAGE_TYPE, FileModel::STORAGE_TYPE_LOCAL_PUBLIC)
                     .set(FileModel::STATUS, FileStatus::Unfinished as i8)
                     .set(FileModel::FILE_MD5, chunk_md5)
                     .set(FileModel::FILE_SIZE, chunk.len)
                     .set(FileModel::FILE_NAME, file_name)
                     .set(FileModel::CONTENT_TYPE, "")
                     .set(FileModel::MODIFY_TIME, 0u64)
-                    .set(FileModel::FROM_USER_ID, user_id)
+                    .set(FileModel::FROM_USER_ID, add_user_id)
                     .set(FileModel::ADD_TIME, now)
                     .set(FileModel::CHANGE_TIME, 0u64)
                     .set(FileModel::COPY_FILE_ID, 0u64)
@@ -82,6 +86,7 @@ impl FileDao {
 
                 let fu_res = Insert::<_, FileUserModel>::new()
                     .set(FileUserModel::USER_ID, user_id)
+                    .set(FileUserModel::ADD_USER_ID, add_user_id)
                     .set(FileUserModel::APP_ID, app_id)
                     .set(FileUserModel::FILE_ID, file_id)
                     .set(FileUserModel::STATUS, FileUserStatus::Normal as i8)
@@ -98,31 +103,29 @@ impl FileDao {
                     .add(
                         file_id,
                         0,
-                        user_id,
+                        add_user_id,
                         "create_upload: file created",
                         Some(&mut tx),
                     )
                     .await;
 
-                for tag_name in tag_names {
-                    self.tag_dao
-                        .add_tag(file_id, user_id, app_id, tag_name, Some(&mut tx))
-                        .await?;
-                }
+                self.tag_dao
+                    .batch_add_tags(file_id, user_id, app_id, tag_names, Some(&mut tx))
+                    .await?;
 
                 Ok((file_id, file_user_id))
             } else {
                 let total_size: u64 = chunks.iter().map(|c| c.len).sum();
 
                 file_res = Insert::<_, FileModel>::new()
-                    .set(FileModel::STORAGE_TYPE, FileModel::STORAGE_TYPE_LOCAL)
+                    .set(FileModel::STORAGE_TYPE, FileModel::STORAGE_TYPE_LOCAL_PUBLIC)
                     .set(FileModel::STATUS, FileStatus::Unfinished as i8)
                     .set(FileModel::FILE_MD5, "")
                     .set(FileModel::FILE_SIZE, total_size)
                     .set(FileModel::FILE_NAME, file_name)
                     .set(FileModel::CONTENT_TYPE, "")
                     .set(FileModel::MODIFY_TIME, 0u64)
-                    .set(FileModel::FROM_USER_ID, user_id)
+                    .set(FileModel::FROM_USER_ID, add_user_id)
                     .set(FileModel::ADD_TIME, now)
                     .set(FileModel::CHANGE_TIME, 0u64)
                     .set(FileModel::COPY_FILE_ID, 0u64)
@@ -170,6 +173,7 @@ impl FileDao {
                 let fu_res = Insert::<_, FileUserModel>::new()
                     .set(FileUserModel::USER_ID, user_id)
                     .set(FileUserModel::APP_ID, app_id)
+                    .set(FileUserModel::ADD_USER_ID, add_user_id)
                     .set(FileUserModel::FILE_ID, file_id)
                     .set(FileUserModel::STATUS, FileUserStatus::Normal as i8)
                     .set(FileUserModel::SOURCE_URL, "")
@@ -191,11 +195,9 @@ impl FileDao {
                     )
                     .await;
 
-                for tag_name in tag_names {
-                    self.tag_dao
-                        .add_tag(file_id, user_id, app_id, tag_name, Some(&mut tx))
-                        .await?;
-                }
+                self.tag_dao
+                    .batch_add_tags(file_id, user_id, app_id, tag_names, Some(&mut tx))
+                    .await?;
 
                 Ok((file_id, file_user_id))
             }
@@ -252,8 +254,8 @@ impl FileDao {
             .await?
             .ok_or_else(|| FileError::Param(fluent_message!("file-not-found")))?;
 
-        // 校验文件所属用户
-        if file.from_user_id != file_user.user_id {
+        // 校验文件上传用户 (from_user_id 是上传者, add_user_id 是添加记录的用户)
+        if file.from_user_id != file_user.add_user_id {
             return Err(FileError::Param(fluent_message!("file-user-mismatch")));
         }
 
@@ -268,124 +270,154 @@ impl FileDao {
         chunk_index: u32,
         app_id: u64,
     ) -> FileResult<FileWriteHandle> {
-        let mut file_local = self
-            .helper
-            .find_file_local_by_file_id(file.id)
-            .await?
-            .ok_or_else(|| FileError::Param(fluent_message!("file-local-not-found")))?;
-
-        if file_local.file_chunk_total > 1 {
-            // 多分片
-            if chunk_index >= file_local.file_chunk_total {
-                return Err(FileError::Param(fluent_message!(
-                    "file-chunk-index-out-of-range"
-                )));
-            }
-
-            let mut chunk = self
+        let result: FileResult<FileWriteHandle> = async {
+            let mut file_local = self
                 .helper
-                .find_chunk_by_file_and_index(file.id, chunk_index)
+                .find_file_local_by_file_id(file.id)
                 .await?
-                .ok_or_else(|| FileError::Param(fluent_message!("file-chunk-not-found")))?;
+                .ok_or_else(|| FileError::Param(fluent_message!("file-local-not-found")))?;
 
-            let (handle, _rel_path) = if !chunk.chunk_path.is_empty() {
-                // 已存在路径, 获取写锁
-                let full = self.helper.get_full_local_path(&chunk.chunk_path);
-                let f = tokio::fs::OpenOptions::new()
-                    .write(true)
-                    .create(true)
-                    .truncate(false)
-                    .open(&full)
-                    .await?;
-                (f, chunk.chunk_path.clone())
+            if file_local.file_chunk_total > 1 {
+                // 多分片
+                if chunk_index >= file_local.file_chunk_total {
+                    return Err(FileError::Param(fluent_message!(
+                        "file-chunk-index-out-of-range"
+                    )));
+                }
+
+                let mut chunk = self
+                    .helper
+                    .find_chunk_by_file_and_index(file.id, chunk_index)
+                    .await?
+                    .ok_or_else(|| FileError::Param(fluent_message!("file-chunk-not-found")))?;
+
+                let (handle, _rel_path) = if !chunk.chunk_path.is_empty() {
+                    // 已存在路径, 获取写锁
+                    let full = self.helper.get_full_local_path(&chunk.chunk_path);
+                    let f = tokio::fs::OpenOptions::new()
+                        .write(true)
+                        .create(true)
+                        .truncate(false)
+                        .open(&full)
+                        .await?;
+                    (f, chunk.chunk_path.clone())
+                } else {
+                    // 新增文件
+                    let chunk_ext = crate::common::extract_extension(Some(&file.file_name));
+                    let prefix = format!("{}_{}_chunk{}", app_id, file.from_user_id, chunk_index);
+                    let (rel, full) = self.helper.create_new_file(&prefix, chunk_ext).await?;
+                    let f = tokio::fs::OpenOptions::new()
+                        .write(true)
+                        .open(&full)
+                        .await?;
+
+                    // 保存路径
+                    chunk.chunk_path = rel.clone();
+                    Update::<_, FileLocalChunkModel>::new()
+                        .set(FileLocalChunkModel::CHUNK_PATH, &rel)
+                        .execute(&self.helper.db, |qb| {
+                            qb.push_where().field_eq("id", chunk.id);
+                        })
+                        .await?;
+                    (f, rel)
+                };
+
+                // 获取排他文件锁，防止并发写入冲突
+                let handle = {
+                    let std_file = handle
+                        .try_into_std()
+                        .map_err(|_| FileError::System(fluent_message!("file-lock-error")))?;
+                    std_file.try_lock_exclusive()?;
+                    tokio::fs::File::from_std(std_file)
+                };
+
+                Ok(FileWriteHandle {
+                    file: file.clone(),
+                    file_local,
+                    file_local_chunk: Some(chunk),
+                    handle,
+                    app_id,
+                })
             } else {
-                // 新增文件
-                let chunk_ext =
-                    crate::dao::file_helpers::FileHelper::extract_extension(&file.file_name);
-                let prefix = format!("{}_{}_chunk{}", app_id, file.from_user_id, chunk_index);
-                let (rel, full) = self.helper.create_new_file(&prefix, chunk_ext).await?;
-                let f = tokio::fs::OpenOptions::new()
-                    .write(true)
-                    .open(&full)
-                    .await?;
+                // 单文件
+                let (handle, _rel_path) = if !file_local.local_path.is_empty() {
+                    let full = self.helper.get_full_local_path(&file_local.local_path);
+                    let f = tokio::fs::OpenOptions::new()
+                        .write(true)
+                        .create(true)
+                        .truncate(false)
+                        .open(&full)
+                        .await?;
+                    (f, file_local.local_path.clone())
+                } else {
+                    let upload_ext = crate::common::extract_extension(Some(&file.file_name));
+                    let prefix = format!("{}_{}_upload", app_id, file.from_user_id);
+                    let (rel, full) = self.helper.create_new_file(&prefix, upload_ext).await?;
+                    let f = tokio::fs::OpenOptions::new()
+                        .write(true)
+                        .open(&full)
+                        .await?;
 
-                // 保存路径
-                chunk.chunk_path = rel.clone();
-                Update::<_, FileLocalChunkModel>::new()
-                    .set(FileLocalChunkModel::CHUNK_PATH, &rel)
-                    .execute(
-                        SqlSuffix::Where(&sql_format!("id={}", chunk.id)),
-                        &self.helper.db,
-                    )
-                    .await?;
-                (f, rel)
-            };
+                    file_local.local_path = rel.clone();
+                    Update::<_, FileLocalModel>::new()
+                        .set(FileLocalModel::LOCAL_PATH, &rel)
+                        .execute(&self.helper.db, |qb| {
+                            qb.push_where().field_eq("id", file_local.id);
+                        })
+                        .await?;
+                    (f, rel)
+                };
 
-            // 获取排他文件锁，防止并发写入冲突
-            let handle = {
-                let std_file = handle
-                    .try_into_std()
-                    .map_err(|_| FileError::System(fluent_message!("file-lock-error")))?;
-                std_file.try_lock_exclusive()?;
-                tokio::fs::File::from_std(std_file)
-            };
+                // 获取排他文件锁，防止并发写入冲突
+                let handle = {
+                    let std_file = handle
+                        .try_into_std()
+                        .map_err(|_| FileError::System(fluent_message!("file-lock-error")))?;
+                    std_file.try_lock_exclusive()?;
+                    tokio::fs::File::from_std(std_file)
+                };
 
-            Ok(FileWriteHandle {
-                file: file.clone(),
-                file_local,
-                file_local_chunk: Some(chunk),
-                handle,
-                app_id,
-            })
-        } else {
-            // 单文件
-            let (handle, _rel_path) = if !file_local.local_path.is_empty() {
-                let full = self.helper.get_full_local_path(&file_local.local_path);
-                let f = tokio::fs::OpenOptions::new()
-                    .write(true)
-                    .create(true)
-                    .truncate(false)
-                    .open(&full)
-                    .await?;
-                (f, file_local.local_path.clone())
-            } else {
-                let upload_ext =
-                    crate::dao::file_helpers::FileHelper::extract_extension(&file.file_name);
-                let prefix = format!("{}_{}_upload", app_id, file.from_user_id);
-                let (rel, full) = self.helper.create_new_file(&prefix, upload_ext).await?;
-                let f = tokio::fs::OpenOptions::new()
-                    .write(true)
-                    .open(&full)
-                    .await?;
-
-                file_local.local_path = rel.clone();
-                Update::<_, FileLocalModel>::new()
-                    .set(FileLocalModel::LOCAL_PATH, &rel)
-                    .execute(
-                        SqlSuffix::Where(&sql_format!("id={}", file_local.id)),
-                        &self.helper.db,
-                    )
-                    .await?;
-                (f, rel)
-            };
-
-            // 获取排他文件锁，防止并发写入冲突
-            let handle = {
-                let std_file = handle
-                    .try_into_std()
-                    .map_err(|_| FileError::System(fluent_message!("file-lock-error")))?;
-                std_file.try_lock_exclusive()?;
-                tokio::fs::File::from_std(std_file)
-            };
-
-            Ok(FileWriteHandle {
-                file: file.clone(),
-                file_local,
-                file_local_chunk: None,
-                handle,
-                app_id,
-            })
+                Ok(FileWriteHandle {
+                    file: file.clone(),
+                    file_local,
+                    file_local_chunk: None,
+                    handle,
+                    app_id,
+                })
+            }
         }
+        .await;
+
+        match &result {
+            Ok(h) => {
+                let chunk_id = h.file_local_chunk.as_ref().map(|c| c.id).unwrap_or(0);
+                self.log_dao
+                    .add(
+                        file.id,
+                        chunk_id,
+                        file.from_user_id,
+                        &format!(
+                            "get_upload_handle: file initialized, chunk_index={}",
+                            chunk_index
+                        ),
+                        None,
+                    )
+                    .await;
+            }
+            Err(e) => {
+                self.log_dao
+                    .add(
+                        file.id,
+                        0,
+                        file.from_user_id,
+                        &format!("get_upload_handle: failed: {}", e),
+                        None,
+                    )
+                    .await;
+            }
+        }
+
+        result
     }
 
     /// 写入文件函数
@@ -406,10 +438,9 @@ impl FileDao {
             // 立即同步已写入数据量到数据库
             Update::<_, FileLocalChunkModel>::new()
                 .set(FileLocalChunkModel::COMPLETE_SIZE, chunk.complete_size)
-                .execute(
-                    SqlSuffix::Where(&sql_format!("id={}", chunk.id)),
-                    &self.helper.db,
-                )
+                .execute(&self.helper.db, |qb| {
+                    qb.push_where().field_eq("id", chunk.id);
+                })
                 .await?;
         } else {
             if write_handle.file_local_chunk.is_some() {
@@ -423,10 +454,9 @@ impl FileDao {
                     FileLocalModel::FILE_CHUNK_SIZE,
                     write_handle.file_local.file_chunk_size,
                 )
-                .execute(
-                    SqlSuffix::Where(&sql_format!("id={}", write_handle.file_local.id)),
-                    &self.helper.db,
-                )
+                .execute(&self.helper.db, |qb| {
+                    qb.push_where().field_eq("id", write_handle.file_local.id);
+                })
                 .await?;
         }
 
@@ -480,26 +510,24 @@ impl FileDao {
                 .set(FileLocalChunkModel::STATUS, status)
                 .set(FileLocalChunkModel::COMPLETE_SIZE, actual_size)
                 .set(FileLocalChunkModel::CHANGE_TIME, now)
-                .execute(
-                    SqlSuffix::Where(&sql_format!("id={}", chunk.id)),
-                    &self.helper.db,
-                )
+                .execute(&self.helper.db, |qb| {
+                    qb.push_where().field_eq("id", chunk.id);
+                })
                 .await?;
 
             // file_local: file_chunk_succ+1, file_chunk_size+=actual_size (原子操作)
             Update::<_, FileLocalModel>::new()
                 .set(
                     FileLocalModel::FILE_CHUNK_SUCC,
-                    SqlExpr("file_chunk_succ + 1"),
+                    FieldValue::Expr("file_chunk_succ + 1".into()),
                 )
                 .set(
                     FileLocalModel::FILE_CHUNK_SIZE,
-                    SqlExpr(format!("file_chunk_size + {}", actual_size)),
+                    FieldValue::Expr(format!("file_chunk_size + {}", actual_size).into()),
                 )
-                .execute(
-                    SqlSuffix::Where(&sql_format!("id={}", write_handle.file_local.id)),
-                    &self.helper.db,
-                )
+                .execute(&self.helper.db, |qb| {
+                    qb.push_where().field_eq("id", write_handle.file_local.id);
+                })
                 .await?;
 
             self.log_dao
@@ -521,9 +549,8 @@ impl FileDao {
 
             if all_normal {
                 // 合并文件
-                let merge_ext = crate::dao::file_helpers::FileHelper::extract_extension(
-                    &write_handle.file.file_name,
-                );
+                let merge_ext =
+                    crate::common::extract_extension(Some(&write_handle.file.file_name));
                 let merge_prefix = format!(
                     "{}_{}_merge",
                     write_handle.app_id, write_handle.file.from_user_id
@@ -534,24 +561,22 @@ impl FileDao {
                     Err(e) => {
                         // 合并失败
                         write_handle.file_local.local_path = merge_rel.clone();
-                        write_handle.file.status = FileStatus::Failed.to();
+                        write_handle.file.status = FileStatus::Failed as i8;
                         write_handle.file.change_time = now;
 
                         Update::<_, FileLocalModel>::new()
                             .set(FileLocalModel::LOCAL_PATH, &merge_rel)
-                            .execute(
-                                SqlSuffix::Where(&sql_format!("id={}", write_handle.file_local.id)),
-                                &self.helper.db,
-                            )
+                            .execute(&self.helper.db, |qb| {
+                                qb.push_where().field_eq("id", write_handle.file_local.id);
+                            })
                             .await?;
 
                         Update::<_, FileModel>::new()
                             .set(FileModel::STATUS, FileStatus::Failed as i8)
                             .set(FileModel::CHANGE_TIME, now)
-                            .execute(
-                                SqlSuffix::Where(&sql_format!("id={}", write_handle.file.id)),
-                                &self.helper.db,
-                            )
+                            .execute(&self.helper.db, |qb| {
+                                qb.push_where().field_eq("id", write_handle.file.id);
+                            })
                             .await?;
 
                         self.log_dao
@@ -570,14 +595,14 @@ impl FileDao {
                         Update::<_, FileLocalChunkModel>::new()
                             .set(FileLocalChunkModel::STATUS, FileChunkStatus::Merged as i8)
                             .set(FileLocalChunkModel::CHANGE_TIME, now)
-                            .execute(
-                                SqlSuffix::Where(&sql_format!("file_id={}", write_handle.file.id)),
-                                &self.helper.db,
-                            )
+                            .execute(&self.helper.db, |qb| {
+                                qb.push_where().field_eq("file_id", write_handle.file.id);
+                            })
                             .await?;
 
                         // 清理已合并的chunk文件
-                        self.helper.cleanup_merged_chunks(chunk_ids);
+                        self.helper
+                            .cleanup_merged_chunks(chunk_ids, self.log_dao.clone());
 
                         // 辅助函数.2
                         let result = helper
@@ -669,10 +694,9 @@ impl FileDao {
             Update::<_, FileLocalChunkModel>::new()
                 .set(FileLocalChunkModel::STATUS, FileChunkStatus::Failed as i8)
                 .set(FileLocalChunkModel::CHANGE_TIME, now)
-                .execute(
-                    SqlSuffix::Where(&sql_format!("id={}", chunk.id)),
-                    &self.helper.db,
-                )
+                .execute(&self.helper.db, |qb| {
+                    qb.push_where().field_eq("id", chunk.id);
+                })
                 .await?;
 
             self.log_dao
@@ -692,10 +716,9 @@ impl FileDao {
             Update::<_, FileModel>::new()
                 .set(FileModel::STATUS, FileStatus::Failed as i8)
                 .set(FileModel::CHANGE_TIME, now)
-                .execute(
-                    SqlSuffix::Where(&sql_format!("id={}", write_handle.file.id)),
-                    &self.helper.db,
-                )
+                .execute(&self.helper.db, |qb| {
+                    qb.push_where().field_eq("id", write_handle.file.id);
+                })
                 .await?;
         }
 
@@ -727,10 +750,13 @@ impl FileDao {
     ///
     /// 返回 `Ok(Some(file_user_id))` 表示秒传成功；
     /// 返回 `Ok(None)` 表示文件不存在，需要走正常上传流程。
+    /// - `user_id`: 文件属于的用户ID,0=系统
+    /// - `add_user_id`: 文件添加(上传)用户ID
     pub async fn create_from_md5(
         &self,
         file_md5: &str,
         user_id: u64,
+        add_user_id: u64,
         app_id: u64,
         tag_names: &[&str],
         env_data: Option<&RequestEnv>,
@@ -741,19 +767,17 @@ impl FileDao {
 
         let existing = self
             .helper
-            .find_existing_file(FileModel::STORAGE_TYPE_LOCAL, file_md5)
+            .find_existing_file(FileModel::STORAGE_TYPE_LOCAL_PUBLIC, file_md5)
             .await?;
 
         match existing {
             Some(file) => {
                 let file_user_id = self
-                    .create_file_user(&file, user_id, app_id, env_data)
+                    .create_file_user(&file, user_id, add_user_id, app_id, env_data)
                     .await?;
-                for tag_name in tag_names {
-                    self.tag_dao
-                        .add_tag(file.id, user_id, app_id, tag_name, None)
-                        .await?;
-                }
+                self.tag_dao
+                    .batch_add_tags(file.id, user_id, app_id, tag_names, None)
+                    .await?;
                 Ok(Some(file_user_id))
             }
             None => Ok(None),

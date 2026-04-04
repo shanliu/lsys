@@ -8,9 +8,7 @@ use crate::{
     },
 };
 use lsys_app::dao::AppNotifySender;
-use lsys_core::db::SqlQuote;
-use lsys_core::db::{TableMeta, SqlExpr};
-use lsys_core::sql_format;
+use lsys_core::db::{QueryBuilderExt, TableMeta, Update};
 use lsys_core::fluents::IntoFluentMessage;
 use lsys_lib_sms::{SendNotifyError, SendNotifyItem, SendNotifyStatus};
 use lsys_setting::{
@@ -18,7 +16,7 @@ use lsys_setting::{
     model::SettingModel,
 };
 use serde_json::json;
-use sqlx::Pool;
+use sqlx::{MySql, Pool, QueryBuilder};
 use tracing::{info, warn};
 
 pub(crate) async fn add_notify_callback(
@@ -32,11 +30,11 @@ pub(crate) async fn add_notify_callback(
         return;
     }
 
-    let sms = match sqlx::query_as::<_, SenderSmsMessageModel>(&sql_format!(
-        "select * from {} where id={}",
+    let sms = match sqlx::query_as::<_, SenderSmsMessageModel>(&format!(
+        "select * from {} where id=?",
         SenderSmsMessageModel::table_name(),
-        sms_id
     ))
+    .bind(sms_id)
     .fetch_one(db)
     .await
     {
@@ -155,14 +153,15 @@ impl SmsSendNotify {
             return Ok(());
         }
 
-        let msg_data = sqlx::query_as::<_, SenderSmsMessageModel>(&sql_format!(
-            "select * from {} where res_data in ({})",
+        let mut qb = sqlx::QueryBuilder::<MySql>::new(format!(
+            "select * from {}",
             SenderSmsMessageModel::table_name(),
-            send_id
-        ))
-        .fetch_all(&self.db)
-        .await
-        .map_err(|e| e.to_string())?;
+        ));
+        qb.push_where().field_in_string("res_data", &send_id);
+        let msg_data = qb.build_query_as::<SenderSmsMessageModel>()
+            .fetch_all(&self.db)
+            .await
+            .map_err(|e| e.to_string())?;
 
         let res = data.parse_data(&items, msg_data);
         match res {
@@ -172,13 +171,14 @@ impl SmsSendNotify {
                     .flat_map(|e| e.0.as_ref().map(|t| t.sender_body_id))
                     .collect::<Vec<_>>();
                 let bodys = if !findid.is_empty() {
-                    match sqlx::query_as::<_, SenderSmsBodyModel>(&sql_format!(
-                        "select * from {} where id in ({})",
-                        SenderSmsBodyModel::table_name(),
-                        findid
-                    ))
-                    .fetch_all(&self.db)
-                    .await
+                    let mut body_qb: QueryBuilder<'_, MySql> = QueryBuilder::new(format!(
+                        "select * from {}",
+                        SenderSmsBodyModel::table_name()
+                    ));
+                    body_qb.push_where().field_in_copied("id", &findid);
+                    match body_qb.build_query_as::<SenderSmsBodyModel>()
+                        .fetch_all(&self.db)
+                        .await
                     {
                         Ok(b) => b,
                         Err(e) => {
@@ -196,50 +196,47 @@ impl SmsSendNotify {
                         Some(m) => {
                             let body = bodys.iter().find(|e| e.id == m.sender_body_id);
 
-                            let mut set_val = vec![];
-                            if let Some(t) = n.send_time {
-                                if t > 0 {
-                                    set_val.push(sql_format!("send_time={}", t))
-                                }
-                            }
-                            let (sql, status, msg) = match n.status {
+                            let (status, msg) = match n.status {
                                 SendNotifyStatus::Completed => {
-                                    set_val.push(sql_format!(
-                                        "status={}",
-                                        SenderSmsMessageStatus::IsReceived as i8
-                                    ));
+                                    let mut update = Update::<_, SenderSmsMessageModel>::new()
+                                        .set(SenderSmsMessageModel::STATUS, SenderSmsMessageStatus::IsReceived as i8);
+                                    
+                                    if let Some(t) = n.send_time
+                                        && t > 0 {
+                                            update = update.set(SenderSmsMessageModel::SEND_TIME, t);
+                                        }
+                                    
                                     if let Some(t) = n.receive_time {
-                                        set_val.push(sql_format!("receive_time={}", t))
+                                        update = update.set(SenderSmsMessageModel::RECEIVE_TIME, t);
+                                    }
+                                    
+                                    if let Err(err) = update.execute(&self.db, |qb| {
+                                        qb.push_where().field_eq("id", m.id);
+                                    }).await {
+                                        warn!("change message status fail[{}]{}", m.id, err);
+                                        out = Err(err.to_string());
                                     }
                                     (
-                                        sql_format!(
-                                            r#"UPDATE {}
-                                            SET {},
-                                            WHERE id={};
-                                        "#,
-                                            SenderSmsMessageModel::table_name(),
-                                            SqlExpr(set_val.join(",")),
-                                            m.id,
-                                        ),
                                         SenderLogStatus::NotifySucc,
                                         n.message,
                                     )
                                 }
                                 SendNotifyStatus::Failed => {
-                                    set_val.push(sql_format!(
-                                        "status={}",
-                                        SenderSmsMessageStatus::SendFail as i8
-                                    ));
+                                    let mut update = Update::<_, SenderSmsMessageModel>::new()
+                                        .set(SenderSmsMessageModel::STATUS, SenderSmsMessageStatus::SendFail as i8);
+                                    
+                                    if let Some(t) = n.send_time
+                                        && t > 0 {
+                                            update = update.set(SenderSmsMessageModel::SEND_TIME, t);
+                                        }
+                                    
+                                    if let Err(err) = update.execute(&self.db, |qb| {
+                                        qb.push_where().field_eq("id", m.id);
+                                    }).await {
+                                        warn!("change message status fail[{}]{}", m.id, err);
+                                        out = Err(err.to_string());
+                                    }
                                     (
-                                        sql_format!(
-                                            r#"UPDATE {}
-                                            SET {},
-                                            WHERE id={};
-                                        "#,
-                                            SenderSmsMessageModel::table_name(),
-                                            SqlExpr(set_val.join(",")),
-                                            m.id,
-                                        ),
                                         SenderLogStatus::NotifyFail,
                                         n.message,
                                     )
@@ -249,10 +246,6 @@ impl SmsSendNotify {
                                     continue;
                                 }
                             };
-                            if let Err(err) = sqlx::query(sql.as_str()).execute(&self.db).await {
-                                warn!("change message status fail[{}]{}", m.id, err);
-                                out = Err(err.to_string());
-                            }
 
                             match body {
                                 Some(b) => {

@@ -148,4 +148,10 @@ impl From<ValidCodeError> for WebError {
     }
 }
 
+impl From<std::io::Error> for WebError {
+    fn from(value: std::io::Error) -> Self {
+        Self::Message(lsys_core::fluent_message!("io-error", value))
+    }
+}
+
 pub type WebResult<T> = Result<T, WebError>;

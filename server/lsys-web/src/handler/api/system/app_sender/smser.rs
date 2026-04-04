@@ -5,7 +5,8 @@ use crate::dao::access::api::system::admin::CheckAdminSmsMgr;
 use crate::dao::access::RbacAccessCheckEnv;
 use lsys_access::dao::AccessSession;
 use lsys_app_sender::model::SenderSmsMessageStatus;
-use lsys_core::db::CursorPageSort;
+use lsys_core::api_utils::{JsonPageData, PageCursorValue, PageTotalRowValue};
+use lsys_core::db::{CursorPageSort, TotalParam};
 use lsys_core::fluents::IntoFluentMessage;
 use lsys_core::utils::now_time;
 use serde::Deserialize;
@@ -58,7 +59,7 @@ pub async fn smser_message_log(
         None
     };
     Ok(JsonResponse::data(JsonData::body(
-        json!({ "data": res,"total":count}),
+        JsonPageData::total(res, count),
     )))
 }
 
@@ -179,8 +180,10 @@ pub async fn smser_message_list(
                     param.snid.as_ref().and_then(|e| e.parse::<u64>().ok()),
                     status,
                     param.mobile.as_deref(),
+                    &TotalParam::default(),
                 )
-                .await?,
+                .await
+                .map(PageTotalRowValue::from)?,
         )
     } else {
         None
@@ -205,8 +208,7 @@ pub async fn smser_message_list(
         );
     }
     let ntime = now_time().unwrap_or_default();
-    let next_cursor = res.1.next_cursor;
-    let prev_cursor = res.1.prev_cursor;
+    let cursor = PageCursorValue::from(&res.1);
     let res_data = req_dao
         .web_dao
         .app_sender
@@ -243,7 +245,7 @@ pub async fn smser_message_list(
         })
         .collect::<Vec<_>>();
     Ok(JsonResponse::data(JsonData::body(
-        json!({ "data": res,"total":count,"next_cursor":next_cursor,"prev_cursor":prev_cursor}),
+        JsonPageData::cursor(res, cursor, count),
     )))
 }
 #[derive(Debug, Deserialize)]

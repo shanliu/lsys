@@ -1,4 +1,4 @@
-use crate::common::{JsonData, PageParam, ToOffsetPageParam};
+use crate::common::{JsonData, JsonPageData, PageParam, ToOffsetPageParam};
 use crate::common::{JsonResponse, JsonResult, UserAuthQueryDao};
 use crate::dao::access::api::system::user::CheckUserAppSenderSmsConfig;
 use crate::dao::access::RbacAccessCheckEnv;
@@ -392,7 +392,7 @@ pub async fn smser_tpl_config_list(
         None
     };
     Ok(JsonResponse::data(JsonData::body(
-        json!({ "data": row ,"total":total}),
+        JsonPageData::total(row, total),
     )))
 }
 

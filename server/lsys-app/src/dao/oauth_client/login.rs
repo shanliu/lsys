@@ -1,6 +1,6 @@
 use lsys_access::dao::AccessError;
-use lsys_core::db::{Insert, TableMeta, SqlSuffix, Update};
-use lsys_core::{fluent_message, sql_format};
+use lsys_core::db::{Insert, QueryBuilderExt, TableMeta, Update};
+use lsys_core::fluent_message;
 use lsys_core::utils::{now_time, rand_str, RandType};
 use serde::{Deserialize, Serialize};
 
@@ -14,7 +14,6 @@ use crate::model::{
     AppOAuthClientRefreshTokenModel,
     AppOAuthClientRefreshTokenStatus, AppRequestType,
 };
-use lsys_core::db::SqlQuote;
 
 // OAUTH流程
 // 验证登录用户成功->创建CODE(create_code)并返回->通过CODE创建TOKEN返回->通过TOKEN请求REST接口
@@ -162,25 +161,21 @@ impl AppOAuthClient {
         Update::<_,AppOAuthClientRefreshTokenModel>::new()
             .set(AppOAuthClientRefreshTokenModel::STATUS, status)
             .set(AppOAuthClientRefreshTokenModel::DELETE_TIME, delete_time)
-            .execute(
-                SqlSuffix::Where(&sql_format!(
-                    "app_id={} and refresh_token_data={} and status={}",
-                    app.id,
-                    refresh_token,
-                    AppOAuthClientRefreshTokenStatus::Init as i8
-                )),
-                &self.db,
-            )
+            .execute(&self.db, |qb| {
+                qb.push_where().field_eq("app_id", app.id)
+                    .push_and().field_eq("refresh_token_data", refresh_token.to_owned())
+                    .push_and().field_eq("status", AppOAuthClientRefreshTokenStatus::Init as i8);
+            })
             .await?;
         let mut start_id = 0;
         loop {
-            let tmp_vec=sqlx::query_as::<_,(u64,String)>(&sql_format!(
-                "select id,access_token_data from {} where app_id={} and refresh_token_data={} and id>{} order by id asc limit 100",
+            let tmp_vec=sqlx::query_as::<_,(u64,String)>(&format!(
+                "select id,access_token_data from {} where app_id=? and refresh_token_data=? and id>? order by id asc limit 100",
                 AppOAuthClientAccessModel::table_name(),
-                app.id,
-                refresh_token,
-                start_id,
             ))
+            .bind(app.id)
+            .bind(refresh_token)
+            .bind(start_id)
             .fetch_all(&self.db)
             .await?;
             if tmp_vec.is_empty() {
@@ -260,14 +255,14 @@ impl AppOAuthClient {
         refresh_token: &str,
     ) -> AppResult<RestAuthData> {
         self.check_access(app).await?;
-        let (code_data,source_code)=sqlx::query_as::<_,(String,String)>(&sql_format!(
-            "select code_data,source_code from {} where app_id={} and refresh_token_data={} and status={} and time_out>{}",
+        let (code_data,source_code)= sqlx::query_as::<_,(String,String)>(&format!(
+            "select code_data,source_code from {} where app_id=? and refresh_token_data=? and status=? and time_out>?",
             AppOAuthClientRefreshTokenModel::table_name(),
-            app.id,
-            refresh_token,
-            AppOAuthClientRefreshTokenStatus::Init as i8,
-            now_time().unwrap_or_default()
         ))
+        .bind(app.id)
+        .bind(refresh_token)
+        .bind(AppOAuthClientRefreshTokenStatus::Init as i8)
+        .bind(now_time().unwrap_or_default())
         .fetch_one(&self.db)
         .await
         .map_err(|e| match e {

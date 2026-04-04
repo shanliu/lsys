@@ -4,7 +4,7 @@ use crate::{
     dao::access::api::system::admin::{CheckAdminRbacEdit, CheckAdminRbacView},
 };
 use lsys_access::dao::AccessSession;
-use serde_json::json;
+use lsys_core::api_utils::JsonPageData;
 
 use crate::common::{JsonError, PageParam, ToOffsetPageParam};
 use lsys_core::fluent_message;
@@ -240,6 +240,6 @@ pub async fn role_perm_data(
     };
 
     Ok(JsonResponse::data(JsonData::body(
-        json!({ "data": res,"total":count}),
+        JsonPageData::total(res, count),
     )))
 }

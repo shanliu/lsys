@@ -1,5 +1,5 @@
 use super::{inner_app_rbac_check, inner_app_self_check, inner_user_data_to_user_id};
-use crate::common::{JsonData, ToOffsetPageParam};
+use crate::common::{JsonData, JsonPageData, ToOffsetPageParam};
 use crate::common::{JsonResponse, JsonResult, PageParam, RequestDao};
 use lsys_app::model::AppModel;
 use lsys_rbac::dao::{RbacResAddData, RbacResData, ResDataAttrParam, ResDataParam};
@@ -244,8 +244,7 @@ pub async fn res_data(
             perm_count: info.perm_count,
         })
         .collect::<Vec<_>>();
-    Ok(JsonResponse::data(JsonData::body(json!({
-        "data": bind_vec_user_info_from_req!(req_dao, res, user_id),
-        "total":count
-    }))))
+    Ok(JsonResponse::data(JsonData::body(
+        JsonPageData::total(bind_vec_user_info_from_req!(req_dao, res, user_id), count),
+    )))
 }

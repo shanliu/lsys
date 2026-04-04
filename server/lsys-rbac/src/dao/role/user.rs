@@ -4,8 +4,9 @@ use lsys_core::utils::{now_time, RequestEnv};
 
 use serde::Serialize;
 
-use lsys_core::db::{BatchInsert, Insert, SqlQuote, SqlSuffix, TableMeta, Update};
-use lsys_core::sql_format;
+use lsys_core::db::{BatchInsert, Insert, QueryBuilderExt, TableMeta, Update};
+use sqlx::{MySql, QueryBuilder};
+
 use lsys_core::db::OptionTxExecutor;
 use sqlx::Transaction;
 
@@ -48,12 +49,13 @@ impl RbacRole {
 
         let user_id_vec = user_vec.iter().map(|e| e.user_id).collect::<Vec<_>>();
 
-        let user_res = sqlx::query_as::<_, (u64, u64)>(&sql_format!(
-            "select id,user_id from {} where user_id in ({}) and role_id={} ",
+        let mut qb: QueryBuilder<'_, MySql> = QueryBuilder::new(format!(
+            "select id,user_id from {}",
             RbacRoleUserModel::table_name(),
-            user_id_vec,
-            role.id,
-        ))
+        ));
+        qb.push_where().field_in_copied("user_id", &user_id_vec);
+        qb.push_and().field_eq("role_id", role.id);
+        let user_res = qb.build_query_as::<(u64, u64)>()
         .fetch_all(&self.db)
         .await?;
 
@@ -73,7 +75,9 @@ impl RbacRole {
                         .set(RbacRoleUserModel::CHANGE_TIME, nowtime)
                         .set(RbacRoleUserModel::CHANGE_USER_ID, add_user_id)
                         .set(RbacRoleUserModel::STATUS, RbacRoleUserStatus::Enable as i8)
-                        .execute(SqlSuffix::Where(&sql_format!("id={}", *itemid)), &mut *db)
+                        .execute(&mut *db, |qb| {
+                            qb.push_where().field_eq("id", *itemid);
+                        })
                         .await
                     {
                         db.rollback().await?;
@@ -94,12 +98,11 @@ impl RbacRole {
                 );
             }
         }
-        if !batch.is_empty() {
-            if let Err(err) = batch.execute(&mut *db).await {
+        if !batch.is_empty()
+            && let Err(err) = batch.execute(&mut *db).await {
                 db.rollback().await?;
                 return Err(err.into());
             }
-        }
         db.commit().await?;
 
         self.cache()
@@ -142,12 +145,11 @@ impl RbacRole {
             .set(RbacRoleUserModel::CHANGE_TIME, time)
             .set(RbacRoleUserModel::STATUS, RbacRoleUserStatus::Delete as i8)
             .execute(
-                SqlSuffix::Where(&sql_format!(
-                    "role_id ={} and user_id  in ({})",
-                    role.id,
-                    user_id_vec
-                )),
                 OptionTxExecutor::new(transaction, &self.db),
+                |qb| {
+                    qb.push_where().field_eq("role_id", role.id)
+                        .push_and().field_in_copied("user_id", user_id_vec);
+                },
             )
             .await?;
 

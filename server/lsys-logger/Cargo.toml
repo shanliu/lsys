@@ -2,7 +2,7 @@
 name = "lsys-logger"
 version = "0.0.1"
 authors = ["liushan <shan.liu@msn.com>"]
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 lsys-core = { path = "../lsys-core", features = ["db-mysql"] }

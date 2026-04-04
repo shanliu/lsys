@@ -6,6 +6,7 @@ use crate::{
 };
 use lsys_access::dao::AccessSession;
 use lsys_app_sender::model::SenderType;
+use lsys_core::api_utils::JsonPageData;
 use serde::Deserialize;
 use serde_json::json;
 
@@ -66,7 +67,7 @@ pub async fn mailer_tpl_body_list(
         None
     };
     Ok(JsonResponse::data(JsonData::body(
-        json!({ "data": data,"total":count }),
+        JsonPageData::total(data, count),
     )))
 }
 

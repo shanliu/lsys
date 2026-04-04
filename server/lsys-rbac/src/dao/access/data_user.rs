@@ -19,12 +19,11 @@ use crate::{
     model::RbacRoleResRange,
 };
 use lsys_core::db::OffsetPageParam;
-use lsys_core::db::SqlQuote;
+use lsys_core::db::QueryBuilderExt;
 use lsys_core::db::TableMeta;
-use lsys_core::sql_format;
 use lsys_core::utils::{string_clear, StringClear, STRING_CLEAR_FORMAT};
 use serde::Serialize;
-use sqlx::Row;
+use sqlx::{MySql, QueryBuilder, Row};
 use std::vec;
 
 //资源查找由 系统授权 或 用户授权 的 可被访问角色 及 角色关联用户
@@ -49,11 +48,8 @@ impl RbacAccess {
         user_id: u64, //资源用户ID
         app_id: u64,
     ) -> RbacResult<AccessPublicResUserData> {
-        let sql = self.user_data_pub_sql(user_id, app_id).await;
-        let data = sqlx::query_as::<_, (u64, i8, i8)>(&format!(
-            "select * from (({})) as t",
-            sql.join(" ) union all (")
-        ))
+        let mut qb = self.user_data_pub_sql(user_id, app_id).await;
+        let data = qb.build_query_as::<(u64, i8, i8)>()
         .fetch_all(&self.db)
         .await?;
         let mut pub_access = AccessPublicResUserData {
@@ -84,41 +80,41 @@ impl RbacAccess {
         }
         Ok(pub_access)
     }
-    async fn user_data_pub_sql(&self, user_id: u64, app_id: u64) -> [String; 2] {
-        let mut user_data = vec![0];
+    async fn user_data_pub_sql(&self, user_id: u64, app_id: u64) -> QueryBuilder<'static, MySql> {
+        let mut user_data = vec![0u64];
         if user_id > 0 {
             user_data.push(user_id);
         }
-        [sql_format!(
+        let mut qb = QueryBuilder::<MySql>::new("select * from ((");
+        qb.push(format!(
             "select role.user_id,role.user_range,role.res_range
-            from {} as role 
-            where role.status ={} and role.user_id in ({}) and role.app_id={}
-            and role.res_range = {} and role.user_range = {}
-            group by role.user_id,role.user_range,role.res_range",
+            from {} as role",
             RbacRoleModel::table_name(),
-            RbacRoleStatus::Enable as i8,
-            &user_data,
-            app_id,
-            RbacRoleResRange::Any as i8,
-            RbacRoleUserRange::Session as i8,
-        ),sql_format!(
+        ));
+        qb.push_where().field_eq("role.status", RbacRoleStatus::Enable as i8);
+        qb.push_and().field_in_copied("role.user_id", &user_data);
+        qb.push_and().field_eq("role.app_id", app_id);
+        qb.push_and().field_eq("role.res_range", RbacRoleResRange::Any as i8);
+        qb.push_and().field_eq("role.user_range", RbacRoleUserRange::Session as i8);
+        qb.push(" group by role.user_id,role.user_range,role.res_range");
+        qb.push(" ) union all (");
+        qb.push(format!(
             "select role.user_id,role.user_range,role.res_range
             from {} as role on perm.role_id=role.id
-            join {} as role_user on role_user.role_id=role.id
-            where  role.status ={} and role.user_id in ({}) and role.app_id={}
-            and role.res_range = {} and role.user_range = {} 
-            and role_user.status={} and (role_user.timeout=0 or role_user.timeout >= UNIX_TIMESTAMP(NOW()))
-            group by role.user_id,role.res_range,role.user_range
-            ",
+            join {} as role_user on role_user.role_id=role.id",
             RbacRoleModel::table_name(),
             RbacRoleUserModel::table_name(),
-            RbacRoleStatus::Enable as i8,
-            &user_data,
-            app_id,
-            RbacRoleResRange::Any as i8,
-            RbacRoleUserRange::Custom as i8,
-            RbacRoleUserStatus::Enable as i8,
-        )]
+        ));
+        qb.push_where();
+        qb.field_eq("role.status", RbacRoleStatus::Enable as i8);
+        qb.push_and().field_in_copied("role.user_id", &user_data);
+        qb.push_and().field_eq("role.app_id", app_id);
+        qb.push_and().field_eq("role.res_range", RbacRoleResRange::Any as i8);
+        qb.push_and().field_eq("role.user_range", RbacRoleUserRange::Custom as i8);
+        qb.push_and().field_eq("role_user.status", RbacRoleUserStatus::Enable as i8);
+        qb.push_and().push("(role_user.timeout=0 or role_user.timeout >= UNIX_TIMESTAMP(NOW())) group by role.user_id,role.res_range,role.user_range ");
+        qb.push(")) as t");
+        qb
     }
 }
 
@@ -179,50 +175,43 @@ impl RbacAccess {
                 .await
             {
                 Ok(op_row) => {
-                    let sql = [sql_format!(
+                    let mut qb = QueryBuilder::<MySql>::new("select * from ((");
+                    qb.push(format!(
                             "select role.user_id,role.user_range,role.res_range
-                            from {} as perm  
-                            join {} as role on perm.role_id=role.id
-                            where perm.res_id ={} and perm.op_id={} 
-                            and perm.status={} and and role.status ={} and role.user_id in ({})
-                            and role.res_range in ({}) and role.user_range = {}
-                            group by role.user_id,role.user_range,role.res_range",
+                            from {} as perm
+                            join {} as role on perm.role_id=role.id",
                             RbacPermModel::table_name(),
                             RbacRoleModel::table_name(),
-                            res_row.id,
-                            op_row.id,
-                            RbacPermStatus::Enable as i8,
-                            RbacRoleStatus::Enable as i8,
-                            &[user_id,0],
-                            &[RbacRoleResRange::Exclude as i8,RbacRoleResRange::Include as i8],
-                            RbacRoleUserRange::Session as i8,
-                        ),sql_format!(
+                        ));
+                    qb.push_where().field_eq("perm.res_id", res_row.id);
+                    qb.push_and().field_eq("perm.op_id", op_row.id);
+                    qb.push_and().field_eq("perm.status", RbacPermStatus::Enable as i8);
+                    qb.push_and().field_eq("role.status", RbacRoleStatus::Enable as i8);
+                    qb.push_and().field_in_copied("role.user_id", &[user_id, 0u64]);
+                    qb.push_and().field_in_copied("role.res_range", &[RbacRoleResRange::Exclude as i8, RbacRoleResRange::Include as i8]);
+                    qb.push_and().field_eq("role.user_range", RbacRoleUserRange::Session as i8);
+                    qb.push(" group by role.user_id,role.user_range,role.res_range");
+                    qb.push(" ) union all (");
+                    qb.push(format!(
                             "select role.user_id,role.user_range,role.res_range
-                            from {} as perm 
+                            from {} as perm
                             join {} as role on perm.role_id=role.id
-                            join {} as role_user on role_user.role_id=role.id
-                            where perm.res_id ={} and perm.op_id={} 
-                            and perm.status={} and role.status ={} and role.user_id in ({})
-                            and role.res_range in ({}) and role.user_range = {} 
-                            and role_user.status={} and (role_user.timeout=0 or role_user.timeout >= UNIX_TIMESTAMP(NOW()))
-                            group by role.user_id,role.res_range,role.user_range
-                            ",
+                            join {} as role_user on role_user.role_id=role.id",
                             RbacPermModel::table_name(),
                             RbacRoleModel::table_name(),
                             RbacRoleUserModel::table_name(),
-                            res_row.id,
-                            op_row.id,
-                            RbacPermStatus::Enable as i8,
-                            RbacRoleStatus::Enable as i8,
-                            &[user_id,0],
-                            &[RbacRoleResRange::Exclude as i8,RbacRoleResRange::Include as i8],
-                            RbacRoleUserRange::Custom as i8,
-                            RbacRoleUserStatus::Enable as i8,
-                        )];
-                    let data = sqlx::query_as::<_, (u64, i8, i8)>(&format!(
-                        "select * from (({})) as t",
-                        sql.join(" ) union all (")
-                    ))
+                        ));
+                    qb.push_where().field_eq("perm.res_id", res_row.id);
+                    qb.push_and().field_eq("perm.op_id", op_row.id);
+                    qb.push_and().field_eq("perm.status", RbacPermStatus::Enable as i8);
+                    qb.push_and().field_eq("role.status", RbacRoleStatus::Enable as i8);
+                    qb.push_and().field_in_copied("role.user_id", &[user_id, 0u64]);
+                    qb.push_and().field_in_copied("role.res_range", &[RbacRoleResRange::Exclude as i8, RbacRoleResRange::Include as i8]);
+                    qb.push_and().field_eq("role.user_range", RbacRoleUserRange::Custom as i8);
+                    qb.push_and().field_eq("role_user.status", RbacRoleUserStatus::Enable as i8);
+                    qb.push_and().push("(role_user.timeout=0 or role_user.timeout >= UNIX_TIMESTAMP(NOW())) group by role.user_id,role.res_range,role.user_range ");
+                    qb.push(")) as t");
+                    let data = qb.build_query_as::<(u64, i8, i8)>()
                     .fetch_all(&self.db)
                     .await?;
                     for (db_user_id, db_user_range, db_res_range) in data {
@@ -299,47 +288,39 @@ impl RbacAccess {
     fn find_custom_user_list_sql_from_res(
         &self,
         param: &CustomUserListResData<'_>,
-        // user_id: u64, //资源用户ID
-        // app_id: u64,
-        // res_type: &str, //资源类型
-        // res_data: &str, //资源数据
-        // op_key: &str,   //授权操作结构列表,
-        // res_range_exclude: bool,
-        // res_range_any: bool,
-        // res_range_include: bool,
-        // is_system: bool,
-        // is_self: bool,
         field: &str,
-    ) -> RbacResult<Vec<String>> {
+        qb: &mut QueryBuilder<'_, MySql>,
+    ) -> RbacResult<bool> {
         let mut uid = vec![];
         if param.is_self {
             uid.push(param.user_id);
         }
         if param.is_system {
-            uid.push(0);
+            uid.push(0u64);
         }
         if uid.is_empty() {
-            return Ok(vec![]);
+            return Ok(false);
         }
-        let mut sql = vec![];
+        let mut first = true;
         if param.res_range_any {
-            sql.push(sql_format!(
-                "select 
+            if !first { qb.push(" union all "); }
+            first = false;
+            qb.push(format!(
+                "(select
                 {}
-                from {} as role  
-                join {} as role_user on role_user.role_id=role.id
-                where  role.status ={} and role_user.status={} and role.user_id in ({}) and role.app_id={}
-                and role.res_range = {} and role.user_range = {} ",
+                from {} as role
+                join {} as role_user on role_user.role_id=role.id",
                 field,
                 RbacRoleModel::table_name(),
                 RbacRoleUserModel::table_name(),
-                RbacRoleStatus::Enable as i8,
-                RbacRoleUserStatus::Enable as i8,
-                &uid,
-                param.app_id,
-                RbacRoleResRange::Any as i8,
-                RbacRoleUserRange::Custom as i8,
             ));
+            qb.push_where().field_eq("role.status", RbacRoleStatus::Enable as i8);
+            qb.push_and().field_eq("role_user.status", RbacRoleUserStatus::Enable as i8);
+            qb.push_and().field_in_copied("role.user_id", &uid);
+            qb.push_and().field_eq("role.app_id", param.app_id);
+            qb.push_and().field_eq("role.res_range", RbacRoleResRange::Any as i8);
+            qb.push_and().field_eq("role.user_range", RbacRoleUserRange::Custom as i8);
+            qb.push(" )");
         }
         if param.res_range_exclude {
             let op_key = string_clear(
@@ -357,36 +338,36 @@ impl RbacAccess {
                 StringClear::Option(STRING_CLEAR_FORMAT),
                 Some(33),
             );
-            sql.push(sql_format!(
-                "select 
+            if !first { qb.push(" union all "); }
+            first = false;
+            qb.push(format!(
+                "(select
                 {}
-                from {} as role  
+                from {} as role
                 join {} as role_user on role_user.role_id=role.id
                 join {} as perm on perm.role_id=role.id
                 join {} as op on op.id=perm.op_id
-                join {} as res on res.id=perm.res_id
-                where  role.status ={} and role_user.status={} and perm.status={} and op.status={} and res.status={} 
-                and role.user_id in ({}) and role.app_id={} and role.res_range = {} and role.user_range = {} 
-                and op.op_key={} and res.res_type={} and res.res_data={}",
+                join {} as res on res.id=perm.res_id",
                 field,
                 RbacRoleModel::table_name(),
                 RbacRoleUserModel::table_name(),
                 RbacPermModel::table_name(),
                 RbacOpModel::table_name(),
                 RbacResModel::table_name(),
-                RbacRoleStatus::Enable as i8,
-                RbacRoleUserStatus::Enable as i8,
-                RbacPermStatus::Enable as i8,
-                RbacOpStatus::Enable as i8,
-                RbacResStatus::Enable as i8,
-                &uid,
-                param.app_id,
-                RbacRoleResRange::Exclude as i8,
-                RbacRoleUserRange::Custom as i8,
-                op_key,
-                res_type,
-                res_data
             ));
+            qb.push_where().field_eq("role.status", RbacRoleStatus::Enable as i8);
+            qb.push_and().field_eq("role_user.status", RbacRoleUserStatus::Enable as i8);
+            qb.push_and().field_eq("perm.status", RbacPermStatus::Enable as i8);
+            qb.push_and().field_eq("op.status", RbacOpStatus::Enable as i8);
+            qb.push_and().field_eq("res.status", RbacResStatus::Enable as i8);
+            qb.push_and().field_in_copied("role.user_id", &uid);
+            qb.push_and().field_eq("role.app_id", param.app_id);
+            qb.push_and().field_eq("role.res_range", RbacRoleResRange::Exclude as i8);
+            qb.push_and().field_eq("role.user_range", RbacRoleUserRange::Custom as i8);
+            qb.push_and().field_eq("op.op_key", op_key);
+            qb.push_and().field_eq("res.res_type", res_type);
+            qb.push_and().field_eq("res.res_data", res_data);
+            qb.push(")");
         }
         if param.res_range_include {
             let op_key = string_clear(
@@ -404,38 +385,38 @@ impl RbacAccess {
                 StringClear::Option(STRING_CLEAR_FORMAT),
                 Some(33),
             );
-            sql.push(sql_format!(
-                "select 
+            if !first { qb.push(" union all "); }
+            first = false;
+            qb.push(format!(
+                "(select
                 {}
-                from {} as role  
+                from {} as role
                 join {} as role_user on role_user.role_id=role.id
                 join {} as perm on perm.role_id=role.id
                 join {} as op on op.id=perm.op_id
-                join {} as res on res.id=perm.res_id
-                where  role.status ={} and role_user.status={} and perm.status={} and op.status={} and res.status={} 
-                and role.user_id in ({})  and role.app_id={} and role.res_range = {} and role.user_range = {} 
-                and op.op_key={} and res.res_type={} and res.res_data={}",
+                join {} as res on res.id=perm.res_id",
                 field,
                 RbacRoleModel::table_name(),
                 RbacRoleUserModel::table_name(),
                 RbacPermModel::table_name(),
                 RbacOpModel::table_name(),
                 RbacResModel::table_name(),
-                RbacRoleStatus::Enable as i8,
-                RbacRoleUserStatus::Enable as i8,
-                RbacPermStatus::Enable as i8,
-                RbacOpStatus::Enable as i8,
-                RbacResStatus::Enable as i8,
-                &uid,
-                param.app_id,
-                RbacRoleResRange::Include as i8,
-                RbacRoleUserRange::Custom as i8,
-                op_key,
-                res_type,
-                res_data
             ));
+            qb.push_where().field_eq("role.status", RbacRoleStatus::Enable as i8);
+            qb.push_and().field_eq("role_user.status", RbacRoleUserStatus::Enable as i8);
+            qb.push_and().field_eq("perm.status", RbacPermStatus::Enable as i8);
+            qb.push_and().field_eq("op.status", RbacOpStatus::Enable as i8);
+            qb.push_and().field_eq("res.status", RbacResStatus::Enable as i8);
+            qb.push_and().field_in_copied("role.user_id", &uid);
+            qb.push_and().field_eq("role.app_id", param.app_id);
+            qb.push_and().field_eq("role.res_range", RbacRoleResRange::Include as i8);
+            qb.push_and().field_eq("role.user_range", RbacRoleUserRange::Custom as i8);
+            qb.push_and().field_eq("op.op_key", op_key);
+            qb.push_and().field_eq("res.res_type", res_type);
+            qb.push_and().field_eq("res.res_data", res_data);
+            qb.push(")");
         }
-        Ok(sql)
+        Ok(!first)
     }
 
     //获取 系统或特定用户 指定资源 的 被授权可访问用户列表
@@ -464,28 +445,18 @@ impl RbacAccess {
                role_user.user_id as user_id,
                role_user.timeout as timeout
        "#;
-        let sql = self.find_custom_user_list_sql_from_res(
-            param, //资源用户ID
-            // app_id,
-            // res_type, //资源类型
-            // res_data, //资源数据
-            // op_key,   //授权操作结构列表,
-            // res_range_exclude,
-            // res_range_any,
-            // res_range_include,
-            // is_system,
-            // is_self,
+        let mut qb = QueryBuilder::<MySql>::new("select (select * (");
+        let has_data = self.find_custom_user_list_sql_from_res(
+            param,
             field,
+            &mut qb,
         )?;
-        if sql.is_empty() {
+        if !has_data {
             return Ok(vec![]);
         }
-        let sql = format!(
-            "select (select * (({})) as tmp) order by res_range asc {}",
-            sql.join(") union all ("),
-            page.page_query().limit_sql().unwrap_or_default()
-        );
-        Ok(sqlx::query(&sql)
+        qb.push(") as tmp) order by res_range asc");
+        page.push_limit(&mut qb);
+        Ok(qb.build()
             .try_map(|row: sqlx::mysql::MySqlRow| {
                 Ok(AccessResUserRow {
                     role_id: row.try_get::<u64, &str>("role_id").unwrap_or_default(),
@@ -517,15 +488,13 @@ impl RbacAccess {
         // is_self: bool,
     ) -> RbacResult<i64> {
         let field = r#" count(*) as total "#;
-        let sql = self.find_custom_user_list_sql_from_res(param, field)?;
-        if sql.is_empty() {
+        let mut qb = QueryBuilder::<MySql>::new("select sum(total) from (");
+        let has_data = self.find_custom_user_list_sql_from_res(param, field, &mut qb)?;
+        if !has_data {
             return Ok(0);
         }
-        let sql = format!(
-            "select sum(total) from (({})) as tmp",
-            sql.join(") union all (")
-        );
-        Ok(sqlx::query_scalar::<_, i64>(&sql)
+        qb.push(") as tmp");
+        Ok(qb.build_query_scalar::<i64>()
             .fetch_one(&self.db)
             .await?)
     }
@@ -561,124 +530,102 @@ impl RbacAccess {
         &self,
         param: &SessionUserListResData<'_>,
         field: &str,
-    ) -> RbacResult<Vec<String>> {
+        qb: &mut QueryBuilder<'_, MySql>,
+    ) -> RbacResult<bool> {
         let mut uid = vec![];
         if param.is_self {
             uid.push(param.user_id);
         }
         if param.is_system {
-            uid.push(0);
+            uid.push(0u64);
         }
         if uid.is_empty() {
-            return Ok(vec![]);
+            return Ok(false);
         }
 
-        let mut sql = vec![];
+        let mut first = true;
         if param.res_range_any {
-            sql.push(sql_format!(
-                "select 
+            if !first { qb.push(" union all "); }
+            first = false;
+            qb.push(format!(
+                "(select
                {}
-               from {} as role  
-               where  role.status ={} and role.user_id in ({}) and role.app_id={}
-               and role.res_range = {} and role.user_range = {} ",
+               from {} as role",
                 field,
                 RbacRoleModel::table_name(),
-                RbacRoleStatus::Enable as i8,
-                &uid,
-                param.app_id,
-                RbacRoleResRange::Any as i8,
-                RbacRoleUserRange::Session as i8,
             ));
+            qb.push_where().field_eq("role.status", RbacRoleStatus::Enable as i8);
+            qb.push_and().field_in_copied("role.user_id", &uid);
+            qb.push_and().field_eq("role.app_id", param.app_id);
+            qb.push_and().field_eq("role.res_range", RbacRoleResRange::Any as i8);
+            qb.push_and().field_eq("role.user_range", RbacRoleUserRange::Session as i8);
+            qb.push(" )");
         }
         if param.res_range_exclude {
-            let op_key = string_clear(
-                param.op_key,
-                StringClear::Option(STRING_CLEAR_FORMAT),
-                Some(33),
-            );
-            let res_type = string_clear(
-                param.res_type,
-                StringClear::Option(STRING_CLEAR_FORMAT),
-                Some(33),
-            );
-            let res_data = string_clear(
-                param.res_data,
-                StringClear::Option(STRING_CLEAR_FORMAT),
-                Some(33),
-            );
-            sql.push(sql_format!(
-                "select 
+            let op_key = string_clear(param.op_key, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
+            let res_type = string_clear(param.res_type, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
+            let res_data = string_clear(param.res_data, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
+            if !first { qb.push(" union all "); }
+            first = false;
+            qb.push(format!(
+                "(select
                {}
-               from {} as role  
+               from {} as role
                join {} as perm on perm.role_id=role.id
                join {} as op on op.id=perm.op_id
-               join {} as res on res.id=perm.res_id
-               where  role.status ={}  and perm.status={} and op.status={} and res.status={} 
-               and role.user_id in ({}) and role.app_id={} and role.res_range = {} and role.user_range = {} 
-               and op.op_key={} and res.res_type={} and res.res_data={}",
+               join {} as res on res.id=perm.res_id",
                 field,
                 RbacRoleModel::table_name(),
                 RbacPermModel::table_name(),
                 RbacOpModel::table_name(),
                 RbacResModel::table_name(),
-                RbacRoleStatus::Enable as i8,
-                RbacPermStatus::Enable as i8,
-                RbacOpStatus::Enable as i8,
-                RbacResStatus::Enable as i8,
-                &uid,
-                param.app_id,
-                RbacRoleResRange::Exclude as i8,
-                RbacRoleUserRange::Session as i8,
-                op_key,
-                res_type,
-                res_data
             ));
+            qb.push_where().field_eq("role.status", RbacRoleStatus::Enable as i8);
+            qb.push_and().field_eq("perm.status", RbacPermStatus::Enable as i8);
+            qb.push_and().field_eq("op.status", RbacOpStatus::Enable as i8);
+            qb.push_and().field_eq("res.status", RbacResStatus::Enable as i8);
+            qb.push_and().field_in_copied("role.user_id", &uid);
+            qb.push_and().field_eq("role.app_id", param.app_id);
+            qb.push_and().field_eq("role.res_range", RbacRoleResRange::Exclude as i8);
+            qb.push_and().field_eq("role.user_range", RbacRoleUserRange::Session as i8);
+            qb.push_and().field_eq("op.op_key", op_key);
+            qb.push_and().field_eq("res.res_type", res_type);
+            qb.push_and().field_eq("res.res_data", res_data);
+            qb.push(")");
         }
         if param.res_range_include {
-            let op_key = string_clear(
-                param.op_key,
-                StringClear::Option(STRING_CLEAR_FORMAT),
-                Some(33),
-            );
-            let res_type = string_clear(
-                param.res_type,
-                StringClear::Option(STRING_CLEAR_FORMAT),
-                Some(33),
-            );
-            let res_data = string_clear(
-                param.res_data,
-                StringClear::Option(STRING_CLEAR_FORMAT),
-                Some(33),
-            );
-            sql.push(sql_format!(
-                "select 
+            let op_key = string_clear(param.op_key, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
+            let res_type = string_clear(param.res_type, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
+            let res_data = string_clear(param.res_data, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
+            if !first { qb.push(" union all "); }
+            first = false;
+            qb.push(format!(
+                "(select
                {}
-               from {} as role  
+               from {} as role
                join {} as perm on perm.role_id=role.id
                join {} as op on op.id=perm.op_id
-               join {} as res on res.id=perm.res_id
-               where  role.status ={}  and perm.status={} and op.status={} and res.status={} 
-               and role.user_id in ({}) and role.app_id={}  and role.res_range = {} and role.user_range = {}
-               and op.op_key={} and res.res_type={} and res.res_data={}",
+               join {} as res on res.id=perm.res_id",
                 field,
                 RbacRoleModel::table_name(),
                 RbacPermModel::table_name(),
                 RbacOpModel::table_name(),
                 RbacResModel::table_name(),
-                RbacRoleStatus::Enable as i8,
-                RbacPermStatus::Enable as i8,
-                RbacOpStatus::Enable as i8,
-                RbacResStatus::Enable as i8,
-                &uid,
-                param.app_id,
-                RbacRoleResRange::Include as i8,
-                RbacRoleUserRange::Session as i8,
-                op_key,
-                res_type,
-                res_data
             ));
+            qb.push_where().field_eq("role.status", RbacRoleStatus::Enable as i8);
+            qb.push_and().field_eq("perm.status", RbacPermStatus::Enable as i8);
+            qb.push_and().field_eq("op.status", RbacOpStatus::Enable as i8);
+            qb.push_and().field_eq("res.status", RbacResStatus::Enable as i8);
+            qb.push_and().field_in_copied("role.user_id", &uid);
+            qb.push_and().field_eq("role.app_id", param.app_id);
+            qb.push_and().field_eq("role.res_range", RbacRoleResRange::Include as i8);
+            qb.push_and().field_eq("role.user_range", RbacRoleUserRange::Session as i8);
+            qb.push_and().field_eq("op.op_key", op_key);
+            qb.push_and().field_eq("res.res_type", res_type);
+            qb.push_and().field_eq("res.res_data", res_data);
+            qb.push(")");
         }
-        Ok(sql)
+        Ok(!first)
     }
     //获取 系统或特定用户 指定资源 的 被授权可访问角色列表
     //会话角色的角色列表
@@ -695,16 +642,14 @@ impl RbacAccess {
             role.res_range as res_range,
             role.user_range as user_range
        "#;
-        let sql = self.find_session_role_list_sql_from_res(param, field)?;
-        if sql.is_empty() {
+        let mut qb = QueryBuilder::<MySql>::new("select (select * (");
+        let has_data = self.find_session_role_list_sql_from_res(param, field, &mut qb)?;
+        if !has_data {
             return Ok(vec![]);
         }
-        let sql = format!(
-            "select (select * (({})) as tmp) order by res_range asc {}",
-            sql.join(") union all ("),
-            page.page_query().limit_sql().unwrap_or_default()
-        );
-        Ok(sqlx::query(&sql)
+        qb.push(") as tmp) order by res_range asc");
+        page.push_limit(&mut qb);
+        Ok(qb.build()
             .try_map(|row: sqlx::mysql::MySqlRow| {
                 Ok(AccessResRoleRow {
                     role_id: row.try_get::<u64, &str>("role_id").unwrap_or_default(),
@@ -726,15 +671,13 @@ impl RbacAccess {
         let field = r#"
             count(*) as total
        "#;
-        let sql = self.find_session_role_list_sql_from_res(param, field)?;
-        if sql.is_empty() {
+        let mut qb = QueryBuilder::<MySql>::new("select sum(total) from (");
+        let has_data = self.find_session_role_list_sql_from_res(param, field, &mut qb)?;
+        if !has_data {
             return Ok(0);
         }
-        let sql = format!(
-            "select sum(total) from  (({})) as tmp",
-            sql.join(") union all (")
-        );
-        Ok(sqlx::query_scalar::<_, i64>(&sql)
+        qb.push(") as tmp");
+        Ok(qb.build_query_scalar::<i64>()
             .fetch_one(&self.db)
             .await?)
     }

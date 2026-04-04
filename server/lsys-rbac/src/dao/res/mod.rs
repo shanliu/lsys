@@ -27,9 +27,8 @@ pub(crate) use cache::*;
 pub use data::*;
 use lsys_core::db::OptionTxExecutor;
 use lsys_core::db::{
-    utils::fetch_string_field_max, Insert, SqlQuote, SqlSuffix, TableMeta, Update,
+    utils::FetchField, Insert, QueryBuilderExt, TableMeta, Update,
 };
-use lsys_core::sql_format;
 pub use res_type::*;
 use sqlx::{Acquire, Transaction};
 //资源的操作相关实现
@@ -72,16 +71,17 @@ pub struct RbacResAddData<'t> {
 
 impl RbacRes {
     async fn res_param_valid(&self, param: &RbacResData<'_>) -> RbacResult<()> {
+        let fetch_field = FetchField::new(&self.db);
         let res_type_max =
-            fetch_string_field_max::<RbacResModel>(&self.db, &RbacResModel::RES_TYPE)
+           fetch_field.string_max::<RbacResModel>( &RbacResModel::RES_TYPE)
                 .await
                 .len_or(32);
         let res_data_max =
-            fetch_string_field_max::<RbacResModel>(&self.db, &RbacResModel::RES_DATA)
+           fetch_field.string_max::<RbacResModel>( &RbacResModel::RES_DATA)
                 .await
                 .len_or(32);
         let res_name_max =
-            fetch_string_field_max::<RbacResModel>(&self.db, &RbacResModel::RES_NAME)
+           fetch_field.string_max::<RbacResModel>( &RbacResModel::RES_NAME)
                 .await
                 .len_or(32);
 
@@ -129,15 +129,10 @@ impl RbacRes {
             .map(|e| e.to_owned())
             .unwrap_or_default();
 
-        let res = sqlx::query_as::<_,RbacResModel>(&sql_format!(
-            "select * from {} where user_id={} and res_type={} and res_data={} and app_id={} and status={}",
+        let res = sqlx::query_as::<_,RbacResModel>(&format!(
+            "select * from {} where user_id=? and res_type=? and res_data=? and app_id=? and status=?",
             RbacResModel::table_name(),
-            param.user_id,
-            res_type,
-            res_data,
-            param.app_id.unwrap_or_default(),
-            RbacResStatus::Enable as i8
-        )).fetch_one(&self.db).await;
+        )).bind(param.user_id).bind(&res_type).bind(&res_data).bind(param.app_id.unwrap_or_default()).bind(RbacResStatus::Enable as i8).fetch_one(&self.db).await;
         match res {
             Ok(rm) => Err(RbacError::System(
                 fluent_message!("rbac-res-exits",{
@@ -165,15 +160,17 @@ impl RbacRes {
                     .set(RbacResModel::CHANGE_TIME, time)
                     .set(RbacResModel::CHANGE_USER_ID, add_user_id)
                     .set(RbacResModel::STATUS, RbacResStatus::Enable as i8)
-                    .execute(SqlSuffix::Where(&sql_format!(
-                        "user_id={} and res_type={} and res_data={} and app_id={} and status={} and id!={}",
-                        param.user_id,
-                        res_type,
-                        res_data,
-                        app_id,
-                        RbacResStatus::Enable as i8,
-                        add_id
-                    )), OptionTxExecutor::new(transaction, &self.db))
+                    .execute(
+                        OptionTxExecutor::new(transaction, &self.db),
+                        |qb| {
+                            qb.push_where().field_eq("user_id", param.user_id);
+                            qb.push_and().field_eq("res_type", res_type.to_owned());
+                            qb.push_and().field_eq("res_data", res_data.to_owned());
+                            qb.push_and().field_eq("app_id", app_id);
+                            qb.push_and().field_eq("status", RbacResStatus::Enable as i8);
+                            qb.push_and().field_ne("id", add_id);
+                        },
+                    )
                     .await?;
                 self.cache_res_data
                     .clear(&ResCacheKey {
@@ -217,16 +214,10 @@ impl RbacRes {
     ) -> RbacResult<u64> {
         self.res_param_valid(res_info).await?;
 
-        let find_res = sqlx::query_as::<_,RbacResModel>(&sql_format!(
-            "select * from {} where user_id={} and res_type={} and res_data={} and app_id={} and status={} and id!={}",
+        let find_res = sqlx::query_as::<_,RbacResModel>(&format!(
+            "select * from {} where user_id=? and res_type=? and res_data=? and app_id=? and status=? and id!=?",
             RbacResModel::table_name(),
-            res.user_id,
-            res_info.res_type,
-            res_info.res_data,
-            res.app_id,
-            RbacResStatus::Enable as i8,
-            res.id
-        )).fetch_one(&self.db).await;
+        )).bind(res.user_id).bind(res_info.res_type).bind(res_info.res_data).bind(res.app_id).bind(RbacResStatus::Enable as i8).bind(res.id).fetch_one(&self.db).await;
         match find_res {
             Ok(rm) => {
                 return Err(RbacError::System(fluent_message!("rbac-res-exits",{
@@ -253,8 +244,10 @@ impl RbacRes {
         }
         let out = update
             .execute(
-                SqlSuffix::Where(&sql_format!("id={}", res.id)),
                 OptionTxExecutor::new(transaction, &self.db),
+                |qb| {
+                    qb.push_where().field_eq("id", res.id);
+                },
             )
             .await?;
         let fout = out.rows_affected();
@@ -311,7 +304,9 @@ impl RbacRes {
             .set(RbacResModel::CHANGE_USER_ID, delete_user_id)
             .set(RbacResModel::CHANGE_TIME, time)
             .set(RbacResModel::STATUS, RbacResStatus::Delete as i8)
-            .execute(SqlSuffix::Where(&sql_format!("id={}", res.id)), &mut *db)
+            .execute(&mut *db, |qb| {
+                qb.push_where().field_eq("id", res.id);
+            })
             .await;
         if let Err(e) = tmp {
             db.rollback().await?;

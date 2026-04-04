@@ -5,13 +5,11 @@ use crate::{
     model::{SenderMessageCancelModel, SenderType},
 };
 
-use lsys_core::db::{TableMeta, SqlExpr};
-use lsys_core::sql_format;
+use lsys_core::db::{QueryBuilderExt, TableMeta};
 use lsys_core::app_core::AppCore;
 use parking_lot::Mutex;
-use sqlx::{FromRow, MySql, Pool};
+use sqlx::{FromRow, MySql, Pool, QueryBuilder};
 
-use lsys_core::db::SqlQuote;
 use lsys_core::task_dispatch::{TaskData, TaskItem};
 use lsys_core::utils::now_time;
 
@@ -54,25 +52,21 @@ where
         status: i8,
         limit: usize,
     ) -> SenderResult<(Vec<BM>, bool)> {
-        let mut sql_vec = vec![];
-        sql_vec.push(sql_format!(
-            "expected_time<={} and status = {}",
-            now_time().unwrap_or_default(),
-            status
+        let mut qb: QueryBuilder<'_, MySql> = QueryBuilder::new(format!(
+            "select * from {}",
+            BM::table_name(),
         ));
+        qb.push_where().field_lte("expected_time", now_time().unwrap_or_default() as i64);
+        qb.push_and().field_eq("status", status);
         let ids = tasking_record.keys().copied().collect::<Vec<u64>>();
         if !ids.is_empty() {
-            sql_vec.push(sql_format!(" id not in ({})", ids));
+            qb.push_and().field_not_in("id", &ids);
         }
+        qb.push(" ORDER BY id ASC LIMIT ").push_bind((limit + 1) as i64);
 
-        let mut app_res = sqlx::query_as::<_, BM>(&sql_format!(
-            "select * from {} where {} order by id asc limit {}",
-            BM::table_name(),
-            SqlExpr(sql_vec.join(" and ")),
-            limit + 1
-        ))
-        .fetch_all(&self.db)
-        .await?;
+        let mut app_res = qb.build_query_as::<BM>()
+            .fetch_all(&self.db)
+            .await?;
 
         let next = if app_res.len() > limit {
             app_res.pop();
@@ -82,7 +76,6 @@ where
         };
         Ok((app_res, next))
     }
-    //读取邮件任务数据
     pub async fn read_message<TD: TaskItem<u64>>(
         &self,
         record: &TD,
@@ -90,61 +83,61 @@ where
         status: i8,
         limit: u16,
     ) -> SenderResult<Vec<MM>> {
-        let mut sql_vec = vec![];
-        sql_vec.push(sql_format!(
-            "sender_body_id={} and status = {} and id not in (select id from {} where sender_body_id={} and sender_type={})",
-            record.to_task_pk(),
-            status,
-            SqlExpr(SenderMessageCancelModel::table_name()),
-            record.to_task_pk(),
-            self.send_type as i8,
+        let mut qb: QueryBuilder<'_, MySql> = QueryBuilder::new(format!(
+            "select * from {}",
+            MM::table_name(),
         ));
+        qb.push_where().field_eq("sender_body_id", record.to_task_pk());
+        qb.push_and().field_eq("status", status);
+        qb.push_and().push(format!("id not in (select id from {}", SenderMessageCancelModel::table_name()));
+        qb.push_where().field_eq("sender_body_id", record.to_task_pk());
+        qb.push_and().field_eq("sender_type", self.send_type as i8);
+        qb.push(")");
 
         if !sending_data.is_empty() {
-            sql_vec.push(sql_format!(" id not in ({})", sending_data));
+            qb.push_and().field_not_in("id", sending_data);
         }
+        qb.push(" ORDER BY id ASC LIMIT ").push_bind(limit as i64);
 
-        Ok(sqlx::query_as::<_, MM>(&sql_format!(
-            "select * from {} where {} order by id asc limit  {}",
-            MM::table_name(),
-            SqlExpr(sql_vec.join(" and ")),
-            limit
-        ))
-        .fetch_all(&self.db)
-        .await?)
+        Ok(qb.build_query_as::<MM>()
+            .fetch_all(&self.db)
+            .await?)
     }
     pub async fn find_message_by_snid_vec(&self, ids: &[u64]) -> SenderResult<Vec<MM>> {
         if ids.is_empty() {
             return Ok(vec![]);
         }
-
-        Ok(sqlx::query_as::<_, MM>(&sql_format!(
-            "select * from {} where snid in ({}) ",
-            MM::table_name(),
-            ids
-        ))
-        .fetch_all(&self.db)
-        .await?)
+        let mut qb: QueryBuilder<'_, MySql> = QueryBuilder::new(format!(
+            "select * from {}",
+            MM::table_name()
+        ));
+        qb.push_where().field_in_copied("snid", ids);
+        Ok(qb.build_query_as::<MM>()
+            .fetch_all(&self.db)
+            .await?)
     }
     pub async fn find_message_by_id(&self, id: &u64) -> SenderResult<MM> {
-        Ok(lsys_core::db::utils::fetch_one::<MM>(
+        use lsys_core::db::utils::Fetch;
+        Ok(Fetch::<MySql, MM>::one(
             &self.db,
-            lsys_core::sql_format!("id={id}", id = id),
+            |qb| { qb.field_eq("id", *id); },
         ).await?)
     }
     pub async fn find_body_by_id(&self, id: &u64) -> SenderResult<BM> {
-        Ok(lsys_core::db::utils::fetch_one::<BM>(
+        use lsys_core::db::utils::Fetch;
+        Ok(Fetch::<MySql, BM>::one(
             &self.db,
-            lsys_core::sql_format!("id={id}", id = id),
+            |qb| { qb.field_eq("id", *id); },
         ).await?)
     }
     pub async fn find_body_by_id_vec(&self, ids: &[u64]) -> SenderResult<Vec<BM>> {
-        Ok(sqlx::query_as::<_, BM>(&sql_format!(
-            "select * from {} where id in ({}) ",
-            BM::table_name(),
-            ids
-        ))
-        .fetch_all(&self.db)
-        .await?)
+        let mut qb: QueryBuilder<'_, MySql> = QueryBuilder::new(format!(
+            "select * from {}",
+            BM::table_name()
+        ));
+        qb.push_where().field_in_copied("id", ids);
+        Ok(qb.build_query_as::<BM>()
+            .fetch_all(&self.db)
+            .await?)
     }
 }

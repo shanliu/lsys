@@ -156,13 +156,11 @@ impl MfaLoginDao {
 
         if let (Some(expect_ip), Some(got_ip)) =
             (pending.login_data.login_ip.as_deref(), login_env.login_ip)
-        {
-            if expect_ip != got_ip.to_string().as_str() {
+            && expect_ip != got_ip.to_string().as_str() {
                 return Err(AccountError::Param(fluent_message!(
                     "mfa-token-ip-mismatch"
                 )));
             }
-        }
 
         self.totp.verify_totp(&pending.subject, totp_code).await?;
 

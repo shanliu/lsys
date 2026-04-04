@@ -10,15 +10,13 @@ use crate::{
     },
 };
 use async_trait::async_trait;
-use lsys_core::db::SqlQuote;
-use lsys_core::db::{TableMeta, SqlExpr, SqlSuffix, Update};
-use lsys_core::sql_format;
+use lsys_core::db::{TableMeta, Update, QueryBuilderExt, FieldValue};
 use lsys_core::fluent_message;
 use lsys_core::fluents::IntoFluentMessage;
 use lsys_core::task_dispatch::{TaskAcquisition, TaskData, TaskExecutor, TaskItem, TaskRecord};
 use lsys_core::utils::now_time;
 use lsys_setting::model::SettingModel;
-use sqlx::Pool;
+use sqlx::{MySql, Pool, QueryBuilder, Row};
 use std::{
     collections::HashMap,
     sync::{atomic::AtomicU32, Arc},
@@ -78,17 +76,16 @@ impl SmsTaskAcquisition {
             message_reader,
         }
     }
-
     async fn cancel_data_ids(&self, record: &SmsTaskData) -> Vec<u64> {
         let msg_id = record.data.iter().map(|e| e.id).collect::<Vec<_>>();
-        let cancel_sql = sql_format!(
-            "select sender_message_id from {} where sender_message_id in ({})",
+        let mut qb: QueryBuilder<'_, MySql> = QueryBuilder::new(format!(
+            "select sender_message_id from {}",
             SenderMessageCancelModel::table_name(),
-            msg_id
-        );
-        match sqlx::query_scalar::<_, u64>(&cancel_sql)
-            .fetch_all(&self.db)
-            .await
+        ));
+        qb.push_where().field_in_copied("sender_message_id", &msg_id);
+        match qb.build().map(|row: sqlx::mysql::MySqlRow| -> u64 {
+            row.get(0)
+        }).fetch_all(&self.db).await
         {
             Ok(d) => d,
             Err(err) => {
@@ -97,15 +94,16 @@ impl SmsTaskAcquisition {
             }
         }
     }
-
     async fn send_record_clear(&self, item: &SmsTaskItem) {
-        let sql = sql_format!(
-            "select id from {} where sender_body_id={} and status={} limit 1",
+        let sql = format!(
+            "select id from {} where sender_body_id=? and status=? limit 1",
             SenderSmsMessageModel::table_name(),
-            item.sms.id,
-            SenderSmsMessageStatus::Init as i8
         );
-        if let Err(err) = sqlx::query_scalar::<_, u64>(&sql).fetch_one(&self.db).await {
+        if let Err(err) = sqlx::query_scalar::<_, u64>(&sql)
+            .bind(item.sms.id)
+            .bind(SenderSmsMessageStatus::Init as i8)
+            .fetch_one(&self.db)
+            .await {
             match err {
                 sqlx::Error::RowNotFound => self.send_task_body_finish(item).await,
                 _ => {
@@ -119,10 +117,9 @@ impl SmsTaskAcquisition {
         if let Err(err) = Update::<_,SenderSmsBodyModel>::new()
             .set(SenderSmsBodyModel::STATUS, SenderSmsBodyStatus::Finish as i8)
             .set(SenderSmsBodyModel::FINISH_TIME, finish_time)
-            .execute(
-                SqlSuffix::Where(&sql_format!("id={}", item.sms.id)),
-                &self.db,
-            )
+            .execute(&self.db, |qb| {
+                qb.push_where().field_eq("id", item.sms.id);
+            })
             .await
         {
             warn!("sms change finish status fail{}", err)
@@ -150,31 +147,21 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
             .map_err(|e| e.to_fluent_message().default_format())?;
 
         if app_res.is_empty() {
-            let sql_where = sql_format!(
-                r#"sender_body_id={} {} "#,
-                record.sms.id,
-                SqlExpr(if sending_data.is_empty() {
-                    "".to_string()
-                } else {
-                    sql_format!(" and sender_message_id not in ({})", sending_data)
+            if let Err(err) = Update::<_, SenderSmsMessageModel>::new()
+                .set(SenderSmsMessageModel::STATUS, SenderSmsMessageStatus::IsCancel as i8)
+                .execute(&self.db, |qb| {
+                    qb.push_where().field_eq("status", SenderSmsMessageStatus::Init as i8);
+                    qb.push_and().push(format!(
+                        "id IN (SELECT sender_message_id FROM {}",
+                        SenderMessageCancelModel::table_name(),
+                    ));
+                    qb.push_where().field_eq("sender_body_id", record.sms.id);
+                    if !sending_data.is_empty() {
+                        qb.push_and().field_not_in_copied("sender_message_id", sending_data);
+                    }
+                    qb.push(")");
                 })
-            );
-            if let Err(err) = sqlx::query(
-                sql_format!(
-                    r#"UPDATE {}
-                    SET status={}
-                    WHERE status ={} and id in (select sender_message_id from {} where {})
-                "#,
-                    SenderSmsMessageModel::table_name(),
-                    SenderSmsMessageStatus::IsCancel as i8,
-                    SenderSmsMessageStatus::Init as i8,
-                    SenderMessageCancelModel::table_name(),
-                    SqlExpr(sql_where),
-                )
-                .as_str(),
-            )
-            .execute(&self.db)
-            .await
+                .await
             {
                 warn!(
                     "sms clear message cancel status fail[{}]{}",
@@ -200,31 +187,31 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
         self.wait_notify
             .body_notify(&item.sms.reply_host, item.sms.id, Err(error.to_string()))
             .await;
-        let sql = match error {
+        match error {
             SenderExecError::Finish(_) => {
-                sql_format!(
-                    r#"UPDATE {}
-                        SET try_num=try_num+1,status={}
-                        WHERE sender_body_id  ={}  and status={} {};
-                    "#,
-                    SenderSmsMessageModel::table_name(),
-                    SenderSmsMessageStatus::SendFail as i8,
-                    item.sms.id,
-                    SenderSmsMessageStatus::Init as i8,
-                    SqlExpr(if in_task_id.is_empty() {
-                        "".to_string()
-                    } else {
-                        sql_format!("and id not in ({})", in_task_id)
-                    }),
-                )
+                if let Err(err) = Update::<_, SenderSmsMessageModel>::new()
+                    .set(SenderSmsMessageModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))
+                    .set(SenderSmsMessageModel::STATUS, SenderSmsMessageStatus::SendFail as i8)
+                    .execute(&self.db, |qb| {
+                        qb.push_where().field_eq("sender_body_id", item.sms.id);
+                        qb.push_and().field_eq("status", SenderSmsMessageStatus::Init as i8);
+                        if !in_task_id.is_empty() {
+                            qb.push_and().field_not_in_copied("id", in_task_id);
+                        }
+                    })
+                    .await
+                {
+                    warn!("change finish status fail{}", err);
+                    return;
+                }
             }
             SenderExecError::Next(_) => {
-                let cancel_sql = sql_format!(
-                    "select sender_message_id from {} where sender_body_id ={}",
+                let cancel_sql = format!(
+                    "select sender_message_id from {} where sender_body_id =?",
                     SenderMessageCancelModel::table_name(),
-                    item.sms.id
                 );
                 let cancel_data = match sqlx::query_scalar::<_, u64>(&cancel_sql)
+                    .bind(item.sms.id)
                     .fetch_all(&self.db)
                     .await
                 {
@@ -235,51 +222,53 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
                     }
                 };
 
-                sql_format!(
-                    r#"UPDATE {}
-                            SET try_num=try_num+1,status=if(try_num>={},{},{})
-                            WHERE sender_body_id  ={} and status={} {};
-                        "#,
-                    SenderSmsMessageModel::table_name(),
-                    item.sms.max_try_num,
-                    SenderSmsMessageStatus::SendFail as i8,
-                    SqlExpr(if cancel_data.is_empty() {
-                        "status".to_string()
-                    } else {
-                        sql_format!(
-                            "if ( id in ({}),{},status)",
-                            cancel_data,
-                            SenderSmsMessageStatus::IsCancel as i8
-                        )
-                    }),
-                    item.sms.id,
-                    SenderSmsMessageStatus::Init as i8,
-                    SqlExpr(if in_task_id.is_empty() {
-                        "".to_string()
-                    } else {
-                        sql_format!("and id not in ({})", in_task_id)
-                    }),
-                )
+                let max_try_num = item.sms.max_try_num;
+                let sender_body_id = item.sms.id;
+                if let Err(err) = Update::<_, SenderSmsMessageModel>::new()
+                    .set(SenderSmsMessageModel::TRY_NUM, FieldValue::Dynamic(Box::new(|qb| {
+                        qb.push("try_num+1");
+                    })))
+                    .set(SenderSmsMessageModel::STATUS, FieldValue::Dynamic(Box::new(move |qb| {
+                        qb.push("if(");
+                        qb.field_gte("try_num", max_try_num);
+                        qb.push(",");
+                        qb.push_bind(SenderSmsMessageStatus::SendFail as i8);
+                        qb.push(",");
+                        if cancel_data.is_empty() {
+                            qb.push("status)");
+                        } else {
+                            qb.push("if(");
+                            qb.field_in_copied("id", &cancel_data);
+                            qb.push(",");
+                            qb.push_bind(SenderSmsMessageStatus::IsCancel as i8);
+                            qb.push(",status))");
+                        }
+                    })))
+                    .execute(&self.db, |qb| {
+                        qb.push_where().field_eq("sender_body_id", sender_body_id);
+                        qb.push_and().field_eq("status", SenderSmsMessageStatus::Init as i8);
+                        if !in_task_id.is_empty() {
+                            qb.push_and().field_not_in_copied("id", in_task_id);
+                        }
+                    })
+                    .await
+                {
+                    warn!("change finish status fail{}", err);
+                    return;
+                }
             }
         };
-        if let Err(err) = sqlx::query(sql.as_str()).execute(&self.db).await {
-            warn!("change finish status fail{}", err);
-            return;
-        }
-        let msg_ids_sql = sql_format!(
-            r#"select id from {} WHERE sender_body_id={} {};
-        "#,
+        let mut msg_qb: QueryBuilder<'_, MySql> = QueryBuilder::new(format!(
+            "select id from {}",
             SenderSmsMessageModel::table_name(),
-            item.sms.id,
-            SqlExpr(if in_task_id.is_empty() {
-                "".to_string()
-            } else {
-                sql_format!("and id not in ({})", in_task_id)
-            }),
-        );
-        if let Ok(id_items) = sqlx::query_scalar::<_, u64>(msg_ids_sql.as_str())
-            .fetch_all(&self.db)
-            .await
+        ));
+        msg_qb.push_where().field_eq("sender_body_id", item.sms.id);
+        if !in_task_id.is_empty() {
+            msg_qb.push_and().field_not_in_copied("id", in_task_id);
+        }
+        if let Ok(id_items) = msg_qb.build().map(|row: sqlx::mysql::MySqlRow| -> u64 {
+            row.get(0)
+        }).fetch_all(&self.db).await
         {
             let err_str = error.to_string();
             let log_data = id_items
@@ -306,7 +295,7 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
         let cancel_data = self.cancel_data_ids(record).await;
         let mut log_data = Vec::with_capacity(res_items.len());
         for res_item in res_items {
-            let sql = match res_item.status {
+            let exec_result = match res_item.status {
                 SenderTaskStatus::Completed => {
                     self.wait_notify
                         .msg_notify(&item.sms.reply_host, res_item.snid, Ok(true))
@@ -318,19 +307,22 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
                         res_item.send_id.as_str(),
                     ));
                     let ntime = now_time().unwrap_or_default();
-                    sql_format!(
+                    let sql = format!(
                         r#"UPDATE {}
-                            SET try_num=try_num+1,status={},res_data={},send_time={},receive_time={},setting_id={}
-                            WHERE id={};
+                            SET try_num=try_num+1,status=?,res_data=?,send_time=?,receive_time=?,setting_id=?
+                            WHERE id=?;
                         "#,
                         SenderSmsMessageModel::table_name(),
-                        SenderSmsMessageStatus::IsReceived as i8,
-                        res_item.send_id,
-                        ntime,
-                        ntime,
-                        setting.id,
-                        res_item.id,
-                    )
+                    );
+                    sqlx::query(&sql)
+                        .bind(SenderSmsMessageStatus::IsReceived as i8)
+                        .bind(&res_item.send_id)
+                        .bind(ntime)
+                        .bind(ntime)
+                        .bind(setting.id)
+                        .bind(res_item.id)
+                        .execute(&self.db)
+                        .await
                 }
                 SenderTaskStatus::Progress => {
                     self.wait_notify
@@ -343,18 +335,21 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
                         res_item.send_id.as_str(),
                     ));
                     let ntime = now_time().unwrap_or_default();
-                    sql_format!(
+                    let sql = format!(
                         r#"UPDATE {}
-                            SET try_num=try_num+1,status={},res_data={},send_time={},setting_id={}
-                            WHERE id={};
+                            SET try_num=try_num+1,status=?,res_data=?,send_time=?,setting_id=?
+                            WHERE id=?;
                         "#,
                         SenderSmsMessageModel::table_name(),
-                        SenderSmsMessageStatus::IsSend as i8,
-                        res_item.send_id,
-                        ntime,
-                        setting.id,
-                        res_item.id,
-                    )
+                    );
+                    sqlx::query(&sql)
+                        .bind(SenderSmsMessageStatus::IsSend as i8)
+                        .bind(&res_item.send_id)
+                        .bind(ntime)
+                        .bind(setting.id)
+                        .bind(res_item.id)
+                        .execute(&self.db)
+                        .await
                 }
                 SenderTaskStatus::Failed(retry) => {
                     log_data.push((
@@ -363,22 +358,33 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
                         res_item.message.as_str(),
                     ));
                     if retry {
-                        sql_format!(
-                            r#"UPDATE {}
-                                SET try_num=try_num+1,status=if(try_num>={},{},{})
-                                WHERE id={} and status={};
-                            "#,
-                            SenderSmsMessageModel::table_name(),
-                            item.sms.max_try_num,
-                            SenderSmsMessageStatus::SendFail as i8,
-                            SqlExpr(if cancel_data.contains(&res_item.id) {
-                                sql_format!("{}", SenderSmsMessageStatus::IsCancel as i8)
-                            } else {
-                                "status".to_string()
-                            }),
-                            res_item.id,
-                            SenderSmsMessageStatus::Init as i8,
-                        )
+                        let sql_retry = if cancel_data.contains(&res_item.id) {
+                            format!(
+                                r#"UPDATE {}
+                                    SET try_num=try_num+1,status=if(try_num>=?,?,?)
+                                    WHERE id=? and status=?;
+                                "#,
+                                SenderSmsMessageModel::table_name(),
+                            )
+                        } else {
+                            format!(
+                                r#"UPDATE {}
+                                    SET try_num=try_num+1,status=if(try_num>=?,?,status)
+                                    WHERE id=? and status=?;
+                                "#,
+                                SenderSmsMessageModel::table_name(),
+                            )
+                        };
+                        let mut query = sqlx::query(&sql_retry)
+                            .bind(item.sms.max_try_num)
+                            .bind(SenderSmsMessageStatus::SendFail as i8);
+                        if cancel_data.contains(&res_item.id) {
+                            query = query.bind(SenderSmsMessageStatus::IsCancel as i8);
+                        }
+                        query
+                            .bind(res_item.id)
+                            .bind(SenderSmsMessageStatus::Init as i8)
+                            .execute(&self.db).await
                     } else {
                         self.wait_notify
                             .msg_notify(
@@ -388,20 +394,22 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
                             )
                             .await;
 
-                        sql_format!(
+                        let sql_no_retry = format!(
                             r#"UPDATE {}
-                                SET try_num=try_num+1,status={}
-                                WHERE id={} and status={};
+                                SET try_num=try_num+1,status=?
+                                WHERE id=? and status=?;
                             "#,
                             SenderSmsMessageModel::table_name(),
-                            SenderSmsMessageStatus::SendFail as i8,
-                            res_item.id,
-                            SenderSmsMessageStatus::Init as i8,
-                        )
+                        );
+                        sqlx::query(&sql_no_retry)
+                            .bind(SenderSmsMessageStatus::SendFail as i8)
+                            .bind(res_item.id)
+                            .bind(SenderSmsMessageStatus::Init as i8)
+                            .execute(&self.db).await
                     }
                 }
             };
-            if let Err(err) = sqlx::query(sql.as_str()).execute(&self.db).await {
+            if let Err(err) = exec_result {
                 warn!("change message status fail[{}]{}", res_item.id, err);
                 continue;
             }
@@ -425,47 +433,55 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
                 .msg_notify(&item.sms.reply_host, tmp.snid, Err(error.to_string()))
                 .await;
         }
-        let sql = match error {
+        match error {
             SenderExecError::Finish(_) => {
-                sql_format!(
-                    r#"UPDATE {}
-                    SET try_num=try_num+1,status={}
-                    WHERE id in ({}) and status={};
-                "#,
-                    SenderSmsMessageModel::table_name(),
-                    SenderSmsMessageStatus::SendFail as i8,
-                    fail_ids,
-                    SenderSmsMessageStatus::Init as i8,
-                )
+                if let Err(err) = Update::<_, SenderSmsMessageModel>::new()
+                    .set(SenderSmsMessageModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))
+                    .set(SenderSmsMessageModel::STATUS, SenderSmsMessageStatus::SendFail as i8)
+                    .execute(&self.db, |qb| {
+                        qb.push_where().field_in_copied("id", &fail_ids);
+                        qb.push_and().field_eq("status", SenderSmsMessageStatus::Init as i8);
+                    })
+                    .await
+                {
+                    warn!("change finish status fail{}", err);
+                    return;
+                }
             }
             SenderExecError::Next(_) => {
                 let cancel_data = self.cancel_data_ids(record).await;
 
-                sql_format!(
-                    r#"UPDATE {}
-                    SET try_num=try_num+1,status=if(try_num>={},{},{})
-                    WHERE id in ({}) and status={};
-                "#,
-                    SenderSmsMessageModel::table_name(),
-                    item.sms.max_try_num,
-                    SenderSmsMessageStatus::SendFail as i8,
-                    SqlExpr(if cancel_data.is_empty() {
-                        "status".to_string()
-                    } else {
-                        sql_format!(
-                            "if ( id in ({}),{},status)",
-                            cancel_data,
-                            SenderSmsMessageStatus::IsCancel as i8
-                        )
-                    }),
-                    fail_ids,
-                    SenderSmsMessageStatus::Init as i8,
-                )
+                let max_try_num = item.sms.max_try_num;
+                if let Err(err) = Update::<_, SenderSmsMessageModel>::new()
+                    .set(SenderSmsMessageModel::TRY_NUM, FieldValue::Dynamic(Box::new(|qb| {
+                        qb.push("try_num+1");
+                    })))
+                    .set(SenderSmsMessageModel::STATUS, FieldValue::Dynamic(Box::new(move |qb| {
+                        qb.push("if(");
+                        qb.field_gte("try_num", max_try_num);
+                        qb.push(",");
+                        qb.push_bind(SenderSmsMessageStatus::SendFail as i8);
+                        qb.push(",");
+                        if cancel_data.is_empty() {
+                            qb.push("status)");
+                        } else {
+                            qb.push("if(");
+                            qb.field_in_copied("id", &cancel_data);
+                            qb.push(",");
+                            qb.push_bind(SenderSmsMessageStatus::IsCancel as i8);
+                            qb.push(",status))");
+                        }
+                    })))
+                    .execute(&self.db, |qb| {
+                        qb.push_where().field_in_copied("id", &fail_ids);
+                        qb.push_and().field_eq("status", SenderSmsMessageStatus::Init as i8);
+                    })
+                    .await
+                {
+                    warn!("change finish status fail{}", err);
+                    return;
+                }
             }
-        };
-        if let Err(err) = sqlx::query(sql.as_str()).execute(&self.db).await {
-            warn!("change finish status fail{}", err);
-            return;
         };
         let err_str = error.to_string();
         let log_data = record

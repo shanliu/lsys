@@ -1,13 +1,13 @@
 use crate::model::{SettingModel, SettingStatus, SettingType};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::db::{
-    utils::fetch_string_field_max, Insert, OptionTxExecutor, SqlQuote, SqlSuffix, TableMeta,
+    utils::FetchField, Insert, OptionTxExecutor, QueryBuilderExt, TableMeta,
     Update,
 };
 use lsys_core::remote_notify::RemoteNotify;
 use lsys_core::utils::{now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT};
 use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
-use lsys_core::{sql_format, valid_key};
+use lsys_core::valid_key;
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{MySql, Pool, Transaction};
 use std::sync::Arc;
@@ -41,15 +41,16 @@ pub struct SingleSettingData<'t, T: SettingEncode> {
 }
 impl SingleSetting {
     async fn save_param_valid(&self, key: &str, name: &str, data: &str) -> SettingResult<()> {
+        let fetch_field = FetchField::new(&self.db);
         let setting_key_max =
-            fetch_string_field_max::<SettingModel>(&self.db, &SettingModel::SETTING_KEY)
+           fetch_field.string_max::<SettingModel>( &SettingModel::SETTING_KEY)
                 .await
                 .len_or(32);
-        let name_max = fetch_string_field_max::<SettingModel>(&self.db, &SettingModel::NAME)
+        let name_max = fetch_field.string_max::<SettingModel>( &SettingModel::NAME)
             .await
             .len_or(32);
         let setting_data_max =
-            fetch_string_field_max::<SettingModel>(&self.db, &SettingModel::SETTING_DATA)
+           fetch_field.string_max::<SettingModel>( &SettingModel::SETTING_DATA)
                 .await
                 .len_or(60000);
 
@@ -95,13 +96,13 @@ impl SingleSetting {
         let uid = user_id.unwrap_or_default();
         let change_user_id = change_user_id.to_owned();
 
-        let tmp_res = sqlx::query_as::<_, SettingModel>(&sql_format!(
-            "select * from {} where setting_type={} and setting_key={} and user_id={} order by id desc",
+        let tmp_res = sqlx::query_as::<_, SettingModel>(&format!(
+            "select * from {} where setting_type=? and setting_key=? and user_id=? order by id desc",
             SettingModel::table_name(),
-            SettingType::Single,
-            key,
-            uid,
         ))
+        .bind(SettingType::Single as i8)
+        .bind(&key)
+        .bind(uid)
         .fetch_one(&self.db)
         .await;
 
@@ -130,8 +131,10 @@ impl SingleSetting {
                     .set(SettingModel::CHANGE_USER_ID, change_user_id)
                     .set(SettingModel::CHANGE_TIME, time)
                     .execute(
-                        SqlSuffix::Where(&sql_format!("id={}", set.id)),
                         OptionTxExecutor::new(transaction, &self.db),
+                        |qb| {
+                            qb.push_where().field_eq("id", set.id);
+                        },
                     )
                     .await?;
                 self.cache
@@ -162,13 +165,13 @@ impl SingleSetting {
     pub async fn find(&self, user_id: Option<u64>, key: &str) -> SettingResult<SettingModel> {
         let uid = user_id.unwrap_or_default();
         let key = string_clear(key, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
-        Ok(sqlx::query_as::<_, SettingModel>(&sql_format!(
-            "select * from {} where setting_type={} and setting_key={} and user_id={} order by id desc",
+        Ok(sqlx::query_as::<_, SettingModel>(&format!(
+            "select * from {} where setting_type=? and setting_key=? and user_id=? order by id desc",
             SettingModel::table_name(),
-            SettingType::Single,
-            key,
-            uid,
         ))
+        .bind(SettingType::Single as i8)
+        .bind(&key)
+        .bind(uid)
         .fetch_one(&self.db)
         .await?)
     }

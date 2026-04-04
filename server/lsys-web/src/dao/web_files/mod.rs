@@ -1,16 +1,18 @@
 //文件模块封装
 
 pub mod collector;
+pub mod export_task;
 pub mod upload_token;
 
 use std::sync::Arc;
 
 use lsys_core::app_core::AppCore;
-use lsys_files::dao::{FileDao, FileDaoBuilder};
+use lsys_files::dao::FileDao;
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{MySql, Pool};
 
 use self::collector::WebFileCollector;
+use self::export_task::WebExportTask;
 use self::upload_token::UploadTokenDao;
 use super::result::WebResult;
 
@@ -65,6 +67,7 @@ pub struct WebFiles {
     pub upload_config: UploadConfig,
     pub upload_token: Arc<UploadTokenDao>,
     pub collector: Arc<WebFileCollector>,
+    pub export_task: Arc<WebExportTask>,
     db: Pool<MySql>,
 }
 
@@ -73,19 +76,37 @@ impl WebFiles {
         db: Pool<MySql>,
         redis: deadpool_redis::Pool,
         app_core: &AppCore,
+        file_dao: Arc<FileDao>,
+        export_task: Arc<WebExportTask>,
         logger: Arc<ChangeLoggerDao>,
     ) -> WebResult<Self> {
-        let file_dao = Arc::new(FileDaoBuilder::build(db.clone(), app_core, logger.clone()));
+      
         let upload_config = UploadConfig::from_config(app_core);
         let upload_token = Arc::new(UploadTokenDao::new(redis));
-        let collector = Arc::new(
-            WebFileCollector::new(db.clone(), file_dao.clone(), logger, app_core)?,
-        );
+        let collector = Arc::new(WebFileCollector::new(
+            db.clone(),
+            file_dao.clone(),
+            logger.clone(),
+            app_core,
+        )?);
+      
+        // 启动文件相关后台任务
+        tokio::spawn({ let d = file_dao.clone(); async move { d.run_download_listener().await; } });
+        tokio::spawn({ let c = collector.clone(); async move { c.run_task_loop().await; } });
+        tokio::spawn({ let c = collector.clone(); async move { c.run_cache_cleanup().await; } });
+        tokio::spawn({
+            let export_task_bg = export_task.clone();
+            async move {
+                export_task_bg.dispatch_loop().await;
+            }
+        });
+
         Ok(Self {
             file_dao,
             upload_config,
             upload_token,
             collector,
+            export_task,
             db,
         })
     }
