@@ -53,6 +53,6 @@ jobs:
         
       - name: run server rust tests
         working-directory: ./server
-        run: mv ./server/examples/lsys-actix-web/.env.example ./server/examples/lsys-actix-web/.env && cargo test --verbose
+        run: mv ./examples/lsys-actix-web/.env.example ./examples/lsys-actix-web/.env && cargo test --verbose
         
     
