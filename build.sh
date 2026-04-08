@@ -21,7 +21,7 @@ cp  -fr $script_dir/server/examples/lsys-actix-web/config $script_dir/build || t
 cp  -fr $script_dir/server/examples/lsys-actix-web/data $script_dir/build || true
 cp  -fr $script_dir/server/examples/lsys-actix-web/locale $script_dir/build || true
 cp  -fr $script_dir/server/examples/lsys-actix-web/static $script_dir/build || true
-cp  -fr $script_dir/server/examples/lsys-actix-web/.env $script_dir/build || true
+cp  -fr $script_dir/server/examples/lsys-actix-web/.env.example $script_dir/build/.env || true
 cp  -fr $script_dir/server/target/release/lsys-app-barcode $script_dir/build || true
 cp  -fr $script_dir/server/examples/lsys-app-barcode/config/* $script_dir/build/config/ || true
 cp  -fr $script_dir/server/examples/lsys-app-barcode/locale/* $script_dir/build/locale/ || true
