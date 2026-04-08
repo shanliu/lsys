@@ -25,7 +25,7 @@ xcopy /E /I /Y %root_dir%server\\examples\\lsys-actix-web\\config %build_dir%con
 xcopy /E /I /Y %root_dir%server\\examples\\lsys-actix-web\\data %build_dir%data
 xcopy /E /I /Y %root_dir%server\\examples\\lsys-actix-web\\locale %build_dir%locale
 xcopy /E /I /Y %root_dir%server\\examples\\lsys-actix-web\\static %build_dir%static
-xcopy %root_dir%server\\examples\\lsys-actix-web\\.env %build_dir% /Y
+xcopy %root_dir%server\\examples\\lsys-actix-web\\.env.example %build_dir%/.env /Y
 xcopy %root_dir%server\\target\\release\\lsys-app-barcode.exe %build_dir% /Y 
 xcopy /E /I /Y %root_dir%server\\examples\\lsys-app-barcode\\config %build_dir%config
 xcopy /E /I /Y %root_dir%server\\examples\\lsys-app-barcode\\locale %build_dir%locale
