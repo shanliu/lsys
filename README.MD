@@ -46,7 +46,7 @@ mysql -u your_username -p your_database < ./build/assets/tables.sql #导入到�
 > 修改服务器配置。
 
 ```
-./build/.env  # 后段服务配置
+./build/.env  # 服务配置
 ```
 
 https://github.com/shanliu/lsys/blob/d14b0681d7f6aa5f64c232d6f03b6f61106ba0b6/server/examples/lsys-actix-web/.env.example#L1-L27
