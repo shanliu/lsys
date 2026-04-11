@@ -14,13 +14,13 @@
 
 1. 执行编译
 
-> 编译生成文件在 `./build` 中,并同时可生成 `./build` 目录的压缩包
+> 项目依赖redis&mysql。
 
-> 仅拷贝生成的 `./build` 到你的服务器即可,其他文件可以删除.
+> 执行编译后，仅需拷贝 `./build` 到服务器。
 
-> Windows(64bit)系统下可以下载 lsys-for-windows.zip 跳过此编译过程
+> Windows(64bit)系统下可以下载 lsys-for-windows.zip 跳过编译。
 
-> 修改ui访问配置 [ui/.env.production](ui/.env.production) 或 编译完成后在目录`build/ui`中搜索并替换
+> 编译前请修改ui访问配置 [ui/.env.production](ui/.env.production) 或 编译后在目录`build/ui`中搜索并替换
 
 > windows
 ```
