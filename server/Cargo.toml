@@ -16,7 +16,8 @@ members = [
     "lsys-app-sender",
     "lsys-access",
     "lsys-sdk",
-    "lsys-files",
+    "lsys-file",
+    "lsys-file-manager",
     "examples/*",
 ]
 
