@@ -4,7 +4,7 @@ use crate::common::handler::{
 
 use actix_web::post;
 
-use jsonwebtoken::{encode, EncodingKey, Header};
+use jsonwebtoken::{EncodingKey, Header, encode};
 use lsys_web::const_json_format;
 use lsys_web::lsys_core::fluent_message;
 // use lsys_web::lsys_core::IntoFluentMessage;
@@ -12,15 +12,6 @@ use lsys_web::lsys_user::dao::UserAuthToken;
 
 use lsys_web::common::{JsonData, JsonError, JsonResponse, JsonResult};
 use lsys_web::dao::ShowUserAuthData;
-use lsys_web::handler::api::auth::user_login_from_app_code;
-use lsys_web::handler::api::auth::user_login_from_email;
-use lsys_web::handler::api::auth::user_login_from_email_code;
-use lsys_web::handler::api::auth::user_login_from_external;
-use lsys_web::handler::api::auth::user_login_from_mobile;
-use lsys_web::handler::api::auth::user_login_from_mobile_code;
-use lsys_web::handler::api::auth::user_login_from_name;
-use lsys_web::handler::api::auth::user_login_mobile_send_code;
-use lsys_web::handler::api::auth::user_mfa_verify;
 use lsys_web::handler::api::auth::AppCodeLoginParam;
 use lsys_web::handler::api::auth::EmailCodeLoginParam;
 use lsys_web::handler::api::auth::EmailLoginParam;
@@ -31,11 +22,20 @@ use lsys_web::handler::api::auth::MobileLoginParam;
 use lsys_web::handler::api::auth::MobileSendCodeLoginParam;
 use lsys_web::handler::api::auth::NameLoginParam;
 use lsys_web::handler::api::auth::UserAuthDataOptionParam;
+use lsys_web::handler::api::auth::user_login_from_app_code;
+use lsys_web::handler::api::auth::user_login_from_email;
+use lsys_web::handler::api::auth::user_login_from_email_code;
+use lsys_web::handler::api::auth::user_login_from_external;
+use lsys_web::handler::api::auth::user_login_from_mobile;
+use lsys_web::handler::api::auth::user_login_from_mobile_code;
+use lsys_web::handler::api::auth::user_login_from_name;
+use lsys_web::handler::api::auth::user_login_mobile_send_code;
+use lsys_web::handler::api::auth::user_mfa_verify;
 use lsys_web::handler::api::auth::{login_data_from_user_auth, user_external_login_url};
 use lsys_web::handler::api::auth::{mapping_data, user_login_email_send_code};
 use lsys_web::lsys_access::dao::AccessSession;
 use lsys_web_module_oauth::module::{
-    WeChatConfig, WechatCallbackParam, WechatLogin, WechatLoginParam, OAUTH_TYPE_WECHAT,
+    OAUTH_TYPE_WECHAT, WeChatConfig, WechatCallbackParam, WechatLogin, WechatLoginParam,
 };
 use serde::Deserialize;
 use serde_json::json;
@@ -333,11 +333,12 @@ pub async fn external_state_check(
                 .await
                 .map_err(|e| auth_dao.fluent_error_json_response(&e))?;
             if let Some(ldat) = login_data {
-                let (token, auth_data) = user_login_from_external::<WechatLogin, WechatLoginParam, _, _>(
-                    &wechat, &ldat, 0, &auth_dao,
-                )
-                .await
-                .map_err(|e| auth_dao.fluent_error_json_response(&e))?;
+                let (token, auth_data) =
+                    user_login_from_external::<WechatLogin, WechatLoginParam, _, _>(
+                        &wechat, &ldat, 0, &auth_dao,
+                    )
+                    .await
+                    .map_err(|e| auth_dao.fluent_error_json_response(&e))?;
 
                 jwt_login_data(&auth_dao, token, auth_data).await
             } else {

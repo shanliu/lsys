@@ -21,7 +21,7 @@ use crate::{
 use lsys_core::db::OffsetPageParam;
 use lsys_core::db::QueryBuilderExt;
 use lsys_core::db::TableMeta;
-use lsys_core::utils::{string_clear, StringClear, STRING_CLEAR_FORMAT};
+use lsys_core::utils::{STRING_CLEAR_FORMAT, StringClear, string_clear};
 use serde::Serialize;
 use sqlx::{MySql, QueryBuilder, Row};
 use std::vec;
@@ -49,9 +49,10 @@ impl RbacAccess {
         app_id: u64,
     ) -> RbacResult<AccessPublicResUserData> {
         let mut qb = self.user_data_pub_sql(user_id, app_id).await;
-        let data = qb.build_query_as::<(u64, i8, i8)>()
-        .fetch_all(&self.db)
-        .await?;
+        let data = qb
+            .build_query_as::<(u64, i8, i8)>()
+            .fetch_all(&self.db)
+            .await?;
         let mut pub_access = AccessPublicResUserData {
             exist_system_session_all: false,
             exist_system_user_all: false,
@@ -91,11 +92,14 @@ impl RbacAccess {
             from {} as role",
             RbacRoleModel::table_name(),
         ));
-        qb.push_where().field_eq("role.status", RbacRoleStatus::Enable as i8);
+        qb.push_where()
+            .field_eq("role.status", RbacRoleStatus::Enable as i8);
         qb.push_and().field_in_copied("role.user_id", &user_data);
         qb.push_and().field_eq("role.app_id", app_id);
-        qb.push_and().field_eq("role.res_range", RbacRoleResRange::Any as i8);
-        qb.push_and().field_eq("role.user_range", RbacRoleUserRange::Session as i8);
+        qb.push_and()
+            .field_eq("role.res_range", RbacRoleResRange::Any as i8);
+        qb.push_and()
+            .field_eq("role.user_range", RbacRoleUserRange::Session as i8);
         qb.push(" group by role.user_id,role.user_range,role.res_range");
         qb.push(" ) union all (");
         qb.push(format!(
@@ -109,9 +113,12 @@ impl RbacAccess {
         qb.field_eq("role.status", RbacRoleStatus::Enable as i8);
         qb.push_and().field_in_copied("role.user_id", &user_data);
         qb.push_and().field_eq("role.app_id", app_id);
-        qb.push_and().field_eq("role.res_range", RbacRoleResRange::Any as i8);
-        qb.push_and().field_eq("role.user_range", RbacRoleUserRange::Custom as i8);
-        qb.push_and().field_eq("role_user.status", RbacRoleUserStatus::Enable as i8);
+        qb.push_and()
+            .field_eq("role.res_range", RbacRoleResRange::Any as i8);
+        qb.push_and()
+            .field_eq("role.user_range", RbacRoleUserRange::Custom as i8);
+        qb.push_and()
+            .field_eq("role_user.status", RbacRoleUserStatus::Enable as i8);
         qb.push_and().push("(role_user.timeout=0 or role_user.timeout >= UNIX_TIMESTAMP(NOW())) group by role.user_id,role.res_range,role.user_range ");
         qb.push(")) as t");
         qb
@@ -177,43 +184,65 @@ impl RbacAccess {
                 Ok(op_row) => {
                     let mut qb = QueryBuilder::<MySql>::new("select * from ((");
                     qb.push(format!(
-                            "select role.user_id,role.user_range,role.res_range
+                        "select role.user_id,role.user_range,role.res_range
                             from {} as perm
                             join {} as role on perm.role_id=role.id",
-                            RbacPermModel::table_name(),
-                            RbacRoleModel::table_name(),
-                        ));
+                        RbacPermModel::table_name(),
+                        RbacRoleModel::table_name(),
+                    ));
                     qb.push_where().field_eq("perm.res_id", res_row.id);
                     qb.push_and().field_eq("perm.op_id", op_row.id);
-                    qb.push_and().field_eq("perm.status", RbacPermStatus::Enable as i8);
-                    qb.push_and().field_eq("role.status", RbacRoleStatus::Enable as i8);
-                    qb.push_and().field_in_copied("role.user_id", &[user_id, 0u64]);
-                    qb.push_and().field_in_copied("role.res_range", &[RbacRoleResRange::Exclude as i8, RbacRoleResRange::Include as i8]);
-                    qb.push_and().field_eq("role.user_range", RbacRoleUserRange::Session as i8);
+                    qb.push_and()
+                        .field_eq("perm.status", RbacPermStatus::Enable as i8);
+                    qb.push_and()
+                        .field_eq("role.status", RbacRoleStatus::Enable as i8);
+                    qb.push_and()
+                        .field_in_copied("role.user_id", &[user_id, 0u64]);
+                    qb.push_and().field_in_copied(
+                        "role.res_range",
+                        &[
+                            RbacRoleResRange::Exclude as i8,
+                            RbacRoleResRange::Include as i8,
+                        ],
+                    );
+                    qb.push_and()
+                        .field_eq("role.user_range", RbacRoleUserRange::Session as i8);
                     qb.push(" group by role.user_id,role.user_range,role.res_range");
                     qb.push(" ) union all (");
                     qb.push(format!(
-                            "select role.user_id,role.user_range,role.res_range
+                        "select role.user_id,role.user_range,role.res_range
                             from {} as perm
                             join {} as role on perm.role_id=role.id
                             join {} as role_user on role_user.role_id=role.id",
-                            RbacPermModel::table_name(),
-                            RbacRoleModel::table_name(),
-                            RbacRoleUserModel::table_name(),
-                        ));
+                        RbacPermModel::table_name(),
+                        RbacRoleModel::table_name(),
+                        RbacRoleUserModel::table_name(),
+                    ));
                     qb.push_where().field_eq("perm.res_id", res_row.id);
                     qb.push_and().field_eq("perm.op_id", op_row.id);
-                    qb.push_and().field_eq("perm.status", RbacPermStatus::Enable as i8);
-                    qb.push_and().field_eq("role.status", RbacRoleStatus::Enable as i8);
-                    qb.push_and().field_in_copied("role.user_id", &[user_id, 0u64]);
-                    qb.push_and().field_in_copied("role.res_range", &[RbacRoleResRange::Exclude as i8, RbacRoleResRange::Include as i8]);
-                    qb.push_and().field_eq("role.user_range", RbacRoleUserRange::Custom as i8);
-                    qb.push_and().field_eq("role_user.status", RbacRoleUserStatus::Enable as i8);
+                    qb.push_and()
+                        .field_eq("perm.status", RbacPermStatus::Enable as i8);
+                    qb.push_and()
+                        .field_eq("role.status", RbacRoleStatus::Enable as i8);
+                    qb.push_and()
+                        .field_in_copied("role.user_id", &[user_id, 0u64]);
+                    qb.push_and().field_in_copied(
+                        "role.res_range",
+                        &[
+                            RbacRoleResRange::Exclude as i8,
+                            RbacRoleResRange::Include as i8,
+                        ],
+                    );
+                    qb.push_and()
+                        .field_eq("role.user_range", RbacRoleUserRange::Custom as i8);
+                    qb.push_and()
+                        .field_eq("role_user.status", RbacRoleUserStatus::Enable as i8);
                     qb.push_and().push("(role_user.timeout=0 or role_user.timeout >= UNIX_TIMESTAMP(NOW())) group by role.user_id,role.res_range,role.user_range ");
                     qb.push(")) as t");
-                    let data = qb.build_query_as::<(u64, i8, i8)>()
-                    .fetch_all(&self.db)
-                    .await?;
+                    let data = qb
+                        .build_query_as::<(u64, i8, i8)>()
+                        .fetch_all(&self.db)
+                        .await?;
                     for (db_user_id, db_user_range, db_res_range) in data {
                         if RbacRoleResRange::Exclude.eq(db_res_range) {
                             if db_user_id == 0 {
@@ -303,7 +332,9 @@ impl RbacAccess {
         }
         let mut first = true;
         if param.res_range_any {
-            if !first { qb.push(" union all "); }
+            if !first {
+                qb.push(" union all ");
+            }
             first = false;
             qb.push(format!(
                 "(select
@@ -314,12 +345,16 @@ impl RbacAccess {
                 RbacRoleModel::table_name(),
                 RbacRoleUserModel::table_name(),
             ));
-            qb.push_where().field_eq("role.status", RbacRoleStatus::Enable as i8);
-            qb.push_and().field_eq("role_user.status", RbacRoleUserStatus::Enable as i8);
+            qb.push_where()
+                .field_eq("role.status", RbacRoleStatus::Enable as i8);
+            qb.push_and()
+                .field_eq("role_user.status", RbacRoleUserStatus::Enable as i8);
             qb.push_and().field_in_copied("role.user_id", &uid);
             qb.push_and().field_eq("role.app_id", param.app_id);
-            qb.push_and().field_eq("role.res_range", RbacRoleResRange::Any as i8);
-            qb.push_and().field_eq("role.user_range", RbacRoleUserRange::Custom as i8);
+            qb.push_and()
+                .field_eq("role.res_range", RbacRoleResRange::Any as i8);
+            qb.push_and()
+                .field_eq("role.user_range", RbacRoleUserRange::Custom as i8);
             qb.push(" )");
         }
         if param.res_range_exclude {
@@ -338,7 +373,9 @@ impl RbacAccess {
                 StringClear::Option(STRING_CLEAR_FORMAT),
                 Some(33),
             );
-            if !first { qb.push(" union all "); }
+            if !first {
+                qb.push(" union all ");
+            }
             first = false;
             qb.push(format!(
                 "(select
@@ -355,15 +392,22 @@ impl RbacAccess {
                 RbacOpModel::table_name(),
                 RbacResModel::table_name(),
             ));
-            qb.push_where().field_eq("role.status", RbacRoleStatus::Enable as i8);
-            qb.push_and().field_eq("role_user.status", RbacRoleUserStatus::Enable as i8);
-            qb.push_and().field_eq("perm.status", RbacPermStatus::Enable as i8);
-            qb.push_and().field_eq("op.status", RbacOpStatus::Enable as i8);
-            qb.push_and().field_eq("res.status", RbacResStatus::Enable as i8);
+            qb.push_where()
+                .field_eq("role.status", RbacRoleStatus::Enable as i8);
+            qb.push_and()
+                .field_eq("role_user.status", RbacRoleUserStatus::Enable as i8);
+            qb.push_and()
+                .field_eq("perm.status", RbacPermStatus::Enable as i8);
+            qb.push_and()
+                .field_eq("op.status", RbacOpStatus::Enable as i8);
+            qb.push_and()
+                .field_eq("res.status", RbacResStatus::Enable as i8);
             qb.push_and().field_in_copied("role.user_id", &uid);
             qb.push_and().field_eq("role.app_id", param.app_id);
-            qb.push_and().field_eq("role.res_range", RbacRoleResRange::Exclude as i8);
-            qb.push_and().field_eq("role.user_range", RbacRoleUserRange::Custom as i8);
+            qb.push_and()
+                .field_eq("role.res_range", RbacRoleResRange::Exclude as i8);
+            qb.push_and()
+                .field_eq("role.user_range", RbacRoleUserRange::Custom as i8);
             qb.push_and().field_eq("op.op_key", op_key);
             qb.push_and().field_eq("res.res_type", res_type);
             qb.push_and().field_eq("res.res_data", res_data);
@@ -385,7 +429,9 @@ impl RbacAccess {
                 StringClear::Option(STRING_CLEAR_FORMAT),
                 Some(33),
             );
-            if !first { qb.push(" union all "); }
+            if !first {
+                qb.push(" union all ");
+            }
             first = false;
             qb.push(format!(
                 "(select
@@ -402,15 +448,22 @@ impl RbacAccess {
                 RbacOpModel::table_name(),
                 RbacResModel::table_name(),
             ));
-            qb.push_where().field_eq("role.status", RbacRoleStatus::Enable as i8);
-            qb.push_and().field_eq("role_user.status", RbacRoleUserStatus::Enable as i8);
-            qb.push_and().field_eq("perm.status", RbacPermStatus::Enable as i8);
-            qb.push_and().field_eq("op.status", RbacOpStatus::Enable as i8);
-            qb.push_and().field_eq("res.status", RbacResStatus::Enable as i8);
+            qb.push_where()
+                .field_eq("role.status", RbacRoleStatus::Enable as i8);
+            qb.push_and()
+                .field_eq("role_user.status", RbacRoleUserStatus::Enable as i8);
+            qb.push_and()
+                .field_eq("perm.status", RbacPermStatus::Enable as i8);
+            qb.push_and()
+                .field_eq("op.status", RbacOpStatus::Enable as i8);
+            qb.push_and()
+                .field_eq("res.status", RbacResStatus::Enable as i8);
             qb.push_and().field_in_copied("role.user_id", &uid);
             qb.push_and().field_eq("role.app_id", param.app_id);
-            qb.push_and().field_eq("role.res_range", RbacRoleResRange::Include as i8);
-            qb.push_and().field_eq("role.user_range", RbacRoleUserRange::Custom as i8);
+            qb.push_and()
+                .field_eq("role.res_range", RbacRoleResRange::Include as i8);
+            qb.push_and()
+                .field_eq("role.user_range", RbacRoleUserRange::Custom as i8);
             qb.push_and().field_eq("op.op_key", op_key);
             qb.push_and().field_eq("res.res_type", res_type);
             qb.push_and().field_eq("res.res_data", res_data);
@@ -446,17 +499,14 @@ impl RbacAccess {
                role_user.timeout as timeout
        "#;
         let mut qb = QueryBuilder::<MySql>::new("select (select * (");
-        let has_data = self.find_custom_user_list_sql_from_res(
-            param,
-            field,
-            &mut qb,
-        )?;
+        let has_data = self.find_custom_user_list_sql_from_res(param, field, &mut qb)?;
         if !has_data {
             return Ok(vec![]);
         }
         qb.push(") as tmp) order by res_range asc");
         page.push_limit(&mut qb);
-        Ok(qb.build()
+        Ok(qb
+            .build()
             .try_map(|row: sqlx::mysql::MySqlRow| {
                 Ok(AccessResUserRow {
                     role_id: row.try_get::<u64, &str>("role_id").unwrap_or_default(),
@@ -494,9 +544,7 @@ impl RbacAccess {
             return Ok(0);
         }
         qb.push(") as tmp");
-        Ok(qb.build_query_scalar::<i64>()
-            .fetch_one(&self.db)
-            .await?)
+        Ok(qb.build_query_scalar::<i64>().fetch_one(&self.db).await?)
     }
 }
 
@@ -545,7 +593,9 @@ impl RbacAccess {
 
         let mut first = true;
         if param.res_range_any {
-            if !first { qb.push(" union all "); }
+            if !first {
+                qb.push(" union all ");
+            }
             first = false;
             qb.push(format!(
                 "(select
@@ -554,18 +604,35 @@ impl RbacAccess {
                 field,
                 RbacRoleModel::table_name(),
             ));
-            qb.push_where().field_eq("role.status", RbacRoleStatus::Enable as i8);
+            qb.push_where()
+                .field_eq("role.status", RbacRoleStatus::Enable as i8);
             qb.push_and().field_in_copied("role.user_id", &uid);
             qb.push_and().field_eq("role.app_id", param.app_id);
-            qb.push_and().field_eq("role.res_range", RbacRoleResRange::Any as i8);
-            qb.push_and().field_eq("role.user_range", RbacRoleUserRange::Session as i8);
+            qb.push_and()
+                .field_eq("role.res_range", RbacRoleResRange::Any as i8);
+            qb.push_and()
+                .field_eq("role.user_range", RbacRoleUserRange::Session as i8);
             qb.push(" )");
         }
         if param.res_range_exclude {
-            let op_key = string_clear(param.op_key, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
-            let res_type = string_clear(param.res_type, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
-            let res_data = string_clear(param.res_data, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
-            if !first { qb.push(" union all "); }
+            let op_key = string_clear(
+                param.op_key,
+                StringClear::Option(STRING_CLEAR_FORMAT),
+                Some(33),
+            );
+            let res_type = string_clear(
+                param.res_type,
+                StringClear::Option(STRING_CLEAR_FORMAT),
+                Some(33),
+            );
+            let res_data = string_clear(
+                param.res_data,
+                StringClear::Option(STRING_CLEAR_FORMAT),
+                Some(33),
+            );
+            if !first {
+                qb.push(" union all ");
+            }
             first = false;
             qb.push(format!(
                 "(select
@@ -580,24 +647,44 @@ impl RbacAccess {
                 RbacOpModel::table_name(),
                 RbacResModel::table_name(),
             ));
-            qb.push_where().field_eq("role.status", RbacRoleStatus::Enable as i8);
-            qb.push_and().field_eq("perm.status", RbacPermStatus::Enable as i8);
-            qb.push_and().field_eq("op.status", RbacOpStatus::Enable as i8);
-            qb.push_and().field_eq("res.status", RbacResStatus::Enable as i8);
+            qb.push_where()
+                .field_eq("role.status", RbacRoleStatus::Enable as i8);
+            qb.push_and()
+                .field_eq("perm.status", RbacPermStatus::Enable as i8);
+            qb.push_and()
+                .field_eq("op.status", RbacOpStatus::Enable as i8);
+            qb.push_and()
+                .field_eq("res.status", RbacResStatus::Enable as i8);
             qb.push_and().field_in_copied("role.user_id", &uid);
             qb.push_and().field_eq("role.app_id", param.app_id);
-            qb.push_and().field_eq("role.res_range", RbacRoleResRange::Exclude as i8);
-            qb.push_and().field_eq("role.user_range", RbacRoleUserRange::Session as i8);
+            qb.push_and()
+                .field_eq("role.res_range", RbacRoleResRange::Exclude as i8);
+            qb.push_and()
+                .field_eq("role.user_range", RbacRoleUserRange::Session as i8);
             qb.push_and().field_eq("op.op_key", op_key);
             qb.push_and().field_eq("res.res_type", res_type);
             qb.push_and().field_eq("res.res_data", res_data);
             qb.push(")");
         }
         if param.res_range_include {
-            let op_key = string_clear(param.op_key, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
-            let res_type = string_clear(param.res_type, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
-            let res_data = string_clear(param.res_data, StringClear::Option(STRING_CLEAR_FORMAT), Some(33));
-            if !first { qb.push(" union all "); }
+            let op_key = string_clear(
+                param.op_key,
+                StringClear::Option(STRING_CLEAR_FORMAT),
+                Some(33),
+            );
+            let res_type = string_clear(
+                param.res_type,
+                StringClear::Option(STRING_CLEAR_FORMAT),
+                Some(33),
+            );
+            let res_data = string_clear(
+                param.res_data,
+                StringClear::Option(STRING_CLEAR_FORMAT),
+                Some(33),
+            );
+            if !first {
+                qb.push(" union all ");
+            }
             first = false;
             qb.push(format!(
                 "(select
@@ -612,14 +699,20 @@ impl RbacAccess {
                 RbacOpModel::table_name(),
                 RbacResModel::table_name(),
             ));
-            qb.push_where().field_eq("role.status", RbacRoleStatus::Enable as i8);
-            qb.push_and().field_eq("perm.status", RbacPermStatus::Enable as i8);
-            qb.push_and().field_eq("op.status", RbacOpStatus::Enable as i8);
-            qb.push_and().field_eq("res.status", RbacResStatus::Enable as i8);
+            qb.push_where()
+                .field_eq("role.status", RbacRoleStatus::Enable as i8);
+            qb.push_and()
+                .field_eq("perm.status", RbacPermStatus::Enable as i8);
+            qb.push_and()
+                .field_eq("op.status", RbacOpStatus::Enable as i8);
+            qb.push_and()
+                .field_eq("res.status", RbacResStatus::Enable as i8);
             qb.push_and().field_in_copied("role.user_id", &uid);
             qb.push_and().field_eq("role.app_id", param.app_id);
-            qb.push_and().field_eq("role.res_range", RbacRoleResRange::Include as i8);
-            qb.push_and().field_eq("role.user_range", RbacRoleUserRange::Session as i8);
+            qb.push_and()
+                .field_eq("role.res_range", RbacRoleResRange::Include as i8);
+            qb.push_and()
+                .field_eq("role.user_range", RbacRoleUserRange::Session as i8);
             qb.push_and().field_eq("op.op_key", op_key);
             qb.push_and().field_eq("res.res_type", res_type);
             qb.push_and().field_eq("res.res_data", res_data);
@@ -649,7 +742,8 @@ impl RbacAccess {
         }
         qb.push(") as tmp) order by res_range asc");
         page.push_limit(&mut qb);
-        Ok(qb.build()
+        Ok(qb
+            .build()
             .try_map(|row: sqlx::mysql::MySqlRow| {
                 Ok(AccessResRoleRow {
                     role_id: row.try_get::<u64, &str>("role_id").unwrap_or_default(),
@@ -677,8 +771,6 @@ impl RbacAccess {
             return Ok(0);
         }
         qb.push(") as tmp");
-        Ok(qb.build_query_scalar::<i64>()
-            .fetch_one(&self.db)
-            .await?)
+        Ok(qb.build_query_scalar::<i64>().fetch_one(&self.db).await?)
     }
 }

@@ -1,24 +1,24 @@
 use chrono::{DateTime, Utc};
 
 use hmac::{Hmac, Mac};
-use reqwest::{
-    header::{HeaderMap, HeaderValue},
-    Method,
-};
 use reqwest::{Client, StatusCode};
+use reqwest::{
+    Method,
+    header::{HeaderMap, HeaderValue},
+};
 use serde_json::json;
 use sha2::{Digest, Sha256};
 
 use crate::SendNotifyStatus;
 use crate::{
-    response_check, response_msg, sms_lib::phone_numbers_check, BranchSendDetailResult,
-    BranchSendNotifyResult, SendDetailItem, SendNotifyItem, SendResultItem, SendStatus,
+    BranchSendDetailResult, BranchSendNotifyResult, SendDetailItem, SendNotifyItem, SendResultItem,
+    SendStatus, response_check, response_msg, sms_lib::phone_numbers_check,
 };
 use tracing::{debug, warn};
 
 use super::SendError;
 
-use super::{now_time, BranchSendResult};
+use super::{BranchSendResult, now_time};
 
 pub struct TenSms {}
 
@@ -262,12 +262,12 @@ impl TenSms {
         let result = hasher.finalize();
 
         let sign = format!(
-             "{}\n/\n\ncontent-type:application/json\nhost:{}\nx-tc-action:{}\n\ncontent-type;host;x-tc-action\n{}",
-             method.as_str(),
-             host,
-             action.to_lowercase(),
-             format!("{:x}", result).to_lowercase()
-         );
+            "{}\n/\n\ncontent-type:application/json\nhost:{}\nx-tc-action:{}\n\ncontent-type;host;x-tc-action\n{}",
+            method.as_str(),
+            host,
+            action.to_lowercase(),
+            format!("{:x}", result).to_lowercase()
+        );
 
         let now_date = datetime.format("%Y-%m-%d").to_string();
         debug!("tencent post json:{}  header:{}", reqjson, sign);
@@ -308,13 +308,13 @@ impl TenSms {
 
         let data_sign = hex::encode(signature.into_bytes());
 
-        let authdata =format!(
-                     "TC3-HMAC-SHA256 Credential={}/{}/{}/tc3_request, SignedHeaders=content-type;host;x-tc-action, Signature={}",
-                     secret_id,
-                     datetime.format("%Y-%m-%d"),
-                     service,
-                     data_sign
-                 );
+        let authdata = format!(
+            "TC3-HMAC-SHA256 Credential={}/{}/{}/tc3_request, SignedHeaders=content-type;host;x-tc-action, Signature={}",
+            secret_id,
+            datetime.format("%Y-%m-%d"),
+            service,
+            data_sign
+        );
 
         // println!("{}\n{}", authdata, string_to_sign);
 

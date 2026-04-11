@@ -2,7 +2,7 @@ use crate::common::handler::{
     JsonQuery, JwtQuery, ResponseJson, ResponseJsonResult, UserAuthQuery,
 };
 use actix_web::post;
-use lsys_web::handler::rest::oauth::{create_code, scope_get, AuthorizeDoParam, ScopeGetParam};
+use lsys_web::handler::rest::oauth::{AuthorizeDoParam, ScopeGetParam, create_code, scope_get};
 
 #[post("/{method}")]
 pub(crate) async fn oauth(

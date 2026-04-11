@@ -42,4 +42,3 @@ impl JsonError {
 
 /// JSON 结果类型别名
 pub type JsonResult<T> = Result<T, JsonError>;
-

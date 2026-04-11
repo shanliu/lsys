@@ -66,9 +66,9 @@ pub async fn mailer_tpl_body_list(
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(data, count),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        data, count,
+    ))))
 }
 
 #[derive(Debug, Deserialize)]

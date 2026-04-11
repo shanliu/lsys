@@ -8,7 +8,7 @@ use lsys_app::model::AppModel;
 use lsys_core::fluents::IntoFluentMessage;
 use lsys_core::utils::str_time;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 
 #[derive(Debug, Deserialize)]

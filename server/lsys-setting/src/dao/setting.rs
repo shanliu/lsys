@@ -73,25 +73,26 @@ impl SettingDao {
         })
     }
     pub async fn find_by_id(&self, id: &u64) -> SettingResult<SettingModel> {
-        Ok(lsys_core::db::utils::Fetch::<MySql, SettingModel>::one(
-            &self.db,
-            |qb| {
+        Ok(
+            lsys_core::db::utils::Fetch::<MySql, SettingModel>::one(&self.db, |qb| {
                 qb.field_eq("id", *id)
-                  .push_and()
-                  .field_eq("status", SettingStatus::Enable as i8);
-            },
-        ).await?)
+                    .push_and()
+                    .field_eq("status", SettingStatus::Enable as i8);
+            })
+            .await?,
+        )
     }
     pub async fn find_by_ids(&self, ids: &[u64]) -> SettingResult<HashMap<u64, SettingModel>> {
         Ok(lsys_core::db::utils::Fetch::<MySql, SettingModel>::map(
             &self.db,
             |qb| {
                 qb.field_in_copied("id", ids)
-                  .push_and()
-                  .field_eq("status", SettingStatus::Enable as i8);
+                    .push_and()
+                    .field_eq("status", SettingStatus::Enable as i8);
             },
             |v| v.id,
-        ).await?)
+        )
+        .await?)
     }
 
     pub fn log_types() -> Vec<&'static str> {

@@ -12,7 +12,7 @@ use lsys_core::fluent_message;
 use lsys_core::utils::now_time;
 use lsys_mfa::dao::MfaSubject;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 #[derive(Debug, Deserialize)]
 pub struct DoLoginParam {
@@ -96,7 +96,7 @@ pub async fn do_login(
                 return Err(JsonError::JsonResponse(
                     err.to_json_data(&req_dao.fluent),
                     fluent_message!("access-token-data-token-code-exits"),
-                ))
+                ));
             }
             err => Err(err)?,
         },

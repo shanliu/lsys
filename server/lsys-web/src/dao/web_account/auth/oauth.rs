@@ -72,7 +72,7 @@ impl WebUserAuth {
                     .map(|e| e.request_ip.clone().unwrap_or_default())
                     .unwrap_or_default();
                 let reg_from = format!("oauth-{}", data.external_type);
-                
+
                 let user = self
                     .reg_user(
                         &AccountRegData {

@@ -8,13 +8,13 @@
 //! - 底层共享：验证通过后使用相同的 FileDao 上传逻辑
 
 use actix_multipart::Multipart;
-use actix_web::{post, web, HttpRequest};
+use actix_web::{HttpRequest, post, web};
 use futures_util::StreamExt;
 use lsys_web::common::{JsonData, JsonResponse, RequestDao};
 use lsys_web::dao::WebDao;
 use lsys_web::lsys_core::fluents::IntoFluentMessage;
 use lsys_web::lsys_core::utils::RequestEnv;
-use lsys_web::lsys_files::model::FileStatus;
+use lsys_web::lsys_file::model::FileStatus;
 use serde_json::json;
 use std::sync::Arc;
 
@@ -240,14 +240,15 @@ pub async fn upload_by_token(
 
                 // 单分片文件 fail 时销毁令牌
                 if let Some(local) = file_local
-                    && local.file_chunk_total <= 1 {
-                        let _ = req_dao
-                            .web_dao
-                            .web_files
-                            .upload_token
-                            .consume_upload_token(&upload_token)
-                            .await;
-                    }
+                    && local.file_chunk_total <= 1
+                {
+                    let _ = req_dao
+                        .web_dao
+                        .web_files
+                        .upload_token
+                        .consume_upload_token(&upload_token)
+                        .await;
+                }
                 Err(e.into())
             }
         }

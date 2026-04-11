@@ -2,7 +2,7 @@ use crate::common::JsonData;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonResponse, JsonResult, UserAuthQueryDao},
-    dao::{access::api::system::user::CheckUserInfoEdit, InfoSetUserInfoData},
+    dao::{InfoSetUserInfoData, access::api::system::user::CheckUserInfoEdit},
 };
 use lsys_access::dao::AccessSession;
 use serde::Deserialize;

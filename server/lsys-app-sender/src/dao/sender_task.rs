@@ -1,5 +1,5 @@
 use std::{
-    collections::{hash_map::Entry, HashMap},
+    collections::{HashMap, hash_map::Entry},
     fmt::Display,
     hash::Hash,
     sync::atomic::AtomicU32,
@@ -7,7 +7,7 @@ use std::{
 
 use async_trait::async_trait;
 
-use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
+use futures::{FutureExt, StreamExt, stream::FuturesUnordered};
 use lsys_core::db::OffsetPageParam;
 use lsys_core::fluents::IntoFluentMessage;
 use lsys_core::task_dispatch::{TaskAcquisition, TaskItem};
@@ -225,7 +225,7 @@ pub(crate) async fn group_exec<
             let limit = exec_er.limit(setting).await;
             let in_ids = send_ids
                 .iter()
-                .flat_map(|e| e.1 .2.to_owned())
+                .flat_map(|e| e.1.2.to_owned())
                 .collect::<Vec<u64>>();
             let res = match acquisition.read_send_record(val, &in_ids, limit).await {
                 Ok(r) => r,

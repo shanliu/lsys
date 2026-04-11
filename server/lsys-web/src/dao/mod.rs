@@ -13,9 +13,8 @@ mod web_setting;
 pub use app_area::*;
 pub use app_captcha::*;
 pub use app_sender::*;
-use lsys_core::db::utils::{FetchField,fetch_field_init};
-use lsys_core::fluent_message;
-use lsys_files::dao::FileDaoBuilder;
+use lsys_core::db::utils::{FetchField, fetch_field_init};
+use lsys_file::dao::FileDaoBuilder;
 pub use result::{WebError, WebResult};
 
 use ip2location::LocationDB;
@@ -28,7 +27,6 @@ use tracing::{info, warn};
 pub use web_access::*;
 pub use web_account::*;
 pub use web_app::*;
-
 pub use web_files::*;
 pub use web_mfa::*;
 pub use web_rbac::*;
@@ -56,8 +54,25 @@ use std::sync::Arc;
 use std::vec;
 use tera::Tera;
 
-use crate::dao::export_task::WebExportTask;
 use crate::handler::export::register_exporters;
+
+// 从 lsys-file-manager 导入公共类型
+pub use lsys_file_manager::{
+    COLLECTOR_LOG_LEVEL_DEBUG, COLLECTOR_LOG_LEVEL_ERROR, COLLECTOR_LOG_LEVEL_INFO,
+    COLLECTOR_LOG_LEVEL_SYSTEM, COLLECTOR_LOG_LEVEL_TRACE, COLLECTOR_LOG_LEVEL_WARN,
+    CollectorLogModel, CollectorRecordModel, CollectorRecordStatus, CollectorScriptModel,
+    CollectorScriptStatus, ExportTaskModel, ExportTaskStatus, FileCollector, FileManagerError,
+    FileManagerResult,
+};
+
+// 重新导出 export_task 子模块，保持向后兼容
+pub mod export_task {
+    pub use lsys_file_manager::dao::export_task::exporter;
+    pub use lsys_file_manager::dao::export_task::writer;
+    pub use lsys_file_manager::dao::export_task::{
+        ExportTaskFileItem, ExportTaskItem, ExportTaskListAttr,
+    };
+}
 
 pub struct WebDao {
     pub app_core: Arc<AppCore>,
@@ -143,7 +158,11 @@ impl WebDao {
             Ok(ip_db_path) => match LocationDB::from_file(&ip_db_path) {
                 Ok(city_db) => Some(Arc::new(Mutex::new(ip2location::DB::LocationDb(city_db)))),
                 Err(err) => {
-                    warn!("read ip city db error[{}]:{:?} [download url: https://github.com/shanliu/lsys/releases/tag/v0.0.0 IP2LOCATION-LITE-DB11.BIN.zip (unzip) ]", ip_db_path.display(), err);
+                    warn!(
+                        "read ip city db error[{}]:{:?} [download url: https://github.com/shanliu/lsys/releases/tag/v0.0.0 IP2LOCATION-LITE-DB11.BIN.zip (unzip) ]",
+                        ip_db_path.display(),
+                        err
+                    );
                     None
                 }
             },
@@ -202,17 +221,15 @@ impl WebDao {
 
         let app_area = Arc::new(AppArea::new(app_core.clone())?);
         let app_captcha = Arc::new(AppCaptcha::new(redis.clone()));
-        // 先不包 Arc，注册 Exporter 后再包
-        let oss_registry = Arc::new(lsys_files::oss::OssProviderRegistry::with_defaults());
-        let file_dao = Arc::new(
-            FileDaoBuilder::build(db.clone(), &app_core, setting_dao.multiple.clone(), oss_registry.clone(), change_logger.clone())
-        );
-        let mut export_task = WebExportTask::new(
+        let oss_registry = Arc::new(lsys_file::oss::OssProviderRegistry::with_defaults());
+        let file_dao = Arc::new(FileDaoBuilder::build(
             db.clone(),
-            file_dao.clone(),
+            &app_core,
+            setting_dao.multiple.clone(),
+            oss_registry.clone(),
             change_logger.clone(),
-             &app_core,
-        );
+            remote_notify.clone(),
+        ));
 
         let app_sender = Arc::new(
             AppSender::new(
@@ -260,25 +277,27 @@ impl WebDao {
 
         let web_access = Arc::new(WebAccess::new(access_dao.clone()));
 
-
-        register_exporters(
-            &mut export_task,
-            file_dao.clone(),
+        let web_export_task = register_exporters(
+            db.clone(),
+            &app_core,
             web_rbac.clone(),
             account_dao.clone(),
             access_dao.clone(),
             web_app.clone(),
             app_sender.clone(),
             change_logger.clone(),
+            file_dao.clone(),
         )
-        .await
-        .map_err(|err| WebError::Message(fluent_message!("export-error", err)))?;
+        .await?;
 
-
-        let  web_files =Arc::new(
-            WebFiles::new(db.clone(), redis.clone(), &app_core, file_dao, Arc::new(export_task),change_logger.clone())?
-        );
-
+        let web_files = Arc::new(WebFiles::new(
+            db.clone(),
+            redis.clone(),
+            &app_core,
+            file_dao,
+            Arc::new(web_export_task),
+            change_logger.clone(),
+        )?);
 
         // 本地lua缓存清理 local cache
         let mut cache_item: Vec<Box<dyn LocalCacheClearItem>> = vec![];

@@ -1,7 +1,7 @@
 use lsys_app::model::AppModel;
 use lsys_web::{
     common::{JsonData, JsonResponse, JsonResult, RequestDao},
-    dao::access::{rest::CheckRestApp, RbacAccessCheckEnv},
+    dao::access::{RbacAccessCheckEnv, rest::CheckRestApp},
 };
 use serde::Deserialize;
 use serde_json::json;

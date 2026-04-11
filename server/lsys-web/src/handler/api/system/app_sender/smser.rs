@@ -1,8 +1,9 @@
 use crate::common::{
-    JsonData, JsonResponse, JsonResult, LimitParam, PageParam, ToCursorPageParam, ToOffsetPageParam, UserAuthQueryDao
+    JsonData, JsonResponse, JsonResult, LimitParam, PageParam, ToCursorPageParam,
+    ToOffsetPageParam, UserAuthQueryDao,
 };
-use crate::dao::access::api::system::admin::CheckAdminSmsMgr;
 use crate::dao::access::RbacAccessCheckEnv;
+use crate::dao::access::api::system::admin::CheckAdminSmsMgr;
 use lsys_access::dao::AccessSession;
 use lsys_app_sender::model::SenderSmsMessageStatus;
 use lsys_core::api_utils::{JsonPageData, PageCursorValue, PageTotalRowValue};
@@ -58,9 +59,9 @@ pub async fn smser_message_log(
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(res, count),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        res, count,
+    ))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -244,9 +245,9 @@ pub async fn smser_message_list(
             })
         })
         .collect::<Vec<_>>();
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::cursor(res, cursor, count),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::cursor(
+        res, cursor, count,
+    ))))
 }
 #[derive(Debug, Deserialize)]
 pub struct SmserMessageCancelParam {

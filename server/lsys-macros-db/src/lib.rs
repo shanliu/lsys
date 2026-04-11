@@ -1,9 +1,9 @@
 mod utils;
 
-use crate::utils::{infer_table_name, resolve_column_name, RenameRule};
+use crate::utils::{RenameRule, infer_table_name, resolve_column_name};
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, Data, DataEnum, DataStruct, DeriveInput, Fields, Meta, NestedMeta};
+use syn::{Data, DataEnum, DataStruct, DeriveInput, Fields, Meta, NestedMeta, parse_macro_input};
 
 /// # lsys_model 属性宏
 ///

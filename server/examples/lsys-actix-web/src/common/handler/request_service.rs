@@ -1,10 +1,10 @@
 use actix_http::header;
-use actix_utils::future::{err, ok, Ready};
-use actix_web::{dev::Payload, web::Data, FromRequest, HttpRequest};
-use jsonwebtoken::{decode, DecodingKey, Validation};
+use actix_utils::future::{Ready, err, ok};
+use actix_web::{FromRequest, HttpRequest, dev::Payload, web::Data};
+use jsonwebtoken::{DecodingKey, Validation, decode};
 use lsys_web::lsys_access::dao::AccessSession;
 use lsys_web::lsys_core::api_utils::{
-    compute_service_sign, SERVICE_SIGNATURE_HEADER, SERVICE_TIMESTAMP_HEADER,
+    SERVICE_SIGNATURE_HEADER, SERVICE_TIMESTAMP_HEADER, compute_service_sign,
 };
 use lsys_web::lsys_core::fluents::IntoFluentMessage;
 use lsys_web::lsys_core::utils::RequestEnv;
@@ -16,8 +16,8 @@ use lsys_web::{
 use std::ops::Deref;
 use std::str::FromStr;
 
-use super::request_jwt::{JwtClaims, JwtQueryConfig};
 use super::ResponseJson;
+use super::request_jwt::{JwtClaims, JwtQueryConfig};
 
 const FORWARDED_FOR_HEADER: &str = "X-Forwarded-For";
 
@@ -58,7 +58,7 @@ impl FromRequest for ServiceQuery {
             None => {
                 return err(JsonResponse::data(JsonData::error())
                     .set_message("not find webdao")
-                    .into())
+                    .into());
             }
         };
 
@@ -83,46 +83,46 @@ impl FromRequest for ServiceQuery {
         let (timestamp, signature, service_api_key) = match (timestamp, signature, service_api_key)
         {
             (None, _, _) => {
-                return err(
-                    JsonResponse::data(JsonData::error().set_sub_code("timestamp_missing"))
-                        .set_message("X-Timestamp header is required")
-                        .into(),
+                return err(JsonResponse::data(
+                    JsonData::error().set_sub_code("timestamp_missing"),
                 )
+                .set_message("X-Timestamp header is required")
+                .into());
             }
             (Some(t), _, _) if t.trim().is_empty() => {
-                return err(
-                    JsonResponse::data(JsonData::error().set_sub_code("timestamp_invalid"))
-                        .set_message("X-Timestamp header is invalid")
-                        .into(),
+                return err(JsonResponse::data(
+                    JsonData::error().set_sub_code("timestamp_invalid"),
                 )
+                .set_message("X-Timestamp header is invalid")
+                .into());
             }
             (_, None, _) => {
-                return err(
-                    JsonResponse::data(JsonData::error().set_sub_code("signature_missing"))
-                        .set_message("X-Signature header is required")
-                        .into(),
+                return err(JsonResponse::data(
+                    JsonData::error().set_sub_code("signature_missing"),
                 )
+                .set_message("X-Signature header is required")
+                .into());
             }
             (_, Some(s), _) if s.trim().is_empty() => {
-                return err(
-                    JsonResponse::data(JsonData::error().set_sub_code("signature_invalid"))
-                        .set_message("X-Signature header is invalid")
-                        .into(),
+                return err(JsonResponse::data(
+                    JsonData::error().set_sub_code("signature_invalid"),
                 )
+                .set_message("X-Signature header is invalid")
+                .into());
             }
             (_, _, Err(errobj)) => {
                 return err(JsonResponse::data(
                     JsonData::error().set_sub_code("service_key_not_configured"),
                 )
                 .set_message(format!("load config fail:{}", errobj))
-                .into())
+                .into());
             }
             (_, _, Ok(k)) if k.trim().is_empty() => {
                 return err(JsonResponse::data(
                     JsonData::error().set_sub_code("service_key_invalid"),
                 )
                 .set_message("Service API key is invalid")
-                .into())
+                .into());
             }
             (Some(t), Some(s), Ok(k)) => (t, s, k),
         };
@@ -131,11 +131,11 @@ impl FromRequest for ServiceQuery {
         let ts: i64 = match timestamp.parse() {
             Ok(t) => t,
             Err(_) => {
-                return err(
-                    JsonResponse::data(JsonData::error().set_sub_code("timestamp_invalid"))
-                        .set_message("Invalid timestamp format")
-                        .into(),
+                return err(JsonResponse::data(
+                    JsonData::error().set_sub_code("timestamp_invalid"),
                 )
+                .set_message("Invalid timestamp format")
+                .into());
             }
         };
         let now = std::time::SystemTime::now()
@@ -215,7 +215,7 @@ impl FromRequest for ServiceQuery {
                         .set_code(400),
                 )
                 .set_message(verr.to_fluent_message().default_format())
-                .into())
+                .into());
             }
         };
 
@@ -249,9 +249,10 @@ fn parse_jwt_from_request(req: &HttpRequest, web_dao: &Data<WebDao>) -> Option<J
 
     // Try to get JWT config from app_data
     if let Some(config) = req.app_data::<JwtQueryConfig>()
-        && let Ok(token_data) = decode::<JwtClaims>(token, &config.decode_key, &config.validation) {
-            return Some(token_data.claims);
-        }
+        && let Ok(token_data) = decode::<JwtClaims>(token, &config.decode_key, &config.validation)
+    {
+        return Some(token_data.claims);
+    }
 
     // Fallback: try to decode with app_jwt_key from config
     let jwt_key = web_dao

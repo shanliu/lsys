@@ -1,8 +1,8 @@
 use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
-use crate::model::{
-    CollectorRecordStatus, CollectorScriptStatus,
-    COLLECTOR_LOG_LEVEL_DEBUG, COLLECTOR_LOG_LEVEL_ERROR,
-    COLLECTOR_LOG_LEVEL_INFO, COLLECTOR_LOG_LEVEL_SYSTEM, COLLECTOR_LOG_LEVEL_WARN,
+use crate::dao::{
+    COLLECTOR_LOG_LEVEL_DEBUG, COLLECTOR_LOG_LEVEL_ERROR, COLLECTOR_LOG_LEVEL_INFO,
+    COLLECTOR_LOG_LEVEL_SYSTEM, COLLECTOR_LOG_LEVEL_WARN, CollectorRecordStatus,
+    CollectorScriptStatus,
 };
 
 use serde_json::json;

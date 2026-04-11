@@ -1,6 +1,6 @@
 use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
-use crate::dao::access::api::system::admin::CheckAdminFileManage;
 use crate::dao::access::RbacAccessCheckEnv;
+use crate::dao::access::api::system::admin::CheckAdminFileManage;
 use lsys_access::dao::AccessSession;
 use lsys_core::api_utils::{JsonPageData, PageCursorValue, PageTotalRowValue};
 use lsys_core::db::{CursorPageSort, TotalParam};
@@ -94,7 +94,7 @@ pub async fn record_files(
     };
 
     let cursor = PageCursorValue::from(&page_data);
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::cursor(items, cursor, total),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::cursor(
+        items, cursor, total,
+    ))))
 }

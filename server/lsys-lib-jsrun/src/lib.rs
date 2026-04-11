@@ -40,8 +40,8 @@ pub mod utils;
 
 pub use runner::{JsTaskRunner, TaskCallback, TaskHandle, TaskOutcome, TaskResult};
 pub use runtime::{
-    EngineConfig, FileLocalSyncHandler, JsEngine, JsRuntime, LogHandler,
-    MessageHandler, RuntimeConfig, LOG_LEVEL_DEBUG, LOG_LEVEL_ERROR, LOG_LEVEL_INFO,
-    LOG_LEVEL_TRACE, LOG_LEVEL_WARN, MESSAGE_TYPE_GET_ENV, MESSAGE_TYPE_GET_PARAM,
+    EngineConfig, FileLocalSyncHandler, JsEngine, JsRuntime, LOG_LEVEL_DEBUG, LOG_LEVEL_ERROR,
+    LOG_LEVEL_INFO, LOG_LEVEL_TRACE, LOG_LEVEL_WARN, LogHandler, MESSAGE_TYPE_GET_ENV,
+    MESSAGE_TYPE_GET_PARAM, MessageHandler, RuntimeConfig,
 };
-pub use utils::{check_js_syntax, JsSyntaxError};
+pub use utils::{JsSyntaxError, check_js_syntax};

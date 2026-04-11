@@ -86,7 +86,7 @@ pub(crate) async fn handle_create(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "render",
                 format!("{err:?}"),
-            )
+            );
         }
     };
 

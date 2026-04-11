@@ -5,11 +5,11 @@ use redis::RedisError;
 
 use std::env::VarError;
 
+use crate::config::ConfigError;
+use crate::fluent_message;
+use crate::fluents::{FluentBundleError, FluentMessage, IntoFluentMessage};
 #[cfg(feature = "redis")]
 use crate::remote_notify::RemoteNotifyError;
-use crate::fluent_message;
-use crate::config::ConfigError;
-use crate::fluents::{FluentBundleError, FluentMessage, IntoFluentMessage};
 #[derive(Debug)]
 pub enum AppCoreError {
     #[cfg(feature = "db")]

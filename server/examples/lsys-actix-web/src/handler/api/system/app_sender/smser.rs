@@ -1,50 +1,52 @@
 use crate::common::handler::{
     JsonQuery, JwtQuery, ResponseJson, ResponseJsonResult, UserAuthQuery,
 };
-use actix_web::{post, HttpRequest};
+use actix_web::{HttpRequest, post};
 use lsys_web::handler::api::system::app_sender::{
-    smser_ali_config_add, smser_ali_config_del, smser_ali_config_edit, smser_ali_config_list,
-    smser_mapping_data, smser_message_body, smser_message_cancel, smser_message_list,
-    smser_message_log, smser_tpl_config_ali_add, SmserAliConfigAddParam, SmserAliConfigDelParam,
-    SmserAliConfigEditParam, SmserAliConfigListParam, SmserAppAliConfigAddParam,
-    SmserMessageBodyParam, SmserMessageCancelParam, SmserMessageListParam, SmserMessageLogParam,
+    SmserAliConfigAddParam, SmserAliConfigDelParam, SmserAliConfigEditParam,
+    SmserAliConfigListParam, SmserAppAliConfigAddParam, SmserMessageBodyParam,
+    SmserMessageCancelParam, SmserMessageListParam, SmserMessageLogParam, smser_ali_config_add,
+    smser_ali_config_del, smser_ali_config_edit, smser_ali_config_list, smser_mapping_data,
+    smser_message_body, smser_message_cancel, smser_message_list, smser_message_log,
+    smser_tpl_config_ali_add,
 };
 use lsys_web::handler::api::system::app_sender::{
-    smser_cloopen_config_add, smser_cloopen_config_del, smser_cloopen_config_edit,
-    smser_cloopen_config_list, smser_tpl_config_cloopen_add, SmserAppCloopenConfigAddParam,
-    SmserCloOpenConfigAddParam, SmserCloOpenConfigDelParam, SmserCloOpenConfigEditParam,
-    SmserCloOpenConfigListParam,
+    SmserAppCloopenConfigAddParam, SmserCloOpenConfigAddParam, SmserCloOpenConfigDelParam,
+    SmserCloOpenConfigEditParam, SmserCloOpenConfigListParam, smser_cloopen_config_add,
+    smser_cloopen_config_del, smser_cloopen_config_edit, smser_cloopen_config_list,
+    smser_tpl_config_cloopen_add,
 };
 use lsys_web::handler::api::system::app_sender::{
-    smser_config_add, smser_config_del, smser_config_list, smser_tpl_config_del,
-    smser_tpl_config_list, SmserConfigAddParam, SmserConfigDeleteParam, SmserConfigListParam,
-    SmserTplConfigDelParam, SmserTplConfigListParam,
+    SmserAppEmayConfigAddParam, SmserEmayConfigAddParam, SmserEmayConfigDelParam,
+    SmserEmayConfigEditParam, SmserEmayConfigListParam, smser_emay_config_add,
+    smser_emay_config_del, smser_emay_config_edit, smser_emay_config_list,
+    smser_tpl_config_emay_add,
 };
 use lsys_web::handler::api::system::app_sender::{
-    smser_hw_config_add, smser_hw_config_del, smser_hw_config_edit, smser_hw_config_list,
-    smser_tpl_config_hw_add, SmserAppHwConfigAddParam, SmserHwConfigAddParam,
-    SmserHwConfigDelParam, SmserHwConfigEditParam, SmserHwConfigListParam,
+    SmserAppHwConfigAddParam, SmserHwConfigAddParam, SmserHwConfigDelParam, SmserHwConfigEditParam,
+    SmserHwConfigListParam, smser_hw_config_add, smser_hw_config_del, smser_hw_config_edit,
+    smser_hw_config_list, smser_tpl_config_hw_add,
 };
 use lsys_web::handler::api::system::app_sender::{
-    smser_jd_config_add, smser_jd_config_del, smser_jd_config_edit, smser_jd_config_list,
-    smser_tpl_config_jd_add, SmserAppJDConfigAddParam, SmserJDConfigAddParam,
-    SmserJDConfigDelParam, SmserJDConfigEditParam, SmserJDConfigListParam,
+    SmserAppJDConfigAddParam, SmserJDConfigAddParam, SmserJDConfigDelParam, SmserJDConfigEditParam,
+    SmserJDConfigListParam, smser_jd_config_add, smser_jd_config_del, smser_jd_config_edit,
+    smser_jd_config_list, smser_tpl_config_jd_add,
 };
 use lsys_web::handler::api::system::app_sender::{
-    smser_netease_config_add, smser_netease_config_del, smser_netease_config_edit,
-    smser_netease_config_list, smser_tpl_config_netease_add, SmserAppNetEaseConfigAddParam,
-    SmserNetEaseConfigAddParam, SmserNetEaseConfigDelParam, SmserNetEaseConfigEditParam,
-    SmserNetEaseConfigListParam,
+    SmserAppNetEaseConfigAddParam, SmserNetEaseConfigAddParam, SmserNetEaseConfigDelParam,
+    SmserNetEaseConfigEditParam, SmserNetEaseConfigListParam, smser_netease_config_add,
+    smser_netease_config_del, smser_netease_config_edit, smser_netease_config_list,
+    smser_tpl_config_netease_add,
 };
 use lsys_web::handler::api::system::app_sender::{
-    smser_ten_config_add, smser_ten_config_del, smser_ten_config_edit, smser_ten_config_list,
-    smser_tpl_config_ten_add, SmserAppTenConfigAddParam, SmserTenConfigAddParam,
-    SmserTenConfigDelParam, SmserTenConfigEditParam, SmserTenConfigListParam,
+    SmserAppTenConfigAddParam, SmserTenConfigAddParam, SmserTenConfigDelParam,
+    SmserTenConfigEditParam, SmserTenConfigListParam, smser_ten_config_add, smser_ten_config_del,
+    smser_ten_config_edit, smser_ten_config_list, smser_tpl_config_ten_add,
 };
 use lsys_web::handler::api::system::app_sender::{
-    smser_emay_config_add, smser_emay_config_del, smser_emay_config_edit, smser_emay_config_list,
-    smser_tpl_config_emay_add, SmserAppEmayConfigAddParam, SmserEmayConfigAddParam,
-    SmserEmayConfigDelParam, SmserEmayConfigEditParam, SmserEmayConfigListParam,
+    SmserConfigAddParam, SmserConfigDeleteParam, SmserConfigListParam, SmserTplConfigDelParam,
+    SmserTplConfigListParam, smser_config_add, smser_config_del, smser_config_list,
+    smser_tpl_config_del, smser_tpl_config_list,
 };
 
 #[post("smser/{method}")]

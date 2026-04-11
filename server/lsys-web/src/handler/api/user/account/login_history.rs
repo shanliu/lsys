@@ -61,7 +61,7 @@ pub async fn login_history(
         None
     };
     let cursor = PageCursorValue::from(&next_data);
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::cursor(data, cursor, total),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::cursor(
+        data, cursor, total,
+    ))))
 }

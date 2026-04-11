@@ -85,7 +85,6 @@ impl<DB: Database, T> FieldValue<DB, T> {
     }
 }
 
-
 /// Trait 用于将值转换为 FieldValue
 ///
 /// 泛型 T 与 Field<T> 强关联

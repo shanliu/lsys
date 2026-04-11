@@ -3,8 +3,8 @@ use crate::common::handler::{
 };
 use actix_web::post;
 use lsys_web::handler::api::user::account::{
-    email_add, email_confirm, email_delete, email_list_data, email_send_code, EmailAddParam,
-    EmailConfirmParam, EmailDeleteParam, EmailListDataParam, EmailSendCodeParam,
+    EmailAddParam, EmailConfirmParam, EmailDeleteParam, EmailListDataParam, EmailSendCodeParam,
+    email_add, email_confirm, email_delete, email_list_data, email_send_code,
 };
 
 #[post("/email/{method}")]

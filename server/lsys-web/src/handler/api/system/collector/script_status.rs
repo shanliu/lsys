@@ -1,7 +1,7 @@
 use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
-use crate::dao::access::api::system::admin::CheckAdminFileManage;
+use crate::dao::CollectorScriptStatus;
 use crate::dao::access::RbacAccessCheckEnv;
-use crate::model::CollectorScriptStatus;
+use crate::dao::access::api::system::admin::CheckAdminFileManage;
 use lsys_access::dao::AccessSession;
 use serde::Deserialize;
 use serde_json::json;

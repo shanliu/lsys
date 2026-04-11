@@ -1,4 +1,7 @@
-use axum::{http::{HeaderMap, StatusCode}, response::Response};
+use axum::{
+    http::{HeaderMap, StatusCode},
+    response::Response,
+};
 use serde_json::json;
 use std::sync::Arc;
 

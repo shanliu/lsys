@@ -3,12 +3,8 @@
 use lsys_access::dao::AccessError;
 use lsys_app_sender::dao::SenderError;
 use lsys_core::{
-    app_core::AppCoreError,
-    config::ConfigError,
-    fluents::FluentBundle,
-    remote_notify::RemoteNotifyError,
-    valid_code::ValidCodeError,
-    valid_param::ValidError,
+    app_core::AppCoreError, config::ConfigError, fluents::FluentBundle,
+    remote_notify::RemoteNotifyError, valid_code::ValidCodeError, valid_param::ValidError,
 };
 
 use lsys_logger::dao::LoggerError;
@@ -283,6 +279,8 @@ impl JsonFluent for WebError {
             WebError::ValidCodeError(err) => err.to_json_data(fluent),
             WebError::AccessError(err) => err.to_json_data(fluent),
             WebError::FileError(err) => err.to_json_data(fluent),
+            WebError::FileManagerError(err) => err.to_json_data(fluent),
+            WebError::LoggerError(err) => err.to_json_data(fluent),
         }
     }
 }
@@ -354,35 +352,43 @@ impl JsonFluent for lsys_lib_area::AreaError {
     }
 }
 
-impl JsonFluent for lsys_files::common::FileError {
+impl JsonFluent for lsys_file::common::FileError {
     fn to_json_data(&self, fluent: &FluentBundle) -> JsonData {
         match self {
-            lsys_files::common::FileError::Sqlx(e) => e.to_json_data(fluent),
-            lsys_files::common::FileError::Io(e) => e.to_json_data(fluent),
-            lsys_files::common::FileError::System(_) => {
-                JsonData::default().set_code(500).set_sub_code("file-system")
-            }
-            lsys_files::common::FileError::Param(_) => {
+            lsys_file::common::FileError::Sqlx(e) => e.to_json_data(fluent),
+            lsys_file::common::FileError::Io(e) => e.to_json_data(fluent),
+            lsys_file::common::FileError::System(_) => JsonData::default()
+                .set_code(500)
+                .set_sub_code("file-system"),
+            lsys_file::common::FileError::Param(_) => {
                 JsonData::default().set_code(400).set_sub_code("file-param")
             }
-            lsys_files::common::FileError::Http(_) => {
+            lsys_file::common::FileError::Http(_) => {
                 JsonData::default().set_code(500).set_sub_code("file-http")
             }
-            lsys_files::common::FileError::InvalidStatusCode(_) => {
-                JsonData::default().set_code(500).set_sub_code("file-status-code")
-            }
-            lsys_files::common::FileError::RedirectLimitExceeded => {
-                JsonData::default().set_code(500).set_sub_code("file-redirect")
-            }
-            lsys_files::common::FileError::InvalidChunkData(_) => {
+            lsys_file::common::FileError::InvalidStatusCode(_) => JsonData::default()
+                .set_code(500)
+                .set_sub_code("file-status-code"),
+            lsys_file::common::FileError::RedirectLimitExceeded => JsonData::default()
+                .set_code(500)
+                .set_sub_code("file-redirect"),
+            lsys_file::common::FileError::InvalidChunkData(_) => {
                 JsonData::default().set_code(400).set_sub_code("file-chunk")
             }
-            lsys_files::common::FileError::DownloadTimeout(_, _) => {
-                JsonData::default().set_code(504).set_sub_code("file-download-timeout")
-            }
-            lsys_files::common::FileError::DownloadFailed(_, _) => {
-                JsonData::default().set_code(500).set_sub_code("file-download-failed")
-            }
+            lsys_file::common::FileError::DownloadTimeout(_, _) => JsonData::default()
+                .set_code(504)
+                .set_sub_code("file-download-timeout"),
+            lsys_file::common::FileError::DownloadFailed(_, _) => JsonData::default()
+                .set_code(500)
+                .set_sub_code("file-download-failed"),
         }
+    }
+}
+
+impl JsonFluent for lsys_file_manager::dao::FileManagerError {
+    fn to_json_data(&self, _: &FluentBundle) -> JsonData {
+        JsonData::default()
+            .set_code(500)
+            .set_sub_code("file-manager")
     }
 }

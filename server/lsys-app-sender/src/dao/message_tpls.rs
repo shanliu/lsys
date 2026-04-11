@@ -4,18 +4,14 @@ use crate::dao::{SenderError, SenderResult};
 use crate::model::{SenderTplBodyModel, SenderTplBodyStatus, SenderType};
 use lsys_core::db::OffsetPageParam;
 use lsys_core::fluent_message;
-use lsys_core::utils::{
-    now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT,
-};
+use lsys_core::utils::{RequestEnv, STRING_CLEAR_FORMAT, StringClear, now_time, string_clear};
 use lsys_core::valid_key;
-use lsys_core::valid_param::{
-    ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
-};
+use lsys_core::valid_param::{ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
 
 use lsys_core::db::{Insert, QueryBuilderExt, TableMeta, Update, WhereClause};
-use sqlx::{MySql, QueryBuilder};
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::Pool;
+use sqlx::{MySql, QueryBuilder};
 use tera::{Context, Template, Tera};
 use tokio::sync::RwLock;
 use tracing::{debug, trace};
@@ -38,10 +34,10 @@ impl MessageTpls {
     }
     pub async fn find_by_id(&self, id: &u64) -> SenderResult<SenderTplBodyModel> {
         use lsys_core::db::utils::Fetch;
-        Ok(Fetch::<MySql, SenderTplBodyModel>::one(
-            &self.db,
-            |qb| { qb.field_eq("id", *id); },
-        ).await?)
+        Ok(Fetch::<MySql, SenderTplBodyModel>::one(&self.db, |qb| {
+            qb.field_eq("id", *id);
+        })
+        .await?)
     }
 
     async fn add_param_valid(&self, app_id: u64, tpl_id: &str, tpl_data: &str) -> SenderResult<()> {
@@ -114,7 +110,7 @@ impl MessageTpls {
                 return Err(err.into());
             }
         }
-        let id = Insert::<_,SenderTplBodyModel>::new()
+        let id = Insert::<_, SenderTplBodyModel>::new()
             .set(SenderTplBodyModel::APP_ID, app_id)
             .set(SenderTplBodyModel::SENDER_TYPE, sender_type)
             .set(SenderTplBodyModel::TPL_ID, &tpl_id)
@@ -170,7 +166,7 @@ impl MessageTpls {
         let time = now_time().unwrap_or_default();
         let tpl_data = tpl_data.to_owned();
 
-        let row = Update::<_,SenderTplBodyModel>::new()
+        let row = Update::<_, SenderTplBodyModel>::new()
             .set(SenderTplBodyModel::TPL_DATA, &tpl_data)
             .set(SenderTplBodyModel::CHANGE_USER_ID, change_user_id)
             .set(SenderTplBodyModel::CHANGE_TIME, time)
@@ -215,7 +211,7 @@ impl MessageTpls {
         let user_id = user_id.to_owned();
         let time = now_time().unwrap_or_default();
         let status = SenderTplBodyStatus::Delete as i8;
-        let row = Update::<_,SenderTplBodyModel>::new()
+        let row = Update::<_, SenderTplBodyModel>::new()
             .set(SenderTplBodyModel::STATUS, status)
             .set(SenderTplBodyModel::USER_ID, user_id)
             .set(SenderTplBodyModel::CHANGE_TIME, time)
@@ -298,7 +294,8 @@ impl MessageTpls {
         tpl_id_like: Option<&str>,
     ) -> Option<()> {
         wb.and().field_eq("app_id", app_id);
-        wb.and().field_eq("status", SenderTplBodyStatus::Enable as i8);
+        wb.and()
+            .field_eq("status", SenderTplBodyStatus::Enable as i8);
         if let Some(s) = sender_type {
             wb.and().field_eq("sender_type", s as i8);
         }
@@ -332,13 +329,16 @@ impl MessageTpls {
         ));
         let res = {
             let mut wb = WhereClause::new(&mut qb);
-            self.push_list_where(&mut wb, app_id, sender_type, id, tpl_id, tpl_id_like).is_none()
-        }; if res {
+            self.push_list_where(&mut wb, app_id, sender_type, id, tpl_id, tpl_id_like)
+                .is_none()
+        };
+        if res {
             return Ok(vec![]);
         }
         qb.push(" order by id desc");
         page.push_limit(&mut qb);
-        Ok(qb.build_query_as::<SenderTplBodyModel>()
+        Ok(qb
+            .build_query_as::<SenderTplBodyModel>()
             .fetch_all(&self.db)
             .await?)
     }
@@ -356,12 +356,12 @@ impl MessageTpls {
         ));
         let res = {
             let mut wb = WhereClause::new(&mut qb);
-            self.push_list_where(&mut wb, app_id, sender_type, id, tpl_id, tpl_id_like).is_none()
-        }; if res {
+            self.push_list_where(&mut wb, app_id, sender_type, id, tpl_id, tpl_id_like)
+                .is_none()
+        };
+        if res {
             return Ok(0);
         }
         Ok(qb.build_query_scalar::<i64>().fetch_one(&self.db).await?)
     }
 }
-
-

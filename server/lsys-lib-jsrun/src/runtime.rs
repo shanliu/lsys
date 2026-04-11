@@ -30,7 +30,7 @@ use std::time::Duration;
 use rquickjs::{AsyncContext, AsyncRuntime, CatchResultExt, Object};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
-use crate::core::cache::{new_shared_cache, SharedCache};
+use crate::core::cache::{SharedCache, new_shared_cache};
 use crate::core::file::FileTracker;
 
 // ─── Well-known message type identifiers ────────────────────────────────────
@@ -271,8 +271,6 @@ pub struct JsEngine {
 }
 
 impl JsEngine {
-
-
     /// Create a new JS engine with the given configuration.
     pub fn new(config: EngineConfig) -> Result<Self, Box<dyn std::error::Error>> {
         let cache = new_shared_cache(config.cache_capacity, config.cache_default_ttl);
@@ -303,7 +301,7 @@ impl JsEngine {
         Self::cache_cleanup_loop(self.inner.cache.clone(), self.cache_cleanup_interval).await;
     }
 
-        /// Internal: background task loop for periodic cache cleanup.
+    /// Internal: background task loop for periodic cache cleanup.
     async fn cache_cleanup_loop(cache: SharedCache, interval: Duration) {
         let mut ticker = tokio::time::interval(interval);
         ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);

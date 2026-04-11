@@ -14,14 +14,11 @@ use lsys_app::dao::{AppDao, AppRequestParam};
 use lsys_app::model::{AppRequestStatus, AppRequestType};
 use lsys_core::db::{OffsetPageParam, OffsetPageValue};
 
-use crate::dao::access::api::system::user::CheckUserAppView;
 use crate::dao::access::RbacAccessCheckEnv;
+use crate::dao::access::api::system::user::CheckUserAppView;
 use crate::dao::export_task::exporter::Exporter;
 use crate::dao::export_task::writer::CsvWriter;
-use crate::dao::WebError;
-use crate::dao::WebRbac;
-use crate::dao::WebResult;
-use crate::model::ExportTaskModel;
+use crate::dao::{ExportTaskModel, WebExporter, WebResult};
 
 pub const EXPORT_TYPE_USER_APP_REQUEST: &str = "user_app_request";
 pub const EXPORT_TYPE_USER_SUB_REQUEST: &str = "user_sub_request";
@@ -30,44 +27,36 @@ pub const EXPORT_TYPE_USER_SUB_REQUEST: &str = "user_sub_request";
 /// 视角：我是子应用，向父应用发请求，关注父应用信息
 pub struct AppRequestListExporter {
     pub app_dao: Arc<AppDao>,
-    pub web_rbac: Arc<WebRbac>,
+    pub web_rbac: Arc<crate::dao::WebRbac>,
 }
 
-impl Exporter for AppRequestListExporter {
-    fn check<'a>(
-        &'a self,
-        check_env: &'a RbacAccessCheckEnv<'_>,
-        app_id: u64,
-        _app_user_id: u64,
-        _user_id: u64,
-        _export_type: &'a str,
-        _params: &'a serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = WebResult<()>> + Send + 'a>> {
-        Box::pin(async move {
-            if app_id == 0 {
-                return Err(WebError::Message(lsys_core::fluent_message!(
-                    "export-miss-app-id"
-                )));
-            }
-            let app = self.app_dao.app.find_by_id(app_id).await?;
-            self.web_rbac
-                .check(
-                    check_env,
-                    &CheckUserAppView {
-                        res_user_id: app.user_id,
-                    },
-                )
-                .await?;
-            Ok(())
-        })
+#[async_trait::async_trait]
+impl WebExporter for AppRequestListExporter {
+    async fn check(
+        &self,
+        check_env: &RbacAccessCheckEnv<'_>,
+        param: &crate::dao::ExportCheckParam<'_>,
+    ) -> WebResult<()> {
+        self.web_rbac
+            .check(
+                check_env,
+                &CheckUserAppView {
+                    res_user_id: param.user_id,
+                },
+            )
+            .await?;
+        Ok(())
     }
+}
 
+impl Exporter<crate::dao::WebError> for AppRequestListExporter {
     fn export<'a>(
         &'a self,
         record: ExportTaskModel,
         params: serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<PathBuf, WebError>> + Send + 'a>>
-    {
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<PathBuf, crate::dao::WebError>> + Send + 'a>,
+    > {
         Box::pin(async move {
             let id = params["id"].as_u64();
             let status: Option<AppRequestStatus> =
@@ -129,7 +118,7 @@ impl Exporter for AppRequestListExporter {
                 w.write_batch(rows).await?;
             }
 
-            w.finish().await
+            w.finish().await.map_err(Into::into)
         })
     }
 }
@@ -138,45 +127,36 @@ impl Exporter for AppRequestListExporter {
 /// 视角：我是父应用，子应用向我发请求，关注子应用信息
 pub struct AppSubRequestListExporter {
     pub app_dao: Arc<AppDao>,
-    pub web_rbac: Arc<WebRbac>,
+    pub web_rbac: Arc<crate::dao::WebRbac>,
 }
 
-impl Exporter for AppSubRequestListExporter {
-    fn check<'a>(
-        &'a self,
-        check_env: &'a RbacAccessCheckEnv<'_>,
-        app_id: u64,
-        _app_user_id: u64,
-        _user_id: u64,
-        _export_type: &'a str,
-        _params: &'a serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = WebResult<()>> + Send + 'a>> {
-        Box::pin(async move {
-            if app_id == 0 {
-                return Err(WebError::Message(lsys_core::fluent_message!(
-                    "export-miss-app-id"
-                )));
-            }
-            let app = self.app_dao.app.find_by_id(app_id).await?;
-            self.web_rbac
-                .check(
-                    check_env,
-                    &CheckUserAppView {
-                        res_user_id: app.user_id,
-                    },
-                )
-                .await?;
-            self.app_dao.app.inner_feature_sub_app_check(&app).await?;
-            Ok(())
-        })
+#[async_trait::async_trait]
+impl WebExporter for AppSubRequestListExporter {
+    async fn check(
+        &self,
+        check_env: &RbacAccessCheckEnv<'_>,
+        param: &crate::dao::ExportCheckParam<'_>,
+    ) -> WebResult<()> {
+        self.web_rbac
+            .check(
+                check_env,
+                &CheckUserAppView {
+                    res_user_id: param.user_id,
+                },
+            )
+            .await?;
+        Ok(())
     }
+}
 
+impl Exporter<crate::dao::WebError> for AppSubRequestListExporter {
     fn export<'a>(
         &'a self,
         record: ExportTaskModel,
         params: serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<PathBuf, WebError>> + Send + 'a>>
-    {
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<PathBuf, crate::dao::WebError>> + Send + 'a>,
+    > {
         Box::pin(async move {
             let id = params["id"].as_u64();
             let status: Option<AppRequestStatus> =
@@ -235,7 +215,7 @@ impl Exporter for AppSubRequestListExporter {
                 w.write_batch(rows).await?;
             }
 
-            w.finish().await
+            w.finish().await.map_err(Into::into)
         })
     }
 }

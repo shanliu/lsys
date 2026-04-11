@@ -4,6 +4,11 @@ use crate::common::handler::{
 
 use actix_web::post;
 
+use lsys_web::handler::api::user::account::DeleteParam;
+use lsys_web::handler::api::user::account::InfoCheckUserNameParam;
+use lsys_web::handler::api::user::account::InfoSetUserInfoParam;
+use lsys_web::handler::api::user::account::InfoSetUserNameParam;
+use lsys_web::handler::api::user::account::LoginHistoryParam;
 use lsys_web::handler::api::user::account::delete;
 use lsys_web::handler::api::user::account::info_check_username;
 use lsys_web::handler::api::user::account::info_set_data;
@@ -11,12 +16,7 @@ use lsys_web::handler::api::user::account::info_set_username;
 use lsys_web::handler::api::user::account::login_history;
 use lsys_web::handler::api::user::account::mapping_data;
 use lsys_web::handler::api::user::account::password_last_modify;
-use lsys_web::handler::api::user::account::DeleteParam;
-use lsys_web::handler::api::user::account::InfoCheckUserNameParam;
-use lsys_web::handler::api::user::account::InfoSetUserInfoParam;
-use lsys_web::handler::api::user::account::InfoSetUserNameParam;
-use lsys_web::handler::api::user::account::LoginHistoryParam;
-use lsys_web::handler::api::user::account::{set_password, SetPasswordParam};
+use lsys_web::handler::api::user::account::{SetPasswordParam, set_password};
 
 #[post("/{type}")]
 pub async fn base(

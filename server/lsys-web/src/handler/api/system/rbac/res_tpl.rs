@@ -1,12 +1,13 @@
 use crate::common::{
-    JsonData, JsonPageData, JsonResponse, JsonResult, LimitParam, ToCursorPageParam, UserAuthQueryDao,
+    JsonData, JsonPageData, JsonResponse, JsonResult, LimitParam, ToCursorPageParam,
+    UserAuthQueryDao,
 };
 use lsys_access::dao::{AccessSession, UserDataParam};
 use lsys_core::api_utils::{PageCursorValue, PageTotalRowValue};
 use lsys_core::db::TotalParam;
 use lsys_core::{db::CursorPageSort, fluents::FluentMessage};
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 //静态模板资源数据
 

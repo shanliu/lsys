@@ -1,11 +1,11 @@
 //用户文件上传流接口
 
 use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
-use crate::dao::access::api::system::user::CheckUserFileUpload;
 use crate::dao::access::RbacAccessCheckEnv;
+use crate::dao::access::api::system::user::CheckUserFileUpload;
 use lsys_access::dao::AccessSession;
-use lsys_files::dao::{ChunkInfo, FileWriteHandle};
-use lsys_files::model::FileStatus;
+use lsys_file::dao::{ChunkInfo, FileWriteHandle};
+use lsys_file::model::FileStatus;
 use serde::Deserialize;
 use serde_json::json;
 
@@ -19,6 +19,13 @@ pub struct FileUploadCreateParam {
     pub chunks: Vec<FileUploadChunkParam>,
     #[serde(default)]
     pub tag_names: Option<Vec<String>>,
+    /// 存储类型: local_public / local_private / local_crypto，默认 local_public
+    #[serde(default = "default_storage_type")]
+    pub storage_type: String,
+}
+
+fn default_storage_type() -> String {
+    lsys_file::model::FileModel::STORAGE_TYPE_LOCAL_PUBLIC.to_string()
 }
 
 #[derive(Debug, Deserialize)]
@@ -66,12 +73,25 @@ pub async fn file_upload_by_md5(
         )
         .await?;
 
-    let tag_refs: Vec<&str> = param.tag_names.as_deref().unwrap_or(&[]).iter().map(String::as_str).collect();
+    let tag_refs: Vec<&str> = param
+        .tag_names
+        .as_deref()
+        .unwrap_or(&[])
+        .iter()
+        .map(String::as_str)
+        .collect();
     let result = req_dao
         .web_dao
         .web_files
         .file_dao
-        .create_from_md5(&param.file_md5, user_id, user_id, app.id, &tag_refs, Some(&req_dao.req_env))
+        .create_from_md5(
+            &param.file_md5,
+            user_id,
+            user_id,
+            app.id,
+            &tag_refs,
+            Some(&req_dao.req_env),
+        )
         .await?;
 
     match result {
@@ -133,7 +153,13 @@ pub async fn file_upload_create(
         ));
     }
 
-    let tag_refs: Vec<&str> = param.tag_names.as_deref().unwrap_or(&[]).iter().map(String::as_str).collect();
+    let tag_refs: Vec<&str> = param
+        .tag_names
+        .as_deref()
+        .unwrap_or(&[])
+        .iter()
+        .map(String::as_str)
+        .collect();
     let (file_id, file_user_id) = req_dao
         .web_dao
         .web_files
@@ -142,6 +168,7 @@ pub async fn file_upload_create(
             user_id,
             user_id,
             app.id,
+            &param.storage_type,
             &chunks,
             &param.file_name,
             &tag_refs,

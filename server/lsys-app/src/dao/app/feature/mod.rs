@@ -7,8 +7,8 @@ use crate::{
 };
 use lsys_core::db::{QueryBuilderExt, TableMeta};
 use lsys_core::valid_key;
-use sqlx::{MySql, QueryBuilder};
 use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
+use sqlx::{MySql, QueryBuilder};
 
 impl App {
     async fn exter_feature_param_valid(&self, featuer_data: &[&str]) -> AppResult<()> {
@@ -36,9 +36,11 @@ impl App {
             AppFeatureModel::table_name()
         ));
         qb.push_where().field_eq("app_id", app.id);
-        qb.push_and().field_eq("status", AppFeatureStatus::Enable as i8);
+        qb.push_and()
+            .field_eq("status", AppFeatureStatus::Enable as i8);
         qb.push_and().field_in_string("feature_key", featuer_data);
-        let oa_res = qb.build_query_scalar::<String>()
+        let oa_res = qb
+            .build_query_scalar::<String>()
             .fetch_all(&self.db)
             .await?;
         let mut bad = vec![];

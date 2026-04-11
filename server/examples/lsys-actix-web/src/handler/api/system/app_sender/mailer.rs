@@ -4,20 +4,20 @@ use crate::common::handler::{
 use actix_web::post;
 
 use lsys_web::handler::api::system::app_sender::{
-    mailer_config_add, mailer_config_del, mailer_config_list, mailer_mapping_data,
-    mailer_message_body, mailer_message_cancel, mailer_message_list, mailer_message_log,
-    mailer_smtp_config_check, mailer_tpl_body_add, mailer_tpl_body_del, mailer_tpl_body_edit,
-    mailer_tpl_body_list, mailer_tpl_config_del, mailer_tpl_config_list, MailerConfigAddParam,
-    MailerConfigDeleteParam, MailerConfigListParam, MailerMessageBodyParam,
+    MailerAppSmtpConfigAddParam, MailerSmtpConfigAddParam, MailerSmtpConfigDelParam,
+    MailerSmtpConfigEditParam, MailerSmtpConfigListParam, mailer_smtp_config_add,
+    mailer_smtp_config_del, mailer_smtp_config_edit, mailer_smtp_config_list,
+    mailer_tpl_config_smtp_add,
+};
+use lsys_web::handler::api::system::app_sender::{
+    MailerConfigAddParam, MailerConfigDeleteParam, MailerConfigListParam, MailerMessageBodyParam,
     MailerMessageCancelParam, MailerMessageListParam, MailerMessageLogParam,
     MailerSmtpConfigCheckParam, MailerTplAddParam, MailerTplConfigDelParam,
     MailerTplConfigListParam, MailerTplDelParam, MailerTplEditParam, MailerTplListParam,
-};
-use lsys_web::handler::api::system::app_sender::{
-    mailer_smtp_config_add, mailer_smtp_config_del, mailer_smtp_config_edit,
-    mailer_smtp_config_list, mailer_tpl_config_smtp_add, MailerAppSmtpConfigAddParam,
-    MailerSmtpConfigAddParam, MailerSmtpConfigDelParam, MailerSmtpConfigEditParam,
-    MailerSmtpConfigListParam,
+    mailer_config_add, mailer_config_del, mailer_config_list, mailer_mapping_data,
+    mailer_message_body, mailer_message_cancel, mailer_message_list, mailer_message_log,
+    mailer_smtp_config_check, mailer_tpl_body_add, mailer_tpl_body_del, mailer_tpl_body_edit,
+    mailer_tpl_body_list, mailer_tpl_config_del, mailer_tpl_config_list,
 };
 
 #[post("mailer/{method}")]

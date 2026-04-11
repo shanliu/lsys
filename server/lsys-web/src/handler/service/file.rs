@@ -6,11 +6,10 @@
 use crate::common::{JsonData, JsonPageData, JsonResponse, JsonResult, RequestDao};
 use lsys_core::api_utils::{PageCursorValue, PageTotalRowValue};
 use lsys_core::db::TotalParam;
-use lsys_files::dao::{ChunkInfo, FileDataListParam, FileListAttrParam, LocalFileMode};
-use lsys_files::model::{FileModel, FileStatus, FileUserStatus};
+use lsys_file::dao::{ChunkInfo, FileDataListParam, FileListAttrParam};
+use lsys_file::model::{FileModel, FileStatus, FileUserStatus};
 use serde::Deserialize;
 use serde_json::json;
-use std::path::Path;
 
 // ==================== 参数定义 ====================
 
@@ -25,6 +24,9 @@ pub struct UploadCreateParam {
     pub chunks: Vec<UploadChunkParam>,
     #[serde(default)]
     pub tag_names: Option<Vec<String>>,
+    /// 存储类型, 默认 local_public
+    #[serde(default = "default_storage_type")]
+    pub storage_type: String,
 }
 
 /// 分片信息
@@ -67,10 +69,17 @@ pub struct FromUrlParam {
     /// 同步等待秒数：>0=等待指定秒 / 0=无限等 / 不传=异步
     #[serde(default)]
     pub wait_timeout: Option<u64>,
+    /// 存储类型, 默认 local_public
+    #[serde(default = "default_storage_type")]
+    pub storage_type: String,
 }
 
 fn default_max_concurrency() -> u32 {
     10
+}
+
+fn default_storage_type() -> String {
+    lsys_file::model::FileModel::STORAGE_TYPE_LOCAL_PUBLIC.to_string()
 }
 
 /// 从本地文件导入参数
@@ -193,6 +202,7 @@ pub async fn upload_create(
             param.user_id,
             param.add_user_id.unwrap_or(param.user_id),
             param.app_id,
+            &param.storage_type,
             &chunks,
             &param.file_name,
             &tag_refs,
@@ -325,13 +335,14 @@ pub async fn from_url(param: &FromUrlParam, req_dao: &RequestDao) -> JsonResult<
     // 文件大小校验
     let upload_config = &req_dao.web_dao.web_files.upload_config;
     if let Some(file_size) = url_info.file_size
-        && file_size > upload_config.max_upload_size {
-            return Err(crate::common::JsonError::Message(
-                lsys_core::fluent_message!("file-size-too-large",
-                    {"size": file_size, "max": upload_config.max_upload_size}
-                ),
-            ));
-        }
+        && file_size > upload_config.max_upload_size
+    {
+        return Err(crate::common::JsonError::Message(
+            lsys_core::fluent_message!("file-size-too-large",
+                {"size": file_size, "max": upload_config.max_upload_size}
+            ),
+        ));
+    }
 
     // 根据探测信息构建分片参数
     let chunks = if let Some(file_size) = url_info.file_size {
@@ -366,6 +377,7 @@ pub async fn from_url(param: &FromUrlParam, req_dao: &RequestDao) -> JsonResult<
             param.user_id,
             param.user_id,
             param.app_id,
+            &param.storage_type,
             &chunks,
             url_info.content_type.as_deref(),
             &tag_refs,
@@ -376,93 +388,6 @@ pub async fn from_url(param: &FromUrlParam, req_dao: &RequestDao) -> JsonResult<
 
     Ok(JsonResponse::data(JsonData::body(json!({
         "id": file_user_id,
-    }))))
-}
-
-/// 从本地文件导入
-pub async fn from_local(param: &FromLocalParam, req_dao: &RequestDao) -> JsonResult<JsonResponse> {
-    // 安全校验：路径规范化，防止路径遍历攻击
-    let local_path = Path::new(&param.local_file_path);
-    let canonical_path = local_path.canonicalize().map_err(|e| {
-        crate::common::JsonError::Message(lsys_core::fluent_message!("file-local-path-invalid", e))
-    })?;
-
-    // 校验路径在 storage_base_path（网盘挂载目录）下
-    let base_path = Path::new(
-        &req_dao
-            .web_dao
-            .web_files
-            .file_dao
-            .config()
-            .storage_base_path,
-    );
-    let canonical_base = base_path.canonicalize().map_err(|e| {
-        crate::common::JsonError::Message(lsys_core::fluent_message!(
-            "file-storage-path-invalid",
-            e
-        ))
-    })?;
-
-    if !canonical_path.starts_with(&canonical_base) {
-        return Err(crate::common::JsonError::Message(
-            lsys_core::fluent_message!("file-path-outside-storage"),
-        ));
-    }
-
-    // 校验文件存在
-    if !canonical_path.exists() {
-        return Err(crate::common::JsonError::Message(
-            lsys_core::fluent_message!("file-local-not-exists"),
-        ));
-    }
-
-    // 解析 mode
-    let mode = match param.mode.as_str() {
-        "move" => LocalFileMode::Move,
-        _ => LocalFileMode::Copy,
-    };
-
-    let tag_refs: Vec<&str> = param
-        .tag_names
-        .as_deref()
-        .unwrap_or(&[])
-        .iter()
-        .map(String::as_str)
-        .collect();
-
-    let (file, _file_user) = req_dao
-        .web_dao
-        .web_files
-        .file_dao
-        .create_from_local_file(
-            canonical_path.to_str().unwrap_or(&param.local_file_path),
-            param.user_id,
-            param.user_id,
-            param.app_id,
-            param.file_name.as_deref(),
-            mode,
-            None,
-            &tag_refs,
-            Some(&req_dao.req_env),
-        )
-        .await?;
-
-    // 获取文件 URL
-    let file_url = req_dao
-        .web_dao
-        .web_files
-        .file_dao
-        .get_file_url(&file)
-        .await?
-        .unwrap_or_default();
-
-    Ok(JsonResponse::data(JsonData::body(json!({
-        "file_id": file.id,
-        "file_name": file.file_name,
-        "file_md5": file.file_md5,
-        "file_size": file.file_size,
-        "file_url": file_url,
-        "status": file.status,
     }))))
 }
 
@@ -499,7 +424,6 @@ pub async fn file_list(param: &FileListParam, req_dao: &RequestDao) -> JsonResul
         storage_type: param.storage_type.as_deref(),
         file_md5: param.file_md5.as_deref(),
         tag_names: tag_refs.as_deref(),
-        tag_any_names: None,
     };
 
     let attr_param = FileListAttrParam {
@@ -602,9 +526,9 @@ pub async fn file_list(param: &FileListParam, req_dao: &RequestDao) -> JsonResul
     };
 
     let cursor = PageCursorValue::from(&page_data);
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::cursor(items, cursor, total),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::cursor(
+        items, cursor, total,
+    ))))
 }
 
 /// 文件删除
@@ -619,7 +543,9 @@ pub async fn file_delete(
         .helper()
         .find_file_user_by_id(param.file_user_id)
         .await?
-        .ok_or_else(|| lsys_files::dao::FileError::Param(lsys_core::fluent_message!("file-not-found")))?;
+        .ok_or_else(|| {
+            lsys_file::dao::FileError::Param(lsys_core::fluent_message!("file-not-found"))
+        })?;
 
     let file = req_dao
         .web_dao
@@ -628,7 +554,9 @@ pub async fn file_delete(
         .helper()
         .find_file_by_id(file_user.file_id)
         .await?
-        .ok_or_else(|| lsys_files::dao::FileError::Param(lsys_core::fluent_message!("file-not-found")))?;
+        .ok_or_else(|| {
+            lsys_file::dao::FileError::Param(lsys_core::fluent_message!("file-not-found"))
+        })?;
 
     let ctx = req_dao
         .web_dao
@@ -640,10 +568,7 @@ pub async fn file_delete(
         .web_dao
         .web_files
         .file_dao
-        .delete_file(
-            ctx,
-            Some(&req_dao.req_env),
-        )
+        .delete_file(ctx, Some(&req_dao.req_env))
         .await?;
 
     Ok(JsonResponse::default())

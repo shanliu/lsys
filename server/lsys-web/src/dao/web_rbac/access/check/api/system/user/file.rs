@@ -120,5 +120,3 @@ impl RbacCheckResTpl for CheckUserFileDelete {
         }]
     }
 }
-
-

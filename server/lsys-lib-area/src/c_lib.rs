@@ -1,5 +1,5 @@
 use crate::{AreaCodeItem, AreaCodeRelatedItem, AreaDao, AreaError};
-use std::ffi::{c_char, c_float, c_int, c_long, c_uchar, c_uint, CStr, CString};
+use std::ffi::{CStr, CString, c_char, c_float, c_int, c_long, c_uchar, c_uint};
 
 #[repr(C)]
 pub struct CAreaDao {

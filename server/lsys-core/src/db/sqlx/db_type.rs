@@ -60,4 +60,3 @@ pub fn is_sqlite_db<DB: Database>() -> bool {
 pub fn is_sqlite_db<DB: Database>() -> bool {
     false
 }
-

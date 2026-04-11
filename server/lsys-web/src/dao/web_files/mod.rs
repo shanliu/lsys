@@ -1,20 +1,33 @@
 //文件模块封装
 
-pub mod collector;
-pub mod export_task;
+mod export_task;
 pub mod upload_token;
 
 use std::sync::Arc;
 
 use lsys_core::app_core::AppCore;
-use lsys_files::dao::FileDao;
+use lsys_file::dao::FileDao;
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{MySql, Pool};
 
-use self::collector::WebFileCollector;
-use self::export_task::WebExportTask;
+// 使用 lsys-file-manager 中的类型
+pub use self::export_task::{ExportCheckParam, WebExportTask, WebExporter};
 use self::upload_token::UploadTokenDao;
 use super::result::WebResult;
+use lsys_file_manager::FileCollector;
+
+// 重新导出 lsys-file-manager 的类型，供 web 层使用
+pub use lsys_file_manager::ExportTask;
+pub use lsys_file_manager::FileCollector as FileCollectorType;
+
+// 重新导出 export_task 子模块
+pub mod export_task_types {
+    pub use lsys_file_manager::dao::export_task::exporter;
+    pub use lsys_file_manager::dao::export_task::writer;
+    pub use lsys_file_manager::dao::export_task::{
+        ExportTaskFileItem, ExportTaskItem, ExportTaskListAttr,
+    };
+}
 
 /// 上传配置：最大文件大小 & 分片规则
 #[derive(Debug, Clone)]
@@ -66,7 +79,7 @@ pub struct WebFiles {
     pub file_dao: Arc<FileDao>,
     pub upload_config: UploadConfig,
     pub upload_token: Arc<UploadTokenDao>,
-    pub collector: Arc<WebFileCollector>,
+    pub collector: Arc<FileCollector>,
     pub export_task: Arc<WebExportTask>,
     db: Pool<MySql>,
 }
@@ -80,20 +93,34 @@ impl WebFiles {
         export_task: Arc<WebExportTask>,
         logger: Arc<ChangeLoggerDao>,
     ) -> WebResult<Self> {
-      
         let upload_config = UploadConfig::from_config(app_core);
         let upload_token = Arc::new(UploadTokenDao::new(redis));
-        let collector = Arc::new(WebFileCollector::new(
+        let collector = Arc::new(FileCollector::new(
             db.clone(),
             file_dao.clone(),
             logger.clone(),
             app_core,
         )?);
-      
+
         // 启动文件相关后台任务
-        tokio::spawn({ let d = file_dao.clone(); async move { d.run_download_listener().await; } });
-        tokio::spawn({ let c = collector.clone(); async move { c.run_task_loop().await; } });
-        tokio::spawn({ let c = collector.clone(); async move { c.run_cache_cleanup().await; } });
+        tokio::spawn({
+            let d = file_dao.clone();
+            async move {
+                d.run_download_listener().await;
+            }
+        });
+        tokio::spawn({
+            let c = collector.clone();
+            async move {
+                c.run_task_loop().await;
+            }
+        });
+        tokio::spawn({
+            let c = collector.clone();
+            async move {
+                c.run_cache_cleanup().await;
+            }
+        });
         tokio::spawn({
             let export_task_bg = export_task.clone();
             async move {

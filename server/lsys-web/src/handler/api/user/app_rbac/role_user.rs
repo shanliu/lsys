@@ -1,6 +1,5 @@
 use super::app_check_get;
 
-use crate::common::{JsonData, JsonPageData};
 use crate::common::JsonError;
 use crate::common::JsonResponse;
 use crate::common::JsonResult;
@@ -9,6 +8,7 @@ use crate::common::PageParam;
 use crate::common::ToCursorPageParam;
 use crate::common::ToOffsetPageParam;
 use crate::common::UserAuthQueryDao;
+use crate::common::{JsonData, JsonPageData};
 use lsys_access::dao::AccessSession;
 use lsys_access::dao::UserDataParam;
 use lsys_access::dao::UserInfo;
@@ -233,7 +233,7 @@ pub async fn app_role_user_available(
     };
     let out_res = res.into_iter().map(UserInfo::from).collect::<Vec<_>>();
     let cursor = PageCursorValue::from(&next);
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::cursor(out_res, cursor, count),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::cursor(
+        out_res, cursor, count,
+    ))))
 }

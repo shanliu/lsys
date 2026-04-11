@@ -9,9 +9,9 @@ use lsys_core::fluents::IntoFluentMessage;
 use lsys_core::utils::now_time;
 use lsys_setting::dao::MultipleSetting;
 
+use lsys_lib_sms::SendDetailItem;
 use lsys_lib_sms::SendNotifyStatus;
 use lsys_setting::model::SettingModel;
-use lsys_lib_sms::SendDetailItem;
 use redis::AsyncCommands;
 use sqlx::Pool;
 use tracing::warn;
@@ -26,8 +26,8 @@ use crate::{
 };
 use lsys_core::task_dispatch::{TaskAcquisition, TaskData, TaskExecutor, TaskItem, TaskRecord};
 
-use super::add_notify_callback;
 use super::SmsRecord;
+use super::add_notify_callback;
 
 pub struct SmsStatusQuery {
     notify_data_key: String,
@@ -215,13 +215,18 @@ impl TaskExecutor<u64, SmsStatusTaskItem> for SmsStatusTask {
                                         SendNotifyStatus::Completed => {
                                             use lsys_core::db::Update;
                                             let send_id = ntmp.send_id.clone();
-                                            if let Err(err) = Update::<_, SenderSmsMessageModel>::new()
-                                                .set(SenderSmsMessageModel::STATUS, SenderSmsMessageStatus::IsReceived as i8)
-                                                .execute(&self.db, |qb| {
-                                                    qb.push_where().field_eq("setting_id", setting.id);
-                                                    qb.push_and().field_eq("res_data", send_id);
-                                                })
-                                                .await
+                                            if let Err(err) =
+                                                Update::<_, SenderSmsMessageModel>::new()
+                                                    .set(
+                                                        SenderSmsMessageModel::STATUS,
+                                                        SenderSmsMessageStatus::IsReceived as i8,
+                                                    )
+                                                    .execute(&self.db, |qb| {
+                                                        qb.push_where()
+                                                            .field_eq("setting_id", setting.id);
+                                                        qb.push_and().field_eq("res_data", send_id);
+                                                    })
+                                                    .await
                                             {
                                                 warn!("sms change to succ fail[{}]{}", val.0, err);
                                             }
@@ -240,13 +245,18 @@ impl TaskExecutor<u64, SmsStatusTaskItem> for SmsStatusTask {
                                         SendNotifyStatus::Failed => {
                                             use lsys_core::db::Update;
                                             let send_id = ntmp.send_id.clone();
-                                            if let Err(err) = Update::<_, SenderSmsMessageModel>::new()
-                                                .set(SenderSmsMessageModel::STATUS, SenderSmsMessageStatus::SendFail as i8)
-                                                .execute(&self.db, |qb| {
-                                                    qb.push_where().field_eq("setting_id", setting.id);
-                                                    qb.push_and().field_eq("res_data", send_id);
-                                                })
-                                                .await
+                                            if let Err(err) =
+                                                Update::<_, SenderSmsMessageModel>::new()
+                                                    .set(
+                                                        SenderSmsMessageModel::STATUS,
+                                                        SenderSmsMessageStatus::SendFail as i8,
+                                                    )
+                                                    .execute(&self.db, |qb| {
+                                                        qb.push_where()
+                                                            .field_eq("setting_id", setting.id);
+                                                        qb.push_and().field_eq("res_data", send_id);
+                                                    })
+                                                    .await
                                             {
                                                 warn!(
                                                     "sms change to fail is fail[{}]{}",

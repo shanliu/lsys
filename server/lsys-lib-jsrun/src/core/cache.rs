@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use moka::sync::Cache;
-use rquickjs::{class::Trace, JsLifetime};
+use rquickjs::{JsLifetime, class::Trace};
 
 #[derive(Clone)]
 struct CacheEntry {

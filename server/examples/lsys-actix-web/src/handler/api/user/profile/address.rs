@@ -3,8 +3,8 @@ use crate::common::handler::{
 };
 use actix_web::post;
 use lsys_web::handler::api::user::account::{
-    address_add, address_delete, address_edit, address_list_data, AddressAddParam,
-    AddressDeleteParam, AddressEditParam,
+    AddressAddParam, AddressDeleteParam, AddressEditParam, address_add, address_delete,
+    address_edit, address_list_data,
 };
 
 #[post("/address/{method}")]

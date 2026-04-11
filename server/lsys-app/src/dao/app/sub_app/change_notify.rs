@@ -119,7 +119,7 @@ impl TimeOutTaskExec for SubAppChangeNotify {
             .bind(start_id)
             .fetch_all(&self.db)
             .await
-            .map_err(|e| e.to_string())?; 
+            .map_err(|e| e.to_string())?;
             if add_res.is_empty() {
                 break;
             }
@@ -188,7 +188,7 @@ impl TimeOutTaskNextTime for SubAppChangeNotify {
         .bind(AppSecretStatus::Enable as i8)
         .bind(ntime + max_lock_time as u64)
         .fetch_one(&self.db)
-        .await; 
+        .await;
         match timeout_res {
             Ok(dat) => Ok(Some(dat)),
             Err(sqlx::Error::RowNotFound) => Ok(None),

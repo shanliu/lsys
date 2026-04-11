@@ -2,7 +2,7 @@ use crate::common::handler::{
     JsonQuery, JwtQuery, ResponseJson, ResponseJsonResult, UserAuthQuery,
 };
 use actix_web::post;
-use lsys_web::handler::api::user::rbac::{mapping_data, system_audit_data, SystemAuditParam};
+use lsys_web::handler::api::user::rbac::{SystemAuditParam, mapping_data, system_audit_data};
 
 #[post("/base/{method}")]
 pub async fn base(

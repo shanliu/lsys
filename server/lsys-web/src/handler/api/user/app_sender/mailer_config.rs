@@ -12,7 +12,7 @@ use lsys_app_sender::{
     model::SenderMailConfigType,
 };
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 pub(super) async fn mailer_inner_access_check(
     app_id: u64,
@@ -284,9 +284,9 @@ pub async fn mailer_tpl_config_list(
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(row, total),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        row, total,
+    ))))
 }
 #[derive(Debug, Deserialize)]
 pub struct MailerTplConfigDelParam {

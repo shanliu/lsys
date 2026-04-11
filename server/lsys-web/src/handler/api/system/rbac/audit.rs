@@ -4,14 +4,14 @@ use crate::common::JsonResult;
 use crate::common::LimitParam;
 use crate::common::ToCursorPageParam;
 use crate::common::UserAuthQueryDao;
-use crate::dao::access::api::system::admin::CheckAdminRbacView;
 use crate::dao::access::RbacAccessCheckEnv;
+use crate::dao::access::api::system::admin::CheckAdminRbacView;
 use lsys_access::dao::AccessSession;
 use lsys_core::api_utils::{JsonPageData, PageCursorValue, PageTotalRowValue};
 use lsys_core::db::{CursorPageSort, TotalParam};
 use lsys_rbac::dao::AuditDataParam;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 //查看用户访问授权日志数据
 
@@ -76,14 +76,17 @@ pub async fn audit_data(
                 .web_rbac
                 .rbac_dao
                 .access
-                .audit_count(&AuditDataParam {
-                    user_id: param.user_id,
-                    user_app_id: param.user_app_id,
-                    user_ip: param.user_ip.as_deref(),
-                    device_id: param.device_id.as_deref(),
-                    request_id: param.request_id.as_deref(),
-                    res_data: param.res_data.as_ref().map(|e| (e.res_id, e.op_id)),
-                }, &TotalParam::default())
+                .audit_count(
+                    &AuditDataParam {
+                        user_id: param.user_id,
+                        user_app_id: param.user_app_id,
+                        user_ip: param.user_ip.as_deref(),
+                        device_id: param.device_id.as_deref(),
+                        request_id: param.request_id.as_deref(),
+                        res_data: param.res_data.as_ref().map(|e| (e.res_id, e.op_id)),
+                    },
+                    &TotalParam::default(),
+                )
                 .await
                 .map(PageTotalRowValue::from)?,
         )
@@ -110,7 +113,7 @@ pub async fn audit_data(
         })
         .collect::<Vec<Value>>();
     let cursor = PageCursorValue::from(&res.1);
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::cursor(out_data, cursor, count),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::cursor(
+        out_data, cursor, count,
+    ))))
 }

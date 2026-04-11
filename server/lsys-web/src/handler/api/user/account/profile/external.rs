@@ -2,8 +2,8 @@ use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonData, JsonPageData, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao},
     dao::{
-        access::api::system::{auth::CheckSystemLogin, user::CheckUserExternalEdit},
         OauthCallbackParam, OauthLogin, OauthLoginParam,
+        access::api::system::{auth::CheckSystemLogin, user::CheckUserExternalEdit},
     },
 };
 use lsys_access::dao::AccessSession;
@@ -83,10 +83,10 @@ pub async fn external_list_data(
         .account
         .user_external(account.id, otype.as_ref().map(|e| e.as_ref()))
         .await?;
-    let total=data.len();
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(data,total ),
-    )))
+    let total = data.len();
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        data, total,
+    ))))
 }
 
 //检查权限并获取登录URL

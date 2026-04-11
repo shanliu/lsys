@@ -1,15 +1,15 @@
+use lsys_core::remote_notify::RemoteNotify;
+use lsys_core::utils::{RequestEnv, now_time};
+use lsys_core::valid_param::{
+    ValidDateTime, ValidIp, ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
+};
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
     db::utils::FetchField,
     valid_key,
 };
-use lsys_core::remote_notify::RemoteNotify;
-use lsys_core::utils::{now_time, RequestEnv};
-use lsys_core::valid_param::{
-    ValidDateTime, ValidIp, ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
-};
 
-use lsys_core::db::{Insert, TableMeta, Update, QueryBuilderExt};
+use lsys_core::db::{Insert, QueryBuilderExt, TableMeta, Update};
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{Acquire, MySql, Pool, Transaction};
 use std::{collections::HashMap, sync::Arc};
@@ -26,7 +26,7 @@ pub struct AccountInfoParam<'a> {
     pub reg_from: Option<&'a str>,
 }
 
-use super::{logger::LogAccountInfo, AccountIndex, AccountResult};
+use super::{AccountIndex, AccountResult, logger::LogAccountInfo};
 pub struct AccountInfo {
     db: Pool<MySql>,
 
@@ -53,10 +53,12 @@ impl AccountInfo {
     }
     async fn info_param_valid(&self, info_param: &AccountInfoParam<'_>) -> AccountResult<()> {
         let fetch_field = FetchField::new(&self.db);
-        let headimg_max = fetch_field.string_max::<AccountInfoModel>(&AccountInfoModel::HEADIMG)
+        let headimg_max = fetch_field
+            .string_max::<AccountInfoModel>(&AccountInfoModel::HEADIMG)
             .await
             .len_or(500);
-        let reg_from_max = fetch_field.string_max::<AccountInfoModel>(&AccountInfoModel::REG_FROM)
+        let reg_from_max = fetch_field
+            .string_max::<AccountInfoModel>(&AccountInfoModel::REG_FROM)
             .await
             .len_or(32);
 
@@ -134,21 +136,21 @@ impl AccountInfo {
             Err(sqlx::Error::RowNotFound) => {
                 if let Some(rf) = info_param.reg_from
                     && !rf.is_empty()
-                        && let Err(ie) = self
-                            .index
-                            .cat_one_add(
-                                crate::model::AccountIndexCat::RegFrom,
-                                account.id,
-                                rf,
-                                Some(&mut db),
-                            )
-                            .await
-                        {
-                            db.rollback().await?;
-                            return Err(ie);
-                        }
+                    && let Err(ie) = self
+                        .index
+                        .cat_one_add(
+                            crate::model::AccountIndexCat::RegFrom,
+                            account.id,
+                            rf,
+                            Some(&mut db),
+                        )
+                        .await
+                {
+                    db.rollback().await?;
+                    return Err(ie);
+                }
 
-                let mut insert = Insert::<_,AccountInfoModel>::new()
+                let mut insert = Insert::<_, AccountInfoModel>::new()
                     .set(AccountInfoModel::ACCOUNT_ID, account.id)
                     .set(AccountInfoModel::CHANGE_TIME, time);
                 if let Some(g) = info_param.gender {
@@ -169,7 +171,7 @@ impl AccountInfo {
                 insert.execute(&mut *db).await
             }
             Ok(account_info) => {
-                let mut update = Update::<_,AccountInfoModel>::new()
+                let mut update = Update::<_, AccountInfoModel>::new()
                     .set(AccountInfoModel::ACCOUNT_ID, account.id)
                     .set(AccountInfoModel::CHANGE_TIME, time);
                 if let Some(g) = info_param.gender {
@@ -239,12 +241,15 @@ impl AccountInfo {
     }
     pub async fn find_by_account_id(&self, id: &u64) -> AccountResult<AccountInfoModel> {
         use lsys_core::db::utils::Fetch;
-        Ok(Fetch::<MySql, AccountInfoModel>::one(
-            &self.db,
-            |qb| { qb.field_eq("account_id", *id); },
-        ).await?)
+        Ok(Fetch::<MySql, AccountInfoModel>::one(&self.db, |qb| {
+            qb.field_eq("account_id", *id);
+        })
+        .await?)
     }
-    pub async fn find_by_account_ids(&self, ids: &[u64]) -> AccountResult<HashMap<u64, AccountInfoModel>> {
+    pub async fn find_by_account_ids(
+        &self,
+        ids: &[u64],
+    ) -> AccountResult<HashMap<u64, AccountInfoModel>> {
         use lsys_core::db::utils::Fetch;
         Ok(Fetch::<MySql, AccountInfoModel>::map(
             &self.db,
@@ -252,7 +257,8 @@ impl AccountInfo {
                 qb.field_in_copied("account_id", ids);
             },
             |v| v.account_id,
-        ).await?)
+        )
+        .await?)
     }
     pub fn cache(&'_ self) -> AccountInfoCache<'_> {
         AccountInfoCache { dao: self }
@@ -269,7 +275,10 @@ impl AccountInfoCache<'_> {
             .get_or_fetch(id, || self.dao.find_by_account_id(id))
             .await
     }
-    pub async fn find_by_account_ids(&self, ids: &[u64]) -> AccountResult<HashMap<u64, AccountInfoModel>> {
+    pub async fn find_by_account_ids(
+        &self,
+        ids: &[u64],
+    ) -> AccountResult<HashMap<u64, AccountInfoModel>> {
         self.dao
             .cache
             .get_or_fetch_many(ids, |missing| async move {

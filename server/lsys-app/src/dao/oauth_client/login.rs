@@ -1,7 +1,7 @@
 use lsys_access::dao::AccessError;
 use lsys_core::db::{Insert, QueryBuilderExt, TableMeta, Update};
 use lsys_core::fluent_message;
-use lsys_core::utils::{now_time, rand_str, RandType};
+use lsys_core::utils::{RandType, now_time, rand_str};
 use serde::{Deserialize, Serialize};
 
 use crate::dao::oauth_client::access::AccessOAuthCodeData;
@@ -10,8 +10,7 @@ use crate::dao::session::RestAuthData;
 use super::AppOAuthClient;
 use crate::dao::{AppError, AppResult};
 use crate::model::{
-    AppModel, AppOAuthClientAccessModel,
-    AppOAuthClientRefreshTokenModel,
+    AppModel, AppOAuthClientAccessModel, AppOAuthClientRefreshTokenModel,
     AppOAuthClientRefreshTokenStatus, AppRequestType,
 };
 
@@ -123,10 +122,13 @@ impl AppOAuthClient {
         let add_time = now_time().unwrap_or_default();
         let time_out = add_time + self.refresh_time;
         let source_code = code.to_owned();
-        if let Err(e) = Insert::<_,AppOAuthClientRefreshTokenModel>::new()
+        if let Err(e) = Insert::<_, AppOAuthClientRefreshTokenModel>::new()
             .set(AppOAuthClientRefreshTokenModel::APP_ID, app.id)
             .set(AppOAuthClientRefreshTokenModel::TIME_OUT, time_out)
-            .set(AppOAuthClientRefreshTokenModel::REFRESH_TOKEN_DATA, &refresh_token_data)
+            .set(
+                AppOAuthClientRefreshTokenModel::REFRESH_TOKEN_DATA,
+                &refresh_token_data,
+            )
             .set(AppOAuthClientRefreshTokenModel::SOURCE_CODE, source_code)
             .set(AppOAuthClientRefreshTokenModel::CODE_DATA, &code_data_str)
             .set(AppOAuthClientRefreshTokenModel::STATUS, status)
@@ -137,10 +139,16 @@ impl AppOAuthClient {
             db.rollback().await?;
             return Err(e)?;
         };
-        if let Err(e) = Insert::<_,AppOAuthClientAccessModel>::new()
+        if let Err(e) = Insert::<_, AppOAuthClientAccessModel>::new()
             .set(AppOAuthClientAccessModel::APP_ID, app.id)
-            .set(AppOAuthClientAccessModel::ACCESS_TOKEN_DATA, &session_data.session().token_data)
-            .set(AppOAuthClientAccessModel::REFRESH_TOKEN_DATA, &refresh_token_data)
+            .set(
+                AppOAuthClientAccessModel::ACCESS_TOKEN_DATA,
+                &session_data.session().token_data,
+            )
+            .set(
+                AppOAuthClientAccessModel::REFRESH_TOKEN_DATA,
+                &refresh_token_data,
+            )
             .set(AppOAuthClientAccessModel::ADD_TIME, add_time)
             .execute(&mut *db)
             .await
@@ -158,13 +166,16 @@ impl AppOAuthClient {
     pub async fn clear_refresh_token(&self, app: &AppModel, refresh_token: &str) -> AppResult<()> {
         let status = AppOAuthClientRefreshTokenStatus::Delete as i8;
         let delete_time = now_time().unwrap_or_default();
-        Update::<_,AppOAuthClientRefreshTokenModel>::new()
+        Update::<_, AppOAuthClientRefreshTokenModel>::new()
             .set(AppOAuthClientRefreshTokenModel::STATUS, status)
             .set(AppOAuthClientRefreshTokenModel::DELETE_TIME, delete_time)
             .execute(&self.db, |qb| {
-                qb.push_where().field_eq("app_id", app.id)
-                    .push_and().field_eq("refresh_token_data", refresh_token.to_owned())
-                    .push_and().field_eq("status", AppOAuthClientRefreshTokenStatus::Init as i8);
+                qb.push_where()
+                    .field_eq("app_id", app.id)
+                    .push_and()
+                    .field_eq("refresh_token_data", refresh_token.to_owned())
+                    .push_and()
+                    .field_eq("status", AppOAuthClientRefreshTokenStatus::Init as i8);
             })
             .await?;
         let mut start_id = 0;
@@ -284,10 +295,16 @@ impl AppOAuthClient {
             .await?;
         let refresh_token_data = refresh_token.to_owned();
         let add_time = now_time().unwrap_or_default();
-        Insert::<_,AppOAuthClientAccessModel>::new()
+        Insert::<_, AppOAuthClientAccessModel>::new()
             .set(AppOAuthClientAccessModel::APP_ID, app.id)
-            .set(AppOAuthClientAccessModel::ACCESS_TOKEN_DATA, session_data.session().token_data.clone())
-            .set(AppOAuthClientAccessModel::REFRESH_TOKEN_DATA, refresh_token_data)
+            .set(
+                AppOAuthClientAccessModel::ACCESS_TOKEN_DATA,
+                session_data.session().token_data.clone(),
+            )
+            .set(
+                AppOAuthClientAccessModel::REFRESH_TOKEN_DATA,
+                refresh_token_data,
+            )
             .set(AppOAuthClientAccessModel::ADD_TIME, add_time)
             .execute(&self.db)
             .await?;

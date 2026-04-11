@@ -1,7 +1,7 @@
 use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
-use crate::dao::access::api::system::admin::CheckAdminFileManage;
 use crate::dao::access::RbacAccessCheckEnv;
-use lsys_access::dao::{AccessSession, AccessSessionData};
+use crate::dao::access::api::system::admin::CheckAdminFileManage;
+use lsys_access::dao::AccessSession;
 use serde::Deserialize;
 use serde_json::json;
 
@@ -41,13 +41,12 @@ pub async fn admin_export_submit(
         .web_files
         .export_task
         .submit(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             0,           // app_id=0 → 系统级任务
             0,           // app_user_id=0 → 系统
-            0,           // user_id=0 → 系统
-            add_user_id, // add_user_id → 实际操作的管理员
+            add_user_id, // user_id → 实际操作的管理员
             &param.export_type,
-            &params,
-            Some(auth_data.session_body()),
+            params,
             Some(&req_dao.req_env),
         )
         .await?;

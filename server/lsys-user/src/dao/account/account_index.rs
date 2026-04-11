@@ -1,11 +1,11 @@
 use crate::model::{AccountIndexCat, AccountIndexModel, AccountIndexStatus, AccountStatus};
 use config::Map;
-use lsys_core::utils::{now_time, string_clear, StringClear};
+use lsys_core::utils::{StringClear, now_time, string_clear};
 
 use super::AccountResult;
 use lsys_core::db::{
-    BatchInsert, CursorPageData, CursorPageParam, Insert, QueryBuilderExt, TableMeta,
-    Update, OptionTxExecutor
+    BatchInsert, CursorPageData, CursorPageParam, Insert, OptionTxExecutor, QueryBuilderExt,
+    TableMeta, Update,
 };
 use sqlx::{Acquire, MySql, Pool, QueryBuilder, Transaction};
 pub struct AccountIndex {
@@ -35,14 +35,14 @@ impl AccountIndex {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let tmp = Insert::<_,AccountIndexModel>::new()
+        let tmp = Insert::<_, AccountIndexModel>::new()
             .set(AccountIndexModel::INDEX_CAT, index_cat)
             .set(AccountIndexModel::INDEX_DATA, &index_data)
             .set(AccountIndexModel::ACCOUNT_ID, account_id)
             .set(AccountIndexModel::STATUS, status)
             .set(AccountIndexModel::CHANGE_TIME, time)
             .execute_update(
-                Update::<_,AccountIndexModel>::new()
+                Update::<_, AccountIndexModel>::new()
                     .set(AccountIndexModel::STATUS, status)
                     .set(AccountIndexModel::CHANGE_TIME, time),
                 &mut *db,
@@ -71,11 +71,16 @@ impl AccountIndex {
         };
         if addid > 0 {
             let del_status = AccountIndexStatus::Delete as i8;
-            let tmp = Update::<_,AccountIndexModel>::new()
+            let tmp = Update::<_, AccountIndexModel>::new()
                 .set(AccountIndexModel::STATUS, del_status)
                 .set(AccountIndexModel::CHANGE_TIME, time)
                 .execute(&mut *db, |qb| {
-                    qb.push_where().field_eq("account_id", account_id).push_and().field_eq("index_cat", index_cat).push_and().field_ne("id", addid);
+                    qb.push_where()
+                        .field_eq("account_id", account_id)
+                        .push_and()
+                        .field_eq("index_cat", index_cat)
+                        .push_and()
+                        .field_ne("id", addid);
                 })
                 .await;
             if let Err(ie) = tmp {
@@ -100,10 +105,10 @@ impl AccountIndex {
         let index_cat = cat as u8;
         let status = AccountIndexStatus::Enable as i8;
         let tmp_data = index_data.iter().map(|e| e.to_string()).collect::<Vec<_>>();
-        let mut batch = BatchInsert::<_,AccountIndexModel>::with_capacity(tmp_data.len());
+        let mut batch = BatchInsert::<_, AccountIndexModel>::with_capacity(tmp_data.len());
         for t in tmp_data.iter() {
             batch = batch.push(
-                Insert::<_,AccountIndexModel>::new()
+                Insert::<_, AccountIndexModel>::new()
                     .set(AccountIndexModel::INDEX_CAT, index_cat)
                     .set(AccountIndexModel::INDEX_DATA, t)
                     .set(AccountIndexModel::ACCOUNT_ID, account_id)
@@ -113,7 +118,7 @@ impl AccountIndex {
         }
         batch
             .execute_update(
-                Update::<_,AccountIndexModel>::new()
+                Update::<_, AccountIndexModel>::new()
                     .set(AccountIndexModel::STATUS, status)
                     .set(AccountIndexModel::CHANGE_TIME, time),
                 OptionTxExecutor::new(transaction, &self.db),
@@ -133,7 +138,7 @@ impl AccountIndex {
         }
         let index_cat = cat as u8;
         let time = now_time()?;
-        let res = Update::<_,AccountIndexModel>::new()
+        let res = Update::<_, AccountIndexModel>::new()
             .set(AccountIndexModel::STATUS, AccountIndexStatus::Delete as i8)
             .set(AccountIndexModel::CHANGE_TIME, time)
             .execute(OptionTxExecutor::new(transaction, &self.db), |qb| {
@@ -152,11 +157,14 @@ impl AccountIndex {
     ) -> AccountResult<u64> {
         let index_cat = cat as u8;
         let time = now_time()?;
-        let res = Update::<_,AccountIndexModel>::new()
+        let res = Update::<_, AccountIndexModel>::new()
             .set(AccountIndexModel::STATUS, AccountIndexStatus::Delete as i8)
             .set(AccountIndexModel::CHANGE_TIME, time)
             .execute(OptionTxExecutor::new(transaction, &self.db), |qb| {
-                qb.push_where().field_eq("index_cat", index_cat).push_and().field_eq("account_id", account_id);
+                qb.push_where()
+                    .field_eq("index_cat", index_cat)
+                    .push_and()
+                    .field_eq("account_id", account_id);
             })
             .await?;
         Ok(res.rows_affected())
@@ -167,7 +175,7 @@ impl AccountIndex {
         transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
     ) -> AccountResult<u64> {
         let time = now_time()?;
-        let res = Update::<_,AccountIndexModel>::new()
+        let res = Update::<_, AccountIndexModel>::new()
             .set(AccountIndexModel::STATUS, AccountIndexStatus::Delete as i8)
             .set(AccountIndexModel::CHANGE_TIME, time)
             .execute(OptionTxExecutor::new(transaction, &self.db), |qb| {
@@ -209,9 +217,12 @@ impl AccountIndex {
                 "select distinct k.account_id,'' as cat_more FROM {} as k",
                 AccountIndexModel::table_name(),
             ));
-            qb.push_where().field_eq("k.status", AccountIndexStatus::Enable as i8);
-            qb.push_and().field_eq("k.index_cat", AccountIndexCat::AccountStatus as i8);
-            qb.push_and().field_in_string("k.index_data", &account_status_data);
+            qb.push_where()
+                .field_eq("k.status", AccountIndexStatus::Enable as i8);
+            qb.push_and()
+                .field_eq("k.index_cat", AccountIndexCat::AccountStatus as i8);
+            qb.push_and()
+                .field_in_string("k.index_data", &account_status_data);
             qb.push(" ");
         } else {
             let index_cat_data = param.iter().map(|e| *e as i8).collect::<Vec<_>>();
@@ -220,13 +231,19 @@ impl AccountIndex {
                 AccountIndexModel::table_name(),
                 AccountIndexModel::table_name(),
             ));
-            qb.push_where().field_eq("s.status", AccountIndexStatus::Enable as i8);
-            qb.push_and().field_eq("s.index_cat", AccountIndexCat::AccountStatus as i8);
-            qb.push_and().field_in_string("s.index_data", &account_status_data);
-            qb.push_and().field_eq("k.status", AccountIndexStatus::Enable as i8);
-            qb.push_and().field_like("k.index_data", format!("{}%", key_word));
+            qb.push_where()
+                .field_eq("s.status", AccountIndexStatus::Enable as i8);
+            qb.push_and()
+                .field_eq("s.index_cat", AccountIndexCat::AccountStatus as i8);
+            qb.push_and()
+                .field_in_string("s.index_data", &account_status_data);
+            qb.push_and()
+                .field_eq("k.status", AccountIndexStatus::Enable as i8);
+            qb.push_and()
+                .field_like("k.index_data", format!("{}%", key_word));
             if !index_cat_data.is_empty() {
-                qb.push_and().field_in_copied("k.index_cat", &index_cat_data);
+                qb.push_and()
+                    .field_in_copied("k.index_cat", &index_cat_data);
             }
             qb.push(" ");
         }
@@ -239,7 +256,8 @@ impl AccountIndex {
         qb.push(" group by k.account_id HAVING cat_more IS NOT NULL ");
         query_limit.push_order_by(&mut qb);
         query_limit.push_limit(&mut qb);
-        let mut res: Vec<(u64, String)> = qb.build_query_as::<(u64, String)>()
+        let mut res: Vec<(u64, String)> = qb
+            .build_query_as::<(u64, String)>()
             .fetch_all(&self.db)
             .await?;
         let next = query_limit.finalize(&mut res, |row, cursor| row.0 == *cursor, |row| row.0);
@@ -251,10 +269,11 @@ impl AccountIndex {
                     let mut tmp = item.split(':');
                     if let Some(cat) = tmp.next()
                         && let Ok(cat) = cat.parse::<i8>()
-                            && let Ok(cat) = AccountIndexCat::try_from(cat)
-                                && let Some(val) = tmp.next() {
-                                    cats.insert(cat, val.to_string());
-                                }
+                        && let Ok(cat) = AccountIndexCat::try_from(cat)
+                        && let Some(val) = tmp.next()
+                    {
+                        cats.insert(cat, val.to_string());
+                    }
                 }
                 AccountItem {
                     account_id: e.0,

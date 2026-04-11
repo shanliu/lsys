@@ -67,7 +67,9 @@ async fn reload_match_wrap<D: AccountLoginMeta>(
                     }
                     AccountError::Vaild(e) => UserAuthError::Vaild(e),
                     AccountError::MfaError(e) => UserAuthError::System(e.to_fluent_message()),
-                     AccountError::MfaNeed { .. } => UserAuthError::System(fluent_message!("need-mfa-valid")),
+                    AccountError::MfaNeed { .. } => {
+                        UserAuthError::System(fluent_message!("need-mfa-valid"))
+                    }
                 })
                 .map(|e| (e, D::login_timeout())),
         )

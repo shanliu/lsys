@@ -1,22 +1,22 @@
 use std::collections::HashMap;
 
 use reqwest::{
-    header::{HeaderMap, HeaderValue},
     Client, Method,
+    header::{HeaderMap, HeaderValue},
 };
 use serde_json::json;
 use tracing::debug;
 
 use crate::{
-    response_check, response_msg, sms_lib::phone_numbers_check, BranchSendNotifyResult,
-    SendNotifyItem, SendNotifyStatus, SendResultItem, SendStatus,
+    BranchSendNotifyResult, SendNotifyItem, SendNotifyStatus, SendResultItem, SendStatus,
+    response_check, response_msg, sms_lib::phone_numbers_check,
 };
 
 use base64::Engine;
 use chrono::{DateTime, Utc};
 use sha2::{Digest, Sha256};
 
-use super::{rand_str, BranchSendResult, SendError};
+use super::{BranchSendResult, SendError, rand_str};
 
 /// aliyun sms
 pub struct HwSms {}
@@ -114,7 +114,7 @@ impl HwSms {
         let mut hasher = Sha256::new();
         let sign_data = format!("{}{}{}", &rand_s, &formatted, &app_secret);
         hasher.update(sign_data.as_bytes());
-        let passdi =  base64::engine::general_purpose::STANDARD.encode(hasher.finalize());
+        let passdi = base64::engine::general_purpose::STANDARD.encode(hasher.finalize());
 
         let sign = format!(
             r#"UsernameToken Username="{}",PasswordDigest="{}",Nonce="{}",Created="{}""#,

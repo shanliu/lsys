@@ -27,7 +27,7 @@ pub async fn smser_ali_config_list(
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppSenderSmsConfig {
-                 res_user_id: auth_data.user_id(),
+                res_user_id: auth_data.user_id(),
             },
         )
         .await?;

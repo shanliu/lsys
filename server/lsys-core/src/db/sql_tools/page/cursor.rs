@@ -1,11 +1,11 @@
 use std::fmt::Display;
 
-#[cfg(feature = "db")]
-use sqlx::QueryBuilder;
 #[cfg(feature = "db-mysql")]
 use sqlx::MySql;
 #[cfg(feature = "db-postgres")]
 use sqlx::Postgres;
+#[cfg(feature = "db")]
+use sqlx::QueryBuilder;
 #[cfg(feature = "db-sqlite")]
 use sqlx::Sqlite;
 
@@ -152,7 +152,8 @@ impl<'a, 'b, C: CursorValue> CursorPageQuery<'a, 'b, C> {
     {
         let mut has_first = false;
         if let Some(cursor) = &self.param.cursor
-            && !rows.is_empty() && filter_first(&rows[0], cursor)
+            && !rows.is_empty()
+            && filter_first(&rows[0], cursor)
         {
             rows.remove(0);
             has_first = true;
@@ -322,19 +323,18 @@ impl<'a, 'b, C: CursorValue> CursorPageQuery<'a, 'b, C> {
             return;
         };
 
-        let op =
-            |sort: CursorPageSort, dir: CursorPageDir, eq: bool| -> &'static str {
-                match (sort, dir, eq) {
-                    (CursorPageSort::Desc, CursorPageDir::Next, false) => "<",
-                    (CursorPageSort::Desc, CursorPageDir::Next, true) => "<=",
-                    (CursorPageSort::Desc, CursorPageDir::Prev, false) => ">",
-                    (CursorPageSort::Desc, CursorPageDir::Prev, true) => ">=",
-                    (CursorPageSort::Asc, CursorPageDir::Next, false) => ">",
-                    (CursorPageSort::Asc, CursorPageDir::Next, true) => ">=",
-                    (CursorPageSort::Asc, CursorPageDir::Prev, false) => "<",
-                    (CursorPageSort::Asc, CursorPageDir::Prev, true) => "<=",
-                }
-            };
+        let op = |sort: CursorPageSort, dir: CursorPageDir, eq: bool| -> &'static str {
+            match (sort, dir, eq) {
+                (CursorPageSort::Desc, CursorPageDir::Next, false) => "<",
+                (CursorPageSort::Desc, CursorPageDir::Next, true) => "<=",
+                (CursorPageSort::Desc, CursorPageDir::Prev, false) => ">",
+                (CursorPageSort::Desc, CursorPageDir::Prev, true) => ">=",
+                (CursorPageSort::Asc, CursorPageDir::Next, false) => ">",
+                (CursorPageSort::Asc, CursorPageDir::Next, true) => ">=",
+                (CursorPageSort::Asc, CursorPageDir::Prev, false) => "<",
+                (CursorPageSort::Asc, CursorPageDir::Prev, true) => "<=",
+            }
+        };
 
         let extra_sorts = self.param.config.cursor_extra();
         let pk_eq = match self.param.limit {
@@ -366,11 +366,7 @@ impl<'a, 'b, C: CursorValue> CursorPageQuery<'a, 'b, C> {
                 }
                 // 第 i 列的比较条件
                 let (ref col_i, sort_i) = extra_sorts[i];
-                qb.push(format!(
-                    "{} {} ",
-                    col_i,
-                    op(sort_i, self.param.dir, false)
-                ));
+                qb.push(format!("{} {} ", col_i, op(sort_i, self.param.dir, false)));
                 c.push_extra_bind(i, qb);
                 qb.push(")");
             }

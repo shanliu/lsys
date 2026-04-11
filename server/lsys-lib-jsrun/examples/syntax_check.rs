@@ -16,7 +16,10 @@ fn main() {
     let valid_scripts = [
         ("simple expression", "1 + 2;"),
         ("variable declaration", "let x = 42; const y = 'hello';"),
-        ("function definition", "function greet(name) { return 'hi ' + name; }"),
+        (
+            "function definition",
+            "function greet(name) { return 'hi ' + name; }",
+        ),
         ("arrow function", "const add = (a, b) => a + b;"),
         (
             "async / await",

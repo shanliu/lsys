@@ -1,15 +1,15 @@
-use crate::common::{JsonData, JsonPageData};
 use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::LimitParam;
 use crate::common::ToCursorPageParam;
 use crate::common::UserAuthQueryDao;
+use crate::common::{JsonData, JsonPageData};
 use lsys_access::dao::AccessSession;
 use lsys_core::api_utils::{PageCursorValue, PageTotalRowValue};
 use lsys_core::db::{CursorPageSort, TotalParam};
 use lsys_rbac::dao::AuditDataParam;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 #[derive(Debug, Deserialize)]
 pub struct SystemAuditResParam {
     #[serde(deserialize_with = "crate::common::deserialize_u64")]
@@ -95,7 +95,7 @@ pub async fn system_audit_data(
         })
         .collect::<Vec<Value>>();
     let cursor = PageCursorValue::from(&res.1);
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::cursor(out_data, cursor, count),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::cursor(
+        out_data, cursor, count,
+    ))))
 }

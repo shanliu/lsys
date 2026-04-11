@@ -2,14 +2,14 @@
 
 use crate::common::LimitParam;
 use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
-use crate::dao::access::api::system::user::{CheckUserFileUpload, CheckUserFileView};
 use crate::dao::access::RbacAccessCheckEnv;
+use crate::dao::access::api::system::user::{CheckUserFileUpload, CheckUserFileView};
 use lsys_access::dao::AccessSession;
 use lsys_core::api_utils::{JsonPageData, PageCursorValue, PageTotalRowValue};
 use lsys_core::db::{CursorPageSort, TotalParam};
-use lsys_files::common::FileError;
-use lsys_files::dao::{FileDataListParam, FileListAttrParam};
-use lsys_files::model::{FileModel, FileUserModel};
+use lsys_file::common::FileError;
+use lsys_file::dao::{FileDataListParam, FileListAttrParam};
+use lsys_file::model::{FileModel, FileUserModel};
 use serde::Deserialize;
 use serde_json::json;
 
@@ -95,7 +95,6 @@ pub async fn file_list(
         file_md5: param.file_md5.as_deref(),
         status: param.status,
         tag_names: tag_refs.as_deref(),
-        tag_any_names: None,
     };
 
     let need_full_tag = param.attr_tag.unwrap_or(false);
@@ -139,7 +138,7 @@ pub async fn file_list(
 
     // 批量查询标签计数和第一个标签（仅在不需要完整标签数据时）
     let mut tag_count_map: std::collections::HashMap<u64, i64> = std::collections::HashMap::new();
-    let mut first_tag_map: std::collections::HashMap<u64, lsys_files::model::FileTagModel> =
+    let mut first_tag_map: std::collections::HashMap<u64, lsys_file::model::FileTagModel> =
         std::collections::HashMap::new();
     if !need_full_tag && !data.is_empty() {
         let file_ids: Vec<u64> = data.iter().map(|item| item.item.file_id).collect();
@@ -168,9 +167,10 @@ pub async fn file_list(
                 .data_dao()
                 .list_tags_by_file(fid, user_id, app.id)
                 .await
-                && let Some(first) = tags.into_iter().next() {
-                    first_tag_map.insert(fid, first);
-                }
+                && let Some(first) = tags.into_iter().next()
+            {
+                first_tag_map.insert(fid, first);
+            }
         }
     }
 
@@ -262,9 +262,9 @@ pub async fn file_list(
     };
 
     let cursor = PageCursorValue::from(&page_data);
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::cursor(items, cursor, total),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::cursor(
+        items, cursor, total,
+    ))))
 }
 
 /// 查询当前用户某应用下的标签名列表（去重，支持前缀过滤）

@@ -5,14 +5,14 @@ use crate::{
         RbacRoleModel, RbacRoleResRange,
     },
 };
-use lsys_core::db::{BatchInsert, Insert, QueryBuilderExt, TableMeta, Update};
-use lsys_core::utils::{now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT};
 use lsys_core::db::OptionTxExecutor;
+use lsys_core::db::{BatchInsert, Insert, QueryBuilderExt, TableMeta, Update};
 use lsys_core::fluent_message;
+use lsys_core::utils::{RequestEnv, STRING_CLEAR_FORMAT, StringClear, now_time, string_clear};
 use serde::Serialize;
 use sqlx::{FromRow, MySql, QueryBuilder, Row, Transaction};
 
-use super::{logger::LogRolePerm, RbacRole};
+use super::{RbacRole, logger::LogRolePerm};
 use sqlx::Acquire;
 
 //角色对应授权的实现
@@ -90,7 +90,10 @@ impl RbacRole {
             "select op_id,res_type from {}",
             RbacOpResModel::table_name(),
         ));
-        qb.push_where().field_eq("status", RbacOpResStatus::Enable as i8).push_and().push("((");
+        qb.push_where()
+            .field_eq("status", RbacOpResStatus::Enable as i8)
+            .push_and()
+            .push("((");
         for (i, e) in perm_vec.iter().enumerate() {
             if i > 0 {
                 qb.push(") or (");
@@ -106,9 +109,10 @@ impl RbacRole {
             qb.push_and().field_eq("op_id", e.op.id);
         }
         qb.push("))");
-        let op_res = qb.build_query_as::<(u64, String)>()
-        .fetch_all(&self.db)
-        .await?;
+        let op_res = qb
+            .build_query_as::<(u64, String)>()
+            .fetch_all(&self.db)
+            .await?;
 
         for perm in perm_vec {
             if !op_res
@@ -136,9 +140,10 @@ impl RbacRole {
             qb.push_and().field_eq("op_id", perm.op.id);
         }
         qb.push("))");
-        let perm_res = qb.build_query_as::<(u64, u64, u64)>()
-        .fetch_all(&self.db)
-        .await?;
+        let perm_res = qb
+            .build_query_as::<(u64, u64, u64)>()
+            .fetch_all(&self.db)
+            .await?;
 
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
@@ -146,12 +151,12 @@ impl RbacRole {
         };
 
         let nowtime = now_time().unwrap_or_default();
-        let mut batch = BatchInsert::<_,RbacPermModel>::new();
+        let mut batch = BatchInsert::<_, RbacPermModel>::new();
         for RolePerm { op, res } in perm_vec {
             let mut is_updata = false;
             for (itemid, res_id, op_id) in perm_res.iter() {
                 if *res_id == res.id && *op_id == op.id {
-                    if let Err(err) = Update::<_,RbacPermModel>::new()
+                    if let Err(err) = Update::<_, RbacPermModel>::new()
                         .set(RbacPermModel::ROLE_ID, role.id)
                         .set(RbacPermModel::CHANGE_TIME, nowtime)
                         .set(RbacPermModel::CHANGE_USER_ID, add_user_id)
@@ -169,7 +174,7 @@ impl RbacRole {
             }
             if !is_updata {
                 batch = batch.push(
-                    Insert::<_,RbacPermModel>::new()
+                    Insert::<_, RbacPermModel>::new()
                         .set(RbacPermModel::OP_ID, op.id)
                         .set(RbacPermModel::RES_ID, res.id)
                         .set(RbacPermModel::ROLE_ID, role.id)
@@ -180,10 +185,11 @@ impl RbacRole {
             }
         }
         if !batch.is_empty()
-            && let Err(err) = batch.execute(&mut *db).await {
-                db.rollback().await?;
-                return Err(err.into());
-            }
+            && let Err(err) = batch.execute(&mut *db).await
+        {
+            db.rollback().await?;
+            return Err(err.into());
+        }
         db.commit().await?;
 
         let res_op_data = perm_vec
@@ -226,24 +232,26 @@ impl RbacRole {
             return Ok(0);
         }
         let time = now_time().unwrap_or_default();
-        
-        let res = Update::<_,RbacPermModel>::new()
+
+        let res = Update::<_, RbacPermModel>::new()
             .set(RbacPermModel::CHANGE_USER_ID, del_user_id)
             .set(RbacPermModel::CHANGE_TIME, time)
             .set(RbacPermModel::STATUS, RbacPermStatus::Delete as i8)
-            .execute(
-                OptionTxExecutor::new(transaction, &self.db),
-                |qb| {
-                    qb.push_where().field_eq("role_id", role.id).push_and().push("(");
-                    for (idx, perm) in perm_vec.iter().enumerate() {
-                        if idx > 0 {
-                            qb.push(") OR (");
-                        }
-                        qb.field_eq("res_id", perm.res.id).push_and().field_eq("op_id", perm.op.id);
+            .execute(OptionTxExecutor::new(transaction, &self.db), |qb| {
+                qb.push_where()
+                    .field_eq("role_id", role.id)
+                    .push_and()
+                    .push("(");
+                for (idx, perm) in perm_vec.iter().enumerate() {
+                    if idx > 0 {
+                        qb.push(") OR (");
                     }
-                    qb.push(")");
-                },
-            )
+                    qb.field_eq("res_id", perm.res.id)
+                        .push_and()
+                        .field_eq("op_id", perm.op.id);
+                }
+                qb.push(")");
+            })
             .await?;
 
         let res_op_data = perm_vec
@@ -320,20 +328,23 @@ impl RbacRole {
             ));
             qb.push_where().field_eq("perm.res_id", res.id);
             qb.push_and().field_in_copied("perm.op_id", op_data);
-            qb.push_and().field_gt("perm.id", perm_id).push(" order by perm.id asc limit 100 ");
-            let role_data=qb.build()
-            .try_map(
-                |row: sqlx::mysql::MySqlRow| match RbacRoleModel::from_row(&row) {
-                    Ok(role) => {
-                        let op_id = row.try_get::<u64, &str>("op_id").unwrap_or_default();
-                        perm_id=row.try_get::<u64, &str>("perm_id").unwrap_or(u64::MAX);
-                        Ok((op_id,role))
-                    }
-                    Err(err) => Err(err),
-                },
-            )
-            .fetch_all(&self.db)
-            .await?;
+            qb.push_and()
+                .field_gt("perm.id", perm_id)
+                .push(" order by perm.id asc limit 100 ");
+            let role_data = qb
+                .build()
+                .try_map(
+                    |row: sqlx::mysql::MySqlRow| match RbacRoleModel::from_row(&row) {
+                        Ok(role) => {
+                            let op_id = row.try_get::<u64, &str>("op_id").unwrap_or_default();
+                            perm_id = row.try_get::<u64, &str>("perm_id").unwrap_or(u64::MAX);
+                            Ok((op_id, role))
+                        }
+                        Err(err) => Err(err),
+                    },
+                )
+                .fetch_all(&self.db)
+                .await?;
             if role_data.is_empty() {
                 break;
             }
@@ -419,7 +430,7 @@ impl RbacRole {
         for (op_id, role) in role_data {
             let role_id = role.id;
             let op_id_val = *op_id;
-            let tmp = Update::<_,RbacPermModel>::new()
+            let tmp = Update::<_, RbacPermModel>::new()
                 .set(RbacPermModel::STATUS, status)
                 .set(RbacPermModel::CHANGE_USER_ID, delete_user_id)
                 .set(RbacPermModel::CHANGE_TIME, time)

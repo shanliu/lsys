@@ -28,7 +28,7 @@ use logger::LogBarCodeParseRecord;
 use lsys_core::db::OffsetPageParam;
 use lsys_core::db::{BatchInsert, Insert, QueryBuilderExt, TableMeta, Update, WhereClause};
 use lsys_core::remote_notify::RemoteNotify;
-use lsys_core::utils::{now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT};
+use lsys_core::utils::{RequestEnv, STRING_CLEAR_FORMAT, StringClear, now_time, string_clear};
 use lsys_core::valid_key;
 use lsys_core::valid_param::{
     ValidColor, ValidContains, ValidNumber, ValidParam, ValidParamCheck, ValidStrlen,
@@ -112,12 +112,10 @@ impl BarCodeDao {
 impl BarCodeDao {
     pub async fn find_by_create_config_id(&self, id: &u64) -> BarCodeResult<BarcodeCreateModel> {
         use lsys_core::db::utils::Fetch;
-        Ok(
-            Fetch::<MySql, BarcodeCreateModel>::one(&self.db, |qb| {
-                qb.field_eq("id", *id);
-            })
-            .await?,
-        )
+        Ok(Fetch::<MySql, BarcodeCreateModel>::one(&self.db, |qb| {
+            qb.field_eq("id", *id);
+        })
+        .await?)
     }
 
     //根据配置,创建一个二维码
@@ -172,7 +170,13 @@ impl BarCodeDao {
         ));
         qb.push_where().field_eq("app_id", app_id);
         qb.push_and().field_eq("file_hash", file_hash);
-        qb.push_and().field_in_copied("status", &[BarcodeParseStatus::Succ as i8, BarcodeParseStatus::Fail as i8]);
+        qb.push_and().field_in_copied(
+            "status",
+            &[
+                BarcodeParseStatus::Succ as i8,
+                BarcodeParseStatus::Fail as i8,
+            ],
+        );
         qb.build_query_as::<BarcodeParseModel>()
             .fetch_one(&self.db)
             .await
@@ -507,12 +511,9 @@ impl BarCodeDao {
             .set(BarcodeCreateModel::IMAGE_COLOR, image_color)
             .set(BarcodeCreateModel::STATUS, status)
             .set(BarcodeCreateModel::IMAGE_BACKGROUND, image_background)
-            .execute(
-                &self.db,
-                |qb| {
-                    qb.push_where().field_eq("id", create_config.id);
-                },
-            )
+            .execute(&self.db, |qb| {
+                qb.push_where().field_eq("id", create_config.id);
+            })
             .await
             .map(|e| e.rows_affected())?;
 
@@ -553,12 +554,9 @@ impl BarCodeDao {
                 BarcodeCreateStatus::Delete as i8,
             )
             .set(BarcodeCreateModel::CHANGE_TIME, time)
-            .execute(
-                &self.db,
-                |qb| {
-                    qb.push_where().field_eq("id", create_config.id);
-                },
-            )
+            .execute(&self.db, |qb| {
+                qb.push_where().field_eq("id", create_config.id);
+            })
             .await?;
 
         self.logger
@@ -592,7 +590,13 @@ impl BarCodeDao {
         barcode_type: Option<&str>,
     ) -> bool {
         wc.and().field_eq("user_id", user_id);
-        wc.and().field_in_copied("status", &[BarcodeCreateStatus::EnablePrivate as i8, BarcodeCreateStatus::EnablePublic as i8]);
+        wc.and().field_in_copied(
+            "status",
+            &[
+                BarcodeCreateStatus::EnablePrivate as i8,
+                BarcodeCreateStatus::EnablePublic as i8,
+            ],
+        );
         if let Some(s) = app_id {
             wc.and().field_eq("app_id", s);
         }
@@ -628,7 +632,8 @@ impl BarCodeDao {
         }
         wc.builder().push(" order by id desc");
         page.push_limit(wc.builder());
-        Ok(wc.builder()
+        Ok(wc
+            .builder()
             .build_query_as::<BarcodeCreateModel>()
             .fetch_all(&self.db)
             .await?)
@@ -650,18 +655,20 @@ impl BarCodeDao {
         if !self.list_create_config_where(&mut wc, user_id, id, app_id, barcode_type) {
             return Ok(0);
         }
-        let res = wc.builder().build_query_scalar::<i64>().fetch_one(&self.db).await?;
+        let res = wc
+            .builder()
+            .build_query_scalar::<i64>()
+            .fetch_one(&self.db)
+            .await?;
         Ok(res)
     }
 
     pub async fn find_by_parse_record_id(&self, id: &u64) -> BarCodeResult<BarcodeParseModel> {
         use lsys_core::db::utils::Fetch;
-        Ok(
-            Fetch::<MySql, BarcodeParseModel>::one(&self.db, |qb| {
-                qb.field_eq("id", *id);
-            })
-            .await?,
-        )
+        Ok(Fetch::<MySql, BarcodeParseModel>::one(&self.db, |qb| {
+            qb.field_eq("id", *id);
+        })
+        .await?)
     }
 
     fn list_parse_record_where(
@@ -672,7 +679,13 @@ impl BarCodeDao {
         barcode_type: Option<&str>,
     ) -> bool {
         wc.and().field_eq("user_id", user_id);
-        wc.and().field_in_copied("status", &[BarcodeParseStatus::Succ as i8, BarcodeParseStatus::Fail as i8]);
+        wc.and().field_in_copied(
+            "status",
+            &[
+                BarcodeParseStatus::Succ as i8,
+                BarcodeParseStatus::Fail as i8,
+            ],
+        );
         if let Some(s) = app_id {
             wc.and().field_eq("app_id", s);
         }
@@ -704,7 +717,8 @@ impl BarCodeDao {
         }
         wc.builder().push(" order by id desc");
         page.push_limit(wc.builder());
-        Ok(wc.builder()
+        Ok(wc
+            .builder()
             .build_query_as::<BarcodeParseModel>()
             .fetch_all(&self.db)
             .await?
@@ -728,7 +742,11 @@ impl BarCodeDao {
         if !self.list_parse_record_where(&mut wc, user_id, app_id, barcode_type) {
             return Ok(0);
         }
-        let res = wc.builder().build_query_scalar::<i64>().fetch_one(&self.db).await?;
+        let res = wc
+            .builder()
+            .build_query_scalar::<i64>()
+            .fetch_one(&self.db)
+            .await?;
         Ok(res)
     }
 
@@ -743,12 +761,9 @@ impl BarCodeDao {
         Update::<_, BarcodeParseModel>::new()
             .set(BarcodeParseModel::STATUS, BarcodeParseStatus::Delete as i8)
             .set(BarcodeParseModel::CHANGE_TIME, time)
-            .execute(
-                &self.db,
-                |qb| {
-                    qb.push_where().field_eq("id", parse_record.id);
-                },
-            )
+            .execute(&self.db, |qb| {
+                qb.push_where().field_eq("id", parse_record.id);
+            })
             .await?;
         self.logger
             .add(

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use lsys_core::fluent_message;
-use lsys_core::utils::{rand_str, RandType};
+use lsys_core::utils::{RandType, rand_str};
 use lsys_web::{
     common::{JsonError, JsonResponse, JsonResult, RequestDao},
     dao::{OauthCallbackParam, OauthLogin, OauthLoginData, OauthLoginParam, WebDao},

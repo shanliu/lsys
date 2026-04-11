@@ -12,11 +12,11 @@ use tantivy::tokenizer::WhitespaceTokenizer;
 use tantivy::tokenizer::PreTokenizedString;
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::utils::key_word_clear;
 use super::AreaError;
+use super::utils::key_word_clear;
 use tantivy::schema::*;
-use tantivy::{collector::TopDocs, IndexWriter};
-use tantivy::{doc, Index};
+use tantivy::{Index, doc};
+use tantivy::{IndexWriter, collector::TopDocs};
 
 #[derive(Debug)]
 pub struct AreaCodeItem {
@@ -334,11 +334,12 @@ impl<AP: AreaCodeProvider> AreaCode<AP> {
             .flat_map(|(source, doc_address)| {
                 if let Ok(retrieved_doc) = searcher.doc::<TantivyDocument>(doc_address)
                     && let Some(code) = retrieved_doc.get_first(self.tantivy_code_field)
-                        && let Some(code) = code.as_str()
-                            && let Ok(item) = self.find(code)
-                                && !item.is_empty() {
-                                    return Some(AreaSearchItem { item, source });
-                                };
+                    && let Some(code) = code.as_str()
+                    && let Ok(item) = self.find(code)
+                    && !item.is_empty()
+                {
+                    return Some(AreaSearchItem { item, source });
+                };
                 None
             })
             .collect();

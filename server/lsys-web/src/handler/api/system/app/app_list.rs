@@ -1,11 +1,11 @@
-use crate::common::{JsonData, JsonPageData};
 use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::PageParam;
 use crate::common::ToOffsetPageParam;
 use crate::common::UserAuthQueryDao;
-use crate::dao::access::api::system::admin::CheckAdminApp;
+use crate::common::{JsonData, JsonPageData};
 use crate::dao::access::RbacAccessCheckEnv;
+use crate::dao::access::api::system::admin::CheckAdminApp;
 use lsys_access::dao::AccessSession;
 use lsys_app::dao::AppAttrParam;
 use lsys_app::dao::AppRequestData;
@@ -185,12 +185,10 @@ pub async fn app_list(param: &ListParam, req_dao: &UserAuthQueryDao) -> JsonResu
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(
-            bind_vec_user_info_from_req!(req_dao, out, user_id, false),
-            count
-        )
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        bind_vec_user_info_from_req!(req_dao, out, user_id, false),
+        count,
+    ))))
 }
 
 #[derive(Deserialize)]
@@ -300,12 +298,10 @@ pub async fn sub_app_list(
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(
-            bind_vec_user_info_from_req!(req_dao, out, user_id, false),
-            count
-        )
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        bind_vec_user_info_from_req!(req_dao, out, user_id, false),
+        count,
+    ))))
 }
 
 #[derive(Deserialize)]
@@ -458,15 +454,13 @@ pub async fn request_list(
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(
-            bind_vec_user_info_from_req!(
-                req_dao,
-                out,
-                [request_user_id:"request_user_data",confirm_user_id:"confirm_user_data"],
-                false
-            ),
-            count
-        )
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        bind_vec_user_info_from_req!(
+            req_dao,
+            out,
+            [request_user_id:"request_user_data",confirm_user_id:"confirm_user_data"],
+            false
+        ),
+        count,
+    ))))
 }

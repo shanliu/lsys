@@ -2,9 +2,7 @@
 // 从而实现广播到其他多个主机,多个主机分别执行任务(并返回结果,可选)
 //目前应用
 // 多节点缓存清理:一个节点发出通知,多个节点同时清理对应缓存
-// 文档模块,多节点同步CLONE GIT :一个节点发出通知,多个节点同时执行git clone
 use std::collections::HashMap;
-
 
 use std::sync::Arc;
 
@@ -13,36 +11,36 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use snowflake::SnowflakeIdGenerator;
-use tokio::sync::{mpsc, Mutex, RwLock,};
+use tokio::sync::{Mutex, RwLock, mpsc};
 use tokio::time::Duration;
 
-use futures_util::StreamExt;
 use crate::app_core;
+use futures_util::StreamExt;
 
 use tracing::{debug, error, info, warn};
 
 use crate::app_core::AppCore;
 mod result;
-pub use result::*;
 use crate::fluents::IntoFluentMessage;
 use redis::AsyncCommands as _;
+pub use result::*;
 //发送消息
 #[derive(Serialize, Deserialize, Clone)]
 pub struct MsgSendBody {
-   pub  data: Value,
-   pub  id: i64,
-   pub msg_type: u8,
-   pub from_host: String,
-   pub target_host: Option<String>,
-   pub ignore_local: bool,
-   pub reply: bool,
+    pub data: Value,
+    pub id: i64,
+    pub msg_type: u8,
+    pub from_host: String,
+    pub target_host: Option<String>,
+    pub ignore_local: bool,
+    pub reply: bool,
 }
 //执行结果
 #[derive(Serialize, Deserialize, Clone)]
 pub struct MsgResultBody {
-    pub  data: Result<Option<Value>, String>,
-    pub  from_host: String,
-    pub  reply_id: i64,
+    pub data: Result<Option<Value>, String>,
+    pub from_host: String,
+    pub reply_id: i64,
 }
 
 //消息内容
@@ -53,7 +51,7 @@ pub enum MsgBody {
 }
 
 #[async_trait]
-pub trait RemoteTask:Sync+Send{
+pub trait RemoteTask: Sync + Send {
     fn msg_type(&self) -> u8;
     async fn run(&self, msg: MsgSendBody) -> Result<Option<Value>, String>;
 }
@@ -78,8 +76,9 @@ impl RemoteNotify {
             .unwrap_or_default()
             .to_string_lossy()
             .to_string();
-        let id_generator =
-            Mutex::new(crate::app_core::create_snowflake_id_generator(app_core.as_ref()));
+        let id_generator = Mutex::new(crate::app_core::create_snowflake_id_generator(
+            app_core.as_ref(),
+        ));
         Ok(Self {
             channel_name,
             app_core,
@@ -87,7 +86,7 @@ impl RemoteNotify {
             hostname,
             id_generator,
             callback: Mutex::new(HashMap::new()),
-            run_list:RwLock::new(vec![]),
+            run_list: RwLock::new(vec![]),
         })
     }
 }
@@ -108,21 +107,20 @@ pub struct ReplyWait {
 }
 
 impl RemoteNotify {
-   
     pub async fn call<T: Serialize>(
         &self,
-        msg_type: u8,//类型，外部定义，别重复了
-        data: T,//消息数据
-        target_host: Option<&str>,//执行的目标机器
-        local_exe_type: LocalExecType,//执行目标包含本机的执行方式
-        reply_wait: Option<ReplyWait>,//执行完是否等待结果
+        msg_type: u8,                  //类型，外部定义，别重复了
+        data: T,                       //消息数据
+        target_host: Option<&str>,     //执行的目标机器
+        local_exe_type: LocalExecType, //执行目标包含本机的执行方式
+        reply_wait: Option<ReplyWait>, //执行完是否等待结果
     ) -> Result<Vec<MsgResultBody>, RemoteNotifyError> {
         let mut out = vec![];
         if local_exe_type == LocalExecType::IgnoreLocal//本机忽略执行
             //执行目标仅为本机
             && match target_host {
-                Some(th) => self.hostname.as_str() == th, 
-                None => false,                  
+                Some(th) => self.hostname.as_str() == th,
+                None => false,
             }
         {
             //等于不做任何操作
@@ -134,7 +132,7 @@ impl RemoteNotify {
             msg_type,
             id: msg_id,
             from_host: self.hostname.clone(),
-            target_host: target_host.map(|e|e.to_owned()),
+            target_host: target_host.map(|e| e.to_owned()),
             ignore_local: match local_exe_type {
                 LocalExecType::RemoteExec => false,
                 LocalExecType::LocalExec | LocalExecType::IgnoreLocal => true,
@@ -147,24 +145,20 @@ impl RemoteNotify {
                 None => true,
             }
         {
-            match  serde_json::to_string(&MsgBody::Send(msg.to_owned())){
+            match serde_json::to_string(&MsgBody::Send(msg.to_owned())) {
                 Ok(send_msg) => {
-                    let mut redis = self
-                        .redis
-                        .get()
-                        .await?;
+                    let mut redis = self.redis.get().await?;
                     let res: Result<(), _> = redis.publish(self.channel_name, send_msg).await;
                     if let Err(err) = res {
                         warn!("notify redis clear cache fail :{}", err);
                         return Err(RemoteNotifyError::Redis(err));
                     };
-                },
+                }
                 Err(err) => {
                     warn!("create notify message fail :{}", err);
                     return Err(RemoteNotifyError::System(err.to_string()));
-                },
+                }
             };
-           
         }
         if local_exe_type==LocalExecType::LocalExec//本机直接执行
             && match &target_host {
@@ -262,7 +256,8 @@ impl RemoteNotify {
                         Some(thost) => *thost != self.hostname,
                         None => true,
                     }
-                {//该消息已被标记为本机忽略
+                {
+                    //该消息已被标记为本机忽略
                     info!("ignore target self msg :{}", send.data.to_string());
                     return Ok(());
                 }
@@ -280,28 +275,25 @@ impl RemoteNotify {
                                 reply_id,
                                 from_host: self.hostname.clone(),
                             };
-                            match serde_json::to_string(&MsgBody::Result(msg)){
+                            match serde_json::to_string(&MsgBody::Result(msg)) {
                                 Ok(send_msg) => {
-                                    let mut redis = self
-                                        .redis
-                                        .get()
-                                        .await
-                                        .map_err(|e| e.to_string())?;
-                                    let res: Result<(), _> = redis.publish(self.channel_name, send_msg).await;
+                                    let mut redis =
+                                        self.redis.get().await.map_err(|e| e.to_string())?;
+                                    let res: Result<(), _> =
+                                        redis.publish(self.channel_name, send_msg).await;
                                     if let Err(err) = res {
                                         warn!("reply exec to redis fail :{}", err);
                                     };
-                                },
+                                }
                                 Err(err) => {
                                     warn!("crate notify message fail :{}", err);
-                                },
+                                }
                             }
-                           
                         }
                         return Ok(());
                     }
                 }
-                Err(format!("msg type not suport:{}",send.data))
+                Err(format!("msg type not suport:{}", send.data))
             }
             MsgBody::Result(result) => {
                 //其他机器返回的执行结果消息
@@ -309,7 +301,7 @@ impl RemoteNotify {
                     if let Err(err) = tx.send(result).await {
                         info!("callback error :{}", err);
                     }
-                }else{
+                } else {
                     //等待的回调通道已经被超时删除
                     info!("callback is timeout,ignore:{:?}", result.data);
                 }
@@ -317,7 +309,7 @@ impl RemoteNotify {
             }
         }
     }
-    pub async fn push_run(&self,task:Box<dyn RemoteTask>){
+    pub async fn push_run(&self, task: Box<dyn RemoteTask>) {
         self.run_list.write().await.push(task);
     }
     pub async fn listen(&self) {
@@ -373,7 +365,10 @@ impl RemoteNotify {
                     }
                 }
                 Err(err) => {
-                    warn!("create remote notify listen client fail:{}", err.to_fluent_message().default_format());
+                    warn!(
+                        "create remote notify listen client fail:{}",
+                        err.to_fluent_message().default_format()
+                    );
                     tokio::time::sleep(Duration::from_secs(1)).await;
                 }
             }

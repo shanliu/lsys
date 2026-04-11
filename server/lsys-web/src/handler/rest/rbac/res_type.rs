@@ -62,9 +62,10 @@ pub async fn res_type_data(
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(bind_vec_user_info_from_req!(req_dao, rows, user_id), count),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        bind_vec_user_info_from_req!(req_dao, rows, user_id),
+        count,
+    ))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -205,12 +206,7 @@ pub async fn res_type_op_data(
         .web_rbac
         .rbac_dao
         .res
-        .res_type_op_data(
-            &res_param,
-            None,
-            true,
-            &param.page.to_offset_page_param(),
-        )
+        .res_type_op_data(&res_param, None, true, &param.page.to_offset_page_param())
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
@@ -248,7 +244,7 @@ pub async fn res_type_op_data(
             val
         })
         .collect::<Vec<_>>();
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(rows, count),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        rows, count,
+    ))))
 }

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use actix_http::StatusCode;
 use actix_web::web::Bytes;
-use actix_web::{post, HttpRequest, HttpResponse};
+use actix_web::{HttpRequest, HttpResponse, post};
 
 use lsys_web::lsys_app_sender::dao::{
     AliYunNotify, CloOpenNotify, EmayNotify, HwYunNotify, NetEaseNotify, TenYunNotify,

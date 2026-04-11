@@ -9,22 +9,45 @@ use std::sync::Arc;
 use lsys_core::db::{CursorConfig, CursorLimit, CursorPageDir, CursorPageParam, CursorPageSort};
 use lsys_user::dao::AccountDao;
 
+use crate::dao::access::RbacAccessCheckEnv;
+use crate::dao::access::api::system::user::CheckUserInfoEdit;
 use crate::dao::export_task::exporter::Exporter;
 use crate::dao::export_task::writer::CsvWriter;
-use crate::dao::WebError;
-use crate::model::ExportTaskModel;
+use crate::dao::{ExportTaskModel, WebExporter, WebResult};
 
 pub const EXPORT_TYPE_USER_LOGIN_HISTORY: &str = "user_login_history";
 pub struct UserLoginHistoryExporter {
     pub account_dao: Arc<AccountDao>,
+    pub web_rbac: Arc<crate::dao::WebRbac>,
 }
-impl Exporter for UserLoginHistoryExporter {
+
+#[async_trait::async_trait]
+impl WebExporter for UserLoginHistoryExporter {
+    async fn check(
+        &self,
+        check_env: &RbacAccessCheckEnv<'_>,
+        param: &crate::dao::ExportCheckParam<'_>,
+    ) -> WebResult<()> {
+        self.web_rbac
+            .check(
+                check_env,
+                &CheckUserInfoEdit {
+                    res_user_id: param.user_id,
+                },
+            )
+            .await?;
+        Ok(())
+    }
+}
+
+impl Exporter<crate::dao::WebError> for UserLoginHistoryExporter {
     fn export<'a>(
         &'a self,
         record: ExportTaskModel,
         params: serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<PathBuf, WebError>> + Send + 'a>>
-    {
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<PathBuf, crate::dao::WebError>> + Send + 'a>,
+    > {
         Box::pin(async move {
             let account_id = params["account_id"].as_u64();
             let login_type = params["login_type"].as_str();
@@ -100,7 +123,7 @@ impl Exporter for UserLoginHistoryExporter {
                 }
             }
 
-            w.finish().await
+            w.finish().await.map_err(Into::into)
         })
     }
 }

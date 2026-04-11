@@ -1,9 +1,9 @@
 use chrono::{DateTime, Utc};
 use hmac::{Hmac, Mac};
-use reqwest::header::HeaderMap;
-use reqwest::header::HeaderValue;
 use reqwest::Client;
 use reqwest::Method;
+use reqwest::header::HeaderMap;
+use reqwest::header::HeaderValue;
 
 use serde_json::json;
 
@@ -13,8 +13,8 @@ use tracing::debug;
 use super::{BranchSendResult, SendError};
 use crate::SendNotifyStatus;
 use crate::{
-    now_time, rand_str, response_check, response_msg, sms_lib::phone_numbers_check,
-    BranchSendDetailResult, SendDetailItem, SendResultItem, SendStatus,
+    BranchSendDetailResult, SendDetailItem, SendResultItem, SendStatus, now_time, rand_str,
+    response_check, response_msg, sms_lib::phone_numbers_check,
 };
 
 pub struct JdSms {}
@@ -294,15 +294,15 @@ impl JdSms {
         let data_sign = hex::encode(signature.into_bytes());
 
         //JDCLOUD2-HMAC-SHA256 Credential={Access Key}/{Date}/{Region}/{Service}/jdcloud2_request, SignedHeaders={SignedHeaders}, Signature={signResult}
-        let authdata =format!(
-                     "JDCLOUD2-HMAC-SHA256 Credential={}/{}/{}/{}/jdcloud2_request, SignedHeaders={}, Signature={}",
-                     secret_id,
-                     datetime.format("%Y%m%d"),
-                     region,
-                     service,
-                     sign_header,
-                     data_sign
-                 );
+        let authdata = format!(
+            "JDCLOUD2-HMAC-SHA256 Credential={}/{}/{}/{}/jdcloud2_request, SignedHeaders={}, Signature={}",
+            secret_id,
+            datetime.format("%Y%m%d"),
+            region,
+            service,
+            sign_header,
+            data_sign
+        );
 
         debug!("jd authorization: {}", authdata);
 

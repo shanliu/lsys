@@ -3,10 +3,10 @@ use crate::common::handler::{
 };
 use actix_web::post;
 use lsys_web::handler::api::system::rbac::{
-    dynamic_res_data_global_user, dynamic_res_type, res_add, res_data, res_del, res_edit,
-    res_type_data, res_type_op_add, res_type_op_data, res_type_op_del, static_res_data,
     DynamicResDataFromUserParam, ResAddParam, ResDelOpParam, ResDelParam, ResEditParam, ResParam,
-    ResTypeAddOpParam, ResTypeListParam, ResTypeOpListParam,
+    ResTypeAddOpParam, ResTypeListParam, ResTypeOpListParam, dynamic_res_data_global_user,
+    dynamic_res_type, res_add, res_data, res_del, res_edit, res_type_data, res_type_op_add,
+    res_type_op_data, res_type_op_del, static_res_data,
 };
 
 #[post("/res/{method}")]

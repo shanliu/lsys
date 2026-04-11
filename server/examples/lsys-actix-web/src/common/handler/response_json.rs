@@ -1,10 +1,10 @@
 use actix::MailboxError;
 use actix_http::StatusCode;
 use actix_web::{
-    body::BoxBody,
-    cookie::{time::Duration, Cookie},
-    error::{BlockingError, PayloadError},
     HttpMessage, HttpRequest, HttpResponse, Responder, ResponseError,
+    body::BoxBody,
+    cookie::{Cookie, time::Duration},
+    error::{BlockingError, PayloadError},
 };
 use lsys_web::common::{JsonData, JsonResponse};
 use lsys_web::lsys_core::utils::now_time;
@@ -42,20 +42,21 @@ impl Responder for ResponseJson {
     fn respond_to(self, req: &HttpRequest) -> HttpResponse {
         let mut res = HttpResponse::Ok().json(self.inner.to_value());
         if let Some(token) = req.extensions().get::<UserAuthToken>()
-            && !token.token.is_empty() {
-                let now_t = now_time().unwrap_or_default();
-                let age = token.time_out.saturating_sub(now_t);
-                let cookie = Cookie::build(AUTH_COOKIE_NAME, token.token.clone())
-                    //.domain("www.rust-lang.org")
-                    //.secure(true)
-                    .path("/")
-                    .max_age(Duration::seconds(age as i64))
-                    .http_only(true)
-                    .finish();
-                if let Err(e) = res.add_cookie(&cookie) {
-                    warn!("auth add token fail:{}", e);
-                }
+            && !token.token.is_empty()
+        {
+            let now_t = now_time().unwrap_or_default();
+            let age = token.time_out.saturating_sub(now_t);
+            let cookie = Cookie::build(AUTH_COOKIE_NAME, token.token.clone())
+                //.domain("www.rust-lang.org")
+                //.secure(true)
+                .path("/")
+                .max_age(Duration::seconds(age as i64))
+                .http_only(true)
+                .finish();
+            if let Err(e) = res.add_cookie(&cookie) {
+                warn!("auth add token fail:{}", e);
             }
+        }
         res
     }
 }

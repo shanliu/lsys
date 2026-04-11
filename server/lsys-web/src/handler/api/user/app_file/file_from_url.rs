@@ -1,10 +1,10 @@
 //用户文件从URL创建接口
 
 use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
-use crate::dao::access::api::system::user::CheckUserFileUpload;
 use crate::dao::access::RbacAccessCheckEnv;
+use crate::dao::access::api::system::user::CheckUserFileUpload;
 use lsys_access::dao::AccessSession;
-use lsys_files::dao::ChunkInfo;
+use lsys_file::dao::ChunkInfo;
 use serde::Deserialize;
 use serde_json::json;
 
@@ -20,11 +20,17 @@ pub struct FileFromUrlParam {
     pub max_concurrency: u32,
     #[serde(default)]
     pub tag_names: Option<Vec<String>>,
+    /// 存储类型: local_public / local_private / local_crypto，默认 local_public
+    #[serde(default = "FileFromUrlParam::default_storage_type")]
+    pub storage_type: String,
 }
 
 impl FileFromUrlParam {
     fn default_max_concurrency() -> u32 {
         10
+    }
+    fn default_storage_type() -> String {
+        lsys_file::model::FileModel::STORAGE_TYPE_LOCAL_PUBLIC.to_string()
     }
 }
 
@@ -60,13 +66,14 @@ pub async fn file_from_url(
     // 文件大小校验
     let upload_config = &req_dao.web_dao.web_files.upload_config;
     if let Some(file_size) = url_info.file_size
-        && file_size > upload_config.max_upload_size {
-            return Err(crate::common::JsonError::Message(
-                lsys_core::fluent_message!("file-size-too-large",
-                    {"size": file_size, "max": upload_config.max_upload_size}
-                ),
-            ));
-        }
+        && file_size > upload_config.max_upload_size
+    {
+        return Err(crate::common::JsonError::Message(
+            lsys_core::fluent_message!("file-size-too-large",
+                {"size": file_size, "max": upload_config.max_upload_size}
+            ),
+        ));
+    }
 
     // 根据探测信息创建分片
     let chunks = if let Some(file_size) = url_info.file_size {
@@ -85,7 +92,13 @@ pub async fn file_from_url(
         }]
     };
 
-    let tag_refs: Vec<&str> = param.tag_names.as_deref().unwrap_or(&[]).iter().map(String::as_str).collect();
+    let tag_refs: Vec<&str> = param
+        .tag_names
+        .as_deref()
+        .unwrap_or(&[])
+        .iter()
+        .map(String::as_str)
+        .collect();
     let file_user_id = req_dao
         .web_dao
         .web_files
@@ -95,6 +108,7 @@ pub async fn file_from_url(
             user_id,
             user_id,
             app.id,
+            &param.storage_type,
             &chunks,
             url_info.content_type.as_deref(),
             &tag_refs,

@@ -6,8 +6,10 @@
 //   - check() 负责权限校验，export() 仅做数据拉取与 CSV 生成
 mod api_system;
 mod api_user;
-use crate::dao::export_task::WebExportTask;
-use crate::dao::{AppSender, WebApp,  WebRbac};
+use crate::dao::WebExportTask;
+use crate::dao::{AppSender, WebApp, WebError, WebRbac};
+use lsys_core::app_core::AppCore;
+use sqlx::{MySql, Pool};
 
 use api_user::app_notify;
 use api_user::app_request;
@@ -24,12 +26,12 @@ use api_user::rbac_role_perm;
 use api_user::rbac_role_user;
 use api_user::role_user_available;
 use api_user::smser;
-use lsys_files::dao::FileDao;
+use lsys_file::dao::FileDao;
 use std::sync::Arc;
 
 use api_user::app::{
-    UserAppListExporter, UserParentAppListExporter, UserSubAppListExporter,
     EXPORT_TYPE_USER_APP_LIST, EXPORT_TYPE_USER_PARENT_APP_LIST, EXPORT_TYPE_USER_SUB_APP_LIST,
+    UserAppListExporter, UserParentAppListExporter, UserSubAppListExporter,
 };
 use app_notify::{AppNotifyListExporter, EXPORT_TYPE_APP_NOTIFY_LIST};
 use app_request::{
@@ -37,342 +39,336 @@ use app_request::{
     EXPORT_TYPE_USER_SUB_REQUEST,
 };
 use file::{
-    FileChunkExporter, FileListExporter, FileLogExporter, EXPORT_TYPE_USER_FILE_CHUNK,
-    EXPORT_TYPE_USER_FILE_LIST, EXPORT_TYPE_USER_FILE_LOG,
+    EXPORT_TYPE_USER_FILE_CHUNK, EXPORT_TYPE_USER_FILE_LIST, EXPORT_TYPE_USER_FILE_LOG,
+    FileChunkExporter, FileListExporter, FileLogExporter,
 };
-use login_history::{UserLoginHistoryExporter, EXPORT_TYPE_USER_LOGIN_HISTORY};
+use login_history::{EXPORT_TYPE_USER_LOGIN_HISTORY, UserLoginHistoryExporter};
 use lsys_access::dao::AccessDao;
 use lsys_user::dao::AccountDao;
 use mailer::{
-    MailerMessageListExporter, MailerMessageLogExporter, MailerTplConfigExporter,
     EXPORT_TYPE_USER_MAILER_MESSAGE_LIST, EXPORT_TYPE_USER_MAILER_MESSAGE_LOG,
-    EXPORT_TYPE_USER_MAILER_TPL_CONFIG,
+    EXPORT_TYPE_USER_MAILER_TPL_CONFIG, MailerMessageListExporter, MailerMessageLogExporter,
+    MailerTplConfigExporter,
 };
-use mailer_tpl_body::{MailerTplBodyExporter, EXPORT_TYPE_USER_MAILER_TPL_BODY};
+use mailer_tpl_body::{EXPORT_TYPE_USER_MAILER_TPL_BODY, MailerTplBodyExporter};
 use rbac_audit::{
-    RbacAuditExporter, EXPORT_TYPE_USER_RBAC_APP_AUDIT, EXPORT_TYPE_USER_RBAC_SYSTEM_AUDIT,
+    EXPORT_TYPE_USER_RBAC_APP_AUDIT, EXPORT_TYPE_USER_RBAC_SYSTEM_AUDIT, RbacAuditExporter,
 };
-use rbac_op::{RbacOpExporter, EXPORT_TYPE_USER_RBAC_APP_OP};
-use rbac_res::{RbacResExporter, EXPORT_TYPE_USER_RBAC_APP_RES};
+use rbac_op::{EXPORT_TYPE_USER_RBAC_APP_OP, RbacOpExporter};
+use rbac_res::{EXPORT_TYPE_USER_RBAC_APP_RES, RbacResExporter};
 use rbac_res_type::{
-    RbacResTypeExporter, RbacResTypeOpExporter, EXPORT_TYPE_USER_RBAC_APP_RES_TYPE,
-    EXPORT_TYPE_USER_RBAC_APP_RES_TYPE_OP,
+    EXPORT_TYPE_USER_RBAC_APP_RES_TYPE, EXPORT_TYPE_USER_RBAC_APP_RES_TYPE_OP, RbacResTypeExporter,
+    RbacResTypeOpExporter,
 };
 use rbac_role::{
-    RbacRoleExporter, EXPORT_TYPE_USER_RBAC_APP_ROLE, EXPORT_TYPE_USER_RBAC_SYSTEM_ROLE,
+    EXPORT_TYPE_USER_RBAC_APP_ROLE, EXPORT_TYPE_USER_RBAC_SYSTEM_ROLE, RbacRoleExporter,
 };
 use rbac_role_perm::{
-    RbacRolePermExporter, EXPORT_TYPE_USER_RBAC_APP_ROLE_PERM,
-    EXPORT_TYPE_USER_RBAC_SYSTEM_ROLE_PERM,
+    EXPORT_TYPE_USER_RBAC_APP_ROLE_PERM, EXPORT_TYPE_USER_RBAC_SYSTEM_ROLE_PERM,
+    RbacRolePermExporter,
 };
 use rbac_role_user::{
-    RbacRoleUserExporter, EXPORT_TYPE_USER_RBAC_APP_ROLE_USER,
-    EXPORT_TYPE_USER_RBAC_SYSTEM_ROLE_USER,
+    EXPORT_TYPE_USER_RBAC_APP_ROLE_USER, EXPORT_TYPE_USER_RBAC_SYSTEM_ROLE_USER,
+    RbacRoleUserExporter,
 };
 use role_user_available::{
-    RoleUserAvailableExporter, EXPORT_TYPE_USER_APP_ROLE_USER_AVAILABLE,
-    EXPORT_TYPE_USER_SYSTEM_ROLE_USER_AVAILABLE,
+    EXPORT_TYPE_USER_APP_ROLE_USER_AVAILABLE, EXPORT_TYPE_USER_SYSTEM_ROLE_USER_AVAILABLE,
+    RoleUserAvailableExporter,
 };
 use smser::{
-    SmserMessageListExporter, SmserMessageLogExporter, SmserTplConfigExporter,
     EXPORT_TYPE_USER_SMSER_MESSAGE_LIST, EXPORT_TYPE_USER_SMSER_MESSAGE_LOG,
-    EXPORT_TYPE_USER_SMSER_TPL_CONFIG,
+    EXPORT_TYPE_USER_SMSER_TPL_CONFIG, SmserMessageListExporter, SmserMessageLogExporter,
+    SmserTplConfigExporter,
 };
 
-use api_system::account_search::{SystemAccountSearchExporter, EXPORT_TYPE_SYSTEM_ACCOUNT_SEARCH};
+use api_system::account_search::{EXPORT_TYPE_SYSTEM_ACCOUNT_SEARCH, SystemAccountSearchExporter};
 use api_system::app_list::{
-    SystemAppListExporter, SystemRequestListExporter, SystemSubAppListExporter,
     EXPORT_TYPE_SYSTEM_APP_LIST, EXPORT_TYPE_SYSTEM_REQUEST_LIST, EXPORT_TYPE_SYSTEM_SUB_APP_LIST,
+    SystemAppListExporter, SystemRequestListExporter, SystemSubAppListExporter,
 };
-use api_system::change_log::{SystemChangeLogExporter, EXPORT_TYPE_SYSTEM_CHANGE_LOG};
-use api_system::login_history::{SystemLoginHistoryExporter, EXPORT_TYPE_SYSTEM_LOGIN_HISTORY};
-use api_system::rbac_audit::{SystemRbacAuditExporter, EXPORT_TYPE_SYSTEM_RBAC_AUDIT};
-use api_system::rbac_op::{SystemRbacOpExporter, EXPORT_TYPE_SYSTEM_RBAC_OP};
-use api_system::rbac_res::{SystemRbacResExporter, EXPORT_TYPE_SYSTEM_RBAC_RES};
+use api_system::change_log::{EXPORT_TYPE_SYSTEM_CHANGE_LOG, SystemChangeLogExporter};
+use api_system::login_history::{EXPORT_TYPE_SYSTEM_LOGIN_HISTORY, SystemLoginHistoryExporter};
+use api_system::rbac_audit::{EXPORT_TYPE_SYSTEM_RBAC_AUDIT, SystemRbacAuditExporter};
+use api_system::rbac_op::{EXPORT_TYPE_SYSTEM_RBAC_OP, SystemRbacOpExporter};
+use api_system::rbac_res::{EXPORT_TYPE_SYSTEM_RBAC_RES, SystemRbacResExporter};
 use api_system::rbac_res_type::{
-    SystemRbacResTypeExporter, SystemRbacResTypeOpExporter, EXPORT_TYPE_SYSTEM_RBAC_RES_TYPE,
-    EXPORT_TYPE_SYSTEM_RBAC_RES_TYPE_OP,
+    EXPORT_TYPE_SYSTEM_RBAC_RES_TYPE, EXPORT_TYPE_SYSTEM_RBAC_RES_TYPE_OP,
+    SystemRbacResTypeExporter, SystemRbacResTypeOpExporter,
 };
-use api_system::rbac_role::{SystemRbacRoleExporter, EXPORT_TYPE_SYSTEM_RBAC_ROLE};
-use api_system::rbac_role_perm::{SystemRbacRolePermExporter, EXPORT_TYPE_SYSTEM_RBAC_ROLE_PERM};
-use api_system::rbac_role_user::{SystemRbacRoleUserExporter, EXPORT_TYPE_SYSTEM_RBAC_ROLE_USER};
+use api_system::rbac_role::{EXPORT_TYPE_SYSTEM_RBAC_ROLE, SystemRbacRoleExporter};
+use api_system::rbac_role_perm::{EXPORT_TYPE_SYSTEM_RBAC_ROLE_PERM, SystemRbacRolePermExporter};
+use api_system::rbac_role_user::{EXPORT_TYPE_SYSTEM_RBAC_ROLE_USER, SystemRbacRoleUserExporter};
 use api_system::role_user_available::{
-    SystemRoleUserAvailableExporter, EXPORT_TYPE_SYSTEM_ROLE_USER_AVAILABLE,
+    EXPORT_TYPE_SYSTEM_ROLE_USER_AVAILABLE, SystemRoleUserAvailableExporter,
 };
 use lsys_logger::dao::ChangeLoggerDao;
 
 #[allow(clippy::too_many_arguments)]
 pub async fn register_exporters(
-    export_task: &mut WebExportTask,
-    file_dao: Arc<FileDao>,
+    db: Pool<MySql>,
+    app_core: &AppCore,
     web_rbac: Arc<WebRbac>,
     account_dao: Arc<AccountDao>,
     access_dao: Arc<AccessDao>,
     web_app: Arc<WebApp>,
     app_sender: Arc<AppSender>,
     change_logger_dao: Arc<ChangeLoggerDao>,
-) -> Result<(), String> {
-   
+    file_dao: Arc<FileDao>,
+) -> Result<WebExportTask, WebError> {
+    // 创建底层 ExportTask
+    let export_task = lsys_file_manager::ExportTask::new(
+        db,
+        file_dao.clone(),
+        change_logger_dao.clone(),
+        app_core,
+    );
+
+    // 创建 WebExportTask 包装器
+    let mut web_export_task = WebExportTask::new(Arc::new(export_task));
+
     // 登录历史（用户）
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_USER_LOGIN_HISTORY,
-        Box::new(UserLoginHistoryExporter {
+        Arc::new(UserLoginHistoryExporter {
             account_dao: account_dao.clone(),
+            web_rbac: web_rbac.clone(),
         }),
     )?;
 
     // 文件列表 / 日志 / 分片
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_USER_FILE_LIST,
-        Box::new(FileListExporter {
+        Arc::new(FileListExporter {
             file_dao: file_dao.clone(),
             web_rbac: web_rbac.clone(),
-            web_app: web_app.clone(),
         }),
     )?;
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_USER_FILE_LOG,
-        Box::new(FileLogExporter {
+        Arc::new(FileLogExporter {
             file_dao: file_dao.clone(),
             web_rbac: web_rbac.clone(),
-            web_app: web_app.clone(),
         }),
     )?;
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_USER_FILE_CHUNK,
-        Box::new(FileChunkExporter {
+        Arc::new(FileChunkExporter {
             file_dao,
             web_rbac: web_rbac.clone(),
-            web_app: web_app.clone(),
         }),
     )?;
 
     // 应用列表（用户）
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_USER_APP_LIST,
-        Box::new(UserAppListExporter {
+        Arc::new(UserAppListExporter {
             app_dao: web_app.app_dao.clone(),
             web_rbac: web_rbac.clone(),
         }),
     )?;
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_USER_PARENT_APP_LIST,
-        Box::new(UserParentAppListExporter {
+        Arc::new(UserParentAppListExporter {
             app_dao: web_app.app_dao.clone(),
             web_rbac: web_rbac.clone(),
         }),
     )?;
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_USER_SUB_APP_LIST,
-        Box::new(UserSubAppListExporter {
+        Arc::new(UserSubAppListExporter {
             app_dao: web_app.app_dao.clone(),
             web_rbac: web_rbac.clone(),
         }),
     )?;
 
     // 应用请求列表（用户）
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_USER_APP_REQUEST,
-        Box::new(AppRequestListExporter {
+        Arc::new(AppRequestListExporter {
             app_dao: web_app.app_dao.clone(),
             web_rbac: web_rbac.clone(),
         }),
     )?;
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_USER_SUB_REQUEST,
-        Box::new(AppSubRequestListExporter {
+        Arc::new(AppSubRequestListExporter {
             app_dao: web_app.app_dao.clone(),
             web_rbac: web_rbac.clone(),
         }),
     )?;
 
     // 应用通知
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_APP_NOTIFY_LIST,
-        Box::new(AppNotifyListExporter {
+        Arc::new(AppNotifyListExporter {
             app_dao: web_app.app_dao.clone(),
             web_rbac: web_rbac.clone(),
         }),
     )?;
 
     // RBAC 操作
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_USER_RBAC_APP_OP,
-        Box::new(RbacOpExporter {
+        Arc::new(RbacOpExporter {
             rbac_dao: web_rbac.rbac_dao.clone(),
             web_rbac: web_rbac.clone(),
-            web_app: web_app.clone(),
         }),
     )?;
 
     // RBAC 角色（系统角色 / 应用角色）
-    let rbac_role_exporter = Box::new(RbacRoleExporter {
+    let rbac_role_exporter = Arc::new(RbacRoleExporter {
         rbac_dao: web_rbac.rbac_dao.clone(),
         web_rbac: web_rbac.clone(),
-        web_app: web_app.clone(),
     });
-    export_task.register(EXPORT_TYPE_USER_RBAC_SYSTEM_ROLE, rbac_role_exporter)?;
-    export_task.register(
+    web_export_task.register(EXPORT_TYPE_USER_RBAC_SYSTEM_ROLE, rbac_role_exporter)?;
+    web_export_task.register(
         EXPORT_TYPE_USER_RBAC_APP_ROLE,
-        Box::new(RbacRoleExporter {
+        Arc::new(RbacRoleExporter {
             rbac_dao: web_rbac.rbac_dao.clone(),
             web_rbac: web_rbac.clone(),
-            web_app: web_app.clone(),
         }),
     )?;
 
     // RBAC 角色用户（系统角色 / 应用角色）
-    let rbac_role_user_exporter = Box::new(RbacRoleUserExporter {
+    let rbac_role_user_exporter = Arc::new(RbacRoleUserExporter {
         rbac_dao: web_rbac.rbac_dao.clone(),
         web_rbac: web_rbac.clone(),
-        web_app: web_app.clone(),
     });
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_USER_RBAC_SYSTEM_ROLE_USER,
         rbac_role_user_exporter,
     )?;
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_USER_RBAC_APP_ROLE_USER,
-        Box::new(RbacRoleUserExporter {
+        Arc::new(RbacRoleUserExporter {
             rbac_dao: web_rbac.rbac_dao.clone(),
             web_rbac: web_rbac.clone(),
-            web_app: web_app.clone(),
         }),
     )?;
 
     // RBAC 角色权限（系统角色 / 应用角色）
-    let rbac_role_perm_exporter = Box::new(RbacRolePermExporter {
+    let rbac_role_perm_exporter = Arc::new(RbacRolePermExporter {
         rbac_dao: web_rbac.rbac_dao.clone(),
         web_rbac: web_rbac.clone(),
-        web_app: web_app.clone(),
     });
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_USER_RBAC_SYSTEM_ROLE_PERM,
         rbac_role_perm_exporter,
     )?;
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_USER_RBAC_APP_ROLE_PERM,
-        Box::new(RbacRolePermExporter {
+        Arc::new(RbacRolePermExporter {
             rbac_dao: web_rbac.rbac_dao.clone(),
             web_rbac: web_rbac.clone(),
-            web_app: web_app.clone(),
         }),
     )?;
 
     // RBAC 资源
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_USER_RBAC_APP_RES,
-        Box::new(RbacResExporter {
+        Arc::new(RbacResExporter {
             rbac_dao: web_rbac.rbac_dao.clone(),
             web_rbac: web_rbac.clone(),
-            web_app: web_app.clone(),
         }),
     )?;
 
     // RBAC 资源类型 / 资源类型操作
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_USER_RBAC_APP_RES_TYPE,
-        Box::new(RbacResTypeExporter {
+        Arc::new(RbacResTypeExporter {
             rbac_dao: web_rbac.rbac_dao.clone(),
             web_rbac: web_rbac.clone(),
-            web_app: web_app.clone(),
         }),
     )?;
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_USER_RBAC_APP_RES_TYPE_OP,
-        Box::new(RbacResTypeOpExporter {
+        Arc::new(RbacResTypeOpExporter {
             rbac_dao: web_rbac.rbac_dao.clone(),
             web_rbac: web_rbac.clone(),
-            web_app: web_app.clone(),
         }),
     )?;
 
     // RBAC 审计（系统 / 应用）
-    let rbac_audit_exporter = Box::new(RbacAuditExporter {
+    let rbac_audit_exporter = Arc::new(RbacAuditExporter {
         rbac_dao: web_rbac.rbac_dao.clone(),
         web_rbac: web_rbac.clone(),
-        web_app: web_app.clone(),
     });
-    export_task.register(EXPORT_TYPE_USER_RBAC_SYSTEM_AUDIT, rbac_audit_exporter)?;
-    export_task.register(
+    web_export_task.register(EXPORT_TYPE_USER_RBAC_SYSTEM_AUDIT, rbac_audit_exporter)?;
+    web_export_task.register(
         EXPORT_TYPE_USER_RBAC_APP_AUDIT,
-        Box::new(RbacAuditExporter {
+        Arc::new(RbacAuditExporter {
             rbac_dao: web_rbac.rbac_dao.clone(),
             web_rbac: web_rbac.clone(),
-            web_app: web_app.clone(),
         }),
     )?;
 
     // 用户可用角色（用户系统角色 / 应用角色）
-    let role_user_available_exporter = Box::new(RoleUserAvailableExporter {
+    let role_user_available_exporter = Arc::new(RoleUserAvailableExporter {
         access_dao: access_dao.clone(),
         web_rbac: web_rbac.clone(),
-        web_app: web_app.clone(),
     });
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_USER_SYSTEM_ROLE_USER_AVAILABLE,
         role_user_available_exporter,
     )?;
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_USER_APP_ROLE_USER_AVAILABLE,
-        Box::new(RoleUserAvailableExporter {
+        Arc::new(RoleUserAvailableExporter {
             access_dao: access_dao.clone(),
             web_rbac: web_rbac.clone(),
-            web_app: web_app.clone(),
         }),
     )?;
 
     // 邮件消息 / 日志 / 模板配置
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_USER_MAILER_MESSAGE_LIST,
-        Box::new(MailerMessageListExporter {
+        Arc::new(MailerMessageListExporter {
             mailer_dao: app_sender.mailer.mailer_dao.clone(),
             web_rbac: web_rbac.clone(),
         }),
     )?;
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_USER_MAILER_MESSAGE_LOG,
-        Box::new(MailerMessageLogExporter {
+        Arc::new(MailerMessageLogExporter {
             mailer_dao: app_sender.mailer.mailer_dao.clone(),
             web_rbac: web_rbac.clone(),
         }),
     )?;
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_USER_MAILER_TPL_CONFIG,
-        Box::new(MailerTplConfigExporter {
+        Arc::new(MailerTplConfigExporter {
             mailer_dao: app_sender.mailer.mailer_dao.clone(),
             web_rbac: web_rbac.clone(),
         }),
     )?;
 
     // 邮件模板内容
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_USER_MAILER_TPL_BODY,
-        Box::new(MailerTplBodyExporter {
+        Arc::new(MailerTplBodyExporter {
             tpl_dao: app_sender.tpl.clone(),
             web_rbac: web_rbac.clone(),
-            web_app: web_app.clone(),
         }),
     )?;
 
     // 短信消息 / 日志 / 模板配置
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_USER_SMSER_MESSAGE_LIST,
-        Box::new(SmserMessageListExporter {
+        Arc::new(SmserMessageListExporter {
             smser_dao: app_sender.smser.smser_dao.clone(),
             web_rbac: web_rbac.clone(),
         }),
     )?;
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_USER_SMSER_MESSAGE_LOG,
-        Box::new(SmserMessageLogExporter {
+        Arc::new(SmserMessageLogExporter {
             smser_dao: app_sender.smser.smser_dao.clone(),
             web_rbac: web_rbac.clone(),
         }),
     )?;
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_USER_SMSER_TPL_CONFIG,
-        Box::new(SmserTplConfigExporter {
+        Arc::new(SmserTplConfigExporter {
             smser_dao: app_sender.smser.smser_dao.clone(),
             web_rbac: web_rbac.clone(),
         }),
@@ -381,133 +377,133 @@ pub async fn register_exporters(
     // ======== 系统管理端导出 ========
 
     // 系统应用列表
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_SYSTEM_APP_LIST,
-        Box::new(SystemAppListExporter {
+        Arc::new(SystemAppListExporter {
             app_dao: web_app.app_dao.clone(),
             web_rbac: web_rbac.clone(),
         }),
     )?;
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_SYSTEM_SUB_APP_LIST,
-        Box::new(SystemSubAppListExporter {
+        Arc::new(SystemSubAppListExporter {
             app_dao: web_app.app_dao.clone(),
             web_rbac: web_rbac.clone(),
         }),
     )?;
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_SYSTEM_REQUEST_LIST,
-        Box::new(SystemRequestListExporter {
+        Arc::new(SystemRequestListExporter {
             app_dao: web_app.app_dao.clone(),
             web_rbac: web_rbac.clone(),
         }),
     )?;
 
     // 系统 RBAC 角色
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_SYSTEM_RBAC_ROLE,
-        Box::new(SystemRbacRoleExporter {
+        Arc::new(SystemRbacRoleExporter {
             rbac_dao: web_rbac.rbac_dao.clone(),
             web_rbac: web_rbac.clone(),
         }),
     )?;
 
     // 系统 RBAC 资源
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_SYSTEM_RBAC_RES,
-        Box::new(SystemRbacResExporter {
+        Arc::new(SystemRbacResExporter {
             rbac_dao: web_rbac.rbac_dao.clone(),
             web_rbac: web_rbac.clone(),
         }),
     )?;
 
     // 系统 RBAC 资源类型 / 资源类型操作
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_SYSTEM_RBAC_RES_TYPE,
-        Box::new(SystemRbacResTypeExporter {
+        Arc::new(SystemRbacResTypeExporter {
             rbac_dao: web_rbac.rbac_dao.clone(),
             web_rbac: web_rbac.clone(),
         }),
     )?;
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_SYSTEM_RBAC_RES_TYPE_OP,
-        Box::new(SystemRbacResTypeOpExporter {
+        Arc::new(SystemRbacResTypeOpExporter {
             rbac_dao: web_rbac.rbac_dao.clone(),
             web_rbac: web_rbac.clone(),
         }),
     )?;
 
     // 系统 RBAC 操作
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_SYSTEM_RBAC_OP,
-        Box::new(SystemRbacOpExporter {
+        Arc::new(SystemRbacOpExporter {
             rbac_dao: web_rbac.rbac_dao.clone(),
             web_rbac: web_rbac.clone(),
         }),
     )?;
 
     // 系统 RBAC 角色权限
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_SYSTEM_RBAC_ROLE_PERM,
-        Box::new(SystemRbacRolePermExporter {
+        Arc::new(SystemRbacRolePermExporter {
             rbac_dao: web_rbac.rbac_dao.clone(),
             web_rbac: web_rbac.clone(),
         }),
     )?;
 
     // 系统 RBAC 角色用户
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_SYSTEM_RBAC_ROLE_USER,
-        Box::new(SystemRbacRoleUserExporter {
+        Arc::new(SystemRbacRoleUserExporter {
             rbac_dao: web_rbac.rbac_dao.clone(),
             web_rbac: web_rbac.clone(),
         }),
     )?;
 
     // 系统 RBAC 审计
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_SYSTEM_RBAC_AUDIT,
-        Box::new(SystemRbacAuditExporter {
+        Arc::new(SystemRbacAuditExporter {
             rbac_dao: web_rbac.rbac_dao.clone(),
             web_rbac: web_rbac.clone(),
         }),
     )?;
 
     // 系统用户搜索
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_SYSTEM_ACCOUNT_SEARCH,
-        Box::new(SystemAccountSearchExporter {
+        Arc::new(SystemAccountSearchExporter {
             account_dao: account_dao.clone(),
             web_rbac: web_rbac.clone(),
         }),
     )?;
 
     // 系统变更日志
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_SYSTEM_CHANGE_LOG,
-        Box::new(SystemChangeLogExporter {
+        Arc::new(SystemChangeLogExporter {
             change_logger_dao: change_logger_dao.clone(),
             web_rbac: web_rbac.clone(),
         }),
     )?;
 
     // 系统登录会话历史
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_SYSTEM_LOGIN_HISTORY,
-        Box::new(SystemLoginHistoryExporter {
+        Arc::new(SystemLoginHistoryExporter {
             access_dao: access_dao.clone(),
             web_rbac: web_rbac.clone(),
         }),
     )?;
 
     // 系统可用角色用户
-    export_task.register(
+    web_export_task.register(
         EXPORT_TYPE_SYSTEM_ROLE_USER_AVAILABLE,
-        Box::new(SystemRoleUserAvailableExporter {
+        Arc::new(SystemRoleUserAvailableExporter {
             access_dao: access_dao.clone(),
             web_rbac: web_rbac.clone(),
         }),
     )?;
 
-    Ok(())
+    Ok(web_export_task)
 }

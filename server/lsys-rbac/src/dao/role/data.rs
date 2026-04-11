@@ -6,37 +6,38 @@ use crate::{
         RbacRoleStatus, RbacRoleUserModel, RbacRoleUserRange, RbacRoleUserStatus,
     },
 };
-use lsys_core::db::{OffsetPageParam, OffsetPageValue, QueryBuilderExt};
 use lsys_core::db::TableMeta;
-use sqlx::{MySql, QueryBuilder};
-use lsys_core::utils::{now_time, string_clear, StringClear, STRING_CLEAR_FORMAT};
+use lsys_core::db::{OffsetPageParam, OffsetPageValue, QueryBuilderExt};
+use lsys_core::utils::{STRING_CLEAR_FORMAT, StringClear, now_time, string_clear};
 use serde::Serialize;
 use sqlx::Row;
+use sqlx::{MySql, QueryBuilder};
 use std::{collections::HashMap, vec};
 
 //角色数据的获取
 
 impl RbacRole {
     pub async fn find_by_id(&self, id: &u64) -> RbacResult<RbacRoleModel> {
-        Ok(lsys_core::db::utils::Fetch::<MySql, RbacRoleModel>::one(
-            &self.db,
-            |qb| {
+        Ok(
+            lsys_core::db::utils::Fetch::<MySql, RbacRoleModel>::one(&self.db, |qb| {
                 qb.field_eq("id", *id)
-                  .push_and()
-                  .field_eq("status", RbacRoleStatus::Enable as i8);
-            },
-        ).await?)
+                    .push_and()
+                    .field_eq("status", RbacRoleStatus::Enable as i8);
+            })
+            .await?,
+        )
     }
     pub async fn find_by_ids(&self, ids: &[u64]) -> RbacResult<HashMap<u64, RbacRoleModel>> {
         Ok(lsys_core::db::utils::Fetch::<MySql, RbacRoleModel>::map(
             &self.db,
             |qb| {
                 qb.field_in_copied("id", ids)
-                  .push_and()
-                  .field_eq("status", RbacRoleStatus::Enable as i8);
+                    .push_and()
+                    .field_eq("status", RbacRoleStatus::Enable as i8);
             },
             |v| v.id,
-        ).await?)
+        )
+        .await?)
     }
 }
 
@@ -52,14 +53,19 @@ pub struct RoleDataParam<'t> {
 
 //资源管理
 impl RbacRole {
-    fn role_sql(&self, filed: &str, role_param: &RoleDataParam<'_>) -> Option<QueryBuilder<'static, MySql>> {
+    fn role_sql(
+        &self,
+        filed: &str,
+        role_param: &RoleDataParam<'_>,
+    ) -> Option<QueryBuilder<'static, MySql>> {
         let mut qb = QueryBuilder::<MySql>::new(format!(
             "select {} from {}",
             filed,
             RbacRoleModel::table_name(),
         ));
         qb.push_where().field_eq("user_id", role_param.user_id);
-        qb.push_and().field_eq("status", RbacRoleStatus::Enable as i8);
+        qb.push_and()
+            .field_eq("status", RbacRoleStatus::Enable as i8);
         if let Some(val) = role_param.app_id {
             qb.push_and().field_eq("app_id", val);
         }
@@ -109,7 +115,8 @@ impl RbacRole {
             Some(mut qb) => {
                 qb.push("  order by id desc");
                 page.push_limit(&mut qb);
-                Ok(qb.build_query_as::<RbacRoleModel>()
+                Ok(qb
+                    .build_query_as::<RbacRoleModel>()
                     .fetch_all(&self.db)
                     .await?)
             }
@@ -139,13 +146,15 @@ impl RbacRole {
             return Ok(vec![]);
         }
         let mut qb: QueryBuilder<'_, MySql> = QueryBuilder::new(format!(
-                "select role_id,count(*) as total from {}",
-                RbacPermModel::table_name(),
-            ));
+            "select role_id,count(*) as total from {}",
+            RbacPermModel::table_name(),
+        ));
         qb.push_where().field_in_copied("role_id", role_id);
-        qb.push_and().field_eq("status", RbacPermStatus::Enable as i8);
+        qb.push_and()
+            .field_eq("status", RbacPermStatus::Enable as i8);
         qb.push(" group by role_id");
-        let perm_counts = qb.build()
+        let perm_counts = qb
+            .build()
             .try_map(|row: sqlx::mysql::MySqlRow| {
                 let role_id = row.try_get::<u64, &str>("role_id").unwrap_or_default();
                 let total = row.try_get::<i64, &str>("total").unwrap_or_default();
@@ -161,13 +170,15 @@ impl RbacRole {
             return Ok(vec![]);
         }
         let mut qb: QueryBuilder<'_, MySql> = QueryBuilder::new(format!(
-                "select role_id,COUNT(DISTINCT res_id) as total from {}",
-                RbacPermModel::table_name(),
-            ));
+            "select role_id,COUNT(DISTINCT res_id) as total from {}",
+            RbacPermModel::table_name(),
+        ));
         qb.push_where().field_in_copied("role_id", role_id);
-        qb.push_and().field_eq("status", RbacPermStatus::Enable as i8);
+        qb.push_and()
+            .field_eq("status", RbacPermStatus::Enable as i8);
         qb.push(" group by role_id");
-        let perm_counts = qb.build()
+        let perm_counts = qb
+            .build()
             .try_map(|row: sqlx::mysql::MySqlRow| {
                 let role_id = row.try_get::<u64, &str>("role_id").unwrap_or_default();
                 let total = row.try_get::<i64, &str>("total").unwrap_or_default();
@@ -281,11 +292,13 @@ impl RbacRole {
             RbacResModel::table_name(),
             RbacOpModel::table_name(),
         ));
-        qb.push_where().field_eq("perm.status", RbacPermStatus::Enable as i8);
+        qb.push_where()
+            .field_eq("perm.status", RbacPermStatus::Enable as i8);
         qb.push_and().field_eq("perm.role_id", role.id);
         qb.push(" order by perm.id desc");
         page.push_limit(&mut qb);
-        Ok(qb.build()
+        Ok(qb
+            .build()
             .try_map(|row: sqlx::mysql::MySqlRow| {
                 let user_id = row.try_get::<u64, &str>("user_id").unwrap_or_default();
                 let op_id = row.try_get::<u64, &str>("op_id").unwrap_or_default();
@@ -350,7 +363,8 @@ impl RbacRole {
             "select  * from  {}",
             RbacRoleUserModel::table_name(),
         ));
-        qb.push_where().field_eq("status", RbacRoleUserStatus::Enable as i8);
+        qb.push_where()
+            .field_eq("status", RbacRoleUserStatus::Enable as i8);
         qb.push_and().field_eq("role_id", role.id);
         if !all {
             qb.push_and().push("(");
@@ -360,7 +374,8 @@ impl RbacRole {
         }
         qb.push(" order by id desc");
         page.push_limit(&mut qb);
-        Ok(qb.build_query_as::<RbacRoleUserModel>()
+        Ok(qb
+            .build_query_as::<RbacRoleUserModel>()
             .fetch_all(&self.db)
             .await?)
     }
@@ -372,7 +387,8 @@ impl RbacRole {
             "select count(*) as total from {}",
             RbacRoleUserModel::table_name(),
         ));
-        qb.push_where().field_eq("status", RbacRoleUserStatus::Enable as i8);
+        qb.push_where()
+            .field_eq("status", RbacRoleUserStatus::Enable as i8);
         qb.push_and().field_eq("role_id", role.id);
         if !all {
             qb.push_and().push("(");
@@ -380,9 +396,7 @@ impl RbacRole {
             qb.push_or().field_gt("timeout", now_time().unwrap_or(0));
             qb.push(")");
         }
-        Ok(qb.build_query_scalar::<i64>()
-            .fetch_one(&self.db)
-            .await?)
+        Ok(qb.build_query_scalar::<i64>().fetch_one(&self.db).await?)
     }
     //一批角色的的角色包含用户数量
     pub async fn role_user_group_count(
@@ -400,7 +414,8 @@ impl RbacRole {
             RbacRoleUserModel::table_name(),
         ));
         qb.push_where().field_in_copied("role_id", role_ids);
-        qb.push_and().field_eq("status", RbacRoleUserStatus::Enable as i8);
+        qb.push_and()
+            .field_eq("status", RbacRoleUserStatus::Enable as i8);
         if !all {
             qb.push_and().push("(");
             qb.field_eq("timeout", 0);
@@ -408,7 +423,8 @@ impl RbacRole {
             qb.push(")");
         }
         qb.push(" group by role_id ");
-        Ok(qb.build_query_as::<(u64, i64)>()
+        Ok(qb
+            .build_query_as::<(u64, i64)>()
             .fetch_all(&self.db)
             .await?)
     }
@@ -423,12 +439,11 @@ impl RbacRole {
         if role_ids.is_empty() {
             return Ok(HashMap::new());
         }
-        let mut qb: QueryBuilder<'_, MySql> = QueryBuilder::new(format!(
-            "select * from {}",
-            RbacRoleUserModel::table_name(),
-        ));
+        let mut qb: QueryBuilder<'_, MySql> =
+            QueryBuilder::new(format!("select * from {}", RbacRoleUserModel::table_name(),));
         qb.push_where().field_in_copied("role_id", role_ids);
-        qb.push_and().field_eq("status", RbacRoleUserStatus::Enable as i8);
+        qb.push_and()
+            .field_eq("status", RbacRoleUserStatus::Enable as i8);
         if !all {
             qb.push_and().push("(");
             qb.field_eq("timeout", 0);
@@ -440,7 +455,8 @@ impl RbacRole {
             qb.push_and().field_in_copied("user_id", u_ids);
         }
         page.push_limit(&mut qb);
-        let data = qb.build_query_as::<RbacRoleUserModel>()
+        let data = qb
+            .build_query_as::<RbacRoleUserModel>()
             .fetch_all(&self.db)
             .await?;
         let mut map: HashMap<u64, Vec<RbacRoleUserModel>> = HashMap::new();

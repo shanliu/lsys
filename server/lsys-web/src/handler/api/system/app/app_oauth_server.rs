@@ -1,6 +1,6 @@
 use crate::{
     common::{JsonResponse, JsonResult, UserAuthQueryDao},
-    dao::access::{api::system::admin::CheckAdminApp, RbacAccessCheckEnv},
+    dao::access::{RbacAccessCheckEnv, api::system::admin::CheckAdminApp},
 };
 
 use lsys_access::dao::AccessSession;
@@ -25,7 +25,10 @@ pub async fn oauth_server_confirm(
     req_dao
         .web_dao
         .web_rbac
-        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminApp {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminApp {},
+        )
         .await?;
     let confirm_status = AppRequestStatus::try_from(param.confirm_status)?;
     let app = req_dao

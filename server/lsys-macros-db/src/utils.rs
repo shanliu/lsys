@@ -1,6 +1,4 @@
-use heck::{
-    ToKebabCase, ToLowerCamelCase, ToPascalCase, ToShoutySnakeCase, ToSnakeCase,
-};
+use heck::{ToKebabCase, ToLowerCamelCase, ToPascalCase, ToShoutySnakeCase, ToSnakeCase};
 use syn::{Attribute, Meta, NestedMeta};
 
 /// 支持的命名规则
@@ -63,9 +61,10 @@ pub fn get_field_rename(attrs: &[Attribute]) -> Option<String> {
             for nested in list.nested.iter() {
                 if let NestedMeta::Meta(Meta::NameValue(nv)) = nested
                     && nv.path.is_ident("rename")
-                        && let syn::Lit::Str(lit) = &nv.lit {
-                            return Some(lit.value());
-                        }
+                    && let syn::Lit::Str(lit) = &nv.lit
+                {
+                    return Some(lit.value());
+                }
             }
         }
     }
@@ -102,5 +101,3 @@ pub fn infer_table_name(struct_name: &str) -> String {
 
     RenameRule::SnakeCase.apply(&name)
 }
-
-

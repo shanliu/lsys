@@ -5,8 +5,8 @@ use super::AppOAuthServer;
 use crate::model::AppOAuthServerScopeStatus;
 use lsys_core::db::{QueryBuilderExt, TableMeta};
 use lsys_core::valid_key;
-use sqlx::{MySql, QueryBuilder};
 use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
+use sqlx::{MySql, QueryBuilder};
 
 impl AppOAuthServer {
     async fn check_scope_param_valid(&self, scope_data: &[&str]) -> AppResult<()> {
@@ -35,9 +35,11 @@ impl AppOAuthServer {
             AppOAuthServerScopeModel::table_name()
         ));
         qb.push_where().field_eq("app_id", app.id);
-        qb.push_and().field_eq("status", AppOAuthServerScopeStatus::Enable as i8);
+        qb.push_and()
+            .field_eq("status", AppOAuthServerScopeStatus::Enable as i8);
         qb.push_and().field_in_string("scope_key", scope_data);
-        let oa_res = qb.build_query_scalar::<String>()
+        let oa_res = qb
+            .build_query_scalar::<String>()
             .fetch_all(&self.db)
             .await?;
         let mut out = vec![];

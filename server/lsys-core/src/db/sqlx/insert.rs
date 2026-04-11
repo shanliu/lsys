@@ -1,5 +1,5 @@
 use crate::db::sqlx::update::Update;
-use crate::db::sqlx::utils::{push_set_clause_to, push_values_to, push_field_value_or_default};
+use crate::db::sqlx::utils::{push_field_value_or_default, push_set_clause_to, push_values_to};
 
 use super::field::Field;
 use super::table::TableMeta;
@@ -40,7 +40,6 @@ impl<DB: Database, M: TableMeta> Default for Insert<DB, M> {
 }
 
 impl<DB: Database, M: TableMeta> Insert<DB, M> {
-
     /// 设置字段值
     pub fn set<T, V>(mut self, field: Field<T>, value: V) -> Self
     where
@@ -122,7 +121,6 @@ impl<DB: Database, M: TableMeta> Default for BatchInsert<DB, M> {
 }
 
 impl<DB: Database, M: TableMeta> BatchInsert<DB, M> {
-
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             rows: Vec::with_capacity(capacity),
@@ -146,11 +144,6 @@ impl<DB: Database, M: TableMeta> BatchInsert<DB, M> {
 
     // execute_update 方法已移至文件末尾的特定数据库实现
 }
-
-
-
-
-
 
 // ============================================================================
 // MySQL 特定实现
@@ -203,9 +196,10 @@ impl<M: TableMeta> Insert<sqlx::MySql, M> {
         let table = M::table_name().quoted();
 
         if self.fields.is_empty() {
-            let mut qb = sqlx::QueryBuilder::new(
-                format!("INSERT INTO {} () VALUES () ON DUPLICATE KEY UPDATE ", table)
-            );
+            let mut qb = sqlx::QueryBuilder::new(format!(
+                "INSERT INTO {} () VALUES () ON DUPLICATE KEY UPDATE ",
+                table
+            ));
             push_set_clause_to(&on_duplicate.fields, &mut qb);
             return qb.build().execute(executor).await;
         }
@@ -252,7 +246,11 @@ impl<M: TableMeta> BatchInsert<sqlx::MySql, M> {
 
         if all_columns.is_empty() {
             let value_groups: Vec<&str> = self.rows.iter().map(|_| "()").collect();
-            let sql = format!("INSERT INTO {} () VALUES {}", table, value_groups.join(", "));
+            let sql = format!(
+                "INSERT INTO {} () VALUES {}",
+                table,
+                value_groups.join(", ")
+            );
             return sqlx::query(&sql).execute(executor).await;
         }
 
@@ -318,9 +316,11 @@ impl<M: TableMeta> BatchInsert<sqlx::MySql, M> {
 
         if all_columns.is_empty() {
             let value_groups: Vec<&str> = self.rows.iter().map(|_| "()").collect();
-            let mut qb = sqlx::QueryBuilder::new(
-                format!("INSERT INTO {} () VALUES {} ON DUPLICATE KEY UPDATE ", table, value_groups.join(", "))
-            );
+            let mut qb = sqlx::QueryBuilder::new(format!(
+                "INSERT INTO {} () VALUES {} ON DUPLICATE KEY UPDATE ",
+                table,
+                value_groups.join(", ")
+            ));
             push_set_clause_to(&on_duplicate.fields, &mut qb);
             return qb.build().execute(executor).await;
         }
@@ -413,20 +413,26 @@ impl<M: TableMeta> Insert<sqlx::Postgres, M> {
         let table = M::table_name().quoted();
 
         if self.fields.is_empty() {
-            let conflict_column = on_duplicate.fields.first()
+            let conflict_column = on_duplicate
+                .fields
+                .first()
                 .map(|(col, _)| col.as_str())
-                .ok_or_else(|| Error::Protocol("At least one field required for conflict detection".into()))?;
+                .ok_or_else(|| {
+                    Error::Protocol("At least one field required for conflict detection".into())
+                })?;
 
-            let mut qb = sqlx::QueryBuilder::new(
-                format!("INSERT INTO {} () VALUES () ON CONFLICT ({}) DO UPDATE SET ", table, conflict_column)
-            );
+            let mut qb = sqlx::QueryBuilder::new(format!(
+                "INSERT INTO {} () VALUES () ON CONFLICT ({}) DO UPDATE SET ",
+                table, conflict_column
+            ));
             push_set_clause_to(&on_duplicate.fields, &mut qb);
             return qb.build().execute(executor).await;
         }
 
         let columns: Vec<&str> = self.fields.iter().map(|(col, _)| col.as_str()).collect();
-        let conflict_column = columns.first()
-            .ok_or_else(|| Error::Protocol("At least one insert field required for conflict detection".into()))?;
+        let conflict_column = columns.first().ok_or_else(|| {
+            Error::Protocol("At least one insert field required for conflict detection".into())
+        })?;
 
         let mut qb = sqlx::QueryBuilder::new(format!("INSERT INTO {} (", table));
 
@@ -439,7 +445,10 @@ impl<M: TableMeta> Insert<sqlx::Postgres, M> {
 
         qb.push(") VALUES (");
         push_values_to(&self.fields, &mut qb);
-        qb.push(format!(") ON CONFLICT ({}) DO UPDATE SET ", conflict_column));
+        qb.push(format!(
+            ") ON CONFLICT ({}) DO UPDATE SET ",
+            conflict_column
+        ));
         push_set_clause_to(&on_duplicate.fields, &mut qb);
 
         qb.build().execute(executor).await
@@ -469,7 +478,11 @@ impl<M: TableMeta> BatchInsert<sqlx::Postgres, M> {
 
         if all_columns.is_empty() {
             let value_groups: Vec<&str> = self.rows.iter().map(|_| "()").collect();
-            let sql = format!("INSERT INTO {} () VALUES {}", table, value_groups.join(", "));
+            let sql = format!(
+                "INSERT INTO {} () VALUES {}",
+                table,
+                value_groups.join(", ")
+            );
             return sqlx::query(&sql).execute(executor).await;
         }
 
@@ -534,21 +547,28 @@ impl<M: TableMeta> BatchInsert<sqlx::Postgres, M> {
         }
 
         if all_columns.is_empty() {
-            let conflict_column = on_duplicate.fields.first()
+            let conflict_column = on_duplicate
+                .fields
+                .first()
                 .map(|(col, _)| col.as_str())
-                .ok_or_else(|| Error::Protocol("At least one field required for conflict detection".into()))?;
+                .ok_or_else(|| {
+                    Error::Protocol("At least one field required for conflict detection".into())
+                })?;
 
             let value_groups: Vec<&str> = self.rows.iter().map(|_| "()").collect();
-            let mut qb = sqlx::QueryBuilder::new(
-                format!("INSERT INTO {} () VALUES {} ON CONFLICT ({}) DO UPDATE SET ", table, value_groups.join(", "), conflict_column)
-            );
+            let mut qb = sqlx::QueryBuilder::new(format!(
+                "INSERT INTO {} () VALUES {} ON CONFLICT ({}) DO UPDATE SET ",
+                table,
+                value_groups.join(", "),
+                conflict_column
+            ));
             push_set_clause_to(&on_duplicate.fields, &mut qb);
             return qb.build().execute(executor).await;
         }
 
-        let conflict_column = all_columns.first()
-            .map(|s| s.as_str())
-            .ok_or_else(|| Error::Protocol("At least one column required for conflict detection".into()))?;
+        let conflict_column = all_columns.first().map(|s| s.as_str()).ok_or_else(|| {
+            Error::Protocol("At least one column required for conflict detection".into())
+        })?;
 
         let mut qb = sqlx::QueryBuilder::new(format!("INSERT INTO {} (", table));
 
@@ -638,20 +658,26 @@ impl<M: TableMeta> Insert<sqlx::Sqlite, M> {
         let table = M::table_name().quoted();
 
         if self.fields.is_empty() {
-            let conflict_column = on_duplicate.fields.first()
+            let conflict_column = on_duplicate
+                .fields
+                .first()
                 .map(|(col, _)| col.as_str())
-                .ok_or_else(|| Error::Protocol("At least one field required for conflict detection".into()))?;
+                .ok_or_else(|| {
+                    Error::Protocol("At least one field required for conflict detection".into())
+                })?;
 
-            let mut qb = sqlx::QueryBuilder::new(
-                format!("INSERT INTO {} () VALUES () ON CONFLICT ({}) DO UPDATE SET ", table, conflict_column)
-            );
+            let mut qb = sqlx::QueryBuilder::new(format!(
+                "INSERT INTO {} () VALUES () ON CONFLICT ({}) DO UPDATE SET ",
+                table, conflict_column
+            ));
             push_set_clause_to(&on_duplicate.fields, &mut qb);
             return qb.build().execute(executor).await;
         }
 
         let columns: Vec<&str> = self.fields.iter().map(|(col, _)| col.as_str()).collect();
-        let conflict_column = columns.first()
-            .ok_or_else(|| Error::Protocol("At least one insert field required for conflict detection".into()))?;
+        let conflict_column = columns.first().ok_or_else(|| {
+            Error::Protocol("At least one insert field required for conflict detection".into())
+        })?;
 
         let mut qb = sqlx::QueryBuilder::new(format!("INSERT INTO {} (", table));
 
@@ -664,7 +690,10 @@ impl<M: TableMeta> Insert<sqlx::Sqlite, M> {
 
         qb.push(") VALUES (");
         push_values_to(&self.fields, &mut qb);
-        qb.push(format!(") ON CONFLICT ({}) DO UPDATE SET ", conflict_column));
+        qb.push(format!(
+            ") ON CONFLICT ({}) DO UPDATE SET ",
+            conflict_column
+        ));
         push_set_clause_to(&on_duplicate.fields, &mut qb);
 
         qb.build().execute(executor).await
@@ -694,7 +723,11 @@ impl<M: TableMeta> BatchInsert<sqlx::Sqlite, M> {
 
         if all_columns.is_empty() {
             let value_groups: Vec<&str> = self.rows.iter().map(|_| "()").collect();
-            let sql = format!("INSERT INTO {} () VALUES {}", table, value_groups.join(", "));
+            let sql = format!(
+                "INSERT INTO {} () VALUES {}",
+                table,
+                value_groups.join(", ")
+            );
             return sqlx::query(&sql).execute(executor).await;
         }
 
@@ -759,21 +792,28 @@ impl<M: TableMeta> BatchInsert<sqlx::Sqlite, M> {
         }
 
         if all_columns.is_empty() {
-            let conflict_column = on_duplicate.fields.first()
+            let conflict_column = on_duplicate
+                .fields
+                .first()
                 .map(|(col, _)| col.as_str())
-                .ok_or_else(|| Error::Protocol("At least one field required for conflict detection".into()))?;
+                .ok_or_else(|| {
+                    Error::Protocol("At least one field required for conflict detection".into())
+                })?;
 
             let value_groups: Vec<&str> = self.rows.iter().map(|_| "()").collect();
-            let mut qb = sqlx::QueryBuilder::new(
-                format!("INSERT INTO {} () VALUES {} ON CONFLICT ({}) DO UPDATE SET ", table, value_groups.join(", "), conflict_column)
-            );
+            let mut qb = sqlx::QueryBuilder::new(format!(
+                "INSERT INTO {} () VALUES {} ON CONFLICT ({}) DO UPDATE SET ",
+                table,
+                value_groups.join(", "),
+                conflict_column
+            ));
             push_set_clause_to(&on_duplicate.fields, &mut qb);
             return qb.build().execute(executor).await;
         }
 
-        let conflict_column = all_columns.first()
-            .map(|s| s.as_str())
-            .ok_or_else(|| Error::Protocol("At least one column required for conflict detection".into()))?;
+        let conflict_column = all_columns.first().map(|s| s.as_str()).ok_or_else(|| {
+            Error::Protocol("At least one column required for conflict detection".into())
+        })?;
 
         let mut qb = sqlx::QueryBuilder::new(format!("INSERT INTO {} (", table));
 

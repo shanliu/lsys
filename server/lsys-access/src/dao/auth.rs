@@ -6,7 +6,7 @@ use std::sync::Arc;
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::remote_notify::RemoteNotify;
 use lsys_core::utils::{
-    now_time, rand_str, string_clear, RandType, StringClear, STRING_CLEAR_FORMAT,
+    RandType, STRING_CLEAR_FORMAT, StringClear, now_time, rand_str, string_clear,
 };
 use lsys_core::valid_key;
 use lsys_core::valid_param::{ValidIp, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
@@ -120,7 +120,7 @@ impl AccessAuth {
             qb.push_and().field_eq("user_app_id", user_app_id);
             qb.push_and().field_gt("id", start_id);
             qb.push(" ORDER BY id ASC LIMIT 100");
-            
+
             let res = qb
                 .build_query_as::<(u64, u64, String)>()
                 .fetch_all(&self.db)
@@ -219,15 +219,16 @@ impl AccessAuth {
             );
         }
         if let Some(user_account) = login_param.login_data
-            && let Some(user_account) = user_account.user_account {
-                valid_param.add(
-                    valid_key!("user_account"),
-                    &user_account,
-                    &ValidParamCheck::default()
-                        .add_rule(ValidPattern::NotFormat)
-                        .add_rule(ValidStrlen::max(128)),
-                );
-            }
+            && let Some(user_account) = user_account.user_account
+        {
+            valid_param.add(
+                valid_key!("user_account"),
+                &user_account,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::NotFormat)
+                    .add_rule(ValidStrlen::max(128)),
+            );
+        }
         valid_param.check()?;
         Ok(user_data)
     }
@@ -519,7 +520,8 @@ impl AccessAuth {
             "select * from {}",
             SessionDataModel::table_name(),
         ));
-        qb.push_where().field_eq("session_id", session_body.session().id);
+        qb.push_where()
+            .field_eq("session_id", session_body.session().id);
         qb.push_and().field_in_string("data_key", &data_key);
         let data = qb
             .build_query_as::<SessionDataModel>()

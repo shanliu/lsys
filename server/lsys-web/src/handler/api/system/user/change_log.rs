@@ -1,7 +1,7 @@
 use crate::common::{JsonData, ToCursorPageParam};
 use crate::common::{JsonResponse, JsonResult, LimitParam, UserAuthQueryDao};
-use crate::dao::access::api::system::admin::CheckAdminChangeLogsView;
 use crate::dao::access::RbacAccessCheckEnv;
+use crate::dao::access::api::system::admin::CheckAdminChangeLogsView;
 use lsys_access::dao::AccessSession;
 use lsys_core::api_utils::{JsonPageData, PageCursorValue, PageTotalRowValue};
 use lsys_core::db::{CursorPageSort, TotalParam};
@@ -61,7 +61,9 @@ pub async fn change_logs_list(
     };
 
     let cursor = PageCursorValue::from(&next_data);
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::cursor(bind_vec_user_info_from_req!(req_dao, res, add_user_id,false), cursor, count),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::cursor(
+        bind_vec_user_info_from_req!(req_dao, res, add_user_id, false),
+        cursor,
+        count,
+    ))))
 }

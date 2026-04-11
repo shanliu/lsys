@@ -5,9 +5,9 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use lsys_lib_jsrun::{
-    EngineConfig, JsEngine, LogHandler, MessageHandler, RuntimeConfig, LOG_LEVEL_DEBUG,
-    LOG_LEVEL_ERROR, LOG_LEVEL_INFO, LOG_LEVEL_TRACE, LOG_LEVEL_WARN, MESSAGE_TYPE_GET_ENV,
-    MESSAGE_TYPE_GET_PARAM,
+    EngineConfig, JsEngine, LOG_LEVEL_DEBUG, LOG_LEVEL_ERROR, LOG_LEVEL_INFO, LOG_LEVEL_TRACE,
+    LOG_LEVEL_WARN, LogHandler, MESSAGE_TYPE_GET_ENV, MESSAGE_TYPE_GET_PARAM, MessageHandler,
+    RuntimeConfig,
 };
 
 #[tokio::main]
@@ -38,10 +38,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         // Well-known type: get_param - 返回整个 params 对象
                         MESSAGE_TYPE_GET_PARAM => {
                             let store = params.lock().unwrap();
-                            let obj: serde_json::Map<String, serde_json::Value> = store
-                                .iter()
-                                .map(|(k, v)| (k.clone(), v.clone()))
-                                .collect();
+                            let obj: serde_json::Map<String, serde_json::Value> =
+                                store.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
                             serde_json::Value::Object(obj)
                         }
                         // Well-known type: get_env

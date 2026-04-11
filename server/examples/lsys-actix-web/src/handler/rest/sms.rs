@@ -1,6 +1,6 @@
 use crate::common::handler::{ResponseJson, ResponseJsonResult, RestQuery};
 use actix_web::post;
-use lsys_web::handler::rest::smser::{cancel, send, CancelParam, SendParam};
+use lsys_web::handler::rest::smser::{CancelParam, SendParam, cancel, send};
 
 #[post("")]
 pub(crate) async fn sms(rest: RestQuery) -> ResponseJsonResult<ResponseJson> {

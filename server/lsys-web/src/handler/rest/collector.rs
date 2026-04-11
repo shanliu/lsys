@@ -1,12 +1,12 @@
 // REST 采集接口 — 对外调用
 
 use crate::common::{JsonData, JsonPageData, JsonResponse, JsonResult, RequestDao};
-use crate::dao::access::rest::CheckRestApp;
 use crate::dao::access::RbacAccessCheckEnv;
-use crate::dao::collector::WebFileCollector;
+use crate::dao::access::rest::CheckRestApp;
 use lsys_app::model::AppModel;
 use lsys_core::api_utils::{PageCursorValue, PageTotalRowValue};
 use lsys_core::db::{CursorPageSort, TotalParam};
+use lsys_file_manager::FileCollector;
 use serde::Deserialize;
 use serde_json::json;
 
@@ -36,6 +36,18 @@ pub struct RecordsParam {
     pub limit: Option<crate::common::LimitParam>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
+    /// 是否附加文件信息
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
+    pub attr_file: Option<bool>,
+    /// 是否附加文件的 local 属性
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
+    pub attr_file_local: Option<bool>,
+    /// 是否附加文件的 oss 属性
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
+    pub attr_file_oss: Option<bool>,
+    /// 是否附加文件的 tag 属性
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
+    pub attr_file_tag: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -82,7 +94,7 @@ pub async fn trigger(
         .await?;
 
     // 从 RequestEnv 提取 request_id，若不存在则自动生成
-    let request_id = WebFileCollector::resolve_request_id(&req_dao.req_env);
+    let request_id = FileCollector::resolve_request_id(&req_dao.req_env);
 
     let params = param.params.clone().unwrap_or(serde_json::json!({}));
 
@@ -190,32 +202,57 @@ pub async fn records(
     use crate::common::ToCursorPageParam;
     let page = param.limit.to_u64_cursor_page_param(CursorPageSort::Desc);
 
+    // 先查询脚本信息
+    let script = req_dao
+        .web_dao
+        .web_files
+        .collector
+        .find_script_by_id(param.script_id)
+        .await?
+        .ok_or_else(|| {
+            crate::common::JsonError::Message(
+                lsys_core::fluent_message!("collector-script-not-found",
+                    {"script_id": param.script_id}
+                )
+            )
+        })?;
+
+    let attr = lsys_file_manager::dao::collector::CollectorRecordListAttr {
+        attr_file: param.attr_file,
+        attr_file_local: param.attr_file_local,
+        attr_file_oss: param.attr_file_oss,
+        attr_file_tag: param.attr_file_tag,
+    };
+
     let (record_list, page_data) = req_dao
         .web_dao
         .web_files
         .collector
         .list_records(
-            param.script_id,
+            &script,
             param.request_id.as_deref(),
             param.status,
             &page,
+            &attr,
         )
         .await?;
 
     let record_items: Vec<serde_json::Value> = record_list
         .iter()
-        .map(|rec| {
+        .map(|item| {
             json!({
-                "id": rec.id,
-                "request_id": rec.request_id,
-                "script_id": rec.script_id,
-                "status": rec.status,
-                "elapsed_ms": rec.elapsed_ms,
-                "error_message": rec.error_message,
-                "exec_params": rec.exec_params,
-                "add_time": rec.add_time,
-                "start_time": rec.start_time,
-                "finish_time": rec.finish_time,
+                "id": item.record.id,
+                "request_id": item.record.request_id,
+                "script_id": item.record.script_id,
+                "status": item.record.status,
+                "elapsed_ms": item.record.elapsed_ms,
+                "error_message": item.record.error_message,
+                "exec_params": item.record.exec_params,
+                "add_time": item.record.add_time,
+                "start_time": item.record.start_time,
+                "finish_time": item.record.finish_time,
+                "file": item.file,
+                "has_more_files": item.has_more_files,
             })
         })
         .collect();
@@ -227,7 +264,7 @@ pub async fn records(
                 .web_files
                 .collector
                 .count_records(
-                    param.script_id,
+                    &script,
                     param.request_id.as_deref(),
                     param.status,
                     &TotalParam::default(),
@@ -240,9 +277,31 @@ pub async fn records(
     };
 
     let cursor = PageCursorValue::from(&page_data);
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::cursor(record_items, cursor, total),
-    )))
+    
+    let mut response_body = json!({
+        "data": record_items,
+        "cursor": cursor,
+    });
+    
+    if let Some(total) = total {
+        response_body["total"] = json!(total);
+    }
+    
+    // 添加属性参数到响应中
+    if param.attr_file.is_some() {
+        response_body["attr_file"] = json!(param.attr_file);
+    }
+    if param.attr_file_local.is_some() {
+        response_body["attr_file_local"] = json!(param.attr_file_local);
+    }
+    if param.attr_file_oss.is_some() {
+        response_body["attr_file_oss"] = json!(param.attr_file_oss);
+    }
+    if param.attr_file_tag.is_some() {
+        response_body["attr_file_tag"] = json!(param.attr_file_tag);
+    }
+    
+    Ok(JsonResponse::data(JsonData::body(response_body)))
 }
 
 /// GET /rest/collector/record_files — 记录关联文件列表
@@ -332,9 +391,9 @@ pub async fn record_files(
     };
 
     let cursor = PageCursorValue::from(&page_data);
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::cursor(items, cursor, total),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::cursor(
+        items, cursor, total,
+    ))))
 }
 
 /// GET /rest/collector/record_logs — 记录关联日志列表
@@ -411,7 +470,7 @@ pub async fn record_logs(
         None
     };
 
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(items, total),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        items, total,
+    ))))
 }

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use geo::{LineString, Point};
-use tantivy::{schema::Schema, store::Compressor, Index, IndexBuilder, IndexSettings, IndexWriter};
+use tantivy::{Index, IndexBuilder, IndexSettings, IndexWriter, schema::Schema, store::Compressor};
 
 use crate::{
     AreaCode, AreaCodeIndexData, AreaCodeIndexInfo, AreaCodeIndexTree, AreaCodeProvider,

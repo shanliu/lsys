@@ -4,7 +4,7 @@ use crate::common::handler::{
 
 use actix_web::post;
 use lsys_web::handler::api::user::account::{
-    mfa_bind_device, mfa_bind_qrcode, mfa_status, mfa_unbind, MfaBindParam,
+    MfaBindParam, mfa_bind_device, mfa_bind_qrcode, mfa_status, mfa_unbind,
 };
 #[post("/{type}")]
 pub async fn mfa(

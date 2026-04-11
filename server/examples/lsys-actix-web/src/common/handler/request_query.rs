@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
-use actix_utils::future::{err, ok, Ready};
-use actix_web::{dev::Payload, web::Data, FromRequest, HttpRequest};
+use actix_utils::future::{Ready, err, ok};
+use actix_web::{FromRequest, HttpRequest, dev::Payload, web::Data};
 
 use actix_http::header;
 use lsys_web::lsys_core::fluents::IntoFluentMessage;
@@ -68,7 +68,7 @@ impl FromRequest for ReqQuery {
                                 .set_code(400),
                         )
                         .set_message(verr.to_fluent_message().default_format())
-                        .into())
+                        .into());
                     }
                 };
                 ok(Self {

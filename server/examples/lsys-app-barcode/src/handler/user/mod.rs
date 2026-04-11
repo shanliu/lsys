@@ -3,10 +3,10 @@ mod mapping;
 mod parse_record;
 
 use axum::{
+    Json,
     extract::{Path as AxumPath, State},
     http::{HeaderMap, StatusCode},
     response::Response,
-    Json,
 };
 use serde_json::Value;
 use std::sync::Arc;

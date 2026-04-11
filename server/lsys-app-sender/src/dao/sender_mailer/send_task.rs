@@ -1,16 +1,17 @@
 use crate::{
     dao::{
-        group_exec, MessageLogs, MessageReader, SenderError, SenderExecError, SenderResult,
+        MessageLogs, MessageReader, SenderError, SenderExecError, SenderResult,
         SenderTaskAcquisition, SenderTaskData, SenderTaskExecutor, SenderTaskExecutorBox,
         SenderTaskItem, SenderTaskResultItem, SenderTaskStatus, SenderTplConfig, SenderWaitNotify,
+        group_exec,
     },
     model::{
-        SenderLogStatus, SenderMailBodyModel, SenderMailBodyStatus,
-        SenderMailMessageModel, SenderMailMessageStatus, SenderMessageCancelModel,
+        SenderLogStatus, SenderMailBodyModel, SenderMailBodyStatus, SenderMailMessageModel,
+        SenderMailMessageStatus, SenderMessageCancelModel,
     },
 };
 use async_trait::async_trait;
-use lsys_core::db::{TableMeta, QueryBuilderExt, FieldValue};
+use lsys_core::db::{FieldValue, QueryBuilderExt, TableMeta};
 use lsys_core::fluent_message;
 use lsys_core::fluents::IntoFluentMessage;
 use lsys_core::task_dispatch::{TaskAcquisition, TaskData, TaskExecutor, TaskItem, TaskRecord};
@@ -18,11 +19,11 @@ use lsys_core::utils::now_time;
 use lsys_setting::model::SettingModel;
 use std::{
     collections::HashMap,
-    sync::{atomic::AtomicU32, Arc},
+    sync::{Arc, atomic::AtomicU32},
 };
 
 use lsys_core::db::Update;
-use sqlx::{MySql, Pool, QueryBuilder, Row};
+use sqlx::{MySql, Pool, QueryBuilder};
 use tracing::warn;
 
 //短信任务记录
@@ -88,11 +89,9 @@ impl MailTaskAcquisition {
             "select sender_message_id from {}",
             SenderMessageCancelModel::table_name(),
         ));
-        qb.push_where().field_in_copied("sender_message_id", &msg_id);
-        match qb.build().map(|row: sqlx::mysql::MySqlRow| -> u64 {
-            row.get(0)
-        }).fetch_all(&self.db).await
-        {
+        qb.push_where()
+            .field_in_copied("sender_message_id", &msg_id);
+        match qb.build_query_scalar::<u64>().fetch_all(&self.db).await {
             Ok(d) => d,
             Err(err) => {
                 warn!("select cancel data fail:{}", err);
@@ -108,7 +107,9 @@ impl MailTaskAcquisition {
         if let Err(err) = sqlx::query_scalar::<_, u64>(&sql)
             .bind(item.mail.id)
             .bind(SenderMailMessageStatus::Init as i8)
-            .fetch_one(&self.db).await {
+            .fetch_one(&self.db)
+            .await
+        {
             match err {
                 sqlx::Error::RowNotFound => self.send_task_body_finish(item).await,
                 _ => {
@@ -119,8 +120,11 @@ impl MailTaskAcquisition {
     }
     async fn send_task_body_finish(&self, item: &MailTaskItem) {
         let finish_time = now_time().unwrap_or_default();
-        if let Err(err) = Update::<_,SenderMailBodyModel>::new()
-            .set(SenderMailBodyModel::STATUS, SenderMailBodyStatus::Finish as i8)
+        if let Err(err) = Update::<_, SenderMailBodyModel>::new()
+            .set(
+                SenderMailBodyModel::STATUS,
+                SenderMailBodyStatus::Finish as i8,
+            )
             .set(SenderMailBodyModel::FINISH_TIME, finish_time)
             .execute(&self.db, |qb| {
                 qb.push_where().field_eq("id", item.mail.id);
@@ -151,28 +155,32 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
             .await
             .map_err(|e| e.to_fluent_message().default_format())?;
 
-        if app_res.is_empty() {
-            if let Err(err) = Update::<_, SenderMailMessageModel>::new()
-                .set(SenderMailMessageModel::STATUS, SenderMailMessageStatus::IsCancel as i8)
+        if app_res.is_empty()
+            && let Err(err) = Update::<_, SenderMailMessageModel>::new()
+                .set(
+                    SenderMailMessageModel::STATUS,
+                    SenderMailMessageStatus::IsCancel as i8,
+                )
                 .execute(&self.db, |qb| {
-                    qb.push_where().field_eq("status", SenderMailMessageStatus::Init as i8);
+                    qb.push_where()
+                        .field_eq("status", SenderMailMessageStatus::Init as i8);
                     qb.push_and().push(format!(
                         "id IN (SELECT sender_message_id FROM {}",
                         SenderMessageCancelModel::table_name(),
                     ));
                     qb.push_where().field_eq("sender_body_id", record.mail.id);
                     if !sending_data.is_empty() {
-                        qb.push_and().field_not_in_copied("sender_message_id", sending_data);
+                        qb.push_and()
+                            .field_not_in_copied("sender_message_id", sending_data);
                     }
                     qb.push(")");
                 })
                 .await
-            {
-                warn!(
-                    "mail clear message cancel status fail[{}]{}",
-                    record.mail.id, err
-                );
-            }
+        {
+            warn!(
+                "mail clear message cancel status fail[{}]{}",
+                record.mail.id, err
+            );
         }
 
         if sending_data.is_empty() && app_res.is_empty() {
@@ -194,11 +202,18 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
         match error {
             SenderExecError::Finish(_) => {
                 if let Err(err) = Update::<_, SenderMailMessageModel>::new()
-                    .set(SenderMailMessageModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))
-                    .set(SenderMailMessageModel::STATUS, SenderMailMessageStatus::SendFail as i8)
+                    .set(
+                        SenderMailMessageModel::TRY_NUM,
+                        FieldValue::Expr("try_num+1".into()),
+                    )
+                    .set(
+                        SenderMailMessageModel::STATUS,
+                        SenderMailMessageStatus::SendFail as i8,
+                    )
                     .execute(&self.db, |qb| {
                         qb.push_where().field_eq("sender_body_id", item.mail.id);
-                        qb.push_and().field_eq("status", SenderMailMessageStatus::Init as i8);
+                        qb.push_and()
+                            .field_eq("status", SenderMailMessageStatus::Init as i8);
                         if !in_task_id.is_empty() {
                             qb.push_and().field_not_in_copied("id", in_task_id);
                         }
@@ -229,26 +244,33 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
                 let max_try_num = item.mail.max_try_num;
                 let sender_body_id = item.mail.id;
                 if let Err(err) = Update::<_, SenderMailMessageModel>::new()
-                    .set(SenderMailMessageModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))
-                    .set(SenderMailMessageModel::STATUS, FieldValue::Dynamic(Box::new(move |qb| {
-                        qb.push("if(");
-                        qb.field_gte("try_num", max_try_num);
-                        qb.push(",");
-                        qb.push_bind(SenderMailMessageStatus::SendFail as i8);
-                        qb.push(",");
-                        if cancel_data.is_empty() {
-                            qb.push("status)");
-                        } else {
+                    .set(
+                        SenderMailMessageModel::TRY_NUM,
+                        FieldValue::Expr("try_num+1".into()),
+                    )
+                    .set(
+                        SenderMailMessageModel::STATUS,
+                        FieldValue::Dynamic(Box::new(move |qb| {
                             qb.push("if(");
-                            qb.field_in_copied("id", &cancel_data);
+                            qb.field_gte("try_num", max_try_num);
                             qb.push(",");
-                            qb.push_bind(SenderMailMessageStatus::IsCancel as i8);
-                            qb.push(",status))");
-                        }
-                    })))
+                            qb.push_bind(SenderMailMessageStatus::SendFail as i8);
+                            qb.push(",");
+                            if cancel_data.is_empty() {
+                                qb.push("status)");
+                            } else {
+                                qb.push("if(");
+                                qb.field_in_copied("id", &cancel_data);
+                                qb.push(",");
+                                qb.push_bind(SenderMailMessageStatus::IsCancel as i8);
+                                qb.push(",status))");
+                            }
+                        })),
+                    )
                     .execute(&self.db, |qb| {
                         qb.push_where().field_eq("sender_body_id", sender_body_id);
-                        qb.push_and().field_eq("status", SenderMailMessageStatus::Init as i8);
+                        qb.push_and()
+                            .field_eq("status", SenderMailMessageStatus::Init as i8);
                         if !in_task_id.is_empty() {
                             qb.push_and().field_not_in_copied("id", in_task_id);
                         }
@@ -269,10 +291,7 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
         if !in_task_id.is_empty() {
             msg_qb.push_and().field_not_in_copied("id", in_task_id);
         }
-        if let Ok(id_items) = msg_qb.build().map(|row: sqlx::mysql::MySqlRow| -> u64 {
-            row.get(0)
-        }).fetch_all(&self.db).await
-        {
+        if let Ok(id_items) = msg_qb.build_query_scalar::<u64>().fetch_all(&self.db).await {
             let err_str = error.to_string();
             let log_data = id_items
                 .into_iter()
@@ -316,8 +335,14 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
                     let setting_id_val = setting.id;
                     let res_id = res_item.id;
                     Update::<_, SenderMailMessageModel>::new()
-                        .set(SenderMailMessageModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))
-                        .set(SenderMailMessageModel::STATUS, SenderMailMessageStatus::IsReceived as i8)
+                        .set(
+                            SenderMailMessageModel::TRY_NUM,
+                            FieldValue::Expr("try_num+1".into()),
+                        )
+                        .set(
+                            SenderMailMessageModel::STATUS,
+                            SenderMailMessageStatus::IsReceived as i8,
+                        )
                         .set(SenderMailMessageModel::RES_DATA, send_id_str)
                         .set(SenderMailMessageModel::SEND_TIME, ntime)
                         .set(SenderMailMessageModel::RECEIVE_TIME, ntime)
@@ -344,8 +369,14 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
                     let setting_id_val = setting.id;
                     let res_id = res_item.id;
                     Update::<_, SenderMailMessageModel>::new()
-                        .set(SenderMailMessageModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))
-                        .set(SenderMailMessageModel::STATUS, SenderMailMessageStatus::IsSend as i8)
+                        .set(
+                            SenderMailMessageModel::TRY_NUM,
+                            FieldValue::Expr("try_num+1".into()),
+                        )
+                        .set(
+                            SenderMailMessageModel::STATUS,
+                            SenderMailMessageStatus::IsSend as i8,
+                        )
                         .set(SenderMailMessageModel::RES_DATA, send_id_str)
                         .set(SenderMailMessageModel::SEND_TIME, ntime)
                         .set(SenderMailMessageModel::SETTING_ID, setting_id_val)
@@ -375,33 +406,47 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
                         let res_id = res_item.id;
                         let is_cancel = cancel_data.contains(&res_item.id);
                         Update::<_, SenderMailMessageModel>::new()
-                            .set(SenderMailMessageModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))
-                            .set(SenderMailMessageModel::STATUS, FieldValue::Dynamic(Box::new(move |qb| {
-                                qb.push("if(");
-                                qb.field_gte("try_num", max_try_num);
-                                qb.push(",");
-                                qb.push_bind(SenderMailMessageStatus::SendFail as i8);
-                                qb.push(",");
-                                if is_cancel {
-                                    qb.push_bind(SenderMailMessageStatus::IsCancel as i8);
-                                } else {
-                                    qb.push("status");
-                                }
-                                qb.push(")");
-                            })))
+                            .set(
+                                SenderMailMessageModel::TRY_NUM,
+                                FieldValue::Expr("try_num+1".into()),
+                            )
+                            .set(
+                                SenderMailMessageModel::STATUS,
+                                FieldValue::Dynamic(Box::new(move |qb| {
+                                    qb.push("if(");
+                                    qb.field_gte("try_num", max_try_num);
+                                    qb.push(",");
+                                    qb.push_bind(SenderMailMessageStatus::SendFail as i8);
+                                    qb.push(",");
+                                    if is_cancel {
+                                        qb.push_bind(SenderMailMessageStatus::IsCancel as i8);
+                                    } else {
+                                        qb.push("status");
+                                    }
+                                    qb.push(")");
+                                })),
+                            )
                             .execute(&self.db, |qb| {
                                 qb.push_where().field_eq("id", res_id);
-                                qb.push_and().field_eq("status", SenderMailMessageStatus::Init as i8);
+                                qb.push_and()
+                                    .field_eq("status", SenderMailMessageStatus::Init as i8);
                             })
                             .await
                             .map(|_| sqlx::mysql::MySqlQueryResult::default())
                     } else {
                         Update::<_, SenderMailMessageModel>::new()
-                            .set(SenderMailMessageModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))
-                            .set(SenderMailMessageModel::STATUS, SenderMailMessageStatus::SendFail as i8)
+                            .set(
+                                SenderMailMessageModel::TRY_NUM,
+                                FieldValue::Expr("try_num+1".into()),
+                            )
+                            .set(
+                                SenderMailMessageModel::STATUS,
+                                SenderMailMessageStatus::SendFail as i8,
+                            )
                             .execute(&self.db, |qb| {
                                 qb.push_where().field_eq("id", res_item.id);
-                                qb.push_and().field_eq("status", SenderMailMessageStatus::Init as i8);
+                                qb.push_and()
+                                    .field_eq("status", SenderMailMessageStatus::Init as i8);
                             })
                             .await
                             .map(|_| sqlx::mysql::MySqlQueryResult::default())
@@ -437,11 +482,18 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
         match error {
             SenderExecError::Finish(_) => {
                 if let Err(err) = Update::<_, SenderMailMessageModel>::new()
-                    .set(SenderMailMessageModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))
-                    .set(SenderMailMessageModel::STATUS, SenderMailMessageStatus::SendFail as i8)
+                    .set(
+                        SenderMailMessageModel::TRY_NUM,
+                        FieldValue::Expr("try_num+1".into()),
+                    )
+                    .set(
+                        SenderMailMessageModel::STATUS,
+                        SenderMailMessageStatus::SendFail as i8,
+                    )
                     .execute(&self.db, |qb| {
                         qb.push_where().field_in_copied("id", &fail_ids);
-                        qb.push_and().field_eq("status", SenderMailMessageStatus::Init as i8);
+                        qb.push_and()
+                            .field_eq("status", SenderMailMessageStatus::Init as i8);
                     })
                     .await
                 {
@@ -454,26 +506,33 @@ impl SenderTaskAcquisition<u64, MailTaskItem, MailTaskData> for MailTaskAcquisit
 
                 let max_try_num = item.mail.max_try_num;
                 if let Err(err) = Update::<_, SenderMailMessageModel>::new()
-                    .set(SenderMailMessageModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))
-                    .set(SenderMailMessageModel::STATUS, FieldValue::Dynamic(Box::new(move |qb| {
-                        qb.push("if(");
-                        qb.field_gte("try_num", max_try_num);
-                        qb.push(",");
-                        qb.push_bind(SenderMailMessageStatus::SendFail as i8);
-                        qb.push(",");
-                        if cancel_data.is_empty() {
-                            qb.push("status)");
-                        } else {
+                    .set(
+                        SenderMailMessageModel::TRY_NUM,
+                        FieldValue::Expr("try_num+1".into()),
+                    )
+                    .set(
+                        SenderMailMessageModel::STATUS,
+                        FieldValue::Dynamic(Box::new(move |qb| {
                             qb.push("if(");
-                            qb.field_in_copied("id", &cancel_data);
+                            qb.field_gte("try_num", max_try_num);
                             qb.push(",");
-                            qb.push_bind(SenderMailMessageStatus::IsCancel as i8);
-                            qb.push(",status))");
-                        }
-                    })))
+                            qb.push_bind(SenderMailMessageStatus::SendFail as i8);
+                            qb.push(",");
+                            if cancel_data.is_empty() {
+                                qb.push("status)");
+                            } else {
+                                qb.push("if(");
+                                qb.field_in_copied("id", &cancel_data);
+                                qb.push(",");
+                                qb.push_bind(SenderMailMessageStatus::IsCancel as i8);
+                                qb.push(",status))");
+                            }
+                        })),
+                    )
                     .execute(&self.db, |qb| {
                         qb.push_where().field_in_copied("id", &fail_ids);
-                        qb.push_and().field_eq("status", SenderMailMessageStatus::Init as i8);
+                        qb.push_and()
+                            .field_eq("status", SenderMailMessageStatus::Init as i8);
                     })
                     .await
                 {

@@ -1,16 +1,16 @@
 use crate::{
-    dao::{logger::AppRequestLog, AppResult},
+    dao::{AppResult, logger::AppRequestLog},
     model::{
         AppFeatureModel, AppFeatureStatus, AppModel, AppRequestFeatureModel, AppRequestModel,
         AppRequestStatus, AppRequestType,
     },
 };
-use lsys_core::fluent_message;
 use lsys_core::db::{BatchInsert, Insert, QueryBuilderExt, TableMeta, Update};
-use sqlx::{MySql, QueryBuilder};
+use lsys_core::fluent_message;
 use lsys_core::utils::{
-    now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT, STRING_CLEAR_XSS,
+    RequestEnv, STRING_CLEAR_FORMAT, STRING_CLEAR_XSS, StringClear, now_time, string_clear,
 };
+use sqlx::{MySql, QueryBuilder};
 
 use super::{App, AppError};
 
@@ -41,10 +41,9 @@ impl App {
             ));
             qb.push_where().field_eq("app_id", app.id);
             qb.push_and().field_in_string("feature_key", &featuer_data);
-            qb.push_and().field_eq("status", AppFeatureStatus::Enable as i8);
-            qb.build_query_scalar::<String>()
-                .fetch_all(&self.db)
-                .await
+            qb.push_and()
+                .field_eq("status", AppFeatureStatus::Enable as i8);
+            qb.build_query_scalar::<String>().fetch_all(&self.db).await
         };
         let req_feature = match req_res {
             Ok(dat) => {
@@ -105,7 +104,7 @@ impl App {
         let time = now_time()?;
         let mut db = self.db.begin().await?;
 
-        let req_res = Insert::<_,AppRequestModel>::new()
+        let req_res = Insert::<_, AppRequestModel>::new()
             .set(AppRequestModel::PARENT_APP_ID, app.parent_app_id)
             .set(AppRequestModel::APP_ID, app.id)
             .set(AppRequestModel::REQUEST_TYPE, request_type)
@@ -122,7 +121,7 @@ impl App {
             Ok(mr) => mr.last_insert_id(),
         };
         let need_feature_data_str = need_feature_data.join(",");
-        let req_res = Insert::<_,AppRequestFeatureModel>::new()
+        let req_res = Insert::<_, AppRequestFeatureModel>::new()
             .set(AppRequestFeatureModel::APP_REQUEST_ID, req_id)
             .set(
                 AppRequestFeatureModel::FEATURE_DATA,
@@ -212,7 +211,7 @@ impl App {
         if req_status == AppRequestStatus::Rejected {
             //驳回
             let status = req_status as i8;
-            Update::<_,AppRequestModel>::new()
+            Update::<_, AppRequestModel>::new()
                 .set(AppRequestModel::STATUS, status)
                 .set(AppRequestModel::CONFIRM_USER_ID, confirm_user_id)
                 .set(AppRequestModel::CONFIRM_TIME, time)
@@ -252,7 +251,7 @@ impl App {
             .map(|e| e.0)
             .collect::<Vec<u64>>();
         if !set_status_id.is_empty() {
-            let cres = Update::<_,AppFeatureModel>::new()
+            let cres = Update::<_, AppFeatureModel>::new()
                 .set(AppFeatureModel::STATUS, set_status)
                 .set(AppFeatureModel::CHANGE_USER_ID, confirm_user_id)
                 .set(AppFeatureModel::CHANGE_TIME, time)
@@ -266,10 +265,10 @@ impl App {
             }
         }
 
-        let mut batch_insert = BatchInsert::<_,AppFeatureModel>::with_capacity(set_val.len());
+        let mut batch_insert = BatchInsert::<_, AppFeatureModel>::with_capacity(set_val.len());
         for tmp in set_val.iter() {
             batch_insert = batch_insert.push(
-                Insert::<_,AppFeatureModel>::new()
+                Insert::<_, AppFeatureModel>::new()
                     .set(AppFeatureModel::APP_ID, app.id)
                     .set(AppFeatureModel::FEATURE_KEY, tmp)
                     .set(AppFeatureModel::STATUS, set_status)
@@ -285,7 +284,7 @@ impl App {
 
         let status = AppRequestStatus::Approved as i8;
 
-        let cres = Update::<_,AppRequestModel>::new()
+        let cres = Update::<_, AppRequestModel>::new()
             .set(AppRequestModel::STATUS, status)
             .set(AppRequestModel::CONFIRM_USER_ID, confirm_user_id)
             .set(AppRequestModel::CONFIRM_TIME, time)

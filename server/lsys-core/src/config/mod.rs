@@ -2,9 +2,12 @@
 mod result;
 pub use result::*;
 
-use std::{collections::HashMap, path::Path};
-use tracing::info;
 use config::builder::DefaultState;
+#[cfg(not(feature = "tracing"))]
+use log::info;
+use std::{collections::HashMap, path::Path};
+#[cfg(feature = "tracing")]
+use tracing::info;
 
 pub struct Config {
     def_config: config::Config,
@@ -37,10 +40,10 @@ impl Config {
             Some(config_name) => {
                 for item in config_name {
                     let file_path = path.as_ref().to_path_buf().join(format!("./{}.toml", item));
-                     info!("load crate config:{:?}", file_path);
+                    info!("load crate config:{:?}", file_path);
                     let crate_config = Self::default_config(&path, app_config)
                         .add_source(config::File::from(file_path));
-                    let config_item= crate_config.build()?;
+                    let config_item = crate_config.build()?;
                     crate_configs.insert(item.to_string(), config_item);
                 }
             }
@@ -69,10 +72,13 @@ impl Config {
                             .add_source(config::File::from(file_path));
                         crate_configs.insert(file_name, crate_config.build()?);
                     }
-                },
+                }
                 Err(err) => {
-                     tracing::error!("fluent dir:{:?} on {:?}", err, path.as_ref());
-                },
+                    #[cfg(feature = "tracing")]
+                    tracing::error!("fluent dir:{:?} on {:?}", err, path.as_ref());
+                    #[cfg(not(feature = "tracing"))]
+                    log::error!("fluent dir:{:?} on {:?}", err, path.as_ref());
+                }
             },
             #[cfg(feature = "tokio")]
             None => match tokio::fs::read_dir(path.as_ref()).await {
@@ -100,7 +106,10 @@ impl Config {
                     }
                 }
                 Err(err) => {
+                    #[cfg(feature = "tracing")]
                     tracing::error!("fluent dir:{:?} on {:?}", err, path.as_ref());
+                    #[cfg(not(feature = "tracing"))]
+                    log::error!("fluent dir:{:?} on {:?}", err, path.as_ref());
                 }
             },
         }

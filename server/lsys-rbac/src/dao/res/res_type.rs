@@ -1,6 +1,6 @@
 //RBAC中资源相关实现
 use lsys_core::fluent_message;
-use lsys_core::utils::{string_clear, StringClear, STRING_CLEAR_FORMAT};
+use lsys_core::utils::{STRING_CLEAR_FORMAT, StringClear, string_clear};
 
 use crate::dao::result::{RbacError, RbacResult};
 use crate::model::{RbacOpModel, RbacOpResModel, RbacOpResStatus, RbacResModel, RbacResStatus};
@@ -8,13 +8,13 @@ use crate::model::{RbacOpModel, RbacOpResModel, RbacOpResStatus, RbacResModel, R
 use sqlx::{FromRow, Row};
 use std::vec;
 
-use lsys_core::utils::{now_time, RequestEnv};
+use lsys_core::utils::{RequestEnv, now_time};
 
 use lsys_core::db::{BatchInsert, Insert, QueryBuilderExt, TableMeta, Update};
 use sqlx::{Acquire, MySql, QueryBuilder, Transaction};
 
-use super::logger::LogResTypeOp;
 use super::RbacRes;
+use super::logger::LogResTypeOp;
 
 //资源的跟对应可用操作相关实现
 
@@ -59,9 +59,10 @@ impl RbacRes {
         qb.push_and().field_eq("user_id", res_type_data.user_id);
         qb.push_and().field_eq("app_id", res_type_data.app_id);
         qb.field_in("op_id", op_vec.iter().map(|e| e.id));
-        let op_res = qb.build_query_as::<(u64, u64)>()
-        .fetch_all(&self.db)
-        .await?;
+        let op_res = qb
+            .build_query_as::<(u64, u64)>()
+            .fetch_all(&self.db)
+            .await?;
 
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
@@ -69,12 +70,12 @@ impl RbacRes {
         };
         let res_type = res_type_data.res_type.to_string();
         let nowtime = now_time().unwrap_or_default();
-        let mut batch = BatchInsert::<_,RbacOpResModel>::new();
+        let mut batch = BatchInsert::<_, RbacOpResModel>::new();
         for op in op_vec {
             let mut is_updata = false;
             for (itemid, op_id) in op_res.iter() {
                 if *op_id == op.id {
-                    if let Err(err) = Update::<_,RbacOpResModel>::new()
+                    if let Err(err) = Update::<_, RbacOpResModel>::new()
                         .set(RbacOpResModel::CHANGE_TIME, nowtime)
                         .set(RbacOpResModel::CHANGE_USER_ID, add_user_id)
                         .set(RbacOpResModel::STATUS, RbacOpResStatus::Enable as i8)
@@ -91,7 +92,7 @@ impl RbacRes {
             }
             if !is_updata {
                 batch = batch.push(
-                    Insert::<_,RbacOpResModel>::new()
+                    Insert::<_, RbacOpResModel>::new()
                         .set(RbacOpResModel::OP_ID, op.id)
                         .set(RbacOpResModel::RES_TYPE, &res_type)
                         .set(RbacOpResModel::USER_ID, res_type_data.user_id)
@@ -103,10 +104,11 @@ impl RbacRes {
             }
         }
         if !batch.is_empty()
-            && let Err(err) = batch.execute(&mut *db).await {
-                db.rollback().await?;
-                return Err(err.into());
-            }
+            && let Err(err) = batch.execute(&mut *db).await
+        {
+            db.rollback().await?;
+            return Err(err.into());
+        }
         db.commit().await?;
         self.logger
             .add(
@@ -190,7 +192,7 @@ impl RbacRes {
             StringClear::Option(STRING_CLEAR_FORMAT),
             Some(33),
         );
-        let tmp = Update::<_,RbacOpResModel>::new()
+        let tmp = Update::<_, RbacOpResModel>::new()
             .set(RbacOpResModel::CHANGE_USER_ID, del_user_id)
             .set(RbacOpResModel::CHANGE_TIME, time)
             .set(RbacOpResModel::STATUS, RbacOpResStatus::Delete as i8)
@@ -266,7 +268,7 @@ impl RbacRes {
                 }
                 if let Some(itmp) = res_type_group_data
                     .iter_mut()
-                    .find(|e| e.0 .0 == tmp.1.res_type && e.0 .1 == tmp.1.user_id)
+                    .find(|e| e.0.0 == tmp.1.res_type && e.0.1 == tmp.1.user_id)
                 {
                     itmp.1.push(tmp.0);
                 } else {
@@ -297,12 +299,13 @@ impl RbacRes {
                     StringClear::Option(STRING_CLEAR_FORMAT),
                     Some(33),
                 );
-                let tmp = Update::<_,RbacOpResModel>::new()
+                let tmp = Update::<_, RbacOpResModel>::new()
                     .set(RbacOpResModel::CHANGE_USER_ID, delete_user_id)
                     .set(RbacOpResModel::CHANGE_TIME, time)
                     .set(RbacOpResModel::STATUS, RbacOpResStatus::Delete as i8)
                     .execute(&mut *db, |qb| {
-                        qb.push_where().field_eq("res_type", tmp_res_type.to_owned());
+                        qb.push_where()
+                            .field_eq("res_type", tmp_res_type.to_owned());
                         qb.push_and().field_eq("user_id", tmp_user_id);
                         qb.push_and().field_eq("app_id", tmp_app_id);
                         qb.field_in_copied("op_id", &op_id_vec);

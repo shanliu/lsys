@@ -1,8 +1,8 @@
 use fluent::FluentResource;
 use intl_memoizer::concurrent::IntlLangMemoizer;
 
-use crate::fluents::FluentMessage;
 use crate::fluents::FluentBundleError;
+use crate::fluents::FluentMessage;
 use std::{collections::HashMap, path::Path, str::FromStr, sync::Arc};
 #[cfg(feature = "tokio")]
 use tokio::io::AsyncReadExt;
@@ -60,7 +60,10 @@ impl FluentMgr {
                     )
                 })?;
                 if let Err(err) = bundle.add_resource(res) {
+                    #[cfg(feature = "tracing")]
                     tracing::error!("fluent add res:{:?}", err);
+                    #[cfg(not(feature = "tracing"))]
+                    log::error!("fluent add res:{:?}", err);
                 }
             }
         }
@@ -154,7 +157,10 @@ impl FluentMgr {
                 }
             }
             Err(err) => {
+                #[cfg(feature = "tracing")]
                 tracing::error!("fluent dir:{:?} on {:?}", err, path);
+                #[cfg(not(feature = "tracing"))]
+                log::error!("fluent dir:{:?} on {:?}", err, path);
             }
         }
         Ok(FluentMgr {
@@ -256,7 +262,10 @@ impl FluentMgr {
                 }
             }
             Err(err) => {
+                #[cfg(feature = "tracing")]
                 tracing::error!("fluent dir:{:?} on {:?}", err, path);
+                #[cfg(not(feature = "tracing"))]
+                log::error!("fluent dir:{:?} on {:?}", err, path);
             }
         }
         Ok(FluentMgr {
@@ -288,30 +297,32 @@ pub struct FluentBundle {
 
 impl FluentBundle {
     pub fn format_message(&self, message: &FluentMessage) -> String {
-        let message_find =
-            |fluent: &fluent::bundle::FluentBundle<FluentResource, IntlLangMemoizer>| {
-                fluent.get_message(&message.id).and_then(|msg| {
-                    msg.value().map(|pattern| {
-                        let mut args: fluent::FluentArgs = fluent::FluentArgs::new();
-                        for (k, v) in &message.data {
-                            let tmp = match v {
-                                crate::fluents::FluentData::Message(fmsg) => self.format_message(fmsg),
-                                crate::fluents::FluentData::MessageVec(fmsg) => fmsg
-                                    .iter()
-                                    .map(|msg| self.format_message(msg))
-                                    .collect::<Vec<_>>()
-                                    .join(";"),
-                                crate::fluents::FluentData::String(msg) => msg.to_owned(),
-                            };
-                            args.set(k, tmp);
-                        }
-                        let mut errors = vec![];
-                        fluent
-                            .format_pattern(pattern, Some(&args), &mut errors)
-                            .to_string()
-                    })
+        let message_find = |fluent: &fluent::bundle::FluentBundle<
+            FluentResource,
+            IntlLangMemoizer,
+        >| {
+            fluent.get_message(&message.id).and_then(|msg| {
+                msg.value().map(|pattern| {
+                    let mut args: fluent::FluentArgs = fluent::FluentArgs::new();
+                    for (k, v) in &message.data {
+                        let tmp = match v {
+                            crate::fluents::FluentData::Message(fmsg) => self.format_message(fmsg),
+                            crate::fluents::FluentData::MessageVec(fmsg) => fmsg
+                                .iter()
+                                .map(|msg| self.format_message(msg))
+                                .collect::<Vec<_>>()
+                                .join(";"),
+                            crate::fluents::FluentData::String(msg) => msg.to_owned(),
+                        };
+                        args.set(k, tmp);
+                    }
+                    let mut errors = vec![];
+                    fluent
+                        .format_pattern(pattern, Some(&args), &mut errors)
+                        .to_string()
                 })
-            };
+            })
+        };
         self.fluent_bundles
             .get(&message.crate_name)
             .and_then(message_find)

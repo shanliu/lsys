@@ -1,9 +1,9 @@
 use crate::common::handler::{JsonQuery, ReqQuery, ResponseJson, ResponseJsonResult};
 use actix_web::post;
 use lsys_web::handler::api::auth::{
-    user_reg_from_email, user_reg_from_mobile, user_reg_from_name, user_reg_send_code_from_email,
-    user_reg_send_code_from_mobile, RegFromEmailParam, RegFromMobileParam, RegFromNameParam,
-    RegSendCodeFromEmailParam, RegSendCodeFromMobileParam,
+    RegFromEmailParam, RegFromMobileParam, RegFromNameParam, RegSendCodeFromEmailParam,
+    RegSendCodeFromMobileParam, user_reg_from_email, user_reg_from_mobile, user_reg_from_name,
+    user_reg_send_code_from_email, user_reg_send_code_from_mobile,
 };
 
 #[post("register/{type}")]

@@ -6,16 +6,15 @@
 //!
 
 use crate::{
-    now_time, rand_str,
-    sms_lib::{phone_numbers_check, response_check, SendStatus},
-    BranchSendNotifyResult, SendNotifyItem, SendNotifyStatus,
+    BranchSendNotifyResult, SendNotifyItem, SendNotifyStatus, now_time, rand_str,
+    sms_lib::{SendStatus, phone_numbers_check, response_check},
 };
 use hmac::{Hmac, Mac};
 
 use chrono::{DateTime, Utc};
 use reqwest::{
-    header::{HeaderMap, HeaderValue},
     Client, Method,
+    header::{HeaderMap, HeaderValue},
 };
 use serde_json::json;
 use sha2::{Digest, Sha256};
@@ -23,8 +22,8 @@ use std::collections::HashMap;
 use tracing::debug;
 
 use super::{
-    response_msg, BranchSendDetailResult, BranchSendResult, SendDetailItem, SendError,
-    SendResultItem,
+    BranchSendDetailResult, BranchSendResult, SendDetailItem, SendError, SendResultItem,
+    response_msg,
 };
 /// aliyun sms
 pub struct AliSms {}

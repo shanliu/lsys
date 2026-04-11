@@ -1,6 +1,6 @@
 use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
-use crate::dao::access::api::system::admin::CheckAdminFileManage;
 use crate::dao::access::RbacAccessCheckEnv;
+use crate::dao::access::api::system::admin::CheckAdminFileManage;
 use lsys_access::dao::AccessSession;
 use lsys_core::api_utils::JsonPageData;
 use lsys_core::db::{OffsetPageParam, OffsetPageValue};
@@ -58,11 +58,11 @@ pub async fn admin_oss_config_list(
         })
         .collect();
 
-    let total =oss_config.list_count().await?;
+    let total = oss_config.list_count().await?;
 
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(items, total),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        items, total,
+    ))))
 }
 
 // ==================== 详情 ====================
@@ -213,11 +213,7 @@ pub async fn admin_oss_config_delete(
 
     let oss_config = &req_dao.web_dao.web_files.file_dao.oss_config();
     oss_config
-        .del_config(
-            param.id,
-            auth_data.user_id(),
-            Some(&req_dao.req_env),
-        )
+        .del_config(param.id, auth_data.user_id(), Some(&req_dao.req_env))
         .await?;
 
     Ok(JsonResponse::default())

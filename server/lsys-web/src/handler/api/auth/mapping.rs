@@ -10,8 +10,8 @@ use lsys_user::dao::login::MobileCodeLoginMeta;
 use lsys_user::dao::login::MobileLoginMeta;
 use lsys_user::dao::login::NameLoginMeta;
 use lsys_user::model::AccountLoginStatus;
-use serde_json::json;
 use serde_json::Value;
+use serde_json::json;
 pub async fn mapping_data(req_dao: &RequestDao, exter: Value) -> JsonResult<JsonResponse> {
     Ok(JsonResponse::data(JsonData::body(json!({
          "login_status":vec![

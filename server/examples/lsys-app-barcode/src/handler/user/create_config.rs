@@ -5,7 +5,7 @@ use axum::{
 use lsys_core::api_utils::JsonPageData;
 use lsys_core::fluent_message;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::sync::Arc;
 
 use crate::auth::JwtAuthorizeRequest;
@@ -91,7 +91,7 @@ pub(crate) async fn handle_create_config_add(
                 StatusCode::BAD_REQUEST,
                 "status",
                 fluent_message!("barcode-add-status-error", err).default_format(),
-            )
+            );
         }
     };
 
@@ -159,7 +159,7 @@ pub(crate) async fn handle_create_config_edit(
                 StatusCode::BAD_REQUEST,
                 "status",
                 fluent_message!("barcode-add-status-error", err).default_format(),
-            )
+            );
         }
     };
 
@@ -303,7 +303,7 @@ pub(crate) async fn handle_create_config_list(
         {
             Ok(c) => Some(c),
             Err(err) => {
-                return json_err(StatusCode::INTERNAL_SERVER_ERROR, "db", format!("{err:?}"))
+                return json_err(StatusCode::INTERNAL_SERVER_ERROR, "db", format!("{err:?}"));
             }
         }
     } else {

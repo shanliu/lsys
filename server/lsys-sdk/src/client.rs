@@ -1,17 +1,17 @@
-use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
-use serde::{de::DeserializeOwned, Serialize};
+use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderValue, USER_AGENT};
+use serde::{Serialize, de::DeserializeOwned};
 use url::Url;
 
 use lsys_core::api_utils::{
-    compute_service_sign, SERVICE_SIGNATURE_HEADER, SERVICE_TIMESTAMP_HEADER,
+    SERVICE_SIGNATURE_HEADER, SERVICE_TIMESTAMP_HEADER, compute_service_sign,
 };
 
 use crate::result::{
     ApiError, ApiErrorDetail, HttpRejectedError, ParseError, ServiceError, ServiceResult,
 };
 use crate::types::{
-    ForwardedRequest, ReqInfo, ResponseEnvelope, ACCEPT_LANGUAGE_HEADER, DEVICE_ID_HEADER,
-    FORWARDED_FOR_HEADER, REQUEST_ID_HEADER,
+    ACCEPT_LANGUAGE_HEADER, DEVICE_ID_HEADER, FORWARDED_FOR_HEADER, ForwardedRequest,
+    REQUEST_ID_HEADER, ReqInfo, ResponseEnvelope,
 };
 
 /// Service client for internal service-to-service communication
@@ -130,29 +130,35 @@ impl<'a> ServiceRequest<'a> {
         // Forward headers if provided
         if let Some(ref fwd) = self.forward {
             if let Some(ref auth) = fwd.authorization
-                && let Ok(val) = HeaderValue::from_str(auth) {
-                    headers.insert(AUTHORIZATION, val);
-                }
+                && let Ok(val) = HeaderValue::from_str(auth)
+            {
+                headers.insert(AUTHORIZATION, val);
+            }
             if let Some(ref lang) = fwd.accept_language
-                && let Ok(val) = HeaderValue::from_str(lang) {
-                    headers.insert(ACCEPT_LANGUAGE_HEADER, val);
-                }
+                && let Ok(val) = HeaderValue::from_str(lang)
+            {
+                headers.insert(ACCEPT_LANGUAGE_HEADER, val);
+            }
             if let Some(ref ua) = fwd.user_agent
-                && let Ok(val) = HeaderValue::from_str(ua) {
-                    headers.insert(USER_AGENT, val);
-                }
+                && let Ok(val) = HeaderValue::from_str(ua)
+            {
+                headers.insert(USER_AGENT, val);
+            }
             if let Some(ref rid) = fwd.request_id
-                && let Ok(val) = HeaderValue::from_str(rid) {
-                    headers.insert(REQUEST_ID_HEADER, val);
-                }
+                && let Ok(val) = HeaderValue::from_str(rid)
+            {
+                headers.insert(REQUEST_ID_HEADER, val);
+            }
             if let Some(ref did) = fwd.device_id
-                && let Ok(val) = HeaderValue::from_str(did) {
-                    headers.insert(DEVICE_ID_HEADER, val);
-                }
+                && let Ok(val) = HeaderValue::from_str(did)
+            {
+                headers.insert(DEVICE_ID_HEADER, val);
+            }
             if let Some(ref ip) = fwd.client_ip
-                && let Ok(val) = HeaderValue::from_str(ip) {
-                    headers.insert(FORWARDED_FOR_HEADER, val);
-                }
+                && let Ok(val) = HeaderValue::from_str(ip)
+            {
+                headers.insert(FORWARDED_FOR_HEADER, val);
+            }
         }
 
         let mut builder = self

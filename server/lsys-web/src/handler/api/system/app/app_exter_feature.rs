@@ -3,7 +3,7 @@ use crate::{
         JsonData, JsonError, JsonResponse, JsonResult, PageParam, ToOffsetPageParam,
         UserAuthQueryDao,
     },
-    dao::access::{api::system::admin::CheckAdminApp, RbacAccessCheckEnv},
+    dao::access::{RbacAccessCheckEnv, api::system::admin::CheckAdminApp},
 };
 use lsys_access::dao::AccessSession;
 use lsys_app::model::AppRequestStatus;

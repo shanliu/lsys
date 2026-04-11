@@ -3,12 +3,12 @@ use crate::common::handler::{
 };
 use actix_web::post;
 use lsys_web::handler::api::user::rbac::{
-    system_role_add, system_role_data, system_role_del, system_role_edit, system_role_perm_add,
-    system_role_perm_data, system_role_perm_del, system_role_user_add, system_role_user_available,
-    system_role_user_data, system_role_user_del, SystemRoleAddParam, SystemRoleDataParam,
-    SystemRoleDelParam, SystemRoleEditParam, SystemRolePermAddParam, SystemRolePermDataParam,
-    SystemRolePermDelParam, SystemRoleUserAddParam, SystemRoleUserAvailableParam,
-    SystemRoleUserDataParam, SystemRoleUserDelParam,
+    SystemRoleAddParam, SystemRoleDataParam, SystemRoleDelParam, SystemRoleEditParam,
+    SystemRolePermAddParam, SystemRolePermDataParam, SystemRolePermDelParam,
+    SystemRoleUserAddParam, SystemRoleUserAvailableParam, SystemRoleUserDataParam,
+    SystemRoleUserDelParam, system_role_add, system_role_data, system_role_del, system_role_edit,
+    system_role_perm_add, system_role_perm_data, system_role_perm_del, system_role_user_add,
+    system_role_user_available, system_role_user_data, system_role_user_del,
 };
 
 #[post("/role/{method}")]

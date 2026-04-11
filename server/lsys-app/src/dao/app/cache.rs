@@ -1,7 +1,7 @@
 use crate::dao::AppSecretRecord;
 use crate::model::{AppSecretType, AppStatus};
 use crate::{
-    dao::{app::App, AppError, AppResult},
+    dao::{AppError, AppResult, app::App},
     model::AppModel,
 };
 use lsys_core::fluent_message;

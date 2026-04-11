@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use actix_web::http::header::{CacheControl, CacheDirective};
-use actix_web::{get, post, HttpResponse};
+use actix_web::{HttpResponse, get, post};
 use lsys_web::common::{JsonData, JsonError, JsonResponse};
 use lsys_web::dao::CaptchaKey;
 use lsys_web::lsys_core::valid_code::CheckCodeData;

@@ -1,5 +1,5 @@
 use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
-use crate::model::{CollectorRecordStatus, CollectorScriptStatus};
+use crate::dao::{CollectorRecordStatus, CollectorScriptStatus};
 use serde_json::json;
 
 /// POST /api/system/collector/mapping — 采集字典映射

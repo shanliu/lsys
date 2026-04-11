@@ -98,8 +98,8 @@ impl App {
             ));
             qb.push_where().field_in_copied("id", &app_id_tmp);
             qb.build_query_as::<(u64, u64, String, String, i8, u64)>()
-            .fetch_all(&self.db)
-            .await?
+                .fetch_all(&self.db)
+                .await?
         } else {
             vec![]
         };
@@ -114,10 +114,11 @@ impl App {
                 "select * from {}",
                 AppRequestFeatureModel::table_name()
             ));
-            qb.push_where().field_in_copied("app_request_id", &fet_id_tmp);
+            qb.push_where()
+                .field_in_copied("app_request_id", &fet_id_tmp);
             qb.build_query_as::<AppRequestFeatureModel>()
-            .fetch_all(&self.db)
-            .await?
+                .fetch_all(&self.db)
+                .await?
         } else {
             vec![]
         };
@@ -135,10 +136,11 @@ impl App {
                 "select * from {}",
                 AppRequestOAuthClientModel::table_name()
             ));
-            qb.push_where().field_in_copied("app_request_id", &client_id_tmp);
+            qb.push_where()
+                .field_in_copied("app_request_id", &client_id_tmp);
             qb.build_query_as::<AppRequestOAuthClientModel>()
-            .fetch_all(&self.db)
-            .await?
+                .fetch_all(&self.db)
+                .await?
         } else {
             vec![]
         };
@@ -156,10 +158,11 @@ impl App {
                 "select * from {}",
                 AppRequestSetInfoModel::table_name()
             ));
-            qb.push_where().field_in_copied("app_request_id", &change_id_tmp);
+            qb.push_where()
+                .field_in_copied("app_request_id", &change_id_tmp);
             qb.build_query_as::<AppRequestSetInfoModel>()
-            .fetch_all(&self.db)
-            .await?
+                .fetch_all(&self.db)
+                .await?
         } else {
             vec![]
         };
@@ -221,17 +224,16 @@ impl App {
         req_param: &AppRequestParam,
         page: &OffsetPageParam,
     ) -> AppResult<Vec<AppRequestModel>> {
-        let mut qb = QueryBuilder::<MySql>::new(format!(
-            "select * from {}",
-            AppRequestModel::table_name(),
-        ));
+        let mut qb =
+            QueryBuilder::<MySql>::new(format!("select * from {}", AppRequestModel::table_name(),));
         {
             let mut wb = WhereClause::new(&mut qb);
             Self::app_request_push_where(&mut wb, req_param);
         }
         qb.push(" order by id desc");
         page.push_limit(&mut qb);
-        let data = qb.build_query_as::<AppRequestModel>()
+        let data = qb
+            .build_query_as::<AppRequestModel>()
             .fetch_all(&self.db)
             .await?;
         Ok(data)
@@ -246,11 +248,7 @@ impl App {
             let mut wb = WhereClause::new(&mut qb);
             Self::app_request_push_where(&mut wb, req_param);
         }
-        let res = qb.build_query_scalar::<i64>()
-            .fetch_one(&self.db)
-            .await?;
+        let res = qb.build_query_scalar::<i64>().fetch_one(&self.db).await?;
         Ok(res)
     }
 }
-
-

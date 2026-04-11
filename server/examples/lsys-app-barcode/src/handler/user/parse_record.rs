@@ -3,7 +3,7 @@ use axum::{
     response::Response,
 };
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::sync::Arc;
 
 use crate::auth::JwtAuthorizeRequest;
@@ -77,7 +77,7 @@ pub(crate) async fn handle_parse_record_list(
         {
             Ok(c) => Some(c),
             Err(err) => {
-                return json_err(StatusCode::INTERNAL_SERVER_ERROR, "db", format!("{err:?}"))
+                return json_err(StatusCode::INTERNAL_SERVER_ERROR, "db", format!("{err:?}"));
             }
         }
     } else {

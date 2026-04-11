@@ -40,13 +40,10 @@ pub async fn res_add(
                 user_id: target_user_id,
                 app_id: Some(app.id),
                 res_info: RbacResData {
-                    res_name: param.res_name.as_deref().and_then(|e| {
-                        if !e.is_empty() {
-                            Some(e)
-                        } else {
-                            None
-                        }
-                    }),
+                    res_name: param
+                        .res_name
+                        .as_deref()
+                        .and_then(|e| if !e.is_empty() { Some(e) } else { None }),
                     res_type: &param.res_type,
                     res_data: &param.res_data,
                 },
@@ -92,13 +89,10 @@ pub async fn res_edit(
         .edit_res(
             &res,
             &RbacResData {
-                res_name: param.res_name.as_deref().and_then(|e| {
-                    if !e.is_empty() {
-                        Some(e)
-                    } else {
-                        None
-                    }
-                }),
+                res_name: param
+                    .res_name
+                    .as_deref()
+                    .and_then(|e| if !e.is_empty() { Some(e) } else { None }),
                 res_type: &param.res_type,
                 res_data: &param.res_data,
             },
@@ -244,7 +238,8 @@ pub async fn res_data(
             perm_count: info.perm_count,
         })
         .collect::<Vec<_>>();
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(bind_vec_user_info_from_req!(req_dao, res, user_id), count),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        bind_vec_user_info_from_req!(req_dao, res, user_id),
+        count,
+    ))))
 }

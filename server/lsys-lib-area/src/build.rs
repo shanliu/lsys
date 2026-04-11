@@ -11,8 +11,8 @@ fn main() {
 }
 #[cfg(feature = "data-csv")]
 fn create_csv_zip_file(file_path: &str) {
-    use flate2::write::GzEncoder;
     use flate2::Compression;
+    use flate2::write::GzEncoder;
     use std::fs::File;
     use std::io::{Read, Write};
     let file_lock = format!("{}.lock", file_path);
@@ -37,10 +37,11 @@ fn build_sqlite_form_source() {
         }
         Err(e) => {
             if e.kind() == std::io::ErrorKind::NotFound {
-                panic!("Please run {}{}sqlite_source.{} to download the sqlite source code, or use data-sqlite.",
+                panic!(
+                    "Please run {}{}sqlite_source.{} to download the sqlite source code, or use data-sqlite.",
                     env!("CARGO_MANIFEST_DIR"),
-                    if cfg!(windows){'\\'}else{'/'},
-                    if cfg!(windows){"cmd"}else{"sh"}
+                    if cfg!(windows) { '\\' } else { '/' },
+                    if cfg!(windows) { "cmd" } else { "sh" }
                 );
             } else {
                 panic!("Error getting metadata: {}", e);

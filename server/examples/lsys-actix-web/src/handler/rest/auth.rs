@@ -1,8 +1,8 @@
 use crate::common::handler::{ResponseJson, ResponseJsonResult, RestQuery};
 use actix_web::post;
 use lsys_web::handler::rest::auth::{
-    do_login, do_logout, login_info, mfa_enable, mfa_is_enabled, mfa_verify, DoLoginParam,
-    DoLogoutParam, LoginInfoParam, MfaEnableParam, MfaIsEnabledParam, MfaVerifyParam,
+    DoLoginParam, DoLogoutParam, LoginInfoParam, MfaEnableParam, MfaIsEnabledParam, MfaVerifyParam,
+    do_login, do_logout, login_info, mfa_enable, mfa_is_enabled, mfa_verify,
 };
 
 #[post("")]

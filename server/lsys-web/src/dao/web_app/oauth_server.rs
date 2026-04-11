@@ -101,9 +101,9 @@ impl WebApp {
         let oauth_spoce = oauth_spoce_str.split(",").collect::<Vec<&str>>();
         for tmp in out.iter() {
             if !oauth_spoce.contains(&tmp.key.as_str()) {
-                return Err(WebError::AppError(AppError::ScopeBad(vec![tmp
-                    .key
-                    .to_owned()])));
+                return Err(WebError::AppError(AppError::ScopeBad(vec![
+                    tmp.key.to_owned(),
+                ])));
             }
         }
         Ok(out)

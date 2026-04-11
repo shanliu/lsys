@@ -5,9 +5,9 @@ use std::{
 
 use deadpool_redis::PoolError;
 use lsys_core::app_core::AppCoreError;
+use lsys_core::fluent_message;
 use lsys_core::fluents::{FluentMessage, IntoFluentMessage};
 use lsys_core::valid_param::ValidError;
-use lsys_core::fluent_message;
 use lsys_setting::dao::SettingError;
 
 //公共结构定义

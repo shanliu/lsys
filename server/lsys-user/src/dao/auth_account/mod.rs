@@ -5,9 +5,9 @@ use crate::model::{AccountLoginStatus, AccountModel, AccountStatus};
 use login::{AccountLoginEnv, AccountLoginParam};
 use lsys_access::dao::{AccessAuthLoginData, AccessDao, AccessLoginData, SessionBody};
 use lsys_core::db::{CursorConfig, CursorLimit, CursorPageDir, CursorPageParam, CursorPageSort};
+use lsys_core::fluent_message;
 use lsys_core::fluents::IntoFluentMessage;
 use lsys_core::utils::now_time;
-use lsys_core::fluent_message;
 use lsys_mfa::dao::MfaSubject;
 use tokio::sync::Mutex;
 
@@ -116,18 +116,19 @@ impl AuthAccount {
                 }
                 let mut is_captcha = false;
                 if let Some(ref ip_db) = self.login_config.ip_db
-                    && let Some(mut now_city) = env_to_city(ip_db, login_env).await {
-                        for u in ues.iter() {
-                            let tmp_c = u.login_city.replace(['-', ' '], "");
-                            if tmp_c.is_empty() {
-                                continue;
-                            }
-                            now_city = now_city.replace(['-', ' '], "");
-                            if now_city != tmp_c {
-                                is_captcha = true;
-                            }
+                    && let Some(mut now_city) = env_to_city(ip_db, login_env).await
+                {
+                    for u in ues.iter() {
+                        let tmp_c = u.login_city.replace(['-', ' '], "");
+                        if tmp_c.is_empty() {
+                            continue;
+                        }
+                        now_city = now_city.replace(['-', ' '], "");
+                        if now_city != tmp_c {
+                            is_captcha = true;
                         }
                     }
+                }
                 if is_captcha
                     || (self.login_config.login_limit_captcha > 0
                         && is_fail >= self.login_config.login_limit_captcha)

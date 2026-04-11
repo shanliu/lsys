@@ -1,8 +1,8 @@
-use lsys_core::utils::{now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT};
+use lsys_core::utils::{RequestEnv, STRING_CLEAR_FORMAT, StringClear, now_time, string_clear};
 
 use lsys_core::db::{
-    CursorPageData, CursorPageParam, Insert, OptionTxExecutor, QueryBuilderExt, TableMeta, TotalParam,
-    TotalRow, WhereClause,
+    CursorPageData, CursorPageParam, Insert, OptionTxExecutor, QueryBuilderExt, TableMeta,
+    TotalParam, TotalRow, WhereClause,
 };
 use sqlx::{MySql, Pool, QueryBuilder, Transaction};
 use tracing::{debug, warn};
@@ -132,13 +132,14 @@ impl ChangeLoggerDao {
         limit: &CursorPageParam<u64>,
     ) -> LoggerResult<(Vec<ChangeLogModel>, CursorPageData<u64>)> {
         let query_limit = limit.page_query("id");
-        let mut qb = QueryBuilder::<MySql>::new(format!(
-            "select * from {}",
-            ChangeLogModel::table_name(),
-        ));
+        let mut qb =
+            QueryBuilder::<MySql>::new(format!("select * from {}", ChangeLogModel::table_name(),));
         {
             let mut wb = WhereClause::new(&mut qb);
-            if self.build_list_where_inner(&mut wb, log_type, add_user_id).is_none() {
+            if self
+                .build_list_where_inner(&mut wb, log_type, add_user_id)
+                .is_none()
+            {
                 return Ok((vec![], CursorPageData::default()));
             }
             if query_limit.has_cursor() {
@@ -148,7 +149,10 @@ impl ChangeLoggerDao {
         query_limit.push_order_by(&mut qb);
         query_limit.push_limit(&mut qb);
 
-        let mut data = qb.build_query_as::<ChangeLogModel>().fetch_all(&self.db).await?;
+        let mut data = qb
+            .build_query_as::<ChangeLogModel>()
+            .fetch_all(&self.db)
+            .await?;
 
         let next = query_limit.finalize(&mut data, |c, d| *d == c.id, |c| c.id);
         Ok((data, next))
@@ -173,7 +177,10 @@ impl ChangeLoggerDao {
         };
         {
             let mut wb = WhereClause::new(&mut qb);
-            if self.build_list_where_inner(&mut wb, log_type, add_user_id).is_none() {
+            if self
+                .build_list_where_inner(&mut wb, log_type, add_user_id)
+                .is_none()
+            {
                 return Ok(TotalRow::Exact(0));
             }
         }
@@ -181,9 +188,11 @@ impl ChangeLoggerDao {
             query.push_limit(&mut qb);
             qb.push(") as t");
         }
-        let count = qb.build_query_scalar().fetch_one(&self.db).await.unwrap_or(0i64) as u64;
+        let count = qb
+            .build_query_scalar()
+            .fetch_one(&self.db)
+            .await
+            .unwrap_or(0i64) as u64;
         Ok(query.finalize(count))
     }
 }
-
-

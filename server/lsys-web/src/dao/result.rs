@@ -8,13 +8,16 @@ use lsys_core::fluents::{FluentMessage, IntoFluentMessage};
 use lsys_core::remote_notify::RemoteNotifyError;
 use lsys_core::valid_code::ValidCodeError;
 use lsys_core::valid_param::ValidError;
-use lsys_files::common::FileError;
+use lsys_file::common::FileError;
+use lsys_file_manager::dao::FileManagerError;
 use lsys_lib_area::AreaError;
+use lsys_logger::dao::LoggerError;
 use lsys_mfa::dao::MfaError;
 use lsys_rbac::dao::RbacError;
 use lsys_setting::dao::SettingError;
 use lsys_user::dao::{AccountError, UserAuthError};
 
+#[derive(Debug)]
 pub enum WebError {
     AreaError(AreaError),
     AppCore(AppCoreError),
@@ -29,6 +32,8 @@ pub enum WebError {
     AppError(AppError),
     MfaError(MfaError),
     FileError(FileError),
+    FileManagerError(FileManagerError),
+    LoggerError(LoggerError),
     ValidError(ValidError),
     ValidCodeError(ValidCodeError),
     Message(FluentMessage),
@@ -50,6 +55,8 @@ impl IntoFluentMessage for WebError {
             WebError::AppError(err) => err.to_fluent_message(),
             WebError::MfaError(err) => err.to_fluent_message(),
             WebError::FileError(err) => err.to_fluent_message(),
+            WebError::FileManagerError(err) => err.to_fluent_message(),
+            WebError::LoggerError(err) => err.to_fluent_message(),
             WebError::ValidError(err) => err.to_fluent_message(),
             WebError::ValidCodeError(err) => err.to_fluent_message(),
             WebError::Message(err) => err.to_owned(),
@@ -136,6 +143,18 @@ impl From<FileError> for WebError {
     }
 }
 
+impl From<FileManagerError> for WebError {
+    fn from(value: FileManagerError) -> Self {
+        Self::FileManagerError(value)
+    }
+}
+
+impl From<LoggerError> for WebError {
+    fn from(value: LoggerError) -> Self {
+        Self::LoggerError(value)
+    }
+}
+
 impl From<ValidError> for WebError {
     fn from(value: ValidError) -> Self {
         Self::ValidError(value)
@@ -155,3 +174,11 @@ impl From<std::io::Error> for WebError {
 }
 
 pub type WebResult<T> = Result<T, WebError>;
+
+// 实现 WebError 到 FileManagerError 的转换
+// 这样在导出器实现中可以使用 ? 操作符自动转换
+impl From<WebError> for FileManagerError {
+    fn from(e: WebError) -> Self {
+        FileManagerError::Message(fluent_message!("web-error",e.to_fluent_message().default_format()))
+    }
+}

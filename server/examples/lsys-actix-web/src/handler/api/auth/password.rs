@@ -1,10 +1,10 @@
 use crate::common::handler::{JsonQuery, ReqQuery, ResponseJson, ResponseJsonResult};
 use actix_web::post;
 use lsys_web::handler::api::auth::{
-    user_reset_password_from_email, user_reset_password_from_mobile,
-    user_reset_password_send_code_from_email, user_reset_password_send_code_from_mobile,
     ResetPasswordFromEmailParam, ResetPasswordFromMobileParam, ResetPasswordSendCodeFromEmailParam,
-    ResetPasswordSendCodeFromMobileParam,
+    ResetPasswordSendCodeFromMobileParam, user_reset_password_from_email,
+    user_reset_password_from_mobile, user_reset_password_send_code_from_email,
+    user_reset_password_send_code_from_mobile,
 };
 
 #[post("password/{method}")]

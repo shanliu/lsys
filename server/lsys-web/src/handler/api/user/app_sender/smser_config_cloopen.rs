@@ -1,10 +1,10 @@
 use crate::common::{JsonResponse, JsonResult, UserAuthQueryDao};
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::user::CheckUserAppSenderSmsConfig;
 use lsys_access::dao::AccessSession;
 use serde::Deserialize;
-use crate::dao::access::RbacAccessCheckEnv;
-use serde_json::json;
 use serde_json::Value;
+use serde_json::json;
 #[derive(Debug, Deserialize)]
 pub struct SmserCloOpenConfigListParam {
     #[serde(
@@ -26,7 +26,7 @@ pub async fn smser_cloopen_config_list(
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAppSenderSmsConfig {
-                 res_user_id: auth_data.user_id(),
+                res_user_id: auth_data.user_id(),
             },
         )
         .await?;

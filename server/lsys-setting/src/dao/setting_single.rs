@@ -1,13 +1,12 @@
 use crate::model::{SettingModel, SettingStatus, SettingType};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::db::{
-    utils::FetchField, Insert, OptionTxExecutor, QueryBuilderExt, TableMeta,
-    Update,
+    Insert, OptionTxExecutor, QueryBuilderExt, TableMeta, Update, utils::FetchField,
 };
 use lsys_core::remote_notify::RemoteNotify;
-use lsys_core::utils::{now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT};
-use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
+use lsys_core::utils::{RequestEnv, STRING_CLEAR_FORMAT, StringClear, now_time, string_clear};
 use lsys_core::valid_key;
+use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{MySql, Pool, Transaction};
 use std::sync::Arc;
@@ -42,17 +41,18 @@ pub struct SingleSettingData<'t, T: SettingEncode> {
 impl SingleSetting {
     async fn save_param_valid(&self, key: &str, name: &str, data: &str) -> SettingResult<()> {
         let fetch_field = FetchField::new(&self.db);
-        let setting_key_max =
-           fetch_field.string_max::<SettingModel>( &SettingModel::SETTING_KEY)
-                .await
-                .len_or(32);
-        let name_max = fetch_field.string_max::<SettingModel>( &SettingModel::NAME)
+        let setting_key_max = fetch_field
+            .string_max::<SettingModel>(&SettingModel::SETTING_KEY)
             .await
             .len_or(32);
-        let setting_data_max =
-           fetch_field.string_max::<SettingModel>( &SettingModel::SETTING_DATA)
-                .await
-                .len_or(60000);
+        let name_max = fetch_field
+            .string_max::<SettingModel>(&SettingModel::NAME)
+            .await
+            .len_or(32);
+        let setting_data_max = fetch_field
+            .string_max::<SettingModel>(&SettingModel::SETTING_DATA)
+            .await
+            .len_or(60000);
 
         ValidParam::default()
             .add(
@@ -130,12 +130,9 @@ impl SingleSetting {
                     .set(SettingModel::NAME, &name)
                     .set(SettingModel::CHANGE_USER_ID, change_user_id)
                     .set(SettingModel::CHANGE_TIME, time)
-                    .execute(
-                        OptionTxExecutor::new(transaction, &self.db),
-                        |qb| {
-                            qb.push_where().field_eq("id", set.id);
-                        },
-                    )
+                    .execute(OptionTxExecutor::new(transaction, &self.db), |qb| {
+                        qb.push_where().field_eq("id", set.id);
+                    })
                     .await?;
                 self.cache
                     .clear(&format!("{}-{}", set.setting_key, set.user_id))

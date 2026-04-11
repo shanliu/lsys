@@ -5,7 +5,7 @@ use crate::{
     dao::ShowUserAuthData,
 };
 
-use lsys_user::dao::{login::AccountLoginEnv, UserAuthToken};
+use lsys_user::dao::{UserAuthToken, login::AccountLoginEnv};
 use serde::Deserialize;
 
 use super::local_login::user_login_finish;

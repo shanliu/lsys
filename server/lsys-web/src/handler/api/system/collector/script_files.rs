@@ -1,6 +1,6 @@
 use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
-use crate::dao::access::api::system::admin::CheckAdminFileManage;
 use crate::dao::access::RbacAccessCheckEnv;
+use crate::dao::access::api::system::admin::CheckAdminFileManage;
 use lsys_access::dao::AccessSession;
 use lsys_core::api_utils::{JsonPageData, PageCursorValue, PageTotalRowValue};
 use lsys_core::db::{CursorPageSort, TotalParam};
@@ -14,6 +14,15 @@ pub struct ScriptFilesParam {
     pub limit: Option<crate::common::LimitParam>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
+    /// 是否附加文件的 local 属性
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
+    pub attr_file_local: Option<bool>,
+    /// 是否附加文件的 oss 属性
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
+    pub attr_file_oss: Option<bool>,
+    /// 是否附加文件的 tag 属性
+    #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
+    pub attr_file_tag: Option<bool>,
 }
 
 /// GET /api/system/collector/script_files — 按脚本查全部文件
@@ -46,11 +55,17 @@ pub async fn script_files(
             ))
         })?;
 
+    let file_attr = lsys_file::dao::FileListAttrParam {
+        attr_local: param.attr_file_local,
+        attr_oss: param.attr_file_oss,
+        attr_tag: param.attr_file_tag,
+    };
+
     let (files, page_data) = req_dao
         .web_dao
         .web_files
         .collector
-        .list_script_files(&script, &page, None)
+        .list_script_files(&script, &page, None, &file_attr)
         .await?;
 
     let items: Vec<serde_json::Value> = files
@@ -95,7 +110,7 @@ pub async fn script_files(
     };
 
     let cursor = PageCursorValue::from(&page_data);
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::cursor(items, cursor, total),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::cursor(
+        items, cursor, total,
+    ))))
 }

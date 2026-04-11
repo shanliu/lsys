@@ -4,6 +4,17 @@ use crate::common::handler::{
 
 use actix_web::post;
 
+use lsys_web::handler::api::user::app_file::FileChunksParam;
+use lsys_web::handler::api::user::app_file::FileDeleteParam;
+use lsys_web::handler::api::user::app_file::FileFromUrlParam;
+use lsys_web::handler::api::user::app_file::FileListParam;
+use lsys_web::handler::api::user::app_file::FileLogsParam;
+use lsys_web::handler::api::user::app_file::FileTagAddParam;
+use lsys_web::handler::api::user::app_file::FileTagNamesParam;
+use lsys_web::handler::api::user::app_file::FileTagRemoveParam;
+use lsys_web::handler::api::user::app_file::FileTagsParam;
+use lsys_web::handler::api::user::app_file::FileUploadByMd5Param;
+use lsys_web::handler::api::user::app_file::FileUploadCreateParam;
 use lsys_web::handler::api::user::app_file::file_chunks;
 use lsys_web::handler::api::user::app_file::file_delete;
 use lsys_web::handler::api::user::app_file::file_from_url;
@@ -16,17 +27,6 @@ use lsys_web::handler::api::user::app_file::file_tags;
 use lsys_web::handler::api::user::app_file::file_upload_by_md5;
 use lsys_web::handler::api::user::app_file::file_upload_create;
 use lsys_web::handler::api::user::app_file::mapping_data;
-use lsys_web::handler::api::user::app_file::FileChunksParam;
-use lsys_web::handler::api::user::app_file::FileDeleteParam;
-use lsys_web::handler::api::user::app_file::FileFromUrlParam;
-use lsys_web::handler::api::user::app_file::FileListParam;
-use lsys_web::handler::api::user::app_file::FileLogsParam;
-use lsys_web::handler::api::user::app_file::FileTagAddParam;
-use lsys_web::handler::api::user::app_file::FileTagNamesParam;
-use lsys_web::handler::api::user::app_file::FileTagRemoveParam;
-use lsys_web::handler::api::user::app_file::FileTagsParam;
-use lsys_web::handler::api::user::app_file::FileUploadByMd5Param;
-use lsys_web::handler::api::user::app_file::FileUploadCreateParam;
 
 #[post("/{type}")]
 pub async fn file(

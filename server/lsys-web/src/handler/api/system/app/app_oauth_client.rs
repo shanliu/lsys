@@ -1,6 +1,6 @@
 use crate::{
     common::{JsonResponse, JsonResult, UserAuthQueryDao},
-    dao::access::{api::system::admin::CheckAdminApp, RbacAccessCheckEnv},
+    dao::access::{RbacAccessCheckEnv, api::system::admin::CheckAdminApp},
 };
 
 use lsys_access::dao::AccessSession;

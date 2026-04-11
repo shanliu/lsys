@@ -20,7 +20,7 @@ sqlx = { version = "~0.8.6", features = ["mysql", "runtime-tokio-native-tls"] }
 tracing = { version = "0.1.*" } # log-always 保持log的输出 当使用tracing时会出现两次
 
 
-async-trait = "0.1.57"
+async-trait = "~0.1.*"
 
 
 md5 = "~0.8.0"

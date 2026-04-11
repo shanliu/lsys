@@ -1,9 +1,9 @@
 use crate::common::{JsonData, JsonPageData, LimitParam, ToCursorPageParam, ToOffsetPageParam};
 use crate::common::{JsonResponse, UserAuthQueryDao};
 use crate::common::{JsonResult, PageParam};
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::admin::CheckAdminRbacEdit;
 use crate::dao::access::api::system::user::{CheckUserRbacEdit, CheckUserRbacView};
-use crate::dao::access::RbacAccessCheckEnv;
 use lsys_access::dao::{AccessSession, UserDataParam, UserInfo};
 use lsys_core::api_utils::{PageCursorValue, PageTotalRowValue};
 use lsys_core::db::{CursorPageSort, TotalParam};
@@ -178,12 +178,10 @@ pub async fn system_role_user_data(
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(
-            bind_vec_user_info_from_req!(req_dao, res, user_id),
-            count
-        ),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        bind_vec_user_info_from_req!(req_dao, res, user_id),
+        count,
+    ))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -242,7 +240,7 @@ pub async fn system_role_user_available(
         .map(|e| UserInfo::from(e).to_public())
         .collect::<Vec<_>>();
     let cursor = PageCursorValue::from(&next);
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::cursor(out_res, cursor, count),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::cursor(
+        out_res, cursor, count,
+    ))))
 }

@@ -6,7 +6,7 @@ mod user;
 
 //API 接口:每个方法路径为子路径,外层路径由scope定
 use actix_service::ServiceFactory;
-use actix_web::{dev::ServiceRequest, web::scope, App, Error};
+use actix_web::{App, Error, dev::ServiceRequest, web::scope};
 pub(crate) fn router<T>(mut app: App<T>) -> App<T>
 where
     T: ServiceFactory<ServiceRequest, Config = (), Error = Error, InitError = ()>,

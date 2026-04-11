@@ -1,5 +1,5 @@
 use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
-use crate::model::ExportTaskStatus;
+use crate::dao::ExportTaskStatus;
 use serde_json::json;
 
 /// POST /api/user/app_export_task/mapping — 导出任务字典映射（用户端）

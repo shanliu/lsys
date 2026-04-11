@@ -1,13 +1,13 @@
 use crate::common::{
     JsonData, JsonResponse, JsonResult, PageParam, ToOffsetPageParam, UserAuthQueryDao,
 };
-use crate::dao::access::api::system::admin::{CheckAdminRbacEdit, CheckAdminRbacView};
 use crate::dao::access::RbacAccessCheckEnv;
+use crate::dao::access::api::system::admin::{CheckAdminRbacEdit, CheckAdminRbacView};
 use lsys_access::dao::AccessSession;
+use lsys_core::api_utils::JsonPageData;
 use lsys_rbac::dao::{OpDataAttrParam, OpDataParam as DaoOpDataParam, RbacOpAddData, RbacOpData};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use lsys_core::api_utils::JsonPageData;
 
 #[derive(Debug, Deserialize)]
 pub struct OpAddParam {
@@ -38,13 +38,10 @@ pub async fn op_add(param: &OpAddParam, req_dao: &UserAuthQueryDao) -> JsonResul
                 app_id: Some(0),
                 op_info: RbacOpData {
                     op_key: &param.op_key,
-                    op_name: param.op_name.as_deref().and_then(|e| {
-                        if !e.is_empty() {
-                            Some(e)
-                        } else {
-                            None
-                        }
-                    }),
+                    op_name: param
+                        .op_name
+                        .as_deref()
+                        .and_then(|e| if !e.is_empty() { Some(e) } else { None }),
                 },
             },
             auth_data.user_id(),
@@ -91,13 +88,10 @@ pub async fn op_edit(param: &OpEditParam, req_dao: &UserAuthQueryDao) -> JsonRes
             &op,
             &RbacOpData {
                 op_key: &param.op_key,
-                op_name: param.op_name.as_deref().and_then(|e| {
-                    if !e.is_empty() {
-                        Some(e)
-                    } else {
-                        None
-                    }
-                }),
+                op_name: param
+                    .op_name
+                    .as_deref()
+                    .and_then(|e| if !e.is_empty() { Some(e) } else { None }),
             },
             auth_data.user_id(),
             None,
@@ -234,7 +228,7 @@ pub async fn op_data(param: &OpDataParam, req_dao: &UserAuthQueryDao) -> JsonRes
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(res, count),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        res, count,
+    ))))
 }

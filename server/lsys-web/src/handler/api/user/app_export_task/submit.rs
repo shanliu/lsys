@@ -1,7 +1,7 @@
 use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
-use crate::dao::access::api::system::user::CheckUserFileView;
 use crate::dao::access::RbacAccessCheckEnv;
-use lsys_access::dao::{AccessSession, AccessSessionData};
+use crate::dao::access::api::system::user::CheckUserFileView;
+use lsys_access::dao::AccessSession;
 use serde::Deserialize;
 use serde_json::json;
 /// 提交导出任务参数
@@ -47,13 +47,12 @@ pub async fn app_export_submit(
         .web_files
         .export_task
         .submit(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             app.id,
             app.user_id,
             user_id,
-            user_id, // add_user_id = user_id（用户端两者一致）
             &param.export_type,
-            &params,
-            Some(auth_data.session_body()),
+            params,
             Some(&req_dao.req_env),
         )
         .await?;

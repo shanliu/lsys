@@ -1,8 +1,8 @@
 use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::UserAuthQueryDao;
-use crate::dao::access::api::system::admin::CheckAdminApp;
 use crate::dao::access::RbacAccessCheckEnv;
+use crate::dao::access::api::system::admin::CheckAdminApp;
 use lsys_access::dao::AccessSession;
 use serde::Deserialize;
 
@@ -17,7 +17,10 @@ pub async fn delete(param: &DeleteParam, req_dao: &UserAuthQueryDao) -> JsonResu
     req_dao
         .web_dao
         .web_rbac
-        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminApp {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminApp {},
+        )
         .await?;
     let app = req_dao
         .web_dao

@@ -1,7 +1,7 @@
 use actix_web::post;
 use lsys_web::handler::service::file::{
     self as service_file, FileDeleteParam, FileInfoParam, FileListParam, FileUrlsParam,
-    FromLocalParam, FromUrlParam, UploadByMd5Param, UploadCreateParam, UploadRetokenParam,
+   FromUrlParam, UploadByMd5Param, UploadCreateParam, UploadRetokenParam,
 };
 
 use crate::common::handler::{JsonQuery, ResponseJson, ResponseJsonResult, ServiceQuery};
@@ -34,38 +34,25 @@ pub async fn file(
     let method = path.into_inner();
     let result = match method.as_str() {
         "upload_create" => {
-            service_file::upload_create(
-                &json_param.param::<UploadCreateParam>()?,
-                &service.inner,
-            )
-            .await
+            service_file::upload_create(&json_param.param::<UploadCreateParam>()?, &service.inner)
+                .await
         }
         "upload_retoken" => {
-            service_file::upload_retoken(
-                &json_param.param::<UploadRetokenParam>()?,
-                &service.inner,
-            )
-            .await
+            service_file::upload_retoken(&json_param.param::<UploadRetokenParam>()?, &service.inner)
+                .await
         }
         "upload_by_md5" => {
-            service_file::upload_by_md5(
-                &json_param.param::<UploadByMd5Param>()?,
-                &service.inner,
-            )
-            .await
+            service_file::upload_by_md5(&json_param.param::<UploadByMd5Param>()?, &service.inner)
+                .await
         }
         "from_url" => {
             service_file::from_url(&json_param.param::<FromUrlParam>()?, &service.inner).await
-        }
-        "from_local" => {
-            service_file::from_local(&json_param.param::<FromLocalParam>()?, &service.inner).await
         }
         "list" => {
             service_file::file_list(&json_param.param::<FileListParam>()?, &service.inner).await
         }
         "delete" => {
-            service_file::file_delete(&json_param.param::<FileDeleteParam>()?, &service.inner)
-                .await
+            service_file::file_delete(&json_param.param::<FileDeleteParam>()?, &service.inner).await
         }
         "urls" => {
             service_file::file_urls(&json_param.param::<FileUrlsParam>()?, &service.inner).await

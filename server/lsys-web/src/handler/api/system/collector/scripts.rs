@@ -1,6 +1,6 @@
 use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
-use crate::dao::access::api::system::admin::CheckAdminFileManage;
 use crate::dao::access::RbacAccessCheckEnv;
+use crate::dao::access::api::system::admin::CheckAdminFileManage;
 use lsys_access::dao::AccessSession;
 use lsys_core::api_utils::JsonPageData;
 use serde::Deserialize;
@@ -74,7 +74,7 @@ pub async fn scripts(
         })
         .collect();
 
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(items, total),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        items, total,
+    ))))
 }

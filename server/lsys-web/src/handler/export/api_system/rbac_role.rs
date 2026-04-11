@@ -8,48 +8,41 @@ use std::sync::Arc;
 use lsys_core::db::{OffsetPageParam, OffsetPageValue};
 use lsys_rbac::dao::{RbacDao, RoleDataAttrParam, RoleDataParam};
 
-use crate::dao::access::api::system::admin::CheckAdminRbacView;
 use crate::dao::access::RbacAccessCheckEnv;
+use crate::dao::access::api::system::admin::CheckAdminRbacView;
 use crate::dao::export_task::exporter::Exporter;
 use crate::dao::export_task::writer::CsvWriter;
-use crate::dao::WebError;
-use crate::dao::WebResult;
-use crate::dao::WebRbac;
-use crate::model::ExportTaskModel;
+use crate::dao::{ExportTaskModel, WebExporter, WebResult};
 
 pub const EXPORT_TYPE_SYSTEM_RBAC_ROLE: &str = "system_rbac_role";
 
 pub struct SystemRbacRoleExporter {
     pub rbac_dao: Arc<RbacDao>,
-    pub web_rbac: Arc<WebRbac>,
+    pub web_rbac: Arc<crate::dao::WebRbac>,
 }
 
-impl Exporter for SystemRbacRoleExporter {
-    fn check<'a>(
-        &'a self,
-        check_env: &'a RbacAccessCheckEnv<'_>,
-        _app_id: u64,
-        _app_user_id: u64,
-        _user_id: u64,
-        _export_type: &'a str,
-        _params: &'a serde_json::Value,
-    ) -> std::pin::Pin<
-        Box<dyn std::future::Future<Output = WebResult<()>> + Send + 'a>,
-    > {
-        Box::pin(async move {
-            self.web_rbac
-                .check(check_env, &CheckAdminRbacView {})
-                .await?;
-            Ok(())
-        })
+#[async_trait::async_trait]
+impl WebExporter for SystemRbacRoleExporter {
+    async fn check(
+        &self,
+        check_env: &RbacAccessCheckEnv<'_>,
+        _param: &crate::dao::ExportCheckParam<'_>,
+    ) -> WebResult<()> {
+        self.web_rbac
+            .check(check_env, &CheckAdminRbacView {})
+            .await?;
+        Ok(())
     }
+}
 
+impl Exporter<crate::dao::WebError> for SystemRbacRoleExporter {
     fn export<'a>(
         &'a self,
         record: ExportTaskModel,
         params: serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<PathBuf, WebError>> + Send + 'a>>
-    {
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<PathBuf, crate::dao::WebError>> + Send + 'a>,
+    > {
         Box::pin(async move {
             let role_key = params["role_key"].as_str();
             let role_name = params["role_name"].as_str();
@@ -78,16 +71,19 @@ impl Exporter for SystemRbacRoleExporter {
 
             let mut w = CsvWriter::new(&record)
                 .header((
-                    "id", "app_id", "role_key", "role_name",
-                    "user_range", "res_range", "status", "change_user_id", "change_time",
+                    "id",
+                    "app_id",
+                    "role_key",
+                    "role_name",
+                    "user_range",
+                    "res_range",
+                    "status",
+                    "change_user_id",
+                    "change_time",
                 ))
                 .await?;
 
-            let total = self
-                .rbac_dao
-                .role
-                .role_count(&role_param)
-                .await? as u64;
+            let total = self.rbac_dao.role.role_count(&role_param).await? as u64;
             if total > 0 {
                 let page = OffsetPageParam::new(Some(OffsetPageValue::new(0, total)));
                 let items = self
@@ -97,22 +93,24 @@ impl Exporter for SystemRbacRoleExporter {
                     .await?;
                 let rows: Vec<_> = items
                     .iter()
-                    .map(|(role, _info)| (
-                        role.id,
-                        role.app_id,
-                        role.role_key.clone(),
-                        role.role_name.clone(),
-                        role.user_range,
-                        role.res_range,
-                        role.status,
-                        role.change_user_id,
-                        role.change_time,
-                    ))
+                    .map(|(role, _info)| {
+                        (
+                            role.id,
+                            role.app_id,
+                            role.role_key.clone(),
+                            role.role_name.clone(),
+                            role.user_range,
+                            role.res_range,
+                            role.status,
+                            role.change_user_id,
+                            role.change_time,
+                        )
+                    })
                     .collect();
                 w.write_batch(rows).await?;
             }
 
-            w.finish().await
+            w.finish().await.map_err(Into::into)
         })
     }
 }

@@ -8,46 +8,41 @@ use std::sync::Arc;
 use lsys_core::db::{CursorConfig, CursorLimit, CursorPageDir, CursorPageParam, CursorPageSort};
 use lsys_logger::dao::ChangeLoggerDao;
 
-use crate::dao::access::api::system::admin::CheckAdminChangeLogsView;
 use crate::dao::access::RbacAccessCheckEnv;
+use crate::dao::access::api::system::admin::CheckAdminChangeLogsView;
 use crate::dao::export_task::exporter::Exporter;
 use crate::dao::export_task::writer::CsvWriter;
-use crate::dao::WebError;
-use crate::dao::WebRbac;
-use crate::dao::WebResult;
-use crate::model::ExportTaskModel;
+use crate::dao::{ExportTaskModel, WebExporter, WebResult};
 
 pub const EXPORT_TYPE_SYSTEM_CHANGE_LOG: &str = "system_change_log";
 
 pub struct SystemChangeLogExporter {
     pub change_logger_dao: Arc<ChangeLoggerDao>,
-    pub web_rbac: Arc<WebRbac>,
+    pub web_rbac: Arc<crate::dao::WebRbac>,
 }
 
-impl Exporter for SystemChangeLogExporter {
-    fn check<'a>(
-        &'a self,
-        check_env: &'a RbacAccessCheckEnv<'_>,
-        _app_id: u64,
-        _app_user_id: u64,
-        _user_id: u64,
-        _export_type: &'a str,
-        _params: &'a serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = WebResult<()>> + Send + 'a>> {
-        Box::pin(async move {
-            self.web_rbac
-                .check(check_env, &CheckAdminChangeLogsView {})
-                .await?;
-            Ok(())
-        })
+#[async_trait::async_trait]
+impl WebExporter for SystemChangeLogExporter {
+    async fn check(
+        &self,
+        check_env: &RbacAccessCheckEnv<'_>,
+        _param: &crate::dao::ExportCheckParam<'_>,
+    ) -> WebResult<()> {
+        self.web_rbac
+            .check(check_env, &CheckAdminChangeLogsView {})
+            .await?;
+        Ok(())
     }
+}
 
+impl Exporter<crate::dao::WebError> for SystemChangeLogExporter {
     fn export<'a>(
         &'a self,
         record: ExportTaskModel,
         params: serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<PathBuf, WebError>> + Send + 'a>>
-    {
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<PathBuf, crate::dao::WebError>> + Send + 'a>,
+    > {
         Box::pin(async move {
             let log_type = params["log_type"].as_str();
             let add_user_id = params["add_user_id"].as_u64();
@@ -83,13 +78,7 @@ impl Exporter for SystemChangeLogExporter {
                 let (items, page_data) = self
                     .change_logger_dao
                     .list_data(log_type, add_user_id, &page_param)
-                    .await
-                    .map_err(|e| {
-                        WebError::Message(lsys_core::fluent_message!(
-                            "change-log-error",
-                            format!("{:?}", e)
-                        ))
-                    })?;
+                    .await?;
 
                 if items.is_empty() {
                     break;
@@ -122,7 +111,7 @@ impl Exporter for SystemChangeLogExporter {
                 }
             }
 
-            w.finish().await
+            w.finish().await.map_err(Into::into)
         })
     }
 }

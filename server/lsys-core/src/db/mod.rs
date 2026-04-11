@@ -22,7 +22,8 @@ pub mod utils {
     //
     #[cfg(feature = "db")]
     pub use super::sqlx_utils::{
-        FetchField, FetchFieldError, FetchFieldStringMaxResult, FetchFieldStringQuery, FetchFieldStringType,
+        FetchField, FetchFieldError, FetchFieldStringMaxResult, FetchFieldStringQuery,
+        FetchFieldStringType,
     };
 
     #[cfg(feature = "redis")]

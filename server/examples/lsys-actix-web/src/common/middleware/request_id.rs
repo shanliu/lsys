@@ -1,9 +1,9 @@
 #![allow(dead_code)]
 use actix_http::header::{HeaderName, HeaderValue};
-use actix_utils::future::{ready, Ready};
+use actix_utils::future::{Ready, ready};
 use actix_web::{
-    dev::{Service, ServiceRequest, ServiceResponse, Transform},
     Error,
+    dev::{Service, ServiceRequest, ServiceResponse, Transform},
 };
 use futures_util::ready;
 use std::{

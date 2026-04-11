@@ -1,11 +1,11 @@
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use axum::{
-    routing::{get, post},
     Router,
+    routing::{get, post},
 };
-use lsys_core::app_core::utils;
 use lsys_core::app_core::AppCore;
+use lsys_core::app_core::utils;
 use lsys_core::fluents::FluentMgr;
 use lsys_core::remote_notify::RemoteNotify;
 use lsys_logger::dao::ChangeLoggerDao;

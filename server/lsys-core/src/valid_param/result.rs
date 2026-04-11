@@ -1,4 +1,4 @@
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::fluents::{FluentData, FluentMessage, IntoFluentMessage};
 
@@ -56,11 +56,12 @@ impl ValidError {
         }
         let mut out_data = serde_json::Map::from_iter([(
             "field".to_string(),
-            json!(self
-                .items
-                .iter()
-                .map(|e| e.0.name.as_str())
-                .collect::<Vec<&str>>()),
+            json!(
+                self.items
+                    .iter()
+                    .map(|e| e.0.name.as_str())
+                    .collect::<Vec<&str>>()
+            ),
         )]);
         if !map_data.is_empty() {
             out_data.insert("info".to_string(), Value::Object(map_data));

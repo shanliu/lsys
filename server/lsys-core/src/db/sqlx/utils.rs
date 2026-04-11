@@ -12,10 +12,10 @@ pub(crate) fn push_set_clause_to<DB: Database>(
             qb.push(", ");
         }
         first = false;
-        
+
         qb.push(col.as_str());
         qb.push(" = ");
-        
+
         match value {
             StoredValue::Bind(b) => {
                 b.bind_to(qb);
@@ -41,7 +41,7 @@ pub(crate) fn push_values_to<DB: Database>(
             qb.push(", ");
         }
         first = false;
-        
+
         match value {
             StoredValue::Bind(b) => {
                 b.bind_to(qb);

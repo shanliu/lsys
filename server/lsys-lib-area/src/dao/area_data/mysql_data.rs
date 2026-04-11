@@ -1,4 +1,4 @@
-use mysql::{prelude::Queryable, Conn, Opts, Row};
+use mysql::{Conn, Opts, Row, prelude::Queryable};
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::{AreaCodeData, AreaDataProvider, AreaError, AreaGeoData, AreaGeoDataItem, AreaResult};

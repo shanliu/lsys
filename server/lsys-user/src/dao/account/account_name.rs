@@ -1,14 +1,12 @@
+use lsys_core::remote_notify::RemoteNotify;
+use lsys_core::utils::{RequestEnv, STRING_CLEAR_FORMAT, StringClear, now_time, string_clear};
+use lsys_core::valid_param::{
+    ValidError, ValidParam, ValidParamCheck, ValidPattern, ValidStrMatch, ValidStrlen,
+};
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
     db::utils::FetchField,
     fluent_message, valid_key,
-};
-use lsys_core::remote_notify::RemoteNotify;
-use lsys_core::utils::{
-    now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT,
-};
-use lsys_core::valid_param::{
-    ValidError, ValidParam, ValidParamCheck, ValidPattern, ValidStrMatch, ValidStrlen,
 };
 
 use lsys_logger::dao::ChangeLoggerDao;
@@ -19,7 +17,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use crate::model::{AccountModel, AccountNameModel, AccountNameStatus};
 
-use super::{logger::LogAccountName, AccountError, AccountIndex, AccountResult};
+use super::{AccountError, AccountIndex, AccountResult, logger::LogAccountName};
 
 pub struct AccountName {
     db: Pool<MySql>,
@@ -78,7 +76,7 @@ impl AccountName {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let res = Update::<_,AccountNameModel>::new()
+        let res = Update::<_, AccountNameModel>::new()
             .set(AccountNameModel::USERNAME, &username)
             .set(AccountNameModel::CHANGE_TIME, ntime)
             .set(AccountNameModel::STATUS, status)
@@ -119,10 +117,10 @@ impl AccountName {
         Ok(())
     }
     async fn name_param_valid(&self, username: &str) -> AccountResult<()> {
-        let username_max =
-           FetchField::new(&self.db).string_max::<AccountNameModel>( &AccountNameModel::USERNAME)
-                .await
-                .len_or(32);
+        let username_max = FetchField::new(&self.db)
+            .string_max::<AccountNameModel>(&AccountNameModel::USERNAME)
+            .await
+            .len_or(32);
 
         ValidParam::default()
             .add(
@@ -176,7 +174,7 @@ impl AccountName {
                             Some(pb) => pb.begin().await?,
                             None => self.db.begin().await?,
                         };
-                        let tmp = Insert::<_,AccountNameModel>::new()
+                        let tmp = Insert::<_, AccountNameModel>::new()
                             .set(AccountNameModel::ACCOUNT_ID, account.id)
                             .set(AccountNameModel::USERNAME, &username)
                             .set(AccountNameModel::STATUS, status)
@@ -221,7 +219,7 @@ impl AccountName {
                             Some(pb) => pb.begin().await?,
                             None => self.db.begin().await?,
                         };
-                        let tmp = Update::<_,AccountNameModel>::new()
+                        let tmp = Update::<_, AccountNameModel>::new()
                             .set(AccountNameModel::STATUS, status)
                             .set(AccountNameModel::USERNAME, &username)
                             .set(AccountNameModel::CHANGE_TIME, time)
@@ -289,15 +287,16 @@ impl AccountName {
 
     pub async fn find_by_account_id(&self, id: &u64) -> AccountResult<AccountNameModel> {
         use lsys_core::db::utils::Fetch;
-        Ok(Fetch::<MySql, AccountNameModel>::one(
-            &self.db,
-            |qb| {
-                qb.field_eq("account_id", *id);
-                qb.push(" ORDER BY id DESC");
-            },
-        ).await?)
+        Ok(Fetch::<MySql, AccountNameModel>::one(&self.db, |qb| {
+            qb.field_eq("account_id", *id);
+            qb.push(" ORDER BY id DESC");
+        })
+        .await?)
     }
-    pub async fn find_by_account_ids(&self, ids: &[u64]) -> AccountResult<HashMap<u64, AccountNameModel>> {
+    pub async fn find_by_account_ids(
+        &self,
+        ids: &[u64],
+    ) -> AccountResult<HashMap<u64, AccountNameModel>> {
         use lsys_core::db::utils::Fetch;
         Ok(Fetch::<MySql, AccountNameModel>::map(
             &self.db,
@@ -306,7 +305,8 @@ impl AccountName {
                 qb.push(" ORDER BY id DESC");
             },
             |v| v.account_id,
-        ).await?)
+        )
+        .await?)
     }
     pub fn cache(&'_ self) -> AccountNameCache<'_> {
         AccountNameCache { dao: self }
@@ -323,7 +323,10 @@ impl AccountNameCache<'_> {
             .get_or_fetch(id, || self.dao.find_by_account_id(id))
             .await
     }
-    pub async fn find_by_account_ids(&self, ids: &[u64]) -> AccountResult<HashMap<u64, AccountNameModel>> {
+    pub async fn find_by_account_ids(
+        &self,
+        ids: &[u64],
+    ) -> AccountResult<HashMap<u64, AccountNameModel>> {
         self.dao
             .cache
             .get_or_fetch_many(ids, |missing| async move {

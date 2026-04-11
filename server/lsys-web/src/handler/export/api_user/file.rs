@@ -16,18 +16,13 @@ use lsys_core::db::{
     CursorConfig, CursorLimit, CursorPageDir, CursorPageParam, CursorPageSort, OffsetPageParam,
     OffsetPageValue,
 };
-use lsys_files::dao::{FileDao, FileDataListParam, FileListAttrParam};
+use lsys_file::dao::{FileDao, FileDataListParam, FileListAttrParam};
 
-use crate::dao::access::api::system::user::CheckUserAppView;
 use crate::dao::access::RbacAccessCheckEnv;
+use crate::dao::access::api::system::user::CheckUserFileView;
 use crate::dao::export_task::exporter::Exporter;
 use crate::dao::export_task::writer::CsvWriter;
-use crate::dao::WebApp;
-use crate::dao::WebError;
-use crate::dao::WebRbac;
-use crate::dao::WebResult;
-use crate::handler::APP_FEATURE_FILE;
-use crate::model::ExportTaskModel;
+use crate::dao::{ExportTaskModel, WebExporter, WebResult};
 
 pub const EXPORT_TYPE_USER_FILE_LIST: &str = "user_file_list";
 pub const EXPORT_TYPE_USER_FILE_LOG: &str = "user_file_log";
@@ -36,52 +31,36 @@ pub const EXPORT_TYPE_USER_FILE_CHUNK: &str = "user_file_chunk";
 /// 用户文件列表导出
 pub struct FileListExporter {
     pub file_dao: Arc<FileDao>,
-    pub web_rbac: Arc<WebRbac>,
-    pub web_app: Arc<WebApp>,
+    pub web_rbac: Arc<crate::dao::WebRbac>,
 }
 
-impl Exporter for FileListExporter {
-    fn check<'a>(
-        &'a self,
-        check_env: &'a RbacAccessCheckEnv<'_>,
-        app_id: u64,
-        _app_user_id: u64,
-        _user_id: u64,
-        _export_type: &'a str,
-        _params: &'a serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = WebResult<()>> + Send + 'a>> {
-        Box::pin(async move {
-            if app_id == 0 {
-                return Err(WebError::Message(lsys_core::fluent_message!(
-                    "export-miss-app-id"
-                )));
-            }
-            let app = self.web_app.app_dao.app.find_by_id(app_id).await?;
-            self.web_rbac
-                .check(
-                    check_env,
-                    &CheckUserAppView {
-                        res_user_id: app.user_id,
-                    },
-                )
-                .await?;
-            app.app_status_check()?;
-            self.web_app
-                .app_dao
-                .app
-                .cache()
-                .exter_feature_check(&app, &[APP_FEATURE_FILE])
-                .await?;
-            Ok(())
-        })
+#[async_trait::async_trait]
+impl WebExporter for FileListExporter {
+    async fn check(
+        &self,
+        check_env: &RbacAccessCheckEnv<'_>,
+        param: &crate::dao::ExportCheckParam<'_>,
+    ) -> WebResult<()> {
+        self.web_rbac
+            .check(
+                check_env,
+                &CheckUserFileView {
+                    res_user_id: param.user_id,
+                },
+            )
+            .await?;
+        Ok(())
     }
+}
 
+impl Exporter<crate::dao::WebError> for FileListExporter {
     fn export<'a>(
         &'a self,
         record: ExportTaskModel,
         params: serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<PathBuf, WebError>> + Send + 'a>>
-    {
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<PathBuf, crate::dao::WebError>> + Send + 'a>,
+    > {
         Box::pin(async move {
             let user_id = params["user_id"].as_u64();
             let app_id = params["app_id"].as_u64();
@@ -100,7 +79,6 @@ impl Exporter for FileListExporter {
                 storage_type,
                 file_md5,
                 tag_names: None,
-                tag_any_names: None,
             };
 
             let attr = FileListAttrParam {
@@ -168,7 +146,7 @@ impl Exporter for FileListExporter {
                 }
             }
 
-            w.finish().await
+            w.finish().await.map_err(Into::into)
         })
     }
 }
@@ -176,52 +154,36 @@ impl Exporter for FileListExporter {
 /// 文件操作日志导出
 pub struct FileLogExporter {
     pub file_dao: Arc<FileDao>,
-    pub web_rbac: Arc<WebRbac>,
-    pub web_app: Arc<WebApp>,
+    pub web_rbac: Arc<crate::dao::WebRbac>,
 }
 
-impl Exporter for FileLogExporter {
-    fn check<'a>(
-        &'a self,
-        check_env: &'a RbacAccessCheckEnv<'_>,
-        app_id: u64,
-        _app_user_id: u64,
-        _user_id: u64,
-        _export_type: &'a str,
-        _params: &'a serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = WebResult<()>> + Send + 'a>> {
-        Box::pin(async move {
-            if app_id == 0 {
-                return Err(WebError::Message(lsys_core::fluent_message!(
-                    "export-miss-app-id"
-                )));
-            }
-            let app = self.web_app.app_dao.app.find_by_id(app_id).await?;
-            self.web_rbac
-                .check(
-                    check_env,
-                    &CheckUserAppView {
-                        res_user_id: app.user_id,
-                    },
-                )
-                .await?;
-            app.app_status_check()?;
-            self.web_app
-                .app_dao
-                .app
-                .cache()
-                .exter_feature_check(&app, &[APP_FEATURE_FILE])
-                .await?;
-            Ok(())
-        })
+#[async_trait::async_trait]
+impl WebExporter for FileLogExporter {
+    async fn check(
+        &self,
+        check_env: &RbacAccessCheckEnv<'_>,
+        param: &crate::dao::ExportCheckParam<'_>,
+    ) -> WebResult<()> {
+        self.web_rbac
+            .check(
+                check_env,
+                &CheckUserFileView {
+                    res_user_id: param.user_id,
+                },
+            )
+            .await?;
+        Ok(())
     }
+}
 
+impl Exporter<crate::dao::WebError> for FileLogExporter {
     fn export<'a>(
         &'a self,
         record: ExportTaskModel,
         params: serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<PathBuf, WebError>> + Send + 'a>>
-    {
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<PathBuf, crate::dao::WebError>> + Send + 'a>,
+    > {
         Box::pin(async move {
             let file_id = params["file_id"].as_u64().unwrap_or(0);
 
@@ -264,7 +226,7 @@ impl Exporter for FileLogExporter {
                 w.write_batch(rows).await?;
             }
 
-            w.finish().await
+            w.finish().await.map_err(Into::into)
         })
     }
 }
@@ -272,52 +234,36 @@ impl Exporter for FileLogExporter {
 /// 文件分片列表导出
 pub struct FileChunkExporter {
     pub file_dao: Arc<FileDao>,
-    pub web_rbac: Arc<WebRbac>,
-    pub web_app: Arc<WebApp>,
+    pub web_rbac: Arc<crate::dao::WebRbac>,
 }
 
-impl Exporter for FileChunkExporter {
-    fn check<'a>(
-        &'a self,
-        check_env: &'a RbacAccessCheckEnv<'_>,
-        app_id: u64,
-        _app_user_id: u64,
-        _user_id: u64,
-        _export_type: &'a str,
-        _params: &'a serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = WebResult<()>> + Send + 'a>> {
-        Box::pin(async move {
-            if app_id == 0 {
-                return Err(WebError::Message(lsys_core::fluent_message!(
-                    "export-miss-app-id"
-                )));
-            }
-            let app = self.web_app.app_dao.app.find_by_id(app_id).await?;
-            self.web_rbac
-                .check(
-                    check_env,
-                    &CheckUserAppView {
-                        res_user_id: app.user_id,
-                    },
-                )
-                .await?;
-            app.app_status_check()?;
-            self.web_app
-                .app_dao
-                .app
-                .cache()
-                .exter_feature_check(&app, &[APP_FEATURE_FILE])
-                .await?;
-            Ok(())
-        })
+#[async_trait::async_trait]
+impl WebExporter for FileChunkExporter {
+    async fn check(
+        &self,
+        check_env: &RbacAccessCheckEnv<'_>,
+        param: &crate::dao::ExportCheckParam<'_>,
+    ) -> WebResult<()> {
+        self.web_rbac
+            .check(
+                check_env,
+                &CheckUserFileView {
+                    res_user_id: param.user_id,
+                },
+            )
+            .await?;
+        Ok(())
     }
+}
 
+impl Exporter<crate::dao::WebError> for FileChunkExporter {
     fn export<'a>(
         &'a self,
         record: ExportTaskModel,
         params: serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<PathBuf, WebError>> + Send + 'a>>
-    {
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<PathBuf, crate::dao::WebError>> + Send + 'a>,
+    > {
         Box::pin(async move {
             let file_id = params["file_id"].as_u64().unwrap_or(0);
 
@@ -366,7 +312,7 @@ impl Exporter for FileChunkExporter {
                 w.write_batch(rows).await?;
             }
 
-            w.finish().await
+            w.finish().await.map_err(Into::into)
         })
     }
 }

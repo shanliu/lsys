@@ -6,8 +6,8 @@ use crate::model::{
     AppNotifyType, AppSecretType,
 };
 use async_trait::async_trait;
-use lsys_core::db::{TableMeta, QueryBuilderExt, FieldValue};
 use lsys_core::db::Update;
+use lsys_core::db::{FieldValue, QueryBuilderExt, TableMeta};
 use lsys_core::fluents::IntoFluentMessage;
 use lsys_core::task_dispatch::{TaskExecutor, TaskNotify};
 use lsys_core::utils::now_time;
@@ -76,13 +76,7 @@ fn next_time_add(now_num: u8, retry_mode: i8, retry_base: u16) -> u64 {
     } else {
         retry_base as u64
     };
-    if retry_time < NOTIFY_MIN_DELAY_TIME {
-        NOTIFY_MIN_DELAY_TIME
-    } else if retry_time > 3600 * 24 {
-        3600 * 24
-    } else {
-        retry_time
-    }
+    retry_time.clamp(NOTIFY_MIN_DELAY_TIME, 3600 * 24)
 }
 
 async fn change_notify_check_num_error_status(
@@ -128,18 +122,24 @@ async fn change_notify_check_num_error_status(
                 warn!("change notify data other record fail[{}]{}", nid, err);
                 return;
             }
-            use lsys_core::db::{Update, FieldValue};
+            use lsys_core::db::{FieldValue, Update};
             let fail_status = AppNotifyDataStatus::Fail as i8;
             let msg_str = msg.to_string();
             let next_time_val = ntime + addtime;
             if let Err(err) = Update::<_, AppNotifyDataModel>::new()
-                .set(AppNotifyDataModel::STATUS, FieldValue::Dynamic(Box::new(move |qb| {
-                    qb.push("if((try_num+1)>=try_max,");
-                    qb.push_bind(fail_status);
-                    qb.push(",status)");
-                })))
+                .set(
+                    AppNotifyDataModel::STATUS,
+                    FieldValue::Dynamic(Box::new(move |qb| {
+                        qb.push("if((try_num+1)>=try_max,");
+                        qb.push_bind(fail_status);
+                        qb.push(",status)");
+                    })),
+                )
                 .set(AppNotifyDataModel::RESULT, msg_str)
-                .set(AppNotifyDataModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))
+                .set(
+                    AppNotifyDataModel::TRY_NUM,
+                    FieldValue::Expr("try_num+1".into()),
+                )
                 .set(AppNotifyDataModel::NEXT_TIME, next_time_val)
                 .set(AppNotifyDataModel::PUBLISH_TIME, ntime)
                 .execute(&mut *tdb, |qb| {
@@ -304,11 +304,14 @@ impl AppNotifyTask {
         {
             Ok(()) => {
                 debug!("notify {} success", &val.0.id);
-               
+
                 let ntime = now_time().unwrap_or_default();
                 if let Err(err) = Update::<_, AppNotifyDataModel>::new()
                     .set(AppNotifyDataModel::STATUS, AppNotifyDataStatus::Succ as i8)
-                    .set(AppNotifyDataModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))
+                    .set(
+                        AppNotifyDataModel::TRY_NUM,
+                        FieldValue::Expr("try_num+1".into()),
+                    )
                     .set(AppNotifyDataModel::PUBLISH_TIME, ntime)
                     .execute(&self.db, |qb| {
                         qb.push_where().field_eq("id", val.0.id);
@@ -365,13 +368,14 @@ impl TaskExecutor<u64, AppAppNotifyTaskItem> for AppNotifyTask {
             .fetch_one(&self.db)
             .await
             .is_ok()
-            && let Err(e) = self.task_notify.notify().await {
-                info!(
-                    "notify next app fail:{} on :{}",
-                    e.to_fluent_message().default_format(),
-                    task_id
-                );
-            }
+            && let Err(e) = self.task_notify.notify().await
+        {
+            info!(
+                "notify next app fail:{} on :{}",
+                e.to_fluent_message().default_format(),
+                task_id
+            );
+        }
         res
     }
 }

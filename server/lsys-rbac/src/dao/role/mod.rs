@@ -9,14 +9,14 @@ use logger::LogRole;
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::fluent_message;
 use lsys_core::remote_notify::RemoteNotify;
-use lsys_core::utils::{now_time, RequestEnv};
+use lsys_core::utils::{RequestEnv, now_time};
 use lsys_core::valid_key;
 use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
 use sqlx::Acquire;
 use std::{sync::Arc, vec};
 
 use lsys_core::db::{
-    utils::FetchField, Insert, OptionTxExecutor, QueryBuilderExt, TableMeta, Update,
+    Insert, OptionTxExecutor, QueryBuilderExt, TableMeta, Update, utils::FetchField,
 };
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{MySql, Pool, QueryBuilder, Transaction};
@@ -79,14 +79,14 @@ pub struct RbacRoleAddData<'t> {
 impl RbacRole {
     async fn role_param_valid(&self, param: &RbacRoleUserRangeData<'_>) -> RbacResult<()> {
         let fetch_field = FetchField::new(&self.db);
-        let role_key_max =
-           fetch_field.string_max::<RbacRoleModel>( &RbacRoleModel::ROLE_KEY)
-                .await
-                .len_or(32);
-        let role_name_max =
-           fetch_field.string_max::<RbacRoleModel>( &RbacRoleModel::ROLE_NAME)
-                .await
-                .len_or(32);
+        let role_key_max = fetch_field
+            .string_max::<RbacRoleModel>(&RbacRoleModel::ROLE_KEY)
+            .await
+            .len_or(32);
+        let role_name_max = fetch_field
+            .string_max::<RbacRoleModel>(&RbacRoleModel::ROLE_NAME)
+            .await
+            .len_or(32);
 
         let mut param_valid = ValidParam::default();
         match param {
@@ -147,8 +147,11 @@ impl RbacRole {
                 ));
                 qb.push_where().field_eq("user_id", param.user_id);
                 qb.push_and().field_eq("role_key", role_key.clone());
-                qb.push_and().field_eq("app_id", param.app_id.unwrap_or_default());
-                qb.push_and().field_eq("status", RbacRoleStatus::Enable as i8).push(" limit 1");
+                qb.push_and()
+                    .field_eq("app_id", param.app_id.unwrap_or_default());
+                qb.push_and()
+                    .field_eq("status", RbacRoleStatus::Enable as i8)
+                    .push(" limit 1");
                 if !role_name.is_empty() {
                     qb.push(format!(
                         ") union all  (select * from {}",
@@ -156,11 +159,16 @@ impl RbacRole {
                     ));
                     qb.push_where().field_eq("user_id", param.user_id);
                     qb.push_and().field_eq("role_name", role_name.clone());
-                    qb.push_and().field_eq("app_id", param.app_id.unwrap_or_default());
-                    qb.push_and().field_eq("status", RbacRoleStatus::Enable as i8).push(" limit 1");
+                    qb.push_and()
+                        .field_eq("app_id", param.app_id.unwrap_or_default());
+                    qb.push_and()
+                        .field_eq("status", RbacRoleStatus::Enable as i8)
+                        .push(" limit 1");
                 }
                 qb.push(")) as t");
-                let res = qb.build_query_as::<RbacRoleModel>().fetch_one(&self.db)
+                let res = qb
+                    .build_query_as::<RbacRoleModel>()
+                    .fetch_one(&self.db)
                     .await;
                 (RbacRoleUserRange::Session as i8, role_key, role_name, res)
             }
@@ -172,10 +180,15 @@ impl RbacRole {
                 ));
                 qb.push_where().field_eq("user_id", param.user_id);
                 qb.push_and().field_eq("role_name", role_name.clone());
-                qb.push_and().field_eq("app_id", param.app_id.unwrap_or_default());
-                qb.push_and().field_eq("status", RbacRoleStatus::Enable as i8).push(" limit 1");
+                qb.push_and()
+                    .field_eq("app_id", param.app_id.unwrap_or_default());
+                qb.push_and()
+                    .field_eq("status", RbacRoleStatus::Enable as i8)
+                    .push(" limit 1");
                 qb.push(")) as t");
-                let res = qb.build_query_as::<RbacRoleModel>().fetch_one(&self.db)
+                let res = qb
+                    .build_query_as::<RbacRoleModel>()
+                    .fetch_one(&self.db)
                     .await;
                 (
                     RbacRoleUserRange::Custom as i8,
@@ -211,16 +224,14 @@ impl RbacRole {
                     .set(RbacRoleModel::CHANGE_TIME, time)
                     .set(RbacRoleModel::CHANGE_USER_ID, add_user_id)
                     .set(RbacRoleModel::STATUS, RbacRoleStatus::Enable as i8)
-                    .execute(
-                        OptionTxExecutor::new(transaction, &self.db),
-                        |qb| {
-                            qb.push_where().field_eq("user_id", param.user_id);
-                            qb.push_and().field_eq("role_key", role_key.to_owned());
-                            qb.push_and().field_eq("app_id", app_id);
-                            qb.push_and().field_eq("status", RbacRoleStatus::Enable as i8);
-                            qb.push_and().field_ne("id", add_id);
-                        },
-                    )
+                    .execute(OptionTxExecutor::new(transaction, &self.db), |qb| {
+                        qb.push_where().field_eq("user_id", param.user_id);
+                        qb.push_and().field_eq("role_key", role_key.to_owned());
+                        qb.push_and().field_eq("app_id", app_id);
+                        qb.push_and()
+                            .field_eq("status", RbacRoleStatus::Enable as i8);
+                        qb.push_and().field_ne("id", add_id);
+                    })
                     .await?;
                 let id = add_id;
                 let role = self.find_by_id(&id).await?;
@@ -271,20 +282,31 @@ impl RbacRole {
                 qb.push_where().field_eq("user_id", role.user_id);
                 qb.push_and().field_eq("role_key", role_key.to_owned());
                 qb.push_and().field_eq("app_id", role.app_id);
-                qb.push_and().field_eq("status", RbacRoleStatus::Enable as i8).push_and().field_ne("id", role.id).push(" limit 1");
+                qb.push_and()
+                    .field_eq("status", RbacRoleStatus::Enable as i8)
+                    .push_and()
+                    .field_ne("id", role.id)
+                    .push(" limit 1");
                 if let Some(rname) = role_name
-                    && !rname.is_empty() {
-                        qb.push(format!(
-                            ") union all  (select * from {}",
-                            RbacRoleModel::table_name(),
-                        ));
-                        qb.push_where().field_eq("user_id", role.user_id);
-                        qb.push_and().field_eq("role_name", rname.to_owned());
-                        qb.push_and().field_eq("app_id", role.app_id);
-                        qb.push_and().field_eq("status", RbacRoleStatus::Enable as i8).push_and().field_ne("id", role.id).push(" limit 1");
-                    }
+                    && !rname.is_empty()
+                {
+                    qb.push(format!(
+                        ") union all  (select * from {}",
+                        RbacRoleModel::table_name(),
+                    ));
+                    qb.push_where().field_eq("user_id", role.user_id);
+                    qb.push_and().field_eq("role_name", rname.to_owned());
+                    qb.push_and().field_eq("app_id", role.app_id);
+                    qb.push_and()
+                        .field_eq("status", RbacRoleStatus::Enable as i8)
+                        .push_and()
+                        .field_ne("id", role.id)
+                        .push(" limit 1");
+                }
                 qb.push(")) as t");
-                let res = qb.build_query_as::<RbacRoleModel>().fetch_one(&self.db)
+                let res = qb
+                    .build_query_as::<RbacRoleModel>()
+                    .fetch_one(&self.db)
                     .await;
                 let role_name = role_name.map(|e| e.to_owned());
                 let role_key = role_key.to_string();
@@ -298,9 +320,15 @@ impl RbacRole {
                 qb.push_where().field_eq("user_id", role.user_id);
                 qb.push_and().field_eq("role_name", role_name.to_owned());
                 qb.push_and().field_eq("app_id", role.app_id);
-                qb.push_and().field_eq("status", RbacRoleStatus::Enable as i8).push_and().field_ne("id", role.id).push(" limit 1");
+                qb.push_and()
+                    .field_eq("status", RbacRoleStatus::Enable as i8)
+                    .push_and()
+                    .field_ne("id", role.id)
+                    .push(" limit 1");
                 qb.push(")) as t");
-                let res = qb.build_query_as::<RbacRoleModel>().fetch_one(&self.db)
+                let res = qb
+                    .build_query_as::<RbacRoleModel>()
+                    .fetch_one(&self.db)
                     .await;
 
                 (Some(role_name.to_string()), None, res)
@@ -312,7 +340,7 @@ impl RbacRole {
                 return Err(RbacError::System(fluent_message!("rbac-role-exist",{
                     "name":rm.role_name,
                     "key":rm.role_key
-                })))
+                })));
             }
             Err(sqlx::Error::RowNotFound) => {}
             Err(e) => return Err(e)?,
@@ -327,12 +355,9 @@ impl RbacRole {
             update = update.set(RbacRoleModel::ROLE_KEY, key as &str);
         }
         let out = update
-            .execute(
-                OptionTxExecutor::new(transaction, &self.db),
-                |qb| {
-                    qb.push_where().field_eq("id", role.id);
-                },
-            )
+            .execute(OptionTxExecutor::new(transaction, &self.db), |qb| {
+                qb.push_where().field_eq("id", role.id);
+            })
             .await?;
         let fout = out.rows_affected();
         self.cache().clear_access(role, Some(&[]), Some(&[])).await;
@@ -386,12 +411,9 @@ impl RbacRole {
             .set(RbacPermModel::CHANGE_USER_ID, delete_user_id)
             .set(RbacPermModel::CHANGE_TIME, time)
             .set(RbacPermModel::STATUS, RbacPermStatus::Delete as i8)
-            .execute(
-                &mut *db,
-                |qb| {
-                    qb.push_where().field_eq("role_id", role.id);
-                },
-            )
+            .execute(&mut *db, |qb| {
+                qb.push_where().field_eq("role_id", role.id);
+            })
             .await;
         if let Err(e) = tmp {
             db.rollback().await?;
@@ -402,12 +424,9 @@ impl RbacRole {
             .set(RbacRoleUserModel::CHANGE_USER_ID, delete_user_id)
             .set(RbacRoleUserModel::CHANGE_TIME, time)
             .set(RbacRoleUserModel::STATUS, RbacRoleUserStatus::Delete as i8)
-            .execute(
-                &mut *db,
-                |qb| {
-                    qb.push_where().field_eq("role_id", role.id);
-                },
-            )
+            .execute(&mut *db, |qb| {
+                qb.push_where().field_eq("role_id", role.id);
+            })
             .await;
         if let Err(e) = tmp {
             db.rollback().await?;

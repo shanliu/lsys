@@ -3,7 +3,7 @@ mod index;
 pub mod system;
 use actix_service::ServiceFactory;
 use actix_web::web::to;
-use actix_web::{dev::ServiceRequest, web, App, Error};
+use actix_web::{App, Error, dev::ServiceRequest, web};
 use lsys_web::dao::WebDao;
 use lsys_web::lsys_core::fluents::IntoFluentMessage;
 use std::path::PathBuf;

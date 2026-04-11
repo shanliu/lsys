@@ -1,6 +1,6 @@
 use crate::common::{JsonResponse, JsonResult, UserAuthQueryDao};
-use crate::dao::access::api::system::admin::CheckAdminFileManage;
 use crate::dao::access::RbacAccessCheckEnv;
+use crate::dao::access::api::system::admin::CheckAdminFileManage;
 use lsys_access::dao::AccessSession;
 use serde::Deserialize;
 
@@ -33,7 +33,9 @@ pub async fn admin_file_delete(
         .helper()
         .find_file_user_by_id(param.file_user_id)
         .await?
-        .ok_or_else(|| lsys_files::dao::FileError::Param(lsys_core::fluent_message!("file-not-found")))?;
+        .ok_or_else(|| {
+            lsys_file::dao::FileError::Param(lsys_core::fluent_message!("file-not-found"))
+        })?;
 
     let file = req_dao
         .web_dao
@@ -42,7 +44,9 @@ pub async fn admin_file_delete(
         .helper()
         .find_file_by_id(file_user.file_id)
         .await?
-        .ok_or_else(|| lsys_files::dao::FileError::Param(lsys_core::fluent_message!("file-not-found")))?;
+        .ok_or_else(|| {
+            lsys_file::dao::FileError::Param(lsys_core::fluent_message!("file-not-found"))
+        })?;
 
     let ctx = req_dao
         .web_dao
@@ -54,10 +58,7 @@ pub async fn admin_file_delete(
         .web_dao
         .web_files
         .file_dao
-        .delete_file(
-            ctx,
-            Some(&req_dao.req_env),
-        )
+        .delete_file(ctx, Some(&req_dao.req_env))
         .await?;
 
     Ok(JsonResponse::default())

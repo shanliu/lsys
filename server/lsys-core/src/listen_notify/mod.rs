@@ -8,15 +8,15 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use tokio::sync::oneshot::{self, Receiver, Sender};
 use tokio::sync::Mutex;
-use tokio::time::{sleep, Duration};
+use tokio::sync::oneshot::{self, Receiver, Sender};
+use tokio::time::{Duration, sleep};
 
 use redis::AsyncCommands;
 use tracing::{debug, error, info, warn};
 
-use crate::fluent_message;
 use crate::app_core::AppCore;
+use crate::fluent_message;
 use crate::fluents::IntoFluentMessage;
 mod result;
 pub use result::*;
@@ -133,8 +133,12 @@ impl<T: WaitItem + Serialize + DeserializeOwned + Debug> WaitNotify<T> {
                     // redis 1.0.x 默认 response_timeout 为 500ms，会导致 blpop 等阻塞命令立即超时返回
                     // 设置为 blpop 超时 + 5s 缓冲，既允许 blpop 正常等待，又能在连接异常时兜底超时
                     let blpop_conn_config = redis::AsyncConnectionConfig::new()
-                        .set_response_timeout(Some(std::time::Duration::from_secs(self.clear_timeout as u64 + 5)));
-                    let con_res = redis_client.get_multiplexed_async_connection_with_config(&blpop_conn_config).await;
+                        .set_response_timeout(Some(std::time::Duration::from_secs(
+                            self.clear_timeout as u64 + 5,
+                        )));
+                    let con_res = redis_client
+                        .get_multiplexed_async_connection_with_config(&blpop_conn_config)
+                        .await;
                     match con_res {
                         Ok(mut redis) => {
                             let channel_name = self.redis_channel_name(
@@ -177,8 +181,7 @@ impl<T: WaitItem + Serialize + DeserializeOwned + Debug> WaitNotify<T> {
                                     continue;
                                 }
                                 Err(err) => {
-                                    if err.is_timeout()
-                                    {
+                                    if err.is_timeout() {
                                         self.listen_clear().await;
                                     } else {
                                         warn!(

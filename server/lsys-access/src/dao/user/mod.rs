@@ -8,10 +8,10 @@ pub use info::*;
 
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::db::{Insert, TableMeta, Update};
-use lsys_core::{db::utils::FetchField, valid_key};
 use lsys_core::remote_notify::RemoteNotify;
-use lsys_core::utils::{now_time, string_clear, StringClear, STRING_CLEAR_FORMAT};
+use lsys_core::utils::{STRING_CLEAR_FORMAT, StringClear, now_time, string_clear};
 use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
+use lsys_core::{db::utils::FetchField, valid_key};
 use serde::Deserialize;
 use serde::Serialize;
 use sqlx::{MySql, Pool};
@@ -66,9 +66,18 @@ impl AccessUser {
 
         // 先获取字段长度
         let fetch_field = FetchField::new(&self.db);
-        let user_data_max = fetch_field.string_max::<UserModel>(&UserModel::USER_DATA).await.len_or(32);
-        let nickname_max = fetch_field.string_max::<UserModel>(&UserModel::USER_NICKNAME).await.len_or(32);
-        let account_max = fetch_field.string_max::<UserModel>(&UserModel::USER_ACCOUNT).await.len_or(128);
+        let user_data_max = fetch_field
+            .string_max::<UserModel>(&UserModel::USER_DATA)
+            .await
+            .len_or(32);
+        let nickname_max = fetch_field
+            .string_max::<UserModel>(&UserModel::USER_NICKNAME)
+            .await
+            .len_or(32);
+        let account_max = fetch_field
+            .string_max::<UserModel>(&UserModel::USER_ACCOUNT)
+            .await
+            .len_or(128);
 
         let mut valid_param = ValidParam::default();
         valid_param.add(
@@ -82,13 +91,14 @@ impl AccessUser {
         let tmp_user_nickname =
             user_nickname.map(|e| string_clear(e, StringClear::Option(STRING_CLEAR_FORMAT), None));
         if let Some(ref tmp_name) = tmp_user_nickname
-            && !tmp_name.is_empty() {
-                valid_param.add(
-                    valid_key!("user_nickname"),
-                    &tmp_name.as_str(),
-                    &ValidParamCheck::default().add_rule(ValidStrlen::max(nickname_max)),
-                );
-            }
+            && !tmp_name.is_empty()
+        {
+            valid_param.add(
+                valid_key!("user_nickname"),
+                &tmp_name.as_str(),
+                &ValidParamCheck::default().add_rule(ValidStrlen::max(nickname_max)),
+            );
+        }
         let tmp_user_account =
             user_account.map(|e| string_clear(e, StringClear::Option(STRING_CLEAR_FORMAT), None));
         if let Some(ref account) = tmp_user_account {

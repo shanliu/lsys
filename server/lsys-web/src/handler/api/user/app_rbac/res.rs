@@ -42,13 +42,10 @@ pub async fn app_res_add(
                 user_id,
                 app_id: Some(app.id),
                 res_info: RbacResData {
-                    res_name: param.res_name.as_deref().and_then(|e| {
-                        if !e.is_empty() {
-                            Some(e)
-                        } else {
-                            None
-                        }
-                    }),
+                    res_name: param
+                        .res_name
+                        .as_deref()
+                        .and_then(|e| if !e.is_empty() { Some(e) } else { None }),
                     res_type: &param.res_type,
                     res_data: &param.res_data,
                 },
@@ -92,13 +89,10 @@ pub async fn app_res_edit(
         .edit_res(
             &res,
             &RbacResData {
-                res_name: param.res_name.as_deref().and_then(|e| {
-                    if !e.is_empty() {
-                        Some(e)
-                    } else {
-                        None
-                    }
-                }),
+                res_name: param
+                    .res_name
+                    .as_deref()
+                    .and_then(|e| if !e.is_empty() { Some(e) } else { None }),
                 res_type: &param.res_type,
                 res_data: &param.res_data,
             },

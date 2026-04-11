@@ -1,9 +1,7 @@
 use std::{str::FromStr, sync::Arc};
 
 use async_trait::async_trait;
-use lsys_core::{
-    cache::{LocalCache, LocalCacheClearItem},
-};
+use lsys_core::cache::{LocalCache, LocalCacheClearItem};
 use lsys_core::fluents::IntoFluentMessage;
 
 use crate::model::{SessionModel, UserModel};

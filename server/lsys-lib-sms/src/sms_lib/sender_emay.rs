@@ -13,15 +13,15 @@
 
 use chrono::{DateTime, Utc};
 use reqwest::{
-    header::{HeaderMap, HeaderValue},
     Client, Response,
+    header::{HeaderMap, HeaderValue},
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tracing::debug;
 
 use crate::{
-    now_time, sms_lib::phone_numbers_check, BranchSendNotifyResult, SendNotifyItem,
-    SendNotifyStatus,
+    BranchSendNotifyResult, SendNotifyItem, SendNotifyStatus, now_time,
+    sms_lib::phone_numbers_check,
 };
 
 use super::{BranchSendResult, SendError, SendResultItem, SendStatus};
@@ -34,8 +34,8 @@ impl EmaySms {
     ///
     /// secretKey 超过 16 字节取前 16 字节，不足 16 字节末尾补 `0x00`
     fn aes_encrypt(secret_key: &str, data: &[u8]) -> Vec<u8> {
-        use aes::cipher::{generic_array::GenericArray, BlockEncrypt, KeyInit};
         use aes::Aes128;
+        use aes::cipher::{BlockEncrypt, KeyInit, generic_array::GenericArray};
 
         let mut key_bytes = [0u8; 16];
         let key = secret_key.as_bytes();
@@ -59,8 +59,8 @@ impl EmaySms {
 
     /// AES-128-ECB 解密，移除 PKCS7 填充
     fn aes_decrypt(secret_key: &str, data: &[u8]) -> Result<Vec<u8>, String> {
-        use aes::cipher::{generic_array::GenericArray, BlockDecrypt, KeyInit};
         use aes::Aes128;
+        use aes::cipher::{BlockDecrypt, KeyInit, generic_array::GenericArray};
 
         if data.is_empty() || !data.len().is_multiple_of(16) {
             return Err(format!("响应数据长度无效:{}", data.len()));

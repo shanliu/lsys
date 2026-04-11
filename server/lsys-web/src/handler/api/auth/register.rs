@@ -2,8 +2,8 @@ use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{CaptchaParam, JsonData, JsonResponse, JsonResult, RequestDao},
     dao::{
-        access::api::system::auth::CheckSystemRegister, RegFromEmailData, RegFromMobileData,
-        RegFromNameData, RegSendCodeFromEmailData, RegSendCodeFromMobileData,
+        RegFromEmailData, RegFromMobileData, RegFromNameData, RegSendCodeFromEmailData,
+        RegSendCodeFromMobileData, access::api::system::auth::CheckSystemRegister,
     },
 };
 use serde::Deserialize;

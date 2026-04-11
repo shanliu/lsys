@@ -31,10 +31,11 @@ impl MessageCancel {
         let add_time = now_time().unwrap_or_default();
         let sender_type = self.send_type as i8;
 
-        let mut batch = BatchInsert::<_,SenderMessageCancelModel>::with_capacity(message_ids.len());
+        let mut batch =
+            BatchInsert::<_, SenderMessageCancelModel>::with_capacity(message_ids.len());
         for id in message_ids {
             batch = batch.push(
-                Insert::<_,SenderMessageCancelModel>::new()
+                Insert::<_, SenderMessageCancelModel>::new()
                     .set(SenderMessageCancelModel::APP_ID, app_id)
                     .set(SenderMessageCancelModel::SENDER_BODY_ID, sender_body_id)
                     .set(SenderMessageCancelModel::SENDER_MESSAGE_ID, *id)
@@ -43,7 +44,9 @@ impl MessageCancel {
                     .set(SenderMessageCancelModel::CANCEL_TIME, add_time),
             );
         }
-        batch.execute(OptionTxExecutor::new(transaction, &self.db)).await?;
+        batch
+            .execute(OptionTxExecutor::new(transaction, &self.db))
+            .await?;
         Ok(())
     }
 }

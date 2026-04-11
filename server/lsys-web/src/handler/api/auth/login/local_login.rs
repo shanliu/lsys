@@ -3,11 +3,11 @@ use std::borrow::Borrow;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{CaptchaParam, JsonData, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao},
-    dao::{access::api::system::auth::CheckSystemLogin, ShowUserAuthData},
+    dao::{ShowUserAuthData, access::api::system::auth::CheckSystemLogin},
 };
 use lsys_access::dao::{AccessSession, SessionBody};
-use lsys_user::dao::login::{EmailCodeLogin, EmailLogin, MobileCodeLogin, MobileLogin, NameLogin};
 use lsys_user::dao::UserAuthToken;
+use lsys_user::dao::login::{EmailCodeLogin, EmailLogin, MobileCodeLogin, MobileLogin, NameLogin};
 use serde::Deserialize;
 use serde_json::json;
 
@@ -46,7 +46,6 @@ pub async fn user_login_finish(
             .await?,
     ))
 }
-
 
 #[derive(Deserialize)]
 pub struct NameLoginParam {

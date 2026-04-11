@@ -49,10 +49,10 @@
 
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
-use tokio::sync::{mpsc, oneshot, Notify};
+use tokio::sync::{Notify, mpsc, oneshot};
 use tracing::warn;
 
 use crate::runtime::{JsEngine, RuntimeConfig};
@@ -265,9 +265,9 @@ impl JsTaskRunner {
         // fall back to an async send in a spawned task.
         if let Err(mpsc::error::TrySendError::Full(envelope)) = self.tx.try_send(envelope) {
             let tx = self.tx.clone();
-             if let Err(err) = tx.send(envelope).await{
+            if let Err(err) = tx.send(envelope).await {
                 warn!("Failed to submit task {}: {}", task_id, err);
-             }
+            }
         }
 
         TaskHandle {
@@ -286,7 +286,8 @@ impl JsTaskRunner {
             code,
             runtime_config,
             None::<fn(TaskResult) -> std::future::Ready<()>>,
-        ).await
+        )
+        .await
     }
 
     // ── Status ───────────────────────────────────────────────

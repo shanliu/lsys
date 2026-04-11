@@ -131,13 +131,7 @@ impl WebUserAuth {
                 .user_dao
                 .account_dao
                 .account_info
-                .set_info(
-                    &user,
-                    info_param,
-                    op_user_id,
-                    Some(&mut tran),
-                    env_data,
-                )
+                .set_info(&user, info_param, op_user_id, Some(&mut tran), env_data)
                 .await;
             if let Err(err) = res {
                 tran.rollback().await?;
@@ -224,12 +218,13 @@ impl WebUserAuth {
             .find_by_last_mobile(param.area_code, param.mobile)
             .await;
         if let Ok(mobile) = mobile_res
-            && AccountMobileStatus::Valid.eq(mobile.status) {
-                return Err(WebError::JsonResponse(
-                    Box::new(JsonData::default().set_sub_code("mobile_is_reg")),
-                    fluent_message!("reg-mobile-registered"),
-                ));
-            }
+            && AccountMobileStatus::Valid.eq(mobile.status)
+        {
+            return Err(WebError::JsonResponse(
+                Box::new(JsonData::default().set_sub_code("mobile_is_reg")),
+                fluent_message!("reg-mobile-registered"),
+            ));
+        }
         let data = self
             .user_dao
             .account_dao
@@ -280,12 +275,13 @@ impl WebUserAuth {
             .find_by_last_email(param.email)
             .await;
         if let Ok(email) = email_res
-            && AccountEmailStatus::Valid.eq(email.status) {
-                return Err(WebError::JsonResponse(
-                    Box::new(JsonData::default().set_sub_code("mobile_is_reg")),
-                    fluent_message!("reg-mobile-registered"),
-                ));
-            }
+            && AccountEmailStatus::Valid.eq(email.status)
+        {
+            return Err(WebError::JsonResponse(
+                Box::new(JsonData::default().set_sub_code("mobile_is_reg")),
+                fluent_message!("reg-mobile-registered"),
+            ));
+        }
         valid_code.check_code(&param.captcha.into()).await?;
         let data = self
             .user_dao

@@ -4,9 +4,9 @@ use crate::{
     dao::access::api::system::admin::{CheckAdminRbacEdit, CheckAdminRbacView},
 };
 use lsys_access::dao::AccessSession;
+use lsys_core::api_utils::JsonPageData;
 use lsys_rbac::dao::RoleDataAttrParam;
 use serde_json::json;
-use lsys_core::api_utils::JsonPageData;
 
 use crate::common::{PageParam, ToOffsetPageParam};
 
@@ -45,13 +45,10 @@ pub async fn role_add(
         },
         RbacRoleUserRange::Session => RbacRoleUserRangeData::Session {
             role_key: &param.role_key,
-            role_name: param.role_name.as_deref().and_then(|e| {
-                if !e.is_empty() {
-                    Some(e)
-                } else {
-                    None
-                }
-            }),
+            role_name: param
+                .role_name
+                .as_deref()
+                .and_then(|e| if !e.is_empty() { Some(e) } else { None }),
         },
     };
     let res_range = RbacRoleResRange::try_from(param.res_range)?;
@@ -111,13 +108,10 @@ pub async fn role_edit(
         },
         RbacRoleUserRange::Session => RbacRoleUserRangeData::Session {
             role_key: &param.role_key,
-            role_name: param.role_name.as_deref().and_then(|e| {
-                if !e.is_empty() {
-                    Some(e)
-                } else {
-                    None
-                }
-            }),
+            role_name: param
+                .role_name
+                .as_deref()
+                .and_then(|e| if !e.is_empty() { Some(e) } else { None }),
         },
     };
 
@@ -304,7 +298,7 @@ pub async fn role_data(
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(role_data, count),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        role_data, count,
+    ))))
 }

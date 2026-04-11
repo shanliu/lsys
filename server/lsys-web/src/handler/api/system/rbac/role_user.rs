@@ -208,13 +208,10 @@ pub async fn role_user_data(
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(json!(bind_vec_user_info_from_req!(
-            req_dao,
-            res,
-            user_id,false
-        )), count),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        json!(bind_vec_user_info_from_req!(req_dao, res, user_id, false)),
+        count,
+    ))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -270,7 +267,7 @@ pub async fn role_user_available(
     };
     let out_res = res.into_iter().map(UserInfo::from).collect::<Vec<_>>();
     let cursor = PageCursorValue::from(&next);
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::cursor(out_res, cursor, count),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::cursor(
+        out_res, cursor, count,
+    ))))
 }

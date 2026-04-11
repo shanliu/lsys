@@ -6,11 +6,11 @@ use lsys_app::dao::AppError;
 use lsys_app_sender::dao::SenderError;
 use lsys_core::app_core::AppCoreError;
 use lsys_core::config::ConfigError;
+use lsys_core::fluent_message;
 use lsys_core::fluents::{FluentBundle, FluentBundleError, IntoFluentMessage};
 use lsys_core::remote_notify::RemoteNotifyError;
 use lsys_core::valid_code::ValidCodeError;
 use lsys_core::valid_param::ValidError;
-use lsys_core::fluent_message;
 use lsys_logger::dao::LoggerError;
 use lsys_mfa::dao::MfaError;
 use lsys_rbac::dao::RbacError;
@@ -275,11 +275,11 @@ impl FluentFormat for MfaError {
     }
 }
 
-impl FluentFormat for lsys_files::common::FileError {
+impl FluentFormat for lsys_file::common::FileError {
     fn fluent_format(&self, fluent: &FluentBundle) -> String {
         match self {
-            lsys_files::common::FileError::Sqlx(e) => e.fluent_format(fluent),
-            lsys_files::common::FileError::Io(e) => e.fluent_format(fluent),
+            lsys_file::common::FileError::Sqlx(e) => e.fluent_format(fluent),
+            lsys_file::common::FileError::Io(e) => e.fluent_format(fluent),
             _ => fluent.format_message(&self.to_fluent_message()),
         }
     }
@@ -295,4 +295,8 @@ impl FluentFormat for WebError {
     }
 }
 
-
+impl FluentFormat for lsys_file_manager::dao::FileManagerError {
+    fn fluent_format(&self, fluent: &FluentBundle) -> String {
+        fluent.format_message(&self.to_fluent_message())
+    }
+}

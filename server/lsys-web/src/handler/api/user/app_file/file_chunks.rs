@@ -38,11 +38,7 @@ pub async fn file_chunks(
         .await?;
 
     let count = if param.count_num.unwrap_or(false) {
-        Some(
-            data_dao
-                .count_chunks_by_file_id(param.file_id)
-                .await?,
-        )
+        Some(data_dao.count_chunks_by_file_id(param.file_id).await?)
     } else {
         None
     };
@@ -67,7 +63,7 @@ pub async fn file_chunks(
         })
         .collect();
 
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(items, count),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        items, count,
+    ))))
 }

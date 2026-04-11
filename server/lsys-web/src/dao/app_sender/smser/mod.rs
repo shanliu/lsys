@@ -4,8 +4,8 @@ use lsys_access::dao::SessionBody;
 use lsys_app::dao::AppNotify;
 use lsys_app_sender::{
     dao::{
-        AliYunSendStatus, AliYunSenderTask, CloOpenSenderTask, EmaySenderTask, HwYunSenderTask, JDCloudSenderTask,
-        JDSendStatus, NetEaseSendStatus, NetEaseSenderTask, SenderAliYunConfig,
+        AliYunSendStatus, AliYunSenderTask, CloOpenSenderTask, EmaySenderTask, HwYunSenderTask,
+        JDCloudSenderTask, JDSendStatus, NetEaseSendStatus, NetEaseSenderTask, SenderAliYunConfig,
         SenderCloOpenConfig, SenderEmayConfig, SenderError, SenderHwYunConfig, SenderJDCloudConfig,
         SenderNetEaseConfig, SenderTenYunConfig, SmsSenderConfig, SmsSenderDao, TenYunSendStatus,
         TenyunSenderTask,
@@ -165,7 +165,7 @@ impl SenderSmser {
                 return Err(WebError::Message(fluent_message!(
                     "mail-send-check",
                     "unkown error"
-                )))
+                )));
             }
         })
     }

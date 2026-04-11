@@ -1,5 +1,5 @@
-use crate::dao::logger::AppViewSecretLog;
 use crate::dao::AppSecretRecord;
+use crate::dao::logger::AppViewSecretLog;
 use crate::model::AppSecretType;
 use crate::model::{AppModel, AppOAuthClientModel, AppRequestType};
 

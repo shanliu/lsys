@@ -2,8 +2,8 @@
 
 use crate::model::{RbacResModel, RbacResStatus};
 use lsys_core::db::{QueryBuilderExt, TableMeta};
+use lsys_core::utils::{STRING_CLEAR_FORMAT, StringClear, string_clear};
 use sqlx::{MySql, QueryBuilder};
-use lsys_core::utils::{string_clear, StringClear, STRING_CLEAR_FORMAT};
 use std::vec;
 
 use super::{RbacRes, ResCacheKey};
@@ -53,8 +53,11 @@ impl RbacRes {
             qb.push_and().field_eq("app_id", rkey.app_id);
             qb.push(")");
         }
-        qb.push(")").push_and().field_eq("status", RbacResStatus::Enable as i8);
-        let res = qb.build_query_as::<RbacResModel>()
+        qb.push(")")
+            .push_and()
+            .field_eq("status", RbacResStatus::Enable as i8);
+        let res = qb
+            .build_query_as::<RbacResModel>()
             .fetch_all(&self.db)
             .await?;
         let out = keys

@@ -1,6 +1,6 @@
 use axum::{
     extract::{Path as AxumPath, State},
-    http::{header, HeaderMap, StatusCode},
+    http::{HeaderMap, StatusCode, header},
     response::{IntoResponse, Response},
 };
 use base64::Engine;

@@ -3,7 +3,7 @@ use crate::common::handler::RestQuery;
 use crate::common::handler::{ResponseJson, ResponseJsonResult};
 use actix_service::ServiceFactory;
 use actix_web::post;
-use actix_web::{dev::ServiceRequest, web::scope, App, Error};
+use actix_web::{App, Error, dev::ServiceRequest, web::scope};
 pub(crate) fn router<T>(app: App<T>) -> App<T>
 where
     T: ServiceFactory<ServiceRequest, Config = (), Error = Error, InitError = ()>,

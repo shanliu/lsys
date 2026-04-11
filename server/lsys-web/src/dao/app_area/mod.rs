@@ -1,11 +1,9 @@
 use crate::dao::{WebError, WebResult};
-use lsys_core::{
-    fluent_message, valid_key,
-};
 use lsys_core::app_core::AppCore;
 use lsys_core::fluents::IntoFluentMessage;
-use lsys_core::utils::{string_clear, StringClear};
+use lsys_core::utils::{StringClear, string_clear};
 use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
+use lsys_core::{fluent_message, valid_key};
 use lsys_lib_area::{AreaCodeItem, AreaCodeRelatedItem, AreaDao, AreaSearchItem};
 use std::sync::Arc;
 use tracing::{error, info, warn};
@@ -29,7 +27,11 @@ impl AppArea {
                                 ) {
                                     Ok(geo_obj) => Some(geo_obj),
                                     Err(err) => {
-                                        warn!("area code db load fail on {} [download url: https://github.com/shanliu/lsys/releases/tag/v0.0.0 2023-7-area-geo.csv.gz ],error detail:{}",geo_path.display(),err);
+                                        warn!(
+                                            "area code db load fail on {} [download url: https://github.com/shanliu/lsys/releases/tag/v0.0.0 2023-7-area-geo.csv.gz ],error detail:{}",
+                                            geo_path.display(),
+                                            err
+                                        );
                                         None
                                     }
                                 }
@@ -61,7 +63,11 @@ impl AppArea {
                         Some(AreaDao::from_csv_disk(data, area_store)?)
                     }
                     Err(err) => {
-                        warn!("area code db load fail on {} [download url: https://github.com/shanliu/lsys/releases/tag/v0.0.0 2023-7-area-code.csv.gz ],error detail:{}",code_path.display(),err);
+                        warn!(
+                            "area code db load fail on {} [download url: https://github.com/shanliu/lsys/releases/tag/v0.0.0 2023-7-area-code.csv.gz ],error detail:{}",
+                            code_path.display(),
+                            err
+                        );
                         None
                     }
                 }

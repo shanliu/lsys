@@ -1,18 +1,18 @@
 use crate::common::{JsonData, JsonError, JsonResult, ToOffsetPageParam};
 
 use crate::common::{JsonResponse, PageParam, UserAuthQueryDao};
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::user::{
     CheckUserAppEdit, CheckUserAppSenderSmsConfig, CheckUserAppView,
 };
-use crate::dao::access::RbacAccessCheckEnv;
 use lsys_access::dao::AccessSession;
 use lsys_app::dao::{
-    AppAttrParam, UserAppDataParam, UserSubAppParam, SUB_APP_SECRET_NOTIFY_METHOD,
+    AppAttrParam, SUB_APP_SECRET_NOTIFY_METHOD, UserAppDataParam, UserSubAppParam,
 };
 use lsys_app::model::AppStatus;
+use lsys_core::api_utils::JsonPageData;
 use lsys_core::db::OffsetPageParam;
 use lsys_core::fluent_message;
-use lsys_core::api_utils::JsonPageData;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
@@ -89,7 +89,12 @@ pub async fn sub_app_notify_get_config(
         .web_app
         .app_dao
         .app
-        .user_app_info(auth_data.user_id(), &app_param, None, &OffsetPageParam::new(None))
+        .user_app_info(
+            auth_data.user_id(),
+            &app_param,
+            None,
+            &OffsetPageParam::new(None),
+        )
         .await?;
     let notify = req_dao
         .web_dao
@@ -316,12 +321,8 @@ pub async fn sub_app_list(
         None
     };
 
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(json!(bind_vec_user_info_from_req!(
-            req_dao,
-            out,
-            user_id,
-            false
-        )), count),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        json!(bind_vec_user_info_from_req!(req_dao, out, user_id, false)),
+        count,
+    ))))
 }

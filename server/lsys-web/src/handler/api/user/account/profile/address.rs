@@ -2,12 +2,12 @@ use crate::common::JsonData;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonResponse, JsonResult, UserAuthQueryDao},
-    dao::{access::api::system::user::CheckUserAddressEdit, AddressData},
+    dao::{AddressData, access::api::system::user::CheckUserAddressEdit},
 };
 use lsys_access::dao::{AccessSession, AccessSessionData};
+use lsys_core::api_utils::JsonPageData;
 use serde::Deserialize;
 use serde_json::json;
-use lsys_core::api_utils::JsonPageData;
 
 #[derive(Debug, Deserialize)]
 pub struct AddressAddParam {
@@ -204,7 +204,8 @@ pub async fn address_list_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonRes
             })
         })
         .collect::<Vec<_>>();
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(data_list, data.len() as u64),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        data_list,
+        data.len() as u64,
+    ))))
 }

@@ -2,9 +2,7 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
 };
-use lsys_core::{
-    api_utils::{JsonData, JsonResponse},
-};
+use lsys_core::api_utils::{JsonData, JsonResponse};
 use lsys_core::fluents::{FluentBundle, FluentMessage, FluentMgr, IntoFluentMessage};
 use lsys_core::utils::RequestEnv;
 use serde_json::Value;

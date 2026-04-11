@@ -1,10 +1,10 @@
-// 基于REDIS,多个节点下,仅有一个节点在执行任务
+// 基于REDIS,多个节点下仅有一个执行超时任务处理
 // 使用示例
 // 子应用秘钥超时,仅在一个节点进行超时回调任务添加
 
-use crate::utils::now_time;
 use crate::app_core::{AppCore, AppCoreError};
 use crate::fluents::IntoFluentMessage;
+use crate::utils::now_time;
 use futures_util::{FutureExt, StreamExt};
 use redis::aio::MultiplexedConnection;
 use redis::{AsyncCommands, RedisError};
@@ -15,7 +15,7 @@ use tokio::{
     sync::mpsc::{self, Receiver, Sender},
     time::sleep,
 };
-use tracing::{debug, error, info, span, trace, warn, Level};
+use tracing::{Level, debug, error, info, span, trace, warn};
 
 // 任务派发执行抽象实现
 #[async_trait::async_trait]
@@ -412,8 +412,7 @@ impl<T: TimeOutTaskExecutor> TimeOutTask<T> {
                 .to_string();
             trace!(
                 "listen_timeout_check start lock key[{}] val[{}]",
-                lock_key,
-                set_host
+                lock_key, set_host
             );
             match conn
                 .set_nx::<&str, String, bool>(lock_key, set_host.clone())

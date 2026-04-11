@@ -35,8 +35,8 @@ where
     }
 }
 use crate::runtime::{
-    LogHandler, RuntimeState, LOG_LEVEL_DEBUG, LOG_LEVEL_ERROR, LOG_LEVEL_INFO, LOG_LEVEL_TRACE,
-    LOG_LEVEL_WARN, MESSAGE_TYPE_GET_ENV, MESSAGE_TYPE_GET_PARAM,
+    LOG_LEVEL_DEBUG, LOG_LEVEL_ERROR, LOG_LEVEL_INFO, LOG_LEVEL_TRACE, LOG_LEVEL_WARN, LogHandler,
+    MESSAGE_TYPE_GET_ENV, MESSAGE_TYPE_GET_PARAM, RuntimeState,
 };
 
 /// Register all core APIs onto the given `core` object inside the JS context.

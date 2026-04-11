@@ -3,8 +3,8 @@ use std::collections::{HashMap, HashSet};
 use crate::{dao::AccessError, model::UserModel};
 
 use super::{
-    info::{UserInfo, UserInfoSet},
     AccessResult, AccessUser, AccessUserAppUserKey,
+    info::{UserInfo, UserInfoSet},
 };
 
 pub struct AccessUserCache<'t> {
@@ -79,13 +79,15 @@ impl AccessUserCache<'_> {
             Ok(e) => {
                 let mut is_sync = false;
                 if let Some(name_val) = user_nickname
-                    && e.user_nickname.as_str() != name_val {
-                        is_sync = true;
-                    }
+                    && e.user_nickname.as_str() != name_val
+                {
+                    is_sync = true;
+                }
                 if let Some(account_val) = user_account
-                    && e.user_account.as_str() != account_val {
-                        is_sync = true;
-                    }
+                    && e.user_account.as_str() != account_val
+                {
+                    is_sync = true;
+                }
                 if !is_sync {
                     Ok(e)
                 } else {

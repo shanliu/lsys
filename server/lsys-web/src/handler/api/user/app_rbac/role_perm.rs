@@ -58,10 +58,9 @@ pub async fn app_role_perm_add(
 
     let mut param_data = Vec::with_capacity(param.perm_data.len());
     for pr in param.perm_data.iter() {
-        let op = if let Some(op) =
-            op_data
-                .get(&pr.op_id)
-                .and_then(|e| if e.app_id != app.id { Some(e) } else { None })
+        let op = if let Some(op) = op_data
+            .get(&pr.op_id)
+            .and_then(|e| if e.app_id != app.id { Some(e) } else { None })
         {
             op
         } else {
@@ -71,10 +70,9 @@ pub async fn app_role_perm_add(
                 }
             )));
         };
-        let res = if let Some(res) =
-            res_data
-                .get(&pr.res_id)
-                .and_then(|e| if e.app_id != app.id { Some(e) } else { None })
+        let res = if let Some(res) = res_data
+            .get(&pr.res_id)
+            .and_then(|e| if e.app_id != app.id { Some(e) } else { None })
         {
             res
         } else {
@@ -135,10 +133,9 @@ pub async fn app_role_perm_del(
 
     let mut param_data = Vec::with_capacity(param.perm_data.len());
     for pr in param.perm_data.iter() {
-        let op = if let Some(op) =
-            op_data
-                .get(&pr.op_id)
-                .and_then(|e| if e.app_id != app.id { Some(e) } else { None })
+        let op = if let Some(op) = op_data
+            .get(&pr.op_id)
+            .and_then(|e| if e.app_id != app.id { Some(e) } else { None })
         {
             op
         } else {

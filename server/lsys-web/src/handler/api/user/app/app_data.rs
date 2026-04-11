@@ -11,12 +11,12 @@ use lsys_app::{
     dao::{AppAttrParam, AppRequestData, UserAppDataParam},
     model::{AppRequestStatus, AppStatus},
 };
-use lsys_core::fluent_message;
 use lsys_core::api_utils::JsonPageData;
+use lsys_core::fluent_message;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use serde_json::Map;
 use serde_json::Value;
+use serde_json::json;
 
 #[derive(Serialize)]
 pub struct ShowAppRecord {
@@ -218,9 +218,10 @@ pub async fn app_list(
         None
     };
 
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(bind_vec_user_info_from_req!(req_dao,out,user_id), count),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        bind_vec_user_info_from_req!(req_dao, out, user_id),
+        count,
+    ))))
 }
 
 #[derive(Serialize)]
@@ -292,9 +293,10 @@ pub async fn parent_app_list(
         None
     };
 
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(bind_vec_user_info_from_req!(req_dao, out, user_id), count),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        bind_vec_user_info_from_req!(req_dao, out, user_id),
+        count,
+    ))))
 }
 
 #[derive(Deserialize)]
@@ -622,12 +624,10 @@ pub async fn request_list(
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(
-            bind_vec_user_info_from_req!(req_dao, out, [confirm_user_id:"confirm_user_data"], true),
-            count,
-        ),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        bind_vec_user_info_from_req!(req_dao, out, [confirm_user_id:"confirm_user_data"], true),
+        count,
+    ))))
 }
 
 #[derive(Deserialize)]
@@ -797,10 +797,8 @@ pub async fn sub_request_list(
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(
-            bind_vec_user_info_from_req!(req_dao, out, request_user_id),
-            count,
-        ),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        bind_vec_user_info_from_req!(req_dao, out, request_user_id),
+        count,
+    ))))
 }

@@ -3,8 +3,8 @@
 use crate::dao::result::RbacResult;
 use crate::model::{RbacOpModel, RbacOpStatus};
 use lsys_core::db::{QueryBuilderExt, TableMeta};
+use lsys_core::utils::{STRING_CLEAR_FORMAT, StringClear, string_clear};
 use sqlx::{MySql, QueryBuilder};
-use lsys_core::utils::{string_clear, StringClear, STRING_CLEAR_FORMAT};
 use std::vec;
 
 use super::cache::OpCacheKey;
@@ -46,8 +46,11 @@ impl RbacOp {
             qb.push_and().field_eq("app_id", rkey.app_id);
             qb.push(")");
         }
-        qb.push(")").push_and().field_eq("status", RbacOpStatus::Enable as i8);
-        let res = qb.build_query_as::<RbacOpModel>()
+        qb.push(")")
+            .push_and()
+            .field_eq("status", RbacOpStatus::Enable as i8);
+        let res = qb
+            .build_query_as::<RbacOpModel>()
             .fetch_all(&self.db)
             .await?;
         Ok(keys

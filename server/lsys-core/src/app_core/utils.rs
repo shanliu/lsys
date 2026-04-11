@@ -8,8 +8,8 @@ use sqlx::{ConnectOptions, Pool};
 
 use std::str::FromStr;
 
-use crate::app_core::result::AppCoreError;
 use crate::app_core::AppCore;
+use crate::app_core::result::AppCoreError;
 use crate::fluents::FluentMgr;
 #[cfg(feature = "tera")]
 use crate::utils::{tera_second_format, tera_time_format};
@@ -17,6 +17,7 @@ use crate::utils::{tera_second_format, tera_time_format};
 use tera::Tera;
 
 /// 初始化追踪系统
+#[cfg(feature = "tracing")]
 pub async fn init_tracing(app_core: &AppCore) -> Result<(), AppCoreError> {
     let log_level = app_core
         .config

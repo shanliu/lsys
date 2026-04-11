@@ -1,7 +1,7 @@
 use crate::common::{JsonData, JsonPageData, PageParam, ToOffsetPageParam};
 use crate::common::{JsonResponse, JsonResult, UserAuthQueryDao};
-use crate::dao::access::api::system::user::CheckUserAppSenderSmsConfig;
 use crate::dao::access::RbacAccessCheckEnv;
+use crate::dao::access::api::system::user::CheckUserAppSenderSmsConfig;
 use lsys_access::dao::AccessSession;
 use lsys_app::dao::UserAppDataParam;
 use lsys_app::model::AppStatus;
@@ -9,7 +9,7 @@ use lsys_app_sender::dao::SMS_NOTIFY_METHOD;
 use lsys_app_sender::model::SenderSmsConfigType;
 use lsys_core::db::OffsetPageParam;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 
 pub(super) async fn smser_inner_access_check(
@@ -391,9 +391,9 @@ pub async fn smser_tpl_config_list(
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(row, total),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        row, total,
+    ))))
 }
 
 #[derive(Debug, Deserialize)]

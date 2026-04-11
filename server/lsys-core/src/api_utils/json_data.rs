@@ -1,5 +1,5 @@
 use serde::Serialize;
-use serde_json::{json, to_value, Value};
+use serde_json::{Value, json, to_value};
 
 use super::page_data::{PageCursorValue, PageTotalRowValue};
 
@@ -72,8 +72,6 @@ impl From<Option<usize>> for JsonPageTotal {
     }
 }
 
-
-
 impl Serialize for JsonPageTotal {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -122,7 +120,11 @@ impl JsonPageData {
     }
 
     /// 创建带 cursor 和 total 的分页数据
-    pub fn cursor<T: Into<JsonPageTotal>, D: Serialize>(data: D, cursor: PageCursorValue, total: T) -> Self {
+    pub fn cursor<T: Into<JsonPageTotal>, D: Serialize>(
+        data: D,
+        cursor: PageCursorValue,
+        total: T,
+    ) -> Self {
         Self {
             data: to_value(data).unwrap_or(Value::Null),
             total: total.into(),
@@ -141,7 +143,6 @@ impl JsonPageData {
         }
         self
     }
-
 }
 
 impl Serialize for JsonPageData {
@@ -169,8 +170,6 @@ impl Serialize for JsonPageData {
         Value::Object(map).serialize(serializer)
     }
 }
-
-
 
 #[derive(Debug, Clone, Serialize)]
 pub struct JsonData {
@@ -216,64 +215,109 @@ mod tests {
     fn test_json_data_body_formats() {
         // 1. 字符串
         let data = JsonData::body("hello world");
-        println!("String body: {}", serde_json::to_string_pretty(&data).unwrap());
+        println!(
+            "String body: {}",
+            serde_json::to_string_pretty(&data).unwrap()
+        );
 
         // 2. 数字
         let data = JsonData::body(123);
-        println!("Number body: {}", serde_json::to_string_pretty(&data).unwrap());
+        println!(
+            "Number body: {}",
+            serde_json::to_string_pretty(&data).unwrap()
+        );
 
         let data = JsonData::body(456.78);
-        println!("Float body: {}", serde_json::to_string_pretty(&data).unwrap());
+        println!(
+            "Float body: {}",
+            serde_json::to_string_pretty(&data).unwrap()
+        );
 
         // 3. 布尔值
         let data = JsonData::body(true);
-        println!("Boolean body: {}", serde_json::to_string_pretty(&data).unwrap());
+        println!(
+            "Boolean body: {}",
+            serde_json::to_string_pretty(&data).unwrap()
+        );
 
         // 4. 数组
         let data = JsonData::body(vec![1, 2, 3]);
-        println!("Array body: {}", serde_json::to_string_pretty(&data).unwrap());
+        println!(
+            "Array body: {}",
+            serde_json::to_string_pretty(&data).unwrap()
+        );
 
         let data = JsonData::body(vec!["a", "b", "c"]);
-        println!("String array body: {}", serde_json::to_string_pretty(&data).unwrap());
+        println!(
+            "String array body: {}",
+            serde_json::to_string_pretty(&data).unwrap()
+        );
 
         // 5. 对象（使用 json! 宏）
         let data = JsonData::body(json!({"name": "test", "value": 123}));
-        println!("Object body (json!): {}", serde_json::to_string_pretty(&data).unwrap());
+        println!(
+            "Object body (json!): {}",
+            serde_json::to_string_pretty(&data).unwrap()
+        );
 
         // 6. Option 类型
         let data = JsonData::body(Some(123));
-        println!("Option Some body: {}", serde_json::to_string_pretty(&data).unwrap());
+        println!(
+            "Option Some body: {}",
+            serde_json::to_string_pretty(&data).unwrap()
+        );
 
         let data = JsonData::body(Option::<i32>::None);
-        println!("Option None body: {}", serde_json::to_string_pretty(&data).unwrap());
+        println!(
+            "Option None body: {}",
+            serde_json::to_string_pretty(&data).unwrap()
+        );
 
         // 7. JsonValue 直接
         let data = JsonData::body(Value::String("direct value".to_string()));
-        println!("JsonValue body: {}", serde_json::to_string_pretty(&data).unwrap());
+        println!(
+            "JsonValue body: {}",
+            serde_json::to_string_pretty(&data).unwrap()
+        );
 
         let data = JsonData::body(Value::Null);
-        println!("Null body: {}", serde_json::to_string_pretty(&data).unwrap());
+        println!(
+            "Null body: {}",
+            serde_json::to_string_pretty(&data).unwrap()
+        );
 
         // 8. JsonPageData with total (u64)
         let page_data = JsonPageData::total(vec![1, 2, 3], 100u64);
         let data = JsonData::body(page_data);
-        println!("JsonPageData with total (u64): {}", serde_json::to_string_pretty(&data).unwrap());
+        println!(
+            "JsonPageData with total (u64): {}",
+            serde_json::to_string_pretty(&data).unwrap()
+        );
 
         // 9. JsonPageData with total (i64)
         let page_data = JsonPageData::total(vec!["a", "b"], 50i64);
         let data = JsonData::body(page_data);
-        println!("JsonPageData with total (i64): {}", serde_json::to_string_pretty(&data).unwrap());
+        println!(
+            "JsonPageData with total (i64): {}",
+            serde_json::to_string_pretty(&data).unwrap()
+        );
 
         // 10. JsonPageData with total (None)
         let page_data = JsonPageData::total(vec![1, 2, 3], JsonPageTotal::None);
         let data = JsonData::body(page_data);
-        println!("JsonPageData with total (None): {}", serde_json::to_string_pretty(&data).unwrap());
+        println!(
+            "JsonPageData with total (None): {}",
+            serde_json::to_string_pretty(&data).unwrap()
+        );
 
         // 11. JsonPageData with initial value
-        let page_data = JsonPageData::total(vec![1, 2, 3], 100u64)
-            .set_extra("extra_key", "extra_value");
+        let page_data =
+            JsonPageData::total(vec![1, 2, 3], 100u64).set_extra("extra_key", "extra_value");
         let data = JsonData::body(page_data);
-        println!("JsonPageData with initial value: {}", serde_json::to_string_pretty(&data).unwrap());
+        println!(
+            "JsonPageData with initial value: {}",
+            serde_json::to_string_pretty(&data).unwrap()
+        );
 
         // 12. JsonPageData with total (PageTotalRowValue with exact only)
         let total_row = PageTotalRowValue {
@@ -282,7 +326,10 @@ mod tests {
         };
         let page_data = JsonPageData::total(vec![1, 2, 3], total_row);
         let data = JsonData::body(page_data);
-        println!("JsonPageData with total (PageTotalRowValue exact only): {}", serde_json::to_string_pretty(&data).unwrap());
+        println!(
+            "JsonPageData with total (PageTotalRowValue exact only): {}",
+            serde_json::to_string_pretty(&data).unwrap()
+        );
 
         // 13. JsonPageData with total (PageTotalRowValue with over only)
         let total_row = PageTotalRowValue {
@@ -291,7 +338,10 @@ mod tests {
         };
         let page_data = JsonPageData::total(vec!["a", "b"], total_row);
         let data = JsonData::body(page_data);
-        println!("JsonPageData with total (PageTotalRowValue over only): {}", serde_json::to_string_pretty(&data).unwrap());
+        println!(
+            "JsonPageData with total (PageTotalRowValue over only): {}",
+            serde_json::to_string_pretty(&data).unwrap()
+        );
 
         // 14. JsonPageData with total (PageTotalRowValue with both exact and over)
         let total_row = PageTotalRowValue {
@@ -300,20 +350,32 @@ mod tests {
         };
         let page_data = JsonPageData::total(vec![1, 2, 3, 4], total_row);
         let data = JsonData::body(page_data);
-        println!("JsonPageData with total (PageTotalRowValue both): {}", serde_json::to_string_pretty(&data).unwrap());
+        println!(
+            "JsonPageData with total (PageTotalRowValue both): {}",
+            serde_json::to_string_pretty(&data).unwrap()
+        );
 
         // 15. 默认值（无 body）
         let data = JsonData::default();
-        println!("Default (no body): {}", serde_json::to_string_pretty(&data).unwrap());
+        println!(
+            "Default (no body): {}",
+            serde_json::to_string_pretty(&data).unwrap()
+        );
 
         // 13. 错误响应
         let data = JsonData::error();
-        println!("Error response: {}", serde_json::to_string_pretty(&data).unwrap());
+        println!(
+            "Error response: {}",
+            serde_json::to_string_pretty(&data).unwrap()
+        );
 
         // 14. 链式调用设置多个字段
         let data = JsonData::body("test")
             .set_code(404)
             .set_sub_code("not_found");
-        println!("Chained calls: {}", serde_json::to_string_pretty(&data).unwrap());
+        println!(
+            "Chained calls: {}",
+            serde_json::to_string_pretty(&data).unwrap()
+        );
     }
 }

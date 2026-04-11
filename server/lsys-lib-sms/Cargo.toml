@@ -28,7 +28,7 @@ aes = { version = "~0.8", optional = true }
 
 
 [dev-dependencies]
-tokio = { version = "~1.49.0", features = ["test-util", "full"] }
+tokio = { version = "~1.51.0", features = ["test-util", "full"] }
 
 [features]
 default = [

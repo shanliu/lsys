@@ -109,7 +109,7 @@ impl SenderMailer {
                 return Err(WebError::Message(fluent_message!(
                     "mail-send-check",
                     "unkown error"
-                )))
+                )));
             }
         })
     }

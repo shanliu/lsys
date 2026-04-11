@@ -2,25 +2,23 @@ use std::{collections::HashSet, sync::Arc};
 
 use crate::{
     dao::{
-        logger::LogMessage, MessageLogs, MessageReader, SenderConfig, SenderError, SenderResult,
+        MessageLogs, MessageReader, SenderConfig, SenderError, SenderResult, logger::LogMessage,
     },
     model::{
-        SenderConfigModel, SenderLogModel, SenderSmsBodyModel,
-        SenderSmsBodyStatus, SenderSmsConfigData, SenderSmsConfigLimit, SenderSmsConfigType,
-        SenderSmsMessageModel, SenderSmsMessageStatus, SenderType,
+        SenderConfigModel, SenderLogModel, SenderSmsBodyModel, SenderSmsBodyStatus,
+        SenderSmsConfigData, SenderSmsConfigLimit, SenderSmsConfigType, SenderSmsMessageModel,
+        SenderSmsMessageStatus, SenderType,
     },
 };
-use lsys_core::db::{CursorPageData, CursorPageParam, OffsetPageParam, TotalRow, TotalParam};
+use lsys_core::db::{CursorPageData, CursorPageParam, OffsetPageParam, TotalParam, TotalRow};
 use lsys_core::fluent_message;
-use lsys_core::utils::{
-    now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT,
-};
+use lsys_core::utils::{RequestEnv, STRING_CLEAR_FORMAT, StringClear, now_time, string_clear};
 use lsys_core::valid_key;
 use lsys_core::valid_param::{
     ValidMobile, ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
 };
 
-use lsys_core::db::{BatchInsert, Insert, TableMeta, QueryBuilderExt, Update, WhereClause};
+use lsys_core::db::{BatchInsert, Insert, QueryBuilderExt, TableMeta, Update, WhereClause};
 use lsys_logger::dao::ChangeLoggerDao;
 use serde_json::Value;
 use sqlx::{MySql, Pool, QueryBuilder};
@@ -117,21 +115,19 @@ impl SmsRecord {
     ) -> SenderResult<TotalRow> {
         let query = total_param.total_count_query();
 
-        let mut qb = QueryBuilder::<MySql>::new(
-            if query.is_threshold_mode() {
-                format!(
-                    "select count(*) as total from (select 1 from {} as m join {} as b on m.sender_body_id=b.id",
-                    SenderSmsMessageModel::table_name(),
-                    SenderSmsBodyModel::table_name(),
-                )
-            } else {
-                format!(
-                    "select count(*) as total from {} as m join {} as b on m.sender_body_id=b.id",
-                    SenderSmsMessageModel::table_name(),
-                    SenderSmsBodyModel::table_name(),
-                )
-            }
-        );
+        let mut qb = QueryBuilder::<MySql>::new(if query.is_threshold_mode() {
+            format!(
+                "select count(*) as total from (select 1 from {} as m join {} as b on m.sender_body_id=b.id",
+                SenderSmsMessageModel::table_name(),
+                SenderSmsBodyModel::table_name(),
+            )
+        } else {
+            format!(
+                "select count(*) as total from {} as m join {} as b on m.sender_body_id=b.id",
+                SenderSmsMessageModel::table_name(),
+                SenderSmsBodyModel::table_name(),
+            )
+        });
         let mut wb = WhereClause::new(&mut qb);
         if !Self::build_message_where(
             &mut wb,
@@ -151,9 +147,7 @@ impl SmsRecord {
             qb.push(") as t");
         }
 
-        let count = qb.build_query_scalar::<i64>()
-            .fetch_one(&self.db)
-            .await? as u64;
+        let count = qb.build_query_scalar::<i64>().fetch_one(&self.db).await? as u64;
 
         Ok(query.finalize(count))
     }
@@ -199,7 +193,8 @@ impl SmsRecord {
         query_limit.push_order_by(&mut qb);
         query_limit.push_limit(&mut qb);
 
-        let mut m_data = qb.build_query_as::<SenderSmsMessageModel>()
+        let mut m_data = qb
+            .build_query_as::<SenderSmsMessageModel>()
             .fetch_all(&self.db)
             .await?;
 
@@ -218,8 +213,10 @@ impl SmsRecord {
                 SenderSmsBodyModel::table_name()
             ));
             pks_qb.push_where().field_in_copied("id", &pks);
-            pks_qb.build_query_as::<SenderSmsBodyModel>()
-                .fetch_all(&self.db).await?
+            pks_qb
+                .build_query_as::<SenderSmsBodyModel>()
+                .fetch_all(&self.db)
+                .await?
         } else {
             vec![]
         };
@@ -344,7 +341,7 @@ impl SmsRecord {
         if max_try_num > 10 {
             max_try_num = 10
         }
-        let res = Insert::<_,SenderSmsBodyModel>::new()
+        let res = Insert::<_, SenderSmsBodyModel>::new()
             .set(SenderSmsBodyModel::APP_ID, app_id)
             .set(SenderSmsBodyModel::TPL_KEY, &tpl_key)
             .set(SenderSmsBodyModel::REQUEST_ID, reqid)
@@ -366,16 +363,19 @@ impl SmsRecord {
             }
         };
         let res_data = "";
-        let mut batch = BatchInsert::<_,SenderSmsMessageModel>::with_capacity(add_data.len());
+        let mut batch = BatchInsert::<_, SenderSmsMessageModel>::with_capacity(add_data.len());
         for (id, _, _, area, mobile) in add_data.iter() {
             batch = batch.push(
-                Insert::<_,SenderSmsMessageModel>::new()
+                Insert::<_, SenderSmsMessageModel>::new()
                     .set(SenderSmsMessageModel::SNID, *id)
                     .set(SenderSmsMessageModel::SENDER_BODY_ID, body_id)
                     .set(SenderSmsMessageModel::MOBILE, mobile)
                     .set(SenderSmsMessageModel::AREA, area)
                     .set(SenderSmsMessageModel::TRY_NUM, 0u16)
-                    .set(SenderSmsMessageModel::STATUS, SenderSmsMessageStatus::Init as i8)
+                    .set(
+                        SenderSmsMessageModel::STATUS,
+                        SenderSmsMessageStatus::Init as i8,
+                    )
                     .set(SenderSmsMessageModel::SEND_TIME, 0u64)
                     .set(SenderSmsMessageModel::ADD_TIME, add_time)
                     .set(SenderSmsMessageModel::RES_DATA, res_data),
@@ -421,8 +421,11 @@ impl SmsRecord {
             return Ok(());
         }
         if SenderSmsMessageStatus::Init.eq(message.status) {
-            Update::<_,SenderSmsMessageModel>::new()
-                .set(SenderSmsMessageModel::STATUS, SenderSmsMessageStatus::IsCancel as i8)
+            Update::<_, SenderSmsMessageModel>::new()
+                .set(
+                    SenderSmsMessageModel::STATUS,
+                    SenderSmsMessageStatus::IsCancel as i8,
+                )
                 .execute(&self.db, |qb| {
                     qb.push_where().field_eq("id", message.id);
                 })
@@ -452,7 +455,7 @@ impl SmsRecord {
                 }
             ),
         )) //"can't be cancel,status:{}",
-           // Err(SenderError::System(
+        // Err(SenderError::System(
 
         //     format!(
         //     "can't be cancel,status:{}",
@@ -643,16 +646,16 @@ impl SmsRecord {
                 }
             }
             None
-        })()
-            && mobiles.len() > max_send as usize {
-                return Err(SenderError::System(
-                    fluent_message!("sms-send-check-max-send", //"send sms limit :{}",
-                        {
-                        "max":max_send
-                        }
-                    ),
-                ));
-            }
+        })() && mobiles.len() > max_send as usize
+        {
+            return Err(SenderError::System(
+                fluent_message!("sms-send-check-max-send", //"send sms limit :{}",
+                    {
+                    "max":max_send
+                    }
+                ),
+            ));
+        }
         let mut limit_config: Vec<(u64, &SenderSmsConfigLimit)> = vec![];
         let mut qb = QueryBuilder::<MySql>::new("SELECT * FROM (");
         for (c, r) in rule.iter() {
@@ -666,25 +669,35 @@ impl SmsRecord {
                         qb.push(" UNION ALL ");
                     }
                     qb.push("select count(*) as total,");
-                    qb.push_bind(c.id);
+                    qb.push(c.id);
                     qb.push(format!(
-                        " as limit_id,m.area,m.mobile from {} as b join {} as m\
+                        " as limit_id,m.area,m.mobile from {} as b join {} as m \
                         on m.sender_body_id=b.id",
                         SenderSmsBodyModel::table_name(),
                         SenderSmsMessageModel::table_name(),
                     ));
                     qb.push_where().field_eq("b.app_id", c.app_id);
-                    qb.push_and().field_in_copied("m.status", &[SenderSmsMessageStatus::IsSend as i8, SenderSmsMessageStatus::IsReceived as i8]);
-                    qb.push_and().field_gte("b.expected_time",stime);
+                    qb.push_and().field_in_copied(
+                        "m.status",
+                        &[
+                            SenderSmsMessageStatus::IsSend as i8,
+                            SenderSmsMessageStatus::IsReceived as i8,
+                        ],
+                    );
+                    qb.push_and().field_gte("b.expected_time", stime);
                     qb.push_and().push("(");
                     for (i, e) in mobiles.iter().enumerate() {
-                        if i > 0 { qb.push(" or "); }
+                        if i > 0 {
+                            qb.push(" or ");
+                        }
                         qb.push("(");
-                        qb.field_eq("area",
-                            string_clear(e.0, StringClear::Option(STRING_CLEAR_FORMAT), Some(12))
+                        qb.field_eq(
+                            "area",
+                            string_clear(e.0, StringClear::Option(STRING_CLEAR_FORMAT), Some(12)),
                         );
-                        qb.push_and().field_eq("mobile",
-                            string_clear(e.1, StringClear::Option(STRING_CLEAR_FORMAT), Some(33))
+                        qb.push_and().field_eq(
+                            "mobile",
+                            string_clear(e.1, StringClear::Option(STRING_CLEAR_FORMAT), Some(33)),
                         );
                         qb.push(")");
                     }
@@ -728,23 +741,25 @@ impl SmsRecord {
         }
         if !limit_config.is_empty() {
             qb.push(") AS t");
-            let data = qb.build_query_as::<(i64, i64, String, String)>()
+            let data = qb
+                .build_query_as::<(i64, i64, String, String)>()
                 .fetch_all(&self.db)
                 .await?;
             for (id, limit) in limit_config {
                 if let Some(t) = data.iter().find(|e| e.1 as u64 == id)
-                    && t.0 >= limit.max_send.into() {
-                        return Err(SenderError::System(
-                            fluent_message!("sms-send-check-limit", //  "trigger limit rule :{} on {} [{}]",
-                                {
-                                    "max_send":limit.max_send,
-                                    "area":&t.2,
-                                    "mobile":&t.3,
-                                    "config_id":id
-                                }
-                            ),
-                        ));
-                    }
+                    && t.0 >= limit.max_send.into()
+                {
+                    return Err(SenderError::System(
+                        fluent_message!("sms-send-check-limit", //  "trigger limit rule :{} on {} [{}]",
+                            {
+                                "max_send":limit.max_send,
+                                "area":&t.2,
+                                "mobile":&t.3,
+                                "config_id":id
+                            }
+                        ),
+                    ));
+                }
             }
         }
         Ok(())

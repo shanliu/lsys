@@ -7,9 +7,7 @@ use crate::model::{AccountMobileModel, AccountMobileStatus, AccountModel};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::fluents::IntoFluentMessage;
 use lsys_core::remote_notify::RemoteNotify;
-use lsys_core::utils::{
-    now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT,
-};
+use lsys_core::utils::{RequestEnv, STRING_CLEAR_FORMAT, StringClear, now_time, string_clear};
 use lsys_core::valid_code::{CheckCodeData, ValidCode, ValidCodeData, ValidCodeDataRandom};
 use lsys_core::valid_param::{ValidMobile, ValidParam, ValidParamCheck};
 use lsys_core::{fluent_message, valid_key};
@@ -20,9 +18,9 @@ use sqlx::{Acquire, MySql, Pool, Transaction};
 
 use tracing::log::warn;
 
-use super::logger::LogAccountMobile;
 use super::AccountError;
 use super::AccountIndex;
+use super::logger::LogAccountMobile;
 
 pub struct AccountMobile {
     db: Pool<MySql>,
@@ -146,7 +144,7 @@ impl AccountMobile {
             None => self.db.begin().await?,
         };
 
-        let res = Insert::<_,AccountMobileModel>::new()
+        let res = Insert::<_, AccountMobileModel>::new()
             .set(AccountMobileModel::MOBILE, mobile_ow)
             .set(AccountMobileModel::STATUS, _status)
             .set(AccountMobileModel::AREA_CODE, area_code_ow)
@@ -162,7 +160,10 @@ impl AccountMobile {
             Ok(mr) => {
                 use lsys_core::db::Update;
                 let res = Update::<_, AccountModel>::new()
-                    .set(AccountModel::MOBILE_COUNT, FieldValue::Expr("mobile_count+1".into()))
+                    .set(
+                        AccountModel::MOBILE_COUNT,
+                        FieldValue::Expr("mobile_count+1".into()),
+                    )
                     .execute(&mut *db, |qb| {
                         qb.push_where().field_eq("id", account.id);
                     })
@@ -183,10 +184,10 @@ impl AccountMobile {
                                     Some(&mut db),
                                 )
                                 .await
-                            {
-                                db.rollback().await?;
-                                return Err(ie);
-                            }
+                        {
+                            db.rollback().await?;
+                            return Err(ie);
+                        }
 
                         db.commit().await?;
                         self.account_cache.clear(&account.id).await;
@@ -284,14 +285,14 @@ impl AccountMobile {
             && let Err(err) = self
                 .valid_code_clear(&account_mobile.area_code, &account_mobile.mobile)
                 .await
-            {
-                warn!(
-                    "mobile {}-{} valid clear fail:{}",
-                    &account_mobile.area_code,
-                    &account_mobile.mobile,
-                    err.to_fluent_message().default_format()
-                );
-            }
+        {
+            warn!(
+                "mobile {}-{} valid clear fail:{}",
+                &account_mobile.area_code,
+                &account_mobile.mobile,
+                err.to_fluent_message().default_format()
+            );
+        }
         res
     }
     //确认手机号
@@ -334,7 +335,7 @@ impl AccountMobile {
 
         let mut db = self.db.begin().await?;
 
-        let tmp = Update::<_,AccountMobileModel>::new()
+        let tmp = Update::<_, AccountMobileModel>::new()
             .set(AccountMobileModel::STATUS, AccountMobileStatus::Valid as i8)
             .set(AccountMobileModel::CONFIRM_TIME, time)
             .execute(&mut *db, |qb| {
@@ -399,8 +400,11 @@ impl AccountMobile {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let res = Update::<_,AccountMobileModel>::new()
-            .set(AccountMobileModel::STATUS, AccountMobileStatus::Delete as i8)
+        let res = Update::<_, AccountMobileModel>::new()
+            .set(
+                AccountMobileModel::STATUS,
+                AccountMobileStatus::Delete as i8,
+            )
             .set(AccountMobileModel::CHANGE_TIME, time)
             .execute(&mut *db, |qb| {
                 qb.push_where().field_eq("id", account_mobile.id);
@@ -413,8 +417,11 @@ impl AccountMobile {
             }
             Ok(mr) => {
                 use lsys_core::db::Update;
-                let res= Update::<_, AccountModel>::new()
-                    .set(AccountModel::MOBILE_COUNT, FieldValue::Expr("mobile_count-1".into()))
+                let res = Update::<_, AccountModel>::new()
+                    .set(
+                        AccountModel::MOBILE_COUNT,
+                        FieldValue::Expr("mobile_count-1".into()),
+                    )
                     .execute(&mut *db, |qb| {
                         qb.push_where().field_eq("id", account_mobile.account_id);
                         qb.push_and().field_gte("mobile_count", 1_i32);
@@ -468,47 +475,75 @@ impl AccountMobile {
     }
     pub async fn find_by_id(&self, id: &u64) -> AccountResult<AccountMobileModel> {
         use lsys_core::db::utils::Fetch;
-        Ok(Fetch::<MySql, AccountMobileModel>::one(
-            &self.db,
-            |qb| {
-                qb.field_eq("id", *id);
-                qb.push_and().field_in_copied("status", &[AccountMobileStatus::Valid as i8, AccountMobileStatus::Init as i8]);
-            },
-        ).await?)
+        Ok(Fetch::<MySql, AccountMobileModel>::one(&self.db, |qb| {
+            qb.field_eq("id", *id);
+            qb.push_and().field_in_copied(
+                "status",
+                &[
+                    AccountMobileStatus::Valid as i8,
+                    AccountMobileStatus::Init as i8,
+                ],
+            );
+        })
+        .await?)
     }
-    pub async fn find_by_ids(&self, ids: &[u64]) -> AccountResult<HashMap<u64, AccountMobileModel>> {
+    pub async fn find_by_ids(
+        &self,
+        ids: &[u64],
+    ) -> AccountResult<HashMap<u64, AccountMobileModel>> {
         use lsys_core::db::utils::Fetch;
         Ok(Fetch::<MySql, AccountMobileModel>::map(
             &self.db,
             |qb| {
                 qb.field_in_copied("id", ids);
-                qb.push_and().field_in_copied("status", &[AccountMobileStatus::Valid as i8, AccountMobileStatus::Init as i8]);
+                qb.push_and().field_in_copied(
+                    "status",
+                    &[
+                        AccountMobileStatus::Valid as i8,
+                        AccountMobileStatus::Init as i8,
+                    ],
+                );
             },
             |v| v.id,
-        ).await?)
+        )
+        .await?)
     }
     pub async fn find_by_account_id_vec(&self, id: &u64) -> AccountResult<Vec<AccountMobileModel>> {
         use lsys_core::db::utils::Fetch;
-        Ok(Fetch::<MySql, AccountMobileModel>::vec(
-            &self.db,
-            |qb| {
-                qb.field_eq("account_id", *id);
-                qb.push_and().field_in_copied("status", &[AccountMobileStatus::Init as i8, AccountMobileStatus::Valid as i8]);
-                qb.push(" ORDER BY id DESC");
-            },
-        ).await?)
+        Ok(Fetch::<MySql, AccountMobileModel>::vec(&self.db, |qb| {
+            qb.field_eq("account_id", *id);
+            qb.push_and().field_in_copied(
+                "status",
+                &[
+                    AccountMobileStatus::Init as i8,
+                    AccountMobileStatus::Valid as i8,
+                ],
+            );
+            qb.push(" ORDER BY id DESC");
+        })
+        .await?)
     }
-    pub async fn find_by_account_ids_vec(&self, ids: &[u64]) -> AccountResult<HashMap<u64, Vec<AccountMobileModel>>> {
+    pub async fn find_by_account_ids_vec(
+        &self,
+        ids: &[u64],
+    ) -> AccountResult<HashMap<u64, Vec<AccountMobileModel>>> {
         use lsys_core::db::utils::Fetch;
         Ok(Fetch::<MySql, AccountMobileModel>::group(
             &self.db,
             |qb| {
                 qb.field_in_copied("account_id", ids);
-                qb.push_and().field_in_copied("status", &[AccountMobileStatus::Init as i8, AccountMobileStatus::Valid as i8]);
+                qb.push_and().field_in_copied(
+                    "status",
+                    &[
+                        AccountMobileStatus::Init as i8,
+                        AccountMobileStatus::Valid as i8,
+                    ],
+                );
                 qb.push(" ORDER BY id DESC");
             },
             |v| v.account_id,
-        ).await?)
+        )
+        .await?)
     }
     pub fn cache(&'_ self) -> AccountMobileCache<'_> {
         AccountMobileCache { dao: self }
@@ -525,7 +560,10 @@ impl AccountMobileCache<'_> {
             .get_or_fetch(id, || self.dao.find_by_id(id))
             .await
     }
-    pub async fn find_by_ids(&self, ids: &[u64]) -> AccountResult<HashMap<u64, AccountMobileModel>> {
+    pub async fn find_by_ids(
+        &self,
+        ids: &[u64],
+    ) -> AccountResult<HashMap<u64, AccountMobileModel>> {
         self.dao
             .cache
             .get_or_fetch_many(ids, |missing| async move {

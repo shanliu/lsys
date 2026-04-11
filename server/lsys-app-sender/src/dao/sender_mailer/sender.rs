@@ -7,7 +7,7 @@ use lsys_core::task_dispatch::{
     TaskData, TaskDispatch, TaskDispatchConfig, TaskNotify, TaskNotifyConfig, TaskTimeOutNotify,
 };
 use lsys_core::timeout_task::{TimeOutTask, TimeOutTaskConfig, TimeOutTaskNotify};
-use lsys_core::utils::{now_time, RequestEnv};
+use lsys_core::utils::{RequestEnv, now_time};
 
 use lsys_logger::dao::ChangeLoggerDao;
 use lsys_setting::dao::SettingDao;
@@ -197,10 +197,12 @@ impl MailSenderDao {
             .await?;
 
         let mut wait = None;
-        if max_try_num == 0 && mail.len() == 1
-            && let Some((snid, _)) = res.1.first() {
-                wait = Some(self.send_wait.message_wait(res.0, *snid).await);
-            };
+        if max_try_num == 0
+            && mail.len() == 1
+            && let Some((snid, _)) = res.1.first()
+        {
+            wait = Some(self.send_wait.message_wait(res.0, *snid).await);
+        };
 
         if let Err(err) = self.task_timeout_notify.notify_at_time(sendtime).await {
             warn!(

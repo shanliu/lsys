@@ -13,14 +13,11 @@ use std::sync::Arc;
 use lsys_core::db::{OffsetPageParam, OffsetPageValue};
 use lsys_rbac::dao::{RbacDao, ResTypeListParam, ResTypeParam};
 
-use crate::dao::access::api::system::admin::CheckAdminRbacView;
 use crate::dao::access::RbacAccessCheckEnv;
+use crate::dao::access::api::system::admin::CheckAdminRbacView;
 use crate::dao::export_task::exporter::Exporter;
 use crate::dao::export_task::writer::CsvWriter;
-use crate::dao::WebError;
-use crate::dao::WebResult;
-use crate::dao::WebRbac;
-use crate::model::ExportTaskModel;
+use crate::dao::{ExportTaskModel, WebExporter, WebResult};
 
 pub const EXPORT_TYPE_SYSTEM_RBAC_RES_TYPE: &str = "system_rbac_res_type";
 pub const EXPORT_TYPE_SYSTEM_RBAC_RES_TYPE_OP: &str = "system_rbac_res_type_op";
@@ -28,35 +25,31 @@ pub const EXPORT_TYPE_SYSTEM_RBAC_RES_TYPE_OP: &str = "system_rbac_res_type_op";
 /// 系统资源类型列表导出
 pub struct SystemRbacResTypeExporter {
     pub rbac_dao: Arc<RbacDao>,
-    pub web_rbac: Arc<WebRbac>,
+    pub web_rbac: Arc<crate::dao::WebRbac>,
 }
 
-impl Exporter for SystemRbacResTypeExporter {
-    fn check<'a>(
-        &'a self,
-        check_env: &'a RbacAccessCheckEnv<'_>,
-        _app_id: u64,
-        _app_user_id: u64,
-        _user_id: u64,
-        _export_type: &'a str,
-        _params: &'a serde_json::Value,
-    ) -> std::pin::Pin<
-        Box<dyn std::future::Future<Output = WebResult<()>> + Send + 'a>,
-    > {
-        Box::pin(async move {
-            self.web_rbac
-                .check(check_env, &CheckAdminRbacView {})
-                .await?;
-            Ok(())
-        })
+#[async_trait::async_trait]
+impl WebExporter for SystemRbacResTypeExporter {
+    async fn check(
+        &self,
+        check_env: &RbacAccessCheckEnv<'_>,
+        _param: &crate::dao::ExportCheckParam<'_>,
+    ) -> WebResult<()> {
+        self.web_rbac
+            .check(check_env, &CheckAdminRbacView {})
+            .await?;
+        Ok(())
     }
+}
 
+impl Exporter<crate::dao::WebError> for SystemRbacResTypeExporter {
     fn export<'a>(
         &'a self,
         record: ExportTaskModel,
         params: serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<PathBuf, WebError>> + Send + 'a>>
-    {
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<PathBuf, crate::dao::WebError>> + Send + 'a>,
+    > {
         Box::pin(async move {
             let res_type = params["res_type"].as_str();
 
@@ -70,31 +63,25 @@ impl Exporter for SystemRbacResTypeExporter {
                 .header(("user_id", "app_id", "res_type", "res_total"))
                 .await?;
 
-            let total = self
-                .rbac_dao
-                .res
-                .res_type_count(&res_param)
-                .await? as u64;
+            let total = self.rbac_dao.res.res_type_count(&res_param).await? as u64;
             if total > 0 {
                 let page = OffsetPageParam::new(Some(OffsetPageValue::new(0, total)));
-                let items = self
-                    .rbac_dao
-                    .res
-                    .res_type_data(&res_param, &page)
-                    .await?;
+                let items = self.rbac_dao.res.res_type_data(&res_param, &page).await?;
                 let rows: Vec<_> = items
                     .iter()
-                    .map(|item| (
-                        item.user_id,
-                        item.app_id,
-                        item.res_type.clone(),
-                        item.res_total,
-                    ))
+                    .map(|item| {
+                        (
+                            item.user_id,
+                            item.app_id,
+                            item.res_type.clone(),
+                            item.res_total,
+                        )
+                    })
                     .collect();
                 w.write_batch(rows).await?;
             }
 
-            w.finish().await
+            w.finish().await.map_err(Into::into)
         })
     }
 }
@@ -102,35 +89,31 @@ impl Exporter for SystemRbacResTypeExporter {
 /// 系统资源类型操作列表导出
 pub struct SystemRbacResTypeOpExporter {
     pub rbac_dao: Arc<RbacDao>,
-    pub web_rbac: Arc<WebRbac>,
+    pub web_rbac: Arc<crate::dao::WebRbac>,
 }
 
-impl Exporter for SystemRbacResTypeOpExporter {
-    fn check<'a>(
-        &'a self,
-        check_env: &'a RbacAccessCheckEnv<'_>,
-        _app_id: u64,
-        _app_user_id: u64,
-        _user_id: u64,
-        _export_type: &'a str,
-        _params: &'a serde_json::Value,
-    ) -> std::pin::Pin<
-        Box<dyn std::future::Future<Output = WebResult<()>> + Send + 'a>,
-    > {
-        Box::pin(async move {
-            self.web_rbac
-                .check(check_env, &CheckAdminRbacView {})
-                .await?;
-            Ok(())
-        })
+#[async_trait::async_trait]
+impl WebExporter for SystemRbacResTypeOpExporter {
+    async fn check(
+        &self,
+        check_env: &RbacAccessCheckEnv<'_>,
+        _param: &crate::dao::ExportCheckParam<'_>,
+    ) -> WebResult<()> {
+        self.web_rbac
+            .check(check_env, &CheckAdminRbacView {})
+            .await?;
+        Ok(())
     }
+}
 
+impl Exporter<crate::dao::WebError> for SystemRbacResTypeOpExporter {
     fn export<'a>(
         &'a self,
         record: ExportTaskModel,
         params: serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<PathBuf, WebError>> + Send + 'a>>
-    {
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<PathBuf, crate::dao::WebError>> + Send + 'a>,
+    > {
         Box::pin(async move {
             let res_type_str = params["res_type"].as_str().unwrap_or("").to_string();
 
@@ -141,14 +124,19 @@ impl Exporter for SystemRbacResTypeOpExporter {
             };
 
             let mut w = CsvWriter::new(&record)
-                .header(("id", "op_id", "res_type", "user_id", "app_id", "status", "change_time", "change_user_id"))
+                .header((
+                    "id",
+                    "op_id",
+                    "res_type",
+                    "user_id",
+                    "app_id",
+                    "status",
+                    "change_time",
+                    "change_user_id",
+                ))
                 .await?;
 
-            let total = self
-                .rbac_dao
-                .res
-                .res_type_op_count(&res_type_param)
-                .await? as u64;
+            let total = self.rbac_dao.res.res_type_op_count(&res_type_param).await? as u64;
             if total > 0 {
                 let page = OffsetPageParam::new(Some(OffsetPageValue::new(0, total)));
                 let items = self
@@ -158,21 +146,23 @@ impl Exporter for SystemRbacResTypeOpExporter {
                     .await?;
                 let rows: Vec<_> = items
                     .iter()
-                    .map(|item| (
-                        item.op_res.id,
-                        item.op_res.op_id,
-                        item.op_res.res_type.clone(),
-                        item.op_res.user_id,
-                        item.op_res.app_id,
-                        item.op_res.status,
-                        item.op_res.change_time,
-                        item.op_res.change_user_id,
-                    ))
+                    .map(|item| {
+                        (
+                            item.op_res.id,
+                            item.op_res.op_id,
+                            item.op_res.res_type.clone(),
+                            item.op_res.user_id,
+                            item.op_res.app_id,
+                            item.op_res.status,
+                            item.op_res.change_time,
+                            item.op_res.change_user_id,
+                        )
+                    })
                     .collect();
                 w.write_batch(rows).await?;
             }
 
-            w.finish().await
+            w.finish().await.map_err(Into::into)
         })
     }
 }

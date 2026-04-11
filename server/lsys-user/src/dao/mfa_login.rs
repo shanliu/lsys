@@ -5,9 +5,9 @@ use crate::dao::{AccountError, AccountLoginHistory, AccountResult};
 use deadpool_redis::Pool;
 use lsys_access::dao::{AccessAuthLoginData, AccessDao, AccessLoginData, SessionBody};
 use lsys_core::app_core::AppCore;
-use lsys_core::fluents::IntoFluentMessage;
-use lsys_core::utils::{now_time, rand_str, RandType};
 use lsys_core::fluent_message;
+use lsys_core::fluents::IntoFluentMessage;
+use lsys_core::utils::{RandType, now_time, rand_str};
 use lsys_mfa::dao::MfaError;
 use lsys_mfa::dao::{MfaSubject, MfaTotpDao};
 use redis::AsyncCommands;
@@ -156,11 +156,12 @@ impl MfaLoginDao {
 
         if let (Some(expect_ip), Some(got_ip)) =
             (pending.login_data.login_ip.as_deref(), login_env.login_ip)
-            && expect_ip != got_ip.to_string().as_str() {
-                return Err(AccountError::Param(fluent_message!(
-                    "mfa-token-ip-mismatch"
-                )));
-            }
+            && expect_ip != got_ip.to_string().as_str()
+        {
+            return Err(AccountError::Param(fluent_message!(
+                "mfa-token-ip-mismatch"
+            )));
+        }
 
         self.totp.verify_totp(&pending.subject, totp_code).await?;
 

@@ -7,18 +7,16 @@ use crate::model::{AccountIndexCat, AccountModel, AccountStatus};
 
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::db::{CursorPageData, CursorPageParam};
-use lsys_core::{
-    db::utils::FetchField, fluent_message, valid_key,
-};
 use lsys_core::remote_notify::RemoteNotify;
-use lsys_core::utils::{now_time, RequestEnv};
+use lsys_core::utils::{RequestEnv, now_time};
 use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
+use lsys_core::{db::utils::FetchField, fluent_message, valid_key};
 use lsys_logger::dao::ChangeLoggerDao;
 
-use super::logger::LogAccount;
 use super::AccountError;
+use super::logger::LogAccount;
 use super::{AccountIndex, AccountItem};
-use lsys_core::db::{Insert, Update, QueryBuilderExt, TableMeta};
+use lsys_core::db::{Insert, QueryBuilderExt, TableMeta, Update};
 use sqlx::{Acquire, MySql, Pool, Transaction};
 pub struct Account {
     db: Pool<MySql>,
@@ -45,10 +43,10 @@ impl Account {
         }
     }
     async fn nickname_param_valid(&self, nickname: &str) -> AccountResult<()> {
-        let nickname_max =
-           FetchField::new(&self.db).string_max::<AccountModel>( &AccountModel::NICKNAME)
-                .await
-                .len_or(32);
+        let nickname_max = FetchField::new(&self.db)
+            .string_max::<AccountModel>(&AccountModel::NICKNAME)
+            .await
+            .len_or(32);
 
         ValidParam::default()
             .add(
@@ -79,7 +77,7 @@ impl Account {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let tmp = Insert::<_,AccountModel>::new()
+        let tmp = Insert::<_, AccountModel>::new()
             .set(AccountModel::NICKNAME, nickname_ow)
             .set(AccountModel::ADD_TIME, time)
             .set(AccountModel::CHANGE_TIME, time)
@@ -163,7 +161,7 @@ impl Account {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let tmp = Update::<_,AccountModel>::new()
+        let tmp = Update::<_, AccountModel>::new()
             .set(AccountModel::CHANGE_TIME, time)
             .set(AccountModel::CONFIRM_TIME, time)
             .set(AccountModel::STATUS, AccountStatus::Enable as i8)
@@ -223,7 +221,7 @@ impl Account {
 
         //delete account data
         let del_name_ow = del_name.map(|e| e.to_string());
-        let mut update = Update::<_,AccountModel>::new()
+        let mut update = Update::<_, AccountModel>::new()
             .set(AccountModel::STATUS, AccountStatus::Delete as i8)
             .set(AccountModel::CHANGE_TIME, time);
         if let Some(ref name) = del_name_ow {
@@ -274,7 +272,7 @@ impl Account {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let res = Update::<_,AccountModel>::new()
+        let res = Update::<_, AccountModel>::new()
             .set(AccountModel::CHANGE_TIME, time)
             .set(AccountModel::NICKNAME, &nikename)
             .execute(&mut *db, |qb| {
@@ -324,13 +322,14 @@ impl Account {
     }
     pub async fn find_by_id(&self, id: &u64) -> AccountResult<AccountModel> {
         use lsys_core::db::utils::Fetch;
-        Ok(Fetch::<MySql, AccountModel>::one(
-            &self.db,
-            |qb| {
-                qb.field_eq("id", *id);
-                qb.push_and().field_in_copied("status", &[AccountStatus::Enable as i8, AccountStatus::Init as i8]);
-            },
-        ).await?)
+        Ok(Fetch::<MySql, AccountModel>::one(&self.db, |qb| {
+            qb.field_eq("id", *id);
+            qb.push_and().field_in_copied(
+                "status",
+                &[AccountStatus::Enable as i8, AccountStatus::Init as i8],
+            );
+        })
+        .await?)
     }
     pub async fn find_by_ids(&self, ids: &[u64]) -> AccountResult<HashMap<u64, AccountModel>> {
         use lsys_core::db::utils::Fetch;
@@ -338,10 +337,14 @@ impl Account {
             &self.db,
             |qb| {
                 qb.field_in_copied("id", ids);
-                qb.push_and().field_in_copied("status", &[AccountStatus::Enable as i8, AccountStatus::Init as i8]);
+                qb.push_and().field_in_copied(
+                    "status",
+                    &[AccountStatus::Enable as i8, AccountStatus::Init as i8],
+                );
             },
             |v| v.id,
-        ).await?)
+        )
+        .await?)
     }
     //搜索用户
     pub async fn search(

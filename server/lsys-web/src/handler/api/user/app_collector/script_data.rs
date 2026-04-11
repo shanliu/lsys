@@ -65,7 +65,7 @@ pub async fn scripts(
         })
         .collect();
 
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(items, total),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        items, total,
+    ))))
 }

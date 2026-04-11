@@ -158,7 +158,8 @@ impl SmsSendNotify {
             SenderSmsMessageModel::table_name(),
         ));
         qb.push_where().field_in_string("res_data", &send_id);
-        let msg_data = qb.build_query_as::<SenderSmsMessageModel>()
+        let msg_data = qb
+            .build_query_as::<SenderSmsMessageModel>()
             .fetch_all(&self.db)
             .await
             .map_err(|e| e.to_string())?;
@@ -176,7 +177,8 @@ impl SmsSendNotify {
                         SenderSmsBodyModel::table_name()
                     ));
                     body_qb.push_where().field_in_copied("id", &findid);
-                    match body_qb.build_query_as::<SenderSmsBodyModel>()
+                    match body_qb
+                        .build_query_as::<SenderSmsBodyModel>()
                         .fetch_all(&self.db)
                         .await
                     {
@@ -198,48 +200,54 @@ impl SmsSendNotify {
 
                             let (status, msg) = match n.status {
                                 SendNotifyStatus::Completed => {
-                                    let mut update = Update::<_, SenderSmsMessageModel>::new()
-                                        .set(SenderSmsMessageModel::STATUS, SenderSmsMessageStatus::IsReceived as i8);
-                                    
+                                    let mut update = Update::<_, SenderSmsMessageModel>::new().set(
+                                        SenderSmsMessageModel::STATUS,
+                                        SenderSmsMessageStatus::IsReceived as i8,
+                                    );
+
                                     if let Some(t) = n.send_time
-                                        && t > 0 {
-                                            update = update.set(SenderSmsMessageModel::SEND_TIME, t);
-                                        }
-                                    
+                                        && t > 0
+                                    {
+                                        update = update.set(SenderSmsMessageModel::SEND_TIME, t);
+                                    }
+
                                     if let Some(t) = n.receive_time {
                                         update = update.set(SenderSmsMessageModel::RECEIVE_TIME, t);
                                     }
-                                    
-                                    if let Err(err) = update.execute(&self.db, |qb| {
-                                        qb.push_where().field_eq("id", m.id);
-                                    }).await {
+
+                                    if let Err(err) = update
+                                        .execute(&self.db, |qb| {
+                                            qb.push_where().field_eq("id", m.id);
+                                        })
+                                        .await
+                                    {
                                         warn!("change message status fail[{}]{}", m.id, err);
                                         out = Err(err.to_string());
                                     }
-                                    (
-                                        SenderLogStatus::NotifySucc,
-                                        n.message,
-                                    )
+                                    (SenderLogStatus::NotifySucc, n.message)
                                 }
                                 SendNotifyStatus::Failed => {
-                                    let mut update = Update::<_, SenderSmsMessageModel>::new()
-                                        .set(SenderSmsMessageModel::STATUS, SenderSmsMessageStatus::SendFail as i8);
-                                    
+                                    let mut update = Update::<_, SenderSmsMessageModel>::new().set(
+                                        SenderSmsMessageModel::STATUS,
+                                        SenderSmsMessageStatus::SendFail as i8,
+                                    );
+
                                     if let Some(t) = n.send_time
-                                        && t > 0 {
-                                            update = update.set(SenderSmsMessageModel::SEND_TIME, t);
-                                        }
-                                    
-                                    if let Err(err) = update.execute(&self.db, |qb| {
-                                        qb.push_where().field_eq("id", m.id);
-                                    }).await {
+                                        && t > 0
+                                    {
+                                        update = update.set(SenderSmsMessageModel::SEND_TIME, t);
+                                    }
+
+                                    if let Err(err) = update
+                                        .execute(&self.db, |qb| {
+                                            qb.push_where().field_eq("id", m.id);
+                                        })
+                                        .await
+                                    {
                                         warn!("change message status fail[{}]{}", m.id, err);
                                         out = Err(err.to_string());
                                     }
-                                    (
-                                        SenderLogStatus::NotifyFail,
-                                        n.message,
-                                    )
+                                    (SenderLogStatus::NotifyFail, n.message)
                                 }
                                 SendNotifyStatus::Progress => {
                                     info!("sms is sending :{}", m.id);

@@ -3,7 +3,7 @@ use crate::model::{
     RbacOpModel, RbacOpResModel, RbacOpResStatus, RbacOpStatus, RbacPermModel, RbacPermStatus,
 };
 use lsys_core::db::{OffsetPageParam, QueryBuilderExt};
-use lsys_core::utils::{string_clear, StringClear, STRING_CLEAR_FORMAT};
+use lsys_core::utils::{STRING_CLEAR_FORMAT, StringClear, string_clear};
 use sqlx::Row;
 use std::collections::HashMap;
 use std::vec;
@@ -17,25 +17,26 @@ use super::RbacOp;
 
 impl RbacOp {
     pub async fn find_by_id(&self, id: &u64) -> RbacResult<RbacOpModel> {
-        Ok(lsys_core::db::utils::Fetch::<MySql, RbacOpModel>::one(
-            &self.db,
-            |qb| {
+        Ok(
+            lsys_core::db::utils::Fetch::<MySql, RbacOpModel>::one(&self.db, |qb| {
                 qb.field_eq("id", *id)
-                  .push_and()
-                  .field_eq("status", RbacOpStatus::Enable as i8);
-            },
-        ).await?)
+                    .push_and()
+                    .field_eq("status", RbacOpStatus::Enable as i8);
+            })
+            .await?,
+        )
     }
     pub async fn find_by_ids(&self, ids: &[u64]) -> RbacResult<HashMap<u64, RbacOpModel>> {
         Ok(lsys_core::db::utils::Fetch::<MySql, RbacOpModel>::map(
             &self.db,
             |qb| {
                 qb.field_in_copied("id", ids)
-                  .push_and()
-                  .field_eq("status", RbacOpStatus::Enable as i8);
+                    .push_and()
+                    .field_eq("status", RbacOpStatus::Enable as i8);
             },
             |v| v.id,
-        ).await?)
+        )
+        .await?)
     }
 }
 
@@ -49,7 +50,11 @@ pub struct OpDataParam<'t> {
 
 //资源管理
 impl RbacOp {
-    fn op_sql(&self, field: &str, op_param: &OpDataParam<'_>) -> Option<QueryBuilder<'static, MySql>> {
+    fn op_sql(
+        &self,
+        field: &str,
+        op_param: &OpDataParam<'_>,
+    ) -> Option<QueryBuilder<'static, MySql>> {
         let mut qb = QueryBuilder::<MySql>::new(format!(
             "select {} from {}",
             field,
@@ -98,12 +103,15 @@ impl RbacOp {
             return Ok(vec![]);
         }
         let mut qb: QueryBuilder<'_, MySql> = QueryBuilder::new(format!(
-                "select op_id,count(*) as total from {}",
-                RbacOpResModel::table_name(),
-            ));
+            "select op_id,count(*) as total from {}",
+            RbacOpResModel::table_name(),
+        ));
         qb.push_where().field_in_copied("op_id", op_ids);
-        qb.push_and().field_eq("status", RbacOpResStatus::Enable as i8).push(" group by op_id");
-        let op_counts = qb.build()
+        qb.push_and()
+            .field_eq("status", RbacOpResStatus::Enable as i8)
+            .push(" group by op_id");
+        let op_counts = qb
+            .build()
             .try_map(|row: sqlx::mysql::MySqlRow| {
                 let res_id = row.try_get::<u64, &str>("op_id").unwrap_or_default();
                 let total = row.try_get::<i64, &str>("total").unwrap_or_default();
@@ -118,25 +126,19 @@ impl RbacOp {
         if op_ids.is_empty() {
             return Ok(vec![]);
         }
-        let mut qb = QueryBuilder::<MySql>::new(
-            "select * from ((",
-        );
+        let mut qb = QueryBuilder::<MySql>::new("select * from ((");
         for (i, oid) in op_ids.iter().enumerate() {
             if i > 0 {
                 qb.push(") union all (");
             }
-            qb.push(format!(
-                "select op_id from {}",
-                RbacPermModel::table_name(),
-            ));
+            qb.push(format!("select op_id from {}", RbacPermModel::table_name(),));
             qb.push_where().field_eq("op_id", *oid);
-            qb.push_and().field_eq("status", RbacPermStatus::Enable as i8);
+            qb.push_and()
+                .field_eq("status", RbacPermStatus::Enable as i8);
             qb.push(" limit 1");
         }
         qb.push(")) as t");
-        let op_counts = qb.build_query_scalar::<u64>()
-            .fetch_all(&self.db)
-            .await?;
+        let op_counts = qb.build_query_scalar::<u64>().fetch_all(&self.db).await?;
         Ok(op_ids
             .iter()
             .map(|e| (*e, op_counts.contains(e)))
@@ -203,7 +205,8 @@ impl RbacOp {
             Some(mut qb) => {
                 qb.push(" order by id desc");
                 page.push_limit(&mut qb);
-                Ok(qb.build_query_as::<RbacOpModel>()
+                Ok(qb
+                    .build_query_as::<RbacOpModel>()
                     .fetch_all(&self.db)
                     .await?)
             }

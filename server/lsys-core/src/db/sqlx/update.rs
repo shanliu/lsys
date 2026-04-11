@@ -26,7 +26,6 @@ impl<DB: Database, M: TableMeta> Default for Update<DB, M> {
 }
 
 impl<DB: Database, M: TableMeta> Update<DB, M> {
-
     /// 设置字段值
     pub fn set<T, V>(mut self, field: Field<T>, value: V) -> Self
     where
@@ -103,10 +102,10 @@ macro_rules! impl_update_execute {
                         qb.push(", ");
                     }
                     first = false;
-                    
+
                     qb.push(col.as_str());
                     qb.push(" = ");
-                    
+
                     match value {
                         StoredValue::Bind(b) => {
                             b.bind_to(&mut qb);
@@ -145,13 +144,13 @@ mod tests {
 
     // 模拟一个测试用的 Model
     struct TestModel;
-    
+
     impl TableMeta for TestModel {
         fn table_name() -> TableName {
             TableName::new("test_table")
         }
     }
-    
+
     impl TestModel {
         const ID: Field<u64> = Field::new("id");
         const STATUS: Field<i8> = Field::new("status");
@@ -162,29 +161,32 @@ mod tests {
     #[test]
     fn test_update_with_dynamic_field_value() {
         use sqlx::MySql;
-        
+
         // 测试 FieldValue::Expr 和 FieldValue::Dynamic
         let update = Update::<MySql, TestModel>::new()
-            .set(TestModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))  // 简单表达式用 Expr
-            .set(TestModel::STATUS, FieldValue::Dynamic(Box::new(|qb| {
-                qb.push("if(try_num>=");
-                qb.push_bind(3_i32);
-                qb.push(",");
-                qb.push_bind(2_i8);
-                qb.push(",status)");
-            })));
-        
+            .set(TestModel::TRY_NUM, FieldValue::Expr("try_num+1".into())) // 简单表达式用 Expr
+            .set(
+                TestModel::STATUS,
+                FieldValue::Dynamic(Box::new(|qb| {
+                    qb.push("if(try_num>=");
+                    qb.push_bind(3_i32);
+                    qb.push(",");
+                    qb.push_bind(2_i8);
+                    qb.push(",status)");
+                })),
+            );
+
         // 验证字段数量
         assert_eq!(update.fields.len(), 2);
-        
+
         // 验证字段名
         assert_eq!(update.fields[0].0, "try_num");
         assert_eq!(update.fields[1].0, "status");
-        
+
         // 验证类型
         assert!(matches!(update.fields[0].1, StoredValue::Expr(_)));
         assert!(matches!(update.fields[1].1, StoredValue::Dynamic(_)));
-        
+
         println!("✓ FieldValue::Expr 和 FieldValue::Dynamic 字段设置成功");
     }
 
@@ -192,19 +194,19 @@ mod tests {
     #[test]
     fn test_update_sql_generation() {
         use sqlx::MySql;
-        
+
         // 测试生成的 SQL 结构（通过 QueryBuilder）
         let mut qb = sqlx::QueryBuilder::<MySql>::new("UPDATE test_table SET ");
-        
+
         // 模拟 try_num 字段的 Dynamic 回调
         qb.push("try_num = ");
         let try_num_callback = |qb: &mut sqlx::QueryBuilder<MySql>| {
             qb.push("try_num+1");
         };
         try_num_callback(&mut qb);
-        
+
         qb.push(", ");
-        
+
         // 模拟 status 字段的 Dynamic 回调
         qb.push("status = ");
         let max_try = 3_i32;
@@ -217,19 +219,19 @@ mod tests {
             qb.push(",status)");
         };
         status_callback(&mut qb);
-        
+
         // 添加 WHERE 子句
         qb.push_where().field_eq("id", 123_u64);
-        
+
         let sql = qb.sql();
-        
+
         // 验证 SQL 结构
         assert!(sql.contains("UPDATE test_table SET"));
         assert!(sql.contains("try_num = try_num+1"));
         assert!(sql.contains("status = if(try_num>="));
         assert!(sql.contains("WHERE"));
         assert!(sql.contains("id="));
-        
+
         println!("✓ 生成的 SQL: {}", sql);
         println!("✓ FieldValue::Dynamic 能正确绑定值并生成 SQL");
     }
@@ -238,13 +240,13 @@ mod tests {
     #[test]
     fn test_dynamic_with_vec_data() {
         use sqlx::MySql;
-        
+
         // 测试 Dynamic 回调中使用 Vec 数据（模拟 cancel_data 场景）
         let cancel_ids = vec![10_u64, 20_u64, 30_u64];
-        
+
         let mut qb = sqlx::QueryBuilder::<MySql>::new("UPDATE test_table SET ");
         qb.push("status = ");
-        
+
         // 使用 move 闭包捕获 cancel_ids 的所有权
         let status_callback = move |qb: &mut sqlx::QueryBuilder<MySql>| {
             qb.push("if(try_num>=");
@@ -263,16 +265,16 @@ mod tests {
             }
             qb.push(")");
         };
-        
+
         status_callback(&mut qb);
-        
+
         let sql = qb.sql();
-        
+
         // 验证 SQL 包含 IN 子句
         assert!(sql.contains("if(try_num>="));
         assert!(sql.contains("if("));
         assert!(sql.contains("id IN"));
-        
+
         println!("✓ 生成的 SQL: {}", sql);
         println!("✓ FieldValue::Dynamic 能正确处理 Vec 数据并使用 field_in_copied");
     }
@@ -280,22 +282,25 @@ mod tests {
     #[test]
     fn test_mixed_field_values() {
         use sqlx::MySql;
-        
+
         // 测试混合使用不同类型的 FieldValue
         let update = Update::<MySql, TestModel>::new()
-            .set(TestModel::ID, 100_u64)  // Value
-            .set(TestModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))  // Expr
-            .set(TestModel::STATUS, FieldValue::Dynamic(Box::new(|qb| {
-                qb.push("if(try_num>=");
-                qb.push_bind(3_i32);
-                qb.push(",2,status)");
-            })));  // Dynamic
-        
+            .set(TestModel::ID, 100_u64) // Value
+            .set(TestModel::TRY_NUM, FieldValue::Expr("try_num+1".into())) // Expr
+            .set(
+                TestModel::STATUS,
+                FieldValue::Dynamic(Box::new(|qb| {
+                    qb.push("if(try_num>=");
+                    qb.push_bind(3_i32);
+                    qb.push(",2,status)");
+                })),
+            ); // Dynamic
+
         assert_eq!(update.fields.len(), 3);
         assert!(matches!(update.fields[0].1, StoredValue::Bind(_)));
         assert!(matches!(update.fields[1].1, StoredValue::Expr(_)));
         assert!(matches!(update.fields[2].1, StoredValue::Dynamic(_)));
-        
+
         println!("✓ 混合使用 Value、Expr 和 Dynamic 成功");
     }
 }

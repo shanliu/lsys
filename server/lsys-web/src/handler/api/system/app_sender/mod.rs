@@ -8,11 +8,11 @@ mod smser_config;
 
 mod smser_config_aliyun;
 mod smser_config_cloopen;
+mod smser_config_emay;
 mod smser_config_hwyun;
 mod smser_config_jdyun;
 mod smser_config_netease;
 mod smser_config_tenyun;
-mod smser_config_emay;
 
 pub use mailer::*;
 pub use mailer_config::*;
@@ -24,8 +24,8 @@ pub use smser_config::*;
 
 pub use smser_config_aliyun::*;
 pub use smser_config_cloopen::*;
+pub use smser_config_emay::*;
 pub use smser_config_hwyun::*;
 pub use smser_config_jdyun::*;
 pub use smser_config_netease::*;
 pub use smser_config_tenyun::*;
-pub use smser_config_emay::*;

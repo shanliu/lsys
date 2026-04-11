@@ -5,10 +5,9 @@ use crate::{dao::AccessResult, model::UserModel};
 
 use super::AccessUser;
 use lsys_core::db::{
-    CursorPageData, CursorPageParam, QueryBuilderExt, TableMeta, TotalParam, TotalRow,
-    WhereClause,
+    CursorPageData, CursorPageParam, QueryBuilderExt, TableMeta, TotalParam, TotalRow, WhereClause,
 };
-use lsys_core::utils::{now_time, string_clear, StringClear, STRING_CLEAR_FORMAT};
+use lsys_core::utils::{STRING_CLEAR_FORMAT, StringClear, now_time, string_clear};
 use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
 use lsys_core::{db::utils::FetchField, valid_key};
 use serde::Serialize;
@@ -16,11 +15,12 @@ use sqlx::{MySql, QueryBuilder};
 impl AccessUser {
     //通过ID获取用户
     pub async fn find_by_id(&self, id: &u64) -> AccessResult<UserModel> {
-        Ok(lsys_core::db::utils::Fetch::<MySql, UserModel>::one(
-            &self.db,
-            |qb| { qb.field_eq("id", *id); },
+        Ok(
+            lsys_core::db::utils::Fetch::<MySql, UserModel>::one(&self.db, |qb| {
+                qb.field_eq("id", *id);
+            })
+            .await?,
         )
-        .await?)
     }
     pub async fn find_by_ids(&self, ids: &[u64]) -> AccessResult<HashMap<u64, UserModel>> {
         Ok(lsys_core::db::utils::Fetch::<MySql, UserModel>::map(
@@ -36,7 +36,8 @@ impl AccessUser {
 impl AccessUser {
     async fn find_by_data_param_valid(&self, user_data: &str) -> AccessResult<()> {
         let user_data = user_data.to_string();
-        let user_data_max =FetchField::new(&self.db).string_max::<UserModel>( &UserModel::USER_DATA)
+        let user_data_max = FetchField::new(&self.db)
+            .string_max::<UserModel>(&UserModel::USER_DATA)
             .await
             .len_or(32);
 
@@ -74,7 +75,11 @@ pub struct UserDataParam<'t> {
 
 impl AccessUser {
     //通过登录数据查询用户
-    fn user_data_where<'a, 'args>(&self, wb: &mut WhereClause<'a, 'args, MySql>, param: &UserDataParam<'_>) -> bool {
+    fn user_data_where<'a, 'args>(
+        &self,
+        wb: &mut WhereClause<'a, 'args, MySql>,
+        param: &UserDataParam<'_>,
+    ) -> bool {
         if let Some(ref tmp) = param.app_id {
             wb.and().field_eq("app_id", *tmp);
         };
@@ -112,7 +117,8 @@ impl AccessUser {
         limit: &CursorPageParam<u64>,
     ) -> AccessResult<(Vec<UserModel>, CursorPageData<u64>)> {
         let query_limit = limit.page_query("id");
-        let mut qb = QueryBuilder::<MySql>::new(format!("select * from {}", UserModel::table_name()));
+        let mut qb =
+            QueryBuilder::<MySql>::new(format!("select * from {}", UserModel::table_name()));
         {
             let mut wb = WhereClause::new(&mut qb);
             if !self.user_data_where(&mut wb, param) {
@@ -191,7 +197,11 @@ pub struct SessionDataRecord {
 
 impl AccessUser {
     //通过登录数据查询用户
-    fn session_data_where<'a, 'args>(&self, wb: &mut WhereClause<'a, 'args, MySql>, param: &SessionDataParam) {
+    fn session_data_where<'a, 'args>(
+        &self,
+        wb: &mut WhereClause<'a, 'args, MySql>,
+        param: &SessionDataParam,
+    ) {
         if let Some(ref tmp) = param.app_id {
             wb.and().field_eq("user_app_id", *tmp);
         };
@@ -223,10 +233,8 @@ impl AccessUser {
         limit: &CursorPageParam<u64>,
     ) -> AccessResult<(Vec<SessionDataRecord>, CursorPageData<u64>)> {
         let query_limit = limit.page_query("id");
-        let mut qb = QueryBuilder::<MySql>::new(format!(
-            "select * from {}",
-            SessionModel::table_name()
-        ));
+        let mut qb =
+            QueryBuilder::<MySql>::new(format!("select * from {}", SessionModel::table_name()));
         {
             let mut wb = WhereClause::new(&mut qb);
             self.session_data_where(&mut wb, param);
@@ -236,7 +244,8 @@ impl AccessUser {
         }
         query_limit.push_order_by(&mut qb);
         query_limit.push_limit(&mut qb);
-        let mut out_data = qb.build_query_as::<SessionModel>()
+        let mut out_data = qb
+            .build_query_as::<SessionModel>()
             .fetch_all(&self.db)
             .await?;
 

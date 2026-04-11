@@ -1,10 +1,10 @@
 use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
-use crate::dao::access::api::system::admin::CheckAdminFileManage;
 use crate::dao::access::RbacAccessCheckEnv;
+use crate::dao::access::api::system::admin::CheckAdminFileManage;
 use lsys_access::dao::AccessSession;
 use lsys_core::api_utils::{JsonPageData, PageCursorValue, PageTotalRowValue};
 use lsys_core::db::{CursorPageSort, TotalParam};
-use lsys_files::dao::{FileDataListParam, FileListAttrParam};
+use lsys_file::dao::{FileDataListParam, FileListAttrParam};
 use serde::Deserialize;
 use serde_json::json;
 
@@ -68,7 +68,6 @@ pub async fn admin_file_list(
         storage_type: param.storage_type.as_deref(),
         file_md5: param.file_md5.as_deref(),
         tag_names: tag_refs.as_deref(),
-        tag_any_names: None,
     };
 
     let attr_param = FileListAttrParam {
@@ -87,9 +86,9 @@ pub async fn admin_file_list(
 
     let mut items: Vec<serde_json::Value> = Vec::with_capacity(data.len());
 
-    let file_models: Vec<lsys_files::model::FileModel> = data
+    let file_models: Vec<lsys_file::model::FileModel> = data
         .iter()
-        .map(|item| lsys_files::model::FileModel {
+        .map(|item| lsys_file::model::FileModel {
             id: item.item.file_id,
             storage_type: item.item.storage_type.clone(),
             status: item.item.status,
@@ -184,7 +183,7 @@ pub async fn admin_file_list(
     };
 
     let cursor = PageCursorValue::from(&page_data);
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::cursor(items, cursor, total),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::cursor(
+        items, cursor, total,
+    ))))
 }

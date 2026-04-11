@@ -2,7 +2,7 @@ use crate::common::handler::{
     JsonQuery, JwtQuery, ResponseJson, ResponseJsonResult, UserAuthQuery,
 };
 use actix_web::post;
-use lsys_web::handler::api::auth::{perm_check_list, RbacAccessMenuParam};
+use lsys_web::handler::api::auth::{RbacAccessMenuParam, perm_check_list};
 
 #[post("/perm/{method}")]
 pub(crate) async fn perm(

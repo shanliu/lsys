@@ -12,8 +12,8 @@ mod impls;
 pub use client::{ServiceClient, ServiceRequest};
 pub use result::{ApiError, ApiErrorDetail, HttpRejectedError, ParseError, ServiceError};
 pub use types::{
-    ForwardedRequest, ReqInfo, ACCEPT_LANGUAGE_HEADER, DEVICE_ID_HEADER, FORWARDED_FOR_HEADER,
-    REQUEST_ID_HEADER,
+    ACCEPT_LANGUAGE_HEADER, DEVICE_ID_HEADER, FORWARDED_FOR_HEADER, ForwardedRequest,
+    REQUEST_ID_HEADER, ReqInfo,
 };
 
 // 业务类型导出

@@ -9,7 +9,7 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-use rquickjs::{class::Trace, function::Opt, Ctx, JsLifetime, Result as JsResult};
+use rquickjs::{Ctx, JsLifetime, Result as JsResult, class::Trace, function::Opt};
 
 use crate::runtime::FileLocalSyncHandler;
 
@@ -246,10 +246,13 @@ impl JsFile {
         });
 
         match result {
-            Ok(val) => serde_json::to_string(&val).map_err(|e| {
-                rquickjs::Error::new_from_js_message("json", "string", e.to_string())
-            }),
-            Err(e) => Err(rquickjs::Error::new_from_js_message("file", "local_sync", e)),
+            Ok(val) => serde_json::to_string(&val)
+                .map_err(|e| rquickjs::Error::new_from_js_message("json", "string", e.to_string())),
+            Err(e) => Err(rquickjs::Error::new_from_js_message(
+                "file",
+                "local_sync",
+                e,
+            )),
         }
     }
 

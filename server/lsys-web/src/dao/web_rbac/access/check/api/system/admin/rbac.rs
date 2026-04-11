@@ -1,6 +1,6 @@
 use crate::dao::{
-    access::check::api::system::admin::CheckAdminBase, CheckResTpl, RbacCheckAccess,
-    RbacCheckAccessDepend, RbacCheckResTpl,
+    CheckResTpl, RbacCheckAccess, RbacCheckAccessDepend, RbacCheckResTpl,
+    access::check::api::system::admin::CheckAdminBase,
 };
 use lsys_rbac::dao::{AccessCheckEnv, AccessCheckOp, AccessCheckRes, RbacAccess, RbacResult};
 

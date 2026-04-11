@@ -1,10 +1,7 @@
 use crate::common::{ToCursorPageParam, ToOffsetPageParam};
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
-    common::{
-        JsonData, JsonResponse, JsonResult, LimitParam, PageParam,
-        UserAuthQueryDao,
-    },
+    common::{JsonData, JsonResponse, JsonResult, LimitParam, PageParam, UserAuthQueryDao},
     dao::access::api::system::admin::CheckAdminMailMgr,
 };
 use lsys_access::dao::AccessSession;
@@ -60,9 +57,9 @@ pub async fn mailer_message_log(
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(res, count),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        res, count,
+    ))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -223,9 +220,9 @@ pub async fn mailer_message_list(
             })
         })
         .collect::<Vec<_>>();
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::cursor(res, cursor, count),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::cursor(
+        res, cursor, count,
+    ))))
 }
 
 #[derive(Debug, Deserialize)]

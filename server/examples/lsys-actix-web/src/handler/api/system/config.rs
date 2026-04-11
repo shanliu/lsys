@@ -2,10 +2,10 @@ use crate::common::handler::{
     JsonQuery, JwtQuery, ResponseJson, ResponseJsonResult, UserAuthQuery,
 };
 use actix_web::post;
+use lsys_web::handler::api::system::setting::SiteConfigParam;
 use lsys_web::handler::api::system::setting::site_config_get;
 use lsys_web::handler::api::system::setting::site_config_set;
-use lsys_web::handler::api::system::setting::SiteConfigParam;
-use lsys_web_module_oauth::handler::{wechat_get_config, wechat_set_config, WechatSetConfigParam};
+use lsys_web_module_oauth::handler::{WechatSetConfigParam, wechat_get_config, wechat_set_config};
 use lsys_web_module_oauth::module::OAUTH_TYPE_WECHAT;
 
 //OAUTH配置

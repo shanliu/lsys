@@ -5,10 +5,10 @@ use crate::{
     dao::access::api::system::admin::{CheckAdminRbacEdit, CheckAdminRbacView},
 };
 use lsys_access::dao::AccessSession;
+use lsys_core::api_utils::JsonPageData;
 use lsys_rbac::dao::{RbacResAddData, RbacResData, ResDataAttrParam, ResDataParam};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use lsys_core::api_utils::JsonPageData;
 
 #[derive(Debug, Deserialize)]
 pub struct ResAddParam {
@@ -38,13 +38,10 @@ pub async fn res_add(param: &ResAddParam, req_dao: &UserAuthQueryDao) -> JsonRes
                 user_id: 0,
                 app_id: Some(0),
                 res_info: RbacResData {
-                    res_name: param.res_name.as_deref().and_then(|e| {
-                        if !e.is_empty() {
-                            Some(e)
-                        } else {
-                            None
-                        }
-                    }),
+                    res_name: param
+                        .res_name
+                        .as_deref()
+                        .and_then(|e| if !e.is_empty() { Some(e) } else { None }),
                     res_type: &param.res_type,
                     res_data: &param.res_data,
                 },
@@ -96,13 +93,10 @@ pub async fn res_edit(
         .edit_res(
             &op,
             &RbacResData {
-                res_name: param.res_name.as_deref().and_then(|e| {
-                    if !e.is_empty() {
-                        Some(e)
-                    } else {
-                        None
-                    }
-                }),
+                res_name: param
+                    .res_name
+                    .as_deref()
+                    .and_then(|e| if !e.is_empty() { Some(e) } else { None }),
                 res_type: &param.res_type,
                 res_data: &param.res_data,
             },
@@ -255,7 +249,8 @@ pub async fn res_data(param: &ResParam, req_dao: &UserAuthQueryDao) -> JsonResul
             perm_count: info.perm_count,
         })
         .collect::<Vec<_>>();
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(bind_vec_user_info_from_req!(req_dao, res, user_id,false), count),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        bind_vec_user_info_from_req!(req_dao, res, user_id, false),
+        count,
+    ))))
 }

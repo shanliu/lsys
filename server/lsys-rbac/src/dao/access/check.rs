@@ -1,9 +1,9 @@
-use lsys_core::db::{utils::FetchField, BatchInsert, Insert};
+use lsys_core::db::{BatchInsert, Insert, utils::FetchField};
 use lsys_core::fluent_message;
 use lsys_core::fluents::FluentMessage;
-use lsys_core::utils::{now_time, RequestEnv};
-use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
+use lsys_core::utils::{RequestEnv, now_time};
 use lsys_core::valid_key;
+use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{collections::HashMap, sync::OnceLock};
@@ -17,12 +17,9 @@ use crate::{
         op::OpInfo,
         res::ResInfo,
         result::{RbacError, RbacResult},
-        role::{AccessResInfo,  AccessRoleInfo, AccessRoleRow},
+        role::{AccessResInfo, AccessRoleInfo, AccessRoleRow},
     },
-    model::{
-        RbacAuditDetailModel, RbacAuditModel,
-        RbacOpModel, RbacResModel,
-    },
+    model::{RbacAuditDetailModel, RbacAuditModel, RbacOpModel, RbacResModel},
 };
 
 use super::RbacAccess;
@@ -30,20 +27,20 @@ use super::RbacAccess;
 //进行权限校验
 
 pub struct AccessCheckOp<'t> {
-    pub op_key: &'t str,         //资源类型
-    pub req_auth: bool,         //资源是否需要授权
+    pub op_key: &'t str, //资源类型
+    pub req_auth: bool,  //资源是否需要授权
 }
 impl<'t> AccessCheckOp<'t> {
-     // 用户待验证资源
-    pub fn new(op_key:&'t str,req_auth: bool)->Self{
-        Self { op_key, req_auth}
+    // 用户待验证资源
+    pub fn new(op_key: &'t str, req_auth: bool) -> Self {
+        Self { op_key, req_auth }
     }
 }
 pub struct AccessCheckRes<'t> {
-    pub user_id: u64,              //资源用户ID
-    pub app_id: u64,               //app_id >0 时,该用户 使用app
-    pub res_type: &'t str,         //资源类型
-    pub res_data: &'t str,         //资源数据
+    pub user_id: u64,                        //资源用户ID
+    pub app_id: u64,                         //app_id >0 时,该用户 使用app
+    pub res_type: &'t str,                   //资源类型
+    pub res_data: &'t str,                   //资源数据
     pub op_key_data: Vec<AccessCheckOp<'t>>, //授权操作结构列表,不用&'t [&'t str],因为多层数组难以转换类型
 }
 
@@ -170,44 +167,74 @@ struct AccessCheckItem<'t> {
 // }
 
 impl RbacAccess {
-    async fn check_param_valid(&self,
-         env_data: &AccessCheckEnv<'_>,
+    async fn check_param_valid(
+        &self,
+        env_data: &AccessCheckEnv<'_>,
         //待检测资源需要操作的列表
         check_res_data: &[AccessCheckRes<'_>],
-    ) -> RbacResult<()>{
+    ) -> RbacResult<()> {
         let fetch_field = FetchField::new(&self.db);
-        let role_key_max = fetch_field.string_max::<RbacRoleModel>( &RbacRoleModel::ROLE_KEY)
+        let role_key_max = fetch_field
+            .string_max::<RbacRoleModel>(&RbacRoleModel::ROLE_KEY)
             .await
             .len_or(32);
-        let res_type_max = fetch_field.string_max::<RbacResModel>( &RbacResModel::RES_TYPE)
+        let res_type_max = fetch_field
+            .string_max::<RbacResModel>(&RbacResModel::RES_TYPE)
             .await
             .len_or(32);
-        let res_data_max = fetch_field.string_max::<RbacResModel>( &RbacResModel::RES_DATA)
+        let res_data_max = fetch_field
+            .string_max::<RbacResModel>(&RbacResModel::RES_DATA)
             .await
             .len_or(32);
-        let op_key_max = fetch_field.string_max::<RbacOpModel>( &RbacOpModel::OP_KEY)
+        let op_key_max = fetch_field
+            .string_max::<RbacOpModel>(&RbacOpModel::OP_KEY)
             .await
             .len_or(32);
 
-        let mut param_valid=ValidParam::default();
-        if let Some(user_login_token)=&env_data.user_login_token{
+        let mut param_valid = ValidParam::default();
+        if let Some(user_login_token) = &env_data.user_login_token {
             param_valid.add(
                 valid_key!("user_login_token"),
                 user_login_token,
-                &ValidParamCheck::default().add_rule(ValidPattern::Ident).add_rule(ValidStrlen::range(16, 64))
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Ident)
+                    .add_rule(ValidStrlen::range(16, 64)),
             );
         }
-        for tmp in &env_data.session_role{
-            param_valid.add(valid_key!("role_key"), &tmp.role_key, &ValidParamCheck::default().add_rule(ValidPattern::Ident).add_rule(ValidStrlen::range(1, role_key_max)));
+        for tmp in &env_data.session_role {
+            param_valid.add(
+                valid_key!("role_key"),
+                &tmp.role_key,
+                &ValidParamCheck::default()
+                    .add_rule(ValidPattern::Ident)
+                    .add_rule(ValidStrlen::range(1, role_key_max)),
+            );
         }
-        for tmp in check_res_data{
-               param_valid
-                .add(valid_key!("res_type"), &tmp.res_type, &ValidParamCheck::default().add_rule(ValidPattern::Ident).add_rule(ValidStrlen::range(1, res_type_max)))
-                .add(valid_key!("res_data"), &tmp.res_data, &ValidParamCheck::default().add_rule(ValidPattern::NotFormat).add_rule(ValidStrlen::range(0, res_data_max)));
+        for tmp in check_res_data {
+            param_valid
+                .add(
+                    valid_key!("res_type"),
+                    &tmp.res_type,
+                    &ValidParamCheck::default()
+                        .add_rule(ValidPattern::Ident)
+                        .add_rule(ValidStrlen::range(1, res_type_max)),
+                )
+                .add(
+                    valid_key!("res_data"),
+                    &tmp.res_data,
+                    &ValidParamCheck::default()
+                        .add_rule(ValidPattern::NotFormat)
+                        .add_rule(ValidStrlen::range(0, res_data_max)),
+                );
 
-            for rtmp in &tmp.op_key_data{
-                param_valid
-                .add(valid_key!("op_key_data"), &rtmp.op_key, &ValidParamCheck::default().add_rule(ValidPattern::Ident).add_rule(ValidStrlen::range(1, op_key_max)));
+            for rtmp in &tmp.op_key_data {
+                param_valid.add(
+                    valid_key!("op_key_data"),
+                    &rtmp.op_key,
+                    &ValidParamCheck::default()
+                        .add_rule(ValidPattern::Ident)
+                        .add_rule(ValidStrlen::range(1, op_key_max)),
+                );
             }
         }
         param_valid.check()?;
@@ -223,7 +250,7 @@ impl RbacAccess {
         if check_res_data.is_empty() {
             return Ok(());
         }
-        self.check_param_valid(env_data,check_res_data).await?;
+        self.check_param_valid(env_data, check_res_data).await?;
         //把check_res_data转为数据库记录
         //user_id+res_type+res_data => lst_rbac_res
         //user_id+op_key_data => lst_rbac_op
@@ -253,7 +280,7 @@ impl RbacAccess {
         let op_list = self.op.cache().find_vec_by_info(&op_info).await?;
         let mut check_data = vec![];
 
-        let access_role_list={
+        let access_role_list = {
             let mut tmp_check = HashMap::new();
             for item in check_res_data {
                 tmp_check
@@ -310,12 +337,12 @@ impl RbacAccess {
                 })
                 .collect::<Vec<_>>();
 
-                self.role
-                    .cache()
-                    .find_access_row(env_data.user_id, res_check, &role_check)
-                    .await?
+            self.role
+                .cache()
+                .find_access_row(env_data.user_id, res_check, &role_check)
+                .await?
         };
-        let sys_role_all =  access_role_list.get_system_all_role();
+        let sys_role_all = access_role_list.get_system_all_role();
         for res_item in check_res_data {
             let res_detail = res_list
                 .iter()
@@ -339,12 +366,11 @@ impl RbacAccess {
                     })
                     .and_then(|e| e.1.as_ref());
 
-                let sys_excluce =
-                    if let (Some(res_val), Some(op_val)) = (res_detail, op_detail) {
-                        access_role_list.get_system_exclude_role(res_val.id, op_val.id)
-                    } else {
-                        vec![]
-                    };
+                let sys_excluce = if let (Some(res_val), Some(op_val)) = (res_detail, op_detail) {
+                    access_role_list.get_system_exclude_role(res_val.id, op_val.id)
+                } else {
+                    vec![]
+                };
                 //系统屏蔽
                 if !sys_excluce.is_empty() {
                     //bad
@@ -380,12 +406,11 @@ impl RbacAccess {
                     });
                     continue;
                 }
-                let sys_include =
-                    if let (Some(res_val), Some(op_val)) = (res_detail, op_detail) {
-                        access_role_list.get_system_exclude_role(res_val.id, op_val.id)
-                    } else {
-                        vec![]
-                    };
+                let sys_include = if let (Some(res_val), Some(op_val)) = (res_detail, op_detail) {
+                    access_role_list.get_system_exclude_role(res_val.id, op_val.id)
+                } else {
+                    vec![]
+                };
                 //系统允许部分
                 if !sys_include.is_empty() {
                     //pass
@@ -405,9 +430,7 @@ impl RbacAccess {
                 }
 
                 //用户屏蔽
-                let user_excluce = if let (Some(res_val), Some(op_val)) =
-                    (res_detail, op_detail)
-                {
+                let user_excluce = if let (Some(res_val), Some(op_val)) = (res_detail, op_detail) {
                     access_role_list.get_user_exclude_role(res_item.user_id, res_val.id, op_val.id)
                 } else {
                     vec![]
@@ -455,9 +478,7 @@ impl RbacAccess {
                     continue;
                 }
                 //用户允许部分
-                let user_include = if let (Some(res_val), Some(op_val)) =
-                    (res_detail, op_detail)
-                {
+                let user_include = if let (Some(res_val), Some(op_val)) = (res_detail, op_detail) {
                     access_role_list.get_user_include_role(res_item.user_id, res_val.id, op_val.id)
                 } else {
                     vec![]
@@ -573,7 +594,7 @@ impl RbacAccess {
 
 pub(crate) struct AuditItem {
     user_id: u64,
-    user_app_id:u64,
+    user_app_id: u64,
     role_key_data: String,
     check_result: i8,
     token_data: String,
@@ -603,7 +624,7 @@ struct AuditItemDetail {
     op_id: u64,
     check_result: i8,
     res_auth: i8,
-  //  is_root: i8,
+    //  is_root: i8,
     is_role_excluce: i8,
     is_role_include: i8,
     is_role_all: i8,
@@ -619,16 +640,18 @@ impl RbacAccess {
         // session_role_data: &[AccessSessionRole<'_>],
         detail_data: &[AccessCheckItem<'_>],
     ) {
-        let role_key_data = json!(env_data
-            .session_role
-            .iter()
-            .map(|e| {
-                json!({
-                    "key":e.role_key,
-                    "user_id":e.user_id,
+        let role_key_data = json!(
+            env_data
+                .session_role
+                .iter()
+                .map(|e| {
+                    json!({
+                        "key":e.role_key,
+                        "user_id":e.user_id,
+                    })
                 })
-            })
-            .collect::<Vec<_>>())
+                .collect::<Vec<_>>()
+        )
         .to_string();
         let add_time = now_time().unwrap_or_default();
         let user_ip = env_data
@@ -687,7 +710,11 @@ impl RbacAccess {
             user_id: env_data.user_id,
             user_app_id: env_data.user_app_id,
             role_key_data,
-            check_result: if check_result { RbacAuditResult::Succ as i8 } else {  RbacAuditResult::Fail as i8 },
+            check_result: if check_result {
+                RbacAuditResult::Succ as i8
+            } else {
+                RbacAuditResult::Fail as i8
+            },
             token_data: env_data
                 .user_login_token
                 .as_ref()
@@ -708,26 +735,31 @@ impl RbacAccess {
                         op_key: e.op_key.to_owned(),
                         res_id: e.res_detail.map(|e| e.id).unwrap_or_default(),
                         op_id: e.op_detail.map(|e| e.id).unwrap_or_default(),
-                        check_result: if check_result { RbacAuditResult::Succ as i8 } else {  RbacAuditResult::Fail as i8 },
+                        check_result: if check_result {
+                            RbacAuditResult::Succ as i8
+                        } else {
+                            RbacAuditResult::Fail as i8
+                        },
                         res_auth: if e.res_auth { 1 } else { 0 },
-                      //  is_root: if e.is_root { 1 } else { 0 },
+                        //  is_root: if e.is_root { 1 } else { 0 },
                         is_role_excluce: if e.is_role_excluce { 1 } else { 0 },
                         is_role_include: if e.is_role_include { 1 } else { 0 },
                         is_role_all: if e.is_role_all { 1 } else { 0 },
-                        role_data: json!(e
-                            .role_data
-                            .iter()
-                            .map(|e| {
-                                AuditItemRole {
-                                    role_id: e.role.id,
-                                    role_name: e.role.role_name.to_owned(),
-                                    role_key: e.role.role_key.to_owned(),
-                                    perm_id: e.perm_id,
-                                    access_timeout: e.access_timeout,
-                                    access_user_id: e.access_user_id,
-                                }
-                            })
-                            .collect::<Vec<_>>())
+                        role_data: json!(
+                            e.role_data
+                                .iter()
+                                .map(|e| {
+                                    AuditItemRole {
+                                        role_id: e.role.id,
+                                        role_name: e.role.role_name.to_owned(),
+                                        role_key: e.role.role_key.to_owned(),
+                                        perm_id: e.perm_id,
+                                        access_timeout: e.access_timeout,
+                                        access_user_id: e.access_user_id,
+                                    }
+                                })
+                                .collect::<Vec<_>>()
+                        )
                         .to_string(),
                     }
                 })
@@ -748,7 +780,7 @@ impl RbacAccess {
     async fn audit_add(db: &sqlx::Pool<sqlx::MySql>, msg: AuditItem) {
         match db.begin().await {
             Ok(mut db_tran) => {
-                let rbac_audit_id = match Insert::<_,RbacAuditModel>::new()
+                let rbac_audit_id = match Insert::<_, RbacAuditModel>::new()
                     .set(RbacAuditModel::USER_ID, msg.user_id)
                     .set(RbacAuditModel::USER_APP_ID, msg.user_app_id)
                     .set(RbacAuditModel::ROLE_KEY_DATA, msg.role_key_data)
@@ -770,28 +802,28 @@ impl RbacAccess {
                     }
                 };
                 if !msg.detail.is_empty() {
-                    let mut batch = BatchInsert::<_,RbacAuditDetailModel>::with_capacity(msg.detail.len());
+                    let mut batch =
+                        BatchInsert::<_, RbacAuditDetailModel>::with_capacity(msg.detail.len());
                     for tmp in msg.detail.iter() {
-                        batch = batch.push(Insert::<_,RbacAuditDetailModel>::new()
-                            .set(RbacAuditDetailModel::RES_TYPE, &tmp.res_type)
-                            .set(RbacAuditDetailModel::RES_DATA, &tmp.res_data)
-                            .set(RbacAuditDetailModel::RES_USER_ID, tmp.res_user_id)
-                            .set(RbacAuditDetailModel::OP_KEY, &tmp.op_key)
-                            .set(RbacAuditDetailModel::RBAC_AUDIT_ID, rbac_audit_id)
-                            .set(RbacAuditDetailModel::CHECK_RESULT, tmp.check_result)
-                            .set(RbacAuditDetailModel::ADD_TIME, msg.add_time)
-                            .set(RbacAuditDetailModel::RES_ID, tmp.res_id)
-                            .set(RbacAuditDetailModel::OP_ID, tmp.op_id)
-                            .set(RbacAuditDetailModel::ROLE_DATA, &tmp.role_data)
-                            .set(RbacAuditDetailModel::IS_ROLE_ALL, tmp.is_role_all)
-                            .set(RbacAuditDetailModel::IS_ROLE_INCLUDE, tmp.is_role_include)
-                            .set(RbacAuditDetailModel::IS_ROLE_EXCLUCE, tmp.is_role_excluce)
-                            .set(RbacAuditDetailModel::RES_AUTH, tmp.res_auth));
+                        batch = batch.push(
+                            Insert::<_, RbacAuditDetailModel>::new()
+                                .set(RbacAuditDetailModel::RES_TYPE, &tmp.res_type)
+                                .set(RbacAuditDetailModel::RES_DATA, &tmp.res_data)
+                                .set(RbacAuditDetailModel::RES_USER_ID, tmp.res_user_id)
+                                .set(RbacAuditDetailModel::OP_KEY, &tmp.op_key)
+                                .set(RbacAuditDetailModel::RBAC_AUDIT_ID, rbac_audit_id)
+                                .set(RbacAuditDetailModel::CHECK_RESULT, tmp.check_result)
+                                .set(RbacAuditDetailModel::ADD_TIME, msg.add_time)
+                                .set(RbacAuditDetailModel::RES_ID, tmp.res_id)
+                                .set(RbacAuditDetailModel::OP_ID, tmp.op_id)
+                                .set(RbacAuditDetailModel::ROLE_DATA, &tmp.role_data)
+                                .set(RbacAuditDetailModel::IS_ROLE_ALL, tmp.is_role_all)
+                                .set(RbacAuditDetailModel::IS_ROLE_INCLUDE, tmp.is_role_include)
+                                .set(RbacAuditDetailModel::IS_ROLE_EXCLUCE, tmp.is_role_excluce)
+                                .set(RbacAuditDetailModel::RES_AUTH, tmp.res_auth),
+                        );
                     }
-                    if let Err(err) = batch
-                            .execute(&mut *db_tran)
-                            .await
-                    {
+                    if let Err(err) = batch.execute(&mut *db_tran).await {
                         let _ = db_tran.rollback().await;
                         warn!("add audit fail,on add detail:{err}");
                         return;

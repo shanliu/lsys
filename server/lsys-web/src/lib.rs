@@ -9,7 +9,7 @@ pub use lsys_access;
 pub use lsys_app;
 pub use lsys_app_sender;
 pub use lsys_core;
-pub use lsys_files;
+pub use lsys_file;
 pub use lsys_lib_area;
 pub use lsys_lib_jsrun;
 pub use lsys_logger;

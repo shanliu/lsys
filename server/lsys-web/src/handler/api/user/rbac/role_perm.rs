@@ -1,8 +1,8 @@
 use crate::common::{JsonData, JsonPageData, ToOffsetPageParam};
 use crate::common::{JsonError, JsonResult, PageParam};
 use crate::common::{JsonResponse, UserAuthQueryDao};
-use crate::dao::access::api::system::user::{CheckUserRbacEdit, CheckUserRbacView};
 use crate::dao::access::RbacAccessCheckEnv;
+use crate::dao::access::api::system::user::{CheckUserRbacEdit, CheckUserRbacView};
 use lsys_access::dao::AccessSession;
 use lsys_core::fluent_message;
 use lsys_rbac::dao::RolePerm;
@@ -243,7 +243,7 @@ pub async fn system_role_perm_data(
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(res, count),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        res, count,
+    ))))
 }

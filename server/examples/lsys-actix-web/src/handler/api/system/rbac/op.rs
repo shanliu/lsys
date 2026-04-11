@@ -3,7 +3,7 @@ use crate::common::handler::{
 };
 use actix_web::post;
 use lsys_web::handler::api::system::rbac::{
-    op_add, op_data, op_del, op_edit, OpAddParam, OpDataParam, OpDelParam, OpEditParam,
+    OpAddParam, OpDataParam, OpDelParam, OpEditParam, op_add, op_data, op_del, op_edit,
 };
 
 #[post("/op/{method}")]

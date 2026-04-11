@@ -1,12 +1,12 @@
-use super::res_type::ResTypeParam;
 use super::RbacRes;
+use super::res_type::ResTypeParam;
 use crate::dao::result::RbacResult;
 use crate::model::{
     RbacOpModel, RbacOpResModel, RbacOpResStatus, RbacOpStatus, RbacPermModel, RbacPermStatus,
     RbacResModel, RbacResStatus,
 };
 use lsys_core::db::{OffsetPageParam, QueryBuilderExt, TableMeta, WhereClause};
-use lsys_core::utils::{string_clear, StringClear, STRING_CLEAR_FORMAT};
+use lsys_core::utils::{STRING_CLEAR_FORMAT, StringClear, string_clear};
 use serde::Serialize;
 use sqlx::Row;
 use sqlx::{MySql, QueryBuilder};
@@ -21,8 +21,8 @@ impl RbacRes {
         Ok(
             lsys_core::db::utils::Fetch::<MySql, RbacResModel>::one(&self.db, |qb| {
                 qb.field_eq("id", *id)
-                  .push_and()
-                  .field_eq("status", RbacResStatus::Enable as i8);
+                    .push_and()
+                    .field_eq("status", RbacResStatus::Enable as i8);
             })
             .await?,
         )
@@ -32,8 +32,8 @@ impl RbacRes {
             &self.db,
             |qb| {
                 qb.field_in_copied("id", ids)
-                  .push_and()
-                  .field_eq("status", RbacResStatus::Enable as i8);
+                    .push_and()
+                    .field_eq("status", RbacResStatus::Enable as i8);
             },
             |v| v.id,
         )
@@ -62,7 +62,8 @@ impl RbacRes {
             filed,
             RbacResModel::table_name(),
         ));
-        qb.push_where().field_eq("status", RbacResStatus::Enable as i8);
+        qb.push_where()
+            .field_eq("status", RbacResStatus::Enable as i8);
         if let Some(val) = res_param.app_id {
             qb.push_and().field_eq("app_id", val);
         }
@@ -128,7 +129,9 @@ impl RbacRes {
             RbacPermModel::table_name(),
         ));
         qb.push_where().field_in_copied("res_id", res_ids);
-        qb.push_and().field_eq("status", RbacPermStatus::Enable as i8).push(" group by res_id");
+        qb.push_and()
+            .field_eq("status", RbacPermStatus::Enable as i8)
+            .push(" group by res_id");
         let perm_counts = qb
             .build()
             .try_map(|row: sqlx::mysql::MySqlRow| {
@@ -170,7 +173,8 @@ impl RbacRes {
                     "select res_type,user_id,app_id,count(*) as total from {}",
                     RbacOpResModel::table_name(),
                 ));
-                qb.push_where().field_eq("status", RbacOpResStatus::Enable as i8);
+                qb.push_where()
+                    .field_eq("status", RbacOpResStatus::Enable as i8);
                 qb.push_and().field_eq("res_type", res_type.clone());
                 qb.push_and().field_eq("user_id", *user_id);
                 qb.push_and().field_eq("app_id", *app_id);
@@ -290,7 +294,9 @@ impl RbacRes {
         }
         wc.builder().push(" group by user_id,app_id,res_type");
         page.push_limit(wc.builder());
-        let res = wc.builder().build()
+        let res = wc
+            .builder()
+            .build()
             .try_map(|row: sqlx::mysql::MySqlRow| {
                 let user_id = row.try_get::<u64, &str>("user_id").unwrap_or_default();
                 let app_id = row.try_get::<u64, &str>("app_id").unwrap_or_default();
@@ -317,8 +323,11 @@ impl RbacRes {
         if self.res_type_sql_push_where(&mut wc, res_param).is_none() {
             return Ok(0);
         }
-        wc.builder().push(" group by user_id,app_id,res_type) as t ");
-        Ok(wc.builder().build_query_scalar::<i64>()
+        wc.builder()
+            .push(" group by user_id,app_id,res_type) as t ");
+        Ok(wc
+            .builder()
+            .build_query_scalar::<i64>()
             .fetch_one(&self.db)
             .await?)
     }
@@ -361,12 +370,17 @@ impl RbacRes {
             RbacOpModel::table_name(),
             RbacOpResModel::table_name(),
         ));
-        qb.push_where().field_eq("op.user_id", res_type_data.user_id);
-        qb.push_and().field_eq("op.status", RbacOpStatus::Enable as i8);
-        qb.push_and().field_eq("op_res.user_id", res_type_data.user_id);
-        qb.push_and().field_eq("op_res.app_id", res_type_data.app_id);
+        qb.push_where()
+            .field_eq("op.user_id", res_type_data.user_id);
+        qb.push_and()
+            .field_eq("op.status", RbacOpStatus::Enable as i8);
+        qb.push_and()
+            .field_eq("op_res.user_id", res_type_data.user_id);
+        qb.push_and()
+            .field_eq("op_res.app_id", res_type_data.app_id);
         qb.push_and().field_eq("op_res.res_type", res_type);
-        qb.push_and().field_eq("op_res.status", RbacOpResStatus::Enable as i8);
+        qb.push_and()
+            .field_eq("op_res.status", RbacOpResStatus::Enable as i8);
         if let Some(ref op_dat) = op_sql {
             qb.push_and().field_in_string("op.op_key", op_dat);
         }
@@ -385,10 +399,8 @@ impl RbacRes {
 
         if fetch_op_data && !res.is_empty() {
             let op_ids = res.iter().map(|e| e.op_res.op_id).collect::<Vec<_>>();
-            let mut qb: QueryBuilder<'_, MySql> = QueryBuilder::new(format!(
-                "select * from {}",
-                RbacOpModel::table_name(),
-            ));
+            let mut qb: QueryBuilder<'_, MySql> =
+                QueryBuilder::new(format!("select * from {}", RbacOpModel::table_name(),));
             qb.push_where().field_in_copied("id", &op_ids);
             let tmp_res = qb
                 .build_query_as::<RbacOpModel>()

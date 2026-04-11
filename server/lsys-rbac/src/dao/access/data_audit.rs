@@ -1,5 +1,7 @@
-use lsys_core::db::{CursorPageData, CursorPageParam, QueryBuilderExt, TableMeta, TotalParam, TotalRow, WhereClause};
-use lsys_core::utils::{string_clear, StringClear, STRING_CLEAR_FORMAT};
+use lsys_core::db::{
+    CursorPageData, CursorPageParam, QueryBuilderExt, TableMeta, TotalParam, TotalRow, WhereClause,
+};
+use lsys_core::utils::{STRING_CLEAR_FORMAT, StringClear, string_clear};
 
 use crate::{
     dao::result::RbacResult,
@@ -83,9 +85,7 @@ impl RbacAccess {
             }
             qb
         };
-        let count = qb.build_query_scalar::<i64>()
-            .fetch_one(&self.db)
-            .await? as u64;
+        let count = qb.build_query_scalar::<i64>().fetch_one(&self.db).await? as u64;
         Ok(query.finalize(count))
     }
     /// 获取指定用户和ID的列表
@@ -98,10 +98,8 @@ impl RbacAccess {
         CursorPageData<u64>,
     )> {
         let query_limit = limit.page_query("id");
-        let mut qb = QueryBuilder::<MySql>::new(format!(
-            "select * from {}",
-            RbacAuditModel::table_name(),
-        ));
+        let mut qb =
+            QueryBuilder::<MySql>::new(format!("select * from {}", RbacAuditModel::table_name(),));
         {
             let mut wb = WhereClause::new(&mut qb);
             Self::audit_push_where(&mut wb, res_param);
@@ -112,7 +110,8 @@ impl RbacAccess {
         }
         query_limit.push_order_by(&mut qb);
         query_limit.push_limit(&mut qb);
-        let mut row = qb.build_query_as::<RbacAuditModel>()
+        let mut row = qb
+            .build_query_as::<RbacAuditModel>()
             .fetch_all(&self.db)
             .await?;
         let next = query_limit.finalize(&mut row, |c, d| *d == c.id, |c| c.id);
@@ -123,10 +122,12 @@ impl RbacAccess {
                 "select * from {}",
                 RbacAuditDetailModel::table_name(),
             ));
-            qb.push_where().field_in("rbac_audit_id", row.iter().map(|e| e.id));
-            let mut detail_row = qb.build_query_as::<RbacAuditDetailModel>()
-            .fetch_all(&self.db)
-            .await?;
+            qb.push_where()
+                .field_in("rbac_audit_id", row.iter().map(|e| e.id));
+            let mut detail_row = qb
+                .build_query_as::<RbacAuditDetailModel>()
+                .fetch_all(&self.db)
+                .await?;
             for tmp in row {
                 let mut dtmp = vec![];
                 let mut otmp = vec![];

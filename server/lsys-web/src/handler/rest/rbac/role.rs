@@ -54,13 +54,10 @@ pub async fn role_add(
         },
         RbacRoleUserRange::Session => RbacRoleUserRangeData::Session {
             role_key: &param.role_key,
-            role_name: param.role_name.as_deref().and_then(|e| {
-                if !e.is_empty() {
-                    Some(e)
-                } else {
-                    None
-                }
-            }),
+            role_name: param
+                .role_name
+                .as_deref()
+                .and_then(|e| if !e.is_empty() { Some(e) } else { None }),
         },
     };
     let res_range = RbacRoleResRange::try_from(param.res_range)?;
@@ -113,13 +110,10 @@ pub async fn role_edit(
         },
         RbacRoleUserRange::Session => RbacRoleUserRangeData::Session {
             role_key: &param.role_key,
-            role_name: param.role_name.as_deref().and_then(|e| {
-                if !e.is_empty() {
-                    Some(e)
-                } else {
-                    None
-                }
-            }),
+            role_name: param
+                .role_name
+                .as_deref()
+                .and_then(|e| if !e.is_empty() { Some(e) } else { None }),
         },
     };
     req_dao

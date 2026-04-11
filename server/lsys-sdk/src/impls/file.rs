@@ -60,19 +60,6 @@ pub(crate) struct FileFromUrlParam {
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct FileFromLocalParam {
-    pub user_id: u64,
-    pub app_id: u64,
-    pub local_file_path: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub file_name: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub mode: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tag_names: Option<Vec<String>>,
-}
-
-#[derive(Debug, Clone, Serialize)]
 pub(crate) struct FileListParam {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user_id: Option<u64>,
@@ -397,31 +384,6 @@ impl ServiceClient {
         };
 
         self.post("/service/file/from_url")?
-            .json(&param)
-            .send_json()
-            .await
-    }
-
-    /// 从本地文件导入
-    pub async fn file_from_local(
-        &self,
-        user_id: u64,
-        app_id: u64,
-        local_file_path: &str,
-        file_name: Option<&str>,
-        mode: Option<&str>,
-        tag_names: Option<&[&str]>,
-    ) -> ServiceResult<FileFromLocalResponse> {
-        let param = FileFromLocalParam {
-            user_id,
-            app_id,
-            local_file_path: local_file_path.to_string(),
-            file_name: file_name.map(|s| s.to_string()),
-            mode: mode.map(|s| s.to_string()),
-            tag_names: tag_names.map(|t| t.iter().map(|s| s.to_string()).collect()),
-        };
-
-        self.post("/service/file/from_local")?
             .json(&param)
             .send_json()
             .await

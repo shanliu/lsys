@@ -90,12 +90,13 @@ impl WebUserAccount {
             .find_by_account_id_vec(id)
             .await?;
         if let Some(st) = oauth_type
-            && !st.is_empty() {
-                res = res
-                    .into_iter()
-                    .filter(|e| st.contains(&e.external_type.as_str()))
-                    .collect::<_>();
-            }
+            && !st.is_empty()
+        {
+            res = res
+                .into_iter()
+                .filter(|e| st.contains(&e.external_type.as_str()))
+                .collect::<_>();
+        }
         Ok(res)
     }
 }

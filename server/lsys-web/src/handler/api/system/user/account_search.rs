@@ -2,11 +2,11 @@ use crate::common::{JsonData, ToCursorPageParam};
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonResponse, JsonResult, LimitParam, UserAuthQueryDao},
-    dao::{access::api::system::admin::CheckAdminUserManage, AccountOptionData},
+    dao::{AccountOptionData, access::api::system::admin::CheckAdminUserManage},
 };
 use lsys_access::dao::AccessSession;
-use lsys_core::db::CursorPageSort;
 use lsys_core::api_utils::PageCursorValue;
+use lsys_core::db::CursorPageSort;
 use lsys_user::model::{
     AccountAddressModel, AccountEmailModel, AccountEmailStatus, AccountExternalModel,
     AccountIndexCat, AccountInfoModel, AccountMobileModel, AccountMobileStatus, AccountModel,
@@ -259,7 +259,7 @@ pub async fn account_detail(
         None => {
             return Ok(JsonResponse::data(JsonData::body(json!({
                 "data": null,
-            }))))
+            }))));
         }
     };
 

@@ -1,16 +1,16 @@
 use std::{pin::Pin, str::FromStr};
 
-use actix_web::{dev::Payload, FromRequest, HttpRequest};
+use actix_web::{FromRequest, HttpRequest, dev::Payload};
 
 use lsys_web::common::{
     JsonData, JsonResponse, JsonResult, RequestSessionToken, RequestSessionTokenPaser,
 };
 use lsys_web::lsys_user::dao::UserAuthToken;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 
 use async_trait::async_trait;
-use jsonwebtoken::{decode, DecodingKey, TokenData, Validation};
+use jsonwebtoken::{DecodingKey, TokenData, Validation, decode};
 use std::{
     future::Future,
     task::{Context, Poll},
@@ -152,11 +152,7 @@ impl RequestSessionToken<UserAuthToken> for JwtQuery {
     }
     fn get_token_data(&self) -> Option<String> {
         let jstr = self.token_data.claims.token.to_owned();
-        if jstr.is_empty() {
-            None
-        } else {
-            Some(jstr)
-        }
+        if jstr.is_empty() { None } else { Some(jstr) }
     }
     fn finish_user_token(&self, _: &UserAuthToken) {}
 }

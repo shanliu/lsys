@@ -11,16 +11,16 @@ use lsys_core::utils::RequestEnv;
 use lsys_mfa::dao::MfaSubject;
 use lsys_user::dao::login::ExternalLogin;
 use lsys_user::dao::{
-    login::{AccountLoginEnv, AccountLoginMeta, AccountLoginParam},
-    UserAuthData, UserAuthError,
-};
-use lsys_user::dao::{
+    CODE_LOGIN_TYPE,
     login::{
         EmailCodeLoginData, EmailCodeLoginMeta, EmailLoginData, EmailLoginMeta, ExternalLoginData,
         ExternalLoginMeta, MobileCodeLoginData, MobileCodeLoginMeta, MobileLoginData,
         MobileLoginMeta, NameLoginData, NameLoginMeta,
     },
-    CODE_LOGIN_TYPE,
+};
+use lsys_user::dao::{
+    UserAuthData, UserAuthError,
+    login::{AccountLoginEnv, AccountLoginMeta, AccountLoginParam},
 };
 #[derive(Debug, Clone, Serialize)]
 pub struct ShowUserAppData {
@@ -31,8 +31,8 @@ pub struct ShowUserAppData {
 }
 
 use serde::Serialize;
-use serde_json::json;
 use serde_json::Value;
+use serde_json::json;
 use std::net::IpAddr;
 #[derive(Debug, Clone, Serialize)]
 pub struct ShowUserAuthData {
@@ -54,9 +54,11 @@ impl WebUserAuth {
         auth_data: &UserAuthData,
     ) -> WebResult<ShowUserAuthData> {
         let show_login_data = if auth_data.session().login_type == NameLoginMeta::login_type() {
-            json!(NameLoginData::from(&self.user_dao.account_dao, auth_data)
-                .await?
-                .to_json())
+            json!(
+                NameLoginData::from(&self.user_dao.account_dao, auth_data)
+                    .await?
+                    .to_json()
+            )
         } else if auth_data.session().login_type == EmailCodeLoginMeta::login_type() {
             json!(
                 EmailCodeLoginData::from(&self.user_dao.account_dao, auth_data)
@@ -64,9 +66,11 @@ impl WebUserAuth {
                     .to_json()
             )
         } else if auth_data.session().login_type == EmailLoginMeta::login_type() {
-            json!(EmailLoginData::from(&self.user_dao.account_dao, auth_data)
-                .await?
-                .to_json())
+            json!(
+                EmailLoginData::from(&self.user_dao.account_dao, auth_data)
+                    .await?
+                    .to_json()
+            )
         } else if auth_data.session().login_type == MobileCodeLoginMeta::login_type() {
             json!(
                 MobileCodeLoginData::from(&self.user_dao.account_dao, auth_data)
@@ -74,9 +78,11 @@ impl WebUserAuth {
                     .to_json()
             )
         } else if auth_data.session().login_type == MobileLoginMeta::login_type() {
-            json!(MobileLoginData::from(&self.user_dao.account_dao, auth_data)
-                .await?
-                .to_json())
+            json!(
+                MobileLoginData::from(&self.user_dao.account_dao, auth_data)
+                    .await?
+                    .to_json()
+            )
         } else if auth_data.session().login_type == ExternalLoginMeta::login_type() {
             json!(
                 ExternalLoginData::from(&self.user_dao.account_dao, auth_data)

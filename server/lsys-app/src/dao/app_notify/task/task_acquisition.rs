@@ -96,7 +96,8 @@ impl TaskAcquisition<u64, AppAppNotifyTaskItem> for AppAppNotifyTaskAcquisition 
             qb.push("))");
         }
 
-        qb.push(" ORDER BY t1.id ASC LIMIT ").push_bind((limit + 1) as i64);
+        qb.push(" ORDER BY t1.id ASC LIMIT ")
+            .push_bind((limit + 1) as i64);
 
         let mut app_res = qb
             .build_query_as::<AppNotifyDataModel>()

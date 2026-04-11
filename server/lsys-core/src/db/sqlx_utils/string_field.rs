@@ -72,7 +72,7 @@ impl FetchFieldStringMaxResult {
     }
 }
 
-// 通过 Deref 可以直接使用 Result 的方法，如 is_ok(), is_err(), unwrap() 等
+// 通过 Deref 可以直接使用 Result 的方法，如 is_ok(), is_err() 等
 impl Deref for FetchFieldStringMaxResult {
     type Target = Result<u64, FetchFieldError>;
 
@@ -165,7 +165,9 @@ mod cache {
             .await;
 
         // 初始化已 init 的 Pool 集合
-        INITED_POOLS.get_or_init(|| async { Mutex::new(HashSet::new()) }).await;
+        INITED_POOLS
+            .get_or_init(|| async { Mutex::new(HashSet::new()) })
+            .await;
     }
 
     /// 为特定 Pool 初始化缓存
@@ -185,13 +187,17 @@ mod cache {
     /// FetchField::init_pool_cache(&pool).await;
     /// ```
     pub async fn init_pool_cache(pool_addr: usize) {
-        let inited_pools = INITED_POOLS.get_or_init(|| async { Mutex::new(HashSet::new()) }).await;
+        let inited_pools = INITED_POOLS
+            .get_or_init(|| async { Mutex::new(HashSet::new()) })
+            .await;
         inited_pools.lock().await.insert(pool_addr);
     }
 
     /// 检查 Pool 是否已初始化缓存
     pub async fn is_pool_inited(pool_addr: usize) -> bool {
-        let inited_pools = INITED_POOLS.get_or_init(|| async { Mutex::new(HashSet::new()) }).await;
+        let inited_pools = INITED_POOLS
+            .get_or_init(|| async { Mutex::new(HashSet::new()) })
+            .await;
         inited_pools.lock().await.contains(&pool_addr)
     }
 
@@ -687,7 +693,6 @@ where
     ) -> FetchFieldStringMaxResult {
         let table = M::table_name();
         let column = field.column.as_ref();
-
 
         #[cfg(feature = "redis")]
         {

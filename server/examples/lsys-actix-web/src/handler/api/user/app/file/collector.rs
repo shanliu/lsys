@@ -4,6 +4,18 @@ use crate::common::handler::{
 
 use actix_web::post;
 
+use lsys_web::handler::api::user::app_collector::RecordFilesParam;
+use lsys_web::handler::api::user::app_collector::RecordLogsParam;
+use lsys_web::handler::api::user::app_collector::ScriptAddParam;
+use lsys_web::handler::api::user::app_collector::ScriptDeleteParam;
+use lsys_web::handler::api::user::app_collector::ScriptDetailParam;
+use lsys_web::handler::api::user::app_collector::ScriptEditParam;
+use lsys_web::handler::api::user::app_collector::ScriptFilesParam;
+use lsys_web::handler::api::user::app_collector::ScriptListParam;
+use lsys_web::handler::api::user::app_collector::ScriptLogsParam;
+use lsys_web::handler::api::user::app_collector::ScriptRecordsParam;
+use lsys_web::handler::api::user::app_collector::ScriptStatusParam;
+use lsys_web::handler::api::user::app_collector::SubmitTaskParam;
 use lsys_web::handler::api::user::app_collector::mapping_data;
 use lsys_web::handler::api::user::app_collector::record_files;
 use lsys_web::handler::api::user::app_collector::record_logs;
@@ -17,18 +29,6 @@ use lsys_web::handler::api::user::app_collector::script_records;
 use lsys_web::handler::api::user::app_collector::script_status;
 use lsys_web::handler::api::user::app_collector::scripts;
 use lsys_web::handler::api::user::app_collector::submit_task;
-use lsys_web::handler::api::user::app_collector::RecordFilesParam;
-use lsys_web::handler::api::user::app_collector::RecordLogsParam;
-use lsys_web::handler::api::user::app_collector::ScriptAddParam;
-use lsys_web::handler::api::user::app_collector::ScriptDeleteParam;
-use lsys_web::handler::api::user::app_collector::ScriptDetailParam;
-use lsys_web::handler::api::user::app_collector::ScriptEditParam;
-use lsys_web::handler::api::user::app_collector::ScriptFilesParam;
-use lsys_web::handler::api::user::app_collector::ScriptListParam;
-use lsys_web::handler::api::user::app_collector::ScriptLogsParam;
-use lsys_web::handler::api::user::app_collector::ScriptRecordsParam;
-use lsys_web::handler::api::user::app_collector::ScriptStatusParam;
-use lsys_web::handler::api::user::app_collector::SubmitTaskParam;
 
 #[post("/{type}")]
 pub async fn collector(

@@ -9,7 +9,7 @@ use lsys_access::dao::AccessSession;
 use lsys_app_sender::model::{SenderMailConfigType, SenderTplConfigStatus};
 use lsys_core::api_utils::JsonPageData;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 
 #[derive(Debug, Deserialize)]
@@ -247,9 +247,9 @@ pub async fn mailer_tpl_config_list(
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(row, total),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        row, total,
+    ))))
 }
 
 #[derive(Debug, Deserialize)]

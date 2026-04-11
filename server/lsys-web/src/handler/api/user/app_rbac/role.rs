@@ -6,9 +6,9 @@ use crate::common::JsonResult;
 use crate::common::PageParam;
 use crate::common::ToOffsetPageParam;
 use crate::common::UserAuthQueryDao;
-use lsys_core::db::{OffsetPageParam, OffsetPageValue};
 use lsys_access::dao::AccessSession;
 use lsys_access::dao::UserInfo;
+use lsys_core::db::{OffsetPageParam, OffsetPageValue};
 use lsys_rbac::dao::RbacRoleAddData;
 use lsys_rbac::dao::RbacRoleUserRangeData;
 use lsys_rbac::{
@@ -53,13 +53,10 @@ pub async fn app_role_add(
         },
         RbacRoleUserRange::Session => RbacRoleUserRangeData::Session {
             role_key: &param.role_key,
-            role_name: param.role_name.as_deref().and_then(|e| {
-                if !e.is_empty() {
-                    Some(e)
-                } else {
-                    None
-                }
-            }),
+            role_name: param
+                .role_name
+                .as_deref()
+                .and_then(|e| if !e.is_empty() { Some(e) } else { None }),
         },
     };
     let res_range = RbacRoleResRange::try_from(param.res_range)?;
@@ -111,13 +108,10 @@ pub async fn app_role_edit(
         },
         RbacRoleUserRange::Session => RbacRoleUserRangeData::Session {
             role_key: &param.role_key,
-            role_name: param.role_name.as_deref().and_then(|e| {
-                if !e.is_empty() {
-                    Some(e)
-                } else {
-                    None
-                }
-            }),
+            role_name: param
+                .role_name
+                .as_deref()
+                .and_then(|e| if !e.is_empty() { Some(e) } else { None }),
         },
     };
     req_dao

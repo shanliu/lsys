@@ -1,8 +1,8 @@
 use crate::common::handler::{ResponseJson, ResponseJsonResult, RestQuery};
 use actix_web::post;
 use lsys_web::handler::rest::app::{
-    subapp_info, subapp_oauth_scope, subapp_oauth_secret, subapp_user, SubAppInfoParam,
-    SubAppOAuthScopeParam, SubAppOAuthSecretParam, SubAppUserParam,
+    SubAppInfoParam, SubAppOAuthScopeParam, SubAppOAuthSecretParam, SubAppUserParam, subapp_info,
+    subapp_oauth_scope, subapp_oauth_secret, subapp_user,
 };
 
 #[post("")]

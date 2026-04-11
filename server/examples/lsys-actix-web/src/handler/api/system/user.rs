@@ -3,9 +3,9 @@ use crate::common::handler::{
 };
 use actix_web::post;
 use lsys_web::handler::api::system::user::{
-    account_detail, account_search, change_logs_list, login_history, mapping_data, user_logout,
     AccountDetailParam, AccountSearchParam, ChangeLogsListParam, LoginHistoryParam,
-    UserLogoutParam,
+    UserLogoutParam, account_detail, account_search, change_logs_list, login_history, mapping_data,
+    user_logout,
 };
 
 #[post("/{method}")]

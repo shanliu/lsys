@@ -4,8 +4,8 @@ use crate::common::{
     JsonData, JsonResponse, JsonResult, PageParam, ToOffsetPageParam, UserAuthQueryDao,
 };
 use lsys_access::dao::AccessSession;
-use lsys_core::db::OffsetPageParam;
 use lsys_core::api_utils::JsonPageData;
+use lsys_core::db::OffsetPageParam;
 use serde::Deserialize;
 use serde_json::json;
 
@@ -33,16 +33,10 @@ pub async fn file_logs(
 
     let data_dao = req_dao.web_dao.web_files.file_dao.data_dao();
 
-    let data = data_dao
-        .list_logs_by_file_id(param.file_id, &page)
-        .await?;
+    let data = data_dao.list_logs_by_file_id(param.file_id, &page).await?;
 
     let count = if param.count_num.unwrap_or(false) {
-        Some(
-            data_dao
-                .count_logs_by_file_id(param.file_id)
-                .await?,
-        )
+        Some(data_dao.count_logs_by_file_id(param.file_id).await?)
     } else {
         None
     };
@@ -71,7 +65,7 @@ pub async fn file_logs(
         })
         .collect();
 
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(items, count),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        items, count,
+    ))))
 }

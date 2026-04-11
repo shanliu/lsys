@@ -3,22 +3,16 @@ use std::sync::Arc;
 
 use crate::dao::{AccountError, AccountResult};
 
-use crate::model::{
-    AccountExternalModel, AccountExternalStatus, AccountModel,
-};
+use crate::model::{AccountExternalModel, AccountExternalStatus, AccountModel};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::{
-    db::utils::FetchField, fluent_message, valid_key,
-};
 use lsys_core::remote_notify::RemoteNotify;
-use lsys_core::utils::{
-    now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT,
-};
+use lsys_core::utils::{RequestEnv, STRING_CLEAR_FORMAT, StringClear, now_time, string_clear};
 use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen, ValidUrl};
+use lsys_core::{db::utils::FetchField, fluent_message, valid_key};
 
-use super::logger::LogAccountExternal;
 use super::AccountIndex;
-use lsys_core::db::{Insert, TableMeta, QueryBuilderExt, Update, OptionTxExecutor, FieldValue};
+use super::logger::LogAccountExternal;
+use lsys_core::db::{FieldValue, Insert, OptionTxExecutor, QueryBuilderExt, TableMeta, Update};
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{Acquire, MySql, Pool, Transaction};
 
@@ -134,16 +128,20 @@ impl AccountExternal {
         external_name: &str,
     ) -> AccountResult<()> {
         let fetch_field = FetchField::new(&self.db);
-        let config_name_max = fetch_field.string_max::<AccountExternalModel>(&AccountExternalModel::CONFIG_NAME)
+        let config_name_max = fetch_field
+            .string_max::<AccountExternalModel>(&AccountExternalModel::CONFIG_NAME)
             .await
             .len_or(32);
-        let external_type_max = fetch_field.string_max::<AccountExternalModel>(&AccountExternalModel::EXTERNAL_TYPE)
+        let external_type_max = fetch_field
+            .string_max::<AccountExternalModel>(&AccountExternalModel::EXTERNAL_TYPE)
             .await
             .len_or(64);
-        let external_id_max = fetch_field.string_max::<AccountExternalModel>(&AccountExternalModel::EXTERNAL_ID)
+        let external_id_max = fetch_field
+            .string_max::<AccountExternalModel>(&AccountExternalModel::EXTERNAL_ID)
             .await
             .len_or(125);
-        let external_name_max = fetch_field.string_max::<AccountExternalModel>(&AccountExternalModel::EXTERNAL_NAME)
+        let external_name_max = fetch_field
+            .string_max::<AccountExternalModel>(&AccountExternalModel::EXTERNAL_NAME)
             .await
             .len_or(256);
 
@@ -217,8 +215,11 @@ impl AccountExternal {
                     )); //"this account {$name} bind in other account[{$id}]",
                 }
                 let external_name_ow = external_name.to_owned();
-                Update::<_,AccountExternalModel>::new()
-                    .set(AccountExternalModel::STATUS, AccountExternalStatus::Enable as i8)
+                Update::<_, AccountExternalModel>::new()
+                    .set(
+                        AccountExternalModel::STATUS,
+                        AccountExternalStatus::Enable as i8,
+                    )
                     .set(AccountExternalModel::EXTERNAL_NAME, external_name_ow)
                     .set(AccountExternalModel::CHANGE_TIME, time)
                     .execute(OptionTxExecutor::new(transaction, &self.db), |qb| {
@@ -237,9 +238,12 @@ impl AccountExternal {
                     Some(pb) => pb.begin().await?,
                     None => db.begin().await?,
                 };
-                let res = Insert::<_,AccountExternalModel>::new()
+                let res = Insert::<_, AccountExternalModel>::new()
                     .set(AccountExternalModel::ACCOUNT_ID, account.id)
-                    .set(AccountExternalModel::STATUS, AccountExternalStatus::Enable as i8)
+                    .set(
+                        AccountExternalModel::STATUS,
+                        AccountExternalStatus::Enable as i8,
+                    )
                     .set(AccountExternalModel::CONFIG_NAME, config_name_ow)
                     .set(AccountExternalModel::EXTERNAL_TYPE, external_type_ow)
                     .set(AccountExternalModel::EXTERNAL_ID, external_id_ow)
@@ -255,7 +259,10 @@ impl AccountExternal {
                     Ok(mr) => {
                         use lsys_core::db::Update;
                         let res = Update::<_, AccountModel>::new()
-                            .set(AccountModel::EXTERNAL_COUNT, FieldValue::Expr("external_count+1".into()))
+                            .set(
+                                AccountModel::EXTERNAL_COUNT,
+                                FieldValue::Expr("external_count+1".into()),
+                            )
                             .execute(&mut *db, |qb| {
                                 qb.push_where().field_eq("id", account.id);
                             })
@@ -327,22 +334,28 @@ impl AccountExternal {
         external_pic: Option<&str>,
     ) -> AccountResult<()> {
         let fetch_field = FetchField::new(&self.db);
-        let external_name_max = fetch_field.string_max::<AccountExternalModel>(&AccountExternalModel::EXTERNAL_NAME)
+        let external_name_max = fetch_field
+            .string_max::<AccountExternalModel>(&AccountExternalModel::EXTERNAL_NAME)
             .await
             .len_or(256);
-        let token_data_max = fetch_field.string_max::<AccountExternalModel>(&AccountExternalModel::TOKEN_DATA)
+        let token_data_max = fetch_field
+            .string_max::<AccountExternalModel>(&AccountExternalModel::TOKEN_DATA)
             .await
             .len_or(256);
-        let external_nikename_max = fetch_field.string_max::<AccountExternalModel>(&AccountExternalModel::EXTERNAL_NIKENAME)
+        let external_nikename_max = fetch_field
+            .string_max::<AccountExternalModel>(&AccountExternalModel::EXTERNAL_NIKENAME)
             .await
             .len_or(65);
-        let external_gender_max = fetch_field.string_max::<AccountExternalModel>(&AccountExternalModel::EXTERNAL_GENDER)
+        let external_gender_max = fetch_field
+            .string_max::<AccountExternalModel>(&AccountExternalModel::EXTERNAL_GENDER)
             .await
             .len_or(8);
-        let external_link_max = fetch_field.string_max::<AccountExternalModel>(&AccountExternalModel::EXTERNAL_LINK)
+        let external_link_max = fetch_field
+            .string_max::<AccountExternalModel>(&AccountExternalModel::EXTERNAL_LINK)
             .await
             .len_or(255);
-        let external_pic_max = fetch_field.string_max::<AccountExternalModel>(&AccountExternalModel::EXTERNAL_PIC)
+        let external_pic_max = fetch_field
+            .string_max::<AccountExternalModel>(&AccountExternalModel::EXTERNAL_PIC)
             .await
             .len_or(512);
 
@@ -428,7 +441,7 @@ impl AccountExternal {
         let time = now_time()?;
         let external_name_ow = external_name.to_string();
         let token_data_ow = token_data.to_string();
-        let mut update = Update::<_,AccountExternalModel>::new()
+        let mut update = Update::<_, AccountExternalModel>::new()
             .set(AccountExternalModel::EXTERNAL_NAME, external_name_ow)
             .set(AccountExternalModel::TOKEN_DATA, token_data_ow)
             .set(AccountExternalModel::TOKEN_TIMEOUT, token_timeout)
@@ -443,7 +456,10 @@ impl AccountExternal {
             update = update.set(AccountExternalModel::EXTERNAL_PIC, pic.to_string());
         }
         if let Some(nikename) = external_nikename {
-            update = update.set(AccountExternalModel::EXTERNAL_NIKENAME, nikename.to_string());
+            update = update.set(
+                AccountExternalModel::EXTERNAL_NIKENAME,
+                nikename.to_string(),
+            );
         }
         update
             .execute(&self.db, |qb| {
@@ -495,8 +511,11 @@ impl AccountExternal {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
         };
-        let res = Update::<_,AccountExternalModel>::new()
-            .set(AccountExternalModel::STATUS, AccountExternalStatus::Delete as i8)
+        let res = Update::<_, AccountExternalModel>::new()
+            .set(
+                AccountExternalModel::STATUS,
+                AccountExternalStatus::Delete as i8,
+            )
             .set(AccountExternalModel::CHANGE_TIME, time)
             .execute(&mut *db, |qb| {
                 qb.push_where().field_eq("id", account_ext.id);
@@ -509,8 +528,11 @@ impl AccountExternal {
             }
             Ok(mr) => {
                 use lsys_core::db::Update;
-                let res=Update::<_, AccountModel>::new()
-                    .set(AccountModel::EXTERNAL_COUNT, FieldValue::Expr("external_count-1".into()))
+                let res = Update::<_, AccountModel>::new()
+                    .set(
+                        AccountModel::EXTERNAL_COUNT,
+                        FieldValue::Expr("external_count-1".into()),
+                    )
                     .execute(&mut *db, |qb| {
                         qb.push_where().field_eq("id", account_ext.account_id);
                         qb.push_and().field_gte("external_count", 1_i32);
@@ -574,45 +596,56 @@ impl AccountExternal {
     }
     pub async fn find_by_id(&self, id: &u64) -> AccountResult<AccountExternalModel> {
         use lsys_core::db::utils::Fetch;
-        Ok(Fetch::<MySql, AccountExternalModel>::one(
-            &self.db,
-            |qb| {
-                qb.field_eq("id", *id);
-                qb.push_and().field_eq("status", AccountExternalStatus::Enable as i8);
-            },
-        ).await?)
+        Ok(Fetch::<MySql, AccountExternalModel>::one(&self.db, |qb| {
+            qb.field_eq("id", *id);
+            qb.push_and()
+                .field_eq("status", AccountExternalStatus::Enable as i8);
+        })
+        .await?)
     }
-    pub async fn find_by_ids(&self, ids: &[u64]) -> AccountResult<HashMap<u64, AccountExternalModel>> {
+    pub async fn find_by_ids(
+        &self,
+        ids: &[u64],
+    ) -> AccountResult<HashMap<u64, AccountExternalModel>> {
         use lsys_core::db::utils::Fetch;
         Ok(Fetch::<MySql, AccountExternalModel>::map(
             &self.db,
             |qb| {
                 qb.field_in_copied("id", ids);
-                qb.push_and().field_eq("status", AccountExternalStatus::Enable as i8);
+                qb.push_and()
+                    .field_eq("status", AccountExternalStatus::Enable as i8);
             },
             |v| v.id,
-        ).await?)
+        )
+        .await?)
     }
-    pub async fn find_by_account_id_vec(&self, id: &u64) -> AccountResult<Vec<AccountExternalModel>> {
+    pub async fn find_by_account_id_vec(
+        &self,
+        id: &u64,
+    ) -> AccountResult<Vec<AccountExternalModel>> {
         use lsys_core::db::utils::Fetch;
-        Ok(Fetch::<MySql, AccountExternalModel>::vec(
-            &self.db,
-            |qb| {
-                qb.field_eq("account_id", *id);
-                qb.push_and().field_eq("status", AccountExternalStatus::Enable as i8);
-            },
-        ).await?)
+        Ok(Fetch::<MySql, AccountExternalModel>::vec(&self.db, |qb| {
+            qb.field_eq("account_id", *id);
+            qb.push_and()
+                .field_eq("status", AccountExternalStatus::Enable as i8);
+        })
+        .await?)
     }
-    pub async fn find_by_account_ids_vec(&self, ids: &[u64]) -> AccountResult<HashMap<u64, Vec<AccountExternalModel>>> {
+    pub async fn find_by_account_ids_vec(
+        &self,
+        ids: &[u64],
+    ) -> AccountResult<HashMap<u64, Vec<AccountExternalModel>>> {
         use lsys_core::db::utils::Fetch;
         Ok(Fetch::<MySql, AccountExternalModel>::group(
             &self.db,
             |qb| {
                 qb.field_in_copied("account_id", ids);
-                qb.push_and().field_eq("status", AccountExternalStatus::Enable as i8);
+                qb.push_and()
+                    .field_eq("status", AccountExternalStatus::Enable as i8);
             },
             |v| v.account_id,
-        ).await?)
+        )
+        .await?)
     }
     pub fn cache(&'_ self) -> AccountExternalCache<'_> {
         AccountExternalCache { dao: self }
@@ -629,7 +662,10 @@ impl AccountExternalCache<'_> {
             .get_or_fetch(id, || self.dao.find_by_id(id))
             .await
     }
-    pub async fn find_by_ids(&self, ids: &[u64]) -> AccountResult<HashMap<u64, AccountExternalModel>> {
+    pub async fn find_by_ids(
+        &self,
+        ids: &[u64],
+    ) -> AccountResult<HashMap<u64, AccountExternalModel>> {
         self.dao
             .cache
             .get_or_fetch_many(ids, |missing| async move {

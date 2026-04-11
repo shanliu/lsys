@@ -1,8 +1,8 @@
 use lsys_core::db::{
-    CursorPageData, CursorPageParam, Insert, QueryBuilderExt, TableMeta, TotalParam,
-    TotalRow, Update, WhereClause,
+    CursorPageData, CursorPageParam, Insert, QueryBuilderExt, TableMeta, TotalParam, TotalRow,
+    Update, WhereClause,
 };
-use lsys_core::utils::{now_time, string_clear, StringClear, STRING_CLEAR_FORMAT};
+use lsys_core::utils::{STRING_CLEAR_FORMAT, StringClear, now_time, string_clear};
 
 use sqlx::{MySql, Pool, QueryBuilder};
 
@@ -65,7 +65,14 @@ impl AccountLoginHistory {
         ));
         {
             let mut wb = WhereClause::new(&mut qb);
-            self.history_where(&mut wb, account_id, login_account, is_login, login_type, login_ip);
+            self.history_where(
+                &mut wb,
+                account_id,
+                login_account,
+                is_login,
+                login_type,
+                login_ip,
+            );
             if query_limit.has_cursor() {
                 query_limit.push_where(wb.and());
             }
@@ -105,7 +112,14 @@ impl AccountLoginHistory {
         };
         {
             let mut wb = WhereClause::new(&mut qb);
-            self.history_where(&mut wb, account_id, login_account, is_login, login_type, login_ip);
+            self.history_where(
+                &mut wb,
+                account_id,
+                login_account,
+                is_login,
+                login_type,
+                login_ip,
+            );
         }
         if query.is_threshold_mode() {
             query.push_limit(&mut qb);

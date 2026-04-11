@@ -1,6 +1,6 @@
 use crate::common::handler::{ResponseJson, ResponseJsonResult, RestQuery};
 use actix_web::post;
-use lsys_web::handler::rest::mailer::{cancel, send, CancelParam, SendParam};
+use lsys_web::handler::rest::mailer::{CancelParam, SendParam, cancel, send};
 
 #[post("")]
 pub(crate) async fn mail(rest: RestQuery) -> ResponseJsonResult<ResponseJson> {

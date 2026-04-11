@@ -9,7 +9,7 @@ use lsys_core::api_utils::{JsonPageData, PageCursorValue, PageTotalRowValue};
 use lsys_core::db::{CursorPageSort, TotalParam};
 use lsys_rbac::dao::AuditDataParam;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use super::app_check_get;
 use super::parent_app_check;
@@ -118,7 +118,7 @@ pub async fn app_audit_data(
         })
         .collect::<Vec<Value>>();
     let cursor = PageCursorValue::from(&res.1);
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::cursor(out_data, cursor, count),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::cursor(
+        out_data, cursor, count,
+    ))))
 }

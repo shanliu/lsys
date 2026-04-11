@@ -9,11 +9,11 @@ use lsys_web::lsys_core::fluent_message;
 use lsys_web::{
     common::{JsonError, JsonResponse},
     handler::api::user::account::{
-        external_delete, external_list_data, ExternalDeleteParam, ExternalListDataParam,
+        ExternalDeleteParam, ExternalListDataParam, external_delete, external_list_data,
     },
 };
 use lsys_web_module_oauth::module::{
-    WeChatConfig, WechatLogin, WechatLoginParam, OAUTH_TYPE_WECHAT,
+    OAUTH_TYPE_WECHAT, WeChatConfig, WechatLogin, WechatLoginParam,
 };
 use serde::Deserialize;
 use serde_json::json;

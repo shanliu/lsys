@@ -26,7 +26,7 @@ pub async fn submit_task(
 
     let request_id = match &param.request_id {
         Some(rid) if !rid.trim().is_empty() => rid.trim().to_string(),
-        _ => crate::dao::collector::WebFileCollector::resolve_request_id(&req_dao.req_env),
+        _ => crate::dao::FileCollector::resolve_request_id(&req_dao.req_env),
     };
 
     let params = param.params.clone().unwrap_or(serde_json::json!({}));

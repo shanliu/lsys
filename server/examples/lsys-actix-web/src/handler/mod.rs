@@ -6,7 +6,7 @@ mod rest;
 mod service;
 mod web;
 use actix_service::ServiceFactory;
-use actix_web::{dev::ServiceRequest, App, Error};
+use actix_web::{App, Error, dev::ServiceRequest};
 use lsys_web::dao::WebDao;
 use std::sync::Arc;
 pub(crate) use web::system::render_500;

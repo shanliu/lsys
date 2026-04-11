@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::dao::{SenderError, SenderResult};
 use crate::model::{SenderConfigModel, SenderConfigStatus, SenderType};
-use lsys_core::utils::{now_time, RequestEnv};
+use lsys_core::utils::{RequestEnv, now_time};
 
 use lsys_core::db::{Insert, QueryBuilderExt, TableMeta, Update};
 use lsys_logger::dao::ChangeLoggerDao;
@@ -32,9 +32,11 @@ impl SenderConfig {
             "select * from {}",
             SenderConfigModel::table_name(),
         ));
-        qb.push_where().field_eq("sender_type", self.send_type as i8);
+        qb.push_where()
+            .field_eq("sender_type", self.send_type as i8);
         qb.push_and().field_eq("id", id);
-        let data = qb.build_query_as::<SenderConfigModel>()
+        let data = qb
+            .build_query_as::<SenderConfigModel>()
             .fetch_one(&self.db)
             .await?;
 
@@ -55,7 +57,7 @@ impl SenderConfig {
         let app_id = app_id.unwrap_or_default();
         let time = now_time().unwrap_or_default();
         let config_data = config_data.to_string();
-        let id = Insert::<_,SenderConfigModel>::new()
+        let id = Insert::<_, SenderConfigModel>::new()
             .set(SenderConfigModel::APP_ID, app_id)
             .set(SenderConfigModel::SENDER_TYPE, sender_type)
             .set(SenderConfigModel::PRIORITY, priority)
@@ -99,7 +101,7 @@ impl SenderConfig {
             return Ok(0);
         }
         let time = now_time().unwrap_or_default();
-        let res = Update::<_,SenderConfigModel>::new()
+        let res = Update::<_, SenderConfigModel>::new()
             .set(SenderConfigModel::STATUS, SenderConfigStatus::Delete as i8)
             .set(SenderConfigModel::CHANGE_TIME, time)
             .set(SenderConfigModel::CHANGE_USER_ID, user_id)
@@ -145,7 +147,8 @@ impl SenderConfig {
             SenderConfigModel::table_name(),
         ));
         qb.push_where().field_eq("sender_type", sender_type);
-        qb.push_and().field_eq("status", SenderConfigStatus::Enable as i8);
+        qb.push_and()
+            .field_eq("status", SenderConfigStatus::Enable as i8);
         if let Some(aid) = app_id {
             qb.push_and().field_eq("app_id", aid);
         }
@@ -156,10 +159,9 @@ impl SenderConfig {
             qb.push_and().field_eq("user_id", uid);
         }
         qb.push(" order by id desc");
-        Ok(qb.build_query_as::<SenderConfigModel>()
+        Ok(qb
+            .build_query_as::<SenderConfigModel>()
             .fetch_all(&self.db)
             .await?)
     }
 }
-
-

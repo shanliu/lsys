@@ -18,14 +18,11 @@ use lsys_app::dao::{AppRequestParam, SystemAppParam, SystemSubAppParam};
 use lsys_app::model::{AppRequestStatus, AppRequestType, AppStatus};
 use lsys_core::db::{OffsetPageParam, OffsetPageValue};
 
-use crate::dao::access::api::system::admin::CheckAdminApp;
 use crate::dao::access::RbacAccessCheckEnv;
+use crate::dao::access::api::system::admin::CheckAdminApp;
 use crate::dao::export_task::exporter::Exporter;
 use crate::dao::export_task::writer::CsvWriter;
-use crate::dao::WebError;
-use crate::dao::WebRbac;
-use crate::dao::WebResult;
-use crate::model::ExportTaskModel;
+use crate::dao::{ExportTaskModel, WebExporter, WebResult};
 
 pub const EXPORT_TYPE_SYSTEM_APP_LIST: &str = "system_app_list";
 pub const EXPORT_TYPE_SYSTEM_SUB_APP_LIST: &str = "system_sub_app_list";
@@ -34,31 +31,29 @@ pub const EXPORT_TYPE_SYSTEM_REQUEST_LIST: &str = "system_request_list";
 /// 系统所有APP列表导出
 pub struct SystemAppListExporter {
     pub app_dao: Arc<AppDao>,
-    pub web_rbac: Arc<WebRbac>,
+    pub web_rbac: Arc<crate::dao::WebRbac>,
 }
 
-impl Exporter for SystemAppListExporter {
-    fn check<'a>(
-        &'a self,
-        check_env: &'a RbacAccessCheckEnv<'_>,
-        _app_id: u64,
-        _app_user_id: u64,
-        _user_id: u64,
-        _export_type: &'a str,
-        _params: &'a serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = WebResult<()>> + Send + 'a>> {
-        Box::pin(async move {
-            self.web_rbac.check(check_env, &CheckAdminApp {}).await?;
-            Ok(())
-        })
+#[async_trait::async_trait]
+impl WebExporter for SystemAppListExporter {
+    async fn check(
+        &self,
+        check_env: &RbacAccessCheckEnv<'_>,
+        _param: &crate::dao::ExportCheckParam<'_>,
+    ) -> WebResult<()> {
+        self.web_rbac.check(check_env, &CheckAdminApp {}).await?;
+        Ok(())
     }
+}
 
+impl Exporter<crate::dao::WebError> for SystemAppListExporter {
     fn export<'a>(
         &'a self,
         record: ExportTaskModel,
         params: serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<PathBuf, WebError>> + Send + 'a>>
-    {
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<PathBuf, crate::dao::WebError>> + Send + 'a>,
+    > {
         Box::pin(async move {
             let user_id = params["user_id"].as_u64();
             let app_id = params["app_id"].as_u64();
@@ -113,7 +108,7 @@ impl Exporter for SystemAppListExporter {
                 w.write_batch(rows).await?;
             }
 
-            w.finish().await
+            w.finish().await.map_err(Into::into)
         })
     }
 }
@@ -121,31 +116,29 @@ impl Exporter for SystemAppListExporter {
 /// 系统子应用列表导出
 pub struct SystemSubAppListExporter {
     pub app_dao: Arc<AppDao>,
-    pub web_rbac: Arc<WebRbac>,
+    pub web_rbac: Arc<crate::dao::WebRbac>,
 }
 
-impl Exporter for SystemSubAppListExporter {
-    fn check<'a>(
-        &'a self,
-        check_env: &'a RbacAccessCheckEnv<'_>,
-        _app_id: u64,
-        _app_user_id: u64,
-        _user_id: u64,
-        _export_type: &'a str,
-        _params: &'a serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = WebResult<()>> + Send + 'a>> {
-        Box::pin(async move {
-            self.web_rbac.check(check_env, &CheckAdminApp {}).await?;
-            Ok(())
-        })
+#[async_trait::async_trait]
+impl WebExporter for SystemSubAppListExporter {
+    async fn check(
+        &self,
+        check_env: &RbacAccessCheckEnv<'_>,
+        _param: &crate::dao::ExportCheckParam<'_>,
+    ) -> WebResult<()> {
+        self.web_rbac.check(check_env, &CheckAdminApp {}).await?;
+        Ok(())
     }
+}
 
+impl Exporter<crate::dao::WebError> for SystemSubAppListExporter {
     fn export<'a>(
         &'a self,
         record: ExportTaskModel,
         params: serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<PathBuf, WebError>> + Send + 'a>>
-    {
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<PathBuf, crate::dao::WebError>> + Send + 'a>,
+    > {
         Box::pin(async move {
             let app_id = params["app_id"].as_u64().unwrap_or(0);
             let status: Option<AppStatus> = params["status"]
@@ -195,7 +188,7 @@ impl Exporter for SystemSubAppListExporter {
                 w.write_batch(rows).await?;
             }
 
-            w.finish().await
+            w.finish().await.map_err(Into::into)
         })
     }
 }
@@ -203,31 +196,29 @@ impl Exporter for SystemSubAppListExporter {
 /// 系统审核请求列表导出
 pub struct SystemRequestListExporter {
     pub app_dao: Arc<AppDao>,
-    pub web_rbac: Arc<WebRbac>,
+    pub web_rbac: Arc<crate::dao::WebRbac>,
 }
 
-impl Exporter for SystemRequestListExporter {
-    fn check<'a>(
-        &'a self,
-        check_env: &'a RbacAccessCheckEnv<'_>,
-        _app_id: u64,
-        _app_user_id: u64,
-        _user_id: u64,
-        _export_type: &'a str,
-        _params: &'a serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = WebResult<()>> + Send + 'a>> {
-        Box::pin(async move {
-            self.web_rbac.check(check_env, &CheckAdminApp {}).await?;
-            Ok(())
-        })
+#[async_trait::async_trait]
+impl WebExporter for SystemRequestListExporter {
+    async fn check(
+        &self,
+        check_env: &RbacAccessCheckEnv<'_>,
+        _param: &crate::dao::ExportCheckParam<'_>,
+    ) -> WebResult<()> {
+        self.web_rbac.check(check_env, &CheckAdminApp {}).await?;
+        Ok(())
     }
+}
 
+impl Exporter<crate::dao::WebError> for SystemRequestListExporter {
     fn export<'a>(
         &'a self,
         record: ExportTaskModel,
         params: serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<PathBuf, WebError>> + Send + 'a>>
-    {
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<PathBuf, crate::dao::WebError>> + Send + 'a>,
+    > {
         Box::pin(async move {
             let id = params["id"].as_u64();
             let app_id = params["app_id"].as_u64();
@@ -286,7 +277,7 @@ impl Exporter for SystemRequestListExporter {
                 w.write_batch(rows).await?;
             }
 
-            w.finish().await
+            w.finish().await.map_err(Into::into)
         })
     }
 }

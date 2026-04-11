@@ -8,48 +8,41 @@ use std::sync::Arc;
 use lsys_core::db::{CursorConfig, CursorLimit, CursorPageDir, CursorPageParam, CursorPageSort};
 use lsys_user::dao::AccountDao;
 
-use crate::dao::access::api::system::admin::CheckAdminUserManage;
 use crate::dao::access::RbacAccessCheckEnv;
+use crate::dao::access::api::system::admin::CheckAdminUserManage;
 use crate::dao::export_task::exporter::Exporter;
 use crate::dao::export_task::writer::CsvWriter;
-use crate::dao::WebError;
-use crate::dao::WebResult;
-use crate::dao::WebRbac;
-use crate::model::ExportTaskModel;
+use crate::dao::{ExportTaskModel, WebExporter, WebResult};
 
 pub const EXPORT_TYPE_SYSTEM_ACCOUNT_SEARCH: &str = "system_account_search";
 
 pub struct SystemAccountSearchExporter {
     pub account_dao: Arc<AccountDao>,
-    pub web_rbac: Arc<WebRbac>,
+    pub web_rbac: Arc<crate::dao::WebRbac>,
 }
 
-impl Exporter for SystemAccountSearchExporter {
-    fn check<'a>(
-        &'a self,
-        check_env: &'a RbacAccessCheckEnv<'_>,
-        _app_id: u64,
-        _app_user_id: u64,
-        _user_id: u64,
-        _export_type: &'a str,
-        _params: &'a serde_json::Value,
-    ) -> std::pin::Pin<
-        Box<dyn std::future::Future<Output = WebResult<()>> + Send + 'a>,
-    > {
-        Box::pin(async move {
-            self.web_rbac
-                .check(check_env, &CheckAdminUserManage {})
-                .await?;
-            Ok(())
-        })
+#[async_trait::async_trait]
+impl WebExporter for SystemAccountSearchExporter {
+    async fn check(
+        &self,
+        check_env: &RbacAccessCheckEnv<'_>,
+        _param: &crate::dao::ExportCheckParam<'_>,
+    ) -> WebResult<()> {
+        self.web_rbac
+            .check(check_env, &CheckAdminUserManage {})
+            .await?;
+        Ok(())
     }
+}
 
+impl Exporter<crate::dao::WebError> for SystemAccountSearchExporter {
     fn export<'a>(
         &'a self,
         record: ExportTaskModel,
         params: serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<PathBuf, WebError>> + Send + 'a>>
-    {
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<PathBuf, crate::dao::WebError>> + Send + 'a>,
+    > {
         Box::pin(async move {
             let key_word = params["key_word"].as_str().unwrap_or("").to_string();
             let enable = params["enable"].as_bool().unwrap_or(true);
@@ -64,7 +57,10 @@ impl Exporter for SystemAccountSearchExporter {
                     CursorPageDir::Next,
                     CursorConfig::primary(CursorPageSort::Desc),
                     cursor,
-                    CursorLimit::Limit { limit: 200, more: true },
+                    CursorLimit::Limit {
+                        limit: 200,
+                        more: true,
+                    },
                 );
 
                 let (items, page_data) = self
@@ -98,7 +94,7 @@ impl Exporter for SystemAccountSearchExporter {
                 }
             }
 
-            w.finish().await
+            w.finish().await.map_err(Into::into)
         })
     }
 }

@@ -3,7 +3,7 @@ mod result;
 mod valid_data_random;
 
 use async_trait::async_trait;
-use deadpool_redis::{redis::AsyncCommands, Connection};
+use deadpool_redis::{Connection, redis::AsyncCommands};
 use log::debug;
 pub use result::*;
 use serde::{Deserialize, Serialize};
@@ -15,8 +15,8 @@ pub struct ValidCodeInfo {
     pub check: u32,
 }
 
-use crate::{fluent_message, valid_key};
 use crate::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
+use crate::{fluent_message, valid_key};
 const CODE_SAVE_KEY: &str = "valid-save";
 
 pub struct ValidCode {

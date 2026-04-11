@@ -1,9 +1,9 @@
 use crate::common::handler::{ResponseJson, ResponseJsonResult, RestQuery};
 use actix_web::post;
 use lsys_web::handler::rest::rbac::{
-    res_add, res_data, res_del, res_edit, res_type_data, res_type_op_add, res_type_op_data,
-    res_type_op_del, ResAddParam, ResDelOpParam, ResDelParam, ResEditParam, ResParam,
-    ResTypeAddOpParam, ResTypeListParam, ResTypeOpListParam,
+    ResAddParam, ResDelOpParam, ResDelParam, ResEditParam, ResParam, ResTypeAddOpParam,
+    ResTypeListParam, ResTypeOpListParam, res_add, res_data, res_del, res_edit, res_type_data,
+    res_type_op_add, res_type_op_data, res_type_op_del,
 };
 
 #[post("/res")]

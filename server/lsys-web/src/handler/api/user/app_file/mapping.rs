@@ -4,35 +4,24 @@ use crate::common::JsonData;
 use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::UserAuthQueryDao;
-use lsys_files::model::FileChunkStatus;
-use lsys_files::model::FileModel;
-use lsys_files::model::FileSourceType;
-use lsys_files::model::FileStatus;
-use lsys_files::model::FileUserStatus;
+use lsys_file::model::FileChunkStatus;
+use lsys_file::model::FileModel;
+use lsys_file::model::FileSourceType;
+use lsys_file::model::FileStatus;
+use lsys_file::model::FileUserStatus;
 use serde_json::json;
 
 pub async fn mapping_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
-    let min_chunk_size = req_dao
-        .web_dao
-        .web_files
-        .file_dao
-        .config()
-        .min_chunk_size;
+    let min_chunk_size = req_dao.web_dao.web_files.file_dao.config().min_chunk_size;
 
     let upload_config = &req_dao.web_dao.web_files.upload_config;
 
-    let registry = req_dao
-        .web_dao
-        .web_files
-        .file_dao
-        .oss_config()
-        .registry();
+    let registry = req_dao.web_dao.web_files.file_dao.oss_config().registry();
     let oss_types = registry.available_types();
 
     // storage_type: 本地(type="local") + 所有已注册 OSS 厂商(type="oss")
-    let mut storage_type: Vec<serde_json::Value> = vec![
-        var_json_format!(req_dao, FileModel::STORAGE_TYPE_LOCAL_PUBLIC, { "type": "local" }),
-    ];
+    let mut storage_type: Vec<serde_json::Value> =
+        vec![var_json_format!(req_dao, FileModel::STORAGE_TYPE_LOCAL_PUBLIC, { "type": "local" })];
     for t in oss_types {
         storage_type.push(var_json_format!(req_dao, t, { "type": "oss" }));
     }

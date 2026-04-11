@@ -17,7 +17,7 @@ use sqlx::{MySql, Pool};
 use std::sync::Arc;
 use std::vec;
 
-use lsys_core::utils::{now_time, RequestEnv};
+use lsys_core::utils::{RequestEnv, now_time};
 
 use super::result::{RbacError, RbacResult};
 use super::role::RbacRole;
@@ -26,9 +26,7 @@ pub use access::ResInfo;
 pub(crate) use cache::*;
 pub use data::*;
 use lsys_core::db::OptionTxExecutor;
-use lsys_core::db::{
-    utils::FetchField, Insert, QueryBuilderExt, TableMeta, Update,
-};
+use lsys_core::db::{Insert, QueryBuilderExt, TableMeta, Update, utils::FetchField};
 pub use res_type::*;
 use sqlx::{Acquire, Transaction};
 //资源的操作相关实现
@@ -72,18 +70,18 @@ pub struct RbacResAddData<'t> {
 impl RbacRes {
     async fn res_param_valid(&self, param: &RbacResData<'_>) -> RbacResult<()> {
         let fetch_field = FetchField::new(&self.db);
-        let res_type_max =
-           fetch_field.string_max::<RbacResModel>( &RbacResModel::RES_TYPE)
-                .await
-                .len_or(32);
-        let res_data_max =
-           fetch_field.string_max::<RbacResModel>( &RbacResModel::RES_DATA)
-                .await
-                .len_or(32);
-        let res_name_max =
-           fetch_field.string_max::<RbacResModel>( &RbacResModel::RES_NAME)
-                .await
-                .len_or(32);
+        let res_type_max = fetch_field
+            .string_max::<RbacResModel>(&RbacResModel::RES_TYPE)
+            .await
+            .len_or(32);
+        let res_data_max = fetch_field
+            .string_max::<RbacResModel>(&RbacResModel::RES_DATA)
+            .await
+            .len_or(32);
+        let res_name_max = fetch_field
+            .string_max::<RbacResModel>(&RbacResModel::RES_NAME)
+            .await
+            .len_or(32);
 
         let mut param_valid = ValidParam::default();
         param_valid
@@ -156,21 +154,19 @@ impl RbacRes {
                     .execute(OptionTxExecutor::new(transaction.as_deref_mut(), &self.db))
                     .await?;
                 let add_id = res.last_insert_id();
-                Update::<_,RbacResModel>::new()
+                Update::<_, RbacResModel>::new()
                     .set(RbacResModel::CHANGE_TIME, time)
                     .set(RbacResModel::CHANGE_USER_ID, add_user_id)
                     .set(RbacResModel::STATUS, RbacResStatus::Enable as i8)
-                    .execute(
-                        OptionTxExecutor::new(transaction, &self.db),
-                        |qb| {
-                            qb.push_where().field_eq("user_id", param.user_id);
-                            qb.push_and().field_eq("res_type", res_type.to_owned());
-                            qb.push_and().field_eq("res_data", res_data.to_owned());
-                            qb.push_and().field_eq("app_id", app_id);
-                            qb.push_and().field_eq("status", RbacResStatus::Enable as i8);
-                            qb.push_and().field_ne("id", add_id);
-                        },
-                    )
+                    .execute(OptionTxExecutor::new(transaction, &self.db), |qb| {
+                        qb.push_where().field_eq("user_id", param.user_id);
+                        qb.push_and().field_eq("res_type", res_type.to_owned());
+                        qb.push_and().field_eq("res_data", res_data.to_owned());
+                        qb.push_and().field_eq("app_id", app_id);
+                        qb.push_and()
+                            .field_eq("status", RbacResStatus::Enable as i8);
+                        qb.push_and().field_ne("id", add_id);
+                    })
                     .await?;
                 self.cache_res_data
                     .clear(&ResCacheKey {
@@ -243,12 +239,9 @@ impl RbacRes {
             update = update.set(RbacResModel::RES_NAME, name as &str);
         }
         let out = update
-            .execute(
-                OptionTxExecutor::new(transaction, &self.db),
-                |qb| {
-                    qb.push_where().field_eq("id", res.id);
-                },
-            )
+            .execute(OptionTxExecutor::new(transaction, &self.db), |qb| {
+                qb.push_where().field_eq("id", res.id);
+            })
             .await?;
         let fout = out.rows_affected();
         self.cache_res_data

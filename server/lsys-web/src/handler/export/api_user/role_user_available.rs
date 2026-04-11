@@ -12,65 +12,48 @@ use std::sync::Arc;
 use lsys_access::dao::{AccessDao, UserDataParam};
 use lsys_core::db::{CursorConfig, CursorLimit, CursorPageDir, CursorPageParam, CursorPageSort};
 
-use crate::dao::access::api::system::admin::CheckAdminRbacEdit;
-use crate::dao::access::api::system::user::CheckUserAppEdit;
 use crate::dao::access::RbacAccessCheckEnv;
+use crate::dao::access::api::system::user::CheckUserRbacView;
 use crate::dao::export_task::exporter::Exporter;
 use crate::dao::export_task::writer::CsvWriter;
-use crate::dao::WebError;
-use crate::dao::WebResult;
-use crate::dao::WebRbac;
-use crate::dao::WebApp;
-use crate::model::ExportTaskModel;
+use crate::dao::{ExportTaskModel, WebExporter, WebResult};
 
 pub const EXPORT_TYPE_USER_SYSTEM_ROLE_USER_AVAILABLE: &str = "user_system_role_user_available";
 pub const EXPORT_TYPE_USER_APP_ROLE_USER_AVAILABLE: &str = "user_app_role_user_available";
 
 pub struct RoleUserAvailableExporter {
     pub access_dao: Arc<AccessDao>,
-    pub web_rbac: Arc<WebRbac>,
-    pub web_app: Arc<WebApp>,
+    pub web_rbac: Arc<crate::dao::WebRbac>,
 }
 
-impl Exporter for RoleUserAvailableExporter {
-    fn check<'a>(
-        &'a self,
-        check_env: &'a RbacAccessCheckEnv<'_>,
-        app_id: u64,
-        _app_user_id: u64,
-        _user_id: u64,
-        export_type: &'a str,
-        _params: &'a serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = WebResult<()>> + Send + 'a>>
-    {
-        Box::pin(async move {
-            if export_type == EXPORT_TYPE_USER_SYSTEM_ROLE_USER_AVAILABLE {
-                self.web_rbac
-                    .check(check_env, &CheckAdminRbacEdit {})
-                    .await?;
-            } else {
-                if app_id == 0 {
-                    return Err(WebError::Message(lsys_core::fluent_message!("export-miss-app-id")));
-                }
-                let app = self.web_app.app_dao.app.find_by_id(app_id).await?;
-                self.web_rbac
-                    .check(check_env, &CheckUserAppEdit { res_user_id: app.user_id })
-                    .await?;
-                app.app_status_check()?;
-                self.web_app.app_dao.app.inner_feature_sub_app_check(&app).await?;
-            }
-            Ok(())
-        })
+#[async_trait::async_trait]
+impl WebExporter for RoleUserAvailableExporter {
+    async fn check(
+        &self,
+        check_env: &RbacAccessCheckEnv<'_>,
+        param: &crate::dao::ExportCheckParam<'_>,
+    ) -> WebResult<()> {
+        self.web_rbac
+            .check(
+                check_env,
+                &CheckUserRbacView {
+                    res_user_id: param.user_id,
+                },
+            )
+            .await?;
+        Ok(())
     }
+}
 
+impl Exporter<crate::dao::WebError> for RoleUserAvailableExporter {
     fn export<'a>(
         &'a self,
         record: ExportTaskModel,
         params: serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<PathBuf, WebError>> + Send + 'a>>
-    {
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<PathBuf, crate::dao::WebError>> + Send + 'a>,
+    > {
         Box::pin(async move {
-
             let user_data = params["user_data"].as_str();
             let app_id = params["app_id"].as_u64().unwrap_or(0);
 
@@ -128,7 +111,7 @@ impl Exporter for RoleUserAvailableExporter {
                 }
             }
 
-            w.finish().await
+            w.finish().await.map_err(Into::into)
         })
     }
 }

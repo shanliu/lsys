@@ -25,11 +25,11 @@
 // }, |u| u.role_id).await?;
 // ```
 
+use crate::db::TableMeta;
 use sqlx::{Database, FromRow, QueryBuilder};
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::marker::PhantomData;
-use crate::db::TableMeta;
 
 /// Fetch 工具结构体
 pub struct Fetch<DB: Database, M: TableMeta> {
@@ -108,7 +108,9 @@ macro_rules! impl_fetch_for_db {
                 let data = Self::vec(executor, build_where).await?;
                 let mut hash = HashMap::new();
                 for item in data {
-                    hash.entry(key_by(&item)).or_insert_with(Vec::new).push(item);
+                    hash.entry(key_by(&item))
+                        .or_insert_with(Vec::new)
+                        .push(item);
                 }
                 Ok(hash)
             }

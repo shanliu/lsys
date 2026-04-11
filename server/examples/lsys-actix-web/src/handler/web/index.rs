@@ -1,8 +1,8 @@
 use crate::common::handler::WebHandError;
 
-use actix_web::web::Data;
 use actix_web::Result;
-use actix_web::{get, HttpResponse};
+use actix_web::web::Data;
+use actix_web::{HttpResponse, get};
 use lsys_web::dao::WebDao;
 
 #[get("/dome")]

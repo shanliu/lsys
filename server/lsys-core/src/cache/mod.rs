@@ -4,8 +4,8 @@ use hashlink::LruCache;
 use std::{
     str::FromStr,
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     },
 };
 
@@ -17,9 +17,9 @@ use tracing::{debug, warn};
 
 pub use clear::*;
 
-use crate::utils::now_time;
 use crate::fluents::IntoFluentMessage;
 use crate::remote_notify::{LocalExecType, RemoteNotify};
+use crate::utils::now_time;
 
 pub const REMOTE_NOTIFY_TYPE_CACHE: u8 = 101;
 

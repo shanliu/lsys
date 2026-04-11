@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 
 use base64::Engine;
-use captcha::filters::{Dots, Noise, Wave};
 use captcha::Captcha;
+use captcha::filters::{Dots, Noise, Wave};
 use deadpool_redis::Connection;
 use lsys_core::valid_code::{ValidCodeData, ValidCodeResult};
 

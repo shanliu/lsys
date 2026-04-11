@@ -1,9 +1,9 @@
 use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::admin::CheckAdminSmsConfig;
 use crate::dao::access::api::system::admin::CheckAdminSmsMgr;
 use lsys_access::dao::AccessSession;
 use lsys_app_sender::dao::TenYunConfig;
-use crate::dao::access::RbacAccessCheckEnv;
 use lsys_setting::dao::SettingData;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -42,7 +42,10 @@ pub async fn smser_ten_config_list(
     req_dao
         .web_dao
         .web_rbac
-        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminSmsConfig {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminSmsConfig {},
+        )
         .await?;
     let row = req_dao
         .web_dao
@@ -95,7 +98,10 @@ pub async fn smser_ten_config_add(
     req_dao
         .web_dao
         .web_rbac
-        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminSmsConfig {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminSmsConfig {},
+        )
         .await?;
 
     let row = req_dao
@@ -141,7 +147,10 @@ pub async fn smser_ten_config_edit(
     req_dao
         .web_dao
         .web_rbac
-        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminSmsConfig {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminSmsConfig {},
+        )
         .await?;
 
     let row = req_dao
@@ -180,7 +189,10 @@ pub async fn smser_ten_config_del(
     req_dao
         .web_dao
         .web_rbac
-        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminSmsConfig {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminSmsConfig {},
+        )
         .await?;
 
     let row = req_dao
@@ -213,7 +225,10 @@ pub async fn smser_tpl_config_ten_add(
     req_dao
         .web_dao
         .web_rbac
-        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminSmsMgr {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminSmsMgr {},
+        )
         .await?;
 
     let row = req_dao

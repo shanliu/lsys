@@ -2,7 +2,7 @@ mod result;
 mod rustls;
 use actix_web::dev::Server;
 use actix_web::web::{Data, JsonConfig};
-use actix_web::{error, http, middleware as middlewares, HttpResponse, HttpServer};
+use actix_web::{HttpResponse, HttpServer, error, http, middleware as middlewares};
 
 use crate::common::handler::{JwtQueryConfig, RestQueryConfig};
 use crate::common::middleware::{RedirectSsl, RequestID};

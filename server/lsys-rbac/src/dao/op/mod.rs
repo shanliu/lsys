@@ -16,10 +16,10 @@ use sqlx::{MySql, Pool};
 use std::sync::Arc;
 use std::vec;
 
-use lsys_core::utils::{now_time, RequestEnv};
+use lsys_core::utils::{RequestEnv, now_time};
 
 use lsys_core::db::{
-    utils::FetchField, Insert, OptionTxExecutor, QueryBuilderExt, TableMeta, Update,
+    Insert, OptionTxExecutor, QueryBuilderExt, TableMeta, Update, utils::FetchField,
 };
 use sqlx::{Acquire, Transaction};
 
@@ -70,10 +70,12 @@ pub struct RbacOpAddData<'t> {
 impl RbacOp {
     async fn op_param_valid(&self, param: &RbacOpData<'_>) -> RbacResult<()> {
         let fetch_field = FetchField::new(&self.db);
-        let op_key_max = fetch_field.string_max::<RbacOpModel>( &RbacOpModel::OP_KEY)
+        let op_key_max = fetch_field
+            .string_max::<RbacOpModel>(&RbacOpModel::OP_KEY)
             .await
             .len_or(32);
-        let op_name_max = fetch_field.string_max::<RbacOpModel>( &RbacOpModel::OP_NAME)
+        let op_name_max = fetch_field
+            .string_max::<RbacOpModel>(&RbacOpModel::OP_NAME)
             .await
             .len_or(32);
 
@@ -143,16 +145,13 @@ impl RbacOp {
                     .set(RbacOpModel::CHANGE_TIME, time)
                     .set(RbacOpModel::CHANGE_USER_ID, add_user_id)
                     .set(RbacOpModel::STATUS, RbacOpStatus::Enable as i8)
-                    .execute(
-                        OptionTxExecutor::new(transaction, &self.db),
-                        |qb| {
-                            qb.push_where().field_eq("user_id", param.user_id);
-                            qb.push_and().field_eq("op_key", op_key.to_owned());
-                            qb.push_and().field_eq("app_id", app_id);
-                            qb.push_and().field_eq("status", RbacOpStatus::Enable as i8);
-                            qb.push_and().field_ne("id", add_id);
-                        },
-                    )
+                    .execute(OptionTxExecutor::new(transaction, &self.db), |qb| {
+                        qb.push_where().field_eq("user_id", param.user_id);
+                        qb.push_and().field_eq("op_key", op_key.to_owned());
+                        qb.push_and().field_eq("app_id", app_id);
+                        qb.push_and().field_eq("status", RbacOpStatus::Enable as i8);
+                        qb.push_and().field_ne("id", add_id);
+                    })
                     .await?;
                 let id = add_id;
                 self.cache_op_data
@@ -214,7 +213,7 @@ impl RbacOp {
                 return Err(RbacError::System(fluent_message!("rbac-op-exits",{
                     "op_type":op_info.op_key,
                     "old_name":rm.op_name
-                })))
+                })));
             }
             Err(sqlx::Error::RowNotFound) => {}
             Err(e) => return Err(e.into()),
@@ -233,12 +232,9 @@ impl RbacOp {
             update = update.set(RbacOpModel::OP_NAME, name as &str);
         }
         let out = update
-            .execute(
-                OptionTxExecutor::new(transaction, &self.db),
-                |qb| {
-                    qb.push_where().field_eq("id", op.id);
-                },
-            )
+            .execute(OptionTxExecutor::new(transaction, &self.db), |qb| {
+                qb.push_where().field_eq("id", op.id);
+            })
             .await?;
         let fout = out.rows_affected();
         self.cache_op_data

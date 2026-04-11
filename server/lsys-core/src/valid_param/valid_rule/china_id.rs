@@ -41,7 +41,7 @@ impl<T: Display> ValidRule for ValidChinaID<T> {
                         {
                         "data": data,
                         }
-                    )))
+                    )));
                 }
             };
             sum += digit * factors[i];
@@ -57,7 +57,7 @@ impl<T: Display> ValidRule for ValidChinaID<T> {
                         {
                         "data": data,
                         }
-                    )))
+                    )));
                 }
             },
             'X' | 'x' => 10,

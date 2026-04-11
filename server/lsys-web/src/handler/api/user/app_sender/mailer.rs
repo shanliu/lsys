@@ -78,9 +78,9 @@ pub async fn mailer_message_log(
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(res, count),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        res, count,
+    ))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -245,9 +245,9 @@ pub async fn mailer_message_list(
             })
         })
         .collect::<Vec<_>>();
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::cursor(res, cursor, count),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::cursor(
+        res, cursor, count,
+    ))))
 }
 
 #[derive(Debug, Deserialize)]

@@ -1,8 +1,8 @@
 use crate::common::handler::{ResponseJson, ResponseJsonResult, RestQuery};
 use actix_web::post;
 use lsys_web::handler::rest::collector::{
-    record_files, record_logs, records, status, trigger,
-    RecordFilesParam, RecordLogsParam, RecordsParam, StatusParam, TriggerParam,
+    RecordFilesParam, RecordLogsParam, RecordsParam, StatusParam, TriggerParam, record_files,
+    record_logs, records, status, trigger,
 };
 
 #[post("")]

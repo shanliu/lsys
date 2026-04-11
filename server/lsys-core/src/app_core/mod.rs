@@ -13,4 +13,5 @@ pub use utils::create_redis_pool;
 pub use utils::create_snowflake_id_generator;
 #[cfg(feature = "tera")]
 pub use utils::create_tera;
+#[cfg(feature = "tracing")]
 pub use utils::init_tracing;

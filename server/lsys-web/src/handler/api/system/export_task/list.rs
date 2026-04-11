@@ -1,8 +1,8 @@
 use crate::common::{
     JsonData, JsonResponse, JsonResult, PageParam, ToOffsetPageParam, UserAuthQueryDao,
 };
-use crate::dao::access::api::system::admin::CheckAdminFileManage;
 use crate::dao::access::RbacAccessCheckEnv;
+use crate::dao::access::api::system::admin::CheckAdminFileManage;
 use crate::dao::export_task::ExportTaskListAttr;
 use lsys_access::dao::AccessSession;
 use lsys_core::api_utils::JsonPageData;
@@ -41,6 +41,7 @@ pub async fn admin_export_list(
 
     let page = param.page.to_offset_page_param();
     let export_type_ref = param.export_type.as_deref();
+    let request_id_ref = req_dao.req_env.request_id.as_deref();
 
     let tasks = req_dao
         .web_dao
@@ -50,6 +51,7 @@ pub async fn admin_export_list(
             0,
             Some(0),
             export_type_ref,
+            request_id_ref,
             param.status,
             &page,
             &ExportTaskListAttr {
@@ -64,14 +66,14 @@ pub async fn admin_export_list(
                 .web_dao
                 .web_files
                 .export_task
-                .count_tasks(0, Some(0), export_type_ref, param.status)
+                .count_tasks(0, Some(0), export_type_ref, request_id_ref, param.status)
                 .await?,
         )
     } else {
         None
     };
 
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(tasks, total),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        tasks, total,
+    ))))
 }

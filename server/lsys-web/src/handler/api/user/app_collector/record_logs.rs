@@ -75,7 +75,7 @@ pub async fn record_logs(
         None
     };
 
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(items, total),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        items, total,
+    ))))
 }

@@ -4,8 +4,8 @@ use csv::{ReaderBuilder, StringRecord};
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::{
-    dao::utils::name_clear, AreaCodeData, AreaDataProvider, AreaError, AreaGeoData,
-    AreaGeoDataItem, AreaResult,
+    AreaCodeData, AreaDataProvider, AreaError, AreaGeoData, AreaGeoDataItem, AreaResult,
+    dao::utils::name_clear,
 };
 
 use super::utils::{de_gz_data, en_name_keyword, read_file, read_file_md5};

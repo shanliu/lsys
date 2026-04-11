@@ -8,46 +8,41 @@ use std::sync::Arc;
 use lsys_core::db::{CursorConfig, CursorLimit, CursorPageDir, CursorPageParam, CursorPageSort};
 use lsys_rbac::dao::{AuditDataParam, RbacDao};
 
-use crate::dao::access::api::system::admin::CheckAdminRbacView;
 use crate::dao::access::RbacAccessCheckEnv;
+use crate::dao::access::api::system::admin::CheckAdminRbacView;
 use crate::dao::export_task::exporter::Exporter;
 use crate::dao::export_task::writer::CsvWriter;
-use crate::dao::WebError;
-use crate::dao::WebRbac;
-use crate::dao::WebResult;
-use crate::model::ExportTaskModel;
+use crate::dao::{ExportTaskModel, WebExporter, WebResult};
 
 pub const EXPORT_TYPE_SYSTEM_RBAC_AUDIT: &str = "system_rbac_audit";
 
 pub struct SystemRbacAuditExporter {
     pub rbac_dao: Arc<RbacDao>,
-    pub web_rbac: Arc<WebRbac>,
+    pub web_rbac: Arc<crate::dao::WebRbac>,
 }
 
-impl Exporter for SystemRbacAuditExporter {
-    fn check<'a>(
-        &'a self,
-        check_env: &'a RbacAccessCheckEnv<'_>,
-        _app_id: u64,
-        _app_user_id: u64,
-        _user_id: u64,
-        _export_type: &'a str,
-        _params: &'a serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = WebResult<()>> + Send + 'a>> {
-        Box::pin(async move {
-            self.web_rbac
-                .check(check_env, &CheckAdminRbacView {})
-                .await?;
-            Ok(())
-        })
+#[async_trait::async_trait]
+impl WebExporter for SystemRbacAuditExporter {
+    async fn check(
+        &self,
+        check_env: &RbacAccessCheckEnv<'_>,
+        _param: &crate::dao::ExportCheckParam<'_>,
+    ) -> WebResult<()> {
+        self.web_rbac
+            .check(check_env, &CheckAdminRbacView {})
+            .await?;
+        Ok(())
     }
+}
 
+impl Exporter<crate::dao::WebError> for SystemRbacAuditExporter {
     fn export<'a>(
         &'a self,
         record: ExportTaskModel,
         params: serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<PathBuf, WebError>> + Send + 'a>>
-    {
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<PathBuf, crate::dao::WebError>> + Send + 'a>,
+    > {
         Box::pin(async move {
             let user_id = params["user_id"].as_u64();
             let user_app_id = params["user_app_id"].as_u64();
@@ -126,7 +121,7 @@ impl Exporter for SystemRbacAuditExporter {
                 }
             }
 
-            w.finish().await
+            w.finish().await.map_err(Into::into)
         })
     }
 }

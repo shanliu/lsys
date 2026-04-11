@@ -1,10 +1,10 @@
 use crate::common::handler::{ResponseJson, ResponseJsonResult, RestQuery};
 use actix_web::post;
 use lsys_web::handler::rest::rbac::{
-    role_add, role_data, role_del, role_edit, role_perm_add, role_perm_data, role_perm_del,
-    role_user_add, role_user_data, role_user_del, RoleAddParam, RoleDataParam, RoleDelParam,
-    RoleEditParam, RolePermAddParam, RolePermDelParam, RolePermParam, RoleUserAddParam,
-    RoleUserDataParam, RoleUserDelParam,
+    RoleAddParam, RoleDataParam, RoleDelParam, RoleEditParam, RolePermAddParam, RolePermDelParam,
+    RolePermParam, RoleUserAddParam, RoleUserDataParam, RoleUserDelParam, role_add, role_data,
+    role_del, role_edit, role_perm_add, role_perm_data, role_perm_del, role_user_add,
+    role_user_data, role_user_del,
 };
 
 #[post("/role")]

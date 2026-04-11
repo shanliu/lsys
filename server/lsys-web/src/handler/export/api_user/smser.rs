@@ -20,16 +20,13 @@ use lsys_core::db::{
     OffsetPageValue,
 };
 
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::user::{
     CheckUserAppSenderSmsConfig, CheckUserAppSenderSmsView,
 };
-use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::export_task::exporter::Exporter;
 use crate::dao::export_task::writer::CsvWriter;
-use crate::dao::WebError;
-use crate::dao::WebRbac;
-use crate::dao::WebResult;
-use crate::model::ExportTaskModel;
+use crate::dao::{ExportTaskModel, WebExporter, WebResult};
 
 pub const EXPORT_TYPE_USER_SMSER_MESSAGE_LIST: &str = "user_smser_message_list";
 pub const EXPORT_TYPE_USER_SMSER_MESSAGE_LOG: &str = "user_smser_message_log";
@@ -38,38 +35,36 @@ pub const EXPORT_TYPE_USER_SMSER_TPL_CONFIG: &str = "user_smser_tpl_config";
 /// 短信消息列表导出
 pub struct SmserMessageListExporter {
     pub smser_dao: Arc<SmsSenderDao>,
-    pub web_rbac: Arc<WebRbac>,
+    pub web_rbac: Arc<crate::dao::WebRbac>,
 }
 
-impl Exporter for SmserMessageListExporter {
-    fn check<'a>(
-        &'a self,
-        check_env: &'a RbacAccessCheckEnv<'_>,
-        _app_id: u64,
-        _app_user_id: u64,
-        user_id: u64,
-        _export_type: &'a str,
-        _params: &'a serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = WebResult<()>> + Send + 'a>> {
-        Box::pin(async move {
-            self.web_rbac
-                .check(
-                    check_env,
-                    &CheckUserAppSenderSmsView {
-                        res_user_id: user_id,
-                    },
-                )
-                .await?;
-            Ok(())
-        })
+#[async_trait::async_trait]
+impl WebExporter for SmserMessageListExporter {
+    async fn check(
+        &self,
+        check_env: &RbacAccessCheckEnv<'_>,
+        param: &crate::dao::ExportCheckParam<'_>,
+    ) -> WebResult<()> {
+        self.web_rbac
+            .check(
+                check_env,
+                &CheckUserAppSenderSmsView {
+                    res_user_id: param.user_id,
+                },
+            )
+            .await?;
+        Ok(())
     }
+}
 
+impl Exporter<crate::dao::WebError> for SmserMessageListExporter {
     fn export<'a>(
         &'a self,
         record: ExportTaskModel,
         params: serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<PathBuf, WebError>> + Send + 'a>>
-    {
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<PathBuf, crate::dao::WebError>> + Send + 'a>,
+    > {
         Box::pin(async move {
             let user_id = params["user_id"].as_u64();
             let app_id = params["app_id"].as_u64();
@@ -151,7 +146,7 @@ impl Exporter for SmserMessageListExporter {
                 }
             }
 
-            w.finish().await
+            w.finish().await.map_err(Into::into)
         })
     }
 }
@@ -159,38 +154,36 @@ impl Exporter for SmserMessageListExporter {
 /// 短信发送日志导出
 pub struct SmserMessageLogExporter {
     pub smser_dao: Arc<SmsSenderDao>,
-    pub web_rbac: Arc<WebRbac>,
+    pub web_rbac: Arc<crate::dao::WebRbac>,
 }
 
-impl Exporter for SmserMessageLogExporter {
-    fn check<'a>(
-        &'a self,
-        check_env: &'a RbacAccessCheckEnv<'_>,
-        _app_id: u64,
-        _app_user_id: u64,
-        user_id: u64,
-        _export_type: &'a str,
-        _params: &'a serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = WebResult<()>> + Send + 'a>> {
-        Box::pin(async move {
-            self.web_rbac
-                .check(
-                    check_env,
-                    &CheckUserAppSenderSmsView {
-                        res_user_id: user_id,
-                    },
-                )
-                .await?;
-            Ok(())
-        })
+#[async_trait::async_trait]
+impl WebExporter for SmserMessageLogExporter {
+    async fn check(
+        &self,
+        check_env: &RbacAccessCheckEnv<'_>,
+        param: &crate::dao::ExportCheckParam<'_>,
+    ) -> WebResult<()> {
+        self.web_rbac
+            .check(
+                check_env,
+                &CheckUserAppSenderSmsView {
+                    res_user_id: param.user_id,
+                },
+            )
+            .await?;
+        Ok(())
     }
+}
 
+impl Exporter<crate::dao::WebError> for SmserMessageLogExporter {
     fn export<'a>(
         &'a self,
         record: ExportTaskModel,
         params: serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<PathBuf, WebError>> + Send + 'a>>
-    {
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<PathBuf, crate::dao::WebError>> + Send + 'a>,
+    > {
         Box::pin(async move {
             let message_id = params["message_id"].as_u64().unwrap_or(0);
 
@@ -225,7 +218,7 @@ impl Exporter for SmserMessageLogExporter {
                 w.write_batch(rows).await?;
             }
 
-            w.finish().await
+            w.finish().await.map_err(Into::into)
         })
     }
 }
@@ -233,38 +226,36 @@ impl Exporter for SmserMessageLogExporter {
 /// 短信模板配置列表导出
 pub struct SmserTplConfigExporter {
     pub smser_dao: Arc<SmsSenderDao>,
-    pub web_rbac: Arc<WebRbac>,
+    pub web_rbac: Arc<crate::dao::WebRbac>,
 }
 
-impl Exporter for SmserTplConfigExporter {
-    fn check<'a>(
-        &'a self,
-        check_env: &'a RbacAccessCheckEnv<'_>,
-        _app_id: u64,
-        _app_user_id: u64,
-        user_id: u64,
-        _export_type: &'a str,
-        _params: &'a serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = WebResult<()>> + Send + 'a>> {
-        Box::pin(async move {
-            self.web_rbac
-                .check(
-                    check_env,
-                    &CheckUserAppSenderSmsConfig {
-                        res_user_id: user_id,
-                    },
-                )
-                .await?;
-            Ok(())
-        })
+#[async_trait::async_trait]
+impl WebExporter for SmserTplConfigExporter {
+    async fn check(
+        &self,
+        check_env: &RbacAccessCheckEnv<'_>,
+        param: &crate::dao::ExportCheckParam<'_>,
+    ) -> WebResult<()> {
+        self.web_rbac
+            .check(
+                check_env,
+                &CheckUserAppSenderSmsConfig {
+                    res_user_id: param.user_id,
+                },
+            )
+            .await?;
+        Ok(())
     }
+}
 
+impl Exporter<crate::dao::WebError> for SmserTplConfigExporter {
     fn export<'a>(
         &'a self,
         record: ExportTaskModel,
         params: serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<PathBuf, WebError>> + Send + 'a>>
-    {
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<PathBuf, crate::dao::WebError>> + Send + 'a>,
+    > {
         Box::pin(async move {
             let id = params["id"].as_u64();
             let user_id = params["user_id"].as_u64();
@@ -316,7 +307,7 @@ impl Exporter for SmserTplConfigExporter {
                 w.write_batch(rows).await?;
             }
 
-            w.finish().await
+            w.finish().await.map_err(Into::into)
         })
     }
 }

@@ -1,6 +1,6 @@
+use actix_web::Result;
 use actix_web::error::ErrorBadRequest;
 use actix_web::web::Query;
-use actix_web::Result;
 use std::str::FromStr;
 
 pub type QueryGet = Vec<(String, String)>;

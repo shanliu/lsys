@@ -1,11 +1,9 @@
 use std::sync::Arc;
 
 use lsys_core::fluent_message;
-use lsys_core::utils::{now_time, rand_str, RandType};
+use lsys_core::utils::{RandType, now_time, rand_str};
 use lsys_core::valid_key;
-use lsys_core::valid_param::{
-    ValidIp, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
-};
+use lsys_core::valid_param::{ValidIp, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
 use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
 use tracing::warn;

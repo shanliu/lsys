@@ -1,11 +1,9 @@
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use axum::{
-    routing::{get, post},
     Router,
+    routing::{get, post},
 };
-use std::path::PathBuf;
-
 use lsys_core::app_core::AppCore;
 use lsys_sdk::ServiceClient;
 use tower_http::{
@@ -20,8 +18,6 @@ pub struct AppState {
     pub app_core: Arc<AppCore>,
     /// SDK 客户端（服务间 HTTP 通信）
     pub upstream: ServiceClient,
-    /// 网盘挂载基础路径（NFS/NAS，可选）
-    pub disk_base: Option<PathBuf>,
 }
 
 pub async fn run() -> Result<(), String> {
@@ -45,22 +41,12 @@ pub async fn run() -> Result<(), String> {
         .get_string("service_api_key")
         .unwrap_or_else(|_| "".to_string());
 
-    // 读取网盘基础路径配置
-    let base_file_path = app_core
-        .config
-        .find(None)
-        .get_string("base_file_path")
-        .unwrap_or_else(|_| "".to_string());
 
     // 创建 SDK 客户端
     let upstream = ServiceClient::new(&upstream_url, &service_api_key)
         .map_err(|e| format!("upstream client error: {e}"))?;
 
-    let disk_base = if base_file_path.is_empty() {
-        None
-    } else {
-        Some(PathBuf::from(&base_file_path))
-    };
+  
 
     // CORS 配置
     let cors_layer = {
@@ -90,7 +76,6 @@ pub async fn run() -> Result<(), String> {
     let state = Arc::new(AppState {
         app_core,
         upstream,
-        disk_base,
     });
 
     // 路由
@@ -101,7 +86,6 @@ pub async fn run() -> Result<(), String> {
         .route("/demo/upload_retoken", post(handler::demo_upload_retoken))
         .route("/demo/upload_by_md5", post(handler::demo_upload_by_md5))
         .route("/demo/from_url", post(handler::demo_from_url))
-        .route("/demo/from_local", post(handler::demo_from_local))
         .route("/demo/file_list", post(handler::demo_file_list))
         .route("/demo/file_delete", post(handler::demo_file_delete))
         .route("/demo/file_urls", post(handler::demo_file_urls))

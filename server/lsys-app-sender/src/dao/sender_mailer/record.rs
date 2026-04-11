@@ -2,7 +2,7 @@ use std::{collections::HashSet, sync::Arc};
 
 use crate::{
     dao::{
-        logger::LogMessage, MessageLogs, MessageReader, SenderConfig, SenderError, SenderResult,
+        MessageLogs, MessageReader, SenderConfig, SenderError, SenderResult, logger::LogMessage,
     },
     model::{
         SenderConfigModel, SenderLogModel, SenderMailBodyModel, SenderMailBodyStatus,
@@ -12,7 +12,7 @@ use crate::{
 };
 use lsys_core::db::{CursorPageData, CursorPageParam, OffsetPageParam, TotalParam, TotalRow};
 use lsys_core::fluent_message;
-use lsys_core::utils::{now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT};
+use lsys_core::utils::{RequestEnv, STRING_CLEAR_FORMAT, StringClear, now_time, string_clear};
 use lsys_core::valid_key;
 use lsys_core::valid_param::{
     ValidEmail, ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
@@ -112,21 +112,19 @@ impl MailRecord {
     ) -> SenderResult<TotalRow> {
         let query = total_param.total_count_query();
 
-        let mut qb = QueryBuilder::<MySql>::new(
-            if query.is_threshold_mode() {
-                format!(
-                    "select count(*) as total from (select 1 from {} as m join {} as b on m.sender_body_id=b.id",
-                    SenderMailMessageModel::table_name(),
-                    SenderMailBodyModel::table_name(),
-                )
-            } else {
-                format!(
-                    "select count(*) as total from {} as m join {} as b on m.sender_body_id=b.id",
-                    SenderMailMessageModel::table_name(),
-                    SenderMailBodyModel::table_name(),
-                )
-            }
-        );
+        let mut qb = QueryBuilder::<MySql>::new(if query.is_threshold_mode() {
+            format!(
+                "select count(*) as total from (select 1 from {} as m join {} as b on m.sender_body_id=b.id",
+                SenderMailMessageModel::table_name(),
+                SenderMailBodyModel::table_name(),
+            )
+        } else {
+            format!(
+                "select count(*) as total from {} as m join {} as b on m.sender_body_id=b.id",
+                SenderMailMessageModel::table_name(),
+                SenderMailBodyModel::table_name(),
+            )
+        });
         let mut wb = WhereClause::new(&mut qb);
         if !Self::build_message_where(
             &mut wb,
@@ -146,9 +144,7 @@ impl MailRecord {
             qb.push(") as t");
         }
 
-        let count = qb.build_query_scalar::<i64>()
-            .fetch_one(&self.db)
-            .await? as u64;
+        let count = qb.build_query_scalar::<i64>().fetch_one(&self.db).await? as u64;
 
         Ok(query.finalize(count))
     }
@@ -193,7 +189,8 @@ impl MailRecord {
         query_limit.push_order_by(&mut qb);
         query_limit.push_limit(&mut qb);
 
-        let mut m_data = qb.build_query_as::<SenderMailMessageModel>()
+        let mut m_data = qb
+            .build_query_as::<SenderMailMessageModel>()
             .fetch_all(&self.db)
             .await?;
 
@@ -212,8 +209,10 @@ impl MailRecord {
                 SenderMailBodyModel::table_name()
             ));
             pks_qb.push_where().field_in_copied("id", &pks);
-            pks_qb.build_query_as::<SenderMailBodyModel>()
-                .fetch_all(&self.db).await?
+            pks_qb
+                .build_query_as::<SenderMailBodyModel>()
+                .fetch_all(&self.db)
+                .await?
         } else {
             vec![]
         };
@@ -633,16 +632,16 @@ impl MailRecord {
                 }
             }
             None
-        })()
-            && mails.len() > max_send as usize {
-                return Err(SenderError::System(
-                    fluent_message!("mail-send-check-max-send", //"send mail limit :{}",
-                        {
-                        "max":max_send
-                        }
-                    ),
-                ));
-            }
+        })() && mails.len() > max_send as usize
+        {
+            return Err(SenderError::System(
+                fluent_message!("mail-send-check-max-send", //"send mail limit :{}",
+                    {
+                    "max":max_send
+                    }
+                ),
+            ));
+        }
         let mut limit_config: Vec<(u64, &SenderMailConfigLimit)> = vec![];
         let mut qb = QueryBuilder::<MySql>::new("SELECT * FROM (");
         for (c, r) in rule.iter() {
@@ -656,21 +655,30 @@ impl MailRecord {
                         qb.push(" UNION ALL ");
                     }
                     qb.push("select count(*) as total,");
-                    qb.push_bind(c.id);
+                    qb.push(c.id);
                     qb.push(format!(
-                        " as limit_id,m.to_mail from {} as b join {} as m\
+                        " as limit_id,m.to_mail from {} as b join {} as m \
                          on m.sender_body_id=b.id",
                         SenderMailBodyModel::table_name(),
                         SenderMailMessageModel::table_name(),
                     ));
                     qb.push_where().field_eq("b.app_id", c.app_id);
-                    qb.push_and().field_in_copied("m.status", &[SenderMailMessageStatus::IsSend as i8, SenderMailMessageStatus::IsReceived as i8]);
+                    qb.push_and().field_in_copied(
+                        "m.status",
+                        &[
+                            SenderMailMessageStatus::IsSend as i8,
+                            SenderMailMessageStatus::IsReceived as i8,
+                        ],
+                    );
                     qb.push_and().field_gte("b.expected_time", stime);
                     qb.push_and().push("(");
                     for (i, e) in mails.iter().enumerate() {
-                        if i > 0 { qb.push(" or "); }
-                        qb.field_eq("to_mail", 
-                            string_clear(e, StringClear::Option(STRING_CLEAR_FORMAT), Some(255))
+                        if i > 0 {
+                            qb.push(" or ");
+                        }
+                        qb.field_eq(
+                            "to_mail",
+                            string_clear(e, StringClear::Option(STRING_CLEAR_FORMAT), Some(255)),
                         );
                     }
                     qb.push(") group by m.to_mail");
@@ -722,22 +730,24 @@ impl MailRecord {
         }
         if !limit_config.is_empty() {
             qb.push(") AS t");
-            let data = qb.build_query_as::<(i64, i64, String)>()
+            let data = qb
+                .build_query_as::<(i64, i64, String)>()
                 .fetch_all(&self.db)
                 .await?;
             for (id, limit) in limit_config {
                 if let Some(t) = data.iter().find(|e| e.1 as u64 == id)
-                    && t.0 >= limit.max_send.into() {
-                        return Err(SenderError::System(
-                            fluent_message!("mail-send-check-limit", //  "trigger limit rule :{} on {} [{}]",
-                                {
-                                    "max_send":limit.max_send,
-                                    "to_mail":&t.2,
-                                    "config_id":id
-                                }
-                            ),
-                        ));
-                    }
+                    && t.0 >= limit.max_send.into()
+                {
+                    return Err(SenderError::System(
+                        fluent_message!("mail-send-check-limit", //  "trigger limit rule :{} on {} [{}]",
+                            {
+                                "max_send":limit.max_send,
+                                "to_mail":&t.2,
+                                "config_id":id
+                            }
+                        ),
+                    ));
+                }
             }
         }
         Ok(())

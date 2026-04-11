@@ -19,26 +19,24 @@ pub struct ServiceSignResult {
 }
 
 /// 计算服务间调用签名
-/// 
+///
 /// # Arguments
 /// * `api_key` - 服务密钥
 /// * `timestamp` - Unix 时间戳字符串，None 则自动使用当前时间
-/// 
+///
 /// # Returns
 /// ServiceSignResult 包含时间戳、原始字符串和签名结果
 pub fn compute_service_sign(api_key: &str, timestamp: Option<&str>) -> ServiceSignResult {
-    let timestamp = timestamp
-        .map(|s| s.to_string())
-        .unwrap_or_else(|| {
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .map(|d| d.as_secs().to_string())
-                .unwrap_or_else(|_| "0".to_string())
-        });
-    
+    let timestamp = timestamp.map(|s| s.to_string()).unwrap_or_else(|| {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs().to_string())
+            .unwrap_or_else(|_| "0".to_string())
+    });
+
     let raw_string = format!("{}{}", api_key, timestamp);
     let digest = md5::compute(raw_string.as_bytes());
-    
+
     ServiceSignResult {
         timestamp,
         raw_string,

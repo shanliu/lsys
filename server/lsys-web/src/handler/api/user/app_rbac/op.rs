@@ -43,13 +43,10 @@ pub async fn app_op_add(
                 app_id: Some(app.id),
                 op_info: RbacOpData {
                     op_key: &param.op_key,
-                    op_name: param.op_name.as_deref().and_then(|e| {
-                        if !e.is_empty() {
-                            Some(e)
-                        } else {
-                            None
-                        }
-                    }),
+                    op_name: param
+                        .op_name
+                        .as_deref()
+                        .and_then(|e| if !e.is_empty() { Some(e) } else { None }),
                 },
             },
             auth_data.user_id(),
@@ -89,13 +86,10 @@ pub async fn app_op_edit(
             &op,
             &RbacOpData {
                 op_key: &param.op_key,
-                op_name: param.op_name.as_deref().and_then(|e| {
-                    if !e.is_empty() {
-                        Some(e)
-                    } else {
-                        None
-                    }
-                }),
+                op_name: param
+                    .op_name
+                    .as_deref()
+                    .and_then(|e| if !e.is_empty() { Some(e) } else { None }),
             },
             auth_data.user_id(),
             None,

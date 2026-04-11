@@ -1,6 +1,6 @@
 //RBAC中角色相关实现
 
-use lsys_core::utils::{now_time, RequestEnv};
+use lsys_core::utils::{RequestEnv, now_time};
 
 use serde::Serialize;
 
@@ -10,7 +10,7 @@ use sqlx::{MySql, QueryBuilder};
 use lsys_core::db::OptionTxExecutor;
 use sqlx::Transaction;
 
-use super::{logger::LogRoleUser, RbacRole};
+use super::{RbacRole, logger::LogRoleUser};
 use crate::dao::role::fluent_message;
 use crate::{
     dao::result::{RbacError, RbacResult},
@@ -55,9 +55,10 @@ impl RbacRole {
         ));
         qb.push_where().field_in_copied("user_id", &user_id_vec);
         qb.push_and().field_eq("role_id", role.id);
-        let user_res = qb.build_query_as::<(u64, u64)>()
-        .fetch_all(&self.db)
-        .await?;
+        let user_res = qb
+            .build_query_as::<(u64, u64)>()
+            .fetch_all(&self.db)
+            .await?;
 
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
@@ -65,12 +66,12 @@ impl RbacRole {
         };
 
         let nowtime = now_time().unwrap_or_default();
-        let mut batch = BatchInsert::<_,RbacRoleUserModel>::new();
+        let mut batch = BatchInsert::<_, RbacRoleUserModel>::new();
         for RoleAddUser { user_id, timeout } in user_vec.iter() {
             let mut is_updata = false;
             for (itemid, uid) in user_res.iter() {
                 if uid == user_id {
-                    if let Err(err) = Update::<_,RbacRoleUserModel>::new()
+                    if let Err(err) = Update::<_, RbacRoleUserModel>::new()
                         .set(RbacRoleUserModel::ROLE_ID, role.id)
                         .set(RbacRoleUserModel::CHANGE_TIME, nowtime)
                         .set(RbacRoleUserModel::CHANGE_USER_ID, add_user_id)
@@ -88,7 +89,7 @@ impl RbacRole {
             }
             if !is_updata {
                 batch = batch.push(
-                    Insert::<_,RbacRoleUserModel>::new()
+                    Insert::<_, RbacRoleUserModel>::new()
                         .set(RbacRoleUserModel::USER_ID, *user_id)
                         .set(RbacRoleUserModel::TIMEOUT, *timeout)
                         .set(RbacRoleUserModel::ROLE_ID, role.id)
@@ -99,10 +100,11 @@ impl RbacRole {
             }
         }
         if !batch.is_empty()
-            && let Err(err) = batch.execute(&mut *db).await {
-                db.rollback().await?;
-                return Err(err.into());
-            }
+            && let Err(err) = batch.execute(&mut *db).await
+        {
+            db.rollback().await?;
+            return Err(err.into());
+        }
         db.commit().await?;
 
         self.cache()
@@ -140,17 +142,16 @@ impl RbacRole {
             return Ok(0);
         }
         let time = now_time().unwrap_or_default();
-        let res = Update::<_,RbacRoleUserModel>::new()
+        let res = Update::<_, RbacRoleUserModel>::new()
             .set(RbacRoleUserModel::CHANGE_USER_ID, del_user_id)
             .set(RbacRoleUserModel::CHANGE_TIME, time)
             .set(RbacRoleUserModel::STATUS, RbacRoleUserStatus::Delete as i8)
-            .execute(
-                OptionTxExecutor::new(transaction, &self.db),
-                |qb| {
-                    qb.push_where().field_eq("role_id", role.id)
-                        .push_and().field_in_copied("user_id", user_id_vec);
-                },
-            )
+            .execute(OptionTxExecutor::new(transaction, &self.db), |qb| {
+                qb.push_where()
+                    .field_eq("role_id", role.id)
+                    .push_and()
+                    .field_in_copied("user_id", user_id_vec);
+            })
             .await?;
 
         self.cache()

@@ -10,25 +10,21 @@ use crate::model::AppModel;
 use crate::model::AppRequestModel;
 use crate::model::AppRequestType;
 use crate::model::{
-    AppFeatureModel, AppOAuthClientModel,
-    AppRequestOAuthClientModel,
-    AppRequestStatus,
+    AppFeatureModel, AppOAuthClientModel, AppRequestOAuthClientModel, AppRequestStatus,
 };
 use crate::model::{AppFeatureStatus, AppSecretType};
 pub use login::*;
 use lsys_access::dao::AccessDao;
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
-use lsys_core::db::{Insert, QueryBuilderExt, Update};
 use lsys_core::db::TableMeta;
-use lsys_core::{
-    fluent_message, valid_key,
-};
+use lsys_core::db::{Insert, QueryBuilderExt, Update};
 use lsys_core::remote_notify::RemoteNotify;
 use lsys_core::utils::{
-    now_time, rand_str, string_clear, RandType, RequestEnv, StringClear, STRING_CLEAR_FORMAT,
-    STRING_CLEAR_XSS,
+    RandType, RequestEnv, STRING_CLEAR_FORMAT, STRING_CLEAR_XSS, StringClear, now_time, rand_str,
+    string_clear,
 };
 use lsys_core::valid_param::{ValidDomain, ValidParam, ValidParamCheck};
+use lsys_core::{fluent_message, valid_key};
 use lsys_logger::dao::ChangeLoggerDao;
 // use regex::Regex;
 use sqlx::{MySql, Pool};
@@ -166,7 +162,7 @@ impl AppOAuthClient {
 
         let req_status = AppRequestStatus::Pending as i8;
         let request_type = AppRequestType::OAuthClient as i8;
-        let req_res = Insert::<_,AppRequestModel>::new()
+        let req_res = Insert::<_, AppRequestModel>::new()
             .set(AppRequestModel::PARENT_APP_ID, app.parent_app_id)
             .set(AppRequestModel::APP_ID, app.id)
             .set(AppRequestModel::REQUEST_TYPE, request_type)
@@ -187,7 +183,7 @@ impl AppOAuthClient {
             .map(|e| e.trim())
             .collect::<Vec<&str>>()
             .join(",");
-        let req_res = Insert::<_,AppRequestOAuthClientModel>::new()
+        let req_res = Insert::<_, AppRequestOAuthClientModel>::new()
             .set(AppRequestOAuthClientModel::APP_REQUEST_ID, req_id)
             .set(AppRequestOAuthClientModel::SCOPE_DATA, scope_data.clone())
             .execute(&mut *db)
@@ -229,7 +225,7 @@ impl AppOAuthClient {
 
         let req_status = AppRequestStatus::Pending as i8;
         let request_type = AppRequestType::OAuthClientScope as i8;
-        let req_res = Insert::<_,AppRequestModel>::new()
+        let req_res = Insert::<_, AppRequestModel>::new()
             .set(AppRequestModel::PARENT_APP_ID, app.parent_app_id)
             .set(AppRequestModel::APP_ID, app.id)
             .set(AppRequestModel::REQUEST_TYPE, request_type)
@@ -250,7 +246,7 @@ impl AppOAuthClient {
             .map(|e| e.trim())
             .collect::<Vec<&str>>()
             .join(",");
-        let req_res = Insert::<_,AppRequestOAuthClientModel>::new()
+        let req_res = Insert::<_, AppRequestOAuthClientModel>::new()
             .set(AppRequestOAuthClientModel::APP_REQUEST_ID, req_id)
             .set(AppRequestOAuthClientModel::SCOPE_DATA, &scope_data)
             .execute(&mut *db)
@@ -366,7 +362,7 @@ impl AppOAuthClient {
             //驳回
             let status = req_status as i8;
             // let confirm_note = confirm_note.to_owned();
-            Update::<_,AppRequestModel>::new()
+            Update::<_, AppRequestModel>::new()
                 .set(AppRequestModel::STATUS, status)
                 .set(AppRequestModel::CONFIRM_USER_ID, confirm_user_id)
                 .set(AppRequestModel::CONFIRM_TIME, time)
@@ -424,7 +420,7 @@ impl AppOAuthClient {
         match fe_res {
             Ok(oid) => {
                 let status = AppFeatureStatus::Enable as i8;
-                let cres = Update::<_,AppFeatureModel>::new()
+                let cres = Update::<_, AppFeatureModel>::new()
                     .set(AppFeatureModel::STATUS, status)
                     .set(AppFeatureModel::CHANGE_USER_ID, confirm_user_id)
                     .set(AppFeatureModel::CHANGE_TIME, time)
@@ -440,7 +436,7 @@ impl AppOAuthClient {
             Err(sqlx::Error::RowNotFound) => {
                 let status = AppFeatureStatus::Enable as i8;
                 let feature_key = AppRequestType::OAuthClient.feature_key().to_string();
-                let cres = Insert::<_,AppFeatureModel>::new()
+                let cres = Insert::<_, AppFeatureModel>::new()
                     .set(AppFeatureModel::APP_ID, app.id)
                     .set(AppFeatureModel::STATUS, status)
                     .set(AppFeatureModel::FEATURE_KEY, feature_key)
@@ -467,7 +463,7 @@ impl AppOAuthClient {
                     }
                 }
                 let set_scope = scope_set.join(",");
-                let cres = Update::<_,AppOAuthClientModel>::new()
+                let cres = Update::<_, AppOAuthClientModel>::new()
                     .set(AppOAuthClientModel::SCOPE_DATA, set_scope)
                     .set(AppOAuthClientModel::CHANGE_USER_ID, confirm_user_id)
                     .set(AppOAuthClientModel::CHANGE_TIME, time)
@@ -481,7 +477,7 @@ impl AppOAuthClient {
                 }
             }
             Err(sqlx::Error::RowNotFound) => {
-                let cres = Insert::<_,AppOAuthClientModel>::new()
+                let cres = Insert::<_, AppOAuthClientModel>::new()
                     .set(AppOAuthClientModel::APP_ID, app.id)
                     .set(AppOAuthClientModel::SCOPE_DATA, &scope_data)
                     .set(AppOAuthClientModel::CHANGE_USER_ID, confirm_user_id)
@@ -517,7 +513,7 @@ impl AppOAuthClient {
         };
         let status = set_req_status as i8;
         let confirm_note = confirm_note.to_owned();
-        let cres = Update::<_,AppRequestModel>::new()
+        let cres = Update::<_, AppRequestModel>::new()
             .set(AppRequestModel::STATUS, status)
             .set(AppRequestModel::CONFIRM_USER_ID, confirm_user_id)
             .set(AppRequestModel::CONFIRM_TIME, time)
@@ -597,7 +593,7 @@ impl AppOAuthClient {
             //驳回
             let status = set_req_status as i8;
             let confirm_note = confirm_note.to_owned();
-            Update::<_,AppRequestModel>::new()
+            Update::<_, AppRequestModel>::new()
                 .set(AppRequestModel::STATUS, status)
                 .set(AppRequestModel::CONFIRM_USER_ID, confirm_user_id)
                 .set(AppRequestModel::CONFIRM_TIME, time)
@@ -624,7 +620,7 @@ impl AppOAuthClient {
         }
 
         let set_scope = tmp_scope.join(",");
-        let cres = Update::<_,AppOAuthClientModel>::new()
+        let cres = Update::<_, AppOAuthClientModel>::new()
             .set(AppOAuthClientModel::SCOPE_DATA, set_scope)
             .set(AppOAuthClientModel::CHANGE_USER_ID, confirm_user_id)
             .set(AppOAuthClientModel::CHANGE_TIME, time)
@@ -638,7 +634,7 @@ impl AppOAuthClient {
         }
         let status = AppRequestStatus::Approved as i8;
         let confirm_note = confirm_note.to_owned();
-        let cres = Update::<_,AppRequestModel>::new()
+        let cres = Update::<_, AppRequestModel>::new()
             .set(AppRequestModel::STATUS, status)
             .set(AppRequestModel::CONFIRM_USER_ID, confirm_user_id)
             .set(AppRequestModel::CONFIRM_TIME, time)
@@ -715,7 +711,7 @@ impl AppOAuthClient {
         let callback_domain = callback_domain.to_owned();
         match oa_res {
             Ok(oid) => {
-                Update::<_,AppOAuthClientModel>::new()
+                Update::<_, AppOAuthClientModel>::new()
                     .set(AppOAuthClientModel::CHANGE_USER_ID, set_user_id)
                     .set(AppOAuthClientModel::CHANGE_TIME, time)
                     .set(AppOAuthClientModel::CALLBACK_DOMAIN, &callback_domain)
@@ -726,7 +722,7 @@ impl AppOAuthClient {
             }
             Err(sqlx::Error::RowNotFound) => {
                 let scope_data = "";
-                Insert::<_,AppOAuthClientModel>::new()
+                Insert::<_, AppOAuthClientModel>::new()
                     .set(AppOAuthClientModel::APP_ID, app.id)
                     .set(AppOAuthClientModel::SCOPE_DATA, scope_data)
                     .set(AppOAuthClientModel::CHANGE_USER_ID, set_user_id)

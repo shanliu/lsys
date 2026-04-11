@@ -7,8 +7,8 @@ use async_trait::async_trait;
 use lsys_core::fluent_message;
 use reqwest::Client;
 use reqwest::{
-    header::{HeaderMap, HeaderValue},
     StatusCode,
+    header::{HeaderMap, HeaderValue},
 };
 use std::time::Duration;
 use tracing::{debug, info};

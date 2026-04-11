@@ -215,7 +215,7 @@ pub async fn email_list_data(
         .user_email(account.id, status.as_deref())
         .await?;
     let len = data.len() as u64;
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(data, len),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        data, len,
+    ))))
 }

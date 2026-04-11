@@ -5,13 +5,10 @@ use crate::model::{SenderTplConfigModel, SenderTplConfigStatus, SenderType};
 
 use super::logger::LogAppConfig;
 use super::{SenderError, SenderResult};
-use lsys_core::db::{Insert, QueryBuilderExt, TableMeta, Update, WhereClause};
 use lsys_core::db::OffsetPageParam;
+use lsys_core::db::{Insert, QueryBuilderExt, TableMeta, Update, WhereClause};
 use lsys_core::fluent_message;
-use sqlx::{MySql, QueryBuilder};
-use lsys_core::utils::{
-    now_time, string_clear, RequestEnv, StringClear, STRING_CLEAR_FORMAT,
-};
+use lsys_core::utils::{RequestEnv, STRING_CLEAR_FORMAT, StringClear, now_time, string_clear};
 use lsys_core::valid_key;
 use lsys_core::valid_param::{
     ValidError, ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
@@ -22,6 +19,7 @@ use lsys_setting::model::SettingModel;
 use serde::Serialize;
 use serde_json::json;
 use sqlx::Pool;
+use sqlx::{MySql, QueryBuilder};
 
 //发送模板跟发送接口配置
 
@@ -97,8 +95,10 @@ impl SenderTplConfig {
         ));
         let res = {
             let mut wb = WhereClause::new(&mut qb);
-            self.push_list_where(&mut wb, id, user_id, app_id, tpl_key, like_tpl_key).is_none()
-        }; if res {
+            self.push_list_where(&mut wb, id, user_id, app_id, tpl_key, like_tpl_key)
+                .is_none()
+        };
+        if res {
             return Ok(0);
         }
         Ok(qb.build_query_scalar::<i64>().fetch_one(&self.db).await?)
@@ -113,7 +113,8 @@ impl SenderTplConfig {
         like_tpl_key: Option<&str>,
     ) -> Option<()> {
         wb.and().field_eq("sender_type", self.send_type as i8);
-        wb.and().field_eq("status", SenderTplConfigStatus::Enable as i8);
+        wb.and()
+            .field_eq("status", SenderTplConfigStatus::Enable as i8);
         if let Some(aid) = id {
             wb.and().field_eq("id", aid);
         }
@@ -154,13 +155,16 @@ impl SenderTplConfig {
         ));
         let res = {
             let mut wb = WhereClause::new(&mut qb);
-            self.push_list_where(&mut wb, id, user_id, app_id, tpl_key, like_tpl_key).is_none()
-        }; if res {
+            self.push_list_where(&mut wb, id, user_id, app_id, tpl_key, like_tpl_key)
+                .is_none()
+        };
+        if res {
             return Ok(vec![]);
         }
         qb.push(" order by id desc");
         page.push_limit(&mut qb);
-        let res = qb.build_query_as::<SenderTplConfigModel>()
+        let res = qb
+            .build_query_as::<SenderTplConfigModel>()
             .fetch_all(&self.db)
             .await?;
 
@@ -262,7 +266,7 @@ impl SenderTplConfig {
                         "id":id,
                         "name":name
                     }),
-                )))
+                )));
             }
             Err(sqlx::Error::RowNotFound) => {}
             Err(err) => return Err(err)?,
@@ -274,7 +278,7 @@ impl SenderTplConfig {
         let time = now_time().unwrap_or_default();
         let send_type = self.send_type as i8;
 
-        let id = Insert::<_,SenderTplConfigModel>::new()
+        let id = Insert::<_, SenderTplConfigModel>::new()
             .set(SenderTplConfigModel::NAME, &name)
             .set(SenderTplConfigModel::SENDER_TYPE, send_type)
             .set(SenderTplConfigModel::APP_ID, app_id)
@@ -284,7 +288,10 @@ impl SenderTplConfig {
             .set(SenderTplConfigModel::USER_ID, user_id)
             .set(SenderTplConfigModel::CHANGE_USER_ID, add_user_id)
             .set(SenderTplConfigModel::SETTING_ID, setting_id)
-            .set(SenderTplConfigModel::STATUS, SenderTplConfigStatus::Enable as i8)
+            .set(
+                SenderTplConfigModel::STATUS,
+                SenderTplConfigStatus::Enable as i8,
+            )
             .execute(&self.db)
             .await
             .map(|e| e.last_insert_id())?;
@@ -320,8 +327,11 @@ impl SenderTplConfig {
             return Ok(0);
         }
         let time = now_time().unwrap_or_default();
-        let res = Update::<_,SenderTplConfigModel>::new()
-            .set(SenderTplConfigModel::STATUS, SenderTplConfigStatus::Delete as i8)
+        let res = Update::<_, SenderTplConfigModel>::new()
+            .set(
+                SenderTplConfigModel::STATUS,
+                SenderTplConfigStatus::Delete as i8,
+            )
             .set(SenderTplConfigModel::CHANGE_TIME, time)
             .set(SenderTplConfigModel::CHANGE_USER_ID, user_id)
             .execute(&self.db, |qb| {
@@ -357,4 +367,3 @@ impl SenderTplConfig {
         }
     }
 }
-

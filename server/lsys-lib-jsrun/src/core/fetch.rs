@@ -40,16 +40,18 @@ fn validate_host(
 
     // whitelist check
     if let Some(list) = allow_list
-        && !list.contains(host) {
-            return Err(format!("Host '{}' is not in the allow-list", host));
-        }
+        && !list.contains(host)
+    {
+        return Err(format!("Host '{}' is not in the allow-list", host));
+    }
 
     // private IP check
     if deny_private
         && let Ok(ip) = host.parse::<IpAddr>()
-            && is_private_ip(&ip) {
-                return Err(format!("Access to private IP '{}' is denied", ip));
-            }
+        && is_private_ip(&ip)
+    {
+        return Err(format!("Access to private IP '{}' is denied", ip));
+    }
 
     Ok(())
 }

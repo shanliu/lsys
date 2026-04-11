@@ -3,7 +3,7 @@ use crate::common::handler::{
 };
 use actix_web::post;
 use lsys_web::handler::api::user::rbac::{
-    dynamic_res_type, dynamic_res_type_from_test, static_res_data, UserResDataFromUserResTypeParam,
+    UserResDataFromUserResTypeParam, dynamic_res_type, dynamic_res_type_from_test, static_res_data,
 };
 
 #[post("/res/{method}")]

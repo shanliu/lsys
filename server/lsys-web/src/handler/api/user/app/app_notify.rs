@@ -2,8 +2,8 @@ use crate::common::JsonData;
 use crate::common::ToCursorPageParam;
 use crate::common::UserAuthQueryDao;
 use crate::common::{JsonResponse, JsonResult, LimitParam};
-use crate::dao::access::api::system::user::CheckUserNotifyView;
 use crate::dao::access::RbacAccessCheckEnv;
+use crate::dao::access::api::system::user::CheckUserNotifyView;
 use lsys_access::dao::AccessSession;
 use lsys_app::model::AppNotifyDataStatus;
 use lsys_core::api_utils::{JsonPageData, PageCursorValue, PageTotalRowValue};
@@ -130,9 +130,9 @@ pub async fn notify_data_list(
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::cursor(out, cursor, count),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::cursor(
+        out, cursor, count,
+    ))))
 }
 
 #[derive(Deserialize)]

@@ -1,17 +1,16 @@
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::db::OffsetPageParam;
 use lsys_core::db::{
-    utils::FetchField, Insert, OptionTxExecutor, QueryBuilderExt, TableMeta,
-    Update,
+    Insert, OptionTxExecutor, QueryBuilderExt, TableMeta, Update, utils::FetchField,
 };
 use lsys_core::fluent_message;
 use lsys_core::fluents::IntoFluentMessage;
 use lsys_core::remote_notify::RemoteNotify;
-use lsys_core::utils::{now_time, RequestEnv};
+use lsys_core::utils::{RequestEnv, now_time};
+use lsys_core::valid_key;
 use lsys_core::valid_param::{
     ValidError, ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen,
 };
-use lsys_core::valid_key;
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{MySql, Pool, QueryBuilder, Transaction};
 use std::sync::Arc;
@@ -50,17 +49,18 @@ pub struct MultipleSettingData<'t, T: SettingEncode> {
 impl MultipleSetting {
     async fn add_param_valid(&self, key: &str, name: &str, data: &str) -> SettingResult<()> {
         let fetch_field = FetchField::new(&self.db);
-        let setting_key_max =
-           fetch_field.string_max::<SettingModel>( &SettingModel::SETTING_KEY)
-                .await
-                .len_or(32);
-        let name_max = fetch_field.string_max::<SettingModel>( &SettingModel::NAME)
+        let setting_key_max = fetch_field
+            .string_max::<SettingModel>(&SettingModel::SETTING_KEY)
             .await
             .len_or(32);
-        let setting_data_max =
-           fetch_field.string_max::<SettingModel>( &SettingModel::SETTING_DATA)
-                .await
-                .len_or(60000);
+        let name_max = fetch_field
+            .string_max::<SettingModel>(&SettingModel::NAME)
+            .await
+            .len_or(32);
+        let setting_data_max = fetch_field
+            .string_max::<SettingModel>(&SettingModel::SETTING_DATA)
+            .await
+            .len_or(60000);
 
         ValidParam::default()
             .add(
@@ -125,7 +125,7 @@ impl MultipleSetting {
                         "id":id,
                         "name":name
                     }),
-                )))
+                )));
             }
             Err(sqlx::Error::RowNotFound) => {}
             Err(err) => return Err(err)?,
@@ -169,17 +169,18 @@ impl MultipleSetting {
         data: &str,
     ) -> SettingResult<()> {
         let fetch_field = FetchField::new(&self.db);
-        let setting_key_max =
-           fetch_field.string_max::<SettingModel>( &SettingModel::SETTING_KEY)
-                .await
-                .len_or(32);
-        let name_max = fetch_field.string_max::<SettingModel>( &SettingModel::NAME)
+        let setting_key_max = fetch_field
+            .string_max::<SettingModel>(&SettingModel::SETTING_KEY)
             .await
             .len_or(32);
-        let setting_data_max =
-           fetch_field.string_max::<SettingModel>( &SettingModel::SETTING_DATA)
-                .await
-                .len_or(60000);
+        let name_max = fetch_field
+            .string_max::<SettingModel>(&SettingModel::NAME)
+            .await
+            .len_or(32);
+        let setting_data_max = fetch_field
+            .string_max::<SettingModel>(&SettingModel::SETTING_DATA)
+            .await
+            .len_or(60000);
 
         ValidParam::default()
             .add(
@@ -249,7 +250,7 @@ impl MultipleSetting {
                         "id":id,
                         "name":name
                     }),
-                )))
+                )));
             }
             Err(sqlx::Error::RowNotFound) => {}
             Err(err) => return Err(err)?,
@@ -262,15 +263,13 @@ impl MultipleSetting {
             .set(SettingModel::NAME, &name)
             .set(SettingModel::CHANGE_USER_ID, change_user_id)
             .set(SettingModel::CHANGE_TIME, time)
-            .execute(
-                OptionTxExecutor::new(transaction, &self.db),
-                |qb| {
-                    qb.push_where().field_eq("id", id);
-                    qb.push_and().field_eq("setting_type", SettingType::Multiple as i8);
-                    qb.push_and().field_eq("setting_key", key.to_owned());
-                    qb.push_and().field_eq("user_id", uid);
-                },
-            )
+            .execute(OptionTxExecutor::new(transaction, &self.db), |qb| {
+                qb.push_where().field_eq("id", id);
+                qb.push_and()
+                    .field_eq("setting_type", SettingType::Multiple as i8);
+                qb.push_and().field_eq("setting_key", key.to_owned());
+                qb.push_and().field_eq("user_id", uid);
+            })
             .await?;
 
         self.cache.clear(&format!("{}-{}", key, uid)).await;
@@ -330,12 +329,9 @@ impl MultipleSetting {
                     .set(SettingModel::STATUS, status)
                     .set(SettingModel::CHANGE_USER_ID, change_user_id)
                     .set(SettingModel::CHANGE_TIME, time)
-                    .execute(
-                        OptionTxExecutor::new(transaction, &self.db),
-                        |qb| {
-                            qb.push_where().field_eq("id", item.id);
-                        },
-                    )
+                    .execute(OptionTxExecutor::new(transaction, &self.db), |qb| {
+                        qb.push_where().field_eq("id", item.id);
+                    })
                     .await?;
                 self.cache.clear(&format!("{}-{}", key, uid)).await;
 
@@ -370,12 +366,12 @@ impl MultipleSetting {
     ) -> SettingResult<Vec<SettingData<T>>> {
         let key = T::key().to_string();
         let uid = user_id.unwrap_or_default();
-        let mut qb = QueryBuilder::<MySql>::new(format!(
-            "select * from {}",
-            SettingModel::table_name(),
-        ));
-        qb.push_where().field_eq("status", SettingStatus::Enable as i8);
-        qb.push_and().field_eq("setting_type", SettingType::Multiple as i8);
+        let mut qb =
+            QueryBuilder::<MySql>::new(format!("select * from {}", SettingModel::table_name(),));
+        qb.push_where()
+            .field_eq("status", SettingStatus::Enable as i8);
+        qb.push_and()
+            .field_eq("setting_type", SettingType::Multiple as i8);
         qb.push_and().field_eq("setting_key", key.to_owned());
         qb.push_and().field_eq("user_id", uid);
         if let Some(id) = ids {
@@ -386,7 +382,10 @@ impl MultipleSetting {
         }
         page.push_limit(&mut qb);
 
-        let data = qb.build_query_as::<SettingModel>().fetch_all(&self.db).await?;
+        let data = qb
+            .build_query_as::<SettingModel>()
+            .fetch_all(&self.db)
+            .await?;
 
         let mut out = Vec::with_capacity(data.len());
         for model in data {

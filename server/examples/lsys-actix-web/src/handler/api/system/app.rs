@@ -3,17 +3,16 @@ use crate::common::handler::{
 };
 use actix_web::post;
 use lsys_web::handler::api::system::app::{
-    app_list, app_logout, confirm, confirm_exter_feature,
-    confirm_inner_feature_exter_login_confirm, confirm_inner_feature_sub_app_confirm, delete,
-    disable, exter_feature_add, exter_feature_del, exter_feature_edit, exter_feature_list,
-    mapping_data, oauth_client_clear_access_token, oauth_client_clear_refresh_token,
-    oauth_client_confirm, oauth_client_scope_confirm, oauth_server_confirm, request_list,
-    sub_app_list, AppLogoutParam, ClearOAuthClientAccessTokenParam,
-    ClearOAuthClientRefreshTokenParam, ConfirmExterFeatureParam, ConfirmExterLoginFeatureParam,
-    ConfirmInnerFeatureSubAppParam, ConfirmOAuthClientParam, ConfirmOAuthClientScopeParam,
-    ConfirmOAuthServerParam, ConfirmParam, DeleteParam, DisableParam, ExterFeatureAddParam,
-    ExterFeatureDelParam, ExterFeatureEditParam, ExterFeatureListParam, ListParam,
-    RequestListParam, SubListParam,
+    AppLogoutParam, ClearOAuthClientAccessTokenParam, ClearOAuthClientRefreshTokenParam,
+    ConfirmExterFeatureParam, ConfirmExterLoginFeatureParam, ConfirmInnerFeatureSubAppParam,
+    ConfirmOAuthClientParam, ConfirmOAuthClientScopeParam, ConfirmOAuthServerParam, ConfirmParam,
+    DeleteParam, DisableParam, ExterFeatureAddParam, ExterFeatureDelParam, ExterFeatureEditParam,
+    ExterFeatureListParam, ListParam, RequestListParam, SubListParam, app_list, app_logout,
+    confirm, confirm_exter_feature, confirm_inner_feature_exter_login_confirm,
+    confirm_inner_feature_sub_app_confirm, delete, disable, exter_feature_add, exter_feature_del,
+    exter_feature_edit, exter_feature_list, mapping_data, oauth_client_clear_access_token,
+    oauth_client_clear_refresh_token, oauth_client_confirm, oauth_client_scope_confirm,
+    oauth_server_confirm, request_list, sub_app_list,
 };
 
 #[post("/{method}")]

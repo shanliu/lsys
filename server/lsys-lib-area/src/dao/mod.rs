@@ -7,7 +7,7 @@ pub use area_code::*;
 pub use area_store::*;
 mod area_geo;
 pub use area_geo::*;
-use tantivy::{directory::error::OpenDirectoryError, query::QueryParserError, TantivyError};
+use tantivy::{TantivyError, directory::error::OpenDirectoryError, query::QueryParserError};
 mod area;
 pub use area::*;
 use std::fmt::{Display, Formatter};

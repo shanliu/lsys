@@ -1,5 +1,5 @@
 use std::{
-    collections::{hash_map::Entry, HashMap},
+    collections::{HashMap, hash_map::Entry},
     sync::Arc,
     time::Duration,
 };
@@ -14,12 +14,12 @@ use crate::{
 };
 use async_trait::async_trait;
 use lettre::{
-    message::{header, Mailbox, MultiPart, SinglePart},
+    AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
+    message::{Mailbox, MultiPart, SinglePart, header},
     transport::smtp::{
         authentication::Credentials,
         client::{Tls, TlsParametersBuilder},
     },
-    AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
 };
 use lsys_core::db::OffsetPageParam;
 use lsys_core::fluent_message;

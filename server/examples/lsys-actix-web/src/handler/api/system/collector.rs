@@ -4,6 +4,17 @@ use crate::common::handler::{
 
 use actix_web::post;
 
+use lsys_web::handler::api::system::collector::RecordFilesParam;
+use lsys_web::handler::api::system::collector::RecordLogsParam;
+use lsys_web::handler::api::system::collector::ScriptAddParam;
+use lsys_web::handler::api::system::collector::ScriptDeleteParam;
+use lsys_web::handler::api::system::collector::ScriptEditParam;
+use lsys_web::handler::api::system::collector::ScriptFilesParam;
+use lsys_web::handler::api::system::collector::ScriptListParam;
+use lsys_web::handler::api::system::collector::ScriptLogsParam;
+use lsys_web::handler::api::system::collector::ScriptRecordsParam;
+use lsys_web::handler::api::system::collector::ScriptStatusParam;
+use lsys_web::handler::api::system::collector::SubmitTaskParam;
 use lsys_web::handler::api::system::collector::mapping_data;
 use lsys_web::handler::api::system::collector::record_files;
 use lsys_web::handler::api::system::collector::record_logs;
@@ -16,17 +27,6 @@ use lsys_web::handler::api::system::collector::script_records;
 use lsys_web::handler::api::system::collector::script_status;
 use lsys_web::handler::api::system::collector::scripts;
 use lsys_web::handler::api::system::collector::submit_task;
-use lsys_web::handler::api::system::collector::RecordFilesParam;
-use lsys_web::handler::api::system::collector::RecordLogsParam;
-use lsys_web::handler::api::system::collector::ScriptAddParam;
-use lsys_web::handler::api::system::collector::ScriptDeleteParam;
-use lsys_web::handler::api::system::collector::ScriptEditParam;
-use lsys_web::handler::api::system::collector::ScriptFilesParam;
-use lsys_web::handler::api::system::collector::ScriptListParam;
-use lsys_web::handler::api::system::collector::ScriptLogsParam;
-use lsys_web::handler::api::system::collector::ScriptRecordsParam;
-use lsys_web::handler::api::system::collector::ScriptStatusParam;
-use lsys_web::handler::api::system::collector::SubmitTaskParam;
 
 #[post("/{type}")]
 pub async fn collector(

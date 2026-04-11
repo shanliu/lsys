@@ -1,6 +1,6 @@
 use futures_util::future::BoxFuture;
 use futures_util::stream::BoxStream;
-use sqlx::{error::Error, Database, Describe, Either, Execute, Executor, Pool};
+use sqlx::{Database, Describe, Either, Execute, Executor, Pool, error::Error};
 use std::fmt::Debug;
 
 pub enum OptionTxExecutor<'c, DB: Database> {

@@ -199,8 +199,8 @@ pub async fn mobile_list_data(
         .account
         .user_mobile(account.id, status.as_deref())
         .await?;
-    let total=data.len();
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(data, total),
-    )))
+    let total = data.len();
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        data, total,
+    ))))
 }

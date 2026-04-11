@@ -71,9 +71,11 @@ pub async fn login_history(
         None
     };
     let cursor = PageCursorValue::from(&next_data);
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::cursor(bind_vec_user_info_from_req!(req_dao, res, user_id,false), cursor, count),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::cursor(
+        bind_vec_user_info_from_req!(req_dao, res, user_id, false),
+        cursor,
+        count,
+    ))))
 }
 
 #[derive(Debug, Deserialize)]

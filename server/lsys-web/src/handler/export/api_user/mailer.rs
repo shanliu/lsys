@@ -20,16 +20,13 @@ use lsys_core::db::{
     OffsetPageValue,
 };
 
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::user::{
     CheckUserAppSenderMailConfig, CheckUserAppSenderMailView,
 };
-use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::export_task::exporter::Exporter;
 use crate::dao::export_task::writer::CsvWriter;
-use crate::dao::WebError;
-use crate::dao::WebRbac;
-use crate::dao::WebResult;
-use crate::model::ExportTaskModel;
+use crate::dao::{ExportTaskModel, WebExporter, WebResult};
 
 pub const EXPORT_TYPE_USER_MAILER_MESSAGE_LIST: &str = "user_mailer_message_list";
 pub const EXPORT_TYPE_USER_MAILER_MESSAGE_LOG: &str = "user_mailer_message_log";
@@ -38,38 +35,36 @@ pub const EXPORT_TYPE_USER_MAILER_TPL_CONFIG: &str = "user_mailer_tpl_config";
 /// 邮件消息列表导出
 pub struct MailerMessageListExporter {
     pub mailer_dao: Arc<MailSenderDao>,
-    pub web_rbac: Arc<WebRbac>,
+    pub web_rbac: Arc<crate::dao::WebRbac>,
 }
 
-impl Exporter for MailerMessageListExporter {
-    fn check<'a>(
-        &'a self,
-        check_env: &'a RbacAccessCheckEnv<'_>,
-        _app_id: u64,
-        _app_user_id: u64,
-        user_id: u64,
-        _export_type: &'a str,
-        _params: &'a serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = WebResult<()>> + Send + 'a>> {
-        Box::pin(async move {
-            self.web_rbac
-                .check(
-                    check_env,
-                    &CheckUserAppSenderMailView {
-                        res_user_id: user_id,
-                    },
-                )
-                .await?;
-            Ok(())
-        })
+#[async_trait::async_trait]
+impl WebExporter for MailerMessageListExporter {
+    async fn check(
+        &self,
+        check_env: &RbacAccessCheckEnv<'_>,
+        param: &crate::dao::ExportCheckParam<'_>,
+    ) -> WebResult<()> {
+        self.web_rbac
+            .check(
+                check_env,
+                &CheckUserAppSenderMailView {
+                    res_user_id: param.user_id,
+                },
+            )
+            .await?;
+        Ok(())
     }
+}
 
+impl Exporter<crate::dao::WebError> for MailerMessageListExporter {
     fn export<'a>(
         &'a self,
         record: ExportTaskModel,
         params: serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<PathBuf, WebError>> + Send + 'a>>
-    {
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<PathBuf, crate::dao::WebError>> + Send + 'a>,
+    > {
         Box::pin(async move {
             let user_id = params["user_id"].as_u64();
             let app_id = params["app_id"].as_u64();
@@ -149,7 +144,7 @@ impl Exporter for MailerMessageListExporter {
                 }
             }
 
-            w.finish().await
+            w.finish().await.map_err(Into::into)
         })
     }
 }
@@ -157,38 +152,36 @@ impl Exporter for MailerMessageListExporter {
 /// 邮件发送日志导出
 pub struct MailerMessageLogExporter {
     pub mailer_dao: Arc<MailSenderDao>,
-    pub web_rbac: Arc<WebRbac>,
+    pub web_rbac: Arc<crate::dao::WebRbac>,
 }
 
-impl Exporter for MailerMessageLogExporter {
-    fn check<'a>(
-        &'a self,
-        check_env: &'a RbacAccessCheckEnv<'_>,
-        _app_id: u64,
-        _app_user_id: u64,
-        user_id: u64,
-        _export_type: &'a str,
-        _params: &'a serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = WebResult<()>> + Send + 'a>> {
-        Box::pin(async move {
-            self.web_rbac
-                .check(
-                    check_env,
-                    &CheckUserAppSenderMailView {
-                        res_user_id: user_id,
-                    },
-                )
-                .await?;
-            Ok(())
-        })
+#[async_trait::async_trait]
+impl WebExporter for MailerMessageLogExporter {
+    async fn check(
+        &self,
+        check_env: &RbacAccessCheckEnv<'_>,
+        param: &crate::dao::ExportCheckParam<'_>,
+    ) -> WebResult<()> {
+        self.web_rbac
+            .check(
+                check_env,
+                &CheckUserAppSenderMailView {
+                    res_user_id: param.user_id,
+                },
+            )
+            .await?;
+        Ok(())
     }
+}
 
+impl Exporter<crate::dao::WebError> for MailerMessageLogExporter {
     fn export<'a>(
         &'a self,
         record: ExportTaskModel,
         params: serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<PathBuf, WebError>> + Send + 'a>>
-    {
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<PathBuf, crate::dao::WebError>> + Send + 'a>,
+    > {
         Box::pin(async move {
             let message_id = params["message_id"].as_u64().unwrap_or(0);
 
@@ -223,7 +216,7 @@ impl Exporter for MailerMessageLogExporter {
                 w.write_batch(rows).await?;
             }
 
-            w.finish().await
+            w.finish().await.map_err(Into::into)
         })
     }
 }
@@ -231,38 +224,36 @@ impl Exporter for MailerMessageLogExporter {
 /// 邮件模板配置列表导出
 pub struct MailerTplConfigExporter {
     pub mailer_dao: Arc<MailSenderDao>,
-    pub web_rbac: Arc<WebRbac>,
+    pub web_rbac: Arc<crate::dao::WebRbac>,
 }
 
-impl Exporter for MailerTplConfigExporter {
-    fn check<'a>(
-        &'a self,
-        check_env: &'a RbacAccessCheckEnv<'_>,
-        _app_id: u64,
-        _app_user_id: u64,
-        user_id: u64,
-        _export_type: &'a str,
-        _params: &'a serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = WebResult<()>> + Send + 'a>> {
-        Box::pin(async move {
-            self.web_rbac
-                .check(
-                    check_env,
-                    &CheckUserAppSenderMailConfig {
-                        res_user_id: user_id,
-                    },
-                )
-                .await?;
-            Ok(())
-        })
+#[async_trait::async_trait]
+impl WebExporter for MailerTplConfigExporter {
+    async fn check(
+        &self,
+        check_env: &RbacAccessCheckEnv<'_>,
+        param: &crate::dao::ExportCheckParam<'_>,
+    ) -> WebResult<()> {
+        self.web_rbac
+            .check(
+                check_env,
+                &CheckUserAppSenderMailConfig {
+                    res_user_id: param.user_id,
+                },
+            )
+            .await?;
+        Ok(())
     }
+}
 
+impl Exporter<crate::dao::WebError> for MailerTplConfigExporter {
     fn export<'a>(
         &'a self,
         record: ExportTaskModel,
         params: serde_json::Value,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<PathBuf, WebError>> + Send + 'a>>
-    {
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<PathBuf, crate::dao::WebError>> + Send + 'a>,
+    > {
         Box::pin(async move {
             let id = params["id"].as_u64();
             let user_id = params["user_id"].as_u64();
@@ -314,7 +305,7 @@ impl Exporter for MailerTplConfigExporter {
                 w.write_batch(rows).await?;
             }
 
-            w.finish().await
+            w.finish().await.map_err(Into::into)
         })
     }
 }

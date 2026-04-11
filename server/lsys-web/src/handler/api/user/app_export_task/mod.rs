@@ -10,8 +10,8 @@ pub use submit::*;
 use crate::{
     common::{JsonResult, UserAuthQueryDao},
     dao::access::{
-        api::system::user::{CheckUserAppEdit, CheckUserAppView},
         RbacAccessCheckEnv,
+        api::system::user::{CheckUserAppEdit, CheckUserAppView},
     },
 };
 use lsys_app::model::AppModel;

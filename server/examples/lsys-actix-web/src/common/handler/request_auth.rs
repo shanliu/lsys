@@ -1,14 +1,14 @@
 use std::sync::Arc;
 use std::{ops::Deref, str::FromStr};
 
-use actix_utils::future::{err, ok, Ready};
+use actix_utils::future::{Ready, err, ok};
 use actix_web::cookie::Cookie;
-use actix_web::{dev::Payload, web::Data, FromRequest, HttpMessage, HttpRequest};
+use actix_web::{FromRequest, HttpMessage, HttpRequest, dev::Payload, web::Data};
 
 use lsys_web::common::{JsonResult, RequestSessionTokenPaser};
 use lsys_web::lsys_app::dao::{RestAuthSession, RestAuthToken};
 use lsys_web::lsys_core::fluents::IntoFluentMessage;
-use lsys_web::lsys_core::utils::{now_time, RequestEnv};
+use lsys_web::lsys_core::utils::{RequestEnv, now_time};
 
 use actix_http::header;
 use async_trait::async_trait;
@@ -21,7 +21,7 @@ use lsys_web::{
     dao::WebDao,
 };
 
-use super::{ResponseJson, AUTH_COOKIE_NAME};
+use super::{AUTH_COOKIE_NAME, ResponseJson};
 
 //正常用户登陆，如cookie登陆
 
@@ -79,7 +79,7 @@ impl FromRequest for UserAuthQuery {
                                 .set_code(400),
                         )
                         .set_message(verr.to_fluent_message().default_format())
-                        .into())
+                        .into());
                     }
                 };
                 ok(Self {
@@ -143,13 +143,10 @@ impl RequestSessionToken<UserAuthToken> for CookieToken<'_> {
         }
     }
     fn get_token_data(&self) -> Option<Cookie<'static>> {
-        self.query.req.cookie(AUTH_COOKIE_NAME).and_then(|e| {
-            if e.value().is_empty() {
-                None
-            } else {
-                Some(e)
-            }
-        })
+        self.query
+            .req
+            .cookie(AUTH_COOKIE_NAME)
+            .and_then(|e| if e.value().is_empty() { None } else { Some(e) })
     }
     fn finish_user_token(&self, user_token: &UserAuthToken) {
         self.query
@@ -212,7 +209,7 @@ impl FromRequest for OauthAuthQuery {
                                 .set_code(400),
                         )
                         .set_message(verr.to_fluent_message().default_format())
-                        .into())
+                        .into());
                     }
                 };
 

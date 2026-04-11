@@ -11,8 +11,8 @@ mod role_user;
 use crate::{
     common::{JsonError, JsonResult, RequestDao, UserAuthQueryDao},
     dao::access::{
-        api::system::user::{CheckUserAppEdit, CheckUserAppView},
         RbacAccessCheckEnv,
+        api::system::user::{CheckUserAppEdit, CheckUserAppView},
     },
 };
 pub use audit::*;

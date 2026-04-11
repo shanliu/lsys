@@ -1,8 +1,8 @@
 use crate::{AreaError, AreaResult};
-use geo::coordinate_position::{CoordPos, CoordinatePosition};
 use geo::Distance;
 use geo::Geodesic;
-use geo::{coord, BoundingRect, Centroid, Coord, LineString, Point, Polygon};
+use geo::coordinate_position::{CoordPos, CoordinatePosition};
+use geo::{BoundingRect, Centroid, Coord, LineString, Point, Polygon, coord};
 use rayon::prelude::*;
 // 初始化
 
@@ -76,9 +76,10 @@ impl<AP: AreaGeoProvider> AreaGeo<AP> {
                     let mut iter = pt.split_whitespace();
                     if let (Some(x), Some(y)) = (iter.next(), iter.next())
                         && let Ok(x) = x.parse::<f64>()
-                            && let Ok(y) = y.parse::<f64>() {
-                                cs.push(coord! { x:x, y:y});
-                            }
+                        && let Ok(y) = y.parse::<f64>()
+                    {
+                        cs.push(coord! { x:x, y:y});
+                    }
                 }
                 if cs.is_empty() {
                     continue;
@@ -148,9 +149,10 @@ impl<AP: AreaGeoProvider> AreaGeo<AP> {
         dit_data.truncate(20);
         for (i, code, _) in dit_data {
             if let Some(ply_data) = self.geo_data.get_polygon_data(&i)
-                && ply_data.detail.coordinate_position(coord) == CoordPos::Inside {
-                    return Ok(code);
-                }
+                && ply_data.detail.coordinate_position(coord) == CoordPos::Inside
+            {
+                return Ok(code);
+            }
         }
         Err(AreaError::NotFind(format!(
             "not any area :{},{}",

@@ -3,8 +3,9 @@ use crate::common::handler::{
 };
 use actix_web::post;
 use lsys_web::handler::api::user::account::{
-    mobile_add, mobile_confirm, mobile_delete, mobile_list_data, mobile_send_code, MobileAddParam,
-    MobileConfirmParam, MobileDeleteParam, MobileListDataParam, MobileSendCodeParam,
+    MobileAddParam, MobileConfirmParam, MobileDeleteParam, MobileListDataParam,
+    MobileSendCodeParam, mobile_add, mobile_confirm, mobile_delete, mobile_list_data,
+    mobile_send_code,
 };
 
 #[post("/mobile/{method}")]

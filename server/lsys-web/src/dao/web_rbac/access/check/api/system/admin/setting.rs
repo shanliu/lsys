@@ -1,8 +1,8 @@
 use lsys_rbac::dao::{AccessCheckEnv, AccessCheckOp, AccessCheckRes, RbacAccess, RbacResult};
 
 use crate::dao::{
-    access::api::system::admin::CheckAdminBase, CheckResTpl, RbacCheckAccess,
-    RbacCheckAccessDepend, RbacCheckResTpl,
+    CheckResTpl, RbacCheckAccess, RbacCheckAccessDepend, RbacCheckResTpl,
+    access::api::system::admin::CheckAdminBase,
 };
 //这里定义访问权限验证
 pub struct CheckAdminSiteSetting {}

@@ -36,10 +36,10 @@ impl MessageLogs {
             .iter()
             .map(|(a, b, c)| (*a, (*b as i8), c.to_string()))
             .collect::<Vec<(u64, i8, String)>>();
-        let mut batch = BatchInsert::<_,SenderLogModel>::with_capacity(tmp_dat.len());
+        let mut batch = BatchInsert::<_, SenderLogModel>::with_capacity(tmp_dat.len());
         for (message_id, log_status, message) in tmp_dat.iter() {
             batch = batch.push(
-                Insert::<_,SenderLogModel>::new()
+                Insert::<_, SenderLogModel>::new()
                     .set(SenderLogModel::SENDER_MESSAGE_ID, *message_id)
                     .set(SenderLogModel::APP_ID, app_id)
                     .set(SenderLogModel::SENDER_TYPE, sender_type)
@@ -77,15 +77,14 @@ impl MessageLogs {
         page: &OffsetPageParam,
     ) -> SenderResult<Vec<SenderLogModel>> {
         let sender_type = self.send_type as i8;
-        let mut qb = QueryBuilder::<MySql>::new(format!(
-            "select * from {}",
-            SenderLogModel::table_name(),
-        ));
+        let mut qb =
+            QueryBuilder::<MySql>::new(format!("select * from {}", SenderLogModel::table_name(),));
         qb.push_where().field_eq("sender_type", sender_type);
         qb.push_and().field_eq("sender_message_id", message_id);
         qb.push(" order by id desc");
         page.push_limit(&mut qb);
-        let data = qb.build_query_as::<SenderLogModel>()
+        let data = qb
+            .build_query_as::<SenderLogModel>()
             .fetch_all(&self.db)
             .await?;
         Ok(data)

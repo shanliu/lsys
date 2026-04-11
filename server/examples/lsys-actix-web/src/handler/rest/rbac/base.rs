@@ -1,7 +1,7 @@
 use crate::common::handler::{ResponseJson, ResponseJsonResult, RestQuery};
 use actix_web::post;
 use lsys_web::handler::rest::rbac::{
-    access_check, access_list_check, mapping_data, CheckParam, RbacMenuListParam,
+    CheckParam, RbacMenuListParam, access_check, access_list_check, mapping_data,
 };
 
 #[post("/base")]

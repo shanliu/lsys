@@ -2,13 +2,13 @@ use std::collections::HashMap;
 
 use crate::common::{JsonData, JsonPageData, JsonResponse, JsonResult, UserAuthQueryDao};
 use crate::common::{PageParam, ToOffsetPageParam};
-use crate::dao::access::api::system::admin::CheckAdminSmsMgr;
 use crate::dao::access::RbacAccessCheckEnv;
+use crate::dao::access::api::system::admin::CheckAdminSmsMgr;
 use lsys_access::dao::AccessSession;
 use lsys_app_sender::model::SenderSmsConfigType;
 use lsys_app_sender::model::SenderTplConfigStatus;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 #[derive(Debug, Deserialize)]
 pub struct SmserConfigAddParam {
     #[serde(deserialize_with = "crate::common::deserialize_i8")]
@@ -245,9 +245,9 @@ pub async fn smser_tpl_config_list(
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(row, total),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        row, total,
+    ))))
 }
 
 #[derive(Debug, Deserialize)]

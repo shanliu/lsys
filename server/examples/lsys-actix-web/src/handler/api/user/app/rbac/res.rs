@@ -3,9 +3,10 @@ use crate::common::handler::{
 };
 use actix_web::post;
 use lsys_web::handler::api::user::app_rbac::{
-    app_res_add, app_res_data, app_res_del, app_res_edit, app_res_type_data, app_res_type_op_add,
-    app_res_type_op_data, app_res_type_op_del, AppResAddParam, AppResDelOpParam, AppResDelParam,
-    AppResEditParam, AppResParam, AppResTypeAddOpParam, AppResTypeListParam, AppResTypeOpListParam,
+    AppResAddParam, AppResDelOpParam, AppResDelParam, AppResEditParam, AppResParam,
+    AppResTypeAddOpParam, AppResTypeListParam, AppResTypeOpListParam, app_res_add, app_res_data,
+    app_res_del, app_res_edit, app_res_type_data, app_res_type_op_add, app_res_type_op_data,
+    app_res_type_op_del,
 };
 
 #[post("/res/{method}")]

@@ -1,25 +1,26 @@
 use crate::{
     dao::{
-        group_exec, MessageLogs, MessageReader, SenderError, SenderExecError, SenderResult,
+        MessageLogs, MessageReader, SenderError, SenderExecError, SenderResult,
         SenderTaskAcquisition, SenderTaskData, SenderTaskExecutor, SenderTaskExecutorBox,
         SenderTaskItem, SenderTaskResultItem, SenderTaskStatus, SenderTplConfig, SenderWaitNotify,
+        group_exec,
     },
     model::{
-        SenderLogStatus, SenderMessageCancelModel, SenderSmsBodyModel,
-        SenderSmsBodyStatus, SenderSmsMessageModel, SenderSmsMessageStatus,
+        SenderLogStatus, SenderMessageCancelModel, SenderSmsBodyModel, SenderSmsBodyStatus,
+        SenderSmsMessageModel, SenderSmsMessageStatus,
     },
 };
 use async_trait::async_trait;
-use lsys_core::db::{TableMeta, Update, QueryBuilderExt, FieldValue};
+use lsys_core::db::{FieldValue, QueryBuilderExt, TableMeta, Update};
 use lsys_core::fluent_message;
 use lsys_core::fluents::IntoFluentMessage;
 use lsys_core::task_dispatch::{TaskAcquisition, TaskData, TaskExecutor, TaskItem, TaskRecord};
 use lsys_core::utils::now_time;
 use lsys_setting::model::SettingModel;
-use sqlx::{MySql, Pool, QueryBuilder, Row};
+use sqlx::{MySql, Pool, QueryBuilder};
 use std::{
     collections::HashMap,
-    sync::{atomic::AtomicU32, Arc},
+    sync::{Arc, atomic::AtomicU32},
 };
 use tracing::warn;
 
@@ -82,11 +83,9 @@ impl SmsTaskAcquisition {
             "select sender_message_id from {}",
             SenderMessageCancelModel::table_name(),
         ));
-        qb.push_where().field_in_copied("sender_message_id", &msg_id);
-        match qb.build().map(|row: sqlx::mysql::MySqlRow| -> u64 {
-            row.get(0)
-        }).fetch_all(&self.db).await
-        {
+        qb.push_where()
+            .field_in_copied("sender_message_id", &msg_id);
+        match qb.build_query_scalar::<u64>().fetch_all(&self.db).await {
             Ok(d) => d,
             Err(err) => {
                 warn!("select cancel data fail:{}", err);
@@ -103,7 +102,8 @@ impl SmsTaskAcquisition {
             .bind(item.sms.id)
             .bind(SenderSmsMessageStatus::Init as i8)
             .fetch_one(&self.db)
-            .await {
+            .await
+        {
             match err {
                 sqlx::Error::RowNotFound => self.send_task_body_finish(item).await,
                 _ => {
@@ -114,8 +114,11 @@ impl SmsTaskAcquisition {
     }
     async fn send_task_body_finish(&self, item: &SmsTaskItem) {
         let finish_time = now_time().unwrap_or_default();
-        if let Err(err) = Update::<_,SenderSmsBodyModel>::new()
-            .set(SenderSmsBodyModel::STATUS, SenderSmsBodyStatus::Finish as i8)
+        if let Err(err) = Update::<_, SenderSmsBodyModel>::new()
+            .set(
+                SenderSmsBodyModel::STATUS,
+                SenderSmsBodyStatus::Finish as i8,
+            )
             .set(SenderSmsBodyModel::FINISH_TIME, finish_time)
             .execute(&self.db, |qb| {
                 qb.push_where().field_eq("id", item.sms.id);
@@ -146,28 +149,32 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
             .await
             .map_err(|e| e.to_fluent_message().default_format())?;
 
-        if app_res.is_empty() {
-            if let Err(err) = Update::<_, SenderSmsMessageModel>::new()
-                .set(SenderSmsMessageModel::STATUS, SenderSmsMessageStatus::IsCancel as i8)
+        if app_res.is_empty()
+            && let Err(err) = Update::<_, SenderSmsMessageModel>::new()
+                .set(
+                    SenderSmsMessageModel::STATUS,
+                    SenderSmsMessageStatus::IsCancel as i8,
+                )
                 .execute(&self.db, |qb| {
-                    qb.push_where().field_eq("status", SenderSmsMessageStatus::Init as i8);
+                    qb.push_where()
+                        .field_eq("status", SenderSmsMessageStatus::Init as i8);
                     qb.push_and().push(format!(
                         "id IN (SELECT sender_message_id FROM {}",
                         SenderMessageCancelModel::table_name(),
                     ));
                     qb.push_where().field_eq("sender_body_id", record.sms.id);
                     if !sending_data.is_empty() {
-                        qb.push_and().field_not_in_copied("sender_message_id", sending_data);
+                        qb.push_and()
+                            .field_not_in_copied("sender_message_id", sending_data);
                     }
                     qb.push(")");
                 })
                 .await
-            {
-                warn!(
-                    "sms clear message cancel status fail[{}]{}",
-                    record.sms.id, err
-                );
-            }
+        {
+            warn!(
+                "sms clear message cancel status fail[{}]{}",
+                record.sms.id, err
+            );
         }
 
         if sending_data.is_empty() && app_res.is_empty() {
@@ -190,11 +197,18 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
         match error {
             SenderExecError::Finish(_) => {
                 if let Err(err) = Update::<_, SenderSmsMessageModel>::new()
-                    .set(SenderSmsMessageModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))
-                    .set(SenderSmsMessageModel::STATUS, SenderSmsMessageStatus::SendFail as i8)
+                    .set(
+                        SenderSmsMessageModel::TRY_NUM,
+                        FieldValue::Expr("try_num+1".into()),
+                    )
+                    .set(
+                        SenderSmsMessageModel::STATUS,
+                        SenderSmsMessageStatus::SendFail as i8,
+                    )
                     .execute(&self.db, |qb| {
                         qb.push_where().field_eq("sender_body_id", item.sms.id);
-                        qb.push_and().field_eq("status", SenderSmsMessageStatus::Init as i8);
+                        qb.push_and()
+                            .field_eq("status", SenderSmsMessageStatus::Init as i8);
                         if !in_task_id.is_empty() {
                             qb.push_and().field_not_in_copied("id", in_task_id);
                         }
@@ -225,26 +239,33 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
                 let max_try_num = item.sms.max_try_num;
                 let sender_body_id = item.sms.id;
                 if let Err(err) = Update::<_, SenderSmsMessageModel>::new()
-                    .set(SenderSmsMessageModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))
-                    .set(SenderSmsMessageModel::STATUS, FieldValue::Dynamic(Box::new(move |qb| {
-                        qb.push("if(");
-                        qb.field_gte("try_num", max_try_num);
-                        qb.push(",");
-                        qb.push_bind(SenderSmsMessageStatus::SendFail as i8);
-                        qb.push(",");
-                        if cancel_data.is_empty() {
-                            qb.push("status)");
-                        } else {
+                    .set(
+                        SenderSmsMessageModel::TRY_NUM,
+                        FieldValue::Expr("try_num+1".into()),
+                    )
+                    .set(
+                        SenderSmsMessageModel::STATUS,
+                        FieldValue::Dynamic(Box::new(move |qb| {
                             qb.push("if(");
-                            qb.field_in_copied("id", &cancel_data);
+                            qb.field_gte("try_num", max_try_num);
                             qb.push(",");
-                            qb.push_bind(SenderSmsMessageStatus::IsCancel as i8);
-                            qb.push(",status))");
-                        }
-                    })))
+                            qb.push_bind(SenderSmsMessageStatus::SendFail as i8);
+                            qb.push(",");
+                            if cancel_data.is_empty() {
+                                qb.push("status)");
+                            } else {
+                                qb.push("if(");
+                                qb.field_in_copied("id", &cancel_data);
+                                qb.push(",");
+                                qb.push_bind(SenderSmsMessageStatus::IsCancel as i8);
+                                qb.push(",status))");
+                            }
+                        })),
+                    )
                     .execute(&self.db, |qb| {
                         qb.push_where().field_eq("sender_body_id", sender_body_id);
-                        qb.push_and().field_eq("status", SenderSmsMessageStatus::Init as i8);
+                        qb.push_and()
+                            .field_eq("status", SenderSmsMessageStatus::Init as i8);
                         if !in_task_id.is_empty() {
                             qb.push_and().field_not_in_copied("id", in_task_id);
                         }
@@ -264,10 +285,7 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
         if !in_task_id.is_empty() {
             msg_qb.push_and().field_not_in_copied("id", in_task_id);
         }
-        if let Ok(id_items) = msg_qb.build().map(|row: sqlx::mysql::MySqlRow| -> u64 {
-            row.get(0)
-        }).fetch_all(&self.db).await
-        {
+        if let Ok(id_items) = msg_qb.build_query_scalar::<u64>().fetch_all(&self.db).await {
             let err_str = error.to_string();
             let log_data = id_items
                 .into_iter()
@@ -310,8 +328,14 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
                     let setting_id_val = setting.id;
                     let res_id = res_item.id;
                     Update::<_, SenderSmsMessageModel>::new()
-                        .set(SenderSmsMessageModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))
-                        .set(SenderSmsMessageModel::STATUS, SenderSmsMessageStatus::IsReceived as i8)
+                        .set(
+                            SenderSmsMessageModel::TRY_NUM,
+                            FieldValue::Expr("try_num+1".into()),
+                        )
+                        .set(
+                            SenderSmsMessageModel::STATUS,
+                            SenderSmsMessageStatus::IsReceived as i8,
+                        )
                         .set(SenderSmsMessageModel::RES_DATA, send_id_str)
                         .set(SenderSmsMessageModel::SEND_TIME, ntime)
                         .set(SenderSmsMessageModel::RECEIVE_TIME, ntime)
@@ -338,8 +362,14 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
                     let setting_id_val = setting.id;
                     let res_id = res_item.id;
                     Update::<_, SenderSmsMessageModel>::new()
-                        .set(SenderSmsMessageModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))
-                        .set(SenderSmsMessageModel::STATUS, SenderSmsMessageStatus::IsSend as i8)
+                        .set(
+                            SenderSmsMessageModel::TRY_NUM,
+                            FieldValue::Expr("try_num+1".into()),
+                        )
+                        .set(
+                            SenderSmsMessageModel::STATUS,
+                            SenderSmsMessageStatus::IsSend as i8,
+                        )
                         .set(SenderSmsMessageModel::RES_DATA, send_id_str)
                         .set(SenderSmsMessageModel::SEND_TIME, ntime)
                         .set(SenderSmsMessageModel::SETTING_ID, setting_id_val)
@@ -363,22 +393,28 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
                         let init_status = SenderSmsMessageStatus::Init as i8;
                         let res_id = res_item.id;
                         let is_cancel = cancel_data.contains(&res_item.id);
-                        
+
                         Update::<_, SenderSmsMessageModel>::new()
-                            .set(SenderSmsMessageModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))
-                            .set(SenderSmsMessageModel::STATUS, FieldValue::Dynamic(Box::new(move |qb| {
-                                qb.push("if(");
-                                qb.field_gte("try_num", max_try);
-                                qb.push(",");
-                                qb.push_bind(fail_status);
-                                qb.push(",");
-                                if is_cancel {
-                                    qb.push_bind(cancel_status);
-                                } else {
-                                    qb.push("status");
-                                }
-                                qb.push(")");
-                            })))
+                            .set(
+                                SenderSmsMessageModel::TRY_NUM,
+                                FieldValue::Expr("try_num+1".into()),
+                            )
+                            .set(
+                                SenderSmsMessageModel::STATUS,
+                                FieldValue::Dynamic(Box::new(move |qb| {
+                                    qb.push("if(");
+                                    qb.field_gte("try_num", max_try);
+                                    qb.push(",");
+                                    qb.push_bind(fail_status);
+                                    qb.push(",");
+                                    if is_cancel {
+                                        qb.push_bind(cancel_status);
+                                    } else {
+                                        qb.push("status");
+                                    }
+                                    qb.push(")");
+                                })),
+                            )
                             .execute(&self.db, |qb| {
                                 qb.push_where().field_eq("id", res_id);
                                 qb.push_and().field_eq("status", init_status);
@@ -399,7 +435,10 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
                         let init_status = SenderSmsMessageStatus::Init as i8;
                         let res_id = res_item.id;
                         Update::<_, SenderSmsMessageModel>::new()
-                            .set(SenderSmsMessageModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))
+                            .set(
+                                SenderSmsMessageModel::TRY_NUM,
+                                FieldValue::Expr("try_num+1".into()),
+                            )
                             .set(SenderSmsMessageModel::STATUS, fail_status)
                             .execute(&self.db, |qb| {
                                 qb.push_where().field_eq("id", res_id);
@@ -437,11 +476,18 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
         match error {
             SenderExecError::Finish(_) => {
                 if let Err(err) = Update::<_, SenderSmsMessageModel>::new()
-                    .set(SenderSmsMessageModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))
-                    .set(SenderSmsMessageModel::STATUS, SenderSmsMessageStatus::SendFail as i8)
+                    .set(
+                        SenderSmsMessageModel::TRY_NUM,
+                        FieldValue::Expr("try_num+1".into()),
+                    )
+                    .set(
+                        SenderSmsMessageModel::STATUS,
+                        SenderSmsMessageStatus::SendFail as i8,
+                    )
                     .execute(&self.db, |qb| {
                         qb.push_where().field_in_copied("id", &fail_ids);
-                        qb.push_and().field_eq("status", SenderSmsMessageStatus::Init as i8);
+                        qb.push_and()
+                            .field_eq("status", SenderSmsMessageStatus::Init as i8);
                     })
                     .await
                 {
@@ -454,26 +500,33 @@ impl SenderTaskAcquisition<u64, SmsTaskItem, SmsTaskData> for SmsTaskAcquisition
 
                 let max_try_num = item.sms.max_try_num;
                 if let Err(err) = Update::<_, SenderSmsMessageModel>::new()
-                    .set(SenderSmsMessageModel::TRY_NUM, FieldValue::Expr("try_num+1".into()))
-                    .set(SenderSmsMessageModel::STATUS, FieldValue::Dynamic(Box::new(move |qb| {
-                        qb.push("if(");
-                        qb.field_gte("try_num", max_try_num);
-                        qb.push(",");
-                        qb.push_bind(SenderSmsMessageStatus::SendFail as i8);
-                        qb.push(",");
-                        if cancel_data.is_empty() {
-                            qb.push("status)");
-                        } else {
+                    .set(
+                        SenderSmsMessageModel::TRY_NUM,
+                        FieldValue::Expr("try_num+1".into()),
+                    )
+                    .set(
+                        SenderSmsMessageModel::STATUS,
+                        FieldValue::Dynamic(Box::new(move |qb| {
                             qb.push("if(");
-                            qb.field_in_copied("id", &cancel_data);
+                            qb.field_gte("try_num", max_try_num);
                             qb.push(",");
-                            qb.push_bind(SenderSmsMessageStatus::IsCancel as i8);
-                            qb.push(",status))");
-                        }
-                    })))
+                            qb.push_bind(SenderSmsMessageStatus::SendFail as i8);
+                            qb.push(",");
+                            if cancel_data.is_empty() {
+                                qb.push("status)");
+                            } else {
+                                qb.push("if(");
+                                qb.field_in_copied("id", &cancel_data);
+                                qb.push(",");
+                                qb.push_bind(SenderSmsMessageStatus::IsCancel as i8);
+                                qb.push(",status))");
+                            }
+                        })),
+                    )
                     .execute(&self.db, |qb| {
                         qb.push_where().field_in_copied("id", &fail_ids);
-                        qb.push_and().field_eq("status", SenderSmsMessageStatus::Init as i8);
+                        qb.push_and()
+                            .field_eq("status", SenderSmsMessageStatus::Init as i8);
                     })
                     .await
                 {

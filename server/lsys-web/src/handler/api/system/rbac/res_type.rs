@@ -1,15 +1,15 @@
+use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonData, JsonResponse, JsonResult, PageParam, ToOffsetPageParam, UserAuthQueryDao},
     dao::access::api::system::admin::{CheckAdminRbacEdit, CheckAdminRbacView},
 };
 use lsys_access::dao::AccessSession;
+use lsys_core::api_utils::JsonPageData;
 use lsys_rbac::{
     dao::{ResTypeListParam as DaoResTypeListParam, ResTypeParam},
     model::RbacOpModel,
 };
-use crate::dao::access::RbacAccessCheckEnv;
 use serde::Deserialize;
-use lsys_core::api_utils::JsonPageData;
 
 //从现有资源统计资源类型
 #[derive(Debug, Deserialize)]
@@ -29,7 +29,10 @@ pub async fn res_type_data(
     req_dao
         .web_dao
         .web_rbac
-        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminRbacView {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminRbacView {},
+        )
         .await?;
 
     let res_param = DaoResTypeListParam {
@@ -61,9 +64,9 @@ pub async fn res_type_data(
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(rows, count),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        rows, count,
+    ))))
 }
 
 //往资源类型加操作
@@ -83,7 +86,10 @@ pub async fn res_type_op_add(
     req_dao
         .web_dao
         .web_rbac
-        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminRbacEdit {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminRbacEdit {},
+        )
         .await?;
 
     let op_data = req_dao
@@ -133,7 +139,10 @@ pub async fn res_type_op_del(
     req_dao
         .web_dao
         .web_rbac
-        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminRbacEdit {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminRbacEdit {},
+        )
         .await?;
 
     req_dao
@@ -174,7 +183,10 @@ pub async fn res_type_op_data(
     req_dao
         .web_dao
         .web_rbac
-        .check(&RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env), &CheckAdminRbacView {})
+        .check(
+            &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
+            &CheckAdminRbacView {},
+        )
         .await?;
 
     let res_param = ResTypeParam {
@@ -188,12 +200,7 @@ pub async fn res_type_op_data(
         .web_rbac
         .rbac_dao
         .res
-        .res_type_op_data(
-            &res_param,
-            None,
-            true,
-            &param.page.to_offset_page_param(),
-        )
+        .res_type_op_data(&res_param, None, true, &param.page.to_offset_page_param())
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
@@ -208,7 +215,7 @@ pub async fn res_type_op_data(
     } else {
         None
     };
-    Ok(JsonResponse::data(JsonData::body(
-        JsonPageData::total(rows, count),
-    )))
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
+        rows, count,
+    ))))
 }

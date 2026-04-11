@@ -2,9 +2,9 @@
 use core::fmt::Debug;
 use std::sync::Arc;
 
-use actix_web::dev::{JsonBody, Payload};
 use actix_web::FromRequest;
 use actix_web::HttpRequest;
+use actix_web::dev::{JsonBody, Payload};
 use futures_util::future::{FutureExt, LocalBoxFuture};
 use lsys_web::common::{JsonData, JsonResponse};
 use serde::de::DeserializeOwned;

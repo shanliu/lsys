@@ -1,5 +1,5 @@
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::path::PathBuf;
 
 use crate::{
@@ -9,10 +9,10 @@ use crate::{
 };
 use geo::{LineString, Point};
 use memmap2::{Mmap, MmapMut};
-use std::fs::{remove_dir_all, OpenOptions};
+use std::fs::{OpenOptions, remove_dir_all};
 use std::io::{Seek, SeekFrom};
 use tantivy::directory::MmapDirectory;
-use tantivy::{schema::Schema, store::Compressor, Index, IndexBuilder, IndexSettings, IndexWriter};
+use tantivy::{Index, IndexBuilder, IndexSettings, IndexWriter, schema::Schema, store::Compressor};
 
 fn mmap_find_version(mmap: &Mmap, ver_start_index: usize) -> AreaResult<String> {
     let ver_len = std::mem::size_of::<usize>();

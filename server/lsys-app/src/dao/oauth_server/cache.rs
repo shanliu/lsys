@@ -1,4 +1,4 @@
-use super::{data::AppOAuthServerScopeData, AppOAuthServer};
+use super::{AppOAuthServer, data::AppOAuthServerScopeData};
 use crate::{dao::AppResult, model::AppModel};
 impl AppOAuthServer {
     pub fn cache(&'_ self) -> AppOAuthServerCache<'_> {
