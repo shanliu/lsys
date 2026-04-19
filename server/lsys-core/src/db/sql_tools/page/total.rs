@@ -61,7 +61,9 @@ impl<'a> TotalRowQuery<'a> {
     }
 
     /// 根据实际查询结果行数判断总数
-    pub fn finalize(&self, actual_rows: u64) -> TotalRow {
+    /// 支持多种整数类型，对于有符号整数会自动处理负数情况（负数视为0）
+    pub fn finalize(&self, actual_rows: impl TryInto<u64>) -> TotalRow {
+        let actual_rows = actual_rows.try_into().unwrap_or(0);
         match self.param {
             TotalParam::Threshold(threshold) => {
                 if actual_rows > *threshold {

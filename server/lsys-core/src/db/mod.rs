@@ -26,7 +26,7 @@ pub mod utils {
         FetchFieldStringType,
     };
 
-    #[cfg(feature = "redis")]
+    #[cfg(all(feature = "db", feature = "redis"))]
     pub use super::sqlx_utils::fetch_field_init;
 
     // Fetch 工具（支持 MySQL、PostgreSQL、SQLite）
