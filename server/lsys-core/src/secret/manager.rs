@@ -12,6 +12,7 @@ use super::kms::KmsDecryptor;
 ///
 /// 通过 [`SecretManager::builder`] 创建，`build()` 时从配置文件加载全部密钥并缓存在内存中。
 /// 之后各模块持有 `Arc<SecretManager>`，通过 [`require`][Self::require] 按 key_id 获取密钥字节。
+#[derive(Default)]
 pub struct SecretManager {
     pub keys: HashMap<String, Vec<u8>>,
 }
@@ -22,14 +23,6 @@ impl SecretManager {
         SecretManagerBuilder {
             config,
             kms_providers: HashMap::new(),
-        }
-    }
-}
-
-impl Default for SecretManager {
-    fn default() -> Self {
-        SecretManager {
-            keys: HashMap::new(),
         }
     }
 }

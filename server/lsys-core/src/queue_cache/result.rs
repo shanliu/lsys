@@ -119,9 +119,9 @@ pub enum QueueCacheError {
 /// | RabbitMQ | `rabbitmq-error` | error message |
 /// | RabbitMQPool | `rabbitmq-pool-error` | error message |
 /// | Timeout | `queue-timeout` | `timeout` |
-
 /// | Config | `queue-config-error` | error message |
 /// | System | `queue-system-error` | error message |
+
 impl IntoFluentMessage for QueueCacheError {
     fn to_fluent_message(&self) -> FluentMessage {
         match self {
