@@ -3,6 +3,7 @@
 use crate::common::{JsonData, JsonError, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao};
 
 /// 校验头像数据为图片类型（基于 magic bytes），非图片时返回错误。
+#[allow(clippy::result_large_err)]
 pub fn check_avatar_image(data: &[u8]) -> JsonResult<&'static str> {
     crate::common::utils::get_image_mime(data).ok_or_else(|| {
         JsonError::Message(lsys_core::fluent_message!("file-type-not-image"))

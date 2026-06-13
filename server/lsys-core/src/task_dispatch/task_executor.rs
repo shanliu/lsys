@@ -672,7 +672,7 @@ impl<
                         .arg(1i64)
                         .arg("NX")
                         .arg("EX")
-                        .arg(self.config.read_lock_timeout as usize)
+                        .arg(self.config.read_lock_timeout)
                         .query_async(&mut redis)
                         .await
                         .unwrap_or(Value::Nil);

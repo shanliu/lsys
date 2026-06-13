@@ -30,7 +30,7 @@ async fn user_dao() -> AccountDao {
     .await
     .unwrap();
     
-    let secret_manager = Arc::new(SecretManager::new());
+    let secret_manager = Arc::new(SecretManager::default());
     let field_encryptor = Arc::new(FieldEncryptor::new(
         secret_manager.clone(),
         "field_encrypt_key",

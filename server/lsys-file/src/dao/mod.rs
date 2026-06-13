@@ -153,6 +153,7 @@ impl FileDao {
     }
 
     /// 构建文件 DAO（使用 TaskDispatch 多节点下载）
+    #[allow(clippy::too_many_arguments)]
     pub async fn build(
         db: Pool<MySql>,
         app_core: Arc<AppCore>,

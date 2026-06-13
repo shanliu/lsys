@@ -451,6 +451,7 @@ impl ServiceClient {
     }
 
     /// 从服务器本地文件导入（服务内部共享磁盘）
+    #[allow(clippy::too_many_arguments)]
     pub async fn file_from_local(
         &self,
         user_id: u64,

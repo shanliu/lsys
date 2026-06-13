@@ -3,7 +3,6 @@
 /// 演示如何同时使用阿里云和腾讯云的 KMS 服务来解密不同的密钥
 ///
 /// cargo run --example multi_kms --features aliyun-kms,tencent-kms
-
 use lsys_kms::aliyun::AliyunKmsDecryptor;
 use lsys_kms::tencent::TencentKmsDecryptor;
 
@@ -52,13 +51,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("source     = \"kms\"");
     println!("kms        = \"aliyun\"");
     println!("ciphertext = \"base64:...\"");
-    println!("");
+    println!();
     println!("# API 密钥 - 使用腾讯云 KMS");
     println!("[secret.api_key]");
     println!("source     = \"kms\"");
     println!("kms        = \"tencent\"");
     println!("ciphertext = \"base64:...\"");
-    println!("");
+    println!();
     println!("# 缓存密钥 - 使用阿里云 KMS");
     println!("[secret.cache_password]");
     println!("source     = \"kms\"");

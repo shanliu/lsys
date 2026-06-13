@@ -51,7 +51,7 @@ hostname = "~0.4.0"
 uuid = { version = "~1.23.1", features = ["v4"], optional = true }
 
 
-chrono = "~0.4.38"
+chrono = { version = "~0.4.38", features = ["serde"] }
 
 
 rs-snowflake = "~0.6.0"
@@ -69,6 +69,12 @@ regex = "1.11.1"
 tokio = { version = "~1.52.0", features = ["fs", "macros", "sync", "io-util", "rt", "time"], optional = true }
 
 tokio-util = { version = "~0.7", optional = true }
+
+# Queue Cache Layer dependencies
+flume = { version = "~0.11", optional = true }
+yaque = { version = "~0.6", optional = true }
+lapin = { version = "~2.5.0", optional = true }
+proptest = { version = "~1.7.0", optional = true }
 
 lsys-macros-db = { path = "../lsys-macros-db", optional = true }
 #db
@@ -105,3 +111,7 @@ tera = ["dep:tera", "tracing"]
 redis = ["dep:redis", "dep:deadpool-redis", "dep:tokio-util", "dep:uuid", "tokio", "tracing"]
 secret = ["dep:base64", "dep:hex", "tokio"]
 field-encrypt = ["secret", "dep:aes-gcm", "dep:hmac", "dep:sha2"]
+queue-cache = ["tokio", "tracing", "dep:flume"]
+queue-cache-yaque = ["queue-cache", "dep:yaque"]
+queue-cache-rabbitmq = ["queue-cache", "dep:lapin"]
+queue-cache-test = ["queue-cache", "dep:proptest"]

@@ -70,8 +70,8 @@ impl WebFile {
                 });
 
                 // 文件 Normal 终态 + 归属应用时触发回调
-                if completed_file.status == FileStatus::Normal as i8 && token_data.app_id != 0 {
-                    if let Err(err) = self
+                if completed_file.status == FileStatus::Normal as i8 && token_data.app_id != 0
+                    && let Err(err) = self
                         .file_notify_sender
                         .send(
                             token_data.app_id,
@@ -79,12 +79,11 @@ impl WebFile {
                             &payload.to_string(),
                         )
                         .await
-                    {
-                        warn!(
-                            "file upload notify send fail: {}",
-                            err.to_fluent_message().default_format()
-                        );
-                    }
+                {
+                    warn!(
+                        "file upload notify send fail: {}",
+                        err.to_fluent_message().default_format()
+                    );
                 }
 
                 Ok(payload)

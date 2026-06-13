@@ -101,10 +101,10 @@ impl UploadTokenManager {
         // 将分片令牌加入会话 parts set，用于 remove_session 批量清理
         let parts_key = Self::session_parts_key(session_id);
         conn.sadd::<_, _, ()>(&parts_key, &token).await?;
-        if session_remaining > 0 {
-            if let Err(e) = conn.expire::<_, ()>(&parts_key, session_remaining).await {
-                warn!("upload-token: failed to set TTL on parts set '{}': {e}", parts_key);
-            }
+        if session_remaining > 0
+            && let Err(e) = conn.expire::<_, ()>(&parts_key, session_remaining).await
+        {
+            warn!("upload-token: failed to set TTL on parts set '{}': {e}", parts_key);
         }
 
         Ok(token)

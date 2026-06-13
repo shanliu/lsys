@@ -123,37 +123,37 @@ impl WebDao {
         let mut secret_builder = SecretManager::builder(&app_core.config);
 
         // 检查并注册阿里云 KMS
-        if let Ok(aliyun_config) = app_core.config.find(None).get_table("kms_aliyun") {
-            if let (Some(access_key_id), Some(access_key_secret), Some(region)) = (
+        if let Ok(aliyun_config) = app_core.config.find(None).get_table("kms_aliyun")
+            && let (Some(access_key_id), Some(access_key_secret), Some(region)) = (
                 aliyun_config.get("access_key_id").and_then(|v| v.clone().into_string().ok()),
                 aliyun_config.get("access_key_secret").and_then(|v| v.clone().into_string().ok()),
                 aliyun_config.get("region").and_then(|v| v.clone().into_string().ok()),
-            ) {
-                let aliyun_decryptor = lsys_kms::aliyun::AliyunKmsDecryptor::new(
-                    access_key_id,
-                    access_key_secret,
-                    region,
-                );
-                secret_builder = secret_builder.kms_provider("aliyun", Arc::new(aliyun_decryptor));
-                info!("KMS provider 'aliyun' registered");
-            }
+            )
+        {
+            let aliyun_decryptor = lsys_kms::aliyun::AliyunKmsDecryptor::new(
+                access_key_id,
+                access_key_secret,
+                region,
+            );
+            secret_builder = secret_builder.kms_provider("aliyun", Arc::new(aliyun_decryptor));
+            info!("KMS provider 'aliyun' registered");
         }
 
         // 检查并注册腾讯云 KMS
-        if let Ok(tencent_config) = app_core.config.find(None).get_table("kms_tencent") {
-            if let (Some(secret_id), Some(secret_key), Some(region)) = (
+        if let Ok(tencent_config) = app_core.config.find(None).get_table("kms_tencent")
+            && let (Some(secret_id), Some(secret_key), Some(region)) = (
                 tencent_config.get("secret_id").and_then(|v| v.clone().into_string().ok()),
                 tencent_config.get("secret_key").and_then(|v| v.clone().into_string().ok()),
                 tencent_config.get("region").and_then(|v| v.clone().into_string().ok()),
-            ) {
-                let tencent_decryptor = lsys_kms::tencent::TencentKmsDecryptor::new(
-                    secret_id,
-                    secret_key,
-                    region,
-                );
-                secret_builder = secret_builder.kms_provider("tencent", Arc::new(tencent_decryptor));
-                info!("KMS provider 'tencent' registered");
-            }
+            )
+        {
+            let tencent_decryptor = lsys_kms::tencent::TencentKmsDecryptor::new(
+                secret_id,
+                secret_key,
+                region,
+            );
+            secret_builder = secret_builder.kms_provider("tencent", Arc::new(tencent_decryptor));
+            info!("KMS provider 'tencent' registered");
         }
 
         let secret_manager = Arc::new(secret_builder.build().await?);

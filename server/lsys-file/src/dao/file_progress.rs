@@ -417,7 +417,7 @@ impl FileProgressTracker {
                 } else {
                     batch_count_on_conn = batch_count_on_conn.saturating_add(1);
                     if clear_file_count > 0
-                        || batch_count_on_conn % SUMMARY_LOG_EVERY_BATCHES == 0
+                        || batch_count_on_conn.is_multiple_of(SUMMARY_LOG_EVERY_BATCHES)
                     {
                         info!(
                             "progress_tracker write_worker: batch flushed, attempt={}, batch_no={}, queued_msgs={}, update_files={}, clear_files={}",

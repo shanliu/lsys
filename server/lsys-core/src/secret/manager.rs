@@ -24,15 +24,17 @@ impl SecretManager {
             kms_providers: HashMap::new(),
         }
     }
+}
 
-    /// 创建空的 SecretManager（所有 key 均不存在）。
-    /// 通常用于测试或降级场景。
-    pub fn new() -> Self {
+impl Default for SecretManager {
+    fn default() -> Self {
         SecretManager {
             keys: HashMap::new(),
         }
     }
+}
 
+impl SecretManager {
     /// 获取密钥字节，key_id 不存在时返回 `None`。
     pub fn get(&self, key_id: &str) -> Option<&[u8]> {
         self.keys.get(key_id).map(|v| v.as_slice())
@@ -128,10 +130,7 @@ impl<'a> SecretManagerBuilder<'a> {
                         .get("value")
                         .and_then(|v| v.clone().into_string().ok())
                         .ok_or_else(|| {
-                            SecretError::Config(format!(
-                                "secret.{}: missing 'value' field",
-                                key_id
-                            ))
+                            SecretError::Config(format!("secret.{}: missing 'value' field", key_id))
                         })?;
                     decode_value_str(&value_str, &key_id)?
                 }
@@ -152,9 +151,10 @@ impl<'a> SecretManagerBuilder<'a> {
                             ))
                         })?;
                     let ciphertext = decode_value_str(&ciphertext_str, &key_id)?;
-                    let decryptor = self.kms_providers.get(&kms_name).ok_or_else(|| {
-                        SecretError::KmsNotFound(kms_name.clone())
-                    })?;
+                    let decryptor = self
+                        .kms_providers
+                        .get(&kms_name)
+                        .ok_or_else(|| SecretError::KmsNotFound(kms_name.clone()))?;
                     decryptor.decrypt(&ciphertext).await?
                 }
                 other => {

@@ -140,10 +140,10 @@ impl KmsDecryptor for TencentKmsDecryptor {
             date.as_bytes(),
             format!("TC3{}", self.secret_key).as_bytes(),
         );
-        let secret_service = hmac_sha256::HMAC::mac(service.as_bytes(), &secret_date);
-        let secret_signing = hmac_sha256::HMAC::mac(b"tc3_request", &secret_service);
+        let secret_service = hmac_sha256::HMAC::mac(service.as_bytes(), secret_date);
+        let secret_signing = hmac_sha256::HMAC::mac(b"tc3_request", secret_service);
         let signature =
-            to_hex(&hmac_sha256::HMAC::mac(string_to_sign.as_bytes(), &secret_signing));
+            to_hex(&hmac_sha256::HMAC::mac(string_to_sign.as_bytes(), secret_signing));
 
         // ── Step 4: 组装 Authorization 头 ────────────────────────────────────────
         let authorization = format!(

@@ -6,7 +6,6 @@
 /// 3. 已在配置文件中定义密钥
 ///
 /// cargo run --example tencent_kms --features tencent-kms
-
 use lsys_kms::tencent::TencentKmsDecryptor;
 
 #[tokio::main]

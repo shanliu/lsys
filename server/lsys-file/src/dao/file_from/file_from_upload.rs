@@ -902,10 +902,10 @@ impl FileDao {
                 )
                 .await?;
             // 秒传命中：本次上传的物理文件是重复副本，删除
-            if duplicate.is_some() {
-                if let Err(e) = tokio::fs::remove_file(&local_full).await {
-                    warn!("complete_upload: remove duplicate single file failed: {}", e);
-                }
+            if duplicate.is_some()
+                && let Err(e) = tokio::fs::remove_file(&local_full).await
+            {
+                warn!("complete_upload: remove duplicate single file failed: {}", e);
             }
         }
 

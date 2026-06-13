@@ -113,6 +113,7 @@ pub struct AccountDao {
 }
 
 impl AccountDao {
+     #[allow(clippy::too_many_arguments)]
     pub fn new(
         db: Pool<MySql>,
         redis: deadpool_redis::Pool,

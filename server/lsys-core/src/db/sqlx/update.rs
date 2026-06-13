@@ -2,7 +2,9 @@ use super::field::Field;
 use super::table::TableMeta;
 use super::value::{FieldValue, IntoFieldValue, StoredValue};
 use sqlx::{Database, Error, Executor};
+use std::future::Future;
 use std::marker::PhantomData;
+use std::pin::Pin;
 
 /// UPDATE 构建器
 pub struct Update<DB: Database, M: TableMeta> {
@@ -74,68 +76,106 @@ impl<DB: Database, M: TableMeta> Update<DB, M> {
     }
 }
 
-// 为每个数据库类型提供具体实现，避免泛型生命周期问题
-macro_rules! impl_update_execute {
+// 单一泛型实现：方法解析无歧义，DB 类型由 executor 参数推导。
+// 最终的 qb.build().execute(...) 通过 sealed trait `ExecuteUpdate` 分派到
+// 具体 DB 类型，避免泛型 dropck 限制（QueryBuilder<'_, DB> 的析构器对
+// 泛型 DB 无法证明不访问 Arguments<'_>），同时不引入 RPITIT / HRTB。
+impl<DB, M: TableMeta> Update<DB, M>
+where
+    DB: Database + sealed::ExecuteUpdate,
+    DB::QueryResult: Default,
+{
+    /// 执行 UPDATE，使用回调构建 WHERE 子句
+    pub async fn execute<'e, E, F>(
+        self,
+        executor: E,
+        where_clause: F,
+    ) -> Result<DB::QueryResult, Error>
+    where
+        E: Executor<'e, Database = DB> + 'e,
+        F: FnOnce(&mut sqlx::QueryBuilder<'_, DB>),
+    {
+        if self.fields.is_empty() {
+            return Ok(DB::QueryResult::default());
+        }
+
+        let table = M::table_name().quoted();
+        let mut qb = sqlx::QueryBuilder::new(format!("UPDATE {} SET ", table));
+
+        // 处理 SET 子句
+        let mut first = true;
+        for (col, value) in &self.fields {
+            if !first {
+                qb.push(", ");
+            }
+            first = false;
+
+            qb.push(col.as_str());
+            qb.push(" = ");
+
+            match value {
+                StoredValue::Bind(b) => {
+                    b.bind_to(&mut qb);
+                }
+                StoredValue::Expr(e) => {
+                    qb.push(e.as_ref());
+                }
+                StoredValue::Dynamic(f) => {
+                    f(&mut qb);
+                }
+            }
+        }
+
+        // 执行回调构建 WHERE 子句
+        where_clause(&mut qb);
+
+        // 分派到具体 DB 的实现以执行 build + execute
+        DB::execute_built(qb, executor).await
+    }
+}
+
+mod sealed {
+    use super::*;
+
+    pub trait ExecuteUpdate: Database + Sized {
+        fn execute_built<'q, 'e, E>(
+            qb: sqlx::QueryBuilder<'q, Self>,
+            executor: E,
+        ) -> Pin<Box<dyn Future<Output = Result<Self::QueryResult, Error>> + Send + 'e>>
+        where
+            'q: 'e,
+            E: Executor<'e, Database = Self> + 'e;
+    }
+}
+
+macro_rules! impl_execute_update {
     ($db:ty) => {
-        impl<M: TableMeta> Update<$db, M> {
-            /// 执行 UPDATE，使用回调构建 WHERE 子句
-            pub async fn execute<'e, E, F>(
-                self,
+        impl sealed::ExecuteUpdate for $db {
+            fn execute_built<'q, 'e, E>(
+                qb: sqlx::QueryBuilder<'q, Self>,
                 executor: E,
-                where_clause: F,
-            ) -> Result<<$db as Database>::QueryResult, Error>
+            ) -> Pin<Box<dyn Future<Output = Result<<Self as Database>::QueryResult, Error>> + Send + 'e>>
             where
-                E: Executor<'e, Database = $db>,
-                F: FnOnce(&mut sqlx::QueryBuilder<'_, $db>),
+                'q: 'e,
+                E: Executor<'e, Database = Self> + 'e,
             {
-                if self.fields.is_empty() {
-                    return Ok(<$db as Database>::QueryResult::default());
-                }
-
-                let table = M::table_name().quoted();
-                let mut qb = sqlx::QueryBuilder::new(format!("UPDATE {} SET ", table));
-
-                // 处理 SET 子句
-                let mut first = true;
-                for (col, value) in &self.fields {
-                    if !first {
-                        qb.push(", ");
-                    }
-                    first = false;
-
-                    qb.push(col.as_str());
-                    qb.push(" = ");
-
-                    match value {
-                        StoredValue::Bind(b) => {
-                            b.bind_to(&mut qb);
-                        }
-                        StoredValue::Expr(e) => {
-                            qb.push(e.as_ref());
-                        }
-                        StoredValue::Dynamic(f) => {
-                            f(&mut qb);
-                        }
-                    }
-                }
-
-                // 执行回调构建 WHERE 子句
-                where_clause(&mut qb);
-
-                qb.build().execute(executor).await
+                Box::pin(async move {
+                    let mut qb = qb;
+                    qb.build().execute(executor).await
+                })
             }
         }
     };
 }
 
 #[cfg(feature = "db-mysql")]
-impl_update_execute!(sqlx::MySql);
+impl_execute_update!(sqlx::MySql);
 
 #[cfg(feature = "db-postgres")]
-impl_update_execute!(sqlx::Postgres);
+impl_execute_update!(sqlx::Postgres);
 
 #[cfg(feature = "db-sqlite")]
-impl_update_execute!(sqlx::Sqlite);
+impl_execute_update!(sqlx::Sqlite);
 
 #[cfg(test)]
 mod tests {

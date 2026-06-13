@@ -89,6 +89,7 @@ pub fn wrap_token(inner: &str, sign_key: &str) -> String {
 ///
 /// - `sign_key` 为空（未配置）：关闭闸门。带前缀则剥离，否则原样返回。
 /// - `sign_key` 非空（启用）：必须带合法前缀且校验和匹配，否则报错。
+#[allow(clippy::result_large_err)]
 pub(crate) fn verify_token(wrapped: &str, sign_key: &str) -> JsonResult<String> {
     let segments: Vec<&str> = wrapped.splitn(3, '.').collect();
     let has_prefix = segments.len() == 3 && segments[0] == TOKEN_PREFIX;

@@ -204,7 +204,7 @@ impl AppSecret {
             .await;
         Ok(())
     }
-    pub async fn multiple_del<'a, E: Executor<'a, Database = sqlx::MySql>>(
+    pub async fn multiple_del<'a, E: Executor<'a, Database = sqlx::MySql> + 'a>(
         &self,
         app_id: u64,
         secret_type: AppSecretType,
@@ -247,7 +247,7 @@ impl AppSecret {
         Ok(())
     }
     #[allow(clippy::too_many_arguments)]
-    pub async fn multiple_change<'a, E: Executor<'a, Database = sqlx::MySql>>(
+    pub async fn multiple_change<'a, E: Executor<'a, Database = sqlx::MySql> + 'a>(
         &self,
         app_id: u64,
         secret_type: AppSecretType,
@@ -302,7 +302,7 @@ impl AppSecret {
         Ok(())
     }
 
-    pub async fn multiple_delete_from_secret<'a, E: Executor<'a, Database = sqlx::MySql>>(
+    pub async fn multiple_delete_from_secret<'a, E: Executor<'a, Database = sqlx::MySql> + 'a>(
         &self,
         app_id: u64,
         secret_type: AppSecretType,
@@ -342,7 +342,7 @@ impl AppSecret {
             .await;
         Ok(())
     }
-    pub async fn delete_from_app_id<'a, E: Executor<'a, Database = sqlx::MySql>>(
+    pub async fn delete_from_app_id<'a, E: Executor<'a, Database = sqlx::MySql> + 'a>(
         &self,
         app_id: u64,
         change_user_id: u64,

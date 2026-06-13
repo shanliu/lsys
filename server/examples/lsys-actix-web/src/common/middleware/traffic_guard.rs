@@ -48,8 +48,6 @@
 //! let mut response = HttpResponse::Ok().json(result);
 //! fuse_header(&mut response, "LOGIN_U1");
 //! ```
-///
-///
 
 use actix_utils::future::{Ready, ready};
 use actix_web::{
@@ -162,7 +160,7 @@ impl FuseTag {
     /// fuse_header(&mut response, tag.to_tag(Some("U1")));
     /// ```
     #[allow(dead_code)]
-    pub fn to_tag(&self, suffix: Option<&str>) -> Cow<'static, str> {
+    pub fn to_tag(self, suffix: Option<&str>) -> Cow<'static, str> {
         match self {
             FuseTag::Exact(s) => Cow::Borrowed(s),
             FuseTag::Prefix(s) => match suffix {
@@ -413,7 +411,7 @@ impl SlidingWindow {
         }
 
         // 缓存过期，更新（允许多线程竞争更新，无需 CAS）
-        let now_ms = (now_ns / 1_000_000) as u64;
+        let now_ms = now_ns / 1_000_000;
         self.cached_time_ms.store(now_ms, Ordering::Relaxed);
         self.cache_updated_at_ns.store(now_ns, Ordering::Relaxed);
         now_ms
@@ -1421,25 +1419,25 @@ impl TrafficGuard {
                     dim_key.as_str()
                 };
 
-                if let Some((_rule_idx, rule)) = self.match_rule(tag_value) {
-                    if let Some(rejection) = self.try_reject(dim_key, rule, tag_value) {
-                        return Some(rejection);
-                    }
+                if let Some((_rule_idx, rule)) = self.match_rule(tag_value)
+                    && let Some(rejection) = self.try_reject(dim_key, rule, tag_value)
+                {
+                    return Some(rejection);
                 }
             }
         }
 
         // ── ② 检查非 IP 隔离的 Exact 维度（use_ip=false，不在 ip_dimension_keys 中）──
         for rule in &self.config.fuse_rules {
-            if !rule.use_ip {
-                if let FuseTag::Exact(tag) = &rule.tag {
-                    let dim_key = TrafficGuard::make_dimension_key(tag, false, ip);
-                    if let Some(rejection) = self.try_reject(&dim_key, rule, tag) {
-                        return Some(rejection);
-                    }
+            if !rule.use_ip
+                && let FuseTag::Exact(tag) = &rule.tag
+            {
+                let dim_key = TrafficGuard::make_dimension_key(tag, false, ip);
+                if let Some(rejection) = self.try_reject(&dim_key, rule, tag) {
+                    return Some(rejection);
                 }
-                // Prefix + use_ip=false: 无法预知 tag_value，跳过（文档限制）
             }
+            // Prefix + use_ip=false: 无法预知 tag_value，跳过（文档限制）
         }
 
         None
@@ -1480,7 +1478,7 @@ impl TrafficGuard {
     /// 注册 IP → 维度键映射
     fn register_ip_dimension(&self, ip: &str, dimension_key: &str) {
         // 使用 HashSet 实现 O(1) 去重插入，替代原 Vec::contains 的 O(n) 扫描
-        let mut entry = self.ip_dimension_keys.entry(ip.to_string()).or_insert_with(HashSet::new);
+        let mut entry = self.ip_dimension_keys.entry(ip.to_string()).or_default();
         entry.insert(dimension_key.to_string());
     }
 
@@ -1539,11 +1537,7 @@ impl TrafficGuard {
         self.ip_dimension_keys.retain(|ip, keys| {
             keys.retain(|k| self.dimensions.contains_key(k));
             // 如果 IP 限流维度也不存在了，且无关联标签维度，则移除
-            if keys.is_empty() && !self.ip_dimensions.contains_key(ip) {
-                false
-            } else {
-                true
-            }
+            !keys.is_empty() || self.ip_dimensions.contains_key(ip)
         });
     }
 
@@ -1627,13 +1621,13 @@ where
         let path = req.path().to_string();
 
         // ── ① IP 限流前置检查 ──
-        if let Some((allowed, state, remaining, triggered)) = self.traffic_guard.check_ip_throttle(&ip, &path) {
-            if !allowed {
-                let response = self.traffic_guard.build_rejection_response(state, remaining, Some(&triggered));
-                return Box::pin(async move {
-                    Ok(req.into_response(response.map_into_boxed_body()))
-                });
-            }
+        if let Some((allowed, state, remaining, triggered)) = self.traffic_guard.check_ip_throttle(&ip, &path)
+            && !allowed
+        {
+            let response = self.traffic_guard.build_rejection_response(state, remaining, Some(&triggered));
+            return Box::pin(async move {
+                Ok(req.into_response(response.map_into_boxed_body()))
+            });
         }
 
         // ── ② 标签熔断前置检查 ──
@@ -1755,7 +1749,7 @@ mod tests {
         let result = std::panic::catch_unwind(|| {
             TrafficGuard::builder()
                 .fuse_rule(FuseTagRule {
-                    tag: FuseTag::Exact("TEST".into()),
+                    tag: FuseTag::Exact("TEST"),
                     use_ip: false,
                     rules: vec![],
                 })
@@ -1840,7 +1834,7 @@ mod tests {
     fn test_traffic_guard_build() {
         let breaker = TrafficGuard::builder()
             .fuse_rule(FuseTagRule {
-                tag: FuseTag::Exact("TEST".into()),
+                tag: FuseTag::Exact("TEST"),
                 use_ip: false,
                 rules: vec![
                     FuseThreshold { window_secs: 60, max_failures: 10, circuit_duration_secs: 30, half_open_requests: 3 },
@@ -1866,7 +1860,7 @@ mod tests {
     fn test_ip_throttle_build() {
         let breaker = TrafficGuard::builder()
             .fuse_rule(FuseTagRule {
-                tag: FuseTag::Prefix("LOGIN_".into()),
+                tag: FuseTag::Prefix("LOGIN_"),
                 use_ip: true,
                 rules: vec![
                     FuseThreshold { window_secs: 60, max_failures: 20, circuit_duration_secs: 300, half_open_requests: 3 },

@@ -1,4 +1,4 @@
-/// lsys-kms 集成测试
+//! lsys-kms 集成测试
 
 #[cfg(test)]
 mod tests {

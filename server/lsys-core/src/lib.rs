@@ -13,6 +13,8 @@ pub mod api_utils;
 pub mod dist_lock;
 #[cfg(feature = "redis")]
 pub mod listen_notify;
+#[cfg(feature = "queue-cache")]
+pub mod queue_cache;
 #[cfg(feature = "redis")]
 pub mod remote_notify;
 #[cfg(feature = "redis")]
